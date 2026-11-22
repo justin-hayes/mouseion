@@ -188,13 +188,13 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('body')).toHaveClass('jobs-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    const analysisHistory = page.getByRole('region', { name: 'Analysis history' });
-    await expect(analysisHistory.getByRole('table')).toBeVisible();
-    await expect(analysisHistory).toContainText('Completed');
-    await expect(analysisHistory).toContainText('Failed');
-    await expect(page.getByRole('region', { name: 'Catalog sync history' })).toContainText('Running');
+    const preparations = page.getByRole('region', { name: 'Book preparations' });
+    await expect(preparations.getByRole('table')).toBeVisible();
+    await expect(preparations).toContainText('Completed');
+    await expect(preparations).toContainText('Failed');
+    await expect(page.getByRole('region', { name: 'Catalog sync' })).toContainText('Running');
     await expectNoPageOverflow(page);
-    await expect(analysisHistory).toHaveCSS('overflow-x', 'auto');
+    await expect(preparations).toHaveCSS('overflow-x', 'auto');
 
     await page.goto('/jobs/43');
     await expect(page.locator('body')).toHaveClass('jobs-shell');
@@ -850,7 +850,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/jobs');
-    await expect(page.getByRole('region', { name: 'Analysis history' }).locator('tbody tr')).toHaveCount(19);
+    await expect(page.getByRole('region', { name: 'Book preparations' }).locator('tbody tr')).toHaveCount(19);
     await page.goto('/reading#journey-book-fixture-book');
     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
     await page.goto('/jobs/43');

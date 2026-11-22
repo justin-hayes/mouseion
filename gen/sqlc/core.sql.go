@@ -784,6 +784,8 @@ SELECT j.river_job_id,
        j.content_hash,
        (COALESCE(j.corpus_id::text, ''))::text AS corpus_id,
        (COALESCE(j.analysis_run_id::text, ''))::text AS analysis_run_id,
+       (COALESCE(sm.book_id::text, ''))::text AS book_id,
+       COALESCE(b.title, sm.title, '') AS book_title,
        (CASE
           WHEN r.state = 'completed'
                AND attempt.state IN ('queued', 'running') THEN 'running'
@@ -799,6 +801,8 @@ SELECT j.river_job_id,
        j.created_at,
        j.updated_at
 FROM analysis_jobs j
+LEFT JOIN source_materials sm ON sm.owner_id = j.owner_id AND sm.id = j.source_material_id
+LEFT JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
 LEFT JOIN analysis_runs r ON r.owner_id = j.owner_id AND r.id = j.analysis_run_id
 LEFT JOIN LATERAL (
     SELECT state, failure_code
@@ -820,6 +824,8 @@ type ListAnalysisJobsRow struct {
 	ContentHash       string
 	CorpusID          string
 	AnalysisRunID     string
+	BookID            string
+	BookTitle         string
 	AnalysisState     string
 	AnalysisStage     string
 	FailureCode       string
@@ -845,6 +851,8 @@ func (q *Queries) ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListA
 			&i.ContentHash,
 			&i.CorpusID,
 			&i.AnalysisRunID,
+			&i.BookID,
+			&i.BookTitle,
 			&i.AnalysisState,
 			&i.AnalysisStage,
 			&i.FailureCode,

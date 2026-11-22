@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // BookPreparationStage names one step of Book preparation. Classical
 // preparation, EPUB acquisition and analysis share this vocabulary, so
 // presentation and recovery read one set of stage names. The first six values
@@ -17,6 +19,18 @@ const (
 	BookPreparationStageImport    BookPreparationStage = "import"
 	BookPreparationStageAnalysis  BookPreparationStage = "analysis"
 	BookPreparationStageFinalize  BookPreparationStage = "finalize"
+)
+
+// BookPreparationKind names one kind of durable Book preparation shown in the
+// one /jobs table. Analysis is listed beside the two preparation kinds because
+// it is the second half of an EPUB preparation and the recorded outcome of a
+// Classical preparation.
+type BookPreparationKind string
+
+const (
+	BookPreparationKindClassical       BookPreparationKind = "classical_preparation"
+	BookPreparationKindEPUBAcquisition BookPreparationKind = "epub_acquisition"
+	BookPreparationKindAnalysis        BookPreparationKind = "analysis"
 )
 
 // BookPreparationCode is a stable Book preparation failure code. Classical
@@ -110,4 +124,25 @@ func EPUBAcquisitionStageForCode(code BookPreparationCode) BookPreparationStage 
 	default:
 		return BookPreparationStageFetch
 	}
+}
+
+// BookPreparationJob is one row of the /jobs Book preparations table: the one
+// shape Classical preparation, EPUB acquisition and analysis jobs share. An
+// EPUB preparation contributes two rows, its acquisition job and its analysis
+// job. JobID names the kind's own detail page where one exists; analysis is
+// the only kind with one, and its DisplayNumber distinguishes the run.
+// BookID and BookTitle identify the Book the row links to.
+type BookPreparationJob struct {
+	Kind          BookPreparationKind
+	JobID         int64
+	DisplayNumber int64
+	BookID        string
+	BookTitle     string
+	Lifecycle     JobLifecycleState
+	Stage         BookPreparationStage
+	Code          BookPreparationCode
+	// Progress is the run's percent where the kind reports one. Analysis is
+	// the only kind that does, so a nil Progress renders no bar.
+	Progress  *int
+	CreatedAt time.Time
 }

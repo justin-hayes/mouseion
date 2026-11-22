@@ -8,32 +8,67 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message string, jobBookContexts map[string]jobBookContext) {
+// JobsPage is the operational history surface: one Book preparations list
+// covering Classical preparation, EPUB acquisition and analysis, and one
+// Catalog sync list. Every Book preparation row links to its Book; an
+// analysis row also keeps its link to the analysis detail page, and a
+// Catalog sync row to its own detail page.
+templ JobsPage(user domain.User, csrf string, preparations []domain.BookPreparationJob, syncJobs []cataloguesync.Status, catalogCode, message string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
-		@PageHeader("Analysis jobs", "Operational history for submitted analyses.", nil)
+		@PageHeader("Jobs", "Operational history for Book preparations and Catalog sync.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
 		}
-		if len(jobs) == 0 {
-			@EmptyState("No analysis runs yet", "Add a book to Reading to generate analysis evidence.") {
-				<a href="/library">Go to My Books</a>
-			}
+		if len(preparations) == 0 && len(syncJobs) == 0 && catalogCode == "" {
+			@EmptyState("No jobs yet", "Book preparation and catalog sync work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
 		}
-		if len(jobs) > 0 {
-			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
-				for _, job := range jobs {
-					{{ lifecycle := jobLifecycleViewFor(job.Lifecycle) }}
-					<tr><td>
-						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.Lifecycle == domain.JobLifecycleCompleted && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · Reading", job.DisplayNumber) }</a>
-						} else {
-							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
-						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ analysisJobFailureSentence(job) }</td></tr>
+		if catalogCode != "" {
+			<section aria-labelledby="classical-catalog-job-status-heading">
+				<h2 id="classical-catalog-job-status-heading">Classical catalog</h2>
+				<p>@StatusBadge("Unavailable", StatusDanger) Preparation and adding are blocked. Stable code: <code>{ catalogCode }</code>.</p>
+			</section>
+		}
+		if len(preparations) > 0 {
+			<section>
+				<h2>Book preparations</h2>
+				@ResponsiveTable("Book preparations") {
+					<thead><tr><th>Kind</th><th>Book</th><th>Status</th><th>Stage</th><th>Code</th><th>Progress</th><th>Created</th></tr></thead><tbody>
+					for _, job := range preparations {
+						{{ lifecycle := jobLifecycleViewFor(job.Lifecycle) }}
+						<tr><td>
+							if job.Kind == domain.BookPreparationKindAnalysis {
+								<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.JobID)) }>{ fmt.Sprintf("Analysis #%d", job.DisplayNumber) }</a>
+							} else {
+								{ bookPreparationKindLabel(job.Kind) }
+							}
+						</td><td>
+							if job.BookID != "" {
+								<a href={ templ.SafeURL(catalogBookInMyBooksURL(job.BookID)) }>{ job.BookTitle }</a>
+							} else {
+								{ job.BookTitle }
+							}
+						</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>{ string(job.Stage) }</td><td><code>{ string(job.Code) }</code></td><td>
+							if job.Progress != nil {
+								<progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d", *job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%", *job.Progress) }
+							}
+						</td><td>{ completedAtLabel(&job.CreatedAt) }</td></tr>
+					}
+					</tbody>
 				}
-				</tbody>
-			}
+			</section>
+		}
+		if len(syncJobs) > 0 {
+			<section>
+				<h2>Catalog sync</h2>
+				@ResponsiveTable("Catalog sync") {
+					<thead><tr><th>Connection</th><th>Status</th><th>Created</th><th>Error</th></tr></thead><tbody>
+					for _, job := range syncJobs {
+						{{ lifecycle := jobLifecycleViewFor(job.Lifecycle) }}
+						<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ job.ConnectionName }</a></td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
+					}
+					</tbody>
+				}
+			</section>
 		}
 	}
 }
@@ -73,60 +108,6 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 					}
 			} else {
 				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
-			}
-		}
-	}
-}
-
-templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.AnalysisJob, syncJobs []cataloguesync.Status, preparationJobs []domain.ClassicalPreparationJob, catalogCode, message string, jobBookContexts map[string]jobBookContext) {
-	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
-		@PageHeader("Jobs", "Operational history for catalog sync and analysis work.", nil)
-		if message != "" {
-			@Feedback(FeedbackInfo, "", message)
-		}
-		if len(jobs) == 0 && len(syncJobs) == 0 && len(preparationJobs) == 0 && catalogCode == "" {
-			@EmptyState("No jobs yet", "Catalog sync and analysis work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
-		}
-		if catalogCode != "" {
-			<section aria-labelledby="classical-catalog-job-status-heading">
-				<h2 id="classical-catalog-job-status-heading">Classical catalog</h2>
-				<p>@StatusBadge("Unavailable", StatusDanger) Preparation and adding are blocked. Stable code: <code>{ catalogCode }</code>.</p>
-			</section>
-		}
-		if len(preparationJobs) > 0 {
-			@ResponsiveTable("Classical preparation history") {
-				<thead><tr><th>Kind</th><th>Book</th><th>Status</th><th>Code</th><th>Attempt</th><th>Created</th></tr></thead><tbody>
-				for _, job := range preparationJobs {
-					{{ lifecycle := jobLifecycleViewFor(domain.JobLifecycleForRiverState(job.State)) }}
-					<tr><td>Classical preparation</td><td>{ job.BookTitle }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>{ job.Code }</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td></tr>
-				}
-				</tbody>
-			}
-		}
-		if len(syncJobs) > 0 {
-			@ResponsiveTable("Catalog sync history") {
-				<thead><tr><th>Kind</th><th>Connection</th><th>Status</th><th>Attempt</th><th>Created</th><th>Error</th></tr></thead><tbody>
-				for _, job := range syncJobs {
-					{{ lifecycle := jobLifecycleViewFor(job.Lifecycle) }}
-					<tr><td><a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>Catalog sync</a></td><td>{ job.ConnectionName }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>{ fmt.Sprintf("%d", job.Attempt) }</td><td>{ job.CreatedAt.Format("2006-01-02 15:04") }</td><td>{ job.Error }</td></tr>
-				}
-				</tbody>
-			}
-		}
-		if len(jobs) > 0 {
-			@ResponsiveTable("Analysis history") {
-				<thead><tr><th>Kind</th><th>Job</th><th>Book</th><th>Status</th><th>Progress</th><th>Created</th><th>Error</th></tr></thead><tbody>
-				for _, job := range jobs {
-					{{ lifecycle := jobLifecycleViewFor(job.Lifecycle) }}
-					<tr><td>Analysis</td><td>
-						if book := jobBookContexts[job.SourceMaterialID]; book.ReadingURL != "" && job.Lifecycle == domain.JobLifecycleCompleted && job.AnalysisRunID != "" && job.CorpusID != "" {
-							<a href={ templ.SafeURL(book.ReadingURL) }>{ fmt.Sprintf("#%d · result", job.DisplayNumber) }</a>
-						} else {
-							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
-						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ analysisJobFailureSentence(job) }</td></tr>
-				}
-				</tbody>
 			}
 		}
 	}

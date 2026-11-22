@@ -34,7 +34,7 @@ test.describe('compact task rhythm', () => {
     await expect(status.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
 
     await page.goto('/jobs');
-    await expect(page.getByRole('region', { name: 'Analysis history' })).toContainText('Fehlgeschlagene Analyse');
+    await expect(page.getByRole('region', { name: 'Book preparations' })).toContainText('Fehlgeschlagene Analyse');
   });
 
   test('catalog-sync polling retains the live status root and its metadata', async ({ page }) => {

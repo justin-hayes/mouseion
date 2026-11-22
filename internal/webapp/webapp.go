@@ -126,10 +126,9 @@ type CatalogueReadStore interface {
 	MarkClassicalReadingUnitPreviouslyRead(context.Context, string, string) (domain.CatalogueReadResult, error)
 }
 
-// JobsStore provides the analysis job list shown by the jobs surface.
+// JobsStore provides the one Book preparation list the jobs surface shows.
 type JobsStore interface {
-	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
-	ListClassicalPreparationJobs(context.Context, string) ([]domain.ClassicalPreparationJob, error)
+	ListBookPreparationJobs(context.Context, string) ([]domain.BookPreparationJob, error)
 }
 
 // StoreDependencies groups the persistence capabilities consumed by the web

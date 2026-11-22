@@ -3,7 +3,6 @@ package webapp
 import (
 	"bytes"
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -28,27 +27,27 @@ func TestReadingEntryURLForSourceRequiresCurrentOwnerScopedReadingEntry(t *testi
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := h.readingBookURLForSource(context.Background(), test.owner, test.sourceID)
+			got, err := h.jobBookContextForSource(context.Background(), test.owner, test.sourceID)
 			require.NoError(t, err)
-			assert.Equal(t, test.expected, got, test.name)
+			assert.Equal(t, test.expected, got.ReadingURL, test.name)
 		})
 	}
 }
 
-func TestLegacyResultSurfacesUseReadingEntryURLsOrNoBookLink(t *testing.T) {
+// TestJobsDetailUsesResolvedBookContext proves the analysis detail page still
+// names the Book its run belongs to, resolving through the same owner-scoped
+// book context the fixture serves.
+func TestJobsDetailUsesResolvedBookContext(t *testing.T) {
 	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
-	bookContexts, err := h.jobBookContexts(context.Background(), fixtures.OwnerID, []string{fixtures.SourceID, "fixture-failed"})
+	book, err := h.jobBookContextForSource(context.Background(), fixtures.OwnerID, fixtures.SourceID)
 	require.NoError(t, err)
+	assert.Equal(t, "Der lange Weg nach Hause", book.Title)
 
-	jobs := []domain.AnalysisJob{
-		{ID: 1, DisplayNumber: 1, SourceMaterialID: fixtures.SourceID, Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, AnalysisRunID: "run", CorpusID: "corpus"},
-		{ID: 2, DisplayNumber: 2, SourceMaterialID: "fixture-failed", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, AnalysisRunID: "run", CorpusID: "corpus"},
-	}
-	var jobsHTML bytes.Buffer
-	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", bookContexts).Render(context.Background(), &jobsHTML))
-	assert.True(t, strings.Contains(jobsHTML.String(), `href="/reading#journey-book-fixture-book"`) && !strings.Contains(jobsHTML.String(), `href="/books/fixture-failed"`), "jobs rendered legacy or dead result link: %s", jobsHTML.String())
-	assert.Contains(t, jobsHTML.String(), "Fehlgeschlagene Analyse")
-
+	var output bytes.Buffer
+	status := analysis.Status{ID: 1, DisplayNumber: 1, Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, State: "completed", SourceMaterialID: fixtures.SourceID, CorpusID: "fixture-corpus", RunID: fixtures.ResultRunID}
+	require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, book.ReadingURL, book.Title).Render(context.Background(), &output))
+	assert.Contains(t, output.String(), "Der lange Weg nach Hause")
+	assert.Contains(t, output.String(), `href="/reading#journey-book-fixture-book"`)
 }
 
 func TestJobStatusOffersNoDeckPreparationForLegacyResult(t *testing.T) {

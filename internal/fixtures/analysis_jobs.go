@@ -6,21 +6,52 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/riverqueue/river/rivertype"
 )
 
-func (s *Store) ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error) {
-	return append([]domain.AnalysisJob(nil), s.jobs...), nil
-}
-
-// ListClassicalPreparationJobs is empty in the in-memory fixture: the browser
-// harness binds no River queue.
-func (s *Store) ListClassicalPreparationJobs(context.Context, string) ([]domain.ClassicalPreparationJob, error) {
-	return nil, nil
+// ListBookPreparationJobs is the fixed analysis projection in the one Book
+// preparation shape /jobs renders. The in-memory fixture binds no River queue,
+// so no Classical preparation or EPUB acquisition row exists; every row is an
+// analysis row that names and links to its Book.
+func (s *Store) ListBookPreparationJobs(_ context.Context, owner string) ([]domain.BookPreparationJob, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	books := s.myBooksForOwner(owner)
+	bySource := make(map[string]domain.MyBook, len(books))
+	for _, book := range books {
+		if book.Acquired != nil {
+			if _, seen := bySource[book.Acquired.Source.ID]; !seen {
+				bySource[book.Acquired.Source.ID] = book
+			}
+		}
+	}
+	jobs := make([]domain.BookPreparationJob, 0, len(s.jobs))
+	for _, job := range s.jobs {
+		progress := job.Progress
+		row := domain.BookPreparationJob{
+			Kind:          domain.BookPreparationKindAnalysis,
+			JobID:         job.ID,
+			DisplayNumber: job.DisplayNumber,
+			Lifecycle:     job.Lifecycle,
+			Stage:         job.Stage,
+			Code:          job.FailureCode,
+			Progress:      &progress,
+			CreatedAt:     job.CreatedAt,
+		}
+		if book, ok := bySource[job.SourceMaterialID]; ok {
+			row.BookID = book.Book.ID
+			row.BookTitle = strings.TrimSpace(book.Book.Title)
+		}
+		jobs = append(jobs, row)
+	}
+	sort.SliceStable(jobs, func(i, j int) bool { return jobs[i].CreatedAt.After(jobs[j].CreatedAt) })
+	return jobs, nil
 }
 
 func (s *Store) analysisJobState(id int64) (string, bool) {

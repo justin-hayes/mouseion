@@ -53,6 +53,8 @@ completion** are not primary learner-facing concepts.
 | **Catalog entry** | One book offered by a connection's Catalog index. It is browsable and addable but is not a Book until the learner chooses it. | Imported book, synced Book |
 | **Metadata-only Book** | A Book the learner chose from the Catalog with active My Books membership and no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
 | **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Add or Move to To Read triggers acquisition and analysis. | Sync download, automatic analysis |
+| **Book preparation** | The durable work that makes a To Read Book readable. It has two kinds, **Classical preparation** and **EPUB preparation** (acquire, then analyze), and `/jobs` shows every preparation job in one Book preparations table: kind, Book, status, stage, code where one exists, progress where known, and created. An EPUB preparation appears as its acquisition row and its analysis row. | Download job, import, processing |
+| **Queued / Running / Completed / Failed / Cancelled** | The one lifecycle vocabulary every `/jobs` row uses, for Book preparations and Catalog sync alike. | Processing, Syncing on `/jobs`, done |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Book cover** | The optional catalog-supplied image representing a Book. It may lead visually in My Books and support identity in Reading, but title and author remain visible and authoritative. | Cover art, thumbnail when referring to the metadata |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
@@ -86,10 +88,11 @@ last-synced or failed states, the relevant time or recovery. Do not use bare
 Use **job** only for operational history or implementation-facing detail. A
 Book's learner-facing state may be **ready to analyze**, **analysis queued**,
 **analysis running**, **analysis result ready**, **stale**, or **unavailable**
-even when backend state is expressed differently. **Analysis history** is
-operational language for `GET /jobs`, not a learner-facing Book-page section.
-Run-specific analysis URLs remain only as compatibility redirects to the Reading
-anchor.
+even when backend state is expressed differently. **Book preparations** and
+**Catalog sync** are the two operational tables on `GET /jobs`, not
+learner-facing Book-page sections; a failed preparation row states the same
+stage and code My Books explains for that Book. Run-specific analysis URLs
+remain only as compatibility redirects to the Reading anchor.
 
 ## Reading choice and evidence
 
@@ -195,6 +198,7 @@ Use complete, factual labels where space permits:
 - analysis stale or unavailable;
 - ready to analyze;
 - analysis queued, running, failed, cancelled, or result ready;
+- book preparation queued, running, completed, failed, or cancelled;
 - catalog never synced, syncing, last synced, or sync failed;
 - cover pending, cover unavailable, or no cover available when a visual placeholder must distinguish those states;
 - deck preparing or deck ready;

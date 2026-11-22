@@ -14,22 +14,38 @@ func TestFixtureAnalysisJobsExposeTheSharedLifecycle(t *testing.T) {
 	store := NewStore()
 	analysis := Analysis{Store: store}
 
-	jobs, err := store.ListAnalysisJobs(ctx, OwnerID)
+	jobs, err := store.ListBookPreparationJobs(ctx, OwnerID)
 	require.NoError(t, err)
 	require.NotEmpty(t, jobs)
+	assert.Equal(t, domain.BookPreparationKindAnalysis, jobs[0].Kind)
 	assert.Equal(t, domain.JobLifecycleCompleted, jobs[0].Lifecycle)
 	assert.Equal(t, domain.BookPreparationStageFinalize, jobs[0].Stage)
 	assert.Equal(t, domain.JobLifecycleRunning, jobs[len(jobs)-1].Lifecycle)
+
+	failed := jobs[0]
+	for _, job := range jobs {
+		if job.Kind == domain.BookPreparationKindAnalysis && job.DisplayNumber == 2 {
+			failed = job
+		}
+		assert.Equal(t, domain.BookPreparationKindAnalysis, job.Kind)
+		assert.NotEmpty(t, job.BookID, "every fixture row links to its Book")
+		assert.NotEmpty(t, job.BookTitle, "every fixture row names its Book")
+		require.NotNil(t, job.Progress, "analysis rows report progress")
+	}
+	assert.Equal(t, "fixture-failed", failed.BookID)
+	assert.Equal(t, "Fehlgeschlagene Analyse", failed.BookTitle)
+	assert.Equal(t, domain.JobLifecycleFailed, failed.Lifecycle)
+	assert.Equal(t, domain.BookPreparationStageAnalysis, failed.Stage)
 
 	completed, err := analysis.Get(ctx, OwnerID, 42)
 	require.NoError(t, err)
 	assert.Equal(t, domain.JobLifecycleCompleted, completed.Lifecycle)
 	assert.Equal(t, domain.BookPreparationStageFinalize, completed.Stage)
 
-	failed, err := analysis.Get(ctx, OwnerID, 43)
+	failedStatus, err := analysis.Get(ctx, OwnerID, 43)
 	require.NoError(t, err)
-	assert.Equal(t, domain.JobLifecycleFailed, failed.Lifecycle)
-	assert.Equal(t, domain.BookPreparationStageAnalysis, failed.Stage)
+	assert.Equal(t, domain.JobLifecycleFailed, failedStatus.Lifecycle)
+	assert.Equal(t, domain.BookPreparationStageAnalysis, failedStatus.Stage)
 
 	cancelled, err := analysis.Cancel(ctx, OwnerID, fixtureCancellableJobID)
 	require.NoError(t, err)

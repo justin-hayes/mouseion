@@ -974,9 +974,12 @@ func TestClassicalFixtureStartsWithNoOwnedUnitsAndRefusesUnknownUnits(t *testing
 
 func TestClassicalFixtureListsNoPreparationJobs(t *testing.T) {
 	store := NewStore()
-	jobs, err := store.ListClassicalPreparationJobs(context.Background(), OwnerID)
+	jobs, err := store.ListBookPreparationJobs(context.Background(), OwnerID)
 	require.NoError(t, err)
-	assert.Empty(t, jobs)
+	for _, job := range jobs {
+		assert.NotEqual(t, domain.BookPreparationKindClassical, job.Kind, "the browser harness binds no River queue")
+		assert.NotEqual(t, domain.BookPreparationKindEPUBAcquisition, job.Kind, "the browser harness binds no River queue")
+	}
 }
 
 func TestFixtureEPUBAcquisitionFailureRequiresCatalogIdentityOutsideEntryStage(t *testing.T) {
