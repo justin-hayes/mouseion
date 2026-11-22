@@ -228,6 +228,14 @@ func TestBatchSubmitSurfacesProviderFailures(t *testing.T) {
 		assert.Equal(t, domain.PreparedDeckBatchFailed, stored.State)
 		assert.Equal(t, "upload", stored.ErrorClass)
 		assert.Equal(t, "invalid_request", stored.ErrorCode)
+		run, err := fixture.store.GetPreparedDeckRun(ctx, fixture.owner.ID, fixture.preparation.ID, fixture.run.Run.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.PreparedDeckRunFailed, run.State)
+		assert.Equal(t, domain.PreparedDeckTranslationFailed, run.TranslationState, "a translation-phase failure must fail translation")
+		preparation, err := fixture.store.GetDeckPreparation(ctx, fixture.owner.ID, fixture.preparation.ID)
+		require.NoError(t, err)
+		assert.Equal(t, domain.DeckPreparationFailed, preparation.State)
+		assert.Equal(t, "prepared-deck translation could not be submitted safely", preparation.Error)
 	})
 
 	t.Run("uploaded file contract violation fails the chunk", func(t *testing.T) {

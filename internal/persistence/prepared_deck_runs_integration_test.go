@@ -658,3 +658,60 @@ func TestDurablePreparedDeckManifestPreservesFrozenParseForBolding(t *testing.T)
 	require.NoError(t, err)
 	assert.Contains(t, artifact.TSV, "Im Haus des Erpressers <b>strahlten</b> ihre Schwestern sie <b>an</b>.")
 }
+
+// TestFailPreparedDeckFinalizationPreservesCompletedTranslation pins ADR 0030's
+// finalization-failure contract: translation finished before the run reached
+// finalizing, so only the run and the public preparation carry the failure.
+func TestFailPreparedDeckFinalizationPreservesCompletedTranslation(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+
+	owner, err := store.CreateUser(ctx, "finalization-failure-owner", false)
+	require.NoError(t, err)
+	source, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{
+		OwnerID: owner.ID, Language: "de", SourceIdentifier: "finalization-failure",
+		Title: "Finalization Failure", MediaType: "text/plain",
+		ContentHash: "finalization-failure-hash", Content: []byte("Haus"), FullText: "Haus",
+	})
+	require.NoError(t, err)
+	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
+		OwnerID: owner.ID, SourceMaterialID: source.ID,
+		Filename: source.Title + ".apkg", DeckName: source.Title, ContentHash: source.ContentHash,
+	})
+	require.NoError(t, err)
+	deck, err := testutil.FreezePresentationDeck(ctx, owner.ID, source.Title, nil, testutil.PresentationProvider{})
+	require.NoError(t, err)
+
+	tx, err := store.Pool().Begin(ctx)
+	require.NoError(t, err)
+	frozen, err := store.FreezePreparedDeckRunTx(ctx, tx, FreezePreparedDeckRunParams{OwnerID: owner.ID, PreparationID: preparation.ID, Projection: deck.StorageProjection()})
+	if err != nil {
+		rollbackIntegrationTx(t, ctx, tx)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tx.Commit(ctx))
+	require.Equal(t, domain.PreparedDeckRunFinalizing, frozen.Run.State, "a run with no translation work starts finalizing")
+	require.Equal(t, domain.PreparedDeckTranslationCompleted, frozen.Run.TranslationState)
+	require.NotNil(t, frozen.Run.TranslationCompletedAt)
+	translatedAt := *frozen.Run.TranslationCompletedAt
+
+	claimToken := uuid.NewString()
+	_, err = store.ClaimPreparedDeckFinalization(ctx, owner.ID, preparation.ID, frozen.Run.ID, 0, claimToken, time.Now().UTC().Add(time.Minute))
+	require.NoError(t, err)
+
+	require.NoError(t, store.FailPreparedDeckFinalization(ctx, owner.ID, preparation.ID, frozen.Run.ID, claimToken, "validation", "all_meanings_unresolved"))
+
+	run, err := store.GetPreparedDeckRun(ctx, owner.ID, preparation.ID, frozen.Run.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.PreparedDeckRunFailed, run.State)
+	assert.Equal(t, domain.PreparedDeckTranslationCompleted, run.TranslationState, "a finalization failure must not rewrite completed translation")
+	require.NotNil(t, run.TranslationCompletedAt)
+	assert.True(t, translatedAt.Equal(*run.TranslationCompletedAt), "translation completion time must be unchanged")
+	assert.Equal(t, "validation", run.ErrorClass)
+	assert.Equal(t, "all_meanings_unresolved", run.ErrorCode)
+
+	settled, err := store.GetDeckPreparation(ctx, owner.ID, preparation.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.DeckPreparationFailed, settled.State)
+	assert.Equal(t, "prepared-deck finalization failed", settled.Error)
+}
