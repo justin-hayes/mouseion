@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 )
 
@@ -23,7 +22,7 @@ import (
 func (h *Handler) workBooks(ctx context.Context, owner, workKey string) ([]domain.MyBook, error) {
 	workKey = strings.TrimSpace(workKey)
 	if workKey == "" {
-		return nil, persistence.ErrNotFound
+		return nil, domain.ErrNotFound
 	}
 	books, err := h.services.Store.MyBooks.ListMyBooksWithEvidence(ctx, owner)
 	if err != nil {
@@ -36,7 +35,7 @@ func (h *Handler) workBooks(ctx context.Context, owner, workKey string) ([]domai
 		}
 	}
 	if len(work) == 0 {
-		return nil, persistence.ErrNotFound
+		return nil, domain.ErrNotFound
 	}
 	sort.SliceStable(work, func(i, j int) bool {
 		return domain.MyBookWorkOrderLess(work[i], work[j])
@@ -53,7 +52,7 @@ func (h *Handler) workAction(w http.ResponseWriter, r *http.Request) (books []do
 	owner = user(r).ID
 	returnTo = myBooksReturnURL(r.FormValue("return_to"))
 	books, err := h.workBooks(r.Context(), owner, r.PathValue("workKey"))
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return nil, "", "", false
 	} else if err != nil {
@@ -229,7 +228,7 @@ func (h *Handler) setWorkVisibility(w http.ResponseWriter, r *http.Request, hidd
 		}
 		applied, err := h.services.Store.MyBooks.SetBookHidden(r.Context(), owner, book.Book.ID, book.VisibilityRevision, hidden)
 		switch {
-		case errors.Is(err, persistence.ErrStaleBookVisibility), errors.Is(err, persistence.ErrNotFound):
+		case errors.Is(err, domain.ErrStaleBookVisibility), errors.Is(err, domain.ErrNotFound):
 			continue
 		case err != nil:
 			logWorkActionFailure(owner, book.Book.ID, "visibility", err)
@@ -257,7 +256,7 @@ func (h *Handler) setWorkVisibility(w http.ResponseWriter, r *http.Request, hidd
 // workTransitionUnchanged reports a transition that needs no retry: a stale
 // form or a Book that left the collection did not change anything.
 func workTransitionUnchanged(err error) bool {
-	return errors.Is(err, persistence.ErrStaleBookDisposition) || errors.Is(err, persistence.ErrNotFound)
+	return errors.Is(err, domain.ErrStaleBookDisposition) || errors.Is(err, domain.ErrNotFound)
 }
 
 func logWorkActionFailure(owner, bookID, action string, err error) {

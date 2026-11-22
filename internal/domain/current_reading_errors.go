@@ -11,6 +11,11 @@ var (
 	ErrCurrentReadingStale        = errors.New("persistence: current reading state is stale")
 	ErrCurrentReadingIneligible   = errors.New("persistence: current reading requires an analyzed To Read book")
 	ErrUnresolvedLemmaReviewFlags = errors.New("persistence: unresolved high-risk lemma review flags")
+
+	// ErrVocabularyBrowseCountsPending and ErrVocabularyBrowseCountsUnavailable
+	// refuse a reading change while the across-book counts are not usable.
+	ErrVocabularyBrowseCountsPending     = errors.New("current vocabulary counts are being refreshed")
+	ErrVocabularyBrowseCountsUnavailable = errors.New("current vocabulary counts are unavailable after repeated failures")
 )
 
 // CurrentReadingIneligibleError rejects a Book that the classifier does not allow

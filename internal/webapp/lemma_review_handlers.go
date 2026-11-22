@@ -8,7 +8,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 // lemmaReviewSuggestion is the optional LLM suggestion shown beside the
@@ -18,16 +17,26 @@ type lemmaReviewSuggestion struct {
 	Lemma, Provider, Version, Message string
 }
 
-func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
-	owner := user(r)
-	bookID := strings.TrimSpace(r.PathValue("bookID"))
+// lemmaReviewBook loads the Book a lemma-review action names. It writes the
+// response and reports false when the request cannot continue.
+func (h *Handler) lemmaReviewBook(w http.ResponseWriter, r *http.Request, owner domain.User, bookID string) (domain.MyBook, bool) {
 	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
-		return
+		return domain.MyBook{}, false
 	}
 	if err != nil {
 		fail(w, err)
+		return domain.MyBook{}, false
+	}
+	return detail, true
+}
+
+func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
+	owner := user(r)
+	bookID := strings.TrimSpace(r.PathValue("bookID"))
+	detail, ok := h.lemmaReviewBook(w, r, owner, bookID)
+	if !ok {
 		return
 	}
 	assessment, err := h.services.LemmaReview.Assess(r.Context(), owner.ID, bookID)
@@ -133,13 +142,8 @@ func (h *Handler) previewLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		http.Error(w, "Invalid review form.", http.StatusBadRequest)
 		return
 	}
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
+	detail, ok := h.lemmaReviewBook(w, r, owner, bookID)
+	if !ok {
 		return
 	}
 	assessment, err := h.services.LemmaReview.Assess(r.Context(), owner.ID, bookID)
@@ -171,13 +175,8 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		http.Error(w, "Invalid review form.", http.StatusBadRequest)
 		return
 	}
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
+	detail, ok := h.lemmaReviewBook(w, r, owner, bookID)
+	if !ok {
 		return
 	}
 	if !lemmaReviewLanguageMatches(w, r, detail, "reviewing occurrences") {

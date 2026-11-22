@@ -11,7 +11,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 const (
@@ -140,7 +139,7 @@ func (h *Handler) updateToReadBookAnalysis(w http.ResponseWriter, r *http.Reques
 	owner := user(r).ID
 	bookID := r.PathValue("id")
 	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}

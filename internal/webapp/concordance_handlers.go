@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 // concordanceNoticeTermRequired and the other notices below are the learner
@@ -180,7 +179,7 @@ func (h *Handler) loadConcordanceBrowseContext(ctx context.Context, u domain.Use
 	if origin.Active() && language != "" {
 		detail, detailErr := h.services.Store.Vocabulary.GetBookDetail(ctx, u.ID, origin.BookID)
 		switch {
-		case errors.Is(detailErr, persistence.ErrNotFound):
+		case errors.Is(detailErr, domain.ErrNotFound):
 			origin = browseOrigin{}
 		case detailErr != nil:
 			return language, origin, detailErr

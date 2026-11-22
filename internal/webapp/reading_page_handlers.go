@@ -11,7 +11,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
@@ -321,7 +320,7 @@ func (h *Handler) deckReadingStatus(ctx context.Context, owner, bookID string) (
 		return action, nil
 	}
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return deckReadingActionView{}, err
 	}
 	if err == nil && detail.Disposition == domain.BookDispositionToRead {
@@ -497,7 +496,7 @@ func (h *Handler) readingBook(ctx context.Context, owner, bookID string, bookByI
 	// that identity visible instead of silently dropping it from the surface.
 	book, err := h.services.Store.Reading.GetBook(ctx, owner, bookID)
 	if err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: bookID, Title: "Book details unavailable", OwnerID: owner}}, BookID: bookID}, nil
 		}
 		return readingBookView{}, err

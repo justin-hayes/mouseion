@@ -11,7 +11,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
@@ -193,7 +192,7 @@ func (h *Handler) updateWorkAnalysis(w http.ResponseWriter, r *http.Request) {
 	workKey := r.PathValue("workKey")
 	returnTo := analysisUpdateReturnURL(r.FormValue("return_to"))
 	books, err := h.workBooks(r.Context(), owner, workKey)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}

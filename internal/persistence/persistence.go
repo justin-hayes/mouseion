@@ -31,10 +31,11 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
-// ErrNotFound and the Current reading refusals are defined in domain so store
-// contracts can assert on them; these names are the same sentinels.
+// ErrNotFound and ErrInvalidTransition are defined in domain so store contracts
+// can assert on them, as are the Current reading refusals; these names are the
+// same sentinels.
 var ErrNotFound = domain.ErrNotFound
-var ErrInvalidTransition = errors.New("persistence: invalid state transition")
+var ErrInvalidTransition = domain.ErrInvalidTransition
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrCurrentReadingExists = domain.ErrCurrentReadingExists
 
@@ -51,8 +52,10 @@ var ErrAliasConflict = errors.New("persistence: book alias conflict")
 var ErrSourceBookConflict = errors.New("persistence: source material belongs to a different book")
 var ErrBookNotFound = ErrNotFound
 
-var ErrVocabularyBrowseCountsPending = errors.New("current vocabulary counts are being refreshed")
-var ErrVocabularyBrowseCountsUnavailable = errors.New("current vocabulary counts are unavailable after repeated failures")
+// ErrVocabularyBrowseCountsPending and ErrVocabularyBrowseCountsUnavailable are
+// domain sentinels; these names are the same values for existing callers.
+var ErrVocabularyBrowseCountsPending = domain.ErrVocabularyBrowseCountsPending
+var ErrVocabularyBrowseCountsUnavailable = domain.ErrVocabularyBrowseCountsUnavailable
 
 type Store interface {
 	Ping(context.Context) error

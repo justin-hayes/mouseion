@@ -12,6 +12,8 @@ Amended 2026-11-21 by [ADR 0119](0119-retire-german-vocabulary-backfill.md): `cm
 
 Amended 2026-11-21 by [ADR 0120](0120-retire-catalogue-alias-backfill.md): `cmd/cataloguebackfill` was retired, so no operator backfill command remains; operator commands reach the database through persistence instead.
 
+Amended 2026-11-22 by [issue #2504](https://github.com/justin-hayes/mouseion/issues/2504): the web app and the fixture server no longer import `internal/persistence`. The domain owns the remaining sentinels and value types, and depguard denies the import in their non-test files.
+
 Tracked by [issue #1973](https://github.com/justin-hayes/mouseion/issues/1973), under parent [#1811](https://github.com/justin-hayes/mouseion/issues/1811). Enforcement with golangci-lint's `depguard` follows in [#1974](https://github.com/justin-hayes/mouseion/issues/1974) (test infrastructure and fixtures) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) (persistence layering).
 
 ## Context
@@ -76,11 +78,11 @@ Adding a package to this list requires amending this ADR. A new job package is a
 
 - **`internal/fixtures` may be imported by:** `cmd/fixtureserver` and test files.
 - **`internal/fixtures` may not import:** `internal/persistence`, `gen/sqlc` or pgx.
-- **`cmd/fixtureserver` may import `internal/persistence`** for exported value types and sentinel errors. It may not import `gen/sqlc` or pgx, and it may not construct or open a PostgreSQL store.
+- **`cmd/fixtureserver` may not import** `internal/persistence`, `gen/sqlc` or pgx. It names only domain errors and value types, so it cannot construct or open a PostgreSQL store.
 
 **Why.** Production code wired to the in-memory store would lose learner data silently, so the fixtures package must never be reachable from `cmd/server` or the packages it composes. The fixtures store is a second adapter behind the same interfaces as the PostgreSQL store (ADRs [0033](0033-browser-acceptance-harness.md) and 0088). It may import the domain and the service and job packages whose types appear in those interfaces, but not the PostgreSQL adapter, because ADR 0033's fixture server binds no PostgreSQL.
 
-The fixture server's persistence import is **allowed**. Some web app store interfaces still carry persistence types (`MyBooksBrowseResult`, `ErrNotFound`), and a fixture wrapper that satisfies them must name them. Forbidding the import would first require moving those types into the domain. That restructuring is out of scope here, and it would gain little, since the fixture server never runs in production. The ban on constructing a store is checked in review, not by lint. It keeps the fixture server free of PostgreSQL, as ADR 0033 requires.
+The fixture server's persistence import is **denied**. The web app's store interfaces name only domain types, so a fixture wrapper that satisfies them names the domain too. Lint enforces the ban, which also keeps the fixture server unable to construct a PostgreSQL store. The server stays free of PostgreSQL, as ADR 0033 requires.
 
 ### 5. Test infrastructure: test files only
 
@@ -93,12 +95,12 @@ The test-infrastructure packages are `internal/storecontract`, `internal/testuti
 
 ### 6. Web app: domain, services and store interfaces
 
-- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/classical`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`, `readingintent`), `internal/auth` and `internal/webauth`. It may import `internal/persistence` **only** for sentinel errors and value types that appear in its store interfaces.
+- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/classical`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`, `readingintent`), `internal/auth` and `internal/webauth`. It may not import `internal/persistence`.
 - **Enforcement:** the allow list states intent. Lint enforces the deny entries below. A new internal dependency outside the allow list needs this ADR amended, and review checks for one.
-- **Deny (non-test files):** pgx, `gen/sqlc`, `internal/fixtures` and every test-infrastructure package.
+- **Deny (non-test files):** pgx, `gen/sqlc`, `internal/persistence`, `internal/fixtures` and every test-infrastructure package.
 - **Deny (test files):** `gen/sqlc`. Web app tests may import fixtures, test infrastructure and pgx.
 
-**Why.** Handlers render state and route intent. Decisions belong to the domain (ADR 0052), to `selection` for vocabulary counts (ADR 0087), and to the services. Data access goes through store interfaces that the web app defines and both adapters satisfy (ADR 0088). A handler holding pgx or sqlc could query around the store and fork a rule the domain owns. A handler holding `*persistence.PostgresStore` would tie the web app to one adapter, and the fixture server could no longer serve it. Persistence's sentinel errors and result types are a known compromise: they are part of the current store interface signatures. Lint cannot tell a type reference from a store reference, so review enforces the "errors and value types only" limit, and a web app reference to `persistence.PostgresStore` or to any persistence function is a violation. Moving these types into the domain would let the persistence import be denied outright. That is future work, not a condition of this ADR. `internal/classical` is a leaf package of reviewed manifest artifacts with no database, transport or job dependency; the web app reads its built-in catalog view directly (ADR 0116).
+**Why.** Handlers render state and route intent. Decisions belong to the domain (ADR 0052), to `selection` for vocabulary counts (ADR 0087), and to the services. Data access goes through store interfaces that the web app defines and both adapters satisfy (ADR 0088). A handler holding pgx or sqlc could query around the store and fork a rule the domain owns. A handler holding `*persistence.PostgresStore` would tie the web app to one adapter, and the fixture server could no longer serve it. The store interfaces name only domain errors and value types ([#2504](https://github.com/justin-hayes/mouseion/issues/2504)), so lint denies the persistence import outright rather than asking review to tell a type reference from a store reference. `internal/classical` is a leaf package of reviewed manifest artifacts with no database, transport or job dependency; the web app reads its built-in catalog view directly (ADR 0116).
 
 ### 7. Suppressions cite this ADR
 
@@ -115,8 +117,8 @@ No other import or reference at `21e0a090` violates these rules.
 ## Alternatives considered
 
 - **Keep prepared-deck's sqlc use as intended.** Rejected. The three queries duplicate persistence's own calls and define the Book lock order a second time. Once persistence owns them, the move costs three methods.
-- **Forbid persistence in the web app now.** Rejected for this ADR. The web app's store interfaces carry persistence types, so the ban would force a domain-type migration before enforcement could start. The narrower "errors and value types only" rule, checked in review, keeps handlers off the store implementation now.
-- **Forbid persistence in the fixture server.** Rejected for the same reason: the fixture store has to satisfy the web app interfaces as they are.
+- **Forbid persistence in the web app now.** Rejected for this ADR. The web app's store interfaces carry persistence types, so the ban would force a domain-type migration before enforcement could start. The narrower "errors and value types only" rule, checked in review, keeps handlers off the store implementation now. Superseded by the 2026-11-22 amendment, which completed that migration and enforces the ban.
+- **Forbid persistence in the fixture server.** Rejected for the same reason: the fixture store has to satisfy the web app interfaces as they are. Superseded by the same amendment.
 - **Allow pgx only in persistence.** Rejected. River's transactional enqueue needs a `pgx.Tx` in the job packages. Routing every enqueue through persistence would move job semantics into the store.
 - **Keep the rules in review only.** Rejected. Review is how the rules eroded until now, and agents follow lint failures more reliably than prose.
 
@@ -125,7 +127,7 @@ No other import or reference at `21e0a090` violates these rules.
 - [#1974](https://github.com/justin-hayes/mouseion/issues/1974) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) express §§1–6 as depguard rule sets keyed by file globs. Every `deny` message cites ADR 0091, and the temporary exception appears in config with its follow-up issue.
 - A forbidden import fails `make lint-go` with a message that names this ADR, so the fix is a design change or an amendment, not a suppression.
 - Adding a pgx importer, a sqlc importer or a test-infrastructure package means amending this ADR first.
-- Two limits are checked in review, not lint: the web app's and the fixture server's persistence use (errors and value types only), and the fixture server's ban on constructing a PostgreSQL store.
+- Lint denies `internal/persistence` in non-test web app files and in `cmd/fixtureserver`, so neither can name an adapter type or construct a PostgreSQL store.
 - Rules for Python code, and further restructuring beyond #1976, are out of scope.
 
 ## Related

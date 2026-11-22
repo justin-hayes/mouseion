@@ -9,6 +9,10 @@ var (
 	ErrDeckPreparationNotCurrentReading = errors.New("deck preparation: Book is not the current reading")
 	ErrDeckPreparationNotRequired       = errors.New("deck preparation: no deck is required for an empty snapshot")
 	ErrDeckPreparationInvalidTransition = errors.New("deck preparation: invalid transition for this state")
+	// ErrInvalidTransition refuses a transition the stored state does not
+	// allow. It is wider than the deck-preparation refusal above and is not a
+	// substitute for it.
+	ErrInvalidTransition = errors.New("invalid state transition")
 )
 
 // DeckAction is the operation a Book deck request asks for.

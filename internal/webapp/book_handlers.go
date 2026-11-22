@@ -12,7 +12,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
@@ -22,7 +21,7 @@ func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resource, err := h.services.Store.Shell.GetActiveBookCoverResource(r.Context(), user(r).ID, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	}
@@ -47,7 +46,7 @@ func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id s
 		return domain.MyBook{}, false
 	}
 	detail, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, id)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, false
 	}
@@ -60,7 +59,7 @@ func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id s
 
 func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string) (bool, error) {
 	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {
@@ -73,7 +72,7 @@ func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string)
 		return false, nil
 	}
 	_, err = h.services.Store.Catalogs.GetOpdsConnection(ctx, owner, alias.ConnectionID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {
@@ -122,7 +121,7 @@ func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
 		if refreshed, readErr := h.myBooksRefreshRowDetail(r.Context(), u.ID, result.Book.ID); readErr == nil {
 			row = refreshed
 			row.Book = result.Book
-		} else if !errors.Is(readErr, persistence.ErrNotFound) {
+		} else if !errors.Is(readErr, domain.ErrNotFound) {
 			fail(w, readErr)
 			return
 		}

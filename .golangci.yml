@@ -186,12 +186,27 @@ linters:
           deny:
             - pkg: github.com/justin-hayes/mouseion/internal/persistence
               desc: "ADR 0091 §4: internal/fixtures may not import internal/persistence"
-        # §6: the web app needs no rule of its own. Its deny list is exactly
-        # the union enforced above — pgx (§3), gen/sqlc (§2), internal/fixtures
-        # (§4) and test infrastructure (§5) — so those rules already fire on a
-        # web app file. The ADR's "errors and value types only" limit on the
-        # web app's persistence import, and its ban on constructing a
-        # PostgreSQL store in the fixture server, are checked in review.
+        # §6: the web app's non-test files name only domain errors and types,
+        # so they never reach into the PostgreSQL adapter. Test files still
+        # import persistence to build integration fixtures.
+        web-app-no-persistence:
+          list-mode: lax
+          files:
+            - "**/internal/webapp/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/justin-hayes/mouseion/internal/persistence
+              desc: "ADR 0091 §6: web app non-test files may not import internal/persistence; use internal/domain"
+        # §4: the fixture server names only domain errors and types too, so it
+        # cannot construct or open a PostgreSQL store.
+        fixture-server-no-persistence:
+          list-mode: lax
+          files:
+            - "**/cmd/fixtureserver/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/justin-hayes/mouseion/internal/persistence
+              desc: "ADR 0091 §4: cmd/fixtureserver may not import internal/persistence; use internal/domain"
     gocognit:
       # Matches SonarQube Cloud's go:S3776 default of 15, so the local gate
       # and Sonar agree; no further ratchet step follows.

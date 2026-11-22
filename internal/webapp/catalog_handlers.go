@@ -15,7 +15,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 )
 
@@ -492,7 +491,7 @@ func (h *Handler) classicalWorkInMyBooks(w http.ResponseWriter, r *http.Request)
 func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string, requireReadingUnit bool) {
 	owner := user(r).ID
 	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
@@ -623,7 +622,7 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	u := user(r)
 	if e := h.services.Store.Catalogs.DeleteOpdsConnection(r.Context(), u.ID, r.PathValue("id")); e != nil {
-		if errors.Is(e, persistence.ErrNotFound) {
+		if errors.Is(e, domain.ErrNotFound) {
 			redirectManageSources(w, r, "error", "That catalog connection no longer exists.", "")
 			return
 		}
