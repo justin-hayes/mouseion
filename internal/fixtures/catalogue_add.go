@@ -36,7 +36,7 @@ func (s *Store) AddCatalogueEntry(_ context.Context, owner, connectionID, entryI
 	}
 	s.ensureFixtureSupportedLanguageLocked(language, fixtureSupportedLanguageNameLocked(s.supported, language))
 	if bookID := s.fixtureCatalogueAliasBookLocked(owner, connectionID, entryIdentifier); bookID != "" {
-		changed := s.restoreFixtureCatalogueBookLocked(owner, bookID)
+		changed := s.restoreFixtureBookMembershipLocked(owner, bookID, domain.BookDispositionToRead)
 		if index := s.fixtureMyBookIndexLocked(owner, bookID); index >= 0 {
 			book := &s.myBooks[index]
 			book.Book.Title = entry.Title
@@ -117,10 +117,11 @@ func (s *Store) fixtureMyBookIndexLocked(owner, bookID string) int {
 	return -1
 }
 
-// restoreFixtureCatalogueBookLocked makes an existing Book active, visible and
-// To Read again. It reports whether any of those facts changed, so a replayed
-// Add starts no preparation. Reading history and analysis stay untouched.
-func (s *Store) restoreFixtureCatalogueBookLocked(owner, bookID string) bool {
+// restoreFixtureBookMembershipLocked makes an existing Book active, visible and
+// carry the requested disposition again. It reports whether any of those facts
+// changed, so a replayed Add starts no preparation. Reading history and
+// analysis stay untouched.
+func (s *Store) restoreFixtureBookMembershipLocked(owner, bookID string, disposition domain.BookDisposition) bool {
 	changed := false
 	key := fixtureDispositionKey(owner, bookID)
 	if _, removed := s.removedBooks[key]; removed {
@@ -131,10 +132,7 @@ func (s *Store) restoreFixtureCatalogueBookLocked(owner, bookID string) bool {
 		s.visibility[key] = fixtureVisibility{hidden: false, revision: state.revision + 1}
 		changed = true
 	}
-	if s.bookDispositionLocked(owner, bookID) != domain.BookDispositionToRead {
-		changed = true
-	}
-	s.restoreFixtureToReadLocked(owner, bookID)
+	changed = s.setFixtureDispositionLocked(owner, bookID, disposition) || changed
 	return changed
 }
 

@@ -19,12 +19,16 @@ type Querier interface {
 	AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) (int64, error)
 	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
+	// A released snapshot proves the Book held the Current reading role even after
+	// the reading ended, so an unstarted Book is one with no snapshot.
+	BookEverCurrentReading(ctx context.Context, arg BookEverCurrentReadingParams) (bool, error)
 	// Book identity and My Books evidence queries. The read models select from
 	// the my_books_evidence view (migration 000066, rebuilt over the shared
 	// source_material_evidence view in 000068) so the composed projection and its
 	// analysis status/state classification are one SQL artifact instead of Go
 	// string stitching.
 	BookExists(ctx context.Context, arg BookExistsParams) (bool, error)
+	BookHasActiveCurrentReading(ctx context.Context, arg BookHasActiveCurrentReadingParams) (bool, error)
 	// Remove refuses the Book a reading is on. A Book can be current in more than
 	// one study language, so this deliberately ignores the language.
 	BookIsCurrentReading(ctx context.Context, arg BookIsCurrentReadingParams) (bool, error)

@@ -12,6 +12,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const bookEverCurrentReading = `-- name: BookEverCurrentReading :one
+SELECT EXISTS(
+  SELECT 1 FROM primary_goal_snapshots s
+  WHERE s.owner_id = $1 AND s.book_id = $2
+)
+`
+
+type BookEverCurrentReadingParams struct {
+	Owner string
+	Book  string
+}
+
+// A released snapshot proves the Book held the Current reading role even after
+// the reading ended, so an unstarted Book is one with no snapshot.
+func (q *Queries) BookEverCurrentReading(ctx context.Context, arg BookEverCurrentReadingParams) (bool, error) {
+	row := q.db.QueryRow(ctx, bookEverCurrentReading, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const bookExists = `-- name: BookExists :one
 
 SELECT EXISTS(
@@ -37,6 +58,25 @@ func (q *Queries) BookExists(ctx context.Context, arg BookExistsParams) (bool, e
 	return exists, err
 }
 
+const bookHasActiveCurrentReading = `-- name: BookHasActiveCurrentReading :one
+SELECT EXISTS(
+  SELECT 1 FROM primary_goals g
+  WHERE g.owner_id = $1 AND g.book_id = $2
+)
+`
+
+type BookHasActiveCurrentReadingParams struct {
+	Owner string
+	Book  string
+}
+
+func (q *Queries) BookHasActiveCurrentReading(ctx context.Context, arg BookHasActiveCurrentReadingParams) (bool, error) {
+	row := q.db.QueryRow(ctx, bookHasActiveCurrentReading, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const browseMyBooksEvidence = `-- name: BrowseMyBooksEvidence :many
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
       , lower(e.book_title)::text AS sort_title
@@ -54,6 +94,10 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
        ) AS is_current_reading
+     , EXISTS (
+         SELECT 1 FROM primary_goal_snapshots s
+         WHERE s.owner_id::text = e.book_owner_id AND s.book_id::text = e.book_id
+       ) AS ever_current_reading
      , COALESCE(ru.definition_key, '')::text AS reading_unit_key
      , COALESCE(w.definition_key, '')::text AS work_key
      , COALESCE(w.title, '')::text AS work_title
@@ -157,6 +201,7 @@ type BrowseMyBooksEvidenceRow struct {
 	DeckTotalCards          int64
 	DeckCompletedAt         pgtype.Timestamptz
 	IsCurrentReading        bool
+	EverCurrentReading      bool
 	ReadingUnitKey          string
 	WorkKey                 string
 	WorkTitle               string
@@ -229,6 +274,7 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.DeckTotalCards,
 			&i.DeckCompletedAt,
 			&i.IsCurrentReading,
+			&i.EverCurrentReading,
 			&i.ReadingUnitKey,
 			&i.WorkKey,
 			&i.WorkTitle,

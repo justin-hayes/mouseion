@@ -48,13 +48,15 @@ type ShellStore interface {
 }
 
 // MyBooksStore provides the My Books (/library/**) browse, intent, visibility,
-// membership-removal, and metadata-refresh reads and writes.
-type MyBooksStore interface { //nolint:interfacebloat // My Books owns its browse read, membership and evidence writes, and the current-reading refusal; splitting them is a separate design change
+// membership-removal, reading-history, and metadata-refresh reads and writes.
+type MyBooksStore interface { //nolint:interfacebloat // My Books owns its browse read, membership and evidence writes, reading-history actions, and the current-reading refusal; splitting them is a separate design change
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
 	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	ListMyBooksBrowseWithVisibility(context.Context, string, string, string, string, bool, bool, int, int) (domain.MyBooksBrowseResult, error)
-	ImportPreviouslyRead(context.Context, string, string) (domain.ReadingCompletion, error)
+	// MarkBookPreviouslyRead records an unstarted To Read Book as Previously
+	// read and clears its To Read disposition in one transition.
+	MarkBookPreviouslyRead(context.Context, string, string) error
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 	SetBookHidden(context.Context, string, string, int64, bool) (bool, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
@@ -120,6 +122,14 @@ type CatalogueAddStore interface {
 	AddCatalogueEntry(context.Context, string, string, string) (domain.CatalogueAddResult, error)
 }
 
+// CatalogueReadStore records a Catalog entry or Classical Reading unit as
+// Previously read, creating or restoring its Book as Read without acquiring or
+// preparing anything.
+type CatalogueReadStore interface {
+	MarkCatalogueEntryPreviouslyRead(context.Context, string, string, string) (domain.CatalogueReadResult, error)
+	MarkClassicalReadingUnitPreviouslyRead(context.Context, string, string) (domain.CatalogueReadResult, error)
+}
+
 // JobsStore provides the analysis job list shown by the jobs surface.
 type JobsStore interface {
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
@@ -130,13 +140,14 @@ type JobsStore interface {
 // application, one interface per learner surface. Production supplies one
 // persistence store to every field; overlapping method sets are intentional.
 type StoreDependencies struct {
-	Shell        ShellStore
-	MyBooks      MyBooksStore
-	Reading      ReadingStore
-	Vocabulary   VocabularyStore
-	Catalogs     CatalogsStore
-	CatalogueAdd CatalogueAddStore
-	Jobs         JobsStore
+	Shell         ShellStore
+	MyBooks       MyBooksStore
+	Reading       ReadingStore
+	Vocabulary    VocabularyStore
+	Catalogs      CatalogsStore
+	CatalogueAdd  CatalogueAddStore
+	CatalogueRead CatalogueReadStore
+	Jobs          JobsStore
 }
 
 type csrfFailureContextKey struct{}
@@ -331,11 +342,13 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /catalogs/sources/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("POST /catalogs/sources/{id}/sync", h.user(http.HandlerFunc(h.syncConnection)))
 	h.mux.Handle("POST /catalogs/sources/{id}/add", h.user(http.HandlerFunc(h.addCatalogueEntry)))
+	h.mux.Handle("POST /catalogs/sources/{id}/previously-read", h.user(http.HandlerFunc(h.markCatalogueEntryPreviouslyRead)))
 	h.mux.Handle("GET /catalogs/classical", h.user(http.HandlerFunc(h.classicalAuthorIndex)))
 	h.mux.Handle("GET /catalogs/classical/authors/{author}", h.user(http.HandlerFunc(h.classicalAuthor)))
 	h.mux.Handle("GET /catalogs/classical/works/{workKey}", h.user(http.HandlerFunc(h.classicalWork)))
 	h.mux.Handle("POST /catalogs/classical/works/{workKey}/add", h.user(http.HandlerFunc(h.addClassicalWork)))
 	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/add", h.user(http.HandlerFunc(h.addClassicalUnit)))
+	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/previously-read", h.user(http.HandlerFunc(h.markClassicalUnitPreviouslyRead)))
 	h.mux.Handle("GET /catalogs/classical/works/{workKey}/in-my-books", h.user(http.HandlerFunc(h.classicalWorkInMyBooks)))
 	h.mux.Handle("GET /catalogs/classical/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.classicalBookInMyBooks)))
 	h.mux.Handle("GET /catalogs/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.catalogBookInMyBooks)))

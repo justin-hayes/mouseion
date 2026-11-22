@@ -10,6 +10,10 @@ var (
 	ErrStaleBookDisposition = errors.New("book disposition changed since this page was loaded")
 	// ErrBookIsCurrentReading refuses ending membership for the Book a reading
 	// is on. Remove is the opposite of Add, and the current Book cannot leave
-	// My Books while it is being read.
+	// My Books while it is being read. The same refusal covers recording the
+	// Book as Previously read.
 	ErrBookIsCurrentReading = errors.New("book is the current reading")
+	// ErrPreviouslyReadIneligible refuses the My Books assertion for a Book that
+	// is not an unstarted To Read Book.
+	ErrPreviouslyReadIneligible = errors.New("only an unstarted To Read Book can be marked previously read")
 )

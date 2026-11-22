@@ -16,7 +16,13 @@ templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnec
 			<a class="button button--outline" href="/catalogs/sources">Manage sources</a>
 		}
 		if message != "" {
-			if browse.FocusAddedBook {
+			if browse.FocusReadBook {
+				<div id="catalog-read-confirmation" tabindex="-1" autofocus>
+					@Feedback(FeedbackSuccess, "", message) {
+						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.ReadBookID)) }>View in My Books</a>
+					}
+				</div>
+			} else if browse.FocusAddedBook {
 				<div id="catalog-add-confirmation" tabindex="-1" autofocus>
 					@Feedback(FeedbackSuccess, "", message) {
 						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.AddedBookID)) }>View in My Books</a>
@@ -125,7 +131,9 @@ templ CatalogOpdsSection(csrf string, section catalogOpdsSection) {
 
 // CatalogEntryCard is one OPDS Catalog entry: cover, title, author, and its
 // ownership state. An unowned entry offers Add, which says plainly that it
-// downloads and analyzes the text. The Catalog index stores advertised cover
+// downloads and analyzes the text, and the secondary I've read this, which
+// records a Book the learner read outside Mouseion without downloading it. The
+// Catalog index stores advertised cover
 // provenance, but upstream URLs are never sent to the browser (ADR 0077); until
 // local cover retention reaches index entries, the shared cover frame shows the
 // title's initial.
@@ -144,6 +152,11 @@ templ CatalogEntryCard(csrf string, entry domain.CatalogueEntry) {
 				<input type="hidden" name="entry_identifier" value={ entry.Index.EntryIdentifier }/>
 				<p class="catalog-entry__add-copy">Adding downloads and analyzes the text.</p>
 				<button class="button button--outline" type="submit">Add</button>
+			</form>
+			<form class="catalog-entry__read" method="post" action={ templ.SafeURL("/catalogs/sources/" + entry.Index.ConnectionID + "/previously-read") }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="entry_identifier" value={ entry.Index.EntryIdentifier }/>
+				<button class="button button--outline" type="submit">I've read this</button>
 			</form>
 		}
 	</article>

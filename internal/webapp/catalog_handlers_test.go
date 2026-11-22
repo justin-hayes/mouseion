@@ -136,6 +136,9 @@ func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) 
 		`action="/catalogs/sources/fixture-connection/add"`,
 		`name="entry_identifier" value="fixture-sommer"`,
 		`Adding downloads and analyzes the text.`,
+		`class="catalog-entry__read"`,
+		`action="/catalogs/sources/fixture-connection/previously-read"`,
+		`>I've read this</button>`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
 	}
@@ -317,6 +320,9 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	body := index.Body.String()
 	assert.Contains(t, body, "Add and prepare the whole work", "a multi-book Work with none owned offers the whole Work")
 	assert.Contains(t, body, "Add and prepare the work", "a whole-work unit offers the work")
+	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-iliad-1/previously-read"`, "each Reading unit offers I've read this")
+	assert.Contains(t, body, "I've read this")
+	assert.NotContains(t, body, "works/fixture-iliad/previously-read", "I've read this is never offered for a whole Work")
 	assert.NotContains(t, body, "books in My Books")
 	assert.NotContains(t, body, "In My Books")
 
@@ -381,6 +387,87 @@ func (failingCatalogueAdd) AddCatalogueEntry(context.Context, string, string, st
 	return domain.CatalogueAddResult{}, errors.New("catalog Add failed")
 }
 
+type failingCatalogueRead struct{ err error }
+
+func (f failingCatalogueRead) MarkCatalogueEntryPreviouslyRead(context.Context, string, string, string) (domain.CatalogueReadResult, error) {
+	return domain.CatalogueReadResult{}, f.err
+}
+
+func (f failingCatalogueRead) MarkClassicalReadingUnitPreviouslyRead(context.Context, string, string) (domain.CatalogueReadResult, error) {
+	return domain.CatalogueReadResult{}, f.err
+}
+
+func TestCatalogueReadRoutesReportRefusalsOnThePage(t *testing.T) {
+	t.Run("OPDS current reading redirects with feedback", func(t *testing.T) {
+		h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+			services.Store.CatalogueRead = failingCatalogueRead{err: domain.ErrBookIsCurrentReading}
+		})
+		response := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/previously-read", url.Values{
+			"csrf_token": {csrf}, "entry_identifier": {"fixture-uber"},
+		}, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code)
+		assert.Contains(t, response.Header().Get("Location"), "/catalogs?error=")
+		assert.Contains(t, response.Header().Get("Location"), url.QueryEscape(catalogueReadCurrentReadingRefusal))
+	})
+
+	t.Run("OPDS unknown failure is a server error", func(t *testing.T) {
+		h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+			services.Store.CatalogueRead = failingCatalogueRead{err: errors.New("catalog read failed")}
+		})
+		response := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/previously-read", url.Values{
+			"csrf_token": {csrf}, "entry_identifier": {"fixture-uber"},
+		}, cookies)
+		assert.Equal(t, http.StatusInternalServerError, response.Code)
+	})
+
+	t.Run("classical legacy rows redirect with the stable reason", func(t *testing.T) {
+		h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+			catalog, err := fixtures.NewClassicalCatalog()
+			require.NoError(t, err)
+			services.Classical = catalog
+			services.Store.CatalogueRead = failingCatalogueRead{err: classical.ErrLegacyRows}
+		})
+		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/previously-read", url.Values{
+			"csrf_token": {csrf}, "return": {"index"},
+		}, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code)
+		assert.Contains(t, response.Header().Get("Location"), "/catalogs/classical?error=")
+		assert.Contains(t, response.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsReason))
+	})
+
+	t.Run("classical current reading redirects with feedback", func(t *testing.T) {
+		h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+			catalog, err := fixtures.NewClassicalCatalog()
+			require.NoError(t, err)
+			services.Classical = catalog
+			services.Store.CatalogueRead = failingCatalogueRead{err: domain.ErrBookIsCurrentReading}
+		})
+		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/previously-read", url.Values{
+			"csrf_token": {csrf}, "return": {"index"},
+		}, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code)
+		assert.Contains(t, response.Header().Get("Location"), "error=")
+	})
+
+	t.Run("classical unknown unit is not found", func(t *testing.T) {
+		h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+			catalog, err := fixtures.NewClassicalCatalog()
+			require.NoError(t, err)
+			services.Classical = catalog
+		})
+		response := readingTestRequest(t, h, "/catalogs/classical/units/no-such-unit/previously-read", url.Values{
+			"csrf_token": {csrf},
+		}, cookies)
+		assert.Equal(t, http.StatusNotFound, response.Code)
+	})
+}
+
+func TestCatalogueReadMessageCoversCreatedChangedAndReplay(t *testing.T) {
+	assert.Equal(t, "Recorded “Book” as previously read.", catalogueReadMessage(domain.CatalogueReadResult{Book: domain.Book{Title: "Book"}, Created: true}))
+	assert.Equal(t, "Marked “Book” as previously read.", catalogueReadMessage(domain.CatalogueReadResult{Book: domain.Book{Title: "Book"}, Changed: true}))
+	assert.Equal(t, "“Book” is already in Read.", catalogueReadMessage(domain.CatalogueReadResult{Book: domain.Book{Title: "Book"}}))
+}
+
 func TestCatalogueAddRouteRejectsMissingCSRFAndUnknownEntries(t *testing.T) {
 	h, cookies, csrf, _ := readingFixtureSession(t)
 
@@ -403,6 +490,89 @@ func TestCatalogueAddRouteRejectsMissingCSRFAndUnknownEntries(t *testing.T) {
 		"entry_identifier": {"fixture-sommer"},
 	}, failingCookies)
 	assert.Equal(t, http.StatusInternalServerError, failed.Code)
+}
+
+func TestCataloguePreviouslyReadCreatesAReadBookOnTheCatalog(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSession(t)
+
+	read := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/previously-read", url.Values{
+		"csrf_token":       {csrf},
+		"entry_identifier": {"fixture-uber"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, read.Code)
+	location, err := url.Parse(read.Header().Get("Location"))
+	require.NoError(t, err)
+	assert.Equal(t, "/catalogs", location.Path)
+	assert.Equal(t, "Recorded “Über die Berge” as previously read.", location.Query().Get("message"))
+	bookID := location.Query().Get("read_book")
+	require.NotEmpty(t, bookID)
+
+	detail, err := store.GetBookDetail(t.Context(), fixtures.OwnerID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "a Read Book is not To Read")
+	assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
+	assert.Equal(t, 1, detail.CompletionCount)
+	assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
+	assert.False(t, detail.EverCurrentReading)
+
+	page := catalogPage(t, h, cookies, read.Header().Get("Location"))
+	require.Equal(t, http.StatusOK, page.Code)
+	body := page.Body.String()
+	assert.Contains(t, body, `id="catalog-read-confirmation"`)
+	assert.Contains(t, body, `autofocus`)
+	assert.Contains(t, body, "Recorded “Über die Berge” as previously read.")
+	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in My Books</a>`)
+}
+
+func TestCataloguePreviouslyReadRouteRejectsMissingCSRFAndUnknownEntries(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSession(t)
+
+	noCSRF := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/previously-read", url.Values{
+		"entry_identifier": {"fixture-uber"},
+	}, cookies)
+	assert.Equal(t, http.StatusForbidden, noCSRF.Code)
+
+	unknown := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/previously-read", url.Values{
+		"csrf_token":       {csrf},
+		"entry_identifier": {"no-such-entry"},
+	}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknown.Code)
+}
+
+func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSessionWith(t, func(services *Services) {
+		catalog, err := fixtures.NewClassicalCatalog()
+		require.NoError(t, err)
+		services.Classical = catalog
+	})
+
+	read := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/previously-read", url.Values{
+		"csrf_token": {csrf},
+		"return":     {"index"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, read.Code)
+	location, err := url.Parse(read.Header().Get("Location"))
+	require.NoError(t, err)
+	assert.Equal(t, "/catalogs/classical", location.Path)
+	assert.Equal(t, "Recorded “Iliad” as previously read.", location.Query().Get("message"))
+	bookID := location.Query().Get("read_book")
+	require.NotEmpty(t, bookID)
+
+	detail, err := store.GetBookDetail(t.Context(), fixtures.OwnerID, bookID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "a Read Book is not To Read")
+	assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
+	assert.Equal(t, 1, detail.CompletionCount)
+	assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
+	require.NotNil(t, detail.ReadingUnit)
+	assert.Equal(t, "fixture-iliad-1", detail.ReadingUnit.ReadingUnitKey)
+
+	page := catalogPage(t, h, cookies, read.Header().Get("Location"))
+	require.Equal(t, http.StatusOK, page.Code)
+	body := page.Body.String()
+	assert.Contains(t, body, "Recorded “Iliad” as previously read.")
+	assert.Contains(t, body, "Open Ancient Greek in My Books")
+	assert.Contains(t, body, `href="/catalogs/classical/books/`+bookID+`/in-my-books"`)
 }
 
 func TestCatalogueAddPreparationMessagesStateWhatFollowsTheAdd(t *testing.T) {

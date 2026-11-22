@@ -312,6 +312,75 @@ func importScenarios() []Scenario {
 			assert.Equal(t, first.Source, second.Source)
 		},
 	}, {
+		Name: "marking an unstarted To Read Book previously read records it and moves it to Read",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{ToRead: true})
+			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
+			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
+			before, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			require.NotEmpty(t, before)
+
+			require.NoError(t, h.BookState().MarkBookPreviouslyRead(owner, bookID))
+			detail := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "marking clears the To Read disposition")
+			assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
+			assert.Equal(t, 1, detail.CompletionCount)
+			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
+
+			require.NoError(t, h.BookState().MarkBookPreviouslyRead(owner, bookID), "a replay is idempotent")
+			assert.Equal(t, 1, requireDetail(t, h, owner, bookID).CompletionCount, "a replay adds no second history row")
+			after, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, before, after, "marking changes no Known vocabulary")
+		},
+	}, {
+		Name: "marking a Book that is not an unstarted To Read Book is refused",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			inbox := seedBook(t, h, BookSeed{})
+			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, inbox), domain.ErrPreviouslyReadIneligible)
+			assert.Zero(t, requireDetail(t, h, owner, inbox).CompletionCount, "a refused assertion records no history")
+
+			started, reading := startReading(t, h, defaultVocabulary)
+			require.NoError(t, h.Store().EndCurrentReading(owner, Language, started, reading.SnapshotID))
+			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, started), domain.ErrPreviouslyReadIneligible)
+			assert.Zero(t, requireDetail(t, h, owner, started).CompletionCount, "a started Book keeps no previous-read history")
+		},
+	}, {
+		Name: "marking a re-read To Read Book previously read is refused",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{ToRead: true})
+			_, err := h.BookState().ImportPreviouslyRead(owner, bookID)
+			require.NoError(t, err)
+			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, bookID), domain.ErrPreviouslyReadIneligible, "a Book with history was already read")
+			assert.Equal(t, domain.BookDispositionToRead, requireDetail(t, h, owner, bookID).Disposition, "the refusal leaves the re-read Book To Read")
+		},
+	}, {
+		Name: "marking the current reading previously read is refused",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID, _ := startReading(t, h, defaultVocabulary)
+			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, bookID), domain.ErrBookIsCurrentReading)
+		},
+	}, {
+		Name: "book detail reports whether a Book ever held the current reading",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			fresh := seedBook(t, h, BookSeed{ToRead: true})
+			assert.False(t, requireDetail(t, h, owner, fresh).EverCurrentReading, "an unstarted Book has no snapshot")
+
+			currentBook, reading := startReading(t, h, defaultVocabulary)
+			assert.True(t, requireDetail(t, h, owner, currentBook).EverCurrentReading, "the current reading counts as started")
+
+			require.NoError(t, h.Store().EndCurrentReading(owner, Language, currentBook, reading.SnapshotID))
+			ended := requireDetail(t, h, owner, currentBook)
+			assert.False(t, ended.IsCurrentReading)
+			assert.True(t, ended.EverCurrentReading, "a released snapshot keeps proving the reading happened")
+		},
+	}, {
 		Name: "previously-read import refuses the current reading",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()

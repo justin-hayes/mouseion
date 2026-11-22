@@ -19,23 +19,10 @@ func (s *Store) ImportPreviouslyRead(_ context.Context, owner, bookID string) (d
 	if completion, ok := s.importedHistory[key]; ok {
 		return completion, nil
 	}
-	var book domain.MyBook
-	found := false
-	for _, candidate := range s.myBooksForOwner(owner) {
-		if candidate.Book.ID == bookID {
-			book, found = candidate, true
-			break
-		}
-	}
-	if !found || book.Book.LanguageState != domain.LanguageChosen || book.IsCurrentReading {
+	if !s.markFixturePreviouslyReadLocked(owner, bookID) {
 		return domain.ReadingCompletion{}, domain.ErrNotFound
 	}
-	completion := domain.ReadingCompletion{
-		OwnerID: owner, BookID: bookID, Language: book.Book.LanguageTag,
-		CompletedAt: time.Now().UTC(), Source: domain.ReadingCompletionPreviouslyRead,
-	}
-	s.importedHistory[key] = completion
-	return completion, nil
+	return s.importedHistory[key], nil
 }
 
 func (s *Store) GetCurrentReading(_ context.Context, owner, language string) (domain.CurrentReading, error) {

@@ -3,6 +3,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,6 +17,62 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMyBooksOffersPreviouslyReadOnlyOnUnstartedToReadBooks(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSession(t)
+	ctx := t.Context()
+	current, err := store.GetCurrentReading(ctx, fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	currentRefusal := readingTestRequest(t, h, "/library/books/"+current.BookID+"/previously-read", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, currentRefusal.Code)
+	assert.Contains(t, currentRefusal.Header().Get("Location"), "/library?error=")
+	assert.Contains(t, currentRefusal.Header().Get("Location"), url.QueryEscape(catalogueReadCurrentReadingRefusal))
+	require.NoError(t, store.EndCurrentReading(ctx, fixtures.OwnerID, "de", current.BookID, current.SnapshotID))
+	reading, err := store.StartCurrentReading(ctx, fixtures.OwnerID, "de", "fixture-route-match")
+	require.NoError(t, err)
+	require.NoError(t, store.EndCurrentReading(ctx, fixtures.OwnerID, "de", reading.BookID, reading.SnapshotID))
+
+	page := catalogPage(t, h, cookies, "/library")
+	require.Equal(t, http.StatusOK, page.Code)
+	body := page.Body.String()
+	started := myBookRowHTML(t, body, "fixture-route-match")
+	assert.NotContains(t, started, "Mark as previously read", "a Book that held the current reading is not unstarted")
+	unstarted := myBookRowHTML(t, body, "fixture-route-differs")
+	assert.Contains(t, unstarted, "Mark as previously read")
+
+	for _, bookID := range []string{"fixture-route-match", "fixture-metadata-only"} {
+		response := readingTestRequest(t, h, "/library/books/"+bookID+"/previously-read", url.Values{"csrf_token": {csrf}}, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code, bookID)
+		assert.Contains(t, response.Header().Get("Location"), "error=", "an ineligible Book gets page feedback: %s", bookID)
+	}
+	startedDetail, err := store.GetBookDetail(ctx, fixtures.OwnerID, "fixture-route-match")
+	require.NoError(t, err)
+	assert.Zero(t, startedDetail.CompletionCount, "a refused assertion records no history")
+}
+
+type failingPreviouslyReadStore struct{ *fixtures.Store }
+
+func (f failingPreviouslyReadStore) MarkBookPreviouslyRead(context.Context, string, string) error {
+	return errors.New("previously read write failed")
+}
+
+func TestMyBooksPreviouslyReadWriteFailureIsAServerError(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Store.MyBooks = failingPreviouslyReadStore{Store: fixtures.NewStore()}
+	})
+	response := readingTestRequest(t, h, "/library/books/"+fixtures.BookID+"/previously-read", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusInternalServerError, response.Code)
+}
+
+func myBookRowHTML(t *testing.T, body, bookID string) string {
+	t.Helper()
+	start := strings.Index(body, `id="book-row-`+bookID+`"`)
+	require.NotEqual(t, -1, start, "My Books row for %s is missing", bookID)
+	row := body[start:]
+	end := strings.Index(row, "</li>")
+	require.NotEqual(t, -1, end, "My Books row for %s is unterminated", bookID)
+	return row[:end]
+}
 
 func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}}

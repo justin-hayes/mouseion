@@ -90,6 +90,37 @@ test.describe('catalog sources and browsing', () => {
     await expect(page.getByRole('heading', { name: 'Ein kurzer Sommer', exact: true })).toBeVisible();
   });
 
+  test("I've read this records an OPDS entry as Read without requesting the EPUB", async ({ page }) => {
+    await signIn(page);
+    const contacted: string[] = [];
+    page.on('request', request => {
+      const host = new URL(request.url()).host;
+      if (host.endsWith('.invalid')) contacted.push(request.url());
+    });
+    await page.goto('/catalogs?language=de');
+
+    const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Der lange Weg nach Hause' });
+    await expect(entry.getByRole('button', { name: "I've read this", exact: true })).toBeVisible();
+    await entry.getByRole('button', { name: "I've read this", exact: true }).click();
+
+    await expect(page).toHaveURL(/\/catalogs\?.*message=/);
+    const confirmation = page.locator('#catalog-read-confirmation');
+    await expect(confirmation).toBeFocused();
+    await expect(confirmation).toContainText('Recorded “Der lange Weg nach Hause” as previously read.');
+
+    const owned = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Der lange Weg nach Hause' });
+    await expect(owned.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+    await expect(owned.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+    await expect(owned.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(0);
+    expect(contacted, `I've read this contacted ${contacted.join(', ')}`).toEqual([]);
+
+    await confirmation.getByRole('link', { name: 'View in My Books', exact: true }).click();
+    await expect(page).toHaveURL(/\/library/);
+    const row = page.locator('li.library-book', { has: page.getByRole('heading', { name: 'Der lange Weg nach Hause', exact: true }) });
+    await expect(row).toBeVisible();
+    await expect(row.getByText('Read before Mouseion')).toBeVisible();
+  });
+
   test('one search covers the Classical catalog and OPDS without contacting a server', async ({ page }) => {
     await signIn(page);
     const contacted: string[] = [];

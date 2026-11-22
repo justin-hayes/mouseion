@@ -178,9 +178,8 @@ func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
 	if book.ReadingUnit != nil && book.Disposition == domain.BookDispositionToRead && book.Acquired == nil && book.ClassicalPreparation == nil {
 		book.Acquired = fixtureClassicalSource(book.Book.OwnerID, book.Book.ID, *book.ReadingUnit)
 	}
-	if s.fixtureBookIsCurrentReading(book.Book.OwnerID, book.Book.ID) {
-		book.IsCurrentReading = true
-	}
+	book.IsCurrentReading = s.fixtureBookIsCurrentReading(book.Book.OwnerID, book.Book.ID)
+	book.EverCurrentReading = s.fixtureBookEverCurrentReading(book.Book.OwnerID, book.Book.ID)
 	s.applyFixtureBookCompletions(book)
 }
 
@@ -189,6 +188,21 @@ func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
 func (s *Store) fixtureBookIsCurrentReading(owner, bookID string) bool {
 	for _, reading := range s.currentReadings {
 		if reading.OwnerID == owner && reading.BookID == bookID {
+			return true
+		}
+	}
+	return false
+}
+
+// fixtureBookEverCurrentReading reports whether the Book has held the Current
+// reading role. An active reading counts, and a released snapshot records the
+// role after the reading ends. Callers hold s.mu.
+func (s *Store) fixtureBookEverCurrentReading(owner, bookID string) bool {
+	if s.fixtureBookIsCurrentReading(owner, bookID) {
+		return true
+	}
+	for _, lifecycle := range s.snapshotLifecycles {
+		if lifecycle.BookID == bookID {
 			return true
 		}
 	}

@@ -76,9 +76,12 @@ language, or presents the learner with an unordered chooser between Books.
    projects as Read through its history. **Read again** moves a Read Book to To
    Read without starting it, changing visibility, erasing history, or adopting a
    released snapshot. Starting it creates a fresh current-reading snapshot while
-   retaining earlier completions. A previously-read assertion is an idempotent
-   assertion-time fact that changes neither disposition nor visibility and
-   accepts no vocabulary. Finishing claims no mastery.
+   retaining earlier completions. A **Previously read** assertion is an
+   idempotent assertion-time fact that accepts no vocabulary. From the Catalog,
+   **I've read this** creates or restores the Book as Read; My Books offers
+   **Mark as previously read** only on an unstarted To Read Book and moves that
+   Book to Read. A Read Book keeps its persisted Inbox disposition and
+   visibility. Finishing claims no mastery.
 6. Hiding is a separate, reversible visibility choice: a Hidden Book is omitted
    from default My Books and the default chooser, keeps its disposition, history,
    and artifacts, and is recovered with **Show hidden books** and Unhide. Read
