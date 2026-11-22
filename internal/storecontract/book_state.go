@@ -27,7 +27,7 @@ func removalScenarios() []Scenario {
 		Name: "Remove ends My Books membership and changes nothing else",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{ToRead: true, Vocabulary: defaultVocabulary})
+			bookID := seedBook(t, h, BookSeed{Vocabulary: defaultVocabulary})
 			detail := requireDetail(t, h, owner, bookID)
 			completion, err := h.BookState().ImportPreviouslyRead(owner, bookID)
 			require.NoError(t, err)
@@ -86,7 +86,7 @@ func removalScenarios() []Scenario {
 	}, {
 		Name: "Remove is owner-scoped",
 		Run: func(t *testing.T, h Harness) {
-			bookID := seedBook(t, h, BookSeed{ToRead: true})
+			bookID := seedBook(t, h, BookSeed{})
 			err := h.BookState().RemoveBookFromMyBooks(h.Seeds().OtherOwner(), bookID)
 			require.ErrorIs(t, err, domain.ErrNotFound)
 			requireDetail(t, h, h.Seeds().Owner(), bookID)
@@ -101,7 +101,7 @@ func epubAcquisitionFailureScenarios() []Scenario {
 		Name: "an EPUB acquisition failure is recorded against the Book and cleared on success",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
+			bookID := seedBook(t, h, BookSeed{MetadataOnly: true})
 			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Acquisition catalog")
 			record := domain.EPUBAcquisitionFailureRecord{
 				OwnerID: owner, BookID: bookID,
@@ -131,7 +131,7 @@ func epubAcquisitionFailureScenarios() []Scenario {
 		Name: "a source-stage EPUB acquisition failure offers no retry",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
+			bookID := seedBook(t, h, BookSeed{MetadataOnly: true})
 			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Acquisition catalog")
 			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(domain.EPUBAcquisitionFailureRecord{
 				OwnerID: owner, BookID: bookID,
@@ -146,8 +146,8 @@ func epubAcquisitionFailureScenarios() []Scenario {
 	}}
 }
 
-// seedBook seeds an analyzed Book for the learner under test, in the Inbox
-// unless the seed says otherwise.
+// seedBook seeds an analyzed To Read Book for the learner under test, unless
+// the seed names the retired Inbox state.
 func seedBook(t *testing.T, h Harness, seed BookSeed) string {
 	t.Helper()
 	return h.Seeds().SeedBook(t, h.Seeds().Owner(), seed)
@@ -213,7 +213,9 @@ func dispositionScenarios() []Scenario {
 }
 
 // bucketScenarios pin the retired Inbox: every active member has one of the
-// three visible roles, and a member with no chosen role is rejected.
+// three visible roles, a member with no chosen role is rejected, the stores
+// refuse to write that state for a Book without reading history, and the
+// stored Inbox value stays allowed for a read Book and the current reading.
 func bucketScenarios() []Scenario {
 	return []Scenario{{
 		Name: "every active member is Currently reading, To Read or Read",
@@ -228,29 +230,57 @@ func bucketScenarios() []Scenario {
 
 			started, _ := startReading(t, h, defaultVocabulary)
 			current := requireDetail(t, h, owner, started)
-			assert.Contains(t, []domain.MyBookBucket{domain.MyBookBucketCurrentReading, domain.MyBookBucketToRead}, current.WorkflowBucket())
+			assert.Equal(t, domain.MyBookBucketCurrentReading, current.WorkflowBucket())
 		},
 	}, {
-		Name: "a member that is neither To Read nor read is rejected",
+		Name: "a member with no chosen role is rejected and no store write can create it",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{Inbox: true})
-			detail := requireDetail(t, h, owner, bookID)
+
+			// Only the seeding can build the retired state, bypassing the
+			// write path; the domain read model reports it as a member with no
+			// visible role.
+			legacy := seedBook(t, h, BookSeed{Inbox: true})
+			detail := requireDetail(t, h, owner, legacy)
 			assert.Empty(t, detail.WorkflowBucket(), "the retired Inbox has no visible role")
 			require.ErrorIs(t, detail.ValidateMembership(), domain.ErrBookNotChosen)
-		},
-	}, {
-		Name: "clearing To Read without reading history is rejected",
-		Run: func(t *testing.T, h Harness) {
-			owner := h.Seeds().Owner()
+
+			// Neither store write may recreate it: a To Read Book without
+			// reading history is refused and left To Read.
 			bookID := seedBook(t, h, BookSeed{})
 			initial := requireDetail(t, h, owner, bookID).DispositionRevision
+			require.ErrorIs(t, h.BookState().SetBookDisposition(owner, bookID, domain.BookDispositionInbox), domain.ErrBookNotChosen)
 			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, initial, domain.BookDispositionInbox)
 			require.ErrorIs(t, err, domain.ErrBookNotChosen)
 			assert.False(t, applied)
-			detail := requireDetail(t, h, owner, bookID)
-			assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "the refusal leaves the Book To Read")
-			assert.Equal(t, initial, detail.DispositionRevision)
+			refused := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, domain.BookDispositionToRead, refused.Disposition, "the refusal leaves the Book To Read")
+			assert.Equal(t, initial, refused.DispositionRevision)
+		},
+	}, {
+		Name: "storing Inbox is allowed for a Book with reading history and for the current reading",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+
+			// Reading history keeps the stored Inbox value a Read membership.
+			read := seedBook(t, h, BookSeed{})
+			_, err := h.BookState().ImportPreviouslyRead(owner, read)
+			require.NoError(t, err)
+			require.NoError(t, h.BookState().SetBookDisposition(owner, read, domain.BookDispositionInbox))
+			assert.Equal(t, domain.MyBookBucketRead, requireDetail(t, h, owner, read).WorkflowBucket(), "recorded history keeps the Book Read")
+
+			// The current reading keeps its role over the stored value.
+			started, _ := startReading(t, h, defaultVocabulary)
+			initial := requireDetail(t, h, owner, started).DispositionRevision
+			applied, err := h.BookState().TransitionBookDisposition(owner, started, initial, domain.BookDispositionInbox)
+			require.NoError(t, err)
+			require.True(t, applied)
+			require.NoError(t, h.BookState().SetBookDisposition(owner, started, domain.BookDispositionInbox))
+			current := requireDetail(t, h, owner, started)
+			assert.Equal(t, domain.MyBookBucketCurrentReading, current.WorkflowBucket(), "the current reading keeps its role")
+			stillCurrent, err := h.Store().GetCurrentReading(owner, Language)
+			require.NoError(t, err)
+			assert.Equal(t, started, stillCurrent.BookID, "the allowed write never ends the reading")
 		},
 	}}
 }
@@ -292,7 +322,7 @@ func importScenarios() []Scenario {
 		Name: "marking an unstarted To Read Book previously read records it and moves it to Read",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{ToRead: true})
+			bookID := seedBook(t, h, BookSeed{})
 			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
 			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
 			before, err := h.Store().ListKnownVocabulary(owner, Language)
@@ -330,7 +360,7 @@ func importScenarios() []Scenario {
 		Name: "marking a re-read To Read Book previously read is refused",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{ToRead: true})
+			bookID := seedBook(t, h, BookSeed{})
 			_, err := h.BookState().ImportPreviouslyRead(owner, bookID)
 			require.NoError(t, err)
 			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, bookID), domain.ErrPreviouslyReadIneligible, "a Book with history was already read")
@@ -347,7 +377,7 @@ func importScenarios() []Scenario {
 		Name: "book detail reports whether a Book ever held the current reading",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			fresh := seedBook(t, h, BookSeed{ToRead: true})
+			fresh := seedBook(t, h, BookSeed{})
 			assert.False(t, requireDetail(t, h, owner, fresh).EverCurrentReading, "an unstarted Book has no snapshot")
 
 			currentBook, reading := startReading(t, h, defaultVocabulary)

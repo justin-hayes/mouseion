@@ -273,7 +273,7 @@ func catalogueScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
-			bookID := h.Seeds().SeedBook(t, owner, BookSeed{ToRead: true})
+			bookID := h.Seeds().SeedBook(t, owner, BookSeed{})
 			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{
 				{Entry: domain.CatalogueIndexEntry{EntryIdentifier: "owned", Title: "Owned book", Author: "Owner Author", LanguageTag: Language, EPUBHref: "https://catalog.example/owned.epub"}, BookID: bookID},
 				{Entry: domain.CatalogueIndexEntry{EntryIdentifier: "unowned", Title: "Unowned book", Author: "Other Author", LanguageTag: Language, EPUBHref: "https://catalog.example/unowned.epub"}},
@@ -308,7 +308,7 @@ func seedRemovedCatalogueBook(t *testing.T, h Harness, entryIdentifier, title st
 	t.Helper()
 	owner := h.Seeds().Owner()
 	connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
-	bookID := h.Seeds().SeedBook(t, owner, BookSeed{ToRead: true, MetadataOnly: true})
+	bookID := h.Seeds().SeedBook(t, owner, BookSeed{MetadataOnly: true})
 	h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
 		Entry: domain.CatalogueIndexEntry{
 			EntryIdentifier: entryIdentifier, Title: title, Author: "Entry Author",

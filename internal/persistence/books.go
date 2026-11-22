@@ -598,6 +598,14 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	}
 	book.Disposition = state.disposition
 	book.DispositionRevision = state.revision
+	// The current-reading role is part of the detail read model, so a started
+	// Book classifies as Currently reading exactly as the My Books browse row
+	// and the fixtures adapter do; the corpus-sized margin evidence stays in
+	// the browse projection.
+	book.IsCurrentReading, err = s.queries().BookHasActiveCurrentReading(ctx, sqlcgen.BookHasActiveCurrentReadingParams{Owner: owner, Book: book.Book.ID})
+	if err != nil {
+		return domain.MyBook{}, err
+	}
 	book.EverCurrentReading, err = s.queries().BookEverCurrentReading(ctx, sqlcgen.BookEverCurrentReadingParams{Owner: owner, Book: book.Book.ID})
 	if err != nil {
 		return domain.MyBook{}, err

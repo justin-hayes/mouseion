@@ -200,6 +200,10 @@ func (h *contractHarness) TransitionBookDisposition(owner, bookID string, expect
 	return h.store.TransitionBookDisposition(context.Background(), owner, bookID, expectedRevision, disposition)
 }
 
+func (h *contractHarness) SetBookDisposition(owner, bookID string, disposition domain.BookDisposition) error {
+	return h.store.SetBookDisposition(context.Background(), owner, bookID, disposition)
+}
+
 func (h *contractHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 	return h.store.RemoveBookFromMyBooks(context.Background(), owner, bookID)
 }

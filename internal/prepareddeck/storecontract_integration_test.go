@@ -68,6 +68,10 @@ func (h *postgresHarness) TransitionBookDisposition(owner, bookID string, expect
 	return h.store.TransitionBookDisposition(h.ctx, owner, bookID, expectedRevision, disposition)
 }
 
+func (h *postgresHarness) SetBookDisposition(owner, bookID string, disposition domain.BookDisposition) error {
+	return h.store.SetBookDisposition(h.ctx, owner, bookID, disposition)
+}
+
 func (h *postgresHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 	return h.store.RemoveBookFromMyBooks(h.ctx, owner, bookID)
 }

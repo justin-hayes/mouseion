@@ -46,11 +46,12 @@ type BookSeed struct {
 	// Occurrences are the observed tokens the Book's analysis contributes to
 	// lemma review, in sentence order. Each one becomes its own sentence.
 	Occurrences []OccurrenceSeed
-	// ToRead reports whether the Book is To Read. The default is To Read, the
-	// only chosen state an unstarted Book can hold.
-	ToRead bool
-	// Inbox seeds the retired state: an active member that is neither To Read
-	// nor has reading history. It exists only to prove the domain rejects it.
+	// Inbox opts the Book out of the default disposition and seeds the retired
+	// state: an active member that is neither To Read nor has reading
+	// history. Only the seeding can build it, because both stores refuse the
+	// stored Inbox value for such a Book; it exists to prove the domain rejects
+	// it. The default is To Read, the only chosen state an unstarted Book can
+	// hold.
 	Inbox bool
 	// LanguageUnknown reports that the Book's language is not chosen, so it
 	// cannot be imported as previously read.
@@ -86,13 +87,19 @@ type Harness interface {
 }
 
 // BookStateStore is the Book workflow disposition, My Books membership, and
-// previously read import surface under test. Each write takes the revision the
-// learner rendered; the adapter returns its own stale and not-found errors.
+// previously read import surface under test. The revision-checked writes take
+// the revision the learner rendered; the adapter returns its own stale and
+// not-found errors.
 type BookStateStore interface {
 	// GetBookDetail returns the Book with its disposition and the revision a
 	// write must present.
 	GetBookDetail(owner, bookID string) (domain.MyBook, error)
 	TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error)
+	// SetBookDisposition stores the Book's workflow disposition without a
+	// revision protocol. The stored Inbox value is refused with
+	// domain.ErrBookNotChosen for a Book that is neither the current reading
+	// nor has reading history; every other state is allowed.
+	SetBookDisposition(owner, bookID string, disposition domain.BookDisposition) error
 	// RemoveBookFromMyBooks ends the Book's membership without deleting its
 	// evidence. A later Add restores the same Book. The current reading is
 	// refused with domain.ErrBookIsCurrentReading.

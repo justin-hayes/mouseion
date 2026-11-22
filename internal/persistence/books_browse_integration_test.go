@@ -380,13 +380,14 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 	assert.Equal(t, ready.CompletedAt, got.DeckPreparedAt)
 
 	// Generic detail reads stay lean; corpus-sized current margin evidence
-	// belongs to the My Books browse projection only.
+	// belongs to the My Books browse projection only. The cheap
+	// current-reading role is part of the detail read model.
 	detail, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Zero(t, detail.CoverageKnownTokens)
 	assert.Zero(t, detail.CoverageTotalTokens)
 	assert.Empty(t, detail.DeckState)
-	assert.False(t, detail.IsCurrentReading)
+	assert.True(t, detail.IsCurrentReading, "the detail reports the Book's current-reading role")
 }
 
 func TestMyBooksBrowseRejectsInvalidDispositionAndClampsPagination(t *testing.T) {
