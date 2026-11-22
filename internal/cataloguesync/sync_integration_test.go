@@ -399,3 +399,43 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.CatalogueSyncFailed, status.State)
 }
+
+func TestListCatalogueSyncJobsKeepsEachJobsOutcome(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, databaseURL)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "catalogue sync store", store.Close)
+	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	owner, err := store.CreateUser(ctx, "sync-history-owner", false)
+	require.NoError(t, err)
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "History catalog", URL: "https://catalog.example/opds"})
+	require.NoError(t, err)
+
+	client, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
+	require.NoError(t, err)
+	testutil.StopOnCleanup(t, "catalogue sync client", client.Stop)
+	args := SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}
+	completed, err := client.Insert(ctx, args, &river.InsertOpts{Queue: Queue})
+	require.NoError(t, err)
+	failed, err := client.Insert(ctx, args, &river.InsertOpts{Queue: Queue})
+	require.NoError(t, err)
+
+	const sanitised = "authentication failed for connection History catalog"
+	_, err = store.Pool().Exec(ctx, `UPDATE river_job SET state='completed',created_at=now()-interval '2 hours',finalized_at=now()-interval '2 hours' WHERE id=$1`, completed.Job.ID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE river_job SET state='discarded',created_at=now()-interval '1 hour',finalized_at=now()-interval '1 hour',errors=ARRAY[jsonb_build_object('error',$2::text,'attempt',1,'at',now())]::jsonb[] WHERE id=$1`, failed.Job.ID, sanitised)
+	require.NoError(t, err)
+	require.NoError(t, store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner.ID, ConnectionID: connection.ID, State: domain.CatalogueSyncFailed, LastError: sanitised}))
+
+	service := NewService(StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: store.Pool()}, nil, nil, nil)
+	jobs, err := service.List(ctx, owner.ID)
+	require.NoError(t, err)
+	require.Len(t, jobs, 2)
+	assert.Equal(t, failed.Job.ID, jobs[0].ID)
+	assert.Equal(t, "failed", jobs[0].LogicalState)
+	assert.Equal(t, sanitised, jobs[0].Error)
+	assert.Equal(t, completed.Job.ID, jobs[1].ID)
+	assert.Equal(t, "completed", jobs[1].LogicalState)
+	assert.Empty(t, jobs[1].Error, "an older completed job must not inherit the connection's failed status")
+}

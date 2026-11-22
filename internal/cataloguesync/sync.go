@@ -706,7 +706,8 @@ func (s *Service) List(ctx context.Context, owner string) ([]Status, error) {
 	if s == nil || s.pool == nil || strings.TrimSpace(owner) == "" {
 		return nil, nil
 	}
-	rows, err := s.pool.Query(ctx, `SELECT j.id,j.attempt,j.created_at,j.finalized_at,j.state,COALESCE(j.args->>'connection_id',''),COALESCE(c.name,''),COALESCE(s.state,''),COALESCE(s.last_error,''),COALESCE(j.errors[array_length(j.errors,1)]->>'error',''),s.last_synced_at
+	rows, err := s.pool.Query(ctx, `SELECT j.id,j.attempt,j.created_at,j.finalized_at,j.state,COALESCE(j.args->>'connection_id',''),COALESCE(c.name,''),COALESCE(s.state,''),COALESCE(s.last_error,''),COALESCE(j.errors[array_length(j.errors,1)]->>'error',''),s.last_synced_at,
+	row_number() OVER (PARTITION BY j.args->>'connection_id' ORDER BY j.created_at DESC,j.id DESC)=1 AS newest
 FROM river_job j
 LEFT JOIN opds_connections c ON c.owner_id=$1::uuid AND c.id::text=j.args->>'connection_id'
 LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::text=j.args->>'connection_id'
@@ -727,25 +728,30 @@ WHERE j.kind=$2 AND j.args->>'owner_id'=$1::text ORDER BY j.created_at DESC,j.id
 }
 
 // listStatus projects one joined River and durable row into the owner-facing
-// status, reconciling a stale durable syncing state before it is returned.
+// status. The durable row describes the connection's current sync, so it is
+// reconciled and applied only to the connection's newest job; every other row
+// keeps the outcome of its own River job.
 func (s *Service) listStatus(ctx context.Context, owner string, row pgx.Row) (Status, error) {
 	var item Status
 	var riverState, durableState, durableError, connectionID, riverErr string
 	var syncedAt *time.Time
-	if err := row.Scan(&item.ID, &item.Attempt, &item.CreatedAt, &item.FinalizedAt, &riverState, &connectionID, &item.ConnectionName, &durableState, &durableError, &riverErr, &syncedAt); err != nil {
+	var newest bool
+	if err := row.Scan(&item.ID, &item.Attempt, &item.CreatedAt, &item.FinalizedAt, &riverState, &connectionID, &item.ConnectionName, &durableState, &durableError, &riverErr, &syncedAt, &newest); err != nil {
 		return Status{}, err
 	}
 	item.OwnerID, item.ConnectionID, item.State = owner, connectionID, riverState
-	durableState = string(s.reconcileDurableStatus(ctx, owner, connectionID, domain.CatalogueSyncState(durableState)))
-	if durableState == string(domain.CatalogueSyncFailed) && durableError == "" {
-		durableError = statusCancelledReason
-	}
-	item.LogicalState, item.Error = logicalState(riverState), firstError(durableError, riverErr)
-	if durableState == string(domain.CatalogueSyncFailed) && durableError != "" {
-		item.LogicalState = "failed"
-	}
+	item.LogicalState, item.Error = logicalState(riverState), riverErr
 	if item.LogicalState == "completed" {
 		item.Progress = 100
+	}
+	if newest {
+		durableState = string(s.reconcileDurableStatus(ctx, owner, connectionID, domain.CatalogueSyncState(durableState)))
+		if durableState == string(domain.CatalogueSyncFailed) {
+			if durableError == "" {
+				durableError = statusCancelledReason
+			}
+			item.LogicalState, item.Error = "failed", firstError(durableError, riverErr)
+		}
 	}
 	if syncedAt != nil {
 		item.UpdatedAt = *syncedAt
