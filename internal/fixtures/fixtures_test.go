@@ -213,6 +213,30 @@ func TestStoreMyBooksBrowseSearchesTitlesAndPages(t *testing.T) {
 	})
 }
 
+// TestStoreMyBooksBrowseCountsSkipUnchosenMembers pins that a legacy member
+// with no chosen workflow role is absent from the list and from every count.
+func TestStoreMyBooksBrowseCountsSkipUnchosenMembers(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "unchosen-de", OwnerID: OwnerID, Title: "Unchosen", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "unchosen-it", OwnerID: OwnerID, Title: "Unchosen Italian", LanguageState: domain.LanguageChosen, LanguageTag: "it"}},
+	}
+	store.unchosen[fixtureDispositionKey(OwnerID, "unchosen-de")] = true
+	store.unchosen[fixtureDispositionKey(OwnerID, "unchosen-it")] = true
+
+	for _, language := range []string{"", "de"} {
+		result, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", language, "", false, 0, 25)
+		require.NoError(t, err)
+		assert.Zero(t, result.AllCount, "language %q", language)
+		assert.Zero(t, result.ScopeTotal, "language %q", language)
+		assert.Zero(t, result.Total, "language %q", language)
+		assert.Empty(t, result.Counts, "language %q", language)
+		assert.Empty(t, result.DispositionCounts, "language %q", language)
+		assert.Zero(t, result.ReadCount, "language %q", language)
+	}
+}
+
 // TestStoreMyBooksBrowseCountsLanguageAndWorkflow holds the count steps: the
 // language pills with unknown last, the Read projection, the persisted
 // disposition counts, the Read-history filter, and the language scope.

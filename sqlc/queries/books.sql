@@ -135,14 +135,18 @@ WHERE e.book_owner_id = sqlc.arg('owner')
   );
 
 -- name: CountMyBooksAll :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = sqlc.arg('owner');
+-- Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner');
 
 -- name: CountMyBooksByLanguage :many
-SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_language_tag END)::text AS language_tag,
+-- Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
+SELECT (CASE WHEN e.book_language_state = 'unknown' THEN 'unknown' ELSE e.book_language_tag END)::text AS language_tag,
        count(*) AS book_count
 FROM my_books_evidence e
-WHERE book_owner_id = sqlc.arg('owner') AND book_language_state IN ('chosen', 'unknown')
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner') AND e.book_language_state IN ('chosen', 'unknown')
 GROUP BY 1;
 
 -- name: GetMyBookDetail :one

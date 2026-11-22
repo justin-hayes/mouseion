@@ -232,6 +232,21 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 	}
 }
 
+// TestMyBooksRedirectPageNeverTargetsAPageTheTabCannotList pins that the Read
+// tab's empty page recovers to page 1: the scope total counts Books the Read
+// tab does not list, so it cannot size the tab's last page.
+func TestMyBooksRedirectPageNeverTargetsAPageTheTabCannotList(t *testing.T) {
+	result := domain.MyBooksBrowseResult{Total: 0, ScopeTotal: 26}
+
+	page, redirect := myBooksRedirectPage(myBooksLibraryRequest{page: 3, history: true}, result)
+	assert.True(t, redirect)
+	assert.Equal(t, 1, page, "the Read tab lists none of the scope total")
+
+	page, redirect = myBooksRedirectPage(myBooksLibraryRequest{page: 3}, result)
+	assert.True(t, redirect)
+	assert.Equal(t, 1, page, "an empty view has no page beyond the first")
+}
+
 func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	h, cookies, _, fixtureStore := readingFixtureSession(t)
 	handler := requireHandler(t, h)
@@ -303,10 +318,10 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	store.result.ScopeTotal = 26
 	response = request("/library?page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?page=2", response.Header().Get("Location"))
+	assert.Equal(t, "/library", response.Header().Get("Location"))
 	partialStalePage := partialRequest("/library?page=3")
 	assert.Equal(t, http.StatusOK, partialStalePage.Code)
-	assert.Equal(t, "/library?page=2", partialStalePage.Header().Get("Hx-Redirect"))
+	assert.Equal(t, "/library", partialStalePage.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialStalePage.Header().Get("Location"))
 	store.result = persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{{Book: domain.Book{ID: "unknown-book", OwnerID: fixtures.OwnerID, Title: "Unknown Book", LanguageState: domain.LanguageUnknown}}},

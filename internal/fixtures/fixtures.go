@@ -79,6 +79,9 @@ type Store struct {
 	myBooks                []domain.MyBook
 	dispositions           map[string]domain.BookDisposition
 	dispositionRevisions   map[string]int64
+	// unchosen holds legacy active members with no chosen workflow role, keyed
+	// like dispositions. My Books neither lists nor counts them.
+	unchosen map[string]bool
 	// epubAcquisitionFailures is the latest failed EPUB acquisition per Book,
 	// keyed by fixtureDispositionKey. A successful acquisition deletes the row.
 	epubAcquisitionFailures map[string]domain.EPUBAcquisitionFailureRecord
@@ -243,6 +246,7 @@ func NewStore() *Store {
 			},
 		},
 		dispositionRevisions: make(map[string]int64),
+		unchosen:             make(map[string]bool),
 		removedBooks:         make(map[string]struct{}),
 		importedHistory:      make(map[string]domain.ReadingCompletion),
 		currentReadings: map[string]domain.CurrentReading{

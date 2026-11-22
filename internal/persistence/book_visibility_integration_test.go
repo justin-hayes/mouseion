@@ -12,6 +12,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestMyBooksCountsSkipLegacyUnchosenMembers seeds an active member that has no
+// chosen workflow role, as legacy data does before the backfill runs. The list
+// skips it, so no count may include it.
+func TestMyBooksCountsSkipLegacyUnchosenMembers(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+
+	owner, err := store.CreateUser(ctx, "unchosen-counts", false)
+	require.NoError(t, err)
+	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Unchosen catalog", URL: "https://unchosen.example/opds"})
+	require.NoError(t, err)
+	created, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "unchosen-member", "Unchosen member", "Author", "de")
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `DELETE FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, owner.ID, created.Book.ID)
+	require.NoError(t, err)
+
+	for _, language := range []string{"", "de", "it"} {
+		browse, err := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", false, 0, 25)
+		require.NoError(t, err)
+		assert.Empty(t, browse.Items, "language %q", language)
+		assert.Zero(t, browse.AllCount, "language %q", language)
+		assert.Zero(t, browse.ScopeTotal, "language %q", language)
+		assert.Zero(t, browse.Total, "language %q", language)
+		assert.Empty(t, browse.Counts, "language %q", language)
+	}
+}
+
 // TestRetiredBookVisibilityRowsDoNotAffectMyBooks proves the retired Hidden
 // choice has no effect while its rows stay in place for a later cleanup. The
 // row is written directly because no application path can write one any more.
