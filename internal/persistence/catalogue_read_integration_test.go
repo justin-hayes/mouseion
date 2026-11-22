@@ -90,6 +90,7 @@ func TestMarkBookPreviouslyReadRefusesIneligibleBooks(t *testing.T) {
 
 	inbox, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Inbox", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
+	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, inbox.ID)
 	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, owner.ID, inbox.ID), domain.ErrPreviouslyReadIneligible)
 
 	removed, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Removed", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})

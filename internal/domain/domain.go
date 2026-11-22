@@ -653,11 +653,15 @@ type AnalysisJob struct {
 	ID, DisplayNumber                                int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID string
 	AnalysisRunID                                    string
-	Lifecycle                                        JobLifecycleState
-	Stage                                            BookPreparationStage
-	FailureCode                                      BookPreparationCode
-	Progress                                         int
-	CreatedAt, UpdatedAt                             time.Time
+	// BookID and BookTitle name the Book the job's row links to. The title
+	// falls back to the acquired source's title when the Book row no longer
+	// resolves one.
+	BookID, BookTitle    string
+	Lifecycle            JobLifecycleState
+	Stage                BookPreparationStage
+	FailureCode          BookPreparationCode
+	Progress             int
+	CreatedAt, UpdatedAt time.Time
 }
 type CorpusSelectedUnit struct {
 	UnitID, SourceHref, ResolvedHref, Title string

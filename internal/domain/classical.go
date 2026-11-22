@@ -229,19 +229,6 @@ func ClassicalPreparationSignalFor(status *ClassicalPreparationStatus, unit *Boo
 	return &withdrawn
 }
 
-// ClassicalPreparationJob is one classical preparation shown in the jobs
-// surface. BookTitle is the learner's Book title; State is River's job state.
-// Code is the stable code recorded for a failed attempt.
-type ClassicalPreparationJob struct {
-	ID        int64
-	BookID    string
-	BookTitle string
-	Attempt   int
-	State     string
-	Code      string
-	CreatedAt time.Time
-}
-
 // BookReadingUnit is the immutable association of one Book to the Reading unit
 // it was registered for, with the edition label My Books shows. ReadingUnitKey,
 // Revision and Withdrawn are the current reconciled definition facts the

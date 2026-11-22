@@ -30,6 +30,9 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 			LanguageState: languageState, LanguageTag: languageTag,
 		})
 		require.NoError(t, createErr)
+		// CreateBook makes a To Read Book; the pre-change default was the
+		// retired Inbox state, which only a direct write can seed.
+		testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, book.ID)
 		return book
 	}
 	insertHistory := func(bookID string, completedAt time.Time) {
@@ -68,6 +71,7 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 		LanguageState: domain.LanguageChosen, LanguageTag: "grc",
 	})
 	require.NoError(t, err)
+	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, classicalInbox.ID)
 	languageLessWithHistory := create("Language-less with history", domain.LanguageUnknown, "")
 	insertHistory(languageLessWithHistory.ID, time.Now().UTC().Add(-24*time.Hour))
 	languageLessUnread := create("Language-less unread", domain.LanguageUnknown, "")

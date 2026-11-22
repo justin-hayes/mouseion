@@ -216,6 +216,29 @@ func TestStoreMyBooksBrowseSearchesTitlesAndPages(t *testing.T) {
 	})
 }
 
+// TestStoreMyBooksBrowseCountsSkipUnchosenMembers pins that a legacy member
+// with no chosen workflow role is absent from the list and from every count.
+func TestStoreMyBooksBrowseCountsSkipUnchosenMembers(t *testing.T) {
+	store := NewStore()
+	store.books = nil
+	store.myBooks = []domain.MyBook{
+		{Book: domain.Book{ID: "unchosen-de", OwnerID: OwnerID, Title: "Unchosen", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "unchosen-it", OwnerID: OwnerID, Title: "Unchosen Italian", LanguageState: domain.LanguageChosen, LanguageTag: "it"}},
+	}
+	store.unchosen[fixtureDispositionKey(OwnerID, "unchosen-de")] = true
+	store.unchosen[fixtureDispositionKey(OwnerID, "unchosen-it")] = true
+
+	for _, language := range []string{"", "de"} {
+		result, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", language, "", false, 0, 25)
+		require.NoError(t, err)
+		assert.Zero(t, result.AllCount, "language %q", language)
+		assert.Zero(t, result.ScopeTotal, "language %q", language)
+		assert.Zero(t, result.Total, "language %q", language)
+		assert.Empty(t, result.DispositionCounts, "language %q", language)
+		assert.Zero(t, result.ReadCount, "language %q", language)
+	}
+}
+
 // TestStoreMyBooksBrowseCountsWorkflow holds the To Read and Read tab counts,
 // the To Read tab filter, and the active-language scope.
 func TestStoreMyBooksBrowseCountsWorkflow(t *testing.T) {
@@ -987,9 +1010,12 @@ func TestClassicalFixtureStartsWithNoOwnedUnitsAndRefusesUnknownUnits(t *testing
 
 func TestClassicalFixtureListsNoPreparationJobs(t *testing.T) {
 	store := NewStore()
-	jobs, err := store.ListClassicalPreparationJobs(context.Background(), OwnerID)
+	jobs, err := store.ListBookPreparationJobs(context.Background(), OwnerID)
 	require.NoError(t, err)
-	assert.Empty(t, jobs)
+	for _, job := range jobs {
+		assert.NotEqual(t, domain.BookPreparationKindClassical, job.Kind, "the browser harness binds no River queue")
+		assert.NotEqual(t, domain.BookPreparationKindEPUBAcquisition, job.Kind, "the browser harness binds no River queue")
+	}
 }
 
 func TestFixtureEPUBAcquisitionFailureRequiresCatalogIdentityOutsideEntryStage(t *testing.T) {

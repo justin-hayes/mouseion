@@ -64,6 +64,12 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 		if !seed.Inbox {
 			h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 		}
+		if seed.SourceIdentifier != "" {
+			h.store.aliases = append(h.store.aliases, domain.BookAlias{
+				ID: "contract-source-alias-" + bookID, OwnerID: owner, BookID: bookID,
+				AliasType: domain.AliasStrongBibliographic, Namespace: domain.NamespaceSourceIdentifier, Value: seed.SourceIdentifier,
+			})
+		}
 		return bookID
 	}
 	h.store.books = append(h.store.books, domain.SourceMaterialSummary{
@@ -218,6 +224,10 @@ func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.Rea
 
 func (h *contractHarness) MarkBookPreviouslyRead(owner, bookID string) error {
 	return h.store.MarkBookPreviouslyRead(context.Background(), owner, bookID)
+}
+
+func (h *contractHarness) ResolveOrCreateBookForAcquisition(owner, sourceIdentifier, language, title string) (string, error) {
+	return h.store.ResolveOrCreateBookForAcquisition(context.Background(), owner, sourceIdentifier, language, title)
 }
 
 func (h *contractHarness) RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error {

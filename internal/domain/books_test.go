@@ -23,8 +23,3 @@ func TestBookValidationLanguageState(t *testing.T) {
 		assert.Error(t, book.Validate(), "invalid book accepted: %+v", book)
 	}
 }
-
-func TestBookMembershipValidationRemovalState(t *testing.T) {
-	require.NoError(t, (BookMembership{OwnerID: "owner", BookID: "book", State: "active"}).Validate(), "active membership")
-	assert.Error(t, (BookMembership{OwnerID: "owner", BookID: "book", State: "removed"}).Validate(), "removed membership without timestamp accepted")
-}

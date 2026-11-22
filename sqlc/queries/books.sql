@@ -133,8 +133,10 @@ WHERE e.book_owner_id = sqlc.arg('owner')
   );
 
 -- name: CountMyBooksAll :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = sqlc.arg('owner');
+-- Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = sqlc.arg('owner');
 
 -- name: GetMyBookDetail :one
 SELECT e.*

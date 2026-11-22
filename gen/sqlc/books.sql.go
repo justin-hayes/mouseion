@@ -311,10 +311,12 @@ func (q *Queries) CatalogueIndexBackfillBlocked(ctx context.Context) (bool, erro
 }
 
 const countMyBooksAll = `-- name: CountMyBooksAll :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = $1
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
 `
 
+// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 func (q *Queries) CountMyBooksAll(ctx context.Context, owner string) (int64, error) {
 	row := q.db.QueryRow(ctx, countMyBooksAll, owner)
 	var count int64

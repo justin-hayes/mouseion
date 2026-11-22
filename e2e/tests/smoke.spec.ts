@@ -932,8 +932,9 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.goto('/settings');
     await expect(page).toHaveURL(/\/library/);
     await page.goto('/jobs');
-    await expect(page.getByRole('region', { name: 'Analysis history' })).toBeVisible();
-    await expect(page.locator('a[href="/reading#journey-book-fixture-book"]').first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Book preparations' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Analysis #1', exact: true })).toHaveAttribute('href', '/jobs/42');
+    await expect(page.locator('a[href="/catalogs/books/fixture-book/in-my-books"]').first()).toBeVisible();
   });
 
   test('a running analysis job can be cancelled in the fixture server', async ({ page }) => {

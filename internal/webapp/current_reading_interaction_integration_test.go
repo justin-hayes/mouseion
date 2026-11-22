@@ -36,6 +36,7 @@ func TestCurrentReadingInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBounda
 		t.Helper()
 		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 		require.NoError(t, createErr)
+		testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, book.ID)
 		return book
 	}
 	readingOnly := newBook(alice, "Reading-only integration book")

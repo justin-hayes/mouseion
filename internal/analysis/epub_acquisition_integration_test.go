@@ -262,6 +262,48 @@ func TestEPUBAcquisitionWorkerSkipsABookThatIsNoLongerToRead(t *testing.T) {
 	assert.Zero(t, h.analysis.calls)
 }
 
+// seedLegacyUnchosenBook inserts, directly in the database, the row shape no
+// store operation creates any more: an active My Books member that is not To
+// Read and has no reading history (ADR 0117).
+func seedLegacyUnchosenBook(t *testing.T, pool *pgxpool.Pool, owner, title string) string {
+	t.Helper()
+	ctx := context.Background()
+	var bookID string
+	require.NoError(t, pool.QueryRow(ctx, `INSERT INTO books(owner_id, title, metadata_provenance, language_state, language_tag)
+		VALUES ($1, $2, 'catalog_sync', 'chosen', 'de') RETURNING id::text`, owner, title).Scan(&bookID))
+	_, err := pool.Exec(ctx, `INSERT INTO book_membership(owner_id, book_id, state, activated_at) VALUES ($1, $2, 'active', now())`, owner, bookID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO book_dispositions(owner_id, book_id, disposition) VALUES ($1, $2, 'inbox')`, owner, bookID)
+	require.NoError(t, err)
+	return bookID
+}
+
+func TestEPUBAcquisitionWorkerSkipsALegacyUnchosenRow(t *testing.T) {
+	h := newAcquisitionWorkerHarness(t, true)
+	legacyBookID := seedLegacyUnchosenBook(t, h.pool, h.owner.ID, "Legacy row")
+	var found atomic.Int64
+	worker := &EPUBAcquisitionWorker{
+		Store: h.store,
+		FindTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+			found.Add(1)
+			return cataloguesync.AcquisitionTarget{}, errors.New("must not look up a legacy row")
+		},
+		Acquire:  h.opds.AcquireForBook,
+		Analysis: h.analysis,
+	}
+
+	require.NoError(t, worker.Work(context.Background(), &river.Job[EPUBAcquisitionArgs]{
+		Args: EPUBAcquisitionArgs{OwnerID: h.owner.ID, BookID: legacyBookID},
+	}))
+
+	assert.Zero(t, found.Load(), "the worker checks the Book before resolving its target")
+	detail, err := h.store.GetBookDetail(context.Background(), h.owner.ID, legacyBookID)
+	require.NoError(t, err)
+	assert.Nil(t, detail.EPUBAcquisition, "a skipped legacy row records no failure")
+	assert.Zero(t, h.requests.Load())
+	assert.Zero(t, h.analysis.calls)
+}
+
 func TestSubmitEPUBAcquisitionKeepsOneLiveJobPerBook(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)

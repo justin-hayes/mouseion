@@ -9,6 +9,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// jobBookContext carries the Book identity one operational detail page names.
 type jobBookContext struct {
 	Title, ReadingURL string
 }
@@ -19,14 +20,6 @@ func bookStudyLanguage(detail domain.MyBook) string {
 		language = strings.TrimSpace(detail.Acquired.Source.Language)
 	}
 	return language
-}
-
-// readingBookURLForSource returns a link only when the owner's current Book
-// evidence can be served in Reading Journey. Source material IDs are accepted
-// because Jobs and deck history retain acquisition identities.
-func (h *Handler) readingBookURLForSource(ctx context.Context, owner, sourceID string) (string, error) {
-	book, err := h.jobBookContextForSource(ctx, owner, sourceID)
-	return book.ReadingURL, err
 }
 
 func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID string) (jobBookContext, error) {
@@ -65,19 +58,4 @@ func readingBookURLInActiveLanguage(ctx context.Context, detail domain.MyBook) s
 		}
 	}
 	return readingBookURL(detail.Book.ID)
-}
-
-func (h *Handler) jobBookContexts(ctx context.Context, owner string, sourceIDs []string) (map[string]jobBookContext, error) {
-	contexts := make(map[string]jobBookContext, len(sourceIDs))
-	for _, sourceID := range sourceIDs {
-		if _, seen := contexts[sourceID]; seen {
-			continue
-		}
-		book, err := h.jobBookContextForSource(ctx, owner, sourceID)
-		if err != nil {
-			return nil, err
-		}
-		contexts[sourceID] = book
-	}
-	return contexts, nil
 }

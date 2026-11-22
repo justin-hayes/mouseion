@@ -156,6 +156,8 @@ func analysisJobFromRow(row sqlcgen.ListAnalysisJobsRow) domain.AnalysisJob {
 		ID: row.RiverJobID, DisplayNumber: row.DisplayNumber, OwnerID: row.JOwnerID,
 		SourceMaterialID: row.JSourceMaterialID, ContentHash: row.ContentHash,
 		CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID,
+		BookID:      row.BookID,
+		BookTitle:   row.BookTitle,
 		Lifecycle:   domain.JobLifecycleForRiverState(row.AnalysisState),
 		Stage:       domain.BookPreparationStage(row.AnalysisStage),
 		FailureCode: domain.BookPreparationCode(row.FailureCode),

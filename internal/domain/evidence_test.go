@@ -27,6 +27,14 @@ func TestClassifyBookEvidenceEPUBAcquisitionStages(t *testing.T) {
 			acquisition: AcquisitionInProgress, evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, recovery: RecoveryNone,
 		},
 		{
+			// A completed acquisition is no longer the Book's evidence; the
+			// analysis carries the Book from here, so the classification makes
+			// no acquisition claim for it.
+			name:        "completed",
+			status:      EPUBAcquisitionStatus{State: JobLifecycleCompleted},
+			acquisition: AcquisitionNone, evidence: BookNotAcquired, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+		},
+		{
 			name:        "entry missing",
 			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageEntry, Code: BookPreparationCodeCatalogEntryMissing},
 			acquisition: AcquisitionEntryMissing, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,

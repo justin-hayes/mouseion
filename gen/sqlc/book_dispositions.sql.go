@@ -54,22 +54,6 @@ func (q *Queries) GetBookDispositionStateForUpdate(ctx context.Context, arg GetB
 	return i, err
 }
 
-const insertInboxBookDisposition = `-- name: InsertInboxBookDisposition :exec
-INSERT INTO book_dispositions(owner_id, book_id, disposition)
-VALUES ($1, $2, 'inbox')
-ON CONFLICT (owner_id, book_id) DO NOTHING
-`
-
-type InsertInboxBookDispositionParams struct {
-	OwnerID string
-	BookID  string
-}
-
-func (q *Queries) InsertInboxBookDisposition(ctx context.Context, arg InsertInboxBookDispositionParams) error {
-	_, err := q.db.Exec(ctx, insertInboxBookDisposition, arg.OwnerID, arg.BookID)
-	return err
-}
-
 const listBookDispositions = `-- name: ListBookDispositions :many
 SELECT book_id::text, disposition, revision
 FROM book_dispositions

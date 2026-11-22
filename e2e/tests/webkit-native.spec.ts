@@ -14,7 +14,15 @@ async function signIn(page: Page, username = 'fixture-learner', password = 'fixt
 async function chooseStudyLanguage(page: Page, language: string, noJavaScript = false) {
   const switcher = page.getByLabel('Study language');
   await switcher.selectOption(language);
-  if (noJavaScript) await page.getByRole('button', { name: 'Switch language' }).click();
+  if (!noJavaScript) return;
+  // The native submit navigates through a POST and a redirect back to the
+  // referring page. Wait for that navigation to settle so the caller's next
+  // page.goto is not interrupted by it, including when the referrer is the
+  // page already open.
+  const navigated = page.waitForEvent('framenavigated', frame => frame === page.mainFrame());
+  await page.getByRole('button', { name: 'Switch language' }).click();
+  await navigated;
+  await page.waitForLoadState('load');
 }
 
 async function expectNoHorizontalOverflow(page: Page) {

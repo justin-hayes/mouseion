@@ -225,6 +225,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.NoError(t, err)
 	italianHistoryBook, err := store.CreateBook(ctx, italianHistoryInput)
 	require.NoError(t, err)
+	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, italianHistoryBook.ID)
 	_, err = store.ImportPreviouslyRead(ctx, owner.ID, italianHistoryBook.ID)
 	require.NoError(t, err)
 	inbox, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "it", string(domain.BookDispositionInbox), false, 0, 25)

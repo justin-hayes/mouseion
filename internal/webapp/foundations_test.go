@@ -81,7 +81,7 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T) {
 	var catalogs, jobs, reading bytes.Buffer
 	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, catalogBrowseView{}).Render(context.Background(), &catalogs))
-	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, "", nil).Render(context.Background(), &jobs))
+	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, nil, "", "").Render(context.Background(), &jobs))
 	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "").Render(context.Background(), &reading))
 
 	for _, html := range []string{catalogs.String(), jobs.String(), reading.String()} {

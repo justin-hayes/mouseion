@@ -73,6 +73,54 @@ func TestClearSearchResetsQueryAndPreservesTab(t *testing.T) {
 	assert.Contains(t, html, `href="/library?disposition=to_read"`)
 }
 
+// A GET form submit replaces its action's query string with the form fields, so
+// the active tab has to travel as hidden fields for a search to stay on it.
+func TestMyBooksSearchFormCarriesTheActiveTabWithoutJavaScript(t *testing.T) {
+	cases := []struct {
+		name      string
+		state     MyBooksBrowseState
+		wants     []string
+		forbidden []string
+	}{
+		{name: "read", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 2, History: true}, wants: []string{`<input type="hidden" name="history" value="read">`}, forbidden: []string{`name="disposition"`}},
+		{name: "to read", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 2, Disposition: domain.BookDispositionToRead}, wants: []string{`<input type="hidden" name="disposition" value="to_read">`}, forbidden: []string{`name="history"`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", tc.state).Render(context.Background(), &output))
+			html := output.String()
+			start := strings.Index(html, `<form class="library-search"`)
+			require.GreaterOrEqual(t, start, 0, html)
+			form := html[start : start+strings.Index(html[start:], "</form>")]
+			assert.Contains(t, form, `action="/library"`)
+			assert.Contains(t, form, `hx-get="/library"`)
+			for _, want := range tc.wants {
+				assert.Contains(t, form, want)
+			}
+			for _, bad := range tc.forbidden {
+				assert.NotContains(t, form, bad)
+			}
+		})
+	}
+}
+
+func TestMyBooksUnenhancedSearchSubmitStaysOnItsTab(t *testing.T) {
+	readSubmit := url.Values{"history": {"read"}, "q": {"iliad"}}
+	request, ok := parseMyBooksBrowseRequest(&url.URL{Path: "/library", RawQuery: readSubmit.Encode()})
+	require.True(t, ok)
+	assert.Equal(t, "iliad", request.query)
+	assert.Equal(t, 1, request.page)
+	assert.Empty(t, request.disposition)
+	assert.True(t, request.history)
+
+	toReadSubmit := url.Values{"disposition": {"to_read"}, "q": {"iliad"}}
+	request, ok = parseMyBooksBrowseRequest(&url.URL{Path: "/library", RawQuery: toReadSubmit.Encode()})
+	require.True(t, ok)
+	assert.Equal(t, domain.BookDispositionToRead, request.disposition)
+	assert.False(t, request.history)
+}
+
 type pagedBookBrowseReader struct {
 	*fixtures.Store
 	bookID      string
@@ -182,6 +230,21 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 			}
 		})
 	}
+}
+
+// TestMyBooksRedirectPageNeverTargetsAPageTheTabCannotList pins that the Read
+// tab's empty page recovers to page 1: the scope total counts Books the Read
+// tab does not list, so it cannot size the tab's last page.
+func TestMyBooksRedirectPageNeverTargetsAPageTheTabCannotList(t *testing.T) {
+	result := domain.MyBooksBrowseResult{Total: 0, ScopeTotal: 26}
+
+	page, redirect := myBooksRedirectPage(myBooksLibraryRequest{page: 3, history: true}, result)
+	assert.True(t, redirect)
+	assert.Equal(t, 1, page, "the Read tab lists none of the scope total")
+
+	page, redirect = myBooksRedirectPage(myBooksLibraryRequest{page: 3}, result)
+	assert.True(t, redirect)
+	assert.Equal(t, 1, page, "an empty view has no page beyond the first")
 }
 
 func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {

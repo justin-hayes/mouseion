@@ -5,6 +5,7 @@ package fixtures
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -71,6 +72,9 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(all))
 	for _, book := range all {
 		if !s.fixtureBookActiveLocked(book.Book.OwnerID, book.Book.ID) {
+			continue
+		}
+		if s.unchosen[fixtureDispositionKey(book.Book.OwnerID, book.Book.ID)] {
 			continue
 		}
 		out = append(out, book)
@@ -469,12 +473,14 @@ func fixtureBookFromSource(owner string, source domain.SourceMaterialSummary) do
 	return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: source.BookAuthor, LanguageState: state, LanguageTag: source.Source.Language}
 }
 
+// CreateBook creates a To Read Book, as the PostgreSQL store does: My Books
+// holds only chosen Books (ADR 0117).
 func (s *Store) CreateBook(_ context.Context, book domain.Book) (domain.Book, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	book.ID = fmt.Sprintf("fixture-metadata-%d", len(s.myBooks)+1)
 	s.myBooks = append(s.myBooks, domain.MyBook{Book: book})
-	s.dispositions[fixtureDispositionKey(book.OwnerID, book.ID)] = domain.BookDispositionInbox
+	s.dispositions[fixtureDispositionKey(book.OwnerID, book.ID)] = domain.BookDispositionToRead
 	return book, nil
 }
 
@@ -632,8 +638,36 @@ func (s *Store) GetBookCatalogEntryAlias(_ context.Context, owner, bookID string
 
 func (s *Store) LinkSourceToBook(context.Context, string, string, string) error { return nil }
 
-func (s *Store) ResolveOrCreateBookForAcquisition(context.Context, string, string, string, string) (string, error) {
-	return "", errNotFound
+// ResolveOrCreateBookForAcquisition returns the Book a connectionless source
+// alias names, restoring a removed one as To Read, or creates a To Read
+// acquisition Book. Without an alias the identifier is not recorded, as in
+// PostgreSQL, where ingest links the source after the Book exists.
+func (s *Store) ResolveOrCreateBookForAcquisition(_ context.Context, owner, sourceIdentifier, language, title string) (string, error) {
+	owner, sourceIdentifier, language, title = strings.TrimSpace(owner), strings.TrimSpace(sourceIdentifier), strings.TrimSpace(language), strings.TrimSpace(title)
+	if owner == "" || sourceIdentifier == "" || language == "" || title == "" {
+		return "", errors.New("fixtures: acquisition book identity is incomplete")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, alias := range s.aliases {
+		if alias.OwnerID == owner && alias.ConnectionID == "" && alias.Namespace == domain.NamespaceSourceIdentifier && alias.Value == sourceIdentifier {
+			if !s.fixtureBookActiveLocked(owner, alias.BookID) {
+				s.restoreFixtureBookMembershipLocked(owner, alias.BookID, domain.BookDispositionToRead)
+			}
+			return alias.BookID, nil
+		}
+	}
+	book := domain.Book{
+		ID:                 fmt.Sprintf("fixture-acquisition-%d", len(s.myBooks)+1),
+		OwnerID:            owner,
+		Title:              title,
+		MetadataProvenance: domain.MetadataProvenanceAcquisition,
+		LanguageState:      domain.LanguageChosen,
+		LanguageTag:        language,
+	}
+	s.myBooks = append(s.myBooks, domain.MyBook{Book: book})
+	s.dispositions[fixtureDispositionKey(owner, book.ID)] = domain.BookDispositionToRead
+	return book.ID, nil
 }
 
 func (s *Store) ResolveBookID(_ context.Context, owner, id string) (string, bool, error) {

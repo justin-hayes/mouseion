@@ -252,12 +252,14 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	waitForPreparedBooks(t, pool, learner.ID, 2)
 	assert.Equal(t, int64(1), layerRequests.source.Load(), "the work file downloads once for both Books")
 
-	// The jobs surface shows the Book, attempt and state.
+	// The jobs surface shows the kind, Book and state in the one preparations
+	// table, and each row links to its Book.
 	jobsPage := perform(t, h, http.MethodGet, "/jobs", nil, cookies)
 	require.Equal(t, http.StatusOK, jobsPage.Code, jobsPage.Body.String())
-	for _, want := range []string{"Classical preparation history", "Classical preparation", "Synthetic Work"} {
+	for _, want := range []string{"Book preparations", "Classical preparation", "Synthetic Work"} {
 		assert.Contains(t, jobsPage.Body.String(), want)
 	}
+	assert.Contains(t, jobsPage.Body.String(), "/in-my-books\">Synthetic Work</a>", "a preparation row links to its Book")
 
 	// The store reuses and reports the installation-wide source, and an unknown
 	// Book is not a preparation target.
