@@ -4,6 +4,8 @@ Status: **Accepted** · Date: 2026-11-21 · Author: Justin + OpenCode
 
 Amended 2026-11-21 by [issue #2505](https://github.com/justin-hayes/mouseion/issues/2505): a failed EPUB acquisition is recorded as Book evidence ("A failed EPUB acquisition is Book evidence"), which adds ADR 0047 to the ADRs this one amends.
 
+Amended 2026-11-22 by [ADR 0121](0121-book-preparation-status-vocabulary-and-durable-epub-acquisition.md): the deferred alternative "Acquire the EPUB in a durable job" is adopted, so "Acquisition still runs in the request" no longer holds, and the EPUB acquisition failure becomes one kind of Book preparation failure.
+
 Amends [ADR 0035](0035-my-books-membership-and-source-provenance.md),
 [ADR 0041](0041-catalog-sync-metadata-first.md),
 [ADR 0047](0047-acquisition-folded-into-analysis.md),
