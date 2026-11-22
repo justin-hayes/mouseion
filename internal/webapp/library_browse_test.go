@@ -255,10 +255,10 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	store.result.ScopeTotal = 26
 	response = request("/library?page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?disposition=to_read&page=2", response.Header().Get("Location"))
+	assert.Equal(t, "/library?disposition=to_read", response.Header().Get("Location"))
 	partialStalePage := partialRequest("/library?page=3")
 	assert.Equal(t, http.StatusOK, partialStalePage.Code)
-	assert.Equal(t, "/library?disposition=to_read&page=2", partialStalePage.Header().Get("Hx-Redirect"))
+	assert.Equal(t, "/library?disposition=to_read", partialStalePage.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialStalePage.Header().Get("Location"))
 	// The retired needs-language scope and the Inbox filter are unsupported
 	// rather than translated.
@@ -527,6 +527,25 @@ func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, "/library?disposition=to_read&q=Dampf", response.Header().Get("Location"))
+}
+
+// The To Read tab can be empty while the language scope still counts Read
+// Books. The clamp must recover to the tab's own first page rather than the
+// scope's last page, which would repeat the requested URL forever.
+func TestLibraryHandlerClampsAnEmptyTabToItsFirstPageDespiteScopeCounts(t *testing.T) {
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
+	handler := requireHandler(t, h)
+	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{Total: 0, ScopeTotal: 26, AllCount: 26}})
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?disposition=to_read&page=2", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/library?disposition=to_read", response.Header().Get("Location"))
 }
 
 func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {

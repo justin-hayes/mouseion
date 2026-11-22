@@ -55,7 +55,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	}
 	browse := myBooksBrowseState(request.query, request.page, request.disposition, activeLanguage, activeLanguageLabel, result)
 	browse.History = request.history
-	if page, redirect := myBooksRedirectPage(request, activeLanguage, result); redirect {
+	if page, redirect := myBooksRedirectPage(request, result); redirect {
 		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.disposition, request.history))
 		return
 	}
@@ -96,17 +96,12 @@ func parseMyBooksLibraryRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 // myBooksRedirectPage clamps an out-of-range page. A page past the last page of
 // a non-empty result, or any page beyond the first of an empty one, recovers to
 // the tab's own first page.
-func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string, result domain.MyBooksBrowseResult) (int, bool) {
+func myBooksRedirectPage(request myBooksLibraryRequest, result domain.MyBooksBrowseResult) (int, bool) {
 	rowTotal := myBooksRowCount(result)
 	if rowTotal > 0 && myBooksPageOffset(request.page) >= rowTotal {
 		return myBooksPageCount(rowTotal), true
 	}
 	if request.page > 1 && result.Total == 0 {
-		if request.query == "" && requestedLanguage != "" && !request.history {
-			if lastPage := myBooksPageCount(result.ScopeTotal); lastPage > 0 {
-				return lastPage, true
-			}
-		}
 		return 1, true
 	}
 	return 0, false
