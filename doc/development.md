@@ -119,7 +119,7 @@ build tag is not analysed.
   migrated once per migration set and every test gets its own clone, so tests
   are isolated and packages run in parallel. Without Docker, set
   `MOUSEION_TEST_DATABASE_URL` to a PostgreSQL role with `CREATEDB`. Remove the
-  reusable container with `docker rm -f mouseion-test-postgres`.
+  reusable container and its data volume with `docker rm -fv mouseion-test-postgres`.
   `make test-integration-shared` runs the shared-database runner. CI's
   "Integration tests" job runs the suite under the race detector with
   `make test-integration RACE=1`, the same switch a developer uses to reproduce
