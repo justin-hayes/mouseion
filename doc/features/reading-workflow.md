@@ -18,16 +18,13 @@ language, or presents the learner with an unordered chooser between Books.
 
 ## Shipped workflow
 
-1. Catalog sync adds new Books to **Inbox** as metadata-only records. Books with
-   no supported language remain in the display-only **Needs language** list
-   until catalog metadata is corrected and synchronized again.
-2. In My Books, move an Inbox Book to **To Read** to express intent. This records
-   the disposition and ensures content acquisition and current analysis when
-   needed. Add on the Catalog, including the Classical catalog, performs that
-   intent step directly: it creates or restores the Book as To Read and starts
-   the same download and preparation. Analysis may be queued, running, ready,
-   stale, failed, or unavailable; evidence status does not create a
-   recommendation or order.
+1. Catalog sync maintains each connection's **Catalog index**; it never creates
+   a Book or My Books membership. A fresh learner's My Books stays empty until
+   they choose an entry.
+2. Add on the Catalog, including the Classical catalog, creates or restores the
+   Book as **To Read** and starts the same download and preparation as moving a
+   Book to To Read. Analysis may be queued, running, ready, stale, failed, or
+   unavailable; evidence status does not create a recommendation or order.
 3. Reading shows either the current Book or To Read candidates in neutral title
    order. A Work with more than one To Read Book is one entry whose band table
    lists constituent Book numbers in the shipped band order, omitting empty

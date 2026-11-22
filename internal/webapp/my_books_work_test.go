@@ -90,7 +90,7 @@ func TestMyBooksGroupedWorkRowRendersAccessibleCellsAndOneLegend(t *testing.T) {
 	}
 	for _, forbidden := range []string{
 		"Move the work to To Read", "Move the other",
-		"Refresh metadata", `action="/library/books/iliad-1/to-read"`, `action="/library/books/iliad-2/to-read"`,
+		`action="/library/books/iliad-1/to-read"`, `action="/library/books/iliad-2/to-read"`,
 	} {
 		assert.NotContains(t, grouped, forbidden, "grouped Work row offered an ineligible action %q", forbidden)
 	}

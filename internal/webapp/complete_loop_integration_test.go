@@ -157,30 +157,29 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	syncResponse := perform(t, h, http.MethodPost, "/connections/"+connection.ID+"/sync", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, syncResponse.Code)
 	waitForCompleteLoop(t, func() (bool, string) {
-		books, listErr := store.ListMyBooks(ctx, owner.ID)
-		if listErr != nil {
-			return false, listErr.Error()
-		}
-		if len(books) != 1 {
-			return false, fmt.Sprintf("My Books=%d", len(books))
-		}
 		status, statusErr := store.GetCatalogueSyncStatus(ctx, owner.ID, connection.ID)
 		if statusErr != nil || status.State != domain.CatalogueSyncSynced {
 			return false, fmt.Sprintf("sync status=%+v err=%v", status, statusErr)
+		}
+		if _, entryErr := store.GetCatalogueEntry(ctx, owner.ID, connection.ID, "complete-loop-book"); entryErr != nil {
+			return false, fmt.Sprintf("catalog entry err=%v", entryErr)
 		}
 		return true, ""
 	})
 	books, err := store.ListMyBooks(ctx, owner.ID)
 	require.NoError(t, err)
+	assert.Empty(t, books, "sync created a Book from the catalogue")
+
+	added := perform(t, h, http.MethodPost, "/catalogs/sources/"+connection.ID+"/add", url.Values{"csrf_token": {csrf}, "entry_identifier": {"complete-loop-book"}}, cookies)
+	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	books, err = store.ListMyBooks(ctx, owner.ID)
+	require.NoError(t, err)
 	require.Len(t, books, 1)
 	assert.Equal(t, "Complete Loop Book", books[0].Title)
 	bookID := books[0].ID
-	metadataOnly, err := store.GetBookDetail(ctx, owner.ID, bookID)
+	addedBook, err := store.GetBookDetail(ctx, owner.ID, bookID)
 	require.NoError(t, err)
-	assert.Nil(t, metadataOnly.Acquired, "synced catalogue book was acquired before Journey action")
-
-	added := perform(t, h, http.MethodPost, "/library/books/"+bookID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(metadataOnly.DispositionRevision, 10)}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, added.Code)
+	assert.Equal(t, domain.BookDispositionToRead, addedBook.Disposition)
 
 	var detail domain.MyBook
 	waitForCompleteLoop(t, func() (bool, string) {

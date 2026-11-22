@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/stretchr/testify/assert"
@@ -77,16 +76,17 @@ func myBookRowHTML(t *testing.T, body, bookID string) string {
 func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB", LanguageState: domain.LanguageUnknown}}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{RefreshableBookIDs: map[string]bool{"metadata-book": true}}).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 	assert.NotContains(t, html, "Reading Journey")
 	assert.NotContains(t, html, "Primary Goal")
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/library/books/metadata-book/to-read"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Move to To Read", `action="/library/books/metadata-book/to-read"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		assert.Contains(t, html, want, "metadata-only My Books item missing %q: %s", want, html)
 	}
+	assert.NotContains(t, html, "Refresh metadata", "metadata-only My Books item still exposed the retired refresh action: %s", html)
 	assert.NotContains(t, html, `href="/books/metadata-book"`, "metadata-only My Books row linked to the retired Book detail page: %s", html)
 	row := html
 	if start := strings.Index(row, `aria-labelledby="book-title-metadata-book"`); start >= 0 {
@@ -230,13 +230,6 @@ func TestMyBooksRemoveActionIsRefusedOnTheCurrentReading(t *testing.T) {
 	assert.Contains(t, html, "Your current reading cannot be removed. Finish or end the reading first.")
 	assert.Contains(t, html, `action="/library/books/other-book/remove"`)
 	assert.NotContains(t, html, `action="/library/books/current-book/remove"`, "the current Book exposes no Remove form")
-}
-
-func TestMyBooksMetadataOnlyRowHidesRefreshWhenIneligible(t *testing.T) {
-	book := domain.MyBook{Book: domain.Book{ID: "metadata-book", OwnerID: "owner", Title: "A book without an EPUB"}}
-	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
-	assert.NotContains(t, output.String(), "Refresh metadata", "ineligible metadata-only My Books row exposed refresh: %s", output.String())
 }
 
 func TestMyBooksReadingActionHidesAddForExistingMember(t *testing.T) {
@@ -523,67 +516,18 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToReadingEntry(t *testing.T
 	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
-type bookRefreshStub struct {
-	fixtures.CatalogueSync
-	result cataloguesync.RefreshResult
-	owner  string
-	calls  int
-}
-
-func (s *bookRefreshStub) RegisterConnection(context.Context, string, string) error { return nil }
-func (s *bookRefreshStub) UnregisterConnection(string, string) error                { return nil }
-func (s *bookRefreshStub) ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error) {
-	return nil, nil
-}
-func (s *bookRefreshStub) RefreshEntry(_ context.Context, owner, _ string) (cataloguesync.RefreshResult, error) {
-	s.owner = owner
-	s.calls++
-	return s.result, nil
-}
-
-func TestBookMetadataRefreshNativeAndHTMXFlowsEnforceCSRF(t *testing.T) {
+func TestRetiredMetadataRefreshRouteIsUnsupported(t *testing.T) {
 	h, cookies, csrf, _ := readingFixtureSession(t)
-	stub := &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Updated: true}}
-	requireHandler(t, h).services.CatalogueSync = stub
-	missingCSRF := readingTestRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{}, cookies)
-	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
-	assert.Equal(t, 0, stub.calls)
-	native := readingTestRequest(t, h, "/library/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, native.Code)
-	assert.Contains(t, native.Header().Get("Location"), "Metadata+refreshed", "native refresh location=%q", native.Header().Get("Location"))
-	assert.Equal(t, "fixture-learner", stub.owner)
-
-	h, cookies, csrf, _ = readingFixtureSession(t)
-	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated catalogue title"}, Missing: true}}
-	requireHandler(t, h).services.CatalogueSync = stub
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Hx-Request-Type", "partial")
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		request := httptest.NewRequestWithContext(t.Context(), method, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
+		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		for _, cookie := range cookies {
+			request.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		h.ServeHTTP(response, request)
+		assert.Equal(t, http.StatusNotFound, response.Code, "retired refresh route answered %s with %d", method, response.Code)
 	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Contains(t, response.Body.String(), `id="book-row-fixture-metadata-only"`, "HTMX refresh body=%s", response.Body.String())
-	assert.Contains(t, response.Body.String(), "catalog entry is no longer available", "HTMX refresh body=%s", response.Body.String())
-
-	h, cookies, csrf, _ = readingFixtureSession(t)
-	stub = &bookRefreshStub{result: cataloguesync.RefreshResult{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: "fixture-learner", Title: "Updated row title"}, Updated: true}}
-	requireHandler(t, h).services.CatalogueSync = stub
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/library/books/fixture-metadata-only/refresh", strings.NewReader(url.Values{"csrf_token": {csrf}}.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	request.Header.Set("Hx-Request-Type", "partial")
-	request.Header.Set("Hx-Target", "book-row-fixture-metadata-only")
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response = httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Contains(t, response.Body.String(), `id="book-row-fixture-metadata-only"`, "HTMX row refresh body=%s", response.Body.String())
-	assert.Contains(t, response.Body.String(), "Updated row title", "HTMX row refresh body=%s", response.Body.String())
-	assert.Contains(t, response.Body.String(), "Metadata refreshed.", "HTMX row refresh body=%s", response.Body.String())
 }
 
 func TestMyBookMarginEvidenceShowsRegisteredReadingUnit(t *testing.T) {
@@ -605,7 +549,7 @@ func TestMyBookRowRendersRegisteredEditionAndPreparation(t *testing.T) {
 		ReadingUnit: &domain.BookReadingUnit{EditionLabel: "Marchant 1904"},
 	}
 	var output bytes.Buffer
-	require.NoError(t, MyBookRow("csrf", book, false, "", "").Render(context.Background(), &output))
+	require.NoError(t, MyBookRow("csrf", book, "").Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"Anabasis", "By Xenophon", "Marchant 1904", notPreparedYetNote} {
 		assert.Contains(t, html, want, "registered My Books row missing %q: %s", want, html)

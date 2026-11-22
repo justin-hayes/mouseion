@@ -73,25 +73,6 @@ func (s *Store) DeleteOpdsConnection(_ context.Context, owner, id string) error 
 	return errNotFound
 }
 
-func (s *Store) admitFixtureCatalogueLanguage(owner, connectionID string) {
-	if connectionID != "fixture-browser-sync-connection" {
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, alias := range s.aliases {
-		if alias.OwnerID != owner || alias.ConnectionID != connectionID {
-			continue
-		}
-		for i := range s.myBooks {
-			if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == alias.BookID && s.myBooks[i].Book.LanguageState == domain.LanguageUnknown {
-				s.myBooks[i].Book.LanguageState = domain.LanguageChosen
-				s.myBooks[i].Book.LanguageTag = fixtureCatalogueLanguage
-			}
-		}
-	}
-}
-
 type OPDS struct{}
 
 func (OPDS) AcquireForBook(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {

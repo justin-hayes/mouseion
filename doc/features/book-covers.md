@@ -33,9 +33,8 @@ by [ADR 0077](../adr/0077-catalog-supplied-book-covers.md).
 ## Scope
 
 The feature applies to active-language My Books results at `/library`, current
-and To Read Book rows at `/reading`, catalog sync, and per-Book metadata refresh.
-Search, alphabetical ordering, paging, language scope, and Book identity remain
-unchanged.
+and To Read Book rows at `/reading`, and catalog sync. Search, alphabetical
+ordering, paging, language scope, and Book identity remain unchanged.
 
 The `/library?needs-language` diagnostic state remains a compact text-led list.
 Its task is to identify metadata that must be corrected in the catalog, not to
@@ -97,8 +96,8 @@ browse or mutate the active-language collection.
   and private browser caching. Cross-owner and missing references reveal no Book
   or Catalog metadata.
 - Retrieval failures may be recorded in operational diagnostics and retried by
-  a later catalog sync or explicit metadata refresh. They do not add a per-Book
-  error banner, a new primary destination, or a learner-facing retry action.
+  a later catalog sync. They do not add a per-Book error banner, a new primary
+  destination, or a learner-facing retry action.
 
 ## My Books cover grid
 
@@ -120,15 +119,12 @@ Each Book item presents, in order:
    status on the grid item.
 4. One visible, labeled Reading action: **Move to To Read** or **View in
    Reading**, accompanied by an icon.
-5. A labeled native **More actions** disclosure containing textual **Refresh
-   metadata** actions when eligible, and **Hide** or **Unhide** for eligible
-   Books. Remove from My Books ends membership without changing the Book's evidence,
-   history, or artifacts, while Hide removes a Book from default views only.
-
-Every catalog-backed Book whose source connection remains available offers
-**Refresh metadata**, whether or not EPUB content has been acquired. Refresh can
-update title, author, or cover metadata and has no analysis or acquired-content
-side effect.
+5. A labeled native **More actions** disclosure containing **Hide** or
+   **Unhide** for eligible Books. Remove from My Books ends membership without
+   changing the Book's evidence, history, or artifacts, while Hide removes a
+   Book from default views only. There is no per-Book metadata refresh: a
+   catalog-linked Book follows its entry's title, author, and cover at the next
+   sync.
 
 When a Reading anchor exists, the cover and title form one link to that
 anchor. Otherwise neither performs an implicit action; the explicit Reading

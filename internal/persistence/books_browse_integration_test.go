@@ -388,22 +388,14 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 	require.NotNil(t, got.DeckPreparedAt)
 	assert.Equal(t, ready.CompletedAt, got.DeckPreparedAt)
 
-	// Generic detail reads remain lean; only the metadata-refresh row read loads
-	// corpus-sized current margin evidence.
+	// Generic detail reads stay lean; corpus-sized current margin evidence
+	// belongs to the My Books browse projection only.
 	detail, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Zero(t, detail.CoverageKnownTokens)
 	assert.Zero(t, detail.CoverageTotalTokens)
 	assert.Empty(t, detail.DeckState)
 	assert.False(t, detail.IsCurrentReading)
-
-	refreshDetail, err := store.GetBookDetailForMyBooksRefresh(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, got.CoverageKnownTokens, refreshDetail.CoverageKnownTokens, "excluded Known occurrences must not inflate the numerator")
-	assert.Equal(t, int64(100), refreshDetail.CoverageTotalTokens)
-	assert.Equal(t, got.DeckState, refreshDetail.DeckState)
-	assert.Equal(t, got.DeckCardCount, refreshDetail.DeckCardCount)
-	assert.True(t, refreshDetail.IsCurrentReading)
 }
 
 func TestMyBooksBrowseRejectsInvalidDispositionAndClampsPagination(t *testing.T) {

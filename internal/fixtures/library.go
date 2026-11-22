@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -47,13 +46,6 @@ func (s *Store) ListMyBooksWithEvidence(_ context.Context, owner string) ([]doma
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.myBooksForOwner(owner), nil
-}
-
-// GetBookDetailForMyBooksRefresh returns the same complete margin evidence as
-// GetBookDetail: the in-memory fixture never defers the evidence the
-// production refresh read loads lazily.
-func (s *Store) GetBookDetailForMyBooksRefresh(ctx context.Context, owner, id string) (domain.MyBook, error) {
-	return s.GetBookDetail(ctx, owner, id)
 }
 
 func (s *Store) GetBookDetail(_ context.Context, owner, id string) (domain.MyBook, error) {
@@ -629,68 +621,6 @@ func (s *Store) TransitionBookDisposition(_ context.Context, owner, bookID strin
 	s.dispositions[key] = disposition
 	s.dispositionRevisions[key] = revision + 1
 	return true, nil
-}
-
-func (s *Store) UpdateBookMetadata(_ context.Context, owner, bookID, title, author, languageState, languageTag string) (domain.Book, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if languageState == domain.LanguageChosen {
-		languageTag = canonicalization.NormalizeLanguage(languageTag)
-	}
-	for i := range s.books {
-		if s.books[i].Source.OwnerID == owner && (s.books[i].Source.ID == bookID || s.books[i].BookID == bookID) {
-			return s.updateFixtureSourceMetadataLocked(i, owner, title, author, languageState, languageTag), nil
-		}
-	}
-	for i := range s.myBooks {
-		if s.myBooks[i].Book.OwnerID == owner && s.myBooks[i].Book.ID == bookID {
-			return s.updateFixtureMyBookMetadataLocked(i, owner, title, author, languageState, languageTag), nil
-		}
-	}
-	return domain.Book{}, errNotFound
-}
-
-// updateFixtureSourceMetadataLocked writes metadata to the source entry at
-// index, resolving its Book ID, and clears goals the retag invalidates. Callers
-// hold s.mu.
-func (s *Store) updateFixtureSourceMetadataLocked(index int, owner, title, author, languageState, languageTag string) domain.Book {
-	source := &s.books[index]
-	resolvedBookID := source.BookID
-	if resolvedBookID == "" {
-		resolvedBookID = source.Source.ID
-	}
-	source.BookTitle = title
-	source.BookAuthor = strings.TrimSpace(author)
-	if languageState == domain.LanguageUnknown {
-		languageTag = ""
-	}
-	source.Source.Language = languageTag
-	s.clearFixtureGoalsForRetaggedBook(owner, resolvedBookID, languageState, languageTag)
-	return domain.Book{ID: resolvedBookID, OwnerID: owner, Title: title, Author: strings.TrimSpace(author), LanguageState: languageState, LanguageTag: languageTag}
-}
-
-// updateFixtureMyBookMetadataLocked writes metadata to the metadata-only entry
-// at index and clears goals the retag invalidates. Callers hold s.mu.
-func (s *Store) updateFixtureMyBookMetadataLocked(index int, owner, title, author, languageState, languageTag string) domain.Book {
-	book := &s.myBooks[index].Book
-	book.Title = title
-	book.Author = strings.TrimSpace(author)
-	book.LanguageState = languageState
-	book.LanguageTag = languageTag
-	s.clearFixtureGoalsForRetaggedBook(owner, book.ID, languageState, languageTag)
-	return *book
-}
-
-func (s *Store) clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, language string) {
-	language = normalizeFixtureLanguage(language)
-	for key, goal := range s.currentReadings {
-		if goal.OwnerID != owner || goal.BookID != bookID {
-			continue
-		}
-		if languageState != domain.LanguageChosen || goal.Language != language {
-			delete(s.currentReadings, key)
-		}
-	}
 }
 
 func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) error {

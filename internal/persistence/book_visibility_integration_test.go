@@ -24,7 +24,7 @@ func TestBookVisibilityIsIndependentAndRevisionProtected(t *testing.T) {
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Visibility catalog", URL: "https://visibility.example/opds"})
 	require.NoError(t, err)
-	created, err := store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "visibility-entry", "Visibility book", "Author", "de")
+	created, err := seedCatalogueBook(t, ctx, store, alice.ID, connection.ID, "visibility-entry", "Visibility book", "Author", "de")
 	require.NoError(t, err)
 	bookID := created.Book.ID
 
@@ -63,7 +63,7 @@ func TestBookVisibilityIsIndependentAndRevisionProtected(t *testing.T) {
 	applied, err = store.TransitionBookDisposition(ctx, alice.ID, bookID, detail.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err)
 	require.True(t, applied)
-	_, err = store.ReconcileCatalogueEntry(ctx, alice.ID, connection.ID, "visibility-entry", "Refreshed", "Other", "it")
+	_, err = store.UpdateCatalogueBookMetadata(ctx, alice.ID, connection.ID, "visibility-entry", "Refreshed", "Other")
 	require.NoError(t, err)
 
 	detail, err = store.GetBookDetail(ctx, alice.ID, bookID)
@@ -87,9 +87,9 @@ func TestBookVisibilityScopesBrowseCounts(t *testing.T) {
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Browse catalog", URL: "https://browse-visibility.example/opds"})
 	require.NoError(t, err)
-	visible, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "visible", "Visible", "A", "de")
+	visible, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "visible", "Visible", "A", "de")
 	require.NoError(t, err)
-	hiddenDE, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "hidden-de", "Hidden de", "A", "de")
+	hiddenDE, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "hidden-de", "Hidden de", "A", "de")
 	require.NoError(t, err)
 	hiddenUnknown, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Hidden unknown", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestBookVisibilityConcurrentWritesSerialize(t *testing.T) {
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Race catalog", URL: "https://race-visibility.example/opds"})
 	require.NoError(t, err)
-	created, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "race", "Race", "A", "de")
+	created, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "race", "Race", "A", "de")
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

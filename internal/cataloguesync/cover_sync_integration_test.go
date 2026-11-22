@@ -290,10 +290,24 @@ func (f *coverFixture) coverState(bookID string) domain.BookCoverRetrieval {
 	return cover
 }
 
+// seedBook creates the learner's chosen Book for an entry, so sync has a
+// linked Book whose cover advertisement it can reconcile. Sync itself never
+// creates Books.
+func (f *coverFixture) seedBook(t *testing.T, connectionID string, entry coverEntry) {
+	t.Helper()
+	require.NoError(t, f.store.ReconcileCatalogueIndex(f.ctx, f.ownerID, connectionID, []domain.CatalogueIndexEntry{{
+		ConnectionID: connectionID, EntryIdentifier: entry.id, Title: entry.title,
+		LanguageTag: "de", EPUBHref: f.catalog.server.URL + "/" + entry.id + ".epub",
+	}}, time.Now()))
+	_, err := f.store.AddCatalogueEntry(f.ctx, f.ownerID, connectionID, entry.id)
+	require.NoError(t, err)
+}
+
 func (f *coverFixture) establishCover(t *testing.T, entry coverEntry, image coverImage) (domain.Book, []byte) {
 	t.Helper()
 	f.catalog.setImage(entry.imageHref, image)
 	f.catalog.setEntries("/a", entry)
+	f.seedBook(t, f.connection.ID, entry)
 	require.NoError(t, f.sync(f.connection.ID))
 	book := f.bookByTitle(entry.title)
 	args := f.pendingCoverArgs()
@@ -573,6 +587,7 @@ func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
 				body: testPNG(t, 10), contentType: tt.contentType, omitContentType: tt.omitContentType,
 			})
 			f.catalog.setEntries("/a", entry)
+			f.seedBook(t, f.connection.ID, entry)
 			require.NoError(t, f.sync(f.connection.ID), "cover validation must not fail catalog reconciliation")
 			status, err := f.store.GetCatalogueSyncStatus(f.ctx, f.ownerID, f.connection.ID)
 			require.NoError(t, err)
@@ -605,6 +620,7 @@ func TestCatalogueSyncCoverFailedInitialCandidateLeavesAliasFallbackEligible(t *
 	entryA := coverEntry{id: "entry-a", title: "Fallback Book", imageHref: "/a/image/a.png"}
 	f.catalog.setImage(entryA.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
 	f.catalog.setEntries("/a", entryA)
+	f.seedBook(t, f.connection.ID, entryA)
 	require.NoError(t, f.sync(f.connection.ID))
 	book := f.bookByTitle(entryA.title)
 	_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
@@ -650,6 +666,7 @@ func TestCatalogueSyncCoverFailedGenerationRecoversOnFallbackRetry(t *testing.T)
 	entryB := coverEntry{id: "entry-b", title: entryA.title, imageHref: "/b/image/b.png"}
 	f.catalog.setImage(entryA.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
 	f.catalog.setEntries("/a", entryA)
+	f.seedBook(t, f.connection.ID, entryA)
 	require.NoError(t, f.sync(f.connection.ID))
 	book := f.bookByTitle(entryA.title)
 	_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
@@ -823,6 +840,7 @@ func TestCatalogueSyncCoverExplicitAbsenceRetiresCurrentGenerationCandidate(t *t
 		f.catalog.setImage(firstEntry.imageHref, coverImage{body: testPNG(t, 10), contentType: "image/png"})
 		f.catalog.setImage(secondEntry.imageHref, coverImage{body: testPNG(t, 20), contentType: "image/png"})
 		f.catalog.setEntries("/a", firstEntry)
+		f.seedBook(t, f.connection.ID, firstEntry)
 		require.NoError(t, f.sync(f.connection.ID))
 		book := f.bookByTitle(title)
 		second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})

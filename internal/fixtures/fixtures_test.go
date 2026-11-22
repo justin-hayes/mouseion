@@ -111,39 +111,6 @@ func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	assert.Empty(t, got, "cleared active language=%q err=%v", got, err)
 }
 
-func TestFixtureCatalogueSyncAddsPassiveStudyLanguageArrival(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	sync := NewCatalogueSync(store)
-
-	got, err := store.GetStoredActiveStudyLanguage(ctx, OwnerID)
-	require.NoError(t, err, "initial active language=%q err=%v", got, err)
-	assert.Equal(t, "de", got, "initial active language=%q err=%v", got, err)
-	recent, err := store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID)
-	require.NoError(t, err, "initial recent language=%q err=%v", recent, err)
-	assert.Equal(t, "it", recent, "initial recent language=%q err=%v", recent, err)
-
-	_, err = sync.Enqueue(ctx, OwnerID, "fixture-connection")
-	require.NoError(t, err)
-
-	languages, err := store.ListStudyLanguages(ctx, OwnerID)
-	require.NoError(t, err)
-	var foundSpanish bool
-	for _, language := range languages {
-		if language.Language == "es" {
-			foundSpanish = true
-			break
-		}
-	}
-	assert.True(t, foundSpanish, "study languages after sync=%+v, want Spanish arrival", languages)
-	recent, err = store.MostRecentlyActivatedStudyLanguage(ctx, OwnerID)
-	require.NoError(t, err, "recent language after sync=%q err=%v", recent, err)
-	assert.Equal(t, "es", recent, "recent language after sync=%q err=%v", recent, err)
-	got, err = store.GetStoredActiveStudyLanguage(ctx, OwnerID)
-	require.NoError(t, err, "active language changed after sync=%q err=%v", got, err)
-	assert.Equal(t, "de", got, "active language changed after sync=%q err=%v", got, err)
-}
-
 func TestStoreKnownVocabularyOnlyLanguageRemainsViewable(t *testing.T) {
 	store := NewStore()
 	err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr")
@@ -620,19 +587,6 @@ func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testin
 	assert.Equal(t, first.Completion, retry.Completion)
 }
 
-func TestStoreRetaggingGoalBookClearsItsLanguageGoal(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	_, err := store.UpdateBookMetadata(ctx, OwnerID, ItalianGoalBookID, "Una meta", "", domain.LanguageUnknown, "")
-	require.NoError(t, err, "retag Italian Goal book: %v", err)
-	goal, err := store.GetCurrentReading(ctx, OwnerID, "it")
-	require.NoError(t, err, "Italian Goal after retag=%+v err=%v", goal, err)
-	assert.Empty(t, goal.BookID, "Italian Goal after retag=%+v err=%v", goal, err)
-	goal, err = store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err, "German Goal after Italian retag=%+v err=%v", goal, err)
-	assert.Equal(t, BookID, goal.BookID, "German Goal after Italian retag=%+v err=%v", goal, err)
-}
-
 func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *testing.T) {
 	store := NewStore()
 	store.books[0].Source.Title = "Acquisition-internal title"
@@ -681,7 +635,7 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	}
 }
 
-func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
+func TestFixtureCatalogueAliasScopesAcquisition(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 	sync := NewCatalogueSync(store)
@@ -694,21 +648,12 @@ func TestFixtureCatalogueAliasScopesRefreshAndAcquisition(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, alias.ConnectionID, target.ConnectionID, "acquisition target=%+v alias=%+v", target, alias)
 	assert.Equal(t, alias.Value, target.Entry.ID, "acquisition target=%+v alias=%+v", target, alias)
-	store.myBooks[0].Book.Title = "Stale metadata"
-	result, err := sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
-	require.NoError(t, err, "refresh result=%+v err=%v", result, err)
-	assert.True(t, result.Updated, "refresh result=%+v err=%v", result, err)
-	assert.Equal(t, "Metadata-only migration book", result.Book.Title, "refresh result=%+v err=%v", result, err)
 
 	store.aliases[0].ConnectionID = "fixture-failed-connection"
 	t.Run("wrong connection acquisition is not found", func(t *testing.T) {
 		_, err := sync.FindAcquisitionTarget(ctx, OwnerID, "fixture-metadata-only")
 		require.ErrorIs(t, err, cataloguesync.ErrNotFound, "wrong connection acquisition error=%v", err)
 	})
-	result, err = sync.RefreshEntry(ctx, OwnerID, "fixture-metadata-only")
-	require.NoError(t, err, "wrong connection refresh=%+v err=%v", result, err)
-	assert.True(t, result.Missing, "wrong connection refresh=%+v err=%v", result, err)
-	assert.False(t, result.Failed, "wrong connection refresh=%+v err=%v", result, err)
 }
 
 func TestFixtureReservedVocabularyFollowsCurrentReadingSnapshot(t *testing.T) {
@@ -731,31 +676,6 @@ func TestFixtureReservedVocabularyFollowsCurrentReadingSnapshot(t *testing.T) {
 	released, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, released, "reserved after Goal clear=%+v err=%v", released, err)
-}
-
-func TestFixtureCatalogueSyncAdmitsNeedsLanguageBook(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	sync := NewCatalogueSync(store)
-	before, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, "", false, 0, 25)
-	require.NoError(t, err, "initial needs-language browse=%+v err=%v", before, err)
-	assert.GreaterOrEqual(t, before.Total, 1, "initial needs-language browse=%+v err=%v", before, err)
-	_, err = sync.Enqueue(ctx, OwnerID, "fixture-browser-sync-connection")
-	require.NoError(t, err)
-	afterUnknown, err := store.ListMyBooksBrowse(ctx, OwnerID, "", domain.LanguageUnknown, "", false, 0, 25)
-	require.NoError(t, err, "needs-language book remained after sync=%+v err=%v", afterUnknown, err)
-	assert.Equal(t, before.Total-1, afterUnknown.Total, "needs-language book remained after sync=%+v err=%v", afterUnknown, err)
-	afterGerman, err := store.ListMyBooksBrowse(ctx, OwnerID, "", "de", "", false, 0, 25)
-	require.NoError(t, err, "re-synced book missing from German browse=%+v err=%v", afterGerman, err)
-	assert.NotZero(t, afterGerman.Total, "re-synced book missing from German browse=%+v err=%v", afterGerman, err)
-	found := false
-	for _, book := range afterGerman.Items {
-		if book.Book.ID == BrowserSyncBookID {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "re-synced metadata book missing from German page=%+v", afterGerman.Items)
 }
 
 func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
@@ -940,27 +860,6 @@ func TestFixtureGetBookResolvesUntaggedSourceAndReportsMissing(t *testing.T) {
 
 	t.Run("an unknown Book is not found", func(t *testing.T) {
 		_, err := store.GetBook(ctx, OwnerID, "missing")
-		require.ErrorIs(t, err, domain.ErrNotFound)
-	})
-}
-
-// TestFixtureUpdateBookMetadataNormalizesChosenLanguageAndReportsMissing holds
-// what UpdateBookMetadata writes for a chosen language and when no Book matches.
-func TestFixtureUpdateBookMetadataNormalizesChosenLanguageAndReportsMissing(t *testing.T) {
-	store := NewStore()
-	ctx := t.Context()
-
-	t.Run("a chosen language is canonicalized", func(t *testing.T) {
-		book, err := store.UpdateBookMetadata(ctx, OwnerID, routeDiffersBookID, "Neuer Titel", "  Mara Weiss  ", domain.LanguageChosen, "DE_de")
-		require.NoError(t, err)
-		assert.Equal(t, "Neuer Titel", book.Title)
-		assert.Equal(t, "Mara Weiss", book.Author)
-		assert.Equal(t, domain.LanguageChosen, book.LanguageState)
-		assert.Equal(t, "de", book.LanguageTag)
-	})
-
-	t.Run("an unknown Book is not found", func(t *testing.T) {
-		_, err := store.UpdateBookMetadata(ctx, OwnerID, "missing", "Titel", "", domain.LanguageChosen, "de")
 		require.ErrorIs(t, err, domain.ErrNotFound)
 	})
 }

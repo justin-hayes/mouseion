@@ -35,7 +35,7 @@ func TestCatalogueSyncConnectionViewExplainsEmptySyncResult(t *testing.T) {
 	})
 	html := renderPattern(t, CatalogueSyncConnectionStatus(view), "")
 	requireMarkup(t, html,
-		"Sync completed, but no eligible EPUB entries were found; the library was unchanged.",
+		"Sync completed. The Catalog index is current; no Book metadata changed.",
 	)
 }
 

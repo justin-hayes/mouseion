@@ -99,20 +99,6 @@ type AcquisitionTarget struct {
 	Href         string
 }
 
-// RefreshResult describes a single-book metadata refresh without implying any
-// content, analysis, or deck work.
-type RefreshResult struct {
-	Book         domain.Book
-	Updated      bool
-	Created      bool
-	Missing      bool
-	Failed       bool
-	CoverPending bool
-	// CurrentReadingEnded reports that a language correction ended an
-	// incompatible Current reading.
-	CurrentReadingEnded bool
-}
-
 // ConnectionStore contains only the owner-scoped connection lookups used by
 // catalogue sync scheduling and feed access.
 type ConnectionStore interface {
@@ -128,8 +114,7 @@ type CatalogueStore interface {
 	GetBookCatalogEntryAlias(context.Context, string, string) (domain.BookAlias, error)
 	GetBookCatalogEntryAliasForConnection(context.Context, string, string, string) (domain.BookAlias, error)
 	SyncSupportedLanguages(context.Context, []domain.SupportedLanguage) error
-	ListSupportedLanguages(context.Context) ([]domain.SupportedLanguage, error)
-	ReconcileCatalogueEntry(context.Context, string, string, string, string, string, string) (persistence.CatalogueEntryReconcileResult, error)
+	UpdateCatalogueBookMetadata(context.Context, string, string, string, string, string) (persistence.CatalogueBookMetadataResult, error)
 	ReconcileCatalogueIndex(context.Context, string, string, []domain.CatalogueIndexEntry, time.Time) error
 	GetCatalogueEntry(context.Context, string, string, string) (domain.CatalogueIndexEntry, error)
 }
@@ -289,139 +274,6 @@ func (s *Service) UnregisterConnection(owner, connectionID string) error {
 	delete(s.periodicIDs, PeriodicJobID(owner, connectionID))
 	s.client.PeriodicJobs().RemoveByID(PeriodicJobID(owner, connectionID))
 	return nil
-}
-
-// RefreshEntry reloads a catalogue-backed Book in the owner's scope, finds its
-// recorded entry through the existing catalogue reader, and applies the same
-// metadata-only reconciliation used by catalogue sync.
-func (s *Service) RefreshEntry(ctx context.Context, owner, bookID string) (RefreshResult, error) {
-	if s == nil || s.catalogue == nil || s.connections == nil || s.reader == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" {
-		return RefreshResult{}, ErrNotFound
-	}
-	book, err := s.catalogue.GetBook(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return RefreshResult{}, ErrNotFound
-	}
-	if err != nil {
-		return RefreshResult{Failed: true}, err
-	}
-	alias, err := s.catalogue.GetBookCatalogEntryAlias(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return RefreshResult{}, ErrNotFound
-	}
-	if err != nil {
-		return RefreshResult{Book: book, Failed: true}, err
-	}
-	if alias.BookID != book.ID || alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
-		return RefreshResult{}, ErrNotFound
-	}
-	resolved, err := s.resolveRefreshEntry(ctx, owner, book, alias)
-	if err != nil {
-		return RefreshResult{Book: book, Failed: true}, err
-	}
-	if !resolved.found {
-		return RefreshResult{Book: book, Missing: true}, nil
-	}
-	return s.applyRefreshedEntry(ctx, owner, book, resolved)
-}
-
-// applyRefreshedEntry reconciles the matched catalogue entry, which compares
-// the feed metadata against the Book and persists any change, then records and
-// schedules the entry's cover advertisement. It returns the metadata-only
-// refresh outcome.
-func (s *Service) applyRefreshedEntry(ctx context.Context, owner string, book domain.Book, resolved refreshEntry) (RefreshResult, error) {
-	reconciled, err := s.catalogue.ReconcileCatalogueEntry(ctx, owner, resolved.connectionID, resolved.entry.ID, resolved.entry.Title, resolved.entry.Author, languageTag(resolved.scope))
-	if err != nil {
-		return RefreshResult{Book: book, Failed: true}, err
-	}
-	coverPending, err := s.recordAndEnqueueCover(ctx, owner, reconciled.Book.ID, resolved.connectionID, resolved.entry)
-	if err != nil {
-		return RefreshResult{Book: reconciled.Book, Failed: true}, err
-	}
-	return RefreshResult{Book: reconciled.Book, Updated: reconciled.TitleChanged || reconciled.AuthorChanged || reconciled.LanguageChanged, Created: reconciled.Created, CoverPending: coverPending, CurrentReadingEnded: reconciled.CurrentReadingEnded}, nil
-}
-
-// refreshEntry is the catalogue entry a Book refresh resolved to, together
-// with the connection and language scope that produced it.
-type refreshEntry struct {
-	connectionID string
-	entry        opds.Entry
-	scope        languageScope
-	found        bool
-}
-
-// resolveRefreshEntry loads the alias's connection, derives the Book's
-// eligible language scopes, and walks their EPUB feeds for the recorded source
-// identifier. It never trusts a job-supplied URL.
-func (s *Service) resolveRefreshEntry(ctx context.Context, owner string, book domain.Book, alias domain.BookAlias) (refreshEntry, error) {
-	connection, err := s.connections.GetOpdsConnection(ctx, owner, alias.ConnectionID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return refreshEntry{}, fmt.Errorf("%w: %s", ErrConnectionNotFound, alias.ConnectionID)
-	}
-	if err != nil {
-		return refreshEntry{}, err
-	}
-	scopes, err := s.refreshLanguageScopes(ctx, owner, connection.ID, book)
-	if err != nil {
-		return refreshEntry{}, err
-	}
-	for _, scope := range scopes {
-		feed, feedErr := s.reader.BrowseLanguage(ctx, owner, connection.ID, scope.languageID)
-		if feedErr != nil {
-			return refreshEntry{}, feedErr
-		}
-		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-			if strings.TrimSpace(entry.ID) != alias.Value || strings.TrimSpace(entry.Title) == "" {
-				continue
-			}
-			return refreshEntry{connectionID: connection.ID, entry: entry, scope: scope, found: true}, nil
-		}
-	}
-	return refreshEntry{}, nil
-}
-
-// refreshLanguageScopes mirrors the sync scope: ready non-English capabilities
-// when available, otherwise the Book's advertised language feed.
-func (s *Service) refreshLanguageScopes(ctx context.Context, owner, connectionID string, book domain.Book) ([]languageScope, error) {
-	supported, err := s.catalogue.ListSupportedLanguages(ctx)
-	if err != nil {
-		return nil, err
-	}
-	languages, err := s.reader.Languages(ctx, owner, connectionID)
-	if err != nil {
-		return nil, err
-	}
-	if s.capabilities == nil {
-		displayName := supportedLanguageDisplayName(supported, book.LanguageTag)
-		if languageID := opds.LanguageID(languages, book.LanguageTag, displayName); languageID != "" {
-			return []languageScope{{capability: analyzer.LanguageCapability{Language: book.LanguageTag}, languageID: languageID}}, nil
-		}
-		return nil, nil
-	}
-	capabilities, err := s.capabilities.GetCapabilities(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return eligibleLanguages(languages, capabilities), nil
-}
-
-func (s *Service) recordAndEnqueueCover(ctx context.Context, owner, bookID, connectionID string, entry opds.Entry) (bool, error) {
-	covers, ok := s.catalogue.(coverStore)
-	if !ok {
-		return false, nil
-	}
-	advertised := opds.FindCoverImage(entry) != nil
-	retrieve, advertisedAt, err := covers.RecordBookCoverAdvertisement(ctx, owner, bookID, connectionID, entry.ID, advertised)
-	if err != nil {
-		return false, err
-	}
-	if !retrieve || s.client == nil {
-		return advertised, nil
-	}
-	if _, err := s.EnqueueCover(ctx, owner, bookID, connectionID, entry.ID, advertisedAt); err != nil {
-		return advertised, err
-	}
-	return advertised, nil
 }
 
 // findEntryForConnection reloads the owner-scoped connection and walks its
@@ -819,29 +671,16 @@ func eligibleLanguages(languages opds.Feed, capabilities analyzer.Capabilities) 
 	return out
 }
 
-func sameLanguage(left, right string) bool {
-	return canonicalization.NormalizeLanguage(left) == canonicalization.NormalizeLanguage(right)
-}
-
 func isEnglish(language string) bool {
 	language = canonicalization.NormalizeLanguage(language)
 	return language == "en" || language == "eng"
 }
 
-// languageTag returns the normalized language tag for newly created
-// metadata-only Books. It comes from the capability that produced the feed
-// being walked; it is never inferred from content.
+// languageTag returns the normalized language tag an indexed entry carries. It
+// comes from the capability that produced the feed being walked; it is never
+// inferred from content.
 func languageTag(scope languageScope) string {
 	return canonicalization.NormalizeLanguage(scope.capability.Language)
-}
-
-func supportedLanguageDisplayName(languages []domain.SupportedLanguage, language string) string {
-	for _, supported := range languages {
-		if sameLanguage(supported.Language, language) {
-			return supported.DisplayName
-		}
-	}
-	return ""
 }
 
 func firstError(values ...string) string {
@@ -865,13 +704,18 @@ type coverAdvertisement struct {
 	advertised       bool
 }
 
-// syncReconcileResult collects what one complete traversal observed: the Book
-// metadata rows it upserted, the cover advertisements to apply, and the Catalog
-// index entries to store.
+// syncEntry is one EPUB entry a complete traversal observed. Metadata
+// propagation runs after the index is written.
+type syncEntry struct {
+	entry opds.Entry
+}
+
+// syncReconcileResult collects what one complete traversal observed: the entries
+// whose linked Books may need metadata updates, and the Catalog index entries to
+// store.
 type syncReconcileResult struct {
-	upserted       int
-	advertisements []coverAdvertisement
-	indexEntries   []domain.CatalogueIndexEntry
+	entries      []syncEntry
+	indexEntries []domain.CatalogueIndexEntry
 }
 
 func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
@@ -891,18 +735,50 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	}
 	result, err := s.reconcileSyncFeeds(ctx, args, connection, scope)
 	if err != nil {
-		return result.upserted, err
+		return 0, err
 	}
-	// Only a complete, successful traversal may change retained cover state:
-	// this is the point at which explicit upstream absence is conclusive. Cover
-	// work stays independent of the index write below.
-	s.applyCoverAdvertisements(ctx, args.OwnerID, args.ConnectionID, result.advertisements)
 	// The index is replaced only after a complete traversal, so a failed or
 	// partial run never deletes entries it did not see.
 	if err := s.catalogue.ReconcileCatalogueIndex(ctx, args.OwnerID, args.ConnectionID, result.indexEntries, time.Now()); err != nil {
-		return result.upserted, fmt.Errorf("catalog index could not be reconciled: %w", err)
+		return 0, fmt.Errorf("catalog index could not be reconciled: %w", err)
 	}
-	return result.upserted, nil
+	// Metadata follows the index, and only for Books linked to an observed
+	// entry. Only a complete, successful traversal changes retained cover state:
+	// this is the point at which explicit upstream absence is conclusive.
+	updated, advertisements, err := s.reconcileLinkedBooks(ctx, args, result.entries)
+	if err != nil {
+		return updated, err
+	}
+	s.applyCoverAdvertisements(ctx, args.OwnerID, args.ConnectionID, advertisements)
+	return updated, nil
+}
+
+// reconcileLinkedBooks propagates observed entry metadata to Books the learner
+// already chose, collecting the first conflict so the rest of the entries still
+// reconcile. It never creates a Book or touches learner state.
+func (s *Service) reconcileLinkedBooks(ctx context.Context, args SyncArgs, entries []syncEntry) (int, []coverAdvertisement, error) {
+	var updated int
+	var advertisements []coverAdvertisement
+	var firstConflict error
+	for _, observed := range entries {
+		update, err := s.catalogue.UpdateCatalogueBookMetadata(ctx, args.OwnerID, args.ConnectionID, observed.entry.ID, observed.entry.Title, observed.entry.Author)
+		if err != nil {
+			if firstConflict == nil {
+				firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", observed.entry.ID, err)
+			}
+			continue
+		}
+		if update.Updated {
+			updated++
+		}
+		if update.Book.ID != "" {
+			advertisements = append(advertisements, coverAdvertisement{bookID: update.Book.ID, sourceIdentifier: observed.entry.ID, advertised: opds.FindCoverImage(observed.entry) != nil})
+		}
+	}
+	if firstConflict != nil {
+		return updated, advertisements, firstConflict
+	}
+	return updated, advertisements, nil
 }
 
 // loadSyncConnection reloads the owner-scoped connection for a job. A
@@ -936,58 +812,38 @@ func (s *Service) syncLanguageScope(ctx context.Context, args SyncArgs, connecti
 	return eligibleLanguages(languages, capabilities), nil
 }
 
-// reconcileSyncFeeds walks each eligible language feed, reconciling its EPUB
-// entries. A feed read failure aborts immediately; entry conflicts are
-// collected so the first one is reported after the traversal completes. The
-// returned index entries describe only what a complete traversal observed.
+// reconcileSyncFeeds walks each eligible language feed and collects its EPUB
+// entries. A feed read failure aborts immediately. The returned index entries
+// describe only what a complete traversal observed.
 func (s *Service) reconcileSyncFeeds(ctx context.Context, args SyncArgs, connection domain.OpdsConnection, scope []languageScope) (syncReconcileResult, error) {
 	var result syncReconcileResult
-	var firstConflict error
 	for _, language := range scope {
 		feed, err := s.reader.BrowseLanguage(ctx, args.OwnerID, args.ConnectionID, language.languageID)
 		if err != nil {
 			return result, safeSyncError(err, connection)
 		}
-		feedResult, conflict := s.reconcileSyncEntries(ctx, args, languageTag(language), feed)
-		result.upserted += feedResult.upserted
-		result.advertisements = append(result.advertisements, feedResult.advertisements...)
+		feedResult := s.reconcileSyncEntries(languageTag(language), feed)
+		result.entries = append(result.entries, feedResult.entries...)
 		result.indexEntries = append(result.indexEntries, feedResult.indexEntries...)
-		if conflict != nil && firstConflict == nil {
-			firstConflict = conflict
-		}
-	}
-	if firstConflict != nil {
-		return result, firstConflict
 	}
 	return result, nil
 }
 
-// reconcileSyncEntries reconciles the EPUB entries of one language feed,
-// skipping entries the catalogue did not identify or title. It also builds the
-// Catalog index entries the same scope offers.
-func (s *Service) reconcileSyncEntries(ctx context.Context, args SyncArgs, entryLanguage string, feed opds.Feed) (syncReconcileResult, error) {
+// reconcileSyncEntries collects the EPUB entries of one language feed, skipping
+// entries the catalogue did not identify or title. It also builds the Catalog
+// index entries the same scope offers.
+func (s *Service) reconcileSyncEntries(entryLanguage string, feed opds.Feed) syncReconcileResult {
 	var result syncReconcileResult
-	var firstConflict error
 	for _, entry := range opds.FilterEPUBEntries(feed).Entries {
 		if strings.TrimSpace(entry.ID) == "" || strings.TrimSpace(entry.Title) == "" {
 			continue
 		}
-		reconciled, err := s.catalogue.ReconcileCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, entry.ID, entry.Title, entry.Author, entryLanguage)
-		if err != nil {
-			if firstConflict == nil {
-				firstConflict = fmt.Errorf("catalog entry %q could not be reconciled: %w", entry.ID, err)
-			}
-			continue
-		}
-		if reconciled.Upserted() {
-			result.upserted++
-		}
-		result.advertisements = append(result.advertisements, coverAdvertisement{bookID: reconciled.Book.ID, sourceIdentifier: entry.ID, advertised: opds.FindCoverImage(entry) != nil})
+		result.entries = append(result.entries, syncEntry{entry: entry})
 		if indexed, ok := projectCatalogueIndexEntry(entry, entryLanguage); ok {
 			result.indexEntries = append(result.indexEntries, indexed)
 		}
 	}
-	return result, firstConflict
+	return result
 }
 
 // projectCatalogueIndexEntry projects a feed entry into the Catalog index. An
@@ -1183,9 +1039,9 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 	if loadErr != nil {
 		return errors.New("catalog connection could not be loaded")
 	}
-	upserted, workErr := service.work(ctx, args)
+	updated, workErr := service.work(ctx, args)
 	if workErr == nil {
-		if err := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSynced, LastSyncedAt: new(time.Now()), LastUpsertedCount: upserted}); err != nil {
+		if err := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncSynced, LastSyncedAt: new(time.Now()), LastUpsertedCount: updated}); err != nil {
 			return err
 		}
 		return nil

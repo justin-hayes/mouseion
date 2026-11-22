@@ -31,7 +31,7 @@ func TestBookCoverAdvertisementStateMachine(t *testing.T) {
 	require.NoError(t, err)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-1", "Title", "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "entry-1", "Title", "", "de")
 	require.NoError(t, err)
 	bookID := reconciled.Book.ID
 
@@ -117,7 +117,7 @@ func TestBookCoverConcurrentInitialAdvertisementsChooseOneCandidate(t *testing.T
 	require.NoError(t, err)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-1", "Title", "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "entry-1", "Title", "", "de")
 	require.NoError(t, err)
 
 	type result struct {
@@ -258,7 +258,7 @@ func TestBookCoverSelectedFailureRequiresPendingCandidate(t *testing.T) {
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Catalog", URL: "https://catalog.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-1", "Title", "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "entry-1", "Title", "", "de")
 	require.NoError(t, err)
 
 	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", true)
@@ -321,9 +321,9 @@ func TestBookCoverPendingConnectionDeletionDoesNotStrandGeneration(t *testing.T)
 	require.NoError(t, err)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
 	require.NoError(t, err)
-	firstBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-first", "First book", "", "de")
+	firstBook, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "entry-first", "First book", "", "de")
 	require.NoError(t, err)
-	secondBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-second", "Second book", "", "de")
+	secondBook, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "entry-second", "Second book", "", "de")
 	require.NoError(t, err)
 
 	_, firstAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, firstBook.Book.ID, first.ID, "entry-first", true)
@@ -360,7 +360,7 @@ func TestBookCoverConnectionDeletionFencesCompletions(t *testing.T) {
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Catalog", URL: "https://catalog.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-1", "Title", "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "entry-1", "Title", "", "de")
 	require.NoError(t, err)
 	bookID := reconciled.Book.ID
 
@@ -390,7 +390,7 @@ func TestBookCoverConnectionDeletionFencesCompletions(t *testing.T) {
 	// replacement and its provenance.
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
 	require.NoError(t, err)
-	secondBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, second.ID, "entry-2", "Second title", "", "de")
+	secondBook, err := seedCatalogueBook(t, ctx, store, owner.ID, second.ID, "entry-2", "Second title", "", "de")
 	require.NoError(t, err)
 	_, secondInitialAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, secondBook.Book.ID, second.ID, "entry-2", true)
 	require.NoError(t, err)
@@ -416,7 +416,7 @@ func TestBookCoverDeletionAndCompletionDoNotDeadlock(t *testing.T) {
 	for i := range 8 {
 		connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: fmt.Sprintf("Catalog %d", i), URL: fmt.Sprintf("https://catalog.example/%d", i)})
 		require.NoError(t, err)
-		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-"+connection.ID, "Title "+connection.ID, "", "de")
+		reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "entry-"+connection.ID, "Title "+connection.ID, "", "de")
 		require.NoError(t, err)
 		bookID := reconciled.Book.ID
 		_, advertisedAt, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, bookID, connection.ID, "entry-"+connection.ID, true)
@@ -461,9 +461,9 @@ func TestBookCoverFinalPendingConnectionDeletionSettlesInEitherOrder(t *testing.
 	fourth, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Fourth", URL: "https://fourth.example/opds"})
 	require.NoError(t, err)
 
-	firstBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-first", "First book", "", "de")
+	firstBook, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "entry-first", "First book", "", "de")
 	require.NoError(t, err)
-	secondBook, err := store.ReconcileCatalogueEntry(ctx, owner.ID, third.ID, "entry-second", "Second book", "", "de")
+	secondBook, err := seedCatalogueBook(t, ctx, store, owner.ID, third.ID, "entry-second", "Second book", "", "de")
 	require.NoError(t, err)
 	for _, candidate := range []struct {
 		bookID, connectionID, source string
@@ -503,7 +503,7 @@ func TestBookCoverStaleRetrievalCompletionsAreIgnored(t *testing.T) {
 	require.NoError(t, err)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second", URL: "https://second.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "entry-1", "Title", "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "entry-1", "Title", "", "de")
 	require.NoError(t, err)
 	bookID := reconciled.Book.ID
 
@@ -614,7 +614,7 @@ func TestBookCoverSelectedRefreshAdvancesGenerationAndPreservesImage(t *testing.
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Catalog", URL: "https://catalog.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "entry-1", "Title", "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, connection.ID, "entry-1", "Title", "", "de")
 	require.NoError(t, err)
 
 	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, connection.ID, "entry-1", true)
@@ -669,7 +669,7 @@ func TestBookCoverAdvertisementRetireAndAvailabilityBranches(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("a negative advertisement without a cover row records nothing", func(t *testing.T) {
-		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "absent-entry", "Absent", "", "de")
+		reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "absent-entry", "Absent", "", "de")
 		require.NoError(t, err)
 		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, "absent-entry", false)
 		require.NoError(t, err)
@@ -727,7 +727,7 @@ func TestBookCoverAdvertisementRetireAndAvailabilityBranches(t *testing.T) {
 	})
 
 	t.Run("a negative advertisement after settling is ignored", func(t *testing.T) {
-		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner.ID, first.ID, "settled-entry", "Settled", "", "de")
+		reconciled, err := seedCatalogueBook(t, ctx, store, owner.ID, first.ID, "settled-entry", "Settled", "", "de")
 		require.NoError(t, err)
 		retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner.ID, reconciled.Book.ID, first.ID, "settled-entry", true)
 		require.NoError(t, err)
@@ -812,7 +812,7 @@ func mustCoverState(t *testing.T, store *PostgresStore, owner, bookID string) st
 
 func advertiseBookCoverCandidates(t *testing.T, ctx context.Context, store *PostgresStore, owner string, first, second domain.OpdsConnection, title, firstSource, secondSource string) (string, time.Time) {
 	t.Helper()
-	reconciled, err := store.ReconcileCatalogueEntry(ctx, owner, first.ID, title, title, "", "de")
+	reconciled, err := seedCatalogueBook(t, ctx, store, owner, first.ID, title, title, "", "de")
 	require.NoError(t, err)
 	retrieve, _, err := store.RecordBookCoverAdvertisement(ctx, owner, reconciled.Book.ID, first.ID, firstSource, true)
 	require.NoError(t, err)

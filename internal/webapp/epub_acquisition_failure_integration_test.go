@@ -70,7 +70,11 @@ func newAcquisitionFailureFixture(t *testing.T, catalog *httptest.Server, failIm
 	owner := createAccount(t, ctx, store, "acquisition-failure-owner", "owner-password")
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Failure catalog", URL: catalog.URL + "/opds"})
 	require.NoError(t, err)
-	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "failure-entry", "Der lange Weg nach Hause", "", "de")
+	bookResult, err := seedWebappCatalogueBook(t, ctx, store, owner.ID, connection.ID, "failure-entry", "Der lange Weg nach Hause", "", "de")
+	require.NoError(t, err)
+	bookState, err := store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
+	require.NoError(t, err)
+	_, err = store.TransitionBookDisposition(ctx, owner.ID, bookResult.Book.ID, bookState.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	target := cataloguesync.AcquisitionTarget{
 		ConnectionID: connection.ID,

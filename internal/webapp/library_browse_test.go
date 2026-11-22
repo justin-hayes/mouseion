@@ -285,13 +285,13 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.NotContains(t, response.Header().Get("Location"), "set_aside", "empty pages should clamp without preserving the retired filter")
 }
 
-func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.T) {
+func TestLibraryHandlerNeverOffersRetiredMetadataRefresh(t *testing.T) {
 	h, cookies, _, fixtureStore := readingFixtureSession(t)
 	handler := requireHandler(t, h)
 	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{
-			{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: fixtures.OwnerID, Title: "Eligible metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
-			{Book: domain.Book{ID: "no-alias", OwnerID: fixtures.OwnerID, Title: "Ineligible metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+			{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: fixtures.OwnerID, Title: "Linked metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+			{Book: domain.Book{ID: "no-alias", OwnerID: fixtures.OwnerID, Title: "Unlinked metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		},
 		Total: 2, ScopeTotal: 2, AllCount: 2, Counts: []persistence.LanguageCount{{Tag: "de", Count: 2}},
 	}}
@@ -304,15 +304,10 @@ func TestLibraryHandlerOnlyOffersRefreshForEligibleMetadataOnlyBooks(t *testing.
 	handler.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	html := response.Body.String()
-	eligibleStart := strings.Index(html, `id="book-row-fixture-metadata-only"`)
-	ineligibleStart := strings.Index(html, `id="book-row-no-alias"`)
-	require.GreaterOrEqual(t, eligibleStart, 0, "metadata-only rows missing: %s", html)
-	require.GreaterOrEqual(t, ineligibleStart, 0, "metadata-only rows missing: %s", html)
-	eligibleRow := html[eligibleStart:ineligibleStart]
-	ineligibleRow := html[ineligibleStart:]
-	assert.Contains(t, eligibleRow, "Refresh metadata", "eligible metadata-only row omitted refresh: %s", eligibleRow)
-	assert.Contains(t, eligibleRow, `hx-target="#book-row-fixture-metadata-only"`, "eligible metadata-only row omitted refresh: %s", eligibleRow)
-	assert.NotContains(t, ineligibleRow, "Refresh metadata", "ineligible metadata-only row exposed refresh: %s", ineligibleRow)
+	assert.Contains(t, html, `id="book-row-fixture-metadata-only"`, "metadata-only rows missing: %s", html)
+	assert.Contains(t, html, `id="book-row-no-alias"`, "metadata-only rows missing: %s", html)
+	assert.NotContains(t, html, "Refresh metadata", "My Books still offered the retired refresh action: %s", html)
+	assert.NotContains(t, html, "/refresh", "My Books still linked a retired refresh route: %s", html)
 }
 
 func TestMyBooksBrowseRequestDefaults(t *testing.T) {
@@ -476,15 +471,7 @@ func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 // result rows after the browse itself has succeeded.
 type libraryExtrasFailStore struct {
 	*browseRecordingStore
-	aliasErr       error
 	connectionsErr error
-}
-
-func (s libraryExtrasFailStore) GetBookCatalogEntryAlias(ctx context.Context, owner, bookID string) (domain.BookAlias, error) {
-	if s.aliasErr != nil {
-		return domain.BookAlias{}, s.aliasErr
-	}
-	return s.browseRecordingStore.GetBookCatalogEntryAlias(ctx, owner, bookID)
 }
 
 func (s libraryExtrasFailStore) ListOpdsConnections(ctx context.Context, owner string) ([]domain.OpdsConnection, error) {
@@ -499,12 +486,6 @@ func TestLibraryHandlerRendersFailureWhenBrowsingExtrasFail(t *testing.T) {
 		name  string
 		store func(*browseRecordingStore) allStoreCapabilities
 	}{
-		{
-			name: "refresh eligibility",
-			store: func(b *browseRecordingStore) allStoreCapabilities {
-				return libraryExtrasFailStore{browseRecordingStore: b, aliasErr: errors.New("alias read failed")}
-			},
-		},
 		{
 			name: "catalog connections",
 			store: func(b *browseRecordingStore) allStoreCapabilities {

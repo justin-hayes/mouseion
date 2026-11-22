@@ -15,7 +15,7 @@ test.describe('catalog sources and browsing', () => {
     await page.goto('/catalogs');
 
     const states = [
-      { id: 'fixture-connection', label: 'Last synced', detail: /3 books added or updated/ },
+      { id: 'fixture-connection', label: 'Last synced', detail: /3 Books updated from their Catalog entries/ },
       { id: 'fixture-failed-connection', label: 'Sync failed', detail: /Authentication failed for this connection/ },
       { id: 'fixture-syncing-connection', label: 'Syncing', detail: /Existing Books remain available/ },
       { id: 'fixture-never-synced-connection', label: 'Never synced', detail: /ready non-English catalog languages/ },
@@ -61,6 +61,22 @@ test.describe('catalog sources and browsing', () => {
     await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Classical catalog', exact: true })).toHaveAttribute('href', '/catalogs/classical');
     await expect(page.locator('#catalog-source-classical')).toHaveCount(0);
     await expect(page.locator('#catalog-connection-form')).toHaveCount(0);
+  });
+
+  test('Sync now maintains the Catalog index without adding Books', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+    const before = await page.locator('.library-books > li.library-book').count();
+    expect(before).toBeGreaterThan(0);
+
+    await page.goto('/catalogs');
+    await page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
+    await expect(page).toHaveURL(/\/catalogs\?/);
+
+    await page.goto('/library');
+    await expect(page.locator('.library-books > li.library-book')).toHaveCount(before);
+    await page.goto('/library?needs-language');
+    await expect(page.getByText('Browser sync metadata book', { exact: true })).toBeVisible();
   });
 
   test('Add on an OPDS entry restores a To Read Book and focuses its confirmation', async ({ page }) => {

@@ -104,7 +104,7 @@ metadata intact and gives an actionable recovery path.
 
 ### 5. Analyze and recover
 
-Sync itself remains metadata-only. Adding a Book to Reading Journey ensures
+Sync itself remains metadata-only and never creates a Book. Choosing a Catalog entry or moving a Book to To Read ensures
 current whole-book analysis once, without a background watcher. Re-adding and
 reordering do not duplicate work. Sync never acquires content, enqueues
 analysis, prepares a deck, or invalidates existing evidence.
@@ -116,10 +116,10 @@ analysis, prepares a deck, or invalidates existing evidence.
 | No connections | Explain why a learner-owned connection is needed and that sync is metadata-first. | Add catalog connection |
 | Never synced | Name the connection and explain the offered non-English ready-language scope. | Sync now |
 | Syncing | Preserve existing Books, identify metadata reconciliation as in progress, and provide operational detail without turning jobs into navigation. | View job status |
-| Synced with changes upserted | Show the last-synced time and a factual added/updated summary without implying content was downloaded. | Browse My Books |
-| Synced with no changes | Show the last-synced time and state that no eligible EPUB entries were found when the reconciliation produced no changes. | Browse My Books |
+| Synced with Book changes | Show the last-synced time and a factual summary of linked Books whose metadata changed without implying content was downloaded. | Browse My Books |
+| Synced with no Book changes | Show the last-synced time and state that the Catalog index is current while no Book metadata changed. | Browse My Books |
 | Sync failed | Name the affected connection, preserve prior state, and distinguish authentication/configuration failure from a retryable upstream failure. | Edit connection or retry |
-| Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Add to Reading Journey |
+| Metadata-only Book | Explain that bibliographic identity is present but EPUB content is not. | Retry acquisition or open the Book |
 | Acquisition/analysis running | Keep Book or Journey context and identify durable progress. | View status |
 | Acquisition failed or entry missing | Preserve the Book, metadata, and any Journey membership; state what could not be acquired. | Edit connection or retry |
 | Current analysis complete | State that evidence is available for the current content revision. | Inspect analysis or prepare deck |
@@ -134,11 +134,12 @@ analysis, prepares a deck, or invalidates existing evidence.
   `error`; `/jobs` owns
   attempts, progress, cancellation, retry, and detailed failures. Neither is a
   new destination.
-- My Books owns active-language-scoped browse, search, paging, browsing of
-  synced metadata, and the per-book acquisition intent action.
-- My Books items own metadata refresh and acquisition intent. Reading Journey owns
-  ensure-once analysis consequence, current analysis, and deck actions. The
-  language-level aggregate lens remains evidence-only.
+- My Books owns active-language-scoped browse, search, paging, and the per-Book
+  acquisition intent action.
+- My Books items own acquisition intent; sync owns following each linked
+  entry's title, author and cover. Reading Journey owns ensure-once analysis
+  consequence, current analysis, and deck actions. The language-level aggregate
+  lens remains evidence-only.
 - HTMX may enhance forms and status regions, but connect, sync submission,
   collection browsing, acquisition recovery, and analysis status must retain
   coherent server-rendered paths.

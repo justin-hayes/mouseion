@@ -411,7 +411,7 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-recovery a', { hasText: 'Retry My Books request' })).toHaveAttribute('href', /network-error-check/);
   });
 
-  test('reviews needs-language books with only the visibility action', async ({ page }) => {
+  test('reviews needs-language books with only the visibility action and sync leaves them unchanged', async ({ page }) => {
     await signIn(page);
     await page.goto('/library');
     const strip = page.locator('aside.library-needs-language');
@@ -431,12 +431,14 @@ test.describe('My Books collection browsing', () => {
         await sync.click();
         await expect(page).toHaveURL(/\/catalogs\?/);
       }
+      // Sync maintains the Catalog index only. It neither gives this Book a
+      // language nor adds a study language, so the Book stays needs-language and
+      // out of the active German collection.
       await page.goto('/library?needs-language');
-      await expect(page.locator('.library-diagnostic-list').getByText('Browser sync metadata book')).toHaveCount(0);
+      await expect(page.locator('.library-diagnostic-list').getByText('Browser sync metadata book')).toBeVisible();
       await page.goto('/library');
       const syncedBook = page.locator('.library-books .library-book').filter({ hasText: 'Browser sync metadata book' });
-      await expect(syncedBook).toBeVisible();
-      await expect(syncedBook.locator('.library-book__membership .status-badge')).toHaveText('Inbox');
+      await expect(syncedBook).toHaveCount(0);
     }
   });
 });

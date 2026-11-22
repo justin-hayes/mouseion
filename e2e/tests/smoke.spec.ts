@@ -62,24 +62,24 @@ test.describe('authenticated learner smoke', () => {
     await page.evaluate(token => {
       const form = document.createElement('form');
       form.method = 'post';
-      form.action = '/library/books/fixture-book/refresh';
+      form.action = '/library/books/fixture-book/hide';
       form.setAttribute('hx-post', form.action);
       form.setAttribute('hx-target', '#library-results');
-      form.innerHTML = '<input type="hidden" name="csrf_token"><button type="submit">Refresh metadata</button>';
+      form.innerHTML = '<input type="hidden" name="csrf_token"><button type="submit">Hide</button>';
       form.querySelector('input[name="csrf_token"]')!.value = token;
       document.getElementById('main-content')!.prepend(form);
       window.htmx.process(form);
     }, csrf);
 
     await page.context().clearCookies();
-    let refreshRequests = 0;
+    let hideRequests = 0;
     page.on('request', request => {
-      if (request.url().includes('/library/books/fixture-book/refresh')) refreshRequests++;
+      if (request.url().includes('/library/books/fixture-book/hide')) hideRequests++;
     });
     const unauthorized = page.waitForResponse(response =>
-      response.url().includes('/library/books/fixture-book/refresh') && response.status() === 401,
+      response.url().includes('/library/books/fixture-book/hide') && response.status() === 401,
     );
-    await page.getByRole('button', { name: 'Refresh metadata' }).click();
+    await page.getByRole('button', { name: 'Hide', exact: true }).click();
     await unauthorized;
 
     await expect(page).toHaveURL(/\/login\?/);
@@ -90,7 +90,7 @@ test.describe('authenticated learner smoke', () => {
     await page.getByRole('button', { name: /sign in|log in/i }).click();
 
     await expect(page).toHaveURL(/\/library$/);
-    expect(refreshRequests).toBe(1);
+    expect(hideRequests).toBe(1);
   });
 
   test('login and library expose representative content', async ({ page }) => {

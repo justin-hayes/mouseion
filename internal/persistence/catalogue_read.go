@@ -114,7 +114,7 @@ func restoreReadCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, 
 	}
 	if book.LanguageState != domain.LanguageChosen || canonicalization.NormalizeLanguage(book.LanguageTag) != language {
 		changed = true
-		if _, err := removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
+		if err := removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
 			return domain.CatalogueReadResult{}, err
 		}
 	}

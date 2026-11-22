@@ -105,7 +105,7 @@ func createCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, conne
 // restoreCatalogueBookTx makes an existing Book reachable again and restores
 // the To Read intent Add expresses. Analysis, corrections, exclusions, reading
 // history and every other piece of evidence stay untouched. The entry's current
-// metadata refreshes the Book, exactly as a sync would.
+// title and author refresh the Book, exactly as the next sync would.
 func restoreCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, bookID, title, author, language string) (domain.CatalogueAddResult, error) {
 	changed := false
 	membership, err := q.GetBookMembershipForUpdate(ctx, sqlcgen.GetBookMembershipForUpdateParams{Owner: owner, Book: bookID})
@@ -144,7 +144,7 @@ func restoreCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, book
 		return domain.CatalogueAddResult{}, missing(err)
 	}
 	if current.LanguageState != domain.LanguageChosen || canonicalization.NormalizeLanguage(current.LanguageTag) != language {
-		if _, err := removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
+		if err := removeIncompatibleBookGoals(ctx, q, owner, bookID, language); err != nil {
 			return domain.CatalogueAddResult{}, err
 		}
 	}
