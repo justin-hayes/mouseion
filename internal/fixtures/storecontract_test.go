@@ -196,14 +196,6 @@ func (h *contractHarness) GetBookDetail(owner, bookID string) (domain.MyBook, er
 	return h.store.GetBookDetail(context.Background(), owner, bookID)
 }
 
-func (h *contractHarness) GetBookVisibility(owner, bookID string) (bool, int64, error) {
-	return h.store.GetBookVisibility(context.Background(), owner, bookID)
-}
-
-func (h *contractHarness) SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (bool, error) {
-	return h.store.SetBookHidden(context.Background(), owner, bookID, expectedRevision, hidden)
-}
-
 func (h *contractHarness) TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
 	return h.store.TransitionBookDisposition(context.Background(), owner, bookID, expectedRevision, disposition)
 }

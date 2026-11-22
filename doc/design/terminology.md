@@ -20,7 +20,7 @@ language without a product reason.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
-| **Inbox / To Read** | Persisted Book dispositions: Inbox means no explicit future-reading intent, and To Read expresses reading intent and ensures acquisition/analysis when needed. Hidden is separate visibility, not a disposition. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position, Set Aside (retired) |
+| **Inbox / To Read** | Persisted Book dispositions: Inbox means no explicit future-reading intent, and To Read expresses reading intent and ensures acquisition/analysis when needed. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position, Set Aside (retired), Hidden (retired) |
 | **Reading** | The current Book with its vocabulary Browse, or, between Books, the neutral title-ordered chooser of To Read candidates, where a Work's multiple To Read Books form one entry. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
@@ -186,7 +186,7 @@ learner's My Books collection.
 Use complete, factual labels where space permits:
 
 - current reading;
-- Inbox, To Read, and Read as mutually exclusive visible buckets (Hidden does not change the bucket);
+- Inbox, To Read, and Read as mutually exclusive visible buckets;
 - reading history, including prior completions on current or To Read Books;
 - reading in progress;
 - reading finished;

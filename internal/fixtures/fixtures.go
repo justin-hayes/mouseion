@@ -79,7 +79,6 @@ type Store struct {
 	myBooks                []domain.MyBook
 	dispositions           map[string]domain.BookDisposition
 	dispositionRevisions   map[string]int64
-	visibility             map[string]fixtureVisibility
 	// epubAcquisitionFailures is the latest failed EPUB acquisition per Book,
 	// keyed by fixtureDispositionKey. A successful acquisition deletes the row.
 	epubAcquisitionFailures map[string]domain.EPUBAcquisitionFailureRecord
@@ -244,7 +243,6 @@ func NewStore() *Store {
 			},
 		},
 		dispositionRevisions: make(map[string]int64),
-		visibility:           make(map[string]fixtureVisibility),
 		removedBooks:         make(map[string]struct{}),
 		importedHistory:      make(map[string]domain.ReadingCompletion),
 		currentReadings: map[string]domain.CurrentReading{
@@ -269,10 +267,6 @@ func NewStore() *Store {
 		lemmaOccurrences:     fixtureCannedLemmaOccurrences(),
 		classicalDefinitions: fixtureClassicalDefinitionsByKey(),
 	}
-	// The acquisition-failure row is Hidden so it never displaces the visible
-	// My Books collection or the Reading chooser; browser acceptance reveals it
-	// with Show hidden books.
-	store.visibility[fixtureDispositionKey(OwnerID, "fixture-acquisition-failed")] = fixtureVisibility{hidden: true}
 	// Their entries stay browsable and offer Add.
 	store.removedBooks[fixtureDispositionKey(OwnerID, catalogueRestoreBookID)] = struct{}{}
 	store.removedBooks[fixtureDispositionKey(OwnerID, catalogueRestoreSecond)] = struct{}{}

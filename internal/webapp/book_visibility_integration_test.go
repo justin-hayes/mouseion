@@ -4,11 +4,8 @@ package webapp
 
 import (
 	"context"
-	"html"
 	"net/http"
 	"net/url"
-	"regexp"
-	"strconv"
 	"testing"
 	"time"
 
@@ -48,17 +45,7 @@ func (visibilityDiscoveryReader) BrowseLanguage(_ context.Context, _, _, languag
 	}}}, nil
 }
 
-func openVisibilityStore(t *testing.T, ctx context.Context) *persistence.PostgresStore {
-	t.Helper()
-	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
-	return store
-}
-
-func visibilityHandler(store *persistence.PostgresStore) http.Handler {
+func retiredVisibilityHandler(store *persistence.PostgresStore) http.Handler {
 	authService := auth.New(store, time.Hour)
 	return New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
@@ -66,9 +53,9 @@ func visibilityHandler(store *persistence.PostgresStore) http.Handler {
 	})
 }
 
-// seedVisibilityToReadBook creates an analyzed German To Read Book that the
-// Reading chooser can assess and start.
-func seedVisibilityToReadBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title, lemma string) domain.Book {
+// seedRetiredVisibilityToReadBook creates an analyzed German To Read Book that
+// the Reading chooser can assess and start.
+func seedRetiredVisibilityToReadBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title, lemma string) domain.Book {
 	t.Helper()
 	counts := []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}}
 	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, suffix, title, counts)
@@ -78,178 +65,55 @@ func seedVisibilityToReadBook(t *testing.T, ctx context.Context, store *persiste
 	return book
 }
 
-func visibilityRevision(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, bookID string) string {
-	t.Helper()
-	_, revision, err := store.GetBookVisibility(ctx, owner, bookID)
-	require.NoError(t, err)
-	return strconv.FormatInt(revision, 10)
-}
-
-func TestHiddenToReadBookLeavesAndReturnsToReadingChooser(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "hidden-chooser-visibility-secret-0123456789")
+// TestRetiredHiddenBookAppearsAsAnOrdinaryToReadBook holds the retirement: a
+// book_visibility row no longer hides a Book anywhere, and Hide, Unhide and the
+// Work-level actions are unsupported routes.
+func TestRetiredHiddenBookAppearsAsAnOrdinaryToReadBook(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "retired-hidden-book-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	store := openVisibilityStore(t, ctx)
-	owner := createAccount(t, ctx, store, "hidden-chooser", "learner-password")
-	hidden := seedVisibilityToReadBook(t, ctx, store, owner.ID, "chooser-hidden", "Chooser hidden", "haus")
-	visible := seedVisibilityToReadBook(t, ctx, store, owner.ID, "chooser-visible", "Chooser visible", "baum")
-	h := visibilityHandler(store)
+	store := openWebappIntegrationStore(t, ctx)
+	owner := createAccount(t, ctx, store, "retired-hidden", "learner-password")
+	book := seedRetiredVisibilityToReadBook(t, ctx, store, owner.ID, "retired-hidden", "Previously hidden", "haus")
+	_, err := store.Pool().Exec(ctx, `INSERT INTO book_visibility(owner_id, book_id, hidden, revision) VALUES ($1, $2, true, 1)`, owner.ID, book.ID)
+	require.NoError(t, err)
+	h := retiredVisibilityHandler(store)
 	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
-	startPath := func(bookID string) string { return "/reading/books/" + bookID + "/start" }
+	startPath := "/reading/books/" + book.ID + "/start"
 
-	before := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, before.Code)
-	require.Contains(t, before.Body.String(), startPath(hidden.ID), "the Book starts visible in the chooser")
+	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	require.Equal(t, http.StatusOK, chooser.Code)
+	assert.Contains(t, chooser.Body.String(), startPath, "a previously hidden To Read Book is an ordinary candidate")
+	assert.Contains(t, chooser.Body.String(), book.Title)
 
-	hide := perform(t, h, http.MethodPost, "/library/books/"+hidden.ID+"/hide", url.Values{
-		"csrf_token": {csrf}, "expected_visibility_revision": {visibilityRevision(t, ctx, store, owner.ID, hidden.ID)}, "return_to": {"/reading"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, hide.Code)
-	hiddenChooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	assert.NotContains(t, hiddenChooser.Body.String(), startPath(hidden.ID), "a Hidden To Read Book is omitted from the chooser")
-	assert.NotContains(t, hiddenChooser.Body.String(), hidden.Title)
-	assert.Contains(t, hiddenChooser.Body.String(), startPath(visible.ID), "other To Read Books remain in the chooser")
+	library := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	require.Equal(t, http.StatusOK, library.Code)
+	assert.Contains(t, library.Body.String(), book.Title, "a previously hidden Book is listed as an ordinary Book")
+	assert.NotContains(t, library.Body.String(), "Show hidden books")
+	assert.NotContains(t, library.Body.String(), "hidden book is not shown")
 
-	unhide := perform(t, h, http.MethodPost, "/library/books/"+hidden.ID+"/unhide", url.Values{
-		"csrf_token": {csrf}, "expected_visibility_revision": {visibilityRevision(t, ctx, store, owner.ID, hidden.ID)}, "return_to": {"/reading"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, unhide.Code)
-	restored := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	assert.Contains(t, restored.Body.String(), startPath(hidden.ID), "Unhide returns the Book to the chooser")
-	assert.Contains(t, restored.Body.String(), hidden.Title)
+	for _, path := range []string{
+		"/library/books/" + book.ID + "/hide",
+		"/library/books/" + book.ID + "/unhide",
+		"/library/works/any-work/hide",
+		"/library/works/any-work/unhide",
+	} {
+		response := perform(t, h, http.MethodPost, path, url.Values{"csrf_token": {csrf}}, cookies)
+		assert.Equal(t, http.StatusNotFound, response.Code, "retired route %s is unsupported", path)
+	}
 
-	start := perform(t, h, http.MethodPost, startPath(hidden.ID), url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, start.Code)
-	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, hidden.ID, current.BookID, "the unhidden Book can be started")
-}
-
-func TestHiddenCurrentReadingStaysInReadingWithItsReservations(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "hidden-current-reading-secret-0123456789")
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	store := openVisibilityStore(t, ctx)
-	owner := createAccount(t, ctx, store, "hidden-current", "learner-password")
-	book := seedVisibilityToReadBook(t, ctx, store, owner.ID, "hidden-current", "Working desk hidden", "haus")
-	h := visibilityHandler(store)
-	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
-
-	start := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, start.Code)
-	before, err := store.GetCurrentReading(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	require.Equal(t, book.ID, before.BookID)
-
-	hide := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/hide", url.Values{
-		"csrf_token": {csrf}, "expected_visibility_revision": {visibilityRevision(t, ctx, store, owner.ID, book.ID)}, "return_to": {"/reading"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, hide.Code)
-	hidden, _, err := store.GetBookVisibility(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
-	require.True(t, hidden)
-
-	page := perform(t, h, http.MethodGet, "/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, page.Code)
-	assert.Contains(t, page.Body.String(), `class="journey-book__title"`, "the Hidden current reading still renders as the Reading working desk")
-	assert.Contains(t, page.Body.String(), book.Title)
-	assert.NotContains(t, page.Body.String(), "reading-chooser-entry", "the working desk is not the chooser")
-
-	after, err := store.GetCurrentReading(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, before, after, "Hiding does not end the current reading")
-	var released bool
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT released_at IS NOT NULL FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2`, owner.ID, before.SnapshotID).Scan(&released))
-	assert.False(t, released, "Hiding does not release the current reservation")
-	disposition, err := store.GetBookDisposition(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionToRead, disposition)
-}
-
-func TestEmptyMyBooksBucketWithOnlyHiddenBooksOffersShowHiddenThenUnhide(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "hidden-empty-bucket-secret-0123456789")
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	store := openVisibilityStore(t, ctx)
-	owner := createAccount(t, ctx, store, "hidden-empty", "learner-password")
-	book := seedVisibilityToReadBook(t, ctx, store, owner.ID, "hidden-empty", "Only hidden to read", "haus")
-	h := visibilityHandler(store)
-	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
-
-	hide := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/hide", url.Values{
-		"csrf_token": {csrf}, "expected_visibility_revision": {visibilityRevision(t, ctx, store, owner.ID, book.ID)}, "return_to": {"/library?disposition=to_read"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, hide.Code)
-
-	empty := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
-	require.Equal(t, http.StatusOK, empty.Code)
-	assert.NotContains(t, empty.Body.String(), "Only hidden to read</h2>", "the empty bucket lists no visible Book")
-	assert.Contains(t, empty.Body.String(), "1 hidden book is not shown.")
-	match := regexp.MustCompile(`href="([^"]*show-hidden[^"]*)">Show hidden books</a>`).FindStringSubmatch(empty.Body.String())
-	require.Len(t, match, 2, "the empty view offers Show hidden books")
-
-	shown := perform(t, h, http.MethodGet, html.UnescapeString(match[1]), nil, cookies)
-	require.Equal(t, http.StatusOK, shown.Code)
-	assert.Contains(t, shown.Body.String(), "Only hidden to read", "following Show hidden books lists the hidden Book")
-	assert.Contains(t, shown.Body.String(), "/library/books/"+book.ID+"/unhide", "the listed Book offers Unhide")
-	assert.Contains(t, shown.Body.String(), "Unhide")
-}
-
-func TestHideAndUnhideUnderPreviousStudyLanguageRecoverWithoutChange(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "hidden-stale-language-secret-0123456789")
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	store := openVisibilityStore(t, ctx)
-	owner := createAccount(t, ctx, store, "hidden-stale-language", "learner-password")
-	book := seedVisibilityToReadBook(t, ctx, store, owner.ID, "hidden-stale-language", "Stale visibility", "haus")
-	h := visibilityHandler(store)
-	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
-	// Forms rendered while Italian was the study language carry the Italian suffix.
-	staleItalian := csrf + ".it"
-	current := csrf + ".de"
-
-	staleHide := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/hide", url.Values{
-		"csrf_token": {staleItalian}, "expected_visibility_revision": {"0"}, "return_to": {"/library?disposition=to_read"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, staleHide.Code)
-	assert.Equal(t, languageChangedPath(), staleHide.Header().Get("Location"))
-	hidden, revision, err := store.GetBookVisibility(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
-	require.False(t, hidden, "a stale Hide from another language changes nothing")
-	require.Zero(t, revision)
-
-	// Control: the same request under the active language is accepted, so the
-	// stale rejection above is about language and not an unrelated failure.
-	hideCurrent := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/hide", url.Values{
-		"csrf_token": {current}, "expected_visibility_revision": {"0"}, "return_to": {"/library?disposition=to_read"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, hideCurrent.Code)
-	require.NotEqual(t, languageChangedPath(), hideCurrent.Header().Get("Location"))
-	hidden, revision, err = store.GetBookVisibility(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
-	require.True(t, hidden)
-	require.EqualValues(t, 1, revision)
-
-	staleUnhide := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/unhide", url.Values{
-		"csrf_token": {staleItalian}, "expected_visibility_revision": {"1"}, "return_to": {"/library?show-hidden"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, staleUnhide.Code)
-	assert.Equal(t, languageChangedPath(), staleUnhide.Header().Get("Location"))
-	hidden, revision, err = store.GetBookVisibility(ctx, owner.ID, book.ID)
-	require.NoError(t, err)
-	assert.True(t, hidden, "a stale Unhide from another language changes nothing")
+	var hidden bool
+	var revision int64
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT hidden, revision FROM book_visibility WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&hidden, &revision))
+	assert.True(t, hidden, "the retired row is left in place")
 	assert.EqualValues(t, 1, revision)
-
-	notice := perform(t, h, http.MethodGet, languageChangedPath(), nil, cookies)
-	require.Equal(t, http.StatusOK, notice.Code)
-	assert.Contains(t, notice.Body.String(), "Your study language changed")
 }
 
 func TestCatalogueSyncDoesNotCreateBooks(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "hidden-discovery-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	store := openVisibilityStore(t, ctx)
+	store := openWebappIntegrationStore(t, ctx)
 	owner := createAccount(t, ctx, store, "hidden-discovery", "learner-password")
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Discovery catalog", URL: "https://discovery.example/opds"})
 	require.NoError(t, err)

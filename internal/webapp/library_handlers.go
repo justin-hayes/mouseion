@@ -19,8 +19,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
-func browseMyBooks(ctx context.Context, store MyBooksStore, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
-	return store.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, showHidden, offset, limit)
+func browseMyBooks(ctx context.Context, store MyBooksStore, owner, query, language, disposition string, history bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
+	return store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
 }
 
 const myBooksLoadFailureMessage = "My Books could not be loaded. Try refreshing the page."
@@ -39,14 +39,14 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	}
 	request := parseMyBooksLibraryRequest(r.URL)
 	if request.hasLanguage {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.needsLanguage, request.disposition, false, request.showHidden))
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.needsLanguage, request.disposition, false))
 		return
 	}
 	requestedLanguage := activeLanguage
 	if request.needsLanguage {
 		requestedLanguage = domain.LanguageUnknown
 	}
-	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, request.query, requestedLanguage, string(request.disposition), request.history, request.showHidden, myBooksPageOffset(request.page), myBooksPageSize)
+	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, request.query, requestedLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
@@ -58,10 +58,8 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	}
 	browse := myBooksBrowseState(request.query, request.page, request.needsLanguage, request.disposition, activeLanguage, activeLanguageLabel, result)
 	browse.History = request.history
-	browse.ShowHidden = request.showHidden
-	browse.HiddenCount = result.HiddenCount
 	if page, redirect := myBooksRedirectPage(request, requestedLanguage, result); redirect {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.needsLanguage, request.disposition, request.history, request.showHidden))
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.needsLanguage, request.disposition, request.history))
 		return
 	}
 	connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
@@ -93,7 +91,6 @@ type myBooksLibraryRequest struct {
 	needsLanguage bool
 	disposition   domain.BookDisposition
 	history       bool
-	showHidden    bool
 	hasLanguage   bool
 }
 
@@ -105,7 +102,6 @@ func parseMyBooksLibraryRequest(rURL *url.URL) myBooksLibraryRequest {
 		needsLanguage: needsLanguage,
 		disposition:   disposition,
 		history:       history,
-		showHidden:    parseMyBooksShowHidden(rURL),
 		hasLanguage:   rURL.Query().Has("language"),
 	}
 }
@@ -149,8 +145,8 @@ func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, b
 }
 
 // currentWorkBookForMyBooks loads the current Reading's Book with its Analysis
-// update offer. A grouped Work row names it even when the current visibility
-// scope or a filter keeps its cell out of the row.
+// update offer. A grouped Work row names it even when a filter keeps its cell
+// out of the row.
 func (h *Handler) currentWorkBookForMyBooks(ctx context.Context, owner, bookID string, rows []domain.MyBooksBrowseRow) (domain.MyBook, bool, error) {
 	if h.services.AnalysisUpdates == nil || !myBooksHasGroupedWork(rows) {
 		return domain.MyBook{}, false, nil
@@ -250,7 +246,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		fail(w, err)
 		return
 	}
-	location := myBookVisibleBucketURL(book, page)
+	location := myBookBucketURL(book, page)
 	separator := "?"
 	if strings.Contains(location, "?") {
 		separator = "&"
@@ -267,7 +263,7 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 	}
 	history := bucket == domain.MyBookBucketRead
 	for offset := 0; ; offset += myBooksPageSize {
-		result, err := browseMyBooks(ctx, store, owner, "", language, string(disposition), history, book.Hidden, offset, myBooksPageSize)
+		result, err := browseMyBooks(ctx, store, owner, "", language, string(disposition), history, offset, myBooksPageSize)
 		if err != nil {
 			return 0, err
 		}
@@ -391,7 +387,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if outcome.Kind == readingintent.OutcomeStaleRevision {
 		queryParam = "error"
 	}
-	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false, outcome.Book.Hidden)+"&"+queryParam+"="+url.QueryEscape(message))
+	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false)+"&"+queryParam+"="+url.QueryEscape(message))
 }
 
 // moveToReadMessage maps a reading-intent outcome to the learner-facing
@@ -497,63 +493,4 @@ func expectedDispositionRevision(r *http.Request) (int64, bool) {
 	}
 	revision, err := strconv.ParseInt(r.FormValue("expected_revision"), 10, 64)
 	return revision, err == nil && revision > 0
-}
-
-func (h *Handler) hideBook(w http.ResponseWriter, r *http.Request) {
-	h.setBookVisibility(w, r, true)
-}
-
-func (h *Handler) unhideBook(w http.ResponseWriter, r *http.Request) {
-	h.setBookVisibility(w, r, false)
-}
-
-// setBookVisibility records the desired Hidden value against the revision the
-// form rendered. It writes only visibility: Start, End, Finish, disposition,
-// reservations, and history are deliberately not consulted or changed, so a
-// Hidden Current reading stays in Reading and Hide never ends it.
-func (h *Handler) setBookVisibility(w http.ResponseWriter, r *http.Request, hidden bool) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	owner, bookID := user(r).ID, r.PathValue("id")
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
-		return
-	}
-	returnTo := myBooksReturnURL(r.FormValue("return_to"))
-	withNotice := func(key, text string) string {
-		separator := "?"
-		if strings.Contains(returnTo, "?") {
-			separator = "&"
-		}
-		return returnTo + separator + key + "=" + url.QueryEscape(text)
-	}
-	expectedRevision, err := strconv.ParseInt(r.FormValue("expected_visibility_revision"), 10, 64)
-	if err != nil || expectedRevision < 0 {
-		redirect(w, r, withNotice("error", "This My Books form is out of date. Refresh My Books and try again."))
-		return
-	}
-	if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, domain.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
-		fail(w, err)
-		return
-	}
-	if _, err := h.services.Store.MyBooks.SetBookHidden(r.Context(), owner, bookID, expectedRevision, hidden); err != nil {
-		switch {
-		case errors.Is(err, domain.ErrStaleBookVisibility):
-			redirect(w, r, withNotice("error", "This Book's visibility changed in another tab. No changes were made; refresh My Books and try again."))
-		case errors.Is(err, domain.ErrNotFound):
-			http.NotFound(w, r)
-		default:
-			fail(w, err)
-		}
-		return
-	}
-	if hidden {
-		redirect(w, r, withNotice("message", "Book hidden. Use Show hidden books to find it again. Reading intent and history are unchanged."))
-		return
-	}
-	redirect(w, r, withNotice("message", "Book unhidden. Reading intent and history are unchanged."))
 }

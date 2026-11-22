@@ -72,17 +72,15 @@ func TestFixtureClassicalReAddReopensTheSameBooks(t *testing.T) {
 	require.Len(t, first.Books, 2)
 	bookID := first.Books[0].BookID
 
-	hidden, err := store.SetBookHidden(context.Background(), OwnerID, bookID, 0, true)
-	require.NoError(t, err)
-	require.True(t, hidden)
+	require.NoError(t, store.RemoveBookFromMyBooks(context.Background(), OwnerID, bookID))
 
 	again, err := store.AddClassicalReadingUnits(context.Background(), OwnerID, []string{"fixture-iliad-1", "fixture-iliad-2", "fixture-iliad-2"})
 	require.NoError(t, err)
 	assert.Zero(t, again.CreatedBooks())
 	assert.Equal(t, []string{bookID, first.Books[1].BookID}, []string{again.Books[0].BookID, again.Books[1].BookID})
-	visible, _, err := store.GetBookVisibility(context.Background(), OwnerID, bookID)
+	restored, err := store.GetBookDetail(context.Background(), OwnerID, bookID)
 	require.NoError(t, err)
-	assert.False(t, visible, "re-adding reopens a hidden Book")
+	assert.Equal(t, domain.BookDispositionToRead, restored.Disposition, "re-adding restores the same Book")
 }
 
 func TestFixtureClassicalRemoveEndsMembershipAndAddRestores(t *testing.T) {

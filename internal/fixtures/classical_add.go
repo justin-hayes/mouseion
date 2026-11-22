@@ -89,11 +89,7 @@ func (s *Store) setClassicalDefinitions(definitions []classical.Definition) {
 func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition classical.Definition) classical.AddedBook {
 	if i := s.fixtureClassicalBookIndexLocked(owner, definition.Key); i >= 0 {
 		bookID := s.myBooks[i].Book.ID
-		key := fixtureDispositionKey(owner, bookID)
-		delete(s.removedBooks, key)
-		if state := s.visibility[key]; state.hidden {
-			s.visibility[key] = fixtureVisibility{hidden: false, revision: state.revision + 1}
-		}
+		delete(s.removedBooks, fixtureDispositionKey(owner, bookID))
 		s.restoreFixtureToReadLocked(owner, bookID)
 		return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID}
 	}

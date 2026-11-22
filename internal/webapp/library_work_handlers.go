@@ -16,9 +16,8 @@ import (
 )
 
 // workBooks loads every owned Book of one reviewed Work in constituent-book
-// order, including Hidden Books and Books outside the current filter. Work-level
-// actions therefore act on the whole Work while visibility and disposition stay
-// per Book.
+// order, including Books outside the current filter. Work-level actions
+// therefore act on the whole Work while disposition stays per Book.
 func (h *Handler) workBooks(ctx context.Context, owner, workKey string) ([]domain.MyBook, error) {
 	workKey = strings.TrimSpace(workKey)
 	if workKey == "" {
@@ -200,54 +199,6 @@ func myBooksCurrentReadingName(books []domain.MyBook, current *domain.Book) stri
 		}
 	}
 	return "“" + current.Title + "”"
-}
-
-func (h *Handler) hideWork(w http.ResponseWriter, r *http.Request) {
-	h.setWorkVisibility(w, r, true)
-}
-
-func (h *Handler) unhideWork(w http.ResponseWriter, r *http.Request) {
-	h.setWorkVisibility(w, r, false)
-}
-
-// setWorkVisibility changes every owned Book's visibility. Visibility stays per
-// Book underneath: disposition, current Reading and history are untouched.
-func (h *Handler) setWorkVisibility(w http.ResponseWriter, r *http.Request, hidden bool) {
-	books, owner, returnTo, ok := h.workAction(w, r)
-	if !ok {
-		return
-	}
-
-	changed, failed := 0, 0
-	for _, book := range books {
-		if book.Hidden == hidden {
-			continue
-		}
-		applied, err := h.services.Store.MyBooks.SetBookHidden(r.Context(), owner, book.Book.ID, book.VisibilityRevision, hidden)
-		switch {
-		case errors.Is(err, domain.ErrStaleBookVisibility), errors.Is(err, domain.ErrNotFound):
-			continue
-		case err != nil:
-			logWorkActionFailure(owner, book.Book.ID, "visibility", err)
-			failed++
-		case applied:
-			changed++
-		}
-	}
-
-	if hidden {
-		message := fmt.Sprintf("Hid %s. Use Show hidden books to find them again. Reading intent and history are unchanged.", countNoun(changed, "Book", "Books"))
-		if failed > 0 {
-			message += fmt.Sprintf(" Could not update %s.", countNoun(failed, "Book", "Books"))
-		}
-		myBooksRedirectWithNotice(w, r, returnTo, message)
-		return
-	}
-	message := fmt.Sprintf("Unhid %s. Reading intent and history are unchanged.", countNoun(changed, "Book", "Books"))
-	if failed > 0 {
-		message += fmt.Sprintf(" Could not update %s.", countNoun(failed, "Book", "Books"))
-	}
-	myBooksRedirectWithNotice(w, r, returnTo, message)
 }
 
 // workTransitionUnchanged reports a transition that needs no retry: a stale

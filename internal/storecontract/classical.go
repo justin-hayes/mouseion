@@ -113,34 +113,6 @@ func classicalScenarios() []Scenario {
 			require.ErrorContains(t, err, "not current", "an unknown Reading unit is refused")
 		},
 	}, {
-		Name: "classical re-add reopens a hidden book and restores To Read",
-		Run: func(t *testing.T, h Harness) {
-			h.Seeds().SeedClassicalCatalog(t)
-			owner := h.Seeds().Owner()
-			report, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook2Key})
-			require.NoError(t, err)
-			bookID := report.Books[0].BookID
-			detail := requireDetail(t, h, owner, bookID)
-			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, detail.DispositionRevision, domain.BookDispositionInbox)
-			require.NoError(t, err)
-			require.True(t, applied)
-			applied, err = h.BookState().SetBookHidden(owner, bookID, 0, true)
-			require.NoError(t, err)
-			require.True(t, applied)
-			_, hiddenRevision, err := h.BookState().GetBookVisibility(owner, bookID)
-			require.NoError(t, err)
-
-			again, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook2Key})
-			require.NoError(t, err)
-			assert.Zero(t, again.CreatedBooks())
-			assert.Equal(t, bookID, again.Books[0].BookID)
-			hidden, revision, err := h.BookState().GetBookVisibility(owner, bookID)
-			require.NoError(t, err)
-			assert.False(t, hidden, "re-adding reopens the existing Book")
-			assert.Equal(t, hiddenRevision+1, revision, "reopening advances the visibility revision")
-			assert.Equal(t, domain.BookDispositionToRead, requireDetail(t, h, owner, bookID).Disposition)
-		},
-	}, {
 		Name: "classical re-add restores a removed book and its evidence",
 		Run: func(t *testing.T, h Harness) {
 			h.Seeds().SeedClassicalCatalog(t)
@@ -168,7 +140,6 @@ func classicalScenarios() []Scenario {
 
 			restored := requireDetail(t, h, owner, bookID)
 			assert.Equal(t, domain.BookDispositionToRead, restored.Disposition)
-			assert.False(t, restored.Hidden)
 			require.NotNil(t, restored.ReadingUnit)
 			assert.Equal(t, ClassicalUnitBook1Key, restored.ReadingUnit.ReadingUnitKey)
 			assert.Equal(t, 1, restored.CompletionCount, "the removed Book keeps its reading history")

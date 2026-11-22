@@ -157,14 +157,8 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	again := fixture.ownedBook(t)
 	assert.Equal(t, entry.BookID, again.BookID, "a replayed Add creates no duplicate Book")
 
-	// Hiding and removing the Book, then adding the entry again, restores the
-	// same Book visible and To Read.
-	hidden, visibilityRevision, err := fixture.store.GetBookVisibility(context.Background(), fixture.owner.ID, entry.BookID)
-	require.NoError(t, err)
-	require.False(t, hidden)
-	applied, err := fixture.store.SetBookHidden(context.Background(), fixture.owner.ID, entry.BookID, visibilityRevision, true)
-	require.NoError(t, err)
-	require.True(t, applied)
+	// Removing the Book, then adding the entry again, restores the same Book as
+	// To Read.
 	removed := perform(t, fixture.handler, http.MethodPost, "/library/books/"+entry.BookID+"/remove", url.Values{
 		"csrf_token": {fixture.csrf},
 	}, fixture.cookies)
@@ -177,7 +171,6 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	restoredDetail, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, entry.BookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, restoredDetail.Disposition)
-	assert.False(t, restoredDetail.Hidden, "Add makes the restored Book visible")
 	assert.NotNil(t, restoredDetail.Acquired, "the restored Book keeps its acquired source")
 }
 

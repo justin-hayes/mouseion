@@ -119,12 +119,11 @@ Each Book item presents, in order:
    status on the grid item.
 4. One visible, labeled Reading action: **Move to To Read** or **View in
    Reading**, accompanied by an icon.
-5. A labeled native **More actions** disclosure containing **Hide** or
-   **Unhide** for eligible Books. Remove from My Books ends membership without
-   changing the Book's evidence, history, or artifacts, while Hide removes a
-   Book from default views only. There is no per-Book metadata refresh: a
-   catalog-linked Book follows its entry's title, author, and cover at the next
-   sync.
+5. A labeled native **More actions** disclosure containing **Remove from My
+   Books** for eligible Books. Remove ends membership without
+   changing the Book's evidence, history, or artifacts. There is no per-Book
+   metadata refresh: a catalog-linked Book follows its entry's title, author,
+   and cover at the next sync.
 
 When a Reading anchor exists, the cover and title form one link to that
 anchor. Otherwise neither performs an implicit action; the explicit Reading

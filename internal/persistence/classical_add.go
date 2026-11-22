@@ -23,8 +23,8 @@ const classicalAddLockSalt = 469
 // Reading unit, linked immutably to that unit and chosen for Ancient Greek. It
 // downloads nothing, starts no job and never changes the active study language;
 // the Add route submits preparation after this transaction commits. Re-adding
-// returns the existing Book, restoring an active membership, clearing Hidden
-// and setting To Read, so the operation is idempotent.
+// returns the existing Book, restoring an active membership and setting To
+// Read, so the operation is idempotent.
 func (s *PostgresStore) AddClassicalReadingUnits(ctx context.Context, owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	owner = strings.TrimSpace(owner)
 	if owner == "" {
@@ -169,19 +169,10 @@ func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, k
 
 // reopenClassicalBookTx makes an existing Book reachable again and restores
 // the To Read intent Add expresses. Reading history, analysis and every other
-// piece of evidence stay untouched. A removed membership returns to active and
-// a Hidden Book becomes visible at the next revision.
+// piece of evidence stay untouched. A removed membership returns to active.
 func reopenClassicalBookTx(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) error {
-	visibility, err := q.GetBookVisibilityForUpdate(ctx, sqlcgen.GetBookVisibilityForUpdateParams{Owner: owner, Book: bookID})
-	if err != nil {
+	if _, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); err != nil {
 		return missing(err)
-	}
-	if visibility.Hidden {
-		if err := q.WriteBookVisibility(ctx, sqlcgen.WriteBookVisibilityParams{
-			Owner: owner, Book: bookID, Hidden: false, Revision: visibility.Revision + 1,
-		}); err != nil {
-			return err
-		}
 	}
 	if err := upsertBookDisposition(ctx, q, owner, bookID, domain.BookDispositionToRead); err != nil {
 		return err

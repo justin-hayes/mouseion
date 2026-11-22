@@ -104,20 +104,18 @@ contracts. Reading owns current evidence and current-reading presentation.
 - The margin carries one bucket badge using the ordinary precedence — **Currently
   reading Book N**, **To Read**, **Read**, **Inbox** — followed by counts such
   as "22 more To Read · 1 Read".
-- "M of N books" counts the Books the learner owns, including Hidden Books; the
-  strip follows the current visibility scope, so a Hidden Book contributes to M
-  but has no cell until Show hidden books is on.
+- "M of N books" counts the Books the learner owns in the active language; every
+  owned Book contributes a cell.
 - Under the identity, one cell per owned Book appears in book order. Each cell
   shows its bucket by shape, meets the 44px target, and carries a full
   accessible label. The current Book's cell opens the current-reading card; a
-  visible To Read Book's cell opens that Book's ordinary candidate entry inline
-  in the chooser, on Reading when no Book is current and on the Switch page when
-  one is. A Read or Inbox cell is status-only, not a link: Reading has no entry
-  to select, and the strip never implies a next Book. It keeps the 44px cell
-  and accessible label but is not a link target. A Hidden Book's cell is
-  status-only too. Read again and the Work-level Move to To Read remain the
-  routes that make such a Book a candidate again. The row has no per-Book
-  actions, and the page has one shared legend.
+  To Read Book's cell opens that Book's ordinary candidate entry inline in the
+  chooser, on Reading when no Book is current and on the Switch page when one
+  is. A Read or Inbox cell is status-only, not a link: Reading has no entry to
+  select, and the strip never implies a next Book. It keeps the 44px cell and
+  accessible label but is not a link target. Read again and the Work-level Move
+  to To Read remain the routes that make such a Book a candidate again. The row
+  has no per-Book actions, and the page has one shared legend.
 - A filtered Work row keeps only its matching cells. A line states the shape,
   such as "57 Books in 5 works".
 - A Work with only one owned Book stays an ordinary row and shows its place,
@@ -153,7 +151,6 @@ contracts. Reading owns current evidence and current-reading presentation.
 | Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading or Move to To Read |
 | Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | View in Reading or Move to To Read |
 | Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalog metadata and re-sync |
-| Hidden Books exist | Omit Hidden Books (including Needs language) by default and offer **Show hidden books**, even in an empty view. The scope adds a Hidden label and Unhide, with counts matching the scope. Hide/Unhide never change disposition, Current reading, or evidence. | Show hidden books, then Unhide |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
 | Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
 | Enhancement failed | Keep or restore the ordinary server-rendered form/link path. | Submit normally |

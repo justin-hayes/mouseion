@@ -36,7 +36,6 @@ func TestMyBookCanMarkPreviouslyReadOnlyForUnstartedToRead(t *testing.T) {
 		want bool
 	}{
 		{name: "unstarted To Read", book: chosen(MyBook{Disposition: BookDispositionToRead}), want: true},
-		{name: "unstarted hidden To Read", book: chosen(MyBook{Disposition: BookDispositionToRead, Hidden: true}), want: true},
 		{name: "To Read with a completion", book: chosen(MyBook{Disposition: BookDispositionToRead, CompletionCount: 1}), want: false},
 		{name: "To Read that held the current reading", book: chosen(MyBook{Disposition: BookDispositionToRead, EverCurrentReading: true}), want: false},
 		{name: "Inbox book", book: chosen(MyBook{Disposition: BookDispositionInbox}), want: false},

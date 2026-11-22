@@ -199,9 +199,8 @@ func TestReadingChooserGroupsAWorkAndOrdersBands(t *testing.T) {
 	assert.Equal(t, "1", readingChooserBookNumber(iliad.Bands[0].Books[0]), "only the book number is visible")
 }
 
-func TestReadingChooserWorkCellsExcludeCurrentAndHiddenBooks(t *testing.T) {
+func TestReadingChooserWorkCellsExcludeCurrentBook(t *testing.T) {
 	books, insights := groupedChooserBooks()
-	books[0].Hidden = true
 	handler := newChooserHandler(books, nil, insights)
 	handler.services.Classical = workCatalog(t)
 
@@ -217,11 +216,9 @@ func TestReadingChooserWorkCellsExcludeCurrentAndHiddenBooks(t *testing.T) {
 	require.True(t, iliad.Grouped)
 	for _, entry := range view.Entries {
 		for _, book := range entry.Books {
-			assert.NotEqual(t, "iliad-1", book.Book.Book.ID, "hidden Book must not be a cell")
 			assert.NotEqual(t, "iliad-2", book.Book.Book.ID, "current Book must not be a cell")
 		}
 	}
-	assert.Equal(t, "2 To Read Books, 0 assessed", readingChooserWorkCounts(iliad))
 }
 
 func TestReadingChooserRendersGroupedWorkEntryAndInlineEntries(t *testing.T) {

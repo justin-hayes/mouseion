@@ -128,10 +128,6 @@ func (s *Store) restoreFixtureBookMembershipLocked(owner, bookID string, disposi
 		delete(s.removedBooks, key)
 		changed = true
 	}
-	if state := s.visibility[key]; state.hidden {
-		s.visibility[key] = fixtureVisibility{hidden: false, revision: state.revision + 1}
-		changed = true
-	}
 	changed = s.setFixtureDispositionLocked(owner, bookID, disposition) || changed
 	return changed
 }

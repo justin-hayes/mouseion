@@ -136,8 +136,6 @@ type MyBook struct {
 	Acquired             *SourceMaterialSummary
 	Disposition          BookDisposition
 	DispositionRevision  int64
-	Hidden               bool
-	VisibilityRevision   int64
 	IsToRead             bool
 	IsCurrentReading     bool
 	// EverCurrentReading reports that the Book has held the Current reading

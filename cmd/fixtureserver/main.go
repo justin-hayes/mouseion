@@ -114,11 +114,11 @@ func main() {
 // acceptance of enhanced My Books error responses.
 type fixtureBooksStore struct{ *fixtures.Store }
 
-func (s fixtureBooksStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
+func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	if query == "fixture-handler-error" {
 		return domain.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
 	}
-	return s.Store.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, showHidden, offset, limit)
+	return s.Store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
 }
 
 type fixtureLemmaSuggestions struct{}

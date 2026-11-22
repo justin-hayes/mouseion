@@ -337,9 +337,9 @@ identity, and canonical bucket status in a visibly edged right margin. A Work
 with more than one owned Book in the active language is one grouped row with
 Work identity, one leading bucket badge, counts, work-level bulk actions, and a
 wrapping strip of 44px Book cells whose four distinct shapes distinguish the
-buckets. The current Book's cell opens the current-reading card, and a visible
-To Read Book's cell opens that Book's inline chooser candidate on Reading or the
-Switch page; Read, Inbox, and Hidden cells are status-only, because Reading has
+buckets. The current Book's cell opens the current-reading card, and a To Read
+Book's cell opens that Book's inline chooser candidate on Reading or the Switch
+page; Read and Inbox cells are status-only, because Reading has
 no entry to select, while keeping their 44px cell and accessible label but not
 a link target. A filtered row keeps only its matching cells.
 Bulk To Read skips Books with reading history and the current Book, and moves
