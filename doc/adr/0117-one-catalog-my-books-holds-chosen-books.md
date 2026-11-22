@@ -118,7 +118,9 @@ never moved to To Read, as well as unread Books without a language. It only
 changes membership, is idempotent and can be reversed by restoring membership.
 It runs only after every connection's index has completed a sync, so no
 Book leaves My Books before its entry is browsable. A language-less Book with
-reading history is reported, not changed. Retired `book_visibility` data is left
+reading history is also removed, because My Books is browsed within a study
+language and would list it nowhere (#2575); its completions are kept, the
+backfill reports it, and adding it again with a language restores it. Retired `book_visibility` data is left
 in place for a separately reviewed cleanup.
 
 ### A failed EPUB acquisition is Book evidence

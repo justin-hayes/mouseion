@@ -243,15 +243,26 @@ UPDATE book_membership m
 SET state = 'removed', removed_at = now()
 WHERE m.state = 'active'
   AND NOT EXISTS (
-    SELECT 1 FROM book_dispositions d
-    WHERE d.owner_id = m.owner_id AND d.book_id = m.book_id
-      AND d.disposition = 'to_read'
-  )
-  AND NOT EXISTS (
-    SELECT 1 FROM reading_history h
-    WHERE h.owner_id = m.owner_id AND h.book_id = m.book_id
-  )
-  AND NOT EXISTS (
     SELECT 1 FROM primary_goals g
     WHERE g.owner_id = m.owner_id AND g.book_id = m.book_id
+  )
+  AND (
+    -- A Book with no chosen language is listed nowhere, so it leaves My Books
+    -- even when it has reading history; the completion is kept.
+    EXISTS (
+      SELECT 1 FROM books b
+      WHERE b.owner_id = m.owner_id AND b.id = m.book_id
+        AND b.language_state <> 'chosen'
+    )
+    OR (
+      NOT EXISTS (
+        SELECT 1 FROM book_dispositions d
+        WHERE d.owner_id = m.owner_id AND d.book_id = m.book_id
+          AND d.disposition = 'to_read'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM reading_history h
+        WHERE h.owner_id = m.owner_id AND h.book_id = m.book_id
+      )
+    )
   );

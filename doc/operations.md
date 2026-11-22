@@ -408,11 +408,12 @@ These commands run against `MOUSEION_DATABASE_URL`.
   after deploying that release and after every catalog connection has completed
   at least one sync. The release image builds only the server binary, so run it
   from a source checkout with the Go toolchain. It removes the My Books
-  membership of every active Book that is not To Read, has no reading history
-  and is not the current reading, then prints `removed N unchosen Books from My
-  Books` and one `kept <id> ("<title>"): language not chosen but has reading
-  history` line for each language-less Book with history, which it leaves
-  unchanged. The refusal `refusing to run: every catalog connection must
+  membership of every active Book that has no chosen language, and of every
+  active Book that is not To Read, has no reading history and is not the
+  current reading. Then it prints `removed N unchosen Books from My Books` and
+  one `removed <id> ("<title>") from My Books: no chosen language; its reading
+  history is kept, ...` line for each language-less Book with history. Its
+  completions are kept, and adding the Book again with a language restores it. The refusal `refusing to run: every catalog connection must
   complete a sync first` means a connection has never completed a sync: run
   **Sync now** for that connection from the Catalog page or Manage sources, or
   delete a connection that no longer exists, then re-run. The command is

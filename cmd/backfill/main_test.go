@@ -44,7 +44,8 @@ func TestRunReportsTheBackfillAndClosesTheStore(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, run(context.Background(), func(string) string { return "postgres://example" }, &output, open))
 	assert.Contains(t, output.String(), "removed 2 unchosen Books")
-	assert.Contains(t, output.String(), "kept book-1")
+	assert.Contains(t, output.String(), "removed book-1")
+	assert.Contains(t, output.String(), "reading history is kept")
 	assert.True(t, store.closeCall)
 }
 

@@ -38,8 +38,10 @@ type MyBooksWorkRemoval struct {
 }
 
 // MyBooksBackfillReport is the Inbox retirement backfill's result. Removed
-// counts ended memberships; LanguageLessWithHistory names the Books the report
-// deliberately leaves in My Books despite having no chosen language.
+// counts ended memberships; LanguageLessWithHistory names the Books among them
+// that have reading history but no chosen language. Their membership ended
+// like any removed Book's and their completions are kept, so adding the Book
+// again with a language restores it.
 type MyBooksBackfillReport struct {
 	Removed                 int
 	LanguageLessWithHistory []Book
