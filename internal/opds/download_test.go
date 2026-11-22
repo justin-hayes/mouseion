@@ -2,6 +2,7 @@ package opds
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/download"
 	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -175,6 +177,46 @@ func TestDownloadToFileFailsHTTPStatusAndRemovesTheFile(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "404")
 	assertNoTemporaryFiles(t, dir)
+}
+
+func TestDownloadToFileFailsTransportWithoutCreatingAFile(t *testing.T) {
+	client := NewClient(&http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("offline")
+	})}, Auth{})
+
+	dir := t.TempDir()
+	_, err := client.DownloadToFile(t.Context(), "http://catalog.invalid/book.epub", dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "opds: download EPUB")
+	assert.Contains(t, err.Error(), "offline")
+	assertNoTemporaryFiles(t, dir)
+}
+
+func TestDownloadToFileKeepsTheCatalogStallMessage(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", EPUBMediaType)
+		testwrite.String(t, w, "chunk")
+		flushResponse(t, w)
+		<-release
+	}))
+	defer server.Close()
+	defer close(release)
+
+	client := NewClient(server.Client(), Auth{})
+	client.idleTimeout = 20 * time.Millisecond
+	client.downloadTimeout = 5 * time.Second
+	_, err := client.DownloadToFile(t.Context(), server.URL+"/book.epub", t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "opds: download EPUB: no progress for 20ms:")
+	assert.NotContains(t, err.Error(), "download: no progress")
+}
+
+func TestCatalogDownloadErrorReturnsUnexpectedHelperFailures(t *testing.T) {
+	cause := errors.New("unexpected")
+	failure := &download.Error{Kind: errors.New("other"), Cause: cause}
+	err := (&Client{idleTimeout: time.Second, downloadTimeout: time.Second}).catalogDownloadError(failure)
+	require.ErrorIs(t, err, cause)
 }
 
 func assertNoTemporaryFiles(t *testing.T, dir string) {

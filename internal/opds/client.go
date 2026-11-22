@@ -509,6 +509,16 @@ func (c *Client) get(ctx context.Context, target string) (*http.Response, error)
 }
 
 func (c *Client) do(ctx context.Context, target string, client *http.Client) (*http.Response, error) {
+	req, err := c.newRequest(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	return client.Do(req)
+}
+
+// newRequest validates target and builds the origin-scoped, credentialed GET
+// the client sends for feed and Catalog requests.
+func (c *Client) newRequest(ctx context.Context, target string) (*http.Request, error) {
 	if err := c.validateTarget(target); err != nil {
 		return nil, err
 	}
@@ -520,7 +530,7 @@ func (c *Client) do(ctx context.Context, target string, client *http.Client) (*h
 	if (c.Auth.Username != "" || c.Auth.Password != "") && (c.Auth.Origin == "" || sameOrigin(c.Auth.Origin, target)) {
 		req.SetBasicAuth(c.Auth.Username, c.Auth.Password)
 	}
-	return client.Do(req)
+	return req, nil
 }
 
 func (c *Client) validateTarget(target string) error {

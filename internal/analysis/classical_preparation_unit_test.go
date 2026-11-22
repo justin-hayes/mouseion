@@ -11,12 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -422,6 +424,33 @@ func TestClassicalPreparationWorkerDownloadRefusals(t *testing.T) {
 			assert.Equal(t, tc.code, importErr.Code)
 		})
 	}
+}
+
+func TestClassicalPreparationWorkerRefusesAStalledDownload(t *testing.T) {
+	t.Parallel()
+	target, data := preparationFixture(t)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write(data[:len(data)/2]); err != nil {
+			return
+		}
+		testwrite.Flush(t, w)
+		<-release
+	}))
+	defer server.Close()
+	defer close(release)
+
+	store := &preparationStoreStub{target: target}
+	worker := &ClassicalPreparationWorker{Store: store, Writer: &preparationWriterStub{}, Config: ClassicalPreparationConfig{
+		Layers:      classical.Layers{Layers: []classical.Layer{{Key: "layer-1", BaseURL: server.URL + "/"}}},
+		HTTPClient:  server.Client(),
+		TempDir:     t.TempDir(),
+		IdleTimeout: 20 * time.Millisecond,
+	}}
+	err := worker.Work(context.Background(), preparationJob(target))
+	var importErr *ancientgreek.ImportError
+	require.ErrorAs(t, err, &importErr)
+	assert.Equal(t, ancientgreek.CodeSourceDownloadFailed, importErr.Code)
 }
 
 func TestClassicalPreparationWorkerPublishesFromStoredSource(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -18,6 +17,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/download"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
@@ -36,6 +36,10 @@ const (
 
 	// classicalPreparationTimeout bounds one download and preparation.
 	classicalPreparationTimeout = 10 * time.Minute
+
+	// classicalSourceIdleTimeout fails a pinned source body that makes no
+	// progress, matching Catalog acquisition.
+	classicalSourceIdleTimeout = 30 * time.Second
 )
 
 // liveJobStates are the River states in which an equivalent job still counts as
@@ -108,6 +112,9 @@ type ClassicalPreparationConfig struct {
 	// TempDir is where a source download is staged. Empty uses the system
 	// temporary directory.
 	TempDir string
+	// IdleTimeout fails a pinned source body that makes no progress. Zero uses
+	// the 30-second default; tests shorten it.
+	IdleTimeout time.Duration
 }
 
 // WithClassicalPreparationStore supplies the store the To Read path uses to
@@ -500,11 +507,8 @@ func (w *ClassicalPreparationWorker) sourceBytes(ctx context.Context, target dom
 		}
 		return stored.Content, nil
 	}
-	data, err := w.download(ctx, target)
+	data, err := w.Config.fetchPinnedSource(ctx, target.SourceLayer, target.SourceFileName, target.SourceFileSize, target.SourceFileSHA256, classicalPreparationTimeout)
 	if err != nil {
-		return nil, err
-	}
-	if err := verifyClassicalSource(data, target.SourceFileSize, target.SourceFileSHA256); err != nil {
 		return nil, err
 	}
 	if err := w.Store.PutClassicalSource(ctx, domain.ClassicalSource{
@@ -519,72 +523,76 @@ func (w *ClassicalPreparationWorker) sourceBytes(ctx context.Context, target dom
 	return data, nil
 }
 
-// download fetches the pinned layer URL into the acquisition temp directory and
-// returns the staged bytes. The read is bounded by the reviewed size plus one,
-// so a hostile response cannot exhaust memory.
-func (w *ClassicalPreparationWorker) download(ctx context.Context, target domain.ClassicalPreparationTarget) (data []byte, err error) {
-	layer, ok := w.Config.Layers.Layer(target.SourceLayer)
+// fetchPinnedSource fetches one reviewed layer file into the acquisition temp
+// directory, verifies its pinned size and digest while streaming, and returns
+// its bytes. Both Classical workers share it, so the request setup, size
+// ceiling and no-progress watchdog exist once.
+func (c ClassicalPreparationConfig) fetchPinnedSource(ctx context.Context, layerKey, fileName string, size int64, digest string, timeout time.Duration) (data []byte, err error) {
+	layer, ok := c.Layers.Layer(layerKey)
 	if !ok {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}
 	}
-	if target.SourceFileSize > maxClassicalSourceBytes {
+	if size > maxClassicalSourceBytes {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
 	}
-	sourceURL, err := classicalSourceURL(layer.BaseURL, target.SourceFileName)
+	sourceURL, err := classicalSourceURL(layer.BaseURL, fileName)
 	if err != nil {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}
-	}
-	client := w.Config.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: classicalPreparationTimeout}
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
 	if err != nil {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
 	}
-	response, err := client.Do(request)
+	client := c.HTTPClient
+	if client == nil {
+		client = &http.Client{}
+	}
+	staged, err := download.Fetch(ctx, client, request, download.Options{
+		Dir:         c.TempDir,
+		Limit:       size,
+		Expected:    &download.Expectation{Size: size, Digest: digest},
+		IdleTimeout: c.sourceIdleTimeout(),
+		Timeout:     timeout,
+		CheckResponse: func(response *http.Response) error {
+			if response.StatusCode != http.StatusOK {
+				return fmt.Errorf("analysis: pinned source returned %s", response.Status)
+			}
+			return nil
+		},
+	})
 	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
+		return nil, classicalDownloadError(err)
 	}
-	defer func() { err = errors.Join(err, response.Body.Close()) }()
-	if response.StatusCode != http.StatusOK {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
-	}
-	return stagePinnedSource(response.Body, target.SourceFileSize, target.SourceFileSHA256, w.Config.TempDir)
-}
-
-// stagePinnedSource bounds, hashes and verifies one response body into a
-// temporary file, then returns its bytes. The temporary file is removed on
-// every outcome.
-func stagePinnedSource(body io.Reader, size int64, digest, dir string) (data []byte, err error) {
-	file, err := os.CreateTemp(dir, "mouseion-classical-")
-	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
-	}
-	path := file.Name()
 	defer func() {
-		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+		if removeErr := os.Remove(staged.Path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
 			err = errors.Join(err, fmt.Errorf("remove classical source temp file: %w", removeErr))
 		}
 	}()
-	hasher := sha256.New()
-	written, copyErr := io.Copy(io.MultiWriter(file, hasher), io.LimitReader(body, size+1))
-	closeErr := file.Close()
-	if copyErr != nil || closeErr != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
-	}
-	if written > size {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
-	}
-	if written != size || hex.EncodeToString(hasher.Sum(nil)) != digest {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}
-	}
-	//nolint:gosec // path is a file this function created inside the configured temp directory.
-	data, err = os.ReadFile(path)
+	data, err = os.ReadFile(staged.Path)
 	if err != nil {
 		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
 	}
 	return data, nil
+}
+
+func (c ClassicalPreparationConfig) sourceIdleTimeout() time.Duration {
+	if c.IdleTimeout > 0 {
+		return c.IdleTimeout
+	}
+	return classicalSourceIdleTimeout
+}
+
+// classicalDownloadError maps the shared helper's failure kinds onto the
+// import codes the Classical workers and failure reporting already use.
+func classicalDownloadError(err error) error {
+	switch {
+	case errors.Is(err, download.ErrTooLarge):
+		return &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
+	case errors.Is(err, download.ErrMismatch):
+		return &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}
+	default:
+		return &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
+	}
 }
 
 // parse reuses the last parsed work file when the pin and interpretation

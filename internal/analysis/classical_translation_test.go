@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -157,6 +159,36 @@ func TestClassicalTranslationWorkerFailurePaths(t *testing.T) {
 	var malformedRequests atomic.Int64
 	malformedWorker := &ClassicalTranslationWorker{Store: &translationStoreStub{}, Config: translationLayer(t, malformed, &malformedRequests)}
 	require.Error(t, malformedWorker.Work(context.Background(), translationJob(malformedArgs)))
+}
+
+func TestClassicalTranslationWorkerFailsAStalledDownload(t *testing.T) {
+	t.Parallel()
+	data, args := translationFixture(t)
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write(data[:len(data)/2]); err != nil {
+			return
+		}
+		testwrite.Flush(t, w)
+		<-release
+	}))
+	defer server.Close()
+	defer close(release)
+
+	worker := &ClassicalTranslationWorker{Store: &translationStoreStub{}, Config: ClassicalPreparationConfig{
+		Layers: classical.Layers{Layers: []classical.Layer{{
+			Key: "translation-layer", BaseURL: server.URL + "/",
+			LicenceClass: classical.LicenceClassSourceContent, Restriction: classical.RestrictionShareAlike,
+			DeployerRegisterRow: "synthetic test layer",
+		}}},
+		HTTPClient:  server.Client(),
+		TempDir:     t.TempDir(),
+		IdleTimeout: 20 * time.Millisecond,
+	}}
+	err := worker.Work(context.Background(), translationJob(args))
+	var importErr *ancientgreek.ImportError
+	require.ErrorAs(t, err, &importErr)
+	assert.Equal(t, ancientgreek.CodeSourceDownloadFailed, importErr.Code)
 }
 
 func TestClassicalTranslationWorkerRefusesMissingStore(t *testing.T) {
