@@ -4,6 +4,8 @@ Status: **Accepted; the "Always the complete scope" clause is partially supersed
 
 Amended by [ADR 0117](0117-one-catalog-my-books-holds-chosen-books.md) ("A failed EPUB acquisition is Book evidence"): acquisition still runs in the request, but a failure is now recorded per Book with a stable stage and code and shown on My Books with Retry, not only reported inline.
 
+Amended by [ADR 0121](0121-book-preparation-status-vocabulary-and-durable-epub-acquisition.md): acquisition no longer runs in the request. It is a durable `epub_acquisition` job that submits analysis when it succeeds, which reverses this ADR's rejection of downloading in the River worker.
+
 ## Context
 
 Mouseion's current flow separates content acquisition from analysis as two

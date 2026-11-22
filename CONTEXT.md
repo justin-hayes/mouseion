@@ -541,24 +541,49 @@ tombstone so existing Books never dangle. It is hidden from browsing and cannot
 be added or prepared; a Book already prepared from it stays readable.
 _Avoid_: deleted definition, removed Book.
 
+**Book preparation**:
+The durable work that makes a To Read Book readable. It has two kinds, chosen
+by where the Book came from: Classical preparation and EPUB preparation. Every
+Book preparation is described by the same lifecycle state (queued, running,
+completed, failed or cancelled), the stage it has reached, and, when it fails, a
+stable code.
+_Avoid_: job (the queue's unit, not the learner's), import, processing.
+
+**EPUB preparation**:
+The Book preparation of a Book added from a Catalog entry: it acquires the
+entry's Catalog file, then analyzes it. EPUB acquisition is its first stage, not
+a separate operation.
+_Avoid_: EPUB analysis (only its second half), acquisition (when the whole
+preparation is meant).
+
 **Classical preparation**:
-The durable, serial import that makes a classical Book's Reading unit readable:
-it acquires and verifies the pinned work file, cuts the unit, publishes an
+The Book preparation of a classical Book, a durable, serial import that makes
+its Reading unit readable: it acquires and verifies the pinned work file, cuts the unit, publishes an
 ordinary analysis, and records the definition it used. It is triggered by To
 Read, runs on `classical_preparation`, and never calls the NLP service.
 _Avoid_: analysis job (when the classical path is meant), EPUB analysis.
 
+**Book preparation failure**:
+The per-Book evidence of why a Book preparation last failed before any analysis
+of the Book began, classified by the stage that failed and a stable code. It has
+two kinds, a Classical preparation failure and an EPUB acquisition failure, and
+both use the same stages and codes wherever the meaning matches. A failure
+during analysis is evidence of the analysis itself, not a Book preparation
+failure.
+_Avoid_: job error, download error.
+
 **Classical preparation failure**:
-The per-Book evidence of one settled preparation attempt, classified by the
-stage that failed: fetch, import, a refused source, the catalog precondition, or
-a withdrawn definition. It is recorded per Book, never per pinned file, so one
+The Book preparation failure of a classical Book: the per-Book evidence of one
+settled preparation attempt, classified by the stage that failed: fetch, import,
+a refused source, the catalog precondition, or a withdrawn definition. It is recorded per Book, never per pinned file, so one
 Book's failure does not fail its siblings.
 _Avoid_: pin failure, download cache failure.
 
 **EPUB acquisition failure**:
-The per-Book evidence of the latest failed attempt to fetch and import a
-Catalog entry's Catalog file, classified by the stage that failed: the entry,
-fetch, a refused source, or import. It is recorded per Book and cleared when an
+The Book preparation failure of a Book added from a Catalog entry: the per-Book
+evidence of the latest failed attempt to fetch and import its Catalog file,
+classified by the stage that failed: the entry, fetch, a refused source, or
+import. It is recorded per Book and cleared when an
 acquisition succeeds.
 _Avoid_: download error, acquisition flash.
 
