@@ -1396,20 +1396,16 @@ func TestRiverAnalysisRecordsFailureAcrossRunAttemptJobAndHistory(t *testing.T) 
 	require.Equal(t, rivertype.JobStateDiscarded, status.State)
 
 	t.Run("run and attempt carry the failure code", func(t *testing.T) {
-		var runState, runCode, runError, attemptState, attemptCode, attemptError string
-		require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,COALESCE(r.failure_code,''),r.last_error,a.state,COALESCE(a.failure_code,''),a.error FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &runCode, &runError, &attemptState, &attemptCode, &attemptError))
+		var runState, runCode, attemptState, attemptCode string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,COALESCE(r.failure_code,''),a.state,COALESCE(a.failure_code,'') FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &runCode, &attemptState, &attemptCode))
 		require.Equal(t, "failed", runState)
 		require.Equal(t, string(domain.BookPreparationCodeAnalysisFailed), runCode)
 		require.Equal(t, "failed", attemptState)
 		require.Equal(t, string(domain.BookPreparationCodeAnalysisFailed), attemptCode)
-		require.Empty(t, runError, "the run error-text column is no longer written")
-		require.Empty(t, attemptError, "the attempt error-text column is no longer written")
 	})
-	t.Run("analysis job error column is no longer written", func(t *testing.T) {
-		var jobError string
-		require.NoError(t, pool.QueryRow(ctx, `SELECT error FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID).Scan(&jobError))
-		require.Empty(t, jobError)
-	})
+	// The run, attempt and job error-text columns no longer exist (cleanup
+	// migration 000060): a failure is the code above, and the cleanup
+	// migration test pins the columns' absence.
 	t.Run("processing history records the failure code", func(t *testing.T) {
 		var details []byte
 		require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND operation='analysis' AND status='failed' ORDER BY id DESC LIMIT 1`, owner.ID).Scan(&details))

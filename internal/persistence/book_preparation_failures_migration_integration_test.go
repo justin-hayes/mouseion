@@ -4,12 +4,19 @@ package persistence
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/migrations"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,10 +35,57 @@ type bookPreparationFailureFixture struct {
 	connectionID    string
 }
 
-func newBookPreparationFailureFixture(t *testing.T) bookPreparationFailureFixture {
+// The structural migration that creates the shared failure record, and the
+// separate data-only backfill that copies both old tables into it as its
+// successor (ADR 0038 keeps the pair in distinct files).
+const (
+	bookPreparationFailuresMigration = 57
+	bookPreparationFailuresBackfill  = 58
+)
+
+// migrateApplicationMigrationsThroughBackfill migrates a database only
+// through the shared failure record and its backfill (000058), then installs
+// River's schema so the store's preparation-status reads resolve. A fresh
+// deployment runs the backfill while the two old failure tables still exist;
+// the cleanup migration 000060 later drops them, so the latest template can
+// no longer seed those tables. This capped migrate builds the template the
+// backfill's own test still needs.
+func migrateApplicationMigrationsThroughBackfill(databaseURL string) (err error) {
+	source, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return fmt.Errorf("open embedded migrations: %w", err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", source, databaseURL)
+	if err != nil {
+		return fmt.Errorf("initialize migrations: %w", err)
+	}
+	defer func() {
+		sourceErr, databaseErr := m.Close()
+		err = errors.Join(err, sourceErr, databaseErr)
+	}()
+	if err := m.Migrate(bookPreparationFailuresBackfill); err != nil {
+		return fmt.Errorf("apply migrations through the backfill: %w", err)
+	}
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("open postgres for River migrations: %w", err)
+	}
+	defer pool.Close()
+	riverMigrator, err := rivermigrate.New(riverpgxv5.New(pool), nil)
+	if err != nil {
+		return fmt.Errorf("initialize River migrations: %w", err)
+	}
+	if _, err = riverMigrator.Migrate(ctx, rivermigrate.DirectionUp, nil); err != nil {
+		return fmt.Errorf("apply River migrations: %w", err)
+	}
+	return nil
+}
+
+func newBookPreparationFailureFixture(t *testing.T, migrateDB func(string) error) bookPreparationFailureFixture {
 	t.Helper()
 	ctx := context.Background()
-	databaseURL, pool := testutil.Postgres(t, ctx, Migrate)
+	databaseURL, pool := testutil.Postgres(t, ctx, migrateDB)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "preparation-failure-owner", false)
 	require.NoError(t, err)
@@ -69,7 +123,10 @@ func newBookPreparationFailureFixture(t *testing.T) bookPreparationFailureFixtur
 // data-only migration as its own step: rows from both old tables arrive with
 // unchanged values, and a second application changes nothing.
 func TestBookPreparationFailuresBackfillCopiesBothKindsUnchanged(t *testing.T) {
-	f := newBookPreparationFailureFixture(t)
+	// The old failure tables exist only through the backfill, so this test
+	// builds its database against the capped migrate, not the latest schema
+	// the cleanup migration leaves behind.
+	f := newBookPreparationFailureFixture(t, migrateApplicationMigrationsThroughBackfill)
 	ctx := context.Background()
 
 	classicalFailedAt := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
@@ -87,12 +144,13 @@ func TestBookPreparationFailuresBackfillCopiesBothKindsUnchanged(t *testing.T) {
 		f.owner, f.epubBookID, f.connectionID, epubFailedAt)
 	require.NoError(t, err)
 
-	// The test database is already at the latest migration, so force the
-	// version to the structural migration and let the backfill run as a real
-	// successor data migration. Stop at the backfill's version so later
-	// structural migrations do not run against schema that already has them.
-	forceApplicationMigration(t, f.databaseURL, 57)
-	moveApplicationMigrationsTo(t, f.databaseURL, 58)
+	// The capped migrate built this database at the backfill's version, so
+	// force the version to the structural migration and let the backfill run
+	// as a real successor data migration. Stop at the backfill's version so
+	// later structural migrations do not run against schema that already
+	// has them.
+	forceApplicationMigration(t, f.databaseURL, bookPreparationFailuresMigration)
+	moveApplicationMigrationsTo(t, f.databaseURL, bookPreparationFailuresBackfill)
 
 	type failureRow struct {
 		owner, book, unitKey, entry string
@@ -155,7 +213,7 @@ func TestBookPreparationFailuresBackfillCopiesBothKindsUnchanged(t *testing.T) {
 // TestBookPreparationFailureConstraintsRejectProvenanceAmbiguity pins the
 // provenance rule: exactly one kind, and never both or neither.
 func TestBookPreparationFailureConstraintsRejectProvenanceAmbiguity(t *testing.T) {
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 	ctx := context.Background()
 	insert := func(stage, unitKey string, revision int, connection, entry, book string) error {
 		_, err := f.pool.Exec(ctx, `
@@ -199,10 +257,11 @@ func TestBookPreparationFailureConstraintsRejectProvenanceAmbiguity(t *testing.T
 	}
 }
 
-// TestBookPreparationFailuresWriteOnlyTheNewTable proves both kinds now write
-// the shared record and leave the old tables untouched.
+// TestBookPreparationFailuresWriteOnlyTheNewTable proves both kinds write the
+// shared record. The old tables no longer exist at the latest schema: the
+// cleanup migration drops them, and the cleanup test pins that.
 func TestBookPreparationFailuresWriteOnlyTheNewTable(t *testing.T) {
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 	ctx := context.Background()
 
 	require.NoError(t, f.store.PutClassicalPreparationFailure(ctx, domain.ClassicalPreparationFailureRecord{
@@ -216,19 +275,7 @@ func TestBookPreparationFailuresWriteOnlyTheNewTable(t *testing.T) {
 		Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
 	}))
 
-	count := func(t *testing.T, table string) int {
-		t.Helper()
-		var n int
-		require.NoError(t, f.pool.QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE owner_id = $1`, f.owner).Scan(&n))
-		return n
-	}
-	t.Run("both kinds share the new record", func(t *testing.T) {
-		assert.Equal(t, 2, count(t, "book_preparation_failures"))
-	})
-	t.Run("the old Classical table is untouched", func(t *testing.T) {
-		assert.Zero(t, count(t, "classical_preparation_failures"))
-	})
-	t.Run("the old EPUB table is untouched", func(t *testing.T) {
-		assert.Zero(t, count(t, "epub_acquisition_failures"))
-	})
+	var count int
+	require.NoError(t, f.pool.QueryRow(ctx, `SELECT count(*) FROM book_preparation_failures WHERE owner_id = $1`, f.owner).Scan(&count))
+	assert.Equal(t, 2, count, "both kinds share the new record")
 }

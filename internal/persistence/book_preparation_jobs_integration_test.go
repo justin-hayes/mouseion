@@ -21,7 +21,7 @@ import (
 // Book, and another owner's rows never leak in.
 func TestListBookPreparationJobsReturnsEveryKindInOneShapeNewestFirst(t *testing.T) {
 	ctx := context.Background()
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 
 	classicalAt := time.Date(2026, time.November, 1, 10, 0, 0, 0, time.UTC)
 	acquisitionAt := time.Date(2026, time.November, 2, 10, 0, 0, 0, time.UTC)
@@ -108,7 +108,7 @@ func TestListBookPreparationJobsReturnsEveryKindInOneShapeNewestFirst(t *testing
 // same way.
 func TestListBookPreparationJobsKeepsAcquisitionEvidenceHonest(t *testing.T) {
 	ctx := context.Background()
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 
 	legacyBook, err := f.store.CreateBook(ctx, domain.Book{
 		OwnerID:            f.owner,
@@ -187,7 +187,7 @@ func TestListBookPreparationJobsKeepsAcquisitionEvidenceHonest(t *testing.T) {
 // visible as its own failed row exactly once.
 func TestListBookPreparationJobsPlacesAcquisitionFailureOnTheLatestJob(t *testing.T) {
 	ctx := context.Background()
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 
 	newBook := func(title string) string {
 		book, err := f.store.CreateBook(ctx, domain.Book{
@@ -314,7 +314,7 @@ func TestListBookPreparationJobsPlacesAcquisitionFailureOnTheLatestJob(t *testin
 // exactly as My Books reads the same evidence.
 func TestListBookPreparationJobsPlacesClassicalFailureOnTheLatestJobForTheRevision(t *testing.T) {
 	ctx := context.Background()
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 
 	// The fixture's classical Book: two settled attempts for its revision; only
 	// the newest may state the record.
@@ -406,7 +406,7 @@ func TestListBookPreparationJobsPlacesClassicalFailureOnTheLatestJobForTheRevisi
 // exactly as the My Books route reports the Book missing.
 func TestListBookPreparationJobsReportsMyBooksMembershipOnEveryKind(t *testing.T) {
 	ctx := context.Background()
-	f := newBookPreparationFailureFixture(t)
+	f := newBookPreparationFailureFixture(t, Migrate)
 
 	classicalJobID := insertPreparationRiverJob(t, ctx, f.pool, "classical_preparation", f.owner, f.classicalBookID,
 		map[string]any{"reading_unit_key": f.readingUnitKey, "definition_revision": f.revision},
