@@ -586,9 +586,11 @@ func TestStandardWorkerNonResponseFailureStillFailsPreparation(t *testing.T) {
 	currentRun, err := run.store.GetPreparedDeckRun(ctx, run.owner, run.prep.ID, run.run.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.PreparedDeckRunFailed, currentRun.State, "an authentication failure must fail the run")
+	assert.Equal(t, domain.PreparedDeckTranslationFailed, currentRun.TranslationState, "a translation-phase failure must fail translation")
 	preparation, err := run.store.GetDeckPreparation(ctx, run.owner, run.prep.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.DeckPreparationFailed, preparation.State)
+	assert.Equal(t, "prepared-deck translation was incomplete", preparation.Error)
 	assert.Empty(t, preparation.Artifact)
 }
 

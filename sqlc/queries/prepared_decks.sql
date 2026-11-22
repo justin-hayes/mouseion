@@ -242,7 +242,7 @@ RETURNING *;
 
 -- name: FailPreparedDeckFinalizationRun :one
 UPDATE deck_preparation_runs
-SET state = 'failed', translation_state = 'failed', error_class = $5, error_code = $6,
+SET state = 'failed', error_class = $5, error_code = $6,
     finalization_claim_token = NULL, finalization_claimed_at = NULL,
     finalization_lease_expires_at = NULL, completed_at = now(), updated_at = now()
 WHERE owner_id = $1 AND preparation_id = $2 AND id = $3
