@@ -111,6 +111,46 @@ func TestFixtureClassicalRemoveEndsMembershipAndAddRestores(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 }
 
+func TestFixtureRemoveRefusesCurrentAndUnknownBooks(t *testing.T) {
+	store := NewStore()
+	ctx := context.Background()
+
+	err := store.RemoveBookFromMyBooks(ctx, OwnerID, BookID)
+	require.ErrorIs(t, err, domain.ErrBookIsCurrentReading)
+	_, err = store.GetBookDetail(ctx, OwnerID, BookID)
+	require.NoError(t, err, "the current Book stays in My Books")
+
+	err = store.RemoveBookFromMyBooks(ctx, OwnerID, "not-a-book")
+	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
+func TestFixtureRemoveWorkSkipsTheCurrentBookAndRefusesUnknownWorks(t *testing.T) {
+	store := NewStore()
+	ctx := context.Background()
+	report, err := store.AddClassicalReadingUnits(ctx, OwnerID, []string{"fixture-iliad-1", "fixture-iliad-2"})
+	require.NoError(t, err)
+	require.Len(t, report.Books, 2)
+	currentID, otherID := report.Books[0].BookID, report.Books[1].BookID
+	store.currentReadings[fixtureGoalKey(OwnerID, classical.Language)] = domain.CurrentReading{
+		OwnerID: OwnerID, Language: classical.Language, BookID: currentID,
+	}
+
+	removal, err := store.RemoveWorkFromMyBooks(ctx, OwnerID, "fixture-iliad")
+	require.NoError(t, err)
+	assert.Equal(t, 1, removal.RemovedBooks)
+	require.NotNil(t, removal.CurrentReading)
+	assert.Equal(t, currentID, removal.CurrentReading.ID)
+	_, err = store.GetBookDetail(ctx, OwnerID, currentID)
+	require.NoError(t, err, "the current Book stays")
+	_, err = store.GetBookDetail(ctx, OwnerID, otherID)
+	require.ErrorIs(t, err, domain.ErrNotFound)
+
+	_, err = store.RemoveWorkFromMyBooks(ctx, OwnerID, " ")
+	require.ErrorIs(t, err, domain.ErrNotFound)
+	_, err = store.RemoveWorkFromMyBooks(ctx, OwnerID, "not-a-work")
+	require.ErrorIs(t, err, domain.ErrNotFound)
+}
+
 func TestFixtureClassicalToReadProjectionMakesOneBookReadyForTheChooser(t *testing.T) {
 	store := NewStore()
 	report, err := store.AddClassicalReadingUnits(context.Background(), OwnerID, []string{"fixture-iliad-1"})

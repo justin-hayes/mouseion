@@ -107,6 +107,16 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 							<button type="submit" class="btn btn-outline">Refresh metadata</button>
 						</form>
 					}
+					if book.IsCurrentReading {
+						<button type="submit" class="btn btn-outline" disabled>Remove from My Books</button>
+						<p class="metadata">Your current reading cannot be removed. Finish or end the reading first.</p>
+					} else {
+						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/remove") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<input type="hidden" name="return_to" value={ returnTo }/>
+							<button type="submit" class="btn btn-outline">Remove from My Books</button>
+						</form>
+					}
 				</div>
 			</details>
 		</div>
@@ -170,13 +180,11 @@ templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, r
 					<details class="more-actions">
 						<summary>More actions</summary>
 						<div class="more-actions__body">
-							if label, ok := myBooksWorkInboxAction(row); ok {
-								<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "inbox")) }>
-									<input type="hidden" name="csrf_token" value={ csrf }/>
-									<input type="hidden" name="return_to" value={ returnTo }/>
-									<button type="submit" class="btn btn-outline">{ label }</button>
-								</form>
-							}
+							<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "remove")) }>
+								<input type="hidden" name="csrf_token" value={ csrf }/>
+								<input type="hidden" name="return_to" value={ returnTo }/>
+								<button type="submit" class="btn btn-outline">Remove the work</button>
+							</form>
 							<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "hide")) }>
 								<input type="hidden" name="csrf_token" value={ csrf }/>
 								<input type="hidden" name="return_to" value={ returnTo }/>

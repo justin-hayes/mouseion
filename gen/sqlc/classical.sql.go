@@ -390,6 +390,58 @@ func (q *Queries) ListLegacyLanguageRows(ctx context.Context, languageTag pgtype
 	return items, nil
 }
 
+const listMyBooksWorkForRemoval = `-- name: ListMyBooksWorkForRemoval :many
+SELECT b.id::text AS book_id,
+       b.title,
+       EXISTS (
+           SELECT 1 FROM primary_goals g
+           WHERE g.owner_id = b.owner_id AND g.book_id = b.id
+       ) AS is_current_reading
+FROM book_reading_units bru
+JOIN reading_units ru ON ru.id = bru.reading_unit_id
+JOIN editions e ON e.id = ru.edition_id
+JOIN works w ON w.id = e.work_id
+JOIN books b ON b.owner_id = bru.owner_id AND b.id = bru.book_id
+JOIN book_membership m ON m.owner_id = bru.owner_id AND m.book_id = bru.book_id AND m.state = 'active'
+WHERE bru.owner_id = $1 AND w.definition_key = $2
+ORDER BY ru.constituent_book NULLS FIRST, b.id
+FOR UPDATE OF b
+`
+
+type ListMyBooksWorkForRemovalParams struct {
+	Owner   string
+	WorkKey string
+}
+
+type ListMyBooksWorkForRemovalRow struct {
+	BookID           string
+	Title            string
+	IsCurrentReading bool
+}
+
+// The owner's Books of one reviewed Work, in constituent-book order, with the
+// current-Reading flag Remove the work must skip. Only active membership is a
+// candidate; a previously removed Book already stays out of My Books.
+func (q *Queries) ListMyBooksWorkForRemoval(ctx context.Context, arg ListMyBooksWorkForRemovalParams) ([]ListMyBooksWorkForRemovalRow, error) {
+	rows, err := q.db.Query(ctx, listMyBooksWorkForRemoval, arg.Owner, arg.WorkKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMyBooksWorkForRemovalRow{}
+	for rows.Next() {
+		var i ListMyBooksWorkForRemovalRow
+		if err := rows.Scan(&i.BookID, &i.Title, &i.IsCurrentReading); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOwnedClassicalReadingUnits = `-- name: ListOwnedClassicalReadingUnits :many
 SELECT ru.definition_key AS unit_key,
        bru.book_id::text AS book_id

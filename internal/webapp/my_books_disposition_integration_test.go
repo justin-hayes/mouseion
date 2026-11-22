@@ -174,30 +174,33 @@ func TestAuthenticatedMyBooksStaleDispositionFormsConflictAcrossTabs(t *testing.
 	assert.Zero(t, knownRows)
 }
 
-func TestRetiredRemoveRequestCannotChangeMyBooksData(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "retired-remove-preservation-secret-0123456789")
+func TestRemoveEndsMembershipAndPreservesBookEvidence(t *testing.T) {
+	t.Setenv("MOUSEION_SECRET", "remove-preservation-secret-0123456789")
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	alice := createAccount(t, ctx, store, "retired-remove-owner", "owner-password")
-	book, _, _, preparation := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "retired-remove", "Retained book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	alice := createAccount(t, ctx, store, "remove-preservation-owner", "owner-password")
+	book, _, _, preparation := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "remove-preservation", "Retained book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	_, err = store.ImportPreviouslyRead(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
-	cookies, csrf := loginCookies(t, h, "retired-remove-owner", "owner-password")
+	cookies, csrf := loginCookies(t, h, "remove-preservation-owner", "owner-password")
 
 	response := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusNotFound, response.Code)
+	require.Equal(t, http.StatusSeeOther, response.Code, response.Body.String())
+	assert.Contains(t, response.Header().Get("Location"), url.QueryEscape("Removed from My Books."))
+	_, err = store.GetBookDetail(ctx, alice.ID, book.ID)
+	require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends My Books membership")
 
 	retained, err := store.GetBook(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "Retained book", retained.Title)
 	disposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, disposition)
+	assert.Equal(t, domain.BookDispositionInbox, disposition, "Remove changes no reading intent")
 	sources, err := store.ListSourceMaterials(ctx, alice.ID)
 	require.NoError(t, err)
 	require.Len(t, sources, 1)
@@ -212,7 +215,7 @@ func TestRetiredRemoveRequestCannotChangeMyBooksData(t *testing.T) {
 	assert.Equal(t, 1, analyses)
 	assert.Equal(t, 1, histories)
 	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
-	assert.Contains(t, readPage.Body.String(), "Retained book")
+	assert.NotContains(t, readPage.Body.String(), "Retained book", "the removed Book leaves My Books")
 }
 
 func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {

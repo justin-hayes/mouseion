@@ -48,8 +48,8 @@ type ShellStore interface {
 }
 
 // MyBooksStore provides the My Books (/library/**) browse, intent, visibility,
-// and metadata-refresh reads and writes.
-type MyBooksStore interface {
+// membership-removal, and metadata-refresh reads and writes.
+type MyBooksStore interface { //nolint:interfacebloat // My Books owns its browse read, membership and evidence writes, and the current-reading refusal; splitting them is a separate design change
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
 	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
@@ -58,6 +58,8 @@ type MyBooksStore interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 	SetBookHidden(context.Context, string, string, int64, bool) (bool, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
+	RemoveBookFromMyBooks(context.Context, string, string) error
+	RemoveWorkFromMyBooks(context.Context, string, string) (domain.MyBooksWorkRemoval, error)
 	RecordEPUBAcquisitionFailure(context.Context, domain.EPUBAcquisitionFailureRecord) error
 	ClearEPUBAcquisitionFailure(context.Context, string, string) error
 }
@@ -300,9 +302,10 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
+	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/works/{workKey}/to-read", h.user(http.HandlerFunc(h.moveWorkToRead)))
 	h.mux.Handle("POST /library/works/{workKey}/analysis-update", h.user(http.HandlerFunc(h.updateWorkAnalysis)))
-	h.mux.Handle("POST /library/works/{workKey}/inbox", h.user(http.HandlerFunc(h.moveWorkToInbox)))
+	h.mux.Handle("POST /library/works/{workKey}/remove", h.user(http.HandlerFunc(h.removeWorkFromMyBooks)))
 	h.mux.Handle("POST /library/works/{workKey}/hide", h.user(http.HandlerFunc(h.hideWork)))
 	h.mux.Handle("POST /library/works/{workKey}/unhide", h.user(http.HandlerFunc(h.unhideWork)))
 	h.mux.Handle("POST /library/books/{id}/hide", h.user(http.HandlerFunc(h.hideBook)))

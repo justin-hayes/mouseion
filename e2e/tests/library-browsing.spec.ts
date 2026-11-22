@@ -263,7 +263,7 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
     const firstBook = page.locator('.library-books .library-book').first();
     await firstBook.getByText('More actions', { exact: true }).click();
-    await expect(firstBook.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
+    await expect(firstBook.getByText('Set aside', { exact: true })).toHaveCount(0);
 
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
@@ -310,7 +310,7 @@ test.describe('My Books collection browsing', () => {
       const book = page.locator('.library-books .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
       await expect(book).toBeVisible();
       await book.getByText('More actions', { exact: true }).click();
-      await expect(book.getByText('Remove from My Books', { exact: true })).toHaveCount(0);
+      await expect(book.getByRole('button', { name: 'Remove from My Books', exact: true })).toBeVisible();
       await expect(book.getByText('Set aside', { exact: true })).toHaveCount(0);
       await expect(book.getByRole('button', { name: 'Confirm set aside' })).toHaveCount(0);
       await expect(page.getByRole('link', { name: /Set Aside/ })).toHaveCount(0);

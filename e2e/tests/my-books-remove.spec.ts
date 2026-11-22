@@ -1,0 +1,81 @@
+import { expect, Page, test } from '../support/test';
+
+async function signIn(page: Page) {
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('fixture-learner');
+  await page.getByLabel('Password').fill('fixture-password');
+  await page.getByRole('button', { name: /sign in|log in/i }).click();
+  await expect(page).toHaveURL(/\/library/);
+}
+
+async function showStudyLanguage(page: Page, language: string) {
+  const switcher = page.getByLabel('Study language');
+  if (await switcher.inputValue() !== language) await switcher.selectOption(language);
+}
+
+test.describe('Remove from My Books', () => {
+  // This spec has its own fixture server, so the Add/Remove state it creates
+  // never leaks into another spec file.
+  test('removes an OPDS Book and restores it from the Catalog', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/catalogs?language=de');
+
+    const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
+    await entry.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(entry.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+
+    await page.goto('/library');
+    const row = page.locator('#book-row-fixture-catalogue-restore');
+    await expect(row).toBeVisible();
+    await row.getByText('More actions', { exact: true }).click();
+    await row.getByRole('button', { name: 'Remove from My Books', exact: true }).click();
+    await expect(page).toHaveURL(/\/library\?.*message=/);
+    await expect(page.getByText(/Removed from My Books\. Its analysis, history and Known vocabulary are unchanged/)).toBeVisible();
+    await expect(row).toHaveCount(0);
+
+    // The Catalog offers Add again, and Add restores the same Book.
+    await page.goto('/catalogs?language=de');
+    const addedAgain = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
+    await expect(addedAgain.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+    await addedAgain.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(addedAgain.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+    await page.goto('/library');
+    await expect(page.locator('#book-row-fixture-catalogue-restore')).toBeVisible();
+  });
+
+  test('refuses Remove on the current reading with a reason', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/library');
+
+    const current = page.locator('#book-row-fixture-book');
+    await expect(current.locator('.library-book__membership')).toContainText('Currently reading');
+    await current.getByText('More actions', { exact: true }).click();
+    await expect(current.getByRole('button', { name: 'Remove from My Books', exact: true })).toBeDisabled();
+    await expect(current.getByText('Your current reading cannot be removed. Finish or end the reading first.')).toBeVisible();
+  });
+
+  test('removes a classical Work and adds it back from the Catalog', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/catalogs/classical/works/fixture-iliad');
+    await page.getByRole('button', { name: 'Add and prepare the whole work', exact: true }).click();
+    await expect(page).toHaveURL(/\/catalogs\/classical/);
+
+    await page.goto('/library');
+    await showStudyLanguage(page, 'grc');
+    const work = page.locator('#work-row-fixture-iliad');
+    await expect(work).toBeVisible();
+    await work.getByText('More actions', { exact: true }).click();
+    await expect(work.getByRole('button', { name: 'Move the work back to Inbox', exact: true })).toHaveCount(0);
+    await work.getByRole('button', { name: 'Remove the work', exact: true }).click();
+    await expect(page).toHaveURL(/\/library\?.*message=/);
+    await expect(page.getByText(/Removed 3 Books from My Books\./)).toBeVisible();
+    await expect(work).toHaveCount(0);
+
+    await page.goto('/catalogs/classical/works/fixture-iliad');
+    await expect(page.getByRole('button', { name: 'Add and prepare the whole work', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Add and prepare the whole work', exact: true }).click();
+    await page.goto('/library');
+    await showStudyLanguage(page, 'grc');
+    await expect(page.locator('#work-row-fixture-iliad')).toBeVisible();
+  });
+});

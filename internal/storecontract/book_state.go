@@ -1,6 +1,7 @@
 package storecontract
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -15,7 +16,82 @@ func bookStateScenarios() []Scenario {
 	scenarios := visibilityScenarios()
 	scenarios = append(scenarios, dispositionScenarios()...)
 	scenarios = append(scenarios, importScenarios()...)
+	scenarios = append(scenarios, removalScenarios()...)
 	return append(scenarios, epubAcquisitionFailureScenarios()...)
+}
+
+// removalScenarios pin Remove from My Books: it ends membership only, and it
+// refuses the Book a reading is on.
+func removalScenarios() []Scenario {
+	return []Scenario{{
+		Name: "Remove ends My Books membership and changes nothing else",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{ToRead: true, Vocabulary: defaultVocabulary})
+			detail := requireDetail(t, h, owner, bookID)
+			completion, err := h.BookState().ImportPreviouslyRead(owner, bookID)
+			require.NoError(t, err)
+			knownLemma := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "haus", UPOS: "NOUN"}
+			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{knownLemma})
+			before := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, bookID, before.Book.ID)
+			assert.Equal(t, detail.Book.Title, before.Book.Title)
+
+			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
+			_, err = h.BookState().GetBookDetail(owner, bookID)
+			require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends membership")
+
+			known, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			assert.True(t, slices.ContainsFunc(known, func(vocabulary domain.KnownVocabulary) bool {
+				return vocabulary.OwnerID == owner && vocabulary.CanonicalLemma == knownLemma.CanonicalLemma
+			}), "Remove keeps Known vocabulary")
+
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Removal contract catalog")
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry:  domain.CatalogueIndexEntry{EntryIdentifier: "removed-read-book", Title: before.Book.Title, Author: before.Book.Author, LanguageTag: Language, EPUBHref: "https://catalog.example/removed.epub"},
+				BookID: bookID,
+			}})
+			page, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
+			require.NoError(t, err)
+			require.Len(t, page.Entries, 1)
+			assert.Empty(t, page.Entries[0].BookID, "the Catalog offers Add once the Book leaves My Books")
+			restored, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "removed-read-book")
+			require.NoError(t, err)
+			assert.Equal(t, bookID, restored.Book.ID, "Add restores the same Book ID")
+			restoredDetail := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, domain.BookDispositionToRead, restoredDetail.Disposition)
+			require.NotNil(t, restoredDetail.Acquired, "the restored Book keeps its analysis evidence")
+			assert.True(t, restoredDetail.Classification().AnalysisInEffect())
+			assert.Equal(t, 1, restoredDetail.CompletionCount, "Remove keeps completion history")
+			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, restoredDetail.LatestCompletionSource)
+			require.NotNil(t, restoredDetail.LatestCompletionAt)
+			assert.True(t, restoredDetail.LatestCompletionAt.Equal(completion.CompletedAt), "the recorded completion is unchanged")
+		},
+	}, {
+		Name: "Remove refuses the current Book and leaves it in My Books",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID, reading := startReading(t, h, defaultVocabulary)
+
+			err := h.BookState().RemoveBookFromMyBooks(owner, bookID)
+			require.ErrorIs(t, err, domain.ErrBookIsCurrentReading)
+
+			detail := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, bookID, detail.Book.ID)
+			current, err := h.Store().GetCurrentReading(owner, Language)
+			require.NoError(t, err)
+			assert.Equal(t, reading.BookID, current.BookID, "the refused Remove never ends the reading")
+		},
+	}, {
+		Name: "Remove is owner-scoped",
+		Run: func(t *testing.T, h Harness) {
+			bookID := seedBook(t, h, BookSeed{ToRead: true})
+			err := h.BookState().RemoveBookFromMyBooks(h.Seeds().OtherOwner(), bookID)
+			require.ErrorIs(t, err, domain.ErrNotFound)
+			requireDetail(t, h, h.Seeds().Owner(), bookID)
+		},
+	}}
 }
 
 // epubAcquisitionFailureScenarios pin the durable reason a failed EPUB

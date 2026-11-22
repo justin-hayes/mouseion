@@ -682,8 +682,51 @@ func (s *Store) clearFixtureGoalsForRetaggedBook(owner, bookID, languageState, l
 func (s *Store) RemoveBookFromMyBooks(_ context.Context, owner, bookID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	bookID = s.fixtureBookID(owner, bookID)
+	if bookID == "" {
+		return domain.ErrNotFound
+	}
+	if s.fixtureBookIsCurrentReading(owner, bookID) {
+		return domain.ErrBookIsCurrentReading
+	}
 	s.removedBooks[fixtureDispositionKey(owner, bookID)] = struct{}{}
 	return nil
+}
+
+// RemoveWorkFromMyBooks ends every owned Book of one classical Work, except the
+// Book the learner is reading. It names that Book in the result; membership is
+// the only thing it changes.
+func (s *Store) RemoveWorkFromMyBooks(_ context.Context, owner, workKey string) (domain.MyBooksWorkRemoval, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	workKey = strings.TrimSpace(workKey)
+	if workKey == "" {
+		return domain.MyBooksWorkRemoval{}, domain.ErrNotFound
+	}
+	var removal domain.MyBooksWorkRemoval
+	found := false
+	for i := range s.myBooks {
+		book := s.myBooks[i]
+		if book.Book.OwnerID != owner || book.ReadingUnit == nil || book.ReadingUnit.WorkKey != workKey {
+			continue
+		}
+		if !s.fixtureBookActiveLocked(owner, book.Book.ID) {
+			continue
+		}
+		found = true
+		if s.fixtureBookIsCurrentReading(owner, book.Book.ID) {
+			if removal.CurrentReading == nil {
+				removal.CurrentReading = &domain.Book{ID: book.Book.ID, OwnerID: owner, Title: book.Book.Title}
+			}
+			continue
+		}
+		s.removedBooks[fixtureDispositionKey(owner, book.Book.ID)] = struct{}{}
+		removal.RemovedBooks++
+	}
+	if !found {
+		return domain.MyBooksWorkRemoval{}, domain.ErrNotFound
+	}
+	return removal, nil
 }
 
 // fixtureBookActiveLocked reports whether the Book still has active My Books

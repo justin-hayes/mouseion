@@ -148,9 +148,9 @@ func TestMyBooksWorkToReadMovesTheRestAroundTheCurrentBook(t *testing.T) {
 	assert.Equal(t, []string{firstID}, bookIDs, "only the moved Book queues preparation")
 }
 
-func TestMyBooksWorkBackToInboxLeavesTheCurrentBookToRead(t *testing.T) {
+func TestMyBooksRemoveBookEndsMembershipAndRefusesTheCurrentBook(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
-	learner := createAccount(t, ctx, store, "work-back-to-inbox", "learner-password")
+	learner := createAccount(t, ctx, store, "remove-book", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	addClassicalWork(t, h, cookies, csrf, "homer-iliad")
 
@@ -158,35 +158,70 @@ func TestMyBooksWorkBackToInboxLeavesTheCurrentBookToRead(t *testing.T) {
 	require.Len(t, ids, 2)
 	byPosition := classicalBooksByPosition(t, ctx, store, learner.ID, ids)
 	currentID, otherID := byPosition[1].Book.ID, byPosition[2].Book.ID
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, currentID, domain.BookDispositionToRead))
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, otherID, domain.BookDispositionToRead))
+	currentReadingBook(t, pool, learner.ID, currentID)
+	other, err := store.GetBookDetail(ctx, learner.ID, otherID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.BookDispositionToRead, other.Disposition)
+	require.NotNil(t, other.ReadingUnit)
+
+	removed := perform(t, h, http.MethodPost, "/library/books/"+otherID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
+	assert.Contains(t, removed.Header().Get("Location"), url.QueryEscape("Removed from My Books."))
+	_, err = store.GetBookDetail(ctx, learner.ID, otherID)
+	require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends membership")
+
+	restored := perform(t, h, http.MethodPost, "/catalogs/classical/units/"+other.ReadingUnit.ReadingUnitKey+"/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, restored.Code, restored.Body.String())
+	afterRestore, err := store.GetBookDetail(ctx, learner.ID, otherID)
+	require.NoError(t, err)
+	assert.Equal(t, otherID, afterRestore.Book.ID, "Add restores the same Book")
+	assert.Equal(t, domain.BookDispositionToRead, afterRestore.Disposition)
+
+	// The current Book cannot be removed by any route.
+	refused := perform(t, h, http.MethodPost, "/library/books/"+currentID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, refused.Code, refused.Body.String())
+	assert.Contains(t, refused.Header().Get("Location"), url.QueryEscape("This Book is your current reading."))
+	current, err := store.GetBookDetail(ctx, learner.ID, currentID)
+	require.NoError(t, err)
+	reading, err := store.GetCurrentReading(ctx, learner.ID, classical.Language)
+	require.NoError(t, err)
+	assert.Equal(t, currentID, reading.BookID, "the refused Remove never ends the reading")
+	assert.Equal(t, domain.BookDispositionToRead, current.Disposition)
+}
+
+func TestMyBooksRemoveTheWorkSkipsAndNamesTheCurrentBook(t *testing.T) {
+	ctx, store, pool, h, _ := classicalAddHarness(t)
+	learner := createAccount(t, ctx, store, "remove-work", "learner-password")
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	addClassicalWork(t, h, cookies, csrf, "homer-iliad")
+
+	ids := ownerBooks(t, pool, learner.ID)
+	require.Len(t, ids, 2)
+	byPosition := classicalBooksByPosition(t, ctx, store, learner.ID, ids)
+	currentID, otherID := byPosition[1].Book.ID, byPosition[2].Book.ID
 	currentReadingBook(t, pool, learner.ID, currentID)
 
-	moved := perform(t, h, http.MethodPost, "/library/works/homer-iliad/inbox", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
+	removed := perform(t, h, http.MethodPost, "/library/works/homer-iliad/remove", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
+	location := removed.Header().Get("Location")
+	assert.Contains(t, location, url.QueryEscape("Removed 1 Book from My Books."))
+	assert.Contains(t, location, url.QueryEscape("“Iliad, Book 1” stays because it is your current reading."))
 
 	current, err := store.GetBookDetail(ctx, learner.ID, currentID)
 	require.NoError(t, err)
 	reading, err := store.GetCurrentReading(ctx, learner.ID, classical.Language)
 	require.NoError(t, err)
 	assert.Equal(t, currentID, reading.BookID)
-	assert.Equal(t, domain.BookDispositionToRead, current.Disposition, "the current Book stays To Read")
-	other, err := store.GetBookDetail(ctx, learner.ID, otherID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, other.Disposition)
+	assert.Equal(t, domain.BookDispositionToRead, current.Disposition)
+	_, err = store.GetBookDetail(ctx, learner.ID, otherID)
+	require.ErrorIs(t, err, domain.ErrNotFound, "the Work's other Book leaves My Books")
 
-	// A repeated move changes nothing: the current Book stays and the Inbox
-	// Book remains Inbox.
-	again := perform(t, h, http.MethodPost, "/library/works/homer-iliad/inbox", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, again.Code, again.Body.String())
-	currentAgain, err := store.GetBookDetail(ctx, learner.ID, currentID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionToRead, currentAgain.Disposition)
-	assert.Equal(t, current.DispositionRevision, currentAgain.DispositionRevision)
-	otherAgain, err := store.GetBookDetail(ctx, learner.ID, otherID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, otherAgain.Disposition)
-	assert.Equal(t, other.DispositionRevision, otherAgain.DispositionRevision)
+	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
+	assert.NotContains(t, page.Body.String(), "Move the work back to Inbox")
+	assert.NotContains(t, page.Body.String(), `action="/library/works/homer-iliad/inbox"`)
+	retired := perform(t, h, http.MethodPost, "/library/works/homer-iliad/inbox", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusNotFound, retired.Code, "the retired Work Inbox route is unsupported")
 }
 
 func TestMyBooksWorkToReadNamesTheLegacyRowsCause(t *testing.T) {

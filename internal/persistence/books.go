@@ -794,13 +794,63 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 		return err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if err := ensureBookExists(ctx, tx, owner, bookID); err != nil {
+	q := sqlcgen.New(tx)
+	// The Book lock is the same first lock a Current reading Start takes, so a
+	// Start and this refusal cannot interleave.
+	if err := lockBookForUpdate(ctx, q, owner, bookID); err != nil {
 		return err
 	}
-	if err := sqlcgen.New(tx).RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: bookID}); err != nil {
+	current, err := q.BookIsCurrentReading(ctx, sqlcgen.BookIsCurrentReadingParams{Owner: owner, Book: bookID})
+	if err != nil {
+		return err
+	}
+	if current {
+		return domain.ErrBookIsCurrentReading
+	}
+	if err := q.RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: bookID}); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// RemoveWorkFromMyBooks ends every active Book of one classical Work's
+// membership except the Book the learner is reading, and names that Book in the
+// result. Only membership changes; evidence, completions and Known vocabulary
+// stay so a later Add restores the same Books.
+func (s *PostgresStore) RemoveWorkFromMyBooks(ctx context.Context, owner, workKey string) (removal domain.MyBooksWorkRemoval, err error) {
+	workKey = strings.TrimSpace(workKey)
+	if workKey == "" {
+		return domain.MyBooksWorkRemoval{}, ErrNotFound
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.MyBooksWorkRemoval{}, err
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	q := sqlcgen.New(tx)
+	books, err := q.ListMyBooksWorkForRemoval(ctx, sqlcgen.ListMyBooksWorkForRemovalParams{Owner: owner, WorkKey: workKey})
+	if err != nil {
+		return domain.MyBooksWorkRemoval{}, err
+	}
+	if len(books) == 0 {
+		return domain.MyBooksWorkRemoval{}, ErrNotFound
+	}
+	for _, book := range books {
+		if book.IsCurrentReading {
+			if removal.CurrentReading == nil {
+				removal.CurrentReading = &domain.Book{ID: book.BookID, OwnerID: owner, Title: book.Title}
+			}
+			continue
+		}
+		if err := q.RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: book.BookID}); err != nil {
+			return domain.MyBooksWorkRemoval{}, err
+		}
+		removal.RemovedBooks++
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.MyBooksWorkRemoval{}, err
+	}
+	return removal, nil
 }
 
 // ResolveBookID maps an owner-scoped Book or source-material identity to its

@@ -94,8 +94,12 @@ type BookStateStore interface {
 	SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (applied bool, err error)
 	TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error)
 	// RemoveBookFromMyBooks ends the Book's membership without deleting its
-	// evidence. A later Add restores the same Book.
+	// evidence. A later Add restores the same Book. The current reading is
+	// refused with domain.ErrBookIsCurrentReading.
 	RemoveBookFromMyBooks(owner, bookID string) error
+	// RemoveWorkFromMyBooks ends every Book of one classical Work's membership,
+	// skipping the current reading and naming it in the result.
+	RemoveWorkFromMyBooks(owner, workKey string) (domain.MyBooksWorkRemoval, error)
 	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
 	// RecordEPUBAcquisitionFailure records the latest failed EPUB acquisition
 	// for a Book, replacing any previous record.
@@ -189,6 +193,9 @@ type Seeder interface {
 	SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity)
 	// SeedReadyPreparation makes the snapshot's preparation ready and returns its ID.
 	SeedReadyPreparation(t *testing.T, owner, bookID, snapshotID string) string
+	// SeedCurrentReading records an already-current Book without a Start
+	// transition, for scenarios that need a Work's current Book before Remove.
+	SeedCurrentReading(t *testing.T, owner, language, bookID string)
 	// SeedClassicalCatalog installs the Classical release the contract's Add
 	// scenarios resolve Reading units from.
 	SeedClassicalCatalog(t *testing.T)

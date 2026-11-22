@@ -162,47 +162,44 @@ func (h *Handler) moveWorkBookToRead(ctx context.Context, owner string, book dom
 	}
 }
 
-// moveWorkToInbox returns every Book outside the current Reading to Inbox. The
-// current Book keeps its To Read disposition, so moving the Work back never ends
-// the Reading.
-func (h *Handler) moveWorkToInbox(w http.ResponseWriter, r *http.Request) {
+// removeWorkFromMyBooks ends every Book of one grouped Work's membership, except
+// the current reading. It names that Book so the learner knows the Work is not
+// entirely gone.
+func (h *Handler) removeWorkFromMyBooks(w http.ResponseWriter, r *http.Request) {
 	books, owner, returnTo, ok := h.workAction(w, r)
 	if !ok {
 		return
 	}
 
-	moved, unchanged, currentKept, failed := 0, 0, 0, 0
-	for _, book := range books {
-		if book.IsCurrentReading {
-			currentKept++
-			continue
-		}
-		if myBookDisposition(book) == domain.BookDispositionInbox {
-			unchanged++
-			continue
-		}
-		applied, err := h.services.Store.MyBooks.TransitionBookDisposition(r.Context(), owner, book.Book.ID, book.DispositionRevision, domain.BookDispositionInbox)
-		switch {
-		case workTransitionUnchanged(err):
-			unchanged++
-		case err != nil:
-			logWorkActionFailure(owner, book.Book.ID, "Inbox", err)
-			failed++
-		case applied:
-			moved++
-		default:
-			unchanged++
-		}
+	removal, err := h.services.Store.MyBooks.RemoveWorkFromMyBooks(r.Context(), owner, r.PathValue("workKey"))
+	if errors.Is(err, domain.ErrNotFound) {
+		http.NotFound(w, r)
+		return
 	}
-
-	message := fmt.Sprintf("Moved %s back to Inbox.", countNoun(moved, "Book", "Books"))
-	if currentKept > 0 {
-		message += " The current Book stays To Read."
+	if err != nil {
+		fail(w, err)
+		return
 	}
-	if failed > 0 {
-		message += fmt.Sprintf(" Could not update %s.", countNoun(failed, "Book", "Books"))
+	message := fmt.Sprintf("Removed %s from My Books.", countNoun(removal.RemovedBooks, "Book", "Books"))
+	if removal.CurrentReading != nil {
+		message += fmt.Sprintf(" %s stays because it is your current reading.", myBooksCurrentReadingName(books, removal.CurrentReading))
 	}
 	myBooksRedirectWithNotice(w, r, returnTo, message)
+}
+
+// myBooksCurrentReadingName names the skipped current Book with its constituent
+// position when the ordered Work rows carry one, and otherwise uses the title
+// the removal result returned.
+func myBooksCurrentReadingName(books []domain.MyBook, current *domain.Book) string {
+	if current == nil {
+		return "The current Book"
+	}
+	for _, book := range books {
+		if book.Book.ID == current.ID {
+			return "“" + myBookDisplayTitle(book) + "”"
+		}
+	}
+	return "“" + current.Title + "”"
 }
 
 func (h *Handler) hideWork(w http.ResponseWriter, r *http.Request) {
