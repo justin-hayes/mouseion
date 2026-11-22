@@ -113,7 +113,9 @@ func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string
 		return myBooksPageCount(rowTotal), true
 	}
 	if request.page > 1 && result.Total == 0 {
-		if request.query == "" && requestedLanguage != "" && request.disposition == "" {
+		// The scope total counts every bucket, so it only sizes the unfiltered
+		// tab; the Read tab cannot list that many Books.
+		if request.query == "" && requestedLanguage != "" && request.disposition == "" && !request.history {
 			if lastPage := myBooksPageCount(result.ScopeTotal); lastPage > 0 {
 				return lastPage, true
 			}

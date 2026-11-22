@@ -294,10 +294,12 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 }
 
 const countMyBooksAll = `-- name: CountMyBooksAll :one
-SELECT count(*) FROM my_books_evidence
-WHERE book_owner_id = $1
+SELECT count(*) FROM my_books_evidence e
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1
 `
 
+// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 func (q *Queries) CountMyBooksAll(ctx context.Context, owner string) (int64, error) {
 	row := q.db.QueryRow(ctx, countMyBooksAll, owner)
 	var count int64
@@ -306,10 +308,11 @@ func (q *Queries) CountMyBooksAll(ctx context.Context, owner string) (int64, err
 }
 
 const countMyBooksByLanguage = `-- name: CountMyBooksByLanguage :many
-SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_language_tag END)::text AS language_tag,
+SELECT (CASE WHEN e.book_language_state = 'unknown' THEN 'unknown' ELSE e.book_language_tag END)::text AS language_tag,
        count(*) AS book_count
 FROM my_books_evidence e
-WHERE book_owner_id = $1 AND book_language_state IN ('chosen', 'unknown')
+JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+WHERE e.book_owner_id = $1 AND e.book_language_state IN ('chosen', 'unknown')
 GROUP BY 1
 `
 
@@ -318,6 +321,7 @@ type CountMyBooksByLanguageRow struct {
 	BookCount   int64
 }
 
+// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 func (q *Queries) CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error) {
 	rows, err := q.db.Query(ctx, countMyBooksByLanguage, owner)
 	if err != nil {

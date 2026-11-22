@@ -73,6 +73,9 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		if !s.fixtureBookActiveLocked(book.Book.OwnerID, book.Book.ID) {
 			continue
 		}
+		if s.unchosen[fixtureDispositionKey(book.Book.OwnerID, book.Book.ID)] {
+			continue
+		}
 		out = append(out, book)
 	}
 	s.applyFixtureBookEvidence(out)

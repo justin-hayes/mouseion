@@ -57,7 +57,9 @@ type Querier interface {
 	ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error)
+	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
+	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
 	CountPendingBookCoverCandidates(ctx context.Context, arg CountPendingBookCoverCandidatesParams) (int, error)
