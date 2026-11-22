@@ -185,9 +185,9 @@ upstream cover URL to the browser. An entry linked to an active Book
 shows **In My Books** as a link to that Book's My Books row. An unowned entry
 offers **Add**, whose copy says plainly that the text is downloaded and
 analyzed; Add creates or restores the Book as To Read and starts the same
-preparation as Move to To Read. The confirmation names the Book, links to My
-Books, and receives focus after the ordinary POST redirect. Entries never show
-disposition, analysis or preparation state.
+preparation as **Read again** and the Work-level move. The confirmation names
+the Book, links to My Books, and receives focus after the ordinary POST
+redirect. Entries never show disposition, analysis or preparation state.
 
 There is one result-summary live region, which announces the number of results
 and sources after every search, filter or page change. Distinct empty states
@@ -270,9 +270,9 @@ inline in the chooser, on Reading when no Book is current or on the Switch page
 when one is. A Read cell is a status-only cell, not a link: Reading
 lists only the current Book and To Read candidates, so there is nothing to
 select, and the strip must not imply a next Book. It keeps the 44px cell and
-full accessible label but is not a link target; **Read again** and **Move to To
-Read** remain the route back to a candidate. My Books shows two tabs, **To Read**
-and **Read**. Cells
+full accessible label but is not a link target; **Read again** and the
+Work-level **Move to To Read** remain the route back to a candidate. My Books
+shows two tabs, **To Read** and **Read**. Cells
 carry full accessible labels, the page has one shared legend,
 and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
 shape, such as "57 Books in 5 works". "M of N books" counts the owned Books in

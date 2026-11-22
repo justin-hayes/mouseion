@@ -44,7 +44,8 @@ contracts. Reading owns current evidence and current-reading presentation.
   scope instead of a per-page control.
 - My Books holds only chosen Books: every Book is Currently reading, To Read or
   Read. Books without a chosen language belong to no language partition and are
-  not shown.
+  not listed; one with reading history keeps its membership and is reported by
+  the backfill (see [Upgrading existing accounts](#upgrading-existing-accounts)).
 - The active language is context, not a finding aid: it is carried by the page
   heading and the switcher, not repeated per row.
 
@@ -74,7 +75,7 @@ contracts. Reading owns current evidence and current-reading presentation.
 - Missing author or edition/year is stated or omitted without inventing
   metadata.
 - Choosing an analyzed To Read Book opens its canonical
-  `/journey#journey-book-{bookID}` anchor. Metadata-only and otherwise
+  `/reading#journey-book-{bookID}` anchor. Metadata-only and otherwise
   incomplete Books remain operable from their rows through disposition
   and catalog actions; they have no detail page.
 - The list does not expose batch-select-then-analyze behavior.
@@ -150,8 +151,8 @@ contracts. Reading owns current evidence and current-reading presentation.
 | State | Required presentation | Primary action |
 |---|---|---|
 | Empty collection | Explain My Books and lead to the Catalog. | Browse the Catalog |
-| Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading or Move to To Read |
-| Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | View in Reading or Move to To Read |
+| Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading on the current Book and To Read rows; More actions offer Mark as previously read (unstarted To Read), Read again (Read), or Remove; a grouped Work row offers its Work-level move and Remove the work |
+| Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | The same actions as with a cover |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
 | Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
 | Enhancement failed | Keep or restore the ordinary server-rendered form/link path. | Submit normally |
@@ -162,16 +163,22 @@ My Books holds only chosen Books. A one-time data-only backfill removes the
 membership of every Book that is active in My Books, is not To Read, has no
 reading history and is not the current reading. That covers unread Inbox Books,
 never-prepared classical Inbox Books and unread Books without a chosen
-language. Books with reading history stay, and a language-less Book with history
-is reported without being changed.
+language. Books with reading history stay, and a language-less Book with
+history keeps its membership: the backfill reports it and leaves it unchanged.
 
-The backfill is operator-owned and runs after the release deploys. It is
-idempotent, retry-safe and changes membership only, so recovery is to re-run it,
-or to restore a Book through Catalog Add. It refuses to run until every
-connection's Catalog index has completed at least one sync, so no entry becomes
-unfindable during the upgrade. Run
-`MOUSEION_DATABASE_URL=... go run ./cmd/backfill`; the output states how many
-memberships ended and names each language-less Book it kept.
+The backfill is operator-owned. Run it once, after the release deploys and
+after every catalog connection has completed at least one sync; it is
+idempotent and retry-safe, but re-running it is not a rollback and restores
+nothing, because membership is the only thing it changes. A removed Book is
+restored by Catalog **Add**, which restores the same Book with its evidence as
+long as its entry is in the connection's Catalog index — which the sync gate
+is there to ensure. A classical Book is restored by adding its Reading unit
+from the Classical catalog. The gate refuses to run until every connection's
+Catalog index has completed a sync, so no entry becomes unfindable during the
+upgrade. Run `MOUSEION_DATABASE_URL=... go run ./cmd/backfill`; the output
+states how many memberships ended and names each language-less Book it kept.
+The [operations guide](../operations.md#maintenance-commands) documents the
+command's prerequisites, output, and recovery.
 
 ## Non-goals
 
@@ -187,7 +194,8 @@ memberships ended and names each language-less Book it kept.
 
 - Browse, search, and paging return only Books in the active study language.
 - My Books shows exactly the To Read and Read tabs. The Inbox and needs-language
-  states and their routes are gone.
+  states are retired: `/library?needs-language`, `?disposition=inbox`, and an
+  unknown disposition return 404.
 - Query and page combinations return stable owner-scoped results and preserve
   their state in navigable URLs.
 - Search covers the active language's local collection and performs no OPDS

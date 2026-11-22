@@ -46,21 +46,21 @@ completion** are not primary learner-facing concepts.
 | **Add** | Choose a Catalog entry for My Books. It creates or restores the Book as To Read, then acquires the current EPUB when needed and ensures whole-book analysis once. The control's copy says the text is downloaded and analyzed. | Add to library, import, queue |
 | **I've read this** | Record a Catalog entry the learner read outside Mouseion. It creates or restores the Book as Read with a **Previously read** record, downloads nothing and changes no Known vocabulary. It is offered on OPDS entries and per classical Reading unit, never for a whole Work. | Mark as read, import as read |
 | **Mark as previously read** | The My Books form of **I've read this**. It appears only on an unstarted To Read Book and moves that Book to Read. | Mark as read, complete book |
-| **Move to To Read** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
+| **Move to To Read** | The reading-intent transition into the To Read disposition. Catalog **Add** is its entry point; **Read again** and the grouped Work row's **Move the work to To Read** are its My Books forms. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalog sync** | Periodic, owner-scoped reconciliation that maintains each connection's Catalog index for offered non-English languages whose NLP pipelines are ready and follows title, author and cover changes onto already-chosen Books. It never creates a Book or membership, never implies EPUB content download, and never mirrors destructively; optional Book cover retrieval is independent metadata work. | Import all books, mirror, admin sync |
 | **Catalog entry** | One book offered by a connection's Catalog index. It is browsable and addable but is not a Book until the learner chooses it. | Imported book, synced Book |
 | **Metadata-only Book** | A Book the learner chose from the Catalog with active My Books membership and no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
-| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Add or Move to To Read triggers acquisition and analysis. | Sync download, automatic analysis |
+| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Add or Read again triggers acquisition and analysis. | Sync download, automatic analysis |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Book cover** | The optional catalog-supplied image representing a Book. It may lead visually in My Books and support identity in Reading, but title and author remain visible and authoritative. | Cover art, thumbnail when referring to the metadata |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. **Move to To Read**
-acquires and validates content when needed as an ensure-once consequence of
-reading intent. Historical compatibility artifacts may retain
-**Add to My Books** or **Add to library**.
+upload unless a shipped route and feature contract support it. Reading intent —
+expressed by Catalog **Add**, **Read again**, or the Work-level move — acquires
+and validates content when needed as an ensure-once consequence. Historical
+compatibility artifacts may retain **Add to My Books** or **Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
 **Last synced**, and **Sync failed**. Always identify the connection and, for
@@ -96,7 +96,7 @@ anchor.
 |---|---|---|
 | **Coverage band** | Classification of a To Read Book's current lexical coverage. A grouped Work entry lists its constituent Book numbers in band rows; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
 | **Work position** | A constituent Book's plain bibliographic place, such as "Book 2 of 24", from the reviewed definition rather than the learner's added Books. A whole-work unit has none, and it never becomes a pointer to the next Book. | Next Book, recommended order |
-| **Move to To Read** | Express reading intent from My Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
+| **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read, and a grouped Work row's **Move the work to To Read** moves its Read Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
 | **Start reading** | Make an eligible To Read Book the current Book and freeze its vocabulary snapshot. Requires explicit confirmation. | Choose as Primary Goal |
 | **Switch current reading** | Replace the current Book with an eligible To Read Book after explicit confirmation. The former current Book remains To Read. | Reorder Journey |
 | **Mark reading finished** | Record the completion and exact modeled vocabulary transition. It does not choose the next Book. | Complete Goal, finish Journey |

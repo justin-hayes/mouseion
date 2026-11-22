@@ -403,6 +403,25 @@ These commands run against `MOUSEION_DATABASE_URL`.
   (overall and per part of speech) and never any Greek text, and fails with a
   clear message when the index is older than the Ancient Greek or LSJ format and
   must be rebuilt with `make dictionary-index`.
+- `MOUSEION_DATABASE_URL=... go run ./cmd/backfill` — the one-time, data-only
+  My Books backfill for the release that retired the Inbox state. Run it once,
+  after deploying that release and after every catalog connection has completed
+  at least one sync. The release image builds only the server binary, so run it
+  from a source checkout with the Go toolchain. It removes the My Books
+  membership of every active Book that is not To Read, has no reading history
+  and is not the current reading, then prints `removed N unchosen Books from My
+  Books` and one `kept <id> ("<title>"): language not chosen but has reading
+  history` line for each language-less Book with history, which it leaves
+  unchanged. The refusal `refusing to run: every catalog connection must
+  complete a sync first` means a connection has never completed a sync: run
+  **Sync now** for that connection from the Catalog page or Manage sources, or
+  delete a connection that no longer exists, then re-run. The command is
+  idempotent and retry-safe: a repeated run removes nothing new, and re-running
+  it restores nothing, because membership is the only thing it changes. Recover
+  a removed Book through Catalog **Add**, which restores the same Book with its
+  evidence while its entry is in the connection's Catalog index; a classical
+  Book is restored by adding its Reading unit from the Classical catalog. See
+  [My Books Collection Browsing](features/collection-browsing.md#upgrading-existing-accounts).
 
 Dated one-time cutover records are kept in
 [`archive/operations/`](archive/operations/).

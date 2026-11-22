@@ -38,7 +38,7 @@ ordering, paging, language scope, and Book identity remain unchanged.
 
 My Books shows the active language's chosen Books in two tabs, **To Read** and
 **Read**. The retired needs-language strip has no replacement: a Book without a
-chosen language is not in My Books.
+chosen language is not listed in My Books.
 
 ## Book cover metadata
 

@@ -175,6 +175,13 @@ screenshots, and videos are retained there according to the Playwright config.
 The procedure, durations, and clean-up are in the
 [development guide](../doc/development.md#regenerating-screenshots).
 
+The My Books scenario below predates the two-tab To Read/Read collection: it
+still drives the retired row-level **Move to To Read** control and asserts an
+Inbox bucket, so the suite must be updated — and
+`doc/images/my-books.png` and `doc/images/my-books-dark.png` regenerated —
+before `make screenshot-my-books` will pass against the current UI. The bullets
+that follow describe the suite as committed.
+
 - The learner workflow moves every scenario Book except the one marked `inbox`
   to To Read, waits for each analysis through Reading's chooser, then seeds Known
   vocabulary the only way [ADR 0092](../doc/adr/0092-retire-known-vocabulary-import.md)

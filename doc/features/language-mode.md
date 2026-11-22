@@ -1,6 +1,6 @@
 # Language Mode
 
-Status: Implemented · Date: 2026-09-07 · Updated: 2026-09-26
+Status: Implemented · Date: 2026-09-07 · Updated: 2026-11-22
 
 Current Reading behavior is defined by the shipped
 [Reading workflow](reading-workflow.md). Earlier Journey and Primary Goal
@@ -21,8 +21,8 @@ scoping every surface — aligns the surfaces with the artifacts.
 Introduce the active study language as a global mode: a shell-level switcher;
 per-language My Books browse and search; per-language current reading and
 Vocabulary. Remove the "All languages" default and
-per-screen language pickers. Books without a chosen language are not in My
-Books; their Catalog entries remain available for a later Add after the
+per-screen language pickers. Books without a chosen language are not listed in
+My Books; their Catalog entries remain available for a later Add after the
 language is fixed.
 
 ## Scope
@@ -60,10 +60,12 @@ labels use **Language** and the language's own name, never **Mode** or
 - The shipped My Books cover grid communicates disposition but not per-Book
   evidence or current-reading state. Book evidence remains on the Reading
   surface. The retired Language view panel does not render.
-- A Book without a chosen language is not in My Books. Its Catalog entry stays
-  browsable, so fixing the language and adding it later gives it a study
-  language. The retired needs-language strip and `/library?needs-language` are
-  unsupported.
+- A Book without a chosen language is not listed in My Books, but one with
+  reading history keeps its membership and is reported by the backfill (see
+  [Collection Browsing](collection-browsing.md#upgrading-existing-accounts)).
+  Its Catalog entry stays browsable, so fixing the language and adding it later
+  gives it a study language. The retired needs-language strip and
+  `/library?needs-language` are gone: the route returns 404.
 - Moving a Book to To Read targets that Book's language —
   which equals the active language by construction.
 
@@ -129,7 +131,7 @@ labels use **Language** and the language's own name, never **Mode** or
 | Active language leaves the set | Lazy reset to most-recently-activated remaining, else none | Switch |
 | New language arrives via resync | Appears in switcher marked "new"; mode unchanged | Switch |
 | Known-vocabulary-only language | Switcher entry marked "no books", read-only vocab | Switch back |
-| Legacy no-language Books exist | "Needs language" strip on My Books | Fix catalog, re-sync |
+| Legacy no-language Books exist | Never listed in My Books; one with reading history keeps its membership and is reported by the backfill | Fix catalog, re-sync |
 
 ## Non-goals
 
@@ -148,7 +150,7 @@ labels use **Language** and the language's own name, never **Mode** or
 - Browse and search never return Books outside the active language.
 - Current reading and My Books scope follow the active language; switching
   languages does not change another language's current Book or Read history.
-- A Book without a chosen language is not reachable in My Books; it becomes a
+- A Book without a chosen language is never listed in My Books; it becomes a
   study-language Book only after the learner adds it with a language.
 - The switcher is keyboard-accessible and server-rendered before progressive
   enhancement.

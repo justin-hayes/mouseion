@@ -29,7 +29,8 @@ The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
 2. work in one active study language at a time;
-3. move Books between To Read and Read, and remove a Book from My Books;
+3. mark a To Read Book as previously read, read a Read Book again, and remove
+   a Book from My Books;
 4. choose, end, or switch the one current Book for the active language;
 5. review current evidence bands for To Read Books without a suggested order;
 6. finish a Book and retain its Read history independently from disposition;
@@ -83,7 +84,7 @@ evidence or the next relevant action.
 My Books is browsed within the active study language: browse, paging, and search
 are scoped to it, and no "All languages" default exists. It has two tabs, **To
 Read** (including the current Book) and **Read**. A Book without a chosen
-language is not in My Books. For a fresh account, its empty state leads to
+language is not listed in My Books. For a fresh account, its empty state leads to
 `/catalogs`; catalogue setup and sync maintenance are owned by the Catalog
 destination and its Manage sources page. My Books holds only Books the learner
 chose from the Catalog; sync maintains each connection's local Catalog index
@@ -545,8 +546,8 @@ Books.
     [ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md);
     there is no one-request language selector. The "All languages" pill and per-row
     language tags are removed; a shell-level native switcher carries the mode;
-    new languages arrive passively; Books without a chosen language are not in
-    My Books.
+    new languages arrive passively; Books without a chosen language are not
+    listed in My Books.
 12. **Historical per-language Journey and Goal** are recorded by
      [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md). The
      shipped Reading state is independently scoped by owner and study language;
