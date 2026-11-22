@@ -155,8 +155,10 @@ func analysisJobFromRow(row sqlcgen.ListAnalysisJobsRow) domain.AnalysisJob {
 	return domain.AnalysisJob{
 		ID: row.RiverJobID, DisplayNumber: row.DisplayNumber, OwnerID: row.JOwnerID,
 		SourceMaterialID: row.JSourceMaterialID, ContentHash: row.ContentHash,
-		CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID, AnalysisState: row.AnalysisState,
-		Progress: row.Progress, Error: row.Error,
+		CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID,
+		Lifecycle: domain.JobLifecycleForRiverState(row.AnalysisState),
+		Stage:     domain.BookPreparationStage(row.AnalysisStage),
+		Progress:  row.Progress, Error: row.Error,
 		CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }

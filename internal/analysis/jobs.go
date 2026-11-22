@@ -80,7 +80,8 @@ type Status struct {
 	CreatedAt        time.Time
 	FinalizedAt      *time.Time
 	RunID            string
-	LogicalState     string
+	Lifecycle        domain.JobLifecycleState
+	Stage            domain.BookPreparationStage
 	AttemptCount     int
 }
 
@@ -529,7 +530,9 @@ func (s *Service) snapshotJobStatus(ctx context.Context, owner string, status St
 	if err != nil {
 		return Status{}, err
 	}
-	status.RunID, status.LogicalState = runID, run.State
+	status.RunID = runID
+	status.Lifecycle = domain.JobLifecycleForRiverState(run.State)
+	status.Stage = domain.BookPreparationStageAnalysis
 	status.State = logicalStateRiverState(run.State)
 	status.CorpusID = run.CorpusID
 	status.AttemptCount = run.AttemptCount
@@ -556,17 +559,25 @@ func (s *Service) snapshotJobStatus(ctx context.Context, owner string, status St
 
 // resolveFinalizationAttempt returns the finalization attempt with its
 // effective state: a still-running attempt whose River job River has already
-// discarded or cancelled becomes failed and carries River's last error, while a
-// live or unreadable River job leaves the durable attempt unchanged.
+// discarded becomes failed (carrying River's last error), and one River has
+// cancelled becomes cancelled. A live or unreadable River job leaves the
+// durable attempt unchanged.
 func (s *Service) resolveFinalizationAttempt(ctx context.Context, runState string, attempt analysisRunAttempt) analysisRunAttempt {
 	if runState != "completed" || attempt.State != "running" || s.client == nil {
 		return attempt
 	}
 	row, err := s.client.JobGet(ctx, attempt.JobID)
-	if err != nil || (row.State != rivertype.JobStateDiscarded && row.State != rivertype.JobStateCancelled) {
+	if err != nil {
 		return attempt
 	}
-	attempt.State = "failed"
+	switch row.State {
+	case rivertype.JobStateDiscarded:
+		attempt.State = "failed"
+	case rivertype.JobStateCancelled:
+		attempt.State = "cancelled"
+	default:
+		return attempt
+	}
 	if len(row.Errors) > 0 {
 		attempt.Error = row.Errors[len(row.Errors)-1].Error
 	}
@@ -574,24 +585,30 @@ func (s *Service) resolveFinalizationAttempt(ctx context.Context, runState strin
 }
 
 // applyFinalizationStatus maps a completed run's finalization attempt onto the
-// status, keeping the pre-finalization logical states.
+// status. Finalize is the stage after analysis publishes; the attempt decides
+// whether that stage is queued or running (both Running), failed, cancelled or
+// completed.
 func applyFinalizationStatus(status *Status, attempt analysisRunAttempt) {
+	status.Stage = domain.BookPreparationStageFinalize
 	switch attempt.State {
 	case "queued", "running":
-		status.LogicalState = "finalizing"
+		status.Lifecycle = domain.JobLifecycleRunning
 		status.State = rivertype.JobStateAvailable
 		if attempt.State == "running" {
 			status.State = rivertype.JobStateRunning
 		}
 	case "failed":
-		status.LogicalState = "finalization-failed"
+		status.Lifecycle = domain.JobLifecycleFailed
 		status.State = rivertype.JobStateDiscarded
 		if attempt.Error != "" {
 			status.Error = attempt.Error
 		}
 	case "cancelled":
-		status.LogicalState = "finalization-cancelled"
+		status.Lifecycle = domain.JobLifecycleCancelled
 		status.State = rivertype.JobStateCancelled
+	case "completed":
+		status.Lifecycle = domain.JobLifecycleCompleted
+		status.State = rivertype.JobStateCompleted
 	}
 }
 
@@ -603,6 +620,8 @@ func (s *Service) legacyJobStatus(ctx context.Context, status Status, id int64) 
 		return Status{}, fmt.Errorf("get River job: %w", err)
 	}
 	status.State, status.Attempt, status.FinalizedAt = row.State, row.Attempt, row.FinalizedAt
+	status.Lifecycle = domain.JobLifecycleForRiverState(string(row.State))
+	status.Stage = domain.BookPreparationStageAnalysis
 	if status.Error == "" && len(row.Errors) > 0 {
 		status.Error = row.Errors[len(row.Errors)-1].Error
 	}
@@ -819,7 +838,8 @@ func (s *Service) cancelActiveRun(ctx context.Context, tx pgx.Tx, owner string, 
 		log.Printf("analysis cancellation cleanup failed: owner=%s run_id=%s: %v", owner, status.RunID, cleanupErr)
 	}
 	status.State = rivertype.JobStateCancelled
-	status.LogicalState = "cancelled"
+	status.Lifecycle = domain.JobLifecycleCancelled
+	status.Stage = domain.BookPreparationStageAnalysis
 	status.Error = ""
 	return status, nil
 }

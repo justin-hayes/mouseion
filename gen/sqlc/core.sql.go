@@ -784,13 +784,29 @@ SELECT j.river_job_id,
        j.content_hash,
        (COALESCE(j.corpus_id::text, ''))::text AS corpus_id,
        (COALESCE(j.analysis_run_id::text, ''))::text AS analysis_run_id,
-       (COALESCE(r.state, ''))::text AS analysis_state,
+       (CASE
+          WHEN r.state = 'completed'
+               AND attempt.state IN ('queued', 'running') THEN 'running'
+          WHEN r.state = 'completed' AND attempt.state IS NOT NULL THEN attempt.state
+          ELSE COALESCE(r.state, '')
+        END)::text AS analysis_state,
+       (CASE
+          WHEN r.state = 'completed' AND attempt.state IS NOT NULL THEN 'finalize'
+          ELSE 'analysis'
+        END)::text AS analysis_stage,
        j.progress,
        j.error,
        j.created_at,
        j.updated_at
 FROM analysis_jobs j
 LEFT JOIN analysis_runs r ON r.owner_id = j.owner_id AND r.id = j.analysis_run_id
+LEFT JOIN LATERAL (
+    SELECT state
+    FROM analysis_run_attempts
+    WHERE run_id = r.id
+    ORDER BY attempt_number DESC
+    LIMIT 1
+) attempt ON true
 WHERE j.owner_id = $1
 ORDER BY j.created_at DESC, j.river_job_id DESC
 LIMIT 100
@@ -805,6 +821,7 @@ type ListAnalysisJobsRow struct {
 	CorpusID          string
 	AnalysisRunID     string
 	AnalysisState     string
+	AnalysisStage     string
 	Progress          int
 	Error             string
 	CreatedAt         time.Time
@@ -829,6 +846,7 @@ func (q *Queries) ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListA
 			&i.CorpusID,
 			&i.AnalysisRunID,
 			&i.AnalysisState,
+			&i.AnalysisStage,
 			&i.Progress,
 			&i.Error,
 			&i.CreatedAt,

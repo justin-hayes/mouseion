@@ -15,6 +15,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type finalizationRowClient struct {
+	fakeRiverClient
+	row *rivertype.JobRow
+}
+
+func (c finalizationRowClient) JobGet(context.Context, int64) (*rivertype.JobRow, error) {
+	return c.row, nil
+}
+
+func TestResolveFinalizationAttemptUsesRiverJobOutcome(t *testing.T) {
+	attempt := analysisRunAttempt{State: "running", JobID: 7}
+
+	t.Run("unreadable job leaves the attempt unchanged", func(t *testing.T) {
+		service := &Service{client: fakeRiverClient{}}
+		assert.Equal(t, attempt, service.resolveFinalizationAttempt(context.Background(), "completed", attempt))
+	})
+
+	t.Run("discarded job fails the attempt with River's last error", func(t *testing.T) {
+		service := &Service{client: finalizationRowClient{row: &rivertype.JobRow{State: rivertype.JobStateDiscarded, Errors: []rivertype.AttemptError{{Error: "worker terminated"}}}}}
+		got := service.resolveFinalizationAttempt(context.Background(), "completed", attempt)
+		assert.Equal(t, "failed", got.State)
+		assert.Equal(t, "worker terminated", got.Error)
+	})
+
+	t.Run("cancelled job cancels the attempt", func(t *testing.T) {
+		service := &Service{client: finalizationRowClient{row: &rivertype.JobRow{State: rivertype.JobStateCancelled}}}
+		got := service.resolveFinalizationAttempt(context.Background(), "completed", attempt)
+		assert.Equal(t, "cancelled", got.State)
+	})
+}
+
 func TestRequireDependencyParsing(t *testing.T) {
 	provider := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
 		Language: "de-DE", SupportedFeatures: []string{"tokenize", analyzer.FeatureDepparse}, Ready: true,

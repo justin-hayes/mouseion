@@ -3,9 +3,28 @@ package persistence
 import (
 	"testing"
 
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestAnalysisJobFromRowMapsTheSharedLifecycleAndStage(t *testing.T) {
+	job := analysisJobFromRow(sqlcgen.ListAnalysisJobsRow{
+		RiverJobID:    7,
+		DisplayNumber: 3,
+		JOwnerID:      "owner",
+		AnalysisRunID: "run",
+		AnalysisState: "failed",
+		AnalysisStage: "finalize",
+		Progress:      42,
+		Error:         "finalization failed",
+	})
+	assert.Equal(t, domain.JobLifecycleFailed, job.Lifecycle)
+	assert.Equal(t, domain.BookPreparationStageFinalize, job.Stage)
+	assert.Equal(t, int64(7), job.ID)
+	assert.Equal(t, 42, job.Progress)
+}
 
 // These names remain exported for callers outside the web app, but they are
 // aliases of the domain sentinels so errors.Is classifies them identically.
