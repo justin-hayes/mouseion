@@ -29,6 +29,8 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 		require.NoError(t, createErr)
 		book, createErr := store.CreateBook(ctx, input)
 		require.NoError(t, createErr)
+		// CreateBook makes a To Read Book; these rows are legacy Inbox rows.
+		require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionInbox))
 		return book
 	}
 
@@ -61,7 +63,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	}
 	filtered, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionInbox), false, 0, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 27, filtered.Total, "new catalogue books start in Inbox")
+	assert.Equal(t, 27, filtered.Total, "legacy rows are Inbox")
 	assert.Equal(t, 27, filtered.ScopeTotal, "language scope count should include all dispositions")
 	assert.Len(t, filtered.DispositionCounts, 1, "workflow counts should include every populated bucket")
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, authorBook.ID, domain.BookDispositionToRead))
@@ -226,6 +228,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.NoError(t, err)
 	italianHistoryBook, err := store.CreateBook(ctx, italianHistoryInput)
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, italianHistoryBook.ID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
 	_, err = store.ImportPreviouslyRead(ctx, owner.ID, italianHistoryBook.ID)
 	require.NoError(t, err)
 	inbox, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "it", string(domain.BookDispositionInbox), false, 0, 25)

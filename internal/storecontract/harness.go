@@ -55,6 +55,9 @@ type BookSeed struct {
 	// MetadataOnly reports a Book with no acquired source, as a chosen Book
 	// looks before its EPUB is acquired.
 	MetadataOnly bool
+	// SourceIdentifier is the connectionless source-identifier alias EPUB
+	// ingest matches the Book by. It applies to a MetadataOnly Book.
+	SourceIdentifier string
 }
 
 // OccurrenceSeed is one observed token of a Book's analysis. LexicalDiscriminator
@@ -103,6 +106,10 @@ type BookStateStore interface {
 	// Current reading with domain.ErrBookIsCurrentReading, and a replay or an
 	// already read Book changes nothing.
 	MarkBookPreviouslyRead(owner, bookID string) error
+	// ResolveOrCreateBookForAcquisition is EPUB ingest's Book resolution. It
+	// returns the Book the source identifier already names, restoring a removed
+	// one, or creates a Book for it. The Book is To Read either way.
+	ResolveOrCreateBookForAcquisition(owner, sourceIdentifier, language, title string) (string, error)
 	// RecordEPUBAcquisitionFailure records the latest failed EPUB acquisition
 	// for a Book, replacing any previous record.
 	RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error
@@ -242,6 +249,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, classicalScenarios()...)
 	scenarios = append(scenarios, classicalPreparationFailureScenarios()...)
 	scenarios = append(scenarios, catalogueScenarios()...)
+	scenarios = append(scenarios, chosenBookScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }
 

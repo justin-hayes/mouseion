@@ -262,6 +262,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	createAccount(t, ctx, store, "bob", "bob-password")
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Disposition from My Books", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")

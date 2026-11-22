@@ -654,6 +654,8 @@ func (s *PostgresStore) GetBookCatalogEntryAliasForConnection(ctx context.Contex
 	return domain.BookAlias{ID: row.AID, OwnerID: row.AOwnerID, BookID: row.ABookID, ConnectionID: row.ConnectionID, AliasType: row.AliasType, Namespace: row.Namespace, Value: row.Value, CreatedAt: row.CreatedAt}, nil
 }
 
+// CreateBook creates a Book with active My Books membership. My Books holds
+// only chosen Books (ADR 0117), so the new Book is To Read.
 func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.Book, error) {
 	b.Title = strings.TrimSpace(b.Title)
 	b.Author = strings.TrimSpace(b.Author)
@@ -672,7 +674,7 @@ func (s *PostgresStore) CreateBook(ctx context.Context, b domain.Book) (domain.B
 		if err := q.InsertBookMembership(ctx, sqlcgen.InsertBookMembershipParams{OwnerID: created.OwnerID, BookID: created.ID}); err != nil {
 			return err
 		}
-		return q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: created.OwnerID, BookID: created.ID})
+		return upsertBookDisposition(ctx, q, created.OwnerID, created.ID, domain.BookDispositionToRead)
 	})
 	return created, err
 }
@@ -740,8 +742,23 @@ func (s *PostgresStore) LockBookForUpdateTx(ctx context.Context, tx pgx.Tx, owne
 	return lockBookForUpdate(ctx, sqlcgen.New(tx), owner, bookID)
 }
 
+// activateMembership makes the Book an active My Books member. A Book that was
+// not active (removed, or never a member) returns as To Read, so activation
+// never leaves a member that is not Currently reading, To Read or Read (ADR
+// 0117). An already active Book keeps its disposition.
 func activateMembership(ctx context.Context, tx pgx.Tx, owner, bookID string) error {
-	return sqlcgen.New(tx).ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: owner, BookID: bookID})
+	q := sqlcgen.New(tx)
+	state, err := q.GetBookMembershipForUpdate(ctx, sqlcgen.GetBookMembershipForUpdateParams{Owner: owner, Book: bookID})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if err == nil && state == "active" {
+		return nil
+	}
+	if err := upsertBookDisposition(ctx, q, owner, bookID, domain.BookDispositionToRead); err != nil {
+		return err
+	}
+	return q.ActivateBookMembership(ctx, sqlcgen.ActivateBookMembershipParams{OwnerID: owner, BookID: bookID})
 }
 
 func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID string) (err error) {
@@ -1104,16 +1121,13 @@ func matchAcquisitionBook(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, ow
 }
 
 // createAcquisitionBook creates a new acquisition-provenance Book, activates
-// its membership, and places it in the Inbox.
+// its membership, and makes it To Read.
 func createAcquisitionBook(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language, title string) (string, error) {
 	createdRow, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{OwnerID: owner, Title: title, Author: "", MetadataProvenance: domain.MetadataProvenanceAcquisition, LanguageState: domain.LanguageChosen, LanguageTag: textArg(language)})
 	if err != nil {
 		return "", err
 	}
 	if err := activateMembership(ctx, tx, owner, createdRow.ID); err != nil {
-		return "", err
-	}
-	if err := q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: createdRow.ID}); err != nil {
 		return "", err
 	}
 	return createdRow.ID, nil

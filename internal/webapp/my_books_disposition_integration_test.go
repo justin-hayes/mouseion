@@ -35,6 +35,7 @@ func TestAuthenticatedMyBooksDispositionFiltersAndTransitions(t *testing.T) {
 	create := func(title string) domain.Book {
 		book, createErr := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 		require.NoError(t, createErr)
+		require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
 		return book
 	}
 	inbox := create("Inbox book")
@@ -200,7 +201,7 @@ func TestRemoveEndsMembershipAndPreservesBookEvidence(t *testing.T) {
 	assert.Equal(t, "Retained book", retained.Title)
 	disposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, disposition, "Remove changes no reading intent")
+	assert.Equal(t, domain.BookDispositionToRead, disposition, "Remove changes no reading intent")
 	sources, err := store.ListSourceMaterials(ctx, alice.ID)
 	require.NoError(t, err)
 	require.Len(t, sources, 1)
@@ -230,6 +231,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Previously read book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
 	cookies, csrf := loginCookies(t, h, "previously-read-alice", "alice-password")
 	inboxPage := perform(t, h, http.MethodGet, "/library", nil, cookies)
 	assert.NotContains(t, inboxPage.Body.String(), "Mark as previously read", "an Inbox Book does not offer the assertion")

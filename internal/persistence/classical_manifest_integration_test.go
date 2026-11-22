@@ -158,7 +158,7 @@ func TestReconcileManifestCorrectsLegacyKeysAndKeepsTheBook(t *testing.T) {
 
 	var disposition string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT disposition FROM book_dispositions WHERE owner_id = $1 AND book_id = $2`, owner.ID, legacy.BookID).Scan(&disposition))
-	assert.Equal(t, "inbox", disposition, "reconciliation never changes disposition")
+	assert.Equal(t, "to_read", disposition, "reconciliation never changes disposition")
 
 	// A second start with the same manifest is idempotent.
 	require.NoError(t, reconcileManifest(t, store, first...))

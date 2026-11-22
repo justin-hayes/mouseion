@@ -1456,6 +1456,7 @@ func TestAnalysisSubmissionRejectsIneligibleSourcesAndBooks(t *testing.T) {
 
 	inboxBook := newBook("Guard inbox")
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, inboxBook.ID, domain.BookDispositionInbox))
+	legacyBookID := seedLegacyUnchosenBook(t, pool, owner.ID, "Guard legacy row")
 
 	nonEPUB, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "guard-pdf", Title: "PDF", MediaType: "application/pdf", ContentHash: "sha256:guard-pdf", Content: []byte("pdf"), FullText: "pdf"})
 	require.NoError(t, err)
@@ -1485,6 +1486,9 @@ func TestAnalysisSubmissionRejectsIneligibleSourcesAndBooks(t *testing.T) {
 		}, wantErr: ErrNotFound},
 		{name: "book is not to read", submit: func() (Handle, error) {
 			return service.SubmitToReadBookAnalysis(ctx, owner.ID, inboxBook.ID, linkedSource.ID)
+		}, wantErr: ErrNotFound},
+		{name: "legacy active row with no To Read intent and no history", submit: func() (Handle, error) {
+			return service.SubmitToReadBookAnalysis(ctx, owner.ID, legacyBookID, linkedSource.ID)
 		}, wantErr: ErrNotFound},
 		{name: "unknown source", submit: func() (Handle, error) { return service.SubmitAnalysis(ctx, owner.ID, absentUUID) }, wantErr: ErrNotFound},
 		{name: "source belongs to another book", submit: func() (Handle, error) {
