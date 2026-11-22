@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -249,11 +250,13 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		Layers:  layers,
 		TempDir: cfg.acquisitionTempDir,
 	})
+	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
 		return nil, err
 	}
+	attachEPUBAcquisitionAnalysis(acquisitionWorker, store.Pool(), riverClient)
 	// The preparation worker enqueues the separate translation import only after
 	// the analysis publishes, so the client is attached after construction.
 	classicalWorker.Client = riverClient
@@ -283,6 +286,20 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	}, nil
 }
 
+// registerEPUBAcquisitionWorker wires the acquisition worker to the Catalog
+// index and the OPDS downloader. Its target lookup needs no River client, so it
+// is registered with the rest of the worker set.
+func registerEPUBAcquisitionWorker(workers *river.Workers, store *persistence.PostgresStore, deps cataloguesync.StoreDependencies, opdsService *opds.Service, capabilities analyzer.CapabilityProvider) *analysis.EPUBAcquisitionWorker {
+	catalogueIndex := cataloguesync.NewService(deps, nil, opdsService, capabilities)
+	return analysis.AddEPUBAcquisitionWorker(workers, store, catalogueIndex.FindAcquisitionTarget, opdsService.AcquireForBook)
+}
+
+// attachEPUBAcquisitionAnalysis supplies the analysis submission the worker
+// uses after an import, once the River client exists.
+func attachEPUBAcquisitionAnalysis(worker *analysis.EPUBAcquisitionWorker, pool *pgxpool.Pool, client *river.Client[pgx.Tx]) {
+	worker.Analysis = analysis.NewService(pool, client)
+}
+
 // buildWebHandler registers the catalogue-sync schedules, then assembles the web
 // application from the dependencies the workers share.
 func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.PostgresStore, dictionaryIndex *dictionary.Index, hasDictionaryIndex bool, deps *serverDependencies) (*webapp.Handler, error) {
@@ -304,10 +321,9 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
-		Books: store, Classical: analysisService, Analysis: analysisService,
-		FindTarget:   catalogueSyncService.FindAcquisitionTarget,
-		Acquire:      deps.opdsService.AcquireForBook,
-		Acquisitions: store,
+		Classical:       analysisService,
+		Analysis:        analysisService,
+		EPUBAcquisition: analysisService,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize reading intent preparation: %w", err)
@@ -319,7 +335,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err != nil {
 		return nil, fmt.Errorf("initialize reading intent: %w", err)
 	}
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, EPUBAcquisition: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime})
 	if err != nil {
 		return nil, fmt.Errorf("initialize web application: %w", err)
 	}

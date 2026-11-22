@@ -7,17 +7,13 @@ import (
 	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/opds"
 )
 
 // Preparation prepares an owner's Book for reading and returns a typed
 // submission. Move and Retry depend on this one seam; the two implementations
-// below choose between Classical preparation and EPUB acquisition and
-// analysis.
+// below choose between Classical preparation and EPUB preparation.
 type Preparation interface {
 	Prepare(context.Context, string, domain.MyBook) Submission
 }
@@ -33,38 +29,25 @@ type Analysis interface {
 	SubmitToReadBookAnalysis(context.Context, string, string, string) (analysis.Handle, error)
 }
 
-// AcquisitionFailures records the latest EPUB acquisition failure for a Book
-// and clears it after a successful acquisition.
-type AcquisitionFailures interface {
-	RecordEPUBAcquisitionFailure(context.Context, domain.EPUBAcquisitionFailureRecord) error
-	ClearEPUBAcquisitionFailure(context.Context, string, string) error
+// EPUBAcquisition enqueues the durable acquisition job a Book without a current
+// EPUB needs.
+type EPUBAcquisition interface {
+	SubmitEPUBAcquisition(context.Context, string, string) (analysis.EPUBAcquisitionHandle, error)
 }
 
 // PreparationConfig supplies the collaborators the two preparation
-// implementations need. Books, Classical and Analysis are required.
-// FindTarget, Acquire and Acquisitions are optional; a missing acquisition
-// step refuses a Book that needs a source as acquisition-unavailable, and a
-// missing failure recorder leaves the durable reason unrecorded.
+// implementations need. Classical and Analysis are required. EPUBAcquisition is
+// optional; a missing acquisition seam refuses a Book that needs a source.
 type PreparationConfig struct {
-	Books     BookReader
-	Classical ClassicalPreparation
-	Analysis  Analysis
-	// FindTarget resolves the catalogue entry a Book's EPUB can be acquired
-	// from.
-	FindTarget func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
-	// Acquire downloads and imports the catalogue entry.
-	Acquire func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
-	// Acquisitions records and clears the EPUB acquisition failure evidence.
-	Acquisitions AcquisitionFailures
+	Classical       ClassicalPreparation
+	Analysis        Analysis
+	EPUBAcquisition EPUBAcquisition
 }
 
 // NewPreparation builds the preparation seam. It chooses Classical
-// preparation for a Book with a Reading unit and EPUB acquisition and analysis
-// otherwise.
+// preparation for a Book with a Reading unit and EPUB preparation otherwise.
 func NewPreparation(cfg PreparationConfig) (Preparation, error) {
 	switch {
-	case cfg.Books == nil:
-		return nil, errors.New("reading intent: a Book reader is required for preparation")
 	case cfg.Classical == nil:
 		return nil, errors.New("reading intent: Classical preparation is required")
 	case cfg.Analysis == nil:
@@ -73,11 +56,8 @@ func NewPreparation(cfg PreparationConfig) (Preparation, error) {
 	return preparations{
 		classical: classicalPreparation{submission: cfg.Classical},
 		epub: epubPreparation{
-			books:        cfg.Books,
-			analysis:     cfg.Analysis,
-			findTarget:   cfg.FindTarget,
-			acquire:      cfg.Acquire,
-			acquisitions: cfg.Acquisitions,
+			analysis:    cfg.Analysis,
+			acquisition: cfg.EPUBAcquisition,
 		},
 	}, nil
 }
@@ -130,42 +110,27 @@ func (p classicalPreparation) Prepare(ctx context.Context, owner string, book do
 	}
 }
 
-// epubPreparation acquires a source when the Book needs one, then submits the
-// analysis job.
+// epubPreparation enqueues a missing source's acquisition, then submits the
+// analysis job directly for a Book that already has its EPUB.
 type epubPreparation struct {
-	books        BookReader
-	analysis     Analysis
-	findTarget   func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
-	acquire      func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
-	acquisitions AcquisitionFailures
+	analysis    Analysis
+	acquisition EPUBAcquisition
 }
 
-// Prepare acquires a missing source, then submits analysis. A failed
-// acquisition keeps the Book To Read, records the stable reason and reports
-// where acquisition looked.
+// Prepare enqueues acquisition for a Book that needs one. A Book that already
+// has its EPUB submits analysis directly.
 func (p epubPreparation) Prepare(ctx context.Context, owner string, book domain.MyBook) Submission {
-	target := cataloguesync.AcquisitionTarget{}
-	title := book.Book.Title
 	if needsAcquisition(book) {
-		acquired, durableFailure, err := p.acquireForBook(ctx, owner, book.Book.ID)
-		target = acquired
+		if p.acquisition == nil {
+			logAnalysisFailure(owner, book.Book.ID, "acquisition submission", ErrAcquisitionUnavailable)
+			return Submission{Kind: SubmissionCouldNotStart, Route: RouteEPUB, Book: book, Err: ErrAcquisitionUnavailable}
+		}
+		handle, err := p.acquisition.SubmitEPUBAcquisition(ctx, owner, book.Book.ID)
 		if err != nil {
-			if durableFailure {
-				p.recordFailure(ctx, owner, book.Book.ID, target, err)
-			}
-			return failedAcquisition(owner, book, target, title, err)
+			logAnalysisFailure(owner, book.Book.ID, "acquisition submission", err)
+			return Submission{Kind: SubmissionCouldNotStart, Route: RouteEPUB, Book: book, Err: err}
 		}
-		p.clearFailure(ctx, owner, book.Book.ID)
-		reloaded, err := p.books.GetBookDetail(ctx, owner, book.Book.ID)
-		if err != nil {
-			return failedAcquisition(owner, book, target, "", err)
-		}
-		book = reloaded
-		title = book.Book.Title
-		if book.Acquired == nil {
-			err = errors.New("the current EPUB could not be loaded after acquisition")
-			return failedAcquisition(owner, book, target, title, err)
-		}
+		return Submission{Kind: SubmissionQueued, Route: RouteEPUB, JobNumber: handle.JobID, Acquisition: true, Book: book}
 	}
 
 	handle, err := p.analysis.SubmitToReadBookAnalysis(ctx, owner, book.Book.ID, book.Acquired.Source.ID)
@@ -176,99 +141,12 @@ func (p epubPreparation) Prepare(ctx context.Context, owner string, book domain.
 		}
 		return Submission{Kind: SubmissionCouldNotStart, Route: RouteEPUB, Book: book, Err: err}
 	}
-	return Submission{Kind: SubmissionQueued, Route: RouteEPUB, JobNumber: handle.DisplayNumber, Book: book, Target: target}
+	return Submission{Kind: SubmissionQueued, Route: RouteEPUB, JobNumber: handle.DisplayNumber, Book: book}
 }
 
 // needsAcquisition reports a Book with no current EPUB source.
 func needsAcquisition(book domain.MyBook) bool {
 	return book.Acquired == nil || book.Acquired.EvidenceState() == domain.BookUnavailable
-}
-
-// acquireForBook resolves the Book's indexed catalogue entry and downloads it.
-// durableFailure reports that a durable acquisition failure really happened; a
-// missing seam or an unrelated lookup failure never becomes durable acquisition
-// evidence. A catalog entry that has left the index is the exception: that is
-// the `entry` stage failure the learner can retry after a sync.
-func (p epubPreparation) acquireForBook(ctx context.Context, owner, bookID string) (target cataloguesync.AcquisitionTarget, durableFailure bool, err error) {
-	if p.findTarget == nil {
-		return cataloguesync.AcquisitionTarget{}, false, ErrAcquisitionUnavailable
-	}
-	target, err = p.findTarget(ctx, owner, bookID)
-	if err != nil {
-		return target, errors.Is(err, cataloguesync.ErrCatalogEntryMissing), err
-	}
-	if p.acquire == nil {
-		return target, false, ErrAcquisitionUnavailable
-	}
-	_, err = p.acquire(ctx, owner, target.ConnectionID, target.Language, bookID, target.Entry)
-	return target, true, err
-}
-
-// recordFailure writes the latest failed acquisition as Book evidence. The To
-// Read transition already committed, so a recording failure is joined to the
-// operator log rather than allowed to roll the choice back.
-func (p epubPreparation) recordFailure(ctx context.Context, owner, bookID string, target cataloguesync.AcquisitionTarget, err error) {
-	if p.acquisitions == nil {
-		return
-	}
-	stage, code := classifyAcquisitionFailure(err)
-	record := domain.EPUBAcquisitionFailureRecord{
-		OwnerID:         owner,
-		BookID:          bookID,
-		ConnectionID:    target.ConnectionID,
-		EntryIdentifier: target.Entry.ID,
-		Stage:           stage,
-		Code:            code,
-	}
-	if recordErr := p.acquisitions.RecordEPUBAcquisitionFailure(ctx, record); recordErr != nil {
-		log.Printf("mouseion: record EPUB acquisition failure owner=%s book=%s stage=%s code=%s: %v",
-			strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(string(code)), recordErr)
-	}
-}
-
-// clearFailure deletes a previous failure after a successful acquisition. It
-// never changes the learner-visible outcome of the success.
-func (p epubPreparation) clearFailure(ctx context.Context, owner, bookID string) {
-	if p.acquisitions == nil {
-		return
-	}
-	if err := p.acquisitions.ClearEPUBAcquisitionFailure(ctx, owner, bookID); err != nil {
-		log.Printf("mouseion: clear EPUB acquisition failure owner=%s book=%s: %v",
-			strconv.Quote(owner), strconv.Quote(bookID), err)
-	}
-}
-
-// classifyAcquisitionFailure maps one failed download or import attempt to the
-// stable stage and code the domain vocabulary defines. It never classifies a
-// missing seam or a failed lookup: those have no catalog attempt to record.
-func classifyAcquisitionFailure(err error) (domain.BookPreparationStage, domain.BookPreparationCode) {
-	switch {
-	case errors.Is(err, cataloguesync.ErrCatalogEntryMissing):
-		return domain.BookPreparationStageEntry, domain.BookPreparationCodeCatalogEntryMissing
-	case errors.Is(err, opds.ErrDownloadTooLarge), errors.Is(err, opds.ErrRetainedEPUBTooLarge):
-		return domain.BookPreparationStageSource, domain.BookPreparationCodeSourceOversize
-	case errors.Is(err, opds.ErrNoEPUB),
-		errors.Is(err, epub.ErrInvalidEPUB),
-		errors.Is(err, opds.ErrIncompatibleMediaType):
-		return domain.BookPreparationStageSource, domain.BookPreparationCodeSourceFormatUnknown
-	case errors.Is(err, opds.ErrImportFailed):
-		return domain.BookPreparationStageImport, domain.BookPreparationCodeEPUBImportFailed
-	default:
-		// A refused or failed download is retryable, including a catalog that
-		// could not be reached.
-		return domain.BookPreparationStageFetch, domain.BookPreparationCodeSourceDownloadFailed
-	}
-}
-
-// failedAcquisition logs the failing step and carries the facts the web app
-// needs to name the acquisition connection and entry in the learner-facing
-// sentence.
-func failedAcquisition(owner string, book domain.MyBook, target cataloguesync.AcquisitionTarget, title string, err error) Submission {
-	logAnalysisFailure(owner, book.Book.ID, "acquisition", err)
-	return Submission{
-		Kind: SubmissionCouldNotStart, Route: RouteEPUB, Book: book,
-		Target: target, Title: title, Err: err, AcquisitionFailed: true,
-	}
 }
 
 // logClassicalFailure writes the stable stage and code only: raw error text can

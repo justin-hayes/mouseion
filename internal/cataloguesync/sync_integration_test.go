@@ -7,7 +7,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -351,7 +350,7 @@ func TestListCatalogueSyncStatusesReconcilesStaleDurableSyncing(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "catalogue sync store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	require.NoError(t, migrateRiverForTest(store.Pool()))
 	owner, err := store.CreateUser(ctx, "sync-status-owner", false)
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Status catalog", URL: "https://catalog.example/opds"})
@@ -400,7 +399,7 @@ func TestCatalogueSyncDetailUsesSharedLifecycleAndActions(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "catalogue sync store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	require.NoError(t, migrateRiverForTest(store.Pool()))
 	owner, err := store.CreateUser(ctx, "sync-detail-owner", false)
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Detail catalog", URL: "https://catalog.example/opds"})
@@ -447,7 +446,7 @@ func TestListCatalogueSyncJobsKeepsEachJobsOutcome(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "catalogue sync store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	require.NoError(t, migrateRiverForTest(store.Pool()))
 	owner, err := store.CreateUser(ctx, "sync-history-owner", false)
 	require.NoError(t, err)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "History catalog", URL: "https://catalog.example/opds"})

@@ -24,6 +24,18 @@ func TestEPUBAcquisitionFailurePresentation(t *testing.T) {
 		recovery string
 	}{
 		{
+			name:     "queued",
+			status:   domain.EPUBAcquisitionStatus{State: domain.JobLifecycleQueued},
+			evidence: epubAcquisitionInProgressLabel + ".",
+			recovery: "",
+		},
+		{
+			name:     "running",
+			status:   domain.EPUBAcquisitionStatus{State: domain.JobLifecycleRunning},
+			evidence: epubAcquisitionInProgressLabel + ".",
+			recovery: "",
+		},
+		{
 			name:     "entry missing",
 			status:   domain.EPUBAcquisitionStatus{Stage: domain.BookPreparationStageEntry, Code: domain.BookPreparationCodeCatalogEntryMissing},
 			evidence: epubAcquisitionEntryMissingLabel,

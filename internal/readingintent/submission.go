@@ -1,9 +1,6 @@
 package readingintent
 
-import (
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
-	"github.com/justin-hayes/mouseion/internal/domain"
-)
+import "github.com/justin-hayes/mouseion/internal/domain"
 
 // SubmissionKind is what preparing an owner's Book produced.
 type SubmissionKind int
@@ -47,16 +44,14 @@ const (
 // Submission is the typed result of preparing an owner's Book. A queued
 // submission names its job; a refused one names its stable code. Book is the
 // Book preparation last loaded, so a caller can render its hidden scope.
-// Target, Title, Err and AcquisitionFailed describe an EPUB acquisition that
-// did not finish.
 type Submission struct {
-	Kind              SubmissionKind
-	Route             Route
-	JobNumber         int64
-	Refusal           RefusalCode
-	Book              domain.MyBook
-	Target            cataloguesync.AcquisitionTarget
-	Title             string
-	Err               error
-	AcquisitionFailed bool
+	Kind      SubmissionKind
+	Route     Route
+	JobNumber int64
+	// Acquisition reports that the queued job downloads and imports the EPUB
+	// before analysis, rather than submitting analysis for a current source.
+	Acquisition bool
+	Refusal     RefusalCode
+	Book        domain.MyBook
+	Err         error
 }

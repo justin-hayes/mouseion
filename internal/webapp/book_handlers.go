@@ -2,14 +2,11 @@ package webapp
 
 import (
 	"bytes"
-	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -90,24 +87,4 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirect(w, r, target)
-}
-
-func readingAcquisitionError(ctx context.Context, catalog CatalogsStore, owner, bookID, bookTitle string, target cataloguesync.AcquisitionTarget, err error) string {
-	connectionName, entryTitle := "catalog connection", "this book"
-	if strings.TrimSpace(target.Entry.Title) != "" {
-		entryTitle = target.Entry.Title
-	} else if strings.TrimSpace(bookTitle) != "" {
-		entryTitle = bookTitle
-	}
-	if strings.TrimSpace(target.ConnectionID) != "" {
-		connectionName = target.ConnectionID
-	}
-	if alias, aliasErr := catalog.GetBookCatalogEntryAlias(ctx, owner, bookID); aliasErr == nil {
-		if connection, connectionErr := catalog.GetOpdsConnection(ctx, owner, alias.ConnectionID); connectionErr == nil {
-			if strings.TrimSpace(connection.Name) != "" {
-				connectionName = connection.Name
-			}
-		}
-	}
-	return fmt.Sprintf("Could not acquire %q from connection %s: %s", entryTitle, connectionName, opdsErrorMessage(err))
 }

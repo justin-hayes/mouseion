@@ -10,11 +10,8 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
-	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -381,7 +378,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	message := moveToReadMessage(r.Context(), h.services.Store.Catalogs, owner, bookID, outcome)
+	message := moveToReadMessage(outcome)
 	queryParam := "message"
 	// A stale form is the only move outcome reported as an error notice.
 	if outcome.Kind == readingintent.OutcomeStaleRevision {
@@ -391,19 +388,23 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 }
 
 // moveToReadMessage maps a reading-intent outcome to the learner-facing
-// sentence. The module returns no text of its own; every sentence here predates
-// it and must not change.
-func moveToReadMessage(ctx context.Context, catalog CatalogsStore, owner, bookID string, outcome readingintent.Outcome) string {
+// sentence. The module returns no text of its own; an EPUB Book reports the
+// same plain confirmation whether acquisition was queued now or is in progress.
+func moveToReadMessage(outcome readingintent.Outcome) string {
 	switch outcome.Kind {
 	case readingintent.OutcomeStaleRevision:
 		return "This Book's decision changed in another tab. No changes were made; refresh My Books and try again."
 	case readingintent.OutcomeAlreadyCurrent:
 		return "Book moved to To Read. Analysis is already current."
 	case readingintent.OutcomeJobQueued:
-		if outcome.Route == readingintent.RouteClassical {
+		switch {
+		case outcome.Route == readingintent.RouteClassical:
 			return fmt.Sprintf("Book moved to To Read. Preparation job #%d submitted.", outcome.JobNumber)
+		case outcome.Acquisition:
+			return "Book moved to To Read. " + epubPreparationConfirmation
+		default:
+			return fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", outcome.JobNumber)
 		}
-		return fmt.Sprintf("Book moved to To Read. Analysis job #%d submitted.", outcome.JobNumber)
 	case readingintent.OutcomeLegacyRows:
 		return classical.LegacyRowsReason
 	case readingintent.OutcomeWithdrawnDefinition:
@@ -415,8 +416,6 @@ func moveToReadMessage(ctx context.Context, catalog CatalogsStore, owner, bookID
 			return "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready."
 		}
 		return "Book moved to To Read, but analysis could not start. Retry analysis from Reading when ready."
-	case readingintent.OutcomeAcquisitionFailed:
-		return "Book moved to To Read, but " + readingAcquisitionError(ctx, catalog, owner, bookID, outcome.Title, outcome.Target, outcome.Err) + " The To Read status is retained; analysis is unavailable until the current EPUB can be acquired."
 	case readingintent.OutcomeNoUsableEPUBUnits:
 		return "Book moved to To Read, but the current source has no usable EPUB units. The To Read status is retained; analysis is unavailable."
 	case readingintent.OutcomePreparationUnavailable:
@@ -436,6 +435,14 @@ type unavailableClassicalPreparation struct{}
 
 func (unavailableClassicalPreparation) SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error) {
 	return analysis.ClassicalPreparationHandle{}, readingintent.ErrPreparationUnavailable
+}
+
+// unavailableEPUBAcquisition stands in for a deployment with no acquisition
+// queue. A Book that needs a source cannot start preparation.
+type unavailableEPUBAcquisition struct{}
+
+func (unavailableEPUBAcquisition) SubmitEPUBAcquisition(context.Context, string, string) (analysis.EPUBAcquisitionHandle, error) {
+	return analysis.EPUBAcquisitionHandle{}, readingintent.ErrAcquisitionUnavailable
 }
 
 // unavailableAnalysis stands in for a deployment with no analysis seam.
@@ -460,21 +467,14 @@ func (h *Handler) readingIntentModule() (*readingintent.Module, error) {
 	if h.services.Analysis != nil {
 		analysisService = h.services.Analysis
 	}
-	var acquisitionTargets func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
-	if h.services.CatalogueSync != nil {
-		acquisitionTargets = h.services.CatalogueSync.FindAcquisitionTarget
-	}
-	var bookAcquirer func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error)
-	if h.services.OPDS != nil {
-		bookAcquirer = h.services.OPDS.AcquireForBook
+	epubAcquisition := h.services.EPUBAcquisition
+	if epubAcquisition == nil {
+		epubAcquisition = unavailableEPUBAcquisition{}
 	}
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
-		Books:        h.services.Store.MyBooks,
-		Classical:    classicalPreparation,
-		Analysis:     analysisService,
-		FindTarget:   acquisitionTargets,
-		Acquire:      bookAcquirer,
-		Acquisitions: h.services.Store.MyBooks,
+		Classical:       classicalPreparation,
+		Analysis:        analysisService,
+		EPUBAcquisition: epubAcquisition,
 	})
 	if err != nil {
 		return nil, err

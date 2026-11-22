@@ -5,6 +5,7 @@ import "github.com/justin-hayes/mouseion/internal/domain"
 // EPUB acquisition failure labels name the reason My Books shows. They never
 // carry a stable code or a raw error.
 const (
+	epubAcquisitionInProgressLabel     = classicalAnalysisIncompleteLabel
 	epubAcquisitionEntryMissingLabel   = "The catalog no longer offers this Book."
 	epubAcquisitionDownloadFailedLabel = "The EPUB could not be downloaded."
 	epubAcquisitionOversizeLabel       = "The EPUB is too large to store."
@@ -12,6 +13,10 @@ const (
 	epubAcquisitionImportFailedLabel   = "The EPUB could not be imported."
 
 	epubAcquisitionRetryLabel = "Retry"
+
+	// epubPreparationConfirmation is the one plain confirmation Add, Move to
+	// To Read and Retry return while EPUB preparation runs.
+	epubPreparationConfirmation = "Downloading and analyzing the text."
 )
 
 // epubAcquisitionView is the one presentation of a Book's latest failed EPUB
@@ -20,6 +25,7 @@ type epubAcquisitionView struct {
 	Label      string
 	Recovery   string
 	Actionable bool
+	InProgress bool
 }
 
 // epubAcquisitionFor returns the Book's acquisition failure presentation, or
@@ -46,6 +52,9 @@ func epubAcquisitionViewFor(classification domain.BookEvidenceClassification) ep
 		view.Actionable = true
 	}
 	switch classification.Acquisition.State {
+	case domain.AcquisitionInProgress:
+		view.Label = epubAcquisitionInProgressLabel
+		view.InProgress = true
 	case domain.AcquisitionEntryMissing:
 		view.Label = epubAcquisitionEntryMissingLabel
 	case domain.AcquisitionFetchFailed:

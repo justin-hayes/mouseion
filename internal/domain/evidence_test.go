@@ -17,6 +17,16 @@ func TestClassifyBookEvidenceEPUBAcquisitionStages(t *testing.T) {
 		recovery    BookEvidenceRecovery
 	}{
 		{
+			name:        "queued",
+			status:      EPUBAcquisitionStatus{State: JobLifecycleQueued},
+			acquisition: AcquisitionInProgress, evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, recovery: RecoveryNone,
+		},
+		{
+			name:        "running",
+			status:      EPUBAcquisitionStatus{State: JobLifecycleRunning},
+			acquisition: AcquisitionInProgress, evidence: BookAcquiredUnassessed, phase: PhaseAnalyzing, recovery: RecoveryNone,
+		},
+		{
 			name:        "entry missing",
 			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageEntry, Code: BookPreparationCodeCatalogEntryMissing},
 			acquisition: AcquisitionEntryMissing, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,

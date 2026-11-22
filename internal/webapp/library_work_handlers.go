@@ -153,8 +153,7 @@ func (h *Handler) moveWorkBookToRead(ctx context.Context, owner string, book dom
 	case readingintent.OutcomeWithdrawnDefinition:
 		return moveWorkToReadOutcome{moved: 1, withdrawn: 1}
 	case readingintent.OutcomeSourceRefused, readingintent.OutcomeCouldNotStart,
-		readingintent.OutcomeAcquisitionFailed, readingintent.OutcomeNoUsableEPUBUnits,
-		readingintent.OutcomePreparationUnavailable:
+		readingintent.OutcomeNoUsableEPUBUnits, readingintent.OutcomePreparationUnavailable:
 		return moveWorkToReadOutcome{moved: 1, prepFailed: 1}
 	default:
 		return moveWorkToReadOutcome{moved: 1}
