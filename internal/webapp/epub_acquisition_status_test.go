@@ -79,6 +79,41 @@ func TestEPUBAcquisitionFailurePresentation(t *testing.T) {
 	}
 }
 
+// TestEPUBAcquisitionInProgressReadsAsClassicalPreparation states the one
+// in-progress vocabulary: an EPUB Book and a classical Book in the same
+// lifecycle state read identically on My Books, and neither offers a
+// recovery while its preparation is under way.
+func TestEPUBAcquisitionInProgressReadsAsClassicalPreparation(t *testing.T) {
+	t.Parallel()
+	states := []struct {
+		name      string
+		classical domain.ClassicalPreparationStatus
+		epub      domain.EPUBAcquisitionStatus
+	}{
+		{
+			name:      "queued",
+			classical: domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationQueued, CurrentRevision: 1},
+			epub:      domain.EPUBAcquisitionStatus{State: domain.JobLifecycleQueued},
+		},
+		{
+			name:      "running",
+			classical: domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationRunning, CurrentRevision: 1},
+			epub:      domain.EPUBAcquisitionStatus{State: domain.JobLifecycleRunning},
+		},
+	}
+	for _, state := range states {
+		t.Run(state.name, func(t *testing.T) {
+			t.Parallel()
+			classical := classicalStatusBook(state.classical)
+			epub := acquisitionFailureBook(state.epub)
+			assert.Equal(t, myBookMarginEvidence(classical), myBookMarginEvidence(epub))
+			recovery := myBookEvidenceRecovery(epub)
+			assert.Equal(t, myBookEvidenceRecovery(classical), recovery)
+			assert.Empty(t, recovery)
+		})
+	}
+}
+
 func TestEPUBAcquisitionFailureDoesNotOverrideAnAnalysisInEffect(t *testing.T) {
 	t.Parallel()
 	book := acquisitionFailureBook(domain.EPUBAcquisitionStatus{
