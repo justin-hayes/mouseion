@@ -16,10 +16,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
-func browseMyBooks(ctx context.Context, store MyBooksStore, owner, query, language, disposition string, history bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
-	return store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
-}
-
 const myBooksLoadFailureMessage = "My Books could not be loaded. Try refreshing the page."
 
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +30,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
-	request, ok := parseMyBooksLibraryRequest(r.URL)
+	request, ok := parseMyBooksBrowseRequest(r.URL)
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -43,7 +39,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.disposition, request.history))
 		return
 	}
-	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, request.query, activeLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
+	result, err := h.services.Store.MyBooks.ListMyBooksBrowse(r.Context(), u.ID, request.query, activeLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
@@ -59,8 +55,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.disposition, request.history))
 		return
 	}
-	connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
-	if err != nil {
+	if err = h.loadLibraryBrowsingExtras(r.Context(), u.ID, books); err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
@@ -78,7 +73,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse, currentReadingBookID))
 		return
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, connectionCount > 0, browse))
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, browse))
 }
 
 // myBooksLibraryRequest is the My Books browse state the /library query asks for.
@@ -87,10 +82,6 @@ type myBooksLibraryRequest struct {
 	page        int
 	disposition domain.BookDisposition
 	history     bool
-}
-
-func parseMyBooksLibraryRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
-	return parseMyBooksBrowseRequest(rURL)
 }
 
 // myBooksRedirectPage clamps an out-of-range page. A page past the last page of
@@ -108,21 +99,16 @@ func myBooksRedirectPage(request myBooksLibraryRequest, result domain.MyBooksBro
 }
 
 // loadLibraryBrowsingExtras runs the My Books reads that decorate the result
-// rows: disposition annotations, Analysis update offers, and the OPDS
-// connection count that decides whether acquisition is offered. It keeps their
+// rows: disposition annotations and Analysis update offers. It keeps their
 // order, which the validated rows depend on. Books are the page's visible cells,
 // shared by pointer with the grouped rows their Work offers cover.
-func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) (int, error) {
+func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) error {
 	if err := h.annotateMyBooksWithDisposition(ctx, owner, books); err != nil {
-		return 0, err
+		return err
 	}
 	h.annotateAnalysisUpdates(ctx, owner, books)
 	h.annotateSourceStructureUpdates(ctx, owner, books)
-	connections, err := h.services.Store.Catalogs.ListOpdsConnections(ctx, owner)
-	if err != nil {
-		return 0, err
-	}
-	return len(connections), nil
+	return nil
 }
 
 // currentWorkBookForMyBooks loads the current Reading's Book with its Analysis
@@ -244,7 +230,7 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 	}
 	history := bucket == domain.MyBookBucketRead
 	for offset := 0; ; offset += myBooksPageSize {
-		result, err := browseMyBooks(ctx, store, owner, "", language, string(disposition), history, offset, myBooksPageSize)
+		result, err := store.ListMyBooksBrowse(ctx, owner, "", language, string(disposition), history, offset, myBooksPageSize)
 		if err != nil {
 			return 0, err
 		}

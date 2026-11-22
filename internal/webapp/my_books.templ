@@ -8,8 +8,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, currentReadingBookID string, hasCatalogueConnections bool) {
-	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", currentReadingBookID, hasCatalogueConnections, MyBooksBrowseState{})
+templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, currentReadingBookID string) {
+	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", currentReadingBookID, MyBooksBrowseState{})
 }
 
 templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
@@ -285,7 +285,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 	</section>
 }
 
-templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, currentReadingBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) {
+templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, currentReadingBookID string, browse MyBooksBrowseState) {
 	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
 		<section class="library-masthead" aria-labelledby="library-page-title">
 			<h1 id="library-page-title">My Books</h1>

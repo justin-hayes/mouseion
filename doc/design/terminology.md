@@ -96,7 +96,7 @@ anchor.
 |---|---|---|
 | **Coverage band** | Classification of a To Read Book's current lexical coverage. A grouped Work entry lists its constituent Book numbers in band rows; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
 | **Work position** | A constituent Book's plain bibliographic place, such as "Book 2 of 24", from the reviewed definition rather than the learner's added Books. A whole-work unit has none, and it never becomes a pointer to the next Book. | Next Book, recommended order |
-| **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read, and a grouped Work row's **Move the work to To Read** moves its Read Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
+| **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read, and a grouped Work row's **Move the work to To Read** moves its Read Books; it reads **Move the remaining books to To Read** when the tab shows only some of the Work's Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
 | **Start reading** | Make an eligible To Read Book the current Book and freeze its vocabulary snapshot. Requires explicit confirmation. | Choose as Primary Goal |
 | **Switch current reading** | Replace the current Book with an eligible To Read Book after explicit confirmation. The former current Book remains To Read. | Reorder Journey |
 | **Mark reading finished** | Record the completion and exact modeled vocabulary transition. It does not choose the next Book. | Complete Goal, finish Journey |

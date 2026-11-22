@@ -25,7 +25,7 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	}
 	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 4, Total: 2, Page: 2, PageCount: 2}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", state).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		`role="search"`, `method="get"`, `label class="sr-only" for="library-search-query">Search My Books`,
@@ -55,7 +55,7 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
-			require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, tc.state).Render(context.Background(), &output))
+			require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", tc.state).Render(context.Background(), &output))
 			html := output.String()
 			for _, want := range tc.wants {
 				assert.Contains(t, html, want, "no-match markup missing %q: %s", want, html)
@@ -68,7 +68,7 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 func TestClearSearchResetsQueryAndPreservesTab(t *testing.T) {
 	state := MyBooksBrowseState{Enabled: true, Query: "missing", Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3, TextNoMatch: true}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", state).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `href="/library?disposition=to_read"`)
 }
@@ -327,7 +327,7 @@ func TestMyBooksTabsRenderOnlyToReadAndRead(t *testing.T) {
 		{Book: domain.Book{ID: "to-read", OwnerID: "owner", Title: "To read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionToRead},
 		{Book: domain.Book{ID: "read-book", OwnerID: "owner", Title: "Read book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1},
 	}
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", state).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, `aria-current="page" href="/library?disposition=to_read"`)
 	assert.Contains(t, html, `href="/library?history=read"`)
@@ -422,7 +422,7 @@ func mustFixtureBookDisposition(t *testing.T, store *fixtures.Store, owner, book
 func TestEmptyMyBooksLeadsToTheCatalog(t *testing.T) {
 	var output bytes.Buffer
 	state := MyBooksBrowseState{Enabled: true}
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", state).Render(context.Background(), &output))
 	html := output.String()
 	assert.Contains(t, html, "Find your first Book", "empty My Books state lost its Catalog path: %s", html)
 	assert.Contains(t, html, `href="/catalogs">Browse the Catalog</a>`, "empty My Books state lost its Catalog path: %s", html)
@@ -463,38 +463,24 @@ func (s libraryExtrasFailStore) ListOpdsConnections(ctx context.Context, owner s
 	return s.browseRecordingStore.ListOpdsConnections(ctx, owner)
 }
 
-func TestLibraryHandlerRendersFailureWhenBrowsingExtrasFail(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		store func(*browseRecordingStore) allStoreCapabilities
-	}{
-		{
-			name: "catalog connections",
-			store: func(b *browseRecordingStore) allStoreCapabilities {
-				return libraryExtrasFailStore{browseRecordingStore: b, connectionsErr: errors.New("connections read failed")}
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			h, cookies, _, fixtureStore := readingFixtureSession(t)
-			handler := requireHandler(t, h)
-			base := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
-				Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
-				Total: 1, ScopeTotal: 1, AllCount: 1,
-			}}
-			handler.services.Store = storeDependencies(tc.store(base))
+func TestLibraryHandlerDoesNotReadCatalogConnections(t *testing.T) {
+	h, cookies, _, fixtureStore := readingFixtureSession(t)
+	handler := requireHandler(t, h)
+	base := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
+		Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
+		Total: 1, ScopeTotal: 1, AllCount: 1,
+	}}
+	handler.services.Store = storeDependencies(libraryExtrasFailStore{browseRecordingStore: base, connectionsErr: errors.New("connections must not be read")})
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
-			for _, cookie := range cookies {
-				request.AddCookie(cookie)
-			}
-			response := httptest.NewRecorder()
-			handler.ServeHTTP(response, request)
-
-			assert.Equal(t, http.StatusInternalServerError, response.Code)
-			assert.Contains(t, response.Body.String(), myBooksLoadFailureMessage)
-		})
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
+	for _, cookie := range cookies {
+		request.AddCookie(cookie)
 	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.NotContains(t, response.Body.String(), myBooksLoadFailureMessage)
 }
 
 func TestLibraryHandlerClampsAnEmptyScopeToItsFirstPage(t *testing.T) {

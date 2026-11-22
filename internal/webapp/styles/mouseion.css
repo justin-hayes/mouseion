@@ -179,7 +179,6 @@ details[open] > summary::before {
   .status-badge__shape--dot,
   .status-badge__shape--diamond,
   .status-badge__shape--bar,
-  .status-badge__shape--square,
   .status-analyzed::before,
   .status-active::before,
   .status-ready::before,
@@ -923,12 +922,6 @@ progress {
   transform: rotate(45deg);
 }
 
-.status-badge__shape--square {
-  border: 0;
-  border-radius: 1px;
-  background: currentColor;
-}
-
 .status-badge__shape--bar {
   width: 0.7em;
   height: 0.2em;
@@ -1299,35 +1292,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   background: var(--mouseion-color-text);
 }
 
-.library-needs-language {
-  margin: 0 0 var(--mouseion-space-3);
-  border-left: 3px solid var(--mouseion-color-warning);
-  padding: var(--mouseion-space-1) var(--mouseion-space-4);
-  background: color-mix(in srgb, var(--mouseion-color-warning) 7%, var(--mouseion-color-surface-raised));
-  color: var(--mouseion-color-text);
-  font-size: var(--mouseion-font-size-metadata);
-}
-
-.library-needs-language__summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--mouseion-space-2) var(--mouseion-space-3);
-  margin: 0;
-}
-
-.library-needs-language details p {
-  margin: var(--mouseion-space-1) 0 0;
-}
-
-.library-needs-language details > summary {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  cursor: pointer;
-  list-style: none;
-}
-
 .library-language-pills {
   gap: var(--mouseion-space-4);
   margin: 0;
@@ -1643,26 +1607,6 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   margin: var(--mouseion-space-2) 0 0;
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);
-}
-
-.library-diagnostic-list {
-  display: grid;
-  gap: 0;
-  margin: 0;
-  border-top: 2px solid var(--mouseion-color-text);
-  padding: 0;
-  list-style: none;
-}
-
-.library-diagnostic-item {
-  margin: 0;
-  border-bottom: 1px solid var(--mouseion-color-border);
-  padding: var(--mouseion-space-4) 0;
-}
-
-.library-diagnostic-item h3 {
-  margin-bottom: var(--mouseion-space-1);
-  font-size: 1.2rem;
 }
 
 .status {

@@ -16,7 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, currentReadingBookID string, hasCatalogueConnections bool) templ.Component {
+func LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message, currentReadingBookID string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -37,7 +37,7 @@ func LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSum
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = MyBooksPage(user, csrf, legacyMyBooks(books), message, "", currentReadingBookID, hasCatalogueConnections, MyBooksBrowseState{}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = MyBooksPage(user, csrf, legacyMyBooks(books), message, "", currentReadingBookID, MyBooksBrowseState{}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2022,7 +2022,7 @@ func MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseStat
 	})
 }
 
-func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, currentReadingBookID string, hasCatalogueConnections bool, browse MyBooksBrowseState) templ.Component {
+func MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError, currentReadingBookID string, browse MyBooksBrowseState) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
