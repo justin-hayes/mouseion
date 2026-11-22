@@ -347,14 +347,22 @@ element, polite live updates, and ordinary retry/cancellation forms. Native
 `details`/`summary` confirmations retain their visible disclosure affordance,
 consequences, and submission behavior without JavaScript.
 
-Analysis history and detail keep the Book title distinct from the operational
-job number; detail keeps task state, progress, and recovery together, with
-Book/connection identity, creation/finish timestamps, attempt, and provenance in
-an adjacent definition-list margin note. Catalog-sync detail names its connection and
-retains the metadata-only explanation. Focused Book deck preparation uses the
-same compact page heading and an intentionally spaced bounded form; Book and
-analysis identity, eligibility, external-translation consent, artifact state,
-download, cancellation/retry, and re-prepare consequences remain explicit.
+Book preparations and Catalog sync are the two operational tables on `/jobs`:
+one Book preparations table carries Classical preparation, EPUB acquisition and
+analysis rows with the same columns (kind, Book, status, stage, code, progress
+where known, created), while Catalog sync carries the shared status badge, its
+connection and its error text. A preparation row links to its Book only while
+that Book is still a current My Books member, and a failed row keeps the raw
+stage and code with the learner reason My Books explains for that Book as quiet
+text beneath the code. Analysis detail keeps the Book title distinct from the
+operational job number; detail keeps task state, progress, and recovery
+together, with Book/connection identity, creation/finish timestamps, attempt,
+and provenance in an adjacent definition-list margin note. Catalog-sync detail
+names its connection and retains the metadata-only explanation. Focused Book deck
+preparation uses the same compact page heading and an intentionally spaced
+bounded form; Book and analysis identity, eligibility, external-translation
+consent, artifact state, download, cancellation/retry, and re-prepare
+consequences remain explicit.
 
 ## Shared rules
 

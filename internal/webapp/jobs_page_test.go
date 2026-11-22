@@ -35,7 +35,7 @@ func TestJobsHandlerShowsAllThreePreparationKindsAndCatalogSyncOnOnePage(t *test
 	body := response.Body.String()
 
 	for _, want := range []string{
-		"<h2>Book preparations</h2>",
+		`<h2>Book preparations</h2>`,
 		"Classical preparation",
 		"EPUB acquisition",
 		`href="/jobs/13">Analysis #2</a>`,
@@ -45,7 +45,7 @@ func TestJobsHandlerShowsAllThreePreparationKindsAndCatalogSyncOnOnePage(t *test
 		"<code>source_pin_mismatch</code>",
 		"<code>dependency_parsing_unavailable</code>",
 		`aria-label="Analysis job 2 progress"`,
-		"<h2>Catalog sync</h2>",
+		`<h2>Catalog sync</h2>`,
 	} {
 		assert.Contains(t, body, want, "GET /jobs missing %q", want)
 	}
@@ -60,10 +60,10 @@ func TestJobsHandlerServesTheFixturePage(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	body := response.Body.String()
 
-	assert.Contains(t, body, "<h2>Book preparations</h2>")
+	assert.Contains(t, body, `<h2>Book preparations</h2>`)
 	assert.Contains(t, body, `href="/jobs/43">Analysis #2</a>`)
 	assert.Contains(t, body, `href="/catalogs/books/fixture-failed/in-my-books">Fehlgeschlagene Analyse</a>`)
-	assert.Contains(t, body, "<h2>Catalog sync</h2>")
+	assert.Contains(t, body, `<h2>Catalog sync</h2>`)
 	assert.NotContains(t, body, `aria-label="Analysis history"`)
 }
 

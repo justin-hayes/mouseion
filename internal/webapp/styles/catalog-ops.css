@@ -566,10 +566,21 @@
 }
 
 /* One row per preparation job keeps its short identifier columns on one line;
-   Book titles and status badges wrap instead of stretching the table. */
+   Book titles, status badges and failure reasons wrap instead of stretching
+   the table. */
 .table-region[aria-label="Book preparations"]
-  :is(th:nth-child(1), td:nth-child(1), th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7)) {
+  :is(th:nth-child(1), td:nth-child(1), th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7)) {
   white-space: nowrap;
+}
+
+/* The stable code stays on one line while a failed row's learner reason
+   wraps quietly beneath it in the same cell. */
+.table-region[aria-label="Book preparations"] :is(th:nth-child(5), td:nth-child(5) > code) {
+  white-space: nowrap;
+}
+
+.table-region[aria-label="Book preparations"] td:nth-child(5) .metadata {
+  margin: var(--mouseion-space-1) 0 0;
 }
 
 .async-status:has(> .operational-metadata) {

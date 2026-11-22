@@ -10,9 +10,10 @@ import (
 
 // JobsPage is the operational history surface: one Book preparations list
 // covering Classical preparation, EPUB acquisition and analysis, and one
-// Catalog sync list. Every Book preparation row links to its Book; an
-// analysis row also keeps its link to the analysis detail page, and a
-// Catalog sync row to its own detail page.
+// Catalog sync list. A Book preparation row links to its Book only while the
+// Book is still a current My Books member; an analysis row also keeps its
+// link to the analysis detail page, and a Catalog sync row to its own detail
+// page.
 templ JobsPage(user domain.User, csrf string, preparations []domain.BookPreparationJob, syncJobs []cataloguesync.Status, catalogCode, message string) {
 	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
 		@PageHeader("Jobs", "Operational history for Book preparations and Catalog sync.", nil)
@@ -42,12 +43,28 @@ templ JobsPage(user domain.User, csrf string, preparations []domain.BookPreparat
 								{ bookPreparationKindLabel(job.Kind) }
 							}
 						</td><td>
-							if job.BookID != "" {
+							if job.BookID != "" && job.BookInMyBooks {
 								<a href={ templ.SafeURL(catalogBookInMyBooksURL(job.BookID)) }>{ job.BookTitle }</a>
 							} else {
 								{ job.BookTitle }
 							}
-						</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>{ string(job.Stage) }</td><td><code>{ string(job.Code) }</code></td><td>
+						</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>
+							if job.Stage == "" {
+								—
+							} else {
+								{ string(job.Stage) }
+							}
+						</td><td>
+							if job.Code == "" {
+								—
+							} else {
+								<code>{ string(job.Code) }</code>
+							}
+							{{ reason := bookPreparationFailureReason(job) }}
+							if reason != "" {
+								<p class="metadata">{ reason }</p>
+							}
+						</td><td>
 							if job.Progress != nil {
 								<progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d", *job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%", *job.Progress) }
 							}

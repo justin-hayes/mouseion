@@ -18,7 +18,8 @@ import (
 // ListBookPreparationJobs is the fixed analysis projection in the one Book
 // preparation shape /jobs renders. The in-memory fixture binds no River queue,
 // so no Classical preparation or EPUB acquisition row exists; every row is an
-// analysis row that names and links to its Book.
+// analysis row that names and links to its Book. The by-source map holds only
+// current My Books members, so every resolved row reports membership.
 func (s *Store) ListBookPreparationJobs(_ context.Context, owner string) ([]domain.BookPreparationJob, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -47,6 +48,7 @@ func (s *Store) ListBookPreparationJobs(_ context.Context, owner string) ([]doma
 		if book, ok := bySource[job.SourceMaterialID]; ok {
 			row.BookID = book.Book.ID
 			row.BookTitle = strings.TrimSpace(book.Book.Title)
+			row.BookInMyBooks = true
 		}
 		jobs = append(jobs, row)
 	}

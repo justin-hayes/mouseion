@@ -258,7 +258,7 @@ Vocabulary (partially shipped)
     focused sentence study and grammar exploration (shipped)
 
 Secondary history
-    operational analysis history
+    operational Book preparations and Catalog sync history (`/jobs`)
     reading, preparation, and vocabulary-transition history
 ```
 

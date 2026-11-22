@@ -275,6 +275,37 @@ func analysisFailureReason(code domain.BookPreparationCode) string {
 	}
 }
 
+// bookPreparationFailureReason is the learner-readable reason a failed row
+// adds under its stable code. It is the reason My Books already explains for
+// the same failure: the analysis sentence for an analysis run, and the shared
+// classical or EPUB acquisition label for the preparation kinds, reusing the
+// domain's own stage-to-state classification so the wording cannot drift. An
+// unrecognised stage or kind adds no reason rather than a new one.
+func bookPreparationFailureReason(job domain.BookPreparationJob) string {
+	if job.Lifecycle != domain.JobLifecycleFailed {
+		return ""
+	}
+	signals := domain.AnalysisSignals{}
+	switch job.Kind {
+	case domain.BookPreparationKindClassical:
+		signals.ClassicalPreparation = &domain.ClassicalPreparationStatus{Stage: job.Stage, Code: job.Code}
+	case domain.BookPreparationKindEPUBAcquisition:
+		signals.EPUBAcquisition = &domain.EPUBAcquisitionStatus{Stage: job.Stage, Code: job.Code}
+	case domain.BookPreparationKindAnalysis:
+		return analysisFailureSentence(job.Code)
+	default:
+		return ""
+	}
+	classification := domain.ClassifyBookEvidence(signals, "", "")
+	if view, ok := classicalPreparationForClassification(classification); ok {
+		return view.Label
+	}
+	if classification.Acquisition.Applies() {
+		return epubAcquisitionViewFor(classification).Label
+	}
+	return ""
+}
+
 // analysisNeedsAttention reports a failed analysis detail, including a
 // completed run whose finalization failed and a run that failed before codes
 // were recorded.

@@ -496,10 +496,8 @@ current My Books / Reading architecture.
 
 Current implementation adoption covers My Books (`/library`), Reading (`/reading`),
 Catalog (`/catalogs`), Book preparation and catalog-sync jobs, enrichment
-progress, focused
-deck preparation,
-Vocabulary Browse/selection/Concordance/sentence study,
-occurrence-level lemma review, and Custom decks. `/journey` is
+progress, focused deck preparation, Vocabulary Browse/selection/Concordance/
+sentence study, occurrence-level lemma review, and Custom decks. `/journey` is
 only a compatibility redirect and is not an adopted screen. Reading presents
 the current Book as a title-page identity with its “Reading since” date,
 reviewed Work position when it is a constituent Book, and lifecycle actions;
