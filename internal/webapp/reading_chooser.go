@@ -274,7 +274,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 		return
 	default:
 	}
-	message, isError := retryMessage(r.Context(), h.services.Store.Catalogs, owner, outcome)
+	message, isError := retryMessage(outcome)
 	queryParam := "message"
 	if isError {
 		queryParam = "error"
@@ -287,8 +287,9 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 const analysisCouldNotStartMessage = "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."
 
 // retryMessage maps a Retry outcome to the learner-facing sentence and whether
-// it is an error. Every sentence here predates the module and must not change.
-func retryMessage(ctx context.Context, catalog CatalogsStore, owner string, outcome readingintent.Outcome) (message string, isError bool) {
+// it is an error. An EPUB Book reports the same plain confirmation whether
+// acquisition was queued now or is already running.
+func retryMessage(outcome readingintent.Outcome) (message string, isError bool) {
 	switch outcome.Kind {
 	case readingintent.OutcomeCurrentBookRefused:
 		return "The current book cannot be refreshed. Its frozen evidence remains unchanged.", true
@@ -297,22 +298,23 @@ func retryMessage(ctx context.Context, catalog CatalogsStore, owner string, outc
 	case readingintent.OutcomeAlreadyCurrent:
 		return "The analysis is already current.", false
 	case readingintent.OutcomeJobQueued:
-		if outcome.Route == readingintent.RouteClassical {
+		switch {
+		case outcome.Route == readingintent.RouteClassical:
 			return fmt.Sprintf("Preparation job #%d submitted.", outcome.JobNumber), false
+		case outcome.Acquisition:
+			return epubPreparationConfirmation, false
+		default:
+			return fmt.Sprintf("Analysis job #%d submitted.", outcome.JobNumber), false
 		}
-		return fmt.Sprintf("Analysis job #%d submitted.", outcome.JobNumber), false
 	case readingintent.OutcomeLegacyRows:
 		return classical.LegacyRowsReason, true
 	case readingintent.OutcomeWithdrawnDefinition:
 		return classicalWithdrawnRefusal, true
 	case readingintent.OutcomeSourceRefused:
 		return classicalSourceMismatchRefusal, true
-	case readingintent.OutcomeCouldNotStart, readingintent.OutcomeAcquisitionFailed:
+	case readingintent.OutcomeCouldNotStart:
 		if outcome.Route == readingintent.RouteClassical {
 			return "Preparation could not be started. Retry when ready.", true
-		}
-		if outcome.AcquisitionFailed {
-			return readingAcquisitionError(ctx, catalog, owner, outcome.Book.Book.ID, outcome.Title, outcome.Target, outcome.Err) + " The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.", true
 		}
 		return analysisCouldNotStartMessage, true
 	case readingintent.OutcomeNoUsableEPUBUnits:
@@ -675,14 +677,14 @@ func readingChooserBookTitle(book domain.MyBook) string {
 // readingChooserStatusFor places a To Read Book without completed analysis in
 // the chooser's in-progress or needs-attention group.
 func readingChooserStatusFor(c domain.BookEvidenceClassification) (readingChooserState, string) {
-	if c.Content == domain.ContentNotAcquired {
-		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
-	}
 	if c.PublicationPending() {
 		return readingChooserInProgress, analysisPublicationPendingDescription
 	}
 	if c.Phase == domain.PhaseAnalyzing {
 		return readingChooserInProgress, "Analysis is queued or running. This candidate will show its band when current evidence is ready."
+	}
+	if c.Content == domain.ContentNotAcquired {
+		return readingChooserNeedsAttention, "Book content has not been acquired yet. Return to My Books to review its catalog entry."
 	}
 	if c.Evidence == domain.BookStale {
 		return readingChooserNeedsAttention, "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."

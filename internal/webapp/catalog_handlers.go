@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 )
@@ -143,7 +142,7 @@ func (h *Handler) prepareAddedCatalogueBook(ctx context.Context, owner string, b
 		log.Printf("catalog add: prepare book %q: %v", book.ID, err)
 		return catalogueAddCouldNotStart
 	}
-	return catalogueAddPreparationMessage(ctx, h.services.Store.Catalogs, owner, book, outcome)
+	return catalogueAddPreparationMessage(outcome)
 }
 
 // catalogueAddMessage states the membership change and names the Book.
@@ -163,16 +162,14 @@ func catalogueAddMessage(added domain.CatalogueAddResult) string {
 }
 
 // catalogueAddPreparationMessage maps the reading-intent outcome to what
-// happens to the text after Add. It never promises work that is already done or
-// that could not start, and a failed acquisition keeps the To Read choice.
-func catalogueAddPreparationMessage(ctx context.Context, catalog CatalogsStore, owner string, book domain.Book, outcome readingintent.Outcome) string {
+// happens to the text after Add. An EPUB Book reports the same plain
+// confirmation whether its acquisition was queued now or already running.
+func catalogueAddPreparationMessage(outcome readingintent.Outcome) string {
 	switch outcome.Kind {
 	case readingintent.OutcomeJobQueued:
-		return " Downloading and analyzing the text."
+		return " " + epubPreparationConfirmation
 	case readingintent.OutcomeAlreadyCurrent, readingintent.OutcomeCurrentBookRefused:
 		return " The text is already analyzed."
-	case readingintent.OutcomeAcquisitionFailed:
-		return " " + strings.TrimSuffix(readingAcquisitionError(ctx, catalog, owner, book.ID, book.Title, outcome.Target, outcome.Err), ".") + ". The Book stays To Read; retry acquisition from My Books when ready."
 	case readingintent.OutcomeNoUsableEPUBUnits:
 		return " The current source has no usable EPUB units. The Book stays To Read."
 	case readingintent.OutcomeCouldNotStart:
@@ -871,34 +868,6 @@ func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	redirectManageSources(w, r, "message", "Catalog deleted", "")
 }
-func opdsErrorMessage(err error) string {
-	message := "The catalog request failed. Check the connection and try again."
-	lower := strings.ToLower(err.Error())
-	switch {
-	case errors.Is(err, cataloguesync.ErrCatalogEntryMissing):
-		message = "The catalog no longer offers this Book. Sync the connection, then retry."
-	case errors.Is(err, opds.ErrNoEPUB), errors.Is(err, opds.ErrIncompatibleMediaType):
-		message = "This book is not available as an EPUB. Choose another edition or format."
-	case errors.Is(err, opds.ErrDownloadTooLarge):
-		message = "This EPUB is larger than the 512 MiB download limit. Choose a smaller edition."
-	case errors.Is(err, opds.ErrRetainedEPUBTooLarge):
-		message = "This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition."
-	case strings.Contains(lower, "401"), strings.Contains(lower, "403"):
-		message = "The catalog rejected the credentials. Update the connection username and password."
-	case strings.Contains(lower, "parse atom"), strings.Contains(lower, "html"):
-		message = "The catalog returned a web page instead of an OPDS feed. Check the catalog URL."
-	case errors.Is(err, epub.ErrInvalidEPUB), strings.Contains(lower, "invalid epub"):
-		message = "The catalog item was not a valid EPUB. No book was added; choose another item or try again."
-	case errors.Is(err, opds.ErrImportFailed), strings.Contains(lower, "ingest downloaded epub"), strings.Contains(lower, "validate epub"):
-		message = "The downloaded EPUB could not be added. Choose another book or try again."
-	case strings.Contains(lower, "invalid acquisition"):
-		message = "The catalog could not acquire this book. Check the connection and try again."
-	case strings.Contains(lower, "fetch feed"), strings.Contains(lower, "download epub"):
-		message = "The catalog could not be reached. Check its URL and network availability, then try again."
-	}
-	return message
-}
-
 func credentialSummary(connection domain.OpdsConnection) string {
 	if connection.Username != "" {
 		return "Credentials saved securely for " + connection.Username + "."

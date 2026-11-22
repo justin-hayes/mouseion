@@ -150,14 +150,12 @@ func (m *Module) route(ctx context.Context, owner string, book domain.MyBook) Ou
 // stay free of learner-facing outcomes.
 func classifySubmission(submission Submission) Outcome {
 	outcome := Outcome{
-		Kind:              OutcomeCouldNotStart,
-		Route:             submission.Route,
-		JobNumber:         submission.JobNumber,
-		Book:              submission.Book,
-		Target:            submission.Target,
-		Title:             submission.Title,
-		Err:               submission.Err,
-		AcquisitionFailed: submission.AcquisitionFailed,
+		Kind:        OutcomeCouldNotStart,
+		Route:       submission.Route,
+		JobNumber:   submission.JobNumber,
+		Acquisition: submission.Acquisition,
+		Book:        submission.Book,
+		Err:         submission.Err,
 	}
 	switch submission.Kind {
 	case SubmissionQueued:
@@ -165,9 +163,6 @@ func classifySubmission(submission Submission) Outcome {
 	case SubmissionAlreadyCurrent:
 		outcome.Kind = OutcomeAlreadyCurrent
 	case SubmissionCouldNotStart:
-		if submission.AcquisitionFailed {
-			outcome.Kind = OutcomeAcquisitionFailed
-		}
 	case SubmissionRefused:
 		switch submission.Refusal {
 		case RefusalPreparationUnavailable:

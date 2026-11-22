@@ -16,19 +16,22 @@ type EPUBAcquisitionFailureRecord struct {
 	FailedAt        time.Time
 }
 
-// EPUBAcquisitionStatus is the failure projection read onto a Book. It carries
-// the stable stage and code, never a raw error.
+// EPUBAcquisitionStatus is the acquisition projection read onto a Book. It
+// carries the shared lifecycle state of a live job or the stable stage and code
+// of a settled failure, never a raw error.
 type EPUBAcquisitionStatus struct {
+	State JobLifecycleState
 	Stage BookPreparationStage
 	Code  BookPreparationCode
 }
 
-// AcquisitionState is the learner-facing state of an EPUB acquisition failure.
-// It names the stage without carrying prose or a raw code.
+// AcquisitionState is the learner-facing state of an EPUB acquisition. It names
+// a live job or a failed stage without carrying prose or a raw code.
 type AcquisitionState string
 
 const (
 	AcquisitionNone                AcquisitionState = ""
+	AcquisitionInProgress          AcquisitionState = "in-progress"
 	AcquisitionEntryMissing        AcquisitionState = "entry-missing"
 	AcquisitionFetchFailed         AcquisitionState = "fetch-failed"
 	AcquisitionSourceOversize      AcquisitionState = "source-oversize"
@@ -64,6 +67,9 @@ type acquisitionEvidence struct {
 func classifyEPUBAcquisition(status *EPUBAcquisitionStatus) acquisitionEvidence {
 	if status == nil {
 		return acquisitionEvidence{}
+	}
+	if status.State.Active() {
+		return acquisitionEvidence{AcquisitionClassification{State: AcquisitionInProgress}, BookAcquiredUnassessed, PhaseAnalyzing, RecoveryNone}
 	}
 	switch status.Stage {
 	case BookPreparationStageEntry:

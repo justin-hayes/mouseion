@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
@@ -222,7 +221,7 @@ func newCoverFixture(t *testing.T) *coverFixture {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "cover sync store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
+	require.NoError(t, migrateRiverForTest(store.Pool()))
 	owner, err := store.CreateUser(ctx, "cover-sync-owner", false)
 	require.NoError(t, err)
 	_, err = store.PutSupportedLanguage(ctx, "de", "German")

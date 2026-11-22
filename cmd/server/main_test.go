@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
@@ -243,6 +245,22 @@ func TestOpenDictionaryIndexOpensAnAncientGreekIndex(t *testing.T) {
 	testutil.Cleanup(t, "dictionary index", index.Close)
 	assert.True(t, index.AncientGreekAvailable())
 	assert.Equal(t, 1, index.SkippedGreekHeadwords(), "opening an index with an inadmissible headword logs the skip count")
+}
+
+func TestRegisterEPUBAcquisitionWorkerRegistersTheJobKind(t *testing.T) {
+	workers := river.NewWorkers()
+	worker := registerEPUBAcquisitionWorker(workers, nil, cataloguesync.StoreDependencies{}, nil, nil)
+
+	require.NotNil(t, worker)
+	assert.Error(t, river.AddWorkerSafely(workers, &analysis.EPUBAcquisitionWorker{}), "worker kind must already be registered")
+}
+
+func TestAttachEPUBAcquisitionAnalysisSuppliesTheSubmission(t *testing.T) {
+	worker := &analysis.EPUBAcquisitionWorker{}
+
+	attachEPUBAcquisitionAnalysis(worker, nil, nil)
+
+	require.NotNil(t, worker.Analysis)
 }
 
 func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {

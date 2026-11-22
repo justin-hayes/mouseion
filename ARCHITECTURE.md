@@ -82,8 +82,9 @@ with two calls: `Analyze` and `GetCapabilities`
 
 ## From book to corpus
 
-When a learner moves a book to *To Read*, the web request acquires the EPUB and
-records an analysis run; a River worker does the analysis.
+When a learner adds a book or moves it to *To Read*, the web request enqueues
+durable EPUB acquisition and returns. A River worker downloads and imports the
+EPUB, then records an analysis run; another River worker does the analysis.
 
 ```mermaid
 sequenceDiagram
@@ -91,15 +92,21 @@ sequenceDiagram
     participant W as Web handler
     participant O as OPDS catalog
     participant DB as PostgreSQL
-    participant R as River worker
+    participant A as Acquisition worker
+    participant R as Analysis worker
     participant N as NLP service
 
-    L->>W: Move book to To Read
-    W->>O: Download EPUB
-    W->>W: Extract reading-order units<br/>with source offsets
-    W->>DB: Store content revision and unit snapshot
-    W->>DB: Insert analysis run + River job (one transaction)
-    W-->>L: Book shows "analysis running"
+    L->>W: Add, Move to To Read, or Retry
+    W->>DB: Insert EPUB acquisition job
+    W-->>L: "Downloading and analyzing the text."
+
+    A->>DB: Claim acquisition job
+    A->>DB: Confirm Book is still To Read and not current
+    A->>O: Download EPUB
+    A->>A: Extract reading-order units<br/>with source offsets
+    A->>DB: Store content revision and unit snapshot
+    A->>DB: Clear the Book's acquisition failure
+    A->>DB: Insert analysis run + River job (one transaction)
 
     R->>DB: Claim job, load unit snapshot
     R->>R: Select main text from EPUB landmarks
@@ -469,7 +476,7 @@ flowchart TB
 | [`classical`](internal/classical) | Embedded Classical catalog manifest: Reading-unit definitions, pinned source layers, and translation pins ([ADR 0116](doc/adr/0116-classical-catalog.md)) |
 | [`epub`](internal/epub) | Reading-order extraction with reproducible source locations; main-text selection |
 | [`analyzer`](internal/analyzer) | The project-owned analysis boundary and its gRPC client |
-| [`analysis`](internal/analysis) | Durable analysis jobs: chunking, persistence, promotion |
+| [`analysis`](internal/analysis) | Durable analysis and Book preparation jobs: chunking, persistence, promotion, and Classical and EPUB preparation |
 | [`readingintent`](internal/readingintent) | A Book's reading intent: the To Read transition, the Classical-or-EPUB route, and the submission log line ([ADR 0049](doc/adr/0049-reading-intent-triggers-analysis.md)) |
 | [`sourcecheck`](internal/sourcecheck) | Extraction-only checks of existing EPUB snapshots against the configured contract |
 | [`canonicalization`](internal/canonicalization) | Language-specific canonical lemma profiles |

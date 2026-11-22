@@ -66,10 +66,11 @@ func validateEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) 
 	return nil
 }
 
-// populateEPUBAcquisitionFailures attaches each Book's latest failed EPUB
-// acquisition. The row is evidence only while no analysis is in effect, which
-// the domain classification decides.
-func (s *PostgresStore) populateEPUBAcquisitionFailures(ctx context.Context, owner string, books []*domain.MyBook) error {
+// populateEPUBAcquisitionStatuses attaches each Book's live acquisition job or
+// latest failed EPUB acquisition. The status is evidence only while no analysis
+// is in effect, which the domain classification decides. A live job supersedes
+// a failure recorded by an earlier attempt.
+func (s *PostgresStore) populateEPUBAcquisitionStatuses(ctx context.Context, owner string, books []*domain.MyBook) error {
 	ids := make([]string, 0, len(books))
 	byID := make(map[string]*domain.MyBook, len(books))
 	for _, book := range books {
@@ -80,22 +81,51 @@ func (s *PostgresStore) populateEPUBAcquisitionFailures(ctx context.Context, own
 	if len(ids) == 0 {
 		return nil
 	}
-	rows, err := s.queries().ListEPUBAcquisitionFailures(ctx, sqlcgen.ListEPUBAcquisitionFailuresParams{
-		OwnerID: owner,
-		BookIds: ids,
-	})
+	rows, err := s.pool.Query(ctx, `
+		SELECT b.id::text,
+		       COALESCE(job.state::text, ''),
+		       COALESCE(failure.stage, ''),
+		       COALESCE(failure.code, '')
+		FROM books b
+		LEFT JOIN LATERAL (
+		    SELECT j.state
+		    FROM river_job j
+		    WHERE j.kind = 'epub_acquisition'
+		      AND j.args->>'owner_id' = b.owner_id::text
+		      AND j.args->>'book_id' = b.id::text
+		    ORDER BY j.id DESC
+		    LIMIT 1
+		) job ON true
+		LEFT JOIN book_preparation_failures failure
+		       ON failure.owner_id = b.owner_id AND failure.book_id = b.id
+		      AND failure.reading_unit_key IS NULL
+		WHERE b.owner_id = $1 AND b.id = ANY($2::uuid[])`, owner, ids)
 	if err != nil {
-		return fmt.Errorf("read EPUB acquisition failures: %w", err)
+		return fmt.Errorf("read EPUB acquisition status: %w", err)
 	}
-	for _, row := range rows {
-		book := byID[row.BookID]
+	defer rows.Close()
+	for rows.Next() {
+		var bookID, jobState, stage, code string
+		if err := rows.Scan(&bookID, &jobState, &stage, &code); err != nil {
+			return fmt.Errorf("scan EPUB acquisition status: %w", err)
+		}
+		book := byID[bookID]
 		if book == nil {
 			continue
 		}
-		book.EPUBAcquisition = &domain.EPUBAcquisitionStatus{
-			Stage: domain.BookPreparationStage(row.Stage),
-			Code:  domain.BookPreparationCode(row.Code),
+		lifecycle := domain.JobLifecycleForRiverState(jobState)
+		switch {
+		case jobState != "" && lifecycle.Active():
+			book.EPUBAcquisition = &domain.EPUBAcquisitionStatus{State: lifecycle}
+		case stage != "":
+			book.EPUBAcquisition = &domain.EPUBAcquisitionStatus{
+				Stage: domain.BookPreparationStage(stage),
+				Code:  domain.BookPreparationCode(code),
+			}
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read EPUB acquisition status: %w", err)
 	}
 	return nil
 }

@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -22,6 +24,36 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// catalogRequestLog records every path a fake Catalog server served.
+type catalogRequestLog struct {
+	mu    sync.Mutex
+	paths []string
+}
+
+func (l *catalogRequestLog) record(path string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.paths = append(l.paths, path)
+}
+
+func (l *catalogRequestLog) snapshot() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.paths...)
+}
+
+// recordingEPUBAcquisition records the acquisition submission Add makes.
+type recordingEPUBAcquisition struct {
+	calls   int
+	bookIDs []string
+}
+
+func (r *recordingEPUBAcquisition) SubmitEPUBAcquisition(_ context.Context, _, bookID string) (analysis.EPUBAcquisitionHandle, error) {
+	r.calls++
+	r.bookIDs = append(r.bookIDs, bookID)
+	return analysis.EPUBAcquisitionHandle{JobID: int64(r.calls)}, nil
+}
 
 // catalogueAddServer serves only the EPUB the Catalog index advertises. Add
 // must never walk a feed to acquire it.
@@ -45,14 +77,15 @@ func catalogueAddServer(t *testing.T, requests *catalogRequestLog, fail bool) *h
 }
 
 type catalogueAddFixture struct {
-	store      *persistence.PostgresStore
-	handler    http.Handler
-	owner      domain.User
-	cookies    []*http.Cookie
-	csrf       string
-	connection domain.OpdsConnection
-	analysis   *recordingAnalysis
-	requests   *catalogRequestLog
+	store       *persistence.PostgresStore
+	handler     http.Handler
+	owner       domain.User
+	cookies     []*http.Cookie
+	csrf        string
+	connection  domain.OpdsConnection
+	analysis    *recordingAnalysis
+	acquisition *recordingEPUBAcquisition
+	requests    *catalogRequestLog
 }
 
 // newCatalogueAddFixture seeds one synced connection and one unowned index
@@ -83,15 +116,16 @@ func newCatalogueAddFixture(t *testing.T, fail bool) catalogueAddFixture {
 	opdsService := opds.NewService(store, epub.NewService(store), catalog.Client())
 	syncService := cataloguesync.NewService(cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store}, nil, opdsService, readyGerman())
 	recorder := &recordingAnalysis{}
+	acquisition := &recordingEPUBAcquisition{}
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
-		OPDS: opdsService, Analysis: recorder, CatalogueSync: syncService,
+		OPDS: opdsService, Analysis: recorder, EPUBAcquisition: acquisition, CatalogueSync: syncService,
 		Capabilities: readyGerman(), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
 	return catalogueAddFixture{
 		store: store, handler: h, owner: owner, cookies: cookies, csrf: csrf,
-		connection: connection, analysis: recorder, requests: requests,
+		connection: connection, analysis: recorder, acquisition: acquisition, requests: requests,
 	}
 }
 
@@ -125,15 +159,16 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	assert.Contains(t, message, "Downloading and analyzing the text.")
 	assert.Equal(t, "add-entry", location.Query().Get("added_entry"))
 	assert.Equal(t, fixture.connection.ID, location.Query().Get("added_connection"))
-	assert.Equal(t, []string{"/book.epub"}, fixture.requests.snapshot(), "Add walked a feed instead of the stored EPUB link")
+	assert.Empty(t, fixture.requests.snapshot(), "Add enqueues acquisition without contacting the catalog")
+	assert.Equal(t, 1, fixture.acquisition.calls, "Add enqueues one acquisition")
 
 	entry := fixture.ownedBook(t)
 	detail, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, entry.BookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 	assert.Equal(t, "de", detail.Book.LanguageTag)
-	assert.NotNil(t, detail.Acquired, "Add acquired the indexed EPUB")
-	assert.Equal(t, 1, fixture.analysis.calls, "Add queues analysis once")
+	assert.Nil(t, detail.Acquired, "the EPUB is acquired by the worker, not Add")
+	assert.Zero(t, fixture.analysis.calls, "Add does not submit analysis before the EPUB exists")
 
 	languages, err := fixture.store.ListStudyLanguages(context.Background(), fixture.owner.ID)
 	require.NoError(t, err)
@@ -153,7 +188,7 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	replayed := fixture.add(t)
 	require.Equal(t, http.StatusSeeOther, replayed.Code, replayed.Body.String())
 	assert.Contains(t, replayed.Header().Get("Location"), url.QueryEscape("“Add Entry” is already in My Books."))
-	assert.Equal(t, 1, fixture.analysis.calls, "a replayed Add starts no duplicate job")
+	assert.Equal(t, 1, fixture.acquisition.calls, "a replayed Add starts no duplicate job")
 	again := fixture.ownedBook(t)
 	assert.Equal(t, entry.BookID, again.BookID, "a replayed Add creates no duplicate Book")
 
@@ -171,33 +206,8 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	restoredDetail, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, entry.BookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, restoredDetail.Disposition)
-	assert.NotNil(t, restoredDetail.Acquired, "the restored Book keeps its acquired source")
-}
+	assert.Nil(t, restoredDetail.Acquired, "the restored Book still needs its EPUB")
 
-func TestCatalogueAddRecordsAcquisitionFailureAndStaysToRead(t *testing.T) {
-	fixture := newCatalogueAddFixture(t, true)
-
-	added := fixture.add(t)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
-	location, err := url.Parse(added.Header().Get("Location"))
-	require.NoError(t, err)
-	assert.Contains(t, location.Query().Get("message"), "Added “Add Entry” to My Books.")
-	assert.Contains(t, location.Query().Get("message"), "The Book stays To Read")
-
-	entry := fixture.ownedBook(t)
-	detail, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, entry.BookID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
-	require.NotNil(t, detail.EPUBAcquisition, "the failed acquisition is recorded as Book evidence")
-	assert.Nil(t, detail.Acquired)
-	assert.Zero(t, fixture.analysis.calls, "a failed acquisition starts no analysis")
-
-	page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
-	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
-	body := page.Body.String()
-	assert.Contains(t, body, "Add Entry")
-	assert.Contains(t, body, `action="/reading/books/`+entry.BookID+`/reanalyze"`, "My Books offers Retry")
-	assert.Contains(t, body, "Retry", body)
 }
 
 func languageTags(languages []domain.StudyLanguage) []string {

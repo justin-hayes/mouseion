@@ -1,9 +1,6 @@
 package readingintent
 
-import (
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
-	"github.com/justin-hayes/mouseion/internal/domain"
-)
+import "github.com/justin-hayes/mouseion/internal/domain"
 
 // OutcomeKind is the classified result of expressing reading intent for one
 // Book. The web app maps each kind to its learner-facing sentence.
@@ -33,8 +30,6 @@ const (
 	OutcomeSourceRefused OutcomeKind = "source_refused"
 	// OutcomeCouldNotStart reports a submission that failed without a stable cause.
 	OutcomeCouldNotStart OutcomeKind = "could_not_start"
-	// OutcomeAcquisitionFailed reports a source that could not be acquired.
-	OutcomeAcquisitionFailed OutcomeKind = "acquisition_failed"
 	// OutcomeNoUsableEPUBUnits reports a source with no units analysis can use.
 	OutcomeNoUsableEPUBUnits OutcomeKind = "no_usable_epub_units"
 	// OutcomeCurrentBookRefused reports a retry of the current Book, whose
@@ -55,17 +50,13 @@ const (
 )
 
 // Outcome is what Move or Retry decided. Book is the Book the module loaded,
-// so a caller can render its hidden scope without reading it again. The
-// acquisition fields are set for EPUB failures: Target, Title and Err describe
-// where acquisition looked, and AcquisitionFailed says whether acquisition
-// itself was the failing step.
+// so a caller can render its hidden scope without reading it again. Err carries
+// an infrastructure failure that the caller may report without learner text.
 type Outcome struct {
-	Kind              OutcomeKind
-	Route             Route
-	JobNumber         int64
-	Book              domain.MyBook
-	Target            cataloguesync.AcquisitionTarget
-	Title             string
-	Err               error
-	AcquisitionFailed bool
+	Kind        OutcomeKind
+	Route       Route
+	JobNumber   int64
+	Acquisition bool
+	Book        domain.MyBook
+	Err         error
 }

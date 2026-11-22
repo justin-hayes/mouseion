@@ -60,8 +60,6 @@ type MyBooksStore interface {
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	RemoveBookFromMyBooks(context.Context, string, string) error
 	RemoveWorkFromMyBooks(context.Context, string, string) (domain.MyBooksWorkRemoval, error)
-	RecordEPUBAcquisitionFailure(context.Context, domain.EPUBAcquisitionFailureRecord) error
-	ClearEPUBAcquisitionFailure(context.Context, string, string) error
 }
 
 // ReadingStore provides the Reading (/reading/**) surface: the owner-scoped
@@ -168,6 +166,12 @@ type ClassicalPreparation interface {
 	SubmitClassicalPreparation(context.Context, string, string) (analysis.ClassicalPreparationHandle, error)
 }
 
+// EPUBAcquisition enqueues the durable acquisition job a Catalog Book needs
+// before its analysis can start.
+type EPUBAcquisition interface {
+	SubmitEPUBAcquisition(context.Context, string, string) (analysis.EPUBAcquisitionHandle, error)
+}
+
 // AnalysisUpdates offers and submits learner-confirmed Analysis updates
 // (ADR 0107). A nil seam offers nothing, as when the current Analysis
 // pipeline identity is unknown.
@@ -198,7 +202,6 @@ type CatalogueSync interface {
 	Enqueue(context.Context, string, string) (cataloguesync.Handle, error)
 	Retry(context.Context, string, int64) (cataloguesync.Handle, error)
 	Cancel(context.Context, string, int64) (cataloguesync.Status, error)
-	FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
 }
 type AnalysisInsights interface {
 	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
@@ -225,6 +228,9 @@ type Services struct {
 	SourceStructures SourceStructureUpdates
 	// ClassicalPreparation prepares a classical Book when it moves to To Read.
 	ClassicalPreparation ClassicalPreparation
+	// EPUBAcquisition enqueues the durable download and import an EPUB Book
+	// needs before analysis.
+	EPUBAcquisition EPUBAcquisition
 	// ReadingIntent carries out a Book's reading intent: the To Read
 	// disposition transition, the route to Classical preparation or EPUB
 	// analysis, and the operator log line. A nil module composes one from the

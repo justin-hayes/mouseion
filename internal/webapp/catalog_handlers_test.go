@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -576,7 +574,6 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 }
 
 func TestCatalogueAddPreparationMessagesStateWhatFollowsTheAdd(t *testing.T) {
-	book := domain.Book{ID: "book", Title: "Book"}
 	cases := []struct {
 		name    string
 		outcome readingintent.Outcome
@@ -590,7 +587,7 @@ func TestCatalogueAddPreparationMessagesStateWhatFollowsTheAdd(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, catalogueAddPreparationMessage(t.Context(), nil, "owner", book, test.outcome))
+			assert.Equal(t, test.want, catalogueAddPreparationMessage(test.outcome))
 		})
 	}
 }
@@ -892,17 +889,6 @@ func TestLegacyConnectionsRoutePermanentlyRedirectsAndPreservesSupportedQuery(t 
 	assert.Equal(t, "Catalog added", got.Get("message"))
 	assert.Equal(t, "Try again", got.Get("error"))
 	assert.False(t, got.Has("ignored"))
-}
-
-func TestOPDSErrorMessageNamesTheEPUBSizeLimits(t *testing.T) {
-	t.Run("download limit", func(t *testing.T) {
-		err := fmt.Errorf("opds: download EPUB: %w", opds.ErrDownloadTooLarge)
-		assert.Equal(t, "This EPUB is larger than the 512 MiB download limit. Choose a smaller edition.", opdsErrorMessage(err))
-	})
-	t.Run("stored-content limit", func(t *testing.T) {
-		err := fmt.Errorf("opds: ingest downloaded EPUB: %w", opds.ErrRetainedEPUBTooLarge)
-		assert.Equal(t, "This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition.", opdsErrorMessage(err))
-	})
 }
 
 func TestClassicalAddPreparationForClassifiesReadingIntentOutcomes(t *testing.T) {

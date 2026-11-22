@@ -38,6 +38,9 @@ func myBookMarginEvidence(book domain.MyBook) string {
 		return preparation.Label + "."
 	}
 	if acquisition, ok := epubAcquisitionFor(book); ok {
+		if acquisition.InProgress {
+			return acquisition.Label + "."
+		}
 		return acquisition.Label
 	}
 	if book.AwaitingPreparation() {

@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -20,15 +19,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
-	"github.com/justin-hayes/mouseion/internal/testwrite"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -51,25 +46,6 @@ func (s staticCapabilities) GetCapabilities(context.Context) (analyzer.Capabilit
 
 func readyGerman() staticCapabilities {
 	return staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
-}
-
-type metadataBookAcquisitionStub struct {
-	fixtures.CatalogueSync
-	target cataloguesync.AcquisitionTarget
-}
-
-func (metadataBookAcquisitionStub) RegisterConnection(context.Context, string, string) error {
-	return nil
-}
-
-func (metadataBookAcquisitionStub) UnregisterConnection(string, string) error { return nil }
-
-func (metadataBookAcquisitionStub) ListCatalogueSyncStatuses(context.Context, string) ([]domain.CatalogueSyncStatus, error) {
-	return nil, nil
-}
-
-func (s metadataBookAcquisitionStub) FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
-	return s.target, nil
 }
 
 func createAccount(t *testing.T, ctx context.Context, store *persistence.PostgresStore, username, password string) domain.User {
@@ -239,86 +215,6 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	login := perform(t, h, "POST", "/login", url.Values{"csrf_token": {csrf}, "username": {"alice"}, "password": {"alice-password"}}, []*http.Cookie{csrfCookieValue})
 	assert.Equal(t, http.StatusSeeOther, login.Code)
 	assert.Equal(t, "/", login.Header().Get("Location"))
-}
-
-func TestMetadataOnlyBookDetailAcquiresIntoExistingBook(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "metadata-acquisition-integration-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	authService := auth.New(store, time.Hour)
-	owner := createAccount(t, ctx, store, "metadata-owner", "owner-password")
-	downloads := 0
-	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/book.epub" {
-			http.NotFound(w, r)
-			return
-		}
-		downloads++
-		w.Header().Set("Content-Type", opds.EPUBMediaType)
-		testwrite.Bytes(t, w, testEPUBVariant(t, "metadata-entry", "Metadata-only synced book", "Hallo Welt."))
-	}))
-	defer catalog.Close()
-	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Metadata catalog", URL: catalog.URL + "/opds"})
-	require.NoError(t, err)
-	bookResult, err := seedWebappCatalogueBook(t, ctx, store, owner.ID, connection.ID, "metadata-entry", "Metadata-only synced book", "", "de")
-	require.NoError(t, err)
-	target := cataloguesync.AcquisitionTarget{
-		ConnectionID: connection.ID,
-		Language:     "de",
-		Entry:        opds.Entry{ID: "metadata-entry", Title: "Metadata-only synced book", Links: []opds.Link{{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "/book.epub"}}},
-		Href:         "/book.epub",
-	}
-	recorder := &recordingAnalysis{}
-	h := New(Services{
-		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
-		OPDS:     opds.NewService(store, epub.NewService(store), catalog.Client()),
-		Analysis: recorder, CatalogueSync: &metadataBookAcquisitionStub{target: target}, Capabilities: readyGerman(), SessionLifetime: time.Hour,
-	})
-	cookies, csrf := loginCookies(t, h, owner.Username, "owner-password")
-	bookState, err := store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
-	require.NoError(t, err)
-	_, err = store.TransitionBookDisposition(ctx, owner.ID, bookResult.Book.ID, bookState.DispositionRevision, domain.BookDispositionInbox)
-	require.NoError(t, err)
-	bookState, err = store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
-	require.NoError(t, err)
-	bookPage := perform(t, h, "GET", "/books/"+bookResult.Book.ID, nil, cookies)
-	assert.Equal(t, http.StatusNotFound, bookPage.Code)
-	added := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, added.Code)
-	assert.Equal(t, 1, downloads)
-	assert.Equal(t, 1, recorder.calls)
-	readded := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, readded.Code)
-	assert.Equal(t, 1, downloads)
-	assert.Equal(t, 1, recorder.calls)
-	bookState, err = store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
-	require.NoError(t, err)
-	removed := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/set-aside", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
-	assert.Equal(t, http.StatusNotFound, removed.Code, "retired Set Aside route is not served")
-	assert.Equal(t, 1, recorder.calls)
-	applied, err := store.TransitionBookDisposition(ctx, owner.ID, bookResult.Book.ID, bookState.DispositionRevision, domain.BookDispositionInbox)
-	require.NoError(t, err)
-	require.True(t, applied)
-	bookState, err = store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
-	require.NoError(t, err)
-	alreadyAcquired := perform(t, h, "POST", "/library/books/"+bookResult.Book.ID+"/to-read", url.Values{"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)}}, cookies)
-	assert.Equal(t, http.StatusSeeOther, alreadyAcquired.Code)
-	assert.Equal(t, 1, downloads)
-	assert.Equal(t, 2, recorder.calls)
-	sources, err := store.ListSourceMaterials(ctx, owner.ID)
-	require.NoError(t, err)
-	assert.Len(t, sources, 1)
-	assert.Equal(t, bookResult.Book.ID, sources[0].BookID)
-	legacyPage := perform(t, h, "GET", "/books/"+sources[0].Source.ID, nil, cookies)
-	assert.Equal(t, http.StatusNotFound, legacyPage.Code)
-	books, err := store.ListMyBooksWithEvidence(ctx, owner.ID)
-	require.NoError(t, err)
-	assert.Len(t, books, 1)
-	assert.Equal(t, bookResult.Book.ID, books[0].Book.ID)
-	assert.NotNil(t, books[0].Acquired)
 }
 
 func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages(t *testing.T) {

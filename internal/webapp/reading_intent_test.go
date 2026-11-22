@@ -5,11 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -185,7 +183,6 @@ func TestWorkToReadNoticeNamesPreparationCausesSeparately(t *testing.T) {
 // change with it.
 func TestMoveToReadMessages(t *testing.T) {
 	t.Parallel()
-	catalog := fixtures.NewStore()
 	tests := []struct {
 		name    string
 		outcome readingintent.Outcome
@@ -197,6 +194,7 @@ func TestMoveToReadMessages(t *testing.T) {
 		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Book moved to To Read."},
 		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: "Book moved to To Read. Analysis is already current."},
 		{name: "classical job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteClassical, JobNumber: 7}, want: "Book moved to To Read. Preparation job #7 submitted."},
+		{name: "acquisition job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteEPUB, JobNumber: 9, Acquisition: true}, want: "Book moved to To Read. Downloading and analyzing the text."},
 		{name: "analysis job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteEPUB, JobNumber: 9}, want: "Book moved to To Read. Analysis job #9 submitted."},
 		{name: "legacy rows", outcome: readingintent.Outcome{Kind: readingintent.OutcomeLegacyRows}, want: classical.LegacyRowsReason},
 		{name: "withdrawn definition", outcome: readingintent.Outcome{Kind: readingintent.OutcomeWithdrawnDefinition}, want: classicalWithdrawnRefusal},
@@ -204,44 +202,11 @@ func TestMoveToReadMessages(t *testing.T) {
 		{name: "classical could not start", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart, Route: readingintent.RouteClassical}, want: "Book moved to To Read, but preparation could not start. Retry analysis from Reading when ready."},
 		{name: "analysis could not start", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart, Route: readingintent.RouteEPUB}, want: "Book moved to To Read, but analysis could not start. Retry analysis from Reading when ready."},
 		{name: "no usable EPUB units", outcome: readingintent.Outcome{Kind: readingintent.OutcomeNoUsableEPUBUnits}, want: "Book moved to To Read, but the current source has no usable EPUB units. The To Read status is retained; analysis is unavailable."},
-		{
-			name: "acquisition failed",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Title: "Der lange Weg", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
-			},
-			want: `Book moved to To Read, but Could not acquire "Der lange Weg" from connection catalog connection: This book is not available as an EPUB. Choose another edition or format. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
-		},
-		{
-			name: "acquisition names the connection and entry",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Target: cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Entry: opds.Entry{Title: "Der Weg"}},
-				Title:  "Book", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
-			},
-			want: `Book moved to To Read, but Could not acquire "Der Weg" from connection connection-1: This book is not available as an EPUB. Choose another edition or format. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
-		},
-		{
-			name: "acquisition download limit",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Title: "Der lange Weg", Err: opds.ErrDownloadTooLarge, AcquisitionFailed: true,
-			},
-			want: `Book moved to To Read, but Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 512 MiB download limit. Choose a smaller edition. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
-		},
-		{
-			name: "acquisition stored-content limit",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Title: "Der lange Weg", Err: opds.ErrRetainedEPUBTooLarge, AcquisitionFailed: true,
-			},
-			want: `Book moved to To Read, but Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition. The To Read status is retained; analysis is unavailable until the current EPUB can be acquired.`,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, moveToReadMessage(context.Background(), catalog, "owner", "book-1", tt.outcome))
+			assert.Equal(t, tt.want, moveToReadMessage(tt.outcome))
 		})
 	}
 }
@@ -251,7 +216,6 @@ func TestMoveToReadMessages(t *testing.T) {
 // change with it.
 func TestRetryMessages(t *testing.T) {
 	t.Parallel()
-	catalog := fixtures.NewStore()
 	tests := []struct {
 		name    string
 		outcome readingintent.Outcome
@@ -262,6 +226,7 @@ func TestRetryMessages(t *testing.T) {
 		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Classical preparation is unavailable.", isError: true},
 		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: "The analysis is already current."},
 		{name: "classical job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteClassical, JobNumber: 7}, want: "Preparation job #7 submitted."},
+		{name: "acquisition job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteEPUB, JobNumber: 9, Acquisition: true}, want: "Downloading and analyzing the text."},
 		{name: "analysis job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteEPUB, JobNumber: 9}, want: "Analysis job #9 submitted."},
 		{name: "legacy rows", outcome: readingintent.Outcome{Kind: readingintent.OutcomeLegacyRows}, want: classical.LegacyRowsReason, isError: true},
 		{name: "withdrawn definition", outcome: readingintent.Outcome{Kind: readingintent.OutcomeWithdrawnDefinition}, want: classicalWithdrawnRefusal, isError: true},
@@ -275,43 +240,6 @@ func TestRetryMessages(t *testing.T) {
 		},
 		{name: "no usable EPUB units", outcome: readingintent.Outcome{Kind: readingintent.OutcomeNoUsableEPUBUnits}, want: "The current source has no usable EPUB units. The To Read choice is retained; analysis is unavailable.", isError: true},
 		{
-			name: "acquisition failed",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Title: "Der lange Weg", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
-			},
-			want:    `Could not acquire "Der lange Weg" from connection catalog connection: This book is not available as an EPUB. Choose another edition or format. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
-			isError: true,
-		},
-		{
-			name: "acquisition names the connection and entry",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Target: cataloguesync.AcquisitionTarget{ConnectionID: "connection-1", Entry: opds.Entry{Title: "Der Weg"}},
-				Title:  "Book", Err: opds.ErrNoEPUB, AcquisitionFailed: true,
-			},
-			want:    `Could not acquire "Der Weg" from connection connection-1: This book is not available as an EPUB. Choose another edition or format. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
-			isError: true,
-		},
-		{
-			name: "acquisition download limit",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Title: "Der lange Weg", Err: opds.ErrDownloadTooLarge, AcquisitionFailed: true,
-			},
-			want:    `Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 512 MiB download limit. Choose a smaller edition. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
-			isError: true,
-		},
-		{
-			name: "acquisition stored-content limit",
-			outcome: readingintent.Outcome{
-				Kind: readingintent.OutcomeAcquisitionFailed, Route: readingintent.RouteEPUB,
-				Title: "Der lange Weg", Err: opds.ErrRetainedEPUBTooLarge, AcquisitionFailed: true,
-			},
-			want:    `Could not acquire "Der lange Weg" from connection catalog connection: This EPUB is larger than the 100 MiB limit for stored book content. Choose a less illustrated edition. The To Read choice is retained; analysis is unavailable until the current EPUB can be acquired.`,
-			isError: true,
-		},
-		{
 			name:    "unknown outcome",
 			outcome: readingintent.Outcome{Kind: readingintent.OutcomeKind("unknown")},
 			want:    analysisCouldNotStartMessage,
@@ -321,7 +249,7 @@ func TestRetryMessages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			message, isError := retryMessage(context.Background(), catalog, "owner", tt.outcome)
+			message, isError := retryMessage(tt.outcome)
 			assert.Equal(t, tt.want, message)
 			assert.Equal(t, tt.isError, isError)
 		})

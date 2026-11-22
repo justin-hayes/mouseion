@@ -90,7 +90,7 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 	for i := range books {
 		pointers[i] = &books[i]
 	}
-	if err := s.populateEPUBAcquisitionFailures(ctx, owner, pointers); err != nil {
+	if err := s.populateEPUBAcquisitionStatuses(ctx, owner, pointers); err != nil {
 		return nil, err
 	}
 	return books, nil
@@ -442,7 +442,7 @@ func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, lan
 	if err := s.populateClassicalPreparationPointers(ctx, owner, pointers); err != nil {
 		return err
 	}
-	if err := s.populateEPUBAcquisitionFailures(ctx, owner, pointers); err != nil {
+	if err := s.populateEPUBAcquisitionStatuses(ctx, owner, pointers); err != nil {
 		return err
 	}
 	accumulator.result.Items = make([]domain.MyBook, 0, len(pointers))
@@ -601,7 +601,7 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	if err := s.populateClassicalPreparationStatuses(ctx, owner, page); err != nil {
 		return domain.MyBook{}, err
 	}
-	if err := s.populateEPUBAcquisitionFailures(ctx, owner, []*domain.MyBook{&page[0]}); err != nil {
+	if err := s.populateEPUBAcquisitionStatuses(ctx, owner, []*domain.MyBook{&page[0]}); err != nil {
 		return domain.MyBook{}, err
 	}
 	return page[0], nil

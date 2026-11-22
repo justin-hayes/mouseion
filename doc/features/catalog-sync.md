@@ -149,20 +149,23 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 ### Lazy content acquisition
 
 - Sync never downloads or re-downloads EPUB content.
-- A Book chosen from the Catalog has no detail page. **Add** and **Move to To
-  Read** acquire, validate, and analyze the EPUB in one ensure-once flow using
-  the EPUB acquisition link stored in the Catalog index; they never walk the
-  connection's language feeds. The Book's metadata follows the next sync.
+- A Book chosen from the Catalog has no detail page. **Add**, **Move to To
+  Read** and **Retry** enqueue the durable `epub_acquisition` job and return at
+  once with one confirmation that the Book is being downloaded and analyzed.
+  The worker resolves the EPUB acquisition link stored in the Catalog index and
+  never walks the connection's language feeds. The Book's metadata follows the
+  next sync.
 - Add on a Catalog entry expresses the same intent: it creates or restores the
-  Book as To Read and then uses the same acquisition-and-analysis route. The
-  Add request itself acquires the EPUB, as Move to To Read does today; a failure
-  leaves the Book To Read with its recorded reason and Retry on My Books.
-- When the Book's catalog entry is no longer in the index, acquisition fails
-  with stage `entry` and code `catalog_entry_missing`; the Book stays To Read
-  and My Books shows the reason with Retry. A later sync that restores the
-  entry makes Retry acquire it without any other change.
+  Book as To Read and then uses the same acquisition route. A failure never
+  appears in the Add response; it stays on the Book as its recorded reason, with
+  Retry on My Books.
+- When the Book's catalog entry is no longer in the index, the worker records
+  stage `entry` and code `catalog_entry_missing`; the Book stays To Read and My
+  Books shows the reason with Retry. A later sync that restores the entry makes
+  Retry acquire it without any other change.
 - Acquired state is published only after complete EPUB download, validation,
-  and immutable snapshot persistence, as required by ADR 0035.
+  and immutable snapshot persistence, as required by ADR 0035. The worker then
+  submits the existing analysis job unchanged.
 - There is no per-Book metadata refresh action or route. A retired
   `/library/books/{id}/refresh` request receives the ordinary
   unsupported-request response. If an entry is no longer present in a complete
@@ -171,10 +174,11 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 ### EPUB acquisition failures
 
 A failed EPUB acquisition never rolls back the learner's To Read choice.
-There is no Inbox step to undo: the move commits first, and the acquisition
-runs inside the request (ADR 0047). The per-Book failure is recorded after the
-attempt and deleted when an acquisition succeeds, so My Books keeps showing the
-reason until recovery.
+There is no Inbox step to undo: the move commits first, and acquisition runs as
+the durable `epub_acquisition` job (ADR 0121). The worker records the per-Book
+failure after the attempt and deletes it when an acquisition succeeds, so My
+Books keeps showing the reason until recovery. Add, Move to To Read and Retry
+never report the failure in their responses.
 
 The stages and stable codes are defined once in the domain:
 

@@ -97,10 +97,17 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	opdsService := opds.NewService(store, epPubService, nil)
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: store.Pool()}
 	cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
+	var catalogueSyncService *cataloguesync.Service
+	acquisitionWorker := analysis.AddEPUBAcquisitionWorker(workers, store,
+		func(ctx context.Context, owner, bookID string) (cataloguesync.AcquisitionTarget, error) {
+			return catalogueSyncService.FindAcquisitionTarget(ctx, owner, bookID)
+		}, opdsService.AcquireForBook)
 	selectionService := selection.NewService(store)
 	analysisClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), &analyzertest.Fake{AnalyzeFunc: completeLoopAnalysis}, analyzertest.ReadyDepparseCapabilityProvider(), selectionService, 1, workers)
 	require.NoError(t, err)
-	catalogueSyncService := cataloguesync.NewService(catalogueSyncDeps, analysisClient, opdsService, capabilities)
+	catalogueSyncService = cataloguesync.NewService(catalogueSyncDeps, analysisClient, opdsService, capabilities)
+	analysisService := analysis.NewService(store.Pool(), analysisClient)
+	acquisitionWorker.Analysis = analysisService
 	preparedExport := cardexport.NewPresentation(nil)
 	metrics := prepareddeck.NewMetricsCollector()
 	prepareddeck.AddPreparedDeckWorker(workers, store, preparedExport, analysisClient, codec, batchConfig, preparedConfig, true)
@@ -121,7 +128,8 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 		WebAuth:          webauth.New(authService, false, time.Hour),
 		Store:            storeDependencies(store),
 		OPDS:             opdsService,
-		Analysis:         analysis.NewService(store.Pool(), analysisClient),
+		Analysis:         analysisService,
+		EPUBAcquisition:  analysisService,
 		AnalysisInsights: analysisinsights.NewService(store),
 		PreparedDeck:     prepareddeck.NewService(store, analysisClient),
 		Capabilities:     capabilities,
