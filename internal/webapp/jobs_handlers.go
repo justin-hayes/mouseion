@@ -13,8 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
@@ -185,89 +183,64 @@ func (h *Handler) loadCatalogueJob(ctx context.Context, owner, rawID string) (ca
 	return status, true, true
 }
 
-func jobRunning(status analysis.Status) bool {
-	if status.LogicalState != "" {
-		return status.LogicalState == "queued" || status.LogicalState == "running"
-	}
-	return status.State == "available" || status.State == "pending" || status.State == "running" || status.State == "retryable" || status.State == "scheduled"
+// jobLifecycleView is the one learner-facing label and tone mapping from the
+// shared lifecycle state. Every job kind on /jobs renders through it.
+type jobLifecycleView struct {
+	Label string
+	Tone  StatusTone
 }
-func jobState(status analysis.Status) string {
-	if status.LogicalState != "" {
-		switch status.LogicalState {
-		case "completed":
-			return "Completed"
-		case "failed":
-			return "Failed"
-		case "cancelled":
-			return "Cancelled"
-		case "running":
-			return "Running"
-		default:
-			return "Queued"
+
+func jobLifecycleViewFor(state domain.JobLifecycleState) jobLifecycleView {
+	switch state {
+	case domain.JobLifecycleQueued:
+		return jobLifecycleView{Label: "Queued", Tone: StatusInfo}
+	case domain.JobLifecycleRunning:
+		return jobLifecycleView{Label: "Running", Tone: StatusInfo}
+	case domain.JobLifecycleCompleted:
+		return jobLifecycleView{Label: "Completed", Tone: StatusSuccess}
+	case domain.JobLifecycleFailed:
+		return jobLifecycleView{Label: "Failed", Tone: StatusDanger}
+	case domain.JobLifecycleCancelled:
+		return jobLifecycleView{Label: "Cancelled", Tone: StatusDanger}
+	default:
+		return jobLifecycleView{Label: "Queued", Tone: StatusInfo}
+	}
+}
+
+func jobRunning(status analysis.Status) bool {
+	return status.Lifecycle == domain.JobLifecycleQueued || status.Lifecycle == domain.JobLifecycleRunning
+}
+
+const analysisCompleteSummary = "Analysis complete. Open the exact result to review its insights."
+
+func analysisStatusSummary(status analysis.Status) string {
+	if status.Stage == domain.BookPreparationStageFinalize {
+		switch status.Lifecycle {
+		case domain.JobLifecycleCompleted:
+			return analysisCompleteSummary
+		case domain.JobLifecycleFailed:
+			return "The analysis corpus is complete, but finalization failed. Its corpus was retained; retry to finish selection and publication without rerunning NLP."
+		case domain.JobLifecycleCancelled:
+			return "Analysis finalization was cancelled. The completed corpus was retained; retry when you are ready."
+		case domain.JobLifecycleQueued, domain.JobLifecycleRunning:
+			return "The analysis corpus is complete; selection and publication are still in progress."
 		}
 	}
-	switch status.State {
-	case "completed":
-		return "Succeeded"
-	case "discarded", "cancelled":
-		return "Failed"
-	case "running":
-		return "Running"
-	default:
-		// River's JobState is an open upstream enumeration; unknown states retain their provider label.
-		return cases.Title(language.Und).String(string(status.State))
-	}
-}
-
-func analysisJobStatusLabel(state string) string {
-	switch state {
-	case "completed":
-		return "Completed"
-	case "failed", "analysis failed":
-		return "Failed"
-	case "cancelled", "analysis cancelled":
-		return "Cancelled"
-	case "running", "processing":
-		return "Processing"
-	case "queued", "pending", "available", "scheduled", "retryable":
-		return "Queued"
-	default:
-		return cases.Title(language.Und).String(state)
-	}
-}
-
-func analysisJobStatusTone(state string) StatusTone {
-	switch analysisJobStatusLabel(state) {
-	case "Completed":
-		return StatusSuccess
-	case "Failed", "Cancelled":
-		return StatusDanger
-	case "Processing", "Queued":
-		return StatusInfo
-	default:
-		return StatusNeutral
-	}
-}
-func analysisStatusSummary(status analysis.Status) string {
-	switch status.LogicalState {
-	case "completed":
-		return "Analysis complete. Open the exact result to review its insights."
-	case "finalization-failed":
-		return "The analysis corpus is complete, but finalization failed. Its corpus was retained; retry to finish selection and publication without rerunning NLP."
-	case "finalization-cancelled":
-		return "Analysis finalization was cancelled. The completed corpus was retained; retry when you are ready."
-	case "finalizing":
-		return "The analysis corpus is complete; selection and publication are still in progress."
-	case "failed":
+	switch status.Lifecycle {
+	case domain.JobLifecycleFailed:
 		return "Analysis failed. Review the message and retry the EPUB snapshot when you are ready."
-	case "cancelled":
+	case domain.JobLifecycleCancelled:
 		return "Analysis cancelled. Retry the EPUB snapshot when you are ready."
+	case domain.JobLifecycleCompleted:
+		return analysisCompleteSummary
+	case domain.JobLifecycleQueued, domain.JobLifecycleRunning:
+		// In-progress analyses report their progress below.
 	}
 	attempt := maxOne(status.Attempt)
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)
 }
 func jobRetryable(status analysis.Status) bool {
-	return status.LogicalState == "failed" || status.LogicalState == "cancelled" || status.LogicalState == "finalization-failed" || status.LogicalState == "finalization-cancelled"
+	return status.Lifecycle == domain.JobLifecycleFailed || status.Lifecycle == domain.JobLifecycleCancelled
 }
 func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
 	ids := make([]string, 0, len(jobs))
@@ -276,54 +249,13 @@ func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
 	}
 	return ids
 }
-func catalogueSyncJobState(status cataloguesync.Status) string {
-	switch status.LogicalState {
-	case "completed":
-		return "Completed"
-	case "failed":
-		return "Failed"
-	case "cancelled":
-		return "Cancelled"
-	case "running":
-		return "Running"
-	default:
-		return "Queued"
-	}
-}
 
 func catalogueSyncJobSummary(status cataloguesync.Status) string {
-	if status.LogicalState == "completed" {
+	if status.Lifecycle == domain.JobLifecycleCompleted {
 		return "Catalog metadata sync complete. No EPUB content was downloaded."
 	}
 	if status.Error != "" {
 		return status.Error
 	}
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, maxOne(int(status.Attempt)))
-}
-
-// classicalPreparationJobState maps River's state to the learner-facing label.
-func classicalPreparationJobState(state string) string {
-	switch state {
-	case "completed":
-		return "Completed"
-	case "failed", "discarded", "cancelled":
-		return "Failed"
-	case "running":
-		return "Running"
-	default:
-		return "Queued"
-	}
-}
-
-func classicalPreparationJobTone(state string) StatusTone {
-	switch state {
-	case "completed":
-		return StatusSuccess
-	case "failed", "discarded", "cancelled":
-		return StatusDanger
-	case "running", "available", "pending", "retryable", "scheduled":
-		return StatusInfo
-	default:
-		return StatusNeutral
-	}
 }

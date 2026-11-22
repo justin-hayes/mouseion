@@ -653,7 +653,8 @@ type AnalysisJob struct {
 	ID, DisplayNumber                                       int64
 	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string
 	AnalysisRunID                                           string
-	AnalysisState                                           string
+	Lifecycle                                               JobLifecycleState
+	Stage                                                   BookPreparationStage
 	Progress                                                int
 	CreatedAt, UpdatedAt                                    time.Time
 }

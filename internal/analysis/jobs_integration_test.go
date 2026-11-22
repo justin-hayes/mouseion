@@ -508,7 +508,8 @@ func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
 	first, err := service.Wait(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateDiscarded, first.State)
-	assert.Equal(t, "finalization-failed", first.LogicalState)
+	assert.Equal(t, domain.JobLifecycleFailed, first.Lifecycle)
+	assert.Equal(t, domain.BookPreparationStageFinalize, first.Stage)
 	assert.Equal(t, 1, calls, "initial analyzer execution")
 
 	var corpusStatus string
@@ -846,7 +847,8 @@ func TestQueuedPublicationCanBeCancelledAndRetriedWithoutDiscardingCorpus(t *tes
 	cancelled, err := service.Cancel(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCancelled, cancelled.State)
-	assert.Equal(t, "finalization-cancelled", cancelled.LogicalState)
+	assert.Equal(t, domain.JobLifecycleCancelled, cancelled.Lifecycle)
+	assert.Equal(t, domain.BookPreparationStageFinalize, cancelled.Stage)
 	var corpusStatus string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpus.ID).Scan(&corpusStatus))
 	assert.Equal(t, "complete", corpusStatus, "cancelling finalization retains the immutable corpus")
@@ -904,8 +906,9 @@ func TestAnalysisStatusReportsDiscardedFinalizationAsFailed(t *testing.T) {
 	t.Run("reports the run as discarded", func(t *testing.T) {
 		require.Equal(t, rivertype.JobStateDiscarded, status.State)
 	})
-	t.Run("reports the failed finalization logical state", func(t *testing.T) {
-		require.Equal(t, "finalization-failed", status.LogicalState)
+	t.Run("reports the failed finalization lifecycle at the finalize stage", func(t *testing.T) {
+		require.Equal(t, domain.JobLifecycleFailed, status.Lifecycle)
+		require.Equal(t, domain.BookPreparationStageFinalize, status.Stage)
 	})
 	t.Run("carries River's last error", func(t *testing.T) {
 		require.Equal(t, "finalization worker terminated", status.Error)
@@ -913,7 +916,7 @@ func TestAnalysisStatusReportsDiscardedFinalizationAsFailed(t *testing.T) {
 }
 
 // A completed run whose finalization attempt is still queued or running reports
-// the finalizing logical state until the attempt settles.
+// Running at the finalize stage until the attempt settles.
 func TestAnalysisStatusReportsCompletedRunAsFinalizing(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
@@ -934,19 +937,21 @@ func TestAnalysisStatusReportsCompletedRunAsFinalizing(t *testing.T) {
 	_, err = pool.Exec(ctx, `UPDATE analysis_runs SET state='completed',completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
 	require.NoError(t, err)
 
-	t.Run("queued attempt is available", func(t *testing.T) {
+	t.Run("queued attempt is running at finalize", func(t *testing.T) {
 		status, err := service.Get(ctx, owner.ID, handle.ID)
 		require.NoError(t, err)
-		require.Equal(t, "finalizing", status.LogicalState)
+		require.Equal(t, domain.JobLifecycleRunning, status.Lifecycle)
+		require.Equal(t, domain.BookPreparationStageFinalize, status.Stage)
 		require.Equal(t, rivertype.JobStateAvailable, status.State)
 	})
 
 	_, err = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=now() WHERE run_id=$1`, handle.RunID)
 	require.NoError(t, err)
-	t.Run("running attempt is running", func(t *testing.T) {
+	t.Run("running attempt is running at finalize", func(t *testing.T) {
 		status, err := service.Get(ctx, owner.ID, handle.ID)
 		require.NoError(t, err)
-		require.Equal(t, "finalizing", status.LogicalState)
+		require.Equal(t, domain.JobLifecycleRunning, status.Lifecycle)
+		require.Equal(t, domain.BookPreparationStageFinalize, status.Stage)
 		require.Equal(t, rivertype.JobStateRunning, status.State)
 	})
 }
@@ -1036,7 +1041,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	completedStatus, err := service.Cancel(ctx, alice.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, completedStatus.State)
-	assert.Equal(t, "completed", completedStatus.LogicalState)
+	assert.Equal(t, domain.JobLifecycleCompleted, completedStatus.Lifecycle)
 	var candidateCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID).Scan(&candidateCount))
 	assert.Equal(t, 1, candidateCount)
@@ -1182,7 +1187,7 @@ func TestAnalysisCancellationKeepsDurableStateWhenRiverCleanupFails(t *testing.T
 			status, cancelErr := service.Cancel(ctx, owner.ID, handle.ID)
 			require.NoError(t, cancelErr)
 			assert.Equal(t, rivertype.JobStateCancelled, status.State)
-			assert.Equal(t, "cancelled", status.LogicalState)
+			assert.Equal(t, domain.JobLifecycleCancelled, status.Lifecycle)
 
 			var runState, attemptState string
 			require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,a.state FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &attemptState))
@@ -1862,7 +1867,8 @@ func TestAnalysisReconcileTransitionsSnapshotRuns(t *testing.T) {
 		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
 		require.NoError(t, reconcileErr)
 		assert.Equal(t, "completed", runState(t, handle.RunID))
-		assert.Equal(t, "finalizing", status.LogicalState)
+		assert.Equal(t, domain.JobLifecycleRunning, status.Lifecycle)
+		assert.Equal(t, domain.BookPreparationStageFinalize, status.Stage)
 		assert.Equal(t, rivertype.JobStateAvailable, status.State)
 	})
 
@@ -2350,7 +2356,8 @@ func TestAnalysisCancelAndRetrySurfaceOperationalFailures(t *testing.T) {
 		cancelled, cancelErr := failing.Cancel(ctx, owner.ID, handle.ID)
 		require.NoError(t, cancelErr)
 		assert.Equal(t, rivertype.JobStateCancelled, cancelled.State)
-		assert.Equal(t, "finalization-cancelled", cancelled.LogicalState)
+		assert.Equal(t, domain.JobLifecycleCancelled, cancelled.Lifecycle)
+		assert.Equal(t, domain.BookPreparationStageFinalize, cancelled.Stage)
 	})
 
 	t.Run("active cancellation surfaces run write failure", func(t *testing.T) {

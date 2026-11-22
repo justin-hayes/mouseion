@@ -28,7 +28,7 @@ func (s *Store) analysisJobState(id int64) (string, bool) {
 	defer s.mu.Unlock()
 	for _, job := range s.jobs {
 		if job.ID == id {
-			return job.AnalysisState, true
+			return string(job.Lifecycle), true
 		}
 	}
 	return "", false
@@ -39,8 +39,8 @@ func (s *Store) cancelFixtureAnalysisJob(id int64) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.jobs {
-		if s.jobs[i].ID == id && s.jobs[i].AnalysisState == "running" {
-			s.jobs[i].AnalysisState = "cancelled"
+		if s.jobs[i].ID == id && s.jobs[i].Lifecycle == domain.JobLifecycleRunning {
+			s.jobs[i].Lifecycle = domain.JobLifecycleCancelled
 			return true
 		}
 	}
@@ -52,11 +52,11 @@ func (s *Store) cancelFixtureAnalysisJob(id int64) bool {
 const fixtureCancellableJobID int64 = 59
 
 func fixtureJobs() []domain.AnalysisJob {
-	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", AnalysisState: "failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
+	jobs := []domain.AnalysisJob{{ID: 42, DisplayNumber: 1, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, Progress: 100}, {ID: 43, DisplayNumber: 2, OwnerID: OwnerID, SourceMaterialID: "fixture-failed", Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Progress: 42}}
 	for i := int64(3); i <= 18; i++ {
-		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-history-" + strconv.FormatInt(i, 10), CorpusID: "fixture-corpus", AnalysisState: "completed", Progress: 100})
+		jobs = append(jobs, domain.AnalysisJob{ID: 40 + i, DisplayNumber: i, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-history-" + strconv.FormatInt(i, 10), CorpusID: "fixture-corpus", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, Progress: 100})
 	}
-	return append(jobs, domain.AnalysisJob{ID: fixtureCancellableJobID, DisplayNumber: 19, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-cancellable-run", CorpusID: "fixture-corpus", AnalysisState: "running", Progress: 35})
+	return append(jobs, domain.AnalysisJob{ID: fixtureCancellableJobID, DisplayNumber: 19, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: "fixture-cancellable-run", CorpusID: "fixture-corpus", Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageAnalysis, Progress: 35})
 }
 
 // Analysis serves the fixed analysis projections. Only the running fixture job
@@ -69,12 +69,12 @@ func (Analysis) SubmitToReadBookAnalysis(context.Context, string, string, string
 
 func (a Analysis) Get(ctx context.Context, owner string, id int64) (analysis.Status, error) {
 	if state, ok := a.cancellableJobState(id); ok {
-		return analysis.Status{ID: id, DisplayNumber: 19, State: rivertype.JobState(state), Progress: 35, SourceMaterialID: SourceID, RunID: "fixture-cancellable-run", LogicalState: state}, nil
+		return analysis.Status{ID: id, DisplayNumber: 19, State: rivertype.JobState(state), Progress: 35, SourceMaterialID: SourceID, RunID: "fixture-cancellable-run", Lifecycle: domain.JobLifecycleState(state), Stage: domain.BookPreparationStageAnalysis}, nil
 	}
 	if id == 43 {
-		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", LogicalState: "failed", Progress: 42}, nil
+		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Progress: 42}, nil
 	}
-	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: SourceID, CorpusID: "fixture-corpus", RunID: ResultRunID, LogicalState: "completed"}, nil
+	return analysis.Status{ID: 42, DisplayNumber: 1, State: rivertype.JobStateCompleted, Progress: 100, SourceMaterialID: SourceID, CorpusID: "fixture-corpus", RunID: ResultRunID, Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize}, nil
 }
 
 func (Analysis) Retry(context.Context, string, int64) (analysis.Handle, error) {

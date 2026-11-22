@@ -41,8 +41,8 @@ func TestLegacyResultSurfacesUseReadingEntryURLsOrNoBookLink(t *testing.T) {
 	require.NoError(t, err)
 
 	jobs := []domain.AnalysisJob{
-		{ID: 1, DisplayNumber: 1, SourceMaterialID: fixtures.SourceID, AnalysisState: "completed", AnalysisRunID: "run", CorpusID: "corpus"},
-		{ID: 2, DisplayNumber: 2, SourceMaterialID: "fixture-failed", AnalysisState: "completed", AnalysisRunID: "run", CorpusID: "corpus"},
+		{ID: 1, DisplayNumber: 1, SourceMaterialID: fixtures.SourceID, Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, AnalysisRunID: "run", CorpusID: "corpus"},
+		{ID: 2, DisplayNumber: 2, SourceMaterialID: "fixture-failed", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, AnalysisRunID: "run", CorpusID: "corpus"},
 	}
 	var jobsHTML bytes.Buffer
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", jobs, "", bookContexts).Render(context.Background(), &jobsHTML))
@@ -52,7 +52,7 @@ func TestLegacyResultSurfacesUseReadingEntryURLsOrNoBookLink(t *testing.T) {
 }
 
 func TestJobStatusOffersNoDeckPreparationForLegacyResult(t *testing.T) {
-	status := analysis.Status{ID: 7, CorpusID: "legacy-corpus", LogicalState: "completed"}
+	status := analysis.Status{ID: 7, CorpusID: "legacy-corpus", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageAnalysis}
 	var output bytes.Buffer
 	require.NoError(t, JobStatus("csrf", status, "", "").Render(context.Background(), &output))
 	assert.NotContains(t, output.String(), `action="/jobs/7/deck/preparations"`)

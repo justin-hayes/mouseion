@@ -183,7 +183,7 @@ func (s *CatalogueSync) Cancel(ctx context.Context, owner string, id int64) (cat
 	if err != nil {
 		return cataloguesync.Status{}, err
 	}
-	if status.LogicalState == "running" || status.LogicalState == "queued" {
+	if status.Lifecycle == domain.JobLifecycleRunning || status.Lifecycle == domain.JobLifecycleQueued {
 		if err := s.Store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: status.ConnectionID, State: domain.CatalogueSyncFailed, LastError: "Catalog sync cancelled before completion. Retry when ready.", UpdatedAt: fixtureJourneyTime}); err != nil {
 			return cataloguesync.Status{}, err
 		}
@@ -205,16 +205,16 @@ func (s *CatalogueSync) jobStatus(ctx context.Context, durable domain.CatalogueS
 	status := cataloguesync.Status{ID: jobID, Attempt: 1, AttemptCount: 3, OwnerID: durable.OwnerID, ConnectionID: durable.ConnectionID, ConnectionName: connection.Name, CreatedAt: createdAt, UpdatedAt: updatedAt}
 	switch durable.State {
 	case domain.CatalogueSyncSynced:
-		status.State, status.LogicalState, status.Progress = "completed", "completed", 100
+		status.State, status.Lifecycle, status.Progress = "completed", domain.JobLifecycleCompleted, 100
 		status.FinalizedAt = new(updatedAt)
 	case domain.CatalogueSyncFailed:
-		status.State, status.LogicalState, status.Progress, status.Error = "discarded", "failed", 42, durable.LastError
+		status.State, status.Lifecycle, status.Progress, status.Error = "discarded", domain.JobLifecycleFailed, 42, durable.LastError
 		status.FinalizedAt = new(updatedAt)
 	case domain.CatalogueSyncSyncing:
-		status.State, status.LogicalState, status.Progress = "running", "running", 35
+		status.State, status.Lifecycle, status.Progress = "running", domain.JobLifecycleRunning, 35
 	default:
 		// Invalid fixture states retain the conservative nonterminal projection.
-		status.State, status.LogicalState, status.Progress = "running", "running", 35
+		status.State, status.Lifecycle, status.Progress = "running", domain.JobLifecycleRunning, 35
 	}
 	return status, nil
 }

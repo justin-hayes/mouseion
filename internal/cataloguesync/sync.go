@@ -81,7 +81,9 @@ type Handle struct {
 type Status struct {
 	ID, Attempt, AttemptCount             int64
 	OwnerID, ConnectionID, ConnectionName string
-	State, LogicalState, Error            string
+	State                                 string
+	Lifecycle                             domain.JobLifecycleState
+	Error                                 string
 	Progress                              int
 	CreatedAt, UpdatedAt                  time.Time
 	FinalizedAt                           *time.Time
@@ -681,7 +683,7 @@ LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::te
 	if state == string(domain.CatalogueSyncFailed) && durableError == "" {
 		durableError = statusCancelledReason
 	}
-	status.LogicalState = logicalState(riverState)
+	status.Lifecycle = domain.JobLifecycleForRiverState(riverState)
 	status.State = riverState
 	riverMessage, riverErr := riverError(s.pool, ctx, id, owner)
 	if riverErr != nil {
@@ -689,11 +691,11 @@ LEFT JOIN catalogue_sync_status s ON s.owner_id=$1::uuid AND s.connection_id::te
 	}
 	status.Error = firstError(durableError, riverMessage)
 	status.Progress = 0
-	if status.LogicalState == "completed" {
+	if status.Lifecycle == domain.JobLifecycleCompleted {
 		status.Progress = 100
 	}
-	if state == string(domain.CatalogueSyncFailed) && durableError != "" && status.LogicalState != "cancelled" {
-		status.LogicalState = "failed"
+	if state == string(domain.CatalogueSyncFailed) && durableError != "" && status.Lifecycle != domain.JobLifecycleCancelled {
+		status.Lifecycle = domain.JobLifecycleFailed
 	}
 	if syncedAt != nil {
 		status.UpdatedAt = *syncedAt
@@ -740,8 +742,8 @@ func (s *Service) listStatus(ctx context.Context, owner string, row pgx.Row) (St
 		return Status{}, err
 	}
 	item.OwnerID, item.ConnectionID, item.State = owner, connectionID, riverState
-	item.LogicalState, item.Error = logicalState(riverState), riverErr
-	if item.LogicalState == "completed" {
+	item.Lifecycle, item.Error = domain.JobLifecycleForRiverState(riverState), riverErr
+	if item.Lifecycle == domain.JobLifecycleCompleted {
 		item.Progress = 100
 	}
 	if newest {
@@ -750,7 +752,7 @@ func (s *Service) listStatus(ctx context.Context, owner string, row pgx.Row) (St
 			if durableError == "" {
 				durableError = statusCancelledReason
 			}
-			item.LogicalState, item.Error = "failed", firstError(durableError, riverErr)
+			item.Lifecycle, item.Error = domain.JobLifecycleFailed, firstError(durableError, riverErr)
 		}
 	}
 	if syncedAt != nil {
@@ -764,7 +766,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 	if err != nil {
 		return Handle{}, err
 	}
-	if status.LogicalState != "failed" && status.LogicalState != "cancelled" {
+	if status.Lifecycle != domain.JobLifecycleFailed && status.Lifecycle != domain.JobLifecycleCancelled {
 		return Handle{}, errors.New("catalogue sync job is not retryable")
 	}
 	return s.Enqueue(ctx, owner, status.ConnectionID)
@@ -775,7 +777,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 	if err != nil {
 		return Status{}, err
 	}
-	if status.LogicalState != "queued" && status.LogicalState != "running" {
+	if status.Lifecycle != domain.JobLifecycleQueued && status.Lifecycle != domain.JobLifecycleRunning {
 		return status, nil
 	}
 	if _, err = s.client.JobCancel(ctx, id); err != nil {
@@ -840,21 +842,6 @@ func supportedLanguageDisplayName(languages []domain.SupportedLanguage, language
 		}
 	}
 	return ""
-}
-
-func logicalState(state string) string {
-	switch state {
-	case "running":
-		return "running"
-	case "completed":
-		return "completed"
-	case "cancelled":
-		return "cancelled"
-	case "discarded":
-		return "failed"
-	default:
-		return "queued"
-	}
 }
 
 func firstError(values ...string) string {

@@ -3,6 +3,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,13 +17,13 @@ import (
 func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	var history bytes.Buffer
 	jobs := []domain.AnalysisJob{
-		{ID: 1, DisplayNumber: 1, SourceMaterialID: "book-1", AnalysisState: "completed", Progress: 100},
-		{ID: 2, DisplayNumber: 2, AnalysisState: "failed", Progress: 42, Error: "Analyzer stopped."},
-		{ID: 3, DisplayNumber: 3, AnalysisState: "queued"},
-		{ID: 4, DisplayNumber: 4, AnalysisState: "running"},
-		{ID: 5, DisplayNumber: 5, AnalysisState: "cancelled"},
+		{ID: 1, DisplayNumber: 1, SourceMaterialID: "book-1", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, Progress: 100},
+		{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Progress: 42, Error: "Analyzer stopped."},
+		{ID: 3, DisplayNumber: 3, Lifecycle: domain.JobLifecycleQueued, Stage: domain.BookPreparationStageAnalysis},
+		{ID: 4, DisplayNumber: 4, Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageAnalysis},
+		{ID: 5, DisplayNumber: 5, Lifecycle: domain.JobLifecycleCancelled, Stage: domain.BookPreparationStageAnalysis},
 	}
-	syncJobs := []cataloguesync.Status{{ID: 3, LogicalState: "cancelled", ConnectionName: "Archive"}}
+	syncJobs := []cataloguesync.Status{{ID: 3, Lifecycle: domain.JobLifecycleCancelled, ConnectionName: "Archive"}}
 	bookContexts := map[string]jobBookContext{"book-1": {Title: "Der lange Weg nach Hause", ReadingURL: "/reading#book-1"}}
 	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", jobs, syncJobs, nil, "", "", bookContexts).Render(context.Background(), &history))
 	html := history.String()
@@ -32,7 +33,8 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.Contains(t, html, "Completed")
 	assert.Contains(t, html, "Failed")
 	assert.Contains(t, html, "Queued")
-	assert.Contains(t, html, "Processing")
+	assert.Contains(t, html, "Running")
+	assert.NotContains(t, html, "Processing")
 	assert.Contains(t, html, "Cancelled")
 	assert.Contains(t, html, `aria-label="Analysis job 1 progress"`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
@@ -44,7 +46,7 @@ func TestJobsViewsUseOwnedShellAndExposeStatusText(t *testing.T) {
 	assert.NotContains(t, analysisHistory.String(), "0001-01-01")
 
 	var detail bytes.Buffer
-	status := analysis.Status{ID: 2, DisplayNumber: 2, LogicalState: "failed", State: "failed", SourceMaterialID: "book-1", Error: "Analyzer stopped."}
+	status := analysis.Status{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, State: "failed", SourceMaterialID: "book-1", Error: "Analyzer stopped."}
 	require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, "", "Der lange Weg nach Hause").Render(context.Background(), &detail))
 	detailHTML := detail.String()
 	assert.Contains(t, detailHTML, `<body class="jobs-shell">`)
@@ -72,20 +74,61 @@ func TestJobsViewsShowClassicalPreparationBookAttemptAndState(t *testing.T) {
 	assert.Contains(t, html, "2026-11-09 12:00")
 }
 
-func TestClassicalPreparationJobStateMapping(t *testing.T) {
-	t.Parallel()
-	cases := map[string]string{
-		"completed": "Completed", "failed": "Failed", "discarded": "Failed", "cancelled": "Failed",
-		"running": "Running", "available": "Queued", "pending": "Queued",
-		"scheduled": "Queued", "retryable": "Queued", "unknown": "Queued",
+func TestJobsViewsRenderFinalizationLifecycleAtFinalize(t *testing.T) {
+	var output bytes.Buffer
+	jobs := []domain.AnalysisJob{
+		{ID: 1, DisplayNumber: 1, Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageFinalize},
+		{ID: 2, DisplayNumber: 2, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageFinalize},
+		{ID: 3, DisplayNumber: 3, Lifecycle: domain.JobLifecycleCancelled, Stage: domain.BookPreparationStageFinalize},
 	}
-	for state, want := range cases {
-		t.Run(state, func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, want, classicalPreparationJobState(state))
-			assert.NotEmpty(t, classicalPreparationJobTone(state))
-		})
-	}
+	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", jobs, nil, nil, "", "", nil).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "Running")
+	assert.Contains(t, html, "Failed")
+	assert.Contains(t, html, "Cancelled")
+	assert.NotContains(t, html, "Processing")
+}
+
+func TestAnalysisFinalizationDetailOffersRetryAndRendersLifecycle(t *testing.T) {
+	t.Run("failed finalization", func(t *testing.T) {
+		var output bytes.Buffer
+		status := analysis.Status{ID: 7, DisplayNumber: 7, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageFinalize, State: "discarded"}
+		require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, "", "").Render(context.Background(), &output))
+		html := output.String()
+		assert.Contains(t, html, "Failed")
+		assert.Contains(t, html, "Retry analysis")
+		assert.NotContains(t, html, "Cancel analysis")
+	})
+
+	t.Run("cancelled finalization", func(t *testing.T) {
+		var output bytes.Buffer
+		status := analysis.Status{ID: 8, DisplayNumber: 8, Lifecycle: domain.JobLifecycleCancelled, Stage: domain.BookPreparationStageFinalize, State: "cancelled"}
+		require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, "", "").Render(context.Background(), &output))
+		html := output.String()
+		assert.Contains(t, html, "Cancelled")
+		assert.Contains(t, html, "Retry analysis")
+	})
+
+	t.Run("running finalization", func(t *testing.T) {
+		var output bytes.Buffer
+		status := analysis.Status{ID: 9, DisplayNumber: 9, Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageFinalize, State: "running"}
+		require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, "", "").Render(context.Background(), &output))
+		html := output.String()
+		assert.Contains(t, html, "Running")
+		assert.Contains(t, html, "Cancel analysis")
+		assert.NotContains(t, html, "Retry analysis")
+	})
+}
+
+func TestJobsViewsUseOneLifecycleBadgeForEveryKind(t *testing.T) {
+	var output bytes.Buffer
+	analysisJobs := []domain.AnalysisJob{{ID: 1, DisplayNumber: 1, Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageAnalysis}}
+	preparationJobs := []domain.ClassicalPreparationJob{{ID: 2, BookID: "book-2", BookTitle: "Anabasis", State: "running", CreatedAt: time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)}}
+	syncJobs := []cataloguesync.Status{{ID: 3, ConnectionName: "Archive", Lifecycle: domain.JobLifecycleRunning}}
+	require.NoError(t, JobsPageWithCatalogueSync(domain.User{Username: "learner"}, "csrf", analysisJobs, syncJobs, preparationJobs, "", "", nil).Render(context.Background(), &output))
+	html := output.String()
+	assert.GreaterOrEqual(t, strings.Count(html, "status-badge--info"), 3, "every running row uses the shared info badge")
+	assert.Equal(t, 3, strings.Count(html, ">Running</span>"), "every running row reads Running")
 }
 
 func TestOperationalShellStylesExcludePico(t *testing.T) {
