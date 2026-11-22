@@ -588,7 +588,14 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	if err != nil {
 		return domain.MyBook{}, missing(err)
 	}
-	book := myBookFromEvidence(row)
+	book := myBookFromEvidence(row, "")
+	if book.Acquired != nil {
+		failureCode, codeErr := s.queries().GetLatestAnalysisFailureCode(ctx, sqlcgen.GetLatestAnalysisFailureCodeParams{Owner: owner, Source: book.Acquired.Source.ID})
+		if codeErr != nil {
+			return domain.MyBook{}, codeErr
+		}
+		book.Acquired.Signals.FailureCode = domain.BookPreparationCode(failureCode)
+	}
 	states, err := s.bookDispositionMap(ctx, owner)
 	if err != nil {
 		return domain.MyBook{}, err

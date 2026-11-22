@@ -158,7 +158,9 @@ type Querier interface {
 	// this runs, so this query carries no disposition, language, or media rules.
 	GetCurrentReadingCandidateIdentity(ctx context.Context, arg GetCurrentReadingCandidateIdentityParams) (GetCurrentReadingCandidateIdentityRow, error)
 	// The evidence the Current reading classifier reads under the Book lock: the
-	// same my_books_evidence row the surfaces read, plus the Book's disposition.
+	// My Books row's analysis signals and language, plus the Book's disposition.
+	// It selects only what eligibility needs, so the classifier does not depend on
+	// display-only failure codes.
 	GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentReadingEvidenceParams) (GetCurrentReadingEvidenceRow, error)
 	GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrentReadingForUpdateParams) (GetCurrentReadingForUpdateRow, error)
 	// Durable facts that prove a lifecycle replay: who the commitment belonged to,
@@ -189,6 +191,7 @@ type Querier interface {
 	// identity and the provider prompt version; it carries no learner identity and
 	// no Book data.
 	GetLSJSenseSummary(ctx context.Context, arg GetLSJSenseSummaryParams) ([]byte, error)
+	GetLatestAnalysisFailureCode(ctx context.Context, arg GetLatestAnalysisFailureCodeParams) (string, error)
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)

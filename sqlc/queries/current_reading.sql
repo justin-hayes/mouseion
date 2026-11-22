@@ -42,8 +42,21 @@ FOR UPDATE OF g;
 
 -- name: GetCurrentReadingEvidence :one
 -- The evidence the Current reading classifier reads under the Book lock: the
--- same my_books_evidence row the surfaces read, plus the Book's disposition.
-SELECT e.*, COALESCE(d.disposition::text, '')::text AS disposition
+-- My Books row's analysis signals and language, plus the Book's disposition.
+-- It selects only what eligibility needs, so the classifier does not depend on
+-- display-only failure codes.
+SELECT e.book_owner_id,
+       e.book_id,
+       e.book_language_state,
+       e.book_language_tag,
+       e.source_id,
+       e.source_media_type,
+       e.source_content_revision_id,
+       e.source_content_snapshot_id,
+       e.analysis_status,
+       e.analysis_state,
+       e.analysis_run_id,
+       COALESCE(d.disposition::text, '')::text AS disposition
 FROM my_books_evidence e
 LEFT JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 WHERE e.book_owner_id = sqlc.arg('owner') AND e.book_id = sqlc.arg('book');

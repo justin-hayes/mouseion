@@ -317,7 +317,18 @@ func (q *Queries) GetCurrentReadingCandidateIdentity(ctx context.Context, arg Ge
 }
 
 const getCurrentReadingEvidence = `-- name: GetCurrentReadingEvidence :one
-SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height, COALESCE(d.disposition::text, '')::text AS disposition
+SELECT e.book_owner_id,
+       e.book_id,
+       e.book_language_state,
+       e.book_language_tag,
+       e.source_id,
+       e.source_media_type,
+       e.source_content_revision_id,
+       e.source_content_snapshot_id,
+       e.analysis_status,
+       e.analysis_state,
+       e.analysis_run_id,
+       COALESCE(d.disposition::text, '')::text AS disposition
 FROM my_books_evidence e
 LEFT JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 WHERE e.book_owner_id = $1 AND e.book_id = $2
@@ -329,75 +340,39 @@ type GetCurrentReadingEvidenceParams struct {
 }
 
 type GetCurrentReadingEvidenceRow struct {
-	BookID                  string
 	BookOwnerID             string
-	BookTitle               string
-	BookMetadataProvenance  string
+	BookID                  string
 	BookLanguageState       string
 	BookLanguageTag         string
-	BookCreatedAt           time.Time
-	BookUpdatedAt           time.Time
 	SourceID                string
-	SourceOwnerID           string
-	SourceLanguage          string
-	SourceIdentifier        string
-	SourceTitle             string
 	SourceMediaType         string
-	SourceContentHash       string
-	SourceContentDigest     string
 	SourceContentRevisionID string
 	SourceContentSnapshotID string
-	SourceDigestVersion     int
-	SourceCreatedAt         *time.Time
-	Acquired                bool
 	AnalysisStatus          string
 	AnalysisState           string
 	AnalysisRunID           string
-	CorpusID                string
-	AnalysisJobID           int64
-	BookAuthor              string
-	BookCoverState          string
-	BookCoverWidth          int
-	BookCoverHeight         int
 	Disposition             string
 }
 
 // The evidence the Current reading classifier reads under the Book lock: the
-// same my_books_evidence row the surfaces read, plus the Book's disposition.
+// My Books row's analysis signals and language, plus the Book's disposition.
+// It selects only what eligibility needs, so the classifier does not depend on
+// display-only failure codes.
 func (q *Queries) GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentReadingEvidenceParams) (GetCurrentReadingEvidenceRow, error) {
 	row := q.db.QueryRow(ctx, getCurrentReadingEvidence, arg.Owner, arg.Book)
 	var i GetCurrentReadingEvidenceRow
 	err := row.Scan(
-		&i.BookID,
 		&i.BookOwnerID,
-		&i.BookTitle,
-		&i.BookMetadataProvenance,
+		&i.BookID,
 		&i.BookLanguageState,
 		&i.BookLanguageTag,
-		&i.BookCreatedAt,
-		&i.BookUpdatedAt,
 		&i.SourceID,
-		&i.SourceOwnerID,
-		&i.SourceLanguage,
-		&i.SourceIdentifier,
-		&i.SourceTitle,
 		&i.SourceMediaType,
-		&i.SourceContentHash,
-		&i.SourceContentDigest,
 		&i.SourceContentRevisionID,
 		&i.SourceContentSnapshotID,
-		&i.SourceDigestVersion,
-		&i.SourceCreatedAt,
-		&i.Acquired,
 		&i.AnalysisStatus,
 		&i.AnalysisState,
 		&i.AnalysisRunID,
-		&i.CorpusID,
-		&i.AnalysisJobID,
-		&i.BookAuthor,
-		&i.BookCoverState,
-		&i.BookCoverWidth,
-		&i.BookCoverHeight,
 		&i.Disposition,
 	)
 	return i, err

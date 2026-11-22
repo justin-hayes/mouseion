@@ -57,6 +57,10 @@ type AnalysisSignals struct {
 	Content   ContentSignal
 	Published PublishedAnalysisSignal
 	LatestRun LatestRunSignal
+	// FailureCode is the stable analysis failure code recorded on the latest
+	// run or its attempt. It is empty for a run that failed before codes were
+	// recorded, and presentation falls back to a generic sentence.
+	FailureCode BookPreparationCode
 	// CurrentReading reports that the Book is the Current reading. Its frozen
 	// evidence cannot be refreshed, so a newer run that failed or was cancelled
 	// offers no retry while the published analysis stays in effect.
@@ -139,10 +143,13 @@ const (
 // disposition, and language. Presentation reads these results rather than
 // re-deriving them from signals.
 type BookEvidenceClassification struct {
-	Content     ContentSignal
-	Evidence    BookEvidenceState
-	Phase       AnalysisPhase
-	Run         LatestRunSignal
+	Content  ContentSignal
+	Evidence BookEvidenceState
+	Phase    AnalysisPhase
+	Run      LatestRunSignal
+	// FailureCode is the stable code for a failed latest run. It is empty when
+	// the run failed before codes were recorded.
+	FailureCode BookPreparationCode
 	Eligibility CurrentReadingEligibilityReason
 	Recovery    BookEvidenceRecovery
 	// Preparation is the classical preparation state while no analysis is in
@@ -240,6 +247,7 @@ func ClassifyBookEvidence(signals AnalysisSignals, disposition BookDisposition, 
 		Evidence:    evidence,
 		Phase:       phase,
 		Run:         runOrNone(signals.LatestRun),
+		FailureCode: failureCodeForRun(signals.LatestRun, signals.FailureCode),
 		Eligibility: eligibilityReason(content, signals, evidencePhase, disposition, language),
 		Recovery:    recovery,
 		Preparation: preparation.classification,
@@ -398,4 +406,14 @@ func runOrNone(run LatestRunSignal) LatestRunSignal {
 		return RunNone
 	}
 	return run
+}
+
+// failureCodeForRun keeps a failure code only for a run that failed. A code
+// projected from a completed run's finalization attempt belongs to that
+// attempt, not to the Book's failed analysis.
+func failureCodeForRun(run LatestRunSignal, code BookPreparationCode) BookPreparationCode {
+	if run != RunFailed {
+		return BookPreparationCodeNone
+	}
+	return code
 }

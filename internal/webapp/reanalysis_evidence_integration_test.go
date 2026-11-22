@@ -70,16 +70,20 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 	assert.NotContains(t, libraryRunning.Body.String(), "Analysis running.")
 
 	// The newer run then fails. The published analysis is unchanged and retry is
-	// offered for the failed run.
+	// offered for the failed run. The learner-facing reason comes from the
+	// stable failure code, not stored prose.
 	setNewerRunState(t, ctx, store, alice.ID, newerRunID, "failed")
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET failure_code='dependency_parsing_unavailable' WHERE owner_id=$1 AND id=$2`, alice.ID, newerRunID)
+	require.NoError(t, err)
 	failed := migrationMyBook(t, ctx, store, alice.ID, book.ID)
 	assert.Equal(t, domain.BookAnalyzed, failed.EvidenceState())
 	assert.Equal(t, domain.RunFailed, failed.Classification().Run)
+	assert.Equal(t, domain.BookPreparationCodeDependencyParsingUnavailable, failed.Classification().FailureCode)
 	assert.Equal(t, domain.CurrentReadingEligible, failed.Classification().Eligibility)
 	assert.Equal(t, domain.RecoveryRetryAnalysis, failed.Classification().Recovery)
 	libraryFailed := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, libraryFailed.Code)
-	assert.Contains(t, libraryFailed.Body.String(), "Re-analysis failed.")
+	assert.Contains(t, libraryFailed.Body.String(), "Re-analysis failed. Dependency parsing is unavailable.")
 	assert.NotContains(t, libraryFailed.Body.String(), "Analysis failed.")
 
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)

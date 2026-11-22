@@ -255,9 +255,9 @@ func JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message 
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var14 string
-						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(job.Error)
+						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(analysisJobFailureSentence(job))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/jobs.templ`, Line: 33, Col: 372}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/jobs.templ`, Line: 33, Col: 394}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 						if templ_7745c5c3_Err != nil {
@@ -374,8 +374,8 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			if status.Error != "" {
-				templ_7745c5c3_Err = Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when you are ready.").Render(ctx, templ_7745c5c3_Buffer)
+			if analysisNeedsAttention(status) {
+				templ_7745c5c3_Err = Feedback(FeedbackError, "Analysis needs attention", analysisFailureSentence(status.FailureCode)+" Retry the analysis when you are ready.").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1001,9 +1001,9 @@ func JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Anal
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var50 string
-						templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(job.Error)
+						templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(analysisJobFailureSentence(job))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/jobs.templ`, Line: 127, Col: 372}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/jobs.templ`, Line: 127, Col: 394}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 						if templ_7745c5c3_Err != nil {

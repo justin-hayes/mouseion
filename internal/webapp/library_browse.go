@@ -68,7 +68,7 @@ func myBookAnalysisMarginNotes(book domain.MyBook) []string {
 	case classification.Phase == domain.PhaseAnalyzing:
 		notes = append(notes, "Analysis running.")
 	case classification.Phase == domain.PhaseFailed:
-		notes = append(notes, "Analysis failed.")
+		notes = append(notes, analysisFailureSentence(classification.FailureCode))
 	case classification.Phase == domain.PhaseCancelled:
 		notes = append(notes, "Analysis cancelled.")
 	case classification.Phase == domain.PhaseStale:
@@ -136,7 +136,12 @@ func reanalysisMarginNote(classification domain.BookEvidenceClassification) stri
 		return "Re-analysis queued."
 	case domain.RunRunning:
 		return "Re-analysis running."
-	case domain.RunFailed, domain.RunJobFailed:
+	case domain.RunFailed:
+		if reason := analysisFailureReason(classification.FailureCode); reason != "" {
+			return "Re-analysis failed. " + reason
+		}
+		return "Re-analysis failed."
+	case domain.RunJobFailed:
 		return "Re-analysis failed."
 	case domain.RunCancelled:
 		return "Re-analysis cancelled."

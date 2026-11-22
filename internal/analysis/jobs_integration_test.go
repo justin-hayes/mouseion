@@ -191,9 +191,14 @@ func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) 
 	status, err := service.Wait(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateDiscarded, status.State)
-	assert.Contains(t, status.Error, "NLP service is misconfigured")
-	assert.Contains(t, status.Error, "dependency parsing is unavailable")
+	assert.Equal(t, domain.BookPreparationCodeDependencyParsingUnavailable, status.FailureCode)
+	assert.Equal(t, domain.BookPreparationStageAnalysis, status.Stage)
+	assert.Empty(t, status.Error, "the learner-facing sentence is derived from the code")
 	assert.Empty(t, fake.Requests())
+	var runCode, attemptCode string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT COALESCE(r.failure_code,''),COALESCE(a.failure_code,'') FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runCode, &attemptCode))
+	assert.Equal(t, string(domain.BookPreparationCodeDependencyParsingUnavailable), runCode)
+	assert.Equal(t, string(domain.BookPreparationCodeDependencyParsingUnavailable), attemptCode)
 
 	var corpusCount int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpora WHERE owner_id=$1`, owner.ID).Scan(&corpusCount))
@@ -913,6 +918,9 @@ func TestAnalysisStatusReportsDiscardedFinalizationAsFailed(t *testing.T) {
 	t.Run("carries River's last error", func(t *testing.T) {
 		require.Equal(t, "finalization worker terminated", status.Error)
 	})
+	t.Run("derives finalize as the stage", func(t *testing.T) {
+		require.Equal(t, domain.BookPreparationStageFinalize, status.Stage)
+	})
 }
 
 // The /jobs list reconciles a finalization attempt against River the same way
@@ -1123,7 +1131,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	failure, err := service.Wait(ctx, alice.ID, failureHandle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateDiscarded, failure.State)
-	assert.NotEmpty(t, failure.Error)
+	assert.Equal(t, domain.BookPreparationCodeAnalysisFailed, failure.FailureCode)
 	failureRetry, err := service.SubmitAnalysis(ctx, alice.ID, failing.ID)
 	require.NoError(t, err)
 	assert.Equal(t, failureHandle.ID, failureRetry.ID)
@@ -1350,7 +1358,9 @@ func TestRiverAnalysisFailsWhenSourceRevisionIsNoLongerCurrent(t *testing.T) {
 	status, err := service.Wait(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateDiscarded, status.State)
-	assert.Equal(t, "Analysis could not be completed. Retry the analysis or review the current source.", status.Error)
+	assert.Equal(t, domain.BookPreparationCodeAnalysisFailed, status.FailureCode)
+	assert.Equal(t, domain.BookPreparationStageAnalysis, status.Stage)
+	assert.Empty(t, status.Error, "the learner-facing sentence is derived from the code")
 	assert.Empty(t, fake.Requests())
 	var corpusCount int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpora WHERE owner_id=$1`, owner.ID).Scan(&corpusCount))
@@ -1385,28 +1395,30 @@ func TestRiverAnalysisRecordsFailureAcrossRunAttemptJobAndHistory(t *testing.T) 
 	require.NoError(t, err)
 	require.Equal(t, rivertype.JobStateDiscarded, status.State)
 
-	message := "Analysis could not be completed. Retry the analysis or review the current source."
-	t.Run("run and attempt carry the failure", func(t *testing.T) {
-		var runState, lastError, attemptState, attemptError string
-		require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,r.last_error,a.state,a.error FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &lastError, &attemptState, &attemptError))
+	t.Run("run and attempt carry the failure code", func(t *testing.T) {
+		var runState, runCode, runError, attemptState, attemptCode, attemptError string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,COALESCE(r.failure_code,''),r.last_error,a.state,COALESCE(a.failure_code,''),a.error FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.owner_id=$1 AND r.id=$2`, owner.ID, handle.RunID).Scan(&runState, &runCode, &runError, &attemptState, &attemptCode, &attemptError))
 		require.Equal(t, "failed", runState)
-		require.Equal(t, message, lastError)
+		require.Equal(t, string(domain.BookPreparationCodeAnalysisFailed), runCode)
 		require.Equal(t, "failed", attemptState)
-		require.Equal(t, message, attemptError)
+		require.Equal(t, string(domain.BookPreparationCodeAnalysisFailed), attemptCode)
+		require.Empty(t, runError, "the run error-text column is no longer written")
+		require.Empty(t, attemptError, "the attempt error-text column is no longer written")
 	})
-	t.Run("analysis job carries the failure", func(t *testing.T) {
+	t.Run("analysis job error column is no longer written", func(t *testing.T) {
 		var jobError string
 		require.NoError(t, pool.QueryRow(ctx, `SELECT error FROM analysis_jobs WHERE owner_id=$1 AND analysis_run_id=$2`, owner.ID, handle.RunID).Scan(&jobError))
-		require.Equal(t, message, jobError)
+		require.Empty(t, jobError)
 	})
-	t.Run("processing history records the failure", func(t *testing.T) {
+	t.Run("processing history records the failure code", func(t *testing.T) {
 		var details []byte
 		require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND operation='analysis' AND status='failed' ORDER BY id DESC LIMIT 1`, owner.ID).Scan(&details))
 		var recorded map[string]any
 		require.NoError(t, json.Unmarshal(details, &recorded))
 		require.Equal(t, handle.RunID, recorded["run_id"])
 		require.EqualValues(t, 1, recorded["attempt"])
-		require.Equal(t, message, recorded["error"])
+		require.Equal(t, string(domain.BookPreparationCodeAnalysisFailed), recorded["failure_code"])
+		require.NotContains(t, recorded, "error")
 	})
 }
 
@@ -1759,12 +1771,19 @@ func TestAnalysisRetryTransitionsSnapshotRuns(t *testing.T) {
 		handle := submit(t, "retry-running-orphan")
 		_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state='running',started_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
 		require.NoError(t, execErr)
-		detachLiveWork(t, handle)
+		_, execErr = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=now() WHERE run_id=$1`, handle.RunID)
+		require.NoError(t, execErr)
+		_, execErr = pool.Exec(ctx, `DELETE FROM river_job WHERE id=$1`, handle.JobID)
+		require.NoError(t, execErr)
 		retried, retryErr := service.Retry(ctx, owner.ID, handle.ID)
 		require.NoError(t, retryErr)
 		assert.Equal(t, handle.RunID, retried.RunID)
 		assert.NotEqual(t, handle.JobID, retried.JobID)
 		assert.Equal(t, "queued", runState(t, handle.RunID))
+		var attemptState, attemptCode string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT state,COALESCE(failure_code,'') FROM analysis_run_attempts WHERE run_id=$1 AND attempt_number=1`, handle.RunID).Scan(&attemptState, &attemptCode))
+		assert.Equal(t, "failed", attemptState)
+		assert.Equal(t, string(domain.BookPreparationCodeAnalysisInterrupted), attemptCode)
 		requireRetryHistory(t, "failed")
 	})
 
@@ -1801,11 +1820,11 @@ func TestAnalysisRetryTransitionsSnapshotRuns(t *testing.T) {
 	})
 
 	for _, state := range []string{"failed", "cancelled"} {
-		t.Run(state+" run is requeued with history", func(t *testing.T) {
+		t.Run(state+" run is requeued with history and clears its code", func(t *testing.T) {
 			handle := submit(t, "retry-"+state)
-			_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state=$3,completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID, state)
+			_, execErr := pool.Exec(ctx, `UPDATE analysis_runs SET state=$3,failure_code='analysis_failed',completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID, state)
 			require.NoError(t, execErr)
-			_, execErr = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state=$2,finalized_at=now() WHERE run_id=$1`, handle.RunID, state)
+			_, execErr = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state=$2,failure_code='analysis_failed',finalized_at=now() WHERE run_id=$1`, handle.RunID, state)
 			require.NoError(t, execErr)
 			_, execErr = pool.Exec(ctx, `UPDATE river_job SET state='discarded',finalized_at=now() WHERE id=$1`, handle.JobID)
 			require.NoError(t, execErr)
@@ -1814,6 +1833,9 @@ func TestAnalysisRetryTransitionsSnapshotRuns(t *testing.T) {
 			assert.Equal(t, handle.RunID, retried.RunID)
 			assert.NotEqual(t, handle.JobID, retried.JobID)
 			assert.Equal(t, "queued", runState(t, handle.RunID))
+			var failureCode string
+			require.NoError(t, pool.QueryRow(ctx, `SELECT COALESCE(failure_code,'') FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&failureCode))
+			assert.Empty(t, failureCode, "requeueing clears the run's failure code")
 			requireRetryHistory(t, state)
 		})
 	}
@@ -1897,9 +1919,13 @@ func TestAnalysisReconcileTransitionsSnapshotRuns(t *testing.T) {
 		status, reconcileErr := service.Reconcile(ctx, owner.ID, handle.ID)
 		require.NoError(t, reconcileErr)
 		assert.Equal(t, "failed", runState(t, handle.RunID))
-		var attemptState string
-		require.NoError(t, pool.QueryRow(ctx, `SELECT state FROM analysis_run_attempts WHERE run_id=$1`, handle.RunID).Scan(&attemptState))
+		var attemptState, runCode, attemptCode string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT a.state,COALESCE(r.failure_code,''),COALESCE(a.failure_code,'') FROM analysis_run_attempts a JOIN analysis_runs r ON r.id=a.run_id WHERE a.run_id=$1`, handle.RunID).Scan(&attemptState, &runCode, &attemptCode))
 		assert.Equal(t, "failed", attemptState)
+		assert.Equal(t, string(domain.BookPreparationCodeAnalysisInterrupted), runCode)
+		assert.Equal(t, string(domain.BookPreparationCodeAnalysisInterrupted), attemptCode)
+		assert.Equal(t, domain.BookPreparationCodeAnalysisInterrupted, status.FailureCode)
+		assert.Equal(t, domain.BookPreparationStageAnalysis, status.Stage)
 		assert.Equal(t, rivertype.JobStateDiscarded, status.State)
 	})
 

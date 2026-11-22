@@ -242,6 +242,55 @@ func analysisStatusSummary(status analysis.Status) string {
 	attempt := maxOne(status.Attempt)
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)
 }
+
+// analysisFailureSentence derives the learner-facing sentence from the stable
+// failure code. An empty code is a run that failed before codes were recorded;
+// it still reads as a completed attempt with a sensible generic sentence.
+func analysisFailureSentence(code domain.BookPreparationCode) string {
+	switch code {
+	case domain.BookPreparationCodeDependencyParsingUnavailable:
+		return "Analysis failed because dependency parsing is unavailable."
+	case domain.BookPreparationCodeAnalysisInterrupted:
+		return "The analysis was interrupted."
+	default:
+		return "Analysis failed."
+	}
+}
+
+// analysisJobFailureSentence is the /jobs list's failure column. A failed row
+// and a completed row whose finalization failed both show their code's
+// sentence; every other row stays blank.
+func analysisJobFailureSentence(job domain.AnalysisJob) string {
+	if job.FailureCode != domain.BookPreparationCodeNone {
+		return analysisFailureSentence(job.FailureCode)
+	}
+	if job.Lifecycle == domain.JobLifecycleFailed {
+		return analysisFailureSentence(domain.BookPreparationCodeNone)
+	}
+	return ""
+}
+
+// analysisFailureReason is the one-sentence reason a code adds after a status
+// label. It is empty for a generic failure.
+func analysisFailureReason(code domain.BookPreparationCode) string {
+	switch code {
+	case domain.BookPreparationCodeDependencyParsingUnavailable:
+		return "Dependency parsing is unavailable."
+	case domain.BookPreparationCodeAnalysisInterrupted:
+		return "The analysis was interrupted."
+	default:
+		return ""
+	}
+}
+
+// analysisNeedsAttention reports a failed analysis detail, including a
+// completed run whose finalization failed and a run that failed before codes
+// were recorded.
+func analysisNeedsAttention(status analysis.Status) bool {
+	return status.FailureCode != domain.BookPreparationCodeNone || status.Error != "" ||
+		status.Lifecycle == domain.JobLifecycleFailed
+}
+
 func jobRetryable(status analysis.Status) bool {
 	return status.Lifecycle.Retryable()
 }

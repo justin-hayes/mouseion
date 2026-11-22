@@ -650,13 +650,14 @@ type SentenceStudyDecision struct {
 }
 
 type AnalysisJob struct {
-	ID, DisplayNumber                                       int64
-	OwnerID, SourceMaterialID, ContentHash, CorpusID, Error string
-	AnalysisRunID                                           string
-	Lifecycle                                               JobLifecycleState
-	Stage                                                   BookPreparationStage
-	Progress                                                int
-	CreatedAt, UpdatedAt                                    time.Time
+	ID, DisplayNumber                                int64
+	OwnerID, SourceMaterialID, ContentHash, CorpusID string
+	AnalysisRunID                                    string
+	Lifecycle                                        JobLifecycleState
+	Stage                                            BookPreparationStage
+	FailureCode                                      BookPreparationCode
+	Progress                                         int
+	CreatedAt, UpdatedAt                             time.Time
 }
 type CorpusSelectedUnit struct {
 	UnitID, SourceHref, ResolvedHref, Title string

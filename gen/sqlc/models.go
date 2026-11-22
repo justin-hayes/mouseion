@@ -43,6 +43,7 @@ type AnalysisRun struct {
 	StartedAt         pgtype.Timestamptz
 	CompletedAt       pgtype.Timestamptz
 	SyntaxState       string
+	FailureCode       pgtype.Text
 }
 
 type AnalysisRunAttempt struct {
@@ -57,6 +58,7 @@ type AnalysisRunAttempt struct {
 	CreatedAt        time.Time
 	StartedAt        pgtype.Timestamptz
 	FinalizedAt      pgtype.Timestamptz
+	FailureCode      pgtype.Text
 }
 
 type Book struct {
@@ -716,6 +718,12 @@ type KnownVocabulary struct {
 	GeneratedFirstAt               pgtype.Timestamptz
 	LexicalDiscriminator           string
 	Headword                       string
+}
+
+type LatestAnalysisFailure struct {
+	OwnerID          string
+	SourceMaterialID string
+	FailureCode      pgtype.Text
 }
 
 type LsjSenseSummary struct {

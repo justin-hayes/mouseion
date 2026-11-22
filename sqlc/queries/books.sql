@@ -57,6 +57,7 @@ FOR UPDATE;
 
 -- name: BrowseMyBooksEvidence :many
 SELECT e.*
+      , COALESCE(f.failure_code, '')::text AS analysis_failure_code
       , lower(e.book_title)::text AS sort_title
       , d.disposition::text AS disposition
      , d.revision AS disposition_revision
@@ -88,6 +89,7 @@ SELECT e.*
      , COALESCE(ru.withdrawn, false)::boolean AS withdrawn
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN latest_analysis_failure f ON f.owner_id::text = e.book_owner_id AND f.source_material_id::text = e.source_id
 LEFT JOIN book_visibility v ON v.owner_id::text = e.book_owner_id AND v.book_id::text = e.book_id
 LEFT JOIN book_reading_units bru ON bru.owner_id::text = e.book_owner_id AND bru.book_id::text = e.book_id
 LEFT JOIN reading_units ru ON ru.id = bru.reading_unit_id
@@ -173,6 +175,12 @@ WHERE e.book_owner_id = sqlc.arg('owner') AND (e.book_id = sqlc.arg('id') OR EXI
 ))
 ORDER BY CASE WHEN e.book_id = sqlc.arg('id') THEN 0 ELSE 1 END
 LIMIT 1;
+
+-- name: GetLatestAnalysisFailureCode :one
+SELECT COALESCE((
+    SELECT failure_code FROM latest_analysis_failure
+    WHERE owner_id = sqlc.arg('owner') AND source_material_id = sqlc.arg('source')
+), '')::text AS failure_code;
 
 -- name: GetMyBookMarginEvidence :one
 SELECT COALESCE(deck.state, '')::text AS deck_state,

@@ -30,7 +30,7 @@ templ JobsPage(user domain.User, csrf string, jobs []domain.AnalysisJob, message
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
+					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ analysisJobFailureSentence(job) }</td></tr>
 				}
 				</tbody>
 			}
@@ -48,8 +48,8 @@ templ JobPage(user domain.User, csrf string, status analysis.Status, readingBook
 templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle string) {
 	{{ lifecycle := jobLifecycleViewFor(status.Lifecycle) }}
 	@AsyncStatus(jobStatusAttributes(status.ID, jobRunning(status)), "job-status", lifecycle.Label, analysisStatusSummary(status), status.Progress, 100, jobRunning(status), OperationalJobMetadata("Book", bookTitle, status.CreatedAt, status.Attempt, status.AttemptCount, status.FinalizedAt)) {
-		if status.Error != "" {
-			@Feedback(FeedbackError, "Analysis needs attention", status.Error+" Retry the analysis when you are ready.")
+		if analysisNeedsAttention(status) {
+			@Feedback(FeedbackError, "Analysis needs attention", analysisFailureSentence(status.FailureCode)+" Retry the analysis when you are ready.")
 		}
 		@ActionGroup() {
 			if jobRetryable(status) {
@@ -124,7 +124,7 @@ templ JobsPageWithCatalogueSync(user domain.User, csrf string, jobs []domain.Ana
 						} else {
 							<a href={ templ.SafeURL(fmt.Sprintf("/jobs/%d", job.ID)) }>{ fmt.Sprintf("#%d", job.DisplayNumber) }</a>
 						}
-					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ job.Error }</td></tr>
+					</td><td>{ jobBookContexts[job.SourceMaterialID].Title }</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td><progress aria-label={ fmt.Sprintf("Analysis job %d progress", job.DisplayNumber) } value={ fmt.Sprintf("%d",job.Progress) } max="100"></progress> { fmt.Sprintf("%d%%",job.Progress) }</td><td>{ completedAtLabel(&job.CreatedAt) }</td><td>{ analysisJobFailureSentence(job) }</td></tr>
 				}
 				</tbody>
 			}
