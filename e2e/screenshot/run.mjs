@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Documentation screenshot of My Books, run by `make screenshot-my-books`.
+// Documentation screenshots of My Books, run by `make screenshot-my-books`.
 //
 // 1. Fetches and verifies the pinned Project Gutenberg books (cached under .tmp).
 // 2. Prepares EPUB 3 files, typographic covers, and a static OPDS catalog.
@@ -9,7 +9,8 @@
 //    which analyzes the scenario Books, seeds Known vocabulary by finishing
 //    readings, and looks up the configured Concordance lemma and one sentence
 //    Study.
-// 5. Writes the optimized screenshots to doc/images (my-books, my-books-dark,
+// 5. Writes the optimized screenshots to doc/images (my-books and my-books-dark for the
+//    To Read tab, my-books-read and my-books-read-dark for the Read tab,
 //    reading, concordance, sentence-study) and stops the stack, keeping the
 //    Stanza model volume.
 //
@@ -49,6 +50,8 @@ const envFile = join(paths.run, 'compose.env');
 const manifestPath = join(here, 'manifest.json');
 const myBooksOutput = join(repo, 'doc', 'images', 'my-books.png');
 const myBooksDarkOutput = join(repo, 'doc', 'images', 'my-books-dark.png');
+const myBooksReadOutput = join(repo, 'doc', 'images', 'my-books-read.png');
+const myBooksReadDarkOutput = join(repo, 'doc', 'images', 'my-books-read-dark.png');
 const readingOutput = join(repo, 'doc', 'images', 'reading.png');
 const concordanceOutput = join(repo, 'doc', 'images', 'concordance.png');
 const studyOutput = join(repo, 'doc', 'images', 'sentence-study.png');
@@ -202,6 +205,8 @@ async function runWorkflow({ baseURL, password }) {
     MOUSEION_SCREENSHOT_MANIFEST: manifestPath,
     MOUSEION_SCREENSHOT_OUTPUT: join(paths.out, 'my-books.raw.png'),
     MOUSEION_SCREENSHOT_DARK_OUTPUT: join(paths.out, 'my-books-dark.raw.png'),
+    MOUSEION_SCREENSHOT_READ_OUTPUT: join(paths.out, 'my-books-read.raw.png'),
+    MOUSEION_SCREENSHOT_READ_DARK_OUTPUT: join(paths.out, 'my-books-read-dark.raw.png'),
     MOUSEION_SCREENSHOT_READING_OUTPUT: join(paths.out, 'reading.raw.png'),
     MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT: join(paths.out, 'concordance.raw.png'),
     MOUSEION_SCREENSHOT_STUDY_OUTPUT: join(paths.out, 'sentence-study.raw.png'),
@@ -259,6 +264,8 @@ async function screenshot() {
     await runWorkflow({ baseURL, password });
     await writeScreenshot('my-books.raw.png', myBooksOutput);
     await writeScreenshot('my-books-dark.raw.png', myBooksDarkOutput);
+    await writeScreenshot('my-books-read.raw.png', myBooksReadOutput);
+    await writeScreenshot('my-books-read-dark.raw.png', myBooksReadDarkOutput);
     await writeScreenshot('reading.raw.png', readingOutput);
     await writeScreenshot('concordance.raw.png', concordanceOutput);
     await writeScreenshot('sentence-study.raw.png', studyOutput);

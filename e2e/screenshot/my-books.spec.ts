@@ -1,16 +1,19 @@
 // Learner workflow for the documentation screenshots. It creates the first
-// account, adds the static catalog, waits for catalog sync and covers, moves the
-// scenario Books to To Read and waits for each analysis, seeds the Known
+// account, adds the static catalog, waits for catalog sync, adds each scenario
+// Book from the Catalog (Add, or I've read this for a text read outside
+// Mouseion) and waits for covers and each analysis, seeds the Known
 // vocabulary baseline by finishing a reading of every baseline Book (ADR 0092's
 // only source of Known vocabulary), starts the target Book, and then captures
-// the Reading view and My Books in light and dark schemes, then looks up the
+// the Reading view and the My Books To Read and Read tabs in light and dark schemes, then looks up the
 // configured lemma and captures the Concordance and one sentence Study. Every
 // input comes from the environment set by run.mjs, and every wait is bounded and
 // reports the Book or step that stalled.
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-type Journey = 'inbox' | 'to-read' | 'read' | 'current';
+// `previously-read` is a Book recorded with the Catalog's I've read this; it is
+// never downloaded or analyzed and lands in the Read tab.
+type Journey = 'to-read' | 'read' | 'current' | 'previously-read';
 
 interface ManifestBook {
   gutenberg: number;
@@ -38,6 +41,8 @@ const catalogName = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_NAME');
 const catalogURL = requiredEnv('MOUSEION_SCREENSHOT_CATALOG_URL');
 const myBooksOutputPath = requiredEnv('MOUSEION_SCREENSHOT_OUTPUT');
 const myBooksDarkOutputPath = requiredEnv('MOUSEION_SCREENSHOT_DARK_OUTPUT');
+const myBooksReadOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READ_OUTPUT');
+const myBooksReadDarkOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READ_DARK_OUTPUT');
 const readingOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READING_OUTPUT');
 const concordanceOutputPath = requiredEnv('MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT');
 const studyOutputPath = requiredEnv('MOUSEION_SCREENSHOT_STUDY_OUTPUT');
@@ -71,9 +76,9 @@ const MAX_SCREENSHOT_HEIGHT = 1600;
 const STUDY_CANDIDATE_LIMIT = 25;
 
 const WORKFLOW_LABEL: Record<Journey, string> = {
-  inbox: 'Inbox',
   'to-read': 'To Read',
   read: 'Read',
+  'previously-read': 'Read',
   current: 'Currently reading',
 };
 
@@ -131,10 +136,25 @@ async function syncCatalog(page: Page): Promise<void> {
   );
 }
 
+const TO_READ_TAB = '/library?disposition=to_read';
+const READ_TAB = '/library?history=read';
+
 function myBookItem(page: Page, book: ManifestBook) {
   return page.locator('li.library-book', {
     has: page.getByRole('heading', { name: book.title, exact: true }),
   });
+}
+
+// My Books has two tabs: To Read (which includes the Current reading) and Read.
+// Opens the tab that lists the Book, trying To Read first, and returns its row,
+// or null when neither tab lists it.
+async function openBookTab(page: Page, book: ManifestBook) {
+  for (const tab of [TO_READ_TAB, READ_TAB]) {
+    await page.goto(tab);
+    const item = myBookItem(page, book);
+    if ((await item.count()) > 0) return item;
+  }
+  return null;
 }
 
 function chooserItem(page: Page, book: ManifestBook) {
@@ -144,8 +164,8 @@ function chooserItem(page: Page, book: ManifestBook) {
 }
 
 async function bookStatus(page: Page, book: ManifestBook): Promise<'missing' | 'no-cover' | 'ready'> {
-  const item = myBookItem(page, book);
-  if ((await item.count()) === 0) return 'missing';
+  const item = await openBookTab(page, book);
+  if (!item) return 'missing';
   const cover = item.locator('img.book-cover-media__image');
   if ((await cover.count()) === 0) return 'no-cover';
   const loaded = await cover.first().evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0);
@@ -156,7 +176,6 @@ async function waitForScenarioBooks(page: Page): Promise<void> {
   const statuses = new Map<number, 'missing' | 'no-cover' | 'ready'>();
   await pollUntil(
     async () => {
-      await page.goto('/library');
       for (const book of manifest.books) {
         statuses.set(book.gutenberg, await bookStatus(page, book));
       }
@@ -172,22 +191,30 @@ async function waitForScenarioBooks(page: Page): Promise<void> {
   expect(unresolved, 'scenario books missing from My Books or without a loaded catalog cover').toEqual([]);
 }
 
-// The My Books membership badge names the workflow bucket (Inbox, To Read,
-// Currently reading, Read). Reading the page fresh keeps the check current.
+// The My Books membership badge names the workflow bucket (To Read, Currently
+// reading, Read). Reading the page fresh keeps the check current.
 async function workflowLabel(page: Page, book: ManifestBook): Promise<string> {
-  await page.goto('/library');
-  const item = myBookItem(page, book);
-  if ((await item.count()) === 0) return 'missing';
+  const item = await openBookTab(page, book);
+  if (!item) return 'missing';
   return (await item.locator('.library-book__membership').innerText()).replace(/\s+/g, ' ').trim();
 }
 
-async function moveToRead(page: Page, book: ManifestBook): Promise<void> {
-  await page.goto('/library');
-  await myBookItem(page, book).getByRole('button', { name: 'Move to To Read' }).click();
+// Adds a Book from the Catalog as a learner does: search the title and press Add
+// (downloads and analyzes the text) or I've read this (records a text read
+// outside Mouseion without downloading it).
+async function addFromCatalog(page: Page, book: ManifestBook): Promise<void> {
+  await page.goto(`/catalogs?language=de&q=${encodeURIComponent(book.title)}`);
+  const entry = page.locator('.catalog-entry', {
+    has: page.getByRole('heading', { name: book.title, exact: true }),
+  });
+  await expect(entry, `${book.title} is listed in the Catalog`).toHaveCount(1, { timeout: 30_000 });
+  const action = book.journey === 'previously-read' ? "I've read this" : 'Add';
+  await entry.getByRole('button', { name: action, exact: true }).click();
+  await expect(page, `${action} for ${book.title}`).toHaveURL(/\/catalogs\?.*message=/, { timeout: MOVE_TIMEOUT_MS });
   await pollUntil(
-    async () => (await workflowLabel(page, book)) === WORKFLOW_LABEL['to-read'],
+    async () => (await workflowLabel(page, book)) === WORKFLOW_LABEL[book.journey === 'previously-read' ? 'previously-read' : 'to-read'],
     MOVE_TIMEOUT_MS,
-    `${book.title} to move to To Read`,
+    `${book.title} to appear in My Books after ${action}`,
   );
 }
 
@@ -249,7 +276,7 @@ async function measureCoverage(page: Page, book: ManifestBook): Promise<number> 
 // baseline Book that the manifest keeps in To Read stays there. Its completion
 // history and the Known vocabulary it accepted are unchanged.
 async function readAgain(page: Page, book: ManifestBook): Promise<void> {
-  await page.goto('/library');
+  await page.goto(READ_TAB);
   const item = myBookItem(page, book);
   await item.locator('details.more-actions > summary').click();
   await item.getByRole('button', { name: 'Read again' }).click();
@@ -270,8 +297,9 @@ async function readAgain(page: Page, book: ManifestBook): Promise<void> {
 async function seedKnownVocabulary(page: Page, target: ManifestBook): Promise<void> {
   const finished: string[] = [];
 
-  // Every Book the scenario analyzes (everything but Inbox) except the target.
-  const baseline = manifest.books.filter(book => book.journey !== 'inbox' && book.title !== target.title);
+  // Every Book the scenario analyzes (everything but the I've read this Books)
+  // except the target.
+  const baseline = manifest.books.filter(book => book.journey !== 'previously-read' && book.title !== target.title);
   for (const book of baseline) {
     await startReading(page, book);
     await finishReading(page, book);
@@ -448,31 +476,37 @@ async function settleAndCapture(page: Page, outputPath: string, colorScheme: Col
   });
 }
 
-// Captures My Books in one color scheme after the same bucket checks, so the
-// dark variant is held to the same standard as the light capture.
-async function captureMyBooks(page: Page, colorScheme: ColorScheme, outputPath: string): Promise<void> {
+// Captures both My Books tabs in one color scheme after the same bucket checks,
+// so the dark variant is held to the same standard as the light capture. The
+// first path is the To Read tab (with the Current reading) and the second the
+// Read tab.
+async function captureMyBooks(page: Page, colorScheme: ColorScheme, toReadPath: string, readPath: string): Promise<void> {
   for (const book of manifest.books) {
     expect(await workflowLabel(page, book), `${book.title} workflow bucket in My Books`).toBe(WORKFLOW_LABEL[book.journey]);
   }
-  await page.goto('/library');
-  await settleAndCapture(page, outputPath, colorScheme);
+  await page.goto(TO_READ_TAB);
+  await settleAndCapture(page, toReadPath, colorScheme);
+  await page.goto(READ_TAB);
+  await settleAndCapture(page, readPath, colorScheme);
 }
 
 test('the scenario Books are analyzed, readings seed Known vocabulary, and Reading, My Books, Concordance, and Study are captured', async ({ page }) => {
   const [currentBook] = booksWithJourney('current');
   expect(booksWithJourney('read'), 'manifest has exactly one read Book').toHaveLength(1);
   expect(booksWithJourney('current'), 'manifest has exactly one current Book').toHaveLength(1);
-  expect(booksWithJourney('inbox').length, 'manifest keeps at least one Book in Inbox').toBeGreaterThan(0);
+  expect(booksWithJourney('previously-read').length, "manifest keeps at least one I've read this Book").toBeGreaterThan(0);
+  expect(booksWithJourney('to-read').length, 'manifest keeps at least one To Read Book').toBeGreaterThan(0);
 
   await createAccount(page);
   await addCatalog(page);
   await syncCatalog(page);
+
+  for (const book of manifest.books) {
+    await addFromCatalog(page, book);
+  }
   await waitForScenarioBooks(page);
 
-  const toRead = manifest.books.filter(book => book.journey !== 'inbox');
-  for (const book of toRead) {
-    await moveToRead(page, book);
-  }
+  const toRead = manifest.books.filter(book => book.journey !== 'previously-read');
   await waitForAnalyses(page, toRead);
 
   await seedKnownVocabulary(page, currentBook);
@@ -483,8 +517,8 @@ test('the scenario Books are analyzed, readings seed Known vocabulary, and Readi
   await page.goto('/reading');
   await settleAndCapture(page, readingOutputPath);
 
-  await captureMyBooks(page, 'light', myBooksOutputPath);
-  await captureMyBooks(page, 'dark', myBooksDarkOutputPath);
+  await captureMyBooks(page, 'light', myBooksOutputPath, myBooksReadOutputPath);
+  await captureMyBooks(page, 'dark', myBooksDarkOutputPath, myBooksReadDarkOutputPath);
 
   await lookUpLemma(page);
   await assertConcordanceCorpus(page);

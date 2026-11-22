@@ -219,7 +219,8 @@ SonarQube Cloud analysis and no decoration.
 ## Regenerating screenshots
 
 `make screenshot-my-books` regenerates the README screenshots in `doc/images/`:
-`my-books.png`, `my-books-dark.png`, `reading.png`, `concordance.png`, and
+`my-books.png` and `my-books-dark.png` (the To Read tab), `my-books-read.png`
+and `my-books-read-dark.png` (the Read tab), `reading.png`, `concordance.png`, and
 `sentence-study.png`. They come from a real run of Mouseion's analysis on pinned
 public-domain German novels from Project Gutenberg, on an isolated Compose stack
 (project `mouseion-screenshot`, web port bound to `127.0.0.1`). Nothing is
