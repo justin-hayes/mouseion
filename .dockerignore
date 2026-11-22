@@ -8,3 +8,6 @@ __pycache__
 .pytest_cache
 .ruff_cache
 nlp/src/mouseion_nlp.egg-info
+# Neither image copies these; compose bind-mounts dictionary/ at runtime.
+dictionary
+e2e
