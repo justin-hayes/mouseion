@@ -489,7 +489,64 @@ func (s *PostgresStore) ListAnalysisJobs(ctx context.Context, owner string) ([]d
 	for _, row := range rows {
 		out = append(out, analysisJobFromRow(row))
 	}
+	if err := s.reconcileAnalysisJobFinalization(ctx, owner, out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// reconcileAnalysisJobFinalization aligns the list with the detail page when
+// River has already settled a finalization attempt whose durable attempt row
+// still says queued or running. sqlc's schema does not include River's table, so
+// the few active finalize rows are reconciled here after the main query.
+func (s *PostgresStore) reconcileAnalysisJobFinalization(ctx context.Context, owner string, jobs []domain.AnalysisJob) error {
+	active := make([]int64, 0, len(jobs))
+	index := make(map[int64]int, len(jobs))
+	for i, job := range jobs {
+		if job.Stage == domain.BookPreparationStageFinalize && job.Lifecycle.Active() {
+			active = append(active, job.ID)
+			index[job.ID] = i
+		}
+	}
+	if len(active) == 0 {
+		return nil
+	}
+	rows, err := s.pool.Query(ctx, `SELECT aj.river_job_id, river.state::text
+FROM analysis_jobs aj
+JOIN analysis_runs run ON run.owner_id=aj.owner_id AND run.id=aj.analysis_run_id AND run.state='completed'
+JOIN LATERAL (
+    SELECT river_job_id FROM analysis_run_attempts
+    WHERE run_id=run.id
+    ORDER BY attempt_number DESC
+    LIMIT 1
+) attempt ON true
+JOIN river_job river ON river.id=attempt.river_job_id
+WHERE aj.owner_id=$1 AND aj.river_job_id=ANY($2)`, owner, active)
+	if err != nil {
+		return fmt.Errorf("reconcile analysis job finalization: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var state string
+		if err := rows.Scan(&id, &state); err != nil {
+			return fmt.Errorf("scan analysis job finalization: %w", err)
+		}
+		var lifecycle domain.JobLifecycleState
+		switch state {
+		case "discarded":
+			lifecycle = domain.JobLifecycleFailed
+		case "cancelled":
+			lifecycle = domain.JobLifecycleCancelled
+		default:
+			continue
+		}
+		jobs[index[id]].Lifecycle = lifecycle
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("list analysis job finalization: %w", err)
+	}
+	return nil
 }
 
 // SetCatalogueSyncStatus writes one owner-scoped connection status. A nil

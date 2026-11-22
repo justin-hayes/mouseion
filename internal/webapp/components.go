@@ -609,7 +609,7 @@ func catalogueSyncJobStatusAttributes(id int64, running bool) templ.Attributes {
 }
 
 func catalogueSyncStatusRunning(status cataloguesync.Status) bool {
-	return status.Lifecycle == domain.JobLifecycleQueued || status.Lifecycle == domain.JobLifecycleRunning
+	return status.Lifecycle.Active()
 }
 
 func maxOne(value int) int {

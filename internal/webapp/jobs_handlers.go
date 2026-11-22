@@ -207,8 +207,11 @@ func jobLifecycleViewFor(state domain.JobLifecycleState) jobLifecycleView {
 	}
 }
 
+// jobRunning reports whether the analysis detail page should poll and offer
+// Cancel. Finalization keeps today's action set: it is shown as Running but is
+// left to settle on its own.
 func jobRunning(status analysis.Status) bool {
-	return status.Lifecycle == domain.JobLifecycleQueued || status.Lifecycle == domain.JobLifecycleRunning
+	return status.Lifecycle.Active() && status.Stage != domain.BookPreparationStageFinalize
 }
 
 const analysisCompleteSummary = "Analysis complete. Open the exact result to review its insights."
@@ -240,7 +243,7 @@ func analysisStatusSummary(status analysis.Status) string {
 	return fmt.Sprintf("%d%% complete · attempt %d", status.Progress, attempt)
 }
 func jobRetryable(status analysis.Status) bool {
-	return status.Lifecycle == domain.JobLifecycleFailed || status.Lifecycle == domain.JobLifecycleCancelled
+	return status.Lifecycle.Retryable()
 }
 func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
 	ids := make([]string, 0, len(jobs))

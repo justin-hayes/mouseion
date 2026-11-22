@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// These names remain exported for callers outside the web app, but they are
-// aliases of the domain sentinels so errors.Is classifies them identically.
 func TestAnalysisJobFromRowMapsTheSharedLifecycleAndStage(t *testing.T) {
 	job := analysisJobFromRow(sqlcgen.ListAnalysisJobsRow{
 		RiverJobID:    7,
@@ -28,6 +26,8 @@ func TestAnalysisJobFromRowMapsTheSharedLifecycleAndStage(t *testing.T) {
 	assert.Equal(t, 42, job.Progress)
 }
 
+// These names remain exported for callers outside the web app, but they are
+// aliases of the domain sentinels so errors.Is classifies them identically.
 func TestDomainSentinelAliases(t *testing.T) {
 	cases := []struct {
 		name        string

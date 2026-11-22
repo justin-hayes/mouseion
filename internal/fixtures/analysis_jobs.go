@@ -69,7 +69,7 @@ func (Analysis) SubmitToReadBookAnalysis(context.Context, string, string, string
 
 func (a Analysis) Get(ctx context.Context, owner string, id int64) (analysis.Status, error) {
 	if state, ok := a.cancellableJobState(id); ok {
-		return analysis.Status{ID: id, DisplayNumber: 19, State: rivertype.JobState(state), Progress: 35, SourceMaterialID: SourceID, RunID: "fixture-cancellable-run", Lifecycle: domain.JobLifecycleState(state), Stage: domain.BookPreparationStageAnalysis}, nil
+		return analysis.Status{ID: id, DisplayNumber: 19, State: rivertype.JobState(state), Progress: 35, SourceMaterialID: SourceID, RunID: "fixture-cancellable-run", Lifecycle: domain.JobLifecycleForRiverState(state), Stage: domain.BookPreparationStageAnalysis}, nil
 	}
 	if id == 43 {
 		return analysis.Status{ID: 43, DisplayNumber: 2, State: rivertype.JobStateDiscarded, SourceMaterialID: "fixture-failed", Error: "The analyzer stopped after the normalized corpus could not be read.\nRetry the analysis when you are ready.", Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Progress: 42}, nil

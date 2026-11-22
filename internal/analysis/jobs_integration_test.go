@@ -915,6 +915,59 @@ func TestAnalysisStatusReportsDiscardedFinalizationAsFailed(t *testing.T) {
 	})
 }
 
+// The /jobs list reconciles a finalization attempt against River the same way
+// the detail page does, even when the durable attempt row has not caught up.
+func TestAnalysisJobListReconcilesFinalizationWithRiver(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "analysis-list-finalization", false)
+	require.NoError(t, err)
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	require.NoError(t, err)
+	service := NewService(pool, client)
+
+	cases := []struct {
+		name       string
+		riverState string
+		want       domain.JobLifecycleState
+	}{
+		{name: "discarded", riverState: string(rivertype.JobStateDiscarded), want: domain.JobLifecycleFailed},
+		{name: "cancelled", riverState: string(rivertype.JobStateCancelled), want: domain.JobLifecycleCancelled},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			source, err := putAnalysisSource(ctx, store, owner.ID, "list-finalization-"+test.name, "List finalization "+test.name, "Guten Tag.", "sha256:list-finalization-"+test.name)
+			require.NoError(t, err)
+			handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+			require.NoError(t, err)
+			_, err = pool.Exec(ctx, `UPDATE analysis_runs SET state='completed',completed_at=now() WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID)
+			require.NoError(t, err)
+			_, err = pool.Exec(ctx, `UPDATE analysis_run_attempts SET state='running',started_at=now() WHERE run_id=$1`, handle.RunID)
+			require.NoError(t, err)
+			_, err = pool.Exec(ctx, `UPDATE river_job SET state=$2,finalized_at=now() WHERE id=$1`, handle.JobID, test.riverState)
+			require.NoError(t, err)
+
+			jobs, err := store.ListAnalysisJobs(ctx, owner.ID)
+			require.NoError(t, err)
+			var found bool
+			for _, job := range jobs {
+				if job.ID != handle.JobID {
+					continue
+				}
+				found = true
+				assert.Equal(t, test.want, job.Lifecycle)
+				assert.Equal(t, domain.BookPreparationStageFinalize, job.Stage)
+			}
+			assert.True(t, found, "submitted analysis is missing from the list")
+		})
+	}
+}
+
 // A completed run whose finalization attempt is still queued or running reports
 // Running at the finalize stage until the attempt settles.
 func TestAnalysisStatusReportsCompletedRunAsFinalizing(t *testing.T) {

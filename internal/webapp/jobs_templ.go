@@ -503,7 +503,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 							}
 						}
 					}
-				} else if status.RunID == "" {
+				} else {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -1142,7 +1142,7 @@ func CatalogueSyncJobStatus(csrf string, status cataloguesync.Status) templ.Comp
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				if status.Lifecycle == domain.JobLifecycleFailed || status.Lifecycle == domain.JobLifecycleCancelled {
+				if status.Lifecycle.Retryable() {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<form method=\"post\" action=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err

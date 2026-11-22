@@ -115,7 +115,7 @@ func TestAnalysisFinalizationDetailOffersRetryAndRendersLifecycle(t *testing.T) 
 		require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, "", "").Render(context.Background(), &output))
 		html := output.String()
 		assert.Contains(t, html, "Running")
-		assert.Contains(t, html, "Cancel analysis")
+		assert.NotContains(t, html, "Cancel analysis", "finalization keeps today's actions and is left to settle")
 		assert.NotContains(t, html, "Retry analysis")
 	})
 }

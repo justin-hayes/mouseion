@@ -766,7 +766,7 @@ func (s *Service) Retry(ctx context.Context, owner string, id int64) (Handle, er
 	if err != nil {
 		return Handle{}, err
 	}
-	if status.Lifecycle != domain.JobLifecycleFailed && status.Lifecycle != domain.JobLifecycleCancelled {
+	if !status.Lifecycle.Retryable() {
 		return Handle{}, errors.New("catalogue sync job is not retryable")
 	}
 	return s.Enqueue(ctx, owner, status.ConnectionID)
@@ -777,7 +777,7 @@ func (s *Service) Cancel(ctx context.Context, owner string, id int64) (Status, e
 	if err != nil {
 		return Status{}, err
 	}
-	if status.Lifecycle != domain.JobLifecycleQueued && status.Lifecycle != domain.JobLifecycleRunning {
+	if !status.Lifecycle.Active() {
 		return status, nil
 	}
 	if _, err = s.client.JobCancel(ctx, id); err != nil {

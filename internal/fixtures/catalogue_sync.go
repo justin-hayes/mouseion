@@ -183,7 +183,7 @@ func (s *CatalogueSync) Cancel(ctx context.Context, owner string, id int64) (cat
 	if err != nil {
 		return cataloguesync.Status{}, err
 	}
-	if status.Lifecycle == domain.JobLifecycleRunning || status.Lifecycle == domain.JobLifecycleQueued {
+	if status.Lifecycle.Active() {
 		if err := s.Store.SetCatalogueSyncStatus(ctx, domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: status.ConnectionID, State: domain.CatalogueSyncFailed, LastError: "Catalog sync cancelled before completion. Retry when ready.", UpdatedAt: fixtureJourneyTime}); err != nil {
 			return cataloguesync.Status{}, err
 		}
