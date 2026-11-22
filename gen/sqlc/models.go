@@ -17,7 +17,6 @@ type AnalysisJob struct {
 	ContentHash      string
 	CorpusID         pgtype.UUID
 	Progress         int
-	Error            string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	DisplayNumber    int64
@@ -36,7 +35,6 @@ type AnalysisRun struct {
 	ConfigIdentity    string
 	State             string
 	AttemptCount      int
-	LastError         string
 	CorpusID          pgtype.UUID
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -54,7 +52,6 @@ type AnalysisRunAttempt struct {
 	AttemptNumber    int
 	RiverJobID       int64
 	State            string
-	Error            string
 	CreatedAt        time.Time
 	StartedAt        pgtype.Timestamptz
 	FinalizedAt      pgtype.Timestamptz
@@ -198,16 +195,6 @@ type CatalogueSyncStatus struct {
 	LastUpsertedCount int
 	LastError         string
 	UpdatedAt         time.Time
-}
-
-type ClassicalPreparationFailure struct {
-	OwnerID            string
-	BookID             string
-	ReadingUnitKey     string
-	DefinitionRevision int
-	Stage              string
-	Code               string
-	FailedAt           time.Time
 }
 
 type ClassicalPreparedDefinition struct {
@@ -634,16 +621,6 @@ type EnrichmentCache struct {
 	SentenceTranslationTargets []string
 	// Card kind this contextual result belongs to; part of the cache identity
 	ItemKind string
-}
-
-type EpubAcquisitionFailure struct {
-	OwnerID         string
-	BookID          string
-	ConnectionID    pgtype.UUID
-	EntryIdentifier pgtype.Text
-	Stage           string
-	Code            string
-	FailedAt        time.Time
 }
 
 type ExampleSentence struct {

@@ -78,19 +78,10 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 	require.Len(t, library, 1)
 	assert.Equal(t, domain.RunQueued, library[0].Signals.LatestRun, "alice library during analysis")
 	assert.Equal(t, int64(84001), library[0].AnalysisJobID, "alice library during analysis")
-	_, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET error = 'Analyzer stopped.' WHERE river_job_id = 84001`)
-	require.NoError(t, err)
-	library, err = store.ListSourceMaterials(ctx, alice.ID)
-	require.NoError(t, err)
-	require.Len(t, library, 1)
-	assert.Equal(t, domain.PublishedNone, library[0].Signals.Published, "alice library after job failure")
-	assert.Equal(t, domain.RunJobFailed, library[0].Signals.LatestRun, "alice library after job failure")
-	_, err = store.Pool().Exec(ctx, `UPDATE analysis_jobs SET error = '' WHERE river_job_id = 84001`)
-	require.NoError(t, err)
-	library, err = store.ListSourceMaterials(ctx, alice.ID)
-	require.NoError(t, err)
-	require.Len(t, library, 1)
-	assert.Equal(t, domain.RunQueued, library[0].Signals.LatestRun, "alice library restored to queued job")
+	// A run-less job can no longer carry failure text (cleanup migration
+	// 000060 dropped analysis_jobs.error): it stays queued evidence until a
+	// run exists, and failure reads the run, with the code carried on the
+	// run and attempt.
 	corpus, err := store.PutCorpus(ctx, alice.ID, source.ID, artifact.ContentHash)
 	require.NoError(t, err)
 	legacyCorpus, err := store.GetCorpus(ctx, alice.ID, corpus.ID)
