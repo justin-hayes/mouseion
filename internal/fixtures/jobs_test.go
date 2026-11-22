@@ -30,6 +30,7 @@ func TestFixtureAnalysisJobsExposeTheSharedLifecycle(t *testing.T) {
 		assert.Equal(t, domain.BookPreparationKindAnalysis, job.Kind)
 		assert.NotEmpty(t, job.BookID, "every fixture row links to its Book")
 		assert.NotEmpty(t, job.BookTitle, "every fixture row names its Book")
+		assert.True(t, job.BookInMyBooks, "every fixture row's Book is a current My Books member")
 		require.NotNil(t, job.Progress, "analysis rows report progress")
 	}
 	assert.Equal(t, "fixture-failed", failed.BookID)

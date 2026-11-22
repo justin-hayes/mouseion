@@ -16,34 +16,38 @@ import (
 
 // bookPreparationFixtureRows is one row of each Book preparation kind in the
 // states the /jobs page must tell apart: a failed Classical preparation with
-// the stage and code My Books explains, a running EPUB acquisition, and a
-// failed analysis with its code at the analysis stage.
+// the stage and code My Books explains, a running EPUB acquisition with no
+// stage or code yet, and a failed analysis with its code at the analysis
+// stage. Every row's Book is a current My Books member, so every row links.
 func bookPreparationFixtureRows() []domain.BookPreparationJob {
 	analysisProgress := 42
 	return []domain.BookPreparationJob{
 		{
-			Kind:      domain.BookPreparationKindClassical,
-			JobID:     11,
-			BookID:    "book-classical",
-			BookTitle: "Anabasis",
-			Lifecycle: domain.JobLifecycleFailed,
-			Stage:     domain.BookPreparationStageSource,
-			Code:      domain.BookPreparationCodeSourcePinMismatch,
-			CreatedAt: time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC),
+			Kind:          domain.BookPreparationKindClassical,
+			JobID:         11,
+			BookID:        "book-classical",
+			BookInMyBooks: true,
+			BookTitle:     "Anabasis",
+			Lifecycle:     domain.JobLifecycleFailed,
+			Stage:         domain.BookPreparationStageSource,
+			Code:          domain.BookPreparationCodeSourcePinMismatch,
+			CreatedAt:     time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC),
 		},
 		{
-			Kind:      domain.BookPreparationKindEPUBAcquisition,
-			JobID:     12,
-			BookID:    "book-epub",
-			BookTitle: "Der lange Weg nach Hause",
-			Lifecycle: domain.JobLifecycleRunning,
-			CreatedAt: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC),
+			Kind:          domain.BookPreparationKindEPUBAcquisition,
+			JobID:         12,
+			BookID:        "book-epub",
+			BookInMyBooks: true,
+			BookTitle:     "Der lange Weg nach Hause",
+			Lifecycle:     domain.JobLifecycleRunning,
+			CreatedAt:     time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC),
 		},
 		{
 			Kind:          domain.BookPreparationKindAnalysis,
 			JobID:         13,
 			DisplayNumber: 2,
 			BookID:        "book-epub",
+			BookInMyBooks: true,
 			BookTitle:     "Der lange Weg nach Hause",
 			Lifecycle:     domain.JobLifecycleFailed,
 			Stage:         domain.BookPreparationStageAnalysis,
@@ -52,6 +56,20 @@ func bookPreparationFixtureRows() []domain.BookPreparationJob {
 			CreatedAt:     time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC),
 		},
 	}
+}
+
+// preparationRow returns the one table row containing marker, failing the test
+// when no row contains it. Row-scoped assertions slice through this helper so
+// a missing marker can never panic on a negative index.
+func preparationRow(t *testing.T, html, marker string) string {
+	t.Helper()
+	markerAt := strings.Index(html, marker)
+	require.GreaterOrEqual(t, markerAt, 0, "no table row contains %q", marker)
+	rowStart := strings.LastIndex(html[:markerAt], "<tr>")
+	require.GreaterOrEqual(t, rowStart, 0, "the row containing %q has no opening tag", marker)
+	rowEnd := strings.Index(html[markerAt:], "</tr>")
+	require.GreaterOrEqual(t, rowEnd, 0, "the row containing %q is unterminated", marker)
+	return html[rowStart : markerAt+rowEnd+len("</tr>")]
 }
 
 // TestJobsPageShowsEveryPreparationKindInOneTableAndCatalogSyncApart is the
@@ -69,7 +87,7 @@ func TestJobsPageShowsEveryPreparationKindInOneTableAndCatalogSyncApart(t *testi
 	html := output.String()
 
 	assert.Contains(t, html, `<body class="jobs-shell">`)
-	assert.Contains(t, html, "<h2>Book preparations</h2>")
+	assert.Contains(t, html, `<h2>Book preparations</h2>`)
 	assert.Contains(t, html, `aria-label="Book preparations"`)
 	assert.NotContains(t, html, `aria-label="Analysis history"`, "the per-kind tables are gone")
 	assert.NotContains(t, html, `aria-label="Classical preparation history"`, "the per-kind tables are gone")
@@ -87,27 +105,29 @@ func TestJobsPageShowsEveryPreparationKindInOneTableAndCatalogSyncApart(t *testi
 	})
 
 	t.Run("a failed row shows the stage and code My Books explains", func(t *testing.T) {
-		classicalStart := strings.Index(html, "Anabasis")
-		require.GreaterOrEqual(t, classicalStart, 0)
-		row := html[classicalStart:]
+		row := preparationRow(t, html, "Anabasis")
 		assert.Contains(t, row, ">source<")
 		assert.Contains(t, row, "<code>source_pin_mismatch</code>")
+		assert.Contains(t, row, "Source doesn&#39;t match its reviewed definition", "the row adds the reason My Books explains for the Book")
 	})
 
 	t.Run("a failed analysis row shows its code at the analysis stage", func(t *testing.T) {
-		analysisStart := strings.Index(html, `Analysis #2`)
-		require.GreaterOrEqual(t, analysisStart, 0)
-		row := html[analysisStart:]
+		row := preparationRow(t, html, "Analysis #2")
 		assert.Contains(t, row, ">analysis<")
 		assert.Contains(t, row, "<code>dependency_parsing_unavailable</code>")
+		assert.Contains(t, row, "Analysis failed because dependency parsing is unavailable.")
 	})
 
 	t.Run("only analysis rows report progress", func(t *testing.T) {
 		assert.Contains(t, html, `aria-label="Analysis job 2 progress"`)
-		acquisitionStart := strings.Index(html, "EPUB acquisition")
-		require.GreaterOrEqual(t, acquisitionStart, 0)
-		acquisitionRow := html[acquisitionStart : strings.Index(html[acquisitionStart:], "Analysis #2")+acquisitionStart]
+		acquisitionRow := preparationRow(t, html, "EPUB acquisition")
 		assert.NotContains(t, acquisitionRow, "<progress", "an acquisition row reports no progress")
+	})
+
+	t.Run("a row without a stage or code yet renders one em dash each", func(t *testing.T) {
+		row := preparationRow(t, html, "EPUB acquisition")
+		assert.Contains(t, row, "—")
+		assert.NotContains(t, row, "<code", "no code exists to show")
 	})
 
 	t.Run("every row states its status with the shared badge", func(t *testing.T) {
@@ -124,7 +144,7 @@ func TestJobsPageShowsEveryPreparationKindInOneTableAndCatalogSyncApart(t *testi
 	})
 
 	t.Run("Catalog sync stays in its own table", func(t *testing.T) {
-		assert.Contains(t, html, "<h2>Catalog sync</h2>")
+		assert.Contains(t, html, `<h2>Catalog sync</h2>`)
 		assert.Contains(t, html, `aria-label="Catalog sync"`)
 		assert.Contains(t, html, `href="/jobs/31">Archive</a>`, "a sync row keeps its detail link")
 		assert.Contains(t, html, "The catalog could not be reached.")
@@ -143,6 +163,24 @@ func TestJobsPageRendersRowsInListOrder(t *testing.T) {
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", rows, nil, "", "").Render(context.Background(), &output))
 	html := output.String()
 	assert.Less(t, strings.Index(html, "Newest book"), strings.Index(html, "Older book"), "the page keeps the list's newest-first order")
+}
+
+// TestJobsPageRendersRowsWithoutCurrentMembershipWithoutLinks proves a row
+// whose Book left My Books keeps its history and its Book title but renders
+// no owner-scoped link, because the link's route only resolves for members.
+func TestJobsPageRendersRowsWithoutCurrentMembershipWithoutLinks(t *testing.T) {
+	var output bytes.Buffer
+	rows := []domain.BookPreparationJob{
+		{Kind: domain.BookPreparationKindClassical, JobID: 21, BookID: "book-removed", BookTitle: "Removed Book", Lifecycle: domain.JobLifecycleCompleted, CreatedAt: time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)},
+		{Kind: domain.BookPreparationKindAnalysis, JobID: 22, DisplayNumber: 3, BookTitle: "Unresolved Book", Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, CreatedAt: time.Date(2026, 11, 9, 13, 0, 0, 0, time.UTC)},
+	}
+	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", rows, nil, "", "").Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "Removed Book", "the row keeps its Book title")
+	assert.Contains(t, html, "Unresolved Book")
+	assert.NotContains(t, html, `href="/catalogs/books/`, "no row without current membership renders a link")
+	assert.NotContains(t, html, ">Removed Book</a>")
+	assert.Contains(t, html, `href="/jobs/22">Analysis #3</a>`, "the analysis row keeps its detail link")
 }
 
 // TestJobsPageShowsTheSharedEmptyState keeps one empty state for both tables.

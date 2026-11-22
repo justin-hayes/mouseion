@@ -2905,8 +2905,14 @@
   .table-region[aria-label="Book preparations"] table {
     min-width: 64rem;
   }
-  .table-region[aria-label="Book preparations"] :is(th:nth-child(1), td:nth-child(1), th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(5), td:nth-child(5), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7)) {
+  .table-region[aria-label="Book preparations"] :is(th:nth-child(1), td:nth-child(1), th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4), th:nth-child(6), td:nth-child(6), th:nth-child(7), td:nth-child(7)) {
     white-space: nowrap;
+  }
+  .table-region[aria-label="Book preparations"] :is(th:nth-child(5), td:nth-child(5) > code) {
+    white-space: nowrap;
+  }
+  .table-region[aria-label="Book preparations"] td:nth-child(5) .metadata {
+    margin: var(--mouseion-space-1) 0 0;
   }
   .async-status:has(> .operational-metadata) {
     display: grid;

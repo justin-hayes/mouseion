@@ -100,6 +100,103 @@ func TestCatalogueSyncStatusRunningUsesLifecycle(t *testing.T) {
 	assert.False(t, catalogueSyncStatusRunning(cataloguesync.Status{Lifecycle: domain.JobLifecycleCancelled}))
 }
 
+// TestBookPreparationFailureReasonReusesMyBooksReasons pins the learner
+// reason a failed row adds under its stable code to the wording My Books
+// already explains for the same failure, for every kind and stage.
+func TestBookPreparationFailureReasonReusesMyBooksReasons(t *testing.T) {
+	tests := []struct {
+		name string
+		job  domain.BookPreparationJob
+		want string
+	}{
+		{
+			name: "classical fetch failure",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed},
+			want: classicalAssessmentUnavailable,
+		},
+		{
+			name: "classical source refusal",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourcePinMismatch},
+			want: classicalSourceMismatchLabel,
+		},
+		{
+			name: "classical import failure",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageImport, Code: domain.BookPreparationCodeClassicalFailed},
+			want: classicalAnalysisFailedLabel,
+		},
+		{
+			name: "classical withdrawal",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageWithdrawn, Code: domain.BookPreparationCodeClassicalWithdrawn},
+			want: classicalWithdrawnLabel,
+		},
+		{
+			name: "classical catalog precondition",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageCatalog, Code: domain.BookPreparationCodeClassicalCatalogLegacyRows},
+			want: "Classical catalog unavailable",
+		},
+		{
+			name: "acquisition entry missing",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindEPUBAcquisition, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageEntry, Code: domain.BookPreparationCodeCatalogEntryMissing},
+			want: epubAcquisitionEntryMissingLabel,
+		},
+		{
+			name: "acquisition download failure",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindEPUBAcquisition, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed},
+			want: epubAcquisitionDownloadFailedLabel,
+		},
+		{
+			name: "acquisition oversize",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindEPUBAcquisition, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourceOversize},
+			want: epubAcquisitionOversizeLabel,
+		},
+		{
+			name: "acquisition unusable file",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindEPUBAcquisition, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourceFormatUnknown},
+			want: epubAcquisitionFormatLabel,
+		},
+		{
+			name: "acquisition import failure",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindEPUBAcquisition, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageImport, Code: domain.BookPreparationCodeEPUBImportFailed},
+			want: epubAcquisitionImportFailedLabel,
+		},
+		{
+			name: "analysis dependency parsing unavailable",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindAnalysis, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Code: domain.BookPreparationCodeDependencyParsingUnavailable},
+			want: "Analysis failed because dependency parsing is unavailable.",
+		},
+		{
+			name: "analysis interrupted",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindAnalysis, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageAnalysis, Code: domain.BookPreparationCodeAnalysisInterrupted},
+			want: "The analysis was interrupted.",
+		},
+		{
+			name: "generic analysis failure",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindAnalysis, Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageFinalize, Code: domain.BookPreparationCodeAnalysisFailed},
+			want: "Analysis failed.",
+		},
+		{
+			name: "a failed row with no stage adds no reason",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleFailed, Code: domain.BookPreparationCodeClassicalFailed},
+			want: "",
+		},
+		{
+			name: "a running row adds no reason",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindClassical, Lifecycle: domain.JobLifecycleRunning, Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourcePinMismatch},
+			want: "",
+		},
+		{
+			name: "a completed row adds no reason",
+			job:  domain.BookPreparationJob{Kind: domain.BookPreparationKindAnalysis, Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, Code: domain.BookPreparationCodeAnalysisFailed},
+			want: "",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, bookPreparationFailureReason(test.job))
+		})
+	}
+}
+
 func TestAnalysisFinalizationFailureCanBeRetried(t *testing.T) {
 	status := analysis.Status{Lifecycle: domain.JobLifecycleFailed, Stage: domain.BookPreparationStageFinalize}
 	if !jobRetryable(status) {

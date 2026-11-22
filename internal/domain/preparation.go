@@ -139,6 +139,10 @@ type BookPreparationJob struct {
 	DisplayNumber int64
 	BookID        string
 	BookTitle     string
+	// BookInMyBooks reports whether the Book is a current My Books member, so
+	// its owner-scoped My Books link resolves. A removed Book keeps its
+	// history row but renders without a link.
+	BookInMyBooks bool
 	Lifecycle     JobLifecycleState
 	Stage         BookPreparationStage
 	Code          BookPreparationCode

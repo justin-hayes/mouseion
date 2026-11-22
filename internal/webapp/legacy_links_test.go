@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReadingEntryURLForSourceRequiresCurrentOwnerScopedReadingEntry(t *testing.T) {
+func TestJobBookContextForSourceRequiresCurrentOwnerScopedReadingEntry(t *testing.T) {
 	h := &Handler{services: Services{Store: storeDependencies(fixtures.NewStore())}}
 	tests := []struct {
 		name     string

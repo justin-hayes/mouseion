@@ -9,10 +9,18 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// bookPreparationJobsLimit is the one window the merged /jobs Book preparations
+// table shows. Every source query reads at least this many rows (the River
+// preparation queries below and sqlc's ListAnalysisJobs both cap at 100), so
+// merging the sources and truncating once leaves one consistent window.
+const bookPreparationJobsLimit = 100
+
 // ListBookPreparationJobs returns the owner's Book preparation rows: the one
 // shape /jobs shows Classical preparation, EPUB acquisition and analysis jobs
 // in, newest first. An EPUB preparation contributes its acquisition row and
-// its analysis row; every row names and links to its Book.
+// its analysis row; every row names and links to its Book, and reports whether
+// that Book is still a My Books member, so the row's link resolves exactly
+// when My Books would open the Book.
 func (s *PostgresStore) ListBookPreparationJobs(ctx context.Context, owner string) ([]domain.BookPreparationJob, error) {
 	analysisJobs, err := s.ListAnalysisJobs(ctx, owner)
 	if err != nil {
@@ -44,8 +52,72 @@ func (s *PostgresStore) ListBookPreparationJobs(ctx context.Context, owner strin
 			CreatedAt:     job.CreatedAt,
 		})
 	}
-	sort.SliceStable(jobs, func(i, j int) bool { return jobs[i].CreatedAt.After(jobs[j].CreatedAt) })
+	if err := s.markMyBooksMembership(ctx, owner, jobs); err != nil {
+		return nil, err
+	}
+	sort.SliceStable(jobs, func(i, j int) bool { return bookPreparationJobBefore(jobs[i], jobs[j]) })
+	if len(jobs) > bookPreparationJobsLimit {
+		jobs = jobs[:bookPreparationJobsLimit]
+	}
 	return jobs, nil
+}
+
+// bookPreparationJobBefore orders two Book preparation rows: newest first,
+// then Kind, then the higher job id, so identical timestamps still produce one
+// deterministic order.
+func bookPreparationJobBefore(a, b domain.BookPreparationJob) bool {
+	if !a.CreatedAt.Equal(b.CreatedAt) {
+		return a.CreatedAt.After(b.CreatedAt)
+	}
+	if a.Kind != b.Kind {
+		return a.Kind < b.Kind
+	}
+	return a.JobID > b.JobID
+}
+
+// markMyBooksMembership populates BookInMyBooks on every row kind. The
+// predicate is the one GetBookDetail resolves a Book through — an active
+// membership row plus a disposition row — which is the same evidence
+// /catalogs/books/{id}/in-my-books trusts before it opens a Book, so a row's
+// flag is true exactly when that route would not report the Book missing.
+func (s *PostgresStore) markMyBooksMembership(ctx context.Context, owner string, jobs []domain.BookPreparationJob) error {
+	ids := make([]string, 0, len(jobs))
+	seen := make(map[string]bool, len(jobs))
+	for _, job := range jobs {
+		if job.BookID == "" || seen[job.BookID] {
+			continue
+		}
+		seen[job.BookID] = true
+		ids = append(ids, job.BookID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT b.id::text
+		FROM books b
+		JOIN book_membership m ON m.owner_id = b.owner_id AND m.book_id = b.id AND m.state = 'active'
+		JOIN book_dispositions d ON d.owner_id = b.owner_id AND d.book_id = b.id
+		WHERE b.owner_id = $1::uuid AND b.id::text = ANY($2::text[])`, owner, ids)
+	if err != nil {
+		return fmt.Errorf("read My Books membership: %w", err)
+	}
+	defer rows.Close()
+	member := make(map[string]bool, len(ids))
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("scan My Books membership: %w", err)
+		}
+		member[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read My Books membership: %w", err)
+	}
+	for i := range jobs {
+		jobs[i].BookInMyBooks = member[jobs[i].BookID]
+	}
+	return nil
 }
 
 // preparationJobRow is one River-sourced preparation row before the domain
@@ -100,21 +172,41 @@ func (s *PostgresStore) queryPreparationJobs(ctx context.Context, kind domain.Bo
 }
 
 // listClassicalPreparationJobs returns the owner's classical preparation rows,
-// newest first, including a failure whose revision has no River job at all.
-// The query is parameterized by the owner's uuid ($1).
+// newest first, with the failure evidence read the way My Books reads it:
+// within one definition revision the Book's latest job carries the recorded
+// stage and code when it settled discarded or cancelled; when that latest job
+// completed, or the revision has no job at all, the record stays visible as
+// its own synthetic failed row; while the latest job for the revision is
+// queued or running the failure is hidden, exactly as
+// populateClassicalPreparationPointers reads it. Older jobs for the revision
+// never repeat the failure. Book ids and revisions are compared as text, so
+// malformed job args can never abort the page. The query is parameterized by
+// the owner's uuid ($1).
 func (s *PostgresStore) listClassicalPreparationJobs(ctx context.Context, owner string) ([]domain.BookPreparationJob, error) {
 	return s.queryPreparationJobs(ctx, domain.BookPreparationKindClassical, "classical preparation jobs", `
 		WITH history AS (
 			SELECT job.id, book.id::text AS book_id, book.title, job.state::text AS state,
-			       CASE WHEN job.state IN ('discarded', 'cancelled') THEN COALESCE(failure.stage, '') ELSE '' END AS stage,
-			       CASE WHEN job.state IN ('discarded', 'cancelled') THEN COALESCE(failure.code, '') ELSE '' END AS code,
+			       CASE WHEN job.state IN ('discarded', 'cancelled') AND job.id = latest.id
+			            THEN COALESCE(failure.stage, '') ELSE '' END AS stage,
+			       CASE WHEN job.state IN ('discarded', 'cancelled') AND job.id = latest.id
+			            THEN COALESCE(failure.code, '') ELSE '' END AS code,
 			       job.created_at
 			FROM river_job job
-			JOIN books book ON book.owner_id = $1::uuid AND book.id = (job.args->>'book_id')::uuid
+			JOIN books book ON book.owner_id = $1::uuid AND book.id::text = job.args->>'book_id'
+			LEFT JOIN LATERAL (
+			    SELECT j.id
+			    FROM river_job j
+			    WHERE j.kind = 'classical_preparation'
+			      AND j.args->>'owner_id' = book.owner_id::text
+			      AND j.args->>'book_id' = book.id::text
+			      AND COALESCE(j.args->>'definition_revision', '0') = COALESCE(job.args->>'definition_revision', '0')
+			    ORDER BY j.id DESC
+			    LIMIT 1
+			) latest ON true
 			LEFT JOIN book_preparation_failures failure
 			       ON failure.owner_id = book.owner_id AND failure.book_id = book.id
 			      AND failure.reading_unit_key IS NOT NULL
-			      AND failure.definition_revision = COALESCE((job.args->>'definition_revision')::integer, 0)
+			      AND COALESCE(job.args->>'definition_revision', '0') = failure.definition_revision::text
 			WHERE job.kind = 'classical_preparation' AND job.args->>'owner_id' = $1::text
 		)
 		SELECT id, book_id, title, state, stage, code, created_at
@@ -123,33 +215,54 @@ func (s *PostgresStore) listClassicalPreparationJobs(ctx context.Context, owner 
 		SELECT 0, book.id::text, book.title, 'failed', failure.stage, failure.code, failure.failed_at
 		FROM book_preparation_failures failure
 		JOIN books book ON book.owner_id = failure.owner_id AND book.id = failure.book_id
+		LEFT JOIN LATERAL (
+		    SELECT j.state
+		    FROM river_job j
+		    WHERE j.kind = 'classical_preparation'
+		      AND j.args->>'owner_id' = book.owner_id::text
+		      AND j.args->>'book_id' = book.id::text
+		      AND COALESCE(j.args->>'definition_revision', '0') = failure.definition_revision::text
+		    ORDER BY j.id DESC
+		    LIMIT 1
+		) latest ON true
 		WHERE failure.owner_id = $1
 		  AND failure.reading_unit_key IS NOT NULL
-		  AND NOT EXISTS (
-		      SELECT 1 FROM river_job job
-		      WHERE job.kind = 'classical_preparation'
-		        AND job.args->>'owner_id' = $1::text
-		        AND job.args->>'book_id' = book.id::text
-		        AND COALESCE((job.args->>'definition_revision')::integer, 0) = failure.definition_revision
-		  )
+		  AND (latest.state IS NULL OR latest.state = 'completed')
 		ORDER BY created_at DESC, id DESC
 		LIMIT 100`, owner)
 }
 
 // listEPUBAcquisitionJobs returns the owner's EPUB acquisition rows, newest
-// first. A live job supersedes the Book's older failure record, exactly as My
-// Books reads it, and a failure recorded by the inline path, with no River job
-// at all, stays visible as its own failed row. The query is parameterized by
-// the owner's uuid ($1).
+// first, with the failure evidence read exactly the way My Books reads it: a
+// Book's failure record is visible exactly once, and only while no live job
+// supersedes it. The Book's latest acquisition job (the highest job id)
+// carries the recorded stage and code when it settled discarded or cancelled;
+// when that latest job completed, or the Book has no job at all, the record
+// stays visible as its own synthetic failed row; while the latest job is
+// queued or running the failure is hidden, exactly as
+// populateEPUBAcquisitionStatuses reads it. Older jobs never repeat the
+// failure. Book ids are compared as text, so malformed job args can never
+// abort the page. The query is parameterized by the owner's uuid ($1).
 func (s *PostgresStore) listEPUBAcquisitionJobs(ctx context.Context, owner string) ([]domain.BookPreparationJob, error) {
 	return s.queryPreparationJobs(ctx, domain.BookPreparationKindEPUBAcquisition, "EPUB acquisition jobs", `
 		WITH history AS (
 			SELECT job.id, book.id::text AS book_id, book.title, job.state::text AS state,
-			       CASE WHEN job.state IN ('discarded', 'cancelled') THEN COALESCE(failure.stage, '') ELSE '' END AS stage,
-			       CASE WHEN job.state IN ('discarded', 'cancelled') THEN COALESCE(failure.code, '') ELSE '' END AS code,
+			       CASE WHEN job.state IN ('discarded', 'cancelled') AND job.id = latest.id
+			            THEN COALESCE(failure.stage, '') ELSE '' END AS stage,
+			       CASE WHEN job.state IN ('discarded', 'cancelled') AND job.id = latest.id
+			            THEN COALESCE(failure.code, '') ELSE '' END AS code,
 			       job.created_at
 			FROM river_job job
-			JOIN books book ON book.owner_id = $1::uuid AND book.id = (job.args->>'book_id')::uuid
+			JOIN books book ON book.owner_id = $1::uuid AND book.id::text = job.args->>'book_id'
+			LEFT JOIN LATERAL (
+			    SELECT j.id
+			    FROM river_job j
+			    WHERE j.kind = 'epub_acquisition'
+			      AND j.args->>'owner_id' = book.owner_id::text
+			      AND j.args->>'book_id' = book.id::text
+			    ORDER BY j.id DESC
+			    LIMIT 1
+			) latest ON true
 			LEFT JOIN book_preparation_failures failure
 			       ON failure.owner_id = book.owner_id AND failure.book_id = book.id
 			      AND failure.reading_unit_key IS NULL
@@ -161,14 +274,18 @@ func (s *PostgresStore) listEPUBAcquisitionJobs(ctx context.Context, owner strin
 		SELECT 0, book.id::text, book.title, 'failed', failure.stage, failure.code, failure.failed_at
 		FROM book_preparation_failures failure
 		JOIN books book ON book.owner_id = failure.owner_id AND book.id = failure.book_id
+		LEFT JOIN LATERAL (
+		    SELECT j.state
+		    FROM river_job j
+		    WHERE j.kind = 'epub_acquisition'
+		      AND j.args->>'owner_id' = book.owner_id::text
+		      AND j.args->>'book_id' = book.id::text
+		    ORDER BY j.id DESC
+		    LIMIT 1
+		) latest ON true
 		WHERE failure.owner_id = $1
 		  AND failure.reading_unit_key IS NULL
-		  AND NOT EXISTS (
-		      SELECT 1 FROM river_job job
-		      WHERE job.kind = 'epub_acquisition'
-		        AND job.args->>'owner_id' = $1::text
-		        AND job.args->>'book_id' = book.id::text
-		  )
+		  AND (latest.state IS NULL OR latest.state = 'completed')
 		ORDER BY created_at DESC, id DESC
 		LIMIT 100`, owner)
 }
