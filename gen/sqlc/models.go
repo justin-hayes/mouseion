@@ -335,34 +335,6 @@ type CustomVocabularyDeckIdentity struct {
 	AddedAt        time.Time
 }
 
-type CustomVocabularyDeckPreparation struct {
-	ID                 string
-	OwnerID            string
-	CustomDeckID       string
-	SubmissionKey      string
-	Language           string
-	DeckName           string
-	Filename           string
-	State              string
-	FrozenSpec         []byte
-	Artifact           []byte
-	TotalCards         int
-	SelectedIdentities int
-	Error              string
-	CreatedAt          time.Time
-	StartedAt          pgtype.Timestamptz
-	CompletedAt        pgtype.Timestamptz
-	Omissions          []byte
-}
-
-type CustomVocabularyDeckPreparationIdentity struct {
-	OwnerID        string
-	PreparationID  string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
 type Deck struct {
 	ID        string
 	OwnerID   string

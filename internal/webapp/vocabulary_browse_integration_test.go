@@ -34,9 +34,11 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 	testutil.Cleanup(t, "store", store.Close)
 	owner := createAccount(t, ctx, store, "retired-vocabulary-owner", "owner-password")
 	createAccount(t, ctx, store, "retired-vocabulary-other", "other-password")
-	var deckID, preparationID string
+	var deckID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_decks(owner_id,language,name,creation_key) VALUES($1,'de','Archived custom deck','a2284277-041c-463c-a47b-6aa2060ec8fa') RETURNING id::text`, owner.ID).Scan(&deckID))
-	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO custom_vocabulary_deck_preparations(owner_id,custom_deck_id,submission_key,language,deck_name,filename,state,artifact,total_cards,selected_identities,completed_at) VALUES($1,$2,'05e62174-9e03-48a9-8fb6-b787a7e8209d','de','Archived custom deck','archived.apkg','ready','retained-apkg-bytes',1,1,now()) RETURNING id::text`, owner.ID, deckID).Scan(&preparationID))
+	// Preparation records no longer exist (issue #2514); a fixed made-up ID keeps
+	// the retired preparation routes under test without touching a dropped table.
+	const preparationID = "b3b0b6f2-6d0e-4b7a-9f4e-4a2f2c0c0e51"
 	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_selections(owner_id,language,canonical_lemma,upos) VALUES($1,'de','archived','NOUN')`, owner.ID)
 	require.NoError(t, err)
 
@@ -72,16 +74,11 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 			assert.Equal(t, http.StatusNotFound, otherAuthenticated.Code, "another authenticated owner cannot discover retained data")
 		})
 	}
-	var selectionCount, deckCount, preparationCount int
+	var selectionCount, deckCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_browse_selections WHERE owner_id=$1`, owner.ID).Scan(&selectionCount))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_decks WHERE owner_id=$1`, owner.ID).Scan(&deckCount))
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM custom_vocabulary_deck_preparations WHERE owner_id=$1`, owner.ID).Scan(&preparationCount))
 	assert.Equal(t, 1, selectionCount, "retirement does not run the separately scoped selection cleanup")
 	assert.Equal(t, 1, deckCount, "custom-deck records are retained")
-	assert.Equal(t, 1, preparationCount, "durable custom preparation records are retained")
-	var artifact []byte
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT artifact FROM custom_vocabulary_deck_preparations WHERE owner_id=$1 AND id=$2`, owner.ID, preparationID).Scan(&artifact))
-	assert.Equal(t, []byte("retained-apkg-bytes"), artifact, "archived APKG bytes remain stored")
 }
 
 func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.T) {
