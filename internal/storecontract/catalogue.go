@@ -1,6 +1,7 @@
 package storecontract
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -73,6 +74,97 @@ func catalogueScenarios() []Scenario {
 			assert.Empty(t, none.Entries)
 		},
 	}, {
+		Name: "catalogue Add creates a To Read Book with its catalog-entry alias",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry: domain.CatalogueIndexEntry{EntryIdentifier: "new-entry", Title: "New Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/new-entry.epub"},
+			}})
+
+			added, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "new-entry")
+			require.NoError(t, err)
+			assert.True(t, added.Created, "the unowned entry has no Book yet")
+			assert.True(t, added.Changed, "creating the Book changes the learner's choice")
+			require.NotEmpty(t, added.Book.ID)
+
+			detail, err := h.BookState().GetBookDetail(owner, added.Book.ID)
+			require.NoError(t, err)
+			assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
+			assert.Equal(t, "New Entry", detail.Book.Title)
+			assert.Equal(t, "Entry Author", detail.Book.Author)
+			assert.Equal(t, Language, detail.Book.LanguageTag)
+
+			page, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
+			require.NoError(t, err)
+			require.Len(t, page.Entries, 1)
+			assert.Equal(t, added.Book.ID, page.Entries[0].BookID, "Add links the Book through its catalog-entry alias")
+
+			languages, err := h.Classical().ListStudyLanguages(owner)
+			require.NoError(t, err)
+			assert.True(t, catalogueHasStudyLanguage(languages, Language), "adding the first Book in a language makes it a study language: %+v", languages)
+		},
+	}, {
+		Name: "catalogue Add restores the same Book after it leaves My Books",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+			bookID := h.Seeds().SeedBook(t, owner, BookSeed{ToRead: true, MetadataOnly: true})
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry:  domain.CatalogueIndexEntry{EntryIdentifier: "owned-entry", Title: "Owned Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/owned-entry.epub"},
+				BookID: bookID,
+			}})
+			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
+
+			added, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "owned-entry")
+			require.NoError(t, err)
+			assert.False(t, added.Created, "the alias still names the learner's Book")
+			assert.True(t, added.Changed, "restoring membership changes the learner's choice")
+			assert.Equal(t, bookID, added.Book.ID, "Add restores the same Book ID")
+
+			detail, err := h.BookState().GetBookDetail(owner, bookID)
+			require.NoError(t, err)
+			assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
+		},
+	}, {
+		Name: "catalogue Add replay creates no duplicate Book and changes nothing",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry: domain.CatalogueIndexEntry{EntryIdentifier: "replay-entry", Title: "Replay Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/replay-entry.epub"},
+			}})
+
+			first, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "replay-entry")
+			require.NoError(t, err)
+			require.True(t, first.Created)
+
+			again, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "replay-entry")
+			require.NoError(t, err)
+			assert.False(t, again.Created)
+			assert.False(t, again.Changed, "a replayed Add starts no preparation")
+			assert.Equal(t, first.Book.ID, again.Book.ID)
+
+			page, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
+			require.NoError(t, err)
+			assert.Equal(t, 1, page.Total, "Add never duplicates the entry's Book")
+			require.Len(t, page.Entries, 1)
+			assert.Equal(t, first.Book.ID, page.Entries[0].BookID)
+		},
+	}, {
+		Name: "catalogue Add refuses an entry missing from the index",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+
+			_, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "missing-entry")
+			require.ErrorIs(t, err, domain.ErrNotFound)
+
+			page, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
+			require.NoError(t, err)
+			assert.Zero(t, page.Total, "a refused Add creates no Book")
+		},
+	}, {
 		Name: "catalogue browse reports ownership only for an active Book",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
@@ -91,7 +183,7 @@ func catalogueScenarios() []Scenario {
 				ownership[entry.Index.EntryIdentifier] = entry.BookID
 			}
 			assert.Equal(t, bookID, ownership["owned"], "the linked Book is ownership")
-			assert.Empty(t, ownership["unowned"], "an entry without a Book offers Add in a later slice")
+			assert.Empty(t, ownership["unowned"], "an entry without a Book offers Add and reports no ownership")
 
 			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
 			removed, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
@@ -104,4 +196,15 @@ func catalogueScenarios() []Scenario {
 			assert.Empty(t, removedOwnership["owned"], "a removed Book contributes no ownership")
 		},
 	}}
+}
+
+// catalogueHasStudyLanguage reports whether the derived study-language set contains
+// language, ignoring case in the stored tag as the surfaces do.
+func catalogueHasStudyLanguage(languages []domain.StudyLanguage, language string) bool {
+	for _, candidate := range languages {
+		if strings.EqualFold(candidate.Language, language) {
+			return true
+		}
+	}
+	return false
 }

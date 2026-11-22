@@ -112,6 +112,12 @@ type CatalogsStore interface {
 	AddClassicalReadingUnits(context.Context, string, []string) (classical.AddReport, error)
 }
 
+// CatalogueAddStore creates or restores the Book for one indexed Catalog entry
+// as To Read, linked through its catalog-entry alias.
+type CatalogueAddStore interface {
+	AddCatalogueEntry(context.Context, string, string, string) (domain.CatalogueAddResult, error)
+}
+
 // JobsStore provides the analysis job list shown by the jobs surface.
 type JobsStore interface {
 	ListAnalysisJobs(context.Context, string) ([]domain.AnalysisJob, error)
@@ -122,12 +128,13 @@ type JobsStore interface {
 // application, one interface per learner surface. Production supplies one
 // persistence store to every field; overlapping method sets are intentional.
 type StoreDependencies struct {
-	Shell      ShellStore
-	MyBooks    MyBooksStore
-	Reading    ReadingStore
-	Vocabulary VocabularyStore
-	Catalogs   CatalogsStore
-	Jobs       JobsStore
+	Shell        ShellStore
+	MyBooks      MyBooksStore
+	Reading      ReadingStore
+	Vocabulary   VocabularyStore
+	Catalogs     CatalogsStore
+	CatalogueAdd CatalogueAddStore
+	Jobs         JobsStore
 }
 
 type csrfFailureContextKey struct{}
@@ -320,6 +327,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /catalogs/sources/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /catalogs/sources/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("POST /catalogs/sources/{id}/sync", h.user(http.HandlerFunc(h.syncConnection)))
+	h.mux.Handle("POST /catalogs/sources/{id}/add", h.user(http.HandlerFunc(h.addCatalogueEntry)))
 	h.mux.Handle("GET /catalogs/classical", h.user(http.HandlerFunc(h.classicalAuthorIndex)))
 	h.mux.Handle("GET /catalogs/classical/authors/{author}", h.user(http.HandlerFunc(h.classicalAuthor)))
 	h.mux.Handle("GET /catalogs/classical/works/{workKey}", h.user(http.HandlerFunc(h.classicalWork)))

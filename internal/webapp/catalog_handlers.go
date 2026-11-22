@@ -37,7 +37,114 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	h.loadCatalogAddConfirmation(r, u.ID, &browse)
 	render(w, r, CatalogPage(u, h.csrf(w, r), connections, r.URL.Query().Get("message"), r.URL.Query().Get("error"), statuses, browse))
+}
+
+// addCatalogueEntry is Add on one OPDS Catalog entry. It creates or restores the
+// Book as To Read, then routes it through the same reading-intent preparation
+// seam Move to To Read uses. It is an ordinary owner-scoped POST.
+func (h *Handler) addCatalogueEntry(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRFAnyLanguage(w, r) {
+		return
+	}
+	owner := user(r).ID
+	connectionID := r.PathValue("id")
+	entryIdentifier := strings.TrimSpace(r.PostFormValue("entry_identifier"))
+	added, err := h.services.Store.CatalogueAdd.AddCatalogueEntry(r.Context(), owner, connectionID, entryIdentifier)
+	if errors.Is(err, domain.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	message := catalogueAddMessage(added)
+	if added.Changed {
+		message += h.prepareAddedCatalogueBook(r.Context(), owner, added.Book)
+	}
+	query := url.Values{
+		"message":          {message},
+		"added_book":       {added.Book.ID},
+		"added_connection": {connectionID},
+		"added_entry":      {entryIdentifier},
+	}
+	redirect(w, r, "/catalogs?"+query.Encode())
+}
+
+// catalogueAddCouldNotStart is the recovery sentence for an Add whose
+// preparation never reached a job. The Add itself already succeeded.
+const catalogueAddCouldNotStart = " The Book is To Read, but analysis could not start. Retry analysis from Reading when ready."
+
+// prepareAddedCatalogueBook sends an added Book through reading intent and
+// states what that did. A submission failure never undoes the Add.
+func (h *Handler) prepareAddedCatalogueBook(ctx context.Context, owner string, book domain.Book) string {
+	intent, err := h.readingIntentModule()
+	if err != nil {
+		log.Printf("catalog add: reading intent unavailable: %v", err)
+		return catalogueAddCouldNotStart
+	}
+	outcome, err := intent.Retry(ctx, owner, book.ID)
+	if err != nil {
+		log.Printf("catalog add: prepare book %q: %v", book.ID, err)
+		return catalogueAddCouldNotStart
+	}
+	return catalogueAddPreparationMessage(ctx, h.services.Store.Catalogs, owner, book, outcome)
+}
+
+// catalogueAddMessage states the membership change and names the Book.
+func catalogueAddMessage(added domain.CatalogueAddResult) string {
+	title := strings.TrimSpace(added.Book.Title)
+	if title == "" {
+		title = "the text"
+	}
+	switch {
+	case added.Created:
+		return fmt.Sprintf("Added “%s” to My Books.", title)
+	case added.Changed:
+		return fmt.Sprintf("Restored “%s” to My Books.", title)
+	default:
+		return fmt.Sprintf("“%s” is already in My Books.", title)
+	}
+}
+
+// catalogueAddPreparationMessage maps the reading-intent outcome to what
+// happens to the text after Add. It never promises work that is already done or
+// that could not start, and a failed acquisition keeps the To Read choice.
+func catalogueAddPreparationMessage(ctx context.Context, catalog CatalogsStore, owner string, book domain.Book, outcome readingintent.Outcome) string {
+	switch outcome.Kind {
+	case readingintent.OutcomeJobQueued:
+		return " Downloading and analyzing the text."
+	case readingintent.OutcomeAlreadyCurrent, readingintent.OutcomeCurrentBookRefused:
+		return " The text is already analyzed."
+	case readingintent.OutcomeAcquisitionFailed:
+		return " " + strings.TrimSuffix(readingAcquisitionError(ctx, catalog, owner, book.ID, book.Title, outcome.Target, outcome.Err), ".") + ". The Book stays To Read; retry acquisition from My Books when ready."
+	case readingintent.OutcomeNoUsableEPUBUnits:
+		return " The current source has no usable EPUB units. The Book stays To Read."
+	case readingintent.OutcomeCouldNotStart:
+		return catalogueAddCouldNotStart
+	default:
+		return ""
+	}
+}
+
+// loadCatalogAddConfirmation renders the Add link only for the Book whose
+// catalog-entry alias the Add named, so the page never carries an arbitrary
+// link target. Focus follows the confirmation after the POST redirect.
+func (h *Handler) loadCatalogAddConfirmation(r *http.Request, owner string, browse *catalogBrowseView) {
+	bookID := strings.TrimSpace(r.URL.Query().Get("added_book"))
+	connectionID := strings.TrimSpace(r.URL.Query().Get("added_connection"))
+	entryIdentifier := strings.TrimSpace(r.URL.Query().Get("added_entry"))
+	if bookID == "" || connectionID == "" || entryIdentifier == "" {
+		return
+	}
+	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(r.Context(), owner, bookID)
+	if err != nil || alias.Namespace != domain.NamespaceSourceIdentifier || alias.AliasType != domain.AliasCatalogEntry || alias.ConnectionID != connectionID || alias.Value != entryIdentifier {
+		return
+	}
+	browse.AddedBookID = bookID
+	browse.FocusAddedBook = true
 }
 
 // catalogClassicalView loads ownership and the legacy-row precondition for the

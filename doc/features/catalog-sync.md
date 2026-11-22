@@ -74,11 +74,19 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   and case. A trailing number narrows a Classical match to that constituent
   Book. Search and browsing never contact the OPDS server.
 - An entry linked to one of the learner's active Books shows **In My Books**
-  linked to that Book and no disposition, analysis or preparation state. Add is
-  a later slice.
+  linked to that Book and no disposition, analysis or preparation state. An
+  unowned entry offers **Add** as its only action.
+- **Add** creates the Book linked by its catalog-entry alias, or restores the
+  learner's existing Book for that alias, as To Read. It then runs the same
+  reading-intent preparation seam Move to To Read uses: acquisition and analysis
+  start once, and repeating Add changes nothing. The Add copy says the text is
+  downloaded and analyzed, the route is an ordinary owner-scoped POST, and the
+  confirmation names the Book and links to My Books. Adding the first Book in a
+  language makes it a study language.
 - Distinct empty states cover no OPDS sources, no match, nothing in this
   language, and nothing to browse yet. One live region announces result
-  updates; search, filter, paging and ownership links work without JavaScript.
+  updates; search, filter, paging, ownership links and Add work without
+  JavaScript.
 
 ### Language scope
 
@@ -137,6 +145,10 @@ shipped independent retrieval of optional catalog-supplied display metadata.
   acquisition link stored in the Catalog index; it never walks the connection's
   language feeds. The My Books row remains the place to refresh metadata or
   remove the Book.
+- Add on a Catalog entry expresses the same intent: it creates or restores the
+  Book as To Read and then uses the same acquisition-and-analysis route. The
+  Add request itself acquires the EPUB, as Move to To Read does today; a failure
+  leaves the Book To Read with its recorded reason and Retry on My Books.
 - When the Book's catalog entry is no longer in the index, acquisition fails
   with stage `entry` and code `catalog_entry_missing`; the Book stays To Read
   and My Books shows the reason with Retry. A later sync that restores the

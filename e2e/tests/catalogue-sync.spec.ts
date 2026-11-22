@@ -51,7 +51,9 @@ test.describe('catalog sources and browsing', () => {
     await expect(fixture).toContainText('Mara Weiss');
     await expect(fixture).toContainText('Page 1 of 2');
     await expect(fixture.getByRole('link', { name: 'Next' })).toHaveAttribute('href', /language=de.*page_fixture-connection=2/);
-    await expect(fixture.getByRole('link', { name: 'Add', exact: true })).toHaveCount(0);
+    const addEntry = fixture.locator('.catalog-entry', { hasText: 'Ein kurzer Sommer' });
+    await expect(addEntry.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+    await expect(addEntry).toContainText('Adding downloads and analyzes the text.');
     await expect(page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first()).toBeVisible();
 
     // The Classical source keeps its own page, and connection management stays
@@ -59,6 +61,33 @@ test.describe('catalog sources and browsing', () => {
     await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Classical catalog', exact: true })).toHaveAttribute('href', '/catalogs/classical');
     await expect(page.locator('#catalog-source-classical')).toHaveCount(0);
     await expect(page.locator('#catalog-connection-form')).toHaveCount(0);
+  });
+
+  test('Add on an OPDS entry restores a To Read Book and focuses its confirmation', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/catalogs?language=de');
+
+    const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
+    await expect(entry).toContainText('Adding downloads and analyzes the text.');
+    await entry.getByRole('button', { name: 'Add', exact: true }).click();
+
+    await expect(page).toHaveURL(/\/catalogs\?.*message=/);
+    const confirmation = page.locator('#catalog-add-confirmation');
+    await expect(confirmation).toBeFocused();
+    await expect(confirmation).toContainText('Restored “Ein kurzer Sommer” to My Books.');
+    await expect(confirmation).toContainText('Downloading and analyzing the text.');
+
+    // The same entry now shows ownership and no second Add.
+    const owned = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
+    await expect(owned.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+    await expect(owned.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+
+    // The confirmation names and reaches the Book in My Books.
+    const view = confirmation.getByRole('link', { name: 'View in My Books', exact: true });
+    await expect(view).toBeVisible();
+    await view.click();
+    await expect(page).toHaveURL(/\/library/);
+    await expect(page.getByRole('heading', { name: 'Ein kurzer Sommer', exact: true })).toBeVisible();
   });
 
   test('one search covers the Classical catalog and OPDS without contacting a server', async ({ page }) => {
@@ -109,10 +138,16 @@ test.describe('catalog sources and browsing', () => {
       await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Page 2 of 2');
       await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Über die Berge');
 
-      // Ownership links are ordinary links.
+      // Ownership links and Add forms are ordinary server-rendered controls.
       await page.goto('/catalogs?language=de');
       const owned = page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first();
       await expect(owned).toHaveAttribute('href', /\/catalogs\/books\/[^/]+\/in-my-books$/);
+
+      const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Gedichte aus dem Norden' });
+      await entry.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(page).toHaveURL(/\/catalogs\?.*message=/);
+      await expect(page.locator('#catalog-add-confirmation')).toContainText('Restored “Gedichte aus dem Norden” to My Books.');
+      await expect(page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Gedichte aus dem Norden' }).getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
     } finally {
       await context.close();
     }

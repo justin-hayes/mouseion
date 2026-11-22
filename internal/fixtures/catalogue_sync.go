@@ -128,6 +128,12 @@ func (s *CatalogueSync) entryForAlias(ctx context.Context, owner string, alias d
 	if _, err := s.Store.GetOpdsConnection(ctx, owner, alias.ConnectionID); err != nil {
 		return opds.Entry{}, cataloguesync.ErrConnectionNotFound
 	}
+	s.Store.mu.Lock()
+	indexed, ok := fixtureCatalogueEntryLocked(s.Store.catalogueEntries[alias.ConnectionID], alias.Value)
+	s.Store.mu.Unlock()
+	if ok {
+		return opds.Entry{ID: indexed.EntryIdentifier, Title: indexed.Title, Author: indexed.Author}, nil
+	}
 	entry, ok := fixtureCatalogueEntries[alias.ConnectionID]
 	if !ok || entry.ID != alias.Value {
 		return opds.Entry{}, cataloguesync.ErrNotFound

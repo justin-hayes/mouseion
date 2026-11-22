@@ -28,6 +28,8 @@ const (
 	JourneyPrepID          = "fixture-journey-preparation"
 	OutsidePrepID          = "fixture-outside-journey-preparation"
 	BrowserSyncBookID      = "fixture-browser-sync-book"
+	catalogueRestoreBookID = "fixture-catalogue-restore"
+	catalogueRestoreSecond = "fixture-catalogue-restore-second"
 	LegacyGeneratedLemma   = "fixture-legacy-generated"
 	GraduatedKnownLemma    = "fixture-graduated-known"
 	IndependentKnownLemma  = "fixture-independent-known"
@@ -64,6 +66,7 @@ type Store struct {
 	// ID. It mirrors upstream metadata only; ownership stays in aliases and
 	// Book membership.
 	catalogueEntries       map[string][]domain.CatalogueIndexEntry
+	catalogueBookCount     int
 	aliases                []domain.BookAlias
 	preps                  []domain.DeckPreparation
 	deckVocabulary         []domain.DeckPreparationVocabulary
@@ -169,6 +172,8 @@ func NewStore() *Store {
 			{ID: "fixture-metadata-only-alias", OwnerID: OwnerID, BookID: "fixture-metadata-only", ConnectionID: "fixture-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-entry"},
 			{ID: "fixture-browser-sync-alias", OwnerID: OwnerID, BookID: BrowserSyncBookID, ConnectionID: "fixture-browser-sync-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-browser-sync-entry"},
 			{ID: "fixture-catalog-owned-alias", OwnerID: OwnerID, BookID: BookID, ConnectionID: "fixture-browser-sync-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-browser-second"},
+			{ID: "fixture-catalogue-restore-alias", OwnerID: OwnerID, BookID: catalogueRestoreBookID, ConnectionID: "fixture-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-sommer"},
+			{ID: "fixture-catalogue-restore-second-alias", OwnerID: OwnerID, BookID: catalogueRestoreSecond, ConnectionID: "fixture-connection", AliasType: domain.AliasCatalogEntry, Namespace: domain.NamespaceSourceIdentifier, Value: "fixture-gedicht"},
 		},
 		syncStatuses: []domain.CatalogueSyncStatus{
 			{OwnerID: OwnerID, ConnectionID: "fixture-connection", State: domain.CatalogueSyncSynced, LastSyncedAt: &lastSyncedAt, LastUpsertedCount: 3, UpdatedAt: fixtureJourneyTime},
@@ -194,6 +199,15 @@ func NewStore() *Store {
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}, {
 			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+		}, {
+			// These acquired German Books have left My Books, so the Catalog
+			// offers Add for their entries and browser acceptance can exercise
+			// the restore path without a fixture acquisition transition.
+			Book:     domain.Book{ID: catalogueRestoreBookID, OwnerID: OwnerID, Title: "Ein kurzer Sommer", Author: "Bernd Alt", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "fixture-catalogue-restore-source", OwnerID: OwnerID, Language: "de", Title: "Ein kurzer Sommer", MediaType: "application/epub+zip", ContentRevisionID: "fixture-catalogue-restore-revision", ContentSnapshotID: "fixture-catalogue-restore-snapshot"}, BookID: catalogueRestoreBookID, BookTitle: "Ein kurzer Sommer", BookAuthor: "Bernd Alt", Signals: analyzedSignals, AnalysisRunID: "fixture-catalogue-restore-run", CorpusID: "fixture-catalogue-restore-corpus"},
+		}, {
+			Book:     domain.Book{ID: catalogueRestoreSecond, OwnerID: OwnerID, Title: "Gedichte aus dem Norden", Author: "Klara Frost", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "fixture-catalogue-restore-second-source", OwnerID: OwnerID, Language: "de", Title: "Gedichte aus dem Norden", MediaType: "application/epub+zip", ContentRevisionID: "fixture-catalogue-restore-second-revision", ContentSnapshotID: "fixture-catalogue-restore-second-snapshot"}, BookID: catalogueRestoreSecond, BookTitle: "Gedichte aus dem Norden", BookAuthor: "Klara Frost", Signals: analyzedSignals, AnalysisRunID: "fixture-catalogue-restore-second-run", CorpusID: "fixture-catalogue-restore-second-corpus"},
 		}, {
 			Book:            domain.Book{ID: "fixture-read-history", OwnerID: OwnerID, Title: "Previously finished fixture", Author: "Elise Sommer", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 			CompletionCount: 1, LatestCompletionAt: new(fixtureJourneyTime.AddDate(0, 0, -12)), LatestCompletionSource: domain.ReadingCompletionPreviouslyRead,
@@ -259,6 +273,9 @@ func NewStore() *Store {
 	// My Books collection or the Reading chooser; browser acceptance reveals it
 	// with Show hidden books.
 	store.visibility[fixtureDispositionKey(OwnerID, "fixture-acquisition-failed")] = fixtureVisibility{hidden: true}
+	// Their entries stay browsable and offer Add.
+	store.removedBooks[fixtureDispositionKey(OwnerID, catalogueRestoreBookID)] = struct{}{}
+	store.removedBooks[fixtureDispositionKey(OwnerID, catalogueRestoreSecond)] = struct{}{}
 	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
 		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},
 		Reason:     "The analyzer lemma is a local-index miss and sentence evidence supports a competing recurring lemma.",

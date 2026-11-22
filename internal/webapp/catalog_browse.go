@@ -101,6 +101,11 @@ type catalogBrowseView struct {
 	EmptyActionURL   string
 	ClearSearchURL   string
 	ShowAllURL       string
+	// AddedBookID is the Book an immediate Add named, after its alias was
+	// verified owner-scoped. FocusAddedBook moves focus to that confirmation
+	// after the ordinary POST redirect.
+	AddedBookID    string
+	FocusAddedBook bool
 }
 
 // loadCatalogBrowse applies one query and language filter to the Classical
