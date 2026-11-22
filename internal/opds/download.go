@@ -2,17 +2,14 @@ package opds
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/download"
 )
 
 const (
@@ -40,7 +37,7 @@ type CatalogDownload struct {
 // arrives. EPUB bodies use a no-progress timeout and an overall ceiling
 // instead of the HTTP client's feed timeout, so a slow catalog does not fail a
 // large download. The temporary file is removed when the download fails.
-func (c *Client) DownloadToFile(ctx context.Context, downloadURL, dir string) (download CatalogDownload, err error) {
+func (c *Client) DownloadToFile(ctx context.Context, downloadURL, dir string) (CatalogDownload, error) {
 	scoped, err := c.withOrigin(downloadURL)
 	if err != nil {
 		return CatalogDownload{}, fmt.Errorf("opds: download EPUB: %w", err)
@@ -49,78 +46,56 @@ func (c *Client) DownloadToFile(ctx context.Context, downloadURL, dir string) (d
 		return scoped.DownloadToFile(ctx, downloadURL, dir)
 	}
 
-	downloadCtx, cancelDownload := context.WithTimeout(ctx, c.downloadTimeout)
-	defer cancelDownload()
-	downloadCtx, cancelStalled := context.WithCancel(downloadCtx)
-	defer cancelStalled()
-
-	client := c.httpClient()
-	// The shared client's timeout is the feed timeout. A Catalog file gets its
-	// own bounds from the context and the no-progress watchdog instead.
-	client.Timeout = 0
-	resp, err := c.do(downloadCtx, downloadURL, client)
+	request, err := scoped.newRequest(ctx, downloadURL)
 	if err != nil {
 		return CatalogDownload{}, fmt.Errorf("opds: download EPUB: %w", err)
 	}
-	defer func() { err = errors.Join(err, resp.Body.Close()) }()
-	if err := catalogResponseError(resp); err != nil {
-		return CatalogDownload{}, err
-	}
+	client := scoped.httpClient()
+	// The shared client's timeout is the feed timeout. A Catalog file gets its
+	// own bounds from the download helper instead.
+	client.Timeout = 0
 
-	file, err := os.CreateTemp(dir, "mouseion-epub-")
+	staged, err := download.Fetch(ctx, client, request, download.Options{
+		Dir:           dir,
+		Limit:         scoped.downloadLimit,
+		IdleTimeout:   scoped.idleTimeout,
+		Timeout:       scoped.downloadTimeout,
+		CheckResponse: catalogResponseError,
+	})
 	if err != nil {
-		return CatalogDownload{}, fmt.Errorf("opds: download EPUB: create temporary file: %w", err)
+		return CatalogDownload{}, scoped.catalogDownloadError(err)
 	}
-	path := file.Name()
-	committed := false
-	defer func() {
-		if committed {
-			return
-		}
-		if closeErr := file.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("opds: close temporary EPUB: %w", closeErr))
-		}
-		if removeErr := os.Remove(path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
-			err = errors.Join(err, fmt.Errorf("opds: remove temporary EPUB: %w", removeErr))
-		}
-	}()
-
-	hasher := sha256.New()
-	written, err := c.streamCatalogFile(downloadCtx, io.MultiWriter(file, hasher), resp.Body, cancelStalled)
-	if err != nil {
-		return CatalogDownload{}, err
-	}
-	if err := file.Close(); err != nil {
-		return CatalogDownload{}, fmt.Errorf("opds: download EPUB: write temporary file: %w", err)
-	}
-	committed = true
-	var sum [sha256.Size]byte
-	copy(sum[:], hasher.Sum(nil))
-	return CatalogDownload{Path: path, Size: written, Digest: domain.EPUBContentDigestFromHash(sum)}, nil
+	return CatalogDownload{
+		Path:   staged.Path,
+		Size:   staged.Size,
+		Digest: domain.EPUBContentDigestFromHash(staged.Digest),
+	}, nil
 }
 
-// streamCatalogFile copies the Catalog file body while enforcing the download
-// limit and the no-progress timeout. cancelStalled aborts the request context,
-// which unblocks a stalled read.
-func (c *Client) streamCatalogFile(ctx context.Context, dst io.Writer, body io.Reader, cancelStalled context.CancelFunc) (int64, error) {
-	var stalled atomic.Bool
-	idle := c.idleTimeout
-	tracked := newIdleTimeoutReader(body, idle, func() {
-		stalled.Store(true)
-		cancelStalled()
-	})
-	written, err := io.Copy(dst, io.LimitReader(tracked, c.downloadLimit+1))
-	switch {
-	case err != nil && stalled.Load():
-		return written, fmt.Errorf("opds: download EPUB: no progress for %s: %w", idle, err)
-	case err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded):
-		return written, fmt.Errorf("opds: download EPUB: exceeded %s: %w", c.downloadTimeout, err)
-	case err != nil:
-		return written, fmt.Errorf("opds: download EPUB: read EPUB: %w", err)
-	case written > c.downloadLimit:
-		return written, ErrDownloadTooLarge
+// catalogDownloadError maps the shared helper's failure kinds onto the errors
+// Catalog callers and acquisition-failure classification already match. It
+// formats from the helper's cause so the message keeps the Catalog vocabulary.
+func (c *Client) catalogDownloadError(err error) error {
+	if errors.Is(err, download.ErrTooLarge) {
+		return ErrDownloadTooLarge
 	}
-	return written, nil
+	var failure *download.Error
+	if !errors.As(err, &failure) {
+		// CheckResponse errors already carry the Catalog prefix.
+		return err
+	}
+	switch {
+	case errors.Is(failure.Kind, download.ErrStalled):
+		return fmt.Errorf("opds: download EPUB: no progress for %s: %w", c.idleTimeout, failure.Cause)
+	case errors.Is(failure.Kind, download.ErrDeadline):
+		return fmt.Errorf("opds: download EPUB: exceeded %s: %w", c.downloadTimeout, failure.Cause)
+	case errors.Is(failure.Kind, download.ErrRead):
+		return fmt.Errorf("opds: download EPUB: read EPUB: %w", failure.Cause)
+	case errors.Is(failure.Kind, download.ErrRequest):
+		return fmt.Errorf("opds: download EPUB: %w", failure.Cause)
+	default:
+		return err
+	}
 }
 
 func catalogResponseError(resp *http.Response) error {
@@ -132,24 +107,4 @@ func catalogResponseError(resp *http.Response) error {
 		return fmt.Errorf("opds: download EPUB: incompatible media type %q: %w", mediaType, ErrIncompatibleMediaType)
 	}
 	return nil
-}
-
-// idleTimeoutReader fails a blocked body read after idle without progress.
-// The callback is expected to cancel the request context, which unblocks the
-// read; Read stops the timer whenever it returns.
-type idleTimeoutReader struct {
-	reader  io.Reader
-	timer   *time.Timer
-	timeout time.Duration
-}
-
-func newIdleTimeoutReader(reader io.Reader, idle time.Duration, onTimeout func()) *idleTimeoutReader {
-	return &idleTimeoutReader{reader: reader, timeout: idle, timer: time.AfterFunc(idle, onTimeout)}
-}
-
-func (r *idleTimeoutReader) Read(p []byte) (int, error) {
-	r.timer.Reset(r.timeout)
-	n, err := r.reader.Read(p)
-	r.timer.Stop()
-	return n, err
 }

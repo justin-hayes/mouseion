@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
@@ -96,7 +95,7 @@ func (w *ClassicalTranslationWorker) Work(ctx context.Context, job *river.Job[Cl
 		logClassicalTranslation("complete", args, 0)
 		return nil
 	}
-	data, err := w.download(ctx, args)
+	data, err := w.Config.fetchPinnedSource(ctx, args.Layer, args.FileName, args.Size, args.SHA256, classicalTranslationTimeout)
 	if err != nil {
 		return err
 	}
@@ -117,44 +116,6 @@ func (w *ClassicalTranslationWorker) Work(ctx context.Context, job *river.Job[Cl
 	}
 	logClassicalTranslation("imported", args, written)
 	return nil
-}
-
-// download fetches the pinned translation into the acquisition temp directory.
-// The read is bounded by the reviewed size plus one, so a hostile response
-// cannot exhaust memory, and the temporary file is always removed.
-func (w *ClassicalTranslationWorker) download(ctx context.Context, args ClassicalTranslationArgs) ([]byte, error) {
-	layer, ok := w.Config.Layers.Layer(args.Layer)
-	if !ok {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}
-	}
-	if args.Size > maxClassicalSourceBytes {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
-	}
-	sourceURL, err := classicalSourceURL(layer.BaseURL, args.FileName)
-	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}
-	}
-	client := w.Config.HTTPClient
-	if client == nil {
-		client = &http.Client{Timeout: classicalTranslationTimeout}
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
-	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
-	}
-	response, err := client.Do(request)
-	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
-	}
-	defer func() {
-		if closeErr := response.Body.Close(); closeErr != nil {
-			log.Printf("mouseion: close reference translation response: %v", closeErr)
-		}
-	}()
-	if response.StatusCode != http.StatusOK {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
-	}
-	return stagePinnedSource(response.Body, args.Size, args.SHA256, w.Config.TempDir)
 }
 
 // AddClassicalTranslationWorker registers the translation import worker on a

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 )
 
 type testingT interface {
@@ -37,4 +38,15 @@ func JSON(t testingT, w io.Writer, value any) {
 	if err := json.NewEncoder(w).Encode(value); err != nil {
 		t.Fatalf("write test response: %v", err)
 	}
+}
+
+// Flush sends a chunked test response before the handler returns, so a client
+// can observe progress (or a stall) while the handler is still running.
+func Flush(t testingT, w http.ResponseWriter) {
+	t.Helper()
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		t.Fatalf("response writer does not support flushing")
+	}
+	flusher.Flush()
 }
