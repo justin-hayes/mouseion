@@ -217,21 +217,24 @@ func (h *Handler) renderMyBooksFailure(w http.ResponseWriter, r *http.Request, u
 	renderStatus(w, r, http.StatusInternalServerError, MyBooksFailurePage(u, h.csrf(w, r), myBooksLoadFailureMessage, retryURL))
 }
 
+const previouslyReadIneligibleRefusal = "Only an unstarted To Read Book can be marked previously read."
+
 func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
-	if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, domain.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
-		fail(w, err)
-		return
-	}
-	if _, err := h.services.Store.MyBooks.ImportPreviouslyRead(r.Context(), owner, bookID); err != nil {
+	if err := h.services.Store.MyBooks.MarkBookPreviouslyRead(r.Context(), owner, bookID); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			http.NotFound(w, r)
+			return
+		}
+		if errors.Is(err, domain.ErrBookIsCurrentReading) {
+			redirectMyBooksBrowse(w, r, "/library?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+			return
+		}
+		if errors.Is(err, domain.ErrPreviouslyReadIneligible) {
+			redirectMyBooksBrowse(w, r, "/library?error="+url.QueryEscape(previouslyReadIneligibleRefusal))
 			return
 		}
 		fail(w, err)

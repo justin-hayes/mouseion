@@ -106,6 +106,11 @@ type catalogBrowseView struct {
 	// after the ordinary POST redirect.
 	AddedBookID    string
 	FocusAddedBook bool
+	// ReadBookID is the Book an immediate Previously read assertion named,
+	// after its alias was verified owner-scoped. FocusReadBook moves focus to
+	// that confirmation after the ordinary POST redirect.
+	ReadBookID    string
+	FocusReadBook bool
 }
 
 // loadCatalogBrowse applies one query and language filter to the Classical

@@ -231,6 +231,9 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Previously read book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	cookies, csrf := loginCookies(t, h, "previously-read-alice", "alice-password")
+	inboxPage := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	assert.NotContains(t, inboxPage.Body.String(), "Mark as previously read", "an Inbox Book does not offer the assertion")
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionToRead))
 	initialPage := perform(t, h, http.MethodGet, "/library", nil, cookies)
 	assert.Contains(t, initialPage.Body.String(), "Mark as previously read")
 
@@ -250,11 +253,12 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, retry.Code)
 	assert.Contains(t, retry.Header().Get("Location"), "history=read")
 
-	inboxPage := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
+	inboxPage = perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusOK, inboxPage.Code)
 	assert.NotContains(t, inboxPage.Body.String(), "Previously read book")
 	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
 	assert.Contains(t, readPage.Body.String(), "Previously read book")
+	assert.NotContains(t, readPage.Body.String(), "Mark as previously read", "a Read Book does not offer the assertion")
 	assert.Contains(t, readPage.Body.String(), "Read before Mouseion")
 	assert.Contains(t, readPage.Body.String(), "1 completion")
 	assert.Contains(t, readPage.Body.String(), "Read again")
@@ -273,7 +277,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 
 	detail, err := store.GetBookDetail(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "visible Read must not rewrite the Inbox disposition")
+	assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "marking a To Read Book previously read clears its To Read disposition")
 	reread := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/read-again", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
 	}, cookies)

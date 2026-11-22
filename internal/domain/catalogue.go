@@ -58,6 +58,15 @@ type CatalogueAddResult struct {
 	Changed bool
 }
 
+// CatalogueReadResult reports the Book a Previously read assertion created or
+// restored. Changed is false when the Book was already read, so a replayed
+// assertion writes nothing.
+type CatalogueReadResult struct {
+	Book    Book
+	Created bool
+	Changed bool
+}
+
 // CataloguePage is one source's matching entries and the total before paging.
 type CataloguePage struct {
 	Entries []CatalogueEntry

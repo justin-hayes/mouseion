@@ -107,14 +107,7 @@ func catalogueScenarios() []Scenario {
 	}, {
 		Name: "catalogue Add restores the same Book after it leaves My Books",
 		Run: func(t *testing.T, h Harness) {
-			owner := h.Seeds().Owner()
-			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
-			bookID := h.Seeds().SeedBook(t, owner, BookSeed{ToRead: true, MetadataOnly: true})
-			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
-				Entry:  domain.CatalogueIndexEntry{EntryIdentifier: "owned-entry", Title: "Owned Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/owned-entry.epub"},
-				BookID: bookID,
-			}})
-			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
+			owner, connectionID, bookID := seedRemovedCatalogueBook(t, h, "owned-entry", "Owned Entry")
 
 			added, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "owned-entry")
 			require.NoError(t, err)
@@ -154,15 +147,126 @@ func catalogueScenarios() []Scenario {
 	}, {
 		Name: "catalogue Add refuses an entry missing from the index",
 		Run: func(t *testing.T, h Harness) {
+			requireMissingCatalogueEntryRefused(t, h, func(owner, connectionID string) error {
+				_, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "missing-entry")
+				return err
+			})
+		},
+	}, {
+		Name: "catalogue I've read this creates a Read Book with a Previously read record",
+		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry: domain.CatalogueIndexEntry{EntryIdentifier: "read-entry", Title: "Read Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/read-entry.epub"},
+			}})
+			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
+			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
+			before, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			require.NotEmpty(t, before)
 
-			_, err := h.Catalogue().AddCatalogueEntry(owner, connectionID, "missing-entry")
-			require.ErrorIs(t, err, domain.ErrNotFound)
+			read, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "read-entry")
+			require.NoError(t, err)
+			assert.True(t, read.Created, "the unowned entry has no Book yet")
+			assert.True(t, read.Changed, "recording the Book changes the learner's history")
+			require.NotEmpty(t, read.Book.ID)
+
+			detail, err := h.BookState().GetBookDetail(owner, read.Book.ID)
+			require.NoError(t, err)
+			assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "a Read Book is not To Read")
+			assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
+			assert.Equal(t, 1, detail.CompletionCount)
+			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
+			assert.False(t, detail.EverCurrentReading, "the assertion never starts a reading")
+			assert.Equal(t, "Read Entry", detail.Book.Title)
+			assert.Equal(t, Language, detail.Book.LanguageTag)
 
 			page, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
 			require.NoError(t, err)
-			assert.Zero(t, page.Total, "a refused Add creates no Book")
+			require.Len(t, page.Entries, 1)
+			assert.Equal(t, read.Book.ID, page.Entries[0].BookID, "the Book is linked through its catalog-entry alias")
+
+			after, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, before, after, "I've read this changes no Known vocabulary")
+		},
+	}, {
+		Name: "catalogue I've read this restores the same Book after it leaves My Books",
+		Run: func(t *testing.T, h Harness) {
+			owner, connectionID, bookID := seedRemovedCatalogueBook(t, h, "removed-read-entry", "Removed Read Entry")
+			_, err := h.BookState().GetBookDetail(owner, bookID)
+			require.ErrorIs(t, err, domain.ErrNotFound)
+			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
+			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
+			before, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			require.NotEmpty(t, before)
+
+			read, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "removed-read-entry")
+			require.NoError(t, err)
+			assert.False(t, read.Created, "the alias still names the learner's Book")
+			assert.True(t, read.Changed, "restoring membership changes the learner's state")
+			assert.Equal(t, bookID, read.Book.ID, "I've read this restores the same Book ID")
+
+			detail, err := h.BookState().GetBookDetail(owner, bookID)
+			require.NoError(t, err)
+			assert.Equal(t, domain.BookDispositionInbox, detail.Disposition)
+			assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
+			assert.Equal(t, 1, detail.CompletionCount)
+			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
+			after, err := h.Store().ListKnownVocabulary(owner, Language)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, before, after, "restoring as Read changes no Known vocabulary")
+		},
+	}, {
+		Name: "catalogue I've read this replay keeps one Book and one Previously read record",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry: domain.CatalogueIndexEntry{EntryIdentifier: "read-replay", Title: "Read Replay", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/read-replay.epub"},
+			}})
+
+			first, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "read-replay")
+			require.NoError(t, err)
+			require.True(t, first.Created)
+
+			again, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "read-replay")
+			require.NoError(t, err)
+			assert.False(t, again.Created)
+			assert.False(t, again.Changed, "a replayed assertion writes nothing")
+			assert.Equal(t, first.Book.ID, again.Book.ID)
+
+			detail, err := h.BookState().GetBookDetail(owner, first.Book.ID)
+			require.NoError(t, err)
+			assert.Equal(t, 1, detail.CompletionCount, "a replay adds no second history row")
+		},
+	}, {
+		Name: "catalogue I've read this refuses the current reading",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID, _ := startReading(t, h, defaultVocabulary)
+			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+				Entry:  domain.CatalogueIndexEntry{EntryIdentifier: "current-reading-entry", Title: "Current Reading Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/current-reading-entry.epub"},
+				BookID: bookID,
+			}})
+
+			_, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "current-reading-entry")
+			require.ErrorIs(t, err, domain.ErrBookIsCurrentReading)
+			current, err := h.Store().GetCurrentReading(owner, Language)
+			require.NoError(t, err)
+			assert.Equal(t, bookID, current.BookID, "the refused assertion leaves the reading current")
+			assert.Zero(t, requireDetail(t, h, owner, bookID).CompletionCount, "the refused assertion records no history")
+		},
+	}, {
+		Name: "catalogue I've read this refuses an entry missing from the index",
+		Run: func(t *testing.T, h Harness) {
+			requireMissingCatalogueEntryRefused(t, h, func(owner, connectionID string) error {
+				_, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "missing-read-entry")
+				return err
+			})
 		},
 	}, {
 		Name: "catalogue browse reports ownership only for an active Book",
@@ -196,6 +300,36 @@ func catalogueScenarios() []Scenario {
 			assert.Empty(t, removedOwnership["owned"], "a removed Book contributes no ownership")
 		},
 	}}
+}
+
+// seedRemovedCatalogueBook seeds one unowned index entry whose Book has left My
+// Books, so Add and I've read this can both prove they restore the same Book.
+func seedRemovedCatalogueBook(t *testing.T, h Harness, entryIdentifier, title string) (string, string, string) {
+	t.Helper()
+	owner := h.Seeds().Owner()
+	connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+	bookID := h.Seeds().SeedBook(t, owner, BookSeed{ToRead: true, MetadataOnly: true})
+	h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
+		Entry: domain.CatalogueIndexEntry{
+			EntryIdentifier: entryIdentifier, Title: title, Author: "Entry Author",
+			LanguageTag: Language, EPUBHref: "https://catalog.example/" + entryIdentifier + ".epub",
+		},
+		BookID: bookID,
+	}})
+	require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
+	return owner, connectionID, bookID
+}
+
+// requireMissingCatalogueEntryRefused asserts that a Catalog action refuses an
+// entry absent from the local index and creates no Book.
+func requireMissingCatalogueEntryRefused(t *testing.T, h Harness, mark func(owner, connectionID string) error) {
+	t.Helper()
+	owner := h.Seeds().Owner()
+	connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Contract catalog")
+	require.ErrorIs(t, mark(owner, connectionID), domain.ErrNotFound)
+	page, err := h.Catalogue().BrowseCatalogueEntries(owner, connectionID, domain.CatalogueQuery{})
+	require.NoError(t, err)
+	assert.Zero(t, page.Total, "a refused action creates no Book")
 }
 
 // catalogueHasStudyLanguage reports whether the derived study-language set contains

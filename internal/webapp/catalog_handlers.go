@@ -38,6 +38,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.loadCatalogAddConfirmation(r, u.ID, &browse)
+	h.loadCatalogReadConfirmation(r, u.ID, &browse)
 	render(w, r, CatalogPage(u, h.csrf(w, r), connections, r.URL.Query().Get("message"), r.URL.Query().Get("error"), statuses, browse))
 }
 
@@ -71,6 +72,58 @@ func (h *Handler) addCatalogueEntry(w http.ResponseWriter, r *http.Request) {
 		"added_entry":      {entryIdentifier},
 	}
 	redirect(w, r, "/catalogs?"+query.Encode())
+}
+
+// markCatalogueEntryPreviouslyRead is "I've read this" on one OPDS Catalog
+// entry. It creates or restores the Book as Read with a Previously read record;
+// it acquires nothing, starts no job and changes no vocabulary.
+func (h *Handler) markCatalogueEntryPreviouslyRead(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRFAnyLanguage(w, r) {
+		return
+	}
+	owner := user(r).ID
+	connectionID := r.PathValue("id")
+	entryIdentifier := strings.TrimSpace(r.PostFormValue("entry_identifier"))
+	read, err := h.services.Store.CatalogueRead.MarkCatalogueEntryPreviouslyRead(r.Context(), owner, connectionID, entryIdentifier)
+	if errors.Is(err, domain.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if errors.Is(err, domain.ErrBookIsCurrentReading) {
+		redirect(w, r, "/catalogs?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	query := url.Values{
+		"message":         {catalogueReadMessage(read)},
+		"read_book":       {read.Book.ID},
+		"read_connection": {connectionID},
+		"read_entry":      {entryIdentifier},
+	}
+	redirect(w, r, "/catalogs?"+query.Encode())
+}
+
+// catalogueReadCurrentReadingRefusal is the recovery sentence for a direct
+// assertion on the Book the learner is currently reading.
+const catalogueReadCurrentReadingRefusal = "End this Book's current reading before marking it previously read."
+
+// catalogueReadMessage states the history change and names the Book.
+func catalogueReadMessage(read domain.CatalogueReadResult) string {
+	title := strings.TrimSpace(read.Book.Title)
+	if title == "" {
+		title = "the text"
+	}
+	switch {
+	case read.Created:
+		return fmt.Sprintf("Recorded “%s” as previously read.", title)
+	case read.Changed:
+		return fmt.Sprintf("Marked “%s” as previously read.", title)
+	default:
+		return fmt.Sprintf("“%s” is already in Read.", title)
+	}
 }
 
 // catalogueAddCouldNotStart is the recovery sentence for an Add whose
@@ -133,18 +186,42 @@ func catalogueAddPreparationMessage(ctx context.Context, catalog CatalogsStore, 
 // catalog-entry alias the Add named, so the page never carries an arbitrary
 // link target. Focus follows the confirmation after the POST redirect.
 func (h *Handler) loadCatalogAddConfirmation(r *http.Request, owner string, browse *catalogBrowseView) {
-	bookID := strings.TrimSpace(r.URL.Query().Get("added_book"))
-	connectionID := strings.TrimSpace(r.URL.Query().Get("added_connection"))
-	entryIdentifier := strings.TrimSpace(r.URL.Query().Get("added_entry"))
-	if bookID == "" || connectionID == "" || entryIdentifier == "" {
-		return
-	}
-	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(r.Context(), owner, bookID)
-	if err != nil || alias.Namespace != domain.NamespaceSourceIdentifier || alias.AliasType != domain.AliasCatalogEntry || alias.ConnectionID != connectionID || alias.Value != entryIdentifier {
+	bookID := h.catalogConfirmationIdentity(r, "added_book", "added_connection", "added_entry", owner)
+	if bookID == "" {
 		return
 	}
 	browse.AddedBookID = bookID
 	browse.FocusAddedBook = true
+}
+
+// catalogConfirmationIdentity returns the Book a Catalog action named only when
+// its owner-scoped catalog-entry alias still matches the posted connection and
+// entry, so a page query never carries an arbitrary link target.
+func (h *Handler) catalogConfirmationIdentity(r *http.Request, bookKey, connectionKey, entryKey, owner string) string {
+	bookID := strings.TrimSpace(r.URL.Query().Get(bookKey))
+	connectionID := strings.TrimSpace(r.URL.Query().Get(connectionKey))
+	entryIdentifier := strings.TrimSpace(r.URL.Query().Get(entryKey))
+	if bookID == "" || connectionID == "" || entryIdentifier == "" {
+		return ""
+	}
+	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(r.Context(), owner, bookID)
+	if err != nil || alias.Namespace != domain.NamespaceSourceIdentifier || alias.AliasType != domain.AliasCatalogEntry || alias.ConnectionID != connectionID || alias.Value != entryIdentifier {
+		return ""
+	}
+	return bookID
+}
+
+// loadCatalogReadConfirmation renders the Read link only for the Book whose
+// catalog-entry alias the assertion named, so the page never carries an
+// arbitrary link target. Focus follows the confirmation after the POST
+// redirect.
+func (h *Handler) loadCatalogReadConfirmation(r *http.Request, owner string, browse *catalogBrowseView) {
+	bookID := h.catalogConfirmationIdentity(r, "read_book", "read_connection", "read_entry", owner)
+	if bookID == "" {
+		return
+	}
+	browse.ReadBookID = bookID
+	browse.FocusReadBook = true
 }
 
 // catalogClassicalView loads ownership and the legacy-row precondition for the
@@ -337,6 +414,45 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 	h.completeClassicalAdd(w, r, target, report, work.Key)
 }
 
+// markClassicalUnitPreviouslyRead records one current Reading unit as read
+// outside Mouseion. It creates or restores the Book as Read with a Previously
+// read record and queues no preparation.
+func (h *Handler) markClassicalUnitPreviouslyRead(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRFAnyLanguage(w, r) {
+		return
+	}
+	key := r.PathValue("unitKey")
+	work, _, ok := h.services.Classical.Unit(key)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	target := classicalWorkURL(work.Key)
+	if r.PostFormValue("return") == classicalAddReturnIndex {
+		target = classicalCatalogURL()
+	}
+	read, err := h.services.Store.CatalogueRead.MarkClassicalReadingUnitPreviouslyRead(r.Context(), user(r).ID, key)
+	if errors.Is(err, domain.ErrBookIsCurrentReading) {
+		redirect(w, r, target+"?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+		return
+	}
+	if errors.Is(err, classical.ErrLegacyRows) {
+		log.Printf("mouseion: classical catalog previously read refused code=%s", classical.LegacyRowsCode)
+		redirect(w, r, target+"?error="+url.QueryEscape(classical.LegacyRowsReason))
+		return
+	}
+	if err != nil {
+		log.Printf("classical catalog previously read: %v", err)
+		redirect(w, r, target+"?error="+url.QueryEscape("This text could not be recorded as read. Refresh the catalog and try again."))
+		return
+	}
+	query := url.Values{
+		"message":   {catalogueReadMessage(read)},
+		"read_book": {read.Book.ID},
+	}
+	redirect(w, r, target+"?"+query.Encode())
+}
+
 // completeClassicalAdd submits the preparation the Add expresses, then returns
 // to the catalog with one confirmation. Both Add routes end here.
 func (h *Handler) completeClassicalAdd(w http.ResponseWriter, r *http.Request, target string, report classical.AddReport, workKey string) {
@@ -418,11 +534,16 @@ const (
 type classicalAddConfirmation struct {
 	Message string
 	WorkKey string
+	BookID  string
 }
 
-// InMyBooksURL returns the existing "In My Books" path for the added Books. It
-// is empty when the Add named no work because Ancient Greek was already active.
+// InMyBooksURL returns the existing "In My Books" path for the added or
+// recorded Books. A read assertion names its Book directly; an Add names the
+// Work only while another study language is active.
 func (c classicalAddConfirmation) InMyBooksURL() string {
+	if c.BookID != "" {
+		return classicalBookInMyBooksURL(c.BookID)
+	}
 	if c.WorkKey == "" {
 		return ""
 	}
@@ -488,6 +609,12 @@ func (h *Handler) loadClassicalAddConfirmation(r *http.Request) classicalAddConf
 		return classicalAddConfirmation{}
 	}
 	confirmation := classicalAddConfirmation{Message: message}
+	if bookID := r.URL.Query().Get("read_book"); bookID != "" {
+		if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), user(r).ID, bookID); err == nil {
+			confirmation.BookID = bookID
+		}
+		return confirmation
+	}
 	workKey := r.URL.Query().Get("added_work")
 	if workKey == "" || !classicalAddNamesOtherLanguage(activeLanguageOf(r)) {
 		return confirmation

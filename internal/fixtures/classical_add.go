@@ -97,6 +97,14 @@ func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition cl
 		s.restoreFixtureToReadLocked(owner, bookID)
 		return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID}
 	}
+	book := s.newFixtureClassicalBookLocked(owner, definition)
+	s.restoreFixtureToReadLocked(owner, book.ID)
+	return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: book.ID, Created: true}
+}
+
+// newFixtureClassicalBookLocked creates the metadata-only Book linked to one
+// current Reading unit. Callers set the disposition and any preparation state.
+func (s *Store) newFixtureClassicalBookLocked(owner string, definition classical.Definition) domain.Book {
 	bookID := fixtureClassicalBookID(owner, definition.Key)
 	book := domain.Book{
 		ID:                 bookID,
@@ -133,8 +141,7 @@ func (s *Store) addFixtureClassicalReadingUnitLocked(owner string, definition cl
 		Cover:       fixtureCover(bookID),
 		ReadingUnit: unit,
 	})
-	s.restoreFixtureToReadLocked(owner, bookID)
-	return classical.AddedBook{ReadingUnitKey: definition.Key, BookID: bookID, Created: true}
+	return book
 }
 
 // restoreFixtureToReadLocked sets the Add's reading intent, advancing the

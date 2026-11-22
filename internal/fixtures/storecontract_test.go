@@ -220,6 +220,10 @@ func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.Rea
 	return h.store.ImportPreviouslyRead(context.Background(), owner, bookID)
 }
 
+func (h *contractHarness) MarkBookPreviouslyRead(owner, bookID string) error {
+	return h.store.MarkBookPreviouslyRead(context.Background(), owner, bookID)
+}
+
 func (h *contractHarness) RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error {
 	return h.store.RecordEPUBAcquisitionFailure(context.Background(), record)
 }
@@ -242,8 +246,16 @@ func (h *contractHarness) AddCatalogueEntry(owner, connectionID, entryIdentifier
 	return h.store.AddCatalogueEntry(context.Background(), owner, connectionID, entryIdentifier)
 }
 
+func (h *contractHarness) MarkCatalogueEntryPreviouslyRead(owner, connectionID, entryIdentifier string) (domain.CatalogueReadResult, error) {
+	return h.store.MarkCatalogueEntryPreviouslyRead(context.Background(), owner, connectionID, entryIdentifier)
+}
+
 func (h *contractHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	return h.store.AddClassicalReadingUnits(context.Background(), owner, readingUnitKeys)
+}
+
+func (h *contractHarness) MarkClassicalReadingUnitPreviouslyRead(owner, readingUnitKey string) (domain.CatalogueReadResult, error) {
+	return h.store.MarkClassicalReadingUnitPreviouslyRead(context.Background(), owner, readingUnitKey)
 }
 
 func (h *contractHarness) ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error) {

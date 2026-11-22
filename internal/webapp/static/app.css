@@ -3071,6 +3071,12 @@
     color: var(--mouseion-color-text-muted);
     font-size: var(--mouseion-font-size-metadata);
   }
+  .catalog-entry__read {
+    margin: 0;
+  }
+  .catalog-entry__add + .catalog-entry__read {
+    margin-top: var(--mouseion-space-2);
+  }
   .catalog-pagination span {
     color: var(--mouseion-color-text-muted);
     font-size: var(--mouseion-font-size-metadata);

@@ -599,6 +599,10 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	}
 	book.Disposition = state.disposition
 	book.DispositionRevision = state.revision
+	book.EverCurrentReading, err = s.queries().BookEverCurrentReading(ctx, sqlcgen.BookEverCurrentReadingParams{Owner: owner, Book: book.Book.ID})
+	if err != nil {
+		return domain.MyBook{}, err
+	}
 	if book.Hidden, book.VisibilityRevision, err = s.GetBookVisibility(ctx, owner, book.Book.ID); err != nil {
 		return domain.MyBook{}, err
 	}

@@ -89,7 +89,10 @@ templ ClassicalCatalogIndexSections(csrf string, authors []classical.CatalogAuth
 															if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 																<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
 															} else if view.AddAvailable {
-																@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, classicalAddReturnIndex)
+																<div class="action-group">
+																	@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, classicalAddReturnIndex)
+																	@ClassicalReadForm(csrf, classicalUnitReadURL(unit.Key), classicalAddReturnIndex)
+																</div>
 															}
 														</td>
 													</tr>
@@ -167,7 +170,10 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 							if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 								<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
 							} else if view.AddAvailable {
-								@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, "")
+								<div class="action-group">
+									@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddUnitLabel, false, "")
+									@ClassicalReadForm(csrf, classicalUnitReadURL(unit.Key), "")
+								</div>
 							}
 						</td>
 					</tr>
@@ -195,6 +201,18 @@ templ ClassicalCatalogCounts(counts classical.CatalogCounts, className string) {
 		<div><dt>Authors</dt><dd>{ fmt.Sprintf("%d", counts.Authors) }</dd></div>
 		<div><dt>Reading units</dt><dd>{ fmt.Sprintf("%d", counts.Units) }</dd></div>
 	</dl>
+}
+
+// ClassicalReadForm is the secondary "I've read this" control on one Reading
+// unit. It is never offered at Work level.
+templ ClassicalReadForm(csrf, action, returnTo string) {
+	<form class="inline-action" method="post" action={ templ.SafeURL(action) }>
+		<input type="hidden" name="csrf_token" value={ csrf }/>
+		if returnTo != "" {
+			<input type="hidden" name="return" value={ returnTo }/>
+		}
+		<button class="button button--outline" type="submit">I've read this</button>
+	</form>
 }
 
 // ClassicalAddForm is the one Add control used by the catalog. An index Add
@@ -364,6 +382,10 @@ func classicalWorkAddURL(key string) string {
 
 func classicalUnitAddURL(key string) string {
 	return "/catalogs/classical/units/" + url.PathEscape(key) + "/add"
+}
+
+func classicalUnitReadURL(key string) string {
+	return "/catalogs/classical/units/" + url.PathEscape(key) + "/previously-read"
 }
 
 func classicalWorkInMyBooksURL(key string) string {

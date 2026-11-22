@@ -126,18 +126,21 @@ type BookCoverRetrieval struct {
 // for metadata-only membership; when present it contains only the current
 // owner-scoped acquired source and its derived analysis state.
 type MyBook struct {
-	Book                   Book
-	Cover                  BookCover
-	ReadingUnit            *BookReadingUnit
-	ClassicalPreparation   *ClassicalPreparationStatus
-	EPUBAcquisition        *EPUBAcquisitionStatus
-	Acquired               *SourceMaterialSummary
-	Disposition            BookDisposition
-	DispositionRevision    int64
-	Hidden                 bool
-	VisibilityRevision     int64
-	IsToRead               bool
-	IsCurrentReading       bool
+	Book                 Book
+	Cover                BookCover
+	ReadingUnit          *BookReadingUnit
+	ClassicalPreparation *ClassicalPreparationStatus
+	EPUBAcquisition      *EPUBAcquisitionStatus
+	Acquired             *SourceMaterialSummary
+	Disposition          BookDisposition
+	DispositionRevision  int64
+	Hidden               bool
+	VisibilityRevision   int64
+	IsToRead             bool
+	IsCurrentReading     bool
+	// EverCurrentReading reports that the Book has held the Current reading
+	// role at least once. A released snapshot proves it after the reading ends.
+	EverCurrentReading     bool
 	CompletionCount        int
 	LatestCompletionAt     *time.Time
 	LatestCompletionSource ReadingCompletionSource
@@ -173,6 +176,17 @@ func (m MyBook) WorkflowBucket() MyBookBucket {
 	default:
 		return MyBookBucketInbox
 	}
+}
+
+// CanMarkPreviouslyRead reports whether My Books offers the "Mark as previously
+// read" action. Only an unstarted To Read Book that has never held the Current
+// reading role qualifies: marking a started or finished Book would rewrite a
+// reading the learner already recorded.
+func (m MyBook) CanMarkPreviouslyRead() bool {
+	return m.WorkflowBucket() == MyBookBucketToRead &&
+		m.CompletionCount == 0 &&
+		!m.EverCurrentReading &&
+		m.Book.LanguageState == LanguageChosen
 }
 
 // WorkToReadEligible reports whether a bulk Work move should change this Book.

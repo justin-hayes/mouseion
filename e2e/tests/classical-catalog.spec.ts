@@ -78,3 +78,29 @@ test('adds a single book and a whole work from the Classical catalog index', asy
   expect(tableBox?.width ?? 0).toBeLessThanOrEqual(375);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
+
+test("I've read this records one classical Reading unit as Read and never a whole Work", async ({ page }) => {
+  await signIn(page);
+  await page.goto('/catalogs/classical');
+
+  const iliad = page.locator('#work-fixture-iliad');
+  await expect(iliad.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(0);
+  await iliad.getByText('Choose books', { exact: true }).click();
+
+  const bookThree = iliad.getByRole('row', { name: /Book 3/ });
+  await expect(bookThree.getByRole('button', { name: "I've read this", exact: true })).toBeVisible();
+  await bookThree.getByRole('button', { name: "I've read this", exact: true }).click();
+
+  await expect(page).toHaveURL(/\/catalogs\/classical\?/);
+  await expect(page.getByText(/Recorded “Iliad” as previously read/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Ancient Greek in My Books', exact: true })).toBeVisible();
+
+  await iliad.getByText('Choose books', { exact: true }).click();
+  await expect(iliad.getByRole('row', { name: /Book 3/ }).getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+  await expect(iliad.locator('.classical-work-entry__margin').getByRole('button', { name: "I've read this", exact: true })).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Open Ancient Greek in My Books', exact: true }).click();
+  await expect(page).toHaveURL(/\/library/);
+  await expect(page.getByRole('heading', { name: /Iliad, Book 3/ })).toBeVisible();
+  await expect(page.getByText('Read before Mouseion')).toBeVisible();
+});

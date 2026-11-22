@@ -75,7 +75,7 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   Book. Search and browsing never contact the OPDS server.
 - An entry linked to one of the learner's active Books shows **In My Books**
   linked to that Book and no disposition, analysis or preparation state. An
-  unowned entry offers **Add** as its only action.
+  unowned entry offers **Add** and the secondary **I've read this**.
 - **Add** creates the Book linked by its catalog-entry alias, or restores the
   learner's existing Book for that alias, as To Read. It then runs the same
   reading-intent preparation seam Move to To Read uses: acquisition and analysis
@@ -83,6 +83,11 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   downloaded and analyzed, the route is an ordinary owner-scoped POST, and the
   confirmation names the Book and links to My Books. Adding the first Book in a
   language makes it a study language.
+- **I've read this** creates or restores the same Book as Read with a
+  **Previously read** record. It downloads nothing, starts no analysis or
+  preparation and changes no Known vocabulary. On a classical Work it is offered
+  per Reading unit only, never for the whole Work. An entry whose Book left My
+  Books restores that same Book as Read.
 - Distinct empty states cover no OPDS sources, no match, nothing in this
   language, and nothing to browse yet. One live region announces result
   updates; search, filter, paging, ownership links and Add work without
@@ -194,6 +199,7 @@ attempt remains.
 | Last synced | Show the last successful time and metadata-only reconciliation. Manage sources keeps the ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason linked to Manage sources. | Edit connection in Manage sources or retry |
 | Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Move to To Read |
+| Read outside Mouseion | Record that the learner read the text before using Mouseion, with no download, analysis or vocabulary change. | I've read this |
 | EPUB acquisition failed | Keep the Book To Read, name the reason (entry missing, download failed, unusable source, or import failed), and offer Retry only for entry, fetch and import stages. The reason stays until an acquisition succeeds and never overrides an analysis in effect. | Retry, or fix the catalog and retry |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
 | Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from My Books or Reading |

@@ -88,6 +88,10 @@ func (h *postgresHarness) ImportPreviouslyRead(owner, bookID string) (domain.Rea
 	return h.store.ImportPreviouslyRead(h.ctx, owner, bookID)
 }
 
+func (h *postgresHarness) MarkBookPreviouslyRead(owner, bookID string) error {
+	return h.store.MarkBookPreviouslyRead(h.ctx, owner, bookID)
+}
+
 func (h *postgresHarness) RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error {
 	return h.store.RecordEPUBAcquisitionFailure(h.ctx, record)
 }
@@ -111,8 +115,16 @@ func (h *postgresHarness) AddCatalogueEntry(owner, connectionID, entryIdentifier
 	return h.store.AddCatalogueEntry(h.ctx, owner, connectionID, entryIdentifier)
 }
 
+func (h *postgresHarness) MarkCatalogueEntryPreviouslyRead(owner, connectionID, entryIdentifier string) (domain.CatalogueReadResult, error) {
+	return h.store.MarkCatalogueEntryPreviouslyRead(h.ctx, owner, connectionID, entryIdentifier)
+}
+
 func (h *postgresHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	return h.store.AddClassicalReadingUnits(h.ctx, owner, readingUnitKeys)
+}
+
+func (h *postgresHarness) MarkClassicalReadingUnitPreviouslyRead(owner, readingUnitKey string) (domain.CatalogueReadResult, error) {
+	return h.store.MarkClassicalReadingUnitPreviouslyRead(h.ctx, owner, readingUnitKey)
 }
 
 func (h *postgresHarness) ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error) {

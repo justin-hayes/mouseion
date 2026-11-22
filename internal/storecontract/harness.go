@@ -101,6 +101,11 @@ type BookStateStore interface {
 	// skipping the current reading and naming it in the result.
 	RemoveWorkFromMyBooks(owner, workKey string) (domain.MyBooksWorkRemoval, error)
 	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
+	// MarkBookPreviouslyRead records an unstarted To Read Book as Previously
+	// read and clears its To Read disposition in one transition. It refuses the
+	// Current reading with domain.ErrBookIsCurrentReading, and a replay or an
+	// already read Book changes nothing.
+	MarkBookPreviouslyRead(owner, bookID string) error
 	// RecordEPUBAcquisitionFailure records the latest failed EPUB acquisition
 	// for a Book, replacing any previous record.
 	RecordEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) error
@@ -115,6 +120,10 @@ type BookStateStore interface {
 // existing Book rather than creating a duplicate.
 type ClassicalStore interface {
 	AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error)
+	// MarkClassicalReadingUnitPreviouslyRead records one current Reading unit as
+	// read outside Mouseion. It creates or restores the Book as Read with a
+	// Previously read record and starts no preparation.
+	MarkClassicalReadingUnitPreviouslyRead(owner, readingUnitKey string) (domain.CatalogueReadResult, error)
 	ListOwnedClassicalReadingUnits(owner string) ([]classical.OwnedReadingUnit, error)
 	// ListStudyLanguages includes the languages of Books with active My Books
 	// membership, so a removed Book contributes nothing until Add restores it.
@@ -132,6 +141,11 @@ type CatalogueStore interface {
 	// returns domain.ErrNotFound. Replaying Add on an active To Read Book
 	// changes nothing.
 	AddCatalogueEntry(owner, connectionID, entryIdentifier string) (domain.CatalogueAddResult, error)
+	// MarkCatalogueEntryPreviouslyRead creates or restores the Book for one
+	// indexed entry as Read with a Previously read record. It acquires and
+	// prepares nothing and changes no Known vocabulary. An entry missing from
+	// the index returns domain.ErrNotFound.
+	MarkCatalogueEntryPreviouslyRead(owner, connectionID, entryIdentifier string) (domain.CatalogueReadResult, error)
 }
 
 // CatalogueEntrySeed is one local Catalog index entry and, optionally, an

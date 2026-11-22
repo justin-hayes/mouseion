@@ -25,6 +25,32 @@ func TestMyBookWorkflowBucketUsesVisibleBucketPrecedence(t *testing.T) {
 	}
 }
 
+func TestMyBookCanMarkPreviouslyReadOnlyForUnstartedToRead(t *testing.T) {
+	chosen := func(book MyBook) MyBook {
+		book.Book.LanguageState = LanguageChosen
+		return book
+	}
+	tests := []struct {
+		name string
+		book MyBook
+		want bool
+	}{
+		{name: "unstarted To Read", book: chosen(MyBook{Disposition: BookDispositionToRead}), want: true},
+		{name: "unstarted hidden To Read", book: chosen(MyBook{Disposition: BookDispositionToRead, Hidden: true}), want: true},
+		{name: "To Read with a completion", book: chosen(MyBook{Disposition: BookDispositionToRead, CompletionCount: 1}), want: false},
+		{name: "To Read that held the current reading", book: chosen(MyBook{Disposition: BookDispositionToRead, EverCurrentReading: true}), want: false},
+		{name: "Inbox book", book: chosen(MyBook{Disposition: BookDispositionInbox}), want: false},
+		{name: "Read book", book: chosen(MyBook{Disposition: BookDispositionInbox, CompletionCount: 1}), want: false},
+		{name: "current reading", book: chosen(MyBook{Disposition: BookDispositionToRead, IsCurrentReading: true}), want: false},
+		{name: "unchosen language", book: MyBook{Disposition: BookDispositionToRead}, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, tc.book.CanMarkPreviouslyRead())
+		})
+	}
+}
+
 func TestMyBookBucketBrowseFiltersAreMutuallyExclusive(t *testing.T) {
 	book := MyBook{Disposition: BookDispositionInbox, CompletionCount: 1}
 	bucket := book.WorkflowBucket()
