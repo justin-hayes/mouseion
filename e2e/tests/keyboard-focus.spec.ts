@@ -294,9 +294,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await page.goto('/jobs');
-    const region = page.getByRole('region', { name: 'Analysis history' });
+    const region = page.getByRole('region', { name: 'Book preparations' });
     await expect(region).toHaveAttribute('tabindex', '0');
-    await expect(region).toHaveAttribute('aria-label', 'Analysis history');
+    await expect(region).toHaveAttribute('aria-label', 'Book preparations');
     await region.focus();
     await expect(region).toBeFocused();
   });

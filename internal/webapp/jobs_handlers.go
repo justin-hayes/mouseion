@@ -17,12 +17,7 @@ import (
 
 func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
-	jobs, e := h.services.Store.Jobs.ListAnalysisJobs(r.Context(), u.ID)
-	if e != nil {
-		fail(w, e)
-		return
-	}
-	jobBookContexts, err := h.jobBookContexts(r.Context(), u.ID, analysisJobSourceIDs(jobs))
+	preparations, err := h.services.Store.Jobs.ListBookPreparationJobs(r.Context(), u.ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -30,11 +25,6 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	syncJobs, syncErr := h.services.CatalogueSync.List(r.Context(), u.ID)
 	if syncErr != nil {
 		fail(w, syncErr)
-		return
-	}
-	preparationJobs, err := h.services.Store.Jobs.ListClassicalPreparationJobs(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
 		return
 	}
 	catalogCode := ""
@@ -46,7 +36,7 @@ func (h *Handler) jobs(w http.ResponseWriter, r *http.Request) {
 	if len(legacy) > 0 {
 		catalogCode = classical.LegacyRowsCode
 	}
-	render(w, r, JobsPageWithCatalogueSync(u, h.csrf(w, r), jobs, syncJobs, preparationJobs, catalogCode, r.URL.Query().Get("message"), jobBookContexts))
+	render(w, r, JobsPage(u, h.csrf(w, r), preparations, syncJobs, catalogCode, r.URL.Query().Get("message")))
 }
 func (h *Handler) job(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
@@ -190,6 +180,21 @@ type jobLifecycleView struct {
 	Tone  StatusTone
 }
 
+// bookPreparationKindLabel is the learner-facing name of one Book preparation
+// kind. An analysis row shows its number beside the label where it has one.
+func bookPreparationKindLabel(kind domain.BookPreparationKind) string {
+	switch kind {
+	case domain.BookPreparationKindClassical:
+		return "Classical preparation"
+	case domain.BookPreparationKindEPUBAcquisition:
+		return "EPUB acquisition"
+	case domain.BookPreparationKindAnalysis:
+		return "Analysis"
+	default:
+		return "Book preparation"
+	}
+}
+
 func jobLifecycleViewFor(state domain.JobLifecycleState) jobLifecycleView {
 	switch state {
 	case domain.JobLifecycleQueued:
@@ -257,19 +262,6 @@ func analysisFailureSentence(code domain.BookPreparationCode) string {
 	}
 }
 
-// analysisJobFailureSentence is the /jobs list's failure column. A failed row
-// and a completed row whose finalization failed both show their code's
-// sentence; every other row stays blank.
-func analysisJobFailureSentence(job domain.AnalysisJob) string {
-	if job.FailureCode != domain.BookPreparationCodeNone {
-		return analysisFailureSentence(job.FailureCode)
-	}
-	if job.Lifecycle == domain.JobLifecycleFailed {
-		return analysisFailureSentence(domain.BookPreparationCodeNone)
-	}
-	return ""
-}
-
 // analysisFailureReason is the one-sentence reason a code adds after a status
 // label. It is empty for a generic failure.
 func analysisFailureReason(code domain.BookPreparationCode) string {
@@ -293,13 +285,6 @@ func analysisNeedsAttention(status analysis.Status) bool {
 
 func jobRetryable(status analysis.Status) bool {
 	return status.Lifecycle.Retryable()
-}
-func analysisJobSourceIDs(jobs []domain.AnalysisJob) []string {
-	ids := make([]string, 0, len(jobs))
-	for _, job := range jobs {
-		ids = append(ids, job.SourceMaterialID)
-	}
-	return ids
 }
 
 func catalogueSyncJobSummary(status cataloguesync.Status) string {

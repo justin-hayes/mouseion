@@ -37,6 +37,13 @@ func TestJobLifecycleViewUnknownStateDefaultsToQueued(t *testing.T) {
 	assert.Equal(t, StatusInfo, view.Tone)
 }
 
+func TestBookPreparationKindLabelNamesEveryKind(t *testing.T) {
+	assert.Equal(t, "Classical preparation", bookPreparationKindLabel(domain.BookPreparationKindClassical))
+	assert.Equal(t, "EPUB acquisition", bookPreparationKindLabel(domain.BookPreparationKindEPUBAcquisition))
+	assert.Equal(t, "Analysis", bookPreparationKindLabel(domain.BookPreparationKindAnalysis))
+	assert.Equal(t, "Book preparation", bookPreparationKindLabel(domain.BookPreparationKind("unrecognised")))
+}
+
 func TestAnalysisStatusSummaryCoversEveryLifecycle(t *testing.T) {
 	tests := map[string]struct {
 		status analysis.Status
