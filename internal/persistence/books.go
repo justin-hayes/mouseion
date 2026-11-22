@@ -20,7 +20,6 @@ import (
 // The My Books browse result types are defined in domain so store contracts can
 // read them without importing an adapter; these names are the same types.
 type (
-	LanguageCount       = domain.LanguageCount
 	DispositionCount    = domain.DispositionCount
 	MyBooksBrowseResult = domain.MyBooksBrowseResult
 )
@@ -96,6 +95,51 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 	return books, nil
 }
 
+// BackfillChosenBooks removes the retired Inbox state from My Books. It ends
+// the membership of every active Book that is not To Read, has no reading
+// history and is not the current reading. Membership is the only thing it
+// changes, so Add restores the same Book. The gate refuses to run until every
+// connection's Catalog index has completed a sync, so no entry becomes
+// unfindable during the upgrade. A repeated run changes nothing.
+func (s *PostgresStore) BackfillChosenBooks(ctx context.Context) (report domain.MyBooksBackfillReport, err error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return domain.MyBooksBackfillReport{}, err
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	q := sqlcgen.New(tx)
+	blocked, err := q.CatalogueIndexBackfillBlocked(ctx)
+	if err != nil {
+		return domain.MyBooksBackfillReport{}, err
+	}
+	if blocked {
+		return domain.MyBooksBackfillReport{}, domain.ErrMyBooksBackfillBlocked
+	}
+	rows, err := q.ListLanguageLessReadBooks(ctx)
+	if err != nil {
+		return domain.MyBooksBackfillReport{}, err
+	}
+	for _, row := range rows {
+		report.LanguageLessWithHistory = append(report.LanguageLessWithHistory, domain.Book{
+			ID: row.ID, OwnerID: row.OwnerID, Title: row.Title, Author: row.Author,
+			MetadataProvenance: row.MetadataProvenance, LanguageState: row.LanguageState,
+			LanguageTag: row.LanguageTag, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		})
+	}
+	removed, err := q.RemoveUnchosenBookMembership(ctx)
+	if err != nil {
+		return domain.MyBooksBackfillReport{}, err
+	}
+	report.Removed, err = checked.IntFromInt64(removed)
+	if err != nil {
+		return domain.MyBooksBackfillReport{}, fmt.Errorf("invalid removed book count: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.MyBooksBackfillReport{}, err
+	}
+	return report, nil
+}
+
 // ListMyBooksBrowse returns one owner-scoped page of My Books. The domain's
 // WorkflowBucket derivation is the source of truth for both filters and counts;
 // SQL supplies the facts (disposition, current-reading role, and history) but
@@ -124,7 +168,6 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 	result.DispositionCounts = myBooksDispositionCounts(accumulator.dispositionCounts)
 	result.ScopeTotal = counts.scopeTotal
 	result.AllCount = counts.allCount
-	result.Counts = counts.languageCounts
 	return result, nil
 }
 
@@ -191,10 +234,15 @@ func (a *myBooksBrowseAccumulator) visit(row sqlcgen.BrowseMyBooksEvidenceRow) e
 	book := myBookFromBrowseRow(row)
 	book.Disposition = domain.BookDisposition(row.Disposition)
 	book.DispositionRevision = row.DispositionRevision
+	bucket := book.WorkflowBucket()
+	if bucket == domain.MyBookBucketNone {
+		// The backfill owns removing the retired Inbox members. Until it runs,
+		// they have no visible My Books role and are not listed.
+		return nil
+	}
 	if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
 		a.ownedWorkCounts[unit.WorkKey]++
 	}
-	bucket := book.WorkflowBucket()
 	a.dispositionCounts[bucket]++
 	if bucket == domain.MyBookBucketCurrentReading {
 		a.dispositionCounts[domain.MyBookBucketToRead]++
@@ -453,28 +501,20 @@ func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, lan
 }
 
 // myBooksDispositionCounts projects the workflow-bucket tallies onto the
-// persisted dispositions My Books offers, in the fixed Inbox-then-To-Read order
-// and omitting empty buckets.
+// persisted To Read disposition, omitting an empty bucket. The current reading
+// keeps its To Read disposition and is counted there.
 func myBooksDispositionCounts(counts map[domain.MyBookBucket]int) []DispositionCount {
-	var result []DispositionCount
-	for _, bucket := range []domain.MyBookBucket{domain.MyBookBucketInbox, domain.MyBookBucketToRead} {
-		count := counts[bucket]
-		if count == 0 {
-			continue
-		}
-		if persistedDisposition, ok := bucket.PersistedDisposition(); ok {
-			result = append(result, DispositionCount{Disposition: persistedDisposition, Count: count})
-		}
+	count := counts[domain.MyBookBucketToRead]
+	if count == 0 {
+		return nil
 	}
-	return result
+	return []DispositionCount{{Disposition: domain.BookDispositionToRead, Count: count}}
 }
 
-// myBooksBrowseCounts is the collection size evidence around the page: the
-// scope total, the complete collection size, and the per-language pills.
+// myBooksBrowseCounts is the collection size evidence around the page.
 type myBooksBrowseCounts struct {
-	scopeTotal     int
-	allCount       int
-	languageCounts []LanguageCount
+	scopeTotal int
+	allCount   int
 }
 
 // collectMyBooksBrowseCounts reads the count queries in the same order and with
@@ -498,26 +538,6 @@ func (s *PostgresStore) collectMyBooksBrowseCounts(ctx context.Context, owner, l
 	if err != nil {
 		return myBooksBrowseCounts{}, fmt.Errorf("invalid total book count: %w", err)
 	}
-	languageRows, err := q.CountMyBooksByLanguage(ctx, owner)
-	if err != nil {
-		return myBooksBrowseCounts{}, err
-	}
-	for _, row := range languageRows {
-		bookCount, conversionErr := checked.IntFromInt64(row.BookCount)
-		if conversionErr != nil {
-			return myBooksBrowseCounts{}, fmt.Errorf("invalid book count for language %q: %w", row.LanguageTag, conversionErr)
-		}
-		counts.languageCounts = append(counts.languageCounts, LanguageCount{Tag: row.LanguageTag, Count: bookCount})
-	}
-	sort.Slice(counts.languageCounts, func(i, j int) bool {
-		if counts.languageCounts[i].Tag == "unknown" {
-			return false
-		}
-		if counts.languageCounts[j].Tag == "unknown" {
-			return true
-		}
-		return counts.languageCounts[i].Tag < counts.languageCounts[j].Tag
-	})
 	return counts, nil
 }
 

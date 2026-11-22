@@ -76,7 +76,7 @@ test.describe('catalog sources and browsing', () => {
     await page.goto('/library');
     await expect(page.locator('.library-books > li.library-book')).toHaveCount(before);
     await page.goto('/library?needs-language');
-    await expect(page.getByText('Browser sync metadata book', { exact: true })).toBeVisible();
+    await expect(page.locator('body')).toContainText('404');
   });
 
   test('Add on an OPDS entry restores a To Read Book and focuses its confirmation', async ({ page }) => {

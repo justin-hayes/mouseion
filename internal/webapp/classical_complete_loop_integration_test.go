@@ -162,7 +162,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		"Synthetic Work", "By Synthetic Author", "Συνθετικὸν ἔργον", "all 2 books", "Classical catalog",
 		"To Read", `aria-label="Synthetic Work, Book 1 of 2, To Read"`,
 		`aria-label="Synthetic Work, Book 2 of 2, To Read"`,
-		"All (3)", "To Read (3)",
+		"To Read (3)",
 	} {
 		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
 	}

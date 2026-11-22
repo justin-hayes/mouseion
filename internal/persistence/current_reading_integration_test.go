@@ -638,7 +638,7 @@ func ineligibleCurrentReadingCases(t *testing.T, ctx context.Context, store *Pos
 	t.Helper()
 	notToRead, notToReadSource, _ := createReadingFixture(t, ctx, store, owner, "case-inbox")
 	makeAnalyzedToReadBook(t, ctx, store, notToRead, notToReadSource)
-	require.NoError(t, store.SetBookDisposition(ctx, owner, notToRead.ID, domain.BookDispositionInbox))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, owner, notToRead.ID))
 
 	unknownLanguage, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Reading case unknown language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)

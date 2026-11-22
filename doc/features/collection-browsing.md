@@ -42,11 +42,9 @@ contracts. Reading owns current evidence and current-reading presentation.
 - My Books always presents the active study language's Books. Browse, paging,
   and search are scoped to it; the shell's active-language switcher changes the
   scope instead of a per-page control.
-- Books without a chosen language belong to no language partition and appear
-  only through an out-of-band **needs language** strip (display-only: fix the
-  language in the catalog, then re-sync; no per-book actions), never as a
-  filter in the active-language collection. The distinct out-of-band browse
-  state is `/library?needs-language`.
+- My Books holds only chosen Books: every Book is Currently reading, To Read or
+  Read. Books without a chosen language belong to no language partition and are
+  not shown.
 - The active language is context, not a finding aid: it is carried by the page
   heading and the switcher, not repeated per row.
 
@@ -67,6 +65,9 @@ contracts. Reading owns current evidence and current-reading presentation.
 - Items lead with the optional Book cover, followed by the full title and author;
   the language tag is carried by the active-language heading, not repeated per
   item.
+- The collection has two tabs: **To Read** (including the current Book, with its
+  label) and **Read**. The Inbox tab and filter, and the separate Read-history
+  filter, are retired.
 - Workflow disposition is the relationship signal. Evidence and current-reading
   state belong to Reading and never turn the collection into
   a metric-led dashboard.
@@ -90,7 +91,8 @@ contracts. Reading owns current evidence and current-reading presentation.
 - A grouped classical Work row offers **Remove the work**. It ends the
   membership of the Work's other Books, leaves the current Book in My Books, and
   names that skipped Book in the success notice. "Move the work back to Inbox" is
-  retired.
+  retired. Read again and the Work-level Move to To Read make a Read Book a
+  candidate again.
 - The Catalog offers **Add** for an entry whose Book left My Books. Adding it
   again restores the same Book with its evidence, for both an OPDS Book and a
   classical Book.
@@ -102,8 +104,8 @@ contracts. Reading owns current evidence and current-reading presentation.
   title, author, Greek title, "all N books" or "M of N books", and Classical
   catalog provenance.
 - The margin carries one bucket badge using the ordinary precedence — **Currently
-  reading Book N**, **To Read**, **Read**, **Inbox** — followed by counts such
-  as "22 more To Read · 1 Read".
+  reading Book N**, **To Read**, **Read** — followed by counts such as
+  "22 more To Read · 1 Read".
 - "M of N books" counts the Books the learner owns in the active language; every
   owned Book contributes a cell.
 - Under the identity, one cell per owned Book appears in book order. Each cell
@@ -111,8 +113,8 @@ contracts. Reading owns current evidence and current-reading presentation.
   accessible label. The current Book's cell opens the current-reading card; a
   To Read Book's cell opens that Book's ordinary candidate entry inline in the
   chooser, on Reading when no Book is current and on the Switch page when one
-  is. A Read or Inbox cell is status-only, not a link: Reading has no entry to
-  select, and the strip never implies a next Book. It keeps the 44px cell and
+  is. A Read cell is status-only, not a link: Reading has no entry to select,
+  and the strip never implies a next Book. It keeps the 44px cell and
   accessible label but is not a link target. Read again and the Work-level Move
   to To Read remain the routes that make such a Book a candidate again. The row
   has no per-Book actions, and the page has one shared legend.
@@ -147,13 +149,29 @@ contracts. Reading owns current evidence and current-reading presentation.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| Empty collection | Explain My Books and the Catalog path to catalogue setup. | Add a catalogue connection |
+| Empty collection | Explain My Books and lead to the Catalog. | Browse the Catalog |
 | Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading or Move to To Read |
 | Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | View in Reading or Move to To Read |
-| Needs-language Books exist | Show the out-of-band **needs language** strip; do not infer a language. | Fix catalog metadata and re-sync |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
 | Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
 | Enhancement failed | Keep or restore the ordinary server-rendered form/link path. | Submit normally |
+
+## Upgrading existing accounts
+
+My Books holds only chosen Books. A one-time data-only backfill removes the
+membership of every Book that is active in My Books, is not To Read, has no
+reading history and is not the current reading. That covers unread Inbox Books,
+never-prepared classical Inbox Books and unread Books without a chosen
+language. Books with reading history stay, and a language-less Book with history
+is reported without being changed.
+
+The backfill is operator-owned and runs after the release deploys. It is
+idempotent, retry-safe and changes membership only, so recovery is to re-run it,
+or to restore a Book through Catalog Add. It refuses to run until every
+connection's Catalog index has completed at least one sync, so no entry becomes
+unfindable during the upgrade. Run
+`MOUSEION_DATABASE_URL=... go run ./cmd/backfill`; the output states how many
+memberships ended and names each language-less Book it kept.
 
 ## Non-goals
 
@@ -168,15 +186,15 @@ contracts. Reading owns current evidence and current-reading presentation.
 ## Acceptance criteria
 
 - Browse, search, and paging return only Books in the active study language.
-- A Book without a chosen language is reachable only through the **needs
-  language** strip and becomes a language Book after fix + re-sync.
+- My Books shows exactly the To Read and Read tabs. The Inbox and needs-language
+  states and their routes are gone.
 - Query and page combinations return stable owner-scoped results and preserve
   their state in navigable URLs.
 - Search covers the active language's local collection and performs no OPDS
   request.
 - Analyzed To Read items link to their canonical Reading anchor;
   other rows do not link to a detail page.
-- Empty, no-match, needs-language, and paging-boundary states are distinct.
+- Empty, no-match, and paging-boundary states are distinct.
 - Remove on a To Read or Read Book ends membership only, and the Catalog then
   offers Add again; the current Book is refused with a reason.
 - Remove the work skips and names the current Book, and Add restores the same

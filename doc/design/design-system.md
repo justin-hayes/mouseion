@@ -336,14 +336,14 @@ cover, full title and author in a text column, contextual actions beneath that
 identity, and canonical bucket status in a visibly edged right margin. A Work
 with more than one owned Book in the active language is one grouped row with
 Work identity, one leading bucket badge, counts, work-level bulk actions, and a
-wrapping strip of 44px Book cells whose four distinct shapes distinguish the
+wrapping strip of 44px Book cells whose three distinct shapes distinguish the
 buckets. The current Book's cell opens the current-reading card, and a To Read
 Book's cell opens that Book's inline chooser candidate on Reading or the Switch
-page; Read and Inbox cells are status-only, because Reading has
+page; Read cells are status-only, because Reading has
 no entry to select, while keeping their 44px cell and accessible label but not
 a link target. A filtered row keeps only its matching cells.
-Bulk To Read skips Books with reading history and the current Book, and moves
-the work's remaining Books in book order. A grouped row carries one Analysis
+Bulk To Read skips the current Book and moves the work's remaining Books in book
+order. A grouped row carries one Analysis
 update notice and bulk action over the whole Work: the current Reading's Book is
 named and skipped, and one native disclosure confirmation states the Work's
 totals and only the per-Book losses that exist. Preparing Books collapse into

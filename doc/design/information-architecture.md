@@ -29,7 +29,7 @@ The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
 2. work in one active study language at a time;
-3. move Books between Inbox and To Read, and remove a Book from My Books;
+3. move Books between To Read and Read, and remove a Book from My Books;
 4. choose, end, or switch the one current Book for the active language;
 5. review current evidence bands for To Read Books without a suggested order;
 6. finish a Book and retain its Read history independently from disposition;
@@ -80,11 +80,10 @@ list of obligations. Title, author, edition when relevant, and learner intent
 precede analysis status. Processing state appears only to explain available
 evidence or the next relevant action.
 
-The catalog is browsed within the active study language: browse, paging, and
-search are scoped to it, and no "All languages" default exists. Books without a
-chosen language belong to no language partition and are surfaced only through
-an out-of-band **needs language** strip (display-only, no per-book actions).
-For a fresh account, its empty state explains catalogue setup and enters
+My Books is browsed within the active study language: browse, paging, and search
+are scoped to it, and no "All languages" default exists. It has two tabs, **To
+Read** (including the current Book) and **Read**. A Book without a chosen
+language is not in My Books. For a fresh account, its empty state leads to
 `/catalogs`; catalogue setup and sync maintenance are owned by the Catalog
 destination and its Manage sources page. My Books holds only Books the learner
 chose from the Catalog; sync maintains each connection's local Catalog index
@@ -159,7 +158,7 @@ These objects remain important, but they do not define principal navigation:
   records the retirement.
 
 A relationship graph, not a strict containment hierarchy, connects these
-objects. A Book can exist in My Books without being To Read or current. Current
+objects. Every Book in My Books is Currently reading, To Read or Read. Current
 reading, workflow disposition, and Read history are independent facts. Earlier
 analysis runs remain addressable as operational audit records after vocabulary,
 source, or scope changes; they are not parallel learner result surfaces.
@@ -226,7 +225,7 @@ Authentication
     sign in or first-account onboarding
 
 My Books
-    needs-language strip (books awaiting a language)
+    To Read and Read tabs
     move Books into or out of To Read
 
 Reading (active study language)
@@ -334,10 +333,10 @@ badge and counts, work-level bulk actions, then a strip of one cell per owned
 Book in book order. Each cell shows the Book's bucket by shape; the current
 Book's cell opens the current-reading card and a To Read Book's cell
 opens that Book's inline chooser candidate on Reading or the Switch page. Read
-and Inbox cells are status-only, because Reading has no entry to select,
-and are not link targets, though they keep the 44px cell and accessible label.
-The strip has no per-Book actions. Bulk To Read moves every Book without reading
-history, leaves the current Book alone, prepares Books in book order, and
+cells are status-only, because Reading has no entry to select, and are not link
+targets, though they keep the 44px cell and accessible label. The strip has no
+per-Book actions. Bulk To Read moves every Read Book, leaves the current Book
+alone, prepares Books in book order, and
 Remove the work ends the other Books' membership while naming the current
 Book it skips. Preparing
 Books collapse into one line and each problem Book keeps its own recovery. A
@@ -546,8 +545,8 @@ Books.
     [ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md);
     there is no one-request language selector. The "All languages" pill and per-row
     language tags are removed; a shell-level native switcher carries the mode;
-    new languages arrive passively; legacy no-language Books surface only
-    through a **needs language** strip.
+    new languages arrive passively; Books without a chosen language are not in
+    My Books.
 12. **Historical per-language Journey and Goal** are recorded by
      [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md). The
      shipped Reading state is independently scoped by owner and study language;

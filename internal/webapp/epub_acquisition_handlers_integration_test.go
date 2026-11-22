@@ -144,11 +144,8 @@ func TestEPUBAcquisitionAddEnqueuesOneJobWithoutContactingTheCatalog(t *testing.
 func TestEPUBAcquisitionMoveAndRetryEnqueueOneLiveJob(t *testing.T) {
 	fixture := newAcquisitionHandlerFixture(t)
 	book := fixture.createToReadBook(t, "Move and retry")
+	require.NoError(t, fixture.store.MarkBookPreviouslyRead(context.Background(), fixture.owner.ID, book.ID))
 	state, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, book.ID)
-	require.NoError(t, err)
-	_, err = fixture.store.TransitionBookDisposition(context.Background(), fixture.owner.ID, book.ID, state.DispositionRevision, domain.BookDispositionInbox)
-	require.NoError(t, err)
-	state, err = fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, book.ID)
 	require.NoError(t, err)
 
 	moved := perform(t, fixture.handler, http.MethodPost, "/library/books/"+book.ID+"/to-read", url.Values{

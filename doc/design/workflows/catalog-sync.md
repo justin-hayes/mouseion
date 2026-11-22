@@ -79,8 +79,8 @@ the concise learner-relevant status.
 After reconciliation the learner returns to My Books, which is always browsed
 within the active study language ([ADR 0050](../../adr/0050-active-study-language.md)):
 search and paging are scoped to it, and there is no "All languages" default.
-Books awaiting a language appear only through an out-of-band **needs language**
-strip. This is the
+My Books holds only chosen Books and shows the **To Read** and **Read** tabs; a
+Book without a chosen language is not shown. This is the
 [My Books Collection Browsing](../../features/collection-browsing.md) contract,
 not OPDS search. The shipped [Book Covers](../../features/book-covers.md)
 experience lets the cover lead visually while title and author remain visible,

@@ -29,6 +29,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 		require.NoError(t, createErr)
 		book, createErr := store.CreateBook(ctx, input)
 		require.NoError(t, createErr)
+		require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))
 		return book
 	}
 
@@ -44,6 +45,7 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	err = store.LinkSourceToBook(ctx, alice.ID, acquiredID, acquiredSource.ID)
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, acquiredID, domain.BookDispositionToRead))
 	for i := range 26 {
 		create(alice.ID, fmt.Sprintf("Page %02d", i), domain.LanguageChosen, "it", domain.MetadataProvenanceCatalogueSync)
 	}
@@ -59,26 +61,21 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	for _, item := range result.Items {
 		assert.Equal(t, alice.ID, item.Book.OwnerID, "cross-owner item leaked: %+v", item)
 	}
-	filtered, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionInbox), false, 0, 25)
+	filtered, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 27, filtered.Total, "new catalogue books start in Inbox")
-	assert.Equal(t, 27, filtered.ScopeTotal, "language scope count should include all dispositions")
+	assert.Equal(t, 27, filtered.Total, "every chosen Italian Book is To Read")
+	assert.Equal(t, 27, filtered.ScopeTotal, "language scope count should include all chosen Books")
 	assert.Len(t, filtered.DispositionCounts, 1, "workflow counts should include every populated bucket")
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, authorBook.ID, domain.BookDispositionToRead))
-	filtered, err = store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionToRead), false, 0, 25)
-	require.NoError(t, err)
-	assert.Equal(t, 27, filtered.ScopeTotal)
-	require.Len(t, filtered.Items, 1)
-	assert.Equal(t, authorBook.ID, filtered.Items[0].Book.ID)
+	require.Len(t, filtered.Items, 25)
 	assert.Equal(t, domain.BookDispositionToRead, filtered.Items[0].Disposition)
 	search, err := store.ListMyBooksBrowse(ctx, alice.ID, "lost", "it", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, search.Items, 1, "search should compose with disposition filtering")
 	assert.Equal(t, authorBook.ID, search.Items[0].Book.ID)
-	inboxPage, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionInbox), false, 25, 25)
+	toReadPage, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "it", string(domain.BookDispositionToRead), false, 25, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 26, inboxPage.Total)
-	assert.Len(t, inboxPage.Items, 1, "paging should compose with disposition filtering")
+	assert.Equal(t, 27, toReadPage.Total)
+	assert.Len(t, toReadPage.Items, 2, "paging should compose with disposition filtering")
 	otherOwner, err := store.ListMyBooksBrowse(ctx, bob.ID, "", "it", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	assert.Zero(t, otherOwner.Total, "another owner's disposition results leaked")
@@ -95,17 +92,10 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	deResult, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "DE", "", false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 3, deResult.Total, "German filter")
-	require.Len(t, deResult.Counts, 3)
-	assert.Equal(t, "de", deResult.Counts[0].Tag)
-	assert.Equal(t, 3, deResult.Counts[0].Count)
-	assert.Equal(t, "it", deResult.Counts[1].Tag)
-	assert.Equal(t, 27, deResult.Counts[1].Count)
-	assert.Equal(t, "unknown", deResult.Counts[2].Tag)
-	assert.Equal(t, 4, deResult.Counts[2].Count)
-	unknown, err := store.ListMyBooksBrowse(ctx, alice.ID, "Donaudampf", domain.LanguageUnknown, "", false, 0, 25)
+	unknown, err := store.ListMyBooksBrowse(ctx, alice.ID, "Donaudampf", "", "", false, 0, 25)
 	require.NoError(t, err)
-	assert.Equal(t, 1, unknown.Total)
-	assert.Equal(t, metadataDampf.ID, unknown.Items[0].Book.ID, "unknown combined filter")
+	assert.Equal(t, 2, unknown.Total)
+	assert.Contains(t, []string{metadataDampf.ID, acquiredID}, unknown.Items[0].Book.ID, "a language-less Book is still a chosen Book")
 
 	page, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "", "", false, 25, 25)
 	require.NoError(t, err)
@@ -136,8 +126,9 @@ func TestMyBooksBrowseUsesKeysetBatchesAcrossLargeCollection(t *testing.T) {
 	for i := range 260 {
 		input, createErr := domain.NewBook(owner.ID, fmt.Sprintf("Batch Book %03d", i), domain.MetadataProvenanceCatalogueSync, domain.LanguageUnknown, "")
 		require.NoError(t, createErr)
-		_, createErr = store.CreateBook(ctx, input)
+		book, createErr := store.CreateBook(ctx, input)
 		require.NoError(t, createErr)
+		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	}
 
 	page, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "", "", false, 250, 20)
@@ -407,8 +398,9 @@ func TestMyBooksBrowseRejectsInvalidDispositionAndClampsPagination(t *testing.T)
 	for _, title := range []string{"Alpha", "Beta", "Gamma"} {
 		input, createErr := domain.NewBook(owner.ID, title, domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
 		require.NoError(t, createErr)
-		_, createErr = store.CreateBook(ctx, input)
+		book, createErr := store.CreateBook(ctx, input)
 		require.NoError(t, createErr)
+		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	}
 
 	t.Run("an unknown disposition is rejected before any read", func(t *testing.T) {

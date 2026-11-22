@@ -46,9 +46,12 @@ type BookSeed struct {
 	// Occurrences are the observed tokens the Book's analysis contributes to
 	// lemma review, in sentence order. Each one becomes its own sentence.
 	Occurrences []OccurrenceSeed
-	// ToRead reports whether the Book is To Read. A Book that is not cannot
-	// become the current reading.
+	// ToRead reports whether the Book is To Read. The default is To Read, the
+	// only chosen state an unstarted Book can hold.
 	ToRead bool
+	// Inbox seeds the retired state: an active member that is neither To Read
+	// nor has reading history. It exists only to prove the domain rejects it.
+	Inbox bool
 	// LanguageUnknown reports that the Book's language is not chosen, so it
 	// cannot be imported as previously read.
 	LanguageUnknown bool

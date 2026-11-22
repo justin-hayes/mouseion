@@ -44,10 +44,10 @@ func TestMyBooksBrowseFinishCountsOnlyWorkBooksInTheShapeTotals(t *testing.T) {
 			ReadingUnit: &domain.BookReadingUnit{
 				WorkKey: "homer-iliad", WorkTitle: "Iliad", ConstituentBook: position, ConstituentBooks: 24,
 			},
-			Disposition: domain.BookDispositionInbox,
+			Disposition: domain.BookDispositionToRead,
 		}
 	}
-	ordinary := domain.MyBook{Book: domain.Book{ID: "ordinary", Title: "A German Book", LanguageTag: "de"}, Disposition: domain.BookDispositionInbox}
+	ordinary := domain.MyBook{Book: domain.Book{ID: "ordinary", Title: "A German Book", LanguageTag: "de"}, Disposition: domain.BookDispositionToRead}
 
 	accumulator := &myBooksBrowseAccumulator{
 		window:          myBooksBrowsePageWindow(0, 25),

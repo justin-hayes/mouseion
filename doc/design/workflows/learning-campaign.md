@@ -1,7 +1,7 @@
 # Reading Journey and Primary Goal workflow
 
 Status: **Historical workflow contract; not current product behavior.** The
-Reading Journey and Primary Goal model was retired. Current Inbox, To Read,
+Reading Journey and Primary Goal model was retired. Current To Read,
 Reading, completion-history, and rereading behavior is defined by
 [`../../features/reading-workflow.md`](../../features/reading-workflow.md).
 ADR 0072 is retained as historical decision context only.

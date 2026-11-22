@@ -174,11 +174,11 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 ### EPUB acquisition failures
 
 A failed EPUB acquisition never rolls back the learner's To Read choice.
-There is no Inbox step to undo: the move commits first, and acquisition runs as
-the durable `epub_acquisition` job (ADR 0121). The worker records the per-Book
-failure after the attempt and deletes it when an acquisition succeeds, so My
-Books keeps showing the reason until recovery. Add, Move to To Read and Retry
-never report the failure in their responses.
+There is no separate Inbox step to undo: the Add commits first, and acquisition
+runs as the durable `epub_acquisition` job (ADR 0121). The worker records the
+per-Book failure after the attempt and deletes it when an acquisition succeeds,
+so My Books keeps showing the reason until recovery. Add, Move to To Read and
+Retry never report the failure in their responses.
 
 The stages and stable codes are defined once in the domain:
 

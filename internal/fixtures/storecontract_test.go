@@ -61,7 +61,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 		h.store.myBooks = append(h.store.myBooks, domain.MyBook{
 			Book: domain.Book{ID: bookID, OwnerID: owner, Title: "Contract Book", LanguageState: languageState, LanguageTag: languageTag},
 		})
-		if seed.ToRead {
+		if !seed.Inbox {
 			h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 		}
 		return bookID
@@ -74,7 +74,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 		BookID:  bookID,
 		Signals: analyzedSignals, AnalysisRunID: bookID + "-run", CorpusID: bookID + "-corpus",
 	})
-	if seed.ToRead {
+	if !seed.Inbox {
 		h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 	}
 	// The fixtures hold no dependency parses, so they model the sentence-quality

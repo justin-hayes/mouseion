@@ -82,7 +82,7 @@ func startScenarios() []Scenario {
 	}, {
 		Name: "start refuses a Book that is not To Read",
 		Run: func(t *testing.T, h Harness) {
-			bookID := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: defaultVocabulary})
+			bookID := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Inbox: true, Vocabulary: defaultVocabulary})
 			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
 			require.ErrorIs(t, err, domain.ErrCurrentReadingIneligible)
 		},

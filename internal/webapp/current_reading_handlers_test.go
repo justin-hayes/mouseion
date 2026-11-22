@@ -391,7 +391,7 @@ func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {
 	require.NoError(t, err)
 	for _, book := range books {
 		if book.Book.LanguageTag == "it" && book.Book.ID != fixtures.ItalianGoalBookID && book.Disposition == domain.BookDispositionToRead {
-			require.NoError(t, store.SetBookDisposition(ctx, fixtures.OwnerID, book.Book.ID, domain.BookDispositionInbox))
+			require.NoError(t, store.MarkBookPreviouslyRead(ctx, fixtures.OwnerID, book.Book.ID))
 		}
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"))

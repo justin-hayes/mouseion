@@ -204,50 +204,30 @@ func myBookEvidenceRecoveryURL(book domain.MyBook) string {
 // result state. Enabled deliberately distinguishes the new read model from
 // the zero-value legacy rendering used by lightweight stores.
 type MyBooksBrowseState struct {
-	Enabled            bool
-	Query              string
-	Disposition        domain.BookDisposition
-	History            bool
-	Language           string
-	LanguageLabel      string
-	NeedsLanguage      bool
-	NeedsLanguageCount int
-	AllCount           int
-	ScopeTotal         int
-	Total              int
-	BookTotal          int
-	WorkTotal          int
-	RowCount           int
-	HasWorks           bool
-	Rows               []domain.MyBooksBrowseRow
-	Page               int
-	PageCount          int
-	TextNoMatch        bool
-	InboxCount         int
-	ToReadCount        int
-	ReadCount          int
+	Enabled       bool
+	Query         string
+	Disposition   domain.BookDisposition
+	History       bool
+	Language      string
+	LanguageLabel string
+	AllCount      int
+	ScopeTotal    int
+	Total         int
+	BookTotal     int
+	WorkTotal     int
+	RowCount      int
+	HasWorks      bool
+	Rows          []domain.MyBooksBrowseRow
+	Page          int
+	PageCount     int
+	TextNoMatch   bool
+	ToReadCount   int
+	ReadCount     int
 }
 
-func myBooksURL(query string, page int, needsLanguage bool) string {
-	return myBooksFilteredURL(query, page, needsLanguage, "")
-}
-
-func myBooksFilteredURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition) string {
-	return myBooksHistoryURL(query, page, needsLanguage, disposition, false)
-}
-
-func myBooksHistoryURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition, history bool) string {
-	return myBooksScopedURL(query, page, needsLanguage, disposition, history)
-}
-
-// myBooksScopedURL is the one place a My Books location is spelled. Flag
-// parameters (needs-language) are bare so the address stays readable and
-// ordinary links work without JavaScript.
-func myBooksScopedURL(query string, page int, needsLanguage bool, disposition domain.BookDisposition, history bool) string {
+// myBooksScopedURL is the one place a My Books tab location is spelled.
+func myBooksScopedURL(query string, page int, disposition domain.BookDisposition, history bool) string {
 	values := url.Values{}
-	if needsLanguage {
-		values.Set("needs-language", "")
-	}
 	if query != "" {
 		values.Set("q", query)
 	}
@@ -264,39 +244,37 @@ func myBooksScopedURL(query string, page int, needsLanguage bool, disposition do
 	if encoded == "" {
 		return "/library"
 	}
-	parts := strings.Split(encoded, "&")
-	for i, part := range parts {
-		if part == "needs-language=" {
-			parts[i] = strings.TrimSuffix(part, "=")
-		}
-	}
-	encoded = strings.Join(parts, "&")
 	return "/library?" + encoded
 }
 
-func parseMyBooksBrowseRequest(rURL *url.URL) (query string, page int, needsLanguage bool) {
-	query, page, needsLanguage, _ = parseMyBooksBrowseRequestWithDisposition(rURL)
-	return query, page, needsLanguage
-}
-
-func parseMyBooksBrowseRequestWithDisposition(rURL *url.URL) (query string, page int, needsLanguage bool, disposition domain.BookDisposition) {
-	query = strings.TrimSpace(rURL.Query().Get("q"))
-	needsLanguage = rURL.Query().Has("needs-language")
-	disposition = domain.BookDisposition(strings.TrimSpace(rURL.Query().Get("disposition")))
-	if disposition.Validate() != nil {
-		disposition = ""
+// parseMyBooksBrowseRequest reads the two-tab My Books request. The retired
+// needs-language scope and the Inbox filter are unsupported rather than
+// translated.
+func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
+	values := rURL.Query()
+	if values.Has("needs-language") {
+		return myBooksLibraryRequest{}, false
 	}
-	page = 1
-	if parsed, err := strconv.Atoi(rURL.Query().Get("page")); err == nil && parsed >= 1 {
-		page = parsed
+	request := myBooksLibraryRequest{query: strings.TrimSpace(values.Get("q"))}
+	request.disposition = domain.BookDisposition(strings.TrimSpace(values.Get("disposition")))
+	switch request.disposition {
+	case "", domain.BookDispositionToRead:
+	default:
+		return myBooksLibraryRequest{}, false
 	}
-	return query, page, needsLanguage, disposition
-}
-
-func parseMyBooksBrowseRequestWithHistory(rURL *url.URL) (query string, page int, needsLanguage bool, disposition domain.BookDisposition, history bool) {
-	query, page, needsLanguage, disposition = parseMyBooksBrowseRequestWithDisposition(rURL)
-	history = rURL.Query().Get("history") == "read"
-	return query, page, needsLanguage, disposition, history
+	request.history = values.Get("history") == "read"
+	if request.history {
+		if request.disposition != "" {
+			return myBooksLibraryRequest{}, false
+		}
+	} else if request.disposition == "" {
+		request.disposition = domain.BookDispositionToRead
+	}
+	request.page = 1
+	if parsed, err := strconv.Atoi(values.Get("page")); err == nil && parsed >= 1 {
+		request.page = parsed
+	}
+	return request, true
 }
 
 // myBooksReturnURL validates a posted return location. Only a local /library
@@ -311,49 +289,41 @@ func myBooksReturnURL(raw string) string {
 	values := parsed.Query()
 	values.Del("message")
 	values.Del("error")
-	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(&url.URL{RawQuery: values.Encode()})
-	return myBooksScopedURL(query, page, needsLanguage, disposition, history)
+	request, ok := parseMyBooksBrowseRequest(&url.URL{RawQuery: values.Encode()})
+	if !ok {
+		return "/library"
+	}
+	return myBooksScopedURL(request.query, request.page, request.disposition, request.history)
 }
 
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksScopedURL(browse.Query, page, browse.NeedsLanguage, browse.Disposition, browse.History)
+	return myBooksScopedURL(browse.Query, page, browse.Disposition, browse.History)
 }
 
 // myBooksClearSearchURL keeps every control except the search text.
 func myBooksClearSearchURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL("", 1, browse.NeedsLanguage, browse.Disposition, browse.History)
+	return myBooksScopedURL("", 1, browse.Disposition, browse.History)
 }
 
-func myBooksHistoryFilterURL(browse MyBooksBrowseState, history bool) string {
-	return myBooksScopedURL(browse.Query, 1, browse.NeedsLanguage, "", history)
+func myBooksToReadTabURL(browse MyBooksBrowseState) string {
+	return myBooksScopedURL(browse.Query, 1, domain.BookDispositionToRead, false)
+}
+
+func myBooksReadTabURL(browse MyBooksBrowseState) string {
+	return myBooksScopedURL(browse.Query, 1, "", true)
 }
 
 // myBookBucketURL names where a Book is listed.
 func myBookBucketURL(book domain.MyBook, page int) string {
 	switch book.WorkflowBucket() {
-	case domain.MyBookBucketInbox:
-		return myBooksScopedURL("", page, false, domain.BookDispositionInbox, false)
 	case domain.MyBookBucketToRead, domain.MyBookBucketCurrentReading:
-		return myBooksScopedURL("", page, false, domain.BookDispositionToRead, false)
+		return myBooksScopedURL("", page, domain.BookDispositionToRead, false)
 	case domain.MyBookBucketRead:
-		return myBooksScopedURL("", page, false, "", true)
+		return myBooksScopedURL("", page, "", true)
+	case domain.MyBookBucketNone:
+		return "/library"
 	}
 	return "/library"
-}
-
-func myBooksDispositionURL(browse MyBooksBrowseState, disposition domain.BookDisposition) string {
-	return myBooksScopedURL(browse.Query, 1, browse.NeedsLanguage, disposition, false)
-}
-
-func myBooksDispositionCount(browse MyBooksBrowseState, disposition domain.BookDisposition) int {
-	switch disposition {
-	case domain.BookDispositionInbox:
-		return browse.InboxCount
-	case domain.BookDispositionToRead:
-		return browse.ToReadCount
-	default:
-		return browse.ScopeTotal
-	}
 }
 
 func myBooksReadCountLabel(count int) string {
@@ -377,34 +347,12 @@ func myBooksCompletionDateLabel(completedAt *time.Time) string {
 	return completedAt.Local().Format("2 Jan 2006")
 }
 
-func myBooksDispositionLabel(disposition domain.BookDisposition) string {
-	switch disposition {
-	case domain.BookDispositionInbox:
-		return "Inbox"
-	case domain.BookDispositionToRead:
-		return "To Read"
-	default:
-		return "All"
-	}
-}
-
-func myBookDisposition(book domain.MyBook) domain.BookDisposition {
-	if book.Disposition != "" {
-		return book.Disposition
-	}
-	if myBookInReading(book) {
-		return domain.BookDispositionToRead
-	}
-	return domain.BookDispositionInbox
-}
-
 // myBooksWorkBucketOrder is the ordinary bucket precedence a grouped Work row
 // uses for its one leading badge.
 var myBooksWorkBucketOrder = []domain.MyBookBucket{
 	domain.MyBookBucketCurrentReading,
 	domain.MyBookBucketToRead,
 	domain.MyBookBucketRead,
-	domain.MyBookBucketInbox,
 }
 
 func myBookBucketLabel(bucket domain.MyBookBucket) string {
@@ -416,7 +364,7 @@ func myBookBucketLabel(bucket domain.MyBookBucket) string {
 	case domain.MyBookBucketRead:
 		return "Read"
 	default:
-		return "Inbox"
+		return ""
 	}
 }
 
@@ -435,7 +383,7 @@ func myBookWorkBucketShape(bucket domain.MyBookBucket) string {
 	case domain.MyBookBucketRead:
 		return "status-badge__shape status-badge__shape--bar"
 	default:
-		return "status-badge__shape status-badge__shape--square"
+		return "status-badge__shape status-badge__shape--ring"
 	}
 }
 
@@ -513,7 +461,7 @@ func myBooksWorkSizeLabel(row domain.MyBooksBrowseRow) string {
 }
 
 // myBooksWorkLeadingBook applies the ordinary bucket precedence: current
-// reading, To Read, Read, Inbox.
+// reading, To Read, Read.
 func myBooksWorkLeadingBook(books []domain.MyBook) (domain.MyBookBucket, domain.MyBook) {
 	for _, bucket := range myBooksWorkBucketOrder {
 		for _, book := range books {
@@ -522,7 +470,10 @@ func myBooksWorkLeadingBook(books []domain.MyBook) (domain.MyBookBucket, domain.
 			}
 		}
 	}
-	return domain.MyBookBucketInbox, domain.MyBook{}
+	if len(books) > 0 {
+		return books[0].WorkflowBucket(), books[0]
+	}
+	return "", domain.MyBook{}
 }
 
 // myBooksWorkLeadingBadge is the one StatusBadge a grouped Work row shows.
@@ -596,7 +547,7 @@ func myBooksWorkCellClass(book domain.MyBook) string {
 // myBooksWorkCellURL is the Reading location a grouped Work's cell opens. Only
 // the current Book and a To Read candidate have a Reading entry: the
 // current-reading card, or the ordinary candidate entry inline in the chooser
-// on Reading or the Switch page. A Read or Inbox Book has no Reading entry to
+// on Reading or the Switch page. A Read Book has no Reading entry to
 // select, so its cell is status-only and reports no link.
 func myBooksWorkCellURL(book domain.MyBook, currentReadingBookID string) (string, bool) {
 	switch book.WorkflowBucket() {
@@ -850,13 +801,6 @@ func myBooksFinalizeFallbackRow(row *domain.MyBooksBrowseRow) {
 	})
 }
 
-func myBooksAllDispositionCount(browse MyBooksBrowseState) int {
-	if browse.Enabled {
-		return browse.ScopeTotal
-	}
-	return browse.AllCount
-}
-
 func myBooksPageCount(total int) int {
 	if total <= 0 {
 		return 0
@@ -879,11 +823,18 @@ func myBooksResultCount(total int) string {
 }
 
 func myBooksHasActiveResultFilter(browse MyBooksBrowseState) bool {
-	return browse.Query != "" || browse.Disposition != "" || browse.History || browse.NeedsLanguage
+	return browse.Query != "" || browse.History
 }
 
 func myBooksResultAnnouncementAttributes() templ.Attributes {
 	return templ.Attributes{"role": "status", "aria-live": "polite", "aria-atomic": "true"}
+}
+
+func myBooksTabLabel(browse MyBooksBrowseState) string {
+	if browse.History {
+		return "Read"
+	}
+	return "To Read"
 }
 
 func myBooksLanguageName(browse MyBooksBrowseState) string {

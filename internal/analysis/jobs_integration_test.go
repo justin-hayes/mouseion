@@ -1455,7 +1455,8 @@ func TestAnalysisSubmissionRejectsIneligibleSourcesAndBooks(t *testing.T) {
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, otherBook.ID, domain.BookDispositionToRead))
 
 	inboxBook := newBook("Guard inbox")
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, inboxBook.ID, domain.BookDispositionInbox))
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, inboxBook.ID, domain.BookDispositionToRead))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, owner.ID, inboxBook.ID))
 
 	nonEPUB, err := store.PutSourceMaterial(ctx, domain.SourceMaterial{OwnerID: owner.ID, Language: "de", SourceIdentifier: "guard-pdf", Title: "PDF", MediaType: "application/pdf", ContentHash: "sha256:guard-pdf", Content: []byte("pdf"), FullText: "pdf"})
 	require.NoError(t, err)

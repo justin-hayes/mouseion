@@ -391,7 +391,8 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 			require.NoError(t, err)
 		}
 	}
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook, domain.BookDispositionInbox))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook, domain.BookDispositionToRead))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, alice.ID, aliceBook))
 	aliceToReadBook, aliceToReadSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse To Read", "browse-to-read", true, []domain.ExtractedUnit{
 		concordanceUnit(0, "browse-to-read", "Haus", 0, 4),
 	})
@@ -420,7 +421,8 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		UnitID: "epub-unit-v1:0:browse-old", Ordinal: 0, Text: "Haus", Start: 0, End: 4,
 		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
 	}})
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, staleBook.ID, domain.BookDispositionInbox))
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, staleBook.ID, domain.BookDispositionToRead))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, alice.ID, staleBook.ID))
 	_, err = store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Italian", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
 	require.NoError(t, err)
 	var corpusID, analysisRunID string

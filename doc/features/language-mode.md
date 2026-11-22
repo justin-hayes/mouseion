@@ -21,8 +21,9 @@ scoping every surface — aligns the surfaces with the artifacts.
 Introduce the active study language as a global mode: a shell-level switcher;
 per-language My Books browse and search; per-language current reading and
 Vocabulary. Remove the "All languages" default and
-per-screen language pickers. Legacy no-language Books get an explicit,
-out-of-band "needs language" surface.
+per-screen language pickers. Books without a chosen language are not in My
+Books; their Catalog entries remain available for a later Add after the
+language is fixed.
 
 ## Scope
 
@@ -59,9 +60,10 @@ labels use **Language** and the language's own name, never **Mode** or
 - The shipped My Books cover grid communicates disposition but not per-Book
   evidence or current-reading state. Book evidence remains on the Reading
   surface. The retired Language view panel does not render.
-- When any Book lacks a language, an out-of-band "N books need a language" strip
-  appears (display-only: fix the language in the catalog, then re-sync; no
-  per-book actions). Its browse state is `/library?needs-language`.
+- A Book without a chosen language is not in My Books. Its Catalog entry stays
+  browsable, so fixing the language and adding it later gives it a study
+  language. The retired needs-language strip and `/library?needs-language` are
+  unsupported.
 - Moving a Book to To Read targets that Book's language —
   which equals the active language by construction.
 
@@ -146,7 +148,7 @@ labels use **Language** and the language's own name, never **Mode** or
 - Browse and search never return Books outside the active language.
 - Current reading and My Books scope follow the active language; switching
   languages does not change another language's current Book or Read history.
-- A no-language Book is reachable only through the "needs language" strip and
-  becomes a language Book after fix + re-sync.
+- A Book without a chosen language is not reachable in My Books; it becomes a
+  study-language Book only after the learner adds it with a language.
 - The switcher is keyboard-accessible and server-rendered before progressive
   enhancement.

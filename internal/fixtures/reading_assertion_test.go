@@ -86,7 +86,10 @@ func TestMarkClassicalReadingUnitPreviouslyReadRefusesTheCurrentReading(t *testi
 func TestMarkBookPreviouslyReadRefusesIneligibleBooks(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
-	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, OwnerID, "fixture-metadata-only"), domain.ErrPreviouslyReadIneligible)
+	store.myBooks = append(store.myBooks, domain.MyBook{
+		Book: domain.Book{ID: "fixture-unchosen", OwnerID: OwnerID, Title: "Unchosen", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
+	})
+	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, OwnerID, "fixture-unchosen"), domain.ErrPreviouslyReadIneligible)
 
 	store.snapshotLifecycles["fixture-started"] = domain.CurrentReadingSnapshotLifecycle{BookID: routeDiffersBookID}
 	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, OwnerID, routeDiffersBookID), domain.ErrPreviouslyReadIneligible)

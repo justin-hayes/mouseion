@@ -14,6 +14,7 @@ import (
 // scenario holds whatever revision an adapter starts from.
 func bookStateScenarios() []Scenario {
 	scenarios := dispositionScenarios()
+	scenarios = append(scenarios, bucketScenarios()...)
 	scenarios = append(scenarios, importScenarios()...)
 	scenarios = append(scenarios, removalScenarios()...)
 	return append(scenarios, epubAcquisitionFailureScenarios()...)
@@ -165,7 +166,7 @@ func dispositionScenarios() []Scenario {
 		Name: "a disposition change applies at the expected revision and a verified replay is a no-op",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{})
+			bookID := seedReadBook(t, h)
 			initial := requireDetail(t, h, owner, bookID).DispositionRevision
 			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, initial, domain.BookDispositionToRead)
 			require.NoError(t, err)
@@ -181,7 +182,7 @@ func dispositionScenarios() []Scenario {
 		Name: "a stale disposition choice cannot reverse a newer one",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			bookID := seedBook(t, h, BookSeed{})
+			bookID := seedReadBook(t, h)
 			initial := requireDetail(t, h, owner, bookID).DispositionRevision
 			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, initial, domain.BookDispositionToRead)
 			require.NoError(t, err)
@@ -194,6 +195,7 @@ func dispositionScenarios() []Scenario {
 			detail := requireDetail(t, h, owner, bookID)
 			assert.Equal(t, domain.BookDispositionInbox, detail.Disposition)
 			assert.Equal(t, initial+2, detail.DispositionRevision)
+			assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket(), "recorded history keeps the reversed Book Read")
 		},
 	}, {
 		Name: "disposition is owner-scoped",
@@ -204,10 +206,62 @@ func dispositionScenarios() []Scenario {
 			_, err := h.BookState().TransitionBookDisposition(other, bookID, initial, domain.BookDispositionToRead)
 			require.ErrorIs(t, err, domain.ErrNotFound)
 			detail := requireDetail(t, h, owner, bookID)
-			assert.Equal(t, domain.BookDispositionInbox, detail.Disposition)
+			assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 			assert.Equal(t, initial, detail.DispositionRevision)
 		},
 	}}
+}
+
+// bucketScenarios pin the retired Inbox: every active member has one of the
+// three visible roles, and a member with no chosen role is rejected.
+func bucketScenarios() []Scenario {
+	return []Scenario{{
+		Name: "every active member is Currently reading, To Read or Read",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			toRead := requireDetail(t, h, owner, seedBook(t, h, BookSeed{}))
+			assert.Equal(t, domain.MyBookBucketToRead, toRead.WorkflowBucket())
+
+			readID := seedReadBook(t, h)
+			read := requireDetail(t, h, owner, readID)
+			assert.Equal(t, domain.MyBookBucketRead, read.WorkflowBucket())
+
+			started, _ := startReading(t, h, defaultVocabulary)
+			current := requireDetail(t, h, owner, started)
+			assert.Contains(t, []domain.MyBookBucket{domain.MyBookBucketCurrentReading, domain.MyBookBucketToRead}, current.WorkflowBucket())
+		},
+	}, {
+		Name: "a member that is neither To Read nor read is rejected",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{Inbox: true})
+			detail := requireDetail(t, h, owner, bookID)
+			assert.Empty(t, detail.WorkflowBucket(), "the retired Inbox has no visible role")
+			require.ErrorIs(t, detail.ValidateMembership(), domain.ErrBookNotChosen)
+		},
+	}, {
+		Name: "clearing To Read without reading history is rejected",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedBook(t, h, BookSeed{})
+			initial := requireDetail(t, h, owner, bookID).DispositionRevision
+			applied, err := h.BookState().TransitionBookDisposition(owner, bookID, initial, domain.BookDispositionInbox)
+			require.ErrorIs(t, err, domain.ErrBookNotChosen)
+			assert.False(t, applied)
+			detail := requireDetail(t, h, owner, bookID)
+			assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "the refusal leaves the Book To Read")
+			assert.Equal(t, initial, detail.DispositionRevision)
+		},
+	}}
+}
+
+// seedReadBook creates a Book with one completion, so it is a valid Read
+// member of My Books.
+func seedReadBook(t *testing.T, h Harness) string {
+	t.Helper()
+	bookID := seedBook(t, h, BookSeed{})
+	require.NoError(t, h.BookState().MarkBookPreviouslyRead(h.Seeds().Owner(), bookID))
+	return bookID
 }
 
 func importScenarios() []Scenario {
@@ -262,9 +316,10 @@ func importScenarios() []Scenario {
 		Name: "marking a Book that is not an unstarted To Read Book is refused",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			inbox := seedBook(t, h, BookSeed{})
+			inbox := seedBook(t, h, BookSeed{Inbox: true})
 			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, inbox), domain.ErrPreviouslyReadIneligible)
-			assert.Zero(t, requireDetail(t, h, owner, inbox).CompletionCount, "a refused assertion records no history")
+			detail := requireDetail(t, h, owner, inbox)
+			require.ErrorIs(t, detail.ValidateMembership(), domain.ErrBookNotChosen, "a refused assertion records no history")
 
 			started, reading := startReading(t, h, defaultVocabulary)
 			require.NoError(t, h.Store().EndCurrentReading(owner, Language, started, reading.SnapshotID))

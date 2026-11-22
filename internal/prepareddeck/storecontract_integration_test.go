@@ -202,7 +202,7 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	if seed.MetadataOnly {
 		book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: "Contract Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: languageState, LanguageTag: languageTag})
 		require.NoError(t, err)
-		if seed.ToRead {
+		if !seed.Inbox {
 			require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, book.ID, domain.BookDispositionToRead))
 		}
 		return book.ID
@@ -216,7 +216,7 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	if len(seed.Occurrences) > 0 {
 		h.seedLemmaOccurrences(t, owner, book.ID, source.ID, runID, corpusID, language, seed.Occurrences)
 	}
-	if seed.ToRead {
+	if !seed.Inbox {
 		require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, book.ID, domain.BookDispositionToRead))
 	}
 	var imported []domain.SnapshotIdentity

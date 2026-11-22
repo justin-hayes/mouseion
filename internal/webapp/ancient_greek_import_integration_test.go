@@ -29,6 +29,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	learner := createAccount(t, ctx, store, "greek-import-learner", "learner-password")
 	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 
 	definition, sourcePath := fixtureImport(t)
 	report, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{

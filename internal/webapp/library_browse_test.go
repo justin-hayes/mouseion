@@ -23,15 +23,15 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 		{Book: domain.Book{ID: "de-book", OwnerID: "owner", Title: "De book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "unknown-book", OwnerID: "owner", Title: "Unknown book", LanguageState: domain.LanguageUnknown}},
 	}
-	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", NeedsLanguageCount: 1, AllCount: 4, Total: 2, Page: 2, PageCount: 2}
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 4, Total: 2, Page: 2, PageCount: 2}
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
 		`role="search"`, `method="get"`, `label class="sr-only" for="library-search-query">Search My Books`,
 		`type="search" name="q"`, `class="btn btn-outline" type="submit">Search</button>`,
-		`id="library-results"`, `data-focus-id="library-results"`, `aria-label="My Books results"`, `Page 2 of 2`, `href="/library?needs-language"`,
-		`href="/library"`, `href="/library?page=2"`,
+		`id="library-results"`, `data-focus-id="library-results"`, `aria-label="My Books results"`, `Page 2 of 2`, `href="/library?history=read"`,
+		`href="/library?disposition=to_read&amp;page=2"`,
 	} {
 		assert.Contains(t, html, want, "browse markup missing %q: %s", want, html)
 	}
@@ -49,8 +49,8 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 		state MyBooksBrowseState
 		wants []string
 	}{
-		{name: "text", state: MyBooksBrowseState{Enabled: true, Query: "missing title", Language: "de", LanguageLabel: "German", AllCount: 3, TextNoMatch: true}, wants: []string{"No books in your local collection in German match “missing title”", "Clear search", `href="/library"`}},
-		{name: "collection", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 3}, wants: []string{"No books in your local collection are in German."}},
+		{name: "text", state: MyBooksBrowseState{Enabled: true, Query: "missing title", Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3, TextNoMatch: true}, wants: []string{"No To Read books in German match “missing title”", "Clear search", `href="/library?disposition=to_read"`}},
+		{name: "collection", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3}, wants: []string{"No books in your To Read list in German.", `href="/catalogs"`}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -65,12 +65,12 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 	}
 }
 
-func TestNeedsLanguageClearSearchResetsQueryAndPreservesDisposition(t *testing.T) {
-	state := MyBooksBrowseState{Enabled: true, Query: "missing", NeedsLanguage: true, Disposition: domain.BookDispositionInbox, TextNoMatch: true}
+func TestClearSearchResetsQueryAndPreservesTab(t *testing.T) {
+	state := MyBooksBrowseState{Enabled: true, Query: "missing", Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3, TextNoMatch: true}
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `href="/library?disposition=inbox&amp;needs-language"`)
+	assert.Contains(t, html, `href="/library?disposition=to_read"`)
 }
 
 type pagedBookBrowseReader struct {
@@ -189,7 +189,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	handler := requireHandler(t, h)
 	store := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 		Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
-		Total: 26, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: "de", Count: 26}},
+		Total: 26, AllCount: 26,
 	}}
 	handler.services.Store = storeDependencies(store)
 
@@ -216,7 +216,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	}
 	response := request("/library?q=%20Dampf%20&page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?page=2&q=Dampf", response.Header().Get("Location"))
+	assert.Equal(t, "/library?disposition=to_read&page=2&q=Dampf", response.Header().Get("Location"))
 	assert.Equal(t, "Dampf", store.query)
 	assert.Equal(t, "de", store.language)
 	assert.Equal(t, 50, store.offset)
@@ -255,34 +255,17 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	store.result.ScopeTotal = 26
 	response = request("/library?page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?page=2", response.Header().Get("Location"))
+	assert.Equal(t, "/library?disposition=to_read&page=2", response.Header().Get("Location"))
 	partialStalePage := partialRequest("/library?page=3")
 	assert.Equal(t, http.StatusOK, partialStalePage.Code)
-	assert.Equal(t, "/library?page=2", partialStalePage.Header().Get("Hx-Redirect"))
+	assert.Equal(t, "/library?disposition=to_read&page=2", partialStalePage.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialStalePage.Header().Get("Location"))
-	store.result = persistence.MyBooksBrowseResult{
-		Items: []domain.MyBook{{Book: domain.Book{ID: "unknown-book", OwnerID: fixtures.OwnerID, Title: "Unknown Book", LanguageState: domain.LanguageUnknown}}},
-		Total: 1, ScopeTotal: 1, AllCount: 26, Counts: []persistence.LanguageCount{{Tag: domain.LanguageUnknown, Count: 1}},
+	// The retired needs-language scope and the Inbox filter are unsupported
+	// rather than translated.
+	for _, path := range []string{"/library?needs-language", "/library?disposition=inbox", "/library?disposition=set_aside", "/library?disposition=to_read&history=read"} {
+		response = request(path)
+		assert.Equal(t, http.StatusNotFound, response.Code, "retired My Books state %s is unsupported", path)
 	}
-	response = request("/library?needs-language")
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Equal(t, domain.LanguageUnknown, store.language)
-	assert.Contains(t, response.Body.String(), "Books awaiting a language", "needs-language browse body=%s", response.Body.String())
-	assert.Contains(t, response.Body.String(), "Unknown Book", "needs-language browse body=%s", response.Body.String())
-	assert.NotContains(t, response.Body.String(), `href="/books/unknown-book"`, "needs-language browse exposed mutation actions: %s", response.Body.String())
-	assert.NotContains(t, response.Body.String(), "Move to To Read", "needs-language browse exposed mutation actions: %s", response.Body.String())
-	assert.NotContains(t, response.Body.String(), "Remove from My Books", "needs-language browse exposed mutation actions: %s", response.Body.String())
-	// The retired Set Aside filter is an unknown disposition: it is ignored like
-	// any other unknown value, so the page shows every disposition.
-	response = request("/library?disposition=set_aside")
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Empty(t, store.disposition, "retired disposition filter must not reach the store")
-	assert.NotContains(t, response.Body.String(), "Set Aside")
-	store.result.Total = 0
-	store.result.ScopeTotal = 26
-	response = request("/library?disposition=set_aside&page=2")
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.NotContains(t, response.Header().Get("Location"), "set_aside", "empty pages should clamp without preserving the retired filter")
 }
 
 func TestLibraryHandlerNeverOffersRetiredMetadataRefresh(t *testing.T) {
@@ -293,7 +276,7 @@ func TestLibraryHandlerNeverOffersRetiredMetadataRefresh(t *testing.T) {
 			{Book: domain.Book{ID: "fixture-metadata-only", OwnerID: fixtures.OwnerID, Title: "Linked metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 			{Book: domain.Book{ID: "no-alias", OwnerID: fixtures.OwnerID, Title: "Unlinked metadata", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		},
-		Total: 2, ScopeTotal: 2, AllCount: 2, Counts: []persistence.LanguageCount{{Tag: "de", Count: 2}},
+		Total: 2, ScopeTotal: 2, AllCount: 2,
 	}}
 	handler.services.Store = storeDependencies(store)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library", nil)
@@ -310,45 +293,49 @@ func TestLibraryHandlerNeverOffersRetiredMetadataRefresh(t *testing.T) {
 	assert.NotContains(t, html, "/refresh", "My Books still linked a retired refresh route: %s", html)
 }
 
-func TestMyBooksBrowseRequestDefaults(t *testing.T) {
-	query, page, needsLanguage := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
-	assert.Equal(t, "title", query)
-	assert.Equal(t, 1, page)
-	assert.False(t, needsLanguage, "ordinary browse request unexpectedly selected needs-language")
-	query, page, needsLanguage = parseMyBooksBrowseRequest(&url.URL{RawQuery: "needs-language&q=title&page=2"})
-	assert.Equal(t, "title", query)
-	assert.Equal(t, 2, page)
-	assert.True(t, needsLanguage)
-	assert.Equal(t, "/library?needs-language&page=2&q=title", myBooksURL("title", 2, true))
-	query, page, needsLanguage, disposition := parseMyBooksBrowseRequestWithDisposition(&url.URL{RawQuery: "q=title&disposition=to_read&page=2"})
-	assert.Equal(t, "title", query)
-	assert.Equal(t, 2, page)
-	assert.False(t, needsLanguage)
-	assert.Equal(t, domain.BookDispositionToRead, disposition)
-	assert.Equal(t, "/library?disposition=to_read&q=title", myBooksDispositionURL(MyBooksBrowseState{Query: "title", Disposition: disposition}, disposition))
-	_, _, _, disposition = parseMyBooksBrowseRequestWithDisposition(&url.URL{RawQuery: "disposition=invalid"})
-	assert.Empty(t, disposition)
+func TestMyBooksBrowseRequestDefaultsToToReadTab(t *testing.T) {
+	request, ok := parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=+title+&language=de&page=-4"})
+	assert.True(t, ok)
+	assert.Equal(t, "title", request.query)
+	assert.Equal(t, 1, request.page)
+	assert.Equal(t, domain.BookDispositionToRead, request.disposition)
+	assert.False(t, request.history)
+
+	request, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=title&disposition=to_read&page=2"})
+	assert.True(t, ok)
+	assert.Equal(t, "title", request.query)
+	assert.Equal(t, 2, request.page)
+	assert.Equal(t, domain.BookDispositionToRead, request.disposition)
+	assert.False(t, request.history)
+
+	request, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: "q=title&history=read"})
+	assert.True(t, ok)
+	assert.Empty(t, request.disposition)
+	assert.True(t, request.history)
+	assert.Equal(t, "/library?history=read&q=title", myBooksScopedURL("title", 1, "", true))
+
+	for _, raw := range []string{"needs-language", "disposition=inbox", "disposition=invalid", "disposition=to_read&history=read"} {
+		_, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: raw})
+		assert.False(t, ok, "retired request %q is unsupported", raw)
+	}
 }
 
-func TestMyBooksDispositionFiltersRenderDistinctActiveLinks(t *testing.T) {
-	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 6, ScopeTotal: 6, Total: 2, Disposition: domain.BookDispositionToRead, InboxCount: 2, ToReadCount: 3}
+func TestMyBooksTabsRenderOnlyToReadAndRead(t *testing.T) {
+	state := MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 6, ScopeTotal: 6, Total: 2, Disposition: domain.BookDispositionToRead, ToReadCount: 3, ReadCount: 1}
 	var output bytes.Buffer
 	books := []domain.MyBook{
 		{Book: domain.Book{ID: "to-read", OwnerID: "owner", Title: "To read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionToRead},
-		{Book: domain.Book{ID: "inbox-book", OwnerID: "owner", Title: "Inbox book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionInbox},
+		{Book: domain.Book{ID: "read-book", OwnerID: "owner", Title: "Read book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1},
 	}
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "", false, state).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `href="/library?disposition=inbox"`)
 	assert.Contains(t, html, `aria-current="page" href="/library?disposition=to_read"`)
-	assert.NotContains(t, html, "set_aside")
+	assert.Contains(t, html, `href="/library?history=read"`)
+	assert.NotContains(t, html, "Inbox")
+	assert.NotContains(t, html, "All (")
 	assert.NotContains(t, html, "Set Aside")
-	assert.Contains(t, html, "Inbox (2)")
 	assert.Contains(t, html, "To Read (3)")
-	assert.Contains(t, html, "2 books found")
-	assert.NotContains(t, html, "/set-aside")
-	assert.NotContains(t, html, "Confirm set aside")
-	assert.Contains(t, html, `action="/library/books/inbox-book/to-read"`)
+	assert.Contains(t, html, "Read (1)")
 	filtersStart := strings.Index(html, `<nav class="library-filters"`)
 	require.GreaterOrEqual(t, filtersStart, 0)
 	filtersEnd := strings.Index(html[filtersStart:], `</nav>`)
@@ -384,7 +371,7 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 
 	toRead := request("/library?disposition=to_read")
 	require.Equal(t, http.StatusOK, toRead.Code)
-	assert.Contains(t, toRead.Body.String(), "To Read (15)")
+	assert.Contains(t, toRead.Body.String(), "To Read (16)")
 	assert.Contains(t, toRead.Body.String(), `id="book-row-`+fixtures.BookID+`"`)
 	assert.Contains(t, toRead.Body.String(), "Currently reading")
 }
@@ -406,13 +393,8 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusNotFound, retired.Code)
 	assert.Equal(t, domain.BookDispositionToRead, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"), "retired route changed disposition")
-	inbox, err := store.TransitionBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed", bookState.DispositionRevision, domain.BookDispositionInbox)
-	require.NoError(t, err)
-	require.True(t, inbox)
-	assert.Equal(t, domain.BookDispositionInbox, mustFixtureBookDisposition(t, store, fixtures.OwnerID, "fixture-failed"))
-
 	toRead := readingTestRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, toRead.Code)
 	assert.NotContains(t, toRead.Header().Get("Location"), "error=")
@@ -422,7 +404,7 @@ func TestMyBooksDispositionTransitionsAreIdempotent(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, disposition)
 
 	repeated := readingTestRequest(t, h, "/library/books/fixture-failed/to-read", url.Values{
-		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision+1, 10)},
+		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(bookState.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code)
 	disposition, err = store.GetBookDisposition(context.Background(), fixtures.OwnerID, "fixture-failed")
@@ -437,13 +419,13 @@ func mustFixtureBookDisposition(t *testing.T, store *fixtures.Store, owner, book
 	return disposition
 }
 
-func TestMyBooksWithoutActiveLanguageKeepsCatalogSetupAction(t *testing.T) {
+func TestEmptyMyBooksLeadsToTheCatalog(t *testing.T) {
 	var output bytes.Buffer
 	state := MyBooksBrowseState{Enabled: true}
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, state).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, "Set up a catalog connection", "empty unscoped My Books state lost catalogue setup: %s", html)
-	assert.Contains(t, html, `href="/catalogs">Set up a catalog</a>`, "empty unscoped My Books state lost catalogue setup: %s", html)
+	assert.Contains(t, html, "Find your first Book", "empty My Books state lost its Catalog path: %s", html)
+	assert.Contains(t, html, `href="/catalogs">Browse the Catalog</a>`, "empty My Books state lost its Catalog path: %s", html)
 }
 
 func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
@@ -498,7 +480,7 @@ func TestLibraryHandlerRendersFailureWhenBrowsingExtrasFail(t *testing.T) {
 			handler := requireHandler(t, h)
 			base := &browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{
 				Items: []domain.MyBook{{Book: domain.Book{ID: "book-1", OwnerID: fixtures.OwnerID, Title: "Book 1", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}},
-				Total: 1, ScopeTotal: 1, AllCount: 1, Counts: []persistence.LanguageCount{{Tag: "de", Count: 1}},
+				Total: 1, ScopeTotal: 1, AllCount: 1,
 			}}
 			handler.services.Store = storeDependencies(tc.store(base))
 
@@ -528,7 +510,7 @@ func TestLibraryHandlerClampsAnEmptyScopeToItsFirstPage(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library", response.Header().Get("Location"))
+	assert.Equal(t, "/library?disposition=to_read", response.Header().Get("Location"))
 }
 
 func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
@@ -544,7 +526,7 @@ func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?q=Dampf", response.Header().Get("Location"))
+	assert.Equal(t, "/library?disposition=to_read&q=Dampf", response.Header().Get("Location"))
 }
 
 func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {
@@ -560,5 +542,5 @@ func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library?q=Dampf", response.Header().Get("Location"))
+	assert.Equal(t, "/library?disposition=to_read&q=Dampf", response.Header().Get("Location"))
 }

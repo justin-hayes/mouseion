@@ -29,8 +29,9 @@ provider omissions instead of failing the whole run.
 [ADR 0117](doc/adr/0117-one-catalog-my-books-holds-chosen-books.md) (accepted)
 defines **Catalog**, **Catalog index**, **Catalog entry**, **Book**, **Book
 disposition**, **Book workflow bucket**, **My Books** and **Previously read**
-below, and retires **Inbox** and **Hidden**. Until its slices ship, the code
-still syncs entries into Inbox Books.
+below, and retires **Inbox** and **Hidden**. My Books now holds only chosen
+Books; sync maintains each connection's local Catalog index instead of creating
+Books.
 
 ## Language
 
@@ -650,12 +651,10 @@ _Avoid_: Reading Journey, Primary Goal, reading queue.
 
 **Inbox** (retired):
 Retired by ADR 0117: a Book does not exist before the learner chooses it, so
-nothing is untriaged. Unread Inbox Books leave My Books and their entries stay
-in the Catalog. Formerly the disposition of a Book with no explicit
-future-reading intent. It is the default for a newly discovered Book, and it does not mean the Book was never triaged.
-Metadata changes or catalog reappearance do not recreate Inbox work. A Book
-marked previously read, and a Book whose reading was finished, leaves the
-visible Inbox for Read while Inbox remains its underlying disposition.
+nothing is untriaged. Unread Inbox Books left My Books through the backfill and
+their entries stay in the Catalog. The stored `inbox` disposition value now
+means only "not To Read"; it has no visible bucket. A Book marked previously
+read, and a Book whose reading was finished, appears in Read.
 _Avoid_: unprocessed queue, notification.
 
 **To Read**:

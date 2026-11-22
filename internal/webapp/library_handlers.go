@@ -34,29 +34,29 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
-	request := parseMyBooksLibraryRequest(r.URL)
-	if request.hasLanguage {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.needsLanguage, request.disposition, false))
+	request, ok := parseMyBooksLibraryRequest(r.URL)
+	if !ok {
+		http.NotFound(w, r)
 		return
 	}
-	requestedLanguage := activeLanguage
-	if request.needsLanguage {
-		requestedLanguage = domain.LanguageUnknown
+	if r.URL.Query().Has("language") {
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.disposition, request.history))
+		return
 	}
-	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, request.query, requestedLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
+	result, err := browseMyBooks(r.Context(), h.services.Store.MyBooks, u.ID, request.query, activeLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
 	books := result.Items
-	if activeLanguage == "" && !request.needsLanguage {
+	if activeLanguage == "" {
 		books = nil
 		result.Total = 0
 	}
-	browse := myBooksBrowseState(request.query, request.page, request.needsLanguage, request.disposition, activeLanguage, activeLanguageLabel, result)
+	browse := myBooksBrowseState(request.query, request.page, request.disposition, activeLanguage, activeLanguageLabel, result)
 	browse.History = request.history
-	if page, redirect := myBooksRedirectPage(request, requestedLanguage, result); redirect {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.needsLanguage, request.disposition, request.history))
+	if page, redirect := myBooksRedirectPage(request, activeLanguage, result); redirect {
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.disposition, request.history))
 		return
 	}
 	connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
@@ -83,37 +83,26 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 
 // myBooksLibraryRequest is the My Books browse state the /library query asks for.
 type myBooksLibraryRequest struct {
-	query         string
-	page          int
-	needsLanguage bool
-	disposition   domain.BookDisposition
-	history       bool
-	hasLanguage   bool
+	query       string
+	page        int
+	disposition domain.BookDisposition
+	history     bool
 }
 
-func parseMyBooksLibraryRequest(rURL *url.URL) myBooksLibraryRequest {
-	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(rURL)
-	return myBooksLibraryRequest{
-		query:         query,
-		page:          page,
-		needsLanguage: needsLanguage,
-		disposition:   disposition,
-		history:       history,
-		hasLanguage:   rURL.Query().Has("language"),
-	}
+func parseMyBooksLibraryRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
+	return parseMyBooksBrowseRequest(rURL)
 }
 
 // myBooksRedirectPage clamps an out-of-range page. A page past the last page of
 // a non-empty result, or any page beyond the first of an empty one, recovers to
-// the bucket's own location; an unfiltered empty scope recovers to its last page.
-// It reports the page to redirect to, and whether a redirect is needed at all.
+// the tab's own first page.
 func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string, result domain.MyBooksBrowseResult) (int, bool) {
 	rowTotal := myBooksRowCount(result)
 	if rowTotal > 0 && myBooksPageOffset(request.page) >= rowTotal {
 		return myBooksPageCount(rowTotal), true
 	}
 	if request.page > 1 && result.Total == 0 {
-		if request.query == "" && requestedLanguage != "" && request.disposition == "" {
+		if request.query == "" && requestedLanguage != "" && !request.history {
 			if lastPage := myBooksPageCount(result.ScopeTotal); lastPage > 0 {
 				return lastPage, true
 			}
@@ -275,27 +264,25 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 	}
 }
 
-func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result domain.MyBooksBrowseResult) MyBooksBrowseState {
+func myBooksBrowseState(query string, page int, disposition domain.BookDisposition, language, languageLabel string, result domain.MyBooksBrowseResult) MyBooksBrowseState {
 	browse := MyBooksBrowseState{
-		Enabled:            true,
-		Query:              query,
-		Disposition:        disposition,
-		Language:           language,
-		LanguageLabel:      languageLabel,
-		NeedsLanguage:      needsLanguage,
-		NeedsLanguageCount: needsLanguageCount(result.Counts),
-		AllCount:           result.AllCount,
-		ReadCount:          result.ReadCount,
-		ScopeTotal:         result.ScopeTotal,
-		Total:              result.Total,
-		BookTotal:          result.BookTotal,
-		WorkTotal:          result.WorkTotal,
-		RowCount:           result.RowCount,
-		HasWorks:           result.HasWorks,
-		Rows:               result.Rows,
-		Page:               page,
-		PageCount:          myBooksPageCount(myBooksRowCount(result)),
-		TextNoMatch:        query != "" && result.Total == 0,
+		Enabled:       true,
+		Query:         query,
+		Disposition:   disposition,
+		Language:      language,
+		LanguageLabel: languageLabel,
+		AllCount:      result.AllCount,
+		ReadCount:     result.ReadCount,
+		ScopeTotal:    result.ScopeTotal,
+		Total:         result.Total,
+		BookTotal:     result.BookTotal,
+		WorkTotal:     result.WorkTotal,
+		RowCount:      result.RowCount,
+		HasWorks:      result.HasWorks,
+		Rows:          result.Rows,
+		Page:          page,
+		PageCount:     myBooksPageCount(myBooksRowCount(result)),
+		TextNoMatch:   query != "" && result.Total == 0,
 	}
 	if browse.BookTotal == 0 {
 		browse.BookTotal = result.Total
@@ -304,10 +291,7 @@ func myBooksBrowseState(query string, page int, needsLanguage bool, disposition 
 		browse.RowCount = result.Total
 	}
 	for _, count := range result.DispositionCounts {
-		switch count.Disposition {
-		case domain.BookDispositionInbox:
-			browse.InboxCount = count.Count
-		case domain.BookDispositionToRead:
+		if count.Disposition == domain.BookDispositionToRead {
 			browse.ToReadCount = count.Count
 		}
 	}
@@ -321,15 +305,6 @@ func myBooksRowCount(result domain.MyBooksBrowseResult) int {
 		return result.RowCount
 	}
 	return result.Total
-}
-
-func needsLanguageCount(counts []domain.LanguageCount) int {
-	for _, count := range counts {
-		if count.Tag == domain.LanguageUnknown {
-			return count.Count
-		}
-	}
-	return 0
 }
 
 func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {
@@ -361,7 +336,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	bookID := r.PathValue("id")
 	expectedRevision, ok := expectedDispositionRevision(r)
 	if !ok {
-		redirect(w, r, myBooksFilteredURL("", 1, false, domain.BookDispositionToRead)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
+		redirect(w, r, myBooksScopedURL("", 1, domain.BookDispositionToRead, false)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
 		return
 	}
 	intent, err := h.readingIntentModule()
@@ -384,7 +359,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if outcome.Kind == readingintent.OutcomeStaleRevision {
 		queryParam = "error"
 	}
-	redirect(w, r, myBooksScopedURL("", 1, false, domain.BookDispositionToRead, false)+"&"+queryParam+"="+url.QueryEscape(message))
+	redirect(w, r, myBooksScopedURL("", 1, domain.BookDispositionToRead, false)+"&"+queryParam+"="+url.QueryEscape(message))
 }
 
 // moveToReadMessage maps a reading-intent outcome to the learner-facing

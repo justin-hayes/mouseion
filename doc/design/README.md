@@ -51,7 +51,7 @@ and surface a material conflict rather than silently choosing one.
   the core current-analysis-to-deck lifecycle, including explicit refresh and
   To Read's ensure-once analysis trigger.
 - [`../features/reading-workflow.md`](../features/reading-workflow.md) — shipped
-  Inbox, To Read, current-reading, completion-history, and rereading workflow.
+  To Read, current-reading, completion-history, and rereading workflow.
 - [`../features/vocabulary-browse-and-concordance.md`](../features/vocabulary-browse-and-concordance.md)
   — accepted, partially shipped Browse and Concordance contract.
 - [`../features/reading-owned-book-vocabulary.md`](../features/reading-owned-book-vocabulary.md)

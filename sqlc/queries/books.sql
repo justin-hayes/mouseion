@@ -110,7 +110,6 @@ LEFT JOIN LATERAL (
 WHERE e.book_owner_id = sqlc.arg('owner')
   AND (
     sqlc.arg('language')::text = ''
-    OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
   )
   AND (
@@ -130,20 +129,12 @@ JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::te
 WHERE e.book_owner_id = sqlc.arg('owner')
   AND (
     sqlc.arg('language')::text = ''
-    OR (sqlc.arg('language')::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = sqlc.arg('language'))
   );
 
 -- name: CountMyBooksAll :one
 SELECT count(*) FROM my_books_evidence
 WHERE book_owner_id = sqlc.arg('owner');
-
--- name: CountMyBooksByLanguage :many
-SELECT (CASE WHEN book_language_state = 'unknown' THEN 'unknown' ELSE book_language_tag END)::text AS language_tag,
-       count(*) AS book_count
-FROM my_books_evidence e
-WHERE book_owner_id = sqlc.arg('owner') AND book_language_state IN ('chosen', 'unknown')
-GROUP BY 1;
 
 -- name: GetMyBookDetail :one
 SELECT e.*
@@ -222,3 +213,45 @@ SELECT count(*)::bigint AS completion_count,
        COALESCE((SELECT h.completion_source FROM reading_history h WHERE h.owner_id = sqlc.arg('owner') AND h.book_id = sqlc.arg('book') ORDER BY h.completed_at DESC, h.completion_id DESC LIMIT 1), '')::text AS latest_completion_source
 FROM reading_history
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
+
+-- name: CatalogueIndexBackfillBlocked :one
+SELECT EXISTS (
+  SELECT 1
+  FROM opds_connections c
+  LEFT JOIN catalogue_sync_status s
+    ON s.owner_id = c.owner_id AND s.connection_id = c.id
+  WHERE s.connection_id IS NULL
+     OR s.last_synced_at IS NULL
+);
+
+-- name: ListLanguageLessReadBooks :many
+SELECT b.id, b.owner_id, b.title, b.author, b.metadata_provenance,
+       b.language_state, COALESCE(b.language_tag, '')::text AS language_tag,
+       b.created_at, b.updated_at
+FROM books b
+JOIN book_membership m ON m.owner_id = b.owner_id AND m.book_id = b.id
+WHERE m.state = 'active'
+  AND b.language_state <> 'chosen'
+  AND EXISTS (
+    SELECT 1 FROM reading_history h
+    WHERE h.owner_id = b.owner_id AND h.book_id = b.id
+  )
+ORDER BY b.owner_id, b.title, b.id;
+
+-- name: RemoveUnchosenBookMembership :execrows
+UPDATE book_membership m
+SET state = 'removed', removed_at = now()
+WHERE m.state = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM book_dispositions d
+    WHERE d.owner_id = m.owner_id AND d.book_id = m.book_id
+      AND d.disposition = 'to_read'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM reading_history h
+    WHERE h.owner_id = m.owner_id AND h.book_id = m.book_id
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM primary_goals g
+    WHERE g.owner_id = m.owner_id AND g.book_id = m.book_id
+  );
