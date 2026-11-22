@@ -143,8 +143,6 @@ func reanalysisMarginNote(classification domain.BookEvidenceClassification) stri
 			return "Re-analysis failed. " + reason
 		}
 		return "Re-analysis failed."
-	case domain.RunJobFailed:
-		return "Re-analysis failed."
 	case domain.RunCancelled:
 		return "Re-analysis cancelled."
 	case domain.RunNone, domain.RunPublicationPending, domain.RunPublicationFailed, domain.RunCompleted:

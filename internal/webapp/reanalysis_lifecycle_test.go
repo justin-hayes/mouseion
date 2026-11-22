@@ -22,7 +22,7 @@ func TestReanalysisLifecycleOffersRetryOnlyForNonCurrentBook(t *testing.T) {
 		}
 	}
 
-	for _, run := range []domain.LatestRunSignal{domain.RunFailed, domain.RunJobFailed, domain.RunCancelled} {
+	for _, run := range []domain.LatestRunSignal{domain.RunFailed, domain.RunCancelled} {
 		other := bookLifecycleActionFor(summary(run, false))
 		assert.Equal(t, "Retry analysis", other.Label, "a To Read book under %s retries", run)
 		assert.True(t, other.Submit, "a To Read book under %s submits its retry", run)

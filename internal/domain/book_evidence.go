@@ -34,9 +34,8 @@ const (
 
 // LatestRunSignal is the state of the Book's most recent analysis run.
 // Queued and running are kept apart because the lifecycle copy names them
-// differently. The two failure forms are kept apart because only an analysis
-// run's own failure is presented as a failed analysis; a job that failed before
-// a run was recorded and a run that completed but did not publish are not.
+// differently. A run that completed but did not publish is kept apart from a
+// failed run because only the latter is presented as a failed analysis.
 type LatestRunSignal string
 
 const (
@@ -46,7 +45,6 @@ const (
 	RunPublicationPending LatestRunSignal = "publication-pending"
 	RunPublicationFailed  LatestRunSignal = "publication-failed"
 	RunFailed             LatestRunSignal = "failed"
-	RunJobFailed          LatestRunSignal = "job-failed"
 	RunCancelled          LatestRunSignal = "cancelled"
 	RunCompleted          LatestRunSignal = "completed"
 )
@@ -206,7 +204,7 @@ func analysisInEffect(phase AnalysisPhase, run LatestRunSignal) bool {
 // publication keeps the Book out of the Current reading until it resolves.
 func newerRun(run LatestRunSignal) bool {
 	switch run {
-	case RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled:
+	case RunQueued, RunRunning, RunFailed, RunCancelled:
 		return true
 	case RunNone, RunPublicationPending, RunPublicationFailed, RunCompleted:
 	}
@@ -317,7 +315,7 @@ func analysisPhase(signals AnalysisSignals) AnalysisPhase {
 		return PhaseFailed
 	case RunCancelled:
 		return PhaseCancelled
-	case RunNone, RunPublicationPending, RunPublicationFailed, RunJobFailed, RunCompleted:
+	case RunNone, RunPublicationPending, RunPublicationFailed, RunCompleted:
 	}
 	switch signals.Published {
 	case PublishedStale:
@@ -363,7 +361,7 @@ func eligibilityReason(content ContentSignal, signals AnalysisSignals, phase Ana
 		return CurrentReadingEligible
 	case phase == PhaseAnalyzing:
 		return CurrentReadingAnalysisInProgress
-	case signals.LatestRun == RunFailed, signals.LatestRun == RunJobFailed:
+	case signals.LatestRun == RunFailed:
 		return CurrentReadingFailed
 	case phase == PhaseCancelled:
 		return CurrentReadingCancelled
@@ -398,7 +396,7 @@ func recoveryAction(content ContentSignal, signals AnalysisSignals, phase Analys
 // retryableRun reports a newer run whose failure or cancellation offers a retry
 // while the published analysis stays in effect.
 func retryableRun(run LatestRunSignal) bool {
-	return run == RunFailed || run == RunJobFailed || run == RunCancelled
+	return run == RunFailed || run == RunCancelled
 }
 
 func runOrNone(run LatestRunSignal) LatestRunSignal {

@@ -343,10 +343,7 @@ func latestRunSignalFromView(status, state string) domain.LatestRunSignal {
 	case "running":
 		return domain.RunRunning
 	case "failed":
-		if status == "analysis failed" {
-			return domain.RunFailed
-		}
-		return domain.RunJobFailed
+		return domain.RunFailed
 	case "cancelled":
 		return domain.RunCancelled
 	case "completed":

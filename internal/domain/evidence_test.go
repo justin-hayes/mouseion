@@ -263,12 +263,6 @@ func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 			evidence: BookAcquiredUnassessed, phase: PhaseFailed, eligibility: CurrentReadingFailed, recovery: RecoveryRetryAnalysis,
 		},
 		{
-			name:        "job failed before a run was recorded",
-			signals:     with(PublishedNone, RunJobFailed),
-			disposition: BookDispositionToRead, language: "de",
-			evidence: BookAcquiredUnassessed, phase: PhaseNotAnalyzed, eligibility: CurrentReadingFailed, recovery: RecoveryNone,
-		},
-		{
 			name:        "cancelled analysis",
 			signals:     with(PublishedNone, RunCancelled),
 			disposition: BookDispositionToRead, language: "de",
@@ -295,12 +289,6 @@ func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 		{
 			name:        "published analysis under a failed newer run stays in effect",
 			signals:     with(PublishedCurrent, RunFailed),
-			disposition: BookDispositionToRead, language: "de",
-			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryRetryAnalysis,
-		},
-		{
-			name:        "published analysis under a job-failed newer run stays in effect",
-			signals:     with(PublishedCurrent, RunJobFailed),
 			disposition: BookDispositionToRead, language: "de",
 			evidence: BookAnalyzed, phase: PhaseAnalyzed, eligibility: CurrentReadingEligible, recovery: RecoveryRetryAnalysis,
 		},
@@ -362,7 +350,7 @@ func TestClassifyBookEvidenceReproducesPresentationStates(t *testing.T) {
 func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 	contents := []ContentSignal{ContentNotAcquired, ContentNoCurrentRevision, ContentNonEPUB, ContentCurrentEPUB, ContentCurrentImported}
 	publications := []PublishedAnalysisSignal{PublishedNone, PublishedCurrent, PublishedStale}
-	runs := []LatestRunSignal{RunNone, RunQueued, RunRunning, RunPublicationPending, RunPublicationFailed, RunFailed, RunJobFailed, RunCancelled, RunCompleted}
+	runs := []LatestRunSignal{RunNone, RunQueued, RunRunning, RunPublicationPending, RunPublicationFailed, RunFailed, RunCancelled, RunCompleted}
 	dispositions := []BookDisposition{BookDispositionInbox, BookDispositionToRead}
 	languages := []string{"", "de"}
 
@@ -378,7 +366,7 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 							// A published analysis stays in effect under a newer run that is
 							// queued, running, failed, or cancelled; only a completed run or
 							// such a shadowed run makes the analysis usable for Reading.
-							newerShadowed := published == PublishedCurrent && (run == RunQueued || run == RunRunning || run == RunFailed || run == RunJobFailed || run == RunCancelled)
+							newerShadowed := published == PublishedCurrent && (run == RunQueued || run == RunRunning || run == RunFailed || run == RunCancelled)
 							analyzed := got.Phase == PhaseAnalyzed && (run == RunCompleted || newerShadowed)
 							ready := content.IsCurrentContent() && analyzed && disposition == BookDispositionToRead && language != ""
 							assert.Equal(t, ready, got.Eligibility == CurrentReadingEligible, "eligibility for %+v %v %q", signals, disposition, language)
@@ -392,7 +380,7 @@ func TestClassifyBookEvidenceHoldsForEverySignalCombination(t *testing.T) {
 							case ContentNonEPUB, ContentCurrentEPUB, ContentCurrentImported:
 							}
 
-							shadowedRetry := published == PublishedCurrent && !current && (run == RunFailed || run == RunJobFailed || run == RunCancelled)
+							shadowedRetry := published == PublishedCurrent && !current && (run == RunFailed || run == RunCancelled)
 							retryAnalysis := got.Phase == PhaseFailed || got.Phase == PhaseCancelled || got.Phase == PhaseStale || shadowedRetry
 							if content != ContentNotAcquired {
 								assert.Equal(t, retryAnalysis, got.Recovery == RecoveryRetryAnalysis, "recovery for %+v", signals)
@@ -428,7 +416,7 @@ func TestBookEvidenceClassificationReAnalysisShadowedByPublishedAnalysis(t *test
 }
 
 func TestBookEvidenceClassificationCurrentReadingOffersNoRetryForShadowedRun(t *testing.T) {
-	for _, run := range []LatestRunSignal{RunFailed, RunJobFailed, RunCancelled} {
+	for _, run := range []LatestRunSignal{RunFailed, RunCancelled} {
 		current := ClassifyBookEvidence(AnalysisSignals{Content: ContentCurrentEPUB, Published: PublishedCurrent, LatestRun: run, CurrentReading: true}, BookDispositionToRead, "de")
 		assert.Equal(t, RecoveryNone, current.Recovery, "current reading under %s", run)
 		assert.Equal(t, CurrentReadingEligible, current.Eligibility, "current reading under %s stays eligible", run)

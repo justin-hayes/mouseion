@@ -9,7 +9,7 @@ import (
 func TestAnalysisUpdateOfferNeverChangesEvidence(t *testing.T) {
 	contents := []ContentSignal{ContentNotAcquired, ContentNoCurrentRevision, ContentNonEPUB, ContentCurrentEPUB, ContentCurrentImported}
 	publications := []PublishedAnalysisSignal{PublishedNone, PublishedCurrent, PublishedStale}
-	runs := []LatestRunSignal{RunNone, RunQueued, RunRunning, RunPublicationPending, RunPublicationFailed, RunFailed, RunJobFailed, RunCancelled, RunCompleted}
+	runs := []LatestRunSignal{RunNone, RunQueued, RunRunning, RunPublicationPending, RunPublicationFailed, RunFailed, RunCancelled, RunCompleted}
 	for _, content := range contents {
 		for _, published := range publications {
 			for _, run := range runs {
@@ -48,7 +48,7 @@ func TestAnalysisUpdateOfferEligibility(t *testing.T) {
 		{"imported analysis", with(func(s *AnalysisSignals) { s.Content = ContentCurrentImported }), BookDispositionToRead, AnalysisUpdateAvailable},
 		{"current pipeline", with(func(s *AnalysisSignals) { s.PipelineOutdated = false }), BookDispositionToRead, AnalysisUpdateNone},
 	}
-	for _, run := range []LatestRunSignal{RunQueued, RunRunning, RunFailed, RunJobFailed, RunCancelled, RunPublicationPending} {
+	for _, run := range []LatestRunSignal{RunQueued, RunRunning, RunFailed, RunCancelled, RunPublicationPending} {
 		tests = append(tests, struct {
 			name        string
 			signals     AnalysisSignals

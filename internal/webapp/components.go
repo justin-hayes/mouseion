@@ -351,7 +351,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		state = "queued"
 	case classification.Run == domain.RunRunning:
 		state = "running"
-	case classification.Run == domain.RunFailed, classification.Run == domain.RunJobFailed:
+	case classification.Run == domain.RunFailed:
 		state = "failed"
 	case classification.Run == domain.RunCancelled:
 		state = "cancelled"
@@ -409,7 +409,7 @@ func reanalysisLifecycleAction(book domain.SourceMaterialSummary, run domain.Lat
 		return bookLifecycleAction{"Re-analysis queued", "A newer analysis of the current EPUB is waiting to begin. The current analysis stays in effect until it completes.", "View analysis status", jobURL, StatusInfo, false}
 	case domain.RunRunning:
 		return bookLifecycleAction{"Re-analysis running", "A newer analysis of the current EPUB is being analyzed. The current analysis stays in effect until it completes.", "View analysis status", jobURL, StatusInfo, false}
-	case domain.RunFailed, domain.RunJobFailed:
+	case domain.RunFailed:
 		if !retryable {
 			return reanalysisJobAction("Re-analysis failed", "The current analysis stays in effect.", "Review failed analysis", jobURL)
 		}
