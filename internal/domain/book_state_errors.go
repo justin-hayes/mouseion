@@ -8,4 +8,8 @@ import "errors"
 var (
 	ErrStaleBookVisibility  = errors.New("book visibility changed since this page was loaded")
 	ErrStaleBookDisposition = errors.New("book disposition changed since this page was loaded")
+	// ErrBookIsCurrentReading refuses ending membership for the Book a reading
+	// is on. Remove is the opposite of Add, and the current Book cannot leave
+	// My Books while it is being read.
+	ErrBookIsCurrentReading = errors.New("book is the current reading")
 )

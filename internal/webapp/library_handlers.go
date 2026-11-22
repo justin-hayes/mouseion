@@ -341,6 +341,27 @@ func needsLanguageCount(counts []domain.LanguageCount) int {
 	return 0
 }
 
+func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {
+	if !h.checkCSRF(w, r) {
+		return
+	}
+	owner, bookID := user(r).ID, r.PathValue("id")
+	returnTo := myBooksReturnURL(r.FormValue("return_to"))
+	err := h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		http.NotFound(w, r)
+		return
+	case errors.Is(err, domain.ErrBookIsCurrentReading):
+		myBooksRedirectWithNotice(w, r, returnTo, "This Book is your current reading. Finish or end the reading before removing it from My Books.")
+		return
+	case err != nil:
+		fail(w, err)
+		return
+	}
+	myBooksRedirectWithNotice(w, r, returnTo, "Removed from My Books. Its analysis, history and Known vocabulary are unchanged, and the Catalog can add it back.")
+}
+
 func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return

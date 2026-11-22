@@ -7,6 +7,14 @@ SELECT book_id::text
 FROM primary_goals
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language');
 
+-- name: BookIsCurrentReading :one
+-- Remove refuses the Book a reading is on. A Book can be current in more than
+-- one study language, so this deliberately ignores the language.
+SELECT EXISTS (
+    SELECT 1 FROM primary_goals g
+    WHERE g.owner_id = sqlc.arg('owner') AND g.book_id = sqlc.arg('book')
+);
+
 -- name: GetCurrentReading :one
 SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
        COALESCE(s.id::text, '')::text AS snapshot_id,

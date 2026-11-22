@@ -165,7 +165,11 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	applied, err := fixture.store.SetBookHidden(context.Background(), fixture.owner.ID, entry.BookID, visibilityRevision, true)
 	require.NoError(t, err)
 	require.True(t, applied)
-	require.NoError(t, fixture.store.RemoveBookFromMyBooks(context.Background(), fixture.owner.ID, entry.BookID))
+	removed := perform(t, fixture.handler, http.MethodPost, "/library/books/"+entry.BookID+"/remove", url.Values{
+		"csrf_token": {fixture.csrf},
+	}, fixture.cookies)
+	require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
+	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("Removed from My Books."))
 	restored := fixture.add(t)
 	require.Equal(t, http.StatusSeeOther, restored.Code, restored.Body.String())
 	restoredEntry := fixture.ownedBook(t)

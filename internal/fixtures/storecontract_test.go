@@ -71,6 +71,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 			ID: bookID, OwnerID: owner, Language: language, Title: "Contract Book",
 			MediaType: "application/epub+zip", ContentRevisionID: bookID + "-revision", ContentSnapshotID: bookID + "-snapshot",
 		},
+		BookID:  bookID,
 		Signals: analyzedSignals, AnalysisRunID: bookID + "-run", CorpusID: bookID + "-corpus",
 	})
 	if seed.ToRead {
@@ -133,6 +134,12 @@ func (h *contractHarness) SeedReadyPreparation(t *testing.T, owner, bookID, snap
 
 func (h *contractHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(context.Background(), owner, language)
+}
+
+func (h *contractHarness) SeedCurrentReading(_ *testing.T, owner, language, bookID string) {
+	h.store.mu.Lock()
+	defer h.store.mu.Unlock()
+	h.store.currentReadings[fixtureGoalKey(owner, language)] = domain.CurrentReading{OwnerID: owner, Language: language, BookID: bookID}
 }
 
 func (h *contractHarness) StartCurrentReading(owner, language, bookID string) (domain.CurrentReading, error) {
@@ -203,6 +210,10 @@ func (h *contractHarness) TransitionBookDisposition(owner, bookID string, expect
 
 func (h *contractHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 	return h.store.RemoveBookFromMyBooks(context.Background(), owner, bookID)
+}
+
+func (h *contractHarness) RemoveWorkFromMyBooks(owner, workKey string) (domain.MyBooksWorkRemoval, error) {
+	return h.store.RemoveWorkFromMyBooks(context.Background(), owner, workKey)
 }
 
 func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {

@@ -1,6 +1,6 @@
 # My Books Collection Browsing
 
-Status: Implemented, including the cover-grid extension · Date: 2026-09-02 · Updated: 2026-09-23
+Status: Implemented, including the cover-grid extension · Date: 2026-09-02 · Updated: 2026-11-22
 
 ## Motivation
 
@@ -77,6 +77,23 @@ contracts. Reading owns current evidence and current-reading presentation.
   incomplete Books remain operable from their rows through disposition
   and catalog actions; they have no detail page.
 - The list does not expose batch-select-then-analyze behavior.
+
+### Removing from My Books
+
+- **Remove from My Books** is the opposite of Catalog Add and belongs to every
+  Book's More actions. It ends My Books membership and changes nothing else:
+  Book identity, analysis, corrections, exclusions, completions and Known
+  vocabulary all remain.
+- The current reading is never removed by either Remove action. Its row states
+  why the action is unavailable, and a direct request is refused with the same
+  reason instead of ending the reading.
+- A grouped classical Work row offers **Remove the work**. It ends the
+  membership of the Work's other Books, leaves the current Book in My Books, and
+  names that skipped Book in the success notice. "Move the work back to Inbox" is
+  retired.
+- The Catalog offers **Add** for an entry whose Book left My Books. Adding it
+  again restores the same Book with its evidence, for both an OPDS Book and a
+  classical Book.
 
 ### Classical works
 
@@ -163,6 +180,10 @@ contracts. Reading owns current evidence and current-reading presentation.
 - Analyzed To Read items link to their canonical Reading anchor;
   other rows do not link to a detail page.
 - Empty, no-match, needs-language, and paging-boundary states are distinct.
+- Remove on a To Read or Read Book ends membership only, and the Catalog then
+  offers Add again; the current Book is refused with a reason.
+- Remove the work skips and names the current Book, and Add restores the same
+  Book after either Remove action.
 - The full workflow is keyboard-operable and usable without JavaScript; HTMX
   enhancement preserves focus, announcements, and URL meaning.
 - Narrow and long-content cases retain bibliographic identity and usable actions.

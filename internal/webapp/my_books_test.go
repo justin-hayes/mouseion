@@ -27,11 +27,9 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/library/books/metadata-book/to-read"`} {
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Refresh metadata", `hx-post="/library/books/metadata-book/refresh"`, `hx-target="#book-row-metadata-book"`, "Move to To Read", `action="/library/books/metadata-book/to-read"`, "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
 		assert.Contains(t, html, want, "metadata-only My Books item missing %q: %s", want, html)
 	}
-	assert.NotContains(t, html, "Remove from My Books")
-	assert.NotContains(t, html, `action="/library/books/metadata-book/remove"`)
 	assert.NotContains(t, html, `href="/books/metadata-book"`, "metadata-only My Books row linked to the retired Book detail page: %s", html)
 	row := html
 	if start := strings.Index(row, `aria-labelledby="book-title-metadata-book"`); start >= 0 {
@@ -152,6 +150,18 @@ func TestMyBooksNonToReadFailureOffersBucketTransitionRecovery(t *testing.T) {
 	assert.Contains(t, html, "Retry analysis by moving to To Read")
 	assert.Contains(t, html, `action="/library/books/inbox-failed/to-read"`)
 	assert.Contains(t, html, `name="expected_revision" value="0"`)
+}
+
+func TestMyBooksRemoveActionIsRefusedOnTheCurrentReading(t *testing.T) {
+	current := domain.MyBook{Book: domain.Book{ID: "current-book", OwnerID: "owner", Title: "Current book"}, IsCurrentReading: true}
+	other := domain.MyBook{Book: domain.Book{ID: "other-book", OwnerID: "owner", Title: "Other book"}, Disposition: domain.BookDispositionToRead}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{current, other}, "", "", "", false, MyBooksBrowseState{}).Render(context.Background(), &output))
+	html := output.String()
+	assert.Contains(t, html, "Remove from My Books")
+	assert.Contains(t, html, "Your current reading cannot be removed. Finish or end the reading first.")
+	assert.Contains(t, html, `action="/library/books/other-book/remove"`)
+	assert.NotContains(t, html, `action="/library/books/current-book/remove"`, "the current Book exposes no Remove form")
 }
 
 func TestMyBooksMetadataOnlyRowHidesRefreshWhenIneligible(t *testing.T) {
@@ -391,7 +401,7 @@ func TestMyBooksEmptyAncientGreekStateLinksToTheClassicalCatalog(t *testing.T) {
 }
 
 func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
-	h, cookies, csrf, _ := readingFixtureSession(t)
+	h, cookies, _, _ := readingFixtureSession(t)
 	for _, route := range []string{"/catalog", "/opds/browse", "/opds/language", "/opds/search", "/library/books/book-id"} {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, route, nil)
 		for _, cookie := range cookies {
@@ -408,7 +418,6 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusNotFound, response.Code)
-	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/library/books/fixture-book/remove", url.Values{"csrf_token": {csrf}}, cookies).Code)
 }
 
 func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {

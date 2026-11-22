@@ -677,20 +677,6 @@ func myBooksWorkToReadAction(row domain.MyBooksBrowseRow) (string, bool) {
 	return "Move the work to To Read", true
 }
 
-// myBooksWorkInboxAction names the More-actions move that returns the Work to
-// Inbox. It is absent when every Book outside the current Reading already is.
-func myBooksWorkInboxAction(row domain.MyBooksBrowseRow) (string, bool) {
-	for _, book := range row.Books {
-		if book.IsCurrentReading {
-			continue
-		}
-		if myBookDisposition(book) != domain.BookDispositionInbox {
-			return "Move the work back to Inbox", true
-		}
-	}
-	return "", false
-}
-
 // myBooksWorkHideLabel names the bulk visibility action for every Book of the
 // Work. The count is ownership, not the filtered cells the row currently shows.
 func myBooksWorkHideLabel(row domain.MyBooksBrowseRow, unhide bool) string {

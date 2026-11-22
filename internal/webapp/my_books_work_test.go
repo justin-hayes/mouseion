@@ -89,7 +89,7 @@ func TestMyBooksGroupedWorkRowRendersAccessibleCellsAndOneLegend(t *testing.T) {
 		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
 	}
 	for _, forbidden := range []string{
-		"Move the work to To Read", "Move the other", "Move the work back to Inbox",
+		"Move the work to To Read", "Move the other",
 		"Refresh metadata", `action="/library/books/iliad-1/to-read"`, `action="/library/books/iliad-2/to-read"`,
 	} {
 		assert.NotContains(t, grouped, forbidden, "grouped Work row offered an ineligible action %q", forbidden)
@@ -337,10 +337,10 @@ func TestMyBooksGroupedWorkRowOffersBulkWorkActions(t *testing.T) {
 	html := render(browse)
 	for _, want := range []string{
 		"Move the other 1 book to To Read",
-		"Move the work back to Inbox",
+		"Remove the work",
 		"Hide all 3 books of Iliad",
 		`action="/library/works/homer-iliad/to-read"`,
-		`action="/library/works/homer-iliad/inbox"`,
+		`action="/library/works/homer-iliad/remove"`,
 		`action="/library/works/homer-iliad/hide"`,
 	} {
 		assert.Contains(t, html, want, "grouped Work action missing %q", want)
@@ -384,17 +384,19 @@ func TestMyBooksWorkToReadActionNamesTheRemainingBooks(t *testing.T) {
 	}
 }
 
-func TestMyBooksWorkInboxAndHideLabels(t *testing.T) {
+func TestMyBooksCurrentReadingNameUsesTheWorkRowsWhenPresent(t *testing.T) {
+	current := classicalWorkBook("i3", "work", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionToRead, true)
+	assert.Equal(t, "“Iliad, Book 3”", myBooksCurrentReadingName([]domain.MyBook{current}, &current.Book))
+	partial := current.Book
+	assert.Equal(t, "“Iliad”", myBooksCurrentReadingName(nil, &partial), "the result's title names a Book outside the visible rows")
+	assert.Equal(t, "The current Book", myBooksCurrentReadingName(nil, nil))
+}
+
+func TestMyBooksWorkHideLabels(t *testing.T) {
 	inbox := classicalWorkBook("i1", "work", "Iliad", "Homer", "Ἰλιάς", 1, 24, domain.BookDispositionInbox, false)
 	toRead := classicalWorkBook("i2", "work", "Iliad", "Homer", "Ἰλιάς", 2, 24, domain.BookDispositionToRead, false)
 	current := classicalWorkBook("i3", "work", "Iliad", "Homer", "Ἰλιάς", 3, 24, domain.BookDispositionToRead, true)
 	row := domain.MyBooksBrowseRow{WorkTitle: "Iliad", OwnedBooks: 3, Books: []domain.MyBook{inbox, toRead, current}}
-
-	label, ok := myBooksWorkInboxAction(row)
-	assert.True(t, ok)
-	assert.Equal(t, "Move the work back to Inbox", label)
-	_, ok = myBooksWorkInboxAction(domain.MyBooksBrowseRow{Books: []domain.MyBook{inbox, current}})
-	assert.False(t, ok, "the current Book alone already keeps To Read")
 
 	assert.Equal(t, "Hide all 3 books of Iliad", myBooksWorkHideLabel(row, false))
 	assert.Equal(t, "Unhide all 3 books of Iliad", myBooksWorkHideLabel(row, true))

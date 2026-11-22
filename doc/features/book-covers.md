@@ -122,8 +122,8 @@ Each Book item presents, in order:
    Reading**, accompanied by an icon.
 5. A labeled native **More actions** disclosure containing textual **Refresh
    metadata** actions when eligible, and **Hide** or **Unhide** for eligible
-   Books. There is no ordinary Remove from My Books action; Hide removes a Book
-   from default views without changing its disposition, history, or artifacts.
+   Books. Remove from My Books ends membership without changing the Book's evidence,
+   history, or artifacts, while Hide removes a Book from default views only.
 
 Every catalog-backed Book whose source connection remains available offers
 **Refresh metadata**, whether or not EPUB content has been acquired. Refresh can

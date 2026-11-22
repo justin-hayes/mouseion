@@ -12,6 +12,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const bookIsCurrentReading = `-- name: BookIsCurrentReading :one
+SELECT EXISTS (
+    SELECT 1 FROM primary_goals g
+    WHERE g.owner_id = $1 AND g.book_id = $2
+)
+`
+
+type BookIsCurrentReadingParams struct {
+	Owner string
+	Book  string
+}
+
+// Remove refuses the Book a reading is on. A Book can be current in more than
+// one study language, so this deliberately ignores the language.
+func (q *Queries) BookIsCurrentReading(ctx context.Context, arg BookIsCurrentReadingParams) (bool, error) {
+	row := q.db.QueryRow(ctx, bookIsCurrentReading, arg.Owner, arg.Book)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const changeCurrentReadingBook = `-- name: ChangeCurrentReadingBook :one
 UPDATE primary_goals
 SET book_id = $1, snapshot_id = $2, updated_at = now()

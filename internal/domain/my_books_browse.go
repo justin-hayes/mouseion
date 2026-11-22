@@ -37,6 +37,14 @@ type MyBooksBrowseRow struct {
 	CurrentWorkBook *MyBook
 }
 
+// MyBooksWorkRemoval reports what removing one classical Work from My Books
+// ended and what it deliberately skipped. CurrentReading is the Work's Book the
+// learner is reading, or nil when the Work holds none.
+type MyBooksWorkRemoval struct {
+	RemovedBooks   int
+	CurrentReading *Book
+}
+
 type MyBooksBrowseResult struct {
 	Items []MyBook
 	// Rows is the page as rendered: ordinary rows and grouped Work rows. Items

@@ -186,6 +186,35 @@ func classicalScenarios() []Scenario {
 			assert.Len(t, ownedClassicalUnits(t, h, owner), 1, "restoring never duplicates the Reading unit")
 		},
 	}, {
+		Name: "remove the work ends every other Book and names the skipped current Book",
+		Run: func(t *testing.T, h Harness) {
+			h.Seeds().SeedClassicalCatalog(t)
+			owner := h.Seeds().Owner()
+			report, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook1Key, ClassicalUnitBook2Key})
+			require.NoError(t, err)
+			require.Len(t, report.Books, 2)
+			currentBookID := report.Books[0].BookID
+			otherBookID := report.Books[1].BookID
+			h.Seeds().SeedCurrentReading(t, owner, classical.Language, currentBookID)
+
+			removal, err := h.BookState().RemoveWorkFromMyBooks(owner, ClassicalWorkKey)
+			require.NoError(t, err)
+			assert.Equal(t, 1, removal.RemovedBooks)
+			require.NotNil(t, removal.CurrentReading, "the current Book is named in the result")
+			assert.Equal(t, currentBookID, removal.CurrentReading.ID)
+			assert.Equal(t, ClassicalWorkTitle, removal.CurrentReading.Title)
+
+			current := requireDetail(t, h, owner, currentBookID)
+			assert.Equal(t, currentBookID, current.Book.ID, "the current Book stays in My Books")
+			_, err = h.BookState().GetBookDetail(owner, otherBookID)
+			require.ErrorIs(t, err, domain.ErrNotFound, "the Work's other Book leaves My Books")
+			assert.Contains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook1Key)
+			assert.NotContains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook2Key)
+
+			_, err = h.BookState().RemoveWorkFromMyBooks(owner, "not-a-work")
+			require.ErrorIs(t, err, domain.ErrNotFound)
+		},
+	}, {
 		Name: "classical add is owner-scoped",
 		Run: func(t *testing.T, h Harness) {
 			h.Seeds().SeedClassicalCatalog(t)
