@@ -50,9 +50,8 @@ import (
 // surfaces of 3 and 8. Detailed slice coverage stays in these tests, which
 // this loop references rather than duplicates:
 //
-//   - scenario 3 search, work hide/unhide and compact markup:
-//     TestMyBooksWorkSearchMatchesAuthorEnglishAndGreekTitlesAndNarrowsByBook,
-//     TestMyBooksWorkHideAllAndUnhideAllChangeEveryBookAndTheCounts
+//   - scenario 3 search and compact markup:
+//     TestMyBooksWorkSearchMatchesAuthorEnglishAndGreekTitlesAndNarrowsByBook
 //   - scenario 4 history and mixed-state bulk moves:
 //     TestMyBooksWorkToReadSkipsReadingHistoryAndTheCurrentBook,
 //     TestMyBooksWorkToReadMovesTheRestAroundTheCurrentBook
@@ -144,10 +143,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Contains(t, library.Body.String(), "Synthetic Whole")
 	assert.NotContains(t, library.Body.String(), "Book 1 of 1")
 
-	// Re-add is idempotent, reopens the hidden Book, and keeps one live job per
-	// Book.
-	_, err := h.store.SetBookHidden(h.ctx, learner.ID, bookOne, 0, true)
-	require.NoError(t, err)
+	// Re-add is idempotent and keeps one live job per Book.
 	again := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, again.Code, again.Body.String())
 	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened 2 existing Books. Downloading and preparing the text."))
@@ -155,9 +151,6 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Equal(t, bookOne, afterReAdd[h.unitOneKey])
 	assert.Equal(t, bookTwo, afterReAdd[h.unitTwoKey])
 	assert.Equal(t, wholeBook, afterReAdd[h.wholeUnitKey])
-	hidden, _, err := h.store.GetBookVisibility(h.ctx, learner.ID, bookOne)
-	require.NoError(t, err)
-	assert.False(t, hidden, "re-adding reopens the hidden Book")
 	assert.Equal(t, 3, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "ensure-once keeps one live job per Book")
 
 	// 3. My Books groups the reviewed work: identity, one badge, counts, strip,

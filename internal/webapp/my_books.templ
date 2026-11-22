@@ -39,11 +39,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 				</div>
 			}
 		<div class="library-book__notes">
-			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))
-				if book.Hidden {
-					@StatusBadge("Hidden", StatusNeutral)
-				}
-			</p>
+			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))</p>
 			if evidence := myBookMarginEvidence(book); evidence != "" {
 				<p class="library-book__evidence">{ evidence }</p>
 				if action := myBookEvidenceRecovery(book); action != "" {
@@ -84,15 +80,9 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 					<button type="submit" class="btn btn-outline library-book__journey-action"><span aria-hidden="true">+</span> Move to To Read</button>
 				</form>
 			}
-			if book.Hidden {
-				@BookVisibilityForm(csrf, book, returnTo)
-			}
 			<details class="more-actions">
 				<summary>More actions</summary>
 				<div class="more-actions__body">
-					if !book.Hidden {
-						@BookVisibilityForm(csrf, book, returnTo)
-					}
 					if book.CanMarkPreviouslyRead() {
 						@Confirmation("Mark as previously read", "This records one completion from before Mouseion and moves the Book to Read. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
 							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="btn btn-outline">Confirm previously read</button></form>
@@ -132,7 +122,7 @@ templ MyBookIdentityDetails(book domain.MyBook) {
 	}
 }
 
-templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, returnTo, currentReadingBookID string) {
+templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, returnTo, currentReadingBookID string) {
 	{{ update := workAnalysisUpdateFor(row.WorkKey, row.WorkTitle, row.Books, row.CurrentWorkBook) }}
 	if len(row.Books) > 0 {
 		<li id={ myBooksWorkRowID(row.WorkKey) } class="library-book library-work" aria-labelledby={ "work-title-" + row.WorkKey }>
@@ -176,18 +166,6 @@ templ MyBookWorkRow(csrf string, row domain.MyBooksBrowseRow, showHidden bool, r
 								<input type="hidden" name="return_to" value={ returnTo }/>
 								<button type="submit" class="btn btn-outline">Remove the work</button>
 							</form>
-							<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "hide")) }>
-								<input type="hidden" name="csrf_token" value={ csrf }/>
-								<input type="hidden" name="return_to" value={ returnTo }/>
-								<button type="submit" class="btn btn-outline">{ myBooksWorkHideLabel(row, false) }</button>
-							</form>
-							if showHidden {
-								<form method="post" action={ templ.SafeURL(myBooksWorkActionURL(row.WorkKey, "unhide")) }>
-									<input type="hidden" name="csrf_token" value={ csrf }/>
-									<input type="hidden" name="return_to" value={ returnTo }/>
-									<button type="submit" class="btn btn-outline">{ myBooksWorkHideLabel(row, true) }</button>
-								</form>
-							}
 						</div>
 					</details>
 				</div>
@@ -248,16 +226,7 @@ templ MyBooksWorkLegend() {
 	</aside>
 }
 
-templ BookVisibilityForm(csrf string, book domain.MyBook, returnTo string) {
-	<form class="library-book__visibility" method="post" action={ templ.SafeURL(myBookVisibilityURL(book)) }>
-		<input type="hidden" name="csrf_token" value={ csrf }/>
-		<input type="hidden" name="expected_visibility_revision" value={ fmt.Sprint(book.VisibilityRevision) }/>
-		<input type="hidden" name="return_to" value={ returnTo }/>
-		<button type="submit" class="btn btn-outline">{ myBookVisibilityActionLabel(book) }</button>
-	</form>
-}
-
-templ NeedsLanguageBookRow(csrf string, book domain.MyBook, returnTo string) {
+templ NeedsLanguageBookRow(csrf string, book domain.MyBook) {
 	<li class="library-diagnostic-item" id={ myBookRowID(book.Book.ID) } aria-labelledby={ "book-title-" + book.Book.ID }>
 		<div>
 			<h3 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ book.Book.Title }</h3>
@@ -265,11 +234,7 @@ templ NeedsLanguageBookRow(csrf string, book domain.MyBook, returnTo string) {
 				<p class="library-book__author">By { author }</p>
 			}
 			<p class="metadata">Language not assigned in the catalog</p>
-			if book.Hidden {
-				<p class="library-book__membership">@StatusBadge("Hidden", StatusNeutral)</p>
-			}
 		</div>
-		@BookVisibilityForm(csrf, book, returnTo)
 	</li>
 }
 
@@ -302,12 +267,6 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 	</nav>
 }
 
-templ MyBooksShowHiddenControl(browse MyBooksBrowseState) {
-	<p class="library-hidden-toggle">
-		<a id="library-show-hidden" href={ templ.SafeURL(myBooksShowHiddenURL(browse)) }>{ myBooksShowHiddenLabel(browse) }</a>
-	</p>
-}
-
 templ MyBooksDispositionFilterLink(browse MyBooksBrowseState, label string, disposition domain.BookDisposition, count int) {
 	<a { myBooksSelectedAttributes(browse.Disposition == disposition && !browse.History)... } href={ templ.SafeURL(myBooksDispositionURL(browse, disposition)) }>{ fmt.Sprintf("%s (%d)", label, count) }</a>
 }
@@ -317,10 +276,6 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 	<section id="library-results" tabindex="-1" aria-label="My Books results" data-focus-id="library-results">
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
-				if !browse.ShowHidden && browse.HiddenCount > 0 {
-					{ myBooksHiddenOmittedLabel(browse.HiddenCount) }
-					<a href={ templ.SafeURL(myBooksShowHiddenURL(browse)) }>Show hidden books</a>
-				}
 				if myBooksHasActiveResultFilter(browse) {
 					{ myBooksResultCount(browse.Total) }.
 				}
@@ -361,7 +316,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 			if len(books) > 0 {
 				<ul class="library-diagnostic-list" role="list">
 					for _, book := range books {
-						@NeedsLanguageBookRow(csrf, book, myBooksResultsURL(browse, browse.Page))
+						@NeedsLanguageBookRow(csrf, book)
 					}
 				</ul>
 			}
@@ -372,7 +327,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 			<ul class="library-books" role="list">
 				for _, row := range rows {
 					if row.Grouped {
-						@MyBookWorkRow(csrf, row, browse.ShowHidden, myBooksResultsURL(browse, browse.Page), currentReadingBookID)
+						@MyBookWorkRow(csrf, row, myBooksResultsURL(browse, browse.Page), currentReadingBookID)
 					} else if len(row.Books) > 0 {
 						@MyBookRow(csrf, row.Books[0], myBooksResultsURL(browse, browse.Page))
 					}
@@ -454,16 +409,12 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			<section class="library-finder" aria-label="Find books">
 				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
 					<label class="sr-only" for="library-search-query">Search My Books</label>
-					if browse.ShowHidden {
-						<input type="hidden" name="show-hidden" value=""/>
-					}
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, Greek title, or Book number"/>
 						<button class="btn btn-outline" type="submit">Search</button>
 					</div>
 				</form>
 				@MyBooksDispositionFilters(browse)
-				@MyBooksShowHiddenControl(browse)
 			</section>
 			if browse.NeedsLanguageCount > 0 {
 				@NeedsLanguageStrip(browse.NeedsLanguageCount)

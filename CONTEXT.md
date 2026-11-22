@@ -619,13 +619,11 @@ deck state, and reading history; the current Book remains To Read underneath.
 _Avoid_: book status, reading state, workflow state.
 
 **Hidden (Book visibility)** (retired):
-Retired by ADR 0117; removing the Book from My Books replaces it. Formerly an
-owner-and-Book choice stored apart from disposition (`book_visibility`; a
-missing row is a visible Book at revision 0). Hide/Unhide request a desired
-value against the expected visibility revision. It only removes the Book from
-default My Books and the default Reading chooser; it never changes disposition,
-Current reading, history, Known, analysis, or corpus participation. Recovery is
-My Books → Show hidden books → Unhide.
+Retired by ADR 0117; removing the Book from My Books replaces it. The code no
+longer reads or writes the former owner-and-Book visibility choice: no surface
+hides a Book, Hide/Unhide and Show hidden books are gone, and their routes are
+unsupported. The `book_visibility` rows are retained for a separate, reviewed
+data cleanup, and a Book with a stored row is an ordinary Book.
 _Avoid_: archived, deleted, set aside.
 
 **Book workflow bucket**:

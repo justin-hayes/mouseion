@@ -29,7 +29,7 @@ The product supports these top-level goals:
 
 1. keep a broad personal collection of books Mouseion knows about;
 2. work in one active study language at a time;
-3. move Books between Inbox and To Read, and hide or unhide them independently;
+3. move Books between Inbox and To Read, and remove a Book from My Books;
 4. choose, end, or switch the one current Book for the active language;
 5. review current evidence bands for To Read Books without a suggested order;
 6. finish a Book and retain its Read history independently from disposition;
@@ -70,7 +70,7 @@ learner. It can include:
 
 - acquired and metadata-only books;
 - assessed and unassessed books;
-- Books the learner chose, in To Read or Read, visible or hidden;
+- Books the learner chose, in To Read or Read;
 - currently read and previously read books;
 - completed books;
 - books with stale, questionable, incomplete, or unavailable evidence.
@@ -332,20 +332,18 @@ explicit actions. A classical Work with more than one owned Book in the active
 language is one grouped row: Work identity and provenance, one leading bucket
 badge and counts, work-level bulk actions, then a strip of one cell per owned
 Book in book order. Each cell shows the Book's bucket by shape; the current
-Book's cell opens the current-reading card and a visible To Read Book's cell
-opens that Book's inline chooser candidate on Reading or the Switch page. Read,
-Inbox, and Hidden cells are status-only, because Reading has no entry to select,
+Book's cell opens the current-reading card and a To Read Book's cell
+opens that Book's inline chooser candidate on Reading or the Switch page. Read
+and Inbox cells are status-only, because Reading has no entry to select,
 and are not link targets, though they keep the 44px cell and accessible label.
 The strip has no per-Book actions. Bulk To Read moves every Book without reading
 history, leaves the current Book alone, prepares Books in book order, and
 Remove the work ends the other Books' membership while naming the current
-Book it skips. Hide all and Unhide all
-change each Book's visibility without creating a Work-level state; preparing
+Book it skips. Preparing
 Books collapse into one line and each problem Book keeps its own recovery. A
 grouped Work row also carries one Analysis update notice and one bulk action when
 its definitions changed; the offer covers the eligible To Read Books in the
-row's visible cells, so a Hidden Book joins only under **Show hidden books** and
-a search or filter narrows it with the cells it keeps. The
+row's visible cells, so a search or filter narrows it with the cells it keeps. The
 current Reading's Book is named and skipped, and one confirmation discloses the
 Work's Lemma corrections and Occurrence exclusions. A single-Book Work stays an
 ordinary row with its reviewed position and the ordinary per-Book notice; a
@@ -368,7 +366,7 @@ metric card. The between-Books chooser lists candidates in neutral title order
 and groups a Work's multiple To Read Books into one entry with a band table;
 incomplete evidence stays distinct in that table or in an ordinary candidate's
 margin. A grouped entry carries one Analysis update notice and bulk action covering
-only its visible To Read candidates, so a hidden sibling never joins it, while a
+only its visible To Read candidates, while a
 single-Book Work keeps the ordinary per-Book notice. No learner order,
 after-reading projection, forecast,
 next-Book pointer, or recommendation is presented. Unassessed or otherwise

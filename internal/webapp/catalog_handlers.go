@@ -750,7 +750,7 @@ func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, book
 		fail(w, err)
 		return
 	}
-	redirect(w, r, myBookVisibleBucketURL(book, page)+"#"+myBookRowID(book.Book.ID))
+	redirect(w, r, myBookBucketURL(book, page)+"#"+myBookRowID(book.Book.ID))
 }
 
 func (h *Handler) legacyConnections(w http.ResponseWriter, r *http.Request) {

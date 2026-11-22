@@ -64,14 +64,6 @@ func (h *postgresHarness) GetBookDetail(owner, bookID string) (domain.MyBook, er
 	return h.store.GetBookDetail(h.ctx, owner, bookID)
 }
 
-func (h *postgresHarness) GetBookVisibility(owner, bookID string) (bool, int64, error) {
-	return h.store.GetBookVisibility(h.ctx, owner, bookID)
-}
-
-func (h *postgresHarness) SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (bool, error) {
-	return h.store.SetBookHidden(h.ctx, owner, bookID, expectedRevision, hidden)
-}
-
 func (h *postgresHarness) TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
 	return h.store.TransitionBookDisposition(h.ctx, owner, bookID, expectedRevision, disposition)
 }

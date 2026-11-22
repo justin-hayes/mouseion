@@ -84,7 +84,7 @@ type pagedBookBrowseReader struct {
 	gotHistory  bool
 }
 
-func (r *pagedBookBrowseReader) ListMyBooksBrowseWithVisibility(_ context.Context, owner, _, language, disposition string, history, _ bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (r *pagedBookBrowseReader) ListMyBooksBrowse(_ context.Context, owner, _, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	r.requests++
 	r.gotOwner, r.gotLanguage, r.gotBucket, r.gotHistory = owner, language, disposition, history
 	if offset == r.requestedAt {
@@ -109,7 +109,7 @@ func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
 	assert.Equal(t, "de", reader.gotLanguage)
 	assert.Empty(t, reader.gotBucket)
 	assert.True(t, reader.gotHistory)
-	assert.Equal(t, "/library?history=read&page=2", myBookVisibleBucketURL(book, page))
+	assert.Equal(t, "/library?history=read&page=2", myBookBucketURL(book, page))
 }
 
 func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
@@ -122,7 +122,7 @@ func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
 	assert.Equal(t, 1, page)
 	assert.Equal(t, domain.BookDispositionToRead, domain.BookDisposition(reader.gotBucket))
 	assert.False(t, reader.gotHistory)
-	assert.Equal(t, "/library?disposition=to_read", myBookVisibleBucketURL(book, page))
+	assert.Equal(t, "/library?disposition=to_read", myBookBucketURL(book, page))
 }
 
 type browseRecordingStore struct {
@@ -137,7 +137,7 @@ type browseRecordingStore struct {
 	limit       int
 }
 
-func (s *browseRecordingStore) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, _ bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s *browseRecordingStore) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
 	s.owner, s.query, s.language, s.disposition, s.offset, s.limit = owner, query, language, disposition, offset, limit
 	return s.result, s.err
 }
@@ -384,7 +384,7 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 
 	toRead := request("/library?disposition=to_read")
 	require.Equal(t, http.StatusOK, toRead.Code)
-	assert.Contains(t, toRead.Body.String(), "To Read (14)")
+	assert.Contains(t, toRead.Body.String(), "To Read (15)")
 	assert.Contains(t, toRead.Body.String(), `id="book-row-`+fixtures.BookID+`"`)
 	assert.Contains(t, toRead.Body.String(), "Currently reading")
 }

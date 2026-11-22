@@ -12,14 +12,7 @@ test.describe('EPUB acquisition failure evidence', () => {
   test('My Books shows the recorded reason and Retry on a failed acquisition', async ({ page }) => {
     await signIn(page);
 
-    // The fixture seeds the row Hidden so it does not change the visible
-    // collection. Unhide it, then confirm the reason and Retry on the ordinary
-    // My Books collection rather than only under Show hidden books.
-    await page.goto('/library?disposition=to_read&show-hidden');
-    const hiddenRow = page.locator('#book-row-fixture-acquisition-failed');
-    await expect(hiddenRow).toHaveCount(1);
-    await hiddenRow.getByRole('button', { name: 'Unhide' }).click();
-
+    // The failed Book is an ordinary To Read Book in the collection.
     await page.goto('/library?disposition=to_read');
     const row = page.locator('#book-row-fixture-acquisition-failed');
     await expect(row).toHaveCount(1);

@@ -28,7 +28,7 @@ func TestMarkCatalogueEntryPreviouslyReadRefusesIncompleteIdentityAndUnknownConn
 	require.ErrorIs(t, err, domain.ErrNotFound, "an unknown connection is not found")
 }
 
-func TestMarkCatalogueEntryPreviouslyReadRefreshesLanguageAndVisibility(t *testing.T) {
+func TestMarkCatalogueEntryPreviouslyReadRefreshesLanguageAndReopensBook(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -43,9 +43,7 @@ func TestMarkCatalogueEntryPreviouslyReadRefreshesLanguageAndVisibility(t *testi
 	require.NoError(t, store.ReconcileCatalogueIndex(ctx, owner.ID, connection.ID, []domain.CatalogueIndexEntry{entry}, time.Now()))
 	added, err := store.AddCatalogueEntry(ctx, owner.ID, connection.ID, "read-entry")
 	require.NoError(t, err)
-	applied, err := store.SetBookHidden(ctx, owner.ID, added.Book.ID, 0, true)
-	require.NoError(t, err)
-	require.True(t, applied)
+	require.NoError(t, store.RemoveBookFromMyBooks(ctx, owner.ID, added.Book.ID))
 
 	entry.LanguageTag = "it"
 	require.NoError(t, store.ReconcileCatalogueIndex(ctx, owner.ID, connection.ID, []domain.CatalogueIndexEntry{entry}, time.Now()))
@@ -58,7 +56,6 @@ func TestMarkCatalogueEntryPreviouslyReadRefreshesLanguageAndVisibility(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionInbox, detail.Disposition)
 	assert.Equal(t, 1, detail.CompletionCount)
-	assert.False(t, detail.Hidden, "recording a read Book reopens it")
 }
 
 func TestMarkClassicalReadingUnitPreviouslyReadRefusesUnknownUnitsAndLegacyRows(t *testing.T) {

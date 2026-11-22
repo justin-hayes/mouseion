@@ -19,9 +19,9 @@ const catalogueAddLockSalt = 470
 
 // AddCatalogueEntry creates the learner's To Read Book for one indexed Catalog
 // entry, or restores the Book its catalog-entry alias already names. It reuses
-// the Book's identity and evidence, clears Hidden, reactivates membership and
-// sets To Read; the Add route submits preparation after this transaction
-// commits. Replaying Add on an already active To Read Book changes nothing.
+// the Book's identity and evidence, reactivates membership and sets To Read;
+// the Add route submits preparation after this transaction commits. Replaying
+// Add on an already active To Read Book changes nothing.
 func (s *PostgresStore) AddCatalogueEntry(ctx context.Context, owner, connectionID, entryIdentifier string) (result domain.CatalogueAddResult, err error) {
 	owner, connectionID, entryIdentifier = strings.TrimSpace(owner), strings.TrimSpace(connectionID), strings.TrimSpace(entryIdentifier)
 	if owner == "" || connectionID == "" || entryIdentifier == "" {
@@ -126,17 +126,8 @@ func restoreCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, book
 	case domain.BookDisposition(disposition.Disposition) != domain.BookDispositionToRead:
 		changed = true
 	}
-	visibility, err := q.GetBookVisibilityForUpdate(ctx, sqlcgen.GetBookVisibilityForUpdateParams{Owner: owner, Book: bookID})
-	if err != nil {
+	if _, err := q.GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: owner, ID: bookID}); err != nil {
 		return domain.CatalogueAddResult{}, missing(err)
-	}
-	if visibility.Hidden {
-		changed = true
-		if err := q.WriteBookVisibility(ctx, sqlcgen.WriteBookVisibilityParams{
-			Owner: owner, Book: bookID, Hidden: false, Revision: visibility.Revision + 1,
-		}); err != nil {
-			return domain.CatalogueAddResult{}, err
-		}
 	}
 
 	current, err := q.GetBookMetadata(ctx, sqlcgen.GetBookMetadataParams{OwnerID: owner, ID: bookID})

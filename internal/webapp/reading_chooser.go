@@ -443,15 +443,9 @@ func attachReadingChooserWorkAnalysisUpdates(entries []readingChooserEntryView, 
 }
 
 // readingChooserCandidate reports whether a Book belongs in the chooser at all:
-// a non-hidden To Read Book in the active language.
+// a To Read Book in the active language.
 func readingChooserCandidate(book domain.MyBook, language string) bool {
-	if book.Disposition != domain.BookDispositionToRead || language == "" || book.Book.LanguageTag != language {
-		return false
-	}
-	// Hidden only keeps a Book out of the default chooser; it never makes the
-	// Book ineligible. Recovery is My Books → Show hidden books → Unhide →
-	// choose it here.
-	return !book.Hidden
+	return book.Disposition == domain.BookDispositionToRead && language != "" && book.Book.LanguageTag == language
 }
 
 // annotateReadingChooserWorkFacts copies the reviewed definition's Work identity

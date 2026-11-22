@@ -77,14 +77,12 @@ language, or presents the learner with an unordered chooser between Books.
    idempotent assertion-time fact that accepts no vocabulary. From the Catalog,
    **I've read this** creates or restores the Book as Read; My Books offers
    **Mark as previously read** only on an unstarted To Read Book and moves that
-   Book to Read. A Read Book keeps its persisted Inbox disposition and
-   visibility. Finishing claims no mastery.
-6. Hiding is a separate, reversible visibility choice: a Hidden Book is omitted
-   from default My Books and the default chooser, keeps its disposition, history,
-   and artifacts, and is recovered with **Show hidden books** and Unhide. Read
-   history is append-only and does not imply Known vocabulary. **Remove from My Books** is the opposite of Add: it ends membership without
-   erasing the Book, its evidence, history, or artifacts, and the current Book is
-   refused with a reason.
+   Book to Read. A Read Book keeps its persisted Inbox disposition. Finishing
+   claims no mastery.
+6. **Remove from My Books** is the opposite of Add: it ends membership without
+   erasing the Book, its evidence, history, or artifacts, and the current Book
+   is refused with a reason. Read history is append-only and does not imply
+   Known vocabulary.
 
 The current product and architecture decision is [ADR
 0078](../adr/0078-book-dispositions-and-current-reading.md). ADR 0072 records

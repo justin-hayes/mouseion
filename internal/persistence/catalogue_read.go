@@ -133,8 +133,8 @@ func restoreReadCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, 
 }
 
 // restoreReadBookMembershipTx locks an existing Book, refuses the Current
-// reading, clears Hidden, sets the not-To-Read disposition and reactivates
-// membership. It reports whether any of those facts changed.
+// reading, sets the not-To-Read disposition and reactivates membership. It
+// reports whether any of those facts changed.
 func restoreReadBookMembershipTx(ctx context.Context, q *sqlcgen.Queries, owner, bookID string) (bool, error) {
 	if err := lockBookForUpdate(ctx, q, owner, bookID); err != nil {
 		return false, err
@@ -149,18 +149,6 @@ func restoreReadBookMembershipTx(ctx context.Context, q *sqlcgen.Queries, owner,
 	changed, err := membershipOrDispositionChanged(ctx, q, owner, bookID)
 	if err != nil {
 		return false, err
-	}
-	visibility, err := q.GetBookVisibilityForUpdate(ctx, sqlcgen.GetBookVisibilityForUpdateParams{Owner: owner, Book: bookID})
-	if err != nil {
-		return false, missing(err)
-	}
-	if visibility.Hidden {
-		changed = true
-		if err := q.WriteBookVisibility(ctx, sqlcgen.WriteBookVisibilityParams{
-			Owner: owner, Book: bookID, Hidden: false, Revision: visibility.Revision + 1,
-		}); err != nil {
-			return false, err
-		}
 	}
 	if err := upsertBookDisposition(ctx, q, owner, bookID, domain.BookDispositionInbox); err != nil {
 		return false, err

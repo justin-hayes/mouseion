@@ -81,8 +81,7 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 
 // fixtureBooksFromSources builds the acquired-source entries of an owner's
 // collection: one entry per acquired source, scoped to the owner when one is
-// given. Visibility is applied here because a source entry is otherwise
-// indistinguishable from a metadata entry.
+// given.
 func (s *Store) fixtureBooksFromSources(owner string) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(s.books))
 	for i := range s.books {
@@ -91,7 +90,6 @@ func (s *Store) fixtureBooksFromSources(owner string) []domain.MyBook {
 			continue
 		}
 		book := s.fixtureMyBookFromSource(source)
-		s.applyVisibilityLocked(&book)
 		out = append(out, book)
 	}
 	return out
@@ -124,8 +122,8 @@ func (s *Store) fixtureMyBookFromSource(source domain.SourceMaterialSummary) dom
 }
 
 // fixtureBooksFromMetadata builds the metadata-only entries of an owner's
-// collection, applying the same disposition and visibility projection as the
-// acquired-source entries.
+// collection, applying the same disposition projection as the acquired-source
+// entries.
 func (s *Store) fixtureBooksFromMetadata(owner string) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(s.myBooks))
 	for _, book := range s.myBooks {
@@ -134,7 +132,6 @@ func (s *Store) fixtureBooksFromMetadata(owner string) []domain.MyBook {
 		}
 		book.Disposition = s.bookDispositionLocked(book.Book.OwnerID, book.Book.ID)
 		book.DispositionRevision = s.bookDispositionRevisionLocked(book.Book.OwnerID, book.Book.ID)
-		s.applyVisibilityLocked(&book)
 		out = append(out, book)
 	}
 	return out
@@ -224,53 +221,11 @@ func (s *Store) applyFixtureBookCompletions(book *domain.MyBook) {
 
 func fixtureDispositionKey(owner, bookID string) string { return owner + "\x00" + bookID }
 
-// fixtureVisibility mirrors one book_visibility row; a missing row is a
-// visible Book at revision 0.
-type fixtureVisibility struct {
-	hidden   bool
-	revision int64
-}
-
-func (s *Store) applyVisibilityLocked(book *domain.MyBook) {
-	state := s.visibility[fixtureDispositionKey(book.Book.OwnerID, book.Book.ID)]
-	book.Hidden, book.VisibilityRevision = state.hidden, state.revision
-}
-
-func (s *Store) GetBookVisibility(_ context.Context, owner, bookID string) (bool, int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.fixtureBookExists(owner, bookID) {
-		return false, 0, errNotFound
-	}
-	state := s.visibility[fixtureDispositionKey(owner, bookID)]
-	return state.hidden, state.revision, nil
-}
-
-// SetBookHidden mirrors the production expected-revision protocol and writes
-// only the visibility state.
-func (s *Store) SetBookHidden(_ context.Context, owner, bookID string, expectedRevision int64, hidden bool) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.fixtureBookExists(owner, bookID) {
-		return false, errNotFound
-	}
-	key := fixtureDispositionKey(owner, bookID)
-	state := s.visibility[key]
-	if done, err := fixtureRevisionCheck(state.revision, expectedRevision, state.hidden == hidden, domain.ErrStaleBookVisibility); done || err != nil {
-		return false, err
-	}
-	if state.hidden == hidden {
-		return false, nil
-	}
-	s.visibility[key] = fixtureVisibility{hidden: hidden, revision: expectedRevision + 1}
-	return true, nil
-}
-
-// fixtureRevisionCheck is the expected-revision protocol the visibility and
-// disposition writes share, mirroring the PostgreSQL adapters. A single-step
-// replay of an accepted request (accepted reports that the stored state already
-// equals the request) is done without writing; any other revision that is not
-// the expected one is stale. Otherwise the caller decides whether to write.
+// fixtureRevisionCheck is the expected-revision protocol disposition writes
+// use, mirroring the PostgreSQL adapter. A single-step replay of an accepted
+// request (accepted reports that the stored state already equals the request)
+// is done without writing; any other revision that is not the expected one is
+// stale. Otherwise the caller decides whether to write.
 func fixtureRevisionCheck(revision, expected int64, accepted bool, stale error) (done bool, err error) {
 	if revision == expected+1 && accepted {
 		return true, nil
@@ -298,27 +253,19 @@ func (s *Store) bookDispositionRevisionLocked(owner, bookID string) int64 {
 // ListMyBooksBrowse mirrors the production collection browser in memory for
 // the shared browser fixture store: literal case-insensitive title substring
 // search, one language filter, lowercased deterministic title ordering, and
-// counts over the complete active owner collection.
-func (s *Store) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
-	return s.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, false, offset, limit)
-}
-
-// ListMyBooksBrowseWithVisibility mirrors the production visibility scope:
-// Hidden Books are omitted unless showHidden is set and all counts follow it.
-// The projection is assembled from named steps that read like the PostgreSQL
-// store's equivalent: normalize the request, drop the invisible Books, count
-// what the view offers, filter to the selected scope, order, and page.
-func (s *Store) ListMyBooksBrowseWithVisibility(_ context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
+// counts over the complete active owner collection. The projection is
+// assembled from named steps that read like the PostgreSQL store's equivalent:
+// normalize the request, count what the view offers, filter to the selected
+// scope, order, and page.
+func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, disposition string, history bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	query, language, disposition = normalizeFixtureBrowseInputs(query, language, disposition)
 	everything := s.myBooksForOwner(owner)
 	result := domain.MyBooksBrowseResult{AllCount: len(everything)}
-	visible, hiddenCount := fixtureVisibleBooks(everything, language, showHidden)
-	result.HiddenCount = hiddenCount
-	result.Counts = fixtureLanguageCounts(visible)
-	result.ReadCount, result.DispositionCounts = fixtureWorkflowCounts(visible, language)
-	filtered, scopeTotal := filterFixtureBooks(visible, query, language, disposition, history)
+	result.Counts = fixtureLanguageCounts(everything)
+	result.ReadCount, result.DispositionCounts = fixtureWorkflowCounts(everything, language)
+	filtered, scopeTotal := filterFixtureBooks(everything, query, language, disposition, history)
 	result.ScopeTotal = scopeTotal
 	sortFixtureBrowseBooks(filtered)
 	result.Total = len(filtered)
@@ -341,28 +288,9 @@ func normalizeFixtureBrowseInputs(query, language, disposition string) (string, 
 	return query, language, disposition
 }
 
-// fixtureVisibleBooks drops Hidden Books unless showHidden is set. It also
-// reports the Hidden Books in the language scope, which stays independent of
-// that choice so an empty view can still offer recovery.
-func fixtureVisibleBooks(everything []domain.MyBook, language string, showHidden bool) (visible []domain.MyBook, hiddenCount int) {
-	visible = make([]domain.MyBook, 0, len(everything))
-	for _, book := range everything {
-		if book.Hidden {
-			if fixtureBookInLanguage(book, language) {
-				hiddenCount++
-			}
-			if !showHidden {
-				continue
-			}
-		}
-		visible = append(visible, book)
-	}
-	return visible, hiddenCount
-}
-
-// fixtureLanguageCounts counts the visible Books per language pill, with the
-// unknown pill last. The pills describe the whole visible collection rather
-// than the selected language.
+// fixtureLanguageCounts counts the Books per language pill, with the unknown
+// pill last. The pills describe the whole collection rather than the selected
+// language.
 func fixtureLanguageCounts(books []domain.MyBook) []domain.LanguageCount {
 	counts := map[string]int{}
 	for _, book := range books {

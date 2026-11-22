@@ -145,15 +145,13 @@ func TestReadingChooserGroupsRealWorkBooksAndShowsPosition(t *testing.T) {
 		require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byUnit[unit], domain.BookDispositionToRead))
 	}
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byUnit["homer-iliad-6"], domain.BookDispositionInbox))
-	_, err = store.SetBookHidden(ctx, learner.ID, byUnit["homer-iliad-5"], 0, true)
-	require.NoError(t, err)
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	page := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	for _, want := range []string{
-		"4 To Read Books, 3 assessed",
+		"5 To Read Books, 3 assessed",
 		"Known coverage 92.0%–99.0%",
 		"<dt>99% or above</dt>",
 		"<dt>Below 95%</dt>",
@@ -170,8 +168,8 @@ func TestReadingChooserGroupsRealWorkBooksAndShowsPosition(t *testing.T) {
 	} {
 		assert.Contains(t, body, want, "chooser missing %q", want)
 	}
-	for _, excluded := range []string{byUnit["homer-iliad-5"], byUnit["homer-iliad-6"]} {
-		assert.NotContains(t, body, `href="#reading-chooser-book-`+excluded+`"`, "Read, hidden and non-To-Read Books get no cell")
+	for _, excluded := range []string{byUnit["homer-iliad-6"]} {
+		assert.NotContains(t, body, `href="#reading-chooser-book-`+excluded+`"`, "non-To-Read Books get no cell")
 	}
 	assert.NotContains(t, body, "Book 1 of 1", "a whole-work unit shows no position")
 

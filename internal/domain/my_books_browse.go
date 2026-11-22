@@ -23,17 +23,16 @@ type MyBooksBrowseRow struct {
 	WorkAuthor string
 	GreekTitle string
 	// ConstituentBooks is the Work's reviewed total; OwnedBooks is how many of
-	// them the learner owns in the active language, including Hidden Books.
+	// them the learner owns in the active language.
 	ConstituentBooks int
 	OwnedBooks       int
 	// Books are the row's visible cells: the Work's Books matching the current
-	// visibility scope, search and disposition filter. A grouped Work's
-	// Analysis update offer covers exactly the eligible Books in this slice.
+	// search and disposition filter. A grouped Work's Analysis update offer
+	// covers exactly the eligible Books in this slice.
 	Books []MyBook
 	// CurrentWorkBook is the current Reading's Book when it belongs to this
-	// Work, even when visibility or a filter keeps its cell out of Books. The
-	// Work offer names and skips it; it is never queued. Ordinary rows leave it
-	// nil.
+	// Work, even when a filter keeps its cell out of Books. The Work offer names
+	// and skips it; it is never queued. Ordinary rows leave it nil.
 	CurrentWorkBook *MyBook
 }
 
@@ -63,7 +62,6 @@ type MyBooksBrowseResult struct {
 	Counts            []LanguageCount
 	DispositionCounts []DispositionCount
 	AllCount          int
-	HiddenCount       int
 	ReadCount         int
 }
 

@@ -243,7 +243,7 @@ then place the margin note and actions below the text column.
 
 Use one labeled contextual action and a native **More actions** disclosure.
 **Move to To Read** is primary for Inbox Books; **View in Reading**
-is primary for the current Book and To Read Books. The disclosure owns **Hide** or **Unhide**. Do not add
+is primary for the current Book and To Read Books. Do not add
 standalone analysis/acquisition controls or next-action recommendations. Its
 margin note may state concise current evidence: analysis running, failed,
 unavailable, not yet analysed, or current token-weighted Known coverage and its
@@ -265,18 +265,17 @@ has one 44px cell per owned Book in book order; each cell states its bucket by a
 distinct shape — filled dot for **Currently reading**, ring for **To Read**, bar
 for **Read**, filled square for **Inbox**. A cell opens only the Reading entry
 its Book actually has: the current Book's cell opens the current-reading card,
-and a visible To Read Book's cell opens that Book's ordinary candidate entry
+and a To Read Book's cell opens that Book's ordinary candidate entry
 inline in the chooser, on Reading when no Book is current or on the Switch page
 when one is. A Read or Inbox cell is a status-only cell, not a link: Reading
 lists only the current Book and To Read candidates, so there is nothing to
 select, and the strip must not imply a next Book. It keeps the 44px cell and
 full accessible label but is not a link target; **Read again** and **Move to To
-Read** remain the route back to a candidate. A Hidden Book's cell is likewise
-status-only. Cells
+Read** remain the route back to a candidate. Cells
 carry full accessible labels, the page has one shared legend,
 and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
-shape, such as "57 Books in 5 works". "M of N books" counts owned Books,
-including Hidden ones; the strip follows the current visibility scope. A
+shape, such as "57 Books in 5 works". "M of N books" counts the owned Books in
+the active language; every owned Book contributes a cell. A
 single-Book Work stays an ordinary row
 with its position, such as "Histories, Book 1" and "Book 1 of 9"; a whole-work
 unit shows no position. On compact screens the cover stays beside title and
@@ -293,12 +292,12 @@ under the identity when the Book is eligible. Keep the list unordered.
 
 A grouped Work's Analysis update offer covers exactly the eligible To Read Books
 shown on the issuing surface. On My Books that is the grouped row's visible
-cells: Hidden Books join only under **Show hidden books**, and a search or
-disposition filter narrows the offer with the cells it keeps. In the chooser it
-is the grouped entry's visible To Read candidates; a hidden or otherwise
+cells: a search or disposition filter narrows the offer with the cells it keeps.
+In the chooser it
+is the grouped entry's visible To Read candidates; an otherwise
 excluded sibling never joins the offer. The notice and action name that count,
 the current Reading's Book is named and skipped rather than counted even when a
-hidden or filtered scope keeps its cell out of the row, and confirming queues
+filtered scope keeps its cell out of the row, and confirming queues
 exactly those Books in book order.
 
 Repeated items form one native unordered list at every width, not an ARIA grid.
@@ -498,8 +497,8 @@ repair. Source lifecycle belongs to the feature/ADR, not this component guide.
   beside full title, reviewed Work position, author, start/switch confirmation
   and word review beneath the author, and the band name plus rounded coverage
   and next-band distinct-word counts in a visibly edged margin. A grouped
-  entry's Analysis update offer covers only its visible To Read candidates, so a
-  hidden sibling never joins it. Analysis
+  entry's Analysis update offer covers only its visible To Read candidates.
+  Analysis
   progress and unavailable coverage occupy that margin while their review/retry
   action stays under the identity. Retry is an outline action. On compact
   screens the band label stacks above its numbers, the margin follows the

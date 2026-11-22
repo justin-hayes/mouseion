@@ -82,16 +82,13 @@ type Harness interface {
 	Seeds() Seeder
 }
 
-// BookStateStore is the Book visibility, workflow disposition, My Books
-// membership, and previously read import surface under test. Each write takes
-// the revision the learner rendered; the adapter returns its own stale and
-// not-found errors.
+// BookStateStore is the Book workflow disposition, My Books membership, and
+// previously read import surface under test. Each write takes the revision the
+// learner rendered; the adapter returns its own stale and not-found errors.
 type BookStateStore interface {
-	// GetBookDetail returns the Book with its disposition and visibility and
-	// the revisions a write must present.
+	// GetBookDetail returns the Book with its disposition and the revision a
+	// write must present.
 	GetBookDetail(owner, bookID string) (domain.MyBook, error)
-	GetBookVisibility(owner, bookID string) (hidden bool, revision int64, err error)
-	SetBookHidden(owner, bookID string, expectedRevision int64, hidden bool) (applied bool, err error)
 	TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (applied bool, err error)
 	// RemoveBookFromMyBooks ends the Book's membership without deleting its
 	// evidence. A later Add restores the same Book. The current reading is

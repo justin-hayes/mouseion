@@ -101,22 +101,11 @@ func (s *PostgresStore) ListMyBooksWithEvidence(ctx context.Context, owner strin
 // SQL supplies the facts (disposition, current-reading role, and history) but
 // does not independently classify a visible bucket.
 func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, language, disposition string, history bool, offset, limit int) (MyBooksBrowseResult, error) {
-	return s.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, false, offset, limit)
-}
-
-// ListMyBooksBrowseWithVisibility is ListMyBooksBrowse with an explicit
-// visibility scope. Hidden Books are omitted unless showHidden is set, and
-// then bucket, language, and total counts describe the same scope. AllCount
-// stays the complete collection size and HiddenCount reports the Hidden Books
-// in the language scope regardless of the selected visibility, so empty views
-// can still offer recovery.
-func (s *PostgresStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (MyBooksBrowseResult, error) {
 	query, language, disposition, err := normalizeMyBooksBrowseRequest(query, language, disposition)
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
 	accumulator := &myBooksBrowseAccumulator{
-		showHidden:        showHidden,
 		query:             query,
 		disposition:       domain.BookDisposition(disposition),
 		history:           history,
@@ -127,14 +116,13 @@ func (s *PostgresStore) ListMyBooksBrowseWithVisibility(ctx context.Context, own
 	if err := s.collectMyBooksBrowsePage(ctx, owner, language, accumulator); err != nil {
 		return MyBooksBrowseResult{}, err
 	}
-	counts, err := s.collectMyBooksBrowseCounts(ctx, owner, language, showHidden)
+	counts, err := s.collectMyBooksBrowseCounts(ctx, owner, language)
 	if err != nil {
 		return MyBooksBrowseResult{}, err
 	}
 	result := accumulator.result
 	result.DispositionCounts = myBooksDispositionCounts(accumulator.dispositionCounts)
 	result.ScopeTotal = counts.scopeTotal
-	result.HiddenCount = counts.hiddenCount
 	result.AllCount = counts.allCount
 	result.Counts = counts.languageCounts
 	return result, nil
@@ -183,10 +171,8 @@ func myBooksBrowsePageWindow(offset, limit int) myBooksBrowseWindow {
 
 // myBooksBrowseAccumulator folds the ordered browse rows into Work groups, the
 // workflow-bucket counts, and the matching-scope size. Classification stays in
-// the domain; this only applies the visibility, search, filter, grouping and
-// page steps.
+// the domain; this only applies the search, filter, grouping and page steps.
 type myBooksBrowseAccumulator struct {
-	showHidden        bool
 	query             string
 	disposition       domain.BookDisposition
 	history           bool
@@ -198,19 +184,15 @@ type myBooksBrowseAccumulator struct {
 }
 
 // visit applies every step to one row, in the same order the SQL projection and
-// the domain classifier expect: tally owned Work Books, drop the invisible,
-// then tally the visible buckets. Search, filter and paging happen after the
-// whole projection is known, because a grouped Work row must not split across
-// pages.
+// the domain classifier expect: tally owned Work Books, then tally the
+// workflow buckets. Search, filter and paging happen after the whole projection
+// is known, because a grouped Work row must not split across pages.
 func (a *myBooksBrowseAccumulator) visit(row sqlcgen.BrowseMyBooksEvidenceRow) error {
 	book := myBookFromBrowseRow(row)
 	book.Disposition = domain.BookDisposition(row.Disposition)
 	book.DispositionRevision = row.DispositionRevision
 	if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
 		a.ownedWorkCounts[unit.WorkKey]++
-	}
-	if book.Hidden && !a.showHidden {
-		return nil
 	}
 	bucket := book.WorkflowBucket()
 	a.dispositionCounts[bucket]++
@@ -488,35 +470,25 @@ func myBooksDispositionCounts(counts map[domain.MyBookBucket]int) []DispositionC
 }
 
 // myBooksBrowseCounts is the collection size evidence around the page: the
-// scope total, the Hidden Books in scope, the complete collection size, and the
-// per-language pills.
+// scope total, the complete collection size, and the per-language pills.
 type myBooksBrowseCounts struct {
 	scopeTotal     int
-	hiddenCount    int
 	allCount       int
 	languageCounts []LanguageCount
 }
 
 // collectMyBooksBrowseCounts reads the count queries in the same order and with
 // the same scopes the page was built from.
-func (s *PostgresStore) collectMyBooksBrowseCounts(ctx context.Context, owner, language string, showHidden bool) (myBooksBrowseCounts, error) {
+func (s *PostgresStore) collectMyBooksBrowseCounts(ctx context.Context, owner, language string) (myBooksBrowseCounts, error) {
 	q := s.queries()
 	var counts myBooksBrowseCounts
-	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language, ShowHidden: showHidden})
+	scopeTotal, err := q.CountMyBooksScope(ctx, sqlcgen.CountMyBooksScopeParams{Owner: owner, Language: language})
 	if err != nil {
 		return myBooksBrowseCounts{}, err
 	}
 	counts.scopeTotal, err = checked.IntFromInt64(scopeTotal)
 	if err != nil {
 		return myBooksBrowseCounts{}, fmt.Errorf("invalid scoped book count: %w", err)
-	}
-	hiddenCount, err := q.CountHiddenMyBooksScope(ctx, sqlcgen.CountHiddenMyBooksScopeParams{Owner: owner, Language: language})
-	if err != nil {
-		return myBooksBrowseCounts{}, err
-	}
-	counts.hiddenCount, err = checked.IntFromInt64(hiddenCount)
-	if err != nil {
-		return myBooksBrowseCounts{}, fmt.Errorf("invalid hidden book count: %w", err)
 	}
 	allCount, err := q.CountMyBooksAll(ctx, owner)
 	if err != nil {
@@ -526,7 +498,7 @@ func (s *PostgresStore) collectMyBooksBrowseCounts(ctx context.Context, owner, l
 	if err != nil {
 		return myBooksBrowseCounts{}, fmt.Errorf("invalid total book count: %w", err)
 	}
-	languageRows, err := q.CountMyBooksByLanguage(ctx, sqlcgen.CountMyBooksByLanguageParams{Owner: owner, ShowHidden: showHidden})
+	languageRows, err := q.CountMyBooksByLanguage(ctx, owner)
 	if err != nil {
 		return myBooksBrowseCounts{}, err
 	}
@@ -608,9 +580,6 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	book.DispositionRevision = state.revision
 	book.EverCurrentReading, err = s.queries().BookEverCurrentReading(ctx, sqlcgen.BookEverCurrentReadingParams{Owner: owner, Book: book.Book.ID})
 	if err != nil {
-		return domain.MyBook{}, err
-	}
-	if book.Hidden, book.VisibilityRevision, err = s.GetBookVisibility(ctx, owner, book.Book.ID); err != nil {
 		return domain.MyBook{}, err
 	}
 	completion, err := s.queries().GetMyBookCompletionSummary(ctx, sqlcgen.GetMyBookCompletionSummaryParams{Owner: owner, Book: book.Book.ID})

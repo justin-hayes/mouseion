@@ -313,7 +313,6 @@ func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Analysis in progress")
 	assert.NotContains(t, response.Body.String(), "No To Read books yet")
-	assert.NotContains(t, response.Body.String(), "Not assessed")
 	assert.NotContains(t, response.Body.String(), "Known vocabulary coverage:")
 }
 

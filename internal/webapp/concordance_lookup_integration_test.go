@@ -104,7 +104,7 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		return book, source
 	}
 	alpha, _ := seed(alice.ID, "lookup-alpha", "Alpha")
-	beta, _ := seed(alice.ID, "lookup-beta", "Beta Hidden")
+	beta, _ := seed(alice.ID, "lookup-beta", "Beta Visibility")
 	gamma, _ := seed(alice.ID, "lookup-gamma", "Gamma")
 	stale, _ := seed(alice.ID, "lookup-stale", "Stale")
 	bobBook, _ := seed(bob.ID, "lookup-bob", "Bobs Buch")
@@ -134,7 +134,8 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 
 	_, err = store.Pool().Exec(ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, stale.ID)
 	require.NoError(t, err)
-	// History, disposition, and Hidden never narrow Concordance.
+	// History, disposition, and a retired visibility row never narrow
+	// Concordance.
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, beta.ID, domain.BookDispositionToRead))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_visibility(owner_id,book_id,hidden) VALUES($1,$2,true)`, alice.ID, beta.ID)
 	require.NoError(t, err)
@@ -178,7 +179,7 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		for _, absent := range []string{"Staleform", "Bobform", "steht", "stehe"} {
 			assert.NotContains(t, lookupResults(body), absent)
 		}
-		assert.Contains(t, body, "Beta Hidden", "Hidden, To Read Books still contribute")
+		assert.Contains(t, body, "Beta Visibility", "a retired visibility row does not exclude a To Read Book")
 		assert.Contains(t, body, `value="gehen"`)
 		formStart := strings.Index(body, `class="concordance-query"`)
 		form := body[formStart : formStart+strings.Index(body[formStart:], "</form>")]

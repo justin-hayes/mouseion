@@ -168,19 +168,14 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBooks(t *testing.T) {
 	assert.Contains(t, ownedPage.Body.String(), "In My Books")
 	assert.NotContains(t, ownedPage.Body.String(), "Not prepared")
 
-	// Hide one Book, then re-add the work: the existing Book is reopened and
-	// no duplicate appears.
-	_, err = store.SetBookHidden(ctx, learner.ID, ids[0], 0, true)
-	require.NoError(t, err)
+	// Re-add the work: the existing Books are reopened and no duplicate
+	// appears.
 	again := perform(t, h, "POST", "/catalogs/classical/works/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, again.Code)
 	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened 2 existing Books in Ancient Greek. Your study language is unchanged. Downloading and preparing the text."))
 	assert.Contains(t, again.Header().Get("Location"), "added_work=homer-iliad")
 	assert.Equal(t, ids, ownerBooks(t, pool, learner.ID))
 	assert.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "ensure-once keeps one live job per Book")
-	hidden, _, err := store.GetBookVisibility(ctx, learner.ID, ids[0])
-	require.NoError(t, err)
-	assert.False(t, hidden, "re-adding reopens a hidden existing Book")
 
 	singleAgain := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, singleAgain.Code)
