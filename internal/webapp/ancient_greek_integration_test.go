@@ -59,7 +59,10 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	// classical preparation integration test.
 	detail, err := store.GetBookDetail(ctx, learner.ID, report.BookID)
 	require.NoError(t, err)
-	require.Equal(t, domain.BookDispositionInbox, detail.Disposition)
+	require.Equal(t, domain.BookDispositionToRead, detail.Disposition, "registration makes a chosen Book")
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, report.BookID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
+	detail, err = store.GetBookDetail(ctx, learner.ID, report.BookID)
+	require.NoError(t, err)
 	moved := perform(t, h, "POST", "/library/books/"+report.BookID+"/to-read", url.Values{
 		"csrf_token":        {csrf},
 		"expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},

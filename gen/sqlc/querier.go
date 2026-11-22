@@ -250,7 +250,6 @@ type Querier interface {
 	InsertCurrentReadingSnapshotVocabulary(ctx context.Context, arg InsertCurrentReadingSnapshotVocabularyParams) error
 	InsertDeckPreparationHistory(ctx context.Context, arg InsertDeckPreparationHistoryParams) error
 	InsertGeneratedVocabulary(ctx context.Context, arg InsertGeneratedVocabularyParams) error
-	InsertInboxBookDisposition(ctx context.Context, arg InsertInboxBookDispositionParams) error
 	InsertPreparedDeckBatchChunk(ctx context.Context, arg InsertPreparedDeckBatchChunkParams) error
 	InsertPreparedDeckBatchChunkItem(ctx context.Context, arg InsertPreparedDeckBatchChunkItemParams) error
 	InsertPreparedDeckBatchChunkItemFromManifest(ctx context.Context, arg InsertPreparedDeckBatchChunkItemFromManifestParams) error

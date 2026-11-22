@@ -145,8 +145,8 @@ func epubAcquisitionFailureScenarios() []Scenario {
 	}}
 }
 
-// seedBook seeds an analyzed Book for the learner under test, in the Inbox
-// unless the seed says otherwise.
+// seedBook seeds an analyzed Book for the learner under test, not To Read (the
+// legacy shape) unless the seed says otherwise.
 func seedBook(t *testing.T, h Harness, seed BookSeed) string {
 	t.Helper()
 	return h.Seeds().SeedBook(t, h.Seeds().Owner(), seed)

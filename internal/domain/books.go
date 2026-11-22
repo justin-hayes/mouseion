@@ -87,12 +87,6 @@ type Book struct {
 	CreatedAt, UpdatedAt                                                       time.Time
 }
 
-type BookMembership struct {
-	OwnerID, BookID, State string
-	CreatedAt              time.Time
-	ActivatedAt, RemovedAt *time.Time
-}
-
 type BookAlias struct {
 	ID, OwnerID, BookID, ConnectionID, AliasType, Namespace, Value string
 	CreatedAt                                                      time.Time
@@ -312,19 +306,6 @@ func (b Book) Validate() error {
 		}
 	default:
 		return errors.New("domain: invalid book language state")
-	}
-	return nil
-}
-
-func (m BookMembership) Validate() error {
-	if strings.TrimSpace(m.OwnerID) == "" || strings.TrimSpace(m.BookID) == "" {
-		return errors.New("domain: book membership identity is required")
-	}
-	if m.State != "active" && m.State != "removed" {
-		return errors.New("domain: invalid book membership state")
-	}
-	if (m.State == "active") != (m.RemovedAt == nil) {
-		return errors.New("domain: book membership removal timestamp is inconsistent")
 	}
 	return nil
 }

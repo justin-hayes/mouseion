@@ -19,7 +19,7 @@ const classicalRegistrationLockSalt = 469
 // Reading unit, then gives the owner a Book for that Reading unit. The
 // definition rows stay authoritative, so a repeated call leaves them unchanged,
 // and an owner who already has the Book gets it back without a second Book. A
-// new Book is Inbox, chosen for the definition's language, and linked by an
+// new Book is To Read, chosen for the definition's language, and linked by an
 // immutable association.
 func (s *PostgresStore) RegisterReadingUnitBook(ctx context.Context, owner string, definition domain.ReadingUnitDefinition) (domain.ReadingUnitBookRegistration, error) {
 	owner = strings.TrimSpace(owner)
@@ -85,7 +85,7 @@ func upsertReadingUnitDefinition(ctx context.Context, q *sqlcgen.Queries, defini
 }
 
 // registerReadingUnitBookTx returns the owner's existing Book for the Reading
-// unit, or creates the Book, its membership, its Inbox disposition and its
+// unit, or creates the Book, its membership, its To Read disposition and its
 // immutable association.
 func registerReadingUnitBookTx(ctx context.Context, q *sqlcgen.Queries, owner string, definition domain.ReadingUnitDefinition, readingUnitID string) (domain.ReadingUnitBookRegistration, error) {
 	existing, err := q.GetRegisteredBookID(ctx, sqlcgen.GetRegisteredBookIDParams{OwnerID: owner, ReadingUnitID: readingUnitID})
@@ -110,7 +110,7 @@ func registerReadingUnitBookTx(ctx context.Context, q *sqlcgen.Queries, owner st
 	if err := q.InsertBookMembership(ctx, sqlcgen.InsertBookMembershipParams{OwnerID: owner, BookID: book.ID}); err != nil {
 		return domain.ReadingUnitBookRegistration{}, err
 	}
-	if err := q.InsertInboxBookDisposition(ctx, sqlcgen.InsertInboxBookDispositionParams{OwnerID: owner, BookID: book.ID}); err != nil {
+	if err := upsertBookDisposition(ctx, q, owner, book.ID, domain.BookDispositionToRead); err != nil {
 		return domain.ReadingUnitBookRegistration{}, err
 	}
 	if err := q.InsertBookReadingUnit(ctx, sqlcgen.InsertBookReadingUnitParams{OwnerID: owner, BookID: book.ID, ReadingUnitID: readingUnitID}); err != nil {
