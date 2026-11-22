@@ -227,6 +227,10 @@ func (h *contractHarness) BrowseCatalogueEntries(owner, connectionID string, que
 	return h.store.BrowseCatalogueEntries(context.Background(), owner, connectionID, query)
 }
 
+func (h *contractHarness) AddCatalogueEntry(owner, connectionID, entryIdentifier string) (domain.CatalogueAddResult, error) {
+	return h.store.AddCatalogueEntry(context.Background(), owner, connectionID, entryIdentifier)
+}
+
 func (h *contractHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	return h.store.AddClassicalReadingUnits(context.Background(), owner, readingUnitKeys)
 }

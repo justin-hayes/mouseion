@@ -16,7 +16,15 @@ templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnec
 			<a class="button button--outline" href="/catalogs/sources">Manage sources</a>
 		}
 		if message != "" {
-			@Feedback(FeedbackSuccess, "", message)
+			if browse.FocusAddedBook {
+				<div id="catalog-add-confirmation" tabindex="-1" autofocus>
+					@Feedback(FeedbackSuccess, "", message) {
+						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.AddedBookID)) }>View in My Books</a>
+					}
+				</div>
+			} else {
+				@Feedback(FeedbackSuccess, "", message)
+			}
 		}
 		if errorMessage != "" {
 			@Feedback(FeedbackError, "", errorMessage)
@@ -82,7 +90,7 @@ templ CatalogResults(csrf string, browse catalogBrowseView) {
 		}
 		for _, section := range browse.Sources {
 			if section.Total > 0 {
-				@CatalogOpdsSection(section)
+				@CatalogOpdsSection(csrf, section)
 			}
 		}
 	</div>
@@ -90,7 +98,7 @@ templ CatalogResults(csrf string, browse catalogBrowseView) {
 
 // CatalogOpdsSection is one connection's cover grid and paging. It reads only
 // the local Catalog index.
-templ CatalogOpdsSection(section catalogOpdsSection) {
+templ CatalogOpdsSection(csrf string, section catalogOpdsSection) {
 	<section class="catalog-source" id={ "catalog-source-" + section.Connection.ID } aria-labelledby={ "catalog-source-title-" + section.Connection.ID }>
 		<header class="catalog-source__header">
 			<h2 id={ "catalog-source-title-" + section.Connection.ID }>{ section.Connection.Name }</h2>
@@ -98,7 +106,7 @@ templ CatalogOpdsSection(section catalogOpdsSection) {
 		</header>
 		<ul class="catalog-cover-grid" role="list">
 			for _, entry := range section.Entries {
-				<li>@CatalogEntryCard(entry)</li>
+				<li>@CatalogEntryCard(csrf, entry)</li>
 			}
 		</ul>
 		if section.PageCount > 1 {
@@ -115,12 +123,13 @@ templ CatalogOpdsSection(section catalogOpdsSection) {
 	</section>
 }
 
-// CatalogEntryCard is one OPDS Catalog entry: cover, title, author, and only
-// its ownership state. Add arrives in a later slice. The Catalog index stores
-// advertised cover provenance, but upstream URLs are never sent to the browser
-// (ADR 0077); until local cover retention reaches index entries, the shared
-// cover frame shows the title's initial.
-templ CatalogEntryCard(entry domain.CatalogueEntry) {
+// CatalogEntryCard is one OPDS Catalog entry: cover, title, author, and its
+// ownership state. An unowned entry offers Add, which says plainly that it
+// downloads and analyzes the text. The Catalog index stores advertised cover
+// provenance, but upstream URLs are never sent to the browser (ADR 0077); until
+// local cover retention reaches index entries, the shared cover frame shows the
+// title's initial.
+templ CatalogEntryCard(csrf string, entry domain.CatalogueEntry) {
 	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>
 		@BookCoverMedia("", entry.Index.Title, entry.Index.LanguageTag, domain.BookCover{})
 		<h3 class="catalog-entry__title bibliographic-title" id={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>{ entry.Index.Title }</h3>
@@ -129,6 +138,13 @@ templ CatalogEntryCard(entry domain.CatalogueEntry) {
 		}
 		if entry.BookID != "" {
 			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(catalogBookInMyBooksURL(entry.BookID)) }>In My Books</a></p>
+		} else {
+			<form class="catalog-entry__add" method="post" action={ templ.SafeURL("/catalogs/sources/" + entry.Index.ConnectionID + "/add") }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="entry_identifier" value={ entry.Index.EntryIdentifier }/>
+				<p class="catalog-entry__add-copy">Adding downloads and analyzes the text.</p>
+				<button class="button button--outline" type="submit">Add</button>
+			</form>
 		}
 	</article>
 }

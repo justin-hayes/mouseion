@@ -103,6 +103,10 @@ func (h *postgresHarness) BrowseCatalogueEntries(owner, connectionID string, que
 	return h.store.BrowseCatalogueEntries(h.ctx, owner, connectionID, query)
 }
 
+func (h *postgresHarness) AddCatalogueEntry(owner, connectionID, entryIdentifier string) (domain.CatalogueAddResult, error) {
+	return h.store.AddCatalogueEntry(h.ctx, owner, connectionID, entryIdentifier)
+}
+
 func (h *postgresHarness) AddClassicalReadingUnits(owner string, readingUnitKeys []string) (classical.AddReport, error) {
 	return h.store.AddClassicalReadingUnits(h.ctx, owner, readingUnitKeys)
 }

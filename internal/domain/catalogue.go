@@ -49,6 +49,15 @@ type CatalogueEntry struct {
 	BookID string
 }
 
+// CatalogueAddResult reports the Book an Add created or restored. Changed is
+// false when the entry was already an active To Read Book, so a replayed Add
+// starts no duplicate preparation.
+type CatalogueAddResult struct {
+	Book    Book
+	Created bool
+	Changed bool
+}
+
 // CataloguePage is one source's matching entries and the total before paging.
 type CataloguePage struct {
 	Entries []CatalogueEntry

@@ -132,6 +132,10 @@ func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) 
 		`aria-label="Pages of Fixture catalog"`,
 		`href="/catalogs?language=de&amp;page_fixture-connection=2"`,
 		`href="/catalogs/books/fixture-book/in-my-books">In My Books</a>`,
+		`class="catalog-entry__add"`,
+		`action="/catalogs/sources/fixture-connection/add"`,
+		`name="entry_identifier" value="fixture-sommer"`,
+		`Adding downloads and analyzes the text.`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
 	}
@@ -369,6 +373,88 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	assert.NotContains(t, fullBody, `action="/catalogs/classical/units/fixture-iliad-1/add"`)
 	assert.NotContains(t, fullBody, `action="/catalogs/classical/units/fixture-iliad-2/add"`)
 	assert.NotContains(t, fullBody, `action="/catalogs/classical/units/fixture-iliad-3/add"`)
+}
+
+type failingCatalogueAdd struct{}
+
+func (failingCatalogueAdd) AddCatalogueEntry(context.Context, string, string, string) (domain.CatalogueAddResult, error) {
+	return domain.CatalogueAddResult{}, errors.New("catalog Add failed")
+}
+
+func TestCatalogueAddRouteRejectsMissingCSRFAndUnknownEntries(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSession(t)
+
+	noCSRF := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/add", url.Values{
+		"entry_identifier": {"fixture-sommer"},
+	}, cookies)
+	assert.Equal(t, http.StatusForbidden, noCSRF.Code)
+
+	unknown := readingTestRequest(t, h, "/catalogs/sources/fixture-connection/add", url.Values{
+		"csrf_token":       {csrf},
+		"entry_identifier": {"no-such-entry"},
+	}, cookies)
+	assert.Equal(t, http.StatusNotFound, unknown.Code)
+
+	failing, failingCookies, failingCSRF, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Store.CatalogueAdd = failingCatalogueAdd{}
+	})
+	failed := readingTestRequest(t, failing, "/catalogs/sources/fixture-connection/add", url.Values{
+		"csrf_token":       {failingCSRF},
+		"entry_identifier": {"fixture-sommer"},
+	}, failingCookies)
+	assert.Equal(t, http.StatusInternalServerError, failed.Code)
+}
+
+func TestCatalogueAddPreparationMessagesStateWhatFollowsTheAdd(t *testing.T) {
+	book := domain.Book{ID: "book", Title: "Book"}
+	cases := []struct {
+		name    string
+		outcome readingintent.Outcome
+		want    string
+	}{
+		{name: "queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued}, want: " Downloading and analyzing the text."},
+		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: " The text is already analyzed."},
+		{name: "no usable units", outcome: readingintent.Outcome{Kind: readingintent.OutcomeNoUsableEPUBUnits}, want: " The current source has no usable EPUB units. The Book stays To Read."},
+		{name: "could not start", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart}, want: catalogueAddCouldNotStart},
+		{name: "no submission", outcome: readingintent.Outcome{Kind: readingintent.OutcomeMoved}, want: ""},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, catalogueAddPreparationMessage(t.Context(), nil, "owner", book, test.outcome))
+		})
+	}
+}
+
+func TestCatalogueAddPreparationWithoutAReadingIntentModuleKeepsTheAdd(t *testing.T) {
+	handler := &Handler{}
+	assert.Equal(t, catalogueAddCouldNotStart, handler.prepareAddedCatalogueBook(t.Context(), "owner", domain.Book{ID: "book"}))
+}
+
+func TestCatalogueAddMessageNamesTheBookAndMembershipChange(t *testing.T) {
+	book := domain.Book{Title: "Add Entry"}
+	assert.Equal(t, "Added “Add Entry” to My Books.", catalogueAddMessage(domain.CatalogueAddResult{Book: book, Created: true, Changed: true}))
+	assert.Equal(t, "Restored “Add Entry” to My Books.", catalogueAddMessage(domain.CatalogueAddResult{Book: book, Changed: true}))
+	assert.Equal(t, "“Add Entry” is already in My Books.", catalogueAddMessage(domain.CatalogueAddResult{Book: book}))
+	assert.Equal(t, "Added “the text” to My Books.", catalogueAddMessage(domain.CatalogueAddResult{Created: true}))
+}
+
+func TestCatalogueAddConfirmationLinksOnlyTheEntryTheAddNamed(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
+
+	// The fixture Book is linked to fixture-browser-second on its connection.
+	matching := catalogPage(t, h, cookies, "/catalogs?language=de&message=Added&added_book=fixture-book&added_connection=fixture-browser-sync-connection&added_entry=fixture-browser-second")
+	require.Equal(t, http.StatusOK, matching.Code)
+	body := matching.Body.String()
+	assert.Contains(t, body, `id="catalog-add-confirmation"`)
+	assert.Contains(t, body, `autofocus`)
+	assert.Contains(t, body, `href="/catalogs/books/fixture-book/in-my-books">View in My Books</a>`)
+
+	// A Book and entry that do not share an alias render the message without a
+	// link or focus target.
+	mismatched := catalogPage(t, h, cookies, "/catalogs?language=de&message=Added&added_book=fixture-book&added_connection=fixture-browser-sync-connection&added_entry=fixture-other")
+	require.Equal(t, http.StatusOK, mismatched.Code)
+	assert.NotContains(t, mismatched.Body.String(), `id="catalog-add-confirmation"`)
+	assert.NotContains(t, mismatched.Body.String(), `>View in My Books</a>`)
 }
 
 func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {

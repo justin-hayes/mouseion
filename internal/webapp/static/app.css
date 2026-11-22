@@ -3060,6 +3060,17 @@
     min-height: 44px;
     align-items: center;
   }
+  .catalog-entry__add {
+    display: grid;
+    gap: var(--mouseion-space-2);
+    justify-items: start;
+    margin: 0;
+  }
+  .catalog-entry__add-copy {
+    margin: 0;
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+  }
   .catalog-pagination span {
     color: var(--mouseion-color-text-muted);
     font-size: var(--mouseion-font-size-metadata);

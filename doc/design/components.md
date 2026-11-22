@@ -182,8 +182,12 @@ Each OPDS group is a cover grid with cover, title and author, ordered by title
 then author and paged locally per connection. The cover frame shows the title's
 initial until locally retained index covers exist; the Catalog never sends an
 upstream cover URL to the browser. An entry linked to an active Book
-shows **In My Books** as a link to that Book's My Books row; an unowned entry
-shows no disposition, analysis, preparation or Add control in this slice.
+shows **In My Books** as a link to that Book's My Books row. An unowned entry
+offers **Add**, whose copy says plainly that the text is downloaded and
+analyzed; Add creates or restores the Book as To Read and starts the same
+preparation as Move to To Read. The confirmation names the Book, links to My
+Books, and receives focus after the ordinary POST redirect. Entries never show
+disposition, analysis or preparation state.
 
 There is one result-summary live region, which announces the number of results
 and sources after every search, filter or page change. Distinct empty states

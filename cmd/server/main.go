@@ -300,7 +300,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := catalogueSyncService.RegisterAll(ctx); err != nil {
 		return nil, err
 	}
-	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, Jobs: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogueAdd: store, Jobs: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{

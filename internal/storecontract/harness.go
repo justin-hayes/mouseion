@@ -117,16 +117,22 @@ type ClassicalStore interface {
 	ListStudyLanguages(owner string) ([]domain.StudyLanguage, error)
 }
 
-// CatalogueStore is the Catalog browse read surface under test. It returns one
-// connection's local index entries in title-then-author order with the
-// learner's ownership attached, and it never contacts the OPDS server.
+// CatalogueStore is the Catalog browse and Add surface under test. Browse
+// returns one connection's local index entries in title-then-author order with
+// the learner's ownership attached, and it never contacts the OPDS server. Add
+// creates or restores the learner's Book for one indexed entry as To Read.
 type CatalogueStore interface {
 	BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error)
+	// AddCatalogueEntry creates the Book for one indexed entry or restores the
+	// learner's existing Book as To Read. An entry missing from the index
+	// returns domain.ErrNotFound. Replaying Add on an active To Read Book
+	// changes nothing.
+	AddCatalogueEntry(owner, connectionID, entryIdentifier string) (domain.CatalogueAddResult, error)
 }
 
 // CatalogueEntrySeed is one local Catalog index entry and, optionally, an
 // existing Book the learner owns for it. An empty BookID leaves the entry
-// unowned, so the Catalog offers Add in a later slice.
+// unowned, so the Catalog offers Add.
 type CatalogueEntrySeed struct {
 	Entry  domain.CatalogueIndexEntry
 	BookID string
