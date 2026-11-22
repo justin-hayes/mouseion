@@ -61,7 +61,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 		h.store.myBooks = append(h.store.myBooks, domain.MyBook{
 			Book: domain.Book{ID: bookID, OwnerID: owner, Title: "Contract Book", LanguageState: languageState, LanguageTag: languageTag},
 		})
-		if seed.ToRead {
+		if !seed.Inbox {
 			h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 		}
 		if seed.SourceIdentifier != "" {
@@ -80,7 +80,7 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 		BookID:  bookID,
 		Signals: analyzedSignals, AnalysisRunID: bookID + "-run", CorpusID: bookID + "-corpus",
 	})
-	if seed.ToRead {
+	if !seed.Inbox {
 		h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 	}
 	// The fixtures hold no dependency parses, so they model the sentence-quality
@@ -204,6 +204,10 @@ func (h *contractHarness) GetBookDetail(owner, bookID string) (domain.MyBook, er
 
 func (h *contractHarness) TransitionBookDisposition(owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
 	return h.store.TransitionBookDisposition(context.Background(), owner, bookID, expectedRevision, disposition)
+}
+
+func (h *contractHarness) SetBookDisposition(owner, bookID string, disposition domain.BookDisposition) error {
+	return h.store.SetBookDisposition(context.Background(), owner, bookID, disposition)
 }
 
 func (h *contractHarness) RemoveBookFromMyBooks(owner, bookID string) error {

@@ -20,7 +20,7 @@ var reviewOccurrences = []OccurrenceSeed{
 // seedReviewBook seeds a To Read Book whose analysis contains reviewOccurrences.
 func seedReviewBook(t *testing.T, h Harness) string {
 	t.Helper()
-	return h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: defaultVocabulary, Occurrences: reviewOccurrences, ToRead: true})
+	return h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Vocabulary: defaultVocabulary, Occurrences: reviewOccurrences})
 }
 
 // reviewOccurrence returns the occurrence at index among the Book's review

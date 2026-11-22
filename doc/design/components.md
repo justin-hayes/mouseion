@@ -98,7 +98,7 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Inbox, Read; grouped Work row with one cell per owned Book and bulk Work actions; one grouped Work Analysis update notice and bulk action covering the eligible Books the row shows, with current-Book End wording and one confirmation, while a single-Book Work keeps the ordinary notice; preparing Books collapsed into one line with per-Book problem recovery; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; grouped Work row with one cell per owned Book and bulk Work actions; one grouped Work Analysis update notice and bulk action covering the eligible Books the row shows, with current-Book End wording and one confirmation, while a single-Book Work keeps the ordinary notice; preparing Books collapsed into one line with per-Book problem recovery; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
 | `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation; a grouped Work Analysis update offer covers only its visible To Read candidates | Between-Books Reading chooser |
@@ -185,9 +185,9 @@ upstream cover URL to the browser. An entry linked to an active Book
 shows **In My Books** as a link to that Book's My Books row. An unowned entry
 offers **Add**, whose copy says plainly that the text is downloaded and
 analyzed; Add creates or restores the Book as To Read and starts the same
-preparation as Move to To Read. The confirmation names the Book, links to My
-Books, and receives focus after the ordinary POST redirect. Entries never show
-disposition, analysis or preparation state.
+preparation as **Read again** and the Work-level move. The confirmation names
+the Book, links to My Books, and receives focus after the ordinary POST
+redirect. Entries never show disposition, analysis or preparation state.
 
 There is one result-summary live region, which announces the number of results
 and sources after every search, filter or page change. Distinct empty states
@@ -236,14 +236,14 @@ Use a semantic list item with a reserved cover column on the left, full title
 and author directly beneath it in the text column, and contextual actions under
 that identity in the same column. Keep the right-hand margin visibly edged with
 a light rule or quiet surface; it carries one `StatusBadge` for the canonical
-visible bucket (**Currently reading**, **To Read**, **Inbox**, or **Read**) and any concise reading-history note. Do not use a “Disposition:”
+visible bucket (**Currently reading**, **To Read**, or **Read**) and any concise reading-history note. Do not use a “Disposition:”
 label. Rows separate through whitespace and the margin edge, not an outer box
 or heavy list rule. On compact screens, keep the cover beside title and author,
 then place the margin note and actions below the text column.
 
 Use one labeled contextual action and a native **More actions** disclosure.
-**Move to To Read** is primary for Inbox Books; **View in Reading**
-is primary for the current Book and To Read Books. Do not add
+**View in Reading** is primary for the current Book and To Read Books; a Read
+Book offers **Read again** in More actions. Do not add
 standalone analysis/acquisition controls or next-action recommendations. Its
 margin note may state concise current evidence: analysis running, failed,
 unavailable, not yet analysed, or current token-weighted Known coverage and its
@@ -259,19 +259,20 @@ A Work with more than one owned Book in the active language uses the grouped
 form of the same row. The identity carries the Work title, author, Greek title,
 "all N books" or "M of N books", and Classical catalog provenance. The margin
 carries one `StatusBadge` for the leading bucket by the ordinary precedence —
-**Currently reading Book N**, **To Read**, **Read**, **Inbox** — followed by
+**Currently reading Book N**, **To Read**, **Read** — followed by
 counts such as "22 more To Read · 1 Read". Under the identity, a wrapping strip
 has one 44px cell per owned Book in book order; each cell states its bucket by a
-distinct shape — filled dot for **Currently reading**, ring for **To Read**, bar
-for **Read**, filled square for **Inbox**. A cell opens only the Reading entry
+distinct shape — filled dot for **Currently reading**, ring for **To Read**, and
+bar for **Read**. A cell opens only the Reading entry
 its Book actually has: the current Book's cell opens the current-reading card,
 and a To Read Book's cell opens that Book's ordinary candidate entry
 inline in the chooser, on Reading when no Book is current or on the Switch page
-when one is. A Read or Inbox cell is a status-only cell, not a link: Reading
+when one is. A Read cell is a status-only cell, not a link: Reading
 lists only the current Book and To Read candidates, so there is nothing to
 select, and the strip must not imply a next Book. It keeps the 44px cell and
-full accessible label but is not a link target; **Read again** and **Move to To
-Read** remain the route back to a candidate. Cells
+full accessible label but is not a link target; **Read again** and the
+Work-level **Move to To Read** remain the route back to a candidate. My Books
+shows two tabs, **To Read** and **Read**. Cells
 carry full accessible labels, the page has one shared legend,
 and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
 shape, such as "57 Books in 5 works". "M of N books" counts the owned Books in

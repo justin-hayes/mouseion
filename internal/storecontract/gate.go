@@ -23,7 +23,6 @@ func seedGatedToRead(t *testing.T, h Harness, usable, unusable domain.SnapshotId
 	return h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{
 		Vocabulary: []domain.SnapshotIdentity{usable, unusable},
 		Unusable:   []domain.SnapshotIdentity{unusable},
-		ToRead:     true,
 	})
 }
 
@@ -98,7 +97,6 @@ func gateScenarios() []Scenario {
 			// usable sentence can freeze it.
 			later := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{
 				Vocabulary: []domain.SnapshotIdentity{unusable},
-				ToRead:     true,
 			})
 			laterReading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, later)
 			require.NoError(t, err)
@@ -112,7 +110,6 @@ func gateScenarios() []Scenario {
 			bookID := h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{
 				Vocabulary: []domain.SnapshotIdentity{unusable},
 				Unusable:   []domain.SnapshotIdentity{unusable},
-				ToRead:     true,
 			})
 			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
 			require.NoError(t, err)
@@ -135,7 +132,6 @@ func gateScenarios() []Scenario {
 				Language: GreekLanguage, Imported: true,
 				Vocabulary: []domain.SnapshotIdentity{usable, unusable},
 				Unusable:   []domain.SnapshotIdentity{unusable},
-				ToRead:     true,
 			})
 			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), GreekLanguage, bookID)
 			require.NoError(t, err)

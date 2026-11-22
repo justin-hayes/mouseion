@@ -17,7 +17,10 @@ type BookDispositionStore interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 }
 
-var ErrStaleBookDisposition = domain.ErrStaleBookDisposition
+var (
+	ErrStaleBookDisposition   = domain.ErrStaleBookDisposition
+	ErrMyBooksBackfillBlocked = domain.ErrMyBooksBackfillBlocked
+)
 
 func (s *PostgresStore) GetBookDisposition(ctx context.Context, owner, bookID string) (domain.BookDisposition, error) {
 	disposition, err := s.queries().GetBookDisposition(ctx, sqlcgen.GetBookDispositionParams{OwnerID: owner, BookID: bookID})
@@ -42,10 +45,38 @@ func (s *PostgresStore) SetBookDisposition(ctx context.Context, owner, bookID st
 	if err := ensureBookExists(ctx, tx, owner, bookID); err != nil {
 		return err
 	}
-	if err := upsertBookDisposition(ctx, sqlcgen.New(tx), owner, bookID, disposition); err != nil {
+	q := sqlcgen.New(tx)
+	if err := refuseUnchosenDisposition(ctx, q, owner, bookID, disposition); err != nil {
+		return err
+	}
+	if err := upsertBookDisposition(ctx, q, owner, bookID, disposition); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// refuseUnchosenDisposition rejects the stored not-To-Read value for a Book
+// that is neither the current reading nor has a recorded completion. That state
+// was the retired Inbox; My Books no longer has a bucket for it.
+func refuseUnchosenDisposition(ctx context.Context, q *sqlcgen.Queries, owner, bookID string, disposition domain.BookDisposition) error {
+	if disposition != domain.BookDispositionInbox {
+		return nil
+	}
+	completion, err := q.GetMyBookCompletionSummary(ctx, sqlcgen.GetMyBookCompletionSummaryParams{Owner: owner, Book: bookID})
+	if err != nil {
+		return err
+	}
+	if completion.CompletionCount > 0 {
+		return nil
+	}
+	current, err := q.BookHasActiveCurrentReading(ctx, sqlcgen.BookHasActiveCurrentReadingParams{Owner: owner, Book: bookID})
+	if err != nil {
+		return err
+	}
+	if current {
+		return nil
+	}
+	return domain.ErrBookNotChosen
 }
 
 // TransitionBookDisposition applies a My Books decision against the revision
@@ -77,6 +108,9 @@ func (s *PostgresStore) TransitionBookDisposition(ctx context.Context, owner, bo
 	}
 	if state.Revision != expectedRevision {
 		return false, ErrStaleBookDisposition
+	}
+	if err := refuseUnchosenDisposition(ctx, q, owner, bookID, disposition); err != nil {
+		return false, err
 	}
 	rows, err := q.TransitionBookDisposition(ctx, sqlcgen.TransitionBookDispositionParams{
 		Owner: owner, Book: bookID, Disposition: string(disposition), ExpectedRevision: expectedRevision,

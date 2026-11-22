@@ -36,9 +36,9 @@ The feature applies to active-language My Books results at `/library`, current
 and To Read Book rows at `/reading`, and catalog sync. Search, alphabetical
 ordering, paging, language scope, and Book identity remain unchanged.
 
-The `/library?needs-language` diagnostic state remains a compact text-led list.
-Its task is to identify metadata that must be corrected in the catalog, not to
-browse or mutate the active-language collection.
+My Books shows the active language's chosen Books in two tabs, **To Read** and
+**Read**. The retired needs-language strip has no replacement: a Book without a
+chosen language is not listed in My Books.
 
 ## Book cover metadata
 
@@ -114,13 +114,19 @@ Each Book item presents, in order:
 2. The full title in the bibliographic reading face and the author when supplied,
    always visible beneath the cover. Long identity text wraps rather than being
    truncated into ambiguity.
-3. A restrained disposition marker for Inbox or To Read. My Books
-   does not show analysis, acquisition, evidence, current reading, or next-action
-   status on the grid item.
-4. One visible, labeled Reading action: **Move to To Read** or **View in
-   Reading**, accompanied by an icon.
-5. A labeled native **More actions** disclosure containing **Remove from My
-   Books** for eligible Books. Remove ends membership without
+3. One status badge for the Book's visible bucket: **Currently reading**, **To
+   Read**, or **Read**. Beneath it, a concise margin note states current
+   evidence when there is any: the latest completion on a Read Book, preparation
+   or acquisition in progress or failed (with its recovery action), or the
+   current analysis and deck state. A Book with reading history also shows its
+   completion count and latest completion. The item never ranks Books or
+   recommends a next action.
+4. One visible, labeled Reading action, **View in Reading**, on the current
+   Book and on every To Read Book. A Read Book has no visible Reading action.
+5. A labeled native **More actions** disclosure containing **Mark as previously
+   read** for an unstarted To Read Book, **Read again** for a Book with reading
+   history, and **Remove from My Books**, which is disabled with a reason for
+   the current Book. Remove ends membership without
    changing the Book's evidence, history, or artifacts. There is no per-Book
    metadata refresh: a catalog-linked Book follows its entry's title, author,
    and cover at the next sync.

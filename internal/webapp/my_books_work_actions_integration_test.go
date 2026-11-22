@@ -40,14 +40,15 @@ func currentReadingBook(t *testing.T, pool *pgxpool.Pool, owner, bookID string) 
 	require.NoError(t, err)
 }
 
-// addClassicalWorkAsInbox restores the pre-Add baseline these bulk-action
-// tests exercise: the Books are owned but not yet To Read, and no preparation
-// has been queued. Catalog Add itself now does both.
-func addClassicalWorkAsInbox(t *testing.T, store *persistence.PostgresStore, pool *pgxpool.Pool, owner string, h *Handler, cookies []*http.Cookie, csrf, workKey string) {
+// addClassicalWorkAsRead restores the pre-Add baseline these bulk-action tests
+// exercise: the Books are owned and Read, so the Work-level Move to To Read has
+// candidates again, and no preparation is queued. Catalog Add itself queues
+// preparation.
+func addClassicalWorkAsRead(t *testing.T, store *persistence.PostgresStore, pool *pgxpool.Pool, owner string, h *Handler, cookies []*http.Cookie, csrf, workKey string) {
 	t.Helper()
 	addClassicalWork(t, h, cookies, csrf, workKey)
 	for _, id := range ownerBooks(t, pool, owner) {
-		require.NoError(t, store.SetBookDisposition(context.Background(), owner, id, domain.BookDispositionInbox))
+		require.NoError(t, store.MarkBookPreviouslyRead(context.Background(), owner, id))
 	}
 	_, err := pool.Exec(context.Background(), `DELETE FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue)
 	require.NoError(t, err)
@@ -57,7 +58,7 @@ func TestMyBooksWorkToReadQueuesEveryBookInBookOrder(t *testing.T) {
 	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-order", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWorkAsInbox(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
+	addClassicalWorkAsRead(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
 
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
@@ -81,23 +82,21 @@ func TestMyBooksWorkToReadQueuesEveryBookInBookOrder(t *testing.T) {
 	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM river_job WHERE queue='analysis'`), "a Work move never uses the shared analysis queue")
 }
 
-func TestMyBooksWorkToReadSkipsReadingHistoryAndTheCurrentBook(t *testing.T) {
+func TestMyBooksWorkToReadSkipsTheCurrentBook(t *testing.T) {
 	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-skip", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWorkAsInbox(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
+	addClassicalWorkAsRead(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
 
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
 	require.NotEmpty(t, firstID)
 	require.NotEmpty(t, secondID)
 
-	// Book 2 has reading history and Book 1 is the current Reading, so neither
-	// may move. Book 1 already is To Read; Book 2 must keep its completion.
+	// Book 1 is the current Reading and may not move. Book 2 has reading
+	// history, so the Work move makes it a candidate again (Read again).
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, firstID, domain.BookDispositionToRead))
 	currentReadingBook(t, pool, learner.ID, firstID)
-	_, err := store.ImportPreviouslyRead(ctx, learner.ID, secondID)
-	require.NoError(t, err)
 
 	before, err := store.GetBookDetail(ctx, learner.ID, firstID)
 	require.NoError(t, err)
@@ -114,17 +113,17 @@ func TestMyBooksWorkToReadSkipsReadingHistoryAndTheCurrentBook(t *testing.T) {
 
 	history, err := store.GetBookDetail(ctx, learner.ID, secondID)
 	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, history.Disposition, "a Book with reading history stays Inbox")
-	assert.Equal(t, 1, history.CompletionCount)
+	assert.Equal(t, domain.BookDispositionToRead, history.Disposition, "a Read Book becomes a candidate again")
+	assert.Equal(t, 1, history.CompletionCount, "the completion is unchanged")
 	_, bookIDs := workPreparationJobs(t, pool)
-	assert.Empty(t, bookIDs, "skipped Books enqueue no preparation")
+	assert.Equal(t, []string{secondID}, bookIDs, "only the skipped current Book enqueues no preparation")
 }
 
 func TestMyBooksWorkToReadMovesTheRestAroundTheCurrentBook(t *testing.T) {
 	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-rest", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWorkAsInbox(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
+	addClassicalWorkAsRead(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
 
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
@@ -228,7 +227,7 @@ func TestMyBooksWorkToReadNamesTheLegacyRowsCause(t *testing.T) {
 	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-legacy-rows", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWorkAsInbox(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
+	addClassicalWorkAsRead(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
 
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
@@ -259,7 +258,7 @@ func TestMyBooksWorkToReadNamesTheWithdrawnDefinitionCause(t *testing.T) {
 	ctx, store, pool, h, _, _, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-withdrawn", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWorkAsInbox(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
+	addClassicalWorkAsRead(t, store, pool, learner.ID, h, cookies, csrf, "synthetic-work")
 
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
@@ -288,7 +287,7 @@ func TestMyBooksWorkToReadWithoutPreparationServiceStillMovesTheBooks(t *testing
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "work-to-read-no-prep", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWorkAsInbox(t, store, pool, learner.ID, h, cookies, csrf, "homer-iliad")
+	addClassicalWorkAsRead(t, store, pool, learner.ID, h, cookies, csrf, "homer-iliad")
 
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)

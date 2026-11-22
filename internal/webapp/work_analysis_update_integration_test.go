@@ -457,15 +457,18 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 	body = readingGet(t, h.h, "/library", h.cookies)
 	assert.Contains(t, body, "A newer analysis is available for 2 books shown here.")
 
-	// An Inbox Book is not offered. The second Book is still To Read, so the
-	// Work keeps one offer.
-	require.NoError(t, h.store.SetBookDisposition(context.Background(), h.learnerID, h.firstID, domain.BookDispositionInbox))
+	// A Read Book is not offered. The second Book is still To Read, so the Work
+	// keeps one offer.
+	require.NoError(t, h.store.MarkBookPreviouslyRead(context.Background(), h.learnerID, h.firstID))
 	body = readingGet(t, h.h, "/library", h.cookies)
 	assert.Contains(t, body, "A newer analysis is available for 1 book shown here.")
 
-	// A Read Book is not offered either; with both Books outside To Read the
-	// Work has no offer.
+	// With both Books outside To Read the Work has no offer.
+	second, err := h.store.GetBookDetail(context.Background(), h.learnerID, h.secondID)
+	require.NoError(t, err)
 	_, err = h.store.ImportPreviouslyRead(context.Background(), h.learnerID, h.secondID)
+	require.NoError(t, err)
+	_, err = h.store.TransitionBookDisposition(context.Background(), h.learnerID, h.secondID, second.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	body = readingGet(t, h.h, "/library", h.cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")

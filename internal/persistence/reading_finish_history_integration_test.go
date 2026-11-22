@@ -78,7 +78,7 @@ func TestFinishProjectsReadHistoryAndReadAgainOnlySetsToRead(t *testing.T) {
 	// creates no Known vocabulary.
 	asserted, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Asserted", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, asserted.ID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
+	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, asserted.ID)
 	knownBefore, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	for range 2 {

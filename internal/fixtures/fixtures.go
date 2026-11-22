@@ -198,9 +198,9 @@ func NewStore() *Store {
 		},
 		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
-			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime}, CompletionCount: 1,
 		}, {
-			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			Book: domain.Book{ID: BrowserSyncBookID, OwnerID: OwnerID, Title: "Browser sync metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime}, CompletionCount: 1,
 		}, {
 			// These acquired German Books have left My Books, so the Catalog
 			// offers Add for their entries and browser acceptance can exercise
@@ -217,12 +217,14 @@ func NewStore() *Store {
 			Book: domain.Book{ID: "fixture-acquisition-failed", OwnerID: OwnerID, Title: "Nicht herunterladbar", Author: "Hanna Voss", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		}},
 		dispositions: map[string]domain.BookDisposition{
+			fixtureDispositionKey(OwnerID, "fixture-metadata-only"):      domain.BookDispositionInbox,
+			fixtureDispositionKey(OwnerID, BrowserSyncBookID):            domain.BookDispositionInbox,
 			fixtureDispositionKey(OwnerID, BookID):                       domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, "fixture-failed"):             domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, "fixture-running"):            domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, "fixture-not-analyzed"):       domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeMatchBookID):             domain.BookDispositionToRead,
-			fixtureDispositionKey(OwnerID, LemmaFlagBookID):              domain.BookDispositionInbox,
+			fixtureDispositionKey(OwnerID, LemmaFlagBookID):              domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeDiffersBookID):           domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeTieABookID):              domain.BookDispositionToRead,
 			fixtureDispositionKey(OwnerID, routeTieBBookID):              domain.BookDispositionToRead,

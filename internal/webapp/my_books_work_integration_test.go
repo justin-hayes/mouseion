@@ -52,9 +52,7 @@ func TestMyBooksGroupsOneWorkAndFiltersCountBooks(t *testing.T) {
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byPosition[1].Book.ID, domain.BookDispositionToRead))
 	_, err := pool.Exec(ctx, `INSERT INTO primary_goals(owner_id, book_id, language) VALUES ($1, $2, $3)`, learner.ID, byPosition[1].Book.ID, classical.Language)
 	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byPosition[2].Book.ID, domain.BookDispositionInbox))
-	_, err = store.ImportPreviouslyRead(ctx, learner.ID, byPosition[2].Book.ID)
-	require.NoError(t, err)
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byPosition[2].Book.ID))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 
 	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
@@ -62,34 +60,31 @@ func TestMyBooksGroupsOneWorkAndFiltersCountBooks(t *testing.T) {
 	body := page.Body.String()
 
 	t.Run("identity", func(t *testing.T) {
-		for _, want := range []string{"Iliad", "By Homer", "Ἰλιάς", "2 of 24 books", "Classical catalog", "2 Books in 1 work"} {
+		for _, want := range []string{"Iliad", "By Homer", "Ἰλιάς", "2 of 24 books", "Classical catalog", "1 Book in 1 work"} {
 			assert.Contains(t, body, want, "grouped Work page missing %q", want)
 		}
 	})
 	t.Run("leading badge and counts", func(t *testing.T) {
-		for _, want := range []string{"Currently reading Book 1", "1 Read"} {
-			assert.Contains(t, body, want, "grouped Work margin missing %q", want)
-		}
+		assert.Contains(t, body, "Currently reading Book 1", "grouped Work margin missing the current badge")
 		assert.NotContains(t, body, "Currently reading Book 2")
 	})
 	t.Run("strip links", func(t *testing.T) {
 		for _, want := range []string{
 			`aria-label="Iliad, Book 1 of 24, Currently reading"`,
-			`aria-label="Iliad, Book 2 of 24, Read"`,
 			`href="/reading#journey-book-` + byPosition[1].Book.ID + `"`,
-			`role="img" aria-label="Iliad, Book 2 of 24, Read"`,
 		} {
 			assert.Contains(t, body, want, "grouped Work strip missing %q", want)
 		}
-		assert.NotContains(t, body, `href="/reading#journey-book-`+byPosition[2].Book.ID+`"`, "a Read cell has no Reading entry")
+		assert.NotContains(t, body, `aria-label="Iliad, Book 2 of 24, Read"`, "the To Read tab keeps only matching cells")
 	})
 	t.Run("one legend per page", func(t *testing.T) {
 		assert.Equal(t, 1, strings.Count(body, `class="library-work-legend"`), "one legend per page")
 	})
-	t.Run("filters count Books", func(t *testing.T) {
-		for _, want := range []string{"All (2)", "To Read (1)", "Read (1)"} {
-			assert.Contains(t, body, want, "filter count missing %q", want)
+	t.Run("tabs count Books", func(t *testing.T) {
+		for _, want := range []string{"To Read (1)", "Read (1)"} {
+			assert.Contains(t, body, want, "tab count missing %q", want)
 		}
+		assert.NotContains(t, body, "All (")
 	})
 
 	t.Run("To Read keeps only matching cells", func(t *testing.T) {
@@ -107,16 +102,16 @@ func TestMyBooksGroupsOneWorkAndFiltersCountBooks(t *testing.T) {
 		require.Equal(t, http.StatusOK, read.Code)
 		readBody := read.Body.String()
 		assert.Contains(t, readBody, `aria-label="Iliad, Book 2 of 24, Read"`)
+		assert.Contains(t, readBody, `role="img" aria-label="Iliad, Book 2 of 24, Read"`)
+		assert.NotContains(t, readBody, `href="/reading#journey-book-`+byPosition[2].Book.ID+`"`, "a Read cell has no Reading entry")
 		assert.NotContains(t, readBody, `aria-label="Iliad, Book 1 of 24, Currently reading"`)
 		assert.Contains(t, readBody, ">Read</span>")
 		assert.Contains(t, readBody, "1 Book in 1 work")
 	})
 
-	t.Run("Inbox has no work row", func(t *testing.T) {
+	t.Run("the retired Inbox filter is unsupported", func(t *testing.T) {
 		inbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
-		require.Equal(t, http.StatusOK, inbox.Code)
-		assert.NotContains(t, inbox.Body.String(), `class="library-work"`)
-		assert.Contains(t, inbox.Body.String(), "No Inbox books in your local collection are in Ancient Greek.")
+		assert.Equal(t, http.StatusNotFound, inbox.Code)
 	})
 }
 
@@ -178,10 +173,8 @@ func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, books["homer-iliad-2"], "homer-iliad-2", 92)
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-1"].ID, domain.BookDispositionToRead))
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-2"].ID, domain.BookDispositionToRead))
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-3"].ID, domain.BookDispositionInbox))
-	_, err := store.ImportPreviouslyRead(ctx, learner.ID, books["homer-iliad-3"].ID)
-	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, books["homer-iliad-4"].ID, domain.BookDispositionInbox))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, books["homer-iliad-3"].ID))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, books["homer-iliad-4"].ID))
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	started := perform(t, h, http.MethodPost, "/reading/books/"+books["homer-iliad-1"].ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
@@ -197,12 +190,15 @@ func TestMyBooksGroupedWorkCellsOpenTheSelectedReadingEntry(t *testing.T) {
 	t.Run("the To Read cell opens the Switch chooser entry", func(t *testing.T) {
 		require.Contains(t, body, `href="/reading/switch#reading-chooser-book-`+books["homer-iliad-2"].ID+`"`)
 	})
-	t.Run("Read and Inbox cells stay status-only", func(t *testing.T) {
-		require.Contains(t, body, `role="img" aria-label="Iliad, Book 3 of 24, Read"`)
-		require.Contains(t, body, `role="img" aria-label="Iliad, Book 4 of 24, Inbox"`)
+	t.Run("Read cells stay status-only", func(t *testing.T) {
+		read := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+		require.Equal(t, http.StatusOK, read.Code, read.Body.String())
+		readBody := read.Body.String()
+		require.Contains(t, readBody, `role="img" aria-label="Iliad, Book 3 of 24, Read"`)
+		require.Contains(t, readBody, `role="img" aria-label="Iliad, Book 4 of 24, Read"`)
 		for _, unit := range []string{"homer-iliad-3", "homer-iliad-4"} {
-			require.NotContains(t, body, `href="/reading#journey-book-`+books[unit].ID+`"`)
-			require.NotContains(t, body, `reading-chooser-book-`+books[unit].ID)
+			require.NotContains(t, readBody, `href="/reading#journey-book-`+books[unit].ID+`"`)
+			require.NotContains(t, readBody, `reading-chooser-book-`+books[unit].ID)
 		}
 	})
 	t.Run("the current-reading card is rendered at the cell's target", func(t *testing.T) {
@@ -292,7 +288,7 @@ func TestMyBooksWorkSearchMatchesAuthorEnglishAndGreekTitlesAndNarrowsByBook(t *
 	t.Run("missing constituent has no match", func(t *testing.T) {
 		missing := perform(t, h, http.MethodGet, "/library?q="+url.QueryEscape("iliad 99"), nil, cookies)
 		require.Equal(t, http.StatusOK, missing.Code)
-		assert.Contains(t, missing.Body.String(), "No books in your local collection in Ancient Greek match “iliad 99”.")
+		assert.Contains(t, missing.Body.String(), "No To Read books in Ancient Greek match “iliad 99”.")
 	})
 }
 
@@ -301,11 +297,12 @@ func TestMyBooksNonClassicalRowsKeepTheirSearchFiltersAndPaging(t *testing.T) {
 	learner := createAccount(t, ctx, store, "my-books-ordinary-unchanged", "learner-password")
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 	for _, title := range []string{"Zweites Buch", "Erstes Buch"} {
-		_, err := store.CreateBook(ctx, domain.Book{
+		book, err := store.CreateBook(ctx, domain.Book{
 			OwnerID: learner.ID, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync,
 			LanguageState: domain.LanguageChosen, LanguageTag: "de",
 		})
 		require.NoError(t, err)
+		require.NoError(t, store.SetBookDisposition(ctx, learner.ID, book.ID, domain.BookDispositionToRead))
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
 

@@ -20,6 +20,7 @@ func TestFixtureGetBookDetailResolvesBookAndSourceIDs(t *testing.T) {
 		BookID:  "fixture-detail-book",
 		Signals: notAnalyzedSignals,
 	})
+	store.dispositions[fixtureDispositionKey(OwnerID, "fixture-detail-book")] = domain.BookDispositionToRead
 
 	for _, id := range []string{BookID, SourceID, "fixture-metadata-only", "fixture-detail-book", "fixture-detail-source"} {
 		detail, err := store.GetBookDetail(ctx, OwnerID, id)
@@ -128,14 +129,14 @@ func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	store := NewStore()
 	store.books = nil
 	store.myBooks = []domain.MyBook{
-		{Book: domain.Book{ID: "regional", OwnerID: OwnerID, Title: "Regional", LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"}},
+		{Book: domain.Book{ID: "regional", OwnerID: OwnerID, Title: "Regional", LanguageState: domain.LanguageChosen, LanguageTag: "de-DE"}, Disposition: domain.BookDispositionToRead},
 	}
+	store.dispositions[fixtureDispositionKey(OwnerID, "regional")] = domain.BookDispositionToRead
 	result, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "DE_de", "", false, 0, 10)
 	require.NoError(t, err)
 	assert.Equal(t, 1, result.Total, "canonical browse result=%+v", result)
 	require.Len(t, result.Items, 1, "canonical browse result=%+v", result)
-	require.Len(t, result.Counts, 1, "canonical browse result=%+v", result)
-	assert.Equal(t, "de", result.Counts[0].Tag, "canonical browse result=%+v", result)
+	assert.Equal(t, "de", normalizeFixtureLanguage(result.Items[0].Book.LanguageTag), "canonical browse result=%+v", result)
 }
 
 func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
@@ -143,9 +144,8 @@ func TestStoreMyBooksBrowseUsesCurrentReadingWorkflowBucket(t *testing.T) {
 	toRead, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	assert.Contains(t, fixtureBookIDs(toRead.Items), BookID, "current reading belongs in To Read")
-	// Nine German To Read Books plus the five Analysis evidence situations and
-	// the acquisition-failure Book.
-	assert.Equal(t, 15, dispositionCount(toRead.DispositionCounts, domain.BookDispositionToRead))
+	// The To Read projection counts the active German Books that are not Read.
+	assert.Equal(t, 16, dispositionCount(toRead.DispositionCounts, domain.BookDispositionToRead))
 	all, err := store.ListMyBooksBrowse(context.Background(), OwnerID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
 	var current domain.MyBook
@@ -169,6 +169,9 @@ func TestStoreMyBooksBrowseSearchesTitlesAndPages(t *testing.T) {
 		{Book: domain.Book{ID: "browse-alpha-two", OwnerID: OwnerID, Title: "ALPHA two", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "browse-beta", OwnerID: OwnerID, Title: "Beta", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "browse-alphabet", OwnerID: OwnerID, Title: "alphabet", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}
+	for _, book := range store.myBooks {
+		store.dispositions[fixtureDispositionKey(OwnerID, book.Book.ID)] = domain.BookDispositionToRead
 	}
 
 	search, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "  ALPHA ", "de", "", false, 0, 25)
@@ -231,25 +234,25 @@ func TestStoreMyBooksBrowseCountsSkipUnchosenMembers(t *testing.T) {
 		assert.Zero(t, result.AllCount, "language %q", language)
 		assert.Zero(t, result.ScopeTotal, "language %q", language)
 		assert.Zero(t, result.Total, "language %q", language)
-		assert.Empty(t, result.Counts, "language %q", language)
 		assert.Empty(t, result.DispositionCounts, "language %q", language)
 		assert.Zero(t, result.ReadCount, "language %q", language)
 	}
 }
 
-// TestStoreMyBooksBrowseCountsLanguageAndWorkflow holds the count steps: the
-// language pills with unknown last, the Read projection, the persisted
-// disposition counts, the Read-history filter, and the language scope.
-func TestStoreMyBooksBrowseCountsLanguageAndWorkflow(t *testing.T) {
+// TestStoreMyBooksBrowseCountsWorkflow holds the To Read and Read tab counts,
+// the To Read tab filter, and the active-language scope.
+func TestStoreMyBooksBrowseCountsWorkflow(t *testing.T) {
 	store := NewStore()
 	store.books = nil
 	store.myBooks = []domain.MyBook{
-		{Book: domain.Book{ID: "browse-de-inbox", OwnerID: OwnerID, Title: "Inbox", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+		{Book: domain.Book{ID: "browse-de-toread", OwnerID: OwnerID, Title: "To Read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "browse-de-read", OwnerID: OwnerID, Title: "Read", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, CompletionCount: 1},
 		{Book: domain.Book{ID: "browse-unknown", OwnerID: OwnerID, Title: "Unknown", LanguageState: domain.LanguageUnknown}},
 		{Book: domain.Book{ID: "browse-it-toread", OwnerID: OwnerID, Title: "Italian", LanguageState: domain.LanguageChosen, LanguageTag: "it"}},
 	}
-	store.dispositions[fixtureDispositionKey(OwnerID, "browse-it-toread")] = domain.BookDispositionToRead
+	for _, id := range []string{"browse-de-toread", "browse-unknown", "browse-it-toread"} {
+		store.dispositions[fixtureDispositionKey(OwnerID, id)] = domain.BookDispositionToRead
+	}
 
 	all, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", "", "", false, 0, 25)
 	require.NoError(t, err)
@@ -258,32 +261,38 @@ func TestStoreMyBooksBrowseCountsLanguageAndWorkflow(t *testing.T) {
 		assert.Equal(t, 4, all.ScopeTotal)
 		assert.Equal(t, 4, all.Total)
 		assert.Equal(t, 1, all.ReadCount)
-		assert.Equal(t, []domain.LanguageCount{{Tag: "de", Count: 2}, {Tag: "it", Count: 1}, {Tag: "unknown", Count: 1}}, all.Counts, "unknown sorts last")
-		assert.Equal(t, 2, dispositionCount(all.DispositionCounts, domain.BookDispositionInbox))
-		assert.Equal(t, 1, dispositionCount(all.DispositionCounts, domain.BookDispositionToRead))
+		assert.Equal(t, 3, dispositionCount(all.DispositionCounts, domain.BookDispositionToRead))
 	})
 
 	history, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", "", "", true, 0, 25)
 	require.NoError(t, err)
-	t.Run("Read history selects the Read bucket only", func(t *testing.T) {
+	t.Run("Read selects the Read bucket only", func(t *testing.T) {
 		assert.Equal(t, 1, history.Total)
 		assert.Equal(t, []string{"browse-de-read"}, fixtureBookIDs(history.Items))
 		assert.Equal(t, 1, history.ReadCount)
 	})
 
-	inbox, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", "", string(domain.BookDispositionInbox), false, 0, 25)
+	toRead, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", "", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
-	t.Run("the disposition filter selects one bucket", func(t *testing.T) {
-		assert.Equal(t, 2, inbox.Total)
-		assert.Equal(t, []string{"browse-de-inbox", "browse-unknown"}, fixtureBookIDs(inbox.Items))
+	t.Run("the To Read tab selects that bucket", func(t *testing.T) {
+		assert.Equal(t, 3, toRead.Total)
+		assert.Equal(t, []string{"browse-it-toread", "browse-de-toread", "browse-unknown"}, fixtureBookIDs(toRead.Items))
 	})
 
-	unknownOnly, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", domain.LanguageUnknown, "", false, 0, 25)
+	deOnly, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
-	t.Run("the language scope keeps every pill", func(t *testing.T) {
-		assert.Equal(t, 1, unknownOnly.Total)
-		assert.Equal(t, 1, unknownOnly.ScopeTotal)
-		assert.Equal(t, []domain.LanguageCount{{Tag: "de", Count: 2}, {Tag: "it", Count: 1}, {Tag: "unknown", Count: 1}}, unknownOnly.Counts, "pills describe the whole visible collection")
+	t.Run("the active language excludes an unchosen Book", func(t *testing.T) {
+		assert.Equal(t, 2, deOnly.Total)
+		assert.Equal(t, 2, deOnly.ScopeTotal)
+		assert.Equal(t, []string{"browse-de-read", "browse-de-toread"}, fixtureBookIDs(deOnly.Items))
+	})
+
+	unknownScope, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", domain.LanguageUnknown, "", false, 0, 25)
+	require.NoError(t, err)
+	t.Run("the retired unknown scope is no longer a language", func(t *testing.T) {
+		assert.Zero(t, unknownScope.Total)
+		assert.Zero(t, unknownScope.ScopeTotal)
+		assert.Empty(t, unknownScope.Items)
 	})
 }
 
@@ -297,6 +306,9 @@ func TestStoreMyBooksBrowseOrdersDeterministically(t *testing.T) {
 		{Book: domain.Book{ID: "browse-upper", OwnerID: OwnerID, Title: "Beta", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "browse-tie-b", OwnerID: OwnerID, Title: "Tie", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
 		{Book: domain.Book{ID: "browse-tie-a", OwnerID: OwnerID, Title: "Tie", LanguageState: domain.LanguageChosen, LanguageTag: "de"}},
+	}
+	for _, book := range store.myBooks {
+		store.dispositions[fixtureDispositionKey(OwnerID, book.Book.ID)] = domain.BookDispositionToRead
 	}
 
 	result, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", "de", "", false, 0, 25)

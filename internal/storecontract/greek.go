@@ -32,7 +32,7 @@ var greekOtherVocabulary = []domain.SnapshotIdentity{
 // seedGreekToRead seeds an analyzed To Read Greek Book for the learner under test.
 func seedGreekToRead(t *testing.T, h Harness, vocabulary []domain.SnapshotIdentity) string {
 	t.Helper()
-	return h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Language: GreekLanguage, Imported: true, Vocabulary: vocabulary, ToRead: true})
+	return h.Seeds().SeedBook(t, h.Seeds().Owner(), BookSeed{Language: GreekLanguage, Imported: true, Vocabulary: vocabulary})
 }
 
 // startGreekReading seeds an eligible Greek Book with vocabulary and starts it.
@@ -125,7 +125,7 @@ func greekScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			greekBook := seedGreekToRead(t, h, greekVocabulary)
-			elBook := h.Seeds().SeedBook(t, owner, BookSeed{Language: "el", Vocabulary: []domain.SnapshotIdentity{{Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN"}}, ToRead: true})
+			elBook := h.Seeds().SeedBook(t, owner, BookSeed{Language: "el", Vocabulary: []domain.SnapshotIdentity{{Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN"}}})
 
 			greekReading, err := h.Store().StartCurrentReading(owner, GreekLanguage, greekBook)
 			require.NoError(t, err)

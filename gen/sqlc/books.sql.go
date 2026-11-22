@@ -132,7 +132,6 @@ LEFT JOIN LATERAL (
 WHERE e.book_owner_id = $1
   AND (
     $2::text = ''
-    OR ($2::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = $2)
   )
   AND (
@@ -293,6 +292,24 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 	return items, nil
 }
 
+const catalogueIndexBackfillBlocked = `-- name: CatalogueIndexBackfillBlocked :one
+SELECT EXISTS (
+  SELECT 1
+  FROM opds_connections c
+  LEFT JOIN catalogue_sync_status s
+    ON s.owner_id = c.owner_id AND s.connection_id = c.id
+  WHERE s.connection_id IS NULL
+     OR s.last_synced_at IS NULL
+)
+`
+
+func (q *Queries) CatalogueIndexBackfillBlocked(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, catalogueIndexBackfillBlocked)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const countMyBooksAll = `-- name: CountMyBooksAll :one
 SELECT count(*) FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
@@ -307,48 +324,12 @@ func (q *Queries) CountMyBooksAll(ctx context.Context, owner string) (int64, err
 	return count, err
 }
 
-const countMyBooksByLanguage = `-- name: CountMyBooksByLanguage :many
-SELECT (CASE WHEN e.book_language_state = 'unknown' THEN 'unknown' ELSE e.book_language_tag END)::text AS language_tag,
-       count(*) AS book_count
-FROM my_books_evidence e
-JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
-WHERE e.book_owner_id = $1 AND e.book_language_state IN ('chosen', 'unknown')
-GROUP BY 1
-`
-
-type CountMyBooksByLanguageRow struct {
-	LanguageTag string
-	BookCount   int64
-}
-
-// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
-func (q *Queries) CountMyBooksByLanguage(ctx context.Context, owner string) ([]CountMyBooksByLanguageRow, error) {
-	rows, err := q.db.Query(ctx, countMyBooksByLanguage, owner)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CountMyBooksByLanguageRow{}
-	for rows.Next() {
-		var i CountMyBooksByLanguageRow
-		if err := rows.Scan(&i.LanguageTag, &i.BookCount); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const countMyBooksScope = `-- name: CountMyBooksScope :one
 SELECT count(*) FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
 WHERE e.book_owner_id = $1
   AND (
     $2::text = ''
-    OR ($2::text = 'unknown' AND book_language_state = 'unknown')
     OR (book_language_state = 'chosen' AND book_language_tag = $2)
   )
 `
@@ -585,6 +566,63 @@ func (q *Queries) ListActiveBooks(ctx context.Context, owner string) ([]ListActi
 	return items, nil
 }
 
+const listLanguageLessReadBooks = `-- name: ListLanguageLessReadBooks :many
+SELECT b.id, b.owner_id, b.title, b.author, b.metadata_provenance,
+       b.language_state, COALESCE(b.language_tag, '')::text AS language_tag,
+       b.created_at, b.updated_at
+FROM books b
+JOIN book_membership m ON m.owner_id = b.owner_id AND m.book_id = b.id
+WHERE m.state = 'active'
+  AND b.language_state <> 'chosen'
+  AND EXISTS (
+    SELECT 1 FROM reading_history h
+    WHERE h.owner_id = b.owner_id AND h.book_id = b.id
+  )
+ORDER BY b.owner_id, b.title, b.id
+`
+
+type ListLanguageLessReadBooksRow struct {
+	ID                 string
+	OwnerID            string
+	Title              string
+	Author             string
+	MetadataProvenance string
+	LanguageState      string
+	LanguageTag        string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+func (q *Queries) ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error) {
+	rows, err := q.db.Query(ctx, listLanguageLessReadBooks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLanguageLessReadBooksRow{}
+	for rows.Next() {
+		var i ListLanguageLessReadBooksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Title,
+			&i.Author,
+			&i.MetadataProvenance,
+			&i.LanguageState,
+			&i.LanguageTag,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMyBooksCoverage = `-- name: ListMyBooksCoverage :many
 WITH ready AS (
     SELECT r.owner_id, r.book_id, r.analysis_run_id, r.corpus_id,
@@ -651,6 +689,44 @@ func (q *Queries) ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCovera
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeUnchosenBookMembership = `-- name: RemoveUnchosenBookMembership :execrows
+UPDATE book_membership m
+SET state = 'removed', removed_at = now()
+WHERE m.state = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM primary_goals g
+    WHERE g.owner_id = m.owner_id AND g.book_id = m.book_id
+  )
+  AND (
+    -- A Book with no chosen language is listed nowhere, so it leaves My Books
+    -- even when it has reading history; the completion is kept.
+    EXISTS (
+      SELECT 1 FROM books b
+      WHERE b.owner_id = m.owner_id AND b.id = m.book_id
+        AND b.language_state <> 'chosen'
+    )
+    OR (
+      NOT EXISTS (
+        SELECT 1 FROM book_dispositions d
+        WHERE d.owner_id = m.owner_id AND d.book_id = m.book_id
+          AND d.disposition = 'to_read'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM reading_history h
+        WHERE h.owner_id = m.owner_id AND h.book_id = m.book_id
+      )
+    )
+  )
+`
+
+func (q *Queries) RemoveUnchosenBookMembership(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, removeUnchosenBookMembership)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const resolveLinkedSourceBook = `-- name: ResolveLinkedSourceBook :one

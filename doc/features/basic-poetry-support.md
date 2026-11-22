@@ -49,7 +49,7 @@ owners or merge their exploratory branches.
   (179,103 bytes). A changed digest is a different input, not a passing rerun.
 - Exercise the existing Calibre-Web/OPDS route: serve the unchanged EPUB from
   the catalog's own origin, declare German, sync metadata, then acquire through
-  **Move to To Read** with the German NLP capability ready. A Gutenberg download
+  Catalog **Add** with the German NLP capability ready. A Gutenberg download
   link on another catalog origin is not an equivalent supported acquisition.
 - Neither a new importer nor a public Gutenberg OPDS connection is required.
   This edition is a test input, not the learner's recommended reading edition.

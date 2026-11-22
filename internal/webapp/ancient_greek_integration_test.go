@@ -39,6 +39,7 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT display_name FROM supported_languages WHERE language = 'grc'`).Scan(&displayName))
 	assert.Equal(t, ancientgreek.DisplayName, displayName)
 
+	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, report.BookID, domain.BookDispositionToRead))
 	book, err := store.GetBook(ctx, learner.ID, report.BookID)
 	require.NoError(t, err)
 	assert.Equal(t, "Anabasis", book.Title)
@@ -59,10 +60,7 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	// classical preparation integration test.
 	detail, err := store.GetBookDetail(ctx, learner.ID, report.BookID)
 	require.NoError(t, err)
-	require.Equal(t, domain.BookDispositionToRead, detail.Disposition, "registration makes a chosen Book")
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, report.BookID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
-	detail, err = store.GetBookDetail(ctx, learner.ID, report.BookID)
-	require.NoError(t, err)
+	require.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 	moved := perform(t, h, "POST", "/library/books/"+report.BookID+"/to-read", url.Values{
 		"csrf_token":        {csrf},
 		"expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},

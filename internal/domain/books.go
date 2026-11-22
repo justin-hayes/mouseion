@@ -64,9 +64,9 @@ type BookDisposition string
 type MyBookBucket string
 
 const (
+	MyBookBucketNone           MyBookBucket = ""
 	MyBookBucketCurrentReading MyBookBucket = "current_reading"
 	MyBookBucketToRead         MyBookBucket = "to_read"
-	MyBookBucketInbox          MyBookBucket = "inbox"
 	MyBookBucketRead           MyBookBucket = "read"
 )
 
@@ -147,9 +147,20 @@ type MyBook struct {
 
 // WorkflowBucket derives the visible My Books role. A current reading keeps
 // its persisted To Read disposition and appears in the To Read browse tab.
+// Every Book with active membership is Currently reading, To Read or Read; an
+// active member that is neither To Read nor has reading history has no visible
+// role and is reported by ValidateMembership.
 func (m MyBook) WorkflowBucket() MyBookBucket {
+	bucket, _ := m.ChosenBucket()
+	return bucket
+}
+
+// ChosenBucket derives the visible role and reports whether the Book has one.
+// The second result is false for the retired Inbox state: an active member that
+// is neither To Read nor has reading history.
+func (m MyBook) ChosenBucket() (MyBookBucket, bool) {
 	if m.IsCurrentReading {
-		return MyBookBucketCurrentReading
+		return MyBookBucketCurrentReading, true
 	}
 	disposition := m.Disposition
 	if disposition == "" {
@@ -161,15 +172,25 @@ func (m MyBook) WorkflowBucket() MyBookBucket {
 	}
 	switch disposition {
 	case BookDispositionToRead:
-		return MyBookBucketToRead
+		return MyBookBucketToRead, true
 	case BookDispositionInbox:
 		if m.CompletionCount > 0 {
-			return MyBookBucketRead
+			return MyBookBucketRead, true
 		}
-		return MyBookBucketInbox
+		return MyBookBucketNone, false
 	default:
-		return MyBookBucketInbox
+		return MyBookBucketNone, false
 	}
+}
+
+// ValidateMembership rejects a Book with active My Books membership that has
+// no visible role. Before the Inbox retirement that state was displayed as an
+// Inbox Book; My Books now holds only chosen Books.
+func (m MyBook) ValidateMembership() error {
+	if _, ok := m.ChosenBucket(); !ok {
+		return ErrBookNotChosen
+	}
+	return nil
 }
 
 // CanMarkPreviouslyRead reports whether My Books offers the "Mark as previously
@@ -184,24 +205,23 @@ func (m MyBook) CanMarkPreviouslyRead() bool {
 }
 
 // WorkToReadEligible reports whether a bulk Work move should change this Book.
-// The current Reading, Read Books and Books already To Read stay untouched, so
-// "move" never silently means "read again".
+// The current Reading and Books already To Read stay untouched. A Read Book
+// becomes a candidate again, the same as its Read again action.
 func (m MyBook) WorkToReadEligible() bool {
-	return m.WorkflowBucket() == MyBookBucketInbox
+	return m.WorkflowBucket() == MyBookBucketRead
 }
 
 // MatchesBrowseFilter reports whether a visible bucket belongs in the selected
-// disposition and Read-history filters.
+// My Books tab. The retired Read-history and Inbox filters are no longer
+// selectable; an empty disposition and no history match every visible role.
 func (b MyBookBucket) MatchesBrowseFilter(disposition BookDisposition, readHistory bool) bool {
 	if readHistory && b != MyBookBucketRead {
 		return false
 	}
 	if disposition == "" {
-		return true
+		return b != MyBookBucketNone
 	}
 	switch disposition {
-	case BookDispositionInbox:
-		return b == MyBookBucketInbox
 	case BookDispositionToRead:
 		return b == MyBookBucketToRead || b == MyBookBucketCurrentReading
 	default:
@@ -213,8 +233,6 @@ func (b MyBookBucket) MatchesBrowseFilter(disposition BookDisposition, readHisto
 // buckets. Current reading and Read are derived roles without such a value.
 func (b MyBookBucket) PersistedDisposition() (BookDisposition, bool) {
 	switch b {
-	case MyBookBucketInbox:
-		return BookDispositionInbox, true
 	case MyBookBucketToRead:
 		return BookDispositionToRead, true
 	case MyBookBucketCurrentReading, MyBookBucketRead:

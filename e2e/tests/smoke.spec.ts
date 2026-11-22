@@ -46,13 +46,13 @@ test.describe('authenticated learner smoke', () => {
 
     await expect(page).toHaveURL(/\/login\?/);
     await expect.poll(() => new URL(page.url()).searchParams.get('next'))
-      .toBe('/library?q=retry+after+sign+in');
+      .toBe('/library?disposition=to_read&q=retry+after+sign+in');
     await expect(page.getByRole('heading', { name: /sign in|log in/i })).toBeVisible();
     await page.getByLabel('Username').fill('fixture-learner');
     await page.getByLabel('Password').fill('fixture-password');
     await page.getByRole('button', { name: /sign in|log in/i }).click();
 
-    await expect(page).toHaveURL(/\/library\?q=retry\+after\+sign\+in$/);
+    await expect(page).toHaveURL(/\/library\?disposition=to_read&q=retry\+after\+sign\+in$/);
     await expect(page.getByText('authentication required')).toHaveCount(0);
   });
 

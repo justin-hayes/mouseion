@@ -73,7 +73,7 @@ func (f refusedPreparation) Prepare(_ context.Context, _ string, book domain.MyB
 
 func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 	t.Parallel()
-	eligible := domain.MyBook{Book: domain.Book{ID: "book-1"}}
+	eligible := domain.MyBook{Book: domain.Book{ID: "book-1"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1}
 	t.Run("module cannot be composed", func(t *testing.T) {
 		t.Parallel()
 		h := &Handler{}
@@ -114,8 +114,10 @@ func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
 func TestMoveWorkBookToReadCountsNamedPreparationCauses(t *testing.T) {
 	t.Parallel()
 	eligible := domain.MyBook{
-		Book:        domain.Book{ID: "book-1", LanguageState: domain.LanguageChosen, LanguageTag: classical.Language},
-		ReadingUnit: &domain.BookReadingUnit{ReadingUnitKey: "unit-1"},
+		Book:            domain.Book{ID: "book-1", LanguageState: domain.LanguageChosen, LanguageTag: classical.Language},
+		ReadingUnit:     &domain.BookReadingUnit{ReadingUnitKey: "unit-1"},
+		Disposition:     domain.BookDispositionInbox,
+		CompletionCount: 1,
 	}
 	tests := []struct {
 		name    string

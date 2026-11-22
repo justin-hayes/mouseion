@@ -68,6 +68,10 @@ func (h *postgresHarness) TransitionBookDisposition(owner, bookID string, expect
 	return h.store.TransitionBookDisposition(h.ctx, owner, bookID, expectedRevision, disposition)
 }
 
+func (h *postgresHarness) SetBookDisposition(owner, bookID string, disposition domain.BookDisposition) error {
+	return h.store.SetBookDisposition(h.ctx, owner, bookID, disposition)
+}
+
 func (h *postgresHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 	return h.store.RemoveBookFromMyBooks(h.ctx, owner, bookID)
 }
@@ -206,7 +210,7 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	if seed.MetadataOnly {
 		book, err := h.store.CreateBook(h.ctx, domain.Book{OwnerID: owner, Title: "Contract Book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: languageState, LanguageTag: languageTag})
 		require.NoError(t, err)
-		h.seedDisposition(t, owner, book.ID, seed.ToRead)
+		h.seedDisposition(t, owner, book.ID, !seed.Inbox)
 		if seed.SourceIdentifier != "" {
 			require.NoError(t, h.store.AddBookAlias(h.ctx, owner, book.ID, domain.AliasStrongBibliographic, domain.NamespaceSourceIdentifier, seed.SourceIdentifier))
 		}
@@ -221,7 +225,7 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 	if len(seed.Occurrences) > 0 {
 		h.seedLemmaOccurrences(t, owner, book.ID, source.ID, runID, corpusID, language, seed.Occurrences)
 	}
-	h.seedDisposition(t, owner, book.ID, seed.ToRead)
+	h.seedDisposition(t, owner, book.ID, !seed.Inbox)
 	var imported []domain.SnapshotIdentity
 	for _, identity := range seed.Vocabulary {
 		if seed.Imported {
@@ -245,11 +249,13 @@ func (h *postgresHarness) SeedBook(t *testing.T, owner string, seed storecontrac
 // directly.
 func (h *postgresHarness) seedDisposition(t *testing.T, owner, bookID string, toRead bool) {
 	t.Helper()
-	disposition := domain.BookDispositionInbox
 	if toRead {
-		disposition = domain.BookDispositionToRead
+		require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, bookID, domain.BookDispositionToRead))
+		return
 	}
-	require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, bookID, disposition))
+	// The store refuses the retired Inbox state, so only a direct write can
+	// seed the legacy row.
+	h.exec(t, `UPDATE book_dispositions SET disposition = 'inbox' WHERE owner_id = $1 AND book_id = $2`, owner, bookID)
 }
 
 // completeAnalysis runs the Book's analysis to completion as analysis does,

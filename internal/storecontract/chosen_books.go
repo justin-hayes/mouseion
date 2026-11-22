@@ -48,7 +48,7 @@ func chosenBookScenarios() []Scenario {
 		Name: "EPUB ingest that matches a removed Book restores it To Read",
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
-			legacy := seedBook(t, h, BookSeed{MetadataOnly: true, SourceIdentifier: "chosen-legacy-source"})
+			legacy := seedBook(t, h, BookSeed{MetadataOnly: true, Inbox: true, SourceIdentifier: "chosen-legacy-source"})
 			assert.Equal(t, domain.BookDispositionInbox, requireDetail(t, h, owner, legacy).Disposition, "the seeded Book is not To Read")
 			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, legacy))
 			_, err := h.BookState().GetBookDetail(owner, legacy)

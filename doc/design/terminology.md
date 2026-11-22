@@ -19,19 +19,18 @@ language without a product reason.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **My Books** | Every book Mouseion knows about for the learner: acquired or metadata-only, assessed or unassessed, desired or not, current or distant. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
-| **Inbox / To Read** | Persisted Book dispositions: Inbox means no explicit future-reading intent, and To Read expresses reading intent and ensures acquisition/analysis when needed. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Reading status, Journey position, Set Aside (retired), Hidden (retired) |
+| **My Books** | Every Book the learner has chosen: acquired or metadata-only, assessed or unassessed, current, To Read or Read. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
+| **To Read** | The persisted disposition expressing that a chosen Book is a possible future reading, ensuring acquisition and analysis when needed. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Inbox (retired), Reading status, Journey position, Set Aside (retired), Hidden (retired) |
 | **Reading** | The current Book with its vocabulary Browse, or, between Books, the neutral title-ordered chooser of To Read candidates, where a Work's multiple To Read Books form one entry. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
-| **Read / Read again** | Read is the visible bucket for an Inbox Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
+| **Read / Read again** | Read is the visible bucket for a Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
 
 Reading intent is expressed through the To Read disposition. Current reading,
 disposition, and reading history are independent facts; My Books derives one
-visible bucket in precedence order: Currently reading, To Read, Read when
-history exists, then Inbox. Currently reading appears in the To Read
-tab with its own label; historical Inbox Books appear in Read, while historical
-To Read Books stay in To Read. A learner may have no current Book and no To Read
+visible bucket in precedence order: Currently reading, To Read, then Read when
+history exists. Currently reading appears in the To Read tab with its own label;
+Books with history appear in Read, while To Read Books stay in To Read. A learner may have no current Book and no To Read
 Books; neither state implies failure or urgency.
 
 **Reading Horizon** may remain an internal design metaphor for changing
@@ -47,12 +46,12 @@ completion** are not primary learner-facing concepts.
 | **Add** | Choose a Catalog entry for My Books. It creates or restores the Book as To Read, then acquires the current EPUB when needed and ensures whole-book analysis once. The control's copy says the text is downloaded and analyzed. | Add to library, import, queue |
 | **I've read this** | Record a Catalog entry the learner read outside Mouseion. It creates or restores the Book as Read with a **Previously read** record, downloads nothing and changes no Known vocabulary. It is offered on OPDS entries and per classical Reading unit, never for a whole Work. | Mark as read, import as read |
 | **Mark as previously read** | The My Books form of **I've read this**. It appears only on an unstarted To Read Book and moves that Book to Read. | Mark as read, complete book |
-| **Move to To Read** | Express reading intent for a My Books Book. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
+| **Move to To Read** | The reading-intent transition into the To Read disposition. Catalog **Add** is its entry point; **Read again** and the grouped Work row's **Move the work to To Read** are its My Books forms. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalog sync** | Periodic, owner-scoped reconciliation that maintains each connection's Catalog index for offered non-English languages whose NLP pipelines are ready and follows title, author and cover changes onto already-chosen Books. It never creates a Book or membership, never implies EPUB content download, and never mirrors destructively; optional Book cover retrieval is independent metadata work. | Import all books, mirror, admin sync |
 | **Catalog entry** | One book offered by a connection's Catalog index. It is browsable and addable but is not a Book until the learner chooses it. | Imported book, synced Book |
 | **Metadata-only Book** | A Book the learner chose from the Catalog with active My Books membership and no validated EPUB source snapshot yet. | Imported book, acquired book, placeholder source |
-| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Add or Move to To Read triggers acquisition and analysis. | Sync download, automatic analysis |
+| **Lazy content acquisition** | Download and validate EPUB content only after the learner expresses intent to use a metadata-only Book. Add or Read again triggers acquisition and analysis. | Sync download, automatic analysis |
 | **Book preparation** | The durable work that makes a To Read Book readable. It has two kinds, **Classical preparation** and **EPUB preparation** (acquire, then analyze), and `/jobs` shows every preparation job in one Book preparations table: kind, Book, status, stage, code where one exists, progress where known, and created. An EPUB preparation appears as its acquisition row and its analysis row. | Download job, import, processing |
 | **Queued / Running / Completed / Failed / Cancelled** | The one lifecycle vocabulary every `/jobs` row uses, for Book preparations and Catalog sync alike. | Processing, Syncing on `/jobs`, done |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
@@ -60,10 +59,10 @@ completion** are not primary learner-facing concepts.
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
-upload unless a shipped route and feature contract support it. **Move to To Read**
-acquires and validates content when needed as an ensure-once consequence of
-reading intent. Historical compatibility artifacts may retain
-**Add to My Books** or **Add to library**.
+upload unless a shipped route and feature contract support it. Reading intent —
+expressed by Catalog **Add**, **Read again**, or the Work-level move — acquires
+and validates content when needed as an ensure-once consequence. Historical
+compatibility artifacts may retain **Add to My Books** or **Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
 **Last synced**, and **Sync failed**. Always identify the connection and, for
@@ -100,7 +99,7 @@ remain only as compatibility redirects to the Reading anchor.
 |---|---|---|
 | **Coverage band** | Classification of a To Read Book's current lexical coverage. A grouped Work entry lists its constituent Book numbers in band rows; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
 | **Work position** | A constituent Book's plain bibliographic place, such as "Book 2 of 24", from the reviewed definition rather than the learner's added Books. A whole-work unit has none, and it never becomes a pointer to the next Book. | Next Book, recommended order |
-| **Move to To Read** | Express reading intent from My Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
+| **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read, and a grouped Work row's **Move the work to To Read** moves its Read Books; it reads **Move the remaining books to To Read** when the tab shows only some of the Work's Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
 | **Start reading** | Make an eligible To Read Book the current Book and freeze its vocabulary snapshot. Requires explicit confirmation. | Choose as Primary Goal |
 | **Switch current reading** | Replace the current Book with an eligible To Read Book after explicit confirmation. The former current Book remains To Read. | Reorder Journey |
 | **Mark reading finished** | Record the completion and exact modeled vocabulary transition. It does not choose the next Book. | Complete Goal, finish Journey |
@@ -189,7 +188,7 @@ learner's My Books collection.
 Use complete, factual labels where space permits:
 
 - current reading;
-- Inbox, To Read, and Read as mutually exclusive visible buckets;
+- To Read and Read as mutually exclusive visible buckets;
 - reading history, including prior completions on current or To Read Books;
 - reading in progress;
 - reading finished;

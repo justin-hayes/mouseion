@@ -15,9 +15,9 @@ Mouseion is not a tool for constructing scholarly editions
 The name recalls the Mouseion of Alexandria, the scholarly community that housed
 the Library.
 
-![My Books listing twelve German public-domain novels, each with its cover, its workflow stage (Inbox, To Read, Currently reading, or Read), and its known-vocabulary coverage.](doc/images/my-books.png)
+![My Books listing twelve German public-domain novels, each with its cover, its workflow bucket, and its known-vocabulary coverage.](doc/images/my-books.png)
 
-*My Books: the library grouped by workflow stage, with each Book's known-vocabulary coverage.*
+*My Books: the collection of chosen Books, with each Book's known-vocabulary coverage.*
 
 ## Why
 
@@ -77,7 +77,7 @@ editions, and every author died before 1956. The run is reproducible with
 
 *Sentence study: an interlinear morphology line for each word, with the complete analyzer evidence in a named disclosure.*
 
-![My Books in the dark color scheme, showing the same library and workflow stages as the light view.](doc/images/my-books-dark.png)
+![My Books in the dark color scheme, showing the same collection and workflow buckets as the light view.](doc/images/my-books-dark.png)
 
 *My Books in the dark color scheme, from the same run.*
 

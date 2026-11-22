@@ -1,6 +1,6 @@
 # Reading workflow
 
-Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the one production Set Aside row was converted to Inbox by hand before migration 000033 was re-run.
+Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the one production Set Aside row was converted to Inbox by hand before migration 000033 was re-run; ADR 0117 later retired Inbox as a visible state.
 
 The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
 contract is being implemented in slices. New Book-deck preparation is now
@@ -56,7 +56,7 @@ language, or presents the learner with an unordered chooser between Books.
    snapshot is never resumed or expanded. Finishing records a
    completion, accepts eligible snapshot identities into modeled Known
    vocabulary with set semantics, clears the current role and reservations, and
-   sets the underlying disposition to **Inbox**, all atomically; a failure
+   clears the To Read disposition, all atomically; a failure
    leaves no partial history or Known change. The Book is neither hidden nor
    replaced by a next Book: the receipt only links to the chooser. Finish does
    not depend on a deck, its preparation state, omitted cards, or live Browse
@@ -64,20 +64,20 @@ language, or presents the learner with an unordered chooser between Books.
    adds no history or acceptance, and a stale snapshot of the same Book cannot
    finish a newer reading.
 5. My Books shows each Book in exactly one visible workflow bucket. In
-   precedence order, that is **Currently reading**, **To Read**, **Read** when
-   completion history exists, then **Inbox**. The To Read tab
-   includes the current Book, labeled Currently reading, as well as other To
-   Read Books. A historical Inbox Book appears in Read without
-   changing its persisted disposition or completion provenance; a historical
-   To Read Book remains To Read. A finished Book is Inbox underneath and
-   projects as Read through its history. **Read again** moves a Read Book to To
+   precedence order, that is **Currently reading**, **To Read**, then **Read**
+   when completion history exists. My Books has exactly the **To Read** and
+   **Read** tabs. The To Read tab includes the current Book, labeled Currently
+   reading, as well as other To Read Books. A Book with reading history appears
+   in Read without changing its persisted disposition or completion provenance;
+   a historical To Read Book remains To Read. A finished Book is not To Read
+   underneath and projects as Read through its history. **Read again** moves a Read Book to To
    Read without starting it, changing visibility, erasing history, or adopting a
    released snapshot. Starting it creates a fresh current-reading snapshot while
    retaining earlier completions. A **Previously read** assertion is an
    idempotent assertion-time fact that accepts no vocabulary. From the Catalog,
    **I've read this** creates or restores the Book as Read; My Books offers
    **Mark as previously read** only on an unstarted To Read Book and moves that
-   Book to Read. A Read Book keeps its persisted Inbox disposition. Finishing
+   Book to Read. A Read Book is not To Read underneath. Finishing
    claims no mastery.
 6. **Remove from My Books** is the opposite of Add: it ends membership without
    erasing the Book, its evidence, history, or artifacts, and the current Book

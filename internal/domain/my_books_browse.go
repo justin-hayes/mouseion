@@ -1,12 +1,5 @@
 package domain
 
-// LanguageCount is one owner-scoped language pill count. Tag is "unknown"
-// for books whose language state is unknown.
-type LanguageCount struct {
-	Tag   string
-	Count int
-}
-
 type DispositionCount struct {
 	Disposition BookDisposition
 	Count       int
@@ -44,6 +37,16 @@ type MyBooksWorkRemoval struct {
 	CurrentReading *Book
 }
 
+// MyBooksBackfillReport is the Inbox retirement backfill's result. Removed
+// counts ended memberships; LanguageLessWithHistory names the Books among them
+// that have reading history but no chosen language. Their membership ended
+// like any removed Book's and their completions are kept, so adding the Book
+// again with a language restores it.
+type MyBooksBackfillReport struct {
+	Removed                 int
+	LanguageLessWithHistory []Book
+}
+
 type MyBooksBrowseResult struct {
 	Items []MyBook
 	// Rows is the page as rendered: ordinary rows and grouped Work rows. Items
@@ -59,7 +62,6 @@ type MyBooksBrowseResult struct {
 	WorkTotal         int
 	RowCount          int
 	HasWorks          bool
-	Counts            []LanguageCount
 	DispositionCounts []DispositionCount
 	AllCount          int
 	ReadCount         int

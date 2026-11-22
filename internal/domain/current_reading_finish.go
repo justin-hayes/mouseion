@@ -77,7 +77,7 @@ type CurrentReadingFinishDecision struct {
 	Outcome   CurrentReadingFinishOutcome
 	Rejection CurrentReadingFinishRejection
 	// Replay is the existing completion when Outcome is Replayed. When a
-	// current reading still exists, the adapter still returns its Book to Inbox
+	// current reading still exists, the adapter still clears its To Read disposition
 	// and ends it.
 	Replay CurrentReadingCompletion
 	// Plan is set when Outcome is Planned.

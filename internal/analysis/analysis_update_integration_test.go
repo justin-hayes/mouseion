@@ -339,7 +339,7 @@ func TestAnalysisUpdateIsRefusedOutsideNonCurrentToReadBooks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = h.service.SubmitAnalysisUpdate(ctx, h.owner, current.ID, currentSource.ID, currentRun.RunID, target)
 	require.ErrorIs(t, err, ErrCurrentBook)
-	require.NoError(t, h.store.SetBookDisposition(ctx, h.owner, inbox.ID, domain.BookDispositionInbox))
+	require.NoError(t, h.store.MarkBookPreviouslyRead(ctx, h.owner, inbox.ID))
 	_, err = h.service.SubmitAnalysisUpdate(ctx, h.owner, inbox.ID, inboxSource.ID, inboxRun.RunID, target)
 	require.ErrorIs(t, err, ErrNotFound)
 	_, err = h.service.SubmitAnalysisUpdate(ctx, h.owner, current.ID, inboxSource.ID, inboxRun.RunID, target)

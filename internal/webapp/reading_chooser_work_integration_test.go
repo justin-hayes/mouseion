@@ -144,7 +144,7 @@ func TestReadingChooserGroupsRealWorkBooksAndShowsPosition(t *testing.T) {
 	for _, unit := range []string{"homer-iliad-1", "homer-iliad-2", "homer-iliad-3", "homer-iliad-4", "homer-iliad-5", "xenophon-anabasis-1", "xenophon-hellenica-1"} {
 		require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byUnit[unit], domain.BookDispositionToRead))
 	}
-	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byUnit["homer-iliad-6"], domain.BookDispositionInbox))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byUnit["homer-iliad-6"]))
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	page := perform(t, h, http.MethodGet, "/reading", nil, cookies)

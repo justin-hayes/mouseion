@@ -37,7 +37,7 @@ func TestBookDispositionCatalogueLifecycle(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, bookID), "sync reset disposition")
 	assert.Equal(t, "de", updated.Book.LanguageTag, "sync changed the Book's language")
 
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, bookID, domain.BookDispositionInbox))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, alice.ID, bookID))
 	_, err = store.UpdateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{ID: connection.ID, Name: "Disposition catalog updated", URL: "https://updated-disposition.example/opds"})
 	require.NoError(t, err)
 	reconnected, err := store.UpdateCatalogueBookMetadata(ctx, alice.ID, connection.ID, "disposition-entry", "Refreshed from connection change", "New author")
@@ -56,13 +56,9 @@ func TestBookDispositionCatalogueLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionToRead))
 	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, alice.ID, toReadBook.ID))
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionInbox))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, alice.ID, toReadBook.ID))
 	assert.Equal(t, domain.BookDispositionInbox, mustBookDisposition(t, store, alice.ID, toReadBook.ID))
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBook.ID, domain.BookDispositionInbox), "disposition retries are idempotent")
-	inboxBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Inbox disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, inboxBook.ID, domain.BookDispositionInbox))
-	assert.Equal(t, domain.BookDispositionInbox, mustBookDisposition(t, store, alice.ID, inboxBook.ID))
 	retagged, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Retagged disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, retagged.ID, domain.BookDispositionToRead))
@@ -94,6 +90,8 @@ func TestBookDispositionConcurrentWritesAreOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	aliceBook, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Alice disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook.ID, domain.BookDispositionToRead))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, alice.ID, aliceBook.ID))
 	bobBook, err := store.CreateBook(ctx, domain.Book{OwnerID: bob.ID, Title: "Bob disposition", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 
@@ -135,9 +133,11 @@ func TestBookDispositionRevisionRejectsStaleDecisionsAndAllowsReplay(t *testing.
 	require.NoError(t, err)
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Revision guarded", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
+	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, owner.ID, book.ID))
 	initial, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), initial.DispositionRevision)
+	require.Positive(t, initial.DispositionRevision)
 
 	applied, err := store.TransitionBookDisposition(ctx, owner.ID, book.ID, initial.DispositionRevision, domain.BookDispositionToRead)
 	require.NoError(t, err)
@@ -150,7 +150,7 @@ func TestBookDispositionRevisionRejectsStaleDecisionsAndAllowsReplay(t *testing.
 
 	current, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
-	require.Equal(t, int64(2), current.DispositionRevision, "retry must not advance the state revision")
+	require.Equal(t, initial.DispositionRevision+1, current.DispositionRevision, "retry must not advance the state revision")
 	_, err = store.TransitionBookDisposition(ctx, owner.ID, book.ID, current.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	current, err = store.GetBookDetail(ctx, owner.ID, book.ID)
@@ -171,7 +171,7 @@ func TestBookDispositionRevisionRejectsStaleDecisionsAndAllowsReplay(t *testing.
 	var historyRows, knownRows int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&historyRows))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&knownRows))
-	assert.Zero(t, historyRows)
+	assert.Equal(t, 1, historyRows, "the seeded Read state keeps its completion")
 	assert.Zero(t, knownRows)
 }
 

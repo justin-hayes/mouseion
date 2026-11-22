@@ -61,8 +61,8 @@ func (h *Handler) workAction(w http.ResponseWriter, r *http.Request) (books []do
 	return books, owner, returnTo, true
 }
 
-// moveWorkToRead is the grouped Work row's primary action. It moves every Book
-// without reading history, leaves the current Book alone, and enqueues each
+// moveWorkToRead is the grouped Work row's primary action. It moves every Read
+// Book back to To Read, leaves the current Book alone, and enqueues each
 // Book's preparation in constituent-book order. One Book's failure never stops
 // the rest.
 func (h *Handler) moveWorkToRead(w http.ResponseWriter, r *http.Request) {

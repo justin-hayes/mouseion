@@ -93,7 +93,7 @@ func TestAddClassicalReadingUnitsCreatesToReadBooksAndReopensThem(t *testing.T) 
 	assert.Equal(t, report.Books[0].BookID, again.Books[0].BookID)
 	assert.Equal(t, report.Books[1].BookID, again.Books[1].BookID)
 
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, report.Books[0].BookID, domain.BookDispositionInbox))
+	require.NoError(t, store.MarkBookPreviouslyRead(ctx, owner.ID, report.Books[0].BookID))
 	reopened, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1"})
 	require.NoError(t, err)
 	assert.False(t, reopened.Books[0].Created)

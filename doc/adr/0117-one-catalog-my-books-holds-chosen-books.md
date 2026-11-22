@@ -1,6 +1,6 @@
 # ADR 0117: One Catalog for every source; My Books holds only chosen Books
 
-Status: **Accepted** · Date: 2026-11-21 · Author: Justin + OpenCode
+Status: **Implemented** · Date: 2026-11-21 · Author: Justin + OpenCode
 
 Amended 2026-11-21 by [issue #2505](https://github.com/justin-hayes/mouseion/issues/2505): a failed EPUB acquisition is recorded as Book evidence ("A failed EPUB acquisition is Book evidence"), which adds ADR 0047 to the ADRs this one amends.
 
@@ -118,7 +118,9 @@ never moved to To Read, as well as unread Books without a language. It only
 changes membership, is idempotent and can be reversed by restoring membership.
 It runs only after every connection's index has completed a sync, so no
 Book leaves My Books before its entry is browsable. A language-less Book with
-reading history is reported, not changed. Retired `book_visibility` data is left
+reading history is also removed, because My Books is browsed within a study
+language and would list it nowhere (#2575); its completions are kept, the
+backfill reports it, and adding it again with a language restores it. Retired `book_visibility` data is left
 in place for a separately reviewed cleanup.
 
 ### A failed EPUB acquisition is Book evidence

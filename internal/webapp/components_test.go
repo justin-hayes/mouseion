@@ -179,7 +179,6 @@ func TestWorkBookBucketShapesAreDistinct(t *testing.T) {
 		{bucket: domain.MyBookBucketCurrentReading, shape: "dot"},
 		{bucket: domain.MyBookBucketToRead, shape: "ring"},
 		{bucket: domain.MyBookBucketRead, shape: "bar"},
-		{bucket: domain.MyBookBucketInbox, shape: "square"},
 	} {
 		t.Run(string(tt.bucket), func(t *testing.T) {
 			assert.Contains(t, myBookWorkBucketShape(tt.bucket), "--"+tt.shape)

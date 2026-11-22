@@ -241,7 +241,7 @@ func TestEPUBAcquisitionWorkerImportFailureRecordsImportFailure(t *testing.T) {
 
 func TestEPUBAcquisitionWorkerSkipsABookThatIsNoLongerToRead(t *testing.T) {
 	h := newAcquisitionWorkerHarness(t, true)
-	require.NoError(t, h.store.SetBookDisposition(context.Background(), h.owner.ID, h.book.ID, domain.BookDispositionInbox))
+	require.NoError(t, h.store.MarkBookPreviouslyRead(context.Background(), h.owner.ID, h.book.ID))
 	var found atomic.Int64
 	worker := &EPUBAcquisitionWorker{
 		Store: h.store,

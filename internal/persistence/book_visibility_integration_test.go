@@ -36,7 +36,6 @@ func TestMyBooksCountsSkipLegacyUnchosenMembers(t *testing.T) {
 		assert.Zero(t, browse.AllCount, "language %q", language)
 		assert.Zero(t, browse.ScopeTotal, "language %q", language)
 		assert.Zero(t, browse.Total, "language %q", language)
-		assert.Empty(t, browse.Counts, "language %q", language)
 	}
 }
 

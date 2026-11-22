@@ -32,6 +32,7 @@ test.describe('My Books collection browsing', () => {
     await expect(unavailableRow.locator('.library-book__evidence')).toHaveText('Content unavailable.');
     await expect(unavailableRow.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
     await expect(page.locator('#book-row-fixture-not-analyzed .library-book__evidence')).toHaveText('Not analysed yet.');
+    await page.goto('/library?history=read');
     await expect(page.locator('#book-row-fixture-read-history .library-book__evidence')).toHaveText('Finished 3 Jan 2026.');
   });
 
@@ -80,7 +81,7 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
     const badge = page.locator('.library-book__membership .status-badge').first();
     await expect(badge).toBeVisible();
-    await expect(badge).toContainText(/Currently reading|To Read|Read|Inbox/);
+    await expect(badge).toContainText(/Currently reading|To Read|Read/);
     const shape = badge.locator('[aria-hidden="true"]');
     await expect(shape).toBeVisible();
     await expect(shape).toHaveAttribute('aria-hidden', 'true');
@@ -133,8 +134,8 @@ test.describe('My Books collection browsing', () => {
     }
     await search.focus();
     expect(await search.evaluate(node => getComputedStyle(node).outlineStyle)).toBe('solid');
-    const inboxFilter = page.getByRole('navigation', { name: 'My Books filters' }).getByRole('link', { name: /Inbox/ });
-    expect((await inboxFilter.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+    const readTab = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link', { name: /^Read \(\d+\)$/ });
+    expect((await readTab.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
     await page.goto('/reading');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -164,16 +165,6 @@ test.describe('My Books collection browsing', () => {
     }, viewport.height);
     expect(visibleIdentity.title, `Book title should intersect ${viewport.width}x${viewport.height}`).toBe(true);
     expect(visibleIdentity.cover, `Book cover/placeholder should intersect ${viewport.width}x${viewport.height}`).toBe(true);
-    const notice = page.locator('aside.library-needs-language');
-    if (await notice.count()) {
-      await expect(notice.getByRole('link', { name: 'Review' })).toBeVisible();
-      expect(await notice.evaluate((node, height) => {
-        const rect = node.getBoundingClientRect();
-        return rect.top < height && rect.bottom > 0;
-      }, viewport.height)).toBe(true);
-      await notice.getByText('Why?', { exact: true }).click();
-      await expect(notice.getByRole('link', { name: 'Catalog' })).toBeVisible();
-    }
   });
 
   test('aligns identity and actions in the text column with status in the margin', async ({ page }) => {
@@ -272,7 +263,7 @@ test.describe('My Books collection browsing', () => {
 
     await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
     await page.getByRole('button', { name: 'Search' }).click();
-    await expect(page.getByText(/No books in your local collection.*match/)).toBeVisible();
+    await expect(page.getByText(/No To Read books in German match/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Clear search' })).toBeVisible();
 
     await page.goto('/library');
@@ -342,8 +333,8 @@ test.describe('My Books collection browsing', () => {
     await page.goto('/library');
 
     for (const [requestPath, correctedPath] of [
-      ['/library?language=de&q=Der', '/library?q=Der'],
-      ['/library?page=999', '/library'],
+      ['/library?language=de&q=Der', '/library?disposition=to_read&q=Der'],
+      ['/library?page=999', '/library?disposition=to_read'],
     ]) {
       await page.goto('/library');
       await page.evaluate(({ requestPath }) => {
@@ -367,7 +358,7 @@ test.describe('My Books collection browsing', () => {
       await expect(page).toHaveURL(correctedPath);
       await expect(page.locator('#library-results')).toBeVisible();
       await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
-      if (correctedPath === '/library?q=Der') {
+      if (correctedPath === '/library?disposition=to_read&q=Der') {
         await page.goBack();
         await expect(page).toHaveURL('/library');
         await page.goForward();
@@ -390,7 +381,7 @@ test.describe('My Books collection browsing', () => {
     const alert = page.locator('#library-results [role="alert"]');
     await expect(alert).toContainText('My Books could not be loaded');
     expect(await alert.evaluate(node => getComputedStyle(node).color)).not.toBe(await alert.evaluate(node => getComputedStyle(node.parentElement!).color));
-    await expect(page.locator('#library-results a', { hasText: 'Try again' })).toHaveAttribute('href', '/library?q=fixture-handler-error');
+    await expect(page.locator('#library-results a', { hasText: 'Try again' })).toHaveAttribute('href', '/library?disposition=to_read&q=fixture-handler-error');
   });
 
   test('keeps the current results when an enhancement request fails on the network', async ({ page }) => {
@@ -411,33 +402,18 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('#library-recovery a', { hasText: 'Retry My Books request' })).toHaveAttribute('href', /network-error-check/);
   });
 
-  test('reviews needs-language books without an action and sync leaves them unchanged', async ({ page }) => {
+  test('retires the needs-language and Inbox browse states', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
-    const strip = page.locator('aside.library-needs-language');
-    await expect(strip).toContainText(/book[s]? awaiting a language/);
-    await strip.getByRole('link', { name: 'Review' }).click();
-    await expect(page).toHaveURL(/\/library\?needs-language/);
-    const needsRow = page.locator('.library-diagnostic-list li').filter({ hasText: 'Browser sync metadata book' });
-    if (await needsRow.count()) {
-      await expect(needsRow).toBeVisible();
-      await expect(needsRow.locator('a')).toHaveCount(0);
-      await expect(needsRow.locator('form')).toHaveCount(0);
-
-      await page.goto('/catalogs');
-      const sync = page.locator('#source-status-fixture-browser-sync-connection').getByRole('button', { name: 'Sync now' });
-      if (await sync.count()) {
-        await sync.click();
-        await expect(page).toHaveURL(/\/catalogs\?/);
-      }
-      // Sync maintains the Catalog index only. It neither gives this Book a
-      // language nor adds a study language, so the Book stays needs-language and
-      // out of the active German collection.
-      await page.goto('/library?needs-language');
-      await expect(page.locator('.library-diagnostic-list').getByText('Browser sync metadata book')).toBeVisible();
-      await page.goto('/library');
-      const syncedBook = page.locator('.library-books .library-book').filter({ hasText: 'Browser sync metadata book' });
-      await expect(syncedBook).toHaveCount(0);
+    for (const retired of ['/library?needs-language', '/library?disposition=inbox']) {
+      const response = await page.goto(retired);
+      expect(response?.status(), retired).toBe(404);
     }
+
+    await page.goto('/library');
+    const tabs = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link');
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.nth(0)).toContainText('To Read');
+    await expect(tabs.nth(1)).toContainText('Read');
+    await expect(page.locator('aside.library-needs-language')).toHaveCount(0);
   });
 });

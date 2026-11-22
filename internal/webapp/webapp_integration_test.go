@@ -217,7 +217,7 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	assert.Equal(t, "/", login.Header().Get("Location"))
 }
 
-func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages(t *testing.T) {
+func TestAuthenticatedNeedsLanguageBookIsRetiredFromMyBooks(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "needs-language-actionable-integration-secret")
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -225,29 +225,21 @@ func TestAuthenticatedNeedsLanguageBookRemainsActionableAndOutsideStudyLanguages
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	owner := createAccount(t, ctx, store, "needs-language-owner", "owner-password")
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Awaiting a language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
+	unchosen, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Awaiting a language", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
 	require.NoError(t, err)
+	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, unchosen.ID)
 	authService := auth.New(store, time.Hour)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, owner.Username, "owner-password")
 	page := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
-	assert.Equal(t, http.StatusOK, page.Code)
-	assert.Contains(t, page.Body.String(), "Awaiting a language")
-	assert.Contains(t, page.Body.String(), "Set it in the catalog, then re-sync")
-	assert.Contains(t, page.Body.String(), `href="/catalogs"`)
+	assert.Equal(t, http.StatusNotFound, page.Code, "the needs-language browse state is retired")
 
-	unknown, err := store.ListMyBooksBrowse(ctx, owner.ID, "", domain.LanguageUnknown, "", false, 0, 20)
+	browse, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "", "", false, 0, 20)
 	require.NoError(t, err)
-	assert.Len(t, unknown.Items, 1)
-	assert.Equal(t, book.ID, unknown.Items[0].Book.ID)
-	for _, language := range []string{"de", "it"} {
-		books, browseErr := store.ListMyBooksBrowse(ctx, owner.ID, "", language, "", false, 0, 20)
-		require.NoError(t, browseErr)
-		assert.Empty(t, books.Items, "needs-language Book appeared in the chosen %s collection", language)
-	}
+	assert.Empty(t, browse.Items, "an unchosen language-less Book is not in My Books")
 	studyLanguages, err := store.ListStudyLanguages(ctx, owner.ID)
 	require.NoError(t, err)
-	assert.Empty(t, studyLanguages, "needs-language Book produced a misleading study-language scope")
+	assert.Empty(t, studyLanguages, "a retired Inbox Book produces no study-language scope")
 }
 
 func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
@@ -262,7 +254,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	createAccount(t, ctx, store, "bob", "bob-password")
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Disposition from My Books", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionInbox), "seed the legacy Inbox shape")
+	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), alice.ID, book.ID)
 	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")

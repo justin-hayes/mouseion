@@ -267,7 +267,6 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 	query, language, disposition = normalizeFixtureBrowseInputs(query, language, disposition)
 	everything := s.myBooksForOwner(owner)
 	result := domain.MyBooksBrowseResult{AllCount: len(everything)}
-	result.Counts = fixtureLanguageCounts(everything)
 	result.ReadCount, result.DispositionCounts = fixtureWorkflowCounts(everything, language)
 	filtered, scopeTotal := filterFixtureBooks(everything, query, language, disposition, history)
 	result.ScopeTotal = scopeTotal
@@ -281,43 +280,15 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 }
 
 // normalizeFixtureBrowseInputs trims the search and the scope selectors and
-// canonicalizes the language, except for the explicit unknown scope.
+// always canonicalizes the language: a Book matches a non-empty language only
+// when its language is chosen and equal, and the retired unknown scope is
+// gone.
 func normalizeFixtureBrowseInputs(query, language, disposition string) (string, string, string) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
 	disposition = strings.TrimSpace(disposition)
-	if language != domain.LanguageUnknown {
-		language = normalizeFixtureLanguage(language)
-	}
+	language = normalizeFixtureLanguage(language)
 	return query, language, disposition
-}
-
-// fixtureLanguageCounts counts the Books per language pill, with the unknown
-// pill last. The pills describe the whole collection rather than the selected
-// language.
-func fixtureLanguageCounts(books []domain.MyBook) []domain.LanguageCount {
-	counts := map[string]int{}
-	for _, book := range books {
-		tag := domain.LanguageUnknown
-		if book.Book.LanguageState == domain.LanguageChosen {
-			tag = normalizeFixtureLanguage(book.Book.LanguageTag)
-		}
-		counts[tag]++
-	}
-	var result []domain.LanguageCount
-	for tag, count := range counts {
-		result = append(result, domain.LanguageCount{Tag: tag, Count: count})
-	}
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].Tag == domain.LanguageUnknown {
-			return false
-		}
-		if result[j].Tag == domain.LanguageUnknown {
-			return true
-		}
-		return result[i].Tag < result[j].Tag
-	})
-	return result
 }
 
 // fixtureWorkflowCounts counts the visible workflow buckets in the language
@@ -330,6 +301,9 @@ func fixtureWorkflowCounts(books []domain.MyBook, language string) (readCount in
 			continue
 		}
 		bucket := book.WorkflowBucket()
+		if bucket == domain.MyBookBucketNone {
+			continue
+		}
 		if bucket == domain.MyBookBucketRead {
 			readCount++
 		}
@@ -374,14 +348,13 @@ func filterFixtureBooks(books []domain.MyBook, query, language, disposition stri
 }
 
 // fixtureBookInLanguage reports whether a Book belongs to the selected
-// language scope: every language when empty, only unchosen languages for the
-// explicit unknown scope, and a canonical tag match otherwise.
+// language scope: every chosen-bucket member when the language is empty, and
+// a chosen, canonical tag match otherwise. A Book whose language is not
+// chosen matches no study language.
 func fixtureBookInLanguage(book domain.MyBook, language string) bool {
 	switch language {
 	case "":
 		return true
-	case domain.LanguageUnknown:
-		return book.Book.LanguageState == domain.LanguageUnknown
 	default:
 		return book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language
 	}
@@ -529,12 +502,28 @@ func (s *Store) SetBookDisposition(_ context.Context, owner, bookID string, disp
 	if !s.fixtureBookExists(owner, bookID) {
 		return errNotFound
 	}
+	if err := s.refuseUnchosenDispositionLocked(owner, bookID, disposition); err != nil {
+		return err
+	}
 	key := fixtureDispositionKey(owner, bookID)
 	if s.bookDispositionLocked(owner, bookID) != disposition {
 		s.dispositionRevisions[key] = s.bookDispositionRevisionLocked(owner, bookID) + 1
 	}
 	s.dispositions[key] = disposition
 	return nil
+}
+
+// refuseUnchosenDispositionLocked rejects the retired Inbox state for a Book
+// that is neither the current reading nor has reading history. Callers hold
+// s.mu.
+func (s *Store) refuseUnchosenDispositionLocked(owner, bookID string, disposition domain.BookDisposition) error {
+	if disposition != domain.BookDispositionInbox {
+		return nil
+	}
+	if s.fixtureBookHasHistoryLocked(owner, bookID) || s.fixtureBookIsCurrentReading(owner, bookID) {
+		return nil
+	}
+	return domain.ErrBookNotChosen
 }
 
 func (s *Store) TransitionBookDisposition(_ context.Context, owner, bookID string, expectedRevision int64, disposition domain.BookDisposition) (bool, error) {
@@ -550,6 +539,9 @@ func (s *Store) TransitionBookDisposition(_ context.Context, owner, bookID strin
 	revision := s.bookDispositionRevisionLocked(owner, bookID)
 	current := s.bookDispositionLocked(owner, bookID)
 	if done, err := fixtureRevisionCheck(revision, expectedRevision, current == disposition, domain.ErrStaleBookDisposition); done || err != nil {
+		return false, err
+	}
+	if err := s.refuseUnchosenDispositionLocked(owner, bookID, disposition); err != nil {
 		return false, err
 	}
 	s.dispositions[key] = disposition

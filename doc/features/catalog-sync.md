@@ -79,11 +79,11 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   unowned entry offers **Add** and the secondary **I've read this**.
 - **Add** creates the Book linked by its catalog-entry alias, or restores the
   learner's existing Book for that alias, as To Read. It then runs the same
-  reading-intent preparation seam Move to To Read uses: acquisition and analysis
-  start once, and repeating Add changes nothing. The Add copy says the text is
-  downloaded and analyzed, the route is an ordinary owner-scoped POST, and the
-  confirmation names the Book and links to My Books. Adding the first Book in a
-  language makes it a study language.
+  reading-intent preparation seam that **Read again** and the Work-level move
+  use: acquisition and analysis start once, and repeating Add changes nothing.
+  The Add copy says the text is downloaded and analyzed, the route is an
+  ordinary owner-scoped POST, and the confirmation names the Book and links to
+  My Books. Adding the first Book in a language makes it a study language.
 - **I've read this** creates or restores the same Book as Read with a
   **Previously read** record. It downloads nothing, starts no analysis or
   preparation and changes no Known vocabulary. On a classical Work it is offered
@@ -149,8 +149,8 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 ### Lazy content acquisition
 
 - Sync never downloads or re-downloads EPUB content.
-- A Book chosen from the Catalog has no detail page. **Add**, **Move to To
-  Read** and **Retry** enqueue the durable `epub_acquisition` job and return at
+- A Book chosen from the Catalog has no detail page. **Add**, **Read again**
+  and **Retry** enqueue the durable `epub_acquisition` job and return at
   once with one confirmation that the Book is being downloaded and analyzed.
   The worker resolves the EPUB acquisition link stored in the Catalog index and
   never walks the connection's language feeds. The Book's metadata follows the
@@ -176,18 +176,17 @@ shipped independent retrieval of optional catalog-supplied display metadata.
   reading history) is never produced; if one exists, the acquisition and
   analysis workers skip it, and nothing re-activates it.
 - There is no per-Book metadata refresh action or route. A retired
-  `/library/books/{id}/refresh` request receives the ordinary
-  unsupported-request response. If an entry is no longer present in a complete
-  sync, the Book keeps its current metadata.
+  `/library/books/{id}/refresh` request returns 404. If an entry is no longer
+  present in a complete sync, the Book keeps its current metadata.
 
 ### EPUB acquisition failures
 
 A failed EPUB acquisition never rolls back the learner's To Read choice.
-There is no Inbox step to undo: the move commits first, and acquisition runs as
-the durable `epub_acquisition` job (ADR 0121). The worker records the per-Book
-failure after the attempt and deletes it when an acquisition succeeds, so My
-Books keeps showing the reason until recovery. Add, Move to To Read and Retry
-never report the failure in their responses.
+There is no separate Inbox step to undo: the Add commits first, and acquisition
+runs as the durable `epub_acquisition` job (ADR 0121). The worker records the
+per-Book failure after the attempt and deletes it when an acquisition succeeds,
+so My Books keeps showing the reason until recovery. Add, Read again and
+Retry never report the failure in their responses.
 
 The stages and stable codes are defined once in the domain:
 
@@ -214,7 +213,7 @@ attempt remains.
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
 | Last synced | Show the last successful time and metadata-only reconciliation. Manage sources keeps the ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason linked to Manage sources. | Edit connection in Manage sources or retry |
-| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | Move to To Read |
+| Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | View in Reading or Read again |
 | Read outside Mouseion | Record that the learner read the text before using Mouseion, with no download, analysis or vocabulary change. | I've read this |
 | EPUB acquisition failed | Keep the Book To Read, name the reason (entry missing, download failed, unusable source, or import failed), and offer Retry only for entry, fetch and import stages. The reason stays until an acquisition succeeds and never overrides an analysis in effect. | Retry, or fix the catalog and retry |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |

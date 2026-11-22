@@ -26,7 +26,6 @@ func TestStoreContractSeedsPassTheSharedGate(t *testing.T) {
 	bookID := h.SeedBook(t, h.Owner(), storecontract.BookSeed{
 		Vocabulary: []domain.SnapshotIdentity{usable, unusable},
 		Unusable:   []domain.SnapshotIdentity{unusable},
-		ToRead:     true,
 	})
 
 	greekUsable := domain.SnapshotIdentity{Language: storecontract.GreekLanguage, CanonicalLemma: "λέγω", UPOS: "VERB"}
@@ -35,7 +34,6 @@ func TestStoreContractSeedsPassTheSharedGate(t *testing.T) {
 		Language: storecontract.GreekLanguage, Imported: true,
 		Vocabulary: []domain.SnapshotIdentity{greekUsable, greekUnusable},
 		Unusable:   []domain.SnapshotIdentity{greekUnusable},
-		ToRead:     true,
 	})
 
 	t.Run("a default modern seed passes", func(t *testing.T) {
