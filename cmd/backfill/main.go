@@ -63,7 +63,7 @@ func run(ctx context.Context, getenv func(string) string, output io.Writer, open
 		return err
 	}
 	for _, book := range report.LanguageLessWithHistory {
-		if _, err := fmt.Fprintf(output, "kept %s (%q): language not chosen but has reading history\n", book.ID, book.Title); err != nil {
+		if _, err := fmt.Fprintf(output, "removed %s (%q) from My Books: no chosen language; its reading history is kept, and adding it again with a language restores it\n", book.ID, book.Title); err != nil {
 			return err
 		}
 	}

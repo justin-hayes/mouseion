@@ -163,8 +163,11 @@ My Books holds only chosen Books. A one-time data-only backfill removes the
 membership of every Book that is active in My Books, is not To Read, has no
 reading history and is not the current reading. That covers unread Inbox Books,
 never-prepared classical Inbox Books and unread Books without a chosen
-language. Books with reading history stay, and a language-less Book with
-history keeps its membership: the backfill reports it and leaves it unchanged.
+language. Other Books with reading history stay. A language-less Book with
+history also leaves My Books, because My Books is browsed within a study
+language and would list it nowhere: it behaves like any removed Book, keeps its
+completions, and can be added again with a language. The backfill reports each
+one.
 
 The backfill is operator-owned. Run it once, after the release deploys and
 after every catalog connection has completed at least one sync; it is
@@ -176,7 +179,7 @@ is there to ensure. A classical Book is restored by adding its Reading unit
 from the Classical catalog. The gate refuses to run until every connection's
 Catalog index has completed a sync, so no entry becomes unfindable during the
 upgrade. Run `MOUSEION_DATABASE_URL=... go run ./cmd/backfill`; the output
-states how many memberships ended and names each language-less Book it kept.
+states how many memberships ended and names each language-less Book with history whose membership it ended.
 The [operations guide](../operations.md#maintenance-commands) documents the
 command's prerequisites, output, and recovery.
 

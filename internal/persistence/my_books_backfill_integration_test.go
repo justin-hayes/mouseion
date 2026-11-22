@@ -101,14 +101,14 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 
 	report, err := store.BackfillChosenBooks(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, 4, report.Removed, "unread Inbox, hidden Inbox, classical Inbox and language-less unread leave")
+	assert.Equal(t, 5, report.Removed, "unread Inbox, hidden Inbox, classical Inbox and both language-less Books leave")
 	require.Len(t, report.LanguageLessWithHistory, 1)
 	assert.Equal(t, languageLessWithHistory.ID, report.LanguageLessWithHistory[0].ID)
 
-	for _, book := range []domain.Book{inboxUnread, hiddenInbox, classicalInbox, languageLessUnread} {
-		assert.Equal(t, "removed", membershipState(t, ctx, store, owner.ID, book.ID), "unread unchosen Book left My Books")
+	for _, book := range []domain.Book{inboxUnread, hiddenInbox, classicalInbox, languageLessUnread, languageLessWithHistory} {
+		assert.Equal(t, "removed", membershipState(t, ctx, store, owner.ID, book.ID), "unchosen Book left My Books")
 	}
-	for _, book := range []domain.Book{inboxWithHistory, hiddenToRead, languageLessWithHistory, current} {
+	for _, book := range []domain.Book{inboxWithHistory, hiddenToRead, current} {
 		assert.Equal(t, "active", membershipState(t, ctx, store, owner.ID, book.ID), "chosen Book stayed in My Books")
 	}
 
@@ -119,7 +119,8 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 	second, err := store.BackfillChosenBooks(ctx)
 	require.NoError(t, err)
 	assert.Zero(t, second.Removed, "a repeated run changes nothing")
-	assert.Equal(t, report.LanguageLessWithHistory, second.LanguageLessWithHistory)
+	assert.Empty(t, second.LanguageLessWithHistory, "an already removed Book is not reported again")
+	assert.Equal(t, 1, countRowsWhere(t, ctx, store, "reading_history", "book_id", languageLessWithHistory.ID), "the removed Book keeps its completion")
 }
 
 func membershipState(t *testing.T, ctx context.Context, store *PostgresStore, owner, bookID string) string {
@@ -128,6 +129,14 @@ func membershipState(t *testing.T, ctx context.Context, store *PostgresStore, ow
 	require.NoError(t, store.Pool().QueryRow(ctx, `
 		SELECT state FROM book_membership WHERE owner_id = $1 AND book_id = $2`, owner, bookID).Scan(&state))
 	return state
+}
+
+func countRowsWhere(t *testing.T, ctx context.Context, store *PostgresStore, table, column, value string) int {
+	t.Helper()
+	var count int
+	// The table and column names are test constants, never learner input.
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE `+column+` = $1`, value).Scan(&count))
+	return count
 }
 
 func countRowsForOwner(t *testing.T, ctx context.Context, store *PostgresStore, table, owner string) int {
