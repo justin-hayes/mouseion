@@ -1057,57 +1057,57 @@ func TestEPUBAcquisitionFailureRecordingClassifiesTheStage(t *testing.T) {
 	tests := []struct {
 		name       string
 		err        error
-		stage      domain.EPUBAcquisitionFailureStage
-		code       string
+		stage      domain.BookPreparationStage
+		code       domain.BookPreparationCode
 		wantRecord bool
 	}{
 		{
 			name:       "download refused",
 			err:        errors.New("catalog refused the download"),
-			stage:      domain.EPUBAcquisitionFailureFetch,
-			code:       domain.EPUBAcquisitionCodeSourceDownloadFailed,
+			stage:      domain.BookPreparationStageFetch,
+			code:       domain.BookPreparationCodeSourceDownloadFailed,
 			wantRecord: true,
 		},
 		{
 			name:       "download too large",
 			err:        fmt.Errorf("opds: download EPUB: %w", opds.ErrDownloadTooLarge),
-			stage:      domain.EPUBAcquisitionFailureSource,
-			code:       domain.EPUBAcquisitionCodeSourceOversize,
+			stage:      domain.BookPreparationStageSource,
+			code:       domain.BookPreparationCodeSourceOversize,
 			wantRecord: true,
 		},
 		{
 			name:       "retained EPUB too large",
 			err:        fmt.Errorf("opds: ingest downloaded EPUB: %w", fmt.Errorf("%w: %w", opds.ErrImportFailed, opds.ErrRetainedEPUBTooLarge)),
-			stage:      domain.EPUBAcquisitionFailureSource,
-			code:       domain.EPUBAcquisitionCodeSourceOversize,
+			stage:      domain.BookPreparationStageSource,
+			code:       domain.BookPreparationCodeSourceOversize,
 			wantRecord: true,
 		},
 		{
 			name:       "no EPUB link",
 			err:        opds.ErrNoEPUB,
-			stage:      domain.EPUBAcquisitionFailureSource,
-			code:       domain.EPUBAcquisitionCodeSourceFormatUnknown,
+			stage:      domain.BookPreparationStageSource,
+			code:       domain.BookPreparationCodeSourceFormatUnknown,
 			wantRecord: true,
 		},
 		{
 			name:       "invalid EPUB",
 			err:        fmt.Errorf("opds: retain downloaded EPUB: %w", epub.ErrInvalidEPUB),
-			stage:      domain.EPUBAcquisitionFailureSource,
-			code:       domain.EPUBAcquisitionCodeSourceFormatUnknown,
+			stage:      domain.BookPreparationStageSource,
+			code:       domain.BookPreparationCodeSourceFormatUnknown,
 			wantRecord: true,
 		},
 		{
 			name:       "incompatible media type",
 			err:        fmt.Errorf("opds: download EPUB: %w", opds.ErrIncompatibleMediaType),
-			stage:      domain.EPUBAcquisitionFailureSource,
-			code:       domain.EPUBAcquisitionCodeSourceFormatUnknown,
+			stage:      domain.BookPreparationStageSource,
+			code:       domain.BookPreparationCodeSourceFormatUnknown,
 			wantRecord: true,
 		},
 		{
 			name:       "import failed",
 			err:        fmt.Errorf("opds: ingest downloaded EPUB: %w", fmt.Errorf("%w: database unavailable", opds.ErrImportFailed)),
-			stage:      domain.EPUBAcquisitionFailureImport,
-			code:       domain.EPUBAcquisitionCodeEPUBImportFailed,
+			stage:      domain.BookPreparationStageImport,
+			code:       domain.BookPreparationCodeEPUBImportFailed,
 			wantRecord: true,
 		},
 	}
@@ -1179,8 +1179,8 @@ func TestEPUBAcquisitionMissingCatalogEntryRecordsEntryFailure(t *testing.T) {
 	record := acquisitions.records[0]
 	t.Run("records the entry stage and code", func(t *testing.T) {
 		t.Parallel()
-		require.Equal(t, domain.EPUBAcquisitionFailureEntry, record.Stage)
-		require.Equal(t, domain.EPUBAcquisitionCodeCatalogEntryMissing, record.Code)
+		require.Equal(t, domain.BookPreparationStageEntry, record.Stage)
+		require.Equal(t, domain.BookPreparationCodeCatalogEntryMissing, record.Code)
 	})
 	t.Run("records the Book and where acquisition looked", func(t *testing.T) {
 		t.Parallel()

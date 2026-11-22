@@ -222,7 +222,7 @@ func (p epubPreparation) recordFailure(ctx context.Context, owner, bookID string
 	}
 	if recordErr := p.acquisitions.RecordEPUBAcquisitionFailure(ctx, record); recordErr != nil {
 		log.Printf("mouseion: record EPUB acquisition failure owner=%s book=%s stage=%s code=%s: %v",
-			strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(code), recordErr)
+			strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(string(code)), recordErr)
 	}
 }
 
@@ -241,22 +241,22 @@ func (p epubPreparation) clearFailure(ctx context.Context, owner, bookID string)
 // classifyAcquisitionFailure maps one failed download or import attempt to the
 // stable stage and code the domain vocabulary defines. It never classifies a
 // missing seam or a failed lookup: those have no catalog attempt to record.
-func classifyAcquisitionFailure(err error) (domain.EPUBAcquisitionFailureStage, string) {
+func classifyAcquisitionFailure(err error) (domain.BookPreparationStage, domain.BookPreparationCode) {
 	switch {
 	case errors.Is(err, cataloguesync.ErrCatalogEntryMissing):
-		return domain.EPUBAcquisitionFailureEntry, domain.EPUBAcquisitionCodeCatalogEntryMissing
+		return domain.BookPreparationStageEntry, domain.BookPreparationCodeCatalogEntryMissing
 	case errors.Is(err, opds.ErrDownloadTooLarge), errors.Is(err, opds.ErrRetainedEPUBTooLarge):
-		return domain.EPUBAcquisitionFailureSource, domain.EPUBAcquisitionCodeSourceOversize
+		return domain.BookPreparationStageSource, domain.BookPreparationCodeSourceOversize
 	case errors.Is(err, opds.ErrNoEPUB),
 		errors.Is(err, epub.ErrInvalidEPUB),
 		errors.Is(err, opds.ErrIncompatibleMediaType):
-		return domain.EPUBAcquisitionFailureSource, domain.EPUBAcquisitionCodeSourceFormatUnknown
+		return domain.BookPreparationStageSource, domain.BookPreparationCodeSourceFormatUnknown
 	case errors.Is(err, opds.ErrImportFailed):
-		return domain.EPUBAcquisitionFailureImport, domain.EPUBAcquisitionCodeEPUBImportFailed
+		return domain.BookPreparationStageImport, domain.BookPreparationCodeEPUBImportFailed
 	default:
 		// A refused or failed download is retryable, including a catalog that
 		// could not be reached.
-		return domain.EPUBAcquisitionFailureFetch, domain.EPUBAcquisitionCodeSourceDownloadFailed
+		return domain.BookPreparationStageFetch, domain.BookPreparationCodeSourceDownloadFailed
 	}
 }
 
@@ -276,7 +276,7 @@ func failedAcquisition(owner string, book domain.MyBook, target cataloguesync.Ac
 func logClassicalFailure(owner, bookID string, err error) {
 	stage, code := analysis.ClassicalPreparationFailure(err)
 	log.Printf("mouseion: classical preparation submission failed for owner %s book %s stage=%s code=%s",
-		strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(code))
+		strconv.Quote(owner), strconv.Quote(bookID), strconv.Quote(string(stage)), strconv.Quote(string(code)))
 }
 
 // logAnalysisFailure writes the failing step and the quoted error. A refused

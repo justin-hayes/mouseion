@@ -22,7 +22,7 @@ func (s *PostgresStore) RecordEPUBAcquisitionFailure(ctx context.Context, record
 		ConnectionID:    nullableUUIDArg(record.ConnectionID),
 		EntryIdentifier: nullableTextArg(record.EntryIdentifier),
 		Stage:           string(record.Stage),
-		Code:            record.Code,
+		Code:            string(record.Code),
 	})
 	if err != nil {
 		return fmt.Errorf("write EPUB acquisition failure: %w", err)
@@ -50,12 +50,9 @@ func validateEPUBAcquisitionFailure(record domain.EPUBAcquisitionFailureRecord) 
 		return errors.New("persistence: EPUB acquisition failure owner is required")
 	case record.BookID == "":
 		return errors.New("persistence: EPUB acquisition failure Book is required")
-	case record.Stage == domain.EPUBAcquisitionFailureNone:
+	case record.Stage == domain.BookPreparationStageNone:
 		return errors.New("persistence: EPUB acquisition failure stage is required")
-	case record.Stage != domain.EPUBAcquisitionFailureEntry &&
-		record.Stage != domain.EPUBAcquisitionFailureFetch &&
-		record.Stage != domain.EPUBAcquisitionFailureSource &&
-		record.Stage != domain.EPUBAcquisitionFailureImport:
+	case !record.Stage.IsEPUBAcquisitionStage():
 		return errors.New("persistence: EPUB acquisition failure stage is invalid")
 	case record.Code == "":
 		return errors.New("persistence: EPUB acquisition failure code is required")
@@ -92,8 +89,8 @@ func (s *PostgresStore) populateEPUBAcquisitionFailures(ctx context.Context, own
 			continue
 		}
 		book.EPUBAcquisition = &domain.EPUBAcquisitionStatus{
-			Stage: domain.EPUBAcquisitionFailureStage(row.Stage),
-			Code:  row.Code,
+			Stage: domain.BookPreparationStage(row.Stage),
+			Code:  domain.BookPreparationCode(row.Code),
 		}
 	}
 	return nil

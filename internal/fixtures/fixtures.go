@@ -240,7 +240,7 @@ func NewStore() *Store {
 			fixtureDispositionKey(OwnerID, "fixture-acquisition-failed"): {
 				OwnerID: OwnerID, BookID: "fixture-acquisition-failed",
 				ConnectionID: "fixture-connection", EntryIdentifier: "fixture-entry",
-				Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed,
+				Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
 			},
 		},
 		dispositionRevisions: make(map[string]int64),

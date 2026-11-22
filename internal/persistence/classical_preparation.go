@@ -114,7 +114,7 @@ func (s *PostgresStore) PutClassicalPreparationFailure(ctx context.Context, reco
 			stage = EXCLUDED.stage,
 			code = EXCLUDED.code,
 			failed_at = now()`,
-		record.OwnerID, record.BookID, record.ReadingUnitKey, record.DefinitionRevision, string(record.Stage), record.Code)
+		record.OwnerID, record.BookID, record.ReadingUnitKey, record.DefinitionRevision, string(record.Stage), string(record.Code))
 	if err != nil {
 		return fmt.Errorf("write classical preparation failure: %w", err)
 	}
@@ -132,7 +132,7 @@ func validatePreparationFailure(record domain.ClassicalPreparationFailureRecord)
 		return errors.New("persistence: classical preparation failure Reading unit is required")
 	case record.DefinitionRevision <= 0:
 		return errors.New("persistence: classical preparation failure revision must be positive")
-	case record.Stage == domain.ClassicalPreparationFailureNone:
+	case record.Stage == domain.BookPreparationStageNone:
 		return errors.New("persistence: classical preparation failure stage is required")
 	case record.Code == "":
 		return errors.New("persistence: classical preparation failure code is required")

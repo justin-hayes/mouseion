@@ -2,30 +2,6 @@ package domain
 
 import "time"
 
-// EPUBAcquisitionFailureStage names the step that stopped an EPUB acquisition.
-// It reuses Classical preparation's stage names where the meaning matches and
-// adds entry for a catalog entry that no longer resolves.
-type EPUBAcquisitionFailureStage string
-
-const (
-	EPUBAcquisitionFailureNone   EPUBAcquisitionFailureStage = ""
-	EPUBAcquisitionFailureEntry  EPUBAcquisitionFailureStage = "entry"
-	EPUBAcquisitionFailureFetch  EPUBAcquisitionFailureStage = "fetch"
-	EPUBAcquisitionFailureSource EPUBAcquisitionFailureStage = "source"
-	EPUBAcquisitionFailureImport EPUBAcquisitionFailureStage = "import"
-)
-
-// Stable EPUB acquisition failure codes. They are the durable values recorded
-// by reading intent; the domain spells them here so presentation and recovery
-// share one vocabulary.
-const (
-	EPUBAcquisitionCodeCatalogEntryMissing  = "catalog_entry_missing"
-	EPUBAcquisitionCodeSourceDownloadFailed = "source_download_failed"
-	EPUBAcquisitionCodeSourceOversize       = "source_oversize"
-	EPUBAcquisitionCodeSourceFormatUnknown  = "source_format_unknown"
-	EPUBAcquisitionCodeEPUBImportFailed     = "epub_import_failed"
-)
-
 // EPUBAcquisitionFailureRecord is the durable per-Book evidence of the latest
 // failed EPUB acquisition. ConnectionID and EntryIdentifier are empty when the
 // failing attempt could not resolve the catalog entry. It never carries source
@@ -35,36 +11,16 @@ type EPUBAcquisitionFailureRecord struct {
 	BookID          string
 	ConnectionID    string
 	EntryIdentifier string
-	Stage           EPUBAcquisitionFailureStage
-	Code            string
+	Stage           BookPreparationStage
+	Code            BookPreparationCode
 	FailedAt        time.Time
 }
 
 // EPUBAcquisitionStatus is the failure projection read onto a Book. It carries
 // the stable stage and code, never a raw error.
 type EPUBAcquisitionStatus struct {
-	Stage EPUBAcquisitionFailureStage
-	Code  string
-}
-
-// EPUBAcquisitionFailureForCode returns the stage that owns a stable EPUB
-// acquisition failure code. An unrecognised code is a fetch-stage failure: the
-// acquisition stopped before the source could be imported.
-func EPUBAcquisitionFailureForCode(code string) EPUBAcquisitionFailureStage {
-	switch code {
-	case EPUBAcquisitionCodeCatalogEntryMissing:
-		return EPUBAcquisitionFailureEntry
-	case EPUBAcquisitionCodeSourceDownloadFailed:
-		return EPUBAcquisitionFailureFetch
-	case EPUBAcquisitionCodeSourceOversize, EPUBAcquisitionCodeSourceFormatUnknown:
-		return EPUBAcquisitionFailureSource
-	case EPUBAcquisitionCodeEPUBImportFailed:
-		return EPUBAcquisitionFailureImport
-	case "":
-		return EPUBAcquisitionFailureNone
-	default:
-		return EPUBAcquisitionFailureFetch
-	}
+	Stage BookPreparationStage
+	Code  BookPreparationCode
 }
 
 // AcquisitionState is the learner-facing state of an EPUB acquisition failure.
@@ -110,26 +66,30 @@ func classifyEPUBAcquisition(status *EPUBAcquisitionStatus) acquisitionEvidence 
 		return acquisitionEvidence{}
 	}
 	stage := status.Stage
-	if stage == EPUBAcquisitionFailureNone {
-		stage = EPUBAcquisitionFailureForCode(status.Code)
+	if stage == BookPreparationStageNone {
+		stage = EPUBAcquisitionStageForCode(status.Code)
 	}
 	switch stage {
-	case EPUBAcquisitionFailureEntry:
+	case BookPreparationStageEntry:
 		return acquisitionEvidence{AcquisitionClassification{State: AcquisitionEntryMissing}, BookUnavailable, PhaseNotAnalyzed, RecoveryRetryAcquisition}
-	case EPUBAcquisitionFailureFetch:
+	case BookPreparationStageFetch:
 		return acquisitionEvidence{AcquisitionClassification{State: AcquisitionFetchFailed}, BookUnavailable, PhaseNotAnalyzed, RecoveryRetryAcquisition}
-	case EPUBAcquisitionFailureSource:
+	case BookPreparationStageSource:
 		state := AcquisitionSourceRefused
 		switch status.Code {
-		case EPUBAcquisitionCodeSourceOversize:
+		case BookPreparationCodeSourceOversize:
 			state = AcquisitionSourceOversize
-		case EPUBAcquisitionCodeSourceFormatUnknown:
+		case BookPreparationCodeSourceFormatUnknown:
 			state = AcquisitionSourceFormatUnknown
+		default:
+			// Every other source-stage code stays a refused source.
 		}
 		return acquisitionEvidence{AcquisitionClassification{State: state}, BookUnavailable, PhaseNotAnalyzed, RecoveryNone}
-	case EPUBAcquisitionFailureImport:
+	case BookPreparationStageImport:
 		return acquisitionEvidence{AcquisitionClassification{State: AcquisitionImportFailed}, BookUnavailable, PhaseFailed, RecoveryRetryAcquisition}
-	case EPUBAcquisitionFailureNone:
+	case BookPreparationStageNone, BookPreparationStageCatalog, BookPreparationStageWithdrawn,
+		BookPreparationStageAnalysis, BookPreparationStageFinalize:
+		// Not an EPUB acquisition failure stage.
 	}
 	return acquisitionEvidence{}
 }

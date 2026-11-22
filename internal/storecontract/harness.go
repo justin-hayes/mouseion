@@ -195,7 +195,7 @@ type Seeder interface {
 	// SeedClassicalPreparationFailure records one settled preparation failure
 	// for an already added Book. The adapter derives the Reading unit and
 	// definition revision from the Book, exactly as a worker would.
-	SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure)
+	SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.BookPreparationStage)
 	// SeedCatalogueConnection creates one owner-scoped OPDS connection and
 	// returns its ID.
 	SeedCatalogueConnection(t *testing.T, owner, name string) string

@@ -309,11 +309,11 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 
 		h.startClient()
 		record := h.waitForFailure(learner.ID, bookID)
-		assert.Equal(t, domain.ClassicalPreparationFailureFetch, record.Stage)
-		assert.Equal(t, ancientgreek.CodeSourceDownloadFailed, record.Code)
+		assert.Equal(t, domain.BookPreparationStageFetch, record.Stage)
+		assert.Equal(t, ancientgreek.CodeSourceDownloadFailed, string(record.Code))
 		detail := h.detail(learner.ID, bookID)
 		require.NotNil(t, detail.ClassicalPreparation)
-		assert.Equal(t, domain.ClassicalPreparationFailureFetch, detail.ClassicalPreparation.Failure)
+		assert.Equal(t, domain.BookPreparationStageFetch, detail.ClassicalPreparation.Stage)
 
 		page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 		require.Equal(t, http.StatusOK, page.Code)
@@ -339,11 +339,11 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 
 		h.startClient()
 		record := h.waitForFailure(learner.ID, bookID)
-		assert.Equal(t, domain.ClassicalPreparationFailureImport, record.Stage)
-		assert.Equal(t, classical.PreparationFailedCode, record.Code)
+		assert.Equal(t, domain.BookPreparationStageImport, record.Stage)
+		assert.Equal(t, classical.PreparationFailedCode, string(record.Code))
 		detail := h.detail(learner.ID, bookID)
 		require.NotNil(t, detail.ClassicalPreparation)
-		assert.Equal(t, domain.ClassicalPreparationFailureImport, detail.ClassicalPreparation.Failure)
+		assert.Equal(t, domain.BookPreparationStageImport, detail.ClassicalPreparation.Stage)
 
 		page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 		assert.Contains(t, page.Body.String(), classicalAnalysisFailedLabel)
@@ -365,8 +365,8 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 
 		h.startClient()
 		record := h.waitForFailure(learner.ID, bookID)
-		assert.Equal(t, domain.ClassicalPreparationFailureSource, record.Stage)
-		assert.Equal(t, ancientgreek.CodePinMismatch, record.Code)
+		assert.Equal(t, domain.BookPreparationStageSource, record.Stage)
+		assert.Equal(t, ancientgreek.CodePinMismatch, string(record.Code))
 		detail := h.detail(learner.ID, bookID)
 		assert.Equal(t, domain.BookDispositionToRead, detail.Disposition, "a terminal failure leaves the Book To Read")
 		require.NotNil(t, detail.ClassicalPreparation)
@@ -395,8 +395,8 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 
 		h.startClient()
 		record := h.waitForFailure(learner.ID, bookID)
-		assert.Equal(t, domain.ClassicalPreparationFailureSource, record.Stage)
-		assert.Equal(t, ancientgreek.CodeOversize, record.Code)
+		assert.Equal(t, domain.BookPreparationStageSource, record.Stage)
+		assert.Equal(t, ancientgreek.CodeOversize, string(record.Code))
 		page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 		assert.Contains(t, page.Body.String(), html.EscapeString(classicalSourceMismatchLabel))
 		assert.NotContains(t, page.Body.String(), classicalRetryAcquisitionLabel)
@@ -413,8 +413,8 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 
 		h.startClient()
 		record := h.waitForFailure(learner.ID, bookID)
-		assert.Equal(t, domain.ClassicalPreparationFailureSource, record.Stage)
-		assert.Equal(t, ancientgreek.CodeAdapterRefused, record.Code)
+		assert.Equal(t, domain.BookPreparationStageSource, record.Stage)
+		assert.Equal(t, ancientgreek.CodeAdapterRefused, string(record.Code))
 		page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 		assert.Contains(t, page.Body.String(), html.EscapeString(classicalSourceMismatchLabel))
 		assert.NotContains(t, page.Body.String(), classicalRetryAcquisitionLabel)
@@ -461,8 +461,8 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 
 		h.startClient()
 		record := h.waitForFailure(learner.ID, bookID)
-		assert.Equal(t, domain.ClassicalPreparationFailureWithdrawn, record.Stage)
-		assert.Equal(t, classical.WithdrawnCode, record.Code)
+		assert.Equal(t, domain.BookPreparationStageWithdrawn, record.Stage)
+		assert.Equal(t, classical.WithdrawnCode, string(record.Code))
 		page := h.jobsPage(cookies)
 		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 		assert.Contains(t, page.Body.String(), classical.WithdrawnCode)
@@ -481,7 +481,7 @@ func TestClassicalPreparationNewerRevisionClearsTerminalFailure(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, moved.Code)
 	h.startClient()
 	record := h.waitForFailure(learner.ID, bookID)
-	require.Equal(t, ancientgreek.CodePinMismatch, record.Code)
+	require.Equal(t, ancientgreek.CodePinMismatch, string(record.Code))
 	require.True(t, h.submitTerminal(learner.ID, bookID))
 
 	// A newer revision with the correct pin makes the recorded failure stale.
@@ -495,7 +495,7 @@ func TestClassicalPreparationNewerRevisionClearsTerminalFailure(t *testing.T) {
 	detail := h.detail(learner.ID, bookID)
 	require.NotNil(t, detail.ClassicalPreparation, "the cleared failure is still visible as a retryable state")
 	assert.True(t, detail.ClassicalPreparation.Cleared)
-	assert.Empty(t, detail.ClassicalPreparation.Failure)
+	assert.Empty(t, detail.ClassicalPreparation.Stage)
 	page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 	assert.Contains(t, page.Body.String(), `action="/reading/books/`+bookID+`/reanalyze"`)
 	assert.Contains(t, page.Body.String(), ">Retry preparation</button>")
@@ -577,7 +577,7 @@ func TestClassicalPreparationJobsSurfaceShowsStableCodesAndNoGreek(t *testing.T)
 	h := newClassicalFailureHarness(t, classicalFailureOptions{})
 	learner, cookies, _ := h.learner("classical-failure-codes")
 	bookID := h.addBook(learner.ID)
-	require.NoError(t, h.insertSettledFailure(h.ctx, learner.ID, bookID, ancientgreek.CodeSourceDownloadFailed, domain.ClassicalPreparationFailureFetch))
+	require.NoError(t, h.insertSettledFailure(h.ctx, learner.ID, bookID, ancientgreek.CodeSourceDownloadFailed, domain.BookPreparationStageFetch))
 
 	page := h.jobsPage(cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
@@ -594,7 +594,7 @@ func TestClassicalPreparationJobsSurfaceShowsStableCodesAndNoGreek(t *testing.T)
 
 // insertSettledFailure inserts a settled failure and a matching job so the jobs
 // surface can be inspected without waiting on a worker.
-func (h *classicalFailureHarness) insertSettledFailure(ctx context.Context, owner, bookID, code string, stage domain.ClassicalPreparationFailure) error {
+func (h *classicalFailureHarness) insertSettledFailure(ctx context.Context, owner, bookID string, code domain.BookPreparationCode, stage domain.BookPreparationStage) error {
 	require.NoError(h.t, h.store.PutClassicalPreparationFailure(ctx, domain.ClassicalPreparationFailureRecord{
 		OwnerID: owner, BookID: bookID, ReadingUnitKey: failureUnitKey,
 		DefinitionRevision: h.definition.Revision, Stage: stage, Code: code,
@@ -603,7 +603,7 @@ func (h *classicalFailureHarness) insertSettledFailure(ctx context.Context, owne
 		INSERT INTO river_job(kind, args, state, queue, max_attempts, priority, attempt, errors, finalized_at)
 		VALUES ($1, jsonb_build_object('owner_id', $2::text, 'book_id', $3::text, 'reading_unit_key', $4::text, 'definition_revision', $5::integer),
 		        'discarded', $1, 1, 1, 1, ARRAY[jsonb_build_object('error', $6::text, 'attempt', 1)], now())`,
-		analysis.ClassicalPreparationQueue, owner, bookID, failureUnitKey, h.definition.Revision, "ancientgreek: import refused: "+code)
+		analysis.ClassicalPreparationQueue, owner, bookID, failureUnitKey, h.definition.Revision, "ancientgreek: import refused: "+string(code))
 	return err
 }
 

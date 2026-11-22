@@ -141,8 +141,8 @@ func TestEPUBAcquisitionDownloadFailureIsRecordedAndLaterRetryClearsIt(t *testin
 	require.NoError(t, err)
 	require.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 	require.NotNil(t, detail.EPUBAcquisition)
-	assert.Equal(t, domain.EPUBAcquisitionFailureFetch, detail.EPUBAcquisition.Stage)
-	assert.Equal(t, domain.EPUBAcquisitionCodeSourceDownloadFailed, detail.EPUBAcquisition.Code)
+	assert.Equal(t, domain.BookPreparationStageFetch, detail.EPUBAcquisition.Stage)
+	assert.Equal(t, domain.BookPreparationCodeSourceDownloadFailed, detail.EPUBAcquisition.Code)
 	assert.Zero(t, fixture.analysis.calls, "a failed acquisition starts no analysis")
 
 	page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
@@ -185,8 +185,8 @@ func TestEPUBAcquisitionSourceRefusalRecordsNoRetry(t *testing.T) {
 	detail, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, fixture.bookID)
 	require.NoError(t, err)
 	require.NotNil(t, detail.EPUBAcquisition)
-	assert.Equal(t, domain.EPUBAcquisitionFailureSource, detail.EPUBAcquisition.Stage)
-	assert.Equal(t, domain.EPUBAcquisitionCodeSourceFormatUnknown, detail.EPUBAcquisition.Code)
+	assert.Equal(t, domain.BookPreparationStageSource, detail.EPUBAcquisition.Stage)
+	assert.Equal(t, domain.BookPreparationCodeSourceFormatUnknown, detail.EPUBAcquisition.Code)
 	assert.Equal(t, domain.RecoveryNone, detail.Classification().Recovery)
 
 	page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
@@ -216,8 +216,8 @@ func TestEPUBAcquisitionImportFailureRecordsRetry(t *testing.T) {
 	detail, err := fixture.store.GetBookDetail(context.Background(), fixture.owner.ID, fixture.bookID)
 	require.NoError(t, err)
 	require.NotNil(t, detail.EPUBAcquisition)
-	assert.Equal(t, domain.EPUBAcquisitionFailureImport, detail.EPUBAcquisition.Stage)
-	assert.Equal(t, domain.EPUBAcquisitionCodeEPUBImportFailed, detail.EPUBAcquisition.Code)
+	assert.Equal(t, domain.BookPreparationStageImport, detail.EPUBAcquisition.Stage)
+	assert.Equal(t, domain.BookPreparationCodeEPUBImportFailed, detail.EPUBAcquisition.Code)
 	assert.Equal(t, domain.RecoveryRetryAcquisition, detail.Classification().Recovery)
 
 	page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)

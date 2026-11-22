@@ -274,18 +274,20 @@ func classifyPreparation(status *ClassicalPreparationStatus) preparationEvidence
 		return preparationEvidence{PreparationClassification{State: PreparationRunning}, BookAcquiredUnassessed, PhaseAnalyzing, RecoveryNone}
 	case "":
 	}
-	switch status.Failure {
-	case ClassicalPreparationFailureFetch:
+	switch status.Stage {
+	case BookPreparationStageFetch:
 		return preparationEvidence{PreparationClassification{State: PreparationFetchFailed}, BookUnavailable, PhaseNotAnalyzed, RecoveryRetryAcquisition}
-	case ClassicalPreparationFailureImport:
+	case BookPreparationStageImport:
 		return preparationEvidence{PreparationClassification{State: PreparationImportFailed}, BookAcquiredUnassessed, PhaseFailed, RecoveryRetryAnalysis}
-	case ClassicalPreparationFailureSource:
+	case BookPreparationStageSource:
 		return preparationEvidence{PreparationClassification{State: PreparationSourceRefused}, BookAcquiredUnassessed, PhaseFailed, RecoveryNone}
-	case ClassicalPreparationFailureWithdrawn:
+	case BookPreparationStageWithdrawn:
 		return preparationEvidence{PreparationClassification{State: PreparationWithdrawn}, BookUnavailable, PhaseFailed, RecoveryNone}
-	case ClassicalPreparationFailureCatalog:
+	case BookPreparationStageCatalog:
 		return preparationEvidence{PreparationClassification{State: PreparationCatalogUnavailable}, BookUnavailable, PhaseNotAnalyzed, RecoveryNone}
-	case ClassicalPreparationFailureNone:
+	case BookPreparationStageNone, BookPreparationStageEntry, BookPreparationStageAnalysis,
+		BookPreparationStageFinalize:
+		// Not a Classical preparation failure stage.
 	}
 	if status.Cleared {
 		return preparationEvidence{PreparationClassification{State: PreparationCleared}, BookAcquiredUnassessed, PhaseNotAnalyzed, RecoveryRetryPreparation}

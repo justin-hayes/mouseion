@@ -157,20 +157,6 @@ const (
 	ClassicalPreparationRunning ClassicalPreparationState = "running"
 )
 
-// ClassicalPreparationFailure names the stage that refused or failed a
-// preparation. Learner labels and recovery are chosen from this, never from raw
-// error text or source content.
-type ClassicalPreparationFailure string
-
-const (
-	ClassicalPreparationFailureNone      ClassicalPreparationFailure = ""
-	ClassicalPreparationFailureFetch     ClassicalPreparationFailure = "fetch"
-	ClassicalPreparationFailureImport    ClassicalPreparationFailure = "import"
-	ClassicalPreparationFailureSource    ClassicalPreparationFailure = "source"
-	ClassicalPreparationFailureWithdrawn ClassicalPreparationFailure = "withdrawn"
-	ClassicalPreparationFailureCatalog   ClassicalPreparationFailure = "catalog"
-)
-
 // ClassicalPreparationStatus is the learner-facing state of one classical
 // Book's preparation. It is nil for an ordinary Book, a Book whose published
 // analysis is already in effect, and a Book that has never attempted
@@ -178,10 +164,10 @@ const (
 type ClassicalPreparationStatus struct {
 	// State is queued or running while a preparation job is live.
 	State ClassicalPreparationState
-	// Failure is the stage of a settled failure, empty while in progress.
-	Failure ClassicalPreparationFailure
+	// Stage is the stage of a settled failure, empty while in progress.
+	Stage BookPreparationStage
 	// Code is the stable ASCII code recorded for a failure or job result.
-	Code string
+	Code BookPreparationCode
 	// FailureRevision is the definition revision that failed.
 	FailureRevision int
 	// CurrentRevision is the Reading unit's current definition revision.
@@ -200,7 +186,7 @@ func (s ClassicalPreparationStatus) InProgress() bool {
 
 // Failed reports a settled failure of the current definition revision.
 func (s ClassicalPreparationStatus) Failed() bool {
-	return !s.InProgress() && !s.Cleared && s.Failure != ClassicalPreparationFailureNone
+	return !s.InProgress() && !s.Cleared && s.Stage != BookPreparationStageNone
 }
 
 // ClassicalPreparationFailureRecord is the durable per-Book failure evidence
@@ -211,48 +197,8 @@ type ClassicalPreparationFailureRecord struct {
 	BookID             string
 	ReadingUnitKey     string
 	DefinitionRevision int
-	Stage              ClassicalPreparationFailure
-	Code               string
-}
-
-// Stable preparation failure codes the domain classifies. They are the durable
-// values recorded by internal/classical and internal/ancientgreek; the domain
-// spells them here because ADR 0091 keeps it free of those packages.
-const (
-	classicalPreparationCodeDownloadFailed = "source_download_failed"
-	classicalPreparationCodePinMismatch    = "source_pin_mismatch"
-	classicalPreparationCodeOversize       = "source_oversize"
-	classicalPreparationCodeLayerUnknown   = "source_layer_unknown"
-	classicalPreparationCodeFormatUnknown  = "source_format_unknown"
-	classicalPreparationCodeAdapterRefused = "source_adapter_refused"
-	classicalPreparationCodeWithdrawn      = "classical_definition_withdrawn"
-	classicalPreparationCodeLegacyRows     = "classical_catalog_legacy_rows"
-	classicalPreparationCodeFailed         = "classical_preparation_failed"
-)
-
-// ClassicalPreparationFailureForCode returns the stage that owns a stable
-// preparation failure code. It is the one code-to-stage table every producer
-// and reader uses. An unrecognised code is an import-stage failure: the source
-// was acquired, but its analysis was not published.
-func ClassicalPreparationFailureForCode(code string) ClassicalPreparationFailure {
-	switch code {
-	case classicalPreparationCodeDownloadFailed:
-		return ClassicalPreparationFailureFetch
-	case classicalPreparationCodeWithdrawn:
-		return ClassicalPreparationFailureWithdrawn
-	case classicalPreparationCodeLegacyRows:
-		return ClassicalPreparationFailureCatalog
-	case classicalPreparationCodePinMismatch, classicalPreparationCodeOversize,
-		classicalPreparationCodeLayerUnknown, classicalPreparationCodeFormatUnknown,
-		classicalPreparationCodeAdapterRefused:
-		return ClassicalPreparationFailureSource
-	case classicalPreparationCodeFailed:
-		return ClassicalPreparationFailureImport
-	case "":
-		return ClassicalPreparationFailureNone
-	default:
-		return ClassicalPreparationFailureImport
-	}
+	Stage              BookPreparationStage
+	Code               BookPreparationCode
 }
 
 // WithdrawnClassicalPreparationStatus is the stable status of an unprepared
@@ -260,8 +206,8 @@ func ClassicalPreparationFailureForCode(code string) ClassicalPreparationFailure
 // Reading page both construct it here, so the learner sees one status.
 func WithdrawnClassicalPreparationStatus(unit BookReadingUnit) ClassicalPreparationStatus {
 	return ClassicalPreparationStatus{
-		Failure:         ClassicalPreparationFailureWithdrawn,
-		Code:            classicalPreparationCodeWithdrawn,
+		Stage:           BookPreparationStageWithdrawn,
+		Code:            BookPreparationCodeClassicalWithdrawn,
 		FailureRevision: unit.Revision,
 		CurrentRevision: unit.Revision,
 		Withdrawn:       true,

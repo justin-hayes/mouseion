@@ -28,14 +28,14 @@ func epubAcquisitionFailureScenarios() []Scenario {
 			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
 			record := domain.EPUBAcquisitionFailureRecord{
 				OwnerID: owner, BookID: bookID,
-				Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed,
+				Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
 			}
 			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(record))
 
 			detail := requireDetail(t, h, owner, bookID)
 			require.NotNil(t, detail.EPUBAcquisition)
-			assert.Equal(t, domain.EPUBAcquisitionFailureFetch, detail.EPUBAcquisition.Stage)
-			assert.Equal(t, domain.EPUBAcquisitionCodeSourceDownloadFailed, detail.EPUBAcquisition.Code)
+			assert.Equal(t, domain.BookPreparationStageFetch, detail.EPUBAcquisition.Stage)
+			assert.Equal(t, domain.BookPreparationCodeSourceDownloadFailed, detail.EPUBAcquisition.Code)
 			classification := detail.Classification()
 			assert.Equal(t, domain.AcquisitionFetchFailed, classification.Acquisition.State)
 			assert.Equal(t, domain.BookUnavailable, classification.Evidence)
@@ -56,7 +56,7 @@ func epubAcquisitionFailureScenarios() []Scenario {
 			bookID := seedBook(t, h, BookSeed{MetadataOnly: true, ToRead: true})
 			require.NoError(t, h.BookState().RecordEPUBAcquisitionFailure(domain.EPUBAcquisitionFailureRecord{
 				OwnerID: owner, BookID: bookID,
-				Stage: domain.EPUBAcquisitionFailureSource, Code: domain.EPUBAcquisitionCodeSourceOversize,
+				Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourceOversize,
 			}))
 			detail := requireDetail(t, h, owner, bookID)
 			classification := detail.Classification()

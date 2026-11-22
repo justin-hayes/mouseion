@@ -16,10 +16,7 @@ func (s *Store) RecordEPUBAcquisitionFailure(_ context.Context, record domain.EP
 	switch {
 	case record.OwnerID == "" || record.BookID == "":
 		return errors.New("fixtures: EPUB acquisition failure owner and Book are required")
-	case record.Stage != domain.EPUBAcquisitionFailureEntry &&
-		record.Stage != domain.EPUBAcquisitionFailureFetch &&
-		record.Stage != domain.EPUBAcquisitionFailureSource &&
-		record.Stage != domain.EPUBAcquisitionFailureImport:
+	case !record.Stage.IsEPUBAcquisitionStage():
 		return errors.New("fixtures: EPUB acquisition failure stage is invalid")
 	case record.Code == "":
 		return errors.New("fixtures: EPUB acquisition failure code is required")
