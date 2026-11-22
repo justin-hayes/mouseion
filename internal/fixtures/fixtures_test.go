@@ -263,6 +263,14 @@ func TestStoreMyBooksBrowseCountsWorkflow(t *testing.T) {
 		assert.Equal(t, 2, deOnly.ScopeTotal)
 		assert.Equal(t, []string{"browse-de-read", "browse-de-toread"}, fixtureBookIDs(deOnly.Items))
 	})
+
+	unknownScope, err := store.ListMyBooksBrowse(t.Context(), OwnerID, "", domain.LanguageUnknown, "", false, 0, 25)
+	require.NoError(t, err)
+	t.Run("the retired unknown scope is no longer a language", func(t *testing.T) {
+		assert.Zero(t, unknownScope.Total)
+		assert.Zero(t, unknownScope.ScopeTotal)
+		assert.Empty(t, unknownScope.Items)
+	})
 }
 
 // TestStoreMyBooksBrowseOrdersDeterministically holds the ordering step:

@@ -92,6 +92,14 @@ func TestMyBooksBrowseFiltersCountsPagingAndOwnership(t *testing.T) {
 	deResult, err := store.ListMyBooksBrowse(ctx, alice.ID, "", "DE", "", false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 3, deResult.Total, "German filter")
+	for _, item := range deResult.Items {
+		assert.Equal(t, domain.LanguageChosen, item.Book.LanguageState, "a study language never returns a Book whose language is not chosen: %+v", item)
+		assert.Equal(t, "de", item.Book.LanguageTag)
+	}
+	unknownScope, err := store.ListMyBooksBrowse(ctx, alice.ID, "", domain.LanguageUnknown, "", false, 0, 25)
+	require.NoError(t, err)
+	assert.Zero(t, unknownScope.Total, "the retired unknown scope is no longer a language")
+	assert.Empty(t, unknownScope.Items)
 	unknown, err := store.ListMyBooksBrowse(ctx, alice.ID, "Donaudampf", "", "", false, 0, 25)
 	require.NoError(t, err)
 	assert.Equal(t, 2, unknown.Total)

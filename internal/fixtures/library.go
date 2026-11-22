@@ -276,14 +276,14 @@ func (s *Store) ListMyBooksBrowse(_ context.Context, owner, query, language, dis
 }
 
 // normalizeFixtureBrowseInputs trims the search and the scope selectors and
-// canonicalizes the language, except for the explicit unknown scope.
+// always canonicalizes the language: a Book matches a non-empty language only
+// when its language is chosen and equal, and the retired unknown scope is
+// gone.
 func normalizeFixtureBrowseInputs(query, language, disposition string) (string, string, string) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
 	disposition = strings.TrimSpace(disposition)
-	if language != domain.LanguageUnknown {
-		language = normalizeFixtureLanguage(language)
-	}
+	language = normalizeFixtureLanguage(language)
 	return query, language, disposition
 }
 
@@ -344,14 +344,13 @@ func filterFixtureBooks(books []domain.MyBook, query, language, disposition stri
 }
 
 // fixtureBookInLanguage reports whether a Book belongs to the selected
-// language scope: every language when empty, only unchosen languages for the
-// explicit unknown scope, and a canonical tag match otherwise.
+// language scope: every chosen-bucket member when the language is empty, and
+// a chosen, canonical tag match otherwise. A Book whose language is not
+// chosen matches no study language.
 func fixtureBookInLanguage(book domain.MyBook, language string) bool {
 	switch language {
 	case "":
 		return true
-	case domain.LanguageUnknown:
-		return book.Book.LanguageState == domain.LanguageUnknown
 	default:
 		return book.Book.LanguageState == domain.LanguageChosen && normalizeFixtureLanguage(book.Book.LanguageTag) == language
 	}

@@ -172,8 +172,9 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 }
 
 // normalizeMyBooksBrowseRequest trims and lowercases the search, trims the
-// scope selectors, validates the disposition before any read, and canonicalizes
-// the language except for the explicit unknown scope.
+// scope selectors, validates the disposition before any read, and always
+// canonicalizes the language: a Book matches a non-empty language only when
+// its language is chosen and equal, and the retired unknown scope is gone.
 func normalizeMyBooksBrowseRequest(query, language, disposition string) (string, string, string, error) {
 	query = strings.ToLower(strings.TrimSpace(query))
 	language = strings.TrimSpace(language)
@@ -183,9 +184,7 @@ func normalizeMyBooksBrowseRequest(query, language, disposition string) (string,
 			return "", "", "", err
 		}
 	}
-	if language != domain.LanguageUnknown {
-		language = canonicalization.NormalizeLanguage(language)
-	}
+	language = canonicalization.NormalizeLanguage(language)
 	return query, language, disposition, nil
 }
 
