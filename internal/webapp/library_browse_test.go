@@ -73,6 +73,54 @@ func TestNeedsLanguageClearSearchResetsQueryAndPreservesDisposition(t *testing.T
 	assert.Contains(t, html, `href="/library?disposition=inbox&amp;needs-language"`)
 }
 
+// A GET form submit replaces its action's query string with the form fields, so
+// the active tab has to travel as hidden fields for a search to stay on it.
+func TestMyBooksSearchFormCarriesTheActiveTabWithoutJavaScript(t *testing.T) {
+	cases := []struct {
+		name      string
+		state     MyBooksBrowseState
+		wants     []string
+		forbidden []string
+	}{
+		{name: "read", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 2, History: true}, wants: []string{`<input type="hidden" name="history" value="read">`}, forbidden: []string{`name="disposition"`}},
+		{name: "to read", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 2, Disposition: domain.BookDispositionToRead}, wants: []string{`<input type="hidden" name="disposition" value="to_read">`}, forbidden: []string{`name="history"`}},
+		{name: "needs language", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", AllCount: 2, NeedsLanguage: true}, wants: []string{`<input type="hidden" name="needs-language" value="">`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var output bytes.Buffer
+			require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", "", false, tc.state).Render(context.Background(), &output))
+			html := output.String()
+			start := strings.Index(html, `<form class="library-search"`)
+			require.GreaterOrEqual(t, start, 0, html)
+			form := html[start : start+strings.Index(html[start:], "</form>")]
+			assert.Contains(t, form, `action="/library"`)
+			assert.Contains(t, form, `hx-get="/library"`)
+			for _, want := range tc.wants {
+				assert.Contains(t, form, want)
+			}
+			for _, bad := range tc.forbidden {
+				assert.NotContains(t, form, bad)
+			}
+		})
+	}
+}
+
+func TestMyBooksUnenhancedSearchSubmitStaysOnItsTab(t *testing.T) {
+	readSubmit := url.Values{"history": {"read"}, "q": {"iliad"}}
+	query, page, needsLanguage, disposition, history := parseMyBooksBrowseRequestWithHistory(&url.URL{Path: "/library", RawQuery: readSubmit.Encode()})
+	assert.Equal(t, "iliad", query)
+	assert.Equal(t, 1, page)
+	assert.False(t, needsLanguage)
+	assert.Empty(t, disposition)
+	assert.True(t, history)
+
+	toReadSubmit := url.Values{"disposition": {"to_read"}, "q": {"iliad"}}
+	_, _, _, disposition, history = parseMyBooksBrowseRequestWithHistory(&url.URL{Path: "/library", RawQuery: toReadSubmit.Encode()})
+	assert.Equal(t, domain.BookDispositionToRead, disposition)
+	assert.False(t, history)
+}
+
 type pagedBookBrowseReader struct {
 	*fixtures.Store
 	bookID      string
