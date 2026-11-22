@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -27,41 +26,8 @@ func (s stubJobsStore) ListBookPreparationJobs(context.Context, string) ([]domai
 // GET /jobs through the real handler with a page holding all three Book
 // preparation kinds plus Catalog sync.
 func TestJobsHandlerShowsAllThreePreparationKindsAndCatalogSyncOnOnePage(t *testing.T) {
-	analysisProgress := 42
-	rows := []domain.BookPreparationJob{
-		{
-			Kind:      domain.BookPreparationKindClassical,
-			JobID:     11,
-			BookID:    "classical-book",
-			BookTitle: "Anabasis",
-			Lifecycle: domain.JobLifecycleFailed,
-			Stage:     domain.BookPreparationStageSource,
-			Code:      domain.BookPreparationCodeSourcePinMismatch,
-			CreatedAt: time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC),
-		},
-		{
-			Kind:      domain.BookPreparationKindEPUBAcquisition,
-			JobID:     12,
-			BookID:    "epub-book",
-			BookTitle: "Der lange Weg nach Hause",
-			Lifecycle: domain.JobLifecycleRunning,
-			CreatedAt: time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC),
-		},
-		{
-			Kind:          domain.BookPreparationKindAnalysis,
-			JobID:         13,
-			DisplayNumber: 2,
-			BookID:        "epub-book",
-			BookTitle:     "Der lange Weg nach Hause",
-			Lifecycle:     domain.JobLifecycleFailed,
-			Stage:         domain.BookPreparationStageAnalysis,
-			Code:          domain.BookPreparationCodeDependencyParsingUnavailable,
-			Progress:      &analysisProgress,
-			CreatedAt:     time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC),
-		},
-	}
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
-		services.Store.Jobs = stubJobsStore{rows: rows}
+		services.Store.Jobs = stubJobsStore{rows: bookPreparationFixtureRows()}
 	})
 
 	response := jobsPageRequest(t, h, cookies)
@@ -73,8 +39,8 @@ func TestJobsHandlerShowsAllThreePreparationKindsAndCatalogSyncOnOnePage(t *test
 		"Classical preparation",
 		"EPUB acquisition",
 		`href="/jobs/13">Analysis #2</a>`,
-		`href="/catalogs/books/classical-book/in-my-books">Anabasis</a>`,
-		`href="/catalogs/books/epub-book/in-my-books">Der lange Weg nach Hause</a>`,
+		`href="/catalogs/books/book-classical/in-my-books">Anabasis</a>`,
+		`href="/catalogs/books/book-epub/in-my-books">Der lange Weg nach Hause</a>`,
 		">source<",
 		"<code>source_pin_mismatch</code>",
 		"<code>dependency_parsing_unavailable</code>",

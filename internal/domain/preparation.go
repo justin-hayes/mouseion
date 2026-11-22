@@ -129,9 +129,10 @@ func EPUBAcquisitionStageForCode(code BookPreparationCode) BookPreparationStage 
 // BookPreparationJob is one row of the /jobs Book preparations table: the one
 // shape Classical preparation, EPUB acquisition and analysis jobs share. An
 // EPUB preparation contributes two rows, its acquisition job and its analysis
-// job. JobID names the kind's own detail page where one exists; analysis is
-// the only kind with one, and its DisplayNumber distinguishes the run.
-// BookID and BookTitle identify the Book the row links to.
+// job. For an analysis row JobID is the analysis detail page's id and
+// DisplayNumber distinguishes the run; the other kinds carry their River job
+// id as row identity only, since they have no detail page. BookID and BookTitle
+// identify the Book the row links to.
 type BookPreparationJob struct {
 	Kind          BookPreparationKind
 	JobID         int64
