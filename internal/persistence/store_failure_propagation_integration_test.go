@@ -162,67 +162,33 @@ func addFailureConnection(t *testing.T, ctx context.Context, store *PostgresStor
 	return connection
 }
 
-// TestReconcileCatalogueEntryPropagatesPersistenceFailures breaks each write the
-// metadata upsert performs, so a failure reaches the caller instead of being
-// read as a successful sync.
-func TestReconcileCatalogueEntryPropagatesPersistenceFailures(t *testing.T) {
+// TestUpdateCatalogueBookMetadataPropagatesPersistenceFailures breaks each
+// read and write the metadata update performs, so a database failure reaches the
+// caller instead of being read as a successful sync.
+func TestUpdateCatalogueBookMetadataPropagatesPersistenceFailures(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("the alias lookup fails", func(t *testing.T) {
 		store, owner := newFailureStore(t, ctx, "reconcile-alias-failure-owner")
 		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		_, err := store.Pool().Exec(ctx, `DROP TABLE book_aliases CASCADE`)
+		_, err := seedCatalogueBook(t, ctx, store, owner, connection.ID, "entry", "Title", "", "de")
+		require.NoError(t, err)
+		_, err = store.Pool().Exec(ctx, `DROP TABLE book_aliases CASCADE`)
 		require.NoError(t, err)
 
-		_, err = store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
+		_, err = store.UpdateCatalogueBookMetadata(ctx, owner, connection.ID, "entry", "Retitled", "")
 		require.Error(t, err)
 		require.NotErrorIs(t, err, ErrAliasConflict)
-	})
-
-	t.Run("the book insert fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "reconcile-insert-failure-owner")
-		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		raiseOnWrite(t, ctx, store, "books", "INSERT", "")
-
-		_, err := store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
-		require.Error(t, err)
 	})
 
 	t.Run("the metadata update fails", func(t *testing.T) {
 		store, owner := newFailureStore(t, ctx, "reconcile-update-failure-owner")
 		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		_, err := store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
+		_, err := seedCatalogueBook(t, ctx, store, owner, connection.ID, "entry", "Title", "", "de")
 		require.NoError(t, err)
 		raiseOnWrite(t, ctx, store, "books", "UPDATE", "")
 
-		_, err = store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Retitled", "", "de")
-		require.Error(t, err)
-	})
-
-	t.Run("the membership activation fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "reconcile-membership-failure-owner")
-		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		raiseOnWrite(t, ctx, store, "book_membership", "INSERT OR UPDATE", "")
-
-		_, err := store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
-		require.Error(t, err)
-	})
-
-	t.Run("the inbox placement fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "reconcile-inbox-failure-owner")
-		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		raiseOnWrite(t, ctx, store, "book_dispositions", "INSERT", "")
-
-		_, err := store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
-		require.Error(t, err)
-	})
-
-	t.Run("the catalogue alias insert fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "reconcile-alias-insert-failure-owner")
-		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		raiseOnWrite(t, ctx, store, "book_aliases", "INSERT", "")
-
-		_, err := store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
+		_, err = store.UpdateCatalogueBookMetadata(ctx, owner, connection.ID, "entry", "Retitled", "")
 		require.Error(t, err)
 	})
 }
@@ -247,7 +213,7 @@ func TestBookCoverAdvertisementPropagatesWriteFailures(t *testing.T) {
 	t.Run("the refresh write fails", func(t *testing.T) {
 		store, owner := newFailureStore(t, ctx, "cover-refresh-failure-owner")
 		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		reconciled, err := store.ReconcileCatalogueEntry(ctx, owner, connection.ID, "entry", "Title", "", "de")
+		reconciled, err := seedCatalogueBook(t, ctx, store, owner, connection.ID, "entry", "Title", "", "de")
 		require.NoError(t, err)
 		_, advertisedAt, err := store.RecordBookCoverAdvertisement(ctx, owner, reconciled.Book.ID, connection.ID, "entry", true)
 		require.NoError(t, err)

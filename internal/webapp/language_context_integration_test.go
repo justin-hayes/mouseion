@@ -36,7 +36,7 @@ func TestStaleOldLanguageRequestsRecoverWithoutDurableMutation(t *testing.T) {
 	// A second study language makes a deliberate switch possible.
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Italian catalog", URL: "https://italian.example/opds"})
 	require.NoError(t, err)
-	_, err = store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
+	_, err = seedWebappCatalogueBook(t, ctx, store, owner.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, "de"))
 

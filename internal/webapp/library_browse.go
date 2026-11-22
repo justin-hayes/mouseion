@@ -2,7 +2,6 @@ package webapp
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -226,7 +225,6 @@ type MyBooksBrowseState struct {
 	InboxCount         int
 	ToReadCount        int
 	ReadCount          int
-	RefreshableBookIDs map[string]bool
 }
 
 func myBooksURL(query string, page int, needsLanguage bool) string {
@@ -307,16 +305,6 @@ func parseMyBooksBrowseRequestWithHistory(rURL *url.URL) (query string, page int
 // show-hidden parameter selects it; the default scope omits Hidden Books.
 func parseMyBooksShowHidden(rURL *url.URL) bool {
 	return rURL.Query().Has("show-hidden")
-}
-
-// myBooksReturnFromRequest derives the browse location of an HTMX row refresh
-// from the page that issued it, so a row's Hide/Unhide returns to that view.
-func myBooksReturnFromRequest(r *http.Request) string {
-	current, err := url.Parse(r.Header.Get("Hx-Current-Url"))
-	if err != nil || current.Path != "/library" {
-		return "/library"
-	}
-	return myBooksReturnURL(current.Path + "?" + current.RawQuery)
 }
 
 // myBooksReturnURL validates a posted return location. Only a local /library

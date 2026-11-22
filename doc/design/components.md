@@ -243,7 +243,7 @@ then place the margin note and actions below the text column.
 
 Use one labeled contextual action and a native **More actions** disclosure.
 **Move to To Read** is primary for Inbox Books; **View in Reading**
-is primary for the current Book and To Read Books. The disclosure owns **Hide** or **Unhide** and eligible metadata refresh. Do not add
+is primary for the current Book and To Read Books. The disclosure owns **Hide** or **Unhide**. Do not add
 standalone analysis/acquisition controls or next-action recommendations. Its
 margin note may state concise current evidence: analysis running, failed,
 unavailable, not yet analysed, or current token-weighted Known coverage and its

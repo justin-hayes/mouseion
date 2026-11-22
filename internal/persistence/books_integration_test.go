@@ -44,7 +44,7 @@ func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 		if source.owner == bob.ID {
 			connectionID = bobConnection.ID
 		}
-		_, err = store.ReconcileCatalogueEntry(ctx, source.owner, connectionID, source.identifier, source.title, "", source.language)
+		_, err = seedCatalogueBook(t, ctx, store, source.owner, connectionID, source.identifier, source.title, "", source.language)
 		require.NoError(t, err)
 		var bookID string
 		err = pool.QueryRow(ctx, `SELECT book_id::text FROM book_aliases WHERE owner_id=$1 AND connection_id=$2 AND value=$3`, source.owner, connectionID, source.identifier).Scan(&bookID)

@@ -25,8 +25,6 @@ var fixtureCatalogueEntries = map[string]opds.Entry{
 	"fixture-connection": {ID: "fixture-entry", Title: "Metadata-only migration book", Author: "Fixture Catalogue Author"},
 }
 
-const fixtureCatalogueLanguage = "de"
-
 // CatalogueSync is a small in-memory implementation of the wider sync seam
 // used by the webapp. It gives the browser fixture deterministic connection
 // states and exercises the same handler contracts as the River-backed service.
@@ -49,7 +47,6 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 	}
 	status := domain.CatalogueSyncStatus{OwnerID: owner, ConnectionID: connectionID, State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime}
 	if connectionID == "fixture-connection" {
-		s.Store.arriveNextFixtureStudyLanguage()
 		status.State = domain.CatalogueSyncSynced
 		status.LastSyncedAt = new(fixtureJourneyTime)
 		status.LastUpsertedCount = 3
@@ -57,7 +54,6 @@ func (s *CatalogueSync) Enqueue(ctx context.Context, owner, connectionID string)
 	if err := s.Store.SetCatalogueSyncStatus(ctx, status); err != nil {
 		return cataloguesync.Handle{}, err
 	}
-	s.Store.admitFixtureCatalogueLanguage(owner, connectionID)
 	return cataloguesync.Handle{ID: fixtureCatalogueSyncJobIDs[connectionID], DisplayNumber: fixtureCatalogueSyncJobIDs[connectionID]}, nil
 }
 
@@ -84,44 +80,6 @@ func (s *CatalogueSync) FindAcquisitionTarget(ctx context.Context, owner, bookID
 		return cataloguesync.AcquisitionTarget{}, cataloguesync.ErrNotFound
 	}
 	return cataloguesync.AcquisitionTarget{ConnectionID: alias.ConnectionID, Language: book.LanguageTag, Entry: entry, Href: "https://fixture.invalid/book.epub"}, nil
-}
-
-// RefreshEntry mirrors the fixture catalogue feed without adding a reconcile
-// implementation that the fixture server does not otherwise use.
-func (s *CatalogueSync) RefreshEntry(ctx context.Context, owner, bookID string) (cataloguesync.RefreshResult, error) {
-	book, err := s.Store.GetBook(ctx, owner, bookID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
-	}
-	if err != nil {
-		return cataloguesync.RefreshResult{Failed: true}, err
-	}
-	alias, err := s.Store.GetBookCatalogEntryAlias(ctx, owner, book.ID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
-	}
-	if err != nil {
-		return cataloguesync.RefreshResult{Book: book, Failed: true}, err
-	}
-	if alias.ConnectionID == "" || strings.TrimSpace(alias.Value) == "" {
-		return cataloguesync.RefreshResult{}, cataloguesync.ErrNotFound
-	}
-	entry, err := s.entryForAlias(ctx, owner, alias)
-	if err != nil {
-		if errors.Is(err, cataloguesync.ErrConnectionNotFound) {
-			return cataloguesync.RefreshResult{Book: book, Failed: true}, err
-		}
-		return cataloguesync.RefreshResult{Book: book, Missing: true}, nil
-	}
-	entryTitle := entry.Title
-	if book.Title == entryTitle && book.Author == entry.Author {
-		return cataloguesync.RefreshResult{Book: book}, nil
-	}
-	updated, err := s.Store.UpdateBookMetadata(ctx, owner, book.ID, entryTitle, entry.Author, book.LanguageState, book.LanguageTag)
-	if err != nil {
-		return cataloguesync.RefreshResult{Book: book, Failed: true}, err
-	}
-	return cataloguesync.RefreshResult{Book: updated, Updated: true}, nil
 }
 
 func (s *CatalogueSync) entryForAlias(ctx context.Context, owner string, alias domain.BookAlias) (opds.Entry, error) {

@@ -1,6 +1,6 @@
 # Catalog Sync
 
-Status: Implemented, including independent cover retrieval · Date: 2026-09-02 · Updated: 2026-11-21
+Status: Implemented, including independent cover retrieval · Date: 2026-09-02 · Updated: 2026-11-22
 
 ## Motivation
 
@@ -14,18 +14,19 @@ and the later standalone-action retirement in [ADR 0054](../adr/0054-retire-stan
 
 ## Goal
 
-Keep bibliographic metadata from each learner-owned catalog connection
-reconciled into My Books for every non-English language the catalog offers
-whose NLP pipeline is ready, without downloading EPUBs or deleting
-learner-owned state. The chosen-language Books produced by this process derive
-the learner's study-language set.
+Keep a local Catalog index current for each learner-owned connection in every
+non-English language the catalog offers whose NLP pipeline is ready, without
+downloading EPUBs, creating Books, or deleting learner-owned state. Books the
+learner adds from that index keep their title, author and cover reconciled to
+the entry; only chosen Books derive the learner's study-language set.
 
 ## Scope
 
 This feature covers automated per-connection metadata sync, explicit **Sync
-now**, per-book metadata refresh, connection-level status, and the transition
-from a metadata-only Book to per-book content acquisition through Reading
-Journey intent. The **Catalog** at `/catalogs` browses the Classical catalog and
+now**, connection-level status, and the transition from a Catalog entry to a
+chosen Book and content acquisition through Reading intent. Sync never creates
+a Book, membership, or disposition, and the per-Book metadata refresh action is
+retired. The **Catalog** at `/catalogs` browses the Classical catalog and
 each connection's local Catalog index; My Books remains the learner's
 bibliographic Book surface. Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md); its capability-driven language scope is reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md).
 
@@ -39,8 +40,8 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
 - The primary empty-state action enters the Catalog at `/catalogs`. Its OPDS
   area offers **Connect an OPDS catalog**, which leads to **Manage sources** at
   `/catalogs/sources`; it does not silently create a connection.
-- Books enter My Books through catalogue synchronization; there is no manual
-  metadata-entry path.
+- Books enter My Books only when the learner chooses a Catalog entry; sync and
+  browsing never create them, and there is no manual metadata-entry path.
 
 ### Connection configuration and status
 
@@ -119,14 +120,17 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   feed. The index holds no learner state. A complete run deletes entries it no
   longer saw; a partial or failed run deletes nothing; deleting the connection
   deletes its index.
-- It upserts title, author when supplied, language, and catalog identity through the owner-scoped
-  Book alias and duplicate rules in ADR 0035.
-- A new match becomes an active metadata-only My Books entry. No placeholder
-  source, empty content record, scope, analysis, or deck is created.
+- It never creates a Book, activates membership, writes a disposition, or
+  changes a Book's language. An unowned entry exists only in the Catalog index.
+- For an entry linked to one of the learner's Books by catalog-entry alias, it
+  updates that Book's title, author, and advertised cover. Language, identity,
+  membership, and disposition stay as the learner's Add left them.
 - Repeated runs are idempotent. Metadata changes propagate without duplicating
-  Books or membership.
-- Entries removed upstream remain in My Books. Deleting a connection also
-  leaves all Books, membership, acquired content, and derived history intact.
+  Books, membership, or dispositions.
+- A Book that left My Books is not put back by sync. Entries removed upstream
+  leave the index; chosen Books and their metadata remain. Deleting a connection
+  also leaves all Books, membership, acquired content, and derived history
+  intact.
 
 ### Accepted cover-metadata extension
 
@@ -142,14 +146,13 @@ sent to the browser.
 creates acquired source evidence, or triggers analysis; it does not prohibit the
 shipped independent retrieval of optional catalog-supplied display metadata.
 
-### Lazy content acquisition and per-book refresh
+### Lazy content acquisition
 
 - Sync never downloads or re-downloads EPUB content.
-- Metadata-only Books have no detail page. **Move to To Read** acquires,
-  validates, and analyzes the EPUB in one ensure-once flow using the EPUB
-  acquisition link stored in the Catalog index; it never walks the connection's
-  language feeds. The My Books row remains the place to refresh metadata or
-  remove the Book.
+- A Book chosen from the Catalog has no detail page. **Add** and **Move to To
+  Read** acquire, validate, and analyze the EPUB in one ensure-once flow using
+  the EPUB acquisition link stored in the Catalog index; they never walk the
+  connection's language feeds. The Book's metadata follows the next sync.
 - Add on a Catalog entry expresses the same intent: it creates or restores the
   Book as To Read and then uses the same acquisition-and-analysis route. The
   Add request itself acquires the EPUB, as Move to To Read does today; a failure
@@ -160,10 +163,10 @@ shipped independent retrieval of optional catalog-supplied display metadata.
   entry makes Retry acquire it without any other change.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035.
-- Each catalog-backed Book offers a metadata refresh for that entry. Refresh
-  is an idempotent metadata-only upsert and has no scope or analysis effect.
-- If the individual upstream entry is no longer present, refresh is a calm
-  no-op that preserves the Book and its current metadata.
+- There is no per-Book metadata refresh action or route. A retired
+  `/library/books/{id}/refresh` request receives the ordinary
+  unsupported-request response. If an entry is no longer present in a complete
+  sync, the Book keeps its current metadata.
 
 ### EPUB acquisition failures
 
@@ -203,7 +206,6 @@ attempt remains.
 | EPUB acquisition failed | Keep the Book To Read, name the reason (entry missing, download failed, unusable source, or import failed), and offer Retry only for entry, fetch and import stages. The reason stays until an acquisition succeeds and never overrides an analysis in effect. | Retry, or fix the catalog and retry |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
 | Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from My Books or Reading |
-| Individual metadata refresh complete | Show refreshed metadata/last-refreshed state without implying content changed. | Return to My Books |
 
 ## Non-goals
 
@@ -231,11 +233,15 @@ attempt remains.
   idempotent reconciliation.
 - Every offered non-English language with a ready NLP pipeline is walked; no
   saved study-language preference gates the run.
-- Repeated runs create no duplicates; upstream metadata changes update local
-  metadata; upstream removal and connection deletion remove nothing from My
-  Books.
+- Repeated runs create no duplicates; upstream metadata changes update the
+  linked Book's title, author, and cover; upstream removal and connection
+  deletion remove nothing from My Books.
+- A fresh learner's My Books stays empty after a sync, and study languages come
+  only from Books they added.
 - Sync performs no EPUB download and causes no scope or analysis invalidation.
-- Per-book refresh updates metadata only and safely no-ops when the entry is
-  missing.
+- Sync updates the title, author, and cover of Books linked to an entry and
+  never creates a Book, membership, or disposition.
+- A Book that left My Books is not restored by sync; the per-Book metadata
+  refresh action and route are gone.
 - Operational jobs remain visible and recoverable through `/jobs` without
   changing primary navigation.

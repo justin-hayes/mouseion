@@ -169,6 +169,7 @@ type catalogueSyncConnectionView struct {
 	Error           string
 	LastSyncedAt    string
 	LastSyncedAtISO string
+	// UpsertSummary reports the linked Books whose metadata the last sync updated.
 	UpsertSummary   string
 	Syncing         bool
 	Failed          bool
@@ -196,9 +197,9 @@ func catalogueSyncConnectionViewFor(connection domain.OpdsConnection, statuses m
 			view.LastSyncedAtISO = status.LastSyncedAt.Format(time.RFC3339)
 		}
 		if status.LastUpsertedCount == 0 {
-			view.Message = "Sync completed, but no eligible EPUB entries were found; the library was unchanged."
+			view.Message = "Sync completed. The Catalog index is current; no Book metadata changed."
 		} else {
-			view.UpsertSummary = fmt.Sprintf("%d books added or updated. Catalog sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
+			view.UpsertSummary = fmt.Sprintf("%d Books updated from their Catalog entries. Catalog sync changes metadata only; it does not download EPUB content.", status.LastUpsertedCount)
 		}
 	case domain.CatalogueSyncFailed:
 		view.State = "Sync failed"

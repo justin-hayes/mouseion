@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -55,111 +54,6 @@ func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id s
 		return domain.MyBook{}, false
 	}
 	return detail, true
-}
-
-func (h *Handler) bookRefreshEligible(ctx context.Context, owner, bookID string) (bool, error) {
-	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(ctx, owner, bookID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if alias.AliasType != domain.AliasCatalogEntry || alias.Namespace != domain.NamespaceSourceIdentifier || strings.TrimSpace(alias.Value) == "" {
-		return false, nil
-	}
-	if strings.TrimSpace(alias.ConnectionID) == "" {
-		return false, nil
-	}
-	_, err = h.services.Store.Catalogs.GetOpdsConnection(ctx, owner, alias.ConnectionID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func (h *Handler) refreshableMyBookIDs(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, error) {
-	refreshable := make(map[string]bool)
-	for _, book := range books {
-		eligible, err := h.bookRefreshEligible(ctx, owner, book.Book.ID)
-		if err != nil {
-			return nil, err
-		}
-		if eligible {
-			refreshable[book.Book.ID] = true
-		}
-	}
-	return refreshable, nil
-}
-
-func (h *Handler) refreshBookMetadata(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	u := user(r)
-	detail, ok := h.bookDetail(w, r, u.ID, r.PathValue("id"))
-	if !ok {
-		return
-	}
-	result, err := h.services.CatalogueSync.RefreshEntry(r.Context(), u.ID, detail.Book.ID)
-	if errors.Is(err, cataloguesync.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		result.Failed = true
-	}
-	if result.Book.ID == "" {
-		result.Book = detail.Book
-	}
-	message := refreshMessage(result)
-	if isPartialHTMXRequest(r) {
-		row := domain.MyBook{Book: result.Book}
-		if refreshed, readErr := h.myBooksRefreshRowDetail(r.Context(), u.ID, result.Book.ID); readErr == nil {
-			row = refreshed
-			row.Book = result.Book
-		} else if !errors.Is(readErr, domain.ErrNotFound) {
-			fail(w, readErr)
-			return
-		}
-		if err := h.annotateBookToRead(r.Context(), u.ID, &row); err != nil {
-			fail(w, err)
-			return
-		}
-		refreshEligible, err := h.bookRefreshEligible(r.Context(), u.ID, row.Book.ID)
-		if err != nil {
-			fail(w, err)
-			return
-		}
-		render(w, r, MyBookRow(h.csrf(w, r), row, refreshEligible, message, myBooksReturnFromRequest(r)))
-		return
-	}
-	redirect(w, r, "/library?message="+url.QueryEscape(message))
-}
-
-func (h *Handler) myBooksRefreshRowDetail(ctx context.Context, owner, bookID string) (domain.MyBook, error) {
-	return h.services.Store.MyBooks.GetBookDetailForMyBooksRefresh(ctx, owner, bookID)
-}
-
-func refreshMessage(result cataloguesync.RefreshResult) string {
-	if result.CurrentReadingEnded {
-		return "Metadata refreshed. This Book's language changed, so your current reading of it ended without finishing; reservations were released and history is kept. Start it again in its new language to read it."
-	}
-	switch {
-	case result.CoverPending:
-		return "Metadata refreshed. Cover pending."
-	case result.Updated:
-		return "Metadata refreshed."
-	case result.Missing:
-		return "The catalog entry is no longer available. Your book and its metadata are unchanged."
-	case result.Failed:
-		return "Metadata could not be refreshed. Check the connection and try again."
-	default:
-		return "Metadata is already up to date."
-	}
 }
 
 func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {

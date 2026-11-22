@@ -245,7 +245,7 @@ func TestHideAndUnhideUnderPreviousStudyLanguageRecoverWithoutChange(t *testing.
 	assert.Contains(t, notice.Body.String(), "Your study language changed")
 }
 
-func TestCatalogueDiscoveredBookAppearsVisibleInbox(t *testing.T) {
+func TestCatalogueSyncDoesNotCreateBooks(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "hidden-discovery-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -259,24 +259,21 @@ func TestCatalogueDiscoveredBookAppearsVisibleInbox(t *testing.T) {
 	}
 	require.NoError(t, worker.Work(ctx, &river.Job[cataloguesync.SyncArgs]{Args: cataloguesync.SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
 
-	books, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
-	require.NoError(t, err)
-	require.Len(t, books.Items, 1, "sync discovered the entry")
-	discovered := books.Items[0]
-	assert.Equal(t, "Discovered visible", discovered.Book.Title)
-	hidden, revision, err := store.GetBookVisibility(ctx, owner.ID, discovered.Book.ID)
-	require.NoError(t, err)
-	assert.False(t, hidden, "a discovered Book is visible")
-	assert.Zero(t, revision, "a discovered Book has no visibility choice yet")
-	disposition, err := store.GetBookDisposition(ctx, owner.ID, discovered.Book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, disposition)
-
-	h := visibilityHandler(store)
-	cookies, _ := loginCookies(t, h, owner.Username, "learner-password")
-	inbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
-	require.Equal(t, http.StatusOK, inbox.Code)
-	assert.Contains(t, inbox.Body.String(), `id="book-row-`+discovered.Book.ID+`"`, "the discovered Book is listed in Inbox")
-	assert.NotContains(t, inbox.Body.String(), "</span>Hidden</span>", "the discovered Book is not marked Hidden")
-	assert.NotContains(t, inbox.Body.String(), "1 hidden book is not shown.")
+	t.Run("sync leaves My Books empty", func(t *testing.T) {
+		books, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
+		require.NoError(t, err)
+		require.Empty(t, books.Items, "sync created a Book and placed it in My Books")
+	})
+	t.Run("sync maintains the Catalog index", func(t *testing.T) {
+		entries, err := store.ListCatalogueEntries(ctx, owner.ID, connection.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 1, "sync did not maintain the Catalog index")
+		require.Equal(t, "Discovered visible", entries[0].Title)
+	})
+	t.Run("sync activates no membership", func(t *testing.T) {
+		var memberships int
+		err := store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, owner.ID).Scan(&memberships)
+		require.NoError(t, err)
+		require.Zero(t, memberships, "sync activated My Books membership")
+	})
 }

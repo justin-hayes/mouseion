@@ -41,8 +41,10 @@ type CatalogueSyncStatus struct {
 	State                 CatalogueSyncState
 	LastError             string
 	LastSyncedAt          *time.Time
-	LastUpsertedCount     int
-	UpdatedAt             time.Time
+	// LastUpsertedCount is the number of linked Books the last sync updated.
+	// The persisted column keeps its historical upsert name.
+	LastUpsertedCount int
+	UpdatedAt         time.Time
 }
 
 type BookEvidenceState string

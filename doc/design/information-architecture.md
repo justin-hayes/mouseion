@@ -47,18 +47,19 @@ and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md
 The recurring experience rhythm is:
 
 ```text
-Catalog sync -> Inbox -> To Read -> Reading chooser -> Current reading
-                                    <- Read history <- Finish <-
+Catalog -> To Read -> Reading chooser -> Current reading
+                              <- Read history <- Finish <-
 ```
 
-This rhythm does not imply a required pipeline for every Book. Catalog sync,
-analysis, To Read disposition, current-reading selection, reading completion,
-and prepared-deck artifact work remain distinct transitions. Moving a Book to To
-Read is the analysis exception: the learner's intent intentionally acquires the
-current EPUB and ensures whole-book analysis as one action. My Books metadata
-refresh remains separate and never starts analysis. Starting current reading
-freezes the vocabulary snapshot; finishing accepts eligible identities into
-modeled Known vocabulary and creates an independent completion record.
+This rhythm does not imply a required pipeline for every Book. Catalog browsing
+and sync, Add, analysis, current-reading selection, reading completion, and
+prepared-deck artifact work remain distinct transitions. Sync keeps each
+connection's Catalog index current and follows title, author and cover changes
+onto Books the learner already chose; it never creates a Book or membership.
+Choosing a Book (Add) expresses reading intent and acquires the current EPUB as
+part of becoming To Read. Starting current reading freezes the vocabulary
+snapshot; finishing accepts eligible identities into modeled Known vocabulary
+and creates an independent completion record.
 
 ## Principal learner-facing model
 
@@ -69,7 +70,7 @@ learner. It can include:
 
 - acquired and metadata-only books;
 - assessed and unassessed books;
-- books in Inbox or To Read, visible or hidden;
+- Books the learner chose, in To Read or Read, visible or hidden;
 - currently read and previously read books;
 - completed books;
 - books with stale, questionable, incomplete, or unavailable evidence.
@@ -82,12 +83,12 @@ evidence or the next relevant action.
 The catalog is browsed within the active study language: browse, paging, and
 search are scoped to it, and no "All languages" default exists. Books without a
 chosen language belong to no language partition and are surfaced only through
-an out-of-band **needs language** strip (fix the language in the catalog, then
-re-sync; display-only, no per-book actions). For a fresh account, its empty
-state explains catalogue setup and enters `/catalogs`; catalogue setup and sync
-maintenance are owned by the Catalog destination and its Manage sources page.
-Synced catalogue metadata's Book surface is here; the Catalog separately browses
-each connection's local Catalog index.
+an out-of-band **needs language** strip (display-only, no per-book actions).
+For a fresh account, its empty state explains catalogue setup and enters
+`/catalogs`; catalogue setup and sync maintenance are owned by the Catalog
+destination and its Manage sources page. My Books holds only Books the learner
+chose from the Catalog; sync maintains each connection's local Catalog index
+instead of adding Books.
 
 ### Reading
 
@@ -140,7 +141,9 @@ These objects remain important, but they do not define principal navigation:
   reading is finished (ADR 0092 retired import).
 - **Catalog connection** — learner-owned OPDS endpoint and credentials.
 - **Catalog sync** — periodic metadata reconciliation for one learner-owned
-  connection. It is upsert-only and never destructive; content is trusted
+  connection. It maintains the connection's Catalog index and follows title,
+  author and cover changes onto Books already linked by catalog-entry alias; it
+  never creates a Book, membership, or disposition. Content is trusted
   immutable for sync, so it never invalidates scope or analysis. The metadata
   contract is defined by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md)
   and its language scope is reconciled by ADR 0043.
@@ -165,8 +168,8 @@ source, or scope changes; they are not parallel learner result surfaces.
 
 The authenticated shell exposes four principal destinations:
 
-- **My Books** — the canonical home, broad book collection, and sole browse
-  surface for synced catalog metadata;
+- **My Books** — the canonical home for the Books the learner chose, with
+  search, reading intent, and reading history;
 - **Reading** — the current Book with its vocabulary Browse, or the To Read
   candidate chooser between Books. Older Reading Journey and Primary Goal terms
   are not used on active screens;
@@ -188,13 +191,12 @@ failed — with **Sync now**; a failed line names the connection and links to
 **Manage sources**.
 Connection setup, credentials, editing, deletion, sync and failure recovery live
 on **Manage sources** at `/catalogs/sources`. The Catalog is not a fifth
-destination. My Books remains the
-sole **bibliographic Book** browse surface for synced metadata; the Browse
-working desk on Reading lists vocabulary identities, not Books or catalog
-entries. Marking a Book To Read expresses the learner's reading intent and may
-trigger acquisition and analysis; Add in the Classical catalog creates or
-restores its Book as To Read and starts the same download and preparation. The
-upstream catalog browser is retired.
+destination. My Books remains the sole **bibliographic Book** browse surface;
+the Catalog browses entries, and the Browse working desk on Reading lists
+vocabulary identities, not Books or catalog entries. Marking a Book To Read
+expresses the learner's reading intent and may trigger acquisition and analysis;
+Add in the Classical catalog creates or restores its Book as To Read and starts
+the same download and preparation. The upstream catalog browser is retired.
 
 Analysis jobs, deck preparation, and historical artifact provenance are
 supporting surfaces.
@@ -225,7 +227,6 @@ Authentication
 
 My Books
     needs-language strip (books awaiting a language)
-    metadata refresh on eligible rows
     move Books into or out of To Read
 
 Reading (active study language)
@@ -320,7 +321,7 @@ never the sole Book identity or an implicit mutation control.
 
 Reading owns the current Book or unordered To Read chooser, current evidence, and
 recovery actions. My Books communicates whether a Book is To Read and keeps its
-explicit disposition, metadata-refresh, and removal actions. Books without a
+explicit disposition and removal actions. Books without a
 reachable Reading anchor remain operable without a detail page. Exact analysis
 history and provenance are operational facts available through `/jobs`, not
 sections on a generic learner-facing Book page. The grid remains moderately
@@ -425,9 +426,10 @@ operational history surface for current and prior runs.
 ## Active study language, study languages, and Vocabulary ownership
 
 Study languages are derived from the distinct normalized language tags of the
-learner's active chosen-language Books. For catalog-synced Books, the
-catalog entry is the source of truth and connection re-sync is the only way
-the language changes; there is no separate Settings selection to maintain.
+learner's active chosen-language Books. For a Book linked to a Catalog entry,
+the entry supplies title, author and cover at each sync, while the Book keeps
+the language its Add chose; there is no per-Book metadata refresh and no
+separate Settings selection to maintain.
 
 The **active study language** is a stored selection pointing into that derived
 set — context, not configuration: it chooses which study language the
@@ -491,9 +493,10 @@ authoritative for persistence, historical records, and compatibility details.
 Broader My Books membership is resolved by
 [ADR 0035](../adr/0035-my-books-membership-and-source-provenance.md): an
 owner-scoped bibliographic Book and its My Books membership are distinct from
-immutable acquired source evidence. Catalog sync creates metadata-only
+immutable acquired source evidence. Choosing a Catalog entry creates My Books
 membership; moving a Book to To Read acquires validated source evidence when
-needed.
+needed. Sync only maintains the Catalog index and follows metadata onto linked
+Books.
 
 1. **Retired Journey ordering** is preserved in [ADR 0034](../adr/0034-reading-journey-identity-ordering.md)
    as historical architecture context. It is not the shipped Reading model.
@@ -519,9 +522,10 @@ needed.
 8. **Catalog sync** follows the accepted contract in
    [ADR 0041](../adr/0041-catalog-sync-metadata-first.md), with its language
    scope reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
-   each learner-owned connection periodically reconciles metadata for every
-   non-English language whose NLP pipeline is ready, without downloading EPUB
-   content, deleting local state, or invalidating scope or analysis. ADR 0077
+   each learner-owned connection periodically maintains its Catalog index for
+   every non-English language whose NLP pipeline is ready and follows metadata
+   onto Books already linked to an entry, without creating Books, downloading
+   EPUB content, deleting local state, or invalidating scope or analysis. ADR 0077
    adds independent optional cover-image retrieval without changing that EPUB
    boundary.
 9. **Language view retirement** follows [ADR 0057](../adr/0057-retire-language-view-panel.md):

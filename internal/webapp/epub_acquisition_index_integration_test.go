@@ -129,8 +129,14 @@ func newIndexedAcquisitionFixture(t *testing.T) indexedAcquisitionFixture {
 	catalog := indexedCatalog(t, requests)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Index catalog", URL: catalog.URL + "/opds"})
 	require.NoError(t, err)
-	bookResult, err := store.ReconcileCatalogueEntry(ctx, owner.ID, connection.ID, "indexed-entry", "Indexed title", "Indexed author", "de")
+	bookResult, err := seedWebappCatalogueBook(t, ctx, store, owner.ID, connection.ID, "indexed-entry", "Indexed title", "Indexed author", "de")
 	require.NoError(t, err)
+	bookState, err := store.GetBookDetail(ctx, owner.ID, bookResult.Book.ID)
+	require.NoError(t, err)
+	_, err = store.TransitionBookDisposition(ctx, owner.ID, bookResult.Book.ID, bookState.DispositionRevision, domain.BookDispositionInbox)
+	require.NoError(t, err)
+	// Start with no index entry so the missing-entry path is reachable.
+	require.NoError(t, store.ReconcileCatalogueIndex(ctx, owner.ID, connection.ID, nil, time.Now()))
 	opdsService := opds.NewService(store, epub.NewService(store), catalog.Client())
 	syncService := cataloguesync.NewService(cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store}, nil, opdsService, readyGerman())
 	recorder := &recordingAnalysis{}

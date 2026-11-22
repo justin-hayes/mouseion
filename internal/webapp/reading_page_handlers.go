@@ -354,11 +354,6 @@ func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner stri
 	return nil
 }
 
-func (h *Handler) annotateBookToRead(ctx context.Context, owner string, book *domain.MyBook) error {
-	language, _ := activeStudyLanguageForContext(ctx)
-	return h.annotateBookToReadLanguage(ctx, owner, language, book)
-}
-
 func (h *Handler) annotateBookToReadLanguage(ctx context.Context, owner, language string, book *domain.MyBook) error {
 	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {

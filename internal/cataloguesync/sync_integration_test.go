@@ -66,7 +66,7 @@ func testEntryWithAuthor(id, title, author string) opds.Entry {
 	return entry
 }
 
-func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
+func TestSyncWorkerCreatesNoBooksAndUpdatesOnlyLinkedOnes(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	url, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -77,16 +77,10 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "sync-bob", false)
 	require.NoError(t, err)
-	_, err = store.PutSupportedLanguage(ctx, "de", "German")
-	require.NoError(t, err)
-	_, err = store.PutSupportedLanguage(ctx, "en", "English")
-	require.NoError(t, err)
-	_, err = store.PutSupportedLanguage(ctx, "it", "Italian")
-	require.NoError(t, err)
-	_, err = store.PutSupportedLanguage(ctx, "el", "Greek")
-	require.NoError(t, err)
-	_, err = store.PutSupportedLanguage(ctx, "fr", "French")
-	require.NoError(t, err)
+	for _, language := range []struct{ code, name string }{{"de", "German"}, {"en", "English"}, {"it", "Italian"}, {"el", "Greek"}, {"fr", "French"}} {
+		_, err = store.PutSupportedLanguage(ctx, language.code, language.name)
+		require.NoError(t, err)
+	}
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Alice catalog", URL: "https://catalog.example/opds", Password: "catalog-secret"})
 	require.NoError(t, err)
 	reader := &fakeReader{feeds: map[string]opds.Feed{
@@ -98,138 +92,125 @@ func TestSyncWorkerIdempotentMetadataOnlyAndOwnerScoped(t *testing.T) {
 	}}
 	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}, {Language: "en", DisplayName: "English", Ready: true}, {Language: "it", DisplayName: "Italian", Ready: false}, {Language: "el", DisplayName: "Greek", Ready: true}, {Language: "fr", DisplayName: "French", Ready: true}}}}}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: alice.ID, ConnectionID: connection.ID}}
+
 	require.NoError(t, worker.Work(ctx, job))
-	books, err := store.ListMyBooks(ctx, alice.ID)
+
+	t.Run("fresh sync leaves My Books empty", func(t *testing.T) {
+		books, err := store.ListMyBooks(ctx, alice.ID)
+		require.NoError(t, err)
+		require.Empty(t, books, "sync created Books from the catalog")
+	})
+	t.Run("fresh sync maintains the Catalog index", func(t *testing.T) {
+		entries, err := store.ListCatalogueEntries(ctx, alice.ID, connection.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 3, "fresh sync did not maintain the Catalog index")
+	})
+	t.Run("fresh sync writes no membership, disposition, or alias", func(t *testing.T) {
+		for _, table := range []string{"book_membership", "book_dispositions", "book_aliases"} {
+			var count int
+			err := store.Pool().QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE owner_id=$1`, alice.ID).Scan(&count)
+			require.NoError(t, err)
+			require.Zero(t, count, "fresh sync wrote %s rows", table)
+		}
+	})
+	t.Run("fresh sync reports no Book updates", func(t *testing.T) {
+		status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
+		require.NoError(t, err)
+		require.Equal(t, domain.CatalogueSyncSynced, status.State)
+		require.NotNil(t, status.LastSyncedAt)
+		require.Empty(t, status.LastError)
+		require.Zero(t, status.LastUpsertedCount, "fresh sync reported Book updates")
+	})
+
+	// The learner chooses one catalog entry. Only then does a Book exist.
+	added, err := store.AddCatalogueEntry(ctx, alice.ID, connection.ID, "entry-1")
 	require.NoError(t, err)
-	assert.Len(t, books, 3)
-	tags := make(map[string]string, len(books))
-	for _, book := range books {
-		tags[book.Title] = book.LanguageTag
-		assert.Equal(t, domain.LanguageChosen, book.LanguageState, "first sync book=%+v", book)
-		assert.Equal(t, domain.MetadataProvenanceCatalogueSync, book.MetadataProvenance, "first sync book=%+v", book)
-	}
-	assert.Equal(t, "de", tags["First title"])
-	for _, book := range books {
-		if book.Title == "First title" {
-			assert.Equal(t, "First author", book.Author)
-		}
-	}
-	assert.Equal(t, "el", tags["Greek title"])
-	assert.Equal(t, "fr", tags["French title"])
-	var toReadBookID, retryBookID string
-	for _, book := range books {
-		if book.Title == "First title" {
-			toReadBookID = book.ID
-			assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, book.ID), "first discovery did not enter Inbox")
-		}
-		if book.Title == "Greek title" {
-			retryBookID = book.ID
-			assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, book.ID), "first discovery did not enter Inbox")
-		}
-	}
-	require.NotEmpty(t, toReadBookID, "first synced book was not found for disposition lifecycle check")
-	require.NotEmpty(t, retryBookID, "Greek synced book was not found for resync check")
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBookID, domain.BookDispositionToRead))
-	require.Len(t, reader.visited, 3)
-	assert.Equal(t, "7", reader.visited[0])
-	assert.Equal(t, "11", reader.visited[1])
-	assert.Equal(t, "10", reader.visited[2])
-	status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.CatalogueSyncSynced, status.State)
-	assert.NotNil(t, status.LastSyncedAt)
-	assert.Empty(t, status.LastError)
-	assert.Equal(t, 3, status.LastUpsertedCount)
+	require.True(t, added.Created)
+	bookID := added.Book.ID
+	require.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, bookID))
+
+	// An unchanged resync is idempotent and changes no Book.
 	require.NoError(t, worker.Work(ctx, job))
-	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	require.NoError(t, err)
-	assert.Equal(t, 0, status.LastUpsertedCount)
-	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, retryBookID), "resync reset first-discovery disposition")
-	var inboxDispositionRows int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_dispositions WHERE owner_id=$1 AND book_id=$2`, alice.ID, retryBookID).Scan(&inboxDispositionRows)
-	require.NoError(t, err)
-	assert.Equal(t, 1, inboxDispositionRows, "retried first discovery created duplicate Inbox disposition rows")
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, retryBookID, domain.BookDispositionToRead))
-	reader.feeds["11"] = opds.Feed{Entries: []opds.Entry{testEntry("greek-entry", "Refreshed Greek title")}}
-	require.NoError(t, worker.Work(ctx, job))
-	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, retryBookID), "metadata resync reset To Read")
+	t.Run("unchanged resync reports no updates and keeps metadata", func(t *testing.T) {
+		status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
+		require.NoError(t, err)
+		require.Zero(t, status.LastUpsertedCount)
+		unchanged, err := store.GetBook(ctx, alice.ID, bookID)
+		require.NoError(t, err)
+		require.Equal(t, "First title", unchanged.Title)
+	})
+
+	// An upstream metadata change reaches the linked Book without touching its
+	// language, membership or disposition.
 	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Updated title", "Updated author")}}
 	require.NoError(t, worker.Work(ctx, job))
-	books, err = store.ListMyBooks(ctx, alice.ID)
-	require.NoError(t, err)
-	assert.Len(t, books, 3)
-	updatedTitles := make(map[string]string, len(books))
-	for _, book := range books {
-		updatedTitles[book.Title] = book.LanguageTag
-	}
-	assert.Equal(t, "de", updatedTitles["Updated title"])
-	assert.Equal(t, "el", updatedTitles["Refreshed Greek title"])
-	assert.Equal(t, "fr", updatedTitles["French title"])
-	for _, book := range books {
-		if book.Title == "Updated title" {
-			assert.Equal(t, "Updated author", book.Author)
+	t.Run("upstream metadata updates the linked Book", func(t *testing.T) {
+		updated, err := store.GetBook(ctx, alice.ID, bookID)
+		require.NoError(t, err)
+		require.Equal(t, "Updated title", updated.Title)
+		require.Equal(t, "Updated author", updated.Author)
+		status, err := store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, status.LastUpsertedCount)
+	})
+	t.Run("sync leaves language and disposition as Add left them", func(t *testing.T) {
+		updated, err := store.GetBook(ctx, alice.ID, bookID)
+		require.NoError(t, err)
+		require.Equal(t, "de", updated.LanguageTag)
+		require.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, bookID))
+	})
+	t.Run("metadata sync starts no analysis", func(t *testing.T) {
+		for _, table := range []string{"analysis_runs", "analysis_jobs"} {
+			var count int
+			err := store.Pool().QueryRow(ctx, `SELECT count(*) FROM `+table+` WHERE owner_id=$1`, alice.ID).Scan(&count)
+			require.NoError(t, err)
+			require.Zero(t, count, "metadata sync wrote %s rows", table)
 		}
-	}
-	status, err = store.GetCatalogueSyncStatus(ctx, alice.ID, connection.ID)
-	require.NoError(t, err)
-	assert.Equal(t, 1, status.LastUpsertedCount)
-	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "metadata resync reset To Read")
-	var analysisRuns, analysisJobs int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, alice.ID).Scan(&analysisRuns)
-	require.NoError(t, err)
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, alice.ID).Scan(&analysisJobs)
-	require.NoError(t, err)
-	assert.Equal(t, 0, analysisRuns)
-	assert.Equal(t, 0, analysisJobs)
-	var aliases, memberships int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1`, alice.ID).Scan(&aliases)
-	require.NoError(t, err)
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, alice.ID).Scan(&memberships)
-	require.NoError(t, err)
-	assert.Equal(t, 3, aliases)
-	assert.Equal(t, 3, memberships)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, toReadBookID, domain.BookDispositionInbox))
-	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, toReadBookID))
-	_, err = store.ImportPreviouslyRead(ctx, alice.ID, toReadBookID)
-	require.NoError(t, err)
+	})
+
+	// A Book removed from My Books is not put back by sync, even when its entry
+	// still exists and changes upstream.
+	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, bookID))
+	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "After removal", "After author")}}
+	require.NoError(t, worker.Work(ctx, job))
+	t.Run("removed Book is not restored", func(t *testing.T) {
+		books, err := store.ListMyBooks(ctx, alice.ID)
+		require.NoError(t, err)
+		require.Empty(t, books, "sync restored a Book that left My Books")
+		_, err = store.GetBookDetail(ctx, alice.ID, bookID)
+		require.ErrorIs(t, err, persistence.ErrNotFound)
+	})
+
+	// A complete run deletes index entries it no longer sees; the chosen Book
+	// and its metadata remain.
 	reader.feeds["7"] = opds.Feed{}
 	require.NoError(t, worker.Work(ctx, job))
-	books, err = store.ListMyBooks(ctx, alice.ID)
-	require.NoError(t, err)
-	assert.Len(t, books, 3)
-	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "upstream disappearance changed disposition")
-	var historyCount int
-	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, toReadBookID).Scan(&historyCount)
-	require.NoError(t, err)
-	assert.Equal(t, 1, historyCount, "upstream disappearance erased reading history")
-	reader.feeds["7"] = opds.Feed{Entries: []opds.Entry{testEntryWithAuthor("entry-1", "Reappeared title", "Reappeared author")}}
-	require.NoError(t, worker.Work(ctx, job))
-	require.NoError(t, worker.Work(ctx, job), "replayed catalogue discovery failed")
-	books, err = store.ListMyBooks(ctx, alice.ID)
-	require.NoError(t, err)
-	assert.Len(t, books, 3, "reappearing entry created a duplicate Book")
-	for _, book := range books {
-		if book.ID == toReadBookID {
-			assert.Equal(t, "Reappeared title", book.Title)
-			assert.Equal(t, "Reappeared author", book.Author)
-		}
-	}
-	assert.Equal(t, domain.BookDispositionInbox, mustCatalogueDisposition(t, store, alice.ID, toReadBookID), "reappearing entry reset disposition")
+	t.Run("complete run deletes index entries it no longer sees", func(t *testing.T) {
+		entries, err := store.ListCatalogueEntries(ctx, alice.ID, connection.ID)
+		require.NoError(t, err)
+		require.Len(t, entries, 2)
+	})
+
+	// Another owner cannot read Alice's status or connection.
 	require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: bob.ID, ConnectionID: connection.ID}}))
-	bobBooks, listErr := store.ListMyBooks(ctx, bob.ID)
-	require.NoError(t, listErr)
-	assert.Empty(t, bobBooks)
-	_, err = store.GetCatalogueSyncStatus(ctx, bob.ID, connection.ID)
+	t.Run("another owner's sync creates no Books", func(t *testing.T) {
+		bobBooks, err := store.ListMyBooks(ctx, bob.ID)
+		require.NoError(t, err)
+		require.Empty(t, bobBooks)
+	})
 	t.Run("bob cannot read Alice's sync status", func(t *testing.T) {
+		_, err := store.GetCatalogueSyncStatus(ctx, bob.ID, connection.ID)
 		require.ErrorIs(t, err, persistence.ErrNotFound)
 	})
-	_, err = store.GetOpdsConnection(ctx, bob.ID, connection.ID)
 	t.Run("bob cannot read Alice's connection", func(t *testing.T) {
+		_, err := store.GetOpdsConnection(ctx, bob.ID, connection.ID)
 		require.ErrorIs(t, err, persistence.ErrNotFound)
 	})
-	got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "catalog-secret", got.Password)
+	t.Run("Alice's connection retains its credential", func(t *testing.T) {
+		got, err := store.GetOpdsConnection(ctx, alice.ID, connection.ID)
+		require.NoError(t, err)
+		require.Equal(t, "catalog-secret", got.Password)
+	})
 }
 
 func mustCatalogueDisposition(t *testing.T, store *persistence.PostgresStore, owner, bookID string) domain.BookDisposition {
@@ -239,7 +220,7 @@ func mustCatalogueDisposition(t *testing.T, store *persistence.PostgresStore, ow
 	return disposition
 }
 
-func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T) {
+func TestSyncWorkerSameEntryIDAcrossConnectionsUpdatesDistinctBooks(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("MOUSEION_SECRET", "integration-test-secret-with-sufficient-entropy")
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -248,10 +229,8 @@ func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T
 	testutil.Cleanup(t, "catalogue sync store", store.Close)
 	owner, err := store.CreateUser(ctx, "sync-collision-owner", false)
 	require.NoError(t, err)
-	for _, language := range []string{"de"} {
-		_, err = store.PutSupportedLanguage(ctx, language, "German")
-		require.NoError(t, err)
-	}
+	_, err = store.PutSupportedLanguage(ctx, "de", "German")
+	require.NoError(t, err)
 	first, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "First catalog", URL: "https://first.example/opds"})
 	require.NoError(t, err)
 	second, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Second catalog", URL: "https://second.example/opds"})
@@ -261,25 +240,39 @@ func TestSyncWorkerSameEntryIDAcrossConnectionsCreatesDistinctBooks(t *testing.T
 	}, connectionFeedTitles: map[string]string{first.ID: "First catalog title", second.ID: "Second catalog title"}}
 	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
 	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: capabilities}
-	for _, connection := range []domain.OpdsConnection{first, second} {
+	connections := []domain.OpdsConnection{first, second}
+	for _, connection := range connections {
 		require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
 	}
+	bookIDs := make(map[string]string, len(connections))
+	for _, connection := range connections {
+		added, addErr := store.AddCatalogueEntry(ctx, owner.ID, connection.ID, "same-entry")
+		require.NoError(t, addErr)
+		bookIDs[connection.ID] = added.Book.ID
+	}
+	require.NotEqual(t, bookIDs[first.ID], bookIDs[second.ID], "same entry ID reused one Book across connections")
+
+	// Each connection's next sync updates only its own linked Book.
+	reader.connectionFeedTitles = map[string]string{first.ID: "First updated", second.ID: "Second updated"}
+	for _, connection := range connections {
+		require.NoError(t, worker.Work(ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
+	}
+	firstBook, err := store.GetBook(ctx, owner.ID, bookIDs[first.ID])
+	require.NoError(t, err)
+	secondBook, err := store.GetBook(ctx, owner.ID, bookIDs[second.ID])
+	require.NoError(t, err)
+	assert.Equal(t, "First updated", firstBook.Title)
+	assert.Equal(t, "Second updated", secondBook.Title)
 	books, err := store.ListMyBooks(ctx, owner.ID)
 	require.NoError(t, err)
-	assert.Len(t, books, 2, "same entry ID produced %d books, want 2: %+v", len(books), books)
-	titles := map[string]bool{}
-	for _, book := range books {
-		titles[book.Title] = true
-	}
-	assert.True(t, titles["First catalog title"])
-	assert.True(t, titles["Second catalog title"])
+	assert.Len(t, books, 2)
 	var aliasCount int
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_aliases WHERE owner_id=$1 AND value='same-entry'`, owner.ID).Scan(&aliasCount)
 	require.NoError(t, err)
 	assert.Equal(t, 2, aliasCount, "same entry ID aliases=%d, want 2", aliasCount)
 }
 
-func TestSyncWorkerLanguageCorrectionEndsIncompatibleCurrentReading(t *testing.T) {
+func TestSyncWorkerLeavesBookLanguageAndCurrentReadingUnchanged(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("MOUSEION_SECRET", "catalogue-sync-language-correction-secret")
 	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -301,30 +294,31 @@ func TestSyncWorkerLanguageCorrectionEndsIncompatibleCurrentReading(t *testing.T
 	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: capabilities}
 	job := &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}
 	require.NoError(t, worker.Work(ctx, job))
-	books, err := store.ListMyBooks(ctx, owner.ID)
+	added, err := store.AddCatalogueEntry(ctx, owner.ID, connection.ID, "language-entry")
 	require.NoError(t, err)
-	require.Len(t, books, 1)
-	book := books[0]
-	require.Equal(t, "de", book.LanguageTag)
-	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
+	bookID := added.Book.ID
+	require.Equal(t, "de", added.Book.LanguageTag)
 	// Seed the active slot directly so this worker-level test focuses on the
-	// catalogue reconciliation path; the lifecycle test verifies full snapshot
-	// reservation and release behavior.
-	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, owner.ID, book.ID)
+	// catalogue reconciliation path.
+	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, owner.ID, bookID)
 	require.NoError(t, err)
 
 	reader.feeds["7"] = opds.Feed{}
 	reader.feeds["9"] = opds.Feed{Entries: []opds.Entry{testEntry("language-entry", "Italian title")}}
 	require.NoError(t, worker.Work(ctx, job))
-	corrected, err := store.GetBook(ctx, owner.ID, book.ID)
+	unchanged, err := store.GetBook(ctx, owner.ID, bookID)
 	require.NoError(t, err)
-	assert.Equal(t, "it", corrected.LanguageTag)
-	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, owner.ID, book.ID))
-	for _, language := range []string{"de", "it"} {
-		current, getErr := store.GetCurrentReading(ctx, owner.ID, language)
-		require.NoError(t, getErr)
-		assert.Empty(t, current.BookID, "sync left the corrected Book in a %s current-reading role", language)
-	}
+	assert.Equal(t, "de", unchanged.LanguageTag, "sync changed the Book's language")
+	assert.Equal(t, domain.BookDispositionToRead, mustCatalogueDisposition(t, store, owner.ID, bookID))
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, bookID, current.BookID, "sync ended the current reading")
+	italian, err := store.GetCurrentReading(ctx, owner.ID, "it")
+	require.NoError(t, err)
+	assert.Empty(t, italian.BookID)
+	indexed, err := store.GetCatalogueEntry(ctx, owner.ID, connection.ID, "language-entry")
+	require.NoError(t, err)
+	assert.Equal(t, "it", indexed.LanguageTag, "the Catalog index did not follow the entry")
 }
 
 func TestSyncWorkerSafeFailurePreservesSecret(t *testing.T) {

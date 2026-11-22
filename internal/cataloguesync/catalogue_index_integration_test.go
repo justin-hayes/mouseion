@@ -119,7 +119,7 @@ func TestSyncWorkerMaintainsTheCatalogueIndex(t *testing.T) {
 
 	books, err := store.ListMyBooks(ctx, owner.ID)
 	require.NoError(t, err)
-	require.Len(t, books, 3, "index sync changed existing Book creation")
+	assert.Empty(t, books, "index sync created Books")
 
 	// Repeating the run is idempotent.
 	require.NoError(t, worker.Work(ctx, job))
@@ -151,7 +151,7 @@ func TestSyncWorkerMaintainsTheCatalogueIndex(t *testing.T) {
 	}
 	books, err = store.ListMyBooks(ctx, owner.ID)
 	require.NoError(t, err)
-	assert.Len(t, books, 3, "index deletion changed Books")
+	assert.Empty(t, books, "index deletion created Books")
 }
 
 func TestSyncWorkerFailedRunLeavesTheCatalogueIndexUnchanged(t *testing.T) {
@@ -200,9 +200,8 @@ func TestDeletingConnectionRemovesItsCatalogueIndexAndKeepsBooks(t *testing.T) {
 	ctx := context.Background()
 	store, owner, connection, _, worker := newCatalogueIndexFixture(t)
 	require.NoError(t, worker.Work(ctx, syncJob(owner.ID, connection.ID)))
-	books, err := store.ListMyBooks(ctx, owner.ID)
+	added, err := store.AddCatalogueEntry(ctx, owner.ID, connection.ID, "entry-de")
 	require.NoError(t, err)
-	require.Len(t, books, 3)
 	require.NoError(t, store.DeleteOpdsConnection(ctx, owner.ID, connection.ID))
 
 	entries, err := store.ListCatalogueEntries(ctx, owner.ID, connection.ID)
@@ -212,7 +211,8 @@ func TestDeletingConnectionRemovesItsCatalogueIndexAndKeepsBooks(t *testing.T) {
 	err = store.Pool().QueryRow(ctx, `SELECT count(*) FROM catalogue_entries WHERE connection_id=$1`, connection.ID).Scan(&indexRows)
 	require.NoError(t, err)
 	assert.Zero(t, indexRows, "deleting a connection left its index rows behind")
-	books, err = store.ListMyBooks(ctx, owner.ID)
+	books, err := store.ListMyBooks(ctx, owner.ID)
 	require.NoError(t, err)
-	assert.Len(t, books, 3, "deleting a connection removed Books")
+	require.Len(t, books, 1, "deleting a connection removed Books")
+	assert.Equal(t, added.Book.ID, books[0].ID)
 }

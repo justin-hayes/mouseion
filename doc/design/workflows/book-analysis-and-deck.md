@@ -72,7 +72,7 @@ performs either side effect.
 
 **Learner decision:** Which Book do I want to inspect or consider reading?
 
-Catalog sync creates or updates the metadata-only My Books entry. It does not
+Choosing a Catalog entry creates or updates the metadata-only My Books entry. Sync does not
 download content, trigger analysis, add the Book to Reading Journey, choose a
 Primary Goal, prepare a deck, or mark vocabulary known.
 

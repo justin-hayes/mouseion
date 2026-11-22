@@ -51,7 +51,6 @@ type ShellStore interface {
 // membership-removal, reading-history, and metadata-refresh reads and writes.
 type MyBooksStore interface { //nolint:interfacebloat // My Books owns its browse read, membership and evidence writes, reading-history actions, and the current-reading refusal; splitting them is a separate design change
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
-	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	ListMyBooksBrowseWithVisibility(context.Context, string, string, string, string, bool, bool, int, int) (domain.MyBooksBrowseResult, error)
 	// MarkBookPreviouslyRead records an unstarted To Read Book as Previously
@@ -200,7 +199,6 @@ type CatalogueSync interface {
 	Enqueue(context.Context, string, string) (cataloguesync.Handle, error)
 	Retry(context.Context, string, int64) (cataloguesync.Handle, error)
 	Cancel(context.Context, string, int64) (cataloguesync.Status, error)
-	RefreshEntry(context.Context, string, string) (cataloguesync.RefreshResult, error)
 	FindAcquisitionTarget(context.Context, string, string) (cataloguesync.AcquisitionTarget, error)
 }
 type AnalysisInsights interface {
@@ -311,7 +309,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /reading/books/{id}/analysis-update", h.user(http.HandlerFunc(h.updateToReadBookAnalysis)))
 	h.mux.Handle("POST /reading/books/{id}/source-structure-update", h.user(http.HandlerFunc(h.updateBookSourceStructure)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
-	h.mux.Handle("POST /library/books/{id}/refresh", h.user(http.HandlerFunc(h.refreshBookMetadata)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/works/{workKey}/to-read", h.user(http.HandlerFunc(h.moveWorkToRead)))

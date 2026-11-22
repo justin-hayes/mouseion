@@ -64,12 +64,11 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.needsLanguage, request.disposition, request.history, request.showHidden))
 		return
 	}
-	refreshableBookIDs, connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
+	connectionCount, err := h.loadLibraryBrowsingExtras(r.Context(), u.ID, books)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
-	browse.RefreshableBookIDs = refreshableBookIDs
 	currentReadingBookID := ""
 	if currentReading.IsActive() {
 		currentReadingBookID = currentReading.BookID
@@ -132,25 +131,21 @@ func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string
 }
 
 // loadLibraryBrowsingExtras runs the My Books reads that decorate the result
-// rows: disposition annotations, Analysis update offers, refreshable IDs, and the OPDS
+// rows: disposition annotations, Analysis update offers, and the OPDS
 // connection count that decides whether acquisition is offered. It keeps their
 // order, which the validated rows depend on. Books are the page's visible cells,
 // shared by pointer with the grouped rows their Work offers cover.
-func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) (map[string]bool, int, error) {
+func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) (int, error) {
 	if err := h.annotateMyBooksWithDisposition(ctx, owner, books); err != nil {
-		return nil, 0, err
+		return 0, err
 	}
 	h.annotateAnalysisUpdates(ctx, owner, books)
 	h.annotateSourceStructureUpdates(ctx, owner, books)
-	refreshableBookIDs, err := h.refreshableMyBookIDs(ctx, owner, books)
-	if err != nil {
-		return nil, 0, err
-	}
 	connections, err := h.services.Store.Catalogs.ListOpdsConnections(ctx, owner)
 	if err != nil {
-		return nil, 0, err
+		return 0, err
 	}
-	return refreshableBookIDs, len(connections), nil
+	return len(connections), nil
 }
 
 // currentWorkBookForMyBooks loads the current Reading's Book with its Analysis

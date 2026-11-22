@@ -13,7 +13,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", currentReadingBookID, hasCatalogueConnections, MyBooksBrowseState{})
 }
 
-templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, returnTo string) {
+templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 			if myBookInReading(book) {
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
@@ -101,12 +101,6 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 					if book.CompletionCount > 0 && book.Book.LanguageState == domain.LanguageChosen {
 						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="btn btn-outline">Read again</button></form>
 					}
-					if refreshEligible {
-						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-post={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/refresh") } hx-target={ templ.SafeURL("#" + myBookRowID(book.Book.ID)) } hx-swap="outerHTML" data-focus-results="true">
-							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<button type="submit" class="btn btn-outline">Refresh metadata</button>
-						</form>
-					}
 					if book.IsCurrentReading {
 						<button type="submit" class="btn btn-outline" disabled>Remove from My Books</button>
 						<p class="metadata">Your current reading cannot be removed. Finish or end the reading first.</p>
@@ -120,9 +114,6 @@ templ MyBookRow(csrf string, book domain.MyBook, refreshEligible bool, message, 
 				</div>
 			</details>
 		</div>
-		if message != "" {
-			<p class="library-book__message" role="status" aria-live="polite">{ message }</p>
-		}
 	</li>
 }
 
@@ -383,7 +374,7 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 					if row.Grouped {
 						@MyBookWorkRow(csrf, row, browse.ShowHidden, myBooksResultsURL(browse, browse.Page), currentReadingBookID)
 					} else if len(row.Books) > 0 {
-						@MyBookRow(csrf, row.Books[0], browse.RefreshableBookIDs[row.Books[0].Book.ID], "", myBooksResultsURL(browse, browse.Page))
+						@MyBookRow(csrf, row.Books[0], myBooksResultsURL(browse, browse.Page))
 					}
 				}
 			</ul>
@@ -484,7 +475,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				<h2 id="acquired-books-heading">Books</h2>
 				<ul class="library-books" role="list">
 					for _, book := range books {
-						@MyBookRow(csrf, book, browse.RefreshableBookIDs[book.Book.ID], "", "/library")
+						@MyBookRow(csrf, book, "/library")
 					}
 				</ul>
 			</section>
