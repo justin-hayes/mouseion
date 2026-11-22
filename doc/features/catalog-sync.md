@@ -159,10 +159,14 @@ shipped independent retrieval of optional catalog-supplied display metadata.
   Book as To Read and then uses the same acquisition route. A failure never
   appears in the Add response; it stays on the Book as its recorded reason, with
   Retry on My Books.
-- When the Book's catalog entry is no longer in the index, the worker records
-  stage `entry` and code `catalog_entry_missing`; the Book stays To Read and My
-  Books shows the reason with Retry. A later sync that restores the entry makes
-  Retry acquire it without any other change.
+- When acquisition cannot resolve the Book's catalog entry at all — the entry
+  has left the index, the Book has no catalog-entry alias, or the alias's
+  connection was deleted — the worker records stage `entry` and code
+  `catalog_entry_missing`. A missing index entry keeps the connection and entry
+  identifier on the failure; a missing alias or connection records no catalog
+  identity, so the failure survives the connection's deletion. The Book stays
+  To Read and My Books shows the reason with Retry. A later sync that restores
+  the entry makes Retry acquire it without any other change.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035. The worker then
   submits the existing analysis job unchanged.

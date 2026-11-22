@@ -134,6 +134,21 @@ func TestListBookPreparationJobsKeepsAcquisitionEvidenceHonest(t *testing.T) {
 		Stage: domain.BookPreparationStageImport,
 		Code:  domain.BookPreparationCodeEPUBImportFailed,
 	}))
+	// A third EPUB Book could not resolve an entry at all, so its failure names
+	// no connection or entry and has no River job.
+	noIdentityBook, err := f.store.CreateBook(ctx, domain.Book{
+		OwnerID:            f.owner,
+		Title:              "No catalog identity Book",
+		MetadataProvenance: domain.MetadataProvenanceCatalogueSync,
+		LanguageState:      domain.LanguageChosen,
+		LanguageTag:        "de",
+	})
+	require.NoError(t, err)
+	require.NoError(t, f.store.RecordEPUBAcquisitionFailure(ctx, domain.EPUBAcquisitionFailureRecord{
+		OwnerID: f.owner, BookID: noIdentityBook.ID,
+		Stage: domain.BookPreparationStageEntry,
+		Code:  domain.BookPreparationCodeCatalogEntryMissing,
+	}))
 	// A second Classical Book whose failure record has no matching River job.
 	report, err := f.store.AddClassicalReadingUnits(ctx, f.owner, []string{"work-2"})
 	require.NoError(t, err)
@@ -148,7 +163,7 @@ func TestListBookPreparationJobsKeepsAcquisitionEvidenceHonest(t *testing.T) {
 
 	jobs, err := f.store.ListBookPreparationJobs(ctx, f.owner)
 	require.NoError(t, err)
-	require.Len(t, jobs, 3, "live row, legacy EPUB row, legacy Classical row: %+v", jobs)
+	require.Len(t, jobs, 4, "live row, legacy EPUB row, no-identity EPUB row, legacy Classical row: %+v", jobs)
 
 	byBook := make(map[string]domain.BookPreparationJob, len(jobs))
 	for _, job := range jobs {
@@ -169,6 +184,14 @@ func TestListBookPreparationJobsKeepsAcquisitionEvidenceHonest(t *testing.T) {
 		assert.Equal(t, domain.JobLifecycleFailed, row.Lifecycle)
 		assert.Equal(t, domain.BookPreparationStageImport, row.Stage)
 		assert.Equal(t, domain.BookPreparationCodeEPUBImportFailed, row.Code)
+	})
+
+	t.Run("an entry failure without a catalog identity stays visible", func(t *testing.T) {
+		row := byBook[noIdentityBook.ID]
+		assert.Equal(t, domain.BookPreparationKindEPUBAcquisition, row.Kind)
+		assert.Equal(t, domain.JobLifecycleFailed, row.Lifecycle)
+		assert.Equal(t, domain.BookPreparationStageEntry, row.Stage)
+		assert.Equal(t, domain.BookPreparationCodeCatalogEntryMissing, row.Code)
 	})
 
 	t.Run("a Classical failure with no matching job stays visible", func(t *testing.T) {

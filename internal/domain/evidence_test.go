@@ -142,26 +142,6 @@ func TestMyBookClassificationCarriesEPUBAcquisition(t *testing.T) {
 	assert.Equal(t, AcquisitionNone, book.Classification().Acquisition.State, "an analysis in effect ignores the failure")
 }
 
-func TestEPUBAcquisitionFailureVocabularyMatchesTheStages(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		code  BookPreparationCode
-		stage BookPreparationStage
-	}{
-		{code: BookPreparationCodeCatalogEntryMissing, stage: BookPreparationStageEntry},
-		{code: BookPreparationCodeSourceDownloadFailed, stage: BookPreparationStageFetch},
-		{code: BookPreparationCodeSourceOversize, stage: BookPreparationStageSource},
-		{code: BookPreparationCodeSourceFormatUnknown, stage: BookPreparationStageSource},
-		{code: BookPreparationCodeEPUBImportFailed, stage: BookPreparationStageImport},
-	}
-	for _, tt := range tests {
-		t.Run(string(tt.code), func(t *testing.T) {
-			t.Parallel()
-			assert.Equal(t, tt.stage, EPUBAcquisitionStageForCode(tt.code))
-		})
-	}
-}
-
 func TestEPUBAcquisitionIgnoresOtherKindsStages(t *testing.T) {
 	t.Parallel()
 	for _, stage := range []BookPreparationStage{

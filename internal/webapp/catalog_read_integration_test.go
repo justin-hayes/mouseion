@@ -39,6 +39,7 @@ func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
 	assert.Equal(t, "Recorded “Add Entry” as previously read.", location.Query().Get("message"))
 	assert.Empty(t, fixture.requests.snapshot(), "I've read this requested the EPUB")
 	assert.Zero(t, fixture.analysis.calls, "I've read this starts no analysis")
+	assert.Zero(t, fixture.acquisition.calls, "I've read this enqueues no EPUB acquisition")
 
 	entry := fixture.ownedBook(t)
 	detail, err := fixture.store.GetBookDetail(ctx, fixture.owner.ID, entry.BookID)

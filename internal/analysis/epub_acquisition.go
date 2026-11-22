@@ -178,7 +178,7 @@ func (w *EPUBAcquisitionWorker) skip(ctx context.Context, owner, bookID string) 
 func (w *EPUBAcquisitionWorker) acquireAndSubmit(ctx context.Context, owner, bookID string) error {
 	target, err := w.FindTarget(ctx, owner, bookID)
 	if err != nil {
-		if errors.Is(err, cataloguesync.ErrCatalogEntryMissing) {
+		if unresolvedCatalogEntry(err) {
 			w.recordFailure(ctx, owner, bookID, target, err)
 			return err
 		}
@@ -244,11 +244,22 @@ func (w *EPUBAcquisitionWorker) clearFailure(ctx context.Context, owner, bookID 
 	}
 }
 
+// unresolvedCatalogEntry reports whether acquisition could not resolve a
+// Catalog entry at all: the Book has no usable catalog-entry alias, the alias's
+// connection is gone, or the entry is no longer indexed. They share the entry
+// stage and code; only a missing index entry still names the connection and
+// entry identifier.
+func unresolvedCatalogEntry(err error) bool {
+	return errors.Is(err, cataloguesync.ErrCatalogEntryAliasMissing) ||
+		errors.Is(err, cataloguesync.ErrConnectionNotFound) ||
+		errors.Is(err, cataloguesync.ErrCatalogEntryMissing)
+}
+
 // classifyAcquisitionFailure maps one failed download or import attempt to the
 // stable stage and code the domain vocabulary defines.
 func classifyAcquisitionFailure(err error) (domain.BookPreparationStage, domain.BookPreparationCode) {
 	switch {
-	case errors.Is(err, cataloguesync.ErrCatalogEntryMissing):
+	case unresolvedCatalogEntry(err):
 		return domain.BookPreparationStageEntry, domain.BookPreparationCodeCatalogEntryMissing
 	case errors.Is(err, opds.ErrDownloadTooLarge), errors.Is(err, opds.ErrRetainedEPUBTooLarge):
 		return domain.BookPreparationStageSource, domain.BookPreparationCodeSourceOversize

@@ -37,6 +37,10 @@ const (
 var (
 	ErrNotFound           = errors.New("catalogue sync job: not found")
 	ErrConnectionNotFound = errors.New("catalogue sync: alias connection not found")
+	// ErrCatalogEntryAliasMissing reports that a Book has no usable
+	// catalog-entry alias: the alias row is absent or its value is blank.
+	// Acquisition cannot resolve an entry at all.
+	ErrCatalogEntryAliasMissing = errors.New("catalogue sync: catalog entry alias is missing")
 	// ErrCatalogEntryMissing reports that a Book's catalog entry is no longer
 	// in the Catalog index. It is a durable, retryable acquisition failure: a
 	// later sync that restores the entry makes the same Book acquirable again.
@@ -348,13 +352,13 @@ func (s *Service) loadAcquisitionIdentity(ctx context.Context, owner, bookID str
 	}
 	alias, err := s.catalogue.GetBookCatalogEntryAlias(ctx, owner, bookID)
 	if errors.Is(err, persistence.ErrNotFound) {
-		return domain.Book{}, domain.BookAlias{}, ErrNotFound
+		return domain.Book{}, domain.BookAlias{}, ErrCatalogEntryAliasMissing
 	}
 	if err != nil {
 		return domain.Book{}, domain.BookAlias{}, err
 	}
 	if strings.TrimSpace(alias.Value) == "" {
-		return domain.Book{}, domain.BookAlias{}, ErrNotFound
+		return domain.Book{}, domain.BookAlias{}, ErrCatalogEntryAliasMissing
 	}
 	return book, alias, nil
 }

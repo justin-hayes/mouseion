@@ -71,30 +71,17 @@ func (s BookPreparationStage) IsEPUBAcquisitionStage() bool {
 	}
 }
 
-// sharedPreparationStage maps the codes both kinds define to their stage. It
-// reports ok=false for a kind-specific code, so each kind keeps its own
-// fallback and never reinterprets the other kind's codes.
-func sharedPreparationStage(code BookPreparationCode) (BookPreparationStage, bool) {
-	switch code {
-	case BookPreparationCodeNone:
-		return BookPreparationStageNone, true
-	case BookPreparationCodeSourceDownloadFailed:
-		return BookPreparationStageFetch, true
-	case BookPreparationCodeSourceOversize, BookPreparationCodeSourceFormatUnknown:
-		return BookPreparationStageSource, true
-	default:
-		return BookPreparationStageNone, false
-	}
-}
-
 // ClassicalPreparationStageForCode returns the stage that owns a stable
 // Classical preparation failure code. An unrecognised code is an import-stage
 // failure: the source was acquired, but its analysis was not published.
 func ClassicalPreparationStageForCode(code BookPreparationCode) BookPreparationStage {
-	if stage, ok := sharedPreparationStage(code); ok {
-		return stage
-	}
 	switch code {
+	case BookPreparationCodeNone:
+		return BookPreparationStageNone
+	case BookPreparationCodeSourceDownloadFailed:
+		return BookPreparationStageFetch
+	case BookPreparationCodeSourceOversize, BookPreparationCodeSourceFormatUnknown:
+		return BookPreparationStageSource
 	case BookPreparationCodeClassicalWithdrawn:
 		return BookPreparationStageWithdrawn
 	case BookPreparationCodeClassicalCatalogLegacyRows:
@@ -106,23 +93,6 @@ func ClassicalPreparationStageForCode(code BookPreparationCode) BookPreparationS
 		return BookPreparationStageImport
 	default:
 		return BookPreparationStageImport
-	}
-}
-
-// EPUBAcquisitionStageForCode returns the stage that owns a stable EPUB
-// acquisition failure code. An unrecognised code is a fetch-stage failure: the
-// acquisition stopped before the source could be imported.
-func EPUBAcquisitionStageForCode(code BookPreparationCode) BookPreparationStage {
-	if stage, ok := sharedPreparationStage(code); ok {
-		return stage
-	}
-	switch code {
-	case BookPreparationCodeCatalogEntryMissing:
-		return BookPreparationStageEntry
-	case BookPreparationCodeEPUBImportFailed:
-		return BookPreparationStageImport
-	default:
-		return BookPreparationStageFetch
 	}
 }
 
