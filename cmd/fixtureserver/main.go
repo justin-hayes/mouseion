@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -114,9 +114,9 @@ func main() {
 // acceptance of enhanced My Books error responses.
 type fixtureBooksStore struct{ *fixtures.Store }
 
-func (s fixtureBooksStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func (s fixtureBooksStore) ListMyBooksBrowseWithVisibility(ctx context.Context, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	if query == "fixture-handler-error" {
-		return persistence.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
+		return domain.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
 	}
 	return s.Store.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, showHidden, offset, limit)
 }

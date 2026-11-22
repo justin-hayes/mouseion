@@ -7,7 +7,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 type jobBookContext struct {
@@ -35,7 +34,7 @@ func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID s
 		return jobBookContext{}, nil
 	}
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, sourceID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return jobBookContext{}, nil
 	}
 	if err != nil {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
@@ -59,7 +58,7 @@ func (h *Handler) validReadingDeckBook(w http.ResponseWriter, r *http.Request, o
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
 	result, err := h.services.Analysis.GetCompletedAnalysis(r.Context(), owner, book.Source.ID, book.AnalysisRunID)
-	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, analysis.ErrNotFound) || errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
@@ -465,7 +464,7 @@ func (h *Handler) redirectToPreparationStatus(w http.ResponseWriter, r *http.Req
 func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner string, action deckReadingActionView) (string, error) {
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, action.BookID)
 	if err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			return "", nil
 		}
 		return "", err
@@ -518,9 +517,9 @@ func handlePreparationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, prepareddeck.ErrAnalysisUnavailable), errors.Is(err, prepareddeck.ErrInvalidInput):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.Is(err, persistence.ErrNotFound):
+	case errors.Is(err, domain.ErrNotFound):
 		http.NotFound(w, r)
-	case errors.Is(err, persistence.ErrInvalidTransition), errors.Is(err, domain.ErrDeckPreparationInvalidTransition):
+	case errors.Is(err, domain.ErrInvalidTransition), errors.Is(err, domain.ErrDeckPreparationInvalidTransition):
 		http.Error(w, "invalid deck preparation state", http.StatusConflict)
 	default:
 		fail(w, err)

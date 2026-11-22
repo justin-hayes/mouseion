@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -127,7 +126,7 @@ func (h *Handler) renderReadingBrowseOriginExpired(w http.ResponseWriter, r *htt
 	if bookID := strings.TrimSpace(r.URL.Query().Get("reading")); bookID != "" {
 		detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
 		switch {
-		case errors.Is(err, persistence.ErrNotFound):
+		case errors.Is(err, domain.ErrNotFound):
 		case err != nil:
 			fail(w, err)
 			return
@@ -160,6 +159,28 @@ func (h *Handler) switchReadingPage(w http.ResponseWriter, r *http.Request) {
 	render(w, r, ReadingChooserPage(user(r), h.csrf(w, r), view, "", ""))
 }
 
+// assessReadingActionFlags loads the Book a start or switch names and records
+// its lemma-review flags before the store transition. It writes the response
+// and reports false when the request cannot continue.
+func (h *Handler) assessReadingActionFlags(w http.ResponseWriter, r *http.Request, owner, bookID string) bool {
+	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
+	if errors.Is(err, domain.ErrNotFound) {
+		http.NotFound(w, r)
+		return false
+	}
+	if err != nil {
+		fail(w, err)
+		return false
+	}
+	// Flag detection is a write the freeze depends on, so it runs before the
+	// transition. Persistence decides everything else.
+	if _, err := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); err != nil {
+		fail(w, err)
+		return false
+	}
+	return true
+}
+
 func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -173,35 +194,23 @@ func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language and refresh Reading before switching books."))
 		return
 	}
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
+	if !h.assessReadingActionFlags(w, r, owner, bookID) {
 		return
 	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	// Flag detection is a write the freeze depends on, so it runs before the
-	// switch. Persistence decides everything else.
-	if _, err := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); err != nil {
-		fail(w, err)
-		return
-	}
-	_, err = h.services.Store.Reading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
-	var ineligible persistence.CurrentReadingIneligibleError
+	_, err := h.services.Store.Reading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
+	var ineligible domain.CurrentReadingIneligibleError
 	switch {
-	case errors.Is(err, persistence.ErrCurrentReadingStale), errors.Is(err, persistence.ErrNotFound):
+	case errors.Is(err, domain.ErrCurrentReadingStale), errors.Is(err, domain.ErrNotFound):
 		redirect(w, r, "/reading?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
 	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read choice. No changes were made; refresh Reading and try again."))
-	case errors.Is(err, persistence.ErrCurrentReadingIneligible):
+	case errors.Is(err, domain.ErrCurrentReadingIneligible):
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has current analyzed content or is no longer To Read. No changes were made; refresh Reading and try again."))
-	case errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags):
+	case errors.Is(err, domain.ErrUnresolvedLemmaReviewFlags):
 		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
-	case errors.Is(err, persistence.ErrVocabularyBrowseCountsPending):
+	case errors.Is(err, domain.ErrVocabularyBrowseCountsPending):
 		redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are updating. No reading was changed; try switching again when the counts are ready."))
-	case errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable):
+	case errors.Is(err, domain.ErrVocabularyBrowseCountsUnavailable):
 		redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."))
 	case err != nil:
 		fail(w, err)
@@ -230,7 +239,7 @@ func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err := h.services.Store.Reading.EndCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
-	if errors.Is(err, persistence.ErrCurrentReadingStale) || errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrCurrentReadingStale) || errors.Is(err, domain.ErrNotFound) {
 		redirect(w, r, "/reading?error="+url.QueryEscape(endCurrentReadingStaleMessage))
 		return
 	}
@@ -325,47 +334,35 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading?error="+url.QueryEscape("Choose a study language before starting a book."))
 		return
 	}
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	// Flag detection is a write the freeze depends on, so it runs before the
-	// Start. Persistence decides everything else.
-	if _, err := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); err != nil {
-		fail(w, err)
+	if !h.assessReadingActionFlags(w, r, owner, bookID) {
 		return
 	}
 	start, err := h.services.Store.Reading.StartCurrentReadingResult(r.Context(), owner, language, bookID)
-	var ineligible persistence.CurrentReadingIneligibleError
+	var ineligible domain.CurrentReadingIneligibleError
 	switch {
-	case errors.Is(err, persistence.ErrNotFound):
+	case errors.Is(err, domain.ErrNotFound):
 		http.NotFound(w, r)
 		return
 	case err == nil && start.Replayed:
 		// Starting the Book that is already current is a repeat, not a conflict.
 		redirect(w, r, "/reading?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
 		return
-	case errors.Is(err, persistence.ErrCurrentReadingExists):
+	case errors.Is(err, domain.ErrCurrentReadingExists):
 		redirect(w, r, "/reading?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
 		return
 	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
 		return
-	case errors.Is(err, persistence.ErrCurrentReadingIneligible):
+	case errors.Is(err, domain.ErrCurrentReadingIneligible):
 		redirect(w, r, "/reading?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."))
 		return
-	case errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags):
+	case errors.Is(err, domain.ErrUnresolvedLemmaReviewFlags):
 		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
 		return
-	case errors.Is(err, persistence.ErrVocabularyBrowseCountsPending):
+	case errors.Is(err, domain.ErrVocabularyBrowseCountsPending):
 		redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are updating. No reading was changed; try starting again when the counts are ready."))
 		return
-	case errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable):
+	case errors.Is(err, domain.ErrVocabularyBrowseCountsUnavailable):
 		redirect(w, r, "/reading?error="+url.QueryEscape("Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."))
 		return
 	case err != nil:

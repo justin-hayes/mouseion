@@ -15,12 +15,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
-func browseMyBooks(ctx context.Context, store MyBooksStore, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (persistence.MyBooksBrowseResult, error) {
+func browseMyBooks(ctx context.Context, store MyBooksStore, owner, query, language, disposition string, history, showHidden bool, offset, limit int) (domain.MyBooksBrowseResult, error) {
 	return store.ListMyBooksBrowseWithVisibility(ctx, owner, query, language, disposition, history, showHidden, offset, limit)
 }
 
@@ -116,7 +115,7 @@ func parseMyBooksLibraryRequest(rURL *url.URL) myBooksLibraryRequest {
 // a non-empty result, or any page beyond the first of an empty one, recovers to
 // the bucket's own location; an unfiltered empty scope recovers to its last page.
 // It reports the page to redirect to, and whether a redirect is needed at all.
-func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string, result persistence.MyBooksBrowseResult) (int, bool) {
+func myBooksRedirectPage(request myBooksLibraryRequest, requestedLanguage string, result domain.MyBooksBrowseResult) (int, bool) {
 	rowTotal := myBooksRowCount(result)
 	if rowTotal > 0 && myBooksPageOffset(request.page) >= rowTotal {
 		return myBooksPageCount(rowTotal), true
@@ -162,7 +161,7 @@ func (h *Handler) currentWorkBookForMyBooks(ctx context.Context, owner, bookID s
 		return domain.MyBook{}, false, nil
 	}
 	book, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		return domain.MyBook{}, false, nil
 	}
 	if err != nil {
@@ -223,7 +222,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
-	if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+	if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
@@ -231,7 +230,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if _, err := h.services.Store.MyBooks.ImportPreviouslyRead(r.Context(), owner, bookID); err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			http.NotFound(w, r)
 			return
 		}
@@ -240,7 +239,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 	}
 	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
 	if err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			http.NotFound(w, r)
 			return
 		}
@@ -285,7 +284,7 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 	}
 }
 
-func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result persistence.MyBooksBrowseResult) MyBooksBrowseState {
+func myBooksBrowseState(query string, page int, needsLanguage bool, disposition domain.BookDisposition, language, languageLabel string, result domain.MyBooksBrowseResult) MyBooksBrowseState {
 	browse := MyBooksBrowseState{
 		Enabled:            true,
 		Query:              query,
@@ -326,14 +325,14 @@ func myBooksBrowseState(query string, page int, needsLanguage bool, disposition 
 
 // myBooksRowCount is the rendered-row count that paging uses. Ordinary Books
 // and grouped Work rows each count once.
-func myBooksRowCount(result persistence.MyBooksBrowseResult) int {
+func myBooksRowCount(result domain.MyBooksBrowseResult) int {
 	if result.RowCount > 0 {
 		return result.RowCount
 	}
 	return result.Total
 }
 
-func needsLanguageCount(counts []persistence.LanguageCount) int {
+func needsLanguageCount(counts []domain.LanguageCount) int {
 	for _, count := range counts {
 		if count.Tag == domain.LanguageUnknown {
 			return count.Count
@@ -515,7 +514,7 @@ func (h *Handler) setBookVisibility(w http.ResponseWriter, r *http.Request, hidd
 		redirect(w, r, withNotice("error", "This My Books form is out of date. Refresh My Books and try again."))
 		return
 	}
-	if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, persistence.ErrNotFound) {
+	if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); errors.Is(err, domain.ErrNotFound) {
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
@@ -524,9 +523,9 @@ func (h *Handler) setBookVisibility(w http.ResponseWriter, r *http.Request, hidd
 	}
 	if _, err := h.services.Store.MyBooks.SetBookHidden(r.Context(), owner, bookID, expectedRevision, hidden); err != nil {
 		switch {
-		case errors.Is(err, persistence.ErrStaleBookVisibility):
+		case errors.Is(err, domain.ErrStaleBookVisibility):
 			redirect(w, r, withNotice("error", "This Book's visibility changed in another tab. No changes were made; refresh My Books and try again."))
-		case errors.Is(err, persistence.ErrNotFound):
+		case errors.Is(err, domain.ErrNotFound):
 			http.NotFound(w, r)
 		default:
 			fail(w, err)

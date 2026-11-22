@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 type currentReadingFinishView struct {
@@ -34,11 +34,11 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.services.Store.Reading.FinishCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
-	if errors.Is(err, persistence.ErrCurrentReadingStale) {
+	if errors.Is(err, domain.ErrCurrentReadingStale) {
 		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, "")
 		return
 	}
-	if errors.Is(err, persistence.ErrNotFound) {
+	if errors.Is(err, domain.ErrNotFound) {
 		h.respondCurrentReading(w, r, "", "No current reading is available to finish. Review Reading before trying again.", "")
 		return
 	}

@@ -26,7 +26,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -54,7 +53,7 @@ type MyBooksStore interface {
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
 	GetBookDetailForMyBooksRefresh(context.Context, string, string) (domain.MyBook, error)
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
-	ListMyBooksBrowseWithVisibility(context.Context, string, string, string, string, bool, bool, int, int) (persistence.MyBooksBrowseResult, error)
+	ListMyBooksBrowseWithVisibility(context.Context, string, string, string, string, bool, bool, int, int) (domain.MyBooksBrowseResult, error)
 	ImportPreviouslyRead(context.Context, string, string) (domain.ReadingCompletion, error)
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 	SetBookHidden(context.Context, string, string, int64, bool) (bool, error)
@@ -75,7 +74,7 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
-	StartCurrentReadingResult(context.Context, string, string, string) (persistence.StartResult, error)
+	StartCurrentReadingResult(context.Context, string, string, string) (domain.StartResult, error)
 	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
 	EndCurrentReading(context.Context, string, string, string, string) error
 	FinishCurrentReading(context.Context, string, string, string, string) (domain.CurrentReadingFinishResult, error)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 type activeStudyLanguageOption struct {
@@ -82,7 +81,7 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 		return nil, err
 	}
 	recent, err := h.services.Store.Shell.MostRecentlyActivatedStudyLanguage(ctx, owner)
-	if err != nil && !errors.Is(err, persistence.ErrNotFound) {
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return nil, err
 	}
 	recent = canonicalization.NormalizeLanguage(recent)
@@ -136,7 +135,7 @@ func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err = h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), u.ID, language); err != nil {
-		if errors.Is(err, persistence.ErrNotFound) {
+		if errors.Is(err, domain.ErrNotFound) {
 			http.NotFound(w, r)
 			return
 		}
