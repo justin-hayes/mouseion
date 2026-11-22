@@ -141,6 +141,91 @@ func TestEPUBAcquisitionAddEnqueuesOneJobWithoutContactingTheCatalog(t *testing.
 	assert.NotContains(t, discarded.Body.String(), epubAcquisitionInProgressLabel+".", "a settled job is not live work")
 }
 
+// TestEPUBAcquisitionLifecycleOnMyBooks walks one EPUB Book through the four
+// states its newest acquisition job gives My Books. While the job is queued or
+// running the Book carries the same in-progress label a classical Book shows
+// and offers no Retry; once the job has failed the recorded Book preparation
+// failure takes over with its Retry; once a later acquisition succeeds the
+// preparation leaves no evidence and the Book shows its analysis state as
+// today.
+func TestEPUBAcquisitionLifecycleOnMyBooks(t *testing.T) {
+	fixture := newAcquisitionHandlerFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fixture.store.ReconcileCatalogueIndex(ctx, fixture.owner.ID, fixture.connection.ID, []domain.CatalogueIndexEntry{{
+		ConnectionID: fixture.connection.ID, EntryIdentifier: "lifecycle-entry", Title: "Lifecycle Entry",
+		Author: "Author", LanguageTag: "de", EPUBHref: "https://catalog.invalid/lifecycle-entry.epub",
+	}}, time.Now()))
+
+	added := perform(t, fixture.handler, http.MethodPost, "/catalogs/sources/"+fixture.connection.ID+"/add", url.Values{
+		"csrf_token":       {fixture.csrf},
+		"entry_identifier": {"lifecycle-entry"},
+	}, fixture.cookies)
+	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	entries, err := fixture.store.BrowseCatalogueEntries(ctx, fixture.owner.ID, fixture.connection.ID, domain.CatalogueQuery{})
+	require.NoError(t, err)
+	require.NotEmpty(t, entries.Entries)
+	bookID := entries.Entries[0].BookID
+	require.NotEmpty(t, bookID, "the added entry has no Book")
+	retryAction := `action="/reading/books/` + bookID + `/reanalyze"`
+
+	myBooksBody := func() string {
+		page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
+		return page.Body.String()
+	}
+
+	// Queued: the one in-progress label, and no Retry.
+	queued := myBooksBody()
+	assert.Contains(t, queued, epubAcquisitionInProgressLabel+".")
+	assert.NotContains(t, queued, retryAction, "no Retry while the acquisition is queued")
+
+	// Running: the same in-progress label, and still no Retry.
+	_, err = fixture.pool.Exec(ctx, `UPDATE river_job SET state='running' WHERE kind=$1`, analysis.EPUBAcquisitionQueue)
+	require.NoError(t, err)
+	running := myBooksBody()
+	assert.Contains(t, running, epubAcquisitionInProgressLabel+".")
+	assert.NotContains(t, running, retryAction, "no Retry while the acquisition is running")
+
+	// The job fails and records its Book preparation failure: the failure
+	// reason takes over, with Retry.
+	_, err = fixture.pool.Exec(ctx, `UPDATE river_job SET state='discarded', finalized_at=now() WHERE kind=$1`, analysis.EPUBAcquisitionQueue)
+	require.NoError(t, err)
+	require.NoError(t, fixture.store.RecordEPUBAcquisitionFailure(ctx, domain.EPUBAcquisitionFailureRecord{
+		OwnerID: fixture.owner.ID, BookID: bookID,
+		ConnectionID: fixture.connection.ID, EntryIdentifier: "lifecycle-entry",
+		Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
+	}))
+	failed := myBooksBody()
+	assert.NotContains(t, failed, epubAcquisitionInProgressLabel+".", "the in-progress label leaves with the live job")
+	assert.Contains(t, failed, epubAcquisitionDownloadFailedLabel)
+	assert.Contains(t, failed, retryAction)
+
+	// The learner retries, and the later acquisition succeeds: the failure is
+	// cleared, the newest job completes, and the Book shows its analysis state
+	// as today, with no acquisition evidence left.
+	retried := perform(t, fixture.handler, http.MethodPost, "/reading/books/"+bookID+"/reanalyze", url.Values{
+		"csrf_token": {fixture.csrf},
+	}, fixture.cookies)
+	require.Equal(t, http.StatusSeeOther, retried.Code, retried.Body.String())
+	assert.Contains(t, retried.Header().Get("Location"), url.QueryEscape(epubPreparationConfirmation))
+	assert.Equal(t, 2, fixture.acquisitionJobCount(t), "the learner's Retry starts a new job")
+
+	imported, err := epub.NewService(fixture.store).ImportForAcquisitionForBook(ctx, fixture.owner.ID, "de", bookID, epub.AcquisitionContent{
+		Content: testutil.ZipDirectory(t, filepath.Join("..", "epub", "testfixtures", "epub3-main-text")),
+	})
+	require.NoError(t, err)
+	seedNewerAnalysisRun(t, ctx, fixture.store, fixture.owner.ID, imported.Source)
+	require.NoError(t, fixture.store.ClearEPUBAcquisitionFailure(ctx, fixture.owner.ID, bookID))
+	_, err = fixture.pool.Exec(ctx, `UPDATE river_job SET state='completed', finalized_at=now() WHERE kind=$1 AND state='available'`, analysis.EPUBAcquisitionQueue)
+	require.NoError(t, err)
+
+	completed := myBooksBody()
+	assert.NotContains(t, completed, epubAcquisitionInProgressLabel+".", "a completed acquisition is no longer in progress")
+	assert.NotContains(t, completed, epubAcquisitionDownloadFailedLabel, "the later success clears the recorded failure")
+	assert.Contains(t, completed, "Analysis running.", "the Book shows its analysis state as today")
+	assert.NotContains(t, completed, retryAction, "an analysis under way offers no Retry")
+}
+
 func TestEPUBAcquisitionMoveAndRetryEnqueueOneLiveJob(t *testing.T) {
 	fixture := newAcquisitionHandlerFixture(t)
 	book := fixture.createToReadBook(t, "Move and retry")
