@@ -18,27 +18,32 @@ func TestClassifyBookEvidenceEPUBAcquisitionStages(t *testing.T) {
 	}{
 		{
 			name:        "entry missing",
-			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureEntry, Code: EPUBAcquisitionCodeCatalogEntryMissing},
+			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageEntry, Code: BookPreparationCodeCatalogEntryMissing},
 			acquisition: AcquisitionEntryMissing, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
 		},
 		{
 			name:        "download failed",
-			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureFetch, Code: EPUBAcquisitionCodeSourceDownloadFailed},
+			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageFetch, Code: BookPreparationCodeSourceDownloadFailed},
 			acquisition: AcquisitionFetchFailed, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
 		},
 		{
 			name:        "oversize source",
-			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureSource, Code: EPUBAcquisitionCodeSourceOversize},
+			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageSource, Code: BookPreparationCodeSourceOversize},
 			acquisition: AcquisitionSourceOversize, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
 		},
 		{
 			name:        "unknown source format",
-			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureSource, Code: EPUBAcquisitionCodeSourceFormatUnknown},
+			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageSource, Code: BookPreparationCodeSourceFormatUnknown},
 			acquisition: AcquisitionSourceFormatUnknown, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
 		},
 		{
+			name:        "refused source",
+			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageSource, Code: BookPreparationCodeSourcePinMismatch},
+			acquisition: AcquisitionSourceRefused, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
+		},
+		{
 			name:        "import failed",
-			status:      EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureImport, Code: EPUBAcquisitionCodeEPUBImportFailed},
+			status:      EPUBAcquisitionStatus{Stage: BookPreparationStageImport, Code: BookPreparationCodeEPUBImportFailed},
 			acquisition: AcquisitionImportFailed, evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryRetryAcquisition,
 		},
 	}
@@ -58,7 +63,7 @@ func TestClassifyBookEvidenceEPUBAcquisitionStages(t *testing.T) {
 func TestClassifyBookEvidenceDerivesTheStageFromTheCode(t *testing.T) {
 	t.Parallel()
 	classification := ClassifyBookEvidence(AnalysisSignals{
-		EPUBAcquisition: &EPUBAcquisitionStatus{Code: EPUBAcquisitionCodeSourceFormatUnknown},
+		EPUBAcquisition: &EPUBAcquisitionStatus{Code: BookPreparationCodeSourceFormatUnknown},
 	}, BookDispositionToRead, "de")
 	assert.Equal(t, AcquisitionSourceFormatUnknown, classification.Acquisition.State)
 	assert.Equal(t, RecoveryNone, classification.Recovery)
@@ -66,7 +71,7 @@ func TestClassifyBookEvidenceDerivesTheStageFromTheCode(t *testing.T) {
 
 func TestEPUBAcquisitionFailureNeverOverridesAnAnalysisInEffect(t *testing.T) {
 	t.Parallel()
-	status := EPUBAcquisitionStatus{Stage: EPUBAcquisitionFailureFetch, Code: EPUBAcquisitionCodeSourceDownloadFailed}
+	status := EPUBAcquisitionStatus{Stage: BookPreparationStageFetch, Code: BookPreparationCodeSourceDownloadFailed}
 	classification := ClassifyBookEvidence(AnalysisSignals{
 		Content:         ContentCurrentEPUB,
 		Published:       PublishedCurrent,
@@ -85,7 +90,7 @@ func TestMyBookClassificationCarriesEPUBAcquisition(t *testing.T) {
 		Book:        Book{LanguageState: LanguageChosen, LanguageTag: "de"},
 		Disposition: BookDispositionToRead,
 		EPUBAcquisition: &EPUBAcquisitionStatus{
-			Stage: EPUBAcquisitionFailureFetch, Code: EPUBAcquisitionCodeSourceDownloadFailed,
+			Stage: BookPreparationStageFetch, Code: BookPreparationCodeSourceDownloadFailed,
 		},
 	}
 	classification := book.Classification()
@@ -102,20 +107,49 @@ func TestMyBookClassificationCarriesEPUBAcquisition(t *testing.T) {
 func TestEPUBAcquisitionFailureVocabularyMatchesTheStages(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		code  string
-		stage EPUBAcquisitionFailureStage
+		code  BookPreparationCode
+		stage BookPreparationStage
 	}{
-		{code: EPUBAcquisitionCodeCatalogEntryMissing, stage: EPUBAcquisitionFailureEntry},
-		{code: EPUBAcquisitionCodeSourceDownloadFailed, stage: EPUBAcquisitionFailureFetch},
-		{code: EPUBAcquisitionCodeSourceOversize, stage: EPUBAcquisitionFailureSource},
-		{code: EPUBAcquisitionCodeSourceFormatUnknown, stage: EPUBAcquisitionFailureSource},
-		{code: EPUBAcquisitionCodeEPUBImportFailed, stage: EPUBAcquisitionFailureImport},
+		{code: BookPreparationCodeCatalogEntryMissing, stage: BookPreparationStageEntry},
+		{code: BookPreparationCodeSourceDownloadFailed, stage: BookPreparationStageFetch},
+		{code: BookPreparationCodeSourceOversize, stage: BookPreparationStageSource},
+		{code: BookPreparationCodeSourceFormatUnknown, stage: BookPreparationStageSource},
+		{code: BookPreparationCodeEPUBImportFailed, stage: BookPreparationStageImport},
 	}
 	for _, tt := range tests {
-		t.Run(tt.code, func(t *testing.T) {
+		t.Run(string(tt.code), func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.stage, EPUBAcquisitionFailureForCode(tt.code))
+			assert.Equal(t, tt.stage, EPUBAcquisitionStageForCode(tt.code))
 		})
+	}
+}
+
+func TestEPUBAcquisitionIgnoresOtherKindsStages(t *testing.T) {
+	t.Parallel()
+	for _, stage := range []BookPreparationStage{
+		BookPreparationStageCatalog,
+		BookPreparationStageWithdrawn,
+		BookPreparationStageAnalysis,
+		BookPreparationStageFinalize,
+	} {
+		classification := ClassifyBookEvidence(AnalysisSignals{
+			EPUBAcquisition: &EPUBAcquisitionStatus{Stage: stage, Code: BookPreparationCodeClassicalCatalogLegacyRows},
+		}, BookDispositionToRead, "de")
+		assert.Equal(t, AcquisitionNone, classification.Acquisition.State, stage)
+	}
+}
+
+func TestClassicalPreparationIgnoresOtherKindsStages(t *testing.T) {
+	t.Parallel()
+	for _, stage := range []BookPreparationStage{
+		BookPreparationStageEntry,
+		BookPreparationStageAnalysis,
+		BookPreparationStageFinalize,
+	} {
+		classification := ClassifyBookEvidence(AnalysisSignals{
+			ClassicalPreparation: &ClassicalPreparationStatus{Stage: stage, CurrentRevision: 1},
+		}, BookDispositionToRead, "grc")
+		assert.Equal(t, PreparationNone, classification.Preparation.State, stage)
 	}
 }
 
@@ -435,32 +469,32 @@ func TestClassifyBookEvidenceClassicalPreparationStages(t *testing.T) {
 		},
 		{
 			name:        "fetch",
-			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1},
+			status:      ClassicalPreparationStatus{Stage: BookPreparationStageFetch, CurrentRevision: 1},
 			preparation: PreparationFetchFailed, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryRetryAcquisition,
 		},
 		{
 			name:        "import",
-			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureImport, CurrentRevision: 1},
+			status:      ClassicalPreparationStatus{Stage: BookPreparationStageImport, CurrentRevision: 1},
 			preparation: PreparationImportFailed, evidence: BookAcquiredUnassessed, phase: PhaseFailed, recovery: RecoveryRetryAnalysis,
 		},
 		{
 			name:        "source",
-			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureSource, CurrentRevision: 1},
+			status:      ClassicalPreparationStatus{Stage: BookPreparationStageSource, CurrentRevision: 1},
 			preparation: PreparationSourceRefused, evidence: BookAcquiredUnassessed, phase: PhaseFailed, recovery: RecoveryNone,
 		},
 		{
 			name:        "withdrawn",
-			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, Withdrawn: true, CurrentRevision: 1},
+			status:      ClassicalPreparationStatus{Stage: BookPreparationStageWithdrawn, Withdrawn: true, CurrentRevision: 1},
 			preparation: PreparationWithdrawn, evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
 		},
 		{
 			name:        "withdrawn failure without the tombstone flag",
-			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, CurrentRevision: 1},
+			status:      ClassicalPreparationStatus{Stage: BookPreparationStageWithdrawn, CurrentRevision: 1},
 			preparation: PreparationWithdrawn, evidence: BookUnavailable, phase: PhaseFailed, recovery: RecoveryNone,
 		},
 		{
 			name:        "catalog",
-			status:      ClassicalPreparationStatus{Failure: ClassicalPreparationFailureCatalog, CurrentRevision: 1},
+			status:      ClassicalPreparationStatus{Stage: BookPreparationStageCatalog, CurrentRevision: 1},
 			preparation: PreparationCatalogUnavailable, evidence: BookUnavailable, phase: PhaseNotAnalyzed, recovery: RecoveryNone,
 		},
 		{
@@ -503,11 +537,11 @@ func TestClassicalPreparationNeverOverridesAnalysisInEffect(t *testing.T) {
 		name   string
 		status ClassicalPreparationStatus
 	}{
-		{name: "fetch", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1}},
-		{name: "import", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureImport, CurrentRevision: 1}},
-		{name: "source", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureSource, CurrentRevision: 1}},
-		{name: "withdrawn", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureWithdrawn, Withdrawn: true, CurrentRevision: 1}},
-		{name: "catalog", status: ClassicalPreparationStatus{Failure: ClassicalPreparationFailureCatalog, CurrentRevision: 1}},
+		{name: "fetch", status: ClassicalPreparationStatus{Stage: BookPreparationStageFetch, CurrentRevision: 1}},
+		{name: "import", status: ClassicalPreparationStatus{Stage: BookPreparationStageImport, CurrentRevision: 1}},
+		{name: "source", status: ClassicalPreparationStatus{Stage: BookPreparationStageSource, CurrentRevision: 1}},
+		{name: "withdrawn", status: ClassicalPreparationStatus{Stage: BookPreparationStageWithdrawn, Withdrawn: true, CurrentRevision: 1}},
+		{name: "catalog", status: ClassicalPreparationStatus{Stage: BookPreparationStageCatalog, CurrentRevision: 1}},
 		{name: "cleared", status: ClassicalPreparationStatus{Cleared: true, FailureRevision: 1, CurrentRevision: 2}},
 		{name: "running", status: ClassicalPreparationStatus{State: ClassicalPreparationRunning, CurrentRevision: 1}},
 	}
@@ -531,7 +565,7 @@ func TestClassicalPreparationNeverOverridesAnalysisInEffect(t *testing.T) {
 
 	// A newer run shadowed by the published analysis keeps that analysis in
 	// effect, so the preparation failure still does not apply.
-	status := ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1}
+	status := ClassicalPreparationStatus{Stage: BookPreparationStageFetch, CurrentRevision: 1}
 	shadowed := ClassifyBookEvidence(AnalysisSignals{
 		Content:              ContentCurrentImported,
 		Published:            PublishedCurrent,
@@ -549,7 +583,7 @@ func TestMyBookClassificationCarriesClassicalPreparation(t *testing.T) {
 		Book:                 Book{LanguageState: LanguageChosen, LanguageTag: "grc"},
 		Disposition:          BookDispositionToRead,
 		ReadingUnit:          &BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 1},
-		ClassicalPreparation: &ClassicalPreparationStatus{Failure: ClassicalPreparationFailureFetch, CurrentRevision: 1},
+		ClassicalPreparation: &ClassicalPreparationStatus{Stage: BookPreparationStageFetch, CurrentRevision: 1},
 	}
 	classification := book.Classification()
 	assert.Equal(t, PreparationFetchFailed, classification.Preparation.State)

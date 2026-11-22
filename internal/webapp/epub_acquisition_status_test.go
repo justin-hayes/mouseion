@@ -25,31 +25,31 @@ func TestEPUBAcquisitionFailurePresentation(t *testing.T) {
 	}{
 		{
 			name:     "entry missing",
-			status:   domain.EPUBAcquisitionStatus{Stage: domain.EPUBAcquisitionFailureEntry, Code: domain.EPUBAcquisitionCodeCatalogEntryMissing},
+			status:   domain.EPUBAcquisitionStatus{Stage: domain.BookPreparationStageEntry, Code: domain.BookPreparationCodeCatalogEntryMissing},
 			evidence: epubAcquisitionEntryMissingLabel,
 			recovery: epubAcquisitionRetryLabel,
 		},
 		{
 			name:     "download failed",
-			status:   domain.EPUBAcquisitionStatus{Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed},
+			status:   domain.EPUBAcquisitionStatus{Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed},
 			evidence: epubAcquisitionDownloadFailedLabel,
 			recovery: epubAcquisitionRetryLabel,
 		},
 		{
 			name:     "oversize source",
-			status:   domain.EPUBAcquisitionStatus{Stage: domain.EPUBAcquisitionFailureSource, Code: domain.EPUBAcquisitionCodeSourceOversize},
+			status:   domain.EPUBAcquisitionStatus{Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourceOversize},
 			evidence: epubAcquisitionOversizeLabel,
 			recovery: "",
 		},
 		{
 			name:     "unknown source format",
-			status:   domain.EPUBAcquisitionStatus{Stage: domain.EPUBAcquisitionFailureSource, Code: domain.EPUBAcquisitionCodeSourceFormatUnknown},
+			status:   domain.EPUBAcquisitionStatus{Stage: domain.BookPreparationStageSource, Code: domain.BookPreparationCodeSourceFormatUnknown},
 			evidence: epubAcquisitionFormatLabel,
 			recovery: "",
 		},
 		{
 			name:     "import failed",
-			status:   domain.EPUBAcquisitionStatus{Stage: domain.EPUBAcquisitionFailureImport, Code: domain.EPUBAcquisitionCodeEPUBImportFailed},
+			status:   domain.EPUBAcquisitionStatus{Stage: domain.BookPreparationStageImport, Code: domain.BookPreparationCodeEPUBImportFailed},
 			evidence: epubAcquisitionImportFailedLabel,
 			recovery: epubAcquisitionRetryLabel,
 		},
@@ -70,7 +70,7 @@ func TestEPUBAcquisitionFailurePresentation(t *testing.T) {
 func TestEPUBAcquisitionFailureDoesNotOverrideAnAnalysisInEffect(t *testing.T) {
 	t.Parallel()
 	book := acquisitionFailureBook(domain.EPUBAcquisitionStatus{
-		Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed,
+		Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
 	})
 	book.Acquired = &domain.SourceMaterialSummary{
 		Source:  domain.SourceMaterial{MediaType: "application/epub+zip"},
@@ -83,7 +83,7 @@ func TestEPUBAcquisitionFailureDoesNotOverrideAnAnalysisInEffect(t *testing.T) {
 func TestEPUBAcquisitionFailureDoesNotPresentOutsideToRead(t *testing.T) {
 	t.Parallel()
 	book := acquisitionFailureBook(domain.EPUBAcquisitionStatus{
-		Stage: domain.EPUBAcquisitionFailureFetch, Code: domain.EPUBAcquisitionCodeSourceDownloadFailed,
+		Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
 	})
 	book.Disposition = domain.BookDispositionInbox
 	assert.Empty(t, myBookMarginEvidence(book))

@@ -149,7 +149,7 @@ func (h *postgresHarness) SeedCatalogueEntries(t *testing.T, owner, connectionID
 	}
 }
 
-func (h *postgresHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure) {
+func (h *postgresHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.BookPreparationStage) {
 	t.Helper()
 	detail, err := h.store.GetBookDetail(h.ctx, owner, bookID)
 	require.NoError(t, err)
@@ -160,7 +160,7 @@ func (h *postgresHarness) SeedClassicalPreparationFailure(t *testing.T, owner, b
 		ReadingUnitKey:     detail.ReadingUnit.ReadingUnitKey,
 		DefinitionRevision: detail.ReadingUnit.Revision,
 		Stage:              stage,
-		Code:               "contract_" + string(stage),
+		Code:               domain.BookPreparationCode("contract_" + string(stage)),
 	}))
 }
 

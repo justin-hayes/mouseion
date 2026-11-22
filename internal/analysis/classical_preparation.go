@@ -214,14 +214,14 @@ func (s *Service) recordRefusedPreparation(ctx context.Context, target domain.Cl
 		BookID:             target.BookID,
 		ReadingUnitKey:     target.ReadingUnitKey,
 		DefinitionRevision: target.DefinitionRevision,
-		Stage:              domain.ClassicalPreparationFailureWithdrawn,
-		Code:               classical.WithdrawnCode,
+		Stage:              domain.BookPreparationStageWithdrawn,
+		Code:               domain.BookPreparationCodeClassicalWithdrawn,
 	})
 	if err != nil {
 		// The Book's current Reading unit already carries the withdrawn
 		// tombstone every learner surface reads, so this is best effort.
 		log.Printf("mouseion: record refused classical preparation owner=%s book=%s code=%s",
-			target.OwnerID, target.BookID, classical.WithdrawnCode)
+			target.OwnerID, target.BookID, domain.BookPreparationCodeClassicalWithdrawn)
 	}
 }
 
@@ -283,32 +283,32 @@ func classicalPreparationTerminal(ctx context.Context, store ClassicalPreparatio
 	if failure.DefinitionRevision < target.DefinitionRevision {
 		return false, nil
 	}
-	return failure.Stage == domain.ClassicalPreparationFailureSource ||
-		failure.Stage == domain.ClassicalPreparationFailureWithdrawn, nil
+	return failure.Stage == domain.BookPreparationStageSource ||
+		failure.Stage == domain.BookPreparationStageWithdrawn, nil
 }
 
 // ClassicalPreparationFailure returns the stable stage and code to record for a
 // failed preparation. It never returns error text, source text or Greek. The
 // stage is read from the domain's one code-to-stage table.
-func ClassicalPreparationFailure(err error) (domain.ClassicalPreparationFailure, string) {
+func ClassicalPreparationFailure(err error) (domain.BookPreparationStage, domain.BookPreparationCode) {
 	code := classicalPreparationFailureCode(err)
 	if code == "" {
-		return domain.ClassicalPreparationFailureNone, ""
+		return domain.BookPreparationStageNone, ""
 	}
-	return domain.ClassicalPreparationFailureForCode(code), code
+	return domain.ClassicalPreparationStageForCode(code), code
 }
 
 // classicalPreparationFailureCode maps a preparation error to the stable code
 // recorded for it. Adapter refusals collapse to their one aggregate code, and
 // an unrecognised import failure uses the import-stage code.
-func classicalPreparationFailureCode(err error) string {
+func classicalPreparationFailureCode(err error) domain.BookPreparationCode {
 	switch {
 	case err == nil:
 		return ""
 	case errors.Is(err, ErrWithdrawnClassicalDefinition):
-		return classical.WithdrawnCode
+		return domain.BookPreparationCodeClassicalWithdrawn
 	case errors.Is(err, classical.ErrLegacyRows):
-		return classical.LegacyRowsCode
+		return domain.BookPreparationCodeClassicalCatalogLegacyRows
 	}
 	if importErr, ok := errors.AsType[*ancientgreek.ImportError](err); ok {
 		switch importErr.Code {
@@ -316,17 +316,17 @@ func classicalPreparationFailureCode(err error) string {
 			ancientgreek.CodePinMismatch,
 			ancientgreek.CodeOversize,
 			ancientgreek.CodeSourceLayerUnknown:
-			return importErr.Code
+			return domain.BookPreparationCode(importErr.Code)
 		case ancientgreek.CodeUnknownSourceFormat,
 			ancientgreek.CodeMalformed, ancientgreek.CodeUnknownPOS,
 			ancientgreek.CodeUnknownInterpret, ancientgreek.CodeSentenceUnassigned,
 			ancientgreek.CodeSentenceAmbiguous, ancientgreek.CodeEmptyCitationRange:
-			return ancientgreek.CodeAdapterRefused
+			return domain.BookPreparationCodeSourceAdapterRefused
 		default:
-			return classical.PreparationFailedCode
+			return domain.BookPreparationCodeClassicalFailed
 		}
 	}
-	return classical.PreparationFailedCode
+	return domain.BookPreparationCodeClassicalFailed
 }
 
 // ClassicalPreparationWorker prepares one classical Book: it makes the pinned
@@ -473,7 +473,7 @@ func (w *ClassicalPreparationWorker) ensureTranslationImport(ctx context.Context
 // source detail, and it never logs Greek.
 func (w *ClassicalPreparationWorker) recordFailure(ctx context.Context, target domain.ClassicalPreparationTarget, err error) {
 	stage, code := ClassicalPreparationFailure(err)
-	if stage == domain.ClassicalPreparationFailureNone {
+	if stage == domain.BookPreparationStageNone {
 		return
 	}
 	record := domain.ClassicalPreparationFailureRecord{

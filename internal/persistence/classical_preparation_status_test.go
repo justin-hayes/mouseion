@@ -45,29 +45,47 @@ func TestClassicalPreparationStatusResolution(t *testing.T) {
 		{name: "failure current revision", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, stage: "source", code: ancientgreek.CodePinMismatch, failureRevision: 2}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
 			t.Helper()
 			require.NotNil(t, status)
-			assert.Equal(t, domain.ClassicalPreparationFailureSource, status.Failure)
-			assert.Equal(t, ancientgreek.CodePinMismatch, status.Code)
+			assert.Equal(t, domain.BookPreparationStageSource, status.Stage)
+			assert.Equal(t, domain.BookPreparationCodeSourcePinMismatch, status.Code)
 			assert.True(t, status.Failed())
 		}},
 		{name: "failure cleared by newer revision", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 1, stage: "source", code: ancientgreek.CodePinMismatch, failureRevision: 1}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
 			t.Helper()
 			require.NotNil(t, status)
 			assert.True(t, status.Cleared)
-			assert.Empty(t, status.Failure)
+			assert.Empty(t, status.Stage)
 			assert.False(t, status.Failed())
 		}},
 		{name: "job error fallback", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "ancientgreek: import refused: " + ancientgreek.CodeOversize}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
 			t.Helper()
 			require.NotNil(t, status)
-			assert.Equal(t, domain.ClassicalPreparationFailureSource, status.Failure)
-			assert.Equal(t, ancientgreek.CodeOversize, status.Code)
+			assert.Equal(t, domain.BookPreparationStageSource, status.Stage)
+			assert.Equal(t, domain.BookPreparationCodeSourceOversize, status.Code)
+		}},
+		{name: "job error adapter refusal", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "ancientgreek: import refused: malformed"}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
+			t.Helper()
+			require.NotNil(t, status)
+			assert.Equal(t, domain.BookPreparationStageSource, status.Stage)
+			assert.Equal(t, domain.BookPreparationCodeSourceAdapterRefused, status.Code)
+		}},
+		{name: "job error classical failure", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "failed: " + classical.PreparationFailedCode}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
+			t.Helper()
+			require.NotNil(t, status)
+			assert.Equal(t, domain.BookPreparationStageImport, status.Stage)
+			assert.Equal(t, domain.BookPreparationCodeClassicalFailed, status.Code)
+		}},
+		{name: "job error without a recognised code", unit: unit, row: classicalPreparationRow{jobState: "discarded", jobRevision: 2, jobError: "the worker disappeared"}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
+			t.Helper()
+			require.NotNil(t, status)
+			assert.Equal(t, domain.BookPreparationStageImport, status.Stage)
+			assert.Equal(t, domain.BookPreparationCodeClassicalFailed, status.Code)
 		}},
 		{name: "withdrawn", unit: &domain.BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 2, Withdrawn: true}, row: classicalPreparationRow{}, want: func(t *testing.T, status *domain.ClassicalPreparationStatus) {
 			t.Helper()
 			require.NotNil(t, status)
 			assert.True(t, status.Withdrawn)
-			assert.Equal(t, domain.ClassicalPreparationFailureWithdrawn, status.Failure)
-			assert.Equal(t, classical.WithdrawnCode, status.Code)
+			assert.Equal(t, domain.BookPreparationStageWithdrawn, status.Stage)
+			assert.Equal(t, domain.BookPreparationCodeClassicalWithdrawn, status.Code)
 		}},
 	}
 	for _, tt := range tests {
@@ -84,19 +102,22 @@ func TestClassicalPreparationStatusResolution(t *testing.T) {
 // this test fails if either side drifts.
 func TestClassicalPreparationCodesMatchDomainTable(t *testing.T) {
 	t.Parallel()
-	cases := map[string]domain.ClassicalPreparationFailure{
-		ancientgreek.CodeSourceDownloadFailed: domain.ClassicalPreparationFailureFetch,
-		ancientgreek.CodePinMismatch:          domain.ClassicalPreparationFailureSource,
-		ancientgreek.CodeOversize:             domain.ClassicalPreparationFailureSource,
-		ancientgreek.CodeSourceLayerUnknown:   domain.ClassicalPreparationFailureSource,
-		ancientgreek.CodeUnknownSourceFormat:  domain.ClassicalPreparationFailureSource,
-		ancientgreek.CodeAdapterRefused:       domain.ClassicalPreparationFailureSource,
-		classical.WithdrawnCode:               domain.ClassicalPreparationFailureWithdrawn,
-		classical.LegacyRowsCode:              domain.ClassicalPreparationFailureCatalog,
-		classical.PreparationFailedCode:       domain.ClassicalPreparationFailureImport,
+	cases := map[domain.BookPreparationCode]domain.BookPreparationStage{
+		ancientgreek.CodeSourceDownloadFailed: domain.BookPreparationStageFetch,
+		ancientgreek.CodePinMismatch:          domain.BookPreparationStageSource,
+		ancientgreek.CodeOversize:             domain.BookPreparationStageSource,
+		ancientgreek.CodeSourceLayerUnknown:   domain.BookPreparationStageSource,
+		ancientgreek.CodeUnknownSourceFormat:  domain.BookPreparationStageSource,
+		ancientgreek.CodeAdapterRefused:       domain.BookPreparationStageSource,
+		classical.WithdrawnCode:               domain.BookPreparationStageWithdrawn,
+		classical.LegacyRowsCode:              domain.BookPreparationStageCatalog,
+		classical.PreparationFailedCode:       domain.BookPreparationStageImport,
 	}
 	for code, want := range cases {
-		assert.Equal(t, want, domain.ClassicalPreparationFailureForCode(code), code)
+		t.Run(string(code), func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, want, domain.ClassicalPreparationStageForCode(code), code)
+		})
 	}
 }
 
@@ -104,7 +125,7 @@ func TestValidatePreparationFailure(t *testing.T) {
 	t.Parallel()
 	valid := domain.ClassicalPreparationFailureRecord{
 		OwnerID: "owner", BookID: "book", ReadingUnitKey: "greek-1", DefinitionRevision: 1,
-		Stage: domain.ClassicalPreparationFailureSource, Code: ancientgreek.CodePinMismatch,
+		Stage: domain.BookPreparationStageSource, Code: ancientgreek.CodePinMismatch,
 	}
 	require.NoError(t, validatePreparationFailure(valid))
 	for name, mutate := range map[string]func(*domain.ClassicalPreparationFailureRecord){
@@ -112,7 +133,7 @@ func TestValidatePreparationFailure(t *testing.T) {
 		"book":     func(r *domain.ClassicalPreparationFailureRecord) { r.BookID = "" },
 		"unit":     func(r *domain.ClassicalPreparationFailureRecord) { r.ReadingUnitKey = "" },
 		"revision": func(r *domain.ClassicalPreparationFailureRecord) { r.DefinitionRevision = 0 },
-		"stage":    func(r *domain.ClassicalPreparationFailureRecord) { r.Stage = domain.ClassicalPreparationFailureNone },
+		"stage":    func(r *domain.ClassicalPreparationFailureRecord) { r.Stage = domain.BookPreparationStageNone },
 		"code":     func(r *domain.ClassicalPreparationFailureRecord) { r.Code = "" },
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -209,19 +209,19 @@ func TestClassicalPreparationFailureClassification(t *testing.T) {
 	tests := []struct {
 		name  string
 		err   error
-		stage domain.ClassicalPreparationFailure
-		code  string
+		stage domain.BookPreparationStage
+		code  domain.BookPreparationCode
 	}{
-		{name: "nil", err: nil, stage: domain.ClassicalPreparationFailureNone},
-		{name: "withdrawn", err: ErrWithdrawnClassicalDefinition, stage: domain.ClassicalPreparationFailureWithdrawn, code: classical.WithdrawnCode},
-		{name: "legacy", err: classical.ErrLegacyRows, stage: domain.ClassicalPreparationFailureCatalog, code: classical.LegacyRowsCode},
-		{name: "download", err: &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}, stage: domain.ClassicalPreparationFailureFetch, code: ancientgreek.CodeSourceDownloadFailed},
-		{name: "pin mismatch", err: &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodePinMismatch},
-		{name: "oversize", err: &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodeOversize},
-		{name: "layer", err: &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodeSourceLayerUnknown},
-		{name: "adapter", err: &ancientgreek.ImportError{Code: ancientgreek.CodeMalformed}, stage: domain.ClassicalPreparationFailureSource, code: ancientgreek.CodeAdapterRefused},
-		{name: "unknown import code", err: &ancientgreek.ImportError{Code: ancientgreek.CodeReadFailed}, stage: domain.ClassicalPreparationFailureImport, code: classical.PreparationFailedCode},
-		{name: "generic", err: errors.New("write failed"), stage: domain.ClassicalPreparationFailureImport, code: classical.PreparationFailedCode},
+		{name: "nil", err: nil, stage: domain.BookPreparationStageNone},
+		{name: "withdrawn", err: ErrWithdrawnClassicalDefinition, stage: domain.BookPreparationStageWithdrawn, code: classical.WithdrawnCode},
+		{name: "legacy", err: classical.ErrLegacyRows, stage: domain.BookPreparationStageCatalog, code: classical.LegacyRowsCode},
+		{name: "download", err: &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}, stage: domain.BookPreparationStageFetch, code: ancientgreek.CodeSourceDownloadFailed},
+		{name: "pin mismatch", err: &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}, stage: domain.BookPreparationStageSource, code: ancientgreek.CodePinMismatch},
+		{name: "oversize", err: &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}, stage: domain.BookPreparationStageSource, code: ancientgreek.CodeOversize},
+		{name: "layer", err: &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}, stage: domain.BookPreparationStageSource, code: ancientgreek.CodeSourceLayerUnknown},
+		{name: "adapter", err: &ancientgreek.ImportError{Code: ancientgreek.CodeMalformed}, stage: domain.BookPreparationStageSource, code: ancientgreek.CodeAdapterRefused},
+		{name: "unknown import code", err: &ancientgreek.ImportError{Code: ancientgreek.CodeReadFailed}, stage: domain.BookPreparationStageImport, code: classical.PreparationFailedCode},
+		{name: "generic", err: errors.New("write failed"), stage: domain.BookPreparationStageImport, code: classical.PreparationFailedCode},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -248,10 +248,10 @@ func TestClassicalPreparationSubmissionStateOutcomes(t *testing.T) {
 		"complete":       {store: &preparationStoreStub{complete: true}, complete: true},
 		"terminal error": {store: &preparationStoreStub{failureFound: true, failureErr: errors.New("failure failed")}, wantErr: "failure failed"},
 		"terminal": {store: &preparationStoreStub{failureFound: true, failure: domain.ClassicalPreparationFailureRecord{
-			DefinitionRevision: target.DefinitionRevision, Stage: domain.ClassicalPreparationFailureSource,
+			DefinitionRevision: target.DefinitionRevision, Stage: domain.BookPreparationStageSource,
 		}}, terminal: true},
 		"retryable": {store: &preparationStoreStub{failureFound: true, failure: domain.ClassicalPreparationFailureRecord{
-			DefinitionRevision: target.DefinitionRevision - 1, Stage: domain.ClassicalPreparationFailureSource,
+			DefinitionRevision: target.DefinitionRevision - 1, Stage: domain.BookPreparationStageSource,
 		}}},
 	}
 	for name, tt := range tests {
@@ -271,6 +271,18 @@ func TestClassicalPreparationSubmissionStateOutcomes(t *testing.T) {
 	}
 }
 
+func TestClassicalPreparationRefusedSubmissionLogsStoreFailure(t *testing.T) {
+	t.Parallel()
+	store := &preparationStoreStub{failureErr: errors.New("store failed")}
+	service := &Service{classicalStore: store}
+	service.recordRefusedPreparation(context.Background(), domain.ClassicalPreparationTarget{
+		OwnerID: "owner-1", BookID: "book-1", ReadingUnitKey: "unit-1", DefinitionRevision: 1,
+	})
+	assert.Equal(t, 1, store.failureCalls)
+	assert.Equal(t, domain.BookPreparationStageWithdrawn, store.failure.Stage)
+	assert.Equal(t, domain.BookPreparationCodeClassicalWithdrawn, store.failure.Code)
+}
+
 func TestClassicalPreparationWorkerRefusesLegacyCatalogAndRecordsFailure(t *testing.T) {
 	t.Parallel()
 	target, _ := preparationFixture(t)
@@ -279,8 +291,8 @@ func TestClassicalPreparationWorkerRefusesLegacyCatalogAndRecordsFailure(t *test
 	err := worker.Work(context.Background(), preparationJob(target))
 	require.ErrorIs(t, err, classical.ErrLegacyRows)
 	require.Equal(t, 1, store.failureCalls)
-	assert.Equal(t, domain.ClassicalPreparationFailureCatalog, store.failure.Stage)
-	assert.Equal(t, classical.LegacyRowsCode, store.failure.Code)
+	assert.Equal(t, domain.BookPreparationStageCatalog, store.failure.Stage)
+	assert.Equal(t, domain.BookPreparationCodeClassicalCatalogLegacyRows, store.failure.Code)
 }
 
 func TestClassicalPreparationWorkerFailureRecording(t *testing.T) {

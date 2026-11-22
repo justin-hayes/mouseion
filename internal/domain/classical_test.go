@@ -54,23 +54,26 @@ func TestReadingUnitDefinitionValidate(t *testing.T) {
 	}
 }
 
-func TestClassicalPreparationFailureForCode(t *testing.T) {
+func TestClassicalPreparationStageForCode(t *testing.T) {
 	t.Parallel()
-	cases := map[string]ClassicalPreparationFailure{
-		"":                               ClassicalPreparationFailureNone,
-		"source_download_failed":         ClassicalPreparationFailureFetch,
-		"classical_definition_withdrawn": ClassicalPreparationFailureWithdrawn,
-		"classical_catalog_legacy_rows":  ClassicalPreparationFailureCatalog,
-		"source_pin_mismatch":            ClassicalPreparationFailureSource,
-		"source_oversize":                ClassicalPreparationFailureSource,
-		"source_layer_unknown":           ClassicalPreparationFailureSource,
-		"source_format_unknown":          ClassicalPreparationFailureSource,
-		"source_adapter_refused":         ClassicalPreparationFailureSource,
-		"classical_preparation_failed":   ClassicalPreparationFailureImport,
-		"an_unrecognised_failure_code":   ClassicalPreparationFailureImport,
+	cases := map[BookPreparationCode]BookPreparationStage{
+		"":                               BookPreparationStageNone,
+		"source_download_failed":         BookPreparationStageFetch,
+		"classical_definition_withdrawn": BookPreparationStageWithdrawn,
+		"classical_catalog_legacy_rows":  BookPreparationStageCatalog,
+		"source_pin_mismatch":            BookPreparationStageSource,
+		"source_oversize":                BookPreparationStageSource,
+		"source_layer_unknown":           BookPreparationStageSource,
+		"source_format_unknown":          BookPreparationStageSource,
+		"source_adapter_refused":         BookPreparationStageSource,
+		"classical_preparation_failed":   BookPreparationStageImport,
+		"an_unrecognised_failure_code":   BookPreparationStageImport,
 	}
 	for code, want := range cases {
-		assert.Equal(t, want, ClassicalPreparationFailureForCode(code), code)
+		t.Run(string(code), func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, want, ClassicalPreparationStageForCode(code), code)
+		})
 	}
 }
 
@@ -79,8 +82,8 @@ func TestWithdrawnClassicalPreparationStatus(t *testing.T) {
 	status := WithdrawnClassicalPreparationStatus(BookReadingUnit{Revision: 3})
 	assert.True(t, status.Withdrawn)
 	assert.True(t, status.Failed())
-	assert.Equal(t, ClassicalPreparationFailureWithdrawn, status.Failure)
-	assert.Equal(t, "classical_definition_withdrawn", status.Code)
+	assert.Equal(t, BookPreparationStageWithdrawn, status.Stage)
+	assert.Equal(t, BookPreparationCodeClassicalWithdrawn, status.Code)
 	assert.Equal(t, 3, status.FailureRevision)
 	assert.Equal(t, 3, status.CurrentRevision)
 }

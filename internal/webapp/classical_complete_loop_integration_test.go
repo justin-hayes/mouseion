@@ -190,8 +190,8 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	h.startWorkers(t)
 	for _, id := range []string{bookOne, bookTwo} {
 		record := h.waitForFailure(t, learner.ID, id)
-		assert.Equal(t, domain.ClassicalPreparationFailureFetch, record.Stage)
-		assert.Equal(t, ancientgreek.CodeSourceDownloadFailed, record.Code)
+		assert.Equal(t, domain.BookPreparationStageFetch, record.Stage)
+		assert.Equal(t, ancientgreek.CodeSourceDownloadFailed, string(record.Code))
 	}
 
 	// 5. A queued/running Book is Analysis incomplete; a fetch failure keeps its

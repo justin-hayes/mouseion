@@ -119,7 +119,7 @@ func classicalPreparationStatus(unit *domain.BookReadingUnit, row classicalPrepa
 	applyLivePreparationJob(status, unit.Revision, row)
 	applyPreparationFailure(status, unit.Revision, row)
 	applyJobErrorFallback(status, unit.Revision, row)
-	if !status.InProgress() && status.Failure == domain.ClassicalPreparationFailureNone && !status.Cleared {
+	if !status.InProgress() && status.Stage == domain.BookPreparationStageNone && !status.Cleared {
 		return nil
 	}
 	return status
@@ -149,8 +149,8 @@ func applyPreparationFailure(status *domain.ClassicalPreparationStatus, revision
 		if status.InProgress() {
 			return
 		}
-		status.Failure = domain.ClassicalPreparationFailure(row.stage)
-		status.Code = row.code
+		status.Stage = domain.BookPreparationStage(row.stage)
+		status.Code = domain.BookPreparationCode(row.code)
 		status.FailureRevision = row.failureRevision
 		return
 	}
@@ -162,7 +162,7 @@ func applyPreparationFailure(status *domain.ClassicalPreparationStatus, revision
 // applyJobErrorFallback recovers a failure from a River attempt error for jobs
 // written before the per-Book failure record existed.
 func applyJobErrorFallback(status *domain.ClassicalPreparationStatus, revision int, row classicalPreparationRow) {
-	if status.InProgress() || status.Cleared || status.Failure != domain.ClassicalPreparationFailureNone {
+	if status.InProgress() || status.Cleared || status.Stage != domain.BookPreparationStageNone {
 		return
 	}
 	if row.jobState != "discarded" && row.jobState != "cancelled" {
@@ -176,9 +176,9 @@ func applyJobErrorFallback(status *domain.ClassicalPreparationStatus, revision i
 		// A discarded job with no recognized code was interrupted before it
 		// could record failure evidence. Present it as a retryable import
 		// failure rather than leaving the Book with no state and no recovery.
-		code = classical.PreparationFailedCode
+		code = domain.BookPreparationCodeClassicalFailed
 	}
-	status.Failure = domain.ClassicalPreparationFailureForCode(code)
+	status.Stage = domain.ClassicalPreparationStageForCode(code)
 	status.Code = code
 	status.FailureRevision = revision
 }
@@ -186,7 +186,7 @@ func applyJobErrorFallback(status *domain.ClassicalPreparationStatus, revision i
 // classicalFailureCodeFromError recovers a stable code from a River attempt
 // error. It exists for jobs written before the per-Book failure record, and
 // never returns source text.
-func classicalFailureCodeFromError(message string) string {
+func classicalFailureCodeFromError(message string) domain.BookPreparationCode {
 	for _, code := range []string{
 		classical.WithdrawnCode,
 		classical.LegacyRowsCode,
@@ -197,14 +197,14 @@ func classicalFailureCodeFromError(message string) string {
 		ancientgreek.CodeUnknownSourceFormat,
 	} {
 		if strings.Contains(message, code) {
-			return code
+			return domain.BookPreparationCode(code)
 		}
 	}
 	if strings.Contains(message, "ancientgreek: import refused:") {
-		return ancientgreek.CodeAdapterRefused
+		return domain.BookPreparationCodeSourceAdapterRefused
 	}
 	if strings.Contains(message, classical.PreparationFailedCode) {
-		return classical.PreparationFailedCode
+		return domain.BookPreparationCodeClassicalFailed
 	}
 	return ""
 }

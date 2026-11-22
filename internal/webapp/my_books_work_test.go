@@ -407,7 +407,7 @@ func TestMyBooksWorkProblemLabelsAndRecovery(t *testing.T) {
 		book := classicalWorkBook(id, "homer-iliad", "Iliad", "Homer", "Ἰλιάς", position, 24, disposition, false)
 		book.DispositionRevision = revision
 		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{
-			Failure: domain.ClassicalPreparationFailureFetch, FailureRevision: 1, CurrentRevision: 1,
+			Stage: domain.BookPreparationStageFetch, FailureRevision: 1, CurrentRevision: 1,
 		}
 		return book
 	}
@@ -448,15 +448,15 @@ func TestMyBooksGroupedWorkRowCollapsesPreparingAndKeepsProblemNotes(t *testing.
 		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationQueued, CurrentRevision: 1}
 		return book
 	}
-	problem := func(id string, position int, failure domain.ClassicalPreparationFailure) domain.MyBook {
+	problem := func(id string, position int, failure domain.BookPreparationStage) domain.MyBook {
 		book := classicalWorkBook(id, "homer-iliad", "Iliad", "Homer", "Ἰλιάς", position, 24, domain.BookDispositionToRead, false)
-		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{Failure: failure, FailureRevision: 1, CurrentRevision: 1}
+		book.ClassicalPreparation = &domain.ClassicalPreparationStatus{Stage: failure, FailureRevision: 1, CurrentRevision: 1}
 		return book
 	}
 	books := []domain.MyBook{
 		preparing("iliad-4", 4),
-		problem("iliad-6", 6, domain.ClassicalPreparationFailureFetch),
-		problem("iliad-7", 7, domain.ClassicalPreparationFailureImport),
+		problem("iliad-6", 6, domain.BookPreparationStageFetch),
+		problem("iliad-7", 7, domain.BookPreparationStageImport),
 		preparing("iliad-21", 21), preparing("iliad-22", 22), preparing("iliad-23", 23), preparing("iliad-24", 24),
 	}
 	row := domain.MyBooksBrowseRow{

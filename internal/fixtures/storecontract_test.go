@@ -279,17 +279,17 @@ func (h *contractHarness) SeedCatalogueEntries(t *testing.T, owner, connectionID
 	require.NoError(t, h.store.SeedCatalogueEntries(owner, connectionID, entries))
 }
 
-func (h *contractHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.ClassicalPreparationFailure) {
+func (h *contractHarness) SeedClassicalPreparationFailure(t *testing.T, owner, bookID string, stage domain.BookPreparationStage) {
 	t.Helper()
 	detail, err := h.store.GetBookDetail(context.Background(), owner, bookID)
 	require.NoError(t, err)
 	require.NotNil(t, detail.ReadingUnit, "a classical failure needs a Reading unit")
 	status := &domain.ClassicalPreparationStatus{
-		Failure:         stage,
-		Code:            "contract_" + string(stage),
+		Stage:           stage,
+		Code:            domain.BookPreparationCode("contract_" + string(stage)),
 		FailureRevision: detail.ReadingUnit.Revision,
 		CurrentRevision: detail.ReadingUnit.Revision,
-		Withdrawn:       stage == domain.ClassicalPreparationFailureWithdrawn,
+		Withdrawn:       stage == domain.BookPreparationStageWithdrawn,
 	}
 	h.store.mu.Lock()
 	defer h.store.mu.Unlock()

@@ -31,10 +31,10 @@ func TestClassicalPreparationLearnerStates(t *testing.T) {
 	}{
 		{name: "queued", status: domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationQueued, CurrentRevision: 1}, label: classicalAnalysisIncompleteLabel, margin: "Analysis incomplete.", inProgress: true},
 		{name: "running", status: domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationRunning, CurrentRevision: 1}, label: classicalAnalysisIncompleteLabel, margin: "Analysis incomplete.", inProgress: true},
-		{name: "fetch", status: domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureFetch, CurrentRevision: 1}, label: classicalAssessmentUnavailable, recovery: classicalRetryAcquisitionLabel, margin: "Assessment unavailable.", action: true},
-		{name: "import", status: domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureImport, CurrentRevision: 1}, label: classicalAnalysisFailedLabel, recovery: classicalRetryAnalysisLabel, margin: "Analysis failed.", action: true},
-		{name: "source", status: domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureSource, CurrentRevision: 1}, label: classicalSourceMismatchLabel, margin: "Source doesn't match its reviewed definition."},
-		{name: "withdrawn", status: domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureWithdrawn, CurrentRevision: 1, Withdrawn: true}, label: classicalWithdrawnLabel, margin: "No longer in the Classical catalog."},
+		{name: "fetch", status: domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageFetch, CurrentRevision: 1}, label: classicalAssessmentUnavailable, recovery: classicalRetryAcquisitionLabel, margin: "Assessment unavailable.", action: true},
+		{name: "import", status: domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageImport, CurrentRevision: 1}, label: classicalAnalysisFailedLabel, recovery: classicalRetryAnalysisLabel, margin: "Analysis failed.", action: true},
+		{name: "source", status: domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageSource, CurrentRevision: 1}, label: classicalSourceMismatchLabel, margin: "Source doesn't match its reviewed definition."},
+		{name: "withdrawn", status: domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageWithdrawn, CurrentRevision: 1, Withdrawn: true}, label: classicalWithdrawnLabel, margin: "No longer in the Classical catalog."},
 		{name: "cleared", status: domain.ClassicalPreparationStatus{Cleared: true, FailureRevision: 1, CurrentRevision: 2}, label: classicalAnalysisNotStarted, recovery: classicalRetryPreparationLabel, margin: "Analysis not started.", action: true},
 	}
 	for _, tt := range tests {
@@ -58,7 +58,7 @@ func TestClassicalPreparationLearnerStates(t *testing.T) {
 
 func TestClassicalPreparationRecoveryFromInboxMovesToToRead(t *testing.T) {
 	t.Parallel()
-	book := classicalStatusBook(domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureFetch, CurrentRevision: 1})
+	book := classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageFetch, CurrentRevision: 1})
 	book.Disposition = domain.BookDispositionInbox
 	assert.Equal(t, classicalRetryAcquisitionLabel+" by moving to To Read", myBookEvidenceRecovery(book))
 	assert.Equal(t, "/library/books/greek/to-read", myBookEvidenceRecoveryURL(book))
@@ -66,7 +66,7 @@ func TestClassicalPreparationRecoveryFromInboxMovesToToRead(t *testing.T) {
 
 func TestClassicalPreparationIgnoresPublishedAnalysis(t *testing.T) {
 	t.Parallel()
-	book := classicalStatusBook(domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureSource, CurrentRevision: 1})
+	book := classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageSource, CurrentRevision: 1})
 	book.Acquired = &domain.SourceMaterialSummary{
 		Source:        domain.SourceMaterial{ID: "source", MediaType: domain.ImportedSourceMediaType, ContentRevisionID: "revision", ContentSnapshotID: "snapshot"},
 		Signals:       testAnalyzed,
@@ -79,7 +79,7 @@ func TestClassicalPreparationIgnoresPublishedAnalysis(t *testing.T) {
 
 func TestClassicalPreparationReadingActionAndLabel(t *testing.T) {
 	t.Parallel()
-	book := classicalStatusBook(domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureFetch, CurrentRevision: 1})
+	book := classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageFetch, CurrentRevision: 1})
 	item := readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "greek", Title: "Anabasis"}}, BookID: "greek", ReadingUnit: book.ReadingUnit, ClassicalPreparation: book.ClassicalPreparation}
 	assert.Equal(t, classicalAssessmentUnavailable, readingEvidenceLabel(item))
 	assert.Contains(t, readingEvidenceDescription(item), "Retry acquisition")
@@ -89,7 +89,7 @@ func TestClassicalPreparationReadingActionAndLabel(t *testing.T) {
 	assert.Equal(t, "/reading/books/greek/reanalyze", action.URL)
 	assert.True(t, action.Submit)
 
-	terminal := readingBookView{Book: item.Book, BookID: "greek", ReadingUnit: book.ReadingUnit, ClassicalPreparation: &domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureSource, CurrentRevision: 1}}
+	terminal := readingBookView{Book: item.Book, BookID: "greek", ReadingUnit: book.ReadingUnit, ClassicalPreparation: &domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageSource, CurrentRevision: 1}}
 	action = readingAnalysisAction(terminal)
 	assert.Equal(t, classicalSourceMismatchLabel, action.Status)
 	assert.Empty(t, action.Label, "a terminal source failure offers no retry")
@@ -134,7 +134,7 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 		Book:   domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "greek"}},
 		BookID: "greek",
 		ClassicalPreparation: &domain.ClassicalPreparationStatus{
-			Failure: domain.ClassicalPreparationFailureCatalog, CurrentRevision: 1,
+			Stage: domain.BookPreparationStageCatalog, CurrentRevision: 1,
 		},
 	}
 	assert.Equal(t, readingEvidenceUnavailable, readingEvidenceState(catalog))
@@ -144,13 +144,13 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 func TestClassicalPreparationChooserRecovery(t *testing.T) {
 	t.Parallel()
 	h := &Handler{}
-	candidate := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureImport, CurrentRevision: 1})}
+	candidate := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageImport, CurrentRevision: 1})}
 	require.NoError(t, h.classifyReadingChooserCandidate(context.Background(), "owner", &candidate))
 	assert.Equal(t, readingChooserNeedsAttention, candidate.State)
 	assert.Equal(t, classicalRetryAnalysisLabel, candidate.RecoveryLabel)
 	assert.True(t, candidate.RecoveryAllowed)
 
-	terminal := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{Failure: domain.ClassicalPreparationFailureSource, CurrentRevision: 1})}
+	terminal := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageSource, CurrentRevision: 1})}
 	require.NoError(t, h.classifyReadingChooserCandidate(context.Background(), "owner", &terminal))
 	assert.Equal(t, readingChooserNeedsAttention, terminal.State)
 	assert.Empty(t, terminal.RecoveryLabel)

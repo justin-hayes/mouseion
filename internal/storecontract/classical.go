@@ -208,16 +208,16 @@ func classicalScenarios() []Scenario {
 func classicalPreparationFailureScenarios() []Scenario {
 	cases := []struct {
 		name        string
-		stage       domain.ClassicalPreparationFailure
+		stage       domain.BookPreparationStage
 		preparation domain.PreparationState
 		evidence    domain.BookEvidenceState
 		recovery    domain.BookEvidenceRecovery
 	}{
-		{name: "fetch", stage: domain.ClassicalPreparationFailureFetch, preparation: domain.PreparationFetchFailed, evidence: domain.BookUnavailable, recovery: domain.RecoveryRetryAcquisition},
-		{name: "import", stage: domain.ClassicalPreparationFailureImport, preparation: domain.PreparationImportFailed, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryRetryAnalysis},
-		{name: "source", stage: domain.ClassicalPreparationFailureSource, preparation: domain.PreparationSourceRefused, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryNone},
-		{name: "withdrawn", stage: domain.ClassicalPreparationFailureWithdrawn, preparation: domain.PreparationWithdrawn, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
-		{name: "catalog", stage: domain.ClassicalPreparationFailureCatalog, preparation: domain.PreparationCatalogUnavailable, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+		{name: "fetch", stage: domain.BookPreparationStageFetch, preparation: domain.PreparationFetchFailed, evidence: domain.BookUnavailable, recovery: domain.RecoveryRetryAcquisition},
+		{name: "import", stage: domain.BookPreparationStageImport, preparation: domain.PreparationImportFailed, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryRetryAnalysis},
+		{name: "source", stage: domain.BookPreparationStageSource, preparation: domain.PreparationSourceRefused, evidence: domain.BookAcquiredUnassessed, recovery: domain.RecoveryNone},
+		{name: "withdrawn", stage: domain.BookPreparationStageWithdrawn, preparation: domain.PreparationWithdrawn, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
+		{name: "catalog", stage: domain.BookPreparationStageCatalog, preparation: domain.PreparationCatalogUnavailable, evidence: domain.BookUnavailable, recovery: domain.RecoveryNone},
 	}
 	return []Scenario{{
 		Name: "classical preparation failure classifies the Book's evidence",
@@ -232,7 +232,7 @@ func classicalPreparationFailureScenarios() []Scenario {
 				h.Seeds().SeedClassicalPreparationFailure(t, owner, bookID, tc.stage)
 				detail := requireDetail(t, h, owner, bookID)
 				require.NotNil(t, detail.ClassicalPreparation, tc.name)
-				assert.Equal(t, tc.stage, detail.ClassicalPreparation.Failure, tc.name)
+				assert.Equal(t, tc.stage, detail.ClassicalPreparation.Stage, tc.name)
 				classification := detail.Classification()
 				assert.Equal(t, tc.preparation, classification.Preparation.State, tc.name)
 				assert.Equal(t, tc.evidence, classification.Evidence, tc.name)
