@@ -219,7 +219,8 @@ SonarQube Cloud analysis and no decoration.
 ## Regenerating screenshots
 
 `make screenshot-my-books` regenerates the README screenshots in `doc/images/`:
-`my-books.png`, `my-books-dark.png`, `reading.png`, `concordance.png`, and
+`my-books.png` and `my-books-dark.png` (the To Read tab), `my-books-read.png`
+and `my-books-read-dark.png` (the Read tab), `reading.png`, `concordance.png`, and
 `sentence-study.png`. They come from a real run of Mouseion's analysis on pinned
 public-domain German novels from Project Gutenberg, on an isolated Compose stack
 (project `mouseion-screenshot`, web port bound to `127.0.0.1`). Nothing is
@@ -252,7 +253,8 @@ Duration, measured on the maintainer's workstation (16 cores, 31 GB RAM):
   built images removed (Docker's build cache kept): about 15 minutes. It
   re-downloads the pinned sources and the models.
 - Repeat run, with the models and sources cached: about 15 minutes. The browser
-  workflow itself took 13.8 minutes in both runs.
+  workflow itself took 13.8 minutes in both runs, and 12.8 minutes in the
+  latest repeat run, which adds every Book from the Catalog and syncs again.
 
 The Playwright test budget is 75 minutes. A run on unchanged code reproduces the
 committed PNGs byte for byte.

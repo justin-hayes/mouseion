@@ -15,9 +15,13 @@ Mouseion is not a tool for constructing scholarly editions
 The name recalls the Mouseion of Alexandria, the scholarly community that housed
 the Library.
 
-![My Books listing twelve German public-domain novels, each with its cover, its workflow bucket, and its known-vocabulary coverage.](doc/images/my-books.png)
+![My Books on its To Read tab, listing ten German public-domain novels with their covers, the current reading marked Currently reading, and each Book's known-vocabulary coverage and reading history. The To Read and Read tabs sit above the list.](doc/images/my-books.png)
 
-*My Books: the collection of chosen Books, with each Book's known-vocabulary coverage.*
+*My Books, To Read tab: the Books chosen to read, including the current reading, with each Book's known-vocabulary coverage.*
+
+![My Books on its Read tab, listing two Books: one finished in Mouseion and one recorded as read before Mouseion, each with its completion history.](doc/images/my-books-read.png)
+
+*My Books, Read tab: finished Books and Books recorded as previously read.*
 
 ## Why
 
@@ -77,9 +81,13 @@ editions, and every author died before 1956. The run is reproducible with
 
 *Sentence study: an interlinear morphology line for each word, with the complete analyzer evidence in a named disclosure.*
 
-![My Books in the dark color scheme, showing the same collection and workflow buckets as the light view.](doc/images/my-books-dark.png)
+![My Books in the dark color scheme on its To Read tab, showing the same Books, statuses and tabs as the light view.](doc/images/my-books-dark.png)
 
-*My Books in the dark color scheme, from the same run.*
+*My Books, To Read tab, in the dark color scheme, from the same run.*
+
+![My Books in the dark color scheme on its Read tab, showing the same two Books as the light view.](doc/images/my-books-read-dark.png)
+
+*My Books, Read tab, in the dark color scheme, from the same run.*
 
 ## Language and text processing
 

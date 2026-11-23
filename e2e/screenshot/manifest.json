@@ -1,5 +1,5 @@
 {
-  "$comment": "Pinned public-domain scenario books for the My Books screenshot. Each source is a Project Gutenberg plain-text edition whose SHA-256 is pinned. A checksum mismatch means Project Gutenberg changed the file: review the new edition and update the entry deliberately. Every author died before 1956. `journey` is the workflow state the screenshot run leaves each Book in: inbox (never moved), read (started and finished), current (the Current reading when captured), or to-read (moved to To Read and left there).",
+  "$comment": "Pinned public-domain scenario books for the My Books screenshot. Each source is a Project Gutenberg plain-text edition whose SHA-256 is pinned. A checksum mismatch means Project Gutenberg changed the file: review the new edition and update the entry deliberately. Every author died before 1956. `journey` is the workflow state the screenshot run leaves each Book in: previously-read (recorded with the Catalog's I've read this, never downloaded), read (added, started and finished), current (the Current reading when captured), or to-read (added from the Catalog and left in To Read, after Read again when it was finished for the Known vocabulary baseline).",
   "language": "de",
   "concordance": {
     "$comment": "The lemma the Concordance and sentence Study captures look up. aufstehen is a German separable verb whose particle is usually detached in the texts (\"stand ... auf\"). Change it here only; the driver fails if the analyzed corpus yields fewer occurrences than the minimums.",
@@ -24,7 +24,7 @@
       "author": "Franz Kafka",
       "authorDied": 1924,
       "role": "long-novel",
-      "journey": "inbox",
+      "journey": "previously-read",
       "sha256": "0254e2e361fca684887374ed3e4e4c32f03ac5b7022f54e9a128d1bff6b35b80"
     },
     {

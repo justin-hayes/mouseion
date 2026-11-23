@@ -168,30 +168,27 @@ screenshots, and videos are retained there according to the Playwright config.
 ## Documentation screenshots of My Books, Reading, Concordance, and Study
 
 `make screenshot-my-books` builds the documentation screenshots
-`doc/images/my-books.png`, `doc/images/my-books-dark.png`,
-`doc/images/reading.png`, `doc/images/concordance.png`, and
+`doc/images/my-books.png`, `doc/images/my-books-dark.png` (the To Read tab),
+`doc/images/my-books-read.png`, `doc/images/my-books-read-dark.png` (the Read
+tab), `doc/images/reading.png`, `doc/images/concordance.png`, and
 `doc/images/sentence-study.png` on an isolated Compose stack. It is separate from
 `make browser-smoke` and CI. Nothing is written unless every assertion passes.
 The procedure, durations, and clean-up are in the
 [development guide](../doc/development.md#regenerating-screenshots).
 
-The My Books scenario below predates the two-tab To Read/Read collection: it
-still drives the retired row-level **Move to To Read** control and asserts an
-Inbox bucket, so the suite must be updated — and
-`doc/images/my-books.png` and `doc/images/my-books-dark.png` regenerated —
-before `make screenshot-my-books` will pass against the current UI. The bullets
-that follow describe the suite as committed.
-
-- The learner workflow moves every scenario Book except the one marked `inbox`
-  to To Read, waits for each analysis through Reading's chooser, then seeds Known
+- The learner workflow adds every scenario Book from the Catalog: **Add** for
+  each Book that is read in Mouseion, and **I've read this** for the one marked
+  `previously-read`, which is recorded as Read without downloading or analyzing
+  it. It waits for each analyzed Book through Reading's chooser, then seeds Known
   vocabulary the only way [ADR 0092](../doc/adr/0092-retire-known-vocabulary-import.md)
   allows: by finishing readings. It finishes every baseline Book (every analyzed
   Book except the `current` one) in manifest order, returning each finished To
   Read Book to To Read with **Read again**. It then starts the `current` Book and
   asserts its title and a non-empty Book vocabulary table before capturing
-  Reading. My Books is then captured twice, in the light and dark color schemes,
-  and each capture asserts the Inbox, To Read, Currently reading, and Read
-  buckets first.
+  Reading. My Books is then captured in the light and dark color schemes, once
+  for each of its two tabs (To Read, which includes the Current reading, and
+  Read), and each capture asserts that every Book is Currently reading, To Read
+  or Read first.
 - The Concordance lookup types the lemma configured in the `concordance` block of
   `screenshot/manifest.json` into the Concordance form. The capture fails unless
   the analyzed corpus yields at least `minimumOccurrences` lines from at least
