@@ -5,14 +5,14 @@
 | | Plato | Xenophon | Pooled |
 |---|---|---|---|
 | Corpus hits | 1249 | 492 | 1741 |
-| Precision (sampled) | 0.80 (16/20; 0.58–0.92) | 0.95 (19/20; 0.76–0.99) | 0.88 (35/40; 0.74–0.95) |
-| Precision, hit-weighted | | | 0.84 |
-| Recall (estimated) | 0.81 | 0.96 | 0.85 |
+| Precision (sampled) | 0.75 (15/20; 0.53–0.89) | 0.95 (19/20; 0.76–0.99) | 0.85 (34/40; 0.71–0.93) |
+| Precision, hit-weighted | | | 0.81 |
+| Recall (estimated) | 0.80 | 0.96 | 0.85 |
 | Misses outside the loose query (random sentences) | 0 | 0 | |
 | Abstention | 0.00 (0/1249; 0.00–0.00) | 0.00 (0/492; 0.00–0.01) | 0.00 (0/1741; 0.00–0.00) |
-| Detector ceiling (parser errors forgiven): precision / recall | 0.89 (16/18; 0.67–0.97) / 0.84 | 0.95 (19/20; 0.76–0.99) / 0.97 | 0.92 (35/38; 0.79–0.97) / 0.88 |
+| Detector ceiling (parser errors forgiven): precision / recall | 0.83 (15/18; 0.61–0.94) / 0.84 | 0.95 (19/20; 0.76–0.99) / 0.97 | 0.89 (34/38; 0.76–0.96) / 0.87 |
 
-Errors: false hit / detector:rule: 3; false hit / parser:label: 2; miss (loose) / detector:scope: 11; miss (loose) / parser:label: 3
+Errors: false hit / detector:rule: 4; false hit / parser:label: 2; miss (loose) / detector:scope: 11; miss (loose) / parser:label: 3
 
 ## articular_infinitive
 
@@ -94,7 +94,7 @@ Errors: false hit / detector:list: 1; false hit / detector:rule: 4; false hit / 
 
 | Construction | Reviewed | Judgment agrees (all reviewed) | Judgment agrees (random part) | Subtype agrees (random part, yes items) |
 |---|---:|---|---|---|
-| conditional | 24 | 1.00 (24/24; 0.86–1.00) | 1.00 (14/14; 0.78–1.00) | 1.00 (10/10; 0.72–1.00) |
+| conditional | 24 | 0.96 (23/24; 0.80–0.99) | 0.93 (13/14; 0.69–0.99) | 1.00 (9/9; 0.70–1.00) |
 | articular_infinitive | 24 | 1.00 (24/24; 0.86–1.00) | 1.00 (20/20; 0.84–1.00) | 1.00 (10/10; 0.72–1.00) |
 | result | 24 | 1.00 (24/24; 0.86–1.00) | 1.00 (15/15; 0.80–1.00) | 1.00 (11/11; 0.74–1.00) |
 | purpose | 24 | 1.00 (24/24; 0.86–1.00) | 1.00 (14/14; 0.78–1.00) | 1.00 (6/6; 0.61–1.00) |

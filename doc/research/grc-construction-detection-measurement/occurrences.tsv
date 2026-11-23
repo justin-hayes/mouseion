@@ -8,7 +8,7 @@ I006	tlg0059.tlg030	Plato	Rep._5.459	3019	t_48425	conditional	hit	hit		yes		2298
 I007	tlg0059.tlg004	Plato	Phaedo_73	415	t_6688	conditional	hit	hit		yes		2298		unless clause with past indicative, simple condition						
 I008	tlg0059.tlg030	Plato	Rep._7.515	4148	t_67301	conditional	hit	hit		yes		2329		future less vivid optative protasis	random-part	yes		2329		agrees with agent
 I009	tlg0059.tlg011	Plato	Sym._216	901	t_17692	conditional	hit	hit		no		2671	parser:label	whether-clause is subject of impersonal concern verb; parser labelled adverbial	sitting 1	no		2671	parser:label	agrees with agent
-I010	tlg0059.tlg030	Plato	Rep._2.368	1014	t_15686	conditional	hit	hit		yes		2298		if they happen to be the same; conditional reading preferred over whether	random-part	yes		2298		agrees with agent
+I010	tlg0059.tlg030	Plato	Rep._2.368	1014	t_15686	conditional	hit	hit		yes		2298		if they happen to be the same; conditional reading preferred over whether	random-part	no		2671†	detector:rule	indirect question (whether) after a verb of examining, with prolepsis; revisited after the review
 I011	tlg0059.tlg030	Plato	Rep._8.563	5115	t_84660	conditional	hit	hit		yes		2369		crasis even-if with subjunctive inside result clause						
 I012	tlg0059.tlg004	Plato	Phaedo_108	1275	t_22370	conditional	hit	hit		yes		2369		concessive even-if, contrary to fact						
 I013	tlg0059.tlg011	Plato	Sym._188	293	t_6242	conditional	hit	hit		yes		2298		simple past condition	random-part	yes		2298		agrees with agent
