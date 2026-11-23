@@ -1,0 +1,41 @@
+# Judging instructions, re-measurement of the amended definitions (#2615)
+
+You are judging Ancient Greek construction occurrences found by prototype detectors over automatic AGDT parses (OGA, a parser, LAS about 0.77, so parse errors are common). **Truth is the Greek read against Smyth's *Greek Grammar* (1920 numbering)**, never the parse. Use the parse only to say *why* a detector was right or wrong.
+
+Read the whole sentence before judging. Judge the construction **as scoped below**: some real constructions are deliberately outside the scope, and are not occurrences.
+
+## The six constructions (scope)
+
+1. **conditional**: a conditional protasis. The anchor is the conjunction (εἰ, ἐάν/ἤν/ἄν, and also εἴπερ, ἐάνπερ, κἄν = καὶ ἐάν, κεἰ). Concessive εἰ καί / καὶ εἰ **counts** (Smyth 2369–2382). **Not** occurrences: substantive or indirect-question "whether" εἰ (2671ff.); εἰ μή "except" with no verb understood; comparative ὡς εἰ / ὥσπερ εἰ "as if" (2478ff.); εἴτε … εἴτε; ἄν the modal particle. Smyth 2280–2368.
+2. **articular_infinitive**: an infinitive used as a noun with the neuter article (τό / τοῦ / τῷ), including after a preposition (Smyth 2025–2034). Subtype = **case of the article**: nom / gen / dat / acc. τό governing a whole clause with the infinitive counts. An article that belongs to something else (a noun, a participle, an adjective) is not one.
+3. **result**: a dependent result clause with ὥστε (Smyth 2249–2278). Subtype: **natural** (ὥστε + infinitive) or **actual** (ὥστε + **any finite mood**, dependent: indicative, or a potential optative, etc.; ruled by Justin). A hit shown with no subtype (elided verb) is permitted subtype abstention: give your subtype if you can, and no error. Independent "and so, therefore" ὥστε starting a main clause (with indicative, imperative or subjunctive, 2275) is **not** an occurrence. ὥστε + participle is not an occurrence.
+4. **purpose**: **amended scope: ἵνα only.** A final clause with ἵνα (including ἵνα μή) + subjunctive or optative (Smyth 2193–2206). ὅπως and ὡς final clauses are out of scope (never anchored here). **Not** occurrences: object clauses of effort ὅπως + fut. ind. or after verbs of effort/care (2209ff.), even with a subjunctive; ἵνα "where" + indicative; bare μή + subjunctive (fear/prohibition/lest); ὡς + future participle; infinitive of purpose; ὡς ἄν / ὅπως ἄν in an indirect question or a clause of manner ("however").
+5. **genitive_absolute**: a circumstantial participle in the genitive with its own genitive subject, grammatically independent of the main clause (Smyth 2070–2075). Subjectless ones (ὕοντος) count as true occurrences when you find them. **Not** occurrences: a genitive participle that is a supplementary participle after a verb of hearing or perceiving (ἀκούω τινὸς λέγοντος, 2110–2115), an attributive or substantive genitive participle, or a participle agreeing with a genitive governed by a noun, preposition or verb.
+6. **indirect_statement**: a reported statement or thought. Subtype **infinitive** (anchor: the infinitive, Smyth 2016–2024, 1972ff.) or **hoti-hos** (anchor: the ὅτι/ὡς conjunction, 2577–2588). Count it whenever the Greek is indirect discourse governed by a verb of **saying, thinking, believing, hoping, promising or swearing**, and impersonal "it is said". δοκέω with an opinion-holder ("X thinks", "it seems to X that …" with a reported proposition) **counts**; personal δοκέω "seem, be reputed (to be/do)" does **not** (Justin's ruling). A personal passive of saying with a nominative subject (ἐλέγετο … + inf.) **counts**. Reported speech that continues across a sentence boundary, with its governing verb in an earlier sentence, **counts** (error class `detector:scope` if missed). ὁμολογέω "agree **to** do" + infinitive, ὑπισχνέομαι/ὄμνυμι "promise/swear **to** do" (present/aorist infinitive) are **not** indirect statement; with a future infinitive "promise/swear that … will" they are. **Not** occurrences: infinitives after verbs of will or effort (κελεύω, βούλομαι, ἀξιόω …), impersonals of necessity (δεῖ, χρή), personal δοκέω "seem to (do)", dynamic infinitives (δύναμαι, οἷός τε), causal ὅτι, ὡς "as/how/that" in comparisons, ὅτι + superlative. Indirect statement after verbs of **knowing or perceiving** (οἶδα ὅτι, ὁρῶ ὅτι, ἀκούω + inf.) **is** a true indirect statement by Smyth: judge it true, and note `governing verb: <lemma>`, since the curated verb list is being reviewed. ὅτι *recitativum* introducing a direct quotation (2590): judge it true, and say so in the note.
+
+The detector's amended curated lists:
+
+- **infinitive subtype:** φημί, φάσκω, λέγω, εἶπον, ἐρῶ, ἀγγέλλω, ἀπαγγέλλω, ἐξαγγέλλω, ἀποκρίνω, ὁμολογέω, ἀρνέομαι, ἀπαρνέομαι, ὑπισχνέομαι (future inf. only), ὄμνυμι (future inf. only), νομίζω, οἴομαι, ἡγέομαι, ὑπολαμβάνω, ἐλπίζω, ὑποπτεύω, πιστεύω, διηγέομαι, ἐννοέω. **δοκέω is removed**, so a true indirect statement after δοκέω found by the loose query is a miss with error `detector:list`.
+- **ὅτι-ὡς subtype:** all of the above plus δοκέω, and οἶδα, ἐπίσταμαι, μανθάνω, ὁράω, ἀκούω, (ἀνα)μιμνῄσκω, πείθω.
+
+The other rulings from Justin's first review, which you must follow:
+
+- **conditional:** εἴπερ is a conditional protasis. εἰ "whether" after a verb of knowing, asking, examining or deliberating (indirect question, Smyth 2671ff.) is **not**. The detector now *excludes* εἰ under such a head; an `excluded` item judged `yes` is a miss with error `detector:rule`, and one judged `no` was rightly excluded (no error).
+- **purpose:** clauses of effort or concern after verbs of striving, trying or taking care are not purpose, even with a subjunctive (2209ff.).
+- **genitive_absolute:** a genitive participle agreeing with a genitive governed by a verb, noun or preposition (for example a genitive of cause after a verb of emotion) is not a genitive absolute. ἀνέχομαι + genitive + participle behaves like a perception verb (supplementary participle). An `excluded` item (perception head) judged `yes` is a miss with error `detector:rule`.
+
+## Items
+
+Each item shows the stratum, the detector verdict (`hit` with subtype, `loose` = the looser recall query found it but the detector did not fire, `abstain`, or `excluded` = withheld by a definition exclusion: a genitive absolute under a perception verb, or a conditional εἰ under a verb of knowing, asking, examining or deliberating), the sentence with the anchor in ⟦⟧ and its subtree in ‹›, and some parse lines (`pos` is the 9-slot AGDT tag: pos, person, number, tense, mood, voice, gender, case, degree; mood p = participle, n = infinitive).
+
+For each item decide:
+
+- `true`: `yes` if a true occurrence of *this* construction is anchored at this token (for `loose` and `excluded` items: at this token, or at the infinitive or conjunction this token belongs to); `no` if not; `unsure` only when the Greek is genuinely ambiguous. Don't use `unsure` for a hard but decidable case.
+- `subtype`: your subtype (articular infinitive, result, indirect statement), or null.
+- `smyth`: the Smyth 1920 § that justifies the judgment (yes or no), for example `2283` or `2110`.
+- `error`: needed when the detector is wrong, i.e. a `hit` judged `no`, a hit with the wrong subtype, or a `loose`/`abstain`/`excluded` judged `yes`. One of `parser:label`, `parser:head`, `parser:morph`, `parser:lemma`, `parser:ellipsis`, `detector:rule`, `detector:list`, `detector:scope`. Use `parser:*` when the parse is wrong in a way that caused the error, and `detector:*` when the parse is right (or irrelevant) and the rule mishandles it. `detector:scope` means the detector's conjunction or verb set leaves out a form the scope includes (εἴπερ, for example). Otherwise null.
+- `note`: at most 20 words of plain English, with **no Greek and no quotation** (for example "participle supplements a verb of hearing; parser labelled it adverbial"). For a governing verb outside the list, write it as `governing verb: <lemma in Greek>`; that is the one exception to the no-Greek rule.
+
+## Output
+
+Write one JSON object per line to the output file you are given, in item order, with keys `item`, `true`, `subtype`, `smyth`, `error`, `note`. Cover every item. Then reply with only: the count of items, and the counts of yes / no / unsure.
