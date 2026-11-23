@@ -55,6 +55,13 @@ type Querier interface {
 	CompletePreparedDeckRun(ctx context.Context, arg CompletePreparedDeckRunParams) (DeckPreparationRun, error)
 	// A lemma is recognized only from non-excluded effective identities in the
 	// eligible owner/language corpus, across every evidenced part of speech.
+	// concordance_occurrences' eligibility is stated over the base tables and
+	// entered through the term (the indexed analyzer lemma, or a decision that
+	// names it), so a term that is not a lemma never reads the whole corpus
+	// (#2595). Keep the eligibility identical to the concordance_occurrences view
+	// and to ListVocabularyConcordance's located, eligible, current and ranked stages.
+	// The decision branch omits the listing's DISTINCT and analyzer-lemma
+	// exclusion: a duplicate cannot change EXISTS.
 	ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
 	CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error)
@@ -371,6 +378,29 @@ type Querier interface {
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
+	// One page of the concordance_occurrences model, read selectively (#2595).
+	// Filtering the view's output joins and sorts the whole corpus before the
+	// lemma or form filter applies. This query states the view's eligibility over
+	// the base tables instead, in fenced stages whose plans stay small even when
+	// the planner has no statistics (small tables such as analysis_runs are never
+	// auto-analyzed, so each looks like one row):
+	//   candidates  token keys that can match: the indexed analyzer lemma, the
+	//               decisions that name the lemma, or one pass over the owner's
+	//               tokens for a form. Each branch is gated by the match mode, so
+	//               a cached generic plan never runs another mode's branches.
+	//   located     each candidate's sentence, giving its unit.
+	//   eligible    the owner's current analyses of chosen-language Books.
+	//   current     candidates in an eligible analysis, with their Book.
+	//   ranked      the candidate's current-snapshot unit and occurrence
+	//               decision, then the filter, order and page as narrow rows.
+	//   (final)     the page's at most 27 rows fetch the wide text.
+	// Each stage joins one relation to the previous stage. Later stages restrict
+	// big and unit tables only through join keys, never a literal owner, so the
+	// planner cannot mistake them for one row and rescan the candidates per row.
+	// The same eligibility is stated three times: in the concordance_occurrences
+	// view (whose migration is immutable), here across located, eligible, current
+	// and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
+	// three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)
 	LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error)
 	// Catalog index queries. A sync reconciles one connection's run of entries in
