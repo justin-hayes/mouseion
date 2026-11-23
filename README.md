@@ -81,7 +81,7 @@ editions, and every author died before 1956. The run is reproducible with
 
 *Sentence study: an interlinear morphology line for each word, with the complete analyzer evidence in a named disclosure.*
 
-![My Books in the dark color scheme on its To Read tab, showing the same collection and workflow buckets as the light view.](doc/images/my-books-dark.png)
+![My Books in the dark color scheme on its To Read tab, showing the same Books, statuses and tabs as the light view.](doc/images/my-books-dark.png)
 
 *My Books, To Read tab, in the dark color scheme, from the same run.*
 

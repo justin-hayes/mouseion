@@ -1,18 +1,18 @@
 // Learner workflow for the documentation screenshots. It creates the first
 // account, adds the static catalog, waits for catalog sync, adds each scenario
-// Book from the Catalog (Add, or I've read this for a text read outside
-// Mouseion) and waits for covers and each analysis, seeds the Known
+// Book from the Catalog (Add, or I've read this for a Previously read text
+// outside Mouseion) and waits for covers and each analysis, seeds the Known
 // vocabulary baseline by finishing a reading of every baseline Book (ADR 0092's
 // only source of Known vocabulary), starts the target Book, and then captures
-// the Reading view and the My Books To Read and Read tabs in light and dark schemes, then looks up the
-// configured lemma and captures the Concordance and one sentence Study. Every
+// the Reading view and the My Books To Read and Read tabs in light and dark
+// schemes, then looks up the configured lemma and captures the Concordance and one sentence Study. Every
 // input comes from the environment set by run.mjs, and every wait is bounded and
 // reports the Book or step that stalled.
 import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-// `previously-read` is a Book recorded with the Catalog's I've read this; it is
-// never downloaded or analyzed and lands in the Read tab.
+// `previously-read` is a Book recorded as Previously read with the Catalog's
+// I've read this; it is never downloaded or analyzed and lands in the Read tab.
 type Journey = 'to-read' | 'read' | 'current' | 'previously-read';
 
 interface ManifestBook {
@@ -47,6 +47,7 @@ const readingOutputPath = requiredEnv('MOUSEION_SCREENSHOT_READING_OUTPUT');
 const concordanceOutputPath = requiredEnv('MOUSEION_SCREENSHOT_CONCORDANCE_OUTPUT');
 const studyOutputPath = requiredEnv('MOUSEION_SCREENSHOT_STUDY_OUTPUT');
 const manifest = JSON.parse(readFileSync(requiredEnv('MOUSEION_SCREENSHOT_MANIFEST'), 'utf8')) as {
+  language: string;
   books: ManifestBook[];
   concordance: ManifestConcordance;
 };
@@ -69,8 +70,7 @@ const COVER_TIMEOUT_MS = 6 * 60_000;
 // in parallel, so this bounds the whole To Read analysis set.
 const ANALYSIS_TIMEOUT_MS = 30 * 60_000;
 const COUNTS_TIMEOUT_MS = 5 * 60_000;
-const MOVE_TIMEOUT_MS = 60_000;
-const LOOKUP_TIMEOUT_MS = 3 * 60_000;
+const MEMBERSHIP_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_SCREENSHOT_HEIGHT = 1600;
 // One Concordance page holds 25 results; the Study capture searches only these.
@@ -90,6 +90,12 @@ async function pollUntil(check: () => Promise<boolean>, timeoutMs: number, descr
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
   }
   throw new Error(`Timed out after ${timeoutMs / 1000}s waiting for ${description}`);
+}
+
+// A Previously read Book is recorded from the Catalog without its EPUB, so it is
+// never downloaded, analyzed, or used for the Known vocabulary baseline.
+function isPreviouslyRead(book: ManifestBook): boolean {
+  return book.journey === 'previously-read';
 }
 
 function booksWithJourney(journey: Journey): ManifestBook[] {
@@ -201,7 +207,7 @@ async function waitForScenarioBooks(page: Page): Promise<void> {
   expect(unresolved, 'scenario books missing from My Books or without a loaded catalog cover').toEqual([]);
 }
 
-// The My Books membership badge names the workflow bucket (To Read, Currently
+// The My Books membership badge names the Book's status (To Read, Currently
 // reading, Read). Reading the page fresh keeps the check current.
 async function workflowLabel(page: Page, book: ManifestBook): Promise<string> {
   const item = await openBookTab(page, book);
@@ -213,17 +219,17 @@ async function workflowLabel(page: Page, book: ManifestBook): Promise<string> {
 // (downloads and analyzes the text) or I've read this (records a text read
 // outside Mouseion without downloading it).
 async function addFromCatalog(page: Page, book: ManifestBook): Promise<void> {
-  await page.goto(`/catalogs?language=de&q=${encodeURIComponent(book.title)}`);
+  await page.goto(`/catalogs?language=${encodeURIComponent(manifest.language)}&q=${encodeURIComponent(book.title)}`);
   const entry = page.locator('.catalog-entry', {
     has: page.getByRole('heading', { name: book.title, exact: true }),
   });
   await expect(entry, `${book.title} is listed in the Catalog`).toHaveCount(1, { timeout: 30_000 });
-  const action = book.journey === 'previously-read' ? "I've read this" : 'Add';
+  const action = isPreviouslyRead(book) ? "I've read this" : 'Add';
   await entry.getByRole('button', { name: action, exact: true }).click();
-  await expect(page, `${action} for ${book.title}`).toHaveURL(/\/catalogs\?.*message=/, { timeout: MOVE_TIMEOUT_MS });
+  await expect(page, `${action} for ${book.title}`).toHaveURL(/\/catalogs\?.*message=/, { timeout: MEMBERSHIP_TIMEOUT_MS });
   await pollUntil(
-    async () => (await workflowLabel(page, book)) === WORKFLOW_LABEL[book.journey === 'previously-read' ? 'previously-read' : 'to-read'],
-    MOVE_TIMEOUT_MS,
+    async () => (await workflowLabel(page, book)) === (isPreviouslyRead(book) ? WORKFLOW_LABEL['previously-read'] : WORKFLOW_LABEL['to-read']),
+    MEMBERSHIP_TIMEOUT_MS,
     `${book.title} to appear in My Books after ${action}`,
   );
 }
@@ -292,7 +298,7 @@ async function readAgain(page: Page, book: ManifestBook): Promise<void> {
   await item.getByRole('button', { name: 'Read again' }).click();
   await pollUntil(
     async () => (await workflowLabel(page, book)) === WORKFLOW_LABEL['to-read'],
-    MOVE_TIMEOUT_MS,
+    MEMBERSHIP_TIMEOUT_MS,
     `${book.title} to return to To Read after finishing`,
   );
 }
@@ -307,9 +313,9 @@ async function readAgain(page: Page, book: ManifestBook): Promise<void> {
 async function seedKnownVocabulary(page: Page, target: ManifestBook): Promise<void> {
   const finished: string[] = [];
 
-  // Every Book the scenario analyzes (everything but the I've read this Books)
+  // Every Book the scenario analyzes (everything but the Previously read Books)
   // except the target.
-  const baseline = manifest.books.filter(book => book.journey !== 'previously-read' && book.title !== target.title);
+  const baseline = manifest.books.filter(book => !isPreviouslyRead(book) && book.title !== target.title);
   for (const book of baseline) {
     await startReading(page, book);
     await finishReading(page, book);
@@ -382,23 +388,13 @@ async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<voi
 // Looks up the configured lemma as a learner would: type it into the
 // Concordance form and submit. The applied lookup must be a lemma lookup.
 async function lookUpLemma(page: Page): Promise<void> {
-  const summary = page.locator('#concordance-summary');
-  // The server can time a lookup out while the analysis workers are still busy;
-  // the page says so rather than reporting zero results, so the learner retries.
-  await pollUntil(
-    async () => {
-      await page.goto('/vocabulary/concordance');
-      await page.getByLabel('Lemma or word form').fill(concordance.lemma);
-      await page.getByRole('button', { name: 'Find', exact: true }).click();
-      // A lookup is either still searching, applied, or reported as timed out.
-      const timedOut = page.getByText('could not complete this lookup in time');
-      await expect(summary.or(timedOut), 'the Concordance answers or reports a timeout').toBeVisible({ timeout: 2 * 60_000 });
-      return summary.isVisible();
-    },
-    LOOKUP_TIMEOUT_MS,
-    `the Concordance lookup for "${concordance.lemma}" to complete`,
-  );
-  await expect(summary, `the Concordance applied "${concordance.lemma}" as a lemma`).toHaveText(`Forms of ${concordance.lemma}`);
+  await page.goto('/vocabulary/concordance');
+  await page.getByLabel('Lemma or word form').fill(concordance.lemma);
+  await page.getByRole('button', { name: 'Find', exact: true }).click();
+  await expect(
+    page.locator('#concordance-summary'),
+    `the Concordance did not apply "${concordance.lemma}" as a lemma; the analyzed corpus has no evidenced lemma of that form`,
+  ).toHaveText(`Forms of ${concordance.lemma}`, { timeout: 30_000 });
 }
 
 // The Concordance must show enough lines from enough Books to be a credible
@@ -496,13 +492,13 @@ async function settleAndCapture(page: Page, outputPath: string, colorScheme: Col
   });
 }
 
-// Captures both My Books tabs in one color scheme after the same bucket checks,
+// Captures both My Books tabs in one color scheme after the same status checks,
 // so the dark variant is held to the same standard as the light capture. The
 // first path is the To Read tab (with the Current reading) and the second the
 // Read tab.
 async function captureMyBooks(page: Page, colorScheme: ColorScheme, toReadPath: string, readPath: string): Promise<void> {
   for (const book of manifest.books) {
-    expect(await workflowLabel(page, book), `${book.title} workflow bucket in My Books`).toBe(WORKFLOW_LABEL[book.journey]);
+    expect(await workflowLabel(page, book), `${book.title} status in My Books`).toBe(WORKFLOW_LABEL[book.journey]);
   }
   await page.goto(TO_READ_TAB);
   await settleAndCapture(page, toReadPath, colorScheme);
@@ -514,7 +510,7 @@ test('the scenario Books are analyzed, readings seed Known vocabulary, and Readi
   const [currentBook] = booksWithJourney('current');
   expect(booksWithJourney('read'), 'manifest has exactly one read Book').toHaveLength(1);
   expect(booksWithJourney('current'), 'manifest has exactly one current Book').toHaveLength(1);
-  expect(booksWithJourney('previously-read').length, "manifest keeps at least one I've read this Book").toBeGreaterThan(0);
+  expect(booksWithJourney('previously-read').length, 'manifest keeps at least one Previously read Book').toBeGreaterThan(0);
   expect(booksWithJourney('to-read').length, 'manifest keeps at least one To Read Book').toBeGreaterThan(0);
 
   await createAccount(page);
@@ -529,7 +525,7 @@ test('the scenario Books are analyzed, readings seed Known vocabulary, and Readi
   await requestSync(page);
   await waitForScenarioBooks(page);
 
-  const toRead = manifest.books.filter(book => book.journey !== 'previously-read');
+  const toRead = manifest.books.filter(book => !isPreviouslyRead(book));
   await waitForAnalyses(page, toRead);
 
   await seedKnownVocabulary(page, currentBook);

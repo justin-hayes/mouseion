@@ -253,7 +253,8 @@ Duration, measured on the maintainer's workstation (16 cores, 31 GB RAM):
   built images removed (Docker's build cache kept): about 15 minutes. It
   re-downloads the pinned sources and the models.
 - Repeat run, with the models and sources cached: about 15 minutes. The browser
-  workflow itself took 13.8 minutes in both runs.
+  workflow itself took 13.8 minutes in both runs, and 12.8 minutes in the
+  latest repeat run, which adds every Book from the Catalog and syncs again.
 
 The Playwright test budget is 75 minutes. A run on unchanged code reproduces the
 committed PNGs byte for byte.

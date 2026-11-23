@@ -9,10 +9,10 @@
 //    which analyzes the scenario Books, seeds Known vocabulary by finishing
 //    readings, and looks up the configured Concordance lemma and one sentence
 //    Study.
-// 5. Writes the optimized screenshots to doc/images (my-books and my-books-dark for the
-//    To Read tab, my-books-read and my-books-read-dark for the Read tab,
-//    reading, concordance, sentence-study) and stops the stack, keeping the
-//    Stanza model volume.
+// 5. Writes the optimized screenshots to doc/images (my-books and
+//    my-books-dark for the To Read tab, my-books-read and my-books-read-dark
+//    for the Read tab, reading, concordance, sentence-study) and stops the
+//    stack, keeping the Stanza model volume.
 //
 // `--clean` removes the project's containers and volumes, then exits.
 import { spawn } from 'node:child_process';
