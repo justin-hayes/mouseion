@@ -289,8 +289,11 @@ def main(argv):
             author = src.split(",")[0]
             ref = src.split(", ", 1)[-1]
             base = {"work": work, "author": author, "ref": ref, "sent_id": s["meta"].get("sent_id")}
+            ai_hits = {n.tid for n in s["nodes"] if det_art_inf(n)}
             for n in s["nodes"]:
                 hits = set()
+                if neut_sg_article(n) and n.head is not None and n.head.tid in ai_hits:
+                    hits.add("articular_infinitive")  # article of a hit infinitive: not a separate candidate
                 for name, fn in DETECTORS.items():
                     r = fn(n)
                     if r:

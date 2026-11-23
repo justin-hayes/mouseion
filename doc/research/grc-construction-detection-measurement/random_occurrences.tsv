@@ -1,0 +1,38 @@
+sentence	work	author	citation	sent_id	anchor	construction	subtype	smyth	detector_coverage	note
+S002	tlg0059.tlg011	Plato	Sym._177	137	t_2238	conditional		2323	hit	future more vivid protasis with subjunctive
+S004	tlg0059.tlg004	Plato	Phaedo_82	692	t_11093	indirect_statement	infinitive	2018	loose	infinitive reports what they believe; farewell idiom infinitive not counted
+S013	tlg0059.tlg030	Plato	Rep._1.342	493	t_6475	indirect_statement	infinitive	2018	hit	infinitive after passive verb of agreeing
+S018	tlg0059.tlg030	Plato	Rep._7.526	4371	t_71367	indirect_statement	infinitive	1846	hit	infinitive with modal particle after verb of thinking
+S019	tlg0059.tlg030	Plato	Rep._4.441	2642	t_42658	indirect_statement	hoti-hos	2577	loose	governing verb: ἐπιλανθάνομαι
+S019	tlg0059.tlg030	Plato	Rep._4.441	2642	t_42667	articular_infinitive	dat	2033	hit	dative of means with its own accusative subject
+S021	tlg0059.tlg030	Plato	Rep._2.362	934	t_13450	indirect_statement	infinitive	2018	hit	perfect infinitive after verb of saying
+S025	tlg0059.tlg011	Plato	Sym._218	929	t_18266	conditional		2298	hit	simple present protasis equivalent to an indefinite relative
+S033	tlg0059.tlg002	Plato	Apol._27	229	t_4144	conditional		2323	hit	subjunctive protasis
+S043	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.25	1122	t_19202	conditional		2298	hit	simple present protasis
+S043	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.25	1122	t_19214	conditional		2298	hit	simple present protasis
+S043	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.25	1122	t_19228	indirect_statement	infinitive	2018	hit	infinitive after verb of thinking, subject same as speaker
+S044	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.17	3673	t_61815	conditional		2346	hit	otherwise idiom with protasis verb understood
+S048	tlg0032.tlg006	Xenophon	Xen. Anab._6.1.32	2675	t_45686	indirect_statement	hoti-hos	2577	loose	governing verb: οἶδα
+S048	tlg0032.tlg006	Xenophon	Xen. Anab._6.1.32	2675	t_45693	conditional		2303	hit	past contrary to fact protasis
+S049	tlg0032.tlg006	Xenophon	Xen. Anab._2.1.22	674	t_11533	indirect_statement	hoti-hos	2577	loose	clause after verb of reporting
+S052	tlg0032.tlg006	Xenophon	Xen. Anab._5.5.14	2307	t_39465	conditional		2298	hit	simple past protasis
+S056	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.3	3268	t_55365	conditional		2323	hit	subjunctive protasis
+S056	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.3	3268	t_55374	indirect_statement	infinitive	2018	hit	future infinitive after verb of saying
+S056	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.3	3268	t_55384	indirect_statement	infinitive	2018	hit	future infinitive after verb of saying
+S056	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.3	3268	t_55389	indirect_statement	infinitive	2018	hit	future infinitive after verb of saying
+S056	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.3	3268	t_55394	indirect_statement	infinitive	2018	hit	future infinitive after verb of saying
+S061	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.16	3310	t_55927	indirect_statement	infinitive	2018	hit	infinitive after verb of thinking inside relative clause
+S061	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.16	3310	t_55957	indirect_statement	hoti-hos	2579	hit	clause after verb of saying with optatives
+S063	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.15	187	t_3043	purpose		2196	hit	final clause with subjunctive
+S063	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.15	187	t_3045	indirect_statement	hoti-hos	2577	loose	governing verb: οἶδα
+S068	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.25	3694	t_62169	indirect_statement	infinitive	2018	hit	future infinitive after passive verb of believing
+S068	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.25	3694	t_62189	indirect_statement	infinitive	2018	loose	infinitive after verb of thinking
+S069	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.4	921	t_15218	indirect_statement	hoti-hos	2577	loose	governing verb: οἶδα
+S069	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.4	921	t_15234	purpose		2196	hit	final clause with optative after past main verb
+S069	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.4	921	t_15235	conditional		2329	hit	optative protasis inside purpose clause
+S072	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.2	3171	t_53752	conditional		2329	hit	optative protasis in reported thought
+S072	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.2	3171	t_53759	indirect_statement	infinitive	1848	hit	infinitive with modal particle after verb of thinking
+S077	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.7	2815	t_47943	articular_infinitive	acc	2031	hit	subject of the reported infinitive
+S077	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.7	2815	t_47947	indirect_statement	infinitive	2018	loose	impersonal seeming with a reported proposition
+S077	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.7	2815	t_47949	genitive_absolute		2070	hit	participle with its own genitive subject
+S078	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.36	1264	t_22102	conditional		2329	hit	future less vivid protasis

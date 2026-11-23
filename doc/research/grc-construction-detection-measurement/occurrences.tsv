@@ -1,0 +1,496 @@
+item	work	author	citation	sent_id	anchor	construction	sample	detector_verdict	detector_subtype	agent_true	agent_subtype	agent_smyth	agent_error	agent_note	review_sitting	justin_true	justin_subtype	justin_smyth	justin_error	justin_note
+I001	tlg0059.tlg011	Plato	Sym._198	468	t_10167	conditional	hit	hit		yes		2283		simple condition with verb understood						
+I002	tlg0059.tlg002	Plato	Apol._29	270	t_5030	conditional	hit	hit		no		2671	parser:label	whether-clause object of knowing verb; parser labelled it adverbial						
+I003	tlg0059.tlg011	Plato	Sym._195	405	t_8837	conditional	hit	hit		yes		2298		simple past condition						
+I004	tlg0059.tlg030	Plato	Rep._7.515	4143	t_67214	conditional	hit	hit		yes		2352		what-if protasis with apodosis omitted						
+I005	tlg0059.tlg030	Plato	Rep._6.503	3946	t_63846	conditional	hit	hit		no		2675	detector:rule	second member of whether-or indirect question after considering						
+I006	tlg0059.tlg030	Plato	Rep._5.459	3019	t_48425	conditional	hit	hit		yes		2298		simple present condition						
+I007	tlg0059.tlg004	Plato	Phaedo_73	415	t_6688	conditional	hit	hit		yes		2298		unless clause with past indicative, simple condition						
+I008	tlg0059.tlg030	Plato	Rep._7.515	4148	t_67301	conditional	hit	hit		yes		2329		future less vivid optative protasis	random-part					
+I009	tlg0059.tlg011	Plato	Sym._216	901	t_17692	conditional	hit	hit		no		2671	parser:label	whether-clause is subject of impersonal concern verb; parser labelled adverbial	sitting 1					
+I010	tlg0059.tlg030	Plato	Rep._2.368	1014	t_15686	conditional	hit	hit		yes		2298		if they happen to be the same; conditional reading preferred over whether	random-part					
+I011	tlg0059.tlg030	Plato	Rep._8.563	5115	t_84660	conditional	hit	hit		yes		2369		crasis even-if with subjunctive inside result clause						
+I012	tlg0059.tlg004	Plato	Phaedo_108	1275	t_22370	conditional	hit	hit		yes		2369		concessive even-if, contrary to fact						
+I013	tlg0059.tlg011	Plato	Sym._188	293	t_6242	conditional	hit	hit		yes		2298		simple past condition	random-part					
+I014	tlg0059.tlg030	Plato	Rep._5.451	2786	t_45086	conditional	hit	hit		yes		2323		subjunctive protasis, more vivid						
+I015	tlg0059.tlg004	Plato	Phaedo_92	870	t_15266	conditional	hit	hit		yes		2337		contracted form introducing present general protasis	random-part					
+I016	tlg0059.tlg024	Plato	Men._81	543	t_4847	conditional	hit	hit		yes		2323		subjunctive protasis	random-part					
+I017	tlg0059.tlg030	Plato	Rep._2.367	994	t_15009	conditional	hit	hit		yes		2302		contrary to fact protasis	random-part					
+I018	tlg0059.tlg030	Plato	Rep._10.601	5953	t_97567	conditional	hit	hit		no		2852	detector:rule	disjunctive whether-or pair with one apodosis, excluded like the indicative pair						
+I019	tlg0059.tlg024	Plato	Men._72	54	t_742	conditional	hit	hit		yes		2302		contrary to fact protasis						
+I020	tlg0059.tlg004	Plato	Phaedo_89	801	t_13839	conditional	hit	hit		yes		2323		emphatic form with subjunctive						
+I021	tlg0059.tlg030	Plato	Rep._7.523	4302	t_70313	conditional	loose	loose		no		2852		whether-or disjunctive pair, out of scope	random-part					
+I022	tlg0059.tlg030	Plato	Rep._6.488	3653	t_58083	conditional	loose	loose		no		2675		whether-or pair, out of scope						
+I023	tlg0059.tlg030	Plato	Rep._6.484	3561	t_56736	conditional	loose	loose		no		2675		whether-or indirect question	random-part					
+I024	tlg0059.tlg030	Plato	Rep._7.521	4256	t_69683	conditional	loose	loose		yes		2283	detector:scope	emphatic if-indeed with verb understood	sitting 1					
+I025	tlg0059.tlg030	Plato	Rep._4.431	2381	t_38305	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed conditional						
+I026	tlg0059.tlg002	Plato	Apol._23	121	t_2445	conditional	loose	loose		no		2480		comparative as-if clause						
+I027	tlg0059.tlg030	Plato	Rep._7.517	4181	t_68160	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed conditional	random-part					
+I028	tlg0059.tlg030	Plato	Rep._1.336	300	t_3799	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed conditional	sitting 1					
+I029	tlg0059.tlg003	Plato	Crito_50	274	t_3067	conditional	loose	loose		no		2852		whether-or disjunctive pair; true conditional is earlier token						
+I030	tlg0059.tlg002	Plato	Apol._38	411	t_8574	conditional	loose	loose		yes		2323	parser:label	full conditional coordinated with a preceding one; parser tagged conjunction as adverb	sitting 1					
+I031	tlg0059.tlg003	Plato	Crito_54	361	t_4850	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed conditional						
+I032	tlg0059.tlg030	Plato	Rep._3.389	1499	t_22841	conditional	loose	loose		yes		2283	detector:scope	if to any others, verb understood						
+I033	tlg0059.tlg030	Plato	Rep._6.497	3827	t_61670	conditional	loose	loose		yes		2283	detector:scope	if at all, elliptical conditional	sitting 1					
+I034	tlg0059.tlg030	Plato	Rep._7.525	4350	t_70999	conditional	loose	loose		yes		2283	detector:scope	elliptical conditional; parser misattached parenthetic verb	random-part					
+I035	tlg0059.tlg004	Plato	Phaedo_80	642	t_10004	conditional	loose	loose		no		2671		indirect question after considering						
+I036	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.8	1850	t_31938	conditional	hit	hit		no		2675	detector:rule	whether-or indirect question after deliberating	sitting 1					
+I037	tlg0032.tlg006	Xenophon	Xen. Anab._1.4.14	261	t_4285	conditional	hit	hit		yes		2323		subjunctive protasis, future apodosis						
+I038	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.31	3702	t_62442	conditional	hit	hit		yes		2323		subjunctive protasis inside fear clause						
+I039	tlg0032.tlg006	Xenophon	Xen. Anab._3.4.19	1372	t_23896	conditional	hit	hit		yes		2337		general subjunctive protasis						
+I040	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.26	1124	t_19273	conditional	hit	hit		yes		2329		optative protasis in reported speech						
+I041	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.39	3375	t_56945	conditional	hit	hit		yes		2323		contracted form with subjunctive, future apodosis						
+I042	tlg0032.tlg006	Xenophon	Xen. Anab._2.1.4	616	t_10637	conditional	hit	hit		yes		2323		subjunctive protasis in promise						
+I043	tlg0032.tlg006	Xenophon	Xen. Anab._5.1.10	2082	t_35522	conditional	hit	hit		yes		2323		negative subjunctive protasis						
+I044	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.30	3700	t_62339	conditional	hit	hit		yes		2329		optative protasis	random-part					
+I045	tlg0032.tlg006	Xenophon	Xen. Anab._6.5.20	2937	t_49697	conditional	hit	hit		yes		2323		subjunctive protasis, question apodosis						
+I046	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.15	3560	t_59746	conditional	hit	hit		yes		2298		simple present condition						
+I047	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.19	1878	t_32438	conditional	hit	hit		yes		2323		contracted form with negated subjunctive						
+I048	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.35	3251	t_55128	conditional	hit	hit		yes		2329		future less vivid optative protasis						
+I049	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.27	3585	t_60261	conditional	hit	hit		yes		2298		past indicative protasis						
+I050	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.19	882	t_14648	conditional	hit	hit		yes		2323		subjunctive protasis						
+I051	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.1	2330	t_39939	conditional	hit	hit		yes		2329		first of two coordinated conditionals, each with apodosis						
+I052	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.10	1855	t_32001	conditional	hit	hit		yes		2298		simple present condition						
+I053	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.20	203	t_3328	conditional	hit	hit		yes		2323		subjunctive protasis						
+I054	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.16	950	t_15761	conditional	hit	hit		yes		2329		optative protasis, mixed apodosis	random-part					
+I055	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.35	3361	t_56766	conditional	hit	hit		yes		2323		subjunctive protasis, optative apodosis						
+I056	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.22	1225	t_21406	conditional	loose	loose		no		2671		indirect question after considering						
+I057	tlg0032.tlg006	Xenophon	Xen. Anab._2.1.15	652	t_11217	conditional	loose	loose		no		2671		indirect question after asking						
+I058	tlg0032.tlg006	Xenophon	Xen. Anab._4.3.10	1639	t_28431	conditional	loose	loose		yes		2619	parser:label	even if he slept, in reported frame; parser labelled verb as object						
+I059	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.7	847	t_14161	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed conditional	sitting 1					
+I060	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.37	3367	t_56832	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed with future indicative	sitting 1					
+I061	tlg0032.tlg006	Xenophon	Xen. Anab._4.1.26	1539	t_26790	conditional	loose	loose		no		2671		indirect question after asking						
+I062	tlg0032.tlg006	Xenophon	Xen. Anab._4.1.25	1538	t_26753	conditional	loose	loose		no		2671		indirect question after asking						
+I063	tlg0032.tlg006	Xenophon	Xen. Anab._4.1.28	1542	t_26847	conditional	loose	loose		no		2671		indirect question after asking	random-part					
+I064	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.37	3367	t_56836	conditional	loose	loose		no		2671		indirect question after considering						
+I065	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.5	2533	t_43433	conditional	loose	loose		no		2671		indirect question after asking						
+I066	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.42	3385	t_57079	conditional	loose	loose		no		2671		indirect question after considering	random-part					
+I067	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.10	2457	t_42138	conditional	loose	loose		yes		2298	parser:label	if anyone can say something good; parser made clause object of speaking	sitting 1					
+I068	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.16	3562	t_59796	conditional	loose	loose		yes		2298	detector:scope	emphatic if-indeed with past indicative	sitting 1					
+I069	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.28	2408	t_41248	conditional	loose	loose		no		2671		indirect question after sacrificing to learn						
+I070	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.15	3203	t_54272	conditional	loose	loose		no		2671		indirect question after sacrificing to learn						
+I071	tlg0059.tlg002	Plato	Apol._39	443	t_9243	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after verb of restraining, governs whole clause						
+I072	tlg0059.tlg024	Plato	Men._89	1065	t_8405	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative of respect, as for its being teachable						
+I073	tlg0059.tlg004	Plato	Phaedo_65	244	t_3615	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive with adverb of nearness						
+I074	tlg0059.tlg030	Plato	Rep._1.332	152	t_2301	articular_infinitive	hit	hit	dat	yes	dat	2033		dative after preposition						
+I075	tlg0059.tlg004	Plato	Phaedo_89	789	t_13670	articular_infinitive	hit	hit	nom	yes	nom	2031		subject of verbless predicate						
+I076	tlg0059.tlg030	Plato	Rep._5.463	3110	t_49970	articular_infinitive	hit	hit	gen	yes	gen	2032		article governs the must-be clause after preposition; anchor is embedded infinitive						
+I077	tlg0059.tlg030	Plato	Rep._9.583	5598	t_91977	articular_infinitive	hit	hit	acc	yes	acc	2034		object of verb of praising						
+I078	tlg0059.tlg030	Plato	Rep._4.437	2530	t_40784	articular_infinitive	hit	hit	acc	yes	acc	2034		listed items resumed as object of verb of placing						
+I079	tlg0059.tlg030	Plato	Rep._5.465	3146	t_50585	articular_infinitive	hit	hit	nom	yes	nom	2031		in apposition to nominative noun fear						
+I080	tlg0059.tlg004	Plato	Phaedo_96	991	t_17155	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause						
+I081	tlg0059.tlg002	Plato	Apol._28	260	t_4658	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive dependent on noun danger						
+I082	tlg0059.tlg030	Plato	Rep._9.583	5594	t_91924	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive of comparison						
+I083	tlg0059.tlg004	Plato	Phaedo_62	153	t_2174	articular_infinitive	hit	hit	nom	yes	nom	2031		subject of main verb						
+I084	tlg0059.tlg011	Plato	Sym._206	706	t_13700	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause	random-part					
+I085	tlg0059.tlg004	Plato	Phaedo_78	585	t_9141	articular_infinitive	hit	hit	nom	yes	acc	2034	parser:morph	appositive to accusative object; article mis-tagged nominative	sitting 1					
+I086	tlg0059.tlg030	Plato	Rep._10.603	6031	t_98559	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after preposition	random-part					
+I087	tlg0059.tlg030	Plato	Rep._3.397	1666	t_26024	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause	random-part					
+I088	tlg0059.tlg004	Plato	Phaedo_114	1353	t_24640	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition						
+I089	tlg0059.tlg030	Plato	Rep._2.367	999	t_15165	articular_infinitive	hit	hit	acc	yes	acc	2034		object of infinitive of praising						
+I090	tlg0059.tlg004	Plato	Phaedo_94	930	t_16036	articular_infinitive	hit	hit	acc	yes	acc	2034		appositive to accusative after preposition						
+I095	tlg0059.tlg030	Plato	Rep._9.586	5668	t_93009	articular_infinitive	loose	loose		no		2050		article with substantive participle						
+I096	tlg0059.tlg011	Plato	Sym._186	261	t_5289	articular_infinitive	loose	loose		no		2050		article with substantive participle						
+I098	tlg0059.tlg030	Plato	Rep._7.522	4285	t_70024	articular_infinitive	loose	loose		no		2025		anarthrous infinitive; nearby article is adverbial phrase						
+I101	tlg0059.tlg004	Plato	Phaedo_107	1243	t_21626	articular_infinitive	loose	loose		no		2050		article with participle in fixed idiom meaning really	random-part					
+I102	tlg0059.tlg030	Plato	Rep._2.370	1057	t_16180	articular_infinitive	loose	loose		no		1106		article as demonstrative with particle, ellipsis of noun	random-part					
+I104	tlg0059.tlg004	Plato	Phaedo_87	760	t_12934	articular_infinitive	loose	loose		no		2050		article with participle	random-part					
+I105	tlg0059.tlg024	Plato	Men._83	637	t_5442	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive						
+I106	tlg0032.tlg006	Xenophon	Xen. Anab._2.6.9	1016	t_17165	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after preposition						
+I107	tlg0032.tlg006	Xenophon	Xen. Anab._3.3.12	1313	t_22833	articular_infinitive	hit	hit	dat	yes	dat	2033		dative after preposition						
+I108	tlg0032.tlg006	Xenophon	Xen. Anab._5.4.10	2228	t_37951	articular_infinitive	hit	hit	gen	no		1153	parser:head	article substantivizes a prepositional phrase, not the infinitive	sitting 1					
+I109	tlg0032.tlg006	Xenophon	Xen. Anab._1.7.19	437	t_7209	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after verb of desisting						
+I110	tlg0032.tlg006	Xenophon	Xen. Anab._4.1.10	1503	t_26158	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause						
+I111	tlg0032.tlg006	Xenophon	Xen. Anab._4.8.14	2010	t_34460	articular_infinitive	hit	hit	acc	yes	acc	2034		negated infinitive after word of hindering	random-part					
+I112	tlg0032.tlg006	Xenophon	Xen. Anab._1.9.24	547	t_9340	articular_infinitive	hit	hit	nom	yes	nom	2031		subject of verbless predicate						
+I113	tlg0032.tlg006	Xenophon	Xen. Anab._1.5.9	317	t_5170	articular_infinitive	hit	hit	dat	yes	dat	2033		dative of cause						
+I114	tlg0032.tlg006	Xenophon	Xen. Anab._1.9.27	554	t_9453	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause	random-part					
+I115	tlg0032.tlg006	Xenophon	Xen. Anab._6.3.14	2773	t_47203	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of purpose						
+I116	tlg0032.tlg006	Xenophon	Xen. Anab._5.1.15	2093	t_35706	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after verb of neglecting						
+I117	tlg0032.tlg006	Xenophon	Xen. Anab._7.5.9	3499	t_58749	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after preposition	random-part					
+I118	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.27	1238	t_21734	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition						
+I119	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.20	2862	t_48548	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause						
+I120	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.31	3702	t_62463	articular_infinitive	hit	hit	acc	yes	acc	2034		accusative after preposition of cause						
+I121	tlg0032.tlg006	Xenophon	Xen. Anab._1.6.2	347	t_5707	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after verb of hindering	random-part					
+I122	tlg0032.tlg006	Xenophon	Xen. Anab._6.1.26	2657	t_45362	articular_infinitive	hit	hit	nom	yes	nom	2031		subject of personal seem						
+I123	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.24	1230	t_21545	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive dependent on noun hostages, of purpose	random-part					
+I124	tlg0032.tlg006	Xenophon	Xen. Anab._2.6.19	1039	t_17565	articular_infinitive	hit	hit	acc	yes	acc	2034		object of verb of fearing	random-part					
+I125	tlg0032.tlg006	Xenophon	Xen. Anab._1.4.15	265	t_4349	articular_infinitive	hit	hit	gen	yes	gen	2032		genitive after verb of beginning						
+I126	tlg0032.tlg006	Xenophon	Xen. Anab._4.8.13	2005	t_34373	articular_infinitive	loose	loose		no		2050		article with substantive participle						
+I130	tlg0032.tlg006	Xenophon	Xen. Anab._1.10.12	588	t_10185	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive	random-part					
+I132	tlg0032.tlg006	Xenophon	Xen. Anab._4.2.16	1583	t_27549	articular_infinitive	loose	loose		no		2025		anarthrous infinitive after verb of commanding						
+I133	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.13	2467	t_42326	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive						
+I134	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.9	2353	t_40278	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive						
+I135	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.20	2580	t_44050	articular_infinitive	loose	loose		no		2025		article belongs to adjective; anarthrous infinitive						
+I136	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.16	1210	t_21085	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive						
+I139	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.13	1861	t_32180	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive						
+I140	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.22	2868	t_48620	articular_infinitive	loose	loose		no		2025		anarthrous infinitive						
+I141	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.32	2417	t_41456	articular_infinitive	hit-topup	hit	dat	yes	dat	2033		dative after preposition						
+I142	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.15	2570	t_43848	articular_infinitive	hit-topup	hit	dat	yes	dat	2033		dative with adjective of serving						
+I143	tlg0059.tlg004	Plato	Phaedo_69	315	t_4948	articular_infinitive	hit-topup	hit	dat	yes	dat	2033		dative with adjective of likeness, appositive to relative						
+I144	tlg0059.tlg002	Plato	Apol._35	364	t_7706	articular_infinitive	hit-topup	hit	dat	yes	dat	2033		dative of means						
+I145	tlg0059.tlg030	Plato	Rep._10.605	6072	t_99213	articular_infinitive	hit-topup	hit	dat	yes	dat	2033		dative of respect with verb of resembling						
+I146	tlg0059.tlg030	Plato	Rep._4.437	2525	t_40721	articular_infinitive	hit-topup	hit	dat	yes	dat	2033		dative with words of opposition						
+I147	tlg0059.tlg004	Plato	Phaedo_102	1091	t_19491	articular_infinitive	hit-topup	hit	dat	no		2025	parser:head	article governs a finite causal clause, not the infinitive	sitting 1					
+I148	tlg0059.tlg004	Plato	Phaedo_62	152	t_2161	articular_infinitive	hit-topup	hit	nom	yes	nom	2031		appositive to nominative relative, governs whole clause						
+I149	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.28	3698	t_62261	articular_infinitive	hit-topup	hit	nom	yes	nom	2031		subject of seem to be	random-part					
+I150	tlg0059.tlg011	Plato	Sym._184	229	t_4481	articular_infinitive	hit-topup	hit	nom	yes	nom	2031		subject of passive verb of thinking						
+I151	tlg0059.tlg011	Plato	Sym._178	143	t_2357	articular_infinitive	hit-topup	hit	nom	yes	nom	2031		subject of verbless predicate						
+I152	tlg0059.tlg024	Plato	Men._71	33	t_427	result	hit	hit	actual	yes	actual	2274		dependent indicative result continuing the sentence	random-part					
+I153	tlg0059.tlg030	Plato	Rep._9.581	5502	t_90872	result	hit	hit	natural	yes	natural	2260		result infinitive						
+I154	tlg0059.tlg003	Plato	Crito_51	301	t_3553	result	hit	hit	actual	yes	actual	2274		indicative result after antecedent so						
+I155	tlg0059.tlg011	Plato	Sym._189	295	t_6293	result	hit	hit	natural	yes	natural	2260		result infinitive inside reported speech						
+I156	tlg0059.tlg030	Plato	Rep._10.598	5919	t_96661	result	hit	hit	actual	yes	actual	2274		dependent indicative result						
+I157	tlg0059.tlg030	Plato	Rep._10.611	6208	t_101775	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I158	tlg0059.tlg030	Plato	Rep._3.394	1614	t_24991	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I159	tlg0059.tlg030	Plato	Rep._10.618	6317	t_104432	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I160	tlg0059.tlg030	Plato	Rep._3.391	1532	t_23412	result	hit	hit	natural	yes	natural	2260		infinitive result after antecedent so						
+I161	tlg0059.tlg002	Plato	Apol._35	356	t_7490	result	hit	hit	natural	yes	natural	2270		result infinitive with modal particle						
+I162	tlg0059.tlg024	Plato	Men._91	1124	t_9095	result	hit	hit	natural	yes	natural	2260		infinitive result after such						
+I163	tlg0059.tlg011	Plato	Sym._179	160	t_2812	result	hit	hit	natural	yes	natural	2260		infinitive result after so much	random-part					
+I164	tlg0059.tlg004	Plato	Phaedo_66	250	t_3753	result	hit	hit	natural	yes	natural	2260		infinitive result after such an opinion						
+I165	tlg0059.tlg011	Plato	Sym._194	380	t_8404	result	hit	hit	natural	yes	natural	2260		infinitive result after antecedent so						
+I166	tlg0059.tlg002	Plato	Apol._25	198	t_3581	result	hit	hit	actual	yes	actual	2274		dependent indicative result; parser head misplaced but harmless						
+I167	tlg0059.tlg030	Plato	Rep._4.436	2509	t_40376	result	hit	hit	actual	yes	actual	2274		within-sentence indicative consequence; borderline with independent use						
+I168	tlg0059.tlg011	Plato	Sym._192	354	t_7763	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I169	tlg0059.tlg024	Plato	Men._72	50	t_645	result	hit	hit		yes	actual	2274	detector:rule	elided copula, negated with indicative negative; detector gave no subtype						
+I170	tlg0059.tlg030	Plato	Rep._4.420	2102	t_33797	result	hit	hit	actual	yes	actual	2274		future indicative result continuing the description						
+I171	tlg0059.tlg004	Plato	Phaedo_93	889	t_15533	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I172	tlg0059.tlg024	Plato	Men._77	368	t_3181	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I173	tlg0059.tlg011	Plato	Sym._219	956	t_18816	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I174	tlg0059.tlg030	Plato	Rep._1.340	436	t_5662	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I175	tlg0059.tlg024	Plato	Men._81	542	t_4794	result	loose	loose		no		2275		sentence-initial independent use, elided copula						
+I176	tlg0059.tlg002	Plato	Apol._29	275	t_5152	result	loose	loose		no		2275		sentence-initial independent use, anacoluthic main clause						
+I177	tlg0059.tlg002	Plato	Apol._22	116	t_2293	result	loose	loose		yes	natural	2260	parser:head	sentence-initial but with infinitive, so dependent; parser left infinitive outside	sitting 1					
+I178	tlg0059.tlg003	Plato	Crito_48	188	t_2181	result	loose	loose		no		2275		sentence-initial independent use with indicative	random-part					
+I179	tlg0059.tlg030	Plato	Rep._3.407	1891	t_29858	result	loose	loose		yes	actual	2274	parser:ellipsis	dependent result with elided copula; parser attached nothing below conjunction	sitting 1					
+I180	tlg0059.tlg002	Plato	Apol._25	198	t_3532	result	loose	loose		yes	actual	2274	parser:head	indicative result after so much; parser attached the verbs elsewhere	sitting 1					
+I181	tlg0059.tlg024	Plato	Men._85	849	t_6497	result	loose	loose		no		2275		sentence-initial independent use with potential optative						
+I182	tlg0059.tlg030	Plato	Rep._2.362	940	t_13527	result	loose	loose		no		2275		independent use with imperative						
+I183	tlg0059.tlg030	Plato	Rep._9.582	5548	t_91471	result	loose	loose		yes	actual	2274	parser:ellipsis	within-sentence result with elided copula; parser left clause empty	sitting 1					
+I184	tlg0059.tlg002	Plato	Apol._24	132	t_2753	result	loose	loose		no		2275		sentence-initial independent use with potential optative						
+I185	tlg0059.tlg004	Plato	Phaedo_63	170	t_2527	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I186	tlg0059.tlg004	Plato	Phaedo_73	416	t_6703	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I187	tlg0059.tlg011	Plato	Sym._192	355	t_7786	result	abstain	abstain	participle	yes	natural	2260	detector:rule	coordinated result infinitives; detector took the participle as the verb	sitting 1					
+I188	tlg0032.tlg006	Xenophon	Xen. Anab._1.4.8	238	t_3879	result	hit	hit	natural	yes	natural	2264		infinitive of capacity after have						
+I189	tlg0032.tlg006	Xenophon	Xen. Anab._2.3.11	781	t_13036	result	hit	hit	natural	yes	natural	2260		sentence-initial but infinitive, so dependent	random-part					
+I190	tlg0032.tlg006	Xenophon	Xen. Anab._3.4.22	1379	t_24072	result	hit	hit	natural	yes	natural	2260		sentence-initial but infinitive, so dependent	random-part					
+I191	tlg0032.tlg006	Xenophon	Xen. Anab._6.6.38	3077	t_51947	result	hit	hit	natural	yes	natural	2260		infinitive result	random-part					
+I192	tlg0032.tlg006	Xenophon	Xen. Anab._6.5.18	2932	t_49637	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I193	tlg0032.tlg006	Xenophon	Xen. Anab._3.3.14	1316	t_22882	result	hit	hit	natural	yes	natural	2260		infinitive result	random-part					
+I194	tlg0032.tlg006	Xenophon	Xen. Anab._2.6.11	1021	t_17276	result	hit	hit	actual	yes	actual	2274		dependent indicative result						
+I195	tlg0032.tlg006	Xenophon	Xen. Anab._4.2.7	1564	t_27174	result	hit	hit	actual	yes	actual	2274		dependent indicative result	random-part					
+I196	tlg0032.tlg006	Xenophon	Xen. Anab._1.10.12	587	t_10175	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I197	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.15	946	t_15726	result	hit	hit	natural	yes	natural	2260		infinitive result after so clever						
+I198	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.1	2100	t_35828	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I199	tlg0032.tlg006	Xenophon	Xen. Anab._7.4.3	3418	t_57493	result	hit	hit	actual	yes	actual	2274		indicative result after antecedent so						
+I200	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.30	2413	t_41367	result	hit	hit	natural	yes	natural	2264		infinitive result after sufficient						
+I201	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.23	2151	t_36751	result	hit	hit	actual	yes	actual	2274		dependent indicative result						
+I202	tlg0032.tlg006	Xenophon	Xen. Anab._3.3.16	1319	t_22954	result	hit	hit	natural	yes	natural	2260		infinitive result	random-part					
+I203	tlg0032.tlg006	Xenophon	Xen. Anab._7.4.12	3443	t_57926	result	hit	hit	natural	yes	natural	2260		infinitive result	random-part					
+I204	tlg0032.tlg006	Xenophon	Xen. Anab._3.4.21	1377	t_24021	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I205	tlg0032.tlg006	Xenophon	Xen. Anab._3.5.12	1474	t_25610	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I206	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.15	946	t_15714	result	hit	hit		yes	actual	2278	detector:rule	potential optative in dependent result after so; detector gave no subtype						
+I207	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.26	2592	t_44281	result	hit	hit	natural	yes	natural	2260		infinitive result						
+I208	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.11	857	t_14302	result	loose	loose		no		2275		sentence-initial independent use with indicative	random-part					
+I209	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.23	2150	t_36729	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I210	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.10	169	t_2701	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I211	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.2	828	t_13893	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I212	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.4	2112	t_36021	result	loose	loose		no		2275		sentence-initial independent use with indicative	random-part					
+I213	tlg0032.tlg006	Xenophon	Xen. Anab._1.1.8	22	t_375	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I214	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.26	906	t_14990	result	loose	loose		yes	natural	2260	parser:head	sentence-initial but infinitive, so dependent; parser made infinitive root	sitting 1					
+I215	tlg0032.tlg006	Xenophon	Xen. Anab._4.7.17	1947	t_33454	result	loose	loose		yes	natural	2260	parser:head	sentence-initial infinitive result; parser detached conjunction from infinitive	sitting 1					
+I216	tlg0032.tlg006	Xenophon	Xen. Anab._3.5.13	1478	t_25672	result	loose	loose		no		2275		sentence-initial independent use with indicative	random-part					
+I217	tlg0032.tlg006	Xenophon	Xen. Anab._3.4.26	1386	t_24226	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I218	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.3	3266	t_55345	result	loose	loose		no		2275		independent use with elided copula; infinitive is subject of adjective						
+I219	tlg0032.tlg006	Xenophon	Xen. Anab._1.9.15	532	t_9019	result	loose	loose		yes	natural	2260	parser:head	sentence-initial infinitive result; parser detached conjunction from infinitive	sitting 1					
+I220	tlg0032.tlg006	Xenophon	Xen. Anab._3.3.11	1309	t_22755	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I221	tlg0032.tlg006	Xenophon	Xen. Anab._2.3.25	815	t_13641	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I222	tlg0032.tlg006	Xenophon	Xen. Anab._1.10.19	604	t_10431	result	loose	loose		no		2275		sentence-initial independent use with indicative						
+I223	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.30	2413	t_41349	result	abstain	abstain	participle	yes	natural	2260	parser:head	result infinitive is the sail-off infinitive; parser made it object of participle	sitting 1					
+I224	tlg0059.tlg030	Plato	Rep._10.608	6121	t_100365	result	hit-topup	hit		yes	actual	2274	detector:rule	elided copula with indicative negative; detector gave no subtype						
+I225	tlg0059.tlg011	Plato	Sym._197	439	t_9530	result	hit-topup	hit		yes	actual	2278	detector:rule	potential optative in dependent result; detector gave no subtype						
+I226	tlg0059.tlg011	Plato	Sym._222	988	t_19689	result	hit-topup	hit		yes	actual	2278	detector:rule	potential optative in dependent result; detector gave no subtype						
+I227	tlg0059.tlg002	Plato	Apol._26	200	t_3621	result	hit-topup	hit		yes	actual	2274	parser:morph	verb is indicative middle, parsed as subjunctive						
+I228	tlg0059.tlg002	Plato	Apol._28	261	t_4723	result	hit-topup	hit		yes	actual	2274	parser:ellipsis	result after so much; its main verb falls beyond the sentence boundary						
+I229	tlg0059.tlg030	Plato	Rep._8.567	5216	t_86124	result	hit-topup	hit		yes	actual	2274	detector:rule	result after so with elided copula; detector gave no subtype	random-part					
+I230	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.20	2388	t_40889	result	hit-topup	hit		yes	actual	2278	detector:rule	potential optative in dependent result; detector gave no subtype						
+I231	tlg0059.tlg002	Plato	Apol._33	338	t_6982	result	hit-topup	hit		yes	actual	2278	detector:rule	potential optative in dependent result; detector gave no subtype	random-part					
+I232	tlg0059.tlg030	Plato	Rep._6.488	3654	t_58252	purpose	hit	hit		no		2211	parser:morph	future indicative object clause after contriving; parser tagged the future as aorist subjunctive						
+I233	tlg0059.tlg011	Plato	Sym._191	333	t_7290	purpose	hit	hit		yes		2196		final clause with optative in secondary sequence	random-part					
+I234	tlg0059.tlg030	Plato	Rep._3.388	1476	t_22410	purpose	hit	hit		yes		2193		final clause with subjunctive						
+I235	tlg0059.tlg030	Plato	Rep._2.361	924	t_13146	purpose	hit	hit		yes		2193		final clause with subjunctive after imperative						
+I236	tlg0059.tlg002	Plato	Apol._18	14	t_324	purpose	hit	hit		no		2462	parser:head	parenthetical as-it-seems clause; parser hung the later potential optative under it						
+I237	tlg0059.tlg002	Plato	Apol._32	310	t_6245	purpose	hit	hit		yes		2193		final clause with subjunctive after imperative	random-part					
+I238	tlg0059.tlg030	Plato	Rep._1.349	648	t_9250	purpose	hit	hit		no		2214	detector:rule	object clause after a verb of striving, subjunctive; out of scope	sitting 2					
+I239	tlg0059.tlg030	Plato	Rep._3.403	1800	t_28372	purpose	hit	hit		no		2211	parser:morph	future indicative object clause after legislating; parser tagged future as aorist subjunctive						
+I240	tlg0059.tlg030	Plato	Rep._2.381	1393	t_21058	purpose	hit	hit		yes		2193		negative final clause with subjunctive						
+I241	tlg0059.tlg030	Plato	Rep._5.471	3310	t_53151	purpose	hit	hit		no		2577	parser:morph	indirect statement after persuade; relative adverb mistagged as a subjunctive verb	random-part					
+I242	tlg0059.tlg030	Plato	Rep._5.478	3514	t_56002	purpose	hit	hit		yes		2193		final clause with subjunctive						
+I243	tlg0059.tlg011	Plato	Sym._190	321	t_6924	purpose	hit	hit		yes		2202		final clause with particle and optative describing the device's aim						
+I244	tlg0059.tlg004	Plato	Phaedo_61	135	t_1839	purpose	hit	hit		no		2577	detector:rule	indirect statement after hearing, oblique optative	sitting 2					
+I245	tlg0059.tlg030	Plato	Rep._2.363	945	t_13629	purpose	hit	hit		yes		2193		final clause with subjunctive						
+I246	tlg0059.tlg030	Plato	Rep._3.401	1763	t_27620	purpose	hit	hit		yes		2193		negative final clause with subjunctive; parse of interior is messy						
+I247	tlg0059.tlg011	Plato	Sym._174	55	t_754	purpose	hit	hit		yes		2193		final clause with subjunctive after imperative						
+I248	tlg0059.tlg024	Plato	Men._100	1492	t_12802	purpose	hit	hit		no		2240	parser:head	causal for; subjunctive belongs to the conditional, parser attached it to this conjunction						
+I249	tlg0059.tlg011	Plato	Sym._210	762	t_15104	purpose	hit	hit		yes		2193		final clause with subjunctive						
+I250	tlg0059.tlg011	Plato	Sym._181	192	t_3469	purpose	hit	hit		no		1086	detector:rule	strengthening a superlative, as foolish as they can	sitting 2					
+I251	tlg0059.tlg030	Plato	Rep._7.531	4501	t_73392	purpose	hit	hit		yes		2193		negative final clause with subjunctive, fronted	random-part					
+I252	tlg0059.tlg024	Plato	Men._80	492	t_4290	purpose	loose	loose		no		2193		comparative as with a noun, no clause						
+I253	tlg0059.tlg030	Plato	Rep._3.398	1680	t_26252	purpose	loose	loose		no		2193		as with predicate adjectives, no clause						
+I254	tlg0059.tlg030	Plato	Rep._5.452	2816	t_45503	purpose	loose	loose		no		2993		restrictive at least for the present	random-part					
+I255	tlg0059.tlg030	Plato	Rep._4.424	2197	t_35471	purpose	loose	loose		no		1086		strengthening a superlative						
+I256	tlg0059.tlg030	Plato	Rep._7.530	4481	t_73097	purpose	loose	loose		no		2193		as with a noun, in the role of lawgivers						
+I257	tlg0059.tlg030	Plato	Rep._3.387	1468	t_22306	purpose	loose	loose		no		2086		as with a circumstantial participle	random-part					
+I258	tlg0059.tlg030	Plato	Rep._3.392	1555	t_23918	purpose	loose	loose		no		2577		indirect statement after say						
+I259	tlg0059.tlg004	Plato	Phaedo_115	1374	t_25168	purpose	loose	loose		no		2577		indirect statement after making a speech						
+I260	tlg0059.tlg030	Plato	Rep._6.488	3654	t_58308	purpose	loose	loose		no		2663		indirect question how he will steer						
+I261	tlg0059.tlg030	Plato	Rep._5.461	3044	t_48887	purpose	loose	loose		no		2086		as with a participle giving the alleged reason						
+I262	tlg0059.tlg011	Plato	Sym._185	239	t_4792	purpose	loose	loose		no		2086		as with an adjective, as being rich						
+I263	tlg0059.tlg004	Plato	Phaedo_64	185	t_2748	purpose	loose	loose		no		2577		how or that clause explaining the account, indicative						
+I264	tlg0059.tlg030	Plato	Rep._1.332	131	t_2088	purpose	loose	loose		no		2462		parenthetical as it seems						
+I265	tlg0059.tlg030	Plato	Rep._4.421	2140	t_34505	purpose	loose	loose		no		2211		object clause of effort with future indicative after guarding	random-part					
+I266	tlg0059.tlg004	Plato	Phaedo_95	946	t_16296	purpose	loose	loose		no		2462		parenthetical as it seems	random-part					
+I267	tlg0032.tlg006	Xenophon	Xen. Anab._7.8.11	3789	t_63912	purpose	hit	hit		yes		2196		negative final clause with optative in secondary sequence						
+I268	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.3	1175	t_20334	purpose	hit	hit		no		2214	detector:rule	object clause after a verb of trying, subjunctive; out of scope	sitting 2					
+I269	tlg0032.tlg006	Xenophon	Xen. Anab._2.2.12	725	t_12127	purpose	hit	hit		no		1086	detector:rule	strengthening a superlative, as long as we can	sitting 2					
+I270	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.43	3389	t_57124	purpose	hit	hit		yes		2201		final clause with particle and subjunctive						
+I271	tlg0032.tlg006	Xenophon	Xen. Anab._6.3.15	2776	t_47246	purpose	hit	hit		yes		2196		final clause with optative in secondary sequence	random-part					
+I272	tlg0032.tlg006	Xenophon	Xen. Anab._1.6.3	349	t_5759	purpose	hit	hit		no		1086	detector:rule	strengthening a superlative, as many as he can	sitting 2					
+I273	tlg0032.tlg006	Xenophon	Xen. Anab._6.2.14	2718	t_46328	purpose	hit	hit		yes		2196		fronted final clause with optative, resumed by for this reason						
+I274	tlg0032.tlg006	Xenophon	Xen. Anab._4.4.17	1730	t_29982	purpose	hit	hit		yes		2196		final clause with optative in reported speech						
+I275	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.26	2161	t_36895	purpose	hit	hit		yes		2196		final clause with optative in secondary sequence						
+I276	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.31	2506	t_43067	purpose	hit	hit		yes		2193		final clause with coordinated subjunctives after imperative						
+I277	tlg0032.tlg006	Xenophon	Xen. Anab._1.9.27	554	t_9475	purpose	hit	hit		yes		2196		negative final clause, subjunctive retained in secondary sequence	random-part					
+I278	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.10	1855	t_32011	purpose	hit	hit		no		2211	parser:morph	future indicative object clause after prepare; parser tagged future as subjunctive	sitting 2					
+I279	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.3	830	t_13930	purpose	hit	hit		yes		2196		final clause with optative						
+I280	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.37	3711	t_62672	purpose	hit	hit		no		2210	detector:rule	object clause after a verb of taking care, optative; out of scope						
+I281	tlg0032.tlg006	Xenophon	Xen. Anab._6.1.17	2635	t_44962	purpose	hit	hit		no		2210	detector:rule	object clause of concern after it occurred to them; not final	sitting 2					
+I282	tlg0032.tlg006	Xenophon	Xen. Anab._6.5.30	2967	t_50175	purpose	hit	hit		no		2462	detector:rule	manner clause, in whatever way they could	sitting 2					
+I283	tlg0032.tlg006	Xenophon	Xen. Anab._4.8.9	1995	t_34212	purpose	hit	hit		no		2211	parser:morph	future indicative object clause after deliberate; parser tagged future as subjunctive	sitting 2					
+I284	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.36	986	t_16553	purpose	hit	hit		yes		2196		final clause, subjunctive retained in secondary sequence						
+I285	tlg0032.tlg006	Xenophon	Xen. Anab._2.6.21	1043	t_17640	purpose	hit	hit		yes		2196		final clause with optative in secondary sequence						
+I286	tlg0032.tlg006	Xenophon	Xen. Anab._7.3.10	3292	t_55715	purpose	hit	hit		yes		2193		final clause with subjunctive after future	random-part					
+I287	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.7	1183	t_20545	purpose	loose	loose		no		1086		strengthening a superlative, as finely as he could						
+I288	tlg0032.tlg006	Xenophon	Xen. Anab._4.3.14	1649	t_28596	purpose	loose	loose		no		2210		object clause after deliberating, optative with particle; not final						
+I289	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.37	3711	t_62666	purpose	loose	loose		no		2086		as with a genitive participle	random-part					
+I290	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.38	1153	t_19814	purpose	loose	loose		no		2214		object clause after a verb of care, subjunctive; out of scope						
+I291	tlg0032.tlg006	Xenophon	Xen. Anab._2.1.14	650	t_11176	purpose	loose	loose		no		2577		indirect statement after say	random-part					
+I292	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.21	1882	t_32497	purpose	loose	loose		no		1086		strengthening a superlative; the final clause is anchored on the preceding conjunction						
+I293	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.21	2867	t_48592	purpose	loose	loose		no		2086		as with a participle						
+I294	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.16	188	t_3080	purpose	loose	loose		no		2577		indirect statement after showing						
+I295	tlg0032.tlg006	Xenophon	Xen. Anab._4.3.11	1640	t_28452	purpose	loose	loose		no		2193		as with a prepositional phrase of intention, no clause						
+I296	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.17	877	t_14574	purpose	loose	loose		no		2577		reported statement of intention, indicative; later conjunction carries the final clause	random-part					
+I297	tlg0032.tlg006	Xenophon	Xen. Anab._2.3.25	816	t_13666	purpose	loose	loose		no		2577		indirect statement after speaking against						
+I298	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.30	3700	t_62346	purpose	loose	loose		no		2086		so disposed as, with participles; not final						
+I299	tlg0032.tlg006	Xenophon	Xen. Anab._1.8.13	465	t_7787	purpose	loose	loose		no		2210		object clause after impersonal of care, optative; out of scope						
+I300	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.32	1250	t_21938	purpose	loose	loose		no		1086		strengthening a superlative, as quickly as possible						
+I301	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.7	2446	t_41995	purpose	loose	loose		no		2515		is there any way that, potential optative; not final						
+I302	tlg0059.tlg030	Plato	Rep._7.535	4586	t_75126	genitive_absolute	hit	hit		unsure		1405		genitive may be cause after a verb of indignation, or absolute; both readings defensible	sitting 2					
+I303	tlg0059.tlg004	Plato	Phaedo_69	317	t_5027	genitive_absolute	hit	hit		yes		2070		pleasures and fears are subjects of coordinated participles						
+I304	tlg0059.tlg030	Plato	Rep._4.421	2121	t_34314	genitive_absolute	hit	hit		yes		2070		clear absolute with subject the whole city						
+I305	tlg0059.tlg011	Plato	Sym._198	454	t_9837	genitive_absolute	hit	hit		yes		2070		clear absolute, temporal						
+I306	tlg0059.tlg011	Plato	Sym._184	236	t_4749	genitive_absolute	hit	hit		yes		2070		absolute with demonstrative and laws as subject	random-part					
+I307	tlg0059.tlg024	Plato	Men._81	543	t_4824	genitive_absolute	hit	hit		yes		2085		causal absolute introduced by causal particle						
+I308	tlg0059.tlg011	Plato	Sym._223	1016	t_20203	genitive_absolute	hit	hit		yes		2070		absolute, someone going out						
+I309	tlg0059.tlg030	Plato	Rep._4.445	2716	t_44024	genitive_absolute	hit	hit		yes		2070		coordinated absolute participles sharing subject nature						
+I310	tlg0059.tlg030	Plato	Rep._8.561	5056	t_83648	genitive_absolute	hit	hit		yes		2070		absolute, the tumult having passed						
+I311	tlg0059.tlg011	Plato	Sym._181	195	t_3537	genitive_absolute	hit	hit		no		1298	parser:label	participle agrees with a genitive dependent on the elided noun love	sitting 2					
+I312	tlg0059.tlg002	Plato	Apol._38	426	t_8904	genitive_absolute	hit	hit		no		2112	parser:head	participles supplement the infinitive of hearing; parser attached them elsewhere						
+I313	tlg0059.tlg030	Plato	Rep._2.370	1061	t_16229	genitive_absolute	hit	hit		yes		2070		absolute after a verb of thinking, not hearing	random-part					
+I314	tlg0059.tlg011	Plato	Sym._194	377	t_8332	genitive_absolute	hit	hit		yes		2086		absolute with particle giving the assumed ground						
+I315	tlg0059.tlg004	Plato	Phaedo_64	188	t_2832	genitive_absolute	hit	hit		yes		2070		absolute, death having come						
+I316	tlg0059.tlg030	Plato	Rep._6.508	4076	t_65713	genitive_absolute	hit	hit		yes		2087		comparative absolute, as if pure sight were absent						
+I317	tlg0059.tlg011	Plato	Sym._203	608	t_12165	genitive_absolute	hit	hit		yes		2085		absolute with a particle of reason	random-part					
+I318	tlg0059.tlg030	Plato	Rep._10.611	6197	t_101526	genitive_absolute	hit	hit		yes		2070		absolute, none perishing						
+I319	tlg0059.tlg030	Plato	Rep._3.410	1955	t_31106	genitive_absolute	hit	hit		yes		2073		absolute whose subject matches the main subject; still absolute						
+I320	tlg0059.tlg024	Plato	Men._84	772	t_6196	genitive_absolute	hit	hit		yes		2070		absolute, me questioning and not teaching	random-part					
+I321	tlg0059.tlg004	Plato	Phaedo_59	49	t_563	genitive_absolute	hit	hit		yes		2086		absolute with particle						
+I322	tlg0059.tlg004	Plato	Phaedo_80	642	t_10008	genitive_absolute	loose	loose		no		2050		substantive participle governed by a preposition						
+I323	tlg0059.tlg011	Plato	Sym._211	766	t_15431	genitive_absolute	loose	loose		yes		2070	parser:label	coordinated absolute with the others as subject; subject not found	sitting 2					
+I324	tlg0059.tlg002	Plato	Apol._35	357	t_7574	genitive_absolute	loose	loose		no		2050		substantive participle with article						
+I325	tlg0059.tlg030	Plato	Rep._4.433	2454	t_39408	genitive_absolute	loose	loose		no		2086		participle agrees with a genitive governed by a verb in the previous sentence						
+I326	tlg0059.tlg030	Plato	Rep._4.440	2616	t_42246	genitive_absolute	loose	loose		no		2050		substantive participle, the rulers						
+I327	tlg0059.tlg030	Plato	Rep._5.474	3375	t_54328	genitive_absolute	loose	loose		no		2046		participle agrees with a genitive dependent on a noun						
+I328	tlg0059.tlg030	Plato	Rep._5.450	2769	t_44805	genitive_absolute	loose	loose		no		2046		attributive participle						
+I329	tlg0059.tlg011	Plato	Sym._220	962	t_19024	genitive_absolute	loose	loose		yes		2070	parser:morph	absolute with all as subject; a coordinate participle tagged indicative	sitting 2					
+I330	tlg0059.tlg011	Plato	Sym._205	665	t_13044	genitive_absolute	loose	loose		no		2050		substantive participle after a preposition						
+I331	tlg0059.tlg030	Plato	Rep._8.560	5052	t_83519	genitive_absolute	loose	loose		no		2050		substantive participle with article						
+I332	tlg0059.tlg011	Plato	Sym._221	980	t_19456	genitive_absolute	loose	loose		no		2050		substantive participle with article						
+I333	tlg0059.tlg030	Plato	Rep._8.563	5116	t_84681	genitive_absolute	loose	loose		no		2046		attributive participle on a noun governed by the verb						
+I334	tlg0059.tlg030	Plato	Rep._7.520	4228	t_69337	genitive_absolute	loose	loose		no		2050		substantive participle						
+I335	tlg0059.tlg011	Plato	Sym._200	515	t_10956	genitive_absolute	loose	loose		no		2050		substantive participle, object of desire verb						
+I336	tlg0059.tlg030	Plato	Rep._10.620	6349	t_105148	genitive_absolute	loose	loose		no		2050		substantive participle governed by a noun	random-part					
+I337	tlg0059.tlg030	Plato	Rep._8.550	4806	e_2915	genitive_absolute	abstain	abstain	elided participle	no		981		genitives in partitive apposition to the prepositional object both						
+I338	tlg0059.tlg030	Plato	Rep._10.599	5932	e_3609	genitive_absolute	abstain	abstain	elided participle	no		2070		ellipsis is a finite verb with a nominative subject						
+I339	tlg0059.tlg030	Plato	Rep._10.600	5941	e_3617	genitive_absolute	abstain	abstain	elided participle	no		2070		genitives governed by a preposition; elided verb is finite						
+I340	tlg0032.tlg006	Xenophon	Xen. Anab._2.3.25	816	t_13665	genitive_absolute	hit	hit		yes		2083		concessive absolute						
+I341	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.5	840	t_14065	genitive_absolute	hit	hit		yes		2070		absolute, us doing this						
+I342	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.4	3527	t_59207	genitive_absolute	hit	hit		yes		2070		absolute with indirect question object						
+I343	tlg0032.tlg006	Xenophon	Xen. Anab._2.2.19	750	t_12473	genitive_absolute	hit	hit		yes		2070		absolute, night advancing						
+I344	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.27	3585	t_60266	genitive_absolute	hit	hit		yes		2070		absolute inside conditional protasis						
+I345	tlg0032.tlg006	Xenophon	Xen. Anab._6.1.32	2677	t_45722	genitive_absolute	hit	hit		yes		2083		concessive absolute, even though I kept silent						
+I346	tlg0032.tlg006	Xenophon	Xen. Anab._4.8.21	2025	t_34734	genitive_absolute	hit	hit		yes		2087		comparative absolute, as if a rout had occurred						
+I347	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.35	2518	t_43248	genitive_absolute	hit	hit		yes		2070		coordinated absolutes						
+I348	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.8	2122	t_36169	genitive_absolute	hit	hit		yes		2086		absolute with particle and potential particle	random-part					
+I349	tlg0032.tlg006	Xenophon	Xen. Anab._3.4.19	1372	t_23905	genitive_absolute	hit	hit		yes		2070		alternative absolutes						
+I350	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.16	188	t_3076	genitive_absolute	hit	hit		yes		2087		comparative absolute; parser attached it to another participle						
+I351	tlg0032.tlg006	Xenophon	Xen. Anab._2.2.1	687	t_11643	genitive_absolute	hit	hit		no		2100	parser:label	genitive object of a verb of enduring with supplementary participle	sitting 2					
+I352	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.6	843	t_14108	genitive_absolute	hit	hit		yes		2070		absolute, enemies preventing	random-part					
+I353	tlg0032.tlg006	Xenophon	Xen. Anab._4.8.27	2043	t_35022	genitive_absolute	hit	hit		yes		2085		causal absolute; participle itself is a viewing verb	random-part					
+I354	tlg0032.tlg006	Xenophon	Xen. Anab._7.1.28	3139	t_53091	genitive_absolute	hit	hit		yes		2070		absolute in a series of absolutes						
+I355	tlg0032.tlg006	Xenophon	Xen. Anab._3.3.1	1281	t_22312	genitive_absolute	hit	hit		yes		2070		absolute, these things said						
+I356	tlg0032.tlg006	Xenophon	Xen. Anab._6.5.7	2902	t_49178	genitive_absolute	hit	hit		yes		2070		absolute of time						
+I357	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.3	2527	t_43344	genitive_absolute	hit	hit		yes		2070		absolute in a series						
+I358	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.13	2565	t_43740	genitive_absolute	hit	hit		no		2046	parser:label	participles agree with a pronoun governed by a preposition	sitting 2					
+I359	tlg0032.tlg006	Xenophon	Xen. Anab._7.1.27	3137	t_53000	genitive_absolute	hit	hit		yes		2070		coordinated absolute, revenue being						
+I360	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.28	1240	t_21777	genitive_absolute	loose	loose		yes		2072	detector:rule	subjectless absolute, if defeated; subject easily supplied	sitting 2					
+I361	tlg0032.tlg006	Xenophon	Xen. Anab._4.1.6	1494	t_26003	genitive_absolute	loose	loose		yes		2072	detector:rule	subjectless absolute, while marching up	sitting 2					
+I362	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.3	2804	t_47726	genitive_absolute	loose	loose		yes		2072	detector:rule	subjectless absolute, for those sailing from either side	sitting 2					
+I363	tlg0032.tlg006	Xenophon	Xen. Anab._6.6.24	3036	t_51346	genitive_absolute	loose	loose		no		2050		substantive participle with article, partitive	random-part					
+I364	tlg0032.tlg006	Xenophon	Xen. Anab._2.1.9	630	t_10880	genitive_absolute	loose	loose		no		2050		substantive participle as predicate genitive						
+I365	tlg0032.tlg006	Xenophon	Xen. Anab._4.2.14	1580	t_27483	genitive_absolute	loose	loose		no		2046		attributive participle						
+I366	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.21	3573	t_60014	genitive_absolute	loose	loose		no		2046		participle agrees with a noun governed by a preposition						
+I367	tlg0032.tlg006	Xenophon	Xen. Anab._5.1.8	2070	t_35380	genitive_absolute	loose	loose		no		2050		substantive participle						
+I368	tlg0032.tlg006	Xenophon	Xen. Anab._1.7.5	402	t_6606	genitive_absolute	loose	loose		unsure		2070		either absolute, danger approaching, or attributive with a partitive genitive	sitting 2					
+I369	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.42	3719	t_62877	genitive_absolute	loose	loose		no		2050		substantive participle governed by a verb of lacking	random-part					
+I370	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.19	2478	t_42562	genitive_absolute	loose	loose		no		2046		attributive participle with the Greeks						
+I371	tlg0032.tlg006	Xenophon	Xen. Anab._4.7.24	1963	t_33723	genitive_absolute	loose	loose		no		2112		supplementary participle after a verb of hearing	random-part					
+I372	tlg0032.tlg006	Xenophon	Xen. Anab._5.4.30	2270	t_38791	genitive_absolute	loose	loose		no		2050		substantive participle with article						
+I373	tlg0032.tlg006	Xenophon	Xen. Anab._1.2.17-1.2.18	103	t_1590	genitive_absolute	loose	loose		yes		2072	detector:rule	subjectless absolute, as they advanced	sitting 2					
+I374	tlg0032.tlg006	Xenophon	Xen. Anab._4.7.4	1906	t_32863	genitive_absolute	loose	loose		no		2046		attributive participle	random-part					
+I375	tlg0059.tlg030	Plato	Rep._7.516	4167	t_67770	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		second-person verb means do you think; accusative subject with potential infinitive	random-part					
+I376	tlg0059.tlg030	Plato	Rep._3.407	1894	t_29932	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		coordinated with earlier reported infinitive after shall we say						
+I377	tlg0059.tlg030	Plato	Rep._5.480	3542	t_56464	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		infinitives reported after shall we say, with accusative subject	random-part					
+I378	tlg0059.tlg030	Plato	Rep._7.527	4421	t_72045	indirect_statement	hit	hit	infinitive	no		2016	detector:rule	personal seem to do, no opinion-holder; lest you seem to prescribe	random-part					
+I379	tlg0059.tlg004	Plato	Phaedo_64	210	t_3173	indirect_statement	hit	hit	infinitive	no		2000	parser:head	complementary infinitive of ability inside relative clause; parser hung it under the opinion verb						
+I380	tlg0059.tlg030	Plato	Rep._3.390	1519	t_23139	indirect_statement	hit	hit	infinitive	no		1984	parser:head	subject infinitive of the reported being-fitting clause; parser attached it to the opinion verb	sitting 2					
+I381	tlg0059.tlg030	Plato	Rep._2.361	929	t_13228	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		do not think that I am saying it						
+I382	tlg0059.tlg030	Plato	Rep._3.414	2050	t_32646	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		verb means they fancied; reported proposition with shifting subject, inside a reported persuasion						
+I383	tlg0059.tlg030	Plato	Rep._6.511	4125	t_66781	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		seem to me with dative opinion-holder, equivalent to I think you describe						
+I384	tlg0059.tlg002	Plato	Apol._38	424	t_8848	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		you think that I have been convicted; accusative subject	random-part					
+I385	tlg0059.tlg002	Plato	Apol._21	99	t_1953	indirect_statement	hit	hit	infinitive	no		2016	detector:rule	personal seem or be reputed to know, no opinion-holder expressed						
+I386	tlg0059.tlg030	Plato	Rep._3.408	1898	t_30121	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		they thought that living was not profitable for the sickly						
+I387	tlg0059.tlg030	Plato	Rep._8.547	4762	t_78584	indirect_statement	hit	hit	infinitive	yes	infinitive	1868		agreed by compact, promise-like; infinitive coordinated with earlier agreed infinitive	random-part					
+I388	tlg0059.tlg004	Plato	Phaedo_64	210	t_3167	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		seems to you with dative opinion-holder, a reported proposition						
+I389	tlg0059.tlg004	Plato	Phaedo_68	311	t_4879	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		we say it is impossible	random-part					
+I390	tlg0059.tlg024	Plato	Men._72	75	t_938	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		seems so to you, that virtue is one thing for a man; reported proposition						
+I391	tlg0059.tlg030	Plato	Rep._9.581	5505	t_90919	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		do we not say the spirited part is wholly set on mastery						
+I392	tlg0059.tlg030	Plato	Rep._2.366	992	t_14918	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		you claim to be praisers of justice; nominative predicate						
+I393	tlg0059.tlg030	Plato	Rep._10.608	6118	t_100216	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		if they think love is not beneficial						
+I394	tlg0059.tlg002	Plato	Apol._29	268	t_5010	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		to think oneself wise when one is not; thinker is the subject						
+I395	tlg0059.tlg030	Plato	Rep._5.472	3324	t_53398	indirect_statement	loose	loose	infinitive	no		1991		infinitive complements a verb of compulsion; its own reported future infinitive is separate						
+I396	tlg0059.tlg030	Plato	Rep._10.600	5948	t_97361	indirect_statement	loose	loose	infinitive	no		2000		complementary infinitive after verb of ability; following clause is reported but anchored elsewhere						
+I397	tlg0059.tlg030	Plato	Rep._3.387	1455	t_22180	indirect_statement	loose	loose	infinitive	no		1991		infinitive after causative make						
+I398	tlg0059.tlg030	Plato	Rep._3.396	1653	t_25695	indirect_statement	loose	loose	infinitive	yes	infinitive	2016	parser:ellipsis	future infinitive with negative continues reported opinion from the preceding sentence	sitting 2					
+I399	tlg0059.tlg011	Plato	Sym._209	750	t_14704	indirect_statement	loose	loose	infinitive	no		1985		infinitive after impersonal of necessity						
+I400	tlg0059.tlg004	Plato	Phaedo_63	169	t_2512	indirect_statement	loose	loose	infinitive	yes	infinitive	1868	parser:ellipsis	future infinitive after understood verb of hoping from the earlier clause						
+I401	tlg0059.tlg011	Plato	Sym._213	795	t_16175	indirect_statement	loose	loose	infinitive	yes	infinitive	2016	parser:ellipsis	continued reported narration; governing said-verb lies in earlier sentences						
+I402	tlg0059.tlg030	Plato	Rep._7.533	4535	t_74141	indirect_statement	loose	loose	infinitive	no		1991		infinitive after verb of attempting						
+I403	tlg0059.tlg011	Plato	Sym._210	760	t_14994	indirect_statement	loose	loose	infinitive	no		1985		infinitive after impersonal of necessity; its that-clause is a separate anchor						
+I404	tlg0059.tlg011	Plato	Sym._181	193	t_3495	indirect_statement	loose	loose	infinitive	no		1985		infinitive depends on impersonal it happens, not on a verb of saying						
+I405	tlg0059.tlg004	Plato	Phaedo_109	1291	t_22804	indirect_statement	loose	loose	infinitive	yes	infinitive	1846	parser:ellipsis	potential infinitive in long reported account of the true earth; governing verb earlier						
+I406	tlg0059.tlg030	Plato	Rep._4.425	2237	t_36108	indirect_statement	loose	loose	infinitive	no		1991		infinitive after participle of willing						
+I407	tlg0059.tlg030	Plato	Rep._9.579	5474	t_90350	indirect_statement	loose	loose	infinitive	yes	infinitive	2016	detector:list	governing verb: κρίνω; judged by you to live most wretchedly						
+I408	tlg0059.tlg024	Plato	Men._94	1221	t_10287	indirect_statement	loose	loose	infinitive	yes	infinitive	2016	parser:lemma	subjunctive of think misread as the adjective; accusative subject with perfect infinitive						
+I409	tlg0059.tlg003	Plato	Crito_54	367	t_5069	indirect_statement	loose	loose	infinitive	no		1991		infinitive after causative make	random-part					
+I410	tlg0059.tlg030	Plato	Rep._5.472	3315	t_53273	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: ἀναμιμνῄσκω; remember that we came here seeking justice						
+I411	tlg0059.tlg030	Plato	Rep._8.557	4974	t_82246	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: δῆλος; it is clear that, with a full finite clause						
+I412	tlg0059.tlg002	Plato	Apol._29	270	t_5045	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	parser:head	governing verb: οἶδα; parser attached the clause to the fear verb	sitting 2					
+I413	tlg0059.tlg004	Plato	Phaedo_116	1387	t_25542	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: οἶδα; I know well that you are not angry with me	sitting 2					
+I414	tlg0059.tlg004	Plato	Phaedo_88	775	t_13456	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause explaining our distress; saying-clause is parenthetical	random-part					
+I415	tlg0059.tlg030	Plato	Rep._7.534	4548	t_74432	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	parser:ellipsis	elliptical that-clause stating the proportion, object of an implied saying from the preceding sentence	sitting 2					
+I416	tlg0059.tlg030	Plato	Rep._10.613	6252	t_102578	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: ἀκούω; anacoluthic clause resumed by a later that-clause						
+I417	tlg0059.tlg002	Plato	Apol._26	206	t_3735	indirect_statement	loose	loose	hoti-hos	no		2585		adverbial obviously-phrase with no finite verb; not a reported statement	random-part					
+I418	tlg0059.tlg030	Plato	Rep._10.598	5921	t_96706	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: ἀκούω; we hear that these know all arts						
+I419	tlg0059.tlg004	Plato	Phaedo_104	1151	t_20513	indirect_statement	loose	loose	hoti-hos	no		2567		indefinite relative whatever with modal particle and subjunctive, not the conjunction						
+I420	tlg0059.tlg030	Plato	Rep._6.489	3659	t_58429	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: πείθω; persuade him that it would be more wonderful	sitting 2					
+I421	tlg0059.tlg024	Plato	Men._84	772	t_6186	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: σκέπτομαι; observe that he will actually discover it						
+I422	tlg0059.tlg030	Plato	Rep._1.343	501	t_6602	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: καταφανής; evident to all that the argument had reversed						
+I423	tlg0059.tlg030	Plato	Rep._3.402	1782	t_28183	indirect_statement	loose	loose	hoti-hos	unsure		2577		after I understand, may be object that-clause or explanatory because; context undecided	sitting 2					
+I424	tlg0059.tlg030	Plato	Rep._2.380	1356	t_20431	indirect_statement	loose	loose	hoti-hos	no		2240		causal because they needed punishment; the reported clause uses the other conjunction						
+I425	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.4	3176	t_53828	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		he thought he would most gratify Pharnabazus						
+I426	tlg0032.tlg006	Xenophon	Xen. Anab._1.4.4	219	t_3604	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		personal passive was said, with nominative subject	random-part					
+I427	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.5	1070	t_18295	indirect_statement	hit	hit	infinitive	no		2016	detector:rule	personal seemed or was reputed to have, no opinion-holder; borderline reputation sense	sitting 2					
+I428	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.41	3717	t_62811	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		seems-to-someone with dative of the thinker reports an opinion, not mere appearance						
+I429	tlg0032.tlg006	Xenophon	Xen. Anab._4.4.18	1732	t_30003	indirect_statement	hit	hit	hoti-hos	yes	hoti-hos	2577		clause after verb of saying with optative of indirect discourse						
+I430	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.11	171	t_2765	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		opinion with dative of the thinker; infinitive of being with verbal adjective						
+I431	tlg0032.tlg006	Xenophon	Xen. Anab._4.2.17	1584	t_27588	indirect_statement	hit	hit	hoti-hos	yes	hoti-hos	2577		second clause after verb of saying, coordinated with an earlier one						
+I432	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.21	3574	t_60024	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		opinion with dative of the thinker; comparative predicate						
+I433	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.13	2467	t_42326	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		personal seem with dative of thinker; aorist infinitive has past time, so reported opinion						
+I434	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.45	3724	t_62978	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		infinitive with accusative subject after verb of thinking						
+I435	tlg0032.tlg006	Xenophon	Xen. Anab._6.5.4	2895	t_49062	indirect_statement	hit	hit	infinitive	no		1985	parser:head	anchor is subject of the predicate infinitive of being, which is the reported one	random-part					
+I436	tlg0032.tlg006	Xenophon	Xen. Anab._6.1.18	2636	t_45013	indirect_statement	hit	hit	infinitive	yes	infinitive	1845		potential infinitive with modal particle after verb of thinking						
+I437	tlg0032.tlg006	Xenophon	Xen. Anab._2.6.29	1060	t_17981	indirect_statement	hit	hit	infinitive	yes	infinitive	1982		personal passive it-is-said construction with aorist infinitive						
+I438	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.23	3687	t_62054	indirect_statement	hit	hit	infinitive	no		1983	detector:rule	personal seem to have done, no thinker; appearance not reported thought						
+I439	tlg0032.tlg006	Xenophon	Xen. Anab._6.3.23	2786	t_47461	indirect_statement	hit	hit	infinitive	yes	infinitive	2016		accusative and infinitive after verb of saying						
+I440	tlg0032.tlg006	Xenophon	Xen. Anab._5.2.9	2123	t_36180	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		it seemed that withdrawal was not possible; parallel verb of thinking confirms opinion						
+I441	tlg0032.tlg006	Xenophon	Xen. Anab._5.4.2	2214	t_37765	indirect_statement	hit	hit	hoti-hos	yes	hoti-hos	2577		future optative of indirect discourse after verb of saying						
+I442	tlg0032.tlg006	Xenophon	Xen. Anab._7.1.28	3140	t_53124	indirect_statement	hit	hit	infinitive	yes	infinitive	1845		potential infinitive with modal particle after verb of thinking						
+I443	tlg0032.tlg006	Xenophon	Xen. Anab._2.1.12	645	t_11108	indirect_statement	hit	hit	infinitive	yes	infinitive	1845		second coordinated potential infinitive after verb of thinking						
+I444	tlg0032.tlg006	Xenophon	Xen. Anab._1.9.29	559	t_9551	indirect_statement	hit	hit	infinitive	yes	infinitive	2018		relative pronoun is accusative subject of infinitive after verb of thinking	random-part					
+I445	tlg0032.tlg006	Xenophon	Xen. Anab._2.2.3	696	t_11722	indirect_statement	loose	loose	infinitive	no		2008		infinitive gives the object of sacrificing, not a reported statement						
+I446	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.24	3690	t_62119	indirect_statement	loose	loose	infinitive	no		1991		object infinitive after verb of wishing						
+I447	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.15	187	t_3047	indirect_statement	loose	loose	infinitive	no		2594		know-how infinitive; the surrounding that-clause after know is a separate anchor						
+I448	tlg0032.tlg006	Xenophon	Xen. Anab._7.1.2	3080	t_52020	indirect_statement	loose	loose	infinitive	no		1991		object infinitive after verb of asking						
+I449	tlg0032.tlg006	Xenophon	Xen. Anab._5.7.1	2433	t_41736	indirect_statement	loose	loose	infinitive	no		1991		infinitive after verb of intending; reported clause is anchored at its conjunction	random-part					
+I450	tlg0032.tlg006	Xenophon	Xen. Anab._1.3.16	189	t_3111	indirect_statement	loose	loose	infinitive	no		1991		object infinitive after verb of commanding						
+I451	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.24	895	t_14864	indirect_statement	loose	loose	infinitive	no		1959		future infinitive complements be-about-to; the reported clause is anchored at its conjunction						
+I452	tlg0032.tlg006	Xenophon	Xen. Anab._6.4.15	2845	t_48355	indirect_statement	loose	loose	infinitive	no		1991		infinitive after verb of ordering						
+I453	tlg0032.tlg006	Xenophon	Xen. Anab._2.5.27	970	t_16203	indirect_statement	loose	loose	infinitive	no		1991		object infinitive after verb of commanding						
+I454	tlg0032.tlg006	Xenophon	Xen. Anab._1.6.2	347	t_5707	indirect_statement	loose	loose	infinitive	no		2744		articular genitive infinitive after verb of hindering						
+I455	tlg0032.tlg006	Xenophon	Xen. Anab._5.4.9	2227	t_37923	indirect_statement	loose	loose	infinitive	no		1991		infinitive after verb of wanting or needing						
+I456	tlg0032.tlg006	Xenophon	Xen. Anab._6.3.8	2751	t_46825	indirect_statement	loose	loose	infinitive	no		2000		dynamic infinitive after verb of being able						
+I457	tlg0032.tlg006	Xenophon	Xen. Anab._2.6.10	1019	t_17232	indirect_statement	loose	loose	infinitive	no		1959		infinitive complements be-about-to inside a conditional						
+I458	tlg0032.tlg006	Xenophon	Xen. Anab._6.2.15	2721	t_46410	indirect_statement	loose	loose	infinitive	no		1997		god signals what to do; directive sense, infinitive not of indirect discourse						
+I459	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.37	1149	t_19747	indirect_statement	loose	loose	infinitive	no		1985		subject infinitive with impersonal it-is-just expression						
+I460	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.29	1243	t_21811	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: ὁράω; perception with prolepsis of the object						
+I461	tlg0032.tlg006	Xenophon	Xen. Anab._7.5.7	3494	t_58671	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause after verb of complaint: because they lacked pay						
+I462	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.6	843	t_14105	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: οἶδα; prolepsis of the river, copula omitted	sitting 2					
+I463	tlg0032.tlg006	Xenophon	Xen. Anab._6.2.17	2724	t_46489	indirect_statement	loose	loose	hoti-hos	no		1086		conjunction strengthens a superlative						
+I464	tlg0032.tlg006	Xenophon	Xen. Anab._5.5.7	2292	t_39204	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause: because they heard						
+I465	tlg0032.tlg006	Xenophon	Xen. Anab._7.6.6	3536	t_59315	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: οἶδα						
+I466	tlg0032.tlg006	Xenophon	Xen. Anab._3.3.11	1311	t_22789	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause after verb of blaming: for pursuing						
+I467	tlg0032.tlg006	Xenophon	Xen. Anab._7.4.8	3429	t_57707	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: διηγέομαι; coordinated with an accusative object; parser gave anchor no clause	sitting 2					
+I468	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.25	2589	t_44197	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause after verb of wondering						
+I469	tlg0032.tlg006	Xenophon	Xen. Anab._1.9.9	521	t_8806	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause preceding verb of fearing						
+I470	tlg0032.tlg006	Xenophon	Xen. Anab._7.5.8	3496	t_58694	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: μιμνῄσκω; mentioning, future indicative retained						
+I471	tlg0032.tlg006	Xenophon	Xen. Anab._2.4.5	837	t_14028	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:list	governing verb: ἐννοέω; verb of thinking	random-part					
+I472	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.17	2381	t_40710	indirect_statement	loose	loose	hoti-hos	yes	hoti-hos	2577	detector:rule	governing verb: ἐκφέρω; clause explains the noun report spread among the troops	sitting 2					
+I473	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.12	3193	t_54129	indirect_statement	loose	loose	hoti-hos	no		1086		conjunction strengthens a superlative inside a purpose clause	random-part					
+I474	tlg0032.tlg006	Xenophon	Xen. Anab._6.2.4	2691	t_45927	indirect_statement	loose	loose	hoti-hos	no		2240		causal clause after verb of wondering with genitive of person						
+I475	tlg0059.tlg030	Plato	Rep._6.507	4048	t_65346	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2577		elliptical reported content after verb of saying; parser wrongly put main clause under it						
+I476	tlg0059.tlg030	Plato	Rep._10.614	6265	t_102908	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2577		optative of indirect discourse after verb of saying						
+I477	tlg0032.tlg006	Xenophon	Xen. Anab._7.2.16	3206	t_54346	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2577		after verb of reporting, indicative retained						
+I478	tlg0032.tlg006	Xenophon	Xen. Anab._4.5.8	1761	t_30450	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2577		after verb of saying, indicative retained						
+I479	tlg0032.tlg006	Xenophon	Xen. Anab._7.7.13	3660	t_61628	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2577		after verb of saying, indicative retained						
+I480	tlg0032.tlg006	Xenophon	Xen. Anab._7.4.5	3420	t_57582	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2577		conjunction repeated after an intervening protasis, still after verb of saying						
+I481	tlg0059.tlg002	Plato	Apol._23	121	t_2447	indirect_statement	hit-topup	hit	hoti-hos	yes	hoti-hos	2590		recitative use introducing a direct quotation with vocative						
+I482	tlg0059.tlg030	Plato	Rep._10.605	6080	t_99388	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of listening	random-part					
+I483	tlg0059.tlg002	Plato	Apol._19	40	t_928	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing						
+I484	tlg0059.tlg002	Plato	Apol._37	404	t_8483	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of listening						
+I485	tlg0059.tlg030	Plato	Rep._5.470	3269	t_52433	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing						
+I486	tlg0059.tlg004	Plato	Phaedo_97	1000	t_17391	genitive_absolute	excluded	excluded	perception head	no		2112		participle agrees with the person heard reading						
+I487	tlg0059.tlg030	Plato	Rep._6.493	3746	t_60148	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing						
+I488	tlg0059.tlg002	Plato	Apol._31	303	t_6067	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing	random-part					
+I489	tlg0032.tlg006	Xenophon	Xen. Anab._4.6.16	1867	t_32294	genitive_absolute	excluded	excluded	perception head	yes		2083	detector:rule	concessive absolute; hearing verb already takes accusative and infinitive						
+I490	tlg0059.tlg002	Plato	Apol._19	40	t_953	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing						
+I491	tlg0059.tlg004	Plato	Phaedo_97	1000	t_17394	genitive_absolute	excluded	excluded	perception head	no		2112		coordinated supplementary participle after hearing						
+I492	tlg0032.tlg006	Xenophon	Xen. Anab._6.3.10	2757	t_46921	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of perceiving						
+I493	tlg0059.tlg011	Plato	Sym._215	878	t_17246	genitive_absolute	excluded	excluded	perception head	yes		2070	detector:rule	words are the genitive object of hearing; the speaker clause is absolute	sitting 2					
+I494	tlg0059.tlg030	Plato	Rep._3.400	1740	t_27191	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing						
+I495	tlg0059.tlg030	Plato	Rep._2.358	879	t_12042	genitive_absolute	excluded	excluded	perception head	no		2112		supplementary participle after a verb of hearing						
+I496	tlg0059.tlg024	Plato	Men._74	201	t_1901	articular_infinitive	loose	loose		no		2025		article belongs to substantive adjective; anarthrous infinitive in indirect statement						
+I497	tlg0059.tlg004	Plato	Phaedo_61	107	t_1430	articular_infinitive	loose	loose		no		2025		anarthrous appositive infinitive; nearby article belongs to noun						
+I498	tlg0059.tlg004	Plato	Phaedo_60	102	t_1285	articular_infinitive	loose	loose		no		2025		dependent infinitive inside an articular infinitive headed by the preceding infinitive, which carries the article	random-part					
+I499	tlg0059.tlg030	Plato	Rep._5.453	2825	t_45786	articular_infinitive	loose	loose		no		1153		article substantivizes a prepositional phrase	random-part					
+I500	tlg0059.tlg030	Plato	Rep._7.519	4208	t_68877	articular_infinitive	loose	loose		no		2025		anarthrous infinitive in relative clause; nearby article belongs to adverbial phrase						
+I501	tlg0059.tlg030	Plato	Rep._2.359	887	t_12208	articular_infinitive	loose	loose		no		2025		anarthrous infinitive with adjective of ability						
+I502	tlg0059.tlg004	Plato	Phaedo_83	709	t_11523	articular_infinitive	loose	loose		no		2025		article belongs to noun; anarthrous infinitive	random-part					
+I503	tlg0059.tlg004	Plato	Phaedo_60	96	t_1107	articular_infinitive	loose	loose		no		2025		dependent infinitive; the article governs the preceding infinitive of willing						
+I504	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.17	2572	t_43914	articular_infinitive	loose	loose		no		2025		article belongs to substantive adjective; anarthrous infinitive	random-part					
+I505	tlg0032.tlg006	Xenophon	Xen. Anab._1.10.9	581	t_10072	articular_infinitive	loose	loose		no		2025		anarthrous infinitive; nearby article belongs to noun						
+I506	tlg0032.tlg006	Xenophon	Xen. Anab._3.1.13	1089	t_18647	articular_infinitive	loose	loose		no		2025		anarthrous infinitive; articles belong to nouns	random-part					
+I507	tlg0032.tlg006	Xenophon	Xen. Anab._5.8.15	2570	t_43839	articular_infinitive	loose	loose		yes	acc	2034	detector:rule	shared article attached to coordinator of two infinitives; object of verb of seeing	sitting 1					
+I508	tlg0032.tlg006	Xenophon	Xen. Anab._3.2.36	1264	t_22114	articular_infinitive	loose	loose		no		2025		plural article with adverb; anarthrous infinitive						
+I509	tlg0032.tlg006	Xenophon	Xen. Anab._5.6.33	2419	t_41511	articular_infinitive	loose	loose		no		2025		anarthrous infinitive; article belongs to noun	random-part					
