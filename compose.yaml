@@ -10,7 +10,7 @@ name: mouseion
 
 services:
   db:
-    image: postgres:18
+    image: postgres:19
     restart: unless-stopped
     environment:
       POSTGRES_USER: mouseion
