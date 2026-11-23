@@ -62,7 +62,10 @@ type ConcordanceLemmaEvidencedParams struct {
 // concordance_occurrences' eligibility is stated over the base tables and
 // entered through the term (the indexed analyzer lemma, or a decision that
 // names it), so a term that is not a lemma never reads the whole corpus
-// (#2595). Keep it identical to ListVocabularyConcordance's ranked stage.
+// (#2595). Keep the eligibility identical to the concordance_occurrences view
+// and to ListVocabularyConcordance's located, eligible, current and ranked stages.
+// The decision branch omits the listing's DISTINCT and analyzer-lemma
+// exclusion: a duplicate cannot change EXISTS.
 func (q *Queries) ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error) {
 	row := q.db.QueryRow(ctx, concordanceLemmaEvidenced, arg.Owner, arg.Language, arg.Term)
 	var evidenced bool
@@ -529,7 +532,10 @@ type ListVocabularyConcordanceRow struct {
 // Each stage joins one relation to the previous stage. Later stages restrict
 // big and unit tables only through join keys, never a literal owner, so the
 // planner cannot mistake them for one row and rescan the candidates per row.
-// Keep the eligibility identical to concordance_occurrences.
+// The same eligibility is stated three times: in the concordance_occurrences
+// view (whose migration is immutable), here across located, eligible, current
+// and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
+// three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {
 	rows, err := q.db.Query(ctx, listVocabularyConcordance,
 		arg.PriorityBook,

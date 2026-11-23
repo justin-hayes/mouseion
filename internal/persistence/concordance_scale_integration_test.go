@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,7 +16,9 @@ import (
 
 // concordanceScaleBudget is well under the 8 s interactive read limit, so a
 // regression to a plan that reads the whole corpus fails here rather than in
-// the UI. Lookups measured about 0.4 s at most when this was written.
+// the UI. Lookups measured about 0.4 s at most when this was written, nearly
+// all of it in PostgreSQL, which the race detector (RACE=1 in CI) does not
+// slow; the old plans took 4 to 60 s.
 const concordanceScaleBudget = 2 * time.Second
 
 // scaleLibrary is the shape of a seeded library: Books of units of sentences
@@ -45,17 +48,18 @@ func TestConcordanceLookupStaysInteractiveOnALargeLibrary(t *testing.T) {
 	require.Equal(t, int64(library.books*library.units*library.sentencesPerUnit*10), tokens)
 
 	lookups := []struct {
-		name   string
-		lookup domain.ConcordanceLookup
-		match  string
+		name      string
+		lookup    domain.ConcordanceLookup
+		match     string
+		wantEmpty bool
 	}{
-		{"recognized lemma", domain.ConcordanceLookup{Term: "aufstehen", Page: 1}, domain.ConcordanceMatchLemma},
-		{"lemma with part of speech", domain.ConcordanceLookup{Term: "aufstehen", Match: domain.ConcordanceMatchLemma, UPOS: "VERB", Page: 1}, domain.ConcordanceMatchLemma},
-		{"lemma later page with priority", domain.ConcordanceLookup{Term: "aufstehen", Priority: priority, Page: 3}, domain.ConcordanceMatchLemma},
-		{"frequent lemma", domain.ConcordanceLookup{Term: "der", Page: 2}, domain.ConcordanceMatchLemma},
-		{"recognized form", domain.ConcordanceLookup{Term: "Stand", Page: 1}, domain.ConcordanceMatchForm},
-		{"explicit form with priority", domain.ConcordanceLookup{Term: "stand", Match: domain.ConcordanceMatchForm, Priority: priority, Page: 2}, domain.ConcordanceMatchForm},
-		{"no match", domain.ConcordanceLookup{Term: "nirgendwo", Page: 1}, domain.ConcordanceMatchForm},
+		{"recognized lemma", domain.ConcordanceLookup{Term: "aufstehen", Page: 1}, domain.ConcordanceMatchLemma, false},
+		{"lemma with part of speech", domain.ConcordanceLookup{Term: "aufstehen", Match: domain.ConcordanceMatchLemma, UPOS: "VERB", Page: 1}, domain.ConcordanceMatchLemma, false},
+		{"lemma later page with priority", domain.ConcordanceLookup{Term: "aufstehen", Priority: priority, Page: 3}, domain.ConcordanceMatchLemma, false},
+		{"frequent lemma", domain.ConcordanceLookup{Term: "der", Page: 2}, domain.ConcordanceMatchLemma, false},
+		{"recognized form", domain.ConcordanceLookup{Term: "Stand", Page: 1}, domain.ConcordanceMatchForm, false},
+		{"explicit form with priority", domain.ConcordanceLookup{Term: "stand", Match: domain.ConcordanceMatchForm, Priority: priority, Page: 2}, domain.ConcordanceMatchForm, false},
+		{"no match", domain.ConcordanceLookup{Term: "nirgendwo", Page: 1}, domain.ConcordanceMatchForm, true},
 	}
 	for _, tc := range lookups {
 		t.Run(tc.name, func(t *testing.T) {
@@ -64,7 +68,7 @@ func TestConcordanceLookupStaysInteractiveOnALargeLibrary(t *testing.T) {
 			elapsed := time.Since(started)
 			require.NoError(t, err)
 			assert.Equal(t, tc.match, result.Match)
-			if tc.lookup.Term == "nirgendwo" {
+			if tc.wantEmpty {
 				assert.Empty(t, result.Occurrences)
 			} else {
 				assert.Len(t, result.Occurrences, 25)
@@ -102,16 +106,19 @@ func TestConcordanceLookupMatchesTheOccurrenceView(t *testing.T) {
 	_, err = store.Pool().Exec(ctx, `UPDATE books SET language_tag='it' WHERE owner_id=$1 AND id=$2`, owner.ID, books[2])
 	require.NoError(t, err)
 	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, books[0])
-	decide := func(sentence, token int64, lemma string, excluded bool) {
+	insertDecisionAt := func(sentence, token int64, lemma string, excluded bool) {
 		unitIndex, within := sentence/int64(library.sentencesPerUnit), sentence%int64(library.sentencesPerUnit)
 		unit := fmt.Sprintf("epub-unit-v1:%d:scale-0-%d", unitIndex, unitIndex)
 		start := within*60 + token*6
 		insertOccurrenceDecision(t, ctx, store, owner.ID, books[0], corpus, run, unit, start, start+5, lemma, excluded)
 	}
-	decide(5, 0, "aufstehen", false) // a "der" token attributed to "aufstehen"
-	decide(6, 0, "", true)           // a "der" token excluded
-	decide(53, 4, "gehen", false)    // an "aufstehen" token attributed to "gehen"
-	decide(45, 2, "gehen", false)    // a token known only through its correction
+	insertDecisionAt(5, 0, "aufstehen", false) // a "der" token attributed to "aufstehen"
+	insertDecisionAt(6, 0, "", true)           // a "der" token excluded
+	insertDecisionAt(53, 4, "gehen", false)    // an "aufstehen" token attributed to "gehen"
+	insertDecisionAt(45, 2, "gehen", false)    // a token known only through its correction
+	// Every occurrence of this analyzer lemma is excluded, and its only other
+	// occurrences are in ineligible Books.
+	insertDecisionAt(7, 1, "", true)
 
 	lookups := []struct {
 		name   string
@@ -154,6 +161,44 @@ func TestConcordanceLookupMatchesTheOccurrenceView(t *testing.T) {
 			assert.Equal(t, want, got)
 		})
 	}
+
+	// The lemma-evidenced check that resolves an unset match mode states the
+	// same eligibility; it must agree with the view for every kind of term.
+	queries := sqlcgen.New(store.Pool())
+	for _, term := range []string{"der", "aufstehen", "gehen", "stand", "nirgendwo", excludedLemma(t, ctx, store, owner.ID, corpus, run)} {
+		t.Run("evidenced "+term, func(t *testing.T) {
+			var want bool
+			require.NoError(t, store.Pool().QueryRow(ctx, `
+				SELECT EXISTS (SELECT 1 FROM concordance_occurrences o
+				  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
+				    AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
+				    AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
+				    AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
+				 WHERE o.owner_id=$1 AND o.language='de' AND NOT COALESCE(d.excluded, false)
+				   AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$2)`, owner.ID, term).Scan(&want))
+			got, err := queries.ConcordanceLemmaEvidenced(ctx, sqlcgen.ConcordanceLemmaEvidencedParams{Owner: owner.ID, Language: "de", Term: term})
+			require.NoError(t, err)
+			assert.Equal(t, want, got)
+		})
+	}
+}
+
+// excludedLemma returns the analyzer lemma of the token the equivalence test
+// excludes (sentence 7, token 1 of the first Book), after removing its other
+// occurrences from the first Book so only ineligible Books still carry it.
+func excludedLemma(t *testing.T, ctx context.Context, store *PostgresStore, owner, corpus, run string) string {
+	t.Helper()
+	var lemma string
+	require.NoError(t, store.Pool().QueryRow(ctx, `
+		SELECT canonical_lemma FROM corpus_tokens
+		 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND sentence_ordinal=7 AND token_ordinal=1`,
+		owner, corpus, run).Scan(&lemma))
+	_, err := store.Pool().Exec(ctx, `
+		UPDATE corpus_tokens SET canonical_lemma='other', raw_lemma='other'
+		 WHERE owner_id=$1 AND corpus_id=$2 AND analysis_run_id=$3 AND canonical_lemma=$4
+		   AND NOT (sentence_ordinal=7 AND token_ordinal=1)`, owner, corpus, run, lemma)
+	require.NoError(t, err)
+	return lemma
 }
 
 func concordanceKey(book, unit string, sentence, token int64, lemma string, corrected bool) string {

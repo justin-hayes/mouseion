@@ -93,7 +93,10 @@ SELECT d.start_offset::bigint AS start_offset,
 -- Each stage joins one relation to the previous stage. Later stages restrict
 -- big and unit tables only through join keys, never a literal owner, so the
 -- planner cannot mistake them for one row and rescan the candidates per row.
--- Keep the eligibility identical to concordance_occurrences.
+-- The same eligibility is stated three times: in the concordance_occurrences
+-- view (whose migration is immutable), here across located, eligible, current
+-- and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
+-- three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 WITH candidates AS MATERIALIZED (
   SELECT t.owner_id, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
          t.canonical_lemma, t.start_offset, t.end_offset
@@ -249,7 +252,10 @@ SELECT b.title,
 -- concordance_occurrences' eligibility is stated over the base tables and
 -- entered through the term (the indexed analyzer lemma, or a decision that
 -- names it), so a term that is not a lemma never reads the whole corpus
--- (#2595). Keep it identical to ListVocabularyConcordance's ranked stage.
+-- (#2595). Keep the eligibility identical to the concordance_occurrences view
+-- and to ListVocabularyConcordance's located, eligible, current and ranked stages.
+-- The decision branch omits the listing's DISTINCT and analyzer-lemma
+-- exclusion: a duplicate cannot change EXISTS.
 SELECT EXISTS (
   SELECT 1
     FROM (SELECT t.analysis_run_id, t.corpus_id, t.sentence_ordinal,
