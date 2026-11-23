@@ -75,6 +75,11 @@ The parser also tags ὅπως + future indicative as an aorist subjunctive (Smy
 2. **Judging was delegated** to eight agent sessions (one per construction, indirect statement in two halves, one for the random sentences), all working from the same instructions and scope. I spot-checked the purpose false hits and found them right. The judgments are still the agent's, not Justin's.
 3. **Error classes are the judge's reading of the parse**, which it saw only around the anchor. A few `detector:scope` labels on elliptical conditionals might arguably be `parser:ellipsis`.
 
-## Live review (pending)
+## Live review (sitting 1 done, sitting 2 pending)
 
 148 items, drawn by `analyze.py --review` (seed 26072). For each construction the draw takes every *unsure* item, up to 10 agent–detector disagreements, and a random draw from the rest. **Sitting 1** (72): conditional, articular infinitive, result. **Sitting 2** (76): purpose, genitive absolute, indirect statement. The final figures replace the agent's judgment with Justin's on reviewed items, and report agent–Justin agreement on the randomly drawn part (92 items).
+
+**Sitting 1 (2026-11-23), done:** 72 items (conditional, articular infinitive, result). Justin agreed with the agent on every judgment and subtype: 72 of 72, including all 49 from the random draw. So the sitting-1 figures above stand as reviewed, and agent–Justin agreement for these three constructions is 1.00. Decisions taken in the sitting:
+
+- **εἴπερ is a conditional protasis.** The εἴπερ misses count as true misses (`detector:scope`). The shipping/abstention grilling should amend the conditional's conjunction set to add εἴπερ (and ἐάνπερ). Of the 103 εἴπερ tokens, 98 already have the hit shape. Elliptical εἴπερ with no clause node stays a silent miss.
+- **The result subtype "actual" means ὥστε + any finite mood,** including the potential optative, not the indicative only. A hit without a subtype (elided verb) is the permitted subtype abstention, not an error.
