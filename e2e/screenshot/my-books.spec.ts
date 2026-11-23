@@ -70,6 +70,7 @@ const COVER_TIMEOUT_MS = 6 * 60_000;
 const ANALYSIS_TIMEOUT_MS = 30 * 60_000;
 const COUNTS_TIMEOUT_MS = 5 * 60_000;
 const MOVE_TIMEOUT_MS = 60_000;
+const LOOKUP_TIMEOUT_MS = 3 * 60_000;
 const POLL_INTERVAL_MS = 5_000;
 const MAX_SCREENSHOT_HEIGHT = 1600;
 // One Concordance page holds 25 results; the Study capture searches only these.
@@ -134,6 +135,15 @@ async function syncCatalog(page: Page): Promise<void> {
     SYNC_TIMEOUT_MS,
     'catalog sync to finish',
   );
+}
+
+// Starts another sync without waiting for it: the Catalog index already shows
+// Last synced, so the covers it retrieves are awaited through My Books instead.
+async function requestSync(page: Page): Promise<void> {
+  await page.goto('/catalogs/sources');
+  const sync = connectionRecord(page).getByRole('button', { name: 'Sync now' });
+  await expect(sync, 'Sync now is available once the first sync has finished').toBeEnabled({ timeout: SYNC_TIMEOUT_MS });
+  await sync.click();
 }
 
 const TO_READ_TAB = '/library?disposition=to_read';
@@ -372,13 +382,23 @@ async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<voi
 // Looks up the configured lemma as a learner would: type it into the
 // Concordance form and submit. The applied lookup must be a lemma lookup.
 async function lookUpLemma(page: Page): Promise<void> {
-  await page.goto('/vocabulary/concordance');
-  await page.getByLabel('Lemma or word form').fill(concordance.lemma);
-  await page.getByRole('button', { name: 'Find', exact: true }).click();
-  await expect(
-    page.locator('#concordance-summary'),
-    `the Concordance did not apply "${concordance.lemma}" as a lemma; the analyzed corpus has no evidenced lemma of that form`,
-  ).toHaveText(`Forms of ${concordance.lemma}`, { timeout: 30_000 });
+  const summary = page.locator('#concordance-summary');
+  // The server can time a lookup out while the analysis workers are still busy;
+  // the page says so rather than reporting zero results, so the learner retries.
+  await pollUntil(
+    async () => {
+      await page.goto('/vocabulary/concordance');
+      await page.getByLabel('Lemma or word form').fill(concordance.lemma);
+      await page.getByRole('button', { name: 'Find', exact: true }).click();
+      // A lookup is either still searching, applied, or reported as timed out.
+      const timedOut = page.getByText('could not complete this lookup in time');
+      await expect(summary.or(timedOut), 'the Concordance answers or reports a timeout').toBeVisible({ timeout: 2 * 60_000 });
+      return summary.isVisible();
+    },
+    LOOKUP_TIMEOUT_MS,
+    `the Concordance lookup for "${concordance.lemma}" to complete`,
+  );
+  await expect(summary, `the Concordance applied "${concordance.lemma}" as a lemma`).toHaveText(`Forms of ${concordance.lemma}`);
 }
 
 // The Concordance must show enough lines from enough Books to be a credible
@@ -504,6 +524,9 @@ test('the scenario Books are analyzed, readings seed Known vocabulary, and Readi
   for (const book of manifest.books) {
     await addFromCatalog(page, book);
   }
+  // Sync retrieves covers only for Books already linked to a Catalog entry, and
+  // the first sync ran before any Book was added, so the learner syncs again.
+  await requestSync(page);
   await waitForScenarioBooks(page);
 
   const toRead = manifest.books.filter(book => book.journey !== 'previously-read');
