@@ -59,7 +59,7 @@ def final(it):
     h = H.get(it)
     if h:
         m = dict(a or {})
-        m.update({k: v for k, v in h.items() if v is not None or k in ("subtype",)})
+        m.update({k: h.get(k) for k in ("true", "subtype", "smyth", "error", "note")})
         return m
     return a
 
@@ -313,6 +313,18 @@ def report():
         if e:
             L.append("Errors: " + "; ".join("%s / %s: %d" % (a, b, c) for (a, b), c in sorted(e.items())))
             L.append("")
+    if H and os.path.exists("review/set.json"):
+        rp = set(json.load(open("review/set.json"))["random-part"])
+        L += ["## Agent-Justin agreement", "", "| Construction | Reviewed | Judgment agrees (all reviewed) | Judgment agrees (random part) | Subtype agrees (random part, yes items) |", "|---|---:|---|---|---|"]
+        for con in CONS:
+            rev = [i for i in H if i in items and items[i]["construction"] == con]
+            ag = sum(1 for i in rev if H[i]["true"] == J[i]["true"])
+            rr = [i for i in rev if i in rp]
+            agr = sum(1 for i in rr if H[i]["true"] == J[i]["true"])
+            ry = [i for i in rr if H[i]["true"] == "yes" and J[i]["true"] == "yes"]
+            sa = sum(1 for i in ry if (H[i].get("subtype") or None) == (J[i].get("subtype") or None))
+            L.append("| %s | %d | %s | %s | %s |" % (con, len(rev), fmt(ag, len(rev)), fmt(agr, len(rr)), fmt(sa, len(ry))))
+        L.append("")
     open("out/results.md", "w", encoding="utf-8").write("\n".join(L) + "\n")
     print("\n".join(L))
 
