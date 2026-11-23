@@ -14,14 +14,40 @@ import (
 const concordanceLemmaEvidenced = `-- name: ConcordanceLemmaEvidenced :one
 SELECT EXISTS (
   SELECT 1
-    FROM concordance_occurrences o
-    LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
-      AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
-      AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
-      AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
-   WHERE o.owner_id=$1 AND o.language=$2
-     AND NOT COALESCE(d.excluded, false)
-     AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$3::text
+    FROM (SELECT t.analysis_run_id, t.corpus_id, t.sentence_ordinal,
+                 t.canonical_lemma, t.start_offset, t.end_offset
+            FROM corpus_tokens t
+           WHERE t.owner_id = $1::uuid AND t.language = $2::text
+             AND t.canonical_lemma = $3::text
+          UNION ALL
+          SELECT t.analysis_run_id, t.corpus_id, t.sentence_ordinal,
+                 t.canonical_lemma, t.start_offset, t.end_offset
+            FROM occurrence_lemma_corrections dc
+            JOIN corpus_sentences ds ON ds.analysis_run_id = dc.analysis_run_id
+              AND ds.owner_id = dc.owner_id AND ds.corpus_id = dc.corpus_id
+              AND ds.unit_id = dc.source_document_id
+            JOIN corpus_tokens t ON t.analysis_run_id = ds.analysis_run_id
+              AND t.sentence_ordinal = ds.sentence_ordinal AND t.owner_id = ds.owner_id
+              AND t.corpus_id = ds.corpus_id
+              AND t.start_offset = dc.start_offset AND t.end_offset = dc.end_offset
+           WHERE dc.owner_id = $1::uuid AND dc.canonical_lemma = $3::text
+             AND t.language = $2::text) c
+    JOIN corpus_sentences s ON s.analysis_run_id = c.analysis_run_id
+      AND s.sentence_ordinal = c.sentence_ordinal
+      AND s.owner_id = $1::uuid AND s.corpus_id = c.corpus_id
+    JOIN current_analysis_identity ca ON ca.owner_id = s.owner_id
+      AND ca.analysis_run_id = c.analysis_run_id AND ca.corpus_id = c.corpus_id
+    JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+      AND b.language_state = 'chosen' AND b.language_tag = $2::text
+    JOIN source_material_units u ON u.owner_id = ca.owner_id
+      AND u.source_material_id = ca.source_material_id
+      AND u.snapshot_id = ca.snapshot_id AND u.unit_id = s.unit_id
+    LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = ca.owner_id
+      AND d.book_id = ca.book_id AND d.corpus_id = c.corpus_id
+      AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = u.unit_id
+      AND d.start_offset = c.start_offset AND d.end_offset = c.end_offset
+   WHERE NOT COALESCE(d.excluded, false)
+     AND COALESCE(d.canonical_lemma, c.canonical_lemma) = $3::text
 )::boolean AS evidenced
 `
 
@@ -33,6 +59,10 @@ type ConcordanceLemmaEvidencedParams struct {
 
 // A lemma is recognized only from non-excluded effective identities in the
 // eligible owner/language corpus, across every evidenced part of speech.
+// concordance_occurrences' eligibility is stated over the base tables and
+// entered through the term (the indexed analyzer lemma, or a decision that
+// names it), so a term that is not a lemma never reads the whole corpus
+// (#2595). Keep it identical to ListVocabularyConcordance's ranked stage.
 func (q *Queries) ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error) {
 	row := q.db.QueryRow(ctx, concordanceLemmaEvidenced, arg.Owner, arg.Language, arg.Term)
 	var evidenced bool
@@ -291,86 +321,151 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 }
 
 const listVocabularyConcordance = `-- name: ListVocabularyConcordance :many
-SELECT o.surface,
-       o.canonical_lemma,
-       o.upos,
-       o.dependency,
-       o.head_ordinal,
-       o.head_surface,
-       o.sentence_text,
-       o.sentence_start_offset,
-       o.sentence_end_offset,
-       o.unit_start_offset,
-       o.unit_end_offset,
-       o.book_start_offset,
-       o.book_end_offset,
-       o.book_id,
-       o.book_title,
-       o.source_material_id,
-       o.analysis_run_id,
-       o.corpus_id,
-       o.unit_id,
-       o.chapter_title,
-       o.unit_order,
-       o.sentence_ordinal,
-       o.token_ordinal,
-       ca.snapshot_id::text AS snapshot_id,
+WITH candidates AS MATERIALIZED (
+  SELECT t.owner_id, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
+         t.canonical_lemma, t.start_offset, t.end_offset
+    FROM corpus_tokens t
+   WHERE $2::text = 'lemma'
+     AND t.owner_id = $3::uuid AND t.language = $4::text
+     AND t.canonical_lemma = $5::text
+     AND ($6::text = '' OR t.upos = $6::text)
+  UNION ALL
+  -- A learner decision can attribute an occurrence to the lemma although its
+  -- analyzer lemma differs. Decisions are few, so start from them; the
+  -- analyzer-lemma branch above already holds every other occurrence.
+  SELECT DISTINCT t.owner_id, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
+         t.canonical_lemma, t.start_offset, t.end_offset
+    FROM occurrence_lemma_corrections dc
+    JOIN corpus_sentences ds ON ds.analysis_run_id = dc.analysis_run_id
+      AND ds.owner_id = dc.owner_id AND ds.corpus_id = dc.corpus_id
+      AND ds.unit_id = dc.source_document_id
+    JOIN corpus_tokens t ON t.analysis_run_id = ds.analysis_run_id
+      AND t.sentence_ordinal = ds.sentence_ordinal AND t.owner_id = ds.owner_id
+      AND t.corpus_id = ds.corpus_id
+      AND t.start_offset = dc.start_offset AND t.end_offset = dc.end_offset
+   WHERE $2::text = 'lemma'
+     AND dc.owner_id = $3::uuid AND dc.canonical_lemma = $5::text
+     AND t.language = $4::text
+     AND t.canonical_lemma <> $5::text
+     AND ($6::text = '' OR t.upos = $6::text)
+  UNION ALL
+  SELECT t.owner_id, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
+         t.canonical_lemma, t.start_offset, t.end_offset
+    FROM corpus_tokens t
+   WHERE $2::text = 'form'
+     AND t.owner_id = $3::uuid AND t.language = $4::text
+     -- A dedicated-profile language (the Go side's DedicatedProfileLanguage)
+     -- matches its stored Go-computed ancient-greek/1 search key, never SQL
+     -- lower(), so NFC/NFD, case and final-sigma variants unify while
+     -- accents stay significant. Every other language keeps today's
+     -- case-and-final-sigma form matching.
+     AND (($7::boolean AND t.search_key = $5::text)
+       OR (NOT $7::boolean
+           AND translate(lower(t.surface), 'ς', 'σ') = $5::text))
+),
+located AS MATERIALIZED (
+  SELECT c.owner_id, c.analysis_run_id, c.corpus_id, c.sentence_ordinal, c.token_ordinal, c.canonical_lemma, c.start_offset, c.end_offset, s.unit_id
+    FROM candidates c
+    JOIN corpus_sentences s ON s.analysis_run_id = c.analysis_run_id
+      AND s.sentence_ordinal = c.sentence_ordinal
+      AND s.owner_id = c.owner_id AND s.corpus_id = c.corpus_id
+),
+eligible AS MATERIALIZED (
+  SELECT ca.owner_id, ca.analysis_run_id, ca.corpus_id, ca.book_id,
+         ca.source_material_id, ca.snapshot_id, b.title AS book_title
+    FROM current_analysis_identity ca
+    JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+      AND b.language_state = 'chosen' AND b.language_tag = $4::text
+   WHERE ca.owner_id = $3::uuid
+),
+current AS MATERIALIZED (
+  SELECT l.owner_id, l.analysis_run_id, l.corpus_id, l.sentence_ordinal, l.token_ordinal, l.canonical_lemma, l.start_offset, l.end_offset, l.unit_id, e.book_id, e.source_material_id, e.snapshot_id, e.book_title
+    FROM located l
+    JOIN eligible e ON e.owner_id = l.owner_id
+      AND e.analysis_run_id = l.analysis_run_id AND e.corpus_id = l.corpus_id
+),
+ranked AS MATERIALIZED (
+  SELECT c.analysis_run_id, c.corpus_id, c.sentence_ordinal, c.token_ordinal,
+         c.book_id, c.source_material_id, c.snapshot_id, c.book_title,
+         c.unit_id, u.unit_order,
+         d.canonical_lemma AS decision_lemma, d.excluded AS decision_excluded,
+         -- Computed over the whole matched set, before paging.
+         COALESCE(bool_or(c.book_id::text = $1::text) OVER (), false) AS priority_matched
+    FROM current c
+    JOIN source_material_units u ON u.owner_id = c.owner_id
+      AND u.source_material_id = c.source_material_id
+      AND u.snapshot_id = c.snapshot_id AND u.unit_id = c.unit_id
+    LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = c.owner_id
+      AND d.book_id = c.book_id AND d.corpus_id = c.corpus_id
+      AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = c.unit_id
+      AND d.start_offset = c.start_offset AND d.end_offset = c.end_offset
+   WHERE NOT COALESCE(d.excluded, false)
+     AND ($2::text <> 'lemma'
+       OR COALESCE(d.canonical_lemma, c.canonical_lemma) = $5::text)
+   ORDER BY (c.book_id::text = $1::text) DESC,
+            lower(c.book_title), c.book_title, c.book_id::text,
+            u.unit_order, c.sentence_ordinal, c.token_ordinal
+   -- The caller starts one row early on later pages and reads one row past
+   -- the page: the first row decides "continued", the last decides "next".
+   LIMIT 27 OFFSET $8::bigint
+)
+SELECT t.surface,
+       t.canonical_lemma,
+       t.upos,
+       t.dependency,
+       t.head AS head_ordinal,
+       head.surface AS head_surface,
+       s.sentence_text,
+       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
+       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
+       t.start_offset AS unit_start_offset,
+       t.end_offset AS unit_end_offset,
+       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
+       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
+       r.book_id::text AS book_id,
+       r.book_title,
+       r.source_material_id::text AS source_material_id,
+       r.analysis_run_id::text AS analysis_run_id,
+       r.corpus_id::text AS corpus_id,
+       r.unit_id,
+       u.title AS chapter_title,
+       r.unit_order,
+       r.sentence_ordinal,
+       r.token_ordinal,
+       r.snapshot_id::text AS snapshot_id,
+       -- The sentence's exact unit text and unit-relative range let Go derive
+       -- speaker restrictions and quiet attribution from the same snapshot's
+       -- role spans. SQL never decides either itself.
        u.text AS unit_text,
        s.start_offset::bigint AS sentence_unit_start_offset,
        s.end_offset::bigint AS sentence_unit_end_offset,
        t.raw_lemma,
        COALESCE(t.headword, '')::text AS headword,
-       COALESCE(d.canonical_lemma, o.canonical_lemma)::text AS effective_lemma,
-       (d.canonical_lemma IS NOT NULL AND NOT COALESCE(d.excluded, false))::boolean AS corrected,
-       COALESCE(d.excluded, false)::boolean AS excluded,
-       -- Computed over the whole matched set, before paging.
-       COALESCE(bool_or(o.book_id=$1::text) OVER (), false)::boolean AS priority_matched
-  FROM concordance_occurrences o
-  -- The view exposes these UUIDs as text; keep the indexed token keys uncast.
-  JOIN corpus_tokens t ON t.owner_id=o.owner_id AND t.language=o.language
-    AND t.analysis_run_id=o.analysis_run_id::uuid AND t.corpus_id=o.corpus_id::uuid
-    AND t.sentence_ordinal=o.sentence_ordinal AND t.token_ordinal=o.token_ordinal
-  -- The exact snapshot and the sentence's unit-relative range let the caller
-  -- supply structural facts to Go. SQL never decides role eligibility itself.
-  JOIN current_analysis_identity ca ON ca.owner_id=o.owner_id AND ca.book_id=o.book_id::uuid
-    AND ca.analysis_run_id=o.analysis_run_id::uuid AND ca.corpus_id=o.corpus_id::uuid
-  JOIN corpus_sentences s ON s.owner_id=o.owner_id AND s.analysis_run_id=o.analysis_run_id::uuid
-    AND s.corpus_id=o.corpus_id::uuid AND s.sentence_ordinal=o.sentence_ordinal
-  -- The sentence's exact unit text, so Go can derive quiet attribution from
-  -- the same snapshot's role spans. SQL never chooses a speaker itself.
-  JOIN source_material_units u ON u.owner_id=o.owner_id
-    AND u.source_material_id=o.source_material_id::uuid
-    AND u.snapshot_id=ca.snapshot_id AND u.unit_id=o.unit_id
-  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id=o.owner_id
-    AND d.book_id=o.book_id::uuid AND d.corpus_id=o.corpus_id::uuid
-    AND d.analysis_run_id=o.analysis_run_id::uuid AND d.source_document_id=o.unit_id
-    AND d.start_offset=o.unit_start_offset AND d.end_offset=o.unit_end_offset
- WHERE o.owner_id=$2 AND o.language=$3
-   AND NOT COALESCE(d.excluded, false)
-   AND (($4::text='lemma'
-         AND COALESCE(d.canonical_lemma, o.canonical_lemma)=$5::text
-         AND ($6::text='' OR o.upos=$6))
-     OR ($4::text='form'
-         -- A dedicated-profile language (the Go side's DedicatedProfileLanguage)
-         -- matches its stored Go-computed ancient-greek/1 search key, never SQL
-         -- lower(), so NFC/NFD, case and final-sigma variants unify while
-         -- accents stay significant. Every other language keeps today's
-         -- case-and-final-sigma form matching.
-         AND (($7::boolean AND t.search_key = $5::text)
-           OR (NOT $7::boolean AND translate(lower(o.surface), 'ς', 'σ') = $5::text))))
- ORDER BY (o.book_id=$1::text) DESC,
-          lower(o.book_title), o.book_title, o.book_id,
-          o.unit_order, o.sentence_ordinal, o.token_ordinal
- -- The caller starts one row early on later pages and reads one row past the
- -- page: the first row decides "continued", the last decides "next".
- LIMIT 27 OFFSET $8::bigint
+       COALESCE(r.decision_lemma, t.canonical_lemma)::text AS effective_lemma,
+       (r.decision_lemma IS NOT NULL AND NOT COALESCE(r.decision_excluded, false))::boolean AS corrected,
+       COALESCE(r.decision_excluded, false)::boolean AS excluded,
+       r.priority_matched::boolean AS priority_matched
+  FROM ranked r
+  JOIN corpus_tokens t ON t.analysis_run_id = r.analysis_run_id
+    AND t.sentence_ordinal = r.sentence_ordinal AND t.token_ordinal = r.token_ordinal
+  JOIN corpus_sentences s ON s.analysis_run_id = r.analysis_run_id
+    AND s.sentence_ordinal = r.sentence_ordinal
+  JOIN source_material_units u ON u.owner_id = t.owner_id
+    AND u.source_material_id = r.source_material_id
+    AND u.snapshot_id = r.snapshot_id AND u.unit_id = r.unit_id
+  LEFT JOIN corpus_tokens head ON head.owner_id = t.owner_id AND head.language = t.language
+    AND head.analysis_run_id = t.analysis_run_id AND head.corpus_id = t.corpus_id
+    AND head.sentence_ordinal = t.sentence_ordinal AND head.token_ordinal = t.head
+ ORDER BY (r.book_id::text = $1::text) DESC,
+          lower(r.book_title), r.book_title, r.book_id::text,
+          r.unit_order, r.sentence_ordinal, r.token_ordinal
 `
 
 type ListVocabularyConcordanceParams struct {
 	PriorityBook string
+	Match        string
 	Owner        string
 	Language     string
-	Match        string
 	Term         string
 	Upos         string
 	FormOnKey    bool
@@ -413,12 +508,34 @@ type ListVocabularyConcordanceRow struct {
 	PriorityMatched         bool
 }
 
+// One page of the concordance_occurrences model, read selectively (#2595).
+// Filtering the view's output joins and sorts the whole corpus before the
+// lemma or form filter applies. This query states the view's eligibility over
+// the base tables instead, in fenced stages whose plans stay small even when
+// the planner has no statistics (small tables such as analysis_runs are never
+// auto-analyzed, so each looks like one row):
+//
+//	candidates  token keys that can match: the indexed analyzer lemma, the
+//	            decisions that name the lemma, or one pass over the owner's
+//	            tokens for a form. Each branch is gated by the match mode, so
+//	            a cached generic plan never runs another mode's branches.
+//	located     each candidate's sentence, giving its unit.
+//	eligible    the owner's current analyses of chosen-language Books.
+//	current     candidates in an eligible analysis, with their Book.
+//	ranked      the candidate's current-snapshot unit and occurrence
+//	            decision, then the filter, order and page as narrow rows.
+//	(final)     the page's at most 27 rows fetch the wide text.
+//
+// Each stage joins one relation to the previous stage. Later stages restrict
+// big and unit tables only through join keys, never a literal owner, so the
+// planner cannot mistake them for one row and rescan the candidates per row.
+// Keep the eligibility identical to concordance_occurrences.
 func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {
 	rows, err := q.db.Query(ctx, listVocabularyConcordance,
 		arg.PriorityBook,
+		arg.Match,
 		arg.Owner,
 		arg.Language,
-		arg.Match,
 		arg.Term,
 		arg.Upos,
 		arg.FormOnKey,
