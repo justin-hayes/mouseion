@@ -180,8 +180,11 @@ func TestRepositoryRootFindsGoMod(t *testing.T) {
 	got, err := repositoryRoot(nested)
 	require.NoError(t, err)
 	assert.Equal(t, root, got)
-	_, err = repositoryRoot(t.TempDir())
+	// The temp directory may sit inside a repository (the Makefile points
+	// TMPDIR into it), so the missing case uses a marker no directory holds.
+	_, err = findUp(nested, "no-such-marker-file")
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no-such-marker-file")
 }
 
 func TestRunRefusesACacheInsideTheRepository(t *testing.T) {
