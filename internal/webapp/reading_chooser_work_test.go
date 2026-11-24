@@ -38,7 +38,7 @@ func chooserWorkBook(bookID, title, author, unitKey, corpusID string) domain.MyB
 }
 
 // workDefinitions define six Iliad Books, one Anabasis Book and a whole-work
-// Hellenica, so grouped, ordinary and whole-work candidates can be exercised
+// Hellenica, so constituent-Book and whole-work candidates can be exercised
 // together.
 func workDefinitions() []classical.Definition {
 	one, two, three, four, five, six := 1, 2, 3, 4, 5, 6
@@ -59,6 +59,10 @@ func workCatalog(t *testing.T) *classical.Catalog {
 	catalog, err := classical.NewCatalog(workDefinitions())
 	require.NoError(t, err)
 	return catalog
+}
+
+func chooserUpdateOffer() domain.AnalysisUpdateCandidate {
+	return domain.AnalysisUpdateCandidate{PublishedRunID: "published-run", Target: testUpdateTarget}
 }
 
 func chooserCoverage(known, total int64) domain.AnalysisCoverage {
@@ -85,10 +89,9 @@ func fixtureLanguageClassicalBooks(books []domain.MyBook) []domain.MyBook {
 	return books
 }
 
-// groupedChooserBooks builds one work with four To Read Books covering the
-// numeric, no-comparison, in-progress and not-assessed states, plus a
-// single-book work.
-func groupedChooserBooks() ([]domain.MyBook, chooserWorkInsights) {
+// chooserWorkBooks builds four Iliad To Read Books covering the numeric,
+// no-comparison, in-progress and not-assessed states, plus one Anabasis Book.
+func chooserWorkBooks() ([]domain.MyBook, chooserWorkInsights) {
 	books := []domain.MyBook{
 		chooserWorkBook("iliad-1", "Iliad", "Homer", "homer-iliad-1", "corpus-1"),
 		chooserWorkBook("iliad-2", "Iliad", "Homer", "homer-iliad-2", "corpus-2"),
@@ -108,26 +111,9 @@ func groupedChooserBooks() ([]domain.MyBook, chooserWorkInsights) {
 	return books, insights
 }
 
-func TestReadingChooserWorkHelpersCoverFallbacks(t *testing.T) {
-	book := chooserWorkBook("fallback-1", "Fallback", "Author", "", "corpus")
-	entry := readingChooserWorkEntry("fallback-work", []readingChooserBookView{{Book: book}})
-	assert.Equal(t, "Fallback", entry.Title)
-	assert.Equal(t, "Author", entry.Author)
-	assert.Equal(t, 1, entry.WorkBooks)
-
+func TestReadingChooserBandLabelsAndTitleTieBreaks(t *testing.T) {
 	assert.Equal(t, "97% to below 99%", readingChooserBandLabel(domain.CoverageBand97To99))
 	assert.Equal(t, "No vocabulary comparison", readingChooserBandLabel(domain.CoverageBandNoComparison))
-	assert.Empty(t, readingChooserWorkCoverageRange(nil))
-	assert.Equal(t, "Known coverage 94.9%", readingChooserWorkCoverageRange([]readingChooserBookView{{
-		Coverage: &domain.AnalysisCoverage{KnownTokenCount: 949, AnalyzableTokenCount: 1000},
-	}}))
-	assert.Empty(t, readingChooserBookNumber(readingChooserBookView{Book: book}), "a whole-work unit has no book number cell")
-
-	noComparison := readingChooserEntryView{Books: []readingChooserBookView{{
-		Coverage: &domain.AnalysisCoverage{},
-	}}}
-	assert.Equal(t, "1 To Read Book, 1 assessed", readingChooserWorkCounts(noComparison), "a no-comparison Book has an assessment but no numeric range")
-	assert.Empty(t, readingChooserWorkCoverageRange(noComparison.Books))
 
 	first := readingChooserEntryView{Key: "book:a", Title: "Same", Author: "Alpha"}
 	second := readingChooserEntryView{Key: "book:b", Title: "Same", Author: "Beta"}
@@ -146,7 +132,6 @@ func TestReadingChooserModernLanguageCandidatesStayOrdinary(t *testing.T) {
 			}).buildReadingChooser(context.Background(), fixtures.OwnerID, language, language, "")
 			require.NoError(t, err)
 			require.Len(t, view.Entries, 1)
-			assert.False(t, view.Entries[0].Grouped, "a modern-language Book has no reviewed Work to group")
 			assert.Equal(t, "95% to below 97%", readingChooserBookBandLabel(view.Entries[0].Books[0]))
 		})
 	}
@@ -162,66 +147,41 @@ func TestReadingChooserCompletionReceiptNeverPointsToTheNextBook(t *testing.T) {
 	}
 }
 
-func TestReadingChooserGroupsAWorkAndOrdersBands(t *testing.T) {
-	books, insights := groupedChooserBooks()
+func TestReadingChooserListsOneOrdinaryEntryPerBookInTitleOrder(t *testing.T) {
+	books, insights := chooserWorkBooks()
 	handler := newChooserHandler(books, nil, insights)
 	handler.services.Classical = workCatalog(t)
 
 	view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, classical.Language, "Ancient Greek", "")
 	require.NoError(t, err)
-	require.Len(t, view.Entries, 2, "Iliad is one entry and the single Anabasis Book stays ordinary")
-
-	anabasis := view.Entries[0]
-	assert.False(t, anabasis.Grouped)
-	assert.Equal(t, "Anabasis", anabasis.Title)
-	assert.Equal(t, "95% to below 97%", readingChooserBookBandLabel(anabasis.Books[0]), "a single-Book work's margin names its band")
-	assert.Equal(t, "Book 1 of 7", readingChooserWorkPosition(anabasis.Books[0]))
-	assert.Empty(t, readingChooserWorkPosition(readingChooserBookView{Position: 0, WorkBooks: 1}), "a whole-work unit shows no position")
-
-	iliad := view.Entries[1]
-	require.True(t, iliad.Grouped)
-	assert.Equal(t, "Iliad", iliad.Title)
-	assert.Equal(t, "Homer", iliad.Author)
-	assert.Equal(t, "Ἰλιάς", iliad.GreekTitle)
-	assert.Equal(t, 24, iliad.WorkBooks)
-	assert.Equal(t, "4 To Read Books, 2 assessed", readingChooserWorkCounts(iliad))
-	assert.Equal(t, "Known coverage 92.0%–99.0%", readingChooserWorkCoverageRange(iliad.Books))
-
-	var labels []string
-	for _, band := range iliad.Bands {
-		labels = append(labels, band.Label)
+	require.Len(t, view.Entries, 5, "every To Read Book is its own entry, even Books of one Work")
+	var ids []string
+	for _, entry := range view.Entries {
+		require.Len(t, entry.Books, 1)
+		ids = append(ids, entry.Books[0].Book.Book.ID)
 	}
-	assert.Equal(t, []string{"99% or above", "Below 95%", "Analysis in progress or Updating", "Not assessed"}, labels, "bands keep the shipped order and omit empty rows")
-	require.Len(t, iliad.Bands[0].Books, 1)
-	assert.Equal(t, 1, iliad.Bands[0].Books[0].Position)
-	assert.Equal(t, 2, iliad.Bands[1].Books[0].Position)
-	assert.Equal(t, "Iliad, Book 1, Known coverage 99.0%", readingChooserBookAccessibleLabel(iliad.Bands[0].Books[0]))
-	assert.Equal(t, "1", readingChooserBookNumber(iliad.Bands[0].Books[0]), "only the book number is visible")
+	assert.Equal(t, []string{"anabasis-1", "iliad-1", "iliad-2", "iliad-3", "iliad-4"}, ids, "neutral title order")
+	assert.Equal(t, "99% or above", readingChooserBookBandLabel(view.Entries[1].Books[0]))
+	assert.Equal(t, "Below 95%", readingChooserBookBandLabel(view.Entries[2].Books[0]))
+	assert.Equal(t, "Analysis in progress", readingChooserBookBandLabel(view.Entries[3].Books[0]))
+	assert.Equal(t, "Not assessed", readingChooserBookBandLabel(view.Entries[4].Books[0]))
 }
 
-func TestReadingChooserWorkCellsExcludeCurrentBook(t *testing.T) {
-	books, insights := groupedChooserBooks()
+func TestReadingChooserSwitchModeExcludesTheCurrentBook(t *testing.T) {
+	books, insights := chooserWorkBooks()
 	handler := newChooserHandler(books, nil, insights)
 	handler.services.Classical = workCatalog(t)
 
 	view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, classical.Language, "Ancient Greek", "iliad-2")
 	require.NoError(t, err)
-	require.Len(t, view.Entries, 2)
-	var iliad readingChooserEntryView
+	require.Len(t, view.Entries, 4)
 	for _, entry := range view.Entries {
-		if entry.Grouped {
-			iliad = entry
-		}
-	}
-	require.True(t, iliad.Grouped)
-	for _, entry := range view.Entries {
-		for _, book := range entry.Books {
-			assert.NotEqual(t, "iliad-2", book.Book.Book.ID, "current Book must not be a cell")
-		}
+		assert.NotEqual(t, "iliad-2", entry.Books[0].Book.Book.ID, "the current Book is not offered")
 	}
 }
 
-func TestReadingChooserRendersGroupedWorkEntryAndInlineEntries(t *testing.T) {
+func chooserWorkBody(t *testing.T, books []domain.MyBook, insights chooserWorkInsights, offers map[string]domain.AnalysisUpdateCandidate) string {
+	t.Helper()
 	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = workCatalog(t)
 	})
@@ -229,9 +189,11 @@ func TestReadingChooserRendersGroupedWorkEntryAndInlineEntries(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(t.Context(), fixtures.OwnerID, "it"))
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
-	books, insights := groupedChooserBooks()
 	handler.services.Store = storeDependencies(chooserEvidenceBooks{Store: store, books: fixtureLanguageClassicalBooks(books)})
 	handler.services.AnalysisInsights = insights
+	if offers != nil {
+		handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
+	}
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
 	for _, cookie := range cookies {
@@ -240,39 +202,31 @@ func TestReadingChooserRendersGroupedWorkEntryAndInlineEntries(t *testing.T) {
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	require.Equal(t, http.StatusOK, response.Code)
-	body := response.Body.String()
+	return response.Body.String()
+}
+
+func TestReadingChooserRendersEachBookAsAnOrdinaryEntry(t *testing.T) {
+	books, insights := chooserWorkBooks()
+	body := chooserWorkBody(t, books, insights, nil)
 
 	for _, want := range []string{
-		"<h3 class=\"bibliographic-title\" id=\"reading-chooser-work-work:homer-iliad\">Iliad</h3>",
-		"Ἰλιάς",
-		"24 books",
-		"4 To Read Books, 2 assessed",
-		"Known coverage 92.0%–99.0%",
 		"99% or above",
 		"Below 95%",
-		"Analysis in progress or Updating",
-		"Not assessed",
-		`href="#reading-chooser-book-iliad-1"`,
-		`href="#reading-chooser-book-iliad-3"`,
-		`aria-label="Iliad, Book 1, Known coverage 99.0%"`,
+		`id="reading-chooser-book-iliad-1"`,
+		`id="reading-chooser-book-iliad-3"`,
 		`action="/reading/books/iliad-1/start"`,
 		`action="/reading/books/iliad-4/reanalyze"`,
-		"Book 1 of 24",
 	} {
 		assert.Contains(t, body, want)
 	}
-	marginStart := strings.Index(body, "reading-chooser-work__margin")
-	booksStart := strings.Index(body, "reading-chooser-work__books")
-	require.True(t, marginStart >= 0 && booksStart > marginStart, "grouped margin is missing")
-	iliadBands := body[marginStart:booksStart]
-	for _, absent := range []string{"97% to below 99%", "95% to below 97%", "No vocabulary comparison"} {
-		assert.NotContains(t, iliadBands, absent, "an empty band row is omitted")
+	for _, gone := range []string{"reading-chooser-work", "reading-chooser-band-book", "To Read Books, ", "Known coverage 9", "Book 1 of", "24 books"} {
+		assert.NotContains(t, body, gone, "the chooser has no grouped Work entry")
 	}
-	assert.Less(t, strings.Index(body, "Anabasis"), strings.Index(body, "Iliad"), "grouped and ordinary entries share neutral title order")
+	assert.Less(t, strings.Index(body, "Anabasis"), strings.Index(body, "Iliad"), "entries share neutral title order")
 }
 
-func TestReadingChooserGroupedWorkShowsOneAnalysisUpdateOffer(t *testing.T) {
-	books, insights := groupedChooserBooks()
+func TestReadingChooserOffersTheOrdinaryAnalysisUpdateOnEachBook(t *testing.T) {
+	books, insights := chooserWorkBooks()
 	offers := map[string]domain.AnalysisUpdateCandidate{}
 	for i := range books {
 		if books[i].Acquired == nil {
@@ -280,91 +234,25 @@ func TestReadingChooserGroupedWorkShowsOneAnalysisUpdateOffer(t *testing.T) {
 		}
 		books[i].Acquired.Source.ID = "source-" + books[i].Book.ID
 		if books[i].Book.ID == "iliad-1" || books[i].Book.ID == "iliad-2" {
-			offers[books[i].Acquired.Source.ID] = workUpdateCandidate(1, 0)
+			offers[books[i].Acquired.Source.ID] = chooserUpdateOffer()
 		}
 	}
-	handler := newChooserHandler(books, nil, insights)
-	handler.services.Classical = workCatalog(t)
-	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
+	body := chooserWorkBody(t, books, insights, offers)
 
-	view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, classical.Language, "Ancient Greek", "")
-	require.NoError(t, err)
-	var iliad readingChooserEntryView
-	for _, entry := range view.Entries {
-		if entry.Grouped {
-			iliad = entry
-		}
-	}
-	require.True(t, iliad.Grouped)
-	assert.True(t, iliad.Update.Offered())
-	assert.Len(t, iliad.Update.Books, 2, "only the To Read Books with offers join the bulk action")
-	assert.Equal(t, "A newer analysis is available for 2 books shown here.", iliad.Update.Notice())
-
-	var output bytes.Buffer
-	require.NoError(t, ReadingChooserWorkEntry(iliad, "csrf", "", "").Render(context.Background(), &output))
-	body := output.String()
-	assert.Contains(t, body, "A newer analysis is available for 2 books shown here.")
-	assert.Contains(t, body, "Update 2 books of Iliad")
-	assert.Contains(t, body, `action="/library/works/homer-iliad/analysis-update"`)
-	assert.Equal(t, 1, strings.Count(body, "Confirm analysis update"), "a grouped Work shows one bulk confirmation")
-	assert.NotContains(t, body, "Update analysis</summary>", "grouped Books keep no per-Book advice")
+	assert.Equal(t, 2, strings.Count(body, "A newer analysis is available."), "each outdated Book shows its own notice")
+	assert.Equal(t, 2, strings.Count(body, "Confirm analysis update"))
+	assert.Contains(t, body, `action="/reading/books/iliad-1/analysis-update"`)
+	assert.Contains(t, body, `action="/reading/books/iliad-2/analysis-update"`)
+	assert.NotContains(t, body, "/library/works/", "there is no Work-level update action")
 }
 
-func TestReadingChooserSwitchModeNamesTheCurrentBookInItsWorkOffer(t *testing.T) {
-	books, insights := groupedChooserBooks()
-	offers := map[string]domain.AnalysisUpdateCandidate{}
-	for i := range books {
-		if books[i].Acquired == nil {
-			continue
-		}
-		books[i].Acquired.Source.ID = "source-" + books[i].Book.ID
-		if books[i].Book.ID == "iliad-1" || books[i].Book.ID == "iliad-2" {
-			offers[books[i].Acquired.Source.ID] = workUpdateCandidate(0, 0)
-		}
-	}
-	books[0].IsCurrentReading = true
-	books[0].ReadingUnit.WorkKey = "homer-iliad"
-	books[0].ReadingUnit.ConstituentBook = 1
-	handler := newChooserHandler(books, nil, insights)
-	handler.services.Classical = workCatalog(t)
-	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
+func TestReadingChooserOffersAWholeWorkBookTheOrdinaryAnalysisUpdate(t *testing.T) {
+	book := chooserWorkBook("hellenica", "Hellenica", "Xenophon", "xenophon-hellenica-1", "corpus-hellenica")
+	book.Acquired.Source.ID = "source-hellenica"
+	insights := chooserWorkInsights{coverage: map[string]domain.AnalysisCoverage{"corpus-hellenica": chooserCoverage(99, 100)}}
+	body := chooserWorkBody(t, []domain.MyBook{book}, insights, map[string]domain.AnalysisUpdateCandidate{"source-hellenica": chooserUpdateOffer()})
 
-	view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, classical.Language, "Ancient Greek", "iliad-1")
-	require.NoError(t, err)
-	var iliad readingChooserEntryView
-	for _, entry := range view.Entries {
-		if entry.Grouped {
-			iliad = entry
-		}
-	}
-	require.True(t, iliad.Grouped)
-	require.NotNil(t, iliad.Update.Current, "the current Book is named even though it has no chooser cell")
-	assert.Equal(t, "Book 1: End the Reading first", iliad.Update.CurrentText())
-	assert.Equal(t, "A newer analysis is available for 1 book shown here.", iliad.Update.Notice())
-	assert.Nil(t, handler.currentChooserBook(context.Background(), fixtures.OwnerID, books, ""))
-	assert.Nil(t, handler.currentChooserBook(context.Background(), fixtures.OwnerID, books, "book-not-owned"))
-}
-
-func TestReadingChooserGroupedInlineEntryOffersStartAndRetry(t *testing.T) {
-	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
-		services.Classical = workCatalog(t)
-	})
-	endFixtureReading(t, store, "it")
-	require.NoError(t, store.SetActiveStudyLanguage(t.Context(), fixtures.OwnerID, "it"))
-	handler, ok := h.(*Handler)
-	require.True(t, ok)
-	books, insights := groupedChooserBooks()
-	handler.services.Store = storeDependencies(chooserEvidenceBooks{Store: store, books: fixtureLanguageClassicalBooks(books)})
-	handler.services.AnalysisInsights = insights
-
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	require.Equal(t, http.StatusOK, response.Code)
-	body := response.Body.String()
-	assert.Contains(t, body, `action="/reading/books/iliad-1/start"`, "assessed inline entries start a Reading")
-	assert.Contains(t, body, `action="/reading/books/iliad-4/reanalyze"`, "a not-assessed inline entry offers Retry")
+	assert.Equal(t, 1, strings.Count(body, "A newer analysis is available."))
+	assert.Contains(t, body, `action="/reading/books/hellenica/analysis-update"`)
+	assert.NotContains(t, body, "/library/works/")
 }

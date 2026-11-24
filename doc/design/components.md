@@ -101,7 +101,7 @@ one-pattern/one-Templ-component implementation.
 | `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; a classical Book as an ordinary row with its Work title, Edition label and position (none for a whole Work), two Editions of one Work as two rows; the ordinary per-Book Analysis update notice with current-Book End wording; per-Book preparation notes with their own recovery; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
-| `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation; a grouped Work Analysis update offer covers only its visible To Read candidates | Between-Books Reading chooser |
+| `ReadingChooser` | List neutral To Read candidates in title order; one ordinary entry per Book; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, start/switch confirmation, the ordinary per-Book Analysis update notice | Between-Books Reading chooser |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. The Goal leads with Book identity, shows current and after-completion coverage only, and keeps deck actions snapshot-bound. | No evidence, analysis active/failed/complete, reading active, vocabulary work active/complete, deck missing/active/ready/failed/empty | Reading Journey |
 | `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, unavailable evidence, compact viewport | Reading Journey |
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
@@ -268,12 +268,8 @@ analysis/content problem with its recovery action; it never ranks candidates or
 frames coverage as readiness. A quiet **Switch current reading** link remains
 under the identity when the Book is eligible. Keep the list unordered.
 
-A grouped chooser entry's Analysis update offer covers exactly the eligible To Read
-Books it shows: its visible To Read candidates, where an otherwise excluded
-sibling never joins the offer. The notice and action name that count, the current
-Reading's Book is named and skipped rather than counted, and confirming queues
-exactly those Books in book order. My Books has no Work-level offer: each Book
-carries the ordinary per-Book notice.
+Neither the chooser nor My Books has a Work-level Analysis update offer: each
+Book carries the ordinary per-Book notice.
 
 Repeated items form one native unordered list at every width, not an ARIA grid.
 Keep cover, title, author, action, and note content in document and keyboard
@@ -501,24 +497,17 @@ no-JavaScript operation.
   Margin notes move below the Book on compact screens, after its identity and
   lifecycle actions.
 - Every To Read candidate collection is unordered. The between-Books chooser
-  lists candidates in neutral title order. A Work with more than one To Read
-  Book is one entry: Work title, author, Greek title and the reviewed "N books"
-  identity sit beside a margin with To Read/assessed counts and one Known
-  coverage range. A band table lists constituent Book numbers in the shipped
-  band order, omitting empty rows; each 44px number carries the full accessible
-  label and opens that Book's ordinary candidate entry inline. Bands describe
-  evidence, not learner intent, difficulty, or a recommended order.
-  Single-Book Works and other candidates reuse the annotated Book row: cover
-  beside full title, reviewed Work position, author, start/switch confirmation
-  and word review beneath the author, and the band name plus rounded coverage
-  and next-band distinct-word counts in a visibly edged margin. A grouped
-  entry's Analysis update offer covers only its visible To Read candidates.
-  Analysis
+  lists candidates in neutral title order, one ordinary entry per Book,
+  including every Book of a Work. Each entry reuses the annotated Book row: cover
+  beside full title, author, start/switch confirmation and word review beneath
+  the author, and the band name plus rounded coverage and next-band
+  distinct-word counts in a visibly edged margin. A Book's Analysis update offer
+  is the ordinary per-Book notice. Bands describe evidence, not learner intent,
+  difficulty, or a recommended order. Analysis
   progress and unavailable coverage occupy that margin while their review/retry
   action stays under the identity. Retry is an outline action. On compact
-  screens the band label stacks above its numbers, the margin follows the
-  identity and actions, and native disclosure, route, and stale-write safeguards
-  remain unchanged.
+  screens the margin follows the identity and actions, and native disclosure,
+  route, and stale-write safeguards remain unchanged.
 - Reading Journey exposes one learner order. Forecast stages explain that order
   and never become a second route or recommendation.
 - A status badge never replaces a heading, explanatory sentence, progress

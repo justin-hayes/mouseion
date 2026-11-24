@@ -69,7 +69,7 @@ or plan is exposed.
 
 The between-Books chooser is shipped at `GET /reading`: when there is no current
 Book, it presents the active language's To Read candidates in neutral title
-order, groups a Work's multiple To Read Books into one band-table entry, and
+order, lists one ordinary entry per To Read Book, and
 separates candidates with incomplete evidence. It does not recommend or rank
 the next Book.
 
@@ -140,7 +140,7 @@ reading. Catalog sync remains metadata-only and follows metadata changes onto li
 |---|---|---|---|---|
 | Current reading | Shipped `GET /reading` when a Book is active | Continue reading, inspect evidence and preparation, or explicitly end, switch, or finish the Book. | My Books, current-reading action, or finish receipt | Current/stale/unavailable evidence, queued/running/failed analysis, preparation state, stale form, each consequential confirmation |
 | Current Book vocabulary Browse | Embedded in shipped `GET /reading` when a Book is current (working desk) | Find the current Book's effective lemma + POS identities, most frequent first, and open one in Concordance. | Concordance for the identity, or Reading recovery | Prefix search, 25-result pages, include-all, Known/Reserved/Book-deck states, no current analysis, empty inventory, prefix zero, counts unavailable, malformed or out-of-range `?page` with an explanation and First page link (400/404) |
-| Between-Books chooser | Shipped `GET /reading` when no current Book exists | Choose among active-language To Read Books in neutral title order, with a Work's multiple Books grouped into one band table, without recommendations. | Start reading or My Books | Empty To Read collection, grouped Work identity/counts/coverage range, band order with omitted empty rows, per-band Book links and accessible labels, inline constituent entry, one grouped Work Analysis update notice and bulk action covering the visible To Read candidates while a single-Book Work keeps the ordinary notice, single-Book margin, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
+| Between-Books chooser | Shipped `GET /reading` when no current Book exists | Choose among active-language To Read Books in neutral title order, one ordinary entry per Book, without recommendations. | Start reading or My Books | Empty To Read collection, one ordinary entry per Book with its own margin band, the ordinary per-Book Analysis update notice, analysis in progress, failed/stale/unavailable analysis, mixed and all-pending candidates |
 | Occurrence lemma review | Shipped `GET /reading/books/{bookID}/lemma-review` | Find an exact observed form in the Book's current analysis, inspect each sentence and analyzer identity, and correct one occurrence without changing POS. | Return to the Reading Book anchor or follow explicit end/restart and new-generation deck recovery | No match, stale occurrence, unsupported language, active snapshot end-without-completion guidance, ready artifact download plus explicit re-preparation, completed-history/Known immutability and manual Anki cleanup guidance; server-rendered forms work without JavaScript |
 | Reading completion receipt | `POST /goal/finish` full-page outcome or Reading fragment | Confirm the completed Book and exact newly-Known/already-Known counts without choosing a next Book. | Choose what to read next (`/reading`) | Non-empty and empty snapshots, zero counts, retry/idempotent completion, next-choice link |
 | Read | Tab on `GET /library?history=read` | Inspect prior completion for Books whose visible bucket is Read and return one to To Read with Read again. | My Books disposition or Reading | Imported vs Mouseion completion, multiple completions, empty history, language scope |
@@ -148,9 +148,8 @@ reading. Catalog sync remains metadata-only and follows metadata changes onto li
 
 Reading presents one current Book, with its vocabulary Browse, or, between Books,
 an unordered semantic list of To Read candidates in neutral title order. A
-Work's multiple To Read Books form one band-table entry; a constituent Book's
-"Book N of M" position is a plain fact, and nothing on either surface points to
-a next Book. Other To Read candidates are not listed while a Book is current.
+Book is one ordinary entry, and Reading shows no "Book N of M" line; nothing
+on either surface points to a next Book. Other To Read candidates are not listed while a Book is current.
 Candidate order is not a recommendation. Coverage bands label current evidence
 only. The shipped Book Covers experience keeps title and author authoritative
 and does not change this hierarchy.

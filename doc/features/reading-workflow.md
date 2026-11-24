@@ -26,16 +26,12 @@ language, or presents the learner with an unordered chooser between Books.
    Book to To Read. Analysis may be queued, running, ready, stale, failed, or
    unavailable; evidence status does not create a recommendation or order.
 3. Reading shows either the current Book or To Read candidates in neutral title
-   order. A Work with more than one To Read Book is one entry whose band table
-   lists constituent Book numbers in the shipped band order, omitting empty
-   rows; each number opens that Book's ordinary candidate entry inline, with its
-   Start or Switch confirmation and Retry when not assessed. A single-Book Work
-   stays an ordinary candidate row whose margin names its band. Incomplete
+   order. Every To Read Book is one ordinary candidate entry whose margin names
+   its band, with its Start or Switch confirmation and Retry when not assessed.
+   Incomplete
    evidence stays distinct, and only To Read candidates appear: Read, current and
-   hidden Books get no cells. A constituent Book's "Book N of M" position comes
-   from the reviewed definition and appears on candidates and on the current
-   Reading; a whole-work unit shows none, and nothing names, offers, links to or
-   starts the next Book. While a Book is current, the same page hosts its
+   hidden Books get no entries. Reading shows no "Book N of M" line, and nothing
+   names, offers, links to or starts the next Book. While a Book is current, the same page hosts its
    vocabulary Browse (the working desk) and lists no other To Read candidates.
    The learner can start a supported candidate, or end or switch a current Book
    through explicit confirmations. End releases only the Reserved vocabulary,
