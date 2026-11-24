@@ -179,6 +179,7 @@ type CatalogWork struct {
 // CatalogUnit is one whole-work Reading unit, one per Edition.
 type CatalogUnit struct {
 	Key             string
+	EditionLabel    string
 	ConstituentBook int
 	CitationStart   string
 	CitationEnd     string
@@ -258,6 +259,7 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 		}
 		unit := CatalogUnit{
 			Key:           definition.Key,
+			EditionLabel:  definition.EditionLabel,
 			CitationStart: definition.CitationStart,
 			CitationEnd:   definition.CitationEnd,
 			Words:         definition.WordCount,

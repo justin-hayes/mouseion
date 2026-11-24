@@ -420,7 +420,7 @@ func ClassicalCatalogIndexSections(csrf string, authors []classical.CatalogAutho
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), classicalAddLabel, false, classicalAddReturnIndex).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), false, classicalAddReturnIndex).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -644,7 +644,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var30 string
-				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(work.EditionLabel)
+				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(unit.EditionLabel)
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 120, Col: 79}
 				}
@@ -657,7 +657,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var31 string
-				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(work.EditionLabel)
+				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(unit.EditionLabel)
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 121, Col: 27}
 				}
@@ -705,7 +705,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddLabel, true, "").Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), true, "").Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -786,7 +786,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = ResponsiveTable("Contents of "+work.Title).Render(templ.WithChildren(ctx, templ_7745c5c3_Var34), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ResponsiveTable("Contents of "+work.Title+", "+unit.EditionLabel).Render(templ.WithChildren(ctx, templ_7745c5c3_Var34), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1040,7 +1040,7 @@ func ClassicalReadForm(csrf, action, returnTo string) templ.Component {
 
 // ClassicalAddForm is the one Add control used by the catalog. An index Add
 // returns there; every other Add returns to the work.
-func ClassicalAddForm(csrf, action, label string, primary bool, returnTo string) templ.Component {
+func ClassicalAddForm(csrf, action string, primary bool, returnTo string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -1116,9 +1116,9 @@ func ClassicalAddForm(csrf, action, label string, primary bool, returnTo string)
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var55 string
-			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(classicalAddLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 191, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 191, Col: 59}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
 			if templ_7745c5c3_Err != nil {
@@ -1134,9 +1134,9 @@ func ClassicalAddForm(csrf, action, label string, primary bool, returnTo string)
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var56 string
-			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(classicalAddLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 193, Col: 63}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/classical_catalog.templ`, Line: 193, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 			if templ_7745c5c3_Err != nil {
@@ -1309,18 +1309,20 @@ func classicalBookLabel(book int) string {
 
 // classicalCitationRange renders one unit's inclusive citation range.
 func classicalCitationRange(unit classical.CatalogUnit) string {
-	if unit.CitationStart == unit.CitationEnd {
-		return unit.CitationStart
+	return classicalRange(unit.CitationStart, unit.CitationEnd)
+}
+
+// classicalRange renders an inclusive citation range.
+func classicalRange(start, end string) string {
+	if start == end {
+		return start
 	}
-	return unit.CitationStart + "–" + unit.CitationEnd
+	return start + "–" + end
 }
 
 // classicalSpanCitationRange renders one constituent book's inclusive range.
 func classicalSpanCitationRange(book classical.ConstituentBookSpan) string {
-	if book.CitationStart == book.CitationEnd {
-		return book.CitationStart
-	}
-	return book.CitationStart + "–" + book.CitationEnd
+	return classicalRange(book.CitationStart, book.CitationEnd)
 }
 
 // classicalCountLabel renders one or many of a counted noun.

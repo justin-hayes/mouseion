@@ -74,7 +74,7 @@ templ ClassicalCatalogIndexSections(csrf string, authors []classical.CatalogAuth
 									<p class="classical-work-entry__owned"><span class="classical-work-entry__owned-marker" aria-hidden="true"></span><a href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>{ ownership }</a></p>
 								}
 								if classicalWorkCanAdd(work, view) {
-									<div class="action-group">@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), classicalAddLabel, false, classicalAddReturnIndex)</div>
+									<div class="action-group">@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), false, classicalAddReturnIndex)</div>
 								}
 							</div>
 						</li>
@@ -117,19 +117,19 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 		}
 		<p class="classical-work-page__summary">{ classicalWorkSizeLabel(work) } · { fmt.Sprintf("%d", work.Words) } words · { classicalTranslationLabel(work.TranslationAvailable) }</p>
 		for _, unit := range work.Units {
-			<section class="classical-work-page__edition" aria-label={ work.EditionLabel }>
-				<h2>{ work.EditionLabel }</h2>
+			<section class="classical-work-page__edition" aria-label={ unit.EditionLabel }>
+				<h2>{ unit.EditionLabel }</h2>
 				<p class="numeric">Passage { classicalCitationRange(unit) }</p>
 				if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 					<a class="button button--outline" href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
 				} else if view.AddAvailable {
 					<div class="action-group">
-						@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), classicalAddLabel, true, "")
+						@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key), true, "")
 						@ClassicalReadForm(csrf, classicalUnitReadURL(unit.Key), "")
 					</div>
 				}
 				if len(unit.Contents) > 0 {
-					@ResponsiveTable("Contents of "+work.Title) {
+					@ResponsiveTable("Contents of " + work.Title + ", " + unit.EditionLabel) {
 						<thead><tr><th>Book</th><th>Passage</th><th>Words</th></tr></thead>
 						<tbody>
 							for _, book := range unit.Contents {
@@ -181,16 +181,16 @@ templ ClassicalReadForm(csrf, action, returnTo string) {
 
 // ClassicalAddForm is the one Add control used by the catalog. An index Add
 // returns there; every other Add returns to the work.
-templ ClassicalAddForm(csrf, action, label string, primary bool, returnTo string) {
+templ ClassicalAddForm(csrf, action string, primary bool, returnTo string) {
 	<form class="inline-action" method="post" action={ templ.SafeURL(action) }>
 		<input type="hidden" name="csrf_token" value={ csrf }/>
 		if returnTo != "" {
 			<input type="hidden" name="return" value={ returnTo }/>
 		}
 		if primary {
-			<button class="button" type="submit">{ label }</button>
+			<button class="button" type="submit">{ classicalAddLabel }</button>
 		} else {
-			<button class="button button--outline" type="submit">{ label }</button>
+			<button class="button button--outline" type="submit">{ classicalAddLabel }</button>
 		}
 	</form>
 }
@@ -349,18 +349,20 @@ func classicalBookLabel(book int) string {
 
 // classicalCitationRange renders one unit's inclusive citation range.
 func classicalCitationRange(unit classical.CatalogUnit) string {
-	if unit.CitationStart == unit.CitationEnd {
-		return unit.CitationStart
+	return classicalRange(unit.CitationStart, unit.CitationEnd)
+}
+
+// classicalRange renders an inclusive citation range.
+func classicalRange(start, end string) string {
+	if start == end {
+		return start
 	}
-	return unit.CitationStart + "–" + unit.CitationEnd
+	return start + "–" + end
 }
 
 // classicalSpanCitationRange renders one constituent book's inclusive range.
 func classicalSpanCitationRange(book classical.ConstituentBookSpan) string {
-	if book.CitationStart == book.CitationEnd {
-		return book.CitationStart
-	}
-	return book.CitationStart + "–" + book.CitationEnd
+	return classicalRange(book.CitationStart, book.CitationEnd)
 }
 
 // classicalCountLabel renders one or many of a counted noun.

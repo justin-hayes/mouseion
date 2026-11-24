@@ -173,10 +173,8 @@ document order: the Classical catalog first when it matches, then each OPDS
 connection in its configured order.
 
 The Classical group reuses the author-grouped index above unchanged. A search
-matches author, English title and Greek title through the Go search key, and a
-trailing number narrows the match to a Work carrying that constituent Book,
-displaying only that Book's cell and length segment while the Work's reviewed
-totals and Add controls stay whole.
+matches author, English title and Greek title through the Go search key; a
+number is ordinary search text, as a Work has no constituent Book to narrow to.
 Each OPDS group is a cover grid with cover, title and author, ordered by title
 then author and paged locally per connection. The cover frame shows the title's
 initial until locally retained index covers exist; the Catalog never sends an
