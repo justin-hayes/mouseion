@@ -139,3 +139,37 @@ func TestFromProtoRejectsInvalidAnalysisTime(t *testing.T) {
 	_, err := analyzer.FromProto(message)
 	assert.Error(t, err, "FromProto() error = nil, want invalid analysis time error")
 }
+
+func TestProtoRoundTripCarriesNativeSyntax(t *testing.T) {
+	printedHead := uint32(0)
+	want := analyzer.Result{
+		SchemaVersion: "1",
+		Language:      "grc",
+		Sentences: []analyzer.Sentence{{
+			Text: "a b",
+			Tokens: []analyzer.Token{
+				{Surface: "a", UPOS: "NOUN", Dependency: "SBJ", Head: 0, HeadUnprintedNode: "2"},
+				{Surface: "b", UPOS: "NOUN", Dependency: "ATR", Head: 0},
+			},
+			UnprintedNodes: []analyzer.UnprintedSyntaxNode{
+				{SourceID: "2", Dependency: "PRED"},
+				{SourceID: "3", Dependency: "OBJ", HeadUnprintedNode: "2"},
+				{SourceID: "4", Dependency: "ATR", HeadTokenOrdinal: &printedHead},
+			},
+		}},
+	}
+
+	got, err := analyzer.FromProto(analyzer.ToProto(want))
+	require.NoError(t, err)
+
+	t.Run("tokens keep their unprinted head", func(t *testing.T) {
+		assert.Equal(t, "2", got.Sentences[0].Tokens[0].HeadUnprintedNode)
+		assert.Empty(t, got.Sentences[0].Tokens[1].HeadUnprintedNode)
+	})
+	t.Run("nodes keep relation and head kind", func(t *testing.T) {
+		assert.Equal(t, want.Sentences[0].UnprintedNodes, got.Sentences[0].UnprintedNodes)
+		assert.Nil(t, got.Sentences[0].UnprintedNodes[0].HeadTokenOrdinal, "a root node has no head")
+		require.NotNil(t, got.Sentences[0].UnprintedNodes[2].HeadTokenOrdinal)
+		assert.Equal(t, uint32(0), *got.Sentences[0].UnprintedNodes[2].HeadTokenOrdinal)
+	})
+}

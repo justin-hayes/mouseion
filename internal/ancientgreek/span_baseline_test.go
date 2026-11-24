@@ -97,4 +97,3 @@ func TestInterpretationKeepsSpansAndLemmasOfEveryFixture(t *testing.T) {
 	}
 	assert.Len(t, current, len(baseline), "a fixture without a baseline")
 }
-

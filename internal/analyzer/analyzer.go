@@ -51,14 +51,33 @@ type Sentence struct {
 	// citation order. It is empty for an analysis that carries no citation
 	// evidence (every modern-language run).
 	Citations []string
+	// UnprintedNodes are the syntax nodes the source parse carries but the text
+	// does not print (AGDT ellipsis nodes). Only a native-AGDT imported analysis
+	// has any; they have no form, lemma, morphology or occurrence.
+	UnprintedNodes []UnprintedSyntaxNode
+}
+
+// UnprintedSyntaxNode is one node of a sentence's source parse that has no
+// printed token. SourceID is the node's id within the source sentence and
+// Dependency is its relation verbatim. At most one of HeadTokenOrdinal and
+// HeadUnprintedNode is set; neither means the node is the root.
+type UnprintedSyntaxNode struct {
+	SourceID          string
+	Dependency        string
+	HeadTokenOrdinal  *uint32
+	HeadUnprintedNode string
 }
 
 // Token is one analyzed token. Surface removes surrounding Unicode punctuation
 // and symbols while sentence text and offsets preserve the source; RawLemma
 // preserves backend output. CanonicalLemma is derived using
 // Result.NormalizationProfile. UPOS contains a coarse Universal Dependencies
-// part-of-speech tag. Dependency is the basic Universal Dependencies relation
-// and Head is the 0-based ordinal of the token's head within its sentence.
+// part-of-speech tag. Dependency is read according to the run's syntax state: a
+// Universal Dependencies relation for a ud run, the source's own relation for a
+// native_agdt run. Head is the 0-based ordinal of the token's head within its
+// sentence; a root is its own head. When HeadUnprintedNode is set the head is an
+// unprinted syntax node of the sentence, Head is the token's own ordinal and
+// HeadUnprintedNode is that node's source id.
 //
 // Headword, LexicalDiscriminator and SearchKey are set only by imported
 // classical analyses: Headword is the learner-facing citation form (the trimmed
@@ -79,6 +98,7 @@ type Token struct {
 	Headword             string            `json:"Headword,omitempty"`
 	LexicalDiscriminator string            `json:"LexicalDiscriminator,omitempty"`
 	SearchKey            string            `json:"SearchKey,omitempty"`
+	HeadUnprintedNode    string            `json:"HeadUnprintedNode,omitempty"`
 }
 
 // IsSeparableParticle reports whether tokens[index] is a component of its head
