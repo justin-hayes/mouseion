@@ -306,6 +306,18 @@ type CorpusToken struct {
 	LexicalDiscriminator string
 	Headword             string
 	SearchKey            string
+	HeadUnprintedNode    pgtype.Text
+}
+
+type CorpusUnprintedSyntaxNode struct {
+	OwnerID           string
+	AnalysisRunID     string
+	CorpusID          string
+	SentenceOrdinal   int64
+	SourceID          string
+	Dependency        string
+	HeadTokenOrdinal  pgtype.Int8
+	HeadUnprintedNode pgtype.Text
 }
 
 type CuratedSentence struct {
