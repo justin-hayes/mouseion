@@ -479,7 +479,7 @@ Status: **Accepted — implementation pending.** Promoted from the human-reviewe
 [Prototype: constructions and syntax in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787),
 variant C on the throwaway branch
 [`research/grc-sentence-study-constructions-prototype`](https://github.com/justin-hayes/mouseion/tree/1c3bd586/doc/research/grc-sentence-study-constructions-prototype).
-[Ancient Greek syntax and constructions](../features/ancient-greek-syntax-and-constructions.md#sentence-study)
+[Ancient Greek syntax and constructions](../features/ancient-greek-syntax-and-constructions.md#sentence-study-page)
 owns behavior and the full entry contents. Do not copy the prototype into
 production.
 
