@@ -401,6 +401,9 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 // corpusSyntaxState reads the recorded syntax state of the analysis run that
 // produced a corpus.
 func corpusSyntaxState(ctx context.Context, tx pgx.Tx, owner, corpusID string) (string, error) {
+	if corpusID == "" {
+		return "", nil
+	}
 	var state string
 	err := tx.QueryRow(ctx, `
 		SELECT r.syntax_state
