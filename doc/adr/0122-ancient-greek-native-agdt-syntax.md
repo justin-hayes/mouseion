@@ -1,6 +1,6 @@
 # ADR 0122: Ancient Greek syntax is stored as native AGDT behind a construction interface
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Amends [ADR 0099](0099-ancient-greek-imported-analyses.md)'s decision that
 "syntax is recorded as absent, not stored as UD". Decided by Justin in
