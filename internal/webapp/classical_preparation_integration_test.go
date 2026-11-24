@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -77,6 +78,9 @@ type preparationSource struct {
 	secondWords            int
 	// interpretation overrides the definitions' interpretation version.
 	interpretation string
+	// wrapWriter, when set, wraps the worker's analysis writer so a test can
+	// publish the run an earlier interpretation version would have written.
+	wrapWriter func(ancientgreek.ImportWriter) ancientgreek.ImportWriter
 }
 
 // preparationHarnessForSource is preparationHarnessWithTranslation for any
@@ -147,6 +151,9 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 	config := analysis.ClassicalPreparationConfig{Layers: layers, HTTPClient: layer.Client(), TempDir: t.TempDir()}
 	workers := river.NewWorkers()
 	preparationWorker := analysis.AddClassicalPreparationWorker(workers, store, config)
+	if source.wrapWriter != nil {
+		preparationWorker.Writer = source.wrapWriter(preparationWorker.Writer)
+	}
 	analysis.AddClassicalTranslationWorker(workers, store, config)
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues: map[string]river.QueueConfig{

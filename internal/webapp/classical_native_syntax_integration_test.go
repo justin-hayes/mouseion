@@ -8,9 +8,11 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -137,12 +139,47 @@ func TestClassicalPreparationStoresNativeAGDTSyntax(t *testing.T) {
 	})
 }
 
+// legacyGreekWriter publishes the run the interpretation before native syntax
+// (oga-agdt-upos/5, syntax absent) wrote: the placeholder relation, every token
+// its own head, no unprinted nodes and the earlier identity. Once legacy is
+// false it passes requests through unchanged.
+type legacyGreekWriter struct {
+	next   ancientgreek.ImportWriter
+	legacy atomic.Bool
+}
+
+func (w *legacyGreekWriter) WriteImportedAnalysis(ctx context.Context, request ancientgreek.ImportWriteRequest) (ancientgreek.ImportWriteResult, error) {
+	if w.legacy.Load() {
+		request.SyntaxState = ancientgreek.SyntaxStateAbsent
+		request.AnalyzerVersion = strings.Replace(request.AnalyzerVersion, "oga-agdt-feats/2", "oga-agdt-feats/1", 1)
+		request.ConfigIdentity = ancientgreek.ImportConfigIdentity(request.Definition, ancientgreek.SyntaxStateAbsent)
+		sentences := make([]analyzer.Sentence, len(request.Result.Sentences))
+		for i, sentence := range request.Result.Sentences {
+			sentence.UnprintedNodes = nil
+			sentence.Tokens = append([]analyzer.Token(nil), sentence.Tokens...)
+			for j := range sentence.Tokens {
+				sentence.Tokens[j].Dependency, sentence.Tokens[j].Head, sentence.Tokens[j].HeadUnprintedNode = "dep", 0, ""
+			}
+			sentences[i] = sentence
+		}
+		request.Result.Sentences = sentences
+	}
+	return w.next.WriteImportedAnalysis(ctx, request)
+}
+
 // TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis proves the
-// migration path: a Book prepared under oga-agdt-upos/5 is offered "A newer
+// migration path from a real old run: a Book prepared under oga-agdt-upos/5
+// (syntax absent) with a correction and an exclusion is offered "A newer
 // analysis is available" once the catalog's interpretation version moves to
-// oga-agdt-syntax/1, and confirming it publishes a native_agdt run.
+// oga-agdt-syntax/1; confirming publishes a native_agdt run and carries both
+// decisions onto its identical tokens.
 func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testing.T) {
-	ctx, store, pool, h, service, client, _, fixture := preparationHarness(t)
+	legacy := &legacyGreekWriter{}
+	legacy.legacy.Store(true)
+	ctx, store, pool, h, service, client, _, fixture := preparationHarnessForSource(t, preparationSource{
+		file: "oga-src-book1.conllu", firstStart: "1.1.1", firstEnd: "1.1.2", firstWords: 4, secondStart: "2.1.1", secondEnd: "2.1.1", secondWords: 2,
+		wrapWriter: func(next ancientgreek.ImportWriter) ancientgreek.ImportWriter { legacy.next = next; return legacy },
+	}, nil)
 	learner := createAccount(t, ctx, store, "native-syntax-update", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	addClassicalWork(t, h, cookies, csrf, "synthetic-work")
@@ -153,13 +190,38 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 	waitForPreparedBooks(t, pool, learner.ID, 2)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 	h.services.AnalysisUpdates = service
+	legacy.legacy.Store(false)
 
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
 	require.NotEmpty(t, firstID)
 	require.NotEmpty(t, secondID)
+	oldRun := preparedRunID(t, pool, learner.ID, firstID)
+
+	var oldState, oldVersion string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT syntax_state, analyzer_version FROM analysis_runs WHERE id=$1`, oldRun).Scan(&oldState, &oldVersion))
+	assert.Equal(t, "absent", oldState)
+	assert.True(t, strings.HasPrefix(oldVersion, "oga-agdt-upos/5"), oldVersion)
+	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM corpus_unprinted_syntax_nodes WHERE analysis_run_id=$1`, oldRun))
+	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM corpus_tokens WHERE analysis_run_id=$1 AND dependency <> 'dep'`, oldRun))
 	assert.NotContains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available", "a prepared Book starts current")
-	oldRun := preparedRunID(t, pool, learner.ID, secondID)
+
+	// A correction on the first token and an exclusion on the second, both real.
+	var corpusID, documentID string
+	var starts, ends [2]int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT r.corpus_id::text, s.unit_id FROM analysis_runs r
+		JOIN corpus_sentences s ON s.owner_id=r.owner_id AND s.analysis_run_id=r.id
+		WHERE r.owner_id=$1 AND r.id=$2 AND s.sentence_ordinal=0`, learner.ID, oldRun).Scan(&corpusID, &documentID))
+	for ordinal := range 2 {
+		require.NoError(t, pool.QueryRow(ctx, `SELECT start_offset, end_offset FROM corpus_tokens
+			WHERE analysis_run_id=$1 AND sentence_ordinal=0 AND token_ordinal=$2`, oldRun, ordinal).Scan(&starts[ordinal], &ends[ordinal]))
+	}
+	_, err := pool.Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded)
+		VALUES($1,$2,$3,$4,$5,$6,$7,'ἄγω','ancient-greek','1',false)`, learner.ID, firstID, corpusID, oldRun, documentID, starts[0], ends[0])
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,excluded)
+		VALUES($1,$2,$3,$4,$5,$6,$7,true)`, learner.ID, firstID, corpusID, oldRun, documentID, starts[1], ends[1])
+	require.NoError(t, err)
 
 	bumpInterpretation(t, pool, ancientgreek.InterpretationVersionNativeAGDT, fixture.unitOneKey, fixture.unitTwoKey)
 	assert.Contains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available", "every Greek Book is offered the new version")
@@ -182,11 +244,23 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 		return count == 2
 	}, 60*time.Second, 50*time.Millisecond, "both updates publish the new interpretation")
 
-	newRun := preparedRunID(t, pool, learner.ID, secondID)
+	newRun := preparedRunID(t, pool, learner.ID, firstID)
 	assert.NotEqual(t, oldRun, newRun)
-	var state, version string
+	var published, state, version string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, learner.ID, firstID).Scan(&published))
+	assert.Equal(t, newRun, published, "the update publishes the new analysis")
 	require.NoError(t, pool.QueryRow(ctx, `SELECT syntax_state, analyzer_version FROM analysis_runs WHERE id=$1`, newRun).Scan(&state, &version))
 	assert.Equal(t, "native_agdt", state)
 	assert.True(t, strings.HasPrefix(version, ancientgreek.InterpretationVersionNativeAGDT), version)
-	assert.NotContains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available", "the offer clears once the new analysis is published")
+	assert.Positive(t, countRows(t, pool, `SELECT count(*) FROM corpus_unprinted_syntax_nodes WHERE analysis_run_id=$1`, newRun), "the new run stores the unprinted nodes")
+
+	t.Run("the correction and the exclusion carry onto the identical tokens", func(t *testing.T) {
+		assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND NOT excluded AND canonical_lemma='ἄγω' AND start_offset=$4`, learner.ID, firstID, newRun, starts[0]))
+		assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND excluded AND start_offset=$4`, learner.ID, firstID, newRun, starts[1]))
+		assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM analysis_decision_carry_overs WHERE owner_id=$1 AND analysis_run_id=$2 AND carried=2 AND total=2`, learner.ID, newRun))
+		assert.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, firstID, oldRun), "the earlier decisions stay frozen on the old run")
+	})
+	t.Run("the offer clears once the new analysis is published", func(t *testing.T) {
+		assert.NotContains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available")
+	})
 }
