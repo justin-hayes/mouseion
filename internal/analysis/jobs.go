@@ -1881,7 +1881,7 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 		}
 		return tx.Commit(ctx)
 	}
-	if err := publishEligibleAnalysis(ctx, tx, a, bookID); err != nil {
+	if err := publishEligibleAnalysis(ctx, tx, a, bookID, 0); err != nil {
 		return err
 	}
 	if err = completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
@@ -1921,7 +1921,7 @@ func lockPublicationBook(ctx context.Context, tx pgx.Tx, a JobArgs) (string, boo
 
 // publishEligibleAnalysis promotes the completed run to the Book's current
 // analysis, with its Browse projection, when no newer run superseded it.
-func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID string) error {
+func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID string, riverJobID int64) error {
 	var eligible bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1
@@ -1941,6 +1941,9 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 	if err := tx.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
 		return fmt.Errorf("load completed corpus for Browse projection: %w", err)
 	}
+	if err := carryDecisionsOntoIdenticalTokens(ctx, tx, a.OwnerID, bookID, a.RunID, corpusID, riverJobID); err != nil {
+		return err
+	}
 	if err := persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, bookID, a.SourceMaterialID, a.RunID, corpusID, a.Language); err != nil {
 		return fmt.Errorf("build Browse projection for analysis publication: %w", err)
 	}
@@ -1957,9 +1960,12 @@ const (
 	// corpusTokenParameterCount is the number of bind parameters in one
 	// corpus-token INSERT row. The token batch below derives from it so the
 	// batch stays under PostgreSQL's 65,535-parameter protocol limit.
-	corpusTokenParameterCount               = 18
+	corpusTokenParameterCount               = 19
 	normalizedCorpusSentenceInsertBatchSize = 500
-	normalizedCorpusTokenInsertBatchSize    = 65535 / corpusTokenParameterCount
+	// unprintedNodeInsertBatchSize keeps one node INSERT (8 parameters a row)
+	// under the protocol limit.
+	unprintedNodeInsertBatchSize         = 65535 / 8 / 2
+	normalizedCorpusTokenInsertBatchSize = 65535 / corpusTokenParameterCount
 )
 
 // persistNormalizedCorpus writes the normalized sentences and then the tokens
@@ -1967,6 +1973,10 @@ const (
 // statistics.
 func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, result analyzer.Result) error {
 	if err := insertCorpusSentences(ctx, tx, ownerID, runID, corpusID, result.Sentences); err != nil {
+		return err
+	}
+	// Unprinted syntax nodes go first: a token whose head is one references it.
+	if err := insertCorpusUnprintedNodes(ctx, tx, ownerID, runID, corpusID, result.Sentences); err != nil {
 		return err
 	}
 	if err := insertCorpusTokens(ctx, tx, ownerID, language, runID, corpusID, result.Sentences); err != nil {
@@ -1982,7 +1992,7 @@ func persistNormalizedCorpus(ctx context.Context, tx pgx.Tx, ownerID, language, 
 // tens of minutes instead of well under a second. ANALYZE samples the caller's
 // uncommitted rows, so running it inside the writing transaction is enough.
 func refreshCorpusStatistics(ctx context.Context, tx pgx.Tx) error {
-	if _, err := tx.Exec(ctx, `ANALYZE corpus_sentences, corpus_tokens`); err != nil {
+	if _, err := tx.Exec(ctx, `ANALYZE corpus_sentences, corpus_unprinted_syntax_nodes, corpus_tokens`); err != nil {
 		return fmt.Errorf("refresh corpus planner statistics: %w", err)
 	}
 	return nil
@@ -2042,8 +2052,8 @@ type corpusTokenInserter struct {
 
 // add validates one analyzed token and appends its row, flushing a full batch
 // first.
-func (b *corpusTokenInserter) add(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentenceOrdinal, tokenOrdinal, tokenTotal int, token analyzer.Token) error {
-	if err := validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal, token); err != nil {
+func (b *corpusTokenInserter) add(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentenceOrdinal, tokenOrdinal, tokenTotal int, token analyzer.Token, nodes map[string]struct{}) error {
+	if err := validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal, token, nodes); err != nil {
 		return err
 	}
 	if b.count == normalizedCorpusTokenInsertBatchSize {
@@ -2052,7 +2062,7 @@ func (b *corpusTokenInserter) add(ctx context.Context, tx pgx.Tx, ownerID, langu
 		}
 	}
 	if b.count == 0 {
-		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword,search_key) VALUES `)
+		b.query.WriteString(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword,search_key,head_unprinted_node) VALUES `)
 	} else {
 		b.query.WriteString(",")
 	}
@@ -2083,8 +2093,12 @@ func (b *corpusTokenInserter) flush(ctx context.Context, tx pgx.Tx) error {
 func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID, corpusID string, sentences []analyzer.Sentence) error {
 	var batch corpusTokenInserter
 	for sentenceOrdinal, sentence := range sentences {
+		nodes, err := validateUnprintedNodes(sentenceOrdinal, len(sentence.Tokens), sentence.UnprintedNodes)
+		if err != nil {
+			return err
+		}
 		for tokenOrdinal, token := range sentence.Tokens {
-			if err := batch.add(ctx, tx, ownerID, language, runID, corpusID, sentenceOrdinal, tokenOrdinal, len(sentence.Tokens), token); err != nil {
+			if err := batch.add(ctx, tx, ownerID, language, runID, corpusID, sentenceOrdinal, tokenOrdinal, len(sentence.Tokens), token, nodes); err != nil {
 				return err
 			}
 		}
@@ -2093,8 +2107,9 @@ func insertCorpusTokens(ctx context.Context, tx pgx.Tx, ownerID, language, runID
 }
 
 // validateCorpusToken rejects an analyzed token whose dependency or head cannot
-// describe the sentence it belongs to.
-func validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal int, token analyzer.Token) error {
+// describe the sentence it belongs to. nodes holds the source ids of the
+// sentence's unprinted syntax nodes.
+func validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal int, token analyzer.Token, nodes map[string]struct{}) error {
 	if token.Dependency == "" {
 		return fmt.Errorf("persist normalized corpus token %d in sentence %d: dependency is required", tokenOrdinal, sentenceOrdinal)
 	}
@@ -2104,6 +2119,102 @@ func validateCorpusToken(sentenceOrdinal, tokenOrdinal, tokenTotal int, token an
 	if token.Dependency == "root" && int64(token.Head) != int64(tokenOrdinal) {
 		return fmt.Errorf("persist normalized corpus token %d in sentence %d: root must be self-headed", tokenOrdinal, sentenceOrdinal)
 	}
+	if token.HeadUnprintedNode != "" {
+		if int64(token.Head) != int64(tokenOrdinal) {
+			return fmt.Errorf("persist normalized corpus token %d in sentence %d: a token headed by an unprinted node must be self-headed", tokenOrdinal, sentenceOrdinal)
+		}
+		if _, ok := nodes[token.HeadUnprintedNode]; !ok {
+			return fmt.Errorf("persist normalized corpus token %d in sentence %d: head names no unprinted node", tokenOrdinal, sentenceOrdinal)
+		}
+	}
+	return nil
+}
+
+// validateUnprintedNodes checks one sentence's unprinted syntax nodes and
+// returns their source ids. A node needs a source id and a relation, at most one
+// head, a printed head inside the sentence and an unprinted head that is one of
+// the sentence's nodes.
+func validateUnprintedNodes(sentenceOrdinal, tokenTotal int, nodes []analyzer.UnprintedSyntaxNode) (map[string]struct{}, error) {
+	ids := make(map[string]struct{}, len(nodes))
+	for _, node := range nodes {
+		if node.SourceID == "" {
+			return nil, fmt.Errorf("persist unprinted syntax node in sentence %d: source id is required", sentenceOrdinal)
+		}
+		if _, duplicate := ids[node.SourceID]; duplicate {
+			return nil, fmt.Errorf("persist unprinted syntax node %q in sentence %d: duplicate source id", node.SourceID, sentenceOrdinal)
+		}
+		ids[node.SourceID] = struct{}{}
+	}
+	for _, node := range nodes {
+		switch {
+		case node.Dependency == "":
+			return nil, fmt.Errorf("persist unprinted syntax node %q in sentence %d: dependency is required", node.SourceID, sentenceOrdinal)
+		case node.HeadTokenOrdinal != nil && node.HeadUnprintedNode != "":
+			return nil, fmt.Errorf("persist unprinted syntax node %q in sentence %d: node has both a printed and an unprinted head", node.SourceID, sentenceOrdinal)
+		case node.HeadTokenOrdinal != nil && int64(*node.HeadTokenOrdinal) >= int64(tokenTotal):
+			return nil, fmt.Errorf("persist unprinted syntax node %q in sentence %d: head ordinal %d is out of range", node.SourceID, sentenceOrdinal, *node.HeadTokenOrdinal)
+		}
+		if _, ok := ids[node.HeadUnprintedNode]; node.HeadUnprintedNode != "" && !ok {
+			return nil, fmt.Errorf("persist unprinted syntax node %q in sentence %d: head names no unprinted node", node.SourceID, sentenceOrdinal)
+		}
+	}
+	return ids, nil
+}
+
+// insertCorpusUnprintedNodes writes every sentence's unprinted syntax nodes in
+// batches. It writes nothing for a run without any.
+func insertCorpusUnprintedNodes(ctx context.Context, tx pgx.Tx, ownerID, runID, corpusID string, sentences []analyzer.Sentence) error {
+	var batch unprintedNodeBatch
+	for sentenceOrdinal, sentence := range sentences {
+		for _, node := range sentence.UnprintedNodes {
+			batch.add(ownerID, runID, corpusID, sentenceOrdinal, node)
+			if batch.rows == unprintedNodeInsertBatchSize {
+				if err := batch.flush(ctx, tx); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return batch.flush(ctx, tx)
+}
+
+// unprintedNodeBatch accumulates one batched unprinted-node INSERT.
+type unprintedNodeBatch struct {
+	query strings.Builder
+	args  []any
+	rows  int
+}
+
+// add appends one node's row. A head the node does not have is a NULL.
+func (b *unprintedNodeBatch) add(ownerID, runID, corpusID string, sentenceOrdinal int, node analyzer.UnprintedSyntaxNode) {
+	if b.rows > 0 {
+		b.query.WriteString(",")
+	}
+	arg := len(b.args) + 1
+	fmt.Fprintf(&b.query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7)
+	var headToken, headNode any
+	if node.HeadTokenOrdinal != nil {
+		headToken = int64(*node.HeadTokenOrdinal)
+	}
+	if node.HeadUnprintedNode != "" {
+		headNode = node.HeadUnprintedNode
+	}
+	b.args = append(b.args, ownerID, runID, corpusID, int64(sentenceOrdinal), node.SourceID, node.Dependency, headToken, headNode)
+	b.rows++
+}
+
+// flush writes the accumulated rows, if any, and clears the batch.
+func (b *unprintedNodeBatch) flush(ctx context.Context, tx pgx.Tx) error {
+	if b.rows == 0 {
+		return nil
+	}
+	statement := `INSERT INTO corpus_unprinted_syntax_nodes(owner_id,analysis_run_id,corpus_id,sentence_ordinal,source_id,dependency,head_token_ordinal,head_unprinted_node) VALUES ` + b.query.String()
+	if _, err := tx.Exec(ctx, statement, b.args...); err != nil {
+		return err
+	}
+	b.query.Reset()
+	b.args = b.args[:0]
+	b.rows = 0
 	return nil
 }
 
@@ -2127,9 +2238,14 @@ func corpusTokenRow(ownerID, language, runID, corpusID string, sentenceOrdinal, 
 	if offsetErr != nil {
 		return "", nil, fmt.Errorf("persist normalized corpus token %d in sentence %d: end offset overflows bigint: %w", tokenOrdinal, sentenceOrdinal, offsetErr)
 	}
+	// A token headed by a printed token or the root stores NULL, not ''.
+	var headUnprintedNode any
+	if token.HeadUnprintedNode != "" {
+		headUnprintedNode = token.HeadUnprintedNode
+	}
 	var tuple strings.Builder
-	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14, firstArg+15, firstArg+16, firstArg+17)
-	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset, token.LexicalDiscriminator, token.Headword, token.SearchKey}
+	fmt.Fprintf(&tuple, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", firstArg, firstArg+1, firstArg+2, firstArg+3, firstArg+4, firstArg+5, firstArg+6, firstArg+7, firstArg+8, firstArg+9, firstArg+10, firstArg+11, firstArg+12, firstArg+13, firstArg+14, firstArg+15, firstArg+16, firstArg+17, firstArg+18)
+	args := []any{ownerID, language, runID, corpusID, int64(sentenceOrdinal), int64(tokenOrdinal), token.Surface, token.RawLemma, token.CanonicalLemma, token.UPOS, token.Dependency, int64(token.Head), morphologyJSON, startOffset, endOffset, token.LexicalDiscriminator, token.Headword, token.SearchKey, headUnprintedNode}
 	return tuple.String(), args, nil
 }
 
@@ -2260,6 +2376,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	}
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities, Selection: selectionService})
 	river.AddWorker(workers, &BrowseCountsRebuildWorker{Pool: pool})
+	river.AddWorker(workers, &ConstructionRebuildWorker{Pool: pool})
 	if standardWorkers < 1 {
 		standardWorkers = 1
 	}

@@ -60,17 +60,31 @@ class NormalizedCorpus(_message.Message):
     def __init__(self, schema_version: _Optional[str] = ..., language: _Optional[str] = ..., sentences: _Optional[_Iterable[_Union[Sentence, _Mapping]]] = ..., source_documents: _Optional[_Iterable[_Union[SourceDocument, _Mapping]]] = ..., analysis: _Optional[_Union[AnalysisProvenance, _Mapping]] = ..., normalization_profile: _Optional[_Union[NormalizationProfile, _Mapping]] = ...) -> None: ...
 
 class Sentence(_message.Message):
-    __slots__ = ("text", "tokens", "location")
+    __slots__ = ("text", "tokens", "location", "unprinted_nodes")
     TEXT_FIELD_NUMBER: _ClassVar[int]
     TOKENS_FIELD_NUMBER: _ClassVar[int]
     LOCATION_FIELD_NUMBER: _ClassVar[int]
+    UNPRINTED_NODES_FIELD_NUMBER: _ClassVar[int]
     text: str
     tokens: _containers.RepeatedCompositeFieldContainer[Token]
     location: SourceLocation
-    def __init__(self, text: _Optional[str] = ..., tokens: _Optional[_Iterable[_Union[Token, _Mapping]]] = ..., location: _Optional[_Union[SourceLocation, _Mapping]] = ...) -> None: ...
+    unprinted_nodes: _containers.RepeatedCompositeFieldContainer[UnprintedSyntaxNode]
+    def __init__(self, text: _Optional[str] = ..., tokens: _Optional[_Iterable[_Union[Token, _Mapping]]] = ..., location: _Optional[_Union[SourceLocation, _Mapping]] = ..., unprinted_nodes: _Optional[_Iterable[_Union[UnprintedSyntaxNode, _Mapping]]] = ...) -> None: ...
+
+class UnprintedSyntaxNode(_message.Message):
+    __slots__ = ("source_id", "dependency", "head_token_ordinal", "head_unprinted_node")
+    SOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPENDENCY_FIELD_NUMBER: _ClassVar[int]
+    HEAD_TOKEN_ORDINAL_FIELD_NUMBER: _ClassVar[int]
+    HEAD_UNPRINTED_NODE_FIELD_NUMBER: _ClassVar[int]
+    source_id: str
+    dependency: str
+    head_token_ordinal: int
+    head_unprinted_node: str
+    def __init__(self, source_id: _Optional[str] = ..., dependency: _Optional[str] = ..., head_token_ordinal: _Optional[int] = ..., head_unprinted_node: _Optional[str] = ...) -> None: ...
 
 class Token(_message.Message):
-    __slots__ = ("surface", "raw_lemma", "pos", "canonical_lemma", "morphology", "named_entity", "location", "dependency", "head")
+    __slots__ = ("surface", "raw_lemma", "pos", "canonical_lemma", "morphology", "named_entity", "location", "dependency", "head", "head_unprinted_node")
     class MorphologyEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -87,6 +101,7 @@ class Token(_message.Message):
     LOCATION_FIELD_NUMBER: _ClassVar[int]
     DEPENDENCY_FIELD_NUMBER: _ClassVar[int]
     HEAD_FIELD_NUMBER: _ClassVar[int]
+    HEAD_UNPRINTED_NODE_FIELD_NUMBER: _ClassVar[int]
     surface: str
     raw_lemma: str
     pos: str
@@ -96,7 +111,8 @@ class Token(_message.Message):
     location: SourceLocation
     dependency: str
     head: int
-    def __init__(self, surface: _Optional[str] = ..., raw_lemma: _Optional[str] = ..., pos: _Optional[str] = ..., canonical_lemma: _Optional[str] = ..., morphology: _Optional[_Mapping[str, str]] = ..., named_entity: _Optional[str] = ..., location: _Optional[_Union[SourceLocation, _Mapping]] = ..., dependency: _Optional[str] = ..., head: _Optional[int] = ...) -> None: ...
+    head_unprinted_node: str
+    def __init__(self, surface: _Optional[str] = ..., raw_lemma: _Optional[str] = ..., pos: _Optional[str] = ..., canonical_lemma: _Optional[str] = ..., morphology: _Optional[_Mapping[str, str]] = ..., named_entity: _Optional[str] = ..., location: _Optional[_Union[SourceLocation, _Mapping]] = ..., dependency: _Optional[str] = ..., head: _Optional[int] = ..., head_unprinted_node: _Optional[str] = ...) -> None: ...
 
 class SourceDocument(_message.Message):
     __slots__ = ("id", "source_identifier", "title")

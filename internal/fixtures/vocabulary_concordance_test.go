@@ -143,3 +143,24 @@ func TestFixtureConcordanceAppliesSuppliedAndFormInterpretations(t *testing.T) {
 		assert.Empty(t, unrecognized.Occurrences)
 	})
 }
+
+// TestFixtureSyntaxPresentationServesANativeAGDTSentence exercises the Greek
+// native_agdt fixture so browser acceptance can open Word relations.
+func TestFixtureSyntaxPresentationServesANativeAGDTSentence(t *testing.T) {
+	store := NewStore()
+	ctx := t.Context()
+
+	concordance, err := store.ListVocabularyConcordance(ctx, OwnerID, "de", domain.ConcordanceLookup{Language: "de", Term: "fixture-syntax"})
+	require.NoError(t, err)
+	require.Len(t, concordance.Occurrences, 1)
+	occurrence := concordance.Occurrences[0]
+	assert.Equal(t, "ὅτι", occurrence.Surface)
+
+	study, err := store.GetVocabularySentenceStudy(ctx, OwnerID, occurrence.BookID, ResultRunID, "fixture-corpus", occurrence.UnitID, 0, occurrence.TokenOrdinal, occurrence.Surface)
+	require.NoError(t, err)
+	assert.Equal(t, "native_agdt", study.SyntaxState)
+	require.Len(t, study.Tokens, 6)
+	assert.Equal(t, "e_1", study.Tokens[2].HeadUnprintedNode)
+	require.Len(t, study.UnprintedNodes, 1)
+	assert.Equal(t, "e_1", study.UnprintedNodes[0].SourceID)
+}

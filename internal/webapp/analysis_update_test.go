@@ -77,7 +77,7 @@ func TestReadingChooserOffersAConfirmedAnalysisUpdate(t *testing.T) {
 	assert.Contains(t, body, `<details class="confirmation`, "the confirmation is a native disclosure that works without JavaScript")
 	assert.Contains(t, body, "Update analysis")
 	assert.Contains(t, body, "The published analysis stays in effect until the update publishes.")
-	assert.Contains(t, body, "Your 1 confirmed lemma correction and 2 occurrence exclusions on it do not carry over to the new analysis.")
+	assert.Contains(t, body, "Your 1 confirmed lemma correction and 2 occurrence exclusions carry over wherever the word is unchanged in the new analysis.")
 	assert.Contains(t, body, "Prepared decks and earlier Readings keep the evidence they froze.")
 	assert.Contains(t, body, `action="/reading/books/fixture-route-match/analysis-update"`)
 	assert.Contains(t, body, `name="expected_run_id" value="published-run"`)
@@ -204,14 +204,39 @@ func TestAnalysisUpdateDecisionsText(t *testing.T) {
 		want                    string
 	}{
 		{"none", 0, 0, "You have no confirmed lemma corrections or occurrence exclusions on it."},
-		{"both", 2, 1, "Your 2 confirmed lemma corrections and 1 occurrence exclusion on it do not carry over to the new analysis."},
-		{"exclusions only", 0, 3, "Your 3 occurrence exclusions on it do not carry over to the new analysis."},
-		{"one correction", 1, 0, "Your 1 confirmed lemma correction on it does not carry over to the new analysis."},
+		{"both", 2, 1, "Your 2 confirmed lemma corrections and 1 occurrence exclusion carry over wherever the word is unchanged in the new analysis."},
+		{"exclusions only", 0, 3, "Your 3 occurrence exclusions carry over wherever the word is unchanged in the new analysis."},
+		{"one correction", 1, 0, "Your 1 confirmed lemma correction carries over wherever the word is unchanged in the new analysis."},
+		{"one exclusion", 0, 1, "Your 1 occurrence exclusion carries over wherever the word is unchanged in the new analysis."},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, analysisUpdateDecisionsText(tt.corrections, tt.exclusions))
 		})
 	}
+}
+
+func TestAnalysisUpdateConfirmationLinesLeadWithAChangeNoteOnlyWhenThereIsOne(t *testing.T) {
+	without := analysisUpdateConfirmationLines("", 1, 0)
+	assert.Equal(t, "The published analysis stays in effect until the update publishes. "+
+		"Your 1 confirmed lemma correction carries over wherever the word is unchanged in the new analysis. "+
+		"Prepared decks and earlier Readings keep the evidence they froze.", without)
+
+	with := analysisUpdateConfirmationLines("Adds a synthetic feature.", 1, 0)
+	assert.Equal(t, "Adds a synthetic feature. "+without, with, "the note comes first, before the three lines")
+
+	none := analysisUpdateConfirmationLines("", 0, 0)
+	assert.Contains(t, none, "You have no confirmed lemma corrections or occurrence exclusions on it.")
+	assert.NotContains(t, none, "carry over", "with zero decisions the carry-over line is omitted")
+}
+
+func TestAnalysisUpdateChangeNoteIsOnlyLookedUpForAClassicalTarget(t *testing.T) {
+	note, ok := analysisUpdateChangeNote(testUpdateTarget)
+	assert.False(t, ok, "an NLP target never has a change note")
+	assert.Empty(t, note)
+
+	classicalTarget := domain.AnalysisUpdateTarget{AnalyzerName: analysis.ClassicalUpdateAnalyzerName, AnalyzerVersion: "no-such-version"}
+	_, ok = analysisUpdateChangeNote(classicalTarget)
+	assert.False(t, ok, "a Classical version without a note shows no line")
 }
 
 func TestMyBookAnalysisUpdateNeedsAnOfferedCandidate(t *testing.T) {

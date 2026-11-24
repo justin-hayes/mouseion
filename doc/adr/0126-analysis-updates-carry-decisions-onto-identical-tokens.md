@@ -1,6 +1,6 @@
 # ADR 0126: Analysis updates carry decisions onto identical tokens
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Amends [ADR 0107](0107-analysis-pipeline-identity-and-analysis-updates.md)'s
 frozen boundaries ("never remaps Lemma corrections or Occurrence exclusions")

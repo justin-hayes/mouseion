@@ -26,6 +26,9 @@ type PreparedDeckCandidateFacts struct {
 	// empty when the pinned translation has not been imported.
 	ReferenceTranslations map[string]string
 	ReferencePin          string
+	// SyntaxState is the recorded syntax state of the analysis run the
+	// sentences come from.
+	SyntaxState string
 }
 
 // PreparedDeckInputFacts is the transaction-consistent read model used by the
@@ -376,6 +379,10 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
+	syntaxState, err := corpusSyntaxState(ctx, tx, preparation.OwnerID, corpusID)
+	if err != nil {
+		return nil, err
+	}
 	result := make([]PreparedDeckCandidateFacts, 0, len(selected))
 	for _, candidate := range selected {
 		entry, entryErr := loadPreparedDeckCandidateEntryTx(ctx, tx, preparation, corpusID, useProjectedEntry, candidate)
@@ -385,9 +392,27 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 		result = append(result, PreparedDeckCandidateFacts{
 			Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID],
 			ReferenceTranslations: referenceTranslations, ReferencePin: referencePin,
+			SyntaxState: syntaxState,
 		})
 	}
 	return result, nil
+}
+
+// corpusSyntaxState reads the recorded syntax state of the analysis run that
+// produced a corpus.
+func corpusSyntaxState(ctx context.Context, tx pgx.Tx, owner, corpusID string) (string, error) {
+	if corpusID == "" {
+		return "", nil
+	}
+	var state string
+	err := tx.QueryRow(ctx, `
+		SELECT r.syntax_state
+		FROM corpora c JOIN analysis_runs r ON r.owner_id = c.owner_id AND r.id = c.analysis_run_id
+		WHERE c.owner_id = $1 AND c.id = $2`, owner, corpusID).Scan(&state)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return state, err
 }
 
 // definitionReferenceTranslations loads the installation-wide translation rows

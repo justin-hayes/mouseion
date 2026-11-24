@@ -1,0 +1,14 @@
+{"detector_version":2}
+{"sentence":0,"construction":"conditional","subtype":"","anchor":0,"extent":[0,1]}
+{"sentence":2,"construction":"articular_infinitive","subtype":"genitive","anchor":1,"extent":[0,1]}
+{"sentence":3,"construction":"result","subtype":"natural","anchor":1,"extent":[1,2]}
+{"sentence":4,"construction":"result","subtype":"","anchor":1,"extent":[1,2]}
+{"sentence":5,"construction":"purpose","subtype":"","anchor":1,"extent":[1,2]}
+{"sentence":6,"construction":"genitive_absolute","subtype":"","anchor":1,"extent":[0,1]}
+{"sentence":8,"construction":"indirect_statement","subtype":"infinitive","anchor":2,"extent":[1,2]}
+{"sentence":9,"construction":"indirect_statement","subtype":"","anchor":1,"extent":[1,2]}
+{"sentence":10,"construction":"result","subtype":"","anchor":1,"extent":[1]}
+{"sentence":11,"construction":"articular_infinitive","subtype":"","anchor":2,"extent":[0,2]}
+{"sentence":12,"construction":"result","subtype":"","anchor":1,"extent":[1,2]}
+{"sentence":14,"construction":"result","subtype":"natural","anchor":1,"extent":[1,2,3,4]}
+{"sentence":16,"construction":"genitive_absolute","subtype":"","anchor":1,"extent":[0,1]}

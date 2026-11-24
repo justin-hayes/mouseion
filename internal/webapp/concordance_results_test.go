@@ -406,7 +406,7 @@ func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) 
 		},
 	}
 	var rendered bytes.Buffer
-	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance").Render(t.Context(), &rendered); err != nil {
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance", "").Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
 	}
 	body := rendered.String()
@@ -453,7 +453,7 @@ func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) 
 
 	noEvidence := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Nur Text.", TargetSurface: "Wort"}
 	rendered.Reset()
-	if err := VocabularySentenceStudyPageView(domain.User{}, "", noEvidence, "/vocabulary/concordance").Render(t.Context(), &rendered); err != nil {
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", noEvidence, "/vocabulary/concordance", "").Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
 	}
 	body = rendered.String()
@@ -490,7 +490,7 @@ func TestSentenceStudyTextAlternativeShowsUnresolvedDecisionsSeparately(t *testi
 		},
 	}
 	var rendered bytes.Buffer
-	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance").Render(t.Context(), &rendered); err != nil {
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance", "").Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
 	}
 	body := rendered.String()

@@ -753,3 +753,58 @@ func insertConcordanceAnalysis(t *testing.T, ctx context.Context, store *Postgre
 		}
 	}
 }
+
+// TestGetVocabularySentenceStudyReadsUnprintedSyntax holds the native_agdt read
+// path: a token headed by an unprinted node returns the node's source id and no
+// head surface (its stored head is its own ordinal), and the sentence's
+// unprinted nodes are read only for a native_agdt run.
+func TestGetVocabularySentenceStudyReadsUnprintedSyntax(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "sentence-study-unprinted", false)
+	require.NoError(t, err)
+
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Unprinted Book", "study-unprinted", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Das Haus steht.", 0, 15),
+	})
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "Das Haus steht.", Start: 0, End: 15, Tokens: []concordanceToken{
+			{Surface: "Das", Lemma: "das", Upos: "DET", Dependency: "ATR", Head: 1, Start: 0, End: 3},
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "SBJ", Head: 1, Start: 4, End: 8},
+			{Surface: "steht", Lemma: "stehen", Upos: "VERB", Dependency: "PRED", Head: 2, Start: 9, End: 14},
+		}},
+	})
+	corpusID := corpusIDForSource(t, ctx, store, owner.ID, source.ID)
+	var runID string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID).Scan(&runID))
+
+	_, err = store.Pool().Exec(ctx, `INSERT INTO corpus_unprinted_syntax_nodes
+		(owner_id, analysis_run_id, corpus_id, sentence_ordinal, source_id, dependency, head_token_ordinal)
+		VALUES ($1, $2, $3, 0, 'e_1', 'OBJ', 2)`, owner.ID, runID, corpusID)
+	require.NoError(t, err)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_tokens SET head=token_ordinal, head_unprinted_node='e_1'
+		WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0 AND token_ordinal=0`, owner.ID, runID)
+	require.NoError(t, err)
+
+	t.Run("an ordinary run reads no unprinted nodes", func(t *testing.T) {
+		study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, "epub-unit-v1:0:chapter", 0, 1, "Haus")
+		require.NoError(t, err)
+		assert.Empty(t, study.UnprintedNodes)
+	})
+
+	_, err = store.Pool().Exec(ctx, `UPDATE analysis_runs SET syntax_state='native_agdt' WHERE owner_id=$1 AND id=$2`, owner.ID, runID)
+	require.NoError(t, err)
+	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, runID, corpusID, "epub-unit-v1:0:chapter", 0, 1, "Haus")
+	require.NoError(t, err)
+
+	t.Run("a token headed by an unprinted node names it and has no head surface", func(t *testing.T) {
+		require.Len(t, study.Tokens, 3)
+		assert.Equal(t, "e_1", study.Tokens[0].HeadUnprintedNode)
+		assert.Empty(t, study.Tokens[0].HeadSurface)
+		assert.Empty(t, study.Tokens[1].HeadUnprintedNode)
+		assert.Equal(t, "Haus", study.Tokens[1].HeadSurface, "an ordinary head still resolves by ordinal")
+	})
+	t.Run("the sentence's unprinted nodes are read for a native_agdt run", func(t *testing.T) {
+		assert.Equal(t, []domain.UnprintedSyntaxNode{{SourceID: "e_1", Dependency: "OBJ", HeadTokenOrdinal: 2, HasHeadToken: true}}, study.UnprintedNodes)
+	})
+}

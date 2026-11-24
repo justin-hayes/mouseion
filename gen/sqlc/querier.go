@@ -85,6 +85,7 @@ type Querier interface {
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteCatalogueEntriesNotSeenParams) (int64, error)
 	DeleteClassicalPreparationFailure(ctx context.Context, arg DeleteClassicalPreparationFailureParams) error
+	DeleteConstructionOccurrences(ctx context.Context, arg DeleteConstructionOccurrencesParams) error
 	DeleteCurrentReading(ctx context.Context, arg DeleteCurrentReadingParams) error
 	DeleteEPUBAcquisitionFailure(ctx context.Context, arg DeleteEPUBAcquisitionFailureParams) error
 	DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error)
@@ -137,6 +138,22 @@ type Querier interface {
 	// An owned Book in the study language, with whether it has a current analysis
 	// that can contribute occurrences.
 	GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error)
+	// The origin occurrence of a construction lookup (ADR 0125): the owner's run
+	// (current or historical), the Book it analysed, the sentence and anchor word
+	// the lookup came from, and the Work and author of the Book's Reading unit.
+	// Only result rows must come from current analyses; the origin may not. No row
+	// means the run is not the owner's, the Book is not a chosen-language Book
+	// whose Reading unit has a Work, or the sentence or word does not exist, so the
+	// caller sends the safe restart. current says whether the run is still the
+	// Book's current analysis: Sentence study reads only those, so a historical
+	// origin has no sentence to link back to.
+	GetConstructionOrigin(ctx context.Context, arg GetConstructionOriginParams) (GetConstructionOriginRow, error)
+	// Construction occurrences: a derived reading of a native_agdt run's stored
+	// syntax (ADR 0123). Lemma corrections and Occurrence exclusions are never
+	// read here.
+	// The run's syntax state, its corpus and its language. A run with no corpus
+	// yet has nothing to build from.
+	GetConstructionRunSource(ctx context.Context, arg GetConstructionRunSourceParams) (GetConstructionRunSourceRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
 	// Card export and generated-vocabulary persistence queries.
 	GetCorpusForAnalysis(ctx context.Context, arg GetCorpusForAnalysisParams) (GetCorpusForAnalysisRow, error)
@@ -213,6 +230,10 @@ type Querier interface {
 	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
 	GetRegisteredBookID(ctx context.Context, arg GetRegisteredBookIDParams) (string, error)
+	// One sentence's Construction occurrences, read only when the run's marker
+	// carries the current detector version. No marker, or an older one, returns no
+	// rows.
+	GetSentenceStudyConstructions(ctx context.Context, arg GetSentenceStudyConstructionsParams) ([]GetSentenceStudyConstructionsRow, error)
 	// Stored occurrence decisions addressing the selected sentence, each with the
 	// number of persisted analyzed words its exact owner/Book/analysis/
 	// source-document/span addresses. The count spans the whole addressed scope,
@@ -220,6 +241,9 @@ type Querier interface {
 	// decision is not unique. The decision is attributed only when this count is
 	// exactly one and the addressed word is in the selected sentence.
 	GetSentenceStudyDecisions(ctx context.Context, arg GetSentenceStudyDecisionsParams) ([]GetSentenceStudyDecisionsRow, error)
+	// The Unprinted syntax nodes of one sentence of a native_agdt run. A run of any
+	// other syntax state stores none, and the caller does not ask.
+	GetSentenceStudyUnprintedNodes(ctx context.Context, arg GetSentenceStudyUnprintedNodesParams) ([]GetSentenceStudyUnprintedNodesRow, error)
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
 	GetSourceContentRevisionByDigest(ctx context.Context, arg GetSourceContentRevisionByDigestParams) (string, error)
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)
@@ -251,6 +275,7 @@ type Querier interface {
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertBookReadingUnit(ctx context.Context, arg InsertBookReadingUnitParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
+	InsertConstructionOccurrence(ctx context.Context, arg InsertConstructionOccurrenceParams) error
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
 	// Inserts the identities the domain decided to accept, only where absent.
 	// Which identities become Known is never decided here.
@@ -292,6 +317,41 @@ type Querier interface {
 	// identifier the index browses. A removed Book contributes no ownership.
 	ListCatalogueEntryBooksForConnection(ctx context.Context, arg ListCatalogueEntryBooksForConnectionParams) ([]ListCatalogueEntryBooksForConnectionRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
+	// One page of construction parallels (ADR 0125), read in fenced stages like
+	// ListVocabularyConcordance:
+	//   candidates  the owner's rows for one construction and optional subtype,
+	//               without the origin occurrence.
+	//   eligible    the owner's current analyses of chosen-language Books whose
+	//               readiness marker carries the current detector version, with
+	//               each Book's Work and Reading unit. A run with no marker, or an
+	//               older one, contributes nothing.
+	//   ranked      candidates in an eligible run, their tier and order, paged.
+	//   (final)     the page's at most 27 rows fetch the wide text.
+	// Eligibility matches the word lookups' (owner, chosen language, current
+	// analysis identity, and the unit in the snapshot). Corrections and exclusions
+	// are not read, unless the learner asks for "Only with {lemma}": then the
+	// anchor's effective lemma (a correction's lemma, else the token's) must equal
+	// the lemma key, and an anchor with an exclusion is dropped. Without a lemma
+	// the decisions are never touched: detection ignores them.
+	// Tiers: this_book is the origin Book, this_author is every Book whose Work's
+	// author equals the origin Work's author exactly, other_authors the rest.
+	// Order: this_author lists the origin Work first; then author, Work title,
+	// Reading-unit order (constituent_book, then definition key), unit, sentence and
+	// anchor.
+	ListConstructionConcordance(ctx context.Context, arg ListConstructionConcordanceParams) ([]ListConstructionConcordanceRow, error)
+	// The analyzed words of one sentence with their unit offsets, for the extract
+	// an expanded parallels row reprints.
+	ListConstructionSentenceWords(ctx context.Context, arg ListConstructionSentenceWordsParams) ([]ListConstructionSentenceWordsRow, error)
+	// Every printed token of a run, in sentence and token order. Raw lemma and
+	// morphology only: the effective lemma is never an input.
+	ListConstructionTokens(ctx context.Context, arg ListConstructionTokensParams) ([]ListConstructionTokensRow, error)
+	// Every unprinted syntax node of a run, in sentence and source id order.
+	ListConstructionUnprintedNodes(ctx context.Context, arg ListConstructionUnprintedNodesParams) ([]ListConstructionUnprintedNodesRow, error)
+	// The owner's chosen-language Books in the lookup language whose current
+	// analysis has no construction evidence: an absent run (an older Greek import)
+	// or a Stanza-path run. A native_agdt run is never listed, even when its marker
+	// is behind: that is a rebuild, and it stays silent.
+	ListConstructionUnsearchedBooks(ctx context.Context, arg ListConstructionUnsearchedBooksParams) ([]ListConstructionUnsearchedBooksRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
@@ -496,6 +556,7 @@ type Querier interface {
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
 	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
 	UpsertCatalogueEntry(ctx context.Context, arg UpsertCatalogueEntryParams) error
+	UpsertConstructionRunMarker(ctx context.Context, arg UpsertConstructionRunMarkerParams) error
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error

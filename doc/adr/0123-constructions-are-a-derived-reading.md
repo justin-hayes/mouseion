@@ -1,6 +1,6 @@
 # ADR 0123: Constructions are a derived, versioned reading of a frozen parse
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Narrows how [ADR 0103](0103-source-structure-and-poetry-evidence.md),
 [ADR 0107](0107-analysis-pipeline-identity-and-analysis-updates.md) and

@@ -93,15 +93,17 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	// Browse updates in the same transaction: the corrected homograph's old
 	// discriminated identity is gone and the new bare λύω identity appears,
 	// while every other identity keeps its exact count.
-	assert.Equal(t, map[string]int64{
+	decided := map[string]int64{
 		"λύω|VERB|":             1,
 		"λέγω|VERB|":            1,
 		"λόγοσ|NOUN|":           1,
 		"λόγοσ|NOUN|morpheus:1": 1,
-	}, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID))
+	}
+	assert.Equal(t, decided, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID))
 
 	// Re-importing the same pin under a new interpretation version is a new
-	// analysis run; none of the earlier decisions apply to it.
+	// analysis run. Its tokens are identical, so both decisions carry onto it
+	// (ADR 0126).
 	definition, sourcePath := browseFixtureImport(t)
 	definition.InterpretationVersion = "oga-agdt-upos/6"
 	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
@@ -118,23 +120,30 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 		corrections = append(corrections, occurrence.CorrectedLemma)
 		exclusions = append(exclusions, occurrence.Excluded)
 	}
-	assert.Equal(t, []string{"", ""}, corrections, "a new analysis run carries no correction from the old run")
-	assert.Equal(t, []bool{false, false}, exclusions, "a new analysis run carries no exclusion from the old run")
-	assert.Equal(t, initial, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID),
-		"the new run's projection holds no decision from the old run")
+	assert.Equal(t, []string{"λύω", ""}, corrections, "the correction carries onto the identical token")
+	assert.Equal(t, []bool{false, true}, exclusions, "and so does the exclusion")
+	assert.Equal(t, decided, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID),
+		"the new run's projection already reflects the carried decisions")
 }
 
 // confirmLemmaDecision previews and confirms one decision through the review
 // form, using the fingerprint the preview returned.
 func confirmLemmaDecision(t *testing.T, h http.Handler, reviewPath string, cookies []*http.Cookie, csrf, decision, lemma, occurrenceID string) {
 	t.Helper()
+	confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, "δέω", decision, lemma, occurrenceID)
+}
+
+// confirmLemmaDecisionForm previews and confirms one decision on an occurrence
+// of a surface form through the lemma-review routes.
+func confirmLemmaDecisionForm(t *testing.T, h http.Handler, reviewPath string, cookies []*http.Cookie, csrf, form, decision, lemma, occurrenceID string) {
+	t.Helper()
 	preview := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"δέω"}, "target": {occurrenceID},
+		"csrf_token": {csrf}, "stage": {"preview"}, "form": {form}, "target": {occurrenceID},
 		"decision": {decision}, "lemma": {lemma},
 	}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code, "preview %s body=%s", decision, preview.Body.String())
 	confirm := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"δέω"}, "decision": {decision}, "lemma": {lemma},
+		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {form}, "decision": {decision}, "lemma": {lemma},
 		"fingerprint": {previewFingerprint(t, preview.Body.String())}, "selected": {occurrenceID},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, confirm.Code, "confirm %s body=%s", decision, confirm.Body.String())

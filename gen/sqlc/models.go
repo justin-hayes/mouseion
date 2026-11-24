@@ -10,6 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AnalysisDecisionCarryOver struct {
+	OwnerID               string
+	BookID                string
+	AnalysisRunID         string
+	PreviousAnalysisRunID string
+	RiverJobID            pgtype.Int8
+	Carried               int
+	Total                 int
+	CreatedAt             time.Time
+}
+
 type AnalysisJob struct {
 	RiverJobID       int64
 	OwnerID          string
@@ -245,6 +256,26 @@ type ConcordanceOccurrence struct {
 	TokenOrdinal        int64
 }
 
+type ConstructionOccurrence struct {
+	OwnerID             string
+	CorpusID            string
+	AnalysisRunID       string
+	SentenceOrdinal     int64
+	Language            string
+	ConstructionID      string
+	SubtypeID           pgtype.Text
+	AnchorTokenOrdinal  int64
+	ExtentTokenOrdinals []int64
+}
+
+type ConstructionRunMarker struct {
+	OwnerID         string
+	CorpusID        string
+	AnalysisRunID   string
+	DetectorVersion int
+	BuiltAt         time.Time
+}
+
 type Corpora struct {
 	ID                       string
 	OwnerID                  string
@@ -295,6 +326,18 @@ type CorpusToken struct {
 	LexicalDiscriminator string
 	Headword             string
 	SearchKey            string
+	HeadUnprintedNode    pgtype.Text
+}
+
+type CorpusUnprintedSyntaxNode struct {
+	OwnerID           string
+	AnalysisRunID     string
+	CorpusID          string
+	SentenceOrdinal   int64
+	SourceID          string
+	Dependency        string
+	HeadTokenOrdinal  pgtype.Int8
+	HeadUnprintedNode pgtype.Text
 }
 
 type CuratedSentence struct {

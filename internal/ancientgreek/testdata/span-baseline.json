@@ -1,0 +1,4996 @@
+{
+  "oga-src-book1.conllu": {
+    "fullText": "λέγει Κῦρος· καὶ λέγουσι;\nλέγει Κῦρος λέλυκε λύειν\nἈρταξέρξης βασιλεύς",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "λέγει Κῦρος· καὶ λέγουσι;",
+        "start": 0,
+        "end": 25,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λέγει",
+            "rawLemma": "λέγω1",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "morpheus:1",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 0,
+            "end": 5
+          },
+          {
+            "ordinal": 1,
+            "surface": "Κῦρος",
+            "rawLemma": "κῦρος",
+            "canonicalLemma": "κῦροσ",
+            "headword": "κῦρος",
+            "discriminator": "",
+            "searchKey": "κῦροσ",
+            "upos": "PROPN",
+            "start": 6,
+            "end": 11
+          },
+          {
+            "ordinal": 2,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 11,
+            "end": 12
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 13,
+            "end": 16
+          },
+          {
+            "ordinal": 4,
+            "surface": "λέγουσι",
+            "rawLemma": "λέγω2",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "morpheus:2",
+            "searchKey": "λέγουσι",
+            "upos": "VERB",
+            "start": 17,
+            "end": 24
+          },
+          {
+            "ordinal": 5,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 24,
+            "end": 25
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "λέγει Κῦρος λέλυκε λύειν",
+        "start": 26,
+        "end": 50,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 26,
+            "end": 31
+          },
+          {
+            "ordinal": 1,
+            "surface": "Κῦρος",
+            "rawLemma": "κῦρος",
+            "canonicalLemma": "κῦροσ",
+            "headword": "κῦρος",
+            "discriminator": "",
+            "searchKey": "κῦροσ",
+            "upos": "PROPN",
+            "start": 32,
+            "end": 37
+          },
+          {
+            "ordinal": 2,
+            "surface": "λέλυκε",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λέλυκε",
+            "upos": "VERB",
+            "start": 38,
+            "end": 44
+          },
+          {
+            "ordinal": 3,
+            "surface": "λύειν",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λύειν",
+            "upos": "VERB",
+            "start": 45,
+            "end": 50
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "Ἀρταξέρξης βασιλεύς",
+        "start": 51,
+        "end": 70,
+        "citations": [
+          "2.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "Ἀρταξέρξης",
+            "rawLemma": "ἀρταξέρξης",
+            "canonicalLemma": "ἀρταξέρξησ",
+            "headword": "ἀρταξέρξης",
+            "discriminator": "",
+            "searchKey": "ἀρταξέρξησ",
+            "upos": "PROPN",
+            "start": 51,
+            "end": 61
+          },
+          {
+            "ordinal": 1,
+            "surface": "βασιλεύς",
+            "rawLemma": "βασιλεύς",
+            "canonicalLemma": "βασιλεύσ",
+            "headword": "βασιλεύς",
+            "discriminator": "",
+            "searchKey": "βασιλεύσ",
+            "upos": "NOUN",
+            "start": 62,
+            "end": 70
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-browse.conllu": {
+    "fullText": "λόγος δέω λέγει\nλόγος δέω Κῦρος",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "λόγος δέω λέγει",
+        "start": 0,
+        "end": 15,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λόγος",
+            "rawLemma": "λόγος1",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "morpheus:1",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 0,
+            "end": 5
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 6,
+            "end": 9
+          },
+          {
+            "ordinal": 2,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 10,
+            "end": 15
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "λόγος δέω Κῦρος",
+        "start": 16,
+        "end": 31,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 16,
+            "end": 21
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 22,
+            "end": 25
+          },
+          {
+            "ordinal": 2,
+            "surface": "Κῦρος",
+            "rawLemma": "κῦρος",
+            "canonicalLemma": "κῦροσ",
+            "headword": "κῦρος",
+            "discriminator": "",
+            "searchKey": "κῦροσ",
+            "upos": "PROPN",
+            "start": 26,
+            "end": 31
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-constructions.conllu": {
+    "fullText": "ἔφη ὅτι ἔπαυσεν τοῦ λύειν\nἔφη Κῦρον λύειν\nἄρχεται\nλέγει",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ἔφη ὅτι ἔπαυσεν τοῦ λύειν",
+        "start": 0,
+        "end": 25,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἔφη",
+            "rawLemma": "φημί",
+            "canonicalLemma": "φημί",
+            "headword": "φημί",
+            "discriminator": "",
+            "searchKey": "ἔφη",
+            "upos": "VERB",
+            "start": 0,
+            "end": 3
+          },
+          {
+            "ordinal": 1,
+            "surface": "ὅτι",
+            "rawLemma": "ὅτι",
+            "canonicalLemma": "ὅτι",
+            "headword": "ὅτι",
+            "discriminator": "",
+            "searchKey": "ὅτι",
+            "upos": "SCONJ",
+            "start": 4,
+            "end": 7
+          },
+          {
+            "ordinal": 2,
+            "surface": "ἔπαυσεν",
+            "rawLemma": "παύω",
+            "canonicalLemma": "παύω",
+            "headword": "παύω",
+            "discriminator": "",
+            "searchKey": "ἔπαυσεν",
+            "upos": "VERB",
+            "start": 8,
+            "end": 15
+          },
+          {
+            "ordinal": 3,
+            "surface": "τοῦ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τοῦ",
+            "upos": "DET",
+            "start": 16,
+            "end": 19
+          },
+          {
+            "ordinal": 4,
+            "surface": "λύειν",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λύειν",
+            "upos": "VERB",
+            "start": 20,
+            "end": 25
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "ἔφη Κῦρον λύειν",
+        "start": 26,
+        "end": 41,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἔφη",
+            "rawLemma": "φημί",
+            "canonicalLemma": "φημί",
+            "headword": "φημί",
+            "discriminator": "",
+            "searchKey": "ἔφη",
+            "upos": "VERB",
+            "start": 26,
+            "end": 29
+          },
+          {
+            "ordinal": 1,
+            "surface": "Κῦρον",
+            "rawLemma": "κῦρος",
+            "canonicalLemma": "κῦροσ",
+            "headword": "κῦρος",
+            "discriminator": "",
+            "searchKey": "κῦρον",
+            "upos": "PROPN",
+            "start": 30,
+            "end": 35
+          },
+          {
+            "ordinal": 2,
+            "surface": "λύειν",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λύειν",
+            "upos": "VERB",
+            "start": 36,
+            "end": 41
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "ἄρχεται",
+        "start": 42,
+        "end": 49,
+        "citations": [
+          "1.1.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἄρχεται",
+            "rawLemma": "ἄρχω",
+            "canonicalLemma": "ἄρχω",
+            "headword": "ἄρχω",
+            "discriminator": "",
+            "searchKey": "ἄρχεται",
+            "upos": "VERB",
+            "start": 42,
+            "end": 49
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "λέγει",
+        "start": 50,
+        "end": 55,
+        "citations": [
+          "2.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 50,
+            "end": 55
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-deck-omission.conllu": {
+    "fullText": "δέω νῦν.\nδέω πάλιν.\nδέω αὖ.\nἄνθρωπος ὁρᾷ τὸν λόγον καὶ λόγον καὶ λόγον βραδέως;",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "δέω νῦν.",
+        "start": 0,
+        "end": 8,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 0,
+            "end": 3
+          },
+          {
+            "ordinal": 1,
+            "surface": "νῦν",
+            "rawLemma": "νῦν",
+            "canonicalLemma": "νῦν",
+            "headword": "νῦν",
+            "discriminator": "",
+            "searchKey": "νῦν",
+            "upos": "ADV",
+            "start": 4,
+            "end": 7
+          },
+          {
+            "ordinal": 2,
+            "surface": ".",
+            "rawLemma": ".",
+            "canonicalLemma": ".",
+            "headword": ".",
+            "discriminator": "",
+            "searchKey": ".",
+            "upos": "PUNCT",
+            "start": 7,
+            "end": 8
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "δέω πάλιν.",
+        "start": 9,
+        "end": 19,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 9,
+            "end": 12
+          },
+          {
+            "ordinal": 1,
+            "surface": "πάλιν",
+            "rawLemma": "πάλιν",
+            "canonicalLemma": "πάλιν",
+            "headword": "πάλιν",
+            "discriminator": "",
+            "searchKey": "πάλιν",
+            "upos": "ADV",
+            "start": 13,
+            "end": 18
+          },
+          {
+            "ordinal": 2,
+            "surface": ".",
+            "rawLemma": ".",
+            "canonicalLemma": ".",
+            "headword": ".",
+            "discriminator": "",
+            "searchKey": ".",
+            "upos": "PUNCT",
+            "start": 18,
+            "end": 19
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "δέω αὖ.",
+        "start": 20,
+        "end": 27,
+        "citations": [
+          "1.1.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 20,
+            "end": 23
+          },
+          {
+            "ordinal": 1,
+            "surface": "αὖ",
+            "rawLemma": "αὖ",
+            "canonicalLemma": "αὖ",
+            "headword": "αὖ",
+            "discriminator": "",
+            "searchKey": "αὖ",
+            "upos": "ADV",
+            "start": 24,
+            "end": 26
+          },
+          {
+            "ordinal": 2,
+            "surface": ".",
+            "rawLemma": ".",
+            "canonicalLemma": ".",
+            "headword": ".",
+            "discriminator": "",
+            "searchKey": ".",
+            "upos": "PUNCT",
+            "start": 26,
+            "end": 27
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ λόγον καὶ λόγον βραδέως;",
+        "start": 28,
+        "end": 79,
+        "citations": [
+          "1.1.4"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἄνθρωπος",
+            "rawLemma": "ἄνθρωπος",
+            "canonicalLemma": "ἄνθρωποσ",
+            "headword": "ἄνθρωπος",
+            "discriminator": "",
+            "searchKey": "ἄνθρωποσ",
+            "upos": "NOUN",
+            "start": 28,
+            "end": 36
+          },
+          {
+            "ordinal": 1,
+            "surface": "ὁρᾷ",
+            "rawLemma": "ὁράω",
+            "canonicalLemma": "ὁράω",
+            "headword": "ὁράω",
+            "discriminator": "",
+            "searchKey": "ὁρᾷ",
+            "upos": "VERB",
+            "start": 37,
+            "end": 40
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 41,
+            "end": 44
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 45,
+            "end": 50
+          },
+          {
+            "ordinal": 4,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 51,
+            "end": 54
+          },
+          {
+            "ordinal": 5,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 55,
+            "end": 60
+          },
+          {
+            "ordinal": 6,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 61,
+            "end": 64
+          },
+          {
+            "ordinal": 7,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 65,
+            "end": 70
+          },
+          {
+            "ordinal": 8,
+            "surface": "βραδέως",
+            "rawLemma": "βραδέως",
+            "canonicalLemma": "βραδέωσ",
+            "headword": "βραδέως",
+            "discriminator": "",
+            "searchKey": "βραδέωσ",
+            "upos": "ADV",
+            "start": 71,
+            "end": 78
+          },
+          {
+            "ordinal": 9,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 78,
+            "end": 79
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-deck.conllu": {
+    "fullText": "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ δέω βραδέως;\nγυνὴ φιλεῖ τὴν λόγον σοφίαν καὶ δέω ταχέως;\nπαῖς γράφει τὸν λόγον σοφὸν καὶ δέω σαφῶς·\nἀνὴρ ἀκούει τὸν λόγον μέγαν καὶ δέω νῦν·\nθεὸς βλέπει τὸν λόγον σοφὸν καὶ δέω πάλιν·\nἵππος λέγει τὸν λόγον καλὸν καὶ δέω πρὶν.",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ δέω βραδέως;",
+        "start": 0,
+        "end": 39,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἄνθρωπος",
+            "rawLemma": "ἄνθρωπος",
+            "canonicalLemma": "ἄνθρωποσ",
+            "headword": "ἄνθρωπος",
+            "discriminator": "",
+            "searchKey": "ἄνθρωποσ",
+            "upos": "NOUN",
+            "start": 0,
+            "end": 8
+          },
+          {
+            "ordinal": 1,
+            "surface": "ὁρᾷ",
+            "rawLemma": "ὁράω",
+            "canonicalLemma": "ὁράω",
+            "headword": "ὁράω",
+            "discriminator": "",
+            "searchKey": "ὁρᾷ",
+            "upos": "VERB",
+            "start": 9,
+            "end": 12
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 13,
+            "end": 16
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 17,
+            "end": 22
+          },
+          {
+            "ordinal": 4,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 23,
+            "end": 26
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 27,
+            "end": 30
+          },
+          {
+            "ordinal": 6,
+            "surface": "βραδέως",
+            "rawLemma": "βραδέως",
+            "canonicalLemma": "βραδέωσ",
+            "headword": "βραδέως",
+            "discriminator": "",
+            "searchKey": "βραδέωσ",
+            "upos": "ADV",
+            "start": 31,
+            "end": 38
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 38,
+            "end": 39
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "γυνὴ φιλεῖ τὴν λόγον σοφίαν καὶ δέω ταχέως;",
+        "start": 40,
+        "end": 83,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "γυνὴ",
+            "rawLemma": "γυνή",
+            "canonicalLemma": "γυνή",
+            "headword": "γυνή",
+            "discriminator": "",
+            "searchKey": "γυνὴ",
+            "upos": "NOUN",
+            "start": 40,
+            "end": 44
+          },
+          {
+            "ordinal": 1,
+            "surface": "φιλεῖ",
+            "rawLemma": "φιλέω",
+            "canonicalLemma": "φιλέω",
+            "headword": "φιλέω",
+            "discriminator": "",
+            "searchKey": "φιλεῖ",
+            "upos": "VERB",
+            "start": 45,
+            "end": 50
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὴν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὴν",
+            "upos": "DET",
+            "start": 51,
+            "end": 54
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 55,
+            "end": 60
+          },
+          {
+            "ordinal": 4,
+            "surface": "σοφίαν",
+            "rawLemma": "σοφία",
+            "canonicalLemma": "σοφία",
+            "headword": "σοφία",
+            "discriminator": "",
+            "searchKey": "σοφίαν",
+            "upos": "NOUN",
+            "start": 61,
+            "end": 67
+          },
+          {
+            "ordinal": 5,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 68,
+            "end": 71
+          },
+          {
+            "ordinal": 6,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 72,
+            "end": 75
+          },
+          {
+            "ordinal": 7,
+            "surface": "ταχέως",
+            "rawLemma": "ταχέως",
+            "canonicalLemma": "ταχέωσ",
+            "headword": "ταχέως",
+            "discriminator": "",
+            "searchKey": "ταχέωσ",
+            "upos": "ADV",
+            "start": 76,
+            "end": 82
+          },
+          {
+            "ordinal": 8,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 82,
+            "end": 83
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "παῖς γράφει τὸν λόγον σοφὸν καὶ δέω σαφῶς·",
+        "start": 84,
+        "end": 126,
+        "citations": [
+          "1.1.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "παῖς",
+            "rawLemma": "παῖς",
+            "canonicalLemma": "παῖσ",
+            "headword": "παῖς",
+            "discriminator": "",
+            "searchKey": "παῖσ",
+            "upos": "NOUN",
+            "start": 84,
+            "end": 88
+          },
+          {
+            "ordinal": 1,
+            "surface": "γράφει",
+            "rawLemma": "γράφω",
+            "canonicalLemma": "γράφω",
+            "headword": "γράφω",
+            "discriminator": "",
+            "searchKey": "γράφει",
+            "upos": "VERB",
+            "start": 89,
+            "end": 95
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 96,
+            "end": 99
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 100,
+            "end": 105
+          },
+          {
+            "ordinal": 4,
+            "surface": "σοφὸν",
+            "rawLemma": "σοφός",
+            "canonicalLemma": "σοφόσ",
+            "headword": "σοφός",
+            "discriminator": "",
+            "searchKey": "σοφὸν",
+            "upos": "ADJ",
+            "start": 106,
+            "end": 111
+          },
+          {
+            "ordinal": 5,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 112,
+            "end": 115
+          },
+          {
+            "ordinal": 6,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 116,
+            "end": 119
+          },
+          {
+            "ordinal": 7,
+            "surface": "σαφῶς",
+            "rawLemma": "σαφῶς",
+            "canonicalLemma": "σαφῶσ",
+            "headword": "σαφῶς",
+            "discriminator": "",
+            "searchKey": "σαφῶσ",
+            "upos": "ADV",
+            "start": 120,
+            "end": 125
+          },
+          {
+            "ordinal": 8,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 125,
+            "end": 126
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "ἀνὴρ ἀκούει τὸν λόγον μέγαν καὶ δέω νῦν·",
+        "start": 127,
+        "end": 167,
+        "citations": [
+          "1.1.4"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἀνὴρ",
+            "rawLemma": "ἀνήρ",
+            "canonicalLemma": "ἀνήρ",
+            "headword": "ἀνήρ",
+            "discriminator": "",
+            "searchKey": "ἀνὴρ",
+            "upos": "NOUN",
+            "start": 127,
+            "end": 131
+          },
+          {
+            "ordinal": 1,
+            "surface": "ἀκούει",
+            "rawLemma": "ἀκούω",
+            "canonicalLemma": "ἀκούω",
+            "headword": "ἀκούω",
+            "discriminator": "",
+            "searchKey": "ἀκούει",
+            "upos": "VERB",
+            "start": 132,
+            "end": 138
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 139,
+            "end": 142
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 143,
+            "end": 148
+          },
+          {
+            "ordinal": 4,
+            "surface": "μέγαν",
+            "rawLemma": "μέγας",
+            "canonicalLemma": "μέγασ",
+            "headword": "μέγας",
+            "discriminator": "",
+            "searchKey": "μέγαν",
+            "upos": "ADJ",
+            "start": 149,
+            "end": 154
+          },
+          {
+            "ordinal": 5,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 155,
+            "end": 158
+          },
+          {
+            "ordinal": 6,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 159,
+            "end": 162
+          },
+          {
+            "ordinal": 7,
+            "surface": "νῦν",
+            "rawLemma": "νῦν",
+            "canonicalLemma": "νῦν",
+            "headword": "νῦν",
+            "discriminator": "",
+            "searchKey": "νῦν",
+            "upos": "ADV",
+            "start": 163,
+            "end": 166
+          },
+          {
+            "ordinal": 8,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 166,
+            "end": 167
+          }
+        ]
+      },
+      {
+        "ordinal": 4,
+        "text": "θεὸς βλέπει τὸν λόγον σοφὸν καὶ δέω πάλιν·",
+        "start": 168,
+        "end": 210,
+        "citations": [
+          "1.1.5"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "θεὸς",
+            "rawLemma": "θεός",
+            "canonicalLemma": "θεόσ",
+            "headword": "θεός",
+            "discriminator": "",
+            "searchKey": "θεὸσ",
+            "upos": "NOUN",
+            "start": 168,
+            "end": 172
+          },
+          {
+            "ordinal": 1,
+            "surface": "βλέπει",
+            "rawLemma": "βλέπω",
+            "canonicalLemma": "βλέπω",
+            "headword": "βλέπω",
+            "discriminator": "",
+            "searchKey": "βλέπει",
+            "upos": "VERB",
+            "start": 173,
+            "end": 179
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 180,
+            "end": 183
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 184,
+            "end": 189
+          },
+          {
+            "ordinal": 4,
+            "surface": "σοφὸν",
+            "rawLemma": "σοφός",
+            "canonicalLemma": "σοφόσ",
+            "headword": "σοφός",
+            "discriminator": "",
+            "searchKey": "σοφὸν",
+            "upos": "ADJ",
+            "start": 190,
+            "end": 195
+          },
+          {
+            "ordinal": 5,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 196,
+            "end": 199
+          },
+          {
+            "ordinal": 6,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 200,
+            "end": 203
+          },
+          {
+            "ordinal": 7,
+            "surface": "πάλιν",
+            "rawLemma": "πάλιν",
+            "canonicalLemma": "πάλιν",
+            "headword": "πάλιν",
+            "discriminator": "",
+            "searchKey": "πάλιν",
+            "upos": "ADV",
+            "start": 204,
+            "end": 209
+          },
+          {
+            "ordinal": 8,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 209,
+            "end": 210
+          }
+        ]
+      },
+      {
+        "ordinal": 5,
+        "text": "ἵππος λέγει τὸν λόγον καλὸν καὶ δέω πρὶν.",
+        "start": 211,
+        "end": 252,
+        "citations": [
+          "1.1.6"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἵππος",
+            "rawLemma": "ἵππος",
+            "canonicalLemma": "ἵπποσ",
+            "headword": "ἵππος",
+            "discriminator": "",
+            "searchKey": "ἵπποσ",
+            "upos": "NOUN",
+            "start": 211,
+            "end": 216
+          },
+          {
+            "ordinal": 1,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 217,
+            "end": 222
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 223,
+            "end": 226
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 227,
+            "end": 232
+          },
+          {
+            "ordinal": 4,
+            "surface": "καλὸν",
+            "rawLemma": "καλός",
+            "canonicalLemma": "καλόσ",
+            "headword": "καλός",
+            "discriminator": "",
+            "searchKey": "καλὸν",
+            "upos": "ADJ",
+            "start": 233,
+            "end": 238
+          },
+          {
+            "ordinal": 5,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 239,
+            "end": 242
+          },
+          {
+            "ordinal": 6,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 243,
+            "end": 246
+          },
+          {
+            "ordinal": 7,
+            "surface": "πρὶν",
+            "rawLemma": "πρίν",
+            "canonicalLemma": "πρίν",
+            "headword": "πρίν",
+            "discriminator": "",
+            "searchKey": "πρὶν",
+            "upos": "ADV",
+            "start": 247,
+            "end": 251
+          },
+          {
+            "ordinal": 8,
+            "surface": ".",
+            "rawLemma": ".",
+            "canonicalLemma": ".",
+            "headword": ".",
+            "discriminator": "",
+            "searchKey": ".",
+            "upos": "PUNCT",
+            "start": 251,
+            "end": 252
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-passage.conllu": {
+    "fullText": "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ λέγει σοφῶς;\nγυνὴ φιλεῖ τὸν λόγον καὶ γράφει ταχέως;\nπαῖς ἀκούει τὸν λόγον καὶ λέγει σαφῶς·\nστρατιώτης δέω βραδέως καὶ τρέχει νῦν;\nἵππος δέω σαφῶς καὶ βαδίζει πάλιν;\nθεὸς δέω καλῶς καὶ πηδᾷ πάλιν·\nλύκος δέω μέγαν καὶ φέρει δῶρον;\nκύων δέω μικρὸν καὶ ἄγει δῶρον·\nὄρνις δέω νέον καὶ πίνει ὕδωρ;",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ἄνθρωπος ὁρᾷ τὸν λόγον καὶ λέγει σοφῶς;",
+        "start": 0,
+        "end": 39,
+        "citations": [
+          "1.2.17"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἄνθρωπος",
+            "rawLemma": "ἄνθρωπος",
+            "canonicalLemma": "ἄνθρωποσ",
+            "headword": "ἄνθρωπος",
+            "discriminator": "",
+            "searchKey": "ἄνθρωποσ",
+            "upos": "NOUN",
+            "start": 0,
+            "end": 8
+          },
+          {
+            "ordinal": 1,
+            "surface": "ὁρᾷ",
+            "rawLemma": "ὁράω",
+            "canonicalLemma": "ὁράω",
+            "headword": "ὁράω",
+            "discriminator": "",
+            "searchKey": "ὁρᾷ",
+            "upos": "VERB",
+            "start": 9,
+            "end": 12
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 13,
+            "end": 16
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 17,
+            "end": 22
+          },
+          {
+            "ordinal": 4,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 23,
+            "end": 26
+          },
+          {
+            "ordinal": 5,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 27,
+            "end": 32
+          },
+          {
+            "ordinal": 6,
+            "surface": "σοφῶς",
+            "rawLemma": "σοφῶς",
+            "canonicalLemma": "σοφῶσ",
+            "headword": "σοφῶς",
+            "discriminator": "",
+            "searchKey": "σοφῶσ",
+            "upos": "ADV",
+            "start": 33,
+            "end": 38
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 38,
+            "end": 39
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "γυνὴ φιλεῖ τὸν λόγον καὶ γράφει ταχέως;",
+        "start": 40,
+        "end": 79,
+        "citations": [
+          "1.2.17"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "γυνὴ",
+            "rawLemma": "γυνή",
+            "canonicalLemma": "γυνή",
+            "headword": "γυνή",
+            "discriminator": "",
+            "searchKey": "γυνὴ",
+            "upos": "NOUN",
+            "start": 40,
+            "end": 44
+          },
+          {
+            "ordinal": 1,
+            "surface": "φιλεῖ",
+            "rawLemma": "φιλέω",
+            "canonicalLemma": "φιλέω",
+            "headword": "φιλέω",
+            "discriminator": "",
+            "searchKey": "φιλεῖ",
+            "upos": "VERB",
+            "start": 45,
+            "end": 50
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 51,
+            "end": 54
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 55,
+            "end": 60
+          },
+          {
+            "ordinal": 4,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 61,
+            "end": 64
+          },
+          {
+            "ordinal": 5,
+            "surface": "γράφει",
+            "rawLemma": "γράφω",
+            "canonicalLemma": "γράφω",
+            "headword": "γράφω",
+            "discriminator": "",
+            "searchKey": "γράφει",
+            "upos": "VERB",
+            "start": 65,
+            "end": 71
+          },
+          {
+            "ordinal": 6,
+            "surface": "ταχέως",
+            "rawLemma": "ταχέως",
+            "canonicalLemma": "ταχέωσ",
+            "headword": "ταχέως",
+            "discriminator": "",
+            "searchKey": "ταχέωσ",
+            "upos": "ADV",
+            "start": 72,
+            "end": 78
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 78,
+            "end": 79
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "παῖς ἀκούει τὸν λόγον καὶ λέγει σαφῶς·",
+        "start": 80,
+        "end": 118,
+        "citations": [
+          "1.2.17"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "παῖς",
+            "rawLemma": "παῖς",
+            "canonicalLemma": "παῖσ",
+            "headword": "παῖς",
+            "discriminator": "",
+            "searchKey": "παῖσ",
+            "upos": "NOUN",
+            "start": 80,
+            "end": 84
+          },
+          {
+            "ordinal": 1,
+            "surface": "ἀκούει",
+            "rawLemma": "ἀκούω",
+            "canonicalLemma": "ἀκούω",
+            "headword": "ἀκούω",
+            "discriminator": "",
+            "searchKey": "ἀκούει",
+            "upos": "VERB",
+            "start": 85,
+            "end": 91
+          },
+          {
+            "ordinal": 2,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 92,
+            "end": 95
+          },
+          {
+            "ordinal": 3,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 96,
+            "end": 101
+          },
+          {
+            "ordinal": 4,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 102,
+            "end": 105
+          },
+          {
+            "ordinal": 5,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 106,
+            "end": 111
+          },
+          {
+            "ordinal": 6,
+            "surface": "σαφῶς",
+            "rawLemma": "σαφῶς",
+            "canonicalLemma": "σαφῶσ",
+            "headword": "σαφῶς",
+            "discriminator": "",
+            "searchKey": "σαφῶσ",
+            "upos": "ADV",
+            "start": 112,
+            "end": 117
+          },
+          {
+            "ordinal": 7,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 117,
+            "end": 118
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "στρατιώτης δέω βραδέως καὶ τρέχει νῦν;",
+        "start": 119,
+        "end": 157,
+        "citations": [
+          "1.2.17",
+          "1.2.18"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "στρατιώτης",
+            "rawLemma": "στρατιώτης",
+            "canonicalLemma": "στρατιώτησ",
+            "headword": "στρατιώτης",
+            "discriminator": "",
+            "searchKey": "στρατιώτησ",
+            "upos": "NOUN",
+            "start": 119,
+            "end": 129
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 130,
+            "end": 133
+          },
+          {
+            "ordinal": 2,
+            "surface": "βραδέως",
+            "rawLemma": "βραδέως",
+            "canonicalLemma": "βραδέωσ",
+            "headword": "βραδέως",
+            "discriminator": "",
+            "searchKey": "βραδέωσ",
+            "upos": "ADV",
+            "start": 134,
+            "end": 141
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 142,
+            "end": 145
+          },
+          {
+            "ordinal": 4,
+            "surface": "τρέχει",
+            "rawLemma": "τρέχω",
+            "canonicalLemma": "τρέχω",
+            "headword": "τρέχω",
+            "discriminator": "",
+            "searchKey": "τρέχει",
+            "upos": "VERB",
+            "start": 146,
+            "end": 152
+          },
+          {
+            "ordinal": 5,
+            "surface": "νῦν",
+            "rawLemma": "νῦν",
+            "canonicalLemma": "νῦν",
+            "headword": "νῦν",
+            "discriminator": "",
+            "searchKey": "νῦν",
+            "upos": "ADV",
+            "start": 153,
+            "end": 156
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 156,
+            "end": 157
+          }
+        ]
+      },
+      {
+        "ordinal": 4,
+        "text": "ἵππος δέω σαφῶς καὶ βαδίζει πάλιν;",
+        "start": 158,
+        "end": 192,
+        "citations": [
+          "1.2.17",
+          "1.2.18"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἵππος",
+            "rawLemma": "ἵππος",
+            "canonicalLemma": "ἵπποσ",
+            "headword": "ἵππος",
+            "discriminator": "",
+            "searchKey": "ἵπποσ",
+            "upos": "NOUN",
+            "start": 158,
+            "end": 163
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 164,
+            "end": 167
+          },
+          {
+            "ordinal": 2,
+            "surface": "σαφῶς",
+            "rawLemma": "σαφῶς",
+            "canonicalLemma": "σαφῶσ",
+            "headword": "σαφῶς",
+            "discriminator": "",
+            "searchKey": "σαφῶσ",
+            "upos": "ADV",
+            "start": 168,
+            "end": 173
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 174,
+            "end": 177
+          },
+          {
+            "ordinal": 4,
+            "surface": "βαδίζει",
+            "rawLemma": "βαδίζω",
+            "canonicalLemma": "βαδίζω",
+            "headword": "βαδίζω",
+            "discriminator": "",
+            "searchKey": "βαδίζει",
+            "upos": "VERB",
+            "start": 178,
+            "end": 185
+          },
+          {
+            "ordinal": 5,
+            "surface": "πάλιν",
+            "rawLemma": "πάλιν",
+            "canonicalLemma": "πάλιν",
+            "headword": "πάλιν",
+            "discriminator": "",
+            "searchKey": "πάλιν",
+            "upos": "ADV",
+            "start": 186,
+            "end": 191
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 191,
+            "end": 192
+          }
+        ]
+      },
+      {
+        "ordinal": 5,
+        "text": "θεὸς δέω καλῶς καὶ πηδᾷ πάλιν·",
+        "start": 193,
+        "end": 223,
+        "citations": [
+          "1.2.17",
+          "1.2.18"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "θεὸς",
+            "rawLemma": "θεός",
+            "canonicalLemma": "θεόσ",
+            "headword": "θεός",
+            "discriminator": "",
+            "searchKey": "θεὸσ",
+            "upos": "NOUN",
+            "start": 193,
+            "end": 197
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 198,
+            "end": 201
+          },
+          {
+            "ordinal": 2,
+            "surface": "καλῶς",
+            "rawLemma": "καλῶς",
+            "canonicalLemma": "καλῶσ",
+            "headword": "καλῶς",
+            "discriminator": "",
+            "searchKey": "καλῶσ",
+            "upos": "ADV",
+            "start": 202,
+            "end": 207
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 208,
+            "end": 211
+          },
+          {
+            "ordinal": 4,
+            "surface": "πηδᾷ",
+            "rawLemma": "πηδάω",
+            "canonicalLemma": "πηδάω",
+            "headword": "πηδάω",
+            "discriminator": "",
+            "searchKey": "πηδᾷ",
+            "upos": "VERB",
+            "start": 212,
+            "end": 216
+          },
+          {
+            "ordinal": 5,
+            "surface": "πάλιν",
+            "rawLemma": "πάλιν",
+            "canonicalLemma": "πάλιν",
+            "headword": "πάλιν",
+            "discriminator": "",
+            "searchKey": "πάλιν",
+            "upos": "ADV",
+            "start": 217,
+            "end": 222
+          },
+          {
+            "ordinal": 6,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 222,
+            "end": 223
+          }
+        ]
+      },
+      {
+        "ordinal": 6,
+        "text": "λύκος δέω μέγαν καὶ φέρει δῶρον;",
+        "start": 224,
+        "end": 256,
+        "citations": [
+          "1.2.20"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λύκος",
+            "rawLemma": "λύκος",
+            "canonicalLemma": "λύκοσ",
+            "headword": "λύκος",
+            "discriminator": "",
+            "searchKey": "λύκοσ",
+            "upos": "NOUN",
+            "start": 224,
+            "end": 229
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 230,
+            "end": 233
+          },
+          {
+            "ordinal": 2,
+            "surface": "μέγαν",
+            "rawLemma": "μέγας",
+            "canonicalLemma": "μέγασ",
+            "headword": "μέγας",
+            "discriminator": "",
+            "searchKey": "μέγαν",
+            "upos": "ADJ",
+            "start": 234,
+            "end": 239
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 240,
+            "end": 243
+          },
+          {
+            "ordinal": 4,
+            "surface": "φέρει",
+            "rawLemma": "φέρω",
+            "canonicalLemma": "φέρω",
+            "headword": "φέρω",
+            "discriminator": "",
+            "searchKey": "φέρει",
+            "upos": "VERB",
+            "start": 244,
+            "end": 249
+          },
+          {
+            "ordinal": 5,
+            "surface": "δῶρον",
+            "rawLemma": "δῶρον",
+            "canonicalLemma": "δῶρον",
+            "headword": "δῶρον",
+            "discriminator": "",
+            "searchKey": "δῶρον",
+            "upos": "NOUN",
+            "start": 250,
+            "end": 255
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 255,
+            "end": 256
+          }
+        ]
+      },
+      {
+        "ordinal": 7,
+        "text": "κύων δέω μικρὸν καὶ ἄγει δῶρον·",
+        "start": 257,
+        "end": 288,
+        "citations": [
+          "1.2.20"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "κύων",
+            "rawLemma": "κύων",
+            "canonicalLemma": "κύων",
+            "headword": "κύων",
+            "discriminator": "",
+            "searchKey": "κύων",
+            "upos": "NOUN",
+            "start": 257,
+            "end": 261
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 262,
+            "end": 265
+          },
+          {
+            "ordinal": 2,
+            "surface": "μικρὸν",
+            "rawLemma": "μικρός",
+            "canonicalLemma": "μικρόσ",
+            "headword": "μικρός",
+            "discriminator": "",
+            "searchKey": "μικρὸν",
+            "upos": "ADJ",
+            "start": 266,
+            "end": 272
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 273,
+            "end": 276
+          },
+          {
+            "ordinal": 4,
+            "surface": "ἄγει",
+            "rawLemma": "ἄγω",
+            "canonicalLemma": "ἄγω",
+            "headword": "ἄγω",
+            "discriminator": "",
+            "searchKey": "ἄγει",
+            "upos": "VERB",
+            "start": 277,
+            "end": 281
+          },
+          {
+            "ordinal": 5,
+            "surface": "δῶρον",
+            "rawLemma": "δῶρον",
+            "canonicalLemma": "δῶρον",
+            "headword": "δῶρον",
+            "discriminator": "",
+            "searchKey": "δῶρον",
+            "upos": "NOUN",
+            "start": 282,
+            "end": 287
+          },
+          {
+            "ordinal": 6,
+            "surface": "·",
+            "rawLemma": "·",
+            "canonicalLemma": "·",
+            "headword": "·",
+            "discriminator": "",
+            "searchKey": "·",
+            "upos": "PUNCT",
+            "start": 287,
+            "end": 288
+          }
+        ]
+      },
+      {
+        "ordinal": 8,
+        "text": "ὄρνις δέω νέον καὶ πίνει ὕδωρ;",
+        "start": 289,
+        "end": 319,
+        "citations": [
+          "1.2.20"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὄρνις",
+            "rawLemma": "ὄρνις",
+            "canonicalLemma": "ὄρνισ",
+            "headword": "ὄρνις",
+            "discriminator": "",
+            "searchKey": "ὄρνισ",
+            "upos": "NOUN",
+            "start": 289,
+            "end": 294
+          },
+          {
+            "ordinal": 1,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 295,
+            "end": 298
+          },
+          {
+            "ordinal": 2,
+            "surface": "νέον",
+            "rawLemma": "νέος",
+            "canonicalLemma": "νέοσ",
+            "headword": "νέος",
+            "discriminator": "",
+            "searchKey": "νέον",
+            "upos": "ADJ",
+            "start": 299,
+            "end": 303
+          },
+          {
+            "ordinal": 3,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 304,
+            "end": 307
+          },
+          {
+            "ordinal": 4,
+            "surface": "πίνει",
+            "rawLemma": "πίνω",
+            "canonicalLemma": "πίνω",
+            "headword": "πίνω",
+            "discriminator": "",
+            "searchKey": "πίνει",
+            "upos": "VERB",
+            "start": 308,
+            "end": 313
+          },
+          {
+            "ordinal": 5,
+            "surface": "ὕδωρ",
+            "rawLemma": "ὕδωρ",
+            "canonicalLemma": "ὕδωρ",
+            "headword": "ὕδωρ",
+            "discriminator": "",
+            "searchKey": "ὕδωρ",
+            "upos": "NOUN",
+            "start": 314,
+            "end": 318
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 318,
+            "end": 319
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-reading-b.conllu": {
+    "fullText": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 0,
+        "end": 26,
+        "citations": [
+          "1.2.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 0,
+            "end": 1
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 2,
+            "end": 4
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 5,
+            "end": 8
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 9,
+            "end": 12
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 13,
+            "end": 15
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 16,
+            "end": 19
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 20,
+            "end": 25
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 25,
+            "end": 26
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 27,
+        "end": 53,
+        "citations": [
+          "1.2.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 27,
+            "end": 28
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 29,
+            "end": 31
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 32,
+            "end": 35
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 36,
+            "end": 39
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 40,
+            "end": 42
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 43,
+            "end": 46
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 47,
+            "end": 52
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 52,
+            "end": 53
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 54,
+        "end": 80,
+        "citations": [
+          "1.2.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 54,
+            "end": 55
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 56,
+            "end": 58
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 59,
+            "end": 62
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 63,
+            "end": 66
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 67,
+            "end": 69
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 70,
+            "end": 73
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 74,
+            "end": 79
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 79,
+            "end": 80
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 81,
+        "end": 107,
+        "citations": [
+          "1.2.4"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 81,
+            "end": 82
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 83,
+            "end": 85
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 86,
+            "end": 89
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 90,
+            "end": 93
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 94,
+            "end": 96
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 97,
+            "end": 100
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 101,
+            "end": 106
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 106,
+            "end": 107
+          }
+        ]
+      },
+      {
+        "ordinal": 4,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 108,
+        "end": 134,
+        "citations": [
+          "1.2.5"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 108,
+            "end": 109
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 110,
+            "end": 112
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 113,
+            "end": 116
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 117,
+            "end": 120
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 121,
+            "end": 123
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 124,
+            "end": 127
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 128,
+            "end": 133
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 133,
+            "end": 134
+          }
+        ]
+      },
+      {
+        "ordinal": 5,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 135,
+        "end": 161,
+        "citations": [
+          "1.2.6"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 135,
+            "end": 136
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 137,
+            "end": 139
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 140,
+            "end": 143
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 144,
+            "end": 147
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 148,
+            "end": 150
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 151,
+            "end": 154
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 155,
+            "end": 160
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 160,
+            "end": 161
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-reading-c.conllu": {
+    "fullText": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ νέος;\nὁ δὲ καὶ τὸν τὸ νέος;\nὁ δὲ καὶ τὸν τὸ νέος;",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 0,
+        "end": 26,
+        "citations": [
+          "1.3.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 0,
+            "end": 1
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 2,
+            "end": 4
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 5,
+            "end": 8
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 9,
+            "end": 12
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 13,
+            "end": 15
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 16,
+            "end": 19
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 20,
+            "end": 25
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 25,
+            "end": 26
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 27,
+        "end": 53,
+        "citations": [
+          "1.3.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 27,
+            "end": 28
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 29,
+            "end": 31
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 32,
+            "end": 35
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 36,
+            "end": 39
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 40,
+            "end": 42
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 43,
+            "end": 46
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 47,
+            "end": 52
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 52,
+            "end": 53
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 54,
+        "end": 80,
+        "citations": [
+          "1.3.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 54,
+            "end": 55
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 56,
+            "end": 58
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 59,
+            "end": 62
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 63,
+            "end": 66
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 67,
+            "end": 69
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 70,
+            "end": 73
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 74,
+            "end": 79
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 79,
+            "end": 80
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 81,
+        "end": 107,
+        "citations": [
+          "1.3.4"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 81,
+            "end": 82
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 83,
+            "end": 85
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 86,
+            "end": 89
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 90,
+            "end": 93
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 94,
+            "end": 96
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 97,
+            "end": 100
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 101,
+            "end": 106
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 106,
+            "end": 107
+          }
+        ]
+      },
+      {
+        "ordinal": 4,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 108,
+        "end": 134,
+        "citations": [
+          "1.3.5"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 108,
+            "end": 109
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 110,
+            "end": 112
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 113,
+            "end": 116
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 117,
+            "end": 120
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 121,
+            "end": 123
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 124,
+            "end": 127
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 128,
+            "end": 133
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 133,
+            "end": 134
+          }
+        ]
+      },
+      {
+        "ordinal": 5,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 135,
+        "end": 161,
+        "citations": [
+          "1.3.6"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 135,
+            "end": 136
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 137,
+            "end": 139
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 140,
+            "end": 143
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 144,
+            "end": 147
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 148,
+            "end": 150
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 151,
+            "end": 154
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 155,
+            "end": 160
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 160,
+            "end": 161
+          }
+        ]
+      },
+      {
+        "ordinal": 6,
+        "text": "ὁ δὲ καὶ τὸν τὸ νέος;",
+        "start": 162,
+        "end": 183,
+        "citations": [
+          "1.3.7"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 162,
+            "end": 163
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 164,
+            "end": 166
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 167,
+            "end": 170
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 171,
+            "end": 174
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 175,
+            "end": 177
+          },
+          {
+            "ordinal": 5,
+            "surface": "νέος",
+            "rawLemma": "νέος",
+            "canonicalLemma": "νέοσ",
+            "headword": "νέος",
+            "discriminator": "",
+            "searchKey": "νέοσ",
+            "upos": "ADJ",
+            "start": 178,
+            "end": 182
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 182,
+            "end": 183
+          }
+        ]
+      },
+      {
+        "ordinal": 7,
+        "text": "ὁ δὲ καὶ τὸν τὸ νέος;",
+        "start": 184,
+        "end": 205,
+        "citations": [
+          "1.3.8"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 184,
+            "end": 185
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 186,
+            "end": 188
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 189,
+            "end": 192
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 193,
+            "end": 196
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 197,
+            "end": 199
+          },
+          {
+            "ordinal": 5,
+            "surface": "νέος",
+            "rawLemma": "νέος",
+            "canonicalLemma": "νέοσ",
+            "headword": "νέος",
+            "discriminator": "",
+            "searchKey": "νέοσ",
+            "upos": "ADJ",
+            "start": 200,
+            "end": 204
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 204,
+            "end": 205
+          }
+        ]
+      },
+      {
+        "ordinal": 8,
+        "text": "ὁ δὲ καὶ τὸν τὸ νέος;",
+        "start": 206,
+        "end": 227,
+        "citations": [
+          "1.3.9"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 206,
+            "end": 207
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 208,
+            "end": 210
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 211,
+            "end": 214
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 215,
+            "end": 218
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 219,
+            "end": 221
+          },
+          {
+            "ordinal": 5,
+            "surface": "νέος",
+            "rawLemma": "νέος",
+            "canonicalLemma": "νέοσ",
+            "headword": "νέος",
+            "discriminator": "",
+            "searchKey": "νέοσ",
+            "upos": "ADJ",
+            "start": 222,
+            "end": 226
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 226,
+            "end": 227
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-reading.conllu": {
+    "fullText": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ δέω λόγος;\nὁ δὲ καὶ τὸν τὸ ἵππος;",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 0,
+        "end": 26,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 0,
+            "end": 1
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 2,
+            "end": 4
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 5,
+            "end": 8
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 9,
+            "end": 12
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 13,
+            "end": 15
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 16,
+            "end": 19
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 20,
+            "end": 25
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 25,
+            "end": 26
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 27,
+        "end": 53,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 27,
+            "end": 28
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 29,
+            "end": 31
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 32,
+            "end": 35
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 36,
+            "end": 39
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 40,
+            "end": 42
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 43,
+            "end": 46
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 47,
+            "end": 52
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 52,
+            "end": 53
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 54,
+        "end": 80,
+        "citations": [
+          "1.1.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 54,
+            "end": 55
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 56,
+            "end": 58
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 59,
+            "end": 62
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 63,
+            "end": 66
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 67,
+            "end": 69
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 70,
+            "end": 73
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 74,
+            "end": 79
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 79,
+            "end": 80
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 81,
+        "end": 107,
+        "citations": [
+          "1.1.4"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 81,
+            "end": 82
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 83,
+            "end": 85
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 86,
+            "end": 89
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 90,
+            "end": 93
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 94,
+            "end": 96
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 97,
+            "end": 100
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 101,
+            "end": 106
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 106,
+            "end": 107
+          }
+        ]
+      },
+      {
+        "ordinal": 4,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 108,
+        "end": 134,
+        "citations": [
+          "1.1.5"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 108,
+            "end": 109
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 110,
+            "end": 112
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 113,
+            "end": 116
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 117,
+            "end": 120
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 121,
+            "end": 123
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 124,
+            "end": 127
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 128,
+            "end": 133
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 133,
+            "end": 134
+          }
+        ]
+      },
+      {
+        "ordinal": 5,
+        "text": "ὁ δὲ καὶ τὸν τὸ δέω λόγος;",
+        "start": 135,
+        "end": 161,
+        "citations": [
+          "1.1.6"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 135,
+            "end": 136
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 137,
+            "end": 139
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 140,
+            "end": 143
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 144,
+            "end": 147
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 148,
+            "end": 150
+          },
+          {
+            "ordinal": 5,
+            "surface": "δέω",
+            "rawLemma": "δέω2",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:2",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 151,
+            "end": 154
+          },
+          {
+            "ordinal": 6,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 155,
+            "end": 160
+          },
+          {
+            "ordinal": 7,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 160,
+            "end": 161
+          }
+        ]
+      },
+      {
+        "ordinal": 6,
+        "text": "ὁ δὲ καὶ τὸν τὸ ἵππος;",
+        "start": 162,
+        "end": 184,
+        "citations": [
+          "1.1.7"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 162,
+            "end": 163
+          },
+          {
+            "ordinal": 1,
+            "surface": "δὲ",
+            "rawLemma": "δέ",
+            "canonicalLemma": "δέ",
+            "headword": "δέ",
+            "discriminator": "",
+            "searchKey": "δὲ",
+            "upos": "CCONJ",
+            "start": 164,
+            "end": 166
+          },
+          {
+            "ordinal": 2,
+            "surface": "καὶ",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καὶ",
+            "upos": "CCONJ",
+            "start": 167,
+            "end": 170
+          },
+          {
+            "ordinal": 3,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 171,
+            "end": 174
+          },
+          {
+            "ordinal": 4,
+            "surface": "τὸ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸ",
+            "upos": "DET",
+            "start": 175,
+            "end": 177
+          },
+          {
+            "ordinal": 5,
+            "surface": "ἵππος",
+            "rawLemma": "ἵππος",
+            "canonicalLemma": "ἵπποσ",
+            "headword": "ἵππος",
+            "discriminator": "",
+            "searchKey": "ἵπποσ",
+            "upos": "NOUN",
+            "start": 178,
+            "end": 183
+          },
+          {
+            "ordinal": 6,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 183,
+            "end": 184
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-sentences.conllu": {
+    "fullText": "ὁ λόγος Κῦρος λέγει.\nλέγει τὸν λόγον δέω",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "ὁ λόγος Κῦρος λέγει.",
+        "start": 0,
+        "end": 20,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ὁ",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "ὁ",
+            "upos": "DET",
+            "start": 0,
+            "end": 1
+          },
+          {
+            "ordinal": 1,
+            "surface": "λόγος",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγοσ",
+            "upos": "NOUN",
+            "start": 2,
+            "end": 7
+          },
+          {
+            "ordinal": 2,
+            "surface": "Κῦρος",
+            "rawLemma": "κῦρος",
+            "canonicalLemma": "κῦροσ",
+            "headword": "κῦρος",
+            "discriminator": "",
+            "searchKey": "κῦροσ",
+            "upos": "PROPN",
+            "start": 8,
+            "end": 13
+          },
+          {
+            "ordinal": 3,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 14,
+            "end": 19
+          },
+          {
+            "ordinal": 4,
+            "surface": ".",
+            "rawLemma": ".",
+            "canonicalLemma": ".",
+            "headword": ".",
+            "discriminator": "",
+            "searchKey": ".",
+            "upos": "PUNCT",
+            "start": 19,
+            "end": 20
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": "λέγει τὸν λόγον δέω",
+        "start": 21,
+        "end": 40,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 21,
+            "end": 26
+          },
+          {
+            "ordinal": 1,
+            "surface": "τὸν",
+            "rawLemma": "ὁ",
+            "canonicalLemma": "ὁ",
+            "headword": "ὁ",
+            "discriminator": "",
+            "searchKey": "τὸν",
+            "upos": "DET",
+            "start": 27,
+            "end": 30
+          },
+          {
+            "ordinal": 2,
+            "surface": "λόγον",
+            "rawLemma": "λόγος",
+            "canonicalLemma": "λόγοσ",
+            "headword": "λόγος",
+            "discriminator": "",
+            "searchKey": "λόγον",
+            "upos": "NOUN",
+            "start": 31,
+            "end": 36
+          },
+          {
+            "ordinal": 3,
+            "surface": "δέω",
+            "rawLemma": "δέω1",
+            "canonicalLemma": "δέω",
+            "headword": "δέω",
+            "discriminator": "morpheus:1",
+            "searchKey": "δέω",
+            "upos": "VERB",
+            "start": 37,
+            "end": 40
+          }
+        ]
+      }
+    ]
+  },
+  "oga-src-syntax.conllu": {
+    "fullText": "Κῦρος ἄνδρας;\n, λέγει\nλέλυκε λελύσεται ἔλυε λύειν λύων παῖς καί\nἄρχεται",
+    "sentences": [
+      {
+        "ordinal": 0,
+        "text": "Κῦρος ἄνδρας;",
+        "start": 0,
+        "end": 13,
+        "citations": [
+          "1.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "Κῦρος",
+            "rawLemma": "κῦρος",
+            "canonicalLemma": "κῦροσ",
+            "headword": "κῦρος",
+            "discriminator": "",
+            "searchKey": "κῦροσ",
+            "upos": "PROPN",
+            "start": 0,
+            "end": 5
+          },
+          {
+            "ordinal": 1,
+            "surface": "ἄνδρας",
+            "rawLemma": "ἀνήρ",
+            "canonicalLemma": "ἀνήρ",
+            "headword": "ἀνήρ",
+            "discriminator": "",
+            "searchKey": "ἄνδρασ",
+            "upos": "NOUN",
+            "start": 6,
+            "end": 12
+          },
+          {
+            "ordinal": 2,
+            "surface": ";",
+            "rawLemma": ";",
+            "canonicalLemma": ";",
+            "headword": ";",
+            "discriminator": "",
+            "searchKey": ";",
+            "upos": "PUNCT",
+            "start": 12,
+            "end": 13
+          }
+        ]
+      },
+      {
+        "ordinal": 1,
+        "text": ", λέγει",
+        "start": 14,
+        "end": 21,
+        "citations": [
+          "1.1.2"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": ",",
+            "rawLemma": ",",
+            "canonicalLemma": ",",
+            "headword": ",",
+            "discriminator": "",
+            "searchKey": ",",
+            "upos": "PUNCT",
+            "start": 14,
+            "end": 15
+          },
+          {
+            "ordinal": 1,
+            "surface": "λέγει",
+            "rawLemma": "λέγω",
+            "canonicalLemma": "λέγω",
+            "headword": "λέγω",
+            "discriminator": "",
+            "searchKey": "λέγει",
+            "upos": "VERB",
+            "start": 16,
+            "end": 21
+          }
+        ]
+      },
+      {
+        "ordinal": 2,
+        "text": "λέλυκε λελύσεται ἔλυε λύειν λύων παῖς καί",
+        "start": 22,
+        "end": 63,
+        "citations": [
+          "1.1.3"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "λέλυκε",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λέλυκε",
+            "upos": "VERB",
+            "start": 22,
+            "end": 28
+          },
+          {
+            "ordinal": 1,
+            "surface": "λελύσεται",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λελύσεται",
+            "upos": "VERB",
+            "start": 29,
+            "end": 38
+          },
+          {
+            "ordinal": 2,
+            "surface": "ἔλυε",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "ἔλυε",
+            "upos": "VERB",
+            "start": 39,
+            "end": 43
+          },
+          {
+            "ordinal": 3,
+            "surface": "λύειν",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λύειν",
+            "upos": "VERB",
+            "start": 44,
+            "end": 49
+          },
+          {
+            "ordinal": 4,
+            "surface": "λύων",
+            "rawLemma": "λύω",
+            "canonicalLemma": "λύω",
+            "headword": "λύω",
+            "discriminator": "",
+            "searchKey": "λύων",
+            "upos": "VERB",
+            "start": 50,
+            "end": 54
+          },
+          {
+            "ordinal": 5,
+            "surface": "παῖς",
+            "rawLemma": "παῖς",
+            "canonicalLemma": "παῖσ",
+            "headword": "παῖς",
+            "discriminator": "",
+            "searchKey": "παῖσ",
+            "upos": "NOUN",
+            "start": 55,
+            "end": 59
+          },
+          {
+            "ordinal": 6,
+            "surface": "καί",
+            "rawLemma": "καί",
+            "canonicalLemma": "καί",
+            "headword": "καί",
+            "discriminator": "",
+            "searchKey": "καί",
+            "upos": "ADV",
+            "start": 60,
+            "end": 63
+          }
+        ]
+      },
+      {
+        "ordinal": 3,
+        "text": "ἄρχεται",
+        "start": 64,
+        "end": 71,
+        "citations": [
+          "2.1.1"
+        ],
+        "tokens": [
+          {
+            "ordinal": 0,
+            "surface": "ἄρχεται",
+            "rawLemma": "ἄρχω",
+            "canonicalLemma": "ἄρχω",
+            "headword": "ἄρχω",
+            "discriminator": "",
+            "searchKey": "ἄρχεται",
+            "upos": "VERB",
+            "start": 64,
+            "end": 71
+          }
+        ]
+      }
+    ]
+  }
+}

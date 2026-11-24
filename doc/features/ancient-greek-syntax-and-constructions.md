@@ -1,6 +1,6 @@
 # Ancient Greek syntax and constructions
 
-Status: **Accepted specification — implementation pending** · Date: 2026-11-24 ·
+Status: **Accepted; implemented** · Date: 2026-11-24 ·
 Author: Justin + OpenCode
 
 This spec records the route charted by
@@ -573,7 +573,9 @@ Part of the construction detector version
   anchor id, construction, subtype and judgment for every reviewed item from
   the two measurements. Justin's judgment is final where he gave one; otherwise
   the reference or agent judgment stands. No Greek text, relations or heads.
-- **A `make` target** recomputes per-construction and per-subtype precision
+- **A `make` target**, `make construction-release-check` (the command
+  `cmd/constructioncheck`; `CONSTRUCTION_CHECK_CACHE` overrides the cache
+  directory, default `~/.cache/mouseion/oga-src`), recomputes per-construction and per-subtype precision
   against the pinned OGA files, fetched and never committed. Every
   detector-version bump runs it, and the bump's PR includes its output. It is
   not a default CI step. A bump fails when a shipped construction or subtype

@@ -39,15 +39,22 @@ SELECT EXISTS (
       AND ca.analysis_run_id = c.analysis_run_id AND ca.corpus_id = c.corpus_id
     JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
       AND b.language_state = 'chosen' AND b.language_tag = $2::text
-    JOIN source_material_units u ON u.owner_id = ca.owner_id
-      AND u.source_material_id = ca.source_material_id
-      AND u.snapshot_id = ca.snapshot_id AND u.unit_id = s.unit_id
     LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = ca.owner_id
       AND d.book_id = ca.book_id AND d.corpus_id = c.corpus_id
-      AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = u.unit_id
+      AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = s.unit_id
       AND d.start_offset = c.start_offset AND d.end_offset = c.end_offset
    WHERE NOT COALESCE(d.excluded, false)
      AND COALESCE(d.canonical_lemma, c.canonical_lemma) = $3::text
+     AND EXISTS (
+       SELECT 1
+         FROM source_material_units u
+        WHERE u.owner_id = ca.owner_id AND u.source_material_id = ca.source_material_id
+          AND u.snapshot_id = ca.snapshot_id AND u.unit_id = s.unit_id
+       -- Keep this check correlated to the exact sentence and snapshot.
+       -- Flattening it lets the planner pair every candidate with every
+       -- unit in the snapshot before finding the candidate's sentence.
+       OFFSET 0
+     )
 )::boolean AS evidenced
 `
 
@@ -100,6 +107,169 @@ func (q *Queries) GetConcordancePriorityBook(ctx context.Context, arg GetConcord
 	var i GetConcordancePriorityBookRow
 	err := row.Scan(&i.Title, &i.Analyzed)
 	return i, err
+}
+
+const getConstructionOrigin = `-- name: GetConstructionOrigin :one
+SELECT sm.book_id::text AS book_id,
+       b.title AS book_title,
+       r.corpus_id::text AS corpus_id,
+       s.unit_id,
+       t.surface AS anchor_surface,
+       COALESCE(d.canonical_lemma, t.canonical_lemma)::text AS anchor_lemma,
+       -- The citation form of the effective lemma: the anchor's own headword
+       -- unless a correction replaced the lemma, else the headword of any
+       -- analyzed word of the owner that carries the same lemma key.
+       COALESCE(
+         CASE WHEN d.canonical_lemma IS NULL THEN NULLIF(t.headword, '') END,
+         (SELECT x.headword FROM corpus_tokens x
+           WHERE x.owner_id = r.owner_id AND x.language = t.language
+             AND x.canonical_lemma = COALESCE(d.canonical_lemma, t.canonical_lemma) AND x.headword IS NOT NULL AND x.headword <> ''
+           ORDER BY x.headword LIMIT 1),
+         '')::text AS anchor_headword,
+       w.id::text AS work_id,
+       w.title AS work_title,
+       w.author AS author,
+       EXISTS (SELECT 1 FROM current_analysis_identity ca
+                WHERE ca.owner_id = r.owner_id AND ca.analysis_run_id = r.id)::boolean AS current
+  FROM analysis_runs r
+  JOIN source_materials sm ON sm.owner_id = r.owner_id AND sm.id = r.source_material_id
+  JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
+       AND b.language_state = 'chosen' AND b.language_tag = $1::text
+  JOIN corpus_sentences s ON s.owner_id = r.owner_id AND s.analysis_run_id = r.id
+       AND s.corpus_id = r.corpus_id AND s.sentence_ordinal = $2::bigint
+  JOIN corpus_tokens t ON t.owner_id = s.owner_id AND t.analysis_run_id = s.analysis_run_id
+       AND t.corpus_id = s.corpus_id AND t.sentence_ordinal = s.sentence_ordinal
+       AND t.token_ordinal = $3::bigint
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = r.owner_id AND d.book_id = sm.book_id
+       AND d.corpus_id = r.corpus_id AND d.analysis_run_id = r.id AND d.source_document_id = s.unit_id
+       AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset AND NOT d.excluded
+  JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+  JOIN reading_units ru ON ru.id = bru.reading_unit_id
+  JOIN editions e ON e.id = ru.edition_id
+  JOIN works w ON w.id = e.work_id
+ WHERE r.owner_id = $4::uuid
+   AND r.id = $5::uuid
+   AND sm.book_id = $6::uuid
+`
+
+type GetConstructionOriginParams struct {
+	Language        string
+	SentenceOrdinal int64
+	AnchorOrdinal   int64
+	Owner           string
+	AnalysisRun     string
+	Book            string
+}
+
+type GetConstructionOriginRow struct {
+	BookID         string
+	BookTitle      string
+	CorpusID       string
+	UnitID         string
+	AnchorSurface  string
+	AnchorLemma    string
+	AnchorHeadword string
+	WorkID         string
+	WorkTitle      string
+	Author         string
+	Current        bool
+}
+
+// The origin occurrence of a construction lookup (ADR 0125): the owner's run
+// (current or historical), the Book it analysed, the sentence and anchor word
+// the lookup came from, and the Work and author of the Book's Reading unit.
+// Only result rows must come from current analyses; the origin may not. No row
+// means the run is not the owner's, the Book is not a chosen-language Book
+// whose Reading unit has a Work, or the sentence or word does not exist, so the
+// caller sends the safe restart. current says whether the run is still the
+// Book's current analysis: Sentence study reads only those, so a historical
+// origin has no sentence to link back to.
+func (q *Queries) GetConstructionOrigin(ctx context.Context, arg GetConstructionOriginParams) (GetConstructionOriginRow, error) {
+	row := q.db.QueryRow(ctx, getConstructionOrigin,
+		arg.Language,
+		arg.SentenceOrdinal,
+		arg.AnchorOrdinal,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Book,
+	)
+	var i GetConstructionOriginRow
+	err := row.Scan(
+		&i.BookID,
+		&i.BookTitle,
+		&i.CorpusID,
+		&i.UnitID,
+		&i.AnchorSurface,
+		&i.AnchorLemma,
+		&i.AnchorHeadword,
+		&i.WorkID,
+		&i.WorkTitle,
+		&i.Author,
+		&i.Current,
+	)
+	return i, err
+}
+
+const getSentenceStudyConstructions = `-- name: GetSentenceStudyConstructions :many
+SELECT c.construction_id,
+       COALESCE(c.subtype_id, '')::text AS subtype_id,
+       c.anchor_token_ordinal,
+       c.extent_token_ordinals::bigint[] AS extent_token_ordinals
+  FROM construction_occurrences c
+  JOIN construction_run_markers m ON m.analysis_run_id=c.analysis_run_id
+       AND m.owner_id=c.owner_id AND m.detector_version=$1
+ WHERE c.owner_id=$2 AND c.analysis_run_id=$3
+   AND c.corpus_id=$4 AND c.sentence_ordinal=$5
+ ORDER BY c.extent_token_ordinals[1], c.anchor_token_ordinal, c.construction_id
+`
+
+type GetSentenceStudyConstructionsParams struct {
+	DetectorVersion int
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+}
+
+type GetSentenceStudyConstructionsRow struct {
+	ConstructionID      string
+	SubtypeID           string
+	AnchorTokenOrdinal  int64
+	ExtentTokenOrdinals []int64
+}
+
+// One sentence's Construction occurrences, read only when the run's marker
+// carries the current detector version. No marker, or an older one, returns no
+// rows.
+func (q *Queries) GetSentenceStudyConstructions(ctx context.Context, arg GetSentenceStudyConstructionsParams) ([]GetSentenceStudyConstructionsRow, error) {
+	rows, err := q.db.Query(ctx, getSentenceStudyConstructions,
+		arg.DetectorVersion,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSentenceStudyConstructionsRow{}
+	for rows.Next() {
+		var i GetSentenceStudyConstructionsRow
+		if err := rows.Scan(
+			&i.ConstructionID,
+			&i.SubtypeID,
+			&i.AnchorTokenOrdinal,
+			&i.ExtentTokenOrdinals,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getSentenceStudyDecisions = `-- name: GetSentenceStudyDecisions :many
@@ -182,6 +352,63 @@ func (q *Queries) GetSentenceStudyDecisions(ctx context.Context, arg GetSentence
 	return items, nil
 }
 
+const getSentenceStudyUnprintedNodes = `-- name: GetSentenceStudyUnprintedNodes :many
+SELECT n.source_id,
+       n.dependency,
+       n.head_token_ordinal,
+       COALESCE(n.head_unprinted_node, '')::text AS head_unprinted_node
+  FROM corpus_unprinted_syntax_nodes n
+ WHERE n.owner_id=$1 AND n.analysis_run_id=$2
+   AND n.corpus_id=$3 AND n.sentence_ordinal=$4
+ ORDER BY n.source_id
+`
+
+type GetSentenceStudyUnprintedNodesParams struct {
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+}
+
+type GetSentenceStudyUnprintedNodesRow struct {
+	SourceID          string
+	Dependency        string
+	HeadTokenOrdinal  pgtype.Int8
+	HeadUnprintedNode string
+}
+
+// The Unprinted syntax nodes of one sentence of a native_agdt run. A run of any
+// other syntax state stores none, and the caller does not ask.
+func (q *Queries) GetSentenceStudyUnprintedNodes(ctx context.Context, arg GetSentenceStudyUnprintedNodesParams) ([]GetSentenceStudyUnprintedNodesRow, error) {
+	rows, err := q.db.Query(ctx, getSentenceStudyUnprintedNodes,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSentenceStudyUnprintedNodesRow{}
+	for rows.Next() {
+		var i GetSentenceStudyUnprintedNodesRow
+		if err := rows.Scan(
+			&i.SourceID,
+			&i.Dependency,
+			&i.HeadTokenOrdinal,
+			&i.HeadUnprintedNode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getVocabularySentenceStudy = `-- name: GetVocabularySentenceStudy :many
 
 SELECT COALESCE(t.surface, '')::text AS surface,
@@ -189,7 +416,10 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.upos, '')::text AS upos,
        COALESCE(t.dependency, '')::text AS dependency,
        COALESCE(t.head, 0)::bigint AS head,
-       COALESCE(h.surface, '')::text AS head_surface,
+       -- A token headed by an unprinted node is self-headed, so the join below
+       -- would return the token itself. Its head_surface is empty instead.
+       CASE WHEN t.head_unprinted_node IS NULL THEN COALESCE(h.surface, '') ELSE '' END::text AS head_surface,
+       COALESCE(t.head_unprinted_node, '')::text AS head_unprinted_node,
        COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
        COALESCE(t.start_offset, -1)::bigint AS start_offset,
        COALESCE(t.end_offset, -1)::bigint AS end_offset,
@@ -244,6 +474,7 @@ type GetVocabularySentenceStudyRow struct {
 	Dependency          string
 	Head                int64
 	HeadSurface         string
+	HeadUnprintedNode   string
 	TokenOrdinal        int64
 	StartOffset         int64
 	EndOffset           int64
@@ -293,6 +524,7 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.Dependency,
 			&i.Head,
 			&i.HeadSurface,
+			&i.HeadUnprintedNode,
 			&i.TokenOrdinal,
 			&i.StartOffset,
 			&i.EndOffset,
@@ -313,6 +545,362 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.BookTitle,
 			&i.ChapterTitle,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConstructionConcordance = `-- name: ListConstructionConcordance :many
+WITH candidates AS MATERIALIZED (
+  SELECT c.owner_id, c.corpus_id, c.analysis_run_id, c.sentence_ordinal, c.anchor_token_ordinal,
+         c.construction_id, c.subtype_id, c.extent_token_ordinals
+    FROM construction_occurrences c
+   WHERE c.owner_id = $1::uuid AND c.language = $2::text
+     AND c.construction_id = $3::text
+     AND ($4::text = '' OR c.subtype_id = $4::text)
+     AND NOT (c.analysis_run_id = $5::uuid
+              AND c.sentence_ordinal = $6::bigint
+              AND c.anchor_token_ordinal = $7::bigint)
+),
+eligible AS MATERIALIZED (
+  SELECT ca.owner_id, ca.analysis_run_id, ca.corpus_id, ca.book_id,
+         ca.source_material_id, ca.snapshot_id, b.title AS book_title,
+         w.id AS work_id, w.title AS work_title, w.author,
+         ru.constituent_book, ru.definition_key
+    FROM current_analysis_identity ca
+    JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+      AND b.language_state = 'chosen' AND b.language_tag = $2::text
+    JOIN construction_run_markers m ON m.owner_id = ca.owner_id
+      AND m.analysis_run_id = ca.analysis_run_id AND m.corpus_id = ca.corpus_id
+      AND m.detector_version = $8::integer
+    JOIN book_reading_units bru ON bru.owner_id = ca.owner_id AND bru.book_id = ca.book_id
+    JOIN reading_units ru ON ru.id = bru.reading_unit_id
+    JOIN editions ed ON ed.id = ru.edition_id
+    JOIN works w ON w.id = ed.work_id
+   WHERE ca.owner_id = $1::uuid
+),
+current AS MATERIALIZED (
+  SELECT c.owner_id, c.corpus_id, c.analysis_run_id, c.sentence_ordinal, c.anchor_token_ordinal, c.construction_id, c.subtype_id, c.extent_token_ordinals, e.book_id, e.source_material_id, e.snapshot_id, e.book_title,
+         e.work_id, e.work_title, e.author, e.constituent_book, e.definition_key,
+         s.unit_id
+    FROM candidates c
+    JOIN eligible e ON e.owner_id = c.owner_id
+      AND e.analysis_run_id = c.analysis_run_id AND e.corpus_id = c.corpus_id
+    JOIN corpus_sentences s ON s.analysis_run_id = c.analysis_run_id
+      AND s.sentence_ordinal = c.sentence_ordinal
+      AND s.owner_id = c.owner_id AND s.corpus_id = c.corpus_id
+   WHERE $9::text = ''
+      OR EXISTS (
+        SELECT 1
+          FROM corpus_tokens a
+          LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = c.owner_id
+            AND d.book_id = e.book_id AND d.corpus_id = c.corpus_id
+            AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = s.unit_id
+            AND d.start_offset = a.start_offset AND d.end_offset = a.end_offset
+         WHERE a.analysis_run_id = c.analysis_run_id AND a.sentence_ordinal = c.sentence_ordinal
+           AND a.token_ordinal = c.anchor_token_ordinal
+           AND a.owner_id = c.owner_id AND a.corpus_id = c.corpus_id
+           AND NOT COALESCE(d.excluded, false)
+           AND COALESCE(d.canonical_lemma, a.canonical_lemma) = $9::text)
+),
+ranked AS MATERIALIZED (
+  SELECT c.analysis_run_id, c.corpus_id, c.sentence_ordinal, c.anchor_token_ordinal,
+         c.construction_id, c.subtype_id, c.extent_token_ordinals,
+         c.book_id, c.source_material_id, c.snapshot_id, c.book_title,
+         c.unit_id, u.unit_order,
+         CASE WHEN c.book_id = $10::uuid THEN 'this_book'
+              WHEN c.author = $11::text THEN 'this_author'
+              ELSE 'other_authors' END AS tier,
+         ROW_NUMBER() OVER (ORDER BY
+           (CASE WHEN c.book_id = $10::uuid THEN 0
+                 WHEN c.author = $11::text THEN 1 ELSE 2 END),
+           (CASE WHEN c.work_id = $12::uuid THEN 0 ELSE 1 END),
+           c.author, c.work_title, c.work_id::text,
+           c.constituent_book NULLS FIRST, c.definition_key, c.book_id::text,
+           u.unit_order, c.sentence_ordinal, c.anchor_token_ordinal) AS position
+    FROM current c
+    JOIN source_material_units u ON u.owner_id = c.owner_id
+      AND u.source_material_id = c.source_material_id
+      AND u.snapshot_id = c.snapshot_id AND u.unit_id = c.unit_id
+   ORDER BY position
+   -- The caller starts one row early on later pages and reads one row past the
+   -- page: the first row decides "continued", the last decides "next".
+   LIMIT 27 OFFSET $13::bigint
+)
+SELECT r.tier::text AS tier,
+       r.construction_id,
+       COALESCE(r.subtype_id, '')::text AS subtype_id,
+       r.extent_token_ordinals::bigint[] AS extent_token_ordinals,
+       t.surface,
+       t.canonical_lemma,
+       t.upos,
+       t.dependency,
+       t.head AS head_ordinal,
+       s.sentence_text,
+       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
+       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
+       t.start_offset AS unit_start_offset,
+       t.end_offset AS unit_end_offset,
+       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
+       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
+       r.book_id::text AS book_id,
+       r.book_title,
+       r.source_material_id::text AS source_material_id,
+       r.analysis_run_id::text AS analysis_run_id,
+       r.corpus_id::text AS corpus_id,
+       r.unit_id,
+       u.title AS chapter_title,
+       r.unit_order,
+       r.sentence_ordinal,
+       r.anchor_token_ordinal AS token_ordinal,
+       r.snapshot_id::text AS snapshot_id,
+       u.text AS unit_text,
+       s.start_offset::bigint AS sentence_unit_start_offset,
+       s.end_offset::bigint AS sentence_unit_end_offset,
+       COALESCE(t.headword, '')::text AS headword
+  FROM ranked r
+  JOIN corpus_tokens t ON t.analysis_run_id = r.analysis_run_id
+    AND t.sentence_ordinal = r.sentence_ordinal AND t.token_ordinal = r.anchor_token_ordinal
+  JOIN corpus_sentences s ON s.analysis_run_id = r.analysis_run_id
+    AND s.sentence_ordinal = r.sentence_ordinal
+  JOIN source_material_units u ON u.owner_id = t.owner_id
+    AND u.source_material_id = r.source_material_id
+    AND u.snapshot_id = r.snapshot_id AND u.unit_id = r.unit_id
+ ORDER BY r.position
+`
+
+type ListConstructionConcordanceParams struct {
+	Owner           string
+	Language        string
+	Construction    string
+	Subtype         string
+	OriginRun       string
+	OriginSentence  int64
+	OriginAnchor    int64
+	DetectorVersion int
+	Lemma           string
+	OriginBook      string
+	OriginAuthor    string
+	OriginWork      string
+	Offset          int64
+}
+
+type ListConstructionConcordanceRow struct {
+	Tier                    string
+	ConstructionID          string
+	SubtypeID               string
+	ExtentTokenOrdinals     []int64
+	Surface                 string
+	CanonicalLemma          string
+	Upos                    string
+	Dependency              string
+	HeadOrdinal             int64
+	SentenceText            string
+	SentenceStartOffset     int64
+	SentenceEndOffset       int64
+	UnitStartOffset         int64
+	UnitEndOffset           int64
+	BookStartOffset         int64
+	BookEndOffset           int64
+	BookID                  string
+	BookTitle               string
+	SourceMaterialID        string
+	AnalysisRunID           string
+	CorpusID                string
+	UnitID                  string
+	ChapterTitle            string
+	UnitOrder               int64
+	SentenceOrdinal         int64
+	TokenOrdinal            int64
+	SnapshotID              string
+	UnitText                string
+	SentenceUnitStartOffset int64
+	SentenceUnitEndOffset   int64
+	Headword                string
+}
+
+// One page of construction parallels (ADR 0125), read in fenced stages like
+// ListVocabularyConcordance:
+//
+//	candidates  the owner's rows for one construction and optional subtype,
+//	            without the origin occurrence.
+//	eligible    the owner's current analyses of chosen-language Books whose
+//	            readiness marker carries the current detector version, with
+//	            each Book's Work and Reading unit. A run with no marker, or an
+//	            older one, contributes nothing.
+//	ranked      candidates in an eligible run, their tier and order, paged.
+//	(final)     the page's at most 27 rows fetch the wide text.
+//
+// Eligibility matches the word lookups' (owner, chosen language, current
+// analysis identity, and the unit in the snapshot). Corrections and exclusions
+// are not read, unless the learner asks for "Only with {lemma}": then the
+// anchor's effective lemma (a correction's lemma, else the token's) must equal
+// the lemma key, and an anchor with an exclusion is dropped. Without a lemma
+// the decisions are never touched: detection ignores them.
+// Tiers: this_book is the origin Book, this_author is every Book whose Work's
+// author equals the origin Work's author exactly, other_authors the rest.
+// Order: this_author lists the origin Work first; then author, Work title,
+// Reading-unit order (constituent_book, then definition key), unit, sentence and
+// anchor.
+func (q *Queries) ListConstructionConcordance(ctx context.Context, arg ListConstructionConcordanceParams) ([]ListConstructionConcordanceRow, error) {
+	rows, err := q.db.Query(ctx, listConstructionConcordance,
+		arg.Owner,
+		arg.Language,
+		arg.Construction,
+		arg.Subtype,
+		arg.OriginRun,
+		arg.OriginSentence,
+		arg.OriginAnchor,
+		arg.DetectorVersion,
+		arg.Lemma,
+		arg.OriginBook,
+		arg.OriginAuthor,
+		arg.OriginWork,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConstructionConcordanceRow{}
+	for rows.Next() {
+		var i ListConstructionConcordanceRow
+		if err := rows.Scan(
+			&i.Tier,
+			&i.ConstructionID,
+			&i.SubtypeID,
+			&i.ExtentTokenOrdinals,
+			&i.Surface,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.HeadOrdinal,
+			&i.SentenceText,
+			&i.SentenceStartOffset,
+			&i.SentenceEndOffset,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.BookStartOffset,
+			&i.BookEndOffset,
+			&i.BookID,
+			&i.BookTitle,
+			&i.SourceMaterialID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.UnitID,
+			&i.ChapterTitle,
+			&i.UnitOrder,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.SnapshotID,
+			&i.UnitText,
+			&i.SentenceUnitStartOffset,
+			&i.SentenceUnitEndOffset,
+			&i.Headword,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConstructionSentenceWords = `-- name: ListConstructionSentenceWords :many
+SELECT t.token_ordinal, t.surface, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset
+  FROM corpus_tokens t
+ WHERE t.owner_id = $1::uuid AND t.analysis_run_id = $2::uuid
+   AND t.corpus_id = $3::uuid AND t.sentence_ordinal = $4::bigint
+ ORDER BY t.token_ordinal
+`
+
+type ListConstructionSentenceWordsParams struct {
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+}
+
+type ListConstructionSentenceWordsRow struct {
+	TokenOrdinal int64
+	Surface      string
+	StartOffset  int64
+	EndOffset    int64
+}
+
+// The analyzed words of one sentence with their unit offsets, for the extract
+// an expanded parallels row reprints.
+func (q *Queries) ListConstructionSentenceWords(ctx context.Context, arg ListConstructionSentenceWordsParams) ([]ListConstructionSentenceWordsRow, error) {
+	rows, err := q.db.Query(ctx, listConstructionSentenceWords,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConstructionSentenceWordsRow{}
+	for rows.Next() {
+		var i ListConstructionSentenceWordsRow
+		if err := rows.Scan(
+			&i.TokenOrdinal,
+			&i.Surface,
+			&i.StartOffset,
+			&i.EndOffset,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConstructionUnsearchedBooks = `-- name: ListConstructionUnsearchedBooks :many
+SELECT b.id::text AS book_id, b.title
+  FROM current_analysis_identity ca
+  JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+    AND b.language_state = 'chosen' AND b.language_tag = $1::text
+  JOIN analysis_runs r ON r.owner_id = ca.owner_id AND r.id = ca.analysis_run_id
+ WHERE ca.owner_id = $2::uuid AND r.syntax_state <> 'native_agdt'
+ ORDER BY lower(b.title), b.title, b.id::text
+`
+
+type ListConstructionUnsearchedBooksParams struct {
+	Language string
+	Owner    string
+}
+
+type ListConstructionUnsearchedBooksRow struct {
+	BookID string
+	Title  string
+}
+
+// The owner's chosen-language Books in the lookup language whose current
+// analysis has no construction evidence: an absent run (an older Greek import)
+// or a Stanza-path run. A native_agdt run is never listed, even when its marker
+// is behind: that is a rebuild, and it stays silent.
+func (q *Queries) ListConstructionUnsearchedBooks(ctx context.Context, arg ListConstructionUnsearchedBooksParams) ([]ListConstructionUnsearchedBooksRow, error) {
+	rows, err := q.db.Query(ctx, listConstructionUnsearchedBooks, arg.Language, arg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConstructionUnsearchedBooksRow{}
+	for rows.Next() {
+		var i ListConstructionUnsearchedBooksRow
+		if err := rows.Scan(&i.BookID, &i.Title); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

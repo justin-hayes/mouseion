@@ -35,7 +35,7 @@ func TestEmbeddedManifestCarriesTheAnabasisPilot(t *testing.T) {
 	assert.Equal(t, int64(7438037), definition.Source.Size)
 	assert.Equal(t, "c51bba2df6e80e2eb8dd2543d00cf6d6e6b8c65cc9ed03c7d27176fed063eb61", definition.Source.SHA256)
 	assert.Equal(t, "tlg0032.tlg006.perseus-grc2_oga020_src.conllu", definition.Source.FileName)
-	assert.Equal(t, "oga-agdt-upos/5", definition.InterpretationVersion)
+	assert.Equal(t, "oga-agdt-syntax/1", definition.InterpretationVersion)
 	require.NotNil(t, definition.Translation)
 	assert.Equal(t, int64(1101217), definition.Translation.Size)
 	assert.Equal(t, "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7", definition.Translation.SHA256)

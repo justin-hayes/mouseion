@@ -124,7 +124,13 @@ func publishImportedRun(ctx context.Context, tx pgx.Tx, in ancientgreek.ImportWr
 	if err := completeImportedRun(ctx, tx, args, corpusID); err != nil {
 		return err
 	}
-	return publishEligibleAnalysis(ctx, tx, args, bookID)
+	// The Construction occurrences are built in the same transaction, before the
+	// run publishes, so a published native_agdt run always has its current
+	// marker and a failed build publishes nothing (ADR 0123).
+	if err := persistence.BuildConstructionOccurrencesTx(ctx, tx, in.OwnerID, runID); err != nil {
+		return fmt.Errorf("build construction occurrences: %w", err)
+	}
+	return publishEligibleAnalysis(ctx, tx, args, bookID, in.RiverJobID)
 }
 
 // importedSourceMaterial builds the source-material row for an import. Only

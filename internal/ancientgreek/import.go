@@ -62,10 +62,15 @@ const SourceMediaType = domain.ImportedSourceMediaType
 // Interpretation slot versions recorded on an imported run. They are compiled
 // reviewed data; a new value produces a new analysis run.
 const (
-	PosMappingVersion     = "oga-agdt-upos/5"
-	FeatsMappingVersion   = "oga-agdt-feats/1"
-	NormalizationVersion  = "ancient-greek/1"
-	ProperNameRuleVersion = "oga-anabasis-proper-name/1"
+	PosMappingVersion = "oga-agdt-upos/5"
+	// InterpretationVersionNativeAGDT is the OGA interpretation version that
+	// stores each token's AGDT relation and head and the unprinted syntax nodes
+	// (ADR 0122). It supersedes PosMappingVersion as the compiled manifest's
+	// default interpretation version.
+	InterpretationVersionNativeAGDT = "oga-agdt-syntax/1"
+	FeatsMappingVersion             = "oga-agdt-feats/2"
+	NormalizationVersion            = "ancient-greek/1"
+	ProperNameRuleVersion           = "oga-anabasis-proper-name/1"
 	// SearchKeyRuleVersion names the stored surface-form search key derivation.
 	// It is part of the run's version so a run written before the key existed is
 	// superseded by a re-import that writes keys.
@@ -159,6 +164,10 @@ type ImportWriteRequest struct {
 	AnalyzerName    string
 	AnalyzerVersion string
 	ConfigIdentity  string
+	// RiverJobID is the River job publishing this import, or zero when none
+	// is. It is recorded with the carried-over decisions in the publishing
+	// transaction so /jobs can name the job that published the run.
+	RiverJobID int64
 }
 
 // ImportWriteResult reports the run the writer used.
@@ -210,10 +219,10 @@ func Import(ctx context.Context, req ImportRequest, writer ImportWriter) (Import
 		UnitID:          unitID,
 		UnitTitle:       req.Definition.WorkTitle,
 		Result:          reading.Result,
-		SyntaxState:     SyntaxStateAbsent,
+		SyntaxState:     SyntaxStateNativeAGDT,
 		AnalyzerName:    ImportAnalyzerName,
 		AnalyzerVersion: InterpretationVersion(req.Definition),
-		ConfigIdentity:  ImportConfigIdentity(req.Definition),
+		ConfigIdentity:  ImportConfigIdentity(req.Definition, SyntaxStateNativeAGDT),
 	})
 	if err != nil {
 		return ImportReport{}, err
@@ -241,11 +250,11 @@ func InterpretationVersion(definition domain.ReadingUnitDefinition) string {
 // ImportConfigIdentity is the run's configuration identity: the reviewed
 // definition and the syntax decision. It distinguishes runs that share an
 // interpretation version.
-func ImportConfigIdentity(definition domain.ReadingUnitDefinition) string {
+func ImportConfigIdentity(definition domain.ReadingUnitDefinition, state SyntaxState) string {
 	return strings.Join([]string{
 		ImportContractVersion,
 		definition.Key,
-		string(SyntaxStateAbsent),
+		string(state),
 	}, ":")
 }
 

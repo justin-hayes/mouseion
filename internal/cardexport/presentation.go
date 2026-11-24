@@ -62,6 +62,11 @@ type CandidateProjection struct {
 	// (ADR 0103).
 	Structure   domain.SnapshotStructure
 	SourceUnits map[string]domain.ExtractedUnit
+	// SyntaxState is the recorded syntax state ("ud", "native_agdt" or
+	// "absent") of the analysis run the projection's sentences come from. Empty
+	// means "ud". Lexical sense ordering reads a token relation only for a ud
+	// run.
+	SyntaxState string
 }
 
 // WorkItem is one exact external request derived from a frozen deck.
@@ -310,7 +315,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idio
 			entries = append(entries, entry)
 			continue
 		}
-		if err := resolver.resolveLexicalEntry(ctx, &entry); err != nil {
+		if err := resolver.resolveLexicalEntry(ctx, &entry, projection.SyntaxState); err != nil {
 			return nil, fmt.Errorf("%w: resolve lexical entry %s: %w", ErrInvalidInput, candidateKey(projection.Candidate), err)
 		}
 		entries = append(entries, entry)

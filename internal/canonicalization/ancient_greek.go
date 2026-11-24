@@ -2,6 +2,7 @@ package canonicalization
 
 import (
 	"strings"
+	"unicode"
 
 	"golang.org/x/text/unicode/norm"
 )
@@ -21,6 +22,23 @@ const (
 	// language the registry treats as a dedicated-profile language.
 	ancientGreekLanguage = "grc"
 )
+
+// AncientGreekDisplayForm reverses the key's sigma folding for display: a σ at
+// the end of a word is always ς in Greek. Accents and breathings are never
+// folded, so nothing else changes. It is for learner-facing text only; keys stay
+// folded.
+func AncientGreekDisplayForm(key string) string {
+	runes := []rune(norm.NFC.String(key))
+	for i, r := range runes {
+		if r != 'σ' {
+			continue
+		}
+		if i+1 == len(runes) || !unicode.IsLetter(runes[i+1]) && !unicode.Is(unicode.Mn, runes[i+1]) {
+			runes[i] = 'ς'
+		}
+	}
+	return string(runes)
+}
 
 // AncientGreekProfile derives vocabulary identity keys for Ancient Greek.
 // Accents, breathings, diaeresis and iota subscript stay significant, so only

@@ -37,7 +37,7 @@ func TestLexicalFieldsAreFrozenBeforeManifestAndRender(t *testing.T) {
 		OmittedCandidateCount: 3,
 	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus"}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 	assert.Equal(t, "building", entry.Gloss)
 	assert.Equal(t, "Häuser", entry.Plural)
 	assert.Equal(t, "/haʊ̯s/", entry.IPA)
@@ -74,7 +74,7 @@ func TestFrozenCandidateBoundKeepsExactEvidenceAheadOfWeakerEvidence(t *testing.
 		Senses: senses, CandidateSenses: senses, OmittedCandidateCount: 3,
 	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "Bank", UPOS: "NOUN", Sentence: "Die Bank ist geschlossen.", TargetWord: "Bank"}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 	require.Len(t, entry.CandidateSenses, enrichment.DefaultMaxCandidateSenses)
 	assert.Equal(t, "exact", entry.CandidateSenses[0].EvidenceID)
 	assert.Equal(t, "exact_lemma_pos", entry.CandidateSenses[0].MatchStrength)
@@ -94,7 +94,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 		Senses: []enrichment.LexicalSense{{Gloss: "rogue"}},
 	}}}
 	entry := Entry{Language: "de", CanonicalLemma: "gauner", UPOS: "NOUN", Sentence: "Viele Gauner wurden gestern verhaftet.", TargetWord: "Gauner"}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 	note, err := makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
 	assert.Equal(t, "Gauner", note.Plural)
@@ -105,7 +105,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 		Senses: []enrichment.LexicalSense{{Gloss: "parents"}},
 	}}}
 	entry = Entry{Language: "de", CanonicalLemma: "eltern", UPOS: "NOUN", Sentence: "Meine Eltern wohnen seit Jahren am See.", TargetWord: "Eltern"}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 	note, err = makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
 	assert.Empty(t, note.Plural)
@@ -115,7 +115,7 @@ func TestIdenticalPluralIsRenderedAndNoPluralSelfSuppresses(t *testing.T) {
 func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 	service := &lexicalResolver{lexical: lexicalStub{}}
 	entry := Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Morphology: `{"Gender":"Neut"}`}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 	assert.Equal(t, "fixture-v1", entry.DictionaryProviderVersion)
 	note, err := makeNote("owner", renderInputFromEntry(Entry{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus", Morphology: `{"Gender":"Neut"}`}))
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestMissingLexicalEntryKeepsMorphologyFallback(t *testing.T) {
 func TestConfiguredIndexMissIsReportedAsConfiguredWithoutEvidence(t *testing.T) {
 	service := &lexicalResolver{lexical: lexicalStub{}}
 	entry := Entry{Language: "de", CanonicalLemma: "unindexed", UPOS: "NOUN", Sentence: "Das unbekannte Wort steht heute neben dem Bahnhof.", TargetWord: "Wort"}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 	diagnostics := manifestDiagnostics(newManifest("owner", "Book", []Entry{entry}))
 	assert.Equal(t, []EvidenceCoverage{{Source: "wiktionary", Configured: true, Selected: 1}}, diagnostics.EvidenceCoverage)
 }
@@ -145,7 +145,7 @@ func TestNonNounPluralIsNotRenderedOnCard(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			entry := Entry{Language: "de", CanonicalLemma: "aufstehen", UPOS: test.upos, Sentence: "Wir stehen auf.", TargetWord: "stehen auf"}
-			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 			assert.Equal(t, "to get up", entry.Gloss)
 			assert.Empty(t, entry.Morphology)
 		})
@@ -175,7 +175,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Das Haus steht heute neben dem Bahnhof.", TargetWord: "Haus",
 		Morphology: `{"Gender":"Masc","Article":"der"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 
 	note, err := makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)
@@ -191,7 +191,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Die Straße führt zum Bahnhof.", TargetWord: "Straße",
 		Morphology: `{"Gender":"Masc"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &sharpS))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &sharpS, ""))
 	assert.JSONEq(t, `{"Article":"die","Gender":"Fem","Plural":"Straßen"}`, sharpS.Morphology)
 	assert.Equal(t, "street", sharpS.Gloss)
 	assert.Equal(t, "Straßen", sharpS.Plural)
@@ -211,7 +211,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Die See ist tief und salzig.", TargetWord: "See",
 		Morphology: `{"Gender":"Masc","Article":"der"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &ranked))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &ranked, ""))
 	note, err = makeNote("owner", renderInputFromEntry(ranked))
 	require.NoError(t, err)
 	assert.Equal(t, "die", note.Article)
@@ -223,7 +223,7 @@ func TestDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Sentence: "Der Baum steht dort.", TargetWord: "Baum",
 		Morphology: `{"Gender":"Masc"}`,
 	}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &unindexed))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &unindexed, ""))
 	assert.Empty(t, unindexed.Gloss)
 	assert.Equal(t, "fixture-v1", unindexed.DictionaryProviderVersion)
 	note, err = makeNote("owner", renderInputFromEntry(unindexed))
@@ -262,7 +262,7 @@ func TestItalianDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 				Sentence: test.sentence, TargetWord: test.target,
 				Morphology: `{"Gender":"Masc","Article":"il"}`,
 			}
-			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 
 			note, err := makeNote("owner", renderInputFromEntry(entry))
 			require.NoError(t, err)
@@ -311,7 +311,7 @@ func TestFrenchDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 				Language: "fr", CanonicalLemma: test.lemma, UPOS: "NOUN",
 				Sentence: test.sentence, TargetWord: test.target,
 			}
-			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 
 			note, err := makeNote("owner", renderInputFromEntry(entry))
 			require.NoError(t, err)
@@ -329,7 +329,7 @@ func TestFrenchDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Language: "fr", CanonicalLemma: "manger", UPOS: "VERB",
 		Sentence: "Ils mangent ensemble.", TargetWord: "mangent",
 	}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &verb))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &verb, ""))
 	note, err := makeNote("owner", renderInputFromEntry(verb))
 	require.NoError(t, err)
 	assert.Empty(t, note.Article)
@@ -404,7 +404,7 @@ func TestFrenchWeakEvidenceFallbackRendersOnCard(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			service := openFrenchDictionaryIndexFixture(t, test.seeds...)
 			entry := test.entry
-			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+			require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 			require.NotEmpty(t, entry.CandidateSenses)
 			t.Run("gloss uses weak evidence", func(t *testing.T) {
 				assert.Equal(t, "lemma_only_missing_pos", entry.CandidateSenses[0].MatchStrength)
@@ -446,7 +446,7 @@ func TestGreekDictionaryIndexMorphologyRendersOnCard(t *testing.T) {
 		Language: "el", CanonicalLemma: "άνθρωπος", UPOS: "NOUN",
 		Sentence: "Ο άνθρωπος διαβάζει σήμερα.", TargetWord: "άνθρωπος",
 	}
-	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry))
+	require.NoError(t, service.resolveLexicalEntry(t.Context(), &entry, ""))
 
 	note, err := makeNote("owner", renderInputFromEntry(entry))
 	require.NoError(t, err)

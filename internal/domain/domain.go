@@ -505,7 +505,29 @@ type ConcordanceOccurrence struct {
 const (
 	ConcordanceMatchLemma = "lemma"
 	ConcordanceMatchForm  = "form"
+	// ConcordanceMatchConstruction lists other occurrences of one Ancient Greek
+	// construction (ADR 0125). Its term is the construction id.
+	ConcordanceMatchConstruction = "construction"
 )
+
+// ConcordanceConstructionLanguage is the one study language whose analysis has a
+// construction scheme (ADR 0125). Any other language gets no parallels.
+const ConcordanceConstructionLanguage = "grc"
+
+// Concordance construction tiers, in the order a parallels page lists them.
+const (
+	ConcordanceTierThisBook     = "this_book"
+	ConcordanceTierThisAuthor   = "this_author"
+	ConcordanceTierOtherAuthors = "other_authors"
+)
+
+// ConcordanceConstructionOrigin is the Construction occurrence a parallels
+// lookup came from: the origin sentence and anchor of one analysis run. It
+// supplies the origin Book, Work and author, and is left out of the results.
+type ConcordanceConstructionOrigin struct {
+	RunID            string
+	Sentence, Anchor int
+}
 
 // ConcordanceLookup describes one learner-facing lookup of a single literal
 // lemma or word form across the eligible analyzed corpus.
@@ -528,6 +550,17 @@ type ConcordanceLookup struct {
 	Priority string
 	Page     int
 	Revision string
+	// Subtype restricts a construction lookup to one shipped subtype label.
+	Subtype string
+	// Origin is the occurrence a construction lookup came from; it is required
+	// for the construction match and unused otherwise.
+	Origin *ConcordanceConstructionOrigin
+	// Lemma narrows a construction lookup to parallels whose anchor's effective
+	// lemma is this lemma key ("Only with {lemma}"). Empty means no filter.
+	Lemma string
+	// OriginLemma is the origin anchor's effective lemma, carried so the page can
+	// offer the filter. It never affects which rows match.
+	OriginLemma string
 }
 
 // ConcordancePriorityNone captures that no Book was being read when the
@@ -563,6 +596,36 @@ type ConcordanceResult struct {
 	// Continued is true when the first page-local Book group began on an
 	// earlier page.
 	Continued bool
+	// InvalidOrigin reports a construction lookup whose origin occurrence is
+	// missing, unowned, outside the captured Book, or has no Reading unit.
+	InvalidOrigin bool
+	// Origin is the validated origin of a construction lookup.
+	Origin ConcordanceConstructionOriginSentence
+	// UnsearchedBooks are the owner's chosen-language Books in the lookup
+	// language whose current analysis has no construction evidence, by title.
+	UnsearchedBooks []ConcordanceUnsearchedBook
+}
+
+// ConcordanceUnsearchedBook is a Book a parallels lookup could not search. A
+// Book whose syntax is merely rebuilding is never one.
+type ConcordanceUnsearchedBook struct {
+	BookID, Title string
+	// UpdateAvailable reports an Analysis update offer for the Book.
+	UpdateAvailable bool
+}
+
+// ConcordanceConstructionOriginSentence is the validated origin of a parallels
+// lookup: the sentence Sentence study reopens, and the Work and author the
+// tiers are measured against.
+type ConcordanceConstructionOriginSentence struct {
+	BookID, BookTitle, CorpusID, UnitID, AnchorSurface string
+	WorkTitle, Author                                  string
+	// AnchorLemma is the anchor word's effective lemma key, read from storage,
+	// and AnchorHeadword its citation form (empty when none is known).
+	AnchorLemma, AnchorHeadword string
+	// Current reports that the origin run is still the Book's current
+	// analysis, so Sentence study can reopen its sentence.
+	Current bool
 }
 
 type ConcordanceResultOccurrence struct {
@@ -581,9 +644,21 @@ type ConcordanceResultOccurrence struct {
 	// source span: a speaker name (nested directions omitted) or a stage
 	// direction. It is never part of the sentence or a target.
 	Attribution SourceAttribution
+	// Tier, Anchor, ConstructionExtent, ConstructionID, SubtypeID and Study
+	// describe a construction parallel; they are empty for a word lookup.
+	// Study carries the sentence's words and the one occurrence, so the
+	// expanded row reuses the Sentence study extract.
+	Tier               string
+	Anchor             int
+	ConstructionExtent []int
+	ConstructionID     string
+	SubtypeID          string
+	Study              SentenceStudy
 }
 
 type SentenceStudy struct {
+	// AnalysisRunID is the run the sentence was read from.
+	AnalysisRunID                                 string
 	BookID, BookTitle, ChapterTitle, SentenceText string
 	TargetSurface                                 string
 	SentenceOrdinal, TargetOrdinal                int64
@@ -609,6 +684,12 @@ type SentenceStudy struct {
 	// when the snapshot recorded no structure or no label precedes the span.
 	Attribution SourceAttribution
 	Tokens      []SentenceStudyToken
+	// UnprintedNodes are the sentence's Unprinted syntax nodes, read only for a
+	// native_agdt run. They have no form, lemma or occurrence.
+	UnprintedNodes []UnprintedSyntaxNode
+	// Constructions are the sentence's Construction occurrences, present only
+	// when the run's marker carries the current detector version.
+	Constructions []SentenceStudyConstruction
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.
@@ -633,6 +714,35 @@ type SentenceStudyToken struct {
 	// Corrected and Excluded report an occurrence decision attributed to this
 	// word because the decision addresses exactly this persisted word.
 	Corrected, Excluded bool
+	// HeadUnprintedNode is the source id of the Unprinted syntax node this word
+	// depends on, or empty. When set, HeadOrdinal is the word's own ordinal and
+	// HeadSurface is meaningless: a reader checks this first.
+	HeadUnprintedNode string
+}
+
+// SentenceStudyConstruction is one stored Construction occurrence of a
+// sentence: identifiers and token ordinals only. The note's name, definition and
+// citation are looked up when the page renders.
+type SentenceStudyConstruction struct {
+	ConstructionID, SubtypeID string
+	// Anchor is the printed token ordinal that signals the construction.
+	Anchor int
+	// Extent holds the sorted printed token ordinals of the construction. It may
+	// be discontinuous and contains the anchor.
+	Extent []int
+}
+
+// UnprintedSyntaxNode is one stored AGDT ellipsis node of a sentence: a node
+// of the syntax tree with no printed word.
+type UnprintedSyntaxNode struct {
+	SourceID, Dependency string
+	// HeadTokenOrdinal is the printed word it depends on; HasHeadToken is false
+	// when it depends on no printed word.
+	HeadTokenOrdinal int64
+	HasHeadToken     bool
+	// HeadUnprintedNode is the source id of the unprinted node it depends on, or
+	// empty. With no head of either kind the node is a root.
+	HeadUnprintedNode string
 }
 
 // SentenceStudyDecision is one stored occurrence decision addressing a sentence

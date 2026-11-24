@@ -16,7 +16,16 @@ type LexicalLookupRequest struct {
 	TargetWord                     string
 	RepresentativeSentence         string
 	SentenceTokens                 []analyzer.Token
+	// SyntaxState is the syntax state of the analysis run the sentence tokens
+	// come from: "ud", "native_agdt" or "absent". Empty means "ud", the state
+	// of every run that predates the field. Only a ud run's Dependency is a
+	// relation this package may read as context.
+	SyntaxState string
 }
+
+// SyntaxStateUD is the syntax state whose token relations are Universal
+// Dependencies relations.
+const SyntaxStateUD = "ud"
 
 // LexicalSense is one ordered gloss sense with the context metadata retained
 // by the local dictionary index.
@@ -256,12 +265,15 @@ func addTokenSentenceContext(request LexicalLookupRequest, words map[string]bool
 	if index < 0 {
 		return
 	}
+	// A native AGDT or absent run stores a source label (or a placeholder) in
+	// Dependency, which is not a UD relation and must not score a sense.
+	readsUDRelations := request.SyntaxState == "" || request.SyntaxState == SyntaxStateUD
 	start, end := contextWindow(index, len(request.SentenceTokens))
 	for _, token := range request.SentenceTokens[start:end] {
 		if word := normalizeWord(token.CanonicalLemma); isContextWord(request.Language, word) && word != target && contentPOS(token.UPOS) {
 			words[word] = true
 		}
-		if relation := normalizeWord(token.Dependency); relation != "" {
+		if relation := normalizeWord(token.Dependency); relation != "" && readsUDRelations {
 			words[relation] = true
 		}
 	}

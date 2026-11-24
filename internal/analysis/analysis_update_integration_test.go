@@ -60,11 +60,28 @@ func (p *pipelineFixture) analyze(_ context.Context, req analyzer.AnalyzeRequest
 		}
 	}
 	length := uint64(len([]rune(req.Document.Text)))
+	// The last token's source lemma follows the produced normalization version,
+	// so a later version changes that one token's identity and no other.
+	changing := "Ende"
+	if produced != "1" {
+		changing = "Ende-" + produced
+	}
+	token := func(surface, rawLemma, canonical string, start, end uint64) analyzer.Token {
+		dependency := "dep" // every token depends on the first, which is the root
+		if start == 0 {
+			dependency = "root"
+		}
+		return analyzer.Token{Surface: surface, RawLemma: rawLemma, CanonicalLemma: canonical, UPOS: "NOUN", Dependency: dependency,
+			Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, StartOffset: start, EndOffset: end}}
+	}
 	return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language,
 		Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
 		NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: produced},
 		Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: length}, Tokens: []analyzer.Token{
-			{Surface: "Tag", RawLemma: "Tag", CanonicalLemma: "tag", UPOS: "NOUN", Dependency: "root", Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 3}},
+			token("Tag", "Tag", "tag", 0, 3),
+			token("Guten", "Guten", "guten", 4, 9),
+			token("Wort", "Wort", "wort", 10, 14),
+			token("Ende", changing, "ende", 15, 19),
 		}}}}, nil
 }
 
@@ -98,7 +115,7 @@ func (h analysisUpdateHarness) analyzedToReadBook(t *testing.T, ctx context.Cont
 	t.Helper()
 	book, err := h.store.CreateBook(ctx, domain.Book{OwnerID: h.owner, Title: "Update " + slug, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
-	source, err := putAnalysisSource(ctx, h.store, h.owner, "update-"+slug, book.Title, "Guten Tag.", "sha256:update-"+slug)
+	source, err := putAnalysisSource(ctx, h.store, h.owner, "update-"+slug, book.Title, "Tag Guten Wort Ende", "sha256:update-"+slug)
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(ctx, h.owner, book.ID, source.ID))
 	require.NoError(t, h.store.SetBookDisposition(ctx, h.owner, book.ID, domain.BookDispositionToRead))
@@ -158,8 +175,16 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 
 	var corpusID string
 	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE id=$1`, original.RunID).Scan(&corpusID))
+	var documentID string
+	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT unit_id FROM corpus_sentences WHERE owner_id=$1 AND analysis_run_id=$2`, h.owner, original.RunID).Scan(&documentID))
+	// Four decisions on the published analysis: a correction that carries, one
+	// the new token already has (absorbed), an exclusion that carries, and a
+	// correction on the token whose source lemma the update changes.
 	_, err = h.store.Pool().Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded)
-		VALUES($1,$2,$3,$4,'doc',0,3,'tagen','casefold','1',false),($1,$2,$3,$4,'doc',4,7,NULL,NULL,NULL,true),($1,$2,$3,$4,'doc',8,9,NULL,NULL,NULL,true)`, h.owner, book.ID, corpusID, original.RunID)
+		VALUES($1,$2,$3,$4,$5,0,3,'tagen','casefold','1',false),
+		      ($1,$2,$3,$4,$5,4,9,'guten','casefold','1',false),
+		      ($1,$2,$3,$4,$5,10,14,NULL,NULL,NULL,true),
+		      ($1,$2,$3,$4,$5,15,19,'enden','casefold','1',false)`, h.owner, book.ID, corpusID, original.RunID, documentID)
 	require.NoError(t, err)
 
 	h.pipeline.set("2", "2")
@@ -168,8 +193,8 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 	require.Contains(t, offers, source.ID)
 	offer := offers[source.ID]
 	assert.Equal(t, original.RunID, offer.PublishedRunID)
-	assert.Equal(t, 1, offer.LemmaCorrections)
-	assert.Equal(t, 2, offer.OccurrenceExclusions)
+	assert.Equal(t, 3, offer.LemmaCorrections)
+	assert.Equal(t, 1, offer.OccurrenceExclusions)
 	assert.Equal(t, "2", offer.Target.NormalizationVersion)
 
 	// The service moved on again before the learner confirmed.
@@ -228,10 +253,52 @@ func TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun(t *testing
 	offers, err = h.service.AnalysisUpdateCandidates(ctx, h.owner, []string{source.ID})
 	require.NoError(t, err)
 	assert.Empty(t, offers, "the replacement is current")
-	var carried, kept int
-	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT count(*) FILTER (WHERE analysis_run_id=$2), count(*) FILTER (WHERE analysis_run_id=$3) FROM occurrence_lemma_corrections WHERE owner_id=$1`, h.owner, update.RunID, original.RunID).Scan(&carried, &kept))
-	assert.Zero(t, carried, "decisions are never remapped onto the new analysis")
-	assert.Equal(t, 3, kept, "decisions on the earlier analysis are not rewritten")
+	type decision struct {
+		Start, End int
+		Lemma      string
+		Excluded   bool
+	}
+	decisionsOn := func(runID string) []decision {
+		rows, err := h.store.Pool().Query(ctx, `SELECT start_offset, end_offset, COALESCE(canonical_lemma,''), excluded FROM occurrence_lemma_corrections
+			WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND source_document_id=$4 ORDER BY start_offset`, h.owner, book.ID, runID, documentID)
+		require.NoError(t, err)
+		defer rows.Close()
+		var found []decision
+		for rows.Next() {
+			var d decision
+			require.NoError(t, rows.Scan(&d.Start, &d.End, &d.Lemma, &d.Excluded))
+			found = append(found, d)
+		}
+		require.NoError(t, rows.Err())
+		return found
+	}
+	assert.Equal(t, []decision{{0, 3, "tagen", false}, {10, 14, "", true}}, decisionsOn(update.RunID),
+		"matched decisions carry; the absorbed correction and the changed-lemma correction do not")
+	assert.Equal(t, []decision{{0, 3, "tagen", false}, {4, 9, "guten", false}, {10, 14, "", true}, {15, 19, "enden", false}}, decisionsOn(original.RunID),
+		"decisions on the earlier analysis are not rewritten")
+	var newCorpusID, copiedProfile, copiedVersion string
+	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT r.corpus_id::text, o.normalization_profile, o.normalization_version FROM analysis_runs r
+		JOIN occurrence_lemma_corrections o ON o.owner_id=r.owner_id AND o.analysis_run_id=r.id AND o.start_offset=0
+		WHERE r.owner_id=$1 AND r.id=$2`, h.owner, update.RunID).Scan(&newCorpusID, &copiedProfile, &copiedVersion))
+	assert.NotEqual(t, corpusID, newCorpusID)
+	assert.Equal(t, "casefold", copiedProfile, "the copy keeps the decision's normalization metadata")
+	assert.Equal(t, "1", copiedVersion)
+	var carriedCount, totalCount int
+	var previous string
+	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT carried, total, previous_analysis_run_id::text FROM analysis_decision_carry_overs WHERE owner_id=$1 AND analysis_run_id=$2`,
+		h.owner, update.RunID).Scan(&carriedCount, &totalCount, &previous))
+	assert.Equal(t, 3, carriedCount, "two copied and one absorbed")
+	assert.Equal(t, 4, totalCount)
+	assert.Equal(t, original.RunID, previous)
+	var tagen, tag int
+	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT count(*) FILTER (WHERE canonical_lemma='tagen'), count(*) FILTER (WHERE canonical_lemma='tag') FROM vocabulary_browse_counts WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`,
+		h.owner, book.ID, update.RunID).Scan(&tagen, &tag))
+	assert.Equal(t, 1, tagen, "the new run's Browse counts already reflect the copied correction")
+	assert.Zero(t, tag)
+	var excluded int
+	require.NoError(t, h.store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_browse_counts WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND canonical_lemma='wort'`,
+		h.owner, book.ID, update.RunID).Scan(&excluded))
+	assert.Zero(t, excluded, "and the copied exclusion")
 	replayed, err := h.service.SubmitAnalysisUpdate(ctx, h.owner, book.ID, source.ID, offer.PublishedRunID, offer.Target.Key())
 	require.ErrorIs(t, err, ErrAnalysisUpdateChanged, "a replayed confirmation sees the refreshed state")
 	assert.Zero(t, replayed)

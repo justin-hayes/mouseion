@@ -180,6 +180,12 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-poetry") {
 		return fixturePoetryConcordance(result), nil
 	}
+	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-syntax") {
+		return fixtureSyntaxConcordance(result), nil
+	}
+	if query.Match == domain.ConcordanceMatchConstruction {
+		return fixtureConstructionConcordance(result, query), nil
+	}
 	lemma := strings.ToLower(strings.TrimSpace(query.Term))
 	// Mirror the persisted lookup: an evidenced effective lemma wins and
 	// expands its forms; any other term matches only that source form.
@@ -265,6 +271,10 @@ func (s *Store) GetVocabularySentenceStudy(_ context.Context, _, book, _, _, uni
 		return fixturePoetryStudy(book, sentence, target, targetSurface), nil
 	case "fixture-stage-unit":
 		return fixtureStageStudy(book, sentence, target, targetSurface), nil
+	case fixtureSyntaxUnit:
+		return fixtureSyntaxStudy(book, sentence, target, targetSurface), nil
+	case fixtureSyntaxLongUnit:
+		return fixtureSyntaxLongStudy(book, sentence, target, targetSurface), nil
 	default:
 		return domain.SentenceStudy{}, errors.New("sentence study not found")
 	}
@@ -527,4 +537,132 @@ func (s *Store) knownForOwnerLocked(owner, language string) []domain.KnownVocabu
 		}
 	}
 	return result
+}
+
+const (
+	fixtureSyntaxUnit = "fixture-syntax-unit"
+	// fixtureSyntaxLongUnit holds one long synthetic Greek sentence, so browser
+	// acceptance can check that an extract wraps without page overflow.
+	fixtureSyntaxLongUnit = "fixture-syntax-long-unit"
+	fixtureSyntaxSentence = "λέγει ὅτι ἄνδρας, καλούς."
+	// fixtureSyntaxRunID and fixtureSyntaxBookID are the origin of the synthetic
+	// construction parallels: the analysis run and Book of the syntax sentence.
+	fixtureSyntaxRunID  = SyntaxRunID
+	fixtureSyntaxBookID = SyntaxBookID
+)
+
+// The synthetic Greek syntax sentence's identities, for tests that drive the
+// fixture store directly.
+const (
+	SyntaxRunID  = "00000000-0000-4000-8000-0000000000a1"
+	SyntaxBookID = "fixture-kwic-syntax"
+	SyntaxUnitID = fixtureSyntaxUnit
+)
+
+// fixtureSyntaxConcordance returns one Greek occurrence whose Sentence study
+// is a native_agdt run, so browser acceptance can open Word relations without
+// PostgreSQL or NLP.
+func fixtureSyntaxConcordance(result domain.ConcordanceResult) domain.ConcordanceResult {
+	result.Match, result.Term = domain.ConcordanceMatchForm, "fixture-syntax"
+	occurrence := fixtureConcordanceOccurrence("ὅτι", false, false)
+	occurrence.BookID = "fixture-kwic-syntax"
+	occurrence.BookTitle = "Synthetic Greek syntax"
+	occurrence.ChapterTitle = "Synthetic 1.1"
+	occurrence.SentenceText = fixtureSyntaxSentence
+	occurrence.SentenceStartOffset = 6
+	occurrence.SentenceEndOffset = 9
+	occurrence.Surface = "ὅτι"
+	occurrence.CanonicalLemma, occurrence.RawLemma = "ὅτι", "ὅτι"
+	occurrence.UPOS, occurrence.Dependency = "SCONJ", "AuxC"
+	occurrence.HeadOrdinal, occurrence.HeadSurface = 0, "λέγει"
+	occurrence.UnitID = fixtureSyntaxUnit
+	occurrence.TokenOrdinal = 1
+	result.Occurrences = []domain.ConcordanceResultOccurrence{occurrence}
+	return result
+}
+
+// fixtureSyntaxStudy is a short synthetic native_agdt sentence with a root
+// (λέγει), an unprinted head (the object ἄνδρας hangs from an unprinted node
+// under ὅτι), a punctuation head (καλούς depends on the comma) and an identified
+// target (ὅτι).
+func fixtureSyntaxStudy(book string, sentence, target int64, targetSurface string) domain.SentenceStudy {
+	greek := func(ordinal, start, end int64, surface, upos, relation string, head int64) domain.SentenceStudyToken {
+		return domain.SentenceStudyToken{Surface: surface, RawLemma: surface, EffectiveLemma: surface, Headword: surface,
+			UPOS: upos, Dependency: relation, HeadOrdinal: head, Ordinal: ordinal, StartOffset: start, EndOffset: end}
+	}
+	tokens := []domain.SentenceStudyToken{
+		greek(0, 0, 5, "λέγει", "VERB", "PRED", 0),
+		greek(1, 6, 9, "ὅτι", "SCONJ", "AuxC", 0),
+		greek(2, 10, 16, "ἄνδρας", "NOUN", "SBJ", 2),
+		greek(3, 16, 17, ",", "PUNCT", "AuxX", 2),
+		greek(4, 18, 24, "καλούς", "ADJ", "ATR", 3),
+		greek(5, 24, 25, ".", "PUNCT", "AuxK", 5),
+	}
+	tokens[2].HeadUnprintedNode = "e_1"
+	return domain.SentenceStudy{
+		AnalysisRunID: fixtureSyntaxRunID,
+		BookID:        book, BookTitle: "Synthetic Greek syntax", ChapterTitle: "Synthetic 1.1",
+		TargetSurface: targetSurface, SentenceText: fixtureSyntaxSentence, UnitText: fixtureSyntaxSentence,
+		SentenceStartOffset: 0, SentenceEndOffset: int64(len([]rune(fixtureSyntaxSentence))),
+		SentenceOrdinal: sentence, TargetOrdinal: target, SyntaxState: "native_agdt",
+		Tokens:         tokens,
+		UnprintedNodes: []domain.UnprintedSyntaxNode{{SourceID: "e_1", Dependency: "OBJ", HeadTokenOrdinal: 1, HasHeadToken: true}},
+		Constructions:  fixtureSyntaxConstructions(),
+	}
+}
+
+// fixtureSyntaxConstructions are three synthetic Construction occurrences over
+// the sentence, so browser acceptance can read the Constructions region without
+// PostgreSQL or NLP. They are listed out of order on purpose; the page orders
+// them. They are not a claim about the Greek:
+//   - an indirect statement (infinitive) over the whole sentence, anchored on
+//     λέγει, which contains the identified target;
+//   - a genitive absolute with a discontinuous extent, λέγει … ἄνδρας, καλούς,
+//     whose gap holds the identified target and a comma;
+//   - a purpose clause nested inside the first, anchored on the identified
+//     target ὅτι.
+func fixtureSyntaxConstructions() []domain.SentenceStudyConstruction {
+	return []domain.SentenceStudyConstruction{
+		{ConstructionID: "purpose", Anchor: 1, Extent: []int{1, 2, 3, 4}},
+		{ConstructionID: "genitive_absolute", Anchor: 2, Extent: []int{0, 2, 4}},
+		{ConstructionID: "indirect_statement", SubtypeID: "infinitive", Anchor: 0, Extent: []int{0, 1, 2, 3, 4, 5}},
+	}
+}
+
+// fixtureSyntaxLongStudy is a synthetic native_agdt sentence of forty long
+// words with three occurrences: one over the whole sentence, one discontinuous
+// and one nested inside the first, anchored on the identified target.
+func fixtureSyntaxLongStudy(book string, sentence, target int64, targetSurface string) domain.SentenceStudy {
+	words := []string{"ἀνθρωπότητος", "φιλοσοφουμένων", "ἐπιστημονικωτάτου", "διαλεκτικώτερον", "παραδειγματικῶς"}
+	var tokens []domain.SentenceStudyToken
+	var text []rune
+	for i := range 40 {
+		if i > 0 {
+			text = append(text, ' ')
+		}
+		surface := words[i%len(words)]
+		start := int64(len(text))
+		text = append(text, []rune(surface)...)
+		tokens = append(tokens, domain.SentenceStudyToken{Surface: surface, RawLemma: surface, EffectiveLemma: surface, Headword: surface,
+			UPOS: "NOUN", Dependency: "ATR", HeadOrdinal: 0, Ordinal: int64(i), StartOffset: start, EndOffset: int64(len(text))})
+	}
+	every := func(from, to, step int) []int {
+		var out []int
+		for i := from; i < to; i += step {
+			out = append(out, i)
+		}
+		return out
+	}
+	sentenceText := string(text)
+	return domain.SentenceStudy{
+		BookID: book, BookTitle: "Synthetic Greek syntax", ChapterTitle: "Synthetic 1.2",
+		TargetSurface: targetSurface, SentenceText: sentenceText, UnitText: sentenceText,
+		SentenceStartOffset: 0, SentenceEndOffset: int64(len(text)),
+		SentenceOrdinal: sentence, TargetOrdinal: target, SyntaxState: "native_agdt", Tokens: tokens,
+		Constructions: []domain.SentenceStudyConstruction{
+			{ConstructionID: "purpose", Anchor: 5, Extent: every(5, 30, 1)},
+			{ConstructionID: "genitive_absolute", Anchor: 9, Extent: every(0, 40, 3)},
+			{ConstructionID: "indirect_statement", SubtypeID: "infinitive", Anchor: 0, Extent: every(0, 40, 1)},
+		},
+	}
 }

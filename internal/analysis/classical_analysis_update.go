@@ -13,14 +13,16 @@ import (
 // revision and source pin, not an NLP pipeline identity (ADR 0116).
 
 const (
-	classicalUpdateAnalyzerName      = "classical-preparation"
+	// ClassicalUpdateAnalyzerName is the analyzer name of a classical update
+	// target; its AnalyzerVersion is the interpretation version.
+	ClassicalUpdateAnalyzerName      = "classical-preparation"
 	classicalUpdateNormalizationName = "classical-source"
 )
 
 // classicalUpdateTarget builds the stable target a confirmation carries back.
 func classicalUpdateTarget(interpretationVersion, sourceFileSHA256 string, revision int) domain.AnalysisUpdateTarget {
 	return domain.AnalysisUpdateTarget{
-		AnalyzerName:         classicalUpdateAnalyzerName,
+		AnalyzerName:         ClassicalUpdateAnalyzerName,
 		AnalyzerVersion:      interpretationVersion,
 		NormalizationProfile: classicalUpdateNormalizationName,
 		NormalizationVersion: sourceFileSHA256 + ":" + strconv.Itoa(revision),

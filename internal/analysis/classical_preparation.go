@@ -408,6 +408,7 @@ func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[Cl
 		AnalyzerName:    unit.AnalyzerName,
 		AnalyzerVersion: unit.AnalyzerVersion,
 		ConfigIdentity:  unit.ConfigIdentity,
+		RiverJobID:      riverJobID(job),
 	})
 	if err != nil {
 		return err
@@ -690,4 +691,13 @@ func AddClassicalPreparationWorker(workers *river.Workers, store *persistence.Po
 func logClassicalPreparation(state string, target domain.ClassicalPreparationTarget, sentences, tokens int) {
 	log.Printf("mouseion: classical preparation %s owner=%s book=%s unit=%s revision=%d sentences=%d tokens=%d",
 		state, target.OwnerID, target.BookID, target.ReadingUnitKey, target.DefinitionRevision, sentences, tokens)
+}
+
+// riverJobID is the River job id, or zero when the job carries no row (a test
+// calling Work directly).
+func riverJobID(job *river.Job[ClassicalPreparationArgs]) int64 {
+	if job == nil || job.JobRow == nil {
+		return 0
+	}
+	return job.ID
 }

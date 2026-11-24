@@ -722,3 +722,18 @@ func TestProjectKeepsAnExplicitEmptyReferenceListForLabelOnlyContext(t *testing.
 	require.NoError(t, err)
 	assert.JSONEq(t, "[]", string(encoded))
 }
+
+// agdtRelations is the AGDT relation inventory a native Greek run stores in
+// Dependency. None of them is compound:prt, so none excludes an occurrence.
+var agdtRelations = []string{"ATR", "ADV", "OBJ", "AuxY", "SBJ", "PRED", "AuxK", "AuxX", "AuxP", "COORD", "AuxC", "AuxZ", "PNOM", "ExD", "OCOMP", "ATV", "AtvV", "AuxG", "APOS"}
+
+func TestOccurrenceEligibleIgnoresAGDTRelationsForGreek(t *testing.T) {
+	cfg := DefaultConfig("")
+	for _, relation := range agdtRelations {
+		t.Run(relation, func(t *testing.T) {
+			assert.True(t, OccurrenceEligible(cfg, "grc", "λόγος", "NOUN", relation), "an AGDT label never makes a Greek noun ineligible")
+			assert.True(t, OccurrenceEligible(cfg, "grc", "λέγω", "VERB", relation))
+			assert.False(t, OccurrenceEligible(cfg, "grc", "καί", "CCONJ", relation), "the part of speech still decides")
+		})
+	}
+}

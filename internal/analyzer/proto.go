@@ -50,6 +50,16 @@ func ToProto(result Result) *mouseionv1.NormalizedCorpus {
 				Head:           token.Head,
 				Morphology:     cloneMap(token.Morphology),
 				Location:       locationToProto(token.Location),
+
+				HeadUnprintedNode: token.HeadUnprintedNode,
+			})
+		}
+		for _, node := range sentence.UnprintedNodes {
+			converted.UnprintedNodes = append(converted.UnprintedNodes, &mouseionv1.UnprintedSyntaxNode{
+				SourceId:          node.SourceID,
+				Dependency:        node.Dependency,
+				HeadTokenOrdinal:  node.HeadTokenOrdinal,
+				HeadUnprintedNode: node.HeadUnprintedNode,
 			})
 		}
 		corpus.Sentences = append(corpus.Sentences, converted)
@@ -99,6 +109,16 @@ func FromProto(corpus *mouseionv1.NormalizedCorpus) (Result, error) {
 				Head:           token.GetHead(),
 				Morphology:     cloneMap(token.GetMorphology()),
 				Location:       locationFromProto(token.GetLocation()),
+
+				HeadUnprintedNode: token.GetHeadUnprintedNode(),
+			})
+		}
+		for _, node := range sentence.GetUnprintedNodes() {
+			converted.UnprintedNodes = append(converted.UnprintedNodes, UnprintedSyntaxNode{
+				SourceID:          node.GetSourceId(),
+				Dependency:        node.GetDependency(),
+				HeadTokenOrdinal:  headOrdinalFromProto(node),
+				HeadUnprintedNode: node.GetHeadUnprintedNode(),
 			})
 		}
 		if canonicalization.NormalizeLanguage(result.Language) == "de" {
@@ -168,4 +188,14 @@ func cloneMap(values map[string]string) map[string]string {
 	clone := make(map[string]string, len(values))
 	maps.Copy(clone, values)
 	return clone
+}
+
+// headOrdinalFromProto copies the optional printed-head ordinal so the result
+// never aliases the proto message.
+func headOrdinalFromProto(node *mouseionv1.UnprintedSyntaxNode) *uint32 {
+	if node.HeadTokenOrdinal == nil {
+		return nil
+	}
+	ordinal := node.GetHeadTokenOrdinal()
+	return &ordinal
 }

@@ -1,0 +1,31 @@
+# source = Synthetic, Xen. Anab._1.1.1
+# text = Κῦρος [0] [1] ἄνδρας ;
+# sent_id = 1
+1	Κῦρος	κῦρος	n	n-s---mn-	_	2	SBJ	_	t_1|t_2|ref=Xen. Anab._1.1.1
+2	[0]	[0]	-	---------	_	0	PRED	_	e_1|0|ref=Xen. Anab._1.1.1
+3	[1]	[1]	-	---------	_	2	OBJ	_	e_2|e_1|ref=Xen. Anab._1.1.1
+4	ἄνδρας	ἀνήρ	n	n-p---ma-	_	3	ATR	_	t_2|e_2|ref=Xen. Anab._1.1.1
+5	;	;	u	u--------	_	2	AuxK	_	t_3|e_1|ref=Xen. Anab._1.1.1
+
+# source = Synthetic, Xen. Anab._1.1.2
+# text = , λέγει
+# sent_id = 2
+1	,	,	u	u--------	_	0	AuxK	_	t_4|0|ref=Xen. Anab._1.1.2
+2	λέγει	λέγω	v	v3spia---	_	1	PRED	_	t_5|t_4|ref=Xen. Anab._1.1.2
+
+# source = Synthetic, Xen. Anab._1.1.3
+# text = λέλυκε λελύσεται ἔλυε λύειν λύων παῖς καί
+# sent_id = 3
+1	λέλυκε	λύω	v	v3sria---	_	0	PRED	_	t_6|0|ref=Xen. Anab._1.1.3
+2	λελύσεται	λύω	v	v3stie---	_	1	ADV	_	t_7|t_6|ref=Xen. Anab._1.1.3
+3	ἔλυε	λύω	v	v3siia---	_	1	ADV	_	t_8|t_6|ref=Xen. Anab._1.1.3
+4	λύειν	λύω	v	v--pna---	_	1	OBJ	_	t_9|t_6|ref=Xen. Anab._1.1.3
+5	λύων	λύω	v	v-sppamn-	_	1	ATR	_	t_10|t_6|ref=Xen. Anab._1.1.3
+6	παῖς	παῖς	n	n-s---cn-	_	1	SBJ	_	t_11|t_6|ref=Xen. Anab._1.1.3
+7	καί	καί	d	d--------	_	1	AuxΖ	_	t_12|t_6|ref=Xen. Anab._1.1.3
+
+# source = Synthetic, Xen. Anab._2.1.1
+# text = ἄρχεται
+# sent_id = 4
+1	ἄρχεται	ἄρχω	v	v3spie---	_	0	PRED	_	t_13|0|ref=Xen. Anab._2.1.1
+

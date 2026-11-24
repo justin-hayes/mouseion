@@ -1,6 +1,6 @@
 # ADR 0124: Grammar references and Mouseion-authored concept notes
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Decided by Justin in
 [Grilling: grammar link target and Mouseion-authored concept notes](https://github.com/justin-hayes/mouseion/issues/2605#issuecomment-7098653869),
