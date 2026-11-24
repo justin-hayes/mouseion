@@ -19,6 +19,9 @@ func TestFormatCitationRange(t *testing.T) {
 		{name: "different chapter", citations: []string{"1.2.17", "1.3.17"}, want: "1.2.17, 1.3.17"},
 		{name: "reversed input is ordered", citations: []string{"1.3.17", "1.2.17"}, want: "1.2.17, 1.3.17"},
 		{name: "mixed component counts", citations: []string{"1.2.17", "1.2"}, want: "1.2, 1.2.17"},
+		{name: "empty citation is listed verbatim", citations: []string{"1.2.17", ""}, want: "1.2.17, "},
+		{name: "negative component is listed verbatim", citations: []string{"1.-2"}, want: "1.-2"},
+		{name: "non-numeric component is listed verbatim", citations: []string{"1.x"}, want: "1.x"},
 		{name: "unknown citation is listed verbatim", citations: []string{"1.2.17", "appendix"}, want: "1.2.17, appendix"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -47,8 +47,9 @@ import (
 // in-process River workers, with no NLP service configured.
 //
 // Scenario map (spec #2401, Testing Decisions). The loop directly covers the
-// main path of scenarios 1, 2, 5, 6, 7, 9, 10, 11, 13 and 14 and the grouped
-// surfaces of 3 and 8. Detailed slice coverage stays in these tests, which
+// main path of scenarios 1, 2, 5, 6, 7, 9, 10, 11, 13 and 14 and the ordinary
+// surfaces of 3 and 8. TestClassicalWholeWorkBookLoop follows a multi-book
+// Work added whole. Detailed slice coverage stays in these tests, which
 // this loop references rather than duplicates:
 //
 //   - scenario 3 search and compact markup:
@@ -504,6 +505,10 @@ func (l *classicalLoopLayer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// loopTreatiseKey is the Work and whole-work unit key of the multi-book
+// fixture Work used by the whole-Work loop.
+const loopTreatiseKey = "synthetic-treatise"
+
 // classicalLoopSeed is the pre-upgrade Anabasis state conversion must handle.
 type classicalLoopSeed struct {
 	ownerID, bookID, sourceID, runID string
@@ -611,7 +616,29 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
-	definitions := []classical.Definition{anabasis, firstUnit, secondUnit, wholeUnit}
+	// A multi-book Work is one whole-work unit with a contents list; its
+	// per-book definitions from before ADR 0128 survive only as tombstones.
+	treatise := classical.Definition{
+		Key: loopTreatiseKey, WorkKey: loopTreatiseKey, WorkTitle: "Synthetic Treatise",
+		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν σύγγραμμα", EditionKey: "synthetic-treatise-edition",
+		EditionLabel: "Synthetic Treatise Edition", Language: classical.Language, ConstituentBooks: 2,
+		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
+		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
+		Contents: []classical.ConstituentBookSpan{
+			{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16},
+			{Book: 2, CitationStart: "1.1.4", CitationEnd: "1.1.6", WordCount: 16},
+		},
+	}
+	treatiseBookOne, treatiseBookTwo := treatise, treatise
+	treatiseBookOne.Key, treatiseBookTwo.Key = loopTreatiseKey+"-1", loopTreatiseKey+"-2"
+	treatiseBookOne.ConstituentBook, treatiseBookTwo.ConstituentBook = &one, &two
+	treatiseBookOne.Contents, treatiseBookTwo.Contents = nil, nil
+	for i, tombstone := range []*classical.Definition{&treatiseBookOne, &treatiseBookTwo} {
+		span := treatise.Contents[i]
+		tombstone.CitationStart, tombstone.CitationEnd, tombstone.WordCount = span.CitationStart, span.CitationEnd, span.WordCount
+	}
+	treatiseBookOne.Withdrawn, treatiseBookTwo.Withdrawn = true, true
+	definitions := []classical.Definition{anabasis, firstUnit, secondUnit, wholeUnit, treatise, treatiseBookOne, treatiseBookTwo}
 
 	seed := seedLoopPreUpgradeAnabasis(t, ctx, store, pool, anabasis)
 	manifest, err := classical.RenderDefinitions(definitions)
