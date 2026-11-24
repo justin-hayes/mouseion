@@ -1,0 +1,84 @@
+# source = Xenophon, Xen. Anab._1.1.1
+# text = εἰ ἔχει λέγει
+# sent_id = 1
+1	εἰ	εἰ	c	c--------	_	3	AuxC	_	t_1_1|0|ref=Xen. Anab._1.1.1
+2	ἔχει	ἔχω	v	v3spia---	_	1	ADV	_	t_1_2|0|ref=Xen. Anab._1.1.1
+3	λέγει	λέγω1	v	v3spia---	_	0	PRED	_	t_1_3|0|ref=Xen. Anab._1.1.1
+
+# source = Xenophon, Xen. Anab._1.1.2
+# text = ὥσπερ εἰ ἔχει λέγει
+# sent_id = 2
+1	ὥσπερ	ὥσπερ	c	c--------	_	4	AuxC	_	t_2_1|0|ref=Xen. Anab._1.1.2
+2	εἰ	εἰ	c	c--------	_	1	AuxC	_	t_2_2|0|ref=Xen. Anab._1.1.2
+3	ἔχει	ἔχω	v	v3spia---	_	2	ADV	_	t_2_3|0|ref=Xen. Anab._1.1.2
+4	λέγει	λέγω1	v	v3spia---	_	0	PRED	_	t_2_4|0|ref=Xen. Anab._1.1.2
+
+# source = Xenophon, Xen. Anab._1.1.3
+# text = τοῦ λέγειν ἔχει
+# sent_id = 3
+1	τοῦ	ὁ	l	l-s---ng-	_	2	ATR	_	t_3_1|0|ref=Xen. Anab._1.1.3
+2	λέγειν	λέγω1	v	v--pna---	_	3	ADV	_	t_3_2|0|ref=Xen. Anab._1.1.3
+3	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_3_3|0|ref=Xen. Anab._1.1.3
+
+# source = Xenophon, Xen. Anab._1.1.4
+# text = ἔχει ὥστε λέγειν
+# sent_id = 4
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_4_1|0|ref=Xen. Anab._1.1.4
+2	ὥστε	ὥστε	c	c--------	_	1	AuxC	_	t_4_2|0|ref=Xen. Anab._1.1.4
+3	λέγειν	λέγω1	v	v--pna---	_	2	ADV	_	t_4_3|0|ref=Xen. Anab._1.1.4
+
+# source = Xenophon, Xen. Anab._1.1.5
+# text = ἔχει ὥστε λέγει
+# sent_id = 5
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_5_1|0|ref=Xen. Anab._1.1.5
+2	ὥστε	ὥστε	c	c--------	_	1	AuxC	_	t_5_2|0|ref=Xen. Anab._1.1.5
+3	λέγει	λέγω1	v	v3spia---	_	2	ADV	_	t_5_3|0|ref=Xen. Anab._1.1.5
+
+# source = Xenophon, Xen. Anab._1.1.6
+# text = ἔχει ἵνα λέγῃ
+# sent_id = 6
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_6_1|0|ref=Xen. Anab._1.1.6
+2	ἵνα	ἵνα	c	c--------	_	1	AuxC	_	t_6_2|0|ref=Xen. Anab._1.1.6
+3	λέγῃ	λέγω1	v	v3sasa---	_	2	ADV	_	t_6_3|0|ref=Xen. Anab._1.1.6
+
+# source = Xenophon, Xen. Anab._1.1.7
+# text = ἡλίου δύοντος ἔχει
+# sent_id = 7
+1	ἡλίου	ἥλιος	n	n-s---mg-	_	2	SBJ	_	t_7_1|0|ref=Xen. Anab._1.1.7
+2	δύοντος	δύω	v	v-sppamg-	_	3	ADV	_	t_7_2|0|ref=Xen. Anab._1.1.7
+3	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_7_3|0|ref=Xen. Anab._1.1.7
+
+# source = Xenophon, Xen. Anab._1.1.8
+# text = ἡλίου δύοντος ἀκούει
+# sent_id = 8
+1	ἡλίου	ἥλιος	n	n-s---mg-	_	2	SBJ	_	t_8_1|0|ref=Xen. Anab._1.1.8
+2	δύοντος	δύω	v	v-sppamg-	_	3	ADV	_	t_8_2|0|ref=Xen. Anab._1.1.8
+3	ἀκούει	ἀκούω	v	v3spia---	_	0	PRED	_	t_8_3|0|ref=Xen. Anab._1.1.8
+
+# source = Xenophon, Xen. Anab._1.1.9
+# text = φησί Κῦρον λέγειν
+# sent_id = 9
+1	φησί	φημί	v	v3spia---	_	0	PRED	_	t_9_1|0|ref=Xen. Anab._1.1.9
+2	Κῦρον	κῦρος	n	n-s---ma-	_	3	SBJ	_	t_9_2|0|ref=Xen. Anab._1.1.9
+3	λέγειν	λέγω1	v	v--pna---	_	1	OBJ	_	t_9_3|0|ref=Xen. Anab._1.1.9
+
+# source = Xenophon, Xen. Anab._1.1.10
+# text = λέγει ὅτι ἔχει
+# sent_id = 10
+1	λέγει	λέγω1	v	v3spia---	_	0	PRED	_	t_10_1|0|ref=Xen. Anab._1.1.10
+2	ὅτι	ὅτι	c	c--------	_	1	AuxC	_	t_10_2|0|ref=Xen. Anab._1.1.10
+3	ἔχει	ἔχω	v	v3spia---	_	2	OBJ	_	t_10_3|0|ref=Xen. Anab._1.1.10
+
+# source = Xenophon, Xen. Anab._1.1.11
+# text = ἔχει ὥστε
+# sent_id = 11
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_11_1|0|ref=Xen. Anab._1.1.11
+2	ὥστε	ὥστε	c	c--------	_	1	AuxC	_	t_11_2|0|ref=Xen. Anab._1.1.11
+3	[0]	[0]	-	---------	_	2	ADV	_	e_11_3|0|ref=Xen. Anab._1.1.11
+
+# source = Xenophon, Xen. Anab._1.1.12
+# text = τὸ ἔχει λέγειν
+# sent_id = 12
+1	τὸ	ὁ	l	l-s---nn-	_	3	ATR	_	t_12_1|0|ref=Xen. Anab._1.1.12
+2	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_12_2|0|ref=Xen. Anab._1.1.12
+3	λέγειν	λέγω1	v	v--pna---	_	2	SBJ	_	t_12_3|0|ref=Xen. Anab._1.1.12
