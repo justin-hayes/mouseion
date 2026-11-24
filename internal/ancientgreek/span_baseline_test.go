@@ -13,6 +13,7 @@ import (
 // spanBaselineToken is the part of a printed token the interpretation versions
 // must agree on: surface, lemma identity, UPOS and source offsets (A2).
 type spanBaselineToken struct {
+	Ordinal        int    `json:"ordinal"`
 	Surface        string `json:"surface"`
 	RawLemma       string `json:"rawLemma"`
 	CanonicalLemma string `json:"canonicalLemma"`
@@ -25,6 +26,7 @@ type spanBaselineToken struct {
 }
 
 type spanBaselineSentence struct {
+	Ordinal   int                 `json:"ordinal"`
 	Text      string              `json:"text"`
 	Start     uint64              `json:"start"`
 	End       uint64              `json:"end"`
@@ -50,11 +52,11 @@ func cutWholeFixture(t *testing.T, path string) spanBaselineUnit {
 	unit, err := work.CutUnit(definition)
 	require.NoError(t, err)
 	out := spanBaselineUnit{FullText: unit.FullText}
-	for _, sentence := range unit.Result.Sentences {
-		built := spanBaselineSentence{Text: sentence.Text, Start: sentence.Location.StartOffset, End: sentence.Location.EndOffset, Citations: sentence.Citations}
-		for _, token := range sentence.Tokens {
+	for sentenceOrdinal, sentence := range unit.Result.Sentences {
+		built := spanBaselineSentence{Ordinal: sentenceOrdinal, Text: sentence.Text, Start: sentence.Location.StartOffset, End: sentence.Location.EndOffset, Citations: sentence.Citations}
+		for tokenOrdinal, token := range sentence.Tokens {
 			built.Tokens = append(built.Tokens, spanBaselineToken{
-				Surface: token.Surface, RawLemma: token.RawLemma, CanonicalLemma: token.CanonicalLemma,
+				Ordinal: tokenOrdinal, Surface: token.Surface, RawLemma: token.RawLemma, CanonicalLemma: token.CanonicalLemma,
 				Headword: token.Headword, Discriminator: token.LexicalDiscriminator, SearchKey: token.SearchKey,
 				UPOS: token.UPOS, Start: token.Location.StartOffset, End: token.Location.EndOffset,
 			})
@@ -65,8 +67,10 @@ func cutWholeFixture(t *testing.T, path string) spanBaselineUnit {
 }
 
 // TestInterpretationKeepsSpansAndLemmasOfEveryFixture is the A2 table test. The
-// baseline was captured from the interpretation before native AGDT syntax
-// (oga-agdt-upos/5); a new interpretation version must leave every printed
+// baseline is the output of the interpretation before native AGDT syntax
+// (oga-agdt-upos/5), captured by running this same test file against commit
+// 3391cc7b with MOUSEION_UPDATE_SPAN_BASELINE=1; sentence and token ordinals,
+// offsets, surfaces, raw and canonical lemmas are compared. A new interpretation version must leave every printed
 // ordinal, offset, surface and lemma exactly as it was. Set
 // MOUSEION_UPDATE_SPAN_BASELINE=1 only to recapture it deliberately.
 func TestInterpretationKeepsSpansAndLemmasOfEveryFixture(t *testing.T) {
@@ -75,9 +79,6 @@ func TestInterpretationKeepsSpansAndLemmasOfEveryFixture(t *testing.T) {
 	baselinePath := filepath.Join("testdata", "span-baseline.json")
 	current := map[string]spanBaselineUnit{}
 	for _, path := range paths {
-		if filepath.Base(path) == "oga-src-syntax.conllu" {
-			continue // added with native syntax; it has no earlier version
-		}
 		current[filepath.Base(path)] = cutWholeFixture(t, path)
 	}
 	if os.Getenv("MOUSEION_UPDATE_SPAN_BASELINE") == "1" {
