@@ -132,8 +132,11 @@ test('Sentence study names the constructions with nested and discontinuous extra
   await expectConstructions(page);
 });
 
-test('Sentence study constructions work without JavaScript', async ({ browser, baseURL }) => {
-  const context = await browser.newContext({ baseURL, javaScriptEnabled: false });
+test('Sentence study constructions work without JavaScript', async ({ browser, baseURL }, testInfo) => {
+  // Keep the project's width and theme: a bare context would fall back to the
+  // desktop and light defaults.
+  const { viewport, colorScheme } = testInfo.project.use;
+  const context = await browser.newContext({ baseURL, javaScriptEnabled: false, viewport, colorScheme });
   const page = await context.newPage();
   try {
     await acceptanceViewport(page);
@@ -142,6 +145,39 @@ test('Sentence study constructions work without JavaScript', async ({ browser, b
     await expectConstructions(page);
   } finally {
     await context.close();
+  }
+});
+
+// Enlarged text (200%) must not push the page wider than the viewport.
+test('Sentence study constructions survive enlarged text', async ({ page }) => {
+  await signIn(page);
+  await acceptanceViewport(page);
+  await openSyntaxSentence(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await expect(page.locator('#sentence-study-constructions ol > li')).toHaveCount(3);
+  await expectNoHorizontalOverflow(page);
+});
+
+// A long Greek sentence is reprinted in every extract; it wraps rather than
+// widening the page, at normal and enlarged text.
+test('Sentence study constructions wrap a long Greek sentence', async ({ page }) => {
+  await signIn(page);
+  await acceptanceViewport(page);
+  await openSyntaxSentence(page);
+  const url = new URL(page.url());
+  url.searchParams.set('unit', 'fixture-syntax-long-unit');
+  url.searchParams.set('sentence', '0');
+  url.searchParams.set('target', '5');
+  await page.goto(url.toString());
+  const entries = page.locator('#sentence-study-constructions ol > li');
+  await expect(entries).toHaveCount(3);
+  await expect(entries.nth(0).locator('.sentence-study-construction-extract')).toContainText('ἀνθρωπότητος');
+  await expectNoHorizontalOverflow(page);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  await expectNoHorizontalOverflow(page);
+  for (const extract of await entries.locator('.sentence-study-construction-extract').all()) {
+    const box = await extract.boundingBox();
+    expect(box!.x + box!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
   }
 });
 

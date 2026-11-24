@@ -59,68 +59,6 @@ func (q *Queries) GetConstructionRunSource(ctx context.Context, arg GetConstruct
 	return i, err
 }
 
-const getSentenceStudyConstructions = `-- name: GetSentenceStudyConstructions :many
-SELECT c.construction_id,
-       COALESCE(c.subtype_id, '')::text AS subtype_id,
-       c.anchor_token_ordinal,
-       c.extent_token_ordinals::bigint[] AS extent_token_ordinals
-  FROM construction_occurrences c
-  JOIN construction_run_markers m ON m.analysis_run_id=c.analysis_run_id
-       AND m.owner_id=c.owner_id AND m.detector_version=$1
- WHERE c.owner_id=$2 AND c.analysis_run_id=$3
-   AND c.corpus_id=$4 AND c.sentence_ordinal=$5
- ORDER BY c.extent_token_ordinals[1], c.anchor_token_ordinal, c.construction_id
-`
-
-type GetSentenceStudyConstructionsParams struct {
-	DetectorVersion int
-	Owner           string
-	AnalysisRun     string
-	Corpus          string
-	SentenceOrdinal int64
-}
-
-type GetSentenceStudyConstructionsRow struct {
-	ConstructionID      string
-	SubtypeID           string
-	AnchorTokenOrdinal  int64
-	ExtentTokenOrdinals []int64
-}
-
-// One sentence's Construction occurrences, read only when the run's marker
-// carries the current detector version. No marker, or an older one, returns no
-// rows.
-func (q *Queries) GetSentenceStudyConstructions(ctx context.Context, arg GetSentenceStudyConstructionsParams) ([]GetSentenceStudyConstructionsRow, error) {
-	rows, err := q.db.Query(ctx, getSentenceStudyConstructions,
-		arg.DetectorVersion,
-		arg.Owner,
-		arg.AnalysisRun,
-		arg.Corpus,
-		arg.SentenceOrdinal,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetSentenceStudyConstructionsRow{}
-	for rows.Next() {
-		var i GetSentenceStudyConstructionsRow
-		if err := rows.Scan(
-			&i.ConstructionID,
-			&i.SubtypeID,
-			&i.AnchorTokenOrdinal,
-			&i.ExtentTokenOrdinals,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const insertConstructionOccurrence = `-- name: InsertConstructionOccurrence :exec
 INSERT INTO construction_occurrences
        (owner_id, corpus_id, analysis_run_id, sentence_ordinal, language,

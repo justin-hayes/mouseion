@@ -159,3 +159,38 @@ func TestGetVocabularySentenceStudyReadsCurrentConstructions(t *testing.T) {
 		assert.Empty(t, read(t).Constructions)
 	})
 }
+
+func TestConstructionOccurrencesRejectMalformedExtents(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, _, run, corpus, _ := constructionRun(t, ctx, store, "construction-extent-check", "native_agdt")
+	insert := func(anchor int, extent string) error {
+		_, err := store.Pool().Exec(ctx, `
+			INSERT INTO construction_occurrences(owner_id, corpus_id, analysis_run_id, sentence_ordinal, language,
+				construction_id, anchor_token_ordinal, extent_token_ordinals)
+			VALUES ($1,$2,$3,0,'grc','purpose',$4,`+extent+`)`, owner.ID, corpus, run, anchor)
+		if err == nil {
+			_, err = store.Pool().Exec(ctx, `DELETE FROM construction_occurrences WHERE analysis_run_id=$1`, run)
+			require.NoError(t, err)
+			return nil
+		}
+		return err
+	}
+	for name, test := range map[string]struct {
+		anchor int
+		extent string
+	}{
+		"unsorted":           {1, "ARRAY[2,1]::bigint[]"},
+		"a NULL element":     {1, "ARRAY[0,NULL]::bigint[]"},
+		"a missing anchor":   {1, "ARRAY[2,3]::bigint[]"},
+		"an empty extent":    {1, "ARRAY[]::bigint[]"},
+		"a negative ordinal": {0, "ARRAY[-1,0]::bigint[]"},
+	} {
+		t.Run("rejects "+name, func(t *testing.T) {
+			require.Error(t, insert(test.anchor, test.extent))
+		})
+	}
+	t.Run("accepts a sorted extent containing the anchor", func(t *testing.T) {
+		require.NoError(t, insert(1, "ARRAY[0,1,3]::bigint[]"))
+	})
+}

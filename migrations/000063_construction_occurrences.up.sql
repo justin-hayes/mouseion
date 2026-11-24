@@ -14,6 +14,21 @@
 -- Structural DDL only, with no backfill: existing runs get no rows and no
 -- marker until the detector-version rebuild fills them (#2624). Forward-only in
 -- production (ADR 0038, ADR 0070).
+-- An extent is valid when it is non-empty, has no NULL element, is sorted, starts
+-- at a non-negative ordinal and contains the anchor. The result is never NULL, so
+-- a CHECK on it cannot pass a malformed array by evaluating to NULL.
+CREATE FUNCTION public.construction_extent_valid(extent bigint[], anchor bigint) RETURNS boolean
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    SELECT COALESCE(
+        cardinality(extent) > 0
+        AND array_position(extent, NULL) IS NULL
+        AND extent = ARRAY(SELECT x FROM unnest(extent) AS x ORDER BY x)
+        AND extent[1] >= 0
+        AND anchor = ANY (extent),
+        false)
+$$;
+
 CREATE TABLE public.construction_occurrences (
     owner_id uuid NOT NULL,
     corpus_id uuid NOT NULL,
@@ -32,11 +47,7 @@ CREATE TABLE public.construction_occurrences (
     CONSTRAINT construction_occurrences_construction_id_check CHECK (construction_id <> ''),
     CONSTRAINT construction_occurrences_subtype_id_check CHECK (subtype_id IS NULL OR subtype_id <> ''),
     CONSTRAINT construction_occurrences_anchor_check CHECK (anchor_token_ordinal >= 0),
-    CONSTRAINT construction_occurrences_extent_check CHECK (
-        cardinality(extent_token_ordinals) > 0
-        AND extent_token_ordinals[1] >= 0
-        AND anchor_token_ordinal = ANY (extent_token_ordinals)
-    ),
+    CONSTRAINT construction_occurrences_extent_check CHECK (public.construction_extent_valid(extent_token_ordinals, anchor_token_ordinal)),
     -- Owner-scoped and cascading exactly like corpus_tokens.
     CONSTRAINT construction_occurrences_sentence_fkey
         FOREIGN KEY (owner_id, corpus_id, analysis_run_id, sentence_ordinal)
