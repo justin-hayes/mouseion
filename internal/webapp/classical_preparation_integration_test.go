@@ -62,6 +62,27 @@ func preparationHarness(t *testing.T) (context.Context, *persistence.PostgresSto
 // created but not started, so a test can inspect the queued jobs first.
 func preparationHarnessWithTranslation(t *testing.T, translationData []byte) (context.Context, *persistence.PostgresStore, *pgxpool.Pool, *Handler, *analysis.Service, *river.Client[pgx.Tx], preparationRequests, classicalPreparationFixture) {
 	t.Helper()
+	return preparationHarnessForSource(t, preparationSource{
+		file: "oga-src-book1.conllu", firstStart: "1.1.1", firstEnd: "1.1.2", firstWords: 4, secondStart: "2.1.1", secondEnd: "2.1.1", secondWords: 2,
+	}, translationData)
+}
+
+// preparationSource names the testdata file a harness serves and the citation
+// range and word count of each of its two Reading units.
+type preparationSource struct {
+	file                   string
+	firstStart, firstEnd   string
+	firstWords             int
+	secondStart, secondEnd string
+	secondWords            int
+	// interpretation overrides the definitions' interpretation version.
+	interpretation string
+}
+
+// preparationHarnessForSource is preparationHarnessWithTranslation for any
+// testdata file, so a test can prepare the file that carries the syntax cases.
+func preparationHarnessForSource(t *testing.T, source preparationSource, translationData []byte) (context.Context, *persistence.PostgresStore, *pgxpool.Pool, *Handler, *analysis.Service, *river.Client[pgx.Tx], preparationRequests, classicalPreparationFixture) {
+	t.Helper()
 	t.Setenv("MOUSEION_SECRET", "classical-preparation-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	t.Cleanup(cancel)
@@ -71,7 +92,7 @@ func preparationHarnessWithTranslation(t *testing.T, translationData []byte) (co
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
+	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", source.file))
 	require.NoError(t, err)
 	sum := sha256.Sum256(data)
 	pin := classical.SourcePin{
@@ -93,8 +114,11 @@ func preparationHarnessWithTranslation(t *testing.T, translationData []byte) (co
 			CitationStart: "1.1.1", CitationEnd: "1.2.18",
 		}
 	}
-	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, &one, "1.1.1", "1.1.2", 4)
-	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, &two, "2.1.1", "2.1.1", 2)
+	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, &one, source.firstStart, source.firstEnd, source.firstWords)
+	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, &two, source.secondStart, source.secondEnd, source.secondWords)
+	if source.interpretation != "" {
+		first.InterpretationVersion, second.InterpretationVersion = source.interpretation, source.interpretation
+	}
 	first.Translation, second.Translation = translation, translation
 	fixture.definitions = []classical.Definition{first, second}
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, fixture.definitions))

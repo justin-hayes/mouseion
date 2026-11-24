@@ -23,3 +23,9 @@
 5	λύων	λύω	v	v-sppamn-	_	1	ATR	_	t_10|t_6|ref=Xen. Anab._1.1.3
 6	παῖς	παῖς	n	n-s---cn-	_	1	SBJ	_	t_11|t_6|ref=Xen. Anab._1.1.3
 7	καί	καί	d	d--------	_	1	AuxΖ	_	t_12|t_6|ref=Xen. Anab._1.1.3
+
+# source = Synthetic, Xen. Anab._2.1.1
+# text = ἄρχεται
+# sent_id = 4
+1	ἄρχεται	ἄρχω	v	v3spie---	_	0	PRED	_	t_13|0|ref=Xen. Anab._2.1.1
+
