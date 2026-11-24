@@ -36,6 +36,7 @@ func TestPinnedFilesKeepPrintedSpansAndCarryCleanNativeSyntax(t *testing.T) {
 	documents := map[string]*sourceDocument{}
 	for _, definition := range definitions {
 		t.Run(definition.Key, func(t *testing.T) {
+			//nolint:gosec // the directory is the developer's own opt-in input and file names come from the reviewed manifest.
 			data, err := os.ReadFile(filepath.Join(filepath.Clean(dir), definition.Source.FileName))
 			if os.IsNotExist(err) {
 				t.Skipf("%s is not in %s", definition.Source.FileName, dir)
@@ -107,7 +108,7 @@ func assertPrintedWordsMatchSource(t *testing.T, doc *sourceDocument, unit Prepa
 			assert.Less(t, int(token.Head), len(sentence.Tokens))
 			assert.Equal(t, 0, indexNonASCII(token.Dependency), "the stored relation is ASCII, so the Zeta defect is gone: %q", token.Dependency)
 			if token.HeadUnprintedNode != "" {
-				assert.Equal(t, uint32(ordinal), token.Head, "a token headed by a node is self-headed") //nolint:gosec // ordinal is a small index.
+				assert.Equal(t, uint32(ordinal), token.Head, "a token headed by a node is self-headed")
 				assert.True(t, nodeIDs[token.HeadUnprintedNode], "the head node is in the sentence")
 			}
 		}
