@@ -586,5 +586,24 @@ func fixtureSyntaxStudy(book string, sentence, target int64, targetSurface strin
 		SentenceOrdinal: sentence, TargetOrdinal: target, SyntaxState: "native_agdt",
 		Tokens:         tokens,
 		UnprintedNodes: []domain.UnprintedSyntaxNode{{SourceID: "e_1", Dependency: "OBJ", HeadTokenOrdinal: 1, HasHeadToken: true}},
+		Constructions:  fixtureSyntaxConstructions(),
+	}
+}
+
+// fixtureSyntaxConstructions are three synthetic Construction occurrences over
+// the sentence, so browser acceptance can read the Constructions region without
+// PostgreSQL or NLP. They are listed out of order on purpose; the page orders
+// them. They are not a claim about the Greek:
+//   - an indirect statement (infinitive) over the whole sentence, anchored on
+//     λέγει, which contains the identified target;
+//   - a genitive absolute with a discontinuous extent, λέγει … ἄνδρας, καλούς,
+//     whose gap holds the identified target and a comma;
+//   - a purpose clause nested inside the first, anchored on the identified
+//     target ὅτι.
+func fixtureSyntaxConstructions() []domain.SentenceStudyConstruction {
+	return []domain.SentenceStudyConstruction{
+		{ConstructionID: "purpose", Anchor: 1, Extent: []int{1, 2, 3, 4}},
+		{ConstructionID: "genitive_absolute", Anchor: 2, Extent: []int{0, 2, 4}},
+		{ConstructionID: "indirect_statement", SubtypeID: "infinitive", Anchor: 0, Extent: []int{0, 1, 2, 3, 4, 5}},
 	}
 }

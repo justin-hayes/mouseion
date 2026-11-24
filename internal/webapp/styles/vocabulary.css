@@ -415,9 +415,56 @@ body.vocabulary-shell .sentence-study-key dt {
 body.vocabulary-shell #concordance-recovery,
 body.vocabulary-shell #concordance-results,
 body.vocabulary-shell .sentence-study-text,
+body.vocabulary-shell .sentence-study-constructions,
 body.vocabulary-shell .sentence-study-relations,
 body.vocabulary-shell .sentence-study-alternative {
   max-width: var(--mouseion-width-reading);
+}
+
+/* Constructions: an extract reprints the sentence with the extent at full
+   weight, the rest muted at regular weight and the anchor underlined. Weight,
+   tone and underline carry the marking, never colour alone. */
+body.vocabulary-shell .sentence-study-construction-list {
+  padding-inline-start: 1.5rem;
+}
+
+body.vocabulary-shell .sentence-study-construction {
+  padding-block: var(--mouseion-space-3);
+}
+
+body.vocabulary-shell .sentence-study-construction p {
+  margin-block: var(--mouseion-space-2);
+}
+
+body.vocabulary-shell .sentence-study-construction-extract {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+body.vocabulary-shell .construction-extent {
+  font-weight: 600;
+}
+
+body.vocabulary-shell .construction-muted {
+  color: var(--mouseion-color-text-muted);
+  font-weight: 400;
+}
+
+body.vocabulary-shell .construction-anchor {
+  text-decoration: underline;
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.16em;
+}
+
+body.vocabulary-shell .sentence-study-construction-nesting,
+body.vocabulary-shell .sentence-study-construction-citation,
+body.vocabulary-shell .sentence-study-token-constructions {
+  font-size: var(--mouseion-font-size-metadata);
+}
+
+body.vocabulary-shell .sentence-study-token-constructions {
+  display: block;
+  color: var(--mouseion-color-text-muted);
 }
 
 body.vocabulary-shell #concordance-results {
