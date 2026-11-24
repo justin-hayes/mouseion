@@ -22,6 +22,14 @@ const concordanceConstructionPageSize = 25
 func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.Tx, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
 	result := domain.ConcordanceResult{Page: lookup.Page, HasPrevious: lookup.Page > 1, Match: domain.ConcordanceMatchConstruction, Term: lookup.Term}
 	queries := sqlcgen.New(tx)
+	origin, found, err := loadConstructionOrigin(ctx, queries, owner, language, lookup)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	if !found {
+		result.InvalidOrigin = true
+		return result, nil
+	}
 	revision, err := constructionConcordanceRevision(ctx, tx, owner, language)
 	if err != nil {
 		return domain.ConcordanceResult{}, err
@@ -29,14 +37,6 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 	result.Revision = revision
 	if lookup.Revision != "" && lookup.Revision != revision {
 		result.Stale = true
-		return result, nil
-	}
-	origin, found, err := loadConstructionOrigin(ctx, queries, owner, language, lookup)
-	if err != nil {
-		return domain.ConcordanceResult{}, err
-	}
-	if !found {
-		result.InvalidOrigin = true
 		return result, nil
 	}
 	result.PriorityBookID, result.PriorityTitle = origin.row.BookID, origin.row.BookTitle

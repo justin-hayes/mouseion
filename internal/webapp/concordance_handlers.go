@@ -354,10 +354,10 @@ func safeConcordanceReturnKeys(values url.Values) bool {
 // the priority and a complete origin occurrence.
 func safeConstructionReturn(values url.Values) bool {
 	lookup := domain.ConcordanceLookup{
-		Term: values.Get("term"), Subtype: values.Get("subtype"), Priority: values.Get("priority"),
+		UPOS: values.Get("upos"), Term: values.Get("term"), Subtype: values.Get("subtype"), Priority: values.Get("priority"),
 		Origin: parseConstructionOrigin(values),
 	}
-	return !constructionRequestInvalid(lookup, domain.ConcordanceConstructionLanguage)
+	return !constructionRequestInvalid(lookup, values.Get("language"))
 }
 
 func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) string {
@@ -388,7 +388,9 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 			values.Set("from_anchor", strconv.Itoa(origin.Anchor))
 		}
 	}
-	values.Set("page", strconv.Itoa(page))
+	if page > 0 {
+		values.Set("page", strconv.Itoa(page))
+	}
 	return "/vocabulary/concordance?" + values.Encode()
 }
 
@@ -400,7 +402,8 @@ func vocabularyConcordanceRestartURL(lookup domain.ConcordanceLookup) string {
 	lookup.Revision = ""
 	if lookup.Match == domain.ConcordanceMatchConstruction {
 		// The priority is the origin Book, so a restart passes the origin rule.
-		return vocabularyConcordancePageURL(1, lookup)
+		// It carries no page, so it opens on the first.
+		return vocabularyConcordancePageURL(0, lookup)
 	}
 	lookup.Priority = ""
 	if lookup.UPOS == "" {

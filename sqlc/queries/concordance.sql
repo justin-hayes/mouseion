@@ -325,34 +325,37 @@ SELECT EXISTS (
 )::boolean AS evidenced;
 
 -- name: GetConstructionOrigin :one
--- The origin occurrence of a construction lookup (ADR 0125): the owner's current
--- analysis of the named Book, the sentence and anchor word the lookup came from,
--- and the Work and author of the Book's Reading unit. No row means the origin
--- is not an owned, current, chosen-language Book with a Reading unit and that
--- sentence and word, so the caller sends the safe restart.
-SELECT ca.book_id::text AS book_id,
+-- The origin occurrence of a construction lookup (ADR 0125): the owner's run
+-- (current or historical), the Book it analysed, the sentence and anchor word
+-- the lookup came from, and the Work and author of the Book's Reading unit.
+-- Only result rows must come from current analyses; the origin may not. No row
+-- means the run is not the owner's, the Book is not a chosen-language Book
+-- whose Reading unit has a Work, or the sentence or word does not exist, so the
+-- caller sends the safe restart.
+SELECT sm.book_id::text AS book_id,
        b.title AS book_title,
-       ca.corpus_id::text AS corpus_id,
+       r.corpus_id::text AS corpus_id,
        s.unit_id,
        t.surface AS anchor_surface,
        w.id::text AS work_id,
        w.title AS work_title,
        w.author AS author
-  FROM current_analysis_identity ca
-  JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+  FROM analysis_runs r
+  JOIN source_materials sm ON sm.owner_id = r.owner_id AND sm.id = r.source_material_id
+  JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
        AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text
-  JOIN corpus_sentences s ON s.owner_id = ca.owner_id AND s.analysis_run_id = ca.analysis_run_id
-       AND s.corpus_id = ca.corpus_id AND s.sentence_ordinal = sqlc.arg('sentence_ordinal')::bigint
+  JOIN corpus_sentences s ON s.owner_id = r.owner_id AND s.analysis_run_id = r.id
+       AND s.corpus_id = r.corpus_id AND s.sentence_ordinal = sqlc.arg('sentence_ordinal')::bigint
   JOIN corpus_tokens t ON t.owner_id = s.owner_id AND t.analysis_run_id = s.analysis_run_id
        AND t.corpus_id = s.corpus_id AND t.sentence_ordinal = s.sentence_ordinal
        AND t.token_ordinal = sqlc.arg('anchor_ordinal')::bigint
-  JOIN book_reading_units bru ON bru.owner_id = ca.owner_id AND bru.book_id = ca.book_id
+  JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
   JOIN reading_units ru ON ru.id = bru.reading_unit_id
   JOIN editions e ON e.id = ru.edition_id
   JOIN works w ON w.id = e.work_id
- WHERE ca.owner_id = sqlc.arg('owner')::uuid
-   AND ca.analysis_run_id = sqlc.arg('analysis_run')::uuid
-   AND ca.book_id = sqlc.arg('book')::uuid;
+ WHERE r.owner_id = sqlc.arg('owner')::uuid
+   AND r.id = sqlc.arg('analysis_run')::uuid
+   AND sm.book_id = sqlc.arg('book')::uuid;
 
 -- name: ListConstructionConcordance :many
 -- One page of construction parallels (ADR 0125), read in fenced stages like

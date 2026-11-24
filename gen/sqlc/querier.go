@@ -138,11 +138,13 @@ type Querier interface {
 	// An owned Book in the study language, with whether it has a current analysis
 	// that can contribute occurrences.
 	GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error)
-	// The origin occurrence of a construction lookup (ADR 0125): the owner's current
-	// analysis of the named Book, the sentence and anchor word the lookup came from,
-	// and the Work and author of the Book's Reading unit. No row means the origin
-	// is not an owned, current, chosen-language Book with a Reading unit and that
-	// sentence and word, so the caller sends the safe restart.
+	// The origin occurrence of a construction lookup (ADR 0125): the owner's run
+	// (current or historical), the Book it analysed, the sentence and anchor word
+	// the lookup came from, and the Work and author of the Book's Reading unit.
+	// Only result rows must come from current analyses; the origin may not. No row
+	// means the run is not the owner's, the Book is not a chosen-language Book
+	// whose Reading unit has a Work, or the sentence or word does not exist, so the
+	// caller sends the safe restart.
 	GetConstructionOrigin(ctx context.Context, arg GetConstructionOriginParams) (GetConstructionOriginRow, error)
 	// Construction occurrences: a derived reading of a native_agdt run's stored
 	// syntax (ADR 0123). Lemma corrections and Occurrence exclusions are never

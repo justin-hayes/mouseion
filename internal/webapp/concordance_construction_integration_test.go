@@ -358,6 +358,28 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		assert.Equal(t, http.StatusOK, get(next).code, "the original revision is valid again once the marker is")
 	})
 
+	t.Run("the origin is validated before the revision", func(t *testing.T) {
+		for name, path := range map[string]string{
+			"an unowned run":      query(map[string]string{"from_run": runOf(strangerBook), "priority": strangerBook.id, "rev": "stale"}),
+			"a mismatched Book":   query(map[string]string{"priority": books["plato-crito"].id, "rev": "stale"}),
+			"an unknown sentence": query(map[string]string{"from_sentence": "99", "rev": "stale"}),
+		} {
+			response := get(path)
+			assert.Equal(t, http.StatusBadRequest, response.code, name)
+			assert.Contains(t, response.body, concordanceNoticeState, name)
+		}
+		assert.Equal(t, http.StatusConflict, get(query(map[string]string{"rev": "stale"})).code, "a valid origin with a stale revision is still a change")
+	})
+	t.Run("an owned historical run still names its Book as the origin", func(t *testing.T) {
+		_, err := pool.Exec(ctx, `DELETE FROM book_current_analyses WHERE book_id=$1`, origin.id)
+		require.NoError(t, err)
+		response := get(query(nil))
+		require.Equal(t, http.StatusOK, response.code, response.body)
+		page := constructionPage(t, response.body, keys)
+		assert.NotContains(t, page, "# This Book", "only current analyses contribute rows")
+		assert.Contains(t, page, "# This author")
+		assert.Contains(t, page, row("xen-anab-zz", 0))
+	})
 	t.Run("the word lookups still work beside a parallels page", func(t *testing.T) {
 		response := get("/vocabulary/concordance?as=form&term=" + url.QueryEscape("ὅτι"))
 		assert.Equal(t, http.StatusOK, response.code)

@@ -123,8 +123,11 @@ func TestConcordanceConstructionURLsCarryTheOriginAndKeepThePriorityOnRestart(t 
 	restart := parseURL(t, vocabularyConcordanceRestartURL(lookup))
 	assert.Equal(t, url.Values{
 		"language": {"grc"}, "term": {"genitive_absolute"}, "as": {"construction"}, "priority": {constructionTestBook},
-		"page": {"1"}, "subtype": {"genitive"}, "from_run": {constructionTestRun}, "from_sentence": {"3"}, "from_anchor": {"2"},
+		"subtype": {"genitive"}, "from_run": {constructionTestRun}, "from_sentence": {"3"}, "from_anchor": {"2"},
 	}, restart, "a restart drops only rev and page, so it passes the origin rule again")
+
+	assert.NotContains(t, vocabularyConcordanceRestartURL(lookup), "page=", "a construction restart omits the page")
+	assert.Contains(t, vocabularyConcordancePageURL(2, lookup), "page=2")
 
 	word := domain.ConcordanceLookup{Term: "haus", Match: domain.ConcordanceMatchForm, Priority: "book", Revision: "r"}
 	assert.Equal(t, "/vocabulary/concordance?page=1&term=haus", vocabularyConcordanceRestartURL(word), "lemma and form restarts still blank the priority")
@@ -138,7 +141,7 @@ func parseURL(t *testing.T, raw string) url.Values {
 }
 
 func TestSafeConcordanceReturnURLKeepsAConstructionLookup(t *testing.T) {
-	query := constructionTestQuery(map[string]string{"term": "articular_infinitive", "subtype": "genitive", "page": "2", "focus": "occurrence-b-1-2"})
+	query := constructionTestQuery(map[string]string{"term": "articular_infinitive", "subtype": "genitive", "page": "2", "focus": "occurrence-b-1-2", "language": "grc"})
 	valid := "/vocabulary/concordance?" + query.Encode() + "#occurrence-b-1-2"
 	assert.Equal(t, valid, safeConcordanceReturnURL(valid))
 	for name, overrides := range map[string]map[string]string{
@@ -149,7 +152,7 @@ func TestSafeConcordanceReturnURLKeepsAConstructionLookup(t *testing.T) {
 		"an unknown construct": {"term": "optative"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			query := constructionTestQuery(map[string]string{"page": "2", "focus": "occurrence-b-1-2"})
+			query := constructionTestQuery(map[string]string{"page": "2", "focus": "occurrence-b-1-2", "language": "grc"})
 			for key, value := range overrides {
 				if value == "" {
 					query.Del(key)
@@ -160,6 +163,22 @@ func TestSafeConcordanceReturnURLKeepsAConstructionLookup(t *testing.T) {
 			assert.Equal(t, "/vocabulary/concordance", safeConcordanceReturnURL("/vocabulary/concordance?"+query.Encode()+"#occurrence-b-1-2"))
 		})
 	}
+	t.Run("the explicit language and upos are checked", func(t *testing.T) {
+		with := func(overrides map[string]string) string {
+			query := constructionTestQuery(map[string]string{"term": "articular_infinitive", "page": "2", "focus": "occurrence-b-1-2"})
+			for key, value := range overrides {
+				query.Set(key, value)
+			}
+			return "/vocabulary/concordance?" + query.Encode() + "#occurrence-b-1-2"
+		}
+		valid := with(map[string]string{"language": "grc"})
+		assert.Equal(t, valid, safeConcordanceReturnURL(valid))
+		for name, overrides := range map[string]map[string]string{
+			"another language": {"language": "de"}, "no language": {}, "a part of speech": {"language": "grc", "upos": "VERB"},
+		} {
+			assert.Equal(t, "/vocabulary/concordance", safeConcordanceReturnURL(with(overrides)), name)
+		}
+	})
 	t.Run("origin keys outside a construction lookup", func(t *testing.T) {
 		assert.Equal(t, "/vocabulary/concordance", safeConcordanceReturnURL("/vocabulary/concordance?term=haus&as=form&page=2&focus=x&from_run="+constructionTestRun+"&from_sentence=1&from_anchor=1#x"))
 	})
