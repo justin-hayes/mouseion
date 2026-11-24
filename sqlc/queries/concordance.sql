@@ -339,6 +339,12 @@ SELECT sm.book_id::text AS book_id,
        r.corpus_id::text AS corpus_id,
        s.unit_id,
        t.surface AS anchor_surface,
+       COALESCE(t.headword, '')::text AS anchor_headword,
+       EXISTS (SELECT 1 FROM occurrence_lemma_corrections d
+                WHERE d.owner_id = r.owner_id AND d.book_id = sm.book_id AND d.corpus_id = r.corpus_id
+                  AND d.analysis_run_id = r.id AND d.source_document_id = s.unit_id
+                  AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
+                  AND d.canonical_lemma IS NOT NULL AND NOT d.excluded)::boolean AS anchor_corrected,
        w.id::text AS work_id,
        w.title AS work_title,
        w.author AS author,

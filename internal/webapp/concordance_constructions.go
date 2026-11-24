@@ -95,6 +95,19 @@ func concordanceAllLemmasURL(lookup domain.ConcordanceLookup) string {
 	return vocabularyConcordancePageURL(1, lookup)
 }
 
+// concordanceLemmaDisplay is the lemma a learner sees for a lemma key of the
+// parallels page: the origin anchor's citation form when the key is the anchor's
+// own and uncorrected, as Sentence study shows it, otherwise the key itself.
+func concordanceLemmaDisplay(lookup domain.ConcordanceLookup, result domain.ConcordanceResult, key string) string {
+	if key == "" || key != lookup.OriginLemma {
+		return key
+	}
+	display, _ := sentenceStudyDisplayLemma(domain.SentenceStudyToken{
+		EffectiveLemma: key, Headword: result.Origin.AnchorHeadword, Corrected: result.Origin.AnchorCorrected,
+	})
+	return display
+}
+
 // concordanceOnlyWithLabel is the lemma filter's accessible name.
 func concordanceOnlyWithLabel(lemma string) string {
 	return "Only with " + lemma + ": parallels signalled by this lemma"

@@ -239,4 +239,26 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 		assert.Equal(t, http.StatusOK, response.code)
 		assert.NotContains(t, response.body, "concordance-parallels")
 	})
+	t.Run("a folded lemma key is shown as its citation form, and still filters by the key", func(t *testing.T) {
+		// The imported anchors carry the folded key and the citation headword.
+		_, err := pool.Exec(ctx, `
+			UPDATE corpus_tokens SET canonical_lemma='λόγοσ', headword='λόγος'
+			 WHERE token_ordinal=$1 AND analysis_run_id IN (SELECT analysis_run_id FROM current_analysis_identity)`, anchor)
+		require.NoError(t, err)
+		const key = "λόγοσ"
+		offered := get(query(map[string]string{"from_lemma": key}))
+		require.Equal(t, http.StatusOK, offered.code, offered.body)
+		assert.Contains(t, offered.body, `aria-label="Only with λόγος: parallels signalled by this lemma"`)
+		assert.Contains(t, offered.body, `>Only with <em>λόγος</em></a>`)
+		assert.NotContains(t, offered.body, key, "the folded key is never shown")
+		link := regexp.MustCompile(`id="concordance-parallels-only-with" href="([^"]+)"`).FindStringSubmatch(offered.body)
+		require.Len(t, link, 2)
+		assert.Equal(t, key, parseURL(t, html.UnescapeString(link[1])).Get("lemma"), "the URL keeps the key")
+
+		filtered := get(query(map[string]string{"from_lemma": key, "lemma": key}))
+		require.Equal(t, http.StatusOK, filtered.code, filtered.body)
+		assert.ElementsMatch(t, []string{row("plato-republic", 0)}, rows(filtered), "Apology is corrected away and Meno is rebuilding")
+		assert.Contains(t, filtered.body, `<span id="concordance-parallels-lemma">Only with <em>λόγος</em></span>`)
+		assert.NotContains(t, filtered.body, key)
+	})
 }
