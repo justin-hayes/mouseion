@@ -1,0 +1,22 @@
+construction	stratum	stratum_detail	subtype	count
+conditional	hit			1766
+articular_infinitive	hit			625
+result	hit			195
+purpose	hit			160
+genitive_absolute	hit			434
+indirect_statement	hit			1944
+articular_infinitive	hit		accusative	277
+articular_infinitive	hit		dative	68
+articular_infinitive	hit		genitive	145
+articular_infinitive	hit		nominative	135
+result	hit		actual	61
+result	hit		natural	130
+indirect_statement	hit		hoti_hos	565
+indirect_statement	hit		infinitive	1379
+conditional	excluded	whether head		73
+genitive_absolute	excluded	B-exclude		12
+genitive_absolute	excluded	B-readmit		2
+conditional	loose			346
+purpose	loose			9
+indirect_statement	loose		infinitive	4680
+indirect_statement	loose		hoti_hos	1030

@@ -1,0 +1,1511 @@
+work	sent_id	anchor	construction	measurement	item	stratum	stratum_detail	subtype	judgment	judged_subtype	judge	emitted_baseline
+tlg0059.tlg011	468	t_10167	conditional	2607	I001	hit			true		agent	true
+tlg0059.tlg002	270	t_5030	conditional	2607	I002	hit			false		agent	true
+tlg0059.tlg011	405	t_8837	conditional	2607	I003	hit			true		agent	true
+tlg0059.tlg030	4143	t_67214	conditional	2607	I004	hit			true		agent	true
+tlg0059.tlg030	3019	t_48425	conditional	2607	I006	hit			true		agent	true
+tlg0059.tlg004	415	t_6688	conditional	2607	I007	hit			true		agent	true
+tlg0059.tlg030	4148	t_67301	conditional	2607	I008	hit			true		justin	true
+tlg0059.tlg030	1014	t_15686	conditional	2607	I010	hit			false		justin	true
+tlg0059.tlg030	5115	t_84660	conditional	2607	I011	hit			true		agent	true
+tlg0059.tlg004	1275	t_22370	conditional	2607	I012	hit			true		agent	true
+tlg0059.tlg011	293	t_6242	conditional	2607	I013	hit			true		justin	true
+tlg0059.tlg030	2786	t_45086	conditional	2607	I014	hit			true		agent	true
+tlg0059.tlg004	870	t_15266	conditional	2607	I015	hit			true		justin	true
+tlg0059.tlg024	543	t_4847	conditional	2607	I016	hit			true		justin	true
+tlg0059.tlg030	994	t_15009	conditional	2607	I017	hit			true		justin	true
+tlg0059.tlg030	5953	t_97567	conditional	2607	I018	hit			false		agent	true
+tlg0059.tlg024	54	t_742	conditional	2607	I019	hit			true		agent	true
+tlg0059.tlg004	801	t_13839	conditional	2607	I020	hit			true		agent	true
+tlg0059.tlg030	4302	t_70313	conditional	2607	I021	loose			false		justin	false
+tlg0059.tlg030	3653	t_58083	conditional	2607	I022	loose			false		agent	false
+tlg0059.tlg030	4256	t_69683	conditional	2607	I024	loose			true		justin	true
+tlg0059.tlg030	2381	t_38305	conditional	2607	I025	loose			true		agent	true
+tlg0059.tlg030	4181	t_68160	conditional	2607	I027	loose			true		justin	true
+tlg0059.tlg030	300	t_3799	conditional	2607	I028	loose			true		justin	true
+tlg0059.tlg003	274	t_3067	conditional	2607	I029	loose			false		agent	false
+tlg0059.tlg002	411	t_8574	conditional	2607	I030	loose			true		justin	false
+tlg0059.tlg003	361	t_4850	conditional	2607	I031	loose			true		agent	true
+tlg0059.tlg030	1499	t_22841	conditional	2607	I032	loose			true		agent	true
+tlg0059.tlg030	3827	t_61670	conditional	2607	I033	loose			true		justin	true
+tlg0059.tlg030	4350	t_70999	conditional	2607	I034	loose			true		justin	true
+tlg0032.tlg006	261	t_4285	conditional	2607	I037	hit			true		agent	true
+tlg0032.tlg006	3702	t_62442	conditional	2607	I038	hit			true		agent	true
+tlg0032.tlg006	1372	t_23896	conditional	2607	I039	hit			true		agent	true
+tlg0032.tlg006	1124	t_19273	conditional	2607	I040	hit			true		agent	true
+tlg0032.tlg006	616	t_10637	conditional	2607	I042	hit			true		agent	true
+tlg0032.tlg006	2082	t_35522	conditional	2607	I043	hit			true		agent	true
+tlg0032.tlg006	3700	t_62339	conditional	2607	I044	hit			true		justin	true
+tlg0032.tlg006	2937	t_49697	conditional	2607	I045	hit			true		agent	true
+tlg0032.tlg006	3560	t_59746	conditional	2607	I046	hit			true		agent	true
+tlg0032.tlg006	1878	t_32438	conditional	2607	I047	hit			true		agent	true
+tlg0032.tlg006	3251	t_55128	conditional	2607	I048	hit			true		agent	true
+tlg0032.tlg006	3585	t_60261	conditional	2607	I049	hit			true		agent	true
+tlg0032.tlg006	882	t_14648	conditional	2607	I050	hit			true		agent	true
+tlg0032.tlg006	2330	t_39939	conditional	2607	I051	hit			true		agent	true
+tlg0032.tlg006	1855	t_32001	conditional	2607	I052	hit			true		agent	true
+tlg0032.tlg006	203	t_3328	conditional	2607	I053	hit			true		agent	true
+tlg0032.tlg006	950	t_15761	conditional	2607	I054	hit			true		justin	true
+tlg0032.tlg006	3361	t_56766	conditional	2607	I055	hit			true		agent	true
+tlg0032.tlg006	652	t_11217	conditional	2607	I057	loose			false		agent	false
+tlg0032.tlg006	1639	t_28431	conditional	2607	I058	loose			true		agent	false
+tlg0032.tlg006	847	t_14161	conditional	2607	I059	loose			true		justin	true
+tlg0032.tlg006	3367	t_56832	conditional	2607	I060	loose			true		justin	true
+tlg0032.tlg006	1539	t_26790	conditional	2607	I061	loose			false		agent	false
+tlg0032.tlg006	1538	t_26753	conditional	2607	I062	loose			false		agent	false
+tlg0032.tlg006	1542	t_26847	conditional	2607	I063	loose			false		justin	false
+tlg0032.tlg006	2533	t_43433	conditional	2607	I065	loose			false		agent	false
+tlg0032.tlg006	2457	t_42138	conditional	2607	I067	loose			true		justin	false
+tlg0032.tlg006	3562	t_59796	conditional	2607	I068	loose			true		justin	true
+tlg0032.tlg006	2408	t_41248	conditional	2607	I069	loose			false		agent	false
+tlg0032.tlg006	3203	t_54272	conditional	2607	I070	loose			false		agent	false
+tlg0059.tlg002	443	t_9243	articular_infinitive	2607	I071	hit		genitive	true	genitive	agent	true
+tlg0059.tlg024	1065	t_8405	articular_infinitive	2607	I072	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	244	t_3615	articular_infinitive	2607	I073	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	3110	t_49970	articular_infinitive	2607	I076	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	5598	t_91977	articular_infinitive	2607	I077	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	3146	t_50585	articular_infinitive	2607	I079	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	991	t_17155	articular_infinitive	2607	I080	hit		accusative	true	accusative	agent	true
+tlg0059.tlg002	260	t_4658	articular_infinitive	2607	I081	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	5594	t_91924	articular_infinitive	2607	I082	hit		genitive	true	genitive	agent	true
+tlg0059.tlg004	153	t_2174	articular_infinitive	2607	I083	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	6031	t_98559	articular_infinitive	2607	I086	hit		genitive	true	genitive	justin	true
+tlg0059.tlg030	1666	t_26024	articular_infinitive	2607	I087	hit		accusative	true	accusative	justin	true
+tlg0059.tlg004	1353	t_24640	articular_infinitive	2607	I088	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	999	t_15165	articular_infinitive	2607	I089	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	930	t_16036	articular_infinitive	2607	I090	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	5668	t_93009	articular_infinitive	2607	I095	loose			false		agent	false
+tlg0059.tlg011	261	t_5289	articular_infinitive	2607	I096	loose			false		agent	false
+tlg0059.tlg030	4285	t_70024	articular_infinitive	2607	I098	loose			false		agent	false
+tlg0059.tlg004	1243	t_21626	articular_infinitive	2607	I101	loose			false		justin	false
+tlg0059.tlg030	1057	t_16180	articular_infinitive	2607	I102	loose			false		justin	false
+tlg0059.tlg004	760	t_12934	articular_infinitive	2607	I104	loose			false		justin	false
+tlg0059.tlg024	637	t_5442	articular_infinitive	2607	I105	loose			false		agent	false
+tlg0032.tlg006	1016	t_17165	articular_infinitive	2607	I106	hit		genitive	true	genitive	agent	true
+tlg0032.tlg006	437	t_7209	articular_infinitive	2607	I109	hit		genitive	true	genitive	agent	true
+tlg0032.tlg006	1503	t_26158	articular_infinitive	2607	I110	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	554	t_9453	articular_infinitive	2607	I114	hit		accusative	true	accusative	justin	true
+tlg0032.tlg006	2773	t_47203	articular_infinitive	2607	I115	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	1238	t_21734	articular_infinitive	2607	I118	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	2862	t_48548	articular_infinitive	2607	I119	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	3702	t_62463	articular_infinitive	2607	I120	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	347	t_5707	articular_infinitive	2607	I121	hit		genitive	true	genitive	justin	true
+tlg0032.tlg006	1230	t_21545	articular_infinitive	2607	I123	hit		genitive	true	genitive	justin	true
+tlg0032.tlg006	1039	t_17565	articular_infinitive	2607	I124	hit		accusative	true	accusative	justin	true
+tlg0032.tlg006	265	t_4349	articular_infinitive	2607	I125	hit		genitive	true	genitive	agent	true
+tlg0032.tlg006	2005	t_34373	articular_infinitive	2607	I126	loose			false		agent	false
+tlg0032.tlg006	588	t_10185	articular_infinitive	2607	I130	loose			false		justin	false
+tlg0032.tlg006	1583	t_27549	articular_infinitive	2607	I132	loose			false		agent	false
+tlg0032.tlg006	2467	t_42326	articular_infinitive	2607	I133	loose			false		agent	false
+tlg0032.tlg006	2353	t_40278	articular_infinitive	2607	I134	loose			false		agent	false
+tlg0032.tlg006	2580	t_44050	articular_infinitive	2607	I135	loose			false		agent	false
+tlg0032.tlg006	1210	t_21085	articular_infinitive	2607	I136	loose			false		agent	false
+tlg0032.tlg006	1861	t_32180	articular_infinitive	2607	I139	loose			false		agent	false
+tlg0032.tlg006	2868	t_48620	articular_infinitive	2607	I140	loose			false		agent	false
+tlg0032.tlg006	2570	t_43848	articular_infinitive	2607	I142	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	3698	t_62261	articular_infinitive	2607	I149	hit-topup		nominative	true	nominative	justin	true
+tlg0059.tlg011	143	t_2357	articular_infinitive	2607	I151	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	1614	t_24991	result	2607	I158	hit		natural	true	natural	agent	true
+tlg0059.tlg030	6317	t_104432	result	2607	I159	hit		natural	true	natural	agent	true
+tlg0059.tlg030	1532	t_23412	result	2607	I160	hit		natural	true	natural	agent	true
+tlg0059.tlg002	356	t_7490	result	2607	I161	hit		natural	true	natural	agent	true
+tlg0059.tlg011	160	t_2812	result	2607	I163	hit		natural	true	natural	justin	true
+tlg0059.tlg004	250	t_3753	result	2607	I164	hit		natural	true	natural	agent	true
+tlg0059.tlg011	380	t_8404	result	2607	I165	hit		natural	true	natural	agent	true
+tlg0059.tlg024	50	t_645	result	2607	I169	hit			true	actual	agent	true
+tlg0059.tlg004	889	t_15533	result	2607	I171	hit		natural	true	natural	agent	true
+tlg0059.tlg024	368	t_3181	result	2607	I172	loose			false		agent	false
+tlg0059.tlg011	956	t_18816	result	2607	I173	loose			false		agent	false
+tlg0059.tlg030	436	t_5662	result	2607	I174	loose			false		agent	false
+tlg0059.tlg024	542	t_4794	result	2607	I175	loose			false		agent	false
+tlg0059.tlg002	275	t_5152	result	2607	I176	loose			false		agent	false
+tlg0059.tlg002	116	t_2293	result	2607	I177	loose			true	natural	justin	false
+tlg0059.tlg003	188	t_2181	result	2607	I178	loose			false		justin	false
+tlg0059.tlg030	1891	t_29858	result	2607	I179	loose			true	actual	justin	false
+tlg0059.tlg002	198	t_3532	result	2607	I180	loose			true	actual	justin	false
+tlg0059.tlg024	849	t_6497	result	2607	I181	loose			false		agent	false
+tlg0059.tlg030	940	t_13527	result	2607	I182	loose			false		agent	false
+tlg0059.tlg030	5548	t_91471	result	2607	I183	loose			true	actual	justin	false
+tlg0059.tlg002	132	t_2753	result	2607	I184	loose			false		agent	false
+tlg0059.tlg004	170	t_2527	result	2607	I185	loose			false		agent	false
+tlg0059.tlg004	416	t_6703	result	2607	I186	loose			false		agent	false
+tlg0059.tlg011	355	t_7786	result	2607	I187	abstain	participle		true	natural	justin	false
+tlg0032.tlg006	1316	t_22882	result	2607	I193	hit		natural	true	natural	justin	true
+tlg0032.tlg006	1474	t_25610	result	2607	I205	hit		natural	true	natural	agent	true
+tlg0032.tlg006	2592	t_44281	result	2607	I207	hit		natural	true	natural	agent	true
+tlg0032.tlg006	857	t_14302	result	2607	I208	loose			false		justin	false
+tlg0032.tlg006	2150	t_36729	result	2607	I209	loose			false		agent	false
+tlg0032.tlg006	169	t_2701	result	2607	I210	loose			false		agent	false
+tlg0032.tlg006	828	t_13893	result	2607	I211	loose			false		agent	false
+tlg0032.tlg006	2112	t_36021	result	2607	I212	loose			false		justin	false
+tlg0032.tlg006	22	t_375	result	2607	I213	loose			false		agent	false
+tlg0032.tlg006	906	t_14990	result	2607	I214	loose			true	natural	justin	false
+tlg0032.tlg006	1947	t_33454	result	2607	I215	loose			true	natural	justin	false
+tlg0032.tlg006	1478	t_25672	result	2607	I216	loose			false		justin	false
+tlg0032.tlg006	1386	t_24226	result	2607	I217	loose			false		agent	false
+tlg0032.tlg006	3266	t_55345	result	2607	I218	loose			false		agent	false
+tlg0032.tlg006	532	t_9019	result	2607	I219	loose			true	natural	justin	false
+tlg0032.tlg006	1309	t_22755	result	2607	I220	loose			false		agent	false
+tlg0032.tlg006	815	t_13641	result	2607	I221	loose			false		agent	false
+tlg0032.tlg006	604	t_10431	result	2607	I222	loose			false		agent	false
+tlg0032.tlg006	2413	t_41349	result	2607	I223	abstain	participle		true	natural	justin	false
+tlg0059.tlg030	5216	t_86124	result	2607	I229	hit-topup			true	actual	justin	true
+tlg0059.tlg030	3654	t_58252	purpose	2607	I232	hit			false		agent	false
+tlg0059.tlg002	14	t_324	purpose	2607	I236	hit			false		agent	false
+tlg0059.tlg030	648	t_9250	purpose	2607	I238	hit			false		justin	false
+tlg0059.tlg030	1800	t_28372	purpose	2607	I239	hit			false		agent	false
+tlg0059.tlg030	3310	t_53151	purpose	2607	I241	hit			false		justin	false
+tlg0059.tlg030	3514	t_56002	purpose	2607	I242	hit			true		agent	true
+tlg0059.tlg011	321	t_6924	purpose	2607	I243	hit			true		agent	false
+tlg0059.tlg004	135	t_1839	purpose	2607	I244	hit			false		justin	false
+tlg0059.tlg024	1492	t_12802	purpose	2607	I248	hit			false		agent	false
+tlg0059.tlg011	762	t_15104	purpose	2607	I249	hit			true		agent	true
+tlg0059.tlg011	192	t_3469	purpose	2607	I250	hit			false		justin	false
+tlg0059.tlg024	492	t_4290	purpose	2607	I252	loose			false		agent	false
+tlg0059.tlg030	1680	t_26252	purpose	2607	I253	loose			false		agent	false
+tlg0059.tlg030	2816	t_45503	purpose	2607	I254	loose			false		justin	false
+tlg0059.tlg030	2197	t_35471	purpose	2607	I255	loose			false		agent	false
+tlg0059.tlg030	4481	t_73097	purpose	2607	I256	loose			false		agent	false
+tlg0059.tlg030	1468	t_22306	purpose	2607	I257	loose			false		justin	false
+tlg0059.tlg030	1555	t_23918	purpose	2607	I258	loose			false		agent	false
+tlg0059.tlg004	1374	t_25168	purpose	2607	I259	loose			false		agent	false
+tlg0059.tlg030	3654	t_58308	purpose	2607	I260	loose			false		agent	false
+tlg0059.tlg030	3044	t_48887	purpose	2607	I261	loose			false		agent	false
+tlg0059.tlg011	239	t_4792	purpose	2607	I262	loose			false		agent	false
+tlg0059.tlg004	185	t_2748	purpose	2607	I263	loose			false		agent	false
+tlg0059.tlg030	131	t_2088	purpose	2607	I264	loose			false		agent	false
+tlg0059.tlg030	2140	t_34505	purpose	2607	I265	loose			false		justin	false
+tlg0059.tlg004	946	t_16296	purpose	2607	I266	loose			false		justin	false
+tlg0032.tlg006	1175	t_20334	purpose	2607	I268	hit			false		justin	false
+tlg0032.tlg006	725	t_12127	purpose	2607	I269	hit			false		justin	false
+tlg0032.tlg006	3389	t_57124	purpose	2607	I270	hit			true		agent	false
+tlg0032.tlg006	2776	t_47246	purpose	2607	I271	hit			true		justin	false
+tlg0032.tlg006	349	t_5759	purpose	2607	I272	hit			false		justin	false
+tlg0032.tlg006	2718	t_46328	purpose	2607	I273	hit			true		agent	false
+tlg0032.tlg006	1730	t_29982	purpose	2607	I274	hit			true		agent	false
+tlg0032.tlg006	2161	t_36895	purpose	2607	I275	hit			true		agent	false
+tlg0032.tlg006	554	t_9475	purpose	2607	I277	hit			true		justin	false
+tlg0032.tlg006	1855	t_32011	purpose	2607	I278	hit			false		justin	false
+tlg0032.tlg006	3711	t_62672	purpose	2607	I280	hit			false		agent	false
+tlg0032.tlg006	2635	t_44962	purpose	2607	I281	hit			false		justin	false
+tlg0032.tlg006	2967	t_50175	purpose	2607	I282	hit			false		justin	false
+tlg0032.tlg006	1995	t_34212	purpose	2607	I283	hit			false		justin	false
+tlg0032.tlg006	986	t_16553	purpose	2607	I284	hit			true		agent	true
+tlg0032.tlg006	1043	t_17640	purpose	2607	I285	hit			true		agent	false
+tlg0032.tlg006	1183	t_20545	purpose	2607	I287	loose			false		agent	false
+tlg0032.tlg006	1649	t_28596	purpose	2607	I288	loose			false		agent	false
+tlg0032.tlg006	3711	t_62666	purpose	2607	I289	loose			false		justin	false
+tlg0032.tlg006	1153	t_19814	purpose	2607	I290	loose			false		agent	false
+tlg0032.tlg006	650	t_11176	purpose	2607	I291	loose			false		justin	false
+tlg0032.tlg006	1882	t_32497	purpose	2607	I292	loose			false		agent	false
+tlg0032.tlg006	2867	t_48592	purpose	2607	I293	loose			false		agent	false
+tlg0032.tlg006	188	t_3080	purpose	2607	I294	loose			false		agent	false
+tlg0032.tlg006	1640	t_28452	purpose	2607	I295	loose			false		agent	false
+tlg0032.tlg006	877	t_14574	purpose	2607	I296	loose			false		justin	false
+tlg0032.tlg006	816	t_13666	purpose	2607	I297	loose			false		agent	false
+tlg0032.tlg006	3700	t_62346	purpose	2607	I298	loose			false		agent	false
+tlg0032.tlg006	465	t_7787	purpose	2607	I299	loose			false		agent	false
+tlg0032.tlg006	1250	t_21938	purpose	2607	I300	loose			false		agent	false
+tlg0032.tlg006	2446	t_41995	purpose	2607	I301	loose			false		agent	false
+tlg0059.tlg030	4586	t_75126	genitive_absolute	2607	I302	hit			false		justin	true
+tlg0059.tlg030	2121	t_34314	genitive_absolute	2607	I304	hit			true		agent	true
+tlg0059.tlg011	236	t_4749	genitive_absolute	2607	I306	hit			true		justin	true
+tlg0059.tlg024	543	t_4824	genitive_absolute	2607	I307	hit			true		agent	true
+tlg0059.tlg030	5056	t_83648	genitive_absolute	2607	I310	hit			true		agent	true
+tlg0059.tlg011	195	t_3537	genitive_absolute	2607	I311	hit			false		justin	true
+tlg0059.tlg002	426	t_8904	genitive_absolute	2607	I312	hit			false		agent	true
+tlg0059.tlg030	1061	t_16229	genitive_absolute	2607	I313	hit			true		justin	true
+tlg0059.tlg011	377	t_8332	genitive_absolute	2607	I314	hit			true		agent	true
+tlg0059.tlg030	1955	t_31106	genitive_absolute	2607	I319	hit			true		agent	true
+tlg0059.tlg024	772	t_6196	genitive_absolute	2607	I320	hit			true		justin	true
+tlg0059.tlg004	642	t_10008	genitive_absolute	2607	I322	loose			false		agent	false
+tlg0059.tlg011	766	t_15431	genitive_absolute	2607	I323	loose			true		justin	false
+tlg0059.tlg002	357	t_7574	genitive_absolute	2607	I324	loose			false		agent	false
+tlg0059.tlg030	2454	t_39408	genitive_absolute	2607	I325	loose			false		agent	false
+tlg0059.tlg030	2616	t_42246	genitive_absolute	2607	I326	loose			false		agent	false
+tlg0059.tlg030	3375	t_54328	genitive_absolute	2607	I327	loose			false		agent	false
+tlg0059.tlg030	2769	t_44805	genitive_absolute	2607	I328	loose			false		agent	false
+tlg0059.tlg011	962	t_19024	genitive_absolute	2607	I329	loose			true		justin	false
+tlg0059.tlg011	665	t_13044	genitive_absolute	2607	I330	loose			false		agent	false
+tlg0059.tlg030	5052	t_83519	genitive_absolute	2607	I331	loose			false		agent	false
+tlg0059.tlg011	980	t_19456	genitive_absolute	2607	I332	loose			false		agent	false
+tlg0059.tlg030	5116	t_84681	genitive_absolute	2607	I333	loose			false		agent	false
+tlg0059.tlg030	4228	t_69337	genitive_absolute	2607	I334	loose			false		agent	false
+tlg0059.tlg011	515	t_10956	genitive_absolute	2607	I335	loose			false		agent	false
+tlg0059.tlg030	6349	t_105148	genitive_absolute	2607	I336	loose			false		justin	false
+tlg0059.tlg030	4806	e_2915	genitive_absolute	2607	I337	abstain	elided participle		false		agent	false
+tlg0059.tlg030	5932	e_3609	genitive_absolute	2607	I338	abstain	elided participle		false		agent	false
+tlg0059.tlg030	5941	e_3617	genitive_absolute	2607	I339	abstain	elided participle		false		agent	false
+tlg0032.tlg006	816	t_13665	genitive_absolute	2607	I340	hit			true		agent	true
+tlg0032.tlg006	840	t_14065	genitive_absolute	2607	I341	hit			true		agent	true
+tlg0032.tlg006	3527	t_59207	genitive_absolute	2607	I342	hit			true		agent	true
+tlg0032.tlg006	750	t_12473	genitive_absolute	2607	I343	hit			true		agent	true
+tlg0032.tlg006	3585	t_60266	genitive_absolute	2607	I344	hit			true		agent	true
+tlg0032.tlg006	2677	t_45722	genitive_absolute	2607	I345	hit			true		agent	true
+tlg0032.tlg006	2025	t_34734	genitive_absolute	2607	I346	hit			true		agent	true
+tlg0032.tlg006	2122	t_36169	genitive_absolute	2607	I348	hit			true		justin	true
+tlg0032.tlg006	843	t_14108	genitive_absolute	2607	I352	hit			true		justin	true
+tlg0032.tlg006	2043	t_35022	genitive_absolute	2607	I353	hit			true		justin	true
+tlg0032.tlg006	3139	t_53091	genitive_absolute	2607	I354	hit			true		agent	true
+tlg0032.tlg006	1281	t_22312	genitive_absolute	2607	I355	hit			true		agent	true
+tlg0032.tlg006	2902	t_49178	genitive_absolute	2607	I356	hit			true		agent	true
+tlg0032.tlg006	2527	t_43344	genitive_absolute	2607	I357	hit			true		agent	true
+tlg0032.tlg006	2565	t_43740	genitive_absolute	2607	I358	hit			false		justin	true
+tlg0032.tlg006	3137	t_53000	genitive_absolute	2607	I359	hit			true		agent	true
+tlg0032.tlg006	1240	t_21777	genitive_absolute	2607	I360	loose			true		justin	false
+tlg0032.tlg006	1494	t_26003	genitive_absolute	2607	I361	loose			true		justin	false
+tlg0032.tlg006	2804	t_47726	genitive_absolute	2607	I362	loose			true		justin	false
+tlg0032.tlg006	3036	t_51346	genitive_absolute	2607	I363	loose			false		justin	false
+tlg0032.tlg006	630	t_10880	genitive_absolute	2607	I364	loose			false		agent	false
+tlg0032.tlg006	1580	t_27483	genitive_absolute	2607	I365	loose			false		agent	false
+tlg0032.tlg006	3573	t_60014	genitive_absolute	2607	I366	loose			false		agent	false
+tlg0032.tlg006	2070	t_35380	genitive_absolute	2607	I367	loose			false		agent	false
+tlg0032.tlg006	402	t_6606	genitive_absolute	2607	I368	loose			false		justin	false
+tlg0032.tlg006	3719	t_62877	genitive_absolute	2607	I369	loose			false		justin	false
+tlg0032.tlg006	2478	t_42562	genitive_absolute	2607	I370	loose			false		agent	false
+tlg0032.tlg006	1963	t_33723	genitive_absolute	2607	I371	loose			false		justin	false
+tlg0032.tlg006	2270	t_38791	genitive_absolute	2607	I372	loose			false		agent	false
+tlg0032.tlg006	103	t_1590	genitive_absolute	2607	I373	loose			true		justin	false
+tlg0032.tlg006	1906	t_32863	genitive_absolute	2607	I374	loose			false		justin	false
+tlg0059.tlg030	4167	t_67770	indirect_statement	2607	I375	hit		infinitive	true	infinitive	justin	false
+tlg0059.tlg030	1894	t_29932	indirect_statement	2607	I376	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	3542	t_56464	indirect_statement	2607	I377	hit		infinitive	true	infinitive	justin	true
+tlg0059.tlg030	4421	t_72045	indirect_statement	2607	I378	hit		infinitive	false		justin	false
+tlg0059.tlg004	210	t_3173	indirect_statement	2607	I379	hit		infinitive	false		agent	false
+tlg0059.tlg030	1519	t_23139	indirect_statement	2607	I380	hit		infinitive	false		justin	false
+tlg0059.tlg030	929	t_13228	indirect_statement	2607	I381	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	2050	t_32646	indirect_statement	2607	I382	hit		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	4125	t_66781	indirect_statement	2607	I383	hit		infinitive	true	infinitive	agent	false
+tlg0059.tlg002	424	t_8848	indirect_statement	2607	I384	hit		infinitive	true	infinitive	justin	true
+tlg0059.tlg002	99	t_1953	indirect_statement	2607	I385	hit		infinitive	false		agent	false
+tlg0059.tlg030	1898	t_30121	indirect_statement	2607	I386	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	4762	t_78584	indirect_statement	2607	I387	hit		infinitive	false		justin	true
+tlg0059.tlg004	210	t_3167	indirect_statement	2607	I388	hit		infinitive	true	infinitive	agent	false
+tlg0059.tlg004	311	t_4879	indirect_statement	2607	I389	hit		infinitive	true	infinitive	justin	true
+tlg0059.tlg024	75	t_938	indirect_statement	2607	I390	hit		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	5505	t_90919	indirect_statement	2607	I391	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	6118	t_100216	indirect_statement	2607	I393	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	268	t_5010	indirect_statement	2607	I394	hit		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	3324	t_53398	indirect_statement	2607	I395	loose		infinitive	false		agent	false
+tlg0059.tlg030	5948	t_97361	indirect_statement	2607	I396	loose		infinitive	false		agent	false
+tlg0059.tlg030	1455	t_22180	indirect_statement	2607	I397	loose		infinitive	false		agent	false
+tlg0059.tlg030	1653	t_25695	indirect_statement	2607	I398	loose		infinitive	true	infinitive	justin	false
+tlg0059.tlg011	750	t_14704	indirect_statement	2607	I399	loose		infinitive	false		agent	false
+tlg0059.tlg004	169	t_2512	indirect_statement	2607	I400	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg011	795	t_16175	indirect_statement	2607	I401	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	4535	t_74141	indirect_statement	2607	I402	loose		infinitive	false		agent	false
+tlg0059.tlg011	760	t_14994	indirect_statement	2607	I403	loose		infinitive	false		agent	false
+tlg0059.tlg011	193	t_3495	indirect_statement	2607	I404	loose		infinitive	false		agent	false
+tlg0059.tlg004	1291	t_22804	indirect_statement	2607	I405	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	2237	t_36108	indirect_statement	2607	I406	loose		infinitive	false		agent	false
+tlg0059.tlg030	5474	t_90350	indirect_statement	2607	I407	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg024	1221	t_10287	indirect_statement	2607	I408	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg003	367	t_5069	indirect_statement	2607	I409	loose		infinitive	false		justin	false
+tlg0059.tlg030	3315	t_53273	indirect_statement	2607	I410	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	4974	t_82246	indirect_statement	2607	I411	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg002	270	t_5045	indirect_statement	2607	I412	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0059.tlg004	1387	t_25542	indirect_statement	2607	I413	loose		hoti_hos	true	hoti_hos	justin	true
+tlg0059.tlg004	775	t_13456	indirect_statement	2607	I414	loose		hoti_hos	false		justin	false
+tlg0059.tlg030	4548	t_74432	indirect_statement	2607	I415	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0059.tlg030	6252	t_102578	indirect_statement	2607	I416	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg002	206	t_3735	indirect_statement	2607	I417	loose		hoti_hos	false		justin	false
+tlg0059.tlg030	5921	t_96706	indirect_statement	2607	I418	loose		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg004	1151	t_20513	indirect_statement	2607	I419	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	3659	t_58429	indirect_statement	2607	I420	loose		hoti_hos	true	hoti_hos	justin	true
+tlg0059.tlg024	772	t_6186	indirect_statement	2607	I421	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	501	t_6602	indirect_statement	2607	I422	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	1356	t_20431	indirect_statement	2607	I424	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	3176	t_53828	indirect_statement	2607	I425	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	219	t_3604	indirect_statement	2607	I426	hit		infinitive	true	infinitive	justin	true
+tlg0032.tlg006	1070	t_18295	indirect_statement	2607	I427	hit		infinitive	false		justin	false
+tlg0032.tlg006	3717	t_62811	indirect_statement	2607	I428	hit		infinitive	true	infinitive	agent	false
+tlg0032.tlg006	1732	t_30003	indirect_statement	2607	I429	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	171	t_2765	indirect_statement	2607	I430	hit		infinitive	true	infinitive	agent	false
+tlg0032.tlg006	1584	t_27588	indirect_statement	2607	I431	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3574	t_60024	indirect_statement	2607	I432	hit		infinitive	true	infinitive	agent	false
+tlg0032.tlg006	2467	t_42326	indirect_statement	2607	I433	hit		infinitive	true	infinitive	agent	false
+tlg0032.tlg006	3724	t_62978	indirect_statement	2607	I434	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2895	t_49062	indirect_statement	2607	I435	hit		infinitive	false		justin	false
+tlg0032.tlg006	2636	t_45013	indirect_statement	2607	I436	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	1060	t_17981	indirect_statement	2607	I437	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	3687	t_62054	indirect_statement	2607	I438	hit		infinitive	false		agent	false
+tlg0032.tlg006	2786	t_47461	indirect_statement	2607	I439	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2123	t_36180	indirect_statement	2607	I440	hit		infinitive	true	infinitive	agent	false
+tlg0032.tlg006	2214	t_37765	indirect_statement	2607	I441	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3140	t_53124	indirect_statement	2607	I442	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	645	t_11108	indirect_statement	2607	I443	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	696	t_11722	indirect_statement	2607	I445	loose		infinitive	false		agent	false
+tlg0032.tlg006	3690	t_62119	indirect_statement	2607	I446	loose		infinitive	false		agent	false
+tlg0032.tlg006	187	t_3047	indirect_statement	2607	I447	loose		infinitive	false		agent	false
+tlg0032.tlg006	3080	t_52020	indirect_statement	2607	I448	loose		infinitive	false		agent	false
+tlg0032.tlg006	2433	t_41736	indirect_statement	2607	I449	loose		infinitive	false		justin	false
+tlg0032.tlg006	189	t_3111	indirect_statement	2607	I450	loose		infinitive	false		agent	false
+tlg0032.tlg006	895	t_14864	indirect_statement	2607	I451	loose		infinitive	false		agent	false
+tlg0032.tlg006	2845	t_48355	indirect_statement	2607	I452	loose		infinitive	false		agent	false
+tlg0032.tlg006	970	t_16203	indirect_statement	2607	I453	loose		infinitive	false		agent	false
+tlg0032.tlg006	347	t_5707	indirect_statement	2607	I454	loose		infinitive	false		agent	false
+tlg0032.tlg006	2227	t_37923	indirect_statement	2607	I455	loose		infinitive	false		agent	false
+tlg0032.tlg006	2751	t_46825	indirect_statement	2607	I456	loose		infinitive	false		agent	false
+tlg0032.tlg006	1019	t_17232	indirect_statement	2607	I457	loose		infinitive	false		agent	false
+tlg0032.tlg006	2721	t_46410	indirect_statement	2607	I458	loose		infinitive	false		agent	false
+tlg0032.tlg006	1149	t_19747	indirect_statement	2607	I459	loose		infinitive	false		agent	false
+tlg0032.tlg006	1243	t_21811	indirect_statement	2607	I460	loose		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3494	t_58671	indirect_statement	2607	I461	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	843	t_14105	indirect_statement	2607	I462	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0032.tlg006	2724	t_46489	indirect_statement	2607	I463	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	2292	t_39204	indirect_statement	2607	I464	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	3536	t_59315	indirect_statement	2607	I465	loose		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	1311	t_22789	indirect_statement	2607	I466	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	3429	t_57707	indirect_statement	2607	I467	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0032.tlg006	2589	t_44197	indirect_statement	2607	I468	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	3496	t_58694	indirect_statement	2607	I470	loose		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2381	t_40710	indirect_statement	2607	I472	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0032.tlg006	3193	t_54129	indirect_statement	2607	I473	loose		hoti_hos	false		justin	false
+tlg0032.tlg006	2691	t_45927	indirect_statement	2607	I474	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	4048	t_65346	indirect_statement	2607	I475	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	6265	t_102908	indirect_statement	2607	I476	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3206	t_54346	indirect_statement	2607	I477	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	1761	t_30450	indirect_statement	2607	I478	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3660	t_61628	indirect_statement	2607	I479	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3420	t_57582	indirect_statement	2607	I480	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg002	121	t_2447	indirect_statement	2607	I481	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg024	201	t_1901	articular_infinitive	2607	I496	loose			false		agent	false
+tlg0059.tlg004	107	t_1430	articular_infinitive	2607	I497	loose			false		agent	false
+tlg0059.tlg004	102	t_1285	articular_infinitive	2607	I498	loose			false		justin	false
+tlg0059.tlg030	2825	t_45786	articular_infinitive	2607	I499	loose			false		justin	false
+tlg0059.tlg030	4208	t_68877	articular_infinitive	2607	I500	loose			false		agent	false
+tlg0059.tlg030	887	t_12208	articular_infinitive	2607	I501	loose			false		agent	false
+tlg0059.tlg004	709	t_11523	articular_infinitive	2607	I502	loose			false		justin	false
+tlg0059.tlg004	96	t_1107	articular_infinitive	2607	I503	loose			false		agent	false
+tlg0032.tlg006	2572	t_43914	articular_infinitive	2607	I504	loose			false		justin	false
+tlg0032.tlg006	581	t_10072	articular_infinitive	2607	I505	loose			false		agent	false
+tlg0032.tlg006	1089	t_18647	articular_infinitive	2607	I506	loose			false		justin	false
+tlg0032.tlg006	2570	t_43839	articular_infinitive	2607	I507	loose			true	accusative	justin	false
+tlg0032.tlg006	1264	t_22114	articular_infinitive	2607	I508	loose			false		agent	false
+tlg0032.tlg006	2419	t_41511	articular_infinitive	2607	I509	loose			false		justin	false
+tlg0059.tlg030	553	t_7849	conditional	2615	R001	hit			true		agent	true
+tlg0059.tlg003	287	t_3254	conditional	2615	R002	hit			true		agent	true
+tlg0059.tlg004	1249	t_21768	conditional	2615	R003	hit			true		agent	true
+tlg0032.tlg006	650	t_11188	conditional	2615	R004	hit			true		agent	true
+tlg0059.tlg024	741	t_5925	conditional	2615	R005	hit			true		agent	true
+tlg0059.tlg030	368	t_4727	conditional	2615	R006	hit			true		agent	true
+tlg0059.tlg030	2120	t_34213	conditional	2615	R007	hit			true		agent	true
+tlg0059.tlg024	82	t_1013	conditional	2615	R008	hit			true		agent	true
+tlg0059.tlg030	963	t_14087	conditional	2615	R009	hit			true		agent	true
+tlg0059.tlg004	827	t_14223	conditional	2615	R010	hit			true		agent	true
+tlg0032.tlg006	638	t_10990	conditional	2615	R011	hit			true		agent	true
+tlg0032.tlg006	1068	t_18239	conditional	2615	R012	hit			true		agent	true
+tlg0032.tlg006	3420	t_57575	conditional	2615	R013	hit			true		agent	true
+tlg0032.tlg006	2360	t_40385	conditional	2615	R014	hit			true		agent	true
+tlg0059.tlg030	5528	t_91202	conditional	2615	R015	hit			true		agent	true
+tlg0059.tlg004	218	t_3279	conditional	2615	R016	hit			true		agent	true
+tlg0032.tlg006	3700	t_62352	conditional	2615	R017	hit			true		agent	true
+tlg0059.tlg004	339	t_5555	conditional	2615	R018	hit			true		agent	true
+tlg0059.tlg030	1147	t_17418	conditional	2615	R019	hit			true		agent	true
+tlg0059.tlg030	3547	t_56534	conditional	2615	R020	hit			true		agent	true
+tlg0032.tlg006	1322	t_23016	conditional	2615	R021	hit			true		agent	true
+tlg0059.tlg030	2270	t_36660	conditional	2615	R022	hit			true		agent	true
+tlg0032.tlg006	2656	t_45340	conditional	2615	R023	hit			true		agent	true
+tlg0059.tlg024	151	t_1451	conditional	2615	R024	hit			true		agent	true
+tlg0059.tlg003	369	t_5094	conditional	2615	R025	hit			true		agent	true
+tlg0032.tlg006	276	t_4517	conditional	2615	R026	hit			false		agent	true
+tlg0032.tlg006	2055	t_35193	conditional	2615	R027	hit			true		agent	true
+tlg0032.tlg006	638	t_11002	conditional	2615	R028	hit			true		agent	true
+tlg0032.tlg006	2762	t_46990	conditional	2615	R029	hit			true		agent	true
+tlg0059.tlg030	1309	t_19542	conditional	2615	R030	hit			true		agent	true
+tlg0059.tlg030	907	t_12772	conditional	2615	R031	hit			true		agent	true
+tlg0032.tlg006	339	t_5567	conditional	2615	R032	hit			true		agent	true
+tlg0032.tlg006	2500	t_42970	conditional	2615	R033	hit			true		agent	true
+tlg0032.tlg006	2002	t_34306	conditional	2615	R034	hit			true		agent	true
+tlg0032.tlg006	3375	t_56945	conditional	2615	R035	hit			true		agent	true
+tlg0059.tlg030	5050	t_83425	conditional	2615	R036	hit			true		agent	true
+tlg0059.tlg030	1381	t_20842	conditional	2615	R037	hit			true		agent	true
+tlg0032.tlg006	2371	t_40503	conditional	2615	R038	hit			true		agent	true
+tlg0059.tlg003	205	t_2338	conditional	2615	R039	hit			true		agent	true
+tlg0032.tlg006	2588	t_44178	conditional	2615	R040	hit			true		agent	true
+tlg0059.tlg030	2585	t_41620	conditional	2615	R041	hit			true		agent	true
+tlg0059.tlg030	567	t_8043	conditional	2615	R042	hit			true		agent	true
+tlg0059.tlg030	6193	t_101484	conditional	2615	R043	hit			true		agent	true
+tlg0032.tlg006	2535	t_43440	conditional	2615	R044	hit			false		agent	true
+tlg0059.tlg030	4154	t_67452	conditional	2615	R045	hit			true		agent	true
+tlg0059.tlg030	6078	t_99368	conditional	2615	R046	hit			true		agent	true
+tlg0032.tlg006	2372	t_40520	conditional	2615	R047	hit			true		agent	true
+tlg0032.tlg006	2088	t_35613	conditional	2615	R048	hit			true		agent	true
+tlg0059.tlg004	864	t_15179	conditional	2615	R049	hit			true		agent	true
+tlg0032.tlg006	3667	t_61729	conditional	2615	R050	hit			true		agent	true
+tlg0059.tlg030	1490	t_22720	conditional	2615	R051	hit			true		agent	true
+tlg0032.tlg006	3578	t_60107	conditional	2615	R052	hit			true		agent	true
+tlg0059.tlg030	1902	t_30215	conditional	2615	R053	hit			true		agent	true
+tlg0059.tlg030	1167	t_17736	conditional	2615	R054	hit			true		agent	true
+tlg0059.tlg002	248	t_4344	conditional	2615	R055	hit			true		agent	true
+tlg0059.tlg004	253	t_3818	conditional	2615	R056	hit			true		agent	true
+tlg0059.tlg011	805	t_16279	conditional	2615	R057	hit			true		agent	true
+tlg0059.tlg030	344	t_4449	conditional	2615	R058	hit			true		agent	true
+tlg0059.tlg030	2503	t_40270	conditional	2615	R059	hit			false		agent	true
+tlg0032.tlg006	2358	t_40366	conditional	2615	R060	hit			true		agent	true
+tlg0059.tlg002	277	t_5249	conditional	2615	R061	hit			true		agent	true
+tlg0059.tlg030	4232	t_69394	conditional	2615	R062	hit			true		agent	true
+tlg0059.tlg024	920	t_7039	conditional	2615	R063	hit			true		agent	true
+tlg0032.tlg006	117	t_1797	conditional	2615	R064	hit			true		agent	true
+tlg0059.tlg030	874	t_11906	conditional	2615	R065	hit			true		agent	true
+tlg0059.tlg030	5366	t_88860	conditional	2615	R066	hit			true		agent	true
+tlg0059.tlg011	235	t_4672	conditional	2615	R067	hit			true		agent	true
+tlg0059.tlg004	921	t_15928	conditional	2615	R068	hit			true		agent	true
+tlg0059.tlg004	248	t_3716	conditional	2615	R069	hit			true		agent	true
+tlg0059.tlg011	123	t_1904	conditional	2615	R070	hit			true		agent	true
+tlg0059.tlg004	1058	t_18819	conditional	2615	R071	hit			true		agent	true
+tlg0059.tlg030	3535	t_56361	conditional	2615	R072	hit			true		agent	true
+tlg0059.tlg030	1041	t_15968	conditional	2615	R073	hit			true		agent	true
+tlg0059.tlg030	750	t_10374	conditional	2615	R074	hit			false		agent	true
+tlg0059.tlg011	901	t_17692	conditional	2615	R075	hit			false		justin	true
+tlg0059.tlg030	4322	t_70579	conditional	2615	R076	hit			true		agent	true
+tlg0032.tlg006	3081	t_52049	conditional	2615	R077	hit			true		agent	true
+tlg0059.tlg004	855	t_14996	conditional	2615	R078	hit			true		agent	true
+tlg0059.tlg030	1827	t_28648	conditional	2615	R079	hit			true		agent	true
+tlg0059.tlg030	922	t_13081	conditional	2615	R080	hit			false		agent	true
+tlg0059.tlg024	716	t_5800	conditional	2615	R081	hit			true		agent	true
+tlg0059.tlg030	3044	t_48868	conditional	2615	R082	hit			false		agent	true
+tlg0059.tlg030	4087	t_65924	conditional	2615	R083	hit			true		agent	true
+tlg0059.tlg030	1604	t_24803	conditional	2615	R084	hit			true		agent	true
+tlg0032.tlg006	2091	t_35683	conditional	2615	R085	hit			true		agent	true
+tlg0059.tlg030	6186	t_101280	conditional	2615	R086	hit			true		agent	true
+tlg0059.tlg004	856	t_15023	conditional	2615	R087	hit			true		agent	true
+tlg0032.tlg006	1186	t_20606	conditional	2615	R088	hit			true		agent	true
+tlg0032.tlg006	837	t_14029	conditional	2615	R089	hit			true		agent	true
+tlg0032.tlg006	2867	t_48583	conditional	2615	R090	hit			true		agent	true
+tlg0059.tlg002	406	t_8505	conditional	2615	R091	hit			true		agent	true
+tlg0059.tlg030	1938	t_30846	conditional	2615	R092	hit			true		agent	true
+tlg0059.tlg004	410	t_6537	conditional	2615	R093	hit			true		agent	true
+tlg0059.tlg024	1386	t_11886	conditional	2615	R094	hit			true		agent	true
+tlg0032.tlg006	1104	t_18832	conditional	2615	R095	hit			true		agent	true
+tlg0059.tlg003	206	t_2385	conditional	2615	R096	hit			true		agent	true
+tlg0059.tlg030	3768	t_60380	conditional	2615	R097	hit			true		agent	true
+tlg0059.tlg003	310	t_3828	conditional	2615	R098	hit			true		agent	true
+tlg0059.tlg030	2507	t_40343	conditional	2615	R099	hit			false		agent	true
+tlg0032.tlg006	1095	t_18685	conditional	2615	R100	hit			true		agent	true
+tlg0059.tlg030	4746	t_78102	indirect_statement	2615	R1000	loose		infinitive	false		agent	false
+tlg0059.tlg030	1857	t_29195	indirect_statement	2615	R1001	loose		infinitive	false		agent	false
+tlg0032.tlg006	1679	t_29220	indirect_statement	2615	R1002	loose		infinitive	false		agent	false
+tlg0059.tlg011	155	t_2619	indirect_statement	2615	R1003	loose		infinitive	false		agent	false
+tlg0059.tlg004	322	t_5188	indirect_statement	2615	R1004	loose		infinitive	false		agent	false
+tlg0032.tlg006	1030	t_17403	indirect_statement	2615	R1005	loose		infinitive	false		agent	false
+tlg0032.tlg006	2857	t_48481	indirect_statement	2615	R1006	loose		infinitive	false		agent	false
+tlg0032.tlg006	2210	t_37701	indirect_statement	2615	R1007	loose		infinitive	false		agent	false
+tlg0059.tlg011	289	t_6100	indirect_statement	2615	R1008	loose		infinitive	false		agent	false
+tlg0059.tlg004	564	t_8694	indirect_statement	2615	R1009	loose		infinitive	false		agent	false
+tlg0059.tlg002	217	t_3971	conditional	2615	R101	hit			true		agent	true
+tlg0059.tlg003	366	t_5027	indirect_statement	2615	R1010	loose		infinitive	false		agent	false
+tlg0059.tlg030	1873	t_29534	indirect_statement	2615	R1011	loose		infinitive	false		agent	false
+tlg0032.tlg006	1864	t_32215	indirect_statement	2615	R1012	loose		infinitive	false		agent	false
+tlg0059.tlg030	2632	t_42509	indirect_statement	2615	R1013	loose		hoti_hos	false		agent	false
+tlg0059.tlg011	59	t_860	indirect_statement	2615	R1014	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	1621	t_25079	indirect_statement	2615	R1015	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg011	773	t_15718	indirect_statement	2615	R1016	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg011	809	t_16384	indirect_statement	2615	R1017	loose		hoti_hos	false		agent	false
+tlg0059.tlg004	383	t_6137	indirect_statement	2615	R1018	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0032.tlg006	1160	t_19960	indirect_statement	2615	R1019	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg024	320	t_2800	conditional	2615	R102	hit			true		agent	true
+tlg0059.tlg030	1765	t_27754	indirect_statement	2615	R1020	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	6060	t_99010	indirect_statement	2615	R1021	loose		hoti_hos	false		agent	false
+tlg0059.tlg002	297	t_5900	indirect_statement	2615	R1022	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	4046	t_65293	indirect_statement	2615	R1023	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	1110	t_18977	indirect_statement	2615	R1024	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg002	123	t_2505	indirect_statement	2615	R1025	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg024	1255	t_10700	indirect_statement	2615	R1026	loose		hoti_hos	false		agent	false
+tlg0059.tlg003	308	t_3738	indirect_statement	2615	R1027	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	2263	t_36553	indirect_statement	2615	R1028	loose		hoti_hos	false		agent	false
+tlg0059.tlg004	14	t_132	indirect_statement	2615	R1029	loose		hoti_hos	false		agent	false
+tlg0059.tlg011	657	t_12964	conditional	2615	R103	hit			true		agent	true
+tlg0032.tlg006	120	t_1835	indirect_statement	2615	R1030	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	6279	t_103422	indirect_statement	2615	R1031	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	5485	t_90607	indirect_statement	2615	R1032	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg002	150	t_3028	indirect_statement	2615	R1033	loose		hoti_hos	false		agent	false
+tlg0059.tlg024	173	t_1659	indirect_statement	2615	R1034	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	3784	t_60779	indirect_statement	2615	R1035	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	1746	t_27297	indirect_statement	2615	R1036	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	3692	t_59025	indirect_statement	2615	R1037	loose		hoti_hos	false		agent	false
+tlg0059.tlg004	1365	t_24990	indirect_statement	2615	R1038	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	3719	t_59493	indirect_statement	2615	R1039	loose		hoti_hos	false		agent	false
+tlg0059.tlg002	424	t_8855	conditional	2615	R104	hit			true		justin	true
+tlg0032.tlg006	3152	t_53377	indirect_statement	2615	R1040	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	4961	t_82020	indirect_statement	2615	R1041	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	3809	t_61370	indirect_statement	2615	R1042	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg004	329	t_5386	indirect_statement	2615	R1043	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	3543	t_56483	indirect_statement	2615	R1044	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg024	46	t_549	indirect_statement	2615	R1045	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0059.tlg011	190	t_3431	indirect_statement	2615	R1046	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	763	t_10533	indirect_statement	2615	R1047	loose		hoti_hos	true	hoti_hos	justin	false
+tlg0059.tlg030	3829	t_61689	indirect_statement	2615	R1048	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	521	t_8806	indirect_statement	2615	R1049	loose		hoti_hos	false		agent	false
+tlg0059.tlg004	1020	t_18021	conditional	2615	R105	hit			true		agent	true
+tlg0059.tlg030	5797	t_95233	indirect_statement	2615	R1050	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	129	t_2048	indirect_statement	2615	R1051	loose		hoti_hos	false		agent	false
+tlg0059.tlg024	186	t_1736	indirect_statement	2615	R1052	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	5289	t_87406	indirect_statement	2615	R1053	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	3362	t_54060	indirect_statement	2615	R1054	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0032.tlg006	1145	t_19638	indirect_statement	2615	R1055	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0032.tlg006	1824	t_31531	indirect_statement	2615	R1056	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg011	412	t_8968	indirect_statement	2615	R1057	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg004	790	t_13687	indirect_statement	2615	R1058	loose		hoti_hos	false		agent	false
+tlg0032.tlg006	597	t_10305	indirect_statement	2615	R1059	loose		hoti_hos	false		agent	false
+tlg0059.tlg004	1235	t_21491	conditional	2615	R106	hit			true		agent	true
+tlg0059.tlg030	4530	t_74070	indirect_statement	2615	R1060	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg024	1492	t_12808	indirect_statement	2615	R1061	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	3427	t_55095	indirect_statement	2615	R1062	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg004	1051	t_18739	indirect_statement	2615	R1063	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	3530	t_56281	indirect_statement	2615	R1064	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	5270	t_86975	indirect_statement	2615	R1065	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	3005	t_48247	indirect_statement	2615	R1066	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	2588	t_41690	indirect_statement	2615	R1067	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	1134	t_17223	indirect_statement	2615	R1068	loose		hoti_hos	false		agent	false
+tlg0059.tlg030	4612	t_75549	indirect_statement	2615	R1069	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg030	2401	t_38621	conditional	2615	R107	hit			true		agent	true
+tlg0059.tlg030	4972	t_82230	indirect_statement	2615	R1070	loose		hoti_hos	false		agent	false
+tlg0059.tlg002	145	t_2980	indirect_statement	2615	R1071	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0059.tlg011	555	t_11518	indirect_statement	2615	R1072	loose		hoti_hos	true	hoti_hos	agent	false
+tlg0032.tlg006	649	t_11158	conditional	2615	R1073	excluded	whether head		true		agent	true
+tlg0059.tlg030	3308	t_53061	conditional	2615	R1074	excluded	whether head		true		agent	true
+tlg0059.tlg002	329	t_6721	conditional	2615	R1075	excluded	whether head		true		agent	true
+tlg0059.tlg004	337	t_5512	conditional	2615	R1076	excluded	whether head		false		agent	true
+tlg0032.tlg006	573	t_9889	conditional	2615	R1077	excluded	whether head		false		agent	true
+tlg0059.tlg030	306	t_3949	conditional	2615	R1078	excluded	whether head		true		agent	true
+tlg0059.tlg030	2365	t_38052	conditional	2615	R1079	excluded	whether head		true		agent	true
+tlg0059.tlg004	408	t_6472	conditional	2615	R108	hit			true		agent	true
+tlg0059.tlg024	14	t_224	conditional	2615	R1080	excluded	whether head		false		agent	true
+tlg0059.tlg030	848	t_11453	conditional	2615	R1081	excluded	whether head		false		agent	true
+tlg0059.tlg024	14	t_221	conditional	2615	R1082	excluded	whether head		false		agent	true
+tlg0059.tlg030	3975	t_64304	conditional	2615	R1083	excluded	whether head		true		agent	true
+tlg0059.tlg004	764	t_13026	conditional	2615	R1084	excluded	whether head		true		agent	true
+tlg0059.tlg004	1085	t_19379	conditional	2615	R1085	excluded	whether head		true		agent	true
+tlg0059.tlg030	1592	t_24458	conditional	2615	R1086	excluded	whether head		true		agent	true
+tlg0059.tlg030	4466	t_72741	conditional	2615	R1087	excluded	whether head		true		justin	true
+tlg0059.tlg024	937	t_7393	conditional	2615	R1088	excluded	whether head		false		agent	true
+tlg0059.tlg024	1002	t_7835	conditional	2615	R1089	excluded	whether head		false		agent	true
+tlg0059.tlg030	1632	t_25263	conditional	2615	R109	hit			true		agent	true
+tlg0059.tlg030	1023	t_15768	conditional	2615	R1090	excluded	whether head		true		agent	true
+tlg0059.tlg030	1609	t_24896	conditional	2615	R1091	excluded	whether head		false		agent	true
+tlg0059.tlg030	981	t_14561	conditional	2615	R1092	excluded	whether head		true		agent	true
+tlg0032.tlg006	2661	t_45439	conditional	2615	R1093	excluded	whether head		true		agent	true
+tlg0059.tlg030	1769	t_27954	conditional	2615	R1094	excluded	whether head		true		agent	true
+tlg0059.tlg004	1169	t_20694	conditional	2615	R1095	excluded	whether head		false		agent	true
+tlg0059.tlg004	403	t_6351	conditional	2615	R1096	excluded	whether head		true		agent	true
+tlg0059.tlg030	4390	t_71663	conditional	2615	R1097	excluded	whether head		false		agent	true
+tlg0059.tlg004	421	t_6805	conditional	2615	R1098	excluded	whether head		true		agent	true
+tlg0059.tlg011	475	t_10326	conditional	2615	R1099	excluded	whether head		false		agent	true
+tlg0059.tlg002	414	t_8652	conditional	2615	R110	hit			true		agent	true
+tlg0059.tlg011	891	t_17533	conditional	2615	R1100	excluded	whether head		true		agent	true
+tlg0032.tlg006	1850	t_31938	conditional	2615	R1101	excluded	whether head		false		justin	true
+tlg0032.tlg006	2084	t_35538	conditional	2615	R1102	excluded	whether head		true		agent	true
+tlg0059.tlg030	4324	t_70648	conditional	2615	R1103	excluded	whether head		false		justin	true
+tlg0032.tlg006	3036	t_51330	conditional	2615	R1104	excluded	whether head		true		agent	true
+tlg0059.tlg004	323	t_5190	conditional	2615	R1105	excluded	whether head		false		agent	true
+tlg0032.tlg006	2225	t_37883	conditional	2615	R1106	excluded	whether head		true		agent	true
+tlg0032.tlg006	1225	t_21385	conditional	2615	R1107	excluded	whether head		true		agent	true
+tlg0059.tlg024	929	t_7158	conditional	2615	R1108	excluded	whether head		false		agent	true
+tlg0059.tlg030	3946	t_63846	conditional	2615	R1109	excluded	whether head		false		agent	true
+tlg0059.tlg024	1423	t_12139	conditional	2615	R111	hit			true		agent	true
+tlg0059.tlg004	507	t_7851	conditional	2615	R1110	excluded	whether head		true		agent	true
+tlg0059.tlg030	6198	t_101533	conditional	2615	R1111	excluded	whether head		true		agent	true
+tlg0059.tlg004	407	t_6428	conditional	2615	R1112	excluded	whether head		true		agent	true
+tlg0059.tlg011	878	t_17246	genitive_absolute	2615	R1113	excluded	B-readmit		true		justin	false
+tlg0032.tlg006	2757	t_46921	genitive_absolute	2615	R1114	excluded	B-exclude		false		agent	false
+tlg0059.tlg004	1000	t_17394	genitive_absolute	2615	R1115	excluded	B-exclude		false		agent	false
+tlg0059.tlg030	879	t_12042	genitive_absolute	2615	R1116	excluded	B-readmit		false		agent	false
+tlg0059.tlg030	1740	t_27191	genitive_absolute	2615	R1117	excluded	B-exclude		false		agent	false
+tlg0059.tlg030	6080	t_99388	genitive_absolute	2615	R1118	excluded	B-exclude		false		justin	false
+tlg0059.tlg002	40	t_928	genitive_absolute	2615	R1119	excluded	B-exclude		false		agent	false
+tlg0032.tlg006	1324	t_23086	conditional	2615	R112	hit			true		justin	true
+tlg0059.tlg002	404	t_8483	genitive_absolute	2615	R1120	excluded	B-exclude		false		agent	false
+tlg0032.tlg006	1867	t_32294	genitive_absolute	2615	R1121	excluded	B-exclude		true		agent	false
+tlg0059.tlg002	40	t_953	genitive_absolute	2615	R1122	excluded	B-exclude		false		agent	false
+tlg0059.tlg030	3269	t_52433	genitive_absolute	2615	R1123	excluded	B-exclude		false		agent	false
+tlg0059.tlg030	3746	t_60148	genitive_absolute	2615	R1124	excluded	B-exclude		false		agent	false
+tlg0059.tlg002	303	t_6067	genitive_absolute	2615	R1125	excluded	B-exclude		false		justin	false
+tlg0059.tlg004	1000	t_17391	genitive_absolute	2615	R1126	excluded	B-exclude		false		agent	false
+tlg0059.tlg030	6270	t_103170	conditional	2615	R113	hit			true		agent	true
+tlg0059.tlg030	901	t_12556	conditional	2615	R114	hit			false		agent	true
+tlg0059.tlg030	3310	t_53130	conditional	2615	R115	hit			true		agent	true
+tlg0059.tlg011	860	t_16955	conditional	2615	R116	hit			true		agent	true
+tlg0032.tlg006	2763	t_47022	conditional	2615	R117	hit			true		agent	true
+tlg0059.tlg030	2542	t_41002	conditional	2615	R118	hit			true		agent	true
+tlg0059.tlg030	2281	t_36857	conditional	2615	R119	hit			true		agent	true
+tlg0059.tlg011	790	t_16097	conditional	2615	R120	hit			true		agent	true
+tlg0059.tlg030	6072	t_99224	articular_infinitive	2615	R121	hit		dative	true	dative	justin	true
+tlg0059.tlg011	960	t_18931	articular_infinitive	2615	R122	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	1466	t_22293	articular_infinitive	2615	R123	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	501	t_6616	articular_infinitive	2615	R124	hit		genitive	true	genitive	agent	true
+tlg0059.tlg003	65	t_531	articular_infinitive	2615	R125	hit		genitive	true	genitive	agent	true
+tlg0059.tlg004	995	t_17266	articular_infinitive	2615	R126	hit		genitive	true	genitive	agent	true
+tlg0059.tlg004	626	t_9715	articular_infinitive	2615	R127	hit		nominative	true	nominative	agent	true
+tlg0059.tlg011	32	t_492	articular_infinitive	2615	R128	hit		accusative	false		agent	true
+tlg0059.tlg004	359	t_5879	articular_infinitive	2615	R129	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	396	t_6243	articular_infinitive	2615	R130	hit		nominative	true	accusative	agent	true
+tlg0059.tlg024	544	t_4858	articular_infinitive	2615	R131	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	1255	t_21923	articular_infinitive	2615	R132	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	4666	t_76418	articular_infinitive	2615	R133	hit		nominative	true	nominative	agent	true
+tlg0059.tlg002	262	t_4789	articular_infinitive	2615	R134	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	1378	t_25296	articular_infinitive	2615	R135	hit		nominative	true	nominative	agent	true
+tlg0059.tlg011	107	t_1611	articular_infinitive	2615	R136	hit		accusative	true	accusative	agent	true
+tlg0059.tlg011	377	t_8324	articular_infinitive	2615	R137	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	538	t_7602	articular_infinitive	2615	R138	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	439	t_5742	articular_infinitive	2615	R139	hit		accusative	false		justin	true
+tlg0032.tlg006	2089	t_35647	articular_infinitive	2615	R140	hit		accusative	true	accusative	justin	true
+tlg0059.tlg002	462	t_9569	articular_infinitive	2615	R141	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	3925	t_63452	articular_infinitive	2615	R142	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	5696	t_93444	articular_infinitive	2615	R143	hit		accusative	false		agent	true
+tlg0059.tlg004	555	t_8560	articular_infinitive	2615	R144	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	2657	t_45362	articular_infinitive	2615	R145	hit		nominative	true	nominative	agent	true
+tlg0059.tlg011	740	t_14376	articular_infinitive	2615	R146	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	2018	t_32015	articular_infinitive	2615	R147	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	2014	t_31970	articular_infinitive	2615	R148	hit		accusative	false		agent	true
+tlg0059.tlg004	554	t_8528	articular_infinitive	2615	R149	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	4533	t_74090	articular_infinitive	2615	R150	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	3531	t_56309	articular_infinitive	2615	R151	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	407	t_6430	articular_infinitive	2615	R152	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	997	t_17307	articular_infinitive	2615	R153	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	3802	t_61132	articular_infinitive	2615	R154	hit		accusative	true	accusative	agent	true
+tlg0059.tlg011	466	t_10129	articular_infinitive	2615	R155	hit		genitive	true	genitive	agent	true
+tlg0059.tlg004	393	t_6229	articular_infinitive	2615	R156	hit		dative	true	dative	agent	true
+tlg0059.tlg030	1417	t_21395	articular_infinitive	2615	R157	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	152	t_2161	articular_infinitive	2615	R158	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	4420	t_72009	articular_infinitive	2615	R159	hit		nominative	true	nominative	justin	true
+tlg0059.tlg030	6226	t_102188	articular_infinitive	2615	R160	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	1855	t_29094	articular_infinitive	2615	R161	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	5526	t_91173	articular_infinitive	2615	R162	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	132	t_2114	articular_infinitive	2615	R163	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	945	t_13649	articular_infinitive	2615	R164	hit		genitive	true	genitive	agent	true
+tlg0059.tlg024	441	t_3652	articular_infinitive	2615	R165	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	4094	t_66002	articular_infinitive	2615	R166	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	4907	t_81027	articular_infinitive	2615	R167	hit		dative	true	dative	agent	true
+tlg0059.tlg030	5604	t_92056	articular_infinitive	2615	R168	hit		nominative	false		agent	true
+tlg0059.tlg030	6188	t_101403	articular_infinitive	2615	R169	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	885	t_12120	articular_infinitive	2615	R170	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	584	t_8349	articular_infinitive	2615	R171	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	4856	t_80237	articular_infinitive	2615	R172	hit		dative	true	dative	agent	true
+tlg0059.tlg030	2642	t_42667	articular_infinitive	2615	R173	hit		dative	true	dative	agent	true
+tlg0059.tlg011	996	t_19906	articular_infinitive	2615	R174	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	2677	t_43247	articular_infinitive	2615	R175	hit		genitive	true	genitive	agent	true
+tlg0059.tlg024	404	t_3400	articular_infinitive	2615	R176	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	5986	t_97942	articular_infinitive	2615	R177	hit		genitive	true	genitive	agent	true
+tlg0059.tlg004	930	t_16044	articular_infinitive	2615	R178	hit		accusative	true	accusative	agent	true
+tlg0059.tlg011	726	t_14018	articular_infinitive	2615	R179	hit		accusative	false		agent	true
+tlg0059.tlg030	4856	t_80208	articular_infinitive	2615	R180	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	6226	t_102175	articular_infinitive	2615	R181	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	920	t_13058	articular_infinitive	2615	R182	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	5524	t_91138	articular_infinitive	2615	R183	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	2336	t_37502	articular_infinitive	2615	R184	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	1859	t_29218	articular_infinitive	2615	R185	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	859	t_11637	articular_infinitive	2615	R186	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	386	t_5017	articular_infinitive	2615	R187	hit		accusative	false		agent	true
+tlg0059.tlg004	364	t_5956	articular_infinitive	2615	R188	hit		accusative	true	nominative	agent	true
+tlg0059.tlg030	4516	t_73672	articular_infinitive	2615	R189	hit		nominative	true	nominative	agent	true
+tlg0032.tlg006	1161	t_20051	articular_infinitive	2615	R190	hit		genitive	true	genitive	agent	true
+tlg0059.tlg011	218	t_4237	articular_infinitive	2615	R191	hit		accusative	true	accusative	agent	true
+tlg0032.tlg006	1183	t_20562	articular_infinitive	2615	R192	hit		dative	true	dative	agent	true
+tlg0059.tlg003	196	t_2278	articular_infinitive	2615	R193	hit		nominative	true	accusative	agent	true
+tlg0059.tlg030	5122	t_84774	articular_infinitive	2615	R194	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	1401	t_25776	articular_infinitive	2615	R195	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	5758	t_94407	articular_infinitive	2615	R196	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	862	t_11674	articular_infinitive	2615	R197	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	768	t_10710	articular_infinitive	2615	R198	hit		genitive	false		agent	true
+tlg0032.tlg006	2228	t_37951	articular_infinitive	2615	R199	hit		genitive	false		justin	true
+tlg0059.tlg011	240	t_4819	articular_infinitive	2615	R200	hit		accusative	false		agent	true
+tlg0059.tlg004	1016	t_17902	articular_infinitive	2615	R201	hit		genitive	true	genitive	agent	true
+tlg0059.tlg004	340	t_5593	articular_infinitive	2615	R202	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	5666	t_92845	articular_infinitive	2615	R203	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	4278	t_69943	articular_infinitive	2615	R204	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	191	t_2926	articular_infinitive	2615	R205	hit		genitive	true	genitive	agent	true
+tlg0059.tlg011	733	t_14252	articular_infinitive	2615	R206	hit		dative	true	dative	agent	true
+tlg0059.tlg030	2246	t_36232	articular_infinitive	2615	R207	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	973	t_14406	articular_infinitive	2615	R208	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	6170	t_100887	articular_infinitive	2615	R209	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	888	t_12229	articular_infinitive	2615	R210	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	3313	t_53247	articular_infinitive	2615	R211	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	1020	t_18030	articular_infinitive	2615	R212	hit		genitive	true	genitive	agent	true
+tlg0059.tlg011	467	t_10144	articular_infinitive	2615	R213	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	247	t_3649	articular_infinitive	2615	R214	hit		dative	true	dative	agent	true
+tlg0059.tlg030	2434	t_39083	articular_infinitive	2615	R215	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	513	t_6968	articular_infinitive	2615	R216	hit		accusative	true	accusative	agent	true
+tlg0059.tlg030	4859	t_80260	articular_infinitive	2615	R217	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	5800	t_95257	articular_infinitive	2615	R218	hit		nominative	true	nominative	agent	true
+tlg0032.tlg006	946	t_15713	articular_infinitive	2615	R219	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	364	t_5947	articular_infinitive	2615	R220	hit		dative	true	dative	agent	true
+tlg0059.tlg030	4233	t_69419	articular_infinitive	2615	R221	hit		nominative	true	nominative	agent	true
+tlg0059.tlg011	229	t_4481	articular_infinitive	2615	R222	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	2121	t_34327	articular_infinitive	2615	R223	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	1555	t_23921	articular_infinitive	2615	R224	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	4518	t_73714	articular_infinitive	2615	R225	hit		dative	true	dative	agent	true
+tlg0059.tlg030	4627	t_75823	articular_infinitive	2615	R226	hit		genitive	true	genitive	agent	true
+tlg0032.tlg006	962	t_16041	articular_infinitive	2615	R227	hit		accusative	true	accusative	agent	true
+tlg0059.tlg011	706	t_13700	articular_infinitive	2615	R228	hit		accusative	true	accusative	justin	true
+tlg0059.tlg004	991	t_17142	articular_infinitive	2615	R229	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	626	t_9697	articular_infinitive	2615	R230	hit		genitive	true	genitive	agent	true
+tlg0059.tlg011	53	t_729	articular_infinitive	2615	R231	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	315	t_4948	articular_infinitive	2615	R232	hit		dative	true	dative	agent	true
+tlg0032.tlg006	3499	t_58749	articular_infinitive	2615	R233	hit		genitive	true	genitive	justin	true
+tlg0059.tlg004	1279	t_22451	articular_infinitive	2615	R234	hit		accusative	true	accusative	agent	true
+tlg0059.tlg004	1132	t_20229	articular_infinitive	2615	R235	hit		accusative	true	accusative	agent	true
+tlg0059.tlg024	544	t_4862	articular_infinitive	2615	R236	hit		nominative	true	nominative	agent	true
+tlg0059.tlg030	6077	t_99352	articular_infinitive	2615	R237	hit		nominative	true	nominative	agent	true
+tlg0059.tlg004	709	t_11496	articular_infinitive	2615	R238	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	907	t_12808	articular_infinitive	2615	R239	hit		genitive	true	genitive	agent	true
+tlg0059.tlg030	396	t_5108	articular_infinitive	2615	R240	hit		nominative	true	nominative	agent	true
+tlg0032.tlg006	958	t_15943	articular_infinitive	2615	R241	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg004	561	t_8616	articular_infinitive	2615	R242	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	885	t_12142	articular_infinitive	2615	R243	hit-topup		accusative	false		agent	true
+tlg0032.tlg006	494	t_8299	articular_infinitive	2615	R244	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	4806	t_79595	articular_infinitive	2615	R245	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg011	767	t_15455	articular_infinitive	2615	R246	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	2530	t_40784	articular_infinitive	2615	R247	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	932	t_13365	articular_infinitive	2615	R248	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	847	t_11422	articular_infinitive	2615	R249	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	5025	t_83042	articular_infinitive	2615	R250	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg004	570	t_8883	articular_infinitive	2615	R251	hit-topup		accusative	false		agent	true
+tlg0032.tlg006	3805	t_64275	articular_infinitive	2615	R252	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg004	376	t_6096	articular_infinitive	2615	R253	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	5530	t_91238	articular_infinitive	2615	R254	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	1448	t_21881	articular_infinitive	2615	R255	hit-topup		accusative	false		agent	true
+tlg0059.tlg004	1022	t_18085	articular_infinitive	2615	R256	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg004	833	t_14431	articular_infinitive	2615	R257	hit-topup		accusative	true	accusative	agent	true
+tlg0032.tlg006	2010	t_34460	articular_infinitive	2615	R258	hit-topup		accusative	true	accusative	justin	true
+tlg0059.tlg030	5520	t_91087	articular_infinitive	2615	R259	hit-topup		accusative	true	accusative	agent	true
+tlg0059.tlg030	548	t_7816	articular_infinitive	2615	R260	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg002	359	t_7613	articular_infinitive	2615	R261	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	3396	t_54608	articular_infinitive	2615	R262	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2525	t_40721	articular_infinitive	2615	R263	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	6072	t_99213	articular_infinitive	2615	R264	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2650	t_42826	articular_infinitive	2615	R265	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	3232	t_51899	articular_infinitive	2615	R266	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2525	t_40733	articular_infinitive	2615	R267	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	6060	t_98962	articular_infinitive	2615	R268	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	3882	t_62804	articular_infinitive	2615	R269	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	1052	t_17806	articular_infinitive	2615	R270	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg011	198	t_3612	articular_infinitive	2615	R271	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg024	55	t_759	articular_infinitive	2615	R272	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg004	376	t_6094	articular_infinitive	2615	R273	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	4667	t_76457	articular_infinitive	2615	R274	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	3307	t_53043	articular_infinitive	2615	R275	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	3235	t_51961	articular_infinitive	2615	R276	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	932	t_13363	articular_infinitive	2615	R277	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	548	t_9363	articular_infinitive	2615	R278	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	1052	t_17798	articular_infinitive	2615	R279	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	4905	t_81013	articular_infinitive	2615	R280	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	2417	t_41456	articular_infinitive	2615	R281	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg004	1091	t_19491	articular_infinitive	2615	R282	hit-topup		dative	false		justin	true
+tlg0059.tlg030	545	t_7769	articular_infinitive	2615	R283	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg004	228	t_3402	articular_infinitive	2615	R284	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	1313	t_22833	articular_infinitive	2615	R285	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg002	359	t_7620	articular_infinitive	2615	R286	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2569	t_41347	articular_infinitive	2615	R287	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	530	t_7427	articular_infinitive	2615	R288	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	1914	t_30331	articular_infinitive	2615	R289	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	152	t_2305	articular_infinitive	2615	R290	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2879	t_46588	articular_infinitive	2615	R291	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	3361	t_54040	articular_infinitive	2615	R292	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	5916	t_96586	articular_infinitive	2615	R293	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg004	364	t_5954	articular_infinitive	2615	R294	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	1052	t_17801	articular_infinitive	2615	R295	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	317	t_5170	articular_infinitive	2615	R296	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	4772	t_78706	articular_infinitive	2615	R297	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg004	305	t_4833	articular_infinitive	2615	R298	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	152	t_2301	articular_infinitive	2615	R299	hit-topup		dative	true	dative	agent	true
+tlg0032.tlg006	2570	t_43853	articular_infinitive	2615	R300	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	530	t_7424	articular_infinitive	2615	R301	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	924	t_13120	articular_infinitive	2615	R302	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg011	290	t_6156	articular_infinitive	2615	R303	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg004	1232	t_21458	articular_infinitive	2615	R304	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	336	t_4365	articular_infinitive	2615	R305	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2525	t_40728	articular_infinitive	2615	R306	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg030	2174	t_34998	articular_infinitive	2615	R307	hit-topup		dative	true	dative	agent	true
+tlg0059.tlg002	364	t_7706	articular_infinitive	2615	R308	hit-topup		dative	true	dative	justin	true
+tlg0059.tlg003	254	t_2912	articular_infinitive	2615	R309	hit-topup		genitive	true	genitive	agent	true
+tlg0032.tlg006	19	t_326	articular_infinitive	2615	R310	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg011	671	t_13152	articular_infinitive	2615	R311	hit-topup		genitive	true	genitive	agent	true
+tlg0032.tlg006	1107	t_18903	articular_infinitive	2615	R312	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	3850	t_62103	articular_infinitive	2615	R313	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	2822	t_45645	articular_infinitive	2615	R314	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg004	507	t_7857	articular_infinitive	2615	R315	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	4527	t_73973	articular_infinitive	2615	R316	hit-topup		genitive	true	genitive	agent	true
+tlg0032.tlg006	2093	t_35706	articular_infinitive	2615	R317	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg004	996	t_17297	articular_infinitive	2615	R318	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	1653	t_25721	articular_infinitive	2615	R319	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg004	493	t_7682	articular_infinitive	2615	R320	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	1631	t_25253	articular_infinitive	2615	R321	hit-topup		genitive	true	genitive	justin	true
+tlg0059.tlg030	4939	t_81537	articular_infinitive	2615	R322	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	6266	t_102958	articular_infinitive	2615	R323	hit-topup		genitive	false		agent	true
+tlg0059.tlg004	563	t_8682	articular_infinitive	2615	R324	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	543	t_7745	articular_infinitive	2615	R325	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg002	426	t_8887	articular_infinitive	2615	R326	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	4221	t_69231	articular_infinitive	2615	R327	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg011	687	t_13408	articular_infinitive	2615	R328	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	4125	t_66793	articular_infinitive	2615	R329	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg004	695	t_11191	articular_infinitive	2615	R330	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg004	1067	t_19067	articular_infinitive	2615	R331	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg002	440	t_9192	articular_infinitive	2615	R332	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	91	t_1360	articular_infinitive	2615	R333	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	5596	t_91952	articular_infinitive	2615	R334	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg024	745	t_5963	articular_infinitive	2615	R335	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg004	1066	t_19026	articular_infinitive	2615	R336	hit-topup		genitive	true	genitive	agent	true
+tlg0059.tlg030	856	t_11588	articular_infinitive	2615	R337	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2698	t_43713	articular_infinitive	2615	R338	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg011	768	t_15479	articular_infinitive	2615	R339	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg004	789	t_13670	articular_infinitive	2615	R340	hit-topup		nominative	true	nominative	agent	true
+tlg0032.tlg006	3695	t_62202	articular_infinitive	2615	R341	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2755	t_44614	articular_infinitive	2615	R342	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2698	t_43721	articular_infinitive	2615	R343	hit-topup		nominative	true	nominative	agent	true
+tlg0032.tlg006	547	t_9340	articular_infinitive	2615	R344	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg004	145	t_2023	articular_infinitive	2615	R345	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	3251	t_52170	articular_infinitive	2615	R346	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	1682	t_26365	articular_infinitive	2615	R347	hit-topup		nominative	false		agent	true
+tlg0059.tlg011	207	t_3809	articular_infinitive	2615	R348	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2822	t_45643	articular_infinitive	2615	R349	hit-topup		nominative	true	nominative	justin	true
+tlg0059.tlg030	822	t_11100	articular_infinitive	2615	R350	hit-topup		nominative	true	accusative	agent	true
+tlg0059.tlg002	367	t_7770	articular_infinitive	2615	R351	hit-topup		nominative	true	accusative	agent	true
+tlg0059.tlg030	144	t_2241	articular_infinitive	2615	R352	hit-topup		nominative	true	accusative	agent	true
+tlg0059.tlg004	282	t_4438	articular_infinitive	2615	R353	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg003	196	t_2285	articular_infinitive	2615	R354	hit-topup		nominative	true	accusative	agent	true
+tlg0059.tlg030	5289	t_87399	articular_infinitive	2615	R355	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg004	585	t_9141	articular_infinitive	2615	R356	hit-topup		nominative	true	accusative	justin	true
+tlg0032.tlg006	2123	t_36178	articular_infinitive	2615	R357	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg003	223	t_2691	articular_infinitive	2615	R358	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2698	t_43716	articular_infinitive	2615	R359	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2705	t_43789	articular_infinitive	2615	R360	hit-topup		nominative	true	nominative	agent	true
+tlg0059.tlg030	2125	t_34369	result	2615	R361	hit		natural	true	natural	agent	true
+tlg0059.tlg011	762	t_15071	result	2615	R362	hit		natural	true	natural	agent	true
+tlg0032.tlg006	3443	t_57926	result	2615	R363	hit		natural	true	natural	justin	true
+tlg0032.tlg006	347	t_5712	result	2615	R364	hit		natural	true	natural	agent	true
+tlg0032.tlg006	3077	t_51947	result	2615	R365	hit		natural	true	natural	justin	true
+tlg0032.tlg006	1388	t_24288	result	2615	R366	hit		actual	true	actual	agent	true
+tlg0032.tlg006	2151	t_36751	result	2615	R367	hit		actual	true	actual	agent	true
+tlg0059.tlg030	6121	t_100365	result	2615	R368	hit			true	actual	agent	true
+tlg0032.tlg006	3272	t_55445	result	2615	R369	hit		natural	true	natural	justin	true
+tlg0032.tlg006	1581	t_27505	result	2615	R370	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1379	t_24072	result	2615	R371	hit		natural	true	natural	justin	true
+tlg0032.tlg006	1366	t_23820	result	2615	R372	hit		natural	true	natural	agent	true
+tlg0059.tlg030	2623	t_42332	result	2615	R373	hit		natural	true	natural	agent	true
+tlg0059.tlg024	315	t_2759	result	2615	R374	hit		actual	true	actual	agent	true
+tlg0059.tlg004	773	t_13331	result	2615	R375	hit		natural	true	natural	agent	true
+tlg0059.tlg030	2113	t_34024	result	2615	R376	hit		natural	true	natural	agent	true
+tlg0059.tlg011	295	t_6293	result	2615	R377	hit		natural	true	natural	agent	true
+tlg0059.tlg004	1416	t_26030	result	2615	R378	hit		actual	true	actual	agent	true
+tlg0059.tlg004	1311	t_23384	result	2615	R379	hit		natural	true	natural	agent	true
+tlg0059.tlg002	338	t_6982	result	2615	R380	hit		actual	true	actual	justin	true
+tlg0059.tlg004	258	t_3950	result	2615	R381	hit		natural	true	natural	agent	true
+tlg0059.tlg030	847	t_11426	result	2615	R382	hit		actual	true	actual	agent	true
+tlg0059.tlg011	95	t_1357	result	2615	R383	hit		natural	true	natural	agent	true
+tlg0059.tlg011	354	t_7763	result	2615	R384	hit		natural	true	natural	agent	true
+tlg0059.tlg030	4922	t_81216	result	2615	R385	hit		natural	true	natural	agent	true
+tlg0059.tlg002	400	t_8435	result	2615	R386	hit		actual	true	actual	agent	true
+tlg0059.tlg030	4412	t_71950	result	2615	R387	hit		natural	true	natural	agent	true
+tlg0059.tlg030	3024	t_48543	result	2615	R388	hit		natural	true	natural	agent	true
+tlg0032.tlg006	2413	t_41367	result	2615	R389	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1597	t_27790	result	2615	R390	hit		actual	true	actual	agent	true
+tlg0059.tlg011	891	t_17547	result	2615	R391	hit		actual	false		agent	true
+tlg0059.tlg030	5739	t_93964	result	2615	R392	hit		natural	true	natural	agent	true
+tlg0059.tlg002	216	t_3933	result	2615	R393	hit		natural	true	natural	agent	true
+tlg0032.tlg006	2100	t_35828	result	2615	R394	hit		natural	true	natural	agent	true
+tlg0059.tlg024	1228	t_10422	result	2615	R395	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1377	t_24021	result	2615	R396	hit		natural	true	natural	agent	true
+tlg0059.tlg011	155	t_2617	result	2615	R397	hit		natural	true	natural	agent	true
+tlg0059.tlg004	983	t_16995	result	2615	R398	hit		actual	true	actual	agent	true
+tlg0059.tlg030	4347	t_70909	result	2615	R399	hit		natural	true	natural	agent	true
+tlg0059.tlg024	1124	t_9095	result	2615	R400	hit		natural	true	natural	justin	true
+tlg0032.tlg006	1596	t_27779	result	2615	R401	hit		actual	true	actual	agent	true
+tlg0032.tlg006	946	t_15726	result	2615	R402	hit		natural	true	natural	agent	true
+tlg0059.tlg002	319	t_6489	result	2615	R403	hit		natural	true	natural	agent	true
+tlg0059.tlg030	304	t_3930	result	2615	R404	hit		actual	true	actual	agent	true
+tlg0059.tlg030	885	t_12126	result	2615	R405	hit		actual	true	actual	agent	true
+tlg0059.tlg030	1521	t_23227	result	2615	R406	hit		natural	true	natural	agent	true
+tlg0032.tlg006	2156	t_36825	result	2615	R407	hit		actual	true	actual	agent	true
+tlg0059.tlg030	2076	t_33167	result	2615	R408	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1064	t_18123	result	2615	R409	hit		actual	true	actual	agent	true
+tlg0032.tlg006	946	t_15714	result	2615	R410	hit		actual	true	actual	agent	true
+tlg0032.tlg006	2400	t_41095	result	2615	R411	hit		natural	true	natural	agent	true
+tlg0032.tlg006	587	t_10175	result	2615	R412	hit		natural	true	natural	agent	true
+tlg0059.tlg024	14	t_244	result	2615	R413	hit		actual	true	actual	agent	true
+tlg0059.tlg030	379	t_4908	result	2615	R414	hit		actual	true	actual	agent	true
+tlg0059.tlg011	988	t_19689	result	2615	R415	hit		actual	true	actual	agent	true
+tlg0059.tlg030	1189	t_18043	result	2615	R416	hit		actual	true	actual	agent	true
+tlg0059.tlg030	2439	t_39168	result	2615	R417	hit		natural	true	natural	agent	true
+tlg0059.tlg003	301	t_3553	result	2615	R418	hit		actual	true	actual	agent	true
+tlg0059.tlg030	5741	t_94036	result	2615	R419	hit		natural	true	natural	agent	true
+tlg0059.tlg004	661	t_10480	result	2615	R420	hit		natural	true	natural	agent	true
+tlg0059.tlg030	6008	t_98265	result	2615	R421	hit		natural	true	natural	agent	true
+tlg0032.tlg006	238	t_3879	result	2615	R422	hit		natural	true	natural	agent	true
+tlg0059.tlg030	712	t_9897	result	2615	R423	hit		natural	true	natural	agent	true
+tlg0032.tlg006	465	t_7750	result	2615	R424	hit		actual	true	actual	agent	true
+tlg0032.tlg006	3811	t_64363	result	2615	R425	hit		natural	true	natural	agent	true
+tlg0059.tlg030	3652	t_58042	result	2615	R426	hit		actual	true	actual	agent	true
+tlg0059.tlg011	160	t_2840	result	2615	R427	hit		actual	true	actual	agent	true
+tlg0059.tlg002	198	t_3561	result	2615	R428	hit		actual	true	actual	agent	true
+tlg0032.tlg006	2932	t_49637	result	2615	R429	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1716	t_29761	result	2615	R430	hit		actual	true	actual	agent	true
+tlg0032.tlg006	2614	t_44646	result	2615	R431	hit		natural	true	natural	justin	true
+tlg0059.tlg030	1628	t_25135	result	2615	R432	hit		natural	true	natural	agent	true
+tlg0059.tlg030	5638	t_92503	result	2615	R433	hit		actual	true	actual	agent	true
+tlg0059.tlg011	29	t_416	result	2615	R434	hit		actual	true	actual	agent	true
+tlg0059.tlg004	1300	t_23124	result	2615	R435	hit		natural	true	natural	agent	true
+tlg0059.tlg011	439	t_9530	result	2615	R436	hit		actual	true	actual	agent	true
+tlg0032.tlg006	2414	t_41386	result	2615	R437	hit		natural	true	natural	agent	true
+tlg0059.tlg030	5144	t_85128	result	2615	R438	hit		actual	true	actual	agent	true
+tlg0059.tlg011	433	t_9395	result	2615	R439	hit		natural	true	natural	agent	true
+tlg0032.tlg006	2446	t_42000	result	2615	R440	hit		natural	true	natural	agent	true
+tlg0059.tlg002	198	t_3581	result	2615	R441	hit		actual	true	actual	agent	true
+tlg0059.tlg002	424	t_8862	result	2615	R442	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1319	t_22954	result	2615	R443	hit		natural	true	natural	justin	true
+tlg0059.tlg030	5919	t_96661	result	2615	R444	hit		actual	true	actual	agent	true
+tlg0059.tlg011	203	t_3726	result	2615	R445	hit		natural	true	natural	agent	true
+tlg0059.tlg030	3053	t_49189	result	2615	R446	hit		natural	true	natural	agent	true
+tlg0059.tlg003	96	t_1017	result	2615	R447	hit		natural	true	natural	agent	true
+tlg0059.tlg002	430	t_9020	result	2615	R448	hit		natural	true	natural	agent	true
+tlg0059.tlg030	6208	t_101775	result	2615	R449	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1604	t_27908	result	2615	R450	hit		natural	true	natural	agent	true
+tlg0059.tlg030	2102	t_33797	result	2615	R451	hit		actual	true	actual	agent	true
+tlg0059.tlg011	462	t_10016	result	2615	R452	hit		actual	true	actual	agent	true
+tlg0059.tlg030	6200	t_101586	result	2615	R453	hit		natural	true	natural	agent	true
+tlg0059.tlg030	4801	t_79301	result	2615	R454	hit		natural	true	natural	agent	true
+tlg0059.tlg003	299	t_3476	result	2615	R455	hit		natural	true	natural	agent	true
+tlg0032.tlg006	3361	t_56778	result	2615	R456	hit		natural	true	natural	agent	true
+tlg0059.tlg030	5502	t_90872	result	2615	R457	hit		natural	true	natural	agent	true
+tlg0059.tlg004	1355	t_24725	result	2615	R458	hit		natural	true	natural	agent	true
+tlg0059.tlg030	3166	t_50976	result	2615	R459	hit		natural	true	natural	justin	true
+tlg0059.tlg002	350	t_7306	result	2615	R460	hit		actual	true	actual	justin	true
+tlg0059.tlg030	5948	t_97395	result	2615	R461	hit		actual	true	actual	agent	true
+tlg0032.tlg006	2672	t_45652	result	2615	R462	hit		natural	true	natural	agent	true
+tlg0059.tlg030	1857	t_29170	result	2615	R463	hit		natural	true	natural	agent	true
+tlg0059.tlg024	914	t_6942	result	2615	R464	hit		actual	false		agent	true
+tlg0032.tlg006	3167	t_53664	result	2615	R465	hit		natural	true	natural	agent	true
+tlg0059.tlg011	115	t_1709	result	2615	R466	hit		actual	true	actual	agent	true
+tlg0059.tlg030	5444	t_89833	result	2615	R467	hit		natural	true	natural	agent	true
+tlg0059.tlg011	732	t_14218	result	2615	R468	hit		natural	true	natural	agent	true
+tlg0032.tlg006	781	t_13036	result	2615	R469	hit		natural	true	natural	justin	true
+tlg0059.tlg030	2567	t_41335	result	2615	R470	hit		natural	true	natural	agent	true
+tlg0032.tlg006	1564	t_27174	result	2615	R471	hit		actual	true	actual	justin	true
+tlg0032.tlg006	1633	t_28342	result	2615	R472	hit		natural	true	natural	agent	true
+tlg0059.tlg030	509	t_6773	result	2615	R473	hit		actual	true	actual	justin	true
+tlg0059.tlg030	5737	t_93944	result	2615	R474	hit		natural	true	natural	agent	true
+tlg0059.tlg011	157	t_2718	result	2615	R475	hit		natural	true	natural	agent	true
+tlg0059.tlg002	261	t_4723	result	2615	R476	hit			true	actual	agent	true
+tlg0059.tlg030	2509	t_40376	result	2615	R477	hit		actual	false		agent	true
+tlg0059.tlg030	2785	t_45069	result	2615	R478	hit		actual	false		agent	true
+tlg0059.tlg030	1917	t_30421	result	2615	R479	hit		natural	true	natural	agent	true
+tlg0032.tlg006	332	t_5440	result	2615	R480	hit		natural	true	natural	agent	true
+tlg0059.tlg011	324	t_6990	result	2615	R481	hit-topup		actual	true	actual	agent	true
+tlg0032.tlg006	2388	t_40889	result	2615	R482	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg030	1480	t_22549	result	2615	R483	hit-topup		actual	true	natural	agent	true
+tlg0059.tlg024	33	t_427	result	2615	R484	hit-topup		actual	true	actual	justin	true
+tlg0059.tlg011	751	t_14747	result	2615	R485	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg011	615	t_12409	result	2615	R486	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg011	665	t_13055	result	2615	R487	hit-topup		actual	true	actual	agent	true
+tlg0032.tlg006	1021	t_17276	result	2615	R488	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg004	254	t_3845	result	2615	R489	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg030	1658	t_25839	result	2615	R490	hit-topup		actual	true	actual	agent	true
+tlg0032.tlg006	1358	t_23664	result	2615	R491	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg002	200	t_3621	result	2615	R492	hit-topup		actual	true	actual	agent	true
+tlg0032.tlg006	362	t_5967	result	2615	R493	hit-topup		actual	true	natural	agent	true
+tlg0032.tlg006	3418	t_57493	result	2615	R494	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg024	1378	t_11781	result	2615	R495	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg004	270	t_4224	result	2615	R496	hit-topup		actual	true	actual	agent	true
+tlg0059.tlg004	1136	t_20294	result	2615	R497	hit-topup		actual	true	actual	agent	true
+tlg0032.tlg006	1519	t_26467	result	2615	R498	hit-topup		actual	true	actual	agent	true
+tlg0032.tlg006	1250	t_21941	purpose	2615	R499	hit			true		agent	true
+tlg0059.tlg002	310	t_6245	purpose	2615	R500	hit			true		justin	true
+tlg0059.tlg030	1261	t_18954	purpose	2615	R501	hit			true		agent	true
+tlg0059.tlg030	3364	t_54104	purpose	2615	R502	hit			true		agent	true
+tlg0059.tlg011	55	t_754	purpose	2615	R503	hit			true		agent	true
+tlg0059.tlg011	229	t_4486	purpose	2615	R504	hit			true		agent	true
+tlg0059.tlg003	362	t_4894	purpose	2615	R505	hit			true		agent	true
+tlg0059.tlg011	52	t_712	purpose	2615	R506	hit			true		agent	true
+tlg0059.tlg030	4679	t_76679	purpose	2615	R507	hit			true		agent	true
+tlg0059.tlg002	347	t_7192	purpose	2615	R508	hit			true		agent	true
+tlg0059.tlg030	5004	t_82784	purpose	2615	R509	hit			true		agent	true
+tlg0059.tlg024	559	t_5045	purpose	2615	R510	hit			true		agent	true
+tlg0059.tlg003	22	t_131	purpose	2615	R511	hit			true		agent	true
+tlg0059.tlg030	1476	t_22410	purpose	2615	R512	hit			true		agent	true
+tlg0059.tlg011	333	t_7290	purpose	2615	R513	hit			true		justin	true
+tlg0059.tlg030	4212	t_69026	purpose	2615	R514	hit			true		agent	true
+tlg0032.tlg006	152	t_2390	purpose	2615	R515	hit			true		agent	true
+tlg0059.tlg011	1000	t_19992	purpose	2615	R516	hit			true		agent	true
+tlg0059.tlg030	4937	t_81489	purpose	2615	R517	hit			true		agent	true
+tlg0059.tlg030	4941	t_81576	purpose	2615	R518	hit			true		agent	true
+tlg0059.tlg030	6259	t_102721	purpose	2615	R519	hit			true		agent	true
+tlg0059.tlg030	3864	t_62431	purpose	2615	R520	hit			true		agent	true
+tlg0059.tlg030	5399	t_89384	purpose	2615	R521	hit			true		agent	true
+tlg0059.tlg011	1011	t_20142	purpose	2615	R522	hit			true		agent	true
+tlg0032.tlg006	1198	t_20854	purpose	2615	R523	hit			true		agent	true
+tlg0032.tlg006	3047	t_51520	purpose	2615	R524	hit			true		agent	true
+tlg0059.tlg011	762	t_15126	purpose	2615	R525	hit			true		agent	true
+tlg0059.tlg030	1597	t_24604	purpose	2615	R526	hit			true		agent	true
+tlg0059.tlg002	61	t_1337	purpose	2615	R527	hit			true		agent	true
+tlg0059.tlg030	6226	t_102167	purpose	2615	R528	hit			true		justin	true
+tlg0032.tlg006	1044	t_17660	purpose	2615	R529	hit			true		agent	true
+tlg0059.tlg011	88	t_1240	purpose	2615	R530	hit			true		agent	true
+tlg0059.tlg030	4048	t_65343	purpose	2615	R531	hit			true		agent	true
+tlg0059.tlg030	3227	t_51791	purpose	2615	R532	hit			true		agent	true
+tlg0059.tlg030	349	t_4531	purpose	2615	R533	hit			true		agent	true
+tlg0032.tlg006	276	t_4530	purpose	2615	R534	hit			true		agent	true
+tlg0059.tlg011	77	t_1101	purpose	2615	R535	hit			true		agent	true
+tlg0032.tlg006	784	t_13093	purpose	2615	R536	hit			true		agent	true
+tlg0059.tlg030	3651	t_58020	purpose	2615	R537	hit			true		agent	true
+tlg0059.tlg004	1420	t_26122	purpose	2615	R538	hit			true		agent	true
+tlg0059.tlg030	1393	t_21058	purpose	2615	R539	hit			true		agent	true
+tlg0059.tlg011	369	t_8197	purpose	2615	R540	hit			true		agent	true
+tlg0059.tlg011	326	t_7041	purpose	2615	R541	hit			true		agent	true
+tlg0059.tlg030	5015	t_82906	purpose	2615	R542	hit			true		agent	true
+tlg0059.tlg011	259	t_5266	purpose	2615	R543	hit			true		agent	true
+tlg0032.tlg006	3789	t_63912	purpose	2615	R544	hit			true		agent	true
+tlg0059.tlg030	5261	t_86769	purpose	2615	R545	hit			true		agent	true
+tlg0032.tlg006	3292	t_55715	purpose	2615	R546	hit			true		justin	true
+tlg0059.tlg030	3642	t_57883	purpose	2615	R547	hit			true		agent	true
+tlg0059.tlg030	4124	t_66724	purpose	2615	R548	hit			true		agent	true
+tlg0032.tlg006	2907	t_49284	purpose	2615	R549	hit			true		agent	true
+tlg0032.tlg006	725	t_12132	purpose	2615	R550	hit			true		justin	true
+tlg0059.tlg002	104	t_2075	purpose	2615	R551	hit			true		agent	true
+tlg0059.tlg030	5769	t_94576	purpose	2615	R552	hit			true		agent	true
+tlg0032.tlg006	2070	t_35371	purpose	2615	R553	hit			true		agent	true
+tlg0059.tlg030	924	t_13146	purpose	2615	R554	hit			true		justin	true
+tlg0059.tlg011	474	t_10315	purpose	2615	R555	hit			true		agent	true
+tlg0059.tlg030	2720	t_44104	purpose	2615	R556	hit			true		agent	true
+tlg0059.tlg030	2523	t_40657	purpose	2615	R557	hit			true		justin	true
+tlg0032.tlg006	603	t_10399	purpose	2615	R558	hit			true		agent	true
+tlg0059.tlg030	3324	t_53418	purpose	2615	R559	hit			true		agent	true
+tlg0059.tlg030	448	t_5822	purpose	2615	R560	hit			true		justin	true
+tlg0032.tlg006	830	t_13930	purpose	2615	R561	hit			true		agent	true
+tlg0059.tlg003	355	t_4779	purpose	2615	R562	hit			true		agent	true
+tlg0059.tlg030	4709	t_77339	purpose	2615	R563	hit			true		agent	true
+tlg0032.tlg006	3439	t_57823	purpose	2615	R564	hit			true		agent	true
+tlg0059.tlg030	6099	t_99813	purpose	2615	R565	hit			true		agent	true
+tlg0059.tlg024	43	t_506	purpose	2615	R566	hit			true		agent	true
+tlg0059.tlg030	717	t_9943	purpose	2615	R567	hit			true		agent	true
+tlg0059.tlg002	317	t_6419	purpose	2615	R568	hit			true		agent	true
+tlg0059.tlg030	5202	t_85965	purpose	2615	R569	hit			true		agent	true
+tlg0059.tlg030	4540	t_74275	purpose	2615	R570	hit			true		agent	true
+tlg0059.tlg030	3175	t_51205	purpose	2615	R571	hit			true		agent	true
+tlg0059.tlg011	797	t_16203	purpose	2615	R572	hit			true		agent	true
+tlg0059.tlg030	546	t_7781	purpose	2615	R573	hit			true		agent	true
+tlg0032.tlg006	1263	t_22091	purpose	2615	R574	hit			true		agent	true
+tlg0059.tlg030	6270	t_103127	purpose	2615	R575	hit			true		agent	true
+tlg0059.tlg004	1012	t_17729	purpose	2615	R576	hit			true		agent	true
+tlg0059.tlg004	1377	t_25244	purpose	2615	R577	hit			true		agent	true
+tlg0059.tlg030	6361	t_105412	purpose	2615	R578	hit			true		agent	true
+tlg0059.tlg030	5099	t_84361	purpose	2615	R579	hit			true		agent	true
+tlg0059.tlg030	1591	t_24442	purpose	2615	R580	hit			true		agent	true
+tlg0059.tlg030	2350	t_37779	purpose	2615	R581	hit			true		agent	true
+tlg0059.tlg030	5726	t_93800	purpose	2615	R582	hit			true		agent	true
+tlg0059.tlg030	4733	t_77810	purpose	2615	R583	hit			true		agent	true
+tlg0059.tlg030	2363	t_38023	purpose	2615	R584	hit			true		agent	true
+tlg0059.tlg030	1187	t_17983	purpose	2615	R585	hit			true		agent	true
+tlg0032.tlg006	2506	t_43067	purpose	2615	R586	hit			true		agent	true
+tlg0059.tlg030	3022	t_48496	purpose	2615	R587	hit			true		agent	true
+tlg0059.tlg030	4549	t_74476	purpose	2615	R588	hit			true		agent	true
+tlg0059.tlg030	898	t_12479	purpose	2615	R589	hit			true		agent	true
+tlg0059.tlg030	4664	t_76379	purpose	2615	R590	hit			true		agent	true
+tlg0059.tlg002	128	t_2639	purpose	2615	R591	hit			true		agent	true
+tlg0059.tlg030	3903	t_63130	purpose	2615	R592	hit			true		agent	true
+tlg0059.tlg011	788	t_16071	purpose	2615	R593	hit			true		agent	true
+tlg0032.tlg006	1239	t_21762	purpose	2615	R594	hit			true		agent	true
+tlg0059.tlg030	342	t_4407	purpose	2615	R595	hit			true		agent	true
+tlg0059.tlg030	4501	t_73392	purpose	2615	R596	hit			true		justin	true
+tlg0059.tlg024	1491	t_12798	purpose	2615	R597	hit			true		agent	true
+tlg0032.tlg006	3252	t_55144	purpose	2615	R598	hit			true		agent	true
+tlg0059.tlg030	6223	t_102114	purpose	2615	R599	hit			true		agent	true
+tlg0032.tlg006	3643	t_61292	purpose	2615	R600	hit			true		agent	true
+tlg0059.tlg030	3235	t_51958	purpose	2615	R601	hit			true		agent	true
+tlg0059.tlg004	751	t_12766	purpose	2615	R602	hit			true		agent	true
+tlg0059.tlg030	4295	t_70192	purpose	2615	R603	hit			true		agent	true
+tlg0059.tlg011	67	t_997	purpose	2615	R604	hit			true		agent	true
+tlg0059.tlg030	6186	t_101268	purpose	2615	R605	hit			true		agent	true
+tlg0059.tlg030	5116	t_84685	purpose	2615	R606	hit			true		agent	true
+tlg0059.tlg030	5261	t_86792	purpose	2615	R607	hit			true		agent	true
+tlg0059.tlg030	5104	t_84449	purpose	2615	R608	hit			true		agent	true
+tlg0059.tlg011	362	t_7972	purpose	2615	R609	hit			true		agent	true
+tlg0059.tlg030	2828	t_45828	purpose	2615	R610	hit			true		agent	true
+tlg0059.tlg011	377	t_8320	purpose	2615	R611	hit			true		agent	true
+tlg0059.tlg011	207	t_3826	purpose	2615	R612	hit			true		agent	true
+tlg0059.tlg030	945	t_13629	purpose	2615	R613	hit			true		agent	true
+tlg0059.tlg011	490	t_10579	purpose	2615	R614	hit			true		agent	true
+tlg0059.tlg030	3203	t_51530	purpose	2615	R615	hit			true		justin	true
+tlg0059.tlg030	1763	t_27620	purpose	2615	R616	hit			true		agent	true
+tlg0032.tlg006	1043	t_17648	purpose	2615	R617	hit			true		agent	true
+tlg0059.tlg011	763	t_15146	purpose	2615	R618	hit			true		agent	true
+tlg0032.tlg006	1687	t_29384	genitive_absolute	2615	R619	hit			true		agent	true
+tlg0059.tlg011	226	t_4417	genitive_absolute	2615	R620	hit			false		agent	true
+tlg0032.tlg006	1243	t_21832	genitive_absolute	2615	R621	hit			true		agent	true
+tlg0059.tlg030	6197	t_101526	genitive_absolute	2615	R622	hit			true		agent	true
+tlg0059.tlg024	336	t_2976	genitive_absolute	2615	R623	hit			true		agent	true
+tlg0059.tlg030	4297	t_70245	genitive_absolute	2615	R624	hit			true		agent	true
+tlg0059.tlg024	1358	t_11596	genitive_absolute	2615	R625	hit			true		agent	true
+tlg0032.tlg006	3796	t_64033	genitive_absolute	2615	R626	hit			true		agent	true
+tlg0032.tlg006	2518	t_43248	genitive_absolute	2615	R627	hit			true		agent	true
+tlg0059.tlg030	6354	t_105245	genitive_absolute	2615	R628	hit			true		agent	true
+tlg0059.tlg011	994	t_19835	genitive_absolute	2615	R629	hit			true		agent	true
+tlg0032.tlg006	3140	t_53115	genitive_absolute	2615	R630	hit			true		agent	true
+tlg0032.tlg006	1419	t_24802	genitive_absolute	2615	R631	hit			true		agent	true
+tlg0059.tlg011	608	t_12165	genitive_absolute	2615	R632	hit			true		justin	true
+tlg0059.tlg004	279	t_4410	genitive_absolute	2615	R633	hit			true		agent	true
+tlg0059.tlg030	2121	t_34317	genitive_absolute	2615	R634	hit			true		agent	true
+tlg0032.tlg006	2815	t_47949	genitive_absolute	2615	R635	hit			true		agent	true
+tlg0059.tlg030	6178	t_101050	genitive_absolute	2615	R636	hit			false		agent	true
+tlg0059.tlg030	6184	t_101202	genitive_absolute	2615	R637	hit			true		agent	true
+tlg0032.tlg006	2762	t_47004	genitive_absolute	2615	R638	hit			true		agent	true
+tlg0059.tlg011	367	t_8151	genitive_absolute	2615	R639	hit			true		agent	true
+tlg0059.tlg030	3684	t_58872	genitive_absolute	2615	R640	hit			true		agent	true
+tlg0032.tlg006	1757	t_30391	genitive_absolute	2615	R641	hit			true		agent	true
+tlg0059.tlg030	4716	t_77519	genitive_absolute	2615	R642	hit			true		agent	true
+tlg0059.tlg011	397	t_8699	genitive_absolute	2615	R643	hit			true		agent	true
+tlg0059.tlg002	316	t_6393	genitive_absolute	2615	R644	hit			true		agent	true
+tlg0032.tlg006	750	t_12492	genitive_absolute	2615	R645	hit			true		agent	true
+tlg0059.tlg030	3901	t_63073	genitive_absolute	2615	R646	hit			true		agent	true
+tlg0059.tlg004	1263	t_22076	genitive_absolute	2615	R647	hit			true		agent	true
+tlg0032.tlg006	3137	t_52991	genitive_absolute	2615	R648	hit			true		agent	true
+tlg0059.tlg004	285	t_4470	genitive_absolute	2615	R649	hit			true		agent	true
+tlg0059.tlg002	315	t_6360	genitive_absolute	2615	R650	hit			true		agent	true
+tlg0059.tlg004	473	t_7419	genitive_absolute	2615	R651	hit			false		agent	true
+tlg0032.tlg006	2153	t_36771	genitive_absolute	2615	R652	hit			true		agent	true
+tlg0059.tlg011	241	t_4857	genitive_absolute	2615	R653	hit			true		agent	true
+tlg0059.tlg004	833	t_14386	genitive_absolute	2615	R654	hit			true		agent	true
+tlg0032.tlg006	3614	t_60845	genitive_absolute	2615	R655	hit			true		agent	true
+tlg0032.tlg006	2565	t_43738	genitive_absolute	2615	R656	hit			false		agent	true
+tlg0059.tlg011	1020	t_20374	genitive_absolute	2615	R657	hit			true		agent	true
+tlg0032.tlg006	1371	t_23890	genitive_absolute	2615	R658	hit			true		agent	true
+tlg0059.tlg030	4076	t_65713	genitive_absolute	2615	R659	hit			true		agent	true
+tlg0059.tlg004	760	t_12931	genitive_absolute	2615	R660	hit			true		agent	true
+tlg0032.tlg006	3457	t_58145	genitive_absolute	2615	R661	hit			true		agent	true
+tlg0059.tlg030	2531	t_40840	genitive_absolute	2615	R662	hit			true		agent	true
+tlg0059.tlg030	4450	t_72488	genitive_absolute	2615	R663	hit			true		agent	true
+tlg0059.tlg030	4306	t_70354	genitive_absolute	2615	R664	hit			true		agent	true
+tlg0059.tlg024	1081	t_8579	genitive_absolute	2615	R665	hit			true		agent	true
+tlg0032.tlg006	967	t_16123	genitive_absolute	2615	R666	hit			true		agent	true
+tlg0059.tlg030	5036	t_83181	genitive_absolute	2615	R667	hit			true		agent	true
+tlg0032.tlg006	1077	t_18433	genitive_absolute	2615	R668	hit			true		agent	true
+tlg0059.tlg004	317	t_5027	genitive_absolute	2615	R669	hit			true		agent	true
+tlg0059.tlg011	972	t_19282	genitive_absolute	2615	R670	hit			true		agent	true
+tlg0059.tlg004	1142	t_20397	genitive_absolute	2615	R671	hit			true		agent	true
+tlg0059.tlg003	311	t_3926	genitive_absolute	2615	R672	hit			true		justin	true
+tlg0059.tlg030	4802	t_79335	genitive_absolute	2615	R673	hit			false		agent	true
+tlg0032.tlg006	1064	t_18133	genitive_absolute	2615	R674	hit			true		agent	true
+tlg0032.tlg006	2335	t_40024	genitive_absolute	2615	R675	hit			true		agent	true
+tlg0032.tlg006	22	t_379	genitive_absolute	2615	R676	hit			true		justin	true
+tlg0059.tlg003	35	t_282	genitive_absolute	2615	R677	hit			true		agent	true
+tlg0059.tlg011	911	t_17921	genitive_absolute	2615	R678	hit			true		agent	true
+tlg0059.tlg011	1016	t_20203	genitive_absolute	2615	R679	hit			true		agent	true
+tlg0059.tlg030	896	t_12403	genitive_absolute	2615	R680	hit			true		agent	true
+tlg0059.tlg004	1015	t_17865	genitive_absolute	2615	R681	hit			true		agent	true
+tlg0059.tlg011	102	t_1510	genitive_absolute	2615	R682	hit			true		agent	true
+tlg0059.tlg030	5696	t_93430	genitive_absolute	2615	R683	hit			true		justin	true
+tlg0032.tlg006	1372	t_23905	genitive_absolute	2615	R684	hit			true		agent	true
+tlg0032.tlg006	2552	t_43617	genitive_absolute	2615	R685	hit			true		agent	true
+tlg0059.tlg011	903	t_17740	genitive_absolute	2615	R686	hit			true		agent	true
+tlg0032.tlg006	188	t_3076	genitive_absolute	2615	R687	hit			true		agent	true
+tlg0059.tlg004	49	t_563	genitive_absolute	2615	R688	hit			true		justin	true
+tlg0032.tlg006	1384	t_24169	genitive_absolute	2615	R689	hit			true		agent	true
+tlg0059.tlg011	766	t_15426	genitive_absolute	2615	R690	hit			true		agent	true
+tlg0059.tlg011	972	t_19280	genitive_absolute	2615	R691	hit			true		agent	true
+tlg0059.tlg011	875	t_17167	genitive_absolute	2615	R692	hit			true		agent	true
+tlg0059.tlg030	5582	t_91833	genitive_absolute	2615	R693	hit			true		agent	true
+tlg0059.tlg011	454	t_9837	genitive_absolute	2615	R694	hit			true		agent	true
+tlg0032.tlg006	3204	t_54292	genitive_absolute	2615	R695	hit			true		agent	true
+tlg0059.tlg030	1766	t_27859	genitive_absolute	2615	R696	hit			true		agent	true
+tlg0059.tlg004	646	t_10083	genitive_absolute	2615	R697	hit			true		agent	true
+tlg0059.tlg004	942	t_16254	genitive_absolute	2615	R698	hit			true		agent	true
+tlg0059.tlg004	718	t_11737	genitive_absolute	2615	R699	hit			true		agent	true
+tlg0059.tlg011	1013	t_20158	genitive_absolute	2615	R700	hit			true		agent	true
+tlg0059.tlg004	751	t_12768	genitive_absolute	2615	R701	hit			true		agent	true
+tlg0032.tlg006	1243	t_21826	genitive_absolute	2615	R702	hit			true		agent	true
+tlg0059.tlg030	2716	t_44024	genitive_absolute	2615	R703	hit			true		agent	true
+tlg0059.tlg030	1521	t_23196	genitive_absolute	2615	R704	hit			true		agent	true
+tlg0032.tlg006	323	t_5265	genitive_absolute	2615	R705	hit			true		agent	true
+tlg0059.tlg030	3344	t_53698	genitive_absolute	2615	R706	hit			true		agent	true
+tlg0059.tlg003	358	t_4814	genitive_absolute	2615	R707	hit			true		agent	true
+tlg0059.tlg030	5036	t_83196	genitive_absolute	2615	R708	hit			true		agent	true
+tlg0032.tlg006	1904	t_32833	genitive_absolute	2615	R709	hit			true		justin	true
+tlg0059.tlg004	1225	t_21364	genitive_absolute	2615	R710	hit			true		agent	true
+tlg0032.tlg006	1086	t_18557	genitive_absolute	2615	R711	hit			true		agent	true
+tlg0059.tlg011	57	t_805	genitive_absolute	2615	R712	hit			true		justin	true
+tlg0032.tlg006	3211	t_54438	genitive_absolute	2615	R713	hit			false		agent	true
+tlg0059.tlg030	5040	t_83285	genitive_absolute	2615	R714	hit			true		agent	true
+tlg0059.tlg004	563	t_8673	genitive_absolute	2615	R715	hit			true		agent	true
+tlg0032.tlg006	3176	t_53825	genitive_absolute	2615	R716	hit			true		agent	true
+tlg0059.tlg011	842	t_16818	genitive_absolute	2615	R717	hit			true		agent	true
+tlg0059.tlg024	457	t_3781	genitive_absolute	2615	R718	hit			true		agent	true
+tlg0059.tlg004	980	t_16923	genitive_absolute	2615	R719	hit			false		agent	true
+tlg0059.tlg003	67	t_597	genitive_absolute	2615	R720	hit			true		agent	true
+tlg0059.tlg004	188	t_2832	genitive_absolute	2615	R721	hit			true		agent	true
+tlg0032.tlg006	687	t_11643	genitive_absolute	2615	R722	hit			false		justin	true
+tlg0032.tlg006	15	t_248	genitive_absolute	2615	R723	hit			true		agent	true
+tlg0059.tlg004	669	t_10702	genitive_absolute	2615	R724	hit			false		agent	true
+tlg0059.tlg030	4964	t_82091	genitive_absolute	2615	R725	hit			false		agent	true
+tlg0059.tlg030	2519	t_40539	genitive_absolute	2615	R726	hit			true		agent	true
+tlg0032.tlg006	3117	t_52696	genitive_absolute	2615	R727	hit			true		agent	true
+tlg0032.tlg006	695	t_11708	genitive_absolute	2615	R728	hit			true		agent	true
+tlg0059.tlg004	107	t_1435	genitive_absolute	2615	R729	hit			true		agent	true
+tlg0059.tlg030	3984	t_64450	genitive_absolute	2615	R730	hit			true		agent	true
+tlg0059.tlg030	117	t_1911	genitive_absolute	2615	R731	hit			true		agent	true
+tlg0059.tlg030	6262	t_102778	genitive_absolute	2615	R732	hit			true		agent	true
+tlg0032.tlg006	1199	t_20874	genitive_absolute	2615	R733	hit			true		agent	true
+tlg0059.tlg030	2716	t_44022	genitive_absolute	2615	R734	hit			true		agent	true
+tlg0059.tlg030	3790	t_60958	genitive_absolute	2615	R735	hit			false		agent	true
+tlg0059.tlg030	3788	t_60873	genitive_absolute	2615	R736	hit			true		agent	true
+tlg0032.tlg006	1298	t_22572	genitive_absolute	2615	R737	hit			true		agent	true
+tlg0059.tlg030	3690	t_58937	genitive_absolute	2615	R738	hit			true		agent	true
+tlg0032.tlg006	3042	t_51452	indirect_statement	2615	R739	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2658	t_45398	indirect_statement	2615	R740	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	2531	t_40834	indirect_statement	2615	R741	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	831	t_14320	indirect_statement	2615	R742	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	316	t_5132	indirect_statement	2615	R743	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	201	t_1901	indirect_statement	2615	R744	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2792	t_47554	indirect_statement	2615	R745	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	6322	t_104588	indirect_statement	2615	R746	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	62	t_894	indirect_statement	2615	R747	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	6048	t_98764	indirect_statement	2615	R748	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	530	t_7434	indirect_statement	2615	R749	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg004	400	t_6285	indirect_statement	2615	R750	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	3190	t_51374	indirect_statement	2615	R751	hit		infinitive	true	infinitive	justin	true
+tlg0059.tlg030	3840	t_61914	indirect_statement	2615	R752	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	3664	t_61708	indirect_statement	2615	R753	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	1282	t_11018	indirect_statement	2615	R754	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2353	t_40308	indirect_statement	2615	R755	hit		infinitive	false		agent	true
+tlg0059.tlg030	5649	t_92660	indirect_statement	2615	R756	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	127	t_1997	indirect_statement	2615	R757	hit		infinitive	false		agent	true
+tlg0059.tlg030	1771	t_28067	indirect_statement	2615	R758	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	248	t_4378	indirect_statement	2615	R759	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	159	t_2566	indirect_statement	2615	R760	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	3700	t_62334	indirect_statement	2615	R761	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	1540	t_26821	indirect_statement	2615	R762	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	254	t_4563	indirect_statement	2615	R763	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	2280	t_36848	indirect_statement	2615	R764	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	271	t_5063	indirect_statement	2615	R765	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	2109	t_33924	indirect_statement	2615	R766	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	6275	t_103279	indirect_statement	2615	R767	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	1025	t_18200	indirect_statement	2615	R768	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	1471	t_12510	indirect_statement	2615	R769	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	248	t_4367	indirect_statement	2615	R770	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	280	t_5458	indirect_statement	2615	R771	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	1509	t_23026	indirect_statement	2615	R772	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	3146	t_53242	indirect_statement	2615	R773	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3315	t_56039	indirect_statement	2615	R774	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	396	t_6482	indirect_statement	2615	R775	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	2349	t_37749	indirect_statement	2615	R776	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg002	6	t_119	indirect_statement	2615	R777	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	2157	t_34735	indirect_statement	2615	R778	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	402	t_6595	indirect_statement	2615	R779	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg002	265	t_4846	indirect_statement	2615	R780	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	1380	t_25337	indirect_statement	2615	R781	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	64	t_1072	indirect_statement	2615	R782	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	468	t_3982	indirect_statement	2615	R783	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	377	t_8329	indirect_statement	2615	R784	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	1405	t_21215	indirect_statement	2615	R785	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	5313	t_87900	indirect_statement	2615	R786	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	971	t_19269	indirect_statement	2615	R787	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	4190	t_68410	indirect_statement	2615	R788	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	485	t_7601	indirect_statement	2615	R789	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	992	t_14918	indirect_statement	2615	R790	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	962	t_16609	indirect_statement	2615	R791	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2930	t_49608	indirect_statement	2615	R792	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	2237	t_36096	indirect_statement	2615	R793	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2442	t_41900	indirect_statement	2615	R794	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	1230	t_21529	indirect_statement	2615	R795	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	1778	t_30750	indirect_statement	2615	R796	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	527	t_7328	indirect_statement	2615	R797	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	1121	t_9055	indirect_statement	2615	R798	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg004	895	t_15613	indirect_statement	2615	R799	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	307	t_4008	indirect_statement	2615	R800	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	720	t_10028	indirect_statement	2615	R801	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	611	t_10531	indirect_statement	2615	R802	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg024	22	t_357	indirect_statement	2615	R803	hit		hoti_hos	false		agent	true
+tlg0059.tlg024	1133	t_9330	indirect_statement	2615	R804	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	55	t_752	indirect_statement	2615	R805	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	3782	t_63817	indirect_statement	2615	R806	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	3390	t_54552	indirect_statement	2615	R807	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	1005	t_17577	indirect_statement	2615	R808	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg024	353	t_3070	indirect_statement	2615	R809	hit		infinitive	false		agent	true
+tlg0059.tlg030	4537	t_74183	indirect_statement	2615	R810	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	4037	t_65206	indirect_statement	2615	R811	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	895	t_14861	indirect_statement	2615	R812	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg024	1131	t_9266	indirect_statement	2615	R813	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	887	t_14726	indirect_statement	2615	R814	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	4190	t_68407	indirect_statement	2615	R815	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	64	t_938	indirect_statement	2615	R816	hit		infinitive	true	infinitive	justin	true
+tlg0032.tlg006	3777	t_63720	indirect_statement	2615	R817	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	348	t_7659	indirect_statement	2615	R818	hit		hoti_hos	false		agent	true
+tlg0059.tlg030	6090	t_99618	indirect_statement	2615	R819	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	1872	t_29493	indirect_statement	2615	R820	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2622	t_44772	indirect_statement	2615	R821	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2994	t_50609	indirect_statement	2615	R822	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg004	102	t_1294	indirect_statement	2615	R823	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3474	t_58396	indirect_statement	2615	R824	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	70	t_901	indirect_statement	2615	R825	hit		hoti_hos	false		agent	true
+tlg0032.tlg006	3519	t_59062	indirect_statement	2615	R826	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	1537	t_23562	indirect_statement	2615	R827	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	371	t_6108	indirect_statement	2615	R828	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	895	t_6796	indirect_statement	2615	R829	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	1559	t_23975	indirect_statement	2615	R830	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	372	t_4797	indirect_statement	2615	R831	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2317	t_39642	indirect_statement	2615	R832	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	6043	t_98709	indirect_statement	2615	R833	hit		hoti_hos	true	hoti_hos	justin	true
+tlg0032.tlg006	2513	t_43193	indirect_statement	2615	R834	hit		infinitive	false		agent	true
+tlg0032.tlg006	3044	t_51484	indirect_statement	2615	R835	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	4128	t_66941	indirect_statement	2615	R836	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg003	297	t_3429	indirect_statement	2615	R837	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg024	764	t_6134	indirect_statement	2615	R838	hit		infinitive	true	infinitive	justin	true
+tlg0032.tlg006	3604	t_60633	indirect_statement	2615	R839	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2536	t_43450	indirect_statement	2615	R840	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	1730	t_27008	indirect_statement	2615	R841	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	3697	t_62233	indirect_statement	2615	R842	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	1362	t_20635	indirect_statement	2615	R843	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	3160	t_50832	indirect_statement	2615	R844	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2920	t_49463	indirect_statement	2615	R845	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	5792	t_95170	indirect_statement	2615	R846	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	4731	t_77776	indirect_statement	2615	R847	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2703	t_46068	indirect_statement	2615	R848	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	837	t_14028	indirect_statement	2615	R849	hit		hoti_hos	true	hoti_hos	justin	true
+tlg0059.tlg011	438	t_9492	indirect_statement	2615	R850	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	559	t_9551	indirect_statement	2615	R851	hit		infinitive	true	infinitive	justin	true
+tlg0059.tlg030	5085	t_84116	indirect_statement	2615	R852	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg011	70	t_1026	indirect_statement	2615	R853	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg002	322	t_6546	indirect_statement	2615	R854	hit		infinitive	true	infinitive	agent	true
+tlg0032.tlg006	2981	t_50392	indirect_statement	2615	R855	hit		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	782	t_10793	indirect_statement	2615	R856	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	5526	t_91169	indirect_statement	2615	R857	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	1900	t_30178	indirect_statement	2615	R858	hit		infinitive	true	infinitive	agent	true
+tlg0059.tlg030	4511	t_73586	indirect_statement	2615	R859	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2445	t_41960	indirect_statement	2615	R860	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	1565	t_24065	indirect_statement	2615	R861	hit-topup		hoti_hos	false		agent	true
+tlg0059.tlg011	321	t_6915	indirect_statement	2615	R862	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg011	680	t_13348	indirect_statement	2615	R863	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	1680	t_26262	indirect_statement	2615	R864	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	91	t_1353	indirect_statement	2615	R865	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3755	t_63383	indirect_statement	2615	R866	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg002	41	t_985	indirect_statement	2615	R867	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	3310	t_55957	indirect_statement	2615	R868	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	775	t_12922	indirect_statement	2615	R869	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	300	t_3806	indirect_statement	2615	R870	hit-topup		hoti_hos	false		agent	true
+tlg0059.tlg030	3646	t_57954	indirect_statement	2615	R871	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg011	455	t_9892	indirect_statement	2615	R872	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	611	t_10554	indirect_statement	2615	R873	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg024	1115	t_8955	indirect_statement	2615	R874	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2216	t_37778	indirect_statement	2615	R875	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	433	t_7143	indirect_statement	2615	R876	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	2521	t_40620	indirect_statement	2615	R877	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg011	894	t_17596	indirect_statement	2615	R878	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	1541	t_26836	indirect_statement	2615	R879	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg004	403	t_6392	indirect_statement	2615	R880	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	2476	t_42515	indirect_statement	2615	R881	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0032.tlg006	1634	t_28360	indirect_statement	2615	R882	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg030	3730	t_59705	indirect_statement	2615	R883	hit-topup		hoti_hos	true	hoti_hos	agent	true
+tlg0059.tlg011	484	t_10489	conditional	2615	R884	loose			false		agent	false
+tlg0059.tlg011	967	t_19167	conditional	2615	R885	loose			false		agent	false
+tlg0059.tlg004	642	t_10004	conditional	2615	R886	loose			false		agent	false
+tlg0059.tlg011	878	t_17256	conditional	2615	R887	loose			false		agent	false
+tlg0059.tlg030	5216	t_86133	conditional	2615	R888	loose			false		agent	false
+tlg0059.tlg004	1069	t_19161	conditional	2615	R889	loose			false		agent	false
+tlg0059.tlg030	2773	t_44859	conditional	2615	R890	loose			true		agent	false
+tlg0059.tlg030	316	t_4176	conditional	2615	R891	loose			true		agent	false
+tlg0032.tlg006	3385	t_57079	conditional	2615	R892	loose			false		justin	false
+tlg0059.tlg011	878	t_17259	conditional	2615	R893	loose			false		agent	false
+tlg0059.tlg030	892	t_12300	conditional	2615	R894	loose			true		agent	false
+tlg0059.tlg030	4289	t_70111	conditional	2615	R895	loose			true		agent	false
+tlg0059.tlg002	121	t_2445	conditional	2615	R896	loose			false		agent	false
+tlg0059.tlg030	4617	t_75636	conditional	2615	R897	loose			false		justin	false
+tlg0059.tlg030	2866	t_46330	conditional	2615	R898	loose			false		agent	false
+tlg0059.tlg024	1149	t_9509	conditional	2615	R899	loose			false		agent	false
+tlg0059.tlg003	111	t_1358	conditional	2615	R900	loose			false		agent	false
+tlg0059.tlg030	5953	t_97584	conditional	2615	R901	loose			false		agent	false
+tlg0059.tlg030	2507	t_40348	conditional	2615	R902	loose			false		agent	false
+tlg0032.tlg006	1158	t_19926	conditional	2615	R903	loose			false		agent	false
+tlg0059.tlg002	274	t_5141	conditional	2615	R904	loose			false		agent	false
+tlg0059.tlg030	3891	t_62992	conditional	2615	R905	loose			true		agent	false
+tlg0059.tlg002	217	t_3960	conditional	2615	R906	loose			true		agent	false
+tlg0059.tlg003	274	t_3063	conditional	2615	R907	loose			true		agent	false
+tlg0032.tlg006	2671	t_45629	conditional	2615	R908	loose			false		agent	false
+tlg0059.tlg024	553	t_4959	conditional	2615	R909	loose			false		agent	false
+tlg0059.tlg030	3718	t_59432	conditional	2615	R910	loose			true		agent	false
+tlg0032.tlg006	3225	t_54713	conditional	2615	R911	loose			false		agent	false
+tlg0059.tlg030	470	t_6090	conditional	2615	R912	loose			false		agent	false
+tlg0032.tlg006	651	t_11194	conditional	2615	R913	loose			false		agent	false
+tlg0059.tlg030	2449	t_39360	conditional	2615	R914	loose			false		agent	false
+tlg0059.tlg030	4967	t_82163	conditional	2615	R915	loose			false		agent	false
+tlg0032.tlg006	154	t_2428	conditional	2615	R916	loose			false		agent	false
+tlg0032.tlg006	3567	t_59923	conditional	2615	R917	loose			false		justin	false
+tlg0059.tlg030	3188	t_51357	conditional	2615	R918	loose			true		agent	false
+tlg0059.tlg011	353	t_7744	conditional	2615	R919	loose			true		agent	false
+tlg0059.tlg024	18	t_321	conditional	2615	R920	loose			false		agent	false
+tlg0059.tlg030	3561	t_56736	conditional	2615	R921	loose			false		justin	false
+tlg0059.tlg030	3431	t_55138	conditional	2615	R922	loose			true		agent	false
+tlg0032.tlg006	1225	t_21406	conditional	2615	R923	loose			false		agent	false
+tlg0059.tlg030	1980	t_31528	conditional	2615	R924	loose			false		agent	false
+tlg0059.tlg011	427	t_9280	conditional	2615	R925	loose			true		agent	false
+tlg0059.tlg030	3028	t_48617	conditional	2615	R926	loose			false		agent	false
+tlg0059.tlg011	878	t_17261	conditional	2615	R927	loose			false		agent	false
+tlg0059.tlg030	2796	t_45251	conditional	2615	R928	loose			false		agent	false
+tlg0059.tlg024	932	t_7243	conditional	2615	R929	loose			false		agent	false
+tlg0059.tlg030	4592	t_75240	conditional	2615	R930	loose			true		agent	false
+tlg0032.tlg006	3367	t_56836	conditional	2615	R931	loose			false		agent	false
+tlg0059.tlg030	631	t_9073	conditional	2615	R932	loose			false		agent	false
+tlg0059.tlg030	325	t_4267	conditional	2615	R933	loose			false		agent	false
+tlg0059.tlg002	391	t_8314	conditional	2615	R934	loose			false		agent	false
+tlg0032.tlg006	897	t_14880	conditional	2615	R935	loose			false		agent	false
+tlg0059.tlg030	4177	t_68035	conditional	2615	R936	loose			false		agent	false
+tlg0059.tlg030	5753	t_94281	conditional	2615	R937	loose			true		agent	false
+tlg0032.tlg006	2870	t_48645	conditional	2615	R938	loose			true		agent	false
+tlg0059.tlg030	1217	t_18453	conditional	2615	R939	loose			true		agent	false
+tlg0059.tlg002	341	t_7056	conditional	2615	R940	loose			true		agent	false
+tlg0059.tlg003	274	t_3071	conditional	2615	R941	loose			false		agent	false
+tlg0059.tlg030	2525	t_40745	conditional	2615	R942	loose			false		agent	false
+tlg0059.tlg002	224	t_4093	conditional	2615	R943	loose			false		agent	false
+tlg0032.tlg006	802	t_13437	purpose	2615	R944	loose			true		agent	false
+tlg0059.tlg030	1082	t_16488	purpose	2615	R945	loose			true		agent	false
+tlg0059.tlg024	502	t_4331	purpose	2615	R946	loose			true		agent	false
+tlg0059.tlg024	930	t_7185	purpose	2615	R947	loose			true		agent	false
+tlg0059.tlg030	924	t_13113	purpose	2615	R948	loose			true		agent	false
+tlg0059.tlg030	5204	t_85978	purpose	2615	R949	loose			true		agent	false
+tlg0059.tlg030	3229	t_51840	purpose	2615	R950	loose			true		agent	false
+tlg0059.tlg024	1045	t_8248	purpose	2615	R951	loose			true		agent	false
+tlg0059.tlg030	1763	t_27674	purpose	2615	R952	loose			true		agent	false
+tlg0059.tlg030	304	t_3924	indirect_statement	2615	R953	loose		infinitive	false		agent	false
+tlg0059.tlg030	4210	t_68917	indirect_statement	2615	R954	loose		infinitive	false		agent	false
+tlg0059.tlg003	253	t_2878	indirect_statement	2615	R955	loose		infinitive	false		agent	false
+tlg0059.tlg004	1312	t_23454	indirect_statement	2615	R956	loose		infinitive	true	infinitive	justin	false
+tlg0032.tlg006	2895	t_49059	indirect_statement	2615	R957	loose		infinitive	false		agent	false
+tlg0059.tlg004	361	t_5921	indirect_statement	2615	R958	loose		infinitive	false		agent	false
+tlg0059.tlg030	4954	t_81805	indirect_statement	2615	R959	loose		infinitive	false		agent	false
+tlg0059.tlg030	6329	t_104727	indirect_statement	2615	R960	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	2755	t_44614	indirect_statement	2615	R961	loose		infinitive	false		agent	false
+tlg0032.tlg006	1505	t_26210	indirect_statement	2615	R962	loose		infinitive	false		agent	false
+tlg0059.tlg011	455	t_9882	indirect_statement	2615	R963	loose		infinitive	false		agent	false
+tlg0059.tlg030	879	t_12039	indirect_statement	2615	R964	loose		infinitive	false		agent	false
+tlg0059.tlg004	1299	t_23061	indirect_statement	2615	R965	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg011	456	t_9912	indirect_statement	2615	R966	loose		infinitive	false		agent	false
+tlg0032.tlg006	2492	t_42806	indirect_statement	2615	R967	loose		infinitive	false		agent	false
+tlg0059.tlg030	2962	t_47606	indirect_statement	2615	R968	loose		infinitive	false		agent	false
+tlg0059.tlg030	3740	t_59864	indirect_statement	2615	R969	loose		infinitive	true	infinitive	justin	false
+tlg0059.tlg002	430	t_9028	indirect_statement	2615	R970	loose		infinitive	false		agent	false
+tlg0059.tlg030	4537	t_74217	indirect_statement	2615	R971	loose		infinitive	false		agent	false
+tlg0059.tlg004	175	t_2624	indirect_statement	2615	R972	loose		infinitive	false		agent	false
+tlg0059.tlg030	3306	t_52986	indirect_statement	2615	R973	loose		infinitive	false		agent	false
+tlg0059.tlg030	889	t_12253	indirect_statement	2615	R974	loose		infinitive	false		agent	false
+tlg0059.tlg004	80	t_811	indirect_statement	2615	R975	loose		infinitive	false		agent	false
+tlg0059.tlg030	1069	t_16320	indirect_statement	2615	R976	loose		infinitive	false		agent	false
+tlg0059.tlg030	2823	t_45684	indirect_statement	2615	R977	loose		infinitive	false		agent	false
+tlg0059.tlg011	761	t_15038	indirect_statement	2615	R978	loose		infinitive	false		agent	false
+tlg0032.tlg006	1011	t_17072	indirect_statement	2615	R979	loose		infinitive	false		agent	false
+tlg0032.tlg006	1795	t_31014	indirect_statement	2615	R980	loose		infinitive	false		agent	false
+tlg0059.tlg011	295	t_6290	indirect_statement	2615	R981	loose		infinitive	false		agent	false
+tlg0032.tlg006	3724	t_62980	indirect_statement	2615	R982	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg011	760	t_14984	indirect_statement	2615	R983	loose		infinitive	false		agent	false
+tlg0032.tlg006	131	t_2054	indirect_statement	2615	R984	loose		infinitive	false		agent	false
+tlg0059.tlg004	413	t_6677	indirect_statement	2615	R985	loose		infinitive	false		agent	false
+tlg0059.tlg030	677	t_9483	indirect_statement	2615	R986	loose		infinitive	true	infinitive	justin	false
+tlg0032.tlg006	1955	t_33573	indirect_statement	2615	R987	loose		infinitive	false		agent	false
+tlg0059.tlg011	272	t_5607	indirect_statement	2615	R988	loose		infinitive	false		agent	false
+tlg0059.tlg011	972	t_19284	indirect_statement	2615	R989	loose		infinitive	false		agent	false
+tlg0059.tlg030	3176	t_51224	indirect_statement	2615	R990	loose		infinitive	false		agent	false
+tlg0059.tlg030	1965	t_31180	indirect_statement	2615	R991	loose		infinitive	false		agent	false
+tlg0059.tlg011	256	t_5166	indirect_statement	2615	R992	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg030	1771	t_28011	indirect_statement	2615	R993	loose		infinitive	true	infinitive	agent	false
+tlg0059.tlg003	270	t_3048	indirect_statement	2615	R994	loose		infinitive	false		agent	false
+tlg0059.tlg030	3741	t_59923	indirect_statement	2615	R995	loose		infinitive	false		agent	false
+tlg0059.tlg030	5948	t_97328	indirect_statement	2615	R996	loose		infinitive	false		agent	false
+tlg0032.tlg006	100	t_1561	indirect_statement	2615	R997	loose		infinitive	false		agent	false
+tlg0059.tlg030	4986	t_82478	indirect_statement	2615	R998	loose		infinitive	false		agent	false
+tlg0059.tlg030	1314	t_19702	indirect_statement	2615	R999	loose		infinitive	false		agent	false
