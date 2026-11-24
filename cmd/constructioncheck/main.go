@@ -59,11 +59,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 
-	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
-	if err != nil {
-		return err
-	}
-	layers, err := classical.ParseLayers(classical.LayersJSON)
+	definitions, layers, err := loadManifest()
 	if err != nil {
 		return err
 	}
@@ -308,4 +304,14 @@ func checkCache(cache string) error {
 		return err
 	}
 	return rejectCacheInside(cache, root)
+}
+
+// loadManifest parses the embedded manifest and layer pins.
+func loadManifest() ([]classical.Definition, classical.Layers, error) {
+	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
+	if err != nil {
+		return nil, classical.Layers{}, err
+	}
+	layers, err := classical.ParseLayers(classical.LayersJSON)
+	return definitions, layers, err
 }
