@@ -603,6 +603,9 @@ type ConcordanceResult struct {
 type ConcordanceConstructionOriginSentence struct {
 	BookID, BookTitle, CorpusID, UnitID, AnchorSurface string
 	WorkTitle, Author                                  string
+	// Current reports that the origin run is still the Book's current
+	// analysis, so Sentence study can reopen its sentence.
+	Current bool
 }
 
 type ConcordanceResultOccurrence struct {

@@ -42,7 +42,7 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 	result.PriorityBookID, result.PriorityTitle = origin.row.BookID, origin.row.BookTitle
 	result.Origin = domain.ConcordanceConstructionOriginSentence{
 		BookID: origin.row.BookID, BookTitle: origin.row.BookTitle, CorpusID: origin.row.CorpusID, UnitID: origin.row.UnitID,
-		AnchorSurface: origin.row.AnchorSurface, WorkTitle: origin.row.WorkTitle, Author: origin.row.Author,
+		AnchorSurface: origin.row.AnchorSurface, WorkTitle: origin.row.WorkTitle, Author: origin.row.Author, Current: origin.row.Current,
 	}
 	const maxPage = int((1<<31-1)/concordanceConstructionPageSize + 1)
 	if lookup.Page > maxPage {

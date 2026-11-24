@@ -110,7 +110,9 @@ SELECT sm.book_id::text AS book_id,
        t.surface AS anchor_surface,
        w.id::text AS work_id,
        w.title AS work_title,
-       w.author AS author
+       w.author AS author,
+       EXISTS (SELECT 1 FROM current_analysis_identity ca
+                WHERE ca.owner_id = r.owner_id AND ca.analysis_run_id = r.id)::boolean AS current
   FROM analysis_runs r
   JOIN source_materials sm ON sm.owner_id = r.owner_id AND sm.id = r.source_material_id
   JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
@@ -147,6 +149,7 @@ type GetConstructionOriginRow struct {
 	WorkID        string
 	WorkTitle     string
 	Author        string
+	Current       bool
 }
 
 // The origin occurrence of a construction lookup (ADR 0125): the owner's run
@@ -155,7 +158,9 @@ type GetConstructionOriginRow struct {
 // Only result rows must come from current analyses; the origin may not. No row
 // means the run is not the owner's, the Book is not a chosen-language Book
 // whose Reading unit has a Work, or the sentence or word does not exist, so the
-// caller sends the safe restart.
+// caller sends the safe restart. current says whether the run is still the
+// Book's current analysis: Sentence study reads only those, so a historical
+// origin has no sentence to link back to.
 func (q *Queries) GetConstructionOrigin(ctx context.Context, arg GetConstructionOriginParams) (GetConstructionOriginRow, error) {
 	row := q.db.QueryRow(ctx, getConstructionOrigin,
 		arg.Language,
@@ -175,6 +180,7 @@ func (q *Queries) GetConstructionOrigin(ctx context.Context, arg GetConstruction
 		&i.WorkID,
 		&i.WorkTitle,
 		&i.Author,
+		&i.Current,
 	)
 	return i, err
 }

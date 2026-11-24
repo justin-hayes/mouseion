@@ -432,7 +432,9 @@ templ sentenceStudyConstructionNoteView(entry sentenceStudyConstructionEntry) {
 // construction.
 templ concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.ConcordanceResult, origin browseOrigin) {
 	<p class="concordance-parallels-nav">
-		<a id="concordance-parallels-origin" href={ templ.SafeURL(concordanceOriginStudyURL(lookup, result)) }>Back to the sentence you came from</a>
+		if result.Origin.Current {
+			<a id="concordance-parallels-origin" href={ templ.SafeURL(concordanceOriginStudyURL(lookup, result)) }>Back to the sentence you came from</a>
+		}
 		if lookup.Subtype != "" {
 			{ " · " }<a id="concordance-parallels-widen" href={ templ.SafeURL(origin.Apply(concordanceWidenURL(lookup))) }>All { concordanceConstructionName(lookup) }</a>
 		}

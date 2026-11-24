@@ -379,6 +379,14 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		assert.NotContains(t, page, "# This Book", "only current analyses contribute rows")
 		assert.Contains(t, page, "# This author")
 		assert.Contains(t, page, row("xen-anab-zz", 0))
+		// Sentence study reads only current analyses, so a historical origin
+		// has no sentence to link back to; a link would be a 404.
+		assert.NotContains(t, response.body, "concordance-parallels-origin")
+		for _, link := range constructionStudyHrefRegexp.FindAllStringSubmatch(response.body, -1) {
+			target, err := url.Parse(html.UnescapeString(link[1]))
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusOK, get(target.RequestURI()).code, "every rendered Study link resolves")
+		}
 	})
 	t.Run("the word lookups still work beside a parallels page", func(t *testing.T) {
 		response := get("/vocabulary/concordance?as=form&term=" + url.QueryEscape("ὅτι"))

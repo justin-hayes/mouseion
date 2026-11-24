@@ -144,7 +144,9 @@ type Querier interface {
 	// Only result rows must come from current analyses; the origin may not. No row
 	// means the run is not the owner's, the Book is not a chosen-language Book
 	// whose Reading unit has a Work, or the sentence or word does not exist, so the
-	// caller sends the safe restart.
+	// caller sends the safe restart. current says whether the run is still the
+	// Book's current analysis: Sentence study reads only those, so a historical
+	// origin has no sentence to link back to.
 	GetConstructionOrigin(ctx context.Context, arg GetConstructionOriginParams) (GetConstructionOriginRow, error)
 	// Construction occurrences: a derived reading of a native_agdt run's stored
 	// syntax (ADR 0123). Lemma corrections and Occurrence exclusions are never

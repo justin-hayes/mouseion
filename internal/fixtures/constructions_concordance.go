@@ -38,7 +38,7 @@ func fixtureConstructionConcordance(result domain.ConcordanceResult, query domai
 	result.Origin = domain.ConcordanceConstructionOriginSentence{
 		BookID: fixtureSyntaxBookID, BookTitle: "Synthetic Greek syntax", CorpusID: "fixture-corpus",
 		UnitID: fixtureSyntaxUnit, AnchorSurface: fixtureConstructionAnchorSurface(query.Origin.Anchor),
-		WorkTitle: "Synthetic Work", Author: "Synthetic Author",
+		WorkTitle: "Synthetic Work", Author: "Synthetic Author", Current: true,
 	}
 	occurrence, ok := fixtureConstructionOccurrence(query.Term)
 	if !ok {
