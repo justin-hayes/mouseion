@@ -2376,6 +2376,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	}
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities, Selection: selectionService})
 	river.AddWorker(workers, &BrowseCountsRebuildWorker{Pool: pool})
+	river.AddWorker(workers, &ConstructionRebuildWorker{Pool: pool})
 	if standardWorkers < 1 {
 		standardWorkers = 1
 	}

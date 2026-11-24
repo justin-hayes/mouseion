@@ -307,6 +307,9 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
 	}
+	if err := analysisService.EnqueueMissingConstructionRebuilds(ctx); err != nil {
+		return nil, fmt.Errorf("schedule missing Construction occurrences: %w", err)
+	}
 	var preparedDeckService *prepareddeck.Service
 	if deps.batchProvider != nil {
 		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, deps.riverClient, deps.batchProvider)
