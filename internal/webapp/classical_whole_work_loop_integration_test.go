@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -106,6 +107,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	require.Positive(t, occurrences)
 	assert.Equal(t, 1, strings.Count(body, `class="concordance-source-title"`), "one group for the Book")
 	assert.Equal(t, occurrences, strings.Count(body, `class="concordance-row"`), "one result per occurrence")
+	assert.Contains(t, body, fmt.Sprintf("%d occurrences on this page", occurrences), "one count for the Book")
 	citations := regexp.MustCompile(`<p class="concordance-location">(1\.1\.\d)</p>`).FindAllStringSubmatch(body, -1)
 	assert.Len(t, citations, occurrences, "a Citation on every occurrence")
 
@@ -127,6 +129,8 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	for _, id := range append([]string{wholeBook}, legacyBooks...) {
 		row := myBookRowHTML(t, page.Body.String(), id)
 		assert.Contains(t, row, `action="/library/books/`+id+`/remove"`, "every Book is an ordinary row")
+		_, err := h.store.GetBookDetail(h.ctx, legacy.ID, id)
+		require.NoError(t, err, "the Book stays openable")
 	}
 	assert.NotContains(t, page.Body.String(), "Remove the work")
 }

@@ -633,8 +633,10 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	treatiseBookOne.Key, treatiseBookTwo.Key = loopTreatiseKey+"-1", loopTreatiseKey+"-2"
 	treatiseBookOne.ConstituentBook, treatiseBookTwo.ConstituentBook = &one, &two
 	treatiseBookOne.Contents, treatiseBookTwo.Contents = nil, nil
-	treatiseBookOne.CitationEnd, treatiseBookTwo.CitationStart = "1.1.3", "1.1.4"
-	treatiseBookOne.WordCount, treatiseBookTwo.WordCount = 16, 16
+	for i, tombstone := range []*classical.Definition{&treatiseBookOne, &treatiseBookTwo} {
+		span := treatise.Contents[i]
+		tombstone.CitationStart, tombstone.CitationEnd, tombstone.WordCount = span.CitationStart, span.CitationEnd, span.WordCount
+	}
 	treatiseBookOne.Withdrawn, treatiseBookTwo.Withdrawn = true, true
 	definitions := []classical.Definition{anabasis, firstUnit, secondUnit, wholeUnit, treatise, treatiseBookOne, treatiseBookTwo}
 
