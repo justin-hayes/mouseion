@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // ConstructionRebuildArgs names one analysis run whose Construction occurrences
@@ -18,6 +19,9 @@ import (
 type ConstructionRebuildArgs struct {
 	OwnerID string `json:"owner_id" river:"unique"`
 	RunID   string `json:"run_id" river:"unique"`
+	// DetectorVersion is the version the rebuild targets. A new version is a new
+	// unique key, so a bump queues work even when an older job was retained.
+	DetectorVersion int `json:"detector_version" river:"unique"`
 }
 
 func (ConstructionRebuildArgs) Kind() string { return "rebuild_construction_occurrences" }
@@ -25,7 +29,11 @@ func (ConstructionRebuildArgs) Kind() string { return "rebuild_construction_occu
 // InsertOpts makes a queued rebuild of one owner's run unique, so repeated
 // startup scans never queue it twice while it is waiting or running.
 func (ConstructionRebuildArgs) InsertOpts() river.InsertOpts {
-	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true}}
+	// Finished jobs are not part of the key: only waiting or running work dedupes.
+	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: []rivertype.JobState{
+		rivertype.JobStateAvailable, rivertype.JobStatePending, rivertype.JobStateRunning,
+		rivertype.JobStateRetryable, rivertype.JobStateScheduled,
+	}}}
 }
 
 // ConstructionRebuildWorker rebuilds one run's Construction occurrences after a
@@ -93,7 +101,7 @@ func (s *Service) EnqueueMissingConstructionRebuilds(ctx context.Context) (err e
 	}
 	var args []ConstructionRebuildArgs
 	for rows.Next() {
-		var a ConstructionRebuildArgs
+		a := ConstructionRebuildArgs{DetectorVersion: constructions.AGDTDetectorVersion}
 		if err = rows.Scan(&a.OwnerID, &a.RunID); err != nil {
 			rows.Close()
 			return fmt.Errorf("read runs missing Construction occurrences: %w", err)

@@ -64,7 +64,7 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 	}
 	worker := &analysis.ConstructionRebuildWorker{Pool: pool}
 	work := func() error {
-		return worker.Work(ctx, &river.Job[analysis.ConstructionRebuildArgs]{Args: analysis.ConstructionRebuildArgs{OwnerID: learner.ID, RunID: run}})
+		return worker.Work(ctx, &river.Job[analysis.ConstructionRebuildArgs]{Args: analysis.ConstructionRebuildArgs{OwnerID: learner.ID, RunID: run, DetectorVersion: constructions.AGDTDetectorVersion}})
 	}
 	before := constructionRows(t, ctx, pool, run)
 	require.NotEmpty(t, before)
@@ -141,5 +141,52 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 		require.NoError(t, service.EnqueueMissingConstructionRebuilds(ctx))
 		require.NoError(t, service.EnqueueMissingConstructionRebuilds(ctx))
 		assert.Equal(t, 1, queued(), "a missing marker is queued once, however often the scan repeats")
+
+		// A finished job must not block a later rebuild of the same run.
+		_, err = pool.Exec(ctx, `UPDATE river_job SET state='completed', finalized_at=now() WHERE kind='rebuild_construction_occurrences' AND args->>'run_id'=$1`, run)
+		require.NoError(t, err)
+		require.NoError(t, service.EnqueueMissingConstructionRebuilds(ctx))
+		var pending int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind='rebuild_construction_occurrences' AND args->>'run_id'=$1 AND state='available'`, run).Scan(&pending))
+		assert.Equal(t, 1, pending, "a retained completed job does not stop the stale run being queued again")
+
+		// absent and UD runs are never queued.
+		_, err = pool.Exec(ctx, `DELETE FROM river_job WHERE kind='rebuild_construction_occurrences'`)
+		require.NoError(t, err)
+		for _, state := range []string{"absent", "ud"} {
+			_, err = pool.Exec(ctx, `UPDATE analysis_runs SET syntax_state=$2 WHERE id=$1`, run, state)
+			require.NoError(t, err)
+			require.NoError(t, service.EnqueueMissingConstructionRebuilds(ctx))
+			assert.Zero(t, queued(), "a %s run is not queued", state)
+		}
+		_, err = pool.Exec(ctx, `UPDATE analysis_runs SET syntax_state='native_agdt' WHERE id=$1`, run)
+		require.NoError(t, err)
+	})
+
+	t.Run("a superseded run that is no longer current is rebuilt too", func(t *testing.T) {
+		newer := definition
+		newer.InterpretationVersion += "-next"
+		_, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+			OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: newer,
+		}, analysis.NewGreekImportWriter(store))
+		require.NoError(t, err)
+		var current string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, learner.ID, registration.BookID).Scan(&current))
+		require.NotEqual(t, run, current, "the first run is now superseded")
+		_, err = pool.Exec(ctx, `DELETE FROM construction_occurrences WHERE analysis_run_id=$1`, run)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `DELETE FROM construction_run_markers WHERE analysis_run_id=$1`, run)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `DELETE FROM river_job WHERE kind='rebuild_construction_occurrences'`)
+		require.NoError(t, err)
+
+		riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
+		require.NoError(t, err)
+		require.NoError(t, analysis.NewService(pool, riverClient).EnqueueMissingConstructionRebuilds(ctx))
+		var queuedRuns int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind='rebuild_construction_occurrences' AND args->>'run_id'=$1`, run).Scan(&queuedRuns))
+		assert.Equal(t, 1, queuedRuns, "the superseded run is queued")
+		require.NoError(t, work())
+		assert.Equal(t, before, constructionRows(t, ctx, pool, run))
 	})
 }
