@@ -1,6 +1,6 @@
 # ADR 0126: Analysis updates carry decisions onto identical tokens
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Amends [ADR 0107](0107-analysis-pipeline-identity-and-analysis-updates.md)'s
 frozen boundaries ("never remaps Lemma corrections or Occurrence exclusions")
@@ -41,7 +41,11 @@ Facts:
    remap them.
 2. **Scope: every Analysis update.** The rule covers ADR 0107 NLP updates (such
    as a French normalization change) and ADR 0116 Classical updates. It does not
-   cover ADR 0103 Source structure updates. The match is source-neutral.
+   cover ADR 0103 Source structure updates. The match is source-neutral. The
+   copy runs only when the replaced run shares the new run's content revision
+   and extracted-unit snapshot: a Source structure update keeps the content
+   revision but adopts a new snapshot, so the snapshot is what tells the two
+   apart.
 3. **The match.** Same source document, same offset span, same surface and same
    **source** lemma, for corrections and exclusions alike. UPOS and morphology
    are not compared, because an update may change morphology deliberately. The
