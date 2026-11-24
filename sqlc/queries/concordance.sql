@@ -313,15 +313,22 @@ SELECT EXISTS (
       AND ca.analysis_run_id = c.analysis_run_id AND ca.corpus_id = c.corpus_id
     JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
       AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text
-    JOIN source_material_units u ON u.owner_id = ca.owner_id
-      AND u.source_material_id = ca.source_material_id
-      AND u.snapshot_id = ca.snapshot_id AND u.unit_id = s.unit_id
     LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = ca.owner_id
       AND d.book_id = ca.book_id AND d.corpus_id = c.corpus_id
-      AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = u.unit_id
+      AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = s.unit_id
       AND d.start_offset = c.start_offset AND d.end_offset = c.end_offset
    WHERE NOT COALESCE(d.excluded, false)
      AND COALESCE(d.canonical_lemma, c.canonical_lemma) = sqlc.arg('term')::text
+     AND EXISTS (
+       SELECT 1
+         FROM source_material_units u
+        WHERE u.owner_id = ca.owner_id AND u.source_material_id = ca.source_material_id
+          AND u.snapshot_id = ca.snapshot_id AND u.unit_id = s.unit_id
+       -- Keep this check correlated to the exact sentence and snapshot.
+       -- Flattening it lets the planner pair every candidate with every
+       -- unit in the snapshot before finding the candidate's sentence.
+       OFFSET 0
+     )
 )::boolean AS evidenced;
 
 -- name: GetConstructionOrigin :one
