@@ -144,3 +144,48 @@ func TestReadersReportMissingFiles(t *testing.T) {
 func TestRunRefusesAnUnknownFlag(t *testing.T) {
 	require.Error(t, run(context.Background(), []string{"-nope"}, &bytes.Buffer{}))
 }
+
+func TestRejectCacheInsideRepository(t *testing.T) {
+	root := t.TempDir()
+	outside := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\n"), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(root, "sub"), 0o750))
+	require.NoError(t, os.Symlink(filepath.Join(root, "sub"), filepath.Join(outside, "link")))
+
+	t.Run("a path in the repository is refused", func(t *testing.T) {
+		err := rejectCacheInside(filepath.Join(root, "sub", "cache"), root)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "inside the repository")
+	})
+	t.Run("the repository root itself is refused", func(t *testing.T) {
+		require.Error(t, rejectCacheInside(root, root))
+	})
+	t.Run("a symlink into the repository is refused", func(t *testing.T) {
+		require.Error(t, rejectCacheInside(filepath.Join(outside, "link", "cache"), root))
+	})
+	t.Run("a path outside is accepted, existing or not", func(t *testing.T) {
+		require.NoError(t, rejectCacheInside(outside, root))
+		require.NoError(t, rejectCacheInside(filepath.Join(outside, "new", "cache"), root))
+	})
+	t.Run("a sibling with the same prefix is accepted", func(t *testing.T) {
+		require.NoError(t, rejectCacheInside(root+"-cache", root))
+	})
+}
+
+func TestRepositoryRootFindsGoMod(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module x\n"), 0o600))
+	nested := filepath.Join(root, "a", "b")
+	require.NoError(t, os.MkdirAll(nested, 0o750))
+	got, err := repositoryRoot(nested)
+	require.NoError(t, err)
+	assert.Equal(t, root, got)
+	_, err = repositoryRoot(t.TempDir())
+	require.Error(t, err)
+}
+
+func TestRunRefusesACacheInsideTheRepository(t *testing.T) {
+	err := run(context.Background(), []string{"-cache", "."}, &bytes.Buffer{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "inside the repository")
+}

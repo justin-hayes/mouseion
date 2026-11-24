@@ -302,7 +302,8 @@ func subtypeLine(in Input, id, subtype string, rows []Judgment) Line {
 func unlabelledLine(in Input, id string, rows []Judgment) Line {
 	line := Line{
 		Construction: id, Subtype: "none", Strata: "hit+hit-topup", Judged: len(rows), Unlabelled: true,
-		GoHits: in.Detected.Subtypes[id][""],
+		GoHits:       in.Detected.Subtypes[id][""],
+		ResearchHits: in.ResearchCount[CountKey{id, StratumHit, "", "none"}],
 	}
 	k, kEmitted, nEmitted := 0, 0, 0
 	for _, j := range rows {

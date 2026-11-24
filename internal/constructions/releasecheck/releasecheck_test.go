@@ -204,6 +204,7 @@ func TestCommittedCountFiles(t *testing.T) {
 	assert.Equal(t, 1766, parsed[CountKey{"conditional", StratumHit, "", ""}])
 	assert.Equal(t, 73, parsed[CountKey{"conditional", StratumExcluded, "whether head", ""}])
 	assert.Equal(t, 2, parsed[CountKey{"genitive_absolute", StratumExcluded, "B-readmit", ""}])
+	assert.Equal(t, 4, parsed[CountKey{"result", StratumHit, "", "none"}])
 
 	baseline, err := os.ReadFile("counts_baseline.tsv")
 	require.NoError(t, err)
@@ -329,7 +330,7 @@ func syntheticInput() Input {
 		Judgments: judgments,
 		ResearchCount: map[CountKey]int{
 			{"one", StratumHit, "", ""}: 500, {"two", StratumHit, "", ""}: 1766,
-			{"two", StratumExcluded, "whether head", ""}: 73,
+			{"two", StratumExcluded, "whether head", ""}: 73, {"one", StratumHit, "", "none"}: 7,
 		},
 		Baseline: Baseline{DetectorVersion: 1, Hits: map[string]int{"one": 100, "two": 100}},
 		Detected: Detected{
@@ -392,6 +393,7 @@ func TestEvaluateComputesPerStratumPrecisionAndVerdicts(t *testing.T) {
 		assert.Equal(t, 4, none.Judged)
 		assert.InDelta(t, 0.75, none.Precision, 0.001)
 		assert.Equal(t, 10, none.GoHits)
+		assert.Equal(t, 7, none.ResearchHits)
 		assert.Equal(t, "unlabelled (not gated)", none.Verdict())
 		assert.NotContains(t, strings.Join(report.Failures, "\n"), "one/none")
 	})

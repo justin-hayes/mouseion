@@ -55,6 +55,18 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	root, err := repositoryRoot(cwd)
+	if err != nil {
+		return err
+	}
+	if err := rejectCacheInside(*cache, root); err != nil {
+		return err
+	}
+
 	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
 	if err != nil {
 		return err
@@ -233,4 +245,61 @@ func sourceURL(baseURL, fileName string) (string, error) {
 		return "", err
 	}
 	return base.ResolveReference(reference).String(), nil
+}
+
+// repositoryRoot walks up from dir to the directory holding go.mod.
+func repositoryRoot(dir string) (string, error) {
+	for current := dir; ; {
+		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
+			return current, nil
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return "", errors.New("run constructioncheck from inside the repository (no go.mod found)")
+		}
+		current = parent
+	}
+}
+
+// rejectCacheInside refuses a cache directory that resolves, after following
+// symlinks, to the repository root or anywhere below it, so OGA files can
+// never be written into the repository.
+func rejectCacheInside(cache, root string) error {
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
+	resolved, err := resolveExisting(cache)
+	if err != nil {
+		return err
+	}
+	relative, err := filepath.Rel(resolvedRoot, resolved)
+	if err != nil {
+		return err
+	}
+	if relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
+		return fmt.Errorf("cache directory %s is inside the repository (%s); choose a path outside it so OGA files are never committed", cache, resolvedRoot)
+	}
+	return nil
+}
+
+// resolveExisting resolves symlinks in the longest existing prefix of path and
+// appends the part that does not exist yet.
+func resolveExisting(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	rest := ""
+	for current := absolute; ; {
+		if resolved, err := filepath.EvalSymlinks(current); err == nil {
+			return filepath.Join(resolved, rest), nil
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return absolute, nil
+		}
+		rest = filepath.Join(filepath.Base(current), rest)
+		current = parent
+	}
 }

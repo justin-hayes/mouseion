@@ -16,13 +16,6 @@ func number(v float64) string {
 	return fmt.Sprintf("%.3f", v)
 }
 
-func hitCount(known bool, n int) string {
-	if !known {
-		return "-"
-	}
-	return strconv.Itoa(n)
-}
-
 func orDash(s string) string {
 	if s == "" {
 		return "-"
@@ -58,7 +51,7 @@ func (r Report) Print(w io.Writer) error {
 		rows = append(rows, []string{
 			l.Construction, orDash(l.Subtype), orDash(l.Strata), strconv.Itoa(l.Judged), number(l.Precision),
 			number(l.Lower) + "–" + number(l.Upper), number(l.EmittedOnly), strconv.Itoa(l.NotEmitted),
-			strconv.Itoa(l.GoHits), hitCount(!l.Unlabelled, l.ResearchHits), l.Verdict(),
+			strconv.Itoa(l.GoHits), strconv.Itoa(l.ResearchHits), l.Verdict(),
 		})
 	}
 	var b strings.Builder
