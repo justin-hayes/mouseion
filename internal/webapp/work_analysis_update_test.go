@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -64,13 +65,25 @@ func TestWorkAnalysisUpdateGroupsEligibleBooksAndSkipsTheCurrentReading(t *testi
 	assert.Equal(t, "A newer analysis is available for 2 books shown here.", update.Notice())
 	assert.Equal(t, "Update 2 books of Synthetic Work", update.ActionLabel())
 	assert.Equal(t, "Book 2: End the Reading first", update.CurrentText())
-	assert.Contains(t, update.ConfirmationText(), "Together, the Books to be updated have 1 confirmed lemma correction, which will not carry over to their new analyses.")
+	assert.Contains(t, update.ConfirmationText(), "Together, the Books to be updated have 1 confirmed lemma correction, which carry over wherever the word is unchanged in their new analyses.")
 	assert.Contains(t, update.ConfirmationText(), workAnalysisUpdatePublished)
 	assert.Contains(t, update.ConfirmationText(), workAnalysisUpdateFrozen)
 	assert.Contains(t, update.ConfirmationText(), "Book 2: End the Reading first; nothing is queued for it.")
-	assert.Equal(t, []workAnalysisUpdateLoss{
+	assert.Equal(t, []workAnalysisUpdateDecisions{
 		{BookLabel: "Synthetic Work, Book 3", Text: "1 confirmed lemma correction"},
-	}, update.Losses(), "the breakdown names only Books with losses")
+	}, update.Decisions(), "the breakdown names only Books with decisions")
+}
+
+func TestWorkAnalysisUpdateConfirmationLeadsWithChangeNotesOnlyWhenThereAreSome(t *testing.T) {
+	update := workAnalysisUpdateFor("synthetic-work", "Synthetic Work", []domain.MyBook{
+		workUpdateBook("book-1", 1, false, workUpdateCandidate(1, 0)),
+	}, nil)
+	assert.Empty(t, update.ChangeNotes, "an NLP target has no change note")
+	assert.True(t, strings.HasPrefix(update.ConfirmationText(), "Together, "), "no note line without a note")
+
+	update.ChangeNotes = []string{"Adds a synthetic feature."}
+	assert.True(t, strings.HasPrefix(update.ConfirmationText(), "Adds a synthetic feature. Together, "), "the note leads the confirmation")
+	assert.Equal(t, 1, strings.Count(update.ConfirmationText(), "Adds a synthetic feature."))
 }
 
 func TestWorkAnalysisUpdateDoesNotDuplicateTheCurrentBookWhenItIsAlreadyAmongTheBooks(t *testing.T) {
@@ -79,7 +92,7 @@ func TestWorkAnalysisUpdateDoesNotDuplicateTheCurrentBookWhenItIsAlreadyAmongThe
 	assert.Empty(t, update.Books)
 	require.NotNil(t, update.Current)
 	assert.Equal(t, "A newer analysis is available.", update.Notice(), "a Work with only a current Book keeps the ordinary notice")
-	assert.Empty(t, update.Losses())
+	assert.Empty(t, update.Decisions())
 }
 
 func TestWorkAnalysisUpdateOffersNothingWithoutCandidates(t *testing.T) {

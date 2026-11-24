@@ -1941,6 +1941,9 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 	if err := tx.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
 		return fmt.Errorf("load completed corpus for Browse projection: %w", err)
 	}
+	if err := carryDecisionsOntoIdenticalTokens(ctx, tx, a.OwnerID, bookID, a.RunID, corpusID); err != nil {
+		return err
+	}
 	if err := persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, bookID, a.SourceMaterialID, a.RunID, corpusID, a.Language); err != nil {
 		return fmt.Errorf("build Browse projection for analysis publication: %w", err)
 	}

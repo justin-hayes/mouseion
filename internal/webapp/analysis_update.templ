@@ -26,10 +26,10 @@ templ WorkAnalysisUpdateNotice(update workAnalysisUpdate, csrf, returnTo, button
 							<input type="hidden" name="expected_run_id" value={ item.Candidate.PublishedRunID }/>
 							<input type="hidden" name="expected_target" value={ item.Candidate.Target.Key() }/>
 						}
-						if losses := update.Losses(); len(losses) > 0 {
-							<ul class="analysis-update__losses">
-								for _, loss := range losses {
-									<li>{ loss.BookLabel }: { loss.Text }</li>
+						if decisions := update.Decisions(); len(decisions) > 0 {
+							<ul class="analysis-update__decisions">
+								for _, decision := range decisions {
+									<li>{ decision.BookLabel }: { decision.Text }</li>
 								}
 							</ul>
 						}

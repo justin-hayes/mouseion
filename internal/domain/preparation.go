@@ -118,6 +118,11 @@ type BookPreparationJob struct {
 	Code          BookPreparationCode
 	// Progress is the run's percent where the kind reports one. Analysis is
 	// the only kind that does, so a nil Progress renders no bar.
-	Progress  *int
-	CreatedAt time.Time
+	Progress *int
+	// DecisionsCarried and DecisionsTotal report, for the job that published an
+	// Analysis update's run, how many of the replaced run's Lemma corrections
+	// and Occurrence exclusions carried over (ADR 0126). The row reports them
+	// only when DecisionsTotal is above zero.
+	DecisionsCarried, DecisionsTotal int
+	CreatedAt                        time.Time
 }

@@ -48,7 +48,12 @@ templ JobsPage(user domain.User, csrf string, preparations []domain.BookPreparat
 							} else {
 								{ job.BookTitle }
 							}
-						</td><td>@StatusBadge(lifecycle.Label, lifecycle.Tone)</td><td>
+						</td><td>
+							@StatusBadge(lifecycle.Label, lifecycle.Tone)
+							if job.DecisionsTotal > 0 {
+								<p class="metadata">{ fmt.Sprintf("%d of %d decisions carried over", job.DecisionsCarried, job.DecisionsTotal) }</p>
+							}
+						</td><td>
 							if job.Stage == "" {
 								—
 							} else {

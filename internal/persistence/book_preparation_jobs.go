@@ -55,6 +55,9 @@ func (s *PostgresStore) ListBookPreparationJobs(ctx context.Context, owner strin
 	if err := s.markMyBooksMembership(ctx, owner, jobs); err != nil {
 		return nil, err
 	}
+	if err := s.attachDecisionCarryOvers(ctx, owner, jobs); err != nil {
+		return nil, err
+	}
 	sort.SliceStable(jobs, func(i, j int) bool { return bookPreparationJobBefore(jobs[i], jobs[j]) })
 	if len(jobs) > bookPreparationJobsLimit {
 		jobs = jobs[:bookPreparationJobsLimit]
@@ -116,6 +119,62 @@ func (s *PostgresStore) markMyBooksMembership(ctx context.Context, owner string,
 	}
 	for i := range jobs {
 		jobs[i].BookInMyBooks = member[jobs[i].BookID]
+	}
+	return nil
+}
+
+// attachDecisionCarryOvers reports, on the row of the job that published an
+// Analysis update's run, how many decisions carried over (ADR 0126). An analysis
+// row is found through its run. A Classical preparation job does not name its
+// run, so its row is the job whose attempt window contains the moment the
+// carry-over was recorded, which happens inside the publishing transaction. The
+// job may still be running, because River finalizes it just after that
+// transaction commits. A run with no decisions on the replaced run has nothing
+// to report and is left alone.
+func (s *PostgresStore) attachDecisionCarryOvers(ctx context.Context, owner string, jobs []domain.BookPreparationJob) error {
+	rows, err := s.pool.Query(ctx, `
+		SELECT 'analysis', aj.river_job_id, co.carried, co.total
+		FROM analysis_decision_carry_overs co
+		JOIN analysis_jobs aj ON aj.owner_id = co.owner_id AND aj.analysis_run_id = co.analysis_run_id
+		WHERE co.owner_id = $1 AND co.total > 0
+		UNION ALL
+		SELECT 'classical', j.id, co.carried, co.total
+		FROM analysis_decision_carry_overs co
+		JOIN river_job j ON j.kind = 'classical_preparation'
+		 AND j.args->>'owner_id' = co.owner_id::text
+		 AND j.args->>'book_id' = co.book_id::text
+		 AND j.state IN ('running', 'completed')
+		 AND j.attempted_at <= co.created_at AND (j.finalized_at IS NULL OR co.created_at <= j.finalized_at)
+		WHERE co.owner_id = $1 AND co.total > 0`, owner)
+	if err != nil {
+		return fmt.Errorf("list carried-over decisions: %w", err)
+	}
+	defer rows.Close()
+	type key struct {
+		kind domain.BookPreparationKind
+		id   int64
+	}
+	carried := map[key][2]int{}
+	for rows.Next() {
+		var kind string
+		var id int64
+		var done, total int
+		if err := rows.Scan(&kind, &id, &done, &total); err != nil {
+			return fmt.Errorf("scan carried-over decisions: %w", err)
+		}
+		row := domain.BookPreparationKindAnalysis
+		if kind == "classical" {
+			row = domain.BookPreparationKindClassical
+		}
+		carried[key{row, id}] = [2]int{done, total}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read carried-over decisions: %w", err)
+	}
+	for i := range jobs {
+		if counts, ok := carried[key{jobs[i].Kind, jobs[i].JobID}]; ok {
+			jobs[i].DecisionsCarried, jobs[i].DecisionsTotal = counts[0], counts[1]
+		}
 	}
 	return nil
 }

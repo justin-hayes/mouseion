@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -34,6 +35,9 @@ type workAnalysisUpdate struct {
 	Current            *domain.MyBook
 	Corrections        int
 	Exclusions         int
+	// ChangeNotes are the distinct change notes of the Books' target
+	// interpretation versions (ADR 0126), in Book order.
+	ChangeNotes []string
 }
 
 // workAnalysisUpdateFor groups the eligible Books of one Work that the issuing
@@ -55,6 +59,9 @@ func workAnalysisUpdateFor(workKey, workTitle string, books []domain.MyBook, cur
 			update.Books = append(update.Books, workAnalysisUpdateBook{Book: book, Candidate: *candidate})
 			update.Corrections += candidate.LemmaCorrections
 			update.Exclusions += candidate.OccurrenceExclusions
+			if note, ok := analysisUpdateChangeNote(candidate.Target); ok && !slices.Contains(update.ChangeNotes, note) {
+				update.ChangeNotes = append(update.ChangeNotes, note)
+			}
 		case domain.AnalysisUpdateEndReadingFirst:
 			value := book
 			update.Current = &value
@@ -126,10 +133,11 @@ func (u workAnalysisUpdate) CurrentText() string {
 	return "This Book: End the Reading first"
 }
 
-// ConfirmationText states the Work-wide totals and the two frozen boundaries.
-// The per-Book breakdown is rendered separately, only for Books with losses.
+// ConfirmationText states the Work-wide totals and the two frozen boundaries,
+// led by the change note of each distinct target version that has one. The
+// per-Book breakdown is rendered separately, only for Books with decisions.
 func (u workAnalysisUpdate) ConfirmationText() string {
-	parts := []string{u.decisionsText(), workAnalysisUpdatePublished, workAnalysisUpdateFrozen}
+	parts := append(slices.Clone(u.ChangeNotes), u.decisionsText(), workAnalysisUpdatePublished, workAnalysisUpdateFrozen)
 	if u.Current != nil {
 		parts = append(parts, u.CurrentText()+"; nothing is queued for it.")
 	}
@@ -141,30 +149,30 @@ func (u workAnalysisUpdate) decisionsText() string {
 	if len(decisions) == 0 {
 		return "No Book in this work has confirmed lemma corrections or occurrence exclusions."
 	}
-	return "Together, the Books to be updated have " + strings.Join(decisions, " and ") + ", which will not carry over to their new analyses."
+	return "Together, the Books to be updated have " + strings.Join(decisions, " and ") + ", which carry over wherever the word is unchanged in their new analyses."
 }
 
-// workAnalysisUpdateLoss is one Book's disclosed losses in the confirmation.
-type workAnalysisUpdateLoss struct {
+// workAnalysisUpdateDecisions is one Book's decisions in the confirmation.
+type workAnalysisUpdateDecisions struct {
 	BookLabel string
 	Text      string
 }
 
-// Losses breaks the totals down only for Books that have corrections or
+// Decisions breaks the totals down only for Books that have corrections or
 // exclusions.
-func (u workAnalysisUpdate) Losses() []workAnalysisUpdateLoss {
-	losses := make([]workAnalysisUpdateLoss, 0, len(u.Books))
+func (u workAnalysisUpdate) Decisions() []workAnalysisUpdateDecisions {
+	breakdown := make([]workAnalysisUpdateDecisions, 0, len(u.Books))
 	for _, item := range u.Books {
 		decisions := analysisUpdateDecisionParts(item.Candidate.LemmaCorrections, item.Candidate.OccurrenceExclusions)
 		if len(decisions) == 0 {
 			continue
 		}
-		losses = append(losses, workAnalysisUpdateLoss{
+		breakdown = append(breakdown, workAnalysisUpdateDecisions{
 			BookLabel: myBookDisplayTitle(item.Book),
 			Text:      strings.Join(decisions, " and "),
 		})
 	}
-	return losses
+	return breakdown
 }
 
 func workAnalysisUpdateURL(workKey string) string {

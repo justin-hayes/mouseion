@@ -175,7 +175,7 @@ func TestClassicalWorkAnalysisUpdateSkippedCurrentBookReturnsAfterEnd(t *testing
 	assert.Contains(t, body, "A newer analysis is available for 1 book shown here.")
 	assert.Contains(t, body, "Book 1: End the Reading first")
 	assert.Contains(t, body, "Update 1 book of Synthetic Work")
-	assert.Contains(t, body, "Together, the Books to be updated have 2 confirmed lemma corrections and 1 occurrence exclusion, which will not carry over to their new analyses.")
+	assert.Contains(t, body, "Together, the Books to be updated have 2 confirmed lemma corrections and 1 occurrence exclusion, which carry over wherever the word is unchanged in their new analyses.")
 	assert.Contains(t, body, "Synthetic Work, Book 2: 2 confirmed lemma corrections and 1 occurrence exclusion")
 	assert.Contains(t, body, `action="/library/works/synthetic-work/analysis-update"`)
 	assert.Equal(t, 1, strings.Count(body, `action="/library/works/synthetic-work/analysis-update"`), "one bulk action per Work row")
@@ -359,8 +359,19 @@ func TestClassicalWorkAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *t
 	require.NotEmpty(t, firstID)
 	require.NotEmpty(t, secondID)
 	oldRun := preparedRunID(t, pool, learner.ID, secondID)
+	// The seeded correction and exclusion sit on spans no token holds, so they
+	// cannot carry; the exclusion on a real Greek token does.
 	addLemmaDecisions(t, pool, learner.ID, secondID, oldRun, 1, 1)
-	_, err := store.PutKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
+	var corpusID, documentID string
+	var start, end int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT r.corpus_id::text, s.unit_id, t.start_offset, t.end_offset FROM analysis_runs r
+		JOIN corpus_sentences s ON s.owner_id=r.owner_id AND s.analysis_run_id=r.id
+		JOIN corpus_tokens t ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id AND t.sentence_ordinal=s.sentence_ordinal
+		WHERE r.owner_id=$1 AND r.id=$2 ORDER BY s.sentence_ordinal, t.token_ordinal LIMIT 1`, learner.ID, oldRun).Scan(&corpusID, &documentID, &start, &end))
+	_, err := pool.Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,excluded)
+		VALUES($1,$2,$3,$4,$5,$6,$7,true)`, learner.ID, secondID, corpusID, oldRun, documentID, start, end)
+	require.NoError(t, err)
+	_, err = store.PutKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	require.NoError(t, err)
 
 	// An interpretation-only change reuses the stored work file. The update
@@ -395,8 +406,15 @@ func TestClassicalWorkAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *t
 		`SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`,
 		learner.ID, secondID).Scan(&published))
 	assert.Equal(t, newRun, published, "the successful update publishes its new analysis")
-	assert.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, secondID, oldRun), "the earlier correction and exclusion stay frozen")
-	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, secondID, newRun), "a correction does not carry over")
+	assert.Equal(t, 3, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, secondID, oldRun), "the earlier decisions stay frozen")
+	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND excluded AND source_document_id=$4 AND start_offset=$5`, learner.ID, secondID, newRun, documentID, start),
+		"only the exclusion on the identical token carries onto the new analysis")
+	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM analysis_decision_carry_overs WHERE owner_id=$1 AND analysis_run_id=$2 AND carried=1 AND total=3`, learner.ID, newRun))
+	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM analysis_decision_carry_overs WHERE owner_id=$1 AND analysis_run_id=$2 AND carried=0 AND total=0`, learner.ID, preparedRunID(t, pool, learner.ID, firstID)),
+		"a Book with no decisions still records 0 of 0")
+	jobs := readingGet(t, h, "/jobs", cookies)
+	assert.Equal(t, 1, strings.Count(jobs, "1 of 3 decisions carried over"), "the publishing job's row reports the carry-over")
+	assert.NotContains(t, jobs, "0 of 0 decisions", "a row with no decisions shows no line")
 	known, err := store.IsKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB")
 	require.NoError(t, err)
 	assert.True(t, known, "Known vocabulary is unchanged by an Analysis update")

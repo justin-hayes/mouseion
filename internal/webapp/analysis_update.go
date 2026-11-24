@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -69,12 +70,35 @@ func applyBookCandidates[T any](books []domain.MyBook, candidates map[string]T, 
 	}
 }
 
-// analysisUpdateConfirmationText states what an Analysis update keeps and what
-// it does not carry over.
+// analysisUpdateConfirmationText states what an Analysis update keeps and
+// carries over (ADR 0126). A Classical target whose interpretation version has a
+// change note leads with it.
 func analysisUpdateConfirmationText(candidate domain.AnalysisUpdateCandidate) string {
-	return "The published analysis stays in effect until the update publishes. " +
-		analysisUpdateDecisionsText(candidate.LemmaCorrections, candidate.OccurrenceExclusions) +
-		" Prepared decks and earlier Readings keep the evidence they froze."
+	note, _ := analysisUpdateChangeNote(candidate.Target)
+	return analysisUpdateConfirmationLines(note, candidate.LemmaCorrections, candidate.OccurrenceExclusions)
+}
+
+// analysisUpdateConfirmationLines joins the optional change note and the three
+// lines every per-Book confirmation carries.
+func analysisUpdateConfirmationLines(note string, corrections, exclusions int) string {
+	lines := make([]string, 0, 4)
+	if note != "" {
+		lines = append(lines, note)
+	}
+	lines = append(lines,
+		"The published analysis stays in effect until the update publishes.",
+		analysisUpdateDecisionsText(corrections, exclusions),
+		"Prepared decks and earlier Readings keep the evidence they froze.")
+	return strings.Join(lines, " ")
+}
+
+// analysisUpdateChangeNote looks up the change note of a Classical target's
+// interpretation version. An NLP target never has one.
+func analysisUpdateChangeNote(target domain.AnalysisUpdateTarget) (string, bool) {
+	if target.AnalyzerName != analysis.ClassicalUpdateAnalyzerName {
+		return "", false
+	}
+	return classical.ChangeNote(target.AnalyzerVersion)
 }
 
 func analysisUpdateDecisionsText(corrections, exclusions int) string {
@@ -82,15 +106,15 @@ func analysisUpdateDecisionsText(corrections, exclusions int) string {
 	if len(decisions) == 0 {
 		return "You have no confirmed lemma corrections or occurrence exclusions on it."
 	}
-	verb := "do"
+	verb := "carry"
 	if corrections+exclusions == 1 {
-		verb = "does"
+		verb = "carries"
 	}
-	return "Your " + strings.Join(decisions, " and ") + " on it " + verb + " not carry over to the new analysis."
+	return "Your " + strings.Join(decisions, " and ") + " " + verb + " over wherever the word is unchanged in the new analysis."
 }
 
-// analysisUpdateDecisionParts names the confirmed decisions one analysis keeps
-// apart from a replacement. It is shared by the per-Book and per-Work
+// analysisUpdateDecisionParts names the confirmed decisions one analysis
+// holds, which carry over to a replacement. It is shared by the per-Book and per-Work
 // confirmations, which differ only in their surrounding sentence.
 func analysisUpdateDecisionParts(corrections, exclusions int) []string {
 	var decisions []string
