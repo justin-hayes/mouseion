@@ -536,12 +536,12 @@ func dedicatedProfileLanguage(language string) bool {
 }
 
 // sentenceStudyDisplayLemma names the learner-facing lemma for one analyzed
-// word, so a folded lemma key never reaches rendered text. An imported token
-// shows its citation headword; a confirmed correction shows the citation form
-// stored for its corrected key. Otherwise the effective lemma is shown with its
-// word-final sigma unfolded, which leaves every other key unchanged. The
-// boolean reports whether the value is a citation headword.
-func sentenceStudyDisplayLemma(token domain.SentenceStudyToken) (string, bool) {
+// word of a sentence in language, so a folded lemma key never reaches rendered
+// text. An imported token shows its citation headword; a confirmed correction
+// shows the citation form stored for its corrected key. Otherwise the effective
+// lemma is shown through sentenceStudyKeyDisplay. The boolean reports whether
+// the value is a citation headword.
+func sentenceStudyDisplayLemma(language string, token domain.SentenceStudyToken) (string, bool) {
 	headword := token.Headword
 	if token.Corrected {
 		headword = token.CorrectedHeadword
@@ -549,14 +549,24 @@ func sentenceStudyDisplayLemma(token domain.SentenceStudyToken) (string, bool) {
 	if headword != "" {
 		return headword, true
 	}
-	return canonicalization.AncientGreekDisplayForm(token.EffectiveLemma), false
+	return sentenceStudyKeyDisplay(language, token.EffectiveLemma), false
+}
+
+// sentenceStudyKeyDisplay is the learner-facing form of a lemma key with no
+// known citation form. A dedicated-profile language's key is folded, so its
+// word-final sigma is unfolded; any other language's key is shown unchanged.
+func sentenceStudyKeyDisplay(language, key string) string {
+	if dedicatedProfileLanguage(language) {
+		return canonicalization.AncientGreekDisplayForm(key)
+	}
+	return key
 }
 
 // sentenceStudyLemmaEvidence is the lemma part of one word's evidence line in
 // the complete text alternative: its separator, which names the kind of lemma,
 // and the learner-facing lemma itself.
-func sentenceStudyLemmaEvidence(token domain.SentenceStudyToken) (string, string) {
-	lemma, headword := sentenceStudyDisplayLemma(token)
+func sentenceStudyLemmaEvidence(language string, token domain.SentenceStudyToken) (string, string) {
+	lemma, headword := sentenceStudyDisplayLemma(language, token)
 	if headword {
 		return ", citation headword ", lemma
 	}

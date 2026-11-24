@@ -51,17 +51,17 @@ func TestSentenceStudyShowsACorrectedGreekLemmaAsACitationForm(t *testing.T) {
 		return response.Body.String()
 	}
 
+	// Each assertion reads the corrected δέω token's own evidence line, named
+	// by its analyzer lemma, so another word's headword cannot satisfy it.
 	t.Run("a stored citation form is shown for the corrected key", func(t *testing.T) {
 		body := studyOf(t, 0, 1)
-		require.Contains(t, body, "Corrected for this occurrence.")
-		require.Contains(t, body, "citation headword <code>λόγος</code>")
+		require.Contains(t, body, "analyzer lemma <code>δέω1</code>, citation headword <code>λόγος</code>; morphology")
 		require.NotContains(t, body, "λόγοσ")
 	})
 
 	t.Run("a key with no stored citation form has its final sigma unfolded", func(t *testing.T) {
 		body := studyOf(t, 1, 1)
-		require.Contains(t, body, "Corrected for this occurrence.")
-		require.Contains(t, body, "effective lemma <code>φίλος</code>")
+		require.Contains(t, body, "analyzer lemma <code>δέω2</code>, effective lemma <code>φίλος</code>; morphology")
 		require.NotContains(t, body, "φίλοσ")
 	})
 }

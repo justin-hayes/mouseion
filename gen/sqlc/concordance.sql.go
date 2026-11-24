@@ -286,28 +286,27 @@ SELECT d.start_offset::bigint AS start_offset,
            AND w.corpus_id=d.corpus_id AND ws.unit_id=d.source_document_id
            AND w.start_offset=d.start_offset AND w.end_offset=d.end_offset)::bigint AS addressed_words,
        -- A correction stores only the lemma key, so its citation form is the
-       -- headword of any analyzed word of the owner, in the run's language,
-       -- that carries the same key. Empty when none does, or for an exclusion.
+       -- headword of any analyzed word of the owner, in the sentence's
+       -- language, that carries the same key. Empty when none does, or for an
+       -- exclusion.
        COALESCE(
          (SELECT x.headword FROM corpus_tokens x
-           WHERE x.owner_id=d.owner_id
-             AND x.language=(SELECT y.language FROM corpus_tokens y
-                              WHERE y.owner_id=d.owner_id AND y.analysis_run_id=d.analysis_run_id
-                                AND y.corpus_id=d.corpus_id LIMIT 1)
+           WHERE x.owner_id=d.owner_id AND x.language=$1::text
              AND x.canonical_lemma=d.canonical_lemma
              AND x.headword IS NOT NULL AND x.headword <> ''
            ORDER BY x.headword LIMIT 1),
          '')::text AS headword
   FROM occurrence_lemma_corrections d
- WHERE d.owner_id=$1 AND d.book_id=$2
-   AND d.analysis_run_id=$3 AND d.corpus_id=$4
-   AND d.source_document_id=$5
-   AND d.start_offset >= $6::bigint
-   AND d.end_offset <= $7::bigint
+ WHERE d.owner_id=$2 AND d.book_id=$3
+   AND d.analysis_run_id=$4 AND d.corpus_id=$5
+   AND d.source_document_id=$6
+   AND d.start_offset >= $7::bigint
+   AND d.end_offset <= $8::bigint
  ORDER BY d.start_offset, d.end_offset
 `
 
 type GetSentenceStudyDecisionsParams struct {
+	Language      string
 	Owner         string
 	Book          string
 	AnalysisRun   string
@@ -334,6 +333,7 @@ type GetSentenceStudyDecisionsRow struct {
 // exactly one and the addressed word is in the selected sentence.
 func (q *Queries) GetSentenceStudyDecisions(ctx context.Context, arg GetSentenceStudyDecisionsParams) ([]GetSentenceStudyDecisionsRow, error) {
 	rows, err := q.db.Query(ctx, getSentenceStudyDecisions,
+		arg.Language,
 		arg.Owner,
 		arg.Book,
 		arg.AnalysisRun,
@@ -441,6 +441,7 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
        COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
        COALESCE(t.headword, '')::text AS headword,
+       COALESCE(t.language, '')::text AS language,
        ar.syntax_state,
        s.sentence_text,
        s.start_offset::bigint AS sentence_start_offset,
@@ -496,6 +497,7 @@ type GetVocabularySentenceStudyRow struct {
 	Morphology          []byte
 	CanonicalLemma      string
 	Headword            string
+	Language            string
 	SyntaxState         string
 	SentenceText        string
 	SentenceStartOffset int64
@@ -546,6 +548,7 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.Morphology,
 			&i.CanonicalLemma,
 			&i.Headword,
+			&i.Language,
 			&i.SyntaxState,
 			&i.SentenceText,
 			&i.SentenceStartOffset,

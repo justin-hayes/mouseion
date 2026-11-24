@@ -19,6 +19,7 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.morphology, '{}'::jsonb)::jsonb AS morphology,
        COALESCE(t.canonical_lemma, '')::text AS canonical_lemma,
        COALESCE(t.headword, '')::text AS headword,
+       COALESCE(t.language, '')::text AS language,
        ar.syntax_state,
        s.sentence_text,
        s.start_offset::bigint AS sentence_start_offset,
@@ -96,14 +97,12 @@ SELECT d.start_offset::bigint AS start_offset,
            AND w.corpus_id=d.corpus_id AND ws.unit_id=d.source_document_id
            AND w.start_offset=d.start_offset AND w.end_offset=d.end_offset)::bigint AS addressed_words,
        -- A correction stores only the lemma key, so its citation form is the
-       -- headword of any analyzed word of the owner, in the run's language,
-       -- that carries the same key. Empty when none does, or for an exclusion.
+       -- headword of any analyzed word of the owner, in the sentence's
+       -- language, that carries the same key. Empty when none does, or for an
+       -- exclusion.
        COALESCE(
          (SELECT x.headword FROM corpus_tokens x
-           WHERE x.owner_id=d.owner_id
-             AND x.language=(SELECT y.language FROM corpus_tokens y
-                              WHERE y.owner_id=d.owner_id AND y.analysis_run_id=d.analysis_run_id
-                                AND y.corpus_id=d.corpus_id LIMIT 1)
+           WHERE x.owner_id=d.owner_id AND x.language=sqlc.arg('language')::text
              AND x.canonical_lemma=d.canonical_lemma
              AND x.headword IS NOT NULL AND x.headword <> ''
            ORDER BY x.headword LIMIT 1),

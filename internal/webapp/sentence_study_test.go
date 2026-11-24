@@ -1093,47 +1093,58 @@ func TestSentenceStudyPageShowsSyntaxUnavailableAndTheCitationHeadword(t *testin
 	require.NotContains(t, body, "<code>δεω</code>")
 }
 
-// TestSentenceStudyModernEvidenceNeverShowsAFoldedKey holds that an ordinary
-// run's evidence line shows a corrected lemma by the same rule as an imported
-// run: a stored citation form when one is known, otherwise the key with its
-// final sigma unfolded.
-func TestSentenceStudyModernEvidenceNeverShowsAFoldedKey(t *testing.T) {
+// TestSentenceStudyOrdinaryRunEvidenceNeverShowsAFoldedGreekKey holds that the
+// evidence line of a run analyzed by the NLP service shows a corrected Ancient
+// Greek lemma by the same rule as an imported run.
+func TestSentenceStudyOrdinaryRunEvidenceNeverShowsAFoldedGreekKey(t *testing.T) {
 	stored := studyWord(0, 0, 5, "λόγον", "NOUN", nil)
 	stored.EffectiveLemma, stored.Corrected, stored.CorrectedHeadword = "λόγοσ", true, "λόγος"
 	unstored := studyWord(1, 6, 11, "φίλον", "ADJ", nil)
 	unstored.EffectiveLemma, unstored.Corrected = "φίλοσ", true
 	study := studySentence("λόγον φίλον", studyEnd("λόγον φίλον"), stored, unstored)
-
+	study.Language = "grc"
+	study.UnresolvedDecisions = []domain.SentenceStudyDecision{{StartOffset: 0, EndOffset: 5, CanonicalLemma: "λόγοσ", AddressedWords: 2}}
 	body := renderSentenceStudy(t, study)
-	require.Contains(t, body, `analyzer lemma <code>λόγον</code>, citation headword <code>λόγος</code>; morphology`)
-	require.Contains(t, body, `analyzer lemma <code>φίλον</code>, effective lemma <code>φίλος</code>; morphology`)
-	require.NotContains(t, body, "λόγοσ")
-	require.NotContains(t, body, "φίλοσ")
+
+	t.Run("a stored citation form is labelled as the citation headword", func(t *testing.T) {
+		require.Contains(t, body, `analyzer lemma <code>λόγον</code>, citation headword <code>λόγος</code>; morphology`)
+	})
+	t.Run("a key with no stored citation form has its final sigma unfolded", func(t *testing.T) {
+		require.Contains(t, body, `analyzer lemma <code>φίλον</code>, effective lemma <code>φίλος</code>; morphology`)
+	})
+	t.Run("an unresolved correction names its unfolded lemma", func(t *testing.T) {
+		require.Contains(t, body, "Unresolved lemma correction to λόγος at source offsets")
+	})
+	t.Run("no folded key is rendered", func(t *testing.T) {
+		require.NotContains(t, body, "λόγοσ")
+		require.NotContains(t, body, "φίλοσ")
+	})
 }
 
 func TestSentenceStudyDisplayLemmaPrefersTheCitationHeadword(t *testing.T) {
-	imported := domain.SentenceStudyToken{EffectiveLemma: "δεω", Headword: "δέω"}
-	lemma, headword := sentenceStudyDisplayLemma(imported)
-	assert.Equal(t, "δέω", lemma)
-	assert.True(t, headword)
-
-	corrected := domain.SentenceStudyToken{EffectiveLemma: "λόγοσ", Headword: "δέω", Corrected: true, CorrectedHeadword: "λόγος"}
-	lemma, headword = sentenceStudyDisplayLemma(corrected)
-	assert.Equal(t, "λόγος", lemma, "a correction shows the citation form stored for its key, not the original headword")
-	assert.True(t, headword)
-
-	unstored := domain.SentenceStudyToken{EffectiveLemma: "φίλοσ", Headword: "δέω", Corrected: true}
-	lemma, headword = sentenceStudyDisplayLemma(unstored)
-	assert.Equal(t, "φίλος", lemma, "a correction with no stored citation form unfolds its final sigma")
-	assert.False(t, headword)
-
-	modern := domain.SentenceStudyToken{EffectiveLemma: "haus"}
-	lemma, headword = sentenceStudyDisplayLemma(modern)
-	assert.Equal(t, "haus", lemma)
-	assert.False(t, headword)
-
-	modernCorrected := domain.SentenceStudyToken{EffectiveLemma: "heim", Corrected: true}
-	lemma, headword = sentenceStudyDisplayLemma(modernCorrected)
-	assert.Equal(t, "heim", lemma, "a modern-language correction is shown unchanged")
-	assert.False(t, headword)
+	for _, tc := range []struct {
+		name, language string
+		token          domain.SentenceStudyToken
+		lemma          string
+		headword       bool
+	}{
+		{name: "an imported token shows its citation headword", language: "grc",
+			token: domain.SentenceStudyToken{EffectiveLemma: "δεω", Headword: "δέω"}, lemma: "δέω", headword: true},
+		{name: "a correction shows the citation form stored for its key, not the original headword", language: "grc",
+			token: domain.SentenceStudyToken{EffectiveLemma: "λόγοσ", Headword: "δέω", Corrected: true, CorrectedHeadword: "λόγος"}, lemma: "λόγος", headword: true},
+		{name: "a Greek correction with no stored citation form unfolds its final sigma", language: "grc",
+			token: domain.SentenceStudyToken{EffectiveLemma: "φίλοσ", Headword: "δέω", Corrected: true}, lemma: "φίλος"},
+		{name: "a modern-language lemma is shown unchanged", language: "de",
+			token: domain.SentenceStudyToken{EffectiveLemma: "haus"}, lemma: "haus"},
+		{name: "a modern-language correction is shown unchanged", language: "de",
+			token: domain.SentenceStudyToken{EffectiveLemma: "heim", Corrected: true}, lemma: "heim"},
+		{name: "a language without a dedicated profile keeps its key as stored", language: "el",
+			token: domain.SentenceStudyToken{EffectiveLemma: "λόγοσ", Corrected: true}, lemma: "λόγοσ"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lemma, headword := sentenceStudyDisplayLemma(tc.language, tc.token)
+			require.Equal(t, tc.lemma, lemma)
+			require.Equal(t, tc.headword, headword)
+		})
+	}
 }

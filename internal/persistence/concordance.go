@@ -394,6 +394,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		if row.TokenOrdinal < 0 {
 			continue // A sentence may be valid source text with no syntax tokens.
 		}
+		study.Language = row.Language
 		morphology := make(map[string]string)
 		if len(row.Morphology) > 0 {
 			if err := json.Unmarshal(row.Morphology, &morphology); err != nil {
@@ -418,6 +419,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 	decisions, err := s.queries().GetSentenceStudyDecisions(ctx, sqlcgen.GetSentenceStudyDecisionsParams{
 		Owner: owner, Book: book, AnalysisRun: run, Corpus: corpus, UnitID: unit,
 		SentenceStart: first.SentenceStartOffset, SentenceEnd: first.SentenceEndOffset,
+		Language: study.Language,
 	})
 	if err != nil {
 		return domain.SentenceStudy{}, err

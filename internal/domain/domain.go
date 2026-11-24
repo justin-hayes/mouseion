@@ -661,7 +661,11 @@ type SentenceStudy struct {
 	AnalysisRunID                                 string
 	BookID, BookTitle, ChapterTitle, SentenceText string
 	TargetSurface                                 string
-	SentenceOrdinal, TargetOrdinal                int64
+	// Language is the language tag of the sentence's analyzed words, empty when
+	// the sentence has none. A learner-facing view unfolds a lemma key's sigma
+	// only for a dedicated-profile language.
+	Language                       string
+	SentenceOrdinal, TargetOrdinal int64
 	// UnitText is the immutable extracted source text bound to the analysis's
 	// snapshot (source_material_units.text). SentenceStartOffset and
 	// SentenceEndOffset are half-open Unicode code-point offsets into it, so a
