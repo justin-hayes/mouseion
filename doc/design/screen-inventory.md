@@ -69,7 +69,7 @@ or plan is exposed.
 
 The between-Books chooser is shipped at `GET /reading`: when there is no current
 Book, it presents the active language's To Read candidates in neutral title
-order, groups a Work's multiple To Read Books into one band-table entry, and
+order, lists one ordinary entry per To Read Book, and
 separates candidates with incomplete evidence. It does not recommend or rank
 the next Book.
 
