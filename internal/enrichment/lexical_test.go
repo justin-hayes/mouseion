@@ -214,3 +214,17 @@ func TestOrderSensesGreekOrderingIsUnchangedByAGDTLabels(t *testing.T) {
 	assert.Equal(t, want, got)
 	assert.Equal(t, "first", got[0].Gloss, "an AGDT label never lifts a sense")
 }
+
+func TestOrderSensesGreekUDRunStillUsesTheRelation(t *testing.T) {
+	tokens := []analyzer.Token{
+		{Surface: "λέγει", CanonicalLemma: "λέγω", UPOS: "VERB", Dependency: "root"},
+		{Surface: "Κῦρος", CanonicalLemma: "κῦρος", UPOS: "PROPN", Dependency: "nsubj"},
+	}
+	senses := []LexicalSense{{Gloss: "first"}, {Gloss: "relation-only", Topics: []string{"root", "nsubj"}}}
+
+	ud := OrderSenses(LexicalLookupRequest{Language: "grc", TargetWord: "λέγει", SentenceTokens: tokens, SyntaxState: "ud"}, senses)
+	native := OrderSenses(LexicalLookupRequest{Language: "grc", TargetWord: "λέγει", SentenceTokens: tokens, SyntaxState: "native_agdt"}, senses)
+
+	assert.Equal(t, "relation-only", ud[0].Gloss, "a Stanza grc run is ud, so its relations are context")
+	assert.Equal(t, "first", native[0].Gloss)
+}

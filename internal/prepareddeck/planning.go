@@ -151,7 +151,7 @@ func candidateProjections(preparation domain.DeckPreparation, deckName string, s
 			Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences,
 			RequireContextualGloss: false,
 			ReferenceTranslations:  fact.ReferenceTranslations, ReferencePin: fact.ReferencePin,
-			Structure: structure, SourceUnits: sourceUnits,
+			Structure: structure, SourceUnits: sourceUnits, SyntaxState: fact.SyntaxState,
 		})
 	}
 	return projections
