@@ -60,7 +60,7 @@ func TestConditional(t *testing.T) {
 			tree: build(w{"ὡς", "AuxC", 3, ""}, w{"εἰ", "AuxC", 3, ""}, w{"ἔχω", "ADV", 1, indic}, main)},
 		{name: "head is ὥσπερ", id: Conditional, hit: false,
 			tree: build(w{"ὥσπερ", "AuxC", 3, ""}, w{"εἰ", "AuxC", 0, ""}, w{"ἔχω", "ADV", 1, indic}, main)},
-		{name: "unprinted head prevents checking the as-if exclusion", id: Conditional,
+		{name: "unprinted head does not trigger the as-if exclusion", id: Conditional, hit: true, anchor: 0, extent: []int{0, 1},
 			tree: build(w{"εἰ", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, indic}, w{"", "PRED", -1, ""})},
 		{name: "no clause child", id: Conditional, hit: false,
 			tree: build(w{"εἰ", "AuxC", 1, ""}, main)},
@@ -154,6 +154,8 @@ func TestGenitiveAbsolute(t *testing.T) {
 			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, gen}, w{"ἀκούω", "PRED", -1, indic})},
 		{name: "perception head through COORD", id: GenitiveAbsolute, hit: false,
 			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, gen}, w{"καί", "COORD", 3, ""}, w{"πυνθάνομαι", "PRED", -1, indic})},
+		{name: "unprinted head does not trigger the perception exclusion", id: GenitiveAbsolute, hit: true, anchor: 1, extent: []int{0, 1},
+			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, gen}, w{"", "PRED", -1, ""})},
 		{name: "no genitive subject", id: GenitiveAbsolute, hit: false,
 			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Nom"}, w{"δύω", "ADV", 2, gen}, w{"λέγω", "PRED", -1, indic})},
 		{name: "unprinted subject", id: GenitiveAbsolute, hit: false,
@@ -262,12 +264,6 @@ func TestUnprintedCoordinatorFailsClosed(t *testing.T) {
 		{name: "participle head only through an unprinted COORD", id: GenitiveAbsolute, hit: false,
 			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, "VerbForm=Part,Case=Gen"}, w{"", "COORD", 3, ""}, say)},
 	})
-}
-
-func TestGenitiveAbsoluteCannotCheckUnprintedGovernor(t *testing.T) {
-	tree := build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, "VerbForm=Part,Case=Gen"}, w{"", "PRED", -1, ""})
-	_, ok := has(DetectUngated(tree), GenitiveAbsolute)
-	require.False(t, ok)
 }
 
 func TestResultKeepsAPrintedVerbOfUnknownMood(t *testing.T) {

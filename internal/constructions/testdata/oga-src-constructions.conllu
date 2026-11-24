@@ -115,3 +115,10 @@
 3	καὶ	καί	c	c--------	_	2	COORD	_	t_16_3|0|ref=Xen. Anab._1.1.16
 4	[0]	[0]	-	---------	_	3	COORD	_	e_16_4|0|ref=Xen. Anab._1.1.16
 5	Κῦρος	κῦρος	n	n-s---mn-	_	4	SBJ	_	t_16_5|0|ref=Xen. Anab._1.1.16
+
+# source = Xenophon, Xen. Anab._1.1.17
+# text = ἡλίου δύοντος
+# sent_id = 17
+1	ἡλίου	ἥλιος	n	n-s---mg-	_	2	SBJ	_	t_17_1|0|ref=Xen. Anab._1.1.17
+2	δύοντος	δύω	v	v-sppamg-	_	3	ADV	_	t_17_2|0|ref=Xen. Anab._1.1.17
+3	[0]	[0]	-	---------	_	0	PRED	_	e_17_3|0|ref=Xen. Anab._1.1.17

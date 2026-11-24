@@ -29,7 +29,8 @@ type reader struct{ t syntax.Tree }
 
 func (r reader) node(i int) syntax.Node { return r.t.Nodes[i] }
 
-// lemma is the source lemma without a homograph number; empty when unprinted.
+// lemma is the source lemma without a homograph number. An unprinted node
+// has no lemma and cannot match either a required lemma or a lexical exclusion.
 func (r reader) lemma(i int) string {
 	n := r.node(i)
 	if !n.Printed {
@@ -146,7 +147,7 @@ func detectConditional(r reader, n int) (SubtypeID, bool) {
 	if previous := r.t.PreviousPrinted(n); previous != syntax.Root && likeLemmas[r.lemma(previous)] {
 		return "", false
 	}
-	if head := r.node(n).Head; head != syntax.Root && (!r.node(head).Printed || likeLemmas[r.lemma(head)]) {
+	if head := r.node(n).Head; head != syntax.Root && likeLemmas[r.lemma(head)] {
 		return "", false
 	}
 	return "", true
@@ -227,7 +228,7 @@ func detectGenitiveAbsolute(r reader, n int) (SubtypeID, bool) {
 		return "", false
 	}
 	head, ok := r.head(n)
-	if !ok || (head != syntax.Root && (!r.node(head).Printed || perceivingVerbs[r.lemma(head)])) {
+	if !ok || (head != syntax.Root && perceivingVerbs[r.lemma(head)]) {
 		return "", false
 	}
 	return "", true

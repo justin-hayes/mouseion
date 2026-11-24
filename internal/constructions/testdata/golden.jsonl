@@ -10,3 +10,4 @@
 {"sentence":11,"construction":"articular_infinitive","subtype":"","anchor":2,"extent":[0,2]}
 {"sentence":12,"construction":"result","subtype":"","anchor":1,"extent":[1,2]}
 {"sentence":14,"construction":"result","subtype":"natural","anchor":1,"extent":[1,2,3,4]}
+{"sentence":16,"construction":"genitive_absolute","subtype":"","anchor":1,"extent":[0,1]}
