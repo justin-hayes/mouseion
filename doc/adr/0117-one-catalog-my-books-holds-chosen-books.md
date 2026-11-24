@@ -6,6 +6,8 @@ Amended 2026-11-21 by [issue #2505](https://github.com/justin-hayes/mouseion/iss
 
 Amended 2026-11-22 by [ADR 0121](0121-book-preparation-status-vocabulary-and-durable-epub-acquisition.md): the deferred alternative "Acquire the EPUB in a durable job" is adopted, so "Acquisition still runs in the request" no longer holds, and the EPUB acquisition failure becomes one kind of Book preparation failure.
 
+Amended 2026-11-24 by [ADR 0128](0128-a-classical-book-is-a-whole-work.md): a classical Work is one Book per Edition, so Adding a Work queues one preparation, **I've read this** is offered once per Edition rather than per Reading unit, and the grouped Work row's **Remove the work** is retired in favour of the ordinary Remove.
+
 Amends [ADR 0035](0035-my-books-membership-and-source-provenance.md),
 [ADR 0041](0041-catalog-sync-metadata-first.md),
 [ADR 0047](0047-acquisition-folded-into-analysis.md),

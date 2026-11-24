@@ -341,19 +341,14 @@ interpretation version with the current definition; a curatorial or
 translation-pin change alone gives no offer. It is not stale evidence: the
 published analysis stays in effect until the update publishes, and the update
 never rewrites earlier analyses, Lemma corrections, current-reading snapshots
-or prepared decks. A grouped Work row or chooser entry carries one notice and
-one bulk action covering the eligible To Read Books that surface shows; it
-names and skips
-the current Reading's Book and confirms the Work's corrections and exclusions
-once. Lemma corrections and Occurrence exclusions on unchanged words carry
-over; the earlier analysis keeps its own.
+or prepared decks. Lemma corrections and Occurrence exclusions on unchanged
+words carry over; the earlier analysis keeps its own.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
 
 **Vocabulary coverage band**:
 A neutral label of a trustworthy analyzed To Read Book by current
 analyzable-token coverage: at least 99%, at least 97% but below 99%, at least
-95% but below 97%, or below 95%. A grouped Work entry puts its constituent Book
-numbers in band rows. Coverage counts analyzable tokens by effective
+95% but below 97%, or below 95%. Coverage counts analyzable tokens by effective
 vocabulary identity, so confirmed Lemma corrections apply, and excluded
 occurrences remain in the analyzable-token total. It reads the Book's Browse
 count projection, the same per-Book counts My Books uses, and shows Updating
@@ -489,8 +484,9 @@ when their text overlaps or their identifiers appear to agree.
 _Avoid_: Work, annotation release.
 
 **Reading unit**:
-The defined extent of one Edition that a Book represents: a whole work, a
-constituent book, or a bounded passage. Its extent is stable across source
+The defined extent of one Edition that a Book represents. For a Work divided
+into Constituent books it is the whole Work in that Edition; a learner never
+holds a Book for one constituent book. Its extent is stable across source
 revisions and is not defined by whichever annotation fragments are available.
 A sentence belongs to the Reading unit that holds its first word, so each
 sentence of an Edition belongs to exactly one of its Reading units.
@@ -507,8 +503,9 @@ _Avoid_: incipit, first line, excerpt, preview.
 **Constituent book**:
 A Work's conventional top-level division that its citation scheme names a book,
 such as Anabasis 1–7 or Iliad 1–24. It is not a chapter, a page, or a line, even
-when one of those is the first citation level. It is unrelated to a learner's
-Book.
+when one of those is the first citation level. It is a division inside a
+learner's Book, located by citation, and never a Book or a Reading unit of its
+own: a learner owns, studies and decks the whole Work, not one of its books.
 _Avoid_: Book (the learner-owned identity), volume, chapter.
 
 **Citation**:
@@ -650,11 +647,10 @@ _Avoid_: library queue, reading plan.
 
 **Reading**:
 The active-language workflow for the current Book or, between Books, a neutral
-title-ordered chooser of trustworthy To Read candidates. A Work's multiple To
-Read Books form one entry whose band table names constituent Book numbers, each
-opening that Book's ordinary entry inline. A constituent Book's "Book N of M"
-position comes from the reviewed definition; a whole-work unit has none. It
-maintains no learner-authored order or automatic next Book.
+title-ordered chooser of trustworthy To Read candidates, one entry per Book. A
+classical Book is a whole Work in one Edition, so it is read, finished and
+chosen as one unit; its Constituent books are locations within it, never
+chooser entries. It maintains no learner-authored order.
 _Avoid_: Reading Journey, Primary Goal, reading queue.
 
 **Inbox** (retired):
