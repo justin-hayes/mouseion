@@ -808,3 +808,40 @@ func TestGetVocabularySentenceStudyReadsUnprintedSyntax(t *testing.T) {
 		assert.Equal(t, []domain.UnprintedSyntaxNode{{SourceID: "e_1", Dependency: "OBJ", HeadTokenOrdinal: 2, HasHeadToken: true}}, study.UnprintedNodes)
 	})
 }
+
+// TestConcordanceAndSentenceStudyCarryTheSentenceCitations holds the Citation
+// source for a classical occurrence's location: the sentence's stored
+// citations reach both the Concordance result and the Sentence study, and a
+// sentence with none (every modern-language sentence) carries none.
+func TestConcordanceAndSentenceStudyCarryTheSentenceCitations(t *testing.T) {
+	ctx := context.Background()
+	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
+	owner, err := store.CreateUser(ctx, "concordance-citations", false)
+	require.NoError(t, err)
+
+	book, source := createConcordanceBook(t, ctx, store, owner.ID, "Cited Book", "cited", false, []domain.ExtractedUnit{
+		concordanceUnit(0, "chapter", "Das Haus. Ein Haus.", 0, 19),
+	})
+	insertConcordanceAnalysis(t, ctx, store, source, true, []concordanceSentence{
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 0, Text: "Das Haus.", Start: 0, End: 9, Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "obj", Start: 4, End: 8},
+		}},
+		{UnitID: "epub-unit-v1:0:chapter", Ordinal: 1, Text: "Ein Haus.", Start: 10, End: 19, Tokens: []concordanceToken{
+			{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Dependency: "obj", Start: 14, End: 18},
+		}},
+	})
+	corpusID := corpusIDForSource(t, ctx, store, owner.ID, source.ID)
+	_, err = store.Pool().Exec(ctx, `UPDATE corpus_sentences SET citations=ARRAY['3.2.1','3.2.2'] WHERE owner_id=$1 AND corpus_id=$2 AND sentence_ordinal=0`, owner.ID, corpusID)
+	require.NoError(t, err)
+
+	result, err := store.ListVocabularyConcordance(ctx, owner.ID, "de", domain.ConcordanceLookup{Term: "Haus", Page: 1})
+	require.NoError(t, err)
+	require.Len(t, result.Occurrences, 2)
+	assert.Equal(t, []string{"3.2.1", "3.2.2"}, result.Occurrences[0].Citations)
+	assert.Empty(t, result.Occurrences[1].Citations)
+
+	first := result.Occurrences[0]
+	study, err := store.GetVocabularySentenceStudy(ctx, owner.ID, book.ID, first.AnalysisRunID, first.CorpusID, first.UnitID, 0, 0, "Haus")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"3.2.1", "3.2.2"}, study.Citations)
+}

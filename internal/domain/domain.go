@@ -497,6 +497,9 @@ type ConcordanceOccurrence struct {
 	SourceMaterialID, AnalysisRunID, CorpusID string
 	UnitID, ChapterTitle                      string
 	UnitOrder, SentenceOrdinal, TokenOrdinal  int64
+	// Citations are the sentence's stored citations, empty for a
+	// modern-language sentence.
+	Citations []string
 }
 
 // Concordance lookup interpretations. A lemma lookup expands every observed
@@ -661,6 +664,9 @@ type SentenceStudy struct {
 	AnalysisRunID                                 string
 	BookID, BookTitle, ChapterTitle, SentenceText string
 	TargetSurface                                 string
+	// Citations are the sentence's stored citations, empty for a
+	// modern-language sentence.
+	Citations []string
 	// Language is the language tag of the sentence's analyzed words, empty when
 	// the sentence has none. A learner-facing view unfolds a lemma key's sigma
 	// only for a dedicated-profile language.
