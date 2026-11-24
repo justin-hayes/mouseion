@@ -426,9 +426,10 @@ overflow.
   Work's Opening is set whole in the reading typeface at the page-title size on
   wide screens and the section-title size on compact screens. Its length strip
   shares one page-wide word scale and is hidden from assistive technology,
-  because the caption, books table and ownership line state the same facts.
-  Edition, passage, translation, ownership and Add sit in a margin note, and
-  **Choose books** is a native disclosure. Add creates or restores the Book as
+  because the caption and ownership line state the same facts.
+  Edition, passage, translation, ownership and Add sit in a margin note; the
+  work page adds one I've read this per Edition and a read-only contents list.
+  Add creates or restores the Book as
   To Read and starts downloading and preparing the text; its control and
   confirmation say so. The author-detail page is retired: its URL permanently
   redirects to that author's index section. The index uses existing tokens and

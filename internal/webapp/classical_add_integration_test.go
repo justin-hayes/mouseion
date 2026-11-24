@@ -112,7 +112,7 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBooks(t *testing.T) {
 
 	work := perform(t, h, "GET", "/catalogs/classical/works/homer-iliad", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
-	for _, want := range []string{"Add and prepare the whole work", `action="/catalogs/classical/works/homer-iliad/add"`, `action="/catalogs/classical/units/homer-iliad-1/add"`} {
+	for _, want := range []string{"Add and prepare the work", `action="/catalogs/classical/units/homer-iliad-1/add"`} {
 		assert.Contains(t, work.Body.String(), want)
 	}
 	assert.NotContains(t, work.Body.String(), `href="/catalogs/classical/books/`, "an unowned unit has no In My Books link")
@@ -426,4 +426,47 @@ func TestClassicalCatalogAuthorIndexIsNotScopedToTheStudyLanguage(t *testing.T) 
 	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code)
 	assert.Contains(t, index.Body.String(), "Homer")
+}
+
+func TestClassicalCatalogWholeWorkAddIgnoresWithdrawnPerBookBooks(t *testing.T) {
+	ctx, store, pool, h, _ := classicalAddHarness(t)
+	learner := createAccount(t, ctx, store, "classical-add-withdrawn-books", "learner-password")
+
+	one, two := 1, 2
+	perBook := func(book *int, key string, withdrawn bool) classical.Definition {
+		start, end := "1.327", "1.354"
+		if *book == 2 {
+			start, end = "2.357", "2.383"
+		}
+		return catalogFixtureDefinition(key, "plato-republic", "Republic", "Plato", "Πολιτεία", "plato-republic-burnet-1905", start, end, book, 2, 9000, withdrawn, false)
+	}
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{perBook(&one, "plato-republic-1", false), perBook(&two, "plato-republic-2", false)}))
+	_, err := store.AddClassicalReadingUnits(ctx, learner.ID, []string{"plato-republic-1"})
+	require.NoError(t, err)
+
+	whole := catalogFixtureWholeWorkWithBooks()
+	definitions := []classical.Definition{whole, perBook(&one, "plato-republic-1", true), perBook(&two, "plato-republic-2", true)}
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, definitions))
+	catalog, err := classical.NewCatalog(definitions)
+	require.NoError(t, err)
+	h.services.Classical = catalog
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+
+	page := perform(t, h, "GET", "/catalogs/classical/works/plato-republic", nil, cookies)
+	require.Equal(t, http.StatusOK, page.Code)
+	assert.Contains(t, page.Body.String(), `action="/catalogs/classical/units/plato-republic/add"`, "owning only withdrawn per-book Books leaves the whole Work addable")
+	assert.NotContains(t, page.Body.String(), "In My Books")
+	assert.NotContains(t, page.Body.String(), "plato-republic-1")
+
+	added := perform(t, h, "POST", "/catalogs/classical/units/plato-republic/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusSeeOther, added.Code)
+	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
+	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "one Classical preparation covers the whole Work")
+
+	refused := perform(t, h, "POST", "/catalogs/classical/units/plato-republic-2/add", url.Values{"csrf_token": {csrf}}, cookies)
+	require.Equal(t, http.StatusNotFound, refused.Code, "a withdrawn per-book definition is hidden from the Catalog")
+
+	owned := perform(t, h, "GET", "/catalogs/classical/works/plato-republic", nil, cookies)
+	assert.Contains(t, owned.Body.String(), "In My Books")
+	assert.NotContains(t, owned.Body.String(), `action="/catalogs/classical/units/plato-republic/add"`)
 }

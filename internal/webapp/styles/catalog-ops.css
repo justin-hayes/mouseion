@@ -305,58 +305,6 @@
   font-weight: 600;
 }
 
-.classical-books {
-  margin-top: var(--mouseion-space-3);
-}
-
-.classical-books > summary {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  color: var(--mouseion-color-accent);
-  font-size: var(--mouseion-font-size-metadata);
-  font-weight: 550;
-  cursor: pointer;
-}
-
-.classical-books__table {
-  width: 100%;
-  max-width: 34rem;
-  border-collapse: collapse;
-  font-size: var(--mouseion-font-size-metadata);
-}
-
-.classical-books__table th,
-.classical-books__table td {
-  border-bottom: 1px solid var(--mouseion-color-border);
-  padding: var(--mouseion-space-1) var(--mouseion-space-2) var(--mouseion-space-1) 0;
-  font-weight: 400;
-  text-align: left;
-  overflow-wrap: anywhere;
-}
-
-.classical-books__table tbody :is(th, td) {
-  height: 44px;
-}
-
-.classical-books__table thead th {
-  color: var(--mouseion-color-text-muted);
-}
-
-.classical-books__number {
-  text-align: right;
-}
-
-.classical-books__action {
-  padding-right: 0;
-  text-align: right;
-}
-
-.classical-books__action .button {
-  padding-inline: var(--mouseion-space-3);
-}
-
-.classical-books__action a,
 .classical-work-entry__owned a {
   display: inline-flex;
   min-height: 44px;

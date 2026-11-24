@@ -52,22 +52,23 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 // catalogFixtureWholeWorkWithBooks builds a translated whole-work unit that
 // lists two constituent books, as the shipped Anabasis does for seven.
 func catalogFixtureWholeWorkWithBooks() classical.Definition {
-	definition := catalogFixtureDefinition("xenophon-anabasis", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
-		"xenophon-anabasis-marchant-1904", "1.1.1", "2.10.19", nil, 2, 16008, false, true)
+	definition := catalogFixtureDefinition("plato-republic", "plato-republic", "Republic", "Plato", "Πολιτεία",
+		"plato-republic-burnet-1905", "1.327", "2.383", nil, 2, 18316, false, true)
 	definition.Contents = []classical.ConstituentBookSpan{
-		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 9305},
-		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.10.19", WordCount: 6703},
+		{Book: 1, CitationStart: "1.327", CitationEnd: "1.354", WordCount: 9553},
+		{Book: 2, CitationStart: "2.357", CitationEnd: "2.383", WordCount: 8763},
 	}
 	return definition
 }
 
-// catalogFixtureDefinitions builds a small release: a translated whole-work
-// unit with constituent books, a whole-work passage, a two-unit work without a
-// translation and a withdrawn tombstone.
+// catalogFixtureDefinitions builds a small release: a translated constituent
+// book, a whole-work passage, a two-book work without a translation and a
+// withdrawn tombstone.
 func catalogFixtureDefinitions() []classical.Definition {
 	one, two := 1, 2
 	return []classical.Definition{
-		catalogFixtureWholeWorkWithBooks(),
+		catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
+			"xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, false, true),
 		catalogFixtureDefinition("xenophon-hellenica-1", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
 			"xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
 		catalogFixtureDefinition("homer-iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς",
@@ -239,7 +240,9 @@ func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
 
 func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
-		services.Classical = catalogFixture(t)
+		catalog, err := classical.NewCatalog(append(catalogFixtureDefinitions(), catalogFixtureWholeWorkWithBooks()))
+		require.NoError(t, err)
+		services.Classical = catalog
 	})
 	require.NoError(t, store.SetActiveStudyLanguage(t.Context(), fixtures.OwnerID, "de"))
 
@@ -247,7 +250,7 @@ func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
 	// the study language.
 	index := catalogPage(t, h, cookies, "/catalogs/classical")
 	require.Equal(t, http.StatusOK, index.Code)
-	for _, want := range []string{"Xenophon", "Homer", "Anabasis", "Hellenica", "Iliad", `href="/catalogs/classical/works/xenophon-anabasis"`} {
+	for _, want := range []string{"Xenophon", "Homer", "Anabasis", "Hellenica", "Iliad", "Republic", `href="/catalogs/classical/works/xenophon-anabasis"`} {
 		assert.Contains(t, index.Body.String(), want, "author index missing %q", want)
 	}
 	assert.NotContains(t, index.Body.String(), "Cyropaedia")
@@ -257,19 +260,19 @@ func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
 	require.Equal(t, http.StatusMovedPermanently, retired.Code)
 	assert.Equal(t, "/catalogs/classical#author-Xenophon", retired.Header().Get("Location"))
 
-	work := catalogPage(t, h, cookies, "/catalogs/classical/works/xenophon-anabasis")
+	work := catalogPage(t, h, cookies, "/catalogs/classical/works/plato-republic")
 	require.Equal(t, http.StatusOK, work.Code)
 	for _, want := range []string{
-		"<th>Book</th>", "<th>Passage</th>", "<th>Words</th>", "Book 1", "Book 2", "1.1.1–1.10.19", "2.1.1–2.10.19", "9305", "6703",
-		"Add and prepare the work", `action="/catalogs/classical/units/xenophon-anabasis/add"`,
-		"I've read this", `action="/catalogs/classical/units/xenophon-anabasis/previously-read"`,
-		`href="/catalogs/classical#author-Xenophon"`,
+		"<th>Book</th>", "<th>Passage</th>", "<th>Words</th>", "Book 1", "Book 2", "1.327–1.354", "2.357–2.383", "9553", "8763",
+		"Add and prepare the work", `action="/catalogs/classical/units/plato-republic/add"`,
+		"I've read this", `action="/catalogs/classical/units/plato-republic/previously-read"`,
+		`href="/catalogs/classical#author-Plato"`,
 	} {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
 	}
 	assert.Equal(t, 1, strings.Count(work.Body.String(), "Add and prepare the work"), "one Add per Edition")
-	assert.Equal(t, 1, strings.Count(work.Body.String(), `action="/catalogs/classical/units/xenophon-anabasis/previously-read"`), "one I've read this per Edition")
-	for _, absent := range []string{"Choose books", "remaining books", "xenophon-anabasis-1"} {
+	assert.Equal(t, 1, strings.Count(work.Body.String(), `action="/catalogs/classical/units/plato-republic/previously-read"`), "one I've read this per Edition")
+	for _, absent := range []string{"Choose books", "remaining books", "plato-republic-1"} {
 		assert.NotContains(t, work.Body.String(), absent)
 	}
 	assert.NotContains(t, work.Body.String(), "/catalogs/classical/authors/", "the work breadcrumb leads to the index section")
