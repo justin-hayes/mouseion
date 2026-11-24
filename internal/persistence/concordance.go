@@ -378,7 +378,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		TargetSurface: targetSurface,
 		// SyntaxState carries the run's recorded syntax state. An imported run
 		// records native_agdt or absent; consumers show "Syntax unavailable"
-		// for either and never the stored non-committal skeleton.
+		// for absent, and never the stored non-committal skeleton.
 		SyntaxState: first.SyntaxState,
 		Tokens:      make([]domain.SentenceStudyToken, 0, len(rows))}
 	structure, err := LoadSnapshotStructure(ctx, s.pool, owner, first.SourceMaterialID, first.SnapshotID)
@@ -405,8 +405,14 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 			Dependency: row.Dependency, HeadSurface: row.HeadSurface,
 			Ordinal: row.TokenOrdinal, HeadOrdinal: row.Head,
 			StartOffset: row.StartOffset, EndOffset: row.EndOffset,
-			Headword:   row.Headword,
-			Morphology: morphology})
+			Headword:          row.Headword,
+			HeadUnprintedNode: row.HeadUnprintedNode,
+			Morphology:        morphology})
+	}
+	if study.SyntaxState == "native_agdt" {
+		if study.UnprintedNodes, err = s.sentenceStudyUnprintedNodes(ctx, owner, run, corpus, sentence); err != nil {
+			return domain.SentenceStudy{}, err
+		}
 	}
 	decisions, err := s.queries().GetSentenceStudyDecisions(ctx, sqlcgen.GetSentenceStudyDecisionsParams{
 		Owner: owner, Book: book, AnalysisRun: run, Corpus: corpus, UnitID: unit,
@@ -472,4 +478,24 @@ func concordanceOccurrenceFromFields(
 		ChapterTitle: chapterTitle, UnitOrder: unitOrder, SentenceOrdinal: sentenceOrdinal,
 		TokenOrdinal: tokenOrdinal,
 	}
+}
+
+// sentenceStudyUnprintedNodes reads the Unprinted syntax nodes of one sentence
+// of a native_agdt run.
+func (s *PostgresStore) sentenceStudyUnprintedNodes(ctx context.Context, owner, run, corpus string, sentence int64) ([]domain.UnprintedSyntaxNode, error) {
+	rows, err := s.queries().GetSentenceStudyUnprintedNodes(ctx, sqlcgen.GetSentenceStudyUnprintedNodesParams{
+		Owner: owner, AnalysisRun: run, Corpus: corpus, SentenceOrdinal: sentence,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var nodes []domain.UnprintedSyntaxNode
+	for _, row := range rows {
+		nodes = append(nodes, domain.UnprintedSyntaxNode{
+			SourceID: row.SourceID, Dependency: row.Dependency,
+			HeadTokenOrdinal: row.HeadTokenOrdinal.Int64, HasHeadToken: row.HeadTokenOrdinal.Valid,
+			HeadUnprintedNode: row.HeadUnprintedNode,
+		})
+	}
+	return nodes, nil
 }

@@ -182,6 +182,63 @@ func (q *Queries) GetSentenceStudyDecisions(ctx context.Context, arg GetSentence
 	return items, nil
 }
 
+const getSentenceStudyUnprintedNodes = `-- name: GetSentenceStudyUnprintedNodes :many
+SELECT n.source_id,
+       n.dependency,
+       n.head_token_ordinal,
+       COALESCE(n.head_unprinted_node, '')::text AS head_unprinted_node
+  FROM corpus_unprinted_syntax_nodes n
+ WHERE n.owner_id=$1 AND n.analysis_run_id=$2
+   AND n.corpus_id=$3 AND n.sentence_ordinal=$4
+ ORDER BY n.source_id
+`
+
+type GetSentenceStudyUnprintedNodesParams struct {
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+}
+
+type GetSentenceStudyUnprintedNodesRow struct {
+	SourceID          string
+	Dependency        string
+	HeadTokenOrdinal  pgtype.Int8
+	HeadUnprintedNode string
+}
+
+// The Unprinted syntax nodes of one sentence of a native_agdt run. A run of any
+// other syntax state stores none, and the caller does not ask.
+func (q *Queries) GetSentenceStudyUnprintedNodes(ctx context.Context, arg GetSentenceStudyUnprintedNodesParams) ([]GetSentenceStudyUnprintedNodesRow, error) {
+	rows, err := q.db.Query(ctx, getSentenceStudyUnprintedNodes,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetSentenceStudyUnprintedNodesRow{}
+	for rows.Next() {
+		var i GetSentenceStudyUnprintedNodesRow
+		if err := rows.Scan(
+			&i.SourceID,
+			&i.Dependency,
+			&i.HeadTokenOrdinal,
+			&i.HeadUnprintedNode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getVocabularySentenceStudy = `-- name: GetVocabularySentenceStudy :many
 
 SELECT COALESCE(t.surface, '')::text AS surface,
@@ -189,7 +246,10 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.upos, '')::text AS upos,
        COALESCE(t.dependency, '')::text AS dependency,
        COALESCE(t.head, 0)::bigint AS head,
-       COALESCE(h.surface, '')::text AS head_surface,
+       -- A token headed by an unprinted node is self-headed, so the join below
+       -- would return the token itself. Its head_surface is empty instead.
+       CASE WHEN t.head_unprinted_node IS NULL THEN COALESCE(h.surface, '') ELSE '' END::text AS head_surface,
+       COALESCE(t.head_unprinted_node, '')::text AS head_unprinted_node,
        COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
        COALESCE(t.start_offset, -1)::bigint AS start_offset,
        COALESCE(t.end_offset, -1)::bigint AS end_offset,
@@ -244,6 +304,7 @@ type GetVocabularySentenceStudyRow struct {
 	Dependency          string
 	Head                int64
 	HeadSurface         string
+	HeadUnprintedNode   string
 	TokenOrdinal        int64
 	StartOffset         int64
 	EndOffset           int64
@@ -293,6 +354,7 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.Dependency,
 			&i.Head,
 			&i.HeadSurface,
+			&i.HeadUnprintedNode,
 			&i.TokenOrdinal,
 			&i.StartOffset,
 			&i.EndOffset,

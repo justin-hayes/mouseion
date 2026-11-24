@@ -609,6 +609,9 @@ type SentenceStudy struct {
 	// when the snapshot recorded no structure or no label precedes the span.
 	Attribution SourceAttribution
 	Tokens      []SentenceStudyToken
+	// UnprintedNodes are the sentence's Unprinted syntax nodes, read only for a
+	// native_agdt run. They have no form, lemma or occurrence.
+	UnprintedNodes []UnprintedSyntaxNode
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.
@@ -633,6 +636,23 @@ type SentenceStudyToken struct {
 	// Corrected and Excluded report an occurrence decision attributed to this
 	// word because the decision addresses exactly this persisted word.
 	Corrected, Excluded bool
+	// HeadUnprintedNode is the source id of the Unprinted syntax node this word
+	// depends on, or empty. When set, HeadOrdinal is the word's own ordinal and
+	// HeadSurface is meaningless: a reader checks this first.
+	HeadUnprintedNode string
+}
+
+// UnprintedSyntaxNode is one stored AGDT ellipsis node of a sentence: a node
+// of the syntax tree with no printed word.
+type UnprintedSyntaxNode struct {
+	SourceID, Dependency string
+	// HeadTokenOrdinal is the printed word it depends on; HasHeadToken is false
+	// when it depends on no printed word.
+	HeadTokenOrdinal int64
+	HasHeadToken     bool
+	// HeadUnprintedNode is the source id of the unprinted node it depends on, or
+	// empty. With no head of either kind the node is a root.
+	HeadUnprintedNode string
 }
 
 // SentenceStudyDecision is one stored occurrence decision addressing a sentence
