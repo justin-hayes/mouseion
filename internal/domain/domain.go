@@ -555,6 +555,12 @@ type ConcordanceLookup struct {
 	// Origin is the occurrence a construction lookup came from; it is required
 	// for the construction match and unused otherwise.
 	Origin *ConcordanceConstructionOrigin
+	// Lemma narrows a construction lookup to parallels whose anchor's effective
+	// lemma is this lemma key ("Only with {lemma}"). Empty means no filter.
+	Lemma string
+	// OriginLemma is the origin anchor's effective lemma, carried so the page can
+	// offer the filter. It never affects which rows match.
+	OriginLemma string
 }
 
 // ConcordancePriorityNone captures that no Book was being read when the
@@ -595,6 +601,17 @@ type ConcordanceResult struct {
 	InvalidOrigin bool
 	// Origin is the validated origin of a construction lookup.
 	Origin ConcordanceConstructionOriginSentence
+	// UnsearchedBooks are the owner's chosen-language Books in the lookup
+	// language whose current analysis has no construction evidence, by title.
+	UnsearchedBooks []ConcordanceUnsearchedBook
+}
+
+// ConcordanceUnsearchedBook is a Book a parallels lookup could not search. A
+// Book whose syntax is merely rebuilding is never one.
+type ConcordanceUnsearchedBook struct {
+	BookID, Title string
+	// UpdateAvailable reports an Analysis update offer for the Book.
+	UpdateAvailable bool
 }
 
 // ConcordanceConstructionOriginSentence is the validated origin of a parallels
@@ -603,6 +620,9 @@ type ConcordanceResult struct {
 type ConcordanceConstructionOriginSentence struct {
 	BookID, BookTitle, CorpusID, UnitID, AnchorSurface string
 	WorkTitle, Author                                  string
+	// AnchorLemma is the anchor word's effective lemma key, read from storage,
+	// and AnchorHeadword its citation form (empty when none is known).
+	AnchorLemma, AnchorHeadword string
 	// Current reports that the origin run is still the Book's current
 	// analysis, so Sentence study can reopen its sentence.
 	Current bool

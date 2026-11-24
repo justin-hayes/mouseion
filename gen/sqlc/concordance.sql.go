@@ -108,6 +108,17 @@ SELECT sm.book_id::text AS book_id,
        r.corpus_id::text AS corpus_id,
        s.unit_id,
        t.surface AS anchor_surface,
+       COALESCE(d.canonical_lemma, t.canonical_lemma)::text AS anchor_lemma,
+       -- The citation form of the effective lemma: the anchor's own headword
+       -- unless a correction replaced the lemma, else the headword of any
+       -- analyzed word of the owner that carries the same lemma key.
+       COALESCE(
+         CASE WHEN d.canonical_lemma IS NULL THEN NULLIF(t.headword, '') END,
+         (SELECT x.headword FROM corpus_tokens x
+           WHERE x.owner_id = r.owner_id AND x.language = t.language
+             AND x.canonical_lemma = COALESCE(d.canonical_lemma, t.canonical_lemma) AND x.headword IS NOT NULL AND x.headword <> ''
+           ORDER BY x.headword LIMIT 1),
+         '')::text AS anchor_headword,
        w.id::text AS work_id,
        w.title AS work_title,
        w.author AS author,
@@ -122,6 +133,9 @@ SELECT sm.book_id::text AS book_id,
   JOIN corpus_tokens t ON t.owner_id = s.owner_id AND t.analysis_run_id = s.analysis_run_id
        AND t.corpus_id = s.corpus_id AND t.sentence_ordinal = s.sentence_ordinal
        AND t.token_ordinal = $3::bigint
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = r.owner_id AND d.book_id = sm.book_id
+       AND d.corpus_id = r.corpus_id AND d.analysis_run_id = r.id AND d.source_document_id = s.unit_id
+       AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset AND NOT d.excluded
   JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
   JOIN reading_units ru ON ru.id = bru.reading_unit_id
   JOIN editions e ON e.id = ru.edition_id
@@ -141,15 +155,17 @@ type GetConstructionOriginParams struct {
 }
 
 type GetConstructionOriginRow struct {
-	BookID        string
-	BookTitle     string
-	CorpusID      string
-	UnitID        string
-	AnchorSurface string
-	WorkID        string
-	WorkTitle     string
-	Author        string
-	Current       bool
+	BookID         string
+	BookTitle      string
+	CorpusID       string
+	UnitID         string
+	AnchorSurface  string
+	AnchorLemma    string
+	AnchorHeadword string
+	WorkID         string
+	WorkTitle      string
+	Author         string
+	Current        bool
 }
 
 // The origin occurrence of a construction lookup (ADR 0125): the owner's run
@@ -177,6 +193,8 @@ func (q *Queries) GetConstructionOrigin(ctx context.Context, arg GetConstruction
 		&i.CorpusID,
 		&i.UnitID,
 		&i.AnchorSurface,
+		&i.AnchorLemma,
+		&i.AnchorHeadword,
 		&i.WorkID,
 		&i.WorkTitle,
 		&i.Author,
@@ -569,19 +587,32 @@ current AS MATERIALIZED (
     JOIN corpus_sentences s ON s.analysis_run_id = c.analysis_run_id
       AND s.sentence_ordinal = c.sentence_ordinal
       AND s.owner_id = c.owner_id AND s.corpus_id = c.corpus_id
+   WHERE $9::text = ''
+      OR EXISTS (
+        SELECT 1
+          FROM corpus_tokens a
+          LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = c.owner_id
+            AND d.book_id = e.book_id AND d.corpus_id = c.corpus_id
+            AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = s.unit_id
+            AND d.start_offset = a.start_offset AND d.end_offset = a.end_offset
+         WHERE a.analysis_run_id = c.analysis_run_id AND a.sentence_ordinal = c.sentence_ordinal
+           AND a.token_ordinal = c.anchor_token_ordinal
+           AND a.owner_id = c.owner_id AND a.corpus_id = c.corpus_id
+           AND NOT COALESCE(d.excluded, false)
+           AND COALESCE(d.canonical_lemma, a.canonical_lemma) = $9::text)
 ),
 ranked AS MATERIALIZED (
   SELECT c.analysis_run_id, c.corpus_id, c.sentence_ordinal, c.anchor_token_ordinal,
          c.construction_id, c.subtype_id, c.extent_token_ordinals,
          c.book_id, c.source_material_id, c.snapshot_id, c.book_title,
          c.unit_id, u.unit_order,
-         CASE WHEN c.book_id = $9::uuid THEN 'this_book'
-              WHEN c.author = $10::text THEN 'this_author'
+         CASE WHEN c.book_id = $10::uuid THEN 'this_book'
+              WHEN c.author = $11::text THEN 'this_author'
               ELSE 'other_authors' END AS tier,
          ROW_NUMBER() OVER (ORDER BY
-           (CASE WHEN c.book_id = $9::uuid THEN 0
-                 WHEN c.author = $10::text THEN 1 ELSE 2 END),
-           (CASE WHEN c.work_id = $11::uuid THEN 0 ELSE 1 END),
+           (CASE WHEN c.book_id = $10::uuid THEN 0
+                 WHEN c.author = $11::text THEN 1 ELSE 2 END),
+           (CASE WHEN c.work_id = $12::uuid THEN 0 ELSE 1 END),
            c.author, c.work_title, c.work_id::text,
            c.constituent_book NULLS FIRST, c.definition_key, c.book_id::text,
            u.unit_order, c.sentence_ordinal, c.anchor_token_ordinal) AS position
@@ -592,7 +623,7 @@ ranked AS MATERIALIZED (
    ORDER BY position
    -- The caller starts one row early on later pages and reads one row past the
    -- page: the first row decides "continued", the last decides "next".
-   LIMIT 27 OFFSET $12::bigint
+   LIMIT 27 OFFSET $13::bigint
 )
 SELECT r.tier::text AS tier,
        r.construction_id,
@@ -645,6 +676,7 @@ type ListConstructionConcordanceParams struct {
 	OriginSentence  int64
 	OriginAnchor    int64
 	DetectorVersion int
+	Lemma           string
 	OriginBook      string
 	OriginAuthor    string
 	OriginWork      string
@@ -699,7 +731,10 @@ type ListConstructionConcordanceRow struct {
 //
 // Eligibility matches the word lookups' (owner, chosen language, current
 // analysis identity, and the unit in the snapshot). Corrections and exclusions
-// are deliberately not read: detection ignores them.
+// are not read, unless the learner asks for "Only with {lemma}": then the
+// anchor's effective lemma (a correction's lemma, else the token's) must equal
+// the lemma key, and an anchor with an exclusion is dropped. Without a lemma
+// the decisions are never touched: detection ignores them.
 // Tiers: this_book is the origin Book, this_author is every Book whose Work's
 // author equals the origin Work's author exactly, other_authors the rest.
 // Order: this_author lists the origin Work first; then author, Work title,
@@ -715,6 +750,7 @@ func (q *Queries) ListConstructionConcordance(ctx context.Context, arg ListConst
 		arg.OriginSentence,
 		arg.OriginAnchor,
 		arg.DetectorVersion,
+		arg.Lemma,
 		arg.OriginBook,
 		arg.OriginAuthor,
 		arg.OriginWork,
@@ -814,6 +850,50 @@ func (q *Queries) ListConstructionSentenceWords(ctx context.Context, arg ListCon
 			&i.StartOffset,
 			&i.EndOffset,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConstructionUnsearchedBooks = `-- name: ListConstructionUnsearchedBooks :many
+SELECT b.id::text AS book_id, b.title
+  FROM current_analysis_identity ca
+  JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+    AND b.language_state = 'chosen' AND b.language_tag = $1::text
+  JOIN analysis_runs r ON r.owner_id = ca.owner_id AND r.id = ca.analysis_run_id
+ WHERE ca.owner_id = $2::uuid AND r.syntax_state <> 'native_agdt'
+ ORDER BY lower(b.title), b.title, b.id::text
+`
+
+type ListConstructionUnsearchedBooksParams struct {
+	Language string
+	Owner    string
+}
+
+type ListConstructionUnsearchedBooksRow struct {
+	BookID string
+	Title  string
+}
+
+// The owner's chosen-language Books in the lookup language whose current
+// analysis has no construction evidence: an absent run (an older Greek import)
+// or a Stanza-path run. A native_agdt run is never listed, even when its marker
+// is behind: that is a rebuild, and it stays silent.
+func (q *Queries) ListConstructionUnsearchedBooks(ctx context.Context, arg ListConstructionUnsearchedBooksParams) ([]ListConstructionUnsearchedBooksRow, error) {
+	rows, err := q.db.Query(ctx, listConstructionUnsearchedBooks, arg.Language, arg.Owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConstructionUnsearchedBooksRow{}
+	for rows.Next() {
+		var i ListConstructionUnsearchedBooksRow
+		if err := rows.Scan(&i.BookID, &i.Title); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

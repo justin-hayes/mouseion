@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -75,11 +76,71 @@ func concordanceTierGroups(occurrences []domain.ConcordanceResultOccurrence) []c
 }
 
 // concordanceWidenURL drops the subtype filter, keeping the construction, the
-// origin Book and the origin occurrence.
+// origin Book, the origin occurrence and any lemma filter.
 func concordanceWidenURL(lookup domain.ConcordanceLookup) string {
 	lookup.Subtype, lookup.Revision = "", ""
 	return vocabularyConcordancePageURL(1, lookup)
 }
+
+// concordanceOnlyWithURL narrows the lookup to parallels signalled by the
+// origin anchor's lemma.
+func concordanceOnlyWithURL(lookup domain.ConcordanceLookup) string {
+	lookup.Lemma, lookup.Revision = lookup.OriginLemma, ""
+	return vocabularyConcordancePageURL(1, lookup)
+}
+
+// concordanceAllLemmasURL clears the lemma filter, keeping the rest of the
+// lookup.
+func concordanceAllLemmasURL(lookup domain.ConcordanceLookup) string {
+	lookup.Lemma, lookup.Revision = "", ""
+	return vocabularyConcordancePageURL(1, lookup)
+}
+
+// concordanceLemmaDisplay is the lemma a learner sees for a lemma key of the
+// parallels page: the citation form when the key is the origin anchor's own
+// effective lemma and a citation form is known, otherwise the key with its
+// word-final sigma unfolded.
+func concordanceLemmaDisplay(result domain.ConcordanceResult, key string) string {
+	if key != "" && key == result.Origin.AnchorLemma && result.Origin.AnchorHeadword != "" {
+		return result.Origin.AnchorHeadword
+	}
+	// No citation form is stored for the key (a correction stores only the key),
+	// so unfold its sigma rather than show the folded key.
+	return canonicalization.AncientGreekDisplayForm(key)
+}
+
+// concordanceOnlyWithLabel is the lemma filter's accessible name.
+func concordanceOnlyWithLabel(lemma string) string {
+	return "Only with " + lemma + ": parallels signalled by this lemma"
+}
+
+// concordanceAllLemmasLabel is the accessible name of the link that clears the
+// lemma filter.
+func concordanceAllLemmasLabel(lookup domain.ConcordanceLookup) string {
+	return "All " + concordanceConstructionHeading(lookup) + ": clear the lemma filter"
+}
+
+// concordanceUnsearchedPrefix opens the line that names the Books a parallels
+// lookup could not search.
+const concordanceUnsearchedPrefix = "Not searched for constructions: "
+
+// concordanceUnsearchedTail is the text after one unsearched Book's title: the
+// update suffix when it has an offer, and the comma and space that separate it from the
+// next Book. It is built here so no space can fall before the comma.
+func concordanceUnsearchedTail(book domain.ConcordanceUnsearchedBook, last bool) string {
+	tail := ""
+	if book.UpdateAvailable {
+		tail = concordanceUnsearchedSuffix
+	}
+	if !last {
+		tail += ", "
+	}
+	return tail
+}
+
+// concordanceUnsearchedSuffix follows the title of a Book with an Analysis
+// update offer.
+const concordanceUnsearchedSuffix = " — Analysis update available"
 
 // concordanceOriginStudyURL reopens Sentence study on the origin sentence, with
 // the origin construction focused.

@@ -481,8 +481,14 @@ body.vocabulary-shell .sentence-study-construction-from {
 }
 
 body.vocabulary-shell .sentence-study-construction-parallels,
-body.vocabulary-shell .concordance-parallels-nav {
+body.vocabulary-shell .concordance-parallels-nav,
+body.vocabulary-shell .concordance-unsearched {
   font-size: var(--mouseion-font-size-metadata);
+}
+
+/* The Books a parallels lookup could not search: one quiet line. */
+body.vocabulary-shell .concordance-unsearched {
+  color: var(--mouseion-color-text-muted);
 }
 
 body.vocabulary-shell .sentence-study-construction-parallels a {

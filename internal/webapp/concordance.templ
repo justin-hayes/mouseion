@@ -47,6 +47,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 						<p class="concordance-results-summary">{ concordanceResultsSummary(result) }</p>
 						if concordanceConstruction(lookup) {
 							@concordanceParallelsNav(lookup, result, origin)
+							@concordanceUnsearchedBooksLine(result.UnsearchedBooks)
 						}
 						if concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) {
 							<p id="concordance-focus-missing" role="status">The sentence you came from is no longer on this page of results. Nothing else was substituted; these are the current results for the same lookup.</p>
@@ -428,8 +429,9 @@ templ sentenceStudyConstructionNoteView(entry sentenceStudyConstructionEntry) {
 }
 
 // concordanceParallelsNav is the header of a parallels page: the way back to the
-// origin sentence and, for a subtype lookup, the way to widen to the whole
-// construction.
+// origin sentence, for a subtype lookup the way to widen to the whole
+// construction, and the lemma filter: "Only with {lemma}" to apply it, or the
+// applied filter with the way to clear it.
 templ concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.ConcordanceResult, origin browseOrigin) {
 	<p class="concordance-parallels-nav">
 		if result.Origin.Current {
@@ -438,7 +440,33 @@ templ concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.Con
 		if lookup.Subtype != "" {
 			{ " · " }<a id="concordance-parallels-widen" href={ templ.SafeURL(origin.Apply(concordanceWidenURL(lookup))) }>All { concordanceConstructionName(lookup) }</a>
 		}
+		if lookup.Lemma != "" {
+			if result.Origin.Current || lookup.Subtype != "" {
+				{ " · " }
+			}
+			<span id="concordance-parallels-lemma">Only with <em>{ concordanceLemmaDisplay(result, lookup.Lemma) }</em></span>
+			{ " · " }<a id="concordance-parallels-all-lemmas" href={ templ.SafeURL(origin.Apply(concordanceAllLemmasURL(lookup))) } aria-label={ concordanceAllLemmasLabel(lookup) }>All { concordanceConstructionHeading(lookup) }</a>
+		} else if lookup.OriginLemma != "" {
+			if result.Origin.Current || lookup.Subtype != "" {
+				{ " · " }
+			}
+			<a id="concordance-parallels-only-with" href={ templ.SafeURL(origin.Apply(concordanceOnlyWithURL(lookup))) } aria-label={ concordanceOnlyWithLabel(concordanceLemmaDisplay(result, lookup.OriginLemma)) }>Only with <em>{ concordanceLemmaDisplay(result, lookup.OriginLemma) }</em></a>
+		}
 	</p>
+}
+
+// concordanceUnsearchedBooksLine names, once, the Books a parallels lookup
+// could not search, each in italics, with a note on those that have an Analysis
+// update offer. It is absent when every Book is searchable.
+templ concordanceUnsearchedBooksLine(books []domain.ConcordanceUnsearchedBook) {
+	if len(books) > 0 {
+		<p id="concordance-unsearched" class="concordance-unsearched">
+			{ concordanceUnsearchedPrefix }
+			for i, book := range books {
+				<span><em>{ book.Title }</em>{ concordanceUnsearchedTail(book, i == len(books)-1) }</span>
+			}
+		</p>
+	}
 }
 
 templ sentenceStudyExtractPartView(part sentenceStudyExtractPart) {

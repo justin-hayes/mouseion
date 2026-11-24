@@ -150,8 +150,20 @@ func (e sentenceStudyConstructionEntry) parallelsLabel() string {
 func (e sentenceStudyConstructionEntry) parallelsURL(study domain.SentenceStudy) string {
 	return vocabularyConcordancePageURL(1, domain.ConcordanceLookup{
 		Term: e.ID, Match: domain.ConcordanceMatchConstruction, Subtype: e.SubtypeID, Priority: study.BookID,
-		Origin: &domain.ConcordanceConstructionOrigin{RunID: study.AnalysisRunID, Sentence: int(study.SentenceOrdinal), Anchor: int(e.anchor)},
+		OriginLemma: e.anchorLemma(study),
+		Origin:      &domain.ConcordanceConstructionOrigin{RunID: study.AnalysisRunID, Sentence: int(study.SentenceOrdinal), Anchor: int(e.anchor)},
 	})
+}
+
+// anchorLemma is the anchor word's effective lemma, so Parallels can offer
+// "Only with {lemma}". It is empty when the anchor is not an analyzed word.
+func (e sentenceStudyConstructionEntry) anchorLemma(study domain.SentenceStudy) string {
+	for _, token := range study.Tokens {
+		if token.Ordinal == e.anchor {
+			return token.EffectiveLemma
+		}
+	}
+	return ""
 }
 
 // targetSuffix is the target phrase set after "Signalled by …." with its

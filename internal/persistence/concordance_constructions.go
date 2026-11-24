@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
@@ -30,7 +31,16 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 		result.InvalidOrigin = true
 		return result, nil
 	}
-	revision, err := constructionConcordanceRevision(ctx, tx, owner, language)
+	lemma, err := constructionLemmaKey(language, lookup.Lemma)
+	if err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	result.PriorityBookID, result.PriorityTitle = origin.row.BookID, origin.row.BookTitle
+	result.Origin = domain.ConcordanceConstructionOriginSentence{
+		BookID: origin.row.BookID, BookTitle: origin.row.BookTitle, CorpusID: origin.row.CorpusID, UnitID: origin.row.UnitID,
+		AnchorSurface: origin.row.AnchorSurface, AnchorLemma: origin.row.AnchorLemma, AnchorHeadword: origin.row.AnchorHeadword, WorkTitle: origin.row.WorkTitle, Author: origin.row.Author, Current: origin.row.Current,
+	}
+	revision, err := constructionConcordanceRevision(ctx, tx, owner, language, lemma != "")
 	if err != nil {
 		return domain.ConcordanceResult{}, err
 	}
@@ -39,16 +49,14 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 		result.Stale = true
 		return result, nil
 	}
-	result.PriorityBookID, result.PriorityTitle = origin.row.BookID, origin.row.BookTitle
-	result.Origin = domain.ConcordanceConstructionOriginSentence{
-		BookID: origin.row.BookID, BookTitle: origin.row.BookTitle, CorpusID: origin.row.CorpusID, UnitID: origin.row.UnitID,
-		AnchorSurface: origin.row.AnchorSurface, WorkTitle: origin.row.WorkTitle, Author: origin.row.Author, Current: origin.row.Current,
-	}
 	const maxPage = int((1<<31-1)/concordanceConstructionPageSize + 1)
 	if lookup.Page > maxPage {
 		return result, tx.Commit(ctx)
 	}
-	rows, err := loadConstructionRows(ctx, queries, owner, language, lookup, origin)
+	if result.UnsearchedBooks, err = loadConstructionUnsearchedBooks(ctx, queries, owner, language); err != nil {
+		return domain.ConcordanceResult{}, err
+	}
+	rows, err := loadConstructionRows(ctx, queries, owner, language, lookup, lemma, origin)
 	if err != nil {
 		return domain.ConcordanceResult{}, err
 	}
@@ -61,6 +69,31 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 		result.Occurrences = append(result.Occurrences, occurrence)
 	}
 	return result, tx.Commit(ctx)
+}
+
+// constructionLemmaKey normalises the "Only with {lemma}" filter with the
+// language's lemma key, as a lemma lookup does, so it equals a stored effective
+// lemma. An empty filter is empty.
+func constructionLemmaKey(language, lemma string) (string, error) {
+	if strings.TrimSpace(lemma) == "" {
+		return "", nil
+	}
+	key, _, err := concordanceTerms(language, lemma)
+	return key, err
+}
+
+// loadConstructionUnsearchedBooks lists the Books whose current analysis has no
+// construction evidence, by title.
+func loadConstructionUnsearchedBooks(ctx context.Context, queries *sqlcgen.Queries, owner, language string) ([]domain.ConcordanceUnsearchedBook, error) {
+	rows, err := queries.ListConstructionUnsearchedBooks(ctx, sqlcgen.ListConstructionUnsearchedBooksParams{Owner: owner, Language: language})
+	if err != nil {
+		return nil, err
+	}
+	var books []domain.ConcordanceUnsearchedBook
+	for _, row := range rows {
+		books = append(books, domain.ConcordanceUnsearchedBook{BookID: row.BookID, Title: row.Title})
+	}
+	return books, nil
 }
 
 // constructionOrigin is a validated origin with the identities the query needs.
@@ -93,7 +126,7 @@ func loadConstructionOrigin(ctx context.Context, queries *sqlcgen.Queries, owner
 
 // loadConstructionRows fetches the page. Later pages start one row early so the
 // preceding row can say whether the first Book group continues.
-func loadConstructionRows(ctx context.Context, queries *sqlcgen.Queries, owner, language string, lookup domain.ConcordanceLookup, origin constructionOrigin) ([]sqlcgen.ListConstructionConcordanceRow, error) {
+func loadConstructionRows(ctx context.Context, queries *sqlcgen.Queries, owner, language string, lookup domain.ConcordanceLookup, lemma string, origin constructionOrigin) ([]sqlcgen.ListConstructionConcordanceRow, error) {
 	offset := (int64(lookup.Page) - 1) * concordanceConstructionPageSize
 	if lookup.Page > 1 {
 		offset--
@@ -101,8 +134,8 @@ func loadConstructionRows(ctx context.Context, queries *sqlcgen.Queries, owner, 
 	return queries.ListConstructionConcordance(ctx, sqlcgen.ListConstructionConcordanceParams{
 		Owner: owner, Language: language, Construction: lookup.Term, Subtype: lookup.Subtype,
 		OriginRun: lookup.Origin.RunID, OriginSentence: int64(lookup.Origin.Sentence), OriginAnchor: int64(lookup.Origin.Anchor),
-		DetectorVersion: constructions.AGDTDetectorVersion,
-		OriginBook:      origin.row.BookID, OriginAuthor: origin.row.Author, OriginWork: origin.row.WorkID,
+		DetectorVersion: constructions.AGDTDetectorVersion, Lemma: lemma,
+		OriginBook: origin.row.BookID, OriginAuthor: origin.row.Author, OriginWork: origin.row.WorkID,
 		Offset: offset,
 	})
 }
@@ -169,9 +202,9 @@ func constructionOccurrence(ctx context.Context, queries *sqlcgen.Queries, owner
 // from: the current analyses of the owner's study-language Books, each one's
 // readiness marker (its detector version and when it was built), and the
 // detector version the page reads. A rebuild or a version bump between two page
-// requests changes it. Lemma corrections and exclusions are not part of it, as
-// detection ignores them.
-func constructionConcordanceRevision(ctx context.Context, tx pgx.Tx, owner, language string) (string, error) {
+// requests changes it. Lemma corrections and exclusions are part of it only under
+// the lemma filter, which reads them; otherwise detection ignores them.
+func constructionConcordanceRevision(ctx context.Context, tx pgx.Tx, owner, language string, withDecisions bool) (string, error) {
 	var revision string
 	err := tx.QueryRow(ctx, `
 		SELECT md5(
@@ -181,6 +214,15 @@ func constructionConcordanceRevision(ctx context.Context, tx pgx.Tx, owner, lang
 		    JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
 		    LEFT JOIN construction_run_markers m ON m.owner_id=ca.owner_id AND m.analysis_run_id=ca.analysis_run_id
 		    WHERE ca.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2), '[]')
-		  || '|construction|' || $3::text)`, owner, language, strconv.Itoa(constructions.AGDTDetectorVersion)).Scan(&revision)
+		  || '|construction|' || $3::text
+		  || CASE WHEN $4::boolean THEN '|' || COALESCE((SELECT jsonb_agg(jsonb_build_array(d.book_id, d.corpus_id, d.analysis_run_id,
+		        d.source_document_id, d.start_offset, d.end_offset, d.canonical_lemma, d.excluded)
+		        ORDER BY d.book_id, d.corpus_id, d.analysis_run_id, d.source_document_id, d.start_offset, d.end_offset)::text
+		    FROM occurrence_lemma_corrections d
+		    JOIN current_analysis_identity ca ON ca.owner_id=d.owner_id AND ca.book_id=d.book_id
+		      AND ca.analysis_run_id=d.analysis_run_id AND ca.corpus_id=d.corpus_id
+		    JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
+		    WHERE d.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2), '[]') ELSE '' END)`,
+		owner, language, strconv.Itoa(constructions.AGDTDetectorVersion), withDecisions).Scan(&revision)
 	return revision, err
 }

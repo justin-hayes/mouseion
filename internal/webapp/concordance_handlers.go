@@ -10,8 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"golang.org/x/text/unicode/norm"
 )
 
 // concordanceNoticeTermRequired and the other notices below are the learner
@@ -70,6 +72,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		h.renderConcordanceFailure(w, r, concordanceResultErrorStatus(err, queryCtx), u, language, lookup, origin, false)
 		return
 	}
+	lookup = trustedOriginLemma(lookup, result)
 	if result.Stale {
 		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, origin, true)
 		return
@@ -80,9 +83,34 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	lookup = concordanceAppliedLookup(lookup, result)
+	h.markUnsearchedBookUpdates(queryCtx, u.ID, &result)
 	// A parallels page is anchored to its origin Book, not to the reading.
 	readingChanged := lookup.Match != domain.ConcordanceMatchConstruction && lookup.Priority != currentPriority
 	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", request.focusTarget, origin))
+}
+
+// markUnsearchedBookUpdates flags each unsearched Book that has an Analysis
+// update offer under the existing rule. A failed read leaves the Books named
+// without the suffix: the line is a hint, never a reason to fail the page.
+func (h *Handler) markUnsearchedBookUpdates(ctx context.Context, owner string, result *domain.ConcordanceResult) {
+	if len(result.UnsearchedBooks) == 0 {
+		return
+	}
+	books, err := h.services.Store.Reading.ListMyBooksWithEvidence(ctx, owner)
+	if err != nil {
+		log.Printf("mouseion: read Analysis update offers for Concordance: %v", err)
+		return
+	}
+	h.annotateAnalysisUpdates(ctx, owner, books)
+	offered := make(map[string]bool, len(books))
+	for _, book := range books {
+		if offer, _ := myBookAnalysisUpdate(book); offer != domain.AnalysisUpdateNone {
+			offered[book.Book.ID] = true
+		}
+	}
+	for i := range result.UnsearchedBooks {
+		result.UnsearchedBooks[i].UpdateAvailable = result.UnsearchedBooks[i].UpdateAvailable || offered[result.UnsearchedBooks[i].BookID]
+	}
 }
 
 // concordanceRequestRejection reports the client-visible rejection a Concordance
@@ -197,6 +225,8 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 	if request.lookup.Match == domain.ConcordanceMatchConstruction {
 		request.lookup.Subtype = strings.TrimSpace(query.Get("subtype"))
 		request.lookup.Origin = parseConstructionOrigin(query)
+		request.lookup.Lemma = constructionLemmaKey(query.Get("lemma"))
+		request.lookup.OriginLemma = strings.TrimSpace(query.Get("from_lemma"))
 	}
 	if raw := query.Get("page"); raw != "" {
 		if page, err := strconv.Atoi(raw); err == nil && page > 0 {
@@ -206,6 +236,31 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 		}
 	}
 	return request
+}
+
+// trustedOriginLemma sets the offered lemma of a parallels lookup to the origin
+// anchor's, read from storage: the URL's from_lemma is only a hint and is never
+// trusted.
+func trustedOriginLemma(lookup domain.ConcordanceLookup, result domain.ConcordanceResult) domain.ConcordanceLookup {
+	if lookup.Match == domain.ConcordanceMatchConstruction && !result.InvalidOrigin {
+		lookup.OriginLemma = result.Origin.AnchorLemma
+	}
+	return lookup
+}
+
+// constructionLemmaKey normalises the lemma filter to its lemma key once, at
+// parsing, so every generated URL carries the key. Parallels exist only for the
+// one construction language; a value its profile cannot read stays as typed.
+func constructionLemmaKey(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	profile, err := canonicalization.For(domain.ConcordanceConstructionLanguage)
+	if err != nil {
+		return raw
+	}
+	return profile.Canonical(norm.NFC.String(raw))
 }
 
 // constructionRunPattern is the canonical text form of an analysis run identity.
@@ -337,7 +392,7 @@ func safeConcordanceReturnKeys(values url.Values) bool {
 	for key := range values {
 		switch key {
 		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
-		case "subtype", "from_run", "from_sentence", "from_anchor":
+		case "subtype", "from_run", "from_sentence", "from_anchor", "lemma", "from_lemma":
 			if values.Get("as") != domain.ConcordanceMatchConstruction {
 				return false
 			}
@@ -381,6 +436,12 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	if lookup.Match == domain.ConcordanceMatchConstruction {
 		if lookup.Subtype != "" {
 			values.Set("subtype", lookup.Subtype)
+		}
+		if lookup.Lemma != "" {
+			values.Set("lemma", lookup.Lemma)
+		}
+		if lookup.OriginLemma != "" {
+			values.Set("from_lemma", lookup.OriginLemma)
 		}
 		if origin := lookup.Origin; origin != nil {
 			values.Set("from_run", origin.RunID)

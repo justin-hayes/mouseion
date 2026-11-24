@@ -294,3 +294,164 @@ func TestSentenceStudyFocusesOnlyTheEntryWhoseAnchorIsTheTarget(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(rendered.String(), "· from Concordance"))
 	assert.Contains(t, rendered.String(), `<li id="construction-genitive_absolute-2" class="sentence-study-construction sentence-study-construction--focused">`)
 }
+
+func TestConcordanceConstructionRequestParsesTheLemmaFilter(t *testing.T) {
+	request := parseConstructionTestRequest(t, constructionTestQuery(map[string]string{"lemma": " λέγω ", "from_lemma": "ὅτι"}))
+	assert.Equal(t, "λέγω", request.lookup.Lemma)
+	assert.Equal(t, "ὅτι", request.lookup.OriginLemma)
+	plain := parseConstructionTestRequest(t, constructionTestQuery(nil))
+	assert.Empty(t, plain.lookup.Lemma)
+	assert.Empty(t, plain.lookup.OriginLemma)
+	word := parseConstructionTestRequest(t, url.Values{"as": {"form"}, "term": {"haus"}, "lemma": {"x"}, "from_lemma": {"y"}})
+	assert.Empty(t, word.lookup.Lemma, "only a construction lookup has a lemma filter")
+	assert.Empty(t, word.lookup.OriginLemma)
+}
+
+func TestConcordanceConstructionURLsCarryTheLemmaFilter(t *testing.T) {
+	lookup := domain.ConcordanceLookup{
+		Language: "grc", Term: "genitive_absolute", Match: domain.ConcordanceMatchConstruction, Subtype: "",
+		Priority: constructionTestBook, Revision: "rev-1", Lemma: "λέγω", OriginLemma: "ὅτι",
+		Origin: &domain.ConcordanceConstructionOrigin{RunID: constructionTestRun, Sentence: 3, Anchor: 2},
+	}
+	for name, raw := range map[string]string{
+		"paging": vocabularyConcordancePageURL(2, lookup), "restart": vocabularyConcordanceRestartURL(lookup), "widen": concordanceWidenURL(lookup),
+	} {
+		values := parseURL(t, raw)
+		assert.Equal(t, "λέγω", values.Get("lemma"), name)
+		assert.Equal(t, "ὅτι", values.Get("from_lemma"), name)
+	}
+	only := parseURL(t, concordanceOnlyWithURL(domain.ConcordanceLookup{
+		Term: "genitive_absolute", Match: domain.ConcordanceMatchConstruction, OriginLemma: "ὅτι", Revision: "rev-1", Priority: constructionTestBook,
+		Origin: lookup.Origin,
+	}))
+	assert.Equal(t, "ὅτι", only.Get("lemma"))
+	assert.Equal(t, "ὅτι", only.Get("from_lemma"))
+	assert.Empty(t, only.Get("rev"), "narrowing changes the evidence, so the old revision is dropped")
+	assert.Equal(t, "1", only.Get("page"))
+	all := parseURL(t, concordanceAllLemmasURL(lookup))
+	assert.Empty(t, all.Get("lemma"))
+	assert.Equal(t, "ὅτι", all.Get("from_lemma"), "the offer to filter again stays")
+	assert.Empty(t, all.Get("rev"))
+}
+
+func TestSafeConcordanceReturnURLKeepsTheLemmaFilterOnlyForAConstructionLookup(t *testing.T) {
+	query := constructionTestQuery(map[string]string{"lemma": "λέγω", "from_lemma": "ὅτι", "page": "2", "language": "grc"})
+	query.Set("focus", "occurrence-b-1-2")
+	valid := "/vocabulary/concordance?" + query.Encode() + "#occurrence-b-1-2"
+	assert.Equal(t, valid, safeConcordanceReturnURL(valid))
+	assert.Equal(t, "/vocabulary/concordance", safeConcordanceReturnURL("/vocabulary/concordance?term=haus&as=form&page=2&focus=x&lemma=λέγω#x"))
+	assert.Equal(t, "/vocabulary/concordance", safeConcordanceReturnURL("/vocabulary/concordance?term=haus&as=lemma&page=2&focus=x&from_lemma=λέγω#x"))
+}
+
+func fixtureParallelsWithLemma(t *testing.T, lemma string) (domain.ConcordanceLookup, domain.ConcordanceResult) {
+	t.Helper()
+	lookup := domain.ConcordanceLookup{
+		Language: "grc", Term: "genitive_absolute", Match: domain.ConcordanceMatchConstruction, Page: 1,
+		Priority: fixtures.SyntaxBookID, Lemma: lemma, OriginLemma: "ἄνδρας",
+		Origin: &domain.ConcordanceConstructionOrigin{RunID: fixtures.SyntaxRunID, Sentence: 0, Anchor: 2},
+	}
+	result, err := fixtures.NewStore().ListVocabularyConcordance(t.Context(), fixtures.OwnerID, "grc", lookup)
+	require.NoError(t, err)
+	return lookup, result
+}
+
+func TestConcordanceParallelsOffersOnlyWithTheOriginLemma(t *testing.T) {
+	lookup, result := fixtureParallelsWithLemma(t, "")
+	body := renderParallels(t, lookup, result)
+	assert.Contains(t, body, `id="concordance-parallels-only-with"`)
+	assert.Contains(t, body, `aria-label="Only with ἄνδρας: parallels signalled by this lemma"`)
+	assert.Contains(t, body, `>Only with <em>ἄνδρας</em></a>`)
+	assert.NotContains(t, body, "concordance-parallels-all-lemmas")
+	assert.Equal(t, 6, strings.Count(body, `<li class="concordance-result">`))
+
+	lookup.OriginLemma = ""
+	assert.NotContains(t, renderParallels(t, lookup, result), "concordance-parallels-only-with", "no origin lemma, nothing to offer")
+}
+
+func TestConcordanceParallelsFilteredByLemmaOffersAll(t *testing.T) {
+	lookup, result := fixtureParallelsWithLemma(t, "ἄνδρασ")
+	body := renderParallels(t, lookup, result)
+	assert.Equal(t, 3, strings.Count(body, `<li class="concordance-result">`), "rows with another lemma are left out")
+	assert.Contains(t, body, `<span id="concordance-parallels-lemma">Only with <em>ἄνδρας</em></span>`)
+	assert.Contains(t, body, `aria-label="All Genitive absolute: clear the lemma filter"`)
+	assert.Contains(t, body, ">All Genitive absolute</a>")
+	assert.NotContains(t, body, "concordance-parallels-only-with")
+
+	_, none := fixtureParallelsWithLemma(t, "οὐδέν")
+	assert.Empty(t, none.Occurrences)
+	assert.Contains(t, renderParallels(t, lookup, none), "No other analyzed occurrences of", "an empty filtered page is a corpus result")
+}
+
+func TestConcordanceParallelsWithSubtypeAndLemmaKeepsDistinctNames(t *testing.T) {
+	lookup := domain.ConcordanceLookup{
+		Language: "grc", Term: "indirect_statement", Subtype: "infinitive", Match: domain.ConcordanceMatchConstruction, Page: 1,
+		Priority: fixtures.SyntaxBookID, Lemma: "λέγει", OriginLemma: "λέγει",
+		Origin: &domain.ConcordanceConstructionOrigin{RunID: fixtures.SyntaxRunID, Sentence: 0, Anchor: 0},
+	}
+	result, err := fixtures.NewStore().ListVocabularyConcordance(t.Context(), fixtures.OwnerID, "grc", lookup)
+	require.NoError(t, err)
+	body := renderParallels(t, lookup, result)
+	assert.Contains(t, body, ">All Indirect statement</a>", "the subtype widen link")
+	assert.Contains(t, body, ">All Indirect statement (infinitive)</a>", "the lemma clear link names what it keeps")
+	assert.Contains(t, parseURL(t, concordanceWidenURL(lookup)).Get("lemma"), "λέγει", "widening keeps the lemma filter")
+}
+
+// visibleText strips tags and collapses white space the way a browser shows it.
+func visibleText(markup string) string {
+	return strings.Join(strings.Fields(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(markup, "")), " ")
+}
+
+func TestConcordanceUnsearchedBooksLineWording(t *testing.T) {
+	render := func(books ...domain.ConcordanceUnsearchedBook) string {
+		var out strings.Builder
+		require.NoError(t, concordanceUnsearchedBooksLine(books).Render(t.Context(), &out))
+		return out.String()
+	}
+	assert.Empty(t, render(), "the line is absent when every Book is searchable")
+	for name, tt := range map[string]struct {
+		books []domain.ConcordanceUnsearchedBook
+		text  string
+	}{
+		"one Book": {[]domain.ConcordanceUnsearchedBook{{Title: "Meno"}}, "Not searched for constructions: Meno"},
+		"one Book with an offer": {
+			[]domain.ConcordanceUnsearchedBook{{Title: "Apology", UpdateAvailable: true}},
+			"Not searched for constructions: Apology — Analysis update available",
+		},
+		"several Books": {
+			[]domain.ConcordanceUnsearchedBook{{Title: "Apology", UpdateAvailable: true}, {Title: "Crito"}, {Title: "Meno", UpdateAvailable: true}},
+			"Not searched for constructions: Apology — Analysis update available, Crito, Meno — Analysis update available",
+		},
+	} {
+		markup := render(tt.books...)
+		assert.Equal(t, 1, strings.Count(markup, "<p "), name)
+		// The visible text, with white space as a browser collapses it, and no
+		// space before a comma.
+		text := visibleText(markup)
+		assert.Equal(t, tt.text, text, name)
+		assert.Equal(t, len(tt.books), strings.Count(markup, "<em>"), name+": each title in italics")
+	}
+	assert.Contains(t, render(domain.ConcordanceUnsearchedBook{Title: "<b>x</b>"}), "<em>&lt;b&gt;x&lt;/b&gt;</em>", "a title is escaped")
+}
+
+func TestConcordanceParallelsPageNamesUnsearchedBooksOnceEvenWithNoResults(t *testing.T) {
+	lookup, result := fixtureParallels(t, "result", "")
+	assert.Empty(t, result.Occurrences)
+	body := renderParallels(t, lookup, result)
+	assert.Equal(t, 1, strings.Count(body, `id="concordance-unsearched"`))
+	assert.Contains(t, visibleText(body), "Not searched for constructions: Synthetic Apology — Analysis update available, Synthetic Crito")
+
+	lookup, result = fixtureParallels(t, "genitive_absolute", "")
+	assert.Equal(t, 1, strings.Count(renderParallels(t, lookup, result), `id="concordance-unsearched"`), "once above the results")
+}
+
+func TestSentenceStudyParallelsLinkCarriesTheAnchorsEffectiveLemma(t *testing.T) {
+	study, err := fixtures.NewStore().GetVocabularySentenceStudy(t.Context(), fixtures.OwnerID, fixtures.SyntaxBookID, fixtures.SyntaxRunID, "corpus", fixtures.SyntaxUnitID, 0, 2, "ἄνδρας")
+	require.NoError(t, err)
+	entries := sentenceStudyConstructionEntries(study)
+	require.NotEmpty(t, entries)
+	for _, entry := range entries {
+		values := parseURL(t, entry.parallelsURL(study))
+		assert.Equal(t, study.Tokens[entry.anchor].EffectiveLemma, values.Get("from_lemma"), entry.Title)
+		assert.Empty(t, values.Get("lemma"), "following Parallels never applies the filter")
+	}
+}
