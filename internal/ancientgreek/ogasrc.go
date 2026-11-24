@@ -21,6 +21,7 @@ type sourceDocument struct {
 // sourceSentence is one sentence with its source header and tokens.
 type sourceSentence struct {
 	source string
+	sentID string
 	tokens []sourceToken
 }
 
@@ -34,6 +35,8 @@ type sourceToken struct {
 	relation string
 	head     int
 	citation string
+	// ref is the token's own MISC reference (t_<n> for a word).
+	ref string
 }
 
 // parseOgaSrc parses the single-file CoNLL-U packaging of oga_src: the three
@@ -101,6 +104,7 @@ func (p *ogaSrcParser) acceptHeader(body string, lineNo int) error {
 	case p.header == 1 && name == "text" && value != "":
 		p.header = 2
 	case p.header == 2 && name == "sent_id" && value != "":
+		p.current.sentID = value
 		p.header = 3
 	default:
 		return malformed(lineNo, "unexpected comment line")
@@ -197,6 +201,7 @@ func parseTokenLine(line string, lineNo int) (sourceToken, error) {
 		relation: columns[7],
 		head:     head,
 		citation: citation,
+		ref:      strings.SplitN(columns[9], "|", 2)[0],
 	}, nil
 }
 
@@ -248,6 +253,7 @@ type interpretation struct {
 	FullText string
 	Result   analyzer.Result
 	Report   ImportReport
+	Sources  []SentenceSource
 }
 
 // uposProperName is the one mapped part of speech the report counts.
@@ -292,6 +298,7 @@ type interpretState struct {
 	numbered    map[string]struct{}
 	hasBare     map[string]struct{}
 	hasNumbered map[string]struct{}
+	sources     []SentenceSource
 }
 
 func newInterpretState(definition domain.ReadingUnitDefinition, unitID string) *interpretState {
@@ -359,6 +366,11 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 		built.Location = analyzer.SourceLocation{SourceDocumentID: s.unitID, StartOffset: uint64(sentenceStart + relative.spans[index][0]), EndOffset: uint64(sentenceStart + relative.spans[index][1])}
 		tokens = append(tokens, built)
 	}
+	source := SentenceSource{SentID: sentence.sentID, TokenRefs: make([]string, len(relative.kept))}
+	for index, token := range relative.kept {
+		source.TokenRefs[index] = token.ref
+	}
+	s.sources = append(s.sources, source)
 	sentenceEnd := uint64(sentenceStart + len([]rune(relative.text)))
 	s.result.Sentences = append(s.result.Sentences, analyzer.Sentence{
 		Text:     relative.text,
@@ -427,7 +439,7 @@ func (s *interpretState) interpretation() interpretation {
 		}
 	}
 	s.report.UnmappedFeatureValues = sortedFeatureCounts(s.unmapped)
-	return interpretation{FullText: string(s.full), Result: s.result, Report: s.report}
+	return interpretation{FullText: string(s.full), Result: s.result, Report: s.report, Sources: s.sources}
 }
 
 // locationDecision is the citation-cut decision for one sentence.

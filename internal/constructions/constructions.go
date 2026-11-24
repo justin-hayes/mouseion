@@ -95,6 +95,14 @@ func (g Gate) WithConstruction(id ID, on bool) Gate {
 	return next
 }
 
+// Ships reports whether the gate emits a construction.
+func (g Gate) Ships(id ID) bool { return g.constructions[id] }
+
+// ShipsLabel reports whether the gate emits a construction's subtype label.
+func (g Gate) ShipsLabel(id ID, subtype SubtypeID) bool {
+	return g.constructions[id] && g.labels[labelKey{id, subtype}]
+}
+
 // Detect returns the shipped occurrences of one sentence, sorted by first
 // extent ordinal, then anchor, then construction id. Subtypes that do not
 // clear the gate come out as "".
