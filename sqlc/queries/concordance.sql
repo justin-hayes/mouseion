@@ -339,12 +339,17 @@ SELECT sm.book_id::text AS book_id,
        r.corpus_id::text AS corpus_id,
        s.unit_id,
        t.surface AS anchor_surface,
-       COALESCE(t.headword, '')::text AS anchor_headword,
-       EXISTS (SELECT 1 FROM occurrence_lemma_corrections d
-                WHERE d.owner_id = r.owner_id AND d.book_id = sm.book_id AND d.corpus_id = r.corpus_id
-                  AND d.analysis_run_id = r.id AND d.source_document_id = s.unit_id
-                  AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
-                  AND d.canonical_lemma IS NOT NULL AND NOT d.excluded)::boolean AS anchor_corrected,
+       COALESCE(d.canonical_lemma, t.canonical_lemma)::text AS anchor_lemma,
+       -- The citation form of the effective lemma: the anchor's own headword
+       -- unless a correction replaced the lemma, else the headword of any
+       -- analyzed word of the owner that carries the same lemma key.
+       COALESCE(
+         CASE WHEN d.canonical_lemma IS NULL THEN NULLIF(t.headword, '') END,
+         (SELECT x.headword FROM corpus_tokens x
+           WHERE x.owner_id = r.owner_id AND x.language = t.language
+             AND x.canonical_lemma = COALESCE(d.canonical_lemma, t.canonical_lemma) AND x.headword IS NOT NULL AND x.headword <> ''
+           ORDER BY x.headword LIMIT 1),
+         '')::text AS anchor_headword,
        w.id::text AS work_id,
        w.title AS work_title,
        w.author AS author,
@@ -359,6 +364,9 @@ SELECT sm.book_id::text AS book_id,
   JOIN corpus_tokens t ON t.owner_id = s.owner_id AND t.analysis_run_id = s.analysis_run_id
        AND t.corpus_id = s.corpus_id AND t.sentence_ordinal = s.sentence_ordinal
        AND t.token_ordinal = sqlc.arg('anchor_ordinal')::bigint
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = r.owner_id AND d.book_id = sm.book_id
+       AND d.corpus_id = r.corpus_id AND d.analysis_run_id = r.id AND d.source_document_id = s.unit_id
+       AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset AND NOT d.excluded
   JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
   JOIN reading_units ru ON ru.id = bru.reading_unit_id
   JOIN editions e ON e.id = ru.edition_id

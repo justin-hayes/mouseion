@@ -369,7 +369,7 @@ func TestConcordanceParallelsOffersOnlyWithTheOriginLemma(t *testing.T) {
 }
 
 func TestConcordanceParallelsFilteredByLemmaOffersAll(t *testing.T) {
-	lookup, result := fixtureParallelsWithLemma(t, "ἄνδρας")
+	lookup, result := fixtureParallelsWithLemma(t, "ἄνδρασ")
 	body := renderParallels(t, lookup, result)
 	assert.Equal(t, 3, strings.Count(body, `<li class="concordance-result">`), "rows with another lemma are left out")
 	assert.Contains(t, body, `<span id="concordance-parallels-lemma">Only with <em>ἄνδρας</em></span>`)

@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
 	"html"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -113,7 +115,7 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 			row("xen-apol", 0), row("xen-apol", 1), row("xen-apol", 2),
 			row("plato-crito", 0), row("plato-meno", 0), row("plato-phaedo", 0), row("plato-republic", 0),
 		}, rows(plain))
-		assert.NotContains(t, plain.body, "concordance-parallels-only-with", "no origin lemma, no offer")
+		assert.Contains(t, plain.body, "concordance-parallels-only-with", "the offer is read from the origin anchor, not the URL")
 		assert.NotContains(t, plain.body, "concordance-parallels-all-lemmas")
 	})
 	t.Run("the page offers Only with the origin lemma", func(t *testing.T) {
@@ -262,3 +264,121 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 		assert.NotContains(t, filtered.body, key)
 	})
 }
+
+// TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTheServer
+// covers the merger's probes: the offered lemma comes from the origin anchor
+// read server-side, a corrected anchor shows a citation form, and the lemma
+// parameter is a key in every generated URL.
+func TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTheServer(t *testing.T) {
+	ctx, store, pool, h := ancientGreekHarness(t)
+	learner := createAccount(t, ctx, store, "construction-lemma-probes", "learner-password")
+	books := map[string]*constructionBook{}
+	for _, book := range []*constructionBook{
+		{key: "xen-anab", title: "Anabasis", author: "Xenophon", sentences: 1},
+		{key: "plato-republic", title: "Republic", author: "Plato", sentences: 1},
+	} {
+		books[book.key] = book
+		importConstructionBook(t, ctx, store, pool, learner.ID, book, books)
+	}
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
+	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	origin := books["xen-anab"]
+	var run string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE book_id=$1`, origin.id).Scan(&run))
+	const term = "articular_infinitive"
+	var anchor int
+	var anchorSurface, anchorLemma string
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT c.anchor_token_ordinal, t.surface, t.canonical_lemma
+		  FROM construction_occurrences c
+		  JOIN corpus_tokens t ON t.analysis_run_id=c.analysis_run_id AND t.sentence_ordinal=c.sentence_ordinal
+		   AND t.token_ordinal=c.anchor_token_ordinal
+		 WHERE c.analysis_run_id=$1 AND c.construction_id=$2 AND c.sentence_ordinal=0`, run, term).Scan(&anchor, &anchorSurface, &anchorLemma))
+	query := func(overrides map[string]string) string {
+		values := url.Values{
+			"as": {"construction"}, "term": {term}, "priority": {origin.id}, "language": {"grc"},
+			"from_run": {run}, "from_sentence": {"0"}, "from_anchor": {strconv.Itoa(anchor)},
+		}
+		for key, value := range overrides {
+			values.Set(key, value)
+		}
+		return "/vocabulary/concordance?" + values.Encode()
+	}
+	get := func(path string) *testingResponse {
+		response := perform(t, h, http.MethodGet, path, nil, cookies)
+		return &testingResponse{code: response.Code, body: response.Body.String()}
+	}
+	onlyWith := regexp.MustCompile(`id="concordance-parallels-only-with" href="([^"]+)" aria-label="([^"]+)">Only with <em>([^<]+)</em></a>`)
+
+	t.Run("the offered lemma is the origin anchor's, whatever from_lemma says", func(t *testing.T) {
+		page := get(query(map[string]string{"from_lemma": "οὐδέν"}))
+		require.Equal(t, http.StatusOK, page.code, page.body)
+		link := onlyWith.FindStringSubmatch(page.body)
+		require.Len(t, link, 4)
+		assert.Equal(t, anchorLemma, html.UnescapeString(link[3]))
+		target := parseURL(t, html.UnescapeString(link[1]))
+		assert.Equal(t, anchorLemma, target.Get("lemma"))
+		assert.Equal(t, anchorLemma, target.Get("from_lemma"))
+		assert.NotContains(t, page.body, "οὐδέν")
+	})
+	t.Run("the lemma parameter is a key in every generated URL", func(t *testing.T) {
+		upper := strings.ToUpper(anchorLemma)
+		require.NotEqual(t, anchorLemma, upper)
+		page := get(query(map[string]string{"lemma": upper}))
+		require.Equal(t, http.StatusOK, page.code, page.body)
+		assert.Contains(t, rowsOf(t, page, books), row2("plato-republic"), "the upper-case lemma filters like its key")
+		study := constructionStudyHrefRegexp.FindStringSubmatch(page.body)
+		require.Len(t, study, 2)
+		returnTo := parseURL(t, parseURL(t, html.UnescapeString(study[1])).Get("return"))
+		assert.Equal(t, anchorLemma, returnTo.Get("lemma"))
+		assert.NotContains(t, html.UnescapeString(study[1]), url.QueryEscape(upper))
+		assert.Contains(t, page.body, `<span id="concordance-parallels-lemma">Only with <em>`+anchorLemma+`</em></span>`)
+	})
+	t.Run("a corrected anchor shows the citation form of its lemma", func(t *testing.T) {
+		// Another occurrence carries the key and its citation headword.
+		_, err := pool.Exec(ctx, `UPDATE corpus_tokens SET canonical_lemma='λόγοσ', headword='λόγος' WHERE analysis_run_id=$1 AND token_ordinal=$2`,
+			currentRun(t, ctx, pool, books["plato-republic"]), anchor)
+		require.NoError(t, err)
+		reviewPath := "/reading/books/" + origin.id + "/lemma-review"
+		occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, origin.id, anchorSurface)
+		require.NoError(t, err)
+		require.Len(t, occurrences, 1)
+		confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "correct", "λόγος", occurrences[0].ID())
+
+		page := get(query(nil))
+		require.Equal(t, http.StatusOK, page.code, page.body)
+		link := onlyWith.FindStringSubmatch(page.body)
+		require.Len(t, link, 4)
+		assert.Equal(t, "λόγος", html.UnescapeString(link[3]))
+		assert.Contains(t, html.UnescapeString(link[2]), "Only with λόγος")
+		assert.Equal(t, "λόγοσ", parseURL(t, html.UnescapeString(link[1])).Get("lemma"), "the URL keeps the key")
+		assert.NotContains(t, page.body, "λόγοσ")
+		filtered := get(query(map[string]string{"lemma": "λόγοσ"}))
+		assert.Contains(t, filtered.body, `<span id="concordance-parallels-lemma">Only with <em>λόγος</em></span>`)
+		assert.NotContains(t, filtered.body, "λόγοσ")
+	})
+}
+
+func currentRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, book *constructionBook) string {
+	t.Helper()
+	var run string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE book_id=$1`, book.id).Scan(&run))
+	return run
+}
+
+func rowsOf(t *testing.T, response *testingResponse, books map[string]*constructionBook) []string {
+	t.Helper()
+	keys := map[string]string{}
+	for _, book := range books {
+		keys[book.id] = book.key
+	}
+	var out []string
+	for _, entry := range constructionPage(t, response.body, keys) {
+		if !strings.HasPrefix(entry, "# ") {
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
+func row2(key string) string { return key + ":0.4" }

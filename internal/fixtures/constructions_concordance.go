@@ -3,7 +3,11 @@ package fixtures
 // Contract status: illustrative. Canned state for browser scenarios; not held
 // to internal/storecontract parity (ADR 0088).
 
-import "github.com/justin-hayes/mouseion/internal/domain"
+import (
+	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
 
 // fixtureConstructionRow is one synthetic parallel: where it sits and the
 // Book it belongs to.
@@ -41,6 +45,7 @@ func fixtureConstructionConcordance(result domain.ConcordanceResult, query domai
 	result.Origin = domain.ConcordanceConstructionOriginSentence{
 		BookID: fixtureSyntaxBookID, BookTitle: "Synthetic Greek syntax", CorpusID: "fixture-corpus",
 		UnitID: fixtureSyntaxUnit, AnchorSurface: fixtureConstructionAnchorSurface(query.Origin.Anchor),
+		AnchorLemma: fixtureLemmaKey(fixtureConstructionAnchorSurface(query.Origin.Anchor)), AnchorHeadword: fixtureConstructionAnchorSurface(query.Origin.Anchor),
 		WorkTitle: "Synthetic Work", Author: "Synthetic Author", Current: true,
 	}
 	// Two Books cannot be searched: one with an Analysis update offer, one
@@ -53,7 +58,7 @@ func fixtureConstructionConcordance(result domain.ConcordanceResult, query domai
 	if !ok {
 		return result
 	}
-	anchorLemma := fixtureConstructionAnchorSurface(occurrence.Anchor)
+	anchorLemma := fixtureLemmaKey(fixtureConstructionAnchorSurface(occurrence.Anchor))
 	var matches []domain.ConcordanceResultOccurrence
 	for _, row := range fixtureConstructionRows {
 		if query.Subtype != "" && query.Subtype != occurrence.SubtypeID {
@@ -108,3 +113,7 @@ func fixtureConstructionParallel(row fixtureConstructionRow, occurrence domain.S
 		ConstructionID: occurrence.ConstructionID, SubtypeID: occurrence.SubtypeID, Study: study,
 	}
 }
+
+// fixtureLemmaKey is the stored lemma key of a surface: the Greek profile folds
+// the final sigma, so the key is not what a learner reads.
+func fixtureLemmaKey(surface string) string { return strings.ReplaceAll(surface, "ς", "σ") }

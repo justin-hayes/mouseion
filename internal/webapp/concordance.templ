@@ -444,13 +444,13 @@ templ concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.Con
 			if result.Origin.Current || lookup.Subtype != "" {
 				{ " · " }
 			}
-			<span id="concordance-parallels-lemma">Only with <em>{ concordanceLemmaDisplay(lookup, result, lookup.Lemma) }</em></span>
+			<span id="concordance-parallels-lemma">Only with <em>{ concordanceLemmaDisplay(result, lookup.Lemma) }</em></span>
 			{ " · " }<a id="concordance-parallels-all-lemmas" href={ templ.SafeURL(origin.Apply(concordanceAllLemmasURL(lookup))) } aria-label={ concordanceAllLemmasLabel(lookup) }>All { concordanceConstructionHeading(lookup) }</a>
 		} else if lookup.OriginLemma != "" {
 			if result.Origin.Current || lookup.Subtype != "" {
 				{ " · " }
 			}
-			<a id="concordance-parallels-only-with" href={ templ.SafeURL(origin.Apply(concordanceOnlyWithURL(lookup))) } aria-label={ concordanceOnlyWithLabel(concordanceLemmaDisplay(lookup, result, lookup.OriginLemma)) }>Only with <em>{ concordanceLemmaDisplay(lookup, result, lookup.OriginLemma) }</em></a>
+			<a id="concordance-parallels-only-with" href={ templ.SafeURL(origin.Apply(concordanceOnlyWithURL(lookup))) } aria-label={ concordanceOnlyWithLabel(concordanceLemmaDisplay(result, lookup.OriginLemma)) }>Only with <em>{ concordanceLemmaDisplay(result, lookup.OriginLemma) }</em></a>
 		}
 	</p>
 }

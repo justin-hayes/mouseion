@@ -35,6 +35,11 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 	if err != nil {
 		return domain.ConcordanceResult{}, err
 	}
+	result.PriorityBookID, result.PriorityTitle = origin.row.BookID, origin.row.BookTitle
+	result.Origin = domain.ConcordanceConstructionOriginSentence{
+		BookID: origin.row.BookID, BookTitle: origin.row.BookTitle, CorpusID: origin.row.CorpusID, UnitID: origin.row.UnitID,
+		AnchorSurface: origin.row.AnchorSurface, AnchorLemma: origin.row.AnchorLemma, AnchorHeadword: origin.row.AnchorHeadword, WorkTitle: origin.row.WorkTitle, Author: origin.row.Author, Current: origin.row.Current,
+	}
 	revision, err := constructionConcordanceRevision(ctx, tx, owner, language, lemma != "")
 	if err != nil {
 		return domain.ConcordanceResult{}, err
@@ -43,11 +48,6 @@ func (s *PostgresStore) listConstructionConcordance(ctx context.Context, tx pgx.
 	if lookup.Revision != "" && lookup.Revision != revision {
 		result.Stale = true
 		return result, nil
-	}
-	result.PriorityBookID, result.PriorityTitle = origin.row.BookID, origin.row.BookTitle
-	result.Origin = domain.ConcordanceConstructionOriginSentence{
-		BookID: origin.row.BookID, BookTitle: origin.row.BookTitle, CorpusID: origin.row.CorpusID, UnitID: origin.row.UnitID,
-		AnchorSurface: origin.row.AnchorSurface, AnchorHeadword: origin.row.AnchorHeadword, AnchorCorrected: origin.row.AnchorCorrected, WorkTitle: origin.row.WorkTitle, Author: origin.row.Author, Current: origin.row.Current,
 	}
 	const maxPage = int((1<<31-1)/concordanceConstructionPageSize + 1)
 	if lookup.Page > maxPage {

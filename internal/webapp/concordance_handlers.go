@@ -10,8 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"golang.org/x/text/unicode/norm"
 )
 
 // concordanceNoticeTermRequired and the other notices below are the learner
@@ -70,6 +72,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		h.renderConcordanceFailure(w, r, concordanceResultErrorStatus(err, queryCtx), u, language, lookup, origin, false)
 		return
 	}
+	lookup = trustedOriginLemma(lookup, result)
 	if result.Stale {
 		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, origin, true)
 		return
@@ -222,7 +225,7 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 	if request.lookup.Match == domain.ConcordanceMatchConstruction {
 		request.lookup.Subtype = strings.TrimSpace(query.Get("subtype"))
 		request.lookup.Origin = parseConstructionOrigin(query)
-		request.lookup.Lemma = strings.TrimSpace(query.Get("lemma"))
+		request.lookup.Lemma = constructionLemmaKey(query.Get("lemma"))
 		request.lookup.OriginLemma = strings.TrimSpace(query.Get("from_lemma"))
 	}
 	if raw := query.Get("page"); raw != "" {
@@ -233,6 +236,31 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 		}
 	}
 	return request
+}
+
+// trustedOriginLemma sets the offered lemma of a parallels lookup to the origin
+// anchor's, read from storage: the URL's from_lemma is only a hint and is never
+// trusted.
+func trustedOriginLemma(lookup domain.ConcordanceLookup, result domain.ConcordanceResult) domain.ConcordanceLookup {
+	if lookup.Match == domain.ConcordanceMatchConstruction && !result.InvalidOrigin {
+		lookup.OriginLemma = result.Origin.AnchorLemma
+	}
+	return lookup
+}
+
+// constructionLemmaKey normalises the lemma filter to its lemma key once, at
+// parsing, so every generated URL carries the key. Parallels exist only for the
+// one construction language; a value its profile cannot read stays as typed.
+func constructionLemmaKey(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	profile, err := canonicalization.For(domain.ConcordanceConstructionLanguage)
+	if err != nil {
+		return raw
+	}
+	return profile.Canonical(norm.NFC.String(raw))
 }
 
 // constructionRunPattern is the canonical text form of an analysis run identity.

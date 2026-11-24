@@ -620,11 +620,9 @@ type ConcordanceUnsearchedBook struct {
 type ConcordanceConstructionOriginSentence struct {
 	BookID, BookTitle, CorpusID, UnitID, AnchorSurface string
 	WorkTitle, Author                                  string
-	// AnchorHeadword is the anchor word's citation form, and AnchorCorrected
-	// reports a Lemma correction on it. Together they pick the lemma shown for
-	// the stored lemma key, as Sentence study does.
-	AnchorHeadword  string
-	AnchorCorrected bool
+	// AnchorLemma is the anchor word's effective lemma key, read from storage,
+	// and AnchorHeadword its citation form (empty when none is known).
+	AnchorLemma, AnchorHeadword string
 	// Current reports that the origin run is still the Book's current
 	// analysis, so Sentence study can reopen its sentence.
 	Current bool

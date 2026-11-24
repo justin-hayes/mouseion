@@ -2509,9 +2509,9 @@ func concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.Conc
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var118 string
-			templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceLemmaDisplay(lookup, result, lookup.Lemma))
+			templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceLemmaDisplay(result, lookup.Lemma))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 447, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 447, Col: 103}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
 			if templ_7745c5c3_Err != nil {
@@ -2603,9 +2603,9 @@ func concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.Conc
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var125 string
-			templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.ResolveAttributeValue(concordanceOnlyWithLabel(concordanceLemmaDisplay(lookup, result, lookup.OriginLemma)))
+			templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.ResolveAttributeValue(concordanceOnlyWithLabel(concordanceLemmaDisplay(result, lookup.OriginLemma)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 453, Col: 210}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 453, Col: 202}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var125)
 			if templ_7745c5c3_Err != nil {
@@ -2616,9 +2616,9 @@ func concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.Conc
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var126 string
-			templ_7745c5c3_Var126, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceLemmaDisplay(lookup, result, lookup.OriginLemma))
+			templ_7745c5c3_Var126, templ_7745c5c3_Err = templ.JoinStringErrs(concordanceLemmaDisplay(result, lookup.OriginLemma))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 453, Col: 288}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 453, Col: 272}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var126))
 			if templ_7745c5c3_Err != nil {
