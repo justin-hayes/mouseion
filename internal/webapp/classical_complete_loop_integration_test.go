@@ -160,7 +160,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		"Synthetic Work, Book 1", "Synthetic Work, Book 2", "Book 1 of 2", "Book 2 of 2",
 		"By Synthetic Author", "Συνθετικὸν ἔργον", "Classical catalog", "To Read", "To Read (3)",
 	} {
-		assert.Contains(t, ordinary, want, "ordinary row missing %q", want)
+		require.Contains(t, ordinary, want, "ordinary row missing %q", want)
 	}
 	for _, id := range []string{bookOne, bookTwo} {
 		assert.Contains(t, ordinary, `id="book-row-`+id+`"`, "each Book is its own row")

@@ -62,35 +62,35 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 	readBody := read.Body.String()
 
 	t.Run("each Book is its own row with its own actions", func(t *testing.T) {
-		assert.Contains(t, toReadBody, `id="book-row-`+byPosition[1].Book.ID+`"`)
-		assert.Contains(t, toReadBody, "Iliad, Book 1")
-		assert.Contains(t, toReadBody, "Book 1 of 24")
-		assert.Contains(t, toReadBody, "By Homer")
-		assert.Contains(t, toReadBody, "Ἰλιάς")
-		assert.Contains(t, toReadBody, "Classical catalog")
-		assert.NotContains(t, toReadBody, "/library/books/"+byPosition[1].Book.ID+"/remove", "the current Reading's Book cannot be removed")
-		assert.Contains(t, toReadBody, "Your current reading cannot be removed.")
-		assert.NotContains(t, toReadBody, "Iliad, Book 2", "the To Read tab keeps only its own Books")
-		assert.Contains(t, readBody, `id="book-row-`+byPosition[2].Book.ID+`"`)
-		assert.Contains(t, readBody, "Iliad, Book 2")
-		assert.Contains(t, readBody, "/library/books/"+byPosition[2].Book.ID+"/remove")
+		require.Contains(t, toReadBody, `id="book-row-`+byPosition[1].Book.ID+`"`)
+		require.Contains(t, toReadBody, "Iliad, Book 1")
+		require.Contains(t, toReadBody, "Book 1 of 24")
+		require.Contains(t, toReadBody, "By Homer")
+		require.Contains(t, toReadBody, "Ἰλιάς")
+		require.Contains(t, toReadBody, "Classical catalog")
+		require.NotContains(t, toReadBody, "/library/books/"+byPosition[1].Book.ID+"/remove", "the current Reading's Book cannot be removed")
+		require.Contains(t, toReadBody, "Your current reading cannot be removed.")
+		require.NotContains(t, toReadBody, "Iliad, Book 2", "the To Read tab keeps only its own Books")
+		require.Contains(t, readBody, `id="book-row-`+byPosition[2].Book.ID+`"`)
+		require.Contains(t, readBody, "Iliad, Book 2")
+		require.Contains(t, readBody, "/library/books/"+byPosition[2].Book.ID+"/remove")
 	})
 	t.Run("no grouped Work surface remains", func(t *testing.T) {
 		for _, body := range []string{toReadBody, readBody} {
 			for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work", "/library/works/"} {
-				assert.NotContains(t, body, retired)
+				require.NotContains(t, body, retired)
 			}
 		}
 	})
 	t.Run("tabs count Books", func(t *testing.T) {
 		for _, want := range []string{"To Read (1)", "Read (1)"} {
-			assert.Contains(t, toReadBody, want, "tab count missing %q", want)
+			require.Contains(t, toReadBody, want, "tab count missing %q", want)
 		}
-		assert.NotContains(t, toReadBody, "All (")
+		require.NotContains(t, toReadBody, "All (")
 	})
 	t.Run("the retired Inbox filter is unsupported", func(t *testing.T) {
 		inbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
-		assert.Equal(t, http.StatusNotFound, inbox.Code)
+		require.Equal(t, http.StatusNotFound, inbox.Code)
 	})
 }
 
@@ -182,9 +182,9 @@ func TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumbe
 			page := perform(t, h, http.MethodGet, "/library?q="+url.QueryEscape(query), nil, cookies)
 			require.Equal(t, http.StatusOK, page.Code, query)
 			body := page.Body.String()
-			assert.Contains(t, body, "Iliad, Book 1", "query %q did not keep Book 1", query)
-			assert.Contains(t, body, "Iliad, Book 2", "query %q did not keep Book 2", query)
-			assert.Contains(t, body, "2 books found")
+			require.Contains(t, body, "Iliad, Book 1", "query %q did not keep Book 1", query)
+			require.Contains(t, body, "Iliad, Book 2", "query %q did not keep Book 2", query)
+			require.Contains(t, body, "2 books found")
 		})
 	}
 

@@ -570,11 +570,17 @@ func TestMyBooksTellsTwoEditionsOfOneWorkApartAsOrdinaryRows(t *testing.T) {
 
 	first := myBookRowHTML(t, body, "edition-a")
 	second := myBookRowHTML(t, body, "edition-b")
-	assert.Contains(t, first, "Perseus edition")
-	assert.NotContains(t, first, "Oxford edition")
-	assert.Contains(t, second, "Oxford edition")
-	assert.Contains(t, first, `action="/library/books/edition-a/remove"`)
-	assert.Contains(t, second, `action="/library/books/edition-b/remove"`)
-	assert.NotContains(t, body, "library-work")
-	assert.NotContains(t, body, "Books in")
+	t.Run("each row names its own Edition", func(t *testing.T) {
+		require.Contains(t, first, "Perseus edition")
+		require.NotContains(t, first, "Oxford edition")
+		require.Contains(t, second, "Oxford edition")
+	})
+	t.Run("each row has its own Remove", func(t *testing.T) {
+		require.Contains(t, first, `action="/library/books/edition-a/remove"`)
+		require.Contains(t, second, `action="/library/books/edition-b/remove"`)
+	})
+	t.Run("no grouped Work surface", func(t *testing.T) {
+		require.NotContains(t, body, "library-work")
+		require.NotContains(t, body, "Books in")
+	})
 }

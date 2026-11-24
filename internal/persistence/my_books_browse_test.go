@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMyBooksBrowseMatchesQuery(t *testing.T) {
@@ -31,7 +31,7 @@ func TestMyBooksBrowseMatchesQuery(t *testing.T) {
 		{name: "no match", book: classical, query: "something", matches: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.matches, myBooksBrowseMatchesQuery(tt.book, tt.query))
+			require.Equal(t, tt.matches, myBooksBrowseMatchesQuery(tt.book, tt.query))
 		})
 	}
 }
@@ -54,9 +54,12 @@ func TestMyBooksBrowseFinishPagesEveryBookAsOneRow(t *testing.T) {
 	}
 	accumulator.finish()
 
-	assert.Equal(t, 3, accumulator.result.Total, "every matching Book is its own row")
-	if assert.Len(t, accumulator.result.Items, 2) {
-		assert.Equal(t, "iliad-2", accumulator.result.Items[0].Book.ID)
-		assert.Equal(t, "ordinary", accumulator.result.Items[1].Book.ID)
-	}
+	t.Run("every matching Book counts as a row", func(t *testing.T) {
+		require.Equal(t, 3, accumulator.result.Total)
+	})
+	t.Run("the page keeps the Books after the offset", func(t *testing.T) {
+		require.Len(t, accumulator.result.Items, 2)
+		require.Equal(t, "iliad-2", accumulator.result.Items[0].Book.ID)
+		require.Equal(t, "ordinary", accumulator.result.Items[1].Book.ID)
+	})
 }
