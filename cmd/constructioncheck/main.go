@@ -55,15 +55,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	root, err := repositoryRoot(cwd)
-	if err != nil {
-		return err
-	}
-	if err := rejectCacheInside(*cache, root); err != nil {
+	if err := checkCache(*cache); err != nil {
 		return err
 	}
 
@@ -302,4 +294,18 @@ func resolveExisting(path string) (string, error) {
 		rest = filepath.Join(filepath.Base(current), rest)
 		current = parent
 	}
+}
+
+// checkCache refuses a cache directory inside the repository containing the
+// working directory.
+func checkCache(cache string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	root, err := repositoryRoot(cwd)
+	if err != nil {
+		return err
+	}
+	return rejectCacheInside(cache, root)
 }
