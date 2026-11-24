@@ -177,8 +177,7 @@ type cachedFetcher struct {
 
 func (f *cachedFetcher) Fetch(ctx context.Context, pin classical.SourcePin) (data []byte, err error) {
 	path := filepath.Join(f.dir, filepath.Base(pin.FileName))
-	//nolint:gosec // the cache directory is the operator's, not request input.
-	if data, err := os.ReadFile(path); err == nil && releasecheck.Verify(data, pin.Size, pin.SHA256) == nil {
+	if data, ok := f.readCached(path, pin); ok {
 		return data, nil
 	}
 	layer, ok := f.layers.Layer(pin.Layer)
@@ -212,11 +211,45 @@ func (f *cachedFetcher) Fetch(ctx context.Context, pin classical.SourcePin) (dat
 	if err := os.MkdirAll(f.dir, 0o750); err != nil {
 		return nil, err
 	}
-	//nolint:gosec // the cache directory is the operator's, not request input.
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	if err := writeCacheEntry(f.dir, path, data); err != nil {
 		return nil, err
 	}
 	return data, nil
+}
+
+// readCached returns a verified cache entry. An entry that is not a regular
+// file, such as a symlink, is never read.
+func (f *cachedFetcher) readCached(path string, pin classical.SourcePin) ([]byte, bool) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, false
+	}
+	data, err := os.ReadFile(path) //nolint:gosec // the cache directory is the operator's, not request input.
+	if err != nil || releasecheck.Verify(data, pin.Size, pin.SHA256) != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// writeCacheEntry writes data to a temp file in the cache directory and renames
+// it over the entry, so a symlink at the entry is replaced, never followed.
+func writeCacheEntry(dir, path string, data []byte) (err error) {
+	temp, err := os.CreateTemp(dir, ".download-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, os.Remove(temp.Name()))
+		}
+	}()
+	if _, err = temp.Write(data); err != nil {
+		return errors.Join(err, temp.Close())
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temp.Name(), path)
 }
 
 // sourceURL joins a layer base URL and a pinned file name.

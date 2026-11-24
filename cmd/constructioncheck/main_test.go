@@ -189,3 +189,55 @@ func TestRunRefusesACacheInsideTheRepository(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "inside the repository")
 }
+
+func TestCachedFetcherNeverFollowsASymlinkedEntry(t *testing.T) {
+	body := []byte("source bytes")
+	sum := sha256.Sum256(body)
+	pin := classical.SourcePin{Layer: "layer", FileName: "f.conllu", Size: int64(len(body)), SHA256: hex.EncodeToString(sum[:])}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write(body); err != nil {
+			t.Error(err)
+		}
+	}))
+	defer server.Close()
+	dir := t.TempDir()
+	cache, repo := filepath.Join(dir, "cache"), filepath.Join(dir, "repo")
+	require.NoError(t, os.MkdirAll(cache, 0o750))
+	require.NoError(t, os.MkdirAll(repo, 0o750))
+	target := filepath.Join(repo, "planted.txt")
+	require.NoError(t, os.WriteFile(target, []byte("keep"), 0o600))
+	entry := filepath.Join(cache, "f.conllu")
+	require.NoError(t, os.Symlink(target, entry))
+
+	fetcher := &cachedFetcher{
+		dir: cache, client: server.Client(),
+		layers: classical.Layers{Layers: []classical.Layer{{Key: "layer", BaseURL: server.URL + "/data/"}}},
+	}
+	got, err := fetcher.Fetch(context.Background(), pin)
+	require.NoError(t, err)
+	assert.Equal(t, body, got)
+
+	t.Run("the symlink target is untouched", func(t *testing.T) {
+		kept, err := os.ReadFile(target) //nolint:gosec // test temp path.
+		require.NoError(t, err)
+		assert.Equal(t, "keep", string(kept))
+	})
+	t.Run("the entry is now a regular file", func(t *testing.T) {
+		info, err := os.Lstat(entry)
+		require.NoError(t, err)
+		assert.True(t, info.Mode().IsRegular())
+	})
+	t.Run("no temp file is left behind", func(t *testing.T) {
+		entries, err := os.ReadDir(cache)
+		require.NoError(t, err)
+		assert.Len(t, entries, 1)
+	})
+	t.Run("a symlinked entry is not read even when its target verifies", func(t *testing.T) {
+		good := filepath.Join(repo, "good.txt")
+		require.NoError(t, os.WriteFile(good, body, 0o600))
+		require.NoError(t, os.Remove(entry))
+		require.NoError(t, os.Symlink(good, entry))
+		_, ok := fetcher.readCached(entry, pin)
+		assert.False(t, ok)
+	})
+}
