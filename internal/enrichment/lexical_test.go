@@ -173,3 +173,44 @@ func TestCloneLexicalSensesDeepCopiesDictionaryMetadata(t *testing.T) {
 	assert.Equal(t, "topic", original[0].Topics[0])
 	assert.Equal(t, "tag", original[0].Tags[0])
 }
+
+func TestOrderSensesAddsRelationWordsOnlyForUDRuns(t *testing.T) {
+	tokens := []analyzer.Token{
+		{Surface: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "SBJ"},
+		{Surface: "schwimmt", CanonicalLemma: "schwimmen", UPOS: "VERB", Dependency: "PRED"},
+	}
+	// The second sense matches only the AGDT relation words the tokens
+	// would add, so it wins exactly when the relation is read as context.
+	senses := []LexicalSense{{Gloss: "primary"}, {Gloss: "relation-only", Topics: []string{"sbj", "pred"}}}
+
+	for _, test := range []struct {
+		name, state string
+		wantFirst   string
+	}{
+		{"a ud run reads the relation", "ud", "relation-only"},
+		{"an unspecified state keeps the existing behaviour", "", "relation-only"},
+		{"a native AGDT run ignores the relation", "native_agdt", "primary"},
+		{"a run without syntax ignores the relation", "absent", "primary"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := LexicalLookupRequest{TargetWord: "Haus", SentenceTokens: tokens, SyntaxState: test.state}
+			assert.Equal(t, test.wantFirst, OrderSenses(request, senses)[0].Gloss)
+		})
+	}
+}
+
+func TestOrderSensesGreekOrderingIsUnchangedByAGDTLabels(t *testing.T) {
+	senses := []LexicalSense{{Gloss: "first"}, {Gloss: "second", Topics: []string{"κῦρος"}}, {Gloss: "third", Topics: []string{"atr", "pred"}}}
+	before := []analyzer.Token{
+		{Surface: "λέγει", CanonicalLemma: "λέγω", UPOS: "VERB", Dependency: "dep"},
+		{Surface: "Κῦρος", CanonicalLemma: "κῦρος", UPOS: "PROPN", Dependency: "dep"},
+	}
+	after := []analyzer.Token{
+		{Surface: "λέγει", CanonicalLemma: "λέγω", UPOS: "VERB", Dependency: "PRED"},
+		{Surface: "Κῦρος", CanonicalLemma: "κῦρος", UPOS: "PROPN", Dependency: "ATR"},
+	}
+	want := OrderSenses(LexicalLookupRequest{Language: "grc", TargetWord: "λέγει", SentenceTokens: before, SyntaxState: "native_agdt"}, senses)
+	got := OrderSenses(LexicalLookupRequest{Language: "grc", TargetWord: "λέγει", SentenceTokens: after, SyntaxState: "native_agdt"}, senses)
+	assert.Equal(t, want, got)
+	assert.Equal(t, "first", got[0].Gloss, "an AGDT label never lifts a sense")
+}

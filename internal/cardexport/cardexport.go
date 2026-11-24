@@ -1213,6 +1213,18 @@ func clearDictionaryFacts(entry *Entry) {
 	entry.DictionaryPin = ""
 }
 
+// lexicalSyntaxState is the syntax state of the analysis run an entry's
+// sentence tokens come from. The only runs that are not Universal Dependencies
+// are the Classical imports, which exist only for Ancient Greek and store native
+// AGDT syntax (ADR 0122), so the language says which relation vocabulary the
+// tokens carry.
+func lexicalSyntaxState(language string) string {
+	if canonicalization.NormalizeLanguage(language) == "grc" {
+		return "native_agdt"
+	}
+	return enrichment.SyntaxStateUD
+}
+
 func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
 	if r == nil || r.lexical == nil || entry == nil {
 		return nil
@@ -1221,6 +1233,7 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 	result, found, err := r.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 		TargetWord: testedEntryTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
+		SyntaxState: lexicalSyntaxState(entry.Language),
 	})
 	if err != nil || !found {
 		return err

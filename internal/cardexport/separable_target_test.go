@@ -1,10 +1,12 @@
 package cardexport
 
 import (
+	"context"
 	"testing"
 
 	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,5 +238,49 @@ func TestMakeNoteTargetBoldingIsDeterministic(t *testing.T) {
 		again, err := makeNote("owner", renderInputFromEntry(entry))
 		require.NoError(t, err)
 		assert.Equal(t, first.Text, again.Text)
+	}
+}
+
+func TestTargetSurfacesIgnoresAGDTRelationsForGreek(t *testing.T) {
+	tokens := []analyzer.Token{
+		{Surface: "Κῦρος", UPOS: "PROPN", Dependency: "SBJ", Head: 1},
+		{Surface: "λέγει", UPOS: "VERB", Dependency: "PRED", Head: 1},
+		{Surface: "καί", UPOS: "ADV", Dependency: "AuxZ", Head: 1},
+		{Surface: "ἄνδρας", UPOS: "NOUN", Dependency: "OBJ", Head: 1, HeadUnprintedNode: "2"},
+	}
+
+	assert.Equal(t, []string{"λέγει"}, targetSurfaces("λέγει", tokens), "no AGDT label is a separable particle")
+}
+
+// lexicalRequestSpy records the lookup request a card export makes.
+type lexicalRequestSpy struct {
+	request enrichment.LexicalLookupRequest
+}
+
+func (s *lexicalRequestSpy) Name() string    { return "spy" }
+func (s *lexicalRequestSpy) Version() string { return "spy-v1" }
+func (s *lexicalRequestSpy) Lookup(_ context.Context, request enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	s.request = request
+	return enrichment.LexicalEntry{}, false, nil
+}
+
+func TestResolveLexicalEntryTellsTheProviderTheRunsSyntaxState(t *testing.T) {
+	for _, test := range []struct {
+		language string
+		want     string
+	}{
+		{"de", enrichment.SyntaxStateUD},
+		{"it", enrichment.SyntaxStateUD},
+		{"grc", "native_agdt"},
+	} {
+		t.Run(test.language, func(t *testing.T) {
+			spy := &lexicalRequestSpy{}
+			resolver := &lexicalResolver{lexical: spy}
+			entry := Entry{Language: test.language, CanonicalLemma: "x", UPOS: "NOUN", TargetWord: "x"}
+
+			require.NoError(t, resolver.resolveLexicalEntry(context.Background(), &entry))
+
+			assert.Equal(t, test.want, spy.request.SyntaxState)
+		})
 	}
 }
