@@ -1093,20 +1093,47 @@ func TestSentenceStudyPageShowsSyntaxUnavailableAndTheCitationHeadword(t *testin
 	require.NotContains(t, body, "<code>δεω</code>")
 }
 
+// TestSentenceStudyModernEvidenceNeverShowsAFoldedKey holds that an ordinary
+// run's evidence line shows a corrected lemma by the same rule as an imported
+// run: a stored citation form when one is known, otherwise the key with its
+// final sigma unfolded.
+func TestSentenceStudyModernEvidenceNeverShowsAFoldedKey(t *testing.T) {
+	stored := studyWord(0, 0, 5, "λόγον", "NOUN", nil)
+	stored.EffectiveLemma, stored.Corrected, stored.CorrectedHeadword = "λόγοσ", true, "λόγος"
+	unstored := studyWord(1, 6, 11, "φίλον", "ADJ", nil)
+	unstored.EffectiveLemma, unstored.Corrected = "φίλοσ", true
+	study := studySentence("λόγον φίλον", studyEnd("λόγον φίλον"), stored, unstored)
+
+	body := renderSentenceStudy(t, study)
+	require.Contains(t, body, `analyzer lemma <code>λόγον</code>, citation headword <code>λόγος</code>; morphology`)
+	require.Contains(t, body, `analyzer lemma <code>φίλον</code>, effective lemma <code>φίλος</code>; morphology`)
+	require.NotContains(t, body, "λόγοσ")
+	require.NotContains(t, body, "φίλοσ")
+}
+
 func TestSentenceStudyDisplayLemmaPrefersTheCitationHeadword(t *testing.T) {
 	imported := domain.SentenceStudyToken{EffectiveLemma: "δεω", Headword: "δέω"}
 	lemma, headword := sentenceStudyDisplayLemma(imported)
 	assert.Equal(t, "δέω", lemma)
 	assert.True(t, headword)
 
-	corrected := imported
-	corrected.Corrected = true
+	corrected := domain.SentenceStudyToken{EffectiveLemma: "λόγοσ", Headword: "δέω", Corrected: true, CorrectedHeadword: "λόγος"}
 	lemma, headword = sentenceStudyDisplayLemma(corrected)
-	assert.Equal(t, "δεω", lemma, "a confirmed correction is shown as the effective lemma")
+	assert.Equal(t, "λόγος", lemma, "a correction shows the citation form stored for its key, not the original headword")
+	assert.True(t, headword)
+
+	unstored := domain.SentenceStudyToken{EffectiveLemma: "φίλοσ", Headword: "δέω", Corrected: true}
+	lemma, headword = sentenceStudyDisplayLemma(unstored)
+	assert.Equal(t, "φίλος", lemma, "a correction with no stored citation form unfolds its final sigma")
 	assert.False(t, headword)
 
 	modern := domain.SentenceStudyToken{EffectiveLemma: "haus"}
 	lemma, headword = sentenceStudyDisplayLemma(modern)
 	assert.Equal(t, "haus", lemma)
+	assert.False(t, headword)
+
+	modernCorrected := domain.SentenceStudyToken{EffectiveLemma: "heim", Corrected: true}
+	lemma, headword = sentenceStudyDisplayLemma(modernCorrected)
+	assert.Equal(t, "heim", lemma, "a modern-language correction is shown unchanged")
 	assert.False(t, headword)
 }

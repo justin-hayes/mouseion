@@ -374,7 +374,7 @@ templ sentenceStudyWordUnit(word sentenceStudyWord) {
 // separators are expression nodes so the line keeps its exact wording and
 // spacing.
 templ sentenceStudyModernTokenEvidence(token domain.SentenceStudyToken) {
-	{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ ", effective lemma " }<code>{ token.EffectiveLemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "; dependency " }<code>{ token.Dependency }</code>{ ", head " }{ token.HeadSurface }{ " (token " }{ fmt.Sprintf("%d", token.HeadOrdinal+1) }{ ")." }
+	{{ separator, lemma := sentenceStudyLemmaEvidence(token) }}{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ separator }<code>{ lemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "; dependency " }<code>{ token.Dependency }</code>{ ", head " }{ token.HeadSurface }{ " (token " }{ fmt.Sprintf("%d", token.HeadOrdinal+1) }{ ")." }
 }
 
 // sentenceStudyConstructionsView renders the Constructions region of a
@@ -519,7 +519,7 @@ templ sentenceStudyWordRelationsView(relations sentenceStudyRelations) {
 // shown. The body is one line because a newline next to a templ control node
 // becomes separator whitespace.
 templ sentenceStudyImportedTokenEvidence(token domain.SentenceStudyToken) {
-	{{ lemma, headword := sentenceStudyDisplayLemma(token) }}{{ separator := ", effective lemma " }}{{ if headword { separator = ", citation headword " } }}{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ separator }<code>{ lemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "." }
+	{{ separator, lemma := sentenceStudyLemmaEvidence(token) }}{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ separator }<code>{ lemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "." }
 }
 
 // vocabularyConcordanceURL links a Browse identity to its exact effective

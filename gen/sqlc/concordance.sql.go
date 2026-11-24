@@ -284,7 +284,20 @@ SELECT d.start_offset::bigint AS start_offset,
             AND ws.sentence_ordinal=w.sentence_ordinal
          WHERE w.owner_id=d.owner_id AND w.analysis_run_id=d.analysis_run_id
            AND w.corpus_id=d.corpus_id AND ws.unit_id=d.source_document_id
-           AND w.start_offset=d.start_offset AND w.end_offset=d.end_offset)::bigint AS addressed_words
+           AND w.start_offset=d.start_offset AND w.end_offset=d.end_offset)::bigint AS addressed_words,
+       -- A correction stores only the lemma key, so its citation form is the
+       -- headword of any analyzed word of the owner, in the run's language,
+       -- that carries the same key. Empty when none does, or for an exclusion.
+       COALESCE(
+         (SELECT x.headword FROM corpus_tokens x
+           WHERE x.owner_id=d.owner_id
+             AND x.language=(SELECT y.language FROM corpus_tokens y
+                              WHERE y.owner_id=d.owner_id AND y.analysis_run_id=d.analysis_run_id
+                                AND y.corpus_id=d.corpus_id LIMIT 1)
+             AND x.canonical_lemma=d.canonical_lemma
+             AND x.headword IS NOT NULL AND x.headword <> ''
+           ORDER BY x.headword LIMIT 1),
+         '')::text AS headword
   FROM occurrence_lemma_corrections d
  WHERE d.owner_id=$1 AND d.book_id=$2
    AND d.analysis_run_id=$3 AND d.corpus_id=$4
@@ -310,6 +323,7 @@ type GetSentenceStudyDecisionsRow struct {
 	CanonicalLemma string
 	Excluded       bool
 	AddressedWords int64
+	Headword       string
 }
 
 // Stored occurrence decisions addressing the selected sentence, each with the
@@ -341,6 +355,7 @@ func (q *Queries) GetSentenceStudyDecisions(ctx context.Context, arg GetSentence
 			&i.CanonicalLemma,
 			&i.Excluded,
 			&i.AddressedWords,
+			&i.Headword,
 		); err != nil {
 			return nil, err
 		}

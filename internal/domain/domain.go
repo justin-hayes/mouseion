@@ -701,7 +701,12 @@ type SentenceStudyToken struct {
 	// Headword is the imported source's learner-facing citation form, empty for
 	// modern-language tokens. A learner-facing view shows it instead of the
 	// stored canonical key.
-	Headword             string
+	Headword string
+	// CorrectedHeadword is the citation form of an attributed correction's
+	// lemma: the headword of any of the owner's words that carry the corrected
+	// key. It is empty when the token is not corrected or no such word stores
+	// one; Headword still belongs to the analyzer's original lemma.
+	CorrectedHeadword    string
 	Ordinal, HeadOrdinal int64
 	// StartOffset and EndOffset are the word's half-open source span within its
 	// source unit; they match a decision's span when it addresses this word, and

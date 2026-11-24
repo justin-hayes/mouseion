@@ -456,6 +456,7 @@ func attributeSentenceStudyDecisions(study *domain.SentenceStudy, decisions []sq
 		}
 		token.Corrected = true
 		token.EffectiveLemma = decision.CanonicalLemma
+		token.CorrectedHeadword = decision.Headword
 	}
 }
 

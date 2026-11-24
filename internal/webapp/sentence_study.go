@@ -536,15 +536,31 @@ func dedicatedProfileLanguage(language string) bool {
 }
 
 // sentenceStudyDisplayLemma names the learner-facing lemma for one analyzed
-// word. An imported token shows its citation headword rather than the stored
-// canonical key; a confirmed correction and every modern-language token show
-// the effective lemma. The boolean reports whether the value is a citation
-// headword.
+// word, so a folded lemma key never reaches rendered text. An imported token
+// shows its citation headword; a confirmed correction shows the citation form
+// stored for its corrected key. Otherwise the effective lemma is shown with its
+// word-final sigma unfolded, which leaves every other key unchanged. The
+// boolean reports whether the value is a citation headword.
 func sentenceStudyDisplayLemma(token domain.SentenceStudyToken) (string, bool) {
-	if !token.Corrected && token.Headword != "" {
-		return token.Headword, true
+	headword := token.Headword
+	if token.Corrected {
+		headword = token.CorrectedHeadword
 	}
-	return token.EffectiveLemma, false
+	if headword != "" {
+		return headword, true
+	}
+	return canonicalization.AncientGreekDisplayForm(token.EffectiveLemma), false
+}
+
+// sentenceStudyLemmaEvidence is the lemma part of one word's evidence line in
+// the complete text alternative: its separator, which names the kind of lemma,
+// and the learner-facing lemma itself.
+func sentenceStudyLemmaEvidence(token domain.SentenceStudyToken) (string, string) {
+	lemma, headword := sentenceStudyDisplayLemma(token)
+	if headword {
+		return ", citation headword ", lemma
+	}
+	return ", effective lemma ", lemma
 }
 
 // sentenceStudyTokenIsWord reports whether an analyzed token should appear as a
