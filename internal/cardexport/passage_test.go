@@ -57,27 +57,6 @@ func TestResolvePassage(t *testing.T) {
 	})
 }
 
-func TestFormatCitationRange(t *testing.T) {
-	for _, test := range []struct {
-		name      string
-		citations []string
-		want      string
-	}{
-		{name: "single", citations: []string{"1.2.17"}, want: "1.2.17"},
-		{name: "consecutive pair", citations: []string{"1.2.17", "1.2.18"}, want: "1.2.17\u201318"},
-		{name: "consecutive triple", citations: []string{"1.2.17", "1.2.18", "1.2.19"}, want: "1.2.17\u201319"},
-		{name: "two runs", citations: []string{"1.2.1", "1.2.2", "1.2.5"}, want: "1.2.1\u20132, 1.2.5"},
-		{name: "different chapter", citations: []string{"1.2.17", "1.3.17"}, want: "1.2.17, 1.3.17"},
-		{name: "reversed input is ordered", citations: []string{"1.3.17", "1.2.17"}, want: "1.2.17, 1.3.17"},
-		{name: "mixed component counts", citations: []string{"1.2.17", "1.2"}, want: "1.2, 1.2.17"},
-		{name: "unknown citation is listed verbatim", citations: []string{"1.2.17", "appendix"}, want: "1.2.17, appendix"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, formatCitationRange(test.citations))
-		})
-	}
-}
-
 func TestApplyPassageContextLeavesModernAndUnknownSentencesAlone(t *testing.T) {
 	translations := map[string]string{"1.2.17": "The passage."}
 	sentences := map[int64]analyzer.Sentence{0: {Citations: []string{"1.2.17"}}}

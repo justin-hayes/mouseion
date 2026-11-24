@@ -454,7 +454,8 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        ca.snapshot_id::text AS snapshot_id,
        ca.book_id::text AS book_id,
        b.title AS book_title,
-       u.title AS chapter_title
+       u.title AS chapter_title,
+       s.citations AS sentence_citations
   FROM current_analysis_identity ca
   JOIN analysis_runs ar ON ar.owner_id=ca.owner_id AND ar.id=ca.analysis_run_id
   JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
@@ -511,6 +512,7 @@ type GetVocabularySentenceStudyRow struct {
 	BookID              string
 	BookTitle           string
 	ChapterTitle        string
+	SentenceCitations   []string
 }
 
 // Concordance occurrence queries read from the shared occurrence model.
@@ -562,6 +564,7 @@ func (q *Queries) GetVocabularySentenceStudy(ctx context.Context, arg GetVocabul
 			&i.BookID,
 			&i.BookTitle,
 			&i.ChapterTitle,
+			&i.SentenceCitations,
 		); err != nil {
 			return nil, err
 		}
@@ -673,6 +676,7 @@ SELECT r.tier::text AS tier,
        r.corpus_id::text AS corpus_id,
        r.unit_id,
        u.title AS chapter_title,
+       s.citations AS sentence_citations,
        r.unit_order,
        r.sentence_ordinal,
        r.anchor_token_ordinal AS token_ordinal,
@@ -732,6 +736,7 @@ type ListConstructionConcordanceRow struct {
 	CorpusID                string
 	UnitID                  string
 	ChapterTitle            string
+	SentenceCitations       []string
 	UnitOrder               int64
 	SentenceOrdinal         int64
 	TokenOrdinal            int64
@@ -812,6 +817,7 @@ func (q *Queries) ListConstructionConcordance(ctx context.Context, arg ListConst
 			&i.CorpusID,
 			&i.UnitID,
 			&i.ChapterTitle,
+			&i.SentenceCitations,
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,
@@ -1038,6 +1044,7 @@ SELECT t.surface,
        r.corpus_id::text AS corpus_id,
        r.unit_id,
        u.title AS chapter_title,
+       s.citations AS sentence_citations,
        r.unit_order,
        r.sentence_ordinal,
        r.token_ordinal,
@@ -1102,6 +1109,7 @@ type ListVocabularyConcordanceRow struct {
 	CorpusID                string
 	UnitID                  string
 	ChapterTitle            string
+	SentenceCitations       []string
 	UnitOrder               int64
 	SentenceOrdinal         int64
 	TokenOrdinal            int64
@@ -1181,6 +1189,7 @@ func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabul
 			&i.CorpusID,
 			&i.UnitID,
 			&i.ChapterTitle,
+			&i.SentenceCitations,
 			&i.UnitOrder,
 			&i.SentenceOrdinal,
 			&i.TokenOrdinal,

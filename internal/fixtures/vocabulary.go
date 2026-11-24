@@ -568,6 +568,7 @@ func fixtureSyntaxConcordance(result domain.ConcordanceResult) domain.Concordanc
 	occurrence.BookID = "fixture-kwic-syntax"
 	occurrence.BookTitle = "Synthetic Greek syntax"
 	occurrence.ChapterTitle = "Synthetic 1.1"
+	occurrence.Citations = fixtureSyntaxCitations
 	occurrence.SentenceText = fixtureSyntaxSentence
 	occurrence.SentenceStartOffset = 6
 	occurrence.SentenceEndOffset = 9
@@ -580,6 +581,10 @@ func fixtureSyntaxConcordance(result domain.ConcordanceResult) domain.Concordanc
 	result.Occurrences = []domain.ConcordanceResultOccurrence{occurrence}
 	return result
 }
+
+// fixtureSyntaxCitations are the two sections the synthetic Greek sentence
+// cites; every surface renders them as the range 1.1.1–2.
+var fixtureSyntaxCitations = []string{"1.1.1", "1.1.2"}
 
 // fixtureSyntaxStudy is a short synthetic native_agdt sentence with a root
 // (λέγει), an unprinted head (the object ἄνδρας hangs from an unprinted node
@@ -602,6 +607,7 @@ func fixtureSyntaxStudy(book string, sentence, target int64, targetSurface strin
 	return domain.SentenceStudy{
 		AnalysisRunID: fixtureSyntaxRunID,
 		BookID:        book, BookTitle: "Synthetic Greek syntax", ChapterTitle: "Synthetic 1.1",
+		Citations:     fixtureSyntaxCitations,
 		TargetSurface: targetSurface, SentenceText: fixtureSyntaxSentence, UnitText: fixtureSyntaxSentence,
 		SentenceStartOffset: 0, SentenceEndOffset: int64(len([]rune(fixtureSyntaxSentence))),
 		SentenceOrdinal: sentence, TargetOrdinal: target, SyntaxState: "native_agdt",
