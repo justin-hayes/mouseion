@@ -219,7 +219,15 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
 	returnTo := myBooksReturnURL(r.FormValue("return_to"))
-	err := h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
+	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
+	// A retried removal may no longer have an active My Books detail. The
+	// store still decides whether the Book exists and can be removed.
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		fail(w, err)
+		return
+	}
+	hasDetail := err == nil
+	err = h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		http.NotFound(w, r)
@@ -231,7 +239,14 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		fail(w, err)
 		return
 	}
-	myBooksRedirectWithNotice(w, r, returnTo, "Removed from My Books. Its analysis, history and Known vocabulary are unchanged, and the Catalog can add it back.")
+	notice := "Removed from My Books. Its analysis, history and Known vocabulary are unchanged."
+	switch {
+	case book.ReadingUnit != nil && book.ReadingUnit.Withdrawn:
+		notice += " This edition or passage is no longer available to add from the Catalog."
+	case hasDetail:
+		notice += " The Catalog can add it back."
+	}
+	myBooksRedirectWithNotice(w, r, returnTo, notice)
 }
 
 func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {

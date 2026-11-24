@@ -311,12 +311,9 @@ func TestClassicalCatalogIndexRendersOpeningsLengthsAndAttribution(t *testing.T)
 		"Greek text source:",
 		"OGA oga_src v0.2.0 Greek text",
 		"CC BY-SA 4.0",
-		`style="width:1.000%;"`,
-		`style="width:2.000%;"`,
-		`style="width:3.000%;"`,
 		`style="width:5.000%;"`,
 		`style="width:6.000%;"`,
-		`action="/catalogs/classical/works/fixture-odyssey/add"`,
+		`action="/catalogs/classical/units/fixture-odyssey/add"`,
 		`name="csrf_token" value="`,
 		`name="return" value="index"`,
 	} {
@@ -338,14 +335,14 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	index := catalogPage(t, h, cookies, "/catalogs/classical")
 	require.Equal(t, http.StatusOK, index.Code)
 	body := index.Body.String()
-	assert.Contains(t, body, `action="/catalogs/classical/works/fixture-odyssey/add"`, "a whole-work unit with books offers one Add")
+	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-odyssey/add"`, "a whole-work unit with books offers one Add")
 	assert.NotContains(t, body, "I've read this", "the index offers no I've read this; the Work page does")
 	assert.NotContains(t, body, "books in My Books")
 	assert.NotContains(t, body, "In My Books")
 
 	// Add the whole Work, which has three constituent books, as one Book. The
 	// existing endpoint returns to the index with the existing confirmation.
-	addedOdyssey := readingTestRequest(t, h, "/catalogs/classical/works/fixture-odyssey/add", url.Values{
+	addedOdyssey := readingTestRequest(t, h, "/catalogs/classical/units/fixture-odyssey/add", url.Values{
 		"csrf_token": {csrf},
 		"return":     {"index"},
 	}, cookies)
@@ -359,7 +356,7 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	ownedBody := owned.Body.String()
 	assert.Contains(t, ownedBody, "Added 1 Book to My Books")
 	assert.Contains(t, ownedBody, "In My Books")
-	assert.NotContains(t, ownedBody, `action="/catalogs/classical/works/fixture-odyssey/add"`, "an owned whole-work unit offers no Add")
+	assert.NotContains(t, ownedBody, `action="/catalogs/classical/units/fixture-odyssey/add"`, "an owned whole-work unit offers no Add")
 	assert.NotContains(t, ownedBody, "/catalogs/classical/authors/", "the Add confirmation never links to the retired author page")
 
 	odyssey, err := store.ListOwnedClassicalReadingUnits(ctx, fixtures.OwnerID)
@@ -368,7 +365,7 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	assert.Equal(t, "fixture-odyssey", odyssey[0].ReadingUnitKey)
 
 	// Add a whole-work unit from the index margin.
-	addedWork := readingTestRequest(t, h, "/catalogs/classical/works/fixture-hellenica/add", url.Values{
+	addedWork := readingTestRequest(t, h, "/catalogs/classical/units/fixture-hellenica/add", url.Values{
 		"csrf_token": {csrf},
 		"return":     {"index"},
 	}, cookies)
@@ -381,7 +378,7 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 	require.Equal(t, http.StatusOK, ownedWhole.Code)
 	ownedWholeBody := ownedWhole.Body.String()
 	assert.Contains(t, ownedWholeBody, "In My Books")
-	assert.NotContains(t, ownedWholeBody, `action="/catalogs/classical/works/fixture-hellenica/add"`, "a fully owned whole-work unit offers no Add")
+	assert.NotContains(t, ownedWholeBody, `action="/catalogs/classical/units/fixture-hellenica/add"`, "a fully owned whole-work unit offers no Add")
 }
 
 type failingCatalogueAdd struct{}
@@ -430,7 +427,7 @@ func TestCatalogueReadRoutesReportRefusalsOnThePage(t *testing.T) {
 			services.Classical = catalog
 			services.Store.CatalogueRead = failingCatalogueRead{err: classical.ErrLegacyRows}
 		})
-		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/previously-read", url.Values{
+		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/previously-read", url.Values{
 			"csrf_token": {csrf}, "return": {"index"},
 		}, cookies)
 		assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -445,7 +442,7 @@ func TestCatalogueReadRoutesReportRefusalsOnThePage(t *testing.T) {
 			services.Classical = catalog
 			services.Store.CatalogueRead = failingCatalogueRead{err: domain.ErrBookIsCurrentReading}
 		})
-		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/previously-read", url.Values{
+		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/previously-read", url.Values{
 			"csrf_token": {csrf}, "return": {"index"},
 		}, cookies)
 		assert.Equal(t, http.StatusSeeOther, response.Code)
@@ -549,7 +546,7 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 		services.Classical = catalog
 	})
 
-	read := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad-1/previously-read", url.Values{
+	read := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/previously-read", url.Values{
 		"csrf_token": {csrf},
 		"return":     {"index"},
 	}, cookies)
@@ -568,7 +565,7 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 	assert.Equal(t, 1, detail.CompletionCount)
 	assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
 	require.NotNil(t, detail.ReadingUnit)
-	assert.Equal(t, "fixture-iliad-1", detail.ReadingUnit.ReadingUnitKey)
+	assert.Equal(t, "fixture-iliad", detail.ReadingUnit.ReadingUnitKey)
 
 	page := catalogPage(t, h, cookies, read.Header().Get("Location"))
 	require.Equal(t, http.StatusOK, page.Code)
@@ -660,8 +657,8 @@ func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {
 }
 
 func TestClassicalAddOutcomeNamesTheLanguageOnlyWhenAnotherIsActive(t *testing.T) {
-	created := classical.AddReport{Books: []classical.AddedBook{{Created: true}}}
-	opened := classical.AddReport{Books: []classical.AddedBook{{}}}
+	created := classical.AddReport{Books: []classical.AddedBook{{BookID: "added-book", Created: true}}}
+	opened := classical.AddReport{Books: []classical.AddedBook{{BookID: "added-book"}}}
 	languageMessage := func(message string) string {
 		return strings.TrimSuffix(message, ".") + " in Ancient Greek. Your study language is unchanged."
 	}
@@ -674,12 +671,12 @@ func TestClassicalAddOutcomeNamesTheLanguageOnlyWhenAnotherIsActive(t *testing.T
 		{name: "created with Ancient Greek active", report: created, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Added 1 Book to My Books."}},
 		{name: "created with no study language", report: created, expected: classicalAddConfirmation{Message: "Added 1 Book to My Books."}},
 		{name: "reopened with Ancient Greek active", report: opened, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Opened the existing Book."}},
-		{name: "created with another language active", report: created, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Added 1 Book to My Books."), WorkKey: "homer-iliad"}},
-		{name: "reopened with another language active", report: opened, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Opened the existing Book."), WorkKey: "homer-iliad"}},
+		{name: "created with another language active", report: created, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Added 1 Book to My Books."), BookID: "added-book"}},
+		{name: "reopened with another language active", report: opened, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Opened the existing Book."), BookID: "added-book"}},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.expected, classicalAddConfirmationFor(test.report, classicalAddPreparation{}, test.activeLanguage, "homer-iliad"))
+			require.Equal(t, test.expected, classicalAddConfirmationFor(test.report, classicalAddPreparation{}, test.activeLanguage))
 		})
 	}
 }
@@ -720,11 +717,8 @@ func TestClassicalAddRoutesRejectUnknownTargetsAndMissingCSRF(t *testing.T) {
 	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad-1/add", nil, cookies)
 	assert.Equal(t, http.StatusForbidden, noUnitCSRF.Code)
 
-	unknownWorkMyBooks := catalogPage(t, h, cookies, "/catalogs/classical/works/no-such-work/in-my-books")
-	assert.Equal(t, http.StatusNotFound, unknownWorkMyBooks.Code)
-
-	unownedWorkMyBooks := catalogPage(t, h, cookies, "/catalogs/classical/works/homer-iliad/in-my-books")
-	assert.Equal(t, http.StatusNotFound, unownedWorkMyBooks.Code)
+	unknownBook := catalogPage(t, h, cookies, "/catalogs/classical/books/no-such-book/in-my-books")
+	assert.Equal(t, http.StatusNotFound, unknownBook.Code)
 
 	ordinaryBook := catalogPage(t, h, cookies, "/catalogs/classical/books/"+fixtures.BookID+"/in-my-books")
 	assert.Equal(t, http.StatusNotFound, ordinaryBook.Code)

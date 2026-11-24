@@ -350,18 +350,7 @@ func (b *builder) previousSourcePin(workKey string) (classical.SourcePin, bool, 
 // constituent books the Work's citation scheme names.
 func (b *builder) planUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
 	if len(override.Units) > 0 {
-		units, total, err := explicitUnits(override)
-		if err != nil {
-			return nil, 0, nil, err
-		}
-		if !sourceAvailable {
-			return units, total, nil, nil
-		}
-		coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
-		if err != nil {
-			return nil, 0, nil, err
-		}
-		return units, total, &coverage, nil
+		return b.planExplicitUnits(override, sourceData, sourceAvailable)
 	}
 
 	if sourceAvailable {
@@ -385,22 +374,53 @@ func (b *builder) planUnits(override classical.Override, sourceData []byte, sour
 	if err != nil {
 		return nil, 0, nil, err
 	}
+	if override.Contents == classical.ContentsBooks && len(unit.contents) < 2 {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q lists book contents but the committed manifest has no book ranges; verify with upstream files", override.WorkKey)
+	}
 	return []plannedUnit{unit}, max(len(unit.contents), 1), nil, nil
+}
+
+func (b *builder) planExplicitUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
+	spec := override.Units[0] // The override validator allows at most one.
+	if compareCitations(spec.CitationStart, spec.CitationEnd) > 0 {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q has a backwards citation range", override.WorkKey)
+	}
+	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: spec.CitationStart, end: spec.CitationEnd}
+	units := []plannedUnit{unit}
+	if !sourceAvailable {
+		if definition := b.previousByKey[unit.key]; len(definition.Contents) > 0 {
+			return nil, 0, nil, bookRangeOverrideError(override)
+		}
+		return units, 1, nil, nil
+	}
+	coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	proposed, err := ancientgreek.ProposeUnits(sourceData)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	if hasBookRanges(proposed) {
+		return nil, 0, nil, bookRangeOverrideError(override)
+	}
+	return units, 1, &coverage, nil
+}
+
+func bookRangeOverrideError(override classical.Override) error {
+	return fmt.Errorf("classical: work override %q cannot replace derived book contents with a hand-reviewed range", override.WorkKey)
 }
 
 // proposedUnit converts the adapter's proposed ranges into the one whole-work
 // unit. When the Work's citation scheme names books, each proposed range is a
 // constituent book and is recorded, with its word count, as contents.
 func proposedUnit(override classical.Override, sourceData []byte, proposed []ancientgreek.UnitRange) (plannedUnit, error) {
-	if len(proposed) == 0 {
-		return plannedUnit{}, fmt.Errorf("classical: source for %s proposes no units", override.WorkKey)
-	}
 	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: proposed[0].Start, end: proposed[len(proposed)-1].End}
-	if override.Contents != classical.ContentsBooks {
+	if !hasBookRanges(proposed) {
+		if override.Contents == classical.ContentsBooks {
+			return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges", override.WorkKey)
+		}
 		return unit, nil
-	}
-	if len(proposed) < 2 {
-		return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source names one book", override.WorkKey)
 	}
 	for _, rangeValue := range proposed {
 		book, err := firstCitationNumber(rangeValue.Start)
@@ -414,6 +434,12 @@ func proposedUnit(override classical.Override, sourceData []byte, proposed []anc
 		unit.contents = append(unit.contents, classical.ConstituentBookSpan{Book: book, CitationStart: rangeValue.Start, CitationEnd: rangeValue.End, WordCount: summary.WordCount})
 	}
 	return unit, nil
+}
+
+// OGA sources cite multi-book Works with the book as their outer level.
+// Flat citations, such as Stephanus pages, are not book numbers.
+func hasBookRanges(proposed []ancientgreek.UnitRange) bool {
+	return len(proposed) > 1 && strings.Contains(proposed[0].Start, ".")
 }
 
 // committedUnit reconstructs the whole-work unit from the committed manifest
@@ -441,18 +467,6 @@ func (b *builder) committedUnit(override classical.Override) (plannedUnit, error
 		unit.contents = append(unit.contents, classical.ConstituentBookSpan{Book: *definition.ConstituentBook, CitationStart: definition.CitationStart, CitationEnd: definition.CitationEnd, WordCount: definition.WordCount})
 	}
 	return unit, nil
-}
-
-// explicitUnits validates a hand-reviewed range for a whole-work unit.
-func explicitUnits(override classical.Override) ([]plannedUnit, int, error) {
-	if len(override.Units) != 1 {
-		return nil, 0, fmt.Errorf("classical: whole-work override %q needs one unit", override.WorkKey)
-	}
-	spec := override.Units[0]
-	if compareCitations(spec.CitationStart, spec.CitationEnd) > 0 {
-		return nil, 0, fmt.Errorf("classical: work override %q has a backwards citation range", override.WorkKey)
-	}
-	return []plannedUnit{{key: workUnitKey(override.WorkKey, 0), start: spec.CitationStart, end: spec.CitationEnd}}, 1, nil
 }
 
 // buildDefinition assembles one definition from the work and unit overrides.

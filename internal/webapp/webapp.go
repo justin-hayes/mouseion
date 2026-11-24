@@ -342,7 +342,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /catalogs/classical/works/{workKey}/add", h.user(http.HandlerFunc(h.addClassicalWork)))
 	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/add", h.user(http.HandlerFunc(h.addClassicalUnit)))
 	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/previously-read", h.user(http.HandlerFunc(h.markClassicalUnitPreviouslyRead)))
-	h.mux.Handle("GET /catalogs/classical/works/{workKey}/in-my-books", h.user(http.HandlerFunc(h.classicalWorkInMyBooks)))
 	h.mux.Handle("GET /catalogs/classical/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.classicalBookInMyBooks)))
 	h.mux.Handle("GET /catalogs/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.catalogBookInMyBooks)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.legacyConnections)))

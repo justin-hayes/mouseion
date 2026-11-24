@@ -436,7 +436,8 @@ type Override struct {
 	Source       *SourceSpec      `json:"source,omitempty"`
 	Translation  *TranslationSpec `json:"translation,omitempty"`
 	Split        string           `json:"split,omitempty"`
-	// Contents is ContentsBooks when the Work's citation scheme names books.
+	// ContentsBooks asserts that the source has a multi-book citation scheme.
+	// Book contents are derived from the source even without this assertion.
 	Contents string     `json:"contents,omitempty"`
 	Units    []UnitSpec `json:"units,omitempty"`
 	Revision *int       `json:"revision,omitempty"`

@@ -29,16 +29,19 @@ func TestConcordanceLineShowsAClassicalOccurrencesCitation(t *testing.T) {
 		AnalysisRunID: "run", CorpusID: "corpus", UnitID: "unit",
 		Citations: []string{"3.2.1", "3.2.2"},
 	}
-	body := concordanceBody(t, occurrence)
-	assert.Contains(t, body, `class="concordance-location">3.2.1–2<`)
-
-	occurrence.Citations = nil
-	body = concordanceBody(t, occurrence)
-	assert.NotContains(t, body, "concordance-location", "a modern occurrence keeps its current location")
+	t.Run("classical citation replaces position", func(t *testing.T) {
+		require.Contains(t, concordanceBody(t, occurrence), `class="concordance-location">3.2.1–2<`)
+	})
+	t.Run("modern location is unchanged", func(t *testing.T) {
+		modern := occurrence
+		modern.Citations = nil
+		require.NotContains(t, concordanceBody(t, modern), "concordance-location")
+	})
 }
 
 func TestSentenceStudyShowsAClassicalSentencesCitation(t *testing.T) {
-	render := func(citations []string) string {
+	render := func(t *testing.T, citations []string) string {
+		t.Helper()
 		study := domain.SentenceStudy{
 			BookTitle: "Anabasis 3", ChapterTitle: "Book 3", SentenceText: "λέγει.", UnitText: "λέγει.",
 			SentenceEndOffset: 6, SentenceOrdinal: 4, Citations: citations,
@@ -47,12 +50,14 @@ func TestSentenceStudyShowsAClassicalSentencesCitation(t *testing.T) {
 		require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance", "").Render(t.Context(), &rendered))
 		return rendered.String()
 	}
-	body := render([]string{"3.2.1", "3.2.2"})
-	assert.Contains(t, body, `<p class="sentence-study-location">3.2.1–2</p>`)
-	assert.NotContains(t, body, "sentence 5")
-
-	body = render(nil)
-	assert.Contains(t, body, "Book 3 · sentence 5")
+	t.Run("classical citation replaces position", func(t *testing.T) {
+		body := render(t, []string{"3.2.1", "3.2.2"})
+		require.Contains(t, body, `<p class="sentence-study-location">3.2.1–2</p>`)
+		require.NotContains(t, body, "sentence 5")
+	})
+	t.Run("modern location is unchanged", func(t *testing.T) {
+		require.Contains(t, render(t, nil), "Book 3 · sentence 5")
+	})
 }
 
 func TestOneCitationRenderingServesEverySurface(t *testing.T) {

@@ -201,8 +201,7 @@ func prepareConstructionBooks(t *testing.T) (ctx context.Context, pool *pgxpool.
 	}, nil)
 	learner = createAccount(t, ctx, store, "classical-constructions", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID = owned[fixture.unitOneKey]
 	require.NotEmpty(t, firstID)

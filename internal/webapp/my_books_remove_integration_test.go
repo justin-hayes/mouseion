@@ -16,8 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// workPreparationJobs returns the queued classical preparation jobs in
-// insertion order, which is the order the bulk action must submit them.
+// workPreparationJobs returns queued classical preparation jobs in insertion order.
 func workPreparationJobs(t *testing.T, pool *pgxpool.Pool) (queues, bookIDs []string) {
 	t.Helper()
 	rows, err := pool.Query(context.Background(), `SELECT queue::text, args->>'book_id' FROM river_job WHERE kind=$1 ORDER BY id`, analysis.ClassicalPreparationQueue)
@@ -43,7 +42,7 @@ func TestMyBooksRemoveBookEndsMembershipAndRefusesTheCurrentBook(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "remove-book", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWork(t, h, cookies, csrf, "homer-iliad")
+	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
 
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)

@@ -294,11 +294,6 @@
   text-align: center;
 }
 
-.classical-length__segment i {
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-
 .classical-length__segment--owned {
   border-top-color: var(--mouseion-color-accent);
   color: var(--mouseion-color-accent);

@@ -60,7 +60,7 @@ completion** are not primary learner-facing concepts.
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
 upload unless a shipped route and feature contract support it. Reading intent —
-expressed by Catalog **Add**, **Read again**, or the Work-level move — acquires
+expressed by Catalog **Add** or **Read again** — acquires
 and validates content when needed as an ensure-once consequence. Historical
 compatibility artifacts may retain **Add to My Books** or **Add to library**.
 

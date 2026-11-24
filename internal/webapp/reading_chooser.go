@@ -469,7 +469,7 @@ func readingChooserEntryLess(left, right readingChooserEntryView) bool {
 }
 
 func readingChooserBookTitle(book domain.MyBook) string {
-	if title := strings.TrimSpace(book.Book.Title); title != "" {
+	if title := strings.TrimSpace(myBookDisplayTitle(book)); title != "" {
 		return title
 	}
 	if book.Acquired != nil {

@@ -227,7 +227,7 @@ func (h *Handler) catalogClassicalView(r *http.Request, owner string) (classical
 	if h.services.Classical == nil || h.services.Classical.Counts().Works == 0 {
 		return classicalCatalogView{}, nil
 	}
-	return h.loadClassicalCatalogView(r.Context(), owner, h.services.Classical)
+	return h.loadClassicalCatalogView(r.Context(), owner)
 }
 
 // manageSources configures the OPDS connections that feed the Catalog.
@@ -281,12 +281,11 @@ type classicalCatalogView struct {
 	AddAvailable         bool
 	AddUnavailableReason string
 	OwnedUnits           map[string]string
-	OwnedWorks           map[string]string
 }
 
 // loadClassicalCatalogView reads ownership and the legacy-row precondition.
 // The legacy check is installation-wide, so every catalog Add shares it.
-func (h *Handler) loadClassicalCatalogView(ctx context.Context, owner string, catalog *classical.Catalog) (classicalCatalogView, error) {
+func (h *Handler) loadClassicalCatalogView(ctx context.Context, owner string) (classicalCatalogView, error) {
 	legacy, err := h.services.Store.Catalogs.ListLegacyLanguageRows(ctx, classical.Language)
 	if err != nil {
 		return classicalCatalogView{}, err
@@ -298,23 +297,12 @@ func (h *Handler) loadClassicalCatalogView(ctx context.Context, owner string, ca
 	view := classicalCatalogView{
 		AddAvailable: len(legacy) == 0,
 		OwnedUnits:   make(map[string]string, len(owned)),
-		OwnedWorks:   map[string]string{},
 	}
 	if !view.AddAvailable {
 		view.AddUnavailableReason = classical.LegacyRowsReason
 	}
 	for _, unit := range owned {
 		view.OwnedUnits[unit.ReadingUnitKey] = unit.BookID
-	}
-	for _, author := range catalog.Authors() {
-		for _, work := range author.Works {
-			for _, unit := range work.Units {
-				if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
-					view.OwnedWorks[work.Key] = bookID
-					break
-				}
-			}
-		}
 	}
 	return view, nil
 }
@@ -323,7 +311,7 @@ func (h *Handler) loadClassicalCatalogView(ctx context.Context, owner string, ca
 // author's Works with their Openings, lengths, facts and Add controls. It is
 // deliberately not scoped to the active study language.
 func (h *Handler) classicalAuthorIndex(w http.ResponseWriter, r *http.Request) {
-	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID, h.services.Classical)
+	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -343,14 +331,14 @@ func (h *Handler) classicalAuthor(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, classicalAuthorIndexURL(author.Name), http.StatusMovedPermanently)
 }
 
-// classicalWork renders one Work's constituent books.
+// classicalWork renders the Work's Editions and their read-only contents.
 func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 	work, ok := h.services.Classical.Work(r.PathValue("workKey"))
 	if !ok {
 		http.NotFound(w, r)
 		return
 	}
-	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID, h.services.Classical)
+	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID)
 	if err != nil {
 		fail(w, err)
 		return
@@ -358,9 +346,8 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
-// addClassicalWork adds one Book per current Reading unit of a Work. It is the
-// primary action on a work; the index posts it with return=index so the learner
-// stays there.
+// addClassicalWork handles older forms. It can only add an unambiguous single
+// Edition; otherwise the learner must choose one on the Work page.
 func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
 		return
@@ -370,24 +357,14 @@ func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	keys := make([]string, 0, len(work.Units))
-	for _, unit := range work.Units {
-		keys = append(keys, unit.Key)
-	}
-	owner := user(r).ID
-	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), owner, keys)
-	target := classicalWorkURL(work.Key)
-	if r.PostFormValue("return") == classicalAddReturnIndex {
-		target = classicalCatalogURL()
-	}
-	if err != nil {
-		h.redirectClassicalAddFailure(w, r, target, err)
+	if len(work.Units) != 1 {
+		redirect(w, r, classicalWorkURL(work.Key))
 		return
 	}
-	h.completeClassicalAdd(w, r, target, report, work.Key)
+	h.addClassicalEdition(w, r, work.Key, work.Units[0].Key)
 }
 
-// addClassicalUnit adds one constituent book or whole-work unit.
+// addClassicalUnit adds one current Reading unit, normally a whole Edition.
 func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {
 		return
@@ -398,9 +375,13 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	h.addClassicalEdition(w, r, work.Key, key)
+}
+
+func (h *Handler) addClassicalEdition(w http.ResponseWriter, r *http.Request, workKey, key string) {
 	owner := user(r).ID
 	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), owner, []string{key})
-	target := classicalWorkURL(work.Key)
+	target := classicalWorkURL(workKey)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
 		target = classicalCatalogURL()
 	}
@@ -408,7 +389,8 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
-	h.completeClassicalAdd(w, r, target, report, work.Key)
+	preparation := h.prepareAddedClassicalBooks(r.Context(), owner, report)
+	redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, preparation, activeLanguageOf(r)))
 }
 
 // markClassicalUnitPreviouslyRead records one current Reading unit as read
@@ -450,13 +432,6 @@ func (h *Handler) markClassicalUnitPreviouslyRead(w http.ResponseWriter, r *http
 	redirect(w, r, target+"?"+query.Encode())
 }
 
-// completeClassicalAdd submits the preparation the Add expresses, then returns
-// to the catalog with one confirmation. Both Add routes end here.
-func (h *Handler) completeClassicalAdd(w http.ResponseWriter, r *http.Request, target string, report classical.AddReport, workKey string) {
-	preparation := h.prepareAddedClassicalBooks(r.Context(), user(r).ID, report)
-	h.redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, preparation, activeLanguageOf(r), workKey))
-}
-
 // classicalAddPreparation is the preparation outcome of one Add, aggregated
 // over its Books. The store has already made every Book To Read; this only
 // reports what the reading-intent route did with them.
@@ -468,10 +443,9 @@ type classicalAddPreparation struct {
 }
 
 // prepareAddedClassicalBooks sends each added Book through the reading-intent
-// route. Books are visited in constituent-book order, so a whole-Work Add
-// enqueues its preparation jobs in that order. Preparation is ensure-once, so
-// re-adding a prepared Book queues nothing. A submission failure never undoes
-// the Add; it is reported in the confirmation.
+// route. Preparation is ensure-once, so re-adding a prepared Book queues
+// nothing. A submission failure never undoes the Add; it is reported in the
+// confirmation.
 func (h *Handler) prepareAddedClassicalBooks(ctx context.Context, owner string, report classical.AddReport) classicalAddPreparation {
 	var preparation classicalAddPreparation
 	if len(report.Books) == 0 {
@@ -525,39 +499,34 @@ const (
 )
 
 // classicalAddConfirmation is what one Add reports to the page it returns to.
-// WorkKey names the added Books' work only while another study language is
-// active, so the page can offer the "In My Books" path that opens them in
-// Ancient Greek.
+// BookID identifies the exact Book to open in My Books.
 type classicalAddConfirmation struct {
 	Message string
-	WorkKey string
 	BookID  string
 }
 
-// InMyBooksURL returns the existing "In My Books" path for the added or
-// recorded Books. A read assertion names its Book directly; an Add names the
-// Work only while another study language is active.
+// InMyBooksURL returns the path to the added or recorded Book.
 func (c classicalAddConfirmation) InMyBooksURL() string {
 	if c.BookID != "" {
 		return classicalBookInMyBooksURL(c.BookID)
 	}
-	if c.WorkKey == "" {
-		return ""
-	}
-	return classicalWorkInMyBooksURL(c.WorkKey)
+	return ""
 }
 
-func classicalAddConfirmationFor(report classical.AddReport, preparation classicalAddPreparation, activeLanguage, workKey string) classicalAddConfirmation {
+func classicalAddConfirmationFor(report classical.AddReport, preparation classicalAddPreparation, activeLanguage string) classicalAddConfirmation {
 	message := classicalAddMessage(report)
 	if !classicalAddNamesOtherLanguage(activeLanguage) {
 		return classicalAddConfirmation{Message: message + classicalAddPreparationMessage(preparation)}
 	}
 	// Every membership message is one sentence ending with a period, so the
 	// language joins that sentence instead of starting a second one.
-	return classicalAddConfirmation{
+	confirmation := classicalAddConfirmation{
 		Message: strings.TrimSuffix(message, ".") + " in " + classical.LanguageDisplayName + ". Your study language is unchanged." + classicalAddPreparationMessage(preparation),
-		WorkKey: workKey,
 	}
+	if len(report.Books) == 1 {
+		confirmation.BookID = report.Books[0].BookID
+	}
+	return confirmation
 }
 
 // classicalAddPreparationMessage states what happens to the text after Add.
@@ -586,40 +555,32 @@ func classicalAddNamesOtherLanguage(activeLanguage string) bool {
 }
 
 // redirectClassicalAdd returns to the catalog page with the Add outcome. The
-// page never carries an arbitrary link target: it derives the "In My Books"
-// path from the catalog's own work key.
-func (h *Handler) redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string, confirmation classicalAddConfirmation) {
+// page derives the "In My Books" path from the added Book's ID.
+func redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string, confirmation classicalAddConfirmation) {
 	query := url.Values{"message": {confirmation.Message}}
-	if confirmation.WorkKey != "" {
-		query.Set("added_work", confirmation.WorkKey)
+	if confirmation.BookID != "" {
+		query.Set("added_book", confirmation.BookID)
 	}
 	redirect(w, r, target+"?"+query.Encode())
 }
 
-// loadClassicalAddConfirmation reads the Add outcome from the page query. A work
-// key is honored only when it names a catalog work and another study language
-// is still active; the link then goes through the existing "In My Books" path,
-// which switches the study language on the learner's deliberate follow.
+// loadClassicalAddConfirmation only links to a current Classical Book owned
+// by the learner. An Add link is shown only while another language is active.
 func (h *Handler) loadClassicalAddConfirmation(r *http.Request) classicalAddConfirmation {
 	message := r.URL.Query().Get("message")
 	if message == "" {
 		return classicalAddConfirmation{}
 	}
 	confirmation := classicalAddConfirmation{Message: message}
-	if bookID := r.URL.Query().Get("read_book"); bookID != "" {
-		if _, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), user(r).ID, bookID); err == nil {
+	bookID := r.URL.Query().Get("read_book")
+	if bookID == "" && classicalAddNamesOtherLanguage(activeLanguageOf(r)) {
+		bookID = r.URL.Query().Get("added_book")
+	}
+	if bookID != "" {
+		if book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), user(r).ID, bookID); err == nil && book.ReadingUnit != nil && !book.ReadingUnit.Withdrawn {
 			confirmation.BookID = bookID
 		}
-		return confirmation
 	}
-	workKey := r.URL.Query().Get("added_work")
-	if workKey == "" || !classicalAddNamesOtherLanguage(activeLanguageOf(r)) {
-		return confirmation
-	}
-	if _, ok := h.services.Classical.Work(workKey); !ok {
-		return confirmation
-	}
-	confirmation.WorkKey = workKey
 	return confirmation
 }
 
@@ -683,37 +644,6 @@ func (h *Handler) openClassicalBookInMyBooks(w http.ResponseWriter, r *http.Requ
 
 func (h *Handler) openCatalogBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string) {
 	h.openBookInMyBooks(w, r, bookID, false)
-}
-
-// classicalWorkInMyBooks lands on the first owned Book of a Work in book order.
-func (h *Handler) classicalWorkInMyBooks(w http.ResponseWriter, r *http.Request) {
-	work, ok := h.services.Classical.Work(r.PathValue("workKey"))
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	owned, err := h.services.Store.Catalogs.ListOwnedClassicalReadingUnits(r.Context(), user(r).ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	bookID := ""
-	for _, unit := range work.Units {
-		for _, candidate := range owned {
-			if candidate.ReadingUnitKey == unit.Key {
-				bookID = candidate.BookID
-				break
-			}
-		}
-		if bookID != "" {
-			break
-		}
-	}
-	if bookID == "" {
-		http.NotFound(w, r)
-		return
-	}
-	h.openClassicalBookInMyBooks(w, r, bookID)
 }
 
 // openBookInMyBooks switches the active language and redirects to the row's

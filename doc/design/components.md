@@ -182,7 +182,7 @@ upstream cover URL to the browser. An entry linked to an active Book
 shows **In My Books** as a link to that Book's My Books row. An unowned entry
 offers **Add**, whose copy says plainly that the text is downloaded and
 analyzed; Add creates or restores the Book as To Read and starts the same
-preparation as **Read again** and the Work-level move. The confirmation names
+preparation as **Read again**. The confirmation names
 the Book, links to My Books, and receives focus after the ordinary POST
 redirect. Entries never show disposition, analysis or preparation state.
 

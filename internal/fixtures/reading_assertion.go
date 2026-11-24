@@ -165,7 +165,7 @@ func (s *Store) MarkClassicalReadingUnitPreviouslyRead(_ context.Context, owner,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	definition, ok := s.classicalDefinitions[readingUnitKey]
-	if !ok {
+	if !ok || definition.Withdrawn {
 		return domain.CatalogueReadResult{}, fmt.Errorf("fixtures: classical Reading unit %q is not current", readingUnitKey)
 	}
 	s.ensureFixtureSupportedLanguageLocked(classical.Language, classical.LanguageDisplayName)

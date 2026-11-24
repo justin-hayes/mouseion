@@ -170,7 +170,6 @@ type CatalogWork struct {
 	EditionLabel         string
 	Opening              string
 	ConstituentBooks     int
-	WholeWork            bool
 	Words                int
 	TranslationAvailable bool
 	Units                []CatalogUnit
@@ -253,9 +252,6 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 				ConstituentBooks: definition.ConstituentBooks,
 			}
 			worksByKey[definition.WorkKey] = work
-		}
-		if definition.ConstituentBook == nil {
-			work.WholeWork = true
 		}
 		unit := CatalogUnit{
 			Key:           definition.Key,

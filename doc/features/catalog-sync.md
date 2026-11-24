@@ -72,22 +72,22 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
 - Each connection appears as a section whose entries are a cover grid with
   cover, title and author, ordered by title then author and paged locally.
 - Search compares the Go search key for title and author, so it ignores accents
-  and case. A trailing number narrows a Classical match to that constituent
-  Book. Search and browsing never contact the OPDS server.
+  and case. Classical search also matches the Greek title. Search and browsing
+  never contact the OPDS server.
 - An entry linked to one of the learner's active Books shows **In My Books**
   linked to that Book and no disposition, analysis or preparation state. An
   unowned entry offers **Add** and the secondary **I've read this**.
 - **Add** creates the Book linked by its catalog-entry alias, or restores the
   learner's existing Book for that alias, as To Read. It then runs the same
-  reading-intent preparation seam that **Read again** and the Work-level move
-  use: acquisition and analysis start once, and repeating Add changes nothing.
+  reading-intent preparation seam as **Read again**: acquisition and analysis
+  start once, and repeating Add changes nothing.
   The Add copy says the text is downloaded and analyzed, the route is an
   ordinary owner-scoped POST, and the confirmation names the Book and links to
   My Books. Adding the first Book in a language makes it a study language.
 - **I've read this** creates or restores the same Book as Read with a
   **Previously read** record. It downloads nothing, starts no analysis or
   preparation and changes no Known vocabulary. On a classical Work it is offered
-  per Reading unit only, never for the whole Work. An entry whose Book left My
+  once per Edition and covers the whole Work. An entry whose Book left My
   Books restores that same Book as Read.
 - Distinct empty states cover no OPDS sources, no match, nothing in this
   language, and nothing to browse yet. One live region announces result

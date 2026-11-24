@@ -30,7 +30,7 @@ test('adds a whole work with constituent books as one Book and shows its content
   await expect(page.getByRole('button', { name: 'Add and prepare the work', exact: true })).toHaveCount(1);
   await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(1);
   await expect(page.getByText('Choose books')).toHaveCount(0);
-  const contents = page.getByRole('region', { name: 'Contents of Odyssey' });
+  const contents = page.getByRole('region', { name: 'Contents of Odyssey, Fixture reviewed edition' });
   await expect(contents.getByRole('row')).toHaveCount(4);
   await expect(contents.getByRole('row', { name: /Book 2/ })).toContainText('2.1.1–2.10.19');
   await expect(contents.getByRole('row', { name: /Book 2/ })).toContainText('200');
@@ -57,7 +57,7 @@ test('adds a whole work with constituent books as one Book and shows its content
   await page.goto('/catalogs/classical/works/fixture-odyssey');
   await expect(page.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add and prepare the work', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Contents of Odyssey' }).getByRole('row')).toHaveCount(4);
+  await expect(page.getByRole('region', { name: 'Contents of Odyssey, Fixture reviewed edition' }).getByRole('row')).toHaveCount(4);
 
   // The same index fits a phone without sideways scrolling.
   await page.goto('/catalogs/classical');

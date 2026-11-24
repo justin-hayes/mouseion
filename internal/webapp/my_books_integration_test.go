@@ -15,12 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// addClassicalWork adds one whole reviewed Work and returns its Books in book
-// order, which is also the order the grouped strip renders.
-func addClassicalWork(t *testing.T, h *Handler, cookies []*http.Cookie, csrf, workKey string) {
+// addClassicalTestUnits exercises the Add route once per reviewed fixture unit.
+func addClassicalTestUnits(t *testing.T, h *Handler, cookies []*http.Cookie, csrf string, keys ...string) {
 	t.Helper()
-	response := perform(t, h, http.MethodPost, "/catalogs/classical/works/"+workKey+"/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, response.Code, response.Body.String())
+	for _, key := range keys {
+		response := perform(t, h, http.MethodPost, classicalUnitAddURL(key), url.Values{"csrf_token": {csrf}}, cookies)
+		require.Equal(t, http.StatusSeeOther, response.Code, response.Body.String())
+	}
 }
 
 func classicalBooksByPosition(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string, bookIDs []string) map[int]domain.MyBook {
@@ -39,7 +40,7 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-ordinary", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWork(t, h, cookies, csrf, "homer-iliad")
+	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
 
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
@@ -134,7 +135,7 @@ func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-single-work", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWork(t, h, cookies, csrf, "homer-iliad")
+	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
 	byPosition := classicalBooksByPosition(t, ctx, store, learner.ID, ids)
@@ -156,7 +157,7 @@ func TestMyBooksWholeWorkUnitStaysOrdinaryWithoutPosition(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-whole-work", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWork(t, h, cookies, csrf, "xenophon-hellenica")
+	addClassicalTestUnits(t, h, cookies, csrf, "xenophon-hellenica-1")
 	require.Len(t, ownerBooks(t, pool, learner.ID), 1)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 
@@ -172,7 +173,7 @@ func TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumbe
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-work-search", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWork(t, h, cookies, csrf, "homer-iliad")
+	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))

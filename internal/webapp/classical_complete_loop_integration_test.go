@@ -85,7 +85,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	for _, want := range []string{
 		"Classical catalog", "Synthetic Author", "Synthetic Work", "Synthetic Whole",
 		"English translation available", "English translation not available",
-		`action="/catalogs/classical/works/synthetic-whole/add"`,
+		`action="/catalogs/classical/units/synthetic-whole-1/add"`,
 	} {
 		assert.Contains(t, index.Body.String(), want, "catalog index missing %q", want)
 	}
@@ -100,12 +100,10 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
 	}
 
-	// 2. Add a whole Work. Every current Reading unit becomes a To Read Book and
-	// one preparation is queued in constituent-book order. The whole-work unit
-	// from the index is added separately.
-	added := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
-	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 2 Books to My Books. Downloading and preparing the text."))
+	// 2. Add the two reviewed legacy fixture units individually. Each becomes
+	// a To Read Book and queues one preparation. Then add a whole-work unit
+	// from the index.
+	addClassicalTestUnits(t, h.handler, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	owned := h.booksByUnit(t, learner.ID)
 	require.Len(t, owned, 2)
 	bookOne, bookTwo := owned[h.unitOneKey], owned[h.unitTwoKey]
@@ -122,7 +120,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Zero(t, h.sourceServed(), "the worker, not Add, downloads the source")
 	assert.Zero(t, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE queue='analysis'`), "classical preparation never delays EPUB analysis")
 
-	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-whole/add", url.Values{
+	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/synthetic-whole-1/add", url.Values{
 		"csrf_token": {csrf}, "return": {"index"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
@@ -142,9 +140,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.NotContains(t, library.Body.String(), "Book 1 of 1")
 
 	// Re-add is idempotent and keeps one live job per Book.
-	again := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, again.Code, again.Body.String())
-	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened 2 existing Books. Downloading and preparing the text."))
+	addClassicalTestUnits(t, h.handler, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	afterReAdd := h.booksByUnit(t, learner.ID)
 	assert.Equal(t, bookOne, afterReAdd[h.unitOneKey])
 	assert.Equal(t, bookTwo, afterReAdd[h.unitTwoKey])
@@ -370,8 +366,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	// no translation is fetched again.
 	other := createAccount(t, h.ctx, h.store, "classical-loop-other", "learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h.handler, other.Username, "learner-password")
-	otherAdd := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
-	require.Equal(t, http.StatusSeeOther, otherAdd.Code, otherAdd.Body.String())
+	addClassicalTestUnits(t, h.handler, otherCookies, otherCSRF, "synthetic-work-1", "synthetic-work-2")
 	otherOwned := h.booksByUnit(t, other.ID)
 	require.Len(t, otherOwned, 2)
 	h.waitForBookAnalysis(t, other.ID, otherOwned[h.unitOneKey])

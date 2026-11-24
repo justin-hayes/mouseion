@@ -225,6 +225,23 @@ func TestReadingChooserRendersEachBookAsAnOrdinaryEntry(t *testing.T) {
 	assert.Less(t, strings.Index(body, "Anabasis"), strings.Index(body, "Iliad"), "entries share neutral title order")
 }
 
+func TestReadingChooserDistinguishesAWithdrawnBookFromTheWholeWork(t *testing.T) {
+	leftover := chooserWorkBook("leftover", "Iliad", "Homer", "homer-iliad-3", "leftover-corpus")
+	leftover.ReadingUnit.WorkTitle = "Iliad"
+	leftover.ReadingUnit.ConstituentBook = 3
+	leftover.ReadingUnit.ConstituentBooks = 24
+	leftover.ReadingUnit.Withdrawn = true
+	whole := chooserWorkBook("whole", "Iliad", "Homer", "homer-iliad", "whole-corpus")
+	whole.ReadingUnit.ConstituentBooks = 24
+	insights := chooserWorkInsights{coverage: map[string]domain.AnalysisCoverage{
+		"leftover-corpus": chooserCoverage(99, 100), "whole-corpus": chooserCoverage(93, 100),
+	}}
+
+	body := chooserWorkBody(t, []domain.MyBook{leftover, whole}, insights, nil)
+	require.Contains(t, body, ">Iliad, Book 3</")
+	require.Contains(t, body, ">Iliad</")
+}
+
 func TestReadingChooserOffersTheOrdinaryAnalysisUpdateOnEachBook(t *testing.T) {
 	books, insights := chooserWorkBooks()
 	offers := map[string]domain.AnalysisUpdateCandidate{}

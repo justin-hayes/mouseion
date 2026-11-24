@@ -32,8 +32,7 @@ func TestClassicalPreparationStoresNativeAGDTSyntax(t *testing.T) {
 	learner := createAccount(t, ctx, store, "classical-native-syntax", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	owned := booksByReadingUnit(t, store, learner.ID)
 	firstID := owned[fixture.unitOneKey]
 	require.NotEmpty(t, firstID)
@@ -203,7 +202,7 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 	}, nil)
 	learner := createAccount(t, ctx, store, "native-syntax-update", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalWork(t, h, cookies, csrf, "synthetic-work")
+	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "native syntax update client", client.Stop)
 	waitForPreparedBooks(t, pool, learner.ID, 2)

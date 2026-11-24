@@ -324,11 +324,73 @@ func TestWholeWorkSplitCreatesOneUnit(t *testing.T) {
 	definition := result.Definitions[0]
 	assert.Equal(t, "alpha", definition.Key)
 	assert.Nil(t, definition.ConstituentBook)
-	assert.Equal(t, 1, definition.ConstituentBooks)
+	require.Equal(t, 2, definition.ConstituentBooks, "book citations need no opt-in to produce contents")
+	require.Len(t, definition.Contents, 2)
 	assert.Equal(t, "1.1.1", definition.CitationStart)
 	assert.Equal(t, "2.1.1", definition.CitationEnd)
 	assert.Equal(t, 10, definition.WordCount)
 	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", definition.Opening)
+}
+
+func TestGeneratePreservesTheSourceCitationScheme(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	whole := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+
+	t.Run("hand-reviewed bounds cannot hide derived books", func(t *testing.T) {
+		override := baseOverride()
+		override.Contents = ""
+		override.Units = []classical.UnitSpec{{CitationStart: "1.1.1", CitationEnd: "2.1.1"}}
+		opts := Options{Layers: layers, Overrides: overrideFile(t, override), Manifest: whole.Manifest, UpstreamDir: upstream}
+		_, err := Generate(opts)
+		require.ErrorContains(t, err, "cannot replace derived book contents")
+		opts.UpstreamDir, opts.AllowMissingUpstream = "", true
+		_, err = Generate(opts)
+		require.ErrorContains(t, err, "cannot replace derived book contents")
+	})
+	t.Run("backwards hand-reviewed bounds are refused", func(t *testing.T) {
+		override := baseOverride()
+		override.Contents = ""
+		override.Units = []classical.UnitSpec{{CitationStart: "2.1.1", CitationEnd: "1.1.1"}}
+		_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), Manifest: whole.Manifest, UpstreamDir: upstream})
+		require.ErrorContains(t, err, "backwards citation range")
+	})
+	t.Run("flat citations are not constituent books", func(t *testing.T) {
+		root := copyUpstream(t)
+		path := filepath.Join(root, "work.conllu")
+		data, err := os.ReadFile(path) //nolint:gosec // test temp path.
+		require.NoError(t, err)
+		replacer := strings.NewReplacer("_1.1.1", "_17", "_1.1.2", "_18", "_2.1.1", "_19")
+		require.NoError(t, os.WriteFile(path, []byte(replacer.Replace(string(data))), 0o600)) //nolint:gosec // test temp path.
+		pins := layersForUpstream(t, layers, root)
+		override := baseOverride()
+		override.Contents, override.Translation = "", nil
+		flat := generate(t, Options{Layers: pins, Overrides: overrideFile(t, override), UpstreamDir: root})
+		require.Len(t, flat.Definitions, 1)
+		require.Equal(t, 1, flat.Definitions[0].ConstituentBooks)
+		require.Empty(t, flat.Definitions[0].Contents)
+		override.Contents = classical.ContentsBooks
+		_, err = Generate(Options{Layers: pins, Overrides: overrideFile(t, override), Manifest: flat.Manifest, UpstreamDir: root})
+		require.ErrorContains(t, err, "source has no multiple book ranges")
+		_, err = Generate(Options{Layers: pins, Overrides: overrideFile(t, override), Manifest: flat.Manifest, AllowMissingUpstream: true})
+		require.ErrorContains(t, err, "committed manifest has no book ranges")
+	})
+	t.Run("a different whole-work key is not an offline source", func(t *testing.T) {
+		previous := whole.Definitions[0]
+		previous.Key = "alpha-old"
+		manifest, err := classical.RenderDefinitions([]classical.Definition{previous})
+		require.NoError(t, err)
+		_, err = Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), Manifest: manifest, AllowMissingUpstream: true})
+		require.ErrorContains(t, err, "new work alpha needs the upstream source file")
+	})
+	t.Run("book zero is refused", func(t *testing.T) {
+		root := copyUpstream(t)
+		path := filepath.Join(root, "work.conllu")
+		data, err := os.ReadFile(path) //nolint:gosec // test temp path.
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, bytes.ReplaceAll(data, []byte("_1.1."), []byte("_0.1.")), 0o600)) //nolint:gosec // test temp path.
+		_, err = Generate(Options{Layers: layersForUpstream(t, layers, root), Overrides: overrideFile(t, baseOverride()), Manifest: whole.Manifest, UpstreamDir: root})
+		require.ErrorContains(t, err, `citation "0.1.1" has no constituent book number`)
+	})
 }
 
 func TestGenerateOpeningSkipsASpeakerLabel(t *testing.T) {

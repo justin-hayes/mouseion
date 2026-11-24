@@ -70,11 +70,24 @@ templ ClassicalCatalogIndexSections(csrf string, authors []classical.CatalogAuth
 								<p>{ work.EditionLabel }</p>
 								<p class="numeric">Passage { classicalWorkCitationRange(work) }</p>
 								<p>{ classicalTranslationLabel(work.TranslationAvailable) }</p>
-								if ownership := classicalWorkOwnershipLabel(work, view); ownership != "" {
-									<p class="classical-work-entry__owned"><span class="classical-work-entry__owned-marker" aria-hidden="true"></span><a href={ templ.SafeURL(classicalWorkInMyBooksURL(work.Key)) }>{ ownership }</a></p>
+								for _, unit := range work.Units {
+									if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
+										<p class="classical-work-entry__owned">
+											<span class="classical-work-entry__owned-marker" aria-hidden="true"></span>
+											<a href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books
+												if len(work.Units) > 1 {
+													{ " · " + unit.EditionLabel }
+												}
+											</a>
+										</p>
+									}
 								}
 								if classicalWorkCanAdd(work, view) {
-									<div class="action-group">@ClassicalAddForm(csrf, classicalWorkAddURL(work.Key), false, classicalAddReturnIndex)</div>
+									if len(work.Units) == 1 {
+										<div class="action-group">@ClassicalAddForm(csrf, classicalUnitAddURL(work.Units[0].Key), false, classicalAddReturnIndex)</div>
+									} else {
+										<a class="button button--outline" href={ templ.SafeURL(classicalWorkURL(work.Key)) }>Choose an edition</a>
+									}
 								}
 							</div>
 						</li>
@@ -102,7 +115,7 @@ templ ClassicalCatalogAttribution(attributions []classical.SourceAttribution) {
 templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork, view classicalCatalogView, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout(work.Title+" · Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@Breadcrumb(classicalAuthorIndexURL(work.Author), work.Author)
-		@PageHeader(work.Title, "Added as one Book. Word counts are length facts, not coverage or difficulty.", nil)
+		@PageHeader(work.Title, "Each edition is added as one Book. Word counts are length facts, not coverage or difficulty.", nil)
 		if confirmation.Message != "" {
 			@ClassicalAddFeedback(confirmation)
 		}
@@ -119,7 +132,7 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 		for _, unit := range work.Units {
 			<section class="classical-work-page__edition" aria-label={ unit.EditionLabel }>
 				<h2>{ unit.EditionLabel }</h2>
-				<p class="numeric">Passage { classicalCitationRange(unit) }</p>
+				<p class="numeric">Passage { classicalRange(unit.CitationStart, unit.CitationEnd) }</p>
 				if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 					<a class="button button--outline" href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
 				} else if view.AddAvailable {
@@ -135,7 +148,7 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 							for _, book := range unit.Contents {
 								<tr>
 									<td>{ classicalBookLabel(book.Book) }</td>
-									<td>{ classicalSpanCitationRange(book) }</td>
+									<td>{ classicalRange(book.CitationStart, book.CitationEnd) }</td>
 									<td>{ fmt.Sprintf("%d", book.WordCount) }</td>
 								</tr>
 							}
@@ -231,10 +244,7 @@ func classicalWorkCitationRange(work classical.CatalogWork) string {
 		return ""
 	}
 	first, last := work.Units[0], work.Units[len(work.Units)-1]
-	if first.CitationStart == last.CitationEnd {
-		return first.CitationStart
-	}
-	return first.CitationStart + "–" + last.CitationEnd
+	return classicalRange(first.CitationStart, last.CitationEnd)
 }
 
 // classicalWorkLengthCaption states the Work's total and its shape without
@@ -276,19 +286,16 @@ func classicalLengthSegmentClass(unit classical.CatalogUnit, view classicalCatal
 	return "classical-length__segment"
 }
 
-// classicalWorkOwnershipLabel states the learner's real ownership of the
-// Work's whole-work Reading unit, or nothing when it is not owned.
-func classicalWorkOwnershipLabel(work classical.CatalogWork, view classicalCatalogView) string {
-	if view.OwnedWorks[work.Key] != "" {
-		return "In My Books"
-	}
-	return ""
-}
-
-// classicalWorkCanAdd reports whether the Work's whole-work Reading unit can
-// still be added.
+// classicalWorkCanAdd reports whether at least one Edition is addable.
 func classicalWorkCanAdd(work classical.CatalogWork, view classicalCatalogView) bool {
-	return view.AddAvailable && view.OwnedWorks[work.Key] == ""
+	if view.AddAvailable {
+		for _, unit := range work.Units {
+			if view.OwnedUnits[unit.Key] == "" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // classicalAuthorIndexURL names one author's section of the catalog index.
@@ -306,20 +313,12 @@ func classicalWorkURL(key string) string {
 	return "/catalogs/classical/works/" + url.PathEscape(key)
 }
 
-func classicalWorkAddURL(key string) string {
-	return classicalWorkURL(key) + "/add"
-}
-
 func classicalUnitAddURL(key string) string {
 	return "/catalogs/classical/units/" + url.PathEscape(key) + "/add"
 }
 
 func classicalUnitReadURL(key string) string {
 	return "/catalogs/classical/units/" + url.PathEscape(key) + "/previously-read"
-}
-
-func classicalWorkInMyBooksURL(key string) string {
-	return classicalWorkURL(key) + "/in-my-books"
 }
 
 func classicalBookInMyBooksURL(bookID string) string {
@@ -347,22 +346,12 @@ func classicalBookLabel(book int) string {
 	return fmt.Sprintf("Book %d", book)
 }
 
-// classicalCitationRange renders one unit's inclusive citation range.
-func classicalCitationRange(unit classical.CatalogUnit) string {
-	return classicalRange(unit.CitationStart, unit.CitationEnd)
-}
-
 // classicalRange renders an inclusive citation range.
 func classicalRange(start, end string) string {
 	if start == end {
 		return start
 	}
 	return start + "–" + end
-}
-
-// classicalSpanCitationRange renders one constituent book's inclusive range.
-func classicalSpanCitationRange(book classical.ConstituentBookSpan) string {
-	return classicalRange(book.CitationStart, book.CitationEnd)
 }
 
 // classicalCountLabel renders one or many of a counted noun.

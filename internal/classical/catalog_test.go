@@ -78,7 +78,6 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 	assert.Equal(t, "Ἄλφα", alpha.GreekTitle)
 	assert.Equal(t, "Test Edition", alpha.EditionLabel)
 	assert.Equal(t, 2, alpha.ConstituentBooks)
-	assert.False(t, alpha.WholeWork)
 	assert.Equal(t, 20, alpha.Words)
 	assert.Equal(t, "ἄρχεται ὁ λόγος.", alpha.Opening, "a Work's Opening is its first Reading unit's")
 	assert.False(t, alpha.TranslationAvailable, "a work with one translated book and one without does not promise a translation")
@@ -90,7 +89,6 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 
 	beta, ok := catalog.Work("beta")
 	require.True(t, ok)
-	assert.True(t, beta.WholeWork)
 	assert.Equal(t, 1, beta.ConstituentBooks)
 	assert.Equal(t, 5, beta.Words)
 	assert.Equal(t, "ἄλλος λόγος.", beta.Opening)
@@ -216,7 +214,6 @@ func TestLoadCatalogReadsTheEmbeddedRelease(t *testing.T) {
 	work, ok := catalog.Work("xenophon-anabasis")
 	require.True(t, ok)
 	assert.Equal(t, "Anabasis", work.Title)
-	assert.True(t, work.WholeWork)
 	assert.Equal(t, 7, work.ConstituentBooks)
 	require.Len(t, work.Units, 1)
 	assert.Len(t, work.Units[0].Contents, 7)
