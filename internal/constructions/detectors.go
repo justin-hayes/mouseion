@@ -124,6 +124,36 @@ func (r reader) clauseChildren(i int, unprinted bool, moods ...string) []int {
 			out = append(out, child)
 		}
 	}
+	if unprinted {
+		out = append(out, r.unprintedAdverbials(i, out)...)
+		slices.Sort(out)
+	}
+	return out
+}
+
+// unprintedAdverbials returns the unprinted ADV nodes under i that are
+// reached through coordinators, printed or not, and are not already in have.
+// The conditional and result definitions accept such a node as the clause by
+// its relation alone.
+func (r reader) unprintedAdverbials(i int, have []int) []int {
+	var out []int
+	seen := map[int]bool{i: true}
+	var walk func(parent int)
+	walk = func(parent int) {
+		for _, child := range r.t.Children(parent) {
+			if seen[child] {
+				continue
+			}
+			seen[child] = true
+			switch {
+			case r.category(child) == syntax.CategoryCoordination:
+				walk(child)
+			case !r.node(child).Printed && r.category(child) == syntax.CategoryAdverbial && !slices.Contains(have, child):
+				out = append(out, child)
+			}
+		}
+	}
+	walk(i)
 	return out
 }
 

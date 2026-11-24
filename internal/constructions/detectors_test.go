@@ -252,3 +252,13 @@ func TestResultKeepsAPrintedVerbOfUnknownMood(t *testing.T) {
 			tree: build(w{"ὥστε", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, "UPOS=VERB,VerbForm=Fin"}, w{"λέγω", "PRED", -1, indic})},
 	})
 }
+
+func TestUnprintedAdverbialClauseCountsThroughAnUnprintedCoordinator(t *testing.T) {
+	say := w{"λέγω", "PRED", -1, indic}
+	runCases(t, []detectCase{
+		{name: "conditional", id: Conditional, hit: true, anchor: 0, extent: []int{0},
+			tree: build(w{"εἰ", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"", "ADV", 1, ""}, say)},
+		{name: "result", id: Result, hit: true, subtype: "", anchor: 0, extent: []int{0},
+			tree: build(w{"ὥστε", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"", "ADV", 1, ""}, say)},
+	})
+}
