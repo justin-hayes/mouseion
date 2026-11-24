@@ -16,7 +16,7 @@ import (
 // scheme. It covers the adapter's normalisation, the six detectors, the verb
 // lists and the shipping gate, and is bumped by hand: the golden test fails
 // when the output changes while the recorded version equals this one.
-const AGDTDetectorVersion = 1
+const AGDTDetectorVersion = 2
 
 // ID is a stable construction key.
 type ID string
@@ -72,11 +72,11 @@ type labelKey struct {
 	subtype      SubtypeID
 }
 
-// ShippingGate is the compiled gate. Conditional stays off until the release
-// check (#2622) confirms it; only four subtype labels clear their bar.
+// ShippingGate is the compiled gate. Conditional ships since the release
+// check (#2622) cleared it at 0.912; only four subtype labels clear their bar.
 var ShippingGate = Gate{
 	constructions: map[ID]bool{
-		ArticularInfinitive: true, Result: true, Purpose: true,
+		Conditional: true, ArticularInfinitive: true, Result: true, Purpose: true,
 		GenitiveAbsolute: true, IndirectStatement: true,
 	},
 	labels: map[labelKey]bool{
@@ -93,6 +93,14 @@ func (g Gate) WithConstruction(id ID, on bool) Gate {
 	next := Gate{constructions: maps.Clone(g.constructions), labels: g.labels}
 	next.constructions[id] = on
 	return next
+}
+
+// Ships reports whether the gate emits a construction.
+func (g Gate) Ships(id ID) bool { return g.constructions[id] }
+
+// ShipsLabel reports whether the gate emits a construction's subtype label.
+func (g Gate) ShipsLabel(id ID, subtype SubtypeID) bool {
+	return g.constructions[id] && g.labels[labelKey{id, subtype}]
 }
 
 // Detect returns the shipped occurrences of one sentence, sorted by first

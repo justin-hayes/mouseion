@@ -35,6 +35,18 @@ type PreparedUnit struct {
 	ConfigIdentity  string
 	// Report carries counts and codes only.
 	Report ImportReport
+	// Sources names each sentence of Result in the pinned file, for the
+	// construction release check. It is read-only and parallel to
+	// Result.Sentences.
+	Sources []SentenceSource
+}
+
+// SentenceSource is one imported sentence's identity in the pinned OGA file:
+// its sent_id header and, for each printed token in ordinal order, the token's
+// own MISC reference (t_<n>), the anchor id the construction measurements use.
+type SentenceSource struct {
+	SentID    string
+	TokenRefs []string
 }
 
 // ParseOgaSource parses one whole oga_src CoNLL-U file. The result can be cut
@@ -75,5 +87,6 @@ func (p *ParsedWork) CutUnit(definition domain.ReadingUnitDefinition) (PreparedU
 		AnalyzerVersion: InterpretationVersion(definition),
 		ConfigIdentity:  ImportConfigIdentity(definition, SyntaxStateNativeAGDT),
 		Report:          reading.Report,
+		Sources:         reading.Sources,
 	}, nil
 }

@@ -98,3 +98,24 @@ func TestParsedWorkCutUnitRefusesInvalidInput(t *testing.T) {
 	require.ErrorAs(t, err, &importErr)
 	assert.Equal(t, CodeUnknownInterpret, importErr.Code)
 }
+
+// TestCutUnitExposesEachSentenceSourceIdentity proves the read-only accessor
+// the construction release check joins judgments on: every imported sentence
+// names its sent_id, and every printed token its own MISC reference.
+func TestCutUnitExposesEachSentenceSourceIdentity(t *testing.T) {
+	t.Parallel()
+	data, definition := ogaFixture(t)
+	parsed, err := ParseOgaSource(data)
+	require.NoError(t, err)
+	unit, err := parsed.CutUnit(definition)
+	require.NoError(t, err)
+
+	require.Len(t, unit.Sources, len(unit.Result.Sentences))
+	for index, source := range unit.Sources {
+		assert.NotEmpty(t, source.SentID, "sentence %d", index)
+		require.Len(t, source.TokenRefs, len(unit.Result.Sentences[index].Tokens), "sentence %d", index)
+		for _, ref := range source.TokenRefs {
+			assert.Regexp(t, `^t_`, ref)
+		}
+	}
+}
