@@ -80,9 +80,34 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	lookup = concordanceAppliedLookup(lookup, result)
+	h.markUnsearchedBookUpdates(queryCtx, u.ID, &result)
 	// A parallels page is anchored to its origin Book, not to the reading.
 	readingChanged := lookup.Match != domain.ConcordanceMatchConstruction && lookup.Priority != currentPriority
 	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", request.focusTarget, origin))
+}
+
+// markUnsearchedBookUpdates flags each unsearched Book that has an Analysis
+// update offer under the existing rule. A failed read leaves the Books named
+// without the suffix: the line is a hint, never a reason to fail the page.
+func (h *Handler) markUnsearchedBookUpdates(ctx context.Context, owner string, result *domain.ConcordanceResult) {
+	if len(result.UnsearchedBooks) == 0 {
+		return
+	}
+	books, err := h.services.Store.Reading.ListMyBooksWithEvidence(ctx, owner)
+	if err != nil {
+		log.Printf("mouseion: read Analysis update offers for Concordance: %v", err)
+		return
+	}
+	h.annotateAnalysisUpdates(ctx, owner, books)
+	offered := make(map[string]bool, len(books))
+	for _, book := range books {
+		if offer, _ := myBookAnalysisUpdate(book); offer != domain.AnalysisUpdateNone {
+			offered[book.Book.ID] = true
+		}
+	}
+	for i := range result.UnsearchedBooks {
+		result.UnsearchedBooks[i].UpdateAvailable = result.UnsearchedBooks[i].UpdateAvailable || offered[result.UnsearchedBooks[i].BookID]
+	}
 }
 
 // concordanceRequestRejection reports the client-visible rejection a Concordance
@@ -197,6 +222,8 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 	if request.lookup.Match == domain.ConcordanceMatchConstruction {
 		request.lookup.Subtype = strings.TrimSpace(query.Get("subtype"))
 		request.lookup.Origin = parseConstructionOrigin(query)
+		request.lookup.Lemma = strings.TrimSpace(query.Get("lemma"))
+		request.lookup.OriginLemma = strings.TrimSpace(query.Get("from_lemma"))
 	}
 	if raw := query.Get("page"); raw != "" {
 		if page, err := strconv.Atoi(raw); err == nil && page > 0 {
@@ -337,7 +364,7 @@ func safeConcordanceReturnKeys(values url.Values) bool {
 	for key := range values {
 		switch key {
 		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
-		case "subtype", "from_run", "from_sentence", "from_anchor":
+		case "subtype", "from_run", "from_sentence", "from_anchor", "lemma", "from_lemma":
 			if values.Get("as") != domain.ConcordanceMatchConstruction {
 				return false
 			}
@@ -381,6 +408,12 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	if lookup.Match == domain.ConcordanceMatchConstruction {
 		if lookup.Subtype != "" {
 			values.Set("subtype", lookup.Subtype)
+		}
+		if lookup.Lemma != "" {
+			values.Set("lemma", lookup.Lemma)
+		}
+		if lookup.OriginLemma != "" {
+			values.Set("from_lemma", lookup.OriginLemma)
 		}
 		if origin := lookup.Origin; origin != nil {
 			values.Set("from_run", origin.RunID)

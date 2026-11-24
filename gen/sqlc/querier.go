@@ -329,7 +329,10 @@ type Querier interface {
 	//   (final)     the page's at most 27 rows fetch the wide text.
 	// Eligibility matches the word lookups' (owner, chosen language, current
 	// analysis identity, and the unit in the snapshot). Corrections and exclusions
-	// are deliberately not read: detection ignores them.
+	// are not read, unless the learner asks for "Only with {lemma}": then the
+	// anchor's effective lemma (a correction's lemma, else the token's) must equal
+	// the lemma key, and an anchor with an exclusion is dropped. Without a lemma
+	// the decisions are never touched: detection ignores them.
 	// Tiers: this_book is the origin Book, this_author is every Book whose Work's
 	// author equals the origin Work's author exactly, other_authors the rest.
 	// Order: this_author lists the origin Work first; then author, Work title,
@@ -344,6 +347,11 @@ type Querier interface {
 	ListConstructionTokens(ctx context.Context, arg ListConstructionTokensParams) ([]ListConstructionTokensRow, error)
 	// Every unprinted syntax node of a run, in sentence and source id order.
 	ListConstructionUnprintedNodes(ctx context.Context, arg ListConstructionUnprintedNodesParams) ([]ListConstructionUnprintedNodesRow, error)
+	// The owner's chosen-language Books in the lookup language whose current
+	// analysis has no construction evidence: an absent run (an older Greek import)
+	// or a Stanza-path run. A native_agdt run is never listed, even when its marker
+	// is behind: that is a rebuild, and it stays silent.
+	ListConstructionUnsearchedBooks(ctx context.Context, arg ListConstructionUnsearchedBooksParams) ([]ListConstructionUnsearchedBooksRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)

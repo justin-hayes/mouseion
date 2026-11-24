@@ -10,18 +10,21 @@ import "github.com/justin-hayes/mouseion/internal/domain"
 type fixtureConstructionRow struct {
 	tier, book, title string
 	sentence          int64
+	// otherLemma marks a row whose anchor has a different effective lemma, so
+	// the "Only with" filter drops it.
+	otherLemma bool
 }
 
 // fixtureConstructionRows are the synthetic parallels, already in the order a
 // real page lists them: two in the origin Book, two more in another Book of the
 // same author, and two by another author. They are not a claim about the Greek.
 var fixtureConstructionRows = []fixtureConstructionRow{
-	{domain.ConcordanceTierThisBook, fixtureSyntaxBookID, "Synthetic Greek syntax", 1},
-	{domain.ConcordanceTierThisBook, fixtureSyntaxBookID, "Synthetic Greek syntax", 2},
-	{domain.ConcordanceTierThisAuthor, "fixture-kwic-syntax-two", "Synthetic Greek syntax, part two", 1},
-	{domain.ConcordanceTierThisAuthor, "fixture-kwic-syntax-two", "Synthetic Greek syntax, part two", 2},
-	{domain.ConcordanceTierOtherAuthors, "fixture-kwic-other", "Synthetic Greek other", 1},
-	{domain.ConcordanceTierOtherAuthors, "fixture-kwic-other", "Synthetic Greek other", 2},
+	{domain.ConcordanceTierThisBook, fixtureSyntaxBookID, "Synthetic Greek syntax", 1, false},
+	{domain.ConcordanceTierThisBook, fixtureSyntaxBookID, "Synthetic Greek syntax", 2, true},
+	{domain.ConcordanceTierThisAuthor, "fixture-kwic-syntax-two", "Synthetic Greek syntax, part two", 1, false},
+	{domain.ConcordanceTierThisAuthor, "fixture-kwic-syntax-two", "Synthetic Greek syntax, part two", 2, true},
+	{domain.ConcordanceTierOtherAuthors, "fixture-kwic-other", "Synthetic Greek other", 1, false},
+	{domain.ConcordanceTierOtherAuthors, "fixture-kwic-other", "Synthetic Greek other", 2, true},
 }
 
 // fixtureConstructionConcordance serves a small parallels page that shows all
@@ -40,13 +43,23 @@ func fixtureConstructionConcordance(result domain.ConcordanceResult, query domai
 		UnitID: fixtureSyntaxUnit, AnchorSurface: fixtureConstructionAnchorSurface(query.Origin.Anchor),
 		WorkTitle: "Synthetic Work", Author: "Synthetic Author", Current: true,
 	}
+	// Two Books cannot be searched: one with an Analysis update offer, one
+	// without, so the line's two wordings are both reachable.
+	result.UnsearchedBooks = []domain.ConcordanceUnsearchedBook{
+		{BookID: "fixture-unsearched-apology", Title: "Synthetic Apology", UpdateAvailable: true},
+		{BookID: "fixture-unsearched-crito", Title: "Synthetic Crito"},
+	}
 	occurrence, ok := fixtureConstructionOccurrence(query.Term)
 	if !ok {
 		return result
 	}
+	anchorLemma := fixtureConstructionAnchorSurface(occurrence.Anchor)
 	var matches []domain.ConcordanceResultOccurrence
 	for _, row := range fixtureConstructionRows {
 		if query.Subtype != "" && query.Subtype != occurrence.SubtypeID {
+			continue
+		}
+		if query.Lemma != "" && (row.otherLemma || query.Lemma != anchorLemma) {
 			continue
 		}
 		matches = append(matches, fixtureConstructionParallel(row, occurrence))

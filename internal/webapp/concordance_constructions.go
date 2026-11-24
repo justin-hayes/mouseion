@@ -75,11 +75,58 @@ func concordanceTierGroups(occurrences []domain.ConcordanceResultOccurrence) []c
 }
 
 // concordanceWidenURL drops the subtype filter, keeping the construction, the
-// origin Book and the origin occurrence.
+// origin Book, the origin occurrence and any lemma filter.
 func concordanceWidenURL(lookup domain.ConcordanceLookup) string {
 	lookup.Subtype, lookup.Revision = "", ""
 	return vocabularyConcordancePageURL(1, lookup)
 }
+
+// concordanceOnlyWithURL narrows the lookup to parallels signalled by the
+// origin anchor's lemma.
+func concordanceOnlyWithURL(lookup domain.ConcordanceLookup) string {
+	lookup.Lemma, lookup.Revision = lookup.OriginLemma, ""
+	return vocabularyConcordancePageURL(1, lookup)
+}
+
+// concordanceAllLemmasURL clears the lemma filter, keeping the rest of the
+// lookup.
+func concordanceAllLemmasURL(lookup domain.ConcordanceLookup) string {
+	lookup.Lemma, lookup.Revision = "", ""
+	return vocabularyConcordancePageURL(1, lookup)
+}
+
+// concordanceOnlyWithLabel is the lemma filter's accessible name.
+func concordanceOnlyWithLabel(lemma string) string {
+	return "Only with " + lemma + ": parallels signalled by this lemma"
+}
+
+// concordanceAllLemmasLabel is the accessible name of the link that clears the
+// lemma filter.
+func concordanceAllLemmasLabel(lookup domain.ConcordanceLookup) string {
+	return "All " + concordanceConstructionHeading(lookup) + ": clear the lemma filter"
+}
+
+// concordanceUnsearchedPrefix opens the line that names the Books a parallels
+// lookup could not search.
+const concordanceUnsearchedPrefix = "Not searched for constructions: "
+
+// concordanceUnsearchedTail is the text after one unsearched Book's title: the
+// update suffix when it has an offer, and the comma and space that separate it from the
+// next Book. It is built here so no space can fall before the comma.
+func concordanceUnsearchedTail(book domain.ConcordanceUnsearchedBook, last bool) string {
+	tail := ""
+	if book.UpdateAvailable {
+		tail = concordanceUnsearchedSuffix
+	}
+	if !last {
+		tail += ", "
+	}
+	return tail
+}
+
+// concordanceUnsearchedSuffix follows the title of a Book with an Analysis
+// update offer.
+const concordanceUnsearchedSuffix = " — Analysis update available"
 
 // concordanceOriginStudyURL reopens Sentence study on the origin sentence, with
 // the origin construction focused.

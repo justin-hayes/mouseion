@@ -130,13 +130,20 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 // form, using the fingerprint the preview returned.
 func confirmLemmaDecision(t *testing.T, h http.Handler, reviewPath string, cookies []*http.Cookie, csrf, decision, lemma, occurrenceID string) {
 	t.Helper()
+	confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, "δέω", decision, lemma, occurrenceID)
+}
+
+// confirmLemmaDecisionForm previews and confirms one decision on an occurrence
+// of a surface form through the lemma-review routes.
+func confirmLemmaDecisionForm(t *testing.T, h http.Handler, reviewPath string, cookies []*http.Cookie, csrf, form, decision, lemma, occurrenceID string) {
+	t.Helper()
 	preview := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"δέω"}, "target": {occurrenceID},
+		"csrf_token": {csrf}, "stage": {"preview"}, "form": {form}, "target": {occurrenceID},
 		"decision": {decision}, "lemma": {lemma},
 	}, cookies)
 	require.Equal(t, http.StatusOK, preview.Code, "preview %s body=%s", decision, preview.Body.String())
 	confirm := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"δέω"}, "decision": {decision}, "lemma": {lemma},
+		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {form}, "decision": {decision}, "lemma": {lemma},
 		"fingerprint": {previewFingerprint(t, preview.Body.String())}, "selected": {occurrenceID},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, confirm.Code, "confirm %s body=%s", decision, confirm.Body.String())

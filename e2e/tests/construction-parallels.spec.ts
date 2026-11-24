@@ -68,6 +68,33 @@ async function walkParallels(page: Page) {
     await expectNoHorizontalOverflow(page);
   });
 
+  await test.step('the Books that could not be searched are named once, in one quiet line', async () => {
+    const line = page.locator('#concordance-unsearched');
+    await expect(line).toHaveCount(1);
+    await expect(line).toHaveText('Not searched for constructions: Synthetic Apology — Analysis update available, Synthetic Crito');
+    await expect(line.locator('em')).toHaveText(['Synthetic Apology', 'Synthetic Crito']);
+    await expectNoHorizontalOverflow(page);
+  });
+
+  await test.step('Only with narrows to the anchor lemma, and All clears the filter', async () => {
+    const results = page.locator('#concordance-native-results .concordance-result');
+    const only = page.getByRole('link', { name: 'Only with ἄνδρας: parallels signalled by this lemma', exact: true });
+    await expect(only).toHaveText('Only with ἄνδρας');
+    await activate(page, only);
+    await expect(page).toHaveURL(/[?&]lemma=/);
+    await expect(page.locator('#concordance-parallels-lemma')).toHaveText('Only with ἄνδρας');
+    await expect(page.locator('h3.concordance-tier')).toHaveText(['This Book', 'This author', 'Other authors']);
+    await expect(results).toHaveCount(3);
+    await expect(page.locator('#concordance-unsearched')).toHaveCount(1);
+    await expectNoHorizontalOverflow(page);
+    const clear = page.getByRole('link', { name: 'All Genitive absolute: clear the lemma filter', exact: true });
+    await expect(clear).toHaveText('All Genitive absolute');
+    await activate(page, clear);
+    await expect(page).not.toHaveURL(/[?&]lemma=/);
+    await expect(results).toHaveCount(6);
+    await expect(page.getByRole('link', { name: 'Only with ἄνδρας: parallels signalled by this lemma', exact: true })).toBeVisible();
+  });
+
   await test.step('a row is a KWIC line centred on the anchor, and expands to the extract', async () => {
     const row = page.locator('#concordance-native-results .concordance-result').first();
     await expect(row.locator('.concordance-surface')).toHaveText('ἄνδρας');
@@ -161,4 +188,17 @@ test('a parallels link without its origin gets the safe restart notice', async (
   await page.goto('/vocabulary/concordance?as=construction&term=genitive_absolute');
   await expect(page.getByRole('alert')).toContainText('This Concordance link is not valid.');
   await expect(page.locator('h3.concordance-tier')).toHaveCount(0);
+});
+
+test('a lemma with no parallels is a corpus result and still names the unsearched Books', async ({ page }) => {
+  await signInToGreek(page);
+  await acceptanceViewport(page);
+  await openSyntaxSentence(page);
+  await activate(page, page.getByRole('link', { name: 'Parallels for Genitive absolute', exact: true }));
+  await expect(page).toHaveURL(/as=construction/);
+  const href = page.url();
+  await page.goto(`${href}&lemma=${encodeURIComponent('οὐδέν')}`);
+  await expect(page.getByText('No other analyzed occurrences of Genitive absolute', { exact: false })).toBeVisible();
+  await expect(page.locator('#concordance-unsearched')).toContainText('Not searched for constructions:');
+  await expectNoHorizontalOverflow(page);
 });
