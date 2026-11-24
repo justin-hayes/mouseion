@@ -270,13 +270,18 @@ func sourceURL(baseURL, fileName string) (string, error) {
 
 // repositoryRoot walks up from dir to the directory holding go.mod.
 func repositoryRoot(dir string) (string, error) {
+	return findUp(dir, "go.mod")
+}
+
+// findUp walks up from dir to the nearest directory holding marker.
+func findUp(dir, marker string) (string, error) {
 	for current := dir; ; {
-		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
+		if _, err := os.Stat(filepath.Join(current, marker)); err == nil {
 			return current, nil
 		}
 		parent := filepath.Dir(current)
 		if parent == current {
-			return "", errors.New("run constructioncheck from inside the repository (no go.mod found)")
+			return "", errors.New("run constructioncheck from inside the repository (no " + marker + " found)")
 		}
 		current = parent
 	}
