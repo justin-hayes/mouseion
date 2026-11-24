@@ -1213,7 +1213,7 @@ func clearDictionaryFacts(entry *Entry) {
 	entry.DictionaryPin = ""
 }
 
-func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry) error {
+func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry, syntaxState string) error {
 	if r == nil || r.lexical == nil || entry == nil {
 		return nil
 	}
@@ -1221,6 +1221,7 @@ func (r *lexicalResolver) resolveLexicalEntry(ctx context.Context, entry *Entry)
 	result, found, err := r.lexical.Lookup(ctx, enrichment.LexicalLookupRequest{
 		Language: entry.Language, CanonicalLemma: entry.CanonicalLemma, UPOS: entry.UPOS,
 		TargetWord: testedEntryTarget(*entry), RepresentativeSentence: strings.TrimSpace(entry.Sentence), SentenceTokens: entry.SentenceTokens,
+		SyntaxState: syntaxState,
 	})
 	if err != nil || !found {
 		return err

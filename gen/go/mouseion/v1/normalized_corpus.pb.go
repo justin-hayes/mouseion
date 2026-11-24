@@ -358,10 +358,13 @@ type Sentence struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Text  string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
 	// Tokens are stored in sentence order.
-	Tokens        []*Token        `protobuf:"bytes,2,rep,name=tokens,proto3" json:"tokens,omitempty"`
-	Location      *SourceLocation `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Tokens   []*Token        `protobuf:"bytes,2,rep,name=tokens,proto3" json:"tokens,omitempty"`
+	Location *SourceLocation `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`
+	// unprinted_nodes are the sentence's syntax nodes that have no printed token
+	// (AGDT ellipsis nodes). Only a native-AGDT imported analysis carries any.
+	UnprintedNodes []*UnprintedSyntaxNode `protobuf:"bytes,4,rep,name=unprinted_nodes,json=unprintedNodes,proto3" json:"unprinted_nodes,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Sentence) Reset() {
@@ -415,6 +418,88 @@ func (x *Sentence) GetLocation() *SourceLocation {
 	return nil
 }
 
+func (x *Sentence) GetUnprintedNodes() []*UnprintedSyntaxNode {
+	if x != nil {
+		return x.UnprintedNodes
+	}
+	return nil
+}
+
+// UnprintedSyntaxNode is one node of a sentence's source parse with no printed
+// token. At most one of head_token_ordinal and head_unprinted_node is set;
+// neither means the node is the root.
+type UnprintedSyntaxNode struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// source_id is the node's id within the source sentence.
+	SourceId string `protobuf:"bytes,1,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	// dependency is the node's relation, verbatim from the source.
+	Dependency string `protobuf:"bytes,2,opt,name=dependency,proto3" json:"dependency,omitempty"`
+	// head_token_ordinal is the 0-based ordinal of a printed head token.
+	HeadTokenOrdinal *uint32 `protobuf:"varint,3,opt,name=head_token_ordinal,json=headTokenOrdinal,proto3,oneof" json:"head_token_ordinal,omitempty"`
+	// head_unprinted_node is the source id of an unprinted head node.
+	HeadUnprintedNode string `protobuf:"bytes,4,opt,name=head_unprinted_node,json=headUnprintedNode,proto3" json:"head_unprinted_node,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *UnprintedSyntaxNode) Reset() {
+	*x = UnprintedSyntaxNode{}
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnprintedSyntaxNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnprintedSyntaxNode) ProtoMessage() {}
+
+func (x *UnprintedSyntaxNode) ProtoReflect() protoreflect.Message {
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnprintedSyntaxNode.ProtoReflect.Descriptor instead.
+func (*UnprintedSyntaxNode) Descriptor() ([]byte, []int) {
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *UnprintedSyntaxNode) GetSourceId() string {
+	if x != nil {
+		return x.SourceId
+	}
+	return ""
+}
+
+func (x *UnprintedSyntaxNode) GetDependency() string {
+	if x != nil {
+		return x.Dependency
+	}
+	return ""
+}
+
+func (x *UnprintedSyntaxNode) GetHeadTokenOrdinal() uint32 {
+	if x != nil && x.HeadTokenOrdinal != nil {
+		return *x.HeadTokenOrdinal
+	}
+	return 0
+}
+
+func (x *UnprintedSyntaxNode) GetHeadUnprintedNode() string {
+	if x != nil {
+		return x.HeadUnprintedNode
+	}
+	return ""
+}
+
 type Token struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// surface is the lexical form with surrounding Unicode punctuation/symbols
@@ -429,18 +514,23 @@ type Token struct {
 	Morphology     map[string]string `protobuf:"bytes,5,rep,name=morphology,proto3" json:"morphology,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	NamedEntity    *string           `protobuf:"bytes,6,opt,name=named_entity,json=namedEntity,proto3,oneof" json:"named_entity,omitempty"`
 	Location       *SourceLocation   `protobuf:"bytes,7,opt,name=location,proto3" json:"location,omitempty"`
-	// dependency is the token's basic Universal Dependencies relation.
+	// dependency is the token's relation, read according to the run's syntax
+	// state: Universal Dependencies for a ud run, the source's own relation for a
+	// native_agdt run.
 	Dependency string `protobuf:"bytes,8,opt,name=dependency,proto3" json:"dependency,omitempty"`
 	// head is the 0-based ordinal of this token's head within the sentence.
 	// Sentence roots are self-headed.
-	Head          uint32 `protobuf:"varint,9,opt,name=head,proto3" json:"head,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Head uint32 `protobuf:"varint,9,opt,name=head,proto3" json:"head,omitempty"`
+	// head_unprinted_node is the source id of the unprinted syntax node that is
+	// this token's head. When set, head is the token's own ordinal.
+	HeadUnprintedNode string `protobuf:"bytes,10,opt,name=head_unprinted_node,json=headUnprintedNode,proto3" json:"head_unprinted_node,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Token) Reset() {
 	*x = Token{}
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[6]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -452,7 +542,7 @@ func (x *Token) String() string {
 func (*Token) ProtoMessage() {}
 
 func (x *Token) ProtoReflect() protoreflect.Message {
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[6]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -465,7 +555,7 @@ func (x *Token) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Token.ProtoReflect.Descriptor instead.
 func (*Token) Descriptor() ([]byte, []int) {
-	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{6}
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Token) GetSurface() string {
@@ -531,6 +621,13 @@ func (x *Token) GetHead() uint32 {
 	return 0
 }
 
+func (x *Token) GetHeadUnprintedNode() string {
+	if x != nil {
+		return x.HeadUnprintedNode
+	}
+	return ""
+}
+
 type SourceDocument struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// id is stable within the corpus and is referenced by SourceLocation.
@@ -544,7 +641,7 @@ type SourceDocument struct {
 
 func (x *SourceDocument) Reset() {
 	*x = SourceDocument{}
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[7]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -556,7 +653,7 @@ func (x *SourceDocument) String() string {
 func (*SourceDocument) ProtoMessage() {}
 
 func (x *SourceDocument) ProtoReflect() protoreflect.Message {
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[7]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -569,7 +666,7 @@ func (x *SourceDocument) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceDocument.ProtoReflect.Descriptor instead.
 func (*SourceDocument) Descriptor() ([]byte, []int) {
-	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{7}
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SourceDocument) GetId() string {
@@ -606,7 +703,7 @@ type AnalysisProvenance struct {
 
 func (x *AnalysisProvenance) Reset() {
 	*x = AnalysisProvenance{}
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[8]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -618,7 +715,7 @@ func (x *AnalysisProvenance) String() string {
 func (*AnalysisProvenance) ProtoMessage() {}
 
 func (x *AnalysisProvenance) ProtoReflect() protoreflect.Message {
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[8]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -631,7 +728,7 @@ func (x *AnalysisProvenance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalysisProvenance.ProtoReflect.Descriptor instead.
 func (*AnalysisProvenance) Descriptor() ([]byte, []int) {
-	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{8}
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AnalysisProvenance) GetRunId() string {
@@ -672,7 +769,7 @@ type NormalizationProfile struct {
 
 func (x *NormalizationProfile) Reset() {
 	*x = NormalizationProfile{}
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[9]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -684,7 +781,7 @@ func (x *NormalizationProfile) String() string {
 func (*NormalizationProfile) ProtoMessage() {}
 
 func (x *NormalizationProfile) ProtoReflect() protoreflect.Message {
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[9]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -697,7 +794,7 @@ func (x *NormalizationProfile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NormalizationProfile.ProtoReflect.Descriptor instead.
 func (*NormalizationProfile) Descriptor() ([]byte, []int) {
-	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{9}
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *NormalizationProfile) GetName() string {
@@ -730,7 +827,7 @@ type SourceLocation struct {
 
 func (x *SourceLocation) Reset() {
 	*x = SourceLocation{}
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[10]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -742,7 +839,7 @@ func (x *SourceLocation) String() string {
 func (*SourceLocation) ProtoMessage() {}
 
 func (x *SourceLocation) ProtoReflect() protoreflect.Message {
-	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[10]
+	mi := &file_mouseion_v1_normalized_corpus_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +852,7 @@ func (x *SourceLocation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceLocation.ProtoReflect.Descriptor instead.
 func (*SourceLocation) Descriptor() ([]byte, []int) {
-	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{10}
+	return file_mouseion_v1_normalized_corpus_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SourceLocation) GetSourceDocumentId() string {
@@ -819,11 +916,20 @@ const file_mouseion_v1_normalized_corpus_proto_rawDesc = "" +
 	"\tsentences\x18\x03 \x03(\v2\x15.mouseion.v1.SentenceR\tsentences\x12F\n" +
 	"\x10source_documents\x18\x04 \x03(\v2\x1b.mouseion.v1.SourceDocumentR\x0fsourceDocuments\x12;\n" +
 	"\banalysis\x18\x05 \x01(\v2\x1f.mouseion.v1.AnalysisProvenanceR\banalysis\x12V\n" +
-	"\x15normalization_profile\x18\x06 \x01(\v2!.mouseion.v1.NormalizationProfileR\x14normalizationProfile\"\x83\x01\n" +
+	"\x15normalization_profile\x18\x06 \x01(\v2!.mouseion.v1.NormalizationProfileR\x14normalizationProfile\"\xce\x01\n" +
 	"\bSentence\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12*\n" +
 	"\x06tokens\x18\x02 \x03(\v2\x12.mouseion.v1.TokenR\x06tokens\x127\n" +
-	"\blocation\x18\x03 \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\"\xa2\x03\n" +
+	"\blocation\x18\x03 \x01(\v2\x1b.mouseion.v1.SourceLocationR\blocation\x12I\n" +
+	"\x0funprinted_nodes\x18\x04 \x03(\v2 .mouseion.v1.UnprintedSyntaxNodeR\x0eunprintedNodes\"\xcc\x01\n" +
+	"\x13UnprintedSyntaxNode\x12\x1b\n" +
+	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12\x1e\n" +
+	"\n" +
+	"dependency\x18\x02 \x01(\tR\n" +
+	"dependency\x121\n" +
+	"\x12head_token_ordinal\x18\x03 \x01(\rH\x00R\x10headTokenOrdinal\x88\x01\x01\x12.\n" +
+	"\x13head_unprinted_node\x18\x04 \x01(\tR\x11headUnprintedNodeB\x15\n" +
+	"\x13_head_token_ordinal\"\xd2\x03\n" +
 	"\x05Token\x12\x18\n" +
 	"\asurface\x18\x01 \x01(\tR\asurface\x12\x1b\n" +
 	"\traw_lemma\x18\x02 \x01(\tR\brawLemma\x12\x10\n" +
@@ -837,7 +943,9 @@ const file_mouseion_v1_normalized_corpus_proto_rawDesc = "" +
 	"\n" +
 	"dependency\x18\b \x01(\tR\n" +
 	"dependency\x12\x12\n" +
-	"\x04head\x18\t \x01(\rR\x04head\x1a=\n" +
+	"\x04head\x18\t \x01(\rR\x04head\x12.\n" +
+	"\x13head_unprinted_node\x18\n" +
+	" \x01(\tR\x11headUnprintedNode\x1a=\n" +
 	"\x0fMorphologyEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x0f\n" +
@@ -878,7 +986,7 @@ func file_mouseion_v1_normalized_corpus_proto_rawDescGZIP() []byte {
 	return file_mouseion_v1_normalized_corpus_proto_rawDescData
 }
 
-var file_mouseion_v1_normalized_corpus_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_mouseion_v1_normalized_corpus_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_mouseion_v1_normalized_corpus_proto_goTypes = []any{
 	(*GetCapabilitiesRequest)(nil),  // 0: mouseion.v1.GetCapabilitiesRequest
 	(*GetCapabilitiesResponse)(nil), // 1: mouseion.v1.GetCapabilitiesResponse
@@ -886,33 +994,35 @@ var file_mouseion_v1_normalized_corpus_proto_goTypes = []any{
 	(*AnalyzeRequest)(nil),          // 3: mouseion.v1.AnalyzeRequest
 	(*NormalizedCorpus)(nil),        // 4: mouseion.v1.NormalizedCorpus
 	(*Sentence)(nil),                // 5: mouseion.v1.Sentence
-	(*Token)(nil),                   // 6: mouseion.v1.Token
-	(*SourceDocument)(nil),          // 7: mouseion.v1.SourceDocument
-	(*AnalysisProvenance)(nil),      // 8: mouseion.v1.AnalysisProvenance
-	(*NormalizationProfile)(nil),    // 9: mouseion.v1.NormalizationProfile
-	(*SourceLocation)(nil),          // 10: mouseion.v1.SourceLocation
-	nil,                             // 11: mouseion.v1.Token.MorphologyEntry
+	(*UnprintedSyntaxNode)(nil),     // 6: mouseion.v1.UnprintedSyntaxNode
+	(*Token)(nil),                   // 7: mouseion.v1.Token
+	(*SourceDocument)(nil),          // 8: mouseion.v1.SourceDocument
+	(*AnalysisProvenance)(nil),      // 9: mouseion.v1.AnalysisProvenance
+	(*NormalizationProfile)(nil),    // 10: mouseion.v1.NormalizationProfile
+	(*SourceLocation)(nil),          // 11: mouseion.v1.SourceLocation
+	nil,                             // 12: mouseion.v1.Token.MorphologyEntry
 }
 var file_mouseion_v1_normalized_corpus_proto_depIdxs = []int32{
 	2,  // 0: mouseion.v1.GetCapabilitiesResponse.languages:type_name -> mouseion.v1.LanguageCapability
-	7,  // 1: mouseion.v1.AnalyzeRequest.source_document:type_name -> mouseion.v1.SourceDocument
+	8,  // 1: mouseion.v1.AnalyzeRequest.source_document:type_name -> mouseion.v1.SourceDocument
 	5,  // 2: mouseion.v1.NormalizedCorpus.sentences:type_name -> mouseion.v1.Sentence
-	7,  // 3: mouseion.v1.NormalizedCorpus.source_documents:type_name -> mouseion.v1.SourceDocument
-	8,  // 4: mouseion.v1.NormalizedCorpus.analysis:type_name -> mouseion.v1.AnalysisProvenance
-	9,  // 5: mouseion.v1.NormalizedCorpus.normalization_profile:type_name -> mouseion.v1.NormalizationProfile
-	6,  // 6: mouseion.v1.Sentence.tokens:type_name -> mouseion.v1.Token
-	10, // 7: mouseion.v1.Sentence.location:type_name -> mouseion.v1.SourceLocation
-	11, // 8: mouseion.v1.Token.morphology:type_name -> mouseion.v1.Token.MorphologyEntry
-	10, // 9: mouseion.v1.Token.location:type_name -> mouseion.v1.SourceLocation
-	3,  // 10: mouseion.v1.AnalyzerService.Analyze:input_type -> mouseion.v1.AnalyzeRequest
-	0,  // 11: mouseion.v1.AnalyzerService.GetCapabilities:input_type -> mouseion.v1.GetCapabilitiesRequest
-	4,  // 12: mouseion.v1.AnalyzerService.Analyze:output_type -> mouseion.v1.NormalizedCorpus
-	1,  // 13: mouseion.v1.AnalyzerService.GetCapabilities:output_type -> mouseion.v1.GetCapabilitiesResponse
-	12, // [12:14] is the sub-list for method output_type
-	10, // [10:12] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	8,  // 3: mouseion.v1.NormalizedCorpus.source_documents:type_name -> mouseion.v1.SourceDocument
+	9,  // 4: mouseion.v1.NormalizedCorpus.analysis:type_name -> mouseion.v1.AnalysisProvenance
+	10, // 5: mouseion.v1.NormalizedCorpus.normalization_profile:type_name -> mouseion.v1.NormalizationProfile
+	7,  // 6: mouseion.v1.Sentence.tokens:type_name -> mouseion.v1.Token
+	11, // 7: mouseion.v1.Sentence.location:type_name -> mouseion.v1.SourceLocation
+	6,  // 8: mouseion.v1.Sentence.unprinted_nodes:type_name -> mouseion.v1.UnprintedSyntaxNode
+	12, // 9: mouseion.v1.Token.morphology:type_name -> mouseion.v1.Token.MorphologyEntry
+	11, // 10: mouseion.v1.Token.location:type_name -> mouseion.v1.SourceLocation
+	3,  // 11: mouseion.v1.AnalyzerService.Analyze:input_type -> mouseion.v1.AnalyzeRequest
+	0,  // 12: mouseion.v1.AnalyzerService.GetCapabilities:input_type -> mouseion.v1.GetCapabilitiesRequest
+	4,  // 13: mouseion.v1.AnalyzerService.Analyze:output_type -> mouseion.v1.NormalizedCorpus
+	1,  // 14: mouseion.v1.AnalyzerService.GetCapabilities:output_type -> mouseion.v1.GetCapabilitiesResponse
+	13, // [13:15] is the sub-list for method output_type
+	11, // [11:13] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_mouseion_v1_normalized_corpus_proto_init() }
@@ -921,13 +1031,14 @@ func file_mouseion_v1_normalized_corpus_proto_init() {
 		return
 	}
 	file_mouseion_v1_normalized_corpus_proto_msgTypes[6].OneofWrappers = []any{}
+	file_mouseion_v1_normalized_corpus_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_mouseion_v1_normalized_corpus_proto_rawDesc), len(file_mouseion_v1_normalized_corpus_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

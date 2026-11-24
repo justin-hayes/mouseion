@@ -50,9 +50,18 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	// The imported tokens persisted with their headwords and discriminators.
 	var tokens, analyses int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND language='grc'`, learner.ID).Scan(&tokens))
-	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1 AND syntax_state='absent'`, learner.ID).Scan(&analyses))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1 AND syntax_state='native_agdt'`, learner.ID).Scan(&analyses))
 	assert.Equal(t, 10, tokens)
 	assert.Equal(t, 1, analyses)
+
+	// The one ellipsis node is stored as an unprinted node that depends on the
+	// first printed token of its sentence.
+	var nodes int
+	var nodeHead *int64
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*), max(head_token_ordinal) FROM corpus_unprinted_syntax_nodes WHERE owner_id=$1`, learner.ID).Scan(&nodes, &nodeHead))
+	assert.Equal(t, 1, nodes)
+	require.NotNil(t, nodeHead)
+	assert.Equal(t, int64(0), *nodeHead)
 
 	// My Books word count is the analysis's analyzable-token count.
 	var analyzable int64

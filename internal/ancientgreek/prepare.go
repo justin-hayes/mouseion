@@ -27,7 +27,7 @@ type PreparedUnit struct {
 	SourceBytes []byte
 	// Result is the source-neutral interpretation of the unit.
 	Result analyzer.Result
-	// SyntaxState records that an imported run stores no UD syntax.
+	// SyntaxState records that an imported run stores native AGDT syntax, never UD.
 	SyntaxState SyntaxState
 	// AnalyzerName, AnalyzerVersion and ConfigIdentity name the run's identity.
 	AnalyzerName    string
@@ -70,10 +70,10 @@ func (p *ParsedWork) CutUnit(definition domain.ReadingUnitDefinition) (PreparedU
 		FullText:        reading.FullText,
 		SourceBytes:     []byte(reading.FullText),
 		Result:          reading.Result,
-		SyntaxState:     SyntaxStateAbsent,
+		SyntaxState:     SyntaxStateNativeAGDT,
 		AnalyzerName:    ImportAnalyzerName,
 		AnalyzerVersion: InterpretationVersion(definition),
-		ConfigIdentity:  ImportConfigIdentity(definition),
+		ConfigIdentity:  ImportConfigIdentity(definition, SyntaxStateNativeAGDT),
 		Report:          reading.Report,
 	}, nil
 }

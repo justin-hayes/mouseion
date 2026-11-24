@@ -1,10 +1,13 @@
 package cardexport
 
 import (
+	"context"
 	"testing"
 
 	mouseionv1 "github.com/justin-hayes/mouseion/gen/go/mouseion/v1"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,5 +239,54 @@ func TestMakeNoteTargetBoldingIsDeterministic(t *testing.T) {
 		again, err := makeNote("owner", renderInputFromEntry(entry))
 		require.NoError(t, err)
 		assert.Equal(t, first.Text, again.Text)
+	}
+}
+
+func TestTargetSurfacesIgnoresAGDTRelationsForGreek(t *testing.T) {
+	tokens := []analyzer.Token{
+		{Surface: "Κῦρος", UPOS: "PROPN", Dependency: "SBJ", Head: 1},
+		{Surface: "λέγει", UPOS: "VERB", Dependency: "PRED", Head: 1},
+		{Surface: "καί", UPOS: "ADV", Dependency: "AuxZ", Head: 1},
+		{Surface: "ἄνδρας", UPOS: "NOUN", Dependency: "OBJ", Head: 1, HeadUnprintedNode: "2"},
+	}
+
+	assert.Equal(t, []string{"λέγει"}, targetSurfaces("λέγει", tokens), "no AGDT label is a separable particle")
+}
+
+// lexicalRequestSpy records the lookup request a card export makes.
+type lexicalRequestSpy struct {
+	request enrichment.LexicalLookupRequest
+}
+
+func (s *lexicalRequestSpy) Name() string    { return "spy" }
+func (s *lexicalRequestSpy) Version() string { return "spy-v1" }
+func (s *lexicalRequestSpy) Lookup(_ context.Context, request enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	s.request = request
+	return enrichment.LexicalEntry{}, false, nil
+}
+
+func TestFreezeEntriesTellsTheProviderTheRunsSyntaxState(t *testing.T) {
+	for _, test := range []struct {
+		name, language, state, want string
+	}{
+		{"a German ud run", "de", "ud", "ud"},
+		{"a Greek Stanza run is ud and keeps its relations", "grc", "ud", "ud"},
+		{"a Greek imported run is native AGDT", "grc", "native_agdt", "native_agdt"},
+		{"a Greek run without syntax", "grc", "absent", "absent"},
+		{"an unspecified state stays unspecified, which enrichment reads as ud", "de", "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			spy := &lexicalRequestSpy{}
+			projection := CandidateProjection{
+				Candidate:   domain.SelectionCandidate{Language: test.language, CanonicalLemma: "x", UPOS: "NOUN"},
+				Entry:       Entry{Language: test.language, CanonicalLemma: "x", UPOS: "NOUN", TargetWord: "x"},
+				SyntaxState: test.state,
+			}
+
+			_, err := freezeEntries(context.Background(), spy, nil, []CandidateProjection{projection})
+
+			require.NoError(t, err)
+			assert.Equal(t, test.want, spy.request.SyntaxState)
+		})
 	}
 }

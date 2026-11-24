@@ -95,16 +95,17 @@ func TestImportInterpretsFixture(t *testing.T) {
 	assert.Equal(t, 2, report.ProperNamesDerived)
 	assert.Equal(t, 2, report.NumberedLemmaTypes)
 	assert.Equal(t, 1, report.BareLemmasWithNumberedSibling)
-	assert.Equal(t, []FeatureValueCount{{Feature: "Mood", Value: "n", Count: 1}, {Feature: "Tense", Value: "r", Count: 1}}, report.UnmappedFeatureValues)
+	assert.Empty(t, report.UnmappedFeatureValues, "the perfect and the infinitive's Mood are mapped now")
 	assert.Equal(t, "book", report.BookID)
 	assert.False(t, report.Reimported)
 
 	// The reconstruction drops the ellipsis token and the space before `·` and
 	// `;`, and separates sentences with one newline.
 	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;\nλέγει Κῦρος λέλυκε λύειν", writer.request.FullText)
-	assert.Equal(t, SyntaxStateAbsent, writer.request.SyntaxState)
+	assert.Equal(t, SyntaxStateNativeAGDT, writer.request.SyntaxState)
 	assert.Equal(t, ImportAnalyzerName, writer.request.AnalyzerName)
 	assert.Contains(t, writer.request.AnalyzerVersion, PosMappingVersion)
+	assert.Contains(t, writer.request.ConfigIdentity, string(SyntaxStateNativeAGDT))
 	assert.Equal(t, domain.ClassicalUnitID(testDefinition().Key), writer.request.UnitID)
 
 	first := writer.request.Result.Sentences[0]
@@ -122,16 +123,18 @@ func TestImportInterpretsFixture(t *testing.T) {
 	assert.Equal(t, "CCONJ", first.Tokens[3].UPOS)
 	assert.Equal(t, "morpheus:2", first.Tokens[4].LexicalDiscriminator)
 	assert.Equal(t, "PUNCT", first.Tokens[5].UPOS)
-	assert.Equal(t, absentSyntaxDependency, first.Tokens[0].Dependency)
-	assert.Zero(t, first.Tokens[0].Head)
+	assert.Equal(t, "PRED", first.Tokens[0].Dependency)
+	assert.Zero(t, first.Tokens[0].Head, "an AGDT root is its own head")
+	assert.Equal(t, "SBJ", first.Tokens[1].Dependency)
+	assert.Equal(t, uint32(0), first.Tokens[1].Head)
 
 	second := writer.request.Result.Sentences[1]
 	require.Len(t, second.Tokens, 4)
 	assert.Equal(t, "λέγω", second.Tokens[0].CanonicalLemma)
 	assert.Empty(t, second.Tokens[0].LexicalDiscriminator, "a bare sibling keeps no discriminator")
-	assert.Equal(t, map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Tense": "Pres", "Voice": "Act"}, second.Tokens[0].Morphology)
-	assert.Equal(t, map[string]string{"Mood": "Ind", "Number": "Sing", "Person": "3", "Voice": "Act"}, second.Tokens[2].Morphology, "an unmapped Tense value is omitted")
-	assert.Equal(t, map[string]string{"Tense": "Pres", "Voice": "Act"}, second.Tokens[3].Morphology, "an unmapped Mood value is omitted")
+	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin", "Number": "Sing", "Person": "3", "Tense": "Pres", "Voice": "Act"}, second.Tokens[0].Morphology)
+	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin", "Number": "Sing", "Person": "3", "Tense": "Past", "Aspect": "Perf", "Voice": "Act"}, second.Tokens[2].Morphology, "the perfect is Past with perfect aspect")
+	assert.Equal(t, map[string]string{"Tense": "Pres", "VerbForm": "Inf", "Voice": "Act"}, second.Tokens[3].Morphology, "an infinitive carries VerbForm and no Mood")
 }
 
 func TestImportRefusesPin(t *testing.T) {
@@ -403,15 +406,15 @@ func TestDecodeLemma(t *testing.T) {
 
 func TestMapFeatures(t *testing.T) {
 	morphology, unmapped := mapFeatures("v3ppie---")
-	assert.Equal(t, map[string]string{"Mood": "Ind", "Number": "Plur", "Person": "3", "Tense": "Pres", "Voice": "Mid"}, morphology)
+	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin", "Number": "Plur", "Person": "3", "Tense": "Pres", "Voice": "Mid"}, morphology)
 	assert.Empty(t, unmapped)
 
 	morphology, unmapped = mapFeatures("n-s---fn-")
 	assert.Equal(t, map[string]string{"Case": "Nom", "Gender": "Fem", "Number": "Sing"}, morphology)
 	assert.Empty(t, unmapped)
 
-	_, unmapped = mapFeatures("v3sria---")
-	assert.Equal(t, []FeatureValueCount{{Feature: "Tense", Value: "r"}}, unmapped)
+	_, unmapped = mapFeatures("v3sxia---")
+	assert.Equal(t, []FeatureValueCount{{Feature: "Tense", Value: "x"}}, unmapped, "an unknown Tense is reported once, not again as Aspect")
 }
 
 func TestMapUPOSMapsEveryNativeValue(t *testing.T) {

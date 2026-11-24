@@ -26,6 +26,7 @@ type sourceSentence struct {
 
 // sourceToken is one source word or ellipsis token.
 type sourceToken struct {
+	id       int
 	surface  string
 	lemma    string
 	pos      string
@@ -169,7 +170,8 @@ func parseTokenLine(line string, lineNo int) (sourceToken, error) {
 	if len(columns) != 10 {
 		return sourceToken{}, malformed(lineNo, "token line does not have ten columns")
 	}
-	if _, err := strconv.Atoi(columns[0]); err != nil {
+	id, err := strconv.Atoi(columns[0])
+	if err != nil {
 		return sourceToken{}, malformed(lineNo, "token id is not a number")
 	}
 	if columns[1] == "" {
@@ -187,6 +189,7 @@ func parseTokenLine(line string, lineNo int) (sourceToken, error) {
 		return sourceToken{}, malformed(lineNo, "missing citation reference")
 	}
 	return sourceToken{
+		id:       id,
 		surface:  columns[1],
 		lemma:    columns[2],
 		pos:      columns[3],
@@ -333,10 +336,19 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 	}
 	sentenceStart := len(s.full)
 	s.full = append(s.full, []rune(relative.text)...)
+	syntax := newSentenceSyntax(sentence)
+	unprinted, err := syntax.unprintedNodes(sentence)
+	if err != nil {
+		return err
+	}
 	tokens := make([]analyzer.Token, 0, len(relative.kept))
 	properNames := 0
 	for index, token := range relative.kept {
 		built, mappedUPOS, err := s.buildToken(token, profile, names)
+		if err != nil {
+			return err
+		}
+		built.Head, built.HeadUnprintedNode, err = syntax.storedHead(token, uint32(index))
 		if err != nil {
 			return err
 		}
@@ -352,6 +364,9 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 		Text:     relative.text,
 		Tokens:   tokens,
 		Location: analyzer.SourceLocation{SourceDocumentID: s.unitID, StartOffset: uint64(sentenceStart), EndOffset: sentenceEnd},
+		// The unprinted nodes are the parse's ellipsis nodes: no text, no
+		// lemma, no occurrence, only their relation and head.
+		UnprintedNodes: unprinted,
 		// The passage context of ADR 0101 needs every section the sentence
 		// touches, so a sentence crossing 1.2.17-18 carries both.
 		Citations: sentenceCitations(sentence),
@@ -384,12 +399,14 @@ func (s *interpretState) buildToken(token sourceToken, profile canonicalization.
 		s.hasNumbered[canonical] = struct{}{}
 	}
 	return analyzer.Token{
-		Surface:              token.surface,
-		RawLemma:             token.lemma,
-		CanonicalLemma:       canonical,
-		UPOS:                 upos,
-		Dependency:           absentSyntaxDependency,
-		Head:                 0,
+		Surface:        token.surface,
+		RawLemma:       token.lemma,
+		CanonicalLemma: canonical,
+		UPOS:           upos,
+		// The source relation is stored verbatim; the run's syntax state
+		// (native_agdt) says it is AGDT, never UD. buildToken's caller sets
+		// the head, which needs the whole sentence.
+		Dependency:           repairRelation(token.relation),
 		Morphology:           morphology,
 		Headword:             headword,
 		LexicalDiscriminator: discriminator,
@@ -490,11 +507,6 @@ func reconstruct(sentence sourceSentence) reconstructed {
 	return reconstructed{text: string(text), kept: kept, spans: spans, ellipsis: ellipsis}
 }
 
-// absentSyntaxDependency is the non-committal relation stored for a run that
-// records syntax as absent. The run's syntax state carries the decision; the
-// value only satisfies the corpus-token checks and is never read as UD.
-const absentSyntaxDependency = "dep"
-
 // nativePOSValues are the native AGDT parts of speech oga-agdt-upos/5 maps.
 // Every token in the whole parsed document is checked, including tokens outside
 // the imported citation range, so an unknown value can never pass unnoticed.
@@ -562,33 +574,48 @@ func mapUPOS(pos, relation string, properName bool) (string, error) {
 	}
 }
 
-// featureSlots maps the AGDT postag positions to UD feature names.
+// featureSlots maps the AGDT postag positions to UD feature names. A derived
+// slot reads a position another slot already reads: it adds a second UD feature
+// for the same letter and never reports an unmapped value, the primary slot
+// does.
 var featureSlots = []struct {
 	feature string
 	index   int
+	derived bool
 }{
-	{"Person", 1},
-	{"Number", 2},
-	{"Tense", 3},
-	{"Mood", 4},
-	{"Voice", 5},
-	{"Gender", 6},
-	{"Case", 7},
-	{"Degree", 8},
+	{"Person", 1, false},
+	{"Number", 2, false},
+	{"Tense", 3, false},
+	{"Aspect", 3, true},
+	{"Mood", 4, false},
+	{"VerbForm", 4, true},
+	{"Voice", 5, false},
+	{"Gender", 6, false},
+	{"Case", 7, false},
+	{"Degree", 8, false},
 }
 
-// featureMappings is oga-agdt-feats/1: the AGDT letter-coded value of each
-// feature becomes its UD value. A value with no UD counterpart is omitted and
-// counted; a "-" means the category does not apply and is neither.
+// featureMappings is oga-agdt-feats/2: the AGDT letter-coded value of each
+// feature becomes its UD value, following the UD Ancient Greek Perseus r2.19
+// feature documentation. A value with no UD counterpart is omitted and counted;
+// a "-" means the category does not apply and is neither. An empty mapped value
+// is deliberate: the letter is understood and carries no value for that feature
+// (for example no Mood on an infinitive or participle, no Aspect on a present).
+//
+// The perfect (r) is Tense=Past with Aspect=Perf and the future perfect (t) is
+// Tense=Fut with Aspect=Perf, as Perseus annotates them; the imperfect keeps its
+// Tense and adds Aspect=Imp.
 var featureMappings = map[string]map[byte]string{
-	"Person": {'1': "1", '2': "2", '3': "3"},
-	"Number": {'s': "Sing", 'p': "Plur", 'd': "Dual"},
-	"Tense":  {'p': "Pres", 'i': "Imp", 'f': "Fut", 'l': "Pqp", 'a': "Past"},
-	"Mood":   {'i': "Ind", 's': "Sub", 'o': "Opt", 'm': "Imp"},
-	"Voice":  {'a': "Act", 'p': "Pass", 'm': "Mid", 'e': "Mid"},
-	"Gender": {'m': "Masc", 'f': "Fem", 'n': "Neut"},
-	"Case":   {'n': "Nom", 'g': "Gen", 'd': "Dat", 'a': "Acc", 'v': "Voc", 'l': "Loc"},
-	"Degree": {'c': "Cmp", 's': "Sup"},
+	"Person":   {'1': "1", '2': "2", '3': "3"},
+	"Number":   {'s': "Sing", 'p': "Plur", 'd': "Dual"},
+	"Tense":    {'p': "Pres", 'i': "Imp", 'f': "Fut", 'l': "Pqp", 'a': "Past", 'r': "Past", 't': "Fut"},
+	"Aspect":   {'p': "", 'i': "Imp", 'f': "", 'l': "", 'a': "", 'r': "Perf", 't': "Perf"},
+	"Mood":     {'i': "Ind", 's': "Sub", 'o': "Opt", 'm': "Imp", 'n': "", 'p': ""},
+	"VerbForm": {'i': "Fin", 's': "Fin", 'o': "Fin", 'm': "Fin", 'n': "Inf", 'p': "Part"},
+	"Voice":    {'a': "Act", 'p': "Pass", 'm': "Mid", 'e': "Mid"},
+	"Gender":   {'m': "Masc", 'f': "Fem", 'n': "Neut", 'c': "Fem,Masc"},
+	"Case":     {'n': "Nom", 'g': "Gen", 'd': "Dat", 'a': "Acc", 'v': "Voc", 'l': "Loc"},
+	"Degree":   {'c': "Cmp", 's': "Sup"},
 }
 
 // mapFeatures maps one token's postag to UD FEATS and reports every value the
@@ -601,11 +628,14 @@ func mapFeatures(postag string) (map[string]string, []FeatureValueCount) {
 		if value == '-' {
 			continue
 		}
-		if mapped, ok := featureMappings[slot.feature][value]; ok {
+		mapped, ok := featureMappings[slot.feature][value]
+		switch {
+		case ok && mapped != "":
 			morphology[slot.feature] = mapped
-			continue
+		case ok || slot.derived:
+		default:
+			unmapped = append(unmapped, FeatureValueCount{Feature: slot.feature, Value: asciiValue(string(value))})
 		}
-		unmapped = append(unmapped, FeatureValueCount{Feature: slot.feature, Value: asciiValue(string(value))})
 	}
 	return morphology, unmapped
 }
