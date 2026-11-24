@@ -971,7 +971,7 @@ func effectiveRevision(unitOverride, workOverride classical.Override, previous c
 // defaultInterpretationVersion maps a source format to its adapter version.
 func defaultInterpretationVersion(format string) string {
 	if format == classical.SourceFormatOGACoNLLU {
-		return ancientgreek.PosMappingVersion
+		return ancientgreek.InterpretationVersionNativeAGDT
 	}
 	return ""
 }
