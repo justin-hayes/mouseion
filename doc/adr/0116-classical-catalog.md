@@ -4,7 +4,8 @@ Status: **Accepted — implemented (#2401/#2419); amended 2026-11-19 (catalog pa
 and carried excerpts); Classical Analysis update carry-over amended by
 [ADR 0126](0126-analysis-updates-carry-decisions-onto-identical-tokens.md);
 Reading-unit split and Work grouping amended by
-[ADR 0128](0128-a-classical-book-is-a-whole-work.md)** · Date: 2026-11-09 · Author: Justin + OpenCode
+[ADR 0128](0128-a-classical-book-is-a-whole-work.md); catalog page set amended by
+[ADR 0129](0129-one-catalog-presentation-for-every-source.md)** · Date: 2026-11-09 · Author: Justin + OpenCode
 
 > **Amendment (ADR 0128, 2026-11-24):** A Reading unit is the whole Work in one
 > Edition, including when its citation scheme names books, so a learner owns one

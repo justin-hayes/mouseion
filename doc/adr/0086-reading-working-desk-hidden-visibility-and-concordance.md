@@ -1,6 +1,6 @@
 # ADR 0086: Reading Working desk, independent Hidden visibility, and corpus-wide Concordance
 
-Status: **Accepted; code implementation complete in the repository** · Date: 2026-10-08 · Author: Justin + OpenCode
+Status: **Accepted; code implementation complete in the repository; §8 language-change landing superseded by [ADR 0131](0131-the-url-carries-the-study-language.md)** · Date: 2026-10-08 · Author: Justin + OpenCode
 
 Specified by [issue #1580](https://github.com/justin-hayes/mouseion/issues/1580) and the planning decisions it cites (#1570–#1579); promoted by [issue #1581](https://github.com/justin-hayes/mouseion/issues/1581). This ADR records the **accepted target**. Its code is complete in the repository. Justin decided no maintenance window, manifest tooling, or corpus-scale acceptance evidence is required: migration `000033` only tightens the disposition constraint and fails loudly if a legacy row exists. The assumption that no production Book was ever Set Aside was wrong: the first deploy failed on one legacy row, which was converted to Inbox by hand (revision bumped, history intact) after a backup, and the migration was then re-run. Accepted by Justin on 2026-10-08.
 
