@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -45,6 +47,9 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		renderStatus(w, r, status, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, domain.ConcordanceResult{}, false, false, message, "", origin))
 	}
 	if status, message, rejected := concordanceRequestRejection(request, lookup, language); rejected {
+		if lookup.Match == domain.ConcordanceMatchConstruction {
+			lookup = concordanceSafeRestartLookup(lookup)
+		}
 		invite(status, message)
 		return
 	}
@@ -56,7 +61,7 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		loadError(language, err)
 		return
 	}
-	if lookup.Priority == "" {
+	if lookup.Priority == "" && lookup.Match != domain.ConcordanceMatchConstruction {
 		lookup.Priority = currentPriority
 	}
 	result, err := h.services.Store.Vocabulary.ListVocabularyConcordance(queryCtx, u.ID, language, lookup)
@@ -69,13 +74,14 @@ func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Reque
 		h.renderConcordanceFailure(w, r, http.StatusConflict, u, language, lookup, origin, true)
 		return
 	}
-	if result.InvalidPriority {
-		lookup.Priority = ""
+	if result.InvalidPriority || result.InvalidOrigin {
+		lookup = concordanceSafeRestartLookup(lookup)
 		invite(http.StatusBadRequest, concordanceNoticeState)
 		return
 	}
 	lookup = concordanceAppliedLookup(lookup, result)
-	readingChanged := lookup.Priority != currentPriority
+	// A parallels page is anchored to its origin Book, not to the reading.
+	readingChanged := lookup.Match != domain.ConcordanceMatchConstruction && lookup.Priority != currentPriority
 	render(w, r, VocabularyConcordancePageView(u, h.csrf(w, r), language, lookup, result, true, readingChanged, "", request.focusTarget, origin))
 }
 
@@ -86,6 +92,11 @@ func concordanceRequestRejection(request concordanceRequest, lookup domain.Conco
 	switch {
 	case !request.pageValid:
 		return http.StatusBadRequest, concordanceNoticePage, true
+	case lookup.Match == domain.ConcordanceMatchConstruction:
+		if constructionRequestInvalid(lookup, language) {
+			return http.StatusBadRequest, concordanceNoticeState, true
+		}
+		return http.StatusOK, "", false
 	case lookup.Match != "" && lookup.Match != domain.ConcordanceMatchLemma && lookup.Match != domain.ConcordanceMatchForm,
 		lookup.Match == "" && lookup.UPOS != "",
 		lookup.Match == domain.ConcordanceMatchForm && lookup.UPOS != "",
@@ -98,6 +109,43 @@ func concordanceRequestRejection(request concordanceRequest, lookup domain.Conco
 		return http.StatusBadRequest, concordanceNoticeOneTerm, true
 	}
 	return http.StatusOK, "", false
+}
+
+// concordanceSafeRestartLookup is the lookup shown beside a safe-restart notice.
+// An invalid priority is dropped so a retry recaptures it; an invalid
+// construction lookup has no safe partial form, so it restarts with an empty
+// search.
+func concordanceSafeRestartLookup(lookup domain.ConcordanceLookup) domain.ConcordanceLookup {
+	if lookup.Match == domain.ConcordanceMatchConstruction {
+		return domain.ConcordanceLookup{Language: lookup.Language}
+	}
+	lookup.Priority = ""
+	return lookup
+}
+
+// constructionRequestInvalid reports a construction lookup that must get the
+// safe restart: another language, an unknown construction or unlabelled subtype,
+// a part of speech, or an origin that is not complete. The captured priority is
+// the origin Book, so a missing one is never filled from the current reading.
+func constructionRequestInvalid(lookup domain.ConcordanceLookup, language string) bool {
+	if language != domain.ConcordanceConstructionLanguage || lookup.UPOS != "" || lookup.Origin == nil ||
+		lookup.Priority == "" || lookup.Priority == domain.ConcordancePriorityNone {
+		return true
+	}
+	return !constructionTermValid(lookup.Term, lookup.Subtype)
+}
+
+// constructionTermValid reports a known construction id with, when given, a
+// subtype the shipping gate labels.
+func constructionTermValid(term, subtype string) bool {
+	if _, known := constructions.Notes[constructions.ID(term)]; !known {
+		return false
+	}
+	if subtype == "" {
+		return true
+	}
+	_, labelled := constructions.SubtypeLabel(constructions.ID(term), constructions.SubtypeID(subtype))
+	return labelled
 }
 
 // concordanceCurrentPriority names the Book a fresh lookup should prefer, or the
@@ -146,6 +194,10 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 		origin:      parseBrowseOrigin(query),
 		pageValid:   true,
 	}
+	if request.lookup.Match == domain.ConcordanceMatchConstruction {
+		request.lookup.Subtype = strings.TrimSpace(query.Get("subtype"))
+		request.lookup.Origin = parseConstructionOrigin(query)
+	}
 	if raw := query.Get("page"); raw != "" {
 		if page, err := strconv.Atoi(raw); err == nil && page > 0 {
 			request.lookup.Page = page
@@ -154,6 +206,21 @@ func parseConcordanceRequest(r *http.Request) concordanceRequest {
 		}
 	}
 	return request
+}
+
+// constructionRunPattern is the canonical text form of an analysis run identity.
+var constructionRunPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+
+// parseConstructionOrigin reads the origin occurrence of a parallels lookup. All
+// three values must be present and well formed, or there is no origin.
+func parseConstructionOrigin(query url.Values) *domain.ConcordanceConstructionOrigin {
+	run := strings.TrimSpace(query.Get("from_run"))
+	sentence, sentenceErr := strconv.Atoi(strings.TrimSpace(query.Get("from_sentence")))
+	anchor, anchorErr := strconv.Atoi(strings.TrimSpace(query.Get("from_anchor")))
+	if !constructionRunPattern.MatchString(run) || sentenceErr != nil || anchorErr != nil || sentence < 0 || anchor < 0 {
+		return nil
+	}
+	return &domain.ConcordanceConstructionOrigin{RunID: run, Sentence: sentence, Anchor: anchor}
 }
 
 // loadConcordanceBrowseContext resolves the study language against the learner's
@@ -231,7 +298,7 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		renderStatus(w, r, http.StatusForbidden, VocabularySentenceStudyUnavailablePageView(u, h.csrf(w, r), back))
 		return
 	}
-	render(w, r, VocabularySentenceStudyPageView(u, h.csrf(w, r), study, back))
+	render(w, r, VocabularySentenceStudyPageView(u, h.csrf(w, r), study, back, query.Get("construction")))
 }
 
 func safeConcordanceReturnURL(candidate string) string {
@@ -247,13 +314,8 @@ func safeConcordanceReturnURL(candidate string) string {
 	if focus == "" || parsed.Fragment != focus || values.Get("term") == "" {
 		return "/vocabulary/concordance"
 	}
-	for key := range values {
-		switch key {
-		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
-		case originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
-		default:
-			return "/vocabulary/concordance"
-		}
+	if !safeConcordanceReturnKeys(values) {
+		return "/vocabulary/concordance"
 	}
 	page, err := strconv.Atoi(values.Get("page"))
 	if err != nil || page < 1 {
@@ -262,7 +324,40 @@ func safeConcordanceReturnURL(candidate string) string {
 	if hasOriginKeys(values) && !parseBrowseOrigin(values).Active() {
 		return "/vocabulary/concordance"
 	}
+	if values.Get("as") == domain.ConcordanceMatchConstruction && !safeConstructionReturn(values) {
+		return "/vocabulary/concordance"
+	}
 	return parsed.String()
+}
+
+// safeConcordanceReturnKeys reports whether every key of a return URL is one a
+// Concordance page carries. The construction keys belong to a construction
+// lookup only.
+func safeConcordanceReturnKeys(values url.Values) bool {
+	for key := range values {
+		switch key {
+		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
+		case "subtype", "from_run", "from_sentence", "from_anchor":
+			if values.Get("as") != domain.ConcordanceMatchConstruction {
+				return false
+			}
+		case originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// safeConstructionReturn validates a construction lookup the way the request
+// does: a known construction, an optional shipped subtype, the origin Book as
+// the priority and a complete origin occurrence.
+func safeConstructionReturn(values url.Values) bool {
+	lookup := domain.ConcordanceLookup{
+		UPOS: values.Get("upos"), Term: values.Get("term"), Subtype: values.Get("subtype"), Priority: values.Get("priority"),
+		Origin: parseConstructionOrigin(values),
+	}
+	return !constructionRequestInvalid(lookup, values.Get("language"))
 }
 
 func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) string {
@@ -283,7 +378,19 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	if lookup.Revision != "" {
 		values.Set("rev", lookup.Revision)
 	}
-	values.Set("page", strconv.Itoa(page))
+	if lookup.Match == domain.ConcordanceMatchConstruction {
+		if lookup.Subtype != "" {
+			values.Set("subtype", lookup.Subtype)
+		}
+		if origin := lookup.Origin; origin != nil {
+			values.Set("from_run", origin.RunID)
+			values.Set("from_sentence", strconv.Itoa(origin.Sentence))
+			values.Set("from_anchor", strconv.Itoa(origin.Anchor))
+		}
+	}
+	if page > 0 {
+		values.Set("page", strconv.Itoa(page))
+	}
 	return "/vocabulary/concordance?" + values.Encode()
 }
 
@@ -292,7 +399,13 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 // (lemma with a part of speech) keeps its meaning; an independent lookup
 // recognizes its term again.
 func vocabularyConcordanceRestartURL(lookup domain.ConcordanceLookup) string {
-	lookup.Revision, lookup.Priority = "", ""
+	lookup.Revision = ""
+	if lookup.Match == domain.ConcordanceMatchConstruction {
+		// The priority is the origin Book, so a restart passes the origin rule.
+		// It carries no page, so it opens on the first.
+		return vocabularyConcordancePageURL(0, lookup)
+	}
+	lookup.Priority = ""
 	if lookup.UPOS == "" {
 		lookup.Match = ""
 	}

@@ -138,6 +138,16 @@ type Querier interface {
 	// An owned Book in the study language, with whether it has a current analysis
 	// that can contribute occurrences.
 	GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error)
+	// The origin occurrence of a construction lookup (ADR 0125): the owner's run
+	// (current or historical), the Book it analysed, the sentence and anchor word
+	// the lookup came from, and the Work and author of the Book's Reading unit.
+	// Only result rows must come from current analyses; the origin may not. No row
+	// means the run is not the owner's, the Book is not a chosen-language Book
+	// whose Reading unit has a Work, or the sentence or word does not exist, so the
+	// caller sends the safe restart. current says whether the run is still the
+	// Book's current analysis: Sentence study reads only those, so a historical
+	// origin has no sentence to link back to.
+	GetConstructionOrigin(ctx context.Context, arg GetConstructionOriginParams) (GetConstructionOriginRow, error)
 	// Construction occurrences: a derived reading of a native_agdt run's stored
 	// syntax (ADR 0123). Lemma corrections and Occurrence exclusions are never
 	// read here.
@@ -307,6 +317,28 @@ type Querier interface {
 	// identifier the index browses. A removed Book contributes no ownership.
 	ListCatalogueEntryBooksForConnection(ctx context.Context, arg ListCatalogueEntryBooksForConnectionParams) ([]ListCatalogueEntryBooksForConnectionRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
+	// One page of construction parallels (ADR 0125), read in fenced stages like
+	// ListVocabularyConcordance:
+	//   candidates  the owner's rows for one construction and optional subtype,
+	//               without the origin occurrence.
+	//   eligible    the owner's current analyses of chosen-language Books whose
+	//               readiness marker carries the current detector version, with
+	//               each Book's Work and Reading unit. A run with no marker, or an
+	//               older one, contributes nothing.
+	//   ranked      candidates in an eligible run, their tier and order, paged.
+	//   (final)     the page's at most 27 rows fetch the wide text.
+	// Eligibility matches the word lookups' (owner, chosen language, current
+	// analysis identity, and the unit in the snapshot). Corrections and exclusions
+	// are deliberately not read: detection ignores them.
+	// Tiers: this_book is the origin Book, this_author is every Book whose Work's
+	// author equals the origin Work's author exactly, other_authors the rest.
+	// Order: this_author lists the origin Work first; then author, Work title,
+	// Reading-unit order (constituent_book, then definition key), unit, sentence and
+	// anchor.
+	ListConstructionConcordance(ctx context.Context, arg ListConstructionConcordanceParams) ([]ListConstructionConcordanceRow, error)
+	// The analyzed words of one sentence with their unit offsets, for the extract
+	// an expanded parallels row reprints.
+	ListConstructionSentenceWords(ctx context.Context, arg ListConstructionSentenceWordsParams) ([]ListConstructionSentenceWordsRow, error)
 	// Every printed token of a run, in sentence and token order. Raw lemma and
 	// morphology only: the effective lemma is never an input.
 	ListConstructionTokens(ctx context.Context, arg ListConstructionTokensParams) ([]ListConstructionTokensRow, error)

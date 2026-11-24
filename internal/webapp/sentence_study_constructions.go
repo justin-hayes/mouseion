@@ -21,6 +21,11 @@ type sentenceStudyConstructionEntry struct {
 	// Title is the note name, with the subtype label in parentheses when the
 	// shipping gate labels the subtype.
 	Title string
+	// ID is the construction id. SubtypeID and SubtypeLabel are set only when
+	// the shipping gate labels the subtype; a Parallels link carries no other.
+	ID, SubtypeID, SubtypeLabel string
+	// Focused marks the entry a learner arrived at from Concordance's Study.
+	Focused bool
 	// Extract is the whole sentence reprinted in runs.
 	Extract []sentenceStudyExtractPart
 	// Words lists the extent in textual order, "…" between discontinuous parts.
@@ -70,13 +75,14 @@ func sentenceStudyConstructionEntries(study domain.SentenceStudy) []sentenceStud
 			continue
 		}
 		entry := sentenceStudyConstructionEntry{
-			Title: note.Name, name: note.Name, AnchorSurface: surface, anchor: int64(occurrence.Anchor),
+			Title: note.Name, ID: occurrence.ConstructionID, name: note.Name, AnchorSurface: surface, anchor: int64(occurrence.Anchor),
 			Definition:   note.Definition,
 			CitationText: constructions.CitationText(note.Citation), CitationURL: constructions.CitationURL(note.Citation),
 			extent: make(map[int64]bool, len(occurrence.Extent)),
 		}
 		if label, ok := constructions.SubtypeLabel(constructions.ID(occurrence.ConstructionID), constructions.SubtypeID(occurrence.SubtypeID)); ok {
 			entry.Title += " (" + label + ")"
+			entry.SubtypeID, entry.SubtypeLabel = occurrence.SubtypeID, label
 		}
 		for _, ordinal := range occurrence.Extent {
 			entry.extent[int64(ordinal)] = true
@@ -103,6 +109,49 @@ func sentenceStudyConstructionEntries(study domain.SentenceStudy) []sentenceStud
 		entry.Words = sentenceStudyConstructionWordsLine(study, *entry)
 	}
 	return entries
+}
+
+// sentenceStudyFocusedConstructionEntries is the entry list with the one entry
+// a learner arrived at from Concordance's Study marked: the construction named
+// by the request whose anchor is the identified target. The list order never
+// changes, and an unmatched focus marks nothing.
+func sentenceStudyFocusedConstructionEntries(study domain.SentenceStudy, focusConstruction string) []sentenceStudyConstructionEntry {
+	entries := sentenceStudyConstructionEntries(study)
+	if focusConstruction == "" {
+		return entries
+	}
+	for i := range entries {
+		if entries[i].ID == focusConstruction && entries[i].anchor == study.TargetOrdinal {
+			entries[i].Focused = true
+			break
+		}
+	}
+	return entries
+}
+
+// anchorID is the entry's fragment identifier. It is derived from the
+// construction and its anchor, so Concordance's Study link can address it
+// without knowing the entry's position.
+func (e sentenceStudyConstructionEntry) anchorID() string {
+	return fmt.Sprintf("construction-%s-%d", e.ID, e.anchor)
+}
+
+// parallelsLabel is the Parallels link's accessible name.
+func (e sentenceStudyConstructionEntry) parallelsLabel() string {
+	if e.SubtypeLabel != "" {
+		return "Parallels for " + e.name + ", " + e.SubtypeLabel
+	}
+	return "Parallels for " + e.name
+}
+
+// parallelsURL opens Concordance with this occurrence's parallels: other
+// occurrences of the construction, filtered to the subtype only when it is
+// labelled, with this Book as the origin Book and this occurrence as the origin.
+func (e sentenceStudyConstructionEntry) parallelsURL(study domain.SentenceStudy) string {
+	return vocabularyConcordancePageURL(1, domain.ConcordanceLookup{
+		Term: e.ID, Match: domain.ConcordanceMatchConstruction, Subtype: e.SubtypeID, Priority: study.BookID,
+		Origin: &domain.ConcordanceConstructionOrigin{RunID: study.AnalysisRunID, Sentence: int(study.SentenceOrdinal), Anchor: int(e.anchor)},
+	})
 }
 
 // targetSuffix is the target phrase set after "Signalled by …." with its

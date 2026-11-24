@@ -323,3 +323,172 @@ SELECT EXISTS (
    WHERE NOT COALESCE(d.excluded, false)
      AND COALESCE(d.canonical_lemma, c.canonical_lemma) = sqlc.arg('term')::text
 )::boolean AS evidenced;
+
+-- name: GetConstructionOrigin :one
+-- The origin occurrence of a construction lookup (ADR 0125): the owner's run
+-- (current or historical), the Book it analysed, the sentence and anchor word
+-- the lookup came from, and the Work and author of the Book's Reading unit.
+-- Only result rows must come from current analyses; the origin may not. No row
+-- means the run is not the owner's, the Book is not a chosen-language Book
+-- whose Reading unit has a Work, or the sentence or word does not exist, so the
+-- caller sends the safe restart. current says whether the run is still the
+-- Book's current analysis: Sentence study reads only those, so a historical
+-- origin has no sentence to link back to.
+SELECT sm.book_id::text AS book_id,
+       b.title AS book_title,
+       r.corpus_id::text AS corpus_id,
+       s.unit_id,
+       t.surface AS anchor_surface,
+       w.id::text AS work_id,
+       w.title AS work_title,
+       w.author AS author,
+       EXISTS (SELECT 1 FROM current_analysis_identity ca
+                WHERE ca.owner_id = r.owner_id AND ca.analysis_run_id = r.id)::boolean AS current
+  FROM analysis_runs r
+  JOIN source_materials sm ON sm.owner_id = r.owner_id AND sm.id = r.source_material_id
+  JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
+       AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text
+  JOIN corpus_sentences s ON s.owner_id = r.owner_id AND s.analysis_run_id = r.id
+       AND s.corpus_id = r.corpus_id AND s.sentence_ordinal = sqlc.arg('sentence_ordinal')::bigint
+  JOIN corpus_tokens t ON t.owner_id = s.owner_id AND t.analysis_run_id = s.analysis_run_id
+       AND t.corpus_id = s.corpus_id AND t.sentence_ordinal = s.sentence_ordinal
+       AND t.token_ordinal = sqlc.arg('anchor_ordinal')::bigint
+  JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+  JOIN reading_units ru ON ru.id = bru.reading_unit_id
+  JOIN editions e ON e.id = ru.edition_id
+  JOIN works w ON w.id = e.work_id
+ WHERE r.owner_id = sqlc.arg('owner')::uuid
+   AND r.id = sqlc.arg('analysis_run')::uuid
+   AND sm.book_id = sqlc.arg('book')::uuid;
+
+-- name: ListConstructionConcordance :many
+-- One page of construction parallels (ADR 0125), read in fenced stages like
+-- ListVocabularyConcordance:
+--   candidates  the owner's rows for one construction and optional subtype,
+--               without the origin occurrence.
+--   eligible    the owner's current analyses of chosen-language Books whose
+--               readiness marker carries the current detector version, with
+--               each Book's Work and Reading unit. A run with no marker, or an
+--               older one, contributes nothing.
+--   ranked      candidates in an eligible run, their tier and order, paged.
+--   (final)     the page's at most 27 rows fetch the wide text.
+-- Eligibility matches the word lookups' (owner, chosen language, current
+-- analysis identity, and the unit in the snapshot). Corrections and exclusions
+-- are deliberately not read: detection ignores them.
+-- Tiers: this_book is the origin Book, this_author is every Book whose Work's
+-- author equals the origin Work's author exactly, other_authors the rest.
+-- Order: this_author lists the origin Work first; then author, Work title,
+-- Reading-unit order (constituent_book, then definition key), unit, sentence and
+-- anchor.
+WITH candidates AS MATERIALIZED (
+  SELECT c.owner_id, c.corpus_id, c.analysis_run_id, c.sentence_ordinal, c.anchor_token_ordinal,
+         c.construction_id, c.subtype_id, c.extent_token_ordinals
+    FROM construction_occurrences c
+   WHERE c.owner_id = sqlc.arg('owner')::uuid AND c.language = sqlc.arg('language')::text
+     AND c.construction_id = sqlc.arg('construction')::text
+     AND (sqlc.arg('subtype')::text = '' OR c.subtype_id = sqlc.arg('subtype')::text)
+     AND NOT (c.analysis_run_id = sqlc.arg('origin_run')::uuid
+              AND c.sentence_ordinal = sqlc.arg('origin_sentence')::bigint
+              AND c.anchor_token_ordinal = sqlc.arg('origin_anchor')::bigint)
+),
+eligible AS MATERIALIZED (
+  SELECT ca.owner_id, ca.analysis_run_id, ca.corpus_id, ca.book_id,
+         ca.source_material_id, ca.snapshot_id, b.title AS book_title,
+         w.id AS work_id, w.title AS work_title, w.author,
+         ru.constituent_book, ru.definition_key
+    FROM current_analysis_identity ca
+    JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+      AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text
+    JOIN construction_run_markers m ON m.owner_id = ca.owner_id
+      AND m.analysis_run_id = ca.analysis_run_id AND m.corpus_id = ca.corpus_id
+      AND m.detector_version = sqlc.arg('detector_version')::integer
+    JOIN book_reading_units bru ON bru.owner_id = ca.owner_id AND bru.book_id = ca.book_id
+    JOIN reading_units ru ON ru.id = bru.reading_unit_id
+    JOIN editions ed ON ed.id = ru.edition_id
+    JOIN works w ON w.id = ed.work_id
+   WHERE ca.owner_id = sqlc.arg('owner')::uuid
+),
+current AS MATERIALIZED (
+  SELECT c.*, e.book_id, e.source_material_id, e.snapshot_id, e.book_title,
+         e.work_id, e.work_title, e.author, e.constituent_book, e.definition_key,
+         s.unit_id
+    FROM candidates c
+    JOIN eligible e ON e.owner_id = c.owner_id
+      AND e.analysis_run_id = c.analysis_run_id AND e.corpus_id = c.corpus_id
+    JOIN corpus_sentences s ON s.analysis_run_id = c.analysis_run_id
+      AND s.sentence_ordinal = c.sentence_ordinal
+      AND s.owner_id = c.owner_id AND s.corpus_id = c.corpus_id
+),
+ranked AS MATERIALIZED (
+  SELECT c.analysis_run_id, c.corpus_id, c.sentence_ordinal, c.anchor_token_ordinal,
+         c.construction_id, c.subtype_id, c.extent_token_ordinals,
+         c.book_id, c.source_material_id, c.snapshot_id, c.book_title,
+         c.unit_id, u.unit_order,
+         CASE WHEN c.book_id = sqlc.arg('origin_book')::uuid THEN 'this_book'
+              WHEN c.author = sqlc.arg('origin_author')::text THEN 'this_author'
+              ELSE 'other_authors' END AS tier,
+         ROW_NUMBER() OVER (ORDER BY
+           (CASE WHEN c.book_id = sqlc.arg('origin_book')::uuid THEN 0
+                 WHEN c.author = sqlc.arg('origin_author')::text THEN 1 ELSE 2 END),
+           (CASE WHEN c.work_id = sqlc.arg('origin_work')::uuid THEN 0 ELSE 1 END),
+           c.author, c.work_title, c.work_id::text,
+           c.constituent_book NULLS FIRST, c.definition_key, c.book_id::text,
+           u.unit_order, c.sentence_ordinal, c.anchor_token_ordinal) AS position
+    FROM current c
+    JOIN source_material_units u ON u.owner_id = c.owner_id
+      AND u.source_material_id = c.source_material_id
+      AND u.snapshot_id = c.snapshot_id AND u.unit_id = c.unit_id
+   ORDER BY position
+   -- The caller starts one row early on later pages and reads one row past the
+   -- page: the first row decides "continued", the last decides "next".
+   LIMIT 27 OFFSET sqlc.arg('offset')::bigint
+)
+SELECT r.tier::text AS tier,
+       r.construction_id,
+       COALESCE(r.subtype_id, '')::text AS subtype_id,
+       r.extent_token_ordinals::bigint[] AS extent_token_ordinals,
+       t.surface,
+       t.canonical_lemma,
+       t.upos,
+       t.dependency,
+       t.head AS head_ordinal,
+       s.sentence_text,
+       (t.start_offset - s.start_offset)::bigint AS sentence_start_offset,
+       (t.end_offset - s.start_offset)::bigint AS sentence_end_offset,
+       t.start_offset AS unit_start_offset,
+       t.end_offset AS unit_end_offset,
+       (u.start_offset + t.start_offset)::bigint AS book_start_offset,
+       (u.start_offset + t.end_offset)::bigint AS book_end_offset,
+       r.book_id::text AS book_id,
+       r.book_title,
+       r.source_material_id::text AS source_material_id,
+       r.analysis_run_id::text AS analysis_run_id,
+       r.corpus_id::text AS corpus_id,
+       r.unit_id,
+       u.title AS chapter_title,
+       r.unit_order,
+       r.sentence_ordinal,
+       r.anchor_token_ordinal AS token_ordinal,
+       r.snapshot_id::text AS snapshot_id,
+       u.text AS unit_text,
+       s.start_offset::bigint AS sentence_unit_start_offset,
+       s.end_offset::bigint AS sentence_unit_end_offset,
+       COALESCE(t.headword, '')::text AS headword
+  FROM ranked r
+  JOIN corpus_tokens t ON t.analysis_run_id = r.analysis_run_id
+    AND t.sentence_ordinal = r.sentence_ordinal AND t.token_ordinal = r.anchor_token_ordinal
+  JOIN corpus_sentences s ON s.analysis_run_id = r.analysis_run_id
+    AND s.sentence_ordinal = r.sentence_ordinal
+  JOIN source_material_units u ON u.owner_id = t.owner_id
+    AND u.source_material_id = r.source_material_id
+    AND u.snapshot_id = r.snapshot_id AND u.unit_id = r.unit_id
+ ORDER BY r.position;
+
+-- name: ListConstructionSentenceWords :many
+-- The analyzed words of one sentence with their unit offsets, for the extract
+-- an expanded parallels row reprints.
+SELECT t.token_ordinal, t.surface, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset
+  FROM corpus_tokens t
+ WHERE t.owner_id = sqlc.arg('owner')::uuid AND t.analysis_run_id = sqlc.arg('analysis_run')::uuid
+   AND t.corpus_id = sqlc.arg('corpus')::uuid AND t.sentence_ordinal = sqlc.arg('sentence_ordinal')::bigint
+ ORDER BY t.token_ordinal;

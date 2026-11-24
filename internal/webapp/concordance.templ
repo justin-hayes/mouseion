@@ -27,7 +27,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 					@concordanceOriginFields(origin)
 					<div class="concordance-query-term">
 						<label for="concordance-term">Lemma or word form</label>
-						<div class="concordance-query-term-controls"><input class="input" id="concordance-term" type="search" name="term" value={ lookup.Term } autocomplete="off" autocapitalize="off" spellcheck="false" required aria-describedby="concordance-term-help"/><button class="button" type="submit">Find</button></div>
+						<div class="concordance-query-term-controls"><input class="input" id="concordance-term" type="search" name="term" value={ concordanceTermValue(lookup) } autocomplete="off" autocapitalize="off" spellcheck="false" required aria-describedby="concordance-term-help"/><button class="button" type="submit">Find</button></div>
 					</div>
 				</form>
 				<p id="concordance-term-help" class="concordance-term-help">Searches every analyzed Book in this study language. An evidenced lemma finds its observed forms; any other word matches only that form.</p>
@@ -45,10 +45,13 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 					<section id="concordance-results" aria-labelledby="concordance-summary">
 						<h2 id="concordance-summary" tabindex="-1" autofocus?={ concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) }>{ concordanceAppliedSummary(lookup, result) }</h2>
 						<p class="concordance-results-summary">{ concordanceResultsSummary(result) }</p>
+						if concordanceConstruction(lookup) {
+							@concordanceParallelsNav(lookup, result, origin)
+						}
 						if concordanceFocusFallsBackToSummary(result.Occurrences, focusTarget) {
 							<p id="concordance-focus-missing" role="status">The sentence you came from is no longer on this page of results. Nothing else was substituted; these are the current results for the same lookup.</p>
 						}
-						if note := concordancePriorityNote(result); note != "" && (len(result.Occurrences) > 0 || lookup.Page == 1) {
+						if note := concordancePriorityNote(result); note != "" && !concordanceConstruction(lookup) && (len(result.Occurrences) > 0 || lookup.Page == 1) {
 							<p id="concordance-priority" class="concordance-priority">{ note }</p>
 						}
 						if readingChanged {
@@ -58,51 +61,27 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 							</p>
 						}
 						if len(result.Occurrences) == 0 && lookup.Page == 1 {
-							<p>No analyzed occurrences of this { concordanceMatchNoun(result) } in your { language } Books. This is a corpus result, not a lookup failure.</p>
+							if concordanceConstruction(lookup) {
+								<p>{ concordanceNoParallelsText(lookup, language) }</p>
+							} else {
+								<p>No analyzed occurrences of this { concordanceMatchNoun(result) } in your { language } Books. This is a corpus result, not a lookup failure.</p>
+							}
 						}
 						if len(result.Occurrences) == 0 && lookup.Page > 1 {
 							<p>No results on this page. <a href={ templ.SafeURL(origin.Apply(vocabularyConcordancePageURL(1, concordanceAppliedLookup(lookup, result)))) }>Go to page 1</a></p>
 						}
-						if len(result.Occurrences) > 0 {
-							<ol id="concordance-native-results" class="concordance-results" role="list">
-								for index, occurrence := range result.Occurrences {
-									<li class="concordance-result">
-										if concordanceStartsBookGroup(result.Occurrences, index) {
-											// A static label, not a control: the complete title stays in the text
-											// and CSS only ellipsizes it visually, so it never sets the row height.
-											<p class="concordance-source">
-												<span class="concordance-source-title">{ occurrence.BookTitle }</span>
-												<span class="concordance-source-count"><span class="concordance-count-full">{ concordanceBookGroupCountText(result.Occurrences, index) }</span><span class="concordance-count-compact" aria-hidden="true">{ concordanceBookGroupCompactCount(result.Occurrences, index) }</span></span>
-											</p>
-										}
-										<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
-											{{ before, target, after := concordanceSentenceParts(occurrence) }}
-											<summary>
-												if target != "" {
-													// One line: inline whitespace between these parts would add spaces to the sentence.
-													<span class="concordance-before"><span>@concordanceSummaryContext(before)</span></span><strong class="concordance-surface">{ target }</strong><span class="concordance-after">@concordanceSummaryContext(after)</span>
-												} else {
-													<span class="concordance-before"></span><strong class="concordance-surface">{ occurrence.Surface }</strong><span class="concordance-after">{ " " }@concordanceSummaryContext(occurrence.SentenceText)</span>
-												}
-											</summary>
-											<div class="concordance-context">
-												@sourceAttribution(occurrence.Attribution, "concordance-attribution")
-												<p class="reading-text">@concordanceContextText(before, target, after, occurrence.SentenceText)</p>
-											</div>
-										</details>
-										if occurrence.StudyUnavailable {
-											// A sentence overlapping a speaker label is
-											// raw evidence, never study context. The
-											// occurrence itself stays and, when it is a
-											// label, is named as such.
-											if occurrence.SpeakerLabel {
-												<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
-											}
-										} else {
-											<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
-										}
-									</li>
+						if len(result.Occurrences) > 0 && concordanceConstruction(lookup) {
+							<div id="concordance-native-results">
+								for _, group := range concordanceTierGroups(result.Occurrences) {
+									<h3 class="concordance-tier" id={ "concordance-tier-" + group.Tier }>{ concordanceTierLabel(group.Tier) }</h3>
+									<ol class="concordance-results" role="list" aria-labelledby={ "concordance-tier-" + group.Tier }>
+										@concordanceResultItems(group.Occurrences, lookup, result, origin, focusTarget)
+									</ol>
 								}
+							</div>
+						} else if len(result.Occurrences) > 0 {
+							<ol id="concordance-native-results" class="concordance-results" role="list">
+								@concordanceResultItems(result.Occurrences, lookup, result, origin, focusTarget)
 							</ol>
 						}
 						if result.HasPrevious || result.HasNext {
@@ -122,6 +101,58 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 	}
 }
 
+// concordanceResultItems renders one list of results: a per-Book label above the
+// first row of each Book, the key word in context, the expanded sentence and the
+// Study link. A parallels row also reprints its construction extract.
+templ concordanceResultItems(occurrences []domain.ConcordanceResultOccurrence, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, origin browseOrigin, focusTarget string) {
+	for index, occurrence := range occurrences {
+		<li class="concordance-result">
+			if concordanceStartsBookGroup(occurrences, index) {
+				// A static label, not a control: the complete title stays in the text
+				// and CSS only ellipsizes it visually, so it never sets the row height.
+				<p class="concordance-source">
+					<span class="concordance-source-title">{ occurrence.BookTitle }</span>
+					<span class="concordance-source-count"><span class="concordance-count-full">{ concordanceBookGroupCountText(occurrences, index) }</span><span class="concordance-count-compact" aria-hidden="true">{ concordanceBookGroupCompactCount(occurrences, index) }</span></span>
+				</p>
+			}
+			<details class="concordance-row" name="concordance-occurrences" id={ concordanceOccurrenceID(occurrence) } tabindex="-1" autofocus?={ concordanceFocusMatches(occurrence, focusTarget) }>
+				{{ before, target, after := concordanceSentenceParts(occurrence) }}
+				<summary>
+					if target != "" {
+						// One line: inline whitespace between these parts would add spaces to the sentence.
+						<span class="concordance-before"><span>@concordanceSummaryContext(before)</span></span><strong class="concordance-surface">{ target }</strong><span class="concordance-after">@concordanceSummaryContext(after)</span>
+					} else {
+						<span class="concordance-before"></span><strong class="concordance-surface">{ occurrence.Surface }</strong><span class="concordance-after">{ " " }@concordanceSummaryContext(occurrence.SentenceText)</span>
+					}
+				</summary>
+				<div class="concordance-context">
+					@sourceAttribution(occurrence.Attribution, "concordance-attribution")
+					<p class="reading-text">@concordanceContextText(before, target, after, occurrence.SentenceText)</p>
+					if entry, ok := concordanceConstructionEntry(occurrence); ok {
+						<div class="concordance-construction">
+							<p class="sentence-study-construction-name"><strong>{ entry.Title }</strong></p>
+							@sentenceStudyConstructionExtractView(entry)
+							<p class="sentence-study-construction-signal">Signalled by <em>{ entry.AnchorSurface }</em>.</p>
+							@sentenceStudyConstructionNoteView(entry)
+						</div>
+					}
+				</div>
+			</details>
+			if occurrence.StudyUnavailable {
+				// A sentence overlapping a speaker label is
+				// raw evidence, never study context. The
+				// occurrence itself stays and, when it is a
+				// label, is named as such.
+				if occurrence.SpeakerLabel {
+					<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
+				}
+			} else {
+				<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
+			}
+		</li>
+	}
+}
+
 // VocabularySentenceStudyUnavailablePageView explains a refused direct Study
 // request and offers the way back. A speaker-label sentence is raw evidence,
 // not study context (ADR 0103).
@@ -134,7 +165,7 @@ templ VocabularySentenceStudyUnavailablePageView(user domain.User, csrf string, 
 	}
 }
 
-templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back string) {
+templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back, focusConstruction string) {
 	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
 		@PageHeader("Study this sentence", "The complete source sentence with a source-aligned morphology line and the complete analyzer evidence.", nil)
 		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
@@ -147,9 +178,9 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			}
 			@sourceAttribution(study.Attribution, "sentence-study-attribution")
 			<p class="reading-text sentence-study-text">@sentenceStudySourceText(study.SentenceText)</p>
-			{{ constructionEntries := sentenceStudyConstructionEntries(study) }}
+			{{ constructionEntries := sentenceStudyFocusedConstructionEntries(study, focusConstruction) }}
 			if len(constructionEntries) > 0 {
-				@sentenceStudyConstructionsView(constructionEntries)
+				@sentenceStudyConstructionsView(constructionEntries, study)
 			}
 			{{ line := alignSentenceStudy(study) }}
 			if len(study.Tokens) == 0 {
@@ -352,29 +383,62 @@ templ sentenceStudyModernTokenEvidence(token domain.SentenceStudyToken) {
 // sighted readers, so it is hidden from assistive technology and a visually
 // hidden Words line carries the same extent. Marking is weight, tone and
 // underline, never colour alone.
-templ sentenceStudyConstructionsView(entries []sentenceStudyConstructionEntry) {
+templ sentenceStudyConstructionsView(entries []sentenceStudyConstructionEntry, study domain.SentenceStudy) {
 	<section id="sentence-study-constructions" class="sentence-study-constructions" aria-labelledby="sentence-study-constructions-heading">
 		<h3 id="sentence-study-constructions-heading">Constructions</h3>
 		<ol class="sentence-study-construction-list">
 			for _, entry := range entries {
-				<li class="sentence-study-construction">
-					<p class="sentence-study-construction-name"><strong>{ entry.Title }</strong></p>
-					<p class="sentence-study-construction-extract" aria-hidden="true">
-						for _, part := range entry.Extract {
-							@sentenceStudyExtractPartView(part)
-						}
-					</p>
-					<p class="sr-only">{ entry.Words }</p>
+				<li id={ entry.anchorID() } class={ "sentence-study-construction", templ.KV("sentence-study-construction--focused", entry.Focused) }>
+					if entry.Focused {
+						<p class="sentence-study-construction-name"><strong>{ entry.Title }</strong><span class="sentence-study-construction-from">{ " · from Concordance" }</span></p>
+					} else {
+						<p class="sentence-study-construction-name"><strong>{ entry.Title }</strong></p>
+					}
+					@sentenceStudyConstructionExtractView(entry)
 					if entry.InsideOf > 0 {
 						<p class="sentence-study-construction-nesting">Inside construction { fmt.Sprintf("%d", entry.InsideOf) }.</p>
 					}
 					<p class="sentence-study-construction-signal">Signalled by <em>{ entry.AnchorSurface }</em>.{ entry.targetSuffix() }</p>
-					<p class="sentence-study-construction-definition">{ entry.Definition }</p>
-					<p class="sentence-study-construction-citation"><a href={ templ.SafeURL(entry.CitationURL) } target="_blank" rel="noopener noreferrer">{ entry.CitationText }</a></p>
+					@sentenceStudyConstructionNoteView(entry)
+					<p class="sentence-study-construction-parallels"><a href={ templ.SafeURL(entry.parallelsURL(study)) } aria-label={ entry.parallelsLabel() }>Parallels</a></p>
 				</li>
 			}
 		</ol>
 	</section>
+}
+
+// sentenceStudyConstructionExtractView is the extract of one construction: the
+// sentence reprinted, hidden from assistive technology, and the visually hidden
+// Words line that stands in for it. Sentence study and Concordance's expanded
+// parallels row share it.
+templ sentenceStudyConstructionExtractView(entry sentenceStudyConstructionEntry) {
+	<p class="sentence-study-construction-extract" aria-hidden="true">
+		for _, part := range entry.Extract {
+			@sentenceStudyExtractPartView(part)
+		}
+	</p>
+	<p class="sr-only">{ entry.Words }</p>
+}
+
+// sentenceStudyConstructionNoteView is the concept note's definition and its
+// linked grammar citation.
+templ sentenceStudyConstructionNoteView(entry sentenceStudyConstructionEntry) {
+	<p class="sentence-study-construction-definition">{ entry.Definition }</p>
+	<p class="sentence-study-construction-citation"><a href={ templ.SafeURL(entry.CitationURL) } target="_blank" rel="noopener noreferrer">{ entry.CitationText }</a></p>
+}
+
+// concordanceParallelsNav is the header of a parallels page: the way back to the
+// origin sentence and, for a subtype lookup, the way to widen to the whole
+// construction.
+templ concordanceParallelsNav(lookup domain.ConcordanceLookup, result domain.ConcordanceResult, origin browseOrigin) {
+	<p class="concordance-parallels-nav">
+		if result.Origin.Current {
+			<a id="concordance-parallels-origin" href={ templ.SafeURL(concordanceOriginStudyURL(lookup, result)) }>Back to the sentence you came from</a>
+		}
+		if lookup.Subtype != "" {
+			{ " · " }<a id="concordance-parallels-widen" href={ templ.SafeURL(origin.Apply(concordanceWidenURL(lookup))) }>All { concordanceConstructionName(lookup) }</a>
+		}
+	</p>
 }
 
 templ sentenceStudyExtractPartView(part sentenceStudyExtractPart) {
@@ -454,6 +518,9 @@ func concordanceAppliedLookup(lookup domain.ConcordanceLookup, result domain.Con
 }
 
 func concordanceAppliedSummary(lookup domain.ConcordanceLookup, result domain.ConcordanceResult) string {
+	if concordanceConstruction(lookup) {
+		return "Parallels of " + concordanceConstructionHeading(lookup)
+	}
 	term := result.Term
 	if term == "" {
 		term = lookup.Term
@@ -632,6 +699,12 @@ func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, l
 	backValues.RawQuery = backQuery.Encode()
 	back := backValues.String() + "#" + url.PathEscape(focusTarget)
 	values.Set("return", back)
+	if occurrence.ConstructionID != "" {
+		// The construction is focused in Sentence study; its entry's fragment
+		// scrolls it into view without JavaScript.
+		values.Set("construction", occurrence.ConstructionID)
+		return "/vocabulary/concordance/sentence?" + values.Encode() + "#" + url.PathEscape(constructionAnchorID(occurrence.ConstructionID, int(occurrence.TokenOrdinal)))
+	}
 	return "/vocabulary/concordance/sentence?" + values.Encode()
 }
 
