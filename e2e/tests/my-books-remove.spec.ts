@@ -56,8 +56,9 @@ test.describe('Remove from My Books', () => {
 
   test('removes classical Books one at a time and adds them back from the Catalog', async ({ page }) => {
     await signIn(page);
-    await page.goto('/catalogs/classical/works/fixture-iliad');
-    await page.getByRole('button', { name: 'Add and prepare the whole work', exact: true }).click();
+    // The catalog index adds the whole Work: every per-book Iliad unit.
+    await page.goto('/catalogs/classical');
+    await page.locator('#work-fixture-iliad').getByRole('button', { name: 'Add and prepare the work', exact: true }).click();
     await expect(page).toHaveURL(/\/catalogs\/classical/);
 
     await page.goto('/library');
@@ -76,8 +77,12 @@ test.describe('Remove from My Books', () => {
     await expect(first).toHaveCount(0);
     await expect(second).toBeVisible();
 
+    // The Work page offers Add only on the removed book's unit.
     await page.goto('/catalogs/classical/works/fixture-iliad');
-    await page.getByRole('button', { name: 'Add and prepare the whole work', exact: true }).click();
+    const addAgain = page.getByRole('button', { name: 'Add and prepare the work', exact: true });
+    await expect(addAgain).toHaveCount(1);
+    await addAgain.click();
+    await expect(page).toHaveURL(/\/catalogs\/classical/);
     await page.goto('/library');
     await showStudyLanguage(page, 'grc');
     await expect(first).toBeVisible();
