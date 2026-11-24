@@ -245,3 +245,14 @@ func TestReadingChooserOffersTheOrdinaryAnalysisUpdateOnEachBook(t *testing.T) {
 	assert.Contains(t, body, `action="/reading/books/iliad-2/analysis-update"`)
 	assert.NotContains(t, body, "/library/works/", "there is no Work-level update action")
 }
+
+func TestReadingChooserOffersAWholeWorkBookTheOrdinaryAnalysisUpdate(t *testing.T) {
+	book := chooserWorkBook("hellenica", "Hellenica", "Xenophon", "xenophon-hellenica-1", "corpus-hellenica")
+	book.Acquired.Source.ID = "source-hellenica"
+	insights := chooserWorkInsights{coverage: map[string]domain.AnalysisCoverage{"corpus-hellenica": chooserCoverage(99, 100)}}
+	body := chooserWorkBody(t, []domain.MyBook{book}, insights, map[string]domain.AnalysisUpdateCandidate{"source-hellenica": chooserUpdateOffer()})
+
+	assert.Equal(t, 1, strings.Count(body, "A newer analysis is available."))
+	assert.Contains(t, body, `action="/reading/books/hellenica/analysis-update"`)
+	assert.NotContains(t, body, "/library/works/")
+}
