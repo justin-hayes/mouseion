@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -584,6 +585,24 @@ func TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably(t *testing.T) {
 	assert.Zero(t, page.InventoryTotal)
 }
 
+// addCountableTagToken gives a Book's current analysis one sentence with one
+// Browse-countable token, "Tag", so occurrence decisions have something to
+// change. It returns the current run and corpus.
+func addCountableTagToken(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, book string) (runID, corpusID string) {
+	t.Helper()
+	var unitID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT cai.analysis_run_id::text,cai.corpus_id::text,u.unit_id
+		FROM current_analysis_identity cai JOIN source_material_units u ON u.owner_id=cai.owner_id AND u.source_material_id=cai.source_material_id
+		WHERE cai.owner_id=$1 AND cai.book_id=$2 LIMIT 1`, owner, book).Scan(&runID, &corpusID, &unitID))
+	_, err := pool.Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
+		VALUES($1,$2,$3,$4,0,'Guten Tag.',0,10)`, owner, runID, corpusID, unitID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
+		VALUES($1,'de',$2,$3,0,0,'Tag','Tag','tag','NOUN','root',0,'{}',6,9)`, owner, runID, corpusID)
+	require.NoError(t, err)
+	return runID, corpusID
+}
+
 func TestBrowseCountsRebuildDiscardsCandidateWhenDecisionChangesDuringScan(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
@@ -594,16 +613,7 @@ func TestBrowseCountsRebuildDiscardsCandidateWhenDecisionChangesDuringScan(t *te
 	owner, err := store.CreateUser(ctx, "browse-count-decision-race", false)
 	require.NoError(t, err)
 	book, _ := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)
-	var runID, corpusID, unitID string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT cai.analysis_run_id::text,cai.corpus_id::text,u.unit_id
-		FROM current_analysis_identity cai JOIN source_material_units u ON u.owner_id=cai.owner_id AND u.source_material_id=cai.source_material_id
-		WHERE cai.owner_id=$1 AND cai.book_id=$2 LIMIT 1`, owner.ID, book.ID).Scan(&runID, &corpusID, &unitID))
-	_, err = pool.Exec(ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
-		VALUES($1,$2,$3,$4,0,'Guten Tag.',0,10)`, owner.ID, runID, corpusID, unitID)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset)
-		VALUES($1,'de',$2,$3,0,0,'Tag','Tag','tag','NOUN','root',0,'{}',6,9)`, owner.ID, runID, corpusID)
-	require.NoError(t, err)
+	runID, corpusID := addCountableTagToken(t, ctx, pool, owner.ID, book.ID)
 	var eligibleTokens int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_tokens t JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.analysis_run_id=t.analysis_run_id AND s.corpus_id=t.corpus_id AND s.sentence_ordinal=t.sentence_ordinal
 		JOIN source_material_units u ON u.owner_id=$1 AND u.source_material_id=(SELECT source_material_id FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2) AND u.snapshot_id=(SELECT snapshot_id FROM analysis_runs WHERE owner_id=$1 AND id=$3) AND u.unit_id=s.unit_id

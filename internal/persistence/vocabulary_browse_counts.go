@@ -304,7 +304,7 @@ func browseCountValueForCandidate(candidate selection.Candidate, corrected map[s
 // completed analysis. Call it in the same transaction that publishes that
 // analysis so readers never observe a pointer without matching ready counts.
 func BuildVocabularyBrowseCountsTx(ctx context.Context, tx pgx.Tx, owner, book, source, run, corpus, language string) error {
-	decisionRevision, err := browseCountDecisionRevision(ctx, tx, owner, book, run)
+	decisionRevision, err := BrowseCountDecisionRevision(ctx, tx, owner, book, run)
 	if err != nil {
 		return fmt.Errorf("read occurrence-decision revision for Browse counts: %w", err)
 	}
@@ -343,7 +343,7 @@ FROM unnest($6::text[],$7::text[],$8::bigint[],$9::boolean[],$10::text[]) AS i(l
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
 		return fmt.Errorf("fence Browse count publication: %w", err)
 	}
-	currentDecisionRevision, err := browseCountDecisionRevision(ctx, tx, owner, book, run)
+	currentDecisionRevision, err := BrowseCountDecisionRevision(ctx, tx, owner, book, run)
 	if err != nil {
 		return fmt.Errorf("verify occurrence-decision revision for Browse counts: %w", err)
 	}
@@ -359,7 +359,10 @@ analysis_run_id=excluded.analysis_run_id,corpus_id=excluded.corpus_id,builder_ve
 	return nil
 }
 
-func browseCountDecisionRevision(ctx context.Context, tx pgx.Tx, owner, book, run string) (string, error) {
+// BrowseCountDecisionRevision fingerprints the occurrence decisions on one
+// Book's analysis run. A Browse-count build publishes only if the revision is
+// unchanged across its scan, and a queued rebuild is unique per revision.
+func BrowseCountDecisionRevision(ctx context.Context, tx pgx.Tx, owner, book, run string) (string, error) {
 	var revision string
 	err := tx.QueryRow(ctx, `SELECT md5(COALESCE(jsonb_agg(jsonb_build_array(source_document_id,start_offset,end_offset,canonical_lemma,excluded)
 		ORDER BY source_document_id,start_offset,end_offset)::text,'[]'))

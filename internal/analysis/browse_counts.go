@@ -16,9 +16,21 @@ type BrowseCountsRebuildArgs struct {
 	OwnerID string `json:"owner_id" river:"unique"`
 	BookID  string `json:"book_id" river:"unique"`
 	RunID   string `json:"run_id" river:"unique"`
+	// DecisionRevision is the occurrence-decision revision the rebuild was
+	// queued for. It only keys uniqueness: the worker always builds from the
+	// current decisions. A new decision is a new key, so it is never absorbed
+	// by a job that is still marked running but may already have published.
+	DecisionRevision string `json:"decision_revision" river:"unique"`
 }
 
 func (BrowseCountsRebuildArgs) Kind() string { return "rebuild_vocabulary_browse_counts" }
+
+// InsertOpts makes a queued rebuild unique per Book, run and decision revision
+// while it is waiting or running. Finished jobs are not part of the key, so a
+// retained completed or discarded job never blocks a later rebuild.
+func (BrowseCountsRebuildArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates}}
+}
 
 type BrowseCountsRebuildWorker struct {
 	river.WorkerDefaults[BrowseCountsRebuildArgs]
@@ -97,8 +109,8 @@ func (s *Service) EnqueueMissingBrowseCountRebuilds(ctx context.Context) (err er
 	}
 	rows.Close()
 	for _, a := range args {
-		if _, err = s.client.InsertTx(ctx, tx, a, &river.InsertOpts{Queue: Queue, MaxAttempts: 10}); err != nil {
-			return fmt.Errorf("enqueue Browse rebuild for Book %s: %w", a.BookID, err)
+		if err := s.insertBrowseCountRebuild(ctx, tx, a); err != nil {
+			return err
 		}
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -139,12 +151,25 @@ func (s *Service) EnqueueBrowseCountRebuild(ctx context.Context, ownerID, bookID
 	if ready {
 		return nil
 	}
-	args := BrowseCountsRebuildArgs{OwnerID: ownerID, BookID: bookID, RunID: runID}
-	if _, err = s.client.InsertTx(ctx, tx, args, &river.InsertOpts{Queue: Queue, MaxAttempts: 10}); err != nil {
-		return fmt.Errorf("enqueue Browse rebuild for Book %s: %w", bookID, err)
+	if err := s.insertBrowseCountRebuild(ctx, tx, BrowseCountsRebuildArgs{OwnerID: ownerID, BookID: bookID, RunID: runID}); err != nil {
+		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit Browse rebuild scheduling: %w", err)
+	}
+	return nil
+}
+
+// insertBrowseCountRebuild stamps the run's current decision revision on args
+// and queues it; an identical waiting or running rebuild absorbs the insert.
+func (s *Service) insertBrowseCountRebuild(ctx context.Context, tx pgx.Tx, a BrowseCountsRebuildArgs) error {
+	revision, err := persistence.BrowseCountDecisionRevision(ctx, tx, a.OwnerID, a.BookID, a.RunID)
+	if err != nil {
+		return fmt.Errorf("read decision revision for Browse rebuild of Book %s: %w", a.BookID, err)
+	}
+	a.DecisionRevision = revision
+	if _, err := s.client.InsertTx(ctx, tx, a, &river.InsertOpts{Queue: Queue, MaxAttempts: 10}); err != nil {
+		return fmt.Errorf("enqueue Browse rebuild for Book %s: %w", a.BookID, err)
 	}
 	return nil
 }
