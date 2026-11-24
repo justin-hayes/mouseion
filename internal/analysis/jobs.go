@@ -2162,46 +2162,59 @@ func validateUnprintedNodes(sentenceOrdinal, tokenTotal int, nodes []analyzer.Un
 }
 
 // insertCorpusUnprintedNodes writes every sentence's unprinted syntax nodes in
-// one batch per call. It writes nothing for a run without any.
+// batches. It writes nothing for a run without any.
 func insertCorpusUnprintedNodes(ctx context.Context, tx pgx.Tx, ownerID, runID, corpusID string, sentences []analyzer.Sentence) error {
-	var query strings.Builder
-	var args []any
+	var batch unprintedNodeBatch
 	for sentenceOrdinal, sentence := range sentences {
 		for _, node := range sentence.UnprintedNodes {
-			if len(args) > 0 {
-				query.WriteString(",")
-			}
-			arg := len(args) + 1
-			fmt.Fprintf(&query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7)
-			var headToken, headNode any
-			if node.HeadTokenOrdinal != nil {
-				headToken = int64(*node.HeadTokenOrdinal)
-			}
-			if node.HeadUnprintedNode != "" {
-				headNode = node.HeadUnprintedNode
-			}
-			args = append(args, ownerID, runID, corpusID, int64(sentenceOrdinal), node.SourceID, node.Dependency, headToken, headNode)
-			if len(args) >= unprintedNodeInsertBatchSize*8 {
-				if err := flushUnprintedNodes(ctx, tx, &query, &args); err != nil {
+			batch.add(ownerID, runID, corpusID, sentenceOrdinal, node)
+			if batch.rows == unprintedNodeInsertBatchSize {
+				if err := batch.flush(ctx, tx); err != nil {
 					return err
 				}
 			}
 		}
 	}
-	return flushUnprintedNodes(ctx, tx, &query, &args)
+	return batch.flush(ctx, tx)
 }
 
-// flushUnprintedNodes writes the accumulated node rows, if any, and clears them.
-func flushUnprintedNodes(ctx context.Context, tx pgx.Tx, query *strings.Builder, args *[]any) error {
-	if len(*args) == 0 {
+// unprintedNodeBatch accumulates one batched unprinted-node INSERT.
+type unprintedNodeBatch struct {
+	query strings.Builder
+	args  []any
+	rows  int
+}
+
+// add appends one node's row. A head the node does not have is a NULL.
+func (b *unprintedNodeBatch) add(ownerID, runID, corpusID string, sentenceOrdinal int, node analyzer.UnprintedSyntaxNode) {
+	if b.rows > 0 {
+		b.query.WriteString(",")
+	}
+	arg := len(b.args) + 1
+	fmt.Fprintf(&b.query, "($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)", arg, arg+1, arg+2, arg+3, arg+4, arg+5, arg+6, arg+7)
+	var headToken, headNode any
+	if node.HeadTokenOrdinal != nil {
+		headToken = int64(*node.HeadTokenOrdinal)
+	}
+	if node.HeadUnprintedNode != "" {
+		headNode = node.HeadUnprintedNode
+	}
+	b.args = append(b.args, ownerID, runID, corpusID, int64(sentenceOrdinal), node.SourceID, node.Dependency, headToken, headNode)
+	b.rows++
+}
+
+// flush writes the accumulated rows, if any, and clears the batch.
+func (b *unprintedNodeBatch) flush(ctx context.Context, tx pgx.Tx) error {
+	if b.rows == 0 {
 		return nil
 	}
-	statement := `INSERT INTO corpus_unprinted_syntax_nodes(owner_id,analysis_run_id,corpus_id,sentence_ordinal,source_id,dependency,head_token_ordinal,head_unprinted_node) VALUES ` + query.String()
-	if _, err := tx.Exec(ctx, statement, (*args)...); err != nil {
+	statement := `INSERT INTO corpus_unprinted_syntax_nodes(owner_id,analysis_run_id,corpus_id,sentence_ordinal,source_id,dependency,head_token_ordinal,head_unprinted_node) VALUES ` + b.query.String()
+	if _, err := tx.Exec(ctx, statement, b.args...); err != nil {
 		return err
 	}
-	query.Reset()
-	*args = (*args)[:0]
+	b.query.Reset()
+	b.args = b.args[:0]
+	b.rows = 0
 	return nil
 }
 

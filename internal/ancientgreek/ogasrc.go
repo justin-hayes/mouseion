@@ -348,7 +348,6 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 		if err != nil {
 			return err
 		}
-		//nolint:gosec // a sentence has far fewer than 2^32 printed tokens.
 		built.Head, built.HeadUnprintedNode, err = syntax.storedHead(token, uint32(index))
 		if err != nil {
 			return err

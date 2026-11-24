@@ -79,7 +79,6 @@ func TestCutUnitStoresNativeAGDTSyntax(t *testing.T) {
 		assert.Equal(t, uint32(0), sentence.Tokens[0].Head, "an AGDT root is self-headed")
 		assert.Equal(t, uint32(0), sentence.Tokens[3].Head)
 		assert.Equal(t, "AuxZ", sentence.Tokens[6].Dependency)
-		assert.Equal(t, "AuxZ", "AuxZ", "the repaired label is Latin script")
 		assert.Equal(t, []byte("AuxZ"), []byte(sentence.Tokens[6].Dependency))
 	})
 }

@@ -13,32 +13,34 @@ import (
 // spanBaselineToken is the part of a printed token the interpretation versions
 // must agree on: surface, lemma identity, UPOS and source offsets (A2).
 type spanBaselineToken struct {
-	Surface        string
-	RawLemma       string
-	CanonicalLemma string
-	Headword       string
-	Discriminator  string
-	SearchKey      string
-	UPOS           string
-	Start, End     uint64
+	Surface        string `json:"surface"`
+	RawLemma       string `json:"rawLemma"`
+	CanonicalLemma string `json:"canonicalLemma"`
+	Headword       string `json:"headword"`
+	Discriminator  string `json:"discriminator"`
+	SearchKey      string `json:"searchKey"`
+	UPOS           string `json:"upos"`
+	Start          uint64 `json:"start"`
+	End            uint64 `json:"end"`
 }
 
 type spanBaselineSentence struct {
-	Text       string
-	Start, End uint64
-	Citations  []string
-	Tokens     []spanBaselineToken
+	Text      string              `json:"text"`
+	Start     uint64              `json:"start"`
+	End       uint64              `json:"end"`
+	Citations []string            `json:"citations"`
+	Tokens    []spanBaselineToken `json:"tokens"`
 }
 
 type spanBaselineUnit struct {
-	FullText  string
-	Sentences []spanBaselineSentence
+	FullText  string                 `json:"fullText"`
+	Sentences []spanBaselineSentence `json:"sentences"`
 }
 
 // cutWholeFixture cuts every sentence of one testdata file as a single unit.
 func cutWholeFixture(t *testing.T, path string) spanBaselineUnit {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(filepath.Clean(path))
 	require.NoError(t, err)
 	definition := definitionForBytes(data)
 	definition.CitationStart = "0.0.0"
@@ -83,7 +85,7 @@ func TestInterpretationKeepsSpansAndLemmasOfEveryFixture(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.WriteFile(baselinePath, append(encoded, '\n'), 0o600))
 	}
-	raw, err := os.ReadFile(baselinePath)
+	raw, err := os.ReadFile(filepath.Clean(baselinePath))
 	require.NoError(t, err)
 	var baseline map[string]spanBaselineUnit
 	require.NoError(t, json.Unmarshal(raw, &baseline))
