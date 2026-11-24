@@ -645,7 +645,7 @@ func fixtureSyntaxLongStudy(book string, sentence, target int64, targetSurface s
 		SentenceOrdinal: sentence, TargetOrdinal: target, SyntaxState: "native_agdt", Tokens: tokens,
 		Constructions: []domain.SentenceStudyConstruction{
 			{ConstructionID: "purpose", Anchor: 5, Extent: every(5, 30, 1)},
-			{ConstructionID: "genitive_absolute", Anchor: 10, Extent: every(0, 40, 3)},
+			{ConstructionID: "genitive_absolute", Anchor: 9, Extent: every(0, 40, 3)},
 			{ConstructionID: "indirect_statement", SubtypeID: "infinitive", Anchor: 0, Extent: every(0, 40, 1)},
 		},
 	}
