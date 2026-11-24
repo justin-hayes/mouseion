@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -155,7 +153,6 @@ func (s *PostgresStore) ListMyBooksBrowse(ctx context.Context, owner, query, lan
 		history:           history,
 		window:            myBooksBrowsePageWindow(offset, limit),
 		dispositionCounts: make(map[domain.MyBookBucket]int),
-		ownedWorkCounts:   make(map[string]int),
 	}
 	if err := s.collectMyBooksBrowsePage(ctx, owner, language, accumulator); err != nil {
 		return MyBooksBrowseResult{}, err
@@ -211,9 +208,10 @@ func myBooksBrowsePageWindow(offset, limit int) myBooksBrowseWindow {
 	return myBooksBrowseWindow{offset: offset, pageEnd: pageEnd}
 }
 
-// myBooksBrowseAccumulator folds the ordered browse rows into Work groups, the
-// workflow-bucket counts, and the matching-scope size. Classification stays in
-// the domain; this only applies the search, filter, grouping and page steps.
+// myBooksBrowseAccumulator folds the ordered browse rows into the
+// workflow-bucket counts and the matching-scope size. Classification stays in
+// the domain; this only applies the search, filter and page steps. Every Book
+// is one row.
 type myBooksBrowseAccumulator struct {
 	query             string
 	disposition       domain.BookDisposition
@@ -222,13 +220,11 @@ type myBooksBrowseAccumulator struct {
 	dispositionCounts map[domain.MyBookBucket]int
 	result            MyBooksBrowseResult
 	books             []domain.MyBook
-	ownedWorkCounts   map[string]int
 }
 
 // visit applies every step to one row, in the same order the SQL projection and
-// the domain classifier expect: tally owned Work Books, then tally the
-// workflow buckets. Search, filter and paging happen after the whole projection
-// is known, because a grouped Work row must not split across pages.
+// the domain classifier expect: tally the workflow buckets, then keep the Book
+// for search, filter and paging once the whole projection is known.
 func (a *myBooksBrowseAccumulator) visit(row sqlcgen.BrowseMyBooksEvidenceRow) error {
 	book := myBookFromBrowseRow(row)
 	book.Disposition = domain.BookDisposition(row.Disposition)
@@ -238,9 +234,6 @@ func (a *myBooksBrowseAccumulator) visit(row sqlcgen.BrowseMyBooksEvidenceRow) e
 		// The backfill owns removing the retired Inbox members. Until it runs,
 		// they have no visible My Books role and are not listed.
 		return nil
-	}
-	if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
-		a.ownedWorkCounts[unit.WorkKey]++
 	}
 	a.dispositionCounts[bucket]++
 	if bucket == domain.MyBookBucketCurrentReading {
@@ -253,196 +246,32 @@ func (a *myBooksBrowseAccumulator) visit(row sqlcgen.BrowseMyBooksEvidenceRow) e
 	return nil
 }
 
-// finish groups the visible Books, applies search and the selected filter to
-// each group, and pages by rendered row. Ordinary Books remain one row each, so
-// non-classical paging is unchanged.
+// finish applies the search and the selected filter to every Book and pages the
+// matches.
 func (a *myBooksBrowseAccumulator) finish() {
-	groups := myBooksBrowseGroups(a.books)
-	rows := make([]domain.MyBooksBrowseRow, 0, len(groups))
-	totalBooks := 0
-	workBooks := 0
-	workTotal := 0
-	for _, group := range groups {
-		matching := group.matchingBooks(a.query, a.disposition, a.history)
-		if len(matching) == 0 {
-			continue
-		}
-		grouped := group.grouped(a.ownedWorkCounts)
-		row := group.row(matching, grouped, a.ownedWorkCounts)
-		rows = append(rows, row)
-		totalBooks += len(matching)
-		if row.WorkKey != "" {
-			workBooks += len(matching)
-			workTotal++
+	matching := make([]domain.MyBook, 0, len(a.books))
+	for _, book := range a.books {
+		if myBooksBrowseMatchesQuery(book, a.query) && book.WorkflowBucket().MatchesBrowseFilter(a.disposition, a.history) {
+			matching = append(matching, book)
 		}
 	}
-	a.result.Total = totalBooks
-	a.result.BookTotal = workBooks
-	a.result.WorkTotal = workTotal
-	a.result.RowCount = len(rows)
-	a.result.HasWorks = workTotal > 0
-	a.result.Rows = myBooksPageRows(rows, a.window)
+	a.result.Total = len(matching)
+	a.result.Items = myBooksPageItems(matching, a.window)
 }
 
-// myBooksBrowseGroup is one Work's visible Books, or one ordinary Book.
-type myBooksBrowseGroup struct {
-	key   string
-	unit  *domain.BookReadingUnit
-	books []domain.MyBook
-}
-
-// myBooksBrowseGroups groups visible Books by Work in first-seen order. A Book
-// with no reviewed Work stays its own group.
-func myBooksBrowseGroups(books []domain.MyBook) []myBooksBrowseGroup {
-	groups := make([]myBooksBrowseGroup, 0, len(books))
-	index := make(map[string]int, len(books))
-	for _, book := range books {
-		key := domain.MyBookWorkGroupKey(book)
-		if i, ok := index[key]; ok {
-			groups[i].books = append(groups[i].books, book)
-			continue
-		}
-		group := myBooksBrowseGroup{key: key, books: []domain.MyBook{book}}
-		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
-			copied := *unit
-			group.unit = &copied
-		}
-		index[key] = len(groups)
-		groups = append(groups, group)
-	}
-	return groups
-}
-
-// grouped reports whether this group renders as one Work row. A Work is grouped
-// when the learner owns more than one of its Books in the active language, even
-// if the visibility scope hides all but one cell.
-func (g myBooksBrowseGroup) grouped(ownedWorkCounts map[string]int) bool {
-	if g.unit == nil {
-		return false
-	}
-	return len(g.books) > 1 || ownedWorkCounts[g.unit.WorkKey] > 1
-}
-
-// row projects one group with only the Books that match the search and filter.
-func (g myBooksBrowseGroup) row(matching []domain.MyBook, grouped bool, ownedWorkCounts map[string]int) domain.MyBooksBrowseRow {
-	row := domain.MyBooksBrowseRow{Key: g.key, Grouped: grouped, Books: matching}
-	if g.unit == nil {
-		return row
-	}
-	row.WorkKey = g.unit.WorkKey
-	row.WorkTitle = g.unit.WorkTitle
-	row.WorkAuthor = g.unit.WorkAuthor
-	row.GreekTitle = g.unit.GreekTitle
-	row.ConstituentBooks = g.unit.ConstituentBooks
-	row.OwnedBooks = ownedWorkCounts[g.unit.WorkKey]
-	return row
-}
-
-// matchingBooks applies the search and the disposition/history filter. A
-// grouped Work keeps only its matching cells; a trailing number narrows the
-// Work to that constituent Book.
-func (g myBooksBrowseGroup) matchingBooks(query string, disposition domain.BookDisposition, history bool) []domain.MyBook {
-	matching := g.queryMatches(query)
-	if len(matching) == 0 {
-		return nil
-	}
-	filtered := make([]domain.MyBook, 0, len(matching))
-	for _, book := range matching {
-		if book.WorkflowBucket().MatchesBrowseFilter(disposition, history) {
-			filtered = append(filtered, book)
-		}
-	}
-	if g.unit != nil {
-		sort.SliceStable(filtered, func(i, j int) bool {
-			return domain.MyBookWorkOrderLess(filtered[i], filtered[j])
-		})
-	}
-	return filtered
-}
-
-// queryMatches applies the search to a group. A grouped Work may narrow to one
-// constituent Book; an ordinary Book uses its own title and author.
-func (g myBooksBrowseGroup) queryMatches(query string) []domain.MyBook {
-	if g.unit == nil {
-		return myBooksFilterByQuery(g.books, query)
-	}
-	ok, narrow := myBooksWorkMatchesQuery(g.unit, g.books, query)
-	if !ok {
-		return nil
-	}
-	if narrow > 0 {
-		return myBooksFilterByConstituent(g.books, narrow)
-	}
-	return g.books
-}
-
-func myBooksFilterByQuery(books []domain.MyBook, query string) []domain.MyBook {
-	matched := make([]domain.MyBook, 0, len(books))
-	for _, book := range books {
-		if myBooksBrowseMatchesQuery(book, query) {
-			matched = append(matched, book)
-		}
-	}
-	return matched
-}
-
-func myBooksFilterByConstituent(books []domain.MyBook, number int) []domain.MyBook {
-	matched := make([]domain.MyBook, 0, len(books))
-	for _, book := range books {
-		if book.ReadingUnit != nil && book.ReadingUnit.ConstituentBook == number {
-			matched = append(matched, book)
-		}
-	}
-	return matched
-}
-
-// myBooksBrowseMatchesQuery applies the trimmed, lowercased search to an
-// ordinary Book's title or author.
+// myBooksBrowseMatchesQuery applies the trimmed, lowercased search to a Book's
+// title or author. A Book from the classical Catalog also matches its Work's
+// author, English title or Greek title, ignoring accents; the Greek title uses
+// the Go search key, never SQL lower().
 func myBooksBrowseMatchesQuery(book domain.MyBook, query string) bool {
 	if query == "" {
 		return true
 	}
-	return strings.Contains(strings.ToLower(book.Book.Title), query) || strings.Contains(strings.ToLower(book.Book.Author), query)
-}
-
-// myBooksWorkMatchesQuery applies search to a reviewed Work's author, English
-// title or Greek title, ignoring accents. A trailing number narrows the match
-// to that constituent Book. The Greek title uses the Go search key, never SQL
-// lower().
-func myBooksWorkMatchesQuery(unit *domain.BookReadingUnit, books []domain.MyBook, query string) (matches bool, narrow int) {
-	if query == "" {
-		return true, 0
+	if strings.Contains(strings.ToLower(book.Book.Title), query) || strings.Contains(strings.ToLower(book.Book.Author), query) {
+		return true
 	}
-	text, number, hasNumber := splitTrailingBookNumber(query)
-	if hasNumber {
-		if !myBooksWorkTextMatches(unit, text) {
-			return false, 0
-		}
-		return true, number
-	}
-	if myBooksWorkTextMatches(unit, query) {
-		return true, 0
-	}
-	for _, book := range books {
-		if myBooksBrowseMatchesQuery(book, query) {
-			return true, 0
-		}
-	}
-	return false, 0
-}
-
-// splitTrailingBookNumber separates a search such as "iliad 6" into its text
-// and constituent Book number. A lone number is ordinary search text.
-func splitTrailingBookNumber(query string) (text string, number int, ok bool) {
-	fields := strings.Fields(query)
-	if len(fields) < 2 {
-		return query, 0, false
-	}
-	parsed, err := strconv.Atoi(fields[len(fields)-1])
-	if err != nil || parsed < 1 {
-		return query, 0, false
-	}
-	return strings.Join(fields[:len(fields)-1], " "), parsed, true
+	unit := book.ReadingUnit
+	return unit != nil && myBooksWorkTextMatches(unit, query)
 }
 
 // myBooksWorkTextMatches compares accent-insensitive search keys, so "ιλιασ"
@@ -461,13 +290,13 @@ func myBooksWorkTextMatches(unit *domain.BookReadingUnit, text string) bool {
 	return unit.GreekTitle != "" && strings.Contains(canonicalization.SearchKey(unit.GreekTitle), key)
 }
 
-// myBooksPageRows slices the rendered rows for the requested page.
-func myBooksPageRows(rows []domain.MyBooksBrowseRow, window myBooksBrowseWindow) []domain.MyBooksBrowseRow {
-	if window.offset >= len(rows) || window.pageEnd <= window.offset {
+// myBooksPageItems slices the matching Books for the requested page.
+func myBooksPageItems(books []domain.MyBook, window myBooksBrowseWindow) []domain.MyBook {
+	if window.offset >= len(books) || window.pageEnd <= window.offset {
 		return nil
 	}
-	end := min(window.pageEnd, len(rows))
-	return rows[window.offset:end]
+	end := min(window.pageEnd, len(books))
+	return books[window.offset:end]
 }
 
 // collectMyBooksBrowsePage walks the ordered browse projection and folds it
@@ -477,11 +306,9 @@ func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, lan
 		return err
 	}
 	accumulator.finish()
-	pointers := make([]*domain.MyBook, 0)
-	for i := range accumulator.result.Rows {
-		for j := range accumulator.result.Rows[i].Books {
-			pointers = append(pointers, &accumulator.result.Rows[i].Books[j])
-		}
+	pointers := make([]*domain.MyBook, 0, len(accumulator.result.Items))
+	for i := range accumulator.result.Items {
+		pointers = append(pointers, &accumulator.result.Items[i])
 	}
 	if err := s.populateMyBooksCoverage(ctx, owner, pointers); err != nil {
 		return err
@@ -491,10 +318,6 @@ func (s *PostgresStore) collectMyBooksBrowsePage(ctx context.Context, owner, lan
 	}
 	if err := s.populateEPUBAcquisitionStatuses(ctx, owner, pointers); err != nil {
 		return err
-	}
-	accumulator.result.Items = make([]domain.MyBook, 0, len(pointers))
-	for _, book := range pointers {
-		accumulator.result.Items = append(accumulator.result.Items, *book)
 	}
 	return nil
 }
@@ -811,46 +634,6 @@ func (s *PostgresStore) RemoveBookFromMyBooks(ctx context.Context, owner, bookID
 		return err
 	}
 	return tx.Commit(ctx)
-}
-
-// RemoveWorkFromMyBooks ends every active Book of one classical Work's
-// membership except the Book the learner is reading, and names that Book in the
-// result. Only membership changes; evidence, completions and Known vocabulary
-// stay so a later Add restores the same Books.
-func (s *PostgresStore) RemoveWorkFromMyBooks(ctx context.Context, owner, workKey string) (removal domain.MyBooksWorkRemoval, err error) {
-	workKey = strings.TrimSpace(workKey)
-	if workKey == "" {
-		return domain.MyBooksWorkRemoval{}, ErrNotFound
-	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return domain.MyBooksWorkRemoval{}, err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	q := sqlcgen.New(tx)
-	books, err := q.ListMyBooksWorkForRemoval(ctx, sqlcgen.ListMyBooksWorkForRemovalParams{Owner: owner, WorkKey: workKey})
-	if err != nil {
-		return domain.MyBooksWorkRemoval{}, err
-	}
-	if len(books) == 0 {
-		return domain.MyBooksWorkRemoval{}, ErrNotFound
-	}
-	for _, book := range books {
-		if book.IsCurrentReading {
-			if removal.CurrentReading == nil {
-				removal.CurrentReading = &domain.Book{ID: book.BookID, OwnerID: owner, Title: book.Title}
-			}
-			continue
-		}
-		if err := q.RemoveBookMembership(ctx, sqlcgen.RemoveBookMembershipParams{OwnerID: owner, BookID: book.BookID}); err != nil {
-			return domain.MyBooksWorkRemoval{}, err
-		}
-		removal.RemovedBooks++
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return domain.MyBooksWorkRemoval{}, err
-	}
-	return removal, nil
 }
 
 // ResolveBookID maps an owner-scoped Book or source-material identity to its

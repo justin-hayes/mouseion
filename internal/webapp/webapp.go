@@ -59,7 +59,6 @@ type MyBooksStore interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	RemoveBookFromMyBooks(context.Context, string, string) error
-	RemoveWorkFromMyBooks(context.Context, string, string) (domain.MyBooksWorkRemoval, error)
 }
 
 // ReadingStore provides the Reading (/reading/**) surface: the owner-scoped
@@ -315,9 +314,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
-	h.mux.Handle("POST /library/works/{workKey}/to-read", h.user(http.HandlerFunc(h.moveWorkToRead)))
 	h.mux.Handle("POST /library/works/{workKey}/analysis-update", h.user(http.HandlerFunc(h.updateWorkAnalysis)))
-	h.mux.Handle("POST /library/works/{workKey}/remove", h.user(http.HandlerFunc(h.removeWorkFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))

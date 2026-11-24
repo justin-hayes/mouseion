@@ -333,27 +333,14 @@ Use when peer content and actions no longer fit comfortably side by side.
 My Books uses one semantic unordered list at every width. Each Book follows the
 [`AnnotatedBookRow`](components.md#annotatedbookrow) pattern: a small reserved
 cover, full title and author in a text column, contextual actions beneath that
-identity, and canonical bucket status in a visibly edged right margin. A Work
-with more than one owned Book in the active language is one grouped row with
-Work identity, one leading bucket badge, counts, work-level bulk actions, and a
-wrapping strip of 44px Book cells whose three distinct shapes distinguish the
-buckets. The current Book's cell opens the current-reading card, and a To Read
-Book's cell opens that Book's inline chooser candidate on Reading or the Switch
-page; Read cells are status-only, because Reading has
-no entry to select, while keeping their 44px cell and accessible label but not
-a link target. A filtered row keeps only its matching cells.
-Bulk To Read skips the current Book and moves the work's remaining Books in book
-order. A grouped row carries one Analysis
-update notice and bulk action over the whole Work: the current Reading's Book is
-named and skipped, and one native disclosure confirmation states the Work's
-totals and only the per-Book losses that exist. Preparing Books collapse into
-one line while each problem Book keeps its own note and recovery. A single-Book
-Work stays an ordinary row with its reviewed position and the ordinary per-Book
-notice. Reading's
+identity, and canonical bucket status in a visibly edged right margin. A classical
+Book is an ordinary row with its Work title, Edition label and position, and two
+Editions of one Work are two rows. Each Book carries the ordinary per-Book
+Analysis update notice and its own preparation notes with recovery. Reading's
 between-Books candidate list reuses that cover/identity/margin composition while the section
 provides bucket context and the margin carries coverage or its recovery state.
-On compact screens the cover stays beside title and author, then the margin note,
-actions, and grouped Book strip follow below the text column. Rows separate
+On compact screens the cover stays beside title and author, then the margin note
+and actions follow below the text column. Rows separate
 through whitespace and the margin edge rather than boxes or heavy rules. Neither
 list introduces horizontal page scrolling or an ARIA-grid keyboard model.
 

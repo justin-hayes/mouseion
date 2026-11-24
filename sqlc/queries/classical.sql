@@ -58,26 +58,6 @@ JOIN book_membership m ON m.owner_id = bru.owner_id AND m.book_id = bru.book_id 
 WHERE bru.owner_id = $1
 ORDER BY ru.constituent_book NULLS FIRST, ru.definition_key;
 
--- name: ListMyBooksWorkForRemoval :many
--- The owner's Books of one reviewed Work, in constituent-book order, with the
--- current-Reading flag Remove the work must skip. Only active membership is a
--- candidate; a previously removed Book already stays out of My Books.
-SELECT b.id::text AS book_id,
-       b.title,
-       EXISTS (
-           SELECT 1 FROM primary_goals g
-           WHERE g.owner_id = b.owner_id AND g.book_id = b.id
-       ) AS is_current_reading
-FROM book_reading_units bru
-JOIN reading_units ru ON ru.id = bru.reading_unit_id
-JOIN editions e ON e.id = ru.edition_id
-JOIN works w ON w.id = e.work_id
-JOIN books b ON b.owner_id = bru.owner_id AND b.id = bru.book_id
-JOIN book_membership m ON m.owner_id = bru.owner_id AND m.book_id = bru.book_id AND m.state = 'active'
-WHERE bru.owner_id = sqlc.arg('owner') AND w.definition_key = sqlc.arg('work_key')
-ORDER BY ru.constituent_book NULLS FIRST, b.id
-FOR UPDATE OF b;
-
 -- name: InsertBookReadingUnit :exec
 INSERT INTO book_reading_units(owner_id, book_id, reading_unit_id)
 VALUES ($1, $2, $3);

@@ -1,7 +1,6 @@
 package webapp
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +11,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -240,73 +238,6 @@ func TestRedirectAnalysisUpdateNoticeRecoversFromAnUnparseableTarget(t *testing.
 	redirectAnalysisUpdateNotice(response, request, "://bad", "message", "queued")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Contains(t, response.Header().Get("Location"), "/library?message=queued")
-}
-
-// currentWorkBookStore overrides only the Book detail read the My Books current
-// Work offer needs.
-type currentWorkBookStore struct {
-	*fixtures.Store
-	detail domain.MyBook
-	err    error
-}
-
-func (s *currentWorkBookStore) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
-	return s.detail, s.err
-}
-
-func TestCurrentWorkBookForMyBooksAnnotatesTheCurrentBook(t *testing.T) {
-	book := workUpdateBook("book-2", 2, true, workUpdateCandidate(1, 0))
-	handler := &Handler{services: Services{
-		Store:           storeDependencies(&currentWorkBookStore{Store: fixtures.NewStore(), detail: book}),
-		AnalysisUpdates: &fakeAnalysisUpdates{offers: map[string]domain.AnalysisUpdateCandidate{book.Acquired.Source.ID: workUpdateCandidate(1, 0)}},
-	}}
-	rows := []domain.MyBooksBrowseRow{{Grouped: true, WorkKey: "synthetic-work"}}
-
-	current, ok, err := handler.currentWorkBookForMyBooks(t.Context(), fixtures.OwnerID, book.Book.ID, rows)
-	require.NoError(t, err)
-	require.True(t, ok)
-	assert.True(t, current.IsCurrentReading, "the loaded Book is marked as the current Reading")
-	require.NotNil(t, current.Acquired)
-	require.NotNil(t, current.Acquired.AnalysisUpdate, "the current Book carries its refreshed offer")
-	assert.Equal(t, 1, current.Acquired.AnalysisUpdate.LemmaCorrections)
-}
-
-func TestCurrentWorkBookForMyBooksReturnsNoBookWhenItCannotNameOne(t *testing.T) {
-	linked := workUpdateBook("book-2", 2, true, workUpdateCandidate(0, 0))
-	unlinked := workUpdateBook("book-2", 2, true, workUpdateCandidate(0, 0))
-	unlinked.ReadingUnit = nil
-	grouped := []domain.MyBooksBrowseRow{{Grouped: true, WorkKey: "synthetic-work"}}
-
-	for _, tt := range []struct {
-		name    string
-		rows    []domain.MyBooksBrowseRow
-		detail  domain.MyBook
-		readErr error
-		updates AnalysisUpdates
-		wantOK  bool
-		wantErr bool
-	}{
-		{name: "no grouped Work row", detail: linked, updates: &fakeAnalysisUpdates{}},
-		{name: "no update service", rows: grouped, detail: linked},
-		{name: "Book no longer owned", rows: grouped, readErr: persistence.ErrNotFound, updates: &fakeAnalysisUpdates{}},
-		{name: "Book read fails", rows: grouped, readErr: errors.New("database down"), updates: &fakeAnalysisUpdates{}, wantErr: true},
-		{name: "Book has no reviewed Work", rows: grouped, detail: unlinked, updates: &fakeAnalysisUpdates{}},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := &Handler{services: Services{
-				Store:           storeDependencies(&currentWorkBookStore{Store: fixtures.NewStore(), detail: tt.detail, err: tt.readErr}),
-				AnalysisUpdates: tt.updates,
-			}}
-			current, ok, err := handler.currentWorkBookForMyBooks(t.Context(), fixtures.OwnerID, "book-2", tt.rows)
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-			assert.Equal(t, tt.wantOK, ok)
-			assert.Empty(t, current.Book.ID)
-		})
-	}
 }
 
 func TestAnalysisUpdateReturnURLKeepsOnlyLearnerSurfaces(t *testing.T) {

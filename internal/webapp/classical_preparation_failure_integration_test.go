@@ -442,6 +442,16 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 		assert.Contains(t, page.Body.String(), classicalWithdrawnLabel)
 		assert.NotContains(t, page.Body.String(), `action="/reading/books/`+bookID+`/reanalyze"`)
 
+		// A Book on a withdrawn definition is an ordinary My Books row the
+		// learner can remove one by one.
+		assert.Contains(t, myBookRowHTML(t, page.Body.String(), bookID), `action="/library/books/`+bookID+`/remove"`)
+		removed := perform(t, h.h, http.MethodPost, "/library/books/"+bookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
+		require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
+		_, removedErr := h.store.GetBookDetail(h.ctx, learner.ID, bookID)
+		require.ErrorIs(t, removedErr, domain.ErrNotFound, "Remove ends the withdrawn Book's membership")
+		restored := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
+		assert.NotContains(t, restored.Body.String(), `id="book-row-`+bookID+`"`)
+
 		_, err := h.submit(learner.ID, bookID)
 		require.ErrorIs(t, err, analysis.ErrWithdrawnClassicalDefinition)
 		jobs := h.jobsPage(cookies).Body.String()

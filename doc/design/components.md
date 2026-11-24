@@ -98,7 +98,7 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; grouped Work row with one cell per owned Book and bulk Work actions; one grouped Work Analysis update notice and bulk action covering the eligible Books the row shows, with current-Book End wording and one confirmation, while a single-Book Work keeps the ordinary notice; preparing Books collapsed into one line with per-Book problem recovery; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; a classical Book as an ordinary row with its Work title, Edition label and position (none for a whole Work), two Editions of one Work as two rows; the ordinary per-Book Analysis update notice with current-Book End wording; per-Book preparation notes with their own recovery; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
 | `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation; a grouped Work Analysis update offer covers only its visible To Read candidates | Between-Books Reading chooser |
@@ -255,33 +255,13 @@ unavailable-content notes retain an adjacent, valid recovery action whenever
 recovery is available; do not show a dead route or offer refresh for the current
 Book.
 
-A Work with more than one owned Book in the active language uses the grouped
-form of the same row. The identity carries the Work title, author, Greek title,
-"all N books" or "M of N books", and Classical catalog provenance. The margin
-carries one `StatusBadge` for the leading bucket by the ordinary precedence —
-**Currently reading Book N**, **To Read**, **Read** — followed by
-counts such as "22 more To Read · 1 Read". Under the identity, a wrapping strip
-has one 44px cell per owned Book in book order; each cell states its bucket by a
-distinct shape — filled dot for **Currently reading**, ring for **To Read**, and
-bar for **Read**. A cell opens only the Reading entry
-its Book actually has: the current Book's cell opens the current-reading card,
-and a To Read Book's cell opens that Book's ordinary candidate entry
-inline in the chooser, on Reading when no Book is current or on the Switch page
-when one is. A Read cell is a status-only cell, not a link: Reading
-lists only the current Book and To Read candidates, so there is nothing to
-select, and the strip must not imply a next Book. It keeps the 44px cell and
-full accessible label but is not a link target; **Read again** and the
-Work-level **Move to To Read** remain the route back to a candidate. My Books
-shows two tabs, **To Read** and **Read**. Cells
-carry full accessible labels, the page has one shared legend,
-and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
-shape, such as "57 Books in 5 works". "M of N books" counts the owned Books in
-the active language; every owned Book contributes a cell. A
-single-Book Work stays an ordinary row
-with its position, such as "Histories, Book 1" and "Book 1 of 9"; a whole-work
-unit shows no position. On compact screens the cover stays beside title and
-author, while the margin and strip move below the text column; the strip wraps
-instead of scrolling sideways.
+A classical Book is an ordinary row. The identity carries the Work title, the
+Edition label that tells two Editions of one Work apart, the Work position such as
+"Histories, Book 1" and "Book 1 of 9" for a leftover per-book Book (a whole Work
+has none), the Greek title, and Classical catalog provenance. A leftover Book on a
+withdrawn definition stays an ordinary row with its own Remove. My Books shows two
+tabs, **To Read** and **Read**. On compact screens the cover stays beside title and
+author, while the margin moves below the text column.
 
 Reading's between-Books To Read candidate list reuses the same cover/identity/edged-margin
 composition, but not My Books' bucket note or action set. The section heading
@@ -291,15 +271,12 @@ analysis/content problem with its recovery action; it never ranks candidates or
 frames coverage as readiness. A quiet **Switch current reading** link remains
 under the identity when the Book is eligible. Keep the list unordered.
 
-A grouped Work's Analysis update offer covers exactly the eligible To Read Books
-shown on the issuing surface. On My Books that is the grouped row's visible
-cells: a search or disposition filter narrows the offer with the cells it keeps.
-In the chooser it
-is the grouped entry's visible To Read candidates; an otherwise
-excluded sibling never joins the offer. The notice and action name that count,
-the current Reading's Book is named and skipped rather than counted even when a
-filtered scope keeps its cell out of the row, and confirming queues
-exactly those Books in book order.
+A grouped chooser entry's Analysis update offer covers exactly the eligible To Read
+Books it shows: its visible To Read candidates, where an otherwise excluded
+sibling never joins the offer. The notice and action name that count, the current
+Reading's Book is named and skipped rather than counted, and confirming queues
+exactly those Books in book order. My Books has no Work-level offer: each Book
+carries the ordinary per-Book notice.
 
 Repeated items form one native unordered list at every width, not an ARIA grid.
 Keep cover, title, author, action, and note content in document and keyboard

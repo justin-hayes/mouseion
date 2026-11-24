@@ -328,27 +328,11 @@ sections on a generic learner-facing Book page. The grid remains moderately
 dense and does not establish a generic large-card pattern.
 
 The current My Books grid presents cover, title, author, disposition, and
-explicit actions. A classical Work with more than one owned Book in the active
-language is one grouped row: Work identity and provenance, one leading bucket
-badge and counts, work-level bulk actions, then a strip of one cell per owned
-Book in book order. Each cell shows the Book's bucket by shape; the current
-Book's cell opens the current-reading card and a To Read Book's cell
-opens that Book's inline chooser candidate on Reading or the Switch page. Read
-cells are status-only, because Reading has no entry to select, and are not link
-targets, though they keep the 44px cell and accessible label. The strip has no
-per-Book actions. Bulk To Read moves every Read Book, leaves the current Book
-alone, prepares Books in book order, and
-Remove the work ends the other Books' membership while naming the current
-Book it skips. Preparing
-Books collapse into one line and each problem Book keeps its own recovery. A
-grouped Work row also carries one Analysis update notice and one bulk action when
-its definitions changed; the offer covers the eligible To Read Books in the
-row's visible cells, so a search or filter narrows it with the cells it keeps. The
-current Reading's Book is named and skipped, and one confirmation discloses the
-Work's Lemma corrections and Occurrence exclusions. A single-Book Work stays an
-ordinary row with its reviewed position and the ordinary per-Book notice; a
-whole-work unit shows no position. Filters count Books and a filtered Work row
-keeps only its matching cells, with a shape line such as "57 Books in 5 works".
+explicit actions. Every Book is one ordinary row, classical or not: a classical
+Book adds its Work title, Edition label, position and Classical catalog
+provenance, and two Editions of one Work are two rows told apart by their
+Edition labels. Each row carries the ordinary per-Book Analysis update notice;
+there is no Work-level move, removal or update. Filters count Books.
 My Books does not present analysis evidence or current-reading state; those
 remain on the Reading anchor.
 

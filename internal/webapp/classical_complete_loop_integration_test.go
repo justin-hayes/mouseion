@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"html"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -51,10 +52,7 @@ import (
 // this loop references rather than duplicates:
 //
 //   - scenario 3 search and compact markup:
-//     TestMyBooksWorkSearchMatchesAuthorEnglishAndGreekTitlesAndNarrowsByBook
-//   - scenario 4 history and mixed-state bulk moves:
-//     TestMyBooksWorkToReadSkipsReadingHistoryAndTheCurrentBook,
-//     TestMyBooksWorkToReadMovesTheRestAroundTheCurrentBook
+//     TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumber
 //   - scenario 5 terminal failures and newer-revision retry:
 //     classical_preparation_failure_integration_test.go
 //   - scenario 7 failed translation import: TestClassicalTranslationFailureLeavesBookAnalyzed
@@ -153,31 +151,31 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Equal(t, wholeBook, afterReAdd[h.wholeUnitKey])
 	assert.Equal(t, 3, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "ensure-once keeps one live job per Book")
 
-	// 3. My Books groups the reviewed work: identity, one badge, counts, strip,
-	// one legend, Book-counting filters.
+	// 3. My Books lists every Book as an ordinary row with its own identity,
+	// badge and Book-counting filters.
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
-	grouped := library.Body.String()
+	ordinary := library.Body.String()
 	for _, want := range []string{
-		"Synthetic Work", "By Synthetic Author", "Συνθετικὸν ἔργον", "all 2 books", "Classical catalog",
-		"To Read", `aria-label="Synthetic Work, Book 1 of 2, To Read"`,
-		`aria-label="Synthetic Work, Book 2 of 2, To Read"`,
-		"To Read (3)",
+		"Synthetic Work, Book 1", "Synthetic Work, Book 2", "Book 1 of 2", "Book 2 of 2",
+		"By Synthetic Author", "Συνθετικὸν ἔργον", "Classical catalog", "To Read", "To Read (3)",
 	} {
-		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
+		assert.Contains(t, ordinary, want, "ordinary row missing %q", want)
 	}
 	for _, id := range []string{bookOne, bookTwo} {
-		assert.Contains(t, grouped, `href="/reading#reading-chooser-book-`+id+`"`, "a To Read cell opens the chooser")
+		assert.Contains(t, ordinary, `id="book-row-`+id+`"`, "each Book is its own row")
+		assert.Contains(t, ordinary, "/library/books/"+id+"/remove")
 	}
-	assert.Equal(t, 1, strings.Count(grouped, `class="library-work-legend"`), "one legend per page")
-	assert.Contains(t, grouped, "3 Books in 2 works")
+	for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work"} {
+		assert.NotContains(t, ordinary, retired)
+	}
 
 	// 4. The Add's queued preparation first meets a fetch failure, then
 	// recovers through the Reading retry route.
 	h.layer.failSource.Store(true)
 	queuedPage := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code, queuedPage.Body.String())
-	assert.Contains(t, queuedPage.Body.String(), "Preparing Books 1–2…", "a grouped Work collapses queued Books into one line")
+	assert.Equal(t, 3, strings.Count(queuedPage.Body.String(), classicalAnalysisIncompleteLabel), "each queued Book states its own preparation")
 	assert.NotContains(t, queuedPage.Body.String(), classicalRetryAcquisitionLabel)
 
 	h.startWorkers(t)
@@ -283,27 +281,27 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, switchedBack.Code, switchedBack.Body.String())
 
-	// 8. An Analysis update is offered once per work. The current Book is named
-	// and skipped; the other Book updates and keeps the published evidence
-	// until its own update publishes.
+	// 8. My Books offers each Book its own Analysis update. The current Book is
+	// asked to end the Reading first; the other Book updates and keeps the
+	// published evidence until its own update publishes.
 	// A translation-pin revision is content-bearing for the definition but not
 	// for the Analysis update, so it offers nothing.
 	_, err = h.pool.Exec(h.ctx, `UPDATE reading_units
 		SET translation_citation_end='1.2.18', revision=revision+1 WHERE definition_key=$1`, h.unitOneKey)
 	require.NoError(t, err)
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
-	assert.NotContains(t, library.Body.String(), "A newer analysis is available for")
+	assert.NotContains(t, library.Body.String(), analysisUpdateNotice)
 
 	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.unitOneKey, h.unitTwoKey)
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	updateBody := library.Body.String()
 	for _, want := range []string{
-		"A newer analysis is available for 1 book shown here.", "Book 1: End the Reading first",
-		"Update 1 book of Synthetic Work", `action="/library/works/synthetic-work/analysis-update"`,
+		analysisUpdateNotice, html.EscapeString(analysisUpdateEndReadingFirst), `action="` + readingAnalysisUpdateURL(bookTwo) + `"`,
 	} {
 		assert.Contains(t, updateBody, want, "update offer missing %q", want)
 	}
+	assert.NotContains(t, updateBody, `action="`+readingAnalysisUpdateURL(bookOne)+`"`, "the current Book is never queued")
 	oneRun := preparedRunID(t, h.pool, learner.ID, bookOne)
 	twoRun := preparedRunID(t, h.pool, learner.ID, bookTwo)
 
@@ -323,7 +321,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Equal(t, oneRun, preparedRunID(t, h.pool, learner.ID, bookOne), "the current Book keeps its published analysis")
 	assert.NotEqual(t, twoRun, preparedRunID(t, h.pool, learner.ID, bookTwo), "the eligible Book publishes its update")
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
-	assert.Contains(t, library.Body.String(), "Book 1: End the Reading first")
+	assert.Contains(t, library.Body.String(), html.EscapeString(analysisUpdateEndReadingFirst))
 	assert.Equal(t, deckEvidence, h.deckEvidence(t, learner.ID, deck.ID), "a skipped current Book's deck is untouched")
 	assert.Equal(t, secondDeckEvidence, h.deckEvidence(t, learner.ID, deckTwo.ID), "an Analysis update never rewrites the updated Book's frozen deck")
 

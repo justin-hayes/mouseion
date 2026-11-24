@@ -204,8 +204,6 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 	learner := createAccount(t, ctx, store, "native-syntax-update", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	addClassicalWork(t, h, cookies, csrf, "synthetic-work")
-	moved := perform(t, h, http.MethodPost, "/library/works/synthetic-work/to-read", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, moved.Code, moved.Body.String())
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "native syntax update client", client.Stop)
 	waitForPreparedBooks(t, pool, learner.ID, 2)

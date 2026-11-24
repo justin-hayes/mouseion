@@ -57,14 +57,14 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 	library := catalogPage(t, h, cookies, libraryURL)
 	require.Equal(t, http.StatusOK, library.Code)
 	for _, want := range []string{
-		`id="work-row-fixture-iliad"`,
-		`aria-label="Books of Iliad"`,
-		"all 3 books",
-		"library-work__cell-number",
+		"Iliad, Book 1",
+		"Iliad, Book 2",
+		"Iliad, Book 3",
 		"By Homer",
 	} {
 		assert.Contains(t, library.Body.String(), want)
 	}
+	assert.NotContains(t, library.Body.String(), "library-work", "My Books lists each Book as an ordinary row")
 
 	// Add already put the Books in To Read, so the chooser lists them without
 	// another move.
