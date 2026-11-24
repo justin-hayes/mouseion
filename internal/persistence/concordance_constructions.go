@@ -103,9 +103,9 @@ type constructionOrigin struct {
 }
 
 // loadConstructionOrigin validates the origin occurrence: the lookup's priority
-// must be the Book of the origin run, the run must be the learner's current
-// analysis of a chosen-language Book with a Reading unit, and the sentence and
-// anchor word must exist. Anything else is not found, never an error.
+// must be the Book of the origin run. The run must be the learner's analysis
+// (current or historical) of a chosen-language Book with a Reading unit, and
+// the sentence and anchor word must exist. Anything else is not found, never an error.
 func loadConstructionOrigin(ctx context.Context, queries *sqlcgen.Queries, owner, language string, lookup domain.ConcordanceLookup) (constructionOrigin, bool, error) {
 	if language != domain.ConcordanceConstructionLanguage || lookup.Origin == nil ||
 		!concordanceBookIDPattern.MatchString(lookup.Origin.RunID) || !concordanceBookIDPattern.MatchString(lookup.Priority) {
