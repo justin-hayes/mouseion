@@ -7,8 +7,8 @@ This spec records the route charted by
 [Wayfinder: Ancient Greek syntax and construction identification](https://github.com/justin-hayes/mouseion/issues/2597)
 and written up in
 [Task: write the spec, ADRs and CONTEXT.md docs PR](https://github.com/justin-hayes/mouseion/issues/2611).
-It owns learner behavior, the construction inventory and the test plan. The
-decisions sit in five ADRs:
+It owns learner behavior, the construction inventory and the acceptance matrix.
+The decisions sit in five ADRs:
 
 - [ADR 0122: Ancient Greek syntax is stored as native AGDT behind a construction interface](../adr/0122-ancient-greek-native-agdt-syntax.md)
 - [ADR 0123: Constructions are a derived, versioned reading of a frozen parse](../adr/0123-constructions-are-a-derived-reading.md)
@@ -16,556 +16,215 @@ decisions sit in five ADRs:
 - [ADR 0125: Construction parallels in Concordance](../adr/0125-construction-parallels-in-concordance.md)
 - [ADR 0126: Analysis updates carry decisions onto identical tokens](../adr/0126-analysis-updates-carry-decisions-onto-identical-tokens.md)
 
-It implements the direction of
-[ADR 0110](../adr/0110-philological-reading-competence-boundary.md): classical
-syntax in Sentence study, with parallels in Concordance, first within the
-author's works and then across the study language. Terms follow
-[`CONTEXT.md`](../../CONTEXT.md). The implementation parent issue and its
-children are created from this spec by
-[Task: create implementation issues and run the cold-read test](https://github.com/justin-hayes/mouseion/issues/2612).
+[ADR 0110](../adr/0110-philological-reading-competence-boundary.md) is the
+direction this implements: classical syntax in Sentence study, with parallels in
+Concordance, first within the author's works and then across the study
+language.
 
-## Problem Statement
+## Problem
 
 A learner reading Plato or Xenophon in Mouseion sees each word's lemma and
-morphology, but not the syntax that makes a Greek sentence hard. Reading breaks
-down at a genitive absolute, an articular infinitive or an infinitive of
-indirect statement, and Mouseion says nothing about any of them. Sentence study
-shows "Syntax unavailable" for every Greek sentence, so the learner cannot see
-which words belong together, which word signals the pattern, or what the
-pattern is called. Nor can they find other examples of a pattern they have just
-met, in the same Book, the same author or other authors.
-
-The source files Mouseion already imports carry this syntax, but Mouseion
-discards it.
-
-## Solution
-
-When a learner studies a sentence from a Classical Greek Book, Sentence study
-names the constructions the sentence contains, drawn from six well-defined
-ones. For each construction it shows:
-
-- which words belong to it and which word signals it;
-- whether it contains or is signalled by the word being studied;
-- a short definition in Mouseion's own words, with a "Smyth 1920 §N" citation
-  linked to the grammar;
-- a **Parallels** link.
-
-Where Mouseion is not confident, it says nothing at all. A closed **Word
-relations** disclosure gives every word's relation and the word it depends on,
-in plain English, including when that word is unprinted.
-
-**Parallels** opens Concordance with other occurrences of the same construction.
-They come in three labelled tiers: this Book, then the author's other Books,
-then other authors. The learner can narrow them to the signalling word's lemma
-or to a labelled subtype, and go back to Sentence study with the construction
-focused.
-
-Existing Greek Books gain all this through the learner-confirmed Analysis
-update they already know. The confirmation says what the update adds, and the
-learner's lemma corrections and occurrence exclusions carry over wherever the
-word is unchanged. Later improvements to construction detection reach every
-Book without another confirmation, while each Reading's frozen evidence stays
-untouched.
-
-## User Stories
-
-**Seeing constructions in Sentence study**
-
-1. As a Greek learner, I want Sentence study to name the constructions in the sentence I am studying, so that I can recognise the syntax that makes it hard.
-2. As a Greek learner, I want each construction shown as the whole sentence with its words at full weight and the rest muted, so that I can see exactly which words belong to it.
-3. As a Greek learner, I want the word that signals a construction underlined and named ("Signalled by ὥστε"), so that I learn which word to look for next time.
-4. As a Greek learner, I want to be told when the word I came to study signals a construction or sits inside one, so that I connect the vocabulary item to its syntax.
-5. As a Greek learner, I want a construction whose words are not next to each other shown without extra notation, so that a discontinuous Greek clause still reads naturally.
-6. As a Greek learner, I want a construction inside another to say "Inside construction N", so that I understand nesting without brackets cluttering the text.
-7. As a Greek learner, I want constructions listed in the order they start in the sentence, with an outer one before an inner one that starts at the same word, so that the list follows my reading.
-8. As a Greek learner, I want a subtype such as "natural result" shown only when Mouseion is reliable about it, so that I am never taught a wrong label.
-9. As a Greek learner, I want a construction whose subtype is unreliable still shown, without the subtype, so that I don't lose a correct construction because a detail is uncertain.
-10. As a Greek learner, I want each construction to carry a one- or two-sentence definition in plain English, so that I can understand it without leaving the page.
-11. As a Greek learner, I want each definition to cite "Smyth 1920 §N" as text, so that I can find the section in any copy of Smyth even if a link breaks.
-12. As a Greek learner, I want the citation to link to the 1920 Smyth on Perseus, so that I can read the full treatment in one click.
-13. As a Greek learner, I want the grammar link to open externally without passing my private address, so that my tailnet URLs never leave my network.
-14. As a Greek learner, I want no Constructions region at all when Mouseion has nothing confident to say, so that silence never pretends to be an answer.
-15. As a Greek learner, I want a construction that depends on an unprinted word to be left out rather than guessed, so that what I see is reliable.
-
-**Word relations**
-
-16. As a Greek learner, I want a closed "Word relations" disclosure listing each word, its relation in plain English and the word it depends on, so that I can check how the sentence hangs together when I want to.
-17. As a Greek learner, I want relation names such as "subject", "object" and "adverbial (how, when, why…)" instead of AGDT codes, so that I don't need to learn a treebank scheme.
-18. As a Greek learner, I want the top of the sentence marked "— (top of the sentence)", so that I can see where the structure starts.
-19. As a Greek learner, I want a word that depends on an unprinted word to say "‹an unprinted word›, which is the object of ὅτι (word 6)", so that I understand the ellipsis without Mouseion inventing a word.
-20. As a Greek learner, I want a single note explaining unprinted words, shown only when one occurs, so that the table stays uncluttered.
-21. As a Greek learner, I want punctuation left out of the relations table, so that it lists only words.
-22. As a Greek learner studying a Book still on the old analysis, I want "Syntax unavailable" as before and no constructions, so that the page never mixes analyses.
-
-**Accessibility**
-
-23. As a screen-reader user, I want each construction to list its words in order, with "…" between separated parts, so that I get the same information as the visual extract.
-24. As a screen-reader user, I want the complete text alternative to say which constructions contain each word and which one it signals, so that I can study word by word.
-25. As a learner with low colour perception, I want constructions marked by weight, muting and underline, so that colour is never the only cue.
-26. As a learner on a phone, I want long Greek sentences and extracts to fit without horizontal page scrolling, so that I can study on any screen.
-27. As a learner without JavaScript, I want every construction, link and disclosure to work, so that the page stays server-rendered.
-
-**Concordance parallels**
-
-28. As a Greek learner, I want a **Parallels** link on each construction, so that I can see more examples of the pattern I just met.
-29. As a Greek learner, I want parallels in this Book first, so that I see the pattern in the text I am reading.
-30. As a Greek learner, I want the author's other Books next, with the same Work's other parts first, so that I see the author's own habits.
-31. As a Greek learner, I want other authors' examples last, labelled as such, so that I can compare styles.
-32. As a Greek learner, I want examples inside each tier in textual order, so that the list is predictable and not a ranking I can't judge.
-33. As a Greek learner, I want the example I came from left out of the list, with a link back to it, so that I don't see it twice.
-34. As a Greek learner, I want to narrow parallels to those signalled by the same lemma ("only with λέγω"), so that I can study one word's habits.
-35. As a Greek learner, I want parallels for a labelled subtype to open filtered to that subtype, with a way to widen to the whole construction, so that I can choose how broad to look.
-36. As a Greek learner, I want each parallel centred on its signalling word, with the expanded row showing the same extract as Sentence study, so that the marking means the same everywhere.
-37. As a Greek learner, I want **Study** on a parallel to open Sentence study with that construction focused and marked "· from Concordance", so that I can study it in full.
-38. As a Greek learner, I want Books that can't be searched for constructions named in one quiet line ("Not searched for constructions: *Apology* — Analysis update available"), so that I know an absence is not zero.
-39. As a Greek learner, I want "Current evidence changed" with Refresh if the results change while I page, so that I never get a page that mixes old and new results.
-40. As a learner of another language, I want construction URLs to give the usual safe restart, so that nothing breaks outside Greek.
-41. As a Greek learner, I want my occurrence exclusions to hide a parallel only when I narrow by lemma, so that a vocabulary decision about one word doesn't remove a syntactic example.
-
-**Analysis update and carry-over**
-
-42. As a Greek learner with existing Books, I want the familiar "A newer analysis is available" notice, so that I adopt syntax the same way I adopt other updates.
-43. As a Greek learner, I want the confirmation to say what the update adds ("Adds sentence constructions in Sentence study"), so that I know why to accept it.
-44. As a Greek learner who has corrected lemmas, I want my corrections and exclusions to carry over wherever the word is unchanged, so that I don't pay for constructions with my own work.
-45. As a Greek learner, I want the confirmation to state how many corrections and exclusions I have and that they carry over where the word is unchanged, so that I know what will happen.
-46. As a Greek learner updating a whole Work, I want one Work-level statement of the totals, so that I can confirm once.
-47. As a Greek learner, I want `/jobs` to report "N of M decisions carried over" after the update, so that I can see the outcome.
-48. As a Greek learner, I want prepared decks and earlier Readings to keep the evidence they froze, so that my study history never shifts under me.
-49. As a learner of a modern language, I want my corrections to carry over in an ordinary Analysis update too, so that NLP improvements don't cost me my review work.
-50. As a learner, I want a Source structure update to keep its current rules, so that a re-extraction that may move words never misapplies my decisions.
-
-**Improving over time**
-
-51. As a Greek learner, I want detection improvements to reach all my Books without another confirmation, so that I benefit from fixes automatically.
-52. As a Greek learner, I want a Book that is being re-read for constructions to show none rather than a mixture, so that I never see two versions at once.
-53. As a Greek learner, I want my lemma corrections to have no effect on which constructions are found, so that a vocabulary decision never changes the syntax shown.
-54. As a Greek learner, I want definitions and relation names improved without any update, so that wording fixes are free.
-
-**Maintainer and operator**
-
-55. As the maintainer, I want every construction shipped only when its measured precision clears the bar, so that the learner-facing promise of precision is kept.
-56. As the maintainer, I want a detector change that changes output without a version bump to fail CI, so that rebuilds are never skipped.
-57. As the maintainer, I want a release check that recomputes precision against a committed, ID-only judgment file, so that regressions are caught before release without committing source annotations.
-58. As the maintainer, I want to review every concept note, verb list and relation name before it ships, so that Mouseion's wording is accurate and its own.
-59. As the maintainer, I want a test that fails when a construction can be emitted without a reviewed note and citation, so that no unexplained label reaches a learner.
-60. As the deployer, I want the new interpretation version to need no new licence row or download, so that upgrading is routine.
-61. As the deployer, I want the change to leave modern-language analyses, prepared decks and deck notices unchanged, so that the upgrade is low-risk.
-62. As a future Latin implementer, I want detectors written against a source-neutral interface with one adapter per scheme, so that Latin's UD syntax can be added without a redesign.
-
-## Implementation Decisions
-
-### Syntax source and storage ([ADR 0122](../adr/0122-ancient-greek-native-agdt-syntax.md))
-
-- **Native AGDT, not UD.** No public converter fits OGA, conversion merges five
-  distinctions the detectors need, and Stanza `grc` is non-commercial and would
-  discard the gold-trained trees.
-- **A new OGA interpretation version** for all 22 Classical Reading-unit
-  definitions. It bumps `interpretationVersion` and `revision` and is adopted
-  through the existing Classical Analysis update. Its runs record
-  `syntax_state = 'native_agdt'`, and the interpretation version stays the run's
-  analyzer version.
-- **The run's syntax state is the scheme marker** for every stored relation and
-  head. There is no per-token scheme. The proto and domain comments that call
-  the token relation UD are corrected to say it is read according to the run's
-  syntax state.
-- **Stored verbatim.** Relations and heads are stored as the source has them,
-  with plain encoding defects corrected at import (a Greek-capital-Zeta `AuxZ`
-  becomes Latin `AuxZ`). Comma roots, ambiguous COORDs and stray labels (`AuxV`,
-  `_`) are normalised at read time by the AGDT adapter.
-- **Unprinted syntax nodes.** Ellipsis nodes are stored with their relation,
-  head and stable source id within the sentence, and with no form, lemma,
-  morphology, vocabulary identity or Annotation occurrence. A printed token's
-  head may be an unprinted node.
-- **Printed spans are unchanged.** Ordinals and offsets come from the existing
-  sentence reconstruction, which skips unprinted nodes. The new version must not
-  change that reconstruction or the sentence-inclusion rules. The carry-over
-  depends on it.
-- **Morphology remap.** The version also maps VerbForm (Fin/Part/Inf), Aspect
-  (Perf for perfect and future perfect, Imp for imperfect), the perfect tense
-  and common gender, following UD Perseus r2.19. Whether non-finite forms carry
-  Mood is settled on the implementation issue.
-- **UD consumers stay off for Greek.** Sentence study's relation display and
-  Concordance's syntax reads keep treating `native_agdt` as no UD syntax. Every
-  other reader of the token relation must produce the same Greek output as
-  before. Today every Greek token carries `dep`. Selection eligibility and card
-  bolding key on `compound:prt`, and GDEX is German-only. The lexical
-  sense-ordering context adds the raw relation as a context word, so it must be
-  gated or shown unused for Greek.
-
-### Construction layer ([ADR 0123](../adr/0123-constructions-are-a-derived-reading.md))
-
-- **Modules:**
-  - an **AGDT adapter** that presents the stored parse through a small
-    source-neutral construction interface (nodes, heads, normalised relation
-    categories, morphology, source lemma);
-  - a **detector module** with one detector per construction, a pure function
-    over that interface;
-  - a **shipping gate** and **authored data** (verb lists, concept notes,
-    relation names), all compiled data keyed by stable ids;
-  - a **builder** that writes occurrences for a run;
-  - a **rebuild worker** on `classical_preparation`.
-- **Deep-module boundary.** The detector module's interface is one call: given
-  a sentence read through an adapter, return its construction occurrences
-  (construction id, optional subtype id, anchor, extent). Normalisation, the
-  gate and the verb lists sit behind it.
-- **The parse is evidence; constructions are a derived reading.** Occurrences
-  are stored per run in a derived table, with a per-run marker holding the
-  **construction detector version** and readiness. This follows the Browse-count
-  readiness and builder-version pattern.
-- **One AGDT construction detector version** covers normalisation, the six
-  detectors, the verb lists and the shipping gate. It is bumped by hand.
-- **Built at publish.** A new `native_agdt` run's occurrences are built inside
-  the preparation transaction, before it publishes. Runs in any other syntax
-  state get none.
-- **Rebuild without confirmation.** A version bump rebuilds every `native_agdt`
-  run, including pinned ones. Each run is swapped in one transaction (delete and
-  insert under the marker). Only the current version's rows are kept, and a run
-  whose marker is behind shows no constructions.
-- **Source inputs only.** Detectors read source lemmas and morphology. Lemma
-  corrections and Occurrence exclusions never affect occurrences.
-- **Rows hold ids only.** Names, definitions and citations are looked up at
-  render. A subtype is stored only when the shipping gate labels it. Word
-  relations are read through the adapter at render, and are neither stored nor
-  versioned.
-
-### Schema (ADR 0038 brief; exact DDL in the migration review)
-
-- **Printed tokens (existing):** the relation column holds the AGDT relation. A
-  token headed by an unprinted node references that node, for example through a
-  nullable reference beside the head ordinal. Its head ordinal is never read as
-  UD.
-- **Unprinted syntax nodes (new):** owner, run, sentence, stable source id,
-  relation, and a head that is a printed token, another unprinted node or the
-  root.
-- **Construction occurrences (new, derived):** owner, run, sentence, language
-  (denormalised for Concordance), construction id, optional subtype id, anchor
-  token ordinal and extent token-ordinal set. Indexed on (owner, language,
-  construction id, subtype).
-- **Per-run construction marker (new):** owner, run, detector version and
-  readiness.
-- All additive, with no backfill. Existing `absent` runs have no rows.
-
-### Occurrence model
-
-- An occurrence is one construction in one exact analysis.
-- Its **anchor** is exactly one printed token.
-- Its **extent** is the set of printed tokens in the anchor's subtree, read
-  through the adapter. It may be discontinuous, and unprinted nodes are not
-  members.
-- Occurrences may nest and overlap. One anchor may carry several different
-  constructions, never the same one twice.
-- A subtype is an attribute, not a separate construction. An undeterminable
-  subtype is omitted.
-
-### First-slice inventory (Greek-specific)
-
-"Through COORD" means looking up or down through coordination groups. Lemmas
-are the run's source lemmas.
-
-| Id | Construction | Smyth 1920 | Anchor | Definition | Exclusions and accepted limits |
-|---|---|---|---|---|---|
-| `conditional` | Conditional clause (protasis) | §§2280–2368 | the conjunction | AuxC εἰ, ἐάν, εἴπερ or ἄν (OGA's lemma for contracted ἐάν), heading through COORD an ADV verb or ADV unprinted node | Not after, or headed by, ὡς / ὥσπερ. Concessive εἰ καί / καὶ εἰ (§§2369–2382) counts. The apodosis is outside the extent. No "whether" exclusion. |
-| `articular_infinitive` | Articular infinitive | §§2025–2038 | the infinitive | a printed infinitive with a neuter singular article as a direct dependent, including under a preposition | The article may be misattached across a long subject. |
-| `result` | Result clause | §§2249–2278 | ὥστε | AuxC ὥστε heading through COORD an ADV verb or ADV unprinted node | With a participle: no hit. Independent "and so" ὥστε (§2275) is not yet separated. |
-| `purpose` | Purpose clause | §§2193–2206 | ἵνα | AuxC ἵνα (incl. ἵνα μή) heading through COORD a printed ADV subjunctive or optative | ὅπως / ὡς final clauses deferred. Effort and fearing clauses are not purpose. |
-| `genitive_absolute` | Genitive absolute | §§2070–2075 | the participle | a printed genitive ADV participle with a printed genitive SBJ, directly or through COORD | Not when its head (through COORD) is a verb of perceiving (§§2110–2112). Subjectless (§2072) not detected. Unprinted participle: no hit. |
-| `indirect_statement` | Indirect statement | §§2016–2024; §§2577–2588 | the infinitive, or the conjunction | **infinitive:** a printed OBJ/SBJ infinitive whose head (through COORD) is in the infinitive list, with every SBJ accusative or none (§1973); ὑπισχνέομαι and ὄμνυμι only with a future infinitive. **ὅτι/ὡς:** AuxC ὅτι/ὡς heading through COORD a printed OBJ/SBJ indicative, subjunctive or optative whose head is in the ὅτι/ὡς list | The governing verb is not a member. δοκέω is excluded from the infinitive list. Verbs of will and impersonal δεῖ/χρή are outside. ὅτι before a direct quotation (§2590 a) counts. Cross-sentence speech and the personal passive (§1982) are accepted losses. |
-
-Plain "accusative + infinitive" (§§1972–1981) is not a construction.
-
-**Subtypes:**
-
-| Construction | Subtype id | Meaning | Smyth 1920 | Labelled? |
-|---|---|---|---|---|
-| Result | `natural` | ὥστε + infinitive | §2258 | yes, "natural result" |
-| Result | `actual` | ὥστε + finite mood | §2257 | no |
-| Indirect statement | `infinitive` | infinitive form | §2016 | yes, "infinitive" |
-| Indirect statement | `hoti_hos` | ὅτι/ὡς clause | §2577 | no |
-| Articular infinitive | `genitive` / `dative` | article case | §2032 / §2033 | yes |
-| Articular infinitive | `nominative` / `accusative` | article case | §2031 / §2034 | no |
-
-A result clause whose verb is unprinted has no subtype.
-
-**Authored lexical data** (compiled, reviewed by Justin on the implementation
-issue, part of the detector version):
-
-- **Infinitive list:** φημί, φάσκω, λέγω, εἶπον, ἐρῶ, ἀγγέλλω, ἀπαγγέλλω,
-  ἐξαγγέλλω, ἀποκρίνω, ὁμολογέω, ἀρνέομαι, ἀπαρνέομαι, ὑπισχνέομαι*, ὄμνυμι*,
-  νομίζω, οἴομαι, ἡγέομαι, ὑπολαμβάνω, ἐλπίζω, ὑποπτεύω, πιστεύω, διηγέομαι,
-  ἐννοέω (* future infinitive only).
-- **ὅτι/ὡς list:** the infinitive list plus δοκέω, οἶδα, ἐπίσταμαι, μανθάνω,
-  ὁράω, ἀκούω, μιμνῄσκω/μιμνήσκω, ἀναμιμνῄσκω/ἀναμιμνήσκω and πείθω.
-- **Perceiving:** ἀκούω, ἀκροάομαι, αἰσθάνομαι, πυνθάνομαι.
-
-### Abstention and the shipping gate
-
-- Precision-first and silent: no hedged labels, no "none found" statement, and
-  no abstained state.
-- Per construction only, with no per-occurrence confidence layer.
-- **Detectors fail closed.** A required input that is missing, or reached only
-  through an unprinted node where the definition asks for a printed token, gives
-  no hit. The conditional and result definitions explicitly admit an ADV
-  unprinted node as the clause.
-- **Bar.** A construction ships at precision ≥ 0.90 on at least 120 random
-  corpus hits, with a 95% Wilson lower bound ≥ 0.84. A Subtype label meets the
-  same bar on at least 60 hits. Recall is reported, not gated.
-- **First slice.** All six constructions ship. Labels: natural result,
-  infinitive indirect statement, and genitive and dative articular infinitive.
-  Conditional ships only after the first release-check run confirms it without
-  the "whether" exclusion.
-
-### Concept notes and grammar reference ([ADR 0124](../adr/0124-grammar-references-and-concept-notes.md))
-
-- **One grammar-reference record per language:** an id, a citation label, an
-  edition and a URL template filled from an integer §.
-- **Greek:**
-  `https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.04.0007:smythp={§}`.
-  Documented swaps: Hopper's `doc=Smyth+grammar+{§}` form and Alpheios anchors.
-  There is no runtime fallback and no link checking.
-- **Citation text.** "Smyth 1920 §N" or "§§N–M" is always shown as text. A range
-  links to its first §, and the link carries `rel="noopener noreferrer"`. A
-  construction without a citation does not ship.
-- **Concept notes.** A note has a name, a one- or two-sentence definition in
-  Mouseion's own wording and one citation, with no example. Notes are compiled
-  data keyed by construction id, each recording its review ticket, and are
-  looked up at render.
-- **Relation names** are compiled labels in Mouseion's wording, owned by the
-  adapter:
-
-  | AGDT | Shown as |
-  |---|---|
-  | PRED | main verb |
-  | SBJ | subject |
-  | OBJ | object |
-  | ATR | describes a noun |
-  | ADV | adverbial (how, when, why…) |
-  | PNOM | predicate noun or adjective |
-  | OCOMP | object complement |
-  | ATV, AtvV | predicative complement |
-  | APOS | in apposition |
-  | COORD | joins coordinated words |
-  | AuxC | subordinating conjunction |
-  | AuxP | preposition |
-  | AuxY | sentence particle |
-  | AuxZ | emphasising or negating particle |
-  | AuxV | auxiliary |
-  | ExD | stands outside the sentence structure |
-
-- **Latin shape** (nothing compiled): Allen & Greenough at DCC, cited "A&G §N".
-
-### Sentence study page
-
-From
-[Prototype: constructions and syntax in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787),
-variant C.
-
-- **Order:** sentence (unmarked) → **Constructions** (`h3`, ordered list) →
-  interlinear morphology line → Notation key → **Word relations** (closed native
-  disclosure) → Complete text alternative.
-- **Each entry:**
-  - the name, plus the Subtype label in parentheses;
-  - the extract (see [the design pattern](../design/components.md#accepted-construction-extract-target));
-  - "Signalled by *anchor*." plus "The identified target signals this
-    construction.", "Contains the identified target." or nothing;
-  - the definition and the linked citation;
-  - **Parallels**, with an accessible name that includes the construction and
-    subtype.
-- **Ordering:** textual order of each extent's first token, outer before inner
-  at the same token.
-- **Silence:** the region is absent when there is nothing to show, including
-  for `absent` and rebuilding runs.
-- **Focus from Concordance:** order unchanged, a thicker accent edge, visible
-  "· from Concordance", scrolled into view.
-- **Word relations table:** columns #, Word, Relation, Depends on (with "(word
-  n)"). The target is bold, with a hidden "(identified target)". There are no
-  punctuation rows, and the root shows "— (top of the sentence)".
-- **Unprinted heads:** a word whose head is unprinted reads "‹an unprinted
-  word›, which is the {relation} of {first printed ancestor} (word n)". One
-  note explains this, shown only when one occurs.
-- **Accessibility:** the extract is `aria-hidden`, a hidden "Words: …" line
-  replaces it, and the text alternative names each word's constructions.
-
-### Concordance parallels
-
-Recorded in [ADR 0125](../adr/0125-construction-parallels-in-concordance.md).
-
-- **API contract.** The existing lookup route gains `match=construction`, with
-  the construction id as the term and optional `subtype` and anchor-lemma
-  parameters. It reuses captured priority, the revision guard, 25-row global
-  paging and KWIC rendering. Only languages with a construction scheme (`grc`)
-  are offered it; others get the safe-restart notice. The search box never
-  recognises construction names.
-- **Tiers:**
-  - **This Book** (captured like the priority Book);
-  - **This author**, same Work first, then the author's other Works by title;
-  - **Other authors**, by author, Work title and Reading unit order.
-
-  The author is the curated Work author string, matched exactly. A Book with no
-  Work has no author tier.
-- **Order inside a tier:** Work, Reading unit, sentence, anchor. The origin
-  occurrence is omitted.
-- **Filters.** The lemma filter applies to the anchor's effective lemma only.
-  The subtype filter covers shipped labels only. A construction-only query
-  ignores corrections and exclusions. With a lemma filter, the anchor is
-  corrected and an excluded anchor is hidden.
-- **Unsearched Books** are named in one quiet line; rebuilding runs stay silent.
-- **Revision guard.** The evidence revision includes the detector version and
-  each eligible run's marker.
-- **Query shape:** construction rows → eligible current analyses with a current
-  marker → tier join through Reading unit → Edition → Work → rank and page.
-  Eligibility matches the existing three Concordance eligibility statements.
-- **Rows:** centred on the anchor. The expanded row reuses the extract. **Study**
-  opens Sentence study with that construction focused.
-
-### Analysis update and carry-over ([ADR 0126](../adr/0126-analysis-updates-carry-decisions-onto-identical-tokens.md))
-
-- **What is copied.** At publish, inside the publishing transaction, each Lemma
-  correction and Occurrence exclusion on the run being replaced is copied onto
-  the new run's token with the same source document, offset span, surface and
-  source lemma. UPOS and morphology are not compared.
-- **Absorbed corrections.** A correction whose target lemma now equals the
-  source lemma is not copied and counts as carried over.
-- **Scope.** This covers every Analysis update (NLP and Classical), not Source
-  structure updates. The old run keeps its own decisions.
-- **Change note.** An optional per-interpretation-version change note is held
-  next to the Reading-unit definition data and looked up at render.
-- **Copy:**
-  - The notice is unchanged.
-  - The per-Book confirmation reads: change note; "The published analysis stays
-    in effect until the update publishes."; "Your N confirmed lemma corrections
-    and M occurrence exclusions carry over wherever the word is unchanged in the
-    new analysis."; "Prepared decks and earlier Readings keep the evidence they
-    froze."
-  - The Work-level line reads: "Together, the Books to be updated have X
-    confirmed lemma corrections and Y occurrence exclusions, which carry over
-    wherever the word is unchanged in their new analyses."
-  - `/jobs` reads "N of M decisions carried over".
-
-### Register and notices
-
-- There is no new register row or `layers.json` layer, because the existing OGA
-  annotations row already names syntax. When syntax ships, the use column gains
-  one sentence: relations, heads and the constructions derived from them are
-  shown in Sentence study and Concordance.
-- The deck notice is unchanged, and cards carry no constructions.
-- Showing any Smyth or A&G wording, or shipping a host-derived § → URL map,
-  would need a row.
-
-## Testing Decisions
-
-**What makes a good test here.** Tests assert learner-visible behavior and stored
-outcomes through the public boundary. That means the rendered page, the
-Concordance results, the update confirmation, the `/jobs` line and the
-published run's evidence. They do not assert adapter internals or the order of
-queries. Fixtures are short and synthetic, and use the real AGDT label
-inventory: PRED, SBJ, OBJ, ATR, ADV, AuxC, AuxP and so on, never `DET` or
-`PUNCT`. No OGA text or annotation is committed.
-
-**Seams (confirmed with Justin, 2026-11-24).**
-
-1. **Primary seam: the Classical preparation HTTP integration harness**
-   (Postgres via testcontainers, real routes and in-process River workers, no
-   NLP). A synthetic OGA fixture with AGDT syntax and ellipsis goes through
-   Add, then To Read, then the `classical_preparation` worker, which publishes.
-   Tests then read Sentence study and Concordance with `match=construction`
-   over HTTP. The same seam covers:
-   - adopting the new interpretation version through the Work and Book Analysis
-     update, including carry-over and the `/jobs` line;
-   - the detector-version rebuild, by running the rebuild worker and then
-     reading the pages;
-   - the unchanged Greek output of every other reader of the token relation.
-
-   Prior art:
-   - `TestClassicalCatalogCompleteLoop` and
-     `TestClassicalPreparationFetchesOnceAndPublishesEachUnit` (preparation and
-     publish);
-   - `TestClassicalWorkAnalysisUpdatePublishesAndRefreshesPreparedDefinition`
-     and `TestAnalysisUpdateReplacesOutdatedAnalysisThroughOneConfirmedRun`
-     (updates);
-   - `TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably` (rebuild under a
-     readiness marker);
-   - `TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP`
-     (tiers, paging and the revision guard);
-   - `TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs` (decisions on
-     Greek tokens);
-   - `TestAncientGreekBookOneDeckPreparationAndExport` (decks unchanged).
-2. **Supporting seam: the detector module** (pure Go, no database). Each
-   definition, exclusion, subtype and fail-closed case gets a small synthetic
-   tree read through the AGDT adapter. A **golden-output test** over a synthetic
-   corpus fails when emitted occurrences change without a detector-version bump.
-   A unit test asserts that every emittable construction id has a reviewed
-   concept note with a citation. The repo has no golden-file pattern yet; the
-   prior art is the committed byte-for-byte golden data in the enrichment
-   request-codec test.
-3. **Supporting seam: browser smoke** with Playwright against the fixture server
-   (in-memory fixtures, no Postgres). The fixtures gain a Greek sentence with
-   nested and discontinuous constructions and an unprinted head. Smoke covers:
-   - extract marking that is not colour-only;
-   - the focused state;
-   - disclosure operation and the no-JS path;
-   - 375px and 1200px widths in both themes.
-
-   Prior art: the existing smoke spec "Concordance lookup is server-rendered and
-   submits without JavaScript", and the responsive-theme spec.
-
-**Behavior to cover, by seam:**
-
-| Behavior | Seam |
-|---|---|
-| New run records `native_agdt`, verbatim relations (Zeta `AuxZ` repaired) and unprinted nodes with heads | primary |
-| Printed spans, surfaces and source lemmas equal the previous version's | primary |
-| VerbForm, Aspect, perfect and common gender mapped | primary (published evidence) |
-| UD consumers off; other relation readers unchanged for Greek | primary |
-| Each definition's hits, exclusions, subtypes and fail-closed cases | detector |
-| Only shipped constructions and labels emitted; output changes only with a version bump | detector (golden) |
-| Every emittable id has a reviewed note and citation | detector |
-| Rows built before publish; `absent` runs get none | primary |
-| Version bump rebuilds every `native_agdt` run in one swap; nothing shows while behind | primary |
-| Corrections and exclusions never change construction rows | primary |
-| Sentence study order, entry text, citation link attributes, Parallels names, silence | primary |
-| Word relations names, root, unprinted-head wording and note | primary |
-| Extract marking, focus state, accessibility, widths, themes, no-JS | browser smoke |
-| Tiers, textual order, origin omitted, filters, corrections and exclusions, 25-row paging | primary |
-| Unsearched Books named; rebuilding silent; revision guard on version or readiness change | primary |
-| Non-`grc` construction URL gives the safe restart | primary |
-| Update confirmation and Work copy with and without a change note | primary |
-| Carry-over: matched copied, absorbed counted, unmatched dropped, old run unchanged, `/jobs` line; NLP updates too; Source structure updates unchanged | primary |
-| Decks, deck notices and frozen Readings' parses unchanged | primary (existing deck loop) |
-
-**Release check (not a CI test).** A `make` target recomputes per-construction
-and per-subtype precision from a committed, ID-only reviewed judgment file
-against the pinned OGA files, which are fetched and never committed. Every
-detector-version bump runs it and puts its output in the PR. A bump fails if a
-shipped unit drops below the bar or a reviewed item flips without a new
-judgment. A bump changing more than 10% of a construction's hits needs a fresh
-sample of 120.
-
-## Out of Scope
-
-- Latin (direction only). Every choice above leaves room for a UD adapter and a
-  Latin grammar reference, and nothing Latin is built.
+morphology, but not the syntax that makes a Greek sentence hard. A genitive
+absolute, an articular infinitive or an infinitive of indirect statement is
+where reading breaks down. Today Mouseion shows nothing about them for Greek:
+
+- The pinned OGA files carry AGDT dependency syntax, but the import discards it
+  and records `syntax_state = 'absent'` ([ADR 0099](../adr/0099-ancient-greek-imported-analyses.md)).
+- Sentence study shows "Syntax unavailable" for every Greek sentence.
+- Concordance has no way to find other examples of a construction.
+
+## Learner outcome
+
+In Sentence study, a learner sees which of six well-defined Greek constructions
+the sentence contains, which words belong to each, which word signals it, a
+short Mouseion-written definition with a Smyth 1920 citation and link, and a
+way to see parallels. Where Mouseion is not confident, it says nothing. A
+closed **Word relations** disclosure gives each word's relation and head in
+plain English.
+
+From a construction, **Parallels** opens Concordance with other occurrences of
+the same construction: in this Book first, then in the author's other Books,
+then in other authors.
+
+## Scope
+
+**In scope (first slice):**
+
+- Ancient Greek Books from the Classical catalog, imported from the pinned OGA
+  v0.2.0 files (22 Reading units over 7 Works: Plato's *Apology*, *Crito*,
+  *Meno*, *Phaedo*, *Republic* and *Symposium*, and Xenophon's *Anabasis*).
+- A new OGA interpretation version that stores AGDT relations and heads,
+  unprinted syntax nodes, and the VerbForm/Aspect morphology remap. It is adopted
+  through a learner-confirmed Analysis update.
+- Six constructions, detected over the stored parse, stored as derived rows and
+  shown in Sentence study.
+- Construction parallels in Concordance, sequenced after Sentence study.
+- Carry-over of Lemma corrections and Occurrence exclusions onto identical
+  tokens in every Analysis update.
+
+**Non-goals (out of scope for this effort):**
+
+- Latin. The design leaves room for it (a UD adapter, a per-language grammar
+  reference), and every Greek-specific choice below is marked as such. Nothing
+  Latin is built.
 - Modern-language constructions (*Konjunktiv I*, *passé simple*).
-- Anki card fields carrying constructions or syntax, and any deck or deck-notice
-  change.
+- Anki card fields carrying constructions or syntax. Prepared decks are
+  unchanged and the deck notice is unchanged.
 - Cross-language parallels.
 - Learner corrections of syntax or constructions (plausibly next, not never).
 - Construction-based deck selection or difficulty scoring.
-- Greek syntax on the Stanza `grc` / graded-reader path (paused).
-- A construction picker in Concordance, or ranking parallels by quality.
-- An author identity beyond the curated Work author string.
-- Showing raw AGDT or UD labels, or any Smyth or A&G wording, to learners.
-- Runtime or CI link checking of grammar references.
-- The deferred construction tail below.
+- Greek syntax on the Stanza `grc` / graded-reader path (paused under
+  [ADR 0116](../adr/0116-classical-catalog.md) and #2404).
+- Showing raw AGDT or UD relation labels to learners.
+- Any Smyth or Allen & Greenough wording in the app.
 
-## Further Notes
+## Terms
+
+The glossary terms are defined in [`CONTEXT.md`](../../CONTEXT.md):
+**Construction**, **Construction occurrence**, **Construction anchor**,
+**Construction extent**, **Construction subtype**, **Subtype label**,
+**Construction detector version**, **Unprinted syntax node**, **Grammar
+reference** and **Concept note**. A Construction is a syntactic pattern; it is
+not an **Idiom**, which is a lexical multiword unit with a dictionary entry.
+
+## Syntax source and storage
+
+Decided in [Grilling: choose the Ancient Greek syntax source and representation](https://github.com/justin-hayes/mouseion/issues/2603#issuecomment-7098557008);
+recorded in [ADR 0122](../adr/0122-ancient-greek-native-agdt-syntax.md).
+
+- **Native AGDT, not UD.** No public converter fits OGA (no `_CO`/`_AP`
+  suffixes, ellipsis markup dropped), conversion merges five distinctions the
+  detectors need, and the guessed conjunct set is exact for only 82.6% of
+  coordinations. Stanza `grc` would discard gold-trained trees and is
+  non-commercial on every package.
+- **Run state.** A run from the new interpretation version records
+  `syntax_state = 'native_agdt'`. The state names the scheme of every stored
+  relation and head in the run; there is no per-token scheme.
+- **Stored verbatim.** Relations and heads are stored as the source has them.
+  Only plain encoding defects are corrected at import (the Greek-capital-Zeta
+  `AuxZ` on 4 *Anabasis* tokens becomes the Latin-script `AuxZ`). Comma roots,
+  ambiguous COORDs and stray labels (`AuxV`, `_`) are normalised at read time by
+  the AGDT adapter.
+- **Unprinted syntax nodes.** AGDT ellipsis nodes (`[0]`, POS `-`, 2.6% of
+  nodes, heading 7% of printed tokens) are stored as unprinted syntax nodes:
+  relation, head and tree position, keyed by their stable source id within the
+  sentence, with no printed form, lemma, vocabulary identity or Annotation
+  occurrence. A printed token's head may be an unprinted syntax node.
+- **Spans unchanged.** Sentence and token ordinals and offsets still come from
+  `reconstruct` (`internal/ancientgreek/ogasrc.go`), which skips unprinted nodes.
+  The new interpretation version must not change `reconstruct` or the
+  sentence-inclusion rules, so every printed token keeps its source span. ADR
+  0126's carry-over depends on this.
+- **Morphology remap.** The new version also maps what `oga-agdt-upos/5`
+  drops: VerbForm (Fin/Part/Inf), Aspect (Perf for perfect and future perfect,
+  Imp for imperfect), the perfect tense and common gender, following UD Perseus
+  r2.19. Whether non-finite forms carry Mood is settled on the implementation
+  issue. Participle and infinitive stay distinguishable as today.
+- **UD consumers stay off.** The gates that treat `native_agdt` as "no UD
+  syntax" (`sentenceStudySyntaxUnavailable` in `internal/webapp/sentence_study.go`
+  and the Concordance syntax-state read in `internal/persistence/concordance.go`)
+  stay. AGDT relations reach learners only through the AGDT adapter. Today
+  Greek tokens all carry `dep`; after this change they carry AGDT labels, so
+  every other reader of `dependency` must be shown unaffected for `grc`:
+  vocabulary eligibility and card bolding key on `compound:prt`, GDEX is
+  German-only, and the lexical sense-ordering context
+  (`internal/enrichment/lexical.go`) adds the raw relation as a context word,
+  which the implementation must gate or show unused for Greek.
+- **Source-neutral construction interface.** Detectors read a small interface
+  (nodes, heads, relations normalised to construction-relevant categories,
+  morphology, source lemma), and each scheme has one adapter. The AGDT adapter
+  is first. A UD adapter for Latin can be added later without changing the
+  detectors' interface.
+- **Licence.** Relations, heads, unprinted nodes and constructions are
+  Analysis-resource output under
+  [ADR 0111](../adr/0111-third-party-licence-posture.md). The deployer register
+  row and `layers.json` already name syntax for `oga-src-v0.2.0-annotations`;
+  the new interpretation version changes only `interpretationVersion` and
+  `revision` on the 22 manifest definitions. Test fixtures stay synthetic.
+  See [Register and notices](#register-and-notices).
+
+## Construction occurrence model
+
+Decided in [Grilling: first-slice construction inventory and definitions](https://github.com/justin-hayes/mouseion/issues/2604#issuecomment-7098688802).
+
+- A **Construction occurrence** is one construction found in one exact analysis.
+- Its **anchor** is exactly one Annotation occurrence (a printed token), never
+  an unprinted syntax node.
+- Its **extent** is the set of printed tokens in the anchor's subtree, read
+  through the AGDT adapter. The extent may be discontinuous (13.4% of arcs are
+  non-projective), so it is a set, not a span. Unprinted nodes inside the
+  subtree stay in the tree but are not members.
+- Occurrences may nest and overlap. One anchor may carry several different
+  constructions, never the same construction twice.
+- A **Construction subtype** is an attribute of one construction. It does not
+  count toward the cap of six. A subtype that cannot be determined is omitted
+  and the construction still shows.
+
+## First-slice inventory
+
+Six constructions ship. All six are **Greek-specific** definitions over AGDT.
+The detectors read the run's **source** lemma and morphology only; Lemma
+corrections and Occurrence exclusions never affect them.
+
+"Through COORD" means the detector looks up or down through coordination
+groups. The construction ids are stable data keys; the learner-facing names
+come from the concept notes.
+
+| Id | Construction | Smyth 1920 | Anchor | Definition (AGDT, via the adapter) | Exclusions and accepted limits |
+|---|---|---|---|---|---|
+| `conditional` | Conditional clause (protasis only) | §§2280–2368 | the conjunction | AuxC with source lemma εἰ, ἐάν, εἴπερ, or ἄν (OGA's lemma for contracted ἐάν and ἐάνπερ), heading (through COORD) an ADV child that is a verb or an ADV unprinted node | Not when the previous printed word or the conjunction's head is ὡς or ὥσπερ ("as if"). Concessive εἰ καί / καὶ εἰ (§§2369–2382) counts. The apodosis is not in the extent. No "whether" exclusion (see below). |
+| `articular_infinitive` | Articular infinitive | §§2025–2038 | the infinitive | a printed infinitive with a neuter singular article as a direct dependent, including when a preposition governs the phrase | An article governing a clause or coordinated infinitives attaches to one; an article far from the infinitive across a long subject may be misattached. |
+| `result` | Result clause | §§2249–2278 | ὥστε | AuxC ὥστε heading (through COORD) an ADV child that is a verb or an ADV unprinted node | ὥστε + participle: no hit. Independent "and so" ὥστε (§2275) is not separated yet, which is why the actual-result subtype is unlabelled. |
+| `purpose` | Purpose clause | §§2193–2206 | ἵνα | AuxC ἵνα (including ἵνα μή) heading (through COORD) a printed ADV subjunctive or optative | ὅπως and ὡς final clauses are deferred (ὅπως 6/14, ὡς 2/10 in measurement). Effort and fearing clauses are not purpose. |
+| `genitive_absolute` | Genitive absolute | §§2070–2075 | the participle | a printed genitive participle labelled ADV with a printed genitive SBJ, directly or through COORD | Not when the participle's head (through COORD) is a verb of perceiving: ἀκούω, ἀκροάομαι, αἰσθάνομαι, πυνθάνομαι (supplementary participle, §§2110–2112). Subjectless genitive absolute (§2072) is not detected. An unprinted participle (ὄντος): no hit. |
+| `indirect_statement` | Indirect statement | §§2016–2024 (infinitive); §§2577–2588 (ὅτι/ὡς) | the infinitive, or the conjunction | **infinitive**: a printed infinitive labelled OBJ or SBJ whose head (through COORD) is in the infinitive verb list, with every SBJ accusative or no SBJ (§1973); ὑπισχνέομαι and ὄμνυμι only with a future infinitive. **ὅτι/ὡς**: AuxC ὅτι or ὡς heading (through COORD) a printed OBJ or SBJ indicative, subjunctive or optative, whose head (through COORD) is in the ὅτι/ὡς verb list | The governing verb is not a member. δοκέω is excluded (personal "seem" can't be separated from "think"). Verbs of will (κελεύω, βούλομαι) and impersonal δεῖ, χρή fall outside by design. ὅτι introducing a direct quotation (§2590 a) counts as the clause. Cross-sentence reported speech and personal-passive nominative subjects (§1982) are accepted recall losses. Recall is 0.60. |
+
+Plain "accusative + infinitive" (§§1972–1981) is **not** a construction: it is
+too general for learners, and its raw rule scored 0.73.
+
+### Subtypes
+
+| Construction | Subtype id | Meaning | Smyth 1920 | Labelled in slice 1? |
+|---|---|---|---|---|
+| Result | `natural` | ὥστε + infinitive | §2258 | **yes**, "natural result" |
+| Result | `actual` | ὥστε + any finite mood | §2257 | no (0.90, lower bound 0.80) |
+| Indirect statement | `infinitive` | infinitive form | §2016 | **yes**, "infinitive" |
+| Indirect statement | `hoti_hos` | ὅτι/ὡς + finite verb | §2577 | no (0.92, lower bound 0.82) |
+| Articular infinitive | `genitive` | case of the article | §2032 | **yes**, "genitive" |
+| Articular infinitive | `dative` | case of the article | §2033 | **yes**, "dative" |
+| Articular infinitive | `nominative` | case of the article | §2031 | no (0.85) |
+| Articular infinitive | `accusative` | case of the article | §2034 | no (0.82) |
+
+Conditional, purpose and genitive absolute have no subtypes. A result clause
+whose verb is an unprinted node has no subtype. An unlabelled subtype is not
+hidden: its occurrences show the construction name with no subtype label.
+
+### Authored lexical data
+
+The verb lists, like the concept notes and the relation names, are
+**Mouseion-authored compiled reviewed data**, keyed by construction id, reviewed
+by Justin on the implementation issue, and part of the construction detector
+version. The measured lists (by source lemma) are:
+
+- **Infinitive indirect statement:** φημί, φάσκω, λέγω, εἶπον, ἐρῶ, ἀγγέλλω,
+  ἀπαγγέλλω, ἐξαγγέλλω, ἀποκρίνω, ὁμολογέω, ἀρνέομαι, ἀπαρνέομαι, ὑπισχνέομαι*,
+  ὄμνυμι*, νομίζω, οἴομαι, ἡγέομαι, ὑπολαμβάνω, ἐλπίζω, ὑποπτεύω, πιστεύω,
+  διηγέομαι, ἐννοέω (* future infinitive only).
+- **ὅτι/ὡς indirect statement:** the infinitive list plus δοκέω, and οἶδα,
+  ἐπίσταμαι, μανθάνω, ὁράω, ἀκούω, μιμνῄσκω / μιμνήσκω, ἀναμιμνῄσκω /
+  ἀναμιμνήσκω and πείθω. (δοκέω is excluded only from the infinitive list.)
+- **Perceiving (genitive-absolute exclusion):** ἀκούω, ἀκροάομαι, αἰσθάνομαι,
+  πυνθάνομαι.
 
 ### Deferred tail (ranked)
 
-Ranges were checked against Smyth 1920.
+Reviewed at the next construction decision, in this order. Ranges were checked
+against Smyth 1920.
 
-1. Conditional type (simple, general, future more or less vivid, contrary to
-   fact), which needs the apodosis mood and ἄν.
-2. Indirect statement with a participle (§§2106–2115).
+1. Conditional type (simple, general, future more/less vivid, contrary to fact),
+   which needs the apodosis mood and ἄν.
+2. Indirect statement with a participle (§§2106–2115): ADV/OBJ confusion, and it
+   collides with the genitive absolute.
 3. Effort clause, ὅπως + future indicative (§§2209–2219).
 4. Clause of fearing, μή / μὴ οὐ (§§2221–2233).
 5. Temporal clauses: ἐπεί, ὅτε, πρίν, ἕως (§§2383–2461).
@@ -574,38 +233,403 @@ Ranges were checked against Smyth 1920.
 8. Accusative absolute (§§2076–2078).
 9. Conditional relative clauses (§§2560–2573).
 
-Added by
-[Grilling: abstention rule and which constructions ship](https://github.com/justin-hayes/mouseion/issues/2608#issuecomment-7106323004),
-unranked:
+Added by [Grilling: abstention rule and which constructions ship](https://github.com/justin-hayes/mouseion/issues/2608#issuecomment-7106323004)
+(unranked within the tail):
 
-- a test for substantive "whether" εἰ (§2671);
-- ὅτι/ὡς + OBJ under any verb;
-- cross-sentence indirect statement;
+- a clause-position or relation test for substantive "whether" εἰ (§2671);
+- ὅτι/ὡς + OBJ clause under any verb, which needs its own precision run;
+- indirect statement carried across sentences;
 - personal δοκέω;
 - ὅπως and ὡς final clauses;
-- a rule separating independent ὥστε (§2275), which would let actual result be
-  labelled;
+- a rule separating independent "and so" ὥστε (§2275), which could label actual
+  result;
 - the nominative and accusative articular-infinitive labels.
 
 ### Smyth 1920 verification
 
-On 2026-11-24 every § was checked against the Perseus Hopper 1920 text: the
-opening of each range's first and last §, plus the § after it. Ranges cited from
-memory were corrected:
+Every § above was checked on 2026-11-24 against the Perseus Hopper 1920 text
+(`Perseus:text:1999.04.0007`), by reading the opening of each range's first and
+last § and the § after it. Ranges cited from memory (marked † in the inventory
+grilling) were corrected as follows:
 
 | Cited as | Finding | Now cited |
 |---|---|---|
-| Articular infinitive §§2025–2034 | §§2035–2038 still treat it; §2039 starts the participle | §§2025–2038 |
-| "After a preposition" §2032 | §2032 is the genitive; prepositions are treated within each case | §§2031–2034 |
-| Natural result §2251 | §2251 introduces both forms; the infinitive of result is §2258 | §2258 |
-| Perception verbs §§2110–2115 | §§2110–2112 are perception; §2113 is verbs of finding | §§2110–2112 |
-| ὅτι recitativum §2590 | confirmed in §2590 a | §2590 a |
+| Articular infinitive §§2025–2034 | §§2035–2038 (apposition, exclamation, adjuncts, verbs of hindering) still treat the articular infinitive; §2039 starts the participle | §§2025–2038 |
+| Articular infinitive "after a preposition, §2032" | §2032 is the genitive articular infinitive; prepositions are treated within each case (e.g. §2034 b) | case subtypes §§2031–2034 |
+| Natural result §2251 | §2251 introduces both forms; the infinitive of result is §2258 (and §2260) | §2258 |
+| Perception-verb exclusion §§2110–2115 | §§2110–2112 are verbs of perception (§2111 names ὁρῶ, αἰσθάνομαι, ἀκούω, πυνθάνομαι); §2113 is verbs of finding | §§2110–2112 |
+| ὅτι recitativum §2590 | confirmed, in §2590 a (direct quotation introduced by ὅτι) | §2590 a |
 
-All other ranges cited here are confirmed.
+Confirmed unchanged: §§2280–2368, §§2369–2382, §2671, §§2249–2278, §2257,
+§2275, §§2193–2206, §§2070–2075, §2072, §§2016–2024, §§2577–2588, §1973,
+§§1972–1981, §1982, §§2106–2115, §§2209–2219, §§2221–2233, §§2383–2461,
+§§2049–2053, §§1824–1826, §§2076–2078 and §§2560–2573.
 
-### Measured precision
+## Abstention
 
-From the re-measure: 95% Wilson interval, 120 random hits each.
+Decided in [Grilling: abstention rule and which constructions ship](https://github.com/justin-hayes/mouseion/issues/2608#issuecomment-7106323004).
+
+- **Precision-first and silent.** No hedged labels, no "no construction found"
+  statement, and no learner-visible "abstained" state.
+- **Per construction only.** A construction or subtype is shipped or not. There
+  is no per-occurrence confidence layer.
+- **Detectors fail closed.** Each definition above lists the inputs it needs.
+  When a required input is missing, or is reached only through an unprinted
+  node where the definition asks for a printed token, the detector produces no
+  hit. The conditional and result definitions explicitly admit an ADV unprinted
+  node as the clause, because the node's own relation is their input.
+- **Shipping bar.** A construction ships when its precision on at least 120
+  random corpus hits is ≥ 0.90 (point estimate) with a 95% Wilson lower bound
+  ≥ 0.84. A subtype label is gated by the same bar on at least 60 hits. Recall
+  is reported, not gated.
+- **Conditional gate.** Conditional ships only once the first release-check run
+  confirms it clears the bar without the dropped "whether" exclusion (measured
+  0.93 with it; about 0.91 estimated without).
+
+## Persistence and versioning
+
+Decided in [Grilling: persistence and versioning of syntax and constructions](https://github.com/justin-hayes/mouseion/issues/2606#issuecomment-7098921699);
+recorded in [ADR 0123](../adr/0123-constructions-are-a-derived-reading.md).
+
+- **The parse is frozen evidence; constructions are a derived reading.** A
+  run's tokens, lemmas, morphology, relations, heads and unprinted nodes are
+  never rewritten. Construction occurrences are a reading of that parse, like
+  Browse counts and concept notes. No card, Known fact, count or completion
+  depends on them.
+- **Construction detector version.** One integer per syntax scheme (AGDT now;
+  UD for Latin later) covers the adapter's normalisation, the six detectors,
+  the authored verb lists and the shipping gate. It is bumped by hand and
+  enforced by a golden-output test.
+- **Rebuild without confirmation.** A detector-version change rebuilds every
+  `native_agdt` run's occurrences, including runs that active Readings pin. Only
+  the current version's rows are kept. A frozen Reading's parse never changes;
+  what Mouseion identifies in it may improve.
+- **Show nothing while rebuilding.** Until a run's readiness marker reaches the
+  current version, Sentence study and Concordance show no constructions for
+  it, with no stale fallback and no "updating" notice. Each run is swapped in
+  one transaction. Rebuild jobs run on `classical_preparation`.
+- **Built at publish.** A new `native_agdt` run's occurrences are built inside
+  the preparation transaction, before it publishes.
+- **Old runs.** Runs with `syntax_state = 'absent'` get no rows and show no
+  constructions, which is silent abstention. They are not rebuilt.
+- **Word relations are query-time.** The per-word relation and head are read
+  through the AGDT adapter at render; they are not stored or versioned.
+
+## Data contract
+
+An ADR 0038 brief, not SQL. The exact DDL is settled in the implementation
+issue's migration, under CODEOWNER review.
+
+**Analysis run (existing).** The new interpretation version is the run's
+`analyzer_version` (already the classical run identity in
+`internal/ancientgreek/prepare.go`) and `syntax_state = 'native_agdt'`. No
+change to `analysis_runs`.
+
+**Printed tokens (existing `corpus_tokens`).** `dependency` holds the stored
+AGDT relation; it is read according to the run's syntax state. The proto
+(`proto/mouseion/v1/normalized_corpus.proto`) and domain comments that call it
+UD are corrected. A token whose head is printed records that token's ordinal.
+A token whose head is an unprinted node references that node; how (for
+example, a nullable reference beside `head`) is settled in the migration.
+Ordinals, offsets, surfaces and lemmas follow `reconstruct` unchanged.
+
+**Unprinted syntax nodes (new).** One row per elided node: owner, run,
+sentence, the node's stable source id within the sentence, its relation, and
+its head (a printed token or another unprinted node, or the root). No form,
+lemma, morphology or vocabulary identity.
+
+**Construction occurrences (new, derived).** One row per occurrence:
+
+| Field | Meaning |
+|---|---|
+| owner, run, sentence | the exact analysis and sentence |
+| language | denormalised from the run, for the Concordance index |
+| construction id | a stable data key, e.g. `genitive_absolute` |
+| subtype id | optional; present only when the shipping gate labels it |
+| anchor | the anchor token's ordinal |
+| extent | the set of member token ordinals |
+
+No text, name, definition, citation or detector version is stored per row.
+
+**Per-run marker (new).** Owner, run, the construction detector version its
+rows were built under, and readiness. Construction rows are read only when the
+marker is current.
+
+**Index.** (owner, language, construction id, subtype) on construction
+occurrences, for Concordance. Work and author are reached through Book →
+Reading unit → Edition → Work.
+
+**Compiled data (not in the database).** Concept notes, verb lists, relation
+names, the shipping gate and the grammar-reference records are Go literals
+keyed by stable ids. The per-interpretation-version change note is held next to
+the Reading-unit definition data.
+
+## Surfaces
+
+### Sentence study
+
+Decided by [Prototype: constructions and syntax in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787),
+variant C (code on the throwaway branch
+[`research/grc-sentence-study-constructions-prototype`](https://github.com/justin-hayes/mouseion/tree/1c3bd586/doc/research/grc-sentence-study-constructions-prototype)).
+The pattern is in [`doc/design/components.md`](../design/components.md#accepted-construction-extract-target).
+
+**Order.** Sentence (unmarked) → **Constructions** (`h3`, ordered list) →
+interlinear morphology line → Notation key → **Word relations** (closed
+`<details>`) → Complete text alternative.
+
+**Each construction entry:**
+
+1. The name from the concept note, plus the subtype label in parentheses when
+   it is a shipped Subtype label.
+2. An **extract**: the whole sentence reprinted, with the extent at full weight,
+   the rest muted at regular weight, and the anchor underlined. A gap made only
+   of punctuation counts as part of the extent. A discontinuous extent needs no
+   extra notation. An inner construction says "Inside construction N".
+3. "Signalled by *anchor*." followed by one of: "The identified target signals
+   this construction." (target = anchor), "Contains the identified target."
+   (target in extent), or nothing.
+4. The concept note's definition, then "Smyth 1920 §§N–M", linked to Perseus
+   (opens externally, `rel="noopener noreferrer"`).
+5. **Parallels**, carrying the subtype when it is labelled. Its accessible name
+   includes the construction and subtype ("Parallels for Result clause, natural
+   result").
+
+**Ordering.** Textual order of each extent's first token; an outer
+construction comes before an inner one that starts at the same token.
+
+**Silence.** With no shipped construction in the sentence, or a run that is
+`absent` or rebuilding, the whole Constructions region is absent: no heading and
+no message.
+
+**Focused construction.** Arriving from Concordance's **Study**, the order is
+unchanged; the focused entry gets a thicker accent edge and the visible text
+"· from Concordance", and is scrolled into view.
+
+**Word relations.** A table with columns #, Word, Relation, Depends on (the
+head's word plus "(word n)"). The target word is bold, with a visually hidden
+"(identified target)". Punctuation rows are omitted. The root shows "— (top of
+the sentence)". Plain-English relation names (draft wording, reviewed with the
+concept notes):
+
+| AGDT | Shown as |
+|---|---|
+| PRED | main verb |
+| SBJ | subject |
+| OBJ | object |
+| ATR | describes a noun |
+| ADV | adverbial (how, when, why…) |
+| PNOM | predicate noun or adjective |
+| OCOMP | object complement |
+| ATV, AtvV | predicative complement |
+| APOS | in apposition |
+| COORD | joins coordinated words |
+| AuxC | subordinating conjunction |
+| AuxP | preposition |
+| AuxY | sentence particle |
+| AuxZ | emphasising or negating particle |
+| AuxV | auxiliary |
+| ExD | stands outside the sentence structure |
+
+**Unprinted heads.** A word whose head is unprinted shows "‹an unprinted
+word›, which is the object of ὅτι (word 6)": the display walks up through
+unprinted nodes to the first printed word and names the unprinted node's own
+relation. A note under the table explains it once, only when one occurs.
+Unprinted nodes never get rows and never show a lemma or a guessed identity.
+
+**Accessibility.** The extract is `aria-hidden`. Each entry carries a visually
+hidden "Words: …" line listing the extent in textual order, with "…" between
+discontinuous parts. The Complete text alternative names, for each word, the
+constructions that contain it and which one it signals. Marking is by weight,
+muted tone and underline, never colour alone.
+
+**Other runs.** Sentence study for an `absent` Greek run keeps "Syntax
+unavailable" for Word relations and shows no Constructions. UD runs (modern
+languages) are unchanged.
+
+### Concordance parallels
+
+Decided in [Grilling: Concordance construction parallels — query, scope and ranking](https://github.com/justin-hayes/mouseion/issues/2610#issuecomment-7106742314);
+recorded in [ADR 0125](../adr/0125-construction-parallels-in-concordance.md).
+Sequenced after Sentence study.
+
+- **A third match kind.** `match=construction`, with the construction id as the
+  term, an optional subtype and an optional anchor-lemma filter. It reuses the
+  lookup URL, captured-priority slot, revision guard, 25-row global paging and
+  KWIC rendering. The search box never recognises a construction name. The
+  match kind is offered only for a language whose analyses have a construction
+  scheme (`grc`); any other language gets the existing safe-restart notice.
+- **Entry point.** Only Sentence study's **Parallels**. There is no construction
+  picker on the Concordance page.
+- **Three labelled tiers in one sequence:** **This Book** (the origin Book,
+  captured like today's priority Book); **This author** (the same Work's other
+  Reading units first, then the author's other Works by title); **Other
+  authors** (by author, Work title, Reading unit order). The author is the
+  reviewed catalog's Work author string, matched exactly. A Book with no Work
+  has no author tier and goes from "This Book" to "Other Books". This tiering is
+  Classical- and Greek-specific.
+- **Textual order inside a tier.** Work, Reading unit, sentence, anchor token.
+  No quality or "best example" ranking.
+- **The origin occurrence is omitted.** The heading links back to the origin
+  sentence.
+- **Filters.** The lemma filter applies to the anchor's effective lemma only.
+  The subtype filter is offered only for shipped Subtype labels. Parallels
+  opens construction-only, and the results offer "only with {anchor lemma}". A
+  labelled subtype opens filtered to it and offers "all {construction}".
+- **Corrections and exclusions.** A construction-only query ignores both. With a
+  lemma filter, the anchor uses its corrected effective lemma, and an excluded
+  anchor is hidden.
+- **Books that can't contribute are named** in one quiet line, for example "Not
+  searched for constructions: *Apology* — Analysis update available". This
+  covers `absent` runs and any Stanza-path `grc` Book. A rebuilding run stays
+  silent.
+- **Revision guard.** The evidence revision also covers the construction
+  detector version and each eligible run's readiness marker, so a rebuild
+  mid-paging returns *Current evidence changed* with Refresh.
+- **Rows.** Each KWIC row is centred on the anchor. The expanded row reuses the
+  Sentence study extract as-is, one construction per row. **Study** opens
+  Sentence study with that construction focused.
+- **Eligibility** matches the existing three statements of Concordance
+  eligibility (the view, the listing, `ConcordanceLemmaEvidenced`).
+
+### Analysis update
+
+Decided in [Grilling: Analysis update copy and carry-over for the syntax interpretation version](https://github.com/justin-hayes/mouseion/issues/2614#issuecomment-7099181118);
+recorded in [ADR 0126](../adr/0126-analysis-updates-carry-decisions-onto-identical-tokens.md).
+
+The new interpretation version reaches existing Greek Books through ADR 0116's
+Classical Analysis update. No new mechanism.
+
+- **Notice unchanged:** "A newer analysis is available."
+- **Change note.** Each Classical interpretation version may carry an optional
+  Mouseion-authored change note, held as data next to the definition and looked
+  up at render. This version's note says, in substance, "Adds sentence
+  constructions in Sentence study." A version with no note shows no line.
+- **Per-Book confirmation:** change note (if any); "The published analysis stays
+  in effect until the update publishes."; "Your N confirmed lemma corrections
+  and M occurrence exclusions carry over wherever the word is unchanged in the
+  new analysis."; "Prepared decks and earlier Readings keep the evidence they
+  froze." Singular and zero forms follow the existing ones.
+- **Work level:** "Together, the Books to be updated have X confirmed lemma
+  corrections and Y occurrence exclusions, which carry over wherever the word is
+  unchanged in their new analyses."
+- **Carry-over** at publish, by exact token identity (same source document,
+  offset span, surface and source lemma). See ADR 0126.
+- **`/jobs`** reports "N of M decisions carried over" on the update's result
+  line. No notice on the Book.
+
+## Grammar reference and concept notes
+
+Decided in [Grilling: grammar link target and Mouseion-authored concept notes](https://github.com/justin-hayes/mouseion/issues/2605#issuecomment-7098653869);
+recorded in [ADR 0124](../adr/0124-grammar-references-and-concept-notes.md).
+
+- **Greek grammar reference:** Smyth, *A Greek Grammar for Colleges* (1920), on
+  Perseus Hopper:
+  `https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.04.0007:smythp={§}`.
+  Documented swaps, if Hopper changes: the on-host
+  `text?doc=Smyth+grammar+{§}&fromdoc=Perseus:text:1999.04.0007` form, or
+  Alpheios `#s{§}` anchors (which need a § → file map). There is no runtime
+  fallback; one data row is edited.
+- **Citation** "Smyth 1920 §N" or "Smyth 1920 §§N–M" is always shown as text; a
+  range links to its first §. A construction without a citation does not ship.
+  Every § comes from the 1920 numbering, never Messing 1956.
+- **Concept note:** a learner-facing name, one or two plain-English sentences
+  of Mouseion's own wording describing the concept (not the detection rule),
+  and one citation. No example sentence: the learner's sentence is the example.
+  Drafted by the agent on the implementation issue, approved there by Justin,
+  and recording its review ticket. A unit test asserts every construction id
+  the detector can emit has a reviewed note with a citation.
+- **Notes are not evidence.** They are looked up at render, so editing one needs
+  no Analysis update and no rebuild.
+- **No link checking** at runtime or in CI (Perseus answers bots with 403 or a
+  cookie redirect, and the app is tailnet-only).
+- **Latin (shape only, nothing compiled):** Allen & Greenough at DCC,
+  `https://dcc.dickinson.edu/grammar/latin/category-search?field_gl_section_number_value={§}`,
+  cited "A&G §N", Perseus as the documented swap. Concept notes are per
+  language: the ablative absolute is its own note.
+
+## Register and notices
+
+- **No new register row and no new `layers.json` layer.** The
+  `oga-src-v0.2.0-annotations` row and layer already name syntax. The new
+  interpretation version bumps `interpretationVersion` and `revision` on the 22
+  manifest definitions.
+- When syntax ships, the implementation issue adds one sentence to that
+  register row's use column: relations, heads and constructions derived from
+  them are shown in Sentence study and Concordance.
+- The grammar link needs no row. A row would become necessary if Mouseion showed
+  any Smyth or A&G wording (headings included), or shipped a § → URL map derived
+  from a host's files.
+- The deck notice and the deck's "Output only (`Lemma`, `POS`)" column are
+  unchanged: cards carry no constructions.
+- The research branches commit only IDs, verdicts and judgments. The release
+  check's reviewed judgment file follows the same rule.
+
+## Release check
+
+Part of the construction detector version
+([ADR 0123](../adr/0123-constructions-are-a-derived-reading.md)).
+
+- **Reviewed judgment file** (committed, IDs only): work, sentence id, OGA
+  anchor id, construction, subtype and judgment for every reviewed item from
+  the two measurements. Justin's judgment is final where he gave one; otherwise
+  the reference or agent judgment stands. No Greek text, relations or heads.
+- **A `make` target** recomputes per-construction and per-subtype precision
+  against the pinned OGA files, fetched and never committed. Every
+  detector-version bump runs it, and the bump's PR includes its output. It is
+  not a default CI step. A bump fails when a shipped construction or subtype
+  falls below the bar, or a reviewed item flips (true → missing, false → hit)
+  without a new judgment.
+- **Fresh sample.** A bump that changes more than 10% of a construction's corpus
+  hits needs a new random sample of 120 hits for that construction.
+- **Synthetic golden test (CI)** runs on every change and fails when emitted
+  occurrences change without a version bump. Fixtures stay synthetic, and use
+  the real AGDT label inventory (the current `DET`/`PUNCT` fixtures do not
+  match any pinned file).
+
+## Acceptance matrix
+
+| # | Behavior | Verified by |
+|---|---|---|
+| A1 | A new Greek run records `native_agdt`, the new interpretation version, verbatim relations (Zeta `AuxZ` repaired) and unprinted nodes with heads | unit + integration (synthetic fixture) |
+| A2 | Every printed token's span, surface and source lemma equals the previous interpretation version's for the same file | integration over synthetic fixtures; `make` check over the pinned files |
+| A3 | VerbForm, Aspect, the perfect and common gender are mapped | unit |
+| A4 | UD consumers (Sentence study relation display, Concordance syntax reads) treat `native_agdt` as no UD syntax; every other `dependency` reader (selection eligibility, card bolding, GDEX, lexical sense context) produces the same Greek output as before | unit + characterization |
+| A5 | Each detector emits the inventory's hits and none of its exclusions; no hit on missing or unprinted required inputs | unit (synthetic trees per definition and exclusion) |
+| A6 | Only shipped constructions and Subtype labels are emitted | golden test |
+| A7 | Emitted occurrences change only with a detector-version bump | golden test (CI) |
+| A8 | Every emittable construction id has a reviewed concept note with a citation | unit |
+| A9 | Construction rows are built in the preparation transaction before publish; `absent` runs get none | integration |
+| A10 | A version bump rebuilds every `native_agdt` run, including pinned runs, swapping each run in one transaction; nothing shows while the marker is behind | integration |
+| A11 | Lemma corrections and exclusions never change construction rows | integration |
+| A12 | Sentence study order, extract marking, anchor/target text, citation link attributes, Parallels names, focus state and silent absence | templ unit + browser smoke (fixture server) |
+| A13 | Word relations: plain names, root, unprinted-head wording and note, no punctuation rows | templ unit |
+| A14 | Accessibility: `aria-hidden` extract, "Words: …" line, text alternative, not colour-only; 375px/1200px, both themes, no-JS | browser smoke + manual check |
+| A15 | `match=construction` tiers, textual order, origin omitted, filters, corrections and exclusions as specified, 25-row paging | integration |
+| A16 | Books with no construction evidence are named; rebuilding runs are silent | integration + templ unit |
+| A17 | Revision guard changes on detector version or readiness change | integration |
+| A18 | Non-`grc` construction URLs get the safe-restart notice | handler unit |
+| A19 | Analysis update confirmation and Work-level copy, change note present and absent | templ unit |
+| A20 | Carry-over: matched decisions copied at publish, absorbed corrections counted, unmatched ones not copied, old run unchanged, `/jobs` "N of M" line; applies to NLP updates too, not to Source structure updates | integration |
+| A21 | Release check: every shipped unit meets the bar on the reviewed file; conditional confirmed without the "whether" exclusion before it ships | `make` target output in the PR |
+| A22 | Prepared decks, deck notices and frozen Readings' parses are unchanged | existing characterization tests |
+
+## Evidence
+
+Every figure was measured on the pinned OGA v0.2.0 files. The research branches
+are throwaway and never merged; they commit IDs and aggregates only.
+
+| Ticket | Finding | Evidence |
+|---|---|---|
+| [Research: AGDT syntax profile](https://github.com/justin-hayes/mouseion/issues/2598#issuecomment-7098250031) | Clean trees across 7 Works (251k tokens); no `_CO`/`_AP`; ellipsis 2.6% of nodes, heading 7% of printed tokens; dropping it leaves 18.6% of sentences multi-root | [`research/grc-oga-agdt-syntax-profile`](https://github.com/justin-hayes/mouseion/blob/7dfd50d55781399585334e9dbd8c8e8c6c0ff17d/doc/research/grc-oga-agdt-syntax-profile.md) |
+| [Research: AGDT-to-UD conversion cost](https://github.com/justin-hayes/mouseion/issues/2599#issuecomment-7098298122) | No usable converter; 5 distinctions merged; 82.6% exact conjunct sets; Latin arrives as both UD and AGDT | [`research/grc-agdt-ud-conversion`](https://github.com/justin-hayes/mouseion/blob/0e458333932b4a059120f29127ee6cd0ec8aca5b/doc/research/grc-agdt-ud-conversion.md) |
+| [Research: OGA parser accuracy and prior art](https://github.com/justin-hayes/mouseion/issues/2600#issuecomment-7098290790) | LAS 0.771 / UAS 0.826 published; coordination weakest; detectors need lemma, mood and relation | [`research/grc-parser-accuracy-construction-prior-art`](https://github.com/justin-hayes/mouseion/blob/6d0284e903fdb37cc8e9f2f582dfa46ad18026c6/doc/research/grc-parser-accuracy-construction-prior-art.md) |
+| [Research: grammar-reference link targets](https://github.com/justin-hayes/mouseion/issues/2601#issuecomment-7098264270) | Perseus Hopper is the 1920 edition and resolves §§1–3048; no register row for links | [`research/grc-grammar-reference-targets`](https://github.com/justin-hayes/mouseion/blob/cf2e07459642570b4b97aedc45406d839d4e3c7b/doc/research/grc-grammar-reference-targets.md) |
+| [Research: ADR 0111 and OGA-derived syntax](https://github.com/justin-hayes/mouseion/issues/2602#issuecomment-7098154703) | Analysis-resource output; permitted with ADR 0111's conditions; no new row | [`research/grc-syntax-licence-posture`](https://github.com/justin-hayes/mouseion/blob/bf1b301fe8a84d2010d5e109dd61ac8e0f091607/doc/research/grc-syntax-licence-posture.md) |
+| [Task: measure construction detection](https://github.com/justin-hayes/mouseion/issues/2607#issuecomment-7100600509) | 148 items reviewed live by Justin (144/148 agreement); purpose and δοκέω amendments | [`research/grc-construction-detection-measurement`](https://github.com/justin-hayes/mouseion/blob/15ae542a/doc/research/grc-construction-detection-measurement.md) |
+| [Task: re-measure the amended definitions](https://github.com/justin-hayes/mouseion/issues/2615#issuecomment-7102169398) | 120 random hits per construction; blind spot-check 35/36; "whether" exclusion backfires | [same branch, `db6ba186`](https://github.com/justin-hayes/mouseion/blob/db6ba186/doc/research/grc-construction-detection-remeasure.md) |
+| [Prototype: constructions in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787) | Variant C extract; page order; relation names | [`research/grc-sentence-study-constructions-prototype`](https://github.com/justin-hayes/mouseion/tree/1c3bd586/doc/research/grc-sentence-study-constructions-prototype) |
+
+**Measured precision** (re-measure; 95% Wilson interval; 120 random hits each):
 
 | Construction | Precision | Recall |
 |---|---|---|
@@ -614,37 +638,10 @@ From the re-measure: 95% Wilson interval, 120 random hits each.
 | Indirect statement | 0.94 (0.88–0.97) | 0.60 |
 | Conditional | 0.93 (0.86–0.96), with the since-dropped exclusion | 0.92 |
 | Articular infinitive | 0.92 (0.85–0.95) | 0.98 |
-| Genitive absolute | 0.91 (0.84–0.95); every false hit is a parser error | 0.74 |
+| Genitive absolute | 0.91 (0.84–0.95); every false hit a parser error | 0.74 |
 
-Subtypes:
-
-- **Clear the bar:** natural result 1.00, dative articular infinitive 0.98.
-- **Straddle it:** genitive articular infinitive 0.95, infinitive indirect
-  statement 0.95, ὅτι-ὡς 0.92, actual result 0.90.
-- **Fail:** nominative articular infinitive 0.85, accusative 0.82.
-
-The blind spot-check agreed on 35 of 36 items.
-
-**Limits.** Gold comparisons exist only for training texts (*Apology*, *Crito*,
-*Anabasis*). *Phaedo*, *Symposium*, *Meno* and *Republic* are measured only
-through the reviewed samples. Recall figures are optimistic, and AGDT
-inter-annotator agreement is 0.806.
-
-### Evidence
-
-The research branches are throwaway and never merged; they commit IDs and
-aggregates only.
-
-| Ticket | Evidence |
-|---|---|
-| [Research: AGDT syntax profile](https://github.com/justin-hayes/mouseion/issues/2598#issuecomment-7098250031) | [`research/grc-oga-agdt-syntax-profile`](https://github.com/justin-hayes/mouseion/blob/7dfd50d55781399585334e9dbd8c8e8c6c0ff17d/doc/research/grc-oga-agdt-syntax-profile.md) |
-| [Research: AGDT-to-UD conversion cost](https://github.com/justin-hayes/mouseion/issues/2599#issuecomment-7098298122) | [`research/grc-agdt-ud-conversion`](https://github.com/justin-hayes/mouseion/blob/0e458333932b4a059120f29127ee6cd0ec8aca5b/doc/research/grc-agdt-ud-conversion.md) |
-| [Research: OGA parser accuracy and prior art](https://github.com/justin-hayes/mouseion/issues/2600#issuecomment-7098290790) | [`research/grc-parser-accuracy-construction-prior-art`](https://github.com/justin-hayes/mouseion/blob/6d0284e903fdb37cc8e9f2f582dfa46ad18026c6/doc/research/grc-parser-accuracy-construction-prior-art.md) |
-| [Research: grammar-reference link targets](https://github.com/justin-hayes/mouseion/issues/2601#issuecomment-7098264270) | [`research/grc-grammar-reference-targets`](https://github.com/justin-hayes/mouseion/blob/cf2e07459642570b4b97aedc45406d839d4e3c7b/doc/research/grc-grammar-reference-targets.md) |
-| [Research: ADR 0111 and OGA-derived syntax](https://github.com/justin-hayes/mouseion/issues/2602#issuecomment-7098154703) | [`research/grc-syntax-licence-posture`](https://github.com/justin-hayes/mouseion/blob/bf1b301fe8a84d2010d5e109dd61ac8e0f091607/doc/research/grc-syntax-licence-posture.md) |
-| [Task: measure construction detection](https://github.com/justin-hayes/mouseion/issues/2607#issuecomment-7100600509) | [`research/grc-construction-detection-measurement`](https://github.com/justin-hayes/mouseion/blob/15ae542a/doc/research/grc-construction-detection-measurement.md) |
-| [Task: re-measure the amended definitions](https://github.com/justin-hayes/mouseion/issues/2615#issuecomment-7102169398) | [same branch, `db6ba186`](https://github.com/justin-hayes/mouseion/blob/db6ba186/doc/research/grc-construction-detection-remeasure.md) |
-| [Prototype: constructions in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787) | [`research/grc-sentence-study-constructions-prototype`](https://github.com/justin-hayes/mouseion/tree/1c3bd586/doc/research/grc-sentence-study-constructions-prototype) |
-
-The grillings that settled each decision are linked from the ADRs above and
-from the map's Decisions so far.
+**Limits of the evidence.** The parser's only gold comparisons are on its
+training texts (*Apology*, *Crito*, *Anabasis*), so agreement figures overstate
+accuracy there; *Phaedo*, *Symposium*, *Meno* and *Republic* are measured only
+through the reviewed samples. Recall figures are optimistic. AGDT
+inter-annotator agreement is itself 0.806.
