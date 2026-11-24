@@ -357,6 +357,25 @@ func TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTh
 		assert.Contains(t, filtered.body, `<span id="concordance-parallels-lemma">Only with <em>λόγος</em></span>`)
 		assert.NotContains(t, filtered.body, "λόγοσ")
 	})
+	t.Run("a corrected lemma with no known citation form is unfolded, never shown as its key", func(t *testing.T) {
+		reviewPath := "/reading/books/" + origin.id + "/lemma-review"
+		occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, origin.id, anchorSurface)
+		require.NoError(t, err)
+		require.Len(t, occurrences, 1)
+		confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "correct", "ἀθηναῖος", occurrences[0].ID())
+
+		page := get(query(nil))
+		require.Equal(t, http.StatusOK, page.code, page.body)
+		link := onlyWith.FindStringSubmatch(page.body)
+		require.Len(t, link, 4)
+		assert.Equal(t, "ἀθηναῖος", html.UnescapeString(link[3]))
+		assert.Contains(t, html.UnescapeString(link[2]), "Only with ἀθηναῖος")
+		assert.Equal(t, "ἀθηναῖοσ", parseURL(t, html.UnescapeString(link[1])).Get("lemma"), "the URL keeps the key")
+		assert.NotContains(t, page.body, "ἀθηναῖοσ")
+		filtered := get(query(map[string]string{"lemma": "ἀθηναῖοσ"}))
+		assert.Contains(t, filtered.body, `<span id="concordance-parallels-lemma">Only with <em>ἀθηναῖος</em></span>`)
+		assert.NotContains(t, filtered.body, "ἀθηναῖοσ")
+	})
 }
 
 func currentRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, book *constructionBook) string {

@@ -206,3 +206,19 @@ func encodeAncientGreekCodePoints(value string) []string {
 	}
 	return points
 }
+
+func TestAncientGreekDisplayFormUnfoldsAFinalSigma(t *testing.T) {
+	for key, want := range map[string]string{
+		"λόγοσ":         "λόγος",
+		"ἀθηναῖοσ":      "ἀθηναῖος",
+		"σοφόσ":         "σοφός",
+		"σώμα":          "σώμα",
+		"":              "",
+		"ὁ σοφόσ":       "ὁ σοφός",
+		"σ":             "ς",
+		"ἀνδρόσ, καλόσ": "ἀνδρός, καλός",
+	} {
+		assert.Equal(t, want, AncientGreekDisplayForm(key), key)
+	}
+	assert.Equal(t, "λόγος", AncientGreekDisplayForm("λόγος"), "an already unfolded form is unchanged")
+}

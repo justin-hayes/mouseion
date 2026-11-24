@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -97,12 +98,15 @@ func concordanceAllLemmasURL(lookup domain.ConcordanceLookup) string {
 
 // concordanceLemmaDisplay is the lemma a learner sees for a lemma key of the
 // parallels page: the citation form when the key is the origin anchor's own
-// effective lemma and a citation form is known, otherwise the key itself.
+// effective lemma and a citation form is known, otherwise the key with its
+// word-final sigma unfolded.
 func concordanceLemmaDisplay(result domain.ConcordanceResult, key string) string {
 	if key != "" && key == result.Origin.AnchorLemma && result.Origin.AnchorHeadword != "" {
 		return result.Origin.AnchorHeadword
 	}
-	return key
+	// No citation form is stored for the key (a correction stores only the key),
+	// so unfold its sigma rather than show the folded key.
+	return canonicalization.AncientGreekDisplayForm(key)
 }
 
 // concordanceOnlyWithLabel is the lemma filter's accessible name.
