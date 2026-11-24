@@ -612,6 +612,9 @@ type SentenceStudy struct {
 	// UnprintedNodes are the sentence's Unprinted syntax nodes, read only for a
 	// native_agdt run. They have no form, lemma or occurrence.
 	UnprintedNodes []UnprintedSyntaxNode
+	// Constructions are the sentence's Construction occurrences, present only
+	// when the run's marker carries the current detector version.
+	Constructions []SentenceStudyConstruction
 	// UnresolvedDecisions are stored occurrence decisions that address this
 	// sentence but cannot be attributed to exactly one persisted analyzed word.
 	// They are shown separately and are never applied to a word.
@@ -640,6 +643,18 @@ type SentenceStudyToken struct {
 	// depends on, or empty. When set, HeadOrdinal is the word's own ordinal and
 	// HeadSurface is meaningless: a reader checks this first.
 	HeadUnprintedNode string
+}
+
+// SentenceStudyConstruction is one stored Construction occurrence of a
+// sentence: identifiers and token ordinals only. The note's name, definition and
+// citation are looked up when the page renders.
+type SentenceStudyConstruction struct {
+	ConstructionID, SubtypeID string
+	// Anchor is the printed token ordinal that signals the construction.
+	Anchor int
+	// Extent holds the sorted printed token ordinals of the construction. It may
+	// be discontinuous and contains the anchor.
+	Extent []int
 }
 
 // UnprintedSyntaxNode is one stored AGDT ellipsis node of a sentence: a node
