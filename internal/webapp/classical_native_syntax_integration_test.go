@@ -56,6 +56,26 @@ func TestClassicalPreparationStoresNativeAGDTSyntax(t *testing.T) {
 		FROM book_current_analyses p JOIN analysis_runs r ON r.id = p.analysis_run_id
 		WHERE p.owner_id=$1 AND p.book_id=$2`, learner.ID, firstID).Scan(&runID, &state, &version))
 
+	t.Run("Sentence study shows Word relations read from the stored syntax", func(t *testing.T) {
+		var corpusID, unitID string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT r.corpus_id::text, s.unit_id FROM analysis_runs r
+			JOIN corpus_sentences s ON s.analysis_run_id=r.id WHERE r.owner_id=$1 AND r.id=$2 AND s.sentence_ordinal=0`,
+			learner.ID, runID).Scan(&corpusID, &unitID))
+		query := url.Values{
+			"book": {firstID}, "run": {runID}, "corpus": {corpusID}, "unit": {unitID},
+			"sentence": {"0"}, "target": {"1"},
+		}
+		response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+		body := response.Body.String()
+		assert.Contains(t, body, `<summary>Word relations</summary>`)
+		assert.NotContains(t, body, "Syntax unavailable")
+		assert.Contains(t, body, `<td>Κῦρος</td><td>subject</td><td>‹an unprinted word› (top of the sentence)</td>`)
+		assert.Contains(t, body, `<strong>ἄνδρας<span class="sr-only"> (identified target)</span></strong></td><td>describes a noun</td><td>‹an unprinted word› (top of the sentence)</td>`, "a chain of unprinted heads ending at the root")
+		assert.NotContains(t, body, `<td>;</td>`, "punctuation has no row")
+		assert.Equal(t, 1, strings.Count(body, `id="sentence-study-unprinted-note"`))
+	})
+
 	t.Run("the run records native AGDT syntax under the new interpretation version", func(t *testing.T) {
 		assert.Equal(t, "native_agdt", state)
 		assert.True(t, strings.HasPrefix(version, ancientgreek.InterpretationVersionNativeAGDT), version)
@@ -132,10 +152,11 @@ func TestClassicalPreparationStoresNativeAGDTSyntax(t *testing.T) {
 		assert.Equal(t, "Fem,Masc", morphology("παῖς")["Gender"])
 	})
 
-	t.Run("the Book still shows no syntax in Sentence study", func(t *testing.T) {
+	t.Run("Sentence study offers Word relations rather than Syntax unavailable", func(t *testing.T) {
 		var syntaxState string
 		require.NoError(t, pool.QueryRow(ctx, `SELECT syntax_state FROM analysis_runs WHERE id=$1`, runID).Scan(&syntaxState))
-		assert.True(t, sentenceStudySyntaxUnavailable(domain.SentenceStudy{SyntaxState: syntaxState}))
+		assert.Equal(t, "native_agdt", syntaxState)
+		assert.False(t, sentenceStudySyntaxUnavailable(domain.SentenceStudy{SyntaxState: syntaxState}))
 	})
 }
 

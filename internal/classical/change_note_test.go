@@ -19,3 +19,9 @@ func TestChangeNoteReturnsTheNoteOfAVersionThatHasOne(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "Adds a synthetic feature.", note)
 }
+
+func TestChangeNoteOfTheNativeSyntaxVersionNamesWordRelations(t *testing.T) {
+	note, ok := ChangeNote("oga-agdt-syntax/1")
+	assert.True(t, ok)
+	assert.Equal(t, "Adds word relations in Sentence study.", note)
+}

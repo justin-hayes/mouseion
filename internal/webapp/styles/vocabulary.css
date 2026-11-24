@@ -415,6 +415,7 @@ body.vocabulary-shell .sentence-study-key dt {
 body.vocabulary-shell #concordance-recovery,
 body.vocabulary-shell #concordance-results,
 body.vocabulary-shell .sentence-study-text,
+body.vocabulary-shell .sentence-study-relations,
 body.vocabulary-shell .sentence-study-alternative {
   max-width: var(--mouseion-width-reading);
 }
