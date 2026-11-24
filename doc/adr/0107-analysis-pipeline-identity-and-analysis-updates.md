@@ -1,6 +1,6 @@
 # ADR 0107: Analysis pipeline identity and learner-confirmed Analysis updates
 
-Status: **Accepted — implementation pending; imported-analysis exclusion amended by [ADR 0116](0116-classical-catalog.md)** · Date: 2026-10-19 · Author: Justin + OpenCode
+Status: **Accepted — implementation pending; imported-analysis exclusion amended by [ADR 0116](0116-classical-catalog.md); frozen boundaries and confirmation copy amended by [ADR 0126](0126-analysis-updates-carry-decisions-onto-identical-tokens.md)** · Date: 2026-10-19 · Author: Justin + OpenCode
 
 Decided in triage of [#2240](https://github.com/justin-hayes/mouseion/issues/2240).
 Extends the reanalysis rules of [ADR 0028](0028-explicit-scoped-analysis-lifecycle.md)
@@ -101,6 +101,10 @@ consequential-confirmation pattern, which states that:
   published analysis, which do not carry over to the new analysis, and
 - prepared decks and earlier Readings keep the evidence they froze.
 
+*(Amended by [ADR 0126](0126-analysis-updates-carry-decisions-onto-identical-tokens.md):
+the corrections and exclusions carry over wherever the word is unchanged in the
+new analysis, and the confirmation says so.)*
+
 The confirmation carries the published run and the target Analysis pipeline
 identity it offered. On confirmation, the owner/source transaction locks the
 Book's source and revalidates both. If the published analysis changed or the
@@ -112,7 +116,11 @@ sees the refreshed offer. The flow works without JavaScript.
 An Analysis update never remaps Lemma corrections or Occurrence exclusions, and
 never rewrites Reading vocabulary, Reserved or Known facts, completed history,
 current-reading snapshots, corpora or prepared decks. An active Reading keeps
-its exact evidence and preparation.
+its exact evidence and preparation. *(Amended by
+[ADR 0126](0126-analysis-updates-carry-decisions-onto-identical-tokens.md): at
+publish, Lemma corrections and Occurrence exclusions are copied onto tokens of
+the new run with the same source document, offset span, surface and source
+lemma. The earlier run keeps its own.)*
 
 ## Alternatives considered
 

@@ -473,6 +473,38 @@ status and retry patterns. No-change checks are quiet; original-unavailable and
 failed-check states must not masquerade as unchanged or promise an automatic
 repair. Source lifecycle belongs to the feature/ADR, not this component guide.
 
+### Accepted construction-extract target
+
+Status: **Accepted — implementation pending.** Promoted from the human-reviewed
+[Prototype: constructions and syntax in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787),
+variant C on the throwaway branch
+[`research/grc-sentence-study-constructions-prototype`](https://github.com/justin-hayes/mouseion/tree/1c3bd586/doc/research/grc-sentence-study-constructions-prototype).
+[Ancient Greek syntax and constructions](../features/ancient-greek-syntax-and-constructions.md#sentence-study)
+owns behavior and the full entry contents. Do not copy the prototype into
+production.
+
+A **construction extract** shows which words of a sentence belong to one
+Construction occurrence. Sentence study's Constructions list and Concordance's
+expanded construction row use the same extract, one Construction per extract.
+
+- Reprint the whole sentence. Set the Construction extent at full weight, and
+  the rest of the sentence muted and at regular weight. Underline the anchor.
+- A gap made only of punctuation counts as part of the extent. A discontinuous
+  extent needs no further notation: the non-member words between its parts stay
+  muted.
+- Never mark extents inside the main sentence with brackets, colour alone or
+  tiered rules. Nesting is stated in words ("Inside construction N").
+- The extract is `aria-hidden`. Pair it with a visually hidden "Words: …" line
+  listing the extent in textual order, with "…" between discontinuous parts.
+- A focused entry (arriving from Concordance's Study) gets a thicker accent edge
+  plus visible text "· from Concordance", and is scrolled into view; other
+  entries are not dimmed.
+- With nothing to show, render no region: no heading and no empty state.
+
+Use existing typography and semantic tones. Check 375px and 1200px, both themes,
+enlarged text, long Greek sentences without horizontal page overflow, and
+no-JavaScript operation.
+
 ### Content hierarchy
 
 - A full page has one `h1`, normally supplied by `PageHeader`.

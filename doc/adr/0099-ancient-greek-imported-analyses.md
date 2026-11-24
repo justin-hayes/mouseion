@@ -1,6 +1,6 @@
 # ADR 0099: Ancient Greek through imported analyses in the existing pipeline
 
-Status: **Accepted; straddle refusal, operator registration, To Read and legacy-row rules amended by [ADR 0116](0116-classical-catalog.md)** · Date: 2026-10-16 · Author: Justin + opencode
+Status: **Accepted; straddle refusal, operator registration, To Read and legacy-row rules amended by [ADR 0116](0116-classical-catalog.md); syntax decision amended by [ADR 0122](0122-ancient-greek-native-agdt-syntax.md)** · Date: 2026-10-16 · Author: Justin + opencode
 
 Tracked by [#2103](https://github.com/justin-hayes/mouseion/issues/2103), under
 the Ancient Greek MVP spec [#2098](https://github.com/justin-hayes/mouseion/issues/2098)
@@ -56,7 +56,13 @@ study reads both), and a native AGDT head cannot be stored faithfully in a
 therefore carries `analysis_runs.syntax_state = 'absent'` and a non-committal
 `dependency = 'dep'`, `head = 0` skeleton that satisfies the token checks.
 Greek consumers show "Syntax unavailable" from the run's syntax state, never the
-stored skeleton. Native AGDT syntax is not stored and not shown.
+stored skeleton. Native AGDT syntax is not stored and not shown. *(Amended by
+[ADR 0122](0122-ancient-greek-native-agdt-syntax.md): a run of a later
+interpretation version stores native AGDT relations and heads, with ellipsis
+nodes as unprinted syntax nodes, under `syntax_state = 'native_agdt'`. UD
+consumers still treat it as having no UD syntax, and its relations reach
+learners only through the construction layer's AGDT adapter. Runs recorded
+`absent` are unchanged.)*
 
 **The identity travels with the data, additively.** `corpus_tokens` gains a
 `lexical_discriminator` (empty for existing rows) and a citation `headword`;
@@ -89,7 +95,8 @@ submits EPUB analysis.)*
   fail closed instead.)*
 - Native AGDT syntax is deferred. A later feature that needs it can add a
   `native_agdt` syntax state and fields that are never read as UD, without
-  changing this run's state.
+  changing this run's state. *(Taken up by
+  [ADR 0122](0122-ancient-greek-native-agdt-syntax.md).)*
 - Adding *Anabasis* Book 2, another work or another source format is a new
   definition or adapter, not new pipeline code.
 - Migrations and this ADR are human-reviewed under CODEOWNERS.
