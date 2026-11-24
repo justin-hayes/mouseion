@@ -170,7 +170,7 @@ func constructionOccurrence(ctx context.Context, queries *sqlcgen.Queries, owner
 	}
 	anchor := int(row.TokenOrdinal)
 	study := domain.SentenceStudy{
-		BookID: row.BookID, BookTitle: row.BookTitle, ChapterTitle: row.ChapterTitle, SentenceText: row.SentenceText,
+		BookID: row.BookID, BookTitle: row.BookTitle, ChapterTitle: row.ChapterTitle, Citations: row.SentenceCitations, SentenceText: row.SentenceText,
 		UnitText: row.UnitText, SentenceStartOffset: row.SentenceUnitStartOffset, SentenceEndOffset: row.SentenceUnitEndOffset,
 		SentenceOrdinal: row.SentenceOrdinal, TargetOrdinal: -1, SyntaxState: syntaxStateNativeAGDT,
 		Constructions: []domain.SentenceStudyConstruction{{
@@ -190,7 +190,7 @@ func constructionOccurrence(ctx context.Context, queries *sqlcgen.Queries, owner
 			row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset,
 			row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID,
 			row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder,
-			row.SentenceOrdinal, row.TokenOrdinal,
+			row.SentenceOrdinal, row.TokenOrdinal, row.SentenceCitations,
 		),
 		EffectiveLemma: row.CanonicalLemma,
 		Tier:           row.Tier, Anchor: anchor, ConstructionExtent: extent,

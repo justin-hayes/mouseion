@@ -21,8 +21,10 @@ async function openSyntaxSentence(page: Page) {
   await page.goto('/vocabulary/concordance?term=fixture-syntax');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await row.locator('summary').click();
+  await expect(row.locator('.concordance-location')).toHaveText('1.1.1\u20132');
   await row.getByRole('link', { name: 'Study this sentence' }).click();
   await expect(page).toHaveURL(/\/vocabulary\/concordance\/sentence/);
+  await expect(page.locator('.sentence-study-location')).toHaveText('1.1.1\u20132');
 }
 
 async function expectConstructions(page: Page) {
