@@ -53,9 +53,8 @@ type Node struct {
 	Head int
 }
 
-// Tree holds one sentence's nodes: printed nodes in token order, then
-// unprinted nodes in source-id order. The stored data does not say where an
-// unprinted node sits among the printed ones.
+// Tree holds one sentence's nodes in source order, printed and unprinted
+// interleaved.
 type Tree struct {
 	Nodes []Node
 }

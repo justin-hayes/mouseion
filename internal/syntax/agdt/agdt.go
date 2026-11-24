@@ -3,7 +3,9 @@
 package agdt
 
 import (
+	"math"
 	"sort"
+	"strconv"
 
 	"github.com/justin-hayes/mouseion/internal/syntax"
 )
@@ -33,31 +35,43 @@ type UnprintedNode struct {
 	HeadUnprintedNode string
 }
 
-// Adapt builds a Tree. A dangling head reference and a head cycle both end as
-// the root, so a damaged row never fails a page.
+// Adapt builds a Tree in source order. The stored printed tokens carry no
+// source id, so it is inferred: source ids run 1..N within a sentence, the
+// unprinted nodes hold the ids they name, and the printed tokens, in ordinal
+// order, hold the remaining ids. An unprinted node therefore sits before the
+// printed token that follows it in the source. Unprinted ids compare
+// numerically, so "10" follows "9"; a non-numeric id sorts last, by text. A
+// dangling head reference and a head cycle both end as the root, so a damaged
+// row never fails a page.
 func Adapt(tokens []Token, unprinted []UnprintedNode) syntax.Tree {
 	tokens = append([]Token(nil), tokens...)
 	sort.SliceStable(tokens, func(i, j int) bool { return tokens[i].Ordinal < tokens[j].Ordinal })
 	unprinted = append([]UnprintedNode(nil), unprinted...)
 	sort.SliceStable(unprinted, func(i, j int) bool { return unprinted[i].SourceID < unprinted[j].SourceID })
 
+	entries := sourceOrder(len(tokens), unprinted)
+
 	index := headIndex{byOrdinal: make(map[int64]int, len(tokens)), bySource: make(map[string]int, len(unprinted))}
-	for i, token := range tokens {
-		index.byOrdinal[token.Ordinal] = i
-	}
-	for i, node := range unprinted {
-		index.bySource[node.SourceID] = len(tokens) + i
+	for position, e := range entries {
+		if e.printed {
+			index.byOrdinal[tokens[e.at].Ordinal] = position
+		} else {
+			index.bySource[unprinted[e.at].SourceID] = position
+		}
 	}
 
-	nodes := make([]syntax.Node, 0, len(tokens)+len(unprinted))
-	for _, token := range tokens {
-		nodes = append(nodes, syntax.Node{
-			Printed: true, Ordinal: token.Ordinal, Surface: token.Surface, Lemma: token.Lemma,
-			UPOS: token.UPOS, Morphology: token.Morphology, Relation: token.Relation,
-			Category: Category(token.Relation), Head: index.tokenHead(token),
-		})
-	}
-	for _, node := range unprinted {
+	nodes := make([]syntax.Node, 0, len(entries))
+	for _, e := range entries {
+		if e.printed {
+			token := tokens[e.at]
+			nodes = append(nodes, syntax.Node{
+				Printed: true, Ordinal: token.Ordinal, Surface: token.Surface, Lemma: token.Lemma,
+				UPOS: token.UPOS, Morphology: token.Morphology, Relation: token.Relation,
+				Category: Category(token.Relation), Head: index.tokenHead(token),
+			})
+			continue
+		}
+		node := unprinted[e.at]
 		nodes = append(nodes, syntax.Node{
 			SourceID: node.SourceID, Relation: node.Relation, Category: Category(node.Relation),
 			Head: index.resolve(node.HeadToken, node.HeadUnprintedNode),
@@ -161,4 +175,43 @@ func Category(relation string) syntax.Category {
 		return syntax.CategoryPunctuation
 	}
 	return syntax.CategoryOther
+}
+
+// entry is one node's place in source order: a printed token or an unprinted
+// node, by index into its own slice.
+type entry struct {
+	key     int64
+	printed bool
+	at      int
+	source  string
+}
+
+// sourceOrder places the printed tokens and unprinted nodes in source order by
+// their (inferred) source ids.
+func sourceOrder(printed int, unprinted []UnprintedNode) []entry {
+	taken := map[int64]bool{}
+	entries := make([]entry, 0, printed+len(unprinted))
+	for i, node := range unprinted {
+		key := int64(math.MaxInt64)
+		if id, err := strconv.ParseInt(node.SourceID, 10, 64); err == nil && id > 0 {
+			key = id
+			taken[id] = true
+		}
+		entries = append(entries, entry{key: key, at: i, source: node.SourceID})
+	}
+	next := int64(1)
+	for i := range printed {
+		for taken[next] {
+			next++
+		}
+		entries = append(entries, entry{key: next, printed: true, at: i})
+		next++
+	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		if entries[i].key != entries[j].key {
+			return entries[i].key < entries[j].key
+		}
+		return entries[i].source < entries[j].source
+	})
+	return entries
 }

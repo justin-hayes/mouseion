@@ -130,3 +130,42 @@ func TestTreeSubtreeAndPreviousPrinted(t *testing.T) {
 	assert.Equal(t, syntax.Root, tree.PreviousPrinted(0))
 	assert.Equal(t, syntax.Root, tree.PreviousPrinted(6))
 }
+
+// TestAdaptInterleavesUnprintedNodesInSourceOrder uses the shape of the stored
+// fixture: source ids 1..12 where 2, 3, 9 and 10 are unprinted, so the printed
+// tokens (ordinals 0..7) carry the ids 1, 4, 5, 6, 7, 8, 11, 12. Unprinted ids
+// compare numerically, so "10" follows "9" and "2" precedes "10".
+func TestAdaptInterleavesUnprintedNodesInSourceOrder(t *testing.T) {
+	tokens := make([]Token, 8)
+	for i := range tokens {
+		tokens[i] = Token{Ordinal: int64(i), Surface: string(rune('a' + i)), Relation: "ATR", Head: 0}
+	}
+	tree := Adapt(tokens, []UnprintedNode{
+		{SourceID: "10", Relation: "OBJ"}, {SourceID: "2", Relation: "PRED"},
+		{SourceID: "9", Relation: "OBJ", HeadUnprintedNode: "10"}, {SourceID: "3", Relation: "OBJ", HeadUnprintedNode: "2"},
+	})
+	var order []string
+	for _, node := range tree.Nodes {
+		if node.Printed {
+			order = append(order, node.Surface)
+		} else {
+			order = append(order, "e"+node.SourceID)
+		}
+	}
+	t.Run("nodes are in source order", func(t *testing.T) {
+		assert.Equal(t, []string{"a", "e2", "e3", "b", "c", "d", "e", "f", "e9", "e10", "g", "h"}, order)
+	})
+	t.Run("heads follow the reordered indexes", func(t *testing.T) {
+		assert.Equal(t, 1, tree.Nodes[2].Head, "e3 depends on e2")
+		assert.Equal(t, 9, tree.Nodes[8].Head, "e9 depends on e10")
+	})
+	t.Run("a printed token depending on an unprinted node resolves it", func(t *testing.T) {
+		withHead := Adapt([]Token{{Ordinal: 0, Surface: "a", Relation: "SBJ", Head: 0, HeadUnprintedNode: "2"}, {Ordinal: 1, Surface: "b", Relation: "PRED", Head: 1}},
+			[]UnprintedNode{{SourceID: "2", Relation: "PRED"}})
+		assert.Equal(t, 1, withHead.Nodes[0].Head)
+		assert.Equal(t, "2", withHead.Nodes[1].SourceID)
+	})
+	t.Run("PreviousPrinted skips unprinted nodes", func(t *testing.T) {
+		assert.Equal(t, 0, tree.PreviousPrinted(3))
+	})
+}
