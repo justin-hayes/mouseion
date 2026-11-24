@@ -87,10 +87,6 @@ type catalogBrowseView struct {
 	ClassicalAuthors []classical.CatalogAuthor
 	ClassicalView    classicalCatalogView
 	ClassicalTotal   int
-	// NarrowedUnits maps a Work key to the one constituent Book a trailing
-	// search number narrowed it to. The Work's reviewed totals and Add controls
-	// still use every unit.
-	NarrowedUnits    map[string]int
 	Sources          []catalogOpdsSection
 	HasClassical     bool
 	TotalResults     int
@@ -130,7 +126,7 @@ func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections [
 	view.ClearSearchURL = filter.withoutQuery().browseURL(nil)
 	view.ShowAllURL = filter.allLanguages().browseURL(nil)
 	if hasClassical && (filter.Language == "" || filter.Language == classical.Language) {
-		view.ClassicalAuthors, view.NarrowedUnits = filterClassicalCatalog(h.services.Classical.Authors(), filter.Query)
+		view.ClassicalAuthors = filterClassicalCatalog(h.services.Classical.Authors(), filter.Query)
 		view.ClassicalTotal = catalogAuthorsWorkCount(view.ClassicalAuthors)
 	}
 	sources, opdsTotal, err := h.loadCatalogOpdsSections(r, owner, connections, filter)

@@ -161,7 +161,7 @@ type CatalogAuthor struct {
 }
 
 // CatalogWork is one Work as the catalog index and work page render it. Units
-// are ordered by constituent book.
+// are ordered by key.
 type CatalogWork struct {
 	Key                  string
 	Title                string
@@ -176,7 +176,7 @@ type CatalogWork struct {
 	Units                []CatalogUnit
 }
 
-// CatalogUnit is one constituent book, or the whole work when ConstituentBook is zero.
+// CatalogUnit is one whole-work Reading unit, one per Edition.
 type CatalogUnit struct {
 	Key             string
 	ConstituentBook int
@@ -184,6 +184,9 @@ type CatalogUnit struct {
 	CitationEnd     string
 	Words           int
 	Opening         string
+	// Contents lists the constituent books of a whole-work unit whose Work
+	// names books. It is information only: none is a Reading unit.
+	Contents []ConstituentBookSpan
 }
 
 // Catalog is the read-only view of the embedded, reconciled manifest. It is
@@ -259,6 +262,7 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 			CitationEnd:   definition.CitationEnd,
 			Words:         definition.WordCount,
 			Opening:       definition.Opening,
+			Contents:      append([]ConstituentBookSpan(nil), definition.Contents...),
 		}
 		if definition.ConstituentBook != nil {
 			unit.ConstituentBook = *definition.ConstituentBook

@@ -91,7 +91,7 @@ templ CatalogResults(csrf string, browse catalogBrowseView) {
 					<h2 id="catalog-source-classical-title">Classical catalog</h2>
 					<p>{ catalogCountLabel(browse.ClassicalTotal, "work", "works") }</p>
 				</header>
-				@ClassicalCatalogIndexSections(csrf, browse.ClassicalAuthors, browse.ClassicalView, browse.NarrowedUnits)
+				@ClassicalCatalogIndexSections(csrf, browse.ClassicalAuthors, browse.ClassicalView)
 			</section>
 		}
 		for _, section := range browse.Sources {

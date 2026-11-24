@@ -7,36 +7,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFilterClassicalCatalogMatchesTitlesAuthorsAndTrailingBooks(t *testing.T) {
+func TestFilterClassicalCatalogMatchesTitlesAndAuthors(t *testing.T) {
 	catalog := catalogFixture(t)
 	authors := catalog.Authors()
 
-	byAuthor, _ := filterClassicalCatalog(authors, "HOMER")
+	byAuthor := filterClassicalCatalog(authors, "HOMER")
 	require.Len(t, byAuthor, 1)
 	assert.Equal(t, "Homer", byAuthor[0].Name)
 	assert.Len(t, byAuthor[0].Works, 1)
 	assert.Equal(t, "Iliad", byAuthor[0].Works[0].Title)
 
-	byGreekTitle, _ := filterClassicalCatalog(authors, "αναβασισ")
+	byGreekTitle := filterClassicalCatalog(authors, "αναβασισ")
 	require.Len(t, byGreekTitle, 1)
 	assert.Equal(t, "Xenophon", byGreekTitle[0].Name)
 	assert.Equal(t, "Anabasis", byGreekTitle[0].Works[0].Title)
 
-	byBook, narrowed := filterClassicalCatalog(authors, "iliad 2")
-	require.Len(t, byBook, 1)
-	require.Len(t, byBook[0].Works, 1)
-	assert.Equal(t, "Iliad", byBook[0].Works[0].Title)
-
-	noBook, _ := filterClassicalCatalog(authors, "iliad 99")
-	assert.Empty(t, noBook, "a Work without that constituent Book does not match")
-
-	all, allNarrowed := filterClassicalCatalog(authors, "")
-	assert.Equal(t, authors, all)
-	assert.Empty(t, allNarrowed)
-
-	narrowedUnits := classicalDisplayUnits(byBook[0].Works[0], narrowed["homer-iliad"])
-	require.Len(t, narrowedUnits, 1, "a trailing Book number narrows the visible Book cells")
-	assert.Equal(t, 2, narrowedUnits[0].ConstituentBook)
+	assert.Empty(t, filterClassicalCatalog(authors, "iliad 2"), "a trailing Book number is ordinary search text: a Work has no constituent Book to narrow to")
+	assert.Equal(t, authors, filterClassicalCatalog(authors, ""))
 }
 
 func TestCatalogEmptyStateChoosesOneDistinctReason(t *testing.T) {

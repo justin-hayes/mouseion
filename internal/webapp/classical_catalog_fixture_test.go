@@ -38,7 +38,7 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 
 	work := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-iliad")
 	require.Equal(t, http.StatusOK, work.Code)
-	for _, want := range []string{"Add and prepare the whole work", "Book 1", "Book 2", "Book 3"} {
+	for _, want := range []string{"Add and prepare the work"} {
 		assert.Contains(t, work.Body.String(), want)
 	}
 
