@@ -163,7 +163,7 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("a superseded run that is no longer current is rebuilt too", func(t *testing.T) {
+	t.Run("a run pinned by a prepared definition that is no longer current is rebuilt, leaving the pin unchanged", func(t *testing.T) {
 		newer := definition
 		newer.InterpretationVersion += "-next"
 		_, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
@@ -173,6 +173,16 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 		var current string
 		require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, learner.ID, registration.BookID).Scan(&current))
 		require.NotEqual(t, run, current, "the first run is now superseded")
+		_, err = pool.Exec(ctx, `
+			INSERT INTO classical_prepared_definitions(owner_id, book_id, reading_unit_key, definition_revision, source_file_sha256, interpretation_version, analysis_run_id)
+			VALUES ($1, $2, $3, 1, repeat('a', 64), 'pinned-test', $4)`, learner.ID, registration.BookID, definition.Key, run)
+		require.NoError(t, err)
+		pin := func() string {
+			var record string
+			require.NoError(t, pool.QueryRow(ctx, `SELECT t::text FROM classical_prepared_definitions t WHERE owner_id=$1 AND book_id=$2`, learner.ID, registration.BookID).Scan(&record))
+			return record
+		}
+		pinned := pin()
 		_, err = pool.Exec(ctx, `DELETE FROM construction_occurrences WHERE analysis_run_id=$1`, run)
 		require.NoError(t, err)
 		_, err = pool.Exec(ctx, `DELETE FROM construction_run_markers WHERE analysis_run_id=$1`, run)
@@ -185,8 +195,10 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 		require.NoError(t, analysis.NewService(pool, riverClient).EnqueueMissingConstructionRebuilds(ctx))
 		var queuedRuns int
 		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind='rebuild_construction_occurrences' AND args->>'run_id'=$1`, run).Scan(&queuedRuns))
-		assert.Equal(t, 1, queuedRuns, "the superseded run is queued")
+		assert.Equal(t, 1, queuedRuns, "the pinned run is queued")
 		require.NoError(t, work())
 		assert.Equal(t, before, constructionRows(t, ctx, pool, run))
+		assert.Equal(t, constructions.AGDTDetectorVersion, versionOf())
+		assert.Equal(t, pinned, pin(), "the pinning record is unchanged")
 	})
 }
