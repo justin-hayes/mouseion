@@ -217,3 +217,38 @@ func TestAnchorsAreUniqueAndOutputIsSorted(t *testing.T) {
 	assert.Equal(t, IndirectStatement, got[0].Construction)
 	assert.Equal(t, Purpose, got[1].Construction)
 }
+
+func TestUnprintedCoordinatorFailsClosed(t *testing.T) {
+	say := w{"λέγω", "PRED", -1, indic}
+	runCases(t, []detectCase{
+		{name: "purpose clause only through an unprinted COORD", id: Purpose, hit: false,
+			tree: build(w{"ἵνα", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"ἔχω", "ADV", 1, subj}, say)},
+		{name: "purpose clause through a printed COORD", id: Purpose, hit: true, anchor: 0,
+			tree: build(w{"ἵνα", "AuxC", 3, ""}, w{"καί", "COORD", 0, ""}, w{"ἔχω", "ADV", 1, subj}, say)},
+		{name: "infinitive governor only through an unprinted COORD", id: IndirectStatement, hit: false,
+			tree: build(say, w{"", "COORD", 0, ""}, w{"ἔχω", "OBJ", 1, inf})},
+		{name: "infinitive subject only through an unprinted COORD", id: IndirectStatement, hit: false,
+			tree: build(say, w{"", "COORD", 2, ""}, w{"ἔχω", "OBJ", 0, inf}, w{"ἄνθρωπος", "SBJ", 1, "Case=Nom"})},
+		{name: "ὅτι clause only through an unprinted COORD", id: IndirectStatement, hit: false,
+			tree: build(say, w{"ὅτι", "AuxC", 0, ""}, w{"", "COORD", 1, ""}, w{"ἔχω", "OBJ", 2, indic})},
+		{name: "ὅτι governor only through an unprinted COORD", id: IndirectStatement, hit: false,
+			tree: build(say, w{"", "COORD", 0, ""}, w{"ὅτι", "AuxC", 1, ""}, w{"ἔχω", "OBJ", 2, indic})},
+		{name: "conditional clause only through an unprinted COORD", id: Conditional, hit: false,
+			tree: build(w{"εἰ", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"ἔχω", "ADV", 1, indic}, say)},
+		{name: "result clause only through an unprinted COORD", id: Result, hit: false,
+			tree: build(w{"ὥστε", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"ἔχω", "ADV", 1, inf}, say)},
+		{name: "genitive subject only through an unprinted COORD", id: GenitiveAbsolute, hit: false,
+			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"", "COORD", 3, ""}, w{"δύω", "ADV", 1, "VerbForm=Part,Case=Gen"}, say)},
+		{name: "participle head only through an unprinted COORD", id: GenitiveAbsolute, hit: false,
+			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, "VerbForm=Part,Case=Gen"}, w{"", "COORD", 3, ""}, say)},
+	})
+}
+
+func TestResultKeepsAPrintedVerbOfUnknownMood(t *testing.T) {
+	runCases(t, []detectCase{
+		{name: "printed ADV verb with no mood", id: Result, hit: true, subtype: "", anchor: 0, extent: []int{0, 1},
+			tree: build(w{"ὥστε", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, "UPOS=VERB"}, w{"λέγω", "PRED", -1, indic})},
+		{name: "printed ADV verb with an unmapped mood", id: Result, hit: true, subtype: "", anchor: 0,
+			tree: build(w{"ὥστε", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, "UPOS=VERB,VerbForm=Fin"}, w{"λέγω", "PRED", -1, indic})},
+	})
+}

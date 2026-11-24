@@ -51,10 +51,11 @@ func (r reader) category(i int) syntax.Category { return r.node(i).Category }
 // them.
 func (r reader) verb(i int, moods ...string) bool {
 	form := r.feature(i, "VerbForm")
-	if form == "" {
-		return false
+	if len(moods) == 0 {
+		// A printed verb whose mood is unknown is still a verb.
+		return form != "" || (r.node(i).Printed && r.node(i).UPOS == "VERB")
 	}
-	return len(moods) == 0 || (form == "Fin" && slices.Contains(moods, r.feature(i, "Mood")))
+	return form == "Fin" && slices.Contains(moods, r.feature(i, "Mood"))
 }
 
 func (r reader) verbForm(i int, form string) bool { return r.feature(i, "VerbForm") == form }
@@ -67,15 +68,55 @@ func (r reader) extent(i int) []int {
 	return out
 }
 
-// head is the effective head (through coordination), or syntax.Root.
-func (r reader) head(i int) int { return r.t.EffectiveHead(i) }
+// head is the effective head, looking up through printed coordinators only. An
+// unprinted coordinator on the way makes the head unknown, so ok is false; a
+// node that depends on nothing returns syntax.Root with ok true.
+func (r reader) head(i int) (head int, ok bool) {
+	seen := map[int]bool{i: true}
+	head = r.node(i).Head
+	for head != syntax.Root && r.category(head) == syntax.CategoryCoordination {
+		if !r.node(head).Printed || seen[head] {
+			return syntax.Root, false
+		}
+		seen[head] = true
+		head = r.node(head).Head
+	}
+	return head, true
+}
+
+// children returns the children of i, looking down through printed
+// coordinators only: the children of an unprinted coordinator are not reached.
+// When categories are given only those are returned.
+func (r reader) children(i int, categories ...syntax.Category) []int {
+	var out []int
+	seen := map[int]bool{i: true}
+	var walk func(parent int)
+	walk = func(parent int) {
+		for _, child := range r.t.Children(parent) {
+			if seen[child] {
+				continue
+			}
+			seen[child] = true
+			switch {
+			case r.category(child) == syntax.CategoryCoordination:
+				if r.node(child).Printed {
+					walk(child)
+				}
+			case len(categories) == 0 || slices.Contains(categories, r.category(child)):
+				out = append(out, child)
+			}
+		}
+	}
+	walk(i)
+	return out
+}
 
 // clauseChildren returns the adverbial children (through coordination) that
 // are verbs, or, with unprinted allowed, unprinted nodes. moods restricts the
 // verbs to finite forms in those moods.
 func (r reader) clauseChildren(i int, unprinted bool, moods ...string) []int {
 	var out []int
-	for _, child := range r.t.EffectiveChildren(i, syntax.CategoryAdverbial) {
+	for _, child := range r.children(i, syntax.CategoryAdverbial) {
 		switch {
 		case r.node(child).Printed && r.verb(child, moods...):
 			out = append(out, child)
@@ -155,11 +196,11 @@ func detectPurpose(r reader, n int) (SubtypeID, bool) {
 // genitiveSubjects are the printed genitive subjects of a participle, directly
 // or through the coordination group it belongs to.
 func genitiveSubjects(r reader, n int) []int {
-	subjects := r.t.EffectiveChildren(n, syntax.CategorySubject)
+	subjects := r.children(n, syntax.CategorySubject)
 	seen := map[int]bool{n: true}
-	for head := r.node(n).Head; head != syntax.Root && r.category(head) == syntax.CategoryCoordination && !seen[head]; head = r.node(head).Head {
+	for head := r.node(n).Head; head != syntax.Root && r.category(head) == syntax.CategoryCoordination && r.node(head).Printed && !seen[head]; head = r.node(head).Head {
 		seen[head] = true
-		subjects = append(subjects, r.t.EffectiveChildren(head, syntax.CategorySubject)...)
+		subjects = append(subjects, r.children(head, syntax.CategorySubject)...)
 	}
 	var out []int
 	for _, subject := range subjects {
@@ -175,7 +216,8 @@ func detectGenitiveAbsolute(r reader, n int) (SubtypeID, bool) {
 		!r.verbForm(n, "Part") || r.feature(n, "Case") != "Gen" || len(genitiveSubjects(r, n)) == 0 {
 		return "", false
 	}
-	if head := r.head(n); head != syntax.Root && perceivingVerbs[r.lemma(head)] {
+	head, ok := r.head(n)
+	if !ok || (head != syntax.Root && perceivingVerbs[r.lemma(head)]) {
 		return "", false
 	}
 	return "", true
@@ -195,14 +237,20 @@ func detectIndirectStatement(r reader, n int) (SubtypeID, bool) {
 // infinitiveStatement is an infinitive OBJ or SBJ of a saying or thinking
 // verb, with every subject (or none) in the accusative.
 func infinitiveStatement(r reader, n int) (SubtypeID, bool) {
-	head := r.head(n)
-	if head == syntax.Root || !infinitiveVerbs[r.lemma(head)] {
+	head, ok := r.head(n)
+	if !ok || head == syntax.Root || !infinitiveVerbs[r.lemma(head)] {
 		return "", false
 	}
 	if futureOnlyVerbs[r.lemma(head)] && (r.feature(n, "Tense") != "Fut" || r.feature(n, "Aspect") == "Perf") {
 		return "", false
 	}
-	for _, subject := range r.t.EffectiveChildren(n, syntax.CategorySubject) {
+	// A subject behind an unprinted coordinator cannot be checked.
+	for _, child := range r.t.Children(n) {
+		if r.category(child) == syntax.CategoryCoordination && !r.node(child).Printed {
+			return "", false
+		}
+	}
+	for _, subject := range r.children(n, syntax.CategorySubject) {
 		if r.feature(subject, "Case") != "Acc" {
 			return "", false
 		}
@@ -216,11 +264,11 @@ func hotiHosStatement(r reader, n int) (SubtypeID, bool) {
 	if !r.isConjunction(n, "ὅτι", "ὡς") {
 		return "", false
 	}
-	head := r.head(n)
-	if head == syntax.Root || !hotiHosVerbs[r.lemma(head)] {
+	head, ok := r.head(n)
+	if !ok || head == syntax.Root || !hotiHosVerbs[r.lemma(head)] {
 		return "", false
 	}
-	for _, child := range r.t.EffectiveChildren(n, syntax.CategoryObject, syntax.CategorySubject) {
+	for _, child := range r.children(n, syntax.CategoryObject, syntax.CategorySubject) {
 		if r.verb(child, "Ind", "Sub", "Opt") {
 			return SubtypeHotiHos, true
 		}

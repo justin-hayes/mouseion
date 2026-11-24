@@ -82,3 +82,18 @@
 1	τὸ	ὁ	l	l-s---nn-	_	3	ATR	_	t_12_1|0|ref=Xen. Anab._1.1.12
 2	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_12_2|0|ref=Xen. Anab._1.1.12
 3	λέγειν	λέγω1	v	v--pna---	_	2	SBJ	_	t_12_3|0|ref=Xen. Anab._1.1.12
+
+# source = Xenophon, Xen. Anab._1.1.13
+# text = ἔχει ὥστε λέγει
+# sent_id = 13
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_13_1|0|ref=Xen. Anab._1.1.13
+2	ὥστε	ὥστε	c	c--------	_	1	AuxC	_	t_13_2|0|ref=Xen. Anab._1.1.13
+3	λέγει	λέγω1	v	v3sp-a---	_	2	ADV	_	t_13_3|0|ref=Xen. Anab._1.1.13
+
+# source = Xenophon, Xen. Anab._1.1.14
+# text = ἔχει ἵνα λέγῃ
+# sent_id = 14
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_14_1|0|ref=Xen. Anab._1.1.14
+2	ἵνα	ἵνα	c	c--------	_	1	AuxC	_	t_14_2|0|ref=Xen. Anab._1.1.14
+3	[0]	[0]	-	---------	_	2	COORD	_	e_14_3|0|ref=Xen. Anab._1.1.14
+4	λέγῃ	λέγω1	v	v3sasa---	_	3	ADV	_	t_14_4|0|ref=Xen. Anab._1.1.14
