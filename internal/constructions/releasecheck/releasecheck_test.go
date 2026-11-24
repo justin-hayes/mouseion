@@ -209,7 +209,7 @@ func TestCommittedCountFiles(t *testing.T) {
 	require.NoError(t, err)
 	base, err := ParseBaseline(bytes.NewReader(baseline))
 	require.NoError(t, err)
-	assert.Equal(t, constructions.AGDTDetectorVersion, base.DetectorVersion)
+	assert.LessOrEqual(t, base.DetectorVersion, constructions.AGDTDetectorVersion, "the baseline is retained from an earlier version until a reviewed re-baseline")
 	assert.Len(t, base.Hits, len(constructions.All))
 }
 
@@ -322,6 +322,7 @@ func syntheticInput() Input {
 	add("one", StratumHit, "", "x", 60, 60)
 	add("one", StratumHit, "", "y", 60, 50)
 	add("one", StratumHitTopup, "", "x", 30, 30)
+	add("one", StratumHit, "", "", 4, 3)
 	add("two", StratumHit, "", "", 120, 111)
 	add("two", StratumExcluded, "whether head", "", 40, 24)
 	return Input{
@@ -330,10 +331,14 @@ func syntheticInput() Input {
 			{"one", StratumHit, "", ""}: 500, {"two", StratumHit, "", ""}: 1766,
 			{"two", StratumExcluded, "whether head", ""}: 73,
 		},
-		Baseline:      Baseline{DetectorVersion: 1, Hits: map[string]int{"one": 100, "two": 100}},
-		Detected:      Detected{Emitted: emitted, Hits: map[string]int{"one": 100, "two": 100}},
-		Gate:          fakeGate{constructions: map[string]bool{"one": true}, labels: map[[2]string]bool{{"one", "x"}: true, {"one", "y"}: true}},
-		Constructions: []string{"one", "two"},
+		Baseline: Baseline{DetectorVersion: 1, Hits: map[string]int{"one": 100, "two": 100}},
+		Detected: Detected{
+			Emitted: emitted, Hits: map[string]int{"one": 100, "two": 100},
+			Subtypes: map[string]map[string]int{"one": {"x": 40, "y": 50, "": 10}},
+		},
+		DetectorVersion: 2,
+		Gate:            fakeGate{constructions: map[string]bool{"one": true}, labels: map[[2]string]bool{{"one", "x"}: true, {"one", "y"}: true}},
+		Constructions:   []string{"one", "two"},
 	}
 }
 
@@ -353,8 +358,8 @@ func TestEvaluateComputesPerStratumPrecisionAndVerdicts(t *testing.T) {
 	t.Run("a single stratum uses Wilson", func(t *testing.T) {
 		one := lineOf(report, "one", "")
 		assert.Equal(t, "hit", one.Strata)
-		assert.Equal(t, 120, one.Judged)
-		assert.InDelta(t, 0.917, one.Precision, 0.001)
+		assert.Equal(t, 124, one.Judged, "the unlabelled hit rows are hit rows too")
+		assert.InDelta(t, 113.0/124, one.Precision, 0.001)
 		assert.True(t, one.Clears)
 		assert.Equal(t, "shipped", one.Verdict())
 	})
@@ -378,8 +383,25 @@ func TestEvaluateComputesPerStratumPrecisionAndVerdicts(t *testing.T) {
 		require.Len(t, report.Failures, 1)
 		assert.Contains(t, report.Failures[0], "(a) one/y is shipped below the bar")
 	})
-	t.Run("the notes count the rows", func(t *testing.T) {
-		assert.Contains(t, strings.Join(report.Notes, "\n"), "judgment rows: 310")
+	t.Run("a subtype line carries the current Go subtype count", func(t *testing.T) {
+		assert.Equal(t, 40, lineOf(report, "one", "x").GoHits)
+		assert.Equal(t, 50, lineOf(report, "one", "y").GoHits)
+	})
+	t.Run("the unlabelled row is counted but never gated", func(t *testing.T) {
+		none := lineOf(report, "one", "none")
+		assert.Equal(t, 4, none.Judged)
+		assert.InDelta(t, 0.75, none.Precision, 0.001)
+		assert.Equal(t, 10, none.GoHits)
+		assert.Equal(t, "unlabelled (not gated)", none.Verdict())
+		assert.NotContains(t, strings.Join(report.Failures, "\n"), "one/none")
+	})
+	t.Run("a construction without labelled subtypes has no unlabelled row", func(t *testing.T) {
+		assert.Equal(t, Line{}, lineOf(report, "two", "none"))
+	})
+	t.Run("the notes count the rows and name both versions", func(t *testing.T) {
+		notes := strings.Join(report.Notes, "\n")
+		assert.Contains(t, notes, "judgment rows: 314")
+		assert.Contains(t, notes, "detector baseline version: 1; current version: 2")
 	})
 }
 

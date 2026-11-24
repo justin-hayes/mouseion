@@ -14,17 +14,17 @@ func conditionalTree() []Occurrence {
 func TestShippingGate(t *testing.T) {
 	tree := build(w{"εἰ", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, indic}, w{"λέγω", "PRED", -1, indic})
 
-	t.Run("conditional is off while the gate holds it off", func(t *testing.T) {
+	t.Run("conditional ships since the release check cleared it", func(t *testing.T) {
 		_, ok := has(Detect(tree), Conditional)
-		assert.False(t, ok)
-	})
-	t.Run("flipping the gate enables it", func(t *testing.T) {
-		_, ok := has(DetectWith(tree, ShippingGate.WithConstruction(Conditional, true)), Conditional)
 		assert.True(t, ok)
 	})
+	t.Run("switching the gate off removes it", func(t *testing.T) {
+		_, ok := has(DetectWith(tree, ShippingGate.WithConstruction(Conditional, false)), Conditional)
+		assert.False(t, ok)
+	})
 	t.Run("the shipping gate is not changed by the copy", func(t *testing.T) {
-		_ = ShippingGate.WithConstruction(Conditional, true)
-		assert.Empty(t, conditionalTree())
+		_ = ShippingGate.WithConstruction(Conditional, false)
+		assert.NotEmpty(t, conditionalTree())
 	})
 	t.Run("ungated detection ignores the gate", func(t *testing.T) {
 		_, ok := has(DetectUngated(tree), Conditional)

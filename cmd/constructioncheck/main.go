@@ -91,6 +91,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	report, err := releasecheck.Evaluate(releasecheck.Input{
 		Judgments: judgments, ResearchCount: counts, Baseline: base, Detected: detected,
 		Gate: gateAdapter{constructions.ShippingGate}, Constructions: order,
+		DetectorVersion: constructions.AGDTDetectorVersion,
 	})
 	if err != nil {
 		return err

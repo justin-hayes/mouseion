@@ -58,7 +58,7 @@ func (r Report) Print(w io.Writer) error {
 		rows = append(rows, []string{
 			l.Construction, orDash(l.Subtype), orDash(l.Strata), strconv.Itoa(l.Judged), number(l.Precision),
 			number(l.Lower) + "–" + number(l.Upper), number(l.EmittedOnly), strconv.Itoa(l.NotEmitted),
-			hitCount(l.Subtype == "", l.GoHits), hitCount(true, l.ResearchHits), l.Verdict(),
+			strconv.Itoa(l.GoHits), hitCount(!l.Unlabelled, l.ResearchHits), l.Verdict(),
 		})
 	}
 	var b strings.Builder

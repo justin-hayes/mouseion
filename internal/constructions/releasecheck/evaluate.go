@@ -20,6 +20,9 @@ type Detected struct {
 	Emitted map[Key]string
 	// Hits counts occurrences per construction.
 	Hits map[string]int
+	// Subtypes counts occurrences per construction and subtype; the empty
+	// subtype is the unlabelled count.
+	Subtypes map[string]map[string]int
 }
 
 // Input is everything Evaluate reads.
@@ -31,6 +34,8 @@ type Input struct {
 	Gate          Gate
 	// Constructions lists the construction ids in print order.
 	Constructions []string
+	// DetectorVersion is the version of the code under check.
+	DetectorVersion int
 }
 
 // Line is one row of the precision table.
@@ -50,11 +55,16 @@ type Line struct {
 	// corpus count (subtype lines carry the research count only).
 	GoHits, ResearchHits int
 	Shipped, Clears      bool
+	// Unlabelled marks the row of occurrences the detector leaves without a
+	// subtype; it measures construction correctness and is never gated.
+	Unlabelled bool
 }
 
 // Verdict is the table's last column.
 func (l Line) Verdict() string {
 	switch {
+	case l.Unlabelled:
+		return "unlabelled (not gated)"
 	case l.Shipped && l.Clears:
 		return "shipped"
 	case l.Shipped:
@@ -129,7 +139,7 @@ func constructionLines(in Input, id string) ([]Line, error) {
 		case StratumHit, StratumExcluded:
 			groups[stratumKey{j.Stratum, j.StratumDetail}] = append(groups[stratumKey{j.Stratum, j.StratumDetail}], j)
 		}
-		if (j.Stratum == StratumHit || j.Stratum == StratumHitTopup) && j.Subtype != "" {
+		if j.Stratum == StratumHit || j.Stratum == StratumHitTopup {
 			subtypes[j.Subtype] = append(subtypes[j.Subtype], j)
 		}
 	}
@@ -137,16 +147,27 @@ func constructionLines(in Input, id string) ([]Line, error) {
 	if err != nil {
 		return nil, err
 	}
-	lines := []Line{main}
+	return append([]Line{main}, subtypeLines(in, id, subtypes)...), nil
+}
+
+// subtypeLines builds one line per labelled subtype, then the unlabelled row
+// when the construction has labelled subtypes at all.
+func subtypeLines(in Input, id string, subtypes map[string][]Judgment) []Line {
 	names := make([]string, 0, len(subtypes))
 	for name := range subtypes {
-		names = append(names, name)
+		if name != "" {
+			names = append(names, name)
+		}
 	}
 	sort.Strings(names)
+	var lines []Line
 	for _, name := range names {
 		lines = append(lines, subtypeLine(in, id, name, subtypes[name]))
 	}
-	return lines, nil
+	if none := subtypes[""]; len(none) > 0 && len(names) > 0 {
+		lines = append(lines, unlabelledLine(in, id, none))
+	}
+	return lines
 }
 
 func constructionLine(in Input, id string, groups map[stratumKey][]Judgment) (Line, error) {
@@ -252,7 +273,7 @@ func estimate(strata []Stratum) (p, lo, hi float64) {
 func subtypeLine(in Input, id, subtype string, rows []Judgment) Line {
 	line := Line{
 		Construction: id, Subtype: subtype, Strata: "hit+hit-topup", Judged: len(rows),
-		Shipped:      in.Gate.ShipsLabel(id, subtype),
+		Shipped: in.Gate.ShipsLabel(id, subtype), GoHits: in.Detected.Subtypes[id][subtype],
 		ResearchHits: in.ResearchCount[CountKey{id, StratumHit, "", subtype}],
 	}
 	k, kEmitted, nEmitted := 0, 0, 0
@@ -273,6 +294,32 @@ func subtypeLine(in Input, id, subtype string, rows []Judgment) Line {
 	line.Precision, line.Lower, line.Upper = Wilson(k, len(rows))
 	line.EmittedOnly, _, _ = Wilson(kEmitted, nEmitted)
 	line.Clears = Clears(line.Precision, line.Lower, len(rows), MinJudgedSubtype)
+	return line
+}
+
+// unlabelledLine measures the occurrences the detector leaves without a
+// subtype (result "none"): an item is correct when it is a true occurrence.
+func unlabelledLine(in Input, id string, rows []Judgment) Line {
+	line := Line{
+		Construction: id, Subtype: "none", Strata: "hit+hit-topup", Judged: len(rows), Unlabelled: true,
+		GoHits: in.Detected.Subtypes[id][""],
+	}
+	k, kEmitted, nEmitted := 0, 0, 0
+	for _, j := range rows {
+		if j.Judgment {
+			k++
+		}
+		if isEmitted(in, j) {
+			nEmitted++
+			if j.Judgment {
+				kEmitted++
+			}
+		} else {
+			line.NotEmitted++
+		}
+	}
+	line.Precision, line.Lower, line.Upper = Wilson(k, len(rows))
+	line.EmittedOnly, _, _ = Wilson(kEmitted, nEmitted)
 	return line
 }
 
@@ -355,6 +402,6 @@ func notes(in Input) []string {
 		fmt.Sprintf("earlier sample (#2607-only rows, flip check only): %d", earlier),
 		fmt.Sprintf("not counted (abstain rows): %d", abstain),
 		fmt.Sprintf("baseline-emitted rows no longer emitted: %d", notEmitted),
-		fmt.Sprintf("detector baseline version: %d", in.Baseline.DetectorVersion))
+		fmt.Sprintf("detector baseline version: %d; current version: %d", in.Baseline.DetectorVersion, in.DetectorVersion))
 	return out
 }

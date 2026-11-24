@@ -46,7 +46,7 @@ func WorkOf(fileName string) string {
 // DetectCorpus runs the ungated detectors over every pinned file the manifest
 // names (deduplicated by file name) and returns the emitted occurrences.
 func DetectCorpus(ctx context.Context, definitions []classical.Definition, fetcher Fetcher) (Detected, error) {
-	detected := Detected{Emitted: map[Key]string{}, Hits: map[string]int{}}
+	detected := Detected{Emitted: map[Key]string{}, Hits: map[string]int{}, Subtypes: map[string]map[string]int{}}
 	files := map[string][]classical.Definition{}
 	var order []string
 	for _, definition := range definitions {
@@ -96,6 +96,10 @@ func detectUnit(parsed *ancientgreek.ParsedWork, definition classical.Definition
 			key := Key{work, source.SentID, source.TokenRefs[occurrence.Anchor], string(occurrence.Construction)}
 			detected.Emitted[key] = string(occurrence.Subtype)
 			detected.Hits[key.Construction]++
+			if detected.Subtypes[key.Construction] == nil {
+				detected.Subtypes[key.Construction] = map[string]int{}
+			}
+			detected.Subtypes[key.Construction][string(occurrence.Subtype)]++
 		}
 	}
 	return nil

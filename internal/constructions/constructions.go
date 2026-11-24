@@ -16,7 +16,7 @@ import (
 // scheme. It covers the adapter's normalisation, the six detectors, the verb
 // lists and the shipping gate, and is bumped by hand: the golden test fails
 // when the output changes while the recorded version equals this one.
-const AGDTDetectorVersion = 1
+const AGDTDetectorVersion = 2
 
 // ID is a stable construction key.
 type ID string
@@ -72,11 +72,11 @@ type labelKey struct {
 	subtype      SubtypeID
 }
 
-// ShippingGate is the compiled gate. Conditional stays off until the release
-// check (#2622) confirms it; only four subtype labels clear their bar.
+// ShippingGate is the compiled gate. Conditional ships since the release
+// check (#2622) cleared it at 0.912; only four subtype labels clear their bar.
 var ShippingGate = Gate{
 	constructions: map[ID]bool{
-		ArticularInfinitive: true, Result: true, Purpose: true,
+		Conditional: true, ArticularInfinitive: true, Result: true, Purpose: true,
 		GenitiveAbsolute: true, IndirectStatement: true,
 	},
 	labels: map[labelKey]bool{

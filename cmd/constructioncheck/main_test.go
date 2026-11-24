@@ -30,7 +30,8 @@ func TestSourceURLJoinsTheLayerBaseAndFileName(t *testing.T) {
 
 func TestGateAdapterReadsTheShippingGate(t *testing.T) {
 	gate := gateAdapter{constructions.ShippingGate}
-	assert.False(t, gate.Ships(string(constructions.Conditional)))
+	assert.True(t, gate.Ships(string(constructions.Conditional)))
+	assert.False(t, gate.Ships("unknown"))
 	assert.True(t, gate.Ships(string(constructions.Purpose)))
 	assert.True(t, gate.ShipsLabel(string(constructions.Result), string(constructions.SubtypeNatural)))
 	assert.False(t, gate.ShipsLabel(string(constructions.Result), string(constructions.SubtypeActual)))
