@@ -159,6 +159,10 @@ type ImportWriteRequest struct {
 	AnalyzerName    string
 	AnalyzerVersion string
 	ConfigIdentity  string
+	// RiverJobID is the River job publishing this import, or zero when none
+	// is. It is recorded with the carried-over decisions in the publishing
+	// transaction so /jobs can name the job that published the run.
+	RiverJobID int64
 }
 
 // ImportWriteResult reports the run the writer used.

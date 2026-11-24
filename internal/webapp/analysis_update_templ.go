@@ -190,20 +190,20 @@ func WorkAnalysisUpdateNotice(update workAnalysisUpdate, csrf, returnTo, buttonC
 							return templ_7745c5c3_Err
 						}
 					}
-					if losses := update.Losses(); len(losses) > 0 {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<ul class=\"analysis-update__losses\">")
+					if decisions := update.Decisions(); len(decisions) > 0 {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<ul class=\"analysis-update__decisions\">")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						for _, loss := range losses {
+						for _, decision := range decisions {
 							templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<li>")
 							if templ_7745c5c3_Err != nil {
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var12 string
-							templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(loss.BookLabel)
+							templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(decision.BookLabel)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/analysis_update.templ`, Line: 32, Col: 29}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/analysis_update.templ`, Line: 32, Col: 33}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 							if templ_7745c5c3_Err != nil {
@@ -214,9 +214,9 @@ func WorkAnalysisUpdateNotice(update workAnalysisUpdate, csrf, returnTo, buttonC
 								return templ_7745c5c3_Err
 							}
 							var templ_7745c5c3_Var13 string
-							templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(loss.Text)
+							templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(decision.Text)
 							if templ_7745c5c3_Err != nil {
-								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/analysis_update.templ`, Line: 32, Col: 44}
+								return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/analysis_update.templ`, Line: 32, Col: 52}
 							}
 							_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 							if templ_7745c5c3_Err != nil {

@@ -787,9 +787,19 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	t.Run("learner state and frozen decks survive", func(t *testing.T) {
 		var corrections, exclusions, known, completed int
 		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE NOT excluded), count(*) FILTER (WHERE excluded)
-			FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&corrections, &exclusions))
-		require.Equal(t, 1, corrections)
+			FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, seed.ownerID, seed.bookID, seed.runID).Scan(&corrections, &exclusions))
+		require.Equal(t, 1, corrections, "the earlier analysis keeps its own decisions")
 		require.Equal(t, 1, exclusions)
+		var newRun string
+		require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&newRun))
+		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE NOT excluded), count(*) FILTER (WHERE excluded)
+			FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, seed.ownerID, seed.bookID, newRun).Scan(&corrections, &exclusions))
+		require.Zero(t, corrections, "the new token already has the corrected lemma, so the correction is absorbed, not copied")
+		require.Equal(t, 1, exclusions, "the identical token carries the exclusion")
+		var carried, total int
+		require.NoError(t, pool.QueryRow(ctx, `SELECT carried, total FROM analysis_decision_carry_overs WHERE owner_id=$1 AND analysis_run_id=$2`, seed.ownerID, newRun).Scan(&carried, &total))
+		require.Equal(t, 2, carried)
+		require.Equal(t, 2, total)
 		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM known_vocabulary WHERE owner_id=$1`, seed.ownerID).Scan(&known))
 		require.Equal(t, 1, known)
 		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&completed))

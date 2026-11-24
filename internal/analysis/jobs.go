@@ -1881,7 +1881,7 @@ func (w *Worker) publishCompletedRun(ctx context.Context, a JobArgs, riverJobID 
 		}
 		return tx.Commit(ctx)
 	}
-	if err := publishEligibleAnalysis(ctx, tx, a, bookID); err != nil {
+	if err := publishEligibleAnalysis(ctx, tx, a, bookID, 0); err != nil {
 		return err
 	}
 	if err = completePublicationAttempt(ctx, tx, a.RunID, riverJobID); err != nil {
@@ -1921,7 +1921,7 @@ func lockPublicationBook(ctx context.Context, tx pgx.Tx, a JobArgs) (string, boo
 
 // publishEligibleAnalysis promotes the completed run to the Book's current
 // analysis, with its Browse projection, when no newer run superseded it.
-func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID string) error {
+func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID string, riverJobID int64) error {
 	var eligible bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1
@@ -1940,6 +1940,9 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 	var corpusID string
 	if err := tx.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, a.OwnerID, a.RunID).Scan(&corpusID); err != nil {
 		return fmt.Errorf("load completed corpus for Browse projection: %w", err)
+	}
+	if err := carryDecisionsOntoIdenticalTokens(ctx, tx, a.OwnerID, bookID, a.RunID, corpusID, riverJobID); err != nil {
+		return err
 	}
 	if err := persistence.BuildVocabularyBrowseCountsTx(ctx, tx, a.OwnerID, bookID, a.SourceMaterialID, a.RunID, corpusID, a.Language); err != nil {
 		return fmt.Errorf("build Browse projection for analysis publication: %w", err)

@@ -32,7 +32,8 @@ func (t AnalysisUpdateTarget) Key() string {
 // AnalysisUpdateCandidate is a Book's published analysis whose Analysis
 // pipeline identity differs from the current one. It records what the
 // confirmation must disclose: the confirmed Lemma corrections and Occurrence
-// exclusions on the published analysis, which do not carry over.
+// exclusions on the published analysis, which carry over to the new analysis
+// wherever the word is unchanged (ADR 0126).
 type AnalysisUpdateCandidate struct {
 	PublishedRunID       string
 	Target               AnalysisUpdateTarget

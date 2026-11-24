@@ -342,6 +342,50 @@ VALUES($1,$2,$3,'de','wort','NOUN',1,'[]'::jsonb,'[]'::jsonb,'{}'::jsonb)`, h.ow
 	assert.NotEqual(t, candidate.SnapshotID, currentSnapshot(t, ctx, h.pool, h.owner.ID, source.ID))
 }
 
+func TestSourceStructureUpdateCarriesNoDecisionsOntoThePublishedRun(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	update := newAnalysisUpdateHarness(t, ctx, "structure-no-carry")
+	h := structureAdoptionHarness{store: update.store, pool: update.store.Pool(), service: update.service, owner: domain.User{ID: update.owner}}
+	data := testutil.ZipDirectory(t, filepath.Join("..", "epub", "testfixtures", "faust-excerpt"))
+	source, book := h.putV1BookSource(t, ctx, "no-carry-faust", data, data)
+	require.NoError(t, h.store.SetBookDisposition(ctx, h.owner.ID, book.ID, domain.BookDispositionToRead))
+	first, err := h.service.SubmitToReadBookAnalysis(ctx, h.owner.ID, book.ID, source.ID)
+	require.NoError(t, err)
+	status, err := h.service.Wait(ctx, h.owner.ID, first.ID)
+	require.NoError(t, err)
+	require.Equal(t, rivertype.JobStateCompleted, status.State)
+	require.Equal(t, first.RunID, update.publishedRun(t, ctx, book.ID))
+
+	// The decision sits on a token the next run will hold again, identical in
+	// span, surface and source lemma. Only the structure update stops it.
+	var corpusID, documentID string
+	var start, end int
+	require.NoError(t, h.pool.QueryRow(ctx, `SELECT r.corpus_id::text, s.unit_id, t.start_offset, t.end_offset FROM analysis_runs r
+		JOIN corpus_sentences s ON s.owner_id=r.owner_id AND s.analysis_run_id=r.id
+		JOIN corpus_tokens t ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id AND t.sentence_ordinal=s.sentence_ordinal
+		WHERE r.owner_id=$1 AND r.id=$2 ORDER BY s.sentence_ordinal, t.token_ordinal LIMIT 1`, h.owner.ID, first.RunID).Scan(&corpusID, &documentID, &start, &end))
+	_, err = h.pool.Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version)
+		VALUES($1,$2,$3,$4,$5,$6,$7,'andere','casefold','1')`, h.owner.ID, book.ID, corpusID, first.RunID, documentID, start, end)
+	require.NoError(t, err)
+
+	h.check(t, ctx, source)
+	candidate := h.candidate(t, ctx, source)
+	adopted, err := h.service.SubmitSourceStructureUpdate(ctx, h.owner.ID, book.ID, source.ID, candidate.Expectation())
+	require.NoError(t, err)
+	require.NotEqual(t, first.RunID, adopted.RunID)
+	status, err = h.service.Wait(ctx, h.owner.ID, adopted.ID)
+	require.NoError(t, err)
+	require.Equal(t, rivertype.JobStateCompleted, status.State)
+	require.Eventually(t, func() bool { return update.publishedRun(t, ctx, book.ID) == adopted.RunID }, 10*time.Second, 25*time.Millisecond)
+
+	var onNewRun, carryOvers int
+	require.NoError(t, h.pool.QueryRow(ctx, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND analysis_run_id=$2`, h.owner.ID, adopted.RunID).Scan(&onNewRun))
+	require.NoError(t, h.pool.QueryRow(ctx, `SELECT count(*) FROM analysis_decision_carry_overs WHERE owner_id=$1`, h.owner.ID).Scan(&carryOvers))
+	assert.Zero(t, onNewRun, "a Source structure update copies no decision")
+	assert.Zero(t, carryOvers, "and records no carry-over")
+}
+
 func TestSourceStructureUpdateRejectsUncheckedOrMismatchedOffers(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

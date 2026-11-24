@@ -93,15 +93,17 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	// Browse updates in the same transaction: the corrected homograph's old
 	// discriminated identity is gone and the new bare λύω identity appears,
 	// while every other identity keeps its exact count.
-	assert.Equal(t, map[string]int64{
+	decided := map[string]int64{
 		"λύω|VERB|":             1,
 		"λέγω|VERB|":            1,
 		"λόγοσ|NOUN|":           1,
 		"λόγοσ|NOUN|morpheus:1": 1,
-	}, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID))
+	}
+	assert.Equal(t, decided, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID))
 
 	// Re-importing the same pin under a new interpretation version is a new
-	// analysis run; none of the earlier decisions apply to it.
+	// analysis run. Its tokens are identical, so both decisions carry onto it
+	// (ADR 0126).
 	definition, sourcePath := browseFixtureImport(t)
 	definition.InterpretationVersion = "oga-agdt-upos/6"
 	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
@@ -118,10 +120,10 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 		corrections = append(corrections, occurrence.CorrectedLemma)
 		exclusions = append(exclusions, occurrence.Excluded)
 	}
-	assert.Equal(t, []string{"", ""}, corrections, "a new analysis run carries no correction from the old run")
-	assert.Equal(t, []bool{false, false}, exclusions, "a new analysis run carries no exclusion from the old run")
-	assert.Equal(t, initial, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID),
-		"the new run's projection holds no decision from the old run")
+	assert.Equal(t, []string{"λύω", ""}, corrections, "the correction carries onto the identical token")
+	assert.Equal(t, []bool{false, true}, exclusions, "and so does the exclusion")
+	assert.Equal(t, decided, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID),
+		"the new run's projection already reflects the carried decisions")
 }
 
 // confirmLemmaDecision previews and confirms one decision through the review

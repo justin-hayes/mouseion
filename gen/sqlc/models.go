@@ -10,6 +10,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AnalysisDecisionCarryOver struct {
+	OwnerID               string
+	BookID                string
+	AnalysisRunID         string
+	PreviousAnalysisRunID string
+	RiverJobID            pgtype.Int8
+	Carried               int
+	Total                 int
+	CreatedAt             time.Time
+}
+
 type AnalysisJob struct {
 	RiverJobID       int64
 	OwnerID          string
