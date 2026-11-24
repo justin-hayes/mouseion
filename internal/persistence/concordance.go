@@ -61,6 +61,9 @@ func (s *PostgresStore) ListVocabularyConcordance(ctx context.Context, owner, la
 			errResult = errors.Join(errResult, err)
 		}
 	}()
+	if lookup.Match == domain.ConcordanceMatchConstruction {
+		return s.listConstructionConcordance(ctx, tx, owner, language, lookup)
+	}
 	revision, err := concordanceRevision(ctx, tx, owner, language)
 	if err != nil {
 		return domain.ConcordanceResult{}, err
@@ -369,7 +372,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 		return domain.SentenceStudy{}, pgx.ErrNoRows
 	}
 	first := rows[0]
-	study := domain.SentenceStudy{BookID: first.BookID, BookTitle: first.BookTitle,
+	study := domain.SentenceStudy{AnalysisRunID: run, BookID: first.BookID, BookTitle: first.BookTitle,
 		ChapterTitle: first.ChapterTitle, SentenceText: first.SentenceText,
 		UnitText:            first.UnitText,
 		SentenceStartOffset: first.SentenceStartOffset,

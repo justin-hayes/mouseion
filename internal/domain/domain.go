@@ -505,7 +505,29 @@ type ConcordanceOccurrence struct {
 const (
 	ConcordanceMatchLemma = "lemma"
 	ConcordanceMatchForm  = "form"
+	// ConcordanceMatchConstruction lists other occurrences of one Ancient Greek
+	// construction (ADR 0125). Its term is the construction id.
+	ConcordanceMatchConstruction = "construction"
 )
+
+// ConcordanceConstructionLanguage is the one study language whose analysis has a
+// construction scheme (ADR 0125). Any other language gets no parallels.
+const ConcordanceConstructionLanguage = "grc"
+
+// Concordance construction tiers, in the order a parallels page lists them.
+const (
+	ConcordanceTierThisBook     = "this_book"
+	ConcordanceTierThisAuthor   = "this_author"
+	ConcordanceTierOtherAuthors = "other_authors"
+)
+
+// ConcordanceConstructionOrigin is the Construction occurrence a parallels
+// lookup came from: the origin sentence and anchor of one analysis run. It
+// supplies the origin Book, Work and author, and is left out of the results.
+type ConcordanceConstructionOrigin struct {
+	RunID            string
+	Sentence, Anchor int
+}
 
 // ConcordanceLookup describes one learner-facing lookup of a single literal
 // lemma or word form across the eligible analyzed corpus.
@@ -528,6 +550,11 @@ type ConcordanceLookup struct {
 	Priority string
 	Page     int
 	Revision string
+	// Subtype restricts a construction lookup to one shipped subtype label.
+	Subtype string
+	// Origin is the occurrence a construction lookup came from; it is required
+	// for the construction match and unused otherwise.
+	Origin *ConcordanceConstructionOrigin
 }
 
 // ConcordancePriorityNone captures that no Book was being read when the
@@ -563,6 +590,19 @@ type ConcordanceResult struct {
 	// Continued is true when the first page-local Book group began on an
 	// earlier page.
 	Continued bool
+	// InvalidOrigin reports a construction lookup whose origin occurrence is
+	// missing, unowned, outside the captured Book, or has no Reading unit.
+	InvalidOrigin bool
+	// Origin is the validated origin of a construction lookup.
+	Origin ConcordanceConstructionOriginSentence
+}
+
+// ConcordanceConstructionOriginSentence is the validated origin of a parallels
+// lookup: the sentence Sentence study reopens, and the Work and author the
+// tiers are measured against.
+type ConcordanceConstructionOriginSentence struct {
+	BookID, BookTitle, CorpusID, UnitID, AnchorSurface string
+	WorkTitle, Author                                  string
 }
 
 type ConcordanceResultOccurrence struct {
@@ -581,9 +621,21 @@ type ConcordanceResultOccurrence struct {
 	// source span: a speaker name (nested directions omitted) or a stage
 	// direction. It is never part of the sentence or a target.
 	Attribution SourceAttribution
+	// Tier, Anchor, ConstructionExtent, ConstructionID, SubtypeID and Study
+	// describe a construction parallel; they are empty for a word lookup.
+	// Study carries the sentence's words and the one occurrence, so the
+	// expanded row reuses the Sentence study extract.
+	Tier               string
+	Anchor             int
+	ConstructionExtent []int
+	ConstructionID     string
+	SubtypeID          string
+	Study              SentenceStudy
 }
 
 type SentenceStudy struct {
+	// AnalysisRunID is the run the sentence was read from.
+	AnalysisRunID                                 string
 	BookID, BookTitle, ChapterTitle, SentenceText string
 	TargetSurface                                 string
 	SentenceOrdinal, TargetOrdinal                int64

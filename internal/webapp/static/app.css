@@ -4135,6 +4135,32 @@
     display: block;
     color: var(--mouseion-color-text-muted);
   }
+  body.vocabulary-shell .sentence-study-construction--focused {
+    padding-inline-start: var(--mouseion-space-3);
+    border-inline-start: 4px solid var(--mouseion-color-accent);
+  }
+  body.vocabulary-shell .sentence-study-construction-from {
+    font-size: var(--mouseion-font-size-metadata);
+    font-weight: 400;
+    color: var(--mouseion-color-text-muted);
+  }
+  body.vocabulary-shell .sentence-study-construction-parallels, body.vocabulary-shell .concordance-parallels-nav {
+    font-size: var(--mouseion-font-size-metadata);
+  }
+  body.vocabulary-shell .sentence-study-construction-parallels a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+  body.vocabulary-shell .concordance-tier {
+    margin-block: var(--mouseion-space-5) var(--mouseion-space-2);
+  }
+  body.vocabulary-shell .concordance-construction {
+    margin-block-start: var(--mouseion-space-3);
+  }
+  body.vocabulary-shell .concordance-construction p {
+    margin-block: var(--mouseion-space-2);
+  }
   body.vocabulary-shell #concordance-results {
     max-width: var(--mouseion-width-data);
   }

@@ -183,6 +183,9 @@ func (s *Store) ListVocabularyConcordance(_ context.Context, _, _ string, query 
 	if strings.EqualFold(strings.TrimSpace(query.Term), "fixture-syntax") {
 		return fixtureSyntaxConcordance(result), nil
 	}
+	if query.Match == domain.ConcordanceMatchConstruction {
+		return fixtureConstructionConcordance(result, query), nil
+	}
 	lemma := strings.ToLower(strings.TrimSpace(query.Term))
 	// Mirror the persisted lookup: an evidenced effective lemma wins and
 	// expands its forms; any other term matches only that source form.
@@ -542,6 +545,10 @@ const (
 	// acceptance can check that an extract wraps without page overflow.
 	fixtureSyntaxLongUnit = "fixture-syntax-long-unit"
 	fixtureSyntaxSentence = "λέγει ὅτι ἄνδρας, καλούς."
+	// fixtureSyntaxRunID and fixtureSyntaxBookID are the origin of the synthetic
+	// construction parallels: the analysis run and Book of the syntax sentence.
+	fixtureSyntaxRunID  = "00000000-0000-4000-8000-0000000000a1"
+	fixtureSyntaxBookID = "fixture-kwic-syntax"
 )
 
 // fixtureSyntaxConcordance returns one Greek occurrence whose Sentence study
@@ -585,7 +592,8 @@ func fixtureSyntaxStudy(book string, sentence, target int64, targetSurface strin
 	}
 	tokens[2].HeadUnprintedNode = "e_1"
 	return domain.SentenceStudy{
-		BookID: book, BookTitle: "Synthetic Greek syntax", ChapterTitle: "Synthetic 1.1",
+		AnalysisRunID: fixtureSyntaxRunID,
+		BookID:        book, BookTitle: "Synthetic Greek syntax", ChapterTitle: "Synthetic 1.1",
 		TargetSurface: targetSurface, SentenceText: fixtureSyntaxSentence, UnitText: fixtureSyntaxSentence,
 		SentenceStartOffset: 0, SentenceEndOffset: int64(len([]rune(fixtureSyntaxSentence))),
 		SentenceOrdinal: sentence, TargetOrdinal: target, SyntaxState: "native_agdt",
