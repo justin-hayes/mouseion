@@ -65,7 +65,7 @@ func TestWorkAnalysisUpdateGroupsEligibleBooksAndSkipsTheCurrentReading(t *testi
 	assert.Equal(t, "A newer analysis is available for 2 books shown here.", update.Notice())
 	assert.Equal(t, "Update 2 books of Synthetic Work", update.ActionLabel())
 	assert.Equal(t, "Book 2: End the Reading first", update.CurrentText())
-	assert.Contains(t, update.ConfirmationText(), "Together, the Books to be updated have 1 confirmed lemma correction, which carry over wherever the word is unchanged in their new analyses.")
+	assert.Contains(t, update.ConfirmationText(), "Together, the Books to be updated have 1 confirmed lemma correction, which carries over wherever the word is unchanged in its new analysis.")
 	assert.Contains(t, update.ConfirmationText(), workAnalysisUpdatePublished)
 	assert.Contains(t, update.ConfirmationText(), workAnalysisUpdateFrozen)
 	assert.Contains(t, update.ConfirmationText(), "Book 2: End the Reading first; nothing is queued for it.")
@@ -84,6 +84,20 @@ func TestWorkAnalysisUpdateConfirmationLeadsWithChangeNotesOnlyWhenThereAreSome(
 	update.ChangeNotes = []string{"Adds a synthetic feature."}
 	assert.True(t, strings.HasPrefix(update.ConfirmationText(), "Adds a synthetic feature. Together, "), "the note leads the confirmation")
 	assert.Equal(t, 1, strings.Count(update.ConfirmationText(), "Adds a synthetic feature."))
+}
+
+func TestWorkAnalysisUpdateNoticeRendersTheChangeNoteOnlyWhenThereIsOne(t *testing.T) {
+	book := workUpdateBook("book-1", 1, false, workUpdateCandidate(2, 1))
+	render := func(notes []string) string {
+		update := workAnalysisUpdateFor("synthetic-work", "Synthetic Work", []domain.MyBook{book}, nil)
+		update.ChangeNotes = notes
+		var out strings.Builder
+		require.NoError(t, WorkAnalysisUpdateNotice(update, "csrf", "/library", "button").Render(t.Context(), &out))
+		return out.String()
+	}
+	assert.NotContains(t, render(nil), "Adds a synthetic feature.")
+	with := render([]string{"Adds a synthetic feature."})
+	assert.Contains(t, with, "Adds a synthetic feature. Together, the Books to be updated have 2 confirmed lemma corrections and 1 occurrence exclusion, which carry over")
 }
 
 func TestWorkAnalysisUpdateDoesNotDuplicateTheCurrentBookWhenItIsAlreadyAmongTheBooks(t *testing.T) {

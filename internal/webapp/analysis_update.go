@@ -114,8 +114,8 @@ func analysisUpdateDecisionsText(corrections, exclusions int) string {
 }
 
 // analysisUpdateDecisionParts names the confirmed decisions one analysis
-// holds, which carry over to a replacement. It is shared by the per-Book and per-Work
-// confirmations, which differ only in their surrounding sentence.
+// holds, which carry over to a replacement. It is shared by the per-Book and
+// per-Work confirmations, which differ only in their surrounding sentence.
 func analysisUpdateDecisionParts(corrections, exclusions int) []string {
 	var decisions []string
 	if corrections > 0 {

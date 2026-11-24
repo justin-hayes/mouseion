@@ -58,6 +58,7 @@ func carryDecisionsOntoIdenticalTokens(ctx context.Context, tx pgx.Tx, owner, bo
 			 AND nt.start_offset=o.start_offset AND nt.end_offset=o.end_offset
 			 AND nt.surface=ot.surface AND nt.raw_lemma=ot.raw_lemma
 			WHERE o.owner_id=$1 AND o.book_id=$2 AND o.analysis_run_id=$3
+			ORDER BY o.source_document_id, o.start_offset, o.end_offset, nt.sentence_ordinal, nt.token_ordinal
 		), inserted AS (
 			INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded)
 			SELECT $1,$2,$5,$4,source_document_id,start_offset,end_offset,canonical_lemma,normalization_profile,normalization_version,excluded

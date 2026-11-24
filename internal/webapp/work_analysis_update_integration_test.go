@@ -359,8 +359,9 @@ func TestClassicalWorkAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *t
 	require.NotEmpty(t, firstID)
 	require.NotEmpty(t, secondID)
 	oldRun := preparedRunID(t, pool, learner.ID, secondID)
-	// The seeded correction and exclusion sit on spans no token holds, so they
-	// cannot carry; the exclusion on a real Greek token does.
+	// Three decisions on the old run: a correction and an exclusion on spans no
+	// token holds (they cannot carry), then an exclusion on a real Greek token
+	// (it carries). Expect 1 of 3 carried.
 	addLemmaDecisions(t, pool, learner.ID, secondID, oldRun, 1, 1)
 	var corpusID, documentID string
 	var start, end int

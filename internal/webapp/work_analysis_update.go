@@ -149,6 +149,9 @@ func (u workAnalysisUpdate) decisionsText() string {
 	if len(decisions) == 0 {
 		return "No Book in this work has confirmed lemma corrections or occurrence exclusions."
 	}
+	if u.Corrections+u.Exclusions == 1 {
+		return "Together, the Books to be updated have " + strings.Join(decisions, " and ") + ", which carries over wherever the word is unchanged in its new analysis."
+	}
 	return "Together, the Books to be updated have " + strings.Join(decisions, " and ") + ", which carry over wherever the word is unchanged in their new analyses."
 }
 
