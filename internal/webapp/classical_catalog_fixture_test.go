@@ -72,13 +72,12 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 	require.Equal(t, http.StatusOK, chooser.Code)
 	for _, want := range []string{
 		"Choose a To Read book in Ancient Greek",
-		"reading-chooser-work",
 		"99% or above",
 		"97% to below 99%",
 		"Below 95%",
-		"Iliad, Book 1",
 	} {
 		assert.Contains(t, chooser.Body.String(), want)
 	}
-	assert.Equal(t, 3, strings.Count(chooser.Body.String(), `class="reading-chooser-band-book"`))
+	assert.Equal(t, 3, strings.Count(chooser.Body.String(), `class="reading-chooser-book"`), "each Book is its own chooser entry")
+	assert.NotContains(t, chooser.Body.String(), "reading-chooser-work")
 }

@@ -127,7 +127,7 @@ func TestChooserRendersTheSelectedToReadBookInline(t *testing.T) {
 	entry := books["homer-iliad-1"]
 	require.Contains(t, body, `id="reading-chooser-book-`+entry.ID+`" tabindex="-1"`)
 	require.Contains(t, body, `action="/reading/books/`+entry.ID+`/start"`)
-	require.Contains(t, body, "Book 1 of 24")
+	require.NotContains(t, body, "Book 1 of")
 }
 
 func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {

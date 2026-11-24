@@ -228,12 +228,16 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	chooserBody := chooser.Body.String()
 	for _, want := range []string{
-		"Synthetic Work", "Synthetic Author", "Συνθετικὸν ἔργον", "2 To Read Books, 2 assessed",
-		"Known coverage", "Book 1 of 2", "Book 2 of 2",
-		`href="#reading-chooser-book-` + bookOne + `"`,
-		`href="#reading-chooser-book-` + bookTwo + `"`,
+		"Synthetic Work", "Synthetic Author", "Known vocabulary coverage",
+		`id="reading-chooser-book-` + bookOne + `"`,
+		`id="reading-chooser-book-` + bookTwo + `"`,
+		`action="/reading/books/` + bookOne + `/start"`,
+		`action="/reading/books/` + bookTwo + `/start"`,
 	} {
-		assert.Contains(t, chooserBody, want, "grouped chooser missing %q", want)
+		assert.Contains(t, chooserBody, want, "chooser missing %q", want)
+	}
+	for _, gone := range []string{"To Read Books, ", "Book 1 of", "Book 2 of", "reading-chooser-work__"} {
+		assert.NotContains(t, chooserBody, gone, "the chooser has no grouped Work entry")
 	}
 	assert.Contains(t, chooserBody, "Choose a To Read book when you are ready.")
 
@@ -246,7 +250,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, bookOne, firstReading.BookID)
 	readingPage := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
-	assert.Contains(t, readingPage.Body.String(), "Book 1 of 2", "Reading shows the reviewed position")
+	assert.NotContains(t, readingPage.Body.String(), "Book 1 of", "Reading shows no Book N of M line")
 
 	prepared := perform(t, h.handler, http.MethodPost, "/reading/books/"+bookOne+"/deck/retry", url.Values{
 		"csrf_token": {csrf}, "expected_current_snapshot_id": {firstReading.SnapshotID},
@@ -311,11 +315,9 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		fixture: classicalPreparationFixture{unitOneKey: h.unitOneKey, unitTwoKey: h.unitTwoKey},
 		firstID: bookOne, secondID: bookTwo,
 	}
-	form := workAnalysisUpdateForm(t, update, h.detail(t, learner.ID, bookTwo))
-	require.Len(t, form["book_id"], 1)
-	submitted := perform(t, h.handler, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, cookies)
+	submitted := submitBookAnalysisUpdate(t, update, h.detail(t, learner.ID, bookTwo))
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
-	assert.Contains(t, submitted.Header().Get("Location"), url.QueryEscape("Queued analysis updates for 1 book."))
+	assert.Contains(t, submitted.Header().Get("Location"), url.QueryEscape("Analysis update for"))
 
 	h.waitForInterpretation(t, learner.ID, "oga-agdt-upos/6", 1)
 	assert.Equal(t, oneRun, preparedRunID(t, h.pool, learner.ID, bookOne), "the current Book keeps its published analysis")

@@ -250,9 +250,10 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 		learnerID: learner.ID, cookies: cookies, csrf: csrf, fixture: fixture,
 		firstID: firstID, secondID: secondID,
 	}
-	form := workAnalysisUpdateForm(t, harness, harness.book(t, firstID), harness.book(t, secondID))
-	submitted := perform(t, h, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, cookies)
-	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
+	for _, id := range []string{firstID, secondID} {
+		submitted := submitBookAnalysisUpdate(t, harness, harness.book(t, id))
+		require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
+	}
 
 	require.Eventually(t, func() bool {
 		var count int

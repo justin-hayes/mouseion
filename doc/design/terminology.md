@@ -97,7 +97,7 @@ remain only as compatibility redirects to the Reading anchor.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Coverage band** | Classification of a To Read Book's current lexical coverage. A grouped Work entry lists its constituent Book numbers in band rows; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
+| **Coverage band** | Classification of a To Read Book's current lexical coverage. Each To Read Book shows its band in its own margin; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
 | **Work position** | A constituent Book's plain bibliographic place, such as "Book 2 of 24", from the reviewed definition rather than the learner's added Books. A whole-work unit has none, and it never becomes a pointer to the next Book. | Next Book, recommended order |
 | **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
 | **Start reading** | Make an eligible To Read Book the current Book and freeze its vocabulary snapshot. Requires explicit confirmation. | Choose as Primary Goal |
@@ -159,7 +159,7 @@ verified mastery. Earlier Goal-specific behavior in ADR 0072 is historical.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Current coverage** | Coverage from current Known vocabulary under the accepted metric contract. | Reading level |
-| **Coverage band** | A row in a grouped Work entry, or a margin label on one ordinary candidate, based on current token-weighted lexical coverage. It compares evidence only and does not rank or recommend candidates. | Difficulty score, readiness rank |
+| **Coverage band** | A margin label on one To Read candidate, based on current token-weighted lexical coverage. It compares evidence only and does not rank or recommend candidates. | Difficulty score, readiness rank |
 | **Projected coverage** | Historical term for a hypothetical result after a named vocabulary transition; not presented in current Reading. | Predicted outcome, recommended route |
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |
