@@ -1,30 +1,22 @@
 package ancientgreek
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
-	"path/filepath"
 	"testing"
 	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/classical"
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// pinnedDirEnv names the directory that holds local copies of the pinned OGA
-// files. The files never enter the repository, so the test is opt-in.
-const pinnedDirEnv = "MOUSEION_OGA_SRC_DIR"
 
 // TestPinnedFilesKeepPrintedSpansAndCarryCleanNativeSyntax cuts every compiled
 // definition from its pinned file and shows, for each, that the native-syntax
 // interpretation prints exactly the tokens, lemmas and offsets of the file's
 // printed words (A2) and that the stored syntax is well formed (A1). It is
-// skipped when MOUSEION_OGA_SRC_DIR is unset, and a definition whose file is not
-// in the directory is skipped by name.
+// skipped when MOUSEION_OGA_SRC_DIR is unset, and a definition whose file is
+// missing from the directory fails.
 func TestPinnedFilesKeepPrintedSpansAndCarryCleanNativeSyntax(t *testing.T) {
 	dir := os.Getenv(pinnedDirEnv)
 	if dir == "" {
@@ -36,14 +28,8 @@ func TestPinnedFilesKeepPrintedSpansAndCarryCleanNativeSyntax(t *testing.T) {
 	documents := map[string]*sourceDocument{}
 	for _, definition := range definitions {
 		t.Run(definition.Key, func(t *testing.T) {
-			//nolint:gosec // the directory is the developer's own opt-in input and file names come from the reviewed manifest.
-			data, err := os.ReadFile(filepath.Join(filepath.Clean(dir), definition.Source.FileName))
-			if os.IsNotExist(err) {
-				t.Skipf("%s is not in %s", definition.Source.FileName, dir)
-			}
-			require.NoError(t, err)
-			sum := sha256.Sum256(data)
-			require.Equal(t, definition.Source.SHA256, hex.EncodeToString(sum[:]), "the local file is not the pinned file")
+			data := readLocalPinnedFile(t, dir, definition)
+			var err error
 			work, ok := parsed[definition.Source.FileName]
 			if !ok {
 				work, err = ParseOgaSource(data)
@@ -51,12 +37,7 @@ func TestPinnedFilesKeepPrintedSpansAndCarryCleanNativeSyntax(t *testing.T) {
 				parsed[definition.Source.FileName] = work
 				documents[definition.Source.FileName] = work.doc
 			}
-			unit, err := work.CutUnit(domain.ReadingUnitDefinition{
-				Key: definition.Key, Language: definition.Language, WorkTitle: definition.WorkTitle, WorkAuthor: definition.WorkAuthor,
-				EditionLabel: definition.EditionLabel, CitationStart: definition.CitationStart, CitationEnd: definition.CitationEnd,
-				SourceFileName: definition.Source.FileName, SourceFileSize: definition.Source.Size, SourceFileSHA256: definition.Source.SHA256,
-				InterpretationVersion: definition.InterpretationVersion,
-			})
+			unit, err := work.CutUnit(pinnedDefinition(definition))
 			require.NoError(t, err)
 			assert.Equal(t, SyntaxStateNativeAGDT, unit.SyntaxState)
 			assertPrintedWordsMatchSource(t, documents[definition.Source.FileName], unit)

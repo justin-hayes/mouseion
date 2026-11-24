@@ -51,6 +51,12 @@ func cutWholeFixture(t *testing.T, path string) spanBaselineUnit {
 	require.NoError(t, err)
 	unit, err := work.CutUnit(definition)
 	require.NoError(t, err)
+	return baselineOfUnit(unit)
+}
+
+// baselineOfUnit is the part of a cut unit the interpretation versions must
+// agree on.
+func baselineOfUnit(unit PreparedUnit) spanBaselineUnit {
 	out := spanBaselineUnit{FullText: unit.FullText}
 	for sentenceOrdinal, sentence := range unit.Result.Sentences {
 		built := spanBaselineSentence{Ordinal: sentenceOrdinal, Text: sentence.Text, Start: sentence.Location.StartOffset, End: sentence.Location.EndOffset, Citations: sentence.Citations}
