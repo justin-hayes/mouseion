@@ -17,6 +17,10 @@ CREATE TABLE public.analysis_decision_carry_overs (
     book_id uuid NOT NULL,
     analysis_run_id uuid NOT NULL,
     previous_analysis_run_id uuid NOT NULL,
+    -- The River job that published the run, when a Classical preparation job
+    -- did. The job's final state does not change this link: publication commits
+    -- before the job's last write, so a job that later failed still published.
+    river_job_id bigint,
     carried integer NOT NULL,
     total integer NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),

@@ -124,7 +124,7 @@ func publishImportedRun(ctx context.Context, tx pgx.Tx, in ancientgreek.ImportWr
 	if err := completeImportedRun(ctx, tx, args, corpusID); err != nil {
 		return err
 	}
-	return publishEligibleAnalysis(ctx, tx, args, bookID)
+	return publishEligibleAnalysis(ctx, tx, args, bookID, in.RiverJobID)
 }
 
 // importedSourceMaterial builds the source-material row for an import. Only

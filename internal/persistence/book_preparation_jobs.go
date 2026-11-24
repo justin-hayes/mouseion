@@ -126,10 +126,10 @@ func (s *PostgresStore) markMyBooksMembership(ctx context.Context, owner string,
 // attachDecisionCarryOvers reports, on the row of the job that published an
 // Analysis update's run, how many decisions carried over (ADR 0126). An analysis
 // row is found through its run. A Classical preparation job does not name its
-// run, so its row is the job whose attempt window contains the moment the
-// carry-over was recorded, which happens inside the publishing transaction. The
-// job may still be running, because River finalizes it just after that
-// transaction commits. A run with no decisions on the replaced run has nothing
+// run, so the carry-over row records the River job that published it, inside the
+// publishing transaction. The link holds whatever the job's final state: the run
+// is published before the job's last write, so a job that failed afterwards and
+// was retried or discarded still published it. A run with no decisions on the replaced run has nothing
 // to report and is left alone.
 func (s *PostgresStore) attachDecisionCarryOvers(ctx context.Context, owner string, jobs []domain.BookPreparationJob) error {
 	rows, err := s.pool.Query(ctx, `
@@ -138,14 +138,9 @@ func (s *PostgresStore) attachDecisionCarryOvers(ctx context.Context, owner stri
 		JOIN analysis_jobs aj ON aj.owner_id = co.owner_id AND aj.analysis_run_id = co.analysis_run_id
 		WHERE co.owner_id = $1 AND co.total > 0
 		UNION ALL
-		SELECT 'classical', j.id, co.carried, co.total
+		SELECT 'classical', co.river_job_id, co.carried, co.total
 		FROM analysis_decision_carry_overs co
-		JOIN river_job j ON j.kind = 'classical_preparation'
-		 AND j.args->>'owner_id' = co.owner_id::text
-		 AND j.args->>'book_id' = co.book_id::text
-		 AND j.state IN ('running', 'completed')
-		 AND j.attempted_at <= co.created_at AND (j.finalized_at IS NULL OR co.created_at <= j.finalized_at)
-		WHERE co.owner_id = $1 AND co.total > 0`, owner)
+		WHERE co.owner_id = $1 AND co.total > 0 AND co.river_job_id IS NOT NULL`, owner)
 	if err != nil {
 		return fmt.Errorf("list carried-over decisions: %w", err)
 	}

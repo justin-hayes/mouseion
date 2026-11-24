@@ -15,6 +15,7 @@ type AnalysisDecisionCarryOver struct {
 	BookID                string
 	AnalysisRunID         string
 	PreviousAnalysisRunID string
+	RiverJobID            pgtype.Int8
 	Carried               int
 	Total                 int
 	CreatedAt             time.Time

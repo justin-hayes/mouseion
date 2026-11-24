@@ -416,6 +416,15 @@ func TestClassicalWorkAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *t
 	jobs := readingGet(t, h, "/jobs", cookies)
 	assert.Equal(t, 1, strings.Count(jobs, "1 of 3 decisions carried over"), "the publishing job's row reports the carry-over")
 	assert.NotContains(t, jobs, "0 of 0 decisions", "a row with no decisions shows no line")
+
+	// Publication commits before the prepared-definition write, so a job that
+	// fails after publishing and is retried or discarded still published the run.
+	// Its attempt timestamps move on, yet the carry-over stays on that job.
+	_, err = pool.Exec(ctx, `UPDATE river_job SET state='discarded', attempted_at=now()+interval '1 hour', finalized_at=now()+interval '2 hours'
+		WHERE kind='classical_preparation' AND args->>'book_id'=$1`, secondID)
+	require.NoError(t, err)
+	jobs = readingGet(t, h, "/jobs", cookies)
+	assert.Equal(t, 1, strings.Count(jobs, "1 of 3 decisions carried over"), "a job that failed after publishing keeps its carry-over line")
 	known, err := store.IsKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB")
 	require.NoError(t, err)
 	assert.True(t, known, "Known vocabulary is unchanged by an Analysis update")

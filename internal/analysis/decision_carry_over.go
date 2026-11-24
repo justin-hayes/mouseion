@@ -24,8 +24,9 @@ import (
 // source (raw) lemma all match; UPOS and morphology are deliberately not
 // compared. A correction whose lemma the new token already has is not copied but
 // counts as carried over ("absorbed"). The outcome is recorded in
-// analysis_decision_carry_overs, including 0 of 0.
-func carryDecisionsOntoIdenticalTokens(ctx context.Context, tx pgx.Tx, owner, book, newRun, corpus string) error {
+// analysis_decision_carry_overs, including 0 of 0, with the River job that
+// published the run (zero when none did).
+func carryDecisionsOntoIdenticalTokens(ctx context.Context, tx pgx.Tx, owner, book, newRun, corpus string, riverJobID int64) error {
 	var previousRun string
 	err := tx.QueryRow(ctx, `
 		SELECT p.analysis_run_id::text
@@ -73,9 +74,9 @@ func carryDecisionsOntoIdenticalTokens(ctx context.Context, tx pgx.Tx, owner, bo
 		owner, book, previousRun, newRun, corpus).Scan(&copied, &absorbed, &total); err != nil {
 		return fmt.Errorf("carry decisions onto identical tokens: %w", err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO analysis_decision_carry_overs(owner_id,book_id,analysis_run_id,previous_analysis_run_id,carried,total)
-		VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(owner_id,analysis_run_id) DO NOTHING`,
-		owner, book, newRun, previousRun, copied+absorbed, total); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO analysis_decision_carry_overs(owner_id,book_id,analysis_run_id,previous_analysis_run_id,river_job_id,carried,total)
+		VALUES($1,$2,$3,$4,NULLIF($5::bigint,0),$6,$7) ON CONFLICT(owner_id,analysis_run_id) DO NOTHING`,
+		owner, book, newRun, previousRun, riverJobID, copied+absorbed, total); err != nil {
 		return fmt.Errorf("record carried-over decisions: %w", err)
 	}
 	return nil
