@@ -1,4 +1,5 @@
-import { expect, Locator, Page, test } from '../support/test';
+import { expect, Page, test } from '../support/test';
+import { acceptanceViewport, expectNoHorizontalOverflow, underlined, weight } from '../support/construction-probes';
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -12,18 +13,6 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library$/);
 }
 
-// The acceptance viewports are 375px and 1200px in both themes; the project
-// supplies the theme and the compact or desktop baseline.
-async function acceptanceViewport(page: Page) {
-  const viewport = page.viewportSize()!;
-  const width = viewport.width <= 600 ? 375 : 1200;
-  await page.setViewportSize({ width, height: 800 });
-}
-
-async function expectNoHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-}
-
 // The fixture's Greek native_agdt sentence "λέγει ὅτι ἄνδρας, καλούς." carries
 // three synthetic occurrences: an indirect statement over the whole sentence,
 // a discontinuous genitive absolute (λέγει … ἄνδρας, καλούς) and a purpose
@@ -35,9 +24,6 @@ async function openSyntaxSentence(page: Page) {
   await row.getByRole('link', { name: 'Study this sentence' }).click();
   await expect(page).toHaveURL(/\/vocabulary\/concordance\/sentence/);
 }
-
-const weight = (locator: Locator) => locator.evaluate((element) => Number.parseInt(getComputedStyle(element).fontWeight, 10));
-const underlined = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).textDecorationLine.includes('underline'));
 
 async function expectConstructions(page: Page) {
   const region = page.locator('#sentence-study-constructions');

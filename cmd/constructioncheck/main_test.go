@@ -30,11 +30,30 @@ func TestSourceURLJoinsTheLayerBaseAndFileName(t *testing.T) {
 
 func TestGateAdapterReadsTheShippingGate(t *testing.T) {
 	gate := gateAdapter{constructions.ShippingGate}
-	assert.True(t, gate.Ships(string(constructions.Conditional)))
-	assert.False(t, gate.Ships("unknown"))
-	assert.True(t, gate.Ships(string(constructions.Purpose)))
-	assert.True(t, gate.ShipsLabel(string(constructions.Result), string(constructions.SubtypeNatural)))
-	assert.False(t, gate.ShipsLabel(string(constructions.Result), string(constructions.SubtypeActual)))
+	for _, tc := range []struct {
+		name, construction string
+		ships              bool
+	}{
+		{"conditional ships", string(constructions.Conditional), true},
+		{"purpose ships", string(constructions.Purpose), true},
+		{"an unknown construction does not ship", "unknown", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.ships, gate.Ships(tc.construction))
+		})
+	}
+	for _, tc := range []struct {
+		name    string
+		subtype constructions.SubtypeID
+		ships   bool
+	}{
+		{"the natural result label ships", constructions.SubtypeNatural, true},
+		{"the actual result label does not ship", constructions.SubtypeActual, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.ships, gate.ShipsLabel(string(constructions.Result), string(tc.subtype)))
+		})
+	}
 }
 
 func TestCachedFetcherDownloadsVerifiesAndCaches(t *testing.T) {
@@ -52,7 +71,7 @@ func TestCachedFetcherDownloadsVerifiesAndCaches(t *testing.T) {
 			t.Error(err)
 		}
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 	dir := t.TempDir()
 	newFetcher := func(base string) *cachedFetcher {
 		return &cachedFetcher{
@@ -202,7 +221,7 @@ func TestCachedFetcherNeverFollowsASymlinkedEntry(t *testing.T) {
 			t.Error(err)
 		}
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 	dir := t.TempDir()
 	cache, repo := filepath.Join(dir, "cache"), filepath.Join(dir, "repo")
 	require.NoError(t, os.MkdirAll(cache, 0o750))
