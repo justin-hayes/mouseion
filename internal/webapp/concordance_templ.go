@@ -3764,7 +3764,7 @@ func VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup, origi
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = Feedback(FeedbackWarning, "Current evidence changed", "This page was not applied because analyses or occurrence corrections changed after the previous result page. Refresh results to start from page 1 with current evidence.").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = Feedback(FeedbackWarning, "Current evidence changed", "This page could not be shown because the evidence changed since the previous page, for example after a construction evidence rebuild. Refresh results to start at page 1 with the same search.").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

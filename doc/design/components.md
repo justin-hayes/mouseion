@@ -475,7 +475,7 @@ repair. Source lifecycle belongs to the feature/ADR, not this component guide.
 
 ### Accepted construction-extract target
 
-Status: **Accepted — implementation pending.** Promoted from the human-reviewed
+Status: **Accepted; implemented.** Promoted from the human-reviewed
 [Prototype: constructions and syntax in Sentence study](https://github.com/justin-hayes/mouseion/issues/2609#issuecomment-7127948787),
 variant C on the throwaway branch
 [`research/grc-sentence-study-constructions-prototype`](https://github.com/justin-hayes/mouseion/tree/1c3bd586/doc/research/grc-sentence-study-constructions-prototype).

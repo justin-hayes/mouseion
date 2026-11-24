@@ -1,6 +1,6 @@
 # Ancient Greek syntax and constructions
 
-Status: **Accepted specification — implementation pending** · Date: 2026-11-24 ·
+Status: **Accepted; implemented** · Date: 2026-11-24 ·
 Author: Justin + OpenCode
 
 This spec records the route charted by

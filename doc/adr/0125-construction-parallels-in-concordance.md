@@ -1,6 +1,6 @@
 # ADR 0125: Construction parallels in Concordance
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Decided by Justin in
 [Grilling: Concordance construction parallels — query, scope and ranking](https://github.com/justin-hayes/mouseion/issues/2610#issuecomment-7106742314),

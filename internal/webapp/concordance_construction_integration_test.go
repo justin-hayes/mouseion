@@ -22,6 +22,8 @@ import (
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -255,7 +257,9 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 	t.Run("a language without a construction scheme sends the safe restart", func(t *testing.T) {
 		seedMigrationAnalyzedBook(t, ctx, store, learner.ID, "german-book", "Buch", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 		require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
-		t.Cleanup(func() { require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc")) })
+		testutil.Cleanup(t, "restore Greek study language", func() error {
+			return store.SetActiveStudyLanguage(ctx, learner.ID, "grc")
+		})
 		response := get(query(nil))
 		assert.Equal(t, http.StatusBadRequest, response.code)
 		assert.Contains(t, response.body, concordanceNoticeState)
@@ -263,9 +267,9 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 	t.Run("a Book of the origin run's Work with no Reading unit has no origin", func(t *testing.T) {
 		_, err := pool.Exec(ctx, `DELETE FROM book_reading_units WHERE book_id=$1`, books["lower-xen"].id)
 		require.NoError(t, err)
-		t.Cleanup(func() {
+		testutil.Cleanup(t, "restore Book's Reading unit", func() error {
 			_, err := pool.Exec(ctx, `INSERT INTO book_reading_units(owner_id, book_id, reading_unit_id) SELECT $1, $2, id FROM reading_units WHERE definition_key='lower-xen'`, learner.ID, books["lower-xen"].id)
-			require.NoError(t, err)
+			return err
 		})
 		response := get(query(map[string]string{"from_run": runOf(books["lower-xen"]), "priority": books["lower-xen"].id}))
 		assert.Equal(t, http.StatusBadRequest, response.code)
@@ -356,6 +360,28 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		_, err = pool.Exec(ctx, `UPDATE construction_run_markers SET detector_version=$2 WHERE analysis_run_id=$1`, runOf(books["plato-crito"]), constructions.AGDTDetectorVersion)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, get(next).code, "the original revision is valid again once the marker is")
+	})
+
+	t.Run("rebuilding construction evidence between pages explains how to refresh", func(t *testing.T) {
+		run := runOf(books["xen-apol"])
+		_, err := pool.Exec(ctx, `UPDATE construction_run_markers SET detector_version=$2 WHERE analysis_run_id=$1`, run, constructions.AGDTDetectorVersion-1)
+		require.NoError(t, err)
+		worker := &analysis.ConstructionRebuildWorker{Pool: pool}
+		job := &river.Job[analysis.ConstructionRebuildArgs]{Args: analysis.ConstructionRebuildArgs{
+			OwnerID: learner.ID, RunID: run, DetectorVersion: constructions.AGDTDetectorVersion,
+		}}
+		testutil.Cleanup(t, "restore current construction evidence", func() error { return worker.Work(ctx, job) })
+
+		before := get(query(nil))
+		require.Equal(t, http.StatusOK, before.code, before.body)
+		next := constructionHref(t, before.body, "Next")
+		require.NotEmpty(t, next)
+		require.Equal(t, http.StatusOK, get(next).code)
+
+		require.NoError(t, worker.Work(ctx, job))
+		stale := get(next)
+		require.Equal(t, http.StatusConflict, stale.code)
+		require.Contains(t, stale.body, "This page could not be shown because the evidence changed since the previous page, for example after a construction evidence rebuild. Refresh results to start at page 1 with the same search.")
 	})
 
 	t.Run("the origin is validated before the revision", func(t *testing.T) {

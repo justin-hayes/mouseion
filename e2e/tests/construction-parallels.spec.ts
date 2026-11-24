@@ -1,4 +1,5 @@
 import { expect, Locator, Page, test } from '../support/test';
+import { acceptanceViewport, expectNoHorizontalOverflow, underlined, weight } from '../support/construction-probes';
 
 // This spec has its own fixture server. The Greek fixture Book comes from adding
 // the fixture classical Work, which also makes Ancient Greek a study language.
@@ -17,21 +18,6 @@ async function signInToGreek(page: Page) {
   if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();
   await expect(page.getByLabel('Study language')).toHaveValue('grc');
 }
-
-// The acceptance viewports are 375px and 1200px in both themes; the project
-// supplies the theme and the compact or desktop baseline.
-async function acceptanceViewport(page: Page) {
-  const viewport = page.viewportSize()!;
-  const width = viewport.width <= 600 ? 375 : 1200;
-  await page.setViewportSize({ width, height: 800 });
-}
-
-async function expectNoHorizontalOverflow(page: Page) {
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-}
-
-const weight = (locator: Locator) => locator.evaluate((element) => Number.parseInt(getComputedStyle(element).fontWeight, 10));
-const underlined = (locator: Locator) => locator.evaluate((element) => getComputedStyle(element).textDecorationLine.includes('underline'));
 
 // Activating with the keyboard (focus, then Enter) rather than the pointer.
 async function activate(page: Page, locator: Locator) {

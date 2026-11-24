@@ -909,7 +909,7 @@ templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language stri
 
 templ VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup, origin browseOrigin) {
 	<div id="concordance-recovery" aria-live="polite">
-		@Feedback(FeedbackWarning, "Current evidence changed", "This page was not applied because analyses or occurrence corrections changed after the previous result page. Refresh results to start from page 1 with current evidence.")
+		@Feedback(FeedbackWarning, "Current evidence changed", "This page could not be shown because the evidence changed since the previous page, for example after a construction evidence rebuild. Refresh results to start at page 1 with the same search.")
 		<a class="button button--outline" href={ templ.SafeURL(origin.Apply(vocabularyConcordanceRestartURL(lookup))) }>Refresh results</a>
 	</div>
 }
