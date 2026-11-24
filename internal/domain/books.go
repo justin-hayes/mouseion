@@ -204,13 +204,6 @@ func (m MyBook) CanMarkPreviouslyRead() bool {
 		m.Book.LanguageState == LanguageChosen
 }
 
-// WorkToReadEligible reports whether a bulk Work move should change this Book.
-// The current Reading and Books already To Read stay untouched. A Read Book
-// becomes a candidate again, the same as its Read again action.
-func (m MyBook) WorkToReadEligible() bool {
-	return m.WorkflowBucket() == MyBookBucketRead
-}
-
 // MatchesBrowseFilter reports whether a visible bucket belongs in the selected
 // My Books tab. The retired Read-history and Inbox filters are no longer
 // selectable; an empty disposition and no history match every visible role.
