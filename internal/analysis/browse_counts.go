@@ -10,7 +10,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/rivertype"
 )
 
 type BrowseCountsRebuildArgs struct {
@@ -30,10 +29,7 @@ func (BrowseCountsRebuildArgs) Kind() string { return "rebuild_vocabulary_browse
 // while it is waiting or running. Finished jobs are not part of the key, so a
 // retained completed or discarded job never blocks a later rebuild.
 func (BrowseCountsRebuildArgs) InsertOpts() river.InsertOpts {
-	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: []rivertype.JobState{
-		rivertype.JobStateAvailable, rivertype.JobStatePending, rivertype.JobStateRunning,
-		rivertype.JobStateRetryable, rivertype.JobStateScheduled,
-	}}}
+	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates}}
 }
 
 type BrowseCountsRebuildWorker struct {
