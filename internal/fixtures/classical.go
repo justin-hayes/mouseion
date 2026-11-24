@@ -13,8 +13,9 @@ import (
 )
 
 // NewClassicalCatalog builds the fixture server's built-in Classical catalog:
-// one Work split into three constituent books and one whole-work unit under a
-// second author.
+// one Work whose Reading units are three legacy per-book definitions, one
+// whole-work unit listing three constituent books, and one whole-work unit
+// without books.
 func NewClassicalCatalog() (*classical.Catalog, error) {
 	return classical.NewCatalog(fixtureClassicalDefinitions())
 }
@@ -44,11 +45,21 @@ func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, edition
 }
 
 // fixtureClassicalDefinitions is the small release the fixture server exposes.
-// The Iliad is one Work of three constituent books; the Hellenica is one
-// whole-work unit. A Work cannot mix the two shapes.
+// The Odyssey is one whole-work unit that lists three constituent books, as the
+// shipped Anabasis does; the Hellenica is one whole-work unit without books.
+// The Iliad keeps the per-book shape of ADR 0116 for the My Books and Reading
+// fixtures that still group Books by Work. A Work cannot mix the shapes.
 func fixtureClassicalDefinitions() []classical.Definition {
 	one, two, three := 1, 2, 3
+	odyssey := fixtureClassicalDefinition("fixture-odyssey", "fixture-odyssey", "Odyssey", "Homer", "Ὀδύσσεια",
+		"fixture-odyssey-monro-1901", "1.1.1", "3.10.19", "ἄνδρα μοι ἔννεπε, μοῦσα, πολύτροπον, ὃς μάλα πολλὰ", nil, 3, 600)
+	odyssey.Contents = []classical.ConstituentBookSpan{
+		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 100},
+		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.10.19", WordCount: 200},
+		{Book: 3, CitationStart: "3.1.1", CitationEnd: "3.10.19", WordCount: 300},
+	}
 	return []classical.Definition{
+		odyssey,
 		fixtureClassicalDefinition("fixture-iliad-1", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
 			"fixture-iliad-monro-1902", "1.1.1", "1.10.19", "μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος", &one, 3, 100),
 		fixtureClassicalDefinition("fixture-iliad-2", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",

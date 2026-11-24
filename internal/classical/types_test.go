@@ -46,6 +46,47 @@ func TestDefinitionValidateAcceptsACompleteDefinition(t *testing.T) {
 	withdrawn.Withdrawn = true
 	withdrawn.Opening = ""
 	require.NoError(t, withdrawn.Validate(), "a withdrawn tombstone needs no Opening")
+
+	require.NoError(t, validWholeWorkDefinition().Validate(), "a whole-work definition may have several constituent books")
+}
+
+func validWholeWorkDefinition() Definition {
+	definition := validDefinition()
+	definition.Key = "alpha"
+	definition.ConstituentBook = nil
+	definition.ConstituentBooks = 2
+	definition.CitationStart, definition.CitationEnd = "1.1.1", "2.1.2"
+	definition.WordCount = 14
+	definition.Contents = []ConstituentBookSpan{
+		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.2", WordCount: 8},
+		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.1.2", WordCount: 6},
+	}
+	definition.Translation.CitationStart, definition.Translation.CitationEnd = "1.1.1", "2.1.2"
+	return definition
+}
+
+func TestDefinitionValidateRefusesInconsistentContents(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*Definition)
+		want   string
+	}{
+		{"count", func(d *Definition) { d.ConstituentBooks = 3 }, "one content entry per constituent book"},
+		{"order", func(d *Definition) { d.Contents[1].Book = 1 }, "ascend by book number"},
+		{"citation", func(d *Definition) { d.Contents[0].CitationEnd = "x" }, "contents citation"},
+		{"entry words", func(d *Definition) { d.Contents[0].WordCount = 0 }, "contents word count"},
+		{"start", func(d *Definition) { d.Contents[0].CitationStart = "1.1.0" }, "cover the definition citation range"},
+		{"end", func(d *Definition) { d.Contents[1].CitationEnd = "2.1.1" }, "cover the definition citation range"},
+		{"sum", func(d *Definition) { d.WordCount = 15 }, "sum to the definition word count"},
+		{"single-book Work", func(d *Definition) { d.ConstituentBooks = 1 }, "only a whole-work definition"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			definition := validWholeWorkDefinition()
+			test.mutate(&definition)
+			require.ErrorContains(t, definition.Validate(), test.want)
+		})
+	}
 }
 
 func TestDefinitionValidateRefusesIncompleteFields(t *testing.T) {
@@ -63,7 +104,10 @@ func TestDefinitionValidateRefusesIncompleteFields(t *testing.T) {
 		{"language", func(d *Definition) { d.Language = "de" }, "language must be"},
 		{"book count", func(d *Definition) { d.ConstituentBooks = 0 }, "book count must be positive"},
 		{"book outside", func(d *Definition) { book := 3; d.ConstituentBook = &book }, "outside its Work"},
-		{"whole-work count", func(d *Definition) { d.ConstituentBook = nil }, "whole-work definition has one"},
+		{"whole-work contents missing", func(d *Definition) { d.ConstituentBook = nil }, "one content entry per constituent book"},
+		{"per-book contents", func(d *Definition) {
+			d.Contents = []ConstituentBookSpan{{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.2", WordCount: 8}}
+		}, "only a whole-work definition"},
 		{"citation start", func(d *Definition) { d.CitationStart = "1..1" }, "citation start"},
 		{"citation end", func(d *Definition) { d.CitationEnd = "1.1.2.3.4/" }, "citation end"},
 		{"word count", func(d *Definition) { d.WordCount = 0 }, "word count must be positive"},
@@ -172,7 +216,7 @@ func TestOverrideValidateAcceptsWorkAndUnitOverrides(t *testing.T) {
 		WorkKey: "alpha", WorkTitle: "Alpha", WorkAuthor: "Author", EditionKey: "alpha-test", EditionLabel: "Test",
 		Source:      &SourceSpec{Layer: "source", FileName: "work.conllu", Format: SourceFormatOGACoNLLU},
 		Translation: &TranslationSpec{Layer: "translation", FileName: "work.xml"},
-		Split:       SplitConstituentBooks, Books: []int{1}, Revision: &revision,
+		Split:       SplitWholeWork, Contents: ContentsBooks, Revision: &revision,
 	}
 	require.NoError(t, work.Validate())
 	assert.True(t, work.IsWork())
@@ -202,8 +246,11 @@ func TestOverrideValidateRefusesIncompleteOverrides(t *testing.T) {
 		{"split", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: "chapters", EditionKey: "e"}, "unknown split"},
 		{"translation", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork, EditionKey: "e", Translation: &TranslationSpec{Layer: "t"}}, "incomplete translation"},
 		{"edition", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork}, "needs an Edition key"},
-		{"whole books", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork, EditionKey: "e", Books: []int{1}}, "cannot select books"},
-		{"unit range", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitConstituentBooks, EditionKey: "e", Units: []UnitSpec{{Book: -1}}}, "invalid unit range"},
+		{"constituent-books split", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: "constituent-books", EditionKey: "e"}, "unknown split"},
+		{"unknown contents", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork, EditionKey: "e", Contents: "chapters"}, "unknown contents"},
+		{"contents with units", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork, EditionKey: "e", Contents: ContentsBooks, Units: []UnitSpec{{CitationStart: "1", CitationEnd: "2"}}}, "cannot list book contents"},
+		{"two units", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork, EditionKey: "e", Units: []UnitSpec{{CitationStart: "1", CitationEnd: "2"}, {CitationStart: "3", CitationEnd: "4"}}}, "needs one unit"},
+		{"unit range", Override{WorkKey: "a", Source: &SourceSpec{Layer: "s", FileName: "f", Format: "x"}, Split: SplitWholeWork, EditionKey: "e", Units: []UnitSpec{{CitationStart: "x", CitationEnd: "2"}}}, "invalid unit range"},
 	}
 	_ = revision
 	for _, test := range tests {

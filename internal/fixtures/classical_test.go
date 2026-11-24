@@ -14,7 +14,7 @@ func TestFixtureClassicalCatalogCarriesConstituentBooksAndAWholeWork(t *testing.
 	catalog, err := NewClassicalCatalog()
 	require.NoError(t, err)
 
-	assert.Equal(t, classical.CatalogCounts{Works: 2, Authors: 2, Units: 4}, catalog.Counts())
+	assert.Equal(t, classical.CatalogCounts{Works: 3, Authors: 2, Units: 5}, catalog.Counts())
 
 	iliad, ok := catalog.Work("fixture-iliad")
 	require.True(t, ok)
@@ -26,6 +26,13 @@ func TestFixtureClassicalCatalogCarriesConstituentBooksAndAWholeWork(t *testing.
 	assert.False(t, iliad.WholeWork)
 	require.Len(t, iliad.Units, 3)
 	assert.Equal(t, []int{1, 2, 3}, []int{iliad.Units[0].ConstituentBook, iliad.Units[1].ConstituentBook, iliad.Units[2].ConstituentBook})
+
+	odyssey, ok := catalog.Work("fixture-odyssey")
+	require.True(t, ok)
+	assert.True(t, odyssey.WholeWork)
+	assert.Equal(t, 3, odyssey.ConstituentBooks)
+	require.Len(t, odyssey.Units, 1)
+	assert.Len(t, odyssey.Units[0].Contents, 3, "the whole-work unit lists its constituent books")
 
 	hellenica, ok := catalog.Work("fixture-hellenica")
 	require.True(t, ok)

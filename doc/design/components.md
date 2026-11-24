@@ -107,7 +107,7 @@ one-pattern/one-Templ-component implementation.
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
 | `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
-| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note; each Reading unit also offers I've read this, never the whole Work. | None, partial or full ownership; whole-work or multi-book Work; Choose books open or closed; compact reflow | Catalog |
+| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note; the work page offers one Add and one I've read this per Edition above a read-only contents list. | Owned or not owned; Work with or without constituent books; compact reflow | Catalog |
 | `CatalogSourceSection` | Group Catalog results under the source that offers them, with one search and language filter above every source. | Classical author index or OPDS cover grid; paged; no sources, no match, nothing in this language; owned or unowned entry; unowned entry offering Add and I've read this; compact reflow | Catalog |
 
 The patterns above should compose mostly through typography, ordered lists,
@@ -126,30 +126,29 @@ identity, the Opening is set whole in the reading typeface at the page-title
 size on wide screens and the section-title size on compact screens, marked as
 Ancient Greek, preceded by its starting citation and a visually hidden "Begins
 at". A caption states the word count and whether the Work is read whole or in
-constituent books; the length strip below it draws one segment per Reading unit
+constituent books; the length strip below it draws one segment for the Work
 on a single page-wide word scale ending at the next 10,000 words above the
 longest Work, with owned segments in the accent colour. The strip is hidden from
-assistive technology because the caption, books table and ownership line carry
-the same facts.
+assistive technology because the caption and ownership line carry the same
+facts.
 
 The margin note carries the Edition, the passage range, translation
-availability, ownership and one whole-Work Add control. A Work split into
-constituent books adds a native `details` **Choose books** disclosure, closed by
-default, with a table of book, passage, word count and per-book Add or "In My
-Books". Add creates or restores the Book as **To Read** and starts downloading
-and preparing the text; the confirmation says so. The Add label names what it
-will add: "Add and prepare the work" for a whole-work unit, "Add and prepare the
-whole work" when none of a multi-book Work is owned, and "Add and prepare the
-remaining books" when some are; a fully owned Work offers no Add. A page-level
+availability, ownership and one Add control. A Work is one Book (ADR 0128), so
+the index has no per-book control: the Add label is "Add and prepare the work",
+and an owned Work offers no Add. Add creates or restores the Book as **To Read**
+and starts downloading and preparing the text; the confirmation says so. The
+work page shows, per Edition, the passage range, one **Add and prepare the
+work** and one **I've read this** (or an **In My Books** link once owned), above
+a read-only contents list in a responsive table of constituent book, passage and
+word count. The contents list has no actions and no preparation state. A page-level
 attribution line credits the Greek text to its source layer and licence. The
 index shows no preparation state, coverage or difficulty.
 
 The Opening is announced as Ancient Greek, and its starting citation is preceded
 by a visually hidden "Begins at" so the reference is not read as part of the
-sentence. The length strip is `aria-hidden` and adds no focus stop. Title links,
-the native **Choose books** summary and every Add submit button follow document
-order and keep the shared focus ring and 44px target; the summary is operated by
-Enter or Space. Add posts the existing form with CSRF and returns to the
+sentence. The length strip is `aria-hidden` and adds no focus stop. Title links
+and every Add submit button follow document order and keep the shared focus
+ring and 44px target. Add posts the existing form with CSRF and returns to the
 confirmation through the shared `Feedback` live region. No interaction requires
 a pointer.
 
@@ -174,10 +173,8 @@ document order: the Classical catalog first when it matches, then each OPDS
 connection in its configured order.
 
 The Classical group reuses the author-grouped index above unchanged. A search
-matches author, English title and Greek title through the Go search key, and a
-trailing number narrows the match to a Work carrying that constituent Book,
-displaying only that Book's cell and length segment while the Work's reviewed
-totals and Add controls stay whole.
+matches author, English title and Greek title through the Go search key; a
+number is ordinary search text, as a Work has no constituent Book to narrow to.
 Each OPDS group is a cover grid with cover, title and author, ordered by title
 then author and paged locally per connection. The cover frame shows the title's
 initial until locally retained index covers exist; the Catalog never sends an
