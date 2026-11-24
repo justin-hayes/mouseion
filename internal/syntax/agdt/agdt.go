@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/syntax"
 )
 
@@ -214,4 +215,26 @@ func sourceOrder(printed int, unprinted []UnprintedNode) []entry {
 		return entries[i].source < entries[j].source
 	})
 	return entries
+}
+
+// FromSentence adapts one freshly imported sentence, which carries its
+// unprinted nodes, without a database.
+func FromSentence(sentence analyzer.Sentence) syntax.Tree {
+	tokens := make([]Token, len(sentence.Tokens))
+	for i, token := range sentence.Tokens {
+		tokens[i] = Token{
+			Ordinal: int64(i), Surface: token.Surface, Lemma: token.RawLemma, UPOS: token.UPOS,
+			Morphology: token.Morphology, Relation: token.Dependency, Head: int64(token.Head),
+			HeadUnprintedNode: token.HeadUnprintedNode,
+		}
+	}
+	nodes := make([]UnprintedNode, len(sentence.UnprintedNodes))
+	for i, node := range sentence.UnprintedNodes {
+		nodes[i] = UnprintedNode{SourceID: node.SourceID, Relation: node.Dependency, HeadUnprintedNode: node.HeadUnprintedNode}
+		if node.HeadTokenOrdinal != nil {
+			ordinal := int64(*node.HeadTokenOrdinal)
+			nodes[i].HeadToken = &ordinal
+		}
+	}
+	return Adapt(tokens, nodes)
 }
