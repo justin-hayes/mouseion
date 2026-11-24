@@ -42,6 +42,8 @@ func TestConditional(t *testing.T) {
 	runCases(t, []detectCase{
 		{name: "εἰ with a verb clause", id: Conditional, hit: true, anchor: 0, extent: []int{0, 1},
 			tree: build(w{"εἰ", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, indic}, main)},
+		{name: "source lemma with a decimal homograph number", id: Conditional, hit: true, anchor: 0,
+			tree: build(w{"εἰ٢", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, indic}, main)},
 		{name: "ἐάν", id: Conditional, hit: true, anchor: 0,
 			tree: build(w{"ἐάν", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, subj}, main)},
 		{name: "εἴπερ", id: Conditional, hit: true, anchor: 0,
@@ -58,6 +60,8 @@ func TestConditional(t *testing.T) {
 			tree: build(w{"ὡς", "AuxC", 3, ""}, w{"εἰ", "AuxC", 3, ""}, w{"ἔχω", "ADV", 1, indic}, main)},
 		{name: "head is ὥσπερ", id: Conditional, hit: false,
 			tree: build(w{"ὥσπερ", "AuxC", 3, ""}, w{"εἰ", "AuxC", 0, ""}, w{"ἔχω", "ADV", 1, indic}, main)},
+		{name: "unprinted head prevents checking the as-if exclusion", id: Conditional,
+			tree: build(w{"εἰ", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, indic}, w{"", "PRED", -1, ""})},
 		{name: "no clause child", id: Conditional, hit: false,
 			tree: build(w{"εἰ", "AuxC", 1, ""}, main)},
 		{name: "clause child is not a verb", id: Conditional, hit: false,
@@ -103,8 +107,17 @@ func TestResult(t *testing.T) {
 			tree: build(w{"ὥστε", "AuxC", 2, ""}, w{"", "ADV", 0, ""}, w{"λέγω", "PRED", -1, indic})},
 		{name: "clause through COORD", id: Result, hit: true, subtype: SubtypeNatural, anchor: 0,
 			tree: build(w{"ὥστε", "AuxC", 3, ""}, w{"καί", "COORD", 0, ""}, w{"ἔχω", "ADV", 1, inf}, w{"λέγω", "PRED", -1, indic})},
+		{name: "subtype follows coordination traversal, not token order", id: Result, hit: true, subtype: SubtypeNatural, anchor: 0,
+			tree: build(w{"ὥστε", "AuxC", 4, ""}, w{"καί", "COORD", 0, ""}, w{"γίγνομαι", "ADV", 0, indic},
+				w{"ἔχω", "ADV", 1, inf}, w{"λέγω", "PRED", -1, indic})},
+		{name: "an unprinted first candidate leaves the subtype unknown", id: Result, hit: true, anchor: 0,
+			tree: build(w{"ὥστε", "AuxC", 4, ""}, w{"", "COORD", 0, ""}, w{"γίγνομαι", "ADV", 0, inf},
+				w{"", "ADV", 1, ""}, w{"λέγω", "PRED", -1, indic})},
 		{name: "participle child", id: Result, hit: false,
 			tree: build(w{"ὥστε", "AuxC", 2, ""}, w{"ἔχω", "ADV", 0, part}, w{"λέγω", "PRED", -1, indic})},
+		{name: "a participle disqualifies another clause even through an unprinted COORD", id: Result,
+			tree: build(w{"ὥστε", "AuxC", 4, ""}, w{"γίγνομαι", "ADV", 0, inf}, w{"", "COORD", 0, ""},
+				w{"ἔχω", "ADV", 2, part}, w{"λέγω", "PRED", -1, indic})},
 		{name: "no clause child", id: Result, hit: false,
 			tree: build(w{"ὥστε", "AuxC", 1, ""}, w{"λέγω", "PRED", -1, indic})},
 		{name: "not AuxC", id: Result, hit: false,
@@ -229,6 +242,13 @@ func TestUnprintedCoordinatorFailsClosed(t *testing.T) {
 			tree: build(say, w{"", "COORD", 0, ""}, w{"ἔχω", "OBJ", 1, inf})},
 		{name: "infinitive subject only through an unprinted COORD", id: IndirectStatement, hit: false,
 			tree: build(say, w{"", "COORD", 2, ""}, w{"ἔχω", "OBJ", 0, inf}, w{"ἄνθρωπος", "SBJ", 1, "Case=Nom"})},
+		{name: "infinitive subject behind nested printed and unprinted COORDs", id: IndirectStatement, hit: false,
+			tree: build(say, w{"ἔχω", "OBJ", 0, inf}, w{"καί", "COORD", 1, ""}, w{"", "COORD", 2, ""},
+				w{"ἄνθρωπος", "SBJ", 3, "Case=Nom"})},
+		{name: "an unprinted COORD with no subject does not prevent checking a reachable subject", id: IndirectStatement,
+			hit: true, subtype: SubtypeInfinitive, anchor: 1,
+			tree: build(say, w{"ἔχω", "OBJ", 0, inf}, w{"", "COORD", 1, ""}, w{"πόλις", "OBJ", 2, "Case=Acc"},
+				w{"καί", "COORD", 1, ""}, w{"ἄνθρωπος", "SBJ", 4, "Case=Acc"})},
 		{name: "ὅτι clause only through an unprinted COORD", id: IndirectStatement, hit: false,
 			tree: build(say, w{"ὅτι", "AuxC", 0, ""}, w{"", "COORD", 1, ""}, w{"ἔχω", "OBJ", 2, indic})},
 		{name: "ὅτι governor only through an unprinted COORD", id: IndirectStatement, hit: false,
@@ -242,6 +262,12 @@ func TestUnprintedCoordinatorFailsClosed(t *testing.T) {
 		{name: "participle head only through an unprinted COORD", id: GenitiveAbsolute, hit: false,
 			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, "VerbForm=Part,Case=Gen"}, w{"", "COORD", 3, ""}, say)},
 	})
+}
+
+func TestGenitiveAbsoluteCannotCheckUnprintedGovernor(t *testing.T) {
+	tree := build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"δύω", "ADV", 2, "VerbForm=Part,Case=Gen"}, w{"", "PRED", -1, ""})
+	_, ok := has(DetectUngated(tree), GenitiveAbsolute)
+	require.False(t, ok)
 }
 
 func TestResultKeepsAPrintedVerbOfUnknownMood(t *testing.T) {
@@ -260,5 +286,25 @@ func TestUnprintedAdverbialClauseCountsThroughAnUnprintedCoordinator(t *testing.
 			tree: build(w{"εἰ", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"", "ADV", 1, ""}, say)},
 		{name: "result", id: Result, hit: true, subtype: "", anchor: 0, extent: []int{0},
 			tree: build(w{"ὥστε", "AuxC", 3, ""}, w{"", "COORD", 0, ""}, w{"", "ADV", 1, ""}, say)},
+	})
+}
+
+func TestVerbMorphologyOnNonVerbsDoesNotCount(t *testing.T) {
+	say := w{"λέγω", "PRED", -1, indic}
+	runCases(t, []detectCase{
+		{name: "conditional", id: Conditional,
+			tree: build(w{"εἰ", "AuxC", 2, ""}, w{"ἄνθρωπος", "ADV", 0, indic + ",UPOS=NOUN"}, say)},
+		{name: "articular infinitive", id: ArticularInfinitive,
+			tree: build(w{"ὁ", "ATR", 1, "Gender=Neut,Number=Sing,Case=Gen"}, w{"ἄνθρωπος", "ADV", 2, inf + ",UPOS=NOUN"}, say)},
+		{name: "result", id: Result,
+			tree: build(w{"ὥστε", "AuxC", 2, ""}, w{"ἄνθρωπος", "ADV", 0, inf + ",UPOS=NOUN"}, say)},
+		{name: "purpose", id: Purpose,
+			tree: build(w{"ἵνα", "AuxC", 2, ""}, w{"ἄνθρωπος", "ADV", 0, subj + ",UPOS=NOUN"}, say)},
+		{name: "genitive absolute", id: GenitiveAbsolute,
+			tree: build(w{"ἥλιος", "SBJ", 1, "Case=Gen"}, w{"ἄνθρωπος", "ADV", 2, part + ",Case=Gen,UPOS=NOUN"}, say)},
+		{name: "infinitive indirect statement", id: IndirectStatement,
+			tree: build(say, w{"ἄνθρωπος", "OBJ", 0, inf + ",UPOS=NOUN"})},
+		{name: "ὅτι indirect statement", id: IndirectStatement,
+			tree: build(say, w{"ὅτι", "AuxC", 0, ""}, w{"ἄνθρωπος", "OBJ", 1, indic + ",UPOS=NOUN"})},
 	})
 }

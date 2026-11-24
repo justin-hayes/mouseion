@@ -37,15 +37,21 @@ func build(nodes ...w) syntax.Tree {
 				node.UPOS = "DET"
 			}
 			node.Morphology = map[string]string{}
+			var upos string
 			for pair := range strings.SplitSeq(n.feats, ",") {
 				key, value, ok := strings.Cut(pair, "=")
 				switch {
 				case !ok:
 				case key == "UPOS":
-					node.UPOS = value
+					upos = value
 				default:
 					node.Morphology[key] = value
 				}
+			}
+			if upos != "" {
+				node.UPOS = upos
+			} else if node.Morphology["VerbForm"] != "" {
+				node.UPOS = "VERB"
 			}
 			ordinal++
 		} else {

@@ -97,3 +97,21 @@
 2	ἵνα	ἵνα	c	c--------	_	1	AuxC	_	t_14_2|0|ref=Xen. Anab._1.1.14
 3	[0]	[0]	-	---------	_	2	COORD	_	e_14_3|0|ref=Xen. Anab._1.1.14
 4	λέγῃ	λέγω1	v	v3sasa---	_	3	ADV	_	t_14_4|0|ref=Xen. Anab._1.1.14
+
+# source = Xenophon, Xen. Anab._1.1.15
+# text = ἔχει ὥστε καὶ λέγει γίγνεσθαι
+# sent_id = 15
+1	ἔχει	ἔχω	v	v3spia---	_	0	PRED	_	t_15_1|0|ref=Xen. Anab._1.1.15
+2	ὥστε	ὥστε	c	c--------	_	1	AuxC	_	t_15_2|0|ref=Xen. Anab._1.1.15
+3	καὶ	καί	c	c--------	_	2	COORD	_	t_15_3|0|ref=Xen. Anab._1.1.15
+4	λέγει	λέγω1	v	v3spia---	_	2	ADV	_	t_15_4|0|ref=Xen. Anab._1.1.15
+5	γίγνεσθαι	γίγνομαι	v	v--pnm---	_	3	ADV	_	t_15_5|0|ref=Xen. Anab._1.1.15
+
+# source = Xenophon, Xen. Anab._1.1.16
+# text = φησὶ λέγειν καὶ Κῦρος
+# sent_id = 16
+1	φησὶ	φημί	v	v3spia---	_	0	PRED	_	t_16_1|0|ref=Xen. Anab._1.1.16
+2	λέγειν	λέγω1	v	v--pna---	_	1	OBJ	_	t_16_2|0|ref=Xen. Anab._1.1.16
+3	καὶ	καί	c	c--------	_	2	COORD	_	t_16_3|0|ref=Xen. Anab._1.1.16
+4	[0]	[0]	-	---------	_	3	COORD	_	e_16_4|0|ref=Xen. Anab._1.1.16
+5	Κῦρος	κῦρος	n	n-s---mn-	_	4	SBJ	_	t_16_5|0|ref=Xen. Anab._1.1.16

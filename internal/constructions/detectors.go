@@ -3,6 +3,7 @@ package constructions
 import (
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/syntax"
 )
@@ -34,7 +35,7 @@ func (r reader) lemma(i int) string {
 	if !n.Printed {
 		return ""
 	}
-	return strings.TrimRight(n.Lemma, "0123456789")
+	return strings.TrimRightFunc(n.Lemma, unicode.IsDigit)
 }
 
 func (r reader) feature(i int, name string) string {
@@ -50,15 +51,17 @@ func (r reader) category(i int) syntax.Category { return r.node(i).Category }
 // verb reports a printed verb form. With moods, it must be finite in one of
 // them.
 func (r reader) verb(i int, moods ...string) bool {
-	form := r.feature(i, "VerbForm")
-	if len(moods) == 0 {
-		// A printed verb whose mood is unknown is still a verb.
-		return form != "" || (r.node(i).Printed && r.node(i).UPOS == "VERB")
+	n := r.node(i)
+	if !n.Printed || n.UPOS != "VERB" {
+		return false
 	}
-	return form == "Fin" && slices.Contains(moods, r.feature(i, "Mood"))
+	// A printed verb whose mood is unknown is still a verb.
+	return len(moods) == 0 || (n.Morphology["VerbForm"] == "Fin" && slices.Contains(moods, n.Morphology["Mood"]))
 }
 
-func (r reader) verbForm(i int, form string) bool { return r.feature(i, "VerbForm") == form }
+func (r reader) verbForm(i int, form string) bool {
+	return r.verb(i) && r.feature(i, "VerbForm") == form
+}
 
 func (r reader) extent(i int) []int {
 	var out []int
@@ -116,44 +119,19 @@ func (r reader) children(i int, categories ...syntax.Category) []int {
 // verbs to finite forms in those moods.
 func (r reader) clauseChildren(i int, unprinted bool, moods ...string) []int {
 	var out []int
-	for _, child := range r.children(i, syntax.CategoryAdverbial) {
-		switch {
-		case r.node(child).Printed && r.verb(child, moods...):
-			out = append(out, child)
-		case unprinted && !r.node(child).Printed:
-			out = append(out, child)
-		}
-	}
-	if unprinted {
-		out = append(out, r.unprintedAdverbials(i, out)...)
-		slices.Sort(out)
-	}
-	return out
-}
-
-// unprintedAdverbials returns the unprinted ADV nodes under i that are
-// reached through coordinators, printed or not, and are not already in have.
-// The conditional and result definitions accept such a node as the clause by
-// its relation alone.
-func (r reader) unprintedAdverbials(i int, have []int) []int {
-	var out []int
-	seen := map[int]bool{i: true}
-	var walk func(parent int)
-	walk = func(parent int) {
-		for _, child := range r.t.Children(parent) {
-			if seen[child] {
-				continue
-			}
-			seen[child] = true
-			switch {
-			case r.category(child) == syntax.CategoryCoordination:
-				walk(child)
-			case !r.node(child).Printed && r.category(child) == syntax.CategoryAdverbial && !slices.Contains(have, child):
+	// Preserve the measured depth-first expansion of coordination groups:
+	// the first candidate supplies the result subtype.
+	for _, child := range r.t.EffectiveChildren(i, syntax.CategoryAdverbial) {
+		if !r.node(child).Printed {
+			if unprinted {
 				out = append(out, child)
 			}
+			continue
+		}
+		if _, ok := r.head(child); ok && r.verb(child, moods...) {
+			out = append(out, child)
 		}
 	}
-	walk(i)
 	return out
 }
 
@@ -168,7 +146,7 @@ func detectConditional(r reader, n int) (SubtypeID, bool) {
 	if previous := r.t.PreviousPrinted(n); previous != syntax.Root && likeLemmas[r.lemma(previous)] {
 		return "", false
 	}
-	if head := r.node(n).Head; head != syntax.Root && likeLemmas[r.lemma(head)] {
+	if head := r.node(n).Head; head != syntax.Root && (!r.node(head).Printed || likeLemmas[r.lemma(head)]) {
 		return "", false
 	}
 	return "", true
@@ -202,7 +180,9 @@ func detectResult(r reader, n int) (SubtypeID, bool) {
 	if len(clauses) == 0 {
 		return "", false
 	}
-	for _, clause := range clauses {
+	// An inaccessible clause cannot establish a hit, but a participial
+	// candidate still disqualifies the result.
+	for _, clause := range r.t.EffectiveChildren(n, syntax.CategoryAdverbial) {
 		if r.verbForm(clause, "Part") {
 			return "", false
 		}
@@ -247,7 +227,7 @@ func detectGenitiveAbsolute(r reader, n int) (SubtypeID, bool) {
 		return "", false
 	}
 	head, ok := r.head(n)
-	if !ok || (head != syntax.Root && perceivingVerbs[r.lemma(head)]) {
+	if !ok || (head != syntax.Root && (!r.node(head).Printed || perceivingVerbs[r.lemma(head)])) {
 		return "", false
 	}
 	return "", true
@@ -274,14 +254,9 @@ func infinitiveStatement(r reader, n int) (SubtypeID, bool) {
 	if futureOnlyVerbs[r.lemma(head)] && (r.feature(n, "Tense") != "Fut" || r.feature(n, "Aspect") == "Perf") {
 		return "", false
 	}
-	// A subject behind an unprinted coordinator cannot be checked.
-	for _, child := range r.t.Children(n) {
-		if r.category(child) == syntax.CategoryCoordination && !r.node(child).Printed {
-			return "", false
-		}
-	}
-	for _, subject := range r.children(n, syntax.CategorySubject) {
-		if r.feature(subject, "Case") != "Acc" {
+	for _, subject := range r.t.EffectiveChildren(n, syntax.CategorySubject) {
+		// A subject behind an unprinted coordinator cannot be checked.
+		if _, ok := r.head(subject); !ok || r.feature(subject, "Case") != "Acc" {
 			return "", false
 		}
 	}
