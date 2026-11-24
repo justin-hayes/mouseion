@@ -85,14 +85,12 @@ func fixtureConstructionParallel(row fixtureConstructionRow, occurrence domain.S
 	study.Constructions = []domain.SentenceStudyConstruction{occurrence}
 	anchor := study.Tokens[occurrence.Anchor]
 	return domain.ConcordanceResultOccurrence{
-		ConcordanceOccurrence: domain.ConcordanceOccurrence{
-			Surface: anchor.Surface, CanonicalLemma: anchor.Surface, UPOS: anchor.UPOS, Headword: anchor.Surface,
-			SentenceText: fixtureSyntaxSentence, SentenceStartOffset: anchor.StartOffset, SentenceEndOffset: anchor.EndOffset,
-			UnitStartOffset: anchor.StartOffset, UnitEndOffset: anchor.EndOffset,
-			BookID: row.book, BookTitle: row.title, SourceMaterialID: "fixture-source", AnalysisRunID: fixtureSyntaxRunID,
-			CorpusID: "fixture-corpus", UnitID: fixtureSyntaxUnit, ChapterTitle: "Synthetic 1.1",
-			SentenceOrdinal: row.sentence, TokenOrdinal: anchor.Ordinal,
-		},
+		Surface: anchor.Surface, CanonicalLemma: anchor.Surface, UPOS: anchor.UPOS, Headword: anchor.Surface,
+		SentenceText: fixtureSyntaxSentence, SentenceStartOffset: anchor.StartOffset, SentenceEndOffset: anchor.EndOffset,
+		UnitStartOffset: anchor.StartOffset, UnitEndOffset: anchor.EndOffset,
+		BookID: row.book, BookTitle: row.title, SourceMaterialID: "fixture-source", AnalysisRunID: fixtureSyntaxRunID,
+		CorpusID: "fixture-corpus", UnitID: fixtureSyntaxUnit, ChapterTitle: "Synthetic 1.1",
+		SentenceOrdinal: row.sentence, TokenOrdinal: anchor.Ordinal,
 		EffectiveLemma: anchor.Surface, Tier: row.tier, Anchor: occurrence.Anchor, ConstructionExtent: occurrence.Extent,
 		ConstructionID: occurrence.ConstructionID, SubtypeID: occurrence.SubtypeID, Study: study,
 	}

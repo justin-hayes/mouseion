@@ -61,7 +61,7 @@ func importConstructionBook(t *testing.T, ctx context.Context, store *persistenc
 	t.Helper()
 	data := []byte(constructionSource(book.sentences))
 	path := filepath.Join(t.TempDir(), "source.conllu")
-	require.NoError(t, os.WriteFile(path, data, 0o600)) //nolint:gosec // path is inside t.TempDir().
+	require.NoError(t, os.WriteFile(path, data, 0o600))
 	sum := sha256.Sum256(data)
 	definition := greekTestDefinition()
 	definition.Key, definition.WorkTitle, definition.WorkAuthor = book.key, book.title, book.author

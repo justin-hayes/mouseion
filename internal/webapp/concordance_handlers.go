@@ -314,17 +314,8 @@ func safeConcordanceReturnURL(candidate string) string {
 	if focus == "" || parsed.Fragment != focus || values.Get("term") == "" {
 		return "/vocabulary/concordance"
 	}
-	for key := range values {
-		switch key {
-		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
-		case "subtype", "from_run", "from_sentence", "from_anchor":
-			if values.Get("as") != domain.ConcordanceMatchConstruction {
-				return "/vocabulary/concordance"
-			}
-		case originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
-		default:
-			return "/vocabulary/concordance"
-		}
+	if !safeConcordanceReturnKeys(values) {
+		return "/vocabulary/concordance"
 	}
 	page, err := strconv.Atoi(values.Get("page"))
 	if err != nil || page < 1 {
@@ -337,6 +328,25 @@ func safeConcordanceReturnURL(candidate string) string {
 		return "/vocabulary/concordance"
 	}
 	return parsed.String()
+}
+
+// safeConcordanceReturnKeys reports whether every key of a return URL is one a
+// Concordance page carries. The construction keys belong to a construction
+// lookup only.
+func safeConcordanceReturnKeys(values url.Values) bool {
+	for key := range values {
+		switch key {
+		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
+		case "subtype", "from_run", "from_sentence", "from_anchor":
+			if values.Get("as") != domain.ConcordanceMatchConstruction {
+				return false
+			}
+		case originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // safeConstructionReturn validates a construction lookup the way the request

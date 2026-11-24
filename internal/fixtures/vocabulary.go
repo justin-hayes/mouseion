@@ -547,8 +547,16 @@ const (
 	fixtureSyntaxSentence = "λέγει ὅτι ἄνδρας, καλούς."
 	// fixtureSyntaxRunID and fixtureSyntaxBookID are the origin of the synthetic
 	// construction parallels: the analysis run and Book of the syntax sentence.
-	fixtureSyntaxRunID  = "00000000-0000-4000-8000-0000000000a1"
-	fixtureSyntaxBookID = "fixture-kwic-syntax"
+	fixtureSyntaxRunID  = SyntaxRunID
+	fixtureSyntaxBookID = SyntaxBookID
+)
+
+// The synthetic Greek syntax sentence's identities, for tests that drive the
+// fixture store directly.
+const (
+	SyntaxRunID  = "00000000-0000-4000-8000-0000000000a1"
+	SyntaxBookID = "fixture-kwic-syntax"
+	SyntaxUnitID = fixtureSyntaxUnit
 )
 
 // fixtureSyntaxConcordance returns one Greek occurrence whose Sentence study
