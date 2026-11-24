@@ -1,7 +1,8 @@
 # ADR 0116: A curated Classical catalog of Ancient Greek Reading units
 
 Status: **Accepted — implemented (#2401/#2419); amended 2026-11-19 (catalog page set
-and carried excerpts)** · Date: 2026-11-09 · Author: Justin + OpenCode
+and carried excerpts); Classical Analysis update carry-over amended by
+[ADR 0126](0126-analysis-updates-carry-decisions-onto-identical-tokens.md)** · Date: 2026-11-09 · Author: Justin + OpenCode
 
 > **Amendment (2026-11-19):** The Classical catalog's pages are the index and
 > the work page. The index groups every Work under its author and identifies it
@@ -179,7 +180,12 @@ prepared decks keep their frozen evidence. A grouped Work row shows one notice
 and one bulk action; the current Book is skipped and named; one confirmation
 states the corrections and exclusions that will not carry over; each Book is
 revalidated separately on confirmation. Update jobs run on
-`classical_preparation`.
+`classical_preparation`. *(Amended by
+[ADR 0126](0126-analysis-updates-carry-decisions-onto-identical-tokens.md):
+corrections and exclusions carry over wherever the word is unchanged, and the
+confirmation may show the interpretation version's change note. The first such
+version adds native AGDT syntax under
+[ADR 0122](0122-ancient-greek-native-agdt-syntax.md).)*
 
 ### One copy of source and translation per installation
 

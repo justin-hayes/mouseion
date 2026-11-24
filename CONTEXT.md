@@ -32,6 +32,11 @@ disposition**, **Book workflow bucket**, **My Books** and **Previously read**
 below, and retires **Inbox** and **Hidden**. My Books now holds only chosen
 Books; sync maintains each connection's local Catalog index instead of creating
 Books.
+ADRs [0122](doc/adr/0122-ancient-greek-native-agdt-syntax.md)–[0126](doc/adr/0126-analysis-updates-carry-decisions-onto-identical-tokens.md)
+(accepted, implementation pending) define the Construction terms, **Unprinted
+syntax node**, **Grammar reference** and **Concept note** below, the
+`native_agdt` reading of **Imported analysis**, and the carry-over of decisions
+in an **Analysis update**.
 
 ## Language
 
@@ -156,8 +161,10 @@ A multi-word lexeme with its own dictionary entry, such as Italian *in gamba*
 ("capable") or *macchina da scrivere* ("typewriter"), whose meaning belongs to
 the whole expression rather than to any one of its words. A proper name
 (*La Calamita*, *Palazzo Madama*) is never an idiom. An idiom is card-only:
-it has no Known, Reserved, Unknown or Generated state.
-_Avoid_: multi-word expression (fine in prose), collocation, phrase.
+it has no Known, Reserved, Unknown or Generated state. It is not a
+Construction, which is a syntactic pattern rather than a lexeme.
+_Avoid_: multi-word expression (fine in prose), collocation, phrase,
+construction.
 
 **Idiom candidate**:
 A match of an idiom's words in one sentence, found from dictionary evidence and
@@ -338,7 +345,8 @@ or prepared decks. A grouped Work row or chooser entry carries one notice and
 one bulk action covering the eligible To Read Books that surface shows; it
 names and skips
 the current Reading's Book and confirms the Work's corrections and exclusions
-once.
+once. Lemma corrections and Occurrence exclusions on unchanged words carry
+over; the earlier analysis keeps its own.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
 
 **Vocabulary coverage band**:
@@ -697,19 +705,24 @@ covers both the linear text around each occurrence and the occurrence's
 syntactic role from dependency parsing. It lists every occurrence, including
 ones that are not vocabulary, such as proper nouns and separable particles. A
 lemma query applies confirmed Lemma corrections, and excluded occurrences are
-hidden from every query.
+hidden from every word query. A Construction query lists the parallels of one
+Construction, reached from Sentence study; it ignores corrections and
+exclusions unless it is narrowed to an anchor lemma.
 _Avoid_: KWIC (a rendering style, not the feature), occurrence list.
 
 **Sentence study**:
 The learner's study of one complete study context, with each word's analyzed
 morphology and, where the analysis has syntax, its dependency relation and head.
-It is where construction-level help belongs.
+It is where construction-level help belongs: where the analysis supports them,
+it names the sentence's Constructions, each with its Concept note.
 _Avoid_: sentence detail, parse view.
 
 **Dependency relation**:
 The syntactic function a token (the dependent) fulfils relative to its head
 in a sentence's dependency parse, for example `nsubj` (subject), `obj`, or
-`advcl`. One of the dimensions of a sentence's surrounding context; what makes
+`advcl` in Universal Dependencies, or `SBJ`, `OBJ`, `ADV` in an AGDT
+(`native_agdt`) analysis; the analysis's syntax state says which scheme it
+uses. One of the dimensions of a sentence's surrounding context; what makes
 grammar-aware concordance queries and syntactic sentence scoring possible.
 _Avoid_: parse tag, syntax label.
 
@@ -723,6 +736,84 @@ _Avoid_: parent (implementation flavoured), controller.
 A token whose dependency relation attaches it to a head. A queried lemma's
 dependents in a specific relation are what a grammar query returns.
 _Avoid_: child, argument.
+
+**Unprinted syntax node**:
+A node of a sentence's syntax tree with no printed word, such as an AGDT
+ellipsis node standing for an understood verb. It keeps its relation, head and
+tree position, and a printed word may depend on it, but it has no form, lemma,
+morphology or vocabulary identity and is never an Annotation occurrence.
+Learner-facing text calls it "an unprinted word" and never guesses what it is.
+_Avoid_: ellipsis token, empty token, elided word (for the stored node).
+
+**Construction**:
+A syntactic pattern of a study language, such as the genitive absolute or a
+result clause, that Mouseion identifies from an analysis's syntax and names in
+Sentence study. It is defined per language over the analysis's syntax scheme
+and has a stable construction id. It is not an Idiom: an Idiom is a lexical
+multiword unit with its own dictionary entry, while a Construction is a
+grammatical shape any words can fill.
+_Avoid_: grammar point, pattern (alone), idiom, phrase.
+
+**Construction occurrence**:
+One Construction found in one exact analysis: its Construction anchor and its
+Construction extent, with an optional Construction subtype. Occurrences may
+nest and overlap; one anchor may carry several different Constructions, never
+the same one twice. It is a derived reading of the analysis's frozen parse, not
+evidence: it can change when the Construction detector version changes, and no
+card, Known fact or count depends on it.
+_Avoid_: construction match, detected construction, hit (outside measurement).
+
+**Construction anchor**:
+The one Annotation occurrence that signals a Construction occurrence, such as
+the conjunction of a conditional clause or the participle of a genitive
+absolute. It is always a printed word, never an Unprinted syntax node.
+Concordance centres a parallel on it, and a lemma filter applies to it.
+_Avoid_: head (a dependency term), trigger, keyword.
+
+**Construction extent**:
+The set of printed words that belong to a Construction occurrence: the
+anchor's subtree, read through the syntax scheme's adapter. It may be
+discontinuous, so it is a set of words, not a span. Unprinted syntax nodes
+inside it are not members.
+_Avoid_: span, range, scope.
+
+**Construction subtype**:
+An attribute of one Construction that distinguishes its forms, such as natural
+or actual result, or the case of an articular infinitive's article. A subtype
+is not a separate Construction. One that cannot be determined is omitted, and
+the Construction is still shown.
+_Avoid_: construction type (for the attribute), variant.
+
+**Subtype label**:
+A Construction subtype that has cleared the shipping bar on its own and is
+therefore shown to the learner, for example "natural result". An occurrence
+whose subtype is not a Subtype label shows the Construction's name with no
+subtype.
+_Avoid_: hedged label, tentative subtype.
+
+**Construction detector version**:
+One integer per syntax scheme that identifies how Mouseion reads Constructions
+from a parse: the scheme adapter's normalisation, the detectors, their
+reviewed verb lists and the shipping gate that decides which Constructions and
+Subtype labels are on. Changing any of them bumps it and rebuilds every
+analysis's Construction occurrences without learner confirmation; until an
+analysis is rebuilt it shows no Constructions. Where Mouseion is not confident
+it abstains silently, with no hedged labels and no "none found" statement.
+_Avoid_: detector model version, construction analysis version.
+
+**Grammar reference**:
+The printed reference grammar a study language's Constructions cite, with a
+stable § numbering Mouseion can link to: Smyth 1920 for Ancient Greek, Allen &
+Greenough for Latin. Mouseion shows the citation ("Smyth 1920 §2070") and
+links to it, and never reproduces its wording.
+_Avoid_: Smyth (for the general concept), grammar source.
+
+**Concept note**:
+Mouseion's own reviewed description of one Construction in one language: a
+learner-facing name, a one- or two-sentence definition and one Grammar
+reference citation. It is presentation looked up when the page renders, not
+analysis evidence, so editing it changes no analysis.
+_Avoid_: grammar entry, Smyth note, definition (alone).
 
 **Full lemma** (compound lexeme):
 The reattached dictionary lemma of a separable verb — `aufstehen` rather than
@@ -770,8 +861,12 @@ _Avoid_: unnumbered homograph, null discriminator.
 Reading a pinned pre-annotated source file through one bounded, checked adapter
 and writing it as an ordinary analysis run, without the NLP service. The run
 records its versioned interpretation and its syntax state: `ud`, `native_agdt`
-or `absent`. Consumers show "Syntax unavailable" for a `native_agdt` or
-`absent` run.
+or `absent`. The syntax state names the scheme of every relation and head in the
+run. Consumers show "Syntax unavailable" for an `absent` run. A `native_agdt`
+run stores the source's AGDT relations and heads, with Unprinted syntax nodes;
+generic UD consumers treat it as having no UD syntax, and its relations reach
+the learner only through Constructions and the plain-English Word relations in
+Sentence study.
 _Avoid_: NLP analysis, corpus sync.
 
 **Provider payload assessment**:
@@ -830,7 +925,9 @@ _Avoid_: automatic correction, LLM correction.
 A learner-confirmed alternative canonical lemma for one occurrence in a Book's
 exact analysis, governing derived reading and deck vocabulary while preserving
 analyzer evidence. It need not have a dictionary entry, can be made without a
-flag, and is never applied globally or across analyses automatically.
+flag, and is never applied globally. The only automatic step across analyses
+is an Analysis update copying it onto the same word (same source span, surface
+and source lemma) in the new analysis.
 _Avoid_: spelling correction, dictionary correction, global lemma override.
 
 **Occurrence exclusion**:
