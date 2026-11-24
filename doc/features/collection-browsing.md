@@ -86,49 +86,27 @@ contracts. Reading owns current evidence and current-reading presentation.
   Book's More actions. It ends My Books membership and changes nothing else:
   Book identity, analysis, corrections, exclusions, completions and Known
   vocabulary all remain.
-- The current reading is never removed by either Remove action. Its row states
+- The current reading is never removed. Its row states
   why the action is unavailable, and a direct request is refused with the same
   reason instead of ending the reading.
-- A grouped classical Work row offers **Remove the work**. It ends the
-  membership of the Work's other Books, leaves the current Book in My Books, and
-  names that skipped Book in the success notice. "Move the work back to Inbox" is
-  retired. Read again and the Work-level Move to To Read make a Read Book a
-  candidate again.
 - The Catalog offers **Add** for an entry whose Book left My Books. Adding it
   again restores the same Book with its evidence, for both an OPDS Book and a
   classical Book.
 
 ### Classical works
 
-- Books of one classical Work are grouped into one row when the learner owns
-  more than one of them in the active language. The row identifies the Work by
-  title, author, Greek title, "all N books" or "M of N books", and Classical
-  catalog provenance.
-- The margin carries one bucket badge using the ordinary precedence — **Currently
-  reading Book N**, **To Read**, **Read** — followed by counts such as
-  "22 more To Read · 1 Read".
-- "M of N books" counts the Books the learner owns in the active language; every
-  owned Book contributes a cell.
-- Under the identity, one cell per owned Book appears in book order. Each cell
-  shows its bucket by shape, meets the 44px target, and carries a full
-  accessible label. The current Book's cell opens the current-reading card; a
-  To Read Book's cell opens that Book's ordinary candidate entry inline in the
-  chooser, on Reading when no Book is current and on the Switch page when one
-  is. A Read cell is status-only, not a link: Reading has no entry to select,
-  and the strip never implies a next Book. It keeps the 44px cell and
-  accessible label but is not a link target. Read again and the Work-level Move
-  to To Read remain the routes that make such a Book a candidate again. The row
-  has no per-Book actions, and the page has one shared legend.
-- A filtered Work row keeps only its matching cells. A line states the shape,
-  such as "57 Books in 5 works".
-- A Work with only one owned Book stays an ordinary row and shows its place,
-  such as "Histories, Book 1" and "Book 1 of 9". A whole-work unit shows no
-  position.
-- Search matches author, English title, or Greek title ignoring accents, with a
-  trailing number narrowing to that constituent Book ("iliad 6"). Greek title
+- A classical Book is an ordinary row with its own actions. The row identifies
+  the Book by its Work title, Edition label, Work position such as "Histories,
+  Book 1" and "Book 1 of 9" for a leftover per-book Book (a whole Work has no
+  position), Greek title, and Classical catalog provenance.
+- Two Editions of one Work are two rows, told apart by their Edition labels.
+- A leftover Book on a withdrawn per-book definition stays an ordinary row. The
+  learner removes it with **Remove from My Books**, one Book at a time.
+- Each Book carries the ordinary per-Book Analysis update notice; the current
+  Reading's Book asks to end the Reading first.
+- Search matches title, author, English title, or Greek title ignoring accents.
+  A trailing number is ordinary search text, not a Book number. Greek title
   matching uses the Go search key, never SQL `lower()`.
-- Compact layouts keep the cover beside title and author, then place the margin
-  and strip below; the strip wraps instead of scrolling sideways.
 
 ### Progressive enhancement and accessibility
 
@@ -151,7 +129,7 @@ contracts. Reading owns current evidence and current-reading presentation.
 | State | Required presentation | Primary action |
 |---|---|---|
 | Empty collection | Explain My Books and lead to the Catalog. | Browse the Catalog |
-| Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading on the current Book and To Read rows; More actions offer Mark as previously read (unstarted To Read), Read again (Read), or Remove; a grouped Work row offers its Work-level move and Remove the work |
+| Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading on the current Book and To Read rows; More actions offer Mark as previously read (unstarted To Read), Read again (Read), or Remove |
 | Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | The same actions as with a cover |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
 | Later page becomes empty | Return to the nearest valid page without losing the query context. | Continue browsing |
@@ -208,8 +186,7 @@ command's prerequisites, output, and recovery.
 - Empty, no-match, and paging-boundary states are distinct.
 - Remove on a To Read or Read Book ends membership only, and the Catalog then
   offers Add again; the current Book is refused with a reason.
-- Remove the work skips and names the current Book, and Add restores the same
-  Book after either Remove action.
+- Add restores the same Book after Remove.
 - The full workflow is keyboard-operable and usable without JavaScript; HTMX
   enhancement preserves focus, announcements, and URL meaning.
 - Narrow and long-content cases retain bibliographic identity and usable actions.

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -368,4 +369,31 @@ func redirectAnalysisUpdateNotice(w http.ResponseWriter, r *http.Request, return
 	values.Set(key, text)
 	parsed.RawQuery = values.Encode()
 	redirect(w, r, parsed.String())
+}
+
+// workBooks loads every owned Book of one reviewed Work in constituent-book
+// order, including Books outside the current filter. Work-level actions
+// therefore act on the whole Work while disposition stays per Book.
+func (h *Handler) workBooks(ctx context.Context, owner, workKey string) ([]domain.MyBook, error) {
+	workKey = strings.TrimSpace(workKey)
+	if workKey == "" {
+		return nil, domain.ErrNotFound
+	}
+	books, err := h.services.Store.MyBooks.ListMyBooksWithEvidence(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	work := make([]domain.MyBook, 0, len(books))
+	for _, book := range books {
+		if book.ReadingUnit != nil && book.ReadingUnit.WorkKey == workKey {
+			work = append(work, book)
+		}
+	}
+	if len(work) == 0 {
+		return nil, domain.ErrNotFound
+	}
+	sort.SliceStable(work, func(i, j int) bool {
+		return domain.MyBookWorkOrderLess(work[i], work[j])
+	})
+	return work, nil
 }

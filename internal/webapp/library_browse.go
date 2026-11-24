@@ -3,7 +3,6 @@ package webapp
 import (
 	"fmt"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -211,11 +210,6 @@ type MyBooksBrowseState struct {
 	AllCount      int
 	ScopeTotal    int
 	Total         int
-	BookTotal     int
-	WorkTotal     int
-	RowCount      int
-	HasWorks      bool
-	Rows          []domain.MyBooksBrowseRow
 	Page          int
 	PageCount     int
 	TextNoMatch   bool
@@ -356,14 +350,6 @@ func myBooksCompletionDateLabel(completedAt *time.Time) string {
 	return completedAt.Local().Format("2 Jan 2006")
 }
 
-// myBooksWorkBucketOrder is the ordinary bucket precedence a grouped Work row
-// uses for its one leading badge.
-var myBooksWorkBucketOrder = []domain.MyBookBucket{
-	domain.MyBookBucketCurrentReading,
-	domain.MyBookBucketToRead,
-	domain.MyBookBucketRead,
-}
-
 func myBookBucketLabel(bucket domain.MyBookBucket) string {
 	switch bucket {
 	case domain.MyBookBucketCurrentReading:
@@ -379,21 +365,6 @@ func myBookBucketLabel(bucket domain.MyBookBucket) string {
 
 func myBookWorkflowLabel(book domain.MyBook) string {
 	return myBookBucketLabel(book.WorkflowBucket())
-}
-
-// myBookWorkBucketShape gives a grouped Work's cells and leading badge four
-// distinct shapes. Ordinary rows keep the shared StatusBadge shape vocabulary.
-func myBookWorkBucketShape(bucket domain.MyBookBucket) string {
-	switch bucket {
-	case domain.MyBookBucketCurrentReading:
-		return "status-badge__shape status-badge__shape--dot"
-	case domain.MyBookBucketToRead:
-		return "status-badge__shape status-badge__shape--ring"
-	case domain.MyBookBucketRead:
-		return "status-badge__shape status-badge__shape--bar"
-	default:
-		return "status-badge__shape status-badge__shape--ring"
-	}
 }
 
 func myBookWorkflowTone(book domain.MyBook) StatusTone {
@@ -434,385 +405,6 @@ func myBookGreekTitle(book domain.MyBook) string {
 		return strings.TrimSpace(unit.GreekTitle)
 	}
 	return ""
-}
-
-func myBooksWorkRowID(workKey string) string {
-	return "work-row-" + url.PathEscape(workKey)
-}
-
-// myBooksWorkActionURL is the one place a grouped Work action is spelled.
-func myBooksWorkActionURL(workKey, action string) string {
-	return "/library/works/" + url.PathEscape(workKey) + "/" + action
-}
-
-// myBooksWorkSizeLabel states the Work's reviewed size and how much of it the
-// learner owns: "all 24 books" or "2 of 24 books".
-func myBooksWorkSizeLabel(row domain.MyBooksBrowseRow) string {
-	owned := row.OwnedBooks
-	if owned <= 0 {
-		owned = len(row.Books)
-	}
-	total := row.ConstituentBooks
-	if total <= 0 {
-		total = owned
-	}
-	if owned > total {
-		owned = total
-	}
-	switch {
-	case total == 1:
-		return "1 book"
-	case owned >= total:
-		return fmt.Sprintf("all %d books", total)
-	default:
-		return fmt.Sprintf("%d of %d books", owned, total)
-	}
-}
-
-// myBooksWorkLeadingBook applies the ordinary bucket precedence: current
-// reading, To Read, Read.
-func myBooksWorkLeadingBook(books []domain.MyBook) (domain.MyBookBucket, domain.MyBook) {
-	for _, bucket := range myBooksWorkBucketOrder {
-		for _, book := range books {
-			if book.WorkflowBucket() == bucket {
-				return bucket, book
-			}
-		}
-	}
-	if len(books) > 0 {
-		return books[0].WorkflowBucket(), books[0]
-	}
-	return "", domain.MyBook{}
-}
-
-// myBooksWorkLeadingBadge is the one StatusBadge a grouped Work row shows.
-func myBooksWorkLeadingBadge(books []domain.MyBook) (label string, tone StatusTone, shape string) {
-	bucket, book := myBooksWorkLeadingBook(books)
-	shape = myBookWorkBucketShape(bucket)
-	if bucket == domain.MyBookBucketCurrentReading {
-		if unit := book.ReadingUnit; unit != nil && unit.ConstituentBook > 0 {
-			return fmt.Sprintf("Currently reading Book %d", unit.ConstituentBook), StatusInfo, shape
-		}
-		return "Currently reading", StatusInfo, shape
-	}
-	return myBookBucketLabel(bucket), StatusNeutral, shape
-}
-
-// myBooksWorkCountsLabel states the rest of the Work's shape after the leading
-// badge, such as "22 more To Read · 1 Read".
-func myBooksWorkCountsLabel(books []domain.MyBook) string {
-	if len(books) == 0 {
-		return ""
-	}
-	leading, _ := myBooksWorkLeadingBook(books)
-	counts := map[domain.MyBookBucket]int{}
-	for _, book := range books {
-		counts[book.WorkflowBucket()]++
-	}
-	var parts []string
-	for _, bucket := range myBooksWorkBucketOrder {
-		count := counts[bucket]
-		if bucket == leading {
-			count--
-		}
-		if count <= 0 {
-			continue
-		}
-		label := myBookBucketLabel(bucket)
-		if bucket == leading {
-			parts = append(parts, fmt.Sprintf("%d more %s", count, label))
-		} else {
-			parts = append(parts, fmt.Sprintf("%d %s", count, label))
-		}
-	}
-	return strings.Join(parts, " · ")
-}
-
-// myBooksWorkCellLabel is the full accessible label of one Book cell.
-func myBooksWorkCellLabel(row domain.MyBooksBrowseRow, book domain.MyBook) string {
-	label := row.WorkTitle
-	if strings.TrimSpace(label) == "" {
-		label = book.Book.Title
-	}
-	if unit := book.ReadingUnit; unit != nil {
-		if number, total, ok := unit.BookPosition(); ok {
-			label = fmt.Sprintf("%s, Book %d of %d", label, number, total)
-		}
-	}
-	return fmt.Sprintf("%s, %s", label, myBookWorkflowLabel(book))
-}
-
-func myBooksWorkCellNumber(book domain.MyBook) string {
-	if unit := book.ReadingUnit; unit != nil && unit.ConstituentBook > 0 {
-		return strconv.Itoa(unit.ConstituentBook)
-	}
-	return "1"
-}
-
-func myBooksWorkCellClass(book domain.MyBook) string {
-	return "library-work__cell library-work__cell--" + string(book.WorkflowBucket())
-}
-
-// myBooksWorkCellURL is the Reading location a grouped Work's cell opens. Only
-// the current Book and a To Read candidate have a Reading entry: the
-// current-reading card, or the ordinary candidate entry inline in the chooser
-// on Reading or the Switch page. A Read Book has no Reading entry to
-// select, so its cell is status-only and reports no link.
-func myBooksWorkCellURL(book domain.MyBook, currentReadingBookID string) (string, bool) {
-	switch book.WorkflowBucket() {
-	case domain.MyBookBucketCurrentReading:
-		return readingBookURL(book.Book.ID), true
-	case domain.MyBookBucketToRead:
-		return readingChooserPath(currentReadingBookID) + "#" + readingChooserBookAnchorID(book.Book.ID), true
-	default:
-		return "", false
-	}
-}
-
-// myBooksWorkToReadAction names the grouped Work row's primary action. A Work
-// with Books already in To Read or the current Reading offers to move only the
-// remaining Books, so "move" never implies reading again.
-func myBooksWorkToReadAction(row domain.MyBooksBrowseRow) (string, bool) {
-	movable := 0
-	alreadyToRead := false
-	for _, book := range row.Books {
-		bucket := book.WorkflowBucket()
-		if bucket == domain.MyBookBucketCurrentReading || bucket == domain.MyBookBucketToRead {
-			alreadyToRead = true
-			continue
-		}
-		if book.WorkToReadEligible() {
-			movable++
-		}
-	}
-	if movable == 0 {
-		return "", false
-	}
-	if alreadyToRead {
-		return "Move the other " + countNoun(movable, "book", "books") + " to To Read", true
-	}
-	if row.OwnedBooks > len(row.Books) {
-		// The tab shows only some of the Work's Books; the rest are in To Read,
-		// the current Reading or another tab, and the move leaves them be.
-		return "Move the remaining books to To Read", true
-	}
-	return "Move the work to To Read", true
-}
-
-// myBooksWorkProblemView is one Book of a grouped Work that needs the learner's
-// attention, with its own recovery action when one exists.
-type myBooksWorkProblemView struct {
-	Label            string
-	Recovery         string
-	RecoveryURL      string
-	ExpectedRevision int64
-}
-
-// myBooksWorkPreparationView collapses Books that are preparing into one line
-// and keeps each problem Book's own note and recovery.
-type myBooksWorkPreparationView struct {
-	Preparing string
-	Problems  []myBooksWorkProblemView
-}
-
-// myBooksWorkPreparation reads the same preparation presentation the ordinary
-// Book row uses and folds it into the grouped Work row.
-func myBooksWorkPreparation(books []domain.MyBook) myBooksWorkPreparationView {
-	var numbers []int
-	var problems []myBooksWorkProblemView
-	for _, book := range books {
-		view, ok := classicalPreparationFor(book)
-		if !ok {
-			continue
-		}
-		if view.InProgress {
-			if number := myBooksWorkBookNumber(book); number > 0 {
-				numbers = append(numbers, number)
-			}
-			continue
-		}
-		problem := myBooksWorkProblemView{
-			Label:       myBooksWorkProblemLabel(book, view.Label),
-			Recovery:    view.Recovery,
-			RecoveryURL: myBookEvidenceRecoveryURL(book),
-		}
-		if book.Disposition != domain.BookDispositionToRead {
-			problem.ExpectedRevision = book.DispositionRevision
-		}
-		problems = append(problems, problem)
-	}
-	return myBooksWorkPreparationView{
-		Preparing: myBooksWorkPreparingLabel(numbers),
-		Problems:  problems,
-	}
-}
-
-// myBooksWorkBookNumber is a Book's reviewed constituent position, or zero for
-// a whole-work unit.
-func myBooksWorkBookNumber(book domain.MyBook) int {
-	if unit := book.ReadingUnit; unit != nil && unit.ConstituentBook > 0 {
-		return unit.ConstituentBook
-	}
-	return 0
-}
-
-// myBooksWorkProblemLabel puts the constituent Book first so a learner can find
-// the one Book that needs attention without a note per Book.
-func myBooksWorkProblemLabel(book domain.MyBook, label string) string {
-	if number := myBooksWorkBookNumber(book); number > 0 {
-		return fmt.Sprintf("Book %d: %s", number, label)
-	}
-	if title := strings.TrimSpace(book.Book.Title); title != "" {
-		return fmt.Sprintf("%s: %s", title, label)
-	}
-	return label
-}
-
-// myBooksWorkPreparingLabel states every preparing Book once, collapsing
-// adjacent constituent numbers into ranges.
-func myBooksWorkPreparingLabel(numbers []int) string {
-	if len(numbers) == 0 {
-		return ""
-	}
-	label := "Preparing Books "
-	if len(numbers) == 1 {
-		label = "Preparing Book "
-	}
-	return label + myBooksNumberRanges(numbers) + "…"
-}
-
-// myBooksNumberRanges sorts and deduplicates constituent numbers, then writes
-// adjacent runs as ranges: 4, 21–24.
-func myBooksNumberRanges(numbers []int) string {
-	unique := make([]int, 0, len(numbers))
-	seen := make(map[int]bool, len(numbers))
-	for _, number := range numbers {
-		if number <= 0 || seen[number] {
-			continue
-		}
-		seen[number] = true
-		unique = append(unique, number)
-	}
-	sort.Ints(unique)
-	parts := make([]string, 0, len(unique))
-	for i := 0; i < len(unique); {
-		start := unique[i]
-		end := start
-		for i+1 < len(unique) && unique[i+1] == end+1 {
-			i++
-			end = unique[i]
-		}
-		if end > start {
-			parts = append(parts, fmt.Sprintf("%d–%d", start, end))
-		} else {
-			parts = append(parts, strconv.Itoa(start))
-		}
-		i++
-	}
-	return strings.Join(parts, ", ")
-}
-
-// myBooksShapeLabel states the filtered collection's shape in Books and works.
-func myBooksShapeLabel(browse MyBooksBrowseState) string {
-	books := browse.BookTotal
-	if books == 0 {
-		books = browse.Total
-	}
-	works := browse.WorkTotal
-	if works == 0 {
-		works = browse.RowCount
-	}
-	if works == 0 {
-		works = books
-	}
-	switch {
-	case books == 1 && works == 1:
-		return "1 Book in 1 work"
-	case books == 1:
-		return fmt.Sprintf("1 Book in %d works", works)
-	case works == 1:
-		return fmt.Sprintf("%d Books in 1 work", books)
-	default:
-		return fmt.Sprintf("%d Books in %d works", books, works)
-	}
-}
-
-// myBooksBrowseRows is the page as rendered. Store-backed browsing supplies
-// rows directly; lightweight callers fall back to grouping their Book slice.
-func myBooksBrowseRows(browse MyBooksBrowseState, books []domain.MyBook) []domain.MyBooksBrowseRow {
-	if len(browse.Rows) > 0 {
-		return browse.Rows
-	}
-	return myBooksFallbackRows(browse, books)
-}
-
-func myBooksHasGroupedWork(rows []domain.MyBooksBrowseRow) bool {
-	for _, row := range rows {
-		if row.Grouped {
-			return true
-		}
-	}
-	return false
-}
-
-// myBooksFallbackRows groups an already-selected Book page for callers that do
-// not supply rows, such as the in-memory fixture store and legacy LibraryPage.
-func myBooksFallbackRows(browse MyBooksBrowseState, books []domain.MyBook) []domain.MyBooksBrowseRow {
-	visible, owned := myBooksFallbackVisible(browse, books)
-	rows := myBooksFallbackGroups(visible, owned)
-	for i := range rows {
-		myBooksFinalizeFallbackRow(&rows[i])
-	}
-	return rows
-}
-
-func myBooksFallbackVisible(browse MyBooksBrowseState, books []domain.MyBook) ([]domain.MyBook, map[string]int) {
-	visible := make([]domain.MyBook, 0, len(books))
-	owned := map[string]int{}
-	for _, book := range books {
-		if !myBooksBookInLanguage(browse, book) {
-			continue
-		}
-		visible = append(visible, book)
-		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
-			owned[unit.WorkKey]++
-		}
-	}
-	return visible, owned
-}
-
-func myBooksFallbackGroups(visible []domain.MyBook, owned map[string]int) []domain.MyBooksBrowseRow {
-	rows := make([]domain.MyBooksBrowseRow, 0, len(visible))
-	index := map[string]int{}
-	for _, book := range visible {
-		key := domain.MyBookWorkGroupKey(book)
-		if i, ok := index[key]; ok {
-			rows[i].Books = append(rows[i].Books, book)
-			continue
-		}
-		row := domain.MyBooksBrowseRow{Key: key, Books: []domain.MyBook{book}}
-		if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
-			row.WorkKey = unit.WorkKey
-			row.WorkTitle = unit.WorkTitle
-			row.WorkAuthor = unit.WorkAuthor
-			row.GreekTitle = unit.GreekTitle
-			row.ConstituentBooks = unit.ConstituentBooks
-			row.OwnedBooks = owned[unit.WorkKey]
-		}
-		index[key] = len(rows)
-		rows = append(rows, row)
-	}
-	return rows
-}
-
-func myBooksFinalizeFallbackRow(row *domain.MyBooksBrowseRow) {
-	if row.WorkKey == "" {
-		return
-	}
-	row.Grouped = len(row.Books) > 1 || row.OwnedBooks > 1
-	sort.SliceStable(row.Books, func(i, j int) bool {
-		return domain.MyBookWorkOrderLess(row.Books[i], row.Books[j])
-	})
 }
 
 func myBooksPageCount(total int) int {
@@ -874,4 +466,17 @@ func myBooksPageOffset(page int) int {
 		return maxInt
 	}
 	return (page - 1) * myBooksPageSize
+}
+
+// myBooksBrowseBooks is the page's Books in the active language. Store-backed
+// browsing already supplies exactly the page; lightweight callers such as the
+// in-memory fixture store and legacy LibraryPage pass an unfiltered slice.
+func myBooksBrowseBooks(browse MyBooksBrowseState, books []domain.MyBook) []domain.MyBook {
+	visible := make([]domain.MyBook, 0, len(books))
+	for _, book := range books {
+		if myBooksBookInLanguage(browse, book) {
+			visible = append(visible, book)
+		}
+	}
+	return visible
 }

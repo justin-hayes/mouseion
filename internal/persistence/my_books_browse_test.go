@@ -4,40 +4,39 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMyBooksWorkMatchesQuery(t *testing.T) {
-	unit := &domain.BookReadingUnit{WorkTitle: "Iliad", WorkAuthor: "Homer", GreekTitle: "Ἰλιάς"}
-	books := []domain.MyBook{{Book: domain.Book{ID: "1", Title: "Iliad", Author: "Homer"}}}
+func TestMyBooksBrowseMatchesQuery(t *testing.T) {
+	classical := domain.MyBook{
+		Book:        domain.Book{ID: "1", Title: "Histories, Book 1", Author: "Herodotus"},
+		ReadingUnit: &domain.BookReadingUnit{WorkTitle: "Iliad", WorkAuthor: "Homer", GreekTitle: "Ἰλιάς"},
+	}
+	ordinary := domain.MyBook{Book: domain.Book{ID: "2", Title: "Something else", Author: "Nobody"}}
 	for _, tt := range []struct {
 		name    string
+		book    domain.MyBook
 		query   string
 		matches bool
-		narrow  int
 	}{
-		{name: "empty", query: "", matches: true},
-		{name: "english title", query: "iliad", matches: true},
-		{name: "author", query: "homer", matches: true},
-		{name: "greek title ignoring accents", query: "ιλιασ", matches: true},
-		{name: "trailing number", query: "iliad 6", matches: true, narrow: 6},
-		{name: "trailing number with nonmatching text", query: "odyssey 6", matches: false},
-		{name: "no match", query: "something", matches: false},
+		{name: "empty", book: ordinary, query: "", matches: true},
+		{name: "ordinary title", book: ordinary, query: "something", matches: true},
+		{name: "ordinary author", book: ordinary, query: "nobody", matches: true},
+		{name: "ordinary no match", book: ordinary, query: "iliad", matches: false},
+		{name: "classical Book title", book: classical, query: "histories", matches: true},
+		{name: "classical English title", book: classical, query: "iliad", matches: true},
+		{name: "classical author", book: classical, query: "homer", matches: true},
+		{name: "greek title ignoring accents", book: classical, query: "ιλιασ", matches: true},
+		{name: "trailing number is ordinary text", book: classical, query: "iliad 6", matches: false},
+		{name: "no match", book: classical, query: "something", matches: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			matches, narrow := myBooksWorkMatchesQuery(unit, books, tt.query)
-			assert.Equal(t, tt.matches, matches)
-			assert.Equal(t, tt.narrow, narrow)
+			require.Equal(t, tt.matches, myBooksBrowseMatchesQuery(tt.book, tt.query))
 		})
 	}
-
-	fallbackBooks := []domain.MyBook{{Book: domain.Book{ID: "2", Title: "Something else", Author: "Nobody"}}}
-	matches, narrow := myBooksWorkMatchesQuery(unit, fallbackBooks, "something")
-	assert.True(t, matches, "an individual Book title still matches")
-	assert.Zero(t, narrow)
 }
 
-func TestMyBooksBrowseFinishCountsOnlyWorkBooksInTheShapeTotals(t *testing.T) {
+func TestMyBooksBrowseFinishPagesEveryBookAsOneRow(t *testing.T) {
 	workBook := func(id string, position int) domain.MyBook {
 		return domain.MyBook{
 			Book: domain.Book{ID: id, Title: "Iliad"},
@@ -50,38 +49,17 @@ func TestMyBooksBrowseFinishCountsOnlyWorkBooksInTheShapeTotals(t *testing.T) {
 	ordinary := domain.MyBook{Book: domain.Book{ID: "ordinary", Title: "A German Book", LanguageTag: "de"}, Disposition: domain.BookDispositionToRead}
 
 	accumulator := &myBooksBrowseAccumulator{
-		window:          myBooksBrowsePageWindow(0, 25),
-		ownedWorkCounts: map[string]int{"homer-iliad": 2},
-		books:           []domain.MyBook{workBook("iliad-1", 1), workBook("iliad-2", 2), ordinary},
+		window: myBooksBrowsePageWindow(1, 2),
+		books:  []domain.MyBook{workBook("iliad-1", 1), workBook("iliad-2", 2), ordinary},
 	}
 	accumulator.finish()
 
-	assert.Equal(t, 3, accumulator.result.Total, "every matching Book counts toward the result total")
-	assert.Equal(t, 2, accumulator.result.BookTotal, "the shape line counts only Books in reviewed Works")
-	assert.Equal(t, 1, accumulator.result.WorkTotal)
-	assert.Equal(t, 2, accumulator.result.RowCount, "the Work row and the ordinary row each page once")
-	assert.True(t, accumulator.result.HasWorks)
-}
-
-func TestSplitTrailingBookNumber(t *testing.T) {
-	for _, tt := range []struct {
-		query  string
-		text   string
-		number int
-		ok     bool
-	}{
-		{query: "iliad 6", text: "iliad", number: 6, ok: true},
-		{query: "  iliad   6  ", text: "iliad", number: 6, ok: true},
-		{query: "iliad", text: "iliad"},
-		{query: "6", text: "6"},
-		{query: "iliad zero", text: "iliad zero"},
-		{query: "iliad 0", text: "iliad 0"},
-	} {
-		t.Run(tt.query, func(t *testing.T) {
-			text, number, ok := splitTrailingBookNumber(tt.query)
-			assert.Equal(t, tt.text, text)
-			assert.Equal(t, tt.number, number)
-			assert.Equal(t, tt.ok, ok)
-		})
-	}
+	t.Run("every matching Book counts as a row", func(t *testing.T) {
+		require.Equal(t, 3, accumulator.result.Total)
+	})
+	t.Run("the page keeps the Books after the offset", func(t *testing.T) {
+		require.Len(t, accumulator.result.Items, 2)
+		require.Equal(t, "iliad-2", accumulator.result.Items[0].Book.ID)
+		require.Equal(t, "ordinary", accumulator.result.Items[1].Book.ID)
+	})
 }

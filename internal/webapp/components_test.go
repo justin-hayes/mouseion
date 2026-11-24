@@ -171,21 +171,6 @@ func TestStatusBadgeKeepsOrdinaryReadAndInboxRingShapes(t *testing.T) {
 	}
 }
 
-func TestWorkBookBucketShapesAreDistinct(t *testing.T) {
-	for _, tt := range []struct {
-		bucket domain.MyBookBucket
-		shape  string
-	}{
-		{bucket: domain.MyBookBucketCurrentReading, shape: "dot"},
-		{bucket: domain.MyBookBucketToRead, shape: "ring"},
-		{bucket: domain.MyBookBucketRead, shape: "bar"},
-	} {
-		t.Run(string(tt.bucket), func(t *testing.T) {
-			assert.Contains(t, myBookWorkBucketShape(tt.bucket), "--"+tt.shape)
-		})
-	}
-}
-
 func TestBookCoverPlaceholderKeepsStateAndDecoratesInitial(t *testing.T) {
 	html := renderPattern(t, BookCoverMedia("book-1", "Die Verwandlung", "de", domain.BookCover{State: domain.BookCoverPending}), "")
 	requireMarkup(t, html,

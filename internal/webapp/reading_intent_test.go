@@ -2,23 +2,14 @@ package webapp
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// failingBookReader makes the module return an unexpected load error.
-type failingBookReader struct{}
-
-func (failingBookReader) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
-	return domain.MyBook{}, errors.New("book read failed")
-}
 
 func TestReadingIntentModulePrefersTheComposedModule(t *testing.T) {
 	t.Parallel()
@@ -35,13 +26,6 @@ func TestUnavailableAnalysisReportsItself(t *testing.T) {
 	require.ErrorIs(t, err, errReadingIntentAnalysisUnavailable)
 }
 
-// staticBookReader returns one Book and leaves the transition to the writer.
-type staticBookReader struct{ book domain.MyBook }
-
-func (s staticBookReader) GetBookDetail(context.Context, string, string) (domain.MyBook, error) {
-	return s.book, nil
-}
-
 // noopPreparation stands in for the seam when a Move returns before preparing.
 type noopPreparation struct{}
 
@@ -49,135 +33,11 @@ func (noopPreparation) Prepare(context.Context, string, domain.MyBook) readingin
 	return readingintent.Submission{}
 }
 
-// missingDispositions reports a Book that left the collection between the
-// Work list and its move.
-type missingDispositions struct{}
-
-func (missingDispositions) TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error) {
-	return false, domain.ErrNotFound
-}
-
-// acceptingDispositions accepts a real move so the route is exercised.
-type acceptingDispositions struct{}
-
-func (acceptingDispositions) TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error) {
-	return true, nil
-}
-
 // refusedPreparation returns a stable refusal for the Book.
 type refusedPreparation struct{ refusal readingintent.RefusalCode }
 
 func (f refusedPreparation) Prepare(_ context.Context, _ string, book domain.MyBook) readingintent.Submission {
 	return readingintent.Submission{Kind: readingintent.SubmissionRefused, Refusal: f.refusal, Route: readingintent.RouteClassical, Book: book}
-}
-
-func TestMoveWorkBookToReadCountsModuleOutcomes(t *testing.T) {
-	t.Parallel()
-	eligible := domain.MyBook{Book: domain.Book{ID: "book-1"}, Disposition: domain.BookDispositionInbox, CompletionCount: 1}
-	t.Run("module cannot be composed", func(t *testing.T) {
-		t.Parallel()
-		h := &Handler{}
-		assert.Equal(t, moveWorkToReadOutcome{failed: 1}, h.moveWorkBookToRead(context.Background(), "owner", eligible))
-	})
-	t.Run("move reports an unexpected error", func(t *testing.T) {
-		t.Parallel()
-		module, err := readingintent.New(readingintent.Config{
-			Books: failingBookReader{}, CurrentReadings: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
-			Preparation: noopPreparation{},
-		})
-		require.NoError(t, err)
-		h := &Handler{services: Services{ReadingIntent: module}}
-		assert.Equal(t, moveWorkToReadOutcome{failed: 1}, h.moveWorkBookToRead(context.Background(), "owner", eligible))
-	})
-	t.Run("missing Book is unchanged", func(t *testing.T) {
-		t.Parallel()
-		module, err := readingintent.New(readingintent.Config{
-			Books: fixtures.NewStore(), CurrentReadings: fixtures.NewStore(), Dispositions: fixtures.NewStore(),
-			Preparation: noopPreparation{},
-		})
-		require.NoError(t, err)
-		h := &Handler{services: Services{ReadingIntent: module}}
-		assert.Equal(t, moveWorkToReadOutcome{unchanged: 1}, h.moveWorkBookToRead(context.Background(), "owner", eligible))
-	})
-	t.Run("vanished Book is unchanged", func(t *testing.T) {
-		t.Parallel()
-		module, err := readingintent.New(readingintent.Config{
-			Books: staticBookReader{book: eligible}, CurrentReadings: fixtures.NewStore(), Dispositions: missingDispositions{},
-			Preparation: noopPreparation{},
-		})
-		require.NoError(t, err)
-		h := &Handler{services: Services{ReadingIntent: module}}
-		assert.Equal(t, moveWorkToReadOutcome{unchanged: 1}, h.moveWorkBookToRead(context.Background(), "owner", eligible))
-	})
-}
-
-func TestMoveWorkBookToReadCountsNamedPreparationCauses(t *testing.T) {
-	t.Parallel()
-	eligible := domain.MyBook{
-		Book:            domain.Book{ID: "book-1", LanguageState: domain.LanguageChosen, LanguageTag: classical.Language},
-		ReadingUnit:     &domain.BookReadingUnit{ReadingUnitKey: "unit-1"},
-		Disposition:     domain.BookDispositionInbox,
-		CompletionCount: 1,
-	}
-	tests := []struct {
-		name    string
-		refusal readingintent.RefusalCode
-		want    moveWorkToReadOutcome
-	}{
-		{name: "legacy rows", refusal: readingintent.RefusalLegacyRows, want: moveWorkToReadOutcome{moved: 1, legacyRows: 1}},
-		{name: "withdrawn definition", refusal: readingintent.RefusalWithdrawnDefinition, want: moveWorkToReadOutcome{moved: 1, withdrawn: 1}},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			module, err := readingintent.New(readingintent.Config{
-				Books: staticBookReader{book: eligible}, CurrentReadings: fixtures.NewStore(),
-				Dispositions: acceptingDispositions{},
-				Preparation:  refusedPreparation{refusal: tc.refusal},
-			})
-			require.NoError(t, err)
-			h := &Handler{services: Services{ReadingIntent: module}}
-			require.Equal(t, tc.want, h.moveWorkBookToRead(context.Background(), "owner", eligible))
-		})
-	}
-}
-
-func TestWorkToReadNoticeNamesPreparationCausesSeparately(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		name    string
-		outcome moveWorkToReadOutcome
-		want    string
-	}{
-		{
-			name: "every part",
-			outcome: moveWorkToReadOutcome{
-				moved: 6, unchanged: 1, failed: 1, prepFailed: 1, legacyRows: 2, withdrawn: 1,
-			},
-			want: "Moved 6 Books to To Read. Left 1 Book unchanged. Could not update 1 Book. " +
-				"Preparation could not start for 1 Book. " +
-				"2 Books cannot be prepared while this installation converts its legacy Ancient Greek rows. " +
-				"1 Book has a withdrawn definition and cannot be prepared.",
-		},
-		{
-			name:    "singular legacy rows",
-			outcome: moveWorkToReadOutcome{moved: 1, legacyRows: 1},
-			want: "Moved 1 Book to To Read. " +
-				"1 Book cannot be prepared while this installation converts its legacy Ancient Greek rows.",
-		},
-		{
-			name:    "plural withdrawn definitions",
-			outcome: moveWorkToReadOutcome{moved: 3, withdrawn: 3},
-			want: "Moved 3 Books to To Read. " +
-				"3 Books have a withdrawn definition and cannot be prepared.",
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			require.Equal(t, tc.want, workToReadNotice(tc.outcome))
-		})
-	}
 }
 
 // TestMoveToReadMessages proves the mapping from each reading-intent outcome to

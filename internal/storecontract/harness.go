@@ -107,9 +107,6 @@ type BookStateStore interface {
 	// evidence. A later Add restores the same Book. The current reading is
 	// refused with domain.ErrBookIsCurrentReading.
 	RemoveBookFromMyBooks(owner, bookID string) error
-	// RemoveWorkFromMyBooks ends every Book of one classical Work's membership,
-	// skipping the current reading and naming it in the result.
-	RemoveWorkFromMyBooks(owner, workKey string) (domain.MyBooksWorkRemoval, error)
 	ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error)
 	// MarkBookPreviouslyRead records an unstarted To Read Book as Previously
 	// read and clears its To Read disposition in one transition. It refuses the
