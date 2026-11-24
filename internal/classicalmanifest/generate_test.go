@@ -368,6 +368,17 @@ func TestGeneratePreservesTheSourceCitationScheme(t *testing.T) {
 		require.Len(t, flat.Definitions, 1)
 		require.Equal(t, 1, flat.Definitions[0].ConstituentBooks)
 		require.Empty(t, flat.Definitions[0].Contents)
+		override.Units = []classical.UnitSpec{{CitationStart: "17", CitationEnd: "19"}}
+		reviewed := overrideFile(t, override)
+		for name, opts := range map[string]Options{
+			"with upstream":    {Layers: pins, Overrides: reviewed, Manifest: flat.Manifest, UpstreamDir: root},
+			"without upstream": {Layers: pins, Overrides: reviewed, Manifest: flat.Manifest, AllowMissingUpstream: true},
+		} {
+			t.Run(name, func(t *testing.T) {
+				require.Equal(t, flat.Manifest, generate(t, opts).Manifest)
+			})
+		}
+		override.Units = nil
 		override.Contents = classical.ContentsBooks
 		_, err = Generate(Options{Layers: pins, Overrides: overrideFile(t, override), Manifest: flat.Manifest, UpstreamDir: root})
 		require.ErrorContains(t, err, "source has no multiple book ranges")

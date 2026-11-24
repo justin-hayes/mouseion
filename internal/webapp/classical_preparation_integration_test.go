@@ -390,9 +390,9 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	// A second learner reuses the stored work file and downloads nothing.
 	other := createAccount(t, ctx, store, "classical-prep-two", "learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "learner-password")
-	addClassicalTestUnits(t, h, otherCookies, otherCSRF, "synthetic-work-1", "synthetic-work-2")
+	addClassicalTestUnits(t, h, otherCookies, otherCSRF, fixture.unitOneKey)
 	otherOwned := booksByReadingUnit(t, store, other.ID)
-	require.Len(t, otherOwned, 2)
+	require.Len(t, otherOwned, 1)
 	otherID := otherOwned[fixture.unitOneKey]
 	require.NotEmpty(t, otherID)
 	otherDetail, err := store.GetBookDetail(ctx, other.ID, otherID)
@@ -426,9 +426,9 @@ func TestClassicalPreparationPrunesSourcesAtStartup(t *testing.T) {
 	ctx, store, pool, h, _, client, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "classical-prep-prune", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
+	addClassicalTestUnits(t, h, cookies, csrf, fixture.unitOneKey)
 	owned := booksByReadingUnit(t, store, learner.ID)
-	require.Len(t, owned, 2)
+	require.Len(t, owned, 1)
 	bookID := owned[fixture.unitOneKey]
 	require.NotEmpty(t, bookID)
 	detail, err := store.GetBookDetail(ctx, learner.ID, bookID)
@@ -466,7 +466,7 @@ func TestClassicalTranslationFetchedOnceAndSharedByTwoLearners(t *testing.T) {
 	learner := createAccount(t, ctx, store, "classical-translation-one", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
+	addClassicalTestUnits(t, h, cookies, csrf, fixture.unitOneKey)
 	owned := booksByReadingUnit(t, store, learner.ID)
 	bookID := owned[fixture.unitOneKey]
 	require.NotEmpty(t, bookID)
@@ -494,7 +494,7 @@ func TestClassicalTranslationFetchedOnceAndSharedByTwoLearners(t *testing.T) {
 	// file and the parsed translation, so neither is downloaded again.
 	other := createAccount(t, ctx, store, "classical-translation-two", "learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "learner-password")
-	addClassicalTestUnits(t, h, otherCookies, otherCSRF, "synthetic-work-1", "synthetic-work-2")
+	addClassicalTestUnits(t, h, otherCookies, otherCSRF, fixture.unitOneKey)
 	otherBookID := booksByReadingUnit(t, store, other.ID)[fixture.unitOneKey]
 	require.NotEmpty(t, otherBookID)
 	otherDetail, err := store.GetBookDetail(ctx, other.ID, otherBookID)
@@ -541,7 +541,7 @@ func TestClassicalTranslationFailureLeavesBookAnalyzed(t *testing.T) {
 
 	learner := createAccount(t, ctx, store, "classical-translation-failure", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
+	addClassicalTestUnits(t, h, cookies, csrf, fixture.unitOneKey)
 	bookID := booksByReadingUnit(t, store, learner.ID)[fixture.unitOneKey]
 	require.NotEmpty(t, bookID)
 	detail, err := store.GetBookDetail(ctx, learner.ID, bookID)
