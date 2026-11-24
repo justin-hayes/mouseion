@@ -32,7 +32,8 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        ca.snapshot_id::text AS snapshot_id,
        ca.book_id::text AS book_id,
        b.title AS book_title,
-       u.title AS chapter_title
+       u.title AS chapter_title,
+       s.citations AS sentence_citations
   FROM current_analysis_identity ca
   JOIN analysis_runs ar ON ar.owner_id=ca.owner_id AND ar.id=ca.analysis_run_id
   JOIN books b ON b.owner_id=ca.owner_id AND b.id=ca.book_id
@@ -247,6 +248,7 @@ SELECT t.surface,
        r.corpus_id::text AS corpus_id,
        r.unit_id,
        u.title AS chapter_title,
+       s.citations AS sentence_citations,
        r.unit_order,
        r.sentence_ordinal,
        r.token_ordinal,
@@ -515,6 +517,7 @@ SELECT r.tier::text AS tier,
        r.corpus_id::text AS corpus_id,
        r.unit_id,
        u.title AS chapter_title,
+       s.citations AS sentence_citations,
        r.unit_order,
        r.sentence_ordinal,
        r.anchor_token_ordinal AS token_ordinal,
