@@ -1,6 +1,6 @@
 # ADR 0077: Retain catalog-supplied Book covers
 
-Status: **Accepted** · Date: 2026-09-23 · Author: Justin + opencode
+Status: **Accepted; cover store and placeholder amended by [ADR 0130](0130-retained-catalog-entry-covers.md)** · Date: 2026-09-23 · Author: Justin + opencode
 
 Extends the optional Book metadata boundary in
 [ADR 0035](0035-my-books-membership-and-source-provenance.md) and the

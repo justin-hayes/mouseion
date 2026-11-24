@@ -1,6 +1,6 @@
 # ADR 0117: One Catalog for every source; My Books holds only chosen Books
 
-Status: **Implemented** · Date: 2026-11-21 · Author: Justin + OpenCode
+Status: **Implemented; per-source Catalog presentation amended by [ADR 0129](0129-one-catalog-presentation-for-every-source.md)** · Date: 2026-11-21 · Author: Justin + OpenCode
 
 Amended 2026-11-21 by [issue #2505](https://github.com/justin-hayes/mouseion/issues/2505): a failed EPUB acquisition is recorded as Book evidence ("A failed EPUB acquisition is Book evidence"), which adds ADR 0047 to the ADRs this one amends.
 
