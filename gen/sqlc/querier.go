@@ -220,6 +220,9 @@ type Querier interface {
 	// decision is not unique. The decision is attributed only when this count is
 	// exactly one and the addressed word is in the selected sentence.
 	GetSentenceStudyDecisions(ctx context.Context, arg GetSentenceStudyDecisionsParams) ([]GetSentenceStudyDecisionsRow, error)
+	// The Unprinted syntax nodes of one sentence of a native_agdt run. A run of any
+	// other syntax state stores none, and the caller does not ask.
+	GetSentenceStudyUnprintedNodes(ctx context.Context, arg GetSentenceStudyUnprintedNodesParams) ([]GetSentenceStudyUnprintedNodesRow, error)
 	GetSession(ctx context.Context, tokenHash string) (GetSessionRow, error)
 	GetSourceContentRevisionByDigest(ctx context.Context, arg GetSourceContentRevisionByDigestParams) (string, error)
 	GetSourceMaterial(ctx context.Context, arg GetSourceMaterialParams) (GetSourceMaterialRow, error)

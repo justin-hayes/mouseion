@@ -1,12 +1,15 @@
 package webapp
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/syntax"
+	"github.com/justin-hayes/mouseion/internal/syntax/agdt"
 )
 
 // sentenceStudyLine is one sentence's source-word-aligned morphology line. The
@@ -389,13 +392,139 @@ func sentenceStudySpansOverlap(a, b domain.SentenceStudyToken) bool {
 	return a.StartOffset < b.EndOffset && b.StartOffset < a.EndOffset
 }
 
-// sentenceStudySyntaxUnavailable reports whether the analysis run recorded no
-// UD syntax: an imported run's native_agdt or absent state. Relation and head
-// are then never shown, and the stored non-committal skeleton is never read as
-// UD. An empty state is an ordinary run for callers that construct a study
-// without a run.
-func sentenceStudySyntaxUnavailable(study domain.SentenceStudy) bool {
+// sentenceStudyImportedRun reports whether the analysis run was imported from a
+// source's own annotations rather than analyzed: its stored dependency is the
+// source's AGDT relation or a non-committal skeleton, never UD. Its tokens show
+// imported evidence (citation headword, morphology) and no UD relation or head.
+// An empty state is an ordinary run for callers that construct a study without
+// a run.
+func sentenceStudyImportedRun(study domain.SentenceStudy) bool {
 	return study.SyntaxState == "native_agdt" || study.SyntaxState == "absent"
+}
+
+// sentenceStudySyntaxUnavailable reports whether the analysis run recorded no
+// syntax at all: an imported run whose state is absent. A native_agdt run has
+// syntax, shown as Word relations; its stored relations are never read as UD.
+func sentenceStudySyntaxUnavailable(study domain.SentenceStudy) bool {
+	return study.SyntaxState == "absent"
+}
+
+// Word relations wording that is not a relation name.
+const (
+	sentenceStudyUnprintedWord = "‹an unprinted word›"
+	sentenceStudyTopOfSentence = "— (top of the sentence)"
+)
+
+// sentenceStudyRelationRow is one row of the Word relations table.
+type sentenceStudyRelationRow struct {
+	// Number is the word's position in the complete text alternative.
+	Number    int64
+	Word      string
+	Target    bool
+	Relation  string
+	DependsOn string
+}
+
+// sentenceStudyRelations is the Word relations table of a native_agdt run.
+type sentenceStudyRelations struct {
+	Rows []sentenceStudyRelationRow
+	// UnprintedNote reports that a row uses the unprinted-word wording, so the
+	// one explanatory note is shown.
+	UnprintedNote bool
+}
+
+// sentenceStudyShowsRelations reports whether Word relations is shown: only a
+// native_agdt run with tokens, never a UD or absent run.
+func sentenceStudyShowsRelations(study domain.SentenceStudy) bool {
+	return study.SyntaxState == "native_agdt" && len(study.Tokens) > 0
+}
+
+// sentenceStudyWordRelations builds the Word relations table from the stored
+// syntax through the AGDT adapter. "Depends on" is the stored head, never the
+// coordination look-through. Punctuation has no row and is never named as a
+// head. A cycle or dangling reference is the top of the sentence.
+func sentenceStudyWordRelations(study domain.SentenceStudy) sentenceStudyRelations {
+	tokens := make([]agdt.Token, len(study.Tokens))
+	for i, token := range study.Tokens {
+		tokens[i] = agdt.Token{
+			Ordinal: token.Ordinal, Surface: token.Surface, Lemma: token.RawLemma, UPOS: token.UPOS,
+			Morphology: token.Morphology, Relation: token.Dependency, Head: token.HeadOrdinal,
+			HeadUnprintedNode: token.HeadUnprintedNode,
+		}
+	}
+	nodes := make([]agdt.UnprintedNode, len(study.UnprintedNodes))
+	for i, node := range study.UnprintedNodes {
+		nodes[i] = agdt.UnprintedNode{SourceID: node.SourceID, Relation: node.Dependency, HeadUnprintedNode: node.HeadUnprintedNode}
+		if node.HasHeadToken {
+			ordinal := node.HeadTokenOrdinal
+			nodes[i].HeadToken = &ordinal
+		}
+	}
+	tree := agdt.Adapt(tokens, nodes)
+
+	var relations sentenceStudyRelations
+	for index, node := range tree.Nodes {
+		if !node.Printed || node.Category == syntax.CategoryPunctuation {
+			continue
+		}
+		row := sentenceStudyRelationRow{
+			Number: node.Ordinal + 1, Word: node.Surface, Target: node.Ordinal == study.TargetOrdinal,
+			Relation: agdt.RelationName(node.Category),
+		}
+		head := node.Head
+		switch {
+		case head == syntax.Root:
+			row.DependsOn = sentenceStudyTopOfSentence
+		case tree.Nodes[head].Printed && tree.Nodes[head].Category != syntax.CategoryPunctuation:
+			row.DependsOn = sentenceStudyWordReference(tree.Nodes[head])
+		case tree.Nodes[head].Printed:
+			row.DependsOn = sentenceStudyNearestWord(tree, head, index)
+		default:
+			relations.UnprintedNote = true
+			row.DependsOn = sentenceStudyUnprintedHead(tree, head)
+		}
+		relations.Rows = append(relations.Rows, row)
+	}
+	return relations
+}
+
+func sentenceStudyWordReference(node syntax.Node) string {
+	return fmt.Sprintf("%s (word %d)", node.Surface, node.Ordinal+1)
+}
+
+// sentenceStudyNearestWord walks up from start, through punctuation and
+// unprinted nodes, to the first printed non-punctuation node. It returns the
+// top-of-sentence text when the walk reaches the root or a cycle.
+func sentenceStudyNearestWord(tree syntax.Tree, start, origin int) string {
+	if at, ok := sentenceStudyNearestPrinted(tree, start, origin); ok {
+		return sentenceStudyWordReference(tree.Nodes[at])
+	}
+	return sentenceStudyTopOfSentence
+}
+
+func sentenceStudyNearestPrinted(tree syntax.Tree, start, origin int) (int, bool) {
+	seen := map[int]bool{origin: true}
+	for at := start; at != syntax.Root; at = tree.Nodes[at].Head {
+		if seen[at] {
+			return 0, false
+		}
+		seen[at] = true
+		if tree.Nodes[at].Printed && tree.Nodes[at].Category != syntax.CategoryPunctuation {
+			return at, true
+		}
+	}
+	return 0, false
+}
+
+// sentenceStudyUnprintedHead words a dependency on an unprinted node by that
+// node's role and the nearest printed word it hangs from.
+func sentenceStudyUnprintedHead(tree syntax.Tree, unprinted int) string {
+	at, ok := sentenceStudyNearestPrinted(tree, tree.Nodes[unprinted].Head, unprinted)
+	if !ok {
+		return sentenceStudyUnprintedWord + " (top of the sentence)"
+	}
+	return fmt.Sprintf("%s, which is %s %s", sentenceStudyUnprintedWord,
+		agdt.RolePhrase(tree.Nodes[unprinted].Category), sentenceStudyWordReference(tree.Nodes[at]))
 }
 
 // dedicatedProfileLanguage reports whether language resolves through its own

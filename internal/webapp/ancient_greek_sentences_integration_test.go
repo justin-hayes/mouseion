@@ -121,9 +121,10 @@ func TestAncientGreekConcordanceAndSentenceStudy(t *testing.T) {
 		require.Contains(t, sentence, "3SG.PRS.IND.active", "the verb's mapped morphology is on the line")
 	})
 
-	t.Run("sentence study reports syntax unavailable", func(t *testing.T) {
+	t.Run("sentence study offers Word relations instead of syntax unavailable", func(t *testing.T) {
 		sentence := studyOf(t, 0, 1)
-		require.Contains(t, sentence, "Syntax unavailable")
+		require.Contains(t, sentence, "<summary>Word relations</summary>")
+		require.NotContains(t, sentence, "Syntax unavailable")
 		require.NotContains(t, sentence, "dependency <code>dep</code>", "the stored non-committal relation is never shown")
 		require.NotContains(t, sentence, "head λέγει")
 	})
@@ -136,7 +137,7 @@ func TestAncientGreekConcordanceAndSentenceStudy(t *testing.T) {
 		require.NotContains(t, homograph, "effective lemma <code>δεω</code>")
 		require.NotContains(t, homograph, "<code>δεω</code>")
 		require.Contains(t, homograph, "1SG.PRS.IND.active")
-		require.Contains(t, homograph, "Syntax unavailable")
+		require.NotContains(t, homograph, "Syntax unavailable")
 		require.NotContains(t, homograph, "dependency <code>dep</code>")
 	})
 }

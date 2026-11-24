@@ -9,7 +9,10 @@ SELECT COALESCE(t.surface, '')::text AS surface,
        COALESCE(t.upos, '')::text AS upos,
        COALESCE(t.dependency, '')::text AS dependency,
        COALESCE(t.head, 0)::bigint AS head,
-       COALESCE(h.surface, '')::text AS head_surface,
+       -- A token headed by an unprinted node is self-headed, so the join below
+       -- would return the token itself. Its head_surface is empty instead.
+       CASE WHEN t.head_unprinted_node IS NULL THEN COALESCE(h.surface, '') ELSE '' END::text AS head_surface,
+       COALESCE(t.head_unprinted_node, '')::text AS head_unprinted_node,
        COALESCE(t.token_ordinal, -1)::bigint AS token_ordinal,
        COALESCE(t.start_offset, -1)::bigint AS start_offset,
        COALESCE(t.end_offset, -1)::bigint AS end_offset,
@@ -45,6 +48,18 @@ SELECT COALESCE(t.surface, '')::text AS surface,
    AND ca.analysis_run_id=sqlc.arg('analysis_run') AND ca.corpus_id=sqlc.arg('corpus')
    AND s.sentence_ordinal=sqlc.arg('sentence_ordinal')
  ORDER BY t.token_ordinal;
+
+-- name: GetSentenceStudyUnprintedNodes :many
+-- The Unprinted syntax nodes of one sentence of a native_agdt run. A run of any
+-- other syntax state stores none, and the caller does not ask.
+SELECT n.source_id,
+       n.dependency,
+       n.head_token_ordinal,
+       COALESCE(n.head_unprinted_node, '')::text AS head_unprinted_node
+  FROM corpus_unprinted_syntax_nodes n
+ WHERE n.owner_id=sqlc.arg('owner') AND n.analysis_run_id=sqlc.arg('analysis_run')
+   AND n.corpus_id=sqlc.arg('corpus') AND n.sentence_ordinal=sqlc.arg('sentence_ordinal')
+ ORDER BY n.source_id;
 
 -- name: GetSentenceStudyDecisions :many
 -- Stored occurrence decisions addressing the selected sentence, each with the

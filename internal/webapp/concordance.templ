@@ -186,6 +186,9 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 						<p>An unannotated word had no core features supplied for it here; that does not mean the word lacks those features.</p>
 					</details>
 				}
+				if sentenceStudyShowsRelations(study) {
+					@sentenceStudyWordRelationsView(sentenceStudyWordRelations(study))
+				}
 				// The complete text alternative is always server-rendered. It is
 				// closed by default and opens by default only under whole-line
 				// fallback, where the line is withheld.
@@ -201,7 +204,7 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 									<strong>{ token.Surface }</strong>
 								}
 								<span>(token { fmt.Sprintf("%d", token.Ordinal+1) })</span>
-								: <code>{ token.UPOS }</code>if sentenceStudySyntaxUnavailable(study) {
+								: <code>{ token.UPOS }</code>if sentenceStudyImportedRun(study) {
 									@sentenceStudyImportedTokenEvidence(token)
 								} else {
 									@sentenceStudyModernTokenEvidence(token)
@@ -332,6 +335,40 @@ templ sentenceStudyWordUnit(word sentenceStudyWord) {
 // spacing.
 templ sentenceStudyModernTokenEvidence(token domain.SentenceStudyToken) {
 	{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ ", effective lemma " }<code>{ token.EffectiveLemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "; dependency " }<code>{ token.Dependency }</code>{ ", head " }{ token.HeadSurface }{ " (token " }{ fmt.Sprintf("%d", token.HeadOrdinal+1) }{ ")." }
+}
+
+// sentenceStudyWordRelationsView renders the closed Word relations disclosure of
+// a native_agdt run: each word's relation and the word it depends on, in
+// Mouseion's plain English. It is a native disclosure, so it works without
+// JavaScript.
+templ sentenceStudyWordRelationsView(relations sentenceStudyRelations) {
+	<details id="sentence-study-word-relations" class="sentence-study-relations">
+		<summary>Word relations</summary>
+		@ResponsiveTable("Word relations") {
+			<thead>
+				<tr><th scope="col">#</th><th scope="col">Word</th><th scope="col">Relation</th><th scope="col">Depends on</th></tr>
+			</thead>
+			<tbody>
+				for _, row := range relations.Rows {
+					<tr>
+						<td class="numeric">{ fmt.Sprintf("%d", row.Number) }</td>
+						<td>
+							if row.Target {
+								<strong>{ row.Word }<span class="sr-only">{ " (identified target)" }</span></strong>
+							} else {
+								{ row.Word }
+							}
+						</td>
+						<td>{ row.Relation }</td>
+						<td>{ row.DependsOn }</td>
+					</tr>
+				}
+			</tbody>
+		}
+		if relations.UnprintedNote {
+			<p class="sentence-study-note" id="sentence-study-unprinted-note">‹an unprinted word› stands for a word the Greek leaves out but the grammar implies, such as an understood verb.</p>
+		}
+	</details>
 }
 
 // sentenceStudyImportedTokenEvidence renders one imported token's evidence: the

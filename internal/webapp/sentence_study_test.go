@@ -903,10 +903,167 @@ func TestSentenceStudySyntaxUnavailableForImportedRuns(t *testing.T) {
 	}{
 		{state: "", want: false},
 		{state: "ud", want: false},
-		{state: "native_agdt", want: true},
+		{state: "native_agdt", want: false},
 		{state: "absent", want: true},
 	} {
 		assert.Equal(t, test.want, sentenceStudySyntaxUnavailable(domain.SentenceStudy{SyntaxState: test.state}), "state %q", test.state)
+	}
+}
+
+func TestSentenceStudyImportedRunCoversBothImportedStates(t *testing.T) {
+	for state, want := range map[string]bool{"": false, "ud": false, "native_agdt": true, "absent": true} {
+		assert.Equal(t, want, sentenceStudyImportedRun(domain.SentenceStudy{SyntaxState: state}), "state %q", state)
+	}
+}
+
+// relationToken is a Greek token of a native_agdt study: its stored AGDT
+// relation and head.
+func relationToken(ordinal int64, surface, relation string, head int64) domain.SentenceStudyToken {
+	token := studyWord(ordinal, ordinal*10, ordinal*10+5, surface, "X", nil)
+	token.Dependency, token.HeadOrdinal = relation, head
+	return token
+}
+
+func relationStudy(tokens ...domain.SentenceStudyToken) domain.SentenceStudy {
+	study := studySentence("a", 1, tokens...)
+	study.SyntaxState = "native_agdt"
+	study.TargetOrdinal = 1
+	return study
+}
+
+func TestSentenceStudyWordRelationsRows(t *testing.T) {
+	study := relationStudy(
+		relationToken(0, "λέγει", "PRED", 0),
+		relationToken(1, "ὅτι", "AuxC", 0),
+		relationToken(2, "καί", "COORD", 1),
+		relationToken(3, "ἄνδρας", "OBJ", 2),
+		relationToken(4, "παῖς", "SBJ", 5),
+		relationToken(5, ",", "AuxX", 5),
+		relationToken(6, "ἐστί", "XYZ", 6),
+		relationToken(7, "ἦν", "ADV", 8),
+		relationToken(8, ";", "AuxK", 0),
+	)
+	rows := sentenceStudyWordRelations(study).Rows
+	byWord := map[string]sentenceStudyRelationRow{}
+	for _, row := range rows {
+		byWord[row.Word] = row
+	}
+	t.Run("punctuation has no row", func(t *testing.T) {
+		assert.NotContains(t, byWord, ",")
+		assert.NotContains(t, byWord, ";")
+		assert.Len(t, rows, 7)
+	})
+	t.Run("the root is the top of the sentence", func(t *testing.T) {
+		assert.Equal(t, sentenceStudyRelationRow{Number: 1, Word: "λέγει", Relation: "main verb", DependsOn: "— (top of the sentence)"}, byWord["λέγει"])
+	})
+	t.Run("a printed head shows its surface and word number", func(t *testing.T) {
+		assert.Equal(t, "λέγει (word 1)", byWord["ὅτι"].DependsOn)
+	})
+	t.Run("a coordinated word shows its stored head, the conjunction", func(t *testing.T) {
+		assert.Equal(t, "καί (word 3)", byWord["ἄνδρας"].DependsOn)
+	})
+	t.Run("a punctuation head that is itself the root is the top of the sentence", func(t *testing.T) {
+		assert.Equal(t, "— (top of the sentence)", byWord["παῖς"].DependsOn)
+	})
+	t.Run("a punctuation head is skipped up to the first word above it", func(t *testing.T) {
+		assert.Equal(t, "λέγει (word 1)", byWord["ἦν"].DependsOn)
+	})
+	t.Run("an unknown relation is not labelled", func(t *testing.T) {
+		assert.Equal(t, "relation not labelled", byWord["ἐστί"].Relation)
+	})
+	t.Run("the identified target is flagged", func(t *testing.T) {
+		assert.True(t, byWord["ὅτι"].Target)
+		assert.False(t, byWord["λέγει"].Target)
+	})
+}
+
+func TestSentenceStudyWordRelationsUnprintedHeads(t *testing.T) {
+	unprintedToken := func(ordinal int64, surface, relation, node string) domain.SentenceStudyToken {
+		token := relationToken(ordinal, surface, relation, ordinal)
+		token.HeadUnprintedNode = node
+		return token
+	}
+	study := relationStudy(
+		relationToken(0, "λέγει", "PRED", 0),
+		relationToken(1, "ὅτι", "AuxC", 0),
+		unprintedToken(2, "ἄνδρας", "SBJ", "e_1"),
+		unprintedToken(3, "καλούς", "ATR", "e_2"),
+		unprintedToken(4, "ἐκεῖνος", "SBJ", "e_3"),
+		unprintedToken(5, "οὗτος", "SBJ", "e_4"),
+	)
+	zero := int64(1)
+	study.UnprintedNodes = []domain.UnprintedSyntaxNode{
+		{SourceID: "e_1", Dependency: "OBJ", HeadTokenOrdinal: zero, HasHeadToken: true},
+		{SourceID: "e_2", Dependency: "ADV", HeadUnprintedNode: "e_1"},
+		{SourceID: "e_3", Dependency: "PRED"},
+		{SourceID: "e_4", Dependency: "OBJ", HeadUnprintedNode: "e_4"},
+	}
+	relations := sentenceStudyWordRelations(study)
+	depends := map[string]string{}
+	for _, row := range relations.Rows {
+		depends[row.Word] = row.DependsOn
+	}
+	t.Run("an unprinted head names its role and the word above it", func(t *testing.T) {
+		assert.Equal(t, "‹an unprinted word›, which is the object of ὅτι (word 2)", depends["ἄνδρας"])
+	})
+	t.Run("a chain of unprinted heads uses the direct head's role and the first printed word", func(t *testing.T) {
+		assert.Equal(t, "‹an unprinted word›, which is an adverbial of ὅτι (word 2)", depends["καλούς"])
+	})
+	t.Run("an unprinted root is the top of the sentence", func(t *testing.T) {
+		assert.Equal(t, "‹an unprinted word› (top of the sentence)", depends["ἐκεῖνος"])
+	})
+	t.Run("a self-referencing unprinted node is the top of the sentence", func(t *testing.T) {
+		assert.Equal(t, "‹an unprinted word› (top of the sentence)", depends["οὗτος"])
+	})
+	t.Run("the explanatory note is wanted", func(t *testing.T) {
+		assert.True(t, relations.UnprintedNote)
+	})
+	t.Run("no note without an unprinted head", func(t *testing.T) {
+		assert.False(t, sentenceStudyWordRelations(relationStudy(relationToken(0, "λέγει", "PRED", 0))).UnprintedNote)
+	})
+}
+
+func TestSentenceStudyPageShowsWordRelationsForNativeAGDTOnly(t *testing.T) {
+	native := relationStudy(
+		relationToken(0, "λέγει", "PRED", 0),
+		relationToken(1, "ὅτι", "AuxC", 0),
+	)
+	native.SentenceText, native.UnitText = "λέγει ὅτι", "λέγει ὅτι"
+	native.SentenceEndOffset = 9
+	native.Tokens[0].StartOffset, native.Tokens[0].EndOffset = 0, 5
+	native.Tokens[1].StartOffset, native.Tokens[1].EndOffset = 6, 9
+	body := renderSentenceStudy(t, native)
+
+	t.Run("a native_agdt run shows a closed Word relations disclosure", func(t *testing.T) {
+		assert.Contains(t, body, `<details id="sentence-study-word-relations" class="sentence-study-relations"><summary>Word relations</summary>`)
+	})
+	t.Run("the table has the four columns and the target is announced", func(t *testing.T) {
+		assert.Contains(t, body, `<th scope="col">#</th><th scope="col">Word</th><th scope="col">Relation</th><th scope="col">Depends on</th>`)
+		assert.Contains(t, body, `<strong>ὅτι<span class="sr-only"> (identified target)</span></strong>`)
+		assert.Contains(t, body, `λέγει (word 1)`)
+	})
+	t.Run("it sits after the Notation key and before the text alternative", func(t *testing.T) {
+		key := strings.Index(body, `id="sentence-study-notation-key"`)
+		relations := strings.Index(body, `id="sentence-study-word-relations"`)
+		alternative := strings.Index(body, `id="sentence-study-text-alternative"`)
+		require.True(t, key >= 0 && relations > key && alternative > relations, "key %d relations %d alternative %d", key, relations, alternative)
+	})
+	t.Run("the unprinted note is absent without an unprinted head", func(t *testing.T) {
+		assert.NotContains(t, body, "sentence-study-unprinted-note")
+	})
+	t.Run("Syntax unavailable is not shown", func(t *testing.T) {
+		assert.NotContains(t, body, "Syntax unavailable")
+	})
+	t.Run("the text alternative keeps its imported evidence with no relation", func(t *testing.T) {
+		assert.Contains(t, body, "analyzer lemma")
+		assert.NotContains(t, body, "dependency <code>")
+	})
+	for _, state := range []string{"absent", "ud", ""} {
+		t.Run("no disclosure for state "+state, func(t *testing.T) {
+			study := native
+			study.SyntaxState = state
+			assert.NotContains(t, renderSentenceStudy(t, study), "Word relations")
+		})
 	}
 }
 
