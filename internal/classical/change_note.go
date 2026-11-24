@@ -6,7 +6,7 @@ package classical
 // up when the confirmation renders and is not evidence. A version with no entry
 // has no note.
 var changeNotes = map[string]string{
-	"oga-agdt-syntax/1": "Adds word relations in Sentence study.",
+	"oga-agdt-syntax/1": "Adds sentence constructions in Sentence study.",
 }
 
 // ChangeNote returns the change note for an interpretation version and reports

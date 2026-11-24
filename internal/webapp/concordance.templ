@@ -147,6 +147,10 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 			}
 			@sourceAttribution(study.Attribution, "sentence-study-attribution")
 			<p class="reading-text sentence-study-text">@sentenceStudySourceText(study.SentenceText)</p>
+			{{ constructionEntries := sentenceStudyConstructionEntries(study) }}
+			if len(constructionEntries) > 0 {
+				@sentenceStudyConstructionsView(constructionEntries)
+			}
 			{{ line := alignSentenceStudy(study) }}
 			if len(study.Tokens) == 0 {
 				<p>Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.</p>
@@ -195,6 +199,7 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 				<details id="sentence-study-text-alternative" class="sentence-study-alternative" open?={ line.WholeLineFallback }>
 					<summary>Complete text alternative</summary>
 					{{ lineEnds := sentenceStudyLineEndOrdinals(study, line) }}
+					{{ constructionWords := sentenceStudyConstructionWords(study) }}
 					<ol class="sentence-study-tokens">
 						for _, token := range study.Tokens {
 							<li>
@@ -214,6 +219,9 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 								}
 								if token.Excluded {
 									<span>Excluded from effective vocabulary; retained as syntax evidence.</span>
+								}
+								if constructionWords[token.Ordinal] != "" {
+									<span class="sentence-study-token-constructions">{ constructionWords[token.Ordinal] }</span>
 								}
 								if lineEnds[token.Ordinal] {
 									<span class="sentence-study-line-end">{ " · end of source line." }</span>
@@ -335,6 +343,48 @@ templ sentenceStudyWordUnit(word sentenceStudyWord) {
 // spacing.
 templ sentenceStudyModernTokenEvidence(token domain.SentenceStudyToken) {
 	{ ", analyzer lemma " }<code>{ token.RawLemma }</code>{ ", effective lemma " }<code>{ token.EffectiveLemma }</code>{ "; morphology " }<code>{ sentenceStudyMorphology(token.Morphology) }</code>{ "; dependency " }<code>{ token.Dependency }</code>{ ", head " }{ token.HeadSurface }{ " (token " }{ fmt.Sprintf("%d", token.HeadOrdinal+1) }{ ")." }
+}
+
+// sentenceStudyConstructionsView renders the Constructions region of a
+// native_agdt run: one entry per Construction occurrence, each with an extract
+// of the whole sentence, how the identified target relates to it, and the
+// concept note with its linked grammar citation. The extract is decoration for
+// sighted readers, so it is hidden from assistive technology and a visually
+// hidden Words line carries the same extent. Marking is weight, tone and
+// underline, never colour alone.
+templ sentenceStudyConstructionsView(entries []sentenceStudyConstructionEntry) {
+	<section id="sentence-study-constructions" class="sentence-study-constructions" aria-labelledby="sentence-study-constructions-heading">
+		<h3 id="sentence-study-constructions-heading">Constructions</h3>
+		<ol class="sentence-study-construction-list">
+			for _, entry := range entries {
+				<li class="sentence-study-construction">
+					<p class="sentence-study-construction-name"><strong>{ entry.Title }</strong></p>
+					<p class="sentence-study-construction-extract" aria-hidden="true">
+						for _, part := range entry.Extract {
+							@sentenceStudyExtractPartView(part)
+						}
+					</p>
+					<p class="sr-only">{ entry.Words }</p>
+					if entry.InsideOf > 0 {
+						<p class="sentence-study-construction-nesting">Inside construction { fmt.Sprintf("%d", entry.InsideOf) }.</p>
+					}
+					<p class="sentence-study-construction-signal">Signalled by <em>{ entry.AnchorSurface }</em>.{ entry.targetSuffix() }</p>
+					<p class="sentence-study-construction-definition">{ entry.Definition }</p>
+					<p class="sentence-study-construction-citation"><a href={ templ.SafeURL(entry.CitationURL) } target="_blank" rel="noopener noreferrer">{ entry.CitationText }</a></p>
+				</li>
+			}
+		</ol>
+	</section>
+}
+
+templ sentenceStudyExtractPartView(part sentenceStudyExtractPart) {
+	if part.Anchor {
+		<span class="construction-extent construction-anchor">{ part.Text }</span>
+	} else if part.InExtent {
+		<span class="construction-extent">{ part.Text }</span>
+	} else {
+		<span class="construction-muted">{ part.Text }</span>
+	}
 }
 
 // sentenceStudyWordRelationsView renders the closed Word relations disclosure of

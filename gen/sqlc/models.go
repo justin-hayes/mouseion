@@ -256,6 +256,26 @@ type ConcordanceOccurrence struct {
 	TokenOrdinal        int64
 }
 
+type ConstructionOccurrence struct {
+	OwnerID             string
+	CorpusID            string
+	AnalysisRunID       string
+	SentenceOrdinal     int64
+	Language            string
+	ConstructionID      string
+	SubtypeID           pgtype.Text
+	AnchorTokenOrdinal  int64
+	ExtentTokenOrdinals []int64
+}
+
+type ConstructionRunMarker struct {
+	OwnerID         string
+	CorpusID        string
+	AnalysisRunID   string
+	DetectorVersion int
+	BuiltAt         time.Time
+}
+
 type Corpora struct {
 	ID                       string
 	OwnerID                  string

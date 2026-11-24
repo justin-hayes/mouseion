@@ -1,0 +1,25 @@
+# source = Synthetic, Xen. Anab._1.1.1
+# text = ἔφη ὅτι ἔπαυσεν τοῦ λύειν
+# sent_id = 1
+1	ἔφη	φημί	v	v3saia---	_	0	PRED	_	t_1|0|ref=Xen. Anab._1.1.1
+2	ὅτι	ὅτι	c	c--------	_	1	AuxC	_	t_2|t_1|ref=Xen. Anab._1.1.1
+3	ἔπαυσεν	παύω	v	v3saia---	_	2	OBJ	_	t_3|t_2|ref=Xen. Anab._1.1.1
+4	τοῦ	ὁ	l	l-s---ng-	_	5	ATR	_	t_4|t_5|ref=Xen. Anab._1.1.1
+5	λύειν	λύω	v	v--pna---	_	3	OBJ	_	t_5|t_3|ref=Xen. Anab._1.1.1
+
+# source = Synthetic, Xen. Anab._1.1.2
+# text = ἔφη Κῦρον λύειν
+# sent_id = 2
+1	ἔφη	φημί	v	v3saia---	_	0	PRED	_	t_6|0|ref=Xen. Anab._1.1.2
+2	Κῦρον	κῦρος	n	n-s---ma-	_	3	SBJ	_	t_7|t_8|ref=Xen. Anab._1.1.2
+3	λύειν	λύω	v	v--pna---	_	1	OBJ	_	t_8|t_6|ref=Xen. Anab._1.1.2
+
+# source = Synthetic, Xen. Anab._1.1.3
+# text = ἄρχεται
+# sent_id = 3
+1	ἄρχεται	ἄρχω	v	v3spie---	_	0	PRED	_	t_9|0|ref=Xen. Anab._1.1.3
+
+# source = Synthetic, Xen. Anab._2.1.1
+# text = λέγει
+# sent_id = 4
+1	λέγει	λέγω	v	v3spia---	_	0	PRED	_	t_10|0|ref=Xen. Anab._2.1.1

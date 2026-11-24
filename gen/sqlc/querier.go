@@ -85,6 +85,7 @@ type Querier interface {
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteCatalogueEntriesNotSeenParams) (int64, error)
 	DeleteClassicalPreparationFailure(ctx context.Context, arg DeleteClassicalPreparationFailureParams) error
+	DeleteConstructionOccurrences(ctx context.Context, arg DeleteConstructionOccurrencesParams) error
 	DeleteCurrentReading(ctx context.Context, arg DeleteCurrentReadingParams) error
 	DeleteEPUBAcquisitionFailure(ctx context.Context, arg DeleteEPUBAcquisitionFailureParams) error
 	DeleteOccurrenceLemmaCorrection(ctx context.Context, arg DeleteOccurrenceLemmaCorrectionParams) (int64, error)
@@ -137,6 +138,12 @@ type Querier interface {
 	// An owned Book in the study language, with whether it has a current analysis
 	// that can contribute occurrences.
 	GetConcordancePriorityBook(ctx context.Context, arg GetConcordancePriorityBookParams) (GetConcordancePriorityBookRow, error)
+	// Construction occurrences: a derived reading of a native_agdt run's stored
+	// syntax (ADR 0123). Lemma corrections and Occurrence exclusions are never
+	// read here.
+	// The run's syntax state, its corpus and its language. A run with no corpus
+	// yet has nothing to build from.
+	GetConstructionRunSource(ctx context.Context, arg GetConstructionRunSourceParams) (GetConstructionRunSourceRow, error)
 	GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpusRow, error)
 	// Card export and generated-vocabulary persistence queries.
 	GetCorpusForAnalysis(ctx context.Context, arg GetCorpusForAnalysisParams) (GetCorpusForAnalysisRow, error)
@@ -213,6 +220,10 @@ type Querier interface {
 	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
 	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
 	GetRegisteredBookID(ctx context.Context, arg GetRegisteredBookIDParams) (string, error)
+	// One sentence's Construction occurrences, read only when the run's marker
+	// carries the current detector version. No marker, or an older one, returns no
+	// rows.
+	GetSentenceStudyConstructions(ctx context.Context, arg GetSentenceStudyConstructionsParams) ([]GetSentenceStudyConstructionsRow, error)
 	// Stored occurrence decisions addressing the selected sentence, each with the
 	// number of persisted analyzed words its exact owner/Book/analysis/
 	// source-document/span addresses. The count spans the whole addressed scope,
@@ -254,6 +265,7 @@ type Querier interface {
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertBookReadingUnit(ctx context.Context, arg InsertBookReadingUnitParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
+	InsertConstructionOccurrence(ctx context.Context, arg InsertConstructionOccurrenceParams) error
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
 	// Inserts the identities the domain decided to accept, only where absent.
 	// Which identities become Known is never decided here.
@@ -295,6 +307,11 @@ type Querier interface {
 	// identifier the index browses. A removed Book contributes no ownership.
 	ListCatalogueEntryBooksForConnection(ctx context.Context, arg ListCatalogueEntryBooksForConnectionParams) ([]ListCatalogueEntryBooksForConnectionRow, error)
 	ListCatalogueSyncStatuses(ctx context.Context, ownerID string) ([]ListCatalogueSyncStatusesRow, error)
+	// Every printed token of a run, in sentence and token order. Raw lemma and
+	// morphology only: the effective lemma is never an input.
+	ListConstructionTokens(ctx context.Context, arg ListConstructionTokensParams) ([]ListConstructionTokensRow, error)
+	// Every unprinted syntax node of a run, in sentence and source id order.
+	ListConstructionUnprintedNodes(ctx context.Context, arg ListConstructionUnprintedNodesParams) ([]ListConstructionUnprintedNodesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
@@ -499,6 +516,7 @@ type Querier interface {
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
 	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
 	UpsertCatalogueEntry(ctx context.Context, arg UpsertCatalogueEntryParams) error
+	UpsertConstructionRunMarker(ctx context.Context, arg UpsertConstructionRunMarkerParams) error
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error

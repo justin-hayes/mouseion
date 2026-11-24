@@ -409,10 +409,8 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 			HeadUnprintedNode: row.HeadUnprintedNode,
 			Morphology:        morphology})
 	}
-	if study.SyntaxState == "native_agdt" {
-		if study.UnprintedNodes, err = s.sentenceStudyUnprintedNodes(ctx, owner, run, corpus, sentence); err != nil {
-			return domain.SentenceStudy{}, err
-		}
+	if err := s.loadNativeSentenceStudy(ctx, &study, owner, run, corpus, sentence); err != nil {
+		return domain.SentenceStudy{}, err
 	}
 	decisions, err := s.queries().GetSentenceStudyDecisions(ctx, sqlcgen.GetSentenceStudyDecisionsParams{
 		Owner: owner, Book: book, AnalysisRun: run, Corpus: corpus, UnitID: unit,
@@ -478,6 +476,20 @@ func concordanceOccurrenceFromFields(
 		ChapterTitle: chapterTitle, UnitOrder: unitOrder, SentenceOrdinal: sentenceOrdinal,
 		TokenOrdinal: tokenOrdinal,
 	}
+}
+
+// loadNativeSentenceStudy reads what only a native_agdt run stores for a
+// sentence: its unprinted syntax nodes and its current Construction occurrences.
+// Any other syntax state stores neither, and the caller does not ask.
+func (s *PostgresStore) loadNativeSentenceStudy(ctx context.Context, study *domain.SentenceStudy, owner, run, corpus string, sentence int64) (err error) {
+	if study.SyntaxState != syntaxStateNativeAGDT {
+		return nil
+	}
+	if study.UnprintedNodes, err = s.sentenceStudyUnprintedNodes(ctx, owner, run, corpus, sentence); err != nil {
+		return err
+	}
+	study.Constructions, err = s.sentenceStudyConstructions(ctx, owner, run, corpus, sentence)
+	return err
 }
 
 // sentenceStudyUnprintedNodes reads the Unprinted syntax nodes of one sentence

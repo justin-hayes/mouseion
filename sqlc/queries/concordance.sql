@@ -61,6 +61,21 @@ SELECT n.source_id,
    AND n.corpus_id=sqlc.arg('corpus') AND n.sentence_ordinal=sqlc.arg('sentence_ordinal')
  ORDER BY n.source_id;
 
+-- name: GetSentenceStudyConstructions :many
+-- One sentence's Construction occurrences, read only when the run's marker
+-- carries the current detector version. No marker, or an older one, returns no
+-- rows.
+SELECT c.construction_id,
+       COALESCE(c.subtype_id, '')::text AS subtype_id,
+       c.anchor_token_ordinal,
+       c.extent_token_ordinals::bigint[] AS extent_token_ordinals
+  FROM construction_occurrences c
+  JOIN construction_run_markers m ON m.analysis_run_id=c.analysis_run_id
+       AND m.owner_id=c.owner_id AND m.detector_version=sqlc.arg('detector_version')
+ WHERE c.owner_id=sqlc.arg('owner') AND c.analysis_run_id=sqlc.arg('analysis_run')
+   AND c.corpus_id=sqlc.arg('corpus') AND c.sentence_ordinal=sqlc.arg('sentence_ordinal')
+ ORDER BY c.extent_token_ordinals[1], c.anchor_token_ordinal, c.construction_id;
+
 -- name: GetSentenceStudyDecisions :many
 -- Stored occurrence decisions addressing the selected sentence, each with the
 -- number of persisted analyzed words its exact owner/Book/analysis/
