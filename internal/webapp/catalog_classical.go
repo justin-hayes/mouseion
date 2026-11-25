@@ -1,37 +1,64 @@
 package webapp
 
 import (
+	"sort"
+
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-func catalogAuthorsWorkCount(authors []classical.CatalogAuthor) int {
-	total := 0
-	for _, author := range authors {
-		total += len(author.Works)
-	}
-	return total
-}
-
-// filterClassicalCatalog is the Classical side of the Catalog search. It
-// matches author, English title and Greek title through the Go search key and
-// returns the matching author sections.
-func filterClassicalCatalog(authors []classical.CatalogAuthor, query string) []classical.CatalogAuthor {
+// classicalCatalogCards is the Classical side of the Catalog: one card per
+// current Reading unit whose Work matches the search, ordered by title, then
+// author, then unit key, like every other source. It matches author, English
+// title and Greek title through the Go search key.
+func classicalCatalogCards(authors []classical.CatalogAuthor, query string, view classicalCatalogView) []catalogCard {
 	key := canonicalization.SearchKey(query)
-	filtered := make([]classical.CatalogAuthor, 0, len(authors))
+	var cards []catalogCard
 	for _, author := range authors {
-		works := make([]classical.CatalogWork, 0, len(author.Works))
 		for _, work := range author.Works {
-			if catalogWorkMatches(work, key) {
-				works = append(works, work)
+			if !catalogWorkMatches(work, key) {
+				continue
+			}
+			for _, unit := range work.Units {
+				cards = append(cards, classicalCatalogCard(work, unit, view))
 			}
 		}
-		if len(works) > 0 {
-			filtered = append(filtered, classical.CatalogAuthor{Name: author.Name, Works: works})
-		}
 	}
-	return filtered
+	sort.SliceStable(cards, func(i, j int) bool {
+		if left, right := canonicalization.SearchKey(cards[i].Title), canonicalization.SearchKey(cards[j].Title); left != right {
+			return left < right
+		}
+		if left, right := canonicalization.SearchKey(cards[i].Author), canonicalization.SearchKey(cards[j].Author); left != right {
+			return left < right
+		}
+		return cards[i].ID < cards[j].ID
+	})
+	return cards
+}
+
+// classicalCatalogCard is one Reading unit, a Work in one Edition, as a card.
+// Its title opens the Work page; its detail line is the Edition label.
+func classicalCatalogCard(work classical.CatalogWork, unit classical.CatalogUnit, view classicalCatalogView) catalogCard {
+	card := catalogCard{
+		ID:         unit.Key,
+		Title:      work.Title,
+		GreekTitle: work.GreekTitle,
+		Author:     work.Author,
+		Detail:     unit.EditionLabel,
+		TitleURL:   classicalWorkURL(work.Key),
+		Plate:      newTitlePlate(work.Title, work.GreekTitle, work.Author),
+	}
+	if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
+		card.OwnedURL = classicalBookInMyBooksURL(bookID)
+		return card
+	}
+	if view.AddAvailable {
+		card.AddURL = classicalUnitAddURL(unit.Key)
+		card.ReadURL = classicalUnitReadURL(unit.Key)
+		card.ReturnTo = classicalAddReturnIndex
+	}
+	return card
 }
 
 func catalogWorkMatches(work classical.CatalogWork, key string) bool {

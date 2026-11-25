@@ -1,29 +1,31 @@
 package webapp
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestFilterClassicalCatalogMatchesTitlesAndAuthors(t *testing.T) {
-	catalog := catalogFixture(t)
-	authors := catalog.Authors()
+func TestClassicalCatalogCardsMatchTitlesAndAuthorsInTitleOrder(t *testing.T) {
+	authors := catalogFixture(t).Authors()
+	view := classicalCatalogView{AddAvailable: true}
+	titles := func(cards []catalogCard) []string {
+		out := make([]string, 0, len(cards))
+		for _, card := range cards {
+			out = append(out, card.Title)
+		}
+		return out
+	}
 
-	byAuthor := filterClassicalCatalog(authors, "HOMER")
-	require.Len(t, byAuthor, 1)
-	assert.Equal(t, "Homer", byAuthor[0].Name)
-	assert.Len(t, byAuthor[0].Works, 1)
-	assert.Equal(t, "Iliad", byAuthor[0].Works[0].Title)
+	assert.Equal(t, []string{"Iliad"}, titles(classicalCatalogCards(authors, "HOMER", view)))
+	assert.Equal(t, []string{"Anabasis"}, titles(classicalCatalogCards(authors, "αναβασισ", view)))
+	assert.Empty(t, classicalCatalogCards(authors, "iliad 2", view), "a trailing Book number is ordinary search text: a Work has no constituent Book to narrow to")
 
-	byGreekTitle := filterClassicalCatalog(authors, "αναβασισ")
-	require.Len(t, byGreekTitle, 1)
-	assert.Equal(t, "Xenophon", byGreekTitle[0].Name)
-	assert.Equal(t, "Anabasis", byGreekTitle[0].Works[0].Title)
-
-	assert.Empty(t, filterClassicalCatalog(authors, "iliad 2"), "a trailing Book number is ordinary search text: a Work has no constituent Book to narrow to")
-	assert.Equal(t, authors, filterClassicalCatalog(authors, ""))
+	all := titles(classicalCatalogCards(authors, "", view))
+	require.NotEmpty(t, all)
+	assert.True(t, sort.StringsAreSorted(all), "cards are ordered by title: %v", all)
 }
 
 func TestCatalogEmptyStateChoosesOneDistinctReason(t *testing.T) {
@@ -50,8 +52,8 @@ func TestCatalogEmptyStateChoosesOneDistinctReason(t *testing.T) {
 
 func TestCatalogPagingAndSummaryHelpers(t *testing.T) {
 	assert.Equal(t, 1, catalogPageCount(0))
-	assert.Equal(t, 1, catalogPageCount(6))
-	assert.Equal(t, 2, catalogPageCount(7))
+	assert.Equal(t, 1, catalogPageCount(12))
+	assert.Equal(t, 2, catalogPageCount(13))
 	assert.Equal(t, "1 result from 1 source.", catalogResultSummary(1, 1))
 	assert.Equal(t, "4 results from 1 source.", catalogResultSummary(4, 1))
 	assert.Equal(t, "4 results from 2 sources.", catalogResultSummary(4, 2))

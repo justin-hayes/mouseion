@@ -77,11 +77,11 @@ test.describe('Remove from My Books', () => {
     const contents = page.getByRole('region', { name: /Contents of Iliad/ }).getByRole('table');
     await expect(contents.getByRole('row')).toHaveCount(4);
     await expect(contents.getByRole('button')).toHaveCount(0);
-    const add = page.getByRole('button', { name: 'Add and prepare the work', exact: true });
+    const add = page.getByRole('button', { name: 'Add', exact: true });
     await expect(add).toHaveCount(1);
     await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(1);
     await add.click();
-    await expect(page).toHaveURL(/\/catalogs\/classical/);
+    await expect(page).toHaveURL(/\/catalogs\/classical\/works\/fixture-iliad\?/);
     await page.goto('/library');
     await showStudyLanguage(page, 'grc');
     await expect(first).toHaveCount(0);

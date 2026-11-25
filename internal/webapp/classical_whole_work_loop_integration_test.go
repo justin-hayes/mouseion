@@ -82,7 +82,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	library := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	assert.Equal(t, 1, strings.Count(library.Body.String(), `id="book-row-`+book+`"`))
-	assert.Equal(t, 1, strings.Count(library.Body.String(), "Synthetic Treatise"+"</"), "one title for the whole Work")
+	assert.Equal(t, 1, strings.Count(library.Body.String(), `<h2 id="book-title-`+book+`" class="bibliographic-title">Synthetic Treatise</h2>`), "one title for the whole Work; its Title plate repeats it as decoration")
 	for _, retired := range []string{"Book 1 of", "library-work", "Books in", "Move the work", "Remove the work"} {
 		assert.NotContains(t, library.Body.String(), retired)
 	}

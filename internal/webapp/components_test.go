@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/stretchr/testify/assert"
@@ -322,10 +323,18 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 	}{
 		{
 			name: "Catalog card",
-			html: renderPattern(t, CatalogEntryCard("csrf", domain.CatalogueEntry{Index: domain.CatalogueIndexEntry{
+			html: renderPattern(t, CatalogEntryCard("csrf", opdsCatalogCard(domain.CatalogueEntry{Index: domain.CatalogueIndexEntry{
 				ConnectionID: "c", EntryIdentifier: "e", Title: "Die Verwandlung", Author: "Franz Kafka",
-			}}), ""),
+			}})), ""),
 			want: []string{`class="title-plate__title">Die Verwandlung</span>`, `class="title-plate__author">Franz Kafka</span>`},
+		},
+		{
+			name: "Classical card",
+			html: renderPattern(t, CatalogEntryCard("csrf", classicalCatalogCard(
+				classical.CatalogWork{Key: "iliad", Title: "Iliad", Author: "Homer", GreekTitle: "Ἰλιάς"},
+				classical.CatalogUnit{Key: "iliad-unit", EditionLabel: "Monro 1902"},
+				classicalCatalogView{AddAvailable: true})), ""),
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`, `class="catalog-entry__detail">Monro 1902</p>`},
 		},
 		{
 			name: "My Books row",
