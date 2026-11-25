@@ -11,7 +11,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 		if !view.Available {
 			<section class="study-unavailable" aria-labelledby="study-unavailable-heading">
 				<h2 id="study-unavailable-heading">Study isn't available for this language yet</h2>
-				<p>Study needs a meaning that fits each sentence, and { view.LanguageLabel } does not provide one yet. Prepared decks still work for it.</p>
+				<p>Study needs a meaning that fits each sentence, and this language does not provide one yet. Prepared decks still work for it.</p>
 				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
 			</section>
 		} else {
@@ -33,10 +33,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 }
 
 func studyPageDescription(view studyPageView) string {
-	if !view.Available || view.LanguageLabel == "" {
-		return "Review vocabulary from your reading."
-	}
-	return "Review " + view.LanguageLabel + " vocabulary from your reading."
+	return "Review vocabulary from your reading."
 }
 
 func studyReadyText(count int) string {
