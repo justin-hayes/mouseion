@@ -141,13 +141,12 @@ func (h *Handler) prefixedLanguagePage(page languagePrefixed) http.Handler {
 			redirectLocal(w, r, "/"+language+rest, r.URL.RawQuery)
 			return
 		}
-		if language != view.ActiveLanguage {
-			if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), user(r).ID, language); err != nil {
-				fail(w, err)
-				return
-			}
-			view.ActiveLanguage = language
+		// Always recorded: the resolved fallback may differ from the stored value.
+		if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), user(r).ID, language); err != nil {
+			fail(w, err)
+			return
 		}
+		view.ActiveLanguage = language
 		view.PageLanguage = language
 		view.PageKind = page.kind
 		page.handler.ServeHTTP(w, r)
