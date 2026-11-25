@@ -56,11 +56,11 @@ terms are read from the licence instrument, not catalogue pages).
 | Candidate | Pin | Instrument in force | ADR 0111 class | Size |
 |---|---|---|---|---|
 | **Lewis & Short**, *A Latin Dictionary* (1879), Perseus TEI `lat.ls.perseus-eng2.xml` | `PerseusDL/lexica@56061ca1` (the LSJ pin), SHA-256 `a21c3799…1836c`; `@1c34cdf7` (2026-10-26) SHA-256 `933ba8fd…1d32` | Root `README.md`: "licensed under a Creative Commons Attribution-ShareAlike 4.0 International License"; root `license.md` is the CC BY-SA 4.0 legal code; the file's own `<availability>` also states CC BY-SA. Print source: 1879, public domain. | Source content, **share-alike, admitted** | 77.4 MB (51,645 entries) |
-| **Lewis, *An Elementary Latin Dictionary*** (1890), `viaf2845558.viaf001.xml` | same repo; `@56061ca1` SHA-256 `16db938a…2ca1`; `@1c34cdf7` `f6087b2f…195e` | Same README and `license.md`; file `<availability>` CC BY-SA. Print source: 1890, public domain. | Source content, **share-alike, admitted** | 14.5 MB (17,582 entries) |
-| **Wiktionary Latin** via Kaikki/Wiktextract (`lang_code=la`) | existing pin mechanism (`make dictionary-index`); measured on the kaikki.org Latin file extracted 2026-10-30 from the 2026-10-01 dump, wiktextract `19f9a30`, SHA-256 `7b33773b…c3a1` of the 1.25 GB file | Already registered: CC BY-SA 4.0 / GFDL | Source content, **share-alike, admitted** (existing row) | 893,463 records; 48,720 lemma-like |
-| **Whitaker's WORDS** `DICTLINE.GEN` | `mk270/whitakers-words@fb7fb6f0` (2026-11-03), SHA-256 `8f6c0fc8…9abf7569` | `LICENCE.txt`: "Permission is hereby freely given for any and all use of program and data"; "freely available to anyone who wishes to use them, for whatever purpose". Not an enumerated licence. | Source content, **permissive custom grant; not in ADR 0111's list. Needs a ruling** (it is no more restrictive than share-alike, so likely admissible, but the ADR names its admitted kinds) | 6.1 MB, 39,335 lines |
+| **Lewis, *An Elementary Latin Dictionary*** (1890), `viaf2845558.viaf001.xml` | same repo; `@56061ca1` SHA-256 `16db938a…522cd`; `@1c34cdf7` `f6087b2f…195e` | Same README and `license.md`; file `<availability>` CC BY-SA. Print source: 1890, public domain. | Source content, **share-alike, admitted** | 14.5 MB (17,582 entries) |
+| **Wiktionary Latin** via Kaikki/Wiktextract (`lang_code=la`) | existing pin mechanism (`make dictionary-index`); measured on the kaikki.org Latin file extracted 2026-10-30 from the 2026-10-01 dump, wiktextract `19f9a30`, SHA-256 `7b33773b6fffbab2` (prefix) of the 1.25 GB file | Already registered: CC BY-SA 4.0 / GFDL | Source content, **share-alike, admitted** (existing row) | 893,463 records; 48,720 lemma-like |
+| **Whitaker's WORDS** `DICTLINE.GEN` | `mk270/whitakers-words@fb7fb6f0` (2026-11-03), SHA-256 `8f6c0fc8…abf7569` | `LICENCE.txt`: "Permission is hereby freely given for any and all use of program and data"; "freely available to anyone who wishes to use them, for whatever purpose". Not an enumerated licence. | Source content, **permissive custom grant; not in ADR 0111's list. Needs a ruling** (it is no more restrictive than share-alike, so likely admissible, but the ADR names its admitted kinds) | 6.1 MB, 39,335 lines |
 | **DCC Latin Core Vocabulary** | web CSV/XML, no versioned repo | DCC page: CC BY-SA 3.0 Unported. Definitions "adapted from various sources, including … the Oxford Latin Dictionary" (provenance of that adaptation **unverified**). | Source content, share-alike, admitted, **with an unverified OLD provenance flag** | 1,000 entries |
-| **CIRCSE `LewisShort`** RDF (L&S linked to LiLa) | `CIRCSE/LewisShort@04b4c99d` (2023-06-12), tarball SHA-256 `71ae6d35…ec99`; Zenodo `10.5281/zenodo.8027557` v1.0.0 | README "Copyright": CC BY-NC-SA 4.0; no licence file; GitHub licence field empty; Zenodo licence `other-open`. The source text it derives from is CC BY-SA 4.0 (Perseus). | The RDF as a whole is **NC (unclear: conflicts with its share-alike source)**. Excluded as Source content; the entry-to-lemma links only as an Analysis resource | 113 MB TTL (9.6 MB gz) |
+| **CIRCSE `LewisShort`** RDF (L&S linked to LiLa) | `CIRCSE/LewisShort@04b4c99d` (2023-06-12), tarball SHA-256 `71ae6d35…c1a99`; Zenodo `10.5281/zenodo.8027557` v1.0.0 | README "Copyright": CC BY-NC-SA 4.0; no licence file; GitHub licence field empty; Zenodo licence `other-open`. The source text it derives from is CC BY-SA 4.0 (Perseus). | The RDF as a whole is **NC (unclear: conflicts with its share-alike source)**. Excluded as Source content; the entry-to-lemma links only as an Analysis resource | 113 MB TTL (9.6 MB gz) |
 | **LiLa Lemma Bank** | `CIRCSE/LiLa_Lemma-Bank@1a1ee929` (2026-10-20); `lila_db.sql.gz` 12.8 MB | `LICENSE` file: CC BY-SA 4.0 (GitHub SPDX `CC-BY-SA-4.0`); README repeats it. 215,102 lemmas (JOHD data paper). | Analysis resource, share-alike, acceptable | 12.8 MB |
 
 Not examined: Latin WordNet and the other LiLa-linked lexica (derivational,
@@ -183,17 +183,17 @@ modes but are not a shipping bar.
    A stop-list plus a minimum length would remove most; this is a closed list.
 2. **Split definitions.** An italic gloss broken by a roman name or word
    ("a people of" [name]; "of", "relating to generation"; "To", "for
-   nothing"), so a fragment becomes an outline line. Present in 4 of the 8
+   nothing"), so a fragment becomes an outline line. Present in 5 of the 8
    partial sample entries.
 3. **Forms paragraph in the first sense** (5,579 entries): usually harmless
    for the outline, but a stray definition appears when a gloss sits in the
-   forms tail. The first sense without a definition (65,000 level-1 senses
-   labelled `I`) cannot be told apart from a real sense by label.
+   forms tail. A fragment sense cannot be told apart from a real
+   first sense by label (65,635 level-1 senses are labelled `I`).
 4. **Cross-reference entries** (6,658 with no sense; "v. X", "Part. of X",
    "= X"): no outline, need resolving to the target entry's outline. The target
    is named only in running text.
-5. **Duplicated or mislabelled levels** (365 entries have a level-1 label other
-   than roman, such as `I. A.`): the outline's numbering should use `id` order
+5. **Duplicated or mislabelled levels** (over 450 level-1 senses have a label
+   other than a roman numeral, such as `I. A.`): the outline's numbering should use `id` order
    and level, not `n`.
 6. **Mixed script and encoding:** Cyrillic `у` (1,061 entries), beta-code
    Greek in the archival `eng1` file (use `eng2`).
@@ -235,8 +235,8 @@ common words, with the full L&S entry behind the toggle.
 
 Already structured. 48,720 lemma-like records (the 844,743 form-of and
 alt-of records are excluded), 73,571 senses, 73,507 with glosses (99.9%),
-34,819 lemma records with one gloss-bearing sense, 13,901 with two or more
-(groups: 8,526; 2,914; 1,180; 518; 285; 159; 255 at 8 or more). 4,047 senses
+34,819 lemma records with one gloss-bearing sense, 13,837 with two or more
+(2: 8,526; 3: 2,914; 4: 1,180; 5: 518; 6: 285; 7: 159; 8 or more: 255). 4,047 senses
 carry a nested gloss list (a parent gloss plus a sub-gloss). 7,308 lemma records
 have usage examples; 9,341 senses do. Tags mark register and period (for
 example "New-Latin" 2,926, "Medieval-Latin" 2,551, "Late-Latin" 1,758
@@ -277,8 +277,8 @@ The only one published by a dictionary project is **LiLa's L&S link**
 - The README calls it "a work in progress NOT yet complete".
 - The licence is NC (see the table). The link is the part of the RDF that is
   CIRCSE's own contribution, so it is the one piece worth keeping: as an
-  Analysis resource it would be deploy-time fetched under ADR 0111 conditions
-  1 to 3, never shipped. The Lemma Bank itself is CC BY-SA 4.0.
+  Analysis resource it would be fetched at deploy time under ADR 0111's
+  deploy-time conditions, never shipped. The Lemma Bank itself is CC BY-SA 4.0.
 - Whether the chosen corpus's lemmas are LiLa identifiers is a corpus
   question. Treebanks LiLa links (ITTB, UDante, LASLA, Querolus) are
   mostly outside the classical definition, apart from LASLA (the Opera Latina
@@ -310,9 +310,10 @@ The only one published by a dictionary project is **LiLa's L&S link**
   and Elementary would then rank higher for coverage.
 - A ruling that the Whitaker permissive grant is not admissible (it is a
   fallback only).
-- A request for definitions without a cross-reference resolver: Elementary
-  has a lower cross-reference share by type but a similar 25% of its entries
-  are short pointers (4,439 entries of 120 characters or fewer).
+- A decision to skip the cross-reference resolver: a quarter of Elementary's
+  entries (4,439 of 17,582, 120 characters or fewer) and 12.9% of L&S entries
+  are pointers, so either dictionary would leave those cards without an
+  outline.
 - Evidence that the CIRCSE RDF's NC marking is an error (a clarified licence
   from the maintainers); then the link layer could be a plain mapping.
 
