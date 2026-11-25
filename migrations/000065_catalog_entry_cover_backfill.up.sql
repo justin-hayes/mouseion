@@ -11,10 +11,15 @@
 -- are retrieved by the next Catalog sync. Recovery: forward fix; the source
 -- book_covers rows are untouched until 000066, so this can be re-run.
 --
--- Completion signal before 000066: every book_covers row with a selection has
--- an entry row, and the available counts agree:
---   SELECT count(*) FROM public.book_covers WHERE state = 'available' AND selected_connection_id IS NOT NULL;
---   SELECT count(*) FROM public.catalog_entry_covers WHERE state = 'available';
+-- Completion signal before 000066 (per selection, so pre-existing entry rows
+-- cannot mask a missing copy): this returns 0 when every book_covers row with a
+-- selection has its entry row. 000066 refuses to run unless it is 0.
+--   SELECT count(*) FROM public.book_covers bc
+--   WHERE bc.selected_connection_id IS NOT NULL
+--     AND btrim(COALESCE(bc.selected_source_identifier, '')) <> ''
+--     AND NOT EXISTS (SELECT 1 FROM public.catalog_entry_covers c
+--       WHERE c.owner_id = bc.owner_id AND c.connection_id = bc.selected_connection_id
+--         AND c.entry_identifier = bc.selected_source_identifier);
 -- Two Books never share an entry (one entry links to at most one Book), but if
 -- they did the best row (available, then most recently fetched) wins.
 INSERT INTO public.catalog_entry_covers (
