@@ -1521,6 +1521,7 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 .title-plate__greek,
 .title-plate__author {
   overflow: hidden;
+  color: var(--mouseion-color-text);
   font-family: var(--mouseion-font-reading);
   font-size: var(--mouseion-font-size-metadata);
   line-height: 1.2;
