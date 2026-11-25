@@ -126,7 +126,7 @@ func TestReadingChooserModernLanguageCandidatesStayOrdinary(t *testing.T) {
 			}).buildReadingChooser(context.Background(), fixtures.OwnerID, language, language, "")
 			require.NoError(t, err)
 			require.Len(t, view.Entries, 1)
-			assert.Equal(t, "95% to below 97%", readingChooserBookBandLabel(view.Entries[0].Books[0]))
+			assert.Equal(t, "95% to below 97%", readingChooserBookBandLabel(view.Entries[0].Book))
 		})
 	}
 }
@@ -151,14 +151,13 @@ func TestReadingChooserListsOneOrdinaryEntryPerBookInTitleOrder(t *testing.T) {
 	require.Len(t, view.Entries, 5, "every To Read Book is its own entry, even Books of one Work")
 	var ids []string
 	for _, entry := range view.Entries {
-		require.Len(t, entry.Books, 1)
-		ids = append(ids, entry.Books[0].Book.Book.ID)
+		ids = append(ids, entry.Book.Book.Book.ID)
 	}
 	assert.Equal(t, []string{"anabasis-1", "iliad-1", "iliad-2", "iliad-3", "iliad-4"}, ids, "neutral title order")
-	assert.Equal(t, "99% or above", readingChooserBookBandLabel(view.Entries[1].Books[0]))
-	assert.Equal(t, "Below 95%", readingChooserBookBandLabel(view.Entries[2].Books[0]))
-	assert.Equal(t, "Analysis in progress", readingChooserBookBandLabel(view.Entries[3].Books[0]))
-	assert.Equal(t, "Not assessed", readingChooserBookBandLabel(view.Entries[4].Books[0]))
+	assert.Equal(t, "99% or above", readingChooserBookBandLabel(view.Entries[1].Book))
+	assert.Equal(t, "Below 95%", readingChooserBookBandLabel(view.Entries[2].Book))
+	assert.Equal(t, "Analysis in progress", readingChooserBookBandLabel(view.Entries[3].Book))
+	assert.Equal(t, "Not assessed", readingChooserBookBandLabel(view.Entries[4].Book))
 }
 
 func TestReadingChooserSwitchModeExcludesTheCurrentBook(t *testing.T) {
@@ -170,7 +169,7 @@ func TestReadingChooserSwitchModeExcludesTheCurrentBook(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, view.Entries, 4)
 	for _, entry := range view.Entries {
-		assert.NotEqual(t, "iliad-2", entry.Books[0].Book.Book.ID, "the current Book is not offered")
+		assert.NotEqual(t, "iliad-2", entry.Book.Book.Book.ID, "the current Book is not offered")
 	}
 }
 

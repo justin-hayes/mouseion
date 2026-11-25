@@ -1609,7 +1609,7 @@ func ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPag
 					return templ_7745c5c3_Err
 				}
 				for _, entry := range chooser.Entries {
-					templ_7745c5c3_Err = ReadingChooserBook(entry.Books[0], csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = ReadingChooserBook(entry.Book, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

@@ -46,7 +46,7 @@ type readingChooserEntryView struct {
 	Key    string
 	Title  string
 	Author string
-	Books  []readingChooserBookView
+	Book   readingChooserBookView
 }
 
 type readingChooserPageView struct {
@@ -449,7 +449,7 @@ func readingChooserEntries(candidates []readingChooserBookView) []readingChooser
 			Key:    "book:" + candidate.Book.Book.ID,
 			Title:  readingChooserBookTitle(candidate.Book),
 			Author: strings.TrimSpace(candidate.Book.Book.Author),
-			Books:  []readingChooserBookView{candidate},
+			Book:   candidate,
 		})
 	}
 	sort.Slice(entries, func(i, j int) bool { return readingChooserEntryLess(entries[i], entries[j]) })
@@ -537,19 +537,13 @@ func readingChooserPageDescription(view readingChooserPageView) string {
 }
 
 func readingChooserCandidateCount(view readingChooserPageView) int {
-	count := 0
-	for _, entry := range view.Entries {
-		count += len(entry.Books)
-	}
-	return count
+	return len(view.Entries)
 }
 
 func readingChooserHasCoverage(view readingChooserPageView) bool {
 	for _, entry := range view.Entries {
-		for _, item := range entry.Books {
-			if item.Coverage != nil {
-				return true
-			}
+		if entry.Book.Coverage != nil {
+			return true
 		}
 	}
 	return false

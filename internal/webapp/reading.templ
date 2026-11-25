@@ -249,7 +249,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 			}
 			<ul class="reading-chooser-list" role="list">
 				for _, entry := range chooser.Entries {
-					@ReadingChooserBook(entry.Books[0], csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+					@ReadingChooserBook(entry.Book, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 				}
 			</ul>
 		}

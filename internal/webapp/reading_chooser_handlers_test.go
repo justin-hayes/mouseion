@@ -358,10 +358,8 @@ func chooserReadyCandidate() domain.MyBook {
 func chooserBooksByBand(view readingChooserPageView, band domain.CoverageBand) []readingChooserBookView {
 	var books []readingChooserBookView
 	for _, entry := range view.Entries {
-		for _, item := range entry.Books {
-			if item.Coverage != nil && item.Band == band {
-				books = append(books, item)
-			}
+		if entry.Book.Coverage != nil && entry.Book.Band == band {
+			books = append(books, entry.Book)
 		}
 	}
 	return books
@@ -371,10 +369,8 @@ func chooserBooksByBand(view readingChooserPageView, band domain.CoverageBand) [
 func chooserBooksInState(view readingChooserPageView, state readingChooserState) []readingChooserBookView {
 	var books []readingChooserBookView
 	for _, entry := range view.Entries {
-		for _, item := range entry.Books {
-			if item.Coverage == nil && item.State == state {
-				books = append(books, item)
-			}
+		if entry.Book.Coverage == nil && entry.Book.State == state {
+			books = append(books, entry.Book)
 		}
 	}
 	return books
