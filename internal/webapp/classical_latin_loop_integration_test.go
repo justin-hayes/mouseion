@@ -335,6 +335,8 @@ func TestClassicalLatinCatalogLoop(t *testing.T) {
 	assert.Contains(t, body, "<summary>Word relations</summary>")
 	assert.Contains(t, body, "<td>subject</td>", "the stored AGDT relation is shown as Word relations")
 	assert.NotContains(t, body, "Syntax unavailable")
+	assert.Equal(t, 2, strings.Count(body, "<td>subject</td>"), "the _CO conjunct shows its base relation")
+	assert.NotContains(t, body, "relation not labelled", "no relation of the sentence is left unlabelled")
 	assert.NotContains(t, body, "sentence-study-construction", "Constructions fail closed for Latin")
 	assert.Contains(t, body, "1.1a")
 	preface := perform(t, handler, http.MethodGet, "/la/vocabulary/concordance/sentence?"+url.Values{

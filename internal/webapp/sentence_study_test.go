@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1147,4 +1148,20 @@ func TestSentenceStudyDisplayLemmaPrefersTheCitationHeadword(t *testing.T) {
 			require.Equal(t, tc.headword, headword)
 		})
 	}
+}
+
+func TestSentenceStudyWordRelationsReadsLatinSuffixes(t *testing.T) {
+	study := relationStudy(
+		relationToken(0, "incolunt", "PRED", 0),
+		relationToken(1, "Belgae", "SBJ_CO", 0),
+		relationToken(2, "Aquitani", "SBJ_CO_AP", 0),
+	)
+	study.Language = classical.LanguageLatin
+	rows := sentenceStudyWordRelations(study).Rows
+	require.Len(t, rows, 3)
+	assert.Equal(t, "subject", rows[1].Relation, "a Latin _CO relation shows its base relation")
+	assert.Equal(t, "subject", rows[2].Relation)
+
+	study.Language = "grc"
+	assert.Equal(t, "relation not labelled", sentenceStudyWordRelations(study).Rows[1].Relation, "the Greek reader is unchanged")
 }
