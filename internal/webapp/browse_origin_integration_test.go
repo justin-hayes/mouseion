@@ -249,7 +249,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.Equal(t, "it", stored, "recovery never switches the selection back")
 		// Concordance names its language in the URL, so the page renders in it
 		// and the visit records it as the Last study language (ADR 0131).
-		response = get(concordanceHref)
+		response := get(concordanceHref)
 		assert.Equal(t, http.StatusOK, response.Code, concordanceHref)
 		stored, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)

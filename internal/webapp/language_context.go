@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
