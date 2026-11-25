@@ -1065,9 +1065,16 @@ func TestCatalogAndManageSourcesOmitTheShellStudyLanguagePicker(t *testing.T) {
 }
 
 func TestCatalogLanguageFilterAlwaysOffersAncientGreekAndGatesTheClassicalSection(t *testing.T) {
+	var fixtureStore *fixtures.Store
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
 		services.Classical = catalogFixture(t)
+		var ok bool
+		fixtureStore, ok = services.Store.Shell.(*fixtures.Store)
+		require.True(t, ok)
 	})
+	require.NotNil(t, fixtureStore)
+	before, err := fixtureStore.GetStoredActiveStudyLanguage(t.Context(), fixtures.OwnerID)
+	require.NoError(t, err)
 
 	german := catalogPage(t, h, cookies, "/catalogs?language=de").Body.String()
 	assert.Contains(t, german, `<option value="grc"`, "Ancient Greek is offered whatever the learner reads")
@@ -1079,4 +1086,8 @@ func TestCatalogLanguageFilterAlwaysOffersAncientGreekAndGatesTheClassicalSectio
 
 	all := catalogPage(t, h, cookies, "/catalogs?language=").Body.String()
 	assert.Contains(t, all, `id="catalog-source-classical"`)
+
+	after, err := fixtureStore.GetStoredActiveStudyLanguage(t.Context(), fixtures.OwnerID)
+	require.NoError(t, err)
+	assert.Equal(t, before, after, "the Language filter is never stored as the study language")
 }
