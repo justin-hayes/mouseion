@@ -821,7 +821,7 @@ let undoStack = [];
 let revealed = false;
 let guessed = false;
 let view = "study";
-let exploreOpen = null;
+let explore = { pos: 0, revealed: false };
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -883,7 +883,7 @@ function renderStudy() {
   const notesToday = state.log.filter((e) => e.t === "note" && e.day === state.today.day);
   $("#view").innerHTML = `<h1>Today is finished.</h1>
     <p class="muted">${state.today.declined ? "You declined the next New-word batch." : poolLeft ? `That's the ${Study.BATCHES_PER_DAY} batches for today.` : "All 20 words are in study."}
-    Come back after 05:00 tomorrow.${poolLeft ? " Explore is open if you want to browse words that aren't in study yet." : ""}</p>
+    Come back after 05:00 tomorrow.${poolLeft ? " Explore is open if you want to flip through words that aren't in study yet." : ""}</p>
     <h2>How did today feel?</h2>
     <p class="small muted">Optional. Did "Got it" on a new sentence mean you knew the word, or that you worked the sentence out? Did a batch, or Explore, feel like a penalty?</p>
     <textarea id="note" placeholder="A sentence or two is plenty."></textarea>
@@ -932,25 +932,43 @@ function renderExplore() {
     $("#view").innerHTML = `<h1>Explore</h1><p class="muted">Explore opens once Today's reviews are done.</p>`;
     return;
   }
-  const ids = material.map((w) => w.id).filter((id) => !Study.inStudy(state, id));
+  // Ungraded card flipping over words not yet in study (nor being introduced today),
+  // in their first sentence only, so the new sentences stay unseen for the reviews.
   const pending = new Set(state.today.queue.filter((c) => c.kind === "intro").map((c) => c.wordId));
-  $("#view").innerHTML = `<h1>Explore</h1>
-    <p class="small muted">Ungraded. Nothing here changes Study progress. Saving a word only gives it a slot in a future New-word batch; it never adds a batch.
-    Prototype limit: only words not yet in study are listed, and only their first sentence, so the new sentences stay unseen.</p>
-    ${ids.length ? `<ul class="pool">${ids.map((id) => {
-      const w = byId[id], open = exploreOpen === id, saved = state.nominations.includes(id);
-      return `<li><button class="link" data-open="${id}" lang="de">${esc(w.headword)}</button>
-        ${saved ? `<span class="small muted"> · saved for a batch</span>` : pending.has(id) ? `<span class="small muted"> · being introduced today</span>` : ""}
-        ${open ? `<p class="de" lang="de">${marked(w.sentences[0].de)}</p><p class="gloss">${esc(w.gloss)}</p><p class="en">${esc(w.sentences[0].en)}</p>
-          ${saved || pending.has(id) ? "" : `<div class="actions"><button data-save="${id}">Save for a New-word batch</button></div>`}` : ""}</li>`;
-    }).join("")}</ul>` : `<p>All 20 words are in study.</p>`}`;
-  document.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => {
-    const id = b.dataset.open;
-    exploreOpen = exploreOpen === id ? null : id;
-    if (exploreOpen) { state = Study.exploreView(state, id, now()); save(); }
-    render();
-  });
-  document.querySelectorAll("[data-save]").forEach((b) => b.onclick = () => dispatch(Study.nominate(state, b.dataset.save, now())));
+  const deck = material.map((w) => w.id).filter((id) => !Study.inStudy(state, id) && !pending.has(id));
+  if (!deck.length) {
+    $("#view").innerHTML = `<h1>Explore</h1><p class="muted">Every word is in study or being introduced today, so there's nothing new to explore.</p>`;
+    return;
+  }
+  if (explore.pos >= deck.length) {
+    $("#view").innerHTML = `<h1>That's all of them.</h1>
+      <p class="muted">You've flipped through all ${deck.length} words that aren't in study yet. ${state.nominations.length ? `${state.nominations.length} saved for a New-word batch.` : ""}</p>`;
+    dock(`<button class="primary" id="again-explore">Start over</button>`);
+    $("#again-explore").onclick = () => { explore = { pos: 0, revealed: false }; render(); };
+    return;
+  }
+  const id = deck[explore.pos];
+  const w = byId[id], s = w.sentences[0], saved = state.nominations.includes(id);
+  $("#view").innerHTML = `<div class="card">
+      <div class="badge">Explore · ${explore.pos + 1} of ${deck.length} · not graded</div>
+      <p class="de" lang="de">${marked(s.de)}</p>
+      ${explore.revealed ? `<div class="back">
+        <div><span class="head" lang="de">${esc(w.headword)}</span> <span class="muted small">${esc(w.upos.toLowerCase())}</span></div>
+        <div class="gloss">${esc(w.gloss)}</div>
+        <p class="en">${esc(s.en)}</p>
+        ${saved ? `<p class="small muted">✓ Saved: it takes a slot in your next New-word batch.</p>` : ""}
+      </div>` : ""}
+    </div>
+    <p class="small muted">Nothing here changes Study progress. Saving a word only moves it to the front of the next New-word batch; it never adds a batch.</p>`;
+  if (explore.revealed) {
+    dock(`<button id="saveWord" ${saved ? "disabled" : ""}>${saved ? "Saved" : "Save for a batch"}</button><button class="primary" id="nextWord">Next</button>`);
+    $("#saveWord").onclick = () => dispatch(Study.nominate(state, id, now()));
+    // A saved word leaves no gap: it stays in the deck until introduced, so advance past it.
+    $("#nextWord").onclick = () => { explore = { pos: explore.pos + 1, revealed: false }; render(); window.scrollTo(0, 0); };
+  } else {
+    dock(`<button class="primary" id="revealExplore">Show answer</button>`);
+    $("#revealExplore").onclick = () => { explore.revealed = true; state = Study.exploreView(state, id, now()); save(); render(); };
+  }
 }
 
 function exportPayload() {
@@ -1003,7 +1021,7 @@ function renderAbout() {
       <li>Spacing: ${Study.LADDER.join(", ")} days. Not compressed. <strong>Got it</strong> climbs one rung; <strong>Again</strong> drops two and the word comes back once more before Today finishes.</li>
       <li>The Study day begins at 05:00 Europe/Berlin. Today is finished once the reviews due at its start are answered.</li>
       <li>New words come after the reviews, in batches you may take or decline. <strong>Scaled for 20 words:</strong> batches of ${Study.BATCH_SIZE} (the pilot uses 10), at most ${Study.BATCHES_PER_DAY} a day.</li>
-      <li>Explore is ungraded. A saved word waits for a slot in a later batch.</li>
+      <li>Explore is the same card flipping, ungraded, over words not yet in study (first sentence only, so the new sentences stay unseen). A saved word takes a slot at the front of the next batch.</li>
     </ul>
     <h2>Storage</h2>
     <p class="small">Everything stays in this browser's localStorage for this address. Use the same phone, browser and URL for the whole trial, and export the log at the end.</p>

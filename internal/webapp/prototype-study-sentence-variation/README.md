@@ -42,12 +42,14 @@ so a walkthrough never touches the real log.
 - New-word batches after the reviews, take or decline. **Scaled for 20 words:**
   batches of 5 (the pilot uses 10), at most 3 a day, so a third-batch decision is
   still possible.
-- Explore, once Today is finished: ungraded; a saved word becomes a Study
-  nomination and takes a slot at the front of the next batch, never an extra batch.
-  **Prototype limit:** Explore lists only words not yet in study, and shows only
-  their first sentence, so the new sentences stay unseen until a review shows them.
-  That restriction is itself a finding for the pilot: Explore browsing "further
-  sentences" of a word in study would spend the sentences variation depends on.
+- Explore, once Today is finished: the same card flipping as Today, but ungraded
+  (Show answer, then Next), over the words not yet in study, in their first
+  sentence. On the back, "Save for a batch" makes the word a Study nomination: it
+  takes a slot at the front of the next batch, never an extra batch.
+  **Prototype limit:** in-study words, and any further sentences, are left out so
+  the new sentences stay unseen until a review shows them. That restriction is
+  itself a finding for the pilot: an Explore that flips in-study words through
+  further sentences would spend the sentences variation depends on.
 
 ## Data
 
