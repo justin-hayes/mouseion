@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -38,6 +39,15 @@ func classicalCatalogCardsIn(authors []classical.CatalogAuthor, query, language 
 	return cards
 }
 
+// distinctOriginalTitle is the original title to show: empty when it is the
+// English title again (ADR 0132), as for a Latin Work whose title is the same.
+func distinctOriginalTitle(title, original string) string {
+	if strings.TrimSpace(original) == strings.TrimSpace(title) {
+		return ""
+	}
+	return original
+}
+
 // sortCatalogCards orders cards by title, then author, then ID.
 func sortCatalogCards(cards []catalogCard) {
 	sort.SliceStable(cards, func(i, j int) bool {
@@ -54,15 +64,16 @@ func sortCatalogCards(cards []catalogCard) {
 // classicalCatalogCard is one Reading unit, a Work in one Edition, as a card.
 // Its title opens the Work page; its detail line is the Edition label.
 func classicalCatalogCard(work classical.CatalogWork, unit classical.CatalogUnit, view classicalCatalogView) catalogCard {
+	original := distinctOriginalTitle(work.Title, work.OriginalTitle)
 	card := catalogCard{
 		ID:            "classical-" + unit.Key,
 		Title:         work.Title,
-		OriginalTitle: work.OriginalTitle,
+		OriginalTitle: original,
 		OriginalLang:  work.Language,
 		Author:        work.Author,
 		Detail:        unit.EditionLabel,
 		TitleURL:      classicalWorkURL(work.Key),
-		Plate:         newTitlePlate(work.Title, work.OriginalTitle, work.Language, work.Author),
+		Plate:         newTitlePlate(work.Title, original, work.Language, work.Author),
 	}
 	if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 		card.OwnedURL = classicalBookInMyBooksURL(bookID)

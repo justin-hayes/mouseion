@@ -1212,4 +1212,18 @@ func TestCatalogLanguageFilterCoversEachClassicalLanguagePresent(t *testing.T) {
 		assert.Contains(t, body, want.option, language)
 	}
 	assert.Contains(t, catalogPage(t, h, cookies, "/catalogs?language=la").Body.String(), `lang="la">Aeneis</p>`)
+
+	// With no language requested, the filter already offers both.
+	all := catalogPage(t, h, cookies, "/catalogs?language=").Body.String()
+	assert.Contains(t, all, `<option value="la"`)
+	assert.Contains(t, all, `<option value="grc"`)
+
+	// A Latin Work whose original title repeats its English title shows it once.
+	same := latin
+	same.Key, same.WorkKey, same.EditionKey, same.WorkTitle, same.OriginalTitle = "x-la", "x-la", "x-la-test", "Aeneis", "Aeneis"
+	sameCatalog, err := classical.NewCatalog([]classical.Definition{same})
+	require.NoError(t, err)
+	cards := classicalCatalogCards(sameCatalog.Authors(), "", classicalCatalogView{})
+	require.Len(t, cards, 1)
+	assert.Empty(t, cards[0].OriginalTitle)
 }

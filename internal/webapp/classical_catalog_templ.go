@@ -145,7 +145,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if work.OriginalTitle != "" {
+			if distinctOriginalTitle(work.Title, work.OriginalTitle) != "" {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<p class=\"classical-work-page__greek\" lang=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

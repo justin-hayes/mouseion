@@ -35,7 +35,7 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 		if !view.AddAvailable {
 			@Feedback(FeedbackError, "Add is unavailable", view.AddUnavailableReason)
 		}
-		if work.OriginalTitle != "" {
+		if distinctOriginalTitle(work.Title, work.OriginalTitle) != "" {
 			<p class="classical-work-page__greek" lang={ work.Language }>{ work.OriginalTitle }</p>
 		}
 		<p class="classical-work-page__summary">{ classicalWorkSizeLabel(work) } · { fmt.Sprintf("%d", work.Words) } words · { classicalTranslationLabel(work.TranslationAvailable) }</p>
