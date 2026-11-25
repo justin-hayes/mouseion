@@ -218,7 +218,8 @@ func citationExtents(doc *sourceDocument) (map[int]citationExtent, error) {
 			if !ok || len(citation) == 0 {
 				return nil, malformed(0, "token citation is not a citation")
 			}
-			if citation[0].Name != "" {
+			// A named top-level section (a Latin preface) is book 0.
+			if citation[0].Name != "" && !doc.latin {
 				return nil, malformed(0, "token citation has a named top-level section")
 			}
 			addCitationExtent(books, citation[0].Number, citation)

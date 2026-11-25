@@ -432,6 +432,9 @@ func (b *builder) planUnits(override classical.Override, source *ancientgreek.Ma
 	if override.Contents == classical.ContentsBooks && len(unit.contents) < 2 {
 		return nil, 0, nil, fmt.Errorf("classical: work override %q lists book contents but the committed manifest has no book ranges; verify with upstream files", override.WorkKey)
 	}
+	if override.Contents != classical.ContentsBooks && len(unit.contents) > 0 {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q no longer lists book contents but the committed manifest has book ranges: %w", override.WorkKey, errContentsOverride)
+	}
 	return []plannedUnit{unit}, max(len(unit.contents), 1), nil, nil
 }
 
@@ -850,6 +853,11 @@ func (b *builder) validateLayerPins(definition classical.Definition) error {
 	if err := b.validateLayerPin(definition.Source.Layer, definition.Source.FileName, definition.Source.Size, definition.Source.SHA256); err != nil {
 		return err
 	}
+	for _, member := range definition.Source.Members {
+		if err := b.validateLayerPin(definition.Source.Layer, member.Name, member.Size, member.SHA256); err != nil {
+			return err
+		}
+	}
 	if definition.Translation == nil {
 		return nil
 	}
@@ -944,6 +952,7 @@ func contentChanged(previous, next classical.Definition) bool {
 	return !sameSourceIdentity(previous.Source, next.Source) ||
 		previous.Source.Size != next.Source.Size ||
 		previous.Source.SHA256 != next.Source.SHA256 ||
+		!sameMembers(previous.Source.Members, next.Source.Members) ||
 		!sameTranslation(previous.Translation, next.Translation) ||
 		previous.InterpretationVersion != next.InterpretationVersion
 }
@@ -951,6 +960,19 @@ func contentChanged(previous, next classical.Definition) bool {
 // sameSourceIdentity compares the source pin's identity, excluding bytes.
 func sameSourceIdentity(a, b classical.SourcePin) bool {
 	return a.Layer == b.Layer && a.FileName == b.FileName && a.Format == b.Format
+}
+
+// sameMembers compares two archive member pin lists, including their bytes.
+func sameMembers(a, b []classical.ArchiveMember) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for index := range a {
+		if a[index] != b[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // sameTranslation compares two optional translation pins, including range.

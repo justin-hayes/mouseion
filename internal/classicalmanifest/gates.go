@@ -119,7 +119,9 @@ func evaluateLatinGates(override classical.Override, scan ancientgreek.LatinScan
 }
 
 // citationGate is gate (i): every token has a Citation and Citations never run
-// backwards. An uncited token cannot be cleared, because the Work could not be
+// backwards. Uncited tokens are the one exception to clearance by reviewer
+// note: the Work could not be prepared, so a note would admit an unreadable
+// Work. An uncited token cannot be cleared, because the Work could not be
 // read; a backwards run can, by a reviewer who has read it.
 func citationGate(scan ancientgreek.LatinScan) GateResult {
 	gate := GateResult{Name: GateCitations, Passed: true, Clearable: true, Detail: fmt.Sprintf("%d tokens, all cited, none backwards", scan.Tokens)}
@@ -138,7 +140,7 @@ func citationGate(scan ancientgreek.LatinScan) GateResult {
 // MaxSplitWordRate.
 func splitWordGate(scan ancientgreek.LatinScan) GateResult {
 	rate := scan.SplitWordRate()
-	gate := GateResult{Name: GateSplitWord, Passed: rate <= MaxSplitWordRate, Clearable: true}
+	gate := GateResult{Name: GateSplitWord, Passed: rate < MaxSplitWordRate, Clearable: true}
 	gate.Detail = fmt.Sprintf("%d of %d words, %.3f%%, limit %.3f%%", scan.SplitWords, scan.Words, rate*100, MaxSplitWordRate*100)
 	return gate
 }

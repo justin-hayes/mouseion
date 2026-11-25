@@ -340,3 +340,59 @@ func TestLatinGateStopsTheRunForAWorkAlreadyInTheManifest(t *testing.T) {
 	require.ErrorAs(t, err, &gate)
 	assert.Equal(t, []string{GateSplitWord}, []string{gate.Report.Failed()[0].Name})
 }
+
+// writeLatinGolden regenerates the checked-in Latin fixture when MOUSEION_UPDATE_GOLDEN is set.
+func writeLatinGolden(t *testing.T) {
+	t.Helper()
+	fixture := newLatinFixture(t, twoBooks()...)
+	fixture.override.Contents = classical.ContentsBooks
+	result := generate(t, fixture.options(t, nil))
+	dir := filepath.Join("testdata", "latin")
+	require.NoError(t, os.MkdirAll(dir, 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "layers.json"), fixture.layers, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "overrides.jsonl"), overrideFile(t, fixture.override), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "manifest.jsonl"), result.Manifest, 0o600))
+}
+
+func TestVerifyReproducesTheCheckedInLatinManifestWithoutTheArchive(t *testing.T) {
+	if os.Getenv("MOUSEION_UPDATE_GOLDEN") != "" {
+		writeLatinGolden(t)
+	}
+	dir := filepath.Join("testdata", "latin")
+	read := func(name string) []byte {
+		data, err := os.ReadFile(filepath.Join(dir, name)) //nolint:gosec // fixture path in the repository.
+		require.NoError(t, err)
+		return data
+	}
+	manifest := read("manifest.jsonl")
+	result := generate(t, Options{Layers: read("layers.json"), Overrides: read("overrides.jsonl"), Manifest: manifest, AllowMissingUpstream: true})
+	assert.Equal(t, string(manifest), string(result.Manifest))
+	require.Len(t, result.Definitions, 1)
+	assert.Equal(t, classical.LanguageLatin, result.Definitions[0].Language)
+
+	// Dropping contents: books from the override is drift offline too.
+	var override classical.Override
+	require.NoError(t, json.Unmarshal(read("overrides.jsonl"), &override))
+	override.Contents = ""
+	_, err := Generate(Options{Layers: read("layers.json"), Overrides: overrideFile(t, override), Manifest: manifest, AllowMissingUpstream: true})
+	require.ErrorIs(t, err, errContentsOverride)
+}
+
+func TestLatinMalformedCitationLayerIsReportedNotDropped(t *testing.T) {
+	sentences := twoBooks()
+	sentences[0][0].citation = "not a citation!"
+	result := generate(t, newLatinFixture(t, sentences...).options(t, nil))
+	require.Len(t, result.Gates, 1)
+	assert.False(t, result.Gates[0].Admitted())
+	assert.Contains(t, result.GateReport(), "unreadable")
+}
+
+func TestLatinWorkMayOpenWithANamedSection(t *testing.T) {
+	fixture := newLatinFixture(t,
+		latinSentence("pr.1", latinWordsIn("pr.1", 6)...),
+		latinSentence("1.1", latinWordsIn("1.1", 6)...),
+	)
+	definition := generate(t, fixture.options(t, nil)).Definitions[0]
+	assert.Equal(t, "pr.1", definition.CitationStart)
+	assert.Equal(t, "1.1", definition.CitationEnd)
+}

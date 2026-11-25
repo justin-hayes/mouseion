@@ -84,10 +84,13 @@ func pinArchiveMembers(archive *os.File, layer classical.Layer, spec classical.S
 // Work that fails a gate is refused unless its reviewer note clears it.
 func (b *builder) admitLatinWork(override classical.Override, conllu, paula []byte) error {
 	scan, err := ancientgreek.ScanLatinWork(conllu, paula)
+	var report WorkGateReport
 	if err != nil {
-		return err
+		// An unreadable Citation layer is still a result for the report.
+		report = WorkGateReport{WorkKey: override.WorkKey, Evaluated: true, Gates: []GateResult{{Name: GateCitations, Detail: "the Citation layer or CoNLL-U is unreadable", Clearable: false}}}
+	} else {
+		report = evaluateLatinGates(override, scan)
 	}
-	report := evaluateLatinGates(override, scan)
 	b.recordGates(report)
 	if report.Admitted() {
 		return nil
