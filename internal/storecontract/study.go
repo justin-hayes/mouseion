@@ -230,6 +230,32 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Zero(t, other.Offered, "the ledger belongs to its learner")
 		}},
+		{Name: "a word carried over from an earlier day is taken again in the next batch", Run: func(t *testing.T, h Harness) {
+			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
+			haus, hund := studyNoun("haus"), studyNoun("hund")
+			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
+			dayOne := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+			dayTwo := time.Date(2026, 11, 26, 8, 0, 0, 0, time.UTC)
+			taken, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}, {StudyIdentity: hund, MaterialID: hundID}})
+			require.NoError(t, err)
+			require.Len(t, taken, 2)
+
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
+			require.ErrorIs(t, err, domain.ErrNotFound, "a word introduced today is not carried over")
+
+			again, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-26", dayTwo, 3, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
+			require.NoError(t, err)
+			require.Len(t, again, 1)
+			assert.Equal(t, taken[0].ID, again[0].ID, "the same progress is taken again, not a second row")
+			assert.True(t, dayTwo.Equal(again[0].IntroducedAt))
+			assert.True(t, dayTwo.Equal(again[0].Memory.Due))
+			progress, err := progressStore.ListStudyProgress(owner, Language)
+			require.NoError(t, err)
+			assert.Len(t, progress, 2)
+			ledger, err := progressStore.StudyBatchLedger(owner, Language, "2026-11-26")
+			require.NoError(t, err)
+			assert.Equal(t, 1, ledger.Taken)
+		}},
 		{Name: "a graded card is logged with its state before and after and is graded once", Run: func(t *testing.T, h Harness) {
 			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
 			haus, hund := studyNoun("haus"), studyNoun("hund")

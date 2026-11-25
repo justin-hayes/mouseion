@@ -106,6 +106,14 @@ func mapBatchSlotError(err error) error {
 func introduceStudyWords(ctx context.Context, q *sqlcgen.Queries, owner, language string, now time.Time, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
 	var introduced []domain.StudyProgress
 	for _, word := range words {
+		if word.ProgressID != "" {
+			carried, err := takeCarriedStudyWord(ctx, q, owner, language, now, word.ProgressID)
+			if err != nil {
+				return nil, err
+			}
+			introduced = append(introduced, carried...)
+			continue
+		}
 		if !validUUID(word.MaterialID) {
 			continue
 		}
@@ -119,6 +127,22 @@ func introduceStudyWords(ctx context.Context, q *sqlcgen.Queries, owner, languag
 		introduced = append(introduced, studyProgressFromRow(row))
 	}
 	return introduced, nil
+}
+
+// takeCarriedStudyWord takes a word of an earlier Study day's batch again in
+// today's. A word no longer waiting is skipped.
+func takeCarriedStudyWord(ctx context.Context, q *sqlcgen.Queries, owner, language string, now time.Time, progressID string) ([]domain.StudyProgress, error) {
+	if !validUUID(progressID) {
+		return nil, nil
+	}
+	row, err := q.TakeCarriedStudyWord(ctx, sqlcgen.TakeCarriedStudyWordParams{Now: now.UTC(), Owner: owner, ID: progressID, Language: language, DayStart: domain.StudyDayStart(now).UTC()})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("take carried study word: %w", err)
+	}
+	return []domain.StudyProgress{studyProgressFromRow(row)}, nil
 }
 
 // DeclineStudyBatch declines one New-word batch on the Study day. It

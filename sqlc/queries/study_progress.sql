@@ -59,6 +59,17 @@ SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminato
 ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
 RETURNING *;
 
+-- name: TakeCarriedStudyWord :one
+-- Takes a word again in today's batch: a word introduced on an earlier Study
+-- day and never answered is introduced afresh, new and due now. A word that
+-- was answered, withdrawn or introduced today returns no row.
+UPDATE study_progress
+   SET introduced_at = sqlc.arg('now')::timestamptz, due = sqlc.arg('now')::timestamptz, updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND language = sqlc.arg('language')
+   AND state = 'new' AND reps = 0 AND withdrawn_at IS NULL
+   AND introduced_at < sqlc.arg('day_start')::timestamptz
+RETURNING *;
+
 -- name: UpdateStudyProgressMemory :exec
 UPDATE study_progress
    SET state = sqlc.arg('state'), due = sqlc.arg('due'), stability = sqlc.arg('stability'),

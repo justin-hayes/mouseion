@@ -317,6 +317,61 @@ func (q *Queries) RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatc
 	return err
 }
 
+const takeCarriedStudyWord = `-- name: TakeCarriedStudyWord :one
+UPDATE study_progress
+   SET introduced_at = $1::timestamptz, due = $1::timestamptz, updated_at = now()
+ WHERE owner_id = $2 AND id = $3 AND language = $4
+   AND state = 'new' AND reps = 0 AND withdrawn_at IS NULL
+   AND introduced_at < $5::timestamptz
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at
+`
+
+type TakeCarriedStudyWordParams struct {
+	Now      time.Time
+	Owner    string
+	ID       string
+	Language string
+	DayStart time.Time
+}
+
+// Takes a word again in today's batch: a word introduced on an earlier Study
+// day and never answered is introduced afresh, new and due now. A word that
+// was answered, withdrawn or introduced today returns no row.
+func (q *Queries) TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudyWordParams) (StudyProgress, error) {
+	row := q.db.QueryRow(ctx, takeCarriedStudyWord,
+		arg.Now,
+		arg.Owner,
+		arg.ID,
+		arg.Language,
+		arg.DayStart,
+	)
+	var i StudyProgress
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Language,
+		&i.CanonicalLemma,
+		&i.Upos,
+		&i.LexicalDiscriminator,
+		&i.MaterialID,
+		&i.IntroducedAt,
+		&i.LearnedMeaning,
+		&i.State,
+		&i.Due,
+		&i.Stability,
+		&i.Difficulty,
+		&i.ScheduledDays,
+		&i.Reps,
+		&i.Lapses,
+		&i.RemainingSteps,
+		&i.LastReview,
+		&i.WithdrawnAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const takeStudyBatchSlot = `-- name: TakeStudyBatchSlot :one
 INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_taken)
 VALUES ($1, $2, $3::date, 1, 1)

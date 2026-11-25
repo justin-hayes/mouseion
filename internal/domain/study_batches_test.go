@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStudyBatchesAllowedFollowsTheForecastThresholds(t *testing.T) {
@@ -79,14 +80,56 @@ func TestStudyForecastReachesTheBrakeThresholds(t *testing.T) {
 	}
 }
 
-func TestStudyUnintroducedLeadsOldestFirst(t *testing.T) {
-	older := reviewWord("older", StudyStateNew, berlin(11, 24, 9, 0), time.Time{})
-	older.Memory.Reps, older.IntroducedAt = 0, berlin(11, 24, 9, 0)
-	newer := reviewWord("newer", StudyStateNew, berlin(11, 25, 9, 0), time.Time{})
-	newer.Memory.Reps, newer.IntroducedAt = 0, berlin(11, 25, 9, 0)
-	graded := reviewWord("graded", StudyStateReview, berlin(11, 26, 5, 0), berlin(11, 25, 9, 0))
-	got := StudyUnintroduced([]StudyProgress{newer, graded, older})
-	assert.Equal(t, []string{"older", "newer"}, []string{got[0].CanonicalLemma, got[1].CanonicalLemma})
+func untouched(lemma string, introduced time.Time) StudyProgress {
+	p := reviewWord(lemma, StudyStateNew, introduced, time.Time{})
+	p.Memory.Reps, p.IntroducedAt, p.MaterialID = 0, introduced, "material-"+lemma
+	return p
+}
+
+func TestStudyCarryOverIsTheWordsTakenOnEarlierDaysAndNeverAnswered(t *testing.T) {
+	now := berlin(11, 26, 9, 0)
+	older := untouched("older", berlin(11, 24, 9, 0))
+	newer := untouched("newer", berlin(11, 25, 9, 0))
+	today := untouched("today", berlin(11, 26, 5, 0))
+	graded := reviewWord("graded", StudyStateReview, berlin(11, 27, 5, 0), berlin(11, 25, 9, 0))
+	all := []StudyProgress{newer, today, graded, older}
+
+	carried := StudyCarryOver(all, now)
+	require.Len(t, carried, 2)
+	assert.Equal(t, []string{"older", "newer"}, []string{carried[0].CanonicalLemma, carried[1].CanonicalLemma})
+	pending := StudyUnintroduced(all, now)
+	require.Len(t, pending, 1, "only the batch taken today is waiting to be answered")
+	assert.Equal(t, "today", pending[0].CanonicalLemma)
+
+	assert.False(t, StudyCardIsDue(older, now), "a carried-over word is held until its batch is taken")
+	assert.True(t, StudyCardIsDue(today, now))
+	assert.False(t, StudyCardIsDue(newer, berlin(11, 25, 20, 0).Add(-24*time.Hour)), "a word taken later than now is not due")
+}
+
+func TestNextStudyBatchLeadsWithTheCarryOverAndFillsFromTheStream(t *testing.T) {
+	now := berlin(11, 26, 9, 0)
+	carried := []StudyProgress{untouched("alt", berlin(11, 24, 9, 0)), untouched("neu", berlin(11, 25, 9, 0))}
+	carried[0].ID, carried[1].ID = "p-alt", "p-neu"
+	var ordered []StudyCandidate
+	var material []StudyMaterial
+	for i := range 12 {
+		identity := StudyIdentity{Language: "de", CanonicalLemma: fmt.Sprintf("w%02d", i), UPOS: "NOUN"}
+		ordered = append(ordered, StudyCandidate{StudyIdentity: identity})
+		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyIdentity: identity, State: StudyMaterialReady})
+	}
+	batch := NextStudyBatch(ordered, material, carried, now)
+	require.Len(t, batch, StudyBatchSize, "the carry-over counts towards the batch size")
+	assert.Equal(t, "p-alt", batch[0].ProgressID)
+	assert.Equal(t, "p-neu", batch[1].ProgressID)
+	assert.Equal(t, "material-alt", batch[0].MaterialID)
+	assert.Empty(t, batch[2].ProgressID)
+	assert.Equal(t, "w00", batch[2].CanonicalLemma, "the stream fills the rest")
+
+	var many []StudyProgress
+	for i := range 12 {
+		many = append(many, untouched(fmt.Sprintf("c%02d", i), berlin(11, 24, 9, i)))
+	}
+	assert.Len(t, NextStudyBatch(ordered, material, many, now), StudyBatchSize, "a large carry-over still makes one batch")
 }
 
 func TestStudyBatchIsShortOnlyWhileWordsArePreparing(t *testing.T) {

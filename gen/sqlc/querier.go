@@ -588,6 +588,10 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
 	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
+	// Takes a word again in today's batch: a word introduced on an earlier Study
+	// day and never answered is introduced afresh, new and due now. A word that
+	// was answered, withdrawn or introduced today returns no row.
+	TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudyWordParams) (StudyProgress, error)
 	// Records one batch taken on the Study day, unless the day's batches are all
 	// answered. No row means none is left.
 	TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error)

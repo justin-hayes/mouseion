@@ -60,15 +60,35 @@ func StudyBatchOfferable(ledger StudyBatchLedger, forecast int) bool {
 	return ledger.Declined == 0 && ledger.Taken < StudyBatchesAllowed(forecast)
 }
 
-// StudyUnintroduced returns the words taken in a batch and not yet
-// introduced, that is, not yet answered once, oldest first. When a Study day
-// begins they lead the stream: they are shown before any new batch, ahead of
-// the words that follow them in stream order, and a batch is offered only
+// studyCarriedOver reports whether the word was taken in an earlier Study
+// day's batch and never answered. It is held out of Today until the batch it
+// now belongs to is taken.
+func studyCarriedOver(p StudyProgress, now time.Time) bool {
+	return !p.Withdrawn && p.Memory.State == StudyStateNew && !p.Graded() && p.IntroducedAt.Before(StudyDayStart(now))
+}
+
+// StudyCarryOver returns the words taken on an earlier Study day and not yet
+// introduced, oldest first. They lead the next batch and count towards its
+// size, the daily cap and the backlog brake. While no batch is taken they are
+// not shown, so under the brake they wait at the front of the stream.
+func StudyCarryOver(progress []StudyProgress, now time.Time) []StudyProgress {
+	var carried []StudyProgress
+	for _, item := range progress {
+		if studyCarriedOver(item, now) {
+			carried = append(carried, item)
+		}
+	}
+	sort.SliceStable(carried, func(i, j int) bool { return studyIntroducedBefore(carried[i], carried[j]) })
+	return carried
+}
+
+// StudyUnintroduced returns the words of a batch taken on the current Study
+// day that the learner has not yet answered. Another batch is offered only
 // once they are answered.
-func StudyUnintroduced(progress []StudyProgress) []StudyProgress {
+func StudyUnintroduced(progress []StudyProgress, now time.Time) []StudyProgress {
 	var pending []StudyProgress
 	for _, item := range progress {
-		if !item.Withdrawn && !item.Graded() {
+		if !item.Withdrawn && !item.Graded() && !studyCarriedOver(item, now) {
 			pending = append(pending, item)
 		}
 	}

@@ -174,44 +174,119 @@ func TestStudyBacklogBrakeLimitsBatchesByTheNextDaysForecast(t *testing.T) {
 	}
 }
 
-func TestStudyWordsTakenButNotIntroducedLeadTheNextStudyDay(t *testing.T) {
+func TestStudyWordsTakenButNotIntroducedLeadTheNextStudyDaysFirstBatch(t *testing.T) {
 	s := newStudyHarness(t)
 	s.preparedTwelve()
 	s.clock.Set(berlinTime(t, 25, 9, 0))
 	s.take()
-	// Three of the ten words are introduced; seven are left unanswered.
+	// Three of the ten words are answered; seven are left.
 	for range 3 {
-		card := s.currentCard()
-		s.grade(card, "got-it")
+		s.grade(s.currentCard(), "got-it")
 	}
-	waiting := domain.StudyUnintroduced(s.progress())
+	waiting := domain.StudyCarryOver(s.progress(), berlinTime(t, 26, 9, 0))
 	require.Len(t, waiting, 7)
+	waitingIDs := map[string]bool{}
+	for _, item := range waiting {
+		waitingIDs[item.ID] = true
+	}
 
-	// The next Study day: its reviews first, then the carried-over words, and no
-	// new batch until every one of them is answered.
+	// The next Study day: the three reviews first. The seven are held, not
+	// shown as cards, until the batch they lead is taken.
 	s.clock.Set(berlinTime(t, 26, 9, 0))
-	assert.Equal(t, 3, s.today().Remaining)
 	for range 3 {
 		card := s.currentCard()
 		assert.Positive(t, card.Memory.Reps, "reviews come first")
 		s.grade(card, "got-it")
 	}
-	assert.True(t, s.today().Finished)
-	assert.Zero(t, s.ledger().Taken, "the carried-over words belong to no batch of the new day")
-	waitingIDs := map[string]bool{}
-	for _, item := range waiting {
-		waitingIDs[item.ID] = true
-	}
+	_, err := s.store.NextStudyCard(s.ctx, s.owner.ID, "de", s.clock.Now())
+	require.ErrorIs(t, err, domain.ErrNotFound, "carried-over words are not shown before their batch is taken")
+
+	// The batch holds the seven and the two words that remain in the stream:
+	// the carry-over counts towards its size.
+	assert.Contains(t, s.page(), "9 new words are ready to learn.")
+	s.take()
+	assert.Equal(t, 1, s.ledger().Taken, "the carry-over counts towards the daily cap")
+	assert.Len(t, s.progress(), 12, "only the two fresh words are introduced")
 	for range 7 {
-		page := s.page()
-		assert.NotContains(t, page, "Take these words", "the words taken earlier lead the batch")
-		assert.Contains(t, page, "New word")
 		card := s.currentCard()
-		assert.True(t, waitingIDs[card.ID], "the card is one of the words taken the day before")
+		assert.True(t, waitingIDs[card.ID], "the carried-over words come first")
 		s.grade(card, "got-it")
 	}
-	assert.Empty(t, domain.StudyUnintroduced(s.progress()))
-	assert.Contains(t, s.page(), "2 new words are ready to learn.", "the batch is offered after them")
+	for range 2 {
+		card := s.currentCard()
+		assert.False(t, waitingIDs[card.ID])
+		s.grade(card, "got-it")
+	}
+	assert.Empty(t, domain.StudyUnintroduced(s.progress(), s.clock.Now()))
+}
+
+func TestStudyBacklogBrakeKeepsCarriedOverWordsAtTheFrontForALaterDay(t *testing.T) {
+	s := newStudyHarness(t)
+	s.preparedTwelve()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	s.take()
+	waiting := len(s.progress())
+	require.Equal(t, 10, waiting)
+
+	s.clock.Set(berlinTime(t, 26, 9, 0))
+	s.seedReviews(150, berlinTime(t, 27, 9, 0))
+	page := s.page()
+	assert.NotContains(t, page, "Take these words", "a full brake offers no batch")
+	assert.NotContains(t, page, "study-card-heading", "the carried-over words are not shown")
+	s.take()
+	assert.Zero(t, s.ledger().Taken)
+
+	// Once the load falls, they lead the batch again.
+	s.clock.Set(berlinTime(t, 28, 9, 0))
+	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM study_progress WHERE canonical_lemma LIKE 'seed%'`)
+	require.NoError(t, err)
+	assert.Contains(t, s.page(), "10 new words are ready to learn.")
+	assert.Len(t, domain.StudyCarryOver(s.progress(), s.clock.Now()), 10)
+}
+
+func TestStudyAStaleDeclineIsIgnored(t *testing.T) {
+	s := newStudyHarness(t)
+	s.preparedTwelve()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	assert.Contains(t, s.page(), `name="offer" value="1"`)
+	s.take()
+	s.gradeAll()
+	assert.Contains(t, s.page(), `name="offer" value="2"`, "the second batch is the second offer")
+
+	// A tap on the first batch's form arrives after it was taken.
+	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"1"}})
+	assert.Zero(t, s.ledger().Declined, "a stale decline changes nothing")
+	s.post("/study/batches/decline", url.Values{"language": {"de"}})
+	assert.Zero(t, s.ledger().Declined, "a decline that names no offer changes nothing")
+	assert.Contains(t, s.page(), "Take these words")
+
+	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"2"}})
+	assert.Equal(t, 1, s.ledger().Declined)
+	assert.NotContains(t, s.page(), "Take these words")
+}
+
+func TestStudyTakingABatchPreparesTheNextWordsAhead(t *testing.T) {
+	s := newStudyHarness(t)
+	words := make([]testutil.CorpusWord, 0, 35)
+	for i := range 35 {
+		lemma := "wort" + string(rune('a'+i/26)) + string(rune('a'+i%26))
+		words = append(words, testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 35 - i})
+	}
+	s.seedBook("reading", words...)
+	require.Equal(t, http.StatusOK, getAs(t, s.h, "/de/study", s.cookies).Code)
+	require.NoError(t, s.client.Start(s.ctx))
+	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
+	testutil.Eventually(t, 60*time.Second, "a day's window to be prepared", func() (bool, string) {
+		return s.counts().Ready == domain.StudyPreparationWindow, "the window is not ready"
+	})
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+
+	// Taking the batch, without opening Study again, prepares the words that
+	// the batch moved out of the window.
+	s.take()
+	testutil.Eventually(t, 60*time.Second, "the next words to be prepared", func() (bool, string) {
+		return s.counts().Ready == len(words), "the remaining words are not prepared yet"
+	})
 }
 
 func TestStudyShortBatchSaysNewWordsAreStillBeingPrepared(t *testing.T) {
