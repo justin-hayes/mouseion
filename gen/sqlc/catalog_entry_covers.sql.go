@@ -18,6 +18,7 @@ VALUES ($1, $2, $3, 'pending', $4)
 ON CONFLICT (owner_id, connection_id, entry_identifier) DO UPDATE SET
   state = CASE WHEN catalog_entry_covers.state = 'available' THEN 'available' ELSE 'pending' END,
   advertised_at = EXCLUDED.advertised_at,
+  failure_reason = NULL,
   updated_at = now()
 `
 
@@ -182,7 +183,7 @@ func (q *Queries) ListCatalogEntryCoverGeneration(ctx context.Context, arg ListC
 
 const listCatalogEntryCoverStates = `-- name: ListCatalogEntryCoverStates :many
 
-SELECT entry_identifier, state
+SELECT entry_identifier, state, (failure_reason IS NOT NULL)::boolean AS failed
 FROM catalog_entry_covers
 WHERE owner_id = $1 AND connection_id = $2
 `
@@ -195,6 +196,7 @@ type ListCatalogEntryCoverStatesParams struct {
 type ListCatalogEntryCoverStatesRow struct {
 	EntryIdentifier string
 	State           string
+	Failed          bool
 }
 
 // Retained Catalog entry covers (ADR 0130). The row is keyed by the owner and
@@ -209,7 +211,7 @@ func (q *Queries) ListCatalogEntryCoverStates(ctx context.Context, arg ListCatal
 	items := []ListCatalogEntryCoverStatesRow{}
 	for rows.Next() {
 		var i ListCatalogEntryCoverStatesRow
-		if err := rows.Scan(&i.EntryIdentifier, &i.State); err != nil {
+		if err := rows.Scan(&i.EntryIdentifier, &i.State, &i.Failed); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

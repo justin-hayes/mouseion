@@ -63,8 +63,9 @@ func TestCatalogEntryCoverEndpointAndCardAreOwnerScopedAndHideUpstreamURL(t *tes
 	missing := perform(t, h, http.MethodGet, "/catalogs/sources/"+connection.ID+"/cover?entry=plain", nil, aliceCookies)
 	crossOwner := perform(t, h, http.MethodGet, coverPath, nil, bobCookies)
 	crossConditional := performWithHeader(t, h, http.MethodGet, coverPath, nil, bobCookies, "If-None-Match", `"entry-v1"`)
+	badSource := perform(t, h, http.MethodGet, "/catalogs/sources/not-a-uuid/cover?entry=x", nil, aliceCookies)
 	noEntry := perform(t, h, http.MethodGet, "/catalogs/sources/"+connection.ID+"/cover", nil, aliceCookies)
-	for _, response := range []int{missing.Code, crossOwner.Code, crossConditional.Code, noEntry.Code} {
+	for _, response := range []int{missing.Code, crossOwner.Code, crossConditional.Code, noEntry.Code, badSource.Code} {
 		assert.Equal(t, http.StatusNotFound, response)
 	}
 	assert.Equal(t, missing.Body.String(), crossOwner.Body.String())

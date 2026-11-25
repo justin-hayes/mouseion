@@ -54,7 +54,9 @@ func reconcileCatalogEntryCovers(ctx context.Context, q *sqlcgen.Queries, owner,
 	}
 	available := make(map[string]bool, len(states))
 	for _, state := range states {
-		available[state.EntryIdentifier] = state.State == CatalogEntryCoverAvailable
+		// An image whose last refresh failed is retried even if its URL is
+		// unchanged, so a failed replacement never sticks.
+		available[state.EntryIdentifier] = state.State == CatalogEntryCoverAvailable && !state.Failed
 	}
 	fence := observedAt.Truncate(CatalogEntryCoverFence)
 	for _, entry := range entries {
@@ -122,7 +124,7 @@ func (s *PostgresStore) MarkCatalogEntryCoverUnavailable(ctx context.Context, ow
 // available image of the owner's own entry is returned, and every other case is
 // ErrNotFound so nothing about the entry is revealed.
 func (s *PostgresStore) GetCatalogEntryCoverResource(ctx context.Context, owner, connectionID, entryIdentifier string) (domain.CatalogEntryCoverResource, error) {
-	if strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(entryIdentifier) == "" {
+	if strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(entryIdentifier) == "" || !validUUID(owner) || !validUUID(connectionID) {
 		return domain.CatalogEntryCoverResource{}, ErrNotFound
 	}
 	row, err := s.queries().GetCatalogEntryCoverResource(ctx, sqlcgen.GetCatalogEntryCoverResourceParams{OwnerID: owner, ConnectionID: connectionID, EntryIdentifier: entryIdentifier})

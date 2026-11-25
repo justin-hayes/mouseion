@@ -3,7 +3,7 @@
 -- query scopes by owner_id. Bytes are read only by GetCatalogEntryCoverResource.
 
 -- name: ListCatalogEntryCoverStates :many
-SELECT entry_identifier, state
+SELECT entry_identifier, state, (failure_reason IS NOT NULL)::boolean AS failed
 FROM catalog_entry_covers
 WHERE owner_id = sqlc.arg('owner_id') AND connection_id = sqlc.arg('connection_id');
 
@@ -15,6 +15,7 @@ VALUES (sqlc.arg('owner_id'), sqlc.arg('connection_id'), sqlc.arg('entry_identif
 ON CONFLICT (owner_id, connection_id, entry_identifier) DO UPDATE SET
   state = CASE WHEN catalog_entry_covers.state = 'available' THEN 'available' ELSE 'pending' END,
   advertised_at = EXCLUDED.advertised_at,
+  failure_reason = NULL,
   updated_at = now();
 
 -- name: DeleteCatalogEntryCoversNotAdvertised :execrows

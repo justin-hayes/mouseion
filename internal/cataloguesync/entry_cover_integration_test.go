@@ -127,6 +127,17 @@ func TestCatalogueSyncRetainsEntryCoversWithoutBooksAndRefreshesOnChange(t *test
 	kept, err := f.entryCover("entry-1")
 	require.NoError(t, err)
 	assert.Equal(t, replaced.ContentHash, kept.ContentHash)
+
+	// The failed replacement is retried by the next sync even though the
+	// advertised URL no longer changes.
+	before := len(f.pendingEntryCoverArgs())
+	require.NoError(t, f.sync(f.connection.ID))
+	assert.Greater(t, len(f.pendingEntryCoverArgs()), before)
+	f.catalog.setImage("/a/image/three.png", coverImage{body: testPNG(t, 90), contentType: "image/png"})
+	require.NoError(t, f.runEntryCoverJob(newestEntryCoverArgs(t, f.pendingEntryCoverArgs())))
+	recovered, err := f.entryCover("entry-1")
+	require.NoError(t, err)
+	assert.NotEqual(t, replaced.ContentHash, recovered.ContentHash)
 }
 
 func TestCatalogueSyncRemovesEntryCoverOnAbsenceAndWhenEntryLeavesIndex(t *testing.T) {
