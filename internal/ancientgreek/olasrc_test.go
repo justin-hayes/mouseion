@@ -127,6 +127,7 @@ func TestOlaSourceRefusesBadInput(t *testing.T) {
 		"broken XML":               {conllu, []byte(`<paula><featList>`)},
 		"short token line":         {[]byte("# absolute_id = 0\n1\tx\n"), paula},
 		"unknown feature":          {[]byte(strings.Replace(string(conllu), "Case=n|Gender=f|Number=s", "Case=n|Zodiac=f", 1)), paula},
+		"lemma with a multi-digit suffix": {[]byte(strings.Replace(string(conllu), "incolo1", "rex12", 1)), paula},
 		"no sentences":             {[]byte("# only a comment\n"), paula},
 	}
 	for name, input := range tests {
@@ -165,6 +166,10 @@ func TestLatinHelpersLeaveGreekRulesAlone(t *testing.T) {
 	headword, discriminator := decodeLemmaFor("et1", true)
 	assert.Equal(t, "et", headword)
 	assert.Empty(t, discriminator)
+	headword, _ = decodeLemmaFor("rex1", true)
+	assert.Equal(t, "rex", headword)
+	headword, _ = decodeLemmaFor("rex12", true)
+	assert.Equal(t, "rex1", headword, "only one trailing digit is stripped")
 	headword, discriminator = decodeLemmaFor("λόγος2", false)
 	assert.Equal(t, "λόγος", headword)
 	assert.Equal(t, "morpheus:2", discriminator)
