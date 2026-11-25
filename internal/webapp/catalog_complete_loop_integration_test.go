@@ -123,9 +123,9 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'book_id'=$3`,
 		analysis.EPUBAcquisitionQueue, learner.ID, opdsBookID), "the OPDS Add queues exactly one durable EPUB acquisition")
 
-	addedClassical := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	addedClassical := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, addedClassical.Code, addedClassical.Body.String())
-	classicalBook, err := store.GetBookDetail(ctx, learner.ID, booksByUnitKey(t, ctx, store, learner.ID, "homer-iliad-1"))
+	classicalBook, err := store.GetBookDetail(ctx, learner.ID, booksByUnitKey(t, ctx, store, learner.ID, "homer-iliad"))
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, classicalBook.Disposition)
 	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'book_id'=$2`,
@@ -151,7 +151,7 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 
 	// 5. "I've read this" records Read without acquiring anything; each Book
 	// is then listed on its own language's tab.
-	previouslyRead := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad-1/previously-read", url.Values{"csrf_token": {csrf}}, cookies)
+	previouslyRead := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad/previously-read", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, previouslyRead.Code, previouslyRead.Body.String())
 	readBook, err := store.GetBookDetail(ctx, learner.ID, classicalBook.Book.ID)
 	require.NoError(t, err)

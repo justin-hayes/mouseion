@@ -153,7 +153,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	ordinary := library.Body.String()
 	for _, want := range []string{
-		"Synthetic Work, Book 1", "Synthetic Work, Book 2", "Book 1 of 2", "Book 2 of 2",
+		"Synthetic Work", "Synthetic Edition", "Second Synthetic Edition",
 		"By Synthetic Author", "Συνθετικὸν ἔργον", "Classical catalog", "To Read", "To Read (3)",
 	} {
 		require.Contains(t, ordinary, want, "ordinary row missing %q", want)
@@ -162,7 +162,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		assert.Contains(t, ordinary, `id="book-row-`+id+`"`, "each Book is its own row")
 		assert.Contains(t, ordinary, "/library/books/"+id+"/remove")
 	}
-	for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work"} {
+	for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work", "Book 1 of"} {
 		assert.NotContains(t, ordinary, retired)
 	}
 
@@ -440,7 +440,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, blocked.Code, blocked.Body.String())
 	assert.Contains(t, blocked.Body.String(), classical.LegacyRowsCode)
 	assert.Contains(t, blocked.Body.String(), "Add is unavailable")
-	refused := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/replacement-work/add", url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
+	refused := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/replacement-work-1/add", url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
 	require.Equal(t, http.StatusSeeOther, refused.Code)
 	assert.Contains(t, refused.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsCode))
 	connection := perform(t, h.handler, http.MethodPost, "/connections", url.Values{
@@ -587,20 +587,20 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	anabasis := classical.Definition{
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis", WorkTitle: "Anabasis",
 		WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις", EditionKey: "xenophon-anabasis-marchant-1904",
-		EditionLabel: "Marchant 1904", Language: classical.Language, ConstituentBook: &one, ConstituentBooks: 7,
+		EditionLabel: "Marchant 1904", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.", Source: anabasisPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	firstUnit := classical.Definition{
 		Key: "synthetic-work-1", WorkKey: "synthetic-work", WorkTitle: "Synthetic Work",
 		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν ἔργον", EditionKey: "synthetic-work-edition",
-		EditionLabel: "Synthetic Edition", Language: classical.Language, ConstituentBook: &one, ConstituentBooks: 2,
+		EditionLabel: "Synthetic Edition", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16, Opening: "ἄρχεται ὁ λόγος.", Source: pin, Translation: translationPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	secondUnit := firstUnit
 	secondUnit.Key = "synthetic-work-2"
-	secondUnit.ConstituentBook = &two
+	secondUnit.EditionKey, secondUnit.EditionLabel = "synthetic-work-second-edition", "Second Synthetic Edition"
 	secondUnit.CitationStart = "1.1.4"
 	secondUnit.CitationEnd = "1.1.6"
 	secondUnit.WordCount = 16

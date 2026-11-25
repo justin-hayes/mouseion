@@ -90,7 +90,7 @@ func catalogFixtureWholeWorkWithBooks() classical.Definition {
 // withdrawn tombstone.
 func catalogFixtureDefinitions() []classical.Definition {
 	one := 1
-	return []classical.Definition{
+	return append(legacyClassicalTombstones(), []classical.Definition{
 		catalogFixtureDefinition("xenophon-anabasis", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
 			"xenophon-anabasis-marchant-1904", "1.1.1", "7.1.10", nil, 7, 9305, false, true),
 		catalogFixtureDefinition("xenophon-hellenica", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
@@ -99,7 +99,22 @@ func catalogFixtureDefinitions() []classical.Definition {
 			"homer-iliad-monro-1902", "1.1.1", "2.1.10", nil, 2, 300, false, false),
 		catalogFixtureDefinition("xenophon-cyropaedia-1", "xenophon-cyropaedia", "Cyropaedia", "Xenophon", "Κύρου παιδεία",
 			"xenophon-cyropaedia-hutchinson-1914", "1.1.1", "1.1.10", &one, 8, 999, true, false),
+	}...)
+}
+
+// legacyClassicalTombstones are the withdrawn ADR 0116 per-book definitions
+// that learners' older Books still reference: six Iliad Books and one Anabasis
+// Book.
+func legacyClassicalTombstones() []classical.Definition {
+	books := make([]classical.Definition, 0, 7)
+	for number := 1; number <= 6; number++ {
+		book := number
+		books = append(books, catalogFixtureDefinition(fmt.Sprintf("homer-iliad-%d", number), "homer-iliad", "Iliad", "Homer", "Ἰλιάς",
+			"homer-iliad-monro-1902", fmt.Sprintf("%d.1.1", number), fmt.Sprintf("%d.1.10", number), &book, 24, 100*number, true, false))
 	}
+	one := 1
+	return append(books, catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
+		"xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, true, true))
 }
 
 func catalogFixture(t *testing.T) *classical.Catalog {

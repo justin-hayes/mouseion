@@ -141,7 +141,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 		assert.Contains(t, chooserPage.Body.String(), `action="/reading/books/`+id+`/start"`, "a legacy Book stays readable from the chooser")
 		analysisPage := perform(t, h.handler, http.MethodGet, "/books/"+id+"/analyses/"+legacyRuns[id], nil, legacyCookies)
 		assert.Equal(t, http.StatusSeeOther, analysisPage.Code, "a legacy Book's analysis stays reachable")
-		assert.Equal(t, "/reading#reading-chooser-book-"+id, analysisPage.Header().Get("Location"))
+		assert.Equal(t, readingBookURL(id), analysisPage.Header().Get("Location"))
 	}
 	assert.NotContains(t, page.Body.String(), "Remove the work")
 }
@@ -150,7 +150,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 // published analysis, and puts it To Read, so its reading surface can be opened.
 func (h *classicalLoopHarness) seedLegacyAnalysis(t *testing.T, owner, bookID string) string {
 	t.Helper()
-	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: classical.Language, SourceIdentifier: "legacy-" + bookID, Title: "Legacy book", MediaType: "text/plain", Content: []byte("λόγος"), FullText: "λόγος"},
+	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: classical.Language, SourceIdentifier: "legacy-" + bookID, Title: "Legacy book", MediaType: "application/epub+zip", Content: []byte("λόγος"), FullText: "λόγος"},
 		domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "λόγος", EndOffset: 5}}})
 	require.NoError(t, err)
 	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, bookID, source.ID))

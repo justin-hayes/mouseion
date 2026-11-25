@@ -39,8 +39,8 @@ func classicalBooksByPosition(t *testing.T, ctx context.Context, store *persiste
 func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-ordinary", "learner-password")
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
+	addOrRegisterUnits(t, ctx, store, learner.ID, "homer-iliad-1", "homer-iliad-2")
 
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
@@ -67,7 +67,6 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 		require.Contains(t, toReadBody, "Iliad, Book 1")
 		require.Contains(t, toReadBody, "Book 1 of 24")
 		require.Contains(t, toReadBody, "By Homer")
-		require.Contains(t, toReadBody, "Ἰλιάς")
 		require.Contains(t, toReadBody, "Classical catalog")
 		require.NotContains(t, toReadBody, "/library/books/"+byPosition[1].Book.ID+"/remove", "the current Reading's Book cannot be removed")
 		require.Contains(t, toReadBody, "Your current reading cannot be removed.")
@@ -99,16 +98,50 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 // Book by its permanent unit key.
 func addClassicalUnitsByKey(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string, units ...string) map[string]domain.Book {
 	t.Helper()
-	report, err := store.AddClassicalReadingUnits(ctx, owner, units)
-	require.NoError(t, err)
 	books := make(map[string]domain.Book, len(units))
-	for _, added := range report.Books {
-		detail, err := store.GetBookDetail(ctx, owner, added.BookID)
+	for key, bookID := range addOrRegisterUnits(t, ctx, store, owner, units...) {
+		detail, err := store.GetBookDetail(ctx, owner, bookID)
 		require.NoError(t, err)
-		books[added.ReadingUnitKey] = detail.Book
+		books[key] = detail.Book
 	}
-	require.Len(t, books, len(units))
 	return books
+}
+
+// addOrRegisterUnits gives the learner a Book for each named Reading unit. A
+// current unit is added from the Catalog; a withdrawn per-book unit can only
+// be a Book the learner registered before ADR 0128.
+func addOrRegisterUnits(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string, units ...string) map[string]string {
+	t.Helper()
+	known := append(catalogFixtureDefinitions(), workDefinitions()...)
+	byKey := map[string]string{}
+	for _, key := range units {
+		var definition classical.Definition
+		for _, candidate := range known {
+			if candidate.Key == key {
+				definition = candidate
+			}
+		}
+		require.Equal(t, key, definition.Key, "fixture defines unit %s", key)
+		if !definition.Withdrawn {
+			report, err := store.AddClassicalReadingUnits(ctx, owner, []string{key})
+			require.NoError(t, err)
+			byKey[key] = report.Books[0].BookID
+			continue
+		}
+		title := definition.WorkTitle
+		registration, err := store.RegisterReadingUnitBook(ctx, owner, domain.ReadingUnitDefinition{
+			Key: definition.Key, Language: definition.Language, WorkTitle: title, WorkAuthor: definition.WorkAuthor,
+			EditionLabel: definition.EditionLabel, CitationStart: definition.CitationStart, CitationEnd: definition.CitationEnd,
+			SourceFileName: definition.Source.FileName, SourceFileSize: definition.Source.Size,
+			SourceFileSHA256: definition.Source.SHA256, InterpretationVersion: definition.InterpretationVersion,
+		})
+		require.NoError(t, err)
+		_, err = store.Pool().Exec(ctx, `INSERT INTO book_membership(owner_id, book_id, state, activated_at) VALUES ($1, $2, 'active', now()) ON CONFLICT DO NOTHING`, owner, registration.BookID)
+		require.NoError(t, err)
+		require.NoError(t, store.SetBookDisposition(ctx, owner, registration.BookID, domain.BookDispositionToRead))
+		byKey[key] = registration.BookID
+	}
+	return byKey
 }
 
 func TestChooserRendersTheSelectedToReadBookInline(t *testing.T) {
@@ -134,8 +167,8 @@ func TestChooserRendersTheSelectedToReadBookInline(t *testing.T) {
 func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-single-work", "learner-password")
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
+	addOrRegisterUnits(t, ctx, store, learner.ID, "homer-iliad-1", "homer-iliad-2")
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
 	byPosition := classicalBooksByPosition(t, ctx, store, learner.ID, ids)
@@ -157,7 +190,7 @@ func TestMyBooksWholeWorkUnitStaysOrdinaryWithoutPosition(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-whole-work", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "xenophon-hellenica-1")
+	addClassicalTestUnits(t, h, cookies, csrf, "xenophon-hellenica")
 	require.Len(t, ownerBooks(t, pool, learner.ID), 1)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 
@@ -173,7 +206,7 @@ func TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumbe
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-work-search", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
+	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad", "xenophon-hellenica")
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
@@ -183,9 +216,8 @@ func TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumbe
 			page := perform(t, h, http.MethodGet, "/library?q="+url.QueryEscape(query), nil, cookies)
 			require.Equal(t, http.StatusOK, page.Code, query)
 			body := page.Body.String()
-			require.Contains(t, body, "Iliad, Book 1", "query %q did not keep Book 1", query)
-			require.Contains(t, body, "Iliad, Book 2", "query %q did not keep Book 2", query)
-			require.Contains(t, body, "2 books found")
+			require.Contains(t, body, "Iliad", "query %q did not keep the Iliad", query)
+			require.NotContains(t, body, "Hellenica", "query %q kept an unrelated Book", query)
 		})
 	}
 

@@ -118,30 +118,24 @@ func seedBrowseEvidenceTokensForLanguage(t *testing.T, ctx context.Context, stor
 func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	ctx, store, h, learner := readingChooserWorkHarness(t)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
-	report, err := store.AddClassicalReadingUnits(ctx, learner.ID, []string{
+	byUnit := addOrRegisterUnits(t, ctx, store, learner.ID,
 		"homer-iliad-1", "homer-iliad-2", "homer-iliad-3", "homer-iliad-4", "homer-iliad-5", "homer-iliad-6",
-		"xenophon-anabasis-1", "xenophon-hellenica-1",
-	})
-	require.NoError(t, err)
-	byUnit := map[string]string{}
-	for _, added := range report.Books {
-		byUnit[added.ReadingUnitKey] = added.BookID
-	}
+		"xenophon-anabasis-1", "xenophon-hellenica")
 	book := func(t *testing.T, unit string) domain.Book {
 		t.Helper()
 		detail, err := store.GetBookDetail(ctx, learner.ID, byUnit[unit])
 		require.NoError(t, err)
 		return detail.Book
 	}
-	_, err = store.PutKnownVocabulary(ctx, learner.ID, classical.Language, "λόγος", "NOUN")
+	_, err := store.PutKnownVocabulary(ctx, learner.ID, classical.Language, "λόγος", "NOUN")
 	require.NoError(t, err)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-1"), "homer-iliad-1", 99)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-2"), "homer-iliad-2", 92)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-3"), "homer-iliad-3", 96)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "xenophon-anabasis-1"), "xenophon-anabasis-1", 96)
-	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "xenophon-hellenica-1"), "xenophon-hellenica-1", 99)
+	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "xenophon-hellenica"), "xenophon-hellenica", 99)
 
-	for _, unit := range []string{"homer-iliad-1", "homer-iliad-2", "homer-iliad-3", "homer-iliad-4", "homer-iliad-5", "xenophon-anabasis-1", "xenophon-hellenica-1"} {
+	for _, unit := range []string{"homer-iliad-1", "homer-iliad-2", "homer-iliad-3", "homer-iliad-4", "homer-iliad-5", "xenophon-anabasis-1", "xenophon-hellenica"} {
 		require.NoError(t, store.SetBookDisposition(ctx, learner.ID, byUnit[unit], domain.BookDispositionToRead))
 	}
 	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byUnit["homer-iliad-6"]))
@@ -158,7 +152,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 		`id="reading-chooser-book-` + byUnit["homer-iliad-1"] + `"`,
 		`id="reading-chooser-book-` + byUnit["xenophon-anabasis-1"] + `"`,
 		`action="/reading/books/` + byUnit["homer-iliad-1"] + `/start"`,
-		`action="/reading/books/` + byUnit["homer-iliad-4"] + `/reanalyze"`,
+		"no longer in the Classical catalog. It cannot be prepared, and no retry is available.",
 	} {
 		assert.Contains(t, body, want, "chooser missing %q", want)
 	}
@@ -178,6 +172,6 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	require.Equal(t, http.StatusOK, switching.Code)
 	switchBody := switching.Body.String()
 	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-2"]+`/switch"`)
-	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-4"]+`/reanalyze"`)
+	assert.Contains(t, switchBody, "no longer in the Classical catalog. It cannot be prepared, and no retry is available.")
 	assert.NotContains(t, switchBody, `id="reading-chooser-book-`+byUnit["homer-iliad-1"]+`"`, "the current Book has no entry")
 }

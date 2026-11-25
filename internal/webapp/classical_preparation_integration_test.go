@@ -103,7 +103,6 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 		Layer: "synthetic-layer", FileName: "synthetic-work.conllu",
 		Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Format: classical.SourceFormatOGACoNLLU,
 	}
-	one, two := 1, 2
 	fixture := classicalPreparationFixture{
 		data:       data,
 		unitOneKey: "synthetic-work-1",
@@ -118,8 +117,8 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 			CitationStart: "1.1.1", CitationEnd: "1.2.18",
 		}
 	}
-	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, &one, source.firstStart, source.firstEnd, source.firstWords)
-	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, &two, source.secondStart, source.secondEnd, source.secondWords)
+	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, source.firstStart, source.firstEnd, source.firstWords)
+	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, source.secondStart, source.secondEnd, source.secondWords)
 	if source.interpretation != "" {
 		first.InterpretationVersion, second.InterpretationVersion = source.interpretation, source.interpretation
 	}
@@ -180,12 +179,14 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 	return ctx, store, pool, h, service, client, requests, fixture
 }
 
-func preparationDefinition(key, title string, pin classical.SourcePin, book *int, start, end string, words int) classical.Definition {
+// preparationDefinition builds one whole-work unit; two units of the synthetic
+// Work are two Editions cut from one file.
+func preparationDefinition(key, title string, pin classical.SourcePin, start, end string, words int) classical.Definition {
 	return classical.Definition{
 		Key: key, WorkKey: "synthetic-work", WorkTitle: title, WorkAuthor: "Author",
-		EditionKey: "synthetic-edition", EditionLabel: "Synthetic Edition", Language: classical.Language,
-		ConstituentBook: book, ConstituentBooks: 2,
-		CitationStart: start, CitationEnd: end, WordCount: words, Opening: "ἄρχεται ὁ λόγος.",
+		EditionKey: key + "-edition", EditionLabel: "Synthetic Edition " + key, Language: classical.Language,
+		ConstituentBooks: 1,
+		CitationStart:    start, CitationEnd: end, WordCount: words, Opening: "ἄρχεται ὁ λόγος.",
 		Source: pin, InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 }
@@ -448,7 +449,7 @@ func TestClassicalPreparationPrunesSourcesAtStartup(t *testing.T) {
 	other := preparationDefinition("replacement-work-1", "Replacement", classical.SourcePin{
 		Layer: "synthetic-layer", FileName: "replacement.conllu", Size: 1,
 		SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU,
-	}, nil, "1.1.1", "1.1.1", 1)
+	}, "1.1.1", "1.1.1", 1)
 	other.WorkKey, other.EditionKey = "replacement-work", "replacement-edition"
 	other.ConstituentBooks = 1
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{other}))

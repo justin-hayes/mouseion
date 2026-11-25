@@ -41,11 +41,11 @@ func chooserWorkBook(bookID, title, author, unitKey, corpusID string) domain.MyB
 // so whole-work candidates and leftover legacy Books can be exercised
 // together.
 func workDefinitions() []classical.Definition {
-	return []classical.Definition{
+	return append(legacyClassicalTombstones(), []classical.Definition{
 		catalogFixtureDefinition("xenophon-anabasis", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις", "xenophon-anabasis-marchant-1904", "1.1.1", "7.1.10", nil, 7, 9305, false, true),
 		catalogFixtureDefinition("xenophon-hellenica", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά", "xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
 		catalogFixtureDefinition("homer-iliad", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "1.1.1", "24.1.10", nil, 24, 2100, false, false),
-	}
+	}...)
 }
 
 func workCatalog(t *testing.T) *classical.Catalog {

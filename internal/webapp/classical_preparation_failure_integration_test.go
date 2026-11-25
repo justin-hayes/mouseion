@@ -112,7 +112,7 @@ func newClassicalFailureHarness(t *testing.T, opts classicalFailureOptions) *cla
 		Layer: "synthetic-layer", FileName: "synthetic-failure.conllu",
 		Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Format: classical.SourceFormatOGACoNLLU,
 	}
-	definition := preparationDefinition(failureUnitKey, "Synthetic Failure Work", pin, nil, "1.1.1", "2.1.1", 13)
+	definition := preparationDefinition(failureUnitKey, "Synthetic Failure Work", pin, "1.1.1", "2.1.1", 13)
 	definition.WorkKey, definition.EditionKey = "synthetic-failure", "synthetic-failure-edition"
 	definition.ConstituentBooks = 1
 	definition.Withdrawn = opts.withdrawal
