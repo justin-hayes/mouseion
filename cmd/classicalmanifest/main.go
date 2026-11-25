@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,9 +13,10 @@ import (
 	"os"
 
 	"github.com/justin-hayes/mouseion/internal/classicalmanifest"
+	"github.com/justin-hayes/mouseion/internal/dictionary"
 )
 
-const usage = "usage: classicalmanifest <generate|verify> [-layers <path>] [-overrides <path>] [-manifest <path>] [-upstream <dir>] [-notes <path>] [-require-upstream]"
+const usage = "usage: classicalmanifest <generate|verify> [-layers <path>] [-overrides <path>] [-manifest <path>] [-upstream <dir>] [-notes <path>] [-require-upstream] [-ls-index <path>]"
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -32,13 +34,31 @@ func run(args []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	result, err := classicalmanifest.Generate(classicalmanifest.Options{
+	options := classicalmanifest.Options{
 		Layers:               input.layers,
 		Overrides:            input.overrides,
 		Manifest:             input.manifest,
 		UpstreamDir:          *command.upstream,
 		AllowMissingUpstream: mode == "verify" && !*command.requireUpstream,
-	})
+		Generating:           mode == "generate",
+	}
+	// Only generation evaluates the dictionary-match gate; verify relies on
+	// the manifest generation committed, so it never opens the index.
+	if mode == "generate" && *command.lsIndex != "" {
+		index, err := dictionary.OpenIndex(context.Background(), *command.lsIndex)
+		if err != nil {
+			return fmt.Errorf("classicalmanifest: open dictionary index: %w", err)
+		}
+		defer index.Close() //nolint:errcheck // a read-only index; nothing to flush.
+		if !index.LatinLSAvailable() {
+			return fmt.Errorf("classicalmanifest: %s carries no Lewis & Short entries", *command.lsIndex)
+		}
+		options.LatinLS = func(lemma string) bool {
+			_, found := index.LookupLatinLS(context.Background(), lemma)
+			return found
+		}
+	}
+	result, err := classicalmanifest.Generate(options)
 	if err != nil {
 		return err
 	}

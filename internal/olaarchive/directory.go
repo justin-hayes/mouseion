@@ -28,6 +28,7 @@ type Directory struct {
 
 // directoryEntry is what the central directory records about one member.
 type directoryEntry struct {
+	method         uint16
 	headerOffset   int64
 	compressedSize int64
 	size           int64
@@ -87,6 +88,7 @@ func parseDirectory(data []byte, count int) (*Directory, error) {
 			return nil, errors.New("olaarchive: malformed central directory")
 		}
 		entry := directoryEntry{
+			method:         binary.LittleEndian.Uint16(data[10:]),
 			crc32:          binary.LittleEndian.Uint32(data[16:]),
 			compressedSize: int64(binary.LittleEndian.Uint32(data[20:])),
 			size:           int64(binary.LittleEndian.Uint32(data[24:])),
@@ -139,4 +141,59 @@ func (d *Directory) Pin(archive io.ReaderAt, archiveSize int64, name string) (cl
 	}
 	member.SHA256 = sha256Hex(data)
 	return member, data, nil
+}
+
+// PinNested pins a member of a stored inner zip held inside the archive. The
+// real OLA archive keeps its per-Work members in stored inner zips, so the
+// member's local header lies at an absolute offset in the outer archive: the
+// inner zip's data start plus the member's offset within the inner zip. The
+// returned pin carries that absolute offset, so the single-level reader
+// fetches it unchanged. An inner zip that is compressed cannot be addressed by
+// a byte window and is refused.
+func (d *Directory) PinNested(archive io.ReaderAt, archiveSize int64, container, name string) (classical.ArchiveMember, []byte, error) {
+	entry, ok := d.entries[container]
+	if !ok {
+		return classical.ArchiveMember{}, nil, fmt.Errorf("olaarchive: the archive has no member %q", container)
+	}
+	if entry.method != methodStore || entry.compressedSize != entry.size {
+		return classical.ArchiveMember{}, nil, fmt.Errorf("olaarchive: container %q is not stored, so its members cannot be pinned by offset", container)
+	}
+	start, err := dataStart(archive, archiveSize, container, entry)
+	if err != nil {
+		return classical.ArchiveMember{}, nil, err
+	}
+	inner := io.NewSectionReader(archive, start, entry.size)
+	directory, err := ReadDirectory(inner, entry.size)
+	if err != nil {
+		return classical.ArchiveMember{}, nil, fmt.Errorf("olaarchive: container %q: %w", container, err)
+	}
+	member, data, err := directory.Pin(inner, entry.size, name)
+	if err != nil {
+		return classical.ArchiveMember{}, nil, fmt.Errorf("olaarchive: container %q: %w", container, err)
+	}
+	member.HeaderOffset += start
+	if _, _, err := Window(member, archiveSize); err != nil {
+		return classical.ArchiveMember{}, nil, err
+	}
+	return member, data, nil
+}
+
+// dataStart returns the absolute offset of a member's data, read from its local
+// header in the archive.
+func dataStart(archive io.ReaderAt, archiveSize int64, name string, entry directoryEntry) (int64, error) {
+	header := make([]byte, localHeaderFixed)
+	if entry.headerOffset < 0 || entry.headerOffset+localHeaderFixed > archiveSize {
+		return 0, fmt.Errorf("olaarchive: member %q lies outside the archive", name)
+	}
+	if _, err := archive.ReadAt(header, entry.headerOffset); err != nil {
+		return 0, fmt.Errorf("olaarchive: read the local header of %q: %w", name, err)
+	}
+	if binary.LittleEndian.Uint32(header) != localHeaderSignature {
+		return 0, fmt.Errorf("olaarchive: no local header for %q at its offset", name)
+	}
+	start := entry.headerOffset + localHeaderFixed + int64(binary.LittleEndian.Uint16(header[26:])) + int64(binary.LittleEndian.Uint16(header[28:]))
+	if start+entry.size > archiveSize {
+		return 0, fmt.Errorf("olaarchive: member %q lies outside the archive", name)
+	}
+	return start, nil
 }

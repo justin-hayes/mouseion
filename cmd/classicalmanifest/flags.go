@@ -13,6 +13,7 @@ type commandFlags struct {
 	upstream        *string
 	notes           *string
 	requireUpstream *bool
+	lsIndex         *string
 }
 
 // newFlagSet defines the shared command line.
@@ -26,6 +27,7 @@ func newFlagSet(mode string) (*flag.FlagSet, *commandFlags) {
 		upstream:        flags.String("upstream", "", "directory holding the pinned upstream files"),
 		notes:           flags.String("notes", "", "optional path for the maintainer notes report"),
 		requireUpstream: flags.Bool("require-upstream", false, "verify mode fails when a pinned upstream file is absent"),
+		lsIndex:         flags.String("ls-index", "", "derived dictionary index with Lewis & Short entries (make dictionary-index), read by generate for the Latin dictionary-match gate"),
 	}
 	return flags, command
 }
