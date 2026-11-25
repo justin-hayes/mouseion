@@ -105,6 +105,8 @@ type sentenceChoice struct {
 	sentence   string
 	target     string
 	quality    sentencequality.SentenceQuality
+	// form is the form the word takes in the occurrence, for Fluency.
+	form domain.FluencyForm
 }
 
 // representativeSentence chooses the word's Representative sentence from
@@ -194,6 +196,15 @@ func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
 // its effective lexical discriminator matches: a corrected occurrence carries
 // none, and any other carries its token's.
 func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
+	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences)
+}
+
+// sentenceReader is what scoring occurrences needs of the store.
+type sentenceReader interface {
+	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+}
+
+func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
 	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
 	for _, occurrence := range occurrences {
@@ -205,7 +216,7 @@ func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, ide
 	}
 	sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
 	for corpusID, list := range ordinals {
-		loaded, err := w.Store.ListCorpusSentences(ctx, owner, corpusID, list)
+		loaded, err := store.ListCorpusSentences(ctx, owner, corpusID, list)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +232,7 @@ func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, ide
 		if !quality.Accepted {
 			continue
 		}
-		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality})
+		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal)})
 	}
 	return choices, nil
 }

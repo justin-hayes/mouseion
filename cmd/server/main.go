@@ -258,7 +258,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		TempDir: cfg.acquisitionTempDir,
 	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
-	registerStudyWorker(workers, store, translationProvider)
+	registerStudyWorker(workers, store, translationProvider, batchCodec)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -299,9 +299,18 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 // registerStudyWorker registers the Study material worker. The translation
 // provider is the one prepared decks use; Study asks it for a contextual Gloss
 // only from a job, never from a request.
-func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider) {
+//
+// It also registers the Fluency worker, which asks the provider whether another
+// occurrence of a mature word uses the learned meaning. That payload sends the
+// learned meaning, so the worker sends nothing until its provider payload
+// assessment is recorded and matches the codec (ADR 0133).
+func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec) {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
 	study.AddMaterialWorker(workers, store, enricher)
+	assessments := enrichment.ProviderAssessments()
+	study.AddFluencyWorker(workers, store, enricher, func(language string) error {
+		return assessments.MaySend(enrichment.FluencyAgreementPayload, language, codec)
+	})
 }
 
 // registerEPUBAcquisitionWorker wires the acquisition worker to the Catalog

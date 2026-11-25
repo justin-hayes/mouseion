@@ -98,6 +98,10 @@ func TestProviderAssessmentSetMaySend(t *testing.T) {
 			name: "idiom card", kind: IdiomCardPayload, language: "it",
 			provider: codec.ProviderName(), prompt: codec.IdiomCardPromptContract(), fields: IdiomCardPayloadFields(),
 		},
+		{
+			name: "fluency agreement", kind: FluencyAgreementPayload, language: "de",
+			provider: codec.ProviderName(), prompt: codec.FluencyAgreementPromptContract(), fields: FluencyAgreementPayloadFields(),
+		},
 	}
 	for _, kind := range kinds {
 		t.Run(kind.name, func(t *testing.T) {
@@ -131,7 +135,7 @@ func TestProviderAssessmentSetMaySend(t *testing.T) {
 				require.ErrorIs(t, ProviderAssessmentSet{drifted}.MaySend(kind.kind, kind.language, codec), ErrProviderAssessmentNotRecorded)
 			})
 			t.Run("a language with no record refuses", func(t *testing.T) {
-				unrecordedLanguage := "de"
+				unrecordedLanguage := "fr"
 				require.ErrorIs(t, ProviderAssessmentSet{recorded}.MaySend(kind.kind, unrecordedLanguage, codec), ErrProviderAssessmentNotRecorded)
 			})
 			t.Run("a record for another kind refuses", func(t *testing.T) {

@@ -91,7 +91,7 @@ export const test = base.extend<{}, { fixtureServer: WorkerFixtureServer }>({
         const binary = process.env.MOUSEION_FIXTURE_BIN;
         activeProcess = spawn(binary ?? 'go', binary ? [] : ['run', '../cmd/fixtureserver'], {
           cwd: process.cwd(),
-          env: { ...process.env, MOUSEION_FIXTURE_ADDR: addr },
+          env: { ...process.env, MOUSEION_FIXTURE_ADDR: addr, ...(file.endsWith('study-fluency.spec.ts') ? { MOUSEION_FIXTURE_STUDY_FLUENCY: '1' } : {}) },
           stdio: ['ignore', 'ignore', 'inherit'],
           detached: true,
         });

@@ -27,18 +27,32 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 					<h2 id="study-today-heading">Today</h2>
 					<p id="study-waiting">The next review comes back in a few minutes.</p>
 				</section>
-			} else if view.Offer > 0 {
+			} else if view.Offer > 0 && !view.FluencyUnlocked {
 				@StudyBatchOffer(csrf, view)
-			} else if view.Repeating > 0 {
-				<section class="study-today" aria-labelledby="study-today-heading">
-					<h2 id="study-today-heading">Today</h2>
-					<p id="study-repeating">{ studyRepeatingText(view.Repeating) }</p>
-				</section>
 			} else {
-				<section class="study-today" aria-labelledby="study-today-heading">
-					<h2 id="study-today-heading">Today</h2>
-					<p id="study-idle">Nothing to study right now.</p>
-				</section>
+				if view.Fluency != nil {
+					@FluencyCard(csrf, view)
+				}
+				if view.NothingMature {
+					<p id="study-nothing-mature" class="study-status">Nothing is mature yet. A word is mature once its review interval reaches 21 days.</p>
+				}
+				if view.FluencyPreparing {
+					<p id="study-fluency-preparing" class="study-status">Fluency contexts for your mature words are being prepared.</p>
+				}
+				if view.Offer > 0 {
+					@StudyBatchOffer(csrf, view)
+				}
+				if view.Repeating > 0 {
+					<section class="study-today" aria-labelledby="study-today-heading">
+						<h2 id="study-today-heading">Today</h2>
+						<p id="study-repeating">{ studyRepeatingText(view.Repeating) }</p>
+					</section>
+				} else if view.Fluency == nil && view.Offer == 0 {
+					<section class="study-today" aria-labelledby="study-today-heading">
+						<h2 id="study-today-heading">Today</h2>
+						<p id="study-idle">Nothing to study right now.</p>
+					</section>
+				}
 			}
 			<section class="study-preparation" aria-labelledby="study-preparation-heading">
 				<h2 id="study-preparation-heading">New words</h2>
@@ -93,6 +107,48 @@ templ StudyCard(csrf string, view studyPageView) {
 			</form>
 		}
 	</section>
+}
+
+templ FluencyCard(csrf string, view studyPageView) {
+	<section class="study-card study-card--fluency" aria-labelledby="fluency-card-heading">
+		<h2 id="fluency-card-heading">Fluency</h2>
+		<p class="study-card__sentence" lang={ view.Language }>
+			{ view.Fluency.Before }
+			if view.Fluency.Marked {
+				<mark class="study-card__target">{ view.Fluency.Target }</mark>
+			}
+			{ view.Fluency.After }
+		</p>
+		if view.Fluency.ShowAnswer {
+			<dl class="study-card__answer">
+				<dt>Meaning</dt>
+				<dd id="fluency-gloss">{ view.Fluency.Gloss }</dd>
+				<dt>Translation</dt>
+				<dd id="fluency-translation">{ view.Fluency.Translation }</dd>
+				<dt>Word</dt>
+				<dd id="fluency-headword" lang={ view.Language }>{ view.Fluency.Headword }</dd>
+			</dl>
+			<div class="study-card__grades">
+				@fluencyResponseForm(csrf, view, "not-recognised", "Didn't recognise it", "button button--outline")
+				@fluencyResponseForm(csrf, view, "recognised", "Recognised", "button")
+			</div>
+		} else {
+			<form method="get" action={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>
+				<input type="hidden" name="answer" value="1"/>
+				<button class="button study-card__show" type="submit">Show answer</button>
+			</form>
+		}
+	</section>
+}
+
+templ fluencyResponseForm(csrf string, view studyPageView, response, label, class string) {
+	<form method="post" action="/study/fluency/responses">
+		<input type="hidden" name="csrf_token" value={ csrf }/>
+		<input type="hidden" name="language" value={ view.Language }/>
+		<input type="hidden" name="context" value={ view.Fluency.ContextID }/>
+		<input type="hidden" name="response" value={ response }/>
+		<button class={ class } type="submit">{ label }</button>
+	</form>
 }
 
 templ studyGradeForm(csrf string, view studyPageView, grade, label, class string) {
