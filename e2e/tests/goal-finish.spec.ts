@@ -51,7 +51,7 @@ test('finishing current reading records Read history and supports reading again'
   await signIn(page);
   await page.getByLabel('Study language').selectOption('it');
   await expect(page).toHaveURL(/\/it\/library$/);
-  await page.goto('/de/reading');
+  await page.goto('/it/reading');
   await expect(page.locator('body')).toHaveClass('reading-shell');
   await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
 
@@ -80,7 +80,7 @@ test('finishing current reading records Read history and supports reading again'
   await expect(page.locator('#primary-goal-section')).toHaveClass(/journey-finish-outcome/);
   await expect(page.locator('#primary-goal-section')).toContainText('Vocabulary transition');
   await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
-  await expect(page.getByRole('link', { name: 'Choose a To Read book' })).toHaveAttribute('href', '/de/reading');
+  await expect(page.getByRole('link', { name: 'Choose a To Read book' })).toHaveAttribute('href', '/it/reading');
   await page.goto('/it/library?history=read');
   const history = page.locator('.library-books .library-book').filter({ hasText: title });
   await expect(history).toBeVisible();

@@ -135,19 +135,17 @@ test.describe('authenticated learner smoke', () => {
 
     await switcher.selectOption('it');
     await expect(page).toHaveURL(/\/it\/library$/);
-    await page.goto('/de/reading');
+    await page.goto('/it/reading');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page.locator('main h1')).toHaveCount(1);
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/fr\/library$/);
-    await page.goto('/de/reading');
+    await expect(page).toHaveURL(/\/fr\/reading$/);
     await expect(page.getByRole('heading', { name: 'Choose a To Read book in fr', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse My Books', exact: true })).toBeVisible();
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/de\/library$/);
-    await page.goto('/de/reading');
+    await expect(page).toHaveURL(/\/de\/reading$/);
     await expect(page.locator('main h1')).toHaveCount(1);
 
   });
@@ -852,13 +850,13 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page).toHaveURL(/\/library(?:\?|$)/);
     await page.goto('/deck-preparations/fixture-preparation/status');
-    // An old-language Book has no reachable Reading entry; the retired handoff chooser is gone.
-    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveCount(0);
+    // An old-language Book links to Reading in the Book's own language; the retired handoff chooser is gone.
+    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', /^\/de\/reading#/);
     await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
 
     await page.goto('/deck-preparations/fixture-journey-preparation/status');
     await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/de/reading#journey-book-fixture-empty"]')).toBeVisible();
+    await expect(page.locator('a[href="/it/reading#journey-book-fixture-empty"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
 
     await page.getByLabel('Study language').selectOption('de');
@@ -916,15 +914,13 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(page.getByRole('table', { name: 'Current effective vocabulary' }).getByRole('row')).toHaveCount(3);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
-    await page.goto('/de/reading');
+    await expect(page).toHaveURL(/\/fr\/reading$/);
     // French has no current Book, so Reading shows the neutral state and no Browse.
     await expect(page.locator('#vocabulary-workflow')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByText('bonjour')).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
-    await page.goto('/de/reading');
+    await expect(page).toHaveURL(/\/de\/reading$/);
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
     await page.goto('/de/library');
     const primaryNavigation = page.locator('nav.site-header__nav');

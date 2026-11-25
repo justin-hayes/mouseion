@@ -158,7 +158,7 @@ test.describe('Current reading selection', () => {
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
     await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
+    await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/de/library');
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     const currentEnd = goal.locator('details').filter({ hasText: 'End current reading' });
     await currentEnd.locator('summary').click();
@@ -203,7 +203,7 @@ test.describe('Current reading selection', () => {
      await signIn(page);
      await page.getByLabel('Study language').selectOption('it');
      await expect(page).toHaveURL(/\/it\/library$/);
-     await page.goto('/de/reading');
+     await page.goto('/it/reading');
 
      const currentCard = page.locator('.journey-book--goal');
      if (await currentCard.count() === 0) {
@@ -228,7 +228,7 @@ test.describe('Current reading selection', () => {
       await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 
      const startBook = async (bookTitle: string) => {
-       await page.goto('/de/reading');
+       await page.goto('/it/reading');
        const candidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('heading', { name: bookTitle, exact: true }) });
        await expect(candidate).toBeVisible();
        const start = candidate.locator('details').filter({ hasText: 'Start reading' });

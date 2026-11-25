@@ -350,7 +350,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page).toHaveURL(/\/it\/library$/);
     // Italian has no current Book, so its unassessed To Read titles are chooser
     // entries rather than Reading rows.
-    await page.goto('/de/reading/switch');
+    await page.goto('/it/reading/switch');
     await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
@@ -839,7 +839,7 @@ test.describe('responsive and theme regression coverage', () => {
       await page.getByLabel('Study language').selectOption('it');
       await expect(page).toHaveURL(/\/it\/library$/);
       // Italian has no current Book, so its unassessed titles are chooser entries.
-      await page.goto('/de/reading/switch');
+      await page.goto('/it/reading/switch');
       await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
       await expectNoPageOverflow(page);
     }
