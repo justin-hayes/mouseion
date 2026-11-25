@@ -49,9 +49,22 @@ const (
 	EntryNone EntrySource = iota
 	// EntryLSJ freezes the matched Liddell-Scott-Jones entry.
 	EntryLSJ
-	// EntryLewisShort is the Lewis & Short entry; its freeze comes with the
-	// dictionary-entry ticket, so no entry is frozen for it yet.
+	// EntryLewisShort freezes every Lewis & Short entry under the lemma's key,
+	// in entry id order, with no cap and no reordering (ADR 0133).
 	EntryLewisShort
+)
+
+// CitationFilter is the rule that decides which citations the full dictionary
+// entry keeps.
+type CitationFilter int
+
+const (
+	// CitationsNone keeps every citation the index kept: Greek's filter is
+	// applied when the LSJ index is derived, so the card filters nothing more.
+	CitationsNone CitationFilter = iota
+	// CitationsWorkAuthor keeps only citations of the card's own Work's author
+	// and drops one with no usable author reference (ADR 0133).
+	CitationsWorkAuthor
 )
 
 // Imported-source notices name each source and its licence; a deck carries the
@@ -86,6 +99,8 @@ type Policy struct {
 	Translations TranslationSource
 	// Entries is the dictionary a source-evidence card freezes its entry from.
 	Entries EntrySource
+	// Citations is the citation filter of the full dictionary entry.
+	Citations CitationFilter
 	// NLPAnalysed reports whether the NLP service analyses the language, so the
 	// analysis-models notice applies.
 	NLPAnalysed bool
@@ -102,17 +117,19 @@ var (
 		SourceNotice:         GreekSourceNotice,
 		Translations:         TranslationPerseus,
 		Entries:              EntryLSJ,
+		Citations:            CitationsNone,
 		SentenceBoundary:     BoundaryTerminalMark,
 		DictionaryLookup:     LookupExactlyOne,
 	}
 	// sourceEvidenceLatin has no evidence-assisted pass: the provider payload
 	// has no recorded assessment for Latin (ADR 0133), so a Latin deck is the
-	// default card with no provider request. Its dictionary entry is Lewis & Short,
-	// frozen by the next ticket.
+	// default card with no provider request. Its dictionary is Lewis & Short, and
+	// its full entry keeps only the Work author's citations.
 	sourceEvidenceLatin = Policy{
 		SourceEvidence:   true,
 		SourceNotice:     LatinSourceNotice,
 		Entries:          EntryLewisShort,
+		Citations:        CitationsWorkAuthor,
 		Translations:     TranslationPerseus,
 		SentenceBoundary: BoundaryTerminalMark,
 		DictionaryLookup: LookupExactlyOne,

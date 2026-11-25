@@ -26,6 +26,9 @@ type PreparedDeckCandidateFacts struct {
 	// empty when the pinned translation has not been imported.
 	ReferenceTranslations map[string]string
 	ReferencePin          string
+	// WorkAuthor is the author of the Book's Work, empty for a Book that is
+	// not a Reading unit.
+	WorkAuthor string
 	// SyntaxState is the recorded syntax state of the analysis run the
 	// sentences come from.
 	SyntaxState string
@@ -379,6 +382,10 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
+	workAuthor, err := preparationWorkAuthor(ctx, tx, preparation)
+	if err != nil {
+		return nil, err
+	}
 	syntaxState, err := corpusSyntaxState(ctx, tx, preparation.OwnerID, corpusID)
 	if err != nil {
 		return nil, err
@@ -392,10 +399,29 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 		result = append(result, PreparedDeckCandidateFacts{
 			Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID],
 			ReferenceTranslations: referenceTranslations, ReferencePin: referencePin,
-			SyntaxState: syntaxState,
+			WorkAuthor: workAuthor, SyntaxState: syntaxState,
 		})
 	}
 	return result, nil
+}
+
+// preparationWorkAuthor reads the author of the Work the Book's Reading unit
+// belongs to, or empty when the Book is not a Reading unit.
+func preparationWorkAuthor(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (string, error) {
+	var author string
+	err := tx.QueryRow(ctx, `
+		SELECT w.author
+		FROM source_materials sm
+		JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
+		JOIN reading_units ru ON ru.id = bru.reading_unit_id
+		JOIN editions e ON e.id = ru.edition_id
+		JOIN works w ON w.id = e.work_id
+		WHERE sm.owner_id = $1 AND sm.id = $2`,
+		preparation.OwnerID, preparation.SourceMaterialID).Scan(&author)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return author, err
 }
 
 // corpusSyntaxState reads the recorded syntax state of the analysis run that

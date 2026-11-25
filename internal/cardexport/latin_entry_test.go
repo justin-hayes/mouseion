@@ -1,0 +1,160 @@
+package cardexport
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/justin-hayes/mouseion/internal/dictionary"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+const testLSPin = "56061ca127f4a2844980baffc5f2b6d1332897b3"
+
+// lsStub is a lexical provider that also answers the Lewis & Short capability.
+type lsStub struct {
+	entries []enrichment.LatinLSEntry
+	found   bool
+}
+
+func (s *lsStub) Name() string    { return "ls-stub" }
+func (s *lsStub) Version() string { return "ls-stub-v1" }
+func (s *lsStub) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+	return enrichment.LexicalEntry{}, false, nil
+}
+func (s *lsStub) LookupLatinLS(context.Context, string) ([]enrichment.LatinLSEntry, bool) {
+	return s.entries, s.found
+}
+
+func dicoEntries() []enrichment.LatinLSEntry {
+	return []enrichment.LatinLSEntry{
+		{
+			EntryID: "n9", Headword: "dico", Orth: "dīco", Pin: testLSPin,
+			Senses: []enrichment.LatinLSSense{
+				{ID: "n9.e", Level: 0, Citations: []enrichment.LatinLSCitation{{Author: "Liv.", Text: "Liv. 1, 1"}}},
+				{ID: "n9.0", Number: "I", Level: 1, Definitions: []string{"to dedicate"}, Glosses: []string{"to dedicate", "to devote"},
+					Citations: []enrichment.LatinLSCitation{{Author: "Liv.", Text: "Liv. 2, 3"}, {Author: "Cic.", Text: "Cic. Att. 1, 2"}, {Text: "4, 5"}}},
+				{ID: "n9.1", Number: "A", Level: 2, Glosses: []string{"in particular"}},
+			},
+		},
+		{
+			EntryID: "n10", Headword: "dico", Orth: "dīco", Pin: testLSPin,
+			Senses: []enrichment.LatinLSSense{{ID: "n10.0", Number: "I", Level: 1, Definitions: []string{"to say"}, Glosses: []string{"to say"}}},
+		},
+	}
+}
+
+func latinFreezeProjection(author string) []CandidateProjection {
+	return []CandidateProjection{{
+		OwnerID: "owner-1", DeckName: "Livy",
+		Candidate:  domain.SelectionCandidate{Language: "la", CanonicalLemma: "dico", UPOS: "VERB"},
+		Entry:      Entry{Language: "la", CanonicalLemma: "dico", UPOS: "VERB", Headword: "dico", Sentence: "Dico.", TargetWord: "dico"},
+		WorkAuthor: author, SkipMeaningEvidence: true,
+	}}
+}
+
+func TestLatinCardStacksEveryEntryWithItsOwnOutlineAndFullEntry(t *testing.T) {
+	stub := &lsStub{found: true, entries: dicoEntries()}
+	entries, err := freezeEntries(t.Context(), stub, nil, latinFreezeProjection("Livy"))
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	entry := entries[0]
+	assert.Equal(t, "n9,n10", entry.DictionaryEntryID, "the frozen item records every entry ID")
+	assert.Equal(t, testLSPin, entry.DictionaryPin)
+	assert.Empty(t, entry.CandidateSenses)
+
+	html := entry.DictionaryEntry
+	assert.Equal(t, 2, strings.Count(html, `<div class="dictionary-entry ls-entry">`))
+	assert.Equal(t, 2, strings.Count(html, "Full Lewis &amp; Short entry"), "each entry has its own collapsed full entry")
+	assert.Equal(t, 2, strings.Count(html, `<div class="dict-outline">`))
+	first, second := strings.Index(html, "dīco<sup>1</sup>"), strings.Index(html, "dīco<sup>2</sup>")
+	require.NotEqual(t, -1, first)
+	require.NotEqual(t, -1, second)
+	assert.Less(t, first, second, "entries keep id order")
+	assert.NotContains(t, html, "lsj-")
+
+	note, err := makeNote("owner-1", renderInputFromEntry(entry))
+	require.NoError(t, err)
+	assert.Equal(t, html, note.DictionaryEntry)
+}
+
+func TestLatinFullEntryKeepsOnlyTheWorkAuthorsCitations(t *testing.T) {
+	stub := &lsStub{found: true, entries: dicoEntries()[:1]}
+	entries, err := freezeEntries(t.Context(), stub, nil, latinFreezeProjection("Titus Livius (Livy)"))
+	require.NoError(t, err)
+	html := entries[0].DictionaryEntry
+	assert.Contains(t, html, "Liv. 2, 3")
+	assert.Contains(t, html, "Liv. 1, 1", "an entry-level citation of the author is kept")
+	assert.NotContains(t, html, "Cic. Att.")
+	assert.NotContains(t, html, "4, 5", "a bibl with no author reference is dropped")
+	assert.NotContains(t, html, "dict-headword\">dīco<sup", "a single entry carries no number")
+}
+
+func TestLatinAuthorMatchesCTSURNAuthorAndAbbreviations(t *testing.T) {
+	assert.True(t, latinAuthorMatches("phi0474", "phi0474"))
+	assert.True(t, latinAuthorMatches("Cic.", "Marcus Tullius Cicero"))
+	assert.True(t, latinAuthorMatches("Liv.", "Livy"))
+	assert.False(t, latinAuthorMatches("Cic.", "Livy"))
+	assert.False(t, latinAuthorMatches("", "Livy"))
+	assert.False(t, latinAuthorMatches("Liv.", ""))
+	assert.False(t, latinAuthorMatches("L.", "Livy"), "an abbreviation under three letters never matches by prefix")
+}
+
+func TestLatinEntryWithNoSensesShowsOnlyItsHeadLine(t *testing.T) {
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n11", Headword: "dicto", Orth: "dictō", Pin: testLSPin}}, 0, "")
+	assert.Contains(t, html, "dictō")
+	assert.NotContains(t, html, "dict-outline")
+	assert.NotContains(t, html, "Full Lewis")
+	assert.NotContains(t, html, "dict-sense")
+}
+
+func TestLatinCardWithNoMatchOmitsTheDictionaryBlock(t *testing.T) {
+	stub := &lsStub{}
+	entries, err := freezeEntries(t.Context(), stub, nil, latinFreezeProjection("Livy"))
+	require.NoError(t, err)
+	assert.Empty(t, entries[0].DictionaryEntry)
+	assert.Empty(t, entries[0].DictionaryEntryID)
+	note, err := makeNote("owner-1", renderInputFromEntry(entries[0]))
+	require.NoError(t, err)
+	assert.Empty(t, note.DictionaryEntry)
+}
+
+func TestLatinEntryEscapesSourceText(t *testing.T) {
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "a<b>", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"x <i>y</i> {z}"}}}}}, 0, "")
+	assert.NotContains(t, html, "<i>y</i>")
+	assert.Contains(t, html, "x &lt;i&gt;y&lt;/i&gt; &#123;z&#125;")
+}
+
+func TestLatinFrozenEntriesKeepTheirTextAfterTheIndexChanges(t *testing.T) {
+	stub := &lsStub{found: true, entries: dicoEntries()}
+	entries, err := freezeEntries(t.Context(), stub, nil, latinFreezeProjection("Livy"))
+	require.NoError(t, err)
+	frozen := renderInputFromEntry(entries[0])
+	stub.entries = dicoEntries()[1:] // the index is re-derived with one entry
+	again, err := makeNote("owner-1", frozen)
+	require.NoError(t, err)
+	assert.Contains(t, again.DictionaryEntry, "dīco<sup>1</sup>")
+	assert.Contains(t, again.DictionaryEntry, "dīco<sup>2</sup>")
+}
+
+func TestLatinDeckNoticeNamesLewisShortAndItsPin(t *testing.T) {
+	notices, err := attributionNotices([]RenderInput{{Language: "la", DictionaryEntryID: "n9,n10", DictionaryPin: testLSPin}})
+	require.NoError(t, err)
+	assert.Contains(t, notices, dictionary.LatinLSNotice(testLSPin))
+	assert.NotContains(t, notices, dictionary.AncientGreekLSJNotice(testLSPin))
+
+	greek, err := attributionNotices([]RenderInput{{Language: "grc", DictionaryEntryID: "n1", DictionaryPin: testLSJPin}})
+	require.NoError(t, err)
+	assert.Contains(t, greek, dictionary.AncientGreekLSJNotice(testLSJPin))
+	assert.NotContains(t, greek, dictionary.LatinLSNotice(testLSJPin))
+}
+
+func TestGreekCardFreezesNoLewisShortEntry(t *testing.T) {
+	stub := &lsStub{found: true, entries: dicoEntries()}
+	entry := Entry{Language: "grc", CanonicalLemma: "λόγος"}
+	assert.False(t, resolveLatinLS(t.Context(), stub, &entry, "Livy"))
+	assert.Empty(t, entry.DictionaryEntry)
+}

@@ -151,7 +151,7 @@ func candidateProjections(preparation domain.DeckPreparation, deckName string, s
 			OwnerID: preparation.OwnerID, DeckName: deckName,
 			Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences,
 			RequireContextualGloss: false,
-			ReferenceTranslations:  fact.ReferenceTranslations, ReferencePin: fact.ReferencePin,
+			ReferenceTranslations:  fact.ReferenceTranslations, ReferencePin: fact.ReferencePin, WorkAuthor: fact.WorkAuthor,
 			Structure: structure, SourceUnits: sourceUnits, SyntaxState: fact.SyntaxState,
 		})
 	}

@@ -22,7 +22,7 @@ func TestGreekPolicyUsesSourceEvidence(t *testing.T) {
 
 func TestGreekPolicyNamesItsTranslationsAndEntries(t *testing.T) {
 	policy := For("grc")
-	if policy.Translations != TranslationPerseus || policy.Entries != EntryLSJ {
+	if policy.Translations != TranslationPerseus || policy.Entries != EntryLSJ || policy.Citations != CitationsNone {
 		t.Fatalf("For(grc) = %+v, want Perseus translations and LSJ entries", policy)
 	}
 }
@@ -38,6 +38,9 @@ func TestLatinPolicyUsesSourceEvidenceWithNoProviderPass(t *testing.T) {
 		}
 		if policy.SentenceBoundary != BoundaryTerminalMark {
 			t.Fatalf("For(%q).SentenceBoundary = %v, want terminal mark", tag, policy.SentenceBoundary)
+		}
+		if policy.Citations != CitationsWorkAuthor {
+			t.Fatalf("For(%q).Citations = %v, want the Work author filter", tag, policy.Citations)
 		}
 		if policy.Entries != EntryLewisShort {
 			t.Fatalf("For(%q).Entries = %v, want Lewis & Short, never the Greek LSJ", tag, policy.Entries)
