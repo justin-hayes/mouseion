@@ -61,8 +61,7 @@ Notes on the readings:
   is tier A. Editorial textparts (`argument`, `intro`, `chronology`, `note`)
   are skipped in every translation.
 - The tier B segment counts are the generator's (segment text, whitespace-split
-  words). They supersede the scratch counts in the previous revision of this
-  report, which left footnotes out (*Agricola* chapter 18 was 457 words there).
+  words).
 
 Alternatives measured and not pinned:
 
@@ -131,7 +130,7 @@ Virgil), does not affect any of these five authors.
 
 ## Still to do
 
-1. A reviewer decides each flagged Work: a reviewer note clears it, or it
+1. Justin decides each flagged Work: his reviewer note clears it, or it
    drops out.
    - Join under 98%: *Catiline* (97.56%) and *Augustus* (96.19%).
    - Tier B segments over 400 words: *The Gallic War*, *Agricola* and
