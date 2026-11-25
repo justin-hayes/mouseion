@@ -6,10 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/a-h/templ"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -83,59 +81,25 @@ func bookCoverLabel(cover domain.BookCover) string {
 	}
 }
 
-func isBookCoverTitleSeparator(r rune) bool {
-	return unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r)
+// titlePlate is the text a Title plate composes when a text has no cover
+// image (ADR 0130). It is presentation only: never stored, never fetched.
+type titlePlate struct {
+	Title, GreekTitle, Author string
 }
 
-func bookCoverInitial(title, language string) string {
-	title = bookCoverTitleWithoutArticle(strings.TrimFunc(title, isBookCoverTitleSeparator), language)
-	for _, r := range title {
-		if unicode.IsLetter(r) {
-			return strings.ToUpper(string(r))
-		}
+func newTitlePlate(title, greekTitle, author string) titlePlate {
+	return titlePlate{
+		Title:      strings.TrimSpace(title),
+		GreekTitle: strings.TrimSpace(greekTitle),
+		Author:     strings.TrimSpace(author),
 	}
-	return "?"
 }
 
-// bookCoverTitleWithoutArticle drops a leading definite or elided article for
-// the Book's language, so the placeholder shows the first distinctive letter.
-func bookCoverTitleWithoutArticle(title, language string) string {
-	lowerTitle := strings.ToLower(title)
-	for _, article := range bookCoverArticles(language) {
-		if lowerTitle == article {
-			break
-		}
-		if stripped, ok := bookCoverStripArticle(title, lowerTitle, article); ok {
-			return stripped
-		}
+func readingBookGreekTitle(item readingBookView) string {
+	if item.ReadingUnit != nil {
+		return item.ReadingUnit.GreekTitle
 	}
-	return title
-}
-
-// bookCoverStripArticle removes one leading article and reports whether it
-// applied. An elided article (l') joins the next word without a space; a spaced
-// article counts only when a separator follows it.
-func bookCoverStripArticle(title, lowerTitle, article string) (string, bool) {
-	if article == "l'" || article == "l’" {
-		if strings.HasPrefix(lowerTitle, article) {
-			return title[len(article):], true
-		}
-		return title, false
-	}
-	if strings.HasPrefix(lowerTitle, article) && len(title) > len(article) && unicode.IsSpace(rune(title[len(article)])) {
-		return strings.TrimLeftFunc(title[len(article):], isBookCoverTitleSeparator), true
-	}
-	return title, false
-}
-
-// bookCoverArticles lists the articles a cover initial ignores. The language is
-// reduced to its primary subtag so regional variants share one list.
-func bookCoverArticles(language string) []string {
-	return map[string][]string{
-		"de": {"der", "die", "das"},
-		"it": {"il", "la", "lo", "gli", "le", "l'", "l’"},
-		"el": {"ο", "η", "το", "οι"},
-	}[canonicalization.NormalizeLanguage(language)]
+	return ""
 }
 
 type StatusTone string

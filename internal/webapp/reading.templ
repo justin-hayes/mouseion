@@ -62,7 +62,7 @@ templ CurrentReadingSection(currentReading *readingBookView, csrf string, messag
 templ ReadingBookCard(item readingBookView, csrf string) {
 	<article id={ readingBookAnchorID(readingBookID(item)) } tabindex="-1" data-focus-anchor class="resource-card journey-book journey-book--goal">
 		<div class="journey-book__title-page journey-book__title-page--current">
-			<div class="journey-book__cover">@BookCoverMedia(readingBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover)</div>
+			<div class="journey-book__cover">@BookCoverMedia(readingBookID(item), newTitlePlate(canonicalBookTitle(item.Book), readingBookGreekTitle(item), canonicalBookAuthor(item.Book)), item.Cover)</div>
 			<div class="journey-book__identity">
 				if !item.ReadingSince.IsZero() {
 					<p class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>
@@ -264,7 +264,7 @@ templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, curre
 
 templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<article class="reading-chooser-entry">
-		<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
+		<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, myBookTitlePlate(item.Book), item.Book.Cover)</div>
 		<div class="reading-chooser-entry__identity">
 				<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
 				if author := strings.TrimSpace(item.Book.Book.Author); author != "" {

@@ -111,7 +111,7 @@ test.describe('My Books collection browsing', () => {
     const placeholders = page.locator('.library-books .book-cover-media__placeholder');
     expect(await placeholders.count()).toBeGreaterThan(0);
     expect(await placeholders.evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
-    expect(await placeholders.locator('.book-cover-media__initial').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display !== 'none'))).toBe(true);
+    expect(await placeholders.locator('.title-plate__title').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display !== 'none'))).toBe(true);
     expect(await placeholders.locator('.book-cover-media__label').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display === 'none'))).toBe(true);
     const search = page.getByLabel('Search My Books');
     const button = page.getByRole('button', { name: 'Search' });
@@ -240,8 +240,8 @@ test.describe('My Books collection browsing', () => {
     await expect(page.getByText('All languages')).toHaveCount(0);
     await expect(page.locator('ul.library-books')).toHaveCount(1);
     await expect(page.locator('ul[role="grid"]')).toHaveCount(0);
-    await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.locator('.library-books').getByText('Empty chapter')).toHaveCount(0);
+    await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Empty chapter' })).toHaveCount(0);
     await expect(page.locator('.library-books')).not.toContainText('language:');
     await expect(page.locator('.library-books .library-book__membership').first()).toBeVisible();
     const readingLink = page.locator('.library-books a.library-book__journey-action').first();
@@ -271,8 +271,8 @@ test.describe('My Books collection browsing', () => {
     await expect(page).toHaveURL('/library');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await expect(page.locator('.library-language-context')).toHaveText('Italian collection');
-    await expect(page.locator('.library-books').getByText('Empty chapter')).toBeVisible();
-    await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toHaveCount(0);
+    await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Empty chapter' })).toBeVisible();
+    await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Der lange Weg nach Hause' })).toHaveCount(0);
     await switcher.selectOption('de');
   });
 
@@ -296,7 +296,7 @@ test.describe('My Books collection browsing', () => {
       await signIn(page);
       await page.goto('/library?q=Der%20lange');
       await expect(page.locator('ul.library-books')).toBeVisible();
-      await expect(page.locator('.library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
+      await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
       await page.goto('/library?q=Fehlgeschlagene');
       const book = page.locator('.library-books .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
       await expect(book).toBeVisible();
@@ -305,7 +305,7 @@ test.describe('My Books collection browsing', () => {
       await expect(book.getByText('Set aside', { exact: true })).toHaveCount(0);
       await expect(book.getByRole('button', { name: 'Confirm set aside' })).toHaveCount(0);
       await expect(page.getByRole('link', { name: /Set Aside/ })).toHaveCount(0);
-      await expect(page.locator('.library-books').getByText('Fehlgeschlagene Analyse')).toBeVisible();
+      await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Fehlgeschlagene Analyse' })).toBeVisible();
     } finally {
       await context.close();
     }

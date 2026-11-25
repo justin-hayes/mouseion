@@ -400,6 +400,10 @@ func myBookPositionLabel(book domain.MyBook) string {
 	return ""
 }
 
+func myBookTitlePlate(book domain.MyBook) titlePlate {
+	return newTitlePlate(myBookDisplayTitle(book), myBookGreekTitle(book), book.Book.Author)
+}
+
 func myBookGreekTitle(book domain.MyBook) string {
 	if unit := book.ReadingUnit; unit != nil {
 		return strings.TrimSpace(unit.GreekTitle)

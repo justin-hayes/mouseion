@@ -692,8 +692,8 @@ func CatalogOpdsSection(csrf string, section catalogOpdsSection) templ.Component
 // records a Book the learner read outside Mouseion without downloading it. The
 // Catalog index stores advertised cover
 // provenance, but upstream URLs are never sent to the browser (ADR 0077); until
-// local cover retention reaches index entries, the shared cover frame shows the
-// title's initial.
+// local cover retention reaches index entries, the shared cover frame shows a
+// Title plate.
 func CatalogEntryCard(csrf string, entry domain.CatalogueEntry) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -732,7 +732,7 @@ func CatalogEntryCard(csrf string, entry domain.CatalogueEntry) templ.Component 
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = BookCoverMedia("", entry.Index.Title, entry.Index.LanguageTag, domain.BookCover{}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = BookCoverMedia("", newTitlePlate(entry.Index.Title, "", entry.Index.Author), domain.BookCover{}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

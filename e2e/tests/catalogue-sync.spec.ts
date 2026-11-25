@@ -85,6 +85,10 @@ test.describe('catalog sources and browsing', () => {
 
     const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
     await expect(entry).toContainText('Adding downloads and analyzes the text.');
+    // A text without a cover shows a Title plate that assistive technology skips.
+    const plate = entry.locator('.book-cover-media__placeholder');
+    await expect(plate).toHaveAttribute('aria-hidden', 'true');
+    await expect(plate.locator('.title-plate__title')).toHaveText('Ein kurzer Sommer');
     await entry.getByRole('button', { name: 'Add', exact: true }).click();
 
     await expect(page).toHaveURL(/\/catalogs\?.*message=/);
