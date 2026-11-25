@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -174,5 +175,12 @@ func (h *classicalLoopHarness) seedLegacyAnalysis(t *testing.T, owner, bookID st
 	require.NoError(t, err)
 	require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, bookID, domain.BookDispositionToRead))
 	testutil.SeedCorpusWords(t, h.ctx, h.pool, owner, corpusID, classical.Language, testutil.CorpusWord{Lemma: "λόγοσ", UPOS: "NOUN", Occurrences: 1})
+	// The chooser withholds coverage until the Book's count projection is
+	// ready. The submitted analysis job would build it only whenever the
+	// started workers reach it, so publish it here as that job would.
+	rebuild, err := h.pool.Begin(h.ctx)
+	require.NoError(t, err)
+	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(h.ctx, rebuild, owner, bookID, source.ID, handle.RunID, corpusID, classical.Language))
+	require.NoError(t, rebuild.Commit(h.ctx))
 	return handle.RunID
 }
