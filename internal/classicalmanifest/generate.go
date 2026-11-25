@@ -198,6 +198,7 @@ func (b *builder) buildWork(override classical.Override) error {
 		return err
 	}
 	if isLatinWork(override) && override.Translation != nil && override.SpotCheck == nil {
+		b.recordGates(WorkGateReport{WorkKey: override.WorkKey, Evaluated: true, ReviewerNote: override.ReviewerNote, Gates: []GateResult{spotCheckGate(nil, nil)}})
 		return b.candidateFailure(override.WorkKey, "", fmt.Errorf("classical: %s has a translation and needs a recorded spot check (reviewer and the pairs checked)", override.WorkKey))
 	}
 	if err := checkSourceContentLayers(override, sourceLayer, translationLayer, hasTranslationLayer); err != nil {

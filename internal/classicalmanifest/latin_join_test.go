@@ -107,6 +107,7 @@ func TestAWorkWithATranslationNeedsARecordedSpotCheck(t *testing.T) {
 	refused := generate(t, fixture.options(t, nil))
 	assert.Empty(t, refused.Definitions)
 	assert.Contains(t, refused.Notes, "needs a recorded spot check")
+	assert.Contains(t, refused.GateReport(), "spot-check: FAIL (no spot check is recorded)")
 
 	fixture.override.ReviewerNote = "Read in full."
 	assert.Empty(t, generate(t, fixture.options(t, nil)).Definitions, "a reviewer note is not a spot check")
