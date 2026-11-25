@@ -166,9 +166,6 @@ func parseOlaTokenLine(line string, lineNo int, citations map[string]string) (so
 	if columns[1] == "" || columns[2] == "" {
 		return sourceToken{}, malformed(lineNo, "empty surface or lemma")
 	}
-	if olaLemmaHasDigit(columns[2]) {
-		return sourceToken{}, malformed(lineNo, "lemma has digits beyond one trailing artefact digit")
-	}
 	head, err := strconv.Atoi(columns[6])
 	if err != nil || head < 0 {
 		return sourceToken{}, malformed(lineNo, "head is not a non-negative number")
@@ -223,8 +220,10 @@ func olaPostag(pos, feats string, lineNo int) (string, error) {
 }
 
 // decodeLemmaFor splits a source lemma by the document's language. A Latin
-// lemma's trailing digits are a source artefact (et1, ut1), not a homograph
-// number: they are stripped and no discriminator is recorded (ADR 0132).
+// lemma's one trailing digit is a source artefact (et1, ut1), not a homograph
+// number: it is stripped and no discriminator is recorded (ADR 0132). A lemma
+// that still has a digit (rex12 -> rex1) keeps its token in the text; Latin
+// vocabulary admission refuses it.
 func decodeLemmaFor(lemma string, latin bool) (headword, discriminator string) {
 	if !latin {
 		return decodeLemma(lemma)
@@ -234,14 +233,6 @@ func decodeLemmaFor(lemma string, latin bool) (headword, discriminator string) {
 		trimmed = lemma[:last]
 	}
 	return trimmed, ""
-}
-
-// olaLemmaHasDigit reports whether a Latin lemma still contains a digit after
-// the one trailing artefact digit is stripped; such a lemma (rex12) is not a
-// headword and the source is refused.
-func olaLemmaHasDigit(lemma string) bool {
-	headword, _ := decodeLemmaFor(lemma, true)
-	return strings.ContainsAny(headword, "0123456789")
 }
 
 // mapFeaturesFor maps a postag with the document language's value mapping.

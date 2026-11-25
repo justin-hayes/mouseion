@@ -120,15 +120,14 @@ func TestOlaCitationRangeSelectsSentencesByCitationOrder(t *testing.T) {
 func TestOlaSourceRefusesBadInput(t *testing.T) {
 	conllu, paula := olaFixture(latinSentences())
 	tests := map[string]struct{ conllu, paula []byte }{
-		"token without a Citation":        {conllu, []byte(strings.Replace(string(paula), `#t_3"`, `#t_999"`, 1))},
-		"leading-zero Citation":           {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="01.pr.1"`, 1))},
-		"unknown named section":           {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="1.zz.1"`, 1))},
-		"empty Citation layer":            {conllu, []byte(`<paula><featList></featList></paula>`)},
-		"broken XML":                      {conllu, []byte(`<paula><featList>`)},
-		"short token line":                {[]byte("# absolute_id = 0\n1\tx\n"), paula},
-		"unknown feature":                 {[]byte(strings.Replace(string(conllu), "Case=n|Gender=f|Number=s", "Case=n|Zodiac=f", 1)), paula},
-		"lemma with a multi-digit suffix": {[]byte(strings.Replace(string(conllu), "incolo1", "rex12", 1)), paula},
-		"no sentences":                    {[]byte("# only a comment\n"), paula},
+		"token without a Citation": {conllu, []byte(strings.Replace(string(paula), `#t_3"`, `#t_999"`, 1))},
+		"leading-zero Citation":    {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="01.pr.1"`, 1))},
+		"unknown named section":    {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="1.zz.1"`, 1))},
+		"empty Citation layer":     {conllu, []byte(`<paula><featList></featList></paula>`)},
+		"broken XML":               {conllu, []byte(`<paula><featList>`)},
+		"short token line":         {[]byte("# absolute_id = 0\n1\tx\n"), paula},
+		"unknown feature":          {[]byte(strings.Replace(string(conllu), "Case=n|Gender=f|Number=s", "Case=n|Zodiac=f", 1)), paula},
+		"no sentences":             {[]byte("# only a comment\n"), paula},
 	}
 	for name, input := range tests {
 		t.Run(name, func(t *testing.T) {
