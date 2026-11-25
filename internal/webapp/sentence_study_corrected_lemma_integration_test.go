@@ -25,8 +25,7 @@ func TestSentenceStudyShowsACorrectedGreekLemmaAsACitationForm(t *testing.T) {
 	importGreekFixture(t, ctx, store, learner.ID, registration.BookID, "oga-src-browse.conllu")
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	chosen := perform(t, h, http.MethodPost, "/active-study-language", url.Values{"csrf_token": {csrf}, "language": {"grc"}}, cookies)
-	require.Equal(t, http.StatusSeeOther, chosen.Code, "choose Ancient Greek as the study language: %s", chosen.Body.String())
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, registration.BookID, "δέω")
 	require.NoError(t, err)
@@ -46,7 +45,7 @@ func TestSentenceStudyShowsACorrectedGreekLemmaAsACitationForm(t *testing.T) {
 			"book": {registration.BookID}, "run": {run}, "corpus": {corpus}, "unit": {unit},
 			"sentence": {strconv.FormatInt(sentence, 10)}, "target": {strconv.FormatInt(target, 10)},
 		}
-		response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, "body=%s", response.Body.String())
 		return response.Body.String()
 	}

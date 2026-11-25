@@ -218,20 +218,20 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 }
 
 func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.T) {
-	valid := "/vocabulary/concordance?term=Haus&as=form&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
-	if got := safeConcordanceReturnURL(valid); got != valid {
+	valid := "/de/vocabulary/concordance?term=Haus&as=form&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
+	if got := safeConcordanceReturnURL(valid, "de"); got != valid {
 		t.Fatalf("safe return URL = %q, want %q", got, valid)
 	}
 	for _, invalid := range []string{
-		"https://example.com/", "//example.com/vocabulary/concordance?focus=x#x",
-		"/unrelated?focus=x#x", "/vocabulary/concordance?term=Haus&page=2&focus=x#y",
-		"/vocabulary/concordance?term=Haus&page=not-a-page&focus=x#x",
-		"/vocabulary/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
-		"/vocabulary/concordance?term=Haus&mode=surface&book=x&page=2&focus=x#x",
-		"/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b&from_snap=s&from_page=0#x",
-		"/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b#x",
+		"https://example.com/", "//example.com/de/vocabulary/concordance?focus=x#x",
+		"/unrelated?focus=x#x", "/de/vocabulary/concordance?term=Haus&page=2&focus=x#y",
+		"/de/vocabulary/concordance?term=Haus&page=not-a-page&focus=x#x",
+		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
+		"/de/vocabulary/concordance?term=Haus&mode=surface&book=x&page=2&focus=x#x",
+		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b&from_snap=s&from_page=0#x",
+		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b#x",
 	} {
-		if got := safeConcordanceReturnURL(invalid); got != "/vocabulary/concordance" {
+		if got := safeConcordanceReturnURL(invalid, "de"); got != "/de/vocabulary/concordance" {
 			t.Errorf("unsafe return URL %q accepted as %q", invalid, got)
 		}
 	}
@@ -239,8 +239,8 @@ func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.
 
 func TestSafeConcordanceReturnURLKeepsAValidBrowseOrigin(t *testing.T) {
 	origin := browseOrigin{BookID: "book-1", SnapshotID: "snap-1", Prefix: "ha", IncludeAll: true, Page: 2, Row: "NOUN:haus", Revision: "rev-1"}
-	valid := origin.Apply("/vocabulary/concordance?page=1&term=haus&focus=occurrence-book-1-0-0") + "#occurrence-book-1-0-0"
-	if got := safeConcordanceReturnURL(valid); got != valid {
+	valid := origin.Apply("/de/vocabulary/concordance?page=1&term=haus&focus=occurrence-book-1-0-0") + "#occurrence-book-1-0-0"
+	if got := safeConcordanceReturnURL(valid, "de"); got != valid {
 		t.Fatalf("return URL with origin = %q, want %q", got, valid)
 	}
 }
@@ -563,7 +563,7 @@ func TestConcordanceHandlerReportsReadFailures(t *testing.T) {
 			h, cookies, _, store := readingFixtureSession(t)
 			requireHandler(t, h).services.Store = storeDependencies(tc.store(store))
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/vocabulary/concordance?term=gehen", nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/vocabulary/concordance?term=gehen", nil)
 			for _, cookie := range cookies {
 				request.AddCookie(cookie)
 			}

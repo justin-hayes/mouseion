@@ -39,9 +39,9 @@ var studyLanguagePages = map[studyLanguagePageKind]studyLanguagePage{
 	pageKindMyBooks:       {Path: "library", Prefixed: true, Landing: pageKindMyBooks},
 	pageKindReading:       {Path: "reading", Landing: pageKindReading},
 	pageKindReadingSwitch: {Path: "reading/switch", Landing: pageKindReading},
-	pageKindVocabulary:    {Path: "vocabulary", Landing: pageKindVocabulary},
-	pageKindConcordance:   {Path: "vocabulary/concordance", Landing: pageKindConcordance},
-	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Landing: pageKindConcordance},
+	pageKindVocabulary:    {Path: "vocabulary", Prefixed: true, Landing: pageKindVocabulary},
+	pageKindConcordance:   {Path: "vocabulary/concordance", Prefixed: true, Landing: pageKindConcordance},
+	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Prefixed: true, Landing: pageKindConcordance},
 }
 
 // studyLanguagePath is the address of a page kind: prefixed with the language
