@@ -130,7 +130,7 @@ func (b *builder) admitLatinJoins(override classical.Override, source *ancientgr
 	if override.Translation != nil {
 		report.Gates = append(report.Gates, b.translationGates(override, evidence, units[0], translationLayer, hasTranslationLayer)...)
 	} else {
-		report.Gates = append(report.Gates, GateResult{Name: GateTranslationJoin, Passed: true, NotEvaluated: true, Detail: "the Work declares no translation"})
+		report.Gates = append(report.Gates, GateResult{Name: GateTranslationJoin, Detail: "the Work declares no translation; a Latin Work needs a tier A or B translation"})
 	}
 	switch {
 	case b.options.LatinLS != nil:
@@ -170,7 +170,7 @@ func (b *builder) translationGates(override classical.Override, evidence ancient
 	}
 	var segments []ancientgreek.ReferenceTranslation
 	if err == nil {
-		segments, err = ancientgreek.ParseReferenceTranslation(data, unit.start, unit.end)
+		segments, err = ancientgreek.ParseReferenceTranslationMeasured(data, unit.start, unit.end)
 	}
 	if err != nil {
 		return []GateResult{{Name: GateTranslationJoin, Detail: "the translation cannot be read against the Work"}}

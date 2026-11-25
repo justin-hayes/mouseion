@@ -220,15 +220,17 @@ func olaPostag(pos, feats string, lineNo int) (string, error) {
 }
 
 // decodeLemmaFor splits a source lemma by the document's language. A Latin
-// lemma's trailing digits are a source artefact (et1, ut1), not a homograph
-// number: they are stripped and no discriminator is recorded (ADR 0132).
+// lemma's one trailing digit is a source artefact (et1, ut1), not a homograph
+// number: it is stripped and no discriminator is recorded (ADR 0132). A lemma
+// that still has a digit (rex12 -> rex1) keeps its token in the text; Latin
+// vocabulary admission refuses it.
 func decodeLemmaFor(lemma string, latin bool) (headword, discriminator string) {
 	if !latin {
 		return decodeLemma(lemma)
 	}
-	trimmed := strings.TrimRight(lemma, "0123456789")
-	if trimmed == "" {
-		return lemma, ""
+	trimmed := lemma
+	if last := len(lemma) - 1; last > 0 && lemma[last] >= '0' && lemma[last] <= '9' {
+		trimmed = lemma[:last]
 	}
 	return trimmed, ""
 }

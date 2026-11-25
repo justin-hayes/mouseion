@@ -26,6 +26,37 @@ type ReferenceTranslation struct {
 // from the range so section-only and book/chapter/section work files are read
 // the same way. Sections are returned in citation order.
 func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
+	return parseReferenceTranslation(data, citationStart, citationEnd, false)
+}
+
+// ParseReferenceTranslationMeasured reads a translation for measurement rather
+// than admission. It accepts what the strict parser refuses as a misalignment:
+// gaps in the cited numbering are kept as gaps, and a translation keyed at a
+// shallower level than the range (a chapter-level file against section
+// Citations) is read at its own depth, so a join rate can be computed over it.
+// It still refuses a file that is not well-formed or has no cited section.
+func ParseReferenceTranslationMeasured(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
+	sections, err := parseReferenceTranslation(data, citationStart, citationEnd, true)
+	if err == nil {
+		return sections, nil
+	}
+	start, ok := parseCitation(citationStart)
+	end, endOK := parseCitation(citationEnd)
+	if !ok || !endOK || len(start) != len(end) {
+		return nil, err
+	}
+	for depth := len(start) - 1; depth >= 1; depth-- {
+		shallow, shallowErr := parseReferenceTranslation(data, start[:depth].String(), end[:depth].String(), true)
+		if shallowErr == nil {
+			return shallow, nil
+		}
+	}
+	return nil, err
+}
+
+// parseReferenceTranslation is the shared parser; lenient skips the
+// contiguity check.
+func parseReferenceTranslation(data []byte, citationStart, citationEnd string, lenient bool) ([]ReferenceTranslation, error) {
 	start, ok := parseCitation(citationStart)
 	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation start is not a citation"}
@@ -37,7 +68,7 @@ func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) (
 	if len(start) != len(end) || compareCitation(start, end) > 0 {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation range does not align"}
 	}
-	parser := &eng2Parser{start: start, end: end, depth: len(start), seen: make(map[string]struct{})}
+	parser := &eng2Parser{start: start, end: end, depth: len(start), seen: make(map[string]struct{}), lenient: lenient}
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	decoder.Strict = true
 	for {
@@ -88,6 +119,8 @@ type eng2Parser struct {
 	noteDepth  int
 	sections   []ReferenceTranslation
 	seen       map[string]struct{}
+	// lenient skips the contiguity check, for measurement.
+	lenient bool
 }
 
 // textpart is one open textpart div, whose numbers join into a citation.
@@ -219,11 +252,13 @@ func (p *eng2Parser) finish() error {
 	if len(p.sections) == 0 {
 		return &ImportError{Code: CodeMalformed, Detail: "no cited sections"}
 	}
-	if err := p.checkContiguous(); err != nil {
-		return err
+	if !p.lenient {
+		if err := p.checkContiguous(); err != nil {
+			return err
+		}
 	}
-	// checkContiguous validated every citation, so the sort comparator cannot
-	// see an unparseable key.
+	// Every emitted citation parsed in emit, so the sort comparator cannot see
+	// an unparseable key.
 	sort.SliceStable(p.sections, func(i, j int) bool {
 		left, _ := parseCitation(p.sections[i].Citation)
 		right, _ := parseCitation(p.sections[j].Citation)

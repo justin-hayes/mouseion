@@ -38,11 +38,14 @@ type LatinLSSense struct {
 // entry identity and Pin is the pinned revision it was derived from. Orth is
 // the source spelling with vowel-length marks.
 type LatinLSEntry struct {
-	EntryID  string         `json:"entry_id"`
-	Headword string         `json:"headword"`
-	Orth     string         `json:"orth,omitempty"`
-	Pin      string         `json:"pin,omitempty"`
-	Senses   []LatinLSSense `json:"senses,omitempty"`
+	EntryID  string `json:"entry_id"`
+	Headword string `json:"headword"`
+	Orth     string `json:"orth,omitempty"`
+	// Homograph is the source's own L&S number (dīco¹, dīco²), taken from the
+	// entry key. Zero means the key carried none.
+	Homograph int            `json:"homograph,omitempty"`
+	Pin       string         `json:"pin,omitempty"`
+	Senses    []LatinLSSense `json:"senses,omitempty"`
 }
 
 // Empty reports whether the entry is the zero value.

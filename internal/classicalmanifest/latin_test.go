@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -107,7 +108,7 @@ func newLatinFixture(t *testing.T, sentences ...[]latinToken) latinFixture {
 	layers, err := json.Marshal(classical.Layers{Layers: []classical.Layer{layer}})
 	require.NoError(t, err)
 	revision := 1
-	return latinFixture{
+	fixture := latinFixture{
 		upstream: upstream, layers: layers, conllu: conllu, paula: paula,
 		override: classical.Override{
 			WorkKey: "caesar-gallic-war", WorkTitle: "Gallic War", WorkAuthor: "Caesar", OriginalTitle: "De bello Gallico",
@@ -116,6 +117,45 @@ func newLatinFixture(t *testing.T, sentences ...[]latinToken) latinFixture {
 			Split:  classical.SplitWholeWork, Revision: &revision, Note: "Synthetic curatorial sign-off.",
 		},
 	}
+	// A Latin Work needs a translation (gate iii), so every fixture carries one
+	// covering each section it cites; a test of the gate replaces or drops it.
+	translation, pair := coveringTranslation(sentences)
+	return fixture.withTranslationData(t, translation, pair)
+}
+
+// coveringTranslation is a perseus-eng2-shaped file with a segment for every
+// book.section the sentences cite, and the first such Citation for the spot
+// check.
+func coveringTranslation(sentences [][]latinToken) ([]byte, string) {
+	var order []string
+	sections := map[string][]string{}
+	first := ""
+	for _, sentence := range sentences {
+		for _, token := range sentence {
+			book, section, ok := strings.Cut(token.citation, ".")
+			if !ok || strings.Contains(section, ".") || slices.Contains(sections[book], section) {
+				continue
+			}
+			if _, seen := sections[book]; !seen {
+				order = append(order, book)
+			}
+			sections[book] = append(sections[book], section)
+			if first == "" {
+				first = token.citation
+			}
+		}
+	}
+	var out strings.Builder
+	out.WriteString(`<TEI>`)
+	for _, book := range order {
+		fmt.Fprintf(&out, `<div type="textpart" subtype="book" n="%s">`, book)
+		for _, section := range sections[book] {
+			fmt.Fprintf(&out, `<div type="textpart" subtype="section" n="%s"><p>Segment %s.%s.</p></div>`, section, book, section)
+		}
+		out.WriteString(`</div>`)
+	}
+	out.WriteString(`</TEI>`)
+	return []byte(out.String()), first
 }
 
 func sha256Hex(data []byte) string {
@@ -290,7 +330,8 @@ func TestLatinGateReportListsEveryGateOfEveryWork(t *testing.T) {
 		"- Gates for caesar-gallic-war:",
 		"  - citations: pass (44 tokens, all cited, none backwards)",
 		"  - split-words: pass (0 of 40 words, 0.000%, limit 2.000%)",
-		"  - translation-join: not evaluated (the Work declares no translation)",
+		"  - translation-join: pass (4 of 4 sentences, 100.000%, floor 98.000%)",
+		"  - spot-check: pass (Justin checked 1 pair(s))",
 		"  - dictionary-match: not evaluated (no dictionary index was given; generation evaluates it)",
 		"",
 	}, "\n"), report)

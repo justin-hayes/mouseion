@@ -45,9 +45,10 @@ XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
 # from counting as a homograph (ticket #2214); format 6 (and non-LSJ format 4)
 # adds French form-of links and headword membership for lemma-risk review
 # (ticket #2244); format 7 (and non-LSJ format 5) adds the word-to-multi-word
-# idiom lookup (ticket #2361).
+# idiom lookup (ticket #2361); format 8 (and non-LSJ format 5) adds the source's
+# Lewis & Short homograph number to each ls_entries row (spec #2674 story 44).
 INDEX_FORMAT_VERSION = 5
-LSJ_INDEX_FORMAT_VERSION = 7
+LSJ_INDEX_FORMAT_VERSION = 8
 # Idiom candidates are two to four words. Longer expressions are not idioms for
 # the matcher; shorter ones are a single lemma already.
 IDIOM_MIN_WORDS = 2
@@ -152,7 +153,8 @@ CREATE TABLE ls_entries (
     entry_id TEXT NOT NULL,
     headword TEXT NOT NULL,
     orth TEXT NOT NULL,
-    senses_json TEXT NOT NULL
+    senses_json TEXT NOT NULL,
+    homograph INTEGER NOT NULL
 );
 CREATE TABLE french_forms (
     form TEXT NOT NULL,
@@ -200,7 +202,8 @@ INSERT_LSJ_ENTRIES_SQL = (
     "INSERT INTO lsj_entries(entry_id, headword, senses_json, subordinate) VALUES (?, ?, ?, ?)"
 )
 INSERT_LS_ENTRIES_SQL = (
-    "INSERT INTO ls_entries(entry_id, headword, orth, senses_json) VALUES (?, ?, ?, ?)"
+    "INSERT INTO ls_entries(entry_id, headword, orth, senses_json, homograph) "
+    "VALUES (?, ?, ?, ?, ?)"
 )
 INSERT_FRENCH_FORMS_SQL = (
     "INSERT INTO french_forms(form, upos, target, participle, evidence_id) VALUES (?, ?, ?, ?, ?)"
@@ -1434,6 +1437,14 @@ def ls_definition(text: str) -> str:
     return "" if not text or ls_is_abbreviation(text) else text
 
 
+def ls_homograph_number(key: str) -> int:
+    """The source's homograph number: the key's trailing digits (Pennus2 -> 2),
+    or 0 for an entry whose key carries none."""
+    stripped = key.strip()
+    digits = stripped[len(strip_trailing_digits(stripped)) :]
+    return int(digits) if digits else 0
+
+
 def ls_id_order(identifier: str) -> tuple[int, ...]:
     """Order a source id by its numeric parts, so n9.10 follows n9.2."""
     return tuple(
@@ -1584,6 +1595,7 @@ def ls_entry(element) -> dict | None:
         "key": key.strip(),
         "headword": headword,
         "orth": lsj_first_orth(element),
+        "homograph": ls_homograph_number(key),
         "senses": ls_entry_level_sense(entry_id, entry_content) + contents,
     }
 
@@ -1611,7 +1623,7 @@ def ls_resolve(entries: list[dict]) -> None:
                     reference["headword"] = candidates[0]["headword"]
 
 
-def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str]]:
+def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str, int]]:
     entries: list[dict] = []
     for path in sorted(ls_dir.glob(LS_FILE)):
         # Operator-supplied and digest-pinned, as for LSJ.
@@ -1628,6 +1640,7 @@ def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str]]:
             entry["headword"],
             entry["orth"],
             json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")),
+            entry["homograph"],
         )
         for entry in entries
     ]
@@ -1668,7 +1681,7 @@ class DerivedRows:
     entries: dict[tuple[str, str, str], dict]
     greek_entries: list[tuple[str, str, str, str, str]]
     lsj_entries: list[tuple[str, str, str, int]]
-    ls_entries: list[tuple[str, str, str, str]]
+    ls_entries: list[tuple[str, str, str, str, int]]
     french_forms: list[tuple[str, str, str, int, str]]
     french_headwords: list[tuple[str, str]]
     idiom_entries: list[tuple[str, str, str, str, str, str, str]]

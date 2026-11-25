@@ -680,7 +680,7 @@ func (b *builder) loadTranslation(override classical.Override, unit plannedUnit,
 		return nil, "", fmt.Errorf("classical: translation layer for %s is not admissible", unit.key)
 	}
 	spec := override.Translation
-	pin, note, found, err := b.readTranslationFile(layer, spec, unit)
+	pin, note, found, err := b.readTranslationFile(layer, spec, unit, isLatinWork(override))
 	if err != nil {
 		return nil, "", err
 	}
@@ -704,7 +704,7 @@ func (b *builder) loadTranslation(override classical.Override, unit plannedUnit,
 }
 
 // readTranslationFile verifies a translation file when it is present.
-func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.TranslationSpec, unit plannedUnit) (*classical.TranslationPin, string, bool, error) {
+func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.TranslationSpec, unit plannedUnit, latin bool) (*classical.TranslationPin, string, bool, error) {
 	path, pathErr := resolveUpstream(b.options.UpstreamDir, spec.FileName)
 	if pathErr != nil {
 		return nil, "", false, nil //nolint:nilerr // no upstream directory is not an error in verify mode.
@@ -722,7 +722,15 @@ func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.Tra
 	if err := requirePassageAttribution(layer, spec.FileName); err != nil {
 		return nil, "", false, err
 	}
-	if _, err := ancientgreek.InspectTranslation(data, unit.start, unit.end); err != nil {
+	var err error
+	if latin {
+		// A Latin translation is measured by gate (iii); a gap or a coarser key
+		// lowers its join rate instead of refusing the Work.
+		_, err = ancientgreek.ParseReferenceTranslationMeasured(data, unit.start, unit.end)
+	} else {
+		_, err = ancientgreek.InspectTranslation(data, unit.start, unit.end)
+	}
+	if err != nil {
 		return nil, "", false, err
 	}
 	pin := &classical.TranslationPin{

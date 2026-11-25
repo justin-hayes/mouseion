@@ -177,3 +177,22 @@ func TestParseReferenceTranslationReadsLatinNamedAndSuffixedSections(t *testing.
 	_, err = ParseReferenceTranslation([]byte(gap), "1.pr.1", "1.pr.3")
 	assertImportCode(t, err, CodeMalformed)
 }
+
+func TestMeasuredTranslationReadsGapsAndCoarserKeys(t *testing.T) {
+	gapped := []byte(`<TEI><div type="textpart" subtype="book" n="1"><div type="textpart" subtype="section" n="1"><p>One.</p></div><div type="textpart" subtype="section" n="3"><p>Three.</p></div></div></TEI>`)
+	_, err := ParseReferenceTranslation(gapped, "1.1", "1.3")
+	require.Error(t, err, "the strict reader refuses a gap")
+	sections, err := ParseReferenceTranslationMeasured(gapped, "1.1", "1.3")
+	require.NoError(t, err)
+	require.Len(t, sections, 2)
+	assert.Equal(t, "1.3", sections[1].Citation)
+
+	coarse := []byte(`<TEI><div type="textpart" subtype="book" n="1"><p>Book one.</p></div></TEI>`)
+	sections, err = ParseReferenceTranslationMeasured(coarse, "1.1", "1.3")
+	require.NoError(t, err)
+	require.Len(t, sections, 1)
+	assert.Equal(t, "1", sections[0].Citation)
+
+	_, err = ParseReferenceTranslationMeasured([]byte(`<TEI><div>`), "1.1", "1.3")
+	require.Error(t, err)
+}

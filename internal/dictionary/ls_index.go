@@ -16,6 +16,10 @@ import (
 // the Lewis & Short table.
 const latinLanguage = "la"
 
+// indexFormatWithLSHomograph is the index format whose ls_entries rows carry
+// the source's homograph number.
+const indexFormatWithLSHomograph = 8
+
 // loadLatinLS loads the derived Lewis & Short entries and their pinned
 // revision, keyed by the latin profile. Without an ls_pin the table was never
 // derived and Latin reports unavailable; a pin with a missing table is an
@@ -28,7 +32,14 @@ func (i *Index) loadLatinLS(ctx context.Context) error {
 	if pin == "" {
 		return nil
 	}
-	rows, err := i.db.QueryContext(ctx, `SELECT entry_id, headword, orth, senses_json FROM ls_entries`)
+	// Format 8 added the source's homograph number; an older index has none.
+	query := `SELECT entry_id, headword, orth, senses_json, 0 FROM ls_entries`
+	if version, ok, formatErr := i.indexFormat(ctx); formatErr != nil {
+		return formatErr
+	} else if ok && version >= indexFormatWithLSHomograph {
+		query = `SELECT entry_id, headword, orth, senses_json, homograph FROM ls_entries`
+	}
+	rows, err := i.db.QueryContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("%w: ls schema: %w", ErrInvalidIndex, err)
 	}
@@ -36,7 +47,8 @@ func (i *Index) loadLatinLS(ctx context.Context) error {
 	entries := make(map[string][]enrichment.LatinLSEntry)
 	for rows.Next() {
 		var entryID, headword, orth, sensesJSON string
-		if err = rows.Scan(&entryID, &headword, &orth, &sensesJSON); err != nil {
+		var homograph int
+		if err = rows.Scan(&entryID, &headword, &orth, &sensesJSON, &homograph); err != nil {
 			return fmt.Errorf("%w: ls row: %w", ErrInvalidIndex, err)
 		}
 		key, admitted := latinKey(headword)
@@ -48,7 +60,7 @@ func (i *Index) loadLatinLS(ctx context.Context) error {
 		if err = json.Unmarshal([]byte(sensesJSON), &senses); err != nil {
 			return fmt.Errorf("%w: ls senses: %w", ErrInvalidIndex, err)
 		}
-		entries[key] = append(entries[key], enrichment.LatinLSEntry{EntryID: entryID, Headword: headword, Orth: orth, Pin: pin, Senses: senses})
+		entries[key] = append(entries[key], enrichment.LatinLSEntry{EntryID: entryID, Headword: headword, Orth: orth, Homograph: homograph, Pin: pin, Senses: senses})
 	}
 	if err = rows.Err(); err != nil {
 		return fmt.Errorf("%w: ls rows: %w", ErrInvalidIndex, err)
