@@ -1109,6 +1109,36 @@ type StudyBatchLedger struct {
 	UpdatedAt       time.Time
 }
 
+type StudyFluencyContext struct {
+	ID                         string
+	OwnerID                    string
+	ProgressID                 string
+	Agreement                  string
+	BookID                     string
+	AnalysisRunID              string
+	CorpusID                   string
+	SentenceOrdinal            int64
+	TokenOrdinal               int64
+	Sentence                   string
+	TargetWord                 string
+	Gloss                      string
+	SentenceTranslation        string
+	SentenceTranslationTargets []byte
+	FormSurface                string
+	FormFeatures               string
+	FormSplit                  bool
+	CreatedAt                  time.Time
+}
+
+type StudyFluencyResponse struct {
+	ID          string
+	OwnerID     string
+	ContextID   string
+	Response    string
+	RespondedAt time.Time
+	CreatedAt   time.Time
+}
+
 type StudyMaterial struct {
 	ID                         string
 	OwnerID                    string
