@@ -7,10 +7,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -154,4 +156,82 @@ func TestFetchArchiveMembersRefusesAnUnknownPin(t *testing.T) {
 		require.ErrorAs(t, err, &refusal)
 		assert.Equal(t, classical.CodeSourceLayerUnknown, refusal.Code)
 	})
+}
+
+// countingTransport counts the response body bytes the client reads.
+type countingTransport struct {
+	base http.RoundTripper
+	read atomic.Int64
+}
+
+type countingBody struct {
+	io.ReadCloser
+	read *atomic.Int64
+}
+
+func (b countingBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	b.read.Add(int64(n))
+	return n, err //nolint:wrapcheck // a transparent wrapper
+}
+
+func (t *countingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	response, err := t.base.RoundTrip(r)
+	if err != nil {
+		return nil, err //nolint:wrapcheck // a transparent wrapper
+	}
+	response.Body = countingBody{ReadCloser: response.Body, read: &t.read}
+	return response, nil
+}
+
+func TestFetchArchiveMembersNeverReadsAnIgnoredRangeBody(t *testing.T) {
+	archive, pin := archiveFixture(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(archive) //nolint:errcheck // a closed test connection is the test's concern
+	}))
+	t.Cleanup(server.Close)
+	config, target := archiveConfig(archive, pin, server)
+	counter := &countingTransport{base: server.Client().Transport}
+	config.HTTPClient = &http.Client{Transport: counter}
+
+	_, err := config.fetchArchiveMembers(t.Context(), target, time.Minute)
+	var refusal *classical.PreparationError
+	require.ErrorAs(t, err, &refusal)
+	assert.Equal(t, classical.CodePinMismatch, refusal.Code)
+	assert.LessOrEqual(t, counter.read.Load(), pin.Members[0].CompressedSize, "no more than the pinned member's compressed size is read")
+}
+
+func TestFetchArchiveMembersRefusesMemberChecksumMismatches(t *testing.T) {
+	for name, tamper := range map[string]func(*classical.ArchiveMember){
+		"CRC-32":  func(m *classical.ArchiveMember) { m.CRC32 = "deadbeef" },
+		"SHA-256": func(m *classical.ArchiveMember) { m.SHA256 = strings.Repeat("0", 64) },
+		"size":    func(m *classical.ArchiveMember) { m.Size++ },
+	} {
+		for index := range 2 {
+			t.Run(fmt.Sprintf("%s of member %d", name, index), func(t *testing.T) {
+				archive, pin := archiveFixture(t)
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					first, last, _ := strings.Cut(strings.TrimPrefix(r.Header.Get("Range"), "bytes="), "-")
+					start, startErr := strconv.Atoi(first)
+					end, endErr := strconv.Atoi(last)
+					if startErr != nil || endErr != nil {
+						http.Error(w, "bad range", http.StatusBadRequest)
+						return
+					}
+					w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(archive)))
+					w.WriteHeader(http.StatusPartialContent)
+					_, _ = w.Write(archive[start : end+1]) //nolint:errcheck // a closed test connection is the test's concern
+				}))
+				t.Cleanup(server.Close)
+				pin.Members = append([]classical.ArchiveMember(nil), pin.Members...)
+				tamper(&pin.Members[index])
+				config, target := archiveConfig(archive, pin, server)
+
+				_, err := config.fetchArchiveMembers(t.Context(), target, time.Minute)
+				var refusal *classical.PreparationError
+				require.ErrorAs(t, err, &refusal)
+				assert.Equal(t, classical.CodePinMismatch, refusal.Code)
+			})
+		}
+	}
 }
