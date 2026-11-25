@@ -78,7 +78,6 @@ func TestCatalogueSyncRetainsEntryCoversWithoutBooksAndRefreshesOnChange(t *test
 	args := f.pendingEntryCoverArgs()
 	require.Len(t, args, 1)
 	assert.Equal(t, "entry-1", args[0].SourceIdentifier)
-	assert.Empty(t, f.pendingCoverArgs())
 	indexed := f.indexedEntry("entry-1")
 	assert.False(t, indexed.CoverRetained, "a pending cover is not retained")
 

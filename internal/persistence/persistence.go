@@ -311,18 +311,12 @@ func (s *PostgresStore) DeleteOpdsConnection(ctx context.Context, ownerID, id st
 		if affected == 0 {
 			return ErrNotFound
 		}
-		if _, err := q.LockBookCoversForConnection(ctx, sqlcgen.LockBookCoversForConnectionParams{OwnerID: ownerID, ConnectionID: id}); err != nil {
+		// A cover a Book selects outlives its connection (ADR 0130); the rest go
+		// with it, and a retrieval that can no longer run is unavailable.
+		if err := q.DeleteUnusedCatalogEntryCoversForConnection(ctx, sqlcgen.DeleteUnusedCatalogEntryCoversForConnectionParams{OwnerID: ownerID, ConnectionID: id}); err != nil {
 			return err
 		}
-		if err := q.DeleteBookCoverCandidatesForConnection(ctx, sqlcgen.DeleteBookCoverCandidatesForConnectionParams{OwnerID: ownerID, ConnectionID: id}); err != nil {
-			return err
-		}
-		if err := q.ResolveBookCoverAfterConnectionDeletion(ctx, ownerID); err != nil {
-			return err
-		}
-		// No Book references an entry cover yet, so the whole connection's
-		// entry covers go with it.
-		return q.DeleteCatalogEntryCoversForConnection(ctx, sqlcgen.DeleteCatalogEntryCoversForConnectionParams{OwnerID: ownerID, ConnectionID: id})
+		return q.SettlePendingCatalogEntryCoversForConnection(ctx, sqlcgen.SettlePendingCatalogEntryCoversForConnectionParams{OwnerID: ownerID, ConnectionID: id})
 	})
 }
 

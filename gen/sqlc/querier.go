@@ -21,7 +21,6 @@ type Querier interface {
 	AttachDeckPreparationVocabulary(ctx context.Context, arg AttachDeckPreparationVocabularyParams) error
 	AttachPreparedDeckBatchReconciliationJob(ctx context.Context, arg AttachPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AttachPreparedDeckRun(ctx context.Context, arg AttachPreparedDeckRunParams) (int64, error)
-	BookCoverCandidateExists(ctx context.Context, arg BookCoverCandidateExistsParams) (bool, error)
 	// A released snapshot proves the Book held the Current reading role even after
 	// the reading ended, so an unstarted Book is one with no snapshot.
 	BookEverCurrentReading(ctx context.Context, arg BookEverCurrentReadingParams) (bool, error)
@@ -51,7 +50,6 @@ type Querier interface {
 	ClaimPreparedDeckBatchSubmission(ctx context.Context, arg ClaimPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	ClaimPreparedDeckFinalization(ctx context.Context, arg ClaimPreparedDeckFinalizationParams) (ClaimPreparedDeckFinalizationRow, error)
 	ClaimPreparedDeckTranslationOutcome(ctx context.Context, arg ClaimPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
-	ClearBookCover(ctx context.Context, arg ClearBookCoverParams) error
 	CompleteDeckPreparation(ctx context.Context, arg CompleteDeckPreparationParams) (DeckPreparation, error)
 	CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error)
 	CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error)
@@ -67,11 +65,9 @@ type Querier interface {
 	// exclusion: a duplicate cannot change EXISTS.
 	ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
-	CountBookCoverCandidates(ctx context.Context, arg CountBookCoverCandidatesParams) (int, error)
 	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
-	CountPendingBookCoverCandidates(ctx context.Context, arg CountPendingBookCoverCandidatesParams) (int, error)
 	CountPreparedDeckRunOutcomeStates(ctx context.Context, arg CountPreparedDeckRunOutcomeStatesParams) (CountPreparedDeckRunOutcomeStatesRow, error)
 	CreateCurrentReadingSnapshot(ctx context.Context, arg CreateCurrentReadingSnapshotParams) (CreateCurrentReadingSnapshotRow, error)
 	CreateDeckPreparation(ctx context.Context, arg CreateDeckPreparationParams) (DeckPreparation, error)
@@ -83,12 +79,12 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
 	DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error)
-	DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
-	DeleteCatalogEntryCoversForConnection(ctx context.Context, arg DeleteCatalogEntryCoversForConnectionParams) error
 	// Removes the covers of entries that left the index or no longer advertise an
-	// image. Only a complete run reaches this (explicit absence).
+	// image, except one a Book still selects: a Book keeps the image of an entry
+	// that left the index (ADR 0077). An entry that explicitly stopped advertising
+	// one has already had its Books demoted.
 	DeleteCatalogEntryCoversNotAdvertised(ctx context.Context, arg DeleteCatalogEntryCoversNotAdvertisedParams) (int64, error)
 	DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteCatalogueEntriesNotSeenParams) (int64, error)
 	DeleteClassicalPreparationFailure(ctx context.Context, arg DeleteClassicalPreparationFailureParams) error
@@ -99,8 +95,12 @@ type Querier interface {
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
 	DeleteSession(ctx context.Context, tokenHash string) error
+	// A deleted connection takes the covers no Book selects; a selected image stays.
+	DeleteUnusedCatalogEntryCoversForConnection(ctx context.Context, arg DeleteUnusedCatalogEntryCoversForConnectionParams) error
 	DeleteUserSessions(ctx context.Context, userID string) error
-	DemoteBookCoverToPending(ctx context.Context, arg DemoteBookCoverToPendingParams) error
+	// Explicit absence (ADR 0077): the entry is in the index but advertises no
+	// image, so every Book that selected it gives the selection up.
+	DemoteBookCoversForAbsentEntries(ctx context.Context, arg DemoteBookCoversForAbsentEntriesParams) ([]string, error)
 	DownloadDeckPreparation(ctx context.Context, arg DownloadDeckPreparationParams) (DeckPreparation, error)
 	EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error)
 	FailDeckPreparationTranslation(ctx context.Context, arg FailDeckPreparationTranslationParams) (int64, error)
@@ -123,14 +123,12 @@ type Querier interface {
 	GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error)
 	GetBookCatalogEntryAlias(ctx context.Context, arg GetBookCatalogEntryAliasParams) (GetBookCatalogEntryAliasRow, error)
 	GetBookCatalogEntryAliasForConnection(ctx context.Context, arg GetBookCatalogEntryAliasForConnectionParams) (GetBookCatalogEntryAliasForConnectionRow, error)
-	// Cover metadata is projected into my_books_evidence; bytes are read only by
-	// the authenticated cover endpoint. The selected source is the Catalog entry
-	// that owns the retained display image; only that source may replace or
-	// explicitly remove it. While no image is selected, another alias may become
-	// the candidate that the next successful retrieval selects.
+	// A Book's cover resolves through the Catalog entry it selected (ADR 0130).
+	// book_covers is only the selection pointer; the image and its retrieval state
+	// live in catalog_entry_covers. Cover bytes are read only by the authenticated
+	// cover endpoint; every other projection is byte-free.
 	GetBookCover(ctx context.Context, arg GetBookCoverParams) (GetBookCoverRow, error)
-	GetBookCoverForRetrieval(ctx context.Context, arg GetBookCoverForRetrievalParams) (GetBookCoverForRetrievalRow, error)
-	GetBookCoverForUpdate(ctx context.Context, arg GetBookCoverForUpdateParams) (GetBookCoverForUpdateRow, error)
+	GetBookCoverResource(ctx context.Context, arg GetBookCoverResourceParams) (GetBookCoverResourceRow, error)
 	// Book dispositions are owner-scoped learner intent. Legacy workflow
 	// mutations synchronize this row until the Journey cutover is complete.
 	GetBookDisposition(ctx context.Context, arg GetBookDispositionParams) (string, error)
@@ -280,7 +278,6 @@ type Querier interface {
 	HasUsers(ctx context.Context) (bool, error)
 	InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error)
 	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
-	InsertBookCoverCandidate(ctx context.Context, arg InsertBookCoverCandidateParams) (int64, error)
 	InsertBookMembership(ctx context.Context, arg InsertBookMembershipParams) error
 	InsertBookReadingUnit(ctx context.Context, arg InsertBookReadingUnitParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
@@ -472,7 +469,6 @@ type Querier interface {
 	// and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
 	// three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)
-	LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error)
 	// Catalog index queries. A sync reconciles one connection's run of entries in
 	// a single transaction: upsert everything it saw, then delete what the
 	// complete run did not see. Ownership is checked through the connection.
@@ -483,9 +479,6 @@ type Querier interface {
 	LockCurrentReadingsForBook(ctx context.Context, arg LockCurrentReadingsForBookParams) ([]string, error)
 	LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
-	MarkBookCoverCandidateFailed(ctx context.Context, arg MarkBookCoverCandidateFailedParams) (int64, error)
-	MarkBookCoverCandidateSucceeded(ctx context.Context, arg MarkBookCoverCandidateSucceededParams) error
-	MarkBookCoverUnavailable(ctx context.Context, arg MarkBookCoverUnavailableParams) error
 	// A failed retrieval keeps any retained image and records the reason.
 	MarkCatalogEntryCoverUnavailable(ctx context.Context, arg MarkCatalogEntryCoverUnavailableParams) (int64, error)
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
@@ -517,24 +510,18 @@ type Querier interface {
 	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
-	RecordBookCoverGenerationFailure(ctx context.Context, arg RecordBookCoverGenerationFailureParams) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
-	RefreshBookCoverAdvertisement(ctx context.Context, arg RefreshBookCoverAdvertisementParams) error
-	RegisterBookCoverCandidate(ctx context.Context, arg RegisterBookCoverCandidateParams) (int64, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	RemoveUnchosenBookMembership(ctx context.Context) (int64, error)
 	RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error)
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
-	ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
-	RetireBookCoverCandidate(ctx context.Context, arg RetireBookCoverCandidateParams) (int64, error)
 	RetireDeckPreparationForSnapshot(ctx context.Context, arg RetireDeckPreparationForSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
 	RetryPreparedDeckBatchSubmission(ctx context.Context, arg RetryPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
 	RetryPreparedDeckTranslationOutcome(ctx context.Context, arg RetryPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
-	SaveBookCover(ctx context.Context, arg SaveBookCoverParams) error
 	// Fenced by the advertisement generation: a stale completion changes nothing.
 	SaveCatalogEntryCover(ctx context.Context, arg SaveCatalogEntryCoverParams) (int64, error)
 	// Sentence selection and review queries. SelectAcquisitionCandidate is the
@@ -542,8 +529,13 @@ type Querier interface {
 	// an unconditional predicate of the form ($book = '' OR source = $book) keeps
 	// the statement statically analyzable.
 	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
+	// First success selects (ADR 0077): every Book aliasing the entry selects it
+	// once its image is available, unless it already selects an available image.
+	// A selection whose entry has no image yet gives way to an available one.
+	SelectBookCoversFromEntry(ctx context.Context, arg SelectBookCoversFromEntryParams) error
+	// Another alias with an available image becomes the demoted Books' fallback.
+	SelectFallbackBookCovers(ctx context.Context, arg SelectFallbackBookCoversParams) error
 	SetActiveStudyLanguage(ctx context.Context, arg SetActiveStudyLanguageParams) (int64, error)
-	SetBookCoverPending(ctx context.Context, arg SetBookCoverPendingParams) error
 	SetCatalogueSyncStatus(ctx context.Context, arg SetCatalogueSyncStatusParams) error
 	SetCurrentContentRevision(ctx context.Context, arg SetCurrentContentRevisionParams) error
 	SetCurrentSnapshot(ctx context.Context, arg SetCurrentSnapshotParams) error
@@ -554,6 +546,9 @@ type Querier interface {
 	SetPreparedDeckTranslationJob(ctx context.Context, arg SetPreparedDeckTranslationJobParams) (int64, error)
 	SetSourceMaterialBook(ctx context.Context, arg SetSourceMaterialBookParams) error
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
+	// A retrieval that can never run again, because its connection is gone, is
+	// unavailable rather than pending forever.
+	SettlePendingCatalogEntryCoversForConnection(ctx context.Context, arg SettlePendingCatalogEntryCoversForConnectionParams) error
 	// Fenced prepared-deck transitions. The domain rules (claim-token validation,
 	// expected-state WHERE guards, bounded-error validation, lost-claim rechecks)
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING

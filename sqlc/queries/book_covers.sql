@@ -1,241 +1,98 @@
--- Cover metadata is projected into my_books_evidence; bytes are read only by
--- the authenticated cover endpoint. The selected source is the Catalog entry
--- that owns the retained display image; only that source may replace or
--- explicitly remove it. While no image is selected, another alias may become
--- the candidate that the next successful retrieval selects.
+-- A Book's cover resolves through the Catalog entry it selected (ADR 0130).
+-- book_covers is only the selection pointer; the image and its retrieval state
+-- live in catalog_entry_covers. Cover bytes are read only by the authenticated
+-- cover endpoint; every other projection is byte-free.
 
 -- name: GetBookCover :one
-SELECT owner_id::text,
-       book_id::text,
-       state,
-       (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
-       selected_source_identifier,
-       media_type,
-       width,
-       height,
-       content_hash,
-       bytes,
-       advertised_at,
-       fetched_at,
-       updated_at,
-       failure_reason
-FROM book_covers
+SELECT state, width, height
+FROM book_cover_states
 WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
 
--- name: GetActiveBookCoverResource :one
-SELECT c.owner_id::text,
-       c.book_id::text,
-       c.state,
-       (COALESCE(c.selected_connection_id::text, ''))::text AS selected_connection_id,
-       c.selected_source_identifier,
+-- name: GetBookCoverResource :one
+SELECT bc.owner_id::text AS owner_id,
+       bc.book_id::text AS book_id,
        c.media_type,
+       c.content_hash,
        c.width,
        c.height,
+       c.bytes
+FROM book_covers bc
+JOIN catalog_entry_covers c
+  ON c.owner_id = bc.owner_id
+ AND c.connection_id = bc.selected_connection_id
+ AND c.entry_identifier = bc.selected_source_identifier
+ AND c.state = 'available'
+WHERE bc.owner_id = sqlc.arg('owner') AND bc.book_id = sqlc.arg('book');
+
+-- name: GetActiveBookCoverResource :one
+SELECT bc.owner_id::text AS owner_id,
+       bc.book_id::text AS book_id,
+       c.media_type,
        c.content_hash,
-       c.bytes,
-       c.advertised_at,
-       c.fetched_at,
-       c.updated_at,
-       c.failure_reason
-FROM book_covers c
-JOIN book_membership m ON m.owner_id = c.owner_id AND m.book_id = c.book_id AND m.state = 'active'
-WHERE c.owner_id = sqlc.arg('owner') AND c.book_id = sqlc.arg('book');
+       c.width,
+       c.height,
+       c.bytes
+FROM book_covers bc
+JOIN book_membership m ON m.owner_id = bc.owner_id AND m.book_id = bc.book_id AND m.state = 'active'
+JOIN catalog_entry_covers c
+  ON c.owner_id = bc.owner_id
+ AND c.connection_id = bc.selected_connection_id
+ AND c.entry_identifier = bc.selected_source_identifier
+ AND c.state = 'available'
+WHERE bc.owner_id = sqlc.arg('owner') AND bc.book_id = sqlc.arg('book');
 
--- name: GetBookCoverForUpdate :one
-SELECT state,
-       (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
-       (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier,
-       advertised_at
-FROM book_covers
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
-FOR UPDATE;
-
--- name: GetBookCoverForRetrieval :one
-SELECT state,
-       (COALESCE(selected_connection_id::text, ''))::text AS selected_connection_id,
-       (COALESCE(selected_source_identifier, ''))::text AS selected_source_identifier,
-       (COALESCE(failure_reason, ''))::text AS failure_reason,
-       advertised_at
-FROM book_covers
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
-
--- name: InsertBookCoverCandidate :execrows
-INSERT INTO book_covers (owner_id, book_id, state, selected_connection_id, selected_source_identifier, advertised_at, updated_at)
-VALUES (
-    sqlc.arg('owner'),
-    sqlc.arg('book'),
-    sqlc.arg('state'),
-    CASE WHEN sqlc.arg('advertised') THEN sqlc.arg('connection')::uuid ELSE NULL END,
-    CASE WHEN sqlc.arg('advertised') THEN sqlc.arg('source_identifier')::text ELSE NULL END,
-    now(),
-    now()
-)
-ON CONFLICT (owner_id, book_id) DO NOTHING;
-
--- name: RegisterBookCoverCandidate :execrows
-INSERT INTO book_cover_candidates (owner_id, book_id, connection_id, source_identifier, advertised_at, state, updated_at)
-VALUES (sqlc.arg('owner'), sqlc.arg('book'), sqlc.arg('connection'), sqlc.arg('source_identifier'), sqlc.arg('advertised_at'), 'pending', now())
-ON CONFLICT (owner_id, book_id, connection_id, source_identifier, advertised_at) DO NOTHING;
-
--- name: MarkBookCoverCandidateSucceeded :exec
-UPDATE book_cover_candidates
-SET state = 'succeeded', failure_reason = NULL, updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND connection_id = sqlc.arg('connection')
-  AND source_identifier = sqlc.arg('source_identifier')
-  AND advertised_at = sqlc.arg('advertised_at');
-
--- name: RetireBookCoverCandidate :execrows
-DELETE FROM book_cover_candidates
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND connection_id = sqlc.arg('connection')
-  AND source_identifier = sqlc.arg('source_identifier')
-  AND advertised_at = sqlc.arg('advertised_at');
-
--- name: BookCoverCandidateExists :one
-SELECT EXISTS(
+-- name: SelectBookCoversFromEntry :exec
+-- First success selects (ADR 0077): every Book aliasing the entry selects it
+-- once its image is available, unless it already selects an available image.
+-- A selection whose entry has no image yet gives way to an available one.
+INSERT INTO book_covers (owner_id, book_id, selected_connection_id, selected_source_identifier, updated_at)
+SELECT a.owner_id, a.book_id, a.connection_id, a.value, now()
+FROM book_aliases AS a
+JOIN catalog_entry_covers AS c
+  ON c.owner_id = a.owner_id AND c.connection_id = a.connection_id AND c.entry_identifier = a.value AND c.state = 'available'
+WHERE a.owner_id = sqlc.arg('owner')
+  AND a.connection_id = sqlc.arg('connection')
+  AND a.namespace = 'source_identifier'
+  AND a.value = sqlc.arg('entry_identifier')
+ON CONFLICT (owner_id, book_id) DO UPDATE
+SET selected_connection_id = EXCLUDED.selected_connection_id,
+    selected_source_identifier = EXCLUDED.selected_source_identifier,
+    updated_at = now()
+WHERE NOT EXISTS (
     SELECT 1
-    FROM book_cover_candidates
-    WHERE owner_id = sqlc.arg('owner')
-      AND book_id = sqlc.arg('book')
-      AND connection_id = sqlc.arg('connection')
-      AND source_identifier = sqlc.arg('source_identifier')
-      AND advertised_at = sqlc.arg('advertised_at')
+    FROM catalog_entry_covers AS current
+    WHERE current.owner_id = book_covers.owner_id
+      AND current.connection_id = book_covers.selected_connection_id
+      AND current.entry_identifier = book_covers.selected_source_identifier
+      AND current.state = 'available'
 );
 
--- name: MarkBookCoverCandidateFailed :execrows
-UPDATE book_cover_candidates
-SET state = 'failed', failure_reason = sqlc.arg('failure_reason'), updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND connection_id = sqlc.arg('connection')
-  AND source_identifier = sqlc.arg('source_identifier')
-  AND advertised_at = sqlc.arg('advertised_at')
-  AND state = 'pending';
+-- name: DemoteBookCoversForAbsentEntries :many
+-- Explicit absence (ADR 0077): the entry is in the index but advertises no
+-- image, so every Book that selected it gives the selection up.
+DELETE FROM book_covers AS bc
+USING catalogue_entries AS e
+WHERE bc.owner_id = sqlc.arg('owner')
+  AND bc.selected_connection_id = sqlc.arg('connection')
+  AND e.connection_id = bc.selected_connection_id
+  AND e.entry_identifier = bc.selected_source_identifier
+  AND e.cover_href = ''
+RETURNING bc.book_id::text AS book_id;
 
--- name: CountPendingBookCoverCandidates :one
-SELECT count(*)::int
-FROM book_cover_candidates
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND advertised_at = sqlc.arg('advertised_at')
-  AND state = 'pending';
-
--- name: CountBookCoverCandidates :one
-SELECT count(*)::int
-FROM book_cover_candidates
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND advertised_at = sqlc.arg('advertised_at');
-
--- name: RecordBookCoverGenerationFailure :exec
-UPDATE book_covers
-SET failure_reason = sqlc.arg('failure_reason'), updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND advertised_at = sqlc.arg('advertised_at')
-  AND state = 'pending';
-
--- name: SetBookCoverPending :exec
-UPDATE book_covers
-SET state = 'pending',
-    selected_connection_id = sqlc.arg('connection'),
-    selected_source_identifier = sqlc.arg('source_identifier'),
-    media_type = NULL,
-    width = NULL,
-    height = NULL,
-    content_hash = NULL,
-    bytes = NULL,
-    fetched_at = NULL,
-    failure_reason = NULL,
-    advertised_at = now(),
-    updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
-
--- name: RefreshBookCoverAdvertisement :exec
-UPDATE book_covers
-SET failure_reason = NULL,
-    advertised_at = clock_timestamp(),
-    updated_at = clock_timestamp()
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND state IN ('available', 'pending');
-
--- name: ClearBookCover :exec
-UPDATE book_covers
-SET state = 'none',
-    selected_connection_id = NULL,
-    selected_source_identifier = NULL,
-    media_type = NULL,
-    width = NULL,
-    height = NULL,
-    content_hash = NULL,
-    bytes = NULL,
-    fetched_at = NULL,
-    advertised_at = NULL,
-    failure_reason = NULL,
-    updated_at = now()
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book');
-
--- name: DemoteBookCoverToPending :exec
-UPDATE book_covers
-SET state = 'pending',
-    selected_connection_id = NULL,
-    selected_source_identifier = NULL,
-    media_type = NULL,
-    width = NULL,
-    height = NULL,
-    content_hash = NULL,
-    bytes = NULL,
-    fetched_at = NULL,
-    failure_reason = NULL,
-    updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-  AND book_id = sqlc.arg('book')
-  AND advertised_at = sqlc.arg('advertised_at');
-
--- name: SaveBookCover :exec
-UPDATE book_covers AS cover
-SET state = 'available',
-    selected_connection_id = sqlc.arg('connection'),
-    selected_source_identifier = sqlc.arg('source_identifier'),
-    media_type = sqlc.arg('media_type'),
-    width = sqlc.arg('width'),
-    height = sqlc.arg('height'),
-    content_hash = sqlc.arg('content_hash'),
-    bytes = sqlc.arg('bytes'),
-    fetched_at = now(),
-    failure_reason = NULL,
-    updated_at = now()
-WHERE cover.owner_id = sqlc.arg('owner')
-  AND cover.book_id = sqlc.arg('book')
-  AND cover.advertised_at IS NOT DISTINCT FROM sqlc.arg('advertised_at')
-  AND EXISTS (
+-- name: SelectFallbackBookCovers :exec
+-- Another alias with an available image becomes the demoted Books' fallback.
+INSERT INTO book_covers (owner_id, book_id, selected_connection_id, selected_source_identifier, updated_at)
+SELECT DISTINCT ON (a.owner_id, a.book_id) a.owner_id, a.book_id, c.connection_id, c.entry_identifier, now()
+FROM book_aliases AS a
+JOIN catalog_entry_covers AS c
+  ON c.owner_id = a.owner_id AND c.connection_id = a.connection_id AND c.entry_identifier = a.value AND c.state = 'available'
+WHERE a.owner_id = sqlc.arg('owner')
+  AND a.book_id = ANY (sqlc.arg('book_ids')::uuid[])
+  AND a.namespace = 'source_identifier'
+  AND NOT EXISTS (
       SELECT 1
-      FROM book_cover_candidates AS candidate
-      WHERE candidate.owner_id = cover.owner_id
-        AND candidate.book_id = cover.book_id
-        AND candidate.connection_id = sqlc.arg('connection')
-        AND candidate.source_identifier = sqlc.arg('source_identifier')
-        AND candidate.advertised_at = sqlc.arg('advertised_at')
-        AND candidate.state IN ('pending', 'failed')
+      FROM catalogue_entries AS e
+      WHERE e.connection_id = c.connection_id AND e.entry_identifier = c.entry_identifier AND e.cover_href = ''
   )
-  AND (cover.state IN ('pending', 'unavailable')
-       OR (cover.selected_connection_id = sqlc.arg('connection')
-           AND cover.selected_source_identifier = sqlc.arg('source_identifier')))
-  AND (cover.state <> 'available' OR cover.content_hash IS DISTINCT FROM sqlc.arg('content_hash'));
-
--- name: MarkBookCoverUnavailable :exec
-UPDATE book_covers
-SET state = CASE WHEN state = 'available' THEN state ELSE 'unavailable' END,
-    bytes = CASE WHEN state = 'available' THEN bytes ELSE NULL END,
-    media_type = CASE WHEN state = 'available' THEN media_type ELSE NULL END,
-    width = CASE WHEN state = 'available' THEN width ELSE NULL END,
-    height = CASE WHEN state = 'available' THEN height ELSE NULL END,
-    content_hash = CASE WHEN state = 'available' THEN content_hash ELSE NULL END,
-    failure_reason = sqlc.arg('failure_reason'), updated_at = now()
-WHERE owner_id = sqlc.arg('owner')
-   AND book_id = sqlc.arg('book')
-   AND advertised_at IS NOT DISTINCT FROM sqlc.arg('advertised_at');
+ORDER BY a.owner_id, a.book_id, a.created_at, a.id
+ON CONFLICT (owner_id, book_id) DO NOTHING;

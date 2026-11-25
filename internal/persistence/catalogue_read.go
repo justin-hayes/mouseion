@@ -94,6 +94,10 @@ func createReadCatalogueBookTx(ctx context.Context, q *sqlcgen.Queries, owner, c
 	}); err != nil {
 		return domain.CatalogueReadResult{}, aliasConflictError(err)
 	}
+	// An entry whose cover is already retained shows it at once (ADR 0130).
+	if err := selectBookCoversFromEntry(ctx, q, owner, connectionID, entryIdentifier); err != nil {
+		return domain.CatalogueReadResult{}, err
+	}
 	if _, err := insertPreviouslyReadTx(ctx, q, owner, book.ID); err != nil {
 		return domain.CatalogueReadResult{}, err
 	}

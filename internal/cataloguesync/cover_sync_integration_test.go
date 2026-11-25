@@ -5,7 +5,6 @@ package cataloguesync
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -197,21 +196,22 @@ type coverFixture struct {
 	catalog     *coverCatalog
 	opdsService *opds.Service
 	syncWorker  *Worker
-	coverWorker *CoverWorker
 	ownerID     string
 	connection  domain.OpdsConnection
 }
 
-type blockingCoverStore struct {
-	coverStore
+// blockingEntryCoverStore pauses a retrieval completion at the persistence
+// boundary so a test can change the Catalog around it.
+type blockingEntryCoverStore struct {
+	entryCoverStore
 	saveStarted chan struct{}
 	releaseSave chan struct{}
 }
 
-func (s *blockingCoverStore) SaveBookCover(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time, mediaType string, width, height int, contentHash string, bytes []byte) error {
+func (s *blockingEntryCoverStore) SaveCatalogEntryCover(ctx context.Context, owner, connectionID, entryIdentifier string, advertisedAt time.Time, mediaType string, width, height int, contentHash string, bytes []byte) error {
 	close(s.saveStarted)
 	<-s.releaseSave
-	return s.coverStore.SaveBookCover(ctx, owner, bookID, connectionID, sourceIdentifier, advertisedAt, mediaType, width, height, contentHash, bytes)
+	return s.entryCoverStore.SaveCatalogEntryCover(ctx, owner, connectionID, entryIdentifier, advertisedAt, mediaType, width, height, contentHash, bytes)
 }
 
 func newCoverFixture(t *testing.T) *coverFixture {
@@ -238,36 +238,13 @@ func newCoverFixture(t *testing.T) *coverFixture {
 	capabilities := fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}
 	return &coverFixture{
 		t: t, ctx: ctx, store: store, client: client, catalog: catalog, opdsService: opdsService,
-		syncWorker:  &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: opdsService, Capabilities: capabilities, Client: client},
-		coverWorker: &CoverWorker{Connections: store, Catalogue: store, Reader: opdsService, Capabilities: capabilities},
-		ownerID:     owner.ID, connection: connection,
+		syncWorker: &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: opdsService, Capabilities: capabilities, Client: client},
+		ownerID:    owner.ID, connection: connection,
 	}
 }
 
 func (f *coverFixture) sync(connectionID string) error {
 	return f.syncWorker.Work(f.ctx, &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: f.ownerID, ConnectionID: connectionID}})
-}
-
-// pendingCoverArgs returns the live cover jobs River currently holds.
-func (f *coverFixture) pendingCoverArgs() []CoverArgs {
-	f.t.Helper()
-	rows, err := f.store.Pool().Query(f.ctx, `SELECT args FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND state::text=ANY($3::text[]) ORDER BY id`, CoverKind, f.ownerID, liveRiverStates())
-	require.NoError(f.t, err)
-	defer rows.Close()
-	var args []CoverArgs
-	for rows.Next() {
-		var raw []byte
-		require.NoError(f.t, rows.Scan(&raw))
-		var decoded CoverArgs
-		require.NoError(f.t, json.Unmarshal(raw, &decoded))
-		args = append(args, decoded)
-	}
-	require.NoError(f.t, rows.Err())
-	return args
-}
-
-func (f *coverFixture) runCoverJob(args CoverArgs) error {
-	return f.coverWorker.Work(f.ctx, &river.Job[CoverArgs]{Args: args})
 }
 
 func (f *coverFixture) bookByTitle(title string) domain.Book {
@@ -283,16 +260,34 @@ func (f *coverFixture) bookByTitle(title string) domain.Book {
 	return domain.Book{}
 }
 
-func (f *coverFixture) coverState(bookID string) domain.BookCoverRetrieval {
+// coverState is the Book's byte-free cover presentation state.
+func (f *coverFixture) coverState(bookID string) string {
 	f.t.Helper()
-	cover, err := f.store.GetBookCoverForRetrieval(f.ctx, f.ownerID, bookID)
+	cover, err := f.store.GetBookCover(f.ctx, f.ownerID, bookID)
 	require.NoError(f.t, err)
-	return cover
+	return cover.State
+}
+
+// selectedEntry reports the Catalog entry a Book's cover resolves through.
+func (f *coverFixture) selectedEntry(bookID string) (connectionID, entryIdentifier string) {
+	f.t.Helper()
+	err := f.store.Pool().QueryRow(f.ctx, `SELECT selected_connection_id::text, selected_source_identifier FROM book_covers WHERE owner_id=$1 AND book_id=$2`, f.ownerID, bookID).Scan(&connectionID, &entryIdentifier)
+	if err != nil {
+		return "", ""
+	}
+	return connectionID, entryIdentifier
+}
+
+// runAllEntryCovers completes every live entry retrieval job.
+func (f *coverFixture) runAllEntryCovers() {
+	f.t.Helper()
+	for _, args := range f.pendingEntryCoverArgs() {
+		require.NoError(f.t, f.runEntryCoverJob(args))
+	}
 }
 
 // seedBook creates the learner's chosen Book for an entry, so sync has a
-// linked Book whose cover advertisement it can reconcile. Sync itself never
-// creates Books.
+// linked Book. Sync itself never creates Books.
 func (f *coverFixture) seedBook(t *testing.T, connectionID string, entry coverEntry) {
 	t.Helper()
 	require.NoError(t, f.store.ReconcileCatalogueIndex(f.ctx, f.ownerID, connectionID, []domain.CatalogueIndexEntry{{
@@ -303,6 +298,8 @@ func (f *coverFixture) seedBook(t *testing.T, connectionID string, entry coverEn
 	require.NoError(t, err)
 }
 
+// establishCover adds the entry as a Book, syncs, completes the entry's
+// retrieval, and returns the Book with the bytes its cover resolves to.
 func (f *coverFixture) establishCover(t *testing.T, entry coverEntry, image coverImage) (domain.Book, []byte) {
 	t.Helper()
 	f.catalog.setImage(entry.imageHref, image)
@@ -310,71 +307,39 @@ func (f *coverFixture) establishCover(t *testing.T, entry coverEntry, image cove
 	f.seedBook(t, f.connection.ID, entry)
 	require.NoError(t, f.sync(f.connection.ID))
 	book := f.bookByTitle(entry.title)
-	args := f.pendingCoverArgs()
+	args := f.pendingEntryCoverArgs()
 	require.Len(t, args, 1)
-	require.NoError(t, f.runCoverJob(args[0]))
+	require.NoError(t, f.runEntryCoverJob(args[0]))
 	resource, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, resource.Bytes)
 	return book, resource.Bytes
 }
 
-func TestCatalogueSyncCoverInitialRetrievalRepeatAndReplacement(t *testing.T) {
+// addAlias gives a Book a second Catalog-entry alias on another connection.
+func (f *coverFixture) addAlias(bookID, connectionID, entryIdentifier string) {
+	f.t.Helper()
+	_, err := f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
+		f.ownerID, bookID, connectionID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, entryIdentifier)
+	require.NoError(f.t, err)
+}
+
+func TestCatalogueSyncBookCoverResolvesThroughRetainedEntryCover(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
-	book, _ := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
-
-	cover := f.coverState(book.ID)
-	require.Equal(t, domain.BookCoverAvailable, cover.State)
-	require.Equal(t, f.connection.ID, cover.SelectedConnectionID)
-	require.Equal(t, "entry-1", cover.SelectedSourceIdentifier)
-	first, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
+	connectionID, entryID := f.selectedEntry(book.ID)
+	assert.Equal(t, f.connection.ID, connectionID)
+	assert.Equal(t, "entry-1", entryID)
+	entryCover, err := f.entryCover("entry-1")
 	require.NoError(t, err)
+	assert.Equal(t, retained, entryCover.Bytes, "the Book and the Catalog card share one image")
 
-	// Repeated sync keeps the selected source stable while creating a new
-	// retrieval generation. The old live job must not suppress the replacement.
+	// An unchanged, already-retained advertisement is not fetched again: ADR
+	// 0077 requires no refetch of an image whose advertised URL did not change.
 	require.NoError(t, f.sync(f.connection.ID))
-	repeatArgs := f.pendingCoverArgs()
-	require.Len(t, repeatArgs, 2)
-	assert.NotEqual(t, repeatArgs[0].AdvertisedAt, repeatArgs[1].AdvertisedAt)
-	var currentArgs, staleArgs CoverArgs
-	for _, args := range repeatArgs {
-		if args.AdvertisedAt.After(cover.AdvertisedAt) {
-			currentArgs = args
-		} else {
-			staleArgs = args
-		}
-	}
-	require.NotEmpty(t, currentArgs.AdvertisedAt)
-	require.NotEmpty(t, staleArgs.AdvertisedAt)
-	require.NoError(t, f.runCoverJob(staleArgs))
-	repeated, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, first.ContentHash, repeated.ContentHash)
-
-	// A changed image from the selected entry leaves the prior image visible
-	// until the replacement validates and swaps atomically.
-	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
-	require.NoError(t, f.sync(f.connection.ID))
-	beforeReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, first.ContentHash, beforeReplacement.ContentHash, "prior image was replaced before the new image validated")
-	replacementArgs := f.pendingCoverArgs()
-	require.Len(t, replacementArgs, 3)
-	var newestArgs CoverArgs
-	for _, args := range replacementArgs {
-		if args.AdvertisedAt.After(newestArgs.AdvertisedAt) {
-			newestArgs = args
-		}
-	}
-	require.NoError(t, f.runCoverJob(currentArgs))
-	intermediate, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, first.ContentHash, intermediate.ContentHash, "stale replacement completed after a newer reconciliation")
-	require.NoError(t, f.runCoverJob(newestArgs))
-	afterReplacement, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.NotEqual(t, first.ContentHash, afterReplacement.ContentHash)
+	assert.Len(t, f.pendingEntryCoverArgs(), 1, "unchanged retained cover was scheduled again")
 }
 
 func TestCatalogueSyncOversizedCalibreWebJPEGPreservesColorAndReplacesRetainedBlackRaster(t *testing.T) {
@@ -388,35 +353,26 @@ func TestCatalogueSyncOversizedCalibreWebJPEGPreservesColorAndReplacesRetainedBl
 	require.NoError(t, err)
 	assert.Equal(t, color.NRGBA{A: 255}, color.NRGBAModel.Convert(retainedImage.At(300, 450)))
 
-	// A normal catalog sync must replace a previously retained legacy raster;
-	// no learner-facing repair action is involved.
+	// A changed advertised image is replaced by a normal sync; a stale
+	// completion cannot overwrite the retained raster.
 	colored := testJPEG(t, 1200, 1800, color.RGBA{R: 220, G: 40, B: 30, A: 255})
-	f.catalog.setImage(entry.imageHref, coverImage{body: colored, contentType: "image/jpeg"})
+	f.catalog.setImage("/a/image/calibre-v2.jpg", coverImage{body: colored, contentType: "image/jpeg"})
+	entry.imageHref = "/a/image/calibre-v2.jpg"
+	f.catalog.setEntries("/a", entry)
 	require.NoError(t, f.sync(f.connection.ID))
-	args := f.pendingCoverArgs()
+	args := f.pendingEntryCoverArgs()
 	require.Len(t, args, 2)
-	var stale, replacement CoverArgs
+	replacement := newestEntryCoverArgs(t, args)
 	for _, candidate := range args {
-		if candidate.AdvertisedAt.After(replacement.AdvertisedAt) {
-			if !replacement.AdvertisedAt.IsZero() {
-				stale = replacement
-			}
-			replacement = candidate
-		} else {
-			stale = candidate
+		if candidate != replacement {
+			require.NoError(t, f.runEntryCoverJob(candidate))
 		}
 	}
-	require.NotEmpty(t, stale.BookID)
-	require.NoError(t, f.runCoverJob(stale))
 	stillRetained, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, retained, stillRetained.Bytes, "stale completion replaced the retained raster")
-	require.NoError(t, f.runCoverJob(replacement))
+	require.NoError(t, f.runEntryCoverJob(replacement))
 
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
-	assert.Equal(t, f.connection.ID, cover.SelectedConnectionID)
-	assert.Equal(t, entry.id, cover.SelectedSourceIdentifier)
 	resource, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 600, resource.Width)
@@ -426,142 +382,35 @@ func TestCatalogueSyncOversizedCalibreWebJPEGPreservesColorAndReplacesRetainedBl
 	assertCoverPixelNear(t, updated.At(300, 450), color.NRGBA{R: 220, G: 40, B: 30, A: 255}, 12)
 }
 
-func TestCatalogueSyncCoverDuplicateFailureAfterSuccessIsIgnored(t *testing.T) {
+func TestCatalogueSyncBookCoverCompletionAfterConnectionDeletionKeepsRetainedCover(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
 	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
-	args := f.pendingCoverArgs()
-	require.Len(t, args, 1)
 
-	// A rescued failure from the successful initial job must not add a
-	// diagnostic or alter the retained image.
-	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
-	require.Error(t, f.runCoverJob(args[0]))
-	require.Error(t, f.runCoverJob(args[0]))
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
-	assert.Empty(t, cover.FailureReason)
-	preserved, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, retained, preserved.Bytes)
-
-	// A new selected-source generation is still allowed to record its own
-	// failure while retaining the prior validated image.
-	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
+	f.catalog.setImage("/a/image/two.png", coverImage{body: testPNG(t, 200), contentType: "image/png"})
+	entry.imageHref = "/a/image/two.png"
+	f.catalog.setEntries("/a", entry)
 	require.NoError(t, f.sync(f.connection.ID))
-	replacementArgs := f.pendingCoverArgs()
-	require.Len(t, replacementArgs, 2)
-	var current CoverArgs
-	for _, candidate := range replacementArgs {
-		if candidate.AdvertisedAt.After(current.AdvertisedAt) {
-			current = candidate
-		}
-	}
-	require.NotEmpty(t, current.AdvertisedAt)
-	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("still not an image"), contentType: "image/png"})
-	require.Error(t, f.runCoverJob(current))
-	failed := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, failed.State)
-	assert.NotEmpty(t, failed.FailureReason)
-	require.Error(t, f.runCoverJob(current))
-	repeated := f.coverState(book.ID)
-	assert.Equal(t, failed.FailureReason, repeated.FailureReason)
-	preserved, err = f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, retained, preserved.Bytes)
+	current := newestEntryCoverArgs(t, f.pendingEntryCoverArgs())
 
-	// The same replacement candidate can recover, and a later duplicate failure
-	// remains fenced after that success as well.
-	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 220), contentType: "image/png"})
-	require.NoError(t, f.runCoverJob(current))
-	recovered := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, recovered.State)
-	assert.Empty(t, recovered.FailureReason)
-	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("late duplicate"), contentType: "image/png"})
-	require.Error(t, f.runCoverJob(current))
-	late := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, late.State)
-	assert.Empty(t, late.FailureReason)
-}
-
-func TestCatalogueSyncCoverStaleWorkerCompletionAfterReplacementReconciliation(t *testing.T) {
-	f := newCoverFixture(t)
-	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
-	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
-	oldArgs := f.pendingCoverArgs()[0]
-	blocking := &blockingCoverStore{coverStore: f.store, saveStarted: make(chan struct{}), releaseSave: make(chan struct{})}
-	worker := &CoverWorker{Connections: f.store, Catalogue: blocking, Reader: f.opdsService, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
+	blocking := &blockingEntryCoverStore{entryCoverStore: f.store, saveStarted: make(chan struct{}), releaseSave: make(chan struct{})}
+	worker := &EntryCoverWorker{Connections: f.store, Catalogue: blocking, Reader: f.opdsService}
 	completed := make(chan error, 1)
-	go func() {
-		completed <- worker.Work(f.ctx, &river.Job[CoverArgs]{Args: oldArgs})
-	}()
-
-	// The old worker has fetched and normalized its image, but has not yet
-	// persisted it. Reconciliation now advances the selected-source generation.
+	go func() { completed <- worker.Work(f.ctx, &river.Job[EntryCoverArgs]{Args: current}) }()
 	<-blocking.saveStarted
-	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
-	require.NoError(t, f.sync(f.connection.ID))
-	args := f.pendingCoverArgs()
-	require.Len(t, args, 2)
-	var currentArgs CoverArgs
-	for _, candidate := range args {
-		if candidate.AdvertisedAt.After(currentArgs.AdvertisedAt) {
-			currentArgs = candidate
-		}
-	}
-	require.True(t, currentArgs.AdvertisedAt.After(oldArgs.AdvertisedAt))
-	close(blocking.releaseSave)
-	require.NoError(t, <-completed)
-
-	intermediate, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, retained, intermediate.Bytes)
-	require.NoError(t, f.runCoverJob(currentArgs))
-	updated, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
-	require.NoError(t, err)
-	assert.NotEqual(t, retained, updated.Bytes)
-}
-
-func TestCatalogueSyncCoverCompletionAfterConnectionDeletionPreservesRetainedCover(t *testing.T) {
-	f := newCoverFixture(t)
-	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
-	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
-
-	// Reconciliation creates a current replacement candidate while retaining the
-	// validated image. Delete the connection after retrieval has reached the
-	// persistence boundary, then let the completion continue.
-	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/png"})
-	require.NoError(t, f.sync(f.connection.ID))
-	args := f.pendingCoverArgs()
-	require.Len(t, args, 2)
-	var current CoverArgs
-	for _, candidate := range args {
-		if candidate.AdvertisedAt.After(current.AdvertisedAt) {
-			current = candidate
-		}
-	}
-	require.NotEmpty(t, current.BookID)
-
-	blocking := &blockingCoverStore{coverStore: f.store, saveStarted: make(chan struct{}), releaseSave: make(chan struct{})}
-	worker := &CoverWorker{Connections: f.store, Catalogue: blocking, Reader: f.opdsService, Capabilities: fakeCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
-	completed := make(chan error, 1)
-	go func() {
-		completed <- worker.Work(f.ctx, &river.Job[CoverArgs]{Args: current})
-	}()
-	<-blocking.saveStarted
-
 	require.NoError(t, f.store.DeleteOpdsConnection(f.ctx, f.ownerID, f.connection.ID))
 	close(blocking.releaseSave)
 	require.NoError(t, <-completed)
 
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
+	// The Book still resolves to an image through its stored selection.
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 	resource, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
-	assert.Equal(t, retained, resource.Bytes)
+	assert.NotEmpty(t, resource.Bytes)
+	assert.NotEmpty(t, retained)
 }
 
-func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
+func TestCatalogueSyncBookCoverValidatesEveryMediaTypeClaim(t *testing.T) {
 	tests := []struct {
 		name            string
 		imageType       string
@@ -594,178 +443,65 @@ func TestCatalogueSyncCoverValidatesEveryMediaTypeClaim(t *testing.T) {
 			assert.Equal(t, domain.CatalogueSyncSynced, status.State)
 
 			book := f.bookByTitle(entry.title)
-			args := f.pendingCoverArgs()
+			args := f.pendingEntryCoverArgs()
 			require.Len(t, args, 1)
-			err = f.runCoverJob(args[0])
+			err = f.runEntryCoverJob(args[0])
 			if tt.wantAvailable {
 				require.NoError(t, err)
-				assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
+				assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 				return
 			}
 
 			require.Error(t, err)
-			cover := f.coverState(book.ID)
-			assert.Equal(t, domain.BookCoverUnavailable, cover.State)
-			assert.NotEmpty(t, cover.FailureReason)
+			assert.Equal(t, domain.BookCoverUnavailable, f.coverState(book.ID))
 			_, err = f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 			assert.ErrorIs(t, err, persistence.ErrNotFound)
 		})
 	}
 }
 
-func TestCatalogueSyncCoverFailedInitialCandidateLeavesAliasFallbackEligible(t *testing.T) {
-	f := newCoverFixture(t)
-	second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})
-	require.NoError(t, err)
-	entryA := coverEntry{id: "entry-a", title: "Fallback Book", imageHref: "/a/image/a.png"}
-	f.catalog.setImage(entryA.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
-	f.catalog.setEntries("/a", entryA)
-	f.seedBook(t, f.connection.ID, entryA)
-	require.NoError(t, f.sync(f.connection.ID))
-	book := f.bookByTitle(entryA.title)
-	_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
-		f.ownerID, book.ID, second.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "entry-b")
-	require.NoError(t, err)
-
-	entryB := coverEntry{id: "entry-b", title: entryA.title, imageHref: "/b/image/b.png"}
-	f.catalog.setImage(entryB.imageHref, coverImage{body: testPNG(t, 220), contentType: "image/png"})
-	f.catalog.setEntries("/b", entryB)
-	require.NoError(t, f.sync(second.ID))
-	// Re-advertising the provisional source must refresh its retrieval without
-	// fencing out the fallback candidate from the same generation.
-	require.NoError(t, f.sync(f.connection.ID))
-
-	var first, fallback CoverArgs
-	for _, candidate := range f.pendingCoverArgs() {
-		if candidate.BookID != book.ID {
-			continue
-		}
-		switch candidate.SourceIdentifier {
-		case entryA.id:
-			first = candidate
-		case entryB.id:
-			fallback = candidate
-		}
-	}
-	require.NotEmpty(t, first.BookID)
-	require.NotEmpty(t, fallback.BookID)
-	require.Error(t, f.runCoverJob(first))
-	assert.Equal(t, domain.BookCoverPending, f.coverState(book.ID).State)
-	require.NoError(t, f.runCoverJob(fallback))
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
-	assert.Equal(t, second.ID, cover.SelectedConnectionID)
-	assert.Equal(t, entryB.id, cover.SelectedSourceIdentifier)
-}
-
-func TestCatalogueSyncCoverFailedGenerationRecoversOnFallbackRetry(t *testing.T) {
-	f := newCoverFixture(t)
-	second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})
-	require.NoError(t, err)
-	entryA := coverEntry{id: "entry-a", title: "Retry Book", imageHref: "/a/image/a.png"}
-	entryB := coverEntry{id: "entry-b", title: entryA.title, imageHref: "/b/image/b.png"}
-	f.catalog.setImage(entryA.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
-	f.catalog.setEntries("/a", entryA)
-	f.seedBook(t, f.connection.ID, entryA)
-	require.NoError(t, f.sync(f.connection.ID))
-	book := f.bookByTitle(entryA.title)
-	_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
-		f.ownerID, book.ID, second.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, entryB.id)
-	require.NoError(t, err)
-	f.catalog.setImage(entryB.imageHref, coverImage{body: []byte("not an image either"), contentType: "image/png"})
-	f.catalog.setEntries("/b", entryB)
-	require.NoError(t, f.sync(second.ID))
-
-	var first, fallback CoverArgs
-	for _, candidate := range f.pendingCoverArgs() {
-		if candidate.BookID != book.ID {
-			continue
-		}
-		switch candidate.SourceIdentifier {
-		case entryA.id:
-			first = candidate
-		case entryB.id:
-			fallback = candidate
-		}
-	}
-	require.NotEmpty(t, first.BookID)
-	require.NotEmpty(t, fallback.BookID)
-	require.Error(t, f.runCoverJob(first))
-	require.Error(t, f.runCoverJob(fallback))
-	assert.Equal(t, domain.BookCoverUnavailable, f.coverState(book.ID).State)
-
-	// Retrying the unchanged fallback job after validation succeeds recovers
-	// the Book without a new advertisement generation.
-	f.catalog.setImage(entryB.imageHref, coverImage{body: testPNG(t, 220), contentType: "image/png"})
-	require.NoError(t, f.runCoverJob(fallback))
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
-	assert.Equal(t, second.ID, cover.SelectedConnectionID)
-	assert.Equal(t, entryB.id, cover.SelectedSourceIdentifier)
-}
-
-func TestCatalogueSyncCoverMediaTypeMismatchPreservesReplacement(t *testing.T) {
+func TestCatalogueSyncBookCoverMediaTypeMismatchPreservesReplacement(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
 	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
 
-	// Both declarations are supplied, but the response disagrees with the
-	// selected OPDS source and decoded PNG. The retained image remains visible.
 	entry.imageType = "image/png"
+	entry.imageHref = "/a/image/two.png"
 	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 200), contentType: "image/jpeg"})
 	f.catalog.setEntries("/a", entry)
 	require.NoError(t, f.sync(f.connection.ID))
-	args := f.pendingCoverArgs()
-	require.Len(t, args, 2)
-	var currentArgs CoverArgs
-	for _, candidate := range args {
-		if candidate.AdvertisedAt.After(currentArgs.AdvertisedAt) {
-			currentArgs = candidate
-		}
-	}
-	require.Error(t, f.runCoverJob(currentArgs))
+	require.Error(t, f.runEntryCoverJob(newestEntryCoverArgs(t, f.pendingEntryCoverArgs())))
 
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
-	assert.NotEmpty(t, cover.FailureReason)
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 	preserved, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, retained, preserved.Bytes)
 }
 
-func TestCatalogueSyncCoverAbsencePreservesOnUncertainty(t *testing.T) {
+func TestCatalogueSyncBookCoverAbsencePreservesOnUncertainty(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
 	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
 
-	// A missing entry preserves the retained image.
+	// A missing entry preserves the image a Book uses.
 	f.catalog.setEntries("/a")
 	require.NoError(t, f.sync(f.connection.ID))
-	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 
-	// A failed feed traversal fails sync but preserves the retained image.
+	// A failed feed traversal fails sync but preserves it.
 	f.catalog.setEntries("/a", entry)
 	f.catalog.setFeedError(true)
 	require.Error(t, f.sync(f.connection.ID))
-	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 	f.catalog.setFeedError(false)
 
-	// An invalid replacement preserves the prior image and stays diagnosable
-	// without failing catalog sync.
-	f.catalog.setImage(entry.imageHref, coverImage{body: []byte("not an image"), contentType: "image/png"})
+	// An invalid replacement preserves the prior image and does not fail sync.
+	f.catalog.setImage("/a/image/bad.png", coverImage{body: []byte("not an image"), contentType: "image/png"})
+	entry.imageHref = "/a/image/bad.png"
+	f.catalog.setEntries("/a", entry)
 	require.NoError(t, f.sync(f.connection.ID))
-	failedArgs := f.pendingCoverArgs()
-	require.Len(t, failedArgs, 2)
-	var currentArgs CoverArgs
-	for _, candidate := range failedArgs {
-		if candidate.AdvertisedAt.After(currentArgs.AdvertisedAt) {
-			currentArgs = candidate
-		}
-	}
-	require.Error(t, f.runCoverJob(currentArgs))
-	cover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, cover.State)
-	assert.NotEmpty(t, cover.FailureReason)
+	require.Error(t, f.runEntryCoverJob(newestEntryCoverArgs(t, f.pendingEntryCoverArgs())))
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 	status, err := f.store.GetCatalogueSyncStatus(f.ctx, f.ownerID, f.connection.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.CatalogueSyncSynced, status.State)
@@ -773,163 +509,104 @@ func TestCatalogueSyncCoverAbsencePreservesOnUncertainty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, retained, preserved.Bytes)
 
-	// A complete successful reconciliation that finds the selected entry with
-	// no recognized image link removes that selected cover.
+	// A complete reconciliation that finds the selected entry with no image
+	// link is explicit absence: the Book's selection and the entry row go.
 	f.catalog.setEntries("/a", coverEntry{id: "entry-1", title: "Book One"})
 	require.NoError(t, f.sync(f.connection.ID))
-	assert.Equal(t, domain.BookCoverNone, f.coverState(book.ID).State)
+	assert.Equal(t, domain.BookCoverNone, f.coverState(book.ID))
 	_, err = f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.ErrorIs(t, err, persistence.ErrNotFound)
+	_, err = f.entryCover("entry-1")
 	require.ErrorIs(t, err, persistence.ErrNotFound)
 }
 
-func TestCatalogueSyncCoverStableMultiAliasSelectionAndFallback(t *testing.T) {
+func TestCatalogueSyncBookCoverStableMultiAliasSelectionAndFallback(t *testing.T) {
 	f := newCoverFixture(t)
 	second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})
 	require.NoError(t, err)
 	entryA := coverEntry{id: "entry-a", title: "Aliased Book", imageHref: "/a/image/a.png"}
-	book, _ := f.establishCover(t, entryA, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+	book, retainedA := f.establishCover(t, entryA, coverImage{body: testPNG(t, 10), contentType: "image/png"})
 
-	// The same Book gains a Catalog-entry alias on the second connection.
-	_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
-		f.ownerID, book.ID, second.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, "entry-b")
-	require.NoError(t, err)
+	f.addAlias(book.ID, second.ID, "entry-b")
 	f.catalog.setImage("/b/image/b.png", coverImage{body: testPNG(t, 220), contentType: "image/png"})
 	f.catalog.setEntries("/b", coverEntry{id: "entry-b", title: "Aliased Book", imageHref: "/b/image/b.png"})
 
-	// A later sync of another alias cannot replace the selected cover, and
-	// schedules no retrieval for it.
+	// A later alias completing does not displace the selected cover.
 	require.NoError(t, f.sync(second.ID))
-	selected := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, selected.State)
-	assert.Equal(t, f.connection.ID, selected.SelectedConnectionID)
-	assert.Equal(t, "entry-a", selected.SelectedSourceIdentifier)
-	require.Len(t, f.pendingCoverArgs(), 1, "another alias scheduled retrieval for an already-selected cover")
+	for _, args := range f.pendingEntryCoverArgs() {
+		if args.ConnectionID == second.ID {
+			require.NoError(t, f.runEntryCoverJob(args))
+		}
+	}
+	connectionID, entryID := f.selectedEntry(book.ID)
+	assert.Equal(t, f.connection.ID, connectionID)
+	assert.Equal(t, "entry-a", entryID)
+	resource, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retainedA, resource.Bytes)
 
-	// Explicit absence from the selected entry removes the cover.
+	// Explicit absence from the selected entry demotes the Book to the other
+	// alias's already-retained image in the same reconciliation.
 	f.catalog.setEntries("/a", coverEntry{id: "entry-a", title: "Aliased Book"})
 	require.NoError(t, f.sync(f.connection.ID))
-	require.Equal(t, domain.BookCoverNone, f.coverState(book.ID).State)
-
-	// With no selected cover remaining, the other live alias may establish the
-	// fallback through the same atomic first-success rule.
-	require.NoError(t, f.sync(second.ID))
-	pending := f.coverState(book.ID)
-	require.Equal(t, domain.BookCoverPending, pending.State)
-	require.Equal(t, second.ID, pending.SelectedConnectionID)
-	require.Equal(t, "entry-b", pending.SelectedSourceIdentifier)
-	args := f.pendingCoverArgs()
-	require.Len(t, args, 2, "expected the retained entry-a job and the new entry-b job")
-	var fallback CoverArgs
-	for _, candidate := range args {
-		if candidate.SourceIdentifier == "entry-b" {
-			fallback = candidate
-		}
-	}
-	require.NotEmpty(t, fallback.BookID)
-	require.NoError(t, f.runCoverJob(fallback))
-	fallbackCover := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, fallbackCover.State)
-	assert.Equal(t, second.ID, fallbackCover.SelectedConnectionID)
+	connectionID, entryID = f.selectedEntry(book.ID)
+	assert.Equal(t, second.ID, connectionID)
+	assert.Equal(t, "entry-b", entryID)
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
+	fallback, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.NotEqual(t, retainedA, fallback.Bytes)
 }
 
-func TestCatalogueSyncCoverExplicitAbsenceRetiresCurrentGenerationCandidate(t *testing.T) {
-	prepare := func(t *testing.T, f *coverFixture, title, firstID, secondID string) (domain.Book, CoverArgs, CoverArgs) {
-		t.Helper()
-		firstEntry := coverEntry{id: firstID, title: title, imageHref: "/a/image/" + firstID + ".png"}
-		secondEntry := coverEntry{id: secondID, title: title, imageHref: "/b/image/" + secondID + ".png"}
-		f.catalog.setImage(firstEntry.imageHref, coverImage{body: testPNG(t, 10), contentType: "image/png"})
-		f.catalog.setImage(secondEntry.imageHref, coverImage{body: testPNG(t, 20), contentType: "image/png"})
-		f.catalog.setEntries("/a", firstEntry)
-		f.seedBook(t, f.connection.ID, firstEntry)
-		require.NoError(t, f.sync(f.connection.ID))
-		book := f.bookByTitle(title)
-		second, err := f.store.CreateOpdsConnection(f.ctx, f.ownerID, domain.OpdsConnection{Name: "Catalog B", URL: f.catalog.baseURL("/b")})
-		require.NoError(t, err)
-		_, err = f.store.Pool().Exec(f.ctx, `INSERT INTO book_aliases(owner_id, book_id, connection_id, alias_type, namespace, value) VALUES($1,$2,$3,$4,$5,$6)`,
-			f.ownerID, book.ID, second.ID, domain.AliasCatalogEntry, domain.NamespaceSourceIdentifier, secondID)
-		require.NoError(t, err)
-		f.catalog.setEntries("/b", secondEntry)
-		require.NoError(t, f.sync(second.ID))
-		args := f.pendingCoverArgs()
-		require.Len(t, args, 2)
-		var firstArgs, secondArgs CoverArgs
-		for _, candidate := range args {
-			switch candidate.SourceIdentifier {
-			case firstID:
-				firstArgs = candidate
-			case secondID:
-				secondArgs = candidate
-			}
-		}
-		require.NotEmpty(t, firstArgs.BookID)
-		require.NotEmpty(t, secondArgs.BookID)
-		return book, firstArgs, secondArgs
-	}
-
-	t.Run("absent provisional keeps fallback live", func(t *testing.T) {
-		f := newCoverFixture(t)
-		book, firstArgs, fallbackArgs := prepare(t, f, "Absent provisional", "entry-a", "entry-b")
-		f.catalog.setEntries("/a", coverEntry{id: "entry-a", title: "Absent provisional"})
-		require.NoError(t, f.sync(f.connection.ID))
-		pending := f.coverState(book.ID)
-		assert.Equal(t, domain.BookCoverPending, pending.State)
-		assert.True(t, firstArgs.AdvertisedAt.Equal(pending.AdvertisedAt))
-		// The retired worker is harmless, while the already-advertised fallback
-		// can complete without a second sync of its Catalog.
-		require.NoError(t, f.runCoverJob(firstArgs))
-		assert.Equal(t, domain.BookCoverPending, f.coverState(book.ID).State)
-		require.NoError(t, f.runCoverJob(fallbackArgs))
-		available := f.coverState(book.ID)
-		assert.Equal(t, domain.BookCoverAvailable, available.State)
-		assert.Equal(t, fallbackArgs.ConnectionID, available.SelectedConnectionID)
-	})
-
-	t.Run("absent fallback settles after final failure", func(t *testing.T) {
-		f := newCoverFixture(t)
-		book, firstArgs, fallbackArgs := prepare(t, f, "Absent fallback", "entry-c", "entry-d")
-		f.catalog.setEntries("/b", coverEntry{id: "entry-d", title: "Absent fallback"})
-		require.NoError(t, f.sync(fallbackArgs.ConnectionID))
-		f.catalog.setImage("/a/image/entry-c.png", coverImage{body: []byte("not an image"), contentType: "image/png"})
-		require.NoError(t, f.sync(f.connection.ID))
-		require.Error(t, f.runCoverJob(firstArgs))
-		failed := f.coverState(book.ID)
-		assert.Equal(t, domain.BookCoverUnavailable, failed.State)
-		assert.NotEmpty(t, failed.FailureReason)
-		// A stale completion from the retired fallback cannot change the settled
-		// state or its diagnostic.
-		require.NoError(t, f.runCoverJob(fallbackArgs))
-		stillFailed := f.coverState(book.ID)
-		assert.Equal(t, domain.BookCoverUnavailable, stillFailed.State)
-		assert.Equal(t, failed.FailureReason, stillFailed.FailureReason)
-	})
-}
-
-func TestCatalogueSyncCoverRetainedAcrossMembershipAndConnectionRemoval(t *testing.T) {
+func TestCatalogueSyncBookCoverRetainedAcrossEntryLeavingIndexMembershipAndConnectionRemoval(t *testing.T) {
 	f := newCoverFixture(t)
 	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
 	book, retained := f.establishCover(t, entry, coverImage{body: testPNG(t, 10), contentType: "image/png"})
-	args := f.pendingCoverArgs()
-	require.Len(t, args, 1)
+	late := f.pendingEntryCoverArgs()[0]
 
-	// Removing active My Books membership preserves cover state and bytes.
+	// Removing active My Books membership preserves the cover.
 	require.NoError(t, f.store.RemoveBookFromMyBooks(f.ctx, f.ownerID, book.ID))
-	require.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
 	preserved, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, retained, preserved.Bytes)
 
-	// Deleting the live Catalog connection preserves the retained cover and its
-	// durable Catalog-entry provenance while preventing future retrieval.
+	// An entry that leaves the index keeps the image a Book uses.
+	f.catalog.setEntries("/a")
+	require.NoError(t, f.sync(f.connection.ID))
+	preserved, err = f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.Equal(t, retained, preserved.Bytes)
+
+	// Deleting the connection keeps it too, without the alias, and a late
+	// retrieval job for the deleted connection changes nothing.
 	require.NoError(t, f.store.DeleteOpdsConnection(f.ctx, f.ownerID, f.connection.ID))
-	afterDelete := f.coverState(book.ID)
-	assert.Equal(t, domain.BookCoverAvailable, afterDelete.State)
-	assert.Equal(t, f.connection.ID, afterDelete.SelectedConnectionID)
-	assert.Equal(t, "entry-1", afterDelete.SelectedSourceIdentifier)
+	connectionID, entryID := f.selectedEntry(book.ID)
+	assert.Equal(t, f.connection.ID, connectionID)
+	assert.Equal(t, "entry-1", entryID)
 	_, err = f.store.GetBookCatalogEntryAliasForConnection(f.ctx, f.ownerID, book.ID, f.connection.ID)
 	require.ErrorIs(t, err, persistence.ErrNotFound)
-	require.NoError(t, f.runCoverJob(args[0]))
-	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
+	require.NoError(t, f.runEntryCoverJob(late))
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID))
 	stillPreserved, err := f.store.GetBookCoverResource(f.ctx, f.ownerID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, retained, stillPreserved.Bytes)
+}
+
+func TestCatalogueSyncAddingEntryWithRetainedCoverShowsItWithoutRetrieval(t *testing.T) {
+	f := newCoverFixture(t)
+	entry := coverEntry{id: "entry-1", title: "Book One", imageHref: "/a/image/one.png"}
+	f.catalog.setImage(entry.imageHref, coverImage{body: testPNG(t, 10), contentType: "image/png"})
+	f.catalog.setEntries("/a", entry)
+	require.NoError(t, f.sync(f.connection.ID))
+	f.runAllEntryCovers()
+	jobsBefore := len(f.pendingEntryCoverArgs())
+
+	_, err := f.store.AddCatalogueEntry(f.ctx, f.ownerID, f.connection.ID, "entry-1")
+	require.NoError(t, err)
+	book := f.bookByTitle("Book One")
+	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID), "the retained image shows at once")
+	resource, err := f.store.GetActiveBookCoverResource(f.ctx, f.ownerID, book.ID)
+	require.NoError(t, err)
+	assert.NotEmpty(t, resource.Bytes)
+	assert.Len(t, f.pendingEntryCoverArgs(), jobsBefore, "adding a Book scheduled a retrieval")
 }

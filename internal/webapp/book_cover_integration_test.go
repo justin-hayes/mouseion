@@ -31,18 +31,21 @@ func TestBookCoverEndpointRequiresActiveMyBooksMembership(t *testing.T) {
 	bob := createAccount(t, ctx, store, "cover-bob", "bob-password")
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Cover catalog", URL: "https://cover.example/opds"})
 	require.NoError(t, err)
-	reconciled, err := seedWebappCatalogueBook(t, ctx, store, alice.ID, connection.ID, "cover-entry", "Retained cover", "", "de")
+	observedAt := time.Now()
+	require.NoError(t, store.ReconcileCatalogueIndex(ctx, alice.ID, connection.ID, []domain.CatalogueIndexEntry{
+		{ConnectionID: connection.ID, EntryIdentifier: "cover-entry", Title: "Retained cover", LanguageTag: "de", EPUBHref: "https://cover.example/cover.epub", CoverHref: "https://cover.example/cover.png", CoverMediaType: "image/png"},
+		{ConnectionID: connection.ID, EntryIdentifier: "unavailable-entry", Title: "Unavailable cover", LanguageTag: "de", EPUBHref: "https://cover.example/unavailable.epub", CoverHref: "https://cover.example/unavailable.png", CoverMediaType: "image/png"},
+	}, observedAt))
+	generation := observedAt.Truncate(persistence.CatalogEntryCoverFence)
+	added, err := store.AddCatalogueEntry(ctx, alice.ID, connection.ID, "cover-entry")
 	require.NoError(t, err)
-	book := reconciled.Book
-	_, advertisedAt, err := store.RecordBookCoverAdvertisement(ctx, alice.ID, book.ID, connection.ID, "cover-entry", true)
-	require.NoError(t, err)
-	require.NoError(t, store.SaveBookCover(ctx, alice.ID, book.ID, connection.ID, "cover-entry", advertisedAt, "image/png", 1, 1, "cover-v1", []byte("cover bytes")))
+	book := added.Book
+	require.NoError(t, store.SaveCatalogEntryCover(ctx, alice.ID, connection.ID, "cover-entry", generation, "image/png", 1, 1, "cover-v1", []byte("cover bytes")))
 
-	unavailable, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Unavailable cover", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	addedUnavailable, err := store.AddCatalogueEntry(ctx, alice.ID, connection.ID, "unavailable-entry")
 	require.NoError(t, err)
-	_, unavailableAt, err := store.RecordBookCoverAdvertisement(ctx, alice.ID, unavailable.ID, connection.ID, "unavailable-entry", true)
-	require.NoError(t, err)
-	require.NoError(t, store.MarkBookCoverUnavailable(ctx, alice.ID, unavailable.ID, connection.ID, "unavailable-entry", unavailableAt, "fetch failed"))
+	unavailable := addedUnavailable.Book
+	require.NoError(t, store.MarkCatalogEntryCoverUnavailable(ctx, alice.ID, connection.ID, "unavailable-entry", generation, "fetch failed"))
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
@@ -84,7 +87,7 @@ func TestBookCoverEndpointRequiresActiveMyBooksMembership(t *testing.T) {
 		assert.Equal(t, removed.Body.String(), response.Body.String())
 	}
 
-	_, err = seedWebappCatalogueBook(t, ctx, store, alice.ID, connection.ID, "cover-entry", "Retained cover", "", "de")
+	_, err = store.AddCatalogueEntry(ctx, alice.ID, connection.ID, "cover-entry")
 	require.NoError(t, err)
 	reactivated := perform(t, h, http.MethodGet, "/books/"+book.ID+"/cover", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, reactivated.Code)
