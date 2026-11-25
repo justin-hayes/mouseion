@@ -35,11 +35,31 @@ type studyProvider struct {
 	*testutil.FakeTranslationProvider
 	mu       sync.Mutex
 	failures map[string]int
+	// disagree names the sentences a Fluency agreement request answers "another
+	// sense" for, and fluency records the Fluency agreement requests it received.
+	disagree map[string]bool
+	fluency  []enrichment.TranslationRequest
+}
+
+// fluencyRequests are the Fluency agreement requests received so far.
+func (p *studyProvider) fluencyRequests() []enrichment.TranslationRequest {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]enrichment.TranslationRequest(nil), p.fluency...)
 }
 
 func (p *studyProvider) Translate(ctx context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	if _, err := p.FakeTranslationProvider.Translate(ctx, request); err != nil {
 		return enrichment.TranslationResponse{}, err
+	}
+	if request.RequireFluencyAgreement {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.fluency = append(p.fluency, request)
+		if p.disagree[request.ExampleSentence] {
+			return enrichment.TranslationResponse{Gloss: "another sense"}, nil
+		}
+		return enrichment.TranslationResponse{UsesLearnedMeaning: true, Gloss: request.LearnedMeaning, SentenceTranslation: "Fluency: " + request.ExampleSentence, SentenceTranslationTargets: []string{request.CanonicalLemma}}, nil
 	}
 	p.mu.Lock()
 	failing := p.failures[request.CanonicalLemma] > 0
@@ -84,10 +104,11 @@ func newStudyHarness(t *testing.T) *studyHarness {
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	provider := &studyProvider{FakeTranslationProvider: testutil.NewFakeTranslationProvider(), failures: map[string]int{"tisch": 1}}
+	provider := &studyProvider{FakeTranslationProvider: testutil.NewFakeTranslationProvider(), failures: map[string]int{"tisch": 1}, disagree: map[string]bool{}}
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
 	workers := river.NewWorkers()
 	study.AddMaterialWorker(workers, store, enricher)
+	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil })
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{
 		Queues: map[string]river.QueueConfig{study.Queue: {MaxWorkers: 2}}, Workers: workers,
 		// A short retry keeps the provider-omission scenario fast.

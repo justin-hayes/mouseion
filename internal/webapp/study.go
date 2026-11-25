@@ -34,6 +34,28 @@ type studyPageView struct {
 	// true until the next Study day.
 	Remaining int
 	Finished  bool
+	// FluencyUnlocked is true once the finish line is reached and no offered
+	// batch awaits an answer. Fluency is the card shown then, if any context is
+	// ready.
+	FluencyUnlocked bool
+	Fluency         *fluencyCardView
+	// NothingMature is true when Fluency is unlocked and no word is mature yet.
+	NothingMature bool
+	// FluencyPreparing is true when words are mature but none of their contexts
+	// is ready.
+	FluencyPreparing bool
+}
+
+// fluencyCardView is one Fluency card: another sentence for a mature word, with
+// the target word marked and the answer revealed by Show answer.
+type fluencyCardView struct {
+	ContextID             string
+	Before, Target, After string
+	Marked                bool
+	ShowAnswer            bool
+	Headword              string
+	Gloss                 string
+	Translation           string
 }
 
 // studyCardView is one card: the sentence with the target word marked, and the
@@ -72,6 +94,11 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 			// Preparation is best effort: the page still reports what is ready.
 			if err := h.services.Study.EnqueueStudyPreparation(r.Context(), owner, language); err != nil {
 				log.Printf("mouseion: enqueue study preparation: %v", err)
+			}
+			// Fluency contexts are prepared for mature words by a durable job
+			// too, never by this request.
+			if err := h.services.Study.EnqueueFluencyPreparation(r.Context(), owner, language); err != nil {
+				log.Printf("mouseion: enqueue fluency preparation: %v", err)
 			}
 		}
 		if err := h.loadStudyView(r, owner, &view); err != nil {
@@ -116,15 +143,53 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	if err != nil {
 		return err
 	}
-	if ledger.Decided() >= domain.StudyBatchesPerDay {
+	if ledger.Decided() < domain.StudyBatchesPerDay {
+		batch, err := h.nextStudyBatch(r, owner, view.Language, progress)
+		if err != nil {
+			return err
+		}
+		view.Offer = len(batch)
+	}
+	view.FluencyUnlocked = domain.FluencyUnlocked(today, domain.FluencyBatchAwaiting(ledger, view.Offer > 0))
+	if !view.FluencyUnlocked {
 		return nil
 	}
-	batch, err := h.nextStudyBatch(r, owner, view.Language, progress)
+	return h.loadFluencyView(r, owner, view, progress)
+}
+
+// loadFluencyView picks the Fluency card to show: a round-robin over the mature
+// words' contexts. Fluency only reads Study progress.
+func (h *Handler) loadFluencyView(r *http.Request, owner string, view *studyPageView, progress []domain.StudyProgress) error {
+	mature := false
+	for _, item := range progress {
+		mature = mature || domain.IsStudyMature(item)
+	}
+	if !mature {
+		view.NothingMature = true
+		return nil
+	}
+	contexts, err := h.services.Store.Study.ListStudyFluencyContexts(r.Context(), owner, view.Language)
 	if err != nil {
 		return err
 	}
-	view.Offer = len(batch)
+	card, ok := domain.NextFluencyCard(contexts, progress)
+	if !ok {
+		view.FluencyPreparing = true
+		return nil
+	}
+	view.Fluency = newFluencyCardView(view.Language, card, r.URL.Query().Get("answer") == "1")
 	return nil
+}
+
+func newFluencyCardView(language string, card domain.FluencyCard, showAnswer bool) *fluencyCardView {
+	view := &fluencyCardView{
+		ContextID: card.Context.ID, ShowAnswer: showAnswer,
+		Headword:    lemmadisplay.Format(language, card.Progress.CanonicalLemma, card.Progress.UPOS),
+		Gloss:       card.Progress.LearnedMeaning,
+		Translation: card.Context.SentenceTranslation,
+	}
+	view.Before, view.Target, view.After, view.Marked = markTarget(card.Context.Sentence, card.Context.TargetWord)
+	return view
 }
 
 // nextStudyBatch is the batch Today would offer now: the first ready words in
@@ -302,6 +367,40 @@ func (h *Handler) gradeStudyCard(w http.ResponseWriter, r *http.Request) {
 		ProgressID: progressID, ExpectedReps: reps, Grade: grade, ReviewedAt: now, StudyDay: domain.StudyDay(now), After: after,
 	})
 	if err != nil && !errors.Is(err, domain.ErrStudyStale) {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, back)
+}
+
+// recordFluencyResponse records the learner's answer to a Fluency card. Fluency
+// is ungraded: the answer is kept as evidence and never changes Study progress
+// or the schedule.
+func (h *Handler) recordFluencyResponse(w http.ResponseWriter, r *http.Request) {
+	language, back, ok := h.studyForm(w, r)
+	if !ok {
+		return
+	}
+	response, ok := domain.ParseFluencyResponse(r.FormValue("response"))
+	contextID := strings.TrimSpace(r.FormValue("context"))
+	if !ok || contextID == "" {
+		http.Error(w, "invalid response", http.StatusBadRequest)
+		return
+	}
+	owner, store, now := user(r).ID, h.services.Store.Study, h.now()
+	progress, err := store.ListStudyProgress(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	// Fluency is reachable only once Today is finished; a response sent before
+	// is a stale tap on a card that is no longer there.
+	if !domain.StudyFinishLine(progress, now).Finished {
+		redirect(w, r, back)
+		return
+	}
+	err = store.RecordStudyFluencyResponse(r.Context(), owner, domain.FluencyResponseRecord{ContextID: contextID, Response: response, RespondedAt: now})
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		fail(w, err)
 		return
 	}

@@ -30,6 +30,12 @@ type StudyStore interface {
 	// RecordStudyGrade appends the review-log row and updates the word's
 	// state; a card already graded is domain.ErrStudyStale.
 	RecordStudyGrade(ctx context.Context, owner string, record domain.StudyGradeRecord) error
+	// ListStudyFluencyContexts returns the Fluency contexts of the learner's
+	// words, with when each was last answered. RecordStudyFluencyResponse
+	// appends an answer and changes nothing else; a missing or disagreeing
+	// context is domain.ErrNotFound.
+	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
+	RecordStudyFluencyResponse(ctx context.Context, owner string, record domain.FluencyResponseRecord) error
 }
 
 // Study is the seam through which the page asks for Study material to be
@@ -37,4 +43,7 @@ type StudyStore interface {
 // provider (ADR 0134 §8).
 type Study interface {
 	EnqueueStudyPreparation(ctx context.Context, owner, language string) error
+	// EnqueueFluencyPreparation asks for Fluency contexts for the mature words
+	// that lack them.
+	EnqueueFluencyPreparation(ctx context.Context, owner, language string) error
 }

@@ -238,7 +238,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 	}
 	byKey := map[string]sentenceChoice{}
 	var candidates []domain.FluencyCandidate
-	seenSentences := map[string]bool{strings.TrimSpace(material.Sentence): true}
+	introducing := strings.TrimSpace(material.Sentence)
 	for page := 1; page <= maxFluencyPages; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, word.Language, domain.ConcordanceLookup{
 			Language: word.Language, Term: word.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
@@ -253,10 +253,11 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		}
 		for _, choice := range choices {
 			occurrence := choice.occurrence
-			if assessed[occurrenceKey{occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal}] || seenSentences[choice.sentence] {
+			// The word's own introducing sentence is never another context for it,
+			// wherever else the library repeats that text.
+			if assessed[occurrenceKey{occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal}] || choice.sentence == introducing {
 				continue
 			}
-			seenSentences[choice.sentence] = true
 			key := fmt.Sprintf("%s/%d/%d", occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
 			byKey[key] = choice
 			candidates = append(candidates, domain.FluencyCandidate{
