@@ -14,8 +14,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
+	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
@@ -284,4 +286,11 @@ func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 			assert.Error(t, err, "worker kind was not registered")
 		})
 	}
+}
+
+func TestRegisterStudyWorkerRegistersTheJobKind(t *testing.T) {
+	workers := river.NewWorkers()
+	registerStudyWorker(workers, nil, enrichment.DisabledTranslationProvider{})
+
+	assert.Error(t, river.AddWorkerSafely(workers, &study.MaterialWorker{}), "worker kind must already be registered")
 }

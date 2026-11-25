@@ -20,38 +20,46 @@ func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) (
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.currentReadings[fixtureGoalKey(owner, language)]
-	type tally struct {
-		count   int64
-		current bool
-	}
-	tallies := map[domain.StudyIdentity]*tally{}
+	tallies := map[domain.StudyIdentity]*domain.StudyCandidate{}
 	for _, book := range s.books {
 		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID == "" {
 			continue
 		}
+		inReading := current.IsActive() && current.BookID == book.BookID
 		for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, book.BookID)] {
-			key := fixtureLemmaCorrectionKey(owner, book.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
-			if s.lemmaExclusions[key] {
+			identity, counts := s.effectiveStudyIdentityLocked(owner, book.BookID, language, occurrence)
+			if !counts {
 				continue
-			}
-			identity := domain.StudyIdentity{Language: language, CanonicalLemma: occurrence.CanonicalLemma, UPOS: strings.ToUpper(occurrence.UPOS), LexicalDiscriminator: occurrence.LexicalDiscriminator}
-			if corrected := s.lemmaCorrections[key]; corrected != "" {
-				identity.CanonicalLemma, identity.LexicalDiscriminator = corrected, ""
 			}
 			entry := tallies[identity]
 			if entry == nil {
-				entry = &tally{}
+				entry = &domain.StudyCandidate{StudyIdentity: identity}
 				tallies[identity] = entry
 			}
-			entry.count++
-			entry.current = entry.current || (current.IsActive() && current.BookID == book.BookID)
+			entry.PersonalOccurrences++
+			entry.InCurrentReading = entry.InCurrentReading || inReading
 		}
 	}
 	candidates := make([]domain.StudyCandidate, 0, len(tallies))
-	for identity, entry := range tallies {
-		candidates = append(candidates, domain.StudyCandidate{StudyIdentity: identity, InCurrentReading: entry.current, PersonalOccurrences: entry.count})
+	for _, entry := range tallies {
+		candidates = append(candidates, *entry)
 	}
 	return candidates, nil
+}
+
+// effectiveStudyIdentityLocked applies the learner's decision to one occurrence:
+// an exclusion removes it and a correction replaces its lemma. The caller holds
+// s.mu.
+func (s *Store) effectiveStudyIdentityLocked(owner, bookID, language string, occurrence domain.LemmaReviewOccurrence) (domain.StudyIdentity, bool) {
+	key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+	if s.lemmaExclusions[key] {
+		return domain.StudyIdentity{}, false
+	}
+	identity := domain.StudyIdentity{Language: language, CanonicalLemma: occurrence.CanonicalLemma, UPOS: strings.ToUpper(occurrence.UPOS), LexicalDiscriminator: occurrence.LexicalDiscriminator}
+	if corrected := s.lemmaCorrections[key]; corrected != "" {
+		identity.CanonicalLemma, identity.LexicalDiscriminator = corrected, ""
+	}
+	return identity, true
 }
 
 // ListCurrentStudyMaterial returns every word's current Study material.

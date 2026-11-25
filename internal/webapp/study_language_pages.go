@@ -19,6 +19,7 @@ const (
 	pageKindVocabulary    studyLanguagePageKind = "vocabulary"
 	pageKindConcordance   studyLanguagePageKind = "concordance"
 	pageKindSentenceStudy studyLanguagePageKind = "sentence-study"
+	pageKindStudy         studyLanguagePageKind = "study"
 )
 
 // studyLanguagePage describes one per-language surface. Path is the route
@@ -40,6 +41,7 @@ var studyLanguagePages = map[studyLanguagePageKind]studyLanguagePage{
 	pageKindVocabulary:    {Path: "vocabulary", Landing: pageKindConcordance},
 	pageKindConcordance:   {Path: "vocabulary/concordance", Landing: pageKindConcordance},
 	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Landing: pageKindConcordance},
+	pageKindStudy:         {Path: "study", Landing: pageKindStudy},
 }
 
 // studyLanguagePath is the address of a page kind: prefixed with the language

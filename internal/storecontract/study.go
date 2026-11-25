@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func studyIdentity(lemma, upos string) domain.StudyIdentity {
-	return domain.StudyIdentity{Language: Language, CanonicalLemma: lemma, UPOS: upos}
+func studyNoun(lemma string) domain.StudyIdentity {
+	return domain.StudyIdentity{Language: Language, CanonicalLemma: lemma, UPOS: "NOUN"}
 }
 
 func studyReadyContent() domain.StudyMaterialReadyContent {
@@ -42,10 +42,10 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			ordered := domain.OrderStudyStream(candidates)
 			require.Len(t, ordered, 2)
-			assert.Equal(t, studyIdentity("haus", "NOUN"), ordered[0].StudyIdentity, "a Known word is still offered, and current-reading words come first")
+			assert.Equal(t, studyNoun("haus"), ordered[0].StudyIdentity, "a Known word is still offered, and current-reading words come first")
 			assert.True(t, ordered[0].InCurrentReading)
 			assert.EqualValues(t, 3, ordered[0].PersonalOccurrences, "occurrences count across analyzed Books")
-			assert.Equal(t, studyIdentity("hund", "NOUN"), ordered[1].StudyIdentity)
+			assert.Equal(t, studyNoun("hund"), ordered[1].StudyIdentity)
 			assert.False(t, ordered[1].InCurrentReading)
 
 			none, err := h.Study().ListStudyCandidates(h.Seeds().OtherOwner(), Language)
@@ -58,7 +58,7 @@ func studyScenarios() []Scenario {
 		{Name: "study material is prepared one word at a time and settles once", Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			store := h.Study()
-			haus, hund := studyIdentity("haus", "NOUN"), studyIdentity("hund", "NOUN")
+			haus, hund := studyNoun("haus"), studyNoun("hund")
 
 			hausID, created, err := store.ReserveStudyMaterial(owner, haus)
 			require.NoError(t, err)
@@ -70,7 +70,7 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			require.True(t, created)
 			_, _, err = store.ReserveStudyMaterial(owner, domain.StudyIdentity{Language: Language})
-			assert.ErrorIs(t, err, domain.ErrInvalidStudyMaterial)
+			require.ErrorIs(t, err, domain.ErrInvalidStudyMaterial)
 
 			counts, err := store.CountStudyMaterial(owner, Language)
 			require.NoError(t, err)
@@ -86,15 +86,15 @@ func studyScenarios() []Scenario {
 			assert.Equal(t, content.Gloss, ready.Gloss)
 			assert.Equal(t, content.BookID, ready.BookID)
 			assert.Equal(t, content.SentenceTranslationTargets, ready.SentenceTranslationTargets)
-			assert.ErrorIs(t, store.RecordStudyMaterialReady(owner, hausID, content), domain.ErrNotFound, "settled material is not rewritten")
+			require.ErrorIs(t, store.RecordStudyMaterialReady(owner, hausID, content), domain.ErrNotFound, "settled material is not rewritten")
 
-			assert.ErrorIs(t, store.RecordStudyMaterialUnpreparable(owner, hundID, " "), domain.ErrInvalidStudyMaterial)
+			require.ErrorIs(t, store.RecordStudyMaterialUnpreparable(owner, hundID, " "), domain.ErrInvalidStudyMaterial)
 			require.NoError(t, store.RecordStudyMaterialUnpreparable(owner, hundID, domain.StudyOmissionSentenceQuality))
 			skipped, err := store.GetStudyMaterial(owner, hundID)
 			require.NoError(t, err)
 			assert.Equal(t, domain.StudyMaterialUnpreparable, skipped.State)
 			assert.Equal(t, domain.StudyOmissionSentenceQuality, skipped.OmissionReason)
-			assert.ErrorIs(t, store.RecordStudyMaterialUnpreparable(owner, hundID, domain.StudyOmissionMeaning), domain.ErrNotFound)
+			require.ErrorIs(t, store.RecordStudyMaterialUnpreparable(owner, hundID, domain.StudyOmissionMeaning), domain.ErrNotFound)
 
 			counts, err = store.CountStudyMaterial(owner, Language)
 			require.NoError(t, err)
@@ -107,10 +107,10 @@ func studyScenarios() []Scenario {
 			assert.False(t, created, "an unpreparable word is not reserved again")
 
 			_, err = store.GetStudyMaterial(h.Seeds().OtherOwner(), hausID)
-			assert.ErrorIs(t, err, domain.ErrNotFound, "another learner cannot read the record")
-			assert.ErrorIs(t, store.RecordStudyMaterialUnpreparable(h.Seeds().OtherOwner(), hausID, "x"), domain.ErrNotFound)
+			require.ErrorIs(t, err, domain.ErrNotFound, "another learner cannot read the record")
+			require.ErrorIs(t, store.RecordStudyMaterialUnpreparable(h.Seeds().OtherOwner(), hausID, "x"), domain.ErrNotFound)
 			_, err = store.GetStudyMaterial(owner, uuid.NewString())
-			assert.ErrorIs(t, err, domain.ErrNotFound)
+			require.ErrorIs(t, err, domain.ErrNotFound)
 			counts, err = store.CountStudyMaterial(h.Seeds().OtherOwner(), Language)
 			require.NoError(t, err)
 			assert.Equal(t, domain.StudyMaterialCounts{}, counts)

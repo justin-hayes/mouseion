@@ -148,6 +148,7 @@ type StoreDependencies struct {
 	CatalogueAdd  CatalogueAddStore
 	CatalogueRead CatalogueReadStore
 	Jobs          JobsStore
+	Study         StudyStore
 }
 
 type csrfFailureContextKey struct{}
@@ -243,7 +244,10 @@ type Services struct {
 	ReadingIntent    *readingintent.Module
 	AnalysisInsights AnalysisInsights
 	PreparedDeck     PreparedDeck
-	Capabilities     analyzer.CapabilityProvider
+	// Study enqueues Study material preparation. It may be nil, in which case
+	// the Study page only reports what is ready.
+	Study        Study
+	Capabilities analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service
@@ -318,6 +322,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.perLanguage(pageKindMyBooks, h.library)
 	h.perLanguage(pageKindReading, h.reading)
 	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
+	h.perLanguage(pageKindStudy, h.study)
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))

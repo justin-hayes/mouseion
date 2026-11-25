@@ -30,10 +30,10 @@ func TestOrderStudyStream(t *testing.T) {
 		{
 			name: "ties break by lemma, part of speech then discriminator",
 			input: []StudyCandidate{
-				{StudyIdentity: StudyIdentity{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}, PersonalOccurrences: 5},
-				{StudyIdentity: StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "VERB"}, PersonalOccurrences: 5},
-				{StudyIdentity: StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "ADJ"}, PersonalOccurrences: 5},
-				{StudyIdentity: StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", LexicalDiscriminator: "x:2"}, PersonalOccurrences: 5},
+				{Language: "de", CanonicalLemma: "b", UPOS: "NOUN", PersonalOccurrences: 5},
+				{Language: "de", CanonicalLemma: "a", UPOS: "VERB", PersonalOccurrences: 5},
+				{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", PersonalOccurrences: 5},
+				{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", LexicalDiscriminator: "x:2", PersonalOccurrences: 5},
 			},
 			want: []string{"a/ADJ/", "a/ADJ/x:2", "a/VERB/", "b/NOUN/"},
 		},

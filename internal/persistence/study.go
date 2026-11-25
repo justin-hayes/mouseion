@@ -27,7 +27,7 @@ func (s *PostgresStore) ListStudyCandidates(ctx context.Context, owner, language
 	candidates := make([]domain.StudyCandidate, 0, len(rows))
 	for _, row := range rows {
 		candidates = append(candidates, domain.StudyCandidate{
-			StudyIdentity:       domain.StudyIdentity{Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator},
+			Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 			InCurrentReading:    row.InCurrentReading,
 			PersonalOccurrences: row.PersonalOccurrences,
 		})
@@ -81,9 +81,9 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 
 func studyMaterialFromRow(id, language, lemma, upos, discriminator, state, reason, bookID, runID, corpusID string, sentenceOrdinal, tokenOrdinal int64, sentence, target, gloss, translation string, targets []byte) (domain.StudyMaterial, error) {
 	item := domain.StudyMaterial{
-		ID:            id,
-		StudyIdentity: domain.StudyIdentity{Language: language, CanonicalLemma: lemma, UPOS: upos, LexicalDiscriminator: discriminator},
-		State:         domain.StudyMaterialState(state), OmissionReason: reason,
+		ID:       id,
+		Language: language, CanonicalLemma: lemma, UPOS: upos, LexicalDiscriminator: discriminator,
+		State: domain.StudyMaterialState(state), OmissionReason: reason,
 		BookID: bookID, AnalysisRunID: runID, CorpusID: corpusID, SentenceOrdinal: sentenceOrdinal, TokenOrdinal: tokenOrdinal,
 		Sentence: sentence, TargetWord: target, Gloss: gloss, SentenceTranslation: translation,
 	}
