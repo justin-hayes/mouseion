@@ -100,14 +100,21 @@ type latinLoopArchiveBuild struct {
 
 func buildLatinLoopArchive(t *testing.T, layer string) latinLoopArchiveBuild {
 	t.Helper()
+	return buildLatinArchive(t, layer, latinLoopConllu, latinLoopPaula())
+}
+
+// buildLatinArchive is a synthetic OLA zip around the given CoNLL-U and PAULA
+// Citation layer.
+func buildLatinArchive(t *testing.T, layer, conlluText, paulaText string) latinLoopArchiveBuild {
+	t.Helper()
 	const prefix = "opera_latina_adnotata_v0.2.0/"
 	conlluName := prefix + "workspace/conllu/synthetic.conllu"
 	paulaName := prefix + "workspace/ola/synthetic.tok01_cts01.xml"
 	contents := map[string][]byte{
 		prefix + "README.md": bytes.Repeat([]byte("readme\n"), 50),
-		conlluName:           []byte(latinLoopConllu),
+		conlluName:           []byte(conlluText),
 		prefix + "workspace/ola/other.tok01_cts01.xml": latinLoopFiller("other"),
-		paulaName: []byte(latinLoopPaula()),
+		paulaName: []byte(paulaText),
 	}
 	order := []string{prefix + "README.md", conlluName, prefix + "workspace/ola/other.tok01_cts01.xml", paulaName}
 	var buffer bytes.Buffer

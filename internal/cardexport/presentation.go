@@ -367,7 +367,7 @@ func applySourceAttribution(entry *Entry, projection CandidateProjection) error 
 // imported translations, and every modern-language entry, is left unchanged; a
 // sentence whose touched sections are not all translated keeps no English.
 func applyPassageContext(entry *Entry, projection CandidateProjection) {
-	if !cardpolicy.For(entry.Language).SourceEvidence || len(projection.ReferenceTranslations) == 0 {
+	if cardpolicy.For(entry.Language).Translations == cardpolicy.TranslationNone || len(projection.ReferenceTranslations) == 0 {
 		return
 	}
 	sentence, ok := projection.Sentences[entry.SentenceOrdinal]
