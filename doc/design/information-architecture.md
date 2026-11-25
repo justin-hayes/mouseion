@@ -93,7 +93,7 @@ instead of adding Books.
 
 ### Reading
 
-**Reading** at `/reading` owns the current Book for the active study language or,
+**Reading** at `/{language}/reading` owns the current Book for the page's study language or,
 between Books, an unordered chooser of To Read candidates in neutral title order.
 Every To Read Book is its own entry. While a Book is current, the same page hosts its full vocabulary Browse
 (the working desk); other To Read candidates are not listed. Coverage bands label
@@ -150,8 +150,9 @@ These objects remain important, but they do not define principal navigation:
   derived rather than selected in Settings.
 - **Active study language** — the study language of the per-language page in
   view, named by its address ([ADR 0131](../adr/0131-the-url-carries-the-study-language.md)).
-  The **Last study language** is the one most recently viewed; it only resolves
-  addresses and links without a language.
+  The **Last study language** is the one most recently viewed (or the language of
+  a Book just opened from the Catalog); it only resolves addresses and links
+  without a language.
 - **Language lens** — historical terminology for the retired panel proposed by
   [ADR 0042](../adr/0042-derived-language-corpus-view.md). It is not a current
   object or learner-facing surface; [ADR 0057](../adr/0057-retire-language-view-panel.md)
@@ -410,17 +411,17 @@ the entry supplies title, author and cover at each sync, while the Book keeps
 the language its Add chose; there is no per-Book metadata refresh and no
 separate Settings selection to maintain.
 
-The **active study language** is a stored selection pointing into that derived
-set — context, not configuration: it chooses which study language the
-language-scoped surfaces (My Books browse and search, Reading,
-Vocabulary) present, and never defines which languages are studied. It defaults
-deterministically (the sole study language, else the language of the most
-recently activated chosen-language Book) and resets lazily when the selection
-leaves the set. A shell-level switcher carries it on every authenticated screen;
-changing it lands at My Books in the newly active language with screen, filter,
-and return state reset (ADR 0086). Supported requests and forms that name another
-language recover to My Books with a notice before any restoration or mutation;
-the stored mode is never switched back. A newly arrived study
+The **active study language** is the language named by the address of the page
+in view (ADR 0131), drawn from that derived set — context, not configuration:
+it chooses which study language the language-scoped surfaces (My Books browse
+and search, Reading, Vocabulary) present, and never defines which languages are
+studied. The **Last study language** is remembered only to resolve unprefixed
+addresses and navigation links; it is set when a per-language page renders (or
+a Book is opened from the Catalog), defaults deterministically (the sole study
+language, else the language of the most recently activated chosen-language
+Book), and resets lazily when it leaves the set. A shell-level switcher on
+per-language pages navigates to the same kind of page in another language with
+screen, filter, and return state reset. A newly arrived study
 language appears passively
 in the switcher (marked "new") without changing the mode.
 
