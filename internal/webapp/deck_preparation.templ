@@ -236,13 +236,13 @@ templ DeckReadingAction(action deckReadingActionView) {
 				<p role="alert">{ action.Error }</p>
 			}
 			if action.State == deckReadingNotMember {
-				<p><strong>Not in To Read.</strong> Manage this book's disposition in <a href="/library">My Books</a>.</p>
+				<p><strong>Not in To Read.</strong> Manage this book's disposition in <a href={ templ.SafeURL(studyLanguagePath(pageKindMyBooks, action.Language)) }>My Books</a>.</p>
 			} else if action.State == deckIsToRead {
 				<p><strong>To Read.</strong> This book is already in To Read.</p>
-				<p><a href={ templ.SafeURL("/reading#"+readingBookAnchorID(action.BookID)) }>View in Reading</a></p>
+				<p><a href={ templ.SafeURL(readingBookURL(action.Language, action.BookID)) }>View in Reading</a></p>
 			} else if action.State == deckIsCurrentReading {
 				<p><strong>Current Book.</strong> This deck is preparation for the Book you are reading now.</p>
-				<p><a href={ templ.SafeURL("/reading#"+readingBookAnchorID(action.BookID)) }>View current book in Reading</a></p>
+				<p><a href={ templ.SafeURL(readingBookURL(action.Language, action.BookID)) }>View current book in Reading</a></p>
 			}
 		</div>
 	}

@@ -189,7 +189,7 @@ func TestExplicitReprepareRedirectsToTheNewPreparationGeneration(t *testing.T) {
 	assert.Equal(t, "/deck-preparations/new-preparation/status", response.Header().Get("Location"))
 }
 
-func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageReading(t *testing.T) {
+func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndLinksTheBooksLanguage(t *testing.T) {
 	store := &readingIntentStore{
 		deckReadingActionStore: &deckReadingActionStore{},
 		detail:                 domain.MyBook{Book: domain.Book{ID: "book-1", LanguageTag: "de"}, Disposition: domain.BookDispositionToRead, Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "source-1", MediaType: "application/epub+zip", ContentRevisionID: "revision-1", ContentSnapshotID: "snapshot-1"}, Signals: testAnalyzed, AnalysisRunID: "run-1", CorpusID: "corpus-1"}},
@@ -198,12 +198,12 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndBookLanguageRead
 	action := deckReadingActionView{BookID: "book-1", State: deckReadingNotMember}
 	got, err := h.reachablePreparationReturnURL(context.Background(), "owner-1", action)
 	require.NoError(t, err)
-	assert.Equal(t, "/reading#journey-book-book-1", got)
+	assert.Equal(t, "/de/reading#journey-book-book-1", got)
 
 	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{ActiveLanguage: "it"})
 	got, err = h.reachablePreparationReturnURL(crossLanguageContext, "owner-1", action)
-	require.ErrorIs(t, err, errPreparationOtherLanguage)
-	assert.Empty(t, got)
+	require.NoError(t, err)
+	assert.Equal(t, "/de/reading#journey-book-book-1", got, "a Book in another language links to its own language")
 
 	store.detail.Acquired.Signals = testFailed
 	got, err = h.reachablePreparationReturnURL(context.Background(), "owner-1", action)

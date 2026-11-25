@@ -41,7 +41,7 @@ func redirectLanguageChanged(w http.ResponseWriter, r *http.Request) {
 func languageScopedPath(path string) bool {
 	// My Books carries its language in the URL; the others still follow the
 	// stored language until their own tickets move them.
-	for _, prefix := range []string{"/reading", "/vocabulary"} {
+	for _, prefix := range []string{"/vocabulary"} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return true
 		}

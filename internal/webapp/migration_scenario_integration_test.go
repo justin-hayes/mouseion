@@ -110,14 +110,14 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, secondBook.ID, domain.BookDispositionToRead))
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, aliceCookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)
-	assert.Contains(t, started.Header().Get("Location"), "/reading?message=")
+	assert.Contains(t, started.Header().Get("Location"), "/de/reading?message=")
 	currentReading, err := store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, currentReading.BookID)
 	queuedDecks, ok := h.services.PreparedDeck.(*recordingPreparedDeck)
 	require.True(t, ok)
 	require.Empty(t, queuedDecks.preparations, "starting a Reading must not auto-submit deck preparation")
-	currentPage := perform(t, h, http.MethodGet, "/reading", nil, aliceCookies)
+	currentPage := perform(t, h, http.MethodGet, "/de/reading", nil, aliceCookies)
 	require.Equal(t, http.StatusOK, currentPage.Code)
 	assert.Contains(t, currentPage.Body.String(), "Migrated primary goal")
 	assert.Contains(t, currentPage.Body.String(), "Reserved vocabulary")
@@ -155,7 +155,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, aliceCookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
-	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/reading">Choose a To Read book</a>`} {
+	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/de/reading">Choose a To Read book</a>`} {
 		assert.Contains(t, finished.Body.String(), want, "finish receipt missing %q: %s", want, finished.Body.String())
 	}
 	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")

@@ -238,7 +238,7 @@ func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.GetDeckPreparationForSnapshot(context.Background(), fixtures.OwnerID, currentReading.SnapshotID)
 	require.ErrorIs(t, err, persistence.ErrNotFound, "starting Reading does not auto-submit optional deck preparation")
-	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies)
+	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	assert.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), `action="/reading/books/fixture-route-match/deck/retry"`, "the current reading offers explicit preparation from its frozen snapshot")
 }
@@ -247,7 +247,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -266,7 +266,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	}
 	assert.True(t, strings.Contains(body, `id="journey-book-fixture-italian-goal"`) && !strings.Contains(body, `id="journey-book-fixture-book"`), "Italian Journey page exposed the German Goal: %s", body)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -283,7 +283,7 @@ func TestReadingPageShowsReservedCountWhenCurrentReadingArtifactIsUnavailable(t 
 	handler := requireHandler(t, h)
 	handler.services.PreparedDeck = unavailableCurrentReadingPreparedDeck{Store: store}
 
-	page := performReadingRequest(t, h, http.MethodGet, "/reading", nil, cookies)
+	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
@@ -396,7 +396,7 @@ func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -445,7 +445,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 		"Reading finished",
 		"Vocabulary transition",
 		"Vocabulary: 2 identities newly Known; 0 identities already Known",
-		`href="/reading">Choose a To Read book</a>`,
+		`href="/de/reading">Choose a To Read book</a>`,
 	} {
 		assert.Contains(t, finished.Body.String(), want, "finish outcome missing %q: %s", want, finished.Body.String())
 	}

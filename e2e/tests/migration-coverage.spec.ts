@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/de/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
+    for (const path of ['/de/library', '/de/reading', '/catalogs', '/vocabulary', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -51,7 +51,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('shows current reading and Browse without Other To Read choices or forecasts', async ({ page }) => {
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -70,7 +70,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();

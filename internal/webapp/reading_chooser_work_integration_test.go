@@ -141,7 +141,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byUnit["homer-iliad-6"]))
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	page := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	page := perform(t, h, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	for _, want := range []string{
@@ -164,11 +164,11 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	started := perform(t, h, http.MethodPost, "/reading/books/"+byUnit["homer-iliad-1"]+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
 	assert.NotContains(t, started.Header().Get("Location"), "error=")
-	reading := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	reading := perform(t, h, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, reading.Code)
 	assert.NotContains(t, reading.Body.String(), "Book 1 of", "Reading shows no Book N of M line")
 
-	switching := perform(t, h, http.MethodGet, "/reading/switch", nil, cookies)
+	switching := perform(t, h, http.MethodGet, "/grc/reading/switch", nil, cookies)
 	require.Equal(t, http.StatusOK, switching.Code)
 	switchBody := switching.Body.String()
 	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-2"]+`/switch"`)

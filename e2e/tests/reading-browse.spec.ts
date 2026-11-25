@@ -19,7 +19,7 @@ function isCompact(projectName: string) {
 
 test('Reading shows the current Book with Vocabulary Browse in the primary area and no Other To Read section', async ({ page }) => {
   await signIn(page);
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   const goal = page.locator('#primary-goal-section');
   const browse = page.locator('#vocabulary-workflow');
   await expect(goal.getByRole('heading', { level: 1, name: 'Der lange Weg nach Hause' })).toBeVisible();
@@ -38,7 +38,7 @@ test('Reading shows the current Book with Vocabulary Browse in the primary area 
 
 test('Reading chooser lists the other To Read books and returns to the current Book', async ({ page }) => {
   await signIn(page);
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   await page.getByRole('link', { name: 'Switch current reading', exact: true }).click();
   await expect(page).toHaveURL(/\/reading\/switch$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Switch current reading' })).toBeVisible();
@@ -53,7 +53,7 @@ test('Reading chooser lists the other To Read books and returns to the current B
 
 test('Reading keeps analysis details in a disclosure that is open on desktop and collapsed on compact', async ({ page }) => {
   await signIn(page);
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   const disclosure = page.locator('details.reading-supporting');
   const summary = disclosure.locator(':scope > summary');
   const reserved = page.getByRole('heading', { name: 'Reserved vocabulary', exact: true });
@@ -79,7 +79,7 @@ test('Reading keeps analysis details in a disclosure that is open on desktop and
 test('Browse controls keep readable contrast and no page overflow in this colour scheme', async ({ page }) => {
   const dark = test.info().project.name.endsWith('dark');
   await signIn(page);
-  await page.goto('/reading?q=paging');
+  await page.goto('/de/reading?q=paging');
   expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(dark);
 
   const prefix = page.locator('#vocabulary-prefix');
@@ -99,7 +99,7 @@ test('Browse controls keep readable contrast and no page overflow in this colour
 
 test('Reading keyboard order reaches the Browse search field after the current Book', async ({ page }) => {
   await signIn(page);
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   const goalLink = page.locator('.journey-book--goal a').first();
   await goalLink.focus();
   await expect(goalLink).toBeFocused();
@@ -122,7 +122,7 @@ test('Reading Browse works without JavaScript for prefix, paging, and page recov
   const noScriptPage = await noScriptContext.newPage();
   try {
     await signIn(noScriptPage);
-    await noScriptPage.goto('/reading?q=paging');
+    await noScriptPage.goto('/de/reading?q=paging');
     const browsePages = noScriptPage.getByRole('navigation', { name: 'Browse pages' });
     await expect(noScriptPage.getByText('Page 1 of 2')).toBeVisible();
     await browsePages.getByRole('link', { name: 'Next' }).click();
@@ -136,7 +136,7 @@ test('Reading Browse works without JavaScript for prefix, paging, and page recov
     await expect(noScriptPage.locator('.vocabulary-applied-query')).toContainText('Applied prefix: paging');
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('paging');
 
-    const malformed = await noScriptPage.goto('/reading?q=paging&page=abc');
+    const malformed = await noScriptPage.goto('/de/reading?q=paging&page=abc');
     expect(malformed?.status()).toBe(400);
     const recovery = noScriptPage.locator('#vocabulary-recovery');
     await expect(recovery).toContainText('That page is not available');
@@ -145,7 +145,7 @@ test('Reading Browse works without JavaScript for prefix, paging, and page recov
     await expect(noScriptPage).toHaveURL(/page=1/);
     await expect(noScriptPage.getByText('Page 1 of 2')).toBeVisible();
 
-    const outOfRange = await noScriptPage.goto('/reading?q=paging&page=999');
+    const outOfRange = await noScriptPage.goto('/de/reading?q=paging&page=999');
     expect(outOfRange?.status()).toBe(404);
     await expect(noScriptPage.locator('#vocabulary-recovery')).toContainText('That page is not available');
     await expect(noScriptPage.locator('#vocabulary-recovery').getByText('First page', { exact: true })).toBeVisible();

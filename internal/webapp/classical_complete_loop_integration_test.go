@@ -220,7 +220,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	// 6. The grouped chooser lists the Work as one entry with a band table and
 	// Book-order links; a single-book work stays ordinary.
 	require.NoError(t, h.store.SetActiveStudyLanguage(h.ctx, learner.ID, classical.Language))
-	chooser := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	chooserBody := chooser.Body.String()
 	for _, want := range []string{
@@ -244,7 +244,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	firstReading, err := h.store.GetCurrentReading(h.ctx, learner.ID, classical.Language)
 	require.NoError(t, err)
 	require.Equal(t, bookOne, firstReading.BookID)
-	readingPage := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	readingPage := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
 	assert.NotContains(t, readingPage.Body.String(), "Book 1 of", "Reading shows no Book N of M line")
 
@@ -354,11 +354,11 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
-	assert.Contains(t, finished.Body.String(), `href="/reading">Choose a To Read book</a>`)
+	assert.Contains(t, finished.Body.String(), `href="/grc/reading">Choose a To Read book</a>`)
 	for _, unwanted := range []string{"next Book", "Continue", "Book 1 of 2"} {
 		assert.NotContains(t, finished.Body.String(), unwanted, "the completion receipt must not plan the next Book")
 	}
-	chooser = perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	chooser = perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code)
 	assert.NotContains(t, chooser.Body.String(), `href="#reading-chooser-book-`+bookTwo+`"`, "a Read Book gets no chooser cell")
 

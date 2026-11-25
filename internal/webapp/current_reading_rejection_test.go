@@ -66,12 +66,12 @@ func TestStartShowsTheMessageForEachPersistenceRejection(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/reading?error=" + notEligibleCandidateMessage},
-		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/reading?error=" + notEligibleCandidateMessage},
-		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/reading?error=" + startNoAnalysisMessage},
-		{"another book current", persistence.ErrCurrentReadingExists, "/reading?error=A current book is already set for this language. Review it in Reading before starting another."},
+		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/reading?error=" + notEligibleCandidateMessage},
+		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/reading?error=" + notEligibleCandidateMessage},
+		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/reading?error=" + startNoAnalysisMessage},
+		{"another book current", persistence.ErrCurrentReadingExists, "/de/reading?error=A current book is already set for this language. Review it in Reading before starting another."},
 		{"unresolved flags", persistence.ErrUnresolvedLemmaReviewFlags, "/reading/books/fixture-route-match/lemma-review"},
-		{"counts pending", persistence.ErrVocabularyBrowseCountsPending, "/reading?error=Across-book vocabulary counts are updating. No reading was changed; try starting again when the counts are ready."},
+		{"counts pending", persistence.ErrVocabularyBrowseCountsPending, "/de/reading?error=Across-book vocabulary counts are updating. No reading was changed; try starting again when the counts are ready."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -93,13 +93,13 @@ func TestSwitchShowsTheMessageForEachPersistenceRejection(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/reading?error=" + notEligibleChoiceMessage},
-		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/reading?error=" + notEligibleChoiceMessage},
-		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/reading?error=" + switchNoAnalysisMessage},
-		{"stale", persistence.ErrCurrentReadingStale, "/reading?error=" + switchStaleMessage},
-		{"no current reading", persistence.ErrNotFound, "/reading?error=" + switchStaleMessage},
+		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/reading?error=" + notEligibleChoiceMessage},
+		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/reading?error=" + notEligibleChoiceMessage},
+		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/reading?error=" + switchNoAnalysisMessage},
+		{"stale", persistence.ErrCurrentReadingStale, "/de/reading?error=" + switchStaleMessage},
+		{"no current reading", persistence.ErrNotFound, "/de/reading?error=" + switchStaleMessage},
 		{"unresolved flags", persistence.ErrUnresolvedLemmaReviewFlags, "/reading/books/fixture-route-match/lemma-review"},
-		{"counts unavailable", persistence.ErrVocabularyBrowseCountsUnavailable, "/reading?error=Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."},
+		{"counts unavailable", persistence.ErrVocabularyBrowseCountsUnavailable, "/de/reading?error=Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
