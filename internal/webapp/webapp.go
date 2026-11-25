@@ -256,11 +256,19 @@ type Services struct {
 	// InteractiveReadTimeout bounds Browse and Concordance reads; zero uses
 	// defaultInteractiveReadTimeout.
 	InteractiveReadTimeout time.Duration
+	// Clock reports the current time for time-dependent behaviour such as the
+	// Study day. NewWithError uses time.Now when it is nil. It is a plain
+	// function so a test can pass a controllable clock whose state the handler
+	// shares.
+	Clock func() time.Time
 }
 
 // defaultInteractiveReadTimeout stays below the 9s htmx request timeout so the
 // server's recoverable timeout page wins over the browser-side one.
 const defaultInteractiveReadTimeout = 8 * time.Second
+
+// now returns the current time from the injected clock.
+func (h *Handler) now() time.Time { return h.services.Clock() }
 
 func (h *Handler) interactiveReadTimeout() time.Duration {
 	if h.services.InteractiveReadTimeout > 0 {
@@ -287,6 +295,9 @@ func New(s Services) *Handler {
 func NewWithError(s Services) (*Handler, error) {
 	if err := deploysecret.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return nil, fmt.Errorf("webapp: validate MOUSEION_SECRET: %w", err)
+	}
+	if s.Clock == nil {
+		s.Clock = time.Now
 	}
 	if s.LemmaReview == nil {
 		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})

@@ -34,21 +34,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type completeLoopTranslationProvider struct{}
-
-func (completeLoopTranslationProvider) Name() string    { return "openai-compatible" }
-func (completeLoopTranslationProvider) Version() string { return "complete-loop" }
-
-func (completeLoopTranslationProvider) Enabled() bool { return true }
-
-func (completeLoopTranslationProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
-	return enrichment.TranslationResponse{
+func newCompleteLoopTranslationProvider() *testutil.FakeTranslationProvider {
+	provider := testutil.NewFakeTranslationProvider(testutil.TranslationReply{Response: enrichment.TranslationResponse{
 		Translation:                "house",
 		Gloss:                      "a building",
 		ContextOnly:                true,
 		SentenceTranslation:        "The house.",
 		SentenceTranslationTargets: []string{"house"},
-	}, nil
+	}})
+	provider.ProviderVersion = "complete-loop"
+	return provider
 }
 
 func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.T) {
@@ -80,7 +75,7 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	defer catalogue.Close()
 
 	capabilities := readyGerman()
-	translator := completeLoopTranslationProvider{}
+	translator := newCompleteLoopTranslationProvider()
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "complete-loop-model", BaseURL: "http://example.invalid/v1"})
 	require.NoError(t, err)
 	preparedConfig := prepareddeck.PreparedDeckConfig{
@@ -360,5 +355,3 @@ func waitForCompleteLoop(t *testing.T, condition func() (bool, string)) {
 	t.Helper()
 	testutil.Eventually(t, 60*time.Second, "complete learner loop", condition)
 }
-
-var _ enrichment.TranslationProvider = completeLoopTranslationProvider{}
