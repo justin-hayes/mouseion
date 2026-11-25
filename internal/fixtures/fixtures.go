@@ -119,6 +119,8 @@ type Store struct {
 	studyCandidates []seededStudyCandidate
 	studyReviewLog  []domain.StudyReviewLog
 	studyLedger     map[string]domain.StudyBatchLedger
+	// studySuperseded holds the IDs of Study material a correction replaced.
+	studySuperseded map[string]bool
 	// classicalDefinitions is the release the fixture's Add resolves Reading
 	// units from. Tests may install the shared contract's release.
 	classicalDefinitions map[string]classical.Definition

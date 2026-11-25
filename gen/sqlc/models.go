@@ -1155,6 +1155,7 @@ type StudyProgress struct {
 	WithdrawnAt          pgtype.Timestamptz
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
+	CorrectedAt          pgtype.Timestamptz
 }
 
 type StudyReviewLog struct {

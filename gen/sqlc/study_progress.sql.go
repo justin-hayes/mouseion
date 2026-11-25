@@ -43,6 +43,33 @@ func (q *Queries) AppendStudyReviewLog(ctx context.Context, arg AppendStudyRevie
 	return err
 }
 
+const completeStudyReintroductions = `-- name: CompleteStudyReintroductions :execrows
+UPDATE study_progress p
+   SET material_id = m.id, learned_meaning = m.gloss, corrected_at = $1::timestamptz, updated_at = now()
+  FROM study_material m
+ WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL
+   AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
+   AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
+   AND m.superseded_at IS NULL AND m.state = 'ready' AND m.id <> p.material_id
+`
+
+type CompleteStudyReintroductionsParams struct {
+	Now      time.Time
+	Owner    string
+	Language string
+}
+
+// Moves each word whose replacement material is ready onto it: the new
+// Gloss becomes the learned meaning and the word is marked corrected. The FSRS
+// state is not touched.
+func (q *Queries) CompleteStudyReintroductions(ctx context.Context, arg CompleteStudyReintroductionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, completeStudyReintroductions, arg.Now, arg.Owner, arg.Language)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const declineStudyBatchSlot = `-- name: DeclineStudyBatchSlot :one
 INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_declined)
 VALUES ($1, $2, $3::date, 1)
@@ -101,7 +128,7 @@ SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminato
  WHERE m.owner_id = $2 AND m.id = $3 AND m.language = $4
    AND m.state = 'ready' AND m.superseded_at IS NULL
 ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
-RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at
 `
 
 type IntroduceStudyWordParams struct {
@@ -145,15 +172,18 @@ func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWord
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CorrectedAt,
 	)
 	return i, err
 }
 
 const listStudyProgress = `-- name: ListStudyProgress :many
 
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at FROM study_progress
- WHERE owner_id = $1 AND language = $2
- ORDER BY introduced_at, canonical_lemma, upos, lexical_discriminator
+SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, (m.superseded_at IS NOT NULL)::boolean AS reintroducing
+  FROM study_progress p
+  JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
+ WHERE p.owner_id = $1 AND p.language = $2
+ ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator
 `
 
 type ListStudyProgressParams struct {
@@ -161,39 +191,48 @@ type ListStudyProgressParams struct {
 	Language string
 }
 
+type ListStudyProgressRow struct {
+	StudyProgress StudyProgress
+	Reintroducing bool
+}
+
 // Study progress, the review log and the per-day batch ledger (ADR 0134, spec
 // #2691).
-func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]StudyProgress, error) {
+// reintroducing is true while the word's own Study material has been
+// superseded by a correction and its replacement is not yet in place.
+func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error) {
 	rows, err := q.db.Query(ctx, listStudyProgress, arg.Owner, arg.Language)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []StudyProgress{}
+	items := []ListStudyProgressRow{}
 	for rows.Next() {
-		var i StudyProgress
+		var i ListStudyProgressRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OwnerID,
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-			&i.MaterialID,
-			&i.IntroducedAt,
-			&i.LearnedMeaning,
-			&i.State,
-			&i.Due,
-			&i.Stability,
-			&i.Difficulty,
-			&i.ScheduledDays,
-			&i.Reps,
-			&i.Lapses,
-			&i.RemainingSteps,
-			&i.LastReview,
-			&i.WithdrawnAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.StudyProgress.ID,
+			&i.StudyProgress.OwnerID,
+			&i.StudyProgress.Language,
+			&i.StudyProgress.CanonicalLemma,
+			&i.StudyProgress.Upos,
+			&i.StudyProgress.LexicalDiscriminator,
+			&i.StudyProgress.MaterialID,
+			&i.StudyProgress.IntroducedAt,
+			&i.StudyProgress.LearnedMeaning,
+			&i.StudyProgress.State,
+			&i.StudyProgress.Due,
+			&i.StudyProgress.Stability,
+			&i.StudyProgress.Difficulty,
+			&i.StudyProgress.ScheduledDays,
+			&i.StudyProgress.Reps,
+			&i.StudyProgress.Lapses,
+			&i.StudyProgress.RemainingSteps,
+			&i.StudyProgress.LastReview,
+			&i.StudyProgress.WithdrawnAt,
+			&i.StudyProgress.CreatedAt,
+			&i.StudyProgress.UpdatedAt,
+			&i.StudyProgress.CorrectedAt,
+			&i.Reintroducing,
 		); err != nil {
 			return nil, err
 		}
@@ -248,7 +287,7 @@ func (q *Queries) ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLog
 }
 
 const lockStudyProgress = `-- name: LockStudyProgress :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at FROM study_progress
  WHERE owner_id = $1 AND id = $2
  FOR UPDATE
 `
@@ -283,8 +322,52 @@ func (q *Queries) LockStudyProgress(ctx context.Context, arg LockStudyProgressPa
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CorrectedAt,
 	)
 	return i, err
+}
+
+const setStudyProgressWithdrawn = `-- name: SetStudyProgressWithdrawn :execrows
+UPDATE study_progress
+   SET withdrawn_at = $1::timestamptz, updated_at = now()
+ WHERE owner_id = $2 AND id = $3
+   AND (withdrawn_at IS NULL) <> ($1::timestamptz IS NULL)
+`
+
+type SetStudyProgressWithdrawnParams struct {
+	WithdrawnAt pgtype.Timestamptz
+	Owner       string
+	ID          string
+}
+
+func (q *Queries) SetStudyProgressWithdrawn(ctx context.Context, arg SetStudyProgressWithdrawnParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setStudyProgressWithdrawn, arg.WithdrawnAt, arg.Owner, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const supersedeStudyMaterial = `-- name: SupersedeStudyMaterial :execrows
+UPDATE study_material
+   SET superseded_at = now(), updated_at = now()
+ WHERE owner_id = $1 AND id = $2 AND superseded_at IS NULL
+`
+
+type SupersedeStudyMaterialParams struct {
+	Owner string
+	ID    string
+}
+
+// A correction left the word's introducing occurrence resolving elsewhere:
+// its current material is replaced, so the word has none and new material is
+// prepared. The superseded record is kept for the review log.
+func (q *Queries) SupersedeStudyMaterial(ctx context.Context, arg SupersedeStudyMaterialParams) (int64, error) {
+	result, err := q.db.Exec(ctx, supersedeStudyMaterial, arg.Owner, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const takeStudyBatchSlot = `-- name: TakeStudyBatchSlot :one
@@ -355,4 +438,30 @@ func (q *Queries) UpdateStudyProgressMemory(ctx context.Context, arg UpdateStudy
 		arg.ID,
 	)
 	return err
+}
+
+const withdrawUnpreparableStudyReintroductions = `-- name: WithdrawUnpreparableStudyReintroductions :execrows
+UPDATE study_progress p
+   SET withdrawn_at = $1::timestamptz, updated_at = now()
+  FROM study_material m
+ WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL
+   AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
+   AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
+   AND m.superseded_at IS NULL AND m.state = 'unpreparable' AND m.id <> p.material_id
+`
+
+type WithdrawUnpreparableStudyReintroductionsParams struct {
+	Now      time.Time
+	Owner    string
+	Language string
+}
+
+// A word whose replacement material cannot be prepared has no usable
+// occurrence left: it is withdrawn, with its progress kept.
+func (q *Queries) WithdrawUnpreparableStudyReintroductions(ctx context.Context, arg WithdrawUnpreparableStudyReintroductionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withdrawUnpreparableStudyReintroductions, arg.Now, arg.Owner, arg.Language)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

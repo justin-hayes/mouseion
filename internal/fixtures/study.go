@@ -88,13 +88,17 @@ func (s *Store) effectiveStudyIdentityLocked(owner, bookID, language string, occ
 	return identity, true
 }
 
+// fixtureStudyDefaultSource is the occurrence of a word the browser fixtures
+// seed without an analyzed Book behind it.
+var fixtureStudyDefaultSource = domain.StudyOccurrenceRef{BookID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", SentenceOrdinal: 1, TokenOrdinal: 2}
+
 // ListCurrentStudyMaterial returns every word's current Study material.
 func (s *Store) ListCurrentStudyMaterial(_ context.Context, owner, language string) ([]domain.StudyMaterial, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	material := make([]domain.StudyMaterial, 0, len(s.studyMaterial))
 	for _, item := range s.studyMaterial {
-		if item.OwnerID == owner && item.Language == language {
+		if item.OwnerID == owner && item.Language == language && !s.studySuperseded[item.ID] {
 			material = append(material, cloneStudyMaterial(item))
 		}
 	}
@@ -119,7 +123,7 @@ func (s *Store) CountStudyMaterial(_ context.Context, owner, language string) (d
 	defer s.mu.Unlock()
 	var counts domain.StudyMaterialCounts
 	for _, item := range s.studyMaterial {
-		if item.OwnerID != owner || item.Language != language {
+		if item.OwnerID != owner || item.Language != language || s.studySuperseded[item.ID] {
 			continue
 		}
 		switch item.State {
@@ -147,7 +151,7 @@ func (s *Store) ReserveStudyMaterial(_ context.Context, owner string, identity d
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, item := range s.studyMaterial {
-		if item.OwnerID == owner && item.StudyIdentity == identity {
+		if item.OwnerID == owner && item.StudyIdentity == identity && !s.studySuperseded[item.ID] {
 			return "", false, nil
 		}
 	}
@@ -232,7 +236,23 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 			return err
 		}
 		if created {
-			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, fixtureStudyContent(target.StudyIdentity)); err != nil {
+			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, target.StudyIdentity)); err != nil {
+				return err
+			}
+		}
+	}
+	// A word whose material a correction replaced is prepared again, in the
+	// place of the occurrence that no longer resolves.
+	for _, item := range progress {
+		if item.Withdrawn {
+			continue
+		}
+		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, item.StudyIdentity)
+		if err != nil {
+			return err
+		}
+		if created {
+			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, item.StudyIdentity)); err != nil {
 				return err
 			}
 		}
@@ -241,11 +261,16 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 }
 
 // fixtureStudyContent is the Study material the fixture server shows for a
-// word: a short sentence around its lemma.
-func fixtureStudyContent(identity domain.StudyIdentity) domain.StudyMaterialReadyContent {
+// word: a short sentence around its lemma, taken from the first occurrence
+// that resolves to the word under current evidence.
+func (s *Store) fixtureStudyContent(owner string, identity domain.StudyIdentity) domain.StudyMaterialReadyContent {
+	source := fixtureStudyDefaultSource
+	if refs, err := s.ListStudyOccurrences(context.Background(), owner, identity); err == nil && len(refs) > 0 {
+		source = refs[0]
+	}
 	return domain.StudyMaterialReadyContent{
-		BookID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
-		SentenceOrdinal: 1, TokenOrdinal: 2,
+		BookID: source.BookID, AnalysisRunID: source.AnalysisRunID, CorpusID: source.CorpusID,
+		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
 		Sentence:                   "Hier steht " + identity.CanonicalLemma + " im Satz.",
 		TargetWord:                 identity.CanonicalLemma,
 		Gloss:                      "the meaning of " + identity.CanonicalLemma,

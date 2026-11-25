@@ -24,7 +24,9 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 	}
 	progress := make([]domain.StudyProgress, 0, len(rows))
 	for _, row := range rows {
-		progress = append(progress, studyProgressFromRow(row))
+		item := studyProgressFromRow(row.StudyProgress)
+		item.Reintroducing = row.Reintroducing
+		progress = append(progress, item)
 	}
 	return progress, nil
 }
@@ -246,7 +248,11 @@ func studyProgressFromRow(row sqlcgen.StudyProgress) domain.StudyProgress {
 	if row.LastReview.Valid {
 		memory.LastReview = row.LastReview.Time
 	}
-	return domain.StudyProgress{
+	var corrected time.Time
+	if row.CorrectedAt.Valid {
+		corrected = row.CorrectedAt.Time
+	}
+	return domain.StudyProgress{CorrectedAt: corrected,
 		ID: row.ID, OwnerID: row.OwnerID,
 		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		MaterialID: row.MaterialID, IntroducedAt: row.IntroducedAt, LearnedMeaning: row.LearnedMeaning,

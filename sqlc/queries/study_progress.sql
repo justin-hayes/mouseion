@@ -2,9 +2,13 @@
 -- #2691).
 
 -- name: ListStudyProgress :many
-SELECT * FROM study_progress
- WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
- ORDER BY introduced_at, canonical_lemma, upos, lexical_discriminator;
+-- reintroducing is true while the word's own Study material has been
+-- superseded by a correction and its replacement is not yet in place.
+SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing
+  FROM study_progress p
+  JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
+ WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
+ ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator;
 
 -- name: LockStudyProgress :one
 SELECT * FROM study_progress
@@ -63,3 +67,40 @@ VALUES (sqlc.arg('owner'), sqlc.arg('progress'), sqlc.arg('material'), sqlc.arg(
 SELECT * FROM study_review_log
  WHERE owner_id = sqlc.arg('owner') AND progress_id = sqlc.arg('progress')
  ORDER BY reviewed_at, created_at, id;
+
+-- name: SupersedeStudyMaterial :execrows
+-- A correction left the word's introducing occurrence resolving elsewhere:
+-- its current material is replaced, so the word has none and new material is
+-- prepared. The superseded record is kept for the review log.
+UPDATE study_material
+   SET superseded_at = now(), updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND superseded_at IS NULL;
+
+-- name: SetStudyProgressWithdrawn :execrows
+UPDATE study_progress
+   SET withdrawn_at = sqlc.narg('withdrawn_at')::timestamptz, updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
+   AND (withdrawn_at IS NULL) <> (sqlc.narg('withdrawn_at')::timestamptz IS NULL);
+
+-- name: CompleteStudyReintroductions :execrows
+-- Moves each word whose replacement material is ready onto it: the new
+-- Gloss becomes the learned meaning and the word is marked corrected. The FSRS
+-- state is not touched.
+UPDATE study_progress p
+   SET material_id = m.id, learned_meaning = m.gloss, corrected_at = sqlc.arg('now')::timestamptz, updated_at = now()
+  FROM study_material m
+ WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND p.withdrawn_at IS NULL
+   AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
+   AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
+   AND m.superseded_at IS NULL AND m.state = 'ready' AND m.id <> p.material_id;
+
+-- name: WithdrawUnpreparableStudyReintroductions :execrows
+-- A word whose replacement material cannot be prepared has no usable
+-- occurrence left: it is withdrawn, with its progress kept.
+UPDATE study_progress p
+   SET withdrawn_at = sqlc.arg('now')::timestamptz, updated_at = now()
+  FROM study_material m
+ WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND p.withdrawn_at IS NULL
+   AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
+   AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
+   AND m.superseded_at IS NULL AND m.state = 'unpreparable' AND m.id <> p.material_id;

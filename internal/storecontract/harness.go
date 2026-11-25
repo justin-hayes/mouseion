@@ -89,6 +89,7 @@ type Harness interface {
 	Catalogue() CatalogueStore
 	Study() StudyStore
 	StudyProgress() StudyProgressStore
+	StudyCorrections() StudyCorrectionsStore
 	Seeds() Seeder
 }
 
@@ -300,6 +301,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, classicalPreparationFailureScenarios()...)
 	scenarios = append(scenarios, catalogueScenarios()...)
 	scenarios = append(scenarios, studyScenarios()...)
+	scenarios = append(scenarios, studyCorrectionsScenarios()...)
 	scenarios = append(scenarios, chosenBookScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }

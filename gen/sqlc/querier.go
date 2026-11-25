@@ -58,6 +58,10 @@ type Querier interface {
 	CompletePreparedDeckBatchCacheHits(ctx context.Context, arg CompletePreparedDeckBatchCacheHitsParams) (int64, error)
 	CompletePreparedDeckBatchChunk(ctx context.Context, arg CompletePreparedDeckBatchChunkParams) (DeckPreparationBatchChunk, error)
 	CompletePreparedDeckRun(ctx context.Context, arg CompletePreparedDeckRunParams) (DeckPreparationRun, error)
+	// Moves each word whose replacement material is ready onto it: the new
+	// Gloss becomes the learned meaning and the word is marked corrected. The FSRS
+	// state is not touched.
+	CompleteStudyReintroductions(ctx context.Context, arg CompleteStudyReintroductionsParams) (int64, error)
 	// A lemma is recognized only from non-excluded effective identities in the
 	// eligible owner/language corpus, across every evidenced part of speech.
 	// concordance_occurrences' eligibility is stated over the base tables and
@@ -465,7 +469,9 @@ type Querier interface {
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
 	// Study progress, the review log and the per-day batch ledger (ADR 0134, spec
 	// #2691).
-	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]StudyProgress, error)
+	// reintroducing is true while the word's own Study material has been
+	// superseded by a correction and its replacement is not yet in place.
+	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
@@ -575,6 +581,7 @@ type Querier interface {
 	SetPreparedDeckFinalizationJob(ctx context.Context, arg SetPreparedDeckFinalizationJobParams) (int64, error)
 	SetPreparedDeckTranslationJob(ctx context.Context, arg SetPreparedDeckTranslationJobParams) (int64, error)
 	SetSourceMaterialBook(ctx context.Context, arg SetSourceMaterialBookParams) error
+	SetStudyProgressWithdrawn(ctx context.Context, arg SetStudyProgressWithdrawnParams) (int64, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
 	// A retrieval that can never run again, because its connection is gone, is
 	// unavailable rather than pending forever.
@@ -585,6 +592,10 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
 	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
+	// A correction left the word's introducing occurrence resolving elsewhere:
+	// its current material is replaced, so the word has none and new material is
+	// prepared. The superseded record is kept for the review log.
+	SupersedeStudyMaterial(ctx context.Context, arg SupersedeStudyMaterialParams) (int64, error)
 	// Records one batch taken on the Study day, unless the day's batches are all
 	// answered. No row means none is left.
 	TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error)
@@ -622,6 +633,9 @@ type Querier interface {
 	// persistence and the ancientgreek service.
 	UpsertWork(ctx context.Context, arg UpsertWorkParams) (UpsertWorkRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
+	// A word whose replacement material cannot be prepared has no usable
+	// occurrence left: it is withdrawn, with its progress kept.
+	WithdrawUnpreparableStudyReintroductions(ctx context.Context, arg WithdrawUnpreparableStudyReintroductionsParams) (int64, error)
 }
 
 var _ Querier = (*Queries)(nil)
