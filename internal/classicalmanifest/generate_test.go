@@ -314,22 +314,13 @@ func TestUnitOverrideDepartureWithoutANoteIsRefused(t *testing.T) {
 	require.ErrorContains(t, err, "departs from its Work Greek title without a note")
 }
 
-func TestWholeWorkSplitCreatesOneUnit(t *testing.T) {
+func TestBookRangesWithoutContentsOverrideAreRefused(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	override := baseOverride()
 	override.Contents = ""
 	override.Translation = nil
-	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
-	require.Len(t, result.Definitions, 1)
-	definition := result.Definitions[0]
-	assert.Equal(t, "alpha", definition.Key)
-	assert.Nil(t, definition.ConstituentBook)
-	require.Equal(t, 2, definition.ConstituentBooks, "book citations need no opt-in to produce contents")
-	require.Len(t, definition.Contents, 2)
-	assert.Equal(t, "1.1.1", definition.CitationStart)
-	assert.Equal(t, "2.1.1", definition.CitationEnd)
-	assert.Equal(t, 10, definition.WordCount)
-	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", definition.Opening)
+	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
+	require.ErrorContains(t, err, "multiple book ranges but no contents")
 }
 
 func TestGeneratePreservesTheSourceCitationScheme(t *testing.T) {
@@ -511,6 +502,7 @@ func perBookManifest(t *testing.T, whole classical.Definition) []byte {
 		definition := whole
 		definition.Key = fmt.Sprintf("%s-%d", whole.WorkKey, number)
 		definition.ConstituentBook = &number
+		definition.Withdrawn = true
 		definition.CitationStart, definition.CitationEnd, definition.WordCount = book.CitationStart, book.CitationEnd, book.WordCount
 		definition.Contents = nil
 		translation := *whole.Translation

@@ -25,8 +25,9 @@ const SourceFormatOGACoNLLU = "oga-conllu"
 // pinned file is one Reading unit (ADR 0128).
 const SplitWholeWork = "whole-work"
 
-// ContentsBooks asks the generator to record each constituent book of a
-// whole-work unit, for a Work whose citation scheme names books.
+// ContentsBooks is the work override's authority that the whole-work unit
+// records each constituent book. The generator fails when a source with
+// multiple book ranges lacks it, and when a source without them asks for it.
 const ContentsBooks = "books"
 
 // ADR 0111 licence classes and restriction kinds.
@@ -163,6 +164,9 @@ func (d Definition) Validate() error {
 		if err := d.Translation.Validate(); err != nil {
 			return err
 		}
+	}
+	if d.ConstituentBook != nil && !d.Withdrawn {
+		return errors.New("classical: only a withdrawn definition may be a constituent book")
 	}
 	return nil
 }
@@ -436,8 +440,8 @@ type Override struct {
 	Source       *SourceSpec      `json:"source,omitempty"`
 	Translation  *TranslationSpec `json:"translation,omitempty"`
 	Split        string           `json:"split,omitempty"`
-	// ContentsBooks asserts that the source has a multi-book citation scheme.
-	// Book contents are derived from the source even without this assertion.
+	// ContentsBooks is the authority that the whole-work unit records its
+	// constituent books; the source must have a multi-book citation scheme.
 	Contents string     `json:"contents,omitempty"`
 	Units    []UnitSpec `json:"units,omitempty"`
 	Revision *int       `json:"revision,omitempty"`

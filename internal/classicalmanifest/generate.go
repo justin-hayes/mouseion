@@ -187,6 +187,9 @@ func (b *builder) buildWork(override classical.Override) error {
 	}
 
 	units, total, coverage, err := b.planUnits(override, sourceData, sourceAvailable)
+	if errors.Is(err, errContentsOverride) {
+		return err
+	}
 	if err != nil {
 		return b.candidateFailure(override.WorkKey, "", err)
 	}
@@ -411,15 +414,22 @@ func bookRangeOverrideError(override classical.Override) error {
 	return fmt.Errorf("classical: work override %q cannot replace derived book contents with a hand-reviewed range", override.WorkKey)
 }
 
+// errContentsOverride marks a work override whose contents: books disagrees
+// with its source. It always fails generation, even for a new Work.
+var errContentsOverride = errors.New("classical: contents override disagrees with the source")
+
 // proposedUnit converts the adapter's proposed ranges into the one whole-work
-// unit. When the Work's citation scheme names books, each proposed range is a
+// unit. When the work override asks for contents: books, each proposed range is a
 // constituent book and is recorded, with its word count, as contents.
 func proposedUnit(override classical.Override, sourceData []byte, proposed []ancientgreek.UnitRange) (plannedUnit, error) {
 	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: proposed[0].Start, end: proposed[len(proposed)-1].End}
-	if !hasBookRanges(proposed) {
-		if override.Contents == classical.ContentsBooks {
-			return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges", override.WorkKey)
-		}
+	hasBooks := hasBookRanges(proposed)
+	switch {
+	case override.Contents == classical.ContentsBooks && !hasBooks:
+		return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges: %w", override.WorkKey, errContentsOverride)
+	case override.Contents != classical.ContentsBooks && hasBooks:
+		return plannedUnit{}, fmt.Errorf("classical: work override %q has a source with multiple book ranges but no contents: %q: %w", override.WorkKey, classical.ContentsBooks, errContentsOverride)
+	case !hasBooks:
 		return unit, nil
 	}
 	for _, rangeValue := range proposed {

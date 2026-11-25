@@ -3,7 +3,6 @@ package classical
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,19 +10,10 @@ import (
 )
 
 func catalogDefinitions() []Definition {
-	first := validDefinition()
-	second := first
-	book := 2
-	second.Key = "alpha-2"
-	second.ConstituentBook = &book
-	second.CitationStart = "1.1.3"
-	second.CitationEnd = "1.1.4"
-	second.WordCount = 12
-	second.Opening = "δεύτερος λόγος."
-	second.Translation = nil
+	first := validWholeWorkDefinition()
 
 	whole := validDefinition()
-	whole.Key = "beta-1"
+	whole.Key = "beta"
 	whole.WorkKey = "beta"
 	whole.WorkTitle = "Beta"
 	whole.WorkAuthor = "Other"
@@ -43,7 +33,16 @@ func catalogDefinitions() []Definition {
 	withdrawn.EditionKey = "gamma-test"
 	withdrawn.Withdrawn = true
 
-	return []Definition{first, second, whole, withdrawn}
+	return []Definition{first, whole, withdrawn}
+}
+
+// withSecondEdition inserts a second Edition of Work alpha at index 1.
+func withSecondEdition(definitions []Definition) []Definition {
+	second := definitions[0]
+	second.Key = "alpha-other"
+	second.EditionKey = "alpha-other-test"
+	second.EditionLabel = "Other Edition"
+	return append([]Definition{definitions[0], second}, definitions[1:]...)
 }
 
 func TestCatalogCreditsEachSourceLayerOnce(t *testing.T) {
@@ -67,7 +66,7 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 	catalog, err := NewCatalog(catalogDefinitions())
 	require.NoError(t, err)
 
-	assert.Equal(t, CatalogCounts{Works: 2, Authors: 2, Units: 3}, catalog.Counts())
+	assert.Equal(t, CatalogCounts{Works: 2, Authors: 2, Units: 2}, catalog.Counts())
 	_, hidden := catalog.Work("gamma")
 	assert.False(t, hidden, "a withdrawn definition is hidden")
 	_, hiddenAuthor := catalog.Author("Hidden")
@@ -78,14 +77,12 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 	assert.Equal(t, "Ἄλφα", alpha.GreekTitle)
 	assert.Equal(t, "Test Edition", alpha.EditionLabel)
 	assert.Equal(t, 2, alpha.ConstituentBooks)
-	assert.Equal(t, 20, alpha.Words)
-	assert.Equal(t, "ἄρχεται ὁ λόγος.", alpha.Opening, "a Work's Opening is its first Reading unit's")
-	assert.False(t, alpha.TranslationAvailable, "a work with one translated book and one without does not promise a translation")
-	require.Len(t, alpha.Units, 2)
-	assert.Equal(t, 1, alpha.Units[0].ConstituentBook)
-	assert.Equal(t, "ἄρχεται ὁ λόγος.", alpha.Units[0].Opening)
-	assert.Equal(t, 2, alpha.Units[1].ConstituentBook)
-	assert.Equal(t, "δεύτερος λόγος.", alpha.Units[1].Opening)
+	assert.Equal(t, 14, alpha.Words)
+	assert.Equal(t, "ἄρχεται ὁ λόγος.", alpha.Opening)
+	assert.True(t, alpha.TranslationAvailable)
+	require.Len(t, alpha.Units, 1)
+	assert.Zero(t, alpha.Units[0].ConstituentBook, "a whole-work unit has no constituent book number")
+	assert.Len(t, alpha.Units[0].Contents, 2)
 
 	beta, ok := catalog.Work("beta")
 	require.True(t, ok)
@@ -102,39 +99,32 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 	assert.Equal(t, "Alpha", authors[0].Works[0].Title)
 }
 
-func TestCatalogReportsATranslationOnlyWhenEveryBookHasOne(t *testing.T) {
+func TestCatalogReportsATranslationOnlyWhenTheEditionHasOne(t *testing.T) {
 	definitions := catalogDefinitions()
-	definitions[1].Translation = &TranslationPin{
-		Layer: "translation", FileName: "work2.xml", Size: 11, SHA256: strings.Repeat("c", 64),
-		CitationStart: "1.1.3", CitationEnd: "1.1.4",
-	}
+	definitions[0].Translation = nil
 
 	catalog, err := NewCatalog(definitions)
 	require.NoError(t, err)
 	alpha, ok := catalog.Work("alpha")
 	require.True(t, ok)
-	assert.True(t, alpha.TranslationAvailable)
+	assert.False(t, alpha.TranslationAvailable)
 }
 
 func TestValidateManifestRefusesInconsistentDefinitions(t *testing.T) {
 	t.Run("duplicate key", func(t *testing.T) {
-		definitions := []Definition{validDefinition(), validDefinition()}
+		definitions := []Definition{validWholeWorkDefinition(), validWholeWorkDefinition()}
 		require.ErrorContains(t, ValidateManifest(definitions), "repeats Reading-unit key")
 	})
 	t.Run("conflicting work title", func(t *testing.T) {
-		definitions := catalogDefinitions()
+		definitions := withSecondEdition(catalogDefinitions())
 		definitions[1].WorkTitle = "Another Alpha"
 		require.ErrorContains(t, ValidateManifest(definitions), "conflicting titles")
 	})
 	t.Run("edition belongs to one work", func(t *testing.T) {
-		definitions := catalogDefinitions()
+		definitions := withSecondEdition(catalogDefinitions())
 		definitions[1].WorkKey = "another-work"
+		definitions[1].EditionKey = definitions[0].EditionKey
 		require.ErrorContains(t, ValidateManifest(definitions), "belongs to more than one Work")
-	})
-	t.Run("repeated constituent book", func(t *testing.T) {
-		definitions := catalogDefinitions()
-		definitions[1].ConstituentBook = definitions[0].ConstituentBook
-		require.ErrorContains(t, ValidateManifest(definitions), "repeats constituent book")
 	})
 	t.Run("empty opening", func(t *testing.T) {
 		definitions := catalogDefinitions()
@@ -143,7 +133,7 @@ func TestValidateManifestRefusesInconsistentDefinitions(t *testing.T) {
 	})
 	t.Run("withdrawn tombstone needs no opening", func(t *testing.T) {
 		definitions := catalogDefinitions()
-		definitions[3].Opening = ""
+		definitions[2].Opening = ""
 		require.NoError(t, ValidateManifest(definitions))
 	})
 	t.Run("empty manifest", func(t *testing.T) {
@@ -165,12 +155,12 @@ func (r *recordingReconciler) ReconcileClassicalManifest(_ context.Context, defi
 }
 
 func TestReconcileParsesValidatesAndForwardsTheManifest(t *testing.T) {
-	manifest, err := RenderDefinitions([]Definition{validDefinition()})
+	manifest, err := RenderDefinitions([]Definition{validWholeWorkDefinition()})
 	require.NoError(t, err)
 	recorder := &recordingReconciler{}
 	require.NoError(t, Reconcile(context.Background(), recorder, manifest))
 	require.Len(t, recorder.definitions, 1)
-	assert.Equal(t, "alpha-1", recorder.definitions[0].Key)
+	assert.Equal(t, "alpha", recorder.definitions[0].Key)
 
 	storeErr := errors.New("store failed")
 	recorder = &recordingReconciler{err: storeErr}
@@ -183,7 +173,7 @@ func TestReconcileRefusesABrokenManifestBeforeTouchingTheStore(t *testing.T) {
 	require.Error(t, err)
 	assert.Empty(t, recorder.definitions)
 
-	definition := validDefinition()
+	definition := validWholeWorkDefinition()
 	definition.Language = "de"
 	manifest, err := RenderDefinitions([]Definition{definition})
 	require.NoError(t, err)
@@ -196,10 +186,10 @@ func TestCatalogUnitFindsAWorkByReadingUnitKey(t *testing.T) {
 	catalog, err := NewCatalog(catalogDefinitions())
 	require.NoError(t, err)
 
-	work, unit, ok := catalog.Unit("alpha-2")
+	work, unit, ok := catalog.Unit("alpha")
 	require.True(t, ok)
 	assert.Equal(t, "alpha", work.Key)
-	assert.Equal(t, 2, unit.ConstituentBook)
+	assert.Equal(t, "alpha", unit.Key)
 
 	_, _, ok = catalog.Unit("no-such-unit")
 	assert.False(t, ok)

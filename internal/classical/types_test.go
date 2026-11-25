@@ -34,7 +34,10 @@ func validDefinition() Definition {
 }
 
 func TestDefinitionValidateAcceptsACompleteDefinition(t *testing.T) {
-	require.NoError(t, validDefinition().Validate())
+	live := validDefinition()
+	live.ConstituentBook = nil
+	live.ConstituentBooks = 1
+	require.NoError(t, live.Validate())
 
 	whole := validDefinition()
 	whole.ConstituentBook = nil
@@ -103,6 +106,7 @@ func TestDefinitionValidateRefusesIncompleteFields(t *testing.T) {
 		{"edition label", func(d *Definition) { d.EditionLabel = "" }, "Edition label is required"},
 		{"language", func(d *Definition) { d.Language = "de" }, "language must be"},
 		{"book count", func(d *Definition) { d.ConstituentBooks = 0 }, "book count must be positive"},
+		{"live constituent book", func(d *Definition) { d.Withdrawn = false }, "only a withdrawn definition"},
 		{"book outside", func(d *Definition) { book := 3; d.ConstituentBook = &book }, "outside its Work"},
 		{"whole-work contents missing", func(d *Definition) { d.ConstituentBook = nil }, "one content entry per constituent book"},
 		{"per-book contents", func(d *Definition) {
@@ -268,6 +272,7 @@ func TestSortOverridesIsStableByKindAndKey(t *testing.T) {
 
 func TestParseDefinitionsAndRenderRoundTrip(t *testing.T) {
 	definition := validDefinition()
+	definition.Withdrawn = true
 	definition.Note = "a < b & c"
 	definitions := []Definition{definition}
 	data, err := RenderDefinitions(definitions)
