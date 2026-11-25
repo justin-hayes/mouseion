@@ -245,11 +245,11 @@ func translationTierGate(latinDepth int, segments []ancientgreek.ReferenceTransl
 			depth = max(depth, len(parsed))
 		}
 	}
-	switch {
-	case depth == latinDepth:
+	switch depth {
+	case latinDepth:
 		gate.Passed = true
 		gate.Detail = "tier A, keyed at the Latin's Citation depth"
-	case depth == latinDepth-1:
+	case latinDepth - 1:
 		over, largest, first := 0, 0, ""
 		for _, segment := range segments {
 			words := len(strings.Fields(segment.Text))
