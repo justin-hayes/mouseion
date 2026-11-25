@@ -88,6 +88,27 @@ func (s *Store) effectiveStudyIdentityLocked(owner, bookID, language string, occ
 	return identity, true
 }
 
+// prepareReintroductions prepares again the material of a word in study whose
+// material a correction replaced, in place of the occurrence that no longer
+// resolves.
+func (s Study) prepareReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress) error {
+	for _, item := range progress {
+		if item.Withdrawn {
+			continue
+		}
+		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, item.StudyIdentity)
+		if err != nil {
+			return err
+		}
+		if created {
+			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, item.StudyIdentity)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // fixtureStudyDefaultSource is the occurrence of a word the browser fixtures
 // seed without an analyzed Book behind it.
 var fixtureStudyDefaultSource = domain.StudyOccurrenceRef{BookID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus", SentenceOrdinal: 1, TokenOrdinal: 2}
@@ -241,23 +262,7 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 			}
 		}
 	}
-	// A word whose material a correction replaced is prepared again, in the
-	// place of the occurrence that no longer resolves.
-	for _, item := range progress {
-		if item.Withdrawn {
-			continue
-		}
-		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, item.StudyIdentity)
-		if err != nil {
-			return err
-		}
-		if created {
-			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, item.StudyIdentity)); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return s.prepareReintroductions(ctx, owner, progress)
 }
 
 // fixtureStudyContent is the Study material the fixture server shows for a

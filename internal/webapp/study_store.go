@@ -30,6 +30,25 @@ type StudyStore interface {
 	// RecordStudyGrade appends the review-log row and updates the word's
 	// state; a card already graded is domain.ErrStudyStale.
 	RecordStudyGrade(ctx context.Context, owner string, record domain.StudyGradeRecord) error
+	StudyCorrectionsStore
+}
+
+// StudyCorrectionsStore is the surface that lets Study react to a Lemma
+// correction, an Occurrence exclusion or an Analysis update (ADR 0134 §6).
+type StudyCorrectionsStore interface {
+	// ListStudyOccurrences reads the occurrences that resolve to a word's
+	// identity under current evidence; GetStudyMaterial reads the material a
+	// word was introduced in.
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
+	// SupersedeStudyMaterial replaces a word's material so it is prepared
+	// again, and SetStudyWordWithdrawn withdraws a word or returns it, keeping
+	// its progress.
+	SupersedeStudyMaterial(ctx context.Context, owner, materialID string) error
+	SetStudyWordWithdrawn(ctx context.Context, owner, progressID string, withdrawn bool, now time.Time) error
+	// CompleteStudyReintroductions moves each word whose new material is ready
+	// onto it, and withdraws one whose new material cannot be prepared.
+	CompleteStudyReintroductions(ctx context.Context, owner, language string, now time.Time) error
 }
 
 // Study is the seam through which the page asks for Study material to be

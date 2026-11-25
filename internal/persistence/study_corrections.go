@@ -33,35 +33,49 @@ func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, 
 		if err != nil {
 			return nil, err
 		}
-		usable := make([]domain.ConcordanceResultOccurrence, 0, len(result.Occurrences))
-		ordinals := map[string][]int64{}
-		for _, occurrence := range result.Occurrences {
-			if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel {
-				continue
-			}
-			usable = append(usable, occurrence)
-			ordinals[occurrence.CorpusID] = append(ordinals[occurrence.CorpusID], occurrence.SentenceOrdinal)
+		found, err := s.studyOccurrencesOnPage(ctx, owner, identity, result.Occurrences)
+		if err != nil {
+			return nil, err
 		}
-		sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
-		for corpusID, list := range ordinals {
-			if sentences[corpusID], err = s.ListCorpusSentences(ctx, owner, corpusID, list); err != nil {
-				return nil, err
-			}
-		}
-		for _, occurrence := range usable {
-			sentence, ok := sentences[occurrence.CorpusID][occurrence.SentenceOrdinal]
-			if !ok || effectiveStudyDiscriminator(occurrence, sentence) != identity.LexicalDiscriminator {
-				continue
-			}
-			refs = append(refs, domain.StudyOccurrenceRef{
-				BookID: occurrence.BookID, AnalysisRunID: occurrence.AnalysisRunID, CorpusID: occurrence.CorpusID,
-				SentenceOrdinal: occurrence.SentenceOrdinal, TokenOrdinal: occurrence.TokenOrdinal,
-			})
-		}
+		refs = append(refs, found...)
 		if !result.HasNext {
 			return refs, nil
 		}
 	}
+}
+
+// studyOccurrencesOnPage keeps the page's occurrences that resolve to the
+// identity.
+func (s *PostgresStore) studyOccurrencesOnPage(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]domain.StudyOccurrenceRef, error) {
+	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
+	ordinals := map[string][]int64{}
+	for _, occurrence := range occurrences {
+		if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel {
+			continue
+		}
+		usable = append(usable, occurrence)
+		ordinals[occurrence.CorpusID] = append(ordinals[occurrence.CorpusID], occurrence.SentenceOrdinal)
+	}
+	sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
+	for corpusID, list := range ordinals {
+		loaded, err := s.ListCorpusSentences(ctx, owner, corpusID, list)
+		if err != nil {
+			return nil, err
+		}
+		sentences[corpusID] = loaded
+	}
+	var refs []domain.StudyOccurrenceRef
+	for _, occurrence := range usable {
+		sentence, ok := sentences[occurrence.CorpusID][occurrence.SentenceOrdinal]
+		if !ok || effectiveStudyDiscriminator(occurrence, sentence) != identity.LexicalDiscriminator {
+			continue
+		}
+		refs = append(refs, domain.StudyOccurrenceRef{
+			BookID: occurrence.BookID, AnalysisRunID: occurrence.AnalysisRunID, CorpusID: occurrence.CorpusID,
+			SentenceOrdinal: occurrence.SentenceOrdinal, TokenOrdinal: occurrence.TokenOrdinal,
+		})
+	}
+	return refs, nil
 }
 
 // effectiveStudyDiscriminator is the lexical discriminator an occurrence

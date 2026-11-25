@@ -1,5 +1,7 @@
 package domain
 
+import "slices"
+
 // StudyOccurrenceRef names one analyzed occurrence: the Book, analysis run,
 // corpus, sentence and token a Study sentence was taken from. It is plain
 // data, not a foreign key, so a replaced analysis never deletes a sentence the
@@ -62,13 +64,7 @@ type StudyEvidence struct {
 // reappears. The identity a correction points to is never put into study here:
 // this only acts on words already in study.
 func ReviewStudyEvidence(e StudyEvidence) StudyEvidenceAction {
-	resolves := false
-	for _, occurrence := range e.Valid {
-		if occurrence == e.Source {
-			resolves = true
-			break
-		}
-	}
+	resolves := slices.Contains(e.Valid, e.Source)
 	switch {
 	case e.Withdrawn && (len(e.Valid) == 0 || e.CurrentUnpreparable):
 		return StudyEvidenceNone

@@ -86,6 +86,22 @@ func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language s
 			return err
 		}
 	}
+	return s.enqueueReintroductions(ctx, owner, progress, current)
+}
+
+// enqueueReintroductions prepares new material for the words in study whose
+// material a correction replaced, so a due review is re-introduced in a sentence
+// that belongs to the word. A word withdrawn by a correction waits.
+func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyIdentity]domain.StudyMaterial) error {
+	for _, item := range progress {
+		existing, ok := current[item.StudyIdentity]
+		if item.Withdrawn || (ok && existing.State != domain.StudyMaterialPending) {
+			continue
+		}
+		if err := s.enqueueWord(ctx, owner, item.StudyIdentity, existing.ID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
