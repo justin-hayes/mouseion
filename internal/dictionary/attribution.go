@@ -28,3 +28,17 @@ func AncientGreekLSJNotice(pin string) string {
 	}
 	return lsjSourceName + ", PerseusDL/lexica@" + pin + ". Derived data remains share-alike under the same licence."
 }
+
+// lewisShortSourceName is the pinned Lewis & Short source without its revision.
+const lewisShortSourceName = "Latin dictionary entry: Lewis & Short, A Latin Dictionary, in the PerseusDL/lexica digitisation (CC BY-SA 4.0)"
+
+// LatinLSNotice is retained wherever a matched Lewis & Short dictionary entry is
+// exported. It names the pinned revision the entry was derived from, when the
+// deck froze one, and restates the licence.
+func LatinLSNotice(pin string) string {
+	pin = strings.TrimSpace(pin)
+	if pin == "" {
+		return lewisShortSourceName + ". Derived data remains share-alike under the same licence."
+	}
+	return lewisShortSourceName + ", PerseusDL/lexica@" + pin + ". Derived data remains share-alike under the same licence."
+}

@@ -985,9 +985,9 @@ reject) and the gradual score (ranking among accepted candidates).
 _Avoid_: sentence score (fine in prose), readability.
 
 **Dictionary index**:
-The local, read-only collection of dictionary entries (Wiktionary-derived, and
-LSJ-derived for Ancient Greek) used as meaning evidence and dictionary-form
-evidence for cards. It is not learner or Book state.
+The local, read-only collection of dictionary entries (Wiktionary-derived,
+LSJ-derived for Ancient Greek, and Lewis & Short-derived for Latin) used as
+meaning evidence and dictionary-form evidence for cards. It is not learner or Book state.
 _Avoid_: dictionary database, lexicon service.
 
 **Sense**:
@@ -1016,8 +1016,8 @@ _Avoid_: local gloss, definition.
 
 **Meaning evidence**:
 Source-attributed dictionary senses relevant to a target in its representative
-sentence: Wiktionary for modern languages, LSJ for Ancient Greek. Meaning
-evidence informs the contextual Gloss without dictating its wording; the
+sentence: Wiktionary for modern languages, LSJ for Ancient Greek, Lewis & Short for
+Latin. Meaning evidence informs the contextual Gloss without dictating its wording; the
 sentence itself may support a context-only gloss when no sense fits.
 _Avoid_: card Gloss, undifferentiated definitions.
 
