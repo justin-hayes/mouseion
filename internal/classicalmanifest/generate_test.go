@@ -775,3 +775,32 @@ func appendFile(t *testing.T, path, text string) {
 	require.NoError(t, err)
 	require.NoError(t, file.Close())
 }
+
+func TestGeneratorAcceptsNamedSectionsAndRefusesUnknownNamesAndLeadingZeros(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	for _, test := range []struct {
+		start, end string
+		wantErr    string
+	}{
+		{start: "1.1.1", end: "1.1.2"},
+		{start: "1.pr.1", end: "1.1.2"},
+		{start: "331a", end: "331b"},
+		{start: "1.1", end: "1.ep"},
+		{start: "1.1.1", end: "1.praef.2", wantErr: "invalid unit range"},
+		{start: "1.01.1", end: "1.1.2", wantErr: "invalid unit range"},
+	} {
+		override := baseOverride()
+		override.Contents = ""
+		override.Units = []classical.UnitSpec{{CitationStart: test.start, CitationEnd: test.end}}
+		override.Translation = nil
+		if test.wantErr == "" {
+			require.NoError(t, override.Validate(), "%s-%s", test.start, test.end)
+		}
+		_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
+		if test.wantErr != "" {
+			require.ErrorContains(t, err, test.wantErr, "%s-%s", test.start, test.end)
+		} else if err != nil {
+			assert.NotContains(t, err.Error(), "invalid unit range", "%s-%s", test.start, test.end)
+		}
+	}
+}

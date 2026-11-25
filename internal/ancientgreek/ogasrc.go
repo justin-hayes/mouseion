@@ -10,6 +10,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -323,7 +324,7 @@ func newInterpretState(definition domain.ReadingUnitDefinition, unitID string) *
 // addSentence includes and rebuilds one sentence, or skips it. A sentence
 // belongs to the unit that holds its first printed token; a sentence crossing
 // the unit boundary is included whole and counted as crossing.
-func (s *interpretState) addSentence(sentence sourceSentence, profile canonicalization.Profile, names map[string]nameStat, start, end []int) error {
+func (s *interpretState) addSentence(sentence sourceSentence, profile canonicalization.Profile, names map[string]nameStat, start, end classical.Citation) error {
 	if len(sentence.tokens) == 0 {
 		return nil
 	}
@@ -455,7 +456,7 @@ const (
 // sentence; the returned crossing flag reports that a later token leaves the
 // range. The citation of every token is still checked, so an unrecoverable
 // citation can never pass unnoticed.
-func sentenceLocation(sentence sourceSentence, start, end []int) (locationDecision, bool, error) {
+func sentenceLocation(sentence sourceSentence, start, end classical.Citation) (locationDecision, bool, error) {
 	first := true
 	insideFirst := false
 	crossing := false
@@ -776,47 +777,17 @@ func sentenceCitations(sentence sourceSentence) []string {
 	return citations
 }
 
-// parseCitation splits a dotted citation such as "1.10.19" into numbers.
-func parseCitation(value string) ([]int, bool) {
-	parts := strings.Split(value, ".")
-	out := make([]int, 0, len(parts))
-	for _, part := range parts {
-		number, err := strconv.Atoi(part)
-		if err != nil || number < 0 {
-			return nil, false
-		}
-		out = append(out, number)
-	}
-	return out, true
-}
+// parseCitation parses a Citation with the shared classical grammar.
+func parseCitation(value string) (classical.Citation, bool) { return classical.ParseCitation(value) }
 
 // citationWithinRange reports whether citation lies inside an inclusive
 // citation range.
-func citationWithinRange(citation, start, end []int) bool {
-	return compareCitation(citation, start) >= 0 && compareCitation(citation, end) <= 0
+func citationWithinRange(citation, start, end classical.Citation) bool {
+	return citation.Within(start, end)
 }
 
-// compareCitation compares two citations component-wise, treating a missing
-// component as zero.
-func compareCitation(a, b []int) int {
-	length := max(len(a), len(b))
-	for index := range length {
-		av, bv := 0, 0
-		if index < len(a) {
-			av = a[index]
-		}
-		if index < len(b) {
-			bv = b[index]
-		}
-		if av != bv {
-			if av < bv {
-				return -1
-			}
-			return 1
-		}
-	}
-	return 0
-}
+// compareCitation compares two Citations component-wise.
+func compareCitation(a, b classical.Citation) int { return a.Compare(b) }
 
 // sortedFeatureCounts turns the unmapped-value tally into a sorted slice.
 func sortedFeatureCounts(counts map[FeatureValueCount]int) []FeatureValueCount {

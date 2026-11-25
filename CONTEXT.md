@@ -523,10 +523,14 @@ own: a learner owns, studies and decks the whole Work, not one of its books.
 _Avoid_: Book (the learner-owned identity), volume, chapter.
 
 **Citation**:
-A position in a Work's own reference system, written as dotted numbers without
-leading zeros (Anabasis `1.2.3`, Apology `17`). It runs from the Work's
-numbered top-level divisions down to the finest level its chosen Edition
-numbers. A page, a print line or a heading is never a citation.
+A position in a Work's own reference system, written as dotted components without
+leading zeros (Anabasis `1.2.3`, Livy `1.pr.1`, `331a`). A component is a number
+with an optional letter suffix or a named section from a reviewed list (`pr`,
+`ep`); a name outside the list is refused. A preface section orders before the
+numbers and an epilogue section after them, and a suffixed number follows its
+bare number (`331` before `331a`). It runs from the Work's top-level divisions
+down to the finest level its chosen Edition numbers. A page, a print line or a
+heading is never a citation.
 _Avoid_: line number, page reference.
 
 **Reading-unit definition**:

@@ -523,25 +523,8 @@ func OverrideSortKey(o Override) string {
 	return "unit:" + o.Key
 }
 
-// isCitation reports whether value is dotted non-negative numbers without
-// leading zeros, matching the glossary's citation form.
-func isCitation(value string) bool {
-	parts := strings.Split(value, ".")
-	if len(parts) == 0 {
-		return false
-	}
-	for _, part := range parts {
-		if part == "" || (len(part) > 1 && part[0] == '0') {
-			return false
-		}
-		for _, r := range part {
-			if r < '0' || r > '9' {
-				return false
-			}
-		}
-	}
-	return true
-}
+// isCitation reports whether value is a valid Citation (see ParseCitation).
+func isCitation(value string) bool { return IsCitation(value) }
 
 // isLowerHexSHA256 reports whether value is exactly 64 lowercase hexadecimal
 // characters.
