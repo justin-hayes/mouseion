@@ -234,6 +234,7 @@ func (i *Index) matchEntries(ctx context.Context, language, lemma, targetWord, u
 		// Lewis & Short entries are frozen whole through LookupLatinLS; they
 		// carry no generic lexical senses, and the Greek index is never read.
 		return nil, nil, lookupMorphology{}, false, nil
+	case cardpolicy.LookupStored:
 	}
 	return lookupEntryRows(ctx, i.db, language, lemma, targetWord, upos, i.hStatusAvailable)
 }
@@ -418,6 +419,29 @@ func combineSenses(first, second []enrichment.LexicalSense) []enrichment.Lexical
 	return append(slices.Clip(first), second...)
 }
 
+// sourceLemmaExists answers a lemma-existence check for a language whose policy
+// reads its own source dictionary; handled is false for the stored entries.
+func (i *Index) sourceLemmaExists(rule cardpolicy.Lookup, lemma, upos string) (exists, handled bool) {
+	switch rule {
+	case cardpolicy.LookupExactlyOne:
+		if !i.greekAvailable {
+			return false, true
+		}
+		for _, candidate := range i.greekEntries[lemma] {
+			if candidate.upos == upos {
+				return true, true
+			}
+		}
+		return false, true
+	case cardpolicy.LookupEveryEntry:
+		// Any Lewis & Short entry under the lemma's key counts; the part of
+		// speech is not matched.
+		return i.lsAvailable && len(i.lsEntries[lemma]) > 0, true
+	case cardpolicy.LookupStored:
+	}
+	return false, false
+}
+
 func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (bool, error) {
 	if i == nil || i.db == nil {
 		return false, nil
@@ -428,21 +452,8 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 	if language == "" || lemma == "" || upos == "" {
 		return false, nil
 	}
-	switch cardpolicy.For(language).DictionaryLookup {
-	case cardpolicy.LookupExactlyOne:
-		if !i.greekAvailable {
-			return false, nil
-		}
-		for _, candidate := range i.greekEntries[lemma] {
-			if candidate.upos == upos {
-				return true, nil
-			}
-		}
-		return false, nil
-	case cardpolicy.LookupEveryEntry:
-		// Any Lewis & Short entry under the lemma's key counts; the part of
-		// speech is not matched.
-		return i.lsAvailable && len(i.lsEntries[lemma]) > 0, nil
+	if exists, handled := i.sourceLemmaExists(cardpolicy.For(language).DictionaryLookup, lemma, upos); handled {
+		return exists, nil
 	}
 	if language == frenchLanguage && !i.frenchFormsAvailable {
 		return false, ErrFrenchFormsUnavailable

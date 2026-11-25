@@ -99,17 +99,8 @@ func (w *ClassicalTranslationWorker) Work(ctx context.Context, job *river.Job[Cl
 	if err != nil {
 		return err
 	}
-	sections, err := ancientgreek.ParseReferenceTranslation(data, args.CitationStart, args.CitationEnd)
-	if err != nil && args.Language == classical.LanguageLatin {
-		// A pinned Latin translation the manifest admitted after measurement (a
-		// file with gaps, or keyed above the source) still imports; sections it
-		// lacks simply withhold their passage context. Ancient Greek keeps the
-		// strict reader's refusal.
-		var measuredErr error
-		if sections, measuredErr = ancientgreek.ParseReferenceTranslationMeasured(data, args.CitationStart, args.CitationEnd); measuredErr != nil {
-			return err
-		}
-	} else if err != nil {
+	sections, err := parseTranslationSections(data, args)
+	if err != nil {
 		return err
 	}
 	translations := make(map[string]string, len(sections))
@@ -140,4 +131,21 @@ func AddClassicalTranslationWorker(workers *river.Workers, store ClassicalTransl
 // never logs source text, a Work title or Greek.
 func logClassicalTranslation(state string, args ClassicalTranslationArgs, sections int) {
 	log.Printf("mouseion: classical translation %s pin=%s sections=%d", state, args.SHA256, sections)
+}
+
+// parseTranslationSections reads a pinned translation with the strict reader. A
+// pinned Latin translation the manifest admitted after measurement (a file with
+// gaps, or keyed above the source) still imports through the measured reader;
+// sections it lacks simply withhold their passage context. Ancient Greek keeps
+// the strict reader's refusal.
+func parseTranslationSections(data []byte, args ClassicalTranslationArgs) ([]ancientgreek.ReferenceTranslation, error) {
+	sections, err := ancientgreek.ParseReferenceTranslation(data, args.CitationStart, args.CitationEnd)
+	if err == nil || args.Language != classical.LanguageLatin {
+		return sections, err
+	}
+	measured, measuredErr := ancientgreek.ParseReferenceTranslationMeasured(data, args.CitationStart, args.CitationEnd)
+	if measuredErr != nil {
+		return nil, err
+	}
+	return measured, nil
 }

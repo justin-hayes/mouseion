@@ -77,18 +77,27 @@ func resolveLatinLSTargets(ctx context.Context, provider enrichment.LatinLSProvi
 			if ref.EntryID == "" || ref.EntryID == entry.EntryID {
 				continue
 			}
-			candidates, ok := provider.LookupLatinLS(ctx, ref.Headword)
-			if !ok {
-				continue
-			}
-			for _, candidate := range candidates {
-				if candidate.EntryID == ref.EntryID {
-					targets[ref.EntryID] = candidate
-				}
+			if target, ok := lookupLatinLSEntry(ctx, provider, ref); ok {
+				targets[ref.EntryID] = target
 			}
 		}
 	}
 	return targets
+}
+
+// lookupLatinLSEntry finds the entry a resolved cross-reference names among the
+// entries under its target headword.
+func lookupLatinLSEntry(ctx context.Context, provider enrichment.LatinLSProvider, ref enrichment.LatinLSCrossRef) (enrichment.LatinLSEntry, bool) {
+	candidates, ok := provider.LookupLatinLS(ctx, ref.Headword)
+	if !ok {
+		return enrichment.LatinLSEntry{}, false
+	}
+	for _, candidate := range candidates {
+		if candidate.EntryID == ref.EntryID {
+			return candidate, true
+		}
+	}
+	return enrichment.LatinLSEntry{}, false
 }
 
 // hasLatinLSSense reports whether the entry has a sense of its own: any sense
