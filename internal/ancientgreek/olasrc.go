@@ -83,18 +83,36 @@ func parsePaulaCitations(data []byte) (map[string]string, error) {
 		if !ok || !numberedReference(reference) || feat.Value == "" {
 			return nil, malformed(0, "Citation layer entry is not a token Citation")
 		}
-		if _, ok := parseCitation(feat.Value); !ok {
+		citation, ok := paulaCitation(feat.Value)
+		if !ok {
 			return nil, malformed(0, "Citation layer value is not a Citation")
 		}
 		if _, duplicate := citations[reference]; duplicate {
 			return nil, malformed(0, "Citation layer names a token twice")
 		}
-		citations[reference] = feat.Value
+		citations[reference] = citation
 	}
 	if len(citations) == 0 {
 		return nil, malformed(0, "Citation layer has no tokens")
 	}
 	return citations, nil
+}
+
+// paulaCitation reads one PAULA Citation value in its dotted form. OLA's PAULA
+// layer joins a multi-level Citation's components with underscores (1_1_1);
+// each underscore is read as a dot, and the result must satisfy the shared
+// Citation grammar. A value mixing both separators is refused.
+func paulaCitation(value string) (string, bool) {
+	if strings.Contains(value, "_") {
+		if strings.Contains(value, ".") {
+			return "", false
+		}
+		value = strings.ReplaceAll(value, "_", ".")
+	}
+	if _, ok := parseCitation(value); !ok {
+		return "", false
+	}
+	return value, true
 }
 
 // parseOlaConllu parses the OLA CoNLL-U: "# absolute_id", "# clause_id" and

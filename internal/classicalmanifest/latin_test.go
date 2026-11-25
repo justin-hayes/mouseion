@@ -331,6 +331,7 @@ func TestLatinGateReportListsEveryGateOfEveryWork(t *testing.T) {
 		"  - citations: pass (44 tokens, all cited, none backwards)",
 		"  - split-words: pass (0 of 40 words, 0.000%, limit 2.000%)",
 		"  - translation-join: pass (4 of 4 sentences, 100.000%, floor 98.000%)",
+		"  - translation-tier: pass (tier A, keyed at the Latin's Citation depth)",
 		"  - spot-check: pass (Justin checked 1 pair(s))",
 		"  - dictionary-match: not evaluated (no dictionary index was given; generation evaluates it)",
 		"",
