@@ -129,9 +129,6 @@ templ concordanceResultItems(occurrences []domain.ConcordanceResultOccurrence, l
 				</summary>
 				<div class="concordance-context">
 					@sourceAttribution(occurrence.Attribution, "concordance-attribution")
-					if citation := sentenceCitation(occurrence.Citations); citation != "" {
-						<p class="concordance-location">{ citation }</p>
-					}
 					<p class="reading-text">@concordanceContextText(before, target, after, occurrence.SentenceText)</p>
 					if entry, ok := concordanceConstructionEntry(occurrence); ok {
 						<div class="concordance-construction">
@@ -143,17 +140,22 @@ templ concordanceResultItems(occurrences []domain.ConcordanceResultOccurrence, l
 					}
 				</div>
 			</details>
-			if occurrence.StudyUnavailable {
-				// A sentence overlapping a speaker label is
-				// raw evidence, never study context. The
-				// occurrence itself stays and, when it is a
-				// label, is named as such.
-				if occurrence.SpeakerLabel {
-					<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
+			<div class="concordance-result-end">
+				if citation := sentenceCitation(occurrence.Citations); citation != "" {
+					<p class="concordance-location">{ citation }</p>
 				}
-			} else {
-				<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
-			}
+				if occurrence.StudyUnavailable {
+					// A sentence overlapping a speaker label is
+					// raw evidence, never study context. The
+					// occurrence itself stays and, when it is a
+					// label, is named as such.
+					if occurrence.SpeakerLabel {
+						<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
+					}
+				} else {
+					<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
+				}
+			</div>
 		</li>
 	}
 }

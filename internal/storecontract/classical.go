@@ -28,21 +28,20 @@ const (
 )
 
 // ClassicalDefinitions is the small release every adapter reconciles for the
-// Classical Add scenarios: one Work of two constituent books and one
-// whole-work unit.
+// Classical Add scenarios: one Work with two Editions, each one whole-work
+// unit, and another whole-work unit.
 func ClassicalDefinitions() []classical.Definition {
-	one, two := 1, 2
 	return []classical.Definition{
 		classicalDefinition(ClassicalWorkKey, ClassicalWorkTitle, ClassicalWorkAuthor, ClassicalWorkGreek,
-			ClassicalUnitBook1Key, &one, 2, "1.1.1", "1.10.19", "contract-iliad-edition"),
+			ClassicalUnitBook1Key, "1.1.1", "1.10.19", "contract-iliad-edition-1"),
 		classicalDefinition(ClassicalWorkKey, ClassicalWorkTitle, ClassicalWorkAuthor, ClassicalWorkGreek,
-			ClassicalUnitBook2Key, &two, 2, "2.1.1", "2.10.19", "contract-iliad-edition"),
+			ClassicalUnitBook2Key, "2.1.1", "2.10.19", "contract-iliad-edition-2"),
 		classicalDefinition(ClassicalWholeWorkKey, ClassicalWholeWorkName, ClassicalWholeAuthor, "Ἑλληνικά",
-			ClassicalWholeUnitKey, nil, 1, "1.1.1", "1.1.10", "contract-hellenica-edition"),
+			ClassicalWholeUnitKey, "1.1.1", "1.1.10", "contract-hellenica-edition"),
 	}
 }
 
-func classicalDefinition(workKey, title, author, greekTitle, key string, book *int, books int, citationStart, citationEnd, editionKey string) classical.Definition {
+func classicalDefinition(workKey, title, author, greekTitle, key, citationStart, citationEnd, editionKey string) classical.Definition {
 	definition := classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
@@ -52,8 +51,7 @@ func classicalDefinition(workKey, title, author, greekTitle, key string, book *i
 		EditionKey:            editionKey,
 		EditionLabel:          "Contract edition",
 		Language:              classical.Language,
-		ConstituentBook:       book,
-		ConstituentBooks:      books,
+		ConstituentBooks:      1,
 		CitationStart:         citationStart,
 		CitationEnd:           citationEnd,
 		WordCount:             100,
@@ -90,8 +88,8 @@ func classicalScenarios() []Scenario {
 			require.NotNil(t, first.ReadingUnit)
 			assert.Equal(t, ClassicalUnitBook1Key, first.ReadingUnit.ReadingUnitKey)
 			assert.Equal(t, ClassicalWorkKey, first.ReadingUnit.WorkKey)
-			assert.Equal(t, 1, first.ReadingUnit.ConstituentBook)
-			assert.Equal(t, 2, first.ReadingUnit.ConstituentBooks)
+			assert.Zero(t, first.ReadingUnit.ConstituentBook, "a whole-work unit has no constituent position")
+			assert.Equal(t, 1, first.ReadingUnit.ConstituentBooks)
 			assert.Equal(t, ClassicalWorkGreek, first.ReadingUnit.GreekTitle)
 
 			whole := requireDetail(t, h, owner, owned[ClassicalWholeUnitKey].BookID)

@@ -187,6 +187,9 @@ func (b *builder) buildWork(override classical.Override) error {
 	}
 
 	units, total, coverage, err := b.planUnits(override, sourceData, sourceAvailable)
+	if errors.Is(err, errContentsOverride) {
+		return err
+	}
 	if err != nil {
 		return b.candidateFailure(override.WorkKey, "", err)
 	}
@@ -382,7 +385,11 @@ func (b *builder) planUnits(override classical.Override, sourceData []byte, sour
 
 func (b *builder) planExplicitUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
 	spec := override.Units[0] // The override validator allows at most one.
-	if compareCitations(spec.CitationStart, spec.CitationEnd) > 0 {
+	order, err := classical.CompareCitations(spec.CitationStart, spec.CitationEnd)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q: %w", override.WorkKey, err)
+	}
+	if order > 0 {
 		return nil, 0, nil, fmt.Errorf("classical: work override %q has a backwards citation range", override.WorkKey)
 	}
 	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: spec.CitationStart, end: spec.CitationEnd}
@@ -411,15 +418,22 @@ func bookRangeOverrideError(override classical.Override) error {
 	return fmt.Errorf("classical: work override %q cannot replace derived book contents with a hand-reviewed range", override.WorkKey)
 }
 
+// errContentsOverride marks a work override whose contents: books disagrees
+// with its source. It always fails generation, even for a new Work.
+var errContentsOverride = errors.New("classical: contents override disagrees with the source")
+
 // proposedUnit converts the adapter's proposed ranges into the one whole-work
-// unit. When the Work's citation scheme names books, each proposed range is a
+// unit. When the work override asks for contents: books, each proposed range is a
 // constituent book and is recorded, with its word count, as contents.
 func proposedUnit(override classical.Override, sourceData []byte, proposed []ancientgreek.UnitRange) (plannedUnit, error) {
 	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: proposed[0].Start, end: proposed[len(proposed)-1].End}
-	if !hasBookRanges(proposed) {
-		if override.Contents == classical.ContentsBooks {
-			return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges", override.WorkKey)
-		}
+	hasBooks := hasBookRanges(proposed)
+	switch {
+	case override.Contents == classical.ContentsBooks && !hasBooks:
+		return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges: %w", override.WorkKey, errContentsOverride)
+	case override.Contents != classical.ContentsBooks && hasBooks:
+		return plannedUnit{}, fmt.Errorf("classical: work override %q has a source with multiple book ranges but no contents: %q: %w", override.WorkKey, classical.ContentsBooks, errContentsOverride)
+	case !hasBooks:
 		return unit, nil
 	}
 	for _, rangeValue := range proposed {
@@ -943,35 +957,6 @@ func firstCitationNumber(citation string) (int, error) {
 		return 0, fmt.Errorf("classical: citation %q has no constituent book number", citation)
 	}
 	return number, nil
-}
-
-// compareCitations compares two dotted citations component-wise.
-func compareCitations(a, b string) int {
-	left, right := strings.Split(a, "."), strings.Split(b, ".")
-	length := max(len(left), len(right))
-	for index := range length {
-		lv, rv := citationPart(left, index), citationPart(right, index)
-		if lv != rv {
-			if lv < rv {
-				return -1
-			}
-			return 1
-		}
-	}
-	return 0
-}
-
-// citationPart returns one parsed component, or zero for a missing or invalid
-// one. Callers validate citations before comparing them.
-func citationPart(parts []string, index int) int {
-	if index >= len(parts) {
-		return 0
-	}
-	number, err := strconv.Atoi(parts[index])
-	if err != nil {
-		return 0
-	}
-	return number
 }
 
 // resolveUpstream joins a pinned file name under the upstream directory and

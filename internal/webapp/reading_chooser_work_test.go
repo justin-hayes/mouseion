@@ -37,21 +37,15 @@ func chooserWorkBook(bookID, title, author, unitKey, corpusID string) domain.MyB
 	return book
 }
 
-// workDefinitions define six Iliad Books, one Anabasis Book and a whole-work
-// Hellenica, so constituent-Book and whole-work candidates can be exercised
+// workDefinitions define whole-work Anabasis, Hellenica and Iliad units,
+// so whole-work candidates and leftover legacy Books can be exercised
 // together.
 func workDefinitions() []classical.Definition {
-	one, two, three, four, five, six := 1, 2, 3, 4, 5, 6
-	return []classical.Definition{
-		catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις", "xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, false, true),
-		catalogFixtureDefinition("xenophon-hellenica-1", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά", "xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
-		catalogFixtureDefinition("homer-iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "1.1.1", "1.1.10", &one, 24, 100, false, false),
-		catalogFixtureDefinition("homer-iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "2.1.1", "2.1.10", &two, 24, 200, false, false),
-		catalogFixtureDefinition("homer-iliad-3", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "3.1.1", "3.1.10", &three, 24, 300, false, false),
-		catalogFixtureDefinition("homer-iliad-4", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "4.1.1", "4.1.10", &four, 24, 400, false, false),
-		catalogFixtureDefinition("homer-iliad-5", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "5.1.1", "5.1.10", &five, 24, 500, false, false),
-		catalogFixtureDefinition("homer-iliad-6", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "6.1.1", "6.1.10", &six, 24, 600, false, false),
-	}
+	return append(legacyClassicalTombstones(), []classical.Definition{
+		catalogFixtureDefinition("xenophon-anabasis", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις", "xenophon-anabasis-marchant-1904", "1.1.1", "7.1.10", nil, 7, 9305, false, true),
+		catalogFixtureDefinition("xenophon-hellenica", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά", "xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
+		catalogFixtureDefinition("homer-iliad", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "1.1.1", "24.1.10", nil, 24, 2100, false, false),
+	}...)
 }
 
 func workCatalog(t *testing.T) *classical.Catalog {
@@ -132,7 +126,7 @@ func TestReadingChooserModernLanguageCandidatesStayOrdinary(t *testing.T) {
 			}).buildReadingChooser(context.Background(), fixtures.OwnerID, language, language, "")
 			require.NoError(t, err)
 			require.Len(t, view.Entries, 1)
-			assert.Equal(t, "95% to below 97%", readingChooserBookBandLabel(view.Entries[0].Books[0]))
+			assert.Equal(t, "95% to below 97%", readingChooserBookBandLabel(view.Entries[0].Book))
 		})
 	}
 }
@@ -157,14 +151,13 @@ func TestReadingChooserListsOneOrdinaryEntryPerBookInTitleOrder(t *testing.T) {
 	require.Len(t, view.Entries, 5, "every To Read Book is its own entry, even Books of one Work")
 	var ids []string
 	for _, entry := range view.Entries {
-		require.Len(t, entry.Books, 1)
-		ids = append(ids, entry.Books[0].Book.Book.ID)
+		ids = append(ids, entry.Book.Book.Book.ID)
 	}
 	assert.Equal(t, []string{"anabasis-1", "iliad-1", "iliad-2", "iliad-3", "iliad-4"}, ids, "neutral title order")
-	assert.Equal(t, "99% or above", readingChooserBookBandLabel(view.Entries[1].Books[0]))
-	assert.Equal(t, "Below 95%", readingChooserBookBandLabel(view.Entries[2].Books[0]))
-	assert.Equal(t, "Analysis in progress", readingChooserBookBandLabel(view.Entries[3].Books[0]))
-	assert.Equal(t, "Not assessed", readingChooserBookBandLabel(view.Entries[4].Books[0]))
+	assert.Equal(t, "99% or above", readingChooserBookBandLabel(view.Entries[1].Book))
+	assert.Equal(t, "Below 95%", readingChooserBookBandLabel(view.Entries[2].Book))
+	assert.Equal(t, "Analysis in progress", readingChooserBookBandLabel(view.Entries[3].Book))
+	assert.Equal(t, "Not assessed", readingChooserBookBandLabel(view.Entries[4].Book))
 }
 
 func TestReadingChooserSwitchModeExcludesTheCurrentBook(t *testing.T) {
@@ -176,7 +169,7 @@ func TestReadingChooserSwitchModeExcludesTheCurrentBook(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, view.Entries, 4)
 	for _, entry := range view.Entries {
-		assert.NotEqual(t, "iliad-2", entry.Books[0].Book.Book.ID, "the current Book is not offered")
+		assert.NotEqual(t, "iliad-2", entry.Book.Book.Book.ID, "the current Book is not offered")
 	}
 }
 

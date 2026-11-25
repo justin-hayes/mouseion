@@ -33,7 +33,8 @@ func legacyAnabasisDefinition() domain.ReadingUnitDefinition {
 	}
 }
 
-// manifestDefinition builds one valid fixture definition.
+// manifestDefinition builds one valid fixture definition. A per-book definition
+// is a withdrawn ADR 0116 entry: only those may carry a constituent book.
 func manifestDefinition(key, workKey, workTitle, author, greekTitle, editionKey, editionLabel, citationStart, citationEnd string, book *int, books int, revision int) classical.Definition {
 	return classical.Definition{
 		Key:                   key,
@@ -53,6 +54,7 @@ func manifestDefinition(key, workKey, workTitle, author, greekTitle, editionKey,
 		Source:                classical.SourcePin{Layer: "oga-src", FileName: "anabasis.conllu", Size: 7438037, SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU},
 		InterpretationVersion: "oga-agdt-upos/5",
 		Revision:              revision,
+		Withdrawn:             book != nil,
 	}
 }
 

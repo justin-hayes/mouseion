@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,6 +63,10 @@ func TestOneCitationRenderingServesEverySurface(t *testing.T) {
 	citations := []string{"1.2.17", "1.2.18", "1.2.20"}
 	want := "1.2.17–18, 1.2.20"
 	occurrence := domain.ConcordanceResultOccurrence{BookID: "b", BookTitle: "T", SentenceText: "x", Surface: "x", SentenceEndOffset: 1, Citations: citations}
-	assert.Contains(t, concordanceBody(t, occurrence), ">"+want+"<")
-	assert.Equal(t, want, sentenceCitation(citations))
+	t.Run("concordance line", func(t *testing.T) {
+		require.Contains(t, concordanceBody(t, occurrence), ">"+want+"<")
+	})
+	t.Run("shared formatter", func(t *testing.T) {
+		require.Equal(t, want, sentenceCitation(citations))
+	})
 }

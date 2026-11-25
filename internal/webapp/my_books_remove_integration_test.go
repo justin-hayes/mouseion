@@ -42,12 +42,11 @@ func TestMyBooksRemoveBookEndsMembershipAndRefusesTheCurrentBook(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "remove-book", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad-1", "homer-iliad-2")
+	addClassicalTestUnits(t, h, cookies, csrf, "homer-iliad", "xenophon-hellenica")
 
 	ids := ownerBooks(t, pool, learner.ID)
 	require.Len(t, ids, 2)
-	byPosition := classicalBooksByPosition(t, ctx, store, learner.ID, ids)
-	currentID, otherID := byPosition[1].Book.ID, byPosition[2].Book.ID
+	currentID, otherID := booksByUnitKey(t, ctx, store, learner.ID, "homer-iliad"), booksByUnitKey(t, ctx, store, learner.ID, "xenophon-hellenica")
 	currentReadingBook(t, pool, learner.ID, currentID)
 	other, err := store.GetBookDetail(ctx, learner.ID, otherID)
 	require.NoError(t, err)

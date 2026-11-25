@@ -112,12 +112,12 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBook(t *testing.T) {
 
 	work := perform(t, h, "GET", "/catalogs/classical/works/xenophon-hellenica", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
-	for _, want := range []string{"Add and prepare the work", `action="/catalogs/classical/units/xenophon-hellenica-1/add"`} {
+	for _, want := range []string{"Add and prepare the work", `action="/catalogs/classical/units/xenophon-hellenica/add"`} {
 		assert.Contains(t, work.Body.String(), want)
 	}
 	assert.NotContains(t, work.Body.String(), `href="/catalogs/classical/books/`, "an unowned unit has no In My Books link")
 
-	added := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	added := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
 	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books in Ancient Greek. Your study language is unchanged. Downloading and preparing the text."))
 	ids := ownerBooks(t, pool, learner.ID)
@@ -170,7 +170,7 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBook(t *testing.T) {
 
 	// Re-add the work: the existing Book is reopened and no duplicate
 	// appears.
-	again := perform(t, h, "POST", "/catalogs/classical/works/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}}, cookies)
+	again := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, again.Code)
 	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened the existing Book in Ancient Greek. Your study language is unchanged. Downloading and preparing the text."))
 	assert.Contains(t, again.Header().Get("Location"), "added_book="+ids[0])
@@ -213,12 +213,12 @@ func TestClassicalCatalogAddConfirmationIsUnchangedWhenAncientGreekIsActive(t *t
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "classical-add-greek-active", "learner-password")
 	// Ancient Greek is already the learner's study language and active.
-	_, err := store.AddClassicalReadingUnits(ctx, learner.ID, []string{"xenophon-anabasis-1"})
+	_, err := store.AddClassicalReadingUnits(ctx, learner.ID, []string{"xenophon-anabasis"})
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	added := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	added := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
 	location := added.Header().Get("Location")
 	t.Run("the confirmation is unchanged", func(t *testing.T) {
@@ -242,7 +242,7 @@ func TestClassicalCatalogAddConfirmationIsUnchangedWhenAncientGreekIsActive(t *t
 	// A stale or crafted link query still names no language while Ancient Greek
 	// is active.
 	t.Run("a stale link query names no language", func(t *testing.T) {
-		crafted := perform(t, h, "GET", "/catalogs/classical/works/homer-iliad?message="+url.QueryEscape("Added 1 Book to My Books.")+"&added_book="+booksByUnitKey(t, ctx, store, learner.ID, "homer-iliad-1"), nil, cookies)
+		crafted := perform(t, h, "GET", "/catalogs/classical/works/homer-iliad?message="+url.QueryEscape("Added 1 Book to My Books.")+"&added_book="+booksByUnitKey(t, ctx, store, learner.ID, "homer-iliad"), nil, cookies)
 		require.Equal(t, http.StatusOK, crafted.Code)
 		require.NotContains(t, crafted.Body.String(), "Open Ancient Greek in My Books")
 	})
@@ -259,7 +259,7 @@ func TestClassicalCatalogAddNamesAncientGreekForOneBook(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	added := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	added := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
 	location := added.Header().Get("Location")
 	ids := ownerBooks(t, pool, learner.ID)
@@ -297,7 +297,7 @@ func TestClassicalCatalogAddNamesAncientGreekForOneBook(t *testing.T) {
 	// Re-adding while another language is active follows the same rule.
 	t.Run("reopening follows the same rule", func(t *testing.T) {
 		require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
-		again := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+		again := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 		require.Equal(t, http.StatusSeeOther, again.Code)
 		require.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened the existing Book in Ancient Greek. Your study language is unchanged. Downloading and preparing the text."))
 	})
@@ -308,18 +308,18 @@ func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheIndex(t *testing.T) 
 	learner := createAccount(t, ctx, store, "classical-add-single", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	single := perform(t, h, "POST", "/catalogs/classical/units/xenophon-anabasis-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	single := perform(t, h, "POST", "/catalogs/classical/units/xenophon-anabasis/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, single.Code)
 	assert.Contains(t, single.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
 	require.Len(t, ownerBooks(t, pool, learner.ID), 1)
 
 	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code)
-	for _, want := range []string{`action="/catalogs/classical/units/xenophon-hellenica-1/add"`, `name="return" value="index"`} {
+	for _, want := range []string{`action="/catalogs/classical/units/xenophon-hellenica/add"`, `name="return" value="index"`} {
 		assert.Contains(t, index.Body.String(), want, "whole-work unit is added from the index")
 	}
 
-	whole := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica-1/add", url.Values{"csrf_token": {csrf}, "return": {"index"}}, cookies)
+	whole := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}, "return": {"index"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code)
 	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
 	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
@@ -353,8 +353,6 @@ func TestClassicalCatalogOffersAndAddsEachEditionSeparately(t *testing.T) {
 	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
 	require.Contains(t, index.Body.String(), `href="`+workURL+`">Choose an edition</a>`)
 	require.NotContains(t, index.Body.String(), `method="post" action="`+workURL+`/add"`)
-	bulk := perform(t, h, "POST", workURL+"/add", form, cookies)
-	require.Equal(t, workURL, bulk.Header().Get("Location"))
 	require.Empty(t, ownerBooks(t, pool, learner.ID))
 
 	page := perform(t, h, "GET", workURL, nil, cookies)
@@ -389,10 +387,10 @@ func TestClassicalCatalogAddFailureRedirectsWithRecoveryMessage(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "classical-add-stale-unit", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	_, err := pool.Exec(ctx, `UPDATE reading_units SET withdrawn = true WHERE definition_key = 'homer-iliad-1'`)
+	_, err := pool.Exec(ctx, `UPDATE reading_units SET withdrawn = true WHERE definition_key = 'homer-iliad'`)
 	require.NoError(t, err)
 
-	response := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	response := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, response.Code)
 	location := response.Header().Get("Location")
 	assert.Contains(t, location, url.QueryEscape("This text could not be added. Refresh the catalog and try again."))
@@ -410,12 +408,11 @@ func TestClassicalCatalogAddIsUnavailableWithLegacyRowsWhileOPDSStillWorks(t *te
 	require.Equal(t, http.StatusOK, work.Code)
 	assert.Contains(t, work.Body.String(), classical.LegacyRowsCode)
 	assert.Contains(t, work.Body.String(), "Add is unavailable")
-	assert.NotContains(t, work.Body.String(), `action="/catalogs/classical/works/homer-iliad/add"`)
 
-	refused := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	refused := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, refused.Code)
 	assert.Contains(t, refused.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsCode))
-	refusedUnit := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad-1/add", url.Values{"csrf_token": {csrf}}, cookies)
+	refusedUnit := perform(t, h, "POST", "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, refusedUnit.Code)
 	assert.Contains(t, refusedUnit.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsCode))
 	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM books WHERE owner_id = $1 AND metadata_provenance = $2`, learner.ID, domain.MetadataProvenanceOperatorRegistration))
@@ -433,7 +430,7 @@ func TestClassicalCatalogInMyBooksIsOwnerScoped(t *testing.T) {
 	ctx, store, _, h, _ := classicalAddHarness(t)
 	owner := createAccount(t, ctx, store, "classical-add-owner-scope", "learner-password")
 	other := createAccount(t, ctx, store, "classical-add-other", "learner-password")
-	report, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"homer-iliad-1"})
+	report, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"homer-iliad"})
 	require.NoError(t, err)
 	bookID := report.Books[0].BookID
 
@@ -467,10 +464,15 @@ func TestClassicalCatalogWholeWorkAddIgnoresWithdrawnPerBookBooks(t *testing.T) 
 		}
 		return catalogFixtureDefinition(key, "plato-republic", "Republic", "Plato", "Πολιτεία", "plato-republic-burnet-1905", start, end, book, 2, 9000, withdrawn, false)
 	}
-	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{perBook(&one, "plato-republic-1", false), perBook(&two, "plato-republic-2", false)}))
-	leftovers, err := store.AddClassicalReadingUnits(ctx, learner.ID, []string{"plato-republic-1"})
+	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{perBook(&one, "plato-republic-1", true), perBook(&two, "plato-republic-2", true)}))
+	legacyUnit := perBook(&one, "plato-republic-1", true)
+	registration, err := store.RegisterReadingUnitBook(ctx, learner.ID, domain.ReadingUnitDefinition{
+		Key: legacyUnit.Key, Language: legacyUnit.Language, WorkTitle: legacyUnit.WorkTitle, WorkAuthor: legacyUnit.WorkAuthor,
+		EditionLabel: legacyUnit.EditionLabel, CitationStart: legacyUnit.CitationStart, CitationEnd: legacyUnit.CitationEnd,
+		SourceFileName: legacyUnit.Source.FileName, SourceFileSize: legacyUnit.Source.Size,
+		SourceFileSHA256: legacyUnit.Source.SHA256, InterpretationVersion: legacyUnit.InterpretationVersion,
+	})
 	require.NoError(t, err)
-	require.Len(t, leftovers.Books, 1)
 
 	whole := catalogFixtureWholeWorkWithBooks()
 	definitions := []classical.Definition{whole, perBook(&one, "plato-republic-1", true), perBook(&two, "plato-republic-2", true)}
@@ -498,12 +500,12 @@ func TestClassicalCatalogWholeWorkAddIgnoresWithdrawnPerBookBooks(t *testing.T) 
 	assert.Contains(t, owned.Body.String(), "In My Books")
 	assert.NotContains(t, owned.Body.String(), `action="/catalogs/classical/units/plato-republic/add"`)
 
-	removed := perform(t, h, "POST", "/library/books/"+leftovers.Books[0].BookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
+	removed := perform(t, h, "POST", "/library/books/"+registration.BookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, removed.Code)
-	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("This edition or passage is no longer available to add from the Catalog."))
+	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("This Reading unit is no longer in the Catalog, so it can't be added back."))
 	require.NotContains(t, removed.Header().Get("Location"), url.QueryEscape("the Catalog can add it back"))
 
-	retried := perform(t, h, "POST", "/library/books/"+leftovers.Books[0].BookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
+	retried := perform(t, h, "POST", "/library/books/"+registration.BookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, retried.Code)
 	require.NotContains(t, retried.Header().Get("Location"), url.QueryEscape("The Catalog can add it back."))
 }

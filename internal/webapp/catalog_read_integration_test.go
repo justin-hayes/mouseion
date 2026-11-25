@@ -88,7 +88,7 @@ func TestClassicalPreviouslyReadRecordsAReadBookWithoutPreparing(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	read := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad-1/previously-read", url.Values{
+	read := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad/previously-read", url.Values{
 		"csrf_token": {csrf},
 		"return":     {"index"},
 	}, cookies)
@@ -107,7 +107,7 @@ func TestClassicalPreviouslyReadRecordsAReadBookWithoutPreparing(t *testing.T) {
 	assert.Equal(t, 1, detail.CompletionCount)
 	assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
 	require.NotNil(t, detail.ReadingUnit)
-	assert.Equal(t, "homer-iliad-1", detail.ReadingUnit.ReadingUnitKey)
+	assert.Equal(t, "homer-iliad", detail.ReadingUnit.ReadingUnitKey)
 	assert.Nil(t, detail.Acquired, "I've read this downloads nothing")
 
 	assert.Zero(t, countRows(t, pool, `SELECT count(*) FROM analysis_jobs WHERE owner_id = $1`, learner.ID), "I've read this uses no analysis job")

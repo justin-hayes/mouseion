@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -40,6 +41,9 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 		Revision:              1,
 		Withdrawn:             withdrawn,
 	}
+	if book == nil && books > 1 && len(definition.Contents) == 0 {
+		definition.Contents = fixtureBookContents(citationStart, citationEnd, books, words)
+	}
 	if translation {
 		definition.Translation = &classical.TranslationPin{
 			Layer: "translation", FileName: "work.xml", Size: 10, SHA256: strings.Repeat("b", 64),
@@ -47,6 +51,26 @@ func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKe
 		}
 	}
 	return definition
+}
+
+// fixtureBookContents divides a whole-work range into constituent books whose
+// word counts sum to words.
+func fixtureBookContents(start, end string, books, words int) []classical.ConstituentBookSpan {
+	contents := make([]classical.ConstituentBookSpan, 0, books)
+	for number := 1; number <= books; number++ {
+		span := classical.ConstituentBookSpan{
+			Book: number, CitationStart: fmt.Sprintf("%d.1.1", number), CitationEnd: fmt.Sprintf("%d.1.10", number), WordCount: words / books,
+		}
+		if number == 1 {
+			span.CitationStart = start
+		}
+		if number == books {
+			span.CitationEnd = end
+			span.WordCount = words - (books-1)*(words/books)
+		}
+		contents = append(contents, span)
+	}
+	return contents
 }
 
 // catalogFixtureWholeWorkWithBooks builds a translated whole-work unit that
@@ -65,19 +89,32 @@ func catalogFixtureWholeWorkWithBooks() classical.Definition {
 // book, a whole-work passage, a two-book work without a translation and a
 // withdrawn tombstone.
 func catalogFixtureDefinitions() []classical.Definition {
-	one, two := 1, 2
-	return []classical.Definition{
-		catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
-			"xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, false, true),
-		catalogFixtureDefinition("xenophon-hellenica-1", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
+	one := 1
+	return append(legacyClassicalTombstones(), []classical.Definition{
+		catalogFixtureDefinition("xenophon-anabasis", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
+			"xenophon-anabasis-marchant-1904", "1.1.1", "7.1.10", nil, 7, 9305, false, true),
+		catalogFixtureDefinition("xenophon-hellenica", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
 			"xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
-		catalogFixtureDefinition("homer-iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς",
-			"homer-iliad-monro-1902", "1.1.1", "1.1.10", &one, 24, 100, false, false),
-		catalogFixtureDefinition("homer-iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς",
-			"homer-iliad-monro-1902", "2.1.1", "2.1.10", &two, 24, 200, false, false),
+		catalogFixtureDefinition("homer-iliad", "homer-iliad", "Iliad", "Homer", "Ἰλιάς",
+			"homer-iliad-monro-1902", "1.1.1", "2.1.10", nil, 2, 300, false, false),
 		catalogFixtureDefinition("xenophon-cyropaedia-1", "xenophon-cyropaedia", "Cyropaedia", "Xenophon", "Κύρου παιδεία",
 			"xenophon-cyropaedia-hutchinson-1914", "1.1.1", "1.1.10", &one, 8, 999, true, false),
+	}...)
+}
+
+// legacyClassicalTombstones are the withdrawn ADR 0116 per-book definitions
+// that learners' older Books still reference: six Iliad Books and one Anabasis
+// Book.
+func legacyClassicalTombstones() []classical.Definition {
+	books := make([]classical.Definition, 0, 7)
+	for number := 1; number <= 6; number++ {
+		book := number
+		books = append(books, catalogFixtureDefinition(fmt.Sprintf("homer-iliad-%d", number), "homer-iliad", "Iliad", "Homer", "Ἰλιάς",
+			"homer-iliad-monro-1902", fmt.Sprintf("%d.1.1", number), fmt.Sprintf("%d.1.10", number), &book, 24, 100*number, true, false))
 	}
+	one := 1
+	return append(books, catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις",
+		"xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, true, true))
 }
 
 func catalogFixture(t *testing.T) *classical.Catalog {
@@ -705,16 +742,10 @@ func TestClassicalAddRoutesRejectUnknownTargetsAndMissingCSRF(t *testing.T) {
 		services.Classical = catalogFixture(t)
 	})
 
-	unknownWork := readingTestRequest(t, h, "/catalogs/classical/works/no-such-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusNotFound, unknownWork.Code)
-
 	unknownUnit := readingTestRequest(t, h, "/catalogs/classical/units/no-such-unit/add", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusNotFound, unknownUnit.Code)
 
-	noWorkCSRF := readingTestRequest(t, h, "/catalogs/classical/works/homer-iliad/add", nil, cookies)
-	assert.Equal(t, http.StatusForbidden, noWorkCSRF.Code)
-
-	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad-1/add", nil, cookies)
+	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad/add", nil, cookies)
 	assert.Equal(t, http.StatusForbidden, noUnitCSRF.Code)
 
 	unknownBook := catalogPage(t, h, cookies, "/catalogs/classical/books/no-such-book/in-my-books")

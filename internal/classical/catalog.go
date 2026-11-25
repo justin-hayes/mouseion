@@ -42,7 +42,7 @@ func ValidateManifest(definitions []Definition) error {
 	if err := validateCurrentDefinitions(definitions); err != nil {
 		return err
 	}
-	return validateConstituentBooks(definitions)
+	return nil
 }
 
 // validateManifestKeys refuses an incomplete definition or a repeated
@@ -100,8 +100,6 @@ func validateWorkDefinition(works map[string]Definition, definition Definition) 
 		return fmt.Errorf("classical: Work %q has conflicting Greek titles", definition.WorkKey)
 	case previous.ConstituentBooks != definition.ConstituentBooks:
 		return fmt.Errorf("classical: Work %q has conflicting constituent-book counts", definition.WorkKey)
-	case (previous.ConstituentBook == nil) != (definition.ConstituentBook == nil):
-		return fmt.Errorf("classical: Work %q mixes a whole-work unit with constituent books", definition.WorkKey)
 	}
 	return nil
 }
@@ -119,28 +117,6 @@ func validateEditionDefinition(editions map[string]Definition, definition Defini
 	}
 	if previous.EditionLabel != definition.EditionLabel {
 		return fmt.Errorf("classical: Edition %q has conflicting labels", definition.EditionKey)
-	}
-	return nil
-}
-
-// validateConstituentBooks refuses two current units claiming one constituent
-// book of the same Work, because a constituent book is one Reading unit.
-func validateConstituentBooks(definitions []Definition) error {
-	bookNumbers := map[string]map[int]string{}
-	for _, definition := range definitions {
-		if definition.Withdrawn || definition.ConstituentBook == nil {
-			continue
-		}
-		work := bookNumbers[definition.WorkKey]
-		if work == nil {
-			work = map[int]string{}
-			bookNumbers[definition.WorkKey] = work
-		}
-		book := *definition.ConstituentBook
-		if previous, duplicate := work[book]; duplicate {
-			return fmt.Errorf("classical: Work %q repeats constituent book %d in %q and %q", definition.WorkKey, book, previous, definition.Key)
-		}
-		work[book] = definition.Key
 	}
 	return nil
 }
@@ -220,7 +196,11 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 		work.TranslationAvailable = translationAvailable(definitions, key)
 		sortUnits(work.Units)
 		if len(work.Units) > 0 {
+			// The catalog index describes one consistent Edition: the first
+			// by key. Other Editions' facts belong on the Work page.
 			work.Opening = work.Units[0].Opening
+			work.EditionLabel = work.Units[0].EditionLabel
+			work.Words = work.Units[0].Words
 		}
 		catalog.works[key] = *work
 	}
@@ -266,7 +246,6 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 			unit.ConstituentBook = *definition.ConstituentBook
 		}
 		work.Units = append(work.Units, unit)
-		work.Words += definition.WordCount
 	}
 	return worksByKey
 }

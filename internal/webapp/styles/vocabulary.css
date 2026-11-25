@@ -695,9 +695,25 @@ body.vocabulary-shell #concordance-results nav a {
   overflow-wrap: anywhere;
 }
 
-.concordance-study-link {
+.concordance-result-end {
   grid-column: 3;
   grid-row: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  column-gap: var(--mouseion-space-2);
+}
+
+.concordance-location {
+  margin: 0;
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.concordance-study-link {
   display: flex;
   min-height: 44px;
   align-items: center;
@@ -711,8 +727,6 @@ body.vocabulary-shell #concordance-results nav a {
 /* A speaker-label occurrence stays as raw evidence instead of offering Study.
    It is static metadata, not a disabled control. */
 .concordance-speaker-label {
-  grid-column: 3;
-  grid-row: 1;
   align-self: center;
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);

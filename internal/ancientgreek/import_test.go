@@ -206,6 +206,27 @@ func TestImportAssignsACrossingSentenceToItsFirstTokensUnit(t *testing.T) {
 	assert.Equal(t, []string{"1.10.19", "2.1.1"}, writer.request.Result.Sentences[0].Citations)
 }
 
+func TestImportKeepsASentenceCrossingAConstituentBookBoundaryInTheWholeWorkUnit(t *testing.T) {
+	data := []byte(strings.Join([]string{
+		"# source = Xenophon, Xen. Anab._1.10.19",
+		"# text = x",
+		"# sent_id = 1",
+		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.10.19",
+		"2\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_2|0|ref=Xen. Anab._2.1.1",
+		"",
+	}, "\n"))
+	definition := definitionForBytes(data)
+	definition.CitationStart, definition.CitationEnd = "1.10.19", "2.1.1"
+	writer := &capturedWriter{}
+	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definition}, writer)
+	require.NoError(t, err, "a whole-work unit spans every book, so a boundary sentence is not refused")
+	assert.Equal(t, 1, report.Sentences)
+	assert.Equal(t, 2, report.Tokens)
+	assert.Empty(t, report.Crossings, "the sentence crosses no Reading unit boundary")
+	require.Len(t, writer.request.Result.Sentences, 1)
+	assert.Equal(t, []string{"1.10.19", "2.1.1"}, writer.request.Result.Sentences[0].Citations)
+}
+
 func TestImportSkipsASentenceWhoseFirstTokenIsOutsideTheUnit(t *testing.T) {
 	data := []byte(strings.Join([]string{
 		"# source = Xenophon, Xen. Anab._2.1.1",

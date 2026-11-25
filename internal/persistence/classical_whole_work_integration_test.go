@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// perBookDefinition is one ADR 0116 per-book definition of a two-book Work.
-func perBookDefinition(book int, withdrawn bool) classical.Definition {
+// perBookDefinition is one withdrawn ADR 0116 per-book definition of a
+// two-book Work.
+func perBookDefinition(book int) classical.Definition {
 	start, end := "1.1.1", "1.1.5"
 	if book == 2 {
 		start, end = "2.1.1", "2.1.5"
@@ -24,7 +26,6 @@ func perBookDefinition(book int, withdrawn bool) classical.Definition {
 	definition := manifestDefinition(fmt.Sprintf("work-%d", book), "work", "Work", "Author", "Ἔργον",
 		"work-edition", "Edition", start, end, &number, 2, 1)
 	definition.WordCount = 5
-	definition.Withdrawn = withdrawn
 	return definition
 }
 
@@ -52,13 +53,19 @@ func TestReconcileManifestReplacesPerBookDefinitionsWithAWholeWorkUnit(t *testin
 	owner, err := store.CreateUser(ctx, "whole-work-owner", false)
 	require.NoError(t, err)
 
-	require.NoError(t, reconcileManifest(t, store, perBookDefinition(1, false), perBookDefinition(2, false)))
-	owned, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1"})
+	// A learner registered a per-book Book before the whole-work release.
+	require.NoError(t, reconcileManifest(t, store, perBookDefinition(1), perBookDefinition(2)))
+	perBook := perBookDefinition(1)
+	registration, err := store.RegisterReadingUnitBook(ctx, owner.ID, domain.ReadingUnitDefinition{
+		Key: perBook.Key, Language: perBook.Language, WorkTitle: perBook.WorkTitle, WorkAuthor: perBook.WorkAuthor,
+		EditionLabel: perBook.EditionLabel, CitationStart: perBook.CitationStart, CitationEnd: perBook.CitationEnd,
+		SourceFileName: perBook.Source.FileName, SourceFileSize: perBook.Source.Size,
+		SourceFileSHA256: perBook.Source.SHA256, InterpretationVersion: perBook.InterpretationVersion,
+	})
 	require.NoError(t, err)
-	require.Len(t, owned.Books, 1)
-	perBookBook := owned.Books[0].BookID
+	perBookBook := registration.BookID
 
-	replacement := []classical.Definition{wholeWorkDefinition(), perBookDefinition(1, true), perBookDefinition(2, true)}
+	replacement := []classical.Definition{wholeWorkDefinition(), perBookDefinition(1), perBookDefinition(2)}
 	require.NoError(t, reconcileManifest(t, store, replacement...))
 
 	var constituentBook *int

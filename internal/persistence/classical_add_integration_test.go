@@ -15,22 +15,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func classicalAddDefinition(key, workKey, title string, book *int) classical.Definition {
-	books := 2
-	if book == nil {
-		books = 1
-	}
+// classicalAddDefinition builds one whole-work unit. A Work with two Editions
+// has one unit per Edition.
+func classicalAddDefinition(key, workKey, title string) classical.Definition {
 	return classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
 		WorkTitle:             title,
 		WorkAuthor:            "Xenophon",
 		GreekTitle:            "Ἀνάβασις",
-		EditionKey:            workKey + "-edition",
+		EditionKey:            key + "-edition",
 		EditionLabel:          "Reviewed edition",
 		Language:              classical.Language,
-		ConstituentBook:       book,
-		ConstituentBooks:      books,
+		ConstituentBooks:      1,
 		CitationStart:         "1.1.1",
 		CitationEnd:           "1.1.10",
 		WordCount:             100,
@@ -42,11 +39,10 @@ func classicalAddDefinition(key, workKey, title string, book *int) classical.Def
 }
 
 func classicalAddDefinitions() []classical.Definition {
-	first, second := 1, 2
 	return []classical.Definition{
-		classicalAddDefinition("work-1", "work", "Work", &first),
-		classicalAddDefinition("work-2", "work", "Work", &second),
-		classicalAddDefinition("whole-1", "whole", "Whole", nil),
+		classicalAddDefinition("work-1", "work", "Work"),
+		classicalAddDefinition("work-2", "work", "Work"),
+		classicalAddDefinition("whole-1", "whole", "Whole"),
 	}
 }
 
