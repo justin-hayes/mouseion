@@ -64,6 +64,7 @@ func TestStudyRepeatBeforeTheBoundaryIsNotLostAndTheDayCountsReviewsAfterMidnigh
 	// The new Study day starts with both reviews due.
 	s.clock.Set(dayTwo)
 	assert.Equal(t, 2, s.today().Remaining)
+	assert.Contains(t, s.page(), "2 reviews left today.", "the count is shown while a card is answered")
 
 	// Day two runs past midnight: a review answered at 00:30 on 27 November
 	// still belongs to the day that began on 26 November.
@@ -87,7 +88,7 @@ func TestStudyRepeatBeforeTheBoundaryIsNotLostAndTheDayCountsReviewsAfterMidnigh
 	assert.Equal(t, 1, s.today().Remaining, "the repeat is still to answer")
 	assert.NotContains(t, s.page(), "Today is finished.")
 	assert.NotContains(t, s.page(), "Take these words")
-	assert.Contains(t, s.page(), "1 review left today")
+	assert.Contains(t, s.page(), "1 review left today.")
 
 	boundary := berlinTime(t, 27, 5, 0)
 	s.clock.Set(boundary.Add(-time.Second))
@@ -127,6 +128,10 @@ func TestStudyTodayStaysFinishedWhenMoreMaterialBecomesReady(t *testing.T) {
 	// The new Study day brings the reviews back.
 	s.clock.Set(berlinTime(t, 27, 5, 0))
 	assert.Equal(t, domain.StudyToday{Remaining: 0, Finished: true}, s.today(), "Got it reviews are scheduled days ahead")
+	s.clock.Set(berlinTime(t, 26, 9, 30))
+	page := s.page()
+	assert.Contains(t, page, `id="study-finished"`, "the finish line is stated even when a batch is on offer")
+	assert.Contains(t, page, "Take these words")
 }
 
 func TestStudyAfterThreeMissedDaysEveryOverdueReviewIsDue(t *testing.T) {
@@ -185,6 +190,7 @@ func TestStudyAcrossDaylightSavingChangesTheBoundaryStaysAtFiveBerlin(t *testing
 func TestStudyProgressIsUnchangedByTheReadingLifecycle(t *testing.T) {
 	s := newStudyHarness(t)
 	book := s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
+	other := s.seedBook("other", testutil.CorpusWord{Lemma: "tisch", UPOS: "NOUN", Occurrences: 1})
 	require.Equal(t, http.StatusOK, getAs(t, s.h, "/de/study", s.cookies).Code)
 	require.NoError(t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
@@ -197,7 +203,7 @@ func TestStudyProgressIsUnchangedByTheReadingLifecycle(t *testing.T) {
 	s.grade(s.currentCard(), "again")
 	before := s.progress()
 	today := s.today()
-	require.Equal(t, 2, today.Remaining)
+	require.Equal(t, 3, today.Remaining)
 
 	current := func() domain.CurrentReading {
 		reading, err := s.store.GetCurrentReading(s.ctx, s.owner.ID, "de")
@@ -213,6 +219,12 @@ func TestStudyProgressIsUnchangedByTheReadingLifecycle(t *testing.T) {
 	expect := func(r domain.CurrentReading) url.Values {
 		return url.Values{"csrf_token": {s.cookies[0].Value}, "expected_current_book_id": {r.BookID}, "expected_current_snapshot_id": {r.SnapshotID}}
 	}
+	switched := perform(t, s.h, http.MethodPost, "/reading/books/"+other.ID+"/switch", expect(reading), s.cookies)
+	require.Equal(t, http.StatusSeeOther, switched.Code, switched.Body.String())
+	reading = current()
+	require.Equal(t, other.ID, reading.BookID)
+	assert.Equal(t, before, s.progress(), "switching the reading changes no word")
+
 	ended := perform(t, s.h, http.MethodPost, "/reading/end", expect(reading), s.cookies)
 	require.Equal(t, http.StatusSeeOther, ended.Code, ended.Body.String())
 	assert.Empty(t, current().BookID)

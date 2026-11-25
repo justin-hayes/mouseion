@@ -77,36 +77,56 @@ func StudyFinishLine(progress []StudyProgress, now time.Time) StudyToday {
 
 // NextStudyReview picks the word to show at now: the earliest due, ties
 // broken by introduction time and then identity so the order is deterministic.
-// Reviews of the finish line come before introductions. ok is false when
-// nothing is due.
+// Reviews of the finish line come before introductions, and an introduction
+// is held back while a repeat of those reviews is still to come. ok is false
+// when nothing is due.
 func NextStudyReview(progress []StudyProgress, now time.Time) (StudyProgress, bool) {
-	due := make([]StudyProgress, 0, len(progress))
-	for _, item := range progress {
-		if StudyCardIsDue(item, now) {
-			due = append(due, item)
+	due, waiting := dueStudyWords(progress, now)
+	if waiting {
+		counted := due[:0:0]
+		for _, item := range due {
+			if StudyCountsToday(item, now) {
+				counted = append(counted, item)
+			}
 		}
+		due = counted
 	}
 	if len(due) == 0 {
 		return StudyProgress{}, false
 	}
-	sort.SliceStable(due, func(i, j int) bool {
-		a, b := due[i], due[j]
-		if ca, cb := StudyCountsToday(a, now), StudyCountsToday(b, now); ca != cb {
-			return ca
-		}
-		if da, db := StudyReviewDue(a), StudyReviewDue(b); !da.Equal(db) {
-			return da.Before(db)
-		}
-		if !a.IntroducedAt.Equal(b.IntroducedAt) {
-			return a.IntroducedAt.Before(b.IntroducedAt)
-		}
-		if a.CanonicalLemma != b.CanonicalLemma {
-			return a.CanonicalLemma < b.CanonicalLemma
-		}
-		if a.UPOS != b.UPOS {
-			return a.UPOS < b.UPOS
-		}
-		return a.LexicalDiscriminator < b.LexicalDiscriminator
-	})
+	sort.SliceStable(due, func(i, j int) bool { return studyReviewBefore(due[i], due[j], now) })
 	return due[0], true
+}
+
+// dueStudyWords splits out the words due at now, and reports whether a word
+// of the finish line is still waiting for its repeat.
+func dueStudyWords(progress []StudyProgress, now time.Time) (due []StudyProgress, waiting bool) {
+	for _, item := range progress {
+		switch {
+		case StudyCardIsDue(item, now):
+			due = append(due, item)
+		case StudyCountsToday(item, now):
+			waiting = true
+		}
+	}
+	return due, waiting
+}
+
+func studyReviewBefore(a, b StudyProgress, now time.Time) bool {
+	if ca, cb := StudyCountsToday(a, now), StudyCountsToday(b, now); ca != cb {
+		return ca
+	}
+	if da, db := StudyReviewDue(a), StudyReviewDue(b); !da.Equal(db) {
+		return da.Before(db)
+	}
+	if !a.IntroducedAt.Equal(b.IntroducedAt) {
+		return a.IntroducedAt.Before(b.IntroducedAt)
+	}
+	if a.CanonicalLemma != b.CanonicalLemma {
+		return a.CanonicalLemma < b.CanonicalLemma
+	}
+	if a.UPOS != b.UPOS {
+		return a.UPOS < b.UPOS
+	}
+	return a.LexicalDiscriminator < b.LexicalDiscriminator
 }

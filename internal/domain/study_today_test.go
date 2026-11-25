@@ -141,3 +141,14 @@ func TestNextStudyReviewOrdersTheFinishLineFirst(t *testing.T) {
 	_, ok = NextStudyReview([]StudyProgress{reviewWord("x", StudyStateReview, berlin(11, 28, 5, 0), now)}, now)
 	assert.False(t, ok)
 }
+
+func TestNextStudyReviewHoldsIntroductionsBackWhileARepeatIsStillToCome(t *testing.T) {
+	now := berlin(11, 25, 9, 0)
+	waiting := reviewWord("haus", StudyStateRelearning, berlin(11, 25, 9, 10), berlin(11, 25, 9, 0))
+	intro := reviewWord("baum", StudyStateNew, berlin(11, 25, 8, 0), time.Time{})
+	_, ok := NextStudyReview([]StudyProgress{waiting, intro}, now)
+	assert.False(t, ok, "new words wait for the last review's repeat")
+	got, ok := NextStudyReview([]StudyProgress{waiting, intro}, berlin(11, 25, 9, 10))
+	assert.True(t, ok)
+	assert.Equal(t, "haus", got.ID)
+}
