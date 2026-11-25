@@ -37,6 +37,9 @@ ADRs [0122](doc/adr/0122-ancient-greek-native-agdt-syntax.md)–[0126](doc/adr/0
 syntax node**, **Grammar reference** and **Concept note** below, the
 `native_agdt` reading of **Imported analysis**, and the carry-over of decisions
 in an **Analysis update**.
+The Study terms (**Study**, **Today**, **Explore** and the terms after them)
+describe a pilot under design. No ADR has accepted it yet, and it is not
+implemented.
 
 ## Language
 
@@ -702,6 +705,78 @@ _Avoid_: pause, stop, set aside.
 Append-only, Book-anchored reading completions and previously-read assertions.
 History remains even when a Book returns to To Read for rereading.
 _Avoid_: Read disposition, completed list, Journey history.
+
+**Study**:
+The learner's in-Mouseion review of vocabulary from their reading, made of
+Today and Explore. It is one continuous stream per study language, drawn from
+the learner's analysed library. The Current reading only sets which new words
+come first: starting, switching, ending or finishing a Book changes nothing
+else in Study, and Study never consults Known vocabulary. It is separate from
+Sentence study, which studies one sentence's grammar, and from a Prepared deck,
+which is studied in Anki.
+_Avoid_: review deck, practice, SRS, vocabulary study (the avoided name for a
+Vocabulary transition).
+
+**Study day**:
+The learner's day for Study. It begins at a fixed early-morning hour rather
+than at midnight, so late-night reviews count towards the day just ending.
+_Avoid_: calendar day, session.
+
+**Today**:
+The part of Study with a daily finish line: it is finished once the reviews due
+at the start of the Study day are answered. New words are offered in New-word
+batches afterwards and are never part of the finish line. Once finished, Today
+stays finished until the next Study day.
+_Avoid_: session, queue, daily deck.
+
+**Explore**:
+The optional part of Study after Today, for browsing a word in further
+sentences. It is ungraded: nothing seen there changes Study progress or creates
+a review. The learner may save a word as a Study nomination.
+_Avoid_: free study, extra reviews, cram.
+
+**New-word batch**:
+A fixed-size group of new words that Today offers after its reviews and the
+learner may take or decline. Taking one introduces its words. A daily cap
+limits how many are offered, and fewer, or none, are offered when the
+forecast review load is high. Saving words in Explore never adds batches.
+_Avoid_: daily new allowance, new-card limit, quota.
+
+**Study nomination**:
+A word the learner saved in Explore, waiting for a slot in a New-word batch. It
+is a request to introduce the word, not an enrolment: until Today introduces
+it, it has no Study progress and creates no reviews. It does not expire and
+outlasts a change of Current reading.
+_Avoid_: saved card, enrolment, bookmark.
+
+**In study**:
+A word Today has introduced, which therefore has Study progress. A word stays
+in study whichever Book is the Current reading, and whether or not it is Known.
+_Avoid_: learning, active card, enrolled.
+
+**Study progress**:
+A learner's graded review record for one vocabulary identity in one study
+language. It belongs to neither a Book nor a sentence, so a new sentence or a
+change of Current reading does not reset it. It is separate from Known
+vocabulary: study progress never makes a word Known, and Known never ends a
+word's study.
+_Avoid_: mastery, card state, Known (a separate fact).
+
+**Study material**:
+What Today needs in order to present a word: a complete study context that
+passes the sentence-quality gate, its Gloss, and its translation. It is
+prepared one word at a time, shortly before Today needs it, from the Book's
+current evidence with the learner's Lemma corrections and Occurrence
+exclusions applied. It is not a Prepared deck, which freezes its evidence.
+_Avoid_: card, deck, prepared deck.
+
+**Learned meaning**:
+The Gloss a word showed when Today introduced it. A later review may present
+the word in another sentence only if that sentence's Gloss agrees with it.
+If a confirmed correction shows that the introducing sentence was not this
+word, the next review re-introduces the word with valid Study material and
+re-anchors its learned meaning, keeping its Study progress.
+_Avoid_: sense (a dictionary entry's meaning), definition.
 
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
