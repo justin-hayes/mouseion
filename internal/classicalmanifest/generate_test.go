@@ -784,6 +784,8 @@ func TestGeneratorAcceptsNamedSectionsAndRefusesUnknownNamesAndLeadingZeros(t *t
 	}{
 		{start: "1.1.1", end: "1.1.2"},
 		{start: "1.pr.1", end: "1.1.2"},
+		{start: "331a", end: "331b"},
+		{start: "1.1", end: "1.ep"},
 		{start: "1.1.1", end: "1.praef.2", wantErr: "invalid unit range"},
 		{start: "1.01.1", end: "1.1.2", wantErr: "invalid unit range"},
 	} {
@@ -791,6 +793,9 @@ func TestGeneratorAcceptsNamedSectionsAndRefusesUnknownNamesAndLeadingZeros(t *t
 		override.Contents = ""
 		override.Units = []classical.UnitSpec{{CitationStart: test.start, CitationEnd: test.end}}
 		override.Translation = nil
+		if test.wantErr == "" {
+			require.NoError(t, override.Validate(), "%s-%s", test.start, test.end)
+		}
 		_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
 		if test.wantErr != "" {
 			require.ErrorContains(t, err, test.wantErr, "%s-%s", test.start, test.end)

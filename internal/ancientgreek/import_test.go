@@ -545,3 +545,10 @@ func assertImportCode(t *testing.T, err error, code string) {
 	assert.Equal(t, code, importErr.Code)
 	assert.NotContains(t, err.Error(), "λέγ", "a refusal never carries source text")
 }
+
+func TestReferenceTranslationRefusesNamedAndSuffixedBounds(t *testing.T) {
+	for _, bounds := range [][2]string{{"1.pr.1", "1.1.2"}, {"1.1.1", "1.ep"}, {"331a", "331b"}} {
+		_, err := ParseReferenceTranslation(nil, bounds[0], bounds[1])
+		assertImportCode(t, err, CodeUnknownInterpret)
+	}
+}

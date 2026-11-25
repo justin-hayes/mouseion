@@ -208,6 +208,9 @@ func citationExtents(doc *sourceDocument) (map[int]citationExtent, error) {
 			if !ok || len(citation) == 0 {
 				return nil, malformed(0, "token citation is not a citation")
 			}
+			if citation[0].Name != "" {
+				return nil, malformed(0, "token citation has a named top-level section")
+			}
 			addCitationExtent(books, citation[0].Number, citation)
 		}
 	}

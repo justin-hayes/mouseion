@@ -28,11 +28,11 @@ type ReferenceTranslation struct {
 // the same way. Sections are returned in citation order.
 func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
 	start, ok := parseCitation(citationStart)
-	if !ok {
+	if !ok || !plainCitation(start) {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation start is not a citation"}
 	}
 	end, ok := parseCitation(citationEnd)
-	if !ok {
+	if !ok || !plainCitation(end) {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation end is not a citation"}
 	}
 	if len(start) != len(end) || compareCitation(start, end) > 0 {
@@ -263,10 +263,8 @@ func citationGroups(sections []ReferenceTranslation) (map[string][]int, error) {
 		if !ok || len(parsed) == 0 {
 			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
 		}
-		for _, component := range parsed {
-			if component.Name != "" || component.Suffix != "" {
-				return nil, &ImportError{Code: CodeMalformed, Detail: "section citation has a named or suffixed component"}
-			}
+		if !plainCitation(parsed) {
+			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation has a named or suffixed component"}
 		}
 		for length := 1; length <= len(parsed); length++ {
 			prefix := citationPrefix(parsed[:length])
@@ -363,4 +361,16 @@ func endsWithSpace(text string) bool {
 	}
 	last, _ := utf8.DecodeLastRuneInString(text)
 	return unicode.IsSpace(last)
+}
+
+// plainCitation reports whether every component is a bare number. The Perseus
+// reference-translation reader checks contiguity over numbers only, so named
+// sections and letter suffixes are refused until a Latin reader needs them.
+func plainCitation(citation classical.Citation) bool {
+	for _, component := range citation {
+		if component.Name != "" || component.Suffix != "" {
+			return false
+		}
+	}
+	return true
 }
