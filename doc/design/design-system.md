@@ -407,7 +407,9 @@ overflow.
   `/catalogs/sources`. My Books is the sole bibliographic Book browse surface for synced
   metadata, and its items own per-book disposition and acquisition intent.
   Reading owns the current Book or the between-Books candidate chooser.
-- The Classical catalog is one author-grouped index and the work page. Each
+- The Classical catalog is a section of the Catalog, one ordinary card per
+  Reading unit ordered by title then author like every other source, and the
+  work page. Each
   Work's Opening is set whole in the reading typeface at the page-title size on
   wide screens and the section-title size on compact screens. Its length strip
   shares one page-wide word scale and is hidden from assistive technology,
@@ -415,9 +417,11 @@ overflow.
   Edition, passage, translation, ownership and Add sit in a margin note; the
   work page adds one I've read this per Edition and a read-only contents list.
   Add creates or restores the Book as
-  To Read and starts downloading and preparing the text; its control and
-  confirmation say so. The author-detail page is retired: its URL permanently
-  redirects to that author's index section. The index uses existing tokens and
+  To Read and prepares the text for reading; its control says "Adding prepares
+  the text for reading," and the confirmation names the Book, keeps the
+  Catalog's Language filter, and links to My Books, exactly as an OPDS Add does.
+  The index and author-detail pages are retired: their URLs permanently redirect
+  to the Catalog filtered to Ancient Greek. The Catalog uses existing tokens and
   typefaces only and never states preparation, coverage or difficulty.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.

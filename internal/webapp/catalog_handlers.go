@@ -70,7 +70,7 @@ func (h *Handler) addCatalogueEntry(w http.ResponseWriter, r *http.Request) {
 		"added_connection": {connectionID},
 		"added_entry":      {entryIdentifier},
 	}
-	redirect(w, r, "/catalogs?"+query.Encode())
+	redirect(w, r, withQuery(catalogReturnTarget(r), query))
 }
 
 // markCatalogueEntryPreviouslyRead is "I've read this" on one OPDS Catalog
@@ -89,7 +89,7 @@ func (h *Handler) markCatalogueEntryPreviouslyRead(w http.ResponseWriter, r *htt
 		return
 	}
 	if errors.Is(err, domain.ErrBookIsCurrentReading) {
-		redirect(w, r, "/catalogs?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+		redirect(w, r, withQuery(catalogReturnTarget(r), url.Values{"error": {catalogueReadCurrentReadingRefusal}}))
 		return
 	}
 	if err != nil {
@@ -102,7 +102,19 @@ func (h *Handler) markCatalogueEntryPreviouslyRead(w http.ResponseWriter, r *htt
 		"read_connection": {connectionID},
 		"read_entry":      {entryIdentifier},
 	}
-	redirect(w, r, "/catalogs?"+query.Encode())
+	redirect(w, r, withQuery(catalogReturnTarget(r), query))
+}
+
+// catalogReturnTarget is the Catalog a card action returns to: the page under
+// the Language filter the card was shown with, so an Add or "I've read this"
+// never changes what the learner is browsing, for either source. A post that
+// carries no filter returns to the unfiltered address.
+func catalogReturnTarget(r *http.Request) string {
+	language := r.PostFormValue("catalog_language")
+	if !r.PostForm.Has("catalog_language") {
+		return "/catalogs"
+	}
+	return "/catalogs?" + url.Values{"language": {canonicalization.NormalizeLanguage(language)}}.Encode()
 }
 
 // catalogueReadCurrentReadingRefusal is the recovery sentence for a direct
@@ -366,18 +378,24 @@ func (h *Handler) addClassicalEdition(w http.ResponseWriter, r *http.Request, wo
 	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), owner, []string{key})
 	target := classicalWorkURL(workKey)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
-		target = classicalCatalogURL()
+		target = catalogReturnTarget(r)
 	}
 	if err != nil {
 		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
 	preparation := h.prepareAddedClassicalBooks(r.Context(), owner, report)
-	confirmation := classicalAddConfirmationFor(report, preparation, activeLanguageOf(r))
-	if r.PostFormValue("return") == classicalAddReturnIndex && len(report.Books) == 1 {
-		// A Catalog card always links its confirmation to the added Book, as an
-		// OPDS card does.
-		confirmation.BookID = report.Books[0].BookID
+	var confirmation classicalAddConfirmation
+	if r.PostFormValue("return") == classicalAddReturnIndex {
+		// A Catalog card confirms exactly as an OPDS card does: the message
+		// names the change, the Catalog keeps its Language filter, and the
+		// confirmation links to the added Book.
+		confirmation = classicalAddConfirmationFor(report, preparation, "")
+		if len(report.Books) == 1 {
+			confirmation.BookID = report.Books[0].BookID
+		}
+	} else {
+		confirmation = classicalAddConfirmationFor(report, preparation, activeLanguageOf(r))
 	}
 	redirectClassicalAdd(w, r, target, confirmation)
 }
@@ -397,7 +415,7 @@ func (h *Handler) markClassicalUnitPreviouslyRead(w http.ResponseWriter, r *http
 	}
 	target := classicalWorkURL(work.Key)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
-		target = classicalCatalogURL()
+		target = catalogReturnTarget(r)
 	}
 	read, err := h.services.Store.CatalogueRead.MarkClassicalReadingUnitPreviouslyRead(r.Context(), user(r).ID, key)
 	if errors.Is(err, domain.ErrBookIsCurrentReading) {

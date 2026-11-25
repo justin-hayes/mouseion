@@ -440,8 +440,9 @@ func TestClassicalCardsOwnershipAndAddInPlaceOnTheCatalog(t *testing.T) {
 	assert.NotContains(t, body, "In My Books")
 
 	added := readingTestRequest(t, h, "/catalogs/classical/units/fixture-odyssey/add", url.Values{
-		"csrf_token": {csrf},
-		"return":     {"index"},
+		"csrf_token":       {csrf},
+		"return":           {"index"},
+		"catalog_language": {"grc"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
 	location := added.Header().Get("Location")
@@ -521,7 +522,7 @@ func TestCatalogueReadRoutesReportRefusalsOnThePage(t *testing.T) {
 			services.Store.CatalogueRead = failingCatalogueRead{err: classical.ErrLegacyRows}
 		})
 		response := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/previously-read", url.Values{
-			"csrf_token": {csrf}, "return": {"index"},
+			"csrf_token": {csrf}, "return": {"index"}, "catalog_language": {"grc"},
 		}, cookies)
 		assert.Equal(t, http.StatusSeeOther, response.Code)
 		assert.Contains(t, response.Header().Get("Location"), "/catalogs?language=grc&error=")
@@ -640,8 +641,9 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 	})
 
 	read := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/previously-read", url.Values{
-		"csrf_token": {csrf},
-		"return":     {"index"},
+		"csrf_token":       {csrf},
+		"return":           {"index"},
+		"catalog_language": {"grc"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, read.Code)
 	location, err := url.Parse(read.Header().Get("Location"))

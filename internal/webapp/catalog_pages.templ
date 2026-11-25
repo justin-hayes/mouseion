@@ -191,6 +191,7 @@ templ catalogCardFields(csrf string, card catalogCard) {
 	if card.ReturnTo != "" {
 		<input type="hidden" name="return" value={ card.ReturnTo }/>
 	}
+	<input type="hidden" name="catalog_language" value={ card.FilterLanguage }/>
 }
 
 // CatalogSourceStatuses is the Catalog page's compact source summary. Each

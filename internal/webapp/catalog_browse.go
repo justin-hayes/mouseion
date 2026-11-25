@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"net/http"
@@ -114,6 +115,9 @@ type catalogCard struct {
 	// so the Add returns to the Catalog.
 	EntryIdentifier string
 	ReturnTo        string
+	// FilterLanguage is the Language filter the card was shown under; both
+	// kinds of card post it so the Add returns to the same filtered Catalog.
+	FilterLanguage string
 }
 
 // catalogBrowseView is everything the Catalog results need: one search and
@@ -160,7 +164,7 @@ func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections [
 	view := catalogBrowseView{
 		Query:           filter.Query,
 		Language:        filter.Language,
-		LanguageOptions: catalogLanguageOptions(r, filter.Language, hasClassical, languages),
+		LanguageOptions: catalogLanguageOptions(r, filter.Language, hasClassical, languages, h.capabilityLanguageNames(r.Context())),
 		HasClassical:    hasClassical,
 	}
 	view.LanguageLabel = catalogLanguageLabel(view.LanguageOptions, filter.Language)
@@ -196,6 +200,9 @@ func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections [
 // section.
 func (h *Handler) loadCatalogClassicalSection(r *http.Request, filter catalogFilter, view classicalCatalogView) catalogSection {
 	cards := classicalCatalogCards(h.services.Classical.Authors(), filter.Query, view)
+	for i := range cards {
+		cards[i].FilterLanguage = filter.Language
+	}
 	page, pageCount := catalogClampPage(catalogPageParam(r, catalogClassicalSectionID), len(cards))
 	offset := (page - 1) * catalogSectionPageSize
 	end := min(offset+catalogSectionPageSize, len(cards))
@@ -280,7 +287,9 @@ func (h *Handler) loadCatalogOpdsSection(r *http.Request, owner string, connecti
 	}
 	cards := make([]catalogCard, 0, len(result.Entries))
 	for _, entry := range result.Entries {
-		cards = append(cards, opdsCatalogCard(entry))
+		card := opdsCatalogCard(entry)
+		card.FilterLanguage = filter.Language
+		cards = append(cards, card)
 	}
 	return catalogSection{
 		ID:        connection.ID,
@@ -335,11 +344,34 @@ func (h *Handler) browseCatalogueConnection(r *http.Request, owner, connectionID
 	})
 }
 
+// capabilityLanguageNames maps each language the analysis service reports to its
+// display name. An unavailable service yields no names, and the caller falls
+// back to the language code.
+func (h *Handler) capabilityLanguageNames(ctx context.Context) map[string]string {
+	if h.services.Capabilities == nil {
+		return nil
+	}
+	capabilities, err := h.services.Capabilities.GetCapabilities(ctx)
+	if err != nil {
+		return nil
+	}
+	names := make(map[string]string, len(capabilities.Languages))
+	for _, capability := range capabilities.Languages {
+		if name := strings.TrimSpace(capability.DisplayName); name != "" {
+			names[canonicalization.NormalizeLanguage(capability.Language)] = name
+		}
+	}
+	return names
+}
+
 // catalogLanguageOptions lists the learner's study languages, every language the
 // Catalog index holds, and the Classical catalog's language. The empty value is
 // first so "All languages" is always available, and a requested language is
 // kept visible even when no Book currently derives it.
-func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool, indexLanguages []string) []catalogLanguageOption {
+//
+// capabilityNames supplies display names for languages the learner does not
+// study, so an index language reads as "French", not "fr".
+func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool, indexLanguages []string, capabilityNames map[string]string) []catalogLanguageOption {
 	names := languageNames{}
 	if shell := shellViewFromContext(r.Context()); shell != nil {
 		for _, option := range shell.Options {
@@ -351,11 +383,17 @@ func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool
 	if hasClassical {
 		names.addIfAbsent(classical.Language, classical.LanguageDisplayName)
 	}
+	label := func(language string) string {
+		if name := capabilityNames[language]; name != "" {
+			return name
+		}
+		return language
+	}
 	for _, language := range indexLanguages {
-		names.addIfAbsent(language, language)
+		names.addIfAbsent(language, label(language))
 	}
 	if requested != "" {
-		names.addIfAbsent(requested, requested)
+		names.addIfAbsent(requested, label(requested))
 	}
 	languages := make([]string, 0, len(names))
 	for language := range names {

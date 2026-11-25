@@ -321,7 +321,7 @@ func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheIndex(t *testing.T) 
 		assert.Contains(t, index.Body.String(), want, "whole-work unit is added from its Catalog card")
 	}
 
-	whole := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}, "return": {"index"}}, cookies)
+	whole := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}, "return": {"index"}, "catalog_language": {"grc"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code)
 	assert.Contains(t, whole.Header().Get("Location"), "/catalogs?language=grc&")
 	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))

@@ -81,9 +81,10 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   learner's existing Book for that alias, as To Read. It then runs the same
   reading-intent preparation seam as **Read again**: acquisition and analysis
   start once, and repeating Add changes nothing.
-  The Add copy says the text is downloaded and analyzed, the route is an
-  ordinary owner-scoped POST, and the confirmation names the Book and links to
-  My Books. Adding the first Book in a language makes it a study language.
+  The Add copy says adding prepares the text for reading, the route is an
+  ordinary owner-scoped POST, and the confirmation names the Book, links to
+  My Books, and returns to the Catalog under the same Language filter for
+  every source. Adding the first Book in a language makes it a study language.
 - **I've read this** creates or restores the same Book as Read with a
   **Previously read** record. It downloads nothing, starts no analysis or
   preparation and changes no Known vocabulary. On a classical Work it is offered
