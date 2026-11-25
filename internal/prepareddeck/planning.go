@@ -14,6 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -318,7 +319,7 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		if err != nil {
 			return persistence.FreezePreparedDeckRunParams{}, err
 		}
-		sourceEvidence = cardexport.IsAncientGreek(language)
+		sourceEvidence = cardpolicy.For(language).SourceEvidence
 		if !sourceEvidence {
 			return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
 		}
@@ -484,7 +485,7 @@ func sourceEvidenceDeck(projections []cardexport.CandidateProjection) bool {
 		return false
 	}
 	for _, projection := range projections {
-		if !cardexport.IsAncientGreek(projection.Candidate.Language) {
+		if !cardpolicy.For(projection.Candidate.Language).SourceEvidence {
 			return false
 		}
 	}
