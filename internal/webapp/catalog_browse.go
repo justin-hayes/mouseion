@@ -1,10 +1,12 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,7 +16,12 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-const catalogOpdsPageSize = 6
+// catalogSectionPageSize is the one page size every Catalog section shares.
+const catalogSectionPageSize = 12
+
+// catalogClassicalSectionID names the Classical section in paging parameters.
+// Connection IDs are UUIDs, so it cannot collide with an OPDS section.
+const catalogClassicalSectionID = "classical"
 
 // catalogLanguageOption is one language the Catalog filter offers. The empty
 // value is "all languages".
@@ -65,15 +72,52 @@ func (f catalogFilter) allLanguages() catalogFilter {
 	return f
 }
 
-// catalogOpdsSection is one connection's matching entries and paging state.
-type catalogOpdsSection struct {
-	Connection  domain.OpdsConnection
+// catalogSection is one source's matching cards and paging state. Every source
+// renders through it: an OPDS connection or the Classical catalog.
+type catalogSection struct {
+	ID          string
+	Title       string
 	Page        int
 	PageCount   int
 	Total       int
-	Entries     []domain.CatalogueEntry
+	Cards       []catalogCard
 	PreviousURL string
 	NextURL     string
+	// Attribution is the licence credit rendered as the section's footer.
+	Attribution []classical.SourceAttribution
+	// Notice explains why the section cannot offer Add.
+	Notice string
+}
+
+// catalogCard is one Catalog text from any source: an OPDS entry or one
+// Classical Reading unit. Plate is the image slot; a retained cover replaces it
+// when the source has one.
+type catalogCard struct {
+	ID         string
+	Title      string
+	GreekTitle string
+	Author     string
+	// Detail is the one detail line, the Edition label for a Classical unit.
+	Detail   string
+	TitleURL string
+	Plate    titlePlate
+	// CoverURL is the local owner-scoped address of a retained cover with its
+	// intrinsic size; empty while the card shows its Plate. It is never an
+	// upstream URL.
+	CoverURL                string
+	CoverWidth, CoverHeight int
+	// OwnedURL opens the owned Book. When empty the card offers Add and I've
+	// read this at AddURL and ReadURL, both unavailable when AddURL is empty.
+	OwnedURL string
+	AddURL   string
+	ReadURL  string
+	// EntryIdentifier is posted by an OPDS card; ReturnTo by a Classical card
+	// so the Add returns to the Catalog.
+	EntryIdentifier string
+	ReturnTo        string
+	// FilterLanguage is the Language filter the card was shown under; both
+	// kinds of card post it so the Add returns to the same filtered Catalog.
+	FilterLanguage string
 }
 
 // catalogBrowseView is everything the Catalog results need: one search and
@@ -84,10 +128,8 @@ type catalogBrowseView struct {
 	Language         string
 	LanguageLabel    string
 	LanguageOptions  []catalogLanguageOption
-	ClassicalAuthors []classical.CatalogAuthor
-	ClassicalView    classicalCatalogView
-	ClassicalTotal   int
-	Sources          []catalogOpdsSection
+	Classical        catalogSection
+	Sources          []catalogSection
 	HasClassical     bool
 	TotalResults     int
 	ResultSummary    string
@@ -115,35 +157,101 @@ type catalogBrowseView struct {
 func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections []domain.OpdsConnection, classicalView classicalCatalogView) (catalogBrowseView, error) {
 	filter := catalogBrowseQuery(r)
 	hasClassical := h.services.Classical != nil && h.services.Classical.Counts().Works > 0
+	languages, err := h.catalogIndexLanguages(r, owner, connections)
+	if err != nil {
+		return catalogBrowseView{}, err
+	}
 	view := catalogBrowseView{
 		Query:           filter.Query,
 		Language:        filter.Language,
-		LanguageOptions: catalogLanguageOptions(r, filter.Language, hasClassical),
-		ClassicalView:   classicalView,
+		LanguageOptions: catalogLanguageOptions(r, filter.Language, hasClassical, languages, h.capabilityLanguageNames(r.Context())),
 		HasClassical:    hasClassical,
 	}
 	view.LanguageLabel = catalogLanguageLabel(view.LanguageOptions, filter.Language)
 	view.ClearSearchURL = filter.withoutQuery().browseURL(nil)
 	view.ShowAllURL = filter.allLanguages().browseURL(nil)
+	pages := make(map[string]int, len(connections)+1)
+	sections := make([]*catalogSection, 0, len(connections)+1)
 	if hasClassical && (filter.Language == "" || filter.Language == classical.Language) {
-		view.ClassicalAuthors = filterClassicalCatalog(h.services.Classical.Authors(), filter.Query)
-		view.ClassicalTotal = catalogAuthorsWorkCount(view.ClassicalAuthors)
+		view.Classical = h.loadCatalogClassicalSection(r, filter, classicalView)
+		pages[catalogClassicalSectionID] = view.Classical.Page
+		sections = append(sections, &view.Classical)
 	}
-	sources, opdsTotal, err := h.loadCatalogOpdsSections(r, owner, connections, filter)
+	sources, err := h.loadCatalogOpdsSections(r, owner, connections, filter)
 	if err != nil {
 		return catalogBrowseView{}, err
 	}
 	view.Sources = sources
-	view.TotalResults = view.ClassicalTotal + opdsTotal
+	total := view.Classical.Total
+	for i := range view.Sources {
+		pages[view.Sources[i].ID] = view.Sources[i].Page
+		sections = append(sections, &view.Sources[i])
+		total += view.Sources[i].Total
+	}
+	catalogSetSectionPagingURLs(sections, pages, filter)
+	view.TotalResults = total
 	view.ResultSummary = catalogResultSummary(view.TotalResults, catalogSourceCount(view))
 	view.EmptyTitle, view.EmptyMessage, view.EmptyActionLabel, view.EmptyActionURL = catalogEmptyState(view)
 	return view, nil
 }
 
+// loadCatalogClassicalSection builds the Classical section from the release:
+// one card per current Reading unit, ordered and paged like every other
+// section.
+func (h *Handler) loadCatalogClassicalSection(r *http.Request, filter catalogFilter, view classicalCatalogView) catalogSection {
+	cards := classicalCatalogCards(h.services.Classical.Authors(), filter.Query, view)
+	for i := range cards {
+		cards[i].FilterLanguage = filter.Language
+	}
+	page, pageCount := catalogClampPage(catalogPageParam(r, catalogClassicalSectionID), len(cards))
+	offset := (page - 1) * catalogSectionPageSize
+	end := min(offset+catalogSectionPageSize, len(cards))
+	section := catalogSection{
+		ID:          catalogClassicalSectionID,
+		Title:       "Classical catalog",
+		Page:        page,
+		PageCount:   pageCount,
+		Total:       len(cards),
+		Attribution: h.services.Classical.SourceAttributions(),
+	}
+	if offset < end {
+		section.Cards = cards[offset:end]
+	}
+	if !view.AddAvailable {
+		section.Notice = view.AddUnavailableReason
+	}
+	return section
+}
+
+// catalogClampPage keeps a requested page inside the section's page range.
+func catalogClampPage(page, total int) (int, int) {
+	pageCount := catalogPageCount(total)
+	return min(max(page, 1), pageCount), pageCount
+}
+
+// catalogIndexLanguages lists every language tag the learner's Catalog index
+// holds, so the filter offers languages the learner does not study yet.
+func (h *Handler) catalogIndexLanguages(r *http.Request, owner string, connections []domain.OpdsConnection) ([]string, error) {
+	seen := map[string]struct{}{}
+	for _, connection := range connections {
+		result, err := h.services.Store.Catalogs.BrowseCatalogueEntries(r.Context(), owner, connection.ID, domain.CatalogueQuery{})
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range result.Entries {
+			if language := canonicalization.NormalizeLanguage(entry.Index.LanguageTag); language != "" {
+				seen[language] = struct{}{}
+			}
+		}
+	}
+	return slices.Sorted(maps.Keys(seen)), nil
+}
+
 func catalogBrowseQuery(r *http.Request) catalogFilter {
 	filter := catalogFilter{Query: strings.TrimSpace(r.URL.Query().Get("q"))}
-	activeLanguage, _ := activeStudyLanguageForContext(r.Context())
-	filter.Language = canonicalization.NormalizeLanguage(activeLanguage)
+	// The Catalog has no page language, so the filter defaults to the Last
+	// study language and is never stored (ADR 0129, ADR 0131).
+	filter.Language = canonicalization.NormalizeLanguage(shellViewFromContext(r.Context()).lastLanguage())
 	if r.URL.Query().Has("language") {
 		filter.Language = canonicalization.NormalizeLanguage(r.URL.Query().Get("language"))
 	}
@@ -151,55 +259,79 @@ func catalogBrowseQuery(r *http.Request) catalogFilter {
 }
 
 // loadCatalogOpdsSections reads each connection's local index page and returns
-// the sections plus the total matches before paging.
-func (h *Handler) loadCatalogOpdsSections(r *http.Request, owner string, connections []domain.OpdsConnection, filter catalogFilter) ([]catalogOpdsSection, int, error) {
-	pages := make(map[string]int, len(connections))
-	sources := make([]catalogOpdsSection, 0, len(connections))
-	total := 0
+// the sections.
+func (h *Handler) loadCatalogOpdsSections(r *http.Request, owner string, connections []domain.OpdsConnection, filter catalogFilter) ([]catalogSection, error) {
+	sources := make([]catalogSection, 0, len(connections))
 	for _, connection := range connections {
 		section, err := h.loadCatalogOpdsSection(r, owner, connection, filter)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
-		pages[connection.ID] = section.Page
 		sources = append(sources, section)
-		total += section.Total
 	}
-	catalogSetSectionPagingURLs(sources, pages, filter)
-	return sources, total, nil
+	return sources, nil
 }
 
-func (h *Handler) loadCatalogOpdsSection(r *http.Request, owner string, connection domain.OpdsConnection, filter catalogFilter) (catalogOpdsSection, error) {
+func (h *Handler) loadCatalogOpdsSection(r *http.Request, owner string, connection domain.OpdsConnection, filter catalogFilter) (catalogSection, error) {
 	page := catalogPageParam(r, connection.ID)
 	result, err := h.browseCatalogueConnection(r, owner, connection.ID, filter, page)
 	if err != nil {
-		return catalogOpdsSection{}, err
+		return catalogSection{}, err
 	}
 	pageCount := catalogPageCount(result.Total)
 	if page > pageCount {
 		page = pageCount
 		result, err = h.browseCatalogueConnection(r, owner, connection.ID, filter, page)
 		if err != nil {
-			return catalogOpdsSection{}, err
+			return catalogSection{}, err
 		}
 	}
-	return catalogOpdsSection{
-		Connection: connection,
-		Page:       page,
-		PageCount:  pageCount,
-		Total:      result.Total,
-		Entries:    result.Entries,
+	cards := make([]catalogCard, 0, len(result.Entries))
+	for _, entry := range result.Entries {
+		card := opdsCatalogCard(entry)
+		card.FilterLanguage = filter.Language
+		cards = append(cards, card)
+	}
+	return catalogSection{
+		ID:        connection.ID,
+		Title:     connection.Name,
+		Page:      page,
+		PageCount: pageCount,
+		Total:     result.Total,
+		Cards:     cards,
 	}, nil
 }
 
-func catalogSetSectionPagingURLs(sources []catalogOpdsSection, pages map[string]int, filter catalogFilter) {
-	for i := range sources {
-		section := &sources[i]
+// opdsCatalogCard is one OPDS entry as a Catalog card.
+func opdsCatalogCard(entry domain.CatalogueEntry) catalogCard {
+	index := entry.Index
+	card := catalogCard{
+		ID:              index.EntryIdentifier,
+		Title:           index.Title,
+		Author:          index.Author,
+		Plate:           newTitlePlate(index.Title, "", index.Author),
+		EntryIdentifier: index.EntryIdentifier,
+	}
+	if index.CoverRetained && index.CoverWidth > 0 && index.CoverHeight > 0 {
+		card.CoverURL = catalogEntryCoverURL(index.ConnectionID, index.EntryIdentifier)
+		card.CoverWidth, card.CoverHeight = index.CoverWidth, index.CoverHeight
+	}
+	if entry.BookID != "" {
+		card.OwnedURL = catalogBookInMyBooksURL(entry.BookID)
+		return card
+	}
+	card.AddURL = "/catalogs/sources/" + url.PathEscape(index.ConnectionID) + "/add"
+	card.ReadURL = "/catalogs/sources/" + url.PathEscape(index.ConnectionID) + "/previously-read"
+	return card
+}
+
+func catalogSetSectionPagingURLs(sections []*catalogSection, pages map[string]int, filter catalogFilter) {
+	for _, section := range sections {
 		if section.Page > 1 {
-			section.PreviousURL = filter.atPage(pages, section.Connection.ID, section.Page-1)
+			section.PreviousURL = filter.atPage(pages, section.ID, section.Page-1)
 		}
 		if section.Page < section.PageCount {
-			section.NextURL = filter.atPage(pages, section.Connection.ID, section.Page+1)
+			section.NextURL = filter.atPage(pages, section.ID, section.Page+1)
 		}
 	}
 }
@@ -208,17 +340,40 @@ func (h *Handler) browseCatalogueConnection(r *http.Request, owner, connectionID
 	return h.services.Store.Catalogs.BrowseCatalogueEntries(r.Context(), owner, connectionID, domain.CatalogueQuery{
 		Search:   filter.Query,
 		Language: filter.Language,
-		Offset:   (page - 1) * catalogOpdsPageSize,
-		Limit:    catalogOpdsPageSize,
+		Offset:   (page - 1) * catalogSectionPageSize,
+		Limit:    catalogSectionPageSize,
 	})
 }
 
-// catalogLanguageOptions lists the learner's study languages plus the Classical
-// catalog's language. The empty value is first so "All languages" is always
-// available, and a requested language is kept visible even when no Book
-// currently derives it.
-func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool) []catalogLanguageOption {
-	names := map[string]string{}
+// capabilityLanguageNames maps each language the analysis service reports to its
+// display name. An unavailable service yields no names, and the caller falls
+// back to the language code.
+func (h *Handler) capabilityLanguageNames(ctx context.Context) map[string]string {
+	if h.services.Capabilities == nil {
+		return nil
+	}
+	capabilities, err := h.services.Capabilities.GetCapabilities(ctx)
+	if err != nil {
+		return nil
+	}
+	names := make(map[string]string, len(capabilities.Languages))
+	for _, capability := range capabilities.Languages {
+		if name := strings.TrimSpace(capability.DisplayName); name != "" {
+			names[canonicalization.NormalizeLanguage(capability.Language)] = name
+		}
+	}
+	return names
+}
+
+// catalogLanguageOptions lists the learner's study languages, every language the
+// Catalog index holds, and the Classical catalog's language. The empty value is
+// first so "All languages" is always available, and a requested language is
+// kept visible even when no Book currently derives it.
+//
+// capabilityNames supplies display names for languages the learner does not
+// study, so an index language reads as "French", not "fr".
+func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool, indexLanguages []string, capabilityNames map[string]string) []catalogLanguageOption {
+	names := languageNames{}
 	if shell := shellViewFromContext(r.Context()); shell != nil {
 		for _, option := range shell.Options {
 			if language := canonicalization.NormalizeLanguage(option.Language); language != "" {
@@ -227,14 +382,19 @@ func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool
 		}
 	}
 	if hasClassical {
-		if _, ok := names[classical.Language]; !ok {
-			names[classical.Language] = classical.LanguageDisplayName
+		names.addIfAbsent(classical.Language, classical.LanguageDisplayName)
+	}
+	label := func(language string) string {
+		if name := capabilityNames[language]; name != "" {
+			return name
 		}
+		return language
+	}
+	for _, language := range indexLanguages {
+		names.addIfAbsent(language, label(language))
 	}
 	if requested != "" {
-		if _, ok := names[requested]; !ok {
-			names[requested] = requested
-		}
+		names.addIfAbsent(requested, label(requested))
 	}
 	languages := make([]string, 0, len(names))
 	for language := range names {
@@ -249,6 +409,16 @@ func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool
 	return options
 }
 
+// languageNames maps a language tag to the label the filter shows for it.
+type languageNames map[string]string
+
+// addIfAbsent keeps the first label a language was given.
+func (n languageNames) addIfAbsent(language, label string) {
+	if _, ok := n[language]; !ok {
+		n[language] = label
+	}
+}
+
 func catalogLanguageLabel(options []catalogLanguageOption, language string) string {
 	for _, option := range options {
 		if option.Value == language {
@@ -258,8 +428,8 @@ func catalogLanguageLabel(options []catalogLanguageOption, language string) stri
 	return language
 }
 
-func catalogPageParam(r *http.Request, connectionID string) int {
-	page, err := strconv.Atoi(r.URL.Query().Get("page_" + connectionID))
+func catalogPageParam(r *http.Request, sectionID string) int {
+	page, err := strconv.Atoi(r.URL.Query().Get("page_" + sectionID))
 	if err != nil || page < 1 {
 		return 1
 	}
@@ -270,7 +440,7 @@ func catalogPageCount(total int) int {
 	if total <= 0 {
 		return 1
 	}
-	return (total + catalogOpdsPageSize - 1) / catalogOpdsPageSize
+	return (total + catalogSectionPageSize - 1) / catalogSectionPageSize
 }
 
 func catalogCountLabel(count int, singular, plural string) string {
@@ -286,7 +456,7 @@ func catalogBookInMyBooksURL(bookID string) string {
 
 func catalogSourceCount(view catalogBrowseView) int {
 	count := 0
-	if view.ClassicalTotal > 0 {
+	if view.Classical.Total > 0 {
 		count++
 	}
 	for _, section := range view.Sources {
@@ -323,5 +493,5 @@ func catalogEmptyState(view catalogBrowseView) (title, message, actionLabel, act
 	if view.Language != "" {
 		return "Nothing in " + view.LanguageLabel, fmt.Sprintf("No Catalog entry is in %s.", view.LanguageLabel), "Show all languages", view.ShowAllURL
 	}
-	return "Nothing to browse yet", "Sync an OPDS source, or browse the Classical catalog.", "Manage sources", "/catalogs/sources"
+	return "Nothing to browse yet", "Sync an OPDS source, or choose Ancient Greek for the Classical catalog.", "Manage sources", "/catalogs/sources"
 }

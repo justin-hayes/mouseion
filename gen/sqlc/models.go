@@ -95,29 +95,17 @@ type BookAlias struct {
 type BookCover struct {
 	OwnerID                  string
 	BookID                   string
-	State                    string
-	SelectedConnectionID     pgtype.UUID
-	SelectedSourceIdentifier pgtype.Text
-	MediaType                pgtype.Text
-	Width                    pgtype.Int4
-	Height                   pgtype.Int4
-	ContentHash              pgtype.Text
-	Bytes                    []byte
-	AdvertisedAt             pgtype.Timestamptz
-	FetchedAt                pgtype.Timestamptz
+	SelectedConnectionID     string
+	SelectedSourceIdentifier string
 	UpdatedAt                time.Time
-	FailureReason            pgtype.Text
 }
 
-type BookCoverCandidate struct {
-	OwnerID          string
-	BookID           string
-	ConnectionID     string
-	SourceIdentifier string
-	AdvertisedAt     time.Time
-	State            string
-	FailureReason    pgtype.Text
-	UpdatedAt        time.Time
+type BookCoverState struct {
+	OwnerID string
+	BookID  string
+	State   string
+	Width   int
+	Height  int
 }
 
 type BookCurrentAnalysis struct {
@@ -183,6 +171,22 @@ type Card struct {
 	Front          string
 	Back           string
 	CreatedAt      time.Time
+}
+
+type CatalogEntryCover struct {
+	OwnerID         string
+	ConnectionID    string
+	EntryIdentifier string
+	State           string
+	AdvertisedAt    time.Time
+	MediaType       pgtype.Text
+	Width           pgtype.Int4
+	Height          pgtype.Int4
+	ContentHash     pgtype.Text
+	Bytes           []byte
+	FetchedAt       pgtype.Timestamptz
+	FailureReason   pgtype.Text
+	UpdatedAt       time.Time
 }
 
 type CatalogueEntry struct {

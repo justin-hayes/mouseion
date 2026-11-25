@@ -37,7 +37,7 @@ func languageContextHandler(t *testing.T) (*Handler, []*http.Cookie, string, *pe
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Italian catalog", URL: "https://italian.example/opds"})
 	require.NoError(t, err)
-	_, err = seedWebappCatalogueBook(t, ctx, store, owner.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
+	err = seedWebappCatalogueBook(t, ctx, store, owner.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, "de"))
 

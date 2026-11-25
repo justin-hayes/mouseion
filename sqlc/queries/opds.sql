@@ -34,38 +34,3 @@ FROM opds_connections
 WHERE owner_id = sqlc.arg('owner_id') AND id = sqlc.arg('connection_id')
 FOR UPDATE;
 
--- name: DeleteBookCoverCandidatesForConnection :exec
-DELETE FROM book_cover_candidates
-WHERE owner_id = sqlc.arg('owner_id') AND connection_id = sqlc.arg('connection_id');
-
--- name: LockBookCoversForConnection :many
-SELECT cover.owner_id::text, cover.book_id::text
-FROM book_covers AS cover
-JOIN book_cover_candidates AS candidate
-  ON candidate.owner_id = cover.owner_id AND candidate.book_id = cover.book_id
-WHERE candidate.owner_id = sqlc.arg('owner_id')
-  AND candidate.connection_id = sqlc.arg('connection_id')
-ORDER BY cover.owner_id, cover.book_id
-FOR UPDATE OF cover;
-
--- name: ResolveBookCoverAfterConnectionDeletion :exec
-UPDATE book_covers AS cover
-SET state = 'unavailable',
-    media_type = NULL,
-    width = NULL,
-    height = NULL,
-    content_hash = NULL,
-    bytes = NULL,
-    fetched_at = NULL,
-    failure_reason = 'cover retrieval source was deleted',
-    updated_at = now()
-WHERE cover.owner_id = sqlc.arg('owner_id')
-  AND cover.state = 'pending'
-  AND NOT EXISTS (
-      SELECT 1
-      FROM book_cover_candidates AS candidate
-      WHERE candidate.owner_id = cover.owner_id
-        AND candidate.book_id = cover.book_id
-        AND candidate.advertised_at = cover.advertised_at
-        AND candidate.state = 'pending'
-  );

@@ -55,9 +55,11 @@ chosen language is not listed in My Books.
   aliases remain fallbacks rather than competing display images. There is no
   Catalog priority in this feature: an atomic first-success selection resolves
   concurrent initial retrievals, and later completion cannot displace the winner.
-- A successful refresh of the selected Catalog entry may replace its image. The
-  prior validated image remains visible until the replacement has been fetched
-  and validated, then the replacement is swapped in atomically.
+- A successful refresh of the selected Catalog entry may replace its image. Each
+  successful complete sync refetches every entry's advertised image, including
+  one whose link is unchanged, so an image replaced at the same URL is picked
+  up. The prior validated image remains visible until the replacement has been
+  fetched and validated, then the replacement is swapped in atomically.
 - If a successful complete reconciliation finds the selected Catalog entry but
   it contains no recognized cover-image link, that is explicit absence: Mouseion
   removes the selected image and another alias may supply a fallback. A missing
@@ -66,6 +68,59 @@ chosen language is not listed in My Books.
 - Deleting a Catalog connection or removing a Book from active My Books
   membership does not delete its retained cover, consistent with existing Book
   and artifact retention.
+
+## Storage
+
+Retained cover images are keyed by Catalog entry, not by Book (ADR 0130). This
+section records the shape settled under ADR 0038 before any SQL.
+
+- **Entry store.** `catalog_entry_covers` is keyed `(owner_id, connection_id,
+  entry_identifier)`, the same identity as `catalogue_entries` and the
+  catalog-entry alias (ADR 0044). One row holds the retrieval state
+  (`pending`, `available`, `unavailable`; absence of a row means no cover is
+  advertised), the `advertised_at` retrieval-generation fence, and for an
+  available image its media type, dimensions, content hash, bytes, and fetch
+  time, plus an operational failure reason.
+- **No foreign keys.** The row does not reference `opds_connections`,
+  `catalogue_entries`, or `books`, so an image a Book uses outlives its
+  Catalog connection. Removal is application-driven: an entry that leaves the
+  index loses its cover in the same transaction as index reconciliation unless a
+  Book selects it, and
+  deleting a connection removes the covers of its entries that no Book uses.
+  Ownership is enforced by an `owner_id` predicate on every read.
+- **Book reference.** `book_covers (owner_id, book_id)` is only the Book's
+  selection pointer: `selected_connection_id` and `selected_source_identifier`
+  name an entry row through a composite foreign key, and the table holds no
+  image, state, or diagnostics. A Book without a selection has no row. The
+  first alias whose image becomes available selects it (written in the same
+  transaction as the image, and when a Book is added for an entry whose image is
+  already retained), and a selection whose entry has no image yet gives way to
+  an available one. A Book's presentation state is derived: the selected
+  entry's state, or, while nothing is selected, `pending` while an alias entry
+  is pending, `unavailable` when its alias entries all failed, and `none`
+  otherwise (the `book_cover_states` view, which `my_books_evidence` joins).
+- **Retrieval.** Every index entry that advertises a cover is retrieved
+  independently of Books, by a job keyed by owner, connection, entry, and
+  `advertised_at`. A completion whose `advertised_at` no longer matches the row
+  is dropped. The previous image stays until a replacement validates. Explicit
+  absence in a complete sync removes the row.
+- **Lifecycle.** An entry cover a Book selects survives its entry leaving the
+  index and its connection being deleted; covers no Book selects are removed
+  with either. A retrieval still pending when its connection is deleted becomes
+  `unavailable`. When a selected entry explicitly stops advertising a cover, in
+  one transaction the Book's selection is demoted to another alias with an
+  available image (or removed) and then the entry row is deleted.
+- **Migration sequence.** Expand (`catalog_entry_covers`, structural only), a
+  separate data-only backfill from `book_covers` (000065: idempotent, fetches
+  nothing), then contract (000066: `book_covers` shrinks to the pointer,
+  `book_cover_candidates` is dropped, the foreign key is added; it refuses to
+  run if an available per-Book image has no selected entry, or a selection has
+  no entry row), shipped in one
+  deploy. Covers of Books still waiting at upgrade are retrieved at the next
+  Catalog sync; queued retired per-Book retrieval jobs are discarded by a separate data-only migration (000067).
+- **Catalog cards.** The OPDS Catalog card shows the retained image through an
+  owner-scoped endpoint, or the Title plate while none is retained. The upstream
+  image URL never reaches the browser.
 
 ## Retrieval and persistence
 
@@ -89,7 +144,9 @@ chosen language is not listed in My Books.
   display raster, not an unlimited original or append-only image history.
 - Cover bytes live in PostgreSQL and are excluded from ordinary Book list and
   evidence projections. A dedicated authenticated, owner-scoped endpoint loads
-  and serves bytes only for an active My Books member. Missing, unavailable,
+  and serves bytes only for an active My Books member. (The Catalog card's
+  entry-cover endpoint is separate: it serves a retained entry image to the
+  owner of that Catalog connection.) Missing, unavailable,
   removed-from-view, and cross-owner references all return the same not-found
   response; conditional requests are evaluated only after authorization.
 - The image response supplies intrinsic dimensions, a content-derived validator,
@@ -160,11 +217,18 @@ or reorder those contracts.
 | State | My Books presentation | Reading presentation |
 |---|---|---|
 | Valid retained cover | Complete image in the fixed-ratio frame | Complete image in the thumbnail frame |
-| No cover advertised | Placeholder with **No cover available** | Subdued aligned placeholder |
-| Retrieval pending | Placeholder with **Cover pending** | Subdued aligned placeholder |
-| Advertised cover unavailable with no prior valid image | Placeholder with **Cover unavailable** | Subdued aligned placeholder |
+| No cover advertised | Title plate with **No cover available** | Subdued aligned Title plate |
+| Retrieval pending | Title plate with **Cover pending** | Subdued aligned Title plate |
+| Advertised cover unavailable with no prior valid image | Title plate with **Cover unavailable** | Subdued aligned Title plate |
 | Replacement pending | Existing validated image | Existing validated image |
 | Replacement invalid or retrieval failed | Existing validated image | Existing validated image |
+
+The Title plate (ADR 0130) composes the text's own title, Greek title when it has
+one, and author on a tinted surface. It replaces the former title initial in the
+Catalog, My Books and Reading, and is the image of every Classical Reading unit,
+which has no catalog cover. It is presentation, not metadata: never stored or
+called a cover. The Catalog card shows the retained entry cover, or the Title plate while none
+is retained.
 
 These are quiet visual metadata states, not Book status badges. Cover failures do
 not displace title, author, disposition, or the learner's current task.
@@ -172,7 +236,7 @@ not displace title, author, disposition, or the learner's current task.
 ## Accessibility and progressive enhancement
 
 - Real cover images use empty alternative text because the adjacent visible
-  title supplies Book identity. Placeholders are hidden from the accessibility
+  title supplies Book identity. Title plates are hidden from the accessibility
   tree; their state is not required to identify or operate the Book.
 - A linked cover and title create one focus stop whose accessible name comes
   from the visible title. Do not create duplicate image and title links.
@@ -194,7 +258,8 @@ not displace title, author, disposition, or the learner's current task.
 - Extracting covers from acquired EPUBs.
 - Learner cover upload, editing, cropping, or source selection.
 - A saved or temporary list/grid preference.
-- Generated imitation covers based on title, author, initials, or color.
+- Generated imitation covers presented as a cover. The Title plate is the one
+  composed image; it is labelled as no cover and never retained.
 - A new Book detail page or making the cover an implicit mutation control.
 - Changing search, alphabetical ordering, active-language scope, or paging.
 - Moving Reading evidence, recovery, or current-reading controls

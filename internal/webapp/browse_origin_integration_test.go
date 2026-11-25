@@ -64,7 +64,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	// A second study language makes a deliberate switch possible.
 	connection, err := store.CreateOpdsConnection(ctx, alice.ID, domain.OpdsConnection{Name: "Italian catalog", URL: "https://italian.example/opds"})
 	require.NoError(t, err)
-	_, err = seedWebappCatalogueBook(t, ctx, store, alice.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
+	err = seedWebappCatalogueBook(t, ctx, store, alice.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 	reading, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)

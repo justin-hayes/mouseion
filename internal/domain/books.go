@@ -107,15 +107,25 @@ type BookCoverResource struct {
 	Width, Height                           int
 }
 
-// BookCoverRetrieval is the owner-scoped cover state read by the retrieval
-// worker before it fetches anything. It names the selected Catalog entry so the
-// worker can reload the current entry without persisting URLs or credentials.
-type BookCoverRetrieval struct {
-	State                    string
-	SelectedConnectionID     string
-	SelectedSourceIdentifier string
-	FailureReason            string
-	AdvertisedAt             time.Time
+// CatalogEntryCoverResource is the owner-scoped retained image of one Catalog
+// entry, read by the cover endpoint. It is never part of an index projection.
+type CatalogEntryCoverResource struct {
+	MediaType, ContentHash string
+	Bytes                  []byte
+	Width, Height          int
+}
+
+// CatalogEntryKey identifies one Catalog entry of one owner's connection (ADR
+// 0044): the key of its retained cover.
+type CatalogEntryKey struct {
+	OwnerID, ConnectionID, EntryIdentifier string
+}
+
+// CatalogEntryCoverRetrieval is the owner-scoped state the entry retrieval
+// worker reloads before it fetches anything.
+type CatalogEntryCoverRetrieval struct {
+	State        string
+	AdvertisedAt time.Time
 }
 
 // MyBook is the complete learner-facing My Books read model. Acquired is nil

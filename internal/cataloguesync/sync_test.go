@@ -50,8 +50,8 @@ func TestSyncArgsNeverSerializeCredentials(t *testing.T) {
 	assert.NotContains(t, text, "secret")
 }
 
-func TestCoverArgsNeverSerializeCredentialsOrURLs(t *testing.T) {
-	args := CoverArgs{OwnerID: "owner", BookID: "book", ConnectionID: "connection", SourceIdentifier: "entry-1"}
+func TestEntryCoverArgsNeverSerializeCredentialsOrURLs(t *testing.T) {
+	args := EntryCoverArgs{OwnerID: "owner", ConnectionID: "connection", SourceIdentifier: "entry-1"}
 	encoded, err := json.Marshal(args)
 	require.NoError(t, err)
 	text := string(encoded)
@@ -264,31 +264,6 @@ func (c erroringCapabilities) GetCapabilities(context.Context) (analyzer.Capabil
 	return analyzer.Capabilities{}, c.err
 }
 
-// recordingCoverStore captures advertisement decisions and can fail them to
-// prove cover work never fails catalog sync.
-type recordingCoverStore struct {
-	refreshStore
-	advertisements []string
-	recordErr      error
-}
-
-func (s *recordingCoverStore) RecordBookCoverAdvertisement(_ context.Context, _, _, _, sourceIdentifier string, advertised bool) (bool, time.Time, error) {
-	s.advertisements = append(s.advertisements, sourceIdentifier)
-	if s.recordErr != nil {
-		return false, time.Time{}, s.recordErr
-	}
-	return advertised, time.Now(), nil
-}
-func (s *recordingCoverStore) SaveBookCover(context.Context, string, string, string, string, time.Time, string, int, int, string, []byte) error {
-	return nil
-}
-func (s *recordingCoverStore) MarkBookCoverUnavailable(context.Context, string, string, string, string, time.Time, string) error {
-	return nil
-}
-func (s *recordingCoverStore) GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error) {
-	return domain.BookCoverRetrieval{}, persistence.ErrNotFound
-}
-
 func TestFindAcquisitionTargetReadsTheCatalogIndex(t *testing.T) {
 	store := &refreshStore{
 		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Old title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
@@ -482,25 +457,4 @@ func TestSyncWorkReconcilesEntriesAndReportsFirstConflict(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "NLP language readiness could not be checked")
 	})
-}
-
-func TestSyncRecordsCoverAdvertisementsAfterSuccessAndNeverFailsOnCoverErrors(t *testing.T) {
-	entry := opds.Entry{ID: "entry-1", Title: "Title", Links: []opds.Link{
-		{Rel: opds.AcquisitionRel, Type: opds.EPUBMediaType, Href: "https://catalog.example/one.epub"},
-		{Rel: opds.CoverImageRel, Type: "image/png", Href: "https://catalog.example/one.png"},
-	}}
-	store := &recordingCoverStore{
-		book:        domain.Book{ID: "book-1", OwnerID: "alice", Title: "Title", LanguageState: domain.LanguageChosen, LanguageTag: "de"},
-		connections: []domain.OpdsConnection{{ID: "connection-1", OwnerID: "alice"}},
-		update:      persistence.CatalogueBookMetadataResult{Book: domain.Book{ID: "book-1", OwnerID: "alice", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}}
-	reader := &refreshReader{feed: opds.Feed{Entries: []opds.Entry{entry}}}
-	worker := &Worker{Connections: store, Catalogue: store, Statuses: store, Reader: reader, Capabilities: stubCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{Language: "de", DisplayName: "German", Ready: true}}}}}
-
-	require.NoError(t, worker.Work(context.Background(), &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: "alice", ConnectionID: "connection-1"}}))
-	assert.Equal(t, []string{"entry-1"}, store.advertisements)
-
-	store.advertisements = nil
-	store.recordErr = errors.New("cover store unavailable")
-	require.NoError(t, worker.Work(context.Background(), &river.Job[SyncArgs]{Args: SyncArgs{OwnerID: "alice", ConnectionID: "connection-1"}}), "cover recording failure failed catalog sync")
-	assert.Equal(t, []string{"entry-1"}, store.advertisements)
 }

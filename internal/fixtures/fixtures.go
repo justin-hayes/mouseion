@@ -65,7 +65,10 @@ type Store struct {
 	// catalogueEntries is each connection's Catalog index, keyed by connection
 	// ID. It mirrors upstream metadata only; ownership stays in aliases and
 	// Book membership.
-	catalogueEntries       map[string][]domain.CatalogueIndexEntry
+	catalogueEntries map[string][]domain.CatalogueIndexEntry
+	// entryCovers holds seeded retained Catalog entry covers, keyed by
+	// connection and entry identity.
+	entryCovers            map[string]domain.CatalogEntryCoverResource
 	catalogueBookCount     int
 	aliases                []domain.BookAlias
 	preps                  []domain.DeckPreparation

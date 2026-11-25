@@ -6,6 +6,7 @@ package fixtures
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -63,7 +64,7 @@ func (s *Store) getOpdsConnectionLocked(owner, id string) error {
 // connection browses. Titles intentionally carry accents and mixed case so
 // browser acceptance can exercise the Go search key without an OPDS request.
 func fixtureCatalogueIndexEntries() map[string][]domain.CatalogueIndexEntry {
-	return map[string][]domain.CatalogueIndexEntry{
+	entries := map[string][]domain.CatalogueIndexEntry{
 		"fixture-connection": {
 			{ConnectionID: "fixture-connection", EntryIdentifier: "fixture-entry", Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", LanguageTag: "de", EPUBHref: "https://fixture.invalid/fixture-entry.epub", LastSeenSync: fixtureJourneyTime},
 			{ConnectionID: "fixture-connection", EntryIdentifier: "fixture-uber", Title: "Über die Berge", Author: "Anna Berg", LanguageTag: "de", EPUBHref: "https://fixture.invalid/uber.epub", LastSeenSync: fixtureJourneyTime},
@@ -79,4 +80,45 @@ func fixtureCatalogueIndexEntries() map[string][]domain.CatalogueIndexEntry {
 			{ConnectionID: "fixture-browser-sync-connection", EntryIdentifier: "fixture-browser-second", Title: "Browser sync second book", Author: "Browser Author", LanguageTag: "de", EPUBHref: "https://browser-sync.fixture.invalid/second.epub", LastSeenSync: fixtureJourneyTime},
 		},
 	}
+	// Thirteen German entries make the Catalog's 12-per-page paging observable.
+	for i := 1; i <= 6; i++ {
+		id := fmt.Sprintf("fixture-karte-%d", i)
+		entries["fixture-connection"] = append(entries["fixture-connection"], domain.CatalogueIndexEntry{ConnectionID: "fixture-connection", EntryIdentifier: id, Title: fmt.Sprintf("Alte Karte %d", i), Author: "Karl Atlas", LanguageTag: "de", EPUBHref: "https://fixture.invalid/" + id + ".epub", LastSeenSync: fixtureJourneyTime})
+	}
+	return entries
+}
+
+// SeedCatalogEntryCover retains an image for one indexed entry, marking the
+// entry's card as having a retained cover. The fixture never fetches covers.
+func (s *Store) SeedCatalogEntryCover(owner, connectionID, entryIdentifier string, resource domain.CatalogEntryCoverResource) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.getOpdsConnectionLocked(owner, connectionID); err != nil {
+		return err
+	}
+	for i := range s.catalogueEntries[connectionID] {
+		if s.catalogueEntries[connectionID][i].EntryIdentifier == entryIdentifier {
+			s.catalogueEntries[connectionID][i].CoverRetained = true
+			if s.entryCovers == nil {
+				s.entryCovers = make(map[string]domain.CatalogEntryCoverResource)
+			}
+			s.entryCovers[connectionID+"\x00"+entryIdentifier] = resource
+			return nil
+		}
+	}
+	return errNotFound
+}
+
+// GetCatalogEntryCoverResource serves a seeded entry cover to its owner.
+func (s *Store) GetCatalogEntryCoverResource(_ context.Context, key domain.CatalogEntryKey) (domain.CatalogEntryCoverResource, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.getOpdsConnectionLocked(key.OwnerID, key.ConnectionID); err != nil {
+		return domain.CatalogEntryCoverResource{}, domain.ErrNotFound
+	}
+	resource, ok := s.entryCovers[key.ConnectionID+"\x00"+key.EntryIdentifier]
+	if !ok {
+		return domain.CatalogEntryCoverResource{}, domain.ErrNotFound
+	}
+	return resource, nil
 }

@@ -70,7 +70,7 @@ func (h *Handler) addCatalogueEntry(w http.ResponseWriter, r *http.Request) {
 		"added_connection": {connectionID},
 		"added_entry":      {entryIdentifier},
 	}
-	redirect(w, r, "/catalogs?"+query.Encode())
+	redirect(w, r, withQuery(catalogReturnTarget(r), query))
 }
 
 // markCatalogueEntryPreviouslyRead is "I've read this" on one OPDS Catalog
@@ -89,7 +89,7 @@ func (h *Handler) markCatalogueEntryPreviouslyRead(w http.ResponseWriter, r *htt
 		return
 	}
 	if errors.Is(err, domain.ErrBookIsCurrentReading) {
-		redirect(w, r, "/catalogs?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+		redirect(w, r, withQuery(catalogReturnTarget(r), url.Values{"error": {catalogueReadCurrentReadingRefusal}}))
 		return
 	}
 	if err != nil {
@@ -102,7 +102,19 @@ func (h *Handler) markCatalogueEntryPreviouslyRead(w http.ResponseWriter, r *htt
 		"read_connection": {connectionID},
 		"read_entry":      {entryIdentifier},
 	}
-	redirect(w, r, "/catalogs?"+query.Encode())
+	redirect(w, r, withQuery(catalogReturnTarget(r), query))
+}
+
+// catalogReturnTarget is the Catalog a card action returns to: the page under
+// the Language filter the card was shown with, so an Add or "I've read this"
+// never changes what the learner is browsing, for either source. A post that
+// carries no filter returns to the unfiltered address.
+func catalogReturnTarget(r *http.Request) string {
+	language := r.PostFormValue("catalog_language")
+	if !r.PostForm.Has("catalog_language") {
+		return "/catalogs"
+	}
+	return "/catalogs?" + url.Values{"language": {canonicalization.NormalizeLanguage(language)}}.Encode()
 }
 
 // catalogueReadCurrentReadingRefusal is the recovery sentence for a direct
@@ -193,12 +205,23 @@ func (h *Handler) loadCatalogAddConfirmation(r *http.Request, owner string, brow
 
 // catalogConfirmationIdentity returns the Book a Catalog action named only when
 // its owner-scoped catalog-entry alias still matches the posted connection and
-// entry, so a page query never carries an arbitrary link target.
+// entry, so a page query never carries an arbitrary link target. A Classical
+// card names no connection or entry; its Book must be an owned, current Reading
+// unit instead.
 func (h *Handler) catalogConfirmationIdentity(r *http.Request, bookKey, connectionKey, entryKey, owner string) string {
 	bookID := strings.TrimSpace(r.URL.Query().Get(bookKey))
 	connectionID := strings.TrimSpace(r.URL.Query().Get(connectionKey))
 	entryIdentifier := strings.TrimSpace(r.URL.Query().Get(entryKey))
-	if bookID == "" || connectionID == "" || entryIdentifier == "" {
+	if bookID == "" {
+		return ""
+	}
+	if connectionID == "" && entryIdentifier == "" {
+		if book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID); err == nil && book.ReadingUnit != nil && !book.ReadingUnit.Withdrawn {
+			return bookID
+		}
+		return ""
+	}
+	if connectionID == "" || entryIdentifier == "" {
 		return ""
 	}
 	alias, err := h.services.Store.Catalogs.GetBookCatalogEntryAlias(r.Context(), owner, bookID)
@@ -307,28 +330,18 @@ func (h *Handler) loadClassicalCatalogView(ctx context.Context, owner string) (c
 	return view, nil
 }
 
-// classicalAuthorIndex renders the built-in Classical catalog index: every
-// author's Works with their Openings, lengths, facts and Add controls. It is
-// deliberately not scoped to the active study language.
+// classicalAuthorIndex retires the Classical index page. The Classical catalog
+// is a section of the Catalog, so the old URL permanently redirects to the
+// Catalog filtered to Ancient Greek.
 func (h *Handler) classicalAuthorIndex(w http.ResponseWriter, r *http.Request) {
-	view, err := h.loadClassicalCatalogView(r.Context(), user(r).ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	render(w, r, ClassicalAuthorIndexPage(user(r), h.csrf(w, r), h.services.Classical.Authors(), h.services.Classical.Counts(), h.services.Classical.SourceAttributions(), view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
+	http.Redirect(w, r, classicalCatalogURL(), http.StatusMovedPermanently)
 }
 
-// classicalAuthor retires the author-detail page. The index now lists every
-// Work under its author, so an old author URL permanently redirects to that
-// author's section of the index while an unknown author stays not found.
+// classicalAuthor retires the author-detail page. An old author URL
+// permanently redirects to the Catalog filtered to Ancient Greek, even when the
+// author no longer has a current Work.
 func (h *Handler) classicalAuthor(w http.ResponseWriter, r *http.Request) {
-	author, ok := h.services.Classical.Author(r.PathValue("author"))
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	http.Redirect(w, r, classicalAuthorIndexURL(author.Name), http.StatusMovedPermanently)
+	http.Redirect(w, r, classicalCatalogURL(), http.StatusMovedPermanently)
 }
 
 // classicalWork renders the Work's Editions and their read-only contents.
@@ -343,7 +356,7 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
+	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, classicalLengthAxis(h.services.Classical.Authors()), h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
 // addClassicalUnit adds one current Reading unit, normally a whole Edition.
@@ -365,14 +378,26 @@ func (h *Handler) addClassicalEdition(w http.ResponseWriter, r *http.Request, wo
 	report, err := h.services.Store.Catalogs.AddClassicalReadingUnits(r.Context(), owner, []string{key})
 	target := classicalWorkURL(workKey)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
-		target = classicalCatalogURL()
+		target = catalogReturnTarget(r)
 	}
 	if err != nil {
 		h.redirectClassicalAddFailure(w, r, target, err)
 		return
 	}
 	preparation := h.prepareAddedClassicalBooks(r.Context(), owner, report)
-	redirectClassicalAdd(w, r, target, classicalAddConfirmationFor(report, preparation, activeLanguageOf(r)))
+	var confirmation classicalAddConfirmation
+	if r.PostFormValue("return") == classicalAddReturnIndex {
+		// A Catalog card confirms exactly as an OPDS card does: the message
+		// names the change, the Catalog keeps its Language filter, and the
+		// confirmation links to the added Book.
+		confirmation = classicalAddConfirmationFor(report, preparation, "")
+		if len(report.Books) == 1 {
+			confirmation.BookID = report.Books[0].BookID
+		}
+	} else {
+		confirmation = classicalAddConfirmationFor(report, preparation, activeLanguageOf(r))
+	}
+	redirectClassicalAdd(w, r, target, confirmation)
 }
 
 // markClassicalUnitPreviouslyRead records one current Reading unit as read
@@ -390,28 +415,28 @@ func (h *Handler) markClassicalUnitPreviouslyRead(w http.ResponseWriter, r *http
 	}
 	target := classicalWorkURL(work.Key)
 	if r.PostFormValue("return") == classicalAddReturnIndex {
-		target = classicalCatalogURL()
+		target = catalogReturnTarget(r)
 	}
 	read, err := h.services.Store.CatalogueRead.MarkClassicalReadingUnitPreviouslyRead(r.Context(), user(r).ID, key)
 	if errors.Is(err, domain.ErrBookIsCurrentReading) {
-		redirect(w, r, target+"?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+		redirect(w, r, withQuery(target, url.Values{"error": {catalogueReadCurrentReadingRefusal}}))
 		return
 	}
 	if errors.Is(err, classical.ErrLegacyRows) {
 		log.Printf("mouseion: classical catalog previously read refused code=%s", classical.LegacyRowsCode)
-		redirect(w, r, target+"?error="+url.QueryEscape(classical.LegacyRowsReason))
+		redirect(w, r, withQuery(target, url.Values{"error": {classical.LegacyRowsReason}}))
 		return
 	}
 	if err != nil {
 		log.Printf("classical catalog previously read: %v", err)
-		redirect(w, r, target+"?error="+url.QueryEscape("This text could not be recorded as read. Refresh the catalog and try again."))
+		redirect(w, r, withQuery(target, url.Values{"error": {"This text could not be recorded as read. Refresh the catalog and try again."}}))
 		return
 	}
 	query := url.Values{
 		"message":   {catalogueReadMessage(read)},
 		"read_book": {read.Book.ID},
 	}
-	redirect(w, r, target+"?"+query.Encode())
+	redirect(w, r, withQuery(target, query))
 }
 
 // classicalAddPreparation is the preparation outcome of one Add, aggregated
@@ -476,7 +501,8 @@ func classicalAddPreparationFor(outcome readingintent.Outcome) classicalAddPrepa
 }
 
 const (
-	// classicalAddReturnIndex returns the learner to the catalog index.
+	// classicalAddReturnIndex returns the learner to the Catalog's Classical
+	// section.
 	classicalAddReturnIndex = "index"
 )
 
@@ -536,6 +562,15 @@ func classicalAddNamesOtherLanguage(activeLanguage string) bool {
 	return activeLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != classical.Language
 }
 
+// withQuery appends query to a target that may already carry one.
+func withQuery(target string, query url.Values) string {
+	separator := "?"
+	if strings.Contains(target, "?") {
+		separator = "&"
+	}
+	return target + separator + query.Encode()
+}
+
 // redirectClassicalAdd returns to the catalog page with the Add outcome. The
 // page derives the "In My Books" path from the added Book's ID.
 func redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string, confirmation classicalAddConfirmation) {
@@ -543,7 +578,7 @@ func redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string,
 	if confirmation.BookID != "" {
 		query.Set("added_book", confirmation.BookID)
 	}
-	redirect(w, r, target+"?"+query.Encode())
+	redirect(w, r, withQuery(target, query))
 }
 
 // loadClassicalAddConfirmation only links to a current Classical Book owned
@@ -577,11 +612,11 @@ func activeLanguageOf(r *http.Request) string {
 func (h *Handler) redirectClassicalAddFailure(w http.ResponseWriter, r *http.Request, target string, err error) {
 	if errors.Is(err, classical.ErrLegacyRows) {
 		log.Printf("mouseion: classical catalog add refused code=%s", classical.LegacyRowsCode)
-		redirect(w, r, target+"?error="+url.QueryEscape(classical.LegacyRowsReason))
+		redirect(w, r, withQuery(target, url.Values{"error": {classical.LegacyRowsReason}}))
 		return
 	}
 	log.Printf("classical catalog add: %v", err)
-	redirect(w, r, target+"?error="+url.QueryEscape("This text could not be added. Refresh the catalog and try again."))
+	redirect(w, r, withQuery(target, url.Values{"error": {"This text could not be added. Refresh the catalog and try again."}}))
 }
 
 // classicalAddMessage states only what changed in My Books. It never mentions

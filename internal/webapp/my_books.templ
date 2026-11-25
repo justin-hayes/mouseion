@@ -16,7 +16,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 			if myBookInReading(book) {
 				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.LanguageTag, book.Book.ID)) }>
-					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
+					@BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover)
 					<div class="library-book__text">
 						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
 						if author := strings.TrimSpace(book.Book.Author); author != "" {
@@ -27,7 +27,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 				</a>
 			} else {
 				<div class="library-book__identity-link">
-					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
+					@BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover)
 					<div class="library-book__text">
 						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
 						if author := strings.TrimSpace(book.Book.Author); author != "" {

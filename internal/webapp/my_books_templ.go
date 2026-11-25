@@ -114,7 +114,7 @@ func MyBookRow(csrf string, book domain.MyBook, returnTo string) templ.Component
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -180,7 +180,7 @@ func MyBookRow(csrf string, book domain.MyBook, returnTo string) templ.Component
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

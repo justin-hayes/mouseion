@@ -67,8 +67,8 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
 
 - The Catalog at `/catalogs` has one search and one language filter over the
   Classical catalog and every connection's local Catalog index. The filter
-  defaults to the active study language, or to all languages when the learner
-  has none.
+  defaults to the Last study language, is never stored, and is all languages
+  when the learner has none.
 - Each connection appears as a section whose entries are a cover grid with
   cover, title and author, ordered by title then author and paged locally.
 - Search compares the Go search key for title and author, so it ignores accents
@@ -81,9 +81,12 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   learner's existing Book for that alias, as To Read. It then runs the same
   reading-intent preparation seam as **Read again**: acquisition and analysis
   start once, and repeating Add changes nothing.
-  The Add copy says the text is downloaded and analyzed, the route is an
-  ordinary owner-scoped POST, and the confirmation names the Book and links to
-  My Books. Adding the first Book in a language makes it a study language.
+  The Add copy says adding prepares the text for reading, the route is an
+  ordinary owner-scoped POST, and the confirmation names the Book, links to
+  My Books, and returns to the Catalog under the same Language filter for
+  every source. Adding the first Book in a language makes it a study language;
+  neither Add nor the Language filter changes the Last study language
+  ([ADR 0131](../adr/0131-the-url-carries-the-study-language.md)).
 - **I've read this** creates or restores the same Book as Read with a
   **Previously read** record. It downloads nothing, starts no analysis or
   preparation and changes no Known vocabulary. On a classical Work it is offered

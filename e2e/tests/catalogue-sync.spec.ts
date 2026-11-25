@@ -53,12 +53,13 @@ test.describe('catalog sources and browsing', () => {
     await expect(fixture.getByRole('link', { name: 'Next' })).toHaveAttribute('href', /language=de.*page_fixture-connection=2/);
     const addEntry = fixture.locator('.catalog-entry', { hasText: 'Ein kurzer Sommer' });
     await expect(addEntry.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
-    await expect(addEntry).toContainText('Adding downloads and analyzes the text.');
+    await expect(addEntry).toContainText('Adding prepares the text for reading.');
     await expect(page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first()).toBeVisible();
 
-    // The Classical source keeps its own page, and connection management stays
-    // off the Catalog.
-    await expect(page.locator('.page-header__actions').getByRole('link', { name: 'Classical catalog', exact: true })).toHaveAttribute('href', '/catalogs/classical');
+    // The Classical catalog is a section chosen with the Language filter, not a
+    // separate page or button, and connection management stays off the Catalog.
+    await expect(page.getByRole('link', { name: 'Classical catalog', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Language', { exact: true }).locator('option[value="grc"]')).toHaveCount(1);
     await expect(page.locator('#catalog-source-classical')).toHaveCount(0);
     await expect(page.locator('#catalog-connection-form')).toHaveCount(0);
   });
@@ -84,7 +85,11 @@ test.describe('catalog sources and browsing', () => {
     await page.goto('/catalogs?language=de');
 
     const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
-    await expect(entry).toContainText('Adding downloads and analyzes the text.');
+    await expect(entry).toContainText('Adding prepares the text for reading.');
+    // A text without a cover shows a Title plate that assistive technology skips.
+    const plate = entry.locator('.book-cover-media__placeholder');
+    await expect(plate).toHaveAttribute('aria-hidden', 'true');
+    await expect(plate.locator('.title-plate__title')).toHaveText('Ein kurzer Sommer');
     await entry.getByRole('button', { name: 'Add', exact: true }).click();
 
     await expect(page).toHaveURL(/\/catalogs\?.*message=/);

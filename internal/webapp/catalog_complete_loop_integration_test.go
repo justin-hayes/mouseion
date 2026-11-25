@@ -3,13 +3,18 @@
 package webapp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,14 +45,21 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	learner := createAccount(t, ctx, store, "catalog-loop-learner", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	// The OPDS catalog the whole loop runs against.
+	// The OPDS catalog the whole loop runs against. Its one entry advertises a
+	// cover; coverFetches counts every request for that image.
+	var coverFetches atomic.Int64
+	coverPNG := catalogLoopPNG(t)
 	catalogue := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/atom+xml")
 		switch r.URL.Path {
+		case "/homer-loop-cover.png":
+			coverFetches.Add(1)
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(coverPNG) //nolint:errcheck // a failed test response write surfaces as a failed fetch
 		case "/opds/language":
 			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>Languages</title><entry><title>German</title><link rel="subsection" href="/opds/language/7"/></entry></feed>`)
 		case "/opds/language/7":
-			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>German books</title><entry><id>homer-loop</id><title>Homer Loop</title><author><name>Homer</name></author><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/homer-loop.epub"/></entry></feed>`)
+			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>German books</title><entry><id>homer-loop</id><title>Homer Loop</title><author><name>Homer</name></author><link rel="http://opds-spec.org/image" type="image/png" href="/homer-loop-cover.png"/><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/homer-loop.epub"/></entry><entry><id>read-loop</id><title>Read Loop</title><author><name>Homer</name></author><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/read-loop.epub"/></entry></feed>`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -63,7 +75,7 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	opdsService := opds.NewService(store, epub.NewService(store), catalogue.Client())
 	syncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: pool}
 	workers := river.NewWorkers()
-	cataloguesync.AddWorker(workers, syncDeps, opdsService, capabilities)
+	syncWorker := cataloguesync.AddWorker(workers, syncDeps, opdsService, capabilities)
 	analysis.AddEPUBAcquisitionWorker(workers, nil, nil, nil)
 	syncClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues:  map[string]river.QueueConfig{cataloguesync.Queue: {MaxWorkers: 1}},
@@ -71,6 +83,7 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	})
 	require.NoError(t, err)
 	testutil.StopOnCleanup(t, "catalog loop sync client", syncClient.Stop)
+	syncWorker.Client = syncClient // as cmd/server wires it, so a sync schedules entry covers
 	syncService := cataloguesync.NewService(syncDeps, syncClient, opdsService, capabilities)
 	h.services.CatalogueSync = syncService
 	h.services.EPUBAcquisition = analysis.NewService(pool, syncClient)
@@ -102,11 +115,40 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 		return true, ""
 	})
 
+	// The sync retains the advertised cover; the entry serves it from Mouseion.
+	coverPath := "/catalogs/sources/" + connection.ID + "/cover?entry=homer-loop"
+	testutil.Eventually(t, 60*time.Second, "retained entry cover", func() (bool, string) {
+		served := perform(t, h, http.MethodGet, coverPath, nil, cookies)
+		return served.Code == http.StatusOK, fmt.Sprintf("cover status=%d", served.Code)
+	})
+	entryCover := perform(t, h, http.MethodGet, coverPath, nil, cookies)
+	entryETag := entryCover.Header().Get("ETag")
+	require.NotEmpty(t, entryETag)
+	fetchesAfterSync := coverFetches.Load()
+	require.Positive(t, fetchesAfterSync, "the sync fetched the advertised image")
+
 	// 2. One search finds the synced OPDS entry and the classical entry.
 	search := perform(t, h, http.MethodGet, "/catalogs?q=Homer", nil, cookies)
 	require.Equal(t, http.StatusOK, search.Code, search.Body.String())
 	assert.Contains(t, search.Body.String(), "Homer Loop", "one search finds the OPDS entry the sync indexed")
 	assert.Contains(t, search.Body.String(), "Iliad", "one search finds the classical entry")
+	assert.Contains(t, search.Body.String(), coverPath, "the card serves the retained cover from Mouseion")
+	assert.NotContains(t, search.Body.String(), "homer-loop-cover.png", "the upstream image URL never reaches the browser")
+	assert.NotContains(t, search.Body.String(), catalogue.URL, "no upstream host reaches the browser")
+
+	// The Classical section is an ordinary card section with Title plates for
+	// Ancient Greek, hidden for German, and the retired index URL redirects.
+	grcCatalog := perform(t, h, http.MethodGet, "/catalogs?language=grc", nil, cookies)
+	require.Equal(t, http.StatusOK, grcCatalog.Code, grcCatalog.Body.String())
+	assert.Contains(t, grcCatalog.Body.String(), `id="catalog-source-classical"`, "Ancient Greek shows the Classical section")
+	assert.Contains(t, grcCatalog.Body.String(), "title-plate__title", "Classical cards show Title plates")
+	assert.Contains(t, grcCatalog.Body.String(), "I've read this", "Classical cards offer I've read this")
+	deCatalog := perform(t, h, http.MethodGet, "/catalogs?language=de", nil, cookies)
+	require.Equal(t, http.StatusOK, deCatalog.Code, deCatalog.Body.String())
+	assert.NotContains(t, deCatalog.Body.String(), `id="catalog-source-classical"`, "German hides the Classical section")
+	oldIndex := perform(t, h, http.MethodGet, "/catalogs/classical", nil, cookies)
+	assert.Equal(t, http.StatusMovedPermanently, oldIndex.Code)
+	assert.Equal(t, "/catalogs?language=grc", oldIndex.Header().Get("Location"))
 
 	// 3. Add both entries. The OPDS Book queues one durable EPUB acquisition;
 	// the classical Book queues one preparation.
@@ -122,6 +164,13 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionToRead, opdsBooks.Items[0].Disposition)
 	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'book_id'=$3`,
 		analysis.EPUBAcquisitionQueue, learner.ID, opdsBookID), "the OPDS Add queues exactly one durable EPUB acquisition")
+
+	// Add gives the Book the same retained image: no second fetch.
+	bookCover := perform(t, h, http.MethodGet, "/books/"+opdsBookID+"/cover", nil, cookies)
+	require.Equal(t, http.StatusOK, bookCover.Code, "the Book serves the entry's retained cover")
+	assert.Equal(t, entryETag, bookCover.Header().Get("ETag"), "the Book has the same image as the entry")
+	assert.Equal(t, entryCover.Body.Bytes(), bookCover.Body.Bytes())
+	assert.Equal(t, fetchesAfterSync, coverFetches.Load(), "Add does not fetch the image a second time")
 
 	addedClassical := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, addedClassical.Code, addedClassical.Body.String())
@@ -148,6 +197,14 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 		"the restored Book reports the same plain preparation confirmation")
 	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'book_id'=$3`,
 		analysis.EPUBAcquisitionQueue, learner.ID, opdsBookID), "a second Add while the acquisition is live enqueues nothing (one live job per Book)")
+
+	// "I've read this" on an OPDS card records Read without acquiring anything.
+	opdsRead := perform(t, h, http.MethodPost, "/catalogs/sources/"+connection.ID+"/previously-read", url.Values{
+		"csrf_token": {csrf}, "entry_identifier": {"read-loop"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, opdsRead.Code, opdsRead.Body.String())
+	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2`, analysis.EPUBAcquisitionQueue, learner.ID)-1, "I've read this on an OPDS card queues no acquisition beyond the added Book")
+	assert.NotContains(t, perform(t, h, http.MethodGet, "/library", nil, cookies).Body.String(), catalogue.URL, "My Books never shows the upstream host")
 
 	// 5. "I've read this" records Read without acquiring anything; each Book
 	// is then listed on its own language's tab.
@@ -190,6 +247,20 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, retired.Code)
 	inbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusNotFound, inbox.Code)
+}
+
+// catalogLoopPNG is a small valid PNG a cover fetch can serve.
+func catalogLoopPNG(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 4, 6))
+	for y := range 6 {
+		for x := range 4 {
+			img.Set(x, y, color.RGBA{R: 40, G: 120, B: 200, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	require.NoError(t, png.Encode(&buf, img))
+	return buf.Bytes()
 }
 
 // catalogLoopTabNavPattern isolates the My Books tabs nav, whose two <a> links

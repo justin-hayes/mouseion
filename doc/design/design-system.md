@@ -263,13 +263,11 @@ failure. Shapes use the status foreground so they remain visible in both themes
 and forced-colors mode. Never make disclosure state or status depend on color
 alone.
 
-A missing, pending, or unavailable Book cover uses a tinted placeholder with the
-first title initial; a leading article is ignored according to the Book language
-(German, Italian, or Modern Greek). If the title is only an article, its own
-initial is retained. At My Books list size, show only the initial rather than a
-clipped cover-state caption; larger cover presentations may retain their state
-label. The complete placeholder is `aria-hidden` because the adjacent title is
-authoritative.
+A missing, pending, or unavailable Book cover, and every Catalog entry without a
+retained image, uses the **Title plate**: the text's own title, Greek title when
+it has one, and author composed on a tinted surface (ADR 0130). Larger cover
+presentations may retain their state label. The complete plate is `aria-hidden`
+because the adjacent title is authoritative.
 
 ## Spacing scale
 
@@ -411,7 +409,9 @@ overflow.
   `/catalogs/sources`. My Books is the sole bibliographic Book browse surface for synced
   metadata, and its items own per-book disposition and acquisition intent.
   Reading owns the current Book or the between-Books candidate chooser.
-- The Classical catalog is one author-grouped index and the work page. Each
+- The Classical catalog is a section of the Catalog, one ordinary card per
+  Reading unit ordered by title then author like every other source, and the
+  work page. Each
   Work's Opening is set whole in the reading typeface at the page-title size on
   wide screens and the section-title size on compact screens. Its length strip
   shares one page-wide word scale and is hidden from assistive technology,
@@ -419,9 +419,11 @@ overflow.
   Edition, passage, translation, ownership and Add sit in a margin note; the
   work page adds one I've read this per Edition and a read-only contents list.
   Add creates or restores the Book as
-  To Read and starts downloading and preparing the text; its control and
-  confirmation say so. The author-detail page is retired: its URL permanently
-  redirects to that author's index section. The index uses existing tokens and
+  To Read and prepares the text for reading; its control says "Adding prepares
+  the text for reading," and the confirmation names the Book, keeps the
+  Catalog's Language filter, and links to My Books, exactly as an OPDS Add does.
+  The index and author-detail pages are retired: their URLs permanently redirect
+  to the Catalog filtered to Ancient Greek. The Catalog uses existing tokens and
   typefaces only and never states preparation, coverage or difficulty.
 - Books and learner relationships lead; evidence supports. Readiness never ranks
   what the learner ought to read.

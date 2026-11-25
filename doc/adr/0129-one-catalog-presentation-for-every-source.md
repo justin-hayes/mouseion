@@ -1,6 +1,6 @@
 # ADR 0129: One Catalog presentation for every source
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Decided by Justin in a grilling session on 2026-11-24. Amends
 [ADR 0116](0116-classical-catalog.md) and

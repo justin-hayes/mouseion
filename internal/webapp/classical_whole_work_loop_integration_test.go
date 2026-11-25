@@ -82,7 +82,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	library := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	assert.Equal(t, 1, strings.Count(library.Body.String(), `id="book-row-`+book+`"`))
-	assert.Equal(t, 1, strings.Count(library.Body.String(), "Synthetic Treatise"+"</"), "one title for the whole Work")
+	assert.Equal(t, 1, strings.Count(library.Body.String(), `<h2 id="book-title-`+book+`" class="bibliographic-title">Synthetic Treatise</h2>`), "one title for the whole Work; its Title plate repeats it as decoration")
 	for _, retired := range []string{"Book 1 of", "library-work", "Books in", "Move the work", "Remove the work"} {
 		assert.NotContains(t, library.Body.String(), retired)
 	}
@@ -92,7 +92,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	h.waitForBookAnalysis(t, learner.ID, book)
 	assert.Equal(t, int64(1), h.sourceServed())
 	assert.Equal(t, 1, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue))
-	assert.NotEmpty(t, h.preparedDefinitionRunID(t, learner.ID, book))
+	assert.NotEmpty(t, h.waitForPreparedDefinition(t, learner.ID, book))
 
 	// The chooser lists the Work as one ordinary entry.
 	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)

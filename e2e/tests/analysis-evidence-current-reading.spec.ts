@@ -19,6 +19,10 @@ test.describe('Current reading over a failed re-analysis', () => {
     await page.goto('/de/reading/switch');
     const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Neue Analyse fehlgeschlagen' });
     await expect(candidate).toHaveCount(1);
+    // Without a cover image the chooser shows a Title plate, hidden from assistive technology.
+    const plate = candidate.locator('.book-cover-media__placeholder');
+    await expect(plate).toHaveAttribute('aria-hidden', 'true');
+    await expect(plate.locator('.title-plate__title')).toBeVisible();
     await candidate.locator('summary').filter({ hasText: 'Switch to this book' }).click();
     await candidate.getByRole('button', { name: 'Confirm switch to this book' }).click();
 
