@@ -25,7 +25,7 @@ func TestParseClassicalSourceChoosesTheAdapterByFormat(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, parsed)
 
-	_, err = parseClassicalSource("graded-reader", data)
+	_, err = parseClassicalSource("unknown-format", data)
 	require.Error(t, err)
 	var importErr *ancientgreek.ImportError
 	require.ErrorAs(t, err, &importErr)
