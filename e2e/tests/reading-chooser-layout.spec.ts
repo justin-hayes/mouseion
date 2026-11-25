@@ -7,7 +7,7 @@ test('switch chooser keeps Book actions with identity and coverage in the margin
   await page.getByRole('button', { name: /sign in|log in/i }).click();
   await expect(page).toHaveURL(/\/library/);
   await page.getByLabel('Study language').selectOption('de');
-  await expect(page).toHaveURL(/\/library$/);
+  await expect(page).toHaveURL(/\/de\/library$/);
   await page.goto('/reading/switch');
   const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
   await expect(candidate.getByRole('heading', { name: 'Route match: familiar German' })).toBeVisible();

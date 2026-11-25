@@ -434,7 +434,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	noReading := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, noReading.Code)
 	assert.Contains(t, noReading.Body.String(), "Choose a To Read book")
-	assert.Contains(t, noReading.Body.String(), `href="/library"`)
+	assert.Contains(t, noReading.Body.String(), `href="/de/library"`)
 	assert.NotContains(t, noReading.Body.String(), `id="vocabulary-workflow"`, "between Books there is no Browse")
 	assert.NotContains(t, noReading.Body.String(), "Browse selection")
 

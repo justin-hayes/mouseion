@@ -16,9 +16,46 @@ type activeStudyLanguageOption struct {
 	NewArrival bool
 }
 
+// shellView is the per-request shell state. ActiveLanguage is the Last study
+// language (ADR 0131): it resolves unprefixed URLs and navigation links.
+// PageLanguage and PageKind are set only while a per-language page renders, and
+// PageLanguage is then the language of that page.
 type shellView struct {
 	ActiveLanguage string
+	PageLanguage   string
+	PageKind       studyLanguagePageKind
 	Options        []activeStudyLanguageOption
+}
+
+// hasLanguage reports whether language is one of the learner's study or known
+// vocabulary languages.
+func (v *shellView) hasLanguage(language string) bool {
+	if v == nil || language == "" {
+		return false
+	}
+	for _, option := range v.Options {
+		if option.Language == language {
+			return true
+		}
+	}
+	return false
+}
+
+// lastLanguage is the Last study language, empty for a nil view.
+func (v *shellView) lastLanguage() string {
+	if v == nil {
+		return ""
+	}
+	return v.ActiveLanguage
+}
+
+// pageLanguage is the language the page in view is about: the URL's prefix on a
+// per-language page, otherwise the Last study language.
+func (v *shellView) pageLanguage() string {
+	if v.PageLanguage != "" {
+		return v.PageLanguage
+	}
+	return v.ActiveLanguage
 }
 
 type shellViewContextKey struct{}
@@ -58,13 +95,29 @@ func activeStudyLanguageForContext(ctx context.Context) (language, label string)
 	if view == nil {
 		return "", ""
 	}
-	language = view.ActiveLanguage
+	language = view.pageLanguage()
 	for _, option := range view.Options {
 		if option.Language == language {
 			return language, option.DisplayName
 		}
 	}
 	return language, language
+}
+
+// showStudyLanguagePicker reports whether the shell shows the picker: never in
+// the Catalog, which has no page language, and not on a per-language page that
+// has none, such as the My Books empty state.
+func showStudyLanguagePicker(view *shellView, context NavigationContext) bool {
+	if view == nil || len(view.Options) == 0 || context == NavigationCatalogs {
+		return false
+	}
+	return view.PageKind == "" || view.PageLanguage != ""
+}
+
+// shellNavigationPath is a primary navigation link: the page kind under the
+// Last study language.
+func shellNavigationPath(ctx context.Context, kind studyLanguagePageKind) string {
+	return studyLanguagePath(kind, shellViewFromContext(ctx).lastLanguage())
 }
 
 func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, error) {

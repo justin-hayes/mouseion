@@ -20,7 +20,7 @@ async function switchCurrentReadingTo(page: Page, title: string) {
 }
 
 async function openGermanReading(page: Page) {
-  await page.goto('/library');
+  await page.goto('/de/library');
   const language = page.getByLabel('Study language');
   if (await language.inputValue() !== 'de') await language.selectOption('de');
   await page.goto('/reading');
@@ -113,7 +113,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     expect(focusStyle.outline !== 'none' || focusStyle.width !== '0px' || focusStyle.boxShadow !== 'none').toBeTruthy();
 
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto('/library');
+    await page.goto('/de/library');
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -129,7 +129,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('My Books exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
@@ -289,7 +289,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('My Books and table region are keyboard-scrollable', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');

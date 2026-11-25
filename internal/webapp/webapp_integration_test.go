@@ -350,6 +350,9 @@ func performWithHeader(t *testing.T, h http.Handler, method, path string, form u
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
+	if location, ok := prefixedMyBooksRedirect(path, w); ok && method == http.MethodGet {
+		return performWithHeader(t, h, method, location, form, cookies, header, value)
+	}
 	return w
 }
 func hiddenToken(t *testing.T, body string) string {

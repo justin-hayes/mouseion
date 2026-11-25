@@ -66,9 +66,9 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 			{Language: "fr", DisplayName: "French"},
 		},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
 	requireMarkup(t, html,
-		`<select id="active-study-language" name="language"`,
+		`<select id="active-study-language" name="lang"`,
 		`<label for="active-study-language"><span class="site-header__language-label">Study language</span>`,
 		`Deutsch`,
 		`Italiano (new)`,
@@ -76,7 +76,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		`French (fr) (no books)`,
 		`value="fr"`,
 		`<noscript><button class="btn btn-primary" type="submit">Switch language</button></noscript>`,
-		`action="/active-study-language"`,
+		`method="get" action="/study-language"`,
 	)
 	assert.NotContains(t, html, "German (de)")
 	assert.NotContains(t, html, "Greek (el)")
@@ -89,12 +89,12 @@ func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
 			{Language: "de", DisplayName: "German", HasBooks: true},
 		},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
 	requireMarkup(t, html, `<option value="" disabled selected>Choose a study language</option>`)
 }
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, "csrf"), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, NavigationLibrary), "")
 	assert.Empty(t, html, "empty language switcher rendered markup")
 }
 

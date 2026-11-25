@@ -12,7 +12,7 @@ async function signInToGreek(page: Page) {
   await page.goto('/catalogs/classical/works/fixture-iliad');
   const add = page.getByRole('button', { name: 'Add and prepare the work', exact: true });
   if (await add.isVisible().catch(() => false)) await add.click();
-  await page.goto('/library');
+  await page.goto('/de/library');
   await page.getByLabel('Study language').selectOption('grc');
   const noScriptSwitch = page.getByRole('button', { name: 'Switch language' });
   if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();

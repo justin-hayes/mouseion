@@ -50,7 +50,7 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
 test('finishing current reading records Read history and supports reading again', async ({ page }) => {
   await signIn(page);
   await page.getByLabel('Study language').selectOption('it');
-  await expect(page).toHaveURL(/\/library$/);
+  await expect(page).toHaveURL(/\/it\/library$/);
   await page.goto('/reading');
   await expect(page.locator('body')).toHaveClass('reading-shell');
   await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -81,7 +81,7 @@ test('finishing current reading records Read history and supports reading again'
   await expect(page.locator('#primary-goal-section')).toContainText('Vocabulary transition');
   await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
   await expect(page.getByRole('link', { name: 'Choose a To Read book' })).toHaveAttribute('href', '/reading');
-  await page.goto('/library?history=read');
+  await page.goto('/it/library?history=read');
   const history = page.locator('.library-books .library-book').filter({ hasText: title });
   await expect(history).toBeVisible();
   await expect(history).toContainText('Read');

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -39,6 +40,18 @@ func getAs(t *testing.T, h http.Handler, path string, cookies []*http.Cookie) *h
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	return response
+}
+
+// prefixedMyBooksRedirect reports where an unprefixed GET of My Books was sent:
+// the same page under the Last study language. Test helpers follow it so a test
+// that does not care about the prefix still reads the page.
+func prefixedMyBooksRedirect(path string, response *httptest.ResponseRecorder) (string, bool) {
+	if response.Code != http.StatusSeeOther || (path != "/library" && !strings.HasPrefix(path, "/library?")) {
+		return "", false
+	}
+	location := response.Header().Get("Location")
+	_, rest, ok := strings.Cut(strings.TrimPrefix(location, "/"), "/")
+	return location, ok && (rest == "library" || strings.HasPrefix(rest, "library?"))
 }
 
 func TestDeliberateLanguageChangeLandsAtMyBooksAndResetsReturnState(t *testing.T) {
@@ -80,7 +93,6 @@ func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *tes
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 	for _, path := range []string{
 		"/reading?language=de",
-		"/library?language=de&q=Dampf&page=2",
 		"/vocabulary?language=de&q=ha&reading=fixture-book&page=2",
 		"/vocabulary/concordance?language=de&mode=effective&term=haus&upos=NOUN",
 		"/vocabulary/concordance/sentence?language=de&book=fixture-book",
@@ -96,7 +108,7 @@ func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *tes
 	require.NoError(t, err)
 	assert.Equal(t, "it", stored, "recovery never switches the selection back")
 
-	notice := getAs(t, h, languageChangedPath(), cookies)
+	notice := getAs(t, h, "/it"+languageChangedPath(), cookies)
 	assert.Equal(t, http.StatusOK, notice.Code)
 	assert.Contains(t, notice.Body.String(), "Your study language changed")
 }
@@ -111,18 +123,19 @@ func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 
 func TestRenderedFormsCarryTheActiveLanguage(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	body := getAs(t, h, "/library", cookies).Body.String()
+	body := getAs(t, h, "/de/library", cookies).Body.String()
 	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`.de"`)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	body = getAs(t, h, "/library", cookies).Body.String()
+	body = getAs(t, h, "/it/library", cookies).Body.String()
 	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`.it"`)
 }
 
-func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
+// The URL, or the Book a Book-addressed action names, is the language (ADR 0131):
+// a form's language suffix no longer refuses or redirects the submission.
+func TestFormLanguageSuffixIsNoLongerComparedWithTheLastStudyLanguage(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	before, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	require.NotEmpty(t, before.BookID)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	for _, path := range []string{
@@ -136,13 +149,9 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 				"expected_current_book_id":     {before.BookID},
 				"expected_current_snapshot_id": {before.SnapshotID},
 			}, cookies)
-			assert.Equal(t, http.StatusSeeOther, response.Code)
-			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
+			assert.NotEqual(t, languageChangedPath(), response.Header().Get("Location"))
 		})
 	}
-	after, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, before, after, "a stale old-language submission must not change the reading")
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Equal(t, "it", stored)

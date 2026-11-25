@@ -20,7 +20,7 @@ test.describe('migration and epistemic regression coverage', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
   test('shows migrated My Books states and server-rendered controls', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
+    for (const path of ['/de/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
