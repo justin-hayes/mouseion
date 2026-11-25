@@ -44,10 +44,12 @@ func (q *Queries) AppendStudyReviewLog(ctx context.Context, arg AppendStudyRevie
 }
 
 const declineStudyBatchSlot = `-- name: DeclineStudyBatchSlot :one
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_declined)
-VALUES ($1, $2, $3::date, 1)
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_declined)
+VALUES ($1, $2, $3::date, 1, 1)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_declined = study_batch_ledger.batches_declined + 1, updated_at = now()
+   SET batches_declined = study_batch_ledger.batches_declined + 1,
+       batches_offered = GREATEST(study_batch_ledger.batches_offered, study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + 1),
+       updated_at = now()
  WHERE study_batch_ledger.batches_taken + study_batch_ledger.batches_declined < $4::int
 RETURNING batches_declined
 `
@@ -72,7 +74,7 @@ func (q *Queries) DeclineStudyBatchSlot(ctx context.Context, arg DeclineStudyBat
 }
 
 const getStudyBatchLedger = `-- name: GetStudyBatchLedger :one
-SELECT batches_taken, batches_declined FROM study_batch_ledger
+SELECT batches_offered, batches_taken, batches_declined FROM study_batch_ledger
  WHERE owner_id = $1 AND language = $2 AND study_day = $3::date
 `
 
@@ -83,6 +85,7 @@ type GetStudyBatchLedgerParams struct {
 }
 
 type GetStudyBatchLedgerRow struct {
+	BatchesOffered  int
 	BatchesTaken    int
 	BatchesDeclined int
 }
@@ -90,7 +93,7 @@ type GetStudyBatchLedgerRow struct {
 func (q *Queries) GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error) {
 	row := q.db.QueryRow(ctx, getStudyBatchLedger, arg.Owner, arg.Language, arg.StudyDay)
 	var i GetStudyBatchLedgerRow
-	err := row.Scan(&i.BatchesTaken, &i.BatchesDeclined)
+	err := row.Scan(&i.BatchesOffered, &i.BatchesTaken, &i.BatchesDeclined)
 	return i, err
 }
 
@@ -287,11 +290,95 @@ func (q *Queries) LockStudyProgress(ctx context.Context, arg LockStudyProgressPa
 	return i, err
 }
 
-const takeStudyBatchSlot = `-- name: TakeStudyBatchSlot :one
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_taken)
-VALUES ($1, $2, $3::date, 1)
+const recordStudyBatchOffer = `-- name: RecordStudyBatchOffer :exec
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered)
+VALUES ($1, $2, $3::date, $4::int)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_taken = study_batch_ledger.batches_taken + 1, updated_at = now()
+   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered),
+       updated_at = now()
+`
+
+type RecordStudyBatchOfferParams struct {
+	Owner    string
+	Language string
+	StudyDay pgtype.Date
+	Offered  int
+}
+
+// Records that Today has offered this many batches on the Study day. The count
+// only grows, so showing the same offer again changes nothing.
+func (q *Queries) RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatchOfferParams) error {
+	_, err := q.db.Exec(ctx, recordStudyBatchOffer,
+		arg.Owner,
+		arg.Language,
+		arg.StudyDay,
+		arg.Offered,
+	)
+	return err
+}
+
+const takeCarriedStudyWord = `-- name: TakeCarriedStudyWord :one
+UPDATE study_progress
+   SET introduced_at = $1::timestamptz, due = $1::timestamptz, updated_at = now()
+ WHERE owner_id = $2 AND id = $3 AND language = $4
+   AND state = 'new' AND reps = 0 AND withdrawn_at IS NULL
+   AND introduced_at < $5::timestamptz
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at
+`
+
+type TakeCarriedStudyWordParams struct {
+	Now      time.Time
+	Owner    string
+	ID       string
+	Language string
+	DayStart time.Time
+}
+
+// Takes a word again in today's batch: a word introduced on an earlier Study
+// day and never answered is introduced afresh, new and due now. A word that
+// was answered, withdrawn or introduced today returns no row.
+func (q *Queries) TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudyWordParams) (StudyProgress, error) {
+	row := q.db.QueryRow(ctx, takeCarriedStudyWord,
+		arg.Now,
+		arg.Owner,
+		arg.ID,
+		arg.Language,
+		arg.DayStart,
+	)
+	var i StudyProgress
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.Language,
+		&i.CanonicalLemma,
+		&i.Upos,
+		&i.LexicalDiscriminator,
+		&i.MaterialID,
+		&i.IntroducedAt,
+		&i.LearnedMeaning,
+		&i.State,
+		&i.Due,
+		&i.Stability,
+		&i.Difficulty,
+		&i.ScheduledDays,
+		&i.Reps,
+		&i.Lapses,
+		&i.RemainingSteps,
+		&i.LastReview,
+		&i.WithdrawnAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const takeStudyBatchSlot = `-- name: TakeStudyBatchSlot :one
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_taken)
+VALUES ($1, $2, $3::date, 1, 1)
+ON CONFLICT (owner_id, language, study_day) DO UPDATE
+   SET batches_taken = study_batch_ledger.batches_taken + 1,
+       batches_offered = GREATEST(study_batch_ledger.batches_offered, study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + 1),
+       updated_at = now()
  WHERE study_batch_ledger.batches_taken + study_batch_ledger.batches_declined < $4::int
 RETURNING batches_taken
 `

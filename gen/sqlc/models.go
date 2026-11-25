@@ -1107,6 +1107,7 @@ type StudyBatchLedger struct {
 	BatchesTaken    int
 	BatchesDeclined int
 	UpdatedAt       time.Time
+	BatchesOffered  int
 }
 
 type StudyMaterial struct {
