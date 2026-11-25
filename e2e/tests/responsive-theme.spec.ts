@@ -31,7 +31,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/catalogs', /Catalog/],
   ['/catalogs/sources', /Manage sources/],
   ['/de/reading', /Der lange Weg nach Hause/],
-  ['/vocabulary', /Vocabulary/],
+  ['/de/vocabulary', /Vocabulary/],
 ];
 
 async function expectNoPageOverflow(page: Page) {
@@ -422,7 +422,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
 
-    await page.goto('/vocabulary/concordance');
+    await page.goto('/de/vocabulary/concordance');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -432,7 +432,7 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     // Runs at the project's viewport and scheme; the 200% text pass below is the
     // enlargement contract for this page.
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -586,7 +586,7 @@ test.describe('responsive and theme regression coverage', () => {
     for (const [path, current] of [
       ['/de/library', 'My Books'],
       ['/de/reading', 'Reading'],
-      ['/vocabulary', 'Vocabulary'],
+      ['/de/vocabulary', 'Vocabulary'],
       ['/catalogs', 'Catalog'],
       ['/jobs', 'My Books'],
       ['/deck-preparations/fixture-preparation/status', 'My Books'],
@@ -859,7 +859,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
 
-    await page.goto('/vocabulary');
+    await page.goto('/de/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);

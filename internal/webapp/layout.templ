@@ -144,7 +144,7 @@ window.showVocabularyNetworkRecovery = function (ctx) {
   recovery.append(message, retry);
 };
 function isConcordancePath() {
-  return window.location.pathname === '/vocabulary' || window.location.pathname.startsWith('/vocabulary/concordance');
+  return /^\/[A-Za-z]{2,3}\/vocabulary(\/concordance(\/|$)|$)/.test(window.location.pathname);
 }
 document.addEventListener('htmx:after:swap', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;

@@ -388,7 +388,7 @@ async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<voi
 // Looks up the configured lemma as a learner would: type it into the
 // Concordance form and submit. The applied lookup must be a lemma lookup.
 async function lookUpLemma(page: Page): Promise<void> {
-  await page.goto('/vocabulary/concordance');
+  await page.goto('/de/vocabulary/concordance');
   await page.getByLabel('Lemma or word form').fill(concordance.lemma);
   await page.getByRole('button', { name: 'Find', exact: true }).click();
   await expect(

@@ -151,11 +151,11 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "lookup-alice", "alice-password")
 	get := func(language string, values url.Values) *httptest.ResponseRecorder {
-		if language != "" {
-			values.Set("language", language)
-			require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, language))
+		if language == "" {
+			language = "de"
 		}
-		return perform(t, h, http.MethodGet, "/vocabulary/concordance?"+values.Encode(), nil, cookies)
+		require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, language))
+		return perform(t, h, http.MethodGet, "/"+language+"/vocabulary/concordance?"+values.Encode(), nil, cookies)
 	}
 	surfacesOf := func(body string) []string {
 		var surfaces []string
@@ -302,7 +302,7 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 	t.Run("owners never see each other's evidence", func(t *testing.T) {
 		require.NoError(t, store.SetActiveStudyLanguage(ctx, bob.ID, "de"))
 		bobCookies, _ := loginCookies(t, h, "lookup-bob", "bob-password")
-		response := perform(t, h, http.MethodGet, "/vocabulary/concordance?term=gehen&language=de", nil, bobCookies)
+		response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?term=gehen", nil, bobCookies)
 		require.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, []string{"Bobform"}, surfacesOf(response.Body.String()))
 	})
@@ -318,8 +318,8 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		require.Equal(t, http.StatusOK, first.Code)
 		assert.Equal(t, 25, lookupRowCount(first.Body.String()))
 		assert.Contains(t, first.Body.String(), "Results 1–25 on page 1")
-		assert.Contains(t, first.Body.String(), `href="/vocabulary/concordance?as=lemma&amp;language=de&amp;page=2&amp;priority=none&amp;rev=`)
-		assert.Contains(t, first.Body.String(), "return=%2Fvocabulary%2Fconcordance%3Fas%3Dlemma")
+		assert.Contains(t, first.Body.String(), `href="/de/vocabulary/concordance?as=lemma&amp;page=2&amp;priority=none&amp;rev=`)
+		assert.Contains(t, first.Body.String(), "return=%2Fde%2Fvocabulary%2Fconcordance%3Fas%3Dlemma")
 		revision := first.Body.String()[strings.Index(first.Body.String(), "rev=")+4:]
 		revision = revision[:strings.IndexAny(revision, "&\"")]
 		second := get("de", url.Values{"term": {"gehen"}, "as": {"lemma"}, "page": {"2"}, "priority": {"none"}, "rev": {revision}})
@@ -331,18 +331,18 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		assert.Equal(t, http.StatusConflict, stale.Code)
 		assert.Contains(t, stale.Body.String(), "Current evidence changed")
 		assert.Contains(t, stale.Body.String(), "Refresh results")
-		partial := performWithHeader(t, h, http.MethodGet, "/vocabulary/concordance?language=de&term=gehen&as=lemma&page=2&priority=none&rev="+revision, nil, cookies, "HX-Request-Type", "partial")
+		partial := performWithHeader(t, h, http.MethodGet, "/de/vocabulary/concordance?term=gehen&as=lemma&page=2&priority=none&rev="+revision, nil, cookies, "HX-Request-Type", "partial")
 		assert.Equal(t, http.StatusConflict, partial.Code)
 		assert.NotContains(t, partial.Body.String(), "<html")
 		assert.NotContains(t, partial.Body.String(), `id="concordance-results"`)
 	})
 
 	t.Run("Study keeps raw analyzer, source, and syntax evidence for corrected and excluded occurrences", func(t *testing.T) {
-		study := perform(t, h, http.MethodGet, fmt.Sprintf("/vocabulary/concordance/sentence?language=de&book=%s&run=%s&corpus=%s&unit=%s&sentence=0&target=1&target_surface=gingen", gamma.ID, runID, corpusID, unitID), nil, cookies)
+		study := perform(t, h, http.MethodGet, fmt.Sprintf("/de/vocabulary/concordance/sentence?book=%s&run=%s&corpus=%s&unit=%s&sentence=0&target=1&target_surface=gingen", gamma.ID, runID, corpusID, unitID), nil, cookies)
 		require.Equal(t, http.StatusOK, study.Code)
 		assert.Contains(t, study.Body.String(), "Excluded from effective vocabulary; retained as syntax evidence.")
 		assert.Contains(t, study.Body.String(), "analyzer lemma <code>gehen</code>")
-		corrected := perform(t, h, http.MethodGet, fmt.Sprintf("/vocabulary/concordance/sentence?language=de&book=%s&run=%s&corpus=%s&unit=%s&sentence=1&target=1&target_surface=Gang", gamma.ID, runID, corpusID, unitID), nil, cookies)
+		corrected := perform(t, h, http.MethodGet, fmt.Sprintf("/de/vocabulary/concordance/sentence?book=%s&run=%s&corpus=%s&unit=%s&sentence=1&target=1&target_surface=Gang", gamma.ID, runID, corpusID, unitID), nil, cookies)
 		require.Equal(t, http.StatusOK, corrected.Code)
 		assert.Contains(t, corrected.Body.String(), "Corrected for this occurrence.")
 		assert.Contains(t, corrected.Body.String(), "analyzer lemma <code>gang</code>")

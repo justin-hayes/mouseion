@@ -40,7 +40,7 @@ async function expectMainWithinViewport(page: Page) {
 }
 
 async function lookupConcordance(page: Page) {
-  await page.goto('/vocabulary/concordance');
+  await page.goto('/de/vocabulary/concordance');
   await page.getByLabel('Lemma or word form').fill('Haus');
   await page.getByRole('button', { name: 'Find', exact: true }).click();
 }
@@ -160,7 +160,7 @@ test.describe('native WebKit smoke journey', () => {
     const destinations = [
       { name: 'My Books', href: '/de/library', active: '/library' },
       { name: 'Reading', href: '/de/reading', active: '/reading' },
-      { name: 'Vocabulary', href: '/vocabulary', active: '/vocabulary' },
+      { name: 'Vocabulary', href: '/de/vocabulary', active: '/vocabulary' },
       { name: 'Catalog', href: '/catalogs', active: '/catalogs' },
     ];
     for (const destination of destinations) {
@@ -313,7 +313,7 @@ test.describe('native WebKit smoke journey', () => {
     for (const destination of [
       { name: 'My Books', path: '/de/library' },
       { name: 'Reading', path: '/de/reading' },
-      { name: 'Vocabulary', path: '/vocabulary' },
+      { name: 'Vocabulary', path: '/de/vocabulary' },
       { name: 'Catalog', path: '/catalogs' },
     ]) {
       await page.goto(destination.path);
@@ -538,7 +538,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(page).toHaveURL(/\/library$/);
       await expect(page.locator('nav.site-header__nav')).toBeVisible();
       const vocabularyLink = page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Vocabulary', exact: true });
-      await expect(vocabularyLink).toHaveAttribute('href', '/vocabulary');
+      await expect(vocabularyLink).toHaveAttribute('href', '/de/vocabulary');
       await vocabularyLink.click();
       await expect(page).toHaveURL(/\/vocabulary$/);
       await page.goto('/de/reading');

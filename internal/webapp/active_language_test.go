@@ -88,29 +88,6 @@ func TestActiveStudyLanguageEmptySubmissionIsNoOpAtMyBooks(t *testing.T) {
 	assert.Equal(t, "de", stored)
 }
 
-func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *testing.T) {
-	h, cookies, _, store := readingFixtureSession(t)
-	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	for _, path := range []string{
-		"/vocabulary?language=de&q=ha&reading=fixture-book&page=2",
-		"/vocabulary/concordance?language=de&mode=effective&term=haus&upos=NOUN",
-		"/vocabulary/concordance/sentence?language=de&book=fixture-book",
-	} {
-		t.Run(path, func(t *testing.T) {
-			response := getAs(t, h, path, cookies)
-			assert.Equal(t, http.StatusSeeOther, response.Code)
-			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
-		})
-	}
-	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	assert.Equal(t, "it", stored, "recovery never switches the selection back")
-
-	notice := getAs(t, h, "/it"+languageChangedPath(), cookies)
-	assert.Equal(t, http.StatusOK, notice.Code)
-	assert.Contains(t, notice.Body.String(), "Your study language changed")
-}
-
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
@@ -165,8 +142,8 @@ func TestSubmissionsWithoutLanguageIdentityKeepWorking(t *testing.T) {
 
 func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchLemma, UPOS: "NOUN"}
-	assert.Contains(t, vocabularyConcordancePageURL(2, lookup), "language=de")
-	assert.Contains(t, vocabularyConcordanceURL("de", "haus", "NOUN"), "language=de")
+	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
+	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
 	assert.Equal(t, "/de/reading?page=2&q=ha", vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"))
 	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

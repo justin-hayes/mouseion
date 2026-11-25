@@ -370,7 +370,7 @@ func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
 	html := renderReadingBrowse(t, "de", page, "ha")
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
 	assert.Contains(t, html, `id="vocabulary-browse-results"`)
-	assert.Contains(t, html, `href="/vocabulary/concordance?`)
+	assert.Contains(t, html, `href="/de/vocabulary/concordance?`)
 	assert.Contains(t, html, `hx-select="#vocabulary-browse-results"`)
 	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
 		assert.NotContains(t, html, retired)
