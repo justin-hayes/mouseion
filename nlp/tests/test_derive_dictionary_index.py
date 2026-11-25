@@ -1763,3 +1763,53 @@ def test_without_ls_dir_there_is_no_ls_table_content(tmp_path: Path):
         ).fetchone() == (0,)
     finally:
         connection.close()
+
+
+def test_ls_indexes_only_the_first_encoding_and_keeps_greek_origin_entries(tmp_path: Path):
+    module = load_script()
+    xml = """<TEI.2><text><body>
+<entryFree id="n1" key="abacus" type="greek"><orth>abăcus</orth><sense id="n1.0" n="I" level="1"><hi rend="ital">a table</hi></sense></entryFree>
+</body></text></TEI.2>"""
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        json.dumps(
+            {"word": "Haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["h"]}]}
+        ),
+        encoding="utf-8",
+    )
+    ls_dir = tmp_path / "ls"
+    ls_dir.mkdir()
+    (ls_dir / "lat.ls.perseus-eng1.xml").write_text(xml, encoding="utf-8")
+    (ls_dir / "lat.ls.perseus-eng2.xml").write_text(xml, encoding="utf-8")
+
+    rows = module.collect_ls_entries(ls_dir)
+
+    assert [(row[0], row[1]) for row in rows] == [("n1", "abacus")]
+
+
+def test_ls_entry_level_citations_redirects_and_urn_authors_are_kept(tmp_path: Path):
+    module = load_script()
+    xml = """<TEI.2><text><body>
+<entryFree id="n1" key="a2" type="main"><orth>a</orth>, v. a2 and
+ <bibl n="urn:cts:latinLit:phi0474.phi001:1:2">Att. 1, 2</bibl>.</entryFree>
+<entryFree id="n2" key="a2" type="main"><orth>a</orth>, v. <hi rend="ital">no</hi></entryFree>
+</body></text></TEI.2>"""
+    rows = {row[0]: row for row in ls_index(tmp_path, module, xml)}
+    sense = json.loads(rows["n1"][3])[0]
+
+    assert sense["id"] == "n1"
+    assert sense["level"] == 0
+    assert sense["citations"] == [{"author": "phi0474", "text": "Att. 1, 2"}]
+    assert sense["crossrefs"] == [{"text": "a2"}]  # two entries share the key
+
+
+def test_ls_definition_window_restarts_after_the_meaning_marker():
+    module = load_script()
+    sense = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n1.0" n="I" level="1"><hi rend="ital">first</hi> <bibl><author>Cic.</author> A</bibl>'
+        ' :— <hi rend="ital">second</hi> <hi rend="ital">fin.</hi></sense>'
+    )
+    content = module.LsContent()
+    module.ls_collect(sense, content)
+
+    assert content.definitions == ["first", "second"]

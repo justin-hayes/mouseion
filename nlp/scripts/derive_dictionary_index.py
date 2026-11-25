@@ -1388,7 +1388,13 @@ def collect_lsj_entries(lsj_dir: Path) -> list[tuple[str, str, str, int]]:
 # the English definitions are italic <hi rend="ital"> text rather than <tr>
 # (which only translates quoted usages), and its cross-references name a
 # headword in <xr><ref>.
-LS_ENTRY_TYPES = frozenset({"main", "hapax"})
+# Every entry type but "gloss", a stub that only points at another entry. The
+# "greek", "foreign" and "spur" types are real Latin entries.
+LS_SKIPPED_ENTRY_TYPES = frozenset({"gloss"})
+# The pinned lexica holds two encodings of the dictionary; indexing both would
+# duplicate every entry id.
+LS_FILE = "lat.ls.perseus-eng1.xml"
+LS_PLAIN_REDIRECT = re.compile(r"\bv\.\s+([^\W\d_]+\d?)")
 # Italic text in an L&S sense is a definition unless it is one of the dictionary's
 # own abbreviations, a grammatical label or a connective. Compared after
 # casefolding and dropping punctuation and spaces.
@@ -1398,7 +1404,8 @@ LS_ABBREVIATIONS = frozenset(
         "dim", "e g", "esp", "fem", "fig", "freq", "gen", "i e", "id", "imp", "impers",
         "inf", "init", "masc", "n", "neutr", "nom", "or", "part", "pass", "perf", "pl", "plur",
         "poet", "prop", "sc", "sing", "subj", "subst", "sup", "sync", "transf", "trans", "viz",
-        "voc",
+        "voc", "fin", "med", "extr", "ib", "et", "sq", "sqq", "etc", "ap", "v", "q v", "ad",
+        "ad fin", "ad init", "l c", "loc cit",
     }
 )  # fmt: skip
 LS_REPEAT_AUTHORS = frozenset({"id"})
@@ -1434,6 +1441,12 @@ def ls_id_order(identifier: str) -> tuple[int, ...]:
     )
 
 
+def ls_urn_author(urn: str) -> str:
+    """The author part of a CTS URN ("phi0474" in ...latinLit:phi0474.phi001:1:2)."""
+    match = re.match(r"urn:cts:\w+:([^.:]+)", urn)
+    return match.group(1) if match else ""
+
+
 def ls_bibl(bibl, previous_author: str) -> tuple[dict, str]:
     """Return one citation with its author reference, and the running author.
 
@@ -1446,6 +1459,8 @@ def ls_bibl(bibl, previous_author: str) -> tuple[dict, str]:
         author = previous_author
     elif author:
         previous_author = author
+    if not author:
+        author = ls_urn_author(bibl.get("n") or "")
     citation = {"author": author, "text": text} if author else {"text": text}
     return citation, previous_author
 
@@ -1462,25 +1477,41 @@ class LsContent:
     author: str = ""
 
 
+def ls_text(text: str | None, content: LsContent) -> None:
+    """Read the source's own prose: ":—" restarts the definition window, and a
+    plain "v. word" outside <xr> is a redirect."""
+    if not text:
+        return
+    if LSJ_MEANING_START in text:
+        content.cited = False
+    content.crossrefs.extend({"text": match} for match in LS_PLAIN_REDIRECT.findall(text))
+
+
 def ls_collect(element, content: LsContent) -> None:
+    ls_text(element.text, content)
     for child in element:
-        if child.tag == "sense":
-            continue
-        if child.tag in ("bibl", "cit"):
-            content.cited = True
-        if child.tag == "bibl":
-            citation, content.author = ls_bibl(child, content.author)
-            content.citations.append(citation)
-        elif child.tag == "xr":
-            if reference := ls_reference(child):
-                content.crossrefs.append({"text": reference})
-        elif child.tag == "tr":
-            if gloss := clean_gloss(element_text(child)):
-                content.translations.append(gloss)
-        elif child.tag == "hi" and child.get("rend") == "ital":
-            ls_add_definition(child, content)
-        else:
-            ls_collect(child, content)
+        ls_collect_child(child, content)
+        ls_text(child.tail, content)
+
+
+def ls_collect_child(child, content: LsContent) -> None:
+    if child.tag == "sense":
+        return
+    if child.tag in ("bibl", "cit"):
+        content.cited = True
+    if child.tag == "bibl":
+        citation, content.author = ls_bibl(child, content.author)
+        content.citations.append(citation)
+    elif child.tag == "xr":
+        if reference := ls_reference(child):
+            content.crossrefs.append({"text": reference})
+    elif child.tag == "tr":
+        if gloss := clean_gloss(element_text(child)):
+            content.translations.append(gloss)
+    elif child.tag == "hi" and child.get("rend") == "ital":
+        ls_add_definition(child, content)
+    else:
+        ls_collect(child, content)
 
 
 def ls_add_definition(element, content: LsContent) -> None:
@@ -1519,15 +1550,30 @@ def dedupe_dicts(values: list[dict]) -> list[dict]:
     return list(seen.values())
 
 
+def ls_entry_level_sense(entry_id: str, content: LsContent) -> list[dict]:
+    """Keep citations and redirects written outside any <sense> on a leading
+    level-0 pseudo-sense that carries the entry's own id."""
+    if not content.citations and not content.crossrefs:
+        return []
+    sense: dict = {"id": entry_id, "level": 0, "glosses": []}
+    if content.citations:
+        sense["citations"] = dedupe_dicts(content.citations)
+    if content.crossrefs:
+        sense["crossrefs"] = content.crossrefs
+    return [sense]
+
+
 def ls_entry(element) -> dict | None:
     """Derive one L&S entry, or None when it is not an indexable main entry."""
     entry_id = (element.get("id") or "").strip()
     key = element.get("key") or ""
     headword, admitted = ls_headword(key)
-    if element.get("type") not in LS_ENTRY_TYPES or not admitted or not entry_id:
+    if element.get("type") in LS_SKIPPED_ENTRY_TYPES or not admitted or not entry_id:
         return None
     contents = []
-    author = ""
+    entry_content = LsContent()
+    ls_collect(element, entry_content)
+    author = entry_content.author
     for sense in sorted(element.iter("sense"), key=lambda item: ls_id_order(item.get("id") or "")):
         content = LsContent(author=author)
         ls_collect(sense, content)
@@ -1538,7 +1584,7 @@ def ls_entry(element) -> dict | None:
         "key": key.strip(),
         "headword": headword,
         "orth": lsj_first_orth(element),
-        "senses": contents,
+        "senses": ls_entry_level_sense(entry_id, entry_content) + contents,
     }
 
 
@@ -1567,7 +1613,7 @@ def ls_resolve(entries: list[dict]) -> None:
 
 def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str]]:
     entries: list[dict] = []
-    for path in sorted(ls_dir.glob("lat.ls.perseus-eng*.xml")):
+    for path in sorted(ls_dir.glob(LS_FILE)):
         # Operator-supplied and digest-pinned, as for LSJ.
         for _, element in ElementTree.iterparse(path, events=("end",)):  # noqa: S314
             if element.tag in ("entryFree", "entry"):
