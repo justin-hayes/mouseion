@@ -25,3 +25,18 @@ func TestArchiveRangeLayerNeedsItsArchiveFacts(t *testing.T) {
 		assert.Error(t, broken.Validate(), name)
 	}
 }
+
+func TestAnOLASourceNeedsItsCitationMemberAndNoOtherSourceHasOne(t *testing.T) {
+	work := Override{WorkKey: "w", WorkTitle: "t", WorkAuthor: "a", EditionKey: "e", EditionLabel: "l", Split: SplitWholeWork,
+		Source: &SourceSpec{Layer: "ola", FileName: "x.conllu", Format: SourceFormatOLACoNLLU}}
+	require.Error(t, work.Validate())
+	work.Source.CitationFileName = "x.paula.xml"
+	require.NoError(t, work.Validate())
+	work.Source.Format = SourceFormatOGACoNLLU
+	require.Error(t, work.Validate())
+	work.Source.CitationFileName = ""
+	require.NoError(t, work.Validate())
+
+	unit := Override{Key: "w", ReviewerNote: "read"}
+	require.Error(t, unit.Validate(), "a reviewer note clears a Work, never a unit")
+}

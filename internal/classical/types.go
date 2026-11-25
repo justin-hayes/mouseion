@@ -552,6 +552,17 @@ type SourceSpec struct {
 	Layer    string `json:"layer"`
 	FileName string `json:"fileName"`
 	Format   string `json:"format"`
+	// CitationFileName names the PAULA Citation member of an ola-conllu source,
+	// beside FileName's CoNLL-U member. No other format has one.
+	CitationFileName string `json:"citationFileName,omitempty"`
+}
+
+// validateCitationMember requires the PAULA member exactly for an OLA source.
+func (s SourceSpec) validateCitationMember(workKey string) error {
+	if (s.Format == SourceFormatOLACoNLLU) != (s.CitationFileName != "") {
+		return fmt.Errorf("classical: work override %q needs a citation file name exactly for an %s source", workKey, SourceFormatOLACoNLLU)
+	}
+	return nil
 }
 
 // TranslationSpec names the optional upstream translation file for a Work.
@@ -587,6 +598,10 @@ type Override struct {
 	Contents string     `json:"contents,omitempty"`
 	Units    []UnitSpec `json:"units,omitempty"`
 	Revision *int       `json:"revision,omitempty"`
+	// ReviewerNote records that a reviewer read a Latin Work the generator's
+	// text gates flagged and cleared it (ADR 0132). It is the gate's only
+	// override, and a Work that does not need one must not carry it.
+	ReviewerNote string `json:"reviewerNote,omitempty"`
 }
 
 // IsWork reports whether the override applies to a Work.
@@ -613,7 +628,7 @@ func (o Override) Validate() error {
 // validateUnit restricts a unit override to curatorial fields, a note and a
 // revision.
 func (o Override) validateUnit() error {
-	if o.Language != "" || o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
+	if o.ReviewerNote != "" || o.Language != "" || o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
 		return fmt.Errorf("classical: unit override %q may only change curatorial fields, a note or a revision", o.Key)
 	}
 	return nil
@@ -626,6 +641,9 @@ func (o Override) validateWork() error {
 	}
 	if o.Source.Layer == "" || o.Source.FileName == "" || o.Source.Format == "" {
 		return fmt.Errorf("classical: work override %q has an incomplete source", o.WorkKey)
+	}
+	if err := o.Source.validateCitationMember(o.WorkKey); err != nil {
+		return err
 	}
 	if o.Split != SplitWholeWork {
 		return fmt.Errorf("classical: work override %q has unknown split %q", o.WorkKey, o.Split)
@@ -644,6 +662,11 @@ func (o Override) validateWork() error {
 	if o.EditionKey == "" {
 		return fmt.Errorf("classical: work override %q needs an Edition key", o.WorkKey)
 	}
+	return o.validateUnitRanges()
+}
+
+// validateUnitRanges checks that every reviewed unit range is a Citation range.
+func (o Override) validateUnitRanges() error {
 	for _, unit := range o.Units {
 		if !isCitation(unit.CitationStart) || !isCitation(unit.CitationEnd) {
 			return fmt.Errorf("classical: work override %q has an invalid unit range", o.WorkKey)
