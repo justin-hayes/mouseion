@@ -67,8 +67,8 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
 
 - The Catalog at `/catalogs` has one search and one language filter over the
   Classical catalog and every connection's local Catalog index. The filter
-  defaults to the active study language, or to all languages when the learner
-  has none.
+  defaults to the Last study language, is never stored, and is all languages
+  when the learner has none.
 - Each connection appears as a section whose entries are a cover grid with
   cover, title and author, ordered by title then author and paged locally.
 - Search compares the Go search key for title and author, so it ignores accents

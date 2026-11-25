@@ -75,7 +75,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -118,7 +118,7 @@ func TestReanalyzeReportsAnUnclassifiedFailureAsAnError(t *testing.T) {
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 
 	require.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/reading?error="+url.QueryEscape(analysisCouldNotStartMessage))
+	assert.Contains(t, response.Header().Get("Location"), "/de/reading?error="+url.QueryEscape(analysisCouldNotStartMessage))
 }
 
 func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
@@ -126,7 +126,7 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	endGermanFixtureReading(t, store)
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/reading?message=")
+	assert.Contains(t, response.Header().Get("Location"), "/de/reading?message=")
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", current.BookID)
@@ -136,7 +136,7 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	retried, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, current.SnapshotID, retried.SnapshotID, "retry reuses the frozen snapshot")
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -153,7 +153,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	handler.services.AnalysisInsights = fixtures.Insights{}
-	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		readingRequest.AddCookie(cookie)
 	}
@@ -167,7 +167,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	assert.Contains(t, readingPage.Body.String(), `action="/reading/finish"`)
 	assert.NotContains(t, readingPage.Body.String(), `action="/goal/finish"`)
 
-	switchRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading/switch", nil)
+	switchRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading/switch", nil)
 	for _, cookie := range cookies {
 		switchRequest.AddCookie(cookie)
 	}
@@ -238,7 +238,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
-	assert.Contains(t, finished.Body.String(), `href="/reading">Choose a To Read book</a>`)
+	assert.Contains(t, finished.Body.String(), `href="/de/reading">Choose a To Read book</a>`)
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.False(t, current.IsActive())
@@ -275,10 +275,10 @@ func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store})
 
 	unauthenticated := httptest.NewRecorder()
-	h.ServeHTTP(unauthenticated, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil))
+	h.ServeHTTP(unauthenticated, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil))
 	assert.Equal(t, http.StatusUnauthorized, unauthenticated.Code)
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -303,7 +303,7 @@ func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	}
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

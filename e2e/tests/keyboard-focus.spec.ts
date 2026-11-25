@@ -12,7 +12,7 @@ async function signIn(page: Page, disableEnhancement = false) {
 }
 
 async function switchCurrentReadingTo(page: Page, title: string) {
-  await page.goto('/reading/switch');
+  await page.goto('/de/reading/switch');
   const candidate = page.locator('li.reading-chooser-book').filter({ hasText: title });
   await candidate.locator('details').filter({ hasText: 'Switch to this book' }).locator('summary').click();
   await candidate.getByRole('button', { name: 'Confirm switch to this book' }).click();
@@ -20,10 +20,10 @@ async function switchCurrentReadingTo(page: Page, title: string) {
 }
 
 async function openGermanReading(page: Page) {
-  await page.goto('/library');
+  await page.goto('/de/library');
   const language = page.getByLabel('Study language');
   if (await language.inputValue() !== 'de') await language.selectOption('de');
-  await page.goto('/reading');
+  await page.goto('/de/reading');
 }
 
 async function switchToRouteMatch(page: Page) {
@@ -91,7 +91,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('representative tab order and focus indicators remain visible', async ({ page }) => {
     await signIn(page);
-    await page.goto('/vocabulary');
+    await page.goto('/de/vocabulary');
     await page.keyboard.press('Tab');
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -113,7 +113,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     expect(focusStyle.outline !== 'none' || focusStyle.width !== '0px' || focusStyle.boxShadow !== 'none').toBeTruthy();
 
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto('/library');
+    await page.goto('/de/library');
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
@@ -129,11 +129,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('My Books exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
-    const title = page.locator('.library-books a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
+    const title = page.locator('.library-books a.library-book__identity-link[href="/de/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
     await title.focus();
     await expect(title).toBeFocused();
     const item = title.locator('xpath=ancestor::li');
@@ -146,7 +146,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('Reading keeps goal-first keyboard order and announces feedback', async ({ page }) => {
     await signIn(page);
-    await page.goto('/reading?message=Journey%20updated');
+    await page.goto('/de/reading?message=Journey%20updated');
     const goalHeading = page.locator('.journey-book__title');
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status')).toContainText('Journey updated');
@@ -162,7 +162,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page);
     const response = await page.goto('/books/fixture-empty');
     expect(response?.status()).toBe(404);
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
   });
 
@@ -289,7 +289,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('My Books and table region are keyboard-scrollable', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');

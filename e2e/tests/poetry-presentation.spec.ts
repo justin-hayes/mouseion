@@ -34,13 +34,13 @@ function sentenceStudyURL(unit: string, target: string, surface: string) {
     target,
     target_surface: surface,
   });
-  return `/vocabulary/concordance/sentence?${values.toString()}`;
+  return `/de/vocabulary/concordance/sentence?${values.toString()}`;
 }
 
 test('Concordance and sentence study keep source lines distinct from soft wraps', async ({ page }) => {
   await signIn(page);
   await acceptanceViewport(page);
-  await page.goto('/vocabulary/concordance?term=fixture-poetry');
+  await page.goto('/de/vocabulary/concordance?term=fixture-poetry');
 
   const row = page.locator('#concordance-native-results .concordance-result').first();
   const summary = row.locator('summary');
@@ -99,7 +99,7 @@ test('Sentence study names a direction sentence and keeps prose inline', async (
   await expect(page.locator('.sentence-study-line-row')).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
-  await page.goto('/vocabulary/concordance?term=Haus');
+  await page.goto('/de/vocabulary/concordance?term=Haus');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await expect(row.locator('.concordance-line-break')).toHaveCount(0);
   await expect(row.locator('.concordance-context-line')).toHaveCount(0);
@@ -119,7 +119,7 @@ test('Source-line disclosures and sentence study work without JavaScript', async
   try {
     await acceptanceViewport(noScriptPage);
     await signIn(noScriptPage);
-    await noScriptPage.goto('/vocabulary/concordance?term=fixture-poetry');
+    await noScriptPage.goto('/de/vocabulary/concordance?term=fixture-poetry');
     const row = noScriptPage.locator('#concordance-native-results .concordance-result').first();
     await row.locator('summary').click();
     await expect(row.locator('.concordance-context-line')).toHaveCount(4);

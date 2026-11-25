@@ -242,8 +242,9 @@ func (h *Handler) catalogIndexLanguages(r *http.Request, owner string, connectio
 
 func catalogBrowseQuery(r *http.Request) catalogFilter {
 	filter := catalogFilter{Query: strings.TrimSpace(r.URL.Query().Get("q"))}
-	activeLanguage, _ := activeStudyLanguageForContext(r.Context())
-	filter.Language = canonicalization.NormalizeLanguage(activeLanguage)
+	// The Catalog has no page language, so the filter defaults to the Last
+	// study language and is never stored (ADR 0129, ADR 0131).
+	filter.Language = canonicalization.NormalizeLanguage(shellViewFromContext(r.Context()).lastLanguage())
 	if r.URL.Query().Has("language") {
 		filter.Language = canonicalization.NormalizeLanguage(r.URL.Query().Get("language"))
 	}

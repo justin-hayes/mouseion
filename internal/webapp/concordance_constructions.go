@@ -155,10 +155,7 @@ func concordanceOriginStudyURL(lookup domain.ConcordanceLookup, result domain.Co
 		"target": {strconv.Itoa(origin.Anchor)}, "target_surface": {result.Origin.AnchorSurface},
 		"construction": {lookup.Term},
 	}
-	if lookup.Language != "" {
-		values.Set("language", lookup.Language)
-	}
-	return "/vocabulary/concordance/sentence?" + values.Encode() + "#" + url.PathEscape(constructionAnchorID(lookup.Term, origin.Anchor))
+	return studyLanguagePath(pageKindSentenceStudy, lookup.Language) + "?" + values.Encode() + "#" + url.PathEscape(constructionAnchorID(lookup.Term, origin.Anchor))
 }
 
 // constructionAnchorID is the fragment identifier of a construction entry in

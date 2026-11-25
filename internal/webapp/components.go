@@ -3,7 +3,6 @@ package webapp
 import (
 	"fmt"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -23,10 +22,6 @@ const (
 	shellStyleVocabulary
 	shellStyleCatalogs
 	shellStyleJobs
-	// shellStyleNoStudyLanguage hides the shell's Study language picker. It
-	// is a modifier passed after the page's visual style (ADR 0129: the
-	// Catalog's Language filter is its only language control).
-	shellStyleNoStudyLanguage
 )
 
 func selectedShellStyle(styles []shellStyle) shellStyle {
@@ -34,10 +29,6 @@ func selectedShellStyle(styles []shellStyle) shellStyle {
 		return shellStyleDefault
 	}
 	return styles[0]
-}
-
-func hidesStudyLanguagePicker(styles []shellStyle) bool {
-	return slices.Contains(styles, shellStyleNoStudyLanguage)
 }
 
 func shellBodyClass(styles []shellStyle) string {
@@ -52,7 +43,7 @@ func shellBodyClass(styles []shellStyle) string {
 		return "catalogs-shell"
 	case shellStyleJobs:
 		return "jobs-shell"
-	case shellStyleDefault, shellStyleLogin, shellStyleNoStudyLanguage:
+	case shellStyleDefault, shellStyleLogin:
 		return ""
 	}
 	return ""
@@ -355,7 +346,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", readingBookURL(bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
 		}
 	}
 

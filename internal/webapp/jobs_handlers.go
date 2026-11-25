@@ -97,7 +97,7 @@ func (h *Handler) loadJob(w http.ResponseWriter, r *http.Request, owner string) 
 }
 
 func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -130,7 +130,7 @@ func (h *Handler) retryJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) cancelJob(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)

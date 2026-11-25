@@ -53,7 +53,7 @@ func TestReadingChooserOffersAConfirmedSourceStructureUpdate(t *testing.T) {
 	handler.services.SourceStructures = &fakeSourceStructures{offers: map[string]domain.SourceStructureUpdateCandidate{sourceID: structureUpdateCandidate()}}
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/reading", cookies)
+	body := readingGet(t, h, "/de/reading", cookies)
 	assert.Equal(t, 1, strings.Count(body, "A source structure update is available."), "only the checked Book shows the notice")
 	assert.Contains(t, body, `<details class="confirmation`, "the confirmation is a native disclosure that works without JavaScript")
 	assert.Contains(t, body, "Update source structure")
@@ -79,7 +79,7 @@ func TestCurrentReadingCanAdoptSourceStructureWithoutLosingEvidence(t *testing.T
 	sourceID := fixtureSourceID(t, store, fixtures.BookID)
 	handler.services.SourceStructures = &fakeSourceStructures{offers: map[string]domain.SourceStructureUpdateCandidate{sourceID: structureUpdateCandidate()}}
 
-	body := readingGet(t, h, "/library", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A source structure update is available.")
 	assert.Contains(t, body, "Your active Reading keeps its exact current evidence, Reserved vocabulary and prepared deck; new evidence needs End, restart and re-preparation.")
 	assert.Contains(t, body, "Confirm source structure update", "the current Reading may adopt; its own evidence stays pinned")
@@ -104,7 +104,7 @@ func TestSourceStructureUpdateConfirmationSubmitsTheCheckedOffer(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location, err := url.Parse(response.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/reading", location.Path)
+	assert.Equal(t, "/de/reading", location.Path)
 	assert.Contains(t, location.Query().Get("message"), "adopted as analysis job #9")
 	assert.Contains(t, location.Query().Get("message"), "Earlier Readings and decks keep the evidence they froze.")
 	assert.Equal(t, []domain.SourceStructureUpdateExpectation{structureUpdateCandidate().Expectation()}, updates.submitted)
@@ -204,7 +204,7 @@ func TestSourceStructureUpdateCandidateLookupFailureOffersNothing(t *testing.T) 
 	handler.services.SourceStructures = &fakeSourceStructures{offersErr: errors.New("check store unavailable")}
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/reading", cookies)
+	body := readingGet(t, h, "/de/reading", cookies)
 	assert.NotContains(t, body, "A source structure update is available.")
 	assert.Contains(t, body, "Confirm start reading")
 }

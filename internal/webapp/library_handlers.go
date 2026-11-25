@@ -19,7 +19,7 @@ import (
 const myBooksLoadFailureMessage = "My Books could not be loaded. Try refreshing the page."
 
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
-	redirect(w, r, "/library")
+	redirect(w, r, studyLanguagePath(pageKindMyBooks, shellViewFromContext(r.Context()).lastLanguage()))
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "HX-Request-Type")
@@ -28,10 +28,6 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	request, ok := parseMyBooksBrowseRequest(r.URL)
 	if !ok {
 		http.NotFound(w, r)
-		return
-	}
-	if r.URL.Query().Has("language") {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, request.page, request.disposition, request.history))
 		return
 	}
 	result, err := h.services.Store.MyBooks.ListMyBooksBrowse(r.Context(), u.ID, request.query, activeLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
@@ -47,7 +43,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	browse := myBooksBrowseState(request.query, request.page, request.disposition, activeLanguage, activeLanguageLabel, result)
 	browse.History = request.history
 	if page, redirect := myBooksRedirectPage(request, result); redirect {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(request.query, page, request.disposition, request.history))
+		redirectMyBooksBrowse(w, r, myBooksScopedURL(activeLanguage, request.query, page, request.disposition, request.history))
 		return
 	}
 	if err = h.loadLibraryBrowsingExtras(r.Context(), u.ID, books); err != nil {
@@ -109,9 +105,10 @@ func redirectMyBooksBrowse(w http.ResponseWriter, r *http.Request, path string) 
 }
 
 func (h *Handler) renderMyBooksFailure(w http.ResponseWriter, r *http.Request, u domain.User) {
-	retryURL := "/library"
+	language, _ := activeStudyLanguageForContext(r.Context())
+	retryURL := myBooksPath(language)
 	if r.URL != nil {
-		retryURL = (&url.URL{Path: "/library", RawQuery: r.URL.RawQuery}).String()
+		retryURL = (&url.URL{Path: retryURL, RawQuery: r.URL.RawQuery}).String()
 	}
 	if isPartialHTMXRequest(r) {
 		renderStatus(w, r, http.StatusInternalServerError, MyBooksResultsError(myBooksLoadFailureMessage, retryURL))
@@ -127,17 +124,18 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
+	language := h.bookStudyLanguage(r.Context(), owner, bookID)
 	if err := h.services.Store.MyBooks.MarkBookPreviouslyRead(r.Context(), owner, bookID); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			http.NotFound(w, r)
 			return
 		}
 		if errors.Is(err, domain.ErrBookIsCurrentReading) {
-			redirectMyBooksBrowse(w, r, "/library?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+			redirectMyBooksBrowse(w, r, myBooksPath(language)+"?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
 			return
 		}
 		if errors.Is(err, domain.ErrPreviouslyReadIneligible) {
-			redirectMyBooksBrowse(w, r, "/library?error="+url.QueryEscape(previouslyReadIneligibleRefusal))
+			redirectMyBooksBrowse(w, r, myBooksPath(language)+"?error="+url.QueryEscape(previouslyReadIneligibleRefusal))
 			return
 		}
 		fail(w, err)
@@ -152,8 +150,7 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 		fail(w, err)
 		return
 	}
-	activeLanguage, _ := activeStudyLanguageForContext(r.Context())
-	page, err := myBooksPageForBook(r.Context(), h.services.Store.MyBooks, owner, activeLanguage, book)
+	page, err := myBooksPageForBook(r.Context(), h.services.Store.MyBooks, owner, language, book)
 	if err != nil {
 		fail(w, err)
 		return
@@ -165,6 +162,28 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 	}
 	location += separator + "message=" + url.QueryEscape("Previously read history recorded. Vocabulary was not changed.")
 	redirect(w, r, location)
+}
+
+// bookStudyLanguage is the language a Book-addressed action returns to: the
+// Book's own chosen language (ADR 0131), else the page's or the Last study
+// language when the Book has none or cannot be read.
+func (h *Handler) bookStudyLanguage(ctx context.Context, owner, bookID string) string {
+	if book, err := h.services.Store.MyBooks.GetBookDetail(ctx, owner, bookID); err == nil {
+		if language := myBookStudyLanguage(book); language != "" {
+			return language
+		}
+	}
+	return fallbackBookLanguage(ctx)
+}
+
+// fallbackBookLanguage is the language for a Book-addressed action whose Book
+// has no chosen language: the page's, else the Last study language.
+func fallbackBookLanguage(ctx context.Context) string {
+	view := shellViewFromContext(ctx)
+	if language := view.pageLanguageOrEmpty(); language != "" {
+		return language
+	}
+	return view.lastLanguage()
 }
 
 func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language string, book domain.MyBook) (int, error) {
@@ -218,7 +237,6 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
-	returnTo := myBooksReturnURL(r.FormValue("return_to"))
 	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
 	// A retried removal may no longer have an active My Books detail. The
 	// store still decides whether the Book exists and can be removed.
@@ -227,6 +245,7 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	hasDetail := err == nil
+	returnTo := myBooksReturnURL(r.FormValue("return_to"), removedBookLanguage(r.Context(), book, hasDetail))
 	err = h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
@@ -255,9 +274,10 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	}
 	owner := user(r).ID
 	bookID := r.PathValue("id")
+	language := h.bookStudyLanguage(r.Context(), owner, bookID)
 	expectedRevision, ok := expectedDispositionRevision(r)
 	if !ok {
-		redirect(w, r, myBooksScopedURL("", 1, domain.BookDispositionToRead, false)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
+		redirect(w, r, myBooksScopedURL(language, "", 1, domain.BookDispositionToRead, false)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
 		return
 	}
 	intent, err := h.readingIntentModule()
@@ -280,7 +300,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	if outcome.Kind == readingintent.OutcomeStaleRevision {
 		queryParam = "error"
 	}
-	redirect(w, r, myBooksScopedURL("", 1, domain.BookDispositionToRead, false)+"&"+queryParam+"="+url.QueryEscape(message))
+	redirect(w, r, myBooksScopedURL(language, "", 1, domain.BookDispositionToRead, false)+"&"+queryParam+"="+url.QueryEscape(message))
 }
 
 // moveToReadMessage maps a reading-intent outcome to the learner-facing
@@ -397,4 +417,15 @@ func myBooksRedirectWithNotice(w http.ResponseWriter, r *http.Request, returnTo,
 		separator = "&"
 	}
 	redirect(w, r, returnTo+separator+"message="+url.QueryEscape(text))
+}
+
+// removedBookLanguage is the language a removal returns to, taken from the Book
+// the handler already loaded.
+func removedBookLanguage(ctx context.Context, book domain.MyBook, hasDetail bool) string {
+	if hasDetail {
+		if language := myBookStudyLanguage(book); language != "" {
+			return language
+		}
+	}
+	return fallbackBookLanguage(ctx)
 }

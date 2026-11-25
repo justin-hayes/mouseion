@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
@@ -57,8 +58,8 @@ func readingReanalyzeURL(bookID string) string {
 	return "/reading/books/" + url.PathEscape(bookID) + "/reanalyze"
 }
 
-func readingBookURL(bookID string) string {
-	return "/reading#" + url.PathEscape(readingBookAnchorID(bookID))
+func readingBookURL(language, bookID string) string {
+	return studyLanguagePath(pageKindReading, language) + "#" + url.PathEscape(readingBookAnchorID(bookID))
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -224,7 +225,7 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		action.URL = readingReanalyzeURL(bookID)
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && analysisReadyForReading(item.Book) {
-		action.URL = readingBookURL(bookID)
+		action.URL = readingBookURL(item.Book.Source.Language, bookID)
 		action.Label = "View in Reading"
 	}
 	return action
@@ -247,10 +248,12 @@ const (
 )
 
 type deckReadingActionView struct {
-	BookID  string
-	State   deckReadingState
-	Message string
-	Error   string
+	BookID string
+	// Language is the Book's study language; its links open that language.
+	Language string
+	State    deckReadingState
+	Message  string
+	Error    string
 	// Actions are decided by the prepared-deck admission. Templates render them
 	// and never compare Current reading fields themselves.
 	Actions deckPreparationActions
@@ -298,21 +301,28 @@ func (h *Handler) deckReadingStatus(ctx context.Context, owner, bookID string) (
 		return deckReadingActionView{}, nil
 	}
 	bookID = resolved
+	// The Book's own study language decides its current reading and where its
+	// Reading and My Books links go (ADR 0131).
 	language, _ := activeStudyLanguageForContext(ctx)
+	detail, detailErr := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
+	if detailErr != nil && !errors.Is(detailErr, domain.ErrNotFound) {
+		return deckReadingActionView{}, detailErr
+	}
+	if detailErr == nil {
+		if bookLanguage := canonicalization.NormalizeLanguage(bookStudyLanguage(detail)); bookLanguage != "" {
+			language = bookLanguage
+		}
+	}
 	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
 	if err != nil {
 		return deckReadingActionView{}, err
 	}
-	action := deckReadingActionView{BookID: bookID, State: deckReadingNotMember}
+	action := deckReadingActionView{BookID: bookID, Language: language, State: deckReadingNotMember}
 	if currentReading.IsActive() && currentReading.BookID == bookID {
 		action.State = deckIsCurrentReading
 		return action, nil
 	}
-	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-	if err != nil && !errors.Is(err, domain.ErrNotFound) {
-		return deckReadingActionView{}, err
-	}
-	if err == nil && detail.Disposition == domain.BookDispositionToRead {
+	if detailErr == nil && detail.Disposition == domain.BookDispositionToRead {
 		action.State = deckIsToRead
 	}
 	return action, nil

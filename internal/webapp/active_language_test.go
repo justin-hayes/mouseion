@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -17,14 +18,15 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/jobs", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Contains(t, response.Body.String(), `<option value="it" selected`, "shell did not render the most recently activated language: %s", response.Body.String())
+	assert.NotContains(t, response.Body.String(), `id="active-study-language"`, "job status has no page language and no picker")
+	assert.Contains(t, response.Body.String(), `href="/it/library"`, "navigation uses the most recently activated language")
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Empty(t, stored)
@@ -41,88 +43,38 @@ func getAs(t *testing.T, h http.Handler, path string, cookies []*http.Cookie) *h
 	return response
 }
 
-func TestDeliberateLanguageChangeLandsAtMyBooksAndResetsReturnState(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	response := readingTestRequest(t, h, "/active-study-language", url.Values{
-		"csrf_token": {csrf + ".de"}, "language": {"it"}, "return_to": {"/vocabulary/concordance?term=haus&page=3"},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library", response.Header().Get("Location"), "old screen, query, and return state must not survive a language change")
-	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	assert.Equal(t, "it", stored)
-}
-
-func TestLanguageChangeFromStaleTabStillTakesEffect(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := readingTestRequest(t, h, "/active-study-language", url.Values{"csrf_token": {csrf + ".de"}, "language": {"de"}}, cookies)
-	assert.Equal(t, "/library", response.Header().Get("Location"))
-	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	assert.Equal(t, "de", stored, "the deliberate switch is language-agnostic and must not be rejected as stale")
-}
-
-func TestActiveStudyLanguageEmptySubmissionIsNoOpAtMyBooks(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	response := readingTestRequest(t, h, "/active-study-language", url.Values{
-		"csrf_token": {csrf}, "language": {""}, "return_to": {"/reading"},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/library", response.Header().Get("Location"))
-	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	assert.Equal(t, "de", stored)
-}
-
-func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *testing.T) {
-	h, cookies, _, store := readingFixtureSession(t)
-	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	for _, path := range []string{
-		"/reading?language=de",
-		"/library?language=de&q=Dampf&page=2",
-		"/vocabulary?language=de&q=ha&reading=fixture-book&page=2",
-		"/vocabulary/concordance?language=de&mode=effective&term=haus&upos=NOUN",
-		"/vocabulary/concordance/sentence?language=de&book=fixture-book",
-		"/reading/books/fixture-book/lemma-review?language=de",
-	} {
-		t.Run(path, func(t *testing.T) {
-			response := getAs(t, h, path, cookies)
-			assert.Equal(t, http.StatusSeeOther, response.Code)
-			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
-		})
+// prefixedMyBooksRedirect reports where an unprefixed GET of My Books was sent:
+// the same page under the Last study language. Test helpers follow it so a test
+// that does not care about the prefix still reads the page.
+func prefixedMyBooksRedirect(path string, response *httptest.ResponseRecorder) (string, bool) {
+	if response.Code != http.StatusSeeOther || (path != "/library" && !strings.HasPrefix(path, "/library?")) {
+		return "", false
 	}
-	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	assert.Equal(t, "it", stored, "recovery never switches the selection back")
-
-	notice := getAs(t, h, languageChangedPath(), cookies)
-	assert.Equal(t, http.StatusOK, notice.Code)
-	assert.Contains(t, notice.Body.String(), "Your study language changed")
+	location := response.Header().Get("Location")
+	_, rest, ok := strings.Cut(strings.TrimPrefix(location, "/"), "/")
+	return location, ok && (rest == "library" || strings.HasPrefix(rest, "library?"))
 }
 
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := getAs(t, h, "/reading?language=it", cookies)
+	response := getAs(t, h, "/it/reading", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "fixture-italian-goal")
 }
 
-func TestRenderedFormsCarryTheActiveLanguage(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	body := getAs(t, h, "/library", cookies).Body.String()
-	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`.de"`)
-	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	body = getAs(t, h, "/library", cookies).Body.String()
-	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`.it"`)
+func TestRenderedFormsCarryTheBareCSRFToken(t *testing.T) {
+	h, cookies, csrf, _ := readingFixtureSession(t)
+	body := getAs(t, h, "/de/library", cookies).Body.String()
+	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`"`)
 }
 
-func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
+// The URL, or the Book a Book-addressed action names, is the language
+// (ADR 0131): the Last study language never refuses a submission.
+func TestSubmissionsIgnoreTheLastStudyLanguage(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	before, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	require.NotEmpty(t, before.BookID)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	for _, path := range []string{
@@ -132,34 +84,29 @@ func TestStaleLanguageSubmissionRecoversWithoutMutation(t *testing.T) {
 	} {
 		t.Run(path, func(t *testing.T) {
 			response := readingTestRequest(t, h, path, url.Values{
-				"csrf_token":                   {csrf + ".de"},
+				"csrf_token":                   {csrf},
 				"expected_current_book_id":     {before.BookID},
 				"expected_current_snapshot_id": {before.SnapshotID},
 			}, cookies)
-			assert.Equal(t, http.StatusSeeOther, response.Code)
-			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
+			assert.NotEqual(t, http.StatusForbidden, response.Code)
+			assert.NotContains(t, response.Header().Get("Location"), "study language changed")
 		})
 	}
-	after, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, before, after, "a stale old-language submission must not change the reading")
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Equal(t, "it", stored)
 }
 
-func TestSubmissionsWithoutLanguageIdentityKeepWorking(t *testing.T) {
-	h, cookies, csrf, _ := readingFixtureSession(t)
-	response := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.NotEqual(t, languageChangedPath(), response.Header().Get("Location"))
-	forged := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {"forged.de"}}, cookies)
-	assert.Equal(t, http.StatusForbidden, forged.Code, "the language suffix never replaces the CSRF secret")
+func TestForgedCSRFTokenIsRefused(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
+	forged := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {"forged"}}, cookies)
+	assert.Equal(t, http.StatusForbidden, forged.Code)
 }
 
 func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchLemma, UPOS: "NOUN"}
-	assert.Contains(t, vocabularyConcordancePageURL(2, lookup), "language=de")
-	assert.Contains(t, vocabularyConcordanceURL("de", "haus", "NOUN"), "language=de")
-	assert.Contains(t, vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"), "language=de")
+	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
+	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
+	assert.Equal(t, "/de/reading?page=2&q=ha", vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"))
 	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

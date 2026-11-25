@@ -838,6 +838,28 @@ func TestCatalogLanguageFilterDefaultsToAllWithoutAStudyLanguage(t *testing.T) {
 	assert.Contains(t, body, "La città delle meraviglie", "all languages includes every OPDS language")
 }
 
+func TestCatalogLanguageFilterDefaultsToTheLastStudyLanguage(t *testing.T) {
+	var fixtureStore *fixtures.Store
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+		var ok bool
+		fixtureStore, ok = services.Store.Shell.(*fixtures.Store)
+		require.True(t, ok)
+	})
+	require.NotNil(t, fixtureStore)
+
+	for _, language := range []string{"it", "de"} {
+		require.Equal(t, http.StatusOK, catalogPage(t, h, cookies, "/"+language+"/library").Code)
+		body := catalogPage(t, h, cookies, "/catalogs").Body.String()
+		assert.Contains(t, body, `<option value="`+language+`" selected`, "the filter follows the last per-language page viewed")
+
+		catalogPage(t, h, cookies, "/catalogs?language=grc")
+		stored, err := fixtureStore.GetStoredActiveStudyLanguage(t.Context(), fixtures.OwnerID)
+		require.NoError(t, err)
+		assert.Equal(t, language, stored, "choosing a Catalog filter never changes the Last study language")
+	}
+}
+
 func TestManageSourcesRendersConnectionManagement(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/catalogs/sources?error=Sync+failed", nil)
@@ -1111,14 +1133,14 @@ func TestCatalogAndManageSourcesOmitTheShellStudyLanguagePicker(t *testing.T) {
 	for _, path := range []string{"/catalogs", "/catalogs/sources"} {
 		body := catalogPage(t, h, cookies, path).Body.String()
 		assert.NotContains(t, body, `id="active-study-language"`, "%s shows the shell Study language picker", path)
-		assert.NotContains(t, body, `action="/active-study-language"`, "%s posts a study-language switch", path)
+		assert.NotContains(t, body, `action="/study-language"`, "%s offers a study-language switch", path)
 		assert.Contains(t, body, `class="site-header__account"`, "%s keeps the account menu", path)
 	}
 	catalog := catalogPage(t, h, cookies, "/catalogs").Body.String()
 	assert.Contains(t, catalog, `<select id="catalog-language-filter" name="language">`, "the Language filter is the Catalog's language control")
 
-	reading := catalogPage(t, h, cookies, "/reading").Body.String()
-	assert.Contains(t, reading, `id="active-study-language"`, "other pages keep the picker")
+	reading := catalogPage(t, h, cookies, "/de/reading").Body.String()
+	assert.Contains(t, reading, `id="active-study-language"`, "per-language pages keep the picker")
 }
 
 func TestCatalogLanguageFilterAlwaysOffersAncientGreekAndGatesTheClassicalSection(t *testing.T) {

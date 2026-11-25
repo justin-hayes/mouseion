@@ -188,7 +188,7 @@ func chooserWorkBody(t *testing.T, books []domain.MyBook, insights chooserWorkIn
 		handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
 	}
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}

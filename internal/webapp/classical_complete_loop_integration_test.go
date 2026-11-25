@@ -220,7 +220,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	// 6. The grouped chooser lists the Work as one entry with a band table and
 	// Book-order links; a single-book work stays ordinary.
 	require.NoError(t, h.store.SetActiveStudyLanguage(h.ctx, learner.ID, classical.Language))
-	chooser := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	chooserBody := chooser.Body.String()
 	for _, want := range []string{
@@ -244,7 +244,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	firstReading, err := h.store.GetCurrentReading(h.ctx, learner.ID, classical.Language)
 	require.NoError(t, err)
 	require.Equal(t, bookOne, firstReading.BookID)
-	readingPage := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	readingPage := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
 	assert.NotContains(t, readingPage.Body.String(), "Book 1 of", "Reading shows no Book N of M line")
 
@@ -354,11 +354,11 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
-	assert.Contains(t, finished.Body.String(), `href="/reading">Choose a To Read book</a>`)
+	assert.Contains(t, finished.Body.String(), `href="/grc/reading">Choose a To Read book</a>`)
 	for _, unwanted := range []string{"next Book", "Continue", "Book 1 of 2"} {
 		assert.NotContains(t, finished.Body.String(), unwanted, "the completion receipt must not plan the next Book")
 	}
-	chooser = perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	chooser = perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code)
 	assert.NotContains(t, chooser.Body.String(), `href="#reading-chooser-book-`+bookTwo+`"`, "a Read Book gets no chooser cell")
 
@@ -481,23 +481,29 @@ type classicalLoopLayer struct {
 	translationServed   atomic.Int64
 }
 
-func (l *classicalLoopLayer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasSuffix(r.URL.Path, "synthetic-translation.xml") {
-		l.translationServed.Add(1)
-		if _, err := w.Write(l.translation); err != nil {
+// handler serves the layer. It is a closure over the layer rather than a
+// ServeHTTP method: gosec's G705 taint pass resolves a ServeHTTP receiver
+// through every http.Handler call site, misreads the ResponseWriter there as
+// the receiver, and so flags these fixed test bytes nondeterministically.
+func (l *classicalLoopLayer) handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "synthetic-translation.xml") {
+			l.translationServed.Add(1)
+			if _, err := w.Write(l.translation); err != nil {
+				return
+			}
 			return
 		}
-		return
-	}
-	l.sourceAttempts.Add(1)
-	if l.failSource.Load() {
-		http.Error(w, "layer unavailable", http.StatusBadGateway)
-		return
-	}
-	l.sourceServed.Add(1)
-	if _, err := w.Write(l.source); err != nil {
-		return
-	}
+		l.sourceAttempts.Add(1)
+		if l.failSource.Load() {
+			http.Error(w, "layer unavailable", http.StatusBadGateway)
+			return
+		}
+		l.sourceServed.Add(1)
+		if _, err := w.Write(l.source); err != nil {
+			return
+		}
+	})
 }
 
 // loopTreatiseKey is the Work and whole-work unit key of the multi-book
@@ -554,7 +560,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	translation, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-section.xml"))
 	require.NoError(t, err)
 	layer := &classicalLoopLayer{source: source, translation: translation}
-	server := httptest.NewServer(layer)
+	server := httptest.NewServer(layer.handler())
 	t.Cleanup(server.Close)
 
 	sum := sha256.Sum256(source)

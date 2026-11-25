@@ -11,8 +11,9 @@ reading-intent analysis trigger in
 [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md), with the
 standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 Language is the
-app's organizing mode: [ADR 0050](../adr/0050-active-study-language.md) scopes
-every language-dependent surface to one active study language. Current reading
+app's organizing context: [ADR 0131](../adr/0131-the-url-carries-the-study-language.md)
+carries the study language in the address of every language-dependent surface
+(superseding the stored mode of [ADR 0050](../adr/0050-active-study-language.md)). Current reading
 is scoped by study language, and catalog maintenance is a fourth
 principal destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md). ADRs
@@ -92,7 +93,7 @@ instead of adding Books.
 
 ### Reading
 
-**Reading** at `/reading` owns the current Book for the active study language or,
+**Reading** at `/{language}/reading` owns the current Book for the page's study language or,
 between Books, an unordered chooser of To Read candidates in neutral title order.
 Every To Read Book is its own entry. While a Book is current, the same page hosts its full vocabulary Browse
 (the working desk); other To Read candidates are not listed. Coverage bands label
@@ -147,9 +148,11 @@ These objects remain important, but they do not define principal navigation:
 - **Study language** — a distinct normalized language tag of the owner's active
   chosen-language Books; it defines known-vocabulary language context and is
   derived rather than selected in Settings.
-- **Active study language** — the one study language the learner is currently
-  working in; a stored selection pointing into the derived set that scopes every
-  language-dependent surface ([ADR 0050](../adr/0050-active-study-language.md)).
+- **Active study language** — the study language of the per-language page in
+  view, named by its address ([ADR 0131](../adr/0131-the-url-carries-the-study-language.md)).
+  The **Last study language** is the one most recently viewed (or the language of
+  a Book just opened from the Catalog); it only resolves addresses and links
+  without a language.
 - **Language lens** — historical terminology for the retired panel proposed by
   [ADR 0042](../adr/0042-derived-language-corpus-view.md). It is not a current
   object or learner-facing surface; [ADR 0057](../adr/0057-retire-language-view-panel.md)
@@ -186,7 +189,7 @@ source. The Classical section appears when the filter is Ancient Greek or all
 languages; the old Classical index and author-detail URLs permanently redirect
 to the Catalog filtered to Ancient Greek. The Language filter is the Catalog's
 only language control: it always offers Ancient Greek, and the shell language
-picker is not shown on the Catalog. The language filter defaults to the active study language, or to
+picker is not shown on the Catalog. The language filter defaults to the Last study language, or to
 all languages when the learner has none. At the top of the page it shows one
 status line per OPDS connection — never synced, syncing, last synced or sync
 failed — with **Sync now**; a failed line names the connection and links to
@@ -267,14 +270,17 @@ Secondary history
 
 ### Current route compatibility
 
-The shipped application uses `/library` for My Books and `/reading` for Reading.
-`/` redirects to `/library`. `/journey` is a safe-GET compatibility alias to
+The shipped application addresses My Books, Reading, and Vocabulary under a
+language prefix (`/de/library`, `/de/reading`, `/de/vocabulary`). The unprefixed
+`/library`, `/reading`, and `/vocabulary` are compatibility redirects to the
+prefixed form (the query's valid `?language=`, else the Last study language).
+`/` redirects to My Books. `/journey` is a safe-GET compatibility alias to
 `/reading`; obsolete mutation forms return `410 Gone` and do not mutate state. A
 former `/journey/{bookID}` URL is a compatibility bookmark: after the same owner,
 language, membership, and current-evidence checks, it redirects to the
-corresponding `/reading` Book anchor and is a supported old-language request when
-the Book's language is not the active one: it recovers to My Books with the
-*Your study language changed* notice (ADR 0086) instead of switching language.
+corresponding Book anchor in Reading. The bookmark is Book-scoped: it redirects
+under the Book's own language prefix (`/{book language}/reading`), whatever the
+Last study language is (ADR 0131).
 Historical artifacts remain supporting records.
 The application does not present a duplicate Book-detail, analysis-result, queue,
 campaign, or plan surface.
@@ -414,19 +420,19 @@ the entry supplies title, author and cover at each sync, while the Book keeps
 the language its Add chose; there is no per-Book metadata refresh and no
 separate Settings selection to maintain.
 
-The **active study language** is a stored selection pointing into that derived
-set — context, not configuration: it chooses which study language the
-language-scoped surfaces (My Books browse and search, Reading,
-Vocabulary) present, and never defines which languages are studied. It defaults
-deterministically (the sole study language, else the language of the most
-recently activated chosen-language Book) and resets lazily when the selection
-leaves the set. A shell-level switcher carries it on every authenticated screen;
-changing it lands at My Books in the newly active language with screen, filter,
-and return state reset (ADR 0086). Supported requests and forms that name another
-language recover to My Books with a notice before any restoration or mutation;
-the stored mode is never switched back. A newly arrived study
-language appears passively
-in the switcher (marked "new") without changing the mode.
+The **active study language** is the language named by the address of the page
+in view (ADR 0131), drawn from that derived set — context, not configuration:
+it chooses which study language the language-scoped surfaces (My Books browse
+and search, Reading, Vocabulary) present, and never defines which languages are
+studied. The **Last study language** is remembered only to resolve unprefixed
+addresses and navigation links; it is set when a per-language page renders (or
+a Book is opened from the Catalog), defaults deterministically (the sole study
+language, else the language of the most recently activated chosen-language
+Book), and resets lazily when it leaves the set. A shell-level switcher on
+per-language pages navigates to the same kind of page in another language with
+screen, filter, and return state reset. A newly arrived study
+language appears passively in the picker (marked "new"); the Last study
+language changes only when a prefixed page renders.
 
 Vocabulary owns Concordance, scoped to the active language; known-vocabulary
 import is retired (ADR 0092). Browse
@@ -523,14 +529,12 @@ Books.
     removed from primary navigation.
     Any future change to the derived-language source or Vocabulary's destination
     must return to this checkpoint.
-11. **Active study language mode** is resolved by
-    [ADR 0050](../adr/0050-active-study-language.md): one stored selection
-    pointing into the derived set scopes My Books, Reading, and Vocabulary.
-    Supported old-language requests (including an explicit `?language=` that is not
-    the active language) recover to My Books per
-    [ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md);
-    there is no one-request language selector. The "All languages" pill and per-row
-    language tags are removed; a shell-level native switcher carries the mode;
+11. **The study language** is carried by the address, per
+    [ADR 0131](../adr/0131-the-url-carries-the-study-language.md): My Books,
+    Reading, and Vocabulary live under `/{language}/…`, and the Last study
+    language only resolves unprefixed addresses and navigation links. There is
+    no one-request language selector. The "All languages" pill and per-row
+    language tags are removed; a shell-level native switcher navigates between languages;
     new languages arrive passively; Books without a chosen language are not
     listed in My Books.
 12. **Historical per-language Journey and Goal** are recorded by

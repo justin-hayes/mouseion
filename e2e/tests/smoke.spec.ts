@@ -9,11 +9,11 @@ async function signIn(page: Page) {
 }
 
 async function setStudyLanguage(page: Page, language: string) {
-  await page.goto('/library');
+  await page.goto('/de/library');
   const switcher = page.getByLabel('Study language');
   if (await switcher.inputValue() !== language) {
     await switcher.selectOption(language);
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(new RegExp(`/${language}/library$`));
   }
 }
 
@@ -34,7 +34,7 @@ test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
   test('expired enhanced action signs in and returns without exposing the raw failure', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     await page.getByLabel('Search My Books').fill('retry after sign in');
 
     await page.context().clearCookies();
@@ -46,7 +46,7 @@ test.describe('authenticated learner smoke', () => {
 
     await expect(page).toHaveURL(/\/login\?/);
     await expect.poll(() => new URL(page.url()).searchParams.get('next'))
-      .toBe('/library?disposition=to_read&q=retry+after+sign+in');
+      .toBe('/de/library?disposition=to_read&q=retry+after+sign+in');
     await expect(page.getByRole('heading', { name: /sign in|log in/i })).toBeVisible();
     await page.getByLabel('Username').fill('fixture-learner');
     await page.getByLabel('Password').fill('fixture-password');
@@ -57,7 +57,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('expired enhanced My Books mutation explains that it was not completed', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
     await page.evaluate(token => {
       const form = document.createElement('form');
@@ -101,7 +101,7 @@ test.describe('authenticated learner smoke', () => {
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await expect(page.locator('section#library-results')).toBeVisible();
-    await expect(page.locator('.library-books a.library-book__identity-link[href="/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.locator('.library-books a.library-book__identity-link[href="/de/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.locator('.library-books a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(0);
     await expect(page.locator('.library-books a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toHaveCount(0);
     await expect(page.getByText('Analysis failed — action required')).toHaveCount(0);
@@ -109,7 +109,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('active study language persists and marks new and no-book languages', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     await expect(switcher).toHaveValue('de');
     const initialNewLanguageOption = switcher.locator('option').filter({ hasText: '(new)' });
@@ -123,7 +123,7 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/catalogs');
     await page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
     await expect(page).toHaveURL(/\/catalogs\?message=/);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const arrivedNewLanguageOption = page.getByLabel('Study language').locator('option').filter({ hasText: '(new)' });
     await expect(arrivedNewLanguageOption).toHaveCount(1);
     const arrivedNewLanguage = await arrivedNewLanguageOption.getAttribute('value');
@@ -134,20 +134,18 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByLabel('Study language')).toHaveValue('de');
 
     await switcher.selectOption('it');
-    await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/reading');
+    await expect(page).toHaveURL(/\/it\/library$/);
+    await page.goto('/it/reading');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page.locator('main h1')).toHaveCount(1);
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/reading');
+    await expect(page).toHaveURL(/\/fr\/reading$/);
     await expect(page.getByRole('heading', { name: 'Choose a To Read book in fr', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse My Books', exact: true })).toBeVisible();
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/reading');
+    await expect(page).toHaveURL(/\/de\/reading$/);
     await expect(page.locator('main h1')).toHaveCount(1);
 
   });
@@ -167,9 +165,9 @@ test.describe('authenticated learner smoke', () => {
     });
     try {
       await signIn(noScript);
-      await noScript.goto('/reading');
+      await noScript.goto('/de/reading');
       const current = noScript.locator('#primary-goal-section');
-      const switchLink = current.locator('a[href="/reading/switch"]');
+      const switchLink = current.locator('a[href="/de/reading/switch"]');
       await expect(switchLink).toBeVisible();
       await expect(switchLink).toHaveAttribute('class', /button--quiet/);
       await expect(switchLink).not.toHaveAttribute('role', 'button');
@@ -212,7 +210,7 @@ test.describe('authenticated learner smoke', () => {
     });
     try {
       await signIn(noScript);
-      await noScript.goto('/vocabulary/concordance');
+      await noScript.goto('/de/vocabulary/concordance');
       await expect(noScript.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
       expect(await noScript.locator('#concordance-workflow select').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).appearance === 'auto'))).toBe(true);
       await expect(noScript.getByLabel('Lemma or word form')).toBeVisible();
@@ -304,7 +302,7 @@ test.describe('authenticated learner smoke', () => {
       expect(highZoomContent.studyLeft).toBeGreaterThanOrEqual(0);
       expect(highZoomContent.studyRight).toBeLessThanOrEqual(320);
       await noScript.setViewportSize({ width: 1280, height: 800 });
-      await noScript.goto('/vocabulary/concordance?term=Haus');
+      await noScript.goto('/de/vocabulary/concordance?term=Haus');
       await expectConcordanceScanSpace(noScript, '#concordance-native-results .concordance-result');
       await noScript.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' }).click();
       await expect(noScript).toHaveURL(/page=2/);
@@ -331,7 +329,7 @@ test.describe('authenticated learner smoke', () => {
     // The project's viewport stands in for the desktop/compact layout; 390 and 320 are named widths.
     for (const viewport of [page.viewportSize()!, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
       await page.setViewportSize(viewport);
-      await page.goto('/vocabulary/concordance?term=fixture-books');
+      await page.goto('/de/vocabulary/concordance?term=fixture-books');
       const list = page.locator('#concordance-native-results');
       const rows = list.locator('> li');
       await expect(rows).toHaveCount(7);
@@ -411,7 +409,7 @@ test.describe('authenticated learner smoke', () => {
     }
 
     // Study provides the destination for a label that only shows a shortened title.
-    await page.goto('/vocabulary/concordance?term=fixture-books');
+    await page.goto('/de/vocabulary/concordance?term=fixture-books');
     await page.getByRole('link', { name: 'Study this sentence' }).first().click();
     await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
     await expect(page.locator('#sentence-study-heading')).toBeVisible();
@@ -419,7 +417,7 @@ test.describe('authenticated learner smoke', () => {
 
   test('Sentence study morphology line wraps readably and whole-line fallback opens the text alternative', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     await page.getByRole('link', { name: 'Study this sentence' }).first().click();
     await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
 
@@ -457,7 +455,7 @@ test.describe('authenticated learner smoke', () => {
     await page.evaluate(() => { document.documentElement.style.fontSize = ''; });
 
     // Whole-line fallback withholds the line, explains why, and opens the text alternative.
-    await page.goto('/vocabulary/concordance?term=fixture-whole-line');
+    await page.goto('/de/vocabulary/concordance?term=fixture-whole-line');
     await page.getByRole('link', { name: 'Study this sentence' }).first().click();
     await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();
     await expect(page.locator('.sentence-study-line')).toHaveCount(0);
@@ -474,7 +472,7 @@ test.describe('authenticated learner smoke', () => {
     // The project's viewport stands in for the desktop/compact layout; 390 and 320 are named widths.
     for (const viewport of [page.viewportSize()!, { width: 390, height: 844 }, { width: 320, height: 812 }]) {
       await page.setViewportSize(viewport);
-      await page.goto('/vocabulary/concordance?term=fixture-books');
+      await page.goto('/de/vocabulary/concordance?term=fixture-books');
       const where = `${viewport.width}px`;
       const list = page.locator('#concordance-native-results');
       const labels = list.locator('.concordance-source');
@@ -523,9 +521,9 @@ test.describe('authenticated learner smoke', () => {
     const concordanceRequests: string[] = [];
     page.on('request', request => {
       const url = new URL(request.url());
-      if (url.pathname === '/vocabulary/concordance' && url.searchParams.get('term') === 'Haus') concordanceRequests.push(request.url());
+      if (url.pathname === '/de/vocabulary/concordance' && url.searchParams.get('term') === 'Haus') concordanceRequests.push(request.url());
     });
-    await page.goto('/vocabulary/concordance');
+    await page.goto('/de/vocabulary/concordance');
     await expect(page.locator('#concordance-results')).toHaveCount(0);
     await page.getByLabel('Lemma or word form').fill('Haus');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
@@ -604,7 +602,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('Concordance paging preserves the query controls in the DOM', async ({ page }) => {
-    await page.goto('/vocabulary/concordance');
+    await page.goto('/de/vocabulary/concordance');
     await page.getByLabel('Lemma or word form').fill('Haus');
     await page.getByRole('button', { name: 'Find', exact: true }).click();
     await expect(page.locator('#concordance-native-results .concordance-result')).toHaveCount(25);
@@ -616,7 +614,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('Concordance network failure keeps old results and offers the attempted query', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     const oldResults = page.locator('#concordance-results');
     await expect(oldResults).toContainText('Forms of haus');
     await page.route(/\/vocabulary\/concordance.*term=Netzwerk/, route => route.abort());
@@ -635,7 +633,7 @@ test.describe('authenticated learner smoke', () => {
     // htmx schedules its request timeout with setTimeout; fast-forward past it
     // instead of waiting out the real 9s.
     await page.clock.install();
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     const oldResults = page.locator('#concordance-results');
     let releaseRequest!: () => void;
     const requestGate = new Promise<void>(resolve => { releaseRequest = resolve; });
@@ -661,7 +659,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('Concordance applies only the newest overlapping lookup', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     let releaseSlow!: () => void;
     const slowResponse = new Promise<void>(resolve => { releaseSlow = resolve; });
     let slowRequestStarted!: () => void;
@@ -685,7 +683,7 @@ test.describe('authenticated learner smoke', () => {
 
 test('Concordance disclosures, study return, and paging work across the 25-result boundary', async ({ page }) => {
     const query = 'term=Haus';
-    await page.goto(`/vocabulary/concordance?${query}&page=1`);
+    await page.goto(`/de/vocabulary/concordance?${query}&page=1`);
     const results = page.locator('#concordance-native-results');
     await expect(results.locator('.concordance-result')).toHaveCount(25);
 
@@ -744,7 +742,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const noScriptPage = await context.newPage();
     try {
       await signIn(noScriptPage);
-      await noScriptPage.goto('/vocabulary/concordance?term=Haus&page=2&focus=occurrence-fixture-book-27-1#occurrence-fixture-book-27-1');
+      await noScriptPage.goto('/de/vocabulary/concordance?term=Haus&page=2&focus=occurrence-fixture-book-27-1#occurrence-fixture-book-27-1');
       const target = noScriptPage.locator('#occurrence-fixture-book-27-1');
       await expect(target).toBeFocused();
       await target.locator('..').locator('.concordance-study-link').click();
@@ -753,7 +751,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
       expect(new URL(noScriptPage.url()).searchParams.get('focus')).toBe('occurrence-fixture-book-27-1');
       await expect(target).toBeFocused();
 
-      await noScriptPage.goto('/vocabulary/concordance?term=Haus&page=2&focus=occurrence-missing#occurrence-missing');
+      await noScriptPage.goto('/de/vocabulary/concordance?term=Haus&page=2&focus=occurrence-missing#occurrence-missing');
       await expect(noScriptPage.locator('#concordance-summary')).toBeFocused();
     } finally {
       await context.close();
@@ -761,7 +759,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
   });
 
   test('Concordance keeps its applied results labeled while an enhanced lookup is pending', async ({ page }) => {
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     await expect(page.getByRole('heading', { name: 'Forms of haus' })).toBeVisible();
     await page.evaluate(() => {
       const nativeFetch = window.fetch.bind(window);
@@ -780,7 +778,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.goBack();
     await expect(page.locator('#concordance-results')).toContainText('Forms of haus');
     await expect(page.locator('#concordance-results')).not.toContainText('Word form haus2');
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     const nextPage = page.getByRole('navigation', { name: 'Concordance pages' }).getByRole('link', { name: 'Next' });
     await nextPage.evaluate(link => {
       const nextURL = new URL((link as HTMLAnchorElement).href);
@@ -817,20 +815,20 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const response = await page.goto('/books/fixture-metadata-only');
     expect(response?.status()).toBe(404);
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     await expect(page.getByText('Add a book')).toHaveCount(0);
     await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) })).toHaveCount(0);
   });
 
   test('exact analysis result redirects to the Reading Journey anchor', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') {
       await switcher.selectOption('de');
-      await expect(page).toHaveURL(/\/library$/);
+      await expect(page).toHaveURL(/\/de\/library$/);
     }
     await page.goto('/books/fixture-book/analyses/fixture-run');
-    await expect(page).toHaveURL('/reading#journey-book-fixture-book');
+    await expect(page).toHaveURL('/de/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
     await page.goto('/deck-preparations/fixture-preparation/status');
     await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
@@ -842,28 +840,31 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page).toHaveURL(/\/library$/);
     await page.goto('/deck-preparations/fixture-preparation/status');
     await expect(page.getByText('Current Book.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View current book in Reading' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
+    await expect(page.getByRole('link', { name: 'View current book in Reading' })).toHaveAttribute('href', '/de/reading#journey-book-fixture-book');
     await expect(page.getByText(/campaign operations/i)).toHaveCount(0);
     const historicalDeckDownload = await page.request.get('/deck-preparations/fixture-preparation/download');
     expect(historicalDeckDownload.status()).toBe(200);
     expect(historicalDeckDownload.headers()['content-disposition']).toContain('Fixture German deck.apkg');
 
+    // Deck status has no page language, so the picker lives on My Books.
+    await page.goto('/de/library');
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
+    await expect(page).toHaveURL(/\/it\/library(?:\?|$)/);
     await page.goto('/deck-preparations/fixture-preparation/status');
-    // An old-language Book has no reachable Reading entry; the retired handoff chooser is gone.
-    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveCount(0);
+    // An old-language Book links to Reading in the Book's own language; the retired handoff chooser is gone.
+    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', /^\/de\/reading#/);
     await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
 
     await page.goto('/deck-preparations/fixture-journey-preparation/status');
     await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/reading#journey-book-fixture-empty"]')).toBeVisible();
+    await expect(page.locator('a[href="/it/reading#journey-book-fixture-empty"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
 
+    await page.goto('/it/library');
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
+    await expect(page).toHaveURL(/\/de\/library(?:\?|$)/);
     await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
     const addToJourney = page.getByRole('button', { name: 'Move to To Read' });
     if (await addToJourney.count() > 0) {
@@ -874,13 +875,13 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     // Idempotent end state for repeated execution in this worker's fixture:
     // the book is (or just became) To Read and links to its Reading card.
     await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/reading#journey-book-fixture-failed"]')).toBeVisible();
+    await expect(page.locator('a[href="/de/reading#journey-book-fixture-failed"]')).toBeVisible();
   });
 
   test('acquisition, Reading Journey, Vocabulary, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/catalogs');
     await expect(page.locator('#source-status-fixture-connection')).toContainText('Fixture catalog');
-    await page.goto('/library');
+    await page.goto('/de/library');
     const libraryLanguage = page.getByLabel('Study language');
     if (await libraryLanguage.inputValue() !== 'de') await libraryLanguage.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
@@ -888,7 +889,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     expect(retiredBookResponse?.status()).toBe(404);
     const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');
     expect(retiredCampaignResponse?.status()).toBe(404);
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -902,11 +903,11 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.getByText('Route match: familiar German')).toHaveCount(0);
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
-    await page.goto('/reading/switch');
+    await page.goto('/de/reading/switch');
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
@@ -916,17 +917,15 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(page.getByRole('table', { name: 'Current effective vocabulary' }).getByRole('row')).toHaveCount(3);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
-    await page.goto('/reading');
+    await expect(page).toHaveURL(/\/fr\/reading$/);
     // French has no current Book, so Reading shows the neutral state and no Browse.
     await expect(page.locator('#vocabulary-workflow')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByText('bonjour')).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
-    await page.goto('/reading');
+    await expect(page).toHaveURL(/\/de\/reading$/);
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
-    await page.goto('/library');
+    await page.goto('/de/library');
     const primaryNavigation = page.locator('nav.site-header__nav');
     await expect(primaryNavigation.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);
     await page.goto('/settings');

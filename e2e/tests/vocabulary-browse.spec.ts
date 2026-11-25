@@ -17,13 +17,13 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   const noScriptPage = await noScriptContext.newPage();
   try {
     await signIn(noScriptPage);
-    await noScriptPage.goto('/reading');
+    await noScriptPage.goto('/de/reading');
     await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(noScriptPage.locator('body')).not.toContainText('Browse selection');
     await expect(noScriptPage.locator('body')).not.toContainText('Custom deck');
     await expect(noScriptPage.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
     await expect(noScriptPage.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
-    const browseForm = noScriptPage.locator('form[action="/reading"]');
+    const browseForm = noScriptPage.locator('form[action="/de/reading"]');
     await expect(browseForm.locator('input[name="reading"]')).toHaveValue('fixture-book');
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveClass(/\binput\b/);
     const includeAll = noScriptPage.getByRole('checkbox', { name: 'Show already accounted-for words' });
@@ -52,7 +52,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     const noOverflow = await noScriptPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(noOverflow).toBe(true);
 
-    await noScriptPage.goto('/reading?q=zznotfound');
+    await noScriptPage.goto('/de/reading?q=zznotfound');
     await expect(noScriptPage.getByText('No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.')).toBeVisible();
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('zznotfound');
     await noScriptPage.getByRole('link', { name: 'Clear prefix' }).click();
@@ -63,7 +63,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
 
   await signIn(page);
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
@@ -72,7 +72,7 @@ test('Vocabulary heading keeps the compact hierarchy without peer navigation', a
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 800 });
   // Browse lives in Reading; /vocabulary is the single Concordance view.
-  await page.goto('/vocabulary');
+  await page.goto('/de/vocabulary');
   const header = page.locator('.vocabulary-page-header');
   const heading = header.getByRole('heading', { name: 'Vocabulary', exact: true });
   await expect(heading).toBeVisible();
@@ -92,7 +92,7 @@ test('Concordance query and applied results summary fit the first desktop and co
   // The project's viewport is either the desktop or the compact layout under test.
   await signIn(page);
   const viewport = page.viewportSize()!;
-  await page.goto('/vocabulary/concordance?term=Haus');
+  await page.goto('/de/vocabulary/concordance?term=Haus');
   await expect(page.locator('#concordance-term')).toHaveValue('Haus');
   await expect(page.locator('#concordance-summary')).toBeVisible();
   const initiallyVisible = await page.evaluate(() => {
@@ -171,7 +171,7 @@ test('Concordance groups and KWIC rows wrap long German, Italian, and Greek text
   // Runs at the project's viewport; desktop and compact are separate projects.
   const viewport = page.viewportSize()!;
   for (const example of examples) {
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     await page.locator('.concordance-row').first().evaluate((row, content) => {
       row.closest('.concordance-result')!.querySelector('.concordance-source-title')!.textContent = content.title;
       row.querySelector('.concordance-before')!.textContent = content.before;
@@ -189,12 +189,12 @@ test('Concordance groups and KWIC rows wrap long German, Italian, and Greek text
 
 test('Browse keeps the current page and controls while exploring a word on page two', async ({ page }) => {
   await signIn(page);
-  await page.goto('/reading?q=paging');
-  await page.locator('form[action="/reading"]').evaluate(element => element.setAttribute('data-stable-search', 'yes'));
+  await page.goto('/de/reading?q=paging');
+  await page.locator('form[action="/de/reading"]').evaluate(element => element.setAttribute('data-stable-search', 'yes'));
   await page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link', { name: 'Next' }).click();
   await expect(page).toHaveURL(/page=2/);
   await expect(page.getByText('Page 2 of 2')).toBeVisible();
-  await expect(page.locator('form[action="/reading"]')).toHaveAttribute('data-stable-search', 'yes');
+  await expect(page.locator('form[action="/de/reading"]')).toHaveAttribute('data-stable-search', 'yes');
   await page.locator('#vocabulary-workflow').evaluate(element => element.setAttribute('data-stable-controls', 'yes'));
   const row = page.getByRole('row').filter({ hasText: 'paging25' });
   await expect(row.getByRole('link', { name: 'paging25' })).toBeVisible();
@@ -206,7 +206,7 @@ test('Browse keeps the current page and controls while exploring a word on page 
 
 test('Browse pagination lands on the new results rather than above them', async ({ page }) => {
   await signIn(page);
-  await page.goto('/reading?q=paging');
+  await page.goto('/de/reading?q=paging');
   for (const [direction, number] of [['Next', 2], ['Previous', 1]] as const) {
     await page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link', { name: direction }).click();
     await expect(page.getByText(`Page ${number} of 2`)).toBeVisible();

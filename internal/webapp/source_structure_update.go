@@ -105,8 +105,9 @@ func (h *Handler) updateBookSourceStructure(w http.ResponseWriter, r *http.Reque
 		fail(w, err)
 		return
 	}
+	adoptDetailLanguage(r.Context(), detail)
 	if h.services.SourceStructures == nil || detail.Acquired == nil {
-		redirect(w, r, "/reading?error="+url.QueryEscape(sourceStructureUpdateChangedMessage))
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(sourceStructureUpdateChangedMessage))
 		return
 	}
 	expected := domain.SourceStructureUpdateExpectation{
@@ -121,11 +122,11 @@ func (h *Handler) updateBookSourceStructure(w http.ResponseWriter, r *http.Reque
 	case errors.Is(err, analysis.ErrNotFound):
 		http.NotFound(w, r)
 	case errors.Is(err, analysis.ErrSourceStructureUpdateChanged), errors.Is(err, analysis.ErrEPUBRequired), errors.Is(err, domain.ErrExtractedUnitsUnavailable):
-		redirect(w, r, "/reading?error="+url.QueryEscape(sourceStructureUpdateChangedMessage))
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(sourceStructureUpdateChangedMessage))
 	case err != nil:
 		fail(w, err)
 	default:
-		redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Source structure update for %s adopted as analysis job #%d. Earlier Readings and decks keep the evidence they froze.", detail.Book.Title, handle.DisplayNumber)))
+		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(fmt.Sprintf("Source structure update for %s adopted as analysis job #%d. Earlier Readings and decks keep the evidence they froze.", detail.Book.Title, handle.DisplayNumber)))
 	}
 }
 

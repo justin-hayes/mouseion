@@ -69,7 +69,7 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 
 	// Add already put the Books in To Read, so the chooser lists them without
 	// another move.
-	chooser := catalogPage(t, h, cookies, "/reading")
+	chooser := catalogPage(t, h, cookies, "/grc/reading")
 	require.Equal(t, http.StatusOK, chooser.Code)
 	for _, want := range []string{
 		"Choose a To Read book in Ancient Greek",

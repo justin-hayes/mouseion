@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -218,7 +219,7 @@ type MyBooksBrowseState struct {
 }
 
 // myBooksScopedURL is the one place a My Books tab location is spelled.
-func myBooksScopedURL(query string, page int, disposition domain.BookDisposition, history bool) string {
+func myBooksScopedURL(language, query string, page int, disposition domain.BookDisposition, history bool) string {
 	values := url.Values{}
 	if query != "" {
 		values.Set("q", query)
@@ -234,9 +235,36 @@ func myBooksScopedURL(query string, page int, disposition domain.BookDisposition
 	}
 	encoded := values.Encode()
 	if encoded == "" {
-		return "/library"
+		return myBooksPath(language)
 	}
-	return "/library?" + encoded
+	return myBooksPath(language) + "?" + encoded
+}
+
+// myBooksPath is the My Books address for a language, unprefixed only when the
+// learner has no study language.
+func myBooksPath(language string) string {
+	return studyLanguagePath(pageKindMyBooks, language)
+}
+
+// myBookStudyLanguage is the language a Book belongs to, empty until chosen.
+func myBookStudyLanguage(book domain.MyBook) string {
+	if book.Book.LanguageState != domain.LanguageChosen {
+		return ""
+	}
+	return canonicalization.NormalizeLanguage(book.Book.LanguageTag)
+}
+
+// myBooksPathLanguage reads the language of a My Books path: "/library" has
+// none, and "/de/library" is German. Any other path is not My Books.
+func myBooksPathLanguage(path string) (language string, ok bool) {
+	if path == "/library" {
+		return "", true
+	}
+	prefix, rest, found := strings.Cut(strings.TrimPrefix(path, "/"), "/")
+	if !found || rest != "library" || !isLanguageSegment(prefix) {
+		return "", false
+	}
+	return canonicalization.NormalizeLanguage(prefix), true
 }
 
 // parseMyBooksBrowseRequest reads the two-tab My Books request. The retired
@@ -269,23 +297,34 @@ func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	return request, true
 }
 
-// myBooksReturnURL validates a posted return location. Only a local /library
+// myBooksReturnURL validates a posted return location. Only a local My Books
 // address is honored, so an action can return to the exact browse state without
-// becoming an open redirect.
-func myBooksReturnURL(raw string) string {
+// becoming an open redirect. The result is in language, the Book's own; a
+// return location in another language keeps none of its browse state.
+func myBooksReturnURL(raw, language string) string {
 	raw = strings.TrimSpace(raw)
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.Path != "/library" {
-		return "/library"
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" {
+		return myBooksPath(language)
+	}
+	returnLanguage, ok := myBooksPathLanguage(parsed.Path)
+	if !ok {
+		return myBooksPath(language)
+	}
+	if language == "" {
+		language = returnLanguage
+	}
+	if returnLanguage != "" && returnLanguage != language {
+		return myBooksPath(language)
 	}
 	values := parsed.Query()
 	values.Del("message")
 	values.Del("error")
 	request, ok := parseMyBooksBrowseRequest(&url.URL{RawQuery: values.Encode()})
 	if !ok {
-		return "/library"
+		return myBooksPath(language)
 	}
-	return myBooksScopedURL(request.query, request.page, request.disposition, request.history)
+	return myBooksScopedURL(language, request.query, request.page, request.disposition, request.history)
 }
 
 // myBookSearchURL searches the tab that lists the Book for its title, so a
@@ -296,37 +335,38 @@ func myBookSearchURL(book domain.MyBook) string {
 	if history {
 		disposition = ""
 	}
-	return myBooksScopedURL(book.Book.Title, 1, disposition, history)
+	return myBooksScopedURL(myBookStudyLanguage(book), book.Book.Title, 1, disposition, history)
 }
 
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksScopedURL(browse.Query, page, browse.Disposition, browse.History)
+	return myBooksScopedURL(browse.Language, browse.Query, page, browse.Disposition, browse.History)
 }
 
 // myBooksClearSearchURL keeps every control except the search text.
 func myBooksClearSearchURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL("", 1, browse.Disposition, browse.History)
+	return myBooksScopedURL(browse.Language, "", 1, browse.Disposition, browse.History)
 }
 
 func myBooksToReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Query, 1, domain.BookDispositionToRead, false)
+	return myBooksScopedURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false)
 }
 
 func myBooksReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Query, 1, "", true)
+	return myBooksScopedURL(browse.Language, browse.Query, 1, "", true)
 }
 
 // myBookBucketURL names where a Book is listed.
 func myBookBucketURL(book domain.MyBook, page int) string {
+	language := myBookStudyLanguage(book)
 	switch book.WorkflowBucket() {
 	case domain.MyBookBucketToRead, domain.MyBookBucketCurrentReading:
-		return myBooksScopedURL("", page, domain.BookDispositionToRead, false)
+		return myBooksScopedURL(language, "", page, domain.BookDispositionToRead, false)
 	case domain.MyBookBucketRead:
-		return myBooksScopedURL("", page, "", true)
+		return myBooksScopedURL(language, "", page, "", true)
 	case domain.MyBookBucketNone:
-		return "/library"
+		return myBooksPath(language)
 	}
-	return "/library"
+	return myBooksPath(language)
 }
 
 func myBooksReadCountLabel(count int) string {

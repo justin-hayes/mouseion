@@ -58,6 +58,12 @@ func readingGet(t *testing.T, h http.Handler, path string, cookies []*http.Cooki
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
+	if location, ok := prefixedMyBooksRedirect(path, response); ok {
+		return readingGet(t, h, location, cookies)
+	}
+	if response.Code == http.StatusSeeOther && (path == "/reading" || strings.HasPrefix(path, "/reading?")) {
+		return readingGet(t, h, response.Header().Get("Location"), cookies)
+	}
 	require.Equal(t, http.StatusOK, response.Code)
 	return response.Body.String()
 }
@@ -72,7 +78,7 @@ func TestReadingChooserOffersAConfirmedAnalysisUpdate(t *testing.T) {
 	handler.services.AnalysisUpdates = updates
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/reading", cookies)
+	body := readingGet(t, h, "/de/reading", cookies)
 	assert.Equal(t, 1, strings.Count(body, "A newer analysis is available."), "only the outdated Book shows the notice")
 	assert.Contains(t, body, `<details class="confirmation`, "the confirmation is a native disclosure that works without JavaScript")
 	assert.Contains(t, body, "Update analysis")
@@ -94,7 +100,7 @@ func TestReadingChooserTreatsUnavailableOffersAsCurrent(t *testing.T) {
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offersErr: errors.New("NLP unreachable")}
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/reading", cookies)
+	body := readingGet(t, h, "/de/reading", cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
 	assert.Contains(t, body, "Confirm start reading")
 }
@@ -106,7 +112,7 @@ func TestMyBooksTellsTheCurrentReadingToEndFirst(t *testing.T) {
 	sourceID := fixtureSourceID(t, store, fixtures.BookID)
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: map[string]domain.AnalysisUpdateCandidate{sourceID: {PublishedRunID: "published-run", Target: testUpdateTarget}}}
 
-	body := readingGet(t, h, "/library", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A newer analysis is available.")
 	assert.Contains(t, body, "End the Reading first")
 	assert.NotContains(t, body, "Confirm analysis update", "the current Reading's Book is offered no submit")
@@ -120,7 +126,7 @@ func TestMyBooksOffersTheUpdateOnTheToReadLifecycleCard(t *testing.T) {
 	sourceID := fixtureSourceID(t, store, fixtures.BookID)
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: map[string]domain.AnalysisUpdateCandidate{sourceID: {PublishedRunID: "published-run", Target: testUpdateTarget}}}
 
-	body := readingGet(t, h, "/library", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A newer analysis is available.")
 	assert.Contains(t, body, "You have no confirmed lemma corrections or occurrence exclusions on it.")
 	assert.Contains(t, body, `action="/reading/books/`+fixtures.BookID+`/analysis-update"`)
@@ -140,7 +146,7 @@ func TestAnalysisUpdateConfirmationSubmitsTheConfirmedOffer(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location, err := url.Parse(response.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/reading", location.Path)
+	assert.Equal(t, "/de/reading", location.Path)
 	assert.Contains(t, location.Query().Get("message"), "submitted as analysis job #7")
 	assert.Contains(t, location.Query().Get("message"), "The published analysis stays in effect until the update publishes.")
 	assert.Equal(t, []string{"fixture-route-match|" + sourceID + "|published-run|" + testUpdateTarget.Key()}, updates.submitted)

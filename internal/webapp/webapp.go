@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -273,6 +272,8 @@ func (h *Handler) interactiveReadTimeout() time.Duration {
 type Handler struct {
 	services Services
 	mux      *http.ServeMux
+	// languagePages are the per-language routes served under /{language}/.
+	languagePages map[string]languagePrefixed
 }
 
 func New(s Services) *Handler {
@@ -303,9 +304,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.HandleFunc("POST /onboarding", h.onboard)
 	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
-	h.mux.Handle("GET /library", h.user(http.HandlerFunc(h.library)))
-	h.mux.Handle("GET /reading", h.user(http.HandlerFunc(h.reading)))
-	h.mux.Handle("GET /reading/switch", h.user(http.HandlerFunc(h.switchReadingPage)))
+	h.perLanguage(pageKindMyBooks, h.library)
+	h.perLanguage(pageKindReading, h.reading)
+	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))
@@ -361,14 +362,18 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
-	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
-	h.mux.Handle("GET /vocabulary/concordance", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
-	h.mux.Handle("GET /vocabulary/concordance/sentence", h.user(http.HandlerFunc(h.vocabularySentenceStudyPage)))
-	h.mux.Handle("POST /active-study-language", h.user(http.HandlerFunc(h.activeStudyLanguage)))
+	h.perLanguage(pageKindVocabulary, h.vocabularyConcordancePage)
+	h.perLanguage(pageKindConcordance, h.vocabularyConcordancePage)
+	h.perLanguage(pageKindSentenceStudy, h.vocabularySentenceStudyPage)
+	h.mux.Handle("GET /study-language", h.user(http.HandlerFunc(h.studyLanguageSwitch)))
 	return h, nil
 }
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+	if next, ok := h.matchLanguagePage(r); ok {
+		next.ServeHTTP(w, r)
+		return
+	}
 	h.mux.ServeHTTP(w, r)
 }
 func (h *Handler) user(next http.Handler) http.Handler {
@@ -381,11 +386,6 @@ func (h *Handler) user(next http.Handler) http.Handler {
 		}
 		if view != nil {
 			r = r.WithContext(context.WithValue(r.Context(), shellViewContextKey{}, view))
-		}
-		if requestNamesOtherLanguage(r, view) {
-			// Language precedence: recover before any reading or evidence restoration.
-			redirectLanguageChanged(w, r)
-			return
 		}
 		next.ServeHTTP(w, r)
 	}))
@@ -408,13 +408,13 @@ func render(w http.ResponseWriter, r *http.Request, component interface {
 }
 func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(csrfCookie); err == nil && len(c.Value) >= 32 {
-		return languageBoundCSRFToken(r.Context(), c.Value)
+		return c.Value
 	}
 	token := h.rotateCSRF(w, r)
 	if token == "" {
 		return ""
 	}
-	return languageBoundCSRFToken(r.Context(), token)
+	return token
 }
 func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 	b := make([]byte, 32)
@@ -429,36 +429,16 @@ func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 	return token
 }
 
-// checkCSRF authorizes a mutation and revalidates the study language the form
-// was rendered for. A submission from a page rendered under another language
-// recovers to My Books before any handler state changes.
+// checkCSRF authorizes a mutation. The URL, or the Book a Book-addressed action
+// names, carries the language (ADR 0131); the token is the bare secret.
 func (h *Handler) checkCSRF(w http.ResponseWriter, r *http.Request) bool {
-	formLanguage, scoped, ok := h.verifyCSRFToken(w, r)
-	if !ok {
-		return false
-	}
-	if scoped && !formLanguageIsActive(r.Context(), formLanguage) {
-		redirectLanguageChanged(w, r)
+	c, err := r.Cookie(csrfCookie)
+	token := r.FormValue("csrf_token")
+	if err != nil || token == "" || subtle.ConstantTimeCompare([]byte(c.Value), []byte(token)) != 1 {
+		http.Error(w, "invalid CSRF token", http.StatusForbidden)
 		return false
 	}
 	return true
-}
-
-// checkCSRFAnyLanguage authorizes language-agnostic mutations, such as the
-// deliberate language change itself, sign-out, and catalog management.
-func (h *Handler) checkCSRFAnyLanguage(w http.ResponseWriter, r *http.Request) bool {
-	_, _, ok := h.verifyCSRFToken(w, r)
-	return ok
-}
-
-func (h *Handler) verifyCSRFToken(w http.ResponseWriter, r *http.Request) (language string, scoped, ok bool) {
-	c, err := r.Cookie(csrfCookie)
-	token, language, scoped := strings.Cut(r.FormValue("csrf_token"), csrfLanguageSeparator)
-	if err != nil || token == "" || subtle.ConstantTimeCompare([]byte(c.Value), []byte(token)) != 1 {
-		http.Error(w, "invalid CSRF token", http.StatusForbidden)
-		return "", false, false
-	}
-	return language, scoped, true
 }
 func (h *Handler) setSession(w http.ResponseWriter, token string) {
 	http.SetCookie(w, webauth.NewCookie(webauth.CookieName, token, h.services.SecureCookies, int(h.services.SessionLifetime.Seconds())))

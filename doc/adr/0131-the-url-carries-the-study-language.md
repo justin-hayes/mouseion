@@ -1,6 +1,6 @@
 # ADR 0131: The URL carries the study language
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted — implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Decided by Justin in a grilling session on 2026-11-24. Supersedes the stored
 mode of [ADR 0050](0050-active-study-language.md) and the language-change

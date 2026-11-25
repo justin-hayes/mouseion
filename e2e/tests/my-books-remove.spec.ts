@@ -24,7 +24,7 @@ test.describe('Remove from My Books', () => {
     await entry.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(entry.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     const row = page.locator('#book-row-fixture-catalogue-restore');
     await expect(row).toBeVisible();
     await row.getByText('More actions', { exact: true }).click();
@@ -39,13 +39,13 @@ test.describe('Remove from My Books', () => {
     await expect(addedAgain.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
     await addedAgain.getByRole('button', { name: 'Add', exact: true }).click();
     await expect(addedAgain.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
-    await page.goto('/library');
+    await page.goto('/de/library');
     await expect(page.locator('#book-row-fixture-catalogue-restore')).toBeVisible();
   });
 
   test('refuses Remove on the current reading with a reason', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
 
     const current = page.locator('#book-row-fixture-book');
     await expect(current.locator('.library-book__membership')).toContainText('Currently reading');
@@ -56,7 +56,7 @@ test.describe('Remove from My Books', () => {
 
   test('removes a withdrawn Book without offering to restore it', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     await showStudyLanguage(page, 'grc');
     const first = page.locator('#book-row-fixture-classical-fixture-iliad-1-fixture-learner');
     const second = page.locator('#book-row-fixture-classical-fixture-iliad-2-fixture-learner');
@@ -82,7 +82,7 @@ test.describe('Remove from My Books', () => {
     await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(1);
     await add.click();
     await expect(page).toHaveURL(/\/catalogs\/classical\/works\/fixture-iliad\?/);
-    await page.goto('/library');
+    await page.goto('/de/library');
     await showStudyLanguage(page, 'grc');
     await expect(first).toHaveCount(0);
     await expect(second).toBeVisible();

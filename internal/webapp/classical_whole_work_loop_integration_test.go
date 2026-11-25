@@ -95,15 +95,15 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	assert.NotEmpty(t, h.preparedDefinitionRunID(t, learner.ID, book))
 
 	// The chooser lists the Work as one ordinary entry.
-	chooser := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
+	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	assert.Equal(t, 1, strings.Count(chooser.Body.String(), `id="reading-chooser-book-`+book+`"`))
 	assert.Contains(t, chooser.Body.String(), `action="/reading/books/`+book+`/start"`)
 	assert.NotContains(t, chooser.Body.String(), "Book 1 of")
 
 	// Concordance shows one group, one count and a Citation on every occurrence.
-	query := url.Values{"language": {classical.Language}, "term": {"λόγος"}, "as": {domain.ConcordanceMatchLemma}}
-	concordance := perform(t, h.handler, http.MethodGet, "/vocabulary/concordance?"+query.Encode(), nil, cookies)
+	query := url.Values{"term": {"λόγος"}, "as": {domain.ConcordanceMatchLemma}}
+	concordance := perform(t, h.handler, http.MethodGet, "/grc/vocabulary/concordance?"+query.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, concordance.Code, concordance.Body.String())
 	body := concordance.Body.String()
 	occurrences := countRows(t, h.pool, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND canonical_lemma=$2`,
@@ -136,13 +136,13 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 		_, err := h.store.GetBookDetail(h.ctx, legacy.ID, id)
 		require.NoError(t, err, "the Book stays openable")
 	}
-	chooserPage := perform(t, h.handler, http.MethodGet, "/reading", nil, legacyCookies)
+	chooserPage := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, legacyCookies)
 	require.Equal(t, http.StatusOK, chooserPage.Code, chooserPage.Body.String())
 	for _, id := range legacyBooks {
 		assert.Contains(t, chooserPage.Body.String(), `action="/reading/books/`+id+`/start"`, "a legacy Book stays readable from the chooser")
 		analysisPage := perform(t, h.handler, http.MethodGet, "/books/"+id+"/analyses/"+legacyRuns[id], nil, legacyCookies)
 		assert.Equal(t, http.StatusSeeOther, analysisPage.Code, "a legacy Book's analysis stays reachable")
-		assert.Equal(t, readingBookURL(id), analysisPage.Header().Get("Location"))
+		assert.Equal(t, readingBookURL("grc", id), analysisPage.Header().Get("Location"))
 	}
 	assert.NotContains(t, page.Body.String(), "Remove the work")
 }

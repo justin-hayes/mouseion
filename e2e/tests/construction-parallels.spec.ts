@@ -12,7 +12,7 @@ async function signInToGreek(page: Page) {
   await page.goto('/catalogs/classical/works/fixture-iliad');
   const add = page.getByRole('button', { name: 'Add', exact: true });
   if (await add.isVisible().catch(() => false)) await add.click();
-  await page.goto('/library');
+  await page.goto('/de/library');
   await page.getByLabel('Study language').selectOption('grc');
   const noScriptSwitch = page.getByRole('button', { name: 'Switch language' });
   if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();
@@ -27,7 +27,7 @@ async function activate(page: Page, locator: Locator) {
 }
 
 async function openSyntaxSentence(page: Page) {
-  await page.goto('/vocabulary/concordance?term=fixture-syntax');
+  await page.goto('/de/vocabulary/concordance?term=fixture-syntax');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await row.locator('summary').click();
   await activate(page, row.getByRole('link', { name: 'Study this sentence' }));
@@ -171,7 +171,7 @@ test('a labelled subtype opens filtered and All widens to the whole construction
 
 test('a parallels link without its origin gets the safe restart notice', async ({ page }) => {
   await signInToGreek(page);
-  await page.goto('/vocabulary/concordance?as=construction&term=genitive_absolute');
+  await page.goto('/grc/vocabulary/concordance?as=construction&term=genitive_absolute');
   await expect(page.getByRole('alert')).toContainText('This Concordance link is not valid.');
   await expect(page.locator('h3.concordance-tier')).toHaveCount(0);
 });

@@ -350,7 +350,9 @@ preserving minimum readable item widths. Do not add tablet-specific variants.
 The shared shell remains one top bar at every width. Its document and keyboard
 order is always wordmark, four primary destinations, study language, then
 account. On wide screens those items follow that same order visually, with the
-study-language switcher and account disclosure at the trailing end. On compact
+study-language switcher and account disclosure at the trailing end. The
+switcher appears only on per-language pages; job status, the Catalog, and
+Book-addressed pages carry the wordmark, destinations, and account alone. On compact
 screens the wordmark, active study language, and account disclosure share the
 first visual row, while all four destinations occupy the second visual row. This
 intentional compact visual reordering keeps the destinations together and the

@@ -155,7 +155,7 @@ func TestChooserRendersTheSelectedToReadBookInline(t *testing.T) {
 	}
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 
-	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/grc/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	body := chooser.Body.String()
 	entry := books["homer-iliad-1"]

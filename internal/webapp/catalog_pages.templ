@@ -10,7 +10,7 @@ import (
 // filter cover the built-in Classical catalog and every OPDS source; results
 // are grouped by source and connection configuration stays on Manage sources.
 templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage string, statuses map[string]domain.CatalogueSyncStatus, browse catalogBrowseView) {
-	@ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs, shellStyleNoStudyLanguage) {
+	@ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@PageHeader("Catalog", "Find a text in the Classical catalog or your OPDS sources. Search and the language filter cover every source.", nil) {
 			<a class="button button--outline" href="/catalogs/sources">Manage sources</a>
 		}
@@ -231,7 +231,7 @@ templ CatalogSourceStatuses(csrf string, connections []domain.OpdsConnection, st
 // ManageSourcesPage configures the OPDS connections that feed the Catalog. It
 // owns credentials, Sync now, failure recovery, and deletion.
 templ ManageSourcesPage(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage, bookID string, statuses map[string]domain.CatalogueSyncStatus) {
-	@ShellLayout("Manage sources", &user, csrf, NavigationCatalogs, shellStyleCatalogs, shellStyleNoStudyLanguage) {
+	@ShellLayout("Manage sources", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
 		@Breadcrumb("/catalogs", "Catalog")
 		@PageHeader("Manage sources", "Add, edit and remove the OPDS catalogs that feed the Catalog.", nil)
 		if message != "" {

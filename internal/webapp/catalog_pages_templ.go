@@ -196,7 +196,7 @@ func CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnect
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs, shellStyleNoStudyLanguage).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1673,7 +1673,7 @@ func ManageSourcesPage(user domain.User, csrf string, connections []domain.OpdsC
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Manage sources", &user, csrf, NavigationCatalogs, shellStyleCatalogs, shellStyleNoStudyLanguage).Render(templ.WithChildren(ctx, templ_7745c5c3_Var61), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Manage sources", &user, csrf, NavigationCatalogs, shellStyleCatalogs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var61), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -84,10 +84,10 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	rowID := browseRowElementID(browseRowKey("NOUN", "wort26", ""))
 
 	// Browse page 2 → exact Concordance for one row.
-	browse := get("/reading?page=2")
+	browse := get("/de/reading?page=2")
 	require.Equal(t, http.StatusOK, browse.Code)
 	assert.Contains(t, browse.Body.String(), "Page 2 of 2")
-	concordanceHref := link(regexp.MustCompile(`href="(/vocabulary/concordance\?[^"]*term=wort26[^"]*)"`), browse.Body.String())
+	concordanceHref := link(regexp.MustCompile(`href="(/de/vocabulary/concordance\?[^"]*term=wort26[^"]*)"`), browse.Body.String())
 	parsed, err := url.Parse(concordanceHref)
 	require.NoError(t, err)
 	assert.Equal(t, "lemma", parsed.Query().Get("as"))
@@ -106,13 +106,13 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	assert.Contains(t, exact.Body.String(), "Back to book vocabulary")
 
 	t.Run("a new independent search keeps the origin but not the exact identity", func(t *testing.T) {
-		search := url.Values{"language": {"de"}, "term": {"wort27"}}
+		search := url.Values{"term": {"wort27"}}
 		for key, value := range parsed.Query() {
 			if _, ok := map[string]bool{originKeyBook: true, originKeySnapshot: true, originKeyPage: true, originKeyRow: true, originKeyRevision: true}[key]; ok {
 				search[key] = value
 			}
 		}
-		response := get("/vocabulary/concordance?" + search.Encode())
+		response := get("/de/vocabulary/concordance?" + search.Encode())
 		require.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, back, link(originBackPattern, response.Body.String()))
 		assert.Contains(t, response.Body.String(), `name="from_snap" value="`+reading.SnapshotID+`"`, "the search form carries the origin separately from the typed term")
@@ -170,7 +170,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		} {
 			values := parsed.Query()
 			mutate(values)
-			response := get("/vocabulary/concordance?" + values.Encode())
+			response := get("/de/vocabulary/concordance?" + values.Encode())
 			assert.Equal(t, http.StatusOK, response.Code, name)
 			assert.NotContains(t, response.Body.String(), "Back to book vocabulary", name)
 		}
@@ -237,16 +237,22 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, switched.Body.String(), "Zweites Buch", "the new reading is not opened or transferred the old controls")
 	})
 
-	t.Run("an active-language mismatch takes precedence and mutates nothing", func(t *testing.T) {
-		require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "it"))
-		for _, path := range []string{back, concordanceHref} {
-			response := get(path)
-			assert.Equal(t, http.StatusSeeOther, response.Code, path)
-			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"), path)
-		}
+	t.Run("a language mismatch takes precedence and mutates nothing", func(t *testing.T) {
+		// The origin is validated against the URL's language: German's origin
+		// under the Italian URL restores nothing.
+		other := get(strings.Replace(back, "/de/reading", "/it/reading", 1))
+		assert.Equal(t, http.StatusConflict, other.Code)
+		assert.NotContains(t, other.Body.String(), `id="vocabulary-workflow"`)
 		stored, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)
-		assert.Equal(t, "it", stored, "recovery never switches the selection back")
+		assert.Equal(t, "de", stored, "a refused request never records its language as the Last study language")
+		// Concordance names its language in the URL, so the page renders in it
+		// and the visit records it as the Last study language (ADR 0131).
+		response := get(concordanceHref)
+		assert.Equal(t, http.StatusOK, response.Code, concordanceHref)
+		stored, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "de", stored)
 	})
 }
 

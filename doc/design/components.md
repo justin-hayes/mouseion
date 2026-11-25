@@ -55,7 +55,7 @@ markup.
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and import rejection details                          |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis, catalog-sync, enrichment, and prepared-deck status |
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Goal completion and catalog connections                  |
-| Active language switcher | Change the learner's stored active study language from the authenticated shell | Active, no active language, newly arrived, no books/read-only | Every authenticated screen |
+| Study language picker | Open the same kind of page in another study language (ADR 0131) | Current, newly arrived, no books/read-only | Per-language pages only: My Books, Reading, Vocabulary |
 
 ### Vocabulary Browse controls
 
@@ -84,8 +84,8 @@ rule; do not add icon-only destinations, counters, or a second navigation
 system. All four authenticated destinations share the same native-link treatment. The
 current destination is identified by `aria-current="page"` and restrained
 annotation-blue underline emphasis, never a filled button treatment or button
-role. The active study-language switcher keeps its label, native POST behavior,
-return destination, and no-JavaScript submit button. The account disclosure is a
+role. The study-language picker keeps its label, native GET navigation, and
+no-JavaScript submit button. The account disclosure is a
 native `details` element: its summary identifies the learner on wide screens
 and says “Account” on compact screens; its panel always names the learner and
 contains the native logout form. Keep its open state visible and all shell
@@ -151,7 +151,7 @@ Canonical surface: Classical work page.
 what does each one hold?
 
 The Catalog has one search field and one language filter above every source.
-The filter defaults to the active study language and offers **All languages**;
+The filter defaults to the Last study language and offers **All languages**;
 a learner with no study language starts on all languages. Both controls and any
 per-source page are ordinary GET parameters carried in real links and forms, so
 the surface works without JavaScript. The Language filter is the Catalog's only
@@ -579,8 +579,11 @@ Learning as a peer destination.
 The established shell provides landmarks, skip navigation, and explicit route
 context for the active destination or workflow action.
 
-The authenticated shell also carries the active language switcher. It is a
-native `select` backed by an ordinary POST form and labeled “Study language”;
+Per-language pages (My Books, Reading, Vocabulary and their deep pages) carry
+the study-language picker; job status, the Catalog, and Book-addressed pages
+(lemma review, deck preparation) do not. It is a native `select` backed by an
+ordinary GET form that navigates to the same kind of page under the chosen
+language prefix, and labeled “Study language”;
 visually hide the label on compact screens while preserving its accessible
 name, and keep the short visible label on wider screens. JavaScript may submit
 it immediately on change, while a no-script submit button remains available.
@@ -588,9 +591,9 @@ Name options by their language endonyms (Deutsch, Italiano, Ελληνικά), w
 language codes.
 Current study languages are selectable, newly arrived languages carry a visible
 `new` marker, and known-vocabulary-only languages carry `no books` and remain
-selectable for read-only Vocabulary. The effective selection is resolved on each
-request from the stored learner pointer and current language context; rendering
-never writes a default.
+selectable for read-only Vocabulary. The selected option is the page's language,
+read from the URL prefix; the stored Last study language never decides it, and
+rendering never writes a default.
 
 ### `PageHeader`
 
