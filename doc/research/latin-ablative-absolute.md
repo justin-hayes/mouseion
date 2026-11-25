@@ -23,9 +23,9 @@ analyser run by Mouseion is involved; the rule reads OLA's stored AGDT parse.
 - **Rule agreement with gold is below the bar when taken strictly** (rule hit on OLA = same rule hit on gold):
   0.82 (32/39, Wilson 0.67–0.91) on LDT prose sentences the OLA model never trained on, and 0.83 (24/29,
   0.65–0.92) on CIRCSE *Germania*. Pooled: **56/68 = 0.82 (0.72–0.90)**.
-- **Most of that gap is not parser error.** Read against Allen & Greenough §419, 9 of the 12 non-agreeing hits in
-  those two samples are real ablative absolutes that gold annotates differently (a noun-headed variant in LDT,
-  coordinated second conjuncts in CIRCSE). With the 3 clear false hits and 3 ambiguous ones read as false
+- **Most of that gap is not parser error.** Read against Allen & Greenough §419, 6 of the 12 non-agreeing hits in
+  those two samples are real ablative absolutes that gold annotates differently (a differently attached variant in
+  LDT, coordinated second conjuncts in CIRCSE). With the 4 clear false hits and the 2 ambiguous ones read as false
   (agent reading, not Justin's): **62/68 = 0.91 (0.82–0.96)**; reading the ambiguous ones as true: 64/68 = 0.94
   (0.86–0.98). That is the Greek genitive absolute's position (0.91, 0.84–0.95): the point estimate clears 0.90 and
   the lower bound does not yet.
@@ -37,8 +37,8 @@ analyser run by Mouseion is involved; the rule reads OLA's stored AGDT parse.
 - **Adapter cost is small once the Latin OLA adapter of [the scheme ticket](latin-scheme-route.md) exists**:
   one detector of about 30 lines plus tests, the `_CO`/`_AP`/`_ExD` reader (without it 18.8% of hits are lost), a
   Latin morphology mapping for `Mood=p`/`Case=b`, and a per-language construction registry. No migration.
-- **What would settle it**: a human-checked sample of about 120 hits (see below). At the pooled adjudicated
-  point estimate, 120 hits clear the bar with up to 11 false hits.
+- **What would settle it**: a human-checked sample of about 120 hits (see below). A sample of 120 hits
+  tolerates up to 11 false hits.
 
 Recommendation for the closing grilling: the ablative absolute does not block a go, and slice 1 should ship
 Latin Constructions **fail-closed**. Treat it as the first Latin construction to measure after slice 1, with a
@@ -58,7 +58,7 @@ Differences from Greek: the case is ablative; there is no perception-verb exclus
 take an accusative participle, not an ablative one; the subject can be any part of speech with `Case=b`.
 Not detected by design (accepted recall loss, A&G §419.a, §419.b, §419.c): an absolute with a noun or adjective
 instead of a participle (*consule* / *invito*), one whose subject is a clause, and one with no subject; an
-elided *esse* has no node in OLA's CoNLL-U (no `-` tokens occur in the files used), so the rule cannot see it.
+elided *esse* has no node in OLA's CoNLL-U (23 `-` ellipsis tokens occur in the 15 files used), so the rule cannot see it.
 Uses of the construction (time, cause, condition, concession) are A&G §420 and are not subtyped.
 
 ### Mapping across schemes
@@ -89,8 +89,8 @@ heads and relations equal OLA's released parse exactly (UAS = LAS = 1.0). They a
 sentences the model did not train on (the dev list was used for model selection, so test alone is the cleanest
 held-out set), matched to LDT sentences by normalised form, as `latin-oga-equivalent` did.
 
-Alignment is a global form-sequence alignment (`difflib`) as in the sibling tickets. Of 300 OLA hits in the LDT
-prose range, all but 6 align (these are reported, not counted in the precision denominator). *Germania*: all 29 align.
+Alignment is a global form-sequence alignment (`difflib`) as in the sibling tickets. In the LDT prose range 300 OLA hits and 299 gold hits align; 6 further OLA hits and 4 gold hits do not, and are
+reported in `results/agreement.json` but not counted. *Germania*: all 29 align.
 
 ### Rule agreement with LDT gold (AGDT, same rule on gold)
 
@@ -126,7 +126,7 @@ training set is unpublished (`la_giuseppe`), so "unseen" is likely rather than p
 ### False-positive classes and the adjudicated figure
 
 The strict figures count every disagreement as an error, but many disagreements are annotation variants in the
-gold. All 14 non-agreeing hits that fall in the two unseen samples (and the 2 training-text ones in prose) are
+gold. The 12 non-agreeing hits in the two unseen samples (and 2 training-text ones in LDT prose) are
 listed by ID in [`results/adjudication.tsv`](latin-ablative-absolute/results/adjudication.tsv). The verdicts are an
 agent reading against A&G §419 and are **not** Justin's judgment.
 
@@ -168,8 +168,8 @@ ablative SBJ child, 1 is a participle under `AuxP`.
 - OLA's training lineage is unpublished and contains the whole LDT, so the 0.97 / 0.99 LDT figures overstate
   accuracy, as the OGA figures did. Use only the held-out and *Germania* rows.
 - The unseen sample is 39 LDT hits from five Works plus 29 hits from one Work: no Livy, no Cicero speeches, no
-  *Metamorphoses*. Per-Work quality varies (Sallust 62/66 and Petronius 54/57, Suetonius 120/122 on training text).
-- OLA hit density differs strongly by Work, from 0.4 per 100 words (*Germania*) to 1.9 (Caesar *BG*) and 1.1 (Livy,
+  *Metamorphoses*. Per-Work quality varies (all LDT sentences: Sallust 62/66, Petronius 54/57, Suetonius 120/122).
+- OLA hit density differs strongly by Work, from 0.5 per 100 words (*Germania*) to 1.9 (Caesar *BG*) and 1.1 (Livy,
   5,533 hits in 518,260 words), so a Work-stratified sample matters.
 - A&G citation numbers: §419 (definition and the three notes a–c), §420 (uses), §409 (means), §412 (manner); the
   text of §419, §420, §409 and §412 was read on the Dickinson College Commentaries copy; none is reproduced.
@@ -181,7 +181,7 @@ ablative SBJ child, 1 is a participle under `AuxP`.
   with the Greek protocol's blind spot-check for anchoring.
 - **Sample size.** At a true point estimate of 0.92 a sample of about 77 hits has Wilson lower bound 0.84; at 0.90
   about 134. 120 hits (the Greek size) tolerate 11 false hits. Draw them stratified by Work from the 80 BY-SA prose
-  Works (Caesar, Livy, the speeches, Tacitus, Suetonius), because hit density runs 0.4 to 1.9 per 100 words.
+  Works (Caesar, Livy, the speeches, Tacitus, Suetonius), because hit density runs 0.5 to 1.9 per 100 words.
 - **Recall on a random sentence read in full**, which agreement against a single gold cannot give (verbless
   absolutes, the coordinated cases, and absolutes OLA fails to label ADV).
 - **Separation of parser from rule errors.** Agreement cannot say whether the ambiguous means/manner class is a
