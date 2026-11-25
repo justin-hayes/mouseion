@@ -2,9 +2,10 @@ package ancientgreek
 
 import (
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/justin-hayes/mouseion/internal/classical"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -139,12 +140,12 @@ func sentenceCrosses(sentence sourceSentence, unit parsedUnitRange) (bool, error
 // parsedUnitRange is one validated UnitRange.
 type parsedUnitRange struct {
 	key        string
-	start, end []int
+	start, end classical.Citation
 }
 
 // citationWithin reports whether a citation lies inside a unit's inclusive
 // range.
-func citationWithin(citation []int, unit parsedUnitRange) bool {
+func citationWithin(citation classical.Citation, unit parsedUnitRange) bool {
 	return citationWithinRange(citation, unit.start, unit.end)
 }
 
@@ -191,7 +192,7 @@ func ProposeUnits(data []byte) ([]UnitRange, error) {
 
 // citationExtent is the first and last citation seen for one top-level number.
 type citationExtent struct {
-	start, end []int
+	start, end classical.Citation
 }
 
 // citationExtents accumulates every printed token's citation under its
@@ -207,14 +208,14 @@ func citationExtents(doc *sourceDocument) (map[int]citationExtent, error) {
 			if !ok || len(citation) == 0 {
 				return nil, malformed(0, "token citation is not a citation")
 			}
-			addCitationExtent(books, citation[0], citation)
+			addCitationExtent(books, citation[0].Number, citation)
 		}
 	}
 	return books, nil
 }
 
 // addCitationExtent widens one top-level number's citation extent.
-func addCitationExtent(books map[int]citationExtent, book int, citation []int) {
+func addCitationExtent(books map[int]citationExtent, book int, citation classical.Citation) {
 	current, seen := books[book]
 	if !seen {
 		books[book] = citationExtent{start: citation, end: citation}
@@ -277,7 +278,7 @@ func SummarizeUnit(data []byte, start, end string) (UnitSummary, error) {
 
 // unitOpening returns the reconstructed first sentence the unit owns that is not
 // a speaker label.
-func unitOpening(doc *sourceDocument, start, end []int) (string, error) {
+func unitOpening(doc *sourceDocument, start, end classical.Citation) (string, error) {
 	for _, sentence := range doc.sentences {
 		if len(sentence.tokens) == 0 {
 			continue
@@ -345,7 +346,7 @@ func parseManifestDocument(data []byte) (*sourceDocument, error) {
 }
 
 // parseUnitBounds validates a unit's boundary citations.
-func parseUnitBounds(start, end string) ([]int, []int, error) {
+func parseUnitBounds(start, end string) (classical.Citation, classical.Citation, error) {
 	startCitation, startOK := parseCitation(start)
 	endCitation, endOK := parseCitation(end)
 	if !startOK || !endOK || compareCitation(startCitation, endCitation) > 0 {
@@ -356,7 +357,7 @@ func parseUnitBounds(start, end string) ([]int, []int, error) {
 
 // requireBoundaryTokens refuses a range whose start or end citation never
 // appears on a token.
-func requireBoundaryTokens(doc *sourceDocument, start, end []int) error {
+func requireBoundaryTokens(doc *sourceDocument, start, end classical.Citation) error {
 	startSeen, endSeen := false, false
 	for _, sentence := range doc.sentences {
 		for _, token := range sentence.tokens {
@@ -392,13 +393,4 @@ func countPrintedWords(result analyzer.Result) int {
 }
 
 // citationString joins a parsed citation back into its dotted form.
-func citationString(citation []int) string {
-	var text strings.Builder
-	for index, number := range citation {
-		if index > 0 {
-			text.WriteByte('.')
-		}
-		text.WriteString(strconv.Itoa(number))
-	}
-	return text.String()
-}
+func citationString(citation classical.Citation) string { return citation.String() }

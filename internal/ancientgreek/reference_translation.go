@@ -10,6 +10,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/justin-hayes/mouseion/internal/classical"
 )
 
 // ReferenceTranslation is one cited section's English text, keyed by citation
@@ -79,7 +81,7 @@ func xmlImportError(err error) error {
 
 // eng2Parser is the streaming state machine of ParseReferenceTranslation.
 type eng2Parser struct {
-	start, end []int
+	start, end classical.Citation
 	depth      int
 	divs       []string
 	textparts  []textpart
@@ -261,9 +263,14 @@ func citationGroups(sections []ReferenceTranslation) (map[string][]int, error) {
 		if !ok || len(parsed) == 0 {
 			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
 		}
+		for _, component := range parsed {
+			if component.Name != "" || component.Suffix != "" {
+				return nil, &ImportError{Code: CodeMalformed, Detail: "section citation has a named or suffixed component"}
+			}
+		}
 		for length := 1; length <= len(parsed); length++ {
 			prefix := citationPrefix(parsed[:length])
-			groups[prefix] = append(groups[prefix], parsed[length-1])
+			groups[prefix] = append(groups[prefix], parsed[length-1].Number)
 		}
 	}
 	return groups, nil
@@ -288,11 +295,11 @@ func checkContiguousGroup(values []int) error {
 
 // checkRangeBoundary refuses a group that begins after the range start or ends
 // before the range end.
-func checkRangeBoundary(prefix string, values []int, start, end []int) error {
-	if prefix == citationPrefix(start) && values[0] != start[len(start)-1] {
+func checkRangeBoundary(prefix string, values []int, start, end classical.Citation) error {
+	if prefix == citationPrefix(start) && values[0] != start[len(start)-1].Number {
 		return &ImportError{Code: CodeMalformed, Detail: "cited range starts at a missing section"}
 	}
-	if prefix == citationPrefix(end) && values[len(values)-1] != end[len(end)-1] {
+	if prefix == citationPrefix(end) && values[len(values)-1] != end[len(end)-1].Number {
 		return &ImportError{Code: CodeMalformed, Detail: "cited range ends at a missing section"}
 	}
 	return nil
@@ -312,15 +319,11 @@ func citationFromTextparts(parts []textpart) (string, bool) {
 
 // citationPrefix returns every citation component except the last as a dotted
 // string.
-func citationPrefix(citation []int) string {
+func citationPrefix(citation classical.Citation) string {
 	if len(citation) <= 1 {
 		return ""
 	}
-	parts := make([]string, len(citation)-1)
-	for index, number := range citation[:len(citation)-1] {
-		parts[index] = strconv.Itoa(number)
-	}
-	return strings.Join(parts, ".")
+	return citation[:len(citation)-1].String()
 }
 
 // textpartKind reports the reading-unit div kind a TEI textpart carries, and

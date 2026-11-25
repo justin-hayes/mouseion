@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
+
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -485,10 +487,15 @@ func TestParseCitationRejectsNonNumbers(t *testing.T) {
 	assert.False(t, ok)
 	citation, ok := parseCitation("1.10.19")
 	require.True(t, ok)
-	assert.Equal(t, []int{1, 10, 19}, citation)
-	assert.Negative(t, compareCitation([]int{1, 1, 1}, []int{1, 2}))
-	assert.Positive(t, compareCitation([]int{1, 2}, []int{1, 1, 9}))
-	assert.Zero(t, compareCitation([]int{1, 1}, []int{1, 1, 0}))
+	assert.Equal(t, "1.10.19", citation.String())
+	cite := func(value string) classical.Citation {
+		parsed, ok := parseCitation(value)
+		require.True(t, ok)
+		return parsed
+	}
+	assert.Negative(t, compareCitation(cite("1.1.1"), cite("1.2")))
+	assert.Positive(t, compareCitation(cite("1.2"), cite("1.1.9")))
+	assert.Zero(t, compareCitation(cite("1.1"), cite("1.1.0")))
 }
 
 func TestImportRequiresWriterAndDefinition(t *testing.T) {
