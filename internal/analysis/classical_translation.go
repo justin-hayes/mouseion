@@ -100,14 +100,17 @@ func (w *ClassicalTranslationWorker) Work(ctx context.Context, job *river.Job[Cl
 		return err
 	}
 	sections, err := ancientgreek.ParseReferenceTranslation(data, args.CitationStart, args.CitationEnd)
-	if err != nil {
-		// A pinned translation the manifest admitted after measurement (a Latin
+	if err != nil && args.Language == classical.LanguageLatin {
+		// A pinned Latin translation the manifest admitted after measurement (a
 		// file with gaps, or keyed above the source) still imports; sections it
-		// lacks simply withhold their passage context.
+		// lacks simply withhold their passage context. Ancient Greek keeps the
+		// strict reader's refusal.
 		var measuredErr error
 		if sections, measuredErr = ancientgreek.ParseReferenceTranslationMeasured(data, args.CitationStart, args.CitationEnd); measuredErr != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 	translations := make(map[string]string, len(sections))
 	for _, section := range sections {
