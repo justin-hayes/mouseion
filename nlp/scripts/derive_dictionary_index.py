@@ -1803,7 +1803,7 @@ def derive(  # noqa: PLR0913 - the derivation's optional inputs, one per source
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="raw Kaikki/Wiktextract JSONL(.gz)")
@@ -1825,13 +1825,22 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         help="reviewed idiom list (default: nlp/reviewed_idioms.json)",
     )
-    args = parser.parse_args(argv)
+    return parser
+
+
+def check_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Refuse option combinations argparse cannot express."""
     if args.force_download and not args.download:
         parser.error("--force-download requires --download")
-    if args.lsj_dir and not args.lsj_dir.is_dir():
-        parser.error(f"--lsj-dir is not a directory: {args.lsj_dir}")
-    if args.ls_dir and not args.ls_dir.is_dir():
-        parser.error(f"--ls-dir is not a directory: {args.ls_dir}")
+    for option, directory in (("--lsj-dir", args.lsj_dir), ("--ls-dir", args.ls_dir)):
+        if directory and not directory.is_dir():
+            parser.error(f"{option} is not a directory: {directory}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    check_options(parser, args)
     input_path = args.input
     if args.download:
         try:
