@@ -85,7 +85,7 @@ func resolvePassage(citations []string, translations map[string]string, pin stri
 func collectSegments(section string, translations map[string]string, shown map[string]struct{}) bool {
 	found := false
 	for key, translation := range translations {
-		if strings.TrimSpace(translation) == "" || (key != section && !strings.HasPrefix(section, key+".")) {
+		if strings.TrimSpace(translation) == "" || !classical.CitationContains(key, section) {
 			continue
 		}
 		shown[key] = struct{}{}

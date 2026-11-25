@@ -119,3 +119,23 @@ func TestCTSTextgroupReadsThePerseusFileName(t *testing.T) {
 		}
 	}
 }
+
+func TestCitationContains(t *testing.T) {
+	cases := map[string]struct {
+		outer, inner string
+		want         bool
+	}{
+		"equal":                  {"1.2", "1.2", true},
+		"ancestor":               {"1.2", "1.2.3", true},
+		"named section ancestor": {"1.pr", "1.pr.1", true},
+		"longer number":          {"1.2", "1.20", false},
+		"suffixed section":       {"1.2", "1.2a", false},
+		"descendant":             {"1.2.3", "1.2", false},
+		"empty":                  {"", "1", false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, CitationContains(tc.outer, tc.inner))
+		})
+	}
+}
