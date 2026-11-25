@@ -53,7 +53,7 @@ import (
 // this loop references rather than duplicates:
 //
 //   - scenario 3 search and compact markup:
-//     TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumber
+//     TestMyBooksSearchMatchesAuthorEnglishAndOriginalTitlesButNotATrailingBookNumber
 //   - scenario 5 terminal failures and newer-revision retry:
 //     classical_preparation_failure_integration_test.go
 //   - scenario 7 failed translation import: TestClassicalTranslationFailureLeavesBookAnalyzed
@@ -592,14 +592,14 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	one, two := 1, 2
 	anabasis := classical.Definition{
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis", WorkTitle: "Anabasis",
-		WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις", EditionKey: "xenophon-anabasis-marchant-1904",
+		WorkAuthor: "Xenophon", OriginalTitle: "Ἀνάβασις", EditionKey: "xenophon-anabasis-marchant-1904",
 		EditionLabel: "Marchant 1904", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.", Source: anabasisPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	firstUnit := classical.Definition{
 		Key: "synthetic-work-1", WorkKey: "synthetic-work", WorkTitle: "Synthetic Work",
-		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν ἔργον", EditionKey: "synthetic-work-edition",
+		WorkAuthor: "Synthetic Author", OriginalTitle: "Συνθετικὸν ἔργον", EditionKey: "synthetic-work-edition",
 		EditionLabel: "Synthetic Edition", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16, Opening: "ἄρχεται ὁ λόγος.", Source: pin, Translation: translationPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
@@ -612,7 +612,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	secondUnit.WordCount = 16
 	wholeUnit := classical.Definition{
 		Key: "synthetic-whole-1", WorkKey: "synthetic-whole", WorkTitle: "Synthetic Whole",
-		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν ὅλον", EditionKey: "synthetic-whole-edition",
+		WorkAuthor: "Synthetic Author", OriginalTitle: "Συνθετικὸν ὅλον", EditionKey: "synthetic-whole-edition",
 		EditionLabel: "Synthetic Whole Edition", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
@@ -621,7 +621,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	// per-book definitions from before ADR 0128 survive only as tombstones.
 	treatise := classical.Definition{
 		Key: loopTreatiseKey, WorkKey: loopTreatiseKey, WorkTitle: "Synthetic Treatise",
-		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν σύγγραμμα", EditionKey: "synthetic-treatise-edition",
+		WorkAuthor: "Synthetic Author", OriginalTitle: "Συνθετικὸν σύγγραμμα", EditionKey: "synthetic-treatise-edition",
 		EditionLabel: "Synthetic Treatise Edition", Language: classical.Language, ConstituentBooks: 2,
 		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,

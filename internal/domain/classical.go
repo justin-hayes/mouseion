@@ -240,13 +240,13 @@ type BookReadingUnit struct {
 	// ReadingUnitKey is the permanent reviewed definition key, the identity the
 	// Classical catalog uses for this Book's Work and constituent position.
 	ReadingUnitKey string
-	// WorkKey, WorkTitle, WorkAuthor and GreekTitle identify the Work every
+	// WorkKey, WorkTitle, WorkAuthor and OriginalTitle identify the Work every
 	// constituent Book shares. They are reviewed catalog facts, never derived
 	// from the learner's collection.
 	WorkKey       string
 	WorkTitle     string
 	WorkAuthor    string
-	GreekTitle    string
+	OriginalTitle string
 	CitationStart string
 	CitationEnd   string
 	EditionLabel  string

@@ -121,7 +121,7 @@ func (s *Store) newFixtureClassicalBookLocked(owner string, definition classical
 		WorkKey:          definition.WorkKey,
 		WorkTitle:        definition.WorkTitle,
 		WorkAuthor:       definition.WorkAuthor,
-		GreekTitle:       definition.GreekTitle,
+		OriginalTitle:    definition.OriginalTitle,
 		CitationStart:    definition.CitationStart,
 		CitationEnd:      definition.CitationEnd,
 		EditionLabel:     definition.EditionLabel,

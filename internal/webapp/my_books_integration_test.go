@@ -202,7 +202,7 @@ func TestMyBooksWholeWorkUnitStaysOrdinaryWithoutPosition(t *testing.T) {
 	assert.NotContains(t, body, "library-work")
 }
 
-func TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumber(t *testing.T) {
+func TestMyBooksSearchMatchesAuthorEnglishAndOriginalTitlesButNotATrailingBookNumber(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "my-books-work-search", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")

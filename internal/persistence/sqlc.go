@@ -382,7 +382,7 @@ func myBookFromBrowseRow(row sqlcgen.BrowseMyBooksEvidenceRow) domain.MyBook {
 			WorkKey:          row.WorkKey,
 			WorkTitle:        row.WorkTitle,
 			WorkAuthor:       row.WorkAuthor,
-			GreekTitle:       row.GreekTitle,
+			OriginalTitle:    row.GreekTitle,
 			EditionLabel:     row.EditionLabel,
 			ConstituentBook:  row.ConstituentBook,
 			ConstituentBooks: row.ConstituentBooks,

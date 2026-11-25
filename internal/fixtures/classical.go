@@ -20,13 +20,13 @@ func NewClassicalCatalog() (*classical.Catalog, error) {
 
 // fixtureClassicalDefinition builds one valid definition for the fixture
 // release. The source pin values are illustrative; no fixture path reads them.
-func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, editionKey, citationStart, citationEnd, opening string, book *int, books, words int) classical.Definition {
+func fixtureClassicalDefinition(key, workKey, title, author, originalTitle, editionKey, citationStart, citationEnd, opening string, book *int, books, words int) classical.Definition {
 	return classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
 		WorkTitle:             title,
 		WorkAuthor:            author,
-		GreekTitle:            greekTitle,
+		OriginalTitle:         originalTitle,
 		EditionKey:            editionKey,
 		EditionLabel:          "Fixture reviewed edition",
 		Language:              classical.Language,

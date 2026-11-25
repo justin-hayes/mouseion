@@ -15,7 +15,7 @@ func validDefinition() Definition {
 		WorkKey:               "alpha",
 		WorkTitle:             "Alpha",
 		WorkAuthor:            "Author",
-		GreekTitle:            "Ἄλφα",
+		OriginalTitle:         "Ἄλφα",
 		EditionKey:            "alpha-test",
 		EditionLabel:          "Test Edition",
 		Language:              Language,
@@ -104,7 +104,7 @@ func TestDefinitionValidateRefusesIncompleteFields(t *testing.T) {
 		{"work author", func(d *Definition) { d.WorkAuthor = "" }, "Work author is required"},
 		{"edition key", func(d *Definition) { d.EditionKey = "" }, "Edition key is required"},
 		{"edition label", func(d *Definition) { d.EditionLabel = "" }, "Edition label is required"},
-		{"language", func(d *Definition) { d.Language = "de" }, "language must be"},
+		{"language", func(d *Definition) { d.Language = "de" }, "not a classical language"},
 		{"book count", func(d *Definition) { d.ConstituentBooks = 0 }, "book count must be positive"},
 		{"live constituent book", func(d *Definition) { d.Withdrawn = false }, "only a withdrawn definition"},
 		{"book outside", func(d *Definition) { book := 3; d.ConstituentBook = &book }, "outside its Work"},
@@ -368,4 +368,15 @@ func TestLayersPassageAttribution(t *testing.T) {
 		_, ok := layers.PassageAttribution(pin)
 		assert.False(t, ok, pin)
 	}
+}
+
+func TestDefinitionValidateAcceptsEveryClassicalLanguage(t *testing.T) {
+	for _, language := range []string{"grc", "la"} {
+		definition := validWholeWorkDefinition()
+		definition.Language = language
+		require.NoError(t, definition.Validate(), language)
+	}
+	assert.Equal(t, "Ancient Greek", DisplayName("grc"))
+	assert.Equal(t, "Latin", DisplayName("la"))
+	assert.Empty(t, DisplayName("de"))
 }

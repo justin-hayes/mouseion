@@ -20,13 +20,13 @@ import (
 )
 
 // catalogFixtureDefinition builds one valid fixture manifest entry.
-func catalogFixtureDefinition(key, workKey, title, author, greekTitle, editionKey, citationStart, citationEnd string, book *int, books, words int, withdrawn bool, translation bool) classical.Definition {
+func catalogFixtureDefinition(key, workKey, title, author, originalTitle, editionKey, citationStart, citationEnd string, book *int, books, words int, withdrawn bool, translation bool) classical.Definition {
 	definition := classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
 		WorkTitle:             title,
 		WorkAuthor:            author,
-		GreekTitle:            greekTitle,
+		OriginalTitle:         originalTitle,
 		EditionKey:            editionKey,
 		EditionLabel:          "Reviewed edition",
 		Language:              classical.Language,
@@ -1189,4 +1189,41 @@ func TestCatalogLanguageFilterOffersEveryCatalogIndexLanguage(t *testing.T) {
 	assert.Contains(t, body, `<option value="grc"`)
 	assert.Contains(t, body, `<option value="">All languages</option>`)
 	assert.Equal(t, 1, strings.Count(body, `<option value="de"`), "a studied language that the index also holds is offered once")
+}
+
+func TestCatalogLanguageFilterCoversEachClassicalLanguagePresent(t *testing.T) {
+	latin := catalogFixtureDefinition("virgil-aeneid", "virgil-aeneid", "Aeneid", "Virgil", "Aeneis",
+		"virgil-aeneid-test", "1.1", "12.952", nil, 1, 63000, false, false)
+	latin.Language = classical.LanguageLatin
+	catalog, err := classical.NewCatalog(append(catalogFixtureDefinitions(), latin))
+	require.NoError(t, err)
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) { services.Classical = catalog })
+
+	for language, want := range map[string]struct{ shown, hidden, option string }{
+		"la":  {"Aeneid", "Anabasis", `<option value="la"`},
+		"grc": {"Anabasis", "Aeneid", `<option value="grc"`},
+	} {
+		response := catalogPage(t, h, cookies, "/catalogs?language="+language)
+		require.Equal(t, http.StatusOK, response.Code, language)
+		body := response.Body.String()
+		assert.Contains(t, body, `id="catalog-source-classical"`, language)
+		assert.Contains(t, body, want.shown, language)
+		assert.NotContains(t, body, want.hidden, language)
+		assert.Contains(t, body, want.option, language)
+	}
+	assert.Contains(t, catalogPage(t, h, cookies, "/catalogs?language=la").Body.String(), `lang="la">Aeneis</p>`)
+
+	// With no language requested, the filter already offers both.
+	all := catalogPage(t, h, cookies, "/catalogs?language=").Body.String()
+	assert.Contains(t, all, `<option value="la"`)
+	assert.Contains(t, all, `<option value="grc"`)
+
+	// A Latin Work whose original title repeats its English title shows it once.
+	same := latin
+	same.Key, same.WorkKey, same.EditionKey, same.WorkTitle, same.OriginalTitle = "x-la", "x-la", "x-la-test", "Aeneis", "Aeneis"
+	sameCatalog, err := classical.NewCatalog([]classical.Definition{same})
+	require.NoError(t, err)
+	cards := classicalCatalogCards(sameCatalog.Authors(), "", classicalCatalogView{})
+	require.Len(t, cards, 1)
+	assert.Empty(t, cards[0].OriginalTitle)
 }

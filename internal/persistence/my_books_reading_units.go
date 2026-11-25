@@ -38,7 +38,7 @@ func (s *PostgresStore) populateMyBooksReadingUnits(ctx context.Context, owner s
 			WorkKey:          row.WorkKey,
 			WorkTitle:        row.WorkTitle,
 			WorkAuthor:       row.WorkAuthor,
-			GreekTitle:       row.GreekTitle,
+			OriginalTitle:    row.GreekTitle,
 			CitationStart:    row.CitationStart,
 			CitationEnd:      row.CitationEnd,
 			EditionLabel:     row.EditionLabel,
