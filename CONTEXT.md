@@ -48,16 +48,21 @@ _Avoid_: configured language, preferred language, library language (as a stored
 selection defining the set).
 
 **Active study language**:
-The one language the learner is currently working in. It is a stored selection
-pointing into the derived study-language set — context, not configuration: it
-chooses which study language the per-language surfaces (My Books browse,
-Reading, Vocabulary) present, and never defines which languages are
-studied. When the set is unambiguous the selection defaults deterministically;
-if the selection leaves the set, it resets. There is no "no language" choice:
-absence of an active study language is never a learner selection, only a
-transient result of defaulting (an ambiguous set with no history) or reset (the
-selection left the set with no remaining candidate).
-_Avoid_: current language, mode, active profile.
+The study language of the per-language page in view (My Books, Reading,
+Vocabulary, Concordance, Sentence study), named by that page's address. It is
+context, not configuration: it never defines which languages are studied, and
+two pages open at once may each have their own. The Catalog, a Book's own pages
+and pages without a language have none.
+_Avoid_: current language, mode, active profile, stored language.
+
+**Last study language**:
+The study language of the per-language page the learner most recently viewed,
+remembered only to choose where an address without a language leads. It points
+into the derived study-language set: when the set is unambiguous it defaults
+deterministically, and if it leaves the set it resets. Its absence is never a
+learner selection.
+_Avoid_: active study language (the page's own), preferred language, default
+language (as configuration).
 
 **Catalog sync scope**:
 The set of offerings eligible for a connection's Catalog index. In the OPDS
@@ -438,7 +443,8 @@ content).
 The one surface where a learner finds and adds texts from every source: the
 Classical catalog and each OPDS catalog connection. It shows whether an entry is
 in My Books, never its disposition, analysis or preparation. Sources are shown
-side by side and never merged.
+side by side, each presented alike, and never merged. It is not a per-language
+surface: its language filter may offer languages the learner does not study.
 _Avoid_: Catalogs (the retired plural label), library, Browse (the vocabulary
 view).
 
@@ -613,10 +619,17 @@ _Avoid_: source material (the acquired evidence, not the identity), acquired
 book.
 
 **Book cover**:
-The catalog-supplied image representing a Book, retained with its originating
-Catalog entry and allowed to change as that metadata changes. It supports the
-Book's title and author but is never its sole learner-facing identity.
+The catalog-supplied image representing a Catalog entry and any Book added from
+it, retained with that entry and allowed to change as its metadata changes. It
+supports the title and author but is never the sole learner-facing identity.
 _Avoid_: cover art, thumbnail (a presentation size, not the Book metadata).
+
+**Title plate**:
+The image Mouseion composes from a text's own title and author where no Book
+cover exists, such as for every Classical catalog Reading unit. It is
+presentation, not Book metadata: it is never retained, never supplied by a
+catalog, and never called a cover.
+_Avoid_: generated cover, placeholder cover, cover (when no catalog supplied one).
 
 **Book disposition**:
 Whether a learner's Book is To Read. Adding a Book or reading it again makes it

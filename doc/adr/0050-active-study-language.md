@@ -1,6 +1,6 @@
 # ADR 0050: The app works in one active study language at a time
 
-Status: **Accepted** · Date: 2026-09-07 · Author: Justin + opencode
+Status: **Accepted; stored mode superseded by [ADR 0131](0131-the-url-carries-the-study-language.md)** · Date: 2026-09-07 · Author: Justin + opencode
 
 Reconciled by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §8: a deliberate language change lands on My Books in the newly active language, with screen and filter state reset.
 
