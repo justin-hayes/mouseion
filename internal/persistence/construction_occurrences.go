@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/syntax/agdt"
@@ -45,7 +46,11 @@ func BuildConstructionOccurrencesTx(ctx context.Context, tx pgx.Tx, ownerID, run
 		return err
 	}
 	for _, sentence := range constructionSentences(tokenRows, nodeRows) {
-		tree := agdt.Adapt(sentence.tokens, sentence.nodes)
+		adapt := agdt.Adapt
+		if source.Language == classical.LanguageLatin {
+			adapt = agdt.AdaptLatin
+		}
+		tree := adapt(sentence.tokens, sentence.nodes)
 		for _, occurrence := range constructions.Detect(tree) {
 			if err := q.InsertConstructionOccurrence(ctx, insertConstructionParams(ownerID, runID, source, sentence.ordinal, occurrence)); err != nil {
 				return err

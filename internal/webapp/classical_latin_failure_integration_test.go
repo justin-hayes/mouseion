@@ -4,7 +4,6 @@ package webapp
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -31,20 +30,9 @@ import (
 // latinServerBehaviour is how the synthetic archive server answers a request.
 type latinServerBehaviour func(w http.ResponseWriter, r *http.Request, archive []byte)
 
-// honourRange answers a Range request as Zenodo does.
+// honourRange answers a Range request through the Latin loop's range server.
 func honourRange(w http.ResponseWriter, r *http.Request, archive []byte) {
-	first, last, _ := strings.Cut(strings.TrimPrefix(r.Header.Get("Range"), "bytes="), "-")
-	start, startErr := strconv.Atoi(first)
-	end, endErr := strconv.Atoi(last)
-	if startErr != nil || endErr != nil || start > end || end >= len(archive) {
-		http.Error(w, "range required", http.StatusRequestedRangeNotSatisfiable)
-		return
-	}
-	w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(archive)))
-	w.WriteHeader(http.StatusPartialContent)
-	if _, err := w.Write(archive[start : end+1]); err != nil {
-		return
-	}
+	(&rangeServer{archive: archive}).handler().ServeHTTP(w, r)
 }
 
 // newLatinFailureHarness provisions one synthetic Latin Work served from a
