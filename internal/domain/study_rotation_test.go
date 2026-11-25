@@ -194,3 +194,41 @@ func TestFluencySitting(t *testing.T) {
 		t.Errorf("sitting has %d answers, want none once the gap has passed", got)
 	}
 }
+
+func TestAllCardsJustAnsweredFallsBackToTheOneWaitingLongest(t *testing.T) {
+	a := answered(fluencyContext("a1", "a"), at(FluencyRecognised, rotationNow.Add(-2*time.Minute)))
+	b := answered(fluencyContext("b1", "b"), at(FluencyNotRecognised, rotationNow.Add(-time.Minute)))
+	if got := pick(t, FluencyRotation{Contexts: []FluencyContext{a, b}, Progress: rotationWords(), Now: rotationNow}); got != "a1" {
+		t.Errorf("got %s, want the card answered longest ago, not an immediate repeat", got)
+	}
+}
+
+func TestSeeingOneSpellingDoesNotMarkAnotherSeen(t *testing.T) {
+	features := "Case=Nom"
+	one := answered(fluencyContext("a1", "a"), at(FluencyRecognised, rotationNow.Add(-time.Hour*24*10)))
+	one.Form = FluencyForm{Surface: "Haus", Features: features}
+	two := answered(fluencyContext("a2", "a"), at(FluencyRecognised, rotationNow.Add(-time.Hour*24*10)))
+	two.Form = FluencyForm{Surface: "Häuser", Features: features}
+	seen := answered(fluencyContext("a3", "a"), at(FluencyRecognised, rotationNow.Add(-time.Hour*24*9)))
+	seen.Form = one.Form
+	cards := []FluencyCard{{Context: one}, {Context: two}, {Context: seen}}
+	for i := range cards {
+		cards[i].Progress = matureWord("a", StudyStateReview, 30)
+	}
+	last := fluencyFormLastSeen(cards)
+	if !last[[3]string{"a", features, "haus"}].Equal(seen.LastResponseAt) || !last[[3]string{"a", features, "häuser"}].Equal(two.LastResponseAt) {
+		t.Errorf("each spelling keeps its own last-seen time: %v", last)
+	}
+}
+
+func TestAContextMissedAgainIsNotForcedBackAgain(t *testing.T) {
+	cards := []FluencyCard{{Context: fluencyContext("a1", "a")}}
+	age := map[string]int{"a1": 4}
+	last := map[string]FluencyResponse{"a1": FluencyNotRecognised}
+	if _, ok := fluencyReturn(cards, age, map[string]int{"a1": 1}, last); !ok {
+		t.Error("a context missed once returns")
+	}
+	if _, ok := fluencyReturn(cards, age, map[string]int{"a1": 2}, last); ok {
+		t.Error("a context missed again leaves the return rule to its weight")
+	}
+}

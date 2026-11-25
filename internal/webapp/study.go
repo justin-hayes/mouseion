@@ -182,7 +182,12 @@ func (h *Handler) loadFluencyView(r *http.Request, owner string, view *studyPage
 	if err != nil {
 		return err
 	}
-	card, ok := domain.NextFluencyCard(domain.FluencyRotation{Contexts: contexts, Progress: progress, Recall: h.fluencyRecall(progress, now), Now: now})
+	// Show answer sends back the card it revealed, so the card cannot change
+	// between its question and its answer.
+	card, ok := domain.FluencyCardByID(contexts, progress, r.URL.Query().Get("context"))
+	if !ok || r.URL.Query().Get("answer") != "1" {
+		card, ok = domain.NextFluencyCard(domain.FluencyRotation{Contexts: contexts, Progress: progress, Recall: h.fluencyRecall(progress, now), Now: now})
+	}
 	if !ok {
 		view.FluencyPreparing = true
 		return nil

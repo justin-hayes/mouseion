@@ -74,28 +74,17 @@ func NextFluencyCard(in FluencyRotation) (FluencyCard, bool) {
 	}
 	sitting := fluencySitting(in.Contexts, in.Now)
 	age := map[string]int{}
+	answers := map[string]int{}
 	lastInSitting := map[string]FluencyResponse{}
 	for i, event := range sitting {
 		age[event.contextID] = len(sitting) - 1 - i
+		answers[event.contextID]++
 		lastInSitting[event.contextID] = event.response
 	}
-	if card, ok := fluencyReturn(cards, age, lastInSitting); ok {
+	if card, ok := fluencyReturn(cards, age, answers, lastInSitting); ok {
 		return card, true
 	}
-	pool := make([]FluencyCard, 0, len(cards))
-	for _, card := range cards {
-		seen, answered := age[card.Context.ID]
-		wait := FluencyCooldown
-		if lastInSitting[card.Context.ID] == FluencyNotRecognised {
-			wait = FluencyReturnAfter
-		}
-		if !answered || seen >= wait {
-			pool = append(pool, card)
-		}
-	}
-	if len(pool) == 0 {
-		pool = cards
-	}
+	pool := fluencyPool(cards, age, lastInSitting)
 	formSeen := fluencyFormLastSeen(cards)
 	weights := make(map[string]float64, len(pool))
 	for _, card := range pool {
@@ -109,6 +98,17 @@ func NextFluencyCard(in FluencyRotation) (FluencyCard, bool) {
 		return fluencyTieBefore(a, b)
 	})
 	return pool[0], true
+}
+
+// FluencyCardByID is the card of a given context, if it is a candidate: it
+// agrees with the learned meaning and its word is mature.
+func FluencyCardByID(contexts []FluencyContext, progress []StudyProgress, id string) (FluencyCard, bool) {
+	for _, card := range matureFluencyCards(contexts, progress) {
+		if card.Context.ID == id {
+			return card, true
+		}
+	}
+	return FluencyCard{}, false
 }
 
 type fluencyEvent struct {
@@ -144,14 +144,16 @@ func fluencySitting(contexts []FluencyContext, now time.Time) []fluencyEvent {
 
 // fluencyReturn is the card to bring back in this sitting: a context whose
 // latest answer, in the sitting, was "Didn't recognise it" and is at least
-// FluencyReturnAfter answers old; the one waiting longest first.
-func fluencyReturn(cards []FluencyCard, age map[string]int, last map[string]FluencyResponse) (FluencyCard, bool) {
+// FluencyReturnAfter answers old; the one waiting longest first. This rule
+// brings a context back once per sitting; if missed again, its weight alone
+// decides, so a few hard contexts cannot crowd out the rest.
+func fluencyReturn(cards []FluencyCard, age, answers map[string]int, last map[string]FluencyResponse) (FluencyCard, bool) {
 	var best FluencyCard
 	found := false
 	for _, card := range cards {
 		id := card.Context.ID
 		waited, answered := age[id]
-		if !answered || last[id] != FluencyNotRecognised || waited < FluencyReturnAfter {
+		if !answered || last[id] != FluencyNotRecognised || waited < FluencyReturnAfter || answers[id] > 1 {
 			continue
 		}
 		if !found || waited > age[best.Context.ID] || (waited == age[best.Context.ID] && fluencyTieBefore(card, best)) {
@@ -162,10 +164,10 @@ func fluencyReturn(cards []FluencyCard, age map[string]int, last map[string]Flue
 }
 
 // fluencyFormLastSeen is when each form of each word was last answered.
-func fluencyFormLastSeen(cards []FluencyCard) map[[2]string]time.Time {
-	seen := map[[2]string]time.Time{}
+func fluencyFormLastSeen(cards []FluencyCard) map[[3]string]time.Time {
+	seen := map[[3]string]time.Time{}
 	for _, card := range cards {
-		key := [2]string{card.Progress.ID, card.Context.Form.Key()}
+		key := [3]string{card.Progress.ID, card.Context.Form.Key(), card.Context.Form.surfaceKey()}
 		if card.Context.LastResponseAt.After(seen[key]) {
 			seen[key] = card.Context.LastResponseAt
 		}
@@ -173,7 +175,7 @@ func fluencyFormLastSeen(cards []FluencyCard) map[[2]string]time.Time {
 	return seen
 }
 
-func fluencyWeight(card FluencyCard, in FluencyRotation, formSeen map[[2]string]time.Time) float64 {
+func fluencyWeight(card FluencyCard, in FluencyRotation, formSeen map[[3]string]time.Time) float64 {
 	weight := fluencyBaseWeight
 	hardness := 0.0
 	for _, event := range card.Context.Responses {
@@ -185,7 +187,7 @@ func fluencyWeight(card FluencyCard, in FluencyRotation, formSeen map[[2]string]
 		}
 	}
 	weight += fluencyHardnessWeight * hardness
-	weight += fluencyFormStaleWeight * fluencyStaleness(formSeen[[2]string{card.Progress.ID, card.Context.Form.Key()}], in.Now)
+	weight += fluencyFormStaleWeight * fluencyStaleness(formSeen[[3]string{card.Progress.ID, card.Context.Form.Key(), card.Context.Form.surfaceKey()}], in.Now)
 	if card.Context.LastResponseAt.IsZero() {
 		weight += fluencyNoveltyWeight
 	} else {
@@ -238,4 +240,33 @@ func matureFluencyCards(contexts []FluencyContext, progress []StudyProgress) []F
 		}
 	}
 	return cards
+}
+
+// fluencyPool is the cards the weights choose among: those not just answered
+// in the sitting, or when every card was, those waiting longest.
+func fluencyPool(cards []FluencyCard, age map[string]int, last map[string]FluencyResponse) []FluencyCard {
+	pool := make([]FluencyCard, 0, len(cards))
+	for _, card := range cards {
+		seen, answered := age[card.Context.ID]
+		wait := FluencyCooldown
+		if last[card.Context.ID] == FluencyNotRecognised {
+			wait = FluencyReturnAfter
+		}
+		if !answered || seen >= wait {
+			pool = append(pool, card)
+		}
+	}
+	if len(pool) > 0 {
+		return pool
+	}
+	oldest := 0
+	for _, card := range cards {
+		oldest = max(oldest, age[card.Context.ID])
+	}
+	for _, card := range cards {
+		if age[card.Context.ID] == oldest {
+			pool = append(pool, card)
+		}
+	}
+	return pool
 }

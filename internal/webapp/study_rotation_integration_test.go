@@ -89,3 +89,21 @@ func TestStudyFluencyFavoursAContextNotRecognisedInALaterSitting(t *testing.T) {
 	s.clock.Advance(24 * time.Hour)
 	assert.Equal(t, hard, s.shownFluencyContext())
 }
+
+func TestStudyFluencyShowAnswerKeepsTheCardAcrossTheSittingBoundary(t *testing.T) {
+	s := newStudyHarness(t)
+	s.matureHaus()
+	s.openFluency()
+	first := s.shownFluencyContext()
+	s.answerFluency(first, "not-recognised")
+	question := getAs(t, s.h, "/de/study", s.cookies).Body.String()
+	card := fluencyContextField.FindStringSubmatch(question)
+	require.NotNil(t, card)
+	// The sitting ends before the learner reveals the answer: the revealed card
+	// is still the one that was asked.
+	s.clock.Advance(domain.FluencySittingGap + time.Minute)
+	assert.Equal(t, card[1], func() string {
+		page := getAs(t, s.h, "/de/study?answer=1&context="+card[1], s.cookies).Body.String()
+		return fluencyContextField.FindStringSubmatch(page)[1]
+	}())
+}
