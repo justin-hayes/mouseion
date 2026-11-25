@@ -13,7 +13,7 @@ test.describe('EPUB acquisition failure evidence', () => {
     await signIn(page);
 
     // The failed Book is an ordinary To Read Book in the collection.
-    await page.goto('/library?disposition=to_read');
+    await page.goto('/de/library?disposition=to_read');
     const row = page.locator('#book-row-fixture-acquisition-failed');
     await expect(row).toHaveCount(1);
     await expect(row.locator('.library-book__membership')).toContainText('To Read');

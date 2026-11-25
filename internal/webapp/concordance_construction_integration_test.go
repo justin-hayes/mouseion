@@ -178,7 +178,7 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 				values.Set(key, value)
 			}
 		}
-		return "/vocabulary/concordance?" + values.Encode()
+		return "/grc/vocabulary/concordance?" + values.Encode()
 	}
 	get := func(path string) *testingResponse {
 		response := perform(t, h, http.MethodGet, path, nil, cookies)
@@ -209,7 +209,7 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		link := regexp.MustCompile(`id="concordance-parallels-origin" href="([^"]+)"`).FindStringSubmatch(first.body)
 		require.Len(t, link, 2)
 		target := html.UnescapeString(link[1])
-		assert.Contains(t, target, "/vocabulary/concordance/sentence?")
+		assert.Contains(t, target, "/grc/vocabulary/concordance/sentence?")
 		assert.Contains(t, target, "sentence=0")
 		assert.Contains(t, target, "target=1")
 		assert.Contains(t, target, "construction=indirect_statement")
@@ -260,7 +260,7 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		testutil.Cleanup(t, "restore Greek study language", func() error {
 			return store.SetActiveStudyLanguage(ctx, learner.ID, "grc")
 		})
-		response := get(query(nil))
+		response := get(strings.Replace(query(nil), "/grc/", "/de/", 1))
 		assert.Equal(t, http.StatusBadRequest, response.code)
 		assert.Contains(t, response.body, concordanceNoticeState)
 	})
@@ -327,7 +327,7 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		var corpus string
 		require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE book_id=$1`, origin.id).Scan(&corpus))
 		studyQuery.Set("corpus", corpus)
-		study := get("/vocabulary/concordance/sentence?" + studyQuery.Encode())
+		study := get("/grc/vocabulary/concordance/sentence?" + studyQuery.Encode())
 		require.Equal(t, http.StatusOK, study.code, study.body)
 		assert.Contains(t, study.body, `aria-label="Parallels for Indirect statement"`)
 		assert.Contains(t, study.body, `aria-label="Parallels for Articular infinitive, genitive"`)
@@ -415,7 +415,7 @@ func TestConcordanceConstructionParallelsOverHTTP(t *testing.T) {
 		}
 	})
 	t.Run("the word lookups still work beside a parallels page", func(t *testing.T) {
-		response := get("/vocabulary/concordance?as=form&term=" + url.QueryEscape("ὅτι"))
+		response := get("/grc/vocabulary/concordance?as=form&term=" + url.QueryEscape("ὅτι"))
 		assert.Equal(t, http.StatusOK, response.code)
 		assert.NotContains(t, response.body, "concordance-tier")
 		assert.Contains(t, response.body, "Word form ὅτι")

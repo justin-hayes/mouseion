@@ -10,7 +10,7 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
     await page.getByLabel('Study language').selectOption('de');
   }
 
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   await page.locator('summary').filter({ hasText: 'Mark reading finished' }).click();
   await page.getByRole('button', { name: 'Mark reading finished' }).click();
 
@@ -22,7 +22,7 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
   await page.getByRole('button', { name: 'Apply correction to selected occurrences' }).click();
   await expect(page.getByText('Effective lemma: pfad (corrected)', { exact: true })).toBeVisible();
 
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   const start = page.locator('form[action="/reading/books/fixture-route-match/start"]');
   await start.locator('xpath=../..').locator('summary').click();
   await start.getByRole('button', { name: 'Confirm start reading' }).click();

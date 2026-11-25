@@ -60,7 +60,7 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 
 	// Without a ready projection the chooser and Reading view say Updating
 	// and never a band computed from raw counts.
-	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code)
 	assert.Contains(t, chooser.Body.String(), "Updating")
 	assert.NotContains(t, chooser.Body.String(), "Known vocabulary coverage")

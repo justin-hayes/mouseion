@@ -69,7 +69,7 @@ test.describe('Analysis evidence situations', () => {
     test(`My Books and the Reading chooser present ${situation.name}`, async ({ page }) => {
       await signIn(page);
 
-      await page.goto('/library?disposition=to_read');
+      await page.goto('/de/library?disposition=to_read');
       const row = page.locator(`#book-row-${situation.bookId}`);
       await expect(row).toHaveCount(1);
       await expect(row.locator('.library-book__evidence')).toHaveText(situation.evidence);
@@ -81,10 +81,10 @@ test.describe('Analysis evidence situations', () => {
         await expect(row.getByRole('button', { name: /^Retry / })).toHaveCount(0);
       }
 
-      await page.goto('/library');
+      await page.goto('/de/library');
       await page.getByLabel('Study language').selectOption('de');
-      await expect(page).toHaveURL(/\/library$/);
-      await page.goto('/reading/switch');
+      await expect(page).toHaveURL(/\/de\/library$/);
+      await page.goto('/de/reading/switch');
       const candidate = page.locator('li.reading-chooser-book').filter({ hasText: situation.title });
       await expect(candidate).toHaveCount(1);
       await expect(candidate.getByRole('heading', { name: situation.title })).toBeVisible();
@@ -112,7 +112,7 @@ test.describe('Analysis evidence situations', () => {
   test('submitting the retry for a non-current re-analysis failure succeeds', async ({ page }) => {
     await signIn(page);
 
-    await page.goto('/library?disposition=to_read');
+    await page.goto('/de/library?disposition=to_read');
     const row = page.locator('#book-row-fixture-reanalysis-failed');
     await row.getByRole('button', { name: 'Retry analysis', exact: true }).click();
     await expect(page).toHaveURL(/\/reading\?message=Analysis/);

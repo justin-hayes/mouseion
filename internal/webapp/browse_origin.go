@@ -130,9 +130,6 @@ func (o browseOrigin) Apply(raw string) string {
 // language, and evidence revision before showing anything.
 func (o browseOrigin) ReturnURL(language string) string {
 	values := url.Values{}
-	if language != "" {
-		values.Set("language", language)
-	}
 	if o.Prefix != "" {
 		values.Set("q", o.Prefix)
 	}
@@ -148,7 +145,7 @@ func (o browseOrigin) ReturnURL(language string) string {
 		values.Set("row", o.Row)
 	}
 	values.Set("page", strconv.Itoa(max(o.Page, 1)))
-	return "/reading?" + values.Encode()
+	return studyLanguagePath(pageKindReading, language) + "?" + values.Encode()
 }
 
 // browseRowKey identifies a Browse row by its effective identity. The lexical

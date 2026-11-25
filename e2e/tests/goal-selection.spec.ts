@@ -23,9 +23,9 @@ test.describe('Current reading selection', () => {
     const language = page.getByLabel('Study language');
     if (await language.inputValue() !== 'de') {
       await language.selectOption('de');
-      await expect(page).toHaveURL(/\/library$/);
+      await expect(page).toHaveURL(/\/de\/library$/);
     }
-    await page.goto('/reading');
+    await page.goto('/de/reading');
 
     const currentCard = page.locator('.journey-book--goal');
     if (await currentCard.count() === 0) {
@@ -47,8 +47,8 @@ test.describe('Current reading selection', () => {
   test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
       await signIn(page);
       await page.getByLabel('Study language').selectOption('de');
-      await expect(page).toHaveURL(/\/library$/);
-      await page.goto('/reading');
+      await expect(page).toHaveURL(/\/de\/library$/);
+      await page.goto('/de/reading');
 
       const current = page.locator('#primary-goal-section');
       const stop = current.locator('details').filter({ hasText: 'End current reading' });
@@ -79,11 +79,11 @@ test.describe('Current reading selection', () => {
       expect(staleLocation).toContain('error=');
       await page.goto(staleLocation);
       await expect(page.getByRole('alert')).toContainText('No changes were made');
-      await page.goto('/reading');
+      await page.goto('/de/reading');
       await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
 
-      await expect(current.locator('a[href="/reading/switch"]')).toBeVisible();
-      await page.goto('/reading/switch');
+      await expect(current.locator('a[href="/de/reading/switch"]')).toBeVisible();
+      await page.goto('/de/reading/switch');
       const switchCandidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
       const switchDisclosure = switchCandidate.locator('details').filter({ hasText: 'Switch to this book' });
       await switchDisclosure.locator('summary').click();
@@ -99,9 +99,9 @@ test.describe('Current reading selection', () => {
       const switcher = page.getByLabel('Study language');
       if (await switcher.inputValue() !== 'de') {
         await switcher.selectOption('de');
-        await expect(page).toHaveURL(/\/library$/);
+        await expect(page).toHaveURL(/\/de\/library$/);
       }
-      await page.goto('/reading');
+      await page.goto('/de/reading');
 
     const goal = page.locator('#primary-goal-section');
       await expect(goal).toContainText('Der lange Weg nach Hause');
@@ -158,13 +158,13 @@ test.describe('Current reading selection', () => {
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
     await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/library');
+    await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/de/library');
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     const currentEnd = goal.locator('details').filter({ hasText: 'End current reading' });
     await currentEnd.locator('summary').click();
     await expect(currentEnd.getByRole('button', { name: 'Confirm end current reading' })).toBeVisible();
 
-    await page.goto('/reading/switch');
+    await page.goto('/de/reading/switch');
     const chooser = page.locator('li.reading-chooser-book');
     // Membership can grow within the stateful sequence in this file, so assert
     // structurally instead of by exact count.
@@ -188,12 +188,12 @@ test.describe('Current reading selection', () => {
       });
       expect(retryResponse.status()).toBe(303);
 
-      await page.goto('/library');
+      await page.goto('/de/library');
       const goalBook = page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
       await expect(goalBook.locator('.library-book__membership')).toHaveText('Currently reading');
-      await expect(goalBook.getByRole('link', { name: 'View in Reading' })).toHaveAttribute('href', '/reading#journey-book-fixture-book');
+      await expect(goalBook.getByRole('link', { name: 'View in Reading' })).toHaveAttribute('href', '/de/reading#journey-book-fixture-book');
       await expect(goalBook.getByText('To Read', { exact: true })).toHaveCount(0);
-      await page.goto('/library?disposition=to_read');
+      await page.goto('/de/library?disposition=to_read');
       await expect(page.getByRole('link', { name: 'To Read (16)' })).toBeVisible();
       await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' }).locator('.library-book__membership')).toHaveText('Currently reading');
       await expect(page.locator('.library-books .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
@@ -202,8 +202,8 @@ test.describe('Current reading selection', () => {
    test('end mutations return to truthful Reading state', async ({ page }) => {
      await signIn(page);
      await page.getByLabel('Study language').selectOption('it');
-     await expect(page).toHaveURL(/\/library$/);
-     await page.goto('/reading');
+     await expect(page).toHaveURL(/\/it\/library$/);
+     await page.goto('/it/reading');
 
      const currentCard = page.locator('.journey-book--goal');
      if (await currentCard.count() === 0) {
@@ -228,7 +228,7 @@ test.describe('Current reading selection', () => {
       await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 
      const startBook = async (bookTitle: string) => {
-       await page.goto('/reading');
+       await page.goto('/it/reading');
        const candidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('heading', { name: bookTitle, exact: true }) });
        await expect(candidate).toBeVisible();
        const start = candidate.locator('details').filter({ hasText: 'Start reading' });
@@ -245,7 +245,7 @@ test.describe('Current reading selection', () => {
      await expect(page).toHaveURL(/\/reading\?message=/);
      await expect(page.locator('.journey-book--goal')).toHaveCount(0);
 
-     await page.goto('/library');
+     await page.goto('/it/library');
      const endedBook = page.locator('.library-books .library-book').filter({ hasText: title });
      await expect(endedBook.locator('.library-book__membership .status-badge')).toHaveText('To Read');
      await startBook(title);

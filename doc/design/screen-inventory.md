@@ -11,11 +11,11 @@ reading-intent analysis trigger in
 [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md), with the
 standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 Language is the
-app's organizing mode per
-[ADR 0050](../adr/0050-active-study-language.md) and
-[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
-study language scopes My Books, Reading, and Vocabulary; current reading is
-scoped by language. Catalog maintenance is a fourth principal
+app's organizing context per
+[ADR 0131](../adr/0131-the-url-carries-the-study-language.md) and
+[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): the address
+carries the study language of My Books, Reading, and Vocabulary; current reading
+is scoped by language. Catalog maintenance is a fourth principal
 destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
 Catalog-sync and collection-browsing surfaces
@@ -51,8 +51,8 @@ keyboard use, and preserves a clear path back to the parent Book or Reading.
 There is no Dashboard, Explore, Reading Horizon, or Learning destination in the
 canonical learner-facing architecture.
 
-The shell also carries a native **active study language** control on every
-authenticated screen. It follows the four destinations in document and keyboard
+The shell also carries a native **study language** control on every
+per-language page (not on job status, Catalog, or Book-addressed pages). It follows the four destinations in document and keyboard
 order; wide screens place it at the trailing end, while compact screens show it
 beside the wordmark above the destinations. It lists the learner's study
 languages plus any known-vocabulary-only language marked "no books", marks a
@@ -84,8 +84,8 @@ the next Book.
 
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
-| My Books | Shipped `GET /library`; catalogue browsing is reached through Catalog | Recognize and find a Book in the active language's cover-led collection, understand its one visible workflow bucket, and inspect completion history. | Remove from My Books (refused for the current Book), record a prior completion, read again, View in Reading, or Catalog | To Read and Read tabs follow one visible bucket per Book; every Book, classical or not, is one ordinary row with its own actions, a classical Book showing its Work title, Edition label, position ("Book 2 of 24" for a leftover per-book Book, none for a whole Work), Greek title and Classical catalog provenance, and two Editions of one Work are two rows told apart by their Edition labels; a leftover Book on a withdrawn per-book definition stays an ordinary row that can be removed; each Book carries the ordinary per-Book Analysis update notice with current-Book End wording; latest completion and total count; imported history distinct from Mouseion completion; empty disposition/history; metadata-only Book, cover states, scoped search by title, author, English or Greek title, accent-insensitive and with no trailing Book number, paging, long content, enhancement unavailable; a recorded EPUB acquisition failure names its reason on the To Read row and offers **Retry** only for entry, fetch and import stages, and the reason stays until an acquisition succeeds |
-| Reading Book anchor | Embedded in `GET /reading`; legacy `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, current evidence, preparation state, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Reading actions | Current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, current-reading state |
+| My Books | Shipped `GET /{language}/library` (`/library` redirects to the Last study language); catalogue browsing is reached through Catalog | Recognize and find a Book in the active language's cover-led collection, understand its one visible workflow bucket, and inspect completion history. | Remove from My Books (refused for the current Book), record a prior completion, read again, View in Reading, or Catalog | To Read and Read tabs follow one visible bucket per Book; every Book, classical or not, is one ordinary row with its own actions, a classical Book showing its Work title, Edition label, position ("Book 2 of 24" for a leftover per-book Book, none for a whole Work), Greek title and Classical catalog provenance, and two Editions of one Work are two rows told apart by their Edition labels; a leftover Book on a withdrawn per-book definition stays an ordinary row that can be removed; each Book carries the ordinary per-Book Analysis update notice with current-Book End wording; latest completion and total count; imported history distinct from Mouseion completion; empty disposition/history; metadata-only Book, cover states, scoped search by title, author, English or Greek title, accent-insensitive and with no trailing Book number, paging, long content, enhancement unavailable; a recorded EPUB acquisition failure names its reason on the To Read row and offers **Retry** only for entry, fetch and import stages, and the reason stays until an acquisition succeeds |
+| Reading Book anchor | Embedded in `GET /{language}/reading`; legacy `/journey/{bookID}` is a compatibility redirect | Understand a Book's identity, current evidence, preparation state, and recovery actions without opening a competing detail page. | Focused deck preparation, analysis status, My Books, or Reading actions | Current/stale/unavailable evidence, queued/running/failed analysis, focused preparation state, current-reading state |
 | Analysis status | Current `GET /jobs/{id}` with `GET /jobs/{id}/status` | Monitor, cancel, or retry one analysis run while retaining Book context. | Reading when complete | Queued, running, completed, failed/actionable, cancelled, retrying, historical result |
 | Book preparations and Catalog sync | Current `GET /jobs` | Inspect owner-scoped operational history in two tables: **Book preparations**, one row per Classical preparation, EPUB acquisition or analysis job with the same columns (kind, Book, status, stage, code, progress where known, created), and **Catalog sync**, one row per sync job with the shared status badge, its connection and its error text. This is not a learner result surface. | The row's Book while it remains in My Books (a removed Book keeps its history row without a link), an analysis status page (analysis rows keep their detail link), or a Catalog sync status page | Empty history, mixed states, historical/legacy records, a failed row stating the same stage and code My Books explains for that Book, a live job superseding its Book's older failure record, an inline-era failure with no job, newest first |
 | Exact-analysis compatibility route | Shipped `GET /books/{book-id}/analyses/{analysis-run-id}` redirect | Preserve deep links and references while opening the canonical Book anchor. | Reading anchor for current To Read Books; 404 otherwise | Valid owned current result redirect, non-member or incomplete result, missing or unauthorized reference |

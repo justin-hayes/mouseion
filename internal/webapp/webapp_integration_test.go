@@ -296,7 +296,7 @@ func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
 	assert.Contains(t, updatedPage.Body.String(), "Updated deck revision available")
 	assert.Contains(t, updatedPage.Body.String(), "revision 2")
 	assert.Contains(t, updatedPage.Body.String(), "Not in To Read")
-	assert.Contains(t, updatedPage.Body.String(), `href="/library"`, "focused deck disposition action leads to My Books")
+	assert.Contains(t, updatedPage.Body.String(), `href="/de/library"`, "focused deck disposition action leads to My Books")
 	assert.NotContains(t, updatedPage.Body.String(), "Move to To Read")
 	assert.NotContains(t, updatedPage.Body.String(), `action="/reading/books/`)
 	for i := range 2 {
@@ -350,6 +350,9 @@ func performWithHeader(t *testing.T, h http.Handler, method, path string, form u
 	}
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, r)
+	if location, ok := prefixedMyBooksRedirect(path, w); ok && method == http.MethodGet {
+		return performWithHeader(t, h, method, location, form, cookies, header, value)
+	}
 	return w
 }
 func hiddenToken(t *testing.T, body string) string {

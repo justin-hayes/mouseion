@@ -20,7 +20,7 @@ test.describe('migration and epistemic regression coverage', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
   test('shows migrated My Books states and server-rendered controls', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/library', '/reading', '/catalogs', '/vocabulary', '/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
+    for (const path of ['/de/library', '/de/reading', '/catalogs', '/de/vocabulary', '/de/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -51,7 +51,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('shows current reading and Browse without Other To Read choices or forecasts', async ({ page }) => {
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -70,7 +70,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();
@@ -83,7 +83,7 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_book_id"]')).toHaveCount(1);
     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
 
-    await page.goto('/vocabulary');
+    await page.goto('/de/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Vocabulary views' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);

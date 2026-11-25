@@ -145,7 +145,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT COALESCE(MAX(river_job_id),0)+1 FROM analysis_jobs`).Scan(&pendingJobID))
 	_, err = store.Pool().Exec(ctx, `INSERT INTO analysis_jobs(river_job_id,owner_id,source_material_id,content_hash,corpus_id,progress,display_number,analysis_run_id) VALUES($1,$2,$3,$4,$5,100,(SELECT COALESCE(MAX(display_number),0)+1 FROM analysis_jobs WHERE owner_id=$2),$6)`, pendingJobID, owner.ID, pendingSource.ID, pendingSource.ContentHash, pendingCorpus.ID, pendingRunID)
 	require.NoError(t, err)
-	readingPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	readingPage := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
 	assert.NotContains(t, readingPage.Body.String(), "Publication pending", "Other To Read Books are not listed while a Book is current")
 	// A publication failure is no longer a job error string (cleanup migration
@@ -153,12 +153,12 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	// and the pending Book stays unlisted either way.
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner.ID, pendingBook.ID, pendingSource.ID, pendingRunID)
 	require.NoError(t, err)
-	publishedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	publishedPage := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, publishedPage.Code)
 	assert.NotContains(t, publishedPage.Body.String(), "This Book is not shown as analyzed until publication completes")
 	assert.Contains(t, readingPage.Body.String(), "Confirm end current reading", "End current reading is explicit and confirmed")
 	assert.NotContains(t, readingPage.Body.String(), "Set aside this Book")
-	assert.Contains(t, readingPage.Body.String(), `href="/library"`, "Reading directs disposition decisions to My Books")
+	assert.Contains(t, readingPage.Body.String(), `href="/de/library"`, "Reading directs disposition decisions to My Books")
 	assert.Contains(t, readingPage.Body.String(), `href="/reading/books/`+book.ID+`/deck/preparations/new"`)
 	assert.Contains(t, readingPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`, "the current reading offers explicit optional preparation")
 
@@ -228,7 +228,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	duplicateStart := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, duplicateStart.Code)
 	assert.Contains(t, duplicateStart.Header().Get("Location"), "is+already+your+current+reading")
-	queuedPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	queuedPage := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code)
 	assert.Contains(t, queuedPage.Body.String(), `action="/reading/books/`+book.ID+`/deck/retry"`)
 	assert.Contains(t, queuedPage.Body.String(), "Retry deck preparation")
@@ -264,7 +264,7 @@ func TestCurrentReadingStartAndSwitchSurviveDeckFailuresWithFocusedRetry(t *test
 	assert.Zero(t, switchedPreparationCount, "switching Reading must not submit optional deck work")
 	oldJobAfterSwitch := perform(t, h, http.MethodPost, "/jobs/"+strconv.FormatInt(analysisJobID, 10)+"/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusNotFound, oldJobAfterSwitch.Code, "the former analysis-job route cannot prepare a Book after switching away")
-	stillCurrent := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	stillCurrent := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, stillCurrent.Code)
 	assert.Contains(t, stillCurrent.Body.String(), currentAfterSwitch.BookID, "a denied historical submission must not change Reading")
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{

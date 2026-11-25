@@ -44,9 +44,7 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !lemmaReviewLanguageMatches(w, r, detail, "reviewing occurrences") {
-		return
-	}
+	adoptDetailLanguage(r.Context(), detail)
 	form := strings.TrimSpace(r.URL.Query().Get("form"))
 	review, err := h.services.LemmaReview.Review(r.Context(), owner.ID, bookID, form)
 	if err != nil {
@@ -74,9 +72,7 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !lemmaReviewLanguageMatches(w, r, detail, "requesting a suggestion") {
-		return
-	}
+	adoptDetailLanguage(r.Context(), detail)
 	suggestion, err := h.services.LemmaReview.Suggest(r.Context(), owner.ID, bookID, occurrenceID)
 	if err != nil {
 		writeLemmaReviewError(w, err)
@@ -110,17 +106,6 @@ func lemmaReviewPageError(canCorrect bool) string {
 	return "This Book is current reading. End current reading before changing its vocabulary; the frozen reading snapshot remains unchanged."
 }
 
-// lemmaReviewLanguageMatches reports whether the request's study language is the
-// Book's, and writes the conflict response when it is not.
-func lemmaReviewLanguageMatches(w http.ResponseWriter, r *http.Request, detail domain.MyBook, purpose string) bool {
-	language, _ := activeStudyLanguageForContext(r.Context())
-	if language != "" && language == detail.Book.LanguageTag {
-		return true
-	}
-	http.Error(w, "Choose this Book's study language in Reading before "+purpose+".", http.StatusConflict)
-	return false
-}
-
 func (h *Handler) correctLemma(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
@@ -151,9 +136,7 @@ func (h *Handler) previewLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		fail(w, err)
 		return
 	}
-	if !lemmaReviewLanguageMatches(w, r, detail, "reviewing occurrences") {
-		return
-	}
+	adoptDetailLanguage(r.Context(), detail)
 	language, _ := activeStudyLanguageForContext(r.Context())
 	preview, err := h.services.LemmaReview.Preview(r.Context(), owner.ID, bookID, lemmaReviewProposal(r, language, previewOccurrenceIDs(r)))
 	if err != nil {
@@ -179,9 +162,7 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 	if !ok {
 		return
 	}
-	if !lemmaReviewLanguageMatches(w, r, detail, "reviewing occurrences") {
-		return
-	}
+	adoptDetailLanguage(r.Context(), detail)
 	language, _ := activeStudyLanguageForContext(r.Context())
 	form := strings.TrimSpace(r.FormValue("form"))
 	proposal := lemmaReviewProposal(r, language, r.Form["selected"])

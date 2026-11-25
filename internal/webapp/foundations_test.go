@@ -54,7 +54,7 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	var login, library bytes.Buffer
-	require.NoError(t, LoginPage("csrf", "", "/library", false).Render(context.Background(), &login))
+	require.NoError(t, LoginPage("csrf", "", "/de/library", false).Render(context.Background(), &login))
 	require.NoError(t, Layout("My Books", &domain.User{Username: "learner"}, "csrf").Render(context.Background(), &library))
 
 	assert.Contains(t, login.String(), `href="/static/app.css"`)
@@ -197,7 +197,7 @@ func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testi
 		{
 			name:    "invalid credentials",
 			message: "Invalid credentials",
-			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/library"`},
+			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/de/library"`},
 		},
 		{
 			name:       "first account",
@@ -207,7 +207,7 @@ func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testi
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			require.NoError(t, LoginPage("csrf", test.message, "/library", test.onboarding).Render(context.Background(), &output))
+			require.NoError(t, LoginPage("csrf", test.message, "/de/library", test.onboarding).Render(context.Background(), &output))
 			for _, want := range test.want {
 				assert.Contains(t, output.String(), want)
 			}
@@ -370,7 +370,7 @@ func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
 	html := renderReadingBrowse(t, "de", page, "ha")
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
 	assert.Contains(t, html, `id="vocabulary-browse-results"`)
-	assert.Contains(t, html, `href="/vocabulary/concordance?`)
+	assert.Contains(t, html, `href="/de/vocabulary/concordance?`)
 	assert.Contains(t, html, `hx-select="#vocabulary-browse-results"`)
 	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
 		assert.NotContains(t, html, retired)
@@ -535,7 +535,7 @@ func TestVocabularyBrowseExplainsMalformedAndOutOfRangePagesWithFirstPage(t *tes
 		assert.Equal(t, http.StatusBadRequest, status, page)
 		assert.Contains(t, html, "That page is not available", page)
 		assert.Contains(t, html, `>First page</a>`, page)
-		assert.Contains(t, html, `href="/reading?language=de&amp;page=1&amp;q=ha&amp;reading=book-1"`, page)
+		assert.Contains(t, html, `href="/de/reading?page=1&amp;q=ha&amp;reading=book-1"`, page)
 		assert.NotContains(t, html, "Browse results", page)
 	}
 	view, status, html := loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{total: 51}), "/reading?page=4", "book-1")

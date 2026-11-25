@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -199,6 +200,9 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBook(t *testing.T) {
 	location := inMyBooks.Header().Get("Location")
 	assert.Contains(t, location, "/library?")
 	assert.Contains(t, location, "#"+myBookRowID(ids[0]))
+	// The redirect alone changes nothing; the prefixed page records the language.
+	landing, _, _ := strings.Cut(location, "#")
+	require.Equal(t, http.StatusOK, perform(t, h, "GET", landing, nil, cookies).Code)
 	active, err = store.GetStoredActiveStudyLanguage(ctx, learner.ID)
 	require.NoError(t, err)
 	assert.Equal(t, classical.Language, active)
@@ -285,6 +289,8 @@ func TestClassicalCatalogAddNamesAncientGreekForOneBook(t *testing.T) {
 		require.Equal(t, http.StatusSeeOther, follow.Code)
 		require.Contains(t, follow.Header().Get("Location"), "/library?")
 		require.Contains(t, follow.Header().Get("Location"), "#"+myBookRowID(ids[0]))
+		landing, _, _ := strings.Cut(follow.Header().Get("Location"), "#")
+		require.Equal(t, http.StatusOK, perform(t, h, "GET", landing, nil, cookies).Code)
 		active, err := store.GetStoredActiveStudyLanguage(ctx, learner.ID)
 		require.NoError(t, err)
 		require.Equal(t, classical.Language, active)

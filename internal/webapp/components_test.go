@@ -58,7 +58,9 @@ func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T
 
 func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
-		ActiveLanguage: "de",
+		LastLanguage: "de",
+		PageLanguage: "de",
+		PageKind:     pageKindMyBooks,
 		Options: []activeStudyLanguageOption{
 			{Language: "de", DisplayName: "German", HasBooks: true},
 			{Language: "it", DisplayName: "Italian", HasBooks: true, NewArrival: true},
@@ -66,9 +68,9 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 			{Language: "fr", DisplayName: "French"},
 		},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
 	requireMarkup(t, html,
-		`<select id="active-study-language" name="language"`,
+		`<select id="active-study-language" name="lang"`,
 		`<label for="active-study-language"><span class="site-header__language-label">Study language</span>`,
 		`Deutsch`,
 		`Italiano (new)`,
@@ -76,25 +78,36 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 		`French (fr) (no books)`,
 		`value="fr"`,
 		`<noscript><button class="btn btn-primary" type="submit">Switch language</button></noscript>`,
-		`action="/active-study-language"`,
+		`method="get" action="/study-language"`,
 	)
 	assert.NotContains(t, html, "German (de)")
 	assert.NotContains(t, html, "Greek (el)")
 	assert.NotContains(t, html, `value="">Choose a study language`, "active language switcher exposes a selectable empty option")
 }
 
-func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
+func TestActiveStudyLanguageSwitcherIsHiddenWithoutAPageLanguage(t *testing.T) {
 	view := &shellView{
-		Options: []activeStudyLanguageOption{
-			{Language: "de", DisplayName: "German", HasBooks: true},
-		},
+		LastLanguage: "de",
+		Options:      []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, "csrf"), "")
-	requireMarkup(t, html, `<option value="" disabled selected>Choose a study language</option>`)
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
+	assert.Empty(t, html, "job status and other pages without a language have no picker")
+}
+
+func TestActiveStudyLanguageSwitcherIsHiddenOnBookAddressedPages(t *testing.T) {
+	// A Book-addressed page (lemma review, deck preparation) has the Book's
+	// language as its page language but is not a per-language page kind.
+	view := &shellView{
+		LastLanguage: "it",
+		PageLanguage: "de",
+		Options:      []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}, {Language: "it", DisplayName: "Italian", HasBooks: true}},
+	}
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
+	assert.Empty(t, html, "Book-addressed pages have no picker")
 }
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, "csrf"), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, NavigationLibrary), "")
 	assert.Empty(t, html, "empty language switcher rendered markup")
 }
 

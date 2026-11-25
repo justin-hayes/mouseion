@@ -149,7 +149,7 @@ func (e sentenceStudyConstructionEntry) parallelsLabel() string {
 // labelled, with this Book as the origin Book and this occurrence as the origin.
 func (e sentenceStudyConstructionEntry) parallelsURL(study domain.SentenceStudy) string {
 	return vocabularyConcordancePageURL(1, domain.ConcordanceLookup{
-		Term: e.ID, Match: domain.ConcordanceMatchConstruction, Subtype: e.SubtypeID, Priority: study.BookID,
+		Language: domain.ConcordanceConstructionLanguage, Term: e.ID, Match: domain.ConcordanceMatchConstruction, Subtype: e.SubtypeID, Priority: study.BookID,
 		OriginLemma: e.anchorLemma(study),
 		Origin:      &domain.ConcordanceConstructionOrigin{RunID: study.AnalysisRunID, Sentence: int(study.SentenceOrdinal), Anchor: int(e.anchor)},
 	})

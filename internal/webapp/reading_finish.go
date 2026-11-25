@@ -23,6 +23,9 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r).ID
 	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
 	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
+	if !h.adoptBookLanguageOrFail(w, r, owner, expectedBookID) {
+		return
+	}
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
 		h.respondCurrentReading(w, r, "", currentReadingLanguageRequiredMessage, "")

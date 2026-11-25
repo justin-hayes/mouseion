@@ -345,7 +345,14 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		http.NotFound(w, r)
 		return
 	}
-	back := safeConcordanceReturnURL(query.Get("return"))
+	language, _ := activeStudyLanguageForContext(r.Context())
+	// The URL names the language; a sentence analyzed in another one is not
+	// this page's (ADR 0131).
+	if study.Language != "" && canonicalization.NormalizeLanguage(study.Language) != language {
+		http.NotFound(w, r)
+		return
+	}
+	back := safeConcordanceReturnURL(query.Get("return"), language)
 	// A sentence overlapping a recorded speaker label is raw Concordance
 	// evidence, not study context. The same rule that withholds the Study
 	// affordance refuses a direct request (ADR 0103).
@@ -356,31 +363,34 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 	render(w, r, VocabularySentenceStudyPageView(u, h.csrf(w, r), study, back, query.Get("construction")))
 }
 
-func safeConcordanceReturnURL(candidate string) string {
+// safeConcordanceReturnURL accepts only a Concordance address in the page's own
+// study language; anything else returns to that language's Concordance landing.
+func safeConcordanceReturnURL(candidate, language string) string {
+	landing := studyLanguagePath(pageKindConcordance, language)
 	parsed, err := url.Parse(candidate)
-	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil || parsed.Path != "/vocabulary/concordance" || parsed.RawPath != "" {
-		return "/vocabulary/concordance"
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil || parsed.Path != landing || parsed.RawPath != "" {
+		return landing
 	}
 	values, err := url.ParseQuery(parsed.RawQuery)
 	if err != nil {
-		return "/vocabulary/concordance"
+		return landing
 	}
 	focus := values.Get("focus")
 	if focus == "" || parsed.Fragment != focus || values.Get("term") == "" {
-		return "/vocabulary/concordance"
+		return landing
 	}
 	if !safeConcordanceReturnKeys(values) {
-		return "/vocabulary/concordance"
+		return landing
 	}
 	page, err := strconv.Atoi(values.Get("page"))
 	if err != nil || page < 1 {
-		return "/vocabulary/concordance"
+		return landing
 	}
 	if hasOriginKeys(values) && !parseBrowseOrigin(values).Active() {
-		return "/vocabulary/concordance"
+		return landing
 	}
-	if values.Get("as") == domain.ConcordanceMatchConstruction && !safeConstructionReturn(values) {
-		return "/vocabulary/concordance"
+	if values.Get("as") == domain.ConcordanceMatchConstruction && !safeConstructionReturn(values, language) {
+		return landing
 	}
 	return parsed.String()
 }
@@ -391,7 +401,7 @@ func safeConcordanceReturnURL(candidate string) string {
 func safeConcordanceReturnKeys(values url.Values) bool {
 	for key := range values {
 		switch key {
-		case "language", "term", "as", "upos", "priority", "rev", "page", "focus":
+		case "term", "as", "upos", "priority", "rev", "page", "focus":
 		case "subtype", "from_run", "from_sentence", "from_anchor", "lemma", "from_lemma":
 			if values.Get("as") != domain.ConcordanceMatchConstruction {
 				return false
@@ -407,19 +417,16 @@ func safeConcordanceReturnKeys(values url.Values) bool {
 // safeConstructionReturn validates a construction lookup the way the request
 // does: a known construction, an optional shipped subtype, the origin Book as
 // the priority and a complete origin occurrence.
-func safeConstructionReturn(values url.Values) bool {
+func safeConstructionReturn(values url.Values, language string) bool {
 	lookup := domain.ConcordanceLookup{
 		UPOS: values.Get("upos"), Term: values.Get("term"), Subtype: values.Get("subtype"), Priority: values.Get("priority"),
 		Origin: parseConstructionOrigin(values),
 	}
-	return !constructionRequestInvalid(lookup, values.Get("language"))
+	return !constructionRequestInvalid(lookup, language)
 }
 
 func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) string {
 	values := url.Values{}
-	if lookup.Language != "" {
-		values.Set("language", lookup.Language)
-	}
 	values.Set("term", lookup.Term)
 	if lookup.Match != "" {
 		values.Set("as", lookup.Match)
@@ -452,7 +459,7 @@ func vocabularyConcordancePageURL(page int, lookup domain.ConcordanceLookup) str
 	if page > 0 {
 		values.Set("page", strconv.Itoa(page))
 	}
-	return "/vocabulary/concordance?" + values.Encode()
+	return studyLanguagePath(pageKindConcordance, lookup.Language) + "?" + values.Encode()
 }
 
 // vocabularyConcordanceRestartURL starts the applied lookup over from page 1

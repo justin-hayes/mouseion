@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -41,21 +40,14 @@ func (h *Handler) jobBookContextForSource(ctx context.Context, owner, sourceID s
 		return book, nil
 	}
 	if detail.Disposition == domain.BookDispositionToRead {
-		book.ReadingURL = readingBookURLInActiveLanguage(ctx, detail)
+		book.ReadingURL = readingBookURLForBook(detail)
 	}
 	return book, nil
 }
 
-// readingBookURLInActiveLanguage links to a Book's Reading entry only while the
-// Book belongs to the active study language. Another language's Book has no
-// reachable Reading entry; the learner changes language deliberately instead.
-func readingBookURLInActiveLanguage(ctx context.Context, detail domain.MyBook) string {
-	if shellViewFromContext(ctx) != nil {
-		bookLanguage := canonicalization.NormalizeLanguage(bookStudyLanguage(detail))
-		activeLanguage, _ := activeStudyLanguageForContext(ctx)
-		if bookLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != bookLanguage {
-			return ""
-		}
-	}
-	return readingBookURL(detail.Book.ID)
+// readingBookURLForBook links to a Book's Reading entry in the Book's
+// own study language (ADR 0131): a Book-addressed link returns to its Book's
+// language, never the Last study language.
+func readingBookURLForBook(detail domain.MyBook) string {
+	return readingBookURL(bookStudyLanguage(detail), detail.Book.ID)
 }

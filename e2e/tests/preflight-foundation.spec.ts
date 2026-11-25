@@ -10,7 +10,7 @@ async function signIn(page: Page) {
 
 test('Preflight is bounded by Mouseion document and shared-control contracts', async ({ page }) => {
   await signIn(page);
-  await page.goto('/library');
+  await page.goto('/de/library');
 
   const foundation = await page.evaluate(() => {
     const root = document.querySelector('main')!;

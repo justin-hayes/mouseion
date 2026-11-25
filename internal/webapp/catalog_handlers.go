@@ -45,7 +45,7 @@ func (h *Handler) connections(w http.ResponseWriter, r *http.Request) {
 // Book as To Read, then routes it through the same reading-intent preparation
 // seam Move to To Read uses. It is an ordinary owner-scoped POST.
 func (h *Handler) addCatalogueEntry(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
@@ -77,7 +77,7 @@ func (h *Handler) addCatalogueEntry(w http.ResponseWriter, r *http.Request) {
 // entry. It creates or restores the Book as Read with a Previously read record;
 // it acquires nothing, starts no job and changes no vocabulary.
 func (h *Handler) markCatalogueEntryPreviouslyRead(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
@@ -348,7 +348,7 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 
 // addClassicalUnit adds one current Reading unit, normally a whole Edition.
 func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	key := r.PathValue("unitKey")
@@ -379,7 +379,7 @@ func (h *Handler) addClassicalEdition(w http.ResponseWriter, r *http.Request, wo
 // outside Mouseion. It creates or restores the Book as Read with a Previously
 // read record and queues no preparation.
 func (h *Handler) markClassicalUnitPreviouslyRead(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	key := r.PathValue("unitKey")
@@ -628,7 +628,7 @@ func (h *Handler) openCatalogBookInMyBooks(w http.ResponseWriter, r *http.Reques
 	h.openBookInMyBooks(w, r, bookID, false)
 }
 
-// openBookInMyBooks switches the active language and redirects to the row's
+// openBookInMyBooks redirects to the row's
 // visible bucket page. A classical Book must still carry its Reading unit; an
 // OPDS Book only needs an owned membership and a chosen language.
 func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string, requireReadingUnit bool) {
@@ -648,10 +648,6 @@ func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, book
 	language := canonicalization.NormalizeLanguage(book.Book.LanguageTag)
 	if book.Book.LanguageState != domain.LanguageChosen || language == "" {
 		http.NotFound(w, r)
-		return
-	}
-	if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), owner, language); err != nil {
-		fail(w, err)
 		return
 	}
 	page, err := myBooksPageForBook(r.Context(), h.services.Store.MyBooks, owner, language, book)
@@ -680,7 +676,7 @@ func (h *Handler) legacyConnections(w http.ResponseWriter, r *http.Request) {
 // follows the page that submitted it: the Catalog's status line or Manage
 // sources.
 func (h *Handler) syncConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	_, err := h.services.CatalogueSync.Enqueue(r.Context(), user(r).ID, r.PathValue("id"))
@@ -706,7 +702,7 @@ func (h *Handler) redirectSyncOutcome(w http.ResponseWriter, r *http.Request, ke
 }
 
 func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	u := user(r)
@@ -730,7 +726,7 @@ func (h *Handler) createConnection(w http.ResponseWriter, r *http.Request) {
 	redirectManageSources(w, r, "message", "Catalog added", bookID)
 }
 func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	u := user(r)
@@ -760,7 +756,7 @@ func (h *Handler) updateConnection(w http.ResponseWriter, r *http.Request) {
 	redirectManageSources(w, r, "message", "Catalog updated", "")
 }
 func (h *Handler) deleteConnection(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
+	if !h.checkCSRF(w, r) {
 		return
 	}
 	u := user(r)

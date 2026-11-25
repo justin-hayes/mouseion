@@ -45,6 +45,7 @@ func (h *Handler) validReadingDeckBook(w http.ResponseWriter, r *http.Request, o
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
 	}
 	book := *detail.Acquired
+	adoptDetailLanguage(r.Context(), detail)
 	if !analysisReadyForReading(book) {
 		http.NotFound(w, r)
 		return domain.MyBook{}, analysis.CompletedAnalysis{}, false
@@ -119,7 +120,7 @@ func (h *Handler) newReadingDeckPreparation(w http.ResponseWriter, r *http.Reque
 	} else if deck.Current.SnapshotSize > 0 {
 		task.Missing = true
 	}
-	render(w, r, ReadingDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookURLInActiveLanguage(r.Context(), detail)))
+	render(w, r, ReadingDeckPreparationPage(user(r), h.csrf(w, r), task, readingBookURLForBook(detail)))
 }
 
 type deckPreparationResponse struct {
@@ -320,10 +321,6 @@ func (h *Handler) deckPreparationStatus(w http.ResponseWriter, r *http.Request) 
 	resultURL := ""
 	if readingAction.BookID != "" {
 		resultURL, err = h.reachablePreparationReturnURL(r.Context(), user(r).ID, readingAction)
-		if errors.Is(err, errPreparationOtherLanguage) {
-			err = nil
-			readingAction = emptyDeckReadingAction()
-		}
 		if err != nil {
 			fail(w, err)
 			return
@@ -478,16 +475,8 @@ func (h *Handler) reachablePreparationReturnURL(ctx context.Context, owner strin
 	if !detail.IsToRead {
 		return "", nil
 	}
-	target := readingBookURLInActiveLanguage(ctx, detail)
-	if target == "" {
-		return "", errPreparationOtherLanguage
-	}
-	return target, nil
+	return readingBookURLForBook(detail), nil
 }
-
-// errPreparationOtherLanguage marks a preparation whose Book belongs to another
-// study language, so it offers no Reading link or membership action.
-var errPreparationOtherLanguage = errors.New("preparation Book is in another study language")
 
 func (h *Handler) downloadDeckPreparation(w http.ResponseWriter, r *http.Request) {
 	if h.services.PreparedDeck == nil {

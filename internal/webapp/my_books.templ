@@ -15,7 +15,7 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 			if myBookInReading(book) {
-				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>
+				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.LanguageTag, book.Book.ID)) }>
 					@BookCoverMedia(book.Book.ID, book.Book.Title, book.Book.LanguageTag, book.Cover)
 					<div class="library-book__text">
 						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
@@ -60,7 +60,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 		</div>
 		<div class="library-book__actions">
 			if myBookInReading(book) {
-				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.ID)) }>View in Reading</a>
+				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.LanguageTag, book.Book.ID)) }>View in Reading</a>
 			}
 			<details class="more-actions">
 				<summary>More actions</summary>
@@ -198,7 +198,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			}
 		} else if browse.Enabled && browse.AllCount > 0 {
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action="/library" hx-get="/library" hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksPath(browse.Language)) } hx-get={ myBooksPath(browse.Language) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
 					// A GET submit replaces the action's query string with the form fields, so the active tab travels as hidden fields.
 					if browse.Disposition != "" {
 						<input type="hidden" name="disposition" value={ string(browse.Disposition) }/>
@@ -221,7 +221,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				<h2 id="acquired-books-heading">Books</h2>
 				<ul class="library-books" role="list">
 					for _, book := range books {
-						@MyBookRow(csrf, book, "/library")
+						@MyBookRow(csrf, book, myBooksPath(browse.Language))
 					}
 				</ul>
 			</section>
