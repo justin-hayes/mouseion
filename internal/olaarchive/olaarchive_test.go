@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"hash/crc32"
 	"testing"
@@ -42,8 +43,8 @@ func buildArchive(t *testing.T, method uint16, members map[string][]byte, order 
 		pins[file.Name] = classical.ArchiveMember{
 			Name:           file.Name,
 			HeaderOffset:   offset,
-			CompressedSize: int64(file.CompressedSize64),
-			Size:           int64(file.UncompressedSize64),
+			CompressedSize: int64(file.CompressedSize64),   //nolint:gosec // synthetic member sizes are tiny
+			Size:           int64(file.UncompressedSize64), //nolint:gosec // synthetic member sizes are tiny
 			CRC32:          crc32Hex(members[file.Name]),
 			SHA256:         hex.EncodeToString(sum[:]),
 		}
@@ -52,8 +53,7 @@ func buildArchive(t *testing.T, method uint16, members map[string][]byte, order 
 }
 
 func crc32Hex(data []byte) string {
-	sum := crc32.ChecksumIEEE(data)
-	return hex.EncodeToString([]byte{byte(sum >> 24), byte(sum >> 16), byte(sum >> 8), byte(sum)})
+	return hex.EncodeToString(binary.BigEndian.AppendUint32(nil, crc32.ChecksumIEEE(data)))
 }
 
 // fetchWindow cuts the requested window out of the archive the way a Range
@@ -112,8 +112,11 @@ func TestExtractRefusesMismatches(t *testing.T) {
 	window := fetchWindow(t, archive, good)
 
 	tests := map[string]func(classical.ArchiveMember) classical.ArchiveMember{
-		"crc":  func(m classical.ArchiveMember) classical.ArchiveMember { m.CRC32 = "00000000"; return m },
-		"sha":  func(m classical.ArchiveMember) classical.ArchiveMember { m.SHA256 = hex.EncodeToString(make([]byte, 32)); return m },
+		"crc": func(m classical.ArchiveMember) classical.ArchiveMember { m.CRC32 = "00000000"; return m },
+		"sha": func(m classical.ArchiveMember) classical.ArchiveMember {
+			m.SHA256 = hex.EncodeToString(make([]byte, 32))
+			return m
+		},
 		"size": func(m classical.ArchiveMember) classical.ArchiveMember { m.Size++; return m },
 		"name": func(m classical.ArchiveMember) classical.ArchiveMember { m.Name = "other.txt"; return m },
 	}

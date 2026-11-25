@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -61,7 +62,12 @@ type Store interface {
 	Ping(context.Context) error
 	Close() error
 }
-type PostgresStore struct{ pool *pgxpool.Pool }
+type PostgresStore struct {
+	pool *pgxpool.Pool
+	// classicalLanguages maps a Reading-unit key to its classical language,
+	// recorded by manifest reconciliation.
+	classicalLanguages sync.Map
+}
 
 // Pool exposes the shared pgx pool to infrastructure packages that need to
 // participate in the same transaction (notably River job insertion).

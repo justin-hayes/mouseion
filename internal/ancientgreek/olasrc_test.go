@@ -61,10 +61,10 @@ func latinSentences() [][]olaToken {
 	}
 }
 
-func latinDefinition(start, end string) domain.ReadingUnitDefinition {
+func latinDefinition(start string) domain.ReadingUnitDefinition {
 	return domain.ReadingUnitDefinition{
 		Key: "caes-gal", Language: classical.LanguageLatin, WorkTitle: "The Gallic War", WorkAuthor: "Caesar",
-		EditionLabel: "Perseus", CitationStart: start, CitationEnd: end,
+		EditionLabel: "Perseus", CitationStart: start, CitationEnd: "1.2",
 		SourceFileName: "caes.conllu", SourceFileSize: 1, SourceFileSHA256: strings.Repeat("a", 64),
 		InterpretationVersion: classical.InterpretationVersionOLA,
 	}
@@ -75,7 +75,7 @@ func TestParseOlaSourceCutsALatinUnitWithNativeSyntax(t *testing.T) {
 	parsed, err := ParseOlaSource(conllu, paula)
 	require.NoError(t, err)
 
-	unit, err := parsed.CutUnit(latinDefinition("1.pr.1", "1.2"))
+	unit, err := parsed.CutUnit(latinDefinition("1.pr.1"))
 	require.NoError(t, err)
 
 	assert.Equal(t, SyntaxStateNativeAGDT, unit.SyntaxState)
@@ -112,7 +112,7 @@ func TestOlaCitationRangeSelectsSentencesByCitationOrder(t *testing.T) {
 	parsed, err := ParseOlaSource(conllu, paula)
 	require.NoError(t, err)
 
-	unit, err := parsed.CutUnit(latinDefinition("1.1a", "1.2"))
+	unit, err := parsed.CutUnit(latinDefinition("1.1a"))
 	require.NoError(t, err)
 	require.Len(t, unit.Result.Sentences, 1, "the preface precedes chapter 1, so it is outside 1.1a-1.2")
 }
@@ -121,7 +121,7 @@ func TestOlaSourceRefusesBadInput(t *testing.T) {
 	conllu, paula := olaFixture(latinSentences())
 	tests := map[string]struct{ conllu, paula []byte }{
 		"token without a Citation": {conllu, []byte(strings.Replace(string(paula), `#t_3"`, `#t_999"`, 1))},
-		"leading-zero Citation":  {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="01.pr.1"`, 1))},
+		"leading-zero Citation":    {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="01.pr.1"`, 1))},
 		"unknown named section":    {conllu, []byte(strings.Replace(string(paula), `value="1.pr.1"`, `value="1.zz.1"`, 1))},
 		"empty Citation layer":     {conllu, []byte(`<paula><featList></featList></paula>`)},
 		"broken XML":               {conllu, []byte(`<paula><featList>`)},
@@ -145,7 +145,7 @@ func TestOlaSourceRefusesUnknownPartOfSpeech(t *testing.T) {
 	conllu, paula := olaFixture(sentences)
 	parsed, err := ParseOlaSource(conllu, paula)
 	require.NoError(t, err)
-	_, err = parsed.CutUnit(latinDefinition("1.pr.1", "1.2"))
+	_, err = parsed.CutUnit(latinDefinition("1.pr.1"))
 	var refusal *classical.PreparationError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, classical.CodeUnknownPOS, refusal.Code)
@@ -155,7 +155,7 @@ func TestOlaDocumentRefusesAGreekDefinition(t *testing.T) {
 	conllu, paula := olaFixture(latinSentences())
 	parsed, err := ParseOlaSource(conllu, paula)
 	require.NoError(t, err)
-	definition := latinDefinition("1.pr.1", "1.2")
+	definition := latinDefinition("1.pr.1")
 	definition.Language = classical.Language
 	_, err = parsed.CutUnit(definition)
 	require.Error(t, err)

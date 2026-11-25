@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"maps"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -34,11 +35,7 @@ var olaFeatureSlots = map[string]int{
 var latinFeatureMappings = func() map[string]map[byte]string {
 	merged := make(map[string]map[byte]string, len(featureMappings))
 	for feature, values := range featureMappings {
-		copied := make(map[byte]string, len(values))
-		for letter, value := range values {
-			copied[letter] = value
-		}
-		merged[feature] = copied
+		merged[feature] = maps.Clone(values)
 	}
 	merged["Case"]['b'] = "Abl"
 	merged["Degree"]['p'] = "Pos"
@@ -104,42 +101,56 @@ func parsePaulaCitations(data []byte) (map[string]string, error) {
 // "# file" comments, then ten-tab token lines, one sentence per blank-line
 // block.
 func parseOlaConllu(data []byte, citations map[string]string) (*sourceDocument, error) {
-	doc := &sourceDocument{latin: true}
-	var current *sourceSentence
-	flush := func() {
-		if current != nil && len(current.tokens) > 0 {
-			doc.sentences = append(doc.sentences, *current)
-		}
-		current = nil
-	}
+	parser := olaParser{doc: &sourceDocument{latin: true}, citations: citations}
 	for index, raw := range strings.Split(string(data), "\n") {
-		line := strings.TrimSuffix(raw, "\r")
-		lineNo := index + 1
-		switch {
-		case line == "":
-			flush()
-		case strings.HasPrefix(line, "#"):
-			name, value, _ := strings.Cut(strings.TrimPrefix(line, "#"), " = ")
-			if strings.TrimSpace(name) == "absolute_id" {
-				flush()
-				current = &sourceSentence{sentID: "ola-" + strings.TrimSpace(value)}
-			}
-		default:
-			if current == nil {
-				current = &sourceSentence{sentID: "ola-" + strconv.Itoa(len(doc.sentences))}
-			}
-			token, err := parseOlaTokenLine(line, lineNo, citations)
-			if err != nil {
-				return nil, err
-			}
-			current.tokens = append(current.tokens, token)
+		if err := parser.acceptLine(strings.TrimSuffix(raw, "\r"), index+1); err != nil {
+			return nil, err
 		}
 	}
-	flush()
-	if len(doc.sentences) == 0 {
+	parser.endSentence()
+	if len(parser.doc.sentences) == 0 {
 		return nil, malformed(0, "no sentences")
 	}
-	return doc, nil
+	return parser.doc, nil
+}
+
+// olaParser is the line-by-line state machine of parseOlaConllu.
+type olaParser struct {
+	doc       *sourceDocument
+	current   *sourceSentence
+	citations map[string]string
+}
+
+// endSentence closes the current sentence, if it has tokens.
+func (p *olaParser) endSentence() {
+	if p.current != nil && len(p.current.tokens) > 0 {
+		p.doc.sentences = append(p.doc.sentences, *p.current)
+	}
+	p.current = nil
+}
+
+// acceptLine feeds one line to the state machine. Only absolute_id starts a
+// sentence header; the other comments are ignored.
+func (p *olaParser) acceptLine(line string, lineNo int) error {
+	switch {
+	case line == "":
+		p.endSentence()
+	case strings.HasPrefix(line, "#"):
+		if name, value, _ := strings.Cut(strings.TrimPrefix(line, "#"), " = "); strings.TrimSpace(name) == "absolute_id" {
+			p.endSentence()
+			p.current = &sourceSentence{sentID: "ola-" + strings.TrimSpace(value)}
+		}
+	default:
+		if p.current == nil {
+			p.current = &sourceSentence{sentID: "ola-" + strconv.Itoa(len(p.doc.sentences))}
+		}
+		token, err := parseOlaTokenLine(line, lineNo, p.citations)
+		if err != nil {
+			return err
+		}
+		p.current.tokens = append(p.current.tokens, token)
+	}
+	return nil
 }
 
 // parseOlaTokenLine reads one ten-column OLA token line.

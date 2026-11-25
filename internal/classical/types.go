@@ -336,19 +336,19 @@ func (t TranslationPin) Validate() error {
 
 // Layer pins one upstream layer under ADR 0111.
 type Layer struct {
-	Key                 string      `json:"key"`
-	Release             string      `json:"release,omitempty"`
-	Commit              string      `json:"commit,omitempty"`
-	BaseURL             string      `json:"baseURL,omitempty"`
+	Key     string `json:"key"`
+	Release string `json:"release,omitempty"`
+	Commit  string `json:"commit,omitempty"`
+	BaseURL string `json:"baseURL,omitempty"`
 	// FetchKind is empty for a layer of whole files under BaseURL, or
 	// FetchKindArchiveRange for a layer of members of one pinned archive.
 	FetchKind string `json:"fetchKind,omitempty"`
 	// ArchiveURL, ArchiveSize and Record describe the pinned archive of an
 	// archive-range layer: the URL its members are requested from, its total
 	// size in bytes and the Zenodo record it comes from.
-	ArchiveURL  string `json:"archiveURL,omitempty"`
-	ArchiveSize int64  `json:"archiveSize,omitempty"`
-	Record      string `json:"record,omitempty"`
+	ArchiveURL          string      `json:"archiveURL,omitempty"`
+	ArchiveSize         int64       `json:"archiveSize,omitempty"`
+	Record              string      `json:"record,omitempty"`
 	LicenceClass        string      `json:"licenceClass"`
 	Restriction         string      `json:"restriction"`
 	DeployerRegisterRow string      `json:"deployerRegisterRow"`

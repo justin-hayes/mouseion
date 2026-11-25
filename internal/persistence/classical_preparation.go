@@ -38,6 +38,7 @@ func (s *PostgresStore) LoadClassicalPreparationTarget(ctx context.Context, owne
 	if err != nil {
 		return domain.ClassicalPreparationTarget{}, missing(err)
 	}
+	target.Language = s.classicalLanguage(target.ReadingUnitKey)
 	return target, nil
 }
 

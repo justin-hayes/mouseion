@@ -552,7 +552,7 @@ func validateNativePOS(doc *sourceDocument) error {
 			if isEllipsis(token.pos) {
 				continue
 			}
-			if _, ok := nativePOSValues[token.pos]; !ok && !(doc.latin && token.pos == "e") {
+			if _, ok := nativePOSValues[token.pos]; !ok && (!doc.latin || token.pos != "e") {
 				return &ImportError{Code: CodeUnknownPOS, Detail: asciiValue(token.pos)}
 			}
 		}

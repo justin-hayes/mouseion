@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/download"
+	"github.com/justin-hayes/mouseion/internal/olaarchive"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
@@ -107,6 +108,10 @@ type ClassicalPreparationConfig struct {
 	// Layers pins every upstream layer. Main passes the embedded release's
 	// layers; tests supply a local layer server.
 	Layers classical.Layers
+	// Definitions are the release's reviewed Reading-unit definitions. A source
+	// whose pin names several archive members (ola-conllu) reads them from
+	// here, because the stored Reading unit keeps one file pin.
+	Definitions []classical.Definition
 	// HTTPClient fetches a pinned source. Nil uses a bounded default client.
 	HTTPClient *http.Client
 	// TempDir is where a source download is staged. Empty uses the system
@@ -382,11 +387,7 @@ func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[Cl
 		w.ensureTranslationImport(ctx, target)
 		return nil
 	}
-	data, err := w.sourceBytes(ctx, target)
-	if err != nil {
-		return err
-	}
-	parsed, err := w.parse(target, data)
+	parsed, err := w.parsedWork(ctx, target)
 	if err != nil {
 		return err
 	}
@@ -455,7 +456,7 @@ func (w *ClassicalPreparationWorker) ensureTranslationImport(ctx context.Context
 		SHA256:        target.TranslationFileSHA256,
 		CitationStart: target.TranslationCitationStart,
 		CitationEnd:   target.TranslationCitationEnd,
-		Language:      classical.Language,
+		Language:      targetLanguage(target),
 	}, &river.InsertOpts{
 		Queue:       ClassicalTranslationQueue,
 		MaxAttempts: classicalTranslationMaxAttempts,
@@ -492,6 +493,46 @@ func (w *ClassicalPreparationWorker) recordFailure(ctx context.Context, target d
 	}
 	log.Printf("mouseion: classical preparation failed owner=%s book=%s unit=%s revision=%d stage=%s code=%s",
 		target.OwnerID, target.BookID, target.ReadingUnitKey, target.DefinitionRevision, stage, code)
+}
+
+// parsedWork makes the Book's pinned source present and parses it with the
+// adapter its source format names. A single-file format downloads and stores
+// one file; an archive format reads its pinned members by range.
+func (w *ClassicalPreparationWorker) parsedWork(ctx context.Context, target domain.ClassicalPreparationTarget) (*ancientgreek.ParsedWork, error) {
+	if target.SourceFormat == classical.SourceFormatOLACoNLLU {
+		return w.parseArchiveSource(ctx, target)
+	}
+	data, err := w.sourceBytes(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	return w.parse(target, data)
+}
+
+// parseArchiveSource fetches the Work's CoNLL-U and Citation members from the
+// pinned archive and parses them. The members are not stored: the published
+// analysis is the Book's durable evidence, and a later preparation fetches
+// again.
+func (w *ClassicalPreparationWorker) parseArchiveSource(ctx context.Context, target domain.ClassicalPreparationTarget) (*ancientgreek.ParsedWork, error) {
+	cacheID := target.SourceFileSHA256 + "\x00" + target.InterpretationVersion
+	w.mu.Lock()
+	if w.cached != nil && w.cacheID == cacheID {
+		defer w.mu.Unlock()
+		return w.cached, nil
+	}
+	w.mu.Unlock()
+	members, err := w.Config.fetchArchiveMembers(ctx, target, classicalPreparationTimeout)
+	if err != nil {
+		return nil, err
+	}
+	parsed, err := ancientgreek.ParseOlaSource(members[0], members[1])
+	if err != nil {
+		return nil, err
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.cached, w.cacheID = parsed, cacheID
+	return parsed, nil
 }
 
 // sourceBytes returns the verified pinned work file, from the installation
@@ -576,6 +617,97 @@ func (c ClassicalPreparationConfig) fetchPinnedSource(ctx context.Context, layer
 	return data, nil
 }
 
+// errArchiveRange marks a response that is not the requested byte range. It is
+// a pin failure: the server did not return the reviewed member, and the body
+// is never read, so a mirror that ignores Range cannot cost a full download.
+var errArchiveRange = errors.New("analysis: archive server did not return the requested range")
+
+// fetchArchiveMembers reads the Reading unit's pinned archive members in pin
+// order, each by its own Range request and verified against its pin.
+func (c ClassicalPreparationConfig) fetchArchiveMembers(ctx context.Context, target domain.ClassicalPreparationTarget, timeout time.Duration) ([][]byte, error) {
+	layer, ok := c.Layers.Layer(target.SourceLayer)
+	if !ok || layer.FetchKind != classical.FetchKindArchiveRange {
+		return nil, &classical.PreparationError{Code: classical.CodeSourceLayerUnknown}
+	}
+	pin, ok := c.sourcePin(target)
+	if !ok {
+		return nil, &classical.PreparationError{Code: classical.CodePinMismatch}
+	}
+	members := make([][]byte, 0, len(pin.Members))
+	for _, member := range pin.Members {
+		data, err := c.fetchArchiveMember(ctx, layer, member, timeout)
+		if err != nil {
+			return nil, err
+		}
+		members = append(members, data)
+	}
+	return members, nil
+}
+
+// sourcePin finds the release's pin for the target's Reading unit, provided it
+// is the very pin the stored unit records and names two members.
+func (c ClassicalPreparationConfig) sourcePin(target domain.ClassicalPreparationTarget) (classical.SourcePin, bool) {
+	for _, definition := range c.Definitions {
+		if definition.Key == target.ReadingUnitKey && definition.Source.SHA256 == target.SourceFileSHA256 && len(definition.Source.Members) == 2 {
+			return definition.Source, true
+		}
+	}
+	return classical.SourcePin{}, false
+}
+
+// fetchArchiveMember requests one member's byte window with HTTP Range,
+// requires a 206 response whose Content-Range is exactly the requested range,
+// then inflates and verifies the member.
+func (c ClassicalPreparationConfig) fetchArchiveMember(ctx context.Context, layer classical.Layer, member classical.ArchiveMember, timeout time.Duration) (data []byte, err error) {
+	if member.Size > maxClassicalSourceBytes {
+		return nil, &classical.PreparationError{Code: classical.CodeOversize}
+	}
+	start, end, err := olaarchive.Window(member, layer.ArchiveSize)
+	if err != nil {
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, layer.ArchiveURL, nil)
+	if err != nil {
+		return nil, &classical.PreparationError{Code: classical.CodeSourceDownloadFailed}
+	}
+	request.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+	// Identity encoding keeps the byte offsets of the archive itself.
+	request.Header.Set("Accept-Encoding", "identity")
+	client := c.HTTPClient
+	if client == nil {
+		client = &http.Client{}
+	}
+	staged, err := download.Fetch(ctx, client, request, download.Options{
+		Dir:         c.TempDir,
+		Limit:       end - start + 1,
+		IdleTimeout: c.sourceIdleTimeout(),
+		Timeout:     timeout,
+		CheckResponse: func(response *http.Response) error {
+			want := fmt.Sprintf("bytes %d-%d/%d", start, end, layer.ArchiveSize)
+			if response.StatusCode != http.StatusPartialContent || response.Header.Get("Content-Range") != want {
+				return errArchiveRange
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		return nil, classicalDownloadError(err)
+	}
+	defer func() {
+		if removeErr := os.Remove(staged.Path); removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) {
+			err = errors.Join(err, fmt.Errorf("remove classical source temp file: %w", removeErr))
+		}
+	}()
+	window, err := os.ReadFile(staged.Path)
+	if err != nil {
+		return nil, &classical.PreparationError{Code: classical.CodeSourceDownloadFailed}
+	}
+	if int64(len(window)) != end-start+1 {
+		return nil, &classical.PreparationError{Code: classical.CodePinMismatch}
+	}
+	return olaarchive.Extract(window, member)
+}
+
 func (c ClassicalPreparationConfig) sourceIdleTimeout() time.Duration {
 	if c.IdleTimeout > 0 {
 		return c.IdleTimeout
@@ -589,7 +721,7 @@ func classicalDownloadError(err error) error {
 	switch {
 	case errors.Is(err, download.ErrTooLarge):
 		return &classical.PreparationError{Code: classical.CodeOversize}
-	case errors.Is(err, download.ErrMismatch):
+	case errors.Is(err, download.ErrMismatch), errors.Is(err, errArchiveRange):
 		return &classical.PreparationError{Code: classical.CodePinMismatch}
 	default:
 		return &classical.PreparationError{Code: classical.CodeSourceDownloadFailed}
@@ -630,7 +762,7 @@ func parseClassicalSource(format string, data []byte) (*ancientgreek.ParsedWork,
 func targetDefinition(target domain.ClassicalPreparationTarget) domain.ReadingUnitDefinition {
 	return domain.ReadingUnitDefinition{
 		Key:                   target.ReadingUnitKey,
-		Language:              classical.Language,
+		Language:              targetLanguage(target),
 		WorkTitle:             target.WorkTitle,
 		WorkAuthor:            target.WorkAuthor,
 		EditionLabel:          target.EditionLabel,
@@ -641,6 +773,16 @@ func targetDefinition(target domain.ClassicalPreparationTarget) domain.ReadingUn
 		SourceFileSHA256:      target.SourceFileSHA256,
 		InterpretationVersion: target.InterpretationVersion,
 	}
+}
+
+// targetLanguage is the classical language of the target's Reading unit. A
+// target that records none is Ancient Greek, the language every Reading unit
+// had before Latin.
+func targetLanguage(target domain.ClassicalPreparationTarget) string {
+	if target.Language != "" {
+		return target.Language
+	}
+	return classical.Language
 }
 
 // verifyClassicalSource rechecks a stored or downloaded file against its
