@@ -516,14 +516,10 @@ _Avoid_: Book (the learner-owned identity), volume, chapter.
 
 **Citation**:
 A position in a Work's own reference system, written as dotted numbers without
-leading zeros (Anabasis `1.2.3`, Morice `1.0.1`). It runs from the Work's
+leading zeros (Anabasis `1.2.3`, Apology `17`). It runs from the Work's
 numbered top-level divisions down to the finest level its chosen Edition
-numbers. For a graded reader, that is the reader's own numbered parts, stories
-or chapters, then the paragraphs its digitisation numbers; a `0` level marks a
-division the reader does not use. A page, a print line or a heading is never a
-citation.
-_Avoid_: line number, page reference, lesson number (a graded reader's citation
-reaches its paragraphs).
+numbers. A page, a print line or a heading is never a citation.
+_Avoid_: line number, page reference.
 
 **Reading-unit definition**:
 A reviewed, keyed description of one Reading unit: its Work, Edition, citation
@@ -1042,5 +1038,5 @@ _Avoid_: tool, data, asset, model (for the general category).
 **Source content**:
 A third-party layer whose own expression reaches the learner, either shown in
 Mouseion or copied into an exported deck: texts, translations, dictionary
-definitions and graded readers.
+definitions.
 _Avoid_: data, asset, corpus (for the general category).

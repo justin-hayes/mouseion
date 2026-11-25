@@ -499,7 +499,7 @@ func TestClassicalPreparationWorkerParseAndWriteErrors(t *testing.T) {
 		"unknown source format": {
 			target: func() domain.ClassicalPreparationTarget {
 				copied := target
-				copied.SourceFormat = "graded-reader"
+				copied.SourceFormat = "unknown-format"
 				return copied
 			}(),
 		},

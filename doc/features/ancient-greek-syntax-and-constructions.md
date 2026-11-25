@@ -73,8 +73,8 @@ then in other authors.
 - Cross-language parallels.
 - Learner corrections of syntax or constructions (plausibly next, not never).
 - Construction-based deck selection or difficulty scoring.
-- Greek syntax on the Stanza `grc` / graded-reader path (paused under
-  [ADR 0116](../adr/0116-classical-catalog.md) and #2404).
+- Greek syntax from Stanza `grc`, which Mouseion does not use (see
+  [ADR 0122](../adr/0122-ancient-greek-native-agdt-syntax.md)).
 - Showing raw AGDT or UD relation labels to learners.
 - Any Smyth or Allen & Greenough wording in the app.
 
