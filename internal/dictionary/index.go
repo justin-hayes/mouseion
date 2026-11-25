@@ -15,6 +15,7 @@ import (
 	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	_ "modernc.org/sqlite"
@@ -212,7 +213,7 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 // the in-memory key index; every other language uses the stored-normalized
 // entries query, unchanged.
 func (i *Index) matchEntries(ctx context.Context, language, lemma, targetWord, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
-	if language == ancientGreekLanguage {
+	if cardpolicy.For(language).DictionaryLookup == cardpolicy.LookupExactlyOne {
 		if !i.greekAvailable {
 			return nil, nil, lookupMorphology{}, false, nil
 		}
@@ -412,7 +413,7 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 	if language == "" || lemma == "" || upos == "" {
 		return false, nil
 	}
-	if language == ancientGreekLanguage {
+	if cardpolicy.For(language).DictionaryLookup == cardpolicy.LookupExactlyOne {
 		if !i.greekAvailable {
 			return false, nil
 		}
