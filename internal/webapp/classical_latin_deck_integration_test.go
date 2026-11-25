@@ -38,7 +38,7 @@ import (
 
 const (
 	latinDeckUnitKey          = "synthetic-latin-history"
-	latinDeckTranslationFile  = "synthetic-latin-translation.xml"
+	latinDeckTranslationFile  = "phi0474.phi001.perseus-eng9.xml"
 	latinDeckTranslationLabel = "Synthetic (1900), Fixture Hist."
 	latinDeckTranslationPin   = "0123456789abcdef0123456789abcdef01234567"
 )
@@ -134,7 +134,8 @@ func (latinDeckLexicon) LookupLatinLS(_ context.Context, lemma string) ([]enrich
 	return []enrichment.LatinLSEntry{
 		{EntryID: "n100", Headword: "domus", Orth: "domus", Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
 			{ID: "n100.0", Number: "I", Level: 1, Definitions: []string{"a house"}, Glosses: []string{"a house"},
-				Citations: []enrichment.LatinLSCitation{{Author: "Anon.", Text: "Anon. 1, 2"}, {Author: "Cic.", Text: "Cic. Att. 3, 4"}}},
+				Citations: []enrichment.LatinLSCitation{{Author: "Anon.", Text: "Anon. 1, 2"}, {Author: "Cic.", Text: "Cic. Att. 3, 4"},
+					{Author: "phi0474", Text: "urn own 5, 6"}, {Author: "phi0914", Text: "urn other 7, 8"}}},
 		}},
 		{EntryID: "n101", Headword: "domus", Orth: "domus", Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
 			{ID: "n101.0", Number: "I", Level: 1, Definitions: []string{"a household"}, Glosses: []string{"a household"}},
@@ -309,6 +310,8 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 			assert.Contains(t, item.DictionaryEntry, "a house")
 			assert.Contains(t, item.DictionaryEntry, "a household")
 			assert.Contains(t, item.DictionaryEntry, "Anon. 1, 2")
+			assert.Contains(t, item.DictionaryEntry, "urn own 5, 6", "a URN-only citation matches the Work's CTS textgroup from its file name")
+			assert.NotContains(t, item.DictionaryEntry, "urn other 7, 8")
 			assert.NotContains(t, item.DictionaryEntry, "Cic. Att.", "the full entry keeps only the Work author's citations")
 		} else {
 			assert.Empty(t, entryID, "a lemma with no entry freezes none")

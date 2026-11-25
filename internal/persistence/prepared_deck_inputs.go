@@ -12,6 +12,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/checked"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -29,6 +30,8 @@ type PreparedDeckCandidateFacts struct {
 	// WorkAuthor is the author of the Book's Work, empty for a Book that is
 	// not a Reading unit.
 	WorkAuthor string
+	// WorkTextgroup is the Work's CTS textgroup, such as "phi0474".
+	WorkTextgroup string
 	// SyntaxState is the recorded syntax state of the analysis run the
 	// sentences come from.
 	SyntaxState string
@@ -382,7 +385,7 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 	if err != nil {
 		return nil, err
 	}
-	workAuthor, err := preparationWorkAuthor(ctx, tx, preparation)
+	workAuthor, workTextgroup, err := preparationWorkAuthor(ctx, tx, preparation)
 	if err != nil {
 		return nil, err
 	}
@@ -399,29 +402,40 @@ func (s *PostgresStore) LoadPreparedDeckCandidateFactsTx(ctx context.Context, tx
 		result = append(result, PreparedDeckCandidateFacts{
 			Candidate: candidate, Entry: entry, Sentences: sentencesByCorpus[candidate.CorpusID],
 			ReferenceTranslations: referenceTranslations, ReferencePin: referencePin,
-			WorkAuthor: workAuthor, SyntaxState: syntaxState,
+			WorkAuthor: workAuthor, WorkTextgroup: workTextgroup, SyntaxState: syntaxState,
 		})
 	}
 	return result, nil
 }
 
 // preparationWorkAuthor reads the author of the Work the Book's Reading unit
-// belongs to, or empty when the Book is not a Reading unit.
-func preparationWorkAuthor(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (string, error) {
-	var author string
-	err := tx.QueryRow(ctx, `
-		SELECT w.author
+// belongs to, plus the Work's CTS textgroup (for example "phi0474") taken from
+// the leading component of the Reading unit's Perseus-named translation or
+// source file. Both are empty when the Book is not a Reading unit; the
+// textgroup is empty when no file name carries one.
+func preparationWorkAuthor(ctx context.Context, tx pgx.Tx, preparation domain.DeckPreparation) (author, textgroup string, err error) {
+	var translationFile, sourceFile string
+	err = tx.QueryRow(ctx, `
+		SELECT w.author, COALESCE(ru.translation_file_name, ''), ru.source_file_name
 		FROM source_materials sm
 		JOIN book_reading_units bru ON bru.owner_id = sm.owner_id AND bru.book_id = sm.book_id
 		JOIN reading_units ru ON ru.id = bru.reading_unit_id
 		JOIN editions e ON e.id = ru.edition_id
 		JOIN works w ON w.id = e.work_id
 		WHERE sm.owner_id = $1 AND sm.id = $2`,
-		preparation.OwnerID, preparation.SourceMaterialID).Scan(&author)
+		preparation.OwnerID, preparation.SourceMaterialID).Scan(&author, &translationFile, &sourceFile)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", nil
+		return "", "", nil
 	}
-	return author, err
+	if err != nil {
+		return "", "", err
+	}
+	for _, name := range []string{translationFile, sourceFile} {
+		if group := classical.CTSTextgroup(name); group != "" {
+			return author, group, nil
+		}
+	}
+	return author, "", nil
 }
 
 // corpusSyntaxState reads the recorded syntax state of the analysis run that

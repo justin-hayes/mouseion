@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -94,17 +95,17 @@ func TestLatinFullEntryKeepsOnlyTheWorkAuthorsCitations(t *testing.T) {
 }
 
 func TestLatinAuthorMatchesCTSURNAuthorAndAbbreviations(t *testing.T) {
-	assert.True(t, latinAuthorMatches("phi0474", "phi0474"))
-	assert.True(t, latinAuthorMatches("Cic.", "Marcus Tullius Cicero"))
-	assert.True(t, latinAuthorMatches("Liv.", "Livy"))
-	assert.False(t, latinAuthorMatches("Cic.", "Livy"))
-	assert.False(t, latinAuthorMatches("", "Livy"))
-	assert.False(t, latinAuthorMatches("Liv.", ""))
-	assert.False(t, latinAuthorMatches("L.", "Livy"), "an abbreviation under three letters never matches by prefix")
+	assert.True(t, latinAuthorMatches("phi0474", "phi0474", ""))
+	assert.True(t, latinAuthorMatches("Cic.", "Marcus Tullius Cicero", ""))
+	assert.True(t, latinAuthorMatches("Liv.", "Livy", ""))
+	assert.False(t, latinAuthorMatches("Cic.", "Livy", ""))
+	assert.False(t, latinAuthorMatches("", "Livy", ""))
+	assert.False(t, latinAuthorMatches("Liv.", "", ""))
+	assert.False(t, latinAuthorMatches("L.", "Livy", ""), "an abbreviation under three letters never matches by prefix")
 }
 
 func TestLatinEntryWithNoSensesShowsOnlyItsHeadLine(t *testing.T) {
-	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n11", Headword: "dicto", Orth: "dictō", Pin: testLSPin}}, 0, "")
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n11", Headword: "dicto", Orth: "dictō", Pin: testLSPin}}, 0, "", "")
 	assert.Contains(t, html, "dictō")
 	assert.NotContains(t, html, "dict-outline")
 	assert.NotContains(t, html, "Full Lewis")
@@ -123,7 +124,7 @@ func TestLatinCardWithNoMatchOmitsTheDictionaryBlock(t *testing.T) {
 }
 
 func TestLatinEntryEscapesSourceText(t *testing.T) {
-	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "a<b>", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"x <i>y</i> {z}"}}}}}, 0, "")
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "a<b>", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"x <i>y</i> {z}"}}}}}, 0, "", "")
 	assert.NotContains(t, html, "<i>y</i>")
 	assert.Contains(t, html, "x &lt;i&gt;y&lt;/i&gt; &#123;z&#125;")
 }
@@ -155,6 +156,31 @@ func TestLatinDeckNoticeNamesLewisShortAndItsPin(t *testing.T) {
 func TestGreekCardFreezesNoLewisShortEntry(t *testing.T) {
 	stub := &lsStub{found: true, entries: dicoEntries()}
 	entry := Entry{Language: "grc", CanonicalLemma: "λόγος"}
-	assert.False(t, resolveLatinLS(t.Context(), stub, &entry, "Livy"))
+	assert.False(t, resolveLatinLS(t.Context(), stub, &entry, "Livy", ""))
 	assert.Empty(t, entry.DictionaryEntry)
+}
+
+func TestLatinFullEntryKeepsURNOnlyCitationsOfTheWorksTextgroup(t *testing.T) {
+	urnOnly := []enrichment.LatinLSEntry{{EntryID: "n1", Headword: "x", Orth: "x", Pin: testLSPin, Senses: []enrichment.LatinLSSense{{
+		ID: "n1.0", Number: "I", Level: 1, Definitions: []string{"d"}, Glosses: []string{"d"},
+		Citations: []enrichment.LatinLSCitation{{Author: "phi0474", Text: "own 1, 2"}, {Author: "phi0914", Text: "other 3, 4"}},
+	}}}}
+
+	own := renderLatinLSEntries(urnOnly, cardpolicy.CitationsWorkAuthor, "Marcus Tullius Cicero", "phi0474")
+	assert.Contains(t, own, "own 1, 2", "a URN-only citation is kept for its own author")
+	assert.NotContains(t, own, "other 3, 4")
+
+	other := renderLatinLSEntries(urnOnly, cardpolicy.CitationsWorkAuthor, "Livy", "phi0914")
+	assert.Contains(t, other, "other 3, 4")
+	assert.NotContains(t, other, "own 1, 2", "a URN-only citation is dropped for another author")
+
+	none := renderLatinLSEntries(urnOnly, cardpolicy.CitationsWorkAuthor, "Livy", "")
+	assert.NotContains(t, none, "own 1, 2")
+	assert.NotContains(t, none, "other 3, 4", "no textgroup and no name match drops it, never guesses")
+}
+
+func TestLatinEntryWithSensesButNoDefinitionsStillCollapsesItsFullEntry(t *testing.T) {
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "x", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"g"}}}}}, 0, "", "")
+	assert.NotContains(t, html, "dict-outline")
+	assert.Contains(t, html, `<details class="dict-full"><summary>Full Lewis &amp; Short entry</summary>`)
 }

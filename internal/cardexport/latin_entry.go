@@ -24,8 +24,9 @@ const DictionaryEntryIDSeparator = ","
 // with no placeholder. The frozen item records every entry ID, joined, and the
 // one pin they share; the rendered block is frozen with them, so a re-render
 // shows the same entries after the index changes. workAuthor is the card Work's
-// author, which the full entry's citations are filtered against.
-func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry, workAuthor string) bool {
+// author and workTextgroup its CTS textgroup, which the full entry's
+// citations are filtered against.
+func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry, workAuthor, workTextgroup string) bool {
 	policy := cardpolicy.For("")
 	if entry != nil {
 		policy = cardpolicy.For(entry.Language)
@@ -55,7 +56,7 @@ func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, ent
 	}
 	entry.DictionaryEntryID = strings.Join(ids, DictionaryEntryIDSeparator)
 	entry.DictionaryPin = entries[0].Pin
-	entry.DictionaryEntry = renderLatinLSEntries(entries, policy.Citations, workAuthor)
+	entry.DictionaryEntry = renderLatinLSEntries(entries, policy.Citations, workAuthor, workTextgroup)
 	return true
 }
 
@@ -64,19 +65,19 @@ func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, ent
 // entry's L&S number, which is its place in id order (dīco¹, dīco²); the head
 // line shows the entry's own <orth>, with its vowel-length marks, in place of
 // the bare headword.
-func renderLatinLSEntries(entries []enrichment.LatinLSEntry, filter cardpolicy.CitationFilter, workAuthor string) string {
+func renderLatinLSEntries(entries []enrichment.LatinLSEntry, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) string {
 	var b strings.Builder
 	for i, entry := range entries {
 		number := 0
 		if len(entries) > 1 {
 			number = i + 1
 		}
-		renderLatinLSEntry(&b, entry, number, filter, workAuthor)
+		renderLatinLSEntry(&b, entry, number, filter, workAuthor, workTextgroup)
 	}
 	return b.String()
 }
 
-func renderLatinLSEntry(b *strings.Builder, entry enrichment.LatinLSEntry, number int, filter cardpolicy.CitationFilter, workAuthor string) {
+func renderLatinLSEntry(b *strings.Builder, entry enrichment.LatinLSEntry, number int, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) {
 	b.WriteString(`<div class="dictionary-entry ls-entry">`)
 	b.WriteString(`<div class="dictionary-entry-source">Lewis &amp; Short`)
 	headword := strings.TrimSpace(entry.Orth)
@@ -94,22 +95,22 @@ func renderLatinLSEntry(b *strings.Builder, entry enrichment.LatinLSEntry, numbe
 		b.WriteString(`</span>`)
 	}
 	b.WriteString(`</div>`)
-	if outline := latinLSOutline(entry.Senses); len(outline) > 0 {
-		b.WriteString(`<div class="dict-outline">`)
-		for _, item := range outline {
-			b.WriteString(`<div class="dict-sense dict-level-`)
-			b.WriteString(strconv.Itoa(item.level))
-			b.WriteString(`">`)
-			writeDictNumber(b, item.sense.Number)
-			writeDictGlosses(b, item.sense.Definitions)
+	if len(entry.Senses) > 0 {
+		if outline := latinLSOutline(entry.Senses); len(outline) > 0 {
+			b.WriteString(`<div class="dict-outline">`)
+			for _, item := range outline {
+				b.WriteString(`<div class="dict-sense dict-level-`)
+				b.WriteString(strconv.Itoa(item.level))
+				b.WriteString(`">`)
+				writeDictNumber(b, item.sense.Number)
+				writeDictGlosses(b, item.sense.Definitions)
+				b.WriteString(`</div>`)
+			}
 			b.WriteString(`</div>`)
 		}
-		b.WriteString(`</div>`)
 		b.WriteString(`<details class="dict-full"><summary>Full Lewis &amp; Short entry</summary>`)
-		renderLatinLSSenses(b, entry.Senses, filter, workAuthor)
+		renderLatinLSSenses(b, entry.Senses, filter, workAuthor, workTextgroup)
 		b.WriteString(`</details>`)
-	} else {
-		renderLatinLSSenses(b, entry.Senses, filter, workAuthor)
 	}
 	b.WriteString(`</div>`)
 }
@@ -149,9 +150,9 @@ func latinLSOutline(senses []enrichment.LatinLSSense) []latinLSOutlineSense {
 
 // renderLatinLSSenses writes the full entry in source order. A sense that has
 // nothing left to show after the citation filter is skipped.
-func renderLatinLSSenses(b *strings.Builder, senses []enrichment.LatinLSSense, filter cardpolicy.CitationFilter, workAuthor string) {
+func renderLatinLSSenses(b *strings.Builder, senses []enrichment.LatinLSSense, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) {
 	for _, sense := range senses {
-		citations := filterLatinLSCitations(sense.Citations, filter, workAuthor)
+		citations := filterLatinLSCitations(sense.Citations, filter, workAuthor, workTextgroup)
 		glosses := nonBlank(sense.Glosses)
 		number := strings.TrimSpace(sense.Number)
 		if len(glosses) == 0 && len(citations) == 0 && len(sense.CrossRefs) == 0 && (number == "" || sense.Level <= 0) {
@@ -212,14 +213,14 @@ func writeDictGlosses(b *strings.Builder, glosses []string) {
 // Work-author filter a citation is kept only when its author reference names
 // the card's Work's author; one with no usable author reference is dropped,
 // never guessed (ADR 0133).
-func filterLatinLSCitations(citations []enrichment.LatinLSCitation, filter cardpolicy.CitationFilter, workAuthor string) []string {
+func filterLatinLSCitations(citations []enrichment.LatinLSCitation, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) []string {
 	var kept []string
 	for _, citation := range citations {
 		text := strings.TrimSpace(citation.Text)
 		if text == "" {
 			continue
 		}
-		if filter == cardpolicy.CitationsWorkAuthor && !latinAuthorMatches(citation.Author, workAuthor) {
+		if filter == cardpolicy.CitationsWorkAuthor && !latinAuthorMatches(citation.Author, workAuthor, workTextgroup) {
 			continue
 		}
 		kept = append(kept, text)
@@ -233,8 +234,11 @@ func filterLatinLSCitations(citations []enrichment.LatinLSCitation, filter cardp
 // It matches when it equals the Work author as written, or when the
 // abbreviation (at least three letters) begins one word of the Work author, so
 // "Liv." names Livy and "Cic." names Marcus Tullius Cicero.
-func latinAuthorMatches(reference, workAuthor string) bool {
+func latinAuthorMatches(reference, workAuthor, workTextgroup string) bool {
 	reference = authorKey(reference)
+	if textgroup := authorKey(workTextgroup); textgroup != "" && reference == textgroup {
+		return true
+	}
 	workAuthor = authorKey(workAuthor)
 	if reference == "" || workAuthor == "" {
 		return false
