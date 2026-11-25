@@ -57,6 +57,15 @@ type Index struct {
 	// was not admissible and were therefore not indexed.
 	skippedLSJHeadwords int
 
+	// lsEntries maps each Lewis & Short entry's latin key to every entry that
+	// shares it, in entry id order. Latin returns all of them.
+	lsEntries map[string][]enrichment.LatinLSEntry
+	// lsAvailable is true when the index carries the Lewis & Short table.
+	lsAvailable bool
+	// skippedLSHeadwords counts Lewis & Short headwords whose latin key was not
+	// admissible and were therefore not indexed.
+	skippedLSHeadwords int
+
 	// hStatusAvailable is true when the index carries the French h_status
 	// column, so a lookup can report aspirated-h evidence rather than silently
 	// dropping it.
@@ -129,6 +138,7 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 		index.loadIdiomAvailability,
 		index.loadGreekEntries,
 		index.loadAncientGreekLSJ,
+		index.loadLatinLS,
 	}
 	for _, load := range loaders {
 		if err = load(ctx); err != nil {
