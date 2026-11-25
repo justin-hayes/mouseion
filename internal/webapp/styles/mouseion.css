@@ -1551,7 +1551,29 @@ body.my-books-shell .library-filters a[aria-current="page"] {
 
 .library-book .title-plate__greek,
 .library-book .title-plate__author {
-  display: none;
+  font-size: 0.6875rem;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+/* The Reading chooser's thumbnail is small: shrink the plate text and clamp
+ * it to whole lines so a long Classical title is shortened, never cut mid-line. */
+.reading-chooser-entry__cover .book-cover-media__placeholder {
+  padding: var(--mouseion-space-1);
+  gap: 0;
+}
+
+.reading-chooser-entry__cover .title-plate__title {
+  font-size: 0.625rem;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.reading-chooser-entry__cover .title-plate__greek,
+.reading-chooser-entry__cover .title-plate__author {
+  font-size: 0.5625rem;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
 }
 
 .library-book__identity-link .bibliographic-title {

@@ -1858,7 +1858,23 @@
     line-clamp: 3;
   }
   .library-book .title-plate__greek, .library-book .title-plate__author {
-    display: none;
+    font-size: 0.6875rem;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+  .reading-chooser-entry__cover .book-cover-media__placeholder {
+    padding: var(--mouseion-space-1);
+    gap: 0;
+  }
+  .reading-chooser-entry__cover .title-plate__title {
+    font-size: 0.625rem;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+  .reading-chooser-entry__cover .title-plate__greek, .reading-chooser-entry__cover .title-plate__author {
+    font-size: 0.5625rem;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
   }
   .library-book__identity-link .bibliographic-title {
     overflow-wrap: anywhere;
