@@ -239,6 +239,7 @@ func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore { return 
 func (h *contractHarness) BookState() storecontract.BookStateStore     { return h }
 func (h *contractHarness) Classical() storecontract.ClassicalStore     { return h }
 func (h *contractHarness) Catalogue() storecontract.CatalogueStore     { return h }
+func (h *contractHarness) Study() storecontract.StudyStore             { return h }
 
 func (h *contractHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
 	return h.store.BrowseCatalogueEntries(context.Background(), owner, connectionID, query)
@@ -329,3 +330,31 @@ func (h *contractHarness) SeedClassicalPreparationFailure(t *testing.T, owner, b
 }
 
 func (h *contractHarness) Seeds() storecontract.Seeder { return h }
+
+func (h *contractHarness) ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error) {
+	return h.store.ListStudyCandidates(context.Background(), owner, language)
+}
+
+func (h *contractHarness) ListCurrentStudyMaterial(owner, language string) ([]domain.StudyMaterial, error) {
+	return h.store.ListCurrentStudyMaterial(context.Background(), owner, language)
+}
+
+func (h *contractHarness) GetStudyMaterial(owner, id string) (domain.StudyMaterial, error) {
+	return h.store.GetStudyMaterial(context.Background(), owner, id)
+}
+
+func (h *contractHarness) CountStudyMaterial(owner, language string) (domain.StudyMaterialCounts, error) {
+	return h.store.CountStudyMaterial(context.Background(), owner, language)
+}
+
+func (h *contractHarness) ReserveStudyMaterial(owner string, identity domain.StudyIdentity) (string, bool, error) {
+	return h.store.ReserveStudyMaterial(context.Background(), owner, identity)
+}
+
+func (h *contractHarness) RecordStudyMaterialReady(owner, id string, content domain.StudyMaterialReadyContent) error {
+	return h.store.RecordStudyMaterialReady(context.Background(), owner, id, content)
+}
+
+func (h *contractHarness) RecordStudyMaterialUnpreparable(owner, id, reason string) error {
+	return h.store.RecordStudyMaterialUnpreparable(context.Background(), owner, id, reason)
+}

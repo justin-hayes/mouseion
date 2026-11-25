@@ -1,0 +1,58 @@
+package webapp
+
+import (
+	"fmt"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+templ StudyPage(user domain.User, csrf string, view studyPageView) {
+	@ShellLayout("Study", &user, csrf, NavigationLearning) {
+		@PageHeader("Study", studyPageDescription(view), nil)
+		if !view.Available {
+			<section class="study-unavailable" aria-labelledby="study-unavailable-heading">
+				<h2 id="study-unavailable-heading">Study isn't available for this language yet</h2>
+				<p>Study needs a meaning that fits each sentence, and this language does not provide one yet. Prepared decks still work for it.</p>
+				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
+			</section>
+		} else {
+			<section class="study-preparation" aria-labelledby="study-preparation-heading">
+				<h2 id="study-preparation-heading">New words</h2>
+				<p id="study-ready">{ studyReadyText(view.Counts.Ready) }</p>
+				if view.Counts.Preparing > 0 {
+					<p id="study-preparing">{ studyPreparingText(view.Counts.Preparing) }</p>
+				}
+				if view.Counts.Unpreparable > 0 {
+					<p id="study-skipped">{ studySkippedText(view.Counts.Unpreparable) }</p>
+				}
+				if view.Counts.Ready == 0 && view.Counts.Preparing == 0 && view.Counts.Unpreparable == 0 {
+					<p id="study-empty">No new words are queued yet. They come from the Books you have analysed.</p>
+				}
+			</section>
+		}
+	}
+}
+
+func studyPageDescription(view studyPageView) string {
+	return "Review vocabulary from your reading."
+}
+
+func studyReadyText(count int) string {
+	if count == 1 {
+		return "1 new word is ready."
+	}
+	return fmt.Sprintf("%d new words are ready.", count)
+}
+
+func studyPreparingText(count int) string {
+	if count == 1 {
+		return "1 more word is being prepared."
+	}
+	return fmt.Sprintf("%d more words are being prepared.", count)
+}
+
+func studySkippedText(count int) string {
+	if count == 1 {
+		return "1 word was skipped because it has no usable sentence or meaning."
+	}
+	return fmt.Sprintf("%d words were skipped because they have no usable sentence or meaning.", count)
+}

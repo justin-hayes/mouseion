@@ -86,6 +86,7 @@ type Harness interface {
 	BookState() BookStateStore
 	Classical() ClassicalStore
 	Catalogue() CatalogueStore
+	Study() StudyStore
 	Seeds() Seeder
 }
 
@@ -139,6 +140,24 @@ type ClassicalStore interface {
 	// ListStudyLanguages includes the languages of Books with active My Books
 	// membership, so a removed Book contributes nothing until Add restores it.
 	ListStudyLanguages(owner string) ([]domain.StudyLanguage, error)
+}
+
+// StudyStore is the Study stream and Study material surface under test
+// (ADR 0134). Candidates are unordered facts: the domain orders them. Material
+// is owner-scoped and keyed by word; a word has one current record.
+type StudyStore interface {
+	ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error)
+	ListCurrentStudyMaterial(owner, language string) ([]domain.StudyMaterial, error)
+	GetStudyMaterial(owner, id string) (domain.StudyMaterial, error)
+	CountStudyMaterial(owner, language string) (domain.StudyMaterialCounts, error)
+	// ReserveStudyMaterial starts a word's material as pending. It reports
+	// false when the word already has current material.
+	ReserveStudyMaterial(owner string, identity domain.StudyIdentity) (string, bool, error)
+	// RecordStudyMaterialReady and RecordStudyMaterialUnpreparable settle a
+	// pending record; a missing, foreign or already settled record is
+	// domain.ErrNotFound.
+	RecordStudyMaterialReady(owner, id string, content domain.StudyMaterialReadyContent) error
+	RecordStudyMaterialUnpreparable(owner, id, reason string) error
 }
 
 // CatalogueStore is the Catalog browse and Add surface under test. Browse
@@ -256,6 +275,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, classicalScenarios()...)
 	scenarios = append(scenarios, classicalPreparationFailureScenarios()...)
 	scenarios = append(scenarios, catalogueScenarios()...)
+	scenarios = append(scenarios, studyScenarios()...)
 	scenarios = append(scenarios, chosenBookScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }

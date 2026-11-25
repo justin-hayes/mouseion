@@ -35,6 +35,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/sourcecheck"
+	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
@@ -85,6 +86,7 @@ type serverDependencies struct {
 	batchProvider     *enrichment.OpenAIBatchClient
 	catalogueSyncDeps cataloguesync.StoreDependencies
 	riverClient       *river.Client[pgx.Tx]
+	studyService      *study.Service
 }
 
 func run() (err error) {
@@ -256,6 +258,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		TempDir: cfg.acquisitionTempDir,
 	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
+	registerStudyWorker(workers, store, translationProvider)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -268,6 +271,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	sourceStructureChecks := sourcecheck.NewService(store, riverClient, sourcecheck.ConfiguredTarget())
 	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
+	studyService := study.NewService(store, riverClient)
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err := prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
@@ -288,7 +292,16 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		batchProvider:     batchProvider,
 		catalogueSyncDeps: catalogueSyncDeps,
 		riverClient:       riverClient,
+		studyService:      studyService,
 	}, nil
+}
+
+// registerStudyWorker registers the Study material worker. The translation
+// provider is the one prepared decks use; Study asks it for a contextual Gloss
+// only from a job, never from a request.
+func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider) {
+	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
+	study.AddMaterialWorker(workers, store, enricher)
 }
 
 // registerEPUBAcquisitionWorker wires the acquisition worker to the Catalog
@@ -325,7 +338,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := catalogueSyncService.RegisterAll(ctx); err != nil {
 		return nil, err
 	}
-	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
 	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
@@ -343,7 +356,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err != nil {
 		return nil, fmt.Errorf("initialize reading intent: %w", err)
 	}
-	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, EPUBAcquisition: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime, Clock: time.Now})
+	webHandler, err := webapp.NewWithError(webapp.Services{Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, EPUBAcquisition: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Study: deps.studyService, Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime, Clock: time.Now})
 	if err != nil {
 		return nil, fmt.Errorf("initialize web application: %w", err)
 	}

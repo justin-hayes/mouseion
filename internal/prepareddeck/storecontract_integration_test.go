@@ -101,6 +101,7 @@ func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return 
 func (h *postgresHarness) BookState() storecontract.BookStateStore     { return h }
 func (h *postgresHarness) Classical() storecontract.ClassicalStore     { return h }
 func (h *postgresHarness) Catalogue() storecontract.CatalogueStore     { return h }
+func (h *postgresHarness) Study() storecontract.StudyStore             { return h }
 func (h *postgresHarness) Seeds() storecontract.Seeder                 { return h }
 
 func (h *postgresHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
@@ -402,4 +403,32 @@ func (h *postgresHarness) PrepareCurrentReadingDeck(owner, bookID, expectedSnaps
 func (h *postgresHarness) RepreparePreparation(owner, id, expectedSnapshotID string) (domain.DeckPreparation, error) {
 	handle, err := h.service.Reprepare(h.ctx, owner, id, expectedSnapshotID)
 	return handle.Preparation, err
+}
+
+func (h *postgresHarness) ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error) {
+	return h.store.ListStudyCandidates(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) ListCurrentStudyMaterial(owner, language string) ([]domain.StudyMaterial, error) {
+	return h.store.ListCurrentStudyMaterial(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) GetStudyMaterial(owner, id string) (domain.StudyMaterial, error) {
+	return h.store.GetStudyMaterial(h.ctx, owner, id)
+}
+
+func (h *postgresHarness) CountStudyMaterial(owner, language string) (domain.StudyMaterialCounts, error) {
+	return h.store.CountStudyMaterial(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) ReserveStudyMaterial(owner string, identity domain.StudyIdentity) (string, bool, error) {
+	return h.store.ReserveStudyMaterial(h.ctx, owner, identity)
+}
+
+func (h *postgresHarness) RecordStudyMaterialReady(owner, id string, content domain.StudyMaterialReadyContent) error {
+	return h.store.RecordStudyMaterialReady(h.ctx, owner, id, content)
+}
+
+func (h *postgresHarness) RecordStudyMaterialUnpreparable(owner, id, reason string) error {
+	return h.store.RecordStudyMaterialUnpreparable(h.ctx, owner, id, reason)
 }

@@ -41,7 +41,7 @@ func main() {
 	}
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
 	preparedDeck := fixtures.PreparedDeck{Store: store}
 	lemmaReview := lemmareview.New(lemmareview.Config{
 		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
@@ -67,7 +67,7 @@ func main() {
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtureOPDS,
 		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.ClassicalInsights{},
-		PreparedDeck: preparedDeck, Capabilities: fixtures.Capabilities{},
+		PreparedDeck: preparedDeck, Study: fixtures.Study{Store: store}, Capabilities: fixtures.Capabilities{},
 		ClassicalPreparation: fixtures.ClassicalPreparation{}, ReadingIntent: readingIntent,
 		Classical:     classicalCatalog,
 		CatalogueSync: catalogueSync, LemmaReview: lemmaReview,

@@ -68,6 +68,7 @@ type Querier interface {
 	// exclusion: a duplicate cannot change EXISTS.
 	ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
+	CountCurrentStudyMaterial(ctx context.Context, arg CountCurrentStudyMaterialParams) ([]CountCurrentStudyMaterialRow, error)
 	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
@@ -262,6 +263,7 @@ type Querier interface {
 	GetSourceMaterialUnitSnapshotByExtractionIdentity(ctx context.Context, arg GetSourceMaterialUnitSnapshotByExtractionIdentityParams) (string, error)
 	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
+	GetStudyMaterial(ctx context.Context, arg GetStudyMaterialParams) (GetStudyMaterialRow, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
 	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
@@ -365,6 +367,7 @@ type Querier interface {
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
+	ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentStudyMaterialParams) ([]ListCurrentStudyMaterialRow, error)
 	ListDeckPreparationVocabulary(ctx context.Context, arg ListDeckPreparationVocabularyParams) ([]ListDeckPreparationVocabularyRow, error)
 	ListDeckPreparationsForSourceMaterial(ctx context.Context, arg ListDeckPreparationsForSourceMaterialParams) ([]DeckPreparation, error)
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
@@ -439,6 +442,16 @@ type Querier interface {
 	// check yet. Imported classical sources and unlinked sources are excluded.
 	ListSourceStructureCheckCandidates(ctx context.Context, arg ListSourceStructureCheckCandidatesParams) ([]ListSourceStructureCheckCandidatesRow, error)
 	ListStalePreparedDecks(ctx context.Context, arg ListStalePreparedDecksParams) ([]ListStalePreparedDecksRow, error)
+	// Study (ADR 0134, spec #2691): the stream of new-word candidates and the
+	// Study material prepared for them.
+	// Effective vocabulary identities of the owner's currently analyzed Books in
+	// the study language, with their Personal analyzed-Book occurrences and whether
+	// the Current reading contributes them. The counts are the Browse count
+	// projection, which already applies confirmed Lemma corrections and Occurrence
+	// exclusions. A Book whose projection is not ready contributes nothing yet.
+	// Known and Reserved vocabulary are deliberately not consulted (ADR 0134 §3).
+	// The builder version is the one Browse reads.
+	ListStudyCandidates(ctx context.Context, arg ListStudyCandidatesParams) ([]ListStudyCandidatesRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
@@ -481,6 +494,8 @@ type Querier interface {
 	// A failed retrieval keeps any retained image and records the reason.
 	MarkCatalogEntryCoverUnavailable(ctx context.Context, arg MarkCatalogEntryCoverUnavailableParams) (int64, error)
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
+	MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMaterialReadyParams) (int64, error)
+	MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStudyMaterialUnpreparableParams) (int64, error)
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
 	NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error)
 	NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error)
@@ -515,6 +530,9 @@ type Querier interface {
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	RemoveUnchosenBookMembership(ctx context.Context) (int64, error)
 	RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error)
+	// Starts a word's material as pending. A word that already has current
+	// material returns no row.
+	ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMaterialParams) (string, error)
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
 	RetireDeckPreparationForSnapshot(ctx context.Context, arg RetireDeckPreparationForSnapshotParams) error
