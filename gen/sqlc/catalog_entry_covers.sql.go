@@ -13,6 +13,7 @@ import (
 )
 
 const advertiseCatalogEntryCover = `-- name: AdvertiseCatalogEntryCover :exec
+
 INSERT INTO catalog_entry_covers(owner_id, connection_id, entry_identifier, state, advertised_at)
 VALUES ($1, $2, $3, 'pending', $4)
 ON CONFLICT (owner_id, connection_id, entry_identifier) DO UPDATE SET
@@ -29,6 +30,9 @@ type AdvertiseCatalogEntryCoverParams struct {
 	AdvertisedAt    time.Time
 }
 
+// Retained Catalog entry covers (ADR 0130). The row is keyed by the owner and
+// the entry's connection-scoped identity and has no foreign keys, so every
+// query scopes by owner_id. Bytes are read only by GetCatalogEntryCoverResource.
 // Starts a retrieval generation. A retained image stays available until the
 // replacement validates; any other state restarts as pending.
 func (q *Queries) AdvertiseCatalogEntryCover(ctx context.Context, arg AdvertiseCatalogEntryCoverParams) error {
@@ -192,47 +196,6 @@ func (q *Queries) ListCatalogEntryCoverGeneration(ctx context.Context, arg ListC
 			return nil, err
 		}
 		items = append(items, entry_identifier)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCatalogEntryCoverStates = `-- name: ListCatalogEntryCoverStates :many
-
-SELECT entry_identifier, state, (failure_reason IS NOT NULL)::boolean AS failed
-FROM catalog_entry_covers
-WHERE owner_id = $1 AND connection_id = $2
-`
-
-type ListCatalogEntryCoverStatesParams struct {
-	OwnerID      string
-	ConnectionID string
-}
-
-type ListCatalogEntryCoverStatesRow struct {
-	EntryIdentifier string
-	State           string
-	Failed          bool
-}
-
-// Retained Catalog entry covers (ADR 0130). The row is keyed by the owner and
-// the entry's connection-scoped identity and has no foreign keys, so every
-// query scopes by owner_id. Bytes are read only by GetCatalogEntryCoverResource.
-func (q *Queries) ListCatalogEntryCoverStates(ctx context.Context, arg ListCatalogEntryCoverStatesParams) ([]ListCatalogEntryCoverStatesRow, error) {
-	rows, err := q.db.Query(ctx, listCatalogEntryCoverStates, arg.OwnerID, arg.ConnectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListCatalogEntryCoverStatesRow{}
-	for rows.Next() {
-		var i ListCatalogEntryCoverStatesRow
-		if err := rows.Scan(&i.EntryIdentifier, &i.State, &i.Failed); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

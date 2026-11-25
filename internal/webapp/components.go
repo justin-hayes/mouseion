@@ -104,11 +104,13 @@ func newTitlePlate(title, greekTitle, author string) titlePlate {
 	}
 }
 
-func readingBookGreekTitle(item readingBookView) string {
-	if item.ReadingUnit != nil {
-		return item.ReadingUnit.GreekTitle
+// readingUnitGreekTitle is the trimmed Greek title of a Book's Reading unit, or
+// "" when the Book has none.
+func readingUnitGreekTitle(unit *domain.BookReadingUnit) string {
+	if unit == nil {
+		return ""
 	}
-	return ""
+	return strings.TrimSpace(unit.GreekTitle)
 }
 
 type StatusTone string

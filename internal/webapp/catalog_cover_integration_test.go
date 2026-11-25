@@ -16,7 +16,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -39,7 +38,7 @@ func TestCatalogEntryCoverEndpointAndCardAreOwnerScopedAndHideUpstreamURL(t *tes
 		{ConnectionID: connection.ID, EntryIdentifier: entryID, Title: "Covered", LanguageTag: "de", EPUBHref: "https://cover.example/a.epub", CoverHref: "https://upstream.example/secret-cover.png", CoverMediaType: "image/png"},
 		{ConnectionID: connection.ID, EntryIdentifier: "plain", Title: "Plain", LanguageTag: "de", EPUBHref: "https://cover.example/b.epub"},
 	}, observed))
-	require.NoError(t, store.SaveCatalogEntryCover(ctx, alice.ID, connection.ID, entryID, observed.Truncate(persistence.CatalogEntryCoverFence), "image/png", 2, 3, "entry-v1", []byte("entry cover bytes")))
+	require.NoError(t, store.SaveCatalogEntryCover(ctx, domain.CatalogEntryKey{OwnerID: alice.ID, ConnectionID: connection.ID, EntryIdentifier: entryID}, observed.Truncate(persistence.CatalogEntryCoverFence), "image/png", 2, 3, "entry-v1", []byte("entry cover bytes")))
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
@@ -53,13 +52,22 @@ func TestCatalogEntryCoverEndpointAndCardAreOwnerScopedAndHideUpstreamURL(t *tes
 
 	served := perform(t, h, http.MethodGet, coverPath, nil, aliceCookies)
 	require.Equal(t, http.StatusOK, served.Code)
-	assert.Equal(t, []byte("entry cover bytes"), served.Body.Bytes())
-	assert.Equal(t, `"entry-v1"`, served.Header().Get("ETag"))
-	assert.Equal(t, "image/png", served.Header().Get("Content-Type"))
-	assert.Equal(t, "private, no-cache", served.Header().Get("Cache-Control"))
-
-	conditional := performWithHeader(t, h, http.MethodGet, coverPath, nil, aliceCookies, "If-None-Match", `"entry-v1"`)
-	assert.Equal(t, http.StatusNotModified, conditional.Code)
+	t.Run("serves the retained bytes", func(t *testing.T) {
+		require.Equal(t, []byte("entry cover bytes"), served.Body.Bytes())
+	})
+	t.Run("validates by content hash", func(t *testing.T) {
+		require.Equal(t, `"entry-v1"`, served.Header().Get("ETag"))
+	})
+	t.Run("declares the media type", func(t *testing.T) {
+		require.Equal(t, "image/png", served.Header().Get("Content-Type"))
+	})
+	t.Run("is private and revalidated", func(t *testing.T) {
+		require.Equal(t, "private, no-cache", served.Header().Get("Cache-Control"))
+	})
+	t.Run("a matching validator is not modified", func(t *testing.T) {
+		conditional := performWithHeader(t, h, http.MethodGet, coverPath, nil, aliceCookies, "If-None-Match", `"entry-v1"`)
+		require.Equal(t, http.StatusNotModified, conditional.Code)
+	})
 
 	missing := perform(t, h, http.MethodGet, "/catalogs/sources/"+connection.ID+"/cover?entry=plain", nil, aliceCookies)
 	crossOwner := perform(t, h, http.MethodGet, coverPath, nil, bobCookies)
@@ -71,18 +79,26 @@ func TestCatalogEntryCoverEndpointAndCardAreOwnerScopedAndHideUpstreamURL(t *tes
 		"no entry": noEntry, "malformed source": badSource,
 	} {
 		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, http.StatusNotFound, response.Code)
+			require.Equal(t, http.StatusNotFound, response.Code)
 		})
 	}
-	assert.Equal(t, missing.Body.String(), crossOwner.Body.String())
+	t.Run("a missing cover and another owner's cover are indistinguishable", func(t *testing.T) {
+		require.Equal(t, missing.Body.String(), crossOwner.Body.String())
+	})
 
 	page := perform(t, h, http.MethodGet, "/catalogs", nil, aliceCookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	html := page.Body.String()
-	assert.Contains(t, html, `class="book-cover-media__image"`)
-	assert.Contains(t, html, "/catalogs/sources/"+connection.ID+"/cover?entry=urn%3Auuid%3Aa%2Fb")
-	assert.Contains(t, html, `width="2" height="3"`)
-	assert.NotContains(t, html, "upstream.example")
-	assert.NotContains(t, html, "secret-cover")
-	assert.Contains(t, html, "title-plate__title", "the entry without a retained cover keeps its Title plate")
+	t.Run("the card shows the retained image", func(t *testing.T) {
+		require.Contains(t, html, `class="book-cover-media__image"`)
+		require.Contains(t, html, "/catalogs/sources/"+connection.ID+"/cover?entry=urn%3Auuid%3Aa%2Fb")
+		require.Contains(t, html, `width="2" height="3"`)
+	})
+	t.Run("the upstream URL never reaches the page", func(t *testing.T) {
+		require.NotContains(t, html, "upstream.example")
+		require.NotContains(t, html, "secret-cover")
+	})
+	t.Run("an entry without a retained cover keeps its Title plate", func(t *testing.T) {
+		require.Contains(t, html, "title-plate__title")
+	})
 }

@@ -12,6 +12,9 @@ import (
 
 type Querier interface {
 	ActivateBookMembership(ctx context.Context, arg ActivateBookMembershipParams) error
+	// Retained Catalog entry covers (ADR 0130). The row is keyed by the owner and
+	// the entry's connection-scoped identity and has no foreign keys, so every
+	// query scopes by owner_id. Bytes are read only by GetCatalogEntryCoverResource.
 	// Starts a retrieval generation. A retained image stays available until the
 	// replacement validates; any other state restarts as pending.
 	AdvertiseCatalogEntryCover(ctx context.Context, arg AdvertiseCatalogEntryCoverParams) error
@@ -319,10 +322,6 @@ type Querier interface {
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogEntryCoverGeneration(ctx context.Context, arg ListCatalogEntryCoverGenerationParams) ([]string, error)
-	// Retained Catalog entry covers (ADR 0130). The row is keyed by the owner and
-	// the entry's connection-scoped identity and has no foreign keys, so every
-	// query scopes by owner_id. Bytes are read only by GetCatalogEntryCoverResource.
-	ListCatalogEntryCoverStates(ctx context.Context, arg ListCatalogEntryCoverStatesParams) ([]ListCatalogEntryCoverStatesRow, error)
 	ListCatalogueEntries(ctx context.Context, arg ListCatalogueEntriesParams) ([]ListCatalogueEntriesRow, error)
 	// The learner's active Books linked by catalog-entry alias, keyed by the entry
 	// identifier the index browses. A removed Book contributes no ownership.

@@ -52,7 +52,7 @@ func (f *coverFixture) indexedEntry(identifier string) domain.CatalogueIndexEntr
 }
 
 func (f *coverFixture) entryCover(identifier string) (domain.CatalogEntryCoverResource, error) {
-	return f.store.GetCatalogEntryCoverResource(f.ctx, f.ownerID, f.connection.ID, identifier)
+	return f.store.GetCatalogEntryCoverResource(f.ctx, domain.CatalogEntryKey{OwnerID: f.ownerID, ConnectionID: f.connection.ID, EntryIdentifier: identifier})
 }
 
 func newestEntryCoverArgs(t *testing.T, args []EntryCoverArgs) EntryCoverArgs {
@@ -93,9 +93,12 @@ func TestCatalogueSyncRetainsEntryCoversWithoutBooksAndRefreshesOnChange(t *test
 	_, err = f.entryCover("entry-2")
 	require.ErrorIs(t, err, persistence.ErrNotFound)
 
-	// An unchanged advertisement keeps the retained image and schedules nothing.
+	// An unchanged advertisement keeps the retained image and is refetched.
 	require.NoError(t, f.sync(f.connection.ID))
-	assert.Len(t, f.pendingEntryCoverArgs(), 1)
+	assert.Len(t, f.pendingEntryCoverArgs(), 2)
+	refetched, refetchedErr := f.entryCover("entry-1")
+	require.NoError(t, refetchedErr)
+	assert.Equal(t, first.ContentHash, refetched.ContentHash)
 
 	// A changed advertised image starts a new generation; the prior image stays
 	// until the replacement validates, and a stale completion is dropped.
@@ -103,7 +106,7 @@ func TestCatalogueSyncRetainsEntryCoversWithoutBooksAndRefreshesOnChange(t *test
 	f.catalog.setEntries("/a", coverEntry{id: "entry-1", title: "Entry One", imageHref: "/a/image/two.png"}, coverEntry{id: "entry-2", title: "Entry Two"})
 	require.NoError(t, f.sync(f.connection.ID))
 	all := f.pendingEntryCoverArgs()
-	require.Len(t, all, 2)
+	require.Len(t, all, 3)
 	current := newestEntryCoverArgs(t, all)
 	still, err := f.entryCover("entry-1")
 	require.NoError(t, err)
@@ -201,6 +204,6 @@ func TestEntryCoverIsOwnerScoped(t *testing.T) {
 	require.NoError(t, f.runEntryCoverJob(f.pendingEntryCoverArgs()[0]))
 	other, err := f.store.CreateUser(f.ctx, "other-owner", false)
 	require.NoError(t, err)
-	_, err = f.store.GetCatalogEntryCoverResource(f.ctx, other.ID, f.connection.ID, "entry-1")
+	_, err = f.store.GetCatalogEntryCoverResource(f.ctx, domain.CatalogEntryKey{OwnerID: other.ID, ConnectionID: f.connection.ID, EntryIdentifier: "entry-1"})
 	require.ErrorIs(t, err, persistence.ErrNotFound)
 }

@@ -405,10 +405,7 @@ func myBookTitlePlate(book domain.MyBook) titlePlate {
 }
 
 func myBookGreekTitle(book domain.MyBook) string {
-	if unit := book.ReadingUnit; unit != nil {
-		return strings.TrimSpace(unit.GreekTitle)
-	}
-	return ""
+	return readingUnitGreekTitle(book.ReadingUnit)
 }
 
 func myBooksPageCount(total int) int {

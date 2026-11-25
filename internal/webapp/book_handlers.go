@@ -1,11 +1,9 @@
 package webapp
 
 import (
-	"bytes"
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -25,15 +23,7 @@ func (h *Handler) bookCover(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	etag := `"` + strings.ReplaceAll(resource.ContentHash, `"`, "") + `"`
-	w.Header().Set("Cache-Control", "private, no-cache")
-	w.Header().Set("ETag", etag)
-	w.Header().Set("Content-Type", resource.MediaType)
-	if strings.TrimSpace(r.Header.Get("If-None-Match")) == etag {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
-	http.ServeContent(w, r, "book-cover", time.Time{}, bytes.NewReader(resource.Bytes))
+	serveCoverImage(w, r, "book-cover", resource.MediaType, resource.ContentHash, resource.Bytes)
 }
 
 func (h *Handler) bookDetail(w http.ResponseWriter, r *http.Request, owner, id string) (domain.MyBook, bool) {

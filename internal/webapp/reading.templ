@@ -62,7 +62,7 @@ templ CurrentReadingSection(currentReading *readingBookView, csrf string, messag
 templ ReadingBookCard(item readingBookView, csrf string) {
 	<article id={ readingBookAnchorID(readingBookID(item)) } tabindex="-1" data-focus-anchor class="resource-card journey-book journey-book--goal">
 		<div class="journey-book__title-page journey-book__title-page--current">
-			<div class="journey-book__cover">@BookCoverMedia(readingBookID(item), newTitlePlate(canonicalBookTitle(item.Book), readingBookGreekTitle(item), canonicalBookAuthor(item.Book)), item.Cover)</div>
+			<div class="journey-book__cover">@BookCoverMedia(readingBookID(item), newTitlePlate(canonicalBookTitle(item.Book), readingUnitGreekTitle(item.ReadingUnit), canonicalBookAuthor(item.Book)), item.Cover)</div>
 			<div class="journey-book__identity">
 				if !item.ReadingSince.IsZero() {
 					<p class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>

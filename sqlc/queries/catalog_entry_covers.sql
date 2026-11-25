@@ -2,11 +2,6 @@
 -- the entry's connection-scoped identity and has no foreign keys, so every
 -- query scopes by owner_id. Bytes are read only by GetCatalogEntryCoverResource.
 
--- name: ListCatalogEntryCoverStates :many
-SELECT entry_identifier, state, (failure_reason IS NOT NULL)::boolean AS failed
-FROM catalog_entry_covers
-WHERE owner_id = sqlc.arg('owner_id') AND connection_id = sqlc.arg('connection_id');
-
 -- name: AdvertiseCatalogEntryCover :exec
 -- Starts a retrieval generation. A retained image stays available until the
 -- replacement validates; any other state restarts as pending.
