@@ -30,12 +30,21 @@ templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
 	}
 }
 
-templ BookCoverMedia(bookID, title, language string, cover domain.BookCover) {
+templ BookCoverMedia(bookID string, plate titlePlate, cover domain.BookCover) {
 	<div class="book-cover-media">
 		if cover.State == domain.BookCoverAvailable && cover.Width > 0 && cover.Height > 0 {
 			<img class="book-cover-media__image" src={ templ.SafeURL(bookCoverURL(bookID)) } alt="" width={ fmt.Sprintf("%d", cover.Width) } height={ fmt.Sprintf("%d", cover.Height) } loading="lazy" decoding="async"/>
 		} else {
-			<div class="book-cover-media__placeholder" aria-hidden="true"><span class="book-cover-media__initial">{ bookCoverInitial(title, language) }</span><span class="book-cover-media__label">{ bookCoverLabel(cover) }</span></div>
+			<div class="book-cover-media__placeholder" aria-hidden="true">
+				<span class="title-plate__title">{ plate.Title }</span>
+				if plate.GreekTitle != "" {
+					<span class="title-plate__greek" lang="el">{ plate.GreekTitle }</span>
+				}
+				if plate.Author != "" {
+					<span class="title-plate__author">{ plate.Author }</span>
+				}
+				<span class="book-cover-media__label">{ bookCoverLabel(cover) }</span>
+			</div>
 		}
 	</div>
 }

@@ -1501,11 +1501,34 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   pointer-events: none;
 }
 
-.book-cover-media__initial {
+/* The Title plate composes title, Greek title and author in the reading face.
+ * It is presentation only; the plate is hidden from assistive technology
+ * because the same text is visible beside it. */
+.title-plate__title {
+  overflow: hidden;
   font-family: var(--mouseion-font-reading);
-  font-size: 1.75rem;
-  font-weight: 500;
-  line-height: 1;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--mouseion-color-text);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+}
+
+.title-plate__greek,
+.title-plate__author {
+  overflow: hidden;
+  font-family: var(--mouseion-font-reading);
+  font-size: var(--mouseion-font-size-metadata);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .book-cover-media__label {
@@ -1513,9 +1536,20 @@ body.my-books-shell .library-filters a[aria-current="page"] {
   text-align: center;
 }
 
-/* My Books uses a list-sized cover: the initial is enough to identify a
- * placeholder there, while the adjacent Book title remains authoritative. */
+/* My Books uses a list-sized cover: the plate's text is enough to identify a
+ * placeholder there, so the state label stays out of the way. */
 .library-book .book-cover-media__label {
+  display: none;
+}
+
+.library-book .title-plate__title {
+  font-size: 0.8125rem;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.library-book .title-plate__greek,
+.library-book .title-plate__author {
   display: none;
 }
 

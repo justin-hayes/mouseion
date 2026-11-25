@@ -354,7 +354,7 @@ func ReadingBookCard(item readingBookView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = BookCoverMedia(readingBookID(item), item.Book.BookTitle, item.Book.Source.Language, item.Cover).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = BookCoverMedia(readingBookID(item), newTitlePlate(canonicalBookTitle(item.Book), readingBookGreekTitle(item), canonicalBookAuthor(item.Book)), item.Cover).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1704,7 +1704,7 @@ func ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, c
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = BookCoverMedia(item.Book.Book.ID, myBookTitlePlate(item.Book), item.Book.Cover).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

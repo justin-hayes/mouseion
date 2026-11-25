@@ -171,35 +171,33 @@ func TestStatusBadgeKeepsOrdinaryReadAndInboxRingShapes(t *testing.T) {
 	}
 }
 
-func TestBookCoverPlaceholderKeepsStateAndDecoratesInitial(t *testing.T) {
-	html := renderPattern(t, BookCoverMedia("book-1", "Die Verwandlung", "de", domain.BookCover{State: domain.BookCoverPending}), "")
+func TestBookCoverPlaceholderRendersTitlePlateHiddenFromAssistiveTechnology(t *testing.T) {
+	plate := newTitlePlate("Die Verwandlung", "", "Franz Kafka")
+	html := renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{State: domain.BookCoverPending}), "")
 	requireMarkup(t, html,
 		`class="book-cover-media__placeholder" aria-hidden="true"`,
-		`class="book-cover-media__initial">V</span>`,
+		`class="title-plate__title">Die Verwandlung</span>`,
+		`class="title-plate__author">Franz Kafka</span>`,
 		`class="book-cover-media__label">Cover pending</span>`,
+	)
+	assert.NotContains(t, html, "title-plate__greek")
+	assert.NotContains(t, html, "book-cover-media__initial")
+}
+
+func TestTitlePlateCarriesGreekTitleForClassicalBook(t *testing.T) {
+	plate := newTitlePlate("Iliad", " Ἰλιάς ", "Homer")
+	html := renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{}), "")
+	requireMarkup(t, html,
+		`class="title-plate__title">Iliad</span>`,
+		`class="title-plate__greek" lang="el">Ἰλιάς</span>`,
+		`class="title-plate__author">Homer</span>`,
 	)
 }
 
-func TestBookCoverInitialIgnoresLeadingArticleForBookLanguage(t *testing.T) {
-	tests := []struct {
-		name, title, language, want string
-	}{
-		{name: "German definite article", title: "Der Prozess", language: "de", want: "P"},
-		{name: "Italian article", title: "Gli indifferenti", language: "it", want: "I"},
-		{name: "Greek article", title: "Το σπίτι", language: "el", want: "Σ"},
-		{name: "article alone", title: "Die", language: "de", want: "D"},
-		{name: "punctuation before article", title: "— Die Verwandlung", language: "de", want: "V"},
-		{name: "elided Italian article", title: "L'amica geniale", language: "it", want: "A"},
-		{name: "elided Italian article with a typographic apostrophe", title: "L’amica geniale", language: "it", want: "A"},
-		{name: "regional language subtag still strips the article", title: "Der Prozess", language: "de-AT", want: "P"},
-		{name: "whitespace-padded language tag still strips the article", title: "Der Prozess", language: "  de-AT  ", want: "P"},
-		{name: "unknown language keeps first letter", title: "Der Prozess", language: "fr", want: "D"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, bookCoverInitial(tt.title, tt.language))
-		})
-	}
+func TestBookCoverImageReplacesTitlePlate(t *testing.T) {
+	html := renderPattern(t, BookCoverMedia("book-1", newTitlePlate("T", "", "A"), domain.BookCover{State: domain.BookCoverAvailable, Width: 10, Height: 15}), "")
+	assert.Contains(t, html, "book-cover-media__image")
+	assert.NotContains(t, html, "title-plate")
 }
 
 func TestFeedbackPatterns(t *testing.T) {
@@ -308,4 +306,51 @@ func TestComponentStylesAvailable(t *testing.T) {
 	compactActions := regexp.MustCompile(`(?s)@media \(max-width: 40rem\).*?\.action-group\s*\{[^}]*flex-direction:\s*column`)
 	assert.True(t, compactActions.MatchString(css), "compact component styles must stack action groups")
 	assert.Contains(t, css, ".confirmation--danger summary", "danger confirmations need a distinct semantic treatment")
+}
+
+func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
+	unit := &domain.BookReadingUnit{WorkTitle: "Iliad", GreekTitle: "Ἰλιάς"}
+	book := domain.MyBook{
+		Book:        domain.Book{ID: "book-1", Title: "Iliad", Author: "Homer"},
+		ReadingUnit: unit,
+		Cover:       domain.BookCover{State: domain.BookCoverNone},
+	}
+	tests := []struct {
+		name string
+		html string
+		want []string
+	}{
+		{
+			name: "Catalog card",
+			html: renderPattern(t, CatalogEntryCard("csrf", domain.CatalogueEntry{Index: domain.CatalogueIndexEntry{
+				ConnectionID: "c", EntryIdentifier: "e", Title: "Die Verwandlung", Author: "Franz Kafka",
+			}}), ""),
+			want: []string{`class="title-plate__title">Die Verwandlung</span>`, `class="title-plate__author">Franz Kafka</span>`},
+		},
+		{
+			name: "My Books row",
+			html: renderPattern(t, MyBookRow("csrf", book, ""), ""),
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
+		},
+		{
+			name: "Reading chooser",
+			html: renderPattern(t, ReadingChooserCandidate(readingChooserBookView{Book: book}, "csrf", "", ""), ""),
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`},
+		},
+		{
+			name: "Reading current Book",
+			html: renderPattern(t, ReadingBookCard(readingBookView{
+				Book:        domain.SourceMaterialSummary{BookTitle: "Iliad", BookAuthor: "Homer"},
+				BookID:      "book-1",
+				ReadingUnit: unit,
+			}, "csrf"), ""),
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			requireMarkup(t, tt.html, append(tt.want, `aria-hidden="true"`)...)
+			assert.NotContains(t, tt.html, "book-cover-media__initial")
+		})
+	}
 }

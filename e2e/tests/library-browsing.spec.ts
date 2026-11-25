@@ -111,7 +111,7 @@ test.describe('My Books collection browsing', () => {
     const placeholders = page.locator('.library-books .book-cover-media__placeholder');
     expect(await placeholders.count()).toBeGreaterThan(0);
     expect(await placeholders.evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
-    expect(await placeholders.locator('.book-cover-media__initial').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display !== 'none'))).toBe(true);
+    expect(await placeholders.locator('.title-plate__title').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display !== 'none'))).toBe(true);
     expect(await placeholders.locator('.book-cover-media__label').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display === 'none'))).toBe(true);
     const search = page.getByLabel('Search My Books');
     const button = page.getByRole('button', { name: 'Search' });
