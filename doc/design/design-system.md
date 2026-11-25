@@ -263,13 +263,11 @@ failure. Shapes use the status foreground so they remain visible in both themes
 and forced-colors mode. Never make disclosure state or status depend on color
 alone.
 
-A missing, pending, or unavailable Book cover uses a tinted placeholder with the
-first title initial; a leading article is ignored according to the Book language
-(German, Italian, or Modern Greek). If the title is only an article, its own
-initial is retained. At My Books list size, show only the initial rather than a
-clipped cover-state caption; larger cover presentations may retain their state
-label. The complete placeholder is `aria-hidden` because the adjacent title is
-authoritative.
+A missing, pending, or unavailable Book cover, and every Catalog entry without a
+retained image, uses the **Title plate**: the text's own title, Greek title when
+it has one, and author composed on a tinted surface (ADR 0130). Larger cover
+presentations may retain their state label. The complete plate is `aria-hidden`
+because the adjacent title is authoritative.
 
 ## Spacing scale
 

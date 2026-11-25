@@ -214,11 +214,18 @@ or reorder those contracts.
 | State | My Books presentation | Reading presentation |
 |---|---|---|
 | Valid retained cover | Complete image in the fixed-ratio frame | Complete image in the thumbnail frame |
-| No cover advertised | Placeholder with **No cover available** | Subdued aligned placeholder |
-| Retrieval pending | Placeholder with **Cover pending** | Subdued aligned placeholder |
-| Advertised cover unavailable with no prior valid image | Placeholder with **Cover unavailable** | Subdued aligned placeholder |
+| No cover advertised | Title plate with **No cover available** | Subdued aligned Title plate |
+| Retrieval pending | Title plate with **Cover pending** | Subdued aligned Title plate |
+| Advertised cover unavailable with no prior valid image | Title plate with **Cover unavailable** | Subdued aligned Title plate |
 | Replacement pending | Existing validated image | Existing validated image |
 | Replacement invalid or retrieval failed | Existing validated image | Existing validated image |
+
+The Title plate (ADR 0130) composes the text's own title, Greek title when it has
+one, and author on a tinted surface. It replaces the former title initial in the
+Catalog, My Books and Reading, and is the image of every Classical Reading unit,
+which has no catalog cover. It is presentation, not metadata: never stored or
+called a cover. The Catalog card shows the retained entry cover, or the Title plate while none
+is retained.
 
 These are quiet visual metadata states, not Book status badges. Cover failures do
 not displace title, author, disposition, or the learner's current task.
@@ -226,7 +233,7 @@ not displace title, author, disposition, or the learner's current task.
 ## Accessibility and progressive enhancement
 
 - Real cover images use empty alternative text because the adjacent visible
-  title supplies Book identity. Placeholders are hidden from the accessibility
+  title supplies Book identity. Title plates are hidden from the accessibility
   tree; their state is not required to identify or operate the Book.
 - A linked cover and title create one focus stop whose accessible name comes
   from the visible title. Do not create duplicate image and title links.
@@ -248,7 +255,8 @@ not displace title, author, disposition, or the learner's current task.
 - Extracting covers from acquired EPUBs.
 - Learner cover upload, editing, cropping, or source selection.
 - A saved or temporary list/grid preference.
-- Generated imitation covers based on title, author, initials, or color.
+- Generated imitation covers presented as a cover. The Title plate is the one
+  composed image; it is labelled as no cover and never retained.
 - A new Book detail page or making the cover an implicit mutation control.
 - Changing search, alphabetical ordering, active-language scope, or paging.
 - Moving Reading evidence, recovery, or current-reading controls

@@ -172,16 +172,21 @@ The authenticated shell exposes four principal destinations:
   are not used on active screens;
 - **Vocabulary** — Concordance; the accepted target removes saved selection
   and Custom deck UI beneath this destination.
-- **Catalog** — the built-in Classical catalog, every OPDS source's local
-  Catalog index, and the sync status of each learner-owned source.
+- **Catalog** — the built-in Classical catalog and every OPDS source's local
+  Catalog index as ordinary card sections, and the sync status of each
+  learner-owned source.
 
-Catalog keeps the built-in, read-only **Classical catalog** with one index and a
-work page; the index groups every Work under its author and shows each Work's
-Opening, length and Add controls, and the retired author-detail URL redirects to
-that author's index section. One search and one language filter cover the
-Classical catalog and every OPDS source; results are grouped by source, and each
-OPDS source shows its local Catalog index as a paged cover grid ordered by title
-then author. The language filter defaults to the active study language, or to
+Catalog keeps the built-in, read-only **Classical catalog** as an ordinary
+source section beside each OPDS source, with a work page for each Work. Every
+source shows one kind of card (image, title, author, one detail line, ownership,
+**Add** and **I've read this**) in a grid ordered by title then author and paged
+12 at a time; the image is the entry's retained cover or a **Title plate**. One
+search and one language filter cover every source, and results are grouped by
+source. The Classical section appears when the filter is Ancient Greek or all
+languages; the old Classical index and author-detail URLs permanently redirect
+to the Catalog filtered to Ancient Greek. The Language filter is the Catalog's
+only language control: it always offers Ancient Greek, and the shell language
+picker is not shown on the Catalog. The language filter defaults to the active study language, or to
 all languages when the learner has none. At the top of the page it shows one
 status line per OPDS connection — never synced, syncing, last synced or sync
 failed — with **Sync now**; a failed line names the connection and links to
@@ -192,7 +197,7 @@ destination. My Books remains the sole **bibliographic Book** browse surface;
 the Catalog browses entries, and the Browse working desk on Reading lists
 vocabulary identities, not Books or catalog entries. Marking a Book To Read
 expresses the learner's reading intent and may trigger acquisition and analysis;
-Add in the Classical catalog creates or restores its Book as To Read and starts
+Add on a Classical card creates or restores its Book as To Read and starts
 the same download and preparation. The upstream catalog browser is retired.
 
 Analysis jobs, deck preparation, and historical artifact provenance are
@@ -240,11 +245,12 @@ Reading (active study language)
 
 Catalog
     one search and one language filter over every source
-    built-in Classical catalog index (`/catalogs/classical`): every Work
-        grouped under its author, with its Opening and length strip
+    Classical section (Ancient Greek or all languages): paged card grid, one
+        card per Reading unit
     work page (`/catalogs/classical/works/{work-key}`)
-    retired author-detail URLs permanently redirect to that author's index section
-    each OPDS source section: paged local Catalog index cover grid
+    retired `/catalogs/classical` and author-detail URLs permanently redirect to
+        `/catalogs?language=grc`
+    each OPDS source section: paged card grid of local Catalog index entries
     In My Books (`/catalogs/books/{book-id}/in-my-books`)
     one status line per OPDS source with Sync now
     Manage sources (`/catalogs/sources`): connection setup, credentials,

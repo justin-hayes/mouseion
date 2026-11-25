@@ -107,58 +107,43 @@ one-pattern/one-Templ-component implementation.
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
 | `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
-| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note; the work page offers one Add and one I've read this per Edition above a read-only contents list. | Owned or not owned; Work with or without constituent books; compact reflow | Catalog |
-| `CatalogSourceSection` | Group Catalog results under the source that offers them, with one search and language filter above every source. | Classical author index or OPDS cover grid; paged; no sources, no match, nothing in this language; owned or unowned entry; unowned entry offering Add and I've read this; compact reflow | Catalog |
+| `ClassicalWorkPage` | Show one Work's Editions, each with its Opening, length, one Add and one I've read this, above a read-only contents list. | Owned or not owned; Work with or without constituent books; compact reflow | Classical work page |
+| `CatalogSourceSection` | Group Catalog results under the source that offers them, with one search and the Language filter above every source; every source uses the one `CatalogEntryCard`. | Classical or OPDS section; paged; no sources, no match, nothing in this language; owned or unowned entry; unowned entry offering Add and I've read this; retained cover or Title plate; compact reflow | Catalog |
 
 The patterns above should compose mostly through typography, ordered lists,
 definition lists, actions, disclosures, and fine rules. They are not permission
 to wrap every region in a card.
 
-### `ClassicalCatalogEntry`
+### `ClassicalWorkPage`
 
-**Answers:** Which Works does the Classical catalog carry, by which author, and
-what do their words and lengths look like before I add one?
+**Answers:** What does this Work contain, in which Editions, and how long is
+each, before I add one?
 
-The catalog index is one page, not a set of author pages. Each author's section
-is a heading with a stable anchor and an unordered list of Works. A Work entry
-keeps its identity first: linked title with its Greek title beside it. Under the
-identity, the Opening is set whole in the reading typeface at the page-title
-size on wide screens and the section-title size on compact screens, marked as
-Ancient Greek, preceded by its starting citation and a visually hidden "Begins
-at". A caption states the word count and how many constituent books divide the whole
-Work; the length strip below it draws one segment for the Work
-on a single page-wide word scale ending at the next 10,000 words above the
-longest Work, with owned segments in the accent colour. The strip is hidden from
-assistive technology because the caption and ownership line carry the same
-facts. When a Work has several Editions, the caption, strip and passage range
-describe one consistent Edition; the work page carries each Edition's own facts.
+The Classical catalog has no index page of its own: its Works are cards in the
+Catalog's Classical section (see `CatalogSourceSection`), one card per Reading
+unit, whose title links here. `GET /catalogs/classical` and the retired
+author-detail URLs permanently redirect to the Catalog filtered to Ancient
+Greek.
 
-The margin note carries the Edition, the passage range, translation
-availability, ownership and one Add control. A Work is one Book (ADR 0128), so
-the index has no per-book control: the Add label is "Add and prepare the work",
-and an owned Work offers no Add. Add creates or restores the Book as **To Read**
-and starts downloading and preparing the text; the confirmation says so. The
-work page shows, per Edition, the passage range, one **Add and prepare the
-work** and one **I've read this** (or an **In My Books** link once owned), above
-a read-only contents list in a responsive table of constituent book, passage and
-word count. The contents list has no actions and no preparation state. A page-level
-attribution line credits the Greek text to its source layer and licence. The
-index shows no preparation state, coverage or difficulty.
+Each Edition shows its identity (Work title with its Greek title, Edition
+label), the Opening set whole in the reading typeface, marked as Ancient Greek
+and preceded by its starting citation and a visually hidden "Begins at", a
+caption stating the word count and how many constituent books divide the Work,
+and the passage range. A Work is one Book (ADR 0128), so each Edition offers one
+**Add** and one **I've read this**, or an **In My Books**
+link once owned, above a read-only contents list in a responsive table of
+constituent book, passage and word count. The contents list has no actions and no
+preparation state. A page-level attribution line credits the Greek text to its
+source layer and licence. The page shows no preparation state, coverage or
+difficulty.
 
-The Opening is announced as Ancient Greek, and its starting citation is preceded
-by a visually hidden "Begins at" so the reference is not read as part of the
-sentence. The length strip is `aria-hidden` and adds no focus stop. Title links
-and every Add submit button follow document order and keep the shared focus
-ring and 44px target. Add posts the existing form with CSRF and returns to the
-confirmation through the shared `Feedback` live region. No interaction requires
-a pointer.
+Title links and every submit button follow document order and keep the shared
+focus ring and 44px target. Add posts the existing form with CSRF and returns to
+the confirmation through the shared `Feedback` live region. No interaction
+requires a pointer. On compact screens the table reflows without sideways
+scrolling.
 
-On compact screens the margin note moves below the identity and the strip wraps
-instead of scrolling sideways. The author-detail page is retired; its old URL
-permanently redirects to that author's section, Work-page breadcrumbs point
-there instead, and no page links to the retired author URL.
-
-Canonical surface: Catalog.
+Canonical surface: Classical work page.
 
 ### `CatalogSourceSection`
 
@@ -169,20 +154,23 @@ The Catalog has one search field and one language filter above every source.
 The filter defaults to the active study language and offers **All languages**;
 a learner with no study language starts on all languages. Both controls and any
 per-source page are ordinary GET parameters carried in real links and forms, so
-the surface works without JavaScript. Results are grouped by source and keep
-document order: the Classical catalog first when it matches, then each OPDS
-connection in its configured order.
+the surface works without JavaScript. The Language filter is the Catalog's only
+language control: it always offers Ancient Greek, and the shell language picker is
+not shown here. Results are grouped by source and keep document order: the
+Classical section first, shown only when the filter is Ancient Greek or all
+languages, then each OPDS connection in its configured order.
 
-The Classical group reuses the author-grouped index above unchanged. A search
-matches author, English title and Greek title through the Go search key; a
-number is ordinary search text, as a Work has no constituent Book to narrow to.
-Each OPDS group is a cover grid with cover, title and author, ordered by title
-then author and paged locally per connection. The cover frame shows the title's
-initial until locally retained index covers exist; the Catalog never sends an
-upstream cover URL to the browser. An entry linked to an active Book
+Every source uses one `CatalogEntryCard`: image, title, author, one detail line,
+ownership, **Add** and **I've read this**. A Classical card is one Reading unit
+(a Work in one Edition) with its Greek title and Edition label, and its title
+opens the Work page; an OPDS card shows its entry. Each section is a grid ordered
+by title then author and paged 12 at a time, independently of other sections. A
+search matches author, English title and Greek title through the Go search key. The
+image slot shows the entry's retained cover, served from Mouseion through an
+owner-scoped endpoint, or the Title plate (see `BookCoverMedia`) while none is
+retained; the Catalog never sends an upstream cover URL to the browser. An entry linked to an active Book
 shows **In My Books** as a link to that Book's My Books row. An unowned entry
-offers **Add**, whose copy says plainly that the text is downloaded and
-analyzed; Add creates or restores the Book as To Read and starts the same
+offers **Add**, whose copy says "Adding prepares the text for reading."; Add creates or restores the Book as To Read and starts the same
 preparation as **Read again**. The confirmation names
 the Book, links to My Books, and receives focus after the ordinary POST
 redirect. Entries never show disposition, analysis or preparation state.
@@ -214,12 +202,14 @@ modest aligned thumbnail. Both variants support valid image, no image advertised
 retrieval pending, and advertised image unavailable. A replacement in progress
 continues showing the prior validated image.
 
-Real images use empty alternative text when title text is adjacent. Placeholder
-visuals are hidden from the accessibility tree and carry the first title initial
-over a tinted surface. Ignore a leading German (*Der*, *Die*, *Das*), Italian
-(*Il*, *La*, *Lo*, *Gli*, *Le*, *L'*) or Modern Greek (*Ο*, *Η*, *Το*, *Οι*)
-article; when the title is only an article, retain its initial. Keep the visible
-pending, unavailable, or no-cover state label. A cover and title that navigate
+Real images use empty alternative text when title text is adjacent. Where no image
+is retained, the frame shows the **Title plate** (ADR 0130): the text's own title,
+its Greek title when it has one, and its author, composed on a tinted surface. It
+is presentation only, never stored or called a cover, and the Catalog, My Books
+and Reading use it alike, including for every Classical Reading unit. Plates are
+hidden from the accessibility tree because the adjacent visible title and author
+identify the text. Keep the visible pending, unavailable, or no-cover state label
+where the surface shows one. A cover and title that navigate
 to the same Reading Journey anchor form one link and one focus stop; when no
 anchor exists, cover media does not become an implicit control. Reserve intrinsic
 space, lazy-load below-viewport images, preserve visible focus on the containing
@@ -579,7 +569,7 @@ how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly My Books,
-Reading, Vocabulary, and Catalog. Catalog owns the built-in Classical catalog and source status at `/catalogs`;
+Reading, Vocabulary, and Catalog. Catalog owns the Classical catalog section, every OPDS source section and source status at `/catalogs`;
 Manage sources owns catalogue setup and sync maintenance at `/catalogs/sources`.
 My Books is the sole browse surface and its rows own per-book acquisition.
 Reading owns current reading or the between-Books chooser. The shipped shell

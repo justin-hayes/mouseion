@@ -41,7 +41,7 @@ completion** are not primary learner-facing concepts.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Catalog** | The authenticated destination at `/catalogs` where one search and one language filter cover the built-in, read-only Classical catalog and each OPDS connection's local Catalog index, with one sync status line and **Sync now** per source. Connection setup lives on Manage sources. | Catalogs (the retired plural label), library, Browse (the vocabulary view), Import books, ingest books |
+| **Catalog** | The authenticated destination at `/catalogs` where one search and the Language filter (its only language control) cover the built-in, read-only Classical catalog and each OPDS connection's local Catalog index as card sections, with one sync status line and **Sync now** per source. Connection setup lives on Manage sources. | Catalogs (the retired plural label), library, Browse (the vocabulary view), Import books, ingest books |
 | **Manage sources** | The connection-management page at `/catalogs/sources` for adding, editing and deleting an OPDS connection, saving credentials, running Sync now, and recovering a failed sync. | Catalog settings, admin catalog |
 | **Add** | Choose a Catalog entry for My Books. It creates or restores the Book as To Read, then acquires the current EPUB when needed and ensures whole-book analysis once. The control's copy says the text is downloaded and analyzed. | Add to library, import, queue |
 | **I've read this** | Record a Catalog entry the learner read outside Mouseion. It creates or restores the Book as Read with a **Previously read** record, downloads nothing and changes no Known vocabulary. It is offered on OPDS entries and once per Edition of a classical Work, on the Work page; a classical Work is one Book, so there is no per-book control. | Mark as read, import as read |
@@ -56,6 +56,7 @@ completion** are not primary learner-facing concepts.
 | **Queued / Running / Completed / Failed / Cancelled** | The one lifecycle vocabulary every `/jobs` row uses, for Book preparations and Catalog sync alike. | Processing, Syncing on `/jobs`, done |
 | **Book** | The learner-facing bibliographic object, led by title and author and qualified by edition when evidence depends on it. | Source, corpus, artifact when referring to the book |
 | **Book cover** | The optional catalog-supplied image representing a Book. It may lead visually in My Books and support identity in Reading, but title and author remain visible and authoritative. | Cover art, thumbnail when referring to the metadata |
+| **Title plate** | The image Mouseion composes from a text's own title, Greek title and author where no Book cover exists, such as for every Classical Reading unit. Presentation only: never retained, never supplied by a catalog. | Generated cover, placeholder cover, title initial |
 | **Source snapshot** | Immutable acquired EPUB bytes and extracted units, used when provenance matters. | Book version when no content revision is meant |
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
