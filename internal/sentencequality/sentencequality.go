@@ -16,6 +16,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/gdex"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
@@ -197,7 +198,7 @@ func hasCompleteBoundary(language, text string) bool {
 	if text == "" {
 		return false
 	}
-	if IsAncientGreek(language) {
+	if cardpolicy.For(language).SentenceBoundary == cardpolicy.BoundaryTerminalMark {
 		// Greek editions start sentences in lowercase, so only the terminal
 		// boundary is required. The source terminators are the full stop, the
 		// semicolon / Greek question mark (U+037E) and the raised dot / ano
@@ -259,12 +260,6 @@ func acceptedSentenceStart(text string) bool {
 		first, _ = utf8.DecodeRuneInString(text[size+spaceSize:])
 	}
 	return unicode.IsUpper(first) || unicode.IsNumber(first) || strings.ContainsRune(openingStarts, first)
-}
-
-// IsAncientGreek reports whether a language tag is Ancient Greek, whose
-// editions do not capitalise sentence starts.
-func IsAncientGreek(language string) bool {
-	return canonicalization.NormalizeLanguage(language) == "grc"
 }
 
 func structuralNoise(text string) bool {

@@ -257,8 +257,16 @@ representative sentence, from a source translation. It is explicitly not a
 translation of the sentence and carries no English target alignment.
 _Avoid_: sentence translation, wider translation, study context.
 
+**Source-evidence card**:
+A card built only from imported sources (the representative sentence, its
+passage context and the language's dictionary entry), so a deck can be prepared
+with no provider. Each study language has one card policy: it either uses
+source-evidence cards or takes the modern-language provider route, never both.
+_Avoid_: classical card, offline card, Greek card.
+
 **Evidence-assisted provider pass**:
-The optional Ancient Greek preparation layer that sends the representative
+The optional preparation layer for a language that uses source-evidence cards,
+which sends the representative
 sentence, its passage context and its meaning evidence to the provider. Its
 contextual Gloss, sentence translation and English target alignment are
 provider-proposed and labelled as such. It only adds to a card built from source

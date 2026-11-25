@@ -19,6 +19,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -499,12 +500,6 @@ func escapeField(value string) string {
 	value = strings.ReplaceAll(value, "\x1f", "&#31;")
 	value = strings.ReplaceAll(value, "{", "&#123;")
 	return strings.ReplaceAll(value, "}", "&#125;")
-}
-
-// IsAncientGreek reports whether a language tag is Ancient Greek, whose
-// editions do not capitalise sentence starts.
-func IsAncientGreek(language string) bool {
-	return sentencequality.IsAncientGreek(language)
 }
 
 func nounArticle(language, upos, lemma, morphology string) (article, genderLabel string) {
@@ -1730,7 +1725,7 @@ func attributionNotices(entries []RenderInput) (string, error) {
 	if pin, ok := ancientGreekLSJPin(entries); ok {
 		notices = append(notices, dictionary.AncientGreekLSJNotice(pin))
 	}
-	if deckIsAncientGreek(entries) {
+	if deckHasImportedSourceNotice(entries) {
 		notices = append(notices, dictionary.AncientGreekSourceNotice)
 	}
 	passages, err := passageNotices(entries)
@@ -1749,7 +1744,7 @@ func attributionNotices(entries []RenderInput) (string, error) {
 // Ancient Greek analysis is imported (ADR 0099).
 func deckIsNLPAnalysed(entries []RenderInput) bool {
 	for _, entry := range entries {
-		if language := strings.TrimSpace(entry.Language); language != "" && !IsAncientGreek(language) {
+		if language := strings.TrimSpace(entry.Language); language != "" && cardpolicy.For(language).NLPAnalysed {
 			return true
 		}
 	}
@@ -1800,11 +1795,11 @@ func dictionaryAttribution(entries []RenderInput) string {
 	return ""
 }
 
-// deckIsAncientGreek reports whether any entry belongs to the dedicated Ancient
-// Greek language.
-func deckIsAncientGreek(entries []RenderInput) bool {
+// deckHasImportedSourceNotice reports whether any entry's language policy
+// carries the imported-source notices.
+func deckHasImportedSourceNotice(entries []RenderInput) bool {
 	for _, entry := range entries {
-		if IsAncientGreek(entry.Language) {
+		if cardpolicy.For(entry.Language).ImportedSourceNotice {
 			return true
 		}
 	}
