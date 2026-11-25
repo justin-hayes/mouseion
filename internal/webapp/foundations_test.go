@@ -535,7 +535,7 @@ func TestVocabularyBrowseExplainsMalformedAndOutOfRangePagesWithFirstPage(t *tes
 		assert.Equal(t, http.StatusBadRequest, status, page)
 		assert.Contains(t, html, "That page is not available", page)
 		assert.Contains(t, html, `>First page</a>`, page)
-		assert.Contains(t, html, `href="/reading?language=de&amp;page=1&amp;q=ha&amp;reading=book-1"`, page)
+		assert.Contains(t, html, `href="/de/reading?page=1&amp;q=ha&amp;reading=book-1"`, page)
 		assert.NotContains(t, html, "Browse results", page)
 	}
 	view, status, html := loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{total: 51}), "/reading?page=4", "book-1")

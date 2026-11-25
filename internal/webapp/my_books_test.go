@@ -502,7 +502,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToReadingEntry(t *testing.T
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/reading#journey-book-fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading#journey-book-fixture-book", response.Header().Get("Location"))
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)

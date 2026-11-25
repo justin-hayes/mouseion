@@ -84,7 +84,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	rowID := browseRowElementID(browseRowKey("NOUN", "wort26", ""))
 
 	// Browse page 2 → exact Concordance for one row.
-	browse := get("/reading?page=2")
+	browse := get("/de/reading?page=2")
 	require.Equal(t, http.StatusOK, browse.Code)
 	assert.Contains(t, browse.Body.String(), "Page 2 of 2")
 	concordanceHref := link(regexp.MustCompile(`href="(/de/vocabulary/concordance\?[^"]*term=wort26[^"]*)"`), browse.Body.String())
@@ -237,17 +237,19 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, switched.Body.String(), "Zweites Buch", "the new reading is not opened or transferred the old controls")
 	})
 
-	t.Run("an active-language mismatch takes precedence and mutates nothing", func(t *testing.T) {
+	t.Run("a language mismatch takes precedence and mutates nothing", func(t *testing.T) {
 		require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "it"))
-		response := get(back)
-		assert.Equal(t, http.StatusSeeOther, response.Code, back)
-		assert.Equal(t, languageChangedPath(), response.Header().Get("Location"), back)
+		// The origin is validated against the URL's language: German's origin
+		// under the Italian URL restores nothing.
+		other := get(strings.Replace(back, "/de/reading", "/it/reading", 1))
+		assert.Equal(t, http.StatusConflict, other.Code)
+		assert.NotContains(t, other.Body.String(), `id="vocabulary-workflow"`)
 		stored, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)
 		assert.Equal(t, "it", stored, "recovery never switches the selection back")
 		// Concordance names its language in the URL, so the page renders in it
 		// and the visit records it as the Last study language (ADR 0131).
-		response = get(concordanceHref)
+		response := get(concordanceHref)
 		assert.Equal(t, http.StatusOK, response.Code, concordanceHref)
 		stored, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)

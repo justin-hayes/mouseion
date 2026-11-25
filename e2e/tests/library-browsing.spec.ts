@@ -64,7 +64,7 @@ test.describe('My Books collection browsing', () => {
 
   test('uses one visible native disclosure cue and text-backed status shapes', async ({ page }) => {
     await signIn(page);
-    await page.goto('/reading');
+    await page.goto('/de/reading');
 
     const account = page.locator('details').filter({ has: page.getByText('Account', { exact: true }) });
     const summary = account.locator('summary');
@@ -137,7 +137,7 @@ test.describe('My Books collection browsing', () => {
     const readTab = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link', { name: /^Read \(\d+\)$/ });
     expect((await readTab.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
-    await page.goto('/reading');
+    await page.goto('/de/reading');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
@@ -259,7 +259,7 @@ test.describe('My Books collection browsing', () => {
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.locator('#library-results a[href^="/reading#"]').first()).toBeVisible();
+    await expect(page.locator('#library-results a[href^="/de/reading#"]').first()).toBeVisible();
 
     await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
     await page.getByRole('button', { name: 'Search' }).click();

@@ -52,6 +52,11 @@ func (h *Handler) currentReadingSection(ctx context.Context, owner, message, pag
 }
 
 func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, message, pageError, focusBookID string) {
+	// A Book-addressed action answers in its Book's language.
+	if err := h.adoptBookLanguage(r.Context(), user(r).ID, focusBookID); err != nil {
+		fail(w, err)
+		return
+	}
 	if isPartialHTMXRequest(r) {
 		section, err := h.currentReadingSection(r.Context(), user(r).ID, message, pageError)
 		if err != nil {
@@ -68,10 +73,7 @@ func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, 
 	if pageError != "" {
 		query.Set("error", pageError)
 	}
-	location := "/reading"
-	if r.FormValue("return_to") == "/reading" {
-		location = "/reading"
-	}
+	location := readingPagePath(r.Context())
 	if encoded := query.Encode(); encoded != "" {
 		location += "?" + encoded
 	}
@@ -92,7 +94,7 @@ func (h *Handler) retryCurrentReadingDeck(w http.ResponseWriter, r *http.Request
 	}
 	owner := user(r).ID
 	bookID := strings.TrimSpace(r.PathValue("id"))
-	if !h.requireStudyLanguage(w, r) {
+	if !h.adoptBookLanguageOrFail(w, r, owner, bookID) || !h.requireStudyLanguage(w, r) {
 		return
 	}
 	if h.services.PreparedDeck == nil {
@@ -122,7 +124,7 @@ func (h *Handler) cancelCurrentReadingDeck(w http.ResponseWriter, r *http.Reques
 	}
 	owner := user(r).ID
 	bookID := strings.TrimSpace(r.PathValue("id"))
-	if !h.requireStudyLanguage(w, r) {
+	if !h.adoptBookLanguageOrFail(w, r, owner, bookID) || !h.requireStudyLanguage(w, r) {
 		return
 	}
 	deck, err := h.services.PreparedDeck.CurrentReadingDeck(r.Context(), owner, bookID)

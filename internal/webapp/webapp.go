@@ -299,8 +299,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.perLanguage(pageKindMyBooks, h.library)
-	h.mux.Handle("GET /reading", h.user(http.HandlerFunc(h.reading)))
-	h.mux.Handle("GET /reading/switch", h.user(http.HandlerFunc(h.switchReadingPage)))
+	h.perLanguage(pageKindReading, h.reading)
+	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))
@@ -380,11 +380,6 @@ func (h *Handler) user(next http.Handler) http.Handler {
 		}
 		if view != nil {
 			r = r.WithContext(context.WithValue(r.Context(), shellViewContextKey{}, view))
-		}
-		if requestNamesOtherLanguage(r, view) {
-			// Language precedence: recover before any reading or evidence restoration.
-			redirectLanguageChanged(w, r)
-			return
 		}
 		next.ServeHTTP(w, r)
 	}))

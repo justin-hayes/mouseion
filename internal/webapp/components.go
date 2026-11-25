@@ -382,7 +382,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", readingBookURL(bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
 		}
 	}
 

@@ -265,9 +265,9 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
-	assert.Contains(t, finished.Body.String(), `href="/reading">Choose a To Read book</a>`)
+	assert.Contains(t, finished.Body.String(), `href="/de/reading">Choose a To Read book</a>`)
 
-	chooser := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	assert.Equal(t, http.StatusOK, chooser.Code)
 	assert.Contains(t, chooser.Body.String(), "Choose a To Read book when you are ready.")
 	readAgainState, err := store.GetBookDetail(ctx, owner.ID, bookID)

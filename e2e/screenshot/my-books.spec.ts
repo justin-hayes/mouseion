@@ -249,7 +249,7 @@ async function waitForAnalyses(page: Page, books: ManifestBook[]): Promise<void>
   const states = new Map<number, string>();
   await pollUntil(
     async () => {
-      await page.goto('/reading');
+      await page.goto('/de/reading');
       for (const book of books) {
         states.set(book.gutenberg, await analysisState(page, book));
       }
@@ -272,7 +272,7 @@ async function measureCoverage(page: Page, book: ManifestBook): Promise<number> 
   let percent = Number.NaN;
   await pollUntil(
     async () => {
-      await page.goto('/reading');
+      await page.goto('/de/reading');
       const item = chooserItem(page, book);
       if ((await item.count()) === 0) return false;
       const status = page.locator('#vocabulary-counts-status');
@@ -334,7 +334,7 @@ async function seedKnownVocabulary(page: Page, target: ManifestBook): Promise<vo
 }
 
 async function startReading(page: Page, book: ManifestBook): Promise<void> {
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   const start = chooserItem(page, book).locator('details').filter({ hasText: 'Start reading' });
   await expect(start, `${book.title} has a Start reading control`).toHaveCount(1, { timeout: 30_000 });
   await start.locator('summary').click();
@@ -343,7 +343,7 @@ async function startReading(page: Page, book: ManifestBook): Promise<void> {
 }
 
 async function finishReading(page: Page, book: ManifestBook): Promise<void> {
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   const goal = page.locator('#primary-goal-section');
   await expect(goal.getByRole('heading', { level: 1 }), `${book.title} is the Current reading`).toContainText(book.title, {
     timeout: 30_000,
@@ -362,7 +362,7 @@ async function finishReading(page: Page, book: ManifestBook): Promise<void> {
 async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<void> {
   await pollUntil(
     async () => {
-      await page.goto('/reading');
+      await page.goto('/de/reading');
       const status = page.locator('#vocabulary-counts-status');
       if ((await status.count()) === 0) return true;
       const text = await status.innerText();
@@ -533,7 +533,7 @@ test('the scenario Books are analyzed, readings seed Known vocabulary, and Readi
   await startReading(page, currentBook);
   await assertBookVocabulary(page, currentBook);
   await expect(page.locator('#primary-goal-section').getByRole('heading', { level: 1 })).toContainText(currentBook.title);
-  await page.goto('/reading');
+  await page.goto('/de/reading');
   await settleAndCapture(page, readingOutputPath);
 
   await captureMyBooks(page, 'light', myBooksOutputPath, myBooksReadOutputPath);

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
@@ -34,27 +33,4 @@ func languageChangedPath() string {
 
 func redirectLanguageChanged(w http.ResponseWriter, r *http.Request) {
 	redirectMyBooksBrowse(w, r, languageChangedPath())
-}
-
-// languageScopedPath reports whether a GET names study-language-scoped state
-// whose language identity must agree with the active study language.
-func languageScopedPath(path string) bool {
-	// My Books carries its language in the URL; the others still follow the
-	// stored language until their own tickets move them.
-	for _, prefix := range []string{"/reading"} {
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
-			return true
-		}
-	}
-	return false
-}
-
-// requestNamesOtherLanguage reports whether a supported request carries an
-// explicit language that is no longer the active study language.
-func requestNamesOtherLanguage(r *http.Request, view *shellView) bool {
-	if view == nil || (r.Method != http.MethodGet && r.Method != http.MethodHead) || !languageScopedPath(r.URL.Path) {
-		return false
-	}
-	requested := canonicalization.NormalizeLanguage(strings.TrimSpace(r.URL.Query().Get("language")))
-	return requested != "" && requested != canonicalization.NormalizeLanguage(view.ActiveLanguage)
 }

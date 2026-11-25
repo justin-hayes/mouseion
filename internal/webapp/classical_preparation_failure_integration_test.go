@@ -48,7 +48,12 @@ type mutableLayer struct {
 	status int
 }
 
-func (l *mutableLayer) ServeHTTP(w http.ResponseWriter, _ *http.Request) {
+// serve writes the layer's current bytes or forced failure status. It is a
+// plain method rather than ServeHTTP: gosec's G705 taint pass resolves a
+// ServeHTTP receiver through every http.Handler call site, misreads the
+// ResponseWriter there as the receiver, and so flags these fixed test bytes
+// nondeterministically.
+func (l *mutableLayer) serve(w http.ResponseWriter) {
 	l.mu.Lock()
 	data, status := append([]byte(nil), l.data...), l.status
 	l.mu.Unlock()
@@ -122,9 +127,9 @@ func newClassicalFailureHarness(t *testing.T, opts classicalFailureOptions) *cla
 
 	var requests atomic.Int64
 	layer := &mutableLayer{data: data}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		requests.Add(1)
-		layer.ServeHTTP(w, r)
+		layer.serve(w)
 	}))
 	t.Cleanup(server.Close)
 	layers := classical.Layers{Layers: []classical.Layer{{

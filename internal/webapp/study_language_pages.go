@@ -37,8 +37,8 @@ type studyLanguagePage struct {
 // Prefixed and registers its route with Handler.perLanguage.
 var studyLanguagePages = map[studyLanguagePageKind]studyLanguagePage{
 	pageKindMyBooks:       {Path: "library", Prefixed: true, Landing: pageKindMyBooks},
-	pageKindReading:       {Path: "reading", Landing: pageKindReading},
-	pageKindReadingSwitch: {Path: "reading/switch", Landing: pageKindReading},
+	pageKindReading:       {Path: "reading", Prefixed: true, Landing: pageKindReading},
+	pageKindReadingSwitch: {Path: "reading/switch", Prefixed: true, Landing: pageKindReadingSwitch},
 	pageKindVocabulary:    {Path: "vocabulary", Prefixed: true, Landing: pageKindConcordance},
 	pageKindConcordance:   {Path: "vocabulary/concordance", Prefixed: true, Landing: pageKindConcordance},
 	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Prefixed: true, Landing: pageKindConcordance},

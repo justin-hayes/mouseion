@@ -18,7 +18,7 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, ""))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/jobs", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -88,32 +88,10 @@ func TestActiveStudyLanguageEmptySubmissionIsNoOpAtMyBooks(t *testing.T) {
 	assert.Equal(t, "de", stored)
 }
 
-func TestSupportedOldLanguageRequestsRecoverToMyBooksWithoutSwitchingBack(t *testing.T) {
-	h, cookies, _, store := readingFixtureSession(t)
-	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	for _, path := range []string{
-		"/reading?language=de",
-		"/reading/books/fixture-book/lemma-review?language=de",
-	} {
-		t.Run(path, func(t *testing.T) {
-			response := getAs(t, h, path, cookies)
-			assert.Equal(t, http.StatusSeeOther, response.Code)
-			assert.Equal(t, languageChangedPath(), response.Header().Get("Location"))
-		})
-	}
-	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	assert.Equal(t, "it", stored, "recovery never switches the selection back")
-
-	notice := getAs(t, h, "/it"+languageChangedPath(), cookies)
-	assert.Equal(t, http.StatusOK, notice.Code)
-	assert.Contains(t, notice.Body.String(), "Your study language changed")
-}
-
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := getAs(t, h, "/reading?language=it", cookies)
+	response := getAs(t, h, "/it/reading", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "fixture-italian-goal")
 }
@@ -166,6 +144,6 @@ func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchLemma, UPOS: "NOUN"}
 	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
 	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
-	assert.Contains(t, vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"), "language=de")
+	assert.Equal(t, "/de/reading?page=2&q=ha", vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"))
 	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

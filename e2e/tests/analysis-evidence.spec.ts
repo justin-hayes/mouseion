@@ -84,7 +84,7 @@ test.describe('Analysis evidence situations', () => {
       await page.goto('/de/library');
       await page.getByLabel('Study language').selectOption('de');
       await expect(page).toHaveURL(/\/de\/library$/);
-      await page.goto('/reading/switch');
+      await page.goto('/de/reading/switch');
       const candidate = page.locator('li.reading-chooser-book').filter({ hasText: situation.title });
       await expect(candidate).toHaveCount(1);
       await expect(candidate.getByRole('heading', { name: situation.title })).toBeVisible();

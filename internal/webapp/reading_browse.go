@@ -189,9 +189,6 @@ func readingBrowseHasRow(rows []domain.VocabularyBrowseRow, focusRow string) boo
 
 func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query string) string {
 	values := url.Values{}
-	if browse.Language != "" {
-		values.Set("language", browse.Language)
-	}
 	if query != "" {
 		values.Set("q", query)
 	}
@@ -209,7 +206,7 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 		values.Set("rev", browse.CorpusRevision)
 	}
 	values.Set("page", strconv.Itoa(page))
-	return "/reading?" + values.Encode()
+	return studyLanguagePath(pageKindReading, browse.Language) + "?" + values.Encode()
 }
 
 // readingBrowseRefreshURL re-checks count readiness for the same Current

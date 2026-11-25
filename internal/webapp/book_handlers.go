@@ -81,7 +81,7 @@ func (h *Handler) analysisResult(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	target := readingBookURLInActiveLanguage(r.Context(), detail)
+	target := readingBookURLForBook(detail)
 	if target == "" {
 		redirectLanguageChanged(w, r)
 		return

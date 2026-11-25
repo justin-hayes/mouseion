@@ -171,8 +171,9 @@ func (h *Handler) updateToReadBookAnalysis(w http.ResponseWriter, r *http.Reques
 		fail(w, err)
 		return
 	}
+	adoptDetailLanguage(r.Context(), detail)
 	if h.services.AnalysisUpdates == nil || detail.Acquired == nil {
-		redirect(w, r, "/reading?error="+url.QueryEscape(analysisUpdateChangedMessage))
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(analysisUpdateChangedMessage))
 		return
 	}
 	expectedRunID := strings.TrimSpace(r.FormValue("expected_run_id"))
@@ -180,14 +181,14 @@ func (h *Handler) updateToReadBookAnalysis(w http.ResponseWriter, r *http.Reques
 	handle, err := h.services.AnalysisUpdates.SubmitAnalysisUpdate(r.Context(), owner, detail.Book.ID, detail.Acquired.Source.ID, expectedRunID, expectedTarget)
 	switch {
 	case errors.Is(err, analysis.ErrCurrentBook):
-		redirect(w, r, "/reading?error="+url.QueryEscape("End the Reading first. The current book keeps its frozen evidence; no analysis was queued."))
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("End the Reading first. The current book keeps its frozen evidence; no analysis was queued."))
 	case errors.Is(err, analysis.ErrNotFound):
 		http.NotFound(w, r)
 	case analysisUpdateOfferChanged(err):
-		redirect(w, r, "/reading?error="+url.QueryEscape(analysisUpdateChangedMessage))
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(analysisUpdateChangedMessage))
 	case err != nil:
 		fail(w, err)
 	default:
-		redirect(w, r, "/reading?message="+url.QueryEscape(fmt.Sprintf("Analysis update for %s submitted as analysis job #%d. The published analysis stays in effect until the update publishes.", detail.Book.Title, handle.DisplayNumber)))
+		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(fmt.Sprintf("Analysis update for %s submitted as analysis job #%d. The published analysis stays in effect until the update publishes.", detail.Book.Title, handle.DisplayNumber)))
 	}
 }
