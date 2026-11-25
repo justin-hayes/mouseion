@@ -1,0 +1,1182 @@
+{
+ "dict_ls_merges": {
+  "casefold": {
+   "distinct_raw": 50027,
+   "normalised": 49411,
+   "groups_merged": 616,
+   "keys_absorbed": 616,
+   "examples": [
+    "A/a",
+    "O/o",
+    "AC/ac",
+    "Er/er",
+    "Io/io",
+    "No/no",
+    "Cos/cos",
+    "Dis/dis",
+    "Ion/ion",
+    "Leo/leo",
+    "Mus/mus",
+    "Mys/mys"
+   ]
+  },
+  "strip-diacritics": {
+   "distinct_raw": 50027,
+   "normalised": 49411,
+   "groups_merged": 616,
+   "keys_absorbed": 616,
+   "examples": [
+    "A/a",
+    "O/o",
+    "AC/ac",
+    "Er/er",
+    "Io/io",
+    "No/no",
+    "Cos/cos",
+    "Dis/dis",
+    "Ion/ion",
+    "Leo/leo",
+    "Mus/mus",
+    "Mys/mys"
+   ]
+  },
+  "u/v": {
+   "distinct_raw": 50027,
+   "normalised": 49400,
+   "groups_merged": 627,
+   "keys_absorbed": 627,
+   "examples": [
+    "A/a",
+    "O/o",
+    "U/V",
+    "AC/ac",
+    "Er/er",
+    "Io/io",
+    "No/no",
+    "Cos/cos",
+    "Dis/dis",
+    "Ion/ion",
+    "Leo/leo",
+    "Mus/mus"
+   ]
+  },
+  "i/j": {
+   "distinct_raw": 50027,
+   "normalised": 49399,
+   "groups_merged": 626,
+   "keys_absorbed": 628,
+   "examples": [
+    "A/a",
+    "I/J",
+    "O/o",
+    "AC/ac",
+    "Er/er",
+    "Io/io",
+    "No/no",
+    "Cos/cos",
+    "Dis/dis",
+    "Ion/ion",
+    "Leo/leo",
+    "Mus/mus"
+   ]
+  },
+  "u/v+i/j": {
+   "distinct_raw": 50027,
+   "normalised": 49388,
+   "groups_merged": 637,
+   "keys_absorbed": 639,
+   "examples": [
+    "A/a",
+    "I/J",
+    "O/o",
+    "U/V",
+    "AC/ac",
+    "Er/er",
+    "Io/io",
+    "No/no",
+    "Cos/cos",
+    "Dis/dis",
+    "Ion/ion",
+    "Leo/leo"
+   ]
+  },
+  "u/v+i/j+ae/oe": {
+   "distinct_raw": 50027,
+   "normalised": 49124,
+   "groups_merged": 879,
+   "keys_absorbed": 903,
+   "examples": [
+    "A/a",
+    "I/J",
+    "O/o",
+    "U/V",
+    "E/ae",
+    "AC/ac",
+    "Io/io",
+    "No/no",
+    "Aex/ex",
+    "vae/ve",
+    "Cos/cos",
+    "Dis/dis"
+   ]
+  }
+ },
+ "dict_el_merges": {
+  "casefold": {
+   "distinct_raw": 16986,
+   "normalised": 16969,
+   "groups_merged": 17,
+   "keys_absorbed": 17,
+   "examples": [
+    "A/a",
+    "Dis/dis",
+    "Bona/bona",
+    "Dira/dira",
+    "Galla/galla",
+    "Ilium/ilium",
+    "Liber/liber",
+    "Maius/maius",
+    "Notus/notus",
+    "Cupido/cupido",
+    "Gallus/gallus",
+    "Latius/latius"
+   ]
+  },
+  "strip-diacritics": {
+   "distinct_raw": 16986,
+   "normalised": 16969,
+   "groups_merged": 17,
+   "keys_absorbed": 17,
+   "examples": [
+    "A/a",
+    "Dis/dis",
+    "Bona/bona",
+    "Dira/dira",
+    "Galla/galla",
+    "Ilium/ilium",
+    "Liber/liber",
+    "Maius/maius",
+    "Notus/notus",
+    "Cupido/cupido",
+    "Gallus/gallus",
+    "Latius/latius"
+   ]
+  },
+  "u/v": {
+   "distinct_raw": 16986,
+   "normalised": 16968,
+   "groups_merged": 18,
+   "keys_absorbed": 18,
+   "examples": [
+    "A/a",
+    "Dis/dis",
+    "Bona/bona",
+    "Dira/dira",
+    "Galla/galla",
+    "Ilium/ilium",
+    "Liber/liber",
+    "Maius/maius",
+    "Notus/notus",
+    "Cupido/cupido",
+    "Gallus/gallus",
+    "Latius/latius"
+   ]
+  },
+  "i/j": {
+   "distinct_raw": 16986,
+   "normalised": 16969,
+   "groups_merged": 17,
+   "keys_absorbed": 17,
+   "examples": [
+    "A/a",
+    "Dis/dis",
+    "Bona/bona",
+    "Dira/dira",
+    "Galla/galla",
+    "Ilium/ilium",
+    "Liber/liber",
+    "Maius/maius",
+    "Notus/notus",
+    "Cupido/cupido",
+    "Gallus/gallus",
+    "Latius/latius"
+   ]
+  },
+  "u/v+i/j": {
+   "distinct_raw": 16986,
+   "normalised": 16968,
+   "groups_merged": 18,
+   "keys_absorbed": 18,
+   "examples": [
+    "A/a",
+    "Dis/dis",
+    "Bona/bona",
+    "Dira/dira",
+    "Galla/galla",
+    "Ilium/ilium",
+    "Liber/liber",
+    "Maius/maius",
+    "Notus/notus",
+    "Cupido/cupido",
+    "Gallus/gallus",
+    "Latius/latius"
+   ]
+  },
+  "u/v+i/j+ae/oe": {
+   "distinct_raw": 16986,
+   "normalised": 16906,
+   "groups_merged": 79,
+   "keys_absorbed": 80,
+   "examples": [
+    "A/a",
+    "vae/ve",
+    "Dis/dis",
+    "Bona/bona",
+    "Dira/dira",
+    "Troes/tres",
+    "caedo/cedo",
+    "caelo/celo",
+    "laena/lena",
+    "paene/pene",
+    "raeda/reda",
+    "saeta/seta"
+   ]
+  }
+ },
+ "ls_homographs": {
+  "entries": 51645,
+  "base_keys": 50027,
+  "entries_with_digit_key": 4266,
+  "homograph_groups_exact": 2649,
+  "normalised_keys_with_gt1_entry": 2056,
+  "max_entries_per_key": 16
+ },
+ "ambiguity_ls": {
+  "types": {
+   "types_ls_matched": 21431,
+   "types_ls_ambiguous": 1978
+  },
+  "tokens": {
+   "tokens_ls_matched": 2691951,
+   "tokens_ls_ambiguous": 616818
+  },
+  "prose80_tokens": 2918687,
+  "token_share_ambiguous_of_ls_matched": 0.2291,
+  "top_ambiguous": [
+   {
+    "lemma": "sum",
+    "tokens": 108431,
+    "ls_entries": 3,
+    "pos": {
+     "v": 108403,
+     "n": 3,
+     "a": 24,
+     "-": 1
+    }
+   },
+   {
+    "lemma": "qui",
+    "tokens": 86847,
+    "ls_entries": 2,
+    "pos": {
+     "p": 86274,
+     "c": 302,
+     "d": 241,
+     "a": 5,
+     "n": 23,
+     "v": 2
+    }
+   },
+   {
+    "lemma": "in",
+    "tokens": 59632,
+    "ls_entries": 16,
+    "pos": {
+     "r": 59629,
+     "v": 3
+    }
+   },
+   {
+    "lemma": "cum",
+    "tokens": 29872,
+    "ls_entries": 2,
+    "pos": {
+     "r": 11028,
+     "c": 18842,
+     "n": 1,
+     "p": 1
+    }
+   },
+   {
+    "lemma": "ne",
+    "tokens": 26902,
+    "ls_entries": 3,
+    "pos": {
+     "c": 6690,
+     "d": 20210,
+     "n": 2
+    }
+   },
+   {
+    "lemma": "sed",
+    "tokens": 18498,
+    "ls_entries": 3,
+    "pos": {
+     "c": 18498
+    }
+   },
+   {
+    "lemma": "dico",
+    "tokens": 15710,
+    "ls_entries": 2,
+    "pos": {
+     "v": 15687,
+     "n": 16,
+     "d": 7
+    }
+   },
+   {
+    "lemma": "quis",
+    "tokens": 13657,
+    "ls_entries": 3,
+    "pos": {
+     "p": 13533,
+     "d": 124
+    }
+   },
+   {
+    "lemma": "de",
+    "tokens": 13586,
+    "ls_entries": 2,
+    "pos": {
+     "r": 13575,
+     "n": 2,
+     "v": 3,
+     "-": 3,
+     "d": 3
+    }
+   },
+   {
+    "lemma": "magnus",
+    "tokens": 11600,
+    "ls_entries": 2,
+    "pos": {
+     "a": 8906,
+     "d": 2678,
+     "n": 16
+    }
+   },
+   {
+    "lemma": "alius",
+    "tokens": 9486,
+    "ls_entries": 2,
+    "pos": {
+     "a": 6560,
+     "p": 2284,
+     "d": 282,
+     "n": 360
+    }
+   },
+   {
+    "lemma": "quod",
+    "tokens": 8366,
+    "ls_entries": 2,
+    "pos": {
+     "c": 8335,
+     "p": 26,
+     "d": 4,
+     "a": 1
+    }
+   },
+   {
+    "lemma": "do",
+    "tokens": 6925,
+    "ls_entries": 3,
+    "pos": {
+     "v": 6914,
+     "c": 3,
+     "-": 3,
+     "n": 4,
+     "d": 1
+    }
+   },
+   {
+    "lemma": "volo",
+    "tokens": 5260,
+    "ls_entries": 3,
+    "pos": {
+     "v": 5247,
+     "n": 13
+    }
+   },
+   {
+    "lemma": "quoque",
+    "tokens": 4984,
+    "ls_entries": 2,
+    "pos": {
+     "d": 4974,
+     "c": 8,
+     "p": 2
+    }
+   },
+   {
+    "lemma": "populus",
+    "tokens": 4404,
+    "ls_entries": 2,
+    "pos": {
+     "n": 4404
+    }
+   },
+   {
+    "lemma": "genus",
+    "tokens": 4178,
+    "ls_entries": 2,
+    "pos": {
+     "n": 4178
+    }
+   },
+   {
+    "lemma": "pro",
+    "tokens": 4056,
+    "ls_entries": 2,
+    "pos": {
+     "r": 4015,
+     "e": 32,
+     "a": 2,
+     "v": 6,
+     "d": 1
+    }
+   },
+   {
+    "lemma": "an",
+    "tokens": 3724,
+    "ls_entries": 3,
+    "pos": {
+     "c": 3723,
+     "d": 1
+    }
+   },
+   {
+    "lemma": "rex",
+    "tokens": 3617,
+    "ls_entries": 2,
+    "pos": {
+     "n": 3610,
+     "v": 7
+    }
+   },
+   {
+    "lemma": "totus",
+    "tokens": 3485,
+    "ls_entries": 2,
+    "pos": {
+     "a": 3470,
+     "v": 8,
+     "n": 7
+    }
+   },
+   {
+    "lemma": "exercitus",
+    "tokens": 3414,
+    "ls_entries": 2,
+    "pos": {
+     "n": 3412,
+     "a": 1,
+     "v": 1
+    }
+   },
+   {
+    "lemma": "magis",
+    "tokens": 3288,
+    "ls_entries": 2,
+    "pos": {
+     "d": 3287,
+     "n": 1
+    }
+   },
+   {
+    "lemma": "solus",
+    "tokens": 2799,
+    "ls_entries": 3,
+    "pos": {
+     "n": 95,
+     "d": 1361,
+     "a": 1343
+    }
+   },
+   {
+    "lemma": "liber",
+    "tokens": 2691,
+    "ls_entries": 4,
+    "pos": {
+     "a": 824,
+     "d": 148,
+     "n": 1719
+    }
+   },
+   {
+    "lemma": "malus",
+    "tokens": 2601,
+    "ls_entries": 3,
+    "pos": {
+     "d": 533,
+     "a": 1943,
+     "v": 8,
+     "n": 117
+    }
+   },
+   {
+    "lemma": "minus",
+    "tokens": 2597,
+    "ls_entries": 2,
+    "pos": {
+     "d": 2330,
+     "a": 264,
+     "n": 3
+    }
+   },
+   {
+    "lemma": "manus",
+    "tokens": 2566,
+    "ls_entries": 2,
+    "pos": {
+     "n": 2564,
+     "v": 1,
+     "a": 1
+    }
+   },
+   {
+    "lemma": "capio",
+    "tokens": 2548,
+    "ls_entries": 2,
+    "pos": {
+     "v": 2546,
+     "n": 2
+    }
+   },
+   {
+    "lemma": "jus",
+    "tokens": 2507,
+    "ls_entries": 2,
+    "pos": {
+     "n": 2501,
+     "a": 3,
+     "v": 3
+    }
+   }
+  ]
+ },
+ "forms_est_lemmas": {
+  "est|sum": 37848,
+  "esse|sum": 16174,
+  "sunt|sum": 10590,
+  "es|sum": 800,
+  "edit|edio": 15,
+  "ede|edo": 4,
+  "edit|edo": 3,
+  "est|edo": 3,
+  "es|es": 1
+ },
+ "lemma_cum_pos": {
+  "r": 11028,
+  "c": 18842,
+  "n": 1,
+  "p": 1
+ },
+ "lemma_ne_pos": {
+  "c": 6690,
+  "d": 20210,
+  "n": 2
+ },
+ "lemma_sum_pos": {
+  "v": 108403,
+  "n": 3,
+  "a": 24,
+  "-": 1
+ },
+ "lemma_edo_tokens": 562,
+ "lemma_homograph_pairs_in_corpus": {
+  "cum": {
+   "r": 11028,
+   "c": 18842,
+   "n": 1,
+   "p": 1
+  },
+  "ne": {
+   "c": 6690,
+   "d": 20210,
+   "n": 2
+  },
+  "ut": {
+   "c": 30350,
+   "d": 190,
+   "a": 1,
+   "r": 1
+  },
+  "quam": {
+   "d": 13548,
+   "c": 2560,
+   "p": 8
+  },
+  "qui": {
+   "p": 86274,
+   "c": 302,
+   "d": 241,
+   "a": 5,
+   "n": 23,
+   "v": 2
+  },
+  "quis": {
+   "p": 13533,
+   "d": 124
+  },
+  "sum": {
+   "v": 108403,
+   "n": 3,
+   "a": 24,
+   "-": 1
+  },
+  "edo": {
+   "v": 561,
+   "n": 1
+  },
+  "fero": {
+   "v": 3060,
+   "n": 3
+  },
+  "volo": {
+   "v": 5247,
+   "n": 13
+  },
+  "malo": {
+   "v": 868,
+   "a": 2
+  },
+  "nolo": {
+   "v": 1009
+  },
+  "pario": {
+   "v": 331
+  },
+  "pareo": {
+   "v": 390
+  },
+  "liber": {
+   "a": 824,
+   "d": 148,
+   "n": 1719
+  },
+  "Liber": {
+   "n": 5
+  },
+  "ab": {
+   "r": 22243,
+   "n": 8,
+   "-": 77,
+   "c": 5,
+   "d": 1,
+   "e": 1,
+   "v": 2
+  },
+  "a": {
+   "n": 17,
+   "r": 43,
+   "e": 6,
+   "c": 33,
+   "-": 48,
+   "v": 13
+  },
+  "ora": {
+   "n": 350
+  },
+  "os": {
+   "n": 834,
+   "p": 1,
+   "a": 1
+  }
+ },
+ "ls_pos_word_for_selected_homographs": {
+  "cum1": "subst",
+  "cum2": "conj",
+  "edo1": "v. a",
+  "edo2": "v. a",
+  "edo3": null,
+  "liber1": "adj",
+  "liber2": null,
+  "ne1": "adv",
+  "ne2": "part",
+  "ne3": "interj",
+  "quam": "adv",
+  "qui1": "pron",
+  "qui2": "adv",
+  "sum1": "part",
+  "sum2": null,
+  "ut": "adv"
+ },
+ "ls_entries_with_pos_element": 16911,
+ "prefix_assimilation_rescue": {
+  "types": 326,
+  "tokens": 2618,
+  "by_rule_types": {
+   "adg": 6,
+   "obf": 4,
+   "adp": 22,
+   "inp": 74,
+   "subf": 9,
+   "conp": 54,
+   "subp": 14,
+   "obp": 7,
+   "subm": 2,
+   "conr": 6,
+   "conl": 5,
+   "inl": 5,
+   "inm": 27,
+   "adc": 15,
+   "adt": 14,
+   "inb": 5,
+   "conm": 24,
+   "obc": 3,
+   "inr": 4,
+   "ads": 5,
+   "adf": 3,
+   "subc": 6,
+   "conb": 2,
+   "adn": 4,
+   "adr": 3,
+   "adl": 2,
+   "exf": 1
+  },
+  "by_rule_tokens": {
+   "adg": 107,
+   "obf": 41,
+   "adp": 309,
+   "inp": 818,
+   "subf": 12,
+   "conp": 671,
+   "subp": 34,
+   "obp": 27,
+   "subm": 2,
+   "conr": 24,
+   "conl": 12,
+   "inl": 5,
+   "inm": 189,
+   "adc": 52,
+   "adt": 35,
+   "inb": 156,
+   "conm": 52,
+   "obc": 10,
+   "inr": 13,
+   "ads": 14,
+   "adf": 4,
+   "subc": 10,
+   "conb": 3,
+   "adn": 8,
+   "adr": 5,
+   "adl": 2,
+   "exf": 3
+  },
+  "unmatched_ascii_types_tested": 42532,
+  "unmatched_ascii_tokens_tested": 178230,
+  "top": [
+   [
+    "conparo",
+    114,
+    "comparo"
+   ],
+   [
+    "adgressus",
+    87,
+    "aggressus"
+   ],
+   [
+    "adpeto",
+    86,
+    "appeto"
+   ],
+   [
+    "conprehendo",
+    84,
+    "comprehendo"
+   ],
+   [
+    "conpono",
+    77,
+    "compono"
+   ],
+   [
+    "adprobo",
+    72,
+    "approbo"
+   ],
+   [
+    "inpedimentum",
+    69,
+    "impedimentum"
+   ],
+   [
+    "inpello",
+    65,
+    "impello"
+   ],
+   [
+    "inbecillitas",
+    65,
+    "imbecillitas"
+   ],
+   [
+    "inpedio",
+    63,
+    "impedio"
+   ],
+   [
+    "inpleo",
+    60,
+    "impleo"
+   ],
+   [
+    "inbecillus",
+    50,
+    "imbecillus"
+   ],
+   [
+    "conpello",
+    48,
+    "compello"
+   ],
+   [
+    "inprobus",
+    47,
+    "improbus"
+   ],
+   [
+    "inploro",
+    45,
+    "imploro"
+   ],
+   [
+    "inmitto",
+    43,
+    "immitto"
+   ],
+   [
+    "inpensa",
+    38,
+    "impensa"
+   ],
+   [
+    "obfero",
+    37,
+    "offero"
+   ],
+   [
+    "conprobo",
+    35,
+    "comprobo"
+   ],
+   [
+    "inprobo",
+    33,
+    "improbo"
+   ]
+  ]
+ },
+ "corpus_lemma_merges_prose80": {
+  "casefold": {
+   "lemma_types": 68651,
+   "normalised": 66995,
+   "groups_merged": 1625,
+   "types_absorbed": 1656,
+   "tokens_in_merged_groups": 389851,
+   "examples": [
+    {
+     "IN/in": 59633
+    },
+    {
+     "IS/Is/is": 44847
+    },
+    {
+     "Ut/ut": 30544
+    },
+    {
+     "SI/Si/si": 21940
+    },
+    {
+     "Magnus/magnus": 11615
+    },
+    {
+     "C/c": 9752
+    },
+    {
+     "Alius/alius": 9495
+    },
+    {
+     "Verus/verus": 6345
+    },
+    {
+     "Primus/primus": 5606
+    },
+    {
+     "Volo/volo": 5261
+    },
+    {
+     "Publicus/publicus": 5107
+    },
+    {
+     "Ago/ago": 4662
+    }
+   ]
+  },
+  "strip-diacritics": {
+   "lemma_types": 68651,
+   "normalised": 66621,
+   "groups_merged": 1956,
+   "types_absorbed": 2030,
+   "tokens_in_merged_groups": 983418,
+   "examples": [
+    {
+     "sum/súm": 108432
+    },
+    {
+     "qui/quí": 86854
+    },
+    {
+     "IN/in/ín": 59639
+    },
+    {
+     "IS/Is/is/ÍS/ÎS/îs": 44861
+    },
+    {
+     "non/nón": 37587
+    },
+    {
+     "hic/híc": 31842
+    },
+    {
+     "Ut/ut": 30544
+    },
+    {
+     "ne/né": 26905
+    },
+    {
+     "SI/Si/si/sÍ/sí": 21942
+    },
+    {
+     "ego/Égo/égo": 19536
+    },
+    {
+     "res/rés": 19039
+    },
+    {
+     "sed/séd": 18501
+    }
+   ]
+  },
+  "u/v": {
+   "lemma_types": 68651,
+   "normalised": 65360,
+   "groups_merged": 2987,
+   "types_absorbed": 3291,
+   "tokens_in_merged_groups": 1295202,
+   "examples": [
+    {
+     "sum/súm": 108432
+    },
+    {
+     "QVI/Qvi/qui/quí/qvi": 86877
+    },
+    {
+     "IN/in/ín": 59639
+    },
+    {
+     "IS/Is/is/ÍS/ÎS/îs": 44861
+    },
+    {
+     "non/nón": 37587
+    },
+    {
+     "hic/híc": 31842
+    },
+    {
+     "Ut/VT/Vt/ut/vt": 30691
+    },
+    {
+     "CVM/cum/cvm": 29881
+    },
+    {
+     "ne/né": 26905
+    },
+    {
+     "SI/Si/si/sÍ/sí": 21942
+    },
+    {
+     "ego/Égo/égo": 19536
+    },
+    {
+     "res/rés": 19039
+    }
+   ]
+  },
+  "i/j": {
+   "lemma_types": 68651,
+   "normalised": 66467,
+   "groups_merged": 2098,
+   "types_absorbed": 2184,
+   "tokens_in_merged_groups": 995118,
+   "examples": [
+    {
+     "sum/súm": 108432
+    },
+    {
+     "qui/quí": 86854
+    },
+    {
+     "IN/in/ín": 59639
+    },
+    {
+     "IS/Is/is/js/ÍS/ÎS/îs": 44862
+    },
+    {
+     "non/nón": 37587
+    },
+    {
+     "hic/híc": 31842
+    },
+    {
+     "Ut/ut": 30544
+    },
+    {
+     "ne/né": 26905
+    },
+    {
+     "SI/Si/si/sÍ/sí": 21942
+    },
+    {
+     "ego/Égo/égo": 19536
+    },
+    {
+     "res/rés": 19039
+    },
+    {
+     "sed/séd": 18501
+    }
+   ]
+  },
+  "u/v+i/j": {
+   "lemma_types": 68651,
+   "normalised": 65194,
+   "groups_merged": 3125,
+   "types_absorbed": 3457,
+   "tokens_in_merged_groups": 1308680,
+   "examples": [
+    {
+     "sum/súm": 108432
+    },
+    {
+     "QVI/Qvi/qui/quí/qvi": 86877
+    },
+    {
+     "IN/in/ín": 59639
+    },
+    {
+     "IS/Is/is/js/ÍS/ÎS/îs": 44862
+    },
+    {
+     "non/nón": 37587
+    },
+    {
+     "hic/híc": 31842
+    },
+    {
+     "Ut/VT/Vt/ut/vt": 30691
+    },
+    {
+     "CVM/cum/cvm": 29881
+    },
+    {
+     "ne/né": 26905
+    },
+    {
+     "SI/Si/si/sÍ/sí": 21942
+    },
+    {
+     "ego/Égo/égo": 19536
+    },
+    {
+     "res/rés": 19039
+    }
+   ]
+  },
+  "u/v+i/j+ae/oe": {
+   "lemma_types": 68651,
+   "normalised": 64827,
+   "groups_merged": 3396,
+   "types_absorbed": 3824,
+   "tokens_in_merged_groups": 1480221,
+   "examples": [
+    {
+     "sum/súm": 108432
+    },
+    {
+     "QVI/Qvi/qui/quí/qvi": 86877
+    },
+    {
+     "OET/Oet/aet/et/oet": 74693
+    },
+    {
+     "IN/in/ín": 59639
+    },
+    {
+     "IS/Is/is/js/ÍS/ÎS/îs": 44862
+    },
+    {
+     "QVAE/Qvae/que/qvae": 40976
+    },
+    {
+     "non/nón": 37587
+    },
+    {
+     "hic/híc": 31842
+    },
+    {
+     "Ut/VT/Vt/ut/vt": 30691
+    },
+    {
+     "CVM/cum/cvm": 29881
+    },
+    {
+     "nae/ne/né": 26906
+    },
+    {
+     "SI/Si/si/sÍ/sí": 21942
+    }
+   ]
+  }
+ },
+ "greek": {
+  "types": 2195,
+  "tokens": 3048,
+  "pos": {
+   "v": 428,
+   "a": 528,
+   "c": 185,
+   "d": 210,
+   "n": 1298,
+   "r": 122,
+   "p": 269,
+   "-": 3,
+   "e": 5
+  },
+  "betacode_like_types": 220,
+  "betacode_like_tokens": 336,
+  "works_with_greek_script": 15
+ },
+ "greek_loan_like_latin_script_lowercase": {
+  "types": 1846,
+  "tokens": 9569,
+  "matched_types": 634,
+  "matched_tokens": 7237
+ },
+ "dict_note": {
+  "ls_entries_with_y_in_orth": 1404
+ }
+}

@@ -1,0 +1,3467 @@
+{
+ "prose80": {
+  "works": 80,
+  "tokens": 2918687,
+  "types": 68651,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 19062,
+    "types": 68651,
+    "tokens_matched": 2663801,
+    "tokens": 2918687,
+    "type_rate": 0.2777,
+    "token_rate": 0.9127
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 20060,
+    "types": 68651,
+    "tokens_matched": 2682420,
+    "tokens": 2918687,
+    "type_rate": 0.2922,
+    "token_rate": 0.9191
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 20298,
+    "types": 68651,
+    "tokens_matched": 2682750,
+    "tokens": 2918687,
+    "type_rate": 0.2957,
+    "token_rate": 0.9192
+   },
+   "ls_key|+i/j": {
+    "types_matched": 20526,
+    "types": 68651,
+    "tokens_matched": 2687016,
+    "tokens": 2918687,
+    "type_rate": 0.299,
+    "token_rate": 0.9206
+   },
+   "ls_key|+u/v": {
+    "types_matched": 21179,
+    "types": 68651,
+    "tokens_matched": 2687558,
+    "tokens": 2918687,
+    "type_rate": 0.3085,
+    "token_rate": 0.9208
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 21431,
+    "types": 68651,
+    "tokens_matched": 2691951,
+    "tokens": 2918687,
+    "type_rate": 0.3122,
+    "token_rate": 0.9223
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 21696,
+    "types": 68651,
+    "tokens_matched": 2693159,
+    "tokens": 2918687,
+    "type_rate": 0.316,
+    "token_rate": 0.9227
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 19835,
+    "types": 68651,
+    "tokens_matched": 2688716,
+    "tokens": 2918687,
+    "type_rate": 0.2889,
+    "token_rate": 0.9212
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 20880,
+    "types": 68651,
+    "tokens_matched": 2693472,
+    "tokens": 2918687,
+    "type_rate": 0.3041,
+    "token_rate": 0.9228
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 21143,
+    "types": 68651,
+    "tokens_matched": 2693897,
+    "tokens": 2918687,
+    "type_rate": 0.308,
+    "token_rate": 0.923
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 21382,
+    "types": 68651,
+    "tokens_matched": 2697511,
+    "tokens": 2918687,
+    "type_rate": 0.3115,
+    "token_rate": 0.9242
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 22056,
+    "types": 68651,
+    "tokens_matched": 2699157,
+    "tokens": 2918687,
+    "type_rate": 0.3213,
+    "token_rate": 0.9248
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 22313,
+    "types": 68651,
+    "tokens_matched": 2702848,
+    "tokens": 2918687,
+    "type_rate": 0.325,
+    "token_rate": 0.926
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 22600,
+    "types": 68651,
+    "tokens_matched": 2704101,
+    "tokens": 2918687,
+    "type_rate": 0.3292,
+    "token_rate": 0.9265
+   },
+   "el_key+orth|exact": {
+    "types_matched": 12517,
+    "types": 68651,
+    "tokens_matched": 2546608,
+    "tokens": 2918687,
+    "type_rate": 0.1823,
+    "token_rate": 0.8725
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 13267,
+    "types": 68651,
+    "tokens_matched": 2557054,
+    "tokens": 2918687,
+    "type_rate": 0.1933,
+    "token_rate": 0.8761
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 13496,
+    "types": 68651,
+    "tokens_matched": 2557375,
+    "tokens": 2918687,
+    "type_rate": 0.1966,
+    "token_rate": 0.8762
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 13631,
+    "types": 68651,
+    "tokens_matched": 2581737,
+    "tokens": 2918687,
+    "type_rate": 0.1986,
+    "token_rate": 0.8846
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 14224,
+    "types": 68651,
+    "tokens_matched": 2561689,
+    "tokens": 2918687,
+    "type_rate": 0.2072,
+    "token_rate": 0.8777
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 14365,
+    "types": 68651,
+    "tokens_matched": 2586063,
+    "tokens": 2918687,
+    "type_rate": 0.2092,
+    "token_rate": 0.886
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 14553,
+    "types": 68651,
+    "tokens_matched": 2587146,
+    "tokens": 2918687,
+    "type_rate": 0.212,
+    "token_rate": 0.8864
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 20538,
+    "types": 68651,
+    "tokens_matched": 2706351,
+    "tokens": 2918687,
+    "type_rate": 0.2992,
+    "token_rate": 0.9272
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 21589,
+    "types": 68651,
+    "tokens_matched": 2710963,
+    "tokens": 2918687,
+    "type_rate": 0.3145,
+    "token_rate": 0.9288
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 21862,
+    "types": 68651,
+    "tokens_matched": 2711369,
+    "tokens": 2918687,
+    "type_rate": 0.3185,
+    "token_rate": 0.929
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 21950,
+    "types": 68651,
+    "tokens_matched": 2712420,
+    "tokens": 2918687,
+    "type_rate": 0.3197,
+    "token_rate": 0.9293
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 22811,
+    "types": 68651,
+    "tokens_matched": 2716749,
+    "tokens": 2918687,
+    "type_rate": 0.3323,
+    "token_rate": 0.9308
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 22903,
+    "types": 68651,
+    "tokens_matched": 2717813,
+    "tokens": 2918687,
+    "type_rate": 0.3336,
+    "token_rate": 0.9312
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 23187,
+    "types": 68651,
+    "tokens_matched": 2719068,
+    "tokens": 2918687,
+    "type_rate": 0.3378,
+    "token_rate": 0.9316
+   }
+  }
+ },
+ "prose_all": {
+  "works": 134,
+  "tokens": 3044801,
+  "types": 70140,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 19286,
+    "types": 70140,
+    "tokens_matched": 2779753,
+    "tokens": 3044801,
+    "type_rate": 0.275,
+    "token_rate": 0.913
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 20303,
+    "types": 70140,
+    "tokens_matched": 2799052,
+    "tokens": 3044801,
+    "type_rate": 0.2895,
+    "token_rate": 0.9193
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 20541,
+    "types": 70140,
+    "tokens_matched": 2799382,
+    "tokens": 3044801,
+    "type_rate": 0.2929,
+    "token_rate": 0.9194
+   },
+   "ls_key|+i/j": {
+    "types_matched": 20774,
+    "types": 70140,
+    "tokens_matched": 2803781,
+    "tokens": 3044801,
+    "type_rate": 0.2962,
+    "token_rate": 0.9208
+   },
+   "ls_key|+u/v": {
+    "types_matched": 21461,
+    "types": 70140,
+    "tokens_matched": 2804452,
+    "tokens": 3044801,
+    "type_rate": 0.306,
+    "token_rate": 0.9211
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 21719,
+    "types": 70140,
+    "tokens_matched": 2808985,
+    "tokens": 3044801,
+    "type_rate": 0.3097,
+    "token_rate": 0.9226
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 21989,
+    "types": 70140,
+    "tokens_matched": 2810240,
+    "tokens": 3044801,
+    "type_rate": 0.3135,
+    "token_rate": 0.923
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 20072,
+    "types": 70140,
+    "tokens_matched": 2805601,
+    "tokens": 3044801,
+    "type_rate": 0.2862,
+    "token_rate": 0.9214
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 21139,
+    "types": 70140,
+    "tokens_matched": 2810555,
+    "tokens": 3044801,
+    "type_rate": 0.3014,
+    "token_rate": 0.9231
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 21402,
+    "types": 70140,
+    "tokens_matched": 2810982,
+    "tokens": 3044801,
+    "type_rate": 0.3051,
+    "token_rate": 0.9232
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 21646,
+    "types": 70140,
+    "tokens_matched": 2814710,
+    "tokens": 3044801,
+    "type_rate": 0.3086,
+    "token_rate": 0.9244
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 22354,
+    "types": 70140,
+    "tokens_matched": 2816511,
+    "tokens": 3044801,
+    "type_rate": 0.3187,
+    "token_rate": 0.925
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 22617,
+    "types": 70140,
+    "tokens_matched": 2820323,
+    "tokens": 3044801,
+    "type_rate": 0.3225,
+    "token_rate": 0.9263
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 22911,
+    "types": 70140,
+    "tokens_matched": 2821629,
+    "tokens": 3044801,
+    "type_rate": 0.3266,
+    "token_rate": 0.9267
+   },
+   "el_key+orth|exact": {
+    "types_matched": 12631,
+    "types": 70140,
+    "tokens_matched": 2657359,
+    "tokens": 3044801,
+    "type_rate": 0.1801,
+    "token_rate": 0.8728
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 13396,
+    "types": 70140,
+    "tokens_matched": 2668191,
+    "tokens": 3044801,
+    "type_rate": 0.191,
+    "token_rate": 0.8763
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 13625,
+    "types": 70140,
+    "tokens_matched": 2668512,
+    "tokens": 3044801,
+    "type_rate": 0.1943,
+    "token_rate": 0.8764
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 13760,
+    "types": 70140,
+    "tokens_matched": 2693917,
+    "tokens": 3044801,
+    "type_rate": 0.1962,
+    "token_rate": 0.8848
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 14377,
+    "types": 70140,
+    "tokens_matched": 2673049,
+    "tokens": 3044801,
+    "type_rate": 0.205,
+    "token_rate": 0.8779
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 14518,
+    "types": 70140,
+    "tokens_matched": 2698466,
+    "tokens": 3044801,
+    "type_rate": 0.207,
+    "token_rate": 0.8863
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 14710,
+    "types": 70140,
+    "tokens_matched": 2699581,
+    "tokens": 3044801,
+    "type_rate": 0.2097,
+    "token_rate": 0.8866
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 20787,
+    "types": 70140,
+    "tokens_matched": 2823913,
+    "tokens": 3044801,
+    "type_rate": 0.2964,
+    "token_rate": 0.9275
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 21860,
+    "types": 70140,
+    "tokens_matched": 2828713,
+    "tokens": 3044801,
+    "type_rate": 0.3117,
+    "token_rate": 0.929
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 22133,
+    "types": 70140,
+    "tokens_matched": 2829120,
+    "tokens": 3044801,
+    "type_rate": 0.3156,
+    "token_rate": 0.9292
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 22222,
+    "types": 70140,
+    "tokens_matched": 2830197,
+    "tokens": 3044801,
+    "type_rate": 0.3168,
+    "token_rate": 0.9295
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 23122,
+    "types": 70140,
+    "tokens_matched": 2834779,
+    "tokens": 3044801,
+    "type_rate": 0.3297,
+    "token_rate": 0.931
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 23215,
+    "types": 70140,
+    "tokens_matched": 2835869,
+    "tokens": 3044801,
+    "type_rate": 0.331,
+    "token_rate": 0.9314
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 23506,
+    "types": 70140,
+    "tokens_matched": 2837176,
+    "tokens": 3044801,
+    "type_rate": 0.3351,
+    "token_rate": 0.9318
+   }
+  }
+ },
+ "verse61": {
+  "works": 61,
+  "tokens": 1095311,
+  "types": 45238,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 14944,
+    "types": 45238,
+    "tokens_matched": 986514,
+    "tokens": 1095311,
+    "type_rate": 0.3303,
+    "token_rate": 0.9007
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 15802,
+    "types": 45238,
+    "tokens_matched": 997451,
+    "tokens": 1095311,
+    "type_rate": 0.3493,
+    "token_rate": 0.9107
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 17880,
+    "types": 45238,
+    "tokens_matched": 1003361,
+    "tokens": 1095311,
+    "type_rate": 0.3952,
+    "token_rate": 0.9161
+   },
+   "ls_key|+i/j": {
+    "types_matched": 18053,
+    "types": 45238,
+    "tokens_matched": 1005840,
+    "tokens": 1095311,
+    "type_rate": 0.3991,
+    "token_rate": 0.9183
+   },
+   "ls_key|+u/v": {
+    "types_matched": 18245,
+    "types": 45238,
+    "tokens_matched": 1005066,
+    "tokens": 1095311,
+    "type_rate": 0.4033,
+    "token_rate": 0.9176
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 18425,
+    "types": 45238,
+    "tokens_matched": 1007642,
+    "tokens": 1095311,
+    "type_rate": 0.4073,
+    "token_rate": 0.92
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 18643,
+    "types": 45238,
+    "tokens_matched": 1008513,
+    "tokens": 1095311,
+    "type_rate": 0.4121,
+    "token_rate": 0.9208
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 15594,
+    "types": 45238,
+    "tokens_matched": 999756,
+    "tokens": 1095311,
+    "type_rate": 0.3447,
+    "token_rate": 0.9128
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 16475,
+    "types": 45238,
+    "tokens_matched": 1002974,
+    "tokens": 1095311,
+    "type_rate": 0.3642,
+    "token_rate": 0.9157
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 18631,
+    "types": 45238,
+    "tokens_matched": 1009103,
+    "tokens": 1095311,
+    "type_rate": 0.4118,
+    "token_rate": 0.9213
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 18809,
+    "types": 45238,
+    "tokens_matched": 1011450,
+    "tokens": 1095311,
+    "type_rate": 0.4158,
+    "token_rate": 0.9234
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 19000,
+    "types": 45238,
+    "tokens_matched": 1010853,
+    "tokens": 1095311,
+    "type_rate": 0.42,
+    "token_rate": 0.9229
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 19185,
+    "types": 45238,
+    "tokens_matched": 1013297,
+    "tokens": 1095311,
+    "type_rate": 0.4241,
+    "token_rate": 0.9251
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 19414,
+    "types": 45238,
+    "tokens_matched": 1014155,
+    "tokens": 1095311,
+    "type_rate": 0.4292,
+    "token_rate": 0.9259
+   },
+   "el_key+orth|exact": {
+    "types_matched": 10474,
+    "types": 45238,
+    "tokens_matched": 947261,
+    "tokens": 1095311,
+    "type_rate": 0.2315,
+    "token_rate": 0.8648
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 11150,
+    "types": 45238,
+    "tokens_matched": 951459,
+    "tokens": 1095311,
+    "type_rate": 0.2465,
+    "token_rate": 0.8687
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 13009,
+    "types": 45238,
+    "tokens_matched": 957317,
+    "tokens": 1095311,
+    "type_rate": 0.2876,
+    "token_rate": 0.874
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 13117,
+    "types": 45238,
+    "tokens_matched": 969115,
+    "tokens": 1095311,
+    "type_rate": 0.29,
+    "token_rate": 0.8848
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 13313,
+    "types": 45238,
+    "tokens_matched": 958946,
+    "tokens": 1095311,
+    "type_rate": 0.2943,
+    "token_rate": 0.8755
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 13425,
+    "types": 45238,
+    "tokens_matched": 970757,
+    "tokens": 1095311,
+    "type_rate": 0.2968,
+    "token_rate": 0.8863
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 13595,
+    "types": 45238,
+    "tokens_matched": 971641,
+    "tokens": 1095311,
+    "type_rate": 0.3005,
+    "token_rate": 0.8871
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 16133,
+    "types": 45238,
+    "tokens_matched": 1005784,
+    "tokens": 1095311,
+    "type_rate": 0.3566,
+    "token_rate": 0.9183
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 17023,
+    "types": 45238,
+    "tokens_matched": 1008774,
+    "tokens": 1095311,
+    "type_rate": 0.3763,
+    "token_rate": 0.921
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 19241,
+    "types": 45238,
+    "tokens_matched": 1015193,
+    "tokens": 1095311,
+    "type_rate": 0.4253,
+    "token_rate": 0.9269
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 19299,
+    "types": 45238,
+    "tokens_matched": 1015732,
+    "tokens": 1095311,
+    "type_rate": 0.4266,
+    "token_rate": 0.9273
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 19619,
+    "types": 45238,
+    "tokens_matched": 1017064,
+    "tokens": 1095311,
+    "type_rate": 0.4337,
+    "token_rate": 0.9286
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 19679,
+    "types": 45238,
+    "tokens_matched": 1017605,
+    "tokens": 1095311,
+    "type_rate": 0.435,
+    "token_rate": 0.9291
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 19909,
+    "types": 45238,
+    "tokens_matched": 1018414,
+    "tokens": 1095311,
+    "type_rate": 0.4401,
+    "token_rate": 0.9298
+   }
+  }
+ },
+ "verse_all": {
+  "works": 71,
+  "tokens": 1124181,
+  "types": 46130,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 15129,
+    "types": 46130,
+    "tokens_matched": 1012373,
+    "tokens": 1124181,
+    "type_rate": 0.328,
+    "token_rate": 0.9005
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 16000,
+    "types": 46130,
+    "tokens_matched": 1023583,
+    "tokens": 1124181,
+    "type_rate": 0.3468,
+    "token_rate": 0.9105
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 18126,
+    "types": 46130,
+    "tokens_matched": 1029694,
+    "tokens": 1124181,
+    "type_rate": 0.3929,
+    "token_rate": 0.916
+   },
+   "ls_key|+i/j": {
+    "types_matched": 18303,
+    "types": 46130,
+    "tokens_matched": 1032218,
+    "tokens": 1124181,
+    "type_rate": 0.3968,
+    "token_rate": 0.9182
+   },
+   "ls_key|+u/v": {
+    "types_matched": 18507,
+    "types": 46130,
+    "tokens_matched": 1031480,
+    "tokens": 1124181,
+    "type_rate": 0.4012,
+    "token_rate": 0.9175
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 18691,
+    "types": 46130,
+    "tokens_matched": 1034101,
+    "tokens": 1124181,
+    "type_rate": 0.4052,
+    "token_rate": 0.9199
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 18913,
+    "types": 46130,
+    "tokens_matched": 1034996,
+    "tokens": 1124181,
+    "type_rate": 0.41,
+    "token_rate": 0.9207
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 15788,
+    "types": 46130,
+    "tokens_matched": 1025946,
+    "tokens": 1124181,
+    "type_rate": 0.3423,
+    "token_rate": 0.9126
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 16682,
+    "types": 46130,
+    "tokens_matched": 1029242,
+    "tokens": 1124181,
+    "type_rate": 0.3616,
+    "token_rate": 0.9155
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 18888,
+    "types": 46130,
+    "tokens_matched": 1035577,
+    "tokens": 1124181,
+    "type_rate": 0.4095,
+    "token_rate": 0.9212
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 19069,
+    "types": 46130,
+    "tokens_matched": 1037965,
+    "tokens": 1124181,
+    "type_rate": 0.4134,
+    "token_rate": 0.9233
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 19272,
+    "types": 46130,
+    "tokens_matched": 1037407,
+    "tokens": 1124181,
+    "type_rate": 0.4178,
+    "token_rate": 0.9228
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 19460,
+    "types": 46130,
+    "tokens_matched": 1039892,
+    "tokens": 1124181,
+    "type_rate": 0.4219,
+    "token_rate": 0.925
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 19692,
+    "types": 46130,
+    "tokens_matched": 1040777,
+    "tokens": 1124181,
+    "type_rate": 0.4269,
+    "token_rate": 0.9258
+   },
+   "el_key+orth|exact": {
+    "types_matched": 10566,
+    "types": 46130,
+    "tokens_matched": 972178,
+    "tokens": 1124181,
+    "type_rate": 0.229,
+    "token_rate": 0.8648
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 11254,
+    "types": 46130,
+    "tokens_matched": 976463,
+    "tokens": 1124181,
+    "type_rate": 0.244,
+    "token_rate": 0.8686
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 13158,
+    "types": 46130,
+    "tokens_matched": 982520,
+    "tokens": 1124181,
+    "type_rate": 0.2852,
+    "token_rate": 0.874
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 13267,
+    "types": 46130,
+    "tokens_matched": 994613,
+    "tokens": 1124181,
+    "type_rate": 0.2876,
+    "token_rate": 0.8847
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 13476,
+    "types": 46130,
+    "tokens_matched": 984227,
+    "tokens": 1124181,
+    "type_rate": 0.2921,
+    "token_rate": 0.8755
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 13589,
+    "types": 46130,
+    "tokens_matched": 996333,
+    "tokens": 1124181,
+    "type_rate": 0.2946,
+    "token_rate": 0.8863
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 13760,
+    "types": 46130,
+    "tokens_matched": 997244,
+    "tokens": 1124181,
+    "type_rate": 0.2983,
+    "token_rate": 0.8871
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 16334,
+    "types": 46130,
+    "tokens_matched": 1032123,
+    "tokens": 1124181,
+    "type_rate": 0.3541,
+    "token_rate": 0.9181
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 17238,
+    "types": 46130,
+    "tokens_matched": 1035182,
+    "tokens": 1124181,
+    "type_rate": 0.3737,
+    "token_rate": 0.9208
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 19507,
+    "types": 46130,
+    "tokens_matched": 1041817,
+    "tokens": 1124181,
+    "type_rate": 0.4229,
+    "token_rate": 0.9267
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 19566,
+    "types": 46130,
+    "tokens_matched": 1042368,
+    "tokens": 1124181,
+    "type_rate": 0.4241,
+    "token_rate": 0.9272
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 19900,
+    "types": 46130,
+    "tokens_matched": 1043768,
+    "tokens": 1124181,
+    "type_rate": 0.4314,
+    "token_rate": 0.9285
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 19961,
+    "types": 46130,
+    "tokens_matched": 1044321,
+    "tokens": 1124181,
+    "type_rate": 0.4327,
+    "token_rate": 0.929
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 20194,
+    "types": 46130,
+    "tokens_matched": 1045156,
+    "tokens": 1124181,
+    "type_rate": 0.4378,
+    "token_rate": 0.9297
+   }
+  }
+ },
+ "borderline": {
+  "works": 4,
+  "tokens": 205139,
+  "types": 21858,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 10168,
+    "types": 21858,
+    "tokens_matched": 181919,
+    "tokens": 205139,
+    "type_rate": 0.4652,
+    "token_rate": 0.8868
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 10404,
+    "types": 21858,
+    "tokens_matched": 183316,
+    "tokens": 205139,
+    "type_rate": 0.476,
+    "token_rate": 0.8936
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 10722,
+    "types": 21858,
+    "tokens_matched": 183712,
+    "tokens": 205139,
+    "type_rate": 0.4905,
+    "token_rate": 0.8955
+   },
+   "ls_key|+i/j": {
+    "types_matched": 10810,
+    "types": 21858,
+    "tokens_matched": 184070,
+    "tokens": 205139,
+    "type_rate": 0.4946,
+    "token_rate": 0.8973
+   },
+   "ls_key|+u/v": {
+    "types_matched": 10893,
+    "types": 21858,
+    "tokens_matched": 183999,
+    "tokens": 205139,
+    "type_rate": 0.4984,
+    "token_rate": 0.8969
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 10983,
+    "types": 21858,
+    "tokens_matched": 184361,
+    "tokens": 205139,
+    "type_rate": 0.5025,
+    "token_rate": 0.8987
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 11061,
+    "types": 21858,
+    "tokens_matched": 184505,
+    "tokens": 205139,
+    "type_rate": 0.506,
+    "token_rate": 0.8994
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 10452,
+    "types": 21858,
+    "tokens_matched": 183666,
+    "tokens": 205139,
+    "type_rate": 0.4782,
+    "token_rate": 0.8953
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 10685,
+    "types": 21858,
+    "tokens_matched": 184204,
+    "tokens": 205139,
+    "type_rate": 0.4888,
+    "token_rate": 0.8979
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 11012,
+    "types": 21858,
+    "tokens_matched": 184611,
+    "tokens": 205139,
+    "type_rate": 0.5038,
+    "token_rate": 0.8999
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 11103,
+    "types": 21858,
+    "tokens_matched": 184978,
+    "tokens": 205139,
+    "type_rate": 0.508,
+    "token_rate": 0.9017
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 11188,
+    "types": 21858,
+    "tokens_matched": 184918,
+    "tokens": 205139,
+    "type_rate": 0.5118,
+    "token_rate": 0.9014
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 11281,
+    "types": 21858,
+    "tokens_matched": 185289,
+    "tokens": 205139,
+    "type_rate": 0.5161,
+    "token_rate": 0.9032
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 11359,
+    "types": 21858,
+    "tokens_matched": 185438,
+    "tokens": 205139,
+    "type_rate": 0.5197,
+    "token_rate": 0.904
+   },
+   "el_key+orth|exact": {
+    "types_matched": 7637,
+    "types": 21858,
+    "tokens_matched": 171814,
+    "tokens": 205139,
+    "type_rate": 0.3494,
+    "token_rate": 0.8375
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 7832,
+    "types": 21858,
+    "tokens_matched": 172652,
+    "tokens": 205139,
+    "type_rate": 0.3583,
+    "token_rate": 0.8416
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 8118,
+    "types": 21858,
+    "tokens_matched": 173018,
+    "tokens": 205139,
+    "type_rate": 0.3714,
+    "token_rate": 0.8434
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 8186,
+    "types": 21858,
+    "tokens_matched": 174599,
+    "tokens": 205139,
+    "type_rate": 0.3745,
+    "token_rate": 0.8511
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 8268,
+    "types": 21858,
+    "tokens_matched": 173285,
+    "tokens": 205139,
+    "type_rate": 0.3783,
+    "token_rate": 0.8447
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 8337,
+    "types": 21858,
+    "tokens_matched": 174867,
+    "tokens": 205139,
+    "type_rate": 0.3814,
+    "token_rate": 0.8524
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8399,
+    "types": 21858,
+    "tokens_matched": 174992,
+    "tokens": 205139,
+    "type_rate": 0.3843,
+    "token_rate": 0.853
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 10693,
+    "types": 21858,
+    "tokens_matched": 184613,
+    "tokens": 205139,
+    "type_rate": 0.4892,
+    "token_rate": 0.8999
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 10922,
+    "types": 21858,
+    "tokens_matched": 185137,
+    "tokens": 205139,
+    "type_rate": 0.4997,
+    "token_rate": 0.9025
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 11261,
+    "types": 21858,
+    "tokens_matched": 185558,
+    "tokens": 205139,
+    "type_rate": 0.5152,
+    "token_rate": 0.9045
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 11300,
+    "types": 21858,
+    "tokens_matched": 185717,
+    "tokens": 205139,
+    "type_rate": 0.517,
+    "token_rate": 0.9053
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 11440,
+    "types": 21858,
+    "tokens_matched": 185871,
+    "tokens": 205139,
+    "type_rate": 0.5234,
+    "token_rate": 0.9061
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 11480,
+    "types": 21858,
+    "tokens_matched": 186031,
+    "tokens": 205139,
+    "type_rate": 0.5252,
+    "token_rate": 0.9069
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 11557,
+    "types": 21858,
+    "tokens_matched": 186177,
+    "tokens": 205139,
+    "type_rate": 0.5287,
+    "token_rate": 0.9076
+   }
+  }
+ },
+ "author:plautus": {
+  "works": 20,
+  "tokens": 165057,
+  "types": 16086,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 6011,
+    "types": 16086,
+    "tokens_matched": 141552,
+    "tokens": 165057,
+    "type_rate": 0.3737,
+    "token_rate": 0.8576
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 6139,
+    "types": 16086,
+    "tokens_matched": 142378,
+    "tokens": 165057,
+    "type_rate": 0.3816,
+    "token_rate": 0.8626
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 8238,
+    "types": 16086,
+    "tokens_matched": 148411,
+    "tokens": 165057,
+    "type_rate": 0.5121,
+    "token_rate": 0.8991
+   },
+   "ls_key|+i/j": {
+    "types_matched": 8303,
+    "types": 16086,
+    "tokens_matched": 148671,
+    "tokens": 165057,
+    "type_rate": 0.5162,
+    "token_rate": 0.9007
+   },
+   "ls_key|+u/v": {
+    "types_matched": 8261,
+    "types": 16086,
+    "tokens_matched": 148569,
+    "tokens": 165057,
+    "type_rate": 0.5136,
+    "token_rate": 0.9001
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 8327,
+    "types": 16086,
+    "tokens_matched": 148830,
+    "tokens": 165057,
+    "type_rate": 0.5177,
+    "token_rate": 0.9017
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 8376,
+    "types": 16086,
+    "tokens_matched": 149022,
+    "tokens": 165057,
+    "type_rate": 0.5207,
+    "token_rate": 0.9029
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 6206,
+    "types": 16086,
+    "tokens_matched": 143116,
+    "tokens": 165057,
+    "type_rate": 0.3858,
+    "token_rate": 0.8671
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 6325,
+    "types": 16086,
+    "tokens_matched": 143356,
+    "tokens": 165057,
+    "type_rate": 0.3932,
+    "token_rate": 0.8685
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 8476,
+    "types": 16086,
+    "tokens_matched": 149483,
+    "tokens": 165057,
+    "type_rate": 0.5269,
+    "token_rate": 0.9056
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 8541,
+    "types": 16086,
+    "tokens_matched": 149742,
+    "tokens": 165057,
+    "type_rate": 0.531,
+    "token_rate": 0.9072
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 8501,
+    "types": 16086,
+    "tokens_matched": 149649,
+    "tokens": 165057,
+    "type_rate": 0.5285,
+    "token_rate": 0.9067
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 8567,
+    "types": 16086,
+    "tokens_matched": 149909,
+    "tokens": 165057,
+    "type_rate": 0.5326,
+    "token_rate": 0.9082
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8619,
+    "types": 16086,
+    "tokens_matched": 150108,
+    "tokens": 165057,
+    "type_rate": 0.5358,
+    "token_rate": 0.9094
+   },
+   "el_key+orth|exact": {
+    "types_matched": 4704,
+    "types": 16086,
+    "tokens_matched": 137186,
+    "tokens": 165057,
+    "type_rate": 0.2924,
+    "token_rate": 0.8311
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 4779,
+    "types": 16086,
+    "tokens_matched": 137495,
+    "tokens": 165057,
+    "type_rate": 0.2971,
+    "token_rate": 0.833
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 6674,
+    "types": 16086,
+    "tokens_matched": 143518,
+    "tokens": 165057,
+    "type_rate": 0.4149,
+    "token_rate": 0.8695
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 6723,
+    "types": 16086,
+    "tokens_matched": 144930,
+    "tokens": 165057,
+    "type_rate": 0.4179,
+    "token_rate": 0.8781
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 6691,
+    "types": 16086,
+    "tokens_matched": 143668,
+    "tokens": 165057,
+    "type_rate": 0.416,
+    "token_rate": 0.8704
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 6740,
+    "types": 16086,
+    "tokens_matched": 145080,
+    "tokens": 165057,
+    "type_rate": 0.419,
+    "token_rate": 0.879
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 6781,
+    "types": 16086,
+    "tokens_matched": 145260,
+    "tokens": 165057,
+    "type_rate": 0.4215,
+    "token_rate": 0.8801
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 6341,
+    "types": 16086,
+    "tokens_matched": 143774,
+    "tokens": 165057,
+    "type_rate": 0.3942,
+    "token_rate": 0.8711
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 6457,
+    "types": 16086,
+    "tokens_matched": 144006,
+    "tokens": 165057,
+    "type_rate": 0.4014,
+    "token_rate": 0.8725
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 8673,
+    "types": 16086,
+    "tokens_matched": 150470,
+    "tokens": 165057,
+    "type_rate": 0.5392,
+    "token_rate": 0.9116
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 8689,
+    "types": 16086,
+    "tokens_matched": 150503,
+    "tokens": 165057,
+    "type_rate": 0.5402,
+    "token_rate": 0.9118
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 8698,
+    "types": 16086,
+    "tokens_matched": 150636,
+    "tokens": 165057,
+    "type_rate": 0.5407,
+    "token_rate": 0.9126
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 8715,
+    "types": 16086,
+    "tokens_matched": 150670,
+    "tokens": 165057,
+    "type_rate": 0.5418,
+    "token_rate": 0.9128
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8767,
+    "types": 16086,
+    "tokens_matched": 150861,
+    "tokens": 165057,
+    "type_rate": 0.545,
+    "token_rate": 0.914
+   }
+  }
+ },
+ "author:terence": {
+  "works": 6,
+  "tokens": 51038,
+  "types": 4708,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 3010,
+    "types": 4708,
+    "tokens_matched": 47367,
+    "tokens": 51038,
+    "type_rate": 0.6393,
+    "token_rate": 0.9281
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 3065,
+    "types": 4708,
+    "tokens_matched": 47550,
+    "tokens": 51038,
+    "type_rate": 0.651,
+    "token_rate": 0.9317
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 3068,
+    "types": 4708,
+    "tokens_matched": 47554,
+    "tokens": 51038,
+    "type_rate": 0.6517,
+    "token_rate": 0.9317
+   },
+   "ls_key|+i/j": {
+    "types_matched": 3095,
+    "types": 4708,
+    "tokens_matched": 47605,
+    "tokens": 51038,
+    "type_rate": 0.6574,
+    "token_rate": 0.9327
+   },
+   "ls_key|+u/v": {
+    "types_matched": 3072,
+    "types": 4708,
+    "tokens_matched": 47559,
+    "tokens": 51038,
+    "type_rate": 0.6525,
+    "token_rate": 0.9318
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 3099,
+    "types": 4708,
+    "tokens_matched": 47610,
+    "tokens": 51038,
+    "type_rate": 0.6582,
+    "token_rate": 0.9328
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 3123,
+    "types": 4708,
+    "tokens_matched": 47673,
+    "tokens": 51038,
+    "type_rate": 0.6633,
+    "token_rate": 0.9341
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 3078,
+    "types": 4708,
+    "tokens_matched": 47710,
+    "tokens": 51038,
+    "type_rate": 0.6538,
+    "token_rate": 0.9348
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 3133,
+    "types": 4708,
+    "tokens_matched": 47812,
+    "tokens": 51038,
+    "type_rate": 0.6655,
+    "token_rate": 0.9368
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 3136,
+    "types": 4708,
+    "tokens_matched": 47816,
+    "tokens": 51038,
+    "type_rate": 0.6661,
+    "token_rate": 0.9369
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 3166,
+    "types": 4708,
+    "tokens_matched": 47891,
+    "tokens": 51038,
+    "type_rate": 0.6725,
+    "token_rate": 0.9383
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 3140,
+    "types": 4708,
+    "tokens_matched": 47821,
+    "tokens": 51038,
+    "type_rate": 0.6669,
+    "token_rate": 0.937
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 3170,
+    "types": 4708,
+    "tokens_matched": 47896,
+    "tokens": 51038,
+    "type_rate": 0.6733,
+    "token_rate": 0.9384
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3192,
+    "types": 4708,
+    "tokens_matched": 47958,
+    "tokens": 51038,
+    "type_rate": 0.678,
+    "token_rate": 0.9397
+   },
+   "el_key+orth|exact": {
+    "types_matched": 2821,
+    "types": 4708,
+    "tokens_matched": 46123,
+    "tokens": 51038,
+    "type_rate": 0.5992,
+    "token_rate": 0.9037
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 2870,
+    "types": 4708,
+    "tokens_matched": 46219,
+    "tokens": 51038,
+    "type_rate": 0.6096,
+    "token_rate": 0.9056
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 2873,
+    "types": 4708,
+    "tokens_matched": 46223,
+    "tokens": 51038,
+    "type_rate": 0.6102,
+    "token_rate": 0.9057
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 2901,
+    "types": 4708,
+    "tokens_matched": 46672,
+    "tokens": 51038,
+    "type_rate": 0.6162,
+    "token_rate": 0.9145
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 2876,
+    "types": 4708,
+    "tokens_matched": 46226,
+    "tokens": 51038,
+    "type_rate": 0.6109,
+    "token_rate": 0.9057
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 2904,
+    "types": 4708,
+    "tokens_matched": 46675,
+    "tokens": 51038,
+    "type_rate": 0.6168,
+    "token_rate": 0.9145
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 2925,
+    "types": 4708,
+    "tokens_matched": 46760,
+    "tokens": 51038,
+    "type_rate": 0.6213,
+    "token_rate": 0.9162
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 3129,
+    "types": 4708,
+    "tokens_matched": 47863,
+    "tokens": 51038,
+    "type_rate": 0.6646,
+    "token_rate": 0.9378
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 3185,
+    "types": 4708,
+    "tokens_matched": 47968,
+    "tokens": 51038,
+    "type_rate": 0.6765,
+    "token_rate": 0.9398
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 3188,
+    "types": 4708,
+    "tokens_matched": 47972,
+    "tokens": 51038,
+    "type_rate": 0.6771,
+    "token_rate": 0.9399
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 3195,
+    "types": 4708,
+    "tokens_matched": 48005,
+    "tokens": 51038,
+    "type_rate": 0.6786,
+    "token_rate": 0.9406
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 3192,
+    "types": 4708,
+    "tokens_matched": 47977,
+    "tokens": 51038,
+    "type_rate": 0.678,
+    "token_rate": 0.94
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 3199,
+    "types": 4708,
+    "tokens_matched": 48010,
+    "tokens": 51038,
+    "type_rate": 0.6795,
+    "token_rate": 0.9407
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3220,
+    "types": 4708,
+    "tokens_matched": 48067,
+    "tokens": 51038,
+    "type_rate": 0.6839,
+    "token_rate": 0.9418
+   }
+  }
+ },
+ "author:lucretius": {
+  "works": 1,
+  "tokens": 50877,
+  "types": 5516,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 3729,
+    "types": 5516,
+    "tokens_matched": 47226,
+    "tokens": 50877,
+    "type_rate": 0.676,
+    "token_rate": 0.9282
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 3754,
+    "types": 5516,
+    "tokens_matched": 47758,
+    "tokens": 50877,
+    "type_rate": 0.6806,
+    "token_rate": 0.9387
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 3754,
+    "types": 5516,
+    "tokens_matched": 47758,
+    "tokens": 50877,
+    "type_rate": 0.6806,
+    "token_rate": 0.9387
+   },
+   "ls_key|+i/j": {
+    "types_matched": 3767,
+    "types": 5516,
+    "tokens_matched": 47775,
+    "tokens": 50877,
+    "type_rate": 0.6829,
+    "token_rate": 0.939
+   },
+   "ls_key|+u/v": {
+    "types_matched": 3760,
+    "types": 5516,
+    "tokens_matched": 47800,
+    "tokens": 50877,
+    "type_rate": 0.6817,
+    "token_rate": 0.9395
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 3773,
+    "types": 5516,
+    "tokens_matched": 47817,
+    "tokens": 50877,
+    "type_rate": 0.684,
+    "token_rate": 0.9399
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 3789,
+    "types": 5516,
+    "tokens_matched": 47838,
+    "tokens": 50877,
+    "type_rate": 0.6869,
+    "token_rate": 0.9403
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 3809,
+    "types": 5516,
+    "tokens_matched": 47972,
+    "tokens": 50877,
+    "type_rate": 0.6905,
+    "token_rate": 0.9429
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 3835,
+    "types": 5516,
+    "tokens_matched": 48017,
+    "tokens": 50877,
+    "type_rate": 0.6953,
+    "token_rate": 0.9438
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 3835,
+    "types": 5516,
+    "tokens_matched": 48017,
+    "tokens": 50877,
+    "type_rate": 0.6953,
+    "token_rate": 0.9438
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 3849,
+    "types": 5516,
+    "tokens_matched": 48035,
+    "tokens": 50877,
+    "type_rate": 0.6978,
+    "token_rate": 0.9441
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 3840,
+    "types": 5516,
+    "tokens_matched": 48047,
+    "tokens": 50877,
+    "type_rate": 0.6962,
+    "token_rate": 0.9444
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 3854,
+    "types": 5516,
+    "tokens_matched": 48065,
+    "tokens": 50877,
+    "type_rate": 0.6987,
+    "token_rate": 0.9447
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3871,
+    "types": 5516,
+    "tokens_matched": 48089,
+    "tokens": 50877,
+    "type_rate": 0.7018,
+    "token_rate": 0.9452
+   },
+   "el_key+orth|exact": {
+    "types_matched": 3336,
+    "types": 5516,
+    "tokens_matched": 46025,
+    "tokens": 50877,
+    "type_rate": 0.6048,
+    "token_rate": 0.9046
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 3352,
+    "types": 5516,
+    "tokens_matched": 46074,
+    "tokens": 50877,
+    "type_rate": 0.6077,
+    "token_rate": 0.9056
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 3352,
+    "types": 5516,
+    "tokens_matched": 46074,
+    "tokens": 50877,
+    "type_rate": 0.6077,
+    "token_rate": 0.9056
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 3380,
+    "types": 5516,
+    "tokens_matched": 46342,
+    "tokens": 50877,
+    "type_rate": 0.6128,
+    "token_rate": 0.9109
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 3358,
+    "types": 5516,
+    "tokens_matched": 46116,
+    "tokens": 50877,
+    "type_rate": 0.6088,
+    "token_rate": 0.9064
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 3386,
+    "types": 5516,
+    "tokens_matched": 46384,
+    "tokens": 50877,
+    "type_rate": 0.6139,
+    "token_rate": 0.9117
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3399,
+    "types": 5516,
+    "tokens_matched": 46452,
+    "tokens": 50877,
+    "type_rate": 0.6162,
+    "token_rate": 0.913
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 3868,
+    "types": 5516,
+    "tokens_matched": 48076,
+    "tokens": 50877,
+    "type_rate": 0.7012,
+    "token_rate": 0.9449
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 3893,
+    "types": 5516,
+    "tokens_matched": 48120,
+    "tokens": 50877,
+    "type_rate": 0.7058,
+    "token_rate": 0.9458
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 3893,
+    "types": 5516,
+    "tokens_matched": 48120,
+    "tokens": 50877,
+    "type_rate": 0.7058,
+    "token_rate": 0.9458
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 3898,
+    "types": 5516,
+    "tokens_matched": 48125,
+    "tokens": 50877,
+    "type_rate": 0.7067,
+    "token_rate": 0.9459
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 3898,
+    "types": 5516,
+    "tokens_matched": 48150,
+    "tokens": 50877,
+    "type_rate": 0.7067,
+    "token_rate": 0.9464
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 3903,
+    "types": 5516,
+    "tokens_matched": 48155,
+    "tokens": 50877,
+    "type_rate": 0.7076,
+    "token_rate": 0.9465
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3919,
+    "types": 5516,
+    "tokens_matched": 48179,
+    "tokens": 50877,
+    "type_rate": 0.7105,
+    "token_rate": 0.947
+   }
+  }
+ },
+ "author:varro_rr": {
+  "works": 1,
+  "tokens": 36043,
+  "types": 5678,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 3586,
+    "types": 5678,
+    "tokens_matched": 32584,
+    "tokens": 36043,
+    "type_rate": 0.6316,
+    "token_rate": 0.904
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 3661,
+    "types": 5678,
+    "tokens_matched": 33068,
+    "tokens": 36043,
+    "type_rate": 0.6448,
+    "token_rate": 0.9175
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 3661,
+    "types": 5678,
+    "tokens_matched": 33068,
+    "tokens": 36043,
+    "type_rate": 0.6448,
+    "token_rate": 0.9175
+   },
+   "ls_key|+i/j": {
+    "types_matched": 3686,
+    "types": 5678,
+    "tokens_matched": 33111,
+    "tokens": 36043,
+    "type_rate": 0.6492,
+    "token_rate": 0.9187
+   },
+   "ls_key|+u/v": {
+    "types_matched": 3669,
+    "types": 5678,
+    "tokens_matched": 33076,
+    "tokens": 36043,
+    "type_rate": 0.6462,
+    "token_rate": 0.9177
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 3694,
+    "types": 5678,
+    "tokens_matched": 33119,
+    "tokens": 36043,
+    "type_rate": 0.6506,
+    "token_rate": 0.9189
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 3706,
+    "types": 5678,
+    "tokens_matched": 33134,
+    "tokens": 36043,
+    "type_rate": 0.6527,
+    "token_rate": 0.9193
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 3685,
+    "types": 5678,
+    "tokens_matched": 33153,
+    "tokens": 36043,
+    "type_rate": 0.649,
+    "token_rate": 0.9198
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 3749,
+    "types": 5678,
+    "tokens_matched": 33261,
+    "tokens": 36043,
+    "type_rate": 0.6603,
+    "token_rate": 0.9228
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 3752,
+    "types": 5678,
+    "tokens_matched": 33268,
+    "tokens": 36043,
+    "type_rate": 0.6608,
+    "token_rate": 0.923
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 3777,
+    "types": 5678,
+    "tokens_matched": 33304,
+    "tokens": 36043,
+    "type_rate": 0.6652,
+    "token_rate": 0.924
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 3762,
+    "types": 5678,
+    "tokens_matched": 33280,
+    "tokens": 36043,
+    "type_rate": 0.6626,
+    "token_rate": 0.9233
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 3787,
+    "types": 5678,
+    "tokens_matched": 33316,
+    "tokens": 36043,
+    "type_rate": 0.667,
+    "token_rate": 0.9243
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3798,
+    "types": 5678,
+    "tokens_matched": 33330,
+    "tokens": 36043,
+    "type_rate": 0.6689,
+    "token_rate": 0.9247
+   },
+   "el_key+orth|exact": {
+    "types_matched": 2974,
+    "types": 5678,
+    "tokens_matched": 31114,
+    "tokens": 36043,
+    "type_rate": 0.5238,
+    "token_rate": 0.8632
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 3028,
+    "types": 5678,
+    "tokens_matched": 31270,
+    "tokens": 36043,
+    "type_rate": 0.5333,
+    "token_rate": 0.8676
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 3028,
+    "types": 5678,
+    "tokens_matched": 31270,
+    "tokens": 36043,
+    "type_rate": 0.5333,
+    "token_rate": 0.8676
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 3056,
+    "types": 5678,
+    "tokens_matched": 31398,
+    "tokens": 36043,
+    "type_rate": 0.5382,
+    "token_rate": 0.8711
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 3036,
+    "types": 5678,
+    "tokens_matched": 31278,
+    "tokens": 36043,
+    "type_rate": 0.5347,
+    "token_rate": 0.8678
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 3064,
+    "types": 5678,
+    "tokens_matched": 31406,
+    "tokens": 36043,
+    "type_rate": 0.5396,
+    "token_rate": 0.8713
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3081,
+    "types": 5678,
+    "tokens_matched": 31442,
+    "tokens": 36043,
+    "type_rate": 0.5426,
+    "token_rate": 0.8723
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 3773,
+    "types": 5678,
+    "tokens_matched": 33339,
+    "tokens": 36043,
+    "type_rate": 0.6645,
+    "token_rate": 0.925
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 3837,
+    "types": 5678,
+    "tokens_matched": 33443,
+    "tokens": 36043,
+    "type_rate": 0.6758,
+    "token_rate": 0.9279
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 3840,
+    "types": 5678,
+    "tokens_matched": 33450,
+    "tokens": 36043,
+    "type_rate": 0.6763,
+    "token_rate": 0.9281
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 3847,
+    "types": 5678,
+    "tokens_matched": 33458,
+    "tokens": 36043,
+    "type_rate": 0.6775,
+    "token_rate": 0.9283
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 3850,
+    "types": 5678,
+    "tokens_matched": 33462,
+    "tokens": 36043,
+    "type_rate": 0.6781,
+    "token_rate": 0.9284
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 3857,
+    "types": 5678,
+    "tokens_matched": 33470,
+    "tokens": 36043,
+    "type_rate": 0.6793,
+    "token_rate": 0.9286
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3866,
+    "types": 5678,
+    "tokens_matched": 33482,
+    "tokens": 36043,
+    "type_rate": 0.6809,
+    "token_rate": 0.9289
+   }
+  }
+ },
+ "author:caesar": {
+  "works": 2,
+  "tokens": 86033,
+  "types": 6496,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 3691,
+    "types": 6496,
+    "tokens_matched": 79144,
+    "tokens": 86033,
+    "type_rate": 0.5682,
+    "token_rate": 0.9199
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 3739,
+    "types": 6496,
+    "tokens_matched": 79363,
+    "tokens": 86033,
+    "type_rate": 0.5756,
+    "token_rate": 0.9225
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 3739,
+    "types": 6496,
+    "tokens_matched": 79363,
+    "tokens": 86033,
+    "type_rate": 0.5756,
+    "token_rate": 0.9225
+   },
+   "ls_key|+i/j": {
+    "types_matched": 3765,
+    "types": 6496,
+    "tokens_matched": 79575,
+    "tokens": 86033,
+    "type_rate": 0.5796,
+    "token_rate": 0.9249
+   },
+   "ls_key|+u/v": {
+    "types_matched": 3743,
+    "types": 6496,
+    "tokens_matched": 79372,
+    "tokens": 86033,
+    "type_rate": 0.5762,
+    "token_rate": 0.9226
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 3769,
+    "types": 6496,
+    "tokens_matched": 79584,
+    "tokens": 86033,
+    "type_rate": 0.5802,
+    "token_rate": 0.925
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 3781,
+    "types": 6496,
+    "tokens_matched": 79614,
+    "tokens": 86033,
+    "type_rate": 0.5821,
+    "token_rate": 0.9254
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 3754,
+    "types": 6496,
+    "tokens_matched": 79750,
+    "tokens": 86033,
+    "type_rate": 0.5779,
+    "token_rate": 0.927
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 3806,
+    "types": 6496,
+    "tokens_matched": 79892,
+    "tokens": 86033,
+    "type_rate": 0.5859,
+    "token_rate": 0.9286
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 3807,
+    "types": 6496,
+    "tokens_matched": 79893,
+    "tokens": 86033,
+    "type_rate": 0.5861,
+    "token_rate": 0.9286
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 3833,
+    "types": 6496,
+    "tokens_matched": 79965,
+    "tokens": 86033,
+    "type_rate": 0.5901,
+    "token_rate": 0.9295
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 3813,
+    "types": 6496,
+    "tokens_matched": 79914,
+    "tokens": 86033,
+    "type_rate": 0.587,
+    "token_rate": 0.9289
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 3839,
+    "types": 6496,
+    "tokens_matched": 79986,
+    "tokens": 86033,
+    "type_rate": 0.591,
+    "token_rate": 0.9297
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3849,
+    "types": 6496,
+    "tokens_matched": 80013,
+    "tokens": 86033,
+    "type_rate": 0.5925,
+    "token_rate": 0.93
+   },
+   "el_key+orth|exact": {
+    "types_matched": 3157,
+    "types": 6496,
+    "tokens_matched": 74328,
+    "tokens": 86033,
+    "type_rate": 0.486,
+    "token_rate": 0.8639
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 3210,
+    "types": 6496,
+    "tokens_matched": 74687,
+    "tokens": 86033,
+    "type_rate": 0.4942,
+    "token_rate": 0.8681
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 3210,
+    "types": 6496,
+    "tokens_matched": 74687,
+    "tokens": 86033,
+    "type_rate": 0.4942,
+    "token_rate": 0.8681
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 3250,
+    "types": 6496,
+    "tokens_matched": 75249,
+    "tokens": 86033,
+    "type_rate": 0.5003,
+    "token_rate": 0.8747
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 3213,
+    "types": 6496,
+    "tokens_matched": 74693,
+    "tokens": 86033,
+    "type_rate": 0.4946,
+    "token_rate": 0.8682
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 3253,
+    "types": 6496,
+    "tokens_matched": 75255,
+    "tokens": 86033,
+    "type_rate": 0.5008,
+    "token_rate": 0.8747
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3262,
+    "types": 6496,
+    "tokens_matched": 75282,
+    "tokens": 86033,
+    "type_rate": 0.5022,
+    "token_rate": 0.875
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 3835,
+    "types": 6496,
+    "tokens_matched": 80225,
+    "tokens": 86033,
+    "type_rate": 0.5904,
+    "token_rate": 0.9325
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 3886,
+    "types": 6496,
+    "tokens_matched": 80373,
+    "tokens": 86033,
+    "type_rate": 0.5982,
+    "token_rate": 0.9342
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 3887,
+    "types": 6496,
+    "tokens_matched": 80374,
+    "tokens": 86033,
+    "type_rate": 0.5984,
+    "token_rate": 0.9342
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 3895,
+    "types": 6496,
+    "tokens_matched": 80391,
+    "tokens": 86033,
+    "type_rate": 0.5996,
+    "token_rate": 0.9344
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 3893,
+    "types": 6496,
+    "tokens_matched": 80395,
+    "tokens": 86033,
+    "type_rate": 0.5993,
+    "token_rate": 0.9345
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 3901,
+    "types": 6496,
+    "tokens_matched": 80412,
+    "tokens": 86033,
+    "type_rate": 0.6005,
+    "token_rate": 0.9347
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 3911,
+    "types": 6496,
+    "tokens_matched": 80439,
+    "tokens": 86033,
+    "type_rate": 0.6021,
+    "token_rate": 0.935
+   }
+  }
+ },
+ "author:cicero": {
+  "works": 59,
+  "tokens": 1134690,
+  "types": 32051,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 11343,
+    "types": 32051,
+    "tokens_matched": 1048980,
+    "tokens": 1134690,
+    "type_rate": 0.3539,
+    "token_rate": 0.9245
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 11761,
+    "types": 32051,
+    "tokens_matched": 1055359,
+    "tokens": 1134690,
+    "type_rate": 0.3669,
+    "token_rate": 0.9301
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 11989,
+    "types": 32051,
+    "tokens_matched": 1055663,
+    "tokens": 1134690,
+    "type_rate": 0.3741,
+    "token_rate": 0.9304
+   },
+   "ls_key|+i/j": {
+    "types_matched": 12127,
+    "types": 32051,
+    "tokens_matched": 1057275,
+    "tokens": 1134690,
+    "type_rate": 0.3784,
+    "token_rate": 0.9318
+   },
+   "ls_key|+u/v": {
+    "types_matched": 12198,
+    "types": 32051,
+    "tokens_matched": 1056282,
+    "tokens": 1134690,
+    "type_rate": 0.3806,
+    "token_rate": 0.9309
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 12349,
+    "types": 32051,
+    "tokens_matched": 1057915,
+    "tokens": 1134690,
+    "type_rate": 0.3853,
+    "token_rate": 0.9323
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 12462,
+    "types": 32051,
+    "tokens_matched": 1058298,
+    "tokens": 1134690,
+    "type_rate": 0.3888,
+    "token_rate": 0.9327
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 11724,
+    "types": 32051,
+    "tokens_matched": 1056839,
+    "tokens": 1134690,
+    "type_rate": 0.3658,
+    "token_rate": 0.9314
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 12155,
+    "types": 32051,
+    "tokens_matched": 1058359,
+    "tokens": 1134690,
+    "type_rate": 0.3792,
+    "token_rate": 0.9327
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 12392,
+    "types": 32051,
+    "tokens_matched": 1058685,
+    "tokens": 1134690,
+    "type_rate": 0.3866,
+    "token_rate": 0.933
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 12533,
+    "types": 32051,
+    "tokens_matched": 1059879,
+    "tokens": 1134690,
+    "type_rate": 0.391,
+    "token_rate": 0.9341
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 12615,
+    "types": 32051,
+    "tokens_matched": 1059380,
+    "tokens": 1134690,
+    "type_rate": 0.3936,
+    "token_rate": 0.9336
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 12767,
+    "types": 32051,
+    "tokens_matched": 1060592,
+    "tokens": 1134690,
+    "type_rate": 0.3983,
+    "token_rate": 0.9347
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 12890,
+    "types": 32051,
+    "tokens_matched": 1060992,
+    "tokens": 1134690,
+    "type_rate": 0.4022,
+    "token_rate": 0.9351
+   },
+   "el_key+orth|exact": {
+    "types_matched": 9354,
+    "types": 32051,
+    "tokens_matched": 1007701,
+    "tokens": 1134690,
+    "type_rate": 0.2918,
+    "token_rate": 0.8881
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 9701,
+    "types": 32051,
+    "tokens_matched": 1012397,
+    "tokens": 1134690,
+    "type_rate": 0.3027,
+    "token_rate": 0.8922
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 9921,
+    "types": 32051,
+    "tokens_matched": 1012693,
+    "tokens": 1134690,
+    "type_rate": 0.3095,
+    "token_rate": 0.8925
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 10025,
+    "types": 32051,
+    "tokens_matched": 1023085,
+    "tokens": 1134690,
+    "type_rate": 0.3128,
+    "token_rate": 0.9016
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 10115,
+    "types": 32051,
+    "tokens_matched": 1013288,
+    "tokens": 1134690,
+    "type_rate": 0.3156,
+    "token_rate": 0.893
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 10220,
+    "types": 32051,
+    "tokens_matched": 1023681,
+    "tokens": 1134690,
+    "type_rate": 0.3189,
+    "token_rate": 0.9022
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 10301,
+    "types": 32051,
+    "tokens_matched": 1024015,
+    "tokens": 1134690,
+    "type_rate": 0.3214,
+    "token_rate": 0.9025
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 12191,
+    "types": 32051,
+    "tokens_matched": 1062938,
+    "tokens": 1134690,
+    "type_rate": 0.3804,
+    "token_rate": 0.9368
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 12614,
+    "types": 32051,
+    "tokens_matched": 1064357,
+    "tokens": 1134690,
+    "type_rate": 0.3936,
+    "token_rate": 0.938
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 12861,
+    "types": 32051,
+    "tokens_matched": 1064688,
+    "tokens": 1134690,
+    "type_rate": 0.4013,
+    "token_rate": 0.9383
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 12901,
+    "types": 32051,
+    "tokens_matched": 1064944,
+    "tokens": 1134690,
+    "type_rate": 0.4025,
+    "token_rate": 0.9385
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 13096,
+    "types": 32051,
+    "tokens_matched": 1065407,
+    "tokens": 1134690,
+    "type_rate": 0.4086,
+    "token_rate": 0.9389
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 13137,
+    "types": 32051,
+    "tokens_matched": 1065664,
+    "tokens": 1134690,
+    "type_rate": 0.4099,
+    "token_rate": 0.9392
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 13258,
+    "types": 32051,
+    "tokens_matched": 1066061,
+    "tokens": 1134690,
+    "type_rate": 0.4137,
+    "token_rate": 0.9395
+   }
+  }
+ },
+ "author:livy": {
+  "works": 1,
+  "tokens": 518260,
+  "types": 19554,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 8098,
+    "types": 19554,
+    "tokens_matched": 466359,
+    "tokens": 518260,
+    "type_rate": 0.4141,
+    "token_rate": 0.8999
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 8341,
+    "types": 19554,
+    "tokens_matched": 469593,
+    "tokens": 518260,
+    "type_rate": 0.4266,
+    "token_rate": 0.9061
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 8341,
+    "types": 19554,
+    "tokens_matched": 469593,
+    "tokens": 518260,
+    "type_rate": 0.4266,
+    "token_rate": 0.9061
+   },
+   "ls_key|+i/j": {
+    "types_matched": 8404,
+    "types": 19554,
+    "tokens_matched": 470120,
+    "tokens": 518260,
+    "type_rate": 0.4298,
+    "token_rate": 0.9071
+   },
+   "ls_key|+u/v": {
+    "types_matched": 8370,
+    "types": 19554,
+    "tokens_matched": 469655,
+    "tokens": 518260,
+    "type_rate": 0.428,
+    "token_rate": 0.9062
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 8433,
+    "types": 19554,
+    "tokens_matched": 470182,
+    "tokens": 518260,
+    "type_rate": 0.4313,
+    "token_rate": 0.9072
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 8501,
+    "types": 19554,
+    "tokens_matched": 470368,
+    "tokens": 518260,
+    "type_rate": 0.4347,
+    "token_rate": 0.9076
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 8339,
+    "types": 19554,
+    "tokens_matched": 471390,
+    "tokens": 518260,
+    "type_rate": 0.4265,
+    "token_rate": 0.9096
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 8576,
+    "types": 19554,
+    "tokens_matched": 472320,
+    "tokens": 518260,
+    "type_rate": 0.4386,
+    "token_rate": 0.9114
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 8577,
+    "types": 19554,
+    "tokens_matched": 472328,
+    "tokens": 518260,
+    "type_rate": 0.4386,
+    "token_rate": 0.9114
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 8642,
+    "types": 19554,
+    "tokens_matched": 472869,
+    "tokens": 518260,
+    "type_rate": 0.442,
+    "token_rate": 0.9124
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 8609,
+    "types": 19554,
+    "tokens_matched": 472399,
+    "tokens": 518260,
+    "type_rate": 0.4403,
+    "token_rate": 0.9115
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 8674,
+    "types": 19554,
+    "tokens_matched": 472940,
+    "tokens": 518260,
+    "type_rate": 0.4436,
+    "token_rate": 0.9126
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8746,
+    "types": 19554,
+    "tokens_matched": 473117,
+    "tokens": 518260,
+    "type_rate": 0.4473,
+    "token_rate": 0.9129
+   },
+   "el_key+orth|exact": {
+    "types_matched": 6431,
+    "types": 19554,
+    "tokens_matched": 440436,
+    "tokens": 518260,
+    "type_rate": 0.3289,
+    "token_rate": 0.8498
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 6664,
+    "types": 19554,
+    "tokens_matched": 442389,
+    "tokens": 518260,
+    "type_rate": 0.3408,
+    "token_rate": 0.8536
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 6664,
+    "types": 19554,
+    "tokens_matched": 442389,
+    "tokens": 518260,
+    "type_rate": 0.3408,
+    "token_rate": 0.8536
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 6733,
+    "types": 19554,
+    "tokens_matched": 447163,
+    "tokens": 518260,
+    "type_rate": 0.3443,
+    "token_rate": 0.8628
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 6686,
+    "types": 19554,
+    "tokens_matched": 442439,
+    "tokens": 518260,
+    "type_rate": 0.3419,
+    "token_rate": 0.8537
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 6756,
+    "types": 19554,
+    "tokens_matched": 447214,
+    "tokens": 518260,
+    "type_rate": 0.3455,
+    "token_rate": 0.8629
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 6797,
+    "types": 19554,
+    "tokens_matched": 447350,
+    "tokens": 518260,
+    "type_rate": 0.3476,
+    "token_rate": 0.8632
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 8591,
+    "types": 19554,
+    "tokens_matched": 476795,
+    "tokens": 518260,
+    "type_rate": 0.4393,
+    "token_rate": 0.92
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 8824,
+    "types": 19554,
+    "tokens_matched": 477711,
+    "tokens": 518260,
+    "type_rate": 0.4513,
+    "token_rate": 0.9218
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 8824,
+    "types": 19554,
+    "tokens_matched": 477711,
+    "tokens": 518260,
+    "type_rate": 0.4513,
+    "token_rate": 0.9218
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 8842,
+    "types": 19554,
+    "tokens_matched": 477840,
+    "tokens": 518260,
+    "type_rate": 0.4522,
+    "token_rate": 0.922
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 8858,
+    "types": 19554,
+    "tokens_matched": 477784,
+    "tokens": 518260,
+    "type_rate": 0.453,
+    "token_rate": 0.9219
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 8876,
+    "types": 19554,
+    "tokens_matched": 477913,
+    "tokens": 518260,
+    "type_rate": 0.4539,
+    "token_rate": 0.9221
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8948,
+    "types": 19554,
+    "tokens_matched": 478089,
+    "tokens": 518260,
+    "type_rate": 0.4576,
+    "token_rate": 0.9225
+   }
+  }
+ },
+ "author:virgil": {
+  "works": 3,
+  "tokens": 87948,
+  "types": 9086,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 5537,
+    "types": 9086,
+    "tokens_matched": 80301,
+    "tokens": 87948,
+    "type_rate": 0.6094,
+    "token_rate": 0.9131
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 5674,
+    "types": 9086,
+    "tokens_matched": 81135,
+    "tokens": 87948,
+    "type_rate": 0.6245,
+    "token_rate": 0.9225
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 5687,
+    "types": 9086,
+    "tokens_matched": 81177,
+    "tokens": 87948,
+    "type_rate": 0.6259,
+    "token_rate": 0.923
+   },
+   "ls_key|+i/j": {
+    "types_matched": 5720,
+    "types": 9086,
+    "tokens_matched": 81423,
+    "tokens": 87948,
+    "type_rate": 0.6295,
+    "token_rate": 0.9258
+   },
+   "ls_key|+u/v": {
+    "types_matched": 5698,
+    "types": 9086,
+    "tokens_matched": 81191,
+    "tokens": 87948,
+    "type_rate": 0.6271,
+    "token_rate": 0.9232
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 5731,
+    "types": 9086,
+    "tokens_matched": 81437,
+    "tokens": 87948,
+    "type_rate": 0.6308,
+    "token_rate": 0.926
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 5765,
+    "types": 9086,
+    "tokens_matched": 81507,
+    "tokens": 87948,
+    "type_rate": 0.6345,
+    "token_rate": 0.9268
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 5680,
+    "types": 9086,
+    "tokens_matched": 81320,
+    "tokens": 87948,
+    "type_rate": 0.6251,
+    "token_rate": 0.9246
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 5822,
+    "types": 9086,
+    "tokens_matched": 81614,
+    "tokens": 87948,
+    "type_rate": 0.6408,
+    "token_rate": 0.928
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 5842,
+    "types": 9086,
+    "tokens_matched": 81679,
+    "tokens": 87948,
+    "type_rate": 0.643,
+    "token_rate": 0.9287
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 5874,
+    "types": 9086,
+    "tokens_matched": 81910,
+    "tokens": 87948,
+    "type_rate": 0.6465,
+    "token_rate": 0.9313
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 5854,
+    "types": 9086,
+    "tokens_matched": 81694,
+    "tokens": 87948,
+    "type_rate": 0.6443,
+    "token_rate": 0.9289
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 5886,
+    "types": 9086,
+    "tokens_matched": 81925,
+    "tokens": 87948,
+    "type_rate": 0.6478,
+    "token_rate": 0.9315
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 5921,
+    "types": 9086,
+    "tokens_matched": 81991,
+    "tokens": 87948,
+    "type_rate": 0.6517,
+    "token_rate": 0.9323
+   },
+   "el_key+orth|exact": {
+    "types_matched": 4823,
+    "types": 9086,
+    "tokens_matched": 76590,
+    "tokens": 87948,
+    "type_rate": 0.5308,
+    "token_rate": 0.8709
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 4951,
+    "types": 9086,
+    "tokens_matched": 76936,
+    "tokens": 87948,
+    "type_rate": 0.5449,
+    "token_rate": 0.8748
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 4956,
+    "types": 9086,
+    "tokens_matched": 76953,
+    "tokens": 87948,
+    "type_rate": 0.5455,
+    "token_rate": 0.875
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 5006,
+    "types": 9086,
+    "tokens_matched": 77923,
+    "tokens": 87948,
+    "type_rate": 0.551,
+    "token_rate": 0.886
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 4964,
+    "types": 9086,
+    "tokens_matched": 76962,
+    "tokens": 87948,
+    "type_rate": 0.5463,
+    "token_rate": 0.8751
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 5014,
+    "types": 9086,
+    "tokens_matched": 77932,
+    "tokens": 87948,
+    "type_rate": 0.5518,
+    "token_rate": 0.8861
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 5036,
+    "types": 9086,
+    "tokens_matched": 77977,
+    "tokens": 87948,
+    "type_rate": 0.5543,
+    "token_rate": 0.8866
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 5846,
+    "types": 9086,
+    "tokens_matched": 81926,
+    "tokens": 87948,
+    "type_rate": 0.6434,
+    "token_rate": 0.9315
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 5977,
+    "types": 9086,
+    "tokens_matched": 82174,
+    "tokens": 87948,
+    "type_rate": 0.6578,
+    "token_rate": 0.9343
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 5995,
+    "types": 9086,
+    "tokens_matched": 82224,
+    "tokens": 87948,
+    "type_rate": 0.6598,
+    "token_rate": 0.9349
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 6001,
+    "types": 9086,
+    "tokens_matched": 82267,
+    "tokens": 87948,
+    "type_rate": 0.6605,
+    "token_rate": 0.9354
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 6007,
+    "types": 9086,
+    "tokens_matched": 82239,
+    "tokens": 87948,
+    "type_rate": 0.6611,
+    "token_rate": 0.9351
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 6013,
+    "types": 9086,
+    "tokens_matched": 82282,
+    "tokens": 87948,
+    "type_rate": 0.6618,
+    "token_rate": 0.9356
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 6046,
+    "types": 9086,
+    "tokens_matched": 82338,
+    "tokens": 87948,
+    "type_rate": 0.6654,
+    "token_rate": 0.9362
+   }
+  }
+ },
+ "author:apuleius": {
+  "works": 3,
+  "tokens": 85306,
+  "types": 12808,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 7529,
+    "types": 12808,
+    "tokens_matched": 76395,
+    "tokens": 85306,
+    "type_rate": 0.5878,
+    "token_rate": 0.8955
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 7639,
+    "types": 12808,
+    "tokens_matched": 77291,
+    "tokens": 85306,
+    "type_rate": 0.5964,
+    "token_rate": 0.906
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 7639,
+    "types": 12808,
+    "tokens_matched": 77291,
+    "tokens": 85306,
+    "type_rate": 0.5964,
+    "token_rate": 0.906
+   },
+   "ls_key|+i/j": {
+    "types_matched": 7691,
+    "types": 12808,
+    "tokens_matched": 77398,
+    "tokens": 85306,
+    "type_rate": 0.6005,
+    "token_rate": 0.9073
+   },
+   "ls_key|+u/v": {
+    "types_matched": 7801,
+    "types": 12808,
+    "tokens_matched": 77562,
+    "tokens": 85306,
+    "type_rate": 0.6091,
+    "token_rate": 0.9092
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 7855,
+    "types": 12808,
+    "tokens_matched": 77673,
+    "tokens": 85306,
+    "type_rate": 0.6133,
+    "token_rate": 0.9105
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 7899,
+    "types": 12808,
+    "tokens_matched": 77734,
+    "tokens": 85306,
+    "type_rate": 0.6167,
+    "token_rate": 0.9112
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 7706,
+    "types": 12808,
+    "tokens_matched": 77537,
+    "tokens": 85306,
+    "type_rate": 0.6017,
+    "token_rate": 0.9089
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 7807,
+    "types": 12808,
+    "tokens_matched": 77774,
+    "tokens": 85306,
+    "type_rate": 0.6095,
+    "token_rate": 0.9117
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 7808,
+    "types": 12808,
+    "tokens_matched": 77775,
+    "tokens": 85306,
+    "type_rate": 0.6096,
+    "token_rate": 0.9117
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 7863,
+    "types": 12808,
+    "tokens_matched": 77898,
+    "tokens": 85306,
+    "type_rate": 0.6139,
+    "token_rate": 0.9132
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 7974,
+    "types": 12808,
+    "tokens_matched": 78056,
+    "tokens": 85306,
+    "type_rate": 0.6226,
+    "token_rate": 0.915
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 8031,
+    "types": 12808,
+    "tokens_matched": 78183,
+    "tokens": 85306,
+    "type_rate": 0.627,
+    "token_rate": 0.9165
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8074,
+    "types": 12808,
+    "tokens_matched": 78249,
+    "tokens": 85306,
+    "type_rate": 0.6304,
+    "token_rate": 0.9173
+   },
+   "el_key+orth|exact": {
+    "types_matched": 6084,
+    "types": 12808,
+    "tokens_matched": 72418,
+    "tokens": 85306,
+    "type_rate": 0.475,
+    "token_rate": 0.8489
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 6152,
+    "types": 12808,
+    "tokens_matched": 72686,
+    "tokens": 85306,
+    "type_rate": 0.4803,
+    "token_rate": 0.8521
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 6152,
+    "types": 12808,
+    "tokens_matched": 72686,
+    "tokens": 85306,
+    "type_rate": 0.4803,
+    "token_rate": 0.8521
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 6203,
+    "types": 12808,
+    "tokens_matched": 73503,
+    "tokens": 85306,
+    "type_rate": 0.4843,
+    "token_rate": 0.8616
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 6294,
+    "types": 12808,
+    "tokens_matched": 72937,
+    "tokens": 85306,
+    "type_rate": 0.4914,
+    "token_rate": 0.855
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 6346,
+    "types": 12808,
+    "tokens_matched": 73755,
+    "tokens": 85306,
+    "type_rate": 0.4955,
+    "token_rate": 0.8646
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 6381,
+    "types": 12808,
+    "tokens_matched": 73813,
+    "tokens": 85306,
+    "type_rate": 0.4982,
+    "token_rate": 0.8653
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 7835,
+    "types": 12808,
+    "tokens_matched": 77834,
+    "tokens": 85306,
+    "type_rate": 0.6117,
+    "token_rate": 0.9124
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 7932,
+    "types": 12808,
+    "tokens_matched": 78065,
+    "tokens": 85306,
+    "type_rate": 0.6193,
+    "token_rate": 0.9151
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 7933,
+    "types": 12808,
+    "tokens_matched": 78066,
+    "tokens": 85306,
+    "type_rate": 0.6194,
+    "token_rate": 0.9151
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 7954,
+    "types": 12808,
+    "tokens_matched": 78116,
+    "tokens": 85306,
+    "type_rate": 0.621,
+    "token_rate": 0.9157
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 8102,
+    "types": 12808,
+    "tokens_matched": 78353,
+    "tokens": 85306,
+    "type_rate": 0.6326,
+    "token_rate": 0.9185
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 8124,
+    "types": 12808,
+    "tokens_matched": 78404,
+    "tokens": 85306,
+    "type_rate": 0.6343,
+    "token_rate": 0.9191
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 8167,
+    "types": 12808,
+    "tokens_matched": 78470,
+    "tokens": 85306,
+    "type_rate": 0.6376,
+    "token_rate": 0.9199
+   }
+  }
+ },
+ "author:gellius": {
+  "works": 1,
+  "tokens": 119833,
+  "types": 14102,
+  "match": {
+   "ls_key|exact": {
+    "types_matched": 6786,
+    "types": 14102,
+    "tokens_matched": 105524,
+    "tokens": 119833,
+    "type_rate": 0.4812,
+    "token_rate": 0.8806
+   },
+   "ls_key|NFC+lowercase": {
+    "types_matched": 6939,
+    "types": 14102,
+    "tokens_matched": 106025,
+    "tokens": 119833,
+    "type_rate": 0.4921,
+    "token_rate": 0.8848
+   },
+   "ls_key|+strip-diacritics": {
+    "types_matched": 7257,
+    "types": 14102,
+    "tokens_matched": 106421,
+    "tokens": 119833,
+    "type_rate": 0.5146,
+    "token_rate": 0.8881
+   },
+   "ls_key|+i/j": {
+    "types_matched": 7315,
+    "types": 14102,
+    "tokens_matched": 106672,
+    "tokens": 119833,
+    "type_rate": 0.5187,
+    "token_rate": 0.8902
+   },
+   "ls_key|+u/v": {
+    "types_matched": 7267,
+    "types": 14102,
+    "tokens_matched": 106437,
+    "tokens": 119833,
+    "type_rate": 0.5153,
+    "token_rate": 0.8882
+   },
+   "ls_key|+u/v+i/j": {
+    "types_matched": 7325,
+    "types": 14102,
+    "tokens_matched": 106688,
+    "tokens": 119833,
+    "type_rate": 0.5194,
+    "token_rate": 0.8903
+   },
+   "ls_key|+u/v+i/j+ae/oe": {
+    "types_matched": 7365,
+    "types": 14102,
+    "tokens_matched": 106771,
+    "tokens": 119833,
+    "type_rate": 0.5223,
+    "token_rate": 0.891
+   },
+   "ls_key+orth|exact": {
+    "types_matched": 6948,
+    "types": 14102,
+    "tokens_matched": 106129,
+    "tokens": 119833,
+    "type_rate": 0.4927,
+    "token_rate": 0.8856
+   },
+   "ls_key+orth|NFC+lowercase": {
+    "types_matched": 7101,
+    "types": 14102,
+    "tokens_matched": 106430,
+    "tokens": 119833,
+    "type_rate": 0.5035,
+    "token_rate": 0.8882
+   },
+   "ls_key+orth|+strip-diacritics": {
+    "types_matched": 7427,
+    "types": 14102,
+    "tokens_matched": 106836,
+    "tokens": 119833,
+    "type_rate": 0.5267,
+    "token_rate": 0.8915
+   },
+   "ls_key+orth|+i/j": {
+    "types_matched": 7487,
+    "types": 14102,
+    "tokens_matched": 107080,
+    "tokens": 119833,
+    "type_rate": 0.5309,
+    "token_rate": 0.8936
+   },
+   "ls_key+orth|+u/v": {
+    "types_matched": 7440,
+    "types": 14102,
+    "tokens_matched": 106862,
+    "tokens": 119833,
+    "type_rate": 0.5276,
+    "token_rate": 0.8918
+   },
+   "ls_key+orth|+u/v+i/j": {
+    "types_matched": 7500,
+    "types": 14102,
+    "tokens_matched": 107106,
+    "tokens": 119833,
+    "type_rate": 0.5318,
+    "token_rate": 0.8938
+   },
+   "ls_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 7541,
+    "types": 14102,
+    "tokens_matched": 107189,
+    "tokens": 119833,
+    "type_rate": 0.5347,
+    "token_rate": 0.8945
+   },
+   "el_key+orth|exact": {
+    "types_matched": 5387,
+    "types": 14102,
+    "tokens_matched": 99396,
+    "tokens": 119833,
+    "type_rate": 0.382,
+    "token_rate": 0.8295
+   },
+   "el_key+orth|NFC+lowercase": {
+    "types_matched": 5540,
+    "types": 14102,
+    "tokens_matched": 99966,
+    "tokens": 119833,
+    "type_rate": 0.3929,
+    "token_rate": 0.8342
+   },
+   "el_key+orth|+strip-diacritics": {
+    "types_matched": 5826,
+    "types": 14102,
+    "tokens_matched": 100332,
+    "tokens": 119833,
+    "type_rate": 0.4131,
+    "token_rate": 0.8373
+   },
+   "el_key+orth|+i/j": {
+    "types_matched": 5881,
+    "types": 14102,
+    "tokens_matched": 101096,
+    "tokens": 119833,
+    "type_rate": 0.417,
+    "token_rate": 0.8436
+   },
+   "el_key+orth|+u/v": {
+    "types_matched": 5836,
+    "types": 14102,
+    "tokens_matched": 100348,
+    "tokens": 119833,
+    "type_rate": 0.4138,
+    "token_rate": 0.8374
+   },
+   "el_key+orth|+u/v+i/j": {
+    "types_matched": 5891,
+    "types": 14102,
+    "tokens_matched": 101112,
+    "tokens": 119833,
+    "type_rate": 0.4177,
+    "token_rate": 0.8438
+   },
+   "el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 5922,
+    "types": 14102,
+    "tokens_matched": 101179,
+    "tokens": 119833,
+    "type_rate": 0.4199,
+    "token_rate": 0.8443
+   },
+   "ls+el_key+orth|exact": {
+    "types_matched": 7106,
+    "types": 14102,
+    "tokens_matched": 106779,
+    "tokens": 119833,
+    "type_rate": 0.5039,
+    "token_rate": 0.8911
+   },
+   "ls+el_key+orth|NFC+lowercase": {
+    "types_matched": 7259,
+    "types": 14102,
+    "tokens_matched": 107072,
+    "tokens": 119833,
+    "type_rate": 0.5147,
+    "token_rate": 0.8935
+   },
+   "ls+el_key+orth|+strip-diacritics": {
+    "types_matched": 7597,
+    "types": 14102,
+    "tokens_matched": 107492,
+    "tokens": 119833,
+    "type_rate": 0.5387,
+    "token_rate": 0.897
+   },
+   "ls+el_key+orth|+i/j": {
+    "types_matched": 7621,
+    "types": 14102,
+    "tokens_matched": 107601,
+    "tokens": 119833,
+    "type_rate": 0.5404,
+    "token_rate": 0.8979
+   },
+   "ls+el_key+orth|+u/v": {
+    "types_matched": 7610,
+    "types": 14102,
+    "tokens_matched": 107518,
+    "tokens": 119833,
+    "type_rate": 0.5396,
+    "token_rate": 0.8972
+   },
+   "ls+el_key+orth|+u/v+i/j": {
+    "types_matched": 7634,
+    "types": 14102,
+    "tokens_matched": 107627,
+    "tokens": 119833,
+    "type_rate": 0.5413,
+    "token_rate": 0.8981
+   },
+   "ls+el_key+orth|+u/v+i/j+ae/oe": {
+    "types_matched": 7674,
+    "types": 14102,
+    "tokens_matched": 107707,
+    "tokens": 119833,
+    "type_rate": 0.5442,
+    "token_rate": 0.8988
+   }
+  }
+ }
+}

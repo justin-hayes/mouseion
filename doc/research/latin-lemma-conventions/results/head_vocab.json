@@ -1,0 +1,75 @@
+{
+ "top100": {
+  "types_matched": 100,
+  "rate": 1.0,
+  "tokens": 1343035,
+  "token_rate": 1.0,
+  "min_count": 3715,
+  "ls_only_types_matched": 99
+ },
+ "top500": {
+  "types_matched": 493,
+  "rate": 0.986,
+  "tokens": 1943775,
+  "token_rate": 0.9932,
+  "min_count": 744,
+  "ls_only_types_matched": 492
+ },
+ "top1000": {
+  "types_matched": 982,
+  "rate": 0.982,
+  "tokens": 2195566,
+  "token_rate": 0.9917,
+  "min_count": 354,
+  "ls_only_types_matched": 980
+ },
+ "top2000": {
+  "types_matched": 1933,
+  "rate": 0.9665,
+  "tokens": 2425550,
+  "token_rate": 0.9879,
+  "min_count": 153,
+  "ls_only_types_matched": 1923
+ },
+ "top5000": {
+  "types_matched": 4415,
+  "rate": 0.883,
+  "tokens": 2659642,
+  "token_rate": 0.9753,
+  "min_count": 41,
+  "ls_only_types_matched": 4373
+ },
+ "top10000": {
+  "types_matched": 7488,
+  "rate": 0.7488,
+  "tokens": 2773314,
+  "token_rate": 0.9616,
+  "min_count": 13,
+  "ls_only_types_matched": 7368
+ },
+ "top20000": {
+  "types_matched": 11746,
+  "rate": 0.5873,
+  "tokens": 2845927,
+  "token_rate": 0.9483,
+  "min_count": 4,
+  "ls_only_types_matched": 11494
+ },
+ "unmatched_types": {
+  "n": 45748,
+  "hapax": 26549,
+  "in_one_work": 30825,
+  "freq_ge_10": 3610,
+  "freq_ge_50": 451,
+  "freq_ge_100": 147
+ },
+ "all_types": {
+  "n": 68651,
+  "hapax": 32906,
+  "freq_ge_10": 12168
+ },
+ "unmatched_tokens_in_types_freq_ge_10": 118833,
+ "unmatched_tokens_total": 200874,
+ "ls_only_token_rate_folded": 0.926,
+ "union_token_rate_folded": 0.9312
+}

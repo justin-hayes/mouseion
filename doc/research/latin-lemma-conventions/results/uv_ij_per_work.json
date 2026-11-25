@@ -1,0 +1,640 @@
+{
+"summary": {
+"works": 80,
+"median_share": 0.0006,
+"max_share": 0.0175,
+"works_gt_1pct": 7,
+"works_gt_3pct": 0,
+"works_u_style": [],
+"works_v_style": 80,
+"works_mixed": [
+"phi0836.phi002.perseus-lat6",
+"phi0914.phi001.perseus-lat2",
+"phi1002.phi001.perseus-lat2",
+"phi1014.phi001.perseus-lat1",
+"phi1014.phi002.perseus-lat1",
+"phi1014.phi003.perseus-lat1",
+"phi1038.phi001.perseus-lat1",
+"phi1348.abo011.perseus-lat2",
+"phi1348.abo012.perseus-lat2",
+"phi1348.abo013.perseus-lat2",
+"phi1348.abo014.perseus-lat2",
+"phi1348.abo015.perseus-lat2",
+"phi1348.abo016.perseus-lat2"
+],
+"top": [
+[
+"phi1014.phi001.perseus-lat1",
+0.0175,
+1166
+],
+[
+"phi1014.phi003.perseus-lat1",
+0.0162,
+169
+],
+[
+"phi0836.phi002.perseus-lat6",
+0.0147,
+1584
+],
+[
+"phi1014.phi002.perseus-lat1",
+0.0145,
+318
+],
+[
+"phi1348.abo013.perseus-lat2",
+0.0113,
+108
+],
+[
+"phi1038.phi001.perseus-lat1",
+0.0108,
+877
+],
+[
+"phi1348.abo014.perseus-lat2",
+0.0107,
+86
+],
+[
+"phi1348.abo015.perseus-lat2",
+0.0097,
+66
+],
+[
+"phi1348.abo012.perseus-lat2",
+0.0092,
+131
+],
+[
+"phi1348.abo011.perseus-lat2",
+0.0089,
+89
+]
+]
+},
+"per_work": {
+"phi0448.phi001.perseus-lat2": {
+"tokens": 52686,
+"rescued": 25,
+"share": 0.0005,
+"probe_v_spelling": 436,
+"probe_u_spelling": 0
+},
+"phi0448.phi002.perseus-lat2": {
+"tokens": 33347,
+"rescued": 13,
+"share": 0.0004,
+"probe_v_spelling": 285,
+"probe_u_spelling": 0
+},
+"phi0474.phi001.perseus-lat2": {
+"tokens": 8767,
+"rescued": 7,
+"share": 0.0008,
+"probe_v_spelling": 126,
+"probe_u_spelling": 0
+},
+"phi0474.phi002.perseus-lat2": {
+"tokens": 13546,
+"rescued": 10,
+"share": 0.0007,
+"probe_v_spelling": 211,
+"probe_u_spelling": 0
+},
+"phi0474.phi004.perseus-lat2": {
+"tokens": 5949,
+"rescued": 2,
+"share": 0.0003,
+"probe_v_spelling": 62,
+"probe_u_spelling": 0
+},
+"phi0474.phi005.perseus-lat2": {
+"tokens": 102264,
+"rescued": 225,
+"share": 0.0022,
+"probe_v_spelling": 1270,
+"probe_u_spelling": 0
+},
+"phi0474.phi008.perseus-lat2": {
+"tokens": 10574,
+"rescued": 33,
+"share": 0.0031,
+"probe_v_spelling": 230,
+"probe_u_spelling": 0
+},
+"phi0474.phi009.perseus-lat2": {
+"tokens": 6816,
+"rescued": 1,
+"share": 0.0001,
+"probe_v_spelling": 88,
+"probe_u_spelling": 0
+},
+"phi0474.phi010.perseus-lat2": {
+"tokens": 21182,
+"rescued": 21,
+"share": 0.001,
+"probe_v_spelling": 253,
+"probe_u_spelling": 0
+},
+"phi0474.phi011.perseus-lat2": {
+"tokens": 14034,
+"rescued": 52,
+"share": 0.0037,
+"probe_v_spelling": 263,
+"probe_u_spelling": 0
+},
+"phi0474.phi013.perseus-lat2": {
+"tokens": 12840,
+"rescued": 10,
+"share": 0.0008,
+"probe_v_spelling": 183,
+"probe_u_spelling": 0
+},
+"phi0474.phi014.perseus-lat2": {
+"tokens": 10772,
+"rescued": 4,
+"share": 0.0004,
+"probe_v_spelling": 148,
+"probe_u_spelling": 0
+},
+"phi0474.phi015.perseus-lat2": {
+"tokens": 9408,
+"rescued": 3,
+"share": 0.0003,
+"probe_v_spelling": 98,
+"probe_u_spelling": 0
+},
+"phi0474.phi017.perseus-lat2": {
+"tokens": 11035,
+"rescued": 12,
+"share": 0.0011,
+"probe_v_spelling": 130,
+"probe_u_spelling": 0
+},
+"phi0474.phi020.perseus-lat2": {
+"tokens": 15397,
+"rescued": 25,
+"share": 0.0016,
+"probe_v_spelling": 213,
+"probe_u_spelling": 0
+},
+"phi0474.phi021.perseus-lat2": {
+"tokens": 7662,
+"rescued": 20,
+"share": 0.0026,
+"probe_v_spelling": 101,
+"probe_u_spelling": 0
+},
+"phi0474.phi022.perseus-lat2": {
+"tokens": 17083,
+"rescued": 10,
+"share": 0.0006,
+"probe_v_spelling": 284,
+"probe_u_spelling": 0
+},
+"phi0474.phi024.perseus-lat2": {
+"tokens": 8655,
+"rescued": 3,
+"share": 0.0003,
+"probe_v_spelling": 143,
+"probe_u_spelling": 0
+},
+"phi0474.phi025.perseus-lat2": {
+"tokens": 5183,
+"rescued": 1,
+"share": 0.0002,
+"probe_v_spelling": 45,
+"probe_u_spelling": 0
+},
+"phi0474.phi026.perseus-lat2": {
+"tokens": 6878,
+"rescued": 8,
+"share": 0.0012,
+"probe_v_spelling": 91,
+"probe_u_spelling": 0
+},
+"phi0474.phi027.perseus-lat2": {
+"tokens": 11069,
+"rescued": 8,
+"share": 0.0007,
+"probe_v_spelling": 140,
+"probe_u_spelling": 0
+},
+"phi0474.phi028.perseus-lat2": {
+"tokens": 11799,
+"rescued": 1,
+"share": 0.0001,
+"probe_v_spelling": 153,
+"probe_u_spelling": 0
+},
+"phi0474.phi031.perseus-lat2": {
+"tokens": 10678,
+"rescued": 4,
+"share": 0.0004,
+"probe_v_spelling": 192,
+"probe_u_spelling": 0
+},
+"phi0474.phi035.perseus-lat2": {
+"tokens": 53584,
+"rescued": 41,
+"share": 0.0008,
+"probe_v_spelling": 638,
+"probe_u_spelling": 0
+},
+"phi0474.phi036.perseus-lat1": {
+"tokens": 33499,
+"rescued": 76,
+"share": 0.0023,
+"probe_v_spelling": 366,
+"probe_u_spelling": 0
+},
+"phi0474.phi037.perseus-lat1": {
+"tokens": 62912,
+"rescued": 21,
+"share": 0.0003,
+"probe_v_spelling": 811,
+"probe_u_spelling": 0
+},
+"phi0474.phi038.perseus-lat1": {
+"tokens": 9974,
+"rescued": 7,
+"share": 0.0007,
+"probe_v_spelling": 88,
+"probe_u_spelling": 0
+},
+"phi0474.phi039.perseus-lat1": {
+"tokens": 25567,
+"rescued": 17,
+"share": 0.0007,
+"probe_v_spelling": 274,
+"probe_u_spelling": 0
+},
+"phi0474.phi040.perseus-lat1": {
+"tokens": 18904,
+"rescued": 18,
+"share": 0.001,
+"probe_v_spelling": 171,
+"probe_u_spelling": 0
+},
+"phi0474.phi042.perseus-lat1": {
+"tokens": 6930,
+"rescued": 15,
+"share": 0.0022,
+"probe_v_spelling": 67,
+"probe_u_spelling": 0
+},
+"phi0474.phi043.perseus-lat1": {
+"tokens": 22386,
+"rescued": 11,
+"share": 0.0005,
+"probe_v_spelling": 275,
+"probe_u_spelling": 0
+},
+"phi0474.phi046.perseus-lat1": {
+"tokens": 18340,
+"rescued": 5,
+"share": 0.0003,
+"probe_v_spelling": 344,
+"probe_u_spelling": 0
+},
+"phi0474.phi048.perseus-lat1": {
+"tokens": 48300,
+"rescued": 8,
+"share": 0.0002,
+"probe_v_spelling": 645,
+"probe_u_spelling": 0
+},
+"phi0474.phi049.perseus-lat1": {
+"tokens": 56974,
+"rescued": 21,
+"share": 0.0004,
+"probe_v_spelling": 683,
+"probe_u_spelling": 0
+},
+"phi0474.phi050.perseus-lat1": {
+"tokens": 36644,
+"rescued": 18,
+"share": 0.0005,
+"probe_v_spelling": 422,
+"probe_u_spelling": 0
+},
+"phi0474.phi051.perseus-lat1": {
+"tokens": 8427,
+"rescued": 2,
+"share": 0.0002,
+"probe_v_spelling": 145,
+"probe_u_spelling": 0
+},
+"phi0474.phi052.perseus-lat2": {
+"tokens": 9531,
+"rescued": 0,
+"share": 0.0,
+"probe_v_spelling": 105,
+"probe_u_spelling": 0
+},
+"phi0474.phi053.perseus-lat1": {
+"tokens": 28135,
+"rescued": 20,
+"share": 0.0007,
+"probe_v_spelling": 392,
+"probe_u_spelling": 0
+},
+"phi0474.phi054.perseus-lat1": {
+"tokens": 5303,
+"rescued": 1,
+"share": 0.0002,
+"probe_v_spelling": 58,
+"probe_u_spelling": 0
+},
+"phi0474.phi055.perseus-lat1": {
+"tokens": 34767,
+"rescued": 10,
+"share": 0.0003,
+"probe_v_spelling": 417,
+"probe_u_spelling": 0
+},
+"phi0474.phi056.perseus-lat1": {
+"tokens": 115853,
+"rescued": 43,
+"share": 0.0004,
+"probe_v_spelling": 1374,
+"probe_u_spelling": 0
+},
+"phi0474.phi057.perseus-lat1": {
+"tokens": 125060,
+"rescued": 69,
+"share": 0.0006,
+"probe_v_spelling": 1854,
+"probe_u_spelling": 0
+},
+"phi0474.phi058.perseus-lat1": {
+"tokens": 18732,
+"rescued": 11,
+"share": 0.0006,
+"probe_v_spelling": 204,
+"probe_u_spelling": 0
+},
+"phi0474.phi059.perseus-lat1": {
+"tokens": 9722,
+"rescued": 6,
+"share": 0.0006,
+"probe_v_spelling": 120,
+"probe_u_spelling": 0
+},
+"phi0631.phi001.perseus-lat3": {
+"tokens": 10943,
+"rescued": 1,
+"share": 0.0001,
+"probe_v_spelling": 96,
+"probe_u_spelling": 0
+},
+"phi0631.phi002.perseus-lat3": {
+"tokens": 21824,
+"rescued": 104,
+"share": 0.0048,
+"probe_v_spelling": 201,
+"probe_u_spelling": 0
+},
+"phi0684.phi002.ogl-lat1": {
+"tokens": 36043,
+"rescued": 20,
+"share": 0.0006,
+"probe_v_spelling": 266,
+"probe_u_spelling": 0
+},
+"phi0836.phi002.perseus-lat6": {
+"tokens": 107910,
+"rescued": 1584,
+"share": 0.0147,
+"probe_v_spelling": 228,
+"probe_u_spelling": 70
+},
+"phi0845.phi002.perseus-lat3": {
+"tokens": 81102,
+"rescued": 59,
+"share": 0.0007,
+"probe_v_spelling": 439,
+"probe_u_spelling": 0
+},
+"phi0860.phi001.perseus-lat2": {
+"tokens": 75834,
+"rescued": 35,
+"share": 0.0005,
+"probe_v_spelling": 617,
+"probe_u_spelling": 0
+},
+"phi0914.phi001.perseus-lat2": {
+"tokens": 518260,
+"rescued": 202,
+"share": 0.0004,
+"probe_v_spelling": 5163,
+"probe_u_spelling": 1
+},
+"phi0972.phi001.perseus-lat2": {
+"tokens": 31298,
+"rescued": 28,
+"share": 0.0009,
+"probe_v_spelling": 339,
+"probe_u_spelling": 0
+},
+"phi1002.phi001.perseus-lat2": {
+"tokens": 175337,
+"rescued": 169,
+"share": 0.001,
+"probe_v_spelling": 1729,
+"probe_u_spelling": 1
+},
+"phi1014.phi001.perseus-lat1": {
+"tokens": 66589,
+"rescued": 1166,
+"share": 0.0175,
+"probe_v_spelling": 524,
+"probe_u_spelling": 89
+},
+"phi1014.phi002.perseus-lat1": {
+"tokens": 21927,
+"rescued": 318,
+"share": 0.0145,
+"probe_v_spelling": 185,
+"probe_u_spelling": 35
+},
+"phi1014.phi003.perseus-lat1": {
+"tokens": 10407,
+"rescued": 169,
+"share": 0.0162,
+"probe_v_spelling": 93,
+"probe_u_spelling": 7
+},
+"phi1017.phi013.perseus-lat2": {
+"tokens": 46281,
+"rescued": 21,
+"share": 0.0005,
+"probe_v_spelling": 462,
+"probe_u_spelling": 0
+},
+"phi1017.phi014.perseus-lat2": {
+"tokens": 8540,
+"rescued": 0,
+"share": 0.0,
+"probe_v_spelling": 77,
+"probe_u_spelling": 0
+},
+"phi1017.phi015.perseus-lat2": {
+"tokens": 121572,
+"rescued": 50,
+"share": 0.0004,
+"probe_v_spelling": 1463,
+"probe_u_spelling": 0
+},
+"phi1038.phi001.perseus-lat1": {
+"tokens": 81527,
+"rescued": 877,
+"share": 0.0108,
+"probe_v_spelling": 442,
+"probe_u_spelling": 20
+},
+"phi1056.phi001.perseus-lat1": {
+"tokens": 58919,
+"rescued": 37,
+"share": 0.0006,
+"probe_v_spelling": 272,
+"probe_u_spelling": 0
+},
+"phi1242.phi001.perseus-lat1": {
+"tokens": 27003,
+"rescued": 15,
+"share": 0.0006,
+"probe_v_spelling": 308,
+"probe_u_spelling": 0
+},
+"phi1318.phi001.perseus-lat1": {
+"tokens": 66673,
+"rescued": 23,
+"share": 0.0003,
+"probe_v_spelling": 651,
+"probe_u_spelling": 0
+},
+"phi1348.abo011.perseus-lat2": {
+"tokens": 10018,
+"rescued": 89,
+"share": 0.0089,
+"probe_v_spelling": 37,
+"probe_u_spelling": 1
+},
+"phi1348.abo012.perseus-lat2": {
+"tokens": 14263,
+"rescued": 131,
+"share": 0.0092,
+"probe_v_spelling": 58,
+"probe_u_spelling": 3
+},
+"phi1348.abo013.perseus-lat2": {
+"tokens": 9544,
+"rescued": 108,
+"share": 0.0113,
+"probe_v_spelling": 42,
+"probe_u_spelling": 4
+},
+"phi1348.abo014.perseus-lat2": {
+"tokens": 8007,
+"rescued": 86,
+"share": 0.0107,
+"probe_v_spelling": 35,
+"probe_u_spelling": 3
+},
+"phi1348.abo015.perseus-lat2": {
+"tokens": 6771,
+"rescued": 66,
+"share": 0.0097,
+"probe_v_spelling": 29,
+"probe_u_spelling": 1
+},
+"phi1348.abo016.perseus-lat2": {
+"tokens": 8224,
+"rescued": 70,
+"share": 0.0085,
+"probe_v_spelling": 25,
+"probe_u_spelling": 2
+},
+"phi1351.phi001.perseus-lat1": {
+"tokens": 6912,
+"rescued": 7,
+"share": 0.001,
+"probe_v_spelling": 66,
+"probe_u_spelling": 0
+},
+"phi1351.phi002.perseus-lat1": {
+"tokens": 5733,
+"rescued": 1,
+"share": 0.0002,
+"probe_v_spelling": 62,
+"probe_u_spelling": 0
+},
+"phi1351.phi004.perseus-lat2": {
+"tokens": 52992,
+"rescued": 55,
+"share": 0.001,
+"probe_v_spelling": 405,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa004.perseus-lat2": {
+"tokens": 6282,
+"rescued": 2,
+"share": 0.0003,
+"probe_v_spelling": 85,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa006.perseus-lat2": {
+"tokens": 6858,
+"rescued": 4,
+"share": 0.0006,
+"probe_v_spelling": 72,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa007.perseus-lat2": {
+"tokens": 8630,
+"rescued": 10,
+"share": 0.0012,
+"probe_v_spelling": 129,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa008.perseus-lat2": {
+"tokens": 5773,
+"rescued": 3,
+"share": 0.0005,
+"probe_v_spelling": 42,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa009.perseus-lat2": {
+"tokens": 5414,
+"rescued": 2,
+"share": 0.0004,
+"probe_v_spelling": 53,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa010.perseus-lat2": {
+"tokens": 22855,
+"rescued": 10,
+"share": 0.0004,
+"probe_v_spelling": 249,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa013.perseus-lat2": {
+"tokens": 7785,
+"rescued": 3,
+"share": 0.0004,
+"probe_v_spelling": 89,
+"probe_u_spelling": 0
+},
+"stoa0255.stoa014.perseus-lat2": {
+"tokens": 7469,
+"rescued": 1,
+"share": 0.0001,
+"probe_v_spelling": 86,
+"probe_u_spelling": 0
+}
+}
+}

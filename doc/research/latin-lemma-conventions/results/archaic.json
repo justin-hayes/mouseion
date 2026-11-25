@@ -1,0 +1,258 @@
+{
+ "plautus": {
+  "works": 20,
+  "tokens": 165057,
+  "lemma_types": 16086,
+  "lemma_types_with_non_ascii": 4165,
+  "lemma_tokens_with_non_ascii": 9080,
+  "unmatched_tokens_after_fold": 14387,
+  "unmatched_token_share": 0.0872,
+  "rescue_by_rule": {
+   "os->us": {
+    "types": 53,
+    "tokens": 327
+   },
+   "om->um": {
+    "types": 4,
+    "tokens": 16
+   },
+   "uos/uom->us/um (after u/v)": {
+    "types": 13,
+    "tokens": 205
+   },
+   "-umus->-imus": {
+    "types": 5,
+    "tokens": 9
+   },
+   "medial u->i before b/m/p (lubet/libet, maxumus)": {
+    "types": 25,
+    "tokens": 103
+   },
+   "ei->i": {
+    "types": 8,
+    "tokens": 11
+   },
+   "quom/quum->cum": {
+    "types": 0,
+    "tokens": 0
+   },
+   "lemma ends -st/-t contraction (est/ut clitic: necessest)": {
+    "types": 160,
+    "tokens": 275
+   },
+   "x->cs / gs": {
+    "types": 0,
+    "tokens": 0
+   },
+   "uo->vo already folded; uu->u": {
+    "types": 11,
+    "tokens": 17
+   },
+   "ss->s / s->ss": {
+    "types": 11,
+    "tokens": 18
+   },
+   "drop final -e (apocope: ante/ant, nunc)": {
+    "types": 23,
+    "tokens": 96
+   }
+  },
+  "rescue_union": {
+   "types": 297,
+   "tokens": 859
+  },
+  "rescue_union_share_of_unmatched": 0.0597
+ },
+ "terence": {
+  "works": 6,
+  "tokens": 51038,
+  "lemma_types": 4708,
+  "lemma_types_with_non_ascii": 5,
+  "lemma_tokens_with_non_ascii": 6,
+  "unmatched_tokens_after_fold": 3028,
+  "unmatched_token_share": 0.0593,
+  "rescue_by_rule": {
+   "os->us": {
+    "types": 2,
+    "tokens": 3
+   },
+   "om->um": {
+    "types": 0,
+    "tokens": 0
+   },
+   "uos/uom->us/um (after u/v)": {
+    "types": 0,
+    "tokens": 0
+   },
+   "-umus->-imus": {
+    "types": 1,
+    "tokens": 1
+   },
+   "medial u->i before b/m/p (lubet/libet, maxumus)": {
+    "types": 4,
+    "tokens": 4
+   },
+   "ei->i": {
+    "types": 5,
+    "tokens": 7
+   },
+   "quom/quum->cum": {
+    "types": 0,
+    "tokens": 0
+   },
+   "lemma ends -st/-t contraction (est/ut clitic: necessest)": {
+    "types": 0,
+    "tokens": 0
+   },
+   "x->cs / gs": {
+    "types": 0,
+    "tokens": 0
+   },
+   "uo->vo already folded; uu->u": {
+    "types": 1,
+    "tokens": 1
+   },
+   "ss->s / s->ss": {
+    "types": 3,
+    "tokens": 3
+   },
+   "drop final -e (apocope: ante/ant, nunc)": {
+    "types": 11,
+    "tokens": 34
+   }
+  },
+  "rescue_union": {
+   "types": 26,
+   "tokens": 52
+  },
+  "rescue_union_share_of_unmatched": 0.0172
+ },
+ "lucretius": {
+  "works": 1,
+  "tokens": 50877,
+  "lemma_types": 5516,
+  "lemma_types_with_non_ascii": 0,
+  "lemma_tokens_with_non_ascii": 0,
+  "unmatched_tokens_after_fold": 2722,
+  "unmatched_token_share": 0.0535,
+  "rescue_by_rule": {
+   "os->us": {
+    "types": 17,
+    "tokens": 19
+   },
+   "om->um": {
+    "types": 1,
+    "tokens": 16
+   },
+   "uos/uom->us/um (after u/v)": {
+    "types": 1,
+    "tokens": 1
+   },
+   "-umus->-imus": {
+    "types": 0,
+    "tokens": 0
+   },
+   "medial u->i before b/m/p (lubet/libet, maxumus)": {
+    "types": 3,
+    "tokens": 5
+   },
+   "ei->i": {
+    "types": 2,
+    "tokens": 3
+   },
+   "quom/quum->cum": {
+    "types": 0,
+    "tokens": 0
+   },
+   "lemma ends -st/-t contraction (est/ut clitic: necessest)": {
+    "types": 28,
+    "tokens": 31
+   },
+   "x->cs / gs": {
+    "types": 0,
+    "tokens": 0
+   },
+   "uo->vo already folded; uu->u": {
+    "types": 8,
+    "tokens": 10
+   },
+   "ss->s / s->ss": {
+    "types": 3,
+    "tokens": 3
+   },
+   "drop final -e (apocope: ante/ant, nunc)": {
+    "types": 6,
+    "tokens": 6
+   }
+  },
+  "rescue_union": {
+   "types": 67,
+   "tokens": 92
+  },
+  "rescue_union_share_of_unmatched": 0.0338
+ },
+ "varro_rr": {
+  "works": 1,
+  "tokens": 36043,
+  "lemma_types": 5678,
+  "lemma_types_with_non_ascii": 48,
+  "lemma_tokens_with_non_ascii": 54,
+  "unmatched_tokens_after_fold": 2573,
+  "unmatched_token_share": 0.0714,
+  "rescue_by_rule": {
+   "os->us": {
+    "types": 14,
+    "tokens": 19
+   },
+   "om->um": {
+    "types": 1,
+    "tokens": 1
+   },
+   "uos/uom->us/um (after u/v)": {
+    "types": 2,
+    "tokens": 7
+   },
+   "-umus->-imus": {
+    "types": 2,
+    "tokens": 5
+   },
+   "medial u->i before b/m/p (lubet/libet, maxumus)": {
+    "types": 6,
+    "tokens": 12
+   },
+   "ei->i": {
+    "types": 2,
+    "tokens": 2
+   },
+   "quom/quum->cum": {
+    "types": 0,
+    "tokens": 0
+   },
+   "lemma ends -st/-t contraction (est/ut clitic: necessest)": {
+    "types": 0,
+    "tokens": 0
+   },
+   "x->cs / gs": {
+    "types": 0,
+    "tokens": 0
+   },
+   "uo->vo already folded; uu->u": {
+    "types": 6,
+    "tokens": 10
+   },
+   "ss->s / s->ss": {
+    "types": 4,
+    "tokens": 7
+   },
+   "drop final -e (apocope: ante/ant, nunc)": {
+    "types": 12,
+    "tokens": 22
+   }
+  },
+  "rescue_union": {
+   "types": 46,
+   "tokens": 75
+  },
+  "rescue_union_share_of_unmatched": 0.0291
+ }
+}

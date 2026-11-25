@@ -1,0 +1,54 @@
+{
+ "min": 0.8608,
+ "p10": 0.9052,
+ "median": 0.9408,
+ "max": 0.961,
+ "lowest": [
+  [
+   "phi0474.phi049.perseus-lat1",
+   0.8608
+  ],
+  [
+   "phi1038.phi001.perseus-lat1",
+   0.8921
+  ],
+  [
+   "phi1014.phi003.perseus-lat1",
+   0.8948
+  ],
+  [
+   "phi1348.abo016.perseus-lat2",
+   0.8952
+  ],
+  [
+   "phi0836.phi002.perseus-lat6",
+   0.8957
+  ],
+  [
+   "phi1348.abo011.perseus-lat2",
+   0.9017
+  ],
+  [
+   "phi1348.abo014.perseus-lat2",
+   0.9026
+  ],
+  [
+   "phi1014.phi001.perseus-lat1",
+   0.9038
+  ]
+ ],
+ "highest": [
+  [
+   "stoa0255.stoa014.perseus-lat2",
+   0.961
+  ],
+  [
+   "phi0474.phi048.perseus-lat1",
+   0.9605
+  ],
+  [
+   "phi0474.phi013.perseus-lat2",
+   0.9587
+  ]
+ ]
+}

@@ -1,0 +1,128 @@
+{
+ "roman_lemmas": {
+  "types": 172,
+  "tokens": 2191,
+  "matched_types": 11,
+  "matched_tokens": 824
+ },
+ "lemmas_with_period": {
+  "types": 68,
+  "tokens": 13617,
+  "matched_types": 0,
+  "matched_tokens": 0
+ },
+ "lemmas_with_digit": {
+  "types": 573,
+  "tokens": 5042,
+  "matched_types": 0,
+  "matched_tokens": 0
+ },
+ "greek_script": {
+  "types": 2195,
+  "tokens": 3048,
+  "matched_types": 0,
+  "matched_tokens": 0
+ },
+ "digit_suffixed_lemma_types": {
+  "CI3": 3,
+  "CCI3": 1,
+  "abseu1": 1,
+  "vll1": 1,
+  "i5": 1,
+  "quoniam1": 1,
+  "Chrestus1": 1,
+  "isdem1": 1,
+  "stirpe4": 1,
+  "peius5": 1,
+  "nunc8": 1,
+  "deinceps7": 1,
+  "malleolom4": 1,
+  "interim2": 1,
+  "quia1": 1,
+  "opulus1": 1,
+  "cibiu3": 1,
+  "aut1": 1,
+  "pertuderit4": 1,
+  "et2": 1,
+  "in1": 1,
+  "ut1": 1,
+  "diens3": 1,
+  "numquam1": 1,
+  "et1": 1,
+  "krisis2": 1,
+  "I9": 1,
+  "IS9": 1
+ },
+ "unsplit_ne_not_io_nouns": {
+  "tokens": 1072,
+  "types": 119,
+  "top": [
+   [
+    "sermone->sermo",
+    339
+   ],
+   [
+    "cicerone->Cicero",
+    88
+   ],
+   [
+    "sollicitudine->sollicitudi",
+    69
+   ],
+   [
+    "catone->Cato",
+    68
+   ],
+   [
+    "milone->Milo",
+    52
+   ],
+   [
+    "pisone->Piso",
+    39
+   ],
+   [
+    "platone->Plato",
+    38
+   ],
+   [
+    "nerone->Nero",
+    35
+   ],
+   [
+    "othone->Otho",
+    22
+   ],
+   [
+    "varrone->Varro",
+    21
+   ],
+   [
+    "tarracone->Tarraco",
+    16
+   ],
+   [
+    "zenone->Zeno",
+    16
+   ]
+  ]
+ },
+ "ls_entries_for_key_in": [
+  "in1",
+  "in10",
+  "in11",
+  "in12",
+  "in13",
+  "in14",
+  "in15",
+  "in16",
+  "in2",
+  "in3",
+  "in4",
+  "in5",
+  "in6",
+  "in7",
+  "in8",
+  "in9"
+ ]
+}

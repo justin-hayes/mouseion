@@ -1,0 +1,849 @@
+{
+ "prose80": {
+  "orthography": {
+   "tokens": 2918687,
+   "lemma_tokens_with_v": 180012,
+   "lemma_types_with_v": 6841,
+   "lemma_tokens_with_j": 27942,
+   "lemma_types_with_j": 670,
+   "form_tokens_with_v": 176129,
+   "form_tokens_with_j": 8,
+   "lemma_types_nonascii": 2710,
+   "lemma_tokens_nonascii": 3734,
+   "lemma_types_digits": 573,
+   "lemma_tokens_digits": 5042,
+   "lemma_types_capitalised": 13184,
+   "lemma_tokens_capitalised": 141326,
+   "lemma_types_hyphen": 127,
+   "lemma_tokens_hyphen": 608,
+   "lemma_types_period": 68,
+   "lemma_tokens_period": 13617,
+   "lemma_types_diacritic": 2352,
+   "lemma_types_greek_script": 2195,
+   "lemma_tokens_greek_script": 3048,
+   "lemma_types_roman": 172,
+   "lemma_tokens_roman": 2191,
+   "lemma_types_with_digit_homograph_suffix": 28
+  },
+  "pos_tokens": {
+   "n": 764512,
+   "v": 683127,
+   "a": 286961,
+   "-": 1586,
+   "r": 190959,
+   "d": 289541,
+   "m": 23197,
+   "p": 336813,
+   "c": 339440,
+   "e": 1510,
+   "x": 1041
+  },
+  "enclitics": {
+   "split": {
+    "split_que": {
+     "tokens": 40967,
+     "lemma_pos": {
+      "que|c": 40967
+     }
+    },
+    "split_ne": {
+     "tokens": 26903,
+     "lemma_pos": {
+      "ne|d": 20210,
+      "ne|c": 6690,
+      "ne|n": 2,
+      "nec|c": 1
+     }
+    },
+    "split_ve": {
+     "tokens": 823,
+     "lemma_pos": {
+      "ve|c": 806,
+      "ve|d": 12,
+      "ve|v": 3,
+      "Ve|d": 1,
+      "ve|n": 1
+     }
+    }
+   },
+   "unsplit_endings": {
+    "que": {
+     "tokens_ending": 30836,
+     "lemma_equals_form": 22137,
+     "lemma_equals_form_minus_enclitic": 3840
+    },
+    "ne": {
+     "tokens_ending": 26773,
+     "lemma_equals_form": 6458,
+     "lemma_equals_form_minus_enclitic": 10746
+    },
+    "ve": {
+     "tokens_ending": 1631,
+     "lemma_equals_form": 1085,
+     "lemma_equals_form_minus_enclitic": 1
+    }
+   }
+  },
+  "lemma_ending_enclitic": {
+   "que": {
+    "types": 148,
+    "tokens": 34929,
+    "matched_tokens": 33698,
+    "matched_types": 53
+   },
+   "ne": {
+    "types": 230,
+    "tokens": 6894,
+    "matched_tokens": 6179,
+    "matched_types": 47
+   },
+   "ve": {
+    "types": 25,
+    "tokens": 1109,
+    "matched_tokens": 1048,
+    "matched_types": 13
+   }
+  },
+  "verb_lemma_endings": {
+   "m_types": 1304,
+   "m_tokens": 133002,
+   "o_types": 14766,
+   "o_tokens": 473737,
+   "or_types": 1242,
+   "or_tokens": 34845,
+   "other_types": 7574,
+   "other_tokens": 32762,
+   "re/ri(infinitive-like)_types": 1391,
+   "re/ri(infinitive-like)_tokens": 5287
+  },
+  "deponents": {
+   "voice_d_tokens": 7424,
+   "voice_d_lemma_types": 620,
+   "lemma_ends_or_tokens": 6506,
+   "lemma_ends_o_tokens": 126,
+   "lemma_ends_o_types": 57,
+   "lemma_o_but_or_headword_exists_types": 23,
+   "tokens_of_those": 86,
+   "voice_d_lemma_matched_tokens": 6286,
+   "voice_d_lemma_matched_types": 257
+  },
+  "passive_lemma_or_tokens": 20674,
+  "numerals": {
+   "types": 532,
+   "tokens": 24821,
+   "roman_types": 159,
+   "roman_tokens": 1793,
+   "digit_types": 11,
+   "digit_tokens": 15,
+   "word_types": 356,
+   "word_tokens": 22984,
+   "word_matched_tokens": 21663
+  },
+  "proper_nouns": {
+   "types": 12857,
+   "tokens": 128421,
+   "matched_types": 4840,
+   "matched_tokens": 95377
+  },
+  "lowercase_ascii": {
+   "types": 53028,
+   "tokens": 2773934,
+   "matched_types": 17805,
+   "matched_tokens": 2622083
+  },
+  "unmatched": {
+   "types": 45748,
+   "tokens": 200874,
+   "by_cause": {
+    "lowercase-other": {
+     "types": 19929,
+     "tokens": 95696
+    },
+    "lemma=form(only)": {
+     "types": 14592,
+     "tokens": 49439
+    },
+    "proper-noun(capitalised)": {
+     "types": 7843,
+     "tokens": 31651
+    },
+    "abbreviation": {
+     "types": 68,
+     "tokens": 13617
+    },
+    "numeric": {
+     "types": 573,
+     "tokens": 5042
+    },
+    "greek-script": {
+     "types": 2192,
+     "tokens": 3045
+    },
+    "roman-numeral": {
+     "types": 161,
+     "tokens": 1367
+    },
+    "hyphenated": {
+     "types": 127,
+     "tokens": 608
+    },
+    "other-non-ascii": {
+     "types": 256,
+     "tokens": 332
+    },
+    "single-letter": {
+     "types": 7,
+     "tokens": 77
+    }
+   },
+   "cumulative_token_share_by_top_n_types": {
+    "10": 0.0741,
+    "25": 0.1027,
+    "50": 0.132,
+    "100": 0.1684,
+    "250": 0.2373,
+    "500": 0.3083,
+    "1000": 0.3939,
+    "2500": 0.53,
+    "5000": 0.6472,
+    "10000": 0.7638,
+    "45748": 1.0
+   }
+  },
+  "rescue_rules_single": {
+   "drop-hyphen": {
+    "types": 27,
+    "tokens": 306
+   },
+   "ae/oe->e": {
+    "types": 173,
+    "tokens": 703
+   },
+   "e->ae (e for ae)": {
+    "types": 71,
+    "tokens": 313
+   },
+   "strip-final-que/ne/ve": {
+    "types": 96,
+    "tokens": 1138
+   },
+   "o->or (deponent)": {
+    "types": 512,
+    "tokens": 4648
+   },
+   "or->o": {
+    "types": 217,
+    "tokens": 1065
+   },
+   "um/us (neuter/masc swap)": {
+    "types": 816,
+    "tokens": 3697
+   },
+   "us->um": {
+    "types": 397,
+    "tokens": 1668
+   },
+   "is/es->e": {
+    "types": 311,
+    "tokens": 2323
+   },
+   "ti->ci": {
+    "types": 44,
+    "tokens": 500
+   },
+   "ci->ti": {
+    "types": 44,
+    "tokens": 163
+   },
+   "ph->f / f->ph": {
+    "types": 9,
+    "tokens": 16
+   },
+   "y->i": {
+    "types": 17,
+    "tokens": 29
+   },
+   "double-consonant collapse": {
+    "types": 303,
+    "tokens": 1393
+   },
+   "single->double l/n/s/c/p/t": {
+    "types": 161,
+    "tokens": 774
+   },
+   "qu->c (quom/cum, quoi/cui)": {
+    "types": 42,
+    "tokens": 378
+   },
+   "uo->u / vo->vu": {
+    "types": 49,
+    "tokens": 324
+   },
+   "ii->i (genitive/compounds)": {
+    "types": 114,
+    "tokens": 691
+   },
+   "h-drop": {
+    "types": 141,
+    "tokens": 415
+   },
+   "ch/th/rh->c/t/r": {
+    "types": 55,
+    "tokens": 159
+   }
+  }
+ },
+ "verse61": {
+  "orthography": {
+   "tokens": 1095311,
+   "lemma_tokens_with_v": 79285,
+   "lemma_types_with_v": 4073,
+   "lemma_tokens_with_j": 13204,
+   "lemma_types_with_j": 392,
+   "form_tokens_with_v": 78511,
+   "form_tokens_with_j": 1,
+   "lemma_types_nonascii": 4172,
+   "lemma_tokens_nonascii": 8961,
+   "lemma_types_digits": 33,
+   "lemma_tokens_digits": 55,
+   "lemma_types_capitalised": 9824,
+   "lemma_tokens_capitalised": 52311,
+   "lemma_types_hyphen": 37,
+   "lemma_tokens_hyphen": 87,
+   "lemma_types_period": 6,
+   "lemma_tokens_period": 20,
+   "lemma_types_diacritic": 4156,
+   "lemma_types_greek_script": 82,
+   "lemma_tokens_greek_script": 107,
+   "lemma_types_roman": 5,
+   "lemma_tokens_roman": 10,
+   "lemma_types_with_digit_homograph_suffix": 5
+  },
+  "pos_tokens": {
+   "c": 114666,
+   "d": 100507,
+   "p": 112339,
+   "a": 132989,
+   "v": 273471,
+   "r": 38976,
+   "n": 312582,
+   "e": 4537,
+   "m": 5069,
+   "-": 45,
+   "x": 130
+  },
+  "enclitics": {
+   "split": {
+    "split_que": {
+     "tokens": 32067,
+     "lemma_pos": {
+      "que|c": 32066,
+      "que|p": 1
+     }
+    },
+    "split_ne": {
+     "tokens": 12099,
+     "lemma_pos": {
+      "ne|d": 10392,
+      "ne|c": 1693,
+      "ne|n": 9,
+      "Nes|n": 2,
+      "no|v": 1
+     }
+    },
+    "split_ve": {
+     "tokens": 813,
+     "lemma_pos": {
+      "ve|c": 796,
+      "ve|d": 16,
+      "ve|n": 1
+     }
+    }
+   },
+   "unsplit_endings": {
+    "que": {
+     "tokens_ending": 9865,
+     "lemma_equals_form": 8060,
+     "lemma_equals_form_minus_enclitic": 365
+    },
+    "ne": {
+     "tokens_ending": 9986,
+     "lemma_equals_form": 2249,
+     "lemma_equals_form_minus_enclitic": 708
+    },
+    "ve": {
+     "tokens_ending": 1376,
+     "lemma_equals_form": 526,
+     "lemma_equals_form_minus_enclitic": 0
+    }
+   }
+  },
+  "lemma_ending_enclitic": {
+   "que": {
+    "types": 115,
+    "tokens": 10554,
+    "matched_tokens": 10144,
+    "matched_types": 68
+   },
+   "ne": {
+    "types": 154,
+    "tokens": 2387,
+    "matched_tokens": 2224,
+    "matched_types": 71
+   },
+   "ve": {
+    "types": 21,
+    "tokens": 531,
+    "matched_tokens": 389,
+    "matched_types": 11
+   }
+  },
+  "verb_lemma_endings": {
+   "o_types": 10958,
+   "o_tokens": 209970,
+   "re/ri(infinitive-like)_types": 931,
+   "re/ri(infinitive-like)_tokens": 2816,
+   "m_types": 579,
+   "m_tokens": 32134,
+   "other_types": 4114,
+   "other_tokens": 13339,
+   "or_types": 962,
+   "or_tokens": 13472
+  },
+  "deponents": {
+   "voice_d_tokens": 4356,
+   "voice_d_lemma_types": 519,
+   "lemma_ends_or_tokens": 3787,
+   "lemma_ends_o_tokens": 103,
+   "lemma_ends_o_types": 67,
+   "lemma_o_but_or_headword_exists_types": 22,
+   "tokens_of_those": 44,
+   "voice_d_lemma_matched_tokens": 3692,
+   "voice_d_lemma_matched_types": 251
+  },
+  "passive_lemma_or_tokens": 6925,
+  "numerals": {
+   "types": 102,
+   "tokens": 4510,
+   "roman_types": 0,
+   "roman_tokens": 0,
+   "digit_types": 2,
+   "digit_tokens": 2,
+   "word_types": 100,
+   "word_tokens": 4508,
+   "word_matched_tokens": 4411
+  },
+  "proper_nouns": {
+   "types": 9525,
+   "tokens": 51882,
+   "matched_types": 3914,
+   "matched_tokens": 35932
+  },
+  "lowercase_ascii": {
+   "types": 31536,
+   "tokens": 1034463,
+   "matched_types": 13568,
+   "matched_tokens": 975338
+  },
+  "unmatched": {
+   "types": 25559,
+   "tokens": 77706,
+   "by_cause": {
+    "lowercase-other": {
+     "types": 11822,
+     "tokens": 42258
+    },
+    "lemma=form(only)": {
+     "types": 6073,
+     "tokens": 16705
+    },
+    "proper-noun(capitalised)": {
+     "types": 5609,
+     "tokens": 15948
+    },
+    "other-non-ascii": {
+     "types": 1893,
+     "tokens": 2519
+    },
+    "greek-script": {
+     "types": 82,
+     "tokens": 107
+    },
+    "hyphenated": {
+     "types": 37,
+     "tokens": 87
+    },
+    "numeric": {
+     "types": 33,
+     "tokens": 55
+    },
+    "abbreviation": {
+     "types": 6,
+     "tokens": 20
+    },
+    "single-letter": {
+     "types": 3,
+     "tokens": 6
+    },
+    "roman-numeral": {
+     "types": 1,
+     "tokens": 1
+    }
+   }
+  },
+  "rescue_rules_single": {
+   "drop-hyphen": {
+    "types": 12,
+    "tokens": 50
+   },
+   "ae/oe->e": {
+    "types": 129,
+    "tokens": 461
+   },
+   "e->ae (e for ae)": {
+    "types": 52,
+    "tokens": 186
+   },
+   "strip-final-que/ne/ve": {
+    "types": 40,
+    "tokens": 369
+   },
+   "o->or (deponent)": {
+    "types": 346,
+    "tokens": 1797
+   },
+   "or->o": {
+    "types": 204,
+    "tokens": 528
+   },
+   "um/us (neuter/masc swap)": {
+    "types": 400,
+    "tokens": 1227
+   },
+   "us->um": {
+    "types": 255,
+    "tokens": 1011
+   },
+   "is/es->e": {
+    "types": 281,
+    "tokens": 1371
+   },
+   "ti->ci": {
+    "types": 21,
+    "tokens": 109
+   },
+   "ci->ti": {
+    "types": 19,
+    "tokens": 53
+   },
+   "ph->f / f->ph": {
+    "types": 4,
+    "tokens": 25
+   },
+   "y->i": {
+    "types": 34,
+    "tokens": 94
+   },
+   "double-consonant collapse": {
+    "types": 191,
+    "tokens": 566
+   },
+   "single->double l/n/s/c/p/t": {
+    "types": 113,
+    "tokens": 481
+   },
+   "qu->c (quom/cum, quoi/cui)": {
+    "types": 33,
+    "tokens": 131
+   },
+   "uo->u / vo->vu": {
+    "types": 57,
+    "tokens": 354
+   },
+   "ii->i (genitive/compounds)": {
+    "types": 46,
+    "tokens": 97
+   },
+   "h-drop": {
+    "types": 110,
+    "tokens": 409
+   },
+   "ch/th/rh->c/t/r": {
+    "types": 51,
+    "tokens": 151
+   }
+  }
+ },
+ "borderline": {
+  "orthography": {
+   "tokens": 205139,
+   "lemma_tokens_with_v": 13890,
+   "lemma_types_with_v": 1873,
+   "lemma_tokens_with_j": 1833,
+   "lemma_types_with_j": 202,
+   "form_tokens_with_v": 13264,
+   "form_tokens_with_j": 2,
+   "lemma_types_nonascii": 2897,
+   "lemma_tokens_nonascii": 4859,
+   "lemma_types_digits": 2,
+   "lemma_tokens_digits": 2,
+   "lemma_types_capitalised": 2311,
+   "lemma_tokens_capitalised": 9380,
+   "lemma_types_hyphen": 13,
+   "lemma_tokens_hyphen": 28,
+   "lemma_types_period": 20,
+   "lemma_tokens_period": 707,
+   "lemma_types_diacritic": 2623,
+   "lemma_types_greek_script": 2397,
+   "lemma_tokens_greek_script": 4271,
+   "lemma_types_roman": 31,
+   "lemma_tokens_roman": 82,
+   "lemma_types_with_digit_homograph_suffix": 1
+  },
+  "pos_tokens": {
+   "a": 22296,
+   "d": 21563,
+   "v": 45527,
+   "r": 11972,
+   "e": 151,
+   "c": 24634,
+   "n": 54597,
+   "p": 22960,
+   "m": 1384,
+   "x": 51,
+   "-": 4
+  },
+  "enclitics": {
+   "split": {
+    "split_que": {
+     "tokens": 3874,
+     "lemma_pos": {
+      "que|c": 3874
+     }
+    },
+    "split_ne": {
+     "tokens": 1704,
+     "lemma_pos": {
+      "ne|d": 1467,
+      "ne|c": 237
+     }
+    },
+    "split_ve": {
+     "tokens": 107,
+     "lemma_pos": {
+      "ve|c": 106,
+      "ve|p": 1
+     }
+    }
+   },
+   "unsplit_endings": {
+    "que": {
+     "tokens_ending": 2935,
+     "lemma_equals_form": 2429,
+     "lemma_equals_form_minus_enclitic": 143
+    },
+    "ne": {
+     "tokens_ending": 1890,
+     "lemma_equals_form": 285,
+     "lemma_equals_form_minus_enclitic": 725
+    },
+    "ve": {
+     "tokens_ending": 113,
+     "lemma_equals_form": 64,
+     "lemma_equals_form_minus_enclitic": 0
+    }
+   }
+  },
+  "lemma_ending_enclitic": {
+   "que": {
+    "types": 60,
+    "tokens": 3360,
+    "matched_tokens": 3275,
+    "matched_types": 37
+   },
+   "ne": {
+    "types": 48,
+    "tokens": 305,
+    "matched_tokens": 272,
+    "matched_types": 23
+   },
+   "ve": {
+    "types": 6,
+    "tokens": 64,
+    "matched_tokens": 60,
+    "matched_types": 4
+   }
+  },
+  "verb_lemma_endings": {
+   "m_types": 216,
+   "m_tokens": 7899,
+   "o_types": 5489,
+   "o_tokens": 32574,
+   "other_types": 1306,
+   "other_tokens": 2162,
+   "re/ri(infinitive-like)_types": 209,
+   "re/ri(infinitive-like)_tokens": 357,
+   "or_types": 502,
+   "or_tokens": 2478
+  },
+  "deponents": {
+   "voice_d_tokens": 467,
+   "voice_d_lemma_types": 169,
+   "lemma_ends_or_tokens": 423,
+   "lemma_ends_o_tokens": 11,
+   "lemma_ends_o_types": 10,
+   "lemma_o_but_or_headword_exists_types": 4,
+   "tokens_of_those": 5,
+   "voice_d_lemma_matched_tokens": 403,
+   "voice_d_lemma_matched_types": 114
+  },
+  "passive_lemma_or_tokens": 1428,
+  "numerals": {
+   "types": 112,
+   "tokens": 1464,
+   "roman_types": 27,
+   "roman_tokens": 67,
+   "digit_types": 0,
+   "digit_tokens": 0,
+   "word_types": 84,
+   "word_tokens": 1396,
+   "word_matched_tokens": 1356
+  },
+  "proper_nouns": {
+   "types": 1995,
+   "tokens": 8349,
+   "matched_types": 1130,
+   "matched_tokens": 6509
+  },
+  "lowercase_ascii": {
+   "types": 16950,
+   "tokens": 191230,
+   "matched_types": 10013,
+   "matched_tokens": 179103
+  },
+  "unmatched": {
+   "types": 10378,
+   "tokens": 19108,
+   "by_cause": {
+    "lowercase-other": {
+     "types": 4736,
+     "tokens": 8369
+    },
+    "greek-script": {
+     "types": 2397,
+     "tokens": 4271
+    },
+    "lemma=form(only)": {
+     "types": 2182,
+     "tokens": 3722
+    },
+    "proper-noun(capitalised)": {
+     "types": 840,
+     "tokens": 1775
+    },
+    "abbreviation": {
+     "types": 20,
+     "tokens": 707
+    },
+    "other-non-ascii": {
+     "types": 163,
+     "tokens": 169
+    },
+    "roman-numeral": {
+     "types": 25,
+     "tokens": 65
+    },
+    "hyphenated": {
+     "types": 13,
+     "tokens": 28
+    },
+    "numeric": {
+     "types": 2,
+     "tokens": 2
+    }
+   }
+  },
+  "rescue_rules_single": {
+   "drop-hyphen": {
+    "types": 7,
+    "tokens": 18
+   },
+   "ae/oe->e": {
+    "types": 45,
+    "tokens": 104
+   },
+   "e->ae (e for ae)": {
+    "types": 19,
+    "tokens": 22
+   },
+   "strip-final-que/ne/ve": {
+    "types": 13,
+    "tokens": 70
+   },
+   "o->or (deponent)": {
+    "types": 174,
+    "tokens": 364
+   },
+   "or->o": {
+    "types": 60,
+    "tokens": 91
+   },
+   "um/us (neuter/masc swap)": {
+    "types": 171,
+    "tokens": 342
+   },
+   "us->um": {
+    "types": 73,
+    "tokens": 140
+   },
+   "is/es->e": {
+    "types": 79,
+    "tokens": 148
+   },
+   "ti->ci": {
+    "types": 9,
+    "tokens": 12
+   },
+   "ci->ti": {
+    "types": 8,
+    "tokens": 14
+   },
+   "ph->f / f->ph": {
+    "types": 0,
+    "tokens": 0
+   },
+   "y->i": {
+    "types": 3,
+    "tokens": 3
+   },
+   "double-consonant collapse": {
+    "types": 67,
+    "tokens": 121
+   },
+   "single->double l/n/s/c/p/t": {
+    "types": 45,
+    "tokens": 65
+   },
+   "qu->c (quom/cum, quoi/cui)": {
+    "types": 14,
+    "tokens": 48
+   },
+   "uo->u / vo->vu": {
+    "types": 15,
+    "tokens": 25
+   },
+   "ii->i (genitive/compounds)": {
+    "types": 22,
+    "tokens": 35
+   },
+   "h-drop": {
+    "types": 20,
+    "tokens": 30
+   },
+   "ch/th/rh->c/t/r": {
+    "types": 8,
+    "tokens": 8
+   }
+  }
+ }
+}

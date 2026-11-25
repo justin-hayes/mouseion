@@ -1,0 +1,515 @@
+{
+ "homographs_ls": {
+  "matched_tokens_folded": 2702848,
+  "ambiguous_tokens_folded": 775103,
+  "ambiguous_types_folded": 2804,
+  "matched_types_folded": 22313,
+  "share_tokens": 0.2868,
+  "share_types": 0.1257,
+  "exact_key_ambiguous_tokens": 546536,
+  "exact_key_matched_tokens": 2663801,
+  "exact_key_share": 0.2052,
+  "entries_per_ambiguous_type_hist": {
+   "4": 106,
+   "6": 63,
+   "2": 2315,
+   "3": 313,
+   "5": 7
+  }
+ },
+ "homographs_el": {
+  "matched_tokens_folded": 2586063,
+  "ambiguous_tokens_folded": 609692,
+  "ambiguous_types_folded": 706,
+  "matched_types_folded": 14365,
+  "share_tokens": 0.2358,
+  "share_types": 0.0491,
+  "exact_key_ambiguous_tokens": 517407,
+  "exact_key_matched_tokens": 2546342,
+  "exact_key_share": 0.2032,
+  "entries_per_ambiguous_type_hist": {
+   "2": 647,
+   "3": 45,
+   "4": 6,
+   "6": 3,
+   "5": 5
+  }
+ },
+ "deponent_o_to_or_rescue": {
+  "types": 512,
+  "tokens": 4808,
+  "top": [
+   [
+    "censo",
+    455,
+    "censor"
+   ],
+   [
+    "scito",
+    136,
+    "scitor"
+   ],
+   [
+    "relicto",
+    135,
+    "relictor"
+   ],
+   [
+    "tuo",
+    107,
+    "tuor"
+   ],
+   [
+    "aco",
+    103,
+    "acor"
+   ],
+   [
+    "irasco",
+    96,
+    "irascor"
+   ],
+   [
+    "perveno",
+    81,
+    "peruenor"
+   ],
+   [
+    "valo",
+    81,
+    "ualor"
+   ],
+   [
+    "affo",
+    77,
+    "affor"
+   ],
+   [
+    "veno",
+    75,
+    "uenor"
+   ],
+   [
+    "co",
+    70,
+    "cor"
+   ],
+   [
+    "cognito",
+    65,
+    "cognitor"
+   ],
+   [
+    "timo",
+    62,
+    "timor"
+   ],
+   [
+    "interpreto",
+    56,
+    "interpretor"
+   ],
+   [
+    "destito",
+    55,
+    "destitor"
+   ]
+  ]
+ },
+ "verb_lemma_shapes": {
+  "ends_-o": {
+   "types": 14766,
+   "tokens": 473737,
+   "matched_types": 4111,
+   "matched_tokens": 419024,
+   "token_rate": 0.8845
+  },
+  "ends_-or": {
+   "types": 1242,
+   "tokens": 34845,
+   "matched_types": 374,
+   "matched_tokens": 30688,
+   "token_rate": 0.8807
+  },
+  "ends_-m (sum, inquam)": {
+   "types": 1304,
+   "tokens": 133002,
+   "matched_types": 46,
+   "matched_tokens": 129102,
+   "token_rate": 0.9707
+  },
+  "ends_-re_or_-ri (infinitive-shaped)": {
+   "types": 491,
+   "tokens": 1280,
+   "matched_types": 12,
+   "matched_tokens": 25,
+   "token_rate": 0.0195
+  },
+  "other_endings": {
+   "types": 8474,
+   "tokens": 36769,
+   "matched_types": 621,
+   "matched_tokens": 8503,
+   "token_rate": 0.2313
+  },
+  "all_verb_lemmas": {
+   "types": 26277,
+   "tokens": 679633,
+   "matched_types": 5164,
+   "matched_tokens": 587342,
+   "token_rate": 0.8642
+  }
+ },
+ "ls_uvij_merges_beyond_case": {
+  "groups": 23,
+  "all": [
+   "Iazyges/Jazyges",
+   "Ioannes/Joannes",
+   "neuras/nevras",
+   "Iulus/Julus/iulus",
+   "euonymos/evonymos",
+   "Iosephus/Josephus",
+   "I/J",
+   "Maius/majus",
+   "Euadne/Evadne",
+   "Euenus/Evenus",
+   "U/V",
+   "Euander/Evander",
+   "Euan/Evan",
+   "Troia/Troja",
+   "euax/evax",
+   "Euias/Evias",
+   "Iulis/iulis/julis",
+   "Iesus/Jesus",
+   "euoe/evoe",
+   "nauarchus/navarchus",
+   "Ioseph/Joseph",
+   "Ionas/Jonas",
+   "Iuleus/Juleus"
+  ]
+ },
+ "el_uvij_merges_beyond_case": {
+  "groups": 1,
+  "all": [
+   "nauarchus/navarchus"
+  ]
+ },
+ "key_conventions": {
+  "ls": {
+   "keys": 50027,
+   "with_j": 683,
+   "with_v": 4271
+  },
+  "elementary": {
+   "keys": 16986,
+   "with_j": 0,
+   "with_v": 1647
+  },
+  "corpus_lemma_types": {
+   "types": 68651,
+   "with_j": 670,
+   "with_v": 6841
+  },
+  "corpus_lemma_tokens": {
+   "with_j": 27942,
+   "with_v": 180012
+  }
+ },
+ "ladder_union_prose80": {
+  "exact": {
+   "tokens": 2706351,
+   "types": 20538
+  },
+  "NFC+lowercase": {
+   "tokens": 2710963,
+   "types": 21589
+  },
+  "+strip-diacritics": {
+   "tokens": 2711369,
+   "types": 21862
+  },
+  "+i/j": {
+   "tokens": 2712420,
+   "types": 21950
+  },
+  "+u/v": {
+   "tokens": 2716749,
+   "types": 22811
+  },
+  "+u/v+i/j": {
+   "tokens": 2717813,
+   "types": 22903
+  }
+ },
+ "rescued_only_by_uv_ij": {
+  "types": 1041,
+  "tokens": 6444,
+  "top": [
+   [
+    "ue",
+    240
+   ],
+   [
+    "Iovis",
+    179
+   ],
+   [
+    "vo",
+    178
+   ],
+   [
+    "eiusmodi",
+    171
+   ],
+   [
+    "voluo",
+    138
+   ],
+   [
+    "Vt",
+    124
+   ],
+   [
+    "siue",
+    115
+   ],
+   [
+    "Iugurtha",
+    107
+   ],
+   [
+    "aluus",
+    101
+   ],
+   [
+    "uoco",
+    86
+   ],
+   [
+    "neruus",
+    74
+   ],
+   [
+    "Cestivs",
+    70
+   ],
+   [
+    "VI",
+    68
+   ],
+   [
+    "vi",
+    59
+   ],
+   [
+    "resoluo",
+    55
+   ],
+   [
+    "soluo",
+    55
+   ],
+   [
+    "huiusmodi",
+    52
+   ],
+   [
+    "vnus",
+    51
+   ],
+   [
+    "seruus",
+    51
+   ],
+   [
+    "Pompeianus",
+    50
+   ],
+   [
+    "papauer",
+    50
+   ],
+   [
+    "superuacuus",
+    49
+   ],
+   [
+    "nouerca",
+    49
+   ],
+   [
+    "foueo",
+    48
+   ],
+   [
+    "uis",
+    48
+   ]
+  ]
+ },
+ "capitalised_lemmas": {
+  "types": 12913,
+  "tokens": 141019,
+  "also_present_lowercase_types": 1614,
+  "also_present_lowercase_tokens": 39000,
+  "lowercase_is_dictionary_headword_types": 1069,
+  "top": [
+   [
+    "Caesar",
+    2458,
+    1
+   ],
+   [
+    "P.",
+    2170,
+    393
+   ],
+   [
+    "C.",
+    1397,
+    27
+   ],
+   [
+    "Graecus",
+    1361,
+    30
+   ],
+   [
+    "Cicero",
+    926,
+    1
+   ],
+   [
+    "Brutus",
+    828,
+    6
+   ],
+   [
+    "Scipio",
+    779,
+    8
+   ],
+   [
+    "Latinus",
+    765,
+    12
+   ],
+   [
+    "Pompeius",
+    706,
+    1
+   ],
+   [
+    "Hispania",
+    694,
+    22
+   ],
+   [
+    "Asia",
+    635,
+    4
+   ],
+   [
+    "Gallia",
+    626,
+    1
+   ],
+   [
+    "Cato",
+    610,
+    5
+   ],
+   [
+    "Crassus",
+    596,
+    90
+   ],
+   [
+    "Quinctius",
+    472,
+    1
+   ]
+  ]
+ },
+ "allcaps_lemmas": {
+  "types": 587,
+  "tokens": 12910,
+  "top": [
+   [
+    "P.",
+    2170
+   ],
+   [
+    "M.",
+    2113
+   ],
+   [
+    "L.",
+    2057
+   ],
+   [
+    "C.",
+    1397
+   ],
+   [
+    "Q.",
+    1254
+   ],
+   [
+    "T.",
+    497
+   ],
+   [
+    "A.",
+    331
+   ],
+   [
+    "HS",
+    210
+   ],
+   [
+    "IIII",
+    183
+   ],
+   [
+    "K.",
+    166
+   ],
+   [
+    "D.",
+    129
+   ],
+   [
+    "XXX",
+    125
+   ]
+  ]
+ },
+ "ls_capitalised_base_keys": 8287,
+ "sample_wilson": {
+  "unmatched_lemmatiser_error_83_of_120": [
+   0.604,
+   0.767
+  ],
+  "unmatched_convention_variant_9_of_120": [
+   0.04,
+   0.136
+  ],
+  "unmatched_nonlexical_19_of_120": [
+   0.104,
+   0.234
+  ],
+  "unmatched_dictionary_gap_5_of_120": [
+   0.018,
+   0.094
+  ],
+  "unmatched_deponent_o_4_of_120": [
+   0.013,
+   0.083
+  ],
+  "matched_wrong_1_of_100": [
+   0.002,
+   0.054
+  ]
+ }
+}

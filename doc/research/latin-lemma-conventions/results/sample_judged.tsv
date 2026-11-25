@@ -1,0 +1,221 @@
+set	idx	workurn	tokidx	lemma	pos	label
+unmatched	1	phi1056.phi001.perseus-lat1	51089	potest	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	2	phi1038.phi001.perseus-lat1	41933	Tiburum	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	3	phi0914.phi001.perseus-lat2	188267	Volsiniensem	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	4	phi0474.phi049.perseus-lat1	61931	362	d	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	5	phi1002.phi001.perseus-lat2	103794	Pompeio	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	6	phi0474.phi024.perseus-lat2	7607	Q.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	7	phi1002.phi001.perseus-lat2	157400	trimetron	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	8	phi0914.phi001.perseus-lat2	188453	meminero	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	9	phi0474.phi013.perseus-lat2	1220	potes	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	10	phi0836.phi002.perseus-lat6	4058	adstringo	v	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	11	phi0845.phi002.perseus-lat3	44675	6QUOD	c	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	12	phi0474.phi010.perseus-lat2	21538	Nicostratus	n	valid lemma absent from L&S and Elementary (proper noun)
+unmatched	13	phi0474.phi037.perseus-lat1	27139	consequato	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	14	phi0474.phi005.perseus-lat2	116724	progredo	v	deponent lemma given as active -o form
+unmatched	15	phi1014.phi001.perseus-lat1	9732	revixo	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	16	phi1242.phi001.perseus-lat1	7718	inplicitos	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	17	phi1056.phi001.perseus-lat1	50401	ecastello	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	18	phi1056.phi001.perseus-lat1	57428	kli=ma	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	19	phi0836.phi002.perseus-lat6	86753	hordeacius	a	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	20	phi0474.phi059.perseus-lat1	7417	praesentis	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	21	phi0845.phi002.perseus-lat3	35750	elico	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	22	phi0836.phi002.perseus-lat6	88838	ulcerum	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	23	phi0448.phi001.perseus-lat2	37222	Eburus	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	24	phi1056.phi001.perseus-lat1	26808	chromatus	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	25	phi0914.phi001.perseus-lat2	187758	inmitto	v	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	26	phi0914.phi001.perseus-lat2	507101	exdo	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	27	phi1056.phi001.perseus-lat1	28860	logei=on	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	28	phi0845.phi002.perseus-lat3	68281	expertis	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	29	phi0914.phi001.perseus-lat2	226361	persequo	v	deponent lemma given as active -o form
+unmatched	30	phi0914.phi001.perseus-lat2	447858	Aetolus	n	valid lemma absent from L&S and Elementary (proper noun)
+unmatched	31	stoa0255.stoa006.perseus-lat2	1765	miraoi	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	32	phi0474.phi053.perseus-lat1	33683	suscepissent	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	33	phi0474.phi022.perseus-lat2	7544	antiquisui	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	34	phi0474.phi057.perseus-lat1	90939	meliorum	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	35	phi0914.phi001.perseus-lat2	73042	Q.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	36	phi0474.phi057.perseus-lat1	12682	δ	c	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	37	phi0914.phi001.perseus-lat2	102519	Romani	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	38	phi0914.phi001.perseus-lat2	603703	L.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	39	phi0914.phi001.perseus-lat2	287547	Hannibales	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	40	phi1038.phi001.perseus-lat1	67746	adsecutus	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	41	phi1014.phi001.perseus-lat1	42283	lu	-	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	42	phi0474.phi056.perseus-lat1	53564	minori	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	43	phi1348.abo013.perseus-lat2	1812	aegrus	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	44	phi0474.phi022.perseus-lat2	12982	perdoco	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	45	phi0474.phi039.perseus-lat1	27250	cotttidie	d	lemmatiser error (inflected form or non-word as lemma)
+unmatched	46	phi0474.phi036.perseus-lat1	38328	turum	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	47	phi0860.phi001.perseus-lat2	39639	capacis	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	48	phi1014.phi001.perseus-lat1	3387	vestrus	p	lemmatiser error (inflected form or non-word as lemma)
+unmatched	49	phi0914.phi001.perseus-lat2	259586	absumpso	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	50	phi0914.phi001.perseus-lat2	569846	vicensumus	n	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	51	phi0914.phi001.perseus-lat2	521848	Istra	n	valid lemma absent from L&S and Elementary (proper noun)
+unmatched	52	phi0684.phi002.ogl-lat1	23912	Hispaniensis	a	valid lemma absent from L&S and Elementary (proper noun)
+unmatched	53	phi0474.phi051.perseus-lat1	5059	C.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	54	phi0972.phi001.perseus-lat2	29131	agnovi	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	55	phi0914.phi001.perseus-lat2	367589	indutia	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	56	phi0474.phi022.perseus-lat2	5811	mao	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	57	phi1038.phi001.perseus-lat1	32104	adseuerassent	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	58	phi1038.phi001.perseus-lat1	49757	inte	d	lemmatiser error (inflected form or non-word as lemma)
+unmatched	59	phi0474.phi050.perseus-lat1	4962	in-pendeo	v	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	60	phi1017.phi015.perseus-lat2	95718	obsolefao	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	61	phi0474.phi055.perseus-lat1	21068	arbitraor	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	62	phi0914.phi001.perseus-lat2	501908	senioribus	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	63	phi0474.phi010.perseus-lat2	13977	C.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	64	stoa0255.stoa009.perseus-lat2	3040	adico	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	65	phi0914.phi001.perseus-lat2	390855	P.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	66	stoa0255.stoa010.perseus-lat2	27237	temptas	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	67	phi1038.phi001.perseus-lat1	10296	alacrus	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	68	phi0474.phi028.perseus-lat2	5488	C.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	69	phi0836.phi002.perseus-lat6	19972	nigrus	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	70	stoa0255.stoa006.perseus-lat2	2247	Antenores	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	71	phi0845.phi002.perseus-lat3	86447	potest	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	72	phi0836.phi002.perseus-lat6	84961	singulo	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	73	phi0474.phi057.perseus-lat1	107555	pum	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	74	phi1348.abo015.perseus-lat2	7553	auidissimo	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	75	stoa0255.stoa010.perseus-lat2	10221	irasco	v	deponent lemma given as active -o form
+unmatched	76	phi0474.phi056.perseus-lat1	122090	Nov.	a	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	77	phi0914.phi001.perseus-lat2	570361	C.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	78	phi0860.phi001.perseus-lat2	81680	consitam	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	79	phi1002.phi001.perseus-lat2	33878	potest	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	80	phi0474.phi050.perseus-lat1	20236	beneficentis	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	81	phi0845.phi002.perseus-lat3	14970	praecepimus	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	82	phi0631.phi001.perseus-lat3	3203	veteres	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	83	phi0474.phi035.perseus-lat2	33228	optimam	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	84	phi0914.phi001.perseus-lat2	49855	quonai	p	lemmatiser error (inflected form or non-word as lemma)
+unmatched	85	phi0845.phi002.perseus-lat3	70634	peus	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	86	phi0474.phi057.perseus-lat1	126128	Rufio	n	valid lemma absent from L&S and Elementary (proper noun)
+unmatched	87	phi1002.phi001.perseus-lat2	31332	suado	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	88	phi0474.phi039.perseus-lat1	29540	liberals	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	89	phi1017.phi015.perseus-lat2	32495	inpleo	v	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	90	phi0474.phi005.perseus-lat2	103276	adprobo	v	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	91	phi1017.phi015.perseus-lat2	1550	tulere	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	92	phi1351.phi004.perseus-lat2	23541	adgregati	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	93	phi0474.phi049.perseus-lat1	69169	368	d	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	94	phi1242.phi001.perseus-lat1	2499	opsidibus	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	95	phi1017.phi015.perseus-lat2	122531	reminisco	v	deponent lemma given as active -o form
+unmatched	96	phi1056.phi001.perseus-lat1	44619	animalium	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	97	phi0845.phi002.perseus-lat3	66649	pascu	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	98	phi1348.abo016.perseus-lat2	263	C.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	99	phi0914.phi001.perseus-lat2	59968	Sex.	n	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	100	phi0845.phi002.perseus-lat3	23761	macrus	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	101	phi1351.phi004.perseus-lat2	8084	tulisset	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	102	phi1017.phi013.perseus-lat2	39297	flectu	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	103	phi1318.phi001.perseus-lat1	24945	jugulaso	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	104	phi0448.phi002.perseus-lat2	36181	averteo	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	105	phi0914.phi001.perseus-lat2	372989	tacio	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	106	phi0474.phi050.perseus-lat1	34313	concro	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	107	phi0684.phi002.ogl-lat1	28944	acriores	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	108	phi1014.phi001.perseus-lat1	81476	faco	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	109	phi0474.phi038.perseus-lat1	9873	excitao	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	110	phi0684.phi002.ogl-lat1	26101	triticius	a	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	111	phi0474.phi005.perseus-lat2	40391	tulisset	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	112	phi0474.phi049.perseus-lat1	67992	irprovisus	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	113	phi0914.phi001.perseus-lat2	74795	tutissima	a	lemmatiser error (inflected form or non-word as lemma)
+unmatched	114	phi1017.phi015.perseus-lat2	26032	interpret	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	115	phi0474.phi010.perseus-lat2	876	jraeiudicium	n	lemmatiser error (inflected form or non-word as lemma)
+unmatched	116	phi0914.phi001.perseus-lat2	269260	pensuros	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	117	phi0474.phi020.perseus-lat2	6878	complo	v	lemmatiser error (inflected form or non-word as lemma)
+unmatched	118	phi0631.phi001.perseus-lat3	8520	inpello	v	spelling variant of a headword (assimilation, -ius/-eus)
+unmatched	119	phi1014.phi001.perseus-lat1	57907	yai	e	non-lexical (abbreviation, number, Greek, fragment)
+unmatched	120	phi0914.phi001.perseus-lat2	125911	iuniores	a	lemmatiser error (inflected form or non-word as lemma)
+matched	1	phi0474.phi011.perseus-lat2	1425	vix	d	lemma correct or acceptable
+matched	2	phi0836.phi002.perseus-lat6	23288	nam	c	lemma correct or acceptable
+matched	3	phi0474.phi014.perseus-lat2	5390	qui	p	lemma correct or acceptable
+matched	4	phi0474.phi049.perseus-lat1	21588	tantus	a	lemma correct or acceptable
+matched	5	phi1318.phi001.perseus-lat1	68585	ego	p	lemma correct or acceptable
+matched	6	phi1242.phi001.perseus-lat1	15168	cum	c	lemma correct or acceptable
+matched	7	phi1017.phi015.perseus-lat2	98066	homo	n	lemma correct or acceptable
+matched	8	phi0914.phi001.perseus-lat2	574714	si	c	lemma correct or acceptable
+matched	9	phi0914.phi001.perseus-lat2	541753	in	r	lemma correct or acceptable
+matched	10	phi0914.phi001.perseus-lat2	298719	hinc	d	lemma correct or acceptable
+matched	11	phi0914.phi001.perseus-lat2	328927	mentio	n	lemma correct or acceptable
+matched	12	phi0474.phi035.perseus-lat2	59752	civis	n	lemma correct or acceptable
+matched	13	phi0474.phi050.perseus-lat1	27013	habeo	v	lemma correct or acceptable
+matched	14	phi0914.phi001.perseus-lat2	89489	tu	p	lemma correct or acceptable
+matched	15	phi0474.phi008.perseus-lat2	9451	omnino	d	lemma correct or acceptable
+matched	16	phi1348.abo011.perseus-lat2	2799	Gallia	n	lemma correct or acceptable
+matched	17	phi0474.phi005.perseus-lat2	34154	is	p	lemma correct or acceptable
+matched	18	phi1017.phi015.perseus-lat2	43475	maneo	v	lemma correct or acceptable
+matched	19	phi1014.phi001.perseus-lat1	81808	qui	p	lemma correct or acceptable
+matched	20	phi0914.phi001.perseus-lat2	186646	ferme	d	lemma correct or acceptable
+matched	21	phi0860.phi001.perseus-lat2	63025	aliquando	d	lemma correct or acceptable
+matched	22	phi0474.phi035.perseus-lat2	56756	verus	d	lemma correct or acceptable
+matched	23	phi0474.phi057.perseus-lat1	39170	negotium	n	lemma correct or acceptable
+matched	24	phi0914.phi001.perseus-lat2	234347	ut	c	lemma correct or acceptable
+matched	25	phi0914.phi001.perseus-lat2	38976	multus	a	lemma correct or acceptable
+matched	26	phi0914.phi001.perseus-lat2	407882	in	r	lemma correct or acceptable
+matched	27	phi0474.phi051.perseus-lat1	1050	sum	v	lemma correct or acceptable
+matched	28	phi1002.phi001.perseus-lat2	96533	et	c	lemma correct or acceptable
+matched	29	phi0836.phi002.perseus-lat6	68378	pars	n	lemma correct or acceptable
+matched	30	phi0914.phi001.perseus-lat2	602415	omnis	a	lemma correct or acceptable
+matched	31	phi0474.phi053.perseus-lat1	17024	res	n	lemma correct or acceptable
+matched	32	phi1038.phi001.perseus-lat1	87241	consul	n	lemma correct or acceptable
+matched	33	phi0845.phi002.perseus-lat3	88396	c	c	lemma wrong (single letter c read as a headword)
+matched	34	phi1348.abo016.perseus-lat2	4007	simul	d	lemma correct or acceptable
+matched	35	phi0474.phi057.perseus-lat1	74547	dum	c	lemma correct or acceptable
+matched	36	phi0474.phi013.perseus-lat2	3882	omnis	a	lemma correct or acceptable
+matched	37	phi0474.phi051.perseus-lat1	6313	sum	v	lemma correct or acceptable
+matched	38	phi1002.phi001.perseus-lat2	152336	sed	c	lemma correct or acceptable
+matched	39	phi0914.phi001.perseus-lat2	483077	tantus	d	lemma correct or acceptable
+matched	40	phi0860.phi001.perseus-lat2	52473	aut	c	lemma correct or acceptable
+matched	41	phi0860.phi001.perseus-lat2	16195	flumen	n	lemma correct or acceptable
+matched	42	phi0914.phi001.perseus-lat2	93521	Caeres	a	lemma correct or acceptable
+matched	43	phi0448.phi001.perseus-lat2	3374	rogo	v	lemma correct or acceptable
+matched	44	phi1002.phi001.perseus-lat2	119430	hic	p	lemma correct or acceptable
+matched	45	phi0474.phi026.perseus-lat2	3914	video	v	lemma correct or acceptable
+matched	46	phi0474.phi056.perseus-lat1	85328	sed	c	lemma correct or acceptable
+matched	47	phi1351.phi004.perseus-lat2	13284	bos	n	lemma correct or acceptable
+matched	48	phi0474.phi035.perseus-lat2	13747	nunc	d	lemma correct or acceptable
+matched	49	phi0448.phi002.perseus-lat2	24501	magnus	a	lemma correct or acceptable
+matched	50	phi1002.phi001.perseus-lat2	192629	magis	d	lemma correct or acceptable
+matched	51	phi0474.phi049.perseus-lat1	13188	hostis	n	lemma correct or acceptable
+matched	52	phi1014.phi001.perseus-lat1	78102	enim	c	lemma correct or acceptable
+matched	53	phi0914.phi001.perseus-lat2	585291	classis	n	lemma correct or acceptable
+matched	54	phi0474.phi022.perseus-lat2	7998	cur	d	lemma correct or acceptable
+matched	55	phi0448.phi001.perseus-lat2	44093	quis	p	lemma correct or acceptable
+matched	56	phi1002.phi001.perseus-lat2	156983	relinquo	v	lemma correct or acceptable
+matched	57	phi1017.phi015.perseus-lat2	118773	ergo	d	lemma correct or acceptable
+matched	58	phi0474.phi005.perseus-lat2	3107	conjungo	v	lemma correct or acceptable
+matched	59	phi0845.phi002.perseus-lat3	50313	plaga	n	lemma correct or acceptable
+matched	60	phi0914.phi001.perseus-lat2	449974	Aetolia	n	lemma correct or acceptable
+matched	61	phi1014.phi001.perseus-lat1	22728	amitto	v	lemma correct or acceptable
+matched	62	phi0474.phi002.perseus-lat2	13709	meus	p	lemma correct or acceptable
+matched	63	phi0474.phi056.perseus-lat1	52826	ut	c	lemma correct or acceptable
+matched	64	phi0474.phi040.perseus-lat1	11150	ne	d	lemma correct or acceptable
+matched	65	phi0914.phi001.perseus-lat2	106308	aedifico	v	lemma correct or acceptable
+matched	66	phi0474.phi040.perseus-lat1	4921	qui	p	lemma correct or acceptable
+matched	67	phi0836.phi002.perseus-lat6	24479	aut	c	lemma correct or acceptable
+matched	68	phi0836.phi002.perseus-lat6	48989	remedium	n	lemma correct or acceptable
+matched	69	phi0914.phi001.perseus-lat2	172586	agmen	n	lemma correct or acceptable
+matched	70	phi0914.phi001.perseus-lat2	362319	moveo	v	lemma correct or acceptable
+matched	71	phi0474.phi057.perseus-lat1	137216	ego	p	lemma correct or acceptable
+matched	72	phi0474.phi031.perseus-lat2	7238	Italia	n	lemma correct or acceptable
+matched	73	phi1017.phi015.perseus-lat2	27861	quidem	d	lemma correct or acceptable
+matched	74	phi0914.phi001.perseus-lat2	49873	inquam	v	lemma correct or acceptable
+matched	75	phi0474.phi036.perseus-lat1	7649	praeceptum	n	lemma correct or acceptable
+matched	76	phi0474.phi049.perseus-lat1	30649	praeclarus	d	lemma correct or acceptable
+matched	77	phi0474.phi057.perseus-lat1	99578	is	p	lemma correct or acceptable
+matched	78	phi1014.phi001.perseus-lat1	38635	periculum	n	lemma correct or acceptable
+matched	79	phi0474.phi008.perseus-lat2	9688	cum	c	lemma correct or acceptable
+matched	80	phi0972.phi001.perseus-lat2	26808	qui	p	lemma correct or acceptable
+matched	81	phi0914.phi001.perseus-lat2	365683	magnus	a	lemma correct or acceptable
+matched	82	phi0474.phi055.perseus-lat1	9484	causa	n	lemma correct or acceptable
+matched	83	phi0914.phi001.perseus-lat2	522450	ingens	a	lemma correct or acceptable
+matched	84	phi0684.phi002.ogl-lat1	14357	in	r	lemma correct or acceptable
+matched	85	phi0914.phi001.perseus-lat2	577898	altitudo	n	lemma correct or acceptable
+matched	86	phi1002.phi001.perseus-lat2	63000	qui	p	lemma correct or acceptable
+matched	87	phi0474.phi008.perseus-lat2	760	sic	d	lemma correct or acceptable
+matched	88	stoa0255.stoa004.perseus-lat2	6782	liberalis	a	lemma correct or acceptable
+matched	89	phi0448.phi001.perseus-lat2	3048	fuga	n	lemma correct or acceptable
+matched	90	phi1017.phi015.perseus-lat2	112874	nisi	c	lemma correct or acceptable
+matched	91	phi0845.phi002.perseus-lat3	9606	jam	d	lemma correct or acceptable
+matched	92	phi1017.phi015.perseus-lat2	62743	non	d	lemma correct or acceptable
+matched	93	phi0914.phi001.perseus-lat2	554656	propono	v	lemma correct or acceptable
+matched	94	phi0836.phi002.perseus-lat6	74221	aut	c	lemma correct or acceptable
+matched	95	phi1002.phi001.perseus-lat2	75588	litus	n	lemma correct or acceptable
+matched	96	phi0860.phi001.perseus-lat2	7387	vestibulum	n	lemma correct or acceptable
+matched	97	phi1017.phi015.perseus-lat2	55944	ille	p	lemma correct or acceptable
+matched	98	phi0474.phi013.perseus-lat2	8167	senatus	n	lemma correct or acceptable
+matched	99	phi1017.phi015.perseus-lat2	77130	persuadeo	v	lemma correct or acceptable
+matched	100	phi0914.phi001.perseus-lat2	221328	temere	d	lemma correct or acceptable
