@@ -52,13 +52,22 @@ func StudyBatchesAllowed(forecast int) int {
 	return StudyBatchesPerDay
 }
 
-// StudyBatchOfferable reports whether another batch may be offered on a day
-// whose ledger is given. The cap counts batches taken, never those declined.
-// Declining ends only Today's own offers (see FluencyUnlocked): the learner may
-// still take a remaining batch from inside Fluency while the cap and the
-// backlog brake allow it.
+// StudyBatchTakeable reports whether a batch may be taken on a day whose
+// ledger is given under a limit on the batches offered (StudyBatchesAllowed).
+// The limit counts distinct batches offered, declined ones included, but a
+// batch the learner declined may still be taken: it is that same batch, so it
+// consumes no other. It is the one rule the page and both stores read.
+func StudyBatchTakeable(ledger StudyBatchLedger, limit int) bool {
+	return ledger.Decided() < limit || (ledger.Declined > 0 && ledger.Taken < limit)
+}
+
+// StudyBatchOfferable reports whether a batch may be offered or taken on a day
+// whose ledger is given. Declining ends only Today's own offers (see
+// FluencyUnlocked): the learner may still take the declined batch, or a
+// remaining one, from inside Fluency while the cap and the backlog brake allow
+// it.
 func StudyBatchOfferable(ledger StudyBatchLedger, forecast int) bool {
-	return ledger.Taken < StudyBatchesAllowed(forecast)
+	return StudyBatchTakeable(ledger, StudyBatchesAllowed(forecast))
 }
 
 // studyCarriedOver reports whether the word was taken in an earlier Study

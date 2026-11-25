@@ -155,8 +155,45 @@ type StudyBatchLedger struct {
 	Offered, Taken, Declined int
 }
 
-// Decided is how many batches the learner has answered on the day.
+// Decided is how many distinct batches the learner has answered on the day: a
+// batch that was declined and then taken counts once, as taken.
 func (l StudyBatchLedger) Decided() int { return l.Taken + l.Declined }
+
+// OfferNumber is the ordinal among the day's batches of the batch on offer. A
+// declined batch is still the one on offer, so it keeps its number.
+func (l StudyBatchLedger) OfferNumber() int {
+	if l.Declined > 0 {
+		return l.Decided()
+	}
+	return l.Decided() + 1
+}
+
+// Take records one batch taken under the day's limit on distinct batches
+// offered. A batch the learner declined earlier is taken in place of the
+// declined one and consumes no other batch. ErrStudyBatchLimit means none is
+// left to take.
+func (l StudyBatchLedger) Take(limit int) (StudyBatchLedger, error) {
+	if !StudyBatchTakeable(l, limit) {
+		return l, ErrStudyBatchLimit
+	}
+	if l.Declined > 0 {
+		l.Declined--
+	}
+	l.Taken++
+	l.Offered = max(l.Offered, l.Decided())
+	return l, nil
+}
+
+// Decline records one batch declined under the day's limit. ErrStudyBatchLimit
+// means none is left to answer.
+func (l StudyBatchLedger) Decline(limit int) (StudyBatchLedger, error) {
+	if l.Decided() >= limit {
+		return l, ErrStudyBatchLimit
+	}
+	l.Declined++
+	l.Offered = max(l.Offered, l.Decided())
+	return l, nil
+}
 
 // Errors of the Study progress store.
 var (

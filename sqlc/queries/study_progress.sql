@@ -20,15 +20,20 @@ SELECT batches_offered, batches_taken, batches_declined FROM study_batch_ledger
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND study_day = sqlc.arg('study_day')::date;
 
 -- name: TakeStudyBatchSlot :one
--- Records one batch taken on the Study day, unless the day's batches are all
--- answered. No row means none is left.
+-- Records one batch taken on the Study day under the limit on distinct batches
+-- offered. A batch declined earlier is taken in place of the declined one and
+-- consumes no other. No row means none is left. Mirrors
+-- domain.StudyBatchLedger.Take.
 INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_taken)
 VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, 1, 1)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
    SET batches_taken = study_batch_ledger.batches_taken + 1,
-       batches_offered = GREATEST(study_batch_ledger.batches_offered, study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + 1),
+       batches_declined = GREATEST(study_batch_ledger.batches_declined - 1, 0),
+       batches_offered = GREATEST(study_batch_ledger.batches_offered,
+           study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + CASE WHEN study_batch_ledger.batches_declined > 0 THEN 0 ELSE 1 END),
        updated_at = now()
  WHERE study_batch_ledger.batches_taken + study_batch_ledger.batches_declined < sqlc.arg('batch_limit')::int
+    OR (study_batch_ledger.batches_declined > 0 AND study_batch_ledger.batches_taken < sqlc.arg('batch_limit')::int)
 RETURNING batches_taken;
 
 -- name: DeclineStudyBatchSlot :one

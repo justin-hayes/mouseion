@@ -18,7 +18,7 @@ func TestStudyBatchesAllowedFollowsTheForecastThresholds(t *testing.T) {
 	}
 }
 
-func TestStudyBatchOfferableCapsTheDayAndCountsTakenBatchesOnly(t *testing.T) {
+func TestStudyBatchOfferableCapsTheDayByBatchesOffered(t *testing.T) {
 	cases := []struct {
 		name     string
 		ledger   StudyBatchLedger
@@ -28,17 +28,39 @@ func TestStudyBatchOfferableCapsTheDayAndCountsTakenBatchesOnly(t *testing.T) {
 		{"first batch of the day", StudyBatchLedger{}, 0, true},
 		{"third batch", StudyBatchLedger{Taken: 2}, 0, true},
 		{"no fourth batch", StudyBatchLedger{Taken: 3}, 0, false},
-		{"a declined batch does not count towards the cap", StudyBatchLedger{Declined: 1}, 0, true},
-		{"a declined batch does not lift the cap", StudyBatchLedger{Taken: 3, Declined: 1}, 0, false},
+		{"a declined batch still counts towards the cap", StudyBatchLedger{Taken: 2, Declined: 1}, 0, true},
 		{"offered is not taken", StudyBatchLedger{Offered: 3}, 0, true},
 		{"one batch at 100", StudyBatchLedger{}, 100, true},
 		{"no second batch at 100", StudyBatchLedger{Taken: 1}, 100, false},
+		{"the one batch declined under the brake can still be taken", StudyBatchLedger{Declined: 1}, 100, true},
 		{"none at 150", StudyBatchLedger{}, 150, false},
 		{"one batch at 99 leaves two more", StudyBatchLedger{Taken: 1}, 99, true},
 	}
 	for _, tc := range cases {
 		assert.Equal(t, tc.want, StudyBatchOfferable(tc.ledger, tc.forecast), tc.name)
 	}
+}
+
+func TestStudyBatchLedgerTakingTheDeclinedBatchConsumesNoOtherBatch(t *testing.T) {
+	ledger := StudyBatchLedger{Offered: 1}
+	ledger, err := ledger.Decline(3)
+	require.NoError(t, err)
+	assert.Equal(t, StudyBatchLedger{Offered: 1, Declined: 1}, ledger)
+	assert.Equal(t, 1, ledger.OfferNumber(), "the declined batch is still the one on offer")
+
+	for range 3 {
+		ledger, err = ledger.Take(3)
+		require.NoError(t, err)
+	}
+	assert.Equal(t, StudyBatchLedger{Offered: 3, Taken: 3}, ledger, "the declined batch was the first taken, so three batches were offered")
+	_, err = ledger.Take(3)
+	require.ErrorIs(t, err, ErrStudyBatchLimit)
+	_, err = ledger.Decline(3)
+	require.ErrorIs(t, err, ErrStudyBatchLimit)
+
+	declined, err := StudyBatchLedger{Taken: 1, Offered: 2}.Decline(1)
+	require.ErrorIs(t, err, ErrStudyBatchLimit, "the brake allows one batch")
+	assert.Zero(t, declined.Declined)
 }
 
 func TestStudyForecastCountsReviewsDueOnTheNextStudyDayOrEarlier(t *testing.T) {

@@ -461,9 +461,12 @@ INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, 
 VALUES ($1, $2, $3::date, 1, 1)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
    SET batches_taken = study_batch_ledger.batches_taken + 1,
-       batches_offered = GREATEST(study_batch_ledger.batches_offered, study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + 1),
+       batches_declined = GREATEST(study_batch_ledger.batches_declined - 1, 0),
+       batches_offered = GREATEST(study_batch_ledger.batches_offered,
+           study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + CASE WHEN study_batch_ledger.batches_declined > 0 THEN 0 ELSE 1 END),
        updated_at = now()
  WHERE study_batch_ledger.batches_taken + study_batch_ledger.batches_declined < $4::int
+    OR (study_batch_ledger.batches_declined > 0 AND study_batch_ledger.batches_taken < $4::int)
 RETURNING batches_taken
 `
 
@@ -474,8 +477,10 @@ type TakeStudyBatchSlotParams struct {
 	BatchLimit int
 }
 
-// Records one batch taken on the Study day, unless the day's batches are all
-// answered. No row means none is left.
+// Records one batch taken on the Study day under the limit on distinct batches
+// offered. A batch declined earlier is taken in place of the declined one and
+// consumes no other. No row means none is left. Mirrors
+// domain.StudyBatchLedger.Take.
 func (q *Queries) TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error) {
 	row := q.db.QueryRow(ctx, takeStudyBatchSlot,
 		arg.Owner,

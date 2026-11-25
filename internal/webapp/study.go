@@ -207,9 +207,9 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	view.Offer = len(offer.Batch)
 	if view.Offer > 0 {
 		view.ShortBatch = domain.StudyBatchIsShort(offer.Batch, counts.Preparing)
-		view.OfferNumber = offer.Ledger.Decided() + 1
+		view.OfferNumber = offer.Ledger.OfferNumber()
 		// The ledger counts a batch as offered the first time Today shows it.
-		if err := store.RecordStudyBatchOffer(ctx, owner, view.Language, domain.StudyDay(now), offer.Ledger.Decided()+1); err != nil {
+		if err := store.RecordStudyBatchOffer(ctx, owner, view.Language, domain.StudyDay(now), view.OfferNumber); err != nil {
 			return err
 		}
 	}
@@ -440,7 +440,7 @@ func (h *Handler) declineStudyBatch(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if number, numberErr := strconv.Atoi(r.FormValue("offer")); !offer.Open || len(offer.Batch) == 0 || offer.Ledger.Declined > 0 || numberErr != nil || number != offer.Ledger.Decided()+1 {
+	if number, numberErr := strconv.Atoi(r.FormValue("offer")); !offer.Open || len(offer.Batch) == 0 || offer.Ledger.Declined > 0 || numberErr != nil || number != offer.Ledger.OfferNumber() {
 		// A stale tap: the batch it answers is not the one on offer now, or
 		// Today has already stopped offering.
 		redirect(w, r, back)
