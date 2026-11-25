@@ -25,7 +25,8 @@ vocabulary from their reading, on their phone, as material becomes ready.
 
 ## What Study is
 
-Study is a phone-first page for each study language, at `/{language}/study`. It
+Study is a phone-first page for each study language, at `/{language}/study`, laid out
+for a compact screen with large tap targets so it can be used one-handed. It
 is used online only, over the tailnet like the rest of Mouseion. It is one
 continuous stream of words from the learner's analysed library, on one card
 surface, in three phases each Study day:
@@ -75,14 +76,14 @@ finish line and are never part of it.
 ### New-word batches
 
 - After the reviews, Today offers optional batches of 10 new words, up to 3
-  (30 words) a day. Taking or declining a batch is a single tap, and declining
-  never blocks the learner.
+  (30 words) a day. Declining a batch is a single tap, so the learner is never
+  forced to learn new words to move on.
 - **Backlog brake.** Mouseion forecasts the reviews due on the next Study day.
   At 100 or more, at most one batch is offered; at 150 or more, none. These
   thresholds are starting values for the pilot to tune.
 - A new word's first appearance is graded: Got it makes it due on the next
   Study day, and Again repeats it the same day.
-- Words from a batch that was taken but not finished return to the front of
+- Words from a taken batch that are not yet introduced return to the front of
   the stream on the next Study day.
 - A batch contains only words whose Study material is ready. When words are
   still being prepared, Today says so, which is why fewer words may be offered.
@@ -91,7 +92,7 @@ finish line and are never part of it.
 
 - Candidates are vocabulary identities in the study language, evidenced by the
   learner's currently analysed Books, that are not yet in study. Eligibility
-  follows the same rules as Book vocabulary candidates: confirmed Lemma
+  uses the same vocabulary-identity rules as Book vocabulary candidates: confirmed Lemma
   corrections and Occurrence exclusions apply, and nothing that is not
   vocabulary is included.
 - Words from the Current reading come first, then all others. Within each
@@ -168,7 +169,8 @@ Fluency gives variety once a word is familiar, without grading it.
   to 5 contexts per word are prepared when the word becomes mature, so
   preparation is limited to words the learner is keeping.
 - **Only the Learned meaning.** A Fluency context is kept only if the word
-  carries its Learned meaning there. Contexts that do not agree are discarded.
+  carries its Learned meaning there. Each context has its own Gloss check and
+  translation, and contexts that do not agree are discarded.
 - **Responses.** Each card has **Show answer**, then **Recognised** or **Didn't
   recognise it**. A context marked Didn't recognise it returns later in the
   same sitting and more often afterwards; Recognised lowers its weight again
@@ -207,7 +209,7 @@ plainly that Study is not available for the language yet.
 ### What the pilot leaves out
 
 - Offline use and a native app.
-- Importing, exporting or syncing Anki history.
+- Importing Anki history, and exporting or syncing Study progress to Anki.
 - Study for Latin and Ancient Greek.
 - One shared Today across several languages.
 - Browsing upcoming words and saving words for later.
