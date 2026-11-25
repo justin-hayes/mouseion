@@ -35,6 +35,11 @@ const MaxSplitWordRate = 0.02
 // admitted silently.
 const MinTranslationJoinRate = 0.98
 
+// MaxTierBSegmentWords is the most words a tier B translation segment, one
+// keyed one Citation level above the Latin, may hold (ADR 0133). Words are
+// counted in the segment text the reader keeps, with notes removed.
+const MaxTierBSegmentWords = 400
+
 // MinDictionaryMatchRate is the share of a Latin Work's eligible occurrences
 // that must match a Lewis & Short key (gate iv), as ADR 0132 sets it.
 const MinDictionaryMatchRate = 0.90
@@ -44,6 +49,7 @@ const (
 	GateCitations       = "citations"
 	GateSplitWord       = "split-words"
 	GateTranslationJoin = "translation-join"
+	GateTranslationTier = "translation-tier"
 	GateDictionaryMatch = "dictionary-match"
 	GateSpotCheck       = "spot-check"
 )
@@ -223,6 +229,47 @@ func translationJoinGate(sentences [][]string, segments []ancientgreek.Reference
 	rate := float64(resolved) / float64(len(sentences))
 	gate.Passed = rate >= MinTranslationJoinRate
 	gate.Detail = fmt.Sprintf("%d of %d sentences, %.3f%%, floor %.3f%%", resolved, len(sentences), rate*100, MinTranslationJoinRate*100)
+	return gate
+}
+
+// translationTierGate is gate (iii)'s tier check (ADR 0133). A translation
+// keyed at the Latin's Citation depth is tier A. One keyed a level above is
+// tier B, whose segments may hold at most MaxTierBSegmentWords words; a longer
+// segment is a failure a reviewer note can clear. A translation keyed further
+// above is neither tier, and no note clears it.
+func translationTierGate(latinDepth int, segments []ancientgreek.ReferenceTranslation) GateResult {
+	gate := GateResult{Name: GateTranslationTier, Clearable: true}
+	depth := 0
+	for _, segment := range segments {
+		if parsed, ok := classical.ParseCitation(segment.Citation); ok {
+			depth = max(depth, len(parsed))
+		}
+	}
+	switch {
+	case depth == latinDepth:
+		gate.Passed = true
+		gate.Detail = "tier A, keyed at the Latin's Citation depth"
+	case depth == latinDepth-1:
+		over, largest, first := 0, 0, ""
+		for _, segment := range segments {
+			words := len(strings.Fields(segment.Text))
+			largest = max(largest, words)
+			if words > MaxTierBSegmentWords {
+				if over == 0 {
+					first = segment.Citation
+				}
+				over++
+			}
+		}
+		gate.Passed = over == 0
+		gate.Detail = fmt.Sprintf("tier B, %d of %d segments over %d words, largest %d", over, len(segments), MaxTierBSegmentWords, largest)
+		if over > 0 {
+			gate.Detail += ", first at " + first
+		}
+	default:
+		gate.Clearable = false
+		gate.Detail = fmt.Sprintf("keyed %d levels above the Latin, neither tier A nor tier B", latinDepth-depth)
+	}
 	return gate
 }
 

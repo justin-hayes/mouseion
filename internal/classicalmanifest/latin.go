@@ -175,5 +175,10 @@ func (b *builder) translationGates(override classical.Override, evidence ancient
 	if err != nil {
 		return []GateResult{{Name: GateTranslationJoin, Detail: "the translation cannot be read against the Work"}}
 	}
-	return []GateResult{translationJoinGate(evidence.SentenceCitations, segments), spotCheckGate(override.SpotCheck, evidence.SentenceCitations)}
+	start, _ := classical.ParseCitation(unit.start)
+	return []GateResult{
+		translationJoinGate(evidence.SentenceCitations, segments),
+		translationTierGate(len(start), segments),
+		spotCheckGate(override.SpotCheck, evidence.SentenceCitations),
+	}
 }
