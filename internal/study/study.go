@@ -55,12 +55,16 @@ func NewService(store *persistence.PostgresStore, client riverClient) *Service {
 
 // EnqueueStudyPreparation brings the learner's Study material up to date with the
 // stream: the first domain.StudyPreparationWindow words in stream order that
-// are not unpreparable each get a pending record and a durable job. A word
+// are not in study and not unpreparable each get a pending record and a durable job. A word
 // whose material is ready is left alone, and one whose job is still live is not
 // enqueued twice. It is safe to call whenever Today is opened, a batch is taken
 // or the Study day rolls over.
 func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
 	candidates, err := s.store.ListStudyCandidates(ctx, owner, language)
+	if err != nil {
+		return err
+	}
+	progress, err := s.store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -74,7 +78,7 @@ func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language s
 		current[item.StudyIdentity] = item
 		states[item.StudyIdentity] = item.State
 	}
-	for _, target := range domain.StudyPreparationTargets(domain.OrderStudyStream(candidates), states) {
+	for _, target := range domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress)), states) {
 		if existing, ok := current[target.StudyIdentity]; ok && existing.State == domain.StudyMaterialReady {
 			continue
 		}

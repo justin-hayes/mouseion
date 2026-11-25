@@ -13,6 +13,7 @@ package storecontract
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -87,6 +88,7 @@ type Harness interface {
 	Classical() ClassicalStore
 	Catalogue() CatalogueStore
 	Study() StudyStore
+	StudyProgress() StudyProgressStore
 	Seeds() Seeder
 }
 
@@ -158,6 +160,28 @@ type StudyStore interface {
 	// domain.ErrNotFound.
 	RecordStudyMaterialReady(owner, id string, content domain.StudyMaterialReadyContent) error
 	RecordStudyMaterialUnpreparable(owner, id, reason string) error
+}
+
+// StudyProgressStore is the Study progress, batch and review-log surface under
+// test (ADR 0134): taking and declining a New-word batch and grading a card.
+type StudyProgressStore interface {
+	// ListStudyProgress returns the words in study. StudyBatchLedger reports the
+	// batches taken and declined on a Study day.
+	ListStudyProgress(owner, language string) ([]domain.StudyProgress, error)
+	StudyBatchLedger(owner, language, studyDay string) (domain.StudyBatchLedger, error)
+	// TakeStudyBatch introduces the words of one batch from their ready
+	// material, due now with the Gloss as learned meaning; a batch that
+	// introduces nothing is domain.ErrNotFound. DeclineStudyBatch introduces no
+	// word. Both are domain.ErrStudyBatchLimit once the day's batches are
+	// answered.
+	TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error)
+	DeclineStudyBatch(owner, language, studyDay string, batchLimit int) error
+	// NextStudyCard is the earliest due word with its material, or
+	// domain.ErrNotFound. RecordStudyGrade appends a review-log row and stores
+	// the word's new state; a card graded twice is domain.ErrStudyStale.
+	NextStudyCard(owner, language string, now time.Time) (domain.StudyCard, error)
+	RecordStudyGrade(owner string, record domain.StudyGradeRecord) error
+	ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error)
 }
 
 // CatalogueStore is the Catalog browse and Add surface under test. Browse

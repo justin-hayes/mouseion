@@ -234,12 +234,13 @@ func (h *contractHarness) ClearEPUBAcquisitionFailure(owner, bookID string) erro
 	return h.store.ClearEPUBAcquisitionFailure(context.Background(), owner, bookID)
 }
 
-func (h *contractHarness) Store() storecontract.Store                  { return h }
-func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
-func (h *contractHarness) BookState() storecontract.BookStateStore     { return h }
-func (h *contractHarness) Classical() storecontract.ClassicalStore     { return h }
-func (h *contractHarness) Catalogue() storecontract.CatalogueStore     { return h }
-func (h *contractHarness) Study() storecontract.StudyStore             { return h }
+func (h *contractHarness) Store() storecontract.Store                      { return h }
+func (h *contractHarness) LemmaReview() storecontract.LemmaReviewStore     { return h }
+func (h *contractHarness) BookState() storecontract.BookStateStore         { return h }
+func (h *contractHarness) Classical() storecontract.ClassicalStore         { return h }
+func (h *contractHarness) Catalogue() storecontract.CatalogueStore         { return h }
+func (h *contractHarness) Study() storecontract.StudyStore                 { return h }
+func (h *contractHarness) StudyProgress() storecontract.StudyProgressStore { return h }
 
 func (h *contractHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
 	return h.store.BrowseCatalogueEntries(context.Background(), owner, connectionID, query)
@@ -330,6 +331,34 @@ func (h *contractHarness) SeedClassicalPreparationFailure(t *testing.T, owner, b
 }
 
 func (h *contractHarness) Seeds() storecontract.Seeder { return h }
+
+func (h *contractHarness) ListStudyProgress(owner, language string) ([]domain.StudyProgress, error) {
+	return h.store.ListStudyProgress(context.Background(), owner, language)
+}
+
+func (h *contractHarness) StudyBatchLedger(owner, language, studyDay string) (domain.StudyBatchLedger, error) {
+	return h.store.StudyBatchLedger(context.Background(), owner, language, studyDay)
+}
+
+func (h *contractHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+	return h.store.TakeStudyBatch(context.Background(), owner, language, studyDay, now, batchLimit, words)
+}
+
+func (h *contractHarness) DeclineStudyBatch(owner, language, studyDay string, batchLimit int) error {
+	return h.store.DeclineStudyBatch(context.Background(), owner, language, studyDay, batchLimit)
+}
+
+func (h *contractHarness) NextStudyCard(owner, language string, now time.Time) (domain.StudyCard, error) {
+	return h.store.NextStudyCard(context.Background(), owner, language, now)
+}
+
+func (h *contractHarness) RecordStudyGrade(owner string, record domain.StudyGradeRecord) error {
+	return h.store.RecordStudyGrade(context.Background(), owner, record)
+}
+
+func (h *contractHarness) ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error) {
+	return h.store.ListStudyReviewLog(context.Background(), owner, progressID)
+}
 
 func (h *contractHarness) ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidates(context.Background(), owner, language)

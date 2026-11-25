@@ -18,6 +18,7 @@ type Querier interface {
 	// Starts a retrieval generation. A retained image stays available until the
 	// replacement validates; any other state restarts as pending.
 	AdvertiseCatalogEntryCover(ctx context.Context, arg AdvertiseCatalogEntryCoverParams) error
+	AppendStudyReviewLog(ctx context.Context, arg AppendStudyReviewLogParams) error
 	AssignPreparedDeckBatchReconciliationJob(ctx context.Context, arg AssignPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AssignPreparedDeckBatchSubmissionJob(ctx context.Context, arg AssignPreparedDeckBatchSubmissionJobParams) (DeckPreparationBatchChunk, error)
 	AssignPreparedDeckFinalizationJob(ctx context.Context, arg AssignPreparedDeckFinalizationJobParams) (AssignPreparedDeckFinalizationJobRow, error)
@@ -83,6 +84,7 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
 	DeckPreparationExists(ctx context.Context, arg DeckPreparationExistsParams) (bool, error)
+	DeclineStudyBatchSlot(ctx context.Context, arg DeclineStudyBatchSlotParams) (int, error)
 	DeleteBookGoals(ctx context.Context, arg DeleteBookGoalsParams) error
 	DeleteBookGoalsExceptLanguage(ctx context.Context, arg DeleteBookGoalsExceptLanguageParams) error
 	// Removes the covers of entries that left the index or no longer advertise an
@@ -263,6 +265,7 @@ type Querier interface {
 	GetSourceMaterialUnitSnapshotByExtractionIdentity(ctx context.Context, arg GetSourceMaterialUnitSnapshotByExtractionIdentityParams) (string, error)
 	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
+	GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error)
 	GetStudyMaterial(ctx context.Context, arg GetStudyMaterialParams) (GetStudyMaterialRow, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
@@ -313,6 +316,11 @@ type Querier interface {
 	InsertSourceMaterialUnitRoleSpan(ctx context.Context, arg InsertSourceMaterialUnitRoleSpanParams) error
 	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
 	InsertSourceStructureCheck(ctx context.Context, arg InsertSourceStructureCheckParams) error
+	// Introduces a word from its ready, current Study material: the word enters
+	// study new and due now, with the material's Gloss as its learned meaning. A
+	// word already in study, or whose material is not ready and current, returns
+	// no row.
+	IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error)
 	IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error)
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
@@ -455,6 +463,10 @@ type Querier interface {
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
+	// Study progress, the review log and the per-day batch ledger (ADR 0134, spec
+	// #2691).
+	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]StudyProgress, error)
+	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	// One page of the concordance_occurrences model, read selectively (#2595).
@@ -491,12 +503,15 @@ type Querier interface {
 	LockCurrentReadingsForBook(ctx context.Context, arg LockCurrentReadingsForBookParams) ([]string, error)
 	LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
+	LockStudyProgress(ctx context.Context, arg LockStudyProgressParams) (StudyProgress, error)
 	// A failed retrieval keeps any retained image and records the reason.
 	MarkCatalogEntryCoverUnavailable(ctx context.Context, arg MarkCatalogEntryCoverUnavailableParams) (int64, error)
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
 	MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMaterialReadyParams) (int64, error)
 	MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStudyMaterialUnpreparableParams) (int64, error)
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
+	// The word to show next: the earliest due, not withdrawn, due by now.
+	NextDueStudyProgress(ctx context.Context, arg NextDueStudyProgressParams) (StudyProgress, error)
 	NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error)
 	NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error)
 	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)
@@ -572,6 +587,9 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
 	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
+	// Records one batch taken on the Study day, unless the day's batches are all
+	// answered. No row means none is left.
+	TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error)
 	TransitionBookDisposition(ctx context.Context, arg TransitionBookDispositionParams) (int64, error)
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)
 	UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error)
@@ -580,6 +598,7 @@ type Querier interface {
 	UpdateOpdsConnection(ctx context.Context, arg UpdateOpdsConnectionParams) (UpdateOpdsConnectionRow, error)
 	UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) (int64, error)
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
+	UpdateStudyProgressMemory(ctx context.Context, arg UpdateStudyProgressMemoryParams) error
 	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
 	UpsertCatalogueEntry(ctx context.Context, arg UpsertCatalogueEntryParams) error
 	UpsertConstructionRunMarker(ctx context.Context, arg UpsertConstructionRunMarkerParams) error
