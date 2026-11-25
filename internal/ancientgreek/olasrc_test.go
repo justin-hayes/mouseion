@@ -176,3 +176,52 @@ func TestLatinHelpersLeaveGreekRulesAlone(t *testing.T) {
 	assert.False(t, noSpaceBeforeFor("?", false), "a Latin question mark is not Greek punctuation")
 	assert.True(t, noSpaceBeforeFor(";", false))
 }
+
+// underscoredSentences is latinSentences with OLA's PAULA spelling of a
+// multi-level Citation: components joined by underscores (1_1_1).
+func underscoredSentences() [][]olaToken {
+	sentences := latinSentences()
+	for _, sentence := range sentences {
+		for index := range sentence {
+			sentence[index].citation = strings.ReplaceAll(sentence[index].citation, ".", "_")
+		}
+	}
+	return sentences
+}
+
+func TestOlaSourceReadsUnderscoredCitationsAsDotted(t *testing.T) {
+	conllu, paula := olaFixture(underscoredSentences())
+	parsed, err := ParseOlaSource(conllu, paula)
+	require.NoError(t, err)
+	unit, err := parsed.CutUnit(latinDefinition("1.1a"))
+	require.NoError(t, err)
+	require.Len(t, unit.Result.Sentences, 1, "underscored Citations order and cut as their dotted form")
+
+	source, err := ParseLatinManifestSource(conllu, paula)
+	require.NoError(t, err)
+	evidence, err := source.LatinEvidence()
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"1.pr.1"}, {"1.1a", "1.2"}}, evidence.SentenceCitations)
+
+	scan, err := ScanLatinWork(conllu, paula)
+	require.NoError(t, err)
+	assert.Zero(t, scan.Uncited)
+	assert.Zero(t, scan.Backwards)
+}
+
+func TestOlaSourceRefusesMalformedUnderscoredCitations(t *testing.T) {
+	conllu, paula := olaFixture(underscoredSentences())
+	for name, value := range map[string]string{
+		"mixed separators": "1_pr.1",
+		"empty component":  "1__1",
+		"trailing":         "1_pr_",
+		"leading zero":     "01_pr_1",
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := ParseOlaSource(conllu, []byte(strings.Replace(string(paula), `value="1_pr_1"`, `value="`+value+`"`, 1)))
+			var refusal *classical.PreparationError
+			require.ErrorAs(t, err, &refusal)
+			assert.Equal(t, classical.CodeMalformed, refusal.Code)
+		})
+	}
+}

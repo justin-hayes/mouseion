@@ -196,3 +196,100 @@ func TestMeasuredTranslationReadsGapsAndCoarserKeys(t *testing.T) {
 	_, err = ParseReferenceTranslationMeasured([]byte(`<TEI><div>`), "1.1", "1.3")
 	require.Error(t, err)
 }
+
+// An editorial textpart (an argument, introduction, chronology or note) is not
+// part of the cited text: the reader skips it and everything inside it.
+func TestParseReferenceTranslationSkipsEditorialTextparts(t *testing.T) {
+	body := `<TEI><div type="translation">` +
+		`<div type="textpart" subtype="chapter" n="intro"><p>An introduction.</p>` +
+		`<div type="textpart" subtype="section" n="1"><p>Nested editorial text.</p></div></div>` +
+		`<div type="textpart" subtype="chapter" n="chronology"><p>A chronology.</p></div>` +
+		`<div type="textpart" subtype="chapter" n="1"><p>Chapter one.</p></div>` +
+		`<div type="textpart" subtype="chapter" n="note"><p>A note.</p></div>` +
+		`<div type="textpart" subtype="chapter" n="2"><p>Chapter two.</p></div>` +
+		`</div></TEI>`
+	sections, err := ParseReferenceTranslation([]byte(body), "1", "2")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1", "2"}, citationsInOrder(sections))
+	assert.Equal(t, "Chapter one.", sections[0].Text)
+
+	nested := `<TEI><div type="textpart" subtype="book" n="1">` +
+		`<div type="textpart" subtype="section" n="argument"><p>The argument.</p></div>` +
+		`<div type="textpart" subtype="section" n="1"><p>One.</p></div></div></TEI>`
+	sections, err = ParseReferenceTranslation([]byte(nested), "1.1", "1.1")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1.1"}, citationsInOrder(sections))
+}
+
+// A speech textpart is a citation level: a speech-keyed translation joins a
+// Work cited speech.section.
+func TestParseReferenceTranslationReadsSpeechTextparts(t *testing.T) {
+	body := `<TEI><div type="translation">` +
+		`<div type="textpart" n="1" subtype="speech">` +
+		`<div type="textpart" subtype="section" n="argument"><p>The argument.</p></div>` +
+		`<div type="textpart" subtype="section" n="1"><p>First speech, one.</p></div>` +
+		`<div type="textpart" subtype="section" n="2"><p>First speech, two.</p></div></div>` +
+		`<div type="textpart" n="2" subtype="speech">` +
+		`<div type="textpart" subtype="section" n="1"><p>Second speech, one.</p></div></div>` +
+		`</div></TEI>`
+	sections, err := ParseReferenceTranslation([]byte(body), "1.1", "2.1")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1.1", "1.2", "2.1"}, citationsInOrder(sections))
+	assert.Equal(t, "Second speech, one.", sections[2].Text)
+}
+
+// milestoneTranslation renders a translation that marks sections only with
+// section milestones, beside chapter milestones the reader ignores.
+func milestoneTranslation(paragraphs ...string) []byte {
+	return []byte(`<TEI><text><body><head>A title.</head><div type="translation"><head>The speech.</head>` +
+		strings.Join(paragraphs, "\n") + `</div></body><back><p>Back matter.</p></back></text></TEI>`)
+}
+
+func TestParseReferenceTranslationReadsSectionMilestones(t *testing.T) {
+	data := milestoneTranslation(
+		`<p><milestone unit="chapter" n="1"/><milestone unit="section" n="1"/>Section one <note>a note</note>begins,</p>`,
+		`<p>and continues. <milestone unit="section" n="2"/>Section two.</p>`,
+		`<p><milestone unit="chapter" n="2"/><milestone unit="section" n="3"/>Section three.</p>`,
+	)
+	sections, err := ParseReferenceTranslation(data, "1", "3")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1", "2", "3"}, citationsInOrder(sections))
+	assert.Equal(t, "Section one begins, and continues.", sections[0].Text)
+	assert.Equal(t, "Section three.", sections[2].Text, "a section ends with its translation div")
+
+	sections, err = ParseReferenceTranslationMeasured(data, "1", "3")
+	require.NoError(t, err)
+	assert.Len(t, sections, 3)
+}
+
+func TestMeasuredTranslationReadsGappedAndRepeatedMilestones(t *testing.T) {
+	gapped := milestoneTranslation(
+		`<p><milestone unit="section" n="1"/>One.</p>`,
+		`<p><milestone unit="section" n="3"/>Three.</p>`,
+		`<p><milestone unit="section" n="3"/>Three again.</p>`,
+	)
+	_, err := ParseReferenceTranslation(gapped, "1", "3")
+	assertImportCode(t, err, CodeMalformed)
+	sections, err := ParseReferenceTranslationMeasured(gapped, "1", "3")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1", "3"}, citationsInOrder(sections))
+	assert.Equal(t, "Three. Three again.", sections[1].Text, "measurement folds a repeated milestone into its section")
+}
+
+func TestParseReferenceTranslationMilestoneLimits(t *testing.T) {
+	data := milestoneTranslation(`<p><milestone unit="section" n="1"/>One.</p>`)
+	_, err := ParseReferenceTranslationMeasured(data, "1.1", "1.1")
+	require.Error(t, err, "a section milestone is not read against a deeper Citation range")
+
+	bad := milestoneTranslation(`<p><milestone unit="section" n="x1"/>One.</p>`)
+	_, err = ParseReferenceTranslation(bad, "1", "1")
+	assertImportCode(t, err, CodeMalformed)
+
+	// A textpart-keyed file is read by its textparts; its milestones are not
+	// sections.
+	textparts := []byte(`<TEI><div type="textpart" subtype="section" n="1"><p><milestone unit="section" n="7"/>One.</p></div></TEI>`)
+	sections, err := ParseReferenceTranslation(textparts, "1", "1")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1"}, citationsInOrder(sections))
+	assert.Equal(t, "One.", sections[0].Text)
+}

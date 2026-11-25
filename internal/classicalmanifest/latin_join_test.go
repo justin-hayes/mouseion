@@ -360,3 +360,68 @@ func TestATranslationKeyedAboveTheSourceIsMeasuredAtItsOwnDepth(t *testing.T) {
 	require.Len(t, result.Definitions, 1)
 	assert.Contains(t, result.GateReport(), "translation-join: pass (5 of 5 sentences, 100.000%")
 }
+
+// chapterTranslationXML is a translation keyed one level above section
+// Citations: one segment per chapter of book 1, each of the given word count.
+func chapterTranslationXML(words ...int) []byte {
+	var out strings.Builder
+	out.WriteString(`<TEI>`)
+	for index, count := range words {
+		fmt.Fprintf(&out, `<div type="textpart" subtype="chapter" n="%d"><p>%s<note>A note is not counted.</note></p></div>`, index+1, strings.Repeat("word ", count))
+	}
+	out.WriteString(`</TEI>`)
+	return []byte(out.String())
+}
+
+// chapterSentences is one ten-word sentence per section chapter.section.
+func chapterSentences(chapters int) [][]latinToken {
+	sentences := make([][]latinToken, 0, chapters)
+	for chapter := 1; chapter <= chapters; chapter++ {
+		citation := fmt.Sprintf("%d.1", chapter)
+		sentences = append(sentences, latinSentence(citation, latinWordsIn(citation, 10)...))
+	}
+	return sentences
+}
+
+func TestATierATranslationPassesTheTierCheck(t *testing.T) {
+	fixture := newLatinFixture(t, citedSentences(5)...)
+	fixture = fixture.withTranslation(t, 5)
+	result := generate(t, fixture.options(t, nil))
+	require.Len(t, result.Definitions, 1)
+	assert.Contains(t, result.GateReport(), "  - translation-tier: pass (tier A, keyed at the Latin's Citation depth)")
+}
+
+func TestATierBTranslationWithinTheSegmentLimitPasses(t *testing.T) {
+	fixture := newLatinFixture(t, chapterSentences(2)...)
+	fixture = fixture.withTranslationData(t, chapterTranslationXML(400, 12), "1.1")
+	result := generate(t, fixture.options(t, nil))
+	require.Len(t, result.Definitions, 1)
+	assert.Contains(t, result.GateReport(), "translation-tier: pass (tier B, 0 of 2 segments over 400 words, largest 400)")
+}
+
+func TestATierBSegmentOverTheLimitFailsAndAReviewerNoteClearsIt(t *testing.T) {
+	fixture := newLatinFixture(t, chapterSentences(3)...)
+	fixture = fixture.withTranslationData(t, chapterTranslationXML(12, 401, 450), "1.1")
+	refused := generate(t, fixture.options(t, nil))
+	assert.Empty(t, refused.Definitions)
+	assert.Contains(t, refused.GateReport(), "translation-join: pass (3 of 3 sentences")
+	assert.Contains(t, refused.GateReport(), "translation-tier: FAIL (tier B, 2 of 3 segments over 400 words, largest 450, first at 2)")
+
+	fixture.override.ReviewerNote = "Read in full; the long chapters still give usable context."
+	cleared := generate(t, fixture.options(t, nil))
+	require.Len(t, cleared.Definitions, 1)
+	assert.Contains(t, cleared.GateReport(), "cleared by reviewer note")
+}
+
+func TestATranslationTwoLevelsAboveTheLatinIsNeitherTier(t *testing.T) {
+	sentences := [][]latinToken{latinSentence("1.1.1", latinWordsIn("1.1.1", 10)...), latinSentence("1.1.2", latinWordsIn("1.1.2", 10)...)}
+	data := []byte(`<TEI><div type="textpart" subtype="book" n="1"><p>Book one.</p></div></TEI>`)
+	fixture := newLatinFixture(t, sentences...)
+	fixture = fixture.withTranslationData(t, data, "1.1.1")
+	refused := generate(t, fixture.options(t, nil))
+	assert.Empty(t, refused.Definitions)
+	assert.Contains(t, refused.GateReport(), "translation-tier: FAIL (keyed 2 levels above the Latin, neither tier A nor tier B)")
+
+	fixture.override.ReviewerNote = "Read in full."
+	assert.Empty(t, generate(t, fixture.options(t, nil)).Definitions, "a reviewer note does not admit a translation outside tiers A and B")
+}
