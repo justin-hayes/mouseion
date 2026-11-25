@@ -79,25 +79,24 @@ func TestMyBooksResolvesItsLanguageFromTheURL(t *testing.T) {
 
 	// An unprefixed address redirects to the prefixed form; the one-request
 	// ?language= override no longer exists.
-	unprefixed := getAs(t, h, "/library?q=haus", cookies)
-	assert.Equal(t, http.StatusSeeOther, unprefixed.Code)
-	assert.Equal(t, "/de/library?q=haus", unprefixed.Header().Get("Location"))
-	legacy := getAs(t, h, "/library?language=it", cookies)
-	assert.Equal(t, "/de/library", legacy.Header().Get("Location"))
-	assert.Equal(t, "de", stored(), "a redirect alone never switches the language")
-
-	// An unknown prefix recovers under the Last study language; an alias or
-	// different case redirects to the canonical code.
-	unknown := getAs(t, h, "/fr/library?q=haus", cookies)
-	assert.Equal(t, http.StatusSeeOther, unknown.Code)
-	assert.Equal(t, "/de/library?q=haus", unknown.Header().Get("Location"))
-	upper := getAs(t, h, "/DE/library", cookies)
-	assert.Equal(t, "/de/library", upper.Header().Get("Location"))
-	for _, spelling := range []string{"de-DE", "de_DE", "DE-de"} {
-		locale := getAs(t, h, "/"+spelling+"/library?q=haus", cookies)
-		assert.Equal(t, http.StatusSeeOther, locale.Code, spelling)
-		assert.Equal(t, "/de/library?q=haus", locale.Header().Get("Location"), spelling)
+	redirects := []struct{ name, path, want string }{
+		{"unprefixed", "/library?q=haus", "/de/library?q=haus"},
+		{"a valid old language link keeps its language", "/library?language=it", "/it/library"},
+		{"an invalid old language link uses the Last study language", "/library?language=fr&q=haus", "/de/library?q=haus"},
+		{"an unknown prefix recovers under the Last study language", "/fr/library?q=haus", "/de/library?q=haus"},
+		{"a different case is canonical", "/DE/library", "/de/library"},
+		{"a locale suffix de-DE", "/de-DE/library?q=haus", "/de/library?q=haus"},
+		{"a locale suffix de_DE", "/de_DE/library?q=haus", "/de/library?q=haus"},
+		{"a locale suffix DE-de", "/DE-de/library?q=haus", "/de/library?q=haus"},
 	}
+	for _, tc := range redirects {
+		t.Run(tc.name, func(t *testing.T) {
+			response := getAs(t, h, tc.path, cookies)
+			require.Equal(t, http.StatusSeeOther, response.Code)
+			require.Equal(t, tc.want, response.Header().Get("Location"))
+		})
+	}
+	assert.Equal(t, "de", stored(), "a redirect alone never switches the language")
 
 	// The picker is a plain GET navigation that opens My Books in the chosen
 	// language and drops search and paging.
@@ -141,9 +140,11 @@ func TestPerLanguageSurfacesWithoutAStudyLanguageRedirectToMyBooks(t *testing.T)
 	cookies, _ := loginCookies(t, h, empty.Username, "empty-learner-password")
 
 	for _, path := range []string{"/reading", "/reading/switch", "/vocabulary", "/vocabulary/concordance?term=haus"} {
-		response := getAs(t, h, path, cookies)
-		assert.Equal(t, http.StatusSeeOther, response.Code, path)
-		assert.Equal(t, "/library", response.Header().Get("Location"), path)
+		t.Run(path, func(t *testing.T) {
+			response := getAs(t, h, path, cookies)
+			require.Equal(t, http.StatusSeeOther, response.Code)
+			require.Equal(t, "/library", response.Header().Get("Location"))
+		})
 	}
 	myBooks := getAs(t, h, "/library", cookies)
 	assert.Equal(t, http.StatusOK, myBooks.Code)

@@ -173,8 +173,17 @@ func (h *Handler) bookStudyLanguage(ctx context.Context, owner, bookID string) s
 			return language
 		}
 	}
-	language, _ := activeStudyLanguageForContext(ctx)
-	return language
+	return fallbackBookLanguage(ctx)
+}
+
+// fallbackBookLanguage is the language for a Book-addressed action whose Book
+// has no chosen language: the page's, else the Last study language.
+func fallbackBookLanguage(ctx context.Context) string {
+	view := shellViewFromContext(ctx)
+	if language := view.pageLanguageOrEmpty(); language != "" {
+		return language
+	}
+	return view.lastLanguage()
 }
 
 func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language string, book domain.MyBook) (int, error) {
@@ -236,7 +245,7 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	hasDetail := err == nil
-	returnTo := myBooksReturnURL(r.FormValue("return_to"), h.bookStudyLanguage(r.Context(), owner, bookID))
+	returnTo := myBooksReturnURL(r.FormValue("return_to"), removedBookLanguage(r.Context(), book, hasDetail))
 	err = h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
@@ -408,4 +417,15 @@ func myBooksRedirectWithNotice(w http.ResponseWriter, r *http.Request, returnTo,
 		separator = "&"
 	}
 	redirect(w, r, returnTo+separator+"message="+url.QueryEscape(text))
+}
+
+// removedBookLanguage is the language a removal returns to, taken from the Book
+// the handler already loaded.
+func removedBookLanguage(ctx context.Context, book domain.MyBook, hasDetail bool) string {
+	if hasDetail {
+		if language := myBookStudyLanguage(book); language != "" {
+			return language
+		}
+	}
+	return fallbackBookLanguage(ctx)
 }

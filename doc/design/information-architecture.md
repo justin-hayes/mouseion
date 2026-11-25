@@ -264,14 +264,17 @@ Secondary history
 
 ### Current route compatibility
 
-The shipped application uses `/library` for My Books and `/reading` for Reading.
-`/` redirects to `/library`. `/journey` is a safe-GET compatibility alias to
+The shipped application addresses My Books, Reading, and Vocabulary under a
+language prefix (`/de/library`, `/de/reading`, `/de/vocabulary`). The unprefixed
+`/library`, `/reading`, and `/vocabulary` are compatibility redirects to the
+prefixed form (the query's valid `?language=`, else the Last study language).
+`/` redirects to My Books. `/journey` is a safe-GET compatibility alias to
 `/reading`; obsolete mutation forms return `410 Gone` and do not mutate state. A
 former `/journey/{bookID}` URL is a compatibility bookmark: after the same owner,
 language, membership, and current-evidence checks, it redirects to the
-corresponding `/reading` Book anchor and is a supported old-language request when
-the Book's language is not the Last study language: it redirects to Reading in
-the Book's own language (ADR 0131).
+corresponding Book anchor in Reading. The bookmark is Book-scoped: it redirects
+under the Book's own language prefix (`/{book language}/reading`), whatever the
+Last study language is (ADR 0131).
 Historical artifacts remain supporting records.
 The application does not present a duplicate Book-detail, analysis-result, queue,
 campaign, or plan surface.
@@ -422,8 +425,8 @@ language, else the language of the most recently activated chosen-language
 Book), and resets lazily when it leaves the set. A shell-level switcher on
 per-language pages navigates to the same kind of page in another language with
 screen, filter, and return state reset. A newly arrived study
-language appears passively
-in the switcher (marked "new") without changing the mode.
+language appears passively in the picker (marked "new"); the Last study
+language changes only when a prefixed page renders.
 
 Vocabulary owns Concordance, scoped to the active language; known-vocabulary
 import is retired (ADR 0092). Browse

@@ -14,15 +14,17 @@ type activeStudyLanguageOption struct {
 	NewArrival bool
 }
 
-// shellView is the per-request shell state. ActiveLanguage is the Last study
-// language (ADR 0131): it resolves unprefixed URLs and navigation links.
-// PageLanguage and PageKind are set only while a per-language page renders, and
-// PageLanguage is then the language of that page.
+// shellView is the per-request shell state. LastLanguage is the Last study
+// language (ADR 0131): the remembered value that resolves unprefixed URLs and
+// navigation links, never the language of the page in view. PageLanguage is the
+// language of the page: the URL's prefix on a per-language page, or the Book's
+// language on a Book-addressed page. PageKind is set only while a per-language
+// page renders.
 type shellView struct {
-	ActiveLanguage string
-	PageLanguage   string
-	PageKind       studyLanguagePageKind
-	Options        []activeStudyLanguageOption
+	LastLanguage string
+	PageLanguage string
+	PageKind     studyLanguagePageKind
+	Options      []activeStudyLanguageOption
 }
 
 // hasLanguage reports whether language is one of the learner's study or known
@@ -44,7 +46,7 @@ func (v *shellView) lastLanguage() string {
 	if v == nil {
 		return ""
 	}
-	return v.ActiveLanguage
+	return v.LastLanguage
 }
 
 // pageLanguage is the language the page in view is about: the URL's prefix on a
@@ -53,7 +55,15 @@ func (v *shellView) pageLanguage() string {
 	if v.PageLanguage != "" {
 		return v.PageLanguage
 	}
-	return v.ActiveLanguage
+	return v.LastLanguage
+}
+
+// pageLanguageOrEmpty is pageLanguage, empty for a nil view.
+func (v *shellView) pageLanguageOrEmpty() string {
+	if v == nil {
+		return ""
+	}
+	return v.pageLanguage()
 }
 
 type shellViewContextKey struct{}
@@ -104,9 +114,9 @@ func activeStudyLanguageForContext(ctx context.Context) (language, label string)
 
 // showStudyLanguagePicker reports whether the shell shows the picker: only on a
 // per-language page, whose URL names a language. Job status, the Catalog, and
-// Book-addressed pages have no page language and no picker.
+// Book-addressed pages (whose language is the Book's) have no picker.
 func showStudyLanguagePicker(view *shellView, context NavigationContext) bool {
-	return view != nil && len(view.Options) > 0 && context != NavigationCatalogs && view.PageLanguage != ""
+	return view != nil && len(view.Options) > 0 && context != NavigationCatalogs && view.PageKind != ""
 }
 
 // shellNavigationPath is a primary navigation link: the page kind under the
@@ -140,13 +150,13 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 		active = stored
 	}
 	view := &shellView{
-		ActiveLanguage: active,
+		LastLanguage: active,
 	}
 	for _, language := range studyLanguages {
 		view.Options = append(view.Options, activeStudyLanguageOption{
 			StudyLanguage: language,
 			HasBooks:      true,
-			NewArrival:    language.Language == recent && language.Language != view.ActiveLanguage,
+			NewArrival:    language.Language == recent && language.Language != view.LastLanguage,
 		})
 	}
 	for _, language := range knownLanguages {

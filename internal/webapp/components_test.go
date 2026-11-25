@@ -58,8 +58,9 @@ func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T
 
 func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
-		ActiveLanguage: "de",
-		PageLanguage:   "de",
+		LastLanguage: "de",
+		PageLanguage: "de",
+		PageKind:     pageKindMyBooks,
 		Options: []activeStudyLanguageOption{
 			{Language: "de", DisplayName: "German", HasBooks: true},
 			{Language: "it", DisplayName: "Italian", HasBooks: true, NewArrival: true},
@@ -86,11 +87,23 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutAPageLanguage(t *testing.T) {
 	view := &shellView{
-		ActiveLanguage: "de",
-		Options:        []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}},
+		LastLanguage: "de",
+		Options:      []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}},
 	}
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
 	assert.Empty(t, html, "job status and other pages without a language have no picker")
+}
+
+func TestActiveStudyLanguageSwitcherIsHiddenOnBookAddressedPages(t *testing.T) {
+	// A Book-addressed page (lemma review, deck preparation) has the Book's
+	// language as its page language but is not a per-language page kind.
+	view := &shellView{
+		LastLanguage: "it",
+		PageLanguage: "de",
+		Options:      []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}, {Language: "it", DisplayName: "Italian", HasBooks: true}},
+	}
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
+	assert.Empty(t, html, "Book-addressed pages have no picker")
 }
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
