@@ -83,7 +83,7 @@ func TestEveryEmbeddedDefinitionCarriesItsOpening(t *testing.T) {
 		"plato-republic":    "κατέβην χθὲς εἰς Πειραιᾶ μετὰ Γλαύκωνος τοῦ Ἀρίστωνος προσευξόμενός τε τῇ θεῷ καὶ ἅμα τὴν ἑορτὴν βουλόμενος θεάσασθαι τίνα τρόπον ποιήσουσιν ἅτε νῦν πρῶτον ἄγοντες.",
 		"xenophon-anabasis": "Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο, πρεσβύτερος μὲν Ἀρταξέρξης, νεώτερος δὲ Κῦρος·",
 	}
-	require.Len(t, definitions, 24, "22 definitions plus the two whole-work units; the per-book ones are tombstones")
+	require.Len(t, definitions, 35, "7 Greek and 11 Latin Works, plus 17 per-book tombstones")
 	for _, definition := range definitions {
 		if definition.Withdrawn {
 			continue

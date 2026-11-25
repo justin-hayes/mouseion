@@ -198,16 +198,20 @@ func TestCatalogUnitFindsAWorkByReadingUnitKey(t *testing.T) {
 func TestLoadCatalogReadsTheEmbeddedRelease(t *testing.T) {
 	catalog, err := LoadCatalog(ManifestJSONL)
 	require.NoError(t, err)
-	assert.Equal(t, 7, catalog.Counts().Works)
-	assert.Equal(t, 2, catalog.Counts().Authors)
-	assert.Equal(t, 7, catalog.Counts().Units, "each Work is one whole-work Reading unit")
+	assert.Equal(t, 18, catalog.Counts().Works, "7 Greek and 11 Latin Works")
+	assert.Equal(t, 6, catalog.Counts().Authors)
+	assert.Equal(t, 18, catalog.Counts().Units, "each Work is one whole-work Reading unit")
 	work, ok := catalog.Work("xenophon-anabasis")
 	require.True(t, ok)
 	assert.Equal(t, "Anabasis", work.Title)
 	assert.Equal(t, 7, work.ConstituentBooks)
 	require.Len(t, work.Units, 1)
 	assert.Len(t, work.Units[0].Contents, 7)
-	for _, key := range []string{"xenophon-anabasis", "plato-apology", "plato-crito", "plato-phaedo", "plato-symposium", "plato-meno", "plato-republic"} {
+	for _, key := range []string{
+		"xenophon-anabasis", "plato-apology", "plato-crito", "plato-phaedo", "plato-symposium", "plato-meno", "plato-republic",
+		"caesar-gallic-war", "sallust-catiline", "sallust-jugurthine-war", "cicero-in-catilinam", "cicero-pro-archia", "cicero-pro-milone",
+		"cicero-pro-caelio", "cicero-de-amicitia", "cicero-de-senectute", "tacitus-agricola", "tacitus-germania",
+	} {
 		work, ok := catalog.Work(key)
 		require.True(t, ok, key)
 		assert.True(t, work.TranslationAvailable, key)
