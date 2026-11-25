@@ -1,0 +1,122 @@
+{
+ "phi0448.phi001.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 60404,
+  "cts_values": 60405,
+  "ids_increasing": true,
+  "paula_only_tokens": 1,
+  "paula_tokens": 60405,
+  "surface_differs": 0
+ },
+ "phi0474.phi013.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 14862,
+  "cts_values": 14862,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 14862,
+  "surface_differs": 0
+ },
+ "phi0631.phi001.perseus-lat4": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 13072,
+  "cts_values": 13072,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 13072,
+  "surface_differs": 0
+ },
+ "phi0690.phi003.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 79284,
+  "cts_values": 79284,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 79284,
+  "surface_differs": 0
+ },
+ "phi0914.phi001.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 607341,
+  "cts_values": 607341,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 607341,
+  "surface_differs": 0
+ },
+ "phi0959.phi006.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 99588,
+  "cts_values": 99588,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 99588,
+  "surface_differs": 0
+ },
+ "phi0972.phi001.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 38074,
+  "cts_values": 38094,
+  "ids_increasing": true,
+  "paula_only_tokens": 20,
+  "paula_tokens": 38094,
+  "surface_differs": 0
+ },
+ "phi1017.phi001.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 9090,
+  "cts_values": 9090,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 9090,
+  "surface_differs": 0
+ },
+ "phi1017.phi002.perseus-lat2": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 8251,
+  "cts_values": 8251,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 8251,
+  "surface_differs": 0
+ },
+ "phi1318.phi001.perseus-lat1": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 79793,
+  "cts_values": 79793,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 79793,
+  "surface_differs": 0
+ },
+ "phi1351.phi001.perseus-lat1": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 8083,
+  "cts_values": 8083,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 8083,
+  "surface_differs": 0
+ },
+ "phi1351.phi002.perseus-lat1": {
+  "conllu_not_in_cts": 0,
+  "conllu_not_in_tok": 0,
+  "conllu_tokens": 6746,
+  "cts_values": 6746,
+  "ids_increasing": true,
+  "paula_only_tokens": 0,
+  "paula_tokens": 6746,
+  "surface_differs": 0
+ }
+}

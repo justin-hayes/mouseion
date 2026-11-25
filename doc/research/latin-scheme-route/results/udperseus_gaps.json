@@ -1,0 +1,57 @@
+{
+ "phi0448.phi001.perseus-lat1": {
+  "sentences": 24,
+  "max_sentence_number": 69,
+  "absent_numbers": 45
+ },
+ "phi0474.phi013.perseus-lat1": {
+  "sentences": 137,
+  "max_sentence_number": 327,
+  "absent_numbers": 190
+ },
+ "phi0620.phi001.perseus-lat1": {
+  "sentences": 224,
+  "max_sentence_number": 362,
+  "absent_numbers": 138
+ },
+ "phi0631.phi001.perseus-lat1": {
+  "sentences": 336,
+  "max_sentence_number": 699,
+  "absent_numbers": 363
+ },
+ "phi0690.phi003.perseus-lat1": {
+  "sentences": 68,
+  "max_sentence_number": 175,
+  "absent_numbers": 107
+ },
+ "phi0959.phi006.perseus-lat1": {
+  "sentences": 183,
+  "max_sentence_number": 317,
+  "absent_numbers": 134
+ },
+ "phi0975.phi001.perseus-lat1": {
+  "sentences": 389,
+  "max_sentence_number": 582,
+  "absent_numbers": 193
+ },
+ "phi1221.phi007.perseus-lat1": {
+  "sentences": 38,
+  "max_sentence_number": 112,
+  "absent_numbers": 74
+ },
+ "phi1348.abo012.perseus-lat1": {
+  "sentences": 109,
+  "max_sentence_number": 344,
+  "absent_numbers": 235
+ },
+ "phi1351.phi005.perseus-lat1": {
+  "sentences": 64,
+  "max_sentence_number": 196,
+  "absent_numbers": 132
+ },
+ "tlg0031.tlg027.perseus-lat1": {
+  "sentences": 154,
+  "max_sentence_number": 614,
+  "absent_numbers": 460
+ }
+}

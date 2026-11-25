@@ -1,0 +1,21 @@
+{
+ "c_AuxC": 148895,
+ "d_AuxC": 20629,
+ "label_has_CO": 595328,
+ "nonpunct": 4413485,
+ "nonpunct_tokens_label_not_exact_greek": 612198,
+ "noun_with_capital_lemma": 164004,
+ "nouns": 1180046,
+ "participles_verb_mood_p": 204751,
+ "pron_p": 491095,
+ "sent_len_max": 241,
+ "sent_len_median": 13,
+ "sent_len_p95": 39,
+ "sentences": 328687,
+ "sentences_over_100_tokens": 201,
+ "sentences_with_any_nonexact_label": 195056,
+ "sentences_with_nonexact_nonpunct_label": 195056,
+ "tokens_ablative": 542647,
+ "tokens_gerund_gerundive_supine": 36782,
+ "tokens_losing_a_feature_value": 592990
+}

@@ -1,0 +1,17 @@
+{
+ "works": 209,
+ "non_punct_tokens": 4413485,
+ "lemma_types": 95426,
+ "folded_types": 87458,
+ "folded_groups_with_variants": 6630,
+ "tokens_in_variant_groups": 3111324,
+ "tokens_on_minority_spellings_lower_bound": 20683,
+ "kinds": {
+  "case_only": 2788,
+  "v_present": 1937,
+  "non_ascii": 2769,
+  "i_j": 282
+ },
+ "works_with_any_j_lemma": 209,
+ "tokens_with_j_lemma": 44613
+}
