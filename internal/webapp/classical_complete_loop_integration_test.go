@@ -481,23 +481,29 @@ type classicalLoopLayer struct {
 	translationServed   atomic.Int64
 }
 
-func (l *classicalLoopLayer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if strings.HasSuffix(r.URL.Path, "synthetic-translation.xml") {
-		l.translationServed.Add(1)
-		if _, err := w.Write(l.translation); err != nil {
+// handler serves the layer. It is a closure over the layer rather than a
+// ServeHTTP method: gosec's G705 taint pass resolves a ServeHTTP receiver
+// through every http.Handler call site, misreads the ResponseWriter there as
+// the receiver, and so flags these fixed test bytes nondeterministically.
+func (l *classicalLoopLayer) handler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "synthetic-translation.xml") {
+			l.translationServed.Add(1)
+			if _, err := w.Write(l.translation); err != nil {
+				return
+			}
 			return
 		}
-		return
-	}
-	l.sourceAttempts.Add(1)
-	if l.failSource.Load() {
-		http.Error(w, "layer unavailable", http.StatusBadGateway)
-		return
-	}
-	l.sourceServed.Add(1)
-	if _, err := w.Write(l.source); err != nil {
-		return
-	}
+		l.sourceAttempts.Add(1)
+		if l.failSource.Load() {
+			http.Error(w, "layer unavailable", http.StatusBadGateway)
+			return
+		}
+		l.sourceServed.Add(1)
+		if _, err := w.Write(l.source); err != nil {
+			return
+		}
+	})
 }
 
 // loopTreatiseKey is the Work and whole-work unit key of the multi-book
@@ -554,7 +560,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	translation, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "perseus-eng2-section.xml"))
 	require.NoError(t, err)
 	layer := &classicalLoopLayer{source: source, translation: translation}
-	server := httptest.NewServer(layer)
+	server := httptest.NewServer(layer.handler())
 	t.Cleanup(server.Close)
 
 	sum := sha256.Sum256(source)
