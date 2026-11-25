@@ -18,8 +18,10 @@ type StudyStore interface {
 	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
 	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
-	// StudyBatchLedger reports the batches taken and declined on a Study day.
+	// StudyBatchLedger reports the batches offered, taken and declined on a
+	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
 	StudyBatchLedger(ctx context.Context, owner, language, studyDay string) (domain.StudyBatchLedger, error)
+	RecordStudyBatchOffer(ctx context.Context, owner, language, studyDay string, offered int) error
 	// TakeStudyBatch introduces the words of one batch, and DeclineStudyBatch
 	// introduces none. Either returns domain.ErrStudyBatchLimit when the day's
 	// batches are all answered.

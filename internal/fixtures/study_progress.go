@@ -55,6 +55,43 @@ func (s *Store) StudyBatchLedger(_ context.Context, owner, language, studyDay st
 	return ledger, nil
 }
 
+// takeCarriedLocked takes a word of an earlier Study day's batch again: it
+// becomes new and due now. A word no longer waiting is skipped. The caller
+// holds s.mu.
+func (s *Store) takeCarriedLocked(owner, language, progressID string, now time.Time) []domain.StudyProgress {
+	for i := range s.studyProgress {
+		item := &s.studyProgress[i]
+		if item.OwnerID != owner || item.ID != progressID || item.Language != language {
+			continue
+		}
+		if item.Memory.State != domain.StudyStateNew || item.Graded() || item.Withdrawn || !item.IntroducedAt.Before(domain.StudyDayStart(now)) {
+			return nil
+		}
+		item.IntroducedAt, item.Memory.Due, item.UpdatedAt = now.UTC(), now.UTC(), now.UTC()
+		return []domain.StudyProgress{*item}
+	}
+	return nil
+}
+
+// RecordStudyBatchOffer records that Today has offered this many batches on the
+// Study day. The count only grows.
+func (s *Store) RecordStudyBatchOffer(_ context.Context, owner, language, studyDay string, offered int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := studyLedgerKey(owner, language, studyDay)
+	ledger := s.studyLedger[key]
+	ledger.Offered = max(ledger.Offered, offered)
+	s.storeLedgerLocked(key, ledger)
+	return nil
+}
+
+func (s *Store) storeLedgerLocked(key string, ledger domain.StudyBatchLedger) {
+	if s.studyLedger == nil {
+		s.studyLedger = map[string]domain.StudyBatchLedger{}
+	}
+	s.studyLedger[key] = ledger
+}
+
 // TakeStudyBatch takes one batch: it records it in the day's ledger and
 // introduces each word from its ready Study material, due now, with the
 // material's Gloss as its learned meaning.
@@ -68,6 +105,10 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 	}
 	var introduced []domain.StudyProgress
 	for _, word := range words {
+		if word.ProgressID != "" {
+			introduced = append(introduced, s.takeCarriedLocked(owner, language, word.ProgressID, now)...)
+			continue
+		}
 		material, ok := s.currentReadyMaterialLocked(owner, language, word.MaterialID)
 		if !ok || s.progressIndexLocked(owner, material.StudyIdentity) >= 0 {
 			continue
@@ -85,10 +126,8 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 		return nil, errNotFound
 	}
 	ledger.Taken++
-	if s.studyLedger == nil {
-		s.studyLedger = map[string]domain.StudyBatchLedger{}
-	}
-	s.studyLedger[key] = ledger
+	ledger.Offered = max(ledger.Offered, ledger.Decided())
+	s.storeLedgerLocked(key, ledger)
 	return introduced, nil
 }
 
@@ -102,10 +141,8 @@ func (s *Store) DeclineStudyBatch(_ context.Context, owner, language, studyDay s
 		return domain.ErrStudyBatchLimit
 	}
 	ledger.Declined++
-	if s.studyLedger == nil {
-		s.studyLedger = map[string]domain.StudyBatchLedger{}
-	}
-	s.studyLedger[key] = ledger
+	ledger.Offered = max(ledger.Offered, ledger.Decided())
+	s.storeLedgerLocked(key, ledger)
 	return nil
 }
 

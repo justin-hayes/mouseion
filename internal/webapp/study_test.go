@@ -80,8 +80,10 @@ func studyFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, *f
 
 func TestStudyDecliningABatchOverTheFixtureStoreIntroducesNothing(t *testing.T) {
 	h, cookies, csrf, store, _ := studyFixtureSession(t)
-	form := url.Values{"csrf_token": {csrf}, "language": {"de"}}
+	form := url.Values{"csrf_token": {csrf}, "language": {"de"}, "offer": {"1"}}
 
+	// Opening Study prepares the material the batch is made of.
+	assert.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Take these words")
 	require.Equal(t, http.StatusSeeOther, readingTestRequest(t, h, "/study/batches/decline", form, cookies).Code)
 	page := getAs(t, h, "/de/study", cookies).Body.String()
 	assert.NotContains(t, page, "Take these words", "a declined batch is not offered again the same day")

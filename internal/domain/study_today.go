@@ -40,7 +40,7 @@ func studyReviewInToday(p StudyProgress, now time.Time) bool {
 // the day begins. A word still repeating, and a word just introduced, is due
 // when its due time arrives.
 func StudyCardIsDue(p StudyProgress, now time.Time) bool {
-	if p.Withdrawn || p.Reintroducing {
+	if p.Withdrawn || p.Reintroducing || studyCarriedOver(p, now) {
 		return false
 	}
 	if p.Memory.State == StudyStateReview {

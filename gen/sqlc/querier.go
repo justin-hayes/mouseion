@@ -547,6 +547,9 @@ type Querier interface {
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
 	PutSupportedLanguageOrIgnore(ctx context.Context, language string) error
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
+	// Records that Today has offered this many batches on the Study day. The count
+	// only grows, so showing the same offer again changes nothing.
+	RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatchOfferParams) error
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
 	// An Analysis update re-published the word's introducing occurrence in a new
@@ -606,6 +609,10 @@ type Querier interface {
 	// its current material is replaced, so the word has none and new material is
 	// prepared. The superseded record is kept for the review log.
 	SupersedeStudyMaterial(ctx context.Context, arg SupersedeStudyMaterialParams) (int64, error)
+	// Takes a word again in today's batch: a word introduced on an earlier Study
+	// day and never answered is introduced afresh, new and due now. A word that
+	// was answered, withdrawn or introduced today returns no row.
+	TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudyWordParams) (StudyProgress, error)
 	// Records one batch taken on the Study day, unless the day's batches are all
 	// answered. No row means none is left.
 	TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error)
