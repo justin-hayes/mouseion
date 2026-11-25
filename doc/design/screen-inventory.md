@@ -11,11 +11,11 @@ reading-intent analysis trigger in
 [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md), with the
 standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 Language is the
-app's organizing mode per
-[ADR 0050](../adr/0050-active-study-language.md) and
-[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): one active
-study language scopes My Books, Reading, and Vocabulary; current reading is
-scoped by language. Catalog maintenance is a fourth principal
+app's organizing context per
+[ADR 0131](../adr/0131-the-url-carries-the-study-language.md) and
+[ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): the address
+carries the study language of My Books, Reading, and Vocabulary; current reading
+is scoped by language. Catalog maintenance is a fourth principal
 destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
 Catalog-sync and collection-browsing surfaces

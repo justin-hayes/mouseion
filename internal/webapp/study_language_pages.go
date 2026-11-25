@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -93,13 +94,19 @@ func (h *Handler) perLanguage(kind studyLanguagePageKind, handler http.HandlerFu
 }
 
 // isLanguageSegment reports whether a path segment has the shape of a language
-// code. Every other first segment of a route is longer or not alphabetic, so
-// the shape alone separates a prefix from a route.
+// prefix: a two or three letter code, optionally with a locale or script
+// suffix such as de-DE or de_DE. Every other first segment of a route is longer
+// or not of this shape, so the shape alone separates a prefix from a route.
 func isLanguageSegment(segment string) bool {
-	if len(segment) < 2 || len(segment) > 3 {
+	code, suffix, hasSuffix := strings.Cut(strings.ReplaceAll(segment, "_", "-"), "-")
+	if len(code) < 2 || len(code) > 3 || !isASCIIAlpha(code) {
 		return false
 	}
-	for _, r := range segment {
+	return !hasSuffix || (len(suffix) >= 2 && len(suffix) <= 8 && isASCIIAlpha(suffix))
+}
+
+func isASCIIAlpha(value string) bool {
+	for _, r := range value {
 		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
 			return false
 		}
@@ -141,17 +148,47 @@ func (h *Handler) prefixedLanguagePage(page languagePrefixed) http.Handler {
 			redirectLocal(w, r, "/"+language+rest, r.URL.RawQuery)
 			return
 		}
-		// Always recorded: the resolved fallback may differ from the stored value.
-		if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), user(r).ID, language); err != nil {
-			fail(w, err)
-			return
-		}
 		view.ActiveLanguage = language
 		view.PageLanguage = language
 		view.PageKind = page.kind
-		page.handler.ServeHTTP(w, r)
+		// The Last study language is recorded only once the page renders: a
+		// refused request, such as a stale Browse origin, leaves it alone.
+		recorder := &lastLanguageRecorder{ResponseWriter: w, record: func() error {
+			return h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), user(r).ID, language)
+		}}
+		page.handler.ServeHTTP(recorder, r)
 	})
 }
+
+// lastLanguageRecorder records the page's language as the Last study language
+// when the response commits with a success status, before any byte is sent.
+type lastLanguageRecorder struct {
+	http.ResponseWriter
+	record    func() error
+	committed bool
+}
+
+func (w *lastLanguageRecorder) WriteHeader(status int) {
+	if !w.committed {
+		w.committed = true
+		if status >= http.StatusOK && status < http.StatusMultipleChoices {
+			if err := w.record(); err != nil {
+				log.Printf("mouseion: record last study language: %v", err)
+			}
+		}
+	}
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *lastLanguageRecorder) Write(body []byte) (int, error) {
+	if !w.committed {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(body)
+}
+
+// Unwrap lets http.ResponseController reach the underlying writer.
+func (w *lastLanguageRecorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // languageFallbackPath is the same page under the Last study language, or the
 // unprefixed page when the learner has none.
@@ -163,26 +200,25 @@ func languageFallbackPath(view *shellView, rest string) string {
 }
 
 // unprefixedLanguagePage redirects an unprefixed address to the prefixed form.
-// A legacy ?language= wins when it names one of the learner's languages;
-// otherwise the Last study language is used. A learner with no study language
-// is served the unprefixed page itself, which renders its empty state.
+// The Last study language is used. A learner with no study language is served
+// the unprefixed My Books empty state; every other surface redirects there.
 func (h *Handler) unprefixedLanguagePage(kind studyLanguagePageKind, handler http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		view := shellViewFromContext(r.Context())
+		language := view.lastLanguage()
+		// A legacy ?language= is dropped, never honoured.
 		query := r.URL.Query()
-		language := ""
-		if view != nil {
-			language = view.ActiveLanguage
-			if requested := canonicalization.NormalizeLanguage(strings.TrimSpace(query.Get("language"))); requested != "" && view.hasLanguage(requested) {
-				language = requested
-			}
-		}
 		query.Del("language")
+		if language == "" && kind != pageKindMyBooks {
+			// Without a study language every other surface has nothing to show;
+			// the unprefixed My Books empty state says how to begin.
+			redirectLocal(w, r, "/"+studyLanguagePages[pageKindMyBooks].Path, "")
+			return
+		}
 		if language == "" {
 			if view != nil {
 				view.PageKind = kind
 			}
-			r.URL.RawQuery = query.Encode()
 			handler.ServeHTTP(w, r)
 			return
 		}

@@ -45,8 +45,7 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	}, initial)
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	chosen := perform(t, h, "POST", "/active-study-language", url.Values{"csrf_token": {csrf}, "language": {"grc"}}, cookies)
-	require.Equal(t, http.StatusSeeOther, chosen.Code, "choose Ancient Greek as the study language: %s", chosen.Body.String())
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, registration.BookID, "δέω")
 	require.NoError(t, err)

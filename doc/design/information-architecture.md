@@ -11,8 +11,9 @@ reading-intent analysis trigger in
 [ADR 0049](../adr/0049-reading-intent-triggers-analysis.md), with the
 standalone learner action retired by [ADR 0054](../adr/0054-retire-standalone-analysis-action.md).
 Language is the
-app's organizing mode: [ADR 0050](../adr/0050-active-study-language.md) scopes
-every language-dependent surface to one active study language. Current reading
+app's organizing context: [ADR 0131](../adr/0131-the-url-carries-the-study-language.md)
+carries the study language in the address of every language-dependent surface
+(superseding the stored mode of [ADR 0050](../adr/0050-active-study-language.md)). Current reading
 is scoped by study language, and catalog maintenance is a fourth
 principal destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md). ADRs
@@ -147,9 +148,10 @@ These objects remain important, but they do not define principal navigation:
 - **Study language** — a distinct normalized language tag of the owner's active
   chosen-language Books; it defines known-vocabulary language context and is
   derived rather than selected in Settings.
-- **Active study language** — the one study language the learner is currently
-  working in; a stored selection pointing into the derived set that scopes every
-  language-dependent surface ([ADR 0050](../adr/0050-active-study-language.md)).
+- **Active study language** — the study language of the per-language page in
+  view, named by its address ([ADR 0131](../adr/0131-the-url-carries-the-study-language.md)).
+  The **Last study language** is the one most recently viewed; it only resolves
+  addresses and links without a language.
 - **Language lens** — historical terminology for the retired panel proposed by
   [ADR 0042](../adr/0042-derived-language-corpus-view.md). It is not a current
   object or learner-facing surface; [ADR 0057](../adr/0057-retire-language-view-panel.md)
@@ -267,8 +269,8 @@ The shipped application uses `/library` for My Books and `/reading` for Reading.
 former `/journey/{bookID}` URL is a compatibility bookmark: after the same owner,
 language, membership, and current-evidence checks, it redirects to the
 corresponding `/reading` Book anchor and is a supported old-language request when
-the Book's language is not the active one: it recovers to My Books with the
-*Your study language changed* notice (ADR 0086) instead of switching language.
+the Book's language is not the Last study language: it redirects to Reading in
+the Book's own language (ADR 0131).
 Historical artifacts remain supporting records.
 The application does not present a duplicate Book-detail, analysis-result, queue,
 campaign, or plan surface.
@@ -517,14 +519,12 @@ Books.
     removed from primary navigation.
     Any future change to the derived-language source or Vocabulary's destination
     must return to this checkpoint.
-11. **Active study language mode** is resolved by
-    [ADR 0050](../adr/0050-active-study-language.md): one stored selection
-    pointing into the derived set scopes My Books, Reading, and Vocabulary.
-    Supported old-language requests (including an explicit `?language=` that is not
-    the active language) recover to My Books per
-    [ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md);
-    there is no one-request language selector. The "All languages" pill and per-row
-    language tags are removed; a shell-level native switcher carries the mode;
+11. **The study language** is carried by the address, per
+    [ADR 0131](../adr/0131-the-url-carries-the-study-language.md): My Books,
+    Reading, and Vocabulary live under `/{language}/…`, and the Last study
+    language only resolves unprefixed addresses and navigation links. There is
+    no one-request language selector. The "All languages" pill and per-row
+    language tags are removed; a shell-level native switcher navigates between languages;
     new languages arrive passively; Books without a chosen language are not
     listed in My Books.
 12. **Historical per-language Journey and Goal** are recorded by

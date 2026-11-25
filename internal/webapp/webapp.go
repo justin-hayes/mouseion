@@ -12,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
@@ -358,7 +357,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.perLanguage(pageKindVocabulary, h.vocabularyConcordancePage)
 	h.perLanguage(pageKindConcordance, h.vocabularyConcordancePage)
 	h.perLanguage(pageKindSentenceStudy, h.vocabularySentenceStudyPage)
-	h.mux.Handle("POST /active-study-language", h.user(http.HandlerFunc(h.activeStudyLanguage)))
 	h.mux.Handle("GET /study-language", h.user(http.HandlerFunc(h.studyLanguageSwitch)))
 	return h, nil
 }
@@ -402,13 +400,13 @@ func render(w http.ResponseWriter, r *http.Request, component interface {
 }
 func (h *Handler) csrf(w http.ResponseWriter, r *http.Request) string {
 	if c, err := r.Cookie(csrfCookie); err == nil && len(c.Value) >= 32 {
-		return languageBoundCSRFToken(r.Context(), c.Value)
+		return c.Value
 	}
 	token := h.rotateCSRF(w, r)
 	if token == "" {
 		return ""
 	}
-	return languageBoundCSRFToken(r.Context(), token)
+	return token
 }
 func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 	b := make([]byte, 32)
@@ -424,21 +422,10 @@ func (h *Handler) rotateCSRF(w http.ResponseWriter, r *http.Request) string {
 }
 
 // checkCSRF authorizes a mutation. The URL, or the Book a Book-addressed action
-// names, is the language (ADR 0131), so a form's language suffix is parsed but
-// no longer compared with the Last study language.
+// names, carries the language (ADR 0131); the token is the bare secret.
 func (h *Handler) checkCSRF(w http.ResponseWriter, r *http.Request) bool {
-	return h.verifyCSRFToken(w, r)
-}
-
-// checkCSRFAnyLanguage authorizes language-agnostic mutations, such as the
-// deliberate language change itself, sign-out, and catalog management.
-func (h *Handler) checkCSRFAnyLanguage(w http.ResponseWriter, r *http.Request) bool {
-	return h.verifyCSRFToken(w, r)
-}
-
-func (h *Handler) verifyCSRFToken(w http.ResponseWriter, r *http.Request) bool {
 	c, err := r.Cookie(csrfCookie)
-	token, _, _ := strings.Cut(r.FormValue("csrf_token"), csrfLanguageSeparator)
+	token := r.FormValue("csrf_token")
 	if err != nil || token == "" || subtle.ConstantTimeCompare([]byte(c.Value), []byte(token)) != 1 {
 		http.Error(w, "invalid CSRF token", http.StatusForbidden)
 		return false

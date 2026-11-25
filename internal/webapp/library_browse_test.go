@@ -285,7 +285,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.Equal(t, 50, store.offset)
 	legacy := request("/library?language=it&q=Dampf")
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
-	assert.Equal(t, "/it/library?q=Dampf", legacy.Header().Get("Location"), "a legacy language query redirects to the prefixed form")
+	assert.Equal(t, "/de/library?q=Dampf", legacy.Header().Get("Location"), "a legacy language query is dropped, not honoured")
 	partialRequest := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		r.Header.Set("Hx-Request-Type", "partial")
@@ -298,7 +298,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	}
 	partialLegacy := partialRequest("/library?language=it&q=Dampf")
 	assert.Equal(t, http.StatusOK, partialLegacy.Code)
-	assert.Equal(t, "/it/library?q=Dampf", partialLegacy.Header().Get("Hx-Redirect"))
+	assert.Equal(t, "/de/library?q=Dampf", partialLegacy.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialLegacy.Header().Get("Location"))
 	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library?q=Dampf", nil)
 	htmxRequest.Header.Set("Hx-Request-Type", "partial")

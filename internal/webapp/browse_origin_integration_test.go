@@ -238,7 +238,6 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	})
 
 	t.Run("a language mismatch takes precedence and mutates nothing", func(t *testing.T) {
-		require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "it"))
 		// The origin is validated against the URL's language: German's origin
 		// under the Italian URL restores nothing.
 		other := get(strings.Replace(back, "/de/reading", "/it/reading", 1))
@@ -246,7 +245,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, other.Body.String(), `id="vocabulary-workflow"`)
 		stored, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)
-		assert.Equal(t, "it", stored, "recovery never switches the selection back")
+		assert.Equal(t, "de", stored, "a refused request never records its language as the Last study language")
 		// Concordance names its language in the URL, so the page renders in it
 		// and the visit records it as the Last study language (ADR 0131).
 		response := get(concordanceHref)
