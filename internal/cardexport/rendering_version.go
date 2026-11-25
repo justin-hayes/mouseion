@@ -11,7 +11,9 @@ const (
 	// Version 6 adds the frozen idiom matched spans, anchor identity and
 	// dictionary or reviewed-list provenance (ADR 0114). Version 7 lets a frozen
 	// item record several dictionary entry IDs, joined, for the Lewis & Short
-	// entries of a Latin card (ADR 0133).
+	// entries of a Latin card (ADR 0133); the frozen block also carries the
+	// target outline of a resolved cross-reference. Latin ships with this spec, so
+	// that frozen shape is part of version 7 and needs no further bump.
 	RenderInputVersion = 7
 	// PresentationVersion identifies the current card presentation contract.
 	// Version 6 adds the hierarchical dictionary-entry block to the card back
