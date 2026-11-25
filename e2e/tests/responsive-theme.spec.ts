@@ -281,7 +281,7 @@ test.describe('responsive and theme regression coverage', () => {
       await noScriptPage.getByLabel('Password').fill('fixture-password');
       await noScriptPage.getByRole('button', { name: 'Sign in' }).click();
       await expect(noScriptPage).toHaveURL(/\/library/);
-      await noScriptPage.goto('/catalogs');
+      await noScriptPage.goto('/library');
       await expect(noScriptPage.getByLabel('Study language')).toBeVisible();
       await expect(noScriptPage.getByRole('button', { name: 'Switch language' })).toBeVisible();
       await noScriptPage.getByLabel('Study language').selectOption('it');
@@ -597,12 +597,18 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(destinations).toHaveCount(4);
       await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
-      await expect(navigation.getByLabel('Study language')).toBeVisible();
+      if (path === '/catalogs') {
+        // ADR 0129: the Catalog's Language filter is its only language control.
+        await expect(navigation.getByLabel('Study language')).toHaveCount(0);
+      } else {
+        await expect(navigation.getByLabel('Study language')).toBeVisible();
+      }
 
       const geometry = await page.locator('.site-header').evaluate(header => {
         const brand = header.querySelector('.site-header__brand')!.getBoundingClientRect();
         const tools = header.querySelector('.site-header__tools')!.getBoundingClientRect();
-        const language = header.querySelector('.site-header__language')!.getBoundingClientRect();
+        const languageElement = header.querySelector('.site-header__language');
+        const language = languageElement ? languageElement.getBoundingClientRect() : tools;
         const account = header.querySelector('.site-header__account summary')!.getBoundingClientRect();
         const links = header.querySelector('.site-header__navigation')!.getBoundingClientRect();
         return { height: header.getBoundingClientRect().height, brandTop: brand.top, brandBottom: brand.bottom, toolsTop: tools.top, toolsBottom: tools.bottom, languageTop: language.top, languageBottom: language.bottom, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };

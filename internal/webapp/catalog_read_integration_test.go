@@ -24,7 +24,7 @@ func (f catalogueAddFixture) previouslyRead(t *testing.T) *httptest.ResponseReco
 }
 
 func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
-	fixture := newCatalogueAddFixture(t, false)
+	fixture := newCatalogueAddFixture(t)
 	ctx := context.Background()
 	_, err := fixture.store.PutKnownVocabulary(ctx, fixture.owner.ID, "de", "Haus", "NOUN")
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
 }
 
 func TestCataloguePreviouslyReadRestoresTheSameBookAsRead(t *testing.T) {
-	fixture := newCatalogueAddFixture(t, false)
+	fixture := newCatalogueAddFixture(t)
 	ctx := context.Background()
 	added, err := fixture.store.AddCatalogueEntry(ctx, fixture.owner.ID, fixture.connection.ID, "add-entry")
 	require.NoError(t, err)

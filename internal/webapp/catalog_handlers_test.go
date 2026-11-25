@@ -1045,3 +1045,38 @@ func TestCatalogSearchNeverReadsAnOpdsServer(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Über die Berge")
 }
+
+func TestCatalogAndManageSourcesOmitTheShellStudyLanguagePicker(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	for _, path := range []string{"/catalogs", "/catalogs/sources"} {
+		body := catalogPage(t, h, cookies, path).Body.String()
+		assert.NotContains(t, body, `id="active-study-language"`, "%s shows the shell Study language picker", path)
+		assert.NotContains(t, body, `action="/active-study-language"`, "%s posts a study-language switch", path)
+		assert.Contains(t, body, `class="site-header__account"`, "%s keeps the account menu", path)
+	}
+	catalog := catalogPage(t, h, cookies, "/catalogs").Body.String()
+	assert.Contains(t, catalog, `<select id="catalog-language-filter" name="language">`, "the Language filter is the Catalog's language control")
+
+	reading := catalogPage(t, h, cookies, "/reading").Body.String()
+	assert.Contains(t, reading, `id="active-study-language"`, "other pages keep the picker")
+}
+
+func TestCatalogLanguageFilterAlwaysOffersAncientGreekAndGatesTheClassicalSection(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	german := catalogPage(t, h, cookies, "/catalogs?language=de").Body.String()
+	assert.Contains(t, german, `<option value="grc"`, "Ancient Greek is offered whatever the learner reads")
+	assert.NotContains(t, german, `id="catalog-source-classical"`, "the Classical section is hidden for another language")
+
+	greek := catalogPage(t, h, cookies, "/catalogs?language=grc").Body.String()
+	assert.Contains(t, greek, `id="catalog-source-classical"`)
+	assert.Contains(t, greek, `<option value="grc" selected`)
+
+	all := catalogPage(t, h, cookies, "/catalogs?language=").Body.String()
+	assert.Contains(t, all, `id="catalog-source-classical"`)
+}
