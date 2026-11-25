@@ -17,6 +17,10 @@ import (
 // sourceDocument is the parsed oga_src CoNLL-U file, before the citation cut.
 type sourceDocument struct {
 	sentences []sourceSentence
+	// latin marks a document read from Opera Latina Adnotata. It selects the
+	// Latin lemma, feature, spacing and part-of-speech rules; the zero value is
+	// the Greek oga_src dialect.
+	latin bool
 }
 
 // sourceSentence is one sentence with its source header and tokens.
@@ -265,7 +269,7 @@ const uposProperName = "PROPN"
 // the whole parsed document; every other rule applies to the included tokens.
 func interpret(doc *sourceDocument, definition domain.ReadingUnitDefinition, unitID string) (interpretation, error) {
 	profile, err := canonicalization.For(definition.Language)
-	if err != nil {
+	if err != nil || doc.latin != (definition.Language == classical.LanguageLatin) {
 		return interpretation{}, &ImportError{Code: CodeUnknownInterpret, Detail: "no canonicalization profile"}
 	}
 	start, ok := parseCitation(definition.CitationStart)
@@ -280,7 +284,7 @@ func interpret(doc *sourceDocument, definition domain.ReadingUnitDefinition, uni
 		return interpretation{}, err
 	}
 	names := properNameStats(doc, profile)
-	state := newInterpretState(definition, unitID)
+	state := newInterpretState(definition, unitID, doc.latin, profile)
 	for _, sentence := range doc.sentences {
 		if err := state.addSentence(sentence, profile, names, start, end); err != nil {
 			return interpretation{}, err
@@ -292,6 +296,7 @@ func interpret(doc *sourceDocument, definition domain.ReadingUnitDefinition, uni
 // interpretState accumulates the cut, rebuilt sentences and report counts.
 type interpretState struct {
 	unitID      string
+	latin       bool
 	full        []rune
 	result      analyzer.Result
 	report      ImportReport
@@ -302,9 +307,16 @@ type interpretState struct {
 	sources     []SentenceSource
 }
 
-func newInterpretState(definition domain.ReadingUnitDefinition, unitID string) *interpretState {
+func newInterpretState(definition domain.ReadingUnitDefinition, unitID string, latin bool, profile canonicalization.Profile) *interpretState {
+	normalization := analyzer.NormalizationProfile{Name: "ancient-greek", Version: "1"}
+	if latin {
+		// Latin records the active profile it normalized with, so the stored
+		// canonical lemma and its profile identity always agree.
+		normalization = analyzer.NormalizationProfile{Name: profile.Name(), Version: profile.Version()}
+	}
 	return &interpretState{
 		unitID: unitID,
+		latin:  latin,
 		result: analyzer.Result{
 			SchemaVersion: "1",
 			Language:      definition.Language,
@@ -312,7 +324,7 @@ func newInterpretState(definition domain.ReadingUnitDefinition, unitID string) *
 				AnalyzerName:    ImportAnalyzerName,
 				AnalyzerVersion: InterpretationVersion(definition),
 			},
-			NormalizationProfile: analyzer.NormalizationProfile{Name: "ancient-greek", Version: "1"},
+			NormalizationProfile: normalization,
 		},
 		unmapped:    map[FeatureValueCount]int{},
 		numbered:    map[string]struct{}{},
@@ -338,7 +350,7 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 	if crossing {
 		s.report.Crossings = append(s.report.Crossings, SentenceCrossing{UnitKey: s.unitID, Citations: sentenceCitations(sentence)})
 	}
-	relative := reconstruct(sentence)
+	relative := reconstructFor(sentence, s.latin)
 	if len(s.full) > 0 {
 		s.full = append(s.full, '\n')
 	}
@@ -394,14 +406,14 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 // buildToken maps one source token to a source-neutral token and records its
 // lemma-identity statistics.
 func (s *interpretState) buildToken(token sourceToken, profile canonicalization.Profile, names map[string]nameStat) (analyzer.Token, string, error) {
-	headword, discriminator := decodeLemma(token.lemma)
+	headword, discriminator := decodeLemmaFor(token.lemma, s.latin)
 	canonical := profile.Canonical(headword)
 	key := canonical + "\x00" + discriminator
 	upos, err := mapUPOS(token.pos, token.relation, names[key].isProperName())
 	if err != nil {
 		return analyzer.Token{}, "", err
 	}
-	morphology, skipped := mapFeatures(token.postag)
+	morphology, skipped := mapFeaturesFor(token.postag, s.latin)
 	for _, count := range skipped {
 		s.unmapped[count]++
 	}
@@ -497,7 +509,11 @@ type reconstructed struct {
 
 // reconstruct joins a sentence's printed tokens with single spaces, omitting the
 // space before a punctuation mark and dropping ellipsis tokens.
-func reconstruct(sentence sourceSentence) reconstructed {
+func reconstruct(sentence sourceSentence) reconstructed { return reconstructFor(sentence, false) }
+
+// reconstructFor is reconstruct with the spacing rule of the document's
+// language.
+func reconstructFor(sentence sourceSentence, latin bool) reconstructed {
 	kept := make([]sourceToken, 0, len(sentence.tokens))
 	ellipsis := 0
 	for _, token := range sentence.tokens {
@@ -510,7 +526,7 @@ func reconstruct(sentence sourceSentence) reconstructed {
 	var text []rune
 	spans := make([][2]int, len(kept))
 	for index, token := range kept {
-		if index > 0 && !noSpaceBefore(token.surface) {
+		if index > 0 && !noSpaceBeforeFor(token.surface, latin) {
 			text = append(text, ' ')
 		}
 		spans[index][0] = len(text)
@@ -536,7 +552,7 @@ func validateNativePOS(doc *sourceDocument) error {
 			if isEllipsis(token.pos) {
 				continue
 			}
-			if _, ok := nativePOSValues[token.pos]; !ok {
+			if _, ok := nativePOSValues[token.pos]; !ok && !(doc.latin && token.pos == "e") {
 				return &ImportError{Code: CodeUnknownPOS, Detail: asciiValue(token.pos)}
 			}
 		}
@@ -578,6 +594,9 @@ func mapUPOS(pos, relation string, properName bool) (string, error) {
 		return "INTJ", nil
 	case "u":
 		return "PUNCT", nil
+	case "e":
+		// Latin AGDT marks an exclamation with e.
+		return "INTJ", nil
 	case "x":
 		// x marks a real token (for example a numeral), not an ellipsis; it is
 		// kept and maps to UD X, which the eligible-POS set excludes.
@@ -634,6 +653,11 @@ var featureMappings = map[string]map[byte]string{
 // mapFeatures maps one token's postag to UD FEATS and reports every value the
 // mapping leaves out.
 func mapFeatures(postag string) (map[string]string, []FeatureValueCount) {
+	return mapFeaturesWith(postag, featureMappings)
+}
+
+// mapFeaturesWith is mapFeatures over an explicit value mapping.
+func mapFeaturesWith(postag string, mappings map[string]map[byte]string) (map[string]string, []FeatureValueCount) {
 	morphology := map[string]string{}
 	var unmapped []FeatureValueCount
 	for _, slot := range featureSlots {
@@ -641,7 +665,7 @@ func mapFeatures(postag string) (map[string]string, []FeatureValueCount) {
 		if value == '-' {
 			continue
 		}
-		mapped, ok := featureMappings[slot.feature][value]
+		mapped, ok := mappings[slot.feature][value]
 		switch {
 		case ok && mapped != "":
 			morphology[slot.feature] = mapped
@@ -715,7 +739,7 @@ func properNameStats(doc *sourceDocument, profile canonicalization.Profile) map[
 			if token.pos != "n" {
 				continue
 			}
-			headword, discriminator := decodeLemma(token.lemma)
+			headword, discriminator := decodeLemmaFor(token.lemma, doc.latin)
 			key := profile.Canonical(headword) + "\x00" + discriminator
 			recordName(stats, key, index == first, capitalized(token.surface))
 		}
