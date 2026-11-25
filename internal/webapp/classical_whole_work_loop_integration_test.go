@@ -13,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,6 +33,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	legacy := createAccount(t, h.ctx, h.store, "whole-work-legacy", "learner-password")
 	legacyCookies, legacyCSRF := loginCookies(t, h.handler, legacy.Username, "learner-password")
 	legacyBooks := make([]string, 0, 2)
+	legacyRuns := map[string]string{}
 	for _, key := range []string{loopTreatiseKey + "-1", loopTreatiseKey + "-2"} {
 		var definition classical.Definition
 		for _, candidate := range h.definitions {
@@ -49,6 +51,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 		})
 		require.NoError(t, err)
 		legacyBooks = append(legacyBooks, registration.BookID)
+		legacyRuns[registration.BookID] = h.seedLegacyAnalysis(t, legacy.ID, registration.BookID)
 	}
 
 	// The Work page is one Add and a read-only contents list, never per-book rows.
@@ -115,7 +118,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	// Books stay ordinary rows and the whole Work is a separate Book.
 	require.NoError(t, h.store.SetActiveStudyLanguage(h.ctx, legacy.ID, classical.Language))
 	before := countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue)
-	legacyAdd := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/"+loopTreatiseKey+"/add", url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
+	legacyAdd := perform(t, h.handler, http.MethodPost, addAction, url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
 	require.Equal(t, http.StatusSeeOther, legacyAdd.Code, legacyAdd.Body.String())
 	assert.Contains(t, legacyAdd.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
 	legacyOwned := h.booksByUnit(t, legacy.ID)
@@ -132,5 +135,44 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 		_, err := h.store.GetBookDetail(h.ctx, legacy.ID, id)
 		require.NoError(t, err, "the Book stays openable")
 	}
+	chooserPage := perform(t, h.handler, http.MethodGet, "/reading", nil, legacyCookies)
+	require.Equal(t, http.StatusOK, chooserPage.Code, chooserPage.Body.String())
+	for _, id := range legacyBooks {
+		assert.Contains(t, chooserPage.Body.String(), `action="/reading/books/`+id+`/start"`, "a legacy Book stays readable from the chooser")
+		analysisPage := perform(t, h.handler, http.MethodGet, "/books/"+id+"/analyses/"+legacyRuns[id], nil, legacyCookies)
+		assert.Equal(t, http.StatusSeeOther, analysisPage.Code, "a legacy Book's analysis stays reachable")
+		assert.Equal(t, "/reading#reading-chooser-book-"+id, analysisPage.Header().Get("Location"))
+	}
 	assert.NotContains(t, page.Body.String(), "Remove the work")
+}
+
+// seedLegacyAnalysis gives a registered per-book Book source content and a
+// published analysis, and puts it To Read, so its reading surface can be opened.
+func (h *classicalLoopHarness) seedLegacyAnalysis(t *testing.T, owner, bookID string) string {
+	t.Helper()
+	source, err := h.store.PutSourceMaterialWithExtractedUnits(h.ctx, domain.SourceMaterial{OwnerID: owner, Language: classical.Language, SourceIdentifier: "legacy-" + bookID, Title: "Legacy book", MediaType: "text/plain", Content: []byte("λόγος"), FullText: "λόγος"},
+		domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, "unit"), Order: 0, SpineIndex: 0, ManifestID: "unit", Text: "λόγος", EndOffset: 5}}})
+	require.NoError(t, err)
+	require.NoError(t, h.store.LinkSourceToBook(h.ctx, owner, bookID, source.ID))
+	handle, err := h.service.SubmitAnalysis(h.ctx, owner, source.ID)
+	require.NoError(t, err)
+	artifactHash := "sha256:legacy-" + bookID
+	_, err = h.pool.Exec(h.ctx, `INSERT INTO normalized_corpus_artifacts(content_hash,language,schema_version,normalization_profile,normalization_version,analyzer_name,analyzer_version) VALUES($1,$2,'1','casefold','1','fake','1')`, artifactHash, classical.Language)
+	require.NoError(t, err)
+	var corpusID string
+	require.NoError(t, h.pool.QueryRow(h.ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,analysis_run_id,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count) VALUES($1,$2,$3,$4,'complete',1,1,1,1,0,1,1,0) RETURNING id::text`, owner, source.ID, artifactHash, handle.RunID).Scan(&corpusID))
+	for _, statement := range []string{
+		`UPDATE analysis_runs SET state='completed',corpus_id=$2,completed_at=now(),updated_at=now() WHERE owner_id=$1 AND id=$3`,
+		`UPDATE analysis_jobs SET corpus_id=$2,progress=100,updated_at=now() WHERE owner_id=$1 AND analysis_run_id=$3`,
+	} {
+		_, err = h.pool.Exec(h.ctx, statement, owner, corpusID, handle.RunID)
+		require.NoError(t, err)
+	}
+	_, err = h.pool.Exec(h.ctx, `UPDATE analysis_run_attempts SET state='completed',finalized_at=now() WHERE run_id=$1`, handle.RunID)
+	require.NoError(t, err)
+	_, err = h.pool.Exec(h.ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, bookID, source.ID, handle.RunID)
+	require.NoError(t, err)
+	require.NoError(t, h.store.SetBookDisposition(h.ctx, owner, bookID, domain.BookDispositionToRead))
+	testutil.SeedCorpusWords(t, h.ctx, h.pool, owner, corpusID, classical.Language, testutil.CorpusWord{Lemma: "λόγοσ", UPOS: "NOUN", Occurrences: 1})
+	return handle.RunID
 }

@@ -346,24 +346,6 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
 }
 
-// addClassicalWork handles older forms. It can only add an unambiguous single
-// Edition; otherwise the learner must choose one on the Work page.
-func (h *Handler) addClassicalWork(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
-		return
-	}
-	work, ok := h.services.Classical.Work(r.PathValue("workKey"))
-	if !ok {
-		http.NotFound(w, r)
-		return
-	}
-	if len(work.Units) != 1 {
-		redirect(w, r, classicalWorkURL(work.Key))
-		return
-	}
-	h.addClassicalEdition(w, r, work.Key, work.Units[0].Key)
-}
-
 // addClassicalUnit adds one current Reading unit, normally a whole Edition.
 func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRFAnyLanguage(w, r) {

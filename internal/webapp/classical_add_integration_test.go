@@ -500,7 +500,7 @@ func TestClassicalCatalogWholeWorkAddIgnoresWithdrawnPerBookBooks(t *testing.T) 
 
 	removed := perform(t, h, "POST", "/library/books/"+leftovers.Books[0].BookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, removed.Code)
-	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("This edition or passage is no longer available to add from the Catalog."))
+	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("This Reading unit is no longer in the Catalog, so it can't be added back."))
 	require.NotContains(t, removed.Header().Get("Location"), url.QueryEscape("the Catalog can add it back"))
 
 	retried := perform(t, h, "POST", "/library/books/"+leftovers.Books[0].BookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)

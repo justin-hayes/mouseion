@@ -727,16 +727,10 @@ func TestClassicalAddRoutesRejectUnknownTargetsAndMissingCSRF(t *testing.T) {
 		services.Classical = catalogFixture(t)
 	})
 
-	unknownWork := readingTestRequest(t, h, "/catalogs/classical/works/no-such-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Equal(t, http.StatusNotFound, unknownWork.Code)
-
 	unknownUnit := readingTestRequest(t, h, "/catalogs/classical/units/no-such-unit/add", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusNotFound, unknownUnit.Code)
 
-	noWorkCSRF := readingTestRequest(t, h, "/catalogs/classical/works/homer-iliad/add", nil, cookies)
-	assert.Equal(t, http.StatusForbidden, noWorkCSRF.Code)
-
-	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad-1/add", nil, cookies)
+	noUnitCSRF := readingTestRequest(t, h, "/catalogs/classical/units/homer-iliad/add", nil, cookies)
 	assert.Equal(t, http.StatusForbidden, noUnitCSRF.Code)
 
 	unknownBook := catalogPage(t, h, cookies, "/catalogs/classical/books/no-such-book/in-my-books")

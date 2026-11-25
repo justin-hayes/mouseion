@@ -242,7 +242,7 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 	notice := "Removed from My Books. Its analysis, history and Known vocabulary are unchanged."
 	switch {
 	case book.ReadingUnit != nil && book.ReadingUnit.Withdrawn:
-		notice += " This edition or passage is no longer available to add from the Catalog."
+		notice += " This Reading unit is no longer in the Catalog, so it can't be added back."
 	case hasDetail:
 		notice += " The Catalog can add it back."
 	}

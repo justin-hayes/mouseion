@@ -68,7 +68,7 @@ test.describe('Remove from My Books', () => {
     await first.getByText('More actions', { exact: true }).click();
     await first.getByRole('button', { name: 'Remove from My Books', exact: true }).click();
     await expect(page).toHaveURL(/\/library\?.*message=/);
-    await expect(page.getByText(/This edition or passage is no longer available to add from the Catalog\./)).toBeVisible();
+    await expect(page.getByText(/This Reading unit is no longer in the Catalog, so it can't be added back\./)).toBeVisible();
     await expect(first).toHaveCount(0);
     await expect(second).toBeVisible();
 
