@@ -628,7 +628,7 @@ func (h *Handler) openCatalogBookInMyBooks(w http.ResponseWriter, r *http.Reques
 	h.openBookInMyBooks(w, r, bookID, false)
 }
 
-// openBookInMyBooks switches the active language and redirects to the row's
+// openBookInMyBooks redirects to the row's
 // visible bucket page. A classical Book must still carry its Reading unit; an
 // OPDS Book only needs an owned membership and a chosen language.
 func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, bookID string, requireReadingUnit bool) {

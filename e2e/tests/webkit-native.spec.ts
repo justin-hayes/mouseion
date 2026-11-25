@@ -57,7 +57,7 @@ async function expectConcordanceListSemantics(page: Page) {
 test.describe('native WebKit smoke journey', () => {
   test('markerless Book collections retain native list semantics after Preflight', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const books = page.locator('.library-books');
     await expect(books).toHaveAttribute('role', 'list');
     await expect(books.getByRole('listitem').first()).toBeVisible();
@@ -97,7 +97,7 @@ test.describe('native WebKit smoke journey', () => {
       await page.keyboard.press('Space');
       await expect(account).not.toHaveAttribute('open', '');
 
-      await page.goto('/library');
+      await page.goto('/de/library');
       await chooseStudyLanguage(page, 'de', true);
       await page.goto('/reading');
       const prefix = page.getByRole('searchbox', { name: 'Canonical lemma prefix' });
@@ -158,7 +158,7 @@ test.describe('native WebKit smoke journey', () => {
     expect(compactShell.destinations.top).toBeGreaterThanOrEqual(Math.max(compactShell.brand.bottom, compactShell.tools.bottom));
 
     const destinations = [
-      { name: 'My Books', href: '/library', active: '/library' },
+      { name: 'My Books', href: '/de/library', active: '/library' },
       { name: 'Reading', href: '/reading', active: '/reading' },
       { name: 'Vocabulary', href: '/vocabulary', active: '/vocabulary' },
       { name: 'Catalog', href: '/catalogs', active: '/catalogs' },
@@ -227,7 +227,7 @@ test.describe('native WebKit smoke journey', () => {
     await expectNoHorizontalOverflow(page);
     await expectMainWithinViewport(page);
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     await chooseStudyLanguage(page, 'de');
   });
 
@@ -312,7 +312,7 @@ test.describe('native WebKit smoke journey', () => {
     await signIn(page);
     const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentMarker: string }>;
     for (const destination of [
-      { name: 'My Books', path: '/library' },
+      { name: 'My Books', path: '/de/library' },
       { name: 'Reading', path: '/reading' },
       { name: 'Vocabulary', path: '/vocabulary' },
       { name: 'Catalog', path: '/catalogs' },
@@ -322,6 +322,16 @@ test.describe('native WebKit smoke journey', () => {
       const current = navigation.getByRole('link', { name: destination.name, exact: true });
       await expect(current).toHaveAttribute('aria-current', 'page');
       await expect(current).not.toHaveClass(/\bbtn\b/);
+      const currentStyle = await current.evaluate(link => {
+        const style = getComputedStyle(link);
+        return { background: style.backgroundColor, marker: style.boxShadow };
+      });
+      // The Catalog has no page language, so it carries no picker (ADR 0131).
+      if (destination.path === '/catalogs') {
+        await expect(page.getByLabel('Study language')).toHaveCount(0);
+        measurements.push({ destination: destination.name, ...measurements[0], currentBackground: currentStyle.background, currentMarker: currentStyle.marker });
+        continue;
+      }
       const style = await page.getByLabel('Study language').evaluate(select => {
         const label = select.closest('label')!;
         const labelStyle = getComputedStyle(label);
@@ -333,10 +343,6 @@ test.describe('native WebKit smoke journey', () => {
           selectHeight: rect.height,
           selectRadius: selectStyle.borderRadius,
         };
-      });
-      const currentStyle = await current.evaluate(link => {
-        const style = getComputedStyle(link);
-        return { background: style.backgroundColor, marker: style.boxShadow };
       });
       measurements.push({ destination: destination.name, ...style, currentBackground: currentStyle.background, currentMarker: currentStyle.marker });
     }
@@ -554,7 +560,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(confirmation).not.toHaveAttribute('open', '');
       await expectNoHorizontalOverflow(page);
 
-      await page.goto('/library');
+      await page.goto('/de/library');
       await chooseStudyLanguage(page, 'de', true);
       await expect(page.getByLabel('Study language')).toHaveValue('de');
     } finally {

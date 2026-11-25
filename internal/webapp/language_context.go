@@ -25,15 +25,7 @@ func languageBoundCSRFToken(ctx context.Context, token string) string {
 	if view == nil {
 		return token
 	}
-	return token + csrfLanguageSeparator + canonicalization.NormalizeLanguage(view.ActiveLanguage)
-}
-
-func formLanguageIsActive(ctx context.Context, formLanguage string) bool {
-	view := shellViewFromContext(ctx)
-	if view == nil {
-		return true
-	}
-	return canonicalization.NormalizeLanguage(formLanguage) == canonicalization.NormalizeLanguage(view.ActiveLanguage)
+	return token + csrfLanguageSeparator + canonicalization.NormalizeLanguage(view.pageLanguage())
 }
 
 func languageChangedPath() string {
@@ -47,7 +39,9 @@ func redirectLanguageChanged(w http.ResponseWriter, r *http.Request) {
 // languageScopedPath reports whether a GET names study-language-scoped state
 // whose language identity must agree with the active study language.
 func languageScopedPath(path string) bool {
-	for _, prefix := range []string{"/library", "/reading", "/vocabulary"} {
+	// My Books carries its language in the URL; the others still follow the
+	// stored language until their own tickets move them.
+	for _, prefix := range []string{"/reading", "/vocabulary"} {
 		if path == prefix || strings.HasPrefix(path, prefix+"/") {
 			return true
 		}

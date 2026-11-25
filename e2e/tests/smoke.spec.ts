@@ -9,11 +9,11 @@ async function signIn(page: Page) {
 }
 
 async function setStudyLanguage(page: Page, language: string) {
-  await page.goto('/library');
+  await page.goto('/de/library');
   const switcher = page.getByLabel('Study language');
   if (await switcher.inputValue() !== language) {
     await switcher.selectOption(language);
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(new RegExp(`/${language}/library$`));
   }
 }
 
@@ -34,7 +34,7 @@ test.describe('authenticated learner smoke', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
   test('expired enhanced action signs in and returns without exposing the raw failure', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     await page.getByLabel('Search My Books').fill('retry after sign in');
 
     await page.context().clearCookies();
@@ -46,7 +46,7 @@ test.describe('authenticated learner smoke', () => {
 
     await expect(page).toHaveURL(/\/login\?/);
     await expect.poll(() => new URL(page.url()).searchParams.get('next'))
-      .toBe('/library?disposition=to_read&q=retry+after+sign+in');
+      .toBe('/de/library?disposition=to_read&q=retry+after+sign+in');
     await expect(page.getByRole('heading', { name: /sign in|log in/i })).toBeVisible();
     await page.getByLabel('Username').fill('fixture-learner');
     await page.getByLabel('Password').fill('fixture-password');
@@ -57,7 +57,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('expired enhanced My Books mutation explains that it was not completed', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const csrf = await page.locator('input[name="csrf_token"]').first().inputValue();
     await page.evaluate(token => {
       const form = document.createElement('form');
@@ -109,7 +109,7 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('active study language persists and marks new and no-book languages', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     await expect(switcher).toHaveValue('de');
     const initialNewLanguageOption = switcher.locator('option').filter({ hasText: '(new)' });
@@ -123,7 +123,7 @@ test.describe('authenticated learner smoke', () => {
     await page.goto('/catalogs');
     await page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
     await expect(page).toHaveURL(/\/catalogs\?message=/);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const arrivedNewLanguageOption = page.getByLabel('Study language').locator('option').filter({ hasText: '(new)' });
     await expect(arrivedNewLanguageOption).toHaveCount(1);
     const arrivedNewLanguage = await arrivedNewLanguageOption.getAttribute('value');
@@ -134,19 +134,19 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.getByLabel('Study language')).toHaveValue('de');
 
     await switcher.selectOption('it');
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/it\/library$/);
     await page.goto('/reading');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page.locator('main h1')).toHaveCount(1);
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/fr\/library$/);
     await page.goto('/reading');
     await expect(page.getByRole('heading', { name: 'Choose a To Read book in fr', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Browse My Books', exact: true })).toBeVisible();
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/de\/library$/);
     await page.goto('/reading');
     await expect(page.locator('main h1')).toHaveCount(1);
 
@@ -817,17 +817,17 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const response = await page.goto('/books/fixture-metadata-only');
     expect(response?.status()).toBe(404);
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     await expect(page.getByText('Add a book')).toHaveCount(0);
     await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) })).toHaveCount(0);
   });
 
   test('exact analysis result redirects to the Reading Journey anchor', async ({ page }) => {
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') {
       await switcher.selectOption('de');
-      await expect(page).toHaveURL(/\/library$/);
+      await expect(page).toHaveURL(/\/de\/library$/);
     }
     await page.goto('/books/fixture-book/analyses/fixture-run');
     await expect(page).toHaveURL('/reading#journey-book-fixture-book');
@@ -880,7 +880,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
   test('acquisition, Reading Journey, Vocabulary, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/catalogs');
     await expect(page.locator('#source-status-fixture-connection')).toContainText('Fixture catalog');
-    await page.goto('/library');
+    await page.goto('/de/library');
     const libraryLanguage = page.getByLabel('Study language');
     if (await libraryLanguage.inputValue() !== 'de') await libraryLanguage.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
@@ -926,7 +926,7 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page).toHaveURL(/\/library(?:\?|$)/);
     await page.goto('/reading');
     await expect(page.getByText(/active study language.*de/)).toBeVisible();
-    await page.goto('/library');
+    await page.goto('/de/library');
     const primaryNavigation = page.locator('nav.site-header__nav');
     await expect(primaryNavigation.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);
     await page.goto('/settings');

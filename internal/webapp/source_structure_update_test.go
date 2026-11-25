@@ -79,7 +79,7 @@ func TestCurrentReadingCanAdoptSourceStructureWithoutLosingEvidence(t *testing.T
 	sourceID := fixtureSourceID(t, store, fixtures.BookID)
 	handler.services.SourceStructures = &fakeSourceStructures{offers: map[string]domain.SourceStructureUpdateCandidate{sourceID: structureUpdateCandidate()}}
 
-	body := readingGet(t, h, "/library", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A source structure update is available.")
 	assert.Contains(t, body, "Your active Reading keeps its exact current evidence, Reserved vocabulary and prepared deck; new evidence needs End, restart and re-preparation.")
 	assert.Contains(t, body, "Confirm source structure update", "the current Reading may adopt; its own evidence stays pinned")

@@ -10,7 +10,7 @@ async function signIn(page: Page) {
   const switcher = page.getByLabel('Study language');
   if (await switcher.inputValue() !== 'de') {
     await switcher.selectOption('de');
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/de\/library$/);
   }
 }
 
@@ -22,7 +22,7 @@ async function openSupportingDetails(page: Page) {
 }
 
 const representativePages: Array<[string, RegExp]> = [
-  ['/library', /My Books/],
+  ['/de/library', /My Books/],
   ['/reading#journey-book-fixture-book', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
@@ -80,7 +80,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.route(/\.woff2(?:\?|$)/, (route) => route.abort());
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/library');
+    await page.goto('/de/library');
 
     const header = page.locator('.site-header');
     const language = page.getByLabel('Study language');
@@ -281,12 +281,12 @@ test.describe('responsive and theme regression coverage', () => {
       await noScriptPage.getByLabel('Password').fill('fixture-password');
       await noScriptPage.getByRole('button', { name: 'Sign in' }).click();
       await expect(noScriptPage).toHaveURL(/\/library/);
-      await noScriptPage.goto('/catalogs');
+      await noScriptPage.goto('/de/library');
       await expect(noScriptPage.getByLabel('Study language')).toBeVisible();
       await expect(noScriptPage.getByRole('button', { name: 'Switch language' })).toBeVisible();
       await noScriptPage.getByLabel('Study language').selectOption('it');
       await noScriptPage.getByRole('button', { name: 'Switch language' }).click();
-      await expect(noScriptPage).toHaveURL(/\/library$/);
+      await expect(noScriptPage).toHaveURL(/\/it\/library$/);
       await expect(noScriptPage.getByLabel('Study language')).toHaveValue('it');
       await noScriptPage.locator('.site-header__account summary').click();
       await expect(noScriptPage.getByRole('button', { name: 'Log out' })).toBeVisible();
@@ -298,7 +298,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('Reading uses Mouseion-owned styling for the current Book and unordered chooser', async ({ page }) => {
     await signIn(page);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/de\/library$/);
 
     await page.goto('/reading');
     await expect(page.locator('#primary-goal-section')).toBeVisible();
@@ -345,9 +345,9 @@ test.describe('responsive and theme regression coverage', () => {
       expect(summary.height).toBeGreaterThanOrEqual(44);
     }
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     await page.getByLabel('Study language').selectOption('it');
-    await expect(page).toHaveURL(/\/library$/);
+    await expect(page).toHaveURL(/\/it\/library$/);
     // Italian has no current Book, so its unassessed To Read titles are chooser
     // entries rather than Reading rows.
     await page.goto('/reading/switch');
@@ -513,7 +513,7 @@ test.describe('responsive and theme regression coverage', () => {
     expect(skipTop).toBeGreaterThanOrEqual(0);
 
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
@@ -559,7 +559,7 @@ test.describe('responsive and theme regression coverage', () => {
     await secondaryAction.hover();
     expect(await textContrast(secondaryAction)).toBeGreaterThanOrEqual(4.5);
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     const activeNavigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
@@ -584,7 +584,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
 
     for (const [path, current] of [
-      ['/library', 'My Books'],
+      ['/de/library', 'My Books'],
       ['/reading', 'Reading'],
       ['/vocabulary', 'Vocabulary'],
       ['/catalogs', 'Catalog'],
@@ -597,15 +597,17 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(destinations).toHaveCount(4);
       await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
-      await expect(navigation.getByLabel('Study language')).toBeVisible();
+      // The Catalog has no page language, so it carries no picker (ADR 0131).
+      if (path === '/catalogs') await expect(navigation.getByLabel('Study language')).toHaveCount(0);
+      else await expect(navigation.getByLabel('Study language')).toBeVisible();
 
       const geometry = await page.locator('.site-header').evaluate(header => {
         const brand = header.querySelector('.site-header__brand')!.getBoundingClientRect();
         const tools = header.querySelector('.site-header__tools')!.getBoundingClientRect();
-        const language = header.querySelector('.site-header__language')!.getBoundingClientRect();
+        const language = header.querySelector('.site-header__language')?.getBoundingClientRect() ?? null;
         const account = header.querySelector('.site-header__account summary')!.getBoundingClientRect();
         const links = header.querySelector('.site-header__navigation')!.getBoundingClientRect();
-        return { height: header.getBoundingClientRect().height, brandTop: brand.top, brandBottom: brand.bottom, toolsTop: tools.top, toolsBottom: tools.bottom, languageTop: language.top, languageBottom: language.bottom, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
+        return { height: header.getBoundingClientRect().height, brandTop: brand.top, brandBottom: brand.bottom, toolsTop: tools.top, toolsBottom: tools.bottom, languageTop: language?.top ?? 0, languageBottom: language?.bottom ?? Infinity, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
       });
       expect(geometry.height).toBeLessThan(302);
       expect(Math.abs(geometry.brandTop - geometry.toolsTop)).toBeLessThan(2);
@@ -658,7 +660,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
 
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/library');
+    await page.goto('/de/library');
     await page.evaluate(() => {
       document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
     });
@@ -806,11 +808,11 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible();
       if (test.info().project.name.startsWith('compact')) await expectNoPageOverflow(page);
     }
-    await page.goto('/library');
+    await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') {
       await switcher.selectOption('de');
-      await expect(page).toHaveURL(/\/library$/);
+      await expect(page).toHaveURL(/\/de\/library$/);
     }
     await expect(page.locator('.library-books .library-book__identity-link[href="/reading#journey-book-fixture-book"]')).toBeVisible();
     await expect(page.locator('.library-books a[href="/books/fixture-failed"]')).toHaveCount(0);
@@ -833,9 +835,9 @@ test.describe('responsive and theme regression coverage', () => {
     if (test.info().project.name.startsWith('compact')) {
       // The Italian Journey retains the long-title content for narrow-layout
       // coverage without relying on the retired unassessed Book page.
-      await page.goto('/library');
+      await page.goto('/de/library');
       await page.getByLabel('Study language').selectOption('it');
-      await expect(page).toHaveURL(/\/library$/);
+      await expect(page).toHaveURL(/\/it\/library$/);
       // Italian has no current Book, so its unassessed titles are chooser entries.
       await page.goto('/reading/switch');
       await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
@@ -1012,7 +1014,7 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     // Completed-analysis result URLs redirect to the canonical Reading anchor;
     // exercise the shared semantic status shapes on their current My Books surface.
-    await page.goto('/library');
+    await page.goto('/de/library');
     const semantics = await page.locator('.status-badge').evaluateAll((nodes) => nodes.map((node) => ({
       text: node.textContent?.trim(), color: getComputedStyle(node).color, border: getComputedStyle(node).borderTopColor,
     })));

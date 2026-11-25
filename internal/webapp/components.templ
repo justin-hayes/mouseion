@@ -161,13 +161,15 @@ templ OperationalJobMetadata(identityLabel, identity string, createdAt time.Time
 	</dl>
 }
 
-templ ActiveStudyLanguageSwitcher(view *shellView, csrf string) {
-	if view != nil && len(view.Options) > 0 {
-		<form class="site-header__language" method="post" action="/active-study-language"><input type="hidden" name="csrf_token" value={ csrf }/><label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language" name="language" required onchange="this.form.submit()">if view.ActiveLanguage == "" {
+templ ActiveStudyLanguageSwitcher(view *shellView, context NavigationContext) {
+	if showStudyLanguagePicker(view, context) {
+		<form class="site-header__language" method="get" action="/study-language">if view.PageKind != "" {
+			<input type="hidden" name="to" value={ string(view.PageKind) }/>
+		}<label for="active-study-language"><span class="site-header__language-label">Study language</span><select id="active-study-language" name="lang" required onchange="this.form.submit()">if view.pageLanguage() == "" {
 			<option value="" disabled selected>Choose a study language</option>
 		}
 			for _, option := range view.Options {
-				<option value={ option.Language } selected?={ view.ActiveLanguage == option.Language }>{ activeStudyLanguageLabel(option) }</option>
+				<option value={ option.Language } selected?={ view.pageLanguage() == option.Language }>{ activeStudyLanguageLabel(option) }</option>
 			}
 		</select></label><noscript><button class="btn btn-primary" type="submit">Switch language</button></noscript></form>
 	}

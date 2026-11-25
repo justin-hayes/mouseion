@@ -65,7 +65,7 @@ test.describe('catalog sources and browsing', () => {
 
   test('Sync now maintains the Catalog index without adding Books', async ({ page }) => {
     await signIn(page);
-    await page.goto('/library');
+    await page.goto('/de/library');
     const before = await page.locator('.library-books > li.library-book').count();
     expect(before).toBeGreaterThan(0);
 
@@ -73,9 +73,9 @@ test.describe('catalog sources and browsing', () => {
     await page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
     await expect(page).toHaveURL(/\/catalogs\?/);
 
-    await page.goto('/library');
+    await page.goto('/de/library');
     await expect(page.locator('.library-books > li.library-book')).toHaveCount(before);
-    const retired = await page.goto('/library?needs-language');
+    const retired = await page.goto('/de/library?needs-language');
     expect(retired?.status()).toBe(404);
   });
 

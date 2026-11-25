@@ -58,6 +58,9 @@ func readingGet(t *testing.T, h http.Handler, path string, cookies []*http.Cooki
 	}
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
+	if location, ok := prefixedMyBooksRedirect(path, response); ok {
+		return readingGet(t, h, location, cookies)
+	}
 	require.Equal(t, http.StatusOK, response.Code)
 	return response.Body.String()
 }
@@ -106,7 +109,7 @@ func TestMyBooksTellsTheCurrentReadingToEndFirst(t *testing.T) {
 	sourceID := fixtureSourceID(t, store, fixtures.BookID)
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: map[string]domain.AnalysisUpdateCandidate{sourceID: {PublishedRunID: "published-run", Target: testUpdateTarget}}}
 
-	body := readingGet(t, h, "/library", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A newer analysis is available.")
 	assert.Contains(t, body, "End the Reading first")
 	assert.NotContains(t, body, "Confirm analysis update", "the current Reading's Book is offered no submit")
@@ -120,7 +123,7 @@ func TestMyBooksOffersTheUpdateOnTheToReadLifecycleCard(t *testing.T) {
 	sourceID := fixtureSourceID(t, store, fixtures.BookID)
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: map[string]domain.AnalysisUpdateCandidate{sourceID: {PublishedRunID: "published-run", Target: testUpdateTarget}}}
 
-	body := readingGet(t, h, "/library", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A newer analysis is available.")
 	assert.Contains(t, body, "You have no confirmed lemma corrections or occurrence exclusions on it.")
 	assert.Contains(t, body, `action="/reading/books/`+fixtures.BookID+`/analysis-update"`)
