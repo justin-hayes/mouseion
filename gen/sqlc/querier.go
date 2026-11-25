@@ -629,8 +629,10 @@ type Querier interface {
 	// day and never answered is introduced afresh, new and due now. A word that
 	// was answered, withdrawn or introduced today returns no row.
 	TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudyWordParams) (StudyProgress, error)
-	// Records one batch taken on the Study day, unless the day's batches are all
-	// answered. No row means none is left.
+	// Records one batch taken on the Study day under the limit on distinct batches
+	// offered. A batch declined earlier is taken in place of the declined one and
+	// consumes no other. No row means none is left. Mirrors
+	// domain.StudyBatchLedger.Take.
 	TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error)
 	TransitionBookDisposition(ctx context.Context, arg TransitionBookDispositionParams) (int64, error)
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)

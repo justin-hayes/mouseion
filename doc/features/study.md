@@ -1,6 +1,6 @@
 # Study
 
-Status: **Accepted; pilot not yet implemented** · Date: 2026-11-25 · Decisions:
+Status: **Accepted; implemented in the pilot** · Date: 2026-11-25 · Decisions:
 [ADR 0134](../adr/0134-study-in-mouseion-vocabulary-review.md),
 [ADR 0133](../adr/0133-per-language-card-policy.md)
 

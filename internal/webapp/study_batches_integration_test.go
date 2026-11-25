@@ -262,7 +262,12 @@ func TestStudyAStaleDeclineIsIgnored(t *testing.T) {
 
 	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"2"}})
 	assert.Equal(t, 1, s.ledger().Declined)
-	assert.NotContains(t, s.page(), "Take these words")
+	page := s.page()
+	assert.NotContains(t, page, "Not today", "Today offers no further decline")
+	assert.Contains(t, page, "Take these words", "the batch stays takeable from inside Fluency")
+
+	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"3"}})
+	assert.Equal(t, 1, s.ledger().Declined, "a decline once Today has stopped offering changes nothing")
 }
 
 func TestStudyTakingABatchPreparesTheNextWordsAhead(t *testing.T) {
@@ -303,4 +308,41 @@ func TestStudyShortBatchSaysNewWordsAreStillBeingPrepared(t *testing.T) {
 	assert.Contains(t, page, "2 new words are ready to learn.")
 	assert.Contains(t, page, `id="study-short-batch"`)
 	assert.Contains(t, page, "still being prepared")
+}
+
+func TestStudyADeclinedBatchTakenFromFluencyConsumesNoOtherBatch(t *testing.T) {
+	s := newStudyHarness(t)
+	s.preparedTwelve()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+
+	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"1"}})
+	assert.Equal(t, domain.StudyBatchLedger{StudyDay: domain.StudyDay(s.clock.Now()), Offered: 1, Declined: 1}, s.ledger())
+	assert.Contains(t, s.page(), "Take these words", "the declined batch is takeable from inside Fluency")
+	s.take()
+	assert.Equal(t, 1, s.ledger().Taken)
+	assert.Zero(t, s.ledger().Declined, "the declined batch was the one taken")
+	s.gradeAll()
+
+	// The second batch is the second batch offered, and the third is the last.
+	page := s.page()
+	assert.Contains(t, page, `name="offer" value="2"`)
+	s.take()
+	s.gradeAll()
+	assert.Equal(t, 2, s.ledger().Taken)
+	assert.Len(t, s.progress(), len(twelveWords))
+}
+
+func TestStudyUnderTheBacklogBrakeTheDeclinedBatchIsTheOnlyTakeThePageOffers(t *testing.T) {
+	s := newStudyHarness(t)
+	s.preparedTwelve()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	s.seedReviews(100, berlinTime(t, 26, 9, 0))
+
+	require.Contains(t, s.page(), `name="offer" value="1"`)
+	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"1"}})
+	require.Contains(t, s.page(), "Take these words", "the one declined batch can still be taken")
+	s.take()
+	assert.Equal(t, 1, s.ledger().Taken, "a take button the page shows is a take the store accepts")
+	s.gradeAll()
+	assert.NotContains(t, s.page(), "Take these words", "the brake allows no second batch")
 }

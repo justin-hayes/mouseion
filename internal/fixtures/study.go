@@ -184,6 +184,9 @@ func (s *Store) ReserveStudyMaterial(_ context.Context, owner string, identity d
 
 // RecordStudyMaterialReady stores a pending word's prepared material.
 func (s *Store) RecordStudyMaterialReady(_ context.Context, owner, id string, content domain.StudyMaterialReadyContent) error {
+	if !content.Complete() {
+		return domain.ErrInvalidStudyMaterial
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for i := range s.studyMaterial {

@@ -107,6 +107,10 @@ func studyScenarios() []Scenario {
 			assert.Equal(t, domain.StudyMaterialCounts{Preparing: 2}, counts)
 
 			content := studyReadyContent()
+			requireBlankMaterialRefused(t, store, owner, hausID)
+			counts, err = store.CountStudyMaterial(owner, Language)
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyMaterialCounts{Preparing: 2}, counts, "refused material leaves the word pending")
 			require.NoError(t, store.RecordStudyMaterialReady(owner, hausID, content))
 			ready, err := store.GetStudyMaterial(owner, hausID)
 			require.NoError(t, err)
@@ -161,9 +165,7 @@ func studyScenarios() []Scenario {
 			ledger, err := progressStore.StudyBatchLedger(owner, Language, "2026-11-25")
 			require.NoError(t, err)
 			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Offered: 1, Declined: 1}, ledger)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, batch)
-			require.ErrorIs(t, err, domain.ErrStudyBatchLimit, "the day's batch was already answered")
-			require.ErrorIs(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1), domain.ErrStudyBatchLimit)
+			require.ErrorIs(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1), domain.ErrStudyBatchLimit, "the day's batch was already answered")
 
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, []domain.StudyBatchWord{{StudyIdentity: tisch, MaterialID: tischID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word whose material is not ready is not introduced")
@@ -201,6 +203,7 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Empty(t, italian, "progress belongs to its study language")
 		}},
+		{Name: "a declined batch is taken in place of itself and the day's limit counts distinct batches offered", Run: declinedBatchTakenOnce},
 		{Name: "the ledger counts offers, takes up to the day's limit, and never lowers an offer", Run: func(t *testing.T, h Harness) {
 			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
@@ -377,4 +380,60 @@ func readyStudyWord(t *testing.T, store StudyStore, owner string, identity domai
 	content.TargetWord = identity.CanonicalLemma
 	require.NoError(t, store.RecordStudyMaterialReady(owner, id, content))
 	return id
+}
+
+// requireBlankMaterialRefused checks that material missing its sentence, target
+// word, Gloss or translation is not recorded as ready.
+func requireBlankMaterialRefused(t *testing.T, store StudyStore, owner, id string) {
+	t.Helper()
+	blank := []struct {
+		name     string
+		blankOut func(*domain.StudyMaterialReadyContent)
+	}{
+		{"sentence", func(c *domain.StudyMaterialReadyContent) { c.Sentence = " " }},
+		{"target word", func(c *domain.StudyMaterialReadyContent) { c.TargetWord = "" }},
+		{"gloss", func(c *domain.StudyMaterialReadyContent) { c.Gloss = "\t" }},
+		{"translation", func(c *domain.StudyMaterialReadyContent) { c.SentenceTranslation = "" }},
+	}
+	for _, tc := range blank {
+		content := studyReadyContent()
+		tc.blankOut(&content)
+		require.ErrorIs(t, store.RecordStudyMaterialReady(owner, id, content), domain.ErrInvalidStudyMaterial, "a blank %s is not ready material", tc.name)
+	}
+}
+
+// declinedBatchTakenOnce checks that taking a batch the learner declined
+// consumes no other batch, so the day's limit counts distinct batches offered.
+func declinedBatchTakenOnce(t *testing.T, h Harness) {
+	t.Helper()
+	owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
+	now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+	words := make([]domain.StudyBatchWord, 0, 4)
+	for _, lemma := range []string{"haus", "hund", "tisch", "buch"} {
+		identity := studyNoun(lemma)
+		words = append(words, domain.StudyBatchWord{StudyIdentity: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
+	}
+	const day = "2026-11-25"
+	ledger := func() domain.StudyBatchLedger {
+		ledger, err := progressStore.StudyBatchLedger(owner, Language, day)
+		require.NoError(t, err)
+		return ledger
+	}
+	require.NoError(t, progressStore.RecordStudyBatchOffer(owner, Language, day, 1))
+	require.NoError(t, progressStore.DeclineStudyBatch(owner, Language, day, 3))
+	assert.Equal(t, domain.StudyBatchLedger{StudyDay: day, Offered: 1, Declined: 1}, ledger())
+	for i := range 3 {
+		_, err := progressStore.TakeStudyBatch(owner, Language, day, now, 3, words[i:i+1])
+		require.NoError(t, err, "take %d: the declined batch consumes no other", i+1)
+	}
+	assert.Equal(t, domain.StudyBatchLedger{StudyDay: day, Offered: 3, Taken: 3}, ledger(), "three distinct batches were offered")
+	_, err := progressStore.TakeStudyBatch(owner, Language, day, now, 3, words[3:])
+	require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
+
+	const brakeDay = "2026-11-26"
+	require.NoError(t, progressStore.DeclineStudyBatch(owner, Language, brakeDay, 1))
+	_, err = progressStore.TakeStudyBatch(owner, Language, brakeDay, now.Add(24*time.Hour), 1, words[3:])
+	require.NoError(t, err, "under the backlog brake the one batch, declined, can still be taken")
+	_, err = progressStore.TakeStudyBatch(owner, Language, brakeDay, now.Add(24*time.Hour), 1, words[3:])
+	require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
 }

@@ -2,6 +2,8 @@ package domain
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func matureWord(id string, state StudyCardState, days int64) StudyProgress {
@@ -36,7 +38,6 @@ func TestIsStudyMature(t *testing.T) {
 
 func TestFluencyUnlocked(t *testing.T) {
 	finished, open := StudyToday{Finished: true}, StudyToday{Remaining: 2}
-	decided := StudyBatchLedger{Taken: 1}
 	cases := []struct {
 		name   string
 		today  StudyToday
@@ -47,13 +48,14 @@ func TestFluencyUnlocked(t *testing.T) {
 		{"reviews left", open, StudyBatchLedger{}, false, false},
 		{"finished, nothing on offer", finished, StudyBatchLedger{}, false, true},
 		{"finished, offered batch unanswered", finished, StudyBatchLedger{}, true, false},
-		{"finished, first batch answered, another still on offer", finished, decided, true, true},
-		{"finished, batch declined", finished, StudyBatchLedger{Declined: 1}, false, true},
+		{"finished, first batch taken, the next still on offer", finished, StudyBatchLedger{Taken: 1}, true, false},
+		{"finished, batch declined, the rest stays takeable", finished, StudyBatchLedger{Declined: 1}, true, true},
+		{"finished, batch declined, nothing on offer", finished, StudyBatchLedger{Declined: 1}, false, true},
 	}
 	for _, tc := range cases {
-		if got := FluencyUnlocked(tc.today, FluencyBatchAwaiting(tc.ledger, tc.offer)); got != tc.want {
-			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, FluencyUnlocked(tc.today, tc.ledger, tc.offer))
+		})
 	}
 }
 

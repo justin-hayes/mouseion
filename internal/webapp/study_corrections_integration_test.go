@@ -80,14 +80,15 @@ func TestStudyCorrectionReintroducesAWordInNewMaterialAndKeepsItsProgress(t *tes
 	s.grade(s.word("buch"), "got-it")
 
 	// Opening Study checks the word that is due next: its sentence no longer
-	// belongs to it, so the review waits for new material and keeps its place
-	// in Today.
+	// belongs to it, so the review waits for new material. It does not hold the
+	// finish line open while it has nothing to show.
 	page := s.page()
 	waiting := s.word("haus")
 	assert.True(t, waiting.Reintroducing, "its material was replaced")
 	assert.Equal(t, haus.MaterialID, waiting.MaterialID)
 	assert.Equal(t, haus.Memory, waiting.Memory, "the FSRS state is unchanged")
 	assert.Contains(t, page, "waiting for a new sentence after a correction")
+	assert.True(t, s.today().Finished, "a review without material does not hold the finish line open")
 	assert.NotContains(t, page, original.Sentence, "the corrected sentence is not shown")
 
 	// The study job prepares the replacement; the next visit moves the word
@@ -270,6 +271,10 @@ func TestStudyWordWithdrawnForUnpreparableMaterialReturnsOnlyWhenItsEvidenceChan
 		return s.word("haus").Withdrawn, "the word is not withdrawn yet"
 	})
 	assert.Equal(t, haus.Memory, s.word("haus").Memory, "its progress is kept")
+	page := s.page()
+	assert.Contains(t, page, "Waiting for a usable sentence", "valid occurrences remain, so the word is not withdrawn by a correction")
+	assert.NotContains(t, page, "Withdrawn by a correction")
+	assert.True(t, s.today().Finished, "the word stays out of Today")
 
 	// The same evidence is not tried again: no provider is asked.
 	testutil.Eventually(t, 30*time.Second, "preparation to settle", func() (bool, string) { return s.counts().Preparing == 0, "words are preparing" })

@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -11,9 +12,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
-	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
+	"github.com/justin-hayes/mouseion/internal/study"
 )
 
 // studyPageView is what the Study page renders for one study language.
@@ -46,9 +47,15 @@ type studyPageView struct {
 	// occurrence. Their progress is kept.
 	Reintroducing int
 	Withdrawn     []string
+	// WaitingForSentence names the words a correction left with valid
+	// occurrences but no usable sentence yet, so their replacement material
+	// could not be prepared. They stay out of Today, and return when the
+	// evidence changes.
+	WaitingForSentence []string
 	// FluencyUnlocked is true once the finish line is reached and no offered
-	// batch awaits an answer. Fluency is the card shown then, if any context is
-	// ready.
+	// batch awaits an answer (domain.FluencyUnlocked). Fluency is the card
+	// shown then, if any context is ready, and a batch the learner declined
+	// stays takeable beside it.
 	FluencyUnlocked bool
 	Fluency         *fluencyCardView
 	// NothingMature is true when Fluency is unlocked and no word is mature yet.
@@ -58,10 +65,10 @@ type studyPageView struct {
 	FluencyPreparing bool
 }
 
-// fluencyCardView is one Fluency card: another sentence for a mature word, with
-// the target word marked and the answer revealed by Show answer.
-type fluencyCardView struct {
-	ContextID             string
+// cardFace is what a graded card and a Fluency card present alike: the
+// sentence with the target word marked, and the answer revealed by Show answer.
+type cardFace struct {
+	// Before, Target and After are the sentence split around the marked word.
 	Before, Target, After string
 	Marked                bool
 	ShowAnswer            bool
@@ -70,29 +77,35 @@ type fluencyCardView struct {
 	Translation           string
 }
 
-// studyCardView is one card: the sentence with the target word marked, and the
-// answer side revealed by Show answer.
+// newCardFace builds the face of a card from its sentence and the word's
+// learned meaning.
+func newCardFace(language string, progress domain.StudyProgress, sentence, targetWord, translation string, showAnswer bool) cardFace {
+	face := cardFace{
+		ShowAnswer:  showAnswer,
+		Headword:    lemmadisplay.Format(language, progress.CanonicalLemma, progress.UPOS),
+		Gloss:       progress.LearnedMeaning,
+		Translation: translation,
+	}
+	face.Before, face.Target, face.After, face.Marked = markTarget(sentence, targetWord)
+	return face
+}
+
+// fluencyCardView is one Fluency card: another sentence for a mature word.
+type fluencyCardView struct {
+	cardFace
+	ContextID string
+}
+
+// studyCardView is one card of Today.
 type studyCardView struct {
+	cardFace
 	ProgressID string
 	// Reps is the number of grades recorded when the card was shown. Grading
 	// presents it back, so a double tap grades the card once.
-	Reps int64
-	// Before, Target and After are the sentence split around the marked word.
-	Before, Target, After string
-	Marked                bool
-	Introduction          bool
+	Reps         int64
+	Introduction bool
 	// Corrected marks the re-introduction of a word after a correction.
-	Corrected   bool
-	ShowAnswer  bool
-	Headword    string
-	Gloss       string
-	Translation string
-}
-
-// studyAvailable reports whether Study serves a study language: only those on
-// the modern-language provider route (ADR 0133, ADR 0134 §1).
-func studyAvailable(language string) bool {
-	return !cardpolicy.For(language).SourceEvidence
+	Corrected bool
 }
 
 // study serves /{language}/study. Opening it asks for Study material to be
@@ -102,7 +115,7 @@ func studyAvailable(language string) bool {
 func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	owner := user(r).ID
 	language, label := activeStudyLanguageForContext(r.Context())
-	view := studyPageView{Language: language, LanguageLabel: label, Available: studyAvailable(language)}
+	view := studyPageView{Language: language, LanguageLabel: label, Available: study.Available(language)}
 	if view.Available {
 		// Corrections are applied first, so a word whose sentence no longer
 		// belongs to it is prepared again in the same request.
@@ -129,17 +142,29 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
 }
 
-// noteCorrections records the words a correction left waiting for new material
-// or withdrawn.
-func (view *studyPageView) noteCorrections(progress []domain.StudyProgress, now time.Time) {
+// noteCorrections records the words a correction left waiting for new
+// material, waiting for a usable sentence, or withdrawn. A word the study job
+// could not prepare new material for is withdrawn from Today either way; it is
+// reported as withdrawn only when no valid occurrence of it is left.
+func (h *Handler) noteCorrections(ctx context.Context, owner string, view *studyPageView, progress []domain.StudyProgress, now time.Time) error {
 	for _, item := range progress {
 		switch {
 		case item.Withdrawn:
-			view.Withdrawn = append(view.Withdrawn, lemmadisplay.Format(view.Language, item.CanonicalLemma, item.UPOS))
-		case item.Reintroducing && domain.StudyCountsToday(item, now):
+			occurrences, err := h.services.Store.Study.ListStudyOccurrences(ctx, owner, item.StudyIdentity)
+			if err != nil {
+				return err
+			}
+			word := lemmadisplay.Format(view.Language, item.CanonicalLemma, item.UPOS)
+			if len(occurrences) == 0 {
+				view.Withdrawn = append(view.Withdrawn, word)
+			} else {
+				view.WaitingForSentence = append(view.WaitingForSentence, word)
+			}
+		case domain.StudyAwaitsMaterial(item, now):
 			view.Reintroducing++
 		}
 	}
+	return nil
 }
 
 func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
@@ -155,7 +180,9 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	}
 	today := domain.StudyFinishLine(progress, now)
 	view.Remaining, view.Finished = today.Remaining, today.Finished
-	view.noteCorrections(progress, now)
+	if err := h.noteCorrections(ctx, owner, view, progress, now); err != nil {
+		return err
+	}
 	card, err := store.NextStudyCard(ctx, owner, view.Language, now)
 	switch {
 	case err == nil:
@@ -180,13 +207,13 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	view.Offer = len(offer.Batch)
 	if view.Offer > 0 {
 		view.ShortBatch = domain.StudyBatchIsShort(offer.Batch, counts.Preparing)
-		view.OfferNumber = offer.Ledger.Decided() + 1
+		view.OfferNumber = offer.Ledger.OfferNumber()
 		// The ledger counts a batch as offered the first time Today shows it.
-		if err := store.RecordStudyBatchOffer(ctx, owner, view.Language, domain.StudyDay(now), offer.Ledger.Decided()+1); err != nil {
+		if err := store.RecordStudyBatchOffer(ctx, owner, view.Language, domain.StudyDay(now), view.OfferNumber); err != nil {
 			return err
 		}
 	}
-	view.FluencyUnlocked = domain.FluencyUnlocked(today, domain.FluencyBatchAwaiting(offer.Ledger, view.Offer > 0))
+	view.FluencyUnlocked = domain.FluencyUnlocked(today, offer.Ledger, view.Offer > 0)
 	if !view.FluencyUnlocked {
 		return nil
 	}
@@ -243,21 +270,18 @@ func (h *Handler) fluencyRecall(progress []domain.StudyProgress, now time.Time) 
 }
 
 func newFluencyCardView(language string, card domain.FluencyCard, showAnswer bool) *fluencyCardView {
-	view := &fluencyCardView{
-		ContextID: card.Context.ID, ShowAnswer: showAnswer,
-		Headword:    lemmadisplay.Format(language, card.Progress.CanonicalLemma, card.Progress.UPOS),
-		Gloss:       card.Progress.LearnedMeaning,
-		Translation: card.Context.SentenceTranslation,
+	return &fluencyCardView{
+		ContextID: card.Context.ID,
+		cardFace:  newCardFace(language, card.Progress, card.Context.Sentence, card.Context.TargetWord, card.Context.SentenceTranslation, showAnswer),
 	}
-	view.Before, view.Target, view.After, view.Marked = markTarget(card.Context.Sentence, card.Context.TargetWord)
-	return view
 }
 
 // studyBatchOffer is what Today offers now: the batch, and the day's ledger
 // and batch limit it was decided under. The batch is empty when none is on
 // offer: the due reviews are not all answered, words taken earlier are not yet
-// introduced, the day's cap or the backlog brake is reached, the learner
-// declined, or no word is ready. Open tells the first five apart from the last.
+// introduced, the day's cap or the backlog brake is reached, or no word is
+// ready. Declining does not empty it: Today stops offering, but the batch stays
+// takeable from inside Fluency. Open tells the first four apart from the last.
 type studyBatchOffer struct {
 	// Open is true when a batch may be offered, whether or not a word is ready.
 	Open   bool
@@ -300,14 +324,14 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 }
 
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {
-	view := &studyCardView{
-		ProgressID: card.Progress.ID, Reps: card.Progress.Memory.Reps, Introduction: card.Progress.Memory.State == domain.StudyStateNew || card.Progress.Memory.State == domain.StudyStateLearning, Corrected: card.Progress.Corrected(), ShowAnswer: showAnswer,
-		Headword:    lemmadisplay.Format(language, card.Progress.CanonicalLemma, card.Progress.UPOS),
-		Gloss:       card.Progress.LearnedMeaning,
-		Translation: card.Material.SentenceTranslation,
+	memory := card.Progress.Memory
+	return &studyCardView{
+		cardFace:     newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
+		ProgressID:   card.Progress.ID,
+		Reps:         memory.Reps,
+		Introduction: memory.State == domain.StudyStateNew || memory.State == domain.StudyStateLearning,
+		Corrected:    card.Progress.Corrected(),
 	}
-	view.Before, view.Target, view.After, view.Marked = markTarget(card.Material.Sentence, card.Material.TargetWord)
-	return view
 }
 
 // markTarget splits a sentence around the first whole-word occurrence of the
@@ -351,7 +375,7 @@ func (h *Handler) studyForm(w http.ResponseWriter, r *http.Request) (language, b
 		return "", "", false
 	}
 	language = canonicalization.NormalizeLanguage(r.FormValue("language"))
-	if language == "" || !studyAvailable(language) {
+	if language == "" || !study.Available(language) {
 		http.NotFound(w, r)
 		return "", "", false
 	}
@@ -416,8 +440,9 @@ func (h *Handler) declineStudyBatch(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if number, numberErr := strconv.Atoi(r.FormValue("offer")); !offer.Open || len(offer.Batch) == 0 || numberErr != nil || number != offer.Ledger.Decided()+1 {
-		// A stale tap: the batch it answers is not the one on offer now.
+	if number, numberErr := strconv.Atoi(r.FormValue("offer")); !offer.Open || len(offer.Batch) == 0 || offer.Ledger.Declined > 0 || numberErr != nil || number != offer.Ledger.OfferNumber() {
+		// A stale tap: the batch it answers is not the one on offer now, or
+		// Today has already stopped offering.
 		redirect(w, r, back)
 		return
 	}
@@ -501,9 +526,14 @@ func (h *Handler) recordFluencyResponse(w http.ResponseWriter, r *http.Request) 
 		fail(w, err)
 		return
 	}
-	// Fluency is reachable only once Today is finished; a response sent before
+	// A response is accepted only where the page shows Fluency; one sent before
 	// is a stale tap on a card that is no longer there.
-	if !domain.StudyFinishLine(progress, now).Finished {
+	unlocked, err := h.fluencyUnlocked(r, owner, language, progress, now)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !unlocked {
 		redirect(w, r, back)
 		return
 	}
@@ -513,4 +543,18 @@ func (h *Handler) recordFluencyResponse(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	redirect(w, r, back)
+}
+
+// fluencyUnlocked applies the page's unlock rule (domain.FluencyUnlocked) to
+// the learner's current state.
+func (h *Handler) fluencyUnlocked(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) (bool, error) {
+	today := domain.StudyFinishLine(progress, now)
+	if !today.Finished {
+		return false, nil
+	}
+	offer, err := h.studyBatchOffer(r, owner, language, progress, now)
+	if err != nil {
+		return false, err
+	}
+	return domain.FluencyUnlocked(today, offer.Ledger, len(offer.Batch) > 0), nil
 }

@@ -99,9 +99,9 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := studyLedgerKey(owner, language, studyDay)
-	ledger := s.studyLedger[key]
-	if ledger.Decided() >= batchLimit {
-		return nil, domain.ErrStudyBatchLimit
+	ledger, err := s.studyLedger[key].Take(batchLimit)
+	if err != nil {
+		return nil, err
 	}
 	var introduced []domain.StudyProgress
 	for _, word := range words {
@@ -125,8 +125,6 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 	if len(introduced) == 0 {
 		return nil, errNotFound
 	}
-	ledger.Taken++
-	ledger.Offered = max(ledger.Offered, ledger.Decided())
 	s.storeLedgerLocked(key, ledger)
 	return introduced, nil
 }
@@ -136,12 +134,10 @@ func (s *Store) DeclineStudyBatch(_ context.Context, owner, language, studyDay s
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := studyLedgerKey(owner, language, studyDay)
-	ledger := s.studyLedger[key]
-	if ledger.Decided() >= batchLimit {
-		return domain.ErrStudyBatchLimit
+	ledger, err := s.studyLedger[key].Decline(batchLimit)
+	if err != nil {
+		return err
 	}
-	ledger.Declined++
-	ledger.Offered = max(ledger.Offered, ledger.Decided())
 	s.storeLedgerLocked(key, ledger)
 	return nil
 }
