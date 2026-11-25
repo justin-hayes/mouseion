@@ -17,6 +17,11 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 		} else {
 			if view.Card != nil {
 				@StudyCard(csrf, view)
+			} else if !view.Finished {
+				<section class="study-today" aria-labelledby="study-today-heading">
+					<h2 id="study-today-heading">Today</h2>
+					<p id="study-remaining">{ studyRemainingText(view.Remaining) }</p>
+				</section>
 			} else if view.Offer > 0 {
 				@StudyBatchOffer(csrf, view)
 			} else if view.Repeating > 0 {
@@ -27,6 +32,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 			} else {
 				<section class="study-today" aria-labelledby="study-today-heading">
 					<h2 id="study-today-heading">Today</h2>
+					<p id="study-finished">Today is finished. Your next reviews start with the next Study day.</p>
 					<p id="study-idle">Nothing to study right now.</p>
 				</section>
 			}
@@ -124,6 +130,13 @@ func studyOfferText(count int) string {
 		return "1 new word is ready to learn."
 	}
 	return fmt.Sprintf("%d new words are ready to learn.", count)
+}
+
+func studyRemainingText(count int) string {
+	if count == 1 {
+		return "1 review left today. It comes back in a few minutes."
+	}
+	return fmt.Sprintf("%d reviews left today. The next comes back in a few minutes.", count)
 }
 
 func studyRepeatingText(count int) string {

@@ -29,6 +29,11 @@ type studyPageView struct {
 	Offer int
 	// Repeating is how many words are in learning and come back later today.
 	Repeating int
+	// Remaining is how many of Today's due reviews are still unanswered, the
+	// same-day repeats included. Finished is true once none is left, and stays
+	// true until the next Study day.
+	Remaining int
+	Finished  bool
 }
 
 // studyCardView is one card: the sentence with the target word marked, and the
@@ -84,6 +89,12 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 		return err
 	}
 	view.Counts = counts
+	progress, err := store.ListStudyProgress(ctx, owner, view.Language)
+	if err != nil {
+		return err
+	}
+	today := domain.StudyFinishLine(progress, now)
+	view.Remaining, view.Finished = today.Remaining, today.Finished
 	card, err := store.NextStudyCard(ctx, owner, view.Language, now)
 	switch {
 	case err == nil:
@@ -92,14 +103,14 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	case !errors.Is(err, domain.ErrNotFound):
 		return err
 	}
-	progress, err := store.ListStudyProgress(ctx, owner, view.Language)
-	if err != nil {
-		return err
-	}
 	for _, item := range progress {
 		if !item.Withdrawn && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
 			view.Repeating++
 		}
+	}
+	if !today.Finished {
+		// New words come only after the due reviews are answered.
+		return nil
 	}
 	ledger, err := store.StudyBatchLedger(ctx, owner, view.Language, domain.StudyDay(now))
 	if err != nil {
@@ -202,6 +213,11 @@ func (h *Handler) takeStudyBatch(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	if !domain.StudyFinishLine(progress, now).Finished {
+		// New words are offered only after the due reviews are answered.
+		redirect(w, r, back)
+		return
+	}
 	batch, err := h.nextStudyBatch(r, owner, language, progress)
 	if err != nil {
 		fail(w, err)
@@ -273,7 +289,7 @@ func (h *Handler) gradeStudyCard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if current.Memory.Reps != reps || current.Memory.Due.After(now) {
+	if current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) {
 		redirect(w, r, back)
 		return
 	}

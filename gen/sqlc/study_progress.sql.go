@@ -287,50 +287,6 @@ func (q *Queries) LockStudyProgress(ctx context.Context, arg LockStudyProgressPa
 	return i, err
 }
 
-const nextDueStudyProgress = `-- name: NextDueStudyProgress :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at FROM study_progress
- WHERE owner_id = $1 AND language = $2
-   AND withdrawn_at IS NULL AND due <= $3::timestamptz
- ORDER BY due, introduced_at, canonical_lemma, upos, lexical_discriminator
- LIMIT 1
-`
-
-type NextDueStudyProgressParams struct {
-	Owner    string
-	Language string
-	Now      time.Time
-}
-
-// The word to show next: the earliest due, not withdrawn, due by now.
-func (q *Queries) NextDueStudyProgress(ctx context.Context, arg NextDueStudyProgressParams) (StudyProgress, error) {
-	row := q.db.QueryRow(ctx, nextDueStudyProgress, arg.Owner, arg.Language, arg.Now)
-	var i StudyProgress
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.LexicalDiscriminator,
-		&i.MaterialID,
-		&i.IntroducedAt,
-		&i.LearnedMeaning,
-		&i.State,
-		&i.Due,
-		&i.Stability,
-		&i.Difficulty,
-		&i.ScheduledDays,
-		&i.Reps,
-		&i.Lapses,
-		&i.RemainingSteps,
-		&i.LastReview,
-		&i.WithdrawnAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const takeStudyBatchSlot = `-- name: TakeStudyBatchSlot :one
 INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_taken)
 VALUES ($1, $2, $3::date, 1)
