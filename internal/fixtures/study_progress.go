@@ -26,6 +26,7 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 	progress := make([]domain.StudyProgress, 0, len(s.studyProgress))
 	for _, item := range s.studyProgress {
 		if item.OwnerID == owner && item.Language == language {
+			item.Reintroducing = s.studySuperseded[item.MaterialID]
 			progress = append(progress, item)
 		}
 	}
@@ -211,7 +212,7 @@ func (s *Store) ListStudyReviewLog(_ context.Context, owner, progressID string) 
 // the ID. The caller holds s.mu.
 func (s *Store) currentReadyMaterialLocked(owner, language, id string) (domain.StudyMaterial, bool) {
 	for _, item := range s.studyMaterial {
-		if item.OwnerID == owner && item.ID == id && item.Language == language && item.State == domain.StudyMaterialReady {
+		if item.OwnerID == owner && item.ID == id && item.Language == language && item.State == domain.StudyMaterialReady && !s.studySuperseded[item.ID] {
 			return item, true
 		}
 	}

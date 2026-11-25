@@ -119,6 +119,8 @@ type Store struct {
 	studyCandidates []seededStudyCandidate
 	studyReviewLog  []domain.StudyReviewLog
 	studyLedger     map[string]domain.StudyBatchLedger
+	// studySuperseded holds the IDs of Study material a correction replaced.
+	studySuperseded map[string]bool
 	// studyFluencyContexts are the Fluency contexts of mature words and
 	// studyFluencyResponses the append-only answers to them.
 	studyFluencyContexts  []domain.FluencyContext

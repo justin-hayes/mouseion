@@ -41,7 +41,7 @@ func (q *Queries) AppendStudyFluencyResponse(ctx context.Context, arg AppendStud
 
 const getStudyProgress = `-- name: GetStudyProgress :one
 
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at FROM study_progress
  WHERE owner_id = $1 AND id = $2
 `
 
@@ -77,6 +77,7 @@ func (q *Queries) GetStudyProgress(ctx context.Context, arg GetStudyProgressPara
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CorrectedAt,
 	)
 	return i, err
 }

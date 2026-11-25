@@ -41,6 +41,11 @@ type studyPageView struct {
 	// true until the next Study day.
 	Remaining int
 	Finished  bool
+	// Reintroducing is how many due reviews wait for new Study material after a
+	// correction; Withdrawn names the words a correction left with no valid
+	// occurrence. Their progress is kept.
+	Reintroducing int
+	Withdrawn     []string
 	// FluencyUnlocked is true once the finish line is reached and no offered
 	// batch awaits an answer. Fluency is the card shown then, if any context is
 	// ready.
@@ -76,10 +81,12 @@ type studyCardView struct {
 	Before, Target, After string
 	Marked                bool
 	Introduction          bool
-	ShowAnswer            bool
-	Headword              string
-	Gloss                 string
-	Translation           string
+	// Corrected marks the re-introduction of a word after a correction.
+	Corrected   bool
+	ShowAnswer  bool
+	Headword    string
+	Gloss       string
+	Translation string
 }
 
 // studyAvailable reports whether Study serves a study language: only those on
@@ -97,6 +104,12 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	language, label := activeStudyLanguageForContext(r.Context())
 	view := studyPageView{Language: language, LanguageLabel: label, Available: studyAvailable(language)}
 	if view.Available {
+		// Corrections are applied first, so a word whose sentence no longer
+		// belongs to it is prepared again in the same request.
+		if err := h.reconcileStudyCorrections(r.Context(), owner, language, h.now()); err != nil {
+			fail(w, err)
+			return
+		}
 		if h.services.Study != nil {
 			// Preparation is best effort: the page still reports what is ready.
 			if err := h.services.Study.EnqueueStudyPreparation(r.Context(), owner, language); err != nil {
@@ -116,6 +129,19 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
 }
 
+// noteCorrections records the words a correction left waiting for new material
+// or withdrawn.
+func (view *studyPageView) noteCorrections(progress []domain.StudyProgress, now time.Time) {
+	for _, item := range progress {
+		switch {
+		case item.Withdrawn:
+			view.Withdrawn = append(view.Withdrawn, lemmadisplay.Format(view.Language, item.CanonicalLemma, item.UPOS))
+		case item.Reintroducing && domain.StudyCountsToday(item, now):
+			view.Reintroducing++
+		}
+	}
+}
+
 func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
 	ctx, store, now := r.Context(), h.services.Store.Study, h.now()
 	counts, err := store.CountStudyMaterial(ctx, owner, view.Language)
@@ -129,6 +155,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	}
 	today := domain.StudyFinishLine(progress, now)
 	view.Remaining, view.Finished = today.Remaining, today.Finished
+	view.noteCorrections(progress, now)
 	card, err := store.NextStudyCard(ctx, owner, view.Language, now)
 	switch {
 	case err == nil:
@@ -249,7 +276,7 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {
 	view := &studyCardView{
-		ProgressID: card.Progress.ID, Reps: card.Progress.Memory.Reps, Introduction: card.Progress.Memory.State == domain.StudyStateNew || card.Progress.Memory.State == domain.StudyStateLearning, ShowAnswer: showAnswer,
+		ProgressID: card.Progress.ID, Reps: card.Progress.Memory.Reps, Introduction: card.Progress.Memory.State == domain.StudyStateNew || card.Progress.Memory.State == domain.StudyStateLearning, Corrected: card.Progress.Corrected(), ShowAnswer: showAnswer,
 		Headword:    lemmadisplay.Format(language, card.Progress.CanonicalLemma, card.Progress.UPOS),
 		Gloss:       card.Progress.LearnedMeaning,
 		Translation: card.Material.SentenceTranslation,

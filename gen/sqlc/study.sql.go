@@ -56,7 +56,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(corpus_id::text, '')::text AS corpus_id,
        COALESCE(sentence_ordinal, 0)::bigint AS sentence_ordinal,
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
-       sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
+       sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        created_at, updated_at
   FROM study_material
  WHERE owner_id = $1 AND id = $2
@@ -85,6 +85,7 @@ type GetStudyMaterialRow struct {
 	Gloss                      string
 	SentenceTranslation        string
 	SentenceTranslationTargets []byte
+	EvidenceFingerprint        string
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -110,9 +111,48 @@ func (q *Queries) GetStudyMaterial(ctx context.Context, arg GetStudyMaterialPara
 		&i.Gloss,
 		&i.SentenceTranslation,
 		&i.SentenceTranslationTargets,
+		&i.EvidenceFingerprint,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
+	return i, err
+}
+
+const getStudyOccurrenceLocator = `-- name: GetStudyOccurrenceLocator :one
+SELECT s.unit_id::text AS unit_id, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset
+  FROM corpus_tokens t
+  JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.analysis_run_id = t.analysis_run_id
+   AND s.corpus_id = t.corpus_id AND s.sentence_ordinal = t.sentence_ordinal
+ WHERE t.owner_id = $1 AND t.analysis_run_id = $2 AND t.corpus_id = $3
+   AND t.sentence_ordinal = $4 AND t.token_ordinal = $5
+`
+
+type GetStudyOccurrenceLocatorParams struct {
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+}
+
+type GetStudyOccurrenceLocatorRow struct {
+	UnitID      string
+	StartOffset int64
+	EndOffset   int64
+}
+
+// Where an analyzed token sits in its Book's extracted unit: the locator an
+// Analysis update carries decisions across runs by.
+func (q *Queries) GetStudyOccurrenceLocator(ctx context.Context, arg GetStudyOccurrenceLocatorParams) (GetStudyOccurrenceLocatorRow, error) {
+	row := q.db.QueryRow(ctx, getStudyOccurrenceLocator,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+		arg.TokenOrdinal,
+	)
+	var i GetStudyOccurrenceLocatorRow
+	err := row.Scan(&i.UnitID, &i.StartOffset, &i.EndOffset)
 	return i, err
 }
 
@@ -123,7 +163,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(corpus_id::text, '')::text AS corpus_id,
        COALESCE(sentence_ordinal, 0)::bigint AS sentence_ordinal,
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
-       sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
+       sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        created_at, updated_at
   FROM study_material
  WHERE owner_id = $1 AND language = $2 AND superseded_at IS NULL
@@ -153,6 +193,7 @@ type ListCurrentStudyMaterialRow struct {
 	Gloss                      string
 	SentenceTranslation        string
 	SentenceTranslationTargets []byte
+	EvidenceFingerprint        string
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -184,6 +225,7 @@ func (q *Queries) ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentS
 			&i.Gloss,
 			&i.SentenceTranslation,
 			&i.SentenceTranslationTargets,
+			&i.EvidenceFingerprint,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -333,6 +375,40 @@ func (q *Queries) MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStu
 	return result.RowsAffected(), nil
 }
 
+const relocateStudyMaterial = `-- name: RelocateStudyMaterial :execrows
+UPDATE study_material
+   SET analysis_run_id = $1, corpus_id = $2,
+       sentence_ordinal = $3, token_ordinal = $4, updated_at = now()
+ WHERE owner_id = $5 AND id = $6 AND state = 'ready' AND superseded_at IS NULL
+`
+
+type RelocateStudyMaterialParams struct {
+	AnalysisRun     pgtype.UUID
+	Corpus          pgtype.UUID
+	SentenceOrdinal pgtype.Int8
+	TokenOrdinal    pgtype.Int8
+	Owner           string
+	ID              string
+}
+
+// An Analysis update re-published the word's introducing occurrence in a new
+// run: the material keeps its sentence, Gloss and translation and names the
+// occurrence where it now is.
+func (q *Queries) RelocateStudyMaterial(ctx context.Context, arg RelocateStudyMaterialParams) (int64, error) {
+	result, err := q.db.Exec(ctx, relocateStudyMaterial,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+		arg.TokenOrdinal,
+		arg.Owner,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const reserveStudyMaterial = `-- name: ReserveStudyMaterial :one
 INSERT INTO study_material (owner_id, language, canonical_lemma, upos, lexical_discriminator, state)
 VALUES ($1, $2, $3, $4, $5, 'pending')
@@ -361,4 +437,26 @@ func (q *Queries) ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMate
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const setStudyMaterialEvidence = `-- name: SetStudyMaterialEvidence :execrows
+UPDATE study_material
+   SET evidence_fingerprint = $1, updated_at = now()
+ WHERE owner_id = $2 AND id = $3 AND state = 'pending'
+`
+
+type SetStudyMaterialEvidenceParams struct {
+	Evidence string
+	Owner    string
+	ID       string
+}
+
+// Records the occurrences a preparation attempt saw, before it finds the
+// material unpreparable.
+func (q *Queries) SetStudyMaterialEvidence(ctx context.Context, arg SetStudyMaterialEvidenceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setStudyMaterialEvidence, arg.Evidence, arg.Owner, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

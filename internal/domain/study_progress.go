@@ -76,8 +76,20 @@ type StudyProgress struct {
 	Memory         StudyMemory
 	// Withdrawn marks a word a correction left with no valid occurrence. Its
 	// progress is kept and it is not due.
-	Withdrawn            bool
+	Withdrawn bool
+	// CorrectedAt is when a correction re-introduced the word in new Study
+	// material, zero for a word never corrected. Reintroducing is true while
+	// the word's replacement material is still being prepared: the review is
+	// due but there is no card to show yet.
+	CorrectedAt          time.Time
+	Reintroducing        bool
 	CreatedAt, UpdatedAt time.Time
+}
+
+// Corrected reports that the word's card is its re-introduction after a
+// correction: it was moved to new material and has not been answered since.
+func (p StudyProgress) Corrected() bool {
+	return !p.CorrectedAt.IsZero() && (p.Memory.LastReview.IsZero() || p.Memory.LastReview.Before(p.CorrectedAt))
 }
 
 // Graded reports whether the learner has answered the word at least once.

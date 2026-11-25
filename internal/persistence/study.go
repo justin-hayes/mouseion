@@ -49,6 +49,7 @@ func (s *PostgresStore) ListCurrentStudyMaterial(ctx context.Context, owner, lan
 		if err != nil {
 			return nil, err
 		}
+		item.EvidenceFingerprint = row.EvidenceFingerprint
 		item.OwnerID = owner
 		item.CreatedAt, item.UpdatedAt = row.CreatedAt, row.UpdatedAt
 		material = append(material, item)
@@ -74,6 +75,7 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 	if err != nil {
 		return domain.StudyMaterial{}, err
 	}
+	item.EvidenceFingerprint = row.EvidenceFingerprint
 	item.OwnerID = owner
 	item.CreatedAt, item.UpdatedAt = row.CreatedAt, row.UpdatedAt
 	return item, nil

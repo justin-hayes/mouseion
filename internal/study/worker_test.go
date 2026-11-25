@@ -28,6 +28,7 @@ type fakeStore struct {
 	occurrences  []domain.ConcordanceResultOccurrence
 	ready        *domain.StudyMaterialReadyContent
 	unpreparable string
+	evidence     string
 	pagesRead    int
 	tokens       map[int64][]analyzer.Token
 }
@@ -65,6 +66,15 @@ func (s *fakeStore) RecordStudyMaterialReady(_ context.Context, _, _ string, con
 
 func (s *fakeStore) RecordStudyMaterialUnpreparable(_ context.Context, _, _, reason string) error {
 	s.unpreparable = reason
+	return nil
+}
+
+func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+	return nil, nil
+}
+
+func (s *fakeStore) SetStudyMaterialEvidence(_ context.Context, _, _, evidence string) error {
+	s.evidence = evidence
 	return nil
 }
 
@@ -138,6 +148,7 @@ func TestWorkRecordsAMeaningOmission(t *testing.T) {
 	enricher := &fakeEnricher{meaning: enrichment.ContextualMeaning{SentenceTranslation: "The house.", UnresolvedKind: enrichment.ContextualGlossUnresolvedLemmaMismatch, UnresolvedReason: "another word"}}
 	require.NoError(t, work(newWorker(store, enricher)))
 	assert.Equal(t, domain.StudyOmissionMeaning, store.unpreparable)
+	assert.Equal(t, domain.StudyEvidenceFingerprint(nil), store.evidence, "the occurrences the attempt saw are recorded with the omission")
 }
 
 func TestWorkNeverRecordsAProviderOmission(t *testing.T) {
@@ -145,6 +156,7 @@ func TestWorkNeverRecordsAProviderOmission(t *testing.T) {
 
 	err := work(newWorker(store, &fakeEnricher{err: errors.New("provider unavailable")}))
 	require.Error(t, err)
+	assert.Empty(t, store.evidence, "a provider omission records nothing")
 	assert.Empty(t, store.unpreparable)
 	assert.Nil(t, store.ready)
 

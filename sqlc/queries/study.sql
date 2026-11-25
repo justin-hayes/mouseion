@@ -33,7 +33,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(corpus_id::text, '')::text AS corpus_id,
        COALESCE(sentence_ordinal, 0)::bigint AS sentence_ordinal,
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
-       sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
+       sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        created_at, updated_at
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND superseded_at IS NULL
@@ -46,7 +46,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(corpus_id::text, '')::text AS corpus_id,
        COALESCE(sentence_ordinal, 0)::bigint AS sentence_ordinal,
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
-       sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
+       sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        created_at, updated_at
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id');
@@ -80,3 +80,29 @@ UPDATE study_material
 UPDATE study_material
    SET state = 'unpreparable', omission_reason = sqlc.arg('reason'), updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'pending';
+
+-- name: SetStudyMaterialEvidence :execrows
+-- Records the occurrences a preparation attempt saw, before it finds the
+-- material unpreparable.
+UPDATE study_material
+   SET evidence_fingerprint = sqlc.arg('evidence'), updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'pending';
+
+-- name: RelocateStudyMaterial :execrows
+-- An Analysis update re-published the word's introducing occurrence in a new
+-- run: the material keeps its sentence, Gloss and translation and names the
+-- occurrence where it now is.
+UPDATE study_material
+   SET analysis_run_id = sqlc.arg('analysis_run'), corpus_id = sqlc.arg('corpus'),
+       sentence_ordinal = sqlc.arg('sentence_ordinal'), token_ordinal = sqlc.arg('token_ordinal'), updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'ready' AND superseded_at IS NULL;
+
+-- name: GetStudyOccurrenceLocator :one
+-- Where an analyzed token sits in its Book's extracted unit: the locator an
+-- Analysis update carries decisions across runs by.
+SELECT s.unit_id::text AS unit_id, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset
+  FROM corpus_tokens t
+  JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.analysis_run_id = t.analysis_run_id
+   AND s.corpus_id = t.corpus_id AND s.sentence_ordinal = t.sentence_ordinal
+ WHERE t.owner_id = sqlc.arg('owner') AND t.analysis_run_id = sqlc.arg('analysis_run') AND t.corpus_id = sqlc.arg('corpus')
+   AND t.sentence_ordinal = sqlc.arg('sentence_ordinal') AND t.token_ordinal = sqlc.arg('token_ordinal');

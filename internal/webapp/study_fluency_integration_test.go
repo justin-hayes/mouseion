@@ -224,17 +224,17 @@ func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *test
 	assert.Contains(t, card(), `id="fluency-card-heading"`)
 
 	// A review is due on the next Study day: Fluency waits for the finish line.
-	s.seedBook("library", testutil.CorpusWord{Lemma: "stuhl", UPOS: "NOUN", Occurrences: 2})
+	// The library holds a second Book with the word "buch", so its introducing
+	// occurrence is real: Study withdraws a word that has none.
+	s.seedBook("library", testutil.CorpusWord{Lemma: "stuhl", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
 	require.Equal(t, http.StatusOK, getAs(t, s.h, "/de/study", s.cookies).Code)
-	testutil.Eventually(t, 60*time.Second, "the next word to be prepared", func() (bool, string) {
+	testutil.Eventually(t, 60*time.Second, "the next words to be prepared", func() (bool, string) {
 		counts := s.counts()
-		return counts.Preparing == 0 && counts.Ready >= 2, "preparing words remain"
+		return counts.Preparing == 0 && counts.Ready >= 3, "preparing words remain"
 	})
-	_, err := s.store.Pool().Exec(s.ctx, `INSERT INTO study_material(owner_id,language,canonical_lemma,upos,state,book_id,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,sentence,target_word,gloss,sentence_translation)
-		SELECT owner_id,language,'buch',upos,'ready',book_id,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,sentence,'buch','the book','The book.' FROM study_material WHERE owner_id=$1 AND canonical_lemma='haus'`, s.owner.ID)
-	require.NoError(t, err)
-	_, err = s.store.Pool().Exec(s.ctx, `INSERT INTO study_progress(owner_id,language,canonical_lemma,upos,material_id,introduced_at,learned_meaning,state,due,stability,difficulty,scheduled_days,reps,last_review)
-		SELECT m.owner_id,m.language,'buch',m.upos,m.id,$2,'the book','review',$3,3,5,3,2,$2 FROM study_material m WHERE m.owner_id=$1 AND m.canonical_lemma='buch'`,
+	// Introduced as a review due on the next Study day, from its prepared material.
+	_, err := s.store.Pool().Exec(s.ctx, `INSERT INTO study_progress(owner_id,language,canonical_lemma,upos,material_id,introduced_at,learned_meaning,state,due,stability,difficulty,scheduled_days,reps,last_review)
+		SELECT m.owner_id,m.language,'buch',m.upos,m.id,$2,m.gloss,'review',$3,3,5,3,2,$2 FROM study_material m WHERE m.owner_id=$1 AND m.canonical_lemma='buch' AND m.superseded_at IS NULL`,
 		s.owner.ID, berlinTime(t, 20, 9, 0), berlinTime(t, 26, 9, 0))
 	require.NoError(t, err)
 	s.clock.Set(berlinTime(t, 26, 9, 0))

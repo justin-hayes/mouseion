@@ -20,6 +20,9 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 			} else {
 				<p id="study-remaining" class="study-status">{ studyRemainingText(view.Remaining) }</p>
 			}
+			if view.Reintroducing > 0 {
+				<p id="study-reintroducing" class="study-status">{ studyReintroducingText(view.Reintroducing) }</p>
+			}
 			if view.Card != nil {
 				@StudyCard(csrf, view)
 			} else if !view.Finished {
@@ -67,6 +70,17 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 					<p id="study-empty">No new words are queued yet. They come from the Books you have analysed.</p>
 				}
 			</section>
+			if len(view.Withdrawn) > 0 {
+				<section class="study-withdrawn" aria-labelledby="study-withdrawn-heading">
+					<h2 id="study-withdrawn-heading">Withdrawn by a correction</h2>
+					<p>These words have no usable sentence left in your library. Your progress is kept, and they return if one reappears.</p>
+					<ul id="study-withdrawn" lang={ view.Language }>
+						for _, word := range view.Withdrawn {
+							<li>{ word }</li>
+						}
+					</ul>
+				</section>
+			}
 		}
 	}
 }
@@ -80,6 +94,9 @@ templ StudyCard(csrf string, view studyPageView) {
 				Review
 			}
 		</h2>
+		if view.Card.Corrected {
+			<p id="study-corrected" class="study-status">Corrected: a new sentence for a word you already know.</p>
+		}
 		<p class="study-card__sentence" lang={ view.Language }>
 			{ view.Card.Before }
 			if view.Card.Marked {
@@ -201,6 +218,13 @@ func studyRemainingText(count int) string {
 		return "1 review left today."
 	}
 	return fmt.Sprintf("%d reviews left today.", count)
+}
+
+func studyReintroducingText(count int) string {
+	if count == 1 {
+		return "1 review is waiting for a new sentence after a correction."
+	}
+	return fmt.Sprintf("%d reviews are waiting for a new sentence after a correction.", count)
 }
 
 func studyRepeatingText(count int) string {
