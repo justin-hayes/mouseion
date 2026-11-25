@@ -155,18 +155,6 @@ func classicalLengthSegmentClass(work classical.CatalogWork, view classicalCatal
 	return "classical-length__segment"
 }
 
-// classicalWorkCanAdd reports whether at least one Edition is addable.
-func classicalWorkCanAdd(work classical.CatalogWork, view classicalCatalogView) bool {
-	if view.AddAvailable {
-		for _, unit := range work.Units {
-			if view.OwnedUnits[unit.Key] == "" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // classicalCatalogURL is the Catalog filtered to Ancient Greek, where the
 // Classical catalog's cards live.
 func classicalCatalogURL() string {

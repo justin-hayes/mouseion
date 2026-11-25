@@ -179,7 +179,7 @@ func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) 
 		`class="catalog-entry__add"`,
 		`action="/catalogs/sources/fixture-connection/add"`,
 		`name="entry_identifier" value="fixture-sommer"`,
-		`Adding downloads and prepares the text.`,
+		`Adding prepares the text for reading.`,
 		`class="catalog-entry__read"`,
 		`action="/catalogs/sources/fixture-connection/previously-read"`,
 		`>I've read this</button>`,
@@ -207,7 +207,7 @@ func TestCatalogSearchAndLanguageFilterCoverClassicalAndOpdsSources(t *testing.T
 		"2 results from 2 sources.",
 		`id="catalog-source-classical"`,
 		`id="catalog-source-fixture-connection"`,
-		`id="catalog-entry-title-homer-iliad"`,
+		`id="catalog-entry-title-classical-homer-iliad"`,
 		"Ödipus auf Kolonos",
 		"Hómēr Nachfolger",
 		`href="/catalogs?language=">Clear search</a>`,
@@ -284,7 +284,7 @@ func TestRetiredClassicalIndexAndAuthorURLsRedirectToTheGreekCatalog(t *testing.
 		assert.Equal(t, http.StatusMovedPermanently, retired.Code, path)
 		assert.Equal(t, "/catalogs?language=grc", retired.Header().Get("Location"), path)
 	}
-	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code)
+	assert.Equal(t, http.StatusMovedPermanently, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code, "a retired author URL still redirects")
 }
 
 func TestClassicalSectionRendersOneOrdinaryCardPerReadingUnit(t *testing.T) {
@@ -308,7 +308,7 @@ func TestClassicalSectionRendersOneOrdinaryCardPerReadingUnit(t *testing.T) {
 		`action="/catalogs/classical/units/plato-republic/add"`,
 		`action="/catalogs/classical/units/plato-republic/previously-read"`,
 		`name="return" value="index"`,
-		`Adding downloads and prepares the text.`,
+		`Adding prepares the text for reading.`,
 		`>Add</button>`,
 		`>I've read this</button>`,
 		`class="catalog-source__footer"`,
@@ -386,7 +386,7 @@ func TestClassicalWorkPageKeepsOpeningLengthContentsAndLeadsBackToTheCatalog(t *
 	for _, want := range []string{
 		"<th>Book</th>", "<th>Passage</th>", "<th>Words</th>", "Book 1", "Book 2", "1.327–1.354", "2.357–2.383", "9553", "8763",
 		`class="classical-opening"`, "Begins at", `class="classical-length-caption"`, `class="classical-length"`,
-		`action="/catalogs/classical/units/plato-republic/add"`, "Adding downloads and prepares the text.",
+		`action="/catalogs/classical/units/plato-republic/add"`, "Adding prepares the text for reading.",
 		"I've read this", `action="/catalogs/classical/units/plato-republic/previously-read"`,
 		`href="/catalogs?language=grc"`,
 	} {
@@ -819,7 +819,7 @@ func TestClassicalCatalogHidesWithdrawnAndUnknownEntries(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/works/xenophon-cyropaedia").Code)
 	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/works/no-such-work").Code)
-	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code)
+	assert.Equal(t, http.StatusMovedPermanently, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code, "a retired author URL still redirects")
 }
 
 func TestCatalogLanguageFilterDefaultsToAllWithoutAStudyLanguage(t *testing.T) {

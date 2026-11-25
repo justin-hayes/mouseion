@@ -114,7 +114,7 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBook(t *testing.T) {
 
 	work := perform(t, h, "GET", "/catalogs/classical/works/xenophon-hellenica", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
-	for _, want := range []string{"Adding downloads and prepares the text.", `action="/catalogs/classical/units/xenophon-hellenica/add"`} {
+	for _, want := range []string{"Adding prepares the text for reading.", `action="/catalogs/classical/units/xenophon-hellenica/add"`} {
 		assert.Contains(t, work.Body.String(), want)
 	}
 	assert.NotContains(t, work.Body.String(), `href="/catalogs/classical/books/`, "an unowned unit has no In My Books link")

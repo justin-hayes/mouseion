@@ -41,7 +41,7 @@ func classicalCatalogCards(authors []classical.CatalogAuthor, query string, view
 // Its title opens the Work page; its detail line is the Edition label.
 func classicalCatalogCard(work classical.CatalogWork, unit classical.CatalogUnit, view classicalCatalogView) catalogCard {
 	card := catalogCard{
-		ID:         unit.Key,
+		ID:         "classical-" + unit.Key,
 		Title:      work.Title,
 		GreekTitle: work.GreekTitle,
 		Author:     work.Author,

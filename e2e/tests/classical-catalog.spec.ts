@@ -54,7 +54,7 @@ test('the Classical catalog is an ordinary card section; Add leaves the Catalog 
   const odyssey = page.locator('#catalog-source-classical .catalog-entry', { hasText: 'Odyssey' });
   await expect(odyssey).toContainText('Ὀδύσσεια');
   await expect(odyssey).toContainText('Fixture reviewed edition');
-  await expect(odyssey).toContainText('Adding downloads and prepares the text.');
+  await expect(odyssey).toContainText('Adding prepares the text for reading.');
   await expect(odyssey.getByRole('button', { name: 'Add', exact: true })).toHaveCount(1);
   await odyssey.getByRole('button', { name: 'Add', exact: true }).click();
 

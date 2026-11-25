@@ -326,13 +326,9 @@ func (h *Handler) classicalAuthorIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 // classicalAuthor retires the author-detail page. An old author URL
-// permanently redirects to the Catalog filtered to Ancient Greek while an
-// unknown author stays not found.
+// permanently redirects to the Catalog filtered to Ancient Greek, even when the
+// author no longer has a current Work.
 func (h *Handler) classicalAuthor(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.services.Classical.Author(r.PathValue("author")); !ok {
-		http.NotFound(w, r)
-		return
-	}
 	http.Redirect(w, r, classicalCatalogURL(), http.StatusMovedPermanently)
 }
 

@@ -94,7 +94,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	work := perform(t, h.handler, http.MethodGet, "/catalogs/classical/works/synthetic-work", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
 	for _, want := range []string{
-		"Adding downloads and prepares the text.", `action="/catalogs/classical/units/synthetic-work-1/add"`,
+		"Adding prepares the text for reading.", `action="/catalogs/classical/units/synthetic-work-1/add"`,
 		"English translation", `class="classical-opening"`, `class="classical-length"`,
 	} {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)

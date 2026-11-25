@@ -53,7 +53,7 @@ test.describe('catalog sources and browsing', () => {
     await expect(fixture.getByRole('link', { name: 'Next' })).toHaveAttribute('href', /language=de.*page_fixture-connection=2/);
     const addEntry = fixture.locator('.catalog-entry', { hasText: 'Ein kurzer Sommer' });
     await expect(addEntry.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
-    await expect(addEntry).toContainText('Adding downloads and prepares the text.');
+    await expect(addEntry).toContainText('Adding prepares the text for reading.');
     await expect(page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first()).toBeVisible();
 
     // The Classical catalog is a section chosen with the Language filter, not a
@@ -85,7 +85,7 @@ test.describe('catalog sources and browsing', () => {
     await page.goto('/catalogs?language=de');
 
     const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
-    await expect(entry).toContainText('Adding downloads and prepares the text.');
+    await expect(entry).toContainText('Adding prepares the text for reading.');
     // A text without a cover shows a Title plate that assistive technology skips.
     const plate = entry.locator('.book-cover-media__placeholder');
     await expect(plate).toHaveAttribute('aria-hidden', 'true');

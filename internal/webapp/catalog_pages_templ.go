@@ -691,7 +691,7 @@ func CatalogSection(csrf string, section catalogSection) templ.Component {
 
 // catalogAddCopy is the one line under every Add: it is accurate for an OPDS
 // download and for a Classical text prepared from the release.
-const catalogAddCopy = "Adding downloads and prepares the text."
+const catalogAddCopy = "Adding prepares the text for reading."
 
 // CatalogEntryCard is one Catalog text from any source: an image, the title
 // (with the Greek title of a Classical text), the author, one detail line, and
