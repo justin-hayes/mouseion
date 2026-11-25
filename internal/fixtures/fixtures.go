@@ -107,6 +107,9 @@ type Store struct {
 	// against them.
 	lemmaOccurrences map[string][]domain.LemmaReviewOccurrence
 	browseScenario   string
+	// studyMaterial is every Study material record, current and superseded,
+	// keyed by owner and record ID order of creation.
+	studyMaterial []domain.StudyMaterial
 	// classicalDefinitions is the release the fixture's Add resolves Reading
 	// units from. Tests may install the shared contract's release.
 	classicalDefinitions map[string]classical.Definition

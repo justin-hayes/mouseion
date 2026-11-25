@@ -1100,6 +1100,30 @@ type SourceStructureCheck struct {
 	CheckedAt              time.Time
 }
 
+type StudyMaterial struct {
+	ID                         string
+	OwnerID                    string
+	Language                   string
+	CanonicalLemma             string
+	Upos                       string
+	LexicalDiscriminator       string
+	State                      string
+	OmissionReason             string
+	BookID                     pgtype.UUID
+	AnalysisRunID              pgtype.UUID
+	CorpusID                   pgtype.UUID
+	SentenceOrdinal            pgtype.Int8
+	TokenOrdinal               pgtype.Int8
+	Sentence                   string
+	TargetWord                 string
+	Gloss                      string
+	SentenceTranslation        string
+	SentenceTranslationTargets []byte
+	SupersededAt               pgtype.Timestamptz
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
+}
+
 type SupportedLanguage struct {
 	Language    string
 	DisplayName string
