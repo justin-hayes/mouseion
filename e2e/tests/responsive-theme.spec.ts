@@ -597,8 +597,9 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(destinations).toHaveCount(4);
       await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
-      // The Catalog has no page language, so it carries no picker (ADR 0131).
-      if (path === '/catalogs') await expect(navigation.getByLabel('Study language')).toHaveCount(0);
+      // Only per-language pages carry the picker; the Catalog, job status and
+      // deck status have no page language (ADR 0131).
+      if (!path.startsWith('/de/')) await expect(navigation.getByLabel('Study language')).toHaveCount(0);
       else await expect(navigation.getByLabel('Study language')).toBeVisible();
 
       const geometry = await page.locator('.site-header').evaluate(header => {
@@ -622,6 +623,7 @@ test.describe('responsive and theme regression coverage', () => {
       }
     }
 
+    await page.goto('/de/library');
     const account = page.locator('.site-header__account');
     await page.evaluate(() => {
       const language = document.querySelector<HTMLSelectElement>('#active-study-language')!;
