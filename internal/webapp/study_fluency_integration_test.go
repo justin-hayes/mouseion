@@ -24,7 +24,7 @@ type fluencyForm struct {
 }
 
 // addFluencySentence adds one more sentence of "haus" to the Book's corpus.
-func (s *studyHarness) addFluencySentence(book domain.Book, key string, form fluencyForm) string {
+func (s *studyHarness) addFluencySentence(key string, form fluencyForm) string {
 	s.t.Helper()
 	sentence := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN"})
 	// A name of the same length keeps every offset; the target is the last
@@ -60,9 +60,9 @@ var fluencyForms = []fluencyForm{
 // reviews would leave it.
 func (s *studyHarness) matureHaus() domain.StudyProgress {
 	s.t.Helper()
-	book := s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 1})
+	s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 1})
 	for _, form := range fluencyForms {
-		s.addFluencySentence(book, "reading", form)
+		s.addFluencySentence("reading", form)
 	}
 	require.Equal(s.t, http.StatusOK, getAs(s.t, s.h, "/de/study", s.cookies).Code)
 	require.NoError(s.t, s.client.Start(s.ctx))
@@ -100,7 +100,7 @@ func (s *studyHarness) fluencyContexts() []domain.FluencyContext {
 
 // openFluency opens the Study page, which enqueues the word's Fluency
 // preparation, and waits until its job has stored contexts.
-func (s *studyHarness) openFluency(agreeing int) {
+func (s *studyHarness) openFluency() {
 	s.t.Helper()
 	require.Equal(s.t, http.StatusOK, getAs(s.t, s.h, "/de/study", s.cookies).Code)
 	testutil.Eventually(s.t, 60*time.Second, "Fluency contexts", func() (bool, string) {
@@ -110,7 +110,7 @@ func (s *studyHarness) openFluency(agreeing int) {
 				count++
 			}
 		}
-		return count >= agreeing, "contexts are still being prepared"
+		return count >= domain.FluencyContextsPerWord, "contexts are still being prepared"
 	})
 }
 
@@ -123,7 +123,7 @@ func TestStudyFluencyPreparesUpToFiveAgreeingContextsOfDifferentForms(t *testing
 
 	// Opening the page enqueues the preparation; the learned meaning goes to
 	// the provider from the job alone.
-	s.openFluency(domain.FluencyContextsPerWord)
+	s.openFluency()
 	testutil.Eventually(t, 30*time.Second, "the job to finish asking", func() (bool, string) {
 		return len(s.fluencyContexts()) >= domain.FluencyContextsPerWord+1, "still asking"
 	})
@@ -163,7 +163,7 @@ func TestStudyFluencyPreparesUpToFiveAgreeingContextsOfDifferentForms(t *testing
 func TestStudyFluencyCardsAreUngradedAndNeverChangeProgress(t *testing.T) {
 	s := newStudyHarness(t)
 	word := s.matureHaus()
-	s.openFluency(domain.FluencyContextsPerWord)
+	s.openFluency()
 
 	page := getAs(t, s.h, "/de/study", s.cookies).Body.String()
 	assert.Contains(t, page, `id="fluency-card-heading"`)
@@ -180,7 +180,7 @@ func TestStudyFluencyCardsAreUngradedAndNeverChangeProgress(t *testing.T) {
 
 	progressBefore, logBefore := s.progress(), s.reviewLog(word.ID)
 	shown := map[string]bool{}
-	for i := 0; i < domain.FluencyContextsPerWord+1; i++ {
+	for i := range domain.FluencyContextsPerWord + 1 {
 		card, ok := domain.NextFluencyCard(s.fluencyContexts(), s.progress())
 		require.True(t, ok)
 		if i < domain.FluencyContextsPerWord {
@@ -216,7 +216,7 @@ func TestStudyFluencyCardsAreUngradedAndNeverChangeProgress(t *testing.T) {
 func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *testing.T) {
 	s := newStudyHarness(t)
 	s.matureHaus()
-	s.openFluency(domain.FluencyContextsPerWord)
+	s.openFluency()
 	card := func() string { return getAs(t, s.h, "/de/study", s.cookies).Body.String() }
 
 	// Today is finished and the day's batch was taken: Fluency is open, and no
@@ -263,7 +263,7 @@ func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *test
 func TestStudyFluencyEndsWhenAWordLapsesAndTodayNotesNothingMature(t *testing.T) {
 	s := newStudyHarness(t)
 	s.matureHaus()
-	s.openFluency(domain.FluencyContextsPerWord)
+	s.openFluency()
 	assert.Contains(t, getAs(t, s.h, "/de/study", s.cookies).Body.String(), `id="fluency-card-heading"`)
 
 	// A word one day short of mature is not eligible.

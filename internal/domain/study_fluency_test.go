@@ -6,7 +6,7 @@ import (
 )
 
 func matureWord(id string, state StudyCardState, days int64) StudyProgress {
-	return StudyProgress{ID: id, StudyIdentity: StudyIdentity{Language: "de", CanonicalLemma: id, UPOS: "VERB"}, Memory: StudyMemory{State: state, ScheduledDays: days}}
+	return StudyProgress{ID: id, Language: "de", CanonicalLemma: id, UPOS: "VERB", Memory: StudyMemory{State: state, ScheduledDays: days}}
 }
 
 func TestIsStudyMature(t *testing.T) {
@@ -96,23 +96,23 @@ func TestRankFluencyCandidatesTieBreaks(t *testing.T) {
 	}
 }
 
-func fluencyContext(id, progress string, last time.Time) FluencyContext {
-	return FluencyContext{ID: id, ProgressID: progress, Agreement: FluencyAgrees, LastResponseAt: last}
+func fluencyContext(id, progress string) FluencyContext {
+	return FluencyContext{ID: id, ProgressID: progress, Agreement: FluencyAgrees}
 }
 
 func TestNextFluencyCardIsRoundRobin(t *testing.T) {
 	now := time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC)
 	words := []StudyProgress{matureWord("a", StudyStateReview, 30), matureWord("b", StudyStateReview, 30), matureWord("c", StudyStateReview, 10)}
 	contexts := []FluencyContext{
-		fluencyContext("a1", "a", time.Time{}), fluencyContext("a2", "a", time.Time{}),
-		fluencyContext("b1", "b", time.Time{}), fluencyContext("c1", "c", time.Time{}),
+		fluencyContext("a1", "a"), fluencyContext("a2", "a"),
+		fluencyContext("b1", "b"), fluencyContext("c1", "c"),
 	}
 	contexts[1].CreatedAt = now
 	// A word that is not mature, and a disagreeing context, are never shown.
 	contexts = append(contexts, FluencyContext{ID: "b-no", ProgressID: "b", Agreement: FluencyDisagrees})
 
 	var shown []string
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		card, ok := NextFluencyCard(contexts, words)
 		if !ok {
 			t.Fatal("expected a card")
@@ -138,8 +138,8 @@ func TestNextFluencyCardIsRoundRobin(t *testing.T) {
 func TestFluencyContextsNeeded(t *testing.T) {
 	words := []StudyProgress{matureWord("a", StudyStateReview, 30), matureWord("b", StudyStateReview, 30), matureWord("c", StudyStateReview, 5)}
 	var contexts []FluencyContext
-	for i := 0; i < FluencyContextsPerWord; i++ {
-		contexts = append(contexts, fluencyContext("a", "a", time.Time{}))
+	for range FluencyContextsPerWord {
+		contexts = append(contexts, fluencyContext("a", "a"))
 	}
 	contexts = append(contexts, FluencyContext{ProgressID: "b", Agreement: FluencyDisagrees})
 	needed := FluencyContextsNeeded(words, contexts)

@@ -18,8 +18,10 @@ func fluencyRequest() TranslationRequest {
 	}
 }
 
-func fluencyEnvelope(content string) []byte {
-	body, _ := json.Marshal(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"role": "assistant", "content": content}}}})
+func fluencyEnvelope(t *testing.T, content string) []byte {
+	t.Helper()
+	body, err := json.Marshal(map[string]any{"choices": []any{map[string]any{"message": map[string]string{"role": "assistant", "content": content}}}})
+	require.NoError(t, err)
 	return body
 }
 
@@ -27,7 +29,10 @@ func TestFluencyAgreementRequestSendsOnlyTheAssessedFields(t *testing.T) {
 	body, err := passCodec(t).EncodeRequest(fluencyRequest())
 	require.NoError(t, err)
 	var request struct {
-		Messages []struct{ Role, Content string } `json:"messages"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
 	}
 	require.NoError(t, json.Unmarshal(body, &request))
 	require.Len(t, request.Messages, 2)
@@ -70,10 +75,9 @@ func TestDecodeFluencyAgreement(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			response, _, err := codec.DecodeResponseWithUsage(fluencyRequest(), fluencyEnvelope(tc.content))
+			response, _, err := codec.DecodeResponseWithUsage(fluencyRequest(), fluencyEnvelope(t, tc.content))
 			if tc.wantErr != "" {
-				require.Error(t, err)
-				assert.ErrorIs(t, err, ErrInvalidTranslationResponse)
+				require.ErrorIs(t, err, ErrInvalidTranslationResponse)
 				assert.Contains(t, err.Error(), tc.wantErr)
 				return
 			}

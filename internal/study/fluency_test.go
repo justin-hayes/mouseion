@@ -48,11 +48,11 @@ func (s *fluencyFakeStore) RecordStudyFluencyContext(_ context.Context, _ string
 // sentence that passes the sentence-quality gate, whose target token is the
 // surface with the given morphology. Each surface makes a distinct sentence. It
 // returns the sentence text.
-func (s *fluencyFakeStore) addOccurrence(book string, ordinal int64, surface string, morphology map[string]string) string {
+func (s *fluencyFakeStore) addOccurrence(ordinal int64, surface string, morphology map[string]string) string {
 	sentence := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: surface, UPOS: "NOUN"})
 	target := len(sentence.Tokens) - 1
 	sentence.Tokens[target].Morphology = morphology
-	item := occurrence(book, sentence.Text, ordinal)
+	item := occurrence(otherBook, sentence.Text, ordinal)
 	item.Surface, item.TokenOrdinal = surface, int64(target)
 	s.occurrences = append(s.occurrences, item)
 	s.tokens[ordinal] = sentence.Tokens
@@ -84,16 +84,14 @@ func nominative() map[string]string { return map[string]string{"Number": "Sing",
 // sentence. The concordance lists that introducing occurrence too.
 func newFluencyFixture() (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnricher) {
 	store := &fluencyFakeStore{
-		fakeStore: fakeStore{
-			reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
-			tokens:  map[int64][]analyzer.Token{},
-		},
+		reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
+		tokens:  map[int64][]analyzer.Token{},
 		progress: domain.StudyProgress{
 			ID: "p1", StudyIdentity: domain.StudyIdentity{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, MaterialID: "m1", LearnedMeaning: "a building",
 			Memory: domain.StudyMemory{State: domain.StudyStateReview, ScheduledDays: 30},
 		},
 	}
-	introduced := store.addOccurrence(otherBook, 1, "haus", nominative())
+	introduced := store.addOccurrence(1, "haus", nominative())
 	store.material = domain.StudyMaterial{
 		ID: "m1", Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", State: domain.StudyMaterialReady,
 		Sentence: introduced, TargetWord: "haus", CorpusID: "corpus-" + otherBook, SentenceOrdinal: 1, TokenOrdinal: store.occurrences[0].TokenOrdinal,
@@ -113,7 +111,7 @@ func isSnooze(err error) bool {
 
 func TestFluencyWorkerSendsNothingWhileTheAssessmentIsNotRecorded(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
-	store.addOccurrence(otherBook, 2, "haeuser", map[string]string{"Number": "Plur", "Case": "Nom"})
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur", "Case": "Nom"})
 	worker.MaySend = func(string) error { return enrichment.ErrProviderAssessmentNotRecorded }
 
 	err := fluencyWork(worker)
@@ -126,13 +124,13 @@ func TestFluencyWorkerPrefersDifferentFormsAndStopsAtFiveAgreeingContexts(t *tes
 	worker, store, enricher := newFluencyFixture()
 	// Listed in the concordance's order. The same form as the introduction
 	// comes first, but a different form is always asked about before it.
-	store.addOccurrence(otherBook, 2, "hausa", nominative())
-	store.addOccurrence(otherBook, 3, "haeuser", map[string]string{"Number": "Plur", "Case": "Nom"})
-	store.addOccurrence(otherBook, 4, "hauses", map[string]string{"Number": "Sing", "Case": "Gen"})
-	store.addOccurrence(otherBook, 5, "haeusern", map[string]string{"Number": "Plur", "Case": "Dat"})
-	store.addOccurrence(otherBook, 6, "hause", map[string]string{"Number": "Sing", "Case": "Dat"})
-	store.addOccurrence(otherBook, 7, "hausb", map[string]string{"Number": "Sing", "Case": "Acc"})
-	store.addOccurrence(otherBook, 8, "hausc", nominative())
+	store.addOccurrence(2, "hausa", nominative())
+	store.addOccurrence(3, "haeuser", map[string]string{"Number": "Plur", "Case": "Nom"})
+	store.addOccurrence(4, "hauses", map[string]string{"Number": "Sing", "Case": "Gen"})
+	store.addOccurrence(5, "haeusern", map[string]string{"Number": "Plur", "Case": "Dat"})
+	store.addOccurrence(6, "hause", map[string]string{"Number": "Sing", "Case": "Dat"})
+	store.addOccurrence(7, "hausb", map[string]string{"Number": "Sing", "Case": "Acc"})
+	store.addOccurrence(8, "hausc", nominative())
 
 	require.NoError(t, fluencyWork(worker))
 
@@ -156,9 +154,9 @@ func TestFluencyWorkerPrefersDifferentFormsAndStopsAtFiveAgreeingContexts(t *tes
 
 func TestFluencyWorkerDiscardsContextsThatDisagreeWithTheLearnedMeaning(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
-	store.addOccurrence(otherBook, 2, "haeuser", map[string]string{"Number": "Plur"})
-	store.addOccurrence(otherBook, 3, "hauses", map[string]string{"Case": "Gen"})
-	store.addOccurrence(otherBook, 4, "hause", map[string]string{"Case": "Dat"})
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
+	store.addOccurrence(3, "hauses", map[string]string{"Case": "Gen"})
+	store.addOccurrence(4, "hause", map[string]string{"Case": "Dat"})
 	enricher.disagree["hauses"] = true
 
 	require.NoError(t, fluencyWork(worker))
@@ -180,7 +178,7 @@ func TestFluencyWorkerDiscardsContextsThatDisagreeWithTheLearnedMeaning(t *testi
 
 func TestFluencyWorkerDoesNotAskAboutAnOccurrenceTwice(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
-	store.addOccurrence(otherBook, 2, "haeuser", map[string]string{"Number": "Plur"})
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
 	item := store.occurrences[1]
 	store.existing = []domain.FluencyContext{{ProgressID: "p1", Agreement: domain.FluencyDisagrees, AnalysisRunID: item.AnalysisRunID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}}
 
@@ -190,7 +188,7 @@ func TestFluencyWorkerDoesNotAskAboutAnOccurrenceTwice(t *testing.T) {
 
 func TestFluencyWorkerLeavesAWordThatLapsedAlone(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
-	store.addOccurrence(otherBook, 2, "haeuser", map[string]string{"Number": "Plur"})
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
 	store.progress.Memory = domain.StudyMemory{State: domain.StudyStateRelearning}
 
 	require.NoError(t, fluencyWork(worker))
@@ -200,7 +198,7 @@ func TestFluencyWorkerLeavesAWordThatLapsedAlone(t *testing.T) {
 
 func TestFluencyWorkerRetriesAProviderFailureWithoutRecordingIt(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
-	store.addOccurrence(otherBook, 2, "haeuser", map[string]string{"Number": "Plur"})
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
 	enricher.err = errors.New("provider unavailable")
 
 	err := fluencyWork(worker)

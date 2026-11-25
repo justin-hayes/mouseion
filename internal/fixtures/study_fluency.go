@@ -71,19 +71,7 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 	if !known {
 		return errNotFound
 	}
-	agreeing := 0
-	for _, item := range s.studyFluencyContexts {
-		if item.OwnerID != owner || item.ProgressID != record.ProgressID {
-			continue
-		}
-		if item.AnalysisRunID == record.AnalysisRunID && item.SentenceOrdinal == record.SentenceOrdinal && item.TokenOrdinal == record.TokenOrdinal {
-			return domain.ErrFluencyContextNotStored
-		}
-		if item.Agreement == domain.FluencyAgrees {
-			agreeing++
-		}
-	}
-	if record.Agreement == domain.FluencyAgrees && agreeing >= domain.FluencyContextsPerWord {
+	if !s.fluencyContextFitsLocked(owner, record) {
 		return domain.ErrFluencyContextNotStored
 	}
 	s.studyFluencyContexts = append(s.studyFluencyContexts, domain.FluencyContext{
@@ -96,6 +84,25 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 		Form:                       record.Form, CreatedAt: time.Now().UTC(),
 	})
 	return nil
+}
+
+// fluencyContextFitsLocked reports whether the context may be stored: the
+// occurrence is not already assessed for the word, and an agreeing context
+// leaves the word within its limit. The caller holds s.mu.
+func (s *Store) fluencyContextFitsLocked(owner string, record domain.FluencyContextRecord) bool {
+	agreeing := 0
+	for _, item := range s.studyFluencyContexts {
+		if item.OwnerID != owner || item.ProgressID != record.ProgressID {
+			continue
+		}
+		if item.AnalysisRunID == record.AnalysisRunID && item.SentenceOrdinal == record.SentenceOrdinal && item.TokenOrdinal == record.TokenOrdinal {
+			return false
+		}
+		if item.Agreement == domain.FluencyAgrees {
+			agreeing++
+		}
+	}
+	return record.Agreement != domain.FluencyAgrees || agreeing < domain.FluencyContextsPerWord
 }
 
 // RecordStudyFluencyResponse appends the learner's answer to one of their

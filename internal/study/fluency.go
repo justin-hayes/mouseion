@@ -150,12 +150,18 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if err != nil {
 		return err
 	}
-	asked := 0
-	for _, choice := range ranked {
+	return w.askAbout(ctx, owner, word, ranked, agreeing)
+}
+
+// askAbout asks the provider about each ranked occurrence in turn until the word
+// has its agreeing contexts or maxFluencyAsks questions are spent, storing each
+// answer. A missing provider waits; a provider failure is returned for River to
+// retry.
+func (w *FluencyWorker) askAbout(ctx context.Context, owner string, word domain.StudyProgress, ranked []sentenceChoice, agreeing int) error {
+	for asked, choice := range ranked {
 		if agreeing >= domain.FluencyContextsPerWord || asked >= maxFluencyAsks {
 			break
 		}
-		asked++
 		agreement, err := w.Enricher.EnrichFluencyAgreement(ctx, enrichment.Candidate{
 			Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS,
 			TargetWord: choice.target, ExampleSentence: choice.sentence,
@@ -236,9 +242,35 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 	if reading.IsActive() {
 		priority, lookupPriority = reading.BookID, reading.BookID
 	}
-	byKey := map[string]sentenceChoice{}
-	var candidates []domain.FluencyCandidate
+	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, lookupPriority)
+	if err != nil {
+		return nil, err
+	}
+	byKey := make(map[string]sentenceChoice, len(choices))
+	candidates := make([]domain.FluencyCandidate, 0, len(choices))
+	for _, choice := range choices {
+		occurrence := choice.occurrence
+		key := fmt.Sprintf("%s/%d/%d", occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
+		byKey[key] = choice
+		candidates = append(candidates, domain.FluencyCandidate{
+			Key: key, Form: choice.form, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
+		})
+	}
+	ranked := domain.RankFluencyCandidates(introduced, candidates)
+	ordered := make([]sentenceChoice, 0, len(ranked))
+	for _, candidate := range ranked {
+		ordered = append(ordered, byKey[candidate.Key])
+	}
+	return ordered, nil
+}
+
+// otherOccurrences reads the word's concordance page by page and keeps the
+// occurrences the sentence-quality gate accepts, leaving out the occurrences
+// already assessed and the word's own introducing sentence, wherever else the
+// library repeats that text.
+func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, lookupPriority string) ([]sentenceChoice, error) {
 	introducing := strings.TrimSpace(material.Sentence)
+	var kept []sentenceChoice
 	for page := 1; page <= maxFluencyPages; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, word.Language, domain.ConcordanceLookup{
 			Language: word.Language, Term: word.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
@@ -253,27 +285,15 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		}
 		for _, choice := range choices {
 			occurrence := choice.occurrence
-			// The word's own introducing sentence is never another context for it,
-			// wherever else the library repeats that text.
-			if assessed[occurrenceKey{occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal}] || choice.sentence == introducing {
-				continue
+			if !assessed[occurrenceKey{occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal}] && choice.sentence != introducing {
+				kept = append(kept, choice)
 			}
-			key := fmt.Sprintf("%s/%d/%d", occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
-			byKey[key] = choice
-			candidates = append(candidates, domain.FluencyCandidate{
-				Key: key, Form: choice.form, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
-			})
 		}
 		if !result.HasNext {
 			break
 		}
 	}
-	ranked := domain.RankFluencyCandidates(introduced, candidates)
-	choices := make([]sentenceChoice, 0, len(ranked))
-	for _, candidate := range ranked {
-		choices = append(choices, byKey[candidate.Key])
-	}
-	return choices, nil
+	return kept, nil
 }
 
 // introducedForm is the form the word took in its introducing sentence. It is
@@ -320,4 +340,3 @@ func fluencyFormOf(tokens []analyzer.Token, ordinal int64) domain.FluencyForm {
 	}
 	return form
 }
-

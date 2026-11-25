@@ -177,6 +177,17 @@ type FluencyCard struct {
 // that agree with the learned meaning, of words that are mature, are shown.
 // ok is false when there is nothing to show.
 func NextFluencyCard(contexts []FluencyContext, progress []StudyProgress) (FluencyCard, bool) {
+	cards, lastByWord := matureFluencyCards(contexts, progress)
+	if len(cards) == 0 {
+		return FluencyCard{}, false
+	}
+	sort.SliceStable(cards, func(i, j int) bool { return fluencyCardBefore(cards[i], cards[j], lastByWord) })
+	return cards[0], true
+}
+
+// matureFluencyCards pairs each agreeing context of a mature word with its word
+// and reports when each word was last answered.
+func matureFluencyCards(contexts []FluencyContext, progress []StudyProgress) ([]FluencyCard, map[string]time.Time) {
 	mature := make(map[string]StudyProgress, len(progress))
 	for _, item := range progress {
 		if IsStudyMature(item) {
@@ -195,26 +206,23 @@ func NextFluencyCard(contexts []FluencyContext, progress []StudyProgress) (Fluen
 			lastByWord[context.ProgressID] = context.LastResponseAt
 		}
 	}
-	if len(cards) == 0 {
-		return FluencyCard{}, false
+	return cards, lastByWord
+}
+
+func fluencyCardBefore(a, b FluencyCard, lastByWord map[string]time.Time) bool {
+	if wa, wb := lastByWord[a.Progress.ID], lastByWord[b.Progress.ID]; !wa.Equal(wb) {
+		return wa.Before(wb)
 	}
-	sort.SliceStable(cards, func(i, j int) bool {
-		a, b := cards[i], cards[j]
-		if wa, wb := lastByWord[a.Progress.ID], lastByWord[b.Progress.ID]; !wa.Equal(wb) {
-			return wa.Before(wb)
-		}
-		if a.Progress.ID != b.Progress.ID {
-			return studyIdentityBefore(a.Progress.StudyIdentity, b.Progress.StudyIdentity)
-		}
-		if !a.Context.LastResponseAt.Equal(b.Context.LastResponseAt) {
-			return a.Context.LastResponseAt.Before(b.Context.LastResponseAt)
-		}
-		if !a.Context.CreatedAt.Equal(b.Context.CreatedAt) {
-			return a.Context.CreatedAt.Before(b.Context.CreatedAt)
-		}
-		return a.Context.ID < b.Context.ID
-	})
-	return cards[0], true
+	if a.Progress.ID != b.Progress.ID {
+		return studyIdentityBefore(a.Progress.StudyIdentity, b.Progress.StudyIdentity)
+	}
+	if !a.Context.LastResponseAt.Equal(b.Context.LastResponseAt) {
+		return a.Context.LastResponseAt.Before(b.Context.LastResponseAt)
+	}
+	if !a.Context.CreatedAt.Equal(b.Context.CreatedAt) {
+		return a.Context.CreatedAt.Before(b.Context.CreatedAt)
+	}
+	return a.Context.ID < b.Context.ID
 }
 
 func studyIdentityBefore(a, b StudyIdentity) bool {

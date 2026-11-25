@@ -30,10 +30,15 @@ type StudyStore interface {
 	// RecordStudyGrade appends the review-log row and updates the word's
 	// state; a card already graded is domain.ErrStudyStale.
 	RecordStudyGrade(ctx context.Context, owner string, record domain.StudyGradeRecord) error
-	// ListStudyFluencyContexts returns the Fluency contexts of the learner's
-	// words, with when each was last answered. RecordStudyFluencyResponse
-	// appends an answer and changes nothing else; a missing or disagreeing
-	// context is domain.ErrNotFound.
+	StudyFluencyStore
+}
+
+// StudyFluencyStore is the Fluency part of the Study store: the contexts of the
+// learner's mature words and the answers to them. Fluency never writes Study
+// progress. ListStudyFluencyContexts returns the contexts with when each was
+// last answered. RecordStudyFluencyResponse appends an answer and changes
+// nothing else; a missing or disagreeing context is domain.ErrNotFound.
+type StudyFluencyStore interface {
 	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
 	RecordStudyFluencyResponse(ctx context.Context, owner string, record domain.FluencyResponseRecord) error
 }
