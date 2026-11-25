@@ -2,7 +2,6 @@ package domain
 
 import (
 	"errors"
-	"sort"
 	"strings"
 	"time"
 )
@@ -162,67 +161,21 @@ type FluencyContext struct {
 	// LastResponseAt is when the learner last answered the context, zero when
 	// never.
 	LastResponseAt time.Time
+	// Responses are the learner's answers to the context, oldest first. They
+	// are the evidence the weighted rotation reads.
+	Responses []FluencyResponseEvent
+}
+
+// FluencyResponseEvent is one answer to a Fluency context and when it was given.
+type FluencyResponseEvent struct {
+	Response FluencyResponse
+	At       time.Time
 }
 
 // FluencyCard is a Fluency context with the word it belongs to.
 type FluencyCard struct {
 	Context  FluencyContext
 	Progress StudyProgress
-}
-
-// NextFluencyCard picks the card to show: a plain round-robin over mature
-// words and their contexts. The word answered least recently comes first
-// (never answered before any), and within a word the context answered least
-// recently, so every context is shown once before one repeats. Only contexts
-// that agree with the learned meaning, of words that are mature, are shown.
-// ok is false when there is nothing to show.
-func NextFluencyCard(contexts []FluencyContext, progress []StudyProgress) (FluencyCard, bool) {
-	cards, lastByWord := matureFluencyCards(contexts, progress)
-	if len(cards) == 0 {
-		return FluencyCard{}, false
-	}
-	sort.SliceStable(cards, func(i, j int) bool { return fluencyCardBefore(cards[i], cards[j], lastByWord) })
-	return cards[0], true
-}
-
-// matureFluencyCards pairs each agreeing context of a mature word with its word
-// and reports when each word was last answered.
-func matureFluencyCards(contexts []FluencyContext, progress []StudyProgress) ([]FluencyCard, map[string]time.Time) {
-	mature := make(map[string]StudyProgress, len(progress))
-	for _, item := range progress {
-		if IsStudyMature(item) {
-			mature[item.ID] = item
-		}
-	}
-	lastByWord := map[string]time.Time{}
-	var cards []FluencyCard
-	for _, context := range contexts {
-		word, ok := mature[context.ProgressID]
-		if !ok || context.Agreement != FluencyAgrees {
-			continue
-		}
-		cards = append(cards, FluencyCard{Context: context, Progress: word})
-		if context.LastResponseAt.After(lastByWord[context.ProgressID]) {
-			lastByWord[context.ProgressID] = context.LastResponseAt
-		}
-	}
-	return cards, lastByWord
-}
-
-func fluencyCardBefore(a, b FluencyCard, lastByWord map[string]time.Time) bool {
-	if wa, wb := lastByWord[a.Progress.ID], lastByWord[b.Progress.ID]; !wa.Equal(wb) {
-		return wa.Before(wb)
-	}
-	if a.Progress.ID != b.Progress.ID {
-		return studyIdentityBefore(a.Progress.StudyIdentity, b.Progress.StudyIdentity)
-	}
-	if !a.Context.LastResponseAt.Equal(b.Context.LastResponseAt) {
-		return a.Context.LastResponseAt.Before(b.Context.LastResponseAt)
-	}
-	if !a.Context.CreatedAt.Equal(b.Context.CreatedAt) {
-		return a.Context.CreatedAt.Before(b.Context.CreatedAt)
-	}
-	return a.Context.ID < b.Context.ID
 }
 
 func studyIdentityBefore(a, b StudyIdentity) bool {

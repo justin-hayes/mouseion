@@ -61,6 +61,7 @@ func fluencyContextLimitScenario(t *testing.T, h Harness) {
 	for _, item := range contexts {
 		assert.Equal(t, word.ID, item.ProgressID)
 		assert.True(t, item.LastResponseAt.IsZero(), "an unanswered context has no response time")
+		assert.Empty(t, item.Responses, "an unanswered context has no answers")
 		if item.Agreement == domain.FluencyAgrees {
 			agreeing++
 			assert.Equal(t, "a building", item.Gloss)
@@ -124,6 +125,11 @@ func fluencyResponseScenario(t *testing.T, h Harness) {
 	for _, item := range contexts {
 		if item.ID == agreeing.ID {
 			assert.True(t, first.Add(time.Minute).Equal(item.LastResponseAt), "the context reports its latest answer")
+			require.Len(t, item.Responses, 2, "the context reports every answer")
+			assert.Equal(t, domain.FluencyNotRecognised, item.Responses[0].Response)
+			assert.True(t, first.Equal(item.Responses[0].At), "answers come oldest first")
+			assert.Equal(t, domain.FluencyRecognised, item.Responses[1].Response)
+			assert.True(t, first.Add(time.Minute).Equal(item.Responses[1].At))
 		}
 	}
 	progressAfter, err := progressStore.ListStudyProgress(owner, Language)

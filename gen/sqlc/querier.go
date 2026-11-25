@@ -469,6 +469,9 @@ type Querier interface {
 	// Known and Reserved vocabulary are deliberately not consulted (ADR 0134 §3).
 	// The builder version is the one Browse reads.
 	ListStudyCandidates(ctx context.Context, arg ListStudyCandidatesParams) ([]ListStudyCandidatesRow, error)
+	// Every answer to the owner's contexts in the study language, oldest first:
+	// the evidence the weighted rotation reads.
+	ListStudyFluencyContextResponses(ctx context.Context, arg ListStudyFluencyContextResponsesParams) ([]ListStudyFluencyContextResponsesRow, error)
 	// Every context of the owner's words in the study language, with when the
 	// learner last answered it; the Unix epoch means never.
 	ListStudyFluencyContexts(ctx context.Context, arg ListStudyFluencyContextsParams) ([]ListStudyFluencyContextsRow, error)

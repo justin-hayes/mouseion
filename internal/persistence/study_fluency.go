@@ -39,6 +39,14 @@ func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, lan
 	if err != nil {
 		return nil, fmt.Errorf("list study fluency contexts: %w", err)
 	}
+	answers, err := sqlcgen.New(s.pool).ListStudyFluencyContextResponses(ctx, sqlcgen.ListStudyFluencyContextResponsesParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
+	if err != nil {
+		return nil, fmt.Errorf("list study fluency context responses: %w", err)
+	}
+	responses := map[string][]domain.FluencyResponseEvent{}
+	for _, answer := range answers {
+		responses[answer.ContextID] = append(responses[answer.ContextID], domain.FluencyResponseEvent{Response: domain.FluencyResponse(answer.Response), At: answer.RespondedAt})
+	}
 	contexts := make([]domain.FluencyContext, 0, len(rows))
 	for _, row := range rows {
 		item := domain.FluencyContext{
@@ -47,7 +55,7 @@ func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, lan
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Sentence: row.Sentence, TargetWord: row.TargetWord, Gloss: row.Gloss, SentenceTranslation: row.SentenceTranslation,
 			Form:      domain.FluencyForm{Surface: row.FormSurface, Features: row.FormFeatures, Split: row.FormSplit},
-			CreatedAt: row.CreatedAt,
+			CreatedAt: row.CreatedAt, Responses: responses[row.ID],
 		}
 		if err := json.Unmarshal(row.SentenceTranslationTargets, &item.SentenceTranslationTargets); err != nil {
 			return nil, fmt.Errorf("decode fluency context targets: %w", err)

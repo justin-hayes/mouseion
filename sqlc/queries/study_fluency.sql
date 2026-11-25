@@ -20,6 +20,16 @@ SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement,
  WHERE c.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
  ORDER BY c.created_at, c.id;
 
+-- name: ListStudyFluencyContextResponses :many
+-- Every answer to the owner's contexts in the study language, oldest first:
+-- the evidence the weighted rotation reads.
+SELECT r.context_id::text AS context_id, r.response, r.responded_at
+  FROM study_fluency_response r
+  JOIN study_fluency_context c ON c.owner_id = r.owner_id AND c.id = r.context_id
+  JOIN study_progress p ON p.owner_id = c.owner_id AND p.id = c.progress_id
+ WHERE r.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
+ ORDER BY r.responded_at, r.created_at, r.id;
+
 -- name: InsertStudyFluencyContext :one
 -- Stores one assessed occurrence of a word. An agreeing context beyond the
 -- word's limit, and an occurrence already assessed, return no row.

@@ -179,14 +179,9 @@ func TestStudyFluencyCardsAreUngradedAndNeverChangeProgress(t *testing.T) {
 	assert.NotContains(t, page, `value="got-it"`, "Fluency is ungraded")
 
 	progressBefore, logBefore := s.progress(), s.reviewLog(word.ID)
-	shown := map[string]bool{}
 	for i := range domain.FluencyContextsPerWord + 1 {
-		card, ok := domain.NextFluencyCard(s.fluencyContexts(), s.progress())
+		card, ok := domain.NextFluencyCard(domain.FluencyRotation{Contexts: s.fluencyContexts(), Progress: s.progress(), Now: s.clock.Now()})
 		require.True(t, ok)
-		if i < domain.FluencyContextsPerWord {
-			assert.False(t, shown[card.Context.ID], "every context is shown once before one repeats")
-		}
-		shown[card.Context.ID] = true
 		response := "recognised"
 		if i%2 == 0 {
 			response = "not-recognised"
@@ -196,7 +191,6 @@ func TestStudyFluencyCardsAreUngradedAndNeverChangeProgress(t *testing.T) {
 		require.Equal(t, http.StatusSeeOther, result.Code)
 		assert.Equal(t, "/de/study", result.Header().Get("Location"))
 	}
-	assert.Len(t, shown, domain.FluencyContextsPerWord)
 
 	var responses int
 	require.NoError(t, s.store.Pool().QueryRow(s.ctx, `SELECT count(*) FROM study_fluency_response WHERE owner_id=$1`, s.owner.ID).Scan(&responses))
@@ -241,7 +235,7 @@ func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *test
 	page := card()
 	assert.Contains(t, page, "1 review left today.")
 	assert.NotContains(t, page, `id="fluency-card-heading"`, "Fluency is reachable only after the finish line")
-	card0, ok := domain.NextFluencyCard(s.fluencyContexts(), s.progress())
+	card0, ok := domain.NextFluencyCard(domain.FluencyRotation{Contexts: s.fluencyContexts(), Progress: s.progress(), Now: s.clock.Now()})
 	require.True(t, ok)
 	s.post("/study/fluency/responses", url.Values{"language": {"de"}, "context": {card0.Context.ID}, "response": {"recognised"}})
 	var responses int
