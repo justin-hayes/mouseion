@@ -1131,6 +1131,7 @@ type StudyMaterial struct {
 	SupersededAt               pgtype.Timestamptz
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
+	EvidenceFingerprint        string
 }
 
 type StudyProgress struct {

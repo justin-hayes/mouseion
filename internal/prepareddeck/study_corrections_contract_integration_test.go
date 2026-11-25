@@ -26,3 +26,15 @@ func (h *postgresHarness) SetStudyWordWithdrawn(owner, progressID string, withdr
 func (h *postgresHarness) CompleteStudyReintroductions(owner, language string, now time.Time) error {
 	return h.store.CompleteStudyReintroductions(h.ctx, owner, language, now)
 }
+
+func (h *postgresHarness) StudyOccurrenceLocator(owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error) {
+	return h.store.StudyOccurrenceLocator(h.ctx, owner, ref)
+}
+
+func (h *postgresHarness) RelocateStudyMaterial(owner, materialID string, ref domain.StudyOccurrenceRef) error {
+	return h.store.RelocateStudyMaterial(h.ctx, owner, materialID, ref)
+}
+
+func (h *postgresHarness) SetStudyMaterialEvidence(owner, materialID, evidence string) error {
+	return h.store.SetStudyMaterialEvidence(h.ctx, owner, materialID, evidence)
+}

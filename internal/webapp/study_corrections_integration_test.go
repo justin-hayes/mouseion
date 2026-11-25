@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -164,4 +165,131 @@ func (s *studyHarness) progressForUnknownIdentity(lemma string) []domain.StudyPr
 		return nil
 	}
 	return rows
+}
+
+// republish simulates an Analysis update that publishes a new run of the Book
+// under the same extraction: every sentence is copied with its ordinal shifted,
+// so only the token's place in its unit says it is the same occurrence. The
+// lemma of the tokens in the given source sentences changes to relemma.
+func (s *studyHarness) republish(bookID string, relemma string, sentences ...int64) string {
+	s.t.Helper()
+	exec := func(query string, args ...any) {
+		_, err := s.store.Pool().Exec(s.ctx, query, args...)
+		require.NoError(s.t, err)
+	}
+	var runID, corpusID, sourceID, newRun, newCorpus string
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT analysis_run_id::text, source_material_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, s.owner.ID, bookID).Scan(&runID, &sourceID))
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, s.owner.ID, runID).Scan(&corpusID))
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,completed_at)
+		SELECT owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity||'-update','completed',now() FROM analysis_runs WHERE owner_id=$1 AND id=$2 RETURNING id::text`, s.owner.ID, runID).Scan(&newRun))
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status,analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count)
+		SELECT owner_id,source_material_id,artifact_hash,'complete',analyzable_token_count,distinct_lemma_count,sentence_count,normalized_token_count,empty_sentence_count,median_sentence_token_count,p90_sentence_token_count,long_sentence_count FROM corpora WHERE owner_id=$1 AND id=$2 RETURNING id::text`, s.owner.ID, corpusID).Scan(&newCorpus))
+	exec(`UPDATE corpora SET analysis_run_id=$1 WHERE owner_id=$2 AND id=$3`, newRun, s.owner.ID, newCorpus)
+	exec(`UPDATE analysis_runs SET corpus_id=$1 WHERE owner_id=$2 AND id=$3`, newCorpus, s.owner.ID, newRun)
+	const shift = 10
+	exec(`INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
+		SELECT owner_id,$3,$4,unit_id,sentence_ordinal+$5,sentence_text,start_offset,end_offset FROM corpus_sentences WHERE owner_id=$1 AND analysis_run_id=$2`, s.owner.ID, runID, newRun, newCorpus, shift)
+	exec(`INSERT INTO corpus_tokens(owner_id,language,analysis_run_id,corpus_id,sentence_ordinal,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword)
+		SELECT owner_id,language,$3,$4,sentence_ordinal+$5,token_ordinal,surface,raw_lemma,canonical_lemma,upos,dependency,head,morphology,start_offset,end_offset,lexical_discriminator,headword FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2`, s.owner.ID, runID, newRun, newCorpus, shift)
+	for _, sentence := range sentences {
+		exec(`UPDATE corpus_tokens SET canonical_lemma=$4, raw_lemma=$4 WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND upos='NOUN'`, s.owner.ID, newRun, sentence+shift, relemma)
+	}
+	exec(`UPDATE book_current_analyses SET analysis_run_id=$3 WHERE owner_id=$1 AND book_id=$2`, s.owner.ID, bookID, newRun)
+	tx, err := s.store.Pool().Begin(s.ctx)
+	require.NoError(s.t, err)
+	require.NoError(s.t, persistence.BuildVocabularyBrowseCountsTx(s.ctx, tx, s.owner.ID, bookID, sourceID, newRun, newCorpus, "de"))
+	require.NoError(s.t, tx.Commit(s.ctx))
+	return newRun
+}
+
+func TestStudyAnalysisUpdateThatLeavesTheLemmaUnchangedKeepsTheMaterial(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID := s.preparedBook(testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
+	s.introduceAllGotIt()
+	haus := s.word("haus")
+	original := s.material(haus.MaterialID)
+
+	newRun := s.republish(bookID, "")
+	s.clock.Advance(24 * time.Hour)
+	s.grade(s.word("buch"), "got-it")
+	calls := s.provider.Calls()
+	page := s.page()
+
+	kept := s.word("haus")
+	assert.False(t, kept.Reintroducing, "the occurrence still resolves to the word")
+	assert.Equal(t, haus.MaterialID, kept.MaterialID, "the material is kept")
+	assert.False(t, kept.Corrected())
+	assert.Equal(t, haus.LearnedMeaning, kept.LearnedMeaning)
+	assert.Equal(t, haus.Memory, kept.Memory)
+	moved := s.material(kept.MaterialID)
+	assert.Equal(t, newRun, moved.AnalysisRunID, "its source names the occurrence in the published run")
+	assert.Equal(t, original.SentenceOrdinal+10, moved.SentenceOrdinal)
+	assert.Equal(t, original.Sentence, moved.Sentence)
+	assert.Equal(t, original.Gloss, moved.Gloss)
+	assert.Equal(t, haus.ID, s.currentCard().ID, "it is shown as the review it was")
+	assert.NotContains(t, page, "study-corrected")
+	assert.Equal(t, calls, s.provider.Calls(), "no provider is asked")
+	assert.Zero(t, s.counts().Preparing)
+}
+
+func TestStudyAnalysisUpdateThatChangesTheLemmaReintroducesTheWord(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID := s.preparedBook(testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
+	s.introduceAllGotIt()
+	haus := s.word("haus")
+	original := s.material(haus.MaterialID)
+
+	s.republish(bookID, "hof", original.SentenceOrdinal)
+	s.clock.Advance(24 * time.Hour)
+	s.grade(s.word("buch"), "got-it")
+	s.page()
+	assert.True(t, s.word("haus").Reintroducing, "the introducing occurrence now resolves to another word")
+
+	testutil.Eventually(t, 60*time.Second, "the word to be re-introduced", func() (bool, string) {
+		s.page()
+		return s.word("haus").MaterialID != haus.MaterialID, "the word is still waiting for new material"
+	})
+	reintroduced := s.word("haus")
+	assert.True(t, reintroduced.Corrected())
+	assert.Equal(t, haus.Memory, reintroduced.Memory)
+	assert.NotEqual(t, original.SentenceOrdinal+10, s.material(reintroduced.MaterialID).SentenceOrdinal)
+}
+
+func TestStudyWordWithdrawnForUnpreparableMaterialReturnsOnlyWhenItsEvidenceChanges(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID := s.preparedBook(testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
+	s.introduceAllGotIt()
+	haus := s.word("haus")
+	s.provider.omit("haus", true)
+	s.decide(bookID, "haus", s.material(haus.MaterialID).SentenceOrdinal, "correct", "hof")
+	s.clock.Advance(24 * time.Hour)
+	s.grade(s.word("buch"), "got-it")
+
+	testutil.Eventually(t, 60*time.Second, "the word to be withdrawn", func() (bool, string) {
+		s.page()
+		return s.word("haus").Withdrawn, "the word is not withdrawn yet"
+	})
+	assert.Equal(t, haus.Memory, s.word("haus").Memory, "its progress is kept")
+
+	// The same evidence is not tried again: no provider is asked.
+	testutil.Eventually(t, 30*time.Second, "preparation to settle", func() (bool, string) { return s.counts().Preparing == 0, "words are preparing" })
+	calls := s.provider.Calls()
+	for range 3 {
+		s.page()
+	}
+	assert.True(t, s.word("haus").Withdrawn)
+	assert.Zero(t, s.counts().Preparing, "nothing is enqueued for it")
+	assert.Equal(t, calls, s.provider.Calls(), "the same evidence does not loop provider calls")
+
+	// A new Book adds occurrences of the word: the evidence differs, so it is
+	// tried again, and now succeeds.
+	s.provider.omit("haus", false)
+	s.seedBook("library", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 2})
+	testutil.Eventually(t, 60*time.Second, "the word to return", func() (bool, string) {
+		s.page()
+		returned := s.word("haus")
+		return !returned.Withdrawn && returned.MaterialID != haus.MaterialID, "the word has not returned"
+	})
+	assert.True(t, s.word("haus").Corrected())
+	assert.Equal(t, haus.Memory, s.word("haus").Memory)
 }

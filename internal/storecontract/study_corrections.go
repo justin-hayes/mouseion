@@ -20,6 +20,15 @@ type StudyCorrectionsStore interface {
 	SupersedeStudyMaterial(owner, materialID string) error
 	SetStudyWordWithdrawn(owner, progressID string, withdrawn bool, now time.Time) error
 	CompleteStudyReintroductions(owner, language string, now time.Time) error
+	// StudyOccurrenceLocator completes an occurrence with the unit and token
+	// span an Analysis update carries decisions across runs by. A token that no
+	// longer exists is domain.ErrNotFound. RelocateStudyMaterial names the
+	// occurrence a word's ready, current material now comes from, and
+	// SetStudyMaterialEvidence records what a preparation attempt saw on a
+	// pending record.
+	StudyOccurrenceLocator(owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error)
+	RelocateStudyMaterial(owner, materialID string, ref domain.StudyOccurrenceRef) error
+	SetStudyMaterialEvidence(owner, materialID, evidence string) error
 }
 
 func studyCorrectionsScenarios() []Scenario {
@@ -63,7 +72,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NoError(t, err)
 			require.Len(t, occurrences, 2)
 
-			first := studyCorrectionMaterial(t, material, owner, weg, occurrences[0], "a way")
+			first := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: weg, MaterialID: first}})
 			require.NoError(t, err)
@@ -148,7 +157,7 @@ func studyCorrectionsScenarios() []Scenario {
 			occurrences, err := corrections.ListStudyOccurrences(owner, weg)
 			require.NoError(t, err)
 			require.NotEmpty(t, occurrences)
-			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0], "a way")
+			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: weg, MaterialID: id}})
 			require.NoError(t, err)
@@ -179,7 +188,7 @@ func studyCorrectionsScenarios() []Scenario {
 			occurrences, err := corrections.ListStudyOccurrences(owner, weg)
 			require.NoError(t, err)
 			require.NotEmpty(t, occurrences)
-			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0], "a way")
+			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: weg, MaterialID: id}})
 			require.NoError(t, err)
@@ -197,18 +206,60 @@ func studyCorrectionsScenarios() []Scenario {
 			assert.Equal(t, id, listed[0].MaterialID)
 			assert.Equal(t, int64(0), listed[0].Memory.Reps)
 		}},
+		{Name: "an occurrence has a locator, material follows it to a new run, and an attempt records what it saw", Run: func(t *testing.T, h Harness) {
+			owner, material, corrections := h.Seeds().Owner(), h.Study(), h.StudyCorrections()
+			seedReviewBook(t, h)
+			weg := studyNoun("weg")
+			occurrences, err := corrections.ListStudyOccurrences(owner, weg)
+			require.NoError(t, err)
+			require.Len(t, occurrences, 2)
+			assert.NotEmpty(t, occurrences[0].UnitID, "an occurrence carries the locator an Analysis update carries decisions by")
+			assert.NotEqual(t, occurrences[0].StartOffset, occurrences[1].StartOffset)
+
+			bare := occurrences[0]
+			bare.UnitID, bare.StartOffset, bare.EndOffset = "", 0, 0
+			located, err := corrections.StudyOccurrenceLocator(owner, bare)
+			require.NoError(t, err)
+			assert.Equal(t, occurrences[0], located)
+			missing := bare
+			missing.TokenOrdinal = 99
+			_, err = corrections.StudyOccurrenceLocator(owner, missing)
+			require.ErrorIs(t, err, domain.ErrNotFound)
+
+			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
+			require.NoError(t, corrections.RelocateStudyMaterial(owner, id, occurrences[1]))
+			moved, err := material.GetStudyMaterial(owner, id)
+			require.NoError(t, err)
+			assert.Equal(t, occurrences[1].SentenceOrdinal, moved.SentenceOrdinal)
+			assert.Equal(t, occurrences[1].TokenOrdinal, moved.TokenOrdinal)
+			assert.Equal(t, occurrences[1].AnalysisRunID, moved.AnalysisRunID)
+			assert.Equal(t, "a way", moved.Gloss, "the material's content is kept")
+			assert.Equal(t, studyReadyContent().Sentence, moved.Sentence)
+			require.ErrorIs(t, corrections.RelocateStudyMaterial(h.Seeds().OtherOwner(), id, occurrences[0]), domain.ErrNotFound)
+
+			pending, created, err := material.ReserveStudyMaterial(owner, studyNoun("pfad"))
+			require.NoError(t, err)
+			require.True(t, created)
+			require.ErrorIs(t, corrections.RelocateStudyMaterial(owner, pending, occurrences[0]), domain.ErrNotFound, "only ready material is relocated")
+			require.NoError(t, corrections.SetStudyMaterialEvidence(owner, pending, "fingerprint-1"))
+			require.NoError(t, material.RecordStudyMaterialUnpreparable(owner, pending, domain.StudyOmissionMeaning))
+			skipped, err := material.GetStudyMaterial(owner, pending)
+			require.NoError(t, err)
+			assert.Equal(t, "fingerprint-1", skipped.EvidenceFingerprint)
+			require.ErrorIs(t, corrections.SetStudyMaterialEvidence(owner, pending, "fingerprint-2"), domain.ErrNotFound, "a settled record is not rewritten")
+		}},
 	}
 }
 
 // studyCorrectionMaterial prepares a word's material from one occurrence.
-func studyCorrectionMaterial(t *testing.T, store StudyStore, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef, gloss string) string {
+func studyCorrectionMaterial(t *testing.T, store StudyStore, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) string {
 	t.Helper()
 	id, created, err := store.ReserveStudyMaterial(owner, identity)
 	require.NoError(t, err)
 	require.True(t, created)
 	content := studyReadyContent()
 	content.BookID, content.AnalysisRunID, content.CorpusID = source.BookID, source.AnalysisRunID, source.CorpusID
-	content.SentenceOrdinal, content.TokenOrdinal, content.Gloss = source.SentenceOrdinal, source.TokenOrdinal, gloss
+	content.SentenceOrdinal, content.TokenOrdinal, content.Gloss = source.SentenceOrdinal, source.TokenOrdinal, "a way"
 	require.NoError(t, store.RecordStudyMaterialReady(owner, id, content))
 	return id
 }

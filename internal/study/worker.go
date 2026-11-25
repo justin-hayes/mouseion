@@ -28,6 +28,11 @@ type MaterialStore interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 	RecordStudyMaterialReady(ctx context.Context, owner, id string, content domain.StudyMaterialReadyContent) error
 	RecordStudyMaterialUnpreparable(ctx context.Context, owner, id, reason string) error
+	// ListStudyOccurrences and SetStudyMaterialEvidence record what an attempt
+	// saw when a word is found unpreparable, so it is not tried again on the
+	// same evidence.
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	SetStudyMaterialEvidence(ctx context.Context, owner, id, evidence string) error
 }
 
 // Enricher is the per-word enrichment entry point with a contextual Gloss
@@ -74,7 +79,7 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 		return err
 	}
 	if !found {
-		return w.Store.RecordStudyMaterialUnpreparable(ctx, owner, id, domain.StudyOmissionSentenceQuality)
+		return w.unpreparable(ctx, owner, id, material.StudyIdentity, domain.StudyOmissionSentenceQuality)
 	}
 	meaning, err := w.Enricher.EnrichExternalContextual(ctx, enrichment.Candidate{
 		Language: material.Language, CanonicalLemma: material.CanonicalLemma, UPOS: material.UPOS,
@@ -88,7 +93,7 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 		return err
 	}
 	if !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" {
-		return w.Store.RecordStudyMaterialUnpreparable(ctx, owner, id, domain.StudyOmissionMeaning)
+		return w.unpreparable(ctx, owner, id, material.StudyIdentity, domain.StudyOmissionMeaning)
 	}
 	return w.Store.RecordStudyMaterialReady(ctx, owner, id, domain.StudyMaterialReadyContent{
 		BookID: evidence.occurrence.BookID, AnalysisRunID: evidence.occurrence.AnalysisRunID, CorpusID: evidence.occurrence.CorpusID,
@@ -97,6 +102,18 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 		Gloss: meaning.Gloss, SentenceTranslation: meaning.SentenceTranslation,
 		SentenceTranslationTargets: meaning.SentenceTranslationTargets,
 	})
+}
+
+// unpreparable records the occurrences the attempt saw and then the omission.
+func (w *MaterialWorker) unpreparable(ctx context.Context, owner, id string, identity domain.StudyIdentity, reason string) error {
+	seen, err := w.Store.ListStudyOccurrences(ctx, owner, identity)
+	if err != nil {
+		return err
+	}
+	if err := w.Store.SetStudyMaterialEvidence(ctx, owner, id, domain.StudyEvidenceFingerprint(seen)); err != nil {
+		return err
+	}
+	return w.Store.RecordStudyMaterialUnpreparable(ctx, owner, id, reason)
 }
 
 // sentenceChoice is the Representative sentence chosen for a word.

@@ -271,6 +271,9 @@ type Querier interface {
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error)
 	GetStudyMaterial(ctx context.Context, arg GetStudyMaterialParams) (GetStudyMaterialRow, error)
+	// Where an analyzed token sits in its Book's extracted unit: the locator an
+	// Analysis update carries decisions across runs by.
+	GetStudyOccurrenceLocator(ctx context.Context, arg GetStudyOccurrenceLocatorParams) (GetStudyOccurrenceLocatorRow, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
 	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
@@ -546,6 +549,10 @@ type Querier interface {
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
+	// An Analysis update re-published the word's introducing occurrence in a new
+	// run: the material keeps its sentence, Gloss and translation and names the
+	// occurrence where it now is.
+	RelocateStudyMaterial(ctx context.Context, arg RelocateStudyMaterialParams) (int64, error)
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	RemoveUnchosenBookMembership(ctx context.Context) (int64, error)
 	RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error)
@@ -581,6 +588,9 @@ type Querier interface {
 	SetPreparedDeckFinalizationJob(ctx context.Context, arg SetPreparedDeckFinalizationJobParams) (int64, error)
 	SetPreparedDeckTranslationJob(ctx context.Context, arg SetPreparedDeckTranslationJobParams) (int64, error)
 	SetSourceMaterialBook(ctx context.Context, arg SetSourceMaterialBookParams) error
+	// Records the occurrences a preparation attempt saw, before it finds the
+	// material unpreparable.
+	SetStudyMaterialEvidence(ctx context.Context, arg SetStudyMaterialEvidenceParams) (int64, error)
 	SetStudyProgressWithdrawn(ctx context.Context, arg SetStudyProgressWithdrawnParams) (int64, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) (int64, error)
 	// A retrieval that can never run again, because its connection is gone, is

@@ -109,7 +109,10 @@ type StudyMaterial struct {
 	SentenceTranslation             string
 	// SentenceTranslationTargets is the English target alignment, if any.
 	SentenceTranslationTargets []string
-	CreatedAt, UpdatedAt       time.Time
+	// EvidenceFingerprint identifies the occurrences the attempt to prepare an
+	// unpreparable word's material saw; see StudyEvidenceFingerprint.
+	EvidenceFingerprint  string
+	CreatedAt, UpdatedAt time.Time
 }
 
 // StudyMaterialCounts is what the Study page reports about preparation: the

@@ -73,6 +73,7 @@ func (s *PostgresStore) studyOccurrencesOnPage(ctx context.Context, owner string
 		refs = append(refs, domain.StudyOccurrenceRef{
 			BookID: occurrence.BookID, AnalysisRunID: occurrence.AnalysisRunID, CorpusID: occurrence.CorpusID,
 			SentenceOrdinal: occurrence.SentenceOrdinal, TokenOrdinal: occurrence.TokenOrdinal,
+			UnitID: occurrence.UnitID, StartOffset: occurrence.UnitStartOffset, EndOffset: occurrence.UnitEndOffset,
 		})
 	}
 	return refs, nil
@@ -143,4 +144,61 @@ func (s *PostgresStore) CompleteStudyReintroductions(ctx context.Context, owner,
 		}
 		return nil
 	})
+}
+
+// StudyOccurrenceLocator completes an occurrence with its locator: the unit and
+// token span an Analysis update carries decisions across runs by. A token that
+// no longer exists is ErrNotFound.
+func (s *PostgresStore) StudyOccurrenceLocator(ctx context.Context, owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error) {
+	if !validUUID(ref.AnalysisRunID) || !validUUID(ref.CorpusID) {
+		return domain.StudyOccurrenceRef{}, ErrNotFound
+	}
+	row, err := sqlcgen.New(s.pool).GetStudyOccurrenceLocator(ctx, sqlcgen.GetStudyOccurrenceLocatorParams{
+		Owner: owner, AnalysisRun: ref.AnalysisRunID, Corpus: ref.CorpusID, SentenceOrdinal: ref.SentenceOrdinal, TokenOrdinal: ref.TokenOrdinal,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.StudyOccurrenceRef{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.StudyOccurrenceRef{}, fmt.Errorf("get study occurrence locator: %w", err)
+	}
+	ref.UnitID, ref.StartOffset, ref.EndOffset = row.UnitID, row.StartOffset, row.EndOffset
+	return ref, nil
+}
+
+// RelocateStudyMaterial names the occurrence a word's ready, current material
+// now comes from, after an Analysis update re-published it in a new run. The
+// sentence, Gloss and translation are kept.
+func (s *PostgresStore) RelocateStudyMaterial(ctx context.Context, owner, materialID string, ref domain.StudyOccurrenceRef) error {
+	if !validUUID(materialID) || !validUUID(ref.AnalysisRunID) || !validUUID(ref.CorpusID) {
+		return ErrNotFound
+	}
+	updated, err := sqlcgen.New(s.pool).RelocateStudyMaterial(ctx, sqlcgen.RelocateStudyMaterialParams{
+		Owner: owner, ID: materialID, AnalysisRun: uuidArg(ref.AnalysisRunID), Corpus: uuidArg(ref.CorpusID),
+		SentenceOrdinal: pgtype.Int8{Int64: ref.SentenceOrdinal, Valid: true}, TokenOrdinal: pgtype.Int8{Int64: ref.TokenOrdinal, Valid: true},
+	})
+	if err != nil {
+		return fmt.Errorf("relocate study material: %w", err)
+	}
+	if updated == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// SetStudyMaterialEvidence records the occurrences a preparation attempt saw
+// on a pending record, before it is found unpreparable. A record that is
+// missing or no longer pending is ErrNotFound.
+func (s *PostgresStore) SetStudyMaterialEvidence(ctx context.Context, owner, materialID, evidence string) error {
+	if !validUUID(materialID) {
+		return ErrNotFound
+	}
+	updated, err := sqlcgen.New(s.pool).SetStudyMaterialEvidence(ctx, sqlcgen.SetStudyMaterialEvidenceParams{Owner: owner, ID: materialID, Evidence: evidence})
+	if err != nil {
+		return fmt.Errorf("set study material evidence: %w", err)
+	}
+	if updated == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

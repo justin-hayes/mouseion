@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -68,40 +69,77 @@ func (h *Handler) reviewWithdrawnWords(ctx context.Context, owner string, progre
 
 // reviewStudyWord checks one word's introducing occurrence against current
 // evidence and applies what that requires. It reports whether the word's
-// progress or material changed.
+// progress or material changed. An occurrence an Analysis update re-published
+// unchanged keeps its material, which then names the occurrence in the new run.
 func (h *Handler) reviewStudyWord(ctx context.Context, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
 	store := h.services.Store.Study
-	material, err := store.GetStudyMaterial(ctx, owner, word.MaterialID)
+	evidence, current, err := h.studyEvidence(ctx, owner, word)
 	if err != nil {
 		return false, err
 	}
-	valid, err := store.ListStudyOccurrences(ctx, owner, word.StudyIdentity)
-	if err != nil {
-		return false, err
-	}
-	evidence := domain.StudyEvidence{Withdrawn: word.Withdrawn, Source: material.Source(), Valid: valid}
-	if word.Withdrawn {
-		current, err := store.ListCurrentStudyMaterial(ctx, owner, word.Language)
-		if err != nil {
-			return false, err
-		}
-		for _, item := range current {
-			evidence.CurrentUnpreparable = evidence.CurrentUnpreparable || (item.StudyIdentity == word.StudyIdentity && item.State == domain.StudyMaterialUnpreparable)
-		}
-	}
+	relocated, moved := domain.StudyRelocation(evidence)
 	switch domain.ReviewStudyEvidence(evidence) {
 	case domain.StudyEvidenceWithdraw:
 		return true, store.SetStudyWordWithdrawn(ctx, owner, word.ID, true, now)
 	case domain.StudyEvidenceReintroduce:
 		return true, store.SupersedeStudyMaterial(ctx, owner, word.MaterialID)
 	case domain.StudyEvidenceReturn:
-		return true, store.SetStudyWordWithdrawn(ctx, owner, word.ID, false, now)
+		if err := store.SetStudyWordWithdrawn(ctx, owner, word.ID, false, now); err != nil {
+			return false, err
+		}
 	case domain.StudyEvidenceReturnReintroduce:
 		if err := store.SetStudyWordWithdrawn(ctx, owner, word.ID, false, now); err != nil {
 			return false, err
 		}
-		return true, store.SupersedeStudyMaterial(ctx, owner, word.MaterialID)
+		// The word's current material is the unpreparable record, or the
+		// material it was withdrawn with.
+		if current.ID == "" {
+			return true, nil
+		}
+		return true, store.SupersedeStudyMaterial(ctx, owner, current.ID)
 	case domain.StudyEvidenceNone:
 	}
+	if moved {
+		return false, store.RelocateStudyMaterial(ctx, owner, word.MaterialID, relocated)
+	}
 	return false, nil
+}
+
+// studyEvidence gathers what ReviewStudyEvidence decides from: the occurrence
+// the word was introduced in, with its locator, the occurrences that resolve to
+// its identity now, and what a failed attempt to prepare it saw. current is the
+// word's current Study material, empty when it has none.
+func (h *Handler) studyEvidence(ctx context.Context, owner string, word domain.StudyProgress) (domain.StudyEvidence, domain.StudyMaterial, error) {
+	store := h.services.Store.Study
+	material, err := store.GetStudyMaterial(ctx, owner, word.MaterialID)
+	if err != nil {
+		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
+	}
+	source := material.Source()
+	switch located, err := store.StudyOccurrenceLocator(ctx, owner, source); {
+	case err == nil:
+		source = located
+	case !errors.Is(err, domain.ErrNotFound):
+		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
+	}
+	valid, err := store.ListStudyOccurrences(ctx, owner, word.StudyIdentity)
+	if err != nil {
+		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
+	}
+	evidence := domain.StudyEvidence{Withdrawn: word.Withdrawn, Source: source, Valid: valid}
+	if !word.Withdrawn {
+		return evidence, material, nil
+	}
+	all, err := store.ListCurrentStudyMaterial(ctx, owner, word.Language)
+	if err != nil {
+		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
+	}
+	for _, item := range all {
+		if item.StudyIdentity == word.StudyIdentity {
+			evidence.CurrentUnpreparable = item.State == domain.StudyMaterialUnpreparable
+			evidence.FailedEvidence = item.EvidenceFingerprint
+			return evidence, item, nil
+		}
+	}
+	return evidence, domain.StudyMaterial{}, nil
 }

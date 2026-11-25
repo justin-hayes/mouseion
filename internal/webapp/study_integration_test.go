@@ -35,6 +35,17 @@ type studyProvider struct {
 	*testutil.FakeTranslationProvider
 	mu       sync.Mutex
 	failures map[string]int
+	omitted  map[string]bool
+}
+
+// omit makes the provider answer that no sense of the lemma fits, or stop.
+func (p *studyProvider) omit(lemma string, omitted bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.omitted == nil {
+		p.omitted = map[string]bool{}
+	}
+	p.omitted[lemma] = omitted
 }
 
 func (p *studyProvider) Translate(ctx context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
@@ -46,6 +57,7 @@ func (p *studyProvider) Translate(ctx context.Context, request enrichment.Transl
 	if failing {
 		p.failures[request.CanonicalLemma]--
 	}
+	omitted := p.omitted[request.CanonicalLemma]
 	p.mu.Unlock()
 	if failing {
 		return enrichment.TranslationResponse{}, errors.New("provider unavailable")
@@ -54,7 +66,7 @@ func (p *studyProvider) Translate(ctx context.Context, request enrichment.Transl
 		ContextOnly: true, SentenceTranslation: "Anna is not with the " + request.CanonicalLemma + ".", SentenceTranslationTargets: []string{request.CanonicalLemma},
 		Translation: request.CanonicalLemma, Gloss: "the " + request.CanonicalLemma + " (gloss)",
 	}
-	if request.CanonicalLemma == "hund" {
+	if request.CanonicalLemma == "hund" || omitted {
 		response.Gloss, response.Translation = "", ""
 		response.UnresolvedKind, response.UnresolvedReason = enrichment.ContextualGlossUnresolvedAmbiguous, "no sense fits"
 	}

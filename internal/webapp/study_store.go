@@ -49,6 +49,12 @@ type StudyCorrectionsStore interface {
 	// CompleteStudyReintroductions moves each word whose new material is ready
 	// onto it, and withdraws one whose new material cannot be prepared.
 	CompleteStudyReintroductions(ctx context.Context, owner, language string, now time.Time) error
+	// StudyOccurrenceLocator completes an occurrence with the unit and token
+	// span an Analysis update carries decisions across runs by, and
+	// RelocateStudyMaterial names where a word's material now comes from when an
+	// Analysis update re-published its introducing occurrence unchanged.
+	StudyOccurrenceLocator(ctx context.Context, owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error)
+	RelocateStudyMaterial(ctx context.Context, owner, materialID string, ref domain.StudyOccurrenceRef) error
 }
 
 // Study is the seam through which the page asks for Study material to be

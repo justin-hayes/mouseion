@@ -225,7 +225,7 @@ func StudyPage(user domain.User, csrf string, view studyPageView) templ.Componen
 					return templ_7745c5c3_Err
 				}
 				if len(view.Withdrawn) > 0 {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<section class=\"study-withdrawn\" aria-labelledby=\"study-withdrawn-heading\"><h2 id=\"study-withdrawn-heading\">Withdrawn by a correction</h2><p>These words have no valid occurrence left in your library. Your progress is kept, and they return if one reappears.</p><ul id=\"study-withdrawn\" lang=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<section class=\"study-withdrawn\" aria-labelledby=\"study-withdrawn-heading\"><h2 id=\"study-withdrawn-heading\">Withdrawn by a correction</h2><p>These words have no usable sentence left in your library. Your progress is kept, and they return if one reappears.</p><ul id=\"study-withdrawn\" lang=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

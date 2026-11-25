@@ -5,6 +5,7 @@ package fixtures
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -28,6 +29,7 @@ func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity d
 				refs = append(refs, domain.StudyOccurrenceRef{
 					BookID: occurrence.BookID, AnalysisRunID: occurrence.AnalysisRunID, CorpusID: occurrence.CorpusID,
 					SentenceOrdinal: occurrence.SentenceOrdinal, TokenOrdinal: occurrence.TokenOrdinal,
+					UnitID: occurrence.SourceDocumentID, StartOffset: occurrence.StartOffset, EndOffset: occurrence.EndOffset,
 				})
 			}
 		}
@@ -98,4 +100,54 @@ func (s *Store) CompleteStudyReintroductions(_ context.Context, owner, language 
 		}
 	}
 	return nil
+}
+
+// StudyOccurrenceLocator completes an occurrence with its locator. A token the
+// analyses do not hold is domain.ErrNotFound.
+func (s *Store) StudyOccurrenceLocator(_ context.Context, owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key, occurrences := range s.lemmaOccurrences {
+		if !strings.HasPrefix(key, owner+"\x00") {
+			continue
+		}
+		for _, occurrence := range occurrences {
+			if occurrence.AnalysisRunID == ref.AnalysisRunID && occurrence.CorpusID == ref.CorpusID &&
+				occurrence.SentenceOrdinal == ref.SentenceOrdinal && occurrence.TokenOrdinal == ref.TokenOrdinal {
+				ref.UnitID, ref.StartOffset, ref.EndOffset = occurrence.SourceDocumentID, occurrence.StartOffset, occurrence.EndOffset
+				return ref, nil
+			}
+		}
+	}
+	return domain.StudyOccurrenceRef{}, errNotFound
+}
+
+// RelocateStudyMaterial names the occurrence a word's ready, current material
+// now comes from. The sentence, Gloss and translation are kept.
+func (s *Store) RelocateStudyMaterial(_ context.Context, owner, materialID string, ref domain.StudyOccurrenceRef) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyMaterial {
+		item := &s.studyMaterial[i]
+		if item.OwnerID == owner && item.ID == materialID && item.State == domain.StudyMaterialReady && !s.studySuperseded[item.ID] {
+			item.AnalysisRunID, item.CorpusID, item.SentenceOrdinal, item.TokenOrdinal = ref.AnalysisRunID, ref.CorpusID, ref.SentenceOrdinal, ref.TokenOrdinal
+			return nil
+		}
+	}
+	return errNotFound
+}
+
+// SetStudyMaterialEvidence records the occurrences a preparation attempt saw
+// on a pending record.
+func (s *Store) SetStudyMaterialEvidence(_ context.Context, owner, materialID, evidence string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyMaterial {
+		item := &s.studyMaterial[i]
+		if item.OwnerID == owner && item.ID == materialID && item.State == domain.StudyMaterialPending {
+			item.EvidenceFingerprint = evidence
+			return nil
+		}
+	}
+	return errNotFound
 }

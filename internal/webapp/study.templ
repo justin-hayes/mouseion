@@ -59,7 +59,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 			if len(view.Withdrawn) > 0 {
 				<section class="study-withdrawn" aria-labelledby="study-withdrawn-heading">
 					<h2 id="study-withdrawn-heading">Withdrawn by a correction</h2>
-					<p>These words have no valid occurrence left in your library. Your progress is kept, and they return if one reappears.</p>
+					<p>These words have no usable sentence left in your library. Your progress is kept, and they return if one reappears.</p>
 					<ul id="study-withdrawn" lang={ view.Language }>
 						for _, word := range view.Withdrawn {
 							<li>{ word }</li>
