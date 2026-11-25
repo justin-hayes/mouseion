@@ -515,6 +515,13 @@ func (w *ClassicalPreparationWorker) parsedWork(ctx context.Context, target doma
 // again.
 func (w *ClassicalPreparationWorker) parseArchiveSource(ctx context.Context, target domain.ClassicalPreparationTarget) (*ancientgreek.ParsedWork, error) {
 	cacheID := target.SourceFileSHA256 + "\x00" + target.InterpretationVersion
+	if pin, ok := w.Config.sourcePin(target); ok {
+		shas := make([]string, len(pin.Members))
+		for i, member := range pin.Members {
+			shas[i] = member.SHA256
+		}
+		cacheID += "\x00" + strings.Join(shas, "\x00")
+	}
 	w.mu.Lock()
 	if w.cached != nil && w.cacheID == cacheID {
 		defer w.mu.Unlock()

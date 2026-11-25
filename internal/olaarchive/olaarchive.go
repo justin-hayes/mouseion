@@ -60,7 +60,7 @@ func Extract(window []byte, member classical.ArchiveMember) ([]byte, error) {
 	if dataStart > len(window) || string(window[localHeaderFixed:localHeaderFixed+nameLength]) != member.Name {
 		return nil, mismatch("local header does not name the pinned member")
 	}
-	if flags&flagDataDescriptor == 0 && compressed != member.CompressedSize {
+	if (flags&flagDataDescriptor == 0 || compressed != 0) && compressed != member.CompressedSize {
 		return nil, mismatch("local header size disagrees with the pin")
 	}
 	if int64(len(window)-dataStart) < member.CompressedSize {
@@ -89,9 +89,13 @@ func inflate(raw []byte, method uint16, limit int64) ([]byte, error) {
 	case methodStore:
 		return raw, nil
 	case methodDeflate:
-		data, err := io.ReadAll(io.LimitReader(flate.NewReader(bytes.NewReader(raw)), limit+1))
+		source := bytes.NewReader(raw)
+		data, err := io.ReadAll(io.LimitReader(flate.NewReader(source), limit+1))
 		if err != nil {
 			return nil, mismatch("member data does not inflate")
+		}
+		if source.Len() != 0 {
+			return nil, mismatch("compressed size disagrees with the pin")
 		}
 		return data, nil
 	default:

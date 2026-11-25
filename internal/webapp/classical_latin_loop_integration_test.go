@@ -286,6 +286,9 @@ func TestClassicalLatinCatalogLoop(t *testing.T) {
 		assert.True(t, strings.HasPrefix(requested, "bytes="), requested)
 	}
 	assert.Less(t, served, len(build.archive), "the whole archive is never served")
+	testutil.Eventually(t, 60*time.Second, "prepared definition recorded", func() (bool, string) {
+		return countRows(t, pool, `SELECT count(*) FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`, learner.ID, bookID) == 1, "not recorded"
+	})
 	var syntaxState, run, corpus string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text, corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, learner.ID, bookID).Scan(&run, &corpus))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT syntax_state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, learner.ID, run).Scan(&syntaxState))
@@ -334,6 +337,11 @@ func TestClassicalLatinCatalogLoop(t *testing.T) {
 	assert.NotContains(t, body, "Syntax unavailable")
 	assert.NotContains(t, body, "sentence-study-construction", "Constructions fail closed for Latin")
 	assert.Contains(t, body, "1.1a")
+	preface := perform(t, handler, http.MethodGet, "/la/vocabulary/concordance/sentence?"+url.Values{
+		"book": {bookID}, "run": {run}, "corpus": {corpus}, "unit": {unit}, "sentence": {"0"}, "target": {"0"},
+	}.Encode(), nil, cookies)
+	require.Equal(t, http.StatusOK, preface.Code, preface.Body.String())
+	assert.Contains(t, preface.Body.String(), "1.pr.1", "a named-section Citation is shown")
 
 	constructionLookup := perform(t, handler, http.MethodGet, "/la/vocabulary/concordance?"+url.Values{
 		"as": {domain.ConcordanceMatchConstruction}, "term": {"genitive-absolute"}, "origin": {bookID}, "priority": {bookID},

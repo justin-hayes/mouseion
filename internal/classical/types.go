@@ -438,6 +438,9 @@ func (l Layer) validateHeader() error {
 		if l.ArchiveSize <= 0 {
 			return fmt.Errorf("classical: layer %q archive size must be positive", l.Key)
 		}
+		if strings.TrimSpace(l.Record) == "" {
+			return fmt.Errorf("classical: layer %q archive record is required", l.Key)
+		}
 	default:
 		return fmt.Errorf("classical: layer %q has unknown fetch kind %q", l.Key, l.FetchKind)
 	}
