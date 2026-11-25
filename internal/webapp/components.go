@@ -90,10 +90,13 @@ type titlePlate struct {
 	OriginalLang string
 }
 
+// newTitlePlate builds a plate. An original title that only repeats the English
+// title (ignoring case and spacing) is dropped (ADR 0132), so every surface
+// shows it once or not at all.
 func newTitlePlate(title, originalTitle, originalLang, author string) titlePlate {
 	return titlePlate{
 		Title:         strings.TrimSpace(title),
-		OriginalTitle: strings.TrimSpace(originalTitle),
+		OriginalTitle: distinctOriginalTitle(title, originalTitle),
 		OriginalLang:  strings.TrimSpace(originalLang),
 		Author:        strings.TrimSpace(author),
 	}
