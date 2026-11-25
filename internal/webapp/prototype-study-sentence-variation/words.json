@@ -1,0 +1,502 @@
+[
+ {
+  "id": "erleiden",
+  "order": 1,
+  "lemma": "erleiden",
+  "upos": "VERB",
+  "headword": "erleiden",
+  "gloss": "to suffer (a loss, a defeat)",
+  "sentences": [
+   {
+    "ordinal": 3335,
+    "de": "Die Ritter hatten nur geringe Verluste [[erlitten]], einer war von einem Pfeil ins Auge getroffen worden.",
+    "en": "The knights had suffered only slight losses; one had been hit in the eye by an arrow."
+   },
+   {
+    "ordinal": 9595,
+    "de": "In ihrer Verwirrung konnten sich die Türken nicht formieren und [[erlitten]] schwere Verluste.",
+    "en": "In their confusion the Turks could not form up, and suffered heavy losses."
+   },
+   {
+    "ordinal": 4174,
+    "de": "Die Franzosen [[erlitten]] eine weitere jener Niederlagen, die nicht nur ihren Ruhm, sondern ihre militärische Überlegenheit überhaupt untergruben.",
+    "en": "The French suffered another of those defeats that undermined not only their glory but their military superiority as a whole."
+   }
+  ]
+ },
+ {
+  "id": "verhindern",
+  "order": 2,
+  "lemma": "verhindern",
+  "upos": "VERB",
+  "headword": "verhindern",
+  "gloss": "to prevent",
+  "sentences": [
+   {
+    "ordinal": 8519,
+    "de": "Diese Missetaten hatten nicht [[verhindert]], daß er sich der Gunst eines Kreises von Vergnügungssüchtigen am königlichen Hof erfreute.",
+    "en": "These misdeeds had not prevented him from enjoying the favour of a circle of pleasure-seekers at the royal court."
+   },
+   {
+    "ordinal": 6762,
+    "de": "Soldaten wurden sofort an allen Brücken und Plätzen aufgestellt, um Ansammlungen zu [[verhindern]].",
+    "en": "Soldiers were posted at once on all the bridges and squares to prevent crowds from gathering."
+   },
+   {
+    "ordinal": 7519,
+    "de": "Mit verschiedenen Druckmitteln und Angeboten drängte England Montfort, etwas zu unternehmen, um die französische Invasion zu [[verhindern]].",
+    "en": "With various forms of pressure and offers, England urged Montfort to do something to prevent the French invasion."
+   }
+  ]
+ },
+ {
+  "id": "plündern",
+  "order": 3,
+  "lemma": "plündern",
+  "upos": "VERB",
+  "headword": "plündern",
+  "gloss": "to plunder, to loot",
+  "sentences": [
+   {
+    "ordinal": 9560,
+    "de": "Ohne Rücksicht auf dieses Abkommen richteten die Franzosen in der Stadt ein Massaker an und [[plünderten]] die Häuser.",
+    "en": "Disregarding this agreement, the French carried out a massacre in the town and plundered the houses."
+   },
+   {
+    "ordinal": 1561,
+    "de": "König Eduards Armee [[plünderte]] und verbrannte die Dörfer der Umgebung.",
+    "en": "King Edward's army plundered and burned the surrounding villages."
+   },
+   {
+    "ordinal": 6719,
+    "de": "Courtrai wurde gnadenlos [[geplündert]] – als Rache für die Niederlage in der Sporenschlacht achtzig Jahre zuvor.",
+    "en": "Courtrai was mercilessly plundered, in revenge for the defeat in the Battle of the Golden Spurs eighty years before."
+   }
+  ]
+ },
+ {
+  "id": "maßnahme",
+  "order": 4,
+  "lemma": "maßnahme",
+  "upos": "NOUN",
+  "headword": "die Maßnahme",
+  "gloss": "measure (an action taken)",
+  "sentences": [
+   {
+    "ordinal": 573,
+    "de": "Exkommunikation und Verdammung waren die härtesten [[Maßnahmen]], über die die Kirche verfügte.",
+    "en": "Excommunication and anathema were the harshest measures the Church had at its disposal."
+   },
+   {
+    "ordinal": 2172,
+    "de": "Einige der Kardinäle in Avignon waren gegen repressive [[Maßnahmen]].",
+    "en": "Some of the cardinals in Avignon were against repressive measures."
+   },
+   {
+    "ordinal": 4737,
+    "de": "Da Frankreich nun die Initiative ergriffen hatte, beschränkten die englischen Heerführer sich auf defensive [[Maßnahmen]].",
+    "en": "Since France had now seized the initiative, the English commanders confined themselves to defensive measures."
+   }
+  ]
+ },
+ {
+  "id": "vorteil",
+  "order": 5,
+  "lemma": "vorteil",
+  "upos": "NOUN",
+  "headword": "der Vorteil",
+  "gloss": "advantage",
+  "sentences": [
+   {
+    "ordinal": 32,
+    "de": "Neben dem menschlichen Interesse hat dies den [[Vorteil]], daß ich näher an der Realität bleibe.",
+    "en": "Besides the human interest, this has the advantage that I stay closer to reality."
+   },
+   {
+    "ordinal": 3808,
+    "de": "Die materiellen [[Vorteile]] der Heirat waren offensichtlich.",
+    "en": "The material advantages of the marriage were obvious."
+   },
+   {
+    "ordinal": 4115,
+    "de": "Karl V. gelang es, diese Niederlage zu seinem [[Vorteil]] zu nutzen.",
+    "en": "Charles V managed to turn this defeat to his advantage."
+   }
+  ]
+ },
+ {
+  "id": "sold",
+  "order": 6,
+  "lemma": "sold",
+  "upos": "NOUN",
+  "headword": "der Sold",
+  "gloss": "(a soldier's) pay",
+  "sentences": [
+   {
+    "ordinal": 4755,
+    "de": "Auch das Fahrzeug, das den [[Sold]] trug, sank auf den Grund des Meeres.",
+    "en": "The vessel carrying the soldiers' pay also sank to the bottom of the sea."
+   },
+   {
+    "ordinal": 1524,
+    "de": "es handelte sich jetzt um Truppen, die gegen [[Sold]] dienten.",
+    "en": "these were now troops who served for pay."
+   },
+   {
+    "ordinal": 7100,
+    "de": "Als Belohnung war Florenz bereit, den rückständigen [[Sold]] seiner Truppe zu bezahlen.",
+    "en": "As a reward, Florence was ready to pay the back pay owed to its company."
+   }
+  ]
+ },
+ {
+  "id": "eid",
+  "order": 7,
+  "lemma": "eid",
+  "upos": "NOUN",
+  "headword": "der Eid",
+  "gloss": "oath",
+  "sentences": [
+   {
+    "ordinal": 1301,
+    "de": "Manche Edeldame fiel den »faulen und großen falschen [[Eiden]], die Männer Frauen schwören«, zum Opfer.",
+    "en": "Many a noble lady fell victim to the “lazy and great false oaths that men swear to women”."
+   },
+   {
+    "ordinal": 1226,
+    "de": "Ein Ritter, der seinen [[Eid]] brach, wurde des Verrats angeklagt, da er die gesamte Ritterschaft verraten hatte.",
+    "en": "A knight who broke his oath was charged with treason, since he had betrayed the whole of knighthood."
+   },
+   {
+    "ordinal": 5163,
+    "de": "Er bat den König und Lancaster, einen [[Eid]] zu schwören, seinen Sohn zu unterstützen, was sie ohne Rückhalt taten.",
+    "en": "He asked the King and Lancaster to swear an oath to support his son, which they did without reservation."
+   }
+  ]
+ },
+ {
+  "id": "schaden",
+  "order": 8,
+  "lemma": "schaden",
+  "upos": "NOUN",
+  "headword": "der Schaden",
+  "gloss": "damage, harm",
+  "sentences": [
+   {
+    "ordinal": 7135,
+    "de": "Der soziale [[Schaden]] lag weniger in dem Fehlschlag als in den Kosten des Unternehmens.",
+    "en": "The social damage lay less in the failure than in the cost of the undertaking."
+   },
+   {
+    "ordinal": 1509,
+    "de": "Es ging darum, so viel [[Schaden]] im feindlichen Land anzurichten, daß der Sturz des Gegners unvermeidlich wurde.",
+    "en": "The aim was to do so much damage in enemy territory that the opponent's fall became inevitable."
+   },
+   {
+    "ordinal": 2591,
+    "de": "Er verminderte die französischen Kriegsreserven, indem er einer Region schweren [[Schaden]] zufügte, die dem König von Frankreich reiche Steuern brachte.",
+    "en": "He reduced France's war reserves by inflicting heavy damage on a region that brought the King of France rich taxes."
+   }
+  ]
+ },
+ {
+  "id": "gewaltig",
+  "order": 9,
+  "lemma": "gewaltig",
+  "upos": "ADJ",
+  "headword": "gewaltig",
+  "gloss": "enormous, huge",
+  "sentences": [
+   {
+    "ordinal": 4345,
+    "de": "Das [[gewaltige]] Hochzeitsessen, im Freien eingenommen, da es im Juni stattfand, verschlug allen Chronisten die Sprache.",
+    "en": "The enormous wedding feast, eaten outdoors since it took place in June, left all the chroniclers speechless."
+   },
+   {
+    "ordinal": 4490,
+    "de": "Der größere Teil des [[gewaltigen]] Verwaltungsapparates der Kirche blieb zunächst in Avignon.",
+    "en": "The greater part of the Church's enormous administrative apparatus stayed in Avignon for the time being."
+   },
+   {
+    "ordinal": 8130,
+    "de": "Da die Invasoren keine Sturmböcke mitgebracht hatten, um die Stadtmauern einzustoßen, begannen sie, einen [[gewaltigen]] Belagerungsturm auf Rädern zu bauen.",
+    "en": "Since the invaders had brought no battering rams to break down the city walls, they began to build an enormous siege tower on wheels."
+   }
+  ]
+ },
+ {
+  "id": "gefangenschaft",
+  "order": 10,
+  "lemma": "gefangenschaft",
+  "upos": "NOUN",
+  "headword": "die Gefangenschaft",
+  "gloss": "captivity, imprisonment",
+  "sentences": [
+   {
+    "ordinal": 837,
+    "de": "Anschließend sollten sie durch päpstliche Legaten zu lebenslanger [[Gefangenschaft]] verurteilt werden.",
+    "en": "Afterwards they were to be sentenced by papal legates to lifelong imprisonment."
+   },
+   {
+    "ordinal": 3809,
+    "de": "Enguerrand würde aus seiner [[Gefangenschaft]] entlassen und Geld und Einfluß dazugewinnen.",
+    "en": "Enguerrand would be released from his captivity and gain money and influence."
+   },
+   {
+    "ordinal": 3749,
+    "de": "Immer noch fehlte eine Million Florins an seinem Lösegeld, und die Geiseln blieben in [[Gefangenschaft]].",
+    "en": "A million florins of his ransom were still missing, and the hostages remained in captivity."
+   }
+  ]
+ },
+ {
+  "id": "verzichten",
+  "order": 11,
+  "lemma": "verzichten",
+  "upos": "VERB",
+  "headword": "verzichten (auf)",
+  "gloss": "to renounce, to give up (a claim)",
+  "sentences": [
+   {
+    "ordinal": 3521,
+    "de": "Als Gegenleistung gab Eduard seinen Anspruch auf alle nicht in dem Vertrag genannten Gebiete auf und [[verzichtete]] auf die französische Königskrone.",
+    "en": "In return Edward gave up his claim to all territories not named in the treaty and renounced the French crown."
+   },
+   {
+    "ordinal": 4978,
+    "de": "Coucy [[verzichtete]] seinerseits auf alle anderen Ansprüche.",
+    "en": "Coucy, for his part, renounced all other claims."
+   },
+   {
+    "ordinal": 1456,
+    "de": "Obwohl er selbst endlich zu Kompromissen bereit war, hinderte seine Frau ihn daran, auf seinen Anspruch zu [[verzichten]].",
+    "en": "Although he himself was at last ready to compromise, his wife kept him from renouncing his claim."
+   }
+  ]
+ },
+ {
+  "id": "belagern",
+  "order": 12,
+  "lemma": "belagern",
+  "upos": "VERB",
+  "headword": "belagern",
+  "gloss": "to besiege",
+  "sentences": [
+   {
+    "ordinal": 3427,
+    "de": "Einzelne Gruppen von Adligen bekämpften sie, überall brachen Privatkriege und lokale Fehden aus, Burgen wurden [[belagert]] und Dörfer verbrannt.",
+    "en": "Individual groups of nobles fought them; private wars and local feuds broke out everywhere, castles were besieged and villages burned."
+   },
+   {
+    "ordinal": 2399,
+    "de": "In den Feldzügen der 1340er Jahre hatte Johann die Engländer in Aiguillon vier Monate lang vergeblich [[belagert]].",
+    "en": "In the campaigns of the 1340s, John had besieged the English at Aiguillon for four months, in vain."
+   },
+   {
+    "ordinal": 1444,
+    "de": "Als Karl von Blois Hennebont [[belagerte]], führte sie selbst in voller Rüstung auf einem Schlachtroß den Verteidigungskampf in den Straßen an.",
+    "en": "When Charles of Blois besieged Hennebont, she herself, in full armour on a warhorse, led the defence in the streets."
+   }
+  ]
+ },
+ {
+  "id": "zuflucht",
+  "order": 13,
+  "lemma": "zuflucht",
+  "upos": "NOUN",
+  "headword": "die Zuflucht",
+  "gloss": "refuge",
+  "sentences": [
+   {
+    "ordinal": 8345,
+    "de": "Er fand [[Zuflucht]] vor dem eigenen Minderwertigkeitsgefühl nur in der Jagd und im Alkohol.",
+    "en": "He found refuge from his own sense of inferiority only in hunting and drink."
+   },
+   {
+    "ordinal": 5730,
+    "de": "Klemens VII. mußte fliehen und suchte [[Zuflucht]] bei Johanna von Neapel.",
+    "en": "Clement VII had to flee and sought refuge with Joanna of Naples."
+   },
+   {
+    "ordinal": 3089,
+    "de": "In der Picardie suchten sie in Höhlen [[Zuflucht]], die noch aus der Zeit der Normannenkriege stammten.",
+    "en": "In Picardy they sought refuge in caves that dated back to the time of the Norman wars."
+   }
+  ]
+ },
+ {
+  "id": "mangel",
+  "order": 14,
+  "lemma": "mangel",
+  "upos": "NOUN",
+  "headword": "der Mangel (an)",
+  "gloss": "lack, shortage (of)",
+  "sentences": [
+   {
+    "ordinal": 1879,
+    "de": "Aus [[Mangel]] an Schäfern verendeten frei umherziehende Herden in Hecken und Gräben.",
+    "en": "For lack of shepherds, herds roaming free perished in hedges and ditches."
+   },
+   {
+    "ordinal": 1866,
+    "de": "Der beengte Lebensraum und der [[Mangel]] an hygienischen Einrichtungen waren die unerkannte andere Hälfte.",
+    "en": "The cramped living space and the lack of sanitary facilities were the unrecognised other half."
+   },
+   {
+    "ordinal": 9577,
+    "de": "Der [[Mangel]] an Belagerungsmaschinen und die steile Anhöhe machten es praktisch unmöglich, Nikopol im Sturm zu nehmen;",
+    "en": "The lack of siege engines and the steep slope made it practically impossible to take Nicopolis by storm;"
+   }
+  ]
+ },
+ {
+  "id": "unablässig",
+  "order": 15,
+  "lemma": "unablässig",
+  "upos": "ADJ",
+  "headword": "unablässig",
+  "gloss": "incessant(ly), unceasing(ly)",
+  "sentences": [
+   {
+    "ordinal": 5628,
+    "de": "Neben der Reform der Kirche war »die heilige, süße Kreuzfahrt« ihr größtes, [[unablässig]] wiederholtes Anliegen.",
+    "en": "Besides reform of the Church, “the holy, sweet crusade” was her greatest, incessantly repeated concern."
+   },
+   {
+    "ordinal": 3228,
+    "de": "Andererseits klagten die französischen Zeitgenossen [[unablässig]], der Bauer sei dreckig und stinke.",
+    "en": "On the other hand, French contemporaries complained incessantly that the peasant was dirty and stank."
+   },
+   {
+    "ordinal": 4540,
+    "de": "Die Kriegführenden wechselten [[unablässig]] die Allianzen, die ganze Auseinandersetzung hatte einen merkwürdig substanzlosen Charakter, ein spielerisches Moment wie eine komplizierte Schachpartie.",
+    "en": "The belligerents changed alliances incessantly; the whole conflict had a strangely insubstantial character, a playful element like a complicated game of chess."
+   }
+  ]
+ },
+ {
+  "id": "verweigern",
+  "order": 16,
+  "lemma": "verweigern",
+  "upos": "VERB",
+  "headword": "verweigern",
+  "gloss": "to refuse",
+  "sentences": [
+   {
+    "ordinal": 6919,
+    "de": "Selbst die Sakramente wurden zeitweise Gemeindemitgliedern vorenthalten, die ein Opfer für den Kreuzzug [[verweigerten]].",
+    "en": "Even the sacraments were at times withheld from parishioners who refused to make an offering for the crusade."
+   },
+   {
+    "ordinal": 6354,
+    "de": "Ende Mai [[verweigerten]] Dörfer in Essex an der Ostküste die Steuerzahlung;",
+    "en": "At the end of May, villages in Essex on the east coast refused to pay the tax;"
+   },
+   {
+    "ordinal": 767,
+    "de": "Trotz Geld- und Prügelstrafen waren sie jahrelang standhaft und [[verweigerten]] den Dienst.",
+    "en": "Despite fines and beatings they held firm for years and refused service."
+   }
+  ]
+ },
+ {
+  "id": "widerstehen",
+  "order": 17,
+  "lemma": "widerstehen",
+  "upos": "VERB",
+  "headword": "widerstehen (+ dat.)",
+  "gloss": "to resist, to withstand",
+  "sentences": [
+   {
+    "ordinal": 9908,
+    "de": "Beiden Päpsten wurde Gewalt angedroht, und beide [[widerstanden]].",
+    "en": "Both popes were threatened with force, and both resisted."
+   },
+   {
+    "ordinal": 9506,
+    "de": "Die Ritterschaft glaubte noch immer, daß kein Feind ihr [[widerstehen]] könnte.",
+    "en": "The knighthood still believed that no enemy could withstand it."
+   },
+   {
+    "ordinal": 2558,
+    "de": "Karl kam, denn nie im Leben konnte er verlockenden Angeboten [[widerstehen]].",
+    "en": "Charles came, for never in his life could he resist tempting offers."
+   }
+  ]
+ },
+ {
+  "id": "vorrat",
+  "order": 18,
+  "lemma": "vorrat",
+  "upos": "NOUN",
+  "headword": "der Vorrat (pl. Vorräte)",
+  "gloss": "supplies, stores",
+  "sentences": [
+   {
+    "ordinal": 3464,
+    "de": "Aber trotz dieser Vorsichtsmaßnahme waren [[Vorräte]] knapp in dem von den Kompanien verwüsteten Land.",
+    "en": "But despite this precaution, supplies were scarce in the land the companies had laid waste."
+   },
+   {
+    "ordinal": 8084,
+    "de": "Aber das konnte die knappen [[Vorräte]] nicht ausgleichen.",
+    "en": "But that could not make up for the scarce supplies."
+   },
+   {
+    "ordinal": 7679,
+    "de": "Durch schwere Sommerregen waren die Zelte naß geworden, und [[Vorräte]] verrotteten in der Feuchtigkeit;",
+    "en": "Heavy summer rain had soaked the tents, and supplies rotted in the damp;"
+   }
+  ]
+ },
+ {
+  "id": "kühn",
+  "order": 19,
+  "lemma": "kühn",
+  "upos": "ADJ",
+  "headword": "kühn",
+  "gloss": "bold, daring",
+  "sentences": [
+   {
+    "ordinal": 5997,
+    "de": "Ungeduldig, [[kühn]] und gewalttätig übte der Herzog praktisch souveräne Gewalt über ein Viertel des Königreiches aus.",
+    "en": "Impatient, bold and violent, the Duke exercised practically sovereign power over a quarter of the kingdom."
+   },
+   {
+    "ordinal": 7281,
+    "de": "Dann wollten sie mit den Schotten »[[kühn]] über die Grenze eindringen«.",
+    "en": "Then, with the Scots, they meant to “boldly cross the border”."
+   },
+   {
+    "ordinal": 9304,
+    "de": "Als ein Weg zum Frieden, der alle ungelösten Streitfragen einfach umging, war dies eine [[kühne]] Anregung, auch wenn Frieden nicht ihr einziges Motiv war.",
+    "en": "As a path to peace that simply bypassed every unresolved dispute, this was a bold suggestion, even if peace was not its only motive."
+   }
+  ]
+ },
+ {
+  "id": "auferlegen",
+  "order": 20,
+  "lemma": "auferlegen",
+  "upos": "VERB",
+  "headword": "auferlegen",
+  "gloss": "to impose (on someone)",
+  "sentences": [
+   {
+    "ordinal": 6770,
+    "de": "Unbehindert in ihrer Rachsucht [[erlegte]] die Regierung des Königs der Stadt immer mehr Strafgelder, Gefängnisstrafen und Hinrichtungen [[auf]].",
+    "en": "Unchecked in its vindictiveness, the King's government imposed ever more fines, prison sentences and executions on the city."
+   },
+   {
+    "ordinal": 2203,
+    "de": "Aber Juden waren nützlich, und deshalb erlaubten viele Städte ihre Rückkehr, [[erlegten]] ihnen aber neuerliche Beschränkungen [[auf]].",
+    "en": "But Jews were useful, and so many towns allowed them to return, but imposed new restrictions on them."
+   },
+   {
+    "ordinal": 2306,
+    "de": "Die schreckliche Prüfung, die Gott ihnen [[auferlegt]] hatte, mußte irgendeine Bedeutung haben.",
+    "en": "The terrible ordeal that God had imposed on them must have some meaning."
+   }
+  ]
+ }
+]

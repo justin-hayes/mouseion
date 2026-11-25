@@ -1,0 +1,1021 @@
+<!doctype html>
+<!--
+  PROTOTYPE: Study sentence variation. Throwaway; kept on the branch
+  prototype/study-sentence-variation as a primary source and never merged.
+  See README.md next to this file.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>PROTOTYPE · Study</title>
+<style>
+  :root {
+    --ink: #1d1b18; --muted: #6b655c; --line: #e3ddd2; --paper: #fbf8f2; --card: #ffffff;
+    --accent: #8a3b12; --accent-soft: #f4e6dc; --again: #9b2c2c; --ok: #2f6b3a;
+    font-family: Charter, "Iowan Old Style", Georgia, serif;
+    color: var(--ink); background: var(--paper);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  main { max-width: 40rem; margin: 0 auto; padding: 0.75rem 1rem 7rem; }
+  .proto { font: 600 0.7rem/1.3 system-ui, sans-serif; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-soft); padding: 0.35rem 0.6rem; border-radius: 0.3rem; }
+  header.bar { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem;
+    font: 0.85rem/1.4 system-ui, sans-serif; color: var(--muted); margin: 0.75rem 0; }
+  header.bar strong { color: var(--ink); }
+  h1 { font-size: 1.35rem; margin: 1rem 0 0.25rem; }
+  h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem; }
+  p, li { line-height: 1.5; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 0.6rem; padding: 1.1rem 1rem; }
+  .badge { font: 600 0.72rem system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+  .de { font-size: 1.3rem; line-height: 1.55; margin: 0.4rem 0 0; }
+  .de mark { background: none; color: var(--accent); font-weight: 700; border-bottom: 2px solid var(--accent); }
+  .back { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: 0.9rem; }
+  .head { font-size: 1.15rem; font-weight: 700; }
+  .gloss { font-size: 1.15rem; }
+  .en { color: var(--muted); font-style: italic; line-height: 1.5; margin: 0.6rem 0 0; }
+  .muted { color: var(--muted); }
+  .small { font: 0.85rem/1.45 system-ui, sans-serif; }
+  button { font: 600 1rem system-ui, sans-serif; border-radius: 0.5rem; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); padding: 0.85rem 1rem; min-height: 3rem; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.again { color: var(--again); border-color: var(--again); }
+  button.got { background: var(--ok); border-color: var(--ok); color: #fff; }
+  button.link { border: none; background: none; color: var(--accent); padding: 0.3rem 0; min-height: 0; text-decoration: underline; }
+  .dock { position: fixed; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 1px solid var(--line);
+    padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom)); }
+  .dock .row { max-width: 40rem; margin: 0 auto; display: flex; gap: 0.6rem; }
+  .dock .row > * { flex: 1; }
+  .toggle { display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem; padding: 0.7rem 0.8rem;
+    border: 1px dashed var(--line); border-radius: 0.5rem; font: 0.95rem system-ui, sans-serif; cursor: pointer; }
+  .toggle.on { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
+  .toggle input { width: 1.2rem; height: 1.2rem; accent-color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font: 0.9rem system-ui, sans-serif; }
+  th, td { text-align: left; padding: 0.4rem 0.3rem; border-bottom: 1px solid var(--line); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  textarea { width: 100%; min-height: 6rem; font: 0.95rem/1.4 system-ui, sans-serif; padding: 0.6rem;
+    border: 1px solid var(--line); border-radius: 0.5rem; }
+  ul.pool { list-style: none; padding: 0; margin: 0; }
+  ul.pool li { border-bottom: 1px solid var(--line); padding: 0.6rem 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+  nav.tabs { display: flex; gap: 1rem; font: 0.9rem system-ui, sans-serif; margin: 0.5rem 0 0; }
+  nav.tabs button { padding: 0.3rem 0; min-height: 0; border: none; background: none; color: var(--muted); }
+  nav.tabs button[aria-current="page"] { color: var(--ink); border-bottom: 2px solid var(--accent); border-radius: 0; }
+  details { margin-top: 1rem; }
+  summary { cursor: pointer; font: 0.9rem system-ui, sans-serif; color: var(--muted); }
+  .testbar { font: 0.8rem system-ui, sans-serif; background: #fff3c4; padding: 0.4rem 0.6rem; border-radius: 0.3rem; margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+<main>
+  <div class="proto">Prototype · Study sentence variation · not the app</div>
+  <div id="testbar"></div>
+  <header class="bar"><span id="dayLabel"></span><span id="progress"></span></header>
+  <nav class="tabs" aria-label="Views">
+    <button data-view="study" aria-current="page">Today</button>
+    <button data-view="explore">Explore</button>
+    <button data-view="stats">Results &amp; export</button>
+    <button data-view="about">About</button>
+  </nav>
+  <section id="view"></section>
+</main>
+<div class="dock" id="dock" hidden><div class="row" id="dockRow"></div></div>
+
+<!-- Study material: 20 words from "Der ferne Spiegel", 3 hand-checked sentences each.
+     Regenerate from words.json with embed_material.py; do not edit by hand. -->
+<script type="application/json" id="study-material">
+[
+ {
+  "id": "erleiden",
+  "order": 1,
+  "lemma": "erleiden",
+  "upos": "VERB",
+  "headword": "erleiden",
+  "gloss": "to suffer (a loss, a defeat)",
+  "sentences": [
+   {
+    "ordinal": 3335,
+    "de": "Die Ritter hatten nur geringe Verluste [[erlitten]], einer war von einem Pfeil ins Auge getroffen worden.",
+    "en": "The knights had suffered only slight losses; one had been hit in the eye by an arrow."
+   },
+   {
+    "ordinal": 9595,
+    "de": "In ihrer Verwirrung konnten sich die Türken nicht formieren und [[erlitten]] schwere Verluste.",
+    "en": "In their confusion the Turks could not form up, and suffered heavy losses."
+   },
+   {
+    "ordinal": 4174,
+    "de": "Die Franzosen [[erlitten]] eine weitere jener Niederlagen, die nicht nur ihren Ruhm, sondern ihre militärische Überlegenheit überhaupt untergruben.",
+    "en": "The French suffered another of those defeats that undermined not only their glory but their military superiority as a whole."
+   }
+  ]
+ },
+ {
+  "id": "verhindern",
+  "order": 2,
+  "lemma": "verhindern",
+  "upos": "VERB",
+  "headword": "verhindern",
+  "gloss": "to prevent",
+  "sentences": [
+   {
+    "ordinal": 8519,
+    "de": "Diese Missetaten hatten nicht [[verhindert]], daß er sich der Gunst eines Kreises von Vergnügungssüchtigen am königlichen Hof erfreute.",
+    "en": "These misdeeds had not prevented him from enjoying the favour of a circle of pleasure-seekers at the royal court."
+   },
+   {
+    "ordinal": 6762,
+    "de": "Soldaten wurden sofort an allen Brücken und Plätzen aufgestellt, um Ansammlungen zu [[verhindern]].",
+    "en": "Soldiers were posted at once on all the bridges and squares to prevent crowds from gathering."
+   },
+   {
+    "ordinal": 7519,
+    "de": "Mit verschiedenen Druckmitteln und Angeboten drängte England Montfort, etwas zu unternehmen, um die französische Invasion zu [[verhindern]].",
+    "en": "With various forms of pressure and offers, England urged Montfort to do something to prevent the French invasion."
+   }
+  ]
+ },
+ {
+  "id": "plündern",
+  "order": 3,
+  "lemma": "plündern",
+  "upos": "VERB",
+  "headword": "plündern",
+  "gloss": "to plunder, to loot",
+  "sentences": [
+   {
+    "ordinal": 9560,
+    "de": "Ohne Rücksicht auf dieses Abkommen richteten die Franzosen in der Stadt ein Massaker an und [[plünderten]] die Häuser.",
+    "en": "Disregarding this agreement, the French carried out a massacre in the town and plundered the houses."
+   },
+   {
+    "ordinal": 1561,
+    "de": "König Eduards Armee [[plünderte]] und verbrannte die Dörfer der Umgebung.",
+    "en": "King Edward's army plundered and burned the surrounding villages."
+   },
+   {
+    "ordinal": 6719,
+    "de": "Courtrai wurde gnadenlos [[geplündert]] – als Rache für die Niederlage in der Sporenschlacht achtzig Jahre zuvor.",
+    "en": "Courtrai was mercilessly plundered, in revenge for the defeat in the Battle of the Golden Spurs eighty years before."
+   }
+  ]
+ },
+ {
+  "id": "maßnahme",
+  "order": 4,
+  "lemma": "maßnahme",
+  "upos": "NOUN",
+  "headword": "die Maßnahme",
+  "gloss": "measure (an action taken)",
+  "sentences": [
+   {
+    "ordinal": 573,
+    "de": "Exkommunikation und Verdammung waren die härtesten [[Maßnahmen]], über die die Kirche verfügte.",
+    "en": "Excommunication and anathema were the harshest measures the Church had at its disposal."
+   },
+   {
+    "ordinal": 2172,
+    "de": "Einige der Kardinäle in Avignon waren gegen repressive [[Maßnahmen]].",
+    "en": "Some of the cardinals in Avignon were against repressive measures."
+   },
+   {
+    "ordinal": 4737,
+    "de": "Da Frankreich nun die Initiative ergriffen hatte, beschränkten die englischen Heerführer sich auf defensive [[Maßnahmen]].",
+    "en": "Since France had now seized the initiative, the English commanders confined themselves to defensive measures."
+   }
+  ]
+ },
+ {
+  "id": "vorteil",
+  "order": 5,
+  "lemma": "vorteil",
+  "upos": "NOUN",
+  "headword": "der Vorteil",
+  "gloss": "advantage",
+  "sentences": [
+   {
+    "ordinal": 32,
+    "de": "Neben dem menschlichen Interesse hat dies den [[Vorteil]], daß ich näher an der Realität bleibe.",
+    "en": "Besides the human interest, this has the advantage that I stay closer to reality."
+   },
+   {
+    "ordinal": 3808,
+    "de": "Die materiellen [[Vorteile]] der Heirat waren offensichtlich.",
+    "en": "The material advantages of the marriage were obvious."
+   },
+   {
+    "ordinal": 4115,
+    "de": "Karl V. gelang es, diese Niederlage zu seinem [[Vorteil]] zu nutzen.",
+    "en": "Charles V managed to turn this defeat to his advantage."
+   }
+  ]
+ },
+ {
+  "id": "sold",
+  "order": 6,
+  "lemma": "sold",
+  "upos": "NOUN",
+  "headword": "der Sold",
+  "gloss": "(a soldier's) pay",
+  "sentences": [
+   {
+    "ordinal": 4755,
+    "de": "Auch das Fahrzeug, das den [[Sold]] trug, sank auf den Grund des Meeres.",
+    "en": "The vessel carrying the soldiers' pay also sank to the bottom of the sea."
+   },
+   {
+    "ordinal": 1524,
+    "de": "es handelte sich jetzt um Truppen, die gegen [[Sold]] dienten.",
+    "en": "these were now troops who served for pay."
+   },
+   {
+    "ordinal": 7100,
+    "de": "Als Belohnung war Florenz bereit, den rückständigen [[Sold]] seiner Truppe zu bezahlen.",
+    "en": "As a reward, Florence was ready to pay the back pay owed to its company."
+   }
+  ]
+ },
+ {
+  "id": "eid",
+  "order": 7,
+  "lemma": "eid",
+  "upos": "NOUN",
+  "headword": "der Eid",
+  "gloss": "oath",
+  "sentences": [
+   {
+    "ordinal": 1301,
+    "de": "Manche Edeldame fiel den »faulen und großen falschen [[Eiden]], die Männer Frauen schwören«, zum Opfer.",
+    "en": "Many a noble lady fell victim to the “lazy and great false oaths that men swear to women”."
+   },
+   {
+    "ordinal": 1226,
+    "de": "Ein Ritter, der seinen [[Eid]] brach, wurde des Verrats angeklagt, da er die gesamte Ritterschaft verraten hatte.",
+    "en": "A knight who broke his oath was charged with treason, since he had betrayed the whole of knighthood."
+   },
+   {
+    "ordinal": 5163,
+    "de": "Er bat den König und Lancaster, einen [[Eid]] zu schwören, seinen Sohn zu unterstützen, was sie ohne Rückhalt taten.",
+    "en": "He asked the King and Lancaster to swear an oath to support his son, which they did without reservation."
+   }
+  ]
+ },
+ {
+  "id": "schaden",
+  "order": 8,
+  "lemma": "schaden",
+  "upos": "NOUN",
+  "headword": "der Schaden",
+  "gloss": "damage, harm",
+  "sentences": [
+   {
+    "ordinal": 7135,
+    "de": "Der soziale [[Schaden]] lag weniger in dem Fehlschlag als in den Kosten des Unternehmens.",
+    "en": "The social damage lay less in the failure than in the cost of the undertaking."
+   },
+   {
+    "ordinal": 1509,
+    "de": "Es ging darum, so viel [[Schaden]] im feindlichen Land anzurichten, daß der Sturz des Gegners unvermeidlich wurde.",
+    "en": "The aim was to do so much damage in enemy territory that the opponent's fall became inevitable."
+   },
+   {
+    "ordinal": 2591,
+    "de": "Er verminderte die französischen Kriegsreserven, indem er einer Region schweren [[Schaden]] zufügte, die dem König von Frankreich reiche Steuern brachte.",
+    "en": "He reduced France's war reserves by inflicting heavy damage on a region that brought the King of France rich taxes."
+   }
+  ]
+ },
+ {
+  "id": "gewaltig",
+  "order": 9,
+  "lemma": "gewaltig",
+  "upos": "ADJ",
+  "headword": "gewaltig",
+  "gloss": "enormous, huge",
+  "sentences": [
+   {
+    "ordinal": 4345,
+    "de": "Das [[gewaltige]] Hochzeitsessen, im Freien eingenommen, da es im Juni stattfand, verschlug allen Chronisten die Sprache.",
+    "en": "The enormous wedding feast, eaten outdoors since it took place in June, left all the chroniclers speechless."
+   },
+   {
+    "ordinal": 4490,
+    "de": "Der größere Teil des [[gewaltigen]] Verwaltungsapparates der Kirche blieb zunächst in Avignon.",
+    "en": "The greater part of the Church's enormous administrative apparatus stayed in Avignon for the time being."
+   },
+   {
+    "ordinal": 8130,
+    "de": "Da die Invasoren keine Sturmböcke mitgebracht hatten, um die Stadtmauern einzustoßen, begannen sie, einen [[gewaltigen]] Belagerungsturm auf Rädern zu bauen.",
+    "en": "Since the invaders had brought no battering rams to break down the city walls, they began to build an enormous siege tower on wheels."
+   }
+  ]
+ },
+ {
+  "id": "gefangenschaft",
+  "order": 10,
+  "lemma": "gefangenschaft",
+  "upos": "NOUN",
+  "headword": "die Gefangenschaft",
+  "gloss": "captivity, imprisonment",
+  "sentences": [
+   {
+    "ordinal": 837,
+    "de": "Anschließend sollten sie durch päpstliche Legaten zu lebenslanger [[Gefangenschaft]] verurteilt werden.",
+    "en": "Afterwards they were to be sentenced by papal legates to lifelong imprisonment."
+   },
+   {
+    "ordinal": 3809,
+    "de": "Enguerrand würde aus seiner [[Gefangenschaft]] entlassen und Geld und Einfluß dazugewinnen.",
+    "en": "Enguerrand would be released from his captivity and gain money and influence."
+   },
+   {
+    "ordinal": 3749,
+    "de": "Immer noch fehlte eine Million Florins an seinem Lösegeld, und die Geiseln blieben in [[Gefangenschaft]].",
+    "en": "A million florins of his ransom were still missing, and the hostages remained in captivity."
+   }
+  ]
+ },
+ {
+  "id": "verzichten",
+  "order": 11,
+  "lemma": "verzichten",
+  "upos": "VERB",
+  "headword": "verzichten (auf)",
+  "gloss": "to renounce, to give up (a claim)",
+  "sentences": [
+   {
+    "ordinal": 3521,
+    "de": "Als Gegenleistung gab Eduard seinen Anspruch auf alle nicht in dem Vertrag genannten Gebiete auf und [[verzichtete]] auf die französische Königskrone.",
+    "en": "In return Edward gave up his claim to all territories not named in the treaty and renounced the French crown."
+   },
+   {
+    "ordinal": 4978,
+    "de": "Coucy [[verzichtete]] seinerseits auf alle anderen Ansprüche.",
+    "en": "Coucy, for his part, renounced all other claims."
+   },
+   {
+    "ordinal": 1456,
+    "de": "Obwohl er selbst endlich zu Kompromissen bereit war, hinderte seine Frau ihn daran, auf seinen Anspruch zu [[verzichten]].",
+    "en": "Although he himself was at last ready to compromise, his wife kept him from renouncing his claim."
+   }
+  ]
+ },
+ {
+  "id": "belagern",
+  "order": 12,
+  "lemma": "belagern",
+  "upos": "VERB",
+  "headword": "belagern",
+  "gloss": "to besiege",
+  "sentences": [
+   {
+    "ordinal": 3427,
+    "de": "Einzelne Gruppen von Adligen bekämpften sie, überall brachen Privatkriege und lokale Fehden aus, Burgen wurden [[belagert]] und Dörfer verbrannt.",
+    "en": "Individual groups of nobles fought them; private wars and local feuds broke out everywhere, castles were besieged and villages burned."
+   },
+   {
+    "ordinal": 2399,
+    "de": "In den Feldzügen der 1340er Jahre hatte Johann die Engländer in Aiguillon vier Monate lang vergeblich [[belagert]].",
+    "en": "In the campaigns of the 1340s, John had besieged the English at Aiguillon for four months, in vain."
+   },
+   {
+    "ordinal": 1444,
+    "de": "Als Karl von Blois Hennebont [[belagerte]], führte sie selbst in voller Rüstung auf einem Schlachtroß den Verteidigungskampf in den Straßen an.",
+    "en": "When Charles of Blois besieged Hennebont, she herself, in full armour on a warhorse, led the defence in the streets."
+   }
+  ]
+ },
+ {
+  "id": "zuflucht",
+  "order": 13,
+  "lemma": "zuflucht",
+  "upos": "NOUN",
+  "headword": "die Zuflucht",
+  "gloss": "refuge",
+  "sentences": [
+   {
+    "ordinal": 8345,
+    "de": "Er fand [[Zuflucht]] vor dem eigenen Minderwertigkeitsgefühl nur in der Jagd und im Alkohol.",
+    "en": "He found refuge from his own sense of inferiority only in hunting and drink."
+   },
+   {
+    "ordinal": 5730,
+    "de": "Klemens VII. mußte fliehen und suchte [[Zuflucht]] bei Johanna von Neapel.",
+    "en": "Clement VII had to flee and sought refuge with Joanna of Naples."
+   },
+   {
+    "ordinal": 3089,
+    "de": "In der Picardie suchten sie in Höhlen [[Zuflucht]], die noch aus der Zeit der Normannenkriege stammten.",
+    "en": "In Picardy they sought refuge in caves that dated back to the time of the Norman wars."
+   }
+  ]
+ },
+ {
+  "id": "mangel",
+  "order": 14,
+  "lemma": "mangel",
+  "upos": "NOUN",
+  "headword": "der Mangel (an)",
+  "gloss": "lack, shortage (of)",
+  "sentences": [
+   {
+    "ordinal": 1879,
+    "de": "Aus [[Mangel]] an Schäfern verendeten frei umherziehende Herden in Hecken und Gräben.",
+    "en": "For lack of shepherds, herds roaming free perished in hedges and ditches."
+   },
+   {
+    "ordinal": 1866,
+    "de": "Der beengte Lebensraum und der [[Mangel]] an hygienischen Einrichtungen waren die unerkannte andere Hälfte.",
+    "en": "The cramped living space and the lack of sanitary facilities were the unrecognised other half."
+   },
+   {
+    "ordinal": 9577,
+    "de": "Der [[Mangel]] an Belagerungsmaschinen und die steile Anhöhe machten es praktisch unmöglich, Nikopol im Sturm zu nehmen;",
+    "en": "The lack of siege engines and the steep slope made it practically impossible to take Nicopolis by storm;"
+   }
+  ]
+ },
+ {
+  "id": "unablässig",
+  "order": 15,
+  "lemma": "unablässig",
+  "upos": "ADJ",
+  "headword": "unablässig",
+  "gloss": "incessant(ly), unceasing(ly)",
+  "sentences": [
+   {
+    "ordinal": 5628,
+    "de": "Neben der Reform der Kirche war »die heilige, süße Kreuzfahrt« ihr größtes, [[unablässig]] wiederholtes Anliegen.",
+    "en": "Besides reform of the Church, “the holy, sweet crusade” was her greatest, incessantly repeated concern."
+   },
+   {
+    "ordinal": 3228,
+    "de": "Andererseits klagten die französischen Zeitgenossen [[unablässig]], der Bauer sei dreckig und stinke.",
+    "en": "On the other hand, French contemporaries complained incessantly that the peasant was dirty and stank."
+   },
+   {
+    "ordinal": 4540,
+    "de": "Die Kriegführenden wechselten [[unablässig]] die Allianzen, die ganze Auseinandersetzung hatte einen merkwürdig substanzlosen Charakter, ein spielerisches Moment wie eine komplizierte Schachpartie.",
+    "en": "The belligerents changed alliances incessantly; the whole conflict had a strangely insubstantial character, a playful element like a complicated game of chess."
+   }
+  ]
+ },
+ {
+  "id": "verweigern",
+  "order": 16,
+  "lemma": "verweigern",
+  "upos": "VERB",
+  "headword": "verweigern",
+  "gloss": "to refuse",
+  "sentences": [
+   {
+    "ordinal": 6919,
+    "de": "Selbst die Sakramente wurden zeitweise Gemeindemitgliedern vorenthalten, die ein Opfer für den Kreuzzug [[verweigerten]].",
+    "en": "Even the sacraments were at times withheld from parishioners who refused to make an offering for the crusade."
+   },
+   {
+    "ordinal": 6354,
+    "de": "Ende Mai [[verweigerten]] Dörfer in Essex an der Ostküste die Steuerzahlung;",
+    "en": "At the end of May, villages in Essex on the east coast refused to pay the tax;"
+   },
+   {
+    "ordinal": 767,
+    "de": "Trotz Geld- und Prügelstrafen waren sie jahrelang standhaft und [[verweigerten]] den Dienst.",
+    "en": "Despite fines and beatings they held firm for years and refused service."
+   }
+  ]
+ },
+ {
+  "id": "widerstehen",
+  "order": 17,
+  "lemma": "widerstehen",
+  "upos": "VERB",
+  "headword": "widerstehen (+ dat.)",
+  "gloss": "to resist, to withstand",
+  "sentences": [
+   {
+    "ordinal": 9908,
+    "de": "Beiden Päpsten wurde Gewalt angedroht, und beide [[widerstanden]].",
+    "en": "Both popes were threatened with force, and both resisted."
+   },
+   {
+    "ordinal": 9506,
+    "de": "Die Ritterschaft glaubte noch immer, daß kein Feind ihr [[widerstehen]] könnte.",
+    "en": "The knighthood still believed that no enemy could withstand it."
+   },
+   {
+    "ordinal": 2558,
+    "de": "Karl kam, denn nie im Leben konnte er verlockenden Angeboten [[widerstehen]].",
+    "en": "Charles came, for never in his life could he resist tempting offers."
+   }
+  ]
+ },
+ {
+  "id": "vorrat",
+  "order": 18,
+  "lemma": "vorrat",
+  "upos": "NOUN",
+  "headword": "der Vorrat (pl. Vorräte)",
+  "gloss": "supplies, stores",
+  "sentences": [
+   {
+    "ordinal": 3464,
+    "de": "Aber trotz dieser Vorsichtsmaßnahme waren [[Vorräte]] knapp in dem von den Kompanien verwüsteten Land.",
+    "en": "But despite this precaution, supplies were scarce in the land the companies had laid waste."
+   },
+   {
+    "ordinal": 8084,
+    "de": "Aber das konnte die knappen [[Vorräte]] nicht ausgleichen.",
+    "en": "But that could not make up for the scarce supplies."
+   },
+   {
+    "ordinal": 7679,
+    "de": "Durch schwere Sommerregen waren die Zelte naß geworden, und [[Vorräte]] verrotteten in der Feuchtigkeit;",
+    "en": "Heavy summer rain had soaked the tents, and supplies rotted in the damp;"
+   }
+  ]
+ },
+ {
+  "id": "kühn",
+  "order": 19,
+  "lemma": "kühn",
+  "upos": "ADJ",
+  "headword": "kühn",
+  "gloss": "bold, daring",
+  "sentences": [
+   {
+    "ordinal": 5997,
+    "de": "Ungeduldig, [[kühn]] und gewalttätig übte der Herzog praktisch souveräne Gewalt über ein Viertel des Königreiches aus.",
+    "en": "Impatient, bold and violent, the Duke exercised practically sovereign power over a quarter of the kingdom."
+   },
+   {
+    "ordinal": 7281,
+    "de": "Dann wollten sie mit den Schotten »[[kühn]] über die Grenze eindringen«.",
+    "en": "Then, with the Scots, they meant to “boldly cross the border”."
+   },
+   {
+    "ordinal": 9304,
+    "de": "Als ein Weg zum Frieden, der alle ungelösten Streitfragen einfach umging, war dies eine [[kühne]] Anregung, auch wenn Frieden nicht ihr einziges Motiv war.",
+    "en": "As a path to peace that simply bypassed every unresolved dispute, this was a bold suggestion, even if peace was not its only motive."
+   }
+  ]
+ },
+ {
+  "id": "auferlegen",
+  "order": 20,
+  "lemma": "auferlegen",
+  "upos": "VERB",
+  "headword": "auferlegen",
+  "gloss": "to impose (on someone)",
+  "sentences": [
+   {
+    "ordinal": 6770,
+    "de": "Unbehindert in ihrer Rachsucht [[erlegte]] die Regierung des Königs der Stadt immer mehr Strafgelder, Gefängnisstrafen und Hinrichtungen [[auf]].",
+    "en": "Unchecked in its vindictiveness, the King's government imposed ever more fines, prison sentences and executions on the city."
+   },
+   {
+    "ordinal": 2203,
+    "de": "Aber Juden waren nützlich, und deshalb erlaubten viele Städte ihre Rückkehr, [[erlegten]] ihnen aber neuerliche Beschränkungen [[auf]].",
+    "en": "But Jews were useful, and so many towns allowed them to return, but imposed new restrictions on them."
+   },
+   {
+    "ordinal": 2306,
+    "de": "Die schreckliche Prüfung, die Gott ihnen [[auferlegt]] hatte, mußte irgendeine Bedeutung haben.",
+    "en": "The terrible ordeal that God had imposed on them must have some meaning."
+   }
+  ]
+ }
+]
+</script>
+
+<!-- ===================================================================
+     Pure Study logic. No DOM. The page below is a thin shell over it.
+     =================================================================== -->
+<script>
+const Study = (() => {
+  // Pilot spacing ladder, uncompressed: 1, 3, 7, 16, 35 days, then x2.2, capped at 180.
+  const LADDER = (() => {
+    const l = [1, 3, 7, 16, 35];
+    while (l[l.length - 1] < 180) l.push(Math.min(180, Math.round(l[l.length - 1] * 2.2)));
+    return l;
+  })();
+  // Trial scaling: the pilot offers batches of 10. With 20 words, batches of 5 and at
+  // most 3 per Study day keep a "third batch" decision possible.
+  const BATCH_SIZE = 5;
+  const BATCHES_PER_DAY = 3;
+  const DAY_START_HOUR = 5;
+  const TIME_ZONE = "Europe/Berlin";
+  // Sentence slot per scheduled review (1-based review number, cycling). Slot 0 is the
+  // first (familiar) sentence. Half the words start on the familiar sentence, half on a
+  // new one, so new sentences are not confined to later, longer intervals.
+  const SEQ_FAMILIAR_FIRST = [0, 1, 0, 2];
+  const SEQ_NEW_FIRST = [1, 0, 2, 0];
+
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
+  });
+
+  /** Study day number (days since 1970-01-01) for an instant; the day begins 05:00 Europe/Berlin. */
+  function studyDay(date) {
+    const p = Object.fromEntries(fmt.formatToParts(date).map((x) => [x.type, x.value]));
+    let day = Date.UTC(+p.year, +p.month - 1, +p.day) / 86400000;
+    if (+p.hour < DAY_START_HOUR) day -= 1;
+    return day;
+  }
+  function dayLabel(day) {
+    return new Date(day * 86400000).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  }
+
+  function init(material, now) {
+    return {
+      v: 1, createdAt: now.toISOString(), introCount: 0,
+      words: {}, // id -> study progress
+      nominations: [],
+      today: null,
+      log: [],
+    };
+  }
+
+  const inStudy = (s, id) => s.words[id] && s.words[id].introducedDay != null;
+
+  function pool(s, material) {
+    const pending = new Set((s.today?.queue || []).filter((c) => c.kind === "intro").map((c) => c.wordId));
+    const free = (id) => !inStudy(s, id) && !pending.has(id);
+    const noms = s.nominations.filter(free);
+    const rest = material.map((w) => w.id).filter((id) => free(id) && !noms.includes(id));
+    return [...noms, ...rest];
+  }
+
+  function reviewCard(s, id) {
+    const p = s.words[id];
+    const seq = p.familiarFirst ? SEQ_FAMILIAR_FIRST : SEQ_NEW_FIRST;
+    const reviewNo = p.reviews + 1;
+    const slot = seq[(reviewNo - 1) % seq.length];
+    const novelty = slot === 0 ? "first" : p.seen[slot] ? "seen" : "unseen";
+    return { wordId: id, slot, kind: "review", novelty, reviewNo };
+  }
+
+  /** Start a new Study day if the day has changed. Idempotent within a day. */
+  function openDay(s, material, now) {
+    const day = studyDay(now);
+    if (s.today && s.today.day === day) return s;
+    s = structuredClone(s);
+    const due = Object.keys(s.words)
+      .filter((id) => inStudy(s, id) && s.words[id].dueDay <= day)
+      .sort((a, b) => s.words[a].dueDay - s.words[b].dueDay || s.words[a].introOrder - s.words[b].introOrder);
+    // Unfinished intros from the previous day go back to the front of the pool.
+    const leftoverIntros = (s.today?.queue || []).filter((c) => c.kind === "intro").map((c) => c.wordId);
+    s.nominations = [...leftoverIntros, ...s.nominations.filter((id) => !leftoverIntros.includes(id))];
+    s.today = {
+      day, dueAtStart: due, queue: due.map((id) => reviewCard(s, id)),
+      batchesTaken: 0, declined: false, finishedAt: due.length ? null : now.toISOString(),
+    };
+    s.log.push({ t: "day_start", at: now.toISOString(), day, due: due.length });
+    return s;
+  }
+
+  function phase(s, material) {
+    const t = s.today;
+    if (t.queue.length) return t.finishedAt ? "new-words" : "reviews";
+    if (!t.declined && t.batchesTaken < BATCHES_PER_DAY && pool(s, material).length) return "offer";
+    return "done";
+  }
+
+  function remainingReviews(s) {
+    return s.today.finishedAt ? 0 : s.today.queue.length;
+  }
+
+  /** Grade the card at the front of the queue. */
+  function grade(s, material, { grade, guessed }, now) {
+    s = structuredClone(s);
+    const t = s.today;
+    const card = t.queue.shift();
+    if (!card) return s;
+    const p = s.words[card.wordId];
+    const rungBefore = p.rung;
+    let repeat = false;
+
+    if (card.kind === "intro") {
+      if (p.introducedDay == null) { p.introducedDay = t.day; }
+      p.seen[0] = true;
+      if (grade === "got") { p.rung = 1; p.dueDay = t.day + LADDER[0]; }
+      else { p.rung = 0; p.dueDay = t.day + 1; repeat = true; }
+    } else if (card.kind === "review") {
+      p.reviews += 1;
+      p.seen[card.slot] = true;
+      if (grade === "got") { p.rung = Math.min(p.rung + 1, LADDER.length); p.dueDay = t.day + LADDER[p.rung - 1]; }
+      else { p.rung = Math.max(0, p.rung - 2); p.dueDay = t.day + 1; repeat = true; }
+    } else { // repeat: comes back once more before Today finishes; no climb on Got it
+      if (grade === "got") p.dueDay = t.day + LADDER[Math.max(p.rung, 1) - 1];
+      else repeat = true;
+    }
+    if (repeat) t.queue.push({ wordId: card.wordId, slot: card.slot, kind: "repeat", novelty: "repeat", reviewNo: card.reviewNo });
+
+    s.log.push({
+      t: "grade", at: now.toISOString(), day: t.day, word: card.wordId, kind: card.kind,
+      slot: card.slot, sentence: card.slot === 0 ? "first" : "new", novelty: card.novelty,
+      reviewNo: card.reviewNo ?? 0, grade, guessed: !!guessed, rungBefore, rungAfter: p.rung, dueDay: p.dueDay,
+    });
+    if (!t.finishedAt && !t.queue.some((c) => c.kind !== "intro")) t.finishedAt = now.toISOString();
+    return s;
+  }
+
+  function nextBatch(s, material) { return pool(s, material).slice(0, BATCH_SIZE); }
+
+  function takeBatch(s, material, now) {
+    s = structuredClone(s);
+    const ids = nextBatch(s, material);
+    for (const id of ids) {
+      s.words[id] = s.words[id] || {
+        introOrder: s.introCount, familiarFirst: s.introCount % 2 === 0,
+        introducedDay: null, rung: 0, dueDay: null, reviews: 0, seen: [false, false, false],
+      };
+      s.introCount += 1;
+      s.today.queue.push({ wordId: id, slot: 0, kind: "intro", novelty: "intro", reviewNo: 0 });
+    }
+    s.nominations = s.nominations.filter((id) => !ids.includes(id));
+    s.today.batchesTaken += 1;
+    s.log.push({ t: "batch", at: now.toISOString(), day: s.today.day, choice: "take", n: s.today.batchesTaken, words: ids });
+    return s;
+  }
+
+  function declineBatch(s, material, now) {
+    s = structuredClone(s);
+    s.today.declined = true;
+    s.log.push({ t: "batch", at: now.toISOString(), day: s.today.day, choice: "decline", n: s.today.batchesTaken + 1, words: nextBatch(s, material) });
+    return s;
+  }
+
+  function exploreView(s, id, now) {
+    s = structuredClone(s);
+    s.log.push({ t: "explore_view", at: now.toISOString(), day: s.today.day, word: id });
+    return s;
+  }
+
+  function nominate(s, id, now) {
+    if (s.nominations.includes(id) || inStudy(s, id)) return s;
+    s = structuredClone(s);
+    s.nominations.push(id);
+    s.log.push({ t: "nominate", at: now.toISOString(), day: s.today.day, word: id });
+    return s;
+  }
+
+  function note(s, text, now) {
+    s = structuredClone(s);
+    s.log.push({ t: "note", at: now.toISOString(), day: s.today.day, text });
+    return s;
+  }
+
+  /** Again rates by sentence novelty, over scheduled reviews only (not intros or same-day repeats). */
+  function stats(s) {
+    const rows = {};
+    for (const e of s.log) {
+      if (e.t !== "grade") continue;
+      const k = e.kind === "review" ? e.novelty : e.kind; // first | unseen | seen | intro | repeat
+      const r = (rows[k] ||= { n: 0, again: 0, guessed: 0, guessedAgain: 0 });
+      r.n += 1;
+      if (e.grade === "again") r.again += 1;
+      if (e.guessed) { r.guessed += 1; if (e.grade === "again") r.guessedAgain += 1; }
+    }
+    const sum = (keys) => keys.reduce((a, k) => {
+      const r = rows[k]; if (!r) return a;
+      return { n: a.n + r.n, again: a.again + r.again, guessed: a.guessed + r.guessed, guessedAgain: a.guessedAgain + r.guessedAgain };
+    }, { n: 0, again: 0, guessed: 0, guessedAgain: 0 });
+    return {
+      first: sum(["first"]), unseen: sum(["unseen"]), seen: sum(["seen"]), anyNew: sum(["unseen", "seen"]),
+      intro: sum(["intro"]), repeat: sum(["repeat"]),
+    };
+  }
+
+  return { LADDER, BATCH_SIZE, BATCHES_PER_DAY, studyDay, dayLabel, init, openDay, phase, remainingReviews, grade,
+    nextBatch, takeBatch, declineBatch, pool, exploreView, nominate, note, stats, inStudy };
+})();
+</script>
+
+<!-- ===================================================================
+     Page shell: rendering, localStorage, export. Throwaway.
+     =================================================================== -->
+<script>
+const material = JSON.parse(document.getElementById("study-material").textContent);
+const byId = Object.fromEntries(material.map((w) => [w.id, w]));
+const params = new URLSearchParams(location.search);
+const TEST = params.has("test");
+const KEY = TEST ? "mouseion-study-proto-TEST" : "mouseion-study-proto";
+const OFFSET_KEY = KEY + ":dayOffset";
+
+function now() {
+  const off = TEST ? +(localStorage.getItem(OFFSET_KEY) || 0) : 0;
+  return new Date(Date.now() + off * 86400000);
+}
+function load() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) { console.error(e); }
+  return Study.init(material, now());
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+let state = Study.openDay(load(), material, now());
+save();
+let undoStack = [];
+let revealed = false;
+let guessed = false;
+let view = "study";
+let exploreOpen = null;
+
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const marked = (de) => esc(de).replace(/\[\[(.+?)\]\]/g, "<mark>$1</mark>");
+const pct = (r) => (r.n ? Math.round((100 * r.again) / r.n) + "%" : "–");
+
+function dispatch(next) {
+  undoStack.push(state);
+  if (undoStack.length > 20) undoStack.shift();
+  state = next;
+  save();
+  render();
+}
+
+function renderTestbar() {
+  if (!TEST) return;
+  const off = +(localStorage.getItem(OFFSET_KEY) || 0);
+  $("#testbar").innerHTML = `<div class="testbar">TEST MODE: separate storage. Day offset ${off}.
+    <button class="link" id="tNext">Jump to next Study day</button> ·
+    <button class="link" id="tReset">Reset test data</button></div>`;
+  $("#tNext").onclick = () => { localStorage.setItem(OFFSET_KEY, off + 1); state = Study.openDay(state, material, now()); save(); render(); };
+  $("#tReset").onclick = () => { localStorage.removeItem(KEY); localStorage.removeItem(OFFSET_KEY); location.reload(); };
+}
+
+function render() {
+  state = Study.openDay(state, material, now());
+  renderTestbar();
+  const t = state.today;
+  $("#dayLabel").innerHTML = `Study day <strong>${Study.dayLabel(t.day)}</strong>`;
+  const left = Study.remainingReviews(state);
+  const inStudy = Object.keys(state.words).filter((id) => Study.inStudy(state, id)).length;
+  $("#progress").innerHTML = t.finishedAt ? `Today finished · ${inStudy}/20 in study` : `<strong>${left}</strong> review${left === 1 ? "" : "s"} left`;
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.setAttribute("aria-current", b.dataset.view === view ? "page" : "false"));
+  $("#dock").hidden = true;
+  ({ study: renderStudy, explore: renderExplore, stats: renderStats, about: renderAbout })[view]();
+}
+
+function dock(html) { $("#dockRow").innerHTML = html; $("#dock").hidden = false; }
+
+function renderStudy() {
+  const ph = Study.phase(state, material);
+  if (ph === "reviews" || ph === "new-words") return renderCard();
+  if (ph === "offer") {
+    const batch = Study.nextBatch(state, material);
+    const n = state.today.batchesTaken + 1;
+    const noms = batch.filter((id) => state.nominations.includes(id)).length;
+    $("#view").innerHTML = `<h1>${state.today.dueAtStart.length ? "Reviews done." : "No reviews due today."}</h1>
+      <p>New-word batch ${n} of up to ${Study.BATCHES_PER_DAY} today: <strong>${batch.length} words</strong>${noms ? ` (${noms} saved in Explore)` : ""}.
+      Taking it introduces them now; they start coming back tomorrow.</p>
+      ${undoLink()}`;
+    dock(`<button id="decline">Not today</button><button class="primary" id="take">Take ${batch.length} words</button>`);
+    $("#take").onclick = () => { revealed = false; guessed = false; dispatch(Study.takeBatch(state, material, now())); };
+    $("#decline").onclick = () => dispatch(Study.declineBatch(state, material, now()));
+    bindUndo();
+    return;
+  }
+  // done
+  const poolLeft = Study.pool(state, material).length;
+  const notesToday = state.log.filter((e) => e.t === "note" && e.day === state.today.day);
+  $("#view").innerHTML = `<h1>Today is finished.</h1>
+    <p class="muted">${state.today.declined ? "You declined the next New-word batch." : poolLeft ? `That's the ${Study.BATCHES_PER_DAY} batches for today.` : "All 20 words are in study."}
+    Come back after 05:00 tomorrow.${poolLeft ? " Explore is open if you want to browse words that aren't in study yet." : ""}</p>
+    <h2>How did today feel?</h2>
+    <p class="small muted">Optional. Did "Got it" on a new sentence mean you knew the word, or that you worked the sentence out? Did a batch, or Explore, feel like a penalty?</p>
+    <textarea id="note" placeholder="A sentence or two is plenty."></textarea>
+    <div class="actions"><button class="primary" id="saveNote">Save note</button></div>
+    ${notesToday.map((e) => `<p class="small">✓ Saved ${new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}: ${esc(e.text)}</p>`).join("")}
+    ${undoLink()}`;
+  $("#saveNote").onclick = () => { const v = $("#note").value.trim(); if (v) dispatch(Study.note(state, v, now())); };
+  bindUndo();
+}
+
+function undoLink() { return undoStack.length ? `<p><button class="link" id="undo">Undo last answer</button></p>` : ""; }
+function bindUndo() { const u = $("#undo"); if (u) u.onclick = () => { state = undoStack.pop(); revealed = false; guessed = false; save(); render(); }; }
+
+function renderCard() {
+  const card = state.today.queue[0];
+  const w = byId[card.wordId];
+  const s = w.sentences[card.slot];
+  const badge = card.kind === "intro" ? "New word" : card.kind === "repeat" ? "Once more" : "Review";
+  $("#view").innerHTML = `<div class="card">
+      <div class="badge">${badge}</div>
+      <p class="de" lang="de">${marked(s.de)}</p>
+      ${revealed ? `<div class="back">
+        <div><span class="head" lang="de">${esc(w.headword)}</span> <span class="muted small">${esc(w.upos.toLowerCase())}</span></div>
+        <div class="gloss">${esc(w.gloss)}</div>
+        <p class="en">${esc(s.en)}</p>
+      </div>
+      ${card.kind === "intro" ? "" : `<label class="toggle ${guessed ? "on" : ""}" id="guessLabel"><input type="checkbox" id="guess" ${guessed ? "checked" : ""}> Felt like guessing from context</label>`}` : ""}
+    </div>
+    ${undoLink()}`;
+  if (revealed) {
+    dock(`<button class="again" id="again">Again</button><button class="got" id="got">Got it</button>`);
+    const g = $("#guess");
+    if (g) g.onchange = () => { guessed = g.checked; $("#guessLabel").classList.toggle("on", guessed); };
+    const answer = (grade) => { const gs = guessed; revealed = false; guessed = false; dispatch(Study.grade(state, material, { grade, guessed: gs }, now())); window.scrollTo(0, 0); };
+    $("#again").onclick = () => answer("again");
+    $("#got").onclick = () => answer("got");
+  } else {
+    dock(`<button class="primary" id="reveal">Show answer</button>`);
+    $("#reveal").onclick = () => { revealed = true; render(); };
+  }
+  bindUndo();
+}
+
+function renderExplore() {
+  if (!state.today.finishedAt) {
+    $("#view").innerHTML = `<h1>Explore</h1><p class="muted">Explore opens once Today's reviews are done.</p>`;
+    return;
+  }
+  const ids = material.map((w) => w.id).filter((id) => !Study.inStudy(state, id));
+  const pending = new Set(state.today.queue.filter((c) => c.kind === "intro").map((c) => c.wordId));
+  $("#view").innerHTML = `<h1>Explore</h1>
+    <p class="small muted">Ungraded. Nothing here changes Study progress. Saving a word only gives it a slot in a future New-word batch; it never adds a batch.
+    Prototype limit: only words not yet in study are listed, and only their first sentence, so the new sentences stay unseen.</p>
+    ${ids.length ? `<ul class="pool">${ids.map((id) => {
+      const w = byId[id], open = exploreOpen === id, saved = state.nominations.includes(id);
+      return `<li><button class="link" data-open="${id}" lang="de">${esc(w.headword)}</button>
+        ${saved ? `<span class="small muted"> · saved for a batch</span>` : pending.has(id) ? `<span class="small muted"> · being introduced today</span>` : ""}
+        ${open ? `<p class="de" lang="de">${marked(w.sentences[0].de)}</p><p class="gloss">${esc(w.gloss)}</p><p class="en">${esc(w.sentences[0].en)}</p>
+          ${saved || pending.has(id) ? "" : `<div class="actions"><button data-save="${id}">Save for a New-word batch</button></div>`}` : ""}</li>`;
+    }).join("")}</ul>` : `<p>All 20 words are in study.</p>`}`;
+  document.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => {
+    const id = b.dataset.open;
+    exploreOpen = exploreOpen === id ? null : id;
+    if (exploreOpen) { state = Study.exploreView(state, id, now()); save(); }
+    render();
+  });
+  document.querySelectorAll("[data-save]").forEach((b) => b.onclick = () => dispatch(Study.nominate(state, b.dataset.save, now())));
+}
+
+function exportPayload() {
+  return {
+    prototype: "study-sentence-variation", exportedAt: new Date().toISOString(), testMode: TEST,
+    settings: { ladder: Study.LADDER, batchSize: Study.BATCH_SIZE, batchesPerDay: Study.BATCHES_PER_DAY, dayStarts: "05:00 Europe/Berlin" },
+    stats: Study.stats(state), progress: state.words, nominations: state.nominations, log: state.log,
+  };
+}
+
+function renderStats() {
+  const st = Study.stats(state);
+  const row = (label, r) => `<tr><td>${label}</td><td class="num">${r.n}</td><td class="num">${r.again}</td><td class="num">${pct(r)}</td><td class="num">${r.guessed}</td></tr>`;
+  const batches = state.log.filter((e) => e.t === "batch");
+  const days = [...new Set(state.log.filter((e) => e.t === "day_start").map((e) => e.day))].length;
+  $("#view").innerHTML = `<h1>Results</h1>
+    <p class="small muted">Scheduled reviews only. Introductions and same-day "once more" repeats are listed separately.</p>
+    <table><thead><tr><th>Sentence</th><th class="num">Reviews</th><th class="num">Again</th><th class="num">Again rate</th><th class="num">Guessing</th></tr></thead><tbody>
+      ${row("First (familiar)", st.first)}
+      ${row("New, never seen", st.unseen)}
+      ${row("New, seen before", st.seen)}
+      ${row("<strong>All new</strong>", st.anyNew)}
+      ${row('<span class="muted">Introductions</span>', st.intro)}
+      ${row('<span class="muted">Once-more repeats</span>', st.repeat)}
+    </tbody></table>
+    <p class="small muted">${days} Study day${days === 1 ? "" : "s"} · batches taken ${batches.filter((b) => b.choice === "take").length}, declined ${batches.filter((b) => b.choice === "decline").length}
+      · third batches taken ${batches.filter((b) => b.choice === "take" && b.n === 3).length}</p>
+    <h2>Export</h2>
+    <div class="actions"><button class="primary" id="dl">Download log (JSON)</button><button id="show">Show JSON to copy</button></div>
+    <textarea id="json" hidden readonly></textarea>`;
+  $("#dl").onclick = () => {
+    const blob = new Blob([JSON.stringify(exportPayload(), null, 1)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `study-sentence-variation-${new Date().toISOString().slice(0, 10)}${TEST ? "-TEST" : ""}.json`;
+    a.click();
+  };
+  $("#show").onclick = () => { const t = $("#json"); t.hidden = false; t.value = JSON.stringify(exportPayload()); t.select(); };
+}
+
+function renderAbout() {
+  $("#view").innerHTML = `<h1>What this prototype asks</h1>
+    <p>When a word you're learning comes back in a sentence you've never seen, does <strong>Got it</strong> still mean you know the word, rather than that you worked out the sentence?</p>
+    <p class="small">Each word has three sentences from <em>Der ferne Spiegel</em>, all with the same Learned meaning. A word is introduced in its first sentence.
+    Its scheduled reviews then alternate between that familiar sentence and the two new ones; half the words start with the familiar sentence, half with a new one.
+    Grade honestly, and tick <em>Felt like guessing from context</em> when the sentence, not the word, gave you the answer.</p>
+    <h2>Rules, as in the pilot</h2>
+    <ul class="small">
+      <li>Recognition only: German sentence first, then the Gloss and the sentence translation.</li>
+      <li>Spacing: ${Study.LADDER.join(", ")} days. Not compressed. <strong>Got it</strong> climbs one rung; <strong>Again</strong> drops two and the word comes back once more before Today finishes.</li>
+      <li>The Study day begins at 05:00 Europe/Berlin. Today is finished once the reviews due at its start are answered.</li>
+      <li>New words come after the reviews, in batches you may take or decline. <strong>Scaled for 20 words:</strong> batches of ${Study.BATCH_SIZE} (the pilot uses 10), at most ${Study.BATCHES_PER_DAY} a day.</li>
+      <li>Explore is ungraded. A saved word waits for a slot in a later batch.</li>
+    </ul>
+    <h2>Storage</h2>
+    <p class="small">Everything stays in this browser's localStorage for this address. Use the same phone, browser and URL for the whole trial, and export the log at the end.</p>
+    <details><summary>Reset all data</summary>
+      <p class="small">This deletes every grade on this device. Export first.</p>
+      <button class="again" id="reset">Delete all prototype data</button></details>`;
+  $("#reset").onclick = () => { if (confirm("Delete all prototype data on this device?")) { localStorage.removeItem(KEY); location.reload(); } };
+}
+
+document.querySelectorAll("nav.tabs button").forEach((b) => b.onclick = () => { view = b.dataset.view; render(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
+render();
+</script>
+</body>
+</html>
