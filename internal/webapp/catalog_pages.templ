@@ -163,28 +163,27 @@ templ CatalogEntryCard(csrf string, card catalogCard) {
 			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(card.OwnedURL) }>In My Books</a></p>
 		} else if card.AddURL != "" {
 			<form class="catalog-entry__add" method="post" action={ templ.SafeURL(card.AddURL) }>
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				if card.EntryIdentifier != "" {
-					<input type="hidden" name="entry_identifier" value={ card.EntryIdentifier }/>
-				}
-				if card.ReturnTo != "" {
-					<input type="hidden" name="return" value={ card.ReturnTo }/>
-				}
+				@catalogCardFields(csrf, card)
 				<p class="catalog-entry__add-copy">{ catalogAddCopy }</p>
 				<button class="button button--outline" type="submit">Add</button>
 			</form>
 			<form class="catalog-entry__read" method="post" action={ templ.SafeURL(card.ReadURL) }>
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				if card.EntryIdentifier != "" {
-					<input type="hidden" name="entry_identifier" value={ card.EntryIdentifier }/>
-				}
-				if card.ReturnTo != "" {
-					<input type="hidden" name="return" value={ card.ReturnTo }/>
-				}
+				@catalogCardFields(csrf, card)
 				<button class="button button--outline" type="submit">I've read this</button>
 			</form>
 		}
 	</article>
+}
+
+// catalogCardFields are the hidden fields every card form posts.
+templ catalogCardFields(csrf string, card catalogCard) {
+	<input type="hidden" name="csrf_token" value={ csrf }/>
+	if card.EntryIdentifier != "" {
+		<input type="hidden" name="entry_identifier" value={ card.EntryIdentifier }/>
+	}
+	if card.ReturnTo != "" {
+		<input type="hidden" name="return" value={ card.ReturnTo }/>
+	}
 }
 
 // CatalogSourceStatuses is the Catalog page's compact source summary. Each

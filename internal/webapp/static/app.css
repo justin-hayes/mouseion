@@ -2772,13 +2772,6 @@
     font-size: var(--mouseion-font-size-section-title);
     line-height: 1.2;
   }
-  .catalog-entry__title a {
-    color: inherit;
-    text-decoration-color: var(--mouseion-color-border);
-  }
-  .catalog-entry__title a:hover {
-    color: var(--mouseion-color-accent);
-  }
   .catalog-entry__author, .catalog-entry__greek, .catalog-entry__detail {
     margin: 0;
     color: var(--mouseion-color-text-muted);
