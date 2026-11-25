@@ -144,7 +144,7 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 		// page enqueues it again once an hour, and a waiting job per hour would
 		// all run, and ask about the same occurrences, the moment the assessment
 		// is recorded.
-		return nil
+		return nil //nolint:nilerr // an unrecorded assessment is not a failure: nothing is sent
 	}
 	ranked, err := w.rankedCandidates(ctx, owner, word, assessed)
 	if err != nil {

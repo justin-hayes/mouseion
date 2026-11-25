@@ -8,11 +8,6 @@ import (
 // StudyBatchSize is how many new words a New-word batch offers (spec #2691).
 const StudyBatchSize = 10
 
-// StudyBatchesPerDay is how many New-word batches Today offers. This ticket
-// offers one; the three-batch cap and the backlog brake that lower it replace
-// this constant.
-const StudyBatchesPerDay = 1
-
 // StudyGrade is the learner's answer to a Study card. Study has exactly two
 // grades; they map to FSRS Again and Good, never Hard or Easy (ADR 0134 §5).
 type StudyGrade string
@@ -128,13 +123,16 @@ type StudyScheduler interface {
 type StudyBatchWord struct {
 	StudyIdentity
 	MaterialID string
+	// ProgressID is set for a word carried over from an earlier Study day: it
+	// is already in study and is taken again rather than introduced.
+	ProgressID string
 }
 
 // StudyBatchLedger is what Today has offered on one Study day: the batches
-// taken and the batches declined.
+// offered, taken and declined.
 type StudyBatchLedger struct {
-	StudyDay        string
-	Taken, Declined int
+	StudyDay                 string
+	Offered, Taken, Declined int
 }
 
 // Decided is how many batches the learner has answered on the day.
@@ -149,12 +147,14 @@ var (
 	ErrStudyStale = errors.New("study: the card was already graded")
 )
 
-// NextStudyBatch returns the words a New-word batch introduces: the first
-// StudyBatchSize candidates in stream order that are not in study and whose
-// current Study material is ready. A word whose material is still being
-// prepared or is unpreparable is passed over, so a batch never holds a card
-// with missing material. ordered must already be in stream order.
-func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress) []StudyBatchWord {
+// NextStudyBatch returns the words a New-word batch introduces. The words
+// carried over from earlier Study days lead it, oldest first, and count
+// towards its size; the first candidates in stream order that are not in study
+// and whose current Study material is ready fill the rest, up to
+// StudyBatchSize. A word whose material is still being prepared or is
+// unpreparable is passed over, so a batch never holds a card with missing
+// material. ordered must already be in stream order.
+func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, now time.Time) []StudyBatchWord {
 	ready := make(map[StudyIdentity]string, len(material))
 	for _, item := range material {
 		if item.State == StudyMaterialReady {
@@ -166,15 +166,21 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 		inStudy[item.StudyIdentity] = true
 	}
 	batch := make([]StudyBatchWord, 0, StudyBatchSize)
+	for _, item := range StudyCarryOver(progress, now) {
+		if len(batch) == StudyBatchSize {
+			return batch
+		}
+		batch = append(batch, StudyBatchWord{StudyIdentity: item.StudyIdentity, MaterialID: item.MaterialID, ProgressID: item.ID})
+	}
 	for _, candidate := range ordered {
+		if len(batch) == StudyBatchSize {
+			break
+		}
 		id, ok := ready[candidate.StudyIdentity]
 		if !ok || inStudy[candidate.StudyIdentity] {
 			continue
 		}
 		batch = append(batch, StudyBatchWord{StudyIdentity: candidate.StudyIdentity, MaterialID: id})
-		if len(batch) == StudyBatchSize {
-			break
-		}
 	}
 	return batch
 }

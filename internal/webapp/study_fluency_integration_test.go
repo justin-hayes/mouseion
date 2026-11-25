@@ -256,7 +256,7 @@ func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *test
 	assert.Contains(t, page, "Take these words")
 	assert.NotContains(t, page, `id="fluency-card-heading"`, "an offered batch must be taken or declined first")
 
-	require.Equal(t, http.StatusSeeOther, s.post("/study/batches/decline", url.Values{"language": {"de"}}).Code)
+	require.Equal(t, http.StatusSeeOther, s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"1"}}).Code)
 	assert.Contains(t, card(), `id="fluency-card-heading"`, "declining the batch opens Fluency")
 }
 

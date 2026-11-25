@@ -18,19 +18,26 @@ type StudyStore interface {
 	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
 	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
-	// StudyBatchLedger reports the batches taken and declined on a Study day.
+	// StudyBatchLedger reports the batches offered, taken and declined on a
+	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
 	StudyBatchLedger(ctx context.Context, owner, language, studyDay string) (domain.StudyBatchLedger, error)
+	RecordStudyBatchOffer(ctx context.Context, owner, language, studyDay string, offered int) error
 	// TakeStudyBatch introduces the words of one batch, and DeclineStudyBatch
 	// introduces none. Either returns domain.ErrStudyBatchLimit when the day's
 	// batches are all answered.
 	TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error)
 	DeclineStudyBatch(ctx context.Context, owner, language, studyDay string, batchLimit int) error
+	StudyGradeStore
+	StudyFluencyStore
+}
+
+// StudyGradeStore is the Today card: the word that is due, and grading it.
+type StudyGradeStore interface {
 	// NextStudyCard is the earliest due word, or domain.ErrNotFound.
 	NextStudyCard(ctx context.Context, owner, language string, now time.Time) (domain.StudyCard, error)
 	// RecordStudyGrade appends the review-log row and updates the word's
 	// state; a card already graded is domain.ErrStudyStale.
 	RecordStudyGrade(ctx context.Context, owner string, record domain.StudyGradeRecord) error
-	StudyFluencyStore
 }
 
 // StudyFluencyStore is the Fluency part of the Study store: the contexts of the

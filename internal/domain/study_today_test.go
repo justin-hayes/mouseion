@@ -39,7 +39,11 @@ func TestStudyReviewsDueAtTheStartOfTheStudyDay(t *testing.T) {
 		{"three missed days are all due", reviewWord("e", StudyStateReview, berlin(11, 22, 7, 0), berlin(11, 20, 7, 0)), true, true},
 		{"a repeat that is due", reviewWord("f", StudyStateRelearning, berlin(11, 25, 8, 50), berlin(11, 25, 8, 40)), true, true},
 		{"a repeat that is not due yet still counts", reviewWord("g", StudyStateRelearning, berlin(11, 25, 9, 10), berlin(11, 25, 9, 0)), false, true},
-		{"a new word never counts", reviewWord("h", StudyStateNew, berlin(11, 25, 8, 0), time.Time{}), true, false},
+		{"a new word never counts", func() StudyProgress {
+			p := reviewWord("h", StudyStateNew, berlin(11, 25, 8, 0), time.Time{})
+			p.IntroducedAt = berlin(11, 25, 8, 0)
+			return p
+		}(), true, false},
 		{"an introduction repeat never counts", reviewWord("i", StudyStateLearning, berlin(11, 25, 8, 50), berlin(11, 25, 8, 40)), true, false},
 		{"a withdrawn word is not due", func() StudyProgress {
 			p := reviewWord("j", StudyStateReview, berlin(11, 20, 5, 0), berlin(11, 19, 5, 0))

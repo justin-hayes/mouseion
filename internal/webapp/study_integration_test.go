@@ -299,7 +299,7 @@ func TestStudyDecliningABatchIntroducesNoWord(t *testing.T) {
 	assert.Contains(t, page, "new words are ready to learn.")
 	assert.Contains(t, page, "Take these words")
 
-	response := s.post("/study/batches/decline", url.Values{"language": {"de"}})
+	response := s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"1"}})
 	require.Equal(t, http.StatusSeeOther, response.Code)
 	assert.Equal(t, "/de/study", response.Header().Get("Location"))
 	assert.Empty(t, s.progress(), "declining introduces none")

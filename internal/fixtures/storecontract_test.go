@@ -341,6 +341,10 @@ func (h *contractHarness) StudyBatchLedger(owner, language, studyDay string) (do
 	return h.store.StudyBatchLedger(context.Background(), owner, language, studyDay)
 }
 
+func (h *contractHarness) RecordStudyBatchOffer(owner, language, studyDay string, offered int) error {
+	return h.store.RecordStudyBatchOffer(context.Background(), owner, language, studyDay, offered)
+}
+
 func (h *contractHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
 	return h.store.TakeStudyBatch(context.Background(), owner, language, studyDay, now, batchLimit, words)
 }

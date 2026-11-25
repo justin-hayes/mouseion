@@ -166,6 +166,9 @@ templ StudyBatchOffer(csrf string, view studyPageView) {
 	<section class="study-batch" aria-labelledby="study-batch-heading">
 		<h2 id="study-batch-heading">New-word batch</h2>
 		<p id="study-offer">{ studyOfferText(view.Offer) }</p>
+		if view.ShortBatch {
+			<p id="study-short-batch">This batch is short: more new words are still being prepared.</p>
+		}
 		<div class="study-batch__actions">
 			<form method="post" action="/study/batches/take">
 				<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -175,6 +178,7 @@ templ StudyBatchOffer(csrf string, view studyPageView) {
 			<form method="post" action="/study/batches/decline">
 				<input type="hidden" name="csrf_token" value={ csrf }/>
 				<input type="hidden" name="language" value={ view.Language }/>
+				<input type="hidden" name="offer" value={ fmt.Sprint(view.OfferNumber) }/>
 				<button class="button button--outline" type="submit">Not today</button>
 			</form>
 		</div>
