@@ -19,7 +19,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM public.book_covers
         WHERE state = 'available'
-          AND (selected_connection_id IS NULL OR selected_source_identifier IS NULL)
+          AND (selected_connection_id IS NULL OR btrim(COALESCE(selected_source_identifier, '')) = '')
     ) THEN
         RAISE EXCEPTION 'book_covers holds available images with no selected Catalog entry; they cannot move to catalog_entry_covers';
     END IF;
@@ -109,7 +109,7 @@ DROP TABLE public.book_cover_candidates;
 
 -- A Book keeps a row only while it selects an entry.
 DELETE FROM public.book_covers
-WHERE selected_connection_id IS NULL OR selected_source_identifier IS NULL;
+WHERE selected_connection_id IS NULL OR btrim(COALESCE(selected_source_identifier, '')) = '';
 
 ALTER TABLE public.book_covers
     DROP CONSTRAINT book_covers_state_data_check,
