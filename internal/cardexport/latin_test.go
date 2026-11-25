@@ -57,10 +57,9 @@ func TestLatinPassageContextWithAMissingSegmentShowsNoEnglish(t *testing.T) {
 	applyPassageContext(&entry, latinProjection("1.pr.1", "1.pr.9"))
 	assert.Empty(t, entry.PassageContext+entry.PassageCitation+entry.PassagePin)
 
-	note, err := makeNote("owner-1", renderInputFromEntry(Entry{
-		Language: "la", CanonicalLemma: "domus", UPOS: "NOUN", Headword: "domus",
-		Sentence: "Domus stat.", TargetWord: "Domus",
-	}))
+	entry.CanonicalLemma, entry.UPOS, entry.Headword = "domus", "NOUN", "domus"
+	entry.Sentence, entry.TargetWord = "Domus stat.", "Domus"
+	note, err := makeNote("owner-1", renderInputFromEntry(entry))
 	require.NoError(t, err)
 	assert.Empty(t, note.PassageLabel+note.PassageText, "no placeholder is rendered")
 	assert.NotContains(t, note.BackExtra, "Passage context")
@@ -111,4 +110,13 @@ func TestLatinCardFreezesNoGreekLSJEntry(t *testing.T) {
 
 	_, found = resolveAncientGreekLSJ(t.Context(), probe, &Entry{Language: "grc", CanonicalLemma: "λόγος"})
 	assert.True(t, found, "the probe is reachable for a Greek card")
+}
+
+func TestPassageContextShowsSegmentsThatContainATouchedCitation(t *testing.T) {
+	translations := map[string]string{"1.2": "Whole chapter.", "1.3.1": "Section."}
+	text, citation, _ := resolvePassage([]string{"1.2.3"}, translations, latinTranslationPin)
+	assert.Equal(t, "Whole chapter.", text)
+	assert.Equal(t, "1.2", citation)
+	text, _, _ = resolvePassage([]string{"1.2.3", "1.4.1"}, translations, latinTranslationPin)
+	assert.Empty(t, text, "a touched section with no segment withholds the passage")
 }

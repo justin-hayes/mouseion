@@ -39,8 +39,8 @@ func TestLatinPolicyUsesSourceEvidenceWithNoProviderPass(t *testing.T) {
 		if policy.SentenceBoundary != BoundaryTerminalMark {
 			t.Fatalf("For(%q).SentenceBoundary = %v, want terminal mark", tag, policy.SentenceBoundary)
 		}
-		if policy.Entries != EntryNone {
-			t.Fatalf("For(%q).Entries = %v, want no Greek LSJ entry", tag, policy.Entries)
+		if policy.Entries != EntryLewisShort {
+			t.Fatalf("For(%q).Entries = %v, want Lewis & Short, never the Greek LSJ", tag, policy.Entries)
 		}
 	}
 }

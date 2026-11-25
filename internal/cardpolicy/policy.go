@@ -49,6 +49,9 @@ const (
 	EntryNone EntrySource = iota
 	// EntryLSJ freezes the matched Liddell-Scott-Jones entry.
 	EntryLSJ
+	// EntryLewisShort is the Lewis & Short entry; its freeze comes with the
+	// dictionary-entry ticket, so no entry is frozen for it yet.
+	EntryLewisShort
 )
 
 // Imported-source notices name each source and its licence; a deck carries the
@@ -62,7 +65,7 @@ const (
 	// output, Zenodo record 15183688) and the Perseus canonical-latinLit text it
 	// annotates, both CC BY-SA 4.0. The translation's own pin rides in its
 	// passage notice.
-	LatinSourceNotice = "Latin text and annotation: Opera Latina Adnotata (OLA) v0.2.0, LatinPipe output (CC BY-SA 4.0, Zenodo record 15183688), derived from Perseus/canonical-latinLit (CC BY-SA 4.0). Commentary and derived data remain share-alike under the same licence."
+	LatinSourceNotice = "Latin text and annotation: Opera Latina Adnotata (OLA) v0.2.0, LatinPipe output (CC BY-SA 4.0, Zenodo record 15183688), derived from Perseus/canonical-latinLit (CC BY-SA 4.0; the text is the revision OLA v0.2.0 annotates, recorded in the release). Commentary and derived data remain share-alike under the same licence."
 )
 
 // Policy is the card behaviour of one study language. A language either uses
@@ -104,11 +107,12 @@ var (
 	}
 	// sourceEvidenceLatin has no evidence-assisted pass: the provider payload
 	// has no recorded assessment for Latin (ADR 0133), so a Latin deck is the
-	// default card with no provider request. Its dictionary entry is the next
-	// ticket's.
+	// default card with no provider request. Its dictionary entry is Lewis & Short,
+	// frozen by the next ticket.
 	sourceEvidenceLatin = Policy{
 		SourceEvidence:   true,
 		SourceNotice:     LatinSourceNotice,
+		Entries:          EntryLewisShort,
 		Translations:     TranslationPerseus,
 		SentenceBoundary: BoundaryTerminalMark,
 		DictionaryLookup: LookupExactlyOne,
