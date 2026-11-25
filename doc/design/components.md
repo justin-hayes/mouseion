@@ -125,12 +125,13 @@ keeps its identity first: linked title with its Greek title beside it. Under the
 identity, the Opening is set whole in the reading typeface at the page-title
 size on wide screens and the section-title size on compact screens, marked as
 Ancient Greek, preceded by its starting citation and a visually hidden "Begins
-at". A caption states the word count and whether the Work is read whole or in
-constituent books; the length strip below it draws one segment for the Work
+at". A caption states the word count and how many constituent books divide the whole
+Work; the length strip below it draws one segment for the Work
 on a single page-wide word scale ending at the next 10,000 words above the
 longest Work, with owned segments in the accent colour. The strip is hidden from
 assistive technology because the caption and ownership line carry the same
-facts.
+facts. When a Work has several Editions, the caption, strip and passage range
+describe one consistent Edition; the work page carries each Edition's own facts.
 
 The margin note carries the Edition, the passage range, translation
 availability, ownership and one Add control. A Work is one Book (ADR 0128), so

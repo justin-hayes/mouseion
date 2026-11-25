@@ -61,9 +61,7 @@ templ ClassicalCatalogIndexSections(csrf string, authors []classical.CatalogAuth
 								<p class="classical-opening" lang="grc"><span class="classical-opening__citation" lang="en"><span class="sr-only">Begins at </span>{ classicalWorkOpeningCitation(work) }</span>{ work.Opening }</p>
 								<p class="classical-length-caption">{ classicalWorkLengthCaption(work) }</p>
 								<div class="classical-length" aria-hidden="true">
-									for _, unit := range work.Units {
-										<span class={ classicalLengthSegmentClass(unit, view) } style={ classicalLengthWidth(unit.Words, axis) }></span>
-									}
+									<span class={ classicalLengthSegmentClass(work, view) } style={ classicalLengthWidth(work.Words, axis) }></span>
 								</div>
 							</div>
 							<div class="classical-work-entry__margin">
@@ -238,13 +236,14 @@ func classicalWorkOpeningCitation(work classical.CatalogWork) string {
 	return work.Units[0].CitationStart
 }
 
-// classicalWorkCitationRange renders the Work's inclusive passage range.
+// classicalWorkCitationRange renders the passage range of the Edition the index
+// describes, so it never mixes Editions.
 func classicalWorkCitationRange(work classical.CatalogWork) string {
 	if len(work.Units) == 0 {
 		return ""
 	}
-	first, last := work.Units[0], work.Units[len(work.Units)-1]
-	return classicalRange(first.CitationStart, last.CitationEnd)
+	first := work.Units[0]
+	return classicalRange(first.CitationStart, first.CitationEnd)
 }
 
 // classicalWorkLengthCaption states the Work's total and its shape without
@@ -278,10 +277,13 @@ func classicalLengthWidth(words, axis int) string {
 	return fmt.Sprintf("width:%.3f%%", 100*float64(words)/float64(axis))
 }
 
-// classicalLengthSegmentClass marks a segment the learner owns.
-func classicalLengthSegmentClass(unit classical.CatalogUnit, view classicalCatalogView) string {
-	if view.OwnedUnits[unit.Key] != "" {
-		return "classical-length__segment classical-length__segment--owned"
+// classicalLengthSegmentClass marks the Work's segment owned when the learner
+// owns any Edition of it; the ownership lines name the Editions.
+func classicalLengthSegmentClass(work classical.CatalogWork, view classicalCatalogView) string {
+	for _, unit := range work.Units {
+		if view.OwnedUnits[unit.Key] != "" {
+			return "classical-length__segment classical-length__segment--owned"
+		}
 	}
 	return "classical-length__segment"
 }

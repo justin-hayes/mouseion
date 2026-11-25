@@ -37,20 +37,14 @@ func chooserWorkBook(bookID, title, author, unitKey, corpusID string) domain.MyB
 	return book
 }
 
-// workDefinitions define six Iliad Books, one Anabasis Book and a whole-work
-// Hellenica, so constituent-Book and whole-work candidates can be exercised
+// workDefinitions define whole-work Anabasis, Hellenica and Iliad units,
+// so whole-work candidates and leftover legacy Books can be exercised
 // together.
 func workDefinitions() []classical.Definition {
-	one, two, three, four, five, six := 1, 2, 3, 4, 5, 6
 	return []classical.Definition{
-		catalogFixtureDefinition("xenophon-anabasis-1", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις", "xenophon-anabasis-marchant-1904", "1.1.1", "1.10.19", &one, 7, 9305, false, true),
-		catalogFixtureDefinition("xenophon-hellenica-1", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά", "xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
-		catalogFixtureDefinition("homer-iliad-1", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "1.1.1", "1.1.10", &one, 24, 100, false, false),
-		catalogFixtureDefinition("homer-iliad-2", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "2.1.1", "2.1.10", &two, 24, 200, false, false),
-		catalogFixtureDefinition("homer-iliad-3", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "3.1.1", "3.1.10", &three, 24, 300, false, false),
-		catalogFixtureDefinition("homer-iliad-4", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "4.1.1", "4.1.10", &four, 24, 400, false, false),
-		catalogFixtureDefinition("homer-iliad-5", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "5.1.1", "5.1.10", &five, 24, 500, false, false),
-		catalogFixtureDefinition("homer-iliad-6", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "6.1.1", "6.1.10", &six, 24, 600, false, false),
+		catalogFixtureDefinition("xenophon-anabasis", "xenophon-anabasis", "Anabasis", "Xenophon", "Ἀνάβασις", "xenophon-anabasis-marchant-1904", "1.1.1", "7.1.10", nil, 7, 9305, false, true),
+		catalogFixtureDefinition("xenophon-hellenica", "xenophon-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά", "xenophon-hellenica-dindorf-1866", "1.1.1", "1.1.10", nil, 1, 500, false, false),
+		catalogFixtureDefinition("homer-iliad", "homer-iliad", "Iliad", "Homer", "Ἰλιάς", "homer-iliad-monro-1902", "1.1.1", "24.1.10", nil, 24, 2100, false, false),
 	}
 }
 

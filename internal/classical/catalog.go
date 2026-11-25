@@ -196,7 +196,11 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 		work.TranslationAvailable = translationAvailable(definitions, key)
 		sortUnits(work.Units)
 		if len(work.Units) > 0 {
+			// The catalog index describes one consistent Edition: the first
+			// by key. Other Editions' facts belong on the Work page.
 			work.Opening = work.Units[0].Opening
+			work.EditionLabel = work.Units[0].EditionLabel
+			work.Words = work.Units[0].Words
 		}
 		catalog.works[key] = *work
 	}
@@ -242,7 +246,6 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 			unit.ConstituentBook = *definition.ConstituentBook
 		}
 		work.Units = append(work.Units, unit)
-		work.Words += definition.WordCount
 	}
 	return worksByKey
 }
