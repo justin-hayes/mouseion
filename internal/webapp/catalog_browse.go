@@ -100,6 +100,11 @@ type catalogCard struct {
 	Detail   string
 	TitleURL string
 	Plate    titlePlate
+	// CoverURL is the local owner-scoped address of a retained cover with its
+	// intrinsic size; empty while the card shows its Plate. It is never an
+	// upstream URL.
+	CoverURL                string
+	CoverWidth, CoverHeight int
 	// OwnedURL opens the owned Book. When empty the card offers Add and I've
 	// read this at AddURL and ReadURL, both unavailable when AddURL is empty.
 	OwnedURL string
@@ -296,6 +301,10 @@ func opdsCatalogCard(entry domain.CatalogueEntry) catalogCard {
 		Author:          index.Author,
 		Plate:           newTitlePlate(index.Title, "", index.Author),
 		EntryIdentifier: index.EntryIdentifier,
+	}
+	if index.CoverRetained && index.CoverWidth > 0 && index.CoverHeight > 0 {
+		card.CoverURL = catalogEntryCoverURL(index.ConnectionID, index.EntryIdentifier)
+		card.CoverWidth, card.CoverHeight = index.CoverWidth, index.CoverHeight
 	}
 	if entry.BookID != "" {
 		card.OwnedURL = catalogBookInMyBooksURL(entry.BookID)

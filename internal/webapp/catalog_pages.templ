@@ -139,10 +139,17 @@ const catalogAddCopy = "Adding prepares the text for reading."
 // its ownership state. An unowned text offers Add, and the secondary I've read
 // this, which records a Book the learner read outside Mouseion without
 // downloading it. The image slot is the card's Plate until the source supplies
-// a retained cover; upstream URLs are never sent to the browser (ADR 0077).
+// a retained cover, which is served locally through the owner-scoped cover
+// endpoint; upstream URLs are never sent to the browser (ADR 0077).
 templ CatalogEntryCard(csrf string, card catalogCard) {
 	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + card.ID }>
-		@BookCoverMedia("", card.Plate, domain.BookCover{})
+		if card.CoverURL != "" {
+			<div class="book-cover-media">
+				@CoverImage(card.CoverURL, card.CoverWidth, card.CoverHeight)
+			</div>
+		} else {
+			@BookCoverMedia("", card.Plate, domain.BookCover{})
+		}
 		<h3 class="catalog-entry__title bibliographic-title" id={ "catalog-entry-title-" + card.ID }>
 			if card.TitleURL != "" {
 				<a href={ templ.SafeURL(card.TitleURL) }>{ card.Title }</a>

@@ -87,3 +87,38 @@ func fixtureCatalogueIndexEntries() map[string][]domain.CatalogueIndexEntry {
 	}
 	return entries
 }
+
+// SeedCatalogEntryCover retains an image for one indexed entry, marking the
+// entry's card as having a retained cover. The fixture never fetches covers.
+func (s *Store) SeedCatalogEntryCover(owner, connectionID, entryIdentifier string, resource domain.CatalogEntryCoverResource) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.getOpdsConnectionLocked(owner, connectionID); err != nil {
+		return err
+	}
+	for i := range s.catalogueEntries[connectionID] {
+		if s.catalogueEntries[connectionID][i].EntryIdentifier == entryIdentifier {
+			s.catalogueEntries[connectionID][i].CoverRetained = true
+			if s.entryCovers == nil {
+				s.entryCovers = make(map[string]domain.CatalogEntryCoverResource)
+			}
+			s.entryCovers[connectionID+"\x00"+entryIdentifier] = resource
+			return nil
+		}
+	}
+	return errNotFound
+}
+
+// GetCatalogEntryCoverResource serves a seeded entry cover to its owner.
+func (s *Store) GetCatalogEntryCoverResource(_ context.Context, owner, connectionID, entryIdentifier string) (domain.CatalogEntryCoverResource, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.getOpdsConnectionLocked(owner, connectionID); err != nil {
+		return domain.CatalogEntryCoverResource{}, domain.ErrNotFound
+	}
+	resource, ok := s.entryCovers[connectionID+"\x00"+entryIdentifier]
+	if !ok {
+		return domain.CatalogEntryCoverResource{}, domain.ErrNotFound
+	}
+	return resource, nil
+}

@@ -67,6 +67,44 @@ chosen language is not listed in My Books.
   membership does not delete its retained cover, consistent with existing Book
   and artifact retention.
 
+## Storage
+
+Retained cover images are keyed by Catalog entry, not by Book (ADR 0130). This
+section records the shape settled under ADR 0038 before any SQL.
+
+- **Entry store.** `catalog_entry_covers` is keyed `(owner_id, connection_id,
+  entry_identifier)`, the same identity as `catalogue_entries` and the
+  catalog-entry alias (ADR 0044). One row holds the retrieval state
+  (`pending`, `available`, `unavailable`; absence of a row means no cover is
+  advertised), the `advertised_at` retrieval-generation fence, and for an
+  available image its media type, dimensions, content hash, bytes, and fetch
+  time, plus an operational failure reason.
+- **No foreign keys.** The row does not reference `opds_connections`,
+  `catalogue_entries`, or `books`, so an image a Book uses outlives its
+  Catalog connection. Removal is application-driven: an entry that leaves the
+  index loses its cover in the same transaction as index reconciliation, and
+  deleting a connection removes the covers of its entries that no Book uses.
+  Ownership is enforced by an `owner_id` predicate on every read.
+- **Book reference.** A Book's selected cover is the existing
+  `book_covers (owner_id, selected_connection_id, selected_source_identifier)`
+  pair pointing at an entry row. A later migration adds a composite foreign key
+  once existing rows are backfilled.
+- **Retrieval.** Every index entry that advertises a cover is retrieved
+  independently of Books, by a job keyed by owner, connection, entry, and
+  `advertised_at`. A completion whose `advertised_at` no longer matches the row
+  is dropped. The previous image stays until a replacement validates. Explicit
+  absence in a complete sync removes the row.
+- **Migration sequence.** Expand (`catalog_entry_covers`, structural only), a
+  separate data-only backfill from `book_covers`, then contract (drop the
+  per-Book bytes and `book_cover_candidates`, add the foreign key), shipped in
+  one deploy. Covers of Books still waiting at upgrade are retrieved at the
+  next Catalog sync. When a Book's selected entry explicitly stops advertising a
+  cover, the Book's selection is demoted to another alias before the entry row
+  is deleted, in one transaction.
+- **Catalog cards.** The OPDS Catalog card shows the retained image through an
+  owner-scoped endpoint, or the Title plate while none is retained. The upstream
+  image URL never reaches the browser.
+
 ## Retrieval and persistence
 
 - Catalog reconciliation records advertised cover provenance and schedules
@@ -89,7 +127,9 @@ chosen language is not listed in My Books.
   display raster, not an unlimited original or append-only image history.
 - Cover bytes live in PostgreSQL and are excluded from ordinary Book list and
   evidence projections. A dedicated authenticated, owner-scoped endpoint loads
-  and serves bytes only for an active My Books member. Missing, unavailable,
+  and serves bytes only for an active My Books member. (The Catalog card's
+  entry-cover endpoint is separate: it serves a retained entry image to the
+  owner of that Catalog connection.) Missing, unavailable,
   removed-from-view, and cross-owner references all return the same not-found
   response; conditional requests are evaluated only after authorization.
 - The image response supplies intrinsic dimensions, a content-derived validator,

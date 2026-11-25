@@ -30,10 +30,16 @@ templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
 	}
 }
 
+// CoverImage is a retained cover image at its intrinsic size. The alternative
+// text is empty because the adjacent visible title names the Book.
+templ CoverImage(src string, width, height int) {
+	<img class="book-cover-media__image" src={ templ.SafeURL(src) } alt="" width={ fmt.Sprintf("%d", width) } height={ fmt.Sprintf("%d", height) } loading="lazy" decoding="async"/>
+}
+
 templ BookCoverMedia(bookID string, plate titlePlate, cover domain.BookCover) {
 	<div class="book-cover-media">
 		if cover.State == domain.BookCoverAvailable && cover.Width > 0 && cover.Height > 0 {
-			<img class="book-cover-media__image" src={ templ.SafeURL(bookCoverURL(bookID)) } alt="" width={ fmt.Sprintf("%d", cover.Width) } height={ fmt.Sprintf("%d", cover.Height) } loading="lazy" decoding="async"/>
+			@CoverImage(bookCoverURL(bookID), cover.Width, cover.Height)
 		} else {
 			<div class="book-cover-media__placeholder" aria-hidden="true">
 				<span class="title-plate__title">{ plate.Title }</span>

@@ -111,6 +111,12 @@ type CatalogsStore interface {
 	AddClassicalReadingUnits(context.Context, string, []string) (classical.AddReport, error)
 }
 
+// CatalogEntryCoverStore reads one retained Catalog entry image for its owner.
+// Anything but an available image is ErrNotFound.
+type CatalogEntryCoverStore interface {
+	GetCatalogEntryCoverResource(context.Context, string, string, string) (domain.CatalogEntryCoverResource, error)
+}
+
 // CatalogueAddStore creates or restores the Book for one indexed Catalog entry
 // as To Read, linked through its catalog-entry alias.
 type CatalogueAddStore interface {
@@ -139,6 +145,7 @@ type StoreDependencies struct {
 	Reading       ReadingStore
 	Vocabulary    VocabularyStore
 	Catalogs      CatalogsStore
+	CatalogCovers CatalogEntryCoverStore
 	CatalogueAdd  CatalogueAddStore
 	CatalogueRead CatalogueReadStore
 	Jobs          JobsStore
@@ -334,6 +341,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /catalogs/sources/{id}", h.user(http.HandlerFunc(h.updateConnection)))
 	h.mux.Handle("POST /catalogs/sources/{id}/delete", h.user(http.HandlerFunc(h.deleteConnection)))
 	h.mux.Handle("POST /catalogs/sources/{id}/sync", h.user(http.HandlerFunc(h.syncConnection)))
+	h.mux.Handle("GET /catalogs/sources/{id}/cover", h.user(http.HandlerFunc(h.catalogEntryCover)))
 	h.mux.Handle("POST /catalogs/sources/{id}/add", h.user(http.HandlerFunc(h.addCatalogueEntry)))
 	h.mux.Handle("POST /catalogs/sources/{id}/previously-read", h.user(http.HandlerFunc(h.markCatalogueEntryPreviouslyRead)))
 	h.mux.Handle("GET /catalogs/classical", h.user(http.HandlerFunc(h.classicalAuthorIndex)))

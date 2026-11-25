@@ -41,7 +41,7 @@ func main() {
 	}
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store}
 	preparedDeck := fixtures.PreparedDeck{Store: store}
 	lemmaReview := lemmareview.New(lemmareview.Config{
 		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
