@@ -23,26 +23,24 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 	})
 	store.SeedWithdrawnClassicalBooks()
 
-	catalogs := catalogPage(t, h, cookies, "/catalogs")
+	catalogs := catalogPage(t, h, cookies, "/catalogs?language=grc")
 	require.Equal(t, http.StatusOK, catalogs.Code)
-	assert.Contains(t, catalogs.Body.String(), "Classical catalog")
-
-	index := catalogPage(t, h, cookies, "/catalogs/classical")
-	require.Equal(t, http.StatusOK, index.Code)
-	for _, want := range []string{"Homer", "Xenophon", "Iliad", "Hellenica"} {
-		assert.Contains(t, index.Body.String(), want)
+	for _, want := range []string{"Classical catalog", "Iliad", "Hellenica", "Homer", "Xenophon"} {
+		assert.Contains(t, catalogs.Body.String(), want)
 	}
-	require.Contains(t, index.Body.String(), `action="/catalogs/classical/units/fixture-iliad/add"`)
-	require.NotContains(t, index.Body.String(), "In My Books", "leftover per-book ownership is not current Edition ownership")
+	require.Contains(t, catalogs.Body.String(), `action="/catalogs/classical/units/fixture-iliad/add"`)
+	require.NotContains(t, catalogs.Body.String(), "In My Books", "leftover per-book ownership is not current Edition ownership")
 
-	retired := catalogPage(t, h, cookies, "/catalogs/classical/authors/Homer")
-	require.Equal(t, http.StatusMovedPermanently, retired.Code)
-	assert.Equal(t, "/catalogs/classical#author-Homer", retired.Header().Get("Location"))
+	for _, retiredPath := range []string{"/catalogs/classical", "/catalogs/classical/authors/Homer"} {
+		retired := catalogPage(t, h, cookies, retiredPath)
+		require.Equal(t, http.StatusMovedPermanently, retired.Code)
+		assert.Equal(t, "/catalogs?language=grc", retired.Header().Get("Location"))
+	}
 
 	work := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-iliad")
 	require.Equal(t, http.StatusOK, work.Code)
 	require.Contains(t, work.Body.String(), "Contents of Iliad")
-	require.Equal(t, 1, strings.Count(work.Body.String(), "Add and prepare the work"))
+	require.Equal(t, 1, strings.Count(work.Body.String(), `action="/catalogs/classical/units/fixture-iliad/add"`))
 	require.NotContains(t, work.Body.String(), "/units/fixture-iliad-1/")
 
 	added := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)

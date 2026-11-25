@@ -78,24 +78,24 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	learner := createAccount(t, h.ctx, h.store, "classical-loop-learner", "learner-password")
 	cookies, csrf := loginCookies(t, h.handler, learner.Username, "learner-password")
 
-	// 1. Catalogs -> catalog index -> work. The retired author page redirects
-	// to that author's section of the index.
-	index := perform(t, h.handler, http.MethodGet, "/catalogs/classical", nil, cookies)
+	// 1. Catalog (Ancient Greek) -> work. The retired index and author pages
+	// redirect to the Catalog filtered to Ancient Greek.
+	index := perform(t, h.handler, http.MethodGet, "/catalogs?language=grc", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code, index.Body.String())
 	for _, want := range []string{
 		"Classical catalog", "Synthetic Author", "Synthetic Work", "Synthetic Whole",
-		"English translation available", "English translation not available",
 		`action="/catalogs/classical/units/synthetic-whole-1/add"`,
 	} {
 		assert.Contains(t, index.Body.String(), want, "catalog index missing %q", want)
 	}
 	retired := perform(t, h.handler, http.MethodGet, "/catalogs/classical/authors/"+url.PathEscape("Synthetic Author"), nil, cookies)
 	require.Equal(t, http.StatusMovedPermanently, retired.Code)
-	assert.Equal(t, "/catalogs/classical#author-Synthetic-Author", retired.Header().Get("Location"))
+	assert.Equal(t, "/catalogs?language=grc", retired.Header().Get("Location"))
 	work := perform(t, h.handler, http.MethodGet, "/catalogs/classical/works/synthetic-work", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
 	for _, want := range []string{
-		"Add and prepare the work", `action="/catalogs/classical/units/synthetic-work-1/add"`,
+		"Adding prepares the text for reading.", `action="/catalogs/classical/units/synthetic-work-1/add"`,
+		"English translation", `class="classical-opening"`, `class="classical-length"`,
 	} {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
 	}
@@ -124,7 +124,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		"csrf_token": {csrf}, "return": {"index"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
-	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
+	assert.Contains(t, whole.Header().Get("Location"), "/catalogs?language=grc&")
 	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
 	wholeBook := h.booksByUnit(t, learner.ID)[h.wholeUnitKey]
 	require.NotEmpty(t, wholeBook)
@@ -407,7 +407,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	withdrawnCatalog, err := classical.NewCatalog(withdrawnDefinitions)
 	require.NoError(t, err)
 	h.handler.services.Classical = withdrawnCatalog
-	index = perform(t, h.handler, http.MethodGet, "/catalogs/classical", nil, cookies)
+	index = perform(t, h.handler, http.MethodGet, "/catalogs?language=grc", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code)
 	assert.NotContains(t, index.Body.String(), "Synthetic Work", "a withdrawn Work is hidden from the catalog")
 

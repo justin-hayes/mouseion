@@ -24,7 +24,7 @@ func (f catalogueAddFixture) previouslyRead(t *testing.T) *httptest.ResponseReco
 }
 
 func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
-	fixture := newCatalogueAddFixture(t, false)
+	fixture := newCatalogueAddFixture(t)
 	ctx := context.Background()
 	_, err := fixture.store.PutKnownVocabulary(ctx, fixture.owner.ID, "de", "Haus", "NOUN")
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
 }
 
 func TestCataloguePreviouslyReadRestoresTheSameBookAsRead(t *testing.T) {
-	fixture := newCatalogueAddFixture(t, false)
+	fixture := newCatalogueAddFixture(t)
 	ctx := context.Background()
 	added, err := fixture.store.AddCatalogueEntry(ctx, fixture.owner.ID, fixture.connection.ID, "add-entry")
 	require.NoError(t, err)
@@ -95,7 +95,8 @@ func TestClassicalPreviouslyReadRecordsAReadBookWithoutPreparing(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, read.Code, read.Body.String())
 	location, err := url.Parse(read.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/catalogs/classical", location.Path)
+	assert.Equal(t, "/catalogs", location.Path)
+	assert.Equal(t, "grc", location.Query().Get("language"))
 	assert.Equal(t, "Recorded “Iliad” as previously read.", location.Query().Get("message"))
 	bookID := location.Query().Get("read_book")
 	require.NotEmpty(t, bookID)
@@ -119,7 +120,7 @@ func TestClassicalPreviouslyReadRecordsAReadBookWithoutPreparing(t *testing.T) {
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "Recorded “Iliad” as previously read.")
-	assert.Contains(t, body, "Open Ancient Greek in My Books")
-	assert.Contains(t, body, `href="/catalogs/classical/books/`+bookID+`/in-my-books"`)
-	assert.NotContains(t, body, "works/homer-iliad/previously-read", "I've read this is never offered for a whole Work")
+	assert.Contains(t, body, `id="catalog-read-confirmation"`)
+	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in My Books</a>`)
+	assert.NotContains(t, body, `units/homer-iliad/previously-read`, "an owned unit offers no I've read this")
 }

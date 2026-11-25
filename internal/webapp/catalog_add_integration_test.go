@@ -91,7 +91,7 @@ type catalogueAddFixture struct {
 // newCatalogueAddFixture seeds one synced connection and one unowned index
 // entry, then composes the real reading-intent, OPDS, and Catalogue sync
 // services over the fake catalog server.
-func newCatalogueAddFixture(t *testing.T, fail bool) catalogueAddFixture {
+func newCatalogueAddFixture(t *testing.T) catalogueAddFixture {
 	t.Helper()
 	t.Setenv("MOUSEION_SECRET", "catalog-add-integration-secret-0123456789")
 	ctx := context.Background()
@@ -102,7 +102,7 @@ func newCatalogueAddFixture(t *testing.T, fail bool) catalogueAddFixture {
 	authService := auth.New(store, time.Hour)
 	owner := createAccount(t, ctx, store, "catalog-add-owner", "owner-password")
 	requests := &catalogRequestLog{}
-	catalog := catalogueAddServer(t, requests, fail)
+	catalog := catalogueAddServer(t, requests, false)
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Add catalog", URL: catalog.URL + "/opds"})
 	require.NoError(t, err)
 	require.NoError(t, store.ReconcileCatalogueIndex(ctx, owner.ID, connection.ID, []domain.CatalogueIndexEntry{{
@@ -147,7 +147,7 @@ func (f catalogueAddFixture) ownedBook(t *testing.T) domain.CatalogueEntry {
 }
 
 func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
-	fixture := newCatalogueAddFixture(t, false)
+	fixture := newCatalogueAddFixture(t)
 
 	added := fixture.add(t)
 	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
@@ -216,4 +216,18 @@ func languageTags(languages []domain.StudyLanguage) []string {
 		tags = append(tags, language.Language)
 	}
 	return tags
+}
+
+func TestCatalogueAddNeverChangesTheStoredStudyLanguage(t *testing.T) {
+	fixture := newCatalogueAddFixture(t)
+	ctx := context.Background()
+	require.NoError(t, fixture.store.SetActiveStudyLanguage(ctx, fixture.owner.ID, "it"))
+
+	added := fixture.add(t)
+	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	fixture.ownedBook(t)
+
+	stored, err := fixture.store.GetStoredActiveStudyLanguage(ctx, fixture.owner.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "it", stored, "adding a German Book leaves the study-language context alone (ADR 0129)")
 }
