@@ -413,23 +413,6 @@
       ]
     },
     {
-      "key": "latinlit-perseus-eng2-phi1348-abo012",
-      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
-      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi1348/abo012/",
-      "licenceClass": "source-content",
-      "restriction": "share-alike",
-      "deployerRegisterRow": "Suetonius, Life of Augustus, translated by Alexander Thomson, edited by J. E. Reed (1883), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
-      "files": [
-        {
-          "name": "phi1348.abo012.perseus-eng2.xml",
-          "size": 240039,
-          "sha256": "0250d80605518de36005ed137af4d859c0b918eb4a312e452305287f9edc33e2",
-          "passageLabel": "Thomson (1883), Suet. Aug.",
-          "deckNotice": "Passage context: Suetonius, Life of Augustus, translated by Alexander Thomson, edited by J. E. Reed (1883), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi1348/abo012/phi1348.abo012.perseus-eng2.xml, SHA-256 0250d80605518de36005ed137af4d859c0b918eb4a312e452305287f9edc33e2). CC BY-SA 4.0; derived data remains share-alike."
-        }
-      ]
-    },
-    {
       "key": "ola-v0.2.0",
       "release": "v0.2.0",
       "fetchKind": "archive-range",
