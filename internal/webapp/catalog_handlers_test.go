@@ -148,7 +148,6 @@ func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) 
 		"<title>Catalog · Mouseion</title>",
 		"<h1>Catalog</h1>",
 		`href="/catalogs" aria-current="page"`,
-		`href="/catalogs/classical">Classical catalog</a>`,
 		`href="/catalogs/sources">Manage sources</a>`,
 		`<form class="catalog-search" role="search" method="get" action="/catalogs">`,
 		`id="catalog-search-query"`,
@@ -176,19 +175,18 @@ func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) 
 		`id="catalog-source-title-fixture-connection"`,
 		"Der lange Weg nach Hause",
 		`class="catalog-cover-grid"`,
-		`aria-label="Pages of Fixture catalog"`,
-		`href="/catalogs?language=de&amp;page_fixture-connection=2"`,
 		`href="/catalogs/books/fixture-book/in-my-books">In My Books</a>`,
 		`class="catalog-entry__add"`,
 		`action="/catalogs/sources/fixture-connection/add"`,
 		`name="entry_identifier" value="fixture-sommer"`,
-		`Adding downloads and analyzes the text.`,
+		`Adding prepares the text for reading.`,
 		`class="catalog-entry__read"`,
 		`action="/catalogs/sources/fixture-connection/previously-read"`,
 		`>I've read this</button>`,
 	} {
 		assert.Contains(t, body, want, "GET /catalogs missing %q", want)
 	}
+	assert.NotContains(t, body, `href="/catalogs/classical"`, "the separate Classical catalog button is gone")
 	assert.NotContains(t, body, `id="catalog-connection-form"`, "connection management belongs on Manage sources")
 	assert.NotContains(t, body, "Cyropaedia", "a withdrawn definition is hidden")
 	assert.NotContains(t, body, `id="catalog-source-classical"`, "the default language filter shows German sources, not Ancient Greek")
@@ -209,7 +207,7 @@ func TestCatalogSearchAndLanguageFilterCoverClassicalAndOpdsSources(t *testing.T
 		"2 results from 2 sources.",
 		`id="catalog-source-classical"`,
 		`id="catalog-source-fixture-connection"`,
-		`id="work-homer-iliad"`,
+		`id="catalog-entry-title-classical-homer-iliad"`,
 		"Ödipus auf Kolonos",
 		"Hómēr Nachfolger",
 		`href="/catalogs?language=">Clear search</a>`,
@@ -261,7 +259,8 @@ func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
 
 	var catalog bytes.Buffer
 	classicalCatalog := catalogFixture(t)
-	browse := catalogBrowseView{ClassicalAuthors: classicalCatalog.Authors(), ClassicalTotal: catalogAuthorsWorkCount(classicalCatalog.Authors()), HasClassical: true}
+	cards := classicalCatalogCards(classicalCatalog.Authors(), "", classicalCatalogView{})
+	browse := catalogBrowseView{Classical: catalogSection{ID: catalogClassicalSectionID, Title: "Classical catalog", Page: 1, PageCount: 1, Total: len(cards), Cards: cards}, HasClassical: true}
 	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, browse).Render(t.Context(), &catalog))
 	for _, want := range []string{
 		"No OPDS catalogs connected",
@@ -275,7 +274,105 @@ func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
 	assert.Contains(t, response.Body.String(), "No OPDS catalogs connected")
 }
 
-func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
+func TestRetiredClassicalIndexAndAuthorURLsRedirectToTheGreekCatalog(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
+
+	for _, path := range []string{"/catalogs/classical", "/catalogs/classical/authors/" + url.PathEscape("Xenophon")} {
+		retired := catalogPage(t, h, cookies, path)
+		assert.Equal(t, http.StatusMovedPermanently, retired.Code, path)
+		assert.Equal(t, "/catalogs?language=grc", retired.Header().Get("Location"), path)
+	}
+	assert.Equal(t, http.StatusMovedPermanently, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code, "a retired author URL still redirects")
+}
+
+func TestClassicalSectionRendersOneOrdinaryCardPerReadingUnit(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		catalog, err := classical.NewCatalog(append(catalogFixtureDefinitions(), catalogFixtureWholeWorkWithBooks()))
+		require.NoError(t, err)
+		services.Classical = catalog
+	})
+
+	page := catalogPage(t, h, cookies, "/catalogs?language=grc")
+	require.Equal(t, http.StatusOK, page.Code)
+	body := page.Body.String()
+	for _, want := range []string{
+		`id="catalog-source-classical"`,
+		`<h2 id="catalog-source-title-classical">Classical catalog</h2>`,
+		`class="catalog-entry"`,
+		`<a href="/catalogs/classical/works/xenophon-anabasis">Anabasis</a>`,
+		`lang="grc"`,
+		`class="catalog-entry__author">Homer</p>`,
+		`class="catalog-entry__detail"`,
+		`action="/catalogs/classical/units/plato-republic/add"`,
+		`action="/catalogs/classical/units/plato-republic/previously-read"`,
+		`name="return" value="index"`,
+		`Adding prepares the text for reading.`,
+		`>Add</button>`,
+		`>I've read this</button>`,
+		`class="catalog-source__footer"`,
+		`Greek text source:`,
+	} {
+		assert.Contains(t, body, want, "Classical section missing %q", want)
+	}
+	for _, absent := range []string{"Cyropaedia", "Add and prepare the work", "classical-author-section", "classical-work-entry", "/catalogs/classical/authors/", `class="classical-length"`} {
+		assert.NotContains(t, body, absent, absent)
+	}
+	all := catalogPage(t, h, cookies, "/catalogs?language=").Body.String()
+	assert.Less(t, strings.Index(all, `id="catalog-source-classical"`), strings.Index(all, `id="catalog-source-fixture-connection"`), "the Classical section leads the results")
+}
+
+func TestOpdsSectionsPageTwelveAtATimeIndependentlyOfTheClassicalSection(t *testing.T) {
+	var entries []domain.CatalogueIndexEntry
+	for i := range 14 {
+		entries = append(entries, domain.CatalogueIndexEntry{ConnectionID: "fixture-connection", EntryIdentifier: fmt.Sprintf("paged-%02d", i), Title: fmt.Sprintf("Seite %02d", i), LanguageTag: "de"})
+	}
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+		store, ok := services.Store.Shell.(*fixtures.Store)
+		require.True(t, ok)
+		require.NoError(t, store.SeedCatalogueEntries(fixtures.OwnerID, "fixture-connection", entries))
+	})
+
+	first := catalogPage(t, h, cookies, "/catalogs?language=").Body.String()
+	assert.Equal(t, 12, strings.Count(first, `catalog-entry-title-paged-`)/2, "12 OPDS cards on page one")
+	assert.Contains(t, first, `aria-label="Pages of Fixture catalog"`)
+	assert.Contains(t, first, `href="/catalogs?language=&amp;page_fixture-connection=2"`)
+	assert.NotContains(t, first, `aria-label="Pages of Classical catalog"`, "a short Classical section has no paging")
+
+	second := catalogPage(t, h, cookies, "/catalogs?language=&page_fixture-connection=2").Body.String()
+	assert.Contains(t, second, "Seite 13")
+	assert.NotContains(t, second, "Seite 00")
+}
+
+func TestClassicalSectionsAreOrderedByTitleAndPagedTwelveAtATime(t *testing.T) {
+	definitions := legacyClassicalTombstones()
+	for i := range 14 {
+		key := fmt.Sprintf("work-%02d", i)
+		definitions = append(definitions, catalogFixtureDefinition(key, key, fmt.Sprintf("Title %02d", i), "Author", "Τίτλος",
+			key+"-edition", "1.1.1", "1.1.10", nil, 1, 500, false, false))
+	}
+	catalog, err := classical.NewCatalog(definitions)
+	require.NoError(t, err)
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalog
+	})
+
+	first := catalogPage(t, h, cookies, "/catalogs?language=grc").Body.String()
+	assert.Equal(t, 12, strings.Count(first, `<article class="catalog-entry"`))
+	assert.Less(t, strings.Index(first, "Title 00"), strings.Index(first, "Title 11"))
+	assert.NotContains(t, first, "Title 12")
+	assert.Contains(t, first, `aria-label="Pages of Classical catalog"`)
+	assert.Contains(t, first, `href="/catalogs?language=grc&amp;page_classical=2"`)
+
+	second := catalogPage(t, h, cookies, "/catalogs?language=grc&page_classical=2").Body.String()
+	assert.Equal(t, 2, strings.Count(second, `<article class="catalog-entry"`))
+	assert.Contains(t, second, "Title 13")
+	assert.Contains(t, second, `href="/catalogs?language=grc"`, "Previous returns to page one")
+}
+
+func TestClassicalWorkPageKeepsOpeningLengthContentsAndLeadsBackToTheCatalog(t *testing.T) {
 	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
 		catalog, err := classical.NewCatalog(append(catalogFixtureDefinitions(), catalogFixtureWholeWorkWithBooks()))
 		require.NoError(t, err)
@@ -283,85 +380,51 @@ func TestClassicalCatalogIndexRetiredAuthorPageAndWorkPage(t *testing.T) {
 	})
 	require.NoError(t, store.SetActiveStudyLanguage(t.Context(), fixtures.OwnerID, "de"))
 
-	// The learner's active language is German; the catalog is not scoped to
-	// the study language.
-	index := catalogPage(t, h, cookies, "/catalogs/classical")
-	require.Equal(t, http.StatusOK, index.Code)
-	for _, want := range []string{"Xenophon", "Homer", "Anabasis", "Hellenica", "Iliad", "Republic", `href="/catalogs/classical/works/xenophon-anabasis"`} {
-		assert.Contains(t, index.Body.String(), want, "author index missing %q", want)
-	}
-	assert.NotContains(t, index.Body.String(), "Cyropaedia")
-	assert.NotContains(t, index.Body.String(), "/catalogs/classical/authors/", "the index never links to the retired author page")
-
-	retired := catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("Xenophon"))
-	require.Equal(t, http.StatusMovedPermanently, retired.Code)
-	assert.Equal(t, "/catalogs/classical#author-Xenophon", retired.Header().Get("Location"))
-
 	work := catalogPage(t, h, cookies, "/catalogs/classical/works/plato-republic")
 	require.Equal(t, http.StatusOK, work.Code)
+	body := work.Body.String()
 	for _, want := range []string{
 		"<th>Book</th>", "<th>Passage</th>", "<th>Words</th>", "Book 1", "Book 2", "1.327–1.354", "2.357–2.383", "9553", "8763",
-		"Add and prepare the work", `action="/catalogs/classical/units/plato-republic/add"`,
+		`class="classical-opening"`, "Begins at", `class="classical-length-caption"`, `class="classical-length"`,
+		`action="/catalogs/classical/units/plato-republic/add"`, "Adding prepares the text for reading.",
 		"I've read this", `action="/catalogs/classical/units/plato-republic/previously-read"`,
-		`href="/catalogs/classical#author-Plato"`,
+		`href="/catalogs?language=grc"`,
 	} {
-		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
+		assert.Contains(t, body, want, "work page missing %q", want)
 	}
-	assert.Equal(t, 1, strings.Count(work.Body.String(), "Add and prepare the work"), "one Add per Edition")
-	assert.Equal(t, 1, strings.Count(work.Body.String(), `action="/catalogs/classical/units/plato-republic/previously-read"`), "one I've read this per Edition")
-	for _, absent := range []string{"Choose books", "remaining books", "plato-republic-1"} {
-		assert.NotContains(t, work.Body.String(), absent)
+	assert.NotContains(t, body, "Add and prepare the work")
+	assert.Equal(t, 1, strings.Count(body, `action="/catalogs/classical/units/plato-republic/add"`), "one Add per Edition")
+	assert.Equal(t, 1, strings.Count(body, `action="/catalogs/classical/units/plato-republic/previously-read"`), "one I've read this per Edition")
+	for _, absent := range []string{"Choose books", "remaining books", "plato-republic-1", "/catalogs/classical#", "/catalogs/classical/authors/"} {
+		assert.NotContains(t, body, absent)
 	}
-	assert.NotContains(t, work.Body.String(), "/catalogs/classical/authors/", "the work breadcrumb leads to the index section")
 
 	whole := catalogPage(t, h, cookies, "/catalogs/classical/works/xenophon-hellenica")
 	require.Equal(t, http.StatusOK, whole.Code)
-	assert.Contains(t, whole.Body.String(), "Passage")
 	assert.Contains(t, whole.Body.String(), "1.1.1–1.1.10")
 }
 
-func TestClassicalCatalogIndexRendersOpeningsLengthsAndAttribution(t *testing.T) {
+func TestClassicalWorkPageRendersOpeningLengthAndTranslation(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
 		catalog, err := fixtures.NewClassicalCatalog()
 		require.NoError(t, err)
 		services.Classical = catalog
 	})
 
-	index := catalogPage(t, h, cookies, "/catalogs/classical")
-	require.Equal(t, http.StatusOK, index.Code)
-	body := index.Body.String()
+	body := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-odyssey").Body.String()
 	for _, want := range []string{
-		"Homer",
-		"Xenophon",
-		"μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος",
-		"μετὰ δὲ ταῦτα οὐ πολλαῖς ἡμέραις ὕστερον",
-		`lang="grc"`,
-		"Begins at",
-		"1.1.1",
+		"ἄνδρα μοι ἔννεπε, μοῦσα, πολύτροπον, ὃς μάλα πολλὰ",
 		"600 words in 3 books",
-		"500 words, read whole",
 		"Fixture reviewed edition",
-		"Passage 1.1.1–3.10.19",
-		"Passage 1.1.1–1.1.10",
+		"1.1.1–3.10.19",
 		"English translation not available",
-		"Add and prepare the work",
-		"Greek text source:",
-		"OGA oga_src v0.2.0 Greek text",
-		"CC BY-SA 4.0",
-		`style="width:5.000%;"`,
 		`style="width:6.000%;"`,
-		`action="/catalogs/classical/units/fixture-odyssey/add"`,
-		`name="csrf_token" value="`,
-		`name="return" value="index"`,
 	} {
-		assert.Contains(t, body, want, "catalog index missing %q", want)
-	}
-	for _, absent := range []string{"Choose books", "Add and prepare the whole work", "remaining books", "classical-books", "previously-read"} {
-		assert.NotContains(t, body, absent, "the index offers no per-book control")
+		assert.Contains(t, body, want, "Work page missing %q", want)
 	}
 }
 
-func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
+func TestClassicalCardsOwnershipAndAddInPlaceOnTheCatalog(t *testing.T) {
 	ctx := t.Context()
 	h, cookies, csrf, store := readingFixtureSessionWith(t, func(services *Services) {
 		catalog, err := fixtures.NewClassicalCatalog()
@@ -369,53 +432,46 @@ func TestClassicalCatalogIndexOwnershipStatesAndAddsInPlace(t *testing.T) {
 		services.Classical = catalog
 	})
 
-	index := catalogPage(t, h, cookies, "/catalogs/classical")
+	index := catalogPage(t, h, cookies, "/catalogs?language=grc")
 	require.Equal(t, http.StatusOK, index.Code)
 	body := index.Body.String()
-	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-odyssey/add"`, "a whole-work unit with books offers one Add")
-	assert.NotContains(t, body, "I've read this", "the index offers no I've read this; the Work page does")
-	assert.NotContains(t, body, "books in My Books")
+	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-odyssey/add"`)
+	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-odyssey/previously-read"`)
 	assert.NotContains(t, body, "In My Books")
 
-	// Add the whole Work, which has three constituent books, as one Book. The
-	// existing endpoint returns to the index with the existing confirmation.
-	addedOdyssey := readingTestRequest(t, h, "/catalogs/classical/units/fixture-odyssey/add", url.Values{
+	added := readingTestRequest(t, h, "/catalogs/classical/units/fixture-odyssey/add", url.Values{
 		"csrf_token": {csrf},
 		"return":     {"index"},
 	}, cookies)
-	require.Equal(t, http.StatusSeeOther, addedOdyssey.Code)
-	location := addedOdyssey.Header().Get("Location")
-	assert.Contains(t, location, "/catalogs/classical?")
+	require.Equal(t, http.StatusSeeOther, added.Code)
+	location := added.Header().Get("Location")
+	assert.Contains(t, location, "/catalogs?language=grc&")
 	assert.Contains(t, location, url.QueryEscape("Added 1 Book to My Books"))
 
 	owned := catalogPage(t, h, cookies, location)
 	require.Equal(t, http.StatusOK, owned.Code)
 	ownedBody := owned.Body.String()
 	assert.Contains(t, ownedBody, "Added 1 Book to My Books")
-	assert.Contains(t, ownedBody, "In My Books")
-	assert.NotContains(t, ownedBody, `action="/catalogs/classical/units/fixture-odyssey/add"`, "an owned whole-work unit offers no Add")
-	assert.NotContains(t, ownedBody, "/catalogs/classical/authors/", "the Add confirmation never links to the retired author page")
+	assert.Contains(t, ownedBody, `id="catalog-add-confirmation"`, "the Add confirms exactly as an OPDS Add does")
+	assert.Contains(t, ownedBody, `>View in My Books</a>`)
+	assert.Contains(t, ownedBody, `class="catalog-entry__ownership"`)
+	assert.NotContains(t, ownedBody, `action="/catalogs/classical/units/fixture-odyssey/add"`, "an owned unit offers no Add")
+	assert.Contains(t, ownedBody, `action="/catalogs/classical/units/fixture-hellenica/add"`, "an unowned unit still offers Add")
 
-	odyssey, err := store.ListOwnedClassicalReadingUnits(ctx, fixtures.OwnerID)
+	units, err := store.ListOwnedClassicalReadingUnits(ctx, fixtures.OwnerID)
 	require.NoError(t, err)
-	require.Len(t, odyssey, 1, "adding the Work creates one Book")
-	assert.Equal(t, "fixture-odyssey", odyssey[0].ReadingUnitKey)
+	require.Len(t, units, 1)
+	assert.Equal(t, "fixture-odyssey", units[0].ReadingUnitKey)
+}
 
-	// Add a whole-work unit from the index margin.
-	addedWork := readingTestRequest(t, h, "/catalogs/classical/units/fixture-hellenica/add", url.Values{
-		"csrf_token": {csrf},
-		"return":     {"index"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, addedWork.Code)
-	workLocation := addedWork.Header().Get("Location")
-	assert.Contains(t, workLocation, "/catalogs/classical?")
-	assert.Contains(t, workLocation, url.QueryEscape("Added 1 Book to My Books"))
+func TestCatalogClassicalConfirmationNeverLinksAnArbitraryBook(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+	})
 
-	ownedWhole := catalogPage(t, h, cookies, workLocation)
-	require.Equal(t, http.StatusOK, ownedWhole.Code)
-	ownedWholeBody := ownedWhole.Body.String()
-	assert.Contains(t, ownedWholeBody, "In My Books")
-	assert.NotContains(t, ownedWholeBody, `action="/catalogs/classical/units/fixture-hellenica/add"`, "a fully owned whole-work unit offers no Add")
+	page := catalogPage(t, h, cookies, "/catalogs?language=grc&message=Added&added_book=fixture-book")
+	require.Equal(t, http.StatusOK, page.Code)
+	assert.NotContains(t, page.Body.String(), `id="catalog-add-confirmation"`, "an OPDS Book is not a Classical Reading unit")
 }
 
 type failingCatalogueAdd struct{}
@@ -468,7 +524,7 @@ func TestCatalogueReadRoutesReportRefusalsOnThePage(t *testing.T) {
 			"csrf_token": {csrf}, "return": {"index"},
 		}, cookies)
 		assert.Equal(t, http.StatusSeeOther, response.Code)
-		assert.Contains(t, response.Header().Get("Location"), "/catalogs/classical?error=")
+		assert.Contains(t, response.Header().Get("Location"), "/catalogs?language=grc&error=")
 		assert.Contains(t, response.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsReason))
 	})
 
@@ -590,7 +646,8 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 	require.Equal(t, http.StatusSeeOther, read.Code)
 	location, err := url.Parse(read.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/catalogs/classical", location.Path)
+	assert.Equal(t, "/catalogs", location.Path)
+	assert.Equal(t, "grc", location.Query().Get("language"))
 	assert.Equal(t, "Recorded “Iliad” as previously read.", location.Query().Get("message"))
 	bookID := location.Query().Get("read_book")
 	require.NotEmpty(t, bookID)
@@ -608,8 +665,8 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "Recorded “Iliad” as previously read.")
-	assert.Contains(t, body, "Open Ancient Greek in My Books")
-	assert.Contains(t, body, `href="/catalogs/classical/books/`+bookID+`/in-my-books"`)
+	assert.Contains(t, body, `id="catalog-read-confirmation"`)
+	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in My Books</a>`)
 }
 
 func TestCatalogueAddPreparationMessagesStateWhatFollowsTheAdd(t *testing.T) {
@@ -762,7 +819,7 @@ func TestClassicalCatalogHidesWithdrawnAndUnknownEntries(t *testing.T) {
 
 	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/works/xenophon-cyropaedia").Code)
 	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/works/no-such-work").Code)
-	assert.Equal(t, http.StatusNotFound, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code)
+	assert.Equal(t, http.StatusMovedPermanently, catalogPage(t, h, cookies, "/catalogs/classical/authors/"+url.PathEscape("No Such Author")).Code, "a retired author URL still redirects")
 }
 
 func TestCatalogLanguageFilterDefaultsToAllWithoutAStudyLanguage(t *testing.T) {
@@ -1090,4 +1147,22 @@ func TestCatalogLanguageFilterAlwaysOffersAncientGreekAndGatesTheClassicalSectio
 	after, err := fixtureStore.GetStoredActiveStudyLanguage(t.Context(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Equal(t, before, after, "the Language filter is never stored as the study language")
+}
+
+func TestCatalogLanguageFilterOffersEveryCatalogIndexLanguage(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(services *Services) {
+		services.Classical = catalogFixture(t)
+		store, ok := services.Store.Shell.(*fixtures.Store)
+		require.True(t, ok)
+		require.NoError(t, store.SeedCatalogueEntries(fixtures.OwnerID, "fixture-connection", []domain.CatalogueIndexEntry{
+			{ConnectionID: "fixture-connection", EntryIdentifier: "de-1", Title: "Ein Buch", LanguageTag: "de"},
+			{ConnectionID: "fixture-connection", EntryIdentifier: "nl-1", Title: "Een boek", LanguageTag: "nl"},
+		}))
+	})
+
+	body := catalogPage(t, h, cookies, "/catalogs?language=de").Body.String()
+	assert.Contains(t, body, `<option value="nl"`, "a Dutch entry in the Catalog index makes Dutch selectable although the learner does not study it")
+	assert.Contains(t, body, `<option value="grc"`)
+	assert.Contains(t, body, `<option value="">All languages</option>`)
+	assert.Equal(t, 1, strings.Count(body, `<option value="de"`), "a studied language that the index also holds is offered once")
 }

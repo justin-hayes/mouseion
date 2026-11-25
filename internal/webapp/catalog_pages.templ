@@ -12,7 +12,6 @@ import (
 templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnection, message, errorMessage string, statuses map[string]domain.CatalogueSyncStatus, browse catalogBrowseView) {
 	@ShellLayout("Catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs, shellStyleNoStudyLanguage) {
 		@PageHeader("Catalog", "Find a text in the Classical catalog or your OPDS sources. Search and the language filter cover every source.", nil) {
-			<a class="button button--outline" href="/catalogs/classical">Classical catalog</a>
 			<a class="button button--outline" href="/catalogs/sources">Manage sources</a>
 		}
 		if message != "" {
@@ -85,38 +84,35 @@ templ CatalogResults(csrf string, browse catalogBrowseView) {
 				}
 			}
 		}
-		if browse.ClassicalTotal > 0 {
-			<section class="catalog-source" id="catalog-source-classical" aria-labelledby="catalog-source-classical-title">
-				<header class="catalog-source__header">
-					<h2 id="catalog-source-classical-title">Classical catalog</h2>
-					<p>{ catalogCountLabel(browse.ClassicalTotal, "work", "works") }</p>
-				</header>
-				@ClassicalCatalogIndexSections(csrf, browse.ClassicalAuthors, browse.ClassicalView)
-			</section>
+		if browse.Classical.Total > 0 {
+			@CatalogSection(csrf, browse.Classical)
 		}
 		for _, section := range browse.Sources {
 			if section.Total > 0 {
-				@CatalogOpdsSection(csrf, section)
+				@CatalogSection(csrf, section)
 			}
 		}
 	</div>
 }
 
-// CatalogOpdsSection is one connection's cover grid and paging. It reads only
-// the local Catalog index.
-templ CatalogOpdsSection(csrf string, section catalogOpdsSection) {
-	<section class="catalog-source" id={ "catalog-source-" + section.Connection.ID } aria-labelledby={ "catalog-source-title-" + section.Connection.ID }>
+// CatalogSection is one source's card grid and paging, whether an OPDS
+// connection or the Classical catalog. It reads only local data.
+templ CatalogSection(csrf string, section catalogSection) {
+	<section class="catalog-source" id={ "catalog-source-" + section.ID } aria-labelledby={ "catalog-source-title-" + section.ID }>
 		<header class="catalog-source__header">
-			<h2 id={ "catalog-source-title-" + section.Connection.ID }>{ section.Connection.Name }</h2>
+			<h2 id={ "catalog-source-title-" + section.ID }>{ section.Title }</h2>
 			<p>{ catalogCountLabel(section.Total, "entry", "entries") }</p>
 		</header>
+		if section.Notice != "" {
+			@Feedback(FeedbackError, "Add is unavailable", section.Notice)
+		}
 		<ul class="catalog-cover-grid" role="list">
-			for _, entry := range section.Entries {
-				<li>@CatalogEntryCard(csrf, entry)</li>
+			for _, card := range section.Cards {
+				<li>@CatalogEntryCard(csrf, card)</li>
 			}
 		</ul>
 		if section.PageCount > 1 {
-			<nav class="catalog-pagination" aria-label={ "Pages of " + section.Connection.Name }>
+			<nav class="catalog-pagination" aria-label={ "Pages of " + section.Title }>
 				if section.PreviousURL != "" {
 					<a class="button button--outline" href={ templ.SafeURL(section.PreviousURL) }>Previous</a>
 				}
@@ -126,40 +122,68 @@ templ CatalogOpdsSection(csrf string, section catalogOpdsSection) {
 				}
 			</nav>
 		}
+		if len(section.Attribution) > 0 {
+			<footer class="catalog-source__footer">
+				@ClassicalCatalogAttribution(section.Attribution)
+			</footer>
+		}
 	</section>
 }
 
-// CatalogEntryCard is one OPDS Catalog entry: cover, title, author, and its
-// ownership state. An unowned entry offers Add, which says plainly that it
-// downloads and analyzes the text, and the secondary I've read this, which
-// records a Book the learner read outside Mouseion without downloading it. The
-// Catalog index stores advertised cover
-// provenance, but upstream URLs are never sent to the browser (ADR 0077); until
-// local cover retention reaches index entries, the shared cover frame shows a
-// Title plate.
-templ CatalogEntryCard(csrf string, entry domain.CatalogueEntry) {
-	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>
-		@BookCoverMedia("", newTitlePlate(entry.Index.Title, "", entry.Index.Author), domain.BookCover{})
-		<h3 class="catalog-entry__title bibliographic-title" id={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>{ entry.Index.Title }</h3>
-		if entry.Index.Author != "" {
-			<p class="catalog-entry__author">{ entry.Index.Author }</p>
+// catalogAddCopy is the one line under every Add: it is accurate for an OPDS
+// download and for a Classical text prepared from the release.
+const catalogAddCopy = "Adding prepares the text for reading."
+
+// CatalogEntryCard is one Catalog text from any source: an image, the title
+// (with the Greek title of a Classical text), the author, one detail line, and
+// its ownership state. An unowned text offers Add, and the secondary I've read
+// this, which records a Book the learner read outside Mouseion without
+// downloading it. The image slot is the card's Plate until the source supplies
+// a retained cover; upstream URLs are never sent to the browser (ADR 0077).
+templ CatalogEntryCard(csrf string, card catalogCard) {
+	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + card.ID }>
+		@BookCoverMedia("", card.Plate, domain.BookCover{})
+		<h3 class="catalog-entry__title bibliographic-title" id={ "catalog-entry-title-" + card.ID }>
+			if card.TitleURL != "" {
+				<a href={ templ.SafeURL(card.TitleURL) }>{ card.Title }</a>
+			} else {
+				{ card.Title }
+			}
+		</h3>
+		if card.GreekTitle != "" {
+			<p class="catalog-entry__greek" lang="grc">{ card.GreekTitle }</p>
 		}
-		if entry.BookID != "" {
-			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(catalogBookInMyBooksURL(entry.BookID)) }>In My Books</a></p>
-		} else {
-			<form class="catalog-entry__add" method="post" action={ templ.SafeURL("/catalogs/sources/" + entry.Index.ConnectionID + "/add") }>
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				<input type="hidden" name="entry_identifier" value={ entry.Index.EntryIdentifier }/>
-				<p class="catalog-entry__add-copy">Adding downloads and analyzes the text.</p>
+		if card.Author != "" {
+			<p class="catalog-entry__author">{ card.Author }</p>
+		}
+		if card.Detail != "" {
+			<p class="catalog-entry__detail">{ card.Detail }</p>
+		}
+		if card.OwnedURL != "" {
+			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(card.OwnedURL) }>In My Books</a></p>
+		} else if card.AddURL != "" {
+			<form class="catalog-entry__add" method="post" action={ templ.SafeURL(card.AddURL) }>
+				@catalogCardFields(csrf, card)
+				<p class="catalog-entry__add-copy">{ catalogAddCopy }</p>
 				<button class="button button--outline" type="submit">Add</button>
 			</form>
-			<form class="catalog-entry__read" method="post" action={ templ.SafeURL("/catalogs/sources/" + entry.Index.ConnectionID + "/previously-read") }>
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				<input type="hidden" name="entry_identifier" value={ entry.Index.EntryIdentifier }/>
+			<form class="catalog-entry__read" method="post" action={ templ.SafeURL(card.ReadURL) }>
+				@catalogCardFields(csrf, card)
 				<button class="button button--outline" type="submit">I've read this</button>
 			</form>
 		}
 	</article>
+}
+
+// catalogCardFields are the hidden fields every card form posts.
+templ catalogCardFields(csrf string, card catalogCard) {
+	<input type="hidden" name="csrf_token" value={ csrf }/>
+	if card.EntryIdentifier != "" {
+		<input type="hidden" name="entry_identifier" value={ card.EntryIdentifier }/>
+	}
+	if card.ReturnTo != "" {
+		<input type="hidden" name="return" value={ card.ReturnTo }/>
+	}
 }
 
 // CatalogSourceStatuses is the Catalog page's compact source summary. Each

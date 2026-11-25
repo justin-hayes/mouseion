@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -73,6 +74,7 @@ func classicalAddHarness(t *testing.T) (context.Context, *persistence.PostgresSt
 		Analysis:             analysis.NewService(store.Pool(), nil),
 		ClassicalPreparation: preparation,
 		Classical:            catalog,
+		CatalogueSync:        fixtures.NewCatalogueSync(fixtures.NewStore()),
 		SessionLifetime:      time.Hour,
 	})
 	return ctx, store, pool, h, &layerRequests
@@ -112,7 +114,7 @@ func TestClassicalCatalogAddsWholeWorkAndReopensTheSameBook(t *testing.T) {
 
 	work := perform(t, h, "GET", "/catalogs/classical/works/xenophon-hellenica", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
-	for _, want := range []string{"Add and prepare the work", `action="/catalogs/classical/units/xenophon-hellenica/add"`} {
+	for _, want := range []string{"Adding prepares the text for reading.", `action="/catalogs/classical/units/xenophon-hellenica/add"`} {
 		assert.Contains(t, work.Body.String(), want)
 	}
 	assert.NotContains(t, work.Body.String(), `href="/catalogs/classical/books/`, "an unowned unit has no In My Books link")
@@ -313,15 +315,15 @@ func TestClassicalCatalogAddsOneBookAndAWholeWorkUnitFromTheIndex(t *testing.T) 
 	assert.Contains(t, single.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
 	require.Len(t, ownerBooks(t, pool, learner.ID), 1)
 
-	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
+	index := perform(t, h, "GET", "/catalogs?language=grc", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code)
 	for _, want := range []string{`action="/catalogs/classical/units/xenophon-hellenica/add"`, `name="return" value="index"`} {
-		assert.Contains(t, index.Body.String(), want, "whole-work unit is added from the index")
+		assert.Contains(t, index.Body.String(), want, "whole-work unit is added from its Catalog card")
 	}
 
 	whole := perform(t, h, "POST", "/catalogs/classical/units/xenophon-hellenica/add", url.Values{"csrf_token": {csrf}, "return": {"index"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code)
-	assert.Contains(t, whole.Header().Get("Location"), "/catalogs/classical?")
+	assert.Contains(t, whole.Header().Get("Location"), "/catalogs?language=grc&")
 	assert.Contains(t, whole.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books. Downloading and preparing the text."))
 	assert.Len(t, ownerBooks(t, pool, learner.ID), 2)
 	assert.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue))
@@ -350,9 +352,11 @@ func TestClassicalCatalogOffersAndAddsEachEditionSeparately(t *testing.T) {
 	const workURL = "/catalogs/classical/works/plato-republic"
 	form := url.Values{"csrf_token": {csrf}}
 
-	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
-	require.Contains(t, index.Body.String(), `href="`+workURL+`">Choose an edition</a>`)
-	require.NotContains(t, index.Body.String(), `method="post" action="`+workURL+`/add"`)
+	index := perform(t, h, "GET", "/catalogs?language=grc", nil, cookies)
+	for _, unit := range definitions {
+		require.Contains(t, index.Body.String(), `action="/catalogs/classical/units/`+unit.Key+`/add"`, "each Edition is its own card")
+	}
+	require.Contains(t, index.Body.String(), `class="catalog-entry__detail">Second Edition</p>`)
 	require.Empty(t, ownerBooks(t, pool, learner.ID))
 
 	page := perform(t, h, "GET", workURL, nil, cookies)
@@ -369,8 +373,9 @@ func TestClassicalCatalogOffersAndAddsEachEditionSeparately(t *testing.T) {
 	require.Contains(t, page.Body.String(), "In My Books")
 	require.NotContains(t, page.Body.String(), `action="/catalogs/classical/units/`+first.Key+`/add"`)
 	require.Contains(t, page.Body.String(), `action="/catalogs/classical/units/`+second.Key+`/add"`)
-	index = perform(t, h, "GET", "/catalogs/classical", nil, cookies)
-	require.Contains(t, index.Body.String(), `href="`+workURL+`">Choose an edition</a>`)
+	index = perform(t, h, "GET", "/catalogs?language=grc", nil, cookies)
+	require.NotContains(t, index.Body.String(), `action="/catalogs/classical/units/`+first.Key+`/add"`)
+	require.Contains(t, index.Body.String(), `action="/catalogs/classical/units/`+second.Key+`/add"`)
 
 	added := perform(t, h, "POST", "/catalogs/classical/units/"+second.Key+"/add", form, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
@@ -379,8 +384,8 @@ func TestClassicalCatalogOffersAndAddsEachEditionSeparately(t *testing.T) {
 	bookID := booksByUnitKey(t, ctx, store, learner.ID, second.Key)
 	feedback := perform(t, h, "GET", added.Header().Get("Location"), nil, cookies)
 	require.Contains(t, feedback.Body.String(), `href="/catalogs/classical/books/`+bookID+`/in-my-books">Open Ancient Greek in My Books</a>`)
-	index = perform(t, h, "GET", "/catalogs/classical", nil, cookies)
-	require.NotContains(t, index.Body.String(), "Choose an edition")
+	index = perform(t, h, "GET", "/catalogs?language=grc", nil, cookies)
+	require.NotContains(t, index.Body.String(), `/add"`, "every Edition is owned, so no card offers Add")
 }
 
 func TestClassicalCatalogAddFailureRedirectsWithRecoveryMessage(t *testing.T) {
@@ -439,15 +444,15 @@ func TestClassicalCatalogInMyBooksIsOwnerScoped(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
-// TestClassicalCatalogAuthorIndexIsNotScopedToTheStudyLanguage keeps the
+// TestClassicalCatalogSectionIsNotScopedToTheStudyLanguage keeps the
 // pre-existing catalog rule: an active German learner still reaches the shelf.
-func TestClassicalCatalogAuthorIndexIsNotScopedToTheStudyLanguage(t *testing.T) {
+func TestClassicalCatalogSectionIsNotScopedToTheStudyLanguage(t *testing.T) {
 	ctx, store, _, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "classical-add-catalog-scope", "learner-password")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 
-	index := perform(t, h, "GET", "/catalogs/classical", nil, cookies)
+	index := perform(t, h, "GET", "/catalogs?language=grc", nil, cookies)
 	require.Equal(t, http.StatusOK, index.Code)
 	assert.Contains(t, index.Body.String(), "Homer")
 }
