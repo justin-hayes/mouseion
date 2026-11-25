@@ -122,18 +122,19 @@ func (s *PostgresStore) DeclineStudyBatch(ctx context.Context, owner, language, 
 	return nil
 }
 
-// NextStudyCard returns the word to show next: the earliest due word, with the
-// Study material it is reviewed in. ErrNotFound means nothing is due at now.
+// NextStudyCard returns the word to show next, with the Study material it is
+// reviewed in. What is due is decided by the domain (Today's due set and the
+// same-day repeats), so both adapters agree. ErrNotFound means nothing is due
+// at now.
 func (s *PostgresStore) NextStudyCard(ctx context.Context, owner, language string, now time.Time) (domain.StudyCard, error) {
-	q := sqlcgen.New(s.pool)
-	row, err := q.NextDueStudyProgress(ctx, sqlcgen.NextDueStudyProgressParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language), Now: now.UTC()})
-	if errors.Is(err, pgx.ErrNoRows) {
+	all, err := s.ListStudyProgress(ctx, owner, language)
+	if err != nil {
+		return domain.StudyCard{}, err
+	}
+	progress, ok := domain.NextStudyReview(all, now)
+	if !ok {
 		return domain.StudyCard{}, ErrNotFound
 	}
-	if err != nil {
-		return domain.StudyCard{}, fmt.Errorf("next study card: %w", err)
-	}
-	progress := studyProgressFromRow(row)
 	material, err := s.GetStudyMaterial(ctx, owner, progress.MaterialID)
 	if err != nil {
 		return domain.StudyCard{}, err

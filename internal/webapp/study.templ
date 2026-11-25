@@ -15,8 +15,18 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
 			</section>
 		} else {
+			if view.Finished {
+				<p id="study-finished" class="study-status">Today is finished. Your next reviews start with the next Study day.</p>
+			} else {
+				<p id="study-remaining" class="study-status">{ studyRemainingText(view.Remaining) }</p>
+			}
 			if view.Card != nil {
 				@StudyCard(csrf, view)
+			} else if !view.Finished {
+				<section class="study-today" aria-labelledby="study-today-heading">
+					<h2 id="study-today-heading">Today</h2>
+					<p id="study-waiting">The next review comes back in a few minutes.</p>
+				</section>
 			} else if view.Offer > 0 {
 				@StudyBatchOffer(csrf, view)
 			} else if view.Repeating > 0 {
@@ -124,6 +134,13 @@ func studyOfferText(count int) string {
 		return "1 new word is ready to learn."
 	}
 	return fmt.Sprintf("%d new words are ready to learn.", count)
+}
+
+func studyRemainingText(count int) string {
+	if count == 1 {
+		return "1 review left today."
+	}
+	return fmt.Sprintf("%d reviews left today.", count)
 }
 
 func studyRepeatingText(count int) string {

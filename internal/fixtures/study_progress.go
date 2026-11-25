@@ -108,46 +108,25 @@ func (s *Store) DeclineStudyBatch(_ context.Context, owner, language, studyDay s
 	return nil
 }
 
-// NextStudyCard returns the earliest due word with its Study material, or
-// ErrNotFound when nothing is due at now.
-func (s *Store) NextStudyCard(_ context.Context, owner, language string, now time.Time) (domain.StudyCard, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	best := -1
-	for i, item := range s.studyProgress {
-		if item.OwnerID != owner || item.Language != language || item.Withdrawn || item.Memory.Due.After(now) {
-			continue
-		}
-		if best < 0 || studyDueBefore(item, s.studyProgress[best]) {
-			best = i
-		}
+// NextStudyCard returns the word to show next with its Study material, or
+// ErrNotFound when nothing is due at now. What is due is decided by the domain.
+func (s *Store) NextStudyCard(ctx context.Context, owner, language string, now time.Time) (domain.StudyCard, error) {
+	all, err := s.ListStudyProgress(ctx, owner, language)
+	if err != nil {
+		return domain.StudyCard{}, err
 	}
-	if best < 0 {
+	progress, ok := domain.NextStudyReview(all, now)
+	if !ok {
 		return domain.StudyCard{}, errNotFound
 	}
-	progress := s.studyProgress[best]
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, material := range s.studyMaterial {
 		if material.OwnerID == owner && material.ID == progress.MaterialID {
 			return domain.StudyCard{Progress: progress, Material: cloneStudyMaterial(material)}, nil
 		}
 	}
 	return domain.StudyCard{}, errNotFound
-}
-
-func studyDueBefore(a, b domain.StudyProgress) bool {
-	if !a.Memory.Due.Equal(b.Memory.Due) {
-		return a.Memory.Due.Before(b.Memory.Due)
-	}
-	if !a.IntroducedAt.Equal(b.IntroducedAt) {
-		return a.IntroducedAt.Before(b.IntroducedAt)
-	}
-	if a.CanonicalLemma != b.CanonicalLemma {
-		return a.CanonicalLemma < b.CanonicalLemma
-	}
-	if a.UPOS != b.UPOS {
-		return a.UPOS < b.UPOS
-	}
-	return a.LexicalDiscriminator < b.LexicalDiscriminator
 }
 
 // RecordStudyGrade stores one graded review: the review-log row with the state

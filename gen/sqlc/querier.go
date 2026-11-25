@@ -510,8 +510,6 @@ type Querier interface {
 	MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMaterialReadyParams) (int64, error)
 	MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStudyMaterialUnpreparableParams) (int64, error)
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
-	// The word to show next: the earliest due, not withdrawn, due by now.
-	NextDueStudyProgress(ctx context.Context, arg NextDueStudyProgressParams) (StudyProgress, error)
 	NextPreparedDeckBatchChunkIndex(ctx context.Context, arg NextPreparedDeckBatchChunkIndexParams) (int32, error)
 	NextPreparedDeckRunNumber(ctx context.Context, arg NextPreparedDeckRunNumberParams) (int32, error)
 	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)

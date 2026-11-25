@@ -6,14 +6,6 @@ SELECT * FROM study_progress
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
  ORDER BY introduced_at, canonical_lemma, upos, lexical_discriminator;
 
--- name: NextDueStudyProgress :one
--- The word to show next: the earliest due, not withdrawn, due by now.
-SELECT * FROM study_progress
- WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
-   AND withdrawn_at IS NULL AND due <= sqlc.arg('now')::timestamptz
- ORDER BY due, introduced_at, canonical_lemma, upos, lexical_discriminator
- LIMIT 1;
-
 -- name: LockStudyProgress :one
 SELECT * FROM study_progress
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
