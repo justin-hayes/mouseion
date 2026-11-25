@@ -115,3 +115,18 @@ func TestLatinLSNoticeNamesThePinAndLicence(t *testing.T) {
 	assert.Contains(t, LatinLSNotice(""), "CC BY-SA 4.0")
 	assert.NotContains(t, LatinLSNotice(""), "@")
 }
+
+func TestLatinLSLookupReadsTheSourceHomographNumberFromFormatEight(t *testing.T) {
+	statements := []string{
+		`CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL)`,
+		`CREATE TABLE ls_entries (entry_id TEXT NOT NULL, headword TEXT NOT NULL, orth TEXT NOT NULL, senses_json TEXT NOT NULL, homograph INTEGER NOT NULL)`,
+		`INSERT INTO metadata VALUES ('index_format', '8')`,
+		`INSERT INTO metadata VALUES ('ls_pin', 'lspin')`,
+		`INSERT INTO ls_entries VALUES ('n20', 'Pennus', 'Pennus', '[]', 2)`,
+	}
+	entries, found := newTestIndex(t, statements...).LookupLatinLS(t.Context(), "Pennus")
+
+	require.True(t, found)
+	require.Len(t, entries, 1)
+	assert.Equal(t, 2, entries[0].Homograph)
+}

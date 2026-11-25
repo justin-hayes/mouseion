@@ -132,15 +132,25 @@ func (latinDeckLexicon) LookupLatinLS(_ context.Context, lemma string) ([]enrich
 		return nil, false
 	}
 	return []enrichment.LatinLSEntry{
-		{EntryID: "n100", Headword: "domus", Orth: "domus", Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
+		{EntryID: "n100", Headword: "domus", Orth: "domus", Homograph: 1, Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
 			{ID: "n100.0", Number: "I", Level: 1, Definitions: []string{"a house"}, Glosses: []string{"a house"},
 				Citations: []enrichment.LatinLSCitation{{Author: "Anon.", Text: "Anon. 1, 2"}, {Author: "Cic.", Text: "Cic. Att. 3, 4"},
 					{Author: "phi0474", Text: "urn own 5, 6"}, {Author: "phi0914", Text: "urn other 7, 8"}}},
 		}},
-		{EntryID: "n101", Headword: "domus", Orth: "domus", Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
+		{EntryID: "n101", Headword: "domus", Orth: "domus", Homograph: 2, Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
 			{ID: "n101.0", Number: "I", Level: 1, Definitions: []string{"a household"}, Glosses: []string{"a household"}},
 		}},
 	}, true
+}
+
+// rederivedLatinLexicon is the same provider after the dictionary index was
+// re-derived: it knows one domus entry and no other.
+type rederivedLatinLexicon struct{ latinDeckLexicon }
+
+func (rederivedLatinLexicon) LookupLatinLS(context.Context, string) ([]enrichment.LatinLSEntry, bool) {
+	return []enrichment.LatinLSEntry{{EntryID: "n900", Headword: "domus", Orth: "domus", Pin: "rederived", Senses: []enrichment.LatinLSSense{
+		{ID: "n900.0", Number: "I", Level: 1, Definitions: []string{"a rederived sense"}, Glosses: []string{"a rederived sense"}},
+	}}}, true
 }
 
 // TestClassicalLatinDeckHasPassageContextWithNoProvider extends the Latin loop
@@ -309,6 +319,8 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 			assert.Equal(t, latinDeckLSPin, entryPin)
 			assert.Contains(t, item.DictionaryEntry, "a house")
 			assert.Contains(t, item.DictionaryEntry, "a household")
+			assert.Contains(t, item.DictionaryEntry, "domus<sup>1</sup>", "entries carry the source's L&S numbers")
+			assert.Contains(t, item.DictionaryEntry, "domus<sup>2</sup>")
 			assert.Contains(t, item.DictionaryEntry, "Anon. 1, 2")
 			assert.Contains(t, item.DictionaryEntry, "urn own 5, 6", "a URN-only citation matches the Work's CTS textgroup from its file name")
 			assert.NotContains(t, item.DictionaryEntry, "urn other 7, 8")
@@ -328,4 +340,17 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 	for _, unwanted := range []string{"Wiktionary", "house, home", "Liddell", "OGA v0.2.0", "Stanza"} {
 		assert.False(t, bytes.Contains(preparation.Artifact, []byte(unwanted)), "exported Latin deck must not carry %q", unwanted)
 	}
+
+	// Reloading the persisted deck after the dictionary index was re-derived
+	// shows the frozen entries unchanged: the entry IDs, pin and rendered block
+	// are frozen with the deck, so the new index is never consulted.
+	projection, digest, err := store.LoadPreparedDeckStorageProjection(ctx, learner.ID, preparation.ID, preparation.CurrentRunID)
+	require.NoError(t, err)
+	require.NotEmpty(t, digest)
+	restored, err := cardexport.NewPresentation(rederivedLatinLexicon{}).Restore(projection)
+	require.NoError(t, err)
+	rerendered, _, err := cardexport.NewPresentation(rederivedLatinLexicon{}).Finalize(ctx, restored, nil, cardexport.RunFacts{})
+	require.NoError(t, err)
+	assert.True(t, bytes.Equal(preparation.Artifact, rerendered.APKG), "a prepared Latin deck re-renders unchanged after the index changes")
+	assert.False(t, bytes.Contains(rerendered.APKG, []byte("rederived")))
 }

@@ -975,7 +975,7 @@ def test_lsj_entries_preserve_identity_hierarchy_and_xenophon_citations(tmp_path
     connection = sqlite3.connect(output)
     assert connection.execute(
         "SELECT value FROM metadata WHERE key = 'index_format'"
-    ).fetchone() == ("7",)
+    ).fetchone() == ("8",)
     assert connection.execute("SELECT value FROM metadata WHERE key = 'lsj_pin'").fetchone() == (
         "pin123",
     )
@@ -1655,9 +1655,9 @@ def ls_index(tmp_path: Path, module, xml: str = SYNTHETIC_LS) -> list:
         )
         assert connection.execute(
             "SELECT value FROM metadata WHERE key = 'index_format'"
-        ).fetchone() == ("7",)
+        ).fetchone() == ("8",)
         return connection.execute(
-            "SELECT entry_id, headword, orth, senses_json FROM ls_entries"
+            "SELECT entry_id, headword, orth, senses_json, homograph FROM ls_entries"
         ).fetchall()
     finally:
         connection.close()
@@ -1674,6 +1674,20 @@ def test_ls_entries_keep_homographs_in_id_order_and_skip_non_main_entries(tmp_pa
         ("n11", "dicto", "dictō"),
         ("n12", "Roma", "Rōma"),
     ]
+
+
+def test_ls_entries_keep_the_source_homograph_number(tmp_path: Path):
+    rows = {row[0]: row for row in ls_index(tmp_path, load_script())}
+
+    assert (rows["n9"][4], rows["n10"][4], rows["n11"][4]) == (1, 2, 0)
+
+
+def test_ls_homograph_number_is_the_keys_trailing_digits():
+    module = load_script()
+
+    assert module.ls_homograph_number("Pennus2") == 2
+    assert module.ls_homograph_number("dico") == 0
+    assert module.ls_homograph_number("dico12") == 12
 
 
 def test_ls_entry_without_senses_is_kept_empty(tmp_path: Path):

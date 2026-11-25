@@ -141,6 +141,23 @@ func TestLatinFrozenEntriesKeepTheirTextAfterTheIndexChanges(t *testing.T) {
 	assert.Contains(t, again.DictionaryEntry, "dīco<sup>2</sup>")
 }
 
+func TestLatinEntryNumbersAreTheSourcesHomographNumbers(t *testing.T) {
+	entries := dicoEntries()
+	entries[0].Homograph, entries[1].Homograph = 2, 5
+	html := renderLatinLSEntries(entries, cardpolicy.CitationsNone, "Livy", "")
+	assert.Contains(t, html, "dīco<sup>2</sup>")
+	assert.Contains(t, html, "dīco<sup>5</sup>")
+	assert.NotContains(t, html, "dīco<sup>1</sup>")
+
+	entries[0].Homograph, entries[1].Homograph = 0, 0
+	html = renderLatinLSEntries(entries, cardpolicy.CitationsNone, "Livy", "")
+	assert.Contains(t, html, "dīco<sup>1</sup>", "an entry whose key has no number keeps its place in id order")
+	assert.Contains(t, html, "dīco<sup>2</sup>")
+
+	html = renderLatinLSEntries(entries[:1], cardpolicy.CitationsNone, "Livy", "")
+	assert.NotContains(t, html, "<sup>", "a single entry shows no number")
+}
+
 func TestLatinDeckNoticeNamesLewisShortAndItsPin(t *testing.T) {
 	notices, err := attributionNotices([]RenderInput{{Language: "la", DictionaryEntryID: "n9,n10", DictionaryPin: testLSPin}})
 	require.NoError(t, err)

@@ -62,7 +62,8 @@ func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, ent
 
 // renderLatinLSEntries stacks every entry, each with its own head line, outline
 // and collapsed full entry. With several entries each head line carries the
-// entry's L&S number, which is its place in id order (dīco¹, dīco²); the head
+// entry's L&S number, which is the source's own homograph number (dīco¹,
+// dīco²), or its place in id order when the source key carries none; the head
 // line shows the entry's own <orth>, with its vowel-length marks, in place of
 // the bare headword.
 func renderLatinLSEntries(entries []enrichment.LatinLSEntry, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) string {
@@ -71,6 +72,9 @@ func renderLatinLSEntries(entries []enrichment.LatinLSEntry, filter cardpolicy.C
 		number := 0
 		if len(entries) > 1 {
 			number = i + 1
+			if entry.Homograph > 0 {
+				number = entry.Homograph
+			}
 		}
 		renderLatinLSEntry(&b, entry, number, filter, workAuthor, workTextgroup)
 	}
