@@ -224,6 +224,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     // Runs at the project's viewport; desktop and compact are separate projects.
     await page.goto('/catalogs');
+    await expect(page.getByLabel('Study language')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass('catalogs-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -236,6 +237,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     await page.goto('/catalogs/sources');
     await expect(page.getByRole('heading', { name: 'Manage sources', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Study language')).toHaveCount(0);
     const addConnectionForm = page.locator('#catalog-connection-form');
     await expect(addConnectionForm.getByLabel('Name', { exact: true })).toBeVisible();
     await expect(addConnectionForm.getByLabel('Catalog URL', { exact: true })).toBeVisible();
@@ -281,7 +283,7 @@ test.describe('responsive and theme regression coverage', () => {
       await noScriptPage.getByLabel('Password').fill('fixture-password');
       await noScriptPage.getByRole('button', { name: 'Sign in' }).click();
       await expect(noScriptPage).toHaveURL(/\/library/);
-      await noScriptPage.goto('/catalogs');
+      await noScriptPage.goto('/library');
       await expect(noScriptPage.getByLabel('Study language')).toBeVisible();
       await expect(noScriptPage.getByRole('button', { name: 'Switch language' })).toBeVisible();
       await noScriptPage.getByLabel('Study language').selectOption('it');
@@ -597,21 +599,29 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(destinations).toHaveCount(4);
       await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
-      await expect(navigation.getByLabel('Study language')).toBeVisible();
+      if (path === '/catalogs') {
+        // ADR 0129: the Catalog's Language filter is its only language control.
+        await expect(navigation.getByLabel('Study language')).toHaveCount(0);
+      } else {
+        await expect(navigation.getByLabel('Study language')).toBeVisible();
+      }
 
       const geometry = await page.locator('.site-header').evaluate(header => {
         const brand = header.querySelector('.site-header__brand')!.getBoundingClientRect();
         const tools = header.querySelector('.site-header__tools')!.getBoundingClientRect();
-        const language = header.querySelector('.site-header__language')!.getBoundingClientRect();
+        const languageElement = header.querySelector('.site-header__language');
+        const language = languageElement ? languageElement.getBoundingClientRect() : null;
         const account = header.querySelector('.site-header__account summary')!.getBoundingClientRect();
         const links = header.querySelector('.site-header__navigation')!.getBoundingClientRect();
-        return { height: header.getBoundingClientRect().height, brandTop: brand.top, brandBottom: brand.bottom, toolsTop: tools.top, toolsBottom: tools.bottom, languageTop: language.top, languageBottom: language.bottom, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
+        return { height: header.getBoundingClientRect().height, brandTop: brand.top, brandBottom: brand.bottom, toolsTop: tools.top, toolsBottom: tools.bottom, languageTop: language?.top ?? null, languageBottom: language?.bottom ?? null, accountTop: account.top, accountBottom: account.bottom, linksTop: links.top, width: header.getBoundingClientRect().width };
       });
       expect(geometry.height).toBeLessThan(302);
       expect(Math.abs(geometry.brandTop - geometry.toolsTop)).toBeLessThan(2);
       expect(geometry.linksTop).toBeGreaterThanOrEqual(Math.max(geometry.brandBottom, geometry.toolsBottom));
-      expect(geometry.accountTop).toBeLessThan(geometry.languageBottom);
-      expect(geometry.accountBottom).toBeGreaterThan(geometry.languageTop);
+      if (geometry.languageTop !== null && geometry.languageBottom !== null) {
+        expect(geometry.accountTop).toBeLessThan(geometry.languageBottom);
+        expect(geometry.accountBottom).toBeGreaterThan(geometry.languageTop);
+      }
       expect(geometry.width).toBe(375);
       for (const link of await destinations.all()) {
         const box = await link.boundingBox();

@@ -322,6 +322,11 @@ test.describe('native WebKit smoke journey', () => {
       const current = navigation.getByRole('link', { name: destination.name, exact: true });
       await expect(current).toHaveAttribute('aria-current', 'page');
       await expect(current).not.toHaveClass(/\bbtn\b/);
+      if (destination.path === '/catalogs') {
+        // ADR 0129: the Catalog's Language filter is its only language control.
+        await expect(page.getByLabel('Study language')).toHaveCount(0);
+        continue;
+      }
       const style = await page.getByLabel('Study language').evaluate(select => {
         const label = select.closest('label')!;
         const labelStyle = getComputedStyle(label);
