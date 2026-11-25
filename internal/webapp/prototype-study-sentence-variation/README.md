@@ -11,6 +11,32 @@ the sentence?
   the word's Learned meaning.
 - If no, Study material is one sentence per word.
 
+## Verdict (closed 2026-11-25, without running the trial)
+
+**The MVP uses one sentence per word. Sentence variation is deferred.** The
+learner checked all 60 sentences and approved the page. They then closed the
+prototype before the trial began, so no grades were recorded. The decision rests
+on four points:
+
+- A two-week trial couldn't settle the question. With the real ladder each word
+  gets about three scheduled reviews, so there would be about 30 reviews on each
+  side, and a gap between the Again rates would be within noise.
+- Either Again result can be read both ways: as variation being too hard, or as
+  the familiar sentence inflating Got it.
+- The main case for variation is that the familiar sentence gets memorised. That
+  builds up over months, not two weeks.
+- Variation can be added later without migrating anyone's progress, because Study
+  progress belongs to the word, not to a sentence. One sentence is the cheaper
+  default that can still be reversed.
+
+If variation is revisited, agree the decision rule first. Use the guessing flag
+and the learner's notes, not Again rates alone. For example, if guessing is
+flagged on more than about a quarter of Got its on new sentences, keep one
+sentence.
+
+Explore, as built here, is ungraded card flipping over the words not yet in study.
+The learner confirmed that is how they picture it.
+
 ## Run it
 
 One static file; its data is embedded. Serve it over the tailnet and keep the same
