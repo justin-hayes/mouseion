@@ -18,7 +18,7 @@ import (
 // LSJ's numbering. It returns the matched entry so a caller can freeze it as
 // pass evidence.
 func resolveAncientGreekLSJ(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry) (enrichment.AncientGreekLSJEntry, bool) {
-	if entry == nil || !cardpolicy.For(entry.Language).SourceEvidence || lexical == nil {
+	if entry == nil || cardpolicy.For(entry.Language).Entries != cardpolicy.EntryLSJ || lexical == nil {
 		return enrichment.AncientGreekLSJEntry{}, false
 	}
 	provider, ok := lexical.(enrichment.AncientGreekLSJProvider)

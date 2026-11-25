@@ -2,6 +2,7 @@ package cardexport
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -53,13 +54,42 @@ func resolvePassage(citations []string, translations map[string]string, pin stri
 	if strings.TrimSpace(pin) == "" || len(citations) == 0 || len(translations) == 0 {
 		return "", "", ""
 	}
-	sections := make([]string, 0, len(citations))
+	// Every segment whose Citation equals or contains a touched one is shown
+	// (ADR 0101): a 1.2 translation covers a sentence touching 1.2.3.
+	shown := map[string]struct{}{}
 	for _, section := range citations {
-		translation := strings.TrimSpace(translations[section])
-		if translation == "" {
+		if !collectSegments(section, translations, shown) {
 			return "", "", ""
 		}
-		sections = append(sections, translation)
 	}
-	return strings.Join(sections, " "), classical.FormatCitationRange(citations), pin
+	keys := make([]string, 0, len(shown))
+	for key := range shown {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		order, err := classical.CompareCitations(keys[i], keys[j])
+		if err != nil {
+			return keys[i] < keys[j]
+		}
+		return order < 0
+	})
+	sections := make([]string, 0, len(keys))
+	for _, key := range keys {
+		sections = append(sections, strings.TrimSpace(translations[key]))
+	}
+	return strings.Join(sections, " "), classical.FormatCitationRange(keys), pin
+}
+
+// collectSegments adds every segment key that equals or contains section and
+// reports whether there is at least one.
+func collectSegments(section string, translations map[string]string, shown map[string]struct{}) bool {
+	found := false
+	for key, translation := range translations {
+		if strings.TrimSpace(translation) == "" || (key != section && !strings.HasPrefix(section, key+".")) {
+			continue
+		}
+		shown[key] = struct{}{}
+		found = true
+	}
+	return found
 }

@@ -28,6 +28,46 @@ const (
 	LookupExactlyOne
 )
 
+// TranslationSource is where a language's passage-context translations come
+// from.
+type TranslationSource int
+
+const (
+	// TranslationNone means the language has no imported reference translation.
+	TranslationNone TranslationSource = iota
+	// TranslationPerseus is a pinned Perseus perseus-engN translation file,
+	// fetched lazily at preparation and stored once per installation, keyed by
+	// pin and Citation.
+	TranslationPerseus
+)
+
+// EntrySource is the dictionary a source-evidence card freezes its entry from.
+type EntrySource int
+
+const (
+	// EntryNone freezes no dictionary entry.
+	EntryNone EntrySource = iota
+	// EntryLSJ freezes the matched Liddell-Scott-Jones entry.
+	EntryLSJ
+	// EntryLewisShort is the Lewis & Short entry; its freeze comes with the
+	// dictionary-entry ticket, so no entry is frozen for it yet.
+	EntryLewisShort
+)
+
+// Imported-source notices name each source and its licence; a deck carries the
+// notice of its language's policy. They live here, beside the policy that picks
+// them, so the policy names its notice as a value.
+const (
+	// GreekSourceNotice names OGA v0.2.0 as packaged by oga_src, derived from
+	// Perseus/canonical-greekLit, all CC BY-SA 4.0.
+	GreekSourceNotice = "Ancient Greek text and annotation: OGA v0.2.0 (CC BY-SA 4.0), packaged as oga_src (Zenodo DOI 10.5281/zenodo.15199546) and derived from Perseus/canonical-greekLit (CC BY-SA 4.0). Commentary and derived data remain share-alike under the same licence."
+	// LatinSourceNotice names the Opera Latina Adnotata v0.2.0 release (LatinPipe
+	// output, Zenodo record 15183688) and the Perseus canonical-latinLit text it
+	// annotates, both CC BY-SA 4.0. The translation's own pin rides in its
+	// passage notice.
+	LatinSourceNotice = "Latin text and annotation: Opera Latina Adnotata (OLA) v0.2.0, LatinPipe output (CC BY-SA 4.0, Zenodo record 15183688), derived from Perseus/canonical-latinLit (CC BY-SA 4.0; the text is the revision OLA v0.2.0 annotates, recorded in the release). Commentary and derived data remain share-alike under the same licence."
+)
+
 // Policy is the card behaviour of one study language. A language either uses
 // source-evidence cards or takes the modern-language provider route, never
 // both.
@@ -39,8 +79,13 @@ type Policy struct {
 	// EvidenceAssistedPass reports whether the evidence-assisted provider pass
 	// may run on top of the source-evidence card.
 	EvidenceAssistedPass bool
-	// ImportedSourceNotice reports whether the imported-source notices apply.
-	ImportedSourceNotice bool
+	// SourceNotice is the imported-source notice a deck of this language
+	// carries, or empty when the language has none.
+	SourceNotice string
+	// Translations is where the passage-context translations come from.
+	Translations TranslationSource
+	// Entries is the dictionary a source-evidence card freezes its entry from.
+	Entries EntrySource
 	// NLPAnalysed reports whether the NLP service analyses the language, so the
 	// analysis-models notice applies.
 	NLPAnalysed bool
@@ -54,9 +99,23 @@ var (
 	sourceEvidenceGreek = Policy{
 		SourceEvidence:       true,
 		EvidenceAssistedPass: true,
-		ImportedSourceNotice: true,
+		SourceNotice:         GreekSourceNotice,
+		Translations:         TranslationPerseus,
+		Entries:              EntryLSJ,
 		SentenceBoundary:     BoundaryTerminalMark,
 		DictionaryLookup:     LookupExactlyOne,
+	}
+	// sourceEvidenceLatin has no evidence-assisted pass: the provider payload
+	// has no recorded assessment for Latin (ADR 0133), so a Latin deck is the
+	// default card with no provider request. Its dictionary entry is Lewis & Short,
+	// frozen by the next ticket.
+	sourceEvidenceLatin = Policy{
+		SourceEvidence:   true,
+		SourceNotice:     LatinSourceNotice,
+		Entries:          EntryLewisShort,
+		Translations:     TranslationPerseus,
+		SentenceBoundary: BoundaryTerminalMark,
+		DictionaryLookup: LookupExactlyOne,
 	}
 	modern = Policy{
 		NLPAnalysed:      true,
@@ -68,8 +127,11 @@ var (
 // For returns the card policy of a language tag. Every language without its own
 // policy takes the modern-language provider route.
 func For(language string) Policy {
-	if canonicalization.NormalizeLanguage(language) == "grc" {
+	switch canonicalization.NormalizeLanguage(language) {
+	case "grc":
 		return sourceEvidenceGreek
+	case "la":
+		return sourceEvidenceLatin
 	}
 	return modern
 }
