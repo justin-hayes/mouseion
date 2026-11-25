@@ -1725,9 +1725,7 @@ func attributionNotices(entries []RenderInput) (string, error) {
 	if pin, ok := ancientGreekLSJPin(entries); ok {
 		notices = append(notices, dictionary.AncientGreekLSJNotice(pin))
 	}
-	if deckHasImportedSourceNotice(entries) {
-		notices = append(notices, dictionary.AncientGreekSourceNotice)
-	}
+	notices = append(notices, importedSourceNotices(entries)...)
 	passages, err := passageNotices(entries)
 	if err != nil {
 		return "", err
@@ -1795,13 +1793,21 @@ func dictionaryAttribution(entries []RenderInput) string {
 	return ""
 }
 
-// deckHasImportedSourceNotice reports whether any entry's language policy
-// carries the imported-source notices.
-func deckHasImportedSourceNotice(entries []RenderInput) bool {
+// importedSourceNotices returns each distinct imported-source notice the
+// entries' language policies carry, in policy order of first use.
+func importedSourceNotices(entries []RenderInput) []string {
+	seen := map[string]struct{}{}
+	var notices []string
 	for _, entry := range entries {
-		if cardpolicy.For(entry.Language).ImportedSourceNotice {
-			return true
+		notice := cardpolicy.For(entry.Language).SourceNotice
+		if notice == "" {
+			continue
 		}
+		if _, duplicate := seen[notice]; duplicate {
+			continue
+		}
+		seen[notice] = struct{}{}
+		notices = append(notices, notice)
 	}
-	return false
+	return notices
 }
