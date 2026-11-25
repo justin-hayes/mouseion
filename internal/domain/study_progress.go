@@ -8,11 +8,6 @@ import (
 // StudyBatchSize is how many new words a New-word batch offers (spec #2691).
 const StudyBatchSize = 10
 
-// StudyBatchesPerDay is how many New-word batches Today offers. This ticket
-// offers one; the three-batch cap and the backlog brake that lower it replace
-// this constant.
-const StudyBatchesPerDay = 1
-
 // StudyGrade is the learner's answer to a Study card. Study has exactly two
 // grades; they map to FSRS Again and Good, never Hard or Easy (ADR 0134 §5).
 type StudyGrade string
@@ -131,10 +126,10 @@ type StudyBatchWord struct {
 }
 
 // StudyBatchLedger is what Today has offered on one Study day: the batches
-// taken and the batches declined.
+// offered, taken and declined.
 type StudyBatchLedger struct {
-	StudyDay        string
-	Taken, Declined int
+	StudyDay                 string
+	Offered, Taken, Declined int
 }
 
 // Decided is how many batches the learner has answered on the day.

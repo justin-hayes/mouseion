@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -25,8 +26,10 @@ type studyPageView struct {
 	// Card is the word to show now, if one is due.
 	Card *studyCardView
 	// Offer is how many words the day's New-word batch holds; zero means no
-	// batch is on offer.
-	Offer int
+	// batch is on offer. ShortBatch is true when the batch holds fewer words
+	// than a full batch because more are still being prepared.
+	Offer      int
+	ShortBatch bool
 	// Repeating is how many words are in learning and come back later today.
 	Repeating int
 	// Remaining is how many of Today's due reviews are still unanswered, the
@@ -112,19 +115,47 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 		// New words come only after the due reviews are answered.
 		return nil
 	}
-	ledger, err := store.StudyBatchLedger(ctx, owner, view.Language, domain.StudyDay(now))
+	offer, err := h.studyBatchOffer(r, owner, view.Language, progress, now)
 	if err != nil {
 		return err
 	}
-	if ledger.Decided() >= domain.StudyBatchesPerDay {
+	view.Offer = len(offer.Batch)
+	if view.Offer == 0 {
 		return nil
 	}
-	batch, err := h.nextStudyBatch(r, owner, view.Language, progress)
+	view.ShortBatch = domain.StudyBatchIsShort(offer.Batch, counts.Preparing)
+	// The ledger counts a batch as offered the first time Today shows it.
+	return store.RecordStudyBatchOffer(ctx, owner, view.Language, domain.StudyDay(now), offer.Ledger.Decided()+1)
+}
+
+// studyBatchOffer is what Today offers now: the batch, and the day's ledger
+// and batch limit it was decided under. The batch is empty when none is on
+// offer: the due reviews are not all answered, words taken earlier are not yet
+// introduced, the day's cap or the backlog brake is reached, the learner
+// declined, or no word is ready. Open tells the first five apart from the last.
+type studyBatchOffer struct {
+	// Open is true when a batch may be offered, whether or not a word is ready.
+	Open   bool
+	Batch  []domain.StudyBatchWord
+	Ledger domain.StudyBatchLedger
+	Limit  int
+}
+
+func (h *Handler) studyBatchOffer(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) (studyBatchOffer, error) {
+	ledger, err := h.services.Store.Study.StudyBatchLedger(r.Context(), owner, language, domain.StudyDay(now))
 	if err != nil {
-		return err
+		return studyBatchOffer{}, err
 	}
-	view.Offer = len(batch)
-	return nil
+	forecast := domain.StudyForecast(progress, now)
+	offer := studyBatchOffer{Ledger: ledger, Limit: domain.StudyBatchesAllowed(forecast)}
+	// New words come only after the due reviews are answered, and the words
+	// already taken lead them.
+	if !domain.StudyFinishLine(progress, now).Finished || len(domain.StudyUnintroduced(progress)) > 0 || !domain.StudyBatchOfferable(ledger, forecast) {
+		return offer, nil
+	}
+	offer.Open = true
+	offer.Batch, err = h.nextStudyBatch(r, owner, language, progress)
+	return offer, err
 }
 
 // nextStudyBatch is the batch Today would offer now: the first ready words in
@@ -213,17 +244,17 @@ func (h *Handler) takeStudyBatch(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	if !domain.StudyFinishLine(progress, now).Finished {
-		// New words are offered only after the due reviews are answered.
-		redirect(w, r, back)
-		return
-	}
-	batch, err := h.nextStudyBatch(r, owner, language, progress)
+	offer, err := h.studyBatchOffer(r, owner, language, progress, now)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	_, err = store.TakeStudyBatch(r.Context(), owner, language, domain.StudyDay(now), now, domain.StudyBatchesPerDay, batch)
+	if len(offer.Batch) == 0 {
+		// Nothing is on offer: a repeated tap, or the day's limit is reached.
+		redirect(w, r, back)
+		return
+	}
+	_, err = store.TakeStudyBatch(r.Context(), owner, language, domain.StudyDay(now), now, offer.Limit, offer.Batch)
 	switch {
 	case errors.Is(err, domain.ErrStudyBatchLimit), errors.Is(err, domain.ErrNotFound):
 		// A repeated tap, or a batch that is no longer there: show Today again.
@@ -248,7 +279,22 @@ func (h *Handler) declineStudyBatch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	err := h.services.Store.Study.DeclineStudyBatch(r.Context(), user(r).ID, language, domain.StudyDay(h.now()), domain.StudyBatchesPerDay)
+	owner, now := user(r).ID, h.now()
+	progress, err := h.services.Store.Study.ListStudyProgress(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	offer, err := h.studyBatchOffer(r, owner, language, progress, now)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	if !offer.Open {
+		redirect(w, r, back)
+		return
+	}
+	err = h.services.Store.Study.DeclineStudyBatch(r.Context(), owner, language, domain.StudyDay(now), offer.Limit)
 	if err != nil && !errors.Is(err, domain.ErrStudyBatchLimit) {
 		fail(w, err)
 		return

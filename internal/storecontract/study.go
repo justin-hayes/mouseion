@@ -160,7 +160,7 @@ func studyScenarios() []Scenario {
 			assert.Empty(t, progress, "declining introduces no word")
 			ledger, err := progressStore.StudyBatchLedger(owner, Language, "2026-11-25")
 			require.NoError(t, err)
-			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Declined: 1}, ledger)
+			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Offered: 1, Declined: 1}, ledger)
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, batch)
 			require.ErrorIs(t, err, domain.ErrStudyBatchLimit, "the day's batch was already answered")
 			require.ErrorIs(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1), domain.ErrStudyBatchLimit)
@@ -188,7 +188,7 @@ func studyScenarios() []Scenario {
 			assert.Equal(t, hausID, progress[0].MaterialID)
 			ledger, err = progressStore.StudyBatchLedger(owner, Language, "2026-11-26")
 			require.NoError(t, err)
-			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-26", Taken: 1}, ledger)
+			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-26", Offered: 1, Taken: 1}, ledger)
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, batch)
 			require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
 
@@ -200,6 +200,35 @@ func studyScenarios() []Scenario {
 			italian, err := progressStore.ListStudyProgress(owner, "it")
 			require.NoError(t, err)
 			assert.Empty(t, italian, "progress belongs to its study language")
+		}},
+		{Name: "the ledger counts offers, takes up to the day's limit, and never lowers an offer", Run: func(t *testing.T, h Harness) {
+			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
+			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+			words := make([]domain.StudyBatchWord, 0, 4)
+			for _, lemma := range []string{"haus", "hund", "tisch", "buch"} {
+				identity := studyNoun(lemma)
+				words = append(words, domain.StudyBatchWord{StudyIdentity: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
+			}
+			const day = "2026-11-25"
+			ledger := func() domain.StudyBatchLedger {
+				ledger, err := progressStore.StudyBatchLedger(owner, Language, day)
+				require.NoError(t, err)
+				return ledger
+			}
+			require.NoError(t, progressStore.RecordStudyBatchOffer(owner, Language, day, 1))
+			require.NoError(t, progressStore.RecordStudyBatchOffer(owner, Language, day, 1))
+			assert.Equal(t, domain.StudyBatchLedger{StudyDay: day, Offered: 1}, ledger(), "showing an offer again changes nothing")
+			for i := range 3 {
+				_, err := progressStore.TakeStudyBatch(owner, Language, day, now, 3, words[i:i+1])
+				require.NoError(t, err)
+				require.NoError(t, progressStore.RecordStudyBatchOffer(owner, Language, day, i+2))
+			}
+			assert.Equal(t, domain.StudyBatchLedger{StudyDay: day, Offered: 4, Taken: 3}, ledger(), "an offer past the answered batches is kept")
+			_, err := progressStore.TakeStudyBatch(owner, Language, day, now, 3, words[3:])
+			require.ErrorIs(t, err, domain.ErrStudyBatchLimit, "the limit counts the batches taken")
+			other, err := progressStore.StudyBatchLedger(h.Seeds().OtherOwner(), Language, day)
+			require.NoError(t, err)
+			assert.Zero(t, other.Offered, "the ledger belongs to its learner")
 		}},
 		{Name: "a graded card is logged with its state before and after and is graded once", Run: func(t *testing.T, h Harness) {
 			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()

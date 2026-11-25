@@ -43,7 +43,20 @@ func (s *PostgresStore) StudyBatchLedger(ctx context.Context, owner, language, s
 	if err != nil {
 		return domain.StudyBatchLedger{}, fmt.Errorf("get study batch ledger: %w", err)
 	}
-	return domain.StudyBatchLedger{StudyDay: studyDay, Taken: row.BatchesTaken, Declined: row.BatchesDeclined}, nil
+	return domain.StudyBatchLedger{StudyDay: studyDay, Offered: row.BatchesOffered, Taken: row.BatchesTaken, Declined: row.BatchesDeclined}, nil
+}
+
+// RecordStudyBatchOffer records that Today has offered this many batches on the
+// Study day. The count only grows.
+func (s *PostgresStore) RecordStudyBatchOffer(ctx context.Context, owner, language, studyDay string, offered int) error {
+	day, err := studyDayDate(studyDay)
+	if err != nil {
+		return err
+	}
+	if err := sqlcgen.New(s.pool).RecordStudyBatchOffer(ctx, sqlcgen.RecordStudyBatchOfferParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language), StudyDay: day, Offered: offered}); err != nil {
+		return fmt.Errorf("record study batch offer: %w", err)
+	}
+	return nil
 }
 
 // TakeStudyBatch takes one New-word batch on the Study day: it records the

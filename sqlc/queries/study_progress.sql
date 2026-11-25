@@ -12,26 +12,39 @@ SELECT * FROM study_progress
  FOR UPDATE;
 
 -- name: GetStudyBatchLedger :one
-SELECT batches_taken, batches_declined FROM study_batch_ledger
+SELECT batches_offered, batches_taken, batches_declined FROM study_batch_ledger
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND study_day = sqlc.arg('study_day')::date;
 
 -- name: TakeStudyBatchSlot :one
 -- Records one batch taken on the Study day, unless the day's batches are all
 -- answered. No row means none is left.
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_taken)
-VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, 1)
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_taken)
+VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, 1, 1)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_taken = study_batch_ledger.batches_taken + 1, updated_at = now()
+   SET batches_taken = study_batch_ledger.batches_taken + 1,
+       batches_offered = GREATEST(study_batch_ledger.batches_offered, study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + 1),
+       updated_at = now()
  WHERE study_batch_ledger.batches_taken + study_batch_ledger.batches_declined < sqlc.arg('batch_limit')::int
 RETURNING batches_taken;
 
 -- name: DeclineStudyBatchSlot :one
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_declined)
-VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, 1)
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_declined)
+VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, 1, 1)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_declined = study_batch_ledger.batches_declined + 1, updated_at = now()
+   SET batches_declined = study_batch_ledger.batches_declined + 1,
+       batches_offered = GREATEST(study_batch_ledger.batches_offered, study_batch_ledger.batches_taken + study_batch_ledger.batches_declined + 1),
+       updated_at = now()
  WHERE study_batch_ledger.batches_taken + study_batch_ledger.batches_declined < sqlc.arg('batch_limit')::int
 RETURNING batches_declined;
+
+-- name: RecordStudyBatchOffer :exec
+-- Records that Today has offered this many batches on the Study day. The count
+-- only grows, so showing the same offer again changes nothing.
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered)
+VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, sqlc.arg('offered')::int)
+ON CONFLICT (owner_id, language, study_day) DO UPDATE
+   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered),
+       updated_at = now();
 
 -- name: IntroduceStudyWord :one
 -- Introduces a word from its ready, current Study material: the word enters

@@ -169,6 +169,8 @@ type StudyProgressStore interface {
 	// batches taken and declined on a Study day.
 	ListStudyProgress(owner, language string) ([]domain.StudyProgress, error)
 	StudyBatchLedger(owner, language, studyDay string) (domain.StudyBatchLedger, error)
+	// RecordStudyBatchOffer raises the day's offered count and never lowers it.
+	RecordStudyBatchOffer(owner, language, studyDay string, offered int) error
 	// TakeStudyBatch introduces the words of one batch from their ready
 	// material, due now with the Gloss as learned meaning; a batch that
 	// introduces nothing is domain.ErrNotFound. DeclineStudyBatch introduces no
