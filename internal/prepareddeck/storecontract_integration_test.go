@@ -96,13 +96,14 @@ func (h *postgresHarness) ClearEPUBAcquisitionFailure(owner, bookID string) erro
 	return h.store.ClearEPUBAcquisitionFailure(h.ctx, owner, bookID)
 }
 
-func (h *postgresHarness) Store() storecontract.Store                  { return h }
-func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore { return h }
-func (h *postgresHarness) BookState() storecontract.BookStateStore     { return h }
-func (h *postgresHarness) Classical() storecontract.ClassicalStore     { return h }
-func (h *postgresHarness) Catalogue() storecontract.CatalogueStore     { return h }
-func (h *postgresHarness) Study() storecontract.StudyStore             { return h }
-func (h *postgresHarness) Seeds() storecontract.Seeder                 { return h }
+func (h *postgresHarness) Store() storecontract.Store                      { return h }
+func (h *postgresHarness) LemmaReview() storecontract.LemmaReviewStore     { return h }
+func (h *postgresHarness) BookState() storecontract.BookStateStore         { return h }
+func (h *postgresHarness) Classical() storecontract.ClassicalStore         { return h }
+func (h *postgresHarness) Catalogue() storecontract.CatalogueStore         { return h }
+func (h *postgresHarness) Study() storecontract.StudyStore                 { return h }
+func (h *postgresHarness) StudyProgress() storecontract.StudyProgressStore { return h }
+func (h *postgresHarness) Seeds() storecontract.Seeder                     { return h }
 
 func (h *postgresHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
 	return h.store.BrowseCatalogueEntries(h.ctx, owner, connectionID, query)
@@ -427,6 +428,34 @@ func (h *postgresHarness) ReserveStudyMaterial(owner string, identity domain.Stu
 
 func (h *postgresHarness) RecordStudyMaterialReady(owner, id string, content domain.StudyMaterialReadyContent) error {
 	return h.store.RecordStudyMaterialReady(h.ctx, owner, id, content)
+}
+
+func (h *postgresHarness) ListStudyProgress(owner, language string) ([]domain.StudyProgress, error) {
+	return h.store.ListStudyProgress(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) StudyBatchLedger(owner, language, studyDay string) (domain.StudyBatchLedger, error) {
+	return h.store.StudyBatchLedger(h.ctx, owner, language, studyDay)
+}
+
+func (h *postgresHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+	return h.store.TakeStudyBatch(h.ctx, owner, language, studyDay, now, batchLimit, words)
+}
+
+func (h *postgresHarness) DeclineStudyBatch(owner, language, studyDay string, batchLimit int) error {
+	return h.store.DeclineStudyBatch(h.ctx, owner, language, studyDay, batchLimit)
+}
+
+func (h *postgresHarness) NextStudyCard(owner, language string, now time.Time) (domain.StudyCard, error) {
+	return h.store.NextStudyCard(h.ctx, owner, language, now)
+}
+
+func (h *postgresHarness) RecordStudyGrade(owner string, record domain.StudyGradeRecord) error {
+	return h.store.RecordStudyGrade(h.ctx, owner, record)
+}
+
+func (h *postgresHarness) ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error) {
+	return h.store.ListStudyReviewLog(h.ctx, owner, progressID)
 }
 
 func (h *postgresHarness) RecordStudyMaterialUnpreparable(owner, id, reason string) error {

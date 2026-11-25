@@ -2,6 +2,7 @@ package storecontract
 
 import (
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -144,5 +145,141 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Equal(t, domain.StudyMaterialCounts{}, counts)
 		}},
+		{Name: "taking a batch introduces its ready words and declining introduces none", Run: func(t *testing.T, h Harness) {
+			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
+			haus, hund, tisch := studyNoun("haus"), studyNoun("hund"), studyNoun("tisch")
+			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
+			tischID, _, err := store.ReserveStudyMaterial(owner, tisch)
+			require.NoError(t, err)
+			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+			batch := []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}, {StudyIdentity: hund, MaterialID: hundID}, {StudyIdentity: tisch, MaterialID: tischID}}
+
+			require.NoError(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1))
+			progress, err := progressStore.ListStudyProgress(owner, Language)
+			require.NoError(t, err)
+			assert.Empty(t, progress, "declining introduces no word")
+			ledger, err := progressStore.StudyBatchLedger(owner, Language, "2026-11-25")
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Declined: 1}, ledger)
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, batch)
+			require.ErrorIs(t, err, domain.ErrStudyBatchLimit, "the day's batch was already answered")
+			require.ErrorIs(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1), domain.ErrStudyBatchLimit)
+
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, []domain.StudyBatchWord{{StudyIdentity: tisch, MaterialID: tischID}})
+			require.ErrorIs(t, err, domain.ErrNotFound, "a word whose material is not ready is not introduced")
+			ledger, err = progressStore.StudyBatchLedger(owner, Language, "2026-11-26")
+			require.NoError(t, err)
+			assert.Zero(t, ledger.Decided(), "a batch that introduced nothing is not recorded")
+
+			introduced, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, batch)
+			require.NoError(t, err)
+			require.Len(t, introduced, 2, "only the words with ready material are introduced")
+			for _, word := range introduced {
+				assert.Equal(t, "a building", word.LearnedMeaning, "the Gloss shown on introduction is the learned meaning")
+				assert.Equal(t, domain.StudyStateNew, word.Memory.State)
+				assert.True(t, now.Equal(word.Memory.Due), "an introduced word is due now")
+				assert.True(t, now.Equal(word.IntroducedAt))
+				assert.Zero(t, word.Memory.Reps)
+				assert.False(t, word.Graded())
+			}
+			progress, err = progressStore.ListStudyProgress(owner, Language)
+			require.NoError(t, err)
+			require.Len(t, progress, 2)
+			assert.Equal(t, hausID, progress[0].MaterialID)
+			ledger, err = progressStore.StudyBatchLedger(owner, Language, "2026-11-26")
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-26", Taken: 1}, ledger)
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, batch)
+			require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
+
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-27", now, 1, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}})
+			require.ErrorIs(t, err, domain.ErrNotFound, "a word already in study is not introduced twice")
+			other, err := progressStore.ListStudyProgress(h.Seeds().OtherOwner(), Language)
+			require.NoError(t, err)
+			assert.Empty(t, other, "progress belongs to its learner")
+			italian, err := progressStore.ListStudyProgress(owner, "it")
+			require.NoError(t, err)
+			assert.Empty(t, italian, "progress belongs to its study language")
+		}},
+		{Name: "a graded card is logged with its state before and after and is graded once", Run: func(t *testing.T, h Harness) {
+			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
+			haus, hund := studyNoun("haus"), studyNoun("hund")
+			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
+			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: hund, MaterialID: hundID}, {StudyIdentity: haus, MaterialID: hausID}})
+			require.NoError(t, err)
+
+			_, err = progressStore.NextStudyCard(owner, Language, now.Add(-time.Hour))
+			require.ErrorIs(t, err, domain.ErrNotFound, "nothing is due before the words were introduced")
+			card, err := progressStore.NextStudyCard(owner, Language, now)
+			require.NoError(t, err)
+			assert.Equal(t, haus, card.Progress.StudyIdentity, "ties break on the word, so the order is deterministic")
+			assert.Equal(t, hausID, card.Material.ID)
+			assert.Equal(t, "Das Haus steht am Ende der Strasse.", card.Material.Sentence)
+
+			next := domain.NextStudyDayStart(now)
+			gotIt := domain.StudyMemory{State: domain.StudyStateReview, Due: next, Stability: 2.3, Difficulty: 6.4, ScheduledDays: 1, Reps: 1, LastReview: now}
+			record := domain.StudyGradeRecord{ProgressID: card.Progress.ID, ExpectedReps: 0, Grade: domain.StudyGradeGotIt, ReviewedAt: now, StudyDay: "2026-11-25", After: gotIt}
+			require.NoError(t, progressStore.RecordStudyGrade(owner, record))
+			require.ErrorIs(t, progressStore.RecordStudyGrade(owner, record), domain.ErrStudyStale, "a card is graded once")
+			require.ErrorIs(t, progressStore.RecordStudyGrade(h.Seeds().OtherOwner(), record), domain.ErrNotFound, "another learner cannot grade it")
+
+			logs, err := progressStore.ListStudyReviewLog(owner, card.Progress.ID)
+			require.NoError(t, err)
+			require.Len(t, logs, 1, "every grade writes one review-log row")
+			assert.Equal(t, domain.StudyGradeGotIt, logs[0].Grade)
+			assert.Equal(t, "2026-11-25", logs[0].StudyDay)
+			assert.True(t, now.Equal(logs[0].ReviewedAt))
+			assert.Equal(t, hausID, logs[0].MaterialID)
+			assert.Equal(t, domain.StudyStateNew, logs[0].Before.State, "the state before the grade")
+			assert.True(t, now.Equal(logs[0].Before.Due))
+			assert.Equal(t, domain.StudyStateReview, logs[0].After.State, "and after it")
+			assert.InDelta(t, 2.3, logs[0].After.Stability, 1e-9)
+			assert.InDelta(t, 6.4, logs[0].After.Difficulty, 1e-9)
+			assert.True(t, next.Equal(logs[0].After.Due))
+
+			progress, err := progressStore.ListStudyProgress(owner, Language)
+			require.NoError(t, err)
+			var stored domain.StudyProgress
+			for _, item := range progress {
+				if item.ID == card.Progress.ID {
+					stored = item
+				}
+			}
+			assert.Equal(t, domain.StudyStateReview, stored.Memory.State)
+			assert.Equal(t, int64(1), stored.Memory.Reps)
+			assert.True(t, next.Equal(stored.Memory.Due))
+			assert.True(t, now.Equal(stored.Memory.LastReview))
+			assert.True(t, stored.Graded())
+
+			card, err = progressStore.NextStudyCard(owner, Language, now)
+			require.NoError(t, err)
+			assert.Equal(t, hund, card.Progress.StudyIdentity, "a graded word is no longer due")
+			again := domain.StudyMemory{State: domain.StudyStateLearning, Due: now.Add(time.Minute), Stability: 0.2, Difficulty: 6.8, Reps: 1, RemainingSteps: 1, LastReview: now}
+			require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: card.Progress.ID, Grade: domain.StudyGradeAgain, ReviewedAt: now, StudyDay: "2026-11-25", After: again}))
+			_, err = progressStore.NextStudyCard(owner, Language, now)
+			require.ErrorIs(t, err, domain.ErrNotFound, "Again repeats the word later, not now")
+			card, err = progressStore.NextStudyCard(owner, Language, now.Add(2*time.Minute))
+			require.NoError(t, err)
+			assert.Equal(t, hund, card.Progress.StudyIdentity, "and it is due again the same day")
+			assert.Equal(t, int64(1), card.Progress.Memory.Reps)
+
+			logs, err = progressStore.ListStudyReviewLog(owner, card.Progress.ID)
+			require.NoError(t, err)
+			require.Len(t, logs, 1)
+			assert.Equal(t, domain.StudyGradeAgain, logs[0].Grade)
+		}},
 	}
+}
+
+// readyStudyWord reserves a word's Study material and marks it ready.
+func readyStudyWord(t *testing.T, store StudyStore, owner string, identity domain.StudyIdentity) string {
+	t.Helper()
+	id, created, err := store.ReserveStudyMaterial(owner, identity)
+	require.NoError(t, err)
+	require.True(t, created)
+	content := studyReadyContent()
+	content.TargetWord = identity.CanonicalLemma
+	require.NoError(t, store.RecordStudyMaterialReady(owner, id, content))
+	return id
 }

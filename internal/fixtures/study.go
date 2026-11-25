@@ -40,11 +40,37 @@ func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) (
 			entry.InCurrentReading = entry.InCurrentReading || inReading
 		}
 	}
-	candidates := make([]domain.StudyCandidate, 0, len(tallies))
+	candidates := make([]domain.StudyCandidate, 0, len(tallies)+len(s.studyCandidates))
 	for _, entry := range tallies {
 		candidates = append(candidates, *entry)
 	}
-	return candidates, nil
+	return append(candidates, s.seededStudyCandidatesLocked(owner, language, tallies)...), nil
+}
+
+// seededStudyCandidatesLocked returns the seeded candidates the Books do not
+// already contribute. The caller holds s.mu.
+func (s *Store) seededStudyCandidatesLocked(owner, language string, tallies map[domain.StudyIdentity]*domain.StudyCandidate) []domain.StudyCandidate {
+	var seeded []domain.StudyCandidate
+	for _, item := range s.studyCandidates {
+		if item.owner == owner && item.Language == language && tallies[item.StudyIdentity] == nil {
+			seeded = append(seeded, item.StudyCandidate)
+		}
+	}
+	return seeded
+}
+
+type seededStudyCandidate struct {
+	owner string
+	domain.StudyCandidate
+}
+
+// SeedStudyCandidate adds a word to the learner's Study stream without an
+// analyzed Book behind it, so a browser fixture can offer a batch of several
+// words. A word the Books already contribute is left to them.
+func (s *Store) SeedStudyCandidate(owner string, candidate domain.StudyCandidate) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.studyCandidates = append(s.studyCandidates, seededStudyCandidate{owner: owner, StudyCandidate: candidate})
 }
 
 // effectiveStudyIdentityLocked applies the learner's decision to one occurrence:
@@ -175,14 +201,19 @@ func cloneStudyMaterial(item domain.StudyMaterial) domain.StudyMaterial {
 	return item
 }
 
-// Study is the fixture server's Study preparation seam. It reserves pending
-// material for the next words in stream order and never prepares it, since the
-// fixture server binds no provider or River.
+// Study is the fixture server's Study preparation seam. It stands in for the
+// study job package: the fixture server binds no provider or River, so it
+// prepares each word's material at once from the word itself.
 type Study struct{ Store *Store }
 
-// EnqueueStudyPreparation reserves material for the next words in stream order.
+// EnqueueStudyPreparation prepares material for the next words in stream order
+// that are not yet in study.
 func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
 	candidates, err := s.Store.ListStudyCandidates(ctx, owner, language)
+	if err != nil {
+		return err
+	}
+	progress, err := s.Store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -194,10 +225,31 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	for _, item := range material {
 		states[item.StudyIdentity] = item.State
 	}
-	for _, target := range domain.StudyPreparationTargets(domain.OrderStudyStream(candidates), states) {
-		if _, _, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyIdentity); err != nil {
+	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress))
+	for _, target := range domain.StudyPreparationTargets(ordered, states) {
+		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyIdentity)
+		if err != nil {
 			return err
+		}
+		if created {
+			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, fixtureStudyContent(target.StudyIdentity)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+// fixtureStudyContent is the Study material the fixture server shows for a
+// word: a short sentence around its lemma.
+func fixtureStudyContent(identity domain.StudyIdentity) domain.StudyMaterialReadyContent {
+	return domain.StudyMaterialReadyContent{
+		BookID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
+		SentenceOrdinal: 1, TokenOrdinal: 2,
+		Sentence:                   "Hier steht " + identity.CanonicalLemma + " im Satz.",
+		TargetWord:                 identity.CanonicalLemma,
+		Gloss:                      "the meaning of " + identity.CanonicalLemma,
+		SentenceTranslation:        "Here " + identity.CanonicalLemma + " stands in the sentence.",
+		SentenceTranslationTargets: []string{identity.CanonicalLemma},
+	}
 }

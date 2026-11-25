@@ -1100,6 +1100,15 @@ type SourceStructureCheck struct {
 	CheckedAt              time.Time
 }
 
+type StudyBatchLedger struct {
+	OwnerID         string
+	Language        string
+	StudyDay        pgtype.Date
+	BatchesTaken    int
+	BatchesDeclined int
+	UpdatedAt       time.Time
+}
+
 type StudyMaterial struct {
 	ID                         string
 	OwnerID                    string
@@ -1122,6 +1131,43 @@ type StudyMaterial struct {
 	SupersededAt               pgtype.Timestamptz
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
+}
+
+type StudyProgress struct {
+	ID                   string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	MaterialID           string
+	IntroducedAt         time.Time
+	LearnedMeaning       string
+	State                string
+	Due                  time.Time
+	Stability            float64
+	Difficulty           float64
+	ScheduledDays        int64
+	Reps                 int64
+	Lapses               int64
+	RemainingSteps       int
+	LastReview           pgtype.Timestamptz
+	WithdrawnAt          pgtype.Timestamptz
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+type StudyReviewLog struct {
+	ID          string
+	OwnerID     string
+	ProgressID  string
+	MaterialID  string
+	Grade       string
+	ReviewedAt  time.Time
+	StudyDay    pgtype.Date
+	StateBefore []byte
+	StateAfter  []byte
+	CreatedAt   time.Time
 }
 
 type SupportedLanguage struct {
