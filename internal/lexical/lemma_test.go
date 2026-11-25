@@ -38,3 +38,25 @@ func TestIsVocabularyStopword(t *testing.T) {
 		})
 	}
 }
+
+func TestIsAdmissibleLemma(t *testing.T) {
+	for _, tc := range []struct {
+		name, language, lemma string
+		want                  bool
+	}{
+		{"latin word", "la", "video", true},
+		{"latin with hyphen", "la", "ne-que", true},
+		{"praenomen abbreviation", "la", "m.", false},
+		{"digit lemma", "la", "et1", false},
+		{"greek script lemma", "la", "λόγος", false},
+		{"mixed script lemma", "la", "aλ", false},
+		{"punctuation only", "la", "-", false},
+		{"greek keeps its rule", "grc", "λόγος", true},
+		{"dot is fine outside latin", "de", "z.b.", true},
+		{"digit is fine outside latin", "de", "3d", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, IsAdmissibleLemma(tc.language, tc.lemma))
+		})
+	}
+}
