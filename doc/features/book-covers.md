@@ -82,7 +82,8 @@ section records the shape settled under ADR 0038 before any SQL.
 - **No foreign keys.** The row does not reference `opds_connections`,
   `catalogue_entries`, or `books`, so an image a Book uses outlives its
   Catalog connection. Removal is application-driven: an entry that leaves the
-  index loses its cover in the same transaction as index reconciliation, and
+  index loses its cover in the same transaction as index reconciliation unless a
+  Book selects it, and
   deleting a connection removes the covers of its entries that no Book uses.
   Ownership is enforced by an `owner_id` predicate on every read.
 - **Book reference.** `book_covers (owner_id, book_id)` is only the Book's

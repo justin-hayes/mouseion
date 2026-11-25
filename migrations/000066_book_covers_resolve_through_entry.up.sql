@@ -5,7 +5,13 @@
 -- have run first (same deploy). Forward-only in production (ADR 0070); the down
 -- migration is a development convenience.
 --
--- Recovery: if this fails the whole migration rolls back and nothing changes.
+-- Recovery: the file runs as one transaction, so a failure (including the guard
+-- below) leaves the schema unchanged, but golang-migrate marks the version
+-- dirty: fix the data, run `migrate force 65`, and re-run. After a successful
+-- run the per-Book bytes and book_cover_candidates are gone; the only recovery
+-- is a database backup taken before this deploy (take one first), because the
+-- images now live only in catalog_entry_covers (copied by 000065). Pending
+-- covers are re-retrieved by the next Catalog sync.
 -- Guard: an available per-Book image with no selected entry would lose its
 -- bytes (it has nowhere to move), so the migration refuses to run instead.
 DO $$
