@@ -698,6 +698,11 @@ func (c ClassicalPreparationConfig) fetchArchiveMember(ctx context.Context, laye
 		},
 	})
 	if err != nil {
+		if errors.Is(err, download.ErrTooLarge) {
+			// A 206 body longer than the window asked for is not the pinned
+			// archive, so it is a pin failure, not an oversize file (#2679).
+			return nil, &classical.PreparationError{Code: classical.CodePinMismatch}
+		}
 		return nil, classicalDownloadError(err)
 	}
 	defer func() {

@@ -203,7 +203,10 @@ func TestLatinEntryWithSensesButNoDefinitionsStillCollapsesItsFullEntry(t *testi
 }
 
 // lsByLemmaStub answers the Lewis & Short capability by headword key.
-type lsByLemmaStub struct{ lsStub; byLemma map[string][]enrichment.LatinLSEntry }
+type lsByLemmaStub struct {
+	lsStub
+	byLemma map[string][]enrichment.LatinLSEntry
+}
 
 func (s *lsByLemmaStub) LookupLatinLS(_ context.Context, lemma string) ([]enrichment.LatinLSEntry, bool) {
 	entries, ok := s.byLemma[lemma]
