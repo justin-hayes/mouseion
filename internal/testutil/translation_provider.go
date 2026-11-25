@@ -67,7 +67,9 @@ func (p *FakeTranslationProvider) Translate(_ context.Context, request enrichmen
 		index = len(p.replies) - 1
 	}
 	reply := p.replies[index]
-	return reply.Response, reply.Err
+	response := reply.Response
+	response.SentenceTranslationTargets = append([]string(nil), response.SentenceTranslationTargets...)
+	return response, reply.Err
 }
 
 // Calls returns how many times Translate was called.
