@@ -15,9 +15,6 @@ import (
 )
 
 const (
-	// concordancePageLimit bounds how many concordance pages one word's
-	// sentence choice reads (25 occurrences each).
-	concordancePageLimit = 8
 	// notConfiguredDelay is how long a job waits when no provider is
 	// configured. A missing provider is never an omission.
 	notConfiguredDelay = 10 * time.Minute
@@ -113,7 +110,9 @@ type sentenceChoice struct {
 // representativeSentence chooses the word's Representative sentence from
 // current evidence with the existing sentence-quality gate and ranking: the
 // Current reading's occurrences when any of them passes, otherwise the
-// library's. found is false when every sentence fails the gate.
+// library's. The concordance lists the Current reading's occurrences first and
+// is read page by page until the choice is settled or the evidence is
+// exhausted, so found is false only when every occurrence fails the gate.
 func (w *MaterialWorker) representativeSentence(ctx context.Context, owner string, identity domain.StudyIdentity) (sentenceChoice, bool, error) {
 	reading, err := w.Store.GetCurrentReading(ctx, owner, identity.Language)
 	if err != nil {
@@ -127,20 +126,36 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 	if lookupPriority == "" {
 		lookupPriority = domain.ConcordancePriorityNone
 	}
-	occurrences, err := w.occurrences(ctx, owner, identity, lookupPriority)
-	if err != nil {
-		return sentenceChoice{}, false, err
-	}
-	choices, err := w.scoreOccurrences(ctx, owner, identity.Language, occurrences)
-	if err != nil {
-		return sentenceChoice{}, false, err
-	}
 	var inReading, elsewhere []sentenceChoice
-	for _, choice := range choices {
-		if priority != "" && choice.occurrence.BookID == priority {
-			inReading = append(inReading, choice)
-		} else {
-			elsewhere = append(elsewhere, choice)
+	for page := 1; ; page++ {
+		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
+			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
+			UPOS: identity.UPOS, Priority: lookupPriority, Page: page,
+		})
+		if err != nil {
+			return sentenceChoice{}, false, err
+		}
+		choices, err := w.scoreOccurrences(ctx, owner, identity, result.Occurrences)
+		if err != nil {
+			return sentenceChoice{}, false, err
+		}
+		pastReading := false
+		for _, choice := range choices {
+			if priority != "" && choice.occurrence.BookID == priority {
+				inReading = append(inReading, choice)
+			} else {
+				elsewhere = append(elsewhere, choice)
+			}
+		}
+		for _, occurrence := range result.Occurrences {
+			pastReading = pastReading || priority == "" || occurrence.BookID != priority
+		}
+		// The Current reading's occurrences come first, so once the list has
+		// moved past them, or there is no Current reading, one accepted sentence
+		// settles the choice.
+		settled := (len(inReading) > 0 && pastReading) || (priority == "" && len(elsewhere) > 0)
+		if settled || !result.HasNext {
+			break
 		}
 	}
 	for _, group := range [][]sentenceChoice{inReading, elsewhere} {
@@ -151,36 +166,18 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 	return sentenceChoice{}, false, nil
 }
 
-// occurrences reads the word's occurrences, the Current reading's first, over
-// the concordance's pages.
-func (w *MaterialWorker) occurrences(ctx context.Context, owner string, identity domain.StudyIdentity, priority string) ([]domain.ConcordanceResultOccurrence, error) {
-	var occurrences []domain.ConcordanceResultOccurrence
-	for page := 1; page <= concordancePageLimit; page++ {
-		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
-			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
-			UPOS: identity.UPOS, Priority: priority, Page: page,
-		})
-		if err != nil {
-			return nil, err
-		}
-		for _, occurrence := range result.Occurrences {
-			if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel {
-				continue
-			}
-			occurrences = append(occurrences, occurrence)
-		}
-		if !result.HasNext {
-			break
-		}
-	}
-	return occurrences, nil
-}
-
-// scoreOccurrences scores each occurrence's sentence and keeps the ones the
-// gate accepts.
-func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner, language string, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
+// scoreOccurrences keeps the occurrences of the word's full identity whose
+// sentence the gate accepts. An occurrence belongs to the identity only when
+// its effective lexical discriminator matches: a corrected occurrence carries
+// none, and any other carries its token's.
+func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
+	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
 	for _, occurrence := range occurrences {
+		if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel {
+			continue
+		}
+		usable = append(usable, occurrence)
 		ordinals[occurrence.CorpusID] = append(ordinals[occurrence.CorpusID], occurrence.SentenceOrdinal)
 	}
 	sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
@@ -191,19 +188,28 @@ func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner, language s
 		}
 		sentences[corpusID] = loaded
 	}
-	choices := make([]sentenceChoice, 0, len(occurrences))
-	for _, occurrence := range occurrences {
+	choices := make([]sentenceChoice, 0, len(usable))
+	for _, occurrence := range usable {
 		sentence, ok := sentences[occurrence.CorpusID][occurrence.SentenceOrdinal]
-		if !ok {
+		if !ok || effectiveDiscriminator(occurrence, sentence) != identity.LexicalDiscriminator {
 			continue
 		}
-		quality := sentencequality.ScoreSentenceQuality(language, occurrence.SentenceText, occurrence.Surface, occurrence.BookStartOffset, sentence.Tokens, sentence.Location.StartOffset)
+		quality := sentencequality.ScoreSentenceQuality(identity.Language, occurrence.SentenceText, occurrence.Surface, occurrence.BookStartOffset, sentence.Tokens, sentence.Location.StartOffset)
 		if !quality.Accepted {
 			continue
 		}
 		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality})
 	}
 	return choices, nil
+}
+
+// effectiveDiscriminator is the lexical discriminator an occurrence counts
+// under: none after a Lemma correction, otherwise its token's.
+func effectiveDiscriminator(occurrence domain.ConcordanceResultOccurrence, sentence analyzer.Sentence) string {
+	if occurrence.Corrected || occurrence.TokenOrdinal < 0 || occurrence.TokenOrdinal >= int64(len(sentence.Tokens)) {
+		return ""
+	}
+	return sentence.Tokens[occurrence.TokenOrdinal].LexicalDiscriminator
 }
 
 // bestChoice orders accepted sentences by descending GDEX score, descending

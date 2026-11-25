@@ -55,6 +55,35 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Empty(t, other, "candidates are scoped to the study language")
 		}},
+		{Name: "study candidates apply confirmed corrections and exclusions and ignore unanalyzed or other-language Books", Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bookID := seedReviewBook(t, h) // two occurrences of "weg"
+			h.Seeds().SeedBook(t, owner, BookSeed{MetadataOnly: true})
+			h.Seeds().SeedBook(t, owner, BookSeed{Language: "it", Occurrences: []OccurrenceSeed{{Surface: "Casa", Lemma: "casa", UPOS: "NOUN"}}})
+
+			candidates, err := h.Study().ListStudyCandidates(owner, Language)
+			require.NoError(t, err)
+			require.Len(t, candidates, 1)
+			assert.Equal(t, studyNoun("weg"), candidates[0].StudyIdentity)
+			assert.EqualValues(t, 2, candidates[0].PersonalOccurrences)
+
+			corrected := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(corrected, previewProposal(t, h, corrected)))
+			candidates, err = h.Study().ListStudyCandidates(owner, Language)
+			require.NoError(t, err)
+			counts := map[string]int64{}
+			for _, candidate := range candidates {
+				counts[candidate.CanonicalLemma] = candidate.PersonalOccurrences
+			}
+			assert.Equal(t, map[string]int64{"weg": 1, "pfad": 1}, counts, "a correction moves one occurrence to the corrected identity")
+
+			excluded := reviewProposal(h, bookID, "exclude", "", reviewOccurrence(t, h, bookID, 1))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(excluded, previewProposal(t, h, excluded)))
+			candidates, err = h.Study().ListStudyCandidates(owner, Language)
+			require.NoError(t, err)
+			require.Len(t, candidates, 1, "an exclusion removes the occurrence, and an identity with none")
+			assert.Equal(t, "pfad", candidates[0].CanonicalLemma)
+		}},
 		{Name: "study material is prepared one word at a time and settles once", Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			store := h.Study()
