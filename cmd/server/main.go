@@ -242,9 +242,14 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	if err != nil {
 		return nil, fmt.Errorf("parse Classical catalog layers: %w", err)
 	}
+	classicalDefinitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
+	if err != nil {
+		return nil, fmt.Errorf("parse Classical catalog manifest: %w", err)
+	}
 	classicalWorker := analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{
-		Layers:  layers,
-		TempDir: cfg.acquisitionTempDir,
+		Layers:      layers,
+		Definitions: classicalDefinitions,
+		TempDir:     cfg.acquisitionTempDir,
 	})
 	analysis.AddClassicalTranslationWorker(workers, store, analysis.ClassicalPreparationConfig{
 		Layers:  layers,

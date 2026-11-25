@@ -48,9 +48,13 @@ func (s *PostgresStore) ReconcileClassicalManifest(ctx context.Context, definiti
 	if err := classical.ValidateManifest(definitions); err != nil {
 		return err
 	}
-	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+	if err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		return reconcileClassicalManifestTx(ctx, tx, definitions)
-	})
+	}); err != nil {
+		return err
+	}
+	s.rememberClassicalLanguages(definitions)
+	return nil
 }
 
 // reconcileClassicalManifestTx is the one-transaction reconciliation. It

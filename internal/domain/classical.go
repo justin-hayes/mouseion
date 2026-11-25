@@ -64,9 +64,12 @@ type ClassicalSource struct {
 // preparation job works from. It carries only reviewed definition facts and
 // identifiers, never source text.
 type ClassicalPreparationTarget struct {
-	OwnerID               string
-	BookID                string
-	ReadingUnitKey        string
+	OwnerID        string
+	BookID         string
+	ReadingUnitKey string
+	// Language is the classical language of the Reading unit. It is empty when
+	// the store does not know it, which reads as Ancient Greek.
+	Language              string
 	WorkTitle             string
 	WorkAuthor            string
 	EditionLabel          string

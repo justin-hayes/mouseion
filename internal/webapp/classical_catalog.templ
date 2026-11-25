@@ -24,7 +24,7 @@ templ ClassicalCatalogAttribution(attributions []classical.SourceAttribution) {
 // Edition, and a read-only list of the constituent books it contains.
 templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork, view classicalCatalogView, axis int, confirmation classicalAddConfirmation, pageError string) {
 	@ShellLayout(work.Title+" · Classical catalog", &user, csrf, NavigationCatalogs, shellStyleCatalogs) {
-		@Breadcrumb(classicalCatalogURL(), "Classical catalog")
+		@Breadcrumb(classicalCatalogURLIn(work.Language), "Classical catalog")
 		@PageHeader(work.Title, "Each edition is added as one Book. Word counts are length facts, not coverage or difficulty.", nil)
 		if confirmation.Message != "" {
 			@ClassicalAddFeedback(confirmation)
@@ -159,6 +159,11 @@ func classicalLengthSegmentClass(work classical.CatalogWork, view classicalCatal
 // Classical catalog's cards live.
 func classicalCatalogURL() string {
 	return "/catalogs?language=" + classical.Language
+}
+
+// classicalCatalogURLIn is the Catalog filtered to one classical language.
+func classicalCatalogURLIn(language string) string {
+	return "/catalogs?language=" + language
 }
 
 // classicalWorkURL names a Work page by its stable key.

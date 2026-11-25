@@ -53,6 +53,21 @@ func DisplayName(language string) string {
 // SourceFormatOGACoNLLU names the single-file oga_src CoNLL-U adapter.
 const SourceFormatOGACoNLLU = "oga-conllu"
 
+// SourceFormatOLACoNLLU names the two-member Opera Latina Adnotata adapter: the
+// Work's CoNLL-U and its PAULA Citation layer, both read from the pinned OLA
+// archive (ADR 0132).
+const SourceFormatOLACoNLLU = "ola-conllu"
+
+// InterpretationVersionOLA is the interpretation version of the ola-conllu
+// format: native AGDT syntax stored verbatim, with OLA's _CO, _AP and _ExD
+// relation suffixes read at read time (ADR 0122).
+const InterpretationVersionOLA = "ola-agdt-syntax/1"
+
+// FetchKindArchiveRange is the layer fetch kind that reads individual members
+// of one pinned archive with HTTP Range requests instead of fetching a whole
+// file under a base URL.
+const FetchKindArchiveRange = "archive-range"
+
 // SplitWholeWork is the only split kind a work override may request: the whole
 // pinned file is one Reading unit (ADR 0128).
 const SplitWholeWork = "whole-work"
@@ -83,6 +98,66 @@ type SourcePin struct {
 	Size     int64  `json:"size"`
 	SHA256   string `json:"sha256"`
 	Format   string `json:"format"`
+	// Members pins the archive members an ola-conllu source reads: the CoNLL-U
+	// first, then the PAULA Citation layer. FileName, Size and SHA256 repeat the
+	// CoNLL-U member so the stored single-file pin columns identify it.
+	Members []ArchiveMember `json:"members,omitempty"`
+}
+
+// ArchiveMember pins one member of a zip archive for a Range fetch: where its
+// local header starts, how many bytes it occupies compressed and
+// uncompressed, and the checksums of its uncompressed bytes.
+type ArchiveMember struct {
+	Name           string `json:"name"`
+	HeaderOffset   int64  `json:"headerOffset"`
+	CompressedSize int64  `json:"compressedSize"`
+	Size           int64  `json:"size"`
+	// CRC32 is the IEEE CRC-32 of the uncompressed bytes, eight lowercase hex
+	// digits.
+	CRC32  string `json:"crc32"`
+	SHA256 string `json:"sha256"`
+}
+
+// Validate reports whether an archive member pin is complete.
+func (m ArchiveMember) Validate() error {
+	switch {
+	case strings.TrimSpace(m.Name) == "":
+		return errors.New("classical: archive member name is required")
+	case m.HeaderOffset < 0:
+		return errors.New("classical: archive member header offset must not be negative")
+	case m.CompressedSize <= 0 || m.Size <= 0:
+		return errors.New("classical: archive member sizes must be positive")
+	case !isLowerHex(m.CRC32, 8):
+		return errors.New("classical: archive member CRC-32 must be 8 lowercase hex characters")
+	case !isLowerHexSHA256(m.SHA256):
+		return errors.New("classical: archive member SHA-256 must be 64 lowercase hex characters")
+	}
+	return nil
+}
+
+// validateMembers checks that the source pin's members agree with its format:
+// an ola-conllu source pins exactly its CoNLL-U and PAULA members, and no other
+// format pins members at all.
+func (p SourcePin) validateMembers() error {
+	if p.Format != SourceFormatOLACoNLLU {
+		if len(p.Members) > 0 {
+			return fmt.Errorf("classical: source format %q does not pin archive members", p.Format)
+		}
+		return nil
+	}
+	if len(p.Members) != 2 {
+		return errors.New("classical: an ola-conllu source pins exactly two archive members")
+	}
+	for _, member := range p.Members {
+		if err := member.Validate(); err != nil {
+			return err
+		}
+	}
+	conllu := p.Members[0]
+	if p.FileName != conllu.Name || p.Size != conllu.Size || p.SHA256 != conllu.SHA256 {
+		return errors.New("classical: an ola-conllu source's file pin must repeat its CoNLL-U member")
+	}
+	return nil
 }
 
 // TranslationPin identifies one exact reference-translation file and the
@@ -189,6 +264,9 @@ func (d Definition) Validate() error {
 	case d.Revision < 1:
 		return errors.New("classical: definition revision must be positive")
 	}
+	if err := d.Source.validateMembers(); err != nil {
+		return err
+	}
 	if err := d.validateContents(); err != nil {
 		return err
 	}
@@ -258,10 +336,19 @@ func (t TranslationPin) Validate() error {
 
 // Layer pins one upstream layer under ADR 0111.
 type Layer struct {
-	Key                 string      `json:"key"`
-	Release             string      `json:"release,omitempty"`
-	Commit              string      `json:"commit,omitempty"`
-	BaseURL             string      `json:"baseURL"`
+	Key     string `json:"key"`
+	Release string `json:"release,omitempty"`
+	Commit  string `json:"commit,omitempty"`
+	BaseURL string `json:"baseURL,omitempty"`
+	// FetchKind is empty for a layer of whole files under BaseURL, or
+	// FetchKindArchiveRange for a layer of members of one pinned archive.
+	FetchKind string `json:"fetchKind,omitempty"`
+	// ArchiveURL, ArchiveSize and Record describe the pinned archive of an
+	// archive-range layer: the URL its members are requested from, its total
+	// size in bytes and the Zenodo record it comes from.
+	ArchiveURL          string      `json:"archiveURL,omitempty"`
+	ArchiveSize         int64       `json:"archiveSize,omitempty"`
+	Record              string      `json:"record,omitempty"`
 	LicenceClass        string      `json:"licenceClass"`
 	Restriction         string      `json:"restriction"`
 	DeployerRegisterRow string      `json:"deployerRegisterRow"`
@@ -333,16 +420,37 @@ func (l Layer) validateHeader() error {
 		return errors.New("classical: layer key is required")
 	case l.Release == "" && l.Commit == "":
 		return errors.New("classical: layer needs a release or commit")
-	case l.BaseURL == "":
-		return errors.New("classical: layer base URL is required")
 	case l.DeployerRegisterRow == "":
 		return errors.New("classical: layer deployer-register row is required")
 	}
-	parsed, err := url.Parse(l.BaseURL)
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
-		return fmt.Errorf("classical: layer %q base URL is not an absolute HTTP URL", l.Key)
+	switch l.FetchKind {
+	case "":
+		if l.BaseURL == "" {
+			return errors.New("classical: layer base URL is required")
+		}
+		if !isAbsoluteHTTPURL(l.BaseURL) {
+			return fmt.Errorf("classical: layer %q base URL is not an absolute HTTP URL", l.Key)
+		}
+	case FetchKindArchiveRange:
+		if !isAbsoluteHTTPURL(l.ArchiveURL) {
+			return fmt.Errorf("classical: layer %q archive URL is not an absolute HTTP URL", l.Key)
+		}
+		if l.ArchiveSize <= 0 {
+			return fmt.Errorf("classical: layer %q archive size must be positive", l.Key)
+		}
+		if strings.TrimSpace(l.Record) == "" {
+			return fmt.Errorf("classical: layer %q archive record is required", l.Key)
+		}
+	default:
+		return fmt.Errorf("classical: layer %q has unknown fetch kind %q", l.Key, l.FetchKind)
 	}
 	return nil
+}
+
+// isAbsoluteHTTPURL reports whether value is an absolute http or https URL.
+func isAbsoluteHTTPURL(value string) bool {
+	parsed, err := url.Parse(value)
+	return err == nil && (parsed.Scheme == "https" || parsed.Scheme == "http") && parsed.Host != ""
 }
 
 // validateLicence applies the ADR 0111 admissibility rule for the layer's
@@ -564,8 +672,12 @@ func isCitation(value string) bool { return IsCitation(value) }
 
 // isLowerHexSHA256 reports whether value is exactly 64 lowercase hexadecimal
 // characters.
-func isLowerHexSHA256(value string) bool {
-	if len(value) != 64 {
+func isLowerHexSHA256(value string) bool { return isLowerHex(value, 64) }
+
+// isLowerHex reports whether value is exactly length lowercase hexadecimal
+// characters.
+func isLowerHex(value string, length int) bool {
+	if len(value) != length {
 		return false
 	}
 	for _, r := range value {

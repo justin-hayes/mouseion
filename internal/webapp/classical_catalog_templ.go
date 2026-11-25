@@ -107,7 +107,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = Breadcrumb(classicalCatalogURL(), "Classical catalog").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = Breadcrumb(classicalCatalogURLIn(work.Language), "Classical catalog").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -721,6 +721,11 @@ func classicalLengthSegmentClass(work classical.CatalogWork, view classicalCatal
 // Classical catalog's cards live.
 func classicalCatalogURL() string {
 	return "/catalogs?language=" + classical.Language
+}
+
+// classicalCatalogURLIn is the Catalog filtered to one classical language.
+func classicalCatalogURLIn(language string) string {
+	return "/catalogs?language=" + language
 }
 
 // classicalWorkURL names a Work page by its stable key.

@@ -6,7 +6,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
-	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
@@ -30,8 +29,9 @@ func (s *PostgresStore) MarkClassicalReadingUnitPreviouslyRead(ctx context.Conte
 	if err := refuseClassicalAddOnLegacyRows(ctx, q); err != nil {
 		return domain.CatalogueReadResult{}, err
 	}
+	language := s.classicalLanguage(readingUnitKey)
 	if _, err := q.PutSupportedLanguage(ctx, sqlcgen.PutSupportedLanguageParams{
-		Language: classical.Language, DisplayName: classical.LanguageDisplayName,
+		Language: language, DisplayName: s.classicalDisplayName(language),
 	}); err != nil {
 		return domain.CatalogueReadResult{}, err
 	}
@@ -45,7 +45,7 @@ func (s *PostgresStore) MarkClassicalReadingUnitPreviouslyRead(ctx context.Conte
 	bookID, err := q.GetRegisteredBookID(ctx, sqlcgen.GetRegisteredBookIDParams{OwnerID: owner, ReadingUnitID: unit.ID})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
-		result, err = createReadClassicalBookTx(ctx, q, owner, unit)
+		result, err = createReadClassicalBookTx(ctx, q, owner, unit, language)
 	case err != nil:
 		return domain.CatalogueReadResult{}, err
 	default:
@@ -62,14 +62,14 @@ func (s *PostgresStore) MarkClassicalReadingUnitPreviouslyRead(ctx context.Conte
 
 // createReadClassicalBookTx creates the metadata-only Book linked to the
 // Reading unit and records it as Read in one transaction.
-func createReadClassicalBookTx(ctx context.Context, q *sqlcgen.Queries, owner string, unit sqlcgen.GetCurrentClassicalUnitByKeyRow) (domain.CatalogueReadResult, error) {
+func createReadClassicalBookTx(ctx context.Context, q *sqlcgen.Queries, owner string, unit sqlcgen.GetCurrentClassicalUnitByKeyRow, language string) (domain.CatalogueReadResult, error) {
 	book, err := q.InsertBook(ctx, sqlcgen.InsertBookParams{
 		OwnerID:            owner,
 		Title:              unit.WorkTitle,
 		Author:             unit.WorkAuthor,
 		MetadataProvenance: domain.MetadataProvenanceOperatorRegistration,
 		LanguageState:      domain.LanguageChosen,
-		LanguageTag:        textArg(classical.Language),
+		LanguageTag:        textArg(language),
 	})
 	if err != nil {
 		return domain.CatalogueReadResult{}, err

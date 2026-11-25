@@ -203,6 +203,9 @@ func Import(ctx context.Context, req ImportRequest, writer ImportWriter) (Import
 // InterpretationVersion is the versioned interpretation identity recorded on an
 // imported run: every mapping slot that shaped the tokens.
 func InterpretationVersion(definition domain.ReadingUnitDefinition) string {
+	if definition.Language == classical.LanguageLatin {
+		return latinInterpretationVersion(definition)
+	}
 	return strings.Join([]string{
 		definition.InterpretationVersion,
 		FeatsMappingVersion,
