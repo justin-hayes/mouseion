@@ -65,10 +65,13 @@ the join floor, and ADR 0133's tier check on the translation's keying.
 Notes on the readings:
 
 - *De Senectute*'s translation (`perseus-eng1`) marks section 35 with two
-  section milestones. The reader merges both into section 35; that is the
-  reading measured above (orchestrator decision).
+  section milestones, and the second carries the English of the Latin's
+  section 36. The reader merges both into section 35; that is the reading
+  measured above (orchestrator decision). Section 36 (5 sentences) is
+  unjoined, and a card citing 35 shows the English of 35 and 36.
 - *In Catilinam*'s translation is keyed speech.section, like the Latin, so it
-  is tier A. Editorial textparts (`argument`, `intro`, `chronology`, `note`)
+  is tier A. Its override lists no contents: #2674 story 7 shows a Work
+  divided into speeches with no contents list. Editorial textparts (`argument`, `intro`, `chronology`, `note`)
   are skipped in every translation.
 - The tier B segment counts are the generator's (segment text, whitespace-split
   words).
@@ -170,9 +173,16 @@ Justin's clearances, recorded as each Work's `reviewerNote`:
 - **Join floor (98%).** An unjoined sentence shows no English, never wrong
   English. The unjoined sentences are clustered, not scattered:
   - *The Conspiracy of Catiline* (681/698, 97.56%): 17 sentences, all in
-    chapters 35 (11) and 57 (6).
+    chapters 35 (11) and 57 (6). The translation keys neither chapter as a
+    textpart; their English sits, after a page break, inside chapters 34 and
+    56, so a card citing 34 or 56 shows the next chapter's English too.
   - *Life of Augustus* (732/761, 96.19%): 29 sentences, all in the last two
     chapters, 100 (15) and 101 (14), which the translation does not key.
+    The translation numbers its chapters 1–99 and the Latin 1–101; at least at
+    the end the numbering is shifted, since the translation's chapter 99 is
+    the Latin's 101. Joined sentences near the end may therefore show another
+    chapter's English. Where the shift begins has not been measured (see
+    "Still to do").
 
 ## Deployment check
 
@@ -202,4 +212,11 @@ Result: **pass**.
 
 ## Still to do
 
-Nothing for batch 1.
+1. **Open for Justin: *Life of Augustus*.** The join-floor clearance rests on
+   "an unjoined sentence shows no English, never wrong English", but the
+   translation's chapter numbering is shifted against OLA's at the end
+   (translation 99 = Latin 101), so some joined sentences show the wrong
+   chapter's English, which ADR 0133's tier A ("the same Citation as the
+   Latin") does not allow. Justin decides whether the clearance stands, the
+   Work drops out, or the shift is measured first. The Work stays admitted
+   until he decides.
