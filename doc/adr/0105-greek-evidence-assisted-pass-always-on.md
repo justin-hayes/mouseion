@@ -1,6 +1,6 @@
 # ADR 0105: The Ancient Greek evidence-assisted pass runs whenever its assessment is recorded
 
-Status: **Accepted** · Date: 2026-10-18 · Author: Justin + opencode
+Status: **Accepted; extended to every source-evidence language by [ADR 0133](0133-per-language-card-policy.md)** · Date: 2026-10-18 · Author: Justin + opencode
 
 Tracked by [#2171](https://github.com/justin-hayes/mouseion/issues/2171).
 Amends the "Evidence-assisted provider pass (opt-in)" section of

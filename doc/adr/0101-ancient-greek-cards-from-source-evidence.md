@@ -1,6 +1,6 @@
 # ADR 0101: Ancient Greek cards from source evidence, with an optional evidence-assisted provider pass
 
-Status: **Accepted; implemented** · Date: 2026-10-17 · Author: Justin + opencode · Amended by [ADR 0104](0104-compact-lsj-definition-outline.md) and [ADR 0105](0105-greek-evidence-assisted-pass-always-on.md)
+Status: **Accepted; implemented** · Date: 2026-10-17 · Author: Justin + opencode · Amended by [ADR 0104](0104-compact-lsj-definition-outline.md), [ADR 0105](0105-greek-evidence-assisted-pass-always-on.md) and [ADR 0133](0133-per-language-card-policy.md) (lookup rule and dictionary entry display per card policy)
 
 Implemented by #2168–#2172. Tracked by [#2131](https://github.com/justin-hayes/mouseion/issues/2131), the
 decision ticket of the map
