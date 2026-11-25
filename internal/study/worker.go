@@ -126,7 +126,7 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 	if lookupPriority == "" {
 		lookupPriority = domain.ConcordancePriorityNone
 	}
-	var inReading, elsewhere []sentenceChoice
+	search := sentenceSearch{priority: priority}
 	for page := 1; ; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
 			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
@@ -139,26 +139,49 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
-		pastReading := false
-		for _, choice := range choices {
-			if priority != "" && choice.occurrence.BookID == priority {
-				inReading = append(inReading, choice)
-			} else {
-				elsewhere = append(elsewhere, choice)
-			}
-		}
-		for _, occurrence := range result.Occurrences {
-			pastReading = pastReading || priority == "" || occurrence.BookID != priority
-		}
-		// The Current reading's occurrences come first, so once the list has
-		// moved past them, or there is no Current reading, one accepted sentence
-		// settles the choice.
-		settled := (len(inReading) > 0 && pastReading) || (priority == "" && len(elsewhere) > 0)
-		if settled || !result.HasNext {
+		search.add(result.Occurrences, choices)
+		if search.settled() || !result.HasNext {
 			break
 		}
 	}
-	for _, group := range [][]sentenceChoice{inReading, elsewhere} {
+	return search.best()
+}
+
+// sentenceSearch collects accepted sentences page by page, the Current
+// reading's apart from the library's.
+type sentenceSearch struct {
+	priority             string
+	inReading, elsewhere []sentenceChoice
+	pastReading          bool
+}
+
+func (s *sentenceSearch) inPriorityBook(occurrence domain.ConcordanceResultOccurrence) bool {
+	return s.priority != "" && occurrence.BookID == s.priority
+}
+
+func (s *sentenceSearch) add(occurrences []domain.ConcordanceResultOccurrence, choices []sentenceChoice) {
+	for _, choice := range choices {
+		if s.inPriorityBook(choice.occurrence) {
+			s.inReading = append(s.inReading, choice)
+		} else {
+			s.elsewhere = append(s.elsewhere, choice)
+		}
+	}
+	for _, occurrence := range occurrences {
+		s.pastReading = s.pastReading || !s.inPriorityBook(occurrence)
+	}
+}
+
+// settled reports that one more page cannot change the choice. The concordance
+// lists the Current reading's occurrences first, so once it has moved past them,
+// or there is no Current reading, an accepted sentence settles it.
+func (s *sentenceSearch) settled() bool {
+	return (len(s.inReading) > 0 && s.pastReading) || (s.priority == "" && len(s.elsewhere) > 0)
+}
+
+// best returns the Current reading's best sentence, else the library's.
+func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
+	for _, group := range [][]sentenceChoice{s.inReading, s.elsewhere} {
 		if best, ok := bestChoice(group); ok {
 			return best, true, nil
 		}
