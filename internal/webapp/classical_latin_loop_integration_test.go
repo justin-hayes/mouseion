@@ -100,14 +100,21 @@ type latinLoopArchiveBuild struct {
 
 func buildLatinLoopArchive(t *testing.T, layer string) latinLoopArchiveBuild {
 	t.Helper()
+	return buildLatinLoopArchiveFrom(t, layer, latinLoopConllu, latinLoopPaula())
+}
+
+// buildLatinLoopArchiveFrom is buildLatinLoopArchive for a Work's own synthetic
+// CoNLL-U and PAULA members.
+func buildLatinLoopArchiveFrom(t *testing.T, layer, conlluText, paulaText string) latinLoopArchiveBuild {
+	t.Helper()
 	const prefix = "opera_latina_adnotata_v0.2.0/"
 	conlluName := prefix + "workspace/conllu/synthetic.conllu"
 	paulaName := prefix + "workspace/ola/synthetic.tok01_cts01.xml"
 	contents := map[string][]byte{
 		prefix + "README.md": bytes.Repeat([]byte("readme\n"), 50),
-		conlluName:           []byte(latinLoopConllu),
+		conlluName:           []byte(conlluText),
 		prefix + "workspace/ola/other.tok01_cts01.xml": latinLoopFiller("other"),
-		paulaName: []byte(latinLoopPaula()),
+		paulaName: []byte(paulaText),
 	}
 	order := []string{prefix + "README.md", conlluName, prefix + "workspace/ola/other.tok01_cts01.xml", paulaName}
 	var buffer bytes.Buffer
@@ -335,6 +342,8 @@ func TestClassicalLatinCatalogLoop(t *testing.T) {
 	assert.Contains(t, body, "<summary>Word relations</summary>")
 	assert.Contains(t, body, "<td>subject</td>", "the stored AGDT relation is shown as Word relations")
 	assert.NotContains(t, body, "Syntax unavailable")
+	assert.Equal(t, 2, strings.Count(body, "<td>subject</td>"), "the _CO conjunct shows its base relation")
+	assert.NotContains(t, body, "relation not labelled", "no relation of the sentence is left unlabelled")
 	assert.NotContains(t, body, "sentence-study-construction", "Constructions fail closed for Latin")
 	assert.Contains(t, body, "1.1a")
 	preface := perform(t, handler, http.MethodGet, "/la/vocabulary/concordance/sentence?"+url.Values{

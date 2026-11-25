@@ -39,3 +39,28 @@ func IsVocabularyStopword(language, lemma, upos string) bool {
 	_, stop := frenchNegationAdverbs[strings.TrimSpace(lemma)]
 	return stop
 }
+
+// IsAdmissibleLemma reports whether a canonical lemma may become a vocabulary
+// identity in its language. Every language needs a lemma with a letter
+// (IsLemma). Latin (ADR 0132) additionally rejects a lemma that contains a
+// full stop (the praenomen abbreviations M. and C.), a digit, or a letter
+// outside the Latin script (Greek-script lemmas): such a token stays in the text
+// but never becomes an identity, a card or Recurring vocabulary.
+func IsAdmissibleLemma(language, lemma string) bool {
+	lemma = strings.TrimSpace(lemma)
+	if !IsLemma(lemma) {
+		return false
+	}
+	if canonicalization.NormalizeLanguage(language) != "la" {
+		return true
+	}
+	for _, r := range lemma {
+		switch {
+		case r == '.', unicode.IsDigit(r):
+			return false
+		case unicode.IsLetter(r) && !unicode.Is(unicode.Latin, r):
+			return false
+		}
+	}
+	return true
+}

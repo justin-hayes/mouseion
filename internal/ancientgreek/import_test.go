@@ -546,9 +546,15 @@ func assertImportCode(t *testing.T, err error, code string) {
 	assert.NotContains(t, err.Error(), "λέγ", "a refusal never carries source text")
 }
 
-func TestReferenceTranslationRefusesNamedAndSuffixedBounds(t *testing.T) {
-	for _, bounds := range [][2]string{{"1.pr.1", "1.1.2"}, {"1.1.1", "1.ep"}, {"331a", "331b"}} {
+// Named and suffixed bounds are Latin Citations the reader now accepts (ADR
+// 0132); a range that does not align in depth or is not a Citation is refused.
+func TestReferenceTranslationRefusesMisalignedBounds(t *testing.T) {
+	for _, bounds := range [][2]string{{"1.1.1", "1.ep"}, {"1.1", "1.1.2"}, {"x", "1.1"}, {"1.1", "1.x"}} {
 		_, err := ParseReferenceTranslation(nil, bounds[0], bounds[1])
 		assertImportCode(t, err, CodeUnknownInterpret)
+	}
+	for _, bounds := range [][2]string{{"1.pr.1", "1.1.2"}, {"331a", "331b"}} {
+		_, err := ParseReferenceTranslation(nil, bounds[0], bounds[1])
+		assertImportCode(t, err, CodeMalformed)
 	}
 }

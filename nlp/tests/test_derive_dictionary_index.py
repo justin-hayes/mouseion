@@ -1608,3 +1608,208 @@ def test_reviewed_idioms_default_version_and_empty_languages(tmp_path: Path):
 
     assert reviewed.version == module.DEFAULT_REVIEWED_IDIOM_VERSION
     assert reviewed.languages == {}
+
+
+SYNTHETIC_LS = """<?xml version="1.0" encoding="UTF-8"?>
+<TEI.2>
+<text><body>
+<entryFree id="n10" key="dico2" type="main"><orth extent="full" lang="la">dīco</orth>, <itype>are</itype>,
+  <sense id="n10.0" n="I" level="1"><hi rend="ital">To dedicate</hi>, <hi rend="ital">consecrate</hi>:
+    <cit><quote lang="la">aedem,</quote> <trans><tr>a temple</tr>,</trans>
+    <bibl n="urn:cts:latinLit:phi0474.phi001:1:2"><author>Cic.</author> Att. 1, 2</bibl></cit>;
+    <bibl><author>id.</author> Fam. 2, 3</bibl>; <bibl>4, 5</bibl>.</sense>
+  <sense id="n10.1" n="A" level="2"><hi rend="ital">Comp.</hi> <hi rend="ital">Hence</hi> <xr><lbl>v.</lbl>
+    <ref type="sym" targOrder="U">dicto</ref></xr>; <xr><lbl>cf.</lbl> <ref type="sym" targOrder="U">infra</ref></xr>.</sense>
+</entryFree>
+<entryFree id="n9" key="dico1" type="main"><orth extent="full" lang="la">dīco</orth>, <itype>dixi</itype>,
+  <sense id="n9.0" n="I" level="1"><hi rend="ital">To say</hi>, <hi rend="ital">speak</hi>: <bibl><author>Ov.</author> M. 1, 1</bibl>.</sense>
+  <sense id="n9.2" n="A" level="2"><hi rend="ital">Sup.</hi> <hi rend="ital">Esp.</hi> <hi rend="ital">to name</hi>.</sense>
+  <sense id="n9.1" n="A" level="2"><hi rend="ital">To tell</hi>.</sense>
+  <sense id="n9.10" n="A" level="2"><hi rend="ital">To declare</hi>.</sense>
+</entryFree>
+<entryFree id="n11" key="dicto" type="main"><orth extent="full" lang="la">dictō</orth>, <itype>are</itype>, <hi rend="ital">no sense element</hi>.</entryFree>
+<entryFree id="n12" key="Roma" type="main"><orth extent="full" lang="la">Rōma</orth>, <sense id="n12.0" n="I" level="1"><hi rend="ital">Rome</hi>.</sense></entryFree>
+<entryFree id="n13" key="stub" type="gloss"><orth>stub</orth><sense id="n13.0" n="I" level="1"><hi rend="ital">skip</hi></sense></entryFree>
+</body></text>
+</TEI.2>
+"""
+
+
+def ls_index(tmp_path: Path, module, xml: str = SYNTHETIC_LS) -> list:
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        json.dumps(
+            {"word": "Haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["house"]}]}
+        ),
+        encoding="utf-8",
+    )
+    ls_dir = tmp_path / "ls"
+    ls_dir.mkdir()
+    (ls_dir / "lat.ls.perseus-eng1.xml").write_text(xml, encoding="utf-8")
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1", ls=module.LsSource(directory=ls_dir, pin="lspin"))
+    connection = sqlite3.connect(output)
+    try:
+        assert connection.execute("SELECT value FROM metadata WHERE key = 'ls_pin'").fetchone() == (
+            "lspin",
+        )
+        assert connection.execute(
+            "SELECT value FROM metadata WHERE key = 'index_format'"
+        ).fetchone() == ("7",)
+        return connection.execute(
+            "SELECT entry_id, headword, orth, senses_json FROM ls_entries"
+        ).fetchall()
+    finally:
+        connection.close()
+
+
+def test_ls_entries_keep_homographs_in_id_order_and_skip_non_main_entries(tmp_path: Path):
+    rows = ls_index(tmp_path, load_script())
+
+    # Numeric id order (n9 before n10), bare keys with homograph digits dropped,
+    # the macron spelling kept as orth, and the gloss stub left out.
+    assert [(row[0], row[1], row[2]) for row in rows] == [
+        ("n9", "dico", "dīco"),
+        ("n10", "dico", "dīco"),
+        ("n11", "dicto", "dictō"),
+        ("n12", "Roma", "Rōma"),
+    ]
+
+
+def test_ls_entry_without_senses_is_kept_empty(tmp_path: Path):
+    rows = {row[0]: row for row in ls_index(tmp_path, load_script())}
+
+    assert json.loads(rows["n11"][3]) == []
+
+
+def test_ls_senses_follow_id_order_not_repeated_n_labels(tmp_path: Path):
+    rows = {row[0]: row for row in ls_index(tmp_path, load_script())}
+    senses = json.loads(rows["n9"][3])
+
+    assert [sense["id"] for sense in senses] == ["n9.0", "n9.1", "n9.2", "n9.10"]
+    assert [sense["n"] for sense in senses] == ["I", "A", "A", "A"]
+    assert [sense["level"] for sense in senses] == [1, 2, 2, 2]
+
+
+def test_ls_outline_definitions_leave_out_abbreviations_and_citations(tmp_path: Path):
+    rows = {row[0]: row for row in ls_index(tmp_path, load_script())}
+    nine = {sense["id"]: sense for sense in json.loads(rows["n9"][3])}
+    ten = {sense["id"]: sense for sense in json.loads(rows["n10"][3])}
+
+    assert nine["n9.0"]["definitions"] == ["To say", "speak"]
+    assert nine["n9.2"]["definitions"] == ["to name"]  # "Sup." and "Esp." are abbreviations
+    assert ten["n10.0"]["definitions"] == ["To dedicate", "consecrate"]
+    assert ten["n10.0"]["glosses"] == ["To dedicate", "consecrate", "a temple"]
+    assert ten["n10.1"]["definitions"] == ["Hence"]  # "Comp." is an abbreviation
+
+
+def test_ls_citations_carry_their_author_reference(tmp_path: Path):
+    rows = {row[0]: row for row in ls_index(tmp_path, load_script())}
+    senses = json.loads(rows["n10"][3])
+
+    assert senses[0]["citations"] == [
+        {"author": "Cic.", "text": "Cic. Att. 1, 2"},
+        {"author": "Cic.", "text": "id. Fam. 2, 3"},  # "id." repeats the previous author
+        {"text": "4, 5"},  # no author element, so no author reference
+    ]
+
+
+def test_ls_cross_references_resolve_to_a_unique_target_or_stay_unresolved(tmp_path: Path):
+    rows = {row[0]: row for row in ls_index(tmp_path, load_script())}
+    senses = json.loads(rows["n10"][3])
+
+    assert senses[1]["crossrefs"] == [
+        {"text": "dicto", "entry_id": "n11", "headword": "dicto"},
+        {"text": "infra"},
+    ]
+
+
+def test_ls_cross_reference_to_a_homograph_headword_is_ambiguous(tmp_path: Path):
+    module = load_script()
+    xml = SYNTHETIC_LS.replace('<ref type="sym" targOrder="U">dicto</ref>', "<ref>dīco</ref>")
+    rows = {row[0]: row for row in ls_index(tmp_path, module, xml)}
+
+    assert json.loads(rows["n10"][3])[1]["crossrefs"][0] == {"text": "dīco"}
+
+
+def test_ls_cross_reference_with_a_homograph_number_picks_that_entry(tmp_path: Path):
+    module = load_script()
+    xml = SYNTHETIC_LS.replace('<ref type="sym" targOrder="U">dicto</ref>', "<ref>dico1</ref>")
+    rows = {row[0]: row for row in ls_index(tmp_path, module, xml)}
+
+    assert json.loads(rows["n10"][3])[1]["crossrefs"][0] == {
+        "text": "dico1",
+        "entry_id": "n9",
+        "headword": "dico",
+    }
+
+
+def test_without_ls_dir_there_is_no_ls_table_content(tmp_path: Path):
+    module = load_script()
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        json.dumps(
+            {"word": "Haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["house"]}]}
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "dictionary.sqlite"
+    module.derive(source, output, "fixture-v1")
+    connection = sqlite3.connect(output)
+    try:
+        assert connection.execute("SELECT count(*) FROM ls_entries").fetchone() == (0,)
+        assert connection.execute(
+            "SELECT count(*) FROM metadata WHERE key = 'ls_pin'"
+        ).fetchone() == (0,)
+    finally:
+        connection.close()
+
+
+def test_ls_indexes_only_the_first_encoding_and_keeps_greek_origin_entries(tmp_path: Path):
+    module = load_script()
+    xml = """<TEI.2><text><body>
+<entryFree id="n1" key="abacus" type="greek"><orth>abăcus</orth><sense id="n1.0" n="I" level="1"><hi rend="ital">a table</hi></sense></entryFree>
+</body></text></TEI.2>"""
+    source = tmp_path / "kaikki.jsonl"
+    source.write_text(
+        json.dumps(
+            {"word": "Haus", "lang_code": "de", "pos": "noun", "senses": [{"glosses": ["h"]}]}
+        ),
+        encoding="utf-8",
+    )
+    ls_dir = tmp_path / "ls"
+    ls_dir.mkdir()
+    (ls_dir / "lat.ls.perseus-eng1.xml").write_text(xml, encoding="utf-8")
+    (ls_dir / "lat.ls.perseus-eng2.xml").write_text(xml, encoding="utf-8")
+
+    rows = module.collect_ls_entries(ls_dir)
+
+    assert [(row[0], row[1]) for row in rows] == [("n1", "abacus")]
+
+
+def test_ls_entry_level_citations_redirects_and_urn_authors_are_kept(tmp_path: Path):
+    module = load_script()
+    xml = """<TEI.2><text><body>
+<entryFree id="n1" key="a2" type="main"><orth>a</orth>, v. a2 and
+ <bibl n="urn:cts:latinLit:phi0474.phi001:1:2">Att. 1, 2</bibl>.</entryFree>
+<entryFree id="n2" key="a2" type="main"><orth>a</orth>, v. <hi rend="ital">no</hi></entryFree>
+</body></text></TEI.2>"""
+    rows = {row[0]: row for row in ls_index(tmp_path, module, xml)}
+    sense = json.loads(rows["n1"][3])[0]
+
+    assert sense["id"] == "n1"
+    assert sense["level"] == 0
+    assert sense["citations"] == [{"author": "phi0474", "text": "Att. 1, 2"}]
+    assert sense["crossrefs"] == [{"text": "a2"}]  # two entries share the key
+
+
+def test_ls_definition_window_restarts_after_the_meaning_marker():
+    module = load_script()
+    sense = ElementTree.fromstring(  # noqa: S314
+        '<sense id="n1.0" n="I" level="1"><hi rend="ital">first</hi> <bibl><author>Cic.</author> A</bibl>'
+        ' :— <hi rend="ital">second</hi> <hi rend="ital">fin.</hi></sense>'
+    )
+    content = module.LsContent()
+    module.ls_collect(sense, content)
+
+    assert content.definitions == ["first", "second"]

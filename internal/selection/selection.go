@@ -338,7 +338,7 @@ func Effective(cfg SelectionConfig, language string, fact OccurrenceFact, decisi
 // review share it so neither duplicates the rule in SQL.
 func OccurrenceEligible(cfg SelectionConfig, language, lemma, upos, dependency string) bool {
 	return dependency != "compound:prt" &&
-		lexical.IsLemma(strings.TrimSpace(lemma)) &&
+		lexical.IsAdmissibleLemma(language, lemma) &&
 		cfg.AllowedPOS[strings.ToUpper(strings.TrimSpace(upos))] &&
 		!lexical.IsVocabularyStopword(language, lemma, upos)
 }
