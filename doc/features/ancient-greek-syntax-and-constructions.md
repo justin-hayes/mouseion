@@ -282,9 +282,11 @@ Decided in [Grilling: abstention rule and which constructions ship](https://gith
   random corpus hits is ≥ 0.90 (point estimate) with a 95% Wilson lower bound
   ≥ 0.84. A subtype label is gated by the same bar on at least 60 hits. Recall
   is reported, not gated.
-- **Conditional gate.** Conditional ships only once the first release-check run
-  confirms it clears the bar without the dropped "whether" exclusion (measured
-  0.93 with it; about 0.91 estimated without).
+- **Conditional gate.** Conditional shipped only once the first release-check
+  run confirmed it clears the bar without the dropped "whether" exclusion
+  (measured 0.93 with it; about 0.91 estimated without). The
+  [release check](https://github.com/justin-hayes/mouseion/issues/2622#issuecomment-7135682811)
+  measured 0.912 (lower bound 0.866), and conditional ships.
 
 ## Persistence and versioning
 
@@ -641,6 +643,10 @@ are throwaway and never merged; they commit IDs and aggregates only.
 | Conditional | 0.93 (0.86–0.96), with the since-dropped exclusion | 0.92 |
 | Articular infinitive | 0.92 (0.85–0.95) | 0.98 |
 | Genitive absolute | 0.91 (0.84–0.95); every false hit a parser error | 0.74 |
+
+**Release check** ([#2622](https://github.com/justin-hayes/mouseion/issues/2622#issuecomment-7135682811)):
+conditional without the "whether" exclusion measured 0.912 (95% Wilson lower
+bound 0.866) over the seven pinned OGA files. It clears the bar and ships.
 
 **Limits of the evidence.** The parser's only gold comparisons are on its
 training texts (*Apology*, *Crito*, *Anabasis*), so agreement figures overstate
