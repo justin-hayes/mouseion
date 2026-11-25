@@ -48,7 +48,7 @@ func (s *ManifestSource) LatinEvidence() (LatinWorkEvidence, error) {
 			if isEllipsis(token.pos) {
 				continue
 			}
-			headword, discriminator := decodeLemmaFor(token.lemma, true)
+			headword, discriminator := latinDialect.decodeLemma(token.lemma)
 			canonical := profile.Canonical(headword)
 			upos, err := mapUPOS(token.pos, token.relation, names[canonical+"\x00"+discriminator].isProperName())
 			if err != nil {

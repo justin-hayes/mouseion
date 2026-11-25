@@ -134,6 +134,28 @@ func TestFetchArchiveMembersRefusesADisagreeingContentRange(t *testing.T) {
 	assert.Equal(t, classical.CodePinMismatch, refusal.Code)
 }
 
+func TestFetchArchiveMembersTreatsAnOverlong206BodyAsAPinFailure(t *testing.T) {
+	archive, pin := archiveFixture(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var start, end int
+		if _, err := fmt.Sscanf(r.Header.Get("Range"), "bytes=%d-%d", &start, &end); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(archive)))
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = w.Write(archive[start : end+1])  //nolint:errcheck // a closed test connection is the test's concern
+		_, _ = w.Write([]byte("surplus bytes")) //nolint:errcheck // a closed test connection is the test's concern
+	}))
+	t.Cleanup(server.Close)
+	config, target := archiveConfig(archive, pin, server)
+
+	_, err := config.fetchArchiveMembers(t.Context(), target, time.Minute)
+	var refusal *classical.PreparationError
+	require.ErrorAs(t, err, &refusal)
+	assert.Equal(t, classical.CodePinMismatch, refusal.Code, "the body is not the pinned archive")
+}
+
 func TestFetchArchiveMembersRefusesAnUnknownPin(t *testing.T) {
 	archive, pin := archiveFixture(t)
 	server := httptest.NewServer(http.NotFoundHandler())

@@ -296,7 +296,7 @@ func interpret(doc *sourceDocument, definition domain.ReadingUnitDefinition, uni
 // interpretState accumulates the cut, rebuilt sentences and report counts.
 type interpretState struct {
 	unitID      string
-	latin       bool
+	dialect     sourceDialect
 	full        []rune
 	result      analyzer.Result
 	report      ImportReport
@@ -315,8 +315,8 @@ func newInterpretState(definition domain.ReadingUnitDefinition, unitID string, l
 		normalization = analyzer.NormalizationProfile{Name: profile.Name(), Version: profile.Version()}
 	}
 	return &interpretState{
-		unitID: unitID,
-		latin:  latin,
+		unitID:  unitID,
+		dialect: dialectFor(latin),
 		result: analyzer.Result{
 			SchemaVersion: "1",
 			Language:      definition.Language,
@@ -350,7 +350,7 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 	if crossing {
 		s.report.Crossings = append(s.report.Crossings, SentenceCrossing{UnitKey: s.unitID, Citations: sentenceCitations(sentence)})
 	}
-	relative := reconstructFor(sentence, s.latin)
+	relative := reconstructFor(sentence, s.dialect)
 	if len(s.full) > 0 {
 		s.full = append(s.full, '\n')
 	}
@@ -406,14 +406,14 @@ func (s *interpretState) addSentence(sentence sourceSentence, profile canonicali
 // buildToken maps one source token to a source-neutral token and records its
 // lemma-identity statistics.
 func (s *interpretState) buildToken(token sourceToken, profile canonicalization.Profile, names map[string]nameStat) (analyzer.Token, string, error) {
-	headword, discriminator := decodeLemmaFor(token.lemma, s.latin)
+	headword, discriminator := s.dialect.decodeLemma(token.lemma)
 	canonical := profile.Canonical(headword)
 	key := canonical + "\x00" + discriminator
 	upos, err := mapUPOS(token.pos, token.relation, names[key].isProperName())
 	if err != nil {
 		return analyzer.Token{}, "", err
 	}
-	morphology, skipped := mapFeaturesFor(token.postag, s.latin)
+	morphology, skipped := s.dialect.mapFeatures(token.postag)
 	for _, count := range skipped {
 		s.unmapped[count]++
 	}
@@ -509,11 +509,13 @@ type reconstructed struct {
 
 // reconstruct joins a sentence's printed tokens with single spaces, omitting the
 // space before a punctuation mark and dropping ellipsis tokens.
-func reconstruct(sentence sourceSentence) reconstructed { return reconstructFor(sentence, false) }
+func reconstruct(sentence sourceSentence) reconstructed {
+	return reconstructFor(sentence, greekDialect)
+}
 
 // reconstructFor is reconstruct with the spacing rule of the document's
 // language.
-func reconstructFor(sentence sourceSentence, latin bool) reconstructed {
+func reconstructFor(sentence sourceSentence, dialect sourceDialect) reconstructed {
 	kept := make([]sourceToken, 0, len(sentence.tokens))
 	ellipsis := 0
 	for _, token := range sentence.tokens {
@@ -526,7 +528,7 @@ func reconstructFor(sentence sourceSentence, latin bool) reconstructed {
 	var text []rune
 	spans := make([][2]int, len(kept))
 	for index, token := range kept {
-		if index > 0 && !noSpaceBeforeFor(token.surface, latin) {
+		if index > 0 && !dialect.noSpaceBefore(token.surface) {
 			text = append(text, ' ')
 		}
 		spans[index][0] = len(text)
@@ -739,7 +741,7 @@ func properNameStats(doc *sourceDocument, profile canonicalization.Profile) map[
 			if token.pos != "n" {
 				continue
 			}
-			headword, discriminator := decodeLemmaFor(token.lemma, doc.latin)
+			headword, discriminator := dialectFor(doc.latin).decodeLemma(token.lemma)
 			key := profile.Canonical(headword) + "\x00" + discriminator
 			recordName(stats, key, index == first, capitalized(token.surface))
 		}

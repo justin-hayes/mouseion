@@ -26,6 +26,10 @@ const (
 	// LookupExactlyOne matches an identity only when exactly one candidate
 	// entry exists.
 	LookupExactlyOne
+	// LookupEveryEntry matches a lemma to every entry under its key in the
+	// language's own dictionary, with no part-of-speech filter and no choice
+	// between homographs (Lewis & Short for Latin).
+	LookupEveryEntry
 )
 
 // TranslationSource is where a language's passage-context translations come
@@ -132,7 +136,7 @@ var (
 		Citations:        CitationsWorkAuthor,
 		Translations:     TranslationPerseus,
 		SentenceBoundary: BoundaryTerminalMark,
-		DictionaryLookup: LookupExactlyOne,
+		DictionaryLookup: LookupEveryEntry,
 	}
 	modern = Policy{
 		NLPAnalysed:      true,

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,4 +130,28 @@ func TestLatinLSLookupReadsTheSourceHomographNumberFromFormatEight(t *testing.T)
 	require.True(t, found)
 	require.Len(t, entries, 1)
 	assert.Equal(t, 2, entries[0].Homograph)
+}
+
+func TestLatinGenericLookupsNeverEnterTheGreekIndex(t *testing.T) {
+	index := newTestIndex(t, append(latinLSFixtureStatements,
+		`INSERT INTO greek_entries VALUES ('dico', 'VERB', '', '[{"id":"g","glosses":["greek gloss"]}]', '[]')`,
+		`INSERT INTO ls_entries VALUES ('n9', 'dico', 'dīco', '[]')`,
+		`INSERT INTO ls_entries VALUES ('n10', 'dico', 'dīco', '[]')`,
+	)...)
+
+	t.Run("lemma existence reads Lewis & Short under the latin key, whatever the part of speech", func(t *testing.T) {
+		for _, upos := range []string{"VERB", "NOUN"} {
+			exists, err := index.LemmaExists(t.Context(), "la", "dīcō", upos)
+			require.NoError(t, err)
+			assert.True(t, exists, upos)
+		}
+		exists, err := index.LemmaExists(t.Context(), "la", "absent", "VERB")
+		require.NoError(t, err)
+		assert.False(t, exists)
+	})
+	t.Run("the generic lookup finds no Greek entry for a Latin lemma", func(t *testing.T) {
+		_, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "la", CanonicalLemma: "dico", UPOS: "VERB"})
+		require.NoError(t, err)
+		assert.False(t, found)
+	})
 }

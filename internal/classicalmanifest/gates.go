@@ -280,7 +280,7 @@ func joinsSegment(citation string, segments map[string]string) bool {
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
-		if key == citation || strings.HasPrefix(citation, key+".") {
+		if classical.CitationContains(key, citation) {
 			return true
 		}
 	}

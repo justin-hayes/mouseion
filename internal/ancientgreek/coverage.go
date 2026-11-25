@@ -313,7 +313,7 @@ func unitOpening(doc *sourceDocument, start, end classical.Citation) (string, er
 		if located != locationInside || isSpeakerLabel(sentence) {
 			continue
 		}
-		opening := reconstructFor(sentence, doc.latin).text
+		opening := reconstructFor(sentence, dialectFor(doc.latin)).text
 		if strings.TrimSpace(opening) != "" {
 			return opening, nil
 		}

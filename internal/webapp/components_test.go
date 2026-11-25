@@ -208,6 +208,17 @@ func TestTitlePlateCarriesOriginalTitleForClassicalBook(t *testing.T) {
 	)
 }
 
+func TestTitlePlateDropsAnOriginalTitleThatRepeatsTheEnglishTitle(t *testing.T) {
+	for name, original := range map[string]string{"identical": "Germania", "case": "GERMANIA", "spacing": "  Germania "} {
+		t.Run(name, func(t *testing.T) {
+			plate := newTitlePlate("Germania", original, "la", "Tacitus")
+
+			assert.Empty(t, plate.OriginalTitle)
+			assert.NotContains(t, renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{}), ""), "title-plate__greek")
+		})
+	}
+}
+
 func TestBookCoverImageReplacesTitlePlate(t *testing.T) {
 	html := renderPattern(t, BookCoverMedia("book-1", newTitlePlate("T", "", "", "A"), domain.BookCover{State: domain.BookCoverAvailable, Width: 10, Height: 15}), "")
 	assert.Contains(t, html, "book-cover-media__image")

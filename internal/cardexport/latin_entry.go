@@ -2,6 +2,7 @@ package cardexport
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"strings"
 	"unicode"
@@ -44,20 +45,70 @@ func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, ent
 	}
 	entries := make([]enrichment.LatinLSEntry, 0, len(found))
 	ids := make([]string, 0, len(found))
+	targets := map[string]enrichment.LatinLSEntry{}
 	for _, candidate := range found {
 		if candidate.Empty() {
 			continue
 		}
 		entries = append(entries, candidate)
 		ids = append(ids, candidate.EntryID)
+		maps.Copy(targets, resolveLatinLSTargets(ctx, provider, candidate))
 	}
 	if len(entries) == 0 {
 		return false
 	}
 	entry.DictionaryEntryID = strings.Join(ids, DictionaryEntryIDSeparator)
 	entry.DictionaryPin = entries[0].Pin
-	entry.DictionaryEntry = renderLatinLSEntries(entries, policy.Citations, workAuthor, workTextgroup)
+	entry.DictionaryEntry = renderLatinLSEntries(entries, targets, policy.Citations, workAuthor, workTextgroup)
 	return true
+}
+
+// resolveLatinLSTargets returns the entries a senseless entry's resolved
+// cross-references name ("v. X"), by entry ID, so the card can show the target's
+// meaning in the entry's place (ADR 0132). An entry with a sense of its own, or
+// a reference that does not resolve to exactly one entry, contributes nothing.
+func resolveLatinLSTargets(ctx context.Context, provider enrichment.LatinLSProvider, entry enrichment.LatinLSEntry) map[string]enrichment.LatinLSEntry {
+	if hasLatinLSSense(entry.Senses) {
+		return nil
+	}
+	targets := map[string]enrichment.LatinLSEntry{}
+	for _, sense := range entry.Senses {
+		for _, ref := range sense.CrossRefs {
+			if ref.EntryID == "" || ref.EntryID == entry.EntryID {
+				continue
+			}
+			if target, ok := lookupLatinLSEntry(ctx, provider, ref); ok {
+				targets[ref.EntryID] = target
+			}
+		}
+	}
+	return targets
+}
+
+// lookupLatinLSEntry finds the entry a resolved cross-reference names among the
+// entries under its target headword.
+func lookupLatinLSEntry(ctx context.Context, provider enrichment.LatinLSProvider, ref enrichment.LatinLSCrossRef) (enrichment.LatinLSEntry, bool) {
+	candidates, ok := provider.LookupLatinLS(ctx, ref.Headword)
+	if !ok {
+		return enrichment.LatinLSEntry{}, false
+	}
+	for _, candidate := range candidates {
+		if candidate.EntryID == ref.EntryID {
+			return candidate, true
+		}
+	}
+	return enrichment.LatinLSEntry{}, false
+}
+
+// hasLatinLSSense reports whether the entry has a sense of its own: any sense
+// below the level-0 pseudo-sense that carries only its citations and redirects.
+func hasLatinLSSense(senses []enrichment.LatinLSSense) bool {
+	for _, sense := range senses {
+		if sense.Level > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // renderLatinLSEntries stacks every entry, each with its own head line, outline
@@ -66,7 +117,7 @@ func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, ent
 // dīco²), or its place in id order when the source key carries none; the head
 // line shows the entry's own <orth>, with its vowel-length marks, in place of
 // the bare headword.
-func renderLatinLSEntries(entries []enrichment.LatinLSEntry, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) string {
+func renderLatinLSEntries(entries []enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) string {
 	var b strings.Builder
 	for i, entry := range entries {
 		number := 0
@@ -76,12 +127,12 @@ func renderLatinLSEntries(entries []enrichment.LatinLSEntry, filter cardpolicy.C
 				number = entry.Homograph
 			}
 		}
-		renderLatinLSEntry(&b, entry, number, filter, workAuthor, workTextgroup)
+		renderLatinLSEntry(&b, entry, targets, number, filter, workAuthor, workTextgroup)
 	}
 	return b.String()
 }
 
-func renderLatinLSEntry(b *strings.Builder, entry enrichment.LatinLSEntry, number int, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) {
+func renderLatinLSEntry(b *strings.Builder, entry enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry, number int, filter cardpolicy.CitationFilter, workAuthor, workTextgroup string) {
 	b.WriteString(`<div class="dictionary-entry ls-entry">`)
 	b.WriteString(`<div class="dictionary-entry-source">Lewis &amp; Short`)
 	headword := strings.TrimSpace(entry.Orth)
@@ -99,24 +150,57 @@ func renderLatinLSEntry(b *strings.Builder, entry enrichment.LatinLSEntry, numbe
 		b.WriteString(`</span>`)
 	}
 	b.WriteString(`</div>`)
-	if len(entry.Senses) > 0 {
-		if outline := latinLSOutline(entry.Senses); len(outline) > 0 {
-			b.WriteString(`<div class="dict-outline">`)
-			for _, item := range outline {
-				b.WriteString(`<div class="dict-sense dict-level-`)
-				b.WriteString(strconv.Itoa(item.level))
-				b.WriteString(`">`)
-				writeDictNumber(b, item.sense.Number)
-				writeDictGlosses(b, item.sense.Definitions)
-				b.WriteString(`</div>`)
-			}
-			b.WriteString(`</div>`)
-		}
+	if hasLatinLSSense(entry.Senses) {
+		writeLatinLSOutline(b, entry.Senses)
 		b.WriteString(`<details class="dict-full"><summary>Full Lewis &amp; Short entry</summary>`)
 		renderLatinLSSenses(b, entry.Senses, filter, workAuthor, workTextgroup)
 		b.WriteString(`</details>`)
+	} else {
+		// An entry with no sense of its own shows its head line and, when its
+		// cross-reference resolved to one entry, that entry's meaning. An
+		// unresolved one shows the head line alone.
+		writeLatinLSTargetOutlines(b, entry, targets)
 	}
 	b.WriteString(`</div>`)
+}
+
+// writeLatinLSOutline writes an entry's compact outline, if it has one.
+func writeLatinLSOutline(b *strings.Builder, senses []enrichment.LatinLSSense) {
+	outline := latinLSOutline(senses)
+	if len(outline) == 0 {
+		return
+	}
+	b.WriteString(`<div class="dict-outline">`)
+	for _, item := range outline {
+		b.WriteString(`<div class="dict-sense dict-level-`)
+		b.WriteString(strconv.Itoa(item.level))
+		b.WriteString(`">`)
+		writeDictNumber(b, item.sense.Number)
+		writeDictGlosses(b, item.sense.Definitions)
+		b.WriteString(`</div>`)
+	}
+	b.WriteString(`</div>`)
+}
+
+// writeLatinLSTargetOutlines writes the outline of each entry a senseless
+// entry's resolved cross-references name, in source order, each led by the
+// reference as the source writes it.
+func writeLatinLSTargetOutlines(b *strings.Builder, entry enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry) {
+	seen := map[string]struct{}{}
+	for _, sense := range entry.Senses {
+		for _, ref := range sense.CrossRefs {
+			target, ok := targets[ref.EntryID]
+			if _, done := seen[ref.EntryID]; !ok || done || len(latinLSOutline(target.Senses)) == 0 {
+				continue
+			}
+			seen[ref.EntryID] = struct{}{}
+			b.WriteString(`<div class="dict-crossref-target"><span class="dict-crossref">`)
+			b.WriteString(escapeField(strings.TrimSpace(ref.Text)))
+			b.WriteString(`</span>`)
+			writeLatinLSOutline(b, target.Senses)
+			b.WriteString(`</div>`)
+		}
+	}
 }
 
 type latinLSOutlineSense struct {

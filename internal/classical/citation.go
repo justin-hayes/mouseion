@@ -98,6 +98,14 @@ func IsCitation(value string) bool {
 	return ok
 }
 
+// CitationContains reports whether outer equals inner or is a whole-component
+// ancestor of it ("1.2" contains "1.2.3" but not "1.20" or "1.2a"). It is the one
+// containment rule Citation consumers share: passage context and the manifest's
+// translation join gate.
+func CitationContains(outer, inner string) bool {
+	return outer != "" && (outer == inner || strings.HasPrefix(inner, outer+"."))
+}
+
 // rank orders prefatory sections before numbers and closing sections
 // after them.
 func (c CitationComponent) rank() int {

@@ -39,13 +39,15 @@ func classicalCatalogCardsIn(authors []classical.CatalogAuthor, query, language 
 	return cards
 }
 
-// distinctOriginalTitle is the original title to show: empty when it is the
-// English title again (ADR 0132), as for a Latin Work whose title is the same.
+// distinctOriginalTitle is the trimmed original title to show: empty when it is
+// the English title again, ignoring case and spacing (ADR 0132), as for a Latin
+// Work whose title is the same.
 func distinctOriginalTitle(title, original string) string {
-	if strings.TrimSpace(original) == strings.TrimSpace(title) {
+	fold := func(value string) string { return strings.ToLower(strings.Join(strings.Fields(value), " ")) }
+	if fold(original) == fold(title) {
 		return ""
 	}
-	return original
+	return strings.TrimSpace(original)
 }
 
 // sortCatalogCards orders cards by title, then author, then ID.

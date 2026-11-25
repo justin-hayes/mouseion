@@ -105,7 +105,7 @@ func TestLatinAuthorMatchesCTSURNAuthorAndAbbreviations(t *testing.T) {
 }
 
 func TestLatinEntryWithNoSensesShowsOnlyItsHeadLine(t *testing.T) {
-	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n11", Headword: "dicto", Orth: "dictō", Pin: testLSPin}}, 0, "", "")
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n11", Headword: "dicto", Orth: "dictō", Pin: testLSPin}}, nil, 0, "", "")
 	assert.Contains(t, html, "dictō")
 	assert.NotContains(t, html, "dict-outline")
 	assert.NotContains(t, html, "Full Lewis")
@@ -124,7 +124,7 @@ func TestLatinCardWithNoMatchOmitsTheDictionaryBlock(t *testing.T) {
 }
 
 func TestLatinEntryEscapesSourceText(t *testing.T) {
-	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "a<b>", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"x <i>y</i> {z}"}}}}}, 0, "", "")
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "a<b>", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"x <i>y</i> {z}"}}}}}, nil, 0, "", "")
 	assert.NotContains(t, html, "<i>y</i>")
 	assert.Contains(t, html, "x &lt;i&gt;y&lt;/i&gt; &#123;z&#125;")
 }
@@ -144,17 +144,17 @@ func TestLatinFrozenEntriesKeepTheirTextAfterTheIndexChanges(t *testing.T) {
 func TestLatinEntryNumbersAreTheSourcesHomographNumbers(t *testing.T) {
 	entries := dicoEntries()
 	entries[0].Homograph, entries[1].Homograph = 2, 5
-	html := renderLatinLSEntries(entries, cardpolicy.CitationsNone, "Livy", "")
+	html := renderLatinLSEntries(entries, nil, cardpolicy.CitationsNone, "Livy", "")
 	assert.Contains(t, html, "dīco<sup>2</sup>")
 	assert.Contains(t, html, "dīco<sup>5</sup>")
 	assert.NotContains(t, html, "dīco<sup>1</sup>")
 
 	entries[0].Homograph, entries[1].Homograph = 0, 0
-	html = renderLatinLSEntries(entries, cardpolicy.CitationsNone, "Livy", "")
+	html = renderLatinLSEntries(entries, nil, cardpolicy.CitationsNone, "Livy", "")
 	assert.Contains(t, html, "dīco<sup>1</sup>", "an entry whose key has no number keeps its place in id order")
 	assert.Contains(t, html, "dīco<sup>2</sup>")
 
-	html = renderLatinLSEntries(entries[:1], cardpolicy.CitationsNone, "Livy", "")
+	html = renderLatinLSEntries(entries[:1], nil, cardpolicy.CitationsNone, "Livy", "")
 	assert.NotContains(t, html, "<sup>", "a single entry shows no number")
 }
 
@@ -183,21 +183,71 @@ func TestLatinFullEntryKeepsURNOnlyCitationsOfTheWorksTextgroup(t *testing.T) {
 		Citations: []enrichment.LatinLSCitation{{Author: "phi0474", Text: "own 1, 2"}, {Author: "phi0914", Text: "other 3, 4"}},
 	}}}}
 
-	own := renderLatinLSEntries(urnOnly, cardpolicy.CitationsWorkAuthor, "Marcus Tullius Cicero", "phi0474")
+	own := renderLatinLSEntries(urnOnly, nil, cardpolicy.CitationsWorkAuthor, "Marcus Tullius Cicero", "phi0474")
 	assert.Contains(t, own, "own 1, 2", "a URN-only citation is kept for its own author")
 	assert.NotContains(t, own, "other 3, 4")
 
-	other := renderLatinLSEntries(urnOnly, cardpolicy.CitationsWorkAuthor, "Livy", "phi0914")
+	other := renderLatinLSEntries(urnOnly, nil, cardpolicy.CitationsWorkAuthor, "Livy", "phi0914")
 	assert.Contains(t, other, "other 3, 4")
 	assert.NotContains(t, other, "own 1, 2", "a URN-only citation is dropped for another author")
 
-	none := renderLatinLSEntries(urnOnly, cardpolicy.CitationsWorkAuthor, "Livy", "")
+	none := renderLatinLSEntries(urnOnly, nil, cardpolicy.CitationsWorkAuthor, "Livy", "")
 	assert.NotContains(t, none, "own 1, 2")
 	assert.NotContains(t, none, "other 3, 4", "no textgroup and no name match drops it, never guesses")
 }
 
 func TestLatinEntryWithSensesButNoDefinitionsStillCollapsesItsFullEntry(t *testing.T) {
-	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "x", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"g"}}}}}, 0, "", "")
+	html := renderLatinLSEntries([]enrichment.LatinLSEntry{{EntryID: "n1", Orth: "x", Senses: []enrichment.LatinLSSense{{ID: "n1.0", Level: 1, Glosses: []string{"g"}}}}}, nil, 0, "", "")
 	assert.NotContains(t, html, "dict-outline")
 	assert.Contains(t, html, `<details class="dict-full"><summary>Full Lewis &amp; Short entry</summary>`)
+}
+
+// lsByLemmaStub answers the Lewis & Short capability by headword key.
+type lsByLemmaStub struct {
+	lsStub
+	byLemma map[string][]enrichment.LatinLSEntry
+}
+
+func (s *lsByLemmaStub) LookupLatinLS(_ context.Context, lemma string) ([]enrichment.LatinLSEntry, bool) {
+	entries, ok := s.byLemma[lemma]
+	return entries, ok
+}
+
+func TestLatinCrossReferenceEntryShowsTheTargetMeaningOrOnlyItsHeadLine(t *testing.T) {
+	target := enrichment.LatinLSEntry{EntryID: "n20", Headword: "dicto", Orth: "dictō", Pin: testLSPin,
+		Senses: []enrichment.LatinLSSense{{ID: "n20.0", Number: "I", Level: 1, Definitions: []string{"to say often"}}}}
+	redirect := func(refs ...enrichment.LatinLSCrossRef) enrichment.LatinLSEntry {
+		return enrichment.LatinLSEntry{EntryID: "n21", Headword: "dictito", Orth: "dictĭto", Pin: testLSPin,
+			Senses: []enrichment.LatinLSSense{{ID: "n21.e", Level: 0, CrossRefs: refs}}}
+	}
+	freeze := func(provider enrichment.LexicalProvider) Entry {
+		entry := Entry{Language: "la", CanonicalLemma: "dictito"}
+		require.True(t, resolveLatinLS(context.Background(), provider, &entry, "Cicero", ""))
+		return entry
+	}
+
+	t.Run("a resolved reference shows the target's outline", func(t *testing.T) {
+		provider := &lsByLemmaStub{byLemma: map[string][]enrichment.LatinLSEntry{
+			"dictito": {redirect(enrichment.LatinLSCrossRef{Text: "dicto", EntryID: "n20", Headword: "dicto"})},
+			"dicto":   {target},
+		}}
+
+		html := freeze(provider).DictionaryEntry
+
+		assert.Contains(t, html, "dictĭto")
+		assert.Contains(t, html, "to say often")
+		assert.NotContains(t, html, "Full Lewis")
+	})
+	t.Run("an unresolved reference shows only the head line", func(t *testing.T) {
+		provider := &lsByLemmaStub{byLemma: map[string][]enrichment.LatinLSEntry{
+			"dictito": {redirect(enrichment.LatinLSCrossRef{Text: "the foll."})},
+		}}
+
+		html := freeze(provider).DictionaryEntry
+
+		assert.Contains(t, html, "dictĭto")
+		assert.NotContains(t, html, "dict-outline")
+		assert.NotContains(t, html, "Full Lewis")
+		assert.NotContains(t, html, "the foll.")
+	})
 }

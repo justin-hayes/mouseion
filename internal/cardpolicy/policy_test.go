@@ -1,61 +1,61 @@
 package cardpolicy
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
 
 func TestGreekPolicyUsesSourceEvidence(t *testing.T) {
 	for _, tag := range []string{"grc", "GRC", " grc "} {
-		policy := For(tag)
-		if !policy.SourceEvidence || policy.SourceNotice != GreekSourceNotice || policy.NLPAnalysed {
-			t.Fatalf("For(%q) = %+v, want a source-evidence, imported-analysis policy", tag, policy)
-		}
-		if policy.SentenceBoundary != BoundaryTerminalMark {
-			t.Fatalf("For(%q).SentenceBoundary = %v, want terminal mark", tag, policy.SentenceBoundary)
-		}
-		if policy.DictionaryLookup != LookupExactlyOne {
-			t.Fatalf("For(%q).DictionaryLookup = %v, want exactly-one", tag, policy.DictionaryLookup)
-		}
-		if !policy.EvidenceAssistedPass {
-			t.Fatalf("For(%q) must allow the evidence-assisted pass", tag)
-		}
+		t.Run(tag, func(t *testing.T) {
+			policy := For(tag)
+			require.True(t, policy.SourceEvidence, "source-evidence policy")
+			assert.Equal(t, GreekSourceNotice, policy.SourceNotice)
+			assert.False(t, policy.NLPAnalysed, "imported analysis")
+			assert.Equal(t, BoundaryTerminalMark, policy.SentenceBoundary)
+			assert.Equal(t, LookupExactlyOne, policy.DictionaryLookup)
+			assert.True(t, policy.EvidenceAssistedPass, "evidence-assisted pass allowed")
+		})
 	}
 }
 
 func TestGreekPolicyNamesItsTranslationsAndEntries(t *testing.T) {
 	policy := For("grc")
-	if policy.Translations != TranslationPerseus || policy.Entries != EntryLSJ || policy.Citations != CitationsNone {
-		t.Fatalf("For(grc) = %+v, want Perseus translations and LSJ entries", policy)
-	}
+
+	assert.Equal(t, TranslationPerseus, policy.Translations)
+	assert.Equal(t, EntryLSJ, policy.Entries)
+	assert.Equal(t, CitationsNone, policy.Citations)
 }
 
 func TestLatinPolicyUsesSourceEvidenceWithNoProviderPass(t *testing.T) {
 	for _, tag := range []string{"la", "LA", " la "} {
-		policy := For(tag)
-		if !policy.SourceEvidence || policy.NLPAnalysed || policy.EvidenceAssistedPass {
-			t.Fatalf("For(%q) = %+v, want source-evidence cards, no NLP notice, no evidence-assisted pass", tag, policy)
-		}
-		if policy.SourceNotice != LatinSourceNotice || policy.Translations != TranslationPerseus {
-			t.Fatalf("For(%q) = %+v, want the Latin notice and Perseus translations", tag, policy)
-		}
-		if policy.SentenceBoundary != BoundaryTerminalMark {
-			t.Fatalf("For(%q).SentenceBoundary = %v, want terminal mark", tag, policy.SentenceBoundary)
-		}
-		if policy.Citations != CitationsWorkAuthor {
-			t.Fatalf("For(%q).Citations = %v, want the Work author filter", tag, policy.Citations)
-		}
-		if policy.Entries != EntryLewisShort {
-			t.Fatalf("For(%q).Entries = %v, want Lewis & Short, never the Greek LSJ", tag, policy.Entries)
-		}
+		t.Run(tag, func(t *testing.T) {
+			policy := For(tag)
+			require.True(t, policy.SourceEvidence, "source-evidence cards")
+			assert.False(t, policy.NLPAnalysed, "no NLP notice")
+			assert.False(t, policy.EvidenceAssistedPass, "no evidence-assisted pass")
+			assert.Equal(t, LatinSourceNotice, policy.SourceNotice)
+			assert.Equal(t, TranslationPerseus, policy.Translations)
+			assert.Equal(t, BoundaryTerminalMark, policy.SentenceBoundary)
+			assert.Equal(t, CitationsWorkAuthor, policy.Citations)
+			assert.Equal(t, EntryLewisShort, policy.Entries, "Lewis & Short, never the Greek LSJ")
+			assert.Equal(t, LookupEveryEntry, policy.DictionaryLookup, "Latin never reads the Greek index")
+		})
 	}
 }
 
 func TestModernLanguagesTakeTheProviderRoute(t *testing.T) {
 	for _, tag := range []string{"de", "it", "el", "fr", "", "xx"} {
-		policy := For(tag)
-		if policy.SourceEvidence || policy.SourceNotice != "" || policy.EvidenceAssistedPass || !policy.NLPAnalysed {
-			t.Fatalf("For(%q) = %+v, want the modern-language provider route", tag, policy)
-		}
-		if policy.SentenceBoundary != BoundaryCapitalisedStart || policy.DictionaryLookup != LookupStored {
-			t.Fatalf("For(%q) = %+v, want capitalised-start boundary and stored lookup", tag, policy)
-		}
+		t.Run(tag, func(t *testing.T) {
+			policy := For(tag)
+			assert.False(t, policy.SourceEvidence)
+			assert.Empty(t, policy.SourceNotice)
+			assert.False(t, policy.EvidenceAssistedPass)
+			assert.True(t, policy.NLPAnalysed, "provider route")
+			assert.Equal(t, BoundaryCapitalisedStart, policy.SentenceBoundary)
+			assert.Equal(t, LookupStored, policy.DictionaryLookup)
+		})
 	}
 }
