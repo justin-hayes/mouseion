@@ -1,6 +1,6 @@
 # ADR 0130: Retain covers for Catalog entries, and compose Title plates
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Decided by Justin in a grilling session on 2026-11-24. Amends
 [ADR 0077](0077-catalog-supplied-book-covers.md). Supports
