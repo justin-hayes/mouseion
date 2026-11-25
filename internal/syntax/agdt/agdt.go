@@ -6,6 +6,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/syntax"
@@ -45,6 +46,20 @@ type UnprintedNode struct {
 // dangling head reference and a head cycle both end as the root, so a damaged
 // row never fails a page.
 func Adapt(tokens []Token, unprinted []UnprintedNode) syntax.Tree {
+	return adapt(tokens, unprinted, func(relation string) (syntax.Category, bool) { return Category(relation), false })
+}
+
+// AdaptLatin is Adapt for an Opera Latina Adnotata run: each relation is read
+// through ReadLatinRelation, so a node carries its base category and a conjunct
+// flag. Stored relations stay verbatim (ADR 0122 decision 3, ADR 0132).
+func AdaptLatin(tokens []Token, unprinted []UnprintedNode) syntax.Tree {
+	return adapt(tokens, unprinted, func(relation string) (syntax.Category, bool) {
+		base, conjunct := ReadLatinRelation(relation)
+		return Category(base), conjunct
+	})
+}
+
+func adapt(tokens []Token, unprinted []UnprintedNode, read func(string) (syntax.Category, bool)) syntax.Tree {
 	tokens = append([]Token(nil), tokens...)
 	sort.SliceStable(tokens, func(i, j int) bool { return tokens[i].Ordinal < tokens[j].Ordinal })
 	unprinted = append([]UnprintedNode(nil), unprinted...)
@@ -65,16 +80,18 @@ func Adapt(tokens []Token, unprinted []UnprintedNode) syntax.Tree {
 	for _, e := range entries {
 		if e.printed {
 			token := tokens[e.at]
+			category, conjunct := read(token.Relation)
 			nodes = append(nodes, syntax.Node{
 				Printed: true, Ordinal: token.Ordinal, Surface: token.Surface, Lemma: token.Lemma,
 				UPOS: token.UPOS, Morphology: token.Morphology, Relation: token.Relation,
-				Category: Category(token.Relation), Head: index.tokenHead(token),
+				Category: category, Conjunct: conjunct, Head: index.tokenHead(token),
 			})
 			continue
 		}
 		node := unprinted[e.at]
+		category, conjunct := read(node.Relation)
 		nodes = append(nodes, syntax.Node{
-			SourceID: node.SourceID, Relation: node.Relation, Category: Category(node.Relation),
+			SourceID: node.SourceID, Relation: node.Relation, Category: category, Conjunct: conjunct,
 			Head: index.resolve(node.HeadToken, node.HeadUnprintedNode),
 		})
 	}
@@ -237,4 +254,33 @@ func FromSentence(sentence analyzer.Sentence) syntax.Tree {
 		}
 	}
 	return Adapt(tokens, nodes)
+}
+
+// ReadLatinRelation reads an OLA relation: it strips the _CO, _AP and _ExD
+// suffixes, in any order and combination, and reports whether _CO (a conjunct
+// of a coordination) was among them. A relation with no base before its
+// suffixes, or with any unknown suffix, is returned unchanged.
+func ReadLatinRelation(relation string) (base string, conjunct bool) {
+	rest := relation
+	for {
+		cut := strings.LastIndexByte(rest, '_')
+		if cut <= 0 {
+			break
+		}
+		switch rest[cut:] {
+		case "_CO":
+			conjunct = true
+		case "_AP", "_ExD":
+		default:
+			cut = -1
+		}
+		if cut < 0 {
+			return relation, false
+		}
+		rest = rest[:cut]
+	}
+	if strings.HasPrefix(rest, "_") {
+		return relation, false
+	}
+	return rest, conjunct
 }

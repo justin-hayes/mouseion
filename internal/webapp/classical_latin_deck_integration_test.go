@@ -138,7 +138,7 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
-	build := buildLatinArchive(t, "ola-deck-layer", latinDeckConllu, latinDeckPaula())
+	build := buildLatinLoopArchiveFrom(t, "ola-deck-layer", latinDeckConllu, latinDeckPaula())
 	archiveServer := &rangeServer{archive: build.archive}
 	archiveHTTP := httptest.NewServer(archiveServer.handler())
 	t.Cleanup(archiveHTTP.Close)

@@ -49,6 +49,9 @@ type Node struct {
 	// Relation is the raw source relation string.
 	Relation string
 	Category Category
+	// Conjunct reports a relation read as a conjunct of a coordination (an OLA
+	// _CO suffix). Category holds the base category.
+	Conjunct bool
 	// Head is an index into Tree.Nodes, or Root.
 	Head int
 }
