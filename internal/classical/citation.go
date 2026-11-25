@@ -1,6 +1,7 @@
 package classical
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -73,6 +74,21 @@ func compareDotted(a, b []int) int {
 		}
 	}
 	return 0
+}
+
+// CompareCitations orders two dotted citations component-wise, treating
+// missing components as zero. It refuses a value that is not a dotted
+// citation instead of ordering it as zero.
+func CompareCitations(a, b string) (int, error) {
+	left, ok := parseDottedCitation(a)
+	if !ok {
+		return 0, fmt.Errorf("classical: %q is not a dotted citation", a)
+	}
+	right, ok := parseDottedCitation(b)
+	if !ok {
+		return 0, fmt.Errorf("classical: %q is not a dotted citation", b)
+	}
+	return compareDotted(left, right), nil
 }
 
 // parseDottedCitation splits "1.10.19" into non-negative numbers.

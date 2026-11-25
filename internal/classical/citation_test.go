@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFormatCitationRange(t *testing.T) {
@@ -28,4 +29,15 @@ func TestFormatCitationRange(t *testing.T) {
 			assert.Equal(t, test.want, FormatCitationRange(test.citations))
 		})
 	}
+}
+
+func TestCompareCitationsOrdersComponentsAndRefusesInvalidInput(t *testing.T) {
+	order, err := CompareCitations("1.2.3", "1.10")
+	require.NoError(t, err)
+	assert.Equal(t, -1, order)
+	order, err = CompareCitations("2", "2.0")
+	require.NoError(t, err)
+	assert.Zero(t, order)
+	_, err = CompareCitations("1.x", "1.2")
+	require.Error(t, err)
 }

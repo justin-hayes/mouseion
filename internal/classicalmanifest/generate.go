@@ -385,7 +385,11 @@ func (b *builder) planUnits(override classical.Override, sourceData []byte, sour
 
 func (b *builder) planExplicitUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
 	spec := override.Units[0] // The override validator allows at most one.
-	if compareCitations(spec.CitationStart, spec.CitationEnd) > 0 {
+	order, err := classical.CompareCitations(spec.CitationStart, spec.CitationEnd)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q: %w", override.WorkKey, err)
+	}
+	if order > 0 {
 		return nil, 0, nil, fmt.Errorf("classical: work override %q has a backwards citation range", override.WorkKey)
 	}
 	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: spec.CitationStart, end: spec.CitationEnd}
@@ -953,35 +957,6 @@ func firstCitationNumber(citation string) (int, error) {
 		return 0, fmt.Errorf("classical: citation %q has no constituent book number", citation)
 	}
 	return number, nil
-}
-
-// compareCitations compares two dotted citations component-wise.
-func compareCitations(a, b string) int {
-	left, right := strings.Split(a, "."), strings.Split(b, ".")
-	length := max(len(left), len(right))
-	for index := range length {
-		lv, rv := citationPart(left, index), citationPart(right, index)
-		if lv != rv {
-			if lv < rv {
-				return -1
-			}
-			return 1
-		}
-	}
-	return 0
-}
-
-// citationPart returns one parsed component, or zero for a missing or invalid
-// one. Callers validate citations before comparing them.
-func citationPart(parts []string, index int) int {
-	if index >= len(parts) {
-		return 0
-	}
-	number, err := strconv.Atoi(parts[index])
-	if err != nil {
-		return 0
-	}
-	return number
 }
 
 // resolveUpstream joins a pinned file name under the upstream directory and
