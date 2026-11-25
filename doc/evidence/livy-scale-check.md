@@ -12,12 +12,13 @@ Run on 2026-11-25 at `ticket-2687@493111f6`.
 ## Result
 
 **Livy is not admitted.** Reading and Vocabulary Browse fail their bounds:
-the Reading page takes 3.5 s for each request (5.6–5.8 s once a deck has
-been prepared), against a bound of 1 s. Deck preparation's peak memory is at
-the 2 GiB bound (2,035 MiB in one run, 2,200 MiB in the other). Gate (iii)
-also fails on the committed reader. Livy is absent from the manifest, and
-ADR 0128 is not amended. A follow-up issue records the figures and the
-blocking surface.
+the Reading page takes 3.5 s for each request, against a bound of 1 s.
+Deck preparation's peak memory passed the 2 GiB bound in one run (2,035 MiB)
+and failed it in the other (2,200 MiB), so it is not reliably within it.
+Gate (iii) also fails on the committed reader. Livy is absent from the
+manifest, and ADR 0128 is not amended. A follow-up issue recording the
+figures and the blocking surface has been drafted for Justin to review; it is
+not filed yet.
 
 ## Criteria
 
@@ -59,8 +60,14 @@ Preparation and deck building are background jobs, so they may take minutes.
 ## Method
 
 The test ran on a throwaway stack: a Testcontainers PostgreSQL, with the web
-handler and River workers in process. They were wired as `cmd/server` wires
-them, with no NLP service and no translation provider. The dictionary index
+handler and River workers in process. The preparation, translation and
+prepared-deck workers were wired as `cmd/server` wires them, with no NLP
+service and no translation provider. The web handler was given the services
+the batch-1 deployment check used (auth, store, analysis, prepared deck,
+Classical catalog). It was not given `AnalysisInsights`, `SourceStructures`,
+`EPUBAcquisition`, `ReadingIntent` or `OPDS`, which `cmd/server` passes, so
+the Reading page skipped the coverage work `AnalysisInsights` adds in
+production. The page times below are therefore lower bounds. The dictionary index
 was the L&S index derived for batch 1. The harness was a scratch integration
 test kept outside the repository, and none of the running deployment's
 containers was used. Each Work ran in its own process. The test went through
@@ -83,6 +90,15 @@ the sparse OLA archive (filled by Range from Zenodo, with CRC-32 checked),
 `canonical-latinLit@8cef5162` and the OGA and `canonical-greekLit` pins.
 Preparation fetched 19,352,905 bytes for Livy and 12,928,041 bytes for the
 Republic.
+
+To rerun it, build a scratch manifest that holds Livy's Definition (OLA
+members above, `perseus-eng2`, a placeholder spot check) with `make
+classical-manifest` and the sparse archive as upstream. Then run an
+integration test in `internal/webapp` that follows the deployment check's
+wiring with a transport serving the upstream directory by file name, once
+per Work, with `go test -count=1 -tags=integration -run <test> -timeout 90m`.
+The test is reproducible from the steps above; the scratch harness itself
+was not committed.
 
 The machine had 16 CPUs and 31 GiB of RAM. The scratch manifest held Livy with
 `perseus-eng2` and a measurement-only spot check. It was built with the
@@ -109,10 +125,16 @@ about 5%, except for the deck's peak RSS, shown as both runs' values.
 | Sentence study, first sentence | 108 / 109 / 112 ms | 864 / 862 / 879 ms | 7.9× | pass |
 | Sentence study, last sentence | 279 / 284 / 287 ms | 287 / 279 / 282 ms | 1.0× | pass |
 | Concordance lemma lookup | 372 / 354 / 370 ms | 1,245 / 1,252 / 1,258 ms | 3.5× | **fail** |
-| My Books | 175 / 161 / 164 ms | 700 / 695 / 719 ms | 4.3× | pass |
+| My Books (supplemental) | 175 / 161 / 164 ms | 700 / 695 / 719 ms | 4.3× | within the bound |
 | Deck preparation | 7.9 s, 1,895 cards, 8.1 MB | 29.5 s, 7,117 cards, 25.9 MB | 3.7× | pass. Per card, 0.99× the Republic's |
-| Deck: peak RSS | 616 MiB | 2,035 MiB; 2,200 MiB in the second run | 3.3× | **fail**: at or over 2 GiB |
-| Reading after the deck is ready | 1,438 / 1,365 / 1,427 ms | 5,555 / 5,558 / 5,606 ms | 4.1× | **fail** |
+| Deck: peak RSS | 616 MiB | 2,035 MiB (pass); 2,200 MiB in the second run (fail) | 3.3× | **fail**: over 2 GiB in one of two runs |
+
+Supplemental, outside the preset navigation list (My Books, above, is also
+supplemental):
+
+| Page | Republic | Livy | Ratio |
+|---|---|---|---|
+| Reading after the deck is ready | 1,438 / 1,365 / 1,427 ms | 5,555 / 5,558 / 5,606 ms | 4.1× |
 
 The Concordance lookup used the lemmas *sum* and εἰμί. The prefix filter
 used `con` and `πρ`. Every page returned 200, and no deck preparation called
@@ -168,8 +190,11 @@ Each translation fails gate (iii) for its own reason:
   section". It also has six empty sections.
 
 **D6. Empty translation section.** If the reader skipped an empty section,
-leaving its sentences unjoined, both of the first two translations would pass
-gate (iii). These figures come from a scratch build that was not committed:
+leaving its sentences unjoined, both of the first two translations would
+clear gate (iii)'s mechanical checks, the join floor and the tier check.
+Admission would still need the spot check that ADR 0133 requires Justin to
+record; the scratch run used a placeholder. These figures come from a scratch
+build that was not committed:
 
 - `perseus-eng2`: join 29,690 of 29,938 sentences (99.17%), tier A.
 - `perseus-eng3`: join 29,651 of 29,938 sentences (99.04%), tier A.
