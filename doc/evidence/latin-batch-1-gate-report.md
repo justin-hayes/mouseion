@@ -52,7 +52,7 @@ the join floor, and ADR 0133's tier check on the translation's keying.
 | Work | OLA member | Translation | (i) Citations | (ii) Split words | (iii) Join | (iii) Tier | (iv) Dictionary | Result |
 |---|---|---|---|---|---|---|---|---|
 | `caesar-gallic-war` | `phi0448.phi001.perseus-lat2` | `perseus-eng2` | pass, 60,404 tokens | pass, 52/52,686, 0.099% | pass, 2,845/2,845, 100% | **FAIL**: tier B, 10 of 404 segments over 400 words, largest 750, first at 1.18 | pass, 31,094/33,753, 92.1% | **Admitted**, cleared by Justin (tier B limit) |
-| `sallust-catiline` | `phi0631.phi001.perseus-lat3` | `perseus-eng2` | pass, 12,922 tokens | pass, 3/10,941, 0.027% | **FAIL**: 681/698, 97.56% | pass, tier A | pass, 7,157/7,552, 94.8% | **Dropped out** (clearance withdrawn after the chapter-shift measurement). Removed from the overrides |
+| `sallust-catiline` | `phi0631.phi001.perseus-lat3` | `perseus-eng2` | pass, 12,922 tokens | pass, 3/10,941, 0.027% | **FAIL**: 681/698, 97.56% | pass, tier A | pass, 7,157/7,552, 94.8% | **Admitted**, cleared by Justin (join floor) |
 | `sallust-jugurthine-war` | `phi0631.phi002.perseus-lat3` | `perseus-eng2` | pass, 25,705 tokens | pass, 12/21,824, 0.055% | pass, 1,316/1,316, 100% | pass, tier A | pass, 13,649/14,902, 91.6% | **Admitted** |
 | `cicero-in-catilinam` | `phi0474.phi013.perseus-lat2` | `perseus-eng2` | pass, 14,862 tokens | pass, 9/12,840, 0.070% | pass, 670/670, 100% | pass, tier A | pass, 7,702/8,190, 94.0% | **Admitted** |
 | `cicero-pro-archia` | `phi0474.phi016.perseus-lat2` | `perseus-eng2` | pass, 3,616 tokens | pass, 2/3,169, 0.063% | pass, 144/144, 100% | pass, tier A | pass, 1,793/1,939, 92.5% | **Admitted** |
@@ -69,9 +69,11 @@ Notes on the readings:
 
 - *De Senectute*'s translation (`perseus-eng1`) marks section 35 with two
   section milestones, and the second carries the English of the Latin's
-  section 36. The reader merges both into section 35; that is the reading
-  measured above (orchestrator decision). Section 36 (5 sentences) is
-  unjoined, and a card citing 35 shows the English of 35 and 36.
+  section 36. The reader keeps the first and drops the repeat, never merging
+  it into section 35. Section 36 (5 sentences) is unjoined and shows no
+  English, and a card citing 35 shows the English of 35 only. Re-measured on
+  the real file after the change: join 522/527 (99.05%), unchanged, and the
+  committed manifest reproduces byte for byte.
 - *In Catilinam*'s translation is keyed speech.section, like the Latin, so it
   is tier A. Its override lists no contents: #2674 story 7 shows a Work
   divided into speeches with no contents list. Editorial textparts (`argument`, `intro`, `chronology`, `note`)
