@@ -55,7 +55,7 @@ CREATE UNIQUE INDEX study_material_current_word_idx
 -- One record per word and evidence.
 CREATE UNIQUE INDEX study_material_word_evidence_idx
     ON public.study_material(owner_id, language, canonical_lemma, upos, lexical_discriminator, analysis_run_id, sentence_ordinal, token_ordinal)
-    WHERE state = 'ready';
+    WHERE state = 'ready' AND superseded_at IS NULL;
 
 CREATE INDEX study_material_state_idx
     ON public.study_material(owner_id, language, state)
