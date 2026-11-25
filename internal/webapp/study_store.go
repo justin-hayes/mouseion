@@ -13,10 +13,9 @@ import (
 // (ADR 0088).
 type StudyStore interface {
 	CountStudyMaterial(ctx context.Context, owner, language string) (domain.StudyMaterialCounts, error)
-	// ListStudyCandidates and ListCurrentStudyMaterial are the facts a batch is
-	// chosen from; the domain orders them.
+	// ListStudyCandidates is the fact a batch is chosen from; the domain orders
+	// them. ListCurrentStudyMaterial, with it, is in StudyCorrectionsStore.
 	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
-	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
 	// StudyBatchLedger reports the batches offered, taken and declined on a
 	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
@@ -43,6 +42,7 @@ type StudyCorrectionsStore interface {
 	// word was introduced in.
 	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
+	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	// SupersedeStudyMaterial replaces a word's material so it is prepared
 	// again, and SetStudyWordWithdrawn withdraws a word or returns it, keeping
 	// its progress.
