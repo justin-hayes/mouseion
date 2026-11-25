@@ -5,6 +5,7 @@ package webapp
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
@@ -65,8 +66,13 @@ func TestCatalogEntryCoverEndpointAndCardAreOwnerScopedAndHideUpstreamURL(t *tes
 	crossConditional := performWithHeader(t, h, http.MethodGet, coverPath, nil, bobCookies, "If-None-Match", `"entry-v1"`)
 	badSource := perform(t, h, http.MethodGet, "/catalogs/sources/not-a-uuid/cover?entry=x", nil, aliceCookies)
 	noEntry := perform(t, h, http.MethodGet, "/catalogs/sources/"+connection.ID+"/cover", nil, aliceCookies)
-	for _, response := range []int{missing.Code, crossOwner.Code, crossConditional.Code, noEntry.Code, badSource.Code} {
-		assert.Equal(t, http.StatusNotFound, response)
+	for name, response := range map[string]*httptest.ResponseRecorder{
+		"entry without a cover": missing, "other owner": crossOwner, "other owner conditional": crossConditional,
+		"no entry": noEntry, "malformed source": badSource,
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, http.StatusNotFound, response.Code)
+		})
 	}
 	assert.Equal(t, missing.Body.String(), crossOwner.Body.String())
 

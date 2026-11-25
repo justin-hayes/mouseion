@@ -127,7 +127,9 @@ section records the shape settled under ADR 0038 before any SQL.
   display raster, not an unlimited original or append-only image history.
 - Cover bytes live in PostgreSQL and are excluded from ordinary Book list and
   evidence projections. A dedicated authenticated, owner-scoped endpoint loads
-  and serves bytes only for an active My Books member. Missing, unavailable,
+  and serves bytes only for an active My Books member. (The Catalog card's
+  entry-cover endpoint is separate: it serves a retained entry image to the
+  owner of that Catalog connection.) Missing, unavailable,
   removed-from-view, and cross-owner references all return the same not-found
   response; conditional requests are evaluated only after authorization.
 - The image response supplies intrinsic dimensions, a content-derived validator,

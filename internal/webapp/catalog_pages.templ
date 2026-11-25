@@ -145,7 +145,7 @@ templ CatalogEntryCard(csrf string, card catalogCard) {
 	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + card.ID }>
 		if card.CoverURL != "" {
 			<div class="book-cover-media">
-				<img class="book-cover-media__image" src={ templ.SafeURL(card.CoverURL) } alt="" width={ fmt.Sprintf("%d", card.CoverWidth) } height={ fmt.Sprintf("%d", card.CoverHeight) } loading="lazy" decoding="async"/>
+				@CoverImage(card.CoverURL, card.CoverWidth, card.CoverHeight)
 			</div>
 		} else {
 			@BookCoverMedia("", card.Plate, domain.BookCover{})

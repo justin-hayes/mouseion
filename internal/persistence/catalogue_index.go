@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -55,9 +56,11 @@ func reconcileCatalogueIndex(ctx context.Context, tx pgx.Tx, owner, connectionID
 		}
 		return err
 	}
-	previous, err := previousCatalogueCovers(ctx, q, owner, connectionID)
-	if err != nil {
-		return err
+	// Cover bookkeeping is optional metadata (ADR 0077): it runs in a savepoint
+	// so its failure is logged and never rolls back or fails the index.
+	covers, coversErr := newCatalogCoverReconciler(ctx, tx, owner, connectionID)
+	if coversErr != nil {
+		log.Printf("catalog entry covers: %v", coversErr)
 	}
 	for _, entry := range entries {
 		if err := q.UpsertCatalogueEntry(ctx, sqlcgen.UpsertCatalogueEntryParams{
@@ -79,7 +82,12 @@ func reconcileCatalogueIndex(ctx context.Context, tx pgx.Tx, owner, connectionID
 	}); err != nil {
 		return err
 	}
-	return reconcileCatalogEntryCovers(ctx, q, owner, connectionID, entries, previous, observedAt)
+	if coversErr == nil {
+		if err := covers.reconcile(ctx, entries, observedAt); err != nil {
+			log.Printf("catalog entry covers: %v", err)
+		}
+	}
+	return nil
 }
 
 // ListCatalogueEntries returns one connection's Catalog index in the order the

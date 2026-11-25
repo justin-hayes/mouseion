@@ -24,51 +24,75 @@ const (
 // CatalogEntryCoverGeneration equals the stored fence.
 const CatalogEntryCoverFence = time.Microsecond
 
-// previousCatalogueCovers reads the advertised cover identity of the connection's
-// index before a run replaces it, so reconciliation can tell a changed image
-// from an unchanged one.
-func previousCatalogueCovers(ctx context.Context, q *sqlcgen.Queries, owner, connectionID string) (map[string]string, error) {
-	rows, err := q.ListCatalogueEntries(ctx, sqlcgen.ListCatalogueEntriesParams{OwnerID: uuidArg(owner), ConnectionID: connectionID})
-	if err != nil {
-		return nil, err
-	}
-	previous := make(map[string]string, len(rows))
-	for _, row := range rows {
-		previous[row.EntryIdentifier] = row.CoverHref + "\x00" + row.CoverMediaType
-	}
-	return previous, nil
+// catalogCoverAdvert is the advertised cover identity of an index entry; a
+// change in either field means the upstream image changed.
+type catalogCoverAdvert struct{ href, mediaType string }
+
+// catalogCoverReconciler holds the pre-run advertised covers of one connection
+// so reconciliation can tell a changed image from an unchanged one. Its writes
+// run in a savepoint: a failure rolls back only cover bookkeeping.
+type catalogCoverReconciler struct {
+	tx                  pgx.Tx
+	owner, connectionID string
+	previous            map[string]catalogCoverAdvert
 }
 
-// reconcileCatalogEntryCovers applies a complete run's cover bookkeeping in the
-// index transaction (ADR 0077, ADR 0130). An entry that advertises an image and
-// has no retained, unchanged one starts a retrieval generation fenced by
-// observedAt; the previous image stays until a replacement validates. An entry
-// that left the index or stopped advertising an image loses its cover.
-func reconcileCatalogEntryCovers(ctx context.Context, q *sqlcgen.Queries, owner, connectionID string, entries []domain.CatalogueIndexEntry, previous map[string]string, observedAt time.Time) error {
-	if _, err := q.DeleteCatalogEntryCoversNotAdvertised(ctx, sqlcgen.DeleteCatalogEntryCoversNotAdvertisedParams{OwnerID: owner, ConnectionID: connectionID}); err != nil {
-		return err
-	}
-	states, err := q.ListCatalogEntryCoverStates(ctx, sqlcgen.ListCatalogEntryCoverStatesParams{OwnerID: owner, ConnectionID: connectionID})
-	if err != nil {
-		return err
-	}
-	available := make(map[string]bool, len(states))
-	for _, state := range states {
-		// An image whose last refresh failed is retried even if its URL is
-		// unchanged, so a failed replacement never sticks.
-		available[state.EntryIdentifier] = state.State == CatalogEntryCoverAvailable && !state.Failed
-	}
-	fence := observedAt.Truncate(CatalogEntryCoverFence)
+// newCatalogCoverReconciler reads the connection's index before a run replaces
+// it.
+func newCatalogCoverReconciler(ctx context.Context, tx pgx.Tx, owner, connectionID string) (*catalogCoverReconciler, error) {
+	r := &catalogCoverReconciler{tx: tx, owner: owner, connectionID: connectionID}
+	err := pgx.BeginFunc(ctx, tx, func(sp pgx.Tx) error {
+		rows, err := sqlcgen.New(sp).ListCatalogueEntries(ctx, sqlcgen.ListCatalogueEntriesParams{OwnerID: uuidArg(owner), ConnectionID: connectionID})
+		if err != nil {
+			return err
+		}
+		r.previous = make(map[string]catalogCoverAdvert, len(rows))
+		for _, row := range rows {
+			r.previous[row.EntryIdentifier] = catalogCoverAdvert{row.CoverHref, row.CoverMediaType}
+		}
+		return nil
+	})
+	return r, err
+}
+
+// reconcile applies a complete run's cover bookkeeping (ADR 0077, ADR 0130). An
+// entry that advertises an image and has no retained, unchanged one starts a
+// retrieval generation fenced by observedAt; the previous image stays until a
+// replacement validates. An entry that left the index or stopped advertising an
+// image loses its cover.
+func (r *catalogCoverReconciler) reconcile(ctx context.Context, entries []domain.CatalogueIndexEntry, observedAt time.Time) error {
+	return pgx.BeginFunc(ctx, r.tx, func(sp pgx.Tx) error {
+		q := sqlcgen.New(sp)
+		if _, err := q.DeleteCatalogEntryCoversNotAdvertised(ctx, sqlcgen.DeleteCatalogEntryCoversNotAdvertisedParams{OwnerID: r.owner, ConnectionID: r.connectionID}); err != nil {
+			return err
+		}
+		states, err := q.ListCatalogEntryCoverStates(ctx, sqlcgen.ListCatalogEntryCoverStatesParams{OwnerID: r.owner, ConnectionID: r.connectionID})
+		if err != nil {
+			return err
+		}
+		settled := make(map[string]bool, len(states))
+		for _, state := range states {
+			// An image whose last refresh failed is retried even if its URL is
+			// unchanged, so a failed replacement never sticks.
+			settled[state.EntryIdentifier] = state.State == CatalogEntryCoverAvailable && !state.Failed
+		}
+		return r.advertise(ctx, q, entries, settled, observedAt.Truncate(CatalogEntryCoverFence))
+	})
+}
+
+// advertise starts a retrieval generation for every entry that advertises an
+// image and has no settled, unchanged retained one.
+func (r *catalogCoverReconciler) advertise(ctx context.Context, q *sqlcgen.Queries, entries []domain.CatalogueIndexEntry, settled map[string]bool, fence time.Time) error {
 	for _, entry := range entries {
 		if entry.CoverHref == "" {
 			continue
 		}
-		unchanged := previous[entry.EntryIdentifier] == entry.CoverHref+"\x00"+entry.CoverMediaType
-		if available[entry.EntryIdentifier] && unchanged {
+		unchanged := r.previous[entry.EntryIdentifier] == catalogCoverAdvert{entry.CoverHref, entry.CoverMediaType}
+		if settled[entry.EntryIdentifier] && unchanged {
 			continue
 		}
 		if err := q.AdvertiseCatalogEntryCover(ctx, sqlcgen.AdvertiseCatalogEntryCoverParams{
-			OwnerID: owner, ConnectionID: connectionID, EntryIdentifier: entry.EntryIdentifier, AdvertisedAt: fence,
+			OwnerID: r.owner, ConnectionID: r.connectionID, EntryIdentifier: entry.EntryIdentifier, AdvertisedAt: fence,
 		}); err != nil {
 			return err
 		}
