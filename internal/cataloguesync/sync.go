@@ -28,6 +28,7 @@ const (
 	Queue                 = "catalogue_sync"
 	Kind                  = "catalogue_sync"
 	CoverKind             = "book_cover"
+	EntryCoverKind        = "catalog_entry_cover"
 	DefaultCadence        = 24 * time.Hour
 	defaultMaxAttempts    = 3
 	periodicJobIDPrefix   = "catalogue_sync:"
@@ -75,6 +76,20 @@ type CoverArgs struct {
 }
 
 func (CoverArgs) Kind() string { return CoverKind }
+
+// EntryCoverArgs is the entry-keyed retrieval job (ADR 0130): it names a
+// Catalog entry, never a Book, a URL, or credentials. AdvertisedAt fences the
+// completion against a newer retrieval generation. Book-keyed CoverArgs jobs
+// already queued drain through their own worker until the per-Book store is
+// retired.
+type EntryCoverArgs struct {
+	OwnerID          string    `json:"owner_id" river:"unique"`
+	ConnectionID     string    `json:"connection_id" river:"unique"`
+	SourceIdentifier string    `json:"source_identifier" river:"unique"`
+	AdvertisedAt     time.Time `json:"advertised_at" river:"unique"`
+}
+
+func (EntryCoverArgs) Kind() string { return EntryCoverKind }
 
 func (SyncArgs) Kind() string { return Kind }
 
@@ -129,6 +144,15 @@ type coverStore interface {
 	SaveBookCover(context.Context, string, string, string, string, time.Time, string, int, int, string, []byte) error
 	MarkBookCoverUnavailable(context.Context, string, string, string, string, time.Time, string) error
 	GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error)
+}
+
+// entryCoverStore is the entry-keyed retained cover store (ADR 0130).
+type entryCoverStore interface {
+	CatalogueStore
+	CatalogEntryCoverGeneration(context.Context, string, string, time.Time) ([]string, error)
+	GetCatalogEntryCoverForRetrieval(context.Context, string, string, string) (domain.CatalogEntryCoverRetrieval, error)
+	SaveCatalogEntryCover(context.Context, string, string, string, time.Time, string, int, int, string, []byte) error
+	MarkCatalogEntryCoverUnavailable(context.Context, string, string, string, time.Time, string) error
 }
 
 // CatalogueSyncStatusStore contains the durable sync status operations.
@@ -228,6 +252,22 @@ func (s *Service) EnqueueCover(ctx context.Context, owner, bookID, connectionID,
 	}
 	if inserted == nil || inserted.Job == nil {
 		return Handle{}, errors.New("book cover enqueue returned no River job")
+	}
+	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
+}
+
+// EnqueueEntryCover schedules retrieval of one Catalog entry's cover,
+// independently of metadata reconciliation and of any Book.
+func (s *Service) EnqueueEntryCover(ctx context.Context, owner, connectionID, sourceIdentifier string, advertisedAt time.Time) (Handle, error) {
+	if s == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(sourceIdentifier) == "" {
+		return Handle{}, ErrNotFound
+	}
+	inserted, err := s.client.Insert(ctx, EntryCoverArgs{OwnerID: owner, ConnectionID: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt}, insertOpts())
+	if err != nil {
+		return Handle{}, fmt.Errorf("enqueue catalog entry cover retrieval: %w", err)
+	}
+	if inserted == nil || inserted.Job == nil {
+		return Handle{}, errors.New("catalog entry cover enqueue returned no River job")
 	}
 	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
 }
@@ -743,9 +783,13 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	}
 	// The index is replaced only after a complete traversal, so a failed or
 	// partial run never deletes entries it did not see.
-	if err := s.catalogue.ReconcileCatalogueIndex(ctx, args.OwnerID, args.ConnectionID, result.indexEntries, time.Now()); err != nil {
+	observedAt := time.Now()
+	if err := s.catalogue.ReconcileCatalogueIndex(ctx, args.OwnerID, args.ConnectionID, result.indexEntries, observedAt); err != nil {
 		return 0, fmt.Errorf("catalog index could not be reconciled: %w", err)
 	}
+	// Entry covers were advertised, refreshed, or removed in the index
+	// transaction; schedule retrieval for the generation this run started.
+	s.scheduleEntryCovers(ctx, args.OwnerID, args.ConnectionID, observedAt)
 	// Metadata follows the index, and only for Books linked to an observed
 	// entry. Only a complete, successful traversal changes retained cover state:
 	// this is the point at which explicit upstream absence is conclusive.
@@ -870,6 +914,27 @@ func projectCatalogueIndexEntry(entry opds.Entry, language string) (domain.Catal
 		indexed.CoverMediaType = link.Type
 	}
 	return indexed.Normalized(), true
+}
+
+// scheduleEntryCovers enqueues retrieval for every entry whose cover
+// generation this run started. Cover work is optional metadata: a failure is
+// logged and never fails catalog sync.
+func (s *Service) scheduleEntryCovers(ctx context.Context, owner, connectionID string, observedAt time.Time) {
+	covers, ok := s.catalogue.(entryCoverStore)
+	if !ok || s.client == nil {
+		return
+	}
+	entries, err := covers.CatalogEntryCoverGeneration(ctx, owner, connectionID, observedAt)
+	if err != nil {
+		log.Printf("list catalog entry cover generation: %v", err)
+		return
+	}
+	advertisedAt := observedAt.Truncate(persistence.CatalogEntryCoverFence)
+	for _, entry := range entries {
+		if _, err := s.EnqueueEntryCover(ctx, owner, connectionID, entry, advertisedAt); err != nil {
+			log.Printf("schedule catalog entry cover retrieval: %v", err)
+		}
+	}
 }
 
 // applyCoverAdvertisements records advertised provenance and schedules
@@ -1030,6 +1095,66 @@ func (w *CoverWorker) failCoverRetrieval(ctx context.Context, args CoverArgs) er
 	return errors.New("book cover retrieval or validation failed")
 }
 
+// EntryCoverWorker retrieves one Catalog entry's cover (ADR 0130). It reloads
+// the entry from the Catalog index and fetches through the owner's connection,
+// so the job never carries a URL or credentials.
+type EntryCoverWorker struct {
+	river.WorkerDefaults[EntryCoverArgs]
+	Connections ConnectionStore
+	Catalogue   entryCoverStore
+	Reader      coverReader
+}
+
+func (w *EntryCoverWorker) Work(ctx context.Context, job *river.Job[EntryCoverArgs]) error {
+	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Reader == nil || job == nil {
+		return errors.New("catalog entry cover worker is unavailable")
+	}
+	args := job.Args
+	if strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.ConnectionID) == "" || strings.TrimSpace(args.SourceIdentifier) == "" {
+		return nil
+	}
+	current, err := w.Catalogue.GetCatalogEntryCoverForRetrieval(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !current.AdvertisedAt.Equal(args.AdvertisedAt) {
+		// A newer generation owns the entry; this completion is stale.
+		return nil
+	}
+	entry, err := w.Catalogue.GetCatalogueEntry(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier)
+	if errors.Is(err, persistence.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if entry.CoverHref == "" {
+		// Complete reconciliation owns explicit absence.
+		return nil
+	}
+	raw, advertisedType, err := w.Reader.FetchCover(ctx, args.OwnerID, args.ConnectionID, entry.CoverHref)
+	if err != nil {
+		return w.failEntryCover(ctx, args)
+	}
+	normalized, mediaType, width, height, contentHash, err := bookcover.Normalize(raw, entry.CoverMediaType, advertisedType)
+	if err != nil {
+		return w.failEntryCover(ctx, args)
+	}
+	return w.Catalogue.SaveCatalogEntryCover(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
+}
+
+// failEntryCover keeps any retained image, records the failure for operators,
+// and returns an error so River retries. It never surfaces URLs or credentials.
+func (w *EntryCoverWorker) failEntryCover(ctx context.Context, args EntryCoverArgs) error {
+	if err := w.Catalogue.MarkCatalogEntryCoverUnavailable(context.WithoutCancel(ctx), args.OwnerID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, "cover retrieval or validation failed"); err != nil {
+		return err
+	}
+	return errors.New("catalog entry cover retrieval or validation failed")
+}
+
 func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr error) {
 	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Statuses == nil || w.Reader == nil || w.Capabilities == nil || job == nil {
 		return errors.New("catalogue sync worker is unavailable")
@@ -1063,6 +1188,9 @@ func AddWorker(workers *river.Workers, deps StoreDependencies, reader catalogueR
 	if coverReader, readerOK := reader.(coverReader); readerOK {
 		if covers, storeOK := deps.Catalogue.(coverStore); storeOK {
 			river.AddWorker(workers, &CoverWorker{Connections: deps.Connections, Catalogue: covers, Reader: coverReader, Capabilities: capabilities})
+		}
+		if covers, storeOK := deps.Catalogue.(entryCoverStore); storeOK {
+			river.AddWorker(workers, &EntryCoverWorker{Connections: deps.Connections, Catalogue: covers, Reader: coverReader})
 		}
 	}
 	return worker

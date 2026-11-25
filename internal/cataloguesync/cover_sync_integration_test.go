@@ -84,7 +84,8 @@ func (c *coverCatalog) setImage(href string, img coverImage) {
 	c.images[href] = img
 }
 
-func (c *coverCatalog) setFeedError(prefix string, fail bool) {
+func (c *coverCatalog) setFeedError(fail bool) {
+	const prefix = "/a"
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.feedErrors[prefix] = fail
@@ -744,10 +745,10 @@ func TestCatalogueSyncCoverAbsencePreservesOnUncertainty(t *testing.T) {
 
 	// A failed feed traversal fails sync but preserves the retained image.
 	f.catalog.setEntries("/a", entry)
-	f.catalog.setFeedError("/a", true)
+	f.catalog.setFeedError(true)
 	require.Error(t, f.sync(f.connection.ID))
 	assert.Equal(t, domain.BookCoverAvailable, f.coverState(book.ID).State)
-	f.catalog.setFeedError("/a", false)
+	f.catalog.setFeedError(false)
 
 	// An invalid replacement preserves the prior image and stays diagnosable
 	// without failing catalog sync.

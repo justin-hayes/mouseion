@@ -185,6 +185,22 @@ type Card struct {
 	CreatedAt      time.Time
 }
 
+type CatalogEntryCover struct {
+	OwnerID         string
+	ConnectionID    string
+	EntryIdentifier string
+	State           string
+	AdvertisedAt    time.Time
+	MediaType       pgtype.Text
+	Width           pgtype.Int4
+	Height          pgtype.Int4
+	ContentHash     pgtype.Text
+	Bytes           []byte
+	FetchedAt       pgtype.Timestamptz
+	FailureReason   pgtype.Text
+	UpdatedAt       time.Time
+}
+
 type CatalogueEntry struct {
 	ConnectionID    string
 	EntryIdentifier string

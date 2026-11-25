@@ -29,16 +29,24 @@ WHERE e.connection_id = c.id
   AND e.last_seen_sync < $3;
 
 -- name: ListCatalogueEntries :many
-SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync
+SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync,
+       COALESCE(cover.state = 'available', false)::boolean AS cover_retained,
+       CASE WHEN cover.state = 'available' THEN cover.width ELSE 0 END::int AS cover_width,
+       CASE WHEN cover.state = 'available' THEN cover.height ELSE 0 END::int AS cover_height
 FROM catalogue_entries e
 JOIN opds_connections c ON c.id = e.connection_id
+LEFT JOIN catalog_entry_covers cover ON cover.owner_id = c.owner_id AND cover.connection_id = e.connection_id AND cover.entry_identifier = e.entry_identifier
 WHERE c.owner_id = $1 AND e.connection_id = $2
 ORDER BY e.title, e.author, e.entry_identifier;
 
 -- name: GetCatalogueEntry :one
-SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync
+SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync,
+       COALESCE(cover.state = 'available', false)::boolean AS cover_retained,
+       CASE WHEN cover.state = 'available' THEN cover.width ELSE 0 END::int AS cover_width,
+       CASE WHEN cover.state = 'available' THEN cover.height ELSE 0 END::int AS cover_height
 FROM catalogue_entries e
 JOIN opds_connections c ON c.id = e.connection_id
+LEFT JOIN catalog_entry_covers cover ON cover.owner_id = c.owner_id AND cover.connection_id = e.connection_id AND cover.entry_identifier = e.entry_identifier
 WHERE c.owner_id = $1 AND e.connection_id = $2 AND e.entry_identifier = $3;
 
 -- name: ListCatalogueEntryBooksForConnection :many

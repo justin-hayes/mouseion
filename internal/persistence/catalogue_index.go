@@ -55,6 +55,10 @@ func reconcileCatalogueIndex(ctx context.Context, tx pgx.Tx, owner, connectionID
 		}
 		return err
 	}
+	previous, err := previousCatalogueCovers(ctx, q, owner, connectionID)
+	if err != nil {
+		return err
+	}
 	for _, entry := range entries {
 		if err := q.UpsertCatalogueEntry(ctx, sqlcgen.UpsertCatalogueEntryParams{
 			ConnectionID:    connectionID,
@@ -70,10 +74,12 @@ func reconcileCatalogueIndex(ctx context.Context, tx pgx.Tx, owner, connectionID
 			return err
 		}
 	}
-	_, err := q.DeleteCatalogueEntriesNotSeen(ctx, sqlcgen.DeleteCatalogueEntriesNotSeenParams{
+	if _, err := q.DeleteCatalogueEntriesNotSeen(ctx, sqlcgen.DeleteCatalogueEntriesNotSeenParams{
 		OwnerID: uuidArg(owner), ConnectionID: connectionID, LastSeenSync: observedAt,
-	})
-	return err
+	}); err != nil {
+		return err
+	}
+	return reconcileCatalogEntryCovers(ctx, q, owner, connectionID, entries, previous, observedAt)
 }
 
 // ListCatalogueEntries returns one connection's Catalog index in the order the
@@ -95,6 +101,9 @@ func (s *PostgresStore) ListCatalogueEntries(ctx context.Context, owner, connect
 			CoverMediaType:  row.CoverMediaType,
 			EPUBHref:        row.EpubHref,
 			LastSeenSync:    row.LastSeenSync,
+			CoverRetained:   row.CoverRetained,
+			CoverWidth:      row.CoverWidth,
+			CoverHeight:     row.CoverHeight,
 		})
 	}
 	return entries, nil
@@ -145,5 +154,8 @@ func (s *PostgresStore) GetCatalogueEntry(ctx context.Context, owner, connection
 		CoverMediaType:  row.CoverMediaType,
 		EPUBHref:        row.EpubHref,
 		LastSeenSync:    row.LastSeenSync,
+		CoverRetained:   row.CoverRetained,
+		CoverWidth:      row.CoverWidth,
+		CoverHeight:     row.CoverHeight,
 	}, nil
 }

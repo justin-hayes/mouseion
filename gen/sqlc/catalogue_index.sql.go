@@ -36,9 +36,13 @@ func (q *Queries) DeleteCatalogueEntriesNotSeen(ctx context.Context, arg DeleteC
 }
 
 const getCatalogueEntry = `-- name: GetCatalogueEntry :one
-SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync
+SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync,
+       COALESCE(cover.state = 'available', false)::boolean AS cover_retained,
+       CASE WHEN cover.state = 'available' THEN cover.width ELSE 0 END::int AS cover_width,
+       CASE WHEN cover.state = 'available' THEN cover.height ELSE 0 END::int AS cover_height
 FROM catalogue_entries e
 JOIN opds_connections c ON c.id = e.connection_id
+LEFT JOIN catalog_entry_covers cover ON cover.owner_id = c.owner_id AND cover.connection_id = e.connection_id AND cover.entry_identifier = e.entry_identifier
 WHERE c.owner_id = $1 AND e.connection_id = $2 AND e.entry_identifier = $3
 `
 
@@ -58,6 +62,9 @@ type GetCatalogueEntryRow struct {
 	CoverMediaType  string
 	EpubHref        string
 	LastSeenSync    time.Time
+	CoverRetained   bool
+	CoverWidth      int
+	CoverHeight     int
 }
 
 func (q *Queries) GetCatalogueEntry(ctx context.Context, arg GetCatalogueEntryParams) (GetCatalogueEntryRow, error) {
@@ -73,14 +80,21 @@ func (q *Queries) GetCatalogueEntry(ctx context.Context, arg GetCatalogueEntryPa
 		&i.CoverMediaType,
 		&i.EpubHref,
 		&i.LastSeenSync,
+		&i.CoverRetained,
+		&i.CoverWidth,
+		&i.CoverHeight,
 	)
 	return i, err
 }
 
 const listCatalogueEntries = `-- name: ListCatalogueEntries :many
-SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync
+SELECT e.connection_id::text AS connection_id, e.entry_identifier, e.title, e.author, e.language_tag, e.cover_href, e.cover_media_type, e.epub_href, e.last_seen_sync,
+       COALESCE(cover.state = 'available', false)::boolean AS cover_retained,
+       CASE WHEN cover.state = 'available' THEN cover.width ELSE 0 END::int AS cover_width,
+       CASE WHEN cover.state = 'available' THEN cover.height ELSE 0 END::int AS cover_height
 FROM catalogue_entries e
 JOIN opds_connections c ON c.id = e.connection_id
+LEFT JOIN catalog_entry_covers cover ON cover.owner_id = c.owner_id AND cover.connection_id = e.connection_id AND cover.entry_identifier = e.entry_identifier
 WHERE c.owner_id = $1 AND e.connection_id = $2
 ORDER BY e.title, e.author, e.entry_identifier
 `
@@ -100,6 +114,9 @@ type ListCatalogueEntriesRow struct {
 	CoverMediaType  string
 	EpubHref        string
 	LastSeenSync    time.Time
+	CoverRetained   bool
+	CoverWidth      int
+	CoverHeight     int
 }
 
 func (q *Queries) ListCatalogueEntries(ctx context.Context, arg ListCatalogueEntriesParams) ([]ListCatalogueEntriesRow, error) {
@@ -121,6 +138,9 @@ func (q *Queries) ListCatalogueEntries(ctx context.Context, arg ListCatalogueEnt
 			&i.CoverMediaType,
 			&i.EpubHref,
 			&i.LastSeenSync,
+			&i.CoverRetained,
+			&i.CoverWidth,
+			&i.CoverHeight,
 		); err != nil {
 			return nil, err
 		}

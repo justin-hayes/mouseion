@@ -134,12 +134,18 @@ templ CatalogOpdsSection(csrf string, section catalogOpdsSection) {
 // downloads and analyzes the text, and the secondary I've read this, which
 // records a Book the learner read outside Mouseion without downloading it. The
 // Catalog index stores advertised cover
-// provenance, but upstream URLs are never sent to the browser (ADR 0077); until
-// local cover retention reaches index entries, the shared cover frame shows a
-// Title plate.
+// provenance, but upstream URLs are never sent to the browser (ADR 0077): the
+// card shows the locally retained image through the owner-scoped cover
+// endpoint, or the Title plate until one is retained.
 templ CatalogEntryCard(csrf string, entry domain.CatalogueEntry) {
 	<article class="catalog-entry" aria-labelledby={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>
-		@BookCoverMedia("", newTitlePlate(entry.Index.Title, "", entry.Index.Author), domain.BookCover{})
+		if entry.Index.CoverRetained && entry.Index.CoverWidth > 0 && entry.Index.CoverHeight > 0 {
+			<div class="book-cover-media">
+				<img class="book-cover-media__image" src={ templ.SafeURL(catalogEntryCoverURL(entry.Index.ConnectionID, entry.Index.EntryIdentifier)) } alt="" width={ fmt.Sprintf("%d", entry.Index.CoverWidth) } height={ fmt.Sprintf("%d", entry.Index.CoverHeight) } loading="lazy" decoding="async"/>
+			</div>
+		} else {
+			@BookCoverMedia("", newTitlePlate(entry.Index.Title, "", entry.Index.Author), domain.BookCover{})
+		}
 		<h3 class="catalog-entry__title bibliographic-title" id={ "catalog-entry-title-" + entry.Index.EntryIdentifier }>{ entry.Index.Title }</h3>
 		if entry.Index.Author != "" {
 			<p class="catalog-entry__author">{ entry.Index.Author }</p>
