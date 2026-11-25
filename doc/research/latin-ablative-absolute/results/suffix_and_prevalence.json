@@ -1,0 +1,68 @@
+{
+ "TOTAL": {
+  "exact_only_hits": 6404,
+  "hits": 7884,
+  "hits_needing_suffix_reader": 1508,
+  "words": 716858
+ },
+ "phi0448.phi001.perseus-lat2": {
+  "exact_only_hits": 766,
+  "hits": 994,
+  "hits_needing_suffix_reader": 231,
+  "words": 52686
+ },
+ "phi0474.phi013.perseus-lat2": {
+  "exact_only_hits": 25,
+  "hits": 33,
+  "hits_needing_suffix_reader": 8,
+  "words": 12840
+ },
+ "phi0631.phi001.perseus-lat3": {
+  "exact_only_hits": 61,
+  "hits": 68,
+  "hits_needing_suffix_reader": 7,
+  "words": 10943
+ },
+ "phi0631.phi001.perseus-lat4": {
+  "exact_only_hits": 63,
+  "hits": 69,
+  "hits_needing_suffix_reader": 6,
+  "words": 10931
+ },
+ "phi0914.phi001.perseus-lat2": {
+  "exact_only_hits": 4548,
+  "hits": 5533,
+  "hits_needing_suffix_reader": 997,
+  "words": 518260
+ },
+ "phi0972.phi001.perseus-lat2": {
+  "exact_only_hits": 183,
+  "hits": 203,
+  "hits_needing_suffix_reader": 21,
+  "words": 31298
+ },
+ "phi1348.abo012.perseus-lat2": {
+  "exact_only_hits": 140,
+  "hits": 189,
+  "hits_needing_suffix_reader": 51,
+  "words": 14263
+ },
+ "phi1351.phi001.perseus-lat1": {
+  "exact_only_hits": 53,
+  "hits": 69,
+  "hits_needing_suffix_reader": 16,
+  "words": 6912
+ },
+ "phi1351.phi002.perseus-lat1": {
+  "exact_only_hits": 20,
+  "hits": 29,
+  "hits_needing_suffix_reader": 9,
+  "words": 5733
+ },
+ "phi1351.phi004.perseus-lat2": {
+  "exact_only_hits": 545,
+  "hits": 697,
+  "hits_needing_suffix_reader": 162,
+  "words": 52992
+ }
+}

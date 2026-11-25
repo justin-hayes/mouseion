@@ -1,0 +1,16 @@
+# One row per OLA rule hit that did not agree with the gold rule/label. IDs only: LDT = <sentence id>/<word id> in the pinned XML; CIRCSE = sent_id/word id. Verdict is an agent reading (not Justin's); ambiguous rows count as FP in the conservative figure and TP in the lenient one.
+source	work	subset	id	verdict	class	allen_greenough
+LDT	phi0631.phi001	train	288/19	TP	gold annotates the noun as OBJ and the participle ATR (annotation variant)	419
+LDT	phi0631.phi001	test	310/6	TP	gold attaches the participle to a different noun	419
+LDT	phi0631.phi001	test	488/5	FP	dative plural read as ablative (-ibus syncretism), participle is a dative attribute	-
+LDT	phi0631.phi001	test	286/15	ambiguous	ablative of manner with attributive participle	412
+LDT	phi0972.phi001	dev	30/2	FP	preposition + noun + attributive participle (in + ablative)	-
+LDT	phi0972.phi001	train	817/21	TP	gold annotates the noun ADV_CO and the participle ATR (annotation variant)	419
+LDT	phi0972.phi001	dev	42/9	TP	gold annotates the noun OBJ and the participle ATR (annotation variant)	419
+LDT	phi1348.abo012	test	208/5	FP	dative plural read as ablative (-ibus syncretism), participle is a dative attribute	-
+LDT	phi1348.abo012	dev	52/51	TP	coordinated participles; gold hangs the noun and participle under the coordinator	419
+CIRCSE	TacGerma	-	TacGerma-Q-01-41/22	TP	gold analyses the participle as a conjunct of an oblique phrase, not advcl:abs; it is an absolute	419
+CIRCSE	TacGerma	-	TacGerma-Q-01-179/30	TP	second conjunct of coordinated participles; gold labels only the first advcl:abs	419
+CIRCSE	TacGerma	-	TacGerma-Q-01-197/16	TP	second conjunct of coordinated participles; gold labels only the first advcl:abs	419
+CIRCSE	TacGerma	-	TacGerma-Q-01-44/18	FP	attributive participle on an ablative of means	409
+CIRCSE	TacGerma	-	TacGerma-Q-01-127/10	ambiguous	ablative of means with attributive participle	409

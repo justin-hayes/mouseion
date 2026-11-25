@@ -1,0 +1,405 @@
+{
+ "circse_germania": {
+  "agree": 24,
+  "agree_with_gold_rule_shape": 24,
+  "aligned_gold_words": 5486,
+  "false_positive_classes": {
+   "upos=ADJ|form=-|case=Abl|rel=amod|sbj=none": 1,
+   "upos=VERB|form=Part|case=Abl|rel=acl|sbj=none": 1,
+   "upos=VERB|form=Part|case=Abl|rel=conj|sbj=abl": 2,
+   "upos=VERB|form=Part|case=Abl|rel=conj|sbj=none": 1
+  },
+  "gold_abs_by_anchor_form": {
+   "Part": 29,
+   "nonpart:ADJ": 1,
+   "nonpart:DET": 1,
+   "nonpart:NOUN": 1
+  },
+  "gold_advcl_abs": 32,
+  "gold_advcl_abs_aligned": 32,
+  "gold_advcl_abs_participial_shape": 27,
+  "gold_words": 5674,
+  "missed_classes": {
+   "ola:pos=a|mood=-|case=abl|rel=ATR|sbj=none|gold:upos=ADJ": 1,
+   "ola:pos=a|mood=-|case=abl|rel=ATR|sbj=none|gold:upos=DET": 1,
+   "ola:pos=n|mood=-|case=abl|rel=ATV|sbj=none|gold:upos=NOUN": 1,
+   "ola:pos=v|mood=p|case=abl|rel=ADV|sbj=none|gold:upos=VERB": 1,
+   "ola:pos=v|mood=p|case=abl|rel=ADV|sbj=other|gold:upos=VERB": 1,
+   "ola:pos=v|mood=p|case=abl|rel=ATR|sbj=none|gold:upos=VERB": 1,
+   "ola:pos=v|mood=p|case=d|rel=PRED|sbj=other|gold:upos=VERB": 1,
+   "ola:pos=v|mood=p|case=g|rel=ATR|sbj=none|gold:upos=VERB": 1
+  },
+  "ola_hits": 29,
+  "ola_hits_aligned": 29,
+  "ola_hits_unaligned": 0,
+  "ola_words": 5733,
+  "precision_vs_gold_advcl_abs": 0.8276,
+  "precision_wilson": [
+   0.6545,
+   0.924
+  ],
+  "recall_all_gold_abs": {
+   "found": 24,
+   "of": 32,
+   "value": 0.75,
+   "wilson": [
+    0.5789,
+    0.8675
+   ]
+  },
+  "recall_participial_shape": {
+   "found": 24,
+   "of": 27,
+   "value": 0.8889
+  },
+  "ud_rule_on_gold": {
+   "hits": 29,
+   "labelled_abs": 27,
+   "non_abs_rel": {
+    "advcl": 2
+   },
+   "precision": 0.931,
+   "recall_of_abs": 0.8438,
+   "wilson": [
+    0.7804,
+    0.9809
+   ]
+  }
+ },
+ "ldt_by_work": {
+  "phi0448.phi001": {
+   "aligned": 1364,
+   "gold_sentences": 71,
+   "gold_tokens": 1553,
+   "heldout_dev_sentences": 9,
+   "heldout_test_sentences": 6,
+   "ola_file": "phi0448.phi001.perseus-lat2.conllu",
+   "ola_tokens": 60404
+  },
+  "phi0474.phi013": {
+   "aligned": 5480,
+   "gold_sentences": 327,
+   "gold_tokens": 6539,
+   "heldout_dev_sentences": 24,
+   "heldout_test_sentences": 30,
+   "ola_file": "phi0474.phi013.perseus-lat2.conllu",
+   "ola_tokens": 14862
+  },
+  "phi0620.phi001": {
+   "aligned": 4088,
+   "gold_sentences": 364,
+   "gold_tokens": 5239,
+   "heldout_dev_sentences": 28,
+   "heldout_test_sentences": 26,
+   "ola_file": "phi0620.phi001.perseus-lat3.conllu",
+   "ola_tokens": 30993
+  },
+  "phi0631.phi001": {
+   "aligned": 10410,
+   "gold_sentences": 699,
+   "gold_tokens": 13008,
+   "heldout_dev_sentences": 39,
+   "heldout_test_sentences": 55,
+   "ola_file": "phi0631.phi001.perseus-lat4.conllu",
+   "ola_tokens": 13072
+  },
+  "phi0690.phi003": {
+   "aligned": 2276,
+   "gold_sentences": 177,
+   "gold_tokens": 2812,
+   "heldout_dev_sentences": 17,
+   "heldout_test_sentences": 13,
+   "ola_file": "phi0690.phi003.perseus-lat2.conllu",
+   "ola_tokens": 79284
+  },
+  "phi0959.phi006": {
+   "aligned": 4042,
+   "gold_sentences": 317,
+   "gold_tokens": 5132,
+   "heldout_dev_sentences": 14,
+   "heldout_test_sentences": 16,
+   "ola_file": "phi0959.phi006.perseus-lat2.conllu",
+   "ola_tokens": 99588
+  },
+  "phi0972.phi001": {
+   "aligned": 10945,
+   "gold_sentences": 1119,
+   "gold_tokens": 14011,
+   "heldout_dev_sentences": 99,
+   "heldout_test_sentences": 85,
+   "ola_file": "phi0972.phi001.perseus-lat2.conllu",
+   "ola_tokens": 38074
+  },
+  "phi0975.phi001": {
+   "aligned": 5338,
+   "gold_sentences": 583,
+   "gold_tokens": 6475,
+   "heldout_dev_sentences": 51,
+   "heldout_test_sentences": 41,
+   "ola_file": "phi0975.phi001.perseus-lat2.conllu",
+   "ola_tokens": 13395
+  },
+  "phi1348.abo012": {
+   "aligned": 7083,
+   "gold_sentences": 347,
+   "gold_tokens": 8167,
+   "heldout_dev_sentences": 18,
+   "heldout_test_sentences": 21,
+   "ola_file": "phi1348.abo012.perseus-lat2.conllu",
+   "ola_tokens": 16372
+  },
+  "phi1351.phi005": {
+   "aligned": 2866,
+   "gold_sentences": 197,
+   "gold_tokens": 3407,
+   "heldout_dev_sentences": 9,
+   "heldout_test_sentences": 17,
+   "ola_file": "phi1351.phi004.perseus-lat2.conllu",
+   "ola_tokens": 61964
+  }
+ },
+ "ldt_by_work_prose_agree": {
+  "phi0448.phi001": {
+   "agree": 18,
+   "found": 18,
+   "gold_hits_aligned": 18,
+   "gold_hits_unaligned": 0,
+   "ola_hits_aligned": 18,
+   "ola_hits_in_range_unaligned": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "recall_hi": 1.0,
+   "recall_lo": 0.8241,
+   "wilson_hi": 1.0,
+   "wilson_lo": 0.8241
+  },
+  "phi0474.phi013": {
+   "agree": 9,
+   "found": 9,
+   "gold_hits_aligned": 9,
+   "gold_hits_unaligned": 0,
+   "ola_hits_aligned": 9,
+   "ola_hits_in_range_unaligned": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "recall_hi": 1.0,
+   "recall_lo": 0.7009,
+   "wilson_hi": 1.0,
+   "wilson_lo": 0.7009
+  },
+  "phi0631.phi001": {
+   "agree": 62,
+   "found": 62,
+   "gold_hits_aligned": 63,
+   "gold_hits_unaligned": 1,
+   "ola_hits_aligned": 66,
+   "ola_hits_in_range_unaligned": 3,
+   "precision": 0.9394,
+   "recall": 0.9841,
+   "recall_hi": 0.9972,
+   "recall_lo": 0.9154,
+   "wilson_hi": 0.9762,
+   "wilson_lo": 0.8543
+  },
+  "phi0972.phi001": {
+   "agree": 54,
+   "found": 54,
+   "gold_hits_aligned": 55,
+   "gold_hits_unaligned": 3,
+   "ola_hits_aligned": 57,
+   "ola_hits_in_range_unaligned": 3,
+   "precision": 0.9474,
+   "recall": 0.9818,
+   "recall_hi": 0.9968,
+   "recall_lo": 0.9039,
+   "wilson_hi": 0.9819,
+   "wilson_lo": 0.8563
+  },
+  "phi1348.abo012": {
+   "agree": 120,
+   "found": 120,
+   "gold_hits_aligned": 126,
+   "gold_hits_unaligned": 0,
+   "ola_hits_aligned": 122,
+   "ola_hits_in_range_unaligned": 0,
+   "precision": 0.9836,
+   "recall": 0.9524,
+   "recall_hi": 0.978,
+   "recall_lo": 0.9,
+   "wilson_hi": 0.9955,
+   "wilson_lo": 0.9422
+  },
+  "phi1351.phi005": {
+   "agree": 28,
+   "found": 28,
+   "gold_hits_aligned": 28,
+   "gold_hits_unaligned": 0,
+   "ola_hits_aligned": 28,
+   "ola_hits_in_range_unaligned": 0,
+   "precision": 1.0,
+   "recall": 1.0,
+   "recall_hi": 1.0,
+   "recall_lo": 0.8794,
+   "wilson_hi": 1.0,
+   "wilson_lo": 0.8794
+  }
+ },
+ "ldt_prose_all_sentences": {
+  "agree": 291,
+  "false_positive_classes": {
+   "pos=a|mood=-|case=abl|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 6,
+   "pos=v|mood=p|case=d|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=n|rel=ATR|sbj=none": 1
+  },
+  "found": 291,
+  "gold_hits_aligned": 299,
+  "gold_hits_unaligned": 4,
+  "missed_classes": {
+   "pos=v|mood=-|case=-|rel=AuxP|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 6,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 1
+  },
+  "ola_hits_aligned": 300,
+  "ola_hits_in_range_unaligned": 6,
+  "precision": 0.97,
+  "recall": 0.9732,
+  "recall_hi": 0.9864,
+  "recall_lo": 0.9481,
+  "wilson_hi": 0.9841,
+  "wilson_lo": 0.944
+ },
+ "ldt_prose_heldout_dev": {
+  "agree": 18,
+  "false_positive_classes": {
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 3
+  },
+  "found": 18,
+  "gold_hits_aligned": 22,
+  "gold_hits_unaligned": 0,
+  "missed_classes": {
+   "pos=v|mood=-|case=-|rel=AuxP|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 3
+  },
+  "ola_hits_aligned": 21,
+  "ola_hits_in_range_unaligned": 0,
+  "precision": 0.8571,
+  "recall": 0.8182,
+  "recall_hi": 0.9269,
+  "recall_lo": 0.6148,
+  "wilson_hi": 0.9502,
+  "wilson_lo": 0.6536
+ },
+ "ldt_prose_heldout_test": {
+  "agree": 14,
+  "false_positive_classes": {
+   "pos=a|mood=-|case=abl|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=d|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=n|rel=ATR|sbj=none": 1
+  },
+  "found": 14,
+  "gold_hits_aligned": 17,
+  "gold_hits_unaligned": 0,
+  "missed_classes": {
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 3
+  },
+  "ola_hits_aligned": 18,
+  "ola_hits_in_range_unaligned": 0,
+  "precision": 0.7778,
+  "recall": 0.8235,
+  "recall_hi": 0.9381,
+  "recall_lo": 0.5897,
+  "wilson_hi": 0.91,
+  "wilson_lo": 0.5479
+ },
+ "ldt_prose_heldout_test_dev": {
+  "agree": 32,
+  "false_positive_classes": {
+   "pos=a|mood=-|case=abl|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 4,
+   "pos=v|mood=p|case=d|rel=ATR|sbj=none": 1,
+   "pos=v|mood=p|case=n|rel=ATR|sbj=none": 1
+  },
+  "found": 32,
+  "gold_hits_aligned": 39,
+  "gold_hits_unaligned": 0,
+  "missed_classes": {
+   "pos=v|mood=-|case=-|rel=AuxP|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 6
+  },
+  "ola_hits_aligned": 39,
+  "ola_hits_in_range_unaligned": 0,
+  "precision": 0.8205,
+  "recall": 0.8205,
+  "recall_hi": 0.9102,
+  "recall_lo": 0.6733,
+  "wilson_hi": 0.9102,
+  "wilson_lo": 0.6733
+ },
+ "ldt_prose_train_sentences": {
+  "agree": 259,
+  "false_positive_classes": {
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 2
+  },
+  "found": 259,
+  "gold_hits_aligned": 260,
+  "gold_hits_unaligned": 4,
+  "missed_classes": {
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 1
+  },
+  "ola_hits_aligned": 261,
+  "ola_hits_in_range_unaligned": 0,
+  "precision": 0.9923,
+  "recall": 0.9962,
+  "recall_hi": 0.9993,
+  "recall_lo": 0.9785,
+  "wilson_hi": 0.9979,
+  "wilson_lo": 0.9725
+ },
+ "ldt_verse_all_sentences": {
+  "agree": 86,
+  "false_positive_classes": {
+   "pos=v|mood=m|case=-|rel=PRED|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 3,
+   "pos=v|mood=p|case=d|rel=ATR|sbj=none": 1
+  },
+  "found": 86,
+  "gold_hits_aligned": 90,
+  "gold_hits_unaligned": 4,
+  "missed_classes": {
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 3
+  },
+  "ola_hits_aligned": 92,
+  "ola_hits_in_range_unaligned": 3,
+  "precision": 0.9348,
+  "recall": 0.9556,
+  "recall_hi": 0.9826,
+  "recall_lo": 0.8912,
+  "wilson_hi": 0.9698,
+  "wilson_lo": 0.8649
+ },
+ "ldt_verse_heldout_test_dev": {
+  "agree": 10,
+  "false_positive_classes": {
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 2
+  },
+  "found": 10,
+  "gold_hits_aligned": 14,
+  "gold_hits_unaligned": 0,
+  "missed_classes": {
+   "pos=v|mood=p|case=abl|rel=ADV|sbj=none": 1,
+   "pos=v|mood=p|case=abl|rel=ATR|sbj=none": 3
+  },
+  "ola_hits_aligned": 12,
+  "ola_hits_in_range_unaligned": 0,
+  "precision": 0.8333,
+  "recall": 0.7143,
+  "recall_hi": 0.8828,
+  "recall_lo": 0.4535,
+  "wilson_hi": 0.953,
+  "wilson_lo": 0.552
+ }
+}
