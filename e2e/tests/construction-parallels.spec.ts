@@ -171,7 +171,7 @@ test('a labelled subtype opens filtered and All widens to the whole construction
 
 test('a parallels link without its origin gets the safe restart notice', async ({ page }) => {
   await signInToGreek(page);
-  await page.goto('/de/vocabulary/concordance?as=construction&term=genitive_absolute');
+  await page.goto('/grc/vocabulary/concordance?as=construction&term=genitive_absolute');
   await expect(page.getByRole('alert')).toContainText('This Concordance link is not valid.');
   await expect(page.locator('h3.concordance-tier')).toHaveCount(0);
 });

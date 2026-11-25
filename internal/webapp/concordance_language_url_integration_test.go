@@ -104,7 +104,7 @@ func TestVocabularyPagesAreAddressedByStudyLanguage(t *testing.T) {
 		assert.Contains(t, response.body, "return=%2Fde%2Fvocabulary%2Fconcordance")
 	})
 	t.Run("the picker lands a deep page on the Concordance landing of the chosen language", func(t *testing.T) {
-		for _, kind := range []string{"sentence-study", "concordance"} {
+		for _, kind := range []string{"sentence-study", "concordance", "vocabulary"} {
 			response := get("/study-language?to=" + kind + "&lang=it")
 			assert.Equal(t, http.StatusSeeOther, response.code, kind)
 			assert.Equal(t, "/it/vocabulary/concordance", response.location, kind)

@@ -346,6 +346,12 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
+	// The URL names the language; a sentence analyzed in another one is not
+	// this page's (ADR 0131).
+	if study.Language != "" && canonicalization.NormalizeLanguage(study.Language) != language {
+		http.NotFound(w, r)
+		return
+	}
 	back := safeConcordanceReturnURL(query.Get("return"), language)
 	// A sentence overlapping a recorded speaker label is raw Concordance
 	// evidence, not study context. The same rule that withholds the Study
