@@ -37,6 +37,9 @@ ADRs [0122](doc/adr/0122-ancient-greek-native-agdt-syntax.md)–[0126](doc/adr/0
 syntax node**, **Grammar reference** and **Concept note** below, the
 `native_agdt` reading of **Imported analysis**, and the carry-over of decisions
 in an **Analysis update**.
+The Study terms (**Study**, **Study day**, **Today** and the terms after them)
+describe a pilot under design. No ADR has accepted it yet, and it is not
+implemented.
 
 ## Language
 
@@ -702,6 +705,84 @@ _Avoid_: pause, stop, set aside.
 Append-only, Book-anchored reading completions and previously-read assertions.
 History remains even when a Book returns to To Read for rereading.
 _Avoid_: Read disposition, completed list, Journey history.
+
+**Study**:
+The learner's in-Mouseion review of vocabulary from their reading, on one card
+surface: Today's due reviews, then New-word batches, then Fluency. It is one
+continuous stream per study language, drawn from the learner's analysed
+library. The Current reading only sets which new words come first: starting,
+switching, ending or finishing a Book changes nothing else in Study, and Study
+never consults Known vocabulary. It is separate from Sentence study, which
+studies one sentence's grammar, and from a Prepared deck, which is studied in
+Anki.
+_Avoid_: review deck, practice, SRS, vocabulary study (the avoided name for a
+Vocabulary transition), Explore (a retired idea for browsing upcoming words).
+
+**Study day**:
+The learner's day for Study. It begins at a fixed early-morning hour rather
+than at midnight, so late-night reviews count towards the day just ending.
+_Avoid_: calendar day, session.
+
+**Today**:
+The graded part of Study with a daily finish line: it is finished once the
+reviews due at the start of the Study day are answered. New words are offered
+in New-word batches afterwards and are never part of the finish line. Once
+finished, Today stays finished until the next Study day.
+_Avoid_: session, queue, daily deck.
+
+**New-word batch**:
+A fixed-size group of new words that Today offers after its reviews and the
+learner may take or decline. Taking one introduces its words. A daily cap
+limits how many are offered, and fewer, or none, are offered when the
+forecast review load is high.
+_Avoid_: daily new allowance, new-card limit, quota.
+
+**In study**:
+A word Today has introduced, which therefore has Study progress. A word stays
+in study whichever Book is the Current reading, and whether or not it is Known.
+_Avoid_: learning, active card, enrolled.
+
+**Study progress**:
+A learner's graded review record for one vocabulary identity in one study
+language. It belongs to neither a Book nor a sentence, so a new sentence or a
+change of Current reading does not reset it. It is separate from Known
+vocabulary: study progress never makes a word Known, and Known never ends a
+word's study. Only Today's reviews change it.
+_Avoid_: mastery, card state, Known (a separate fact).
+
+**Mature**:
+A word in study whose current review interval is at least 21 days. A lapse
+that shortens the interval below that ends maturity until the word earns it
+again.
+_Avoid_: known, mastered, graduated.
+
+**Study material**:
+What Today needs in order to present a word: the one complete study context
+that introduces it and carries every one of its reviews, together with that
+context's Gloss and translation. It is prepared one word at a time, shortly
+before Today needs it, from current evidence with the learner's Lemma
+corrections and Occurrence exclusions applied. It is not a Prepared deck,
+which freezes its evidence.
+_Avoid_: card, deck, prepared deck.
+
+**Learned meaning**:
+The Gloss a word showed when Today introduced it. Fluency contexts must agree
+with it. If a confirmed correction shows that the introducing context was not
+this word, the next review re-introduces the word with valid Study material and
+re-anchors its learned meaning, keeping its Study progress.
+_Avoid_: sense (a dictionary entry's meaning), definition.
+
+**Fluency**:
+The ungraded, open-ended part of Study after Today's reviews and new words,
+which cycles mature words through Fluency contexts. Nothing in it changes Study
+progress; the learner's "didn't recognise it" responses are kept as evidence.
+_Avoid_: Explore, free review, cram, extra reviews.
+
+**Fluency context**:
+A further study context of a mature word, beyond its Study material, in which
+the word carries its learned meaning, preferably in a different form. It has
+its own Gloss check and translation.
+_Avoid_: example sentence, variant card, alternative sentence.
 
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
