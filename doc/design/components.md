@@ -130,7 +130,7 @@ label), the Opening set whole in the reading typeface, marked as Ancient Greek
 and preceded by its starting citation and a visually hidden "Begins at", a
 caption stating the word count and how many constituent books divide the Work,
 and the passage range. A Work is one Book (ADR 0128), so each Edition offers one
-**Add and prepare the work** and one **I've read this**, or an **In My Books**
+**Add** and one **I've read this**, or an **In My Books**
 link once owned, above a read-only contents list in a responsive table of
 constituent book, passage and word count. The contents list has no actions and no
 preparation state. A page-level attribution line credits the Greek text to its
@@ -170,8 +170,7 @@ image slot shows the entry's retained cover, served from Mouseion through an
 owner-scoped endpoint, or the Title plate (see `BookCoverMedia`) while none is
 retained; the Catalog never sends an upstream cover URL to the browser. An entry linked to an active Book
 shows **In My Books** as a link to that Book's My Books row. An unowned entry
-offers **Add**, whose copy says plainly that the text is downloaded and
-analyzed; Add creates or restores the Book as To Read and starts the same
+offers **Add**, whose copy says "Adding prepares the text for reading."; Add creates or restores the Book as To Read and starts the same
 preparation as **Read again**. The confirmation names
 the Book, links to My Books, and receives focus after the ordinary POST
 redirect. Entries never show disposition, analysis or preparation state.

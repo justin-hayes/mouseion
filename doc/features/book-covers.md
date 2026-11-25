@@ -224,8 +224,8 @@ The Title plate (ADR 0130) composes the text's own title, Greek title when it ha
 one, and author on a tinted surface. It replaces the former title initial in the
 Catalog, My Books and Reading, and is the image of every Classical Reading unit,
 which has no catalog cover. It is presentation, not metadata: never stored or
-called a cover. The Catalog card shows the same states with the same image: the
-retained entry cover, or the Title plate.
+called a cover. The Catalog card shows the retained entry cover, or the Title plate while none
+is retained.
 
 These are quiet visual metadata states, not Book status badges. Cover failures do
 not displace title, author, disposition, or the learner's current task.

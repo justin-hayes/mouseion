@@ -59,7 +59,7 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 		case "/opds/language":
 			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>Languages</title><entry><title>German</title><link rel="subsection" href="/opds/language/7"/></entry></feed>`)
 		case "/opds/language/7":
-			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>German books</title><entry><id>homer-loop</id><title>Homer Loop</title><author><name>Homer</name></author><link rel="http://opds-spec.org/image" type="image/png" href="/homer-loop-cover.png"/><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/homer-loop.epub"/></entry></feed>`)
+			testwrite.String(t, w, `<?xml version="1.0"?><feed><title>German books</title><entry><id>homer-loop</id><title>Homer Loop</title><author><name>Homer</name></author><link rel="http://opds-spec.org/image" type="image/png" href="/homer-loop-cover.png"/><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/homer-loop.epub"/></entry><entry><id>read-loop</id><title>Read Loop</title><author><name>Homer</name></author><link rel="http://opds-spec.org/acquisition" type="application/epub+zip" href="/read-loop.epub"/></entry></feed>`)
 		default:
 			http.NotFound(w, r)
 		}
@@ -132,7 +132,7 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	require.Equal(t, http.StatusOK, search.Code, search.Body.String())
 	assert.Contains(t, search.Body.String(), "Homer Loop", "one search finds the OPDS entry the sync indexed")
 	assert.Contains(t, search.Body.String(), "Iliad", "one search finds the classical entry")
-	assert.Contains(t, search.Body.String(), "/catalogs/sources/"+connection.ID+"/cover?entry=homer-loop", "the card serves the retained cover from Mouseion")
+	assert.Contains(t, search.Body.String(), coverPath, "the card serves the retained cover from Mouseion")
 	assert.NotContains(t, search.Body.String(), "homer-loop-cover.png", "the upstream image URL never reaches the browser")
 	assert.NotContains(t, search.Body.String(), catalogue.URL, "no upstream host reaches the browser")
 
@@ -197,6 +197,14 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 		"the restored Book reports the same plain preparation confirmation")
 	assert.Equal(t, 1, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2 AND args->>'book_id'=$3`,
 		analysis.EPUBAcquisitionQueue, learner.ID, opdsBookID), "a second Add while the acquisition is live enqueues nothing (one live job per Book)")
+
+	// "I've read this" on an OPDS card records Read without acquiring anything.
+	opdsRead := perform(t, h, http.MethodPost, "/catalogs/sources/"+connection.ID+"/previously-read", url.Values{
+		"csrf_token": {csrf}, "entry_identifier": {"read-loop"},
+	}, cookies)
+	require.Equal(t, http.StatusSeeOther, opdsRead.Code, opdsRead.Body.String())
+	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2`, analysis.EPUBAcquisitionQueue, learner.ID)-1, "I've read this on an OPDS card queues no acquisition beyond the added Book")
+	assert.NotContains(t, perform(t, h, http.MethodGet, "/library", nil, cookies).Body.String(), catalogue.URL, "My Books never shows the upstream host")
 
 	// 5. "I've read this" records Read without acquiring anything; each Book
 	// is then listed on its own language's tab.
