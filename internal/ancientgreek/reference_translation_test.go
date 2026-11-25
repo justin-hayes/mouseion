@@ -2,6 +2,7 @@ package ancientgreek
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -147,5 +148,32 @@ func TestParseReferenceTranslationRefusesAnExtraDivision(t *testing.T) {
 func TestParseReferenceTranslationRefusesADepthThatDoesNotAlign(t *testing.T) {
 	body := `<TEI><div type="textpart" subtype="section" n="17"><p>Section only.</p></div></TEI>`
 	_, err := ParseReferenceTranslation([]byte(body), "1.2.17", "1.2.18")
+	assertImportCode(t, err, CodeMalformed)
+}
+
+// A Latin perseus-engN file names its prefatory chapter pr and may suffix a
+// section; the reader keeps both as Citation components and still refuses a gap
+// in the numbers.
+func TestParseReferenceTranslationReadsLatinNamedAndSuffixedSections(t *testing.T) {
+	section := func(number, text string) string {
+		return `<div type="textpart" subtype="section" n="` + number + `"><p>` + text + `</p></div>`
+	}
+	chapter := func(n string, sections ...string) string {
+		return `<div type="textpart" subtype="chapter" n="` + n + `">` + strings.Join(sections, "") + `</div>`
+	}
+	book := func(chapters ...string) string {
+		return `<TEI><div type="textpart" subtype="book" n="1">` + strings.Join(chapters, "") + `</div></TEI>`
+	}
+
+	body := book(
+		chapter("pr", section("1", "Preface one."), section("2", "Preface two.")),
+		chapter("1", section("1", "Chapter one."), section("1a", "Chapter one, a.")),
+	)
+	sections, err := ParseReferenceTranslation([]byte(body), "1.pr.1", "1.1.1a")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"1.pr.1", "1.pr.2", "1.1.1", "1.1.1a"}, citationsInOrder(sections))
+
+	gap := book(chapter("pr", section("1", "One."), section("3", "Three.")))
+	_, err = ParseReferenceTranslation([]byte(gap), "1.pr.1", "1.pr.3")
 	assertImportCode(t, err, CodeMalformed)
 }

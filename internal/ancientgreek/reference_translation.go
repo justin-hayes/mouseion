@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -28,11 +27,11 @@ type ReferenceTranslation struct {
 // the same way. Sections are returned in citation order.
 func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
 	start, ok := parseCitation(citationStart)
-	if !ok || !plainCitation(start) {
+	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation start is not a citation"}
 	}
 	end, ok := parseCitation(citationEnd)
-	if !ok || !plainCitation(end) {
+	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation end is not a citation"}
 	}
 	if len(start) != len(end) || compareCitation(start, end) > 0 {
@@ -263,12 +262,15 @@ func citationGroups(sections []ReferenceTranslation) (map[string][]int, error) {
 		if !ok || len(parsed) == 0 {
 			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
 		}
-		if !plainCitation(parsed) {
-			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation has a named or suffixed component"}
-		}
 		for length := 1; length <= len(parsed); length++ {
+			component := parsed[length-1]
+			if component.Name != "" {
+				// A named section (pr, ep) has no number to order, so it
+				// takes no part in the contiguity check.
+				continue
+			}
 			prefix := citationPrefix(parsed[:length])
-			groups[prefix] = append(groups[prefix], parsed[length-1].Number)
+			groups[prefix] = append(groups[prefix], component.Number)
 		}
 	}
 	return groups, nil
@@ -294,10 +296,13 @@ func checkContiguousGroup(values []int) error {
 // checkRangeBoundary refuses a group that begins after the range start or ends
 // before the range end.
 func checkRangeBoundary(prefix string, values []int, start, end classical.Citation) error {
-	if prefix == citationPrefix(start) && values[0] != start[len(start)-1].Number {
+	if len(values) == 0 {
+		return nil
+	}
+	if prefix == citationPrefix(start) && start[len(start)-1].Name == "" && values[0] != start[len(start)-1].Number {
 		return &ImportError{Code: CodeMalformed, Detail: "cited range starts at a missing section"}
 	}
-	if prefix == citationPrefix(end) && values[len(values)-1] != end[len(end)-1].Number {
+	if prefix == citationPrefix(end) && end[len(end)-1].Name == "" && values[len(values)-1] != end[len(end)-1].Number {
 		return &ImportError{Code: CodeMalformed, Detail: "cited range ends at a missing section"}
 	}
 	return nil
@@ -341,8 +346,8 @@ func textpartKind(element xml.StartElement) (kind, number string, err error) {
 	default:
 		return "", "", nil
 	}
-	if _, parseErr := strconv.Atoi(name); parseErr != nil {
-		return "", "", &ImportError{Code: CodeMalformed, Detail: "textpart number is not a number"}
+	if _, ok := classical.ParseCitation(name); !ok || strings.Contains(name, ".") {
+		return "", "", &ImportError{Code: CodeMalformed, Detail: "textpart number is not a Citation component"}
 	}
 	return subtype, name, nil
 }
@@ -361,16 +366,4 @@ func endsWithSpace(text string) bool {
 	}
 	last, _ := utf8.DecodeLastRuneInString(text)
 	return unicode.IsSpace(last)
-}
-
-// plainCitation reports whether every component is a bare number. The Perseus
-// reference-translation reader checks contiguity over numbers only, so named
-// sections and letter suffixes are refused until a Latin reader needs them.
-func plainCitation(citation classical.Citation) bool {
-	for _, component := range citation {
-		if component.Name != "" || component.Suffix != "" {
-			return false
-		}
-	}
-	return true
 }
