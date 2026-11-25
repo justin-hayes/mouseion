@@ -16,10 +16,6 @@ import (
 )
 
 const (
-	// assessmentDelay is how long a Fluency job waits while its provider payload
-	// assessment is not recorded. Nothing is transmitted meanwhile, and the wait
-	// is not an attempt.
-	assessmentDelay = time.Hour
 	// maxFluencyPages bounds how much of a word's concordance one job reads.
 	maxFluencyPages = 10
 	// maxFluencyAsks bounds the provider calls one job makes for a word: the
@@ -144,7 +140,11 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 		return nil
 	}
 	if err := w.MaySend(word.Language); err != nil {
-		return river.JobSnooze(assessmentDelay)
+		// Nothing is sent. The job ends instead of waiting: opening the Study
+		// page enqueues it again once an hour, and a waiting job per hour would
+		// all run, and ask about the same occurrences, the moment the assessment
+		// is recorded.
+		return nil
 	}
 	ranked, err := w.rankedCandidates(ctx, owner, word, assessed)
 	if err != nil {

@@ -74,6 +74,6 @@ only, with the provider, prompt contract and field set pinned as above.
    `assertRecordedAssessment(t, "#2702", FluencyAgreementPayload, "de", ...)`, as
    `TestIdiomCardAssessmentIsRecordedForItalianOnly` does for idiom cards.
 
-Until step 2, the Fluency worker leaves each job waiting, transmits nothing, and
+Until step 2, the Fluency worker ends each job, transmits nothing, and
 reads no occurrence beyond Today's own data. A changed prompt, provider or field
 set fails closed again until it is re-recorded.

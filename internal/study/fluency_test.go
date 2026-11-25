@@ -114,8 +114,7 @@ func TestFluencyWorkerSendsNothingWhileTheAssessmentIsNotRecorded(t *testing.T) 
 	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur", "Case": "Nom"})
 	worker.MaySend = func(string) error { return enrichment.ErrProviderAssessmentNotRecorded }
 
-	err := fluencyWork(worker)
-	require.True(t, isSnooze(err), "the job waits instead of failing, got %v", err)
+	require.NoError(t, fluencyWork(worker), "the job ends; the page enqueues it again later")
 	assert.Empty(t, enricher.requests, "nothing is transmitted without a recorded assessment")
 	assert.Empty(t, store.recorded)
 }
