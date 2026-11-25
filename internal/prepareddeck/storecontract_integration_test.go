@@ -103,6 +103,7 @@ func (h *postgresHarness) Classical() storecontract.ClassicalStore         { ret
 func (h *postgresHarness) Catalogue() storecontract.CatalogueStore         { return h }
 func (h *postgresHarness) Study() storecontract.StudyStore                 { return h }
 func (h *postgresHarness) StudyProgress() storecontract.StudyProgressStore { return h }
+func (h *postgresHarness) StudyFluency() storecontract.StudyFluencyStore   { return h }
 func (h *postgresHarness) Seeds() storecontract.Seeder                     { return h }
 
 func (h *postgresHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
@@ -464,4 +465,21 @@ func (h *postgresHarness) ListStudyReviewLog(owner, progressID string) ([]domain
 
 func (h *postgresHarness) RecordStudyMaterialUnpreparable(owner, id, reason string) error {
 	return h.store.RecordStudyMaterialUnpreparable(h.ctx, owner, id, reason)
+}
+
+func (h *postgresHarness) ListStudyFluencyContexts(owner, language string) ([]domain.FluencyContext, error) {
+	return h.store.ListStudyFluencyContexts(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) RecordStudyFluencyContext(owner string, record domain.FluencyContextRecord) error {
+	return h.store.RecordStudyFluencyContext(h.ctx, owner, record)
+}
+
+func (h *postgresHarness) RecordStudyFluencyResponse(owner string, record domain.FluencyResponseRecord) error {
+	return h.store.RecordStudyFluencyResponse(h.ctx, owner, record)
+}
+
+func (h *postgresHarness) CountStudyFluencyResponses(owner, contextID string) (int, error) {
+	responses, err := h.store.ListStudyFluencyResponses(h.ctx, owner, contextID)
+	return len(responses), err
 }

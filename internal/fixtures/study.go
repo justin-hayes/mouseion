@@ -265,6 +265,10 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	return s.prepareReintroductions(ctx, owner, progress)
 }
 
+// EnqueueFluencyPreparation prepares nothing: the fixture server seeds a mature
+// word with its Fluency contexts up front, since it binds no provider or River.
+func (s Study) EnqueueFluencyPreparation(context.Context, string, string) error { return nil }
+
 // fixtureStudyContent is the Study material the fixture server shows for a
 // word: a short sentence around its lemma, taken from the first occurrence
 // that resolves to the word under current evidence.

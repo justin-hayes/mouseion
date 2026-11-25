@@ -241,6 +241,7 @@ func (h *contractHarness) Classical() storecontract.ClassicalStore         { ret
 func (h *contractHarness) Catalogue() storecontract.CatalogueStore         { return h }
 func (h *contractHarness) Study() storecontract.StudyStore                 { return h }
 func (h *contractHarness) StudyProgress() storecontract.StudyProgressStore { return h }
+func (h *contractHarness) StudyFluency() storecontract.StudyFluencyStore   { return h }
 
 func (h *contractHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
 	return h.store.BrowseCatalogueEntries(context.Background(), owner, connectionID, query)
@@ -390,4 +391,21 @@ func (h *contractHarness) RecordStudyMaterialReady(owner, id string, content dom
 
 func (h *contractHarness) RecordStudyMaterialUnpreparable(owner, id, reason string) error {
 	return h.store.RecordStudyMaterialUnpreparable(context.Background(), owner, id, reason)
+}
+
+func (h *contractHarness) ListStudyFluencyContexts(owner, language string) ([]domain.FluencyContext, error) {
+	return h.store.ListStudyFluencyContexts(context.Background(), owner, language)
+}
+
+func (h *contractHarness) RecordStudyFluencyContext(owner string, record domain.FluencyContextRecord) error {
+	return h.store.RecordStudyFluencyContext(context.Background(), owner, record)
+}
+
+func (h *contractHarness) RecordStudyFluencyResponse(owner string, record domain.FluencyResponseRecord) error {
+	return h.store.RecordStudyFluencyResponse(context.Background(), owner, record)
+}
+
+func (h *contractHarness) CountStudyFluencyResponses(owner, contextID string) (int, error) {
+	responses, err := h.store.ListStudyFluencyResponses(context.Background(), owner, contextID)
+	return len(responses), err
 }

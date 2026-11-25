@@ -90,6 +90,7 @@ type Harness interface {
 	Study() StudyStore
 	StudyProgress() StudyProgressStore
 	StudyCorrections() StudyCorrectionsStore
+	StudyFluency() StudyFluencyStore
 	Seeds() Seeder
 }
 
@@ -185,6 +186,26 @@ type StudyProgressStore interface {
 	NextStudyCard(owner, language string, now time.Time) (domain.StudyCard, error)
 	RecordStudyGrade(owner string, record domain.StudyGradeRecord) error
 	ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error)
+}
+
+// StudyFluencyStore is the Fluency context and response surface under test
+// (ADR 0134 §7). Fluency writes contexts and responses and never Study
+// progress or its review log.
+type StudyFluencyStore interface {
+	// ListStudyFluencyContexts returns every context of the learner's words in
+	// the study language, agreeing and disagreeing, with when each was last
+	// answered (zero when never).
+	ListStudyFluencyContexts(owner, language string) ([]domain.FluencyContext, error)
+	// RecordStudyFluencyContext stores one assessed occurrence. A word keeps at
+	// most domain.FluencyContextsPerWord agreeing contexts and one row per
+	// occurrence; either refusal is domain.ErrFluencyContextNotStored. A word
+	// that is not the learner's is domain.ErrNotFound.
+	RecordStudyFluencyContext(owner string, record domain.FluencyContextRecord) error
+	// RecordStudyFluencyResponse appends an answer to an agreeing context of the
+	// learner's; any other context is domain.ErrNotFound.
+	RecordStudyFluencyResponse(owner string, record domain.FluencyResponseRecord) error
+	// CountStudyFluencyResponses is how many answers a context has.
+	CountStudyFluencyResponses(owner, contextID string) (int, error)
 }
 
 // CatalogueStore is the Catalog browse and Add surface under test. Browse
@@ -304,6 +325,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, catalogueScenarios()...)
 	scenarios = append(scenarios, studyScenarios()...)
 	scenarios = append(scenarios, studyCorrectionsScenarios()...)
+	scenarios = append(scenarios, studyFluencyScenarios()...)
 	scenarios = append(scenarios, chosenBookScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }

@@ -302,6 +302,9 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 	if input.RequireIdiomCard {
 		return c.encodeIdiomCardRequest(input)
 	}
+	if input.RequireFluencyAgreement {
+		return c.encodeFluencyAgreementRequest(input)
+	}
 	if strings.TrimSpace(input.Language) == "" || strings.TrimSpace(translationTargetLanguage(input)) == "" || strings.TrimSpace(input.CanonicalLemma) == "" || strings.TrimSpace(input.UPOS) == "" || strings.TrimSpace(itemID) == "" {
 		return nil, errors.New("encode LLM translation input: required identity or language field is empty")
 	}
@@ -696,6 +699,9 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	}
 	if input.RequireLSJSenseSummary {
 		return decodeLSJSenseSummary(decoded)
+	}
+	if input.RequireFluencyAgreement {
+		return decodeFluencyAgreement(decoded)
 	}
 	result, err := decodeTranslationFields(decoded.Choices[0].Message.Content)
 	if err != nil {

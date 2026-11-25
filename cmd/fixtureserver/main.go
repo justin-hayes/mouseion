@@ -44,6 +44,7 @@ func main() {
 			PersonalOccurrences: int64(10 - i),
 		})
 	}
+	seedFluencyWordIfRequested(store)
 	classicalCatalog, err := fixtures.NewClassicalCatalog()
 	if err != nil {
 		log.Fatalf("initialize fixture Classical catalog: %v", err)
@@ -141,4 +142,36 @@ func (fixtureLemmaSuggestions) SuggestLemma(_ context.Context, request enrichmen
 		return enrichment.LemmaSuggestion{Lemma: "Pfad"}, nil
 	}
 	return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
+}
+
+// seedFluencyWordIfRequested seeds the Fluency journey's word when the browser
+// spec asks for it, so every other spec keeps its usual Study state.
+func seedFluencyWordIfRequested(store *fixtures.Store) {
+	if os.Getenv("MOUSEION_FIXTURE_STUDY_FLUENCY") == "1" {
+		seedFluencyWord(store)
+	}
+}
+
+// seedFluencyWord gives the learner a mature German word with two Fluency
+// contexts, so the browser journey can show a Fluency card without weeks of
+// reviews. The fixture server binds no provider or River to prepare them.
+func seedFluencyWord(store *fixtures.Store) {
+	identity := domain.StudyIdentity{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}
+	progressID := store.SeedMatureStudyWord(fixtures.OwnerID, identity, domain.StudyMaterialReadyContent{
+		BookID: fixtures.BookID, AnalysisRunID: fixtures.ResultRunID, CorpusID: "fixture-corpus",
+		SentenceOrdinal: 1, TokenOrdinal: 1,
+		Sentence: "Ich gehe jeden Morgen zur Arbeit.", TargetWord: "gehe",
+		Gloss: "to go", SentenceTranslation: "I go to work every morning.", SentenceTranslationTargets: []string{"go"},
+	}, time.Now())
+	for i, context := range []domain.FluencyContextRecord{
+		{Sentence: "Gestern ging er allein nach Hause.", TargetWord: "ging", SentenceTranslation: "Yesterday he went home alone.", SentenceTranslationTargets: []string{"went"}, Form: domain.FluencyForm{Surface: "ging", Features: "Tense=Past"}},
+		{Sentence: "Wir gehen morgen zusammen ins Kino.", TargetWord: "gehen", SentenceTranslation: "Tomorrow we are going to the cinema together.", SentenceTranslationTargets: []string{"going"}, Form: domain.FluencyForm{Surface: "gehen", Features: "Number=Plur"}},
+	} {
+		context.Agreement, context.Gloss = domain.FluencyAgrees, "to go"
+		context.BookID, context.AnalysisRunID, context.CorpusID = fixtures.BookID, fixtures.ResultRunID, "fixture-corpus"
+		context.SentenceOrdinal, context.TokenOrdinal = int64(10+i), 1
+		if err := store.SeedFluencyContext(fixtures.OwnerID, progressID, context); err != nil {
+			log.Fatalf("seed Fluency context: %v", err)
+		}
+	}
 }

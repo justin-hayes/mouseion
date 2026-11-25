@@ -18,6 +18,9 @@ type Querier interface {
 	// Starts a retrieval generation. A retained image stays available until the
 	// replacement validates; any other state restarts as pending.
 	AdvertiseCatalogEntryCover(ctx context.Context, arg AdvertiseCatalogEntryCoverParams) error
+	// Appends the learner's answer to a context of theirs that agrees with the
+	// learned meaning. A missing, foreign or disagreeing context returns no row.
+	AppendStudyFluencyResponse(ctx context.Context, arg AppendStudyFluencyResponseParams) (string, error)
 	AppendStudyReviewLog(ctx context.Context, arg AppendStudyReviewLogParams) error
 	AssignPreparedDeckBatchReconciliationJob(ctx context.Context, arg AssignPreparedDeckBatchReconciliationJobParams) (DeckPreparationBatchChunk, error)
 	AssignPreparedDeckBatchSubmissionJob(ctx context.Context, arg AssignPreparedDeckBatchSubmissionJobParams) (DeckPreparationBatchChunk, error)
@@ -274,6 +277,9 @@ type Querier interface {
 	// Where an analyzed token sits in its Book's extracted unit: the locator an
 	// Analysis update carries decisions across runs by.
 	GetStudyOccurrenceLocator(ctx context.Context, arg GetStudyOccurrenceLocatorParams) (GetStudyOccurrenceLocatorRow, error)
+	// Fluency contexts and responses (ADR 0134 §7, spec #2691). Fluency never
+	// writes study_progress or study_review_log.
+	GetStudyProgress(ctx context.Context, arg GetStudyProgressParams) (StudyProgress, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
 	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
@@ -323,6 +329,9 @@ type Querier interface {
 	InsertSourceMaterialUnitRoleSpan(ctx context.Context, arg InsertSourceMaterialUnitRoleSpanParams) error
 	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
 	InsertSourceStructureCheck(ctx context.Context, arg InsertSourceStructureCheckParams) error
+	// Stores one assessed occurrence of a word. An agreeing context beyond the
+	// word's limit, and an occurrence already assessed, return no row.
+	InsertStudyFluencyContext(ctx context.Context, arg InsertStudyFluencyContextParams) (string, error)
 	// Introduces a word from its ready, current Study material: the word enters
 	// study new and due now, with the material's Gloss as its learned meaning. A
 	// word already in study, or whose material is not ready and current, returns
@@ -467,6 +476,10 @@ type Querier interface {
 	// Known and Reserved vocabulary are deliberately not consulted (ADR 0134 §3).
 	// The builder version is the one Browse reads.
 	ListStudyCandidates(ctx context.Context, arg ListStudyCandidatesParams) ([]ListStudyCandidatesRow, error)
+	// Every context of the owner's words in the study language, with when the
+	// learner last answered it; the Unix epoch means never.
+	ListStudyFluencyContexts(ctx context.Context, arg ListStudyFluencyContextsParams) ([]ListStudyFluencyContextsRow, error)
+	ListStudyFluencyResponses(ctx context.Context, arg ListStudyFluencyResponsesParams) ([]ListStudyFluencyResponsesRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)

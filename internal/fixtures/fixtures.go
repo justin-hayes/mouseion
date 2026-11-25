@@ -121,6 +121,10 @@ type Store struct {
 	studyLedger     map[string]domain.StudyBatchLedger
 	// studySuperseded holds the IDs of Study material a correction replaced.
 	studySuperseded map[string]bool
+	// studyFluencyContexts are the Fluency contexts of mature words and
+	// studyFluencyResponses the append-only answers to them.
+	studyFluencyContexts  []domain.FluencyContext
+	studyFluencyResponses []StudyFluencyResponse
 	// classicalDefinitions is the release the fixture's Add resolves Reading
 	// units from. Tests may install the shared contract's release.
 	classicalDefinitions map[string]classical.Definition

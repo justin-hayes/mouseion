@@ -100,6 +100,12 @@ type TranslationRequest struct {
 	// RequireIdiomCard. CanonicalLemma carries the headword for cache identity.
 	IdiomHeadword     string   `json:"-"`
 	IdiomMatchedForms []string `json:"-"`
+	// RequireFluencyAgreement marks the Fluency agreement contract: one
+	// occurrence of a mature word and LearnedMeaning, the Gloss the learner
+	// learned for it, answered with whether the occurrence uses that meaning
+	// (ADR 0134 §7). It is the one payload that sends a learned meaning.
+	RequireFluencyAgreement bool   `json:"-"`
+	LearnedMeaning          string `json:"-"`
 	// Headword and LSJSenses are the pinned LSJ entry the sense summary
 	// condenses. They are transmitted only under RequireLSJSenseSummary.
 	Headword  string                 `json:"-"`
@@ -141,6 +147,9 @@ type TranslationResponse struct {
 	// SenseSummary is the provider-written LSJ sense summary an
 	// LSJ-sense-summary request resolves. It is empty for every other contract.
 	SenseSummary []LSJSenseSummaryLine `json:"-"`
+	// UsesLearnedMeaning is a Fluency agreement answer: the occurrence has the
+	// learned meaning. It is false for every other contract.
+	UsesLearnedMeaning bool `json:"-"`
 }
 
 // TranslationUsage is the bounded usage portion of a provider response. It
