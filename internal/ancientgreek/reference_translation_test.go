@@ -262,7 +262,7 @@ func TestParseReferenceTranslationReadsSectionMilestones(t *testing.T) {
 	assert.Len(t, sections, 3)
 }
 
-func TestMeasuredTranslationReadsGappedAndRepeatedMilestones(t *testing.T) {
+func TestMeasuredTranslationReadsGappedMilestonesAndDropsRepeats(t *testing.T) {
 	gapped := milestoneTranslation(
 		`<p><milestone unit="section" n="1"/>One.</p>`,
 		`<p><milestone unit="section" n="3"/>Three.</p>`,
@@ -273,7 +273,7 @@ func TestMeasuredTranslationReadsGappedAndRepeatedMilestones(t *testing.T) {
 	sections, err := ParseReferenceTranslationMeasured(gapped, "1", "3")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"1", "3"}, citationsInOrder(sections))
-	assert.Equal(t, "Three. Three again.", sections[1].Text, "measurement folds a repeated milestone into its section")
+	assert.Equal(t, "Three.", sections[1].Text, "a repeated milestone is dropped, never merged into the earlier section")
 }
 
 func TestParseReferenceTranslationMilestoneLimits(t *testing.T) {

@@ -36,8 +36,8 @@ func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) (
 // gaps in the cited numbering are kept as gaps, and a translation keyed at a
 // shallower level than the range (a chapter-level file against section
 // Citations) is read at its own depth, so a join rate can be computed over it.
-// A section repeated in the file is read as one section. It still refuses a
-// file that is not well-formed or has no cited section.
+// A section repeated in the file keeps its first text and drops the repeat. It
+// still refuses a file that is not well-formed or has no cited section.
 func ParseReferenceTranslationMeasured(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
 	sections, err := parseReferenceTranslation(data, citationStart, citationEnd, true, true)
 	if err == nil {
@@ -338,11 +338,14 @@ func (p *eng2Parser) emitCitation(citation string) error {
 	if text == "" {
 		return &ImportError{Code: CodeMalformed, Detail: "cited section has no text"}
 	}
-	if index, duplicate := p.seen[citation]; duplicate {
+	if _, duplicate := p.seen[citation]; duplicate {
 		if !p.lenient {
 			return &ImportError{Code: CodeMalformed, Detail: "duplicate cited section"}
 		}
-		p.sections[index].Text += " " + text
+		// A repeated milestone is a numbering error in the file (the repeat is
+		// the following section mislabelled). Its text is dropped, never merged
+		// into the earlier section: the following section stays unjoined and
+		// shows no English rather than the wrong English.
 		return nil
 	}
 	p.seen[citation] = len(p.sections)
