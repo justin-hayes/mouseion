@@ -96,10 +96,10 @@ templ MyBookIdentityDetails(book domain.MyBook) {
 	if position := myBookPositionLabel(book); position != "" {
 		<span class="library-book__position">{ position }</span>
 	}
-	if greek := myBookGreekTitle(book); greek != "" {
-		<span class="library-book__greek" lang="grc">{ greek }</span>
+	if greek := myBookOriginalTitle(book); greek != "" {
+		<span class="library-book__greek" lang={ book.Book.LanguageTag }>{ greek }</span>
 	}
-	if myBookGreekTitle(book) != "" || myBookPositionLabel(book) != "" || myBookEditionLabel(book) != "" {
+	if myBookOriginalTitle(book) != "" || myBookPositionLabel(book) != "" || myBookEditionLabel(book) != "" {
 		<span class="library-book__provenance">Classical catalog</span>
 	}
 }

@@ -17,7 +17,7 @@ func catalogDefinitions() []Definition {
 	whole.WorkKey = "beta"
 	whole.WorkTitle = "Beta"
 	whole.WorkAuthor = "Other"
-	whole.GreekTitle = ""
+	whole.OriginalTitle = ""
 	whole.EditionKey = "beta-test"
 	whole.ConstituentBook = nil
 	whole.ConstituentBooks = 1
@@ -74,7 +74,7 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 
 	alpha, ok := catalog.Work("alpha")
 	require.True(t, ok)
-	assert.Equal(t, "Ἄλφα", alpha.GreekTitle)
+	assert.Equal(t, "Ἄλφα", alpha.OriginalTitle)
 	assert.Equal(t, "Test Edition", alpha.EditionLabel)
 	assert.Equal(t, 2, alpha.ConstituentBooks)
 	assert.Equal(t, 14, alpha.Words)
@@ -212,4 +212,21 @@ func TestLoadCatalogReadsTheEmbeddedRelease(t *testing.T) {
 		require.True(t, ok, key)
 		assert.True(t, work.TranslationAvailable, key)
 	}
+}
+
+func TestCatalogListsTheClassicalLanguagesPresent(t *testing.T) {
+	definitions := catalogDefinitions()
+	greekOnly, err := NewCatalog(definitions)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"grc"}, greekOnly.Languages())
+
+	latin := validWholeWorkDefinition()
+	latin.Key, latin.WorkKey, latin.EditionKey = "gamma-la", "gamma-la", "gamma-la-test"
+	latin.Language = LanguageLatin
+	both, err := NewCatalog(append(definitions, latin))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"grc", "la"}, both.Languages())
+	work, ok := both.Work("gamma-la")
+	require.True(t, ok)
+	assert.Equal(t, "la", work.Language)
 }

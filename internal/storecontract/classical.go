@@ -41,13 +41,13 @@ func ClassicalDefinitions() []classical.Definition {
 	}
 }
 
-func classicalDefinition(workKey, title, author, greekTitle, key, citationStart, citationEnd, editionKey string) classical.Definition {
+func classicalDefinition(workKey, title, author, originalTitle, key, citationStart, citationEnd, editionKey string) classical.Definition {
 	definition := classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
 		WorkTitle:             title,
 		WorkAuthor:            author,
-		GreekTitle:            greekTitle,
+		OriginalTitle:         originalTitle,
 		EditionKey:            editionKey,
 		EditionLabel:          "Contract edition",
 		Language:              classical.Language,
@@ -90,7 +90,7 @@ func classicalScenarios() []Scenario {
 			assert.Equal(t, ClassicalWorkKey, first.ReadingUnit.WorkKey)
 			assert.Zero(t, first.ReadingUnit.ConstituentBook, "a whole-work unit has no constituent position")
 			assert.Equal(t, 1, first.ReadingUnit.ConstituentBooks)
-			assert.Equal(t, ClassicalWorkGreek, first.ReadingUnit.GreekTitle)
+			assert.Equal(t, ClassicalWorkGreek, first.ReadingUnit.OriginalTitle)
 
 			whole := requireDetail(t, h, owner, owned[ClassicalWholeUnitKey].BookID)
 			assert.Equal(t, ClassicalWholeWorkName, whole.Book.Title)

@@ -12,7 +12,7 @@
           "name": "work.conllu",
           "workTitle": "Alpha",
           "workAuthor": "Author",
-          "greekTitle": "Ἄλφα",
+          "originalTitle": "Ἄλφα",
           "editionLabel": "Test Edition",
           "size": 1553,
           "sha256": "ea12338efc8169d5f688e7a8d34d6bb93e9b9d1575a31d3fcf276e086efbf2ea"

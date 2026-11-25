@@ -13,10 +13,19 @@ import (
 // author, then unit key, like every other source. It matches author, English
 // title and Greek title through the Go search key.
 func classicalCatalogCards(authors []classical.CatalogAuthor, query string, view classicalCatalogView) []catalogCard {
+	return classicalCatalogCardsIn(authors, query, "", view)
+}
+
+// classicalCatalogCardsIn is classicalCatalogCards narrowed to the Works of one
+// classical language; an empty language keeps every Work.
+func classicalCatalogCardsIn(authors []classical.CatalogAuthor, query, language string, view classicalCatalogView) []catalogCard {
 	key := canonicalization.SearchKey(query)
 	var cards []catalogCard
 	for _, author := range authors {
 		for _, work := range author.Works {
+			if language != "" && work.Language != language {
+				continue
+			}
 			if !catalogWorkMatches(work, key) {
 				continue
 			}
@@ -25,6 +34,12 @@ func classicalCatalogCards(authors []classical.CatalogAuthor, query string, view
 			}
 		}
 	}
+	sortCatalogCards(cards)
+	return cards
+}
+
+// sortCatalogCards orders cards by title, then author, then ID.
+func sortCatalogCards(cards []catalogCard) {
 	sort.SliceStable(cards, func(i, j int) bool {
 		if left, right := canonicalization.SearchKey(cards[i].Title), canonicalization.SearchKey(cards[j].Title); left != right {
 			return left < right
@@ -34,20 +49,20 @@ func classicalCatalogCards(authors []classical.CatalogAuthor, query string, view
 		}
 		return cards[i].ID < cards[j].ID
 	})
-	return cards
 }
 
 // classicalCatalogCard is one Reading unit, a Work in one Edition, as a card.
 // Its title opens the Work page; its detail line is the Edition label.
 func classicalCatalogCard(work classical.CatalogWork, unit classical.CatalogUnit, view classicalCatalogView) catalogCard {
 	card := catalogCard{
-		ID:         "classical-" + unit.Key,
-		Title:      work.Title,
-		GreekTitle: work.GreekTitle,
-		Author:     work.Author,
-		Detail:     unit.EditionLabel,
-		TitleURL:   classicalWorkURL(work.Key),
-		Plate:      newTitlePlate(work.Title, work.GreekTitle, work.Author),
+		ID:            "classical-" + unit.Key,
+		Title:         work.Title,
+		OriginalTitle: work.OriginalTitle,
+		OriginalLang:  work.Language,
+		Author:        work.Author,
+		Detail:        unit.EditionLabel,
+		TitleURL:      classicalWorkURL(work.Key),
+		Plate:         newTitlePlate(work.Title, work.OriginalTitle, work.Language, work.Author),
 	}
 	if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
 		card.OwnedURL = classicalBookInMyBooksURL(bookID)
@@ -67,5 +82,5 @@ func catalogWorkMatches(work classical.CatalogWork, key string) bool {
 	}
 	return domain.CatalogueTextMatches(work.Title, key) ||
 		domain.CatalogueTextMatches(work.Author, key) ||
-		domain.CatalogueTextMatches(work.GreekTitle, key)
+		domain.CatalogueTextMatches(work.OriginalTitle, key)
 }

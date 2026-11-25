@@ -49,18 +49,18 @@ func copyUpstream(t *testing.T) string {
 func baseOverride() classical.Override {
 	revision := 1
 	return classical.Override{
-		WorkKey:      "alpha",
-		WorkTitle:    "Alpha",
-		WorkAuthor:   "Author",
-		GreekTitle:   "Ἄλφα",
-		EditionKey:   "alpha-test",
-		EditionLabel: "Test Edition",
-		Source:       &classical.SourceSpec{Layer: "fixture-source", FileName: "work.conllu", Format: classical.SourceFormatOGACoNLLU},
-		Translation:  &classical.TranslationSpec{Layer: "fixture-translation", FileName: "work.xml"},
-		Split:        classical.SplitWholeWork,
-		Contents:     classical.ContentsBooks,
-		Revision:     &revision,
-		Note:         "Fixture curatorial sign-off.",
+		WorkKey:       "alpha",
+		WorkTitle:     "Alpha",
+		WorkAuthor:    "Author",
+		OriginalTitle: "Ἄλφα",
+		EditionKey:    "alpha-test",
+		EditionLabel:  "Test Edition",
+		Source:        &classical.SourceSpec{Layer: "fixture-source", FileName: "work.conllu", Format: classical.SourceFormatOGACoNLLU},
+		Translation:   &classical.TranslationSpec{Layer: "fixture-translation", FileName: "work.xml"},
+		Split:         classical.SplitWholeWork,
+		Contents:      classical.ContentsBooks,
+		Revision:      &revision,
+		Note:          "Fixture curatorial sign-off.",
 	}
 }
 
@@ -309,7 +309,7 @@ func TestOverrideDepartureWithoutANoteIsRefused(t *testing.T) {
 func TestUnitOverrideDepartureWithoutANoteIsRefused(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
-	unit := classical.Override{Key: "alpha", GreekTitle: "Ἄλφα ἄλλη"}
+	unit := classical.Override{Key: "alpha", OriginalTitle: "Ἄλφα ἄλλη"}
 	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride(), unit), Manifest: first.Manifest, UpstreamDir: upstream})
 	require.ErrorContains(t, err, "departs from its Work Greek title without a note")
 }

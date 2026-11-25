@@ -35,11 +35,11 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 		if !view.AddAvailable {
 			@Feedback(FeedbackError, "Add is unavailable", view.AddUnavailableReason)
 		}
-		if work.GreekTitle != "" {
-			<p class="classical-work-page__greek" lang="grc">{ work.GreekTitle }</p>
+		if work.OriginalTitle != "" {
+			<p class="classical-work-page__greek" lang={ work.Language }>{ work.OriginalTitle }</p>
 		}
 		<p class="classical-work-page__summary">{ classicalWorkSizeLabel(work) } · { fmt.Sprintf("%d", work.Words) } words · { classicalTranslationLabel(work.TranslationAvailable) }</p>
-		<p class="classical-opening" lang="grc"><span class="classical-opening__citation" lang="en"><span class="sr-only">Begins at </span>{ classicalWorkOpeningCitation(work) }</span>{ work.Opening }</p>
+		<p class="classical-opening" lang={ work.Language }><span class="classical-opening__citation" lang="en"><span class="sr-only">Begins at </span>{ classicalWorkOpeningCitation(work) }</span>{ work.Opening }</p>
 		<p class="classical-length-caption">{ classicalWorkLengthCaption(work) }</p>
 		<div class="classical-length" aria-hidden="true">
 			<span class={ classicalLengthSegmentClass(work, view) } style={ classicalLengthWidth(work.Words, axis) }></span>

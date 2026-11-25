@@ -11,12 +11,44 @@ import (
 	"strings"
 )
 
-// Language is the only language the Classical catalog currently ships.
+// Language is the Ancient Greek language tag, the first classical language the
+// Classical catalog ships. A Definition carries its own language; code that is
+// not Greek-specific reads it from the Definition, not from this constant.
 const Language = "grc"
 
 // LanguageDisplayName is the learner-facing name recorded when an Add makes
 // Ancient Greek available as a study language.
 const LanguageDisplayName = "Ancient Greek"
+
+// LanguageLatin is the Latin language tag, the second classical language
+// (ADR 0132).
+const LanguageLatin = "la"
+
+// LatinDisplayName is the learner-facing name recorded when an Add makes
+// Latin available as a study language.
+const LatinDisplayName = "Latin"
+
+// Languages lists the classical languages a Definition may carry, in display
+// order.
+func Languages() []string { return []string{Language, LanguageLatin} }
+
+// IsLanguage reports whether language is a classical language.
+func IsLanguage(language string) bool {
+	return DisplayName(language) != ""
+}
+
+// DisplayName is the learner-facing name of a classical language, or "" for a
+// language that is not classical.
+func DisplayName(language string) string {
+	switch language {
+	case Language:
+		return LanguageDisplayName
+	case LanguageLatin:
+		return LatinDisplayName
+	default:
+		return ""
+	}
+}
 
 // SourceFormatOGACoNLLU names the single-file oga_src CoNLL-U adapter.
 const SourceFormatOGACoNLLU = "oga-conllu"
@@ -78,14 +110,14 @@ type ConstituentBookSpan struct {
 // and Edition keys are separate from the Reading-unit Key so all Books of a
 // Work share one Work and one Edition.
 type Definition struct {
-	Key          string `json:"key"`
-	WorkKey      string `json:"workKey"`
-	WorkTitle    string `json:"workTitle"`
-	WorkAuthor   string `json:"workAuthor"`
-	GreekTitle   string `json:"greekTitle,omitempty"`
-	EditionKey   string `json:"editionKey"`
-	EditionLabel string `json:"editionLabel"`
-	Language     string `json:"language"`
+	Key           string `json:"key"`
+	WorkKey       string `json:"workKey"`
+	WorkTitle     string `json:"workTitle"`
+	WorkAuthor    string `json:"workAuthor"`
+	OriginalTitle string `json:"originalTitle,omitempty"`
+	EditionKey    string `json:"editionKey"`
+	EditionLabel  string `json:"editionLabel"`
+	Language      string `json:"language"`
 	// ConstituentBook is absent for a whole-work unit. Only a withdrawn
 	// per-book definition from before ADR 0128 still carries it.
 	ConstituentBook *int `json:"constituentBook,omitempty"`
@@ -130,8 +162,8 @@ func (d Definition) Validate() error {
 		return errors.New("classical: definition Edition key is required")
 	case strings.TrimSpace(d.EditionLabel) == "":
 		return errors.New("classical: definition Edition label is required")
-	case d.Language != Language:
-		return fmt.Errorf("classical: definition language must be %q", Language)
+	case !IsLanguage(d.Language):
+		return fmt.Errorf("classical: definition language %q is not a classical language", d.Language)
 	case d.ConstituentBooks <= 0:
 		return errors.New("classical: definition constituent book count must be positive")
 	case d.ConstituentBook != nil && (*d.ConstituentBook < 1 || *d.ConstituentBook > d.ConstituentBooks):
@@ -242,13 +274,13 @@ type Layer struct {
 // generator verifies. A reference translation also carries the credit an
 // exported card and deck show for its passage context.
 type LayerFile struct {
-	Name         string `json:"name"`
-	WorkTitle    string `json:"workTitle,omitempty"`
-	WorkAuthor   string `json:"workAuthor,omitempty"`
-	GreekTitle   string `json:"greekTitle,omitempty"`
-	EditionLabel string `json:"editionLabel,omitempty"`
-	Size         int64  `json:"size,omitempty"`
-	SHA256       string `json:"sha256,omitempty"`
+	Name          string `json:"name"`
+	WorkTitle     string `json:"workTitle,omitempty"`
+	WorkAuthor    string `json:"workAuthor,omitempty"`
+	OriginalTitle string `json:"originalTitle,omitempty"`
+	EditionLabel  string `json:"editionLabel,omitempty"`
+	Size          int64  `json:"size,omitempty"`
+	SHA256        string `json:"sha256,omitempty"`
 	// PassageLabel names the translation and work on a card, such as
 	// "Brownson (1922), Xen. Anab.". The card appends the cited sections.
 	PassageLabel string `json:"passageLabel,omitempty"`
@@ -429,11 +461,13 @@ type UnitSpec struct {
 // Override is one line of overrides.jsonl. A work override has WorkKey; a unit
 // override has Key. Work-level values apply to every constituent unit.
 type Override struct {
-	WorkKey      string           `json:"workKey,omitempty"`
-	Key          string           `json:"key,omitempty"`
-	WorkTitle    string           `json:"workTitle,omitempty"`
-	WorkAuthor   string           `json:"workAuthor,omitempty"`
-	GreekTitle   string           `json:"greekTitle,omitempty"`
+	WorkKey       string `json:"workKey,omitempty"`
+	Key           string `json:"key,omitempty"`
+	WorkTitle     string `json:"workTitle,omitempty"`
+	WorkAuthor    string `json:"workAuthor,omitempty"`
+	OriginalTitle string `json:"originalTitle,omitempty"`
+	// Language is the Work's classical language; it defaults to Ancient Greek.
+	Language     string           `json:"language,omitempty"`
 	EditionKey   string           `json:"editionKey,omitempty"`
 	EditionLabel string           `json:"editionLabel,omitempty"`
 	Note         string           `json:"note,omitempty"`
@@ -459,6 +493,8 @@ func (o Override) Validate() error {
 		return errors.New("classical: an override needs workKey or key")
 	case o.Revision != nil && *o.Revision < 1:
 		return errors.New("classical: override revision must be positive")
+	case o.Language != "" && !IsLanguage(o.Language):
+		return fmt.Errorf("classical: override language %q is not a classical language", o.Language)
 	}
 	if o.Key != "" {
 		return o.validateUnit()
@@ -469,7 +505,7 @@ func (o Override) Validate() error {
 // validateUnit restricts a unit override to curatorial fields, a note and a
 // revision.
 func (o Override) validateUnit() error {
-	if o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
+	if o.Language != "" || o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
 		return fmt.Errorf("classical: unit override %q may only change curatorial fields, a note or a revision", o.Key)
 	}
 	return nil

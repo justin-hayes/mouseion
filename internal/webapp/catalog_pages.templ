@@ -157,8 +157,8 @@ templ CatalogEntryCard(csrf string, card catalogCard) {
 				{ card.Title }
 			}
 		</h3>
-		if card.GreekTitle != "" {
-			<p class="catalog-entry__greek" lang="grc">{ card.GreekTitle }</p>
+		if card.OriginalTitle != "" {
+			<p class="catalog-entry__greek" lang={ card.OriginalLang }>{ card.OriginalTitle }</p>
 		}
 		if card.Author != "" {
 			<p class="catalog-entry__author">{ card.Author }</p>

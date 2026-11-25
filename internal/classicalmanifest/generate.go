@@ -511,10 +511,10 @@ func baseDefinition(override, unitOverride classical.Override, unit plannedUnit,
 		WorkKey:               override.WorkKey,
 		WorkTitle:             firstNonEmpty(unitOverride.WorkTitle, override.WorkTitle, previous.WorkTitle),
 		WorkAuthor:            firstNonEmpty(unitOverride.WorkAuthor, override.WorkAuthor, previous.WorkAuthor),
-		GreekTitle:            firstNonEmpty(unitOverride.GreekTitle, override.GreekTitle, previous.GreekTitle),
+		OriginalTitle:         firstNonEmpty(unitOverride.OriginalTitle, override.OriginalTitle, previous.OriginalTitle),
 		EditionKey:            override.EditionKey,
 		EditionLabel:          firstNonEmpty(unitOverride.EditionLabel, override.EditionLabel, previous.EditionLabel),
-		Language:              classical.Language,
+		Language:              firstNonEmpty(override.Language, previous.Language, classical.Language),
 		ConstituentBooks:      unit.total,
 		CitationStart:         unit.start,
 		CitationEnd:           unit.end,
@@ -652,7 +652,7 @@ func checkUnitDeparture(work, unit classical.Override, key string) error {
 		return fmt.Errorf("classical: unit override %q departs from its Work title without a note", key)
 	case unit.WorkAuthor != "" && unit.WorkAuthor != work.WorkAuthor:
 		return fmt.Errorf("classical: unit override %q departs from its Work author without a note", key)
-	case unit.GreekTitle != "" && unit.GreekTitle != work.GreekTitle:
+	case unit.OriginalTitle != "" && unit.OriginalTitle != work.OriginalTitle:
 		return fmt.Errorf("classical: unit override %q departs from its Work Greek title without a note", key)
 	case unit.EditionLabel != "" && unit.EditionLabel != work.EditionLabel:
 		return fmt.Errorf("classical: unit override %q departs from its Work Edition label without a note", key)
@@ -679,7 +679,7 @@ func (b *builder) checkUpstreamDeparture(definition classical.Definition) error 
 		return fmt.Errorf("classical: definition %s departs from the upstream Work title without a note", definition.Key)
 	case file.WorkAuthor != "" && file.WorkAuthor != definition.WorkAuthor:
 		return fmt.Errorf("classical: definition %s departs from the upstream Work author without a note", definition.Key)
-	case file.GreekTitle != "" && file.GreekTitle != definition.GreekTitle:
+	case file.OriginalTitle != "" && file.OriginalTitle != definition.OriginalTitle:
 		return fmt.Errorf("classical: definition %s departs from the upstream Greek title without a note", definition.Key)
 	case file.EditionLabel != "" && file.EditionLabel != definition.EditionLabel:
 		return fmt.Errorf("classical: definition %s departs from the upstream Edition label without a note", definition.Key)

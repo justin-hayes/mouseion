@@ -310,17 +310,17 @@ func classicalPreparationFailureCode(err error) domain.BookPreparationCode {
 	case errors.Is(err, classical.ErrLegacyRows):
 		return domain.BookPreparationCodeClassicalCatalogLegacyRows
 	}
-	if importErr, ok := errors.AsType[*ancientgreek.ImportError](err); ok {
+	if importErr, ok := errors.AsType[*classical.PreparationError](err); ok {
 		switch importErr.Code {
-		case ancientgreek.CodeSourceDownloadFailed,
-			ancientgreek.CodePinMismatch,
-			ancientgreek.CodeOversize,
-			ancientgreek.CodeSourceLayerUnknown:
+		case classical.CodeSourceDownloadFailed,
+			classical.CodePinMismatch,
+			classical.CodeOversize,
+			classical.CodeSourceLayerUnknown:
 			return domain.BookPreparationCode(importErr.Code)
-		case ancientgreek.CodeUnknownSourceFormat,
-			ancientgreek.CodeMalformed, ancientgreek.CodeUnknownPOS,
-			ancientgreek.CodeUnknownInterpret, ancientgreek.CodeSentenceUnassigned,
-			ancientgreek.CodeSentenceAmbiguous, ancientgreek.CodeEmptyCitationRange:
+		case classical.CodeUnknownSourceFormat,
+			classical.CodeMalformed, classical.CodeUnknownPOS,
+			classical.CodeUnknownInterpret, classical.CodeSentenceUnassigned,
+			classical.CodeSentenceAmbiguous, classical.CodeEmptyCitationRange:
 			return domain.BookPreparationCodeSourceAdapterRefused
 		default:
 			return domain.BookPreparationCodeClassicalFailed
@@ -531,18 +531,18 @@ func (w *ClassicalPreparationWorker) sourceBytes(ctx context.Context, target dom
 func (c ClassicalPreparationConfig) fetchPinnedSource(ctx context.Context, layerKey, fileName string, size int64, digest string, timeout time.Duration) (data []byte, err error) {
 	layer, ok := c.Layers.Layer(layerKey)
 	if !ok {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}
+		return nil, &classical.PreparationError{Code: classical.CodeSourceLayerUnknown}
 	}
 	if size > maxClassicalSourceBytes {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
+		return nil, &classical.PreparationError{Code: classical.CodeOversize}
 	}
 	sourceURL, err := classicalSourceURL(layer.BaseURL, fileName)
 	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceLayerUnknown}
+		return nil, &classical.PreparationError{Code: classical.CodeSourceLayerUnknown}
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
 	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
+		return nil, &classical.PreparationError{Code: classical.CodeSourceDownloadFailed}
 	}
 	client := c.HTTPClient
 	if client == nil {
@@ -571,7 +571,7 @@ func (c ClassicalPreparationConfig) fetchPinnedSource(ctx context.Context, layer
 	}()
 	data, err = os.ReadFile(staged.Path)
 	if err != nil {
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
+		return nil, &classical.PreparationError{Code: classical.CodeSourceDownloadFailed}
 	}
 	return data, nil
 }
@@ -588,11 +588,11 @@ func (c ClassicalPreparationConfig) sourceIdleTimeout() time.Duration {
 func classicalDownloadError(err error) error {
 	switch {
 	case errors.Is(err, download.ErrTooLarge):
-		return &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
+		return &classical.PreparationError{Code: classical.CodeOversize}
 	case errors.Is(err, download.ErrMismatch):
-		return &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}
+		return &classical.PreparationError{Code: classical.CodePinMismatch}
 	default:
-		return &ancientgreek.ImportError{Code: ancientgreek.CodeSourceDownloadFailed}
+		return &classical.PreparationError{Code: classical.CodeSourceDownloadFailed}
 	}
 }
 
@@ -621,7 +621,7 @@ func parseClassicalSource(format string, data []byte) (*ancientgreek.ParsedWork,
 	case classical.SourceFormatOGACoNLLU:
 		return ancientgreek.ParseOgaSource(data)
 	default:
-		return nil, &ancientgreek.ImportError{Code: ancientgreek.CodeUnknownSourceFormat}
+		return nil, &classical.PreparationError{Code: classical.CodeUnknownSourceFormat}
 	}
 }
 
@@ -647,14 +647,14 @@ func targetDefinition(target domain.ClassicalPreparationTarget) domain.ReadingUn
 // reviewed pin.
 func verifyClassicalSource(data []byte, size int64, digest string) error {
 	if int64(len(data)) > size {
-		return &ancientgreek.ImportError{Code: ancientgreek.CodeOversize}
+		return &classical.PreparationError{Code: classical.CodeOversize}
 	}
 	if int64(len(data)) != size {
-		return &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}
+		return &classical.PreparationError{Code: classical.CodePinMismatch}
 	}
 	sum := sha256.Sum256(data)
 	if hex.EncodeToString(sum[:]) != digest {
-		return &ancientgreek.ImportError{Code: ancientgreek.CodePinMismatch}
+		return &classical.PreparationError{Code: classical.CodePinMismatch}
 	}
 	return nil
 }
