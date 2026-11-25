@@ -40,17 +40,17 @@ result.
 
 | Work | OLA member | Translation | (i) Citations | (ii) Split words | (iii) Join | (iv) Dictionary | Result |
 |---|---|---|---|---|---|---|---|
-| `caesar-gallic-war` | `phi0448.phi001.perseus-lat2` | `perseus-eng2` | **FAIL**: unreadable (D1) [60,404 tokens, 0 backwards] | [52/52,686, 0.099%] | [2,845/2,845, 100%] | [31,094/33,753, 92.1%] | Blocked by D1 |
+| `caesar-gallic-war` | `phi0448.phi001.perseus-lat2` | `perseus-eng2` | **FAIL**: unreadable (D1) [60,404 tokens, 0 backwards] | [52/52,686, 0.099%] | [2,845/2,845, 100%] | [31,094/33,753, 92.1%] | Blocked by D1. Also fails tier B (T1) |
 | `sallust-catiline` | `phi0631.phi001.perseus-lat3` | `perseus-eng2` | pass, 12,922 tokens | pass, 3/10,941, 0.027% | **FAIL**: unreadable (D2) [681/698, 97.56%] | pass, 7,157/7,552, 94.8% | Blocked by D2, then a clearable join flag |
 | `sallust-jugurthine-war` | `phi0631.phi002.perseus-lat3` | `perseus-eng2` | pass, 25,705 tokens | pass, 12/21,824, 0.055% | pass, 1,316/1,316, 100% | pass, 13,649/14,902, 91.6% | **Passes**, awaiting spot check |
-| `cicero-in-catilinam` | `phi0474.phi013.perseus-lat2` | `perseus-eng2` | **FAIL**: unreadable (D1) [14,862 tokens, 0 backwards] | [9/12,840, 0.070%] | [unreadable (D4)] | [7,702/8,190, 94.0%] | Blocked by D1 and D4 |
+| `cicero-in-catilinam` | `phi0474.phi013.perseus-lat2` | `perseus-eng2` | **FAIL**: unreadable (D1) [14,862 tokens, 0 backwards] | [9/12,840, 0.070%] | [unreadable (D2, then D4)] | [7,702/8,190, 94.0%] | Blocked by D1, D2 and D4 |
 | `cicero-pro-archia` | `phi0474.phi016.perseus-lat2` | `perseus-eng2` | pass, 3,616 tokens | pass, 2/3,169, 0.063% | **FAIL**: unreadable (D2) [144/144, 100%] | pass, 1,793/1,939, 92.5% | Blocked by D2 |
 | `cicero-pro-milone` | `phi0474.phi031.perseus-lat2` | `perseus-eng1` | pass, 12,618 tokens | pass, 36/10,678, 0.337% | **FAIL**: unreadable (D3) | pass, 6,326/6,804, 93.0% | Blocked by D3 |
 | `cicero-pro-caelio` | `phi0474.phi024.perseus-lat2` | `perseus-eng1` | pass, 10,141 tokens | pass, 15/8,655, 0.173% | **FAIL**: unreadable (D3) | pass, 5,162/5,561, 92.8% | Blocked by D3 |
 | `cicero-de-amicitia` | `phi0474.phi052.perseus-lat2` | `perseus-eng2` | pass, 11,270 tokens | pass, 49/9,531, 0.514% | pass, 575/575, 100% | pass, 5,658/5,984, 94.6% | **Passes**, awaiting spot check |
 | `cicero-de-senectute` | `phi0474.phi051.perseus-lat1` | `perseus-eng1` | pass, 9,958 tokens | pass, 54/8,427, 0.641% | **FAIL**: unreadable (D3) | pass, 5,066/5,450, 93.0% | Blocked by D3. Gate (ii) passes, so it needs no clearance |
-| `tacitus-agricola` | `phi1351.phi001.perseus-lat1` | `perseus-eng4` | **FAIL**: unreadable (D1) [8,083 tokens, 0 backwards] | [28/6,912, 0.405%] | [443/443, 100%] | [4,409/4,850, 90.9%] | Blocked by D1 |
-| `tacitus-germania` | `phi1351.phi002.perseus-lat1` | `perseus-eng2` | **FAIL**: unreadable (D1) [6,746 tokens, 0 backwards] | [49/5,733, 0.855%] | [459/459, 100%] | [3,601/3,869, 93.1%] | Blocked by D1. Gate (ii) passes, so it needs no clearance |
+| `tacitus-agricola` | `phi1351.phi001.perseus-lat1` | `perseus-eng4` | **FAIL**: unreadable (D1) [8,083 tokens, 0 backwards] | [28/6,912, 0.405%] | [443/443, 100%] | [4,409/4,850, 90.9%] | Blocked by D1. Also fails tier B (T1) |
+| `tacitus-germania` | `phi1351.phi002.perseus-lat1` | `perseus-eng2` | **FAIL**: unreadable (D1) [6,746 tokens, 0 backwards] | [49/5,733, 0.855%] | [459/459, 100%] | [3,601/3,869, 93.1%] | Blocked by D1. Also fails tier B (T1). Gate (ii) passes, so it needs no clearance |
 | `suetonius-julius` | `phi1348.abo011.perseus-lat2` | `perseus-eng2` | pass, 11,530 tokens | pass, 34/10,018, 0.339% | **FAIL**: unreadable (D5) | **FAIL**: 5,535/6,410, 86.3% | **Fails gate (iv)**: drops out unless cleared |
 | `suetonius-augustus` | `phi1348.abo012.perseus-lat2` | `perseus-eng2` | pass, 16,372 tokens | pass, 55/14,263, 0.386% | **FAIL**: unreadable (D2) [732/761, 96.19%] | pass, 8,337/9,237, 90.3% | Blocked by D2, then a clearable join flag |
 
@@ -84,13 +84,34 @@ failures, so a Work blocked only by them has not dropped out under ADR 0132.
   for *Pro Milone*, *Pro Caelio* and *De Senectute* mark sections with
   `<milestone unit="section">` and have no textpart divs. The reader finds "no
   cited sections".
-- **D4. Uncited speech textpart.** The *In Catilinam* translation has a speech
-  textpart that the reader finds without a cited section ("textpart has no
-  cited section").
+- **D4. Speech-keyed translation.** The *In Catilinam* translation numbers
+  its sections inside `subtype="speech"` textparts. The reader first refuses
+  the editorial `n="argument"` textpart (D2). With that removed, it still
+  finds a speech textpart without a cited section ("textpart has no cited
+  section"), because it does not read the speech level.
 - **D5. Finer translation.** OLA cites the *Divus Iulius* by chapter only, but
   both translations are keyed chapter.section. A translation finer than the
   Latin is neither tier A nor tier B (ADR 0133), and the reader refuses it
   ("textpart deeper than citation depth").
+
+## Tier eligibility
+
+- **T1. Segments over 400 words.** ADR 0133's tier B, a translation keyed one
+  level above the Latin, allows segments of at most 400 words. Gate (iii)
+  measures join coverage only, not this limit. The bracketed 100% joins above
+  therefore do not make these pins admissible. Word counts below are of
+  segment text with footnotes left out, from a scratch reader:
+
+  | Work | Translation | Segments | Over 400 words | Largest |
+  |---|---|---|---|---|
+  | *The Gallic War* | `perseus-eng2` (book.chapter) | 404 | 10 (first 1.31, 1.40, 7.77, 1.44) | 750 |
+  | *Agricola* | `perseus-eng4` (chapter) | 46 | 1 (18) | 457 |
+  | *Germania* | `perseus-eng2` (chapter) | 46 | 1 (45) | 460 |
+
+  Every other pinned translation is keyed like its Latin (tier A), apart
+  from *Life of Julius Caesar*, whose translation is finer than the Latin
+  (D5). A reviewer decides whether these Works enter or drop out. No
+  `perseus-engN` alternative at the pin is keyed at the Latin's depth.
 
 ## Lewis & Short citation author references
 
@@ -100,16 +121,20 @@ the card's Work-author citation filter, `cardexport.latinAuthorMatches`.
 - **The whole index.** It holds 376,678 citations, and 360,509 of them (95.7%)
   carry an author reference: an abbreviation, an "id." resolved within the
   entry, or a CTS URN author.
-- **The batch's authors.** For each author, the share of TEI `<bibl>` elements
-  whose CTS URN names the author's textgroup and that the filter keeps:
+- **The batch's authors.** This is a proxy for the usable-reference share,
+  measured on the TEI. For each author it counts the `<bibl>` elements whose
+  CTS URN names the author's textgroup. It then counts how many of those carry
+  an author reference the card's filter keeps, with "id." resolved as the
+  derivation resolves it. "ib." and "ibid." are not resolved, so the filter
+  drops them:
 
-  | Author | Textgroup | `<bibl>` elements naming it | Kept | Share |
+  | Author | Textgroup | `<bibl>` elements naming it | Usable and kept | Share |
   |---|---|---|---|---|
   | Caesar | `phi0448` | 8,017 | 7,702 | 96.1% |
-  | Sallust | `phi0631` | 4,179 | 4,178 | 100.0% |
-  | Cicero | `phi0474` | 63,319 | 63,120 | 99.7% |
-  | Tacitus | `phi1351` | 8,837 | 8,834 | 100.0% |
-  | Suetonius | `phi1348` | 8,404 | 8,401 | 100.0% |
+  | Sallust | `phi0631` | 4,179 | 4,174 | 99.9% |
+  | Cicero | `phi0474` | 63,319 | 63,083 | 99.6% |
+  | Tacitus | `phi1351` | 8,837 | 8,832 | 99.9% |
+  | Suetonius | `phi1348` | 8,404 | 8,400 | 100.0% |
 
 - **Citations the filter keeps per author** across all citations in the index,
   including those with no URN: Caesar 9,125; Sallust 4,190; Cicero 70,830;
@@ -122,6 +147,7 @@ Virgil), does not affect any of these five authors.
 ## Still to do
 
 1. Fix D1–D3 (and D4 and D5 if those Works are to enter), then rerun.
+   *Gallic War*, *Agricola* and *Germania* also need a tier decision (T1).
 2. Justin records each author's spot check (`spotCheck` in each Work's
    override), and any reviewer notes:
    - *Catiline* and *Augustus* if their join stays under 98%;
