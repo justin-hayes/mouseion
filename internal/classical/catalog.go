@@ -96,8 +96,10 @@ func validateWorkDefinition(works map[string]Definition, definition Definition) 
 		return fmt.Errorf("classical: Work %q has conflicting titles", definition.WorkKey)
 	case previous.WorkAuthor != definition.WorkAuthor:
 		return fmt.Errorf("classical: Work %q has conflicting authors", definition.WorkKey)
-	case previous.GreekTitle != definition.GreekTitle:
-		return fmt.Errorf("classical: Work %q has conflicting Greek titles", definition.WorkKey)
+	case previous.OriginalTitle != definition.OriginalTitle:
+		return fmt.Errorf("classical: Work %q has conflicting original titles", definition.WorkKey)
+	case previous.Language != definition.Language:
+		return fmt.Errorf("classical: Work %q has conflicting languages", definition.WorkKey)
 	case previous.ConstituentBooks != definition.ConstituentBooks:
 		return fmt.Errorf("classical: Work %q has conflicting constituent-book counts", definition.WorkKey)
 	}
@@ -142,7 +144,8 @@ type CatalogWork struct {
 	Key                  string
 	Title                string
 	Author               string
-	GreekTitle           string
+	OriginalTitle        string
+	Language             string
 	EditionLabel         string
 	Opening              string
 	ConstituentBooks     int
@@ -227,7 +230,8 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 				Key:              definition.WorkKey,
 				Title:            definition.WorkTitle,
 				Author:           definition.WorkAuthor,
-				GreekTitle:       definition.GreekTitle,
+				OriginalTitle:    definition.OriginalTitle,
+				Language:         definition.Language,
 				EditionLabel:     definition.EditionLabel,
 				ConstituentBooks: definition.ConstituentBooks,
 			}
@@ -335,6 +339,22 @@ func (c *Catalog) Counts() CatalogCounts { return c.counts }
 // SourceAttributions returns the credits of the source layers the current
 // catalog uses, once each.
 func (c *Catalog) SourceAttributions() []SourceAttribution { return c.attributions }
+
+// Languages returns the classical languages present in the manifest, in the
+// order Languages lists them.
+func (c *Catalog) Languages() []string {
+	present := map[string]bool{}
+	for _, work := range c.works {
+		present[work.Language] = true
+	}
+	var languages []string
+	for _, language := range Languages() {
+		if present[language] {
+			languages = append(languages, language)
+		}
+	}
+	return languages
+}
 
 // Authors returns the author index in name order.
 func (c *Catalog) Authors() []CatalogAuthor { return c.authors }

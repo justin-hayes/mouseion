@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
+
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -485,10 +487,15 @@ func TestParseCitationRejectsNonNumbers(t *testing.T) {
 	assert.False(t, ok)
 	citation, ok := parseCitation("1.10.19")
 	require.True(t, ok)
-	assert.Equal(t, []int{1, 10, 19}, citation)
-	assert.Negative(t, compareCitation([]int{1, 1, 1}, []int{1, 2}))
-	assert.Positive(t, compareCitation([]int{1, 2}, []int{1, 1, 9}))
-	assert.Zero(t, compareCitation([]int{1, 1}, []int{1, 1, 0}))
+	assert.Equal(t, "1.10.19", citation.String())
+	cite := func(value string) classical.Citation {
+		parsed, ok := parseCitation(value)
+		require.True(t, ok)
+		return parsed
+	}
+	assert.Negative(t, compareCitation(cite("1.1.1"), cite("1.2")))
+	assert.Positive(t, compareCitation(cite("1.2"), cite("1.1.9")))
+	assert.Zero(t, compareCitation(cite("1.1"), cite("1.1.0")))
 }
 
 func TestImportRequiresWriterAndDefinition(t *testing.T) {
@@ -537,4 +544,17 @@ func assertImportCode(t *testing.T, err error, code string) {
 	require.ErrorAs(t, err, &importErr)
 	assert.Equal(t, code, importErr.Code)
 	assert.NotContains(t, err.Error(), "λέγ", "a refusal never carries source text")
+}
+
+// Named and suffixed bounds are Latin Citations the reader now accepts (ADR
+// 0132); a range that does not align in depth or is not a Citation is refused.
+func TestReferenceTranslationRefusesMisalignedBounds(t *testing.T) {
+	for _, bounds := range [][2]string{{"1.1.1", "1.ep"}, {"1.1", "1.1.2"}, {"x", "1.1"}, {"1.1", "1.x"}} {
+		_, err := ParseReferenceTranslation(nil, bounds[0], bounds[1])
+		assertImportCode(t, err, CodeUnknownInterpret)
+	}
+	for _, bounds := range [][2]string{{"1.pr.1", "1.1.2"}, {"331a", "331b"}} {
+		_, err := ParseReferenceTranslation(nil, bounds[0], bounds[1])
+		assertImportCode(t, err, CodeMalformed)
+	}
 }

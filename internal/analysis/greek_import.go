@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
@@ -127,8 +128,12 @@ func publishImportedRun(ctx context.Context, tx pgx.Tx, in ancientgreek.ImportWr
 	// The Construction occurrences are built in the same transaction, before the
 	// run publishes, so a published native_agdt run always has its current
 	// marker and a failed build publishes nothing (ADR 0123).
-	if err := persistence.BuildConstructionOccurrencesTx(ctx, tx, in.OwnerID, runID); err != nil {
-		return fmt.Errorf("build construction occurrences: %w", err)
+	// Only Ancient Greek has Construction detectors; Latin Constructions fail
+	// closed (ADR 0132), so a Latin run builds none.
+	if in.Definition.Language == classical.Language {
+		if err := persistence.BuildConstructionOccurrencesTx(ctx, tx, in.OwnerID, runID); err != nil {
+			return fmt.Errorf("build construction occurrences: %w", err)
+		}
 	}
 	return publishEligibleAnalysis(ctx, tx, args, bookID, in.RiverJobID)
 }

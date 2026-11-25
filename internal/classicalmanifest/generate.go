@@ -36,6 +36,13 @@ type Options struct {
 	// without the real files. CI runs this mode; generation always requires
 	// them.
 	AllowMissingUpstream bool
+	// Generating marks a generate run, the only mode that evaluates the
+	// dictionary-match gate (iv) and so the only one that needs LatinLS.
+	Generating bool
+	// LatinLS answers whether a lemma has a Lewis & Short entry, read from a
+	// derived dictionary index. Verify mode never needs it: it reproduces the
+	// committed manifest, which only admitted Works.
+	LatinLS LatinLSLookup
 }
 
 // Result is the deterministic output of one run.
@@ -43,6 +50,9 @@ type Result struct {
 	Manifest    []byte
 	Notes       string
 	Definitions []classical.Definition
+	// Gates is the per-Work gate report of every Latin Work, in Work-key
+	// order. It is empty for a manifest of Greek Works alone.
+	Gates []WorkGateReport
 }
 
 // Generate builds the manifest from reviewed inputs and checks every existing
@@ -81,6 +91,7 @@ func Generate(options Options) (Result, error) {
 		previousByKey:   previousByKey,
 		generated:       map[string]classical.Definition{},
 		matchedUnitKeys: map[string]bool{},
+		pending:         map[string]WorkGateReport{},
 	}
 	if err := builder.build(); err != nil {
 		return Result{}, err
@@ -92,7 +103,7 @@ func Generate(options Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Manifest: manifest, Notes: builder.notes.String(), Definitions: builder.definitions}, nil
+	return Result{Manifest: manifest, Notes: builder.notes.String(), Definitions: builder.definitions, Gates: builder.gates}, nil
 }
 
 // parsePrevious reads an optional committed manifest.
@@ -134,7 +145,11 @@ type builder struct {
 	generated       map[string]classical.Definition
 	matchedUnitKeys map[string]bool
 	definitions     []classical.Definition
-	notes           strings.Builder
+	gates           []WorkGateReport
+	// pending holds a Latin Work's report between its text gates and its join
+	// gates, which need the planned unit.
+	pending map[string]WorkGateReport
+	notes   strings.Builder
 }
 
 // build generates every work override in stable order.
@@ -148,6 +163,11 @@ func (b *builder) build() error {
 	for _, workKey := range workKeys {
 		if err := b.buildWork(b.workOverrides[workKey]); err != nil {
 			return err
+		}
+		// A Work that stopped before its join gates still reports the gates it ran.
+		if report, ok := b.pending[workKey]; ok {
+			delete(b.pending, workKey)
+			b.recordGates(report)
 		}
 	}
 	return nil
@@ -177,16 +197,20 @@ func (b *builder) buildWork(override classical.Override) error {
 	if err != nil {
 		return err
 	}
+	if isLatinWork(override) && override.Translation != nil && override.SpotCheck == nil {
+		b.recordGates(WorkGateReport{WorkKey: override.WorkKey, Evaluated: true, ReviewerNote: override.ReviewerNote, Gates: []GateResult{spotCheckGate(nil, nil)}})
+		return b.candidateFailure(override.WorkKey, "", fmt.Errorf("classical: %s has a translation and needs a recorded spot check (reviewer and the pairs checked)", override.WorkKey))
+	}
 	if err := checkSourceContentLayers(override, sourceLayer, translationLayer, hasTranslationLayer); err != nil {
 		return b.candidateFailure(override.WorkKey, "", err)
 	}
 
-	sourceData, sourcePin, sourceAvailable, sourceErr := b.loadSource(override.WorkKey, sourceLayer, *override.Source)
+	source, sourcePin, sourceAvailable, sourceErr := b.loadSource(override, sourceLayer)
 	if sourceErr != nil {
 		return b.candidateFailure(override.WorkKey, "", sourceErr)
 	}
 
-	units, total, coverage, err := b.planUnits(override, sourceData, sourceAvailable)
+	units, total, coverage, err := b.planUnits(override, source, sourceAvailable)
 	if errors.Is(err, errContentsOverride) {
 		return err
 	}
@@ -197,7 +221,15 @@ func (b *builder) buildWork(override classical.Override) error {
 		units[index].total = total
 	}
 	b.writeWorkNotes(override, units, total, sourceAvailable, coverage)
-	return b.buildSelectedUnits(override, units, sourcePin, sourceData, sourceAvailable, translationLayer, hasTranslationLayer)
+	if sourceAvailable && isLatinWork(override) {
+		if err := b.admitLatinJoins(override, source, units, translationLayer, hasTranslationLayer); err != nil {
+			if errors.Is(err, errNeedsLSIndex) {
+				return err
+			}
+			return b.candidateFailure(override.WorkKey, "", err)
+		}
+	}
+	return b.buildSelectedUnits(override, units, sourcePin, source, sourceAvailable, translationLayer, hasTranslationLayer)
 }
 
 // resolveWorkLayers validates a work's curatorial fields, source format and
@@ -206,8 +238,11 @@ func (b *builder) resolveWorkLayers(override classical.Override) (classical.Laye
 	if override.WorkTitle == "" || override.WorkAuthor == "" || override.EditionLabel == "" {
 		return classical.Layer{}, classical.Layer{}, false, fmt.Errorf("classical: work override %q needs workTitle, workAuthor and editionLabel", override.WorkKey)
 	}
-	if override.Source.Format != classical.SourceFormatOGACoNLLU {
+	if override.Source.Format != classical.SourceFormatOGACoNLLU && override.Source.Format != classical.SourceFormatOLACoNLLU {
 		return classical.Layer{}, classical.Layer{}, false, fmt.Errorf("classical: work override %q uses unsupported source format %q", override.WorkKey, override.Source.Format)
+	}
+	if override.Source.Format == classical.SourceFormatOLACoNLLU && override.Language != classical.LanguageLatin {
+		return classical.Layer{}, classical.Layer{}, false, fmt.Errorf("classical: work override %q reads an %s source and needs language %q", override.WorkKey, classical.SourceFormatOLACoNLLU, classical.LanguageLatin)
 	}
 	sourceLayer, ok := b.layers.Layer(override.Source.Layer)
 	if !ok {
@@ -228,7 +263,16 @@ func (b *builder) resolveWorkLayers(override classical.Override) (classical.Laye
 // unclear or non-redistributable restriction, so it is never admissible as a
 // work's source or translation.
 func checkSourceContentLayers(override classical.Override, sourceLayer, translationLayer classical.Layer, hasTranslation bool) error {
-	if !sourceLayer.IsSourceContent() {
+	if override.Source.Format == classical.SourceFormatOLACoNLLU {
+		// OLA's annotations are an Analysis resource and its text Source
+		// content (ADR 0132); the one archive layer may carry either class.
+		if sourceLayer.FetchKind != classical.FetchKindArchiveRange {
+			return fmt.Errorf("classical: source layer %q for %s is not an archive-range layer", sourceLayer.Key, override.WorkKey)
+		}
+		if !sourceLayer.IsSourceContent() && sourceLayer.LicenceClass != classical.LicenceClassAnalysisResource {
+			return fmt.Errorf("classical: source layer %q for %s is neither Source content nor an Analysis resource", sourceLayer.Key, override.WorkKey)
+		}
+	} else if !sourceLayer.IsSourceContent() {
 		return fmt.Errorf("classical: source layer %q for %s is not Source content", sourceLayer.Key, override.WorkKey)
 	}
 	if hasTranslation && !translationLayer.IsSourceContent() {
@@ -259,14 +303,14 @@ func (b *builder) writeWorkNotes(override classical.Override, units []plannedUni
 }
 
 // buildSelectedUnits builds and checks the units a Work override selects.
-func (b *builder) buildSelectedUnits(override classical.Override, selected []plannedUnit, sourcePin classical.SourcePin, sourceData []byte, sourceAvailable bool, translationLayer classical.Layer, hasTranslationLayer bool) error {
+func (b *builder) buildSelectedUnits(override classical.Override, selected []plannedUnit, sourcePin classical.SourcePin, source *ancientgreek.ManifestSource, sourceAvailable bool, translationLayer classical.Layer, hasTranslationLayer bool) error {
 	for _, unit := range selected {
 		unitOverride, hasUnitOverride := b.unitOverrides[unit.key]
 		if hasUnitOverride {
 			b.matchedUnitKeys[unit.key] = true
 		}
 		previous, hadPrevious := b.previousByKey[unit.key]
-		definition, err := b.buildDefinition(override, unitOverride, unit, sourcePin, sourceData, sourceAvailable, previous, hadPrevious, translationLayer, hasTranslationLayer)
+		definition, err := b.buildDefinition(override, unitOverride, unit, sourcePin, source, sourceAvailable, previous, hadPrevious, translationLayer, hasTranslationLayer)
 		if err != nil {
 			return b.candidateFailure(override.WorkKey, unit.key, err)
 		}
@@ -290,36 +334,72 @@ func (b *builder) buildSelectedUnits(override classical.Override, selected []pla
 	return nil
 }
 
-// loadSource resolves one work file. When verify mode is allowed to run
-// without upstream files, it returns the committed pin and no bytes.
-func (b *builder) loadSource(workKey string, layer classical.Layer, spec classical.SourceSpec) ([]byte, classical.SourcePin, bool, error) {
-	previousPin, hasPreviousPin, err := b.previousSourcePin(workKey)
+// loadSource resolves one Work's source. When verify mode is allowed to run
+// without upstream files, it returns the committed pin and no source.
+func (b *builder) loadSource(override classical.Override, layer classical.Layer) (*ancientgreek.ManifestSource, classical.SourcePin, bool, error) {
+	spec := *override.Source
+	previousPin, hasPreviousPin, err := b.previousSourcePin(override.WorkKey)
 	if err != nil {
 		return nil, classical.SourcePin{}, false, err
 	}
-	path, pathErr := resolveUpstream(b.options.UpstreamDir, spec.FileName)
-	if pathErr == nil {
-		data, size, digest, readErr := readUpstream(path)
-		if readErr == nil {
-			if err := verifyLayerPin(layer, spec.FileName, size, digest); err != nil {
-				return nil, classical.SourcePin{}, false, err
-			}
-			return data, classical.SourcePin{Layer: spec.Layer, FileName: spec.FileName, Size: size, SHA256: digest, Format: spec.Format}, true, nil
-		}
-		if !errors.Is(readErr, os.ErrNotExist) {
-			return nil, classical.SourcePin{}, false, readErr
-		}
+	var source *ancientgreek.ManifestSource
+	var pin classical.SourcePin
+	var found bool
+	var missing error
+	if spec.Format == classical.SourceFormatOLACoNLLU {
+		source, pin, found, missing, err = b.readLatinSource(override, layer)
+	} else {
+		source, pin, found, missing, err = b.readGreekSource(override.WorkKey, layer, spec)
+	}
+	if err != nil {
+		return nil, classical.SourcePin{}, false, err
+	}
+	if found {
+		return source, pin, true, nil
 	}
 	if !b.options.AllowMissingUpstream || !hasPreviousPin {
-		if pathErr != nil {
-			return nil, classical.SourcePin{}, false, pathErr
-		}
-		return nil, classical.SourcePin{}, false, fmt.Errorf("classical: source file %q for %s is missing", spec.FileName, workKey)
+		return nil, classical.SourcePin{}, false, missing
 	}
-	if previousPin.Layer != spec.Layer || previousPin.FileName != spec.FileName || previousPin.Format != spec.Format {
-		return nil, classical.SourcePin{}, false, fmt.Errorf("classical: source pin changed for %s; run generate with the upstream files", workKey)
+	if previousPin.Layer != spec.Layer || previousPin.FileName != spec.FileName || previousPin.Format != spec.Format || !sameCitationMember(previousPin, spec) {
+		return nil, classical.SourcePin{}, false, fmt.Errorf("classical: source pin changed for %s; run generate with the upstream files", override.WorkKey)
+	}
+	if isLatinWork(override) {
+		b.recordUnevaluatedGates(override)
 	}
 	return nil, previousPin, false, nil
+}
+
+// sameCitationMember reports whether a committed pin's PAULA member is the one
+// the override names. A source with no citation member always agrees.
+func sameCitationMember(pin classical.SourcePin, spec classical.SourceSpec) bool {
+	if spec.CitationFileName == "" {
+		return len(pin.Members) == 0
+	}
+	return len(pin.Members) == 2 && pin.Members[1].Name == spec.CitationFileName
+}
+
+// readGreekSource reads and parses one oga_src file. A source that is not
+// present is reported through missing, not as an error.
+func (b *builder) readGreekSource(workKey string, layer classical.Layer, spec classical.SourceSpec) (*ancientgreek.ManifestSource, classical.SourcePin, bool, error, error) {
+	path, pathErr := resolveUpstream(b.options.UpstreamDir, spec.FileName)
+	if pathErr != nil {
+		return nil, classical.SourcePin{}, false, pathErr, nil
+	}
+	data, size, digest, readErr := readUpstream(path)
+	if errors.Is(readErr, os.ErrNotExist) {
+		return nil, classical.SourcePin{}, false, fmt.Errorf("classical: source file %q for %s is missing", spec.FileName, workKey), nil
+	}
+	if readErr != nil {
+		return nil, classical.SourcePin{}, false, nil, readErr
+	}
+	if err := verifyLayerPin(layer, spec.FileName, size, digest); err != nil {
+		return nil, classical.SourcePin{}, false, nil, err
+	}
+	source, err := ancientgreek.ParseManifestSource(data)
+	if err != nil {
+		return nil, classical.SourcePin{}, false, nil, err
+	}
+	return source, classical.SourcePin{Layer: spec.Layer, FileName: spec.FileName, Size: size, SHA256: digest, Format: spec.Format}, true, nil, nil
 }
 
 // previousSourcePin returns the shared source pin committed for one Work.
@@ -351,22 +431,22 @@ func (b *builder) previousSourcePin(workKey string) (classical.SourcePin, bool, 
 // planUnits derives or reads the whole-work unit of a work and checks that
 // every sentence belongs to it. The returned count is the number of
 // constituent books the Work's citation scheme names.
-func (b *builder) planUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
+func (b *builder) planUnits(override classical.Override, source *ancientgreek.ManifestSource, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
 	if len(override.Units) > 0 {
-		return b.planExplicitUnits(override, sourceData, sourceAvailable)
+		return b.planExplicitUnits(override, source, sourceAvailable)
 	}
 
 	if sourceAvailable {
-		proposed, err := ancientgreek.ProposeUnits(sourceData)
+		proposed, err := source.ProposeUnits()
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		unit, err := proposedUnit(override, sourceData, proposed)
+		unit, err := proposedUnit(override, source, proposed)
 		if err != nil {
 			return nil, 0, nil, err
 		}
 		units := []plannedUnit{unit}
-		coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
+		coverage, err := source.CheckUnitCoverage(unitRanges(units))
 		if err != nil {
 			return nil, 0, nil, err
 		}
@@ -380,10 +460,13 @@ func (b *builder) planUnits(override classical.Override, sourceData []byte, sour
 	if override.Contents == classical.ContentsBooks && len(unit.contents) < 2 {
 		return nil, 0, nil, fmt.Errorf("classical: work override %q lists book contents but the committed manifest has no book ranges; verify with upstream files", override.WorkKey)
 	}
+	if override.Contents != classical.ContentsBooks && len(unit.contents) > 0 {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q no longer lists book contents but the committed manifest has book ranges: %w", override.WorkKey, errContentsOverride)
+	}
 	return []plannedUnit{unit}, max(len(unit.contents), 1), nil, nil
 }
 
-func (b *builder) planExplicitUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
+func (b *builder) planExplicitUnits(override classical.Override, source *ancientgreek.ManifestSource, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
 	spec := override.Units[0] // The override validator allows at most one.
 	order, err := classical.CompareCitations(spec.CitationStart, spec.CitationEnd)
 	if err != nil {
@@ -400,15 +483,17 @@ func (b *builder) planExplicitUnits(override classical.Override, sourceData []by
 		}
 		return units, 1, nil, nil
 	}
-	coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
+	coverage, err := source.CheckUnitCoverage(unitRanges(units))
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	proposed, err := ancientgreek.ProposeUnits(sourceData)
+	proposed, err := source.ProposeUnits()
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	if hasBookRanges(proposed) {
+	// A Latin Work's outer Citation level is not necessarily a book (a
+	// speech's chapters are not), so only Greek refuses on its shape.
+	if !isLatinWork(override) && hasBookRanges(proposed) {
 		return nil, 0, nil, bookRangeOverrideError(override)
 	}
 	return units, 1, &coverage, nil
@@ -425,15 +510,17 @@ var errContentsOverride = errors.New("classical: contents override disagrees wit
 // proposedUnit converts the adapter's proposed ranges into the one whole-work
 // unit. When the work override asks for contents: books, each proposed range is a
 // constituent book and is recorded, with its word count, as contents.
-func proposedUnit(override classical.Override, sourceData []byte, proposed []ancientgreek.UnitRange) (plannedUnit, error) {
+func proposedUnit(override classical.Override, source *ancientgreek.ManifestSource, proposed []ancientgreek.UnitRange) (plannedUnit, error) {
 	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: proposed[0].Start, end: proposed[len(proposed)-1].End}
 	hasBooks := hasBookRanges(proposed)
 	switch {
 	case override.Contents == classical.ContentsBooks && !hasBooks:
 		return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges: %w", override.WorkKey, errContentsOverride)
-	case override.Contents != classical.ContentsBooks && hasBooks:
+	case override.Contents != classical.ContentsBooks && hasBooks && !isLatinWork(override):
 		return plannedUnit{}, fmt.Errorf("classical: work override %q has a source with multiple book ranges but no contents: %q: %w", override.WorkKey, classical.ContentsBooks, errContentsOverride)
-	case !hasBooks:
+	case !hasBooks || override.Contents != classical.ContentsBooks:
+		// A Latin Work's Citation scheme names books only when its override
+		// says so: the outer level of a speech's is a chapter.
 		return unit, nil
 	}
 	for _, rangeValue := range proposed {
@@ -441,7 +528,7 @@ func proposedUnit(override classical.Override, sourceData []byte, proposed []anc
 		if err != nil {
 			return plannedUnit{}, err
 		}
-		summary, err := ancientgreek.SummarizeUnit(sourceData, rangeValue.Start, rangeValue.End)
+		summary, err := source.SummarizeUnit(rangeValue.Start, rangeValue.End)
 		if err != nil {
 			return plannedUnit{}, err
 		}
@@ -484,7 +571,7 @@ func (b *builder) committedUnit(override classical.Override) (plannedUnit, error
 }
 
 // buildDefinition assembles one definition from the work and unit overrides.
-func (b *builder) buildDefinition(override, unitOverride classical.Override, unit plannedUnit, sourcePin classical.SourcePin, sourceData []byte, sourceAvailable bool, previous classical.Definition, hadPrevious bool, translationLayer classical.Layer, hasTranslationLayer bool) (classical.Definition, error) {
+func (b *builder) buildDefinition(override, unitOverride classical.Override, unit plannedUnit, sourcePin classical.SourcePin, source *ancientgreek.ManifestSource, sourceAvailable bool, previous classical.Definition, hadPrevious bool, translationLayer classical.Layer, hasTranslationLayer bool) (classical.Definition, error) {
 	definition := baseDefinition(override, unitOverride, unit, sourcePin, previous, hadPrevious)
 	if err := checkUnitDeparture(override, unitOverride, unit.key); err != nil {
 		return classical.Definition{}, err
@@ -492,7 +579,7 @@ func (b *builder) buildDefinition(override, unitOverride classical.Override, uni
 	if err := b.checkUpstreamDeparture(definition); err != nil {
 		return classical.Definition{}, err
 	}
-	if err := applyGeneratedFacts(&definition, unit, sourceData, sourceAvailable, previous, hadPrevious); err != nil {
+	if err := applyGeneratedFacts(&definition, unit, source, sourceAvailable, previous, hadPrevious); err != nil {
 		return classical.Definition{}, err
 	}
 	if err := b.applyTranslation(&definition, override, unit, translationLayer, hasTranslationLayer, previous, hadPrevious); err != nil {
@@ -511,10 +598,10 @@ func baseDefinition(override, unitOverride classical.Override, unit plannedUnit,
 		WorkKey:               override.WorkKey,
 		WorkTitle:             firstNonEmpty(unitOverride.WorkTitle, override.WorkTitle, previous.WorkTitle),
 		WorkAuthor:            firstNonEmpty(unitOverride.WorkAuthor, override.WorkAuthor, previous.WorkAuthor),
-		GreekTitle:            firstNonEmpty(unitOverride.GreekTitle, override.GreekTitle, previous.GreekTitle),
+		OriginalTitle:         firstNonEmpty(unitOverride.OriginalTitle, override.OriginalTitle, previous.OriginalTitle),
 		EditionKey:            override.EditionKey,
 		EditionLabel:          firstNonEmpty(unitOverride.EditionLabel, override.EditionLabel, previous.EditionLabel),
-		Language:              classical.Language,
+		Language:              firstNonEmpty(override.Language, previous.Language, classical.Language),
 		ConstituentBooks:      unit.total,
 		CitationStart:         unit.start,
 		CitationEnd:           unit.end,
@@ -525,14 +612,18 @@ func baseDefinition(override, unitOverride classical.Override, unit plannedUnit,
 		Revision:              effectiveRevision(unitOverride, override, previous, hadPrevious),
 		Note:                  firstNonEmpty(unitOverride.Note, override.Note, previous.Note),
 	}
+	if definition.Language == classical.LanguageLatin && definition.OriginalTitle == definition.WorkTitle {
+		// The Latin title is kept only where it differs from the English one.
+		definition.OriginalTitle = ""
+	}
 	return definition
 }
 
 // applyGeneratedFacts reads the word count and Opening from the source in one
 // pass, or retains the committed values when verify mode has no bytes.
-func applyGeneratedFacts(definition *classical.Definition, unit plannedUnit, sourceData []byte, sourceAvailable bool, previous classical.Definition, hadPrevious bool) error {
+func applyGeneratedFacts(definition *classical.Definition, unit plannedUnit, source *ancientgreek.ManifestSource, sourceAvailable bool, previous classical.Definition, hadPrevious bool) error {
 	if sourceAvailable {
-		summary, err := ancientgreek.SummarizeUnit(sourceData, unit.start, unit.end)
+		summary, err := source.SummarizeUnit(unit.start, unit.end)
 		if err != nil {
 			return err
 		}
@@ -589,7 +680,7 @@ func (b *builder) loadTranslation(override classical.Override, unit plannedUnit,
 		return nil, "", fmt.Errorf("classical: translation layer for %s is not admissible", unit.key)
 	}
 	spec := override.Translation
-	pin, note, found, err := b.readTranslationFile(layer, spec, unit)
+	pin, note, found, err := b.readTranslationFile(layer, spec, unit, isLatinWork(override))
 	if err != nil {
 		return nil, "", err
 	}
@@ -613,7 +704,7 @@ func (b *builder) loadTranslation(override classical.Override, unit plannedUnit,
 }
 
 // readTranslationFile verifies a translation file when it is present.
-func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.TranslationSpec, unit plannedUnit) (*classical.TranslationPin, string, bool, error) {
+func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.TranslationSpec, unit plannedUnit, latin bool) (*classical.TranslationPin, string, bool, error) {
 	path, pathErr := resolveUpstream(b.options.UpstreamDir, spec.FileName)
 	if pathErr != nil {
 		return nil, "", false, nil //nolint:nilerr // no upstream directory is not an error in verify mode.
@@ -631,7 +722,15 @@ func (b *builder) readTranslationFile(layer classical.Layer, spec *classical.Tra
 	if err := requirePassageAttribution(layer, spec.FileName); err != nil {
 		return nil, "", false, err
 	}
-	if _, err := ancientgreek.InspectTranslation(data, unit.start, unit.end); err != nil {
+	var err error
+	if latin {
+		// A Latin translation is measured by gate (iii); a gap or a coarser key
+		// lowers its join rate instead of refusing the Work.
+		_, err = ancientgreek.ParseReferenceTranslationMeasured(data, unit.start, unit.end)
+	} else {
+		_, err = ancientgreek.InspectTranslation(data, unit.start, unit.end)
+	}
+	if err != nil {
 		return nil, "", false, err
 	}
 	pin := &classical.TranslationPin{
@@ -652,7 +751,7 @@ func checkUnitDeparture(work, unit classical.Override, key string) error {
 		return fmt.Errorf("classical: unit override %q departs from its Work title without a note", key)
 	case unit.WorkAuthor != "" && unit.WorkAuthor != work.WorkAuthor:
 		return fmt.Errorf("classical: unit override %q departs from its Work author without a note", key)
-	case unit.GreekTitle != "" && unit.GreekTitle != work.GreekTitle:
+	case unit.OriginalTitle != "" && unit.OriginalTitle != work.OriginalTitle:
 		return fmt.Errorf("classical: unit override %q departs from its Work Greek title without a note", key)
 	case unit.EditionLabel != "" && unit.EditionLabel != work.EditionLabel:
 		return fmt.Errorf("classical: unit override %q departs from its Work Edition label without a note", key)
@@ -679,12 +778,26 @@ func (b *builder) checkUpstreamDeparture(definition classical.Definition) error 
 		return fmt.Errorf("classical: definition %s departs from the upstream Work title without a note", definition.Key)
 	case file.WorkAuthor != "" && file.WorkAuthor != definition.WorkAuthor:
 		return fmt.Errorf("classical: definition %s departs from the upstream Work author without a note", definition.Key)
-	case file.GreekTitle != "" && file.GreekTitle != definition.GreekTitle:
-		return fmt.Errorf("classical: definition %s departs from the upstream Greek title without a note", definition.Key)
+	case upstreamOriginalTitle(file, definition.Language) != "" && upstreamOriginalTitle(file, definition.Language) != definition.OriginalTitle:
+		return fmt.Errorf("classical: definition %s departs from the upstream original title without a note", definition.Key)
 	case file.EditionLabel != "" && file.EditionLabel != definition.EditionLabel:
 		return fmt.Errorf("classical: definition %s departs from the upstream Edition label without a note", definition.Key)
 	}
 	return nil
+}
+
+// upstreamOriginalTitle is a layer file's original title as a Definition of
+// the language would keep it.
+func upstreamOriginalTitle(file classical.LayerFile, language string) string {
+	if language == classical.LanguageLatin && file.OriginalTitle == file.WorkTitle {
+		return ""
+	}
+	return file.OriginalTitle
+}
+
+// isLatinWork reports whether a Work override reads an OLA source.
+func isLatinWork(override classical.Override) bool {
+	return override.Source != nil && override.Source.Format == classical.SourceFormatOLACoNLLU
 }
 
 // candidateFailure stops on an existing entry and records a new one as
@@ -775,6 +888,11 @@ func (b *builder) finalizeDefinitions() error {
 func (b *builder) validateLayerPins(definition classical.Definition) error {
 	if err := b.validateLayerPin(definition.Source.Layer, definition.Source.FileName, definition.Source.Size, definition.Source.SHA256); err != nil {
 		return err
+	}
+	for _, member := range definition.Source.Members {
+		if err := b.validateLayerPin(definition.Source.Layer, member.Name, member.Size, member.SHA256); err != nil {
+			return err
+		}
 	}
 	if definition.Translation == nil {
 		return nil
@@ -870,6 +988,7 @@ func contentChanged(previous, next classical.Definition) bool {
 	return !sameSourceIdentity(previous.Source, next.Source) ||
 		previous.Source.Size != next.Source.Size ||
 		previous.Source.SHA256 != next.Source.SHA256 ||
+		!sameMembers(previous.Source.Members, next.Source.Members) ||
 		!sameTranslation(previous.Translation, next.Translation) ||
 		previous.InterpretationVersion != next.InterpretationVersion
 }
@@ -877,6 +996,19 @@ func contentChanged(previous, next classical.Definition) bool {
 // sameSourceIdentity compares the source pin's identity, excluding bytes.
 func sameSourceIdentity(a, b classical.SourcePin) bool {
 	return a.Layer == b.Layer && a.FileName == b.FileName && a.Format == b.Format
+}
+
+// sameMembers compares two archive member pin lists, including their bytes.
+func sameMembers(a, b []classical.ArchiveMember) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for index := range a {
+		if a[index] != b[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // sameTranslation compares two optional translation pins, including range.
@@ -912,8 +1044,11 @@ func effectiveRevision(unitOverride, workOverride classical.Override, previous c
 
 // defaultInterpretationVersion maps a source format to its adapter version.
 func defaultInterpretationVersion(format string) string {
-	if format == classical.SourceFormatOGACoNLLU {
+	switch format {
+	case classical.SourceFormatOGACoNLLU:
 		return ancientgreek.InterpretationVersionNativeAGDT
+	case classical.SourceFormatOLACoNLLU:
+		return classical.InterpretationVersionOLA
 	}
 	return ""
 }

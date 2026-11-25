@@ -14,6 +14,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -150,7 +151,7 @@ func candidateProjections(preparation domain.DeckPreparation, deckName string, s
 			OwnerID: preparation.OwnerID, DeckName: deckName,
 			Candidate: fact.Candidate, Entry: fact.Entry, Sentences: fact.Sentences,
 			RequireContextualGloss: false,
-			ReferenceTranslations:  fact.ReferenceTranslations, ReferencePin: fact.ReferencePin,
+			ReferenceTranslations:  fact.ReferenceTranslations, ReferencePin: fact.ReferencePin, WorkAuthor: fact.WorkAuthor, WorkTextgroup: fact.WorkTextgroup,
 			Structure: structure, SourceUnits: sourceUnits, SyntaxState: fact.SyntaxState,
 		})
 	}
@@ -318,7 +319,7 @@ func (p *BatchPlanner) planPreparedDeckRun(ctx context.Context, tx pgx.Tx, prepa
 		if err != nil {
 			return persistence.FreezePreparedDeckRunParams{}, err
 		}
-		sourceEvidence = cardexport.IsAncientGreek(language)
+		sourceEvidence = cardpolicy.For(language).SourceEvidence
 		if !sourceEvidence {
 			return persistence.FreezePreparedDeckRunParams{}, errTranslationProviderRequired
 		}
@@ -392,7 +393,7 @@ func (p *BatchPlanner) validateIdiomAssessment(languages []string) error {
 // drifted or unrecorded assessment sends nothing: the deck falls back to the
 // default card.
 func (p *BatchPlanner) evidenceAssistedPassAllowed(projections []cardexport.CandidateProjection) bool {
-	if p.Codec == nil || len(projections) == 0 {
+	if p.Codec == nil || len(projections) == 0 || !cardpolicy.For(projections[0].Candidate.Language).EvidenceAssistedPass {
 		return false
 	}
 	return p.assessments().MaySend(enrichment.EvidenceAssistedPassPayload, projections[0].Candidate.Language, p.Codec) == nil
@@ -484,7 +485,7 @@ func sourceEvidenceDeck(projections []cardexport.CandidateProjection) bool {
 		return false
 	}
 	for _, projection := range projections {
-		if !cardexport.IsAncientGreek(projection.Candidate.Language) {
+		if !cardpolicy.For(projection.Candidate.Language).SourceEvidence {
 			return false
 		}
 	}

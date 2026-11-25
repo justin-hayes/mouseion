@@ -1,0 +1,346 @@
+package classicalmanifest
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/ancientgreek"
+	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/selection"
+)
+
+// MaxSplitWordRate is the share of a Latin Work's words that may be one-letter
+// fragments before gate (ii) flags it.
+//
+// Evidence (2026-11-25, OLA v0.2.0, 569 of its CoNLL-U members measured with the
+// rule below, read by Range request): across the 353 Works of 5,000 words or
+// more the rate has median 0.36%, p90 0.78%, p95 1.01%, p99 1.67% and maximum
+// 3.58%. At 1% the gate would flag 19 of 353 and send every one to a reviewer;
+// at 1.5% it flags 5; at 2% it flags 3, all from phi2349, whose rate comes from
+// a thousand-odd stray "v" tokens (2.7-3.6%). A 1% rate is ordinary: stray
+// "c", "m", "s" and "t" are enclitic and abbreviation tokens the source splits.
+// 2% therefore catches the outliers without flagging the bulk of a batch, which
+// would reopen ADR 0132.
+const MaxSplitWordRate = 0.02
+
+// MinTranslationJoinRate is the share of a Latin Work's sentences that must
+// resolve to at least one pinned translation segment (gate iii). ADR 0132 puts
+// it "on the order of 98%": a Perseus section the join cannot reach is a
+// sentence whose card shows no passage context, and one lost sentence in fifty
+// is the most a learner can lose before the Work reads as untranslated. No
+// measured distribution backs it yet: the first batch (#2686) is the first run
+// against real perseus-engN files, and its measured rates go in that PR; a
+// Work that misses the floor is excluded or cleared by a reviewer note, never
+// admitted silently.
+const MinTranslationJoinRate = 0.98
+
+// MaxTierBSegmentWords is the most words a tier B translation segment, one
+// keyed one Citation level above the Latin, may hold (ADR 0133). Words are
+// counted in the segment text the reader keeps, with notes removed.
+const MaxTierBSegmentWords = 400
+
+// MinDictionaryMatchRate is the share of a Latin Work's eligible occurrences
+// that must match a Lewis & Short key (gate iv), as ADR 0132 sets it.
+const MinDictionaryMatchRate = 0.90
+
+// Gate names, as the report prints them.
+const (
+	GateCitations       = "citations"
+	GateSplitWord       = "split-words"
+	GateTranslationJoin = "translation-join"
+	GateTranslationTier = "translation-tier"
+	GateDictionaryMatch = "dictionary-match"
+	GateSpotCheck       = "spot-check"
+)
+
+// GateResult is one gate's outcome for one Work.
+type GateResult struct {
+	Name   string
+	Passed bool
+	// Detail states the measured evidence. It never carries source text.
+	Detail string
+	// Clearable is false for a failure no reviewer note can clear.
+	Clearable bool
+	// NotEvaluated marks a gate the run had no input for, such as the
+	// dictionary index in verify mode. It passes: verify mode relies on what
+	// generation admitted and committed.
+	NotEvaluated bool
+}
+
+// WorkGateReport is every gate result of one Latin Work.
+type WorkGateReport struct {
+	WorkKey string
+	// Evaluated is false when the run had no upstream archive, so the gates
+	// could not run; verify mode then relies on the committed manifest.
+	Evaluated bool
+	Gates     []GateResult
+	// ReviewerNote is the override's clearance, if any.
+	ReviewerNote string
+}
+
+// Failed lists the gates the Work failed.
+func (r WorkGateReport) Failed() []GateResult {
+	var failed []GateResult
+	for _, gate := range r.Gates {
+		if !gate.Passed {
+			failed = append(failed, gate)
+		}
+	}
+	return failed
+}
+
+// Cleared reports whether a reviewer note clears every failed gate.
+func (r WorkGateReport) Cleared() bool {
+	if r.ReviewerNote == "" || len(r.Failed()) == 0 {
+		return false
+	}
+	for _, gate := range r.Failed() {
+		if !gate.Clearable {
+			return false
+		}
+	}
+	return true
+}
+
+// Admitted reports whether the Work may enter the manifest: it passed every
+// gate, or a reviewer note cleared the ones it failed.
+func (r WorkGateReport) Admitted() bool { return len(r.Failed()) == 0 || r.Cleared() }
+
+// Lines renders the report for the notes and the command output.
+func (r WorkGateReport) Lines() []string {
+	if !r.Evaluated {
+		return []string{fmt.Sprintf("- Gates for %s: not evaluated, the upstream archive was absent", r.WorkKey)}
+	}
+	lines := []string{fmt.Sprintf("- Gates for %s:", r.WorkKey)}
+	for _, gate := range r.Gates {
+		status := "pass"
+		switch {
+		case gate.NotEvaluated:
+			status = "not evaluated"
+		case !gate.Passed:
+			status = "FAIL"
+		}
+		lines = append(lines, fmt.Sprintf("  - %s: %s (%s)", gate.Name, status, gate.Detail))
+	}
+	switch {
+	case r.Cleared():
+		lines = append(lines, "  - cleared by reviewer note: "+r.ReviewerNote)
+	case len(r.Failed()) > 0:
+		lines = append(lines, "  - excluded")
+	}
+	return lines
+}
+
+// GateError refuses a Work that failed a gate and has no clearing note.
+type GateError struct{ Report WorkGateReport }
+
+func (e *GateError) Error() string {
+	names := make([]string, 0, len(e.Report.Failed()))
+	for _, gate := range e.Report.Failed() {
+		names = append(names, gate.Name)
+	}
+	return fmt.Sprintf("classical: %s failed the %s gate", e.Report.WorkKey, strings.Join(names, " and "))
+}
+
+// evaluateLatinGates applies gates (i) and (ii) to one Work's scan.
+func evaluateLatinGates(override classical.Override, scan ancientgreek.LatinScan) WorkGateReport {
+	report := WorkGateReport{WorkKey: override.WorkKey, Evaluated: true, ReviewerNote: override.ReviewerNote}
+	report.Gates = append(report.Gates, citationGate(scan), splitWordGate(scan))
+	return report
+}
+
+// citationGate is gate (i): every token has a Citation and Citations never run
+// backwards. Uncited tokens are the one exception to clearance by reviewer
+// note: the Work could not be prepared, so a note would admit an unreadable
+// Work. An uncited token cannot be cleared, because the Work could not be
+// read; a backwards run can, by a reviewer who has read it.
+func citationGate(scan ancientgreek.LatinScan) GateResult {
+	gate := GateResult{Name: GateCitations, Passed: true, Clearable: true, Detail: fmt.Sprintf("%d tokens, all cited, none backwards", scan.Tokens)}
+	switch {
+	case scan.Uncited > 0:
+		gate.Passed, gate.Clearable = false, false
+		gate.Detail = fmt.Sprintf("%d of %d tokens have no Citation", scan.Uncited, scan.Tokens)
+	case scan.Backwards > 0:
+		gate.Passed = false
+		gate.Detail = fmt.Sprintf("Citations run backwards %d time(s), first at %s", scan.Backwards, scan.FirstBackwards)
+	}
+	return gate
+}
+
+// splitWordGate is gate (ii): the split-word rate stays at or under
+// MaxSplitWordRate.
+func splitWordGate(scan ancientgreek.LatinScan) GateResult {
+	rate := scan.SplitWordRate()
+	gate := GateResult{Name: GateSplitWord, Passed: rate < MaxSplitWordRate, Clearable: true}
+	gate.Detail = fmt.Sprintf("%d of %d words, %.3f%%, limit %.3f%%", scan.SplitWords, scan.Words, rate*100, MaxSplitWordRate*100)
+	return gate
+}
+
+// recordGates adds a report to the run and the notes.
+func (b *builder) recordGates(report WorkGateReport) {
+	b.gates = append(b.gates, report)
+	for _, line := range report.Lines() {
+		fmt.Fprintln(&b.notes, line)
+	}
+}
+
+// recordUnevaluatedGates reports a Latin Work whose source was absent.
+func (b *builder) recordUnevaluatedGates(override classical.Override) {
+	b.recordGates(WorkGateReport{WorkKey: override.WorkKey, ReviewerNote: override.ReviewerNote})
+}
+
+// GateReport renders every Latin Work's gate results, one block per Work.
+func (r Result) GateReport() string {
+	reports := append([]WorkGateReport(nil), r.Gates...)
+	sort.Slice(reports, func(i, j int) bool { return reports[i].WorkKey < reports[j].WorkKey })
+	var out strings.Builder
+	for _, report := range reports {
+		for _, line := range report.Lines() {
+			fmt.Fprintln(&out, line)
+		}
+	}
+	return out.String()
+}
+
+// translationJoinGate is gate (iii): at least MinTranslationJoinRate of the
+// Work's sentences resolve to a segment. A sentence resolves when some segment
+// Citation equals or contains a Citation it touches, the passage rule of ADR
+// 0101.
+func translationJoinGate(sentences [][]string, segments []ancientgreek.ReferenceTranslation) GateResult {
+	texts := make(map[string]string, len(segments))
+	for _, segment := range segments {
+		texts[segment.Citation] = segment.Text
+	}
+	resolved := 0
+	for _, citations := range sentences {
+		for _, citation := range citations {
+			if joinsSegment(citation, texts) {
+				resolved++
+				break
+			}
+		}
+	}
+	gate := GateResult{Name: GateTranslationJoin, Clearable: true}
+	if len(sentences) == 0 {
+		gate.Detail = "the Work has no sentences"
+		return gate
+	}
+	rate := float64(resolved) / float64(len(sentences))
+	gate.Passed = rate >= MinTranslationJoinRate
+	gate.Detail = fmt.Sprintf("%d of %d sentences, %.3f%%, floor %.3f%%", resolved, len(sentences), rate*100, MinTranslationJoinRate*100)
+	return gate
+}
+
+// translationTierGate is gate (iii)'s tier check (ADR 0133). A translation
+// keyed at the Latin's Citation depth is tier A. One keyed a level above is
+// tier B, whose segments may hold at most MaxTierBSegmentWords words; a longer
+// segment is a failure a reviewer note can clear. A translation keyed further
+// above is neither tier, and no note clears it.
+func translationTierGate(latinDepth int, segments []ancientgreek.ReferenceTranslation) GateResult {
+	gate := GateResult{Name: GateTranslationTier, Clearable: true}
+	depth := 0
+	for _, segment := range segments {
+		if parsed, ok := classical.ParseCitation(segment.Citation); ok {
+			depth = max(depth, len(parsed))
+		}
+	}
+	switch depth {
+	case latinDepth:
+		gate.Passed = true
+		gate.Detail = "tier A, keyed at the Latin's Citation depth"
+	case latinDepth - 1:
+		over, largest, first := 0, 0, ""
+		for _, segment := range segments {
+			words := len(strings.Fields(segment.Text))
+			largest = max(largest, words)
+			if words > MaxTierBSegmentWords {
+				if over == 0 {
+					first = segment.Citation
+				}
+				over++
+			}
+		}
+		gate.Passed = over == 0
+		gate.Detail = fmt.Sprintf("tier B, %d of %d segments over %d words, largest %d", over, len(segments), MaxTierBSegmentWords, largest)
+		if over > 0 {
+			gate.Detail += ", first at " + first
+		}
+	default:
+		gate.Clearable = false
+		gate.Detail = fmt.Sprintf("keyed %d levels above the Latin, neither tier A nor tier B", latinDepth-depth)
+	}
+	return gate
+}
+
+// joinsSegment reports whether a non-empty segment equals or contains the
+// Citation, as cardexport's passage context does.
+func joinsSegment(citation string, segments map[string]string) bool {
+	for key, text := range segments {
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		if classical.CitationContains(key, citation) {
+			return true
+		}
+	}
+	return false
+}
+
+// spotCheckGate is the recorded human check that admits a Work with a
+// translation. It cannot be cleared by a reviewer note: the note is the
+// reviewer's clearance of a flagged gate, and this record is what admits a
+// Work at all. Every pair must lie in the Work.
+func spotCheckGate(check *classical.SpotCheck, sentences [][]string) GateResult {
+	gate := GateResult{Name: GateSpotCheck}
+	if check == nil {
+		gate.Detail = "no spot check is recorded"
+		return gate
+	}
+	touched := map[string]struct{}{}
+	for _, citations := range sentences {
+		for _, citation := range citations {
+			touched[citation] = struct{}{}
+		}
+	}
+	for _, pair := range check.Pairs {
+		if _, ok := touched[pair]; !ok {
+			gate.Detail = fmt.Sprintf("checked pair %s is not a Citation of the Work", pair)
+			return gate
+		}
+	}
+	gate.Passed = true
+	gate.Detail = fmt.Sprintf("%s checked %d pair(s)", check.Reviewer, len(check.Pairs))
+	return gate
+}
+
+// LatinLSLookup reports whether a lemma has a Lewis & Short entry under its
+// latin key.
+type LatinLSLookup func(lemma string) bool
+
+// dictionaryMatchGate is gate (iv): at least MinDictionaryMatchRate of the
+// eligible occurrences (noun, verb, adjective and adverb, after admission)
+// match a Lewis & Short key.
+func dictionaryMatchGate(occurrences []ancientgreek.LatinOccurrence, lookup LatinLSLookup) GateResult {
+	// The default configuration allows exactly noun, verb, adjective and adverb.
+	config := selection.DefaultConfig("classical-gate")
+	eligible, matched := 0, 0
+	for _, occurrence := range occurrences {
+		if !selection.OccurrenceEligible(config, classical.LanguageLatin, occurrence.CanonicalLemma, occurrence.UPOS, occurrence.Dependency) {
+			continue
+		}
+		eligible++
+		if lookup(occurrence.Headword) {
+			matched++
+		}
+	}
+	gate := GateResult{Name: GateDictionaryMatch, Clearable: true}
+	if eligible == 0 {
+		gate.Detail = "the Work has no eligible occurrences"
+		return gate
+	}
+	rate := float64(matched) / float64(eligible)
+	gate.Passed = rate >= MinDictionaryMatchRate
+	gate.Detail = fmt.Sprintf("%d of %d eligible occurrences, %.3f%%, floor %.3f%%", matched, eligible, rate*100, MinDictionaryMatchRate*100)
+	return gate
+}

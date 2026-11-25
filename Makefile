@@ -28,10 +28,14 @@ DICTIONARY_VERSION ?= dump=$(DICTIONARY_DUMP_DATE);extraction=$(DICTIONARY_EXTRA
 DICTIONARY_REFRESH ?= false
 DICTIONARY_SOURCE_ARGS := $(if $(strip $(KAIKKI_INPUT)),--input "$(KAIKKI_INPUT)",--download $(if $(filter 1 true yes,$(DICTIONARY_REFRESH)),--force-download,))
 # Optional: point DICTIONARY_LSJ_DIR at the pinned PerseusDL/lexica grc/lsj TEI
-# directory to derive the LSJ table (index format 6). The real files never enter
+# directory to derive the LSJ table (index format 7). The real files never enter
 # the repository or CI.
 DICTIONARY_LSJ_PIN ?= 56061ca127f4a2844980baffc5f2b6d1332897b3
 DICTIONARY_LSJ_ARGS := $(if $(strip $(DICTIONARY_LSJ_DIR)),--lsj-dir "$(DICTIONARY_LSJ_DIR)" --lsj-pin "$(DICTIONARY_LSJ_PIN)",)
+# Optional: point DICTIONARY_LS_DIR at the pinned PerseusDL/lexica lat/ls TEI
+# directory to derive the Lewis & Short table beside LSJ (ADR 0132).
+DICTIONARY_LS_PIN ?= $(DICTIONARY_LSJ_PIN)
+DICTIONARY_LS_ARGS := $(if $(strip $(DICTIONARY_LS_DIR)),--ls-dir "$(DICTIONARY_LS_DIR)" --ls-pin "$(DICTIONARY_LS_PIN)",)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
 .PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources check-dockerfile-go python-test-preflight french-golden classical-manifest verify-classical-manifest construction-release-check
@@ -223,7 +227,7 @@ sqlc: go-tmp
 # repository).
 CLASSICAL_MANIFEST_UPSTREAM ?=
 classical-manifest: go-tmp
-	go run ./cmd/classicalmanifest generate $(if $(CLASSICAL_MANIFEST_UPSTREAM),-upstream "$(CLASSICAL_MANIFEST_UPSTREAM)",) $(if $(CLASSICAL_MANIFEST_NOTES),-notes "$(CLASSICAL_MANIFEST_NOTES)",)
+	go run ./cmd/classicalmanifest generate $(if $(CLASSICAL_MANIFEST_UPSTREAM),-upstream "$(CLASSICAL_MANIFEST_UPSTREAM)",) $(if $(CLASSICAL_MANIFEST_NOTES),-notes "$(CLASSICAL_MANIFEST_NOTES)",) $(if $(CLASSICAL_MANIFEST_LS_INDEX),-ls-index "$(CLASSICAL_MANIFEST_LS_INDEX)",)
 
 # CI gate: reproduce the committed manifest byte-for-byte. Without an upstream
 # directory it retains the committed byte pins and word counts; with one it
@@ -245,7 +249,7 @@ dictionary-index:
 	test -x $(VENV_BIN)/python
 	mkdir -p "$(dir $(DICTIONARY_OUTPUT))"
 	test -w "$(dir $(DICTIONARY_OUTPUT))" && test -x "$(dir $(DICTIONARY_OUTPUT))" || (printf '%s\n' "dictionary output directory '$(dir $(DICTIONARY_OUTPUT))' is not writable." "If Docker created it as root, run: sudo chown \"$$(id -u):$$(id -g)\" '$(dir $(DICTIONARY_OUTPUT))'" >&2; exit 1)
-	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)" $(DICTIONARY_LSJ_ARGS)
+	$(VENV_BIN)/python nlp/scripts/derive_dictionary_index.py $(DICTIONARY_SOURCE_ARGS) --output "$(DICTIONARY_OUTPUT)" --provider-version "$(DICTIONARY_VERSION)" --dump-date "$(DICTIONARY_DUMP_DATE)" --extraction-date "$(DICTIONARY_EXTRACTION_DATE)" --wiktextract-commit "$(DICTIONARY_WIKTEXTRACT_COMMIT)" $(DICTIONARY_LSJ_ARGS) $(DICTIONARY_LS_ARGS)
 
 # go-tmp runs first: make expands every recipe line before running any of them,
 # and the go tool plugin paths below need $(GOTMPDIR) to exist on a fresh checkout.

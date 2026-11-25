@@ -287,7 +287,7 @@ func myBooksWorkTextMatches(unit *domain.BookReadingUnit, text string) bool {
 	if strings.Contains(canonicalization.SearchKey(unit.WorkAuthor), key) {
 		return true
 	}
-	return unit.GreekTitle != "" && strings.Contains(canonicalization.SearchKey(unit.GreekTitle), key)
+	return unit.OriginalTitle != "" && strings.Contains(canonicalization.SearchKey(unit.OriginalTitle), key)
 }
 
 // myBooksPageItems slices the matching Books for the requested page.

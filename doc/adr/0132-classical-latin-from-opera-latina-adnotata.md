@@ -1,6 +1,6 @@
 # ADR 0132: Classical Latin from Opera Latina Adnotata
 
-Status: **Accepted** · Date: 2026-11-25 · Author: Justin + OpenCode
+Status: **Accepted; implemented (#2674)** · Date: 2026-11-25 · Updated: 2026-11-25 · Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Decided by Justin in the closing
 grilling of the map
@@ -39,9 +39,11 @@ classical prose at scale:
   The only additions are a Latin adapter that reads the `_CO`, `_AP` and `_ExD`
   suffixes, and a fetch for archive members. No migration is needed.
 - **OLA ships as one archive.** Each Work is a CoNLL-U member and a PAULA member
-  inside a 3.9 GB zip on Zenodo. Zenodo answers HTTP range requests on it
-  (checked 2026-11-25), so one Work's members can be fetched without downloading
-  the archive.
+  inside a 3.9 GB zip on Zenodo. The members are not at the archive's top
+  level: they sit inside inner zips (the CoNLL-U files in
+  `workspace/conllu.zip`, about 214 MB), which the outer archive stores without
+  compression. Zenodo answers HTTP range requests on the archive (checked
+  2026-11-25), so one Work's members can be fetched without downloading it.
 
 ## Decision
 
@@ -96,6 +98,12 @@ into its text, such as the *Satyricon*.
 - **Pin.** An `ola-conllu` source pin names **two archive members** per Work:
   the CoNLL-U and the PAULA Citation layer. Each member is pinned by its offset,
   size, CRC-32 and SHA-256 within the pinned archive.
+- **Nested members.** Because each inner zip is stored, not compressed, an inner
+  member's local header lies at a fixed byte offset in the outer archive. The
+  generator reads the outer and inner central directories and pins that
+  absolute offset, so a pin names a range of the pinned archive whatever the
+  nesting, and preparation reads it as a top-level member. The overrides name
+  each member's container; the generator refuses a compressed container.
 - **Fetch.** A new **archive-range** fetch kind in the layer pins retrieves each
   member with HTTP range requests. A server that does not honour the range, or
   a member that fails its pin, fails preparation exactly as a pin mismatch does

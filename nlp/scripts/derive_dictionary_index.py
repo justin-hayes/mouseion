@@ -33,6 +33,9 @@ FRENCH_LANGUAGE = "fr"
 # points --lsj-dir at the pinned PerseusDL/lexica tree. Its table and the
 # metadata pin are what distinguish an LSJ index from a Kaikki-only one.
 LSJ_PIN = "56061ca127f4a2844980baffc5f2b6d1332897b3"
+# Lewis & Short comes from the same PerseusDL/lexica revision (ADR 0132); its
+# table and the ls_pin metadata mark an index that carries it.
+LS_PIN = LSJ_PIN
 # tlg0032 is Xenophon in the Perseus/Cts URN space; only Xenophon citations are
 # kept on an LSJ sense.
 XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
@@ -42,9 +45,10 @@ XENOPHON_URN_PREFIX = "urn:cts:greekLit:tlg0032"
 # from counting as a homograph (ticket #2214); format 6 (and non-LSJ format 4)
 # adds French form-of links and headword membership for lemma-risk review
 # (ticket #2244); format 7 (and non-LSJ format 5) adds the word-to-multi-word
-# idiom lookup (ticket #2361).
+# idiom lookup (ticket #2361); format 8 (and non-LSJ format 5) adds the source's
+# Lewis & Short homograph number to each ls_entries row (spec #2674 story 44).
 INDEX_FORMAT_VERSION = 5
-LSJ_INDEX_FORMAT_VERSION = 7
+LSJ_INDEX_FORMAT_VERSION = 8
 # Idiom candidates are two to four words. Longer expressions are not idioms for
 # the matcher; shorter ones are a single lemma already.
 IDIOM_MIN_WORDS = 2
@@ -145,6 +149,13 @@ CREATE TABLE lsj_entries (
     senses_json TEXT NOT NULL,
     subordinate INTEGER NOT NULL
 );
+CREATE TABLE ls_entries (
+    entry_id TEXT NOT NULL,
+    headword TEXT NOT NULL,
+    orth TEXT NOT NULL,
+    senses_json TEXT NOT NULL,
+    homograph INTEGER NOT NULL
+);
 CREATE TABLE french_forms (
     form TEXT NOT NULL,
     upos TEXT NOT NULL,
@@ -189,6 +200,10 @@ INSERT_GREEK_ENTRIES_SQL = (
 )
 INSERT_LSJ_ENTRIES_SQL = (
     "INSERT INTO lsj_entries(entry_id, headword, senses_json, subordinate) VALUES (?, ?, ?, ?)"
+)
+INSERT_LS_ENTRIES_SQL = (
+    "INSERT INTO ls_entries(entry_id, headword, orth, senses_json, homograph) "
+    "VALUES (?, ?, ?, ?, ?)"
 )
 INSERT_FRENCH_FORMS_SQL = (
     "INSERT INTO french_forms(form, upos, target, participle, evidence_id) VALUES (?, ?, ?, ?, ?)"
@@ -1369,6 +1384,268 @@ def collect_lsj_entries(lsj_dir: Path) -> list[tuple[str, str, str, int]]:
     return sorted(rows)
 
 
+# ---- Lewis & Short (Perseus TEI P4) derivation -----------------------------
+#
+# L&S is the Latin counterpart of LSJ (ADR 0132). Its entries are
+# <entryFree type="main"> (or "hapax") with the same flat <sense> siblings, but
+# the English definitions are italic <hi rend="ital"> text rather than <tr>
+# (which only translates quoted usages), and its cross-references name a
+# headword in <xr><ref>.
+# Every entry type but "gloss", a stub that only points at another entry. The
+# "greek", "foreign" and "spur" types are real Latin entries.
+LS_SKIPPED_ENTRY_TYPES = frozenset({"gloss"})
+# The pinned lexica holds two encodings of the dictionary; indexing both would
+# duplicate every entry id.
+LS_FILE = "lat.ls.perseus-eng1.xml"
+LS_PLAIN_REDIRECT = re.compile(r"\bv\.\s+([^\W\d_]+\d?)")
+# Italic text in an L&S sense is a definition unless it is one of the dictionary's
+# own abbreviations, a grammatical label or a connective. Compared after
+# casefolding and dropping punctuation and spaces.
+LS_ABBREVIATIONS = frozenset(
+    {
+        "abl", "absol", "acc", "act", "adj", "adv", "al", "also", "and", "comp", "cf", "dat",
+        "dim", "e g", "esp", "fem", "fig", "freq", "gen", "i e", "id", "imp", "impers",
+        "inf", "init", "masc", "n", "neutr", "nom", "or", "part", "pass", "perf", "pl", "plur",
+        "poet", "prop", "sc", "sing", "subj", "subst", "sup", "sync", "transf", "trans", "viz",
+        "voc", "fin", "med", "extr", "ib", "et", "sq", "sqq", "etc", "ap", "v", "q v", "ad",
+        "ad fin", "ad init", "l c", "loc cit",
+    }
+)  # fmt: skip
+LS_REPEAT_AUTHORS = frozenset({"id"})
+LS_PUNCTUATION = re.compile(r"[^\w]+")
+
+
+def ls_headword(key: str) -> tuple[str, bool]:
+    """Return (headword, admitted): the key without its homograph digit."""
+    headword = strip_trailing_digits(key.strip())
+    return headword, any(character.isalpha() for character in headword)
+
+
+def ls_plain(text: str) -> str:
+    """Casefold and drop vowel-length marks, so a spelling matches a key."""
+    decomposed = unicodedata.normalize("NFD", text.strip())
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
+
+
+def ls_is_abbreviation(text: str) -> bool:
+    return LS_PUNCTUATION.sub(" ", text.casefold()).strip() in LS_ABBREVIATIONS
+
+
+def ls_definition(text: str) -> str:
+    """Clean one italic run into a definition, or the empty string."""
+    text = clean_gloss(" ".join(text.split())).rstrip(".")
+    return "" if not text or ls_is_abbreviation(text) else text
+
+
+def ls_homograph_number(key: str) -> int:
+    """The source's homograph number: the key's trailing digits (Pennus2 -> 2),
+    or 0 for an entry whose key carries none."""
+    stripped = key.strip()
+    digits = stripped[len(strip_trailing_digits(stripped)) :]
+    return int(digits) if digits else 0
+
+
+def ls_id_order(identifier: str) -> tuple[int, ...]:
+    """Order a source id by its numeric parts, so n9.10 follows n9.2."""
+    return tuple(
+        int(part) if part.isdigit() else 0 for part in re.split(r"\D+", identifier) if part
+    )
+
+
+def ls_urn_author(urn: str) -> str:
+    """The author part of a CTS URN ("phi0474" in ...latinLit:phi0474.phi001:1:2)."""
+    match = re.match(r"urn:cts:\w+:([^.:]+)", urn)
+    return match.group(1) if match else ""
+
+
+def ls_bibl(bibl, previous_author: str) -> tuple[dict, str]:
+    """Return one citation with its author reference, and the running author.
+
+    "id." repeats the preceding author within the entry. A <bibl> with no author
+    element, or an "id." with nothing before it, has no author reference."""
+    text = element_text(bibl)
+    author_element = bibl.find("author")
+    author = element_text(author_element) if author_element is not None else ""
+    if ls_plain(author).rstrip(".") in LS_REPEAT_AUTHORS:
+        author = previous_author
+    elif author:
+        previous_author = author
+    if not author:
+        author = ls_urn_author(bibl.get("n") or "")
+    citation = {"author": author, "text": text} if author else {"text": text}
+    return citation, previous_author
+
+
+@dataclass
+class LsContent:
+    """One L&S sense's own content, gathered in document order."""
+
+    definitions: list[str] = field(default_factory=list)
+    translations: list[str] = field(default_factory=list)
+    citations: list[dict] = field(default_factory=list)
+    crossrefs: list[dict] = field(default_factory=list)
+    cited: bool = False
+    author: str = ""
+
+
+def ls_text(text: str | None, content: LsContent) -> None:
+    """Read the source's own prose: ":—" restarts the definition window, and a
+    plain "v. word" outside <xr> is a redirect."""
+    if not text:
+        return
+    if LSJ_MEANING_START in text:
+        content.cited = False
+    content.crossrefs.extend({"text": match} for match in LS_PLAIN_REDIRECT.findall(text))
+
+
+def ls_collect(element, content: LsContent) -> None:
+    ls_text(element.text, content)
+    for child in element:
+        ls_collect_child(child, content)
+        ls_text(child.tail, content)
+
+
+def ls_collect_child(child, content: LsContent) -> None:
+    if child.tag == "sense":
+        return
+    if child.tag in ("bibl", "cit"):
+        content.cited = True
+    if child.tag == "bibl":
+        citation, content.author = ls_bibl(child, content.author)
+        content.citations.append(citation)
+    elif child.tag == "xr":
+        if reference := ls_reference(child):
+            content.crossrefs.append({"text": reference})
+    elif child.tag == "tr":
+        if gloss := clean_gloss(element_text(child)):
+            content.translations.append(gloss)
+    elif child.tag == "hi" and child.get("rend") == "ital":
+        ls_add_definition(child, content)
+    else:
+        ls_collect(child, content)
+
+
+def ls_add_definition(element, content: LsContent) -> None:
+    """Record italic text before the first citation as a definition."""
+    if not content.cited and (definition := ls_definition(element_text(element))):
+        content.definitions.append(definition)
+
+
+def ls_reference(xr) -> str:
+    ref = xr.find("ref")
+    return element_text(ref) if ref is not None else ""
+
+
+def ls_sense(element, content: LsContent) -> dict:
+    sense: dict = {"id": (element.get("id") or "").strip()}
+    if number := (element.get("n") or "").strip():
+        sense["n"] = number
+    try:
+        sense["level"] = int(element.get("level") or "0")
+    except ValueError:
+        sense["level"] = 0
+    if content.definitions:
+        sense["definitions"] = dedupe(content.definitions)
+    sense["glosses"] = dedupe(content.definitions + content.translations)
+    if content.citations:
+        sense["citations"] = [dict(item) for item in dedupe_dicts(content.citations)]
+    if content.crossrefs:
+        sense["crossrefs"] = content.crossrefs
+    return sense
+
+
+def dedupe_dicts(values: list[dict]) -> list[dict]:
+    seen: dict[str, dict] = OrderedDict()
+    for value in values:
+        seen.setdefault(json.dumps(value, sort_keys=True, ensure_ascii=False), value)
+    return list(seen.values())
+
+
+def ls_entry_level_sense(entry_id: str, content: LsContent) -> list[dict]:
+    """Keep citations and redirects written outside any <sense> on a leading
+    level-0 pseudo-sense that carries the entry's own id."""
+    if not content.citations and not content.crossrefs:
+        return []
+    sense: dict = {"id": entry_id, "level": 0, "glosses": []}
+    if content.citations:
+        sense["citations"] = dedupe_dicts(content.citations)
+    if content.crossrefs:
+        sense["crossrefs"] = content.crossrefs
+    return [sense]
+
+
+def ls_entry(element) -> dict | None:
+    """Derive one L&S entry, or None when it is not an indexable main entry."""
+    entry_id = (element.get("id") or "").strip()
+    key = element.get("key") or ""
+    headword, admitted = ls_headword(key)
+    if element.get("type") in LS_SKIPPED_ENTRY_TYPES or not admitted or not entry_id:
+        return None
+    contents = []
+    entry_content = LsContent()
+    ls_collect(element, entry_content)
+    author = entry_content.author
+    for sense in sorted(element.iter("sense"), key=lambda item: ls_id_order(item.get("id") or "")):
+        content = LsContent(author=author)
+        ls_collect(sense, content)
+        author = content.author
+        contents.append(ls_sense(sense, content))
+    return {
+        "id": entry_id,
+        "key": key.strip(),
+        "headword": headword,
+        "orth": lsj_first_orth(element),
+        "homograph": ls_homograph_number(key),
+        "senses": ls_entry_level_sense(entry_id, entry_content) + contents,
+    }
+
+
+def ls_resolve(entries: list[dict]) -> None:
+    """Resolve each cross-reference to the one entry it names.
+
+    A reference with a homograph digit names its entry by full key; a bare
+    headword resolves only when exactly one entry carries it. Anything else
+    ("infra", "the foll.", an ambiguous homograph) stays unresolved."""
+    by_key: dict[str, list[dict]] = {}
+    by_headword: dict[str, list[dict]] = {}
+    for entry in entries:
+        by_key.setdefault(ls_plain(entry["key"]), []).append(entry)
+        by_headword.setdefault(ls_plain(entry["headword"]), []).append(entry)
+    for entry in entries:
+        for sense in entry["senses"]:
+            for reference in sense.get("crossrefs", []):
+                plain = ls_plain(reference["text"]).strip()
+                candidates = (
+                    by_key.get(plain, []) if plain[-1:].isdigit() else by_headword.get(plain, [])
+                )
+                if len(candidates) == 1:
+                    reference["entry_id"] = candidates[0]["id"]
+                    reference["headword"] = candidates[0]["headword"]
+
+
+def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str, int]]:
+    entries: list[dict] = []
+    for path in sorted(ls_dir.glob(LS_FILE)):
+        # Operator-supplied and digest-pinned, as for LSJ.
+        for _, element in ElementTree.iterparse(path, events=("end",)):  # noqa: S314
+            if element.tag in ("entryFree", "entry"):
+                if entry := ls_entry(element):
+                    entries.append(entry)
+                element.clear()
+    entries.sort(key=lambda item: (ls_id_order(item["id"]), item["id"]))
+    ls_resolve(entries)
+    return [
+        (
+            entry["id"],
+            entry["headword"],
+            entry["orth"],
+            json.dumps(entry["senses"], ensure_ascii=False, separators=(",", ":")),
+            entry["homograph"],
+        )
+        for entry in entries
+    ]
+
+
 @dataclass(frozen=True)
 class SourceMetadata:
     """The dump provenance recorded in the index's metadata table."""
@@ -1389,6 +1666,14 @@ class LsjSource:
     pin: str = LSJ_PIN
 
 
+@dataclass(frozen=True)
+class LsSource:
+    """The pinned PerseusDL/lexica Lewis & Short TEI directory and its pin."""
+
+    directory: Path
+    pin: str = LS_PIN
+
+
 @dataclass
 class DerivedRows:
     """The row sets a derivation collects before writing the index."""
@@ -1396,15 +1681,20 @@ class DerivedRows:
     entries: dict[tuple[str, str, str], dict]
     greek_entries: list[tuple[str, str, str, str, str]]
     lsj_entries: list[tuple[str, str, str, int]]
+    ls_entries: list[tuple[str, str, str, str, int]]
     french_forms: list[tuple[str, str, str, int, str]]
     french_headwords: list[tuple[str, str]]
     idiom_entries: list[tuple[str, str, str, str, str, str, str]]
     idiom_words: list[tuple[str, str, str, str, str]]
 
 
-def metadata_rows(provider_version: str, source: SourceMetadata, lsj_pin: str) -> dict[str, str]:
+def metadata_rows(
+    provider_version: str, source: SourceMetadata, lsj_pin: str, ls_pin: str = ""
+) -> dict[str, str]:
     rows = {
-        "index_format": str(LSJ_INDEX_FORMAT_VERSION if lsj_pin else INDEX_FORMAT_VERSION),
+        "index_format": str(
+            LSJ_INDEX_FORMAT_VERSION if lsj_pin or ls_pin else INDEX_FORMAT_VERSION
+        ),
         "provider_version": provider_version,
         "license": "Wiktionary-derived data: CC BY-SA 4.0 / GFDL",
         "generated_at": date.today().isoformat(),
@@ -1417,6 +1707,8 @@ def metadata_rows(provider_version: str, source: SourceMetadata, lsj_pin: str) -
     }
     if lsj_pin:
         rows["lsj_pin"] = lsj_pin
+    if ls_pin:
+        rows["ls_pin"] = ls_pin
     return rows
 
 
@@ -1436,12 +1728,13 @@ def entry_rows(entries: dict[tuple[str, str, str], dict]):
         )
 
 
-def write_index(
+def write_index(  # noqa: PLR0913 - one pin per derived dictionary source
     output_path: Path,
     rows: DerivedRows,
     provider_version: str,
     source: SourceMetadata,
     lsj_pin: str,
+    ls_pin: str = "",
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
@@ -1453,11 +1746,12 @@ def write_index(
         connection.executescript(SCHEMA)
         connection.executemany(
             "INSERT INTO metadata(key, value) VALUES (?, ?)",
-            metadata_rows(provider_version, source, lsj_pin).items(),
+            metadata_rows(provider_version, source, lsj_pin, ls_pin).items(),
         )
         connection.executemany(INSERT_ENTRIES_SQL, entry_rows(rows.entries))
         connection.executemany(INSERT_GREEK_ENTRIES_SQL, rows.greek_entries)
         connection.executemany(INSERT_LSJ_ENTRIES_SQL, rows.lsj_entries)
+        connection.executemany(INSERT_LS_ENTRIES_SQL, rows.ls_entries)
         connection.executemany(INSERT_FRENCH_FORMS_SQL, rows.french_forms)
         connection.executemany(INSERT_FRENCH_HEADWORDS_SQL, rows.french_headwords)
         connection.executemany(INSERT_IDIOM_ENTRIES_SQL, rows.idiom_entries)
@@ -1478,6 +1772,7 @@ def derive(  # noqa: PLR0913 - the derivation's optional inputs, one per source
     source: SourceMetadata | None = None,
     lsj: LsjSource | None = None,
     reviewed_idioms: ReviewedIdioms | None = None,
+    ls: LsSource | None = None,
 ) -> None:
     source = source or SourceMetadata()
     if not source.source_sha256:
@@ -1492,6 +1787,7 @@ def derive(  # noqa: PLR0913 - the derivation's optional inputs, one per source
         entries=collect_entries(input_path),
         greek_entries=collect_greek_entries(input_path),
         lsj_entries=collect_lsj_entries(lsj.directory) if lsj else [],
+        ls_entries=collect_ls_entries(ls.directory) if ls else [],
         french_forms=french_forms,
         french_headwords=french_headwords,
         idiom_entries=idiom_entries,
@@ -1503,10 +1799,11 @@ def derive(  # noqa: PLR0913 - the derivation's optional inputs, one per source
         provider_version,
         source,
         lsj.pin if lsj else "",
+        ls.pin if ls else "",
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser()
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path, help="raw Kaikki/Wiktextract JSONL(.gz)")
@@ -1521,16 +1818,29 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wiktextract-commit", default="")
     parser.add_argument("--lsj-dir", type=Path, help="PerseusDL/lexica grc/lsj TEI directory")
     parser.add_argument("--lsj-pin", default=LSJ_PIN, help="pinned PerseusDL/lexica revision")
+    parser.add_argument("--ls-dir", type=Path, help="PerseusDL/lexica lat/ls TEI directory")
+    parser.add_argument("--ls-pin", default=LS_PIN, help="pinned PerseusDL/lexica revision")
     parser.add_argument(
         "--reviewed-idioms",
         type=Path,
         help="reviewed idiom list (default: nlp/reviewed_idioms.json)",
     )
-    args = parser.parse_args(argv)
+    return parser
+
+
+def check_options(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Refuse option combinations argparse cannot express."""
     if args.force_download and not args.download:
         parser.error("--force-download requires --download")
-    if args.lsj_dir and not args.lsj_dir.is_dir():
-        parser.error(f"--lsj-dir is not a directory: {args.lsj_dir}")
+    for option, directory in (("--lsj-dir", args.lsj_dir), ("--ls-dir", args.ls_dir)):
+        if directory and not directory.is_dir():
+            parser.error(f"{option} is not a directory: {directory}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    check_options(parser, args)
     input_path = args.input
     if args.download:
         try:
@@ -1558,6 +1868,7 @@ def main(argv: list[str] | None = None) -> int:
         ),
         LsjSource(directory=args.lsj_dir, pin=args.lsj_pin) if args.lsj_dir else None,
         reviewed_idioms,
+        LsSource(directory=args.ls_dir, pin=args.ls_pin) if args.ls_dir else None,
     )
     print(f"Wrote {args.output}")
     return 0

@@ -23,7 +23,7 @@ func classicalAddDefinition(key, workKey, title string) classical.Definition {
 		WorkKey:               workKey,
 		WorkTitle:             title,
 		WorkAuthor:            "Xenophon",
-		GreekTitle:            "Ἀνάβασις",
+		OriginalTitle:         "Ἀνάβασις",
 		EditionKey:            key + "-edition",
 		EditionLabel:          "Reviewed edition",
 		Language:              classical.Language,

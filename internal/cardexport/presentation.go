@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -45,6 +46,12 @@ type CandidateProjection struct {
 	// them (ADR 0101).
 	ReferenceTranslations map[string]string
 	ReferencePin          string
+	// WorkAuthor is the author of the card's own Work, which a Latin card's
+	// full dictionary entry filters its citations against (ADR 0133).
+	WorkAuthor string
+	// WorkTextgroup is the Work's CTS textgroup (for example "phi0474"), which
+	// matches the URN-form author a Lewis & Short citation falls back to.
+	WorkTextgroup string
 	// EvidenceAssistedPass marks a source-evidence projection that also opts
 	// into the Ancient Greek provider pass. The projection still freezes its
 	// LSJ entry and passage context, and the pass adds provider-proposed
@@ -305,6 +312,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idio
 		entry.LSJSummaryProviderVersion = projection.LSJSummaryProviderVersion
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
+			resolveLatinLS(ctx, lexical, &entry, projection.WorkAuthor, projection.WorkTextgroup)
 			matched, found := resolveAncientGreekLSJ(ctx, lexical, &entry)
 			if projection.EvidenceAssistedPass && found {
 				// The pass transmits the pinned LSJ senses with their native IDs
@@ -366,7 +374,7 @@ func applySourceAttribution(entry *Entry, projection CandidateProjection) error 
 // imported translations, and every modern-language entry, is left unchanged; a
 // sentence whose touched sections are not all translated keeps no English.
 func applyPassageContext(entry *Entry, projection CandidateProjection) {
-	if !IsAncientGreek(entry.Language) || len(projection.ReferenceTranslations) == 0 {
+	if cardpolicy.For(entry.Language).Translations == cardpolicy.TranslationNone || len(projection.ReferenceTranslations) == 0 {
 		return
 	}
 	sentence, ok := projection.Sentences[entry.SentenceOrdinal]

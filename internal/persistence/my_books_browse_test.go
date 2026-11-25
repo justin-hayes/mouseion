@@ -10,7 +10,7 @@ import (
 func TestMyBooksBrowseMatchesQuery(t *testing.T) {
 	classical := domain.MyBook{
 		Book:        domain.Book{ID: "1", Title: "Histories, Book 1", Author: "Herodotus"},
-		ReadingUnit: &domain.BookReadingUnit{WorkTitle: "Iliad", WorkAuthor: "Homer", GreekTitle: "Ἰλιάς"},
+		ReadingUnit: &domain.BookReadingUnit{WorkTitle: "Iliad", WorkAuthor: "Homer", OriginalTitle: "Ἰλιάς"},
 	}
 	ordinary := domain.MyBook{Book: domain.Book{ID: "2", Title: "Something else", Author: "Nobody"}}
 	for _, tt := range []struct {

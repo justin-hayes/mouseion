@@ -186,7 +186,7 @@ func TestStatusBadgeKeepsOrdinaryReadAndInboxRingShapes(t *testing.T) {
 }
 
 func TestBookCoverPlaceholderRendersTitlePlateHiddenFromAssistiveTechnology(t *testing.T) {
-	plate := newTitlePlate("Die Verwandlung", "", "Franz Kafka")
+	plate := newTitlePlate("Die Verwandlung", "", "", "Franz Kafka")
 	html := renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{State: domain.BookCoverPending}), "")
 	requireMarkup(t, html,
 		`class="book-cover-media__placeholder" aria-hidden="true"`,
@@ -198,18 +198,29 @@ func TestBookCoverPlaceholderRendersTitlePlateHiddenFromAssistiveTechnology(t *t
 	assert.NotContains(t, html, "book-cover-media__initial")
 }
 
-func TestTitlePlateCarriesGreekTitleForClassicalBook(t *testing.T) {
-	plate := newTitlePlate("Iliad", " Ἰλιάς ", "Homer")
+func TestTitlePlateCarriesOriginalTitleForClassicalBook(t *testing.T) {
+	plate := newTitlePlate("Iliad", " Ἰλιάς ", "grc", "Homer")
 	html := renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{}), "")
 	requireMarkup(t, html,
 		`class="title-plate__title">Iliad</span>`,
-		`class="title-plate__greek" lang="el">Ἰλιάς</span>`,
+		`class="title-plate__greek" lang="grc">Ἰλιάς</span>`,
 		`class="title-plate__author">Homer</span>`,
 	)
 }
 
+func TestTitlePlateDropsAnOriginalTitleThatRepeatsTheEnglishTitle(t *testing.T) {
+	for name, original := range map[string]string{"identical": "Germania", "case": "GERMANIA", "spacing": "  Germania "} {
+		t.Run(name, func(t *testing.T) {
+			plate := newTitlePlate("Germania", original, "la", "Tacitus")
+
+			assert.Empty(t, plate.OriginalTitle)
+			assert.NotContains(t, renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{}), ""), "title-plate__greek")
+		})
+	}
+}
+
 func TestBookCoverImageReplacesTitlePlate(t *testing.T) {
-	html := renderPattern(t, BookCoverMedia("book-1", newTitlePlate("T", "", "A"), domain.BookCover{State: domain.BookCoverAvailable, Width: 10, Height: 15}), "")
+	html := renderPattern(t, BookCoverMedia("book-1", newTitlePlate("T", "", "", "A"), domain.BookCover{State: domain.BookCoverAvailable, Width: 10, Height: 15}), "")
 	assert.Contains(t, html, "book-cover-media__image")
 	assert.NotContains(t, html, "title-plate")
 }
@@ -323,9 +334,9 @@ func TestComponentStylesAvailable(t *testing.T) {
 }
 
 func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
-	unit := &domain.BookReadingUnit{WorkTitle: "Iliad", GreekTitle: "Ἰλιάς"}
+	unit := &domain.BookReadingUnit{WorkTitle: "Iliad", OriginalTitle: "Ἰλιάς"}
 	book := domain.MyBook{
-		Book:        domain.Book{ID: "book-1", Title: "Iliad", Author: "Homer"},
+		Book:        domain.Book{ID: "book-1", Title: "Iliad", Author: "Homer", LanguageTag: "grc"},
 		ReadingUnit: unit,
 		Cover:       domain.BookCover{State: domain.BookCoverNone},
 	}
@@ -344,29 +355,29 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 		{
 			name: "Classical card",
 			html: renderPattern(t, CatalogEntryCard("csrf", classicalCatalogCard(
-				classical.CatalogWork{Key: "iliad", Title: "Iliad", Author: "Homer", GreekTitle: "Ἰλιάς"},
+				classical.CatalogWork{Key: "iliad", Title: "Iliad", Author: "Homer", OriginalTitle: "Ἰλιάς", Language: "grc"},
 				classical.CatalogUnit{Key: "iliad-unit", EditionLabel: "Monro 1902"},
 				classicalCatalogView{AddAvailable: true})), ""),
-			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`, `class="catalog-entry__detail">Monro 1902</p>`},
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="catalog-entry__detail">Monro 1902</p>`},
 		},
 		{
 			name: "My Books row",
 			html: renderPattern(t, MyBookRow("csrf", book, ""), ""),
-			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
 		},
 		{
 			name: "Reading chooser",
 			html: renderPattern(t, ReadingChooserCandidate(readingChooserBookView{Book: book}, "csrf", "", ""), ""),
-			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`},
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`},
 		},
 		{
 			name: "Reading current Book",
 			html: renderPattern(t, ReadingBookCard(readingBookView{
-				Book:        domain.SourceMaterialSummary{BookTitle: "Iliad", BookAuthor: "Homer"},
+				Book:        domain.SourceMaterialSummary{BookTitle: "Iliad", BookAuthor: "Homer", Source: domain.SourceMaterial{Language: "grc"}},
 				BookID:      "book-1",
 				ReadingUnit: unit,
 			}, "csrf"), ""),
-			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="el">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
+			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
 		},
 	}
 	for _, tt := range tests {
@@ -375,4 +386,10 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 			assert.NotContains(t, tt.html, "book-cover-media__initial")
 		})
 	}
+}
+
+func TestTitlePlateRendersTheOriginalTitleInTheDefinitionLanguage(t *testing.T) {
+	plate := newTitlePlate("Aeneid", "Aeneis", "la", "Virgil")
+	html := renderPattern(t, BookCoverMedia("book-1", plate, domain.BookCover{}), "")
+	requireMarkup(t, html, `class="title-plate__greek" lang="la">Aeneis</span>`)
 }

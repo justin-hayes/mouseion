@@ -40,7 +40,7 @@ func preUpgradeDefinition(t *testing.T, data []byte, interpretationVersion strin
 	sum := sha256.Sum256(data)
 	return classical.Definition{
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis",
-		WorkTitle: "Anabasis", WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις",
+		WorkTitle: "Anabasis", WorkAuthor: "Xenophon", OriginalTitle: "Ἀνάβασις",
 		EditionKey: "xenophon-anabasis-marchant-1904", EditionLabel: "Marchant 1904",
 		Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.",
@@ -383,7 +383,7 @@ func survivingDefinition(t *testing.T) classical.Definition {
 	sum := sha256.Sum256(data)
 	return classical.Definition{
 		Key: "surviving-anabasis-1", WorkKey: "surviving-anabasis",
-		WorkTitle: "Surviving Work", WorkAuthor: "Test Author", GreekTitle: "Σῳζόμενον",
+		WorkTitle: "Surviving Work", WorkAuthor: "Test Author", OriginalTitle: "Σῳζόμενον",
 		EditionKey: "surviving-anabasis-edition", EditionLabel: "Test Edition",
 		Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.",

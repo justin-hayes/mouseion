@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
@@ -17,7 +18,7 @@ import (
 // LSJ's numbering. It returns the matched entry so a caller can freeze it as
 // pass evidence.
 func resolveAncientGreekLSJ(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry) (enrichment.AncientGreekLSJEntry, bool) {
-	if entry == nil || !IsAncientGreek(entry.Language) || lexical == nil {
+	if entry == nil || cardpolicy.For(entry.Language).Entries != cardpolicy.EntryLSJ || lexical == nil {
 		return enrichment.AncientGreekLSJEntry{}, false
 	}
 	provider, ok := lexical.(enrichment.AncientGreekLSJProvider)

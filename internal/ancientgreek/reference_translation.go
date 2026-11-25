@@ -6,10 +6,11 @@ import (
 	"errors"
 	"io"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/justin-hayes/mouseion/internal/classical"
 )
 
 // ReferenceTranslation is one cited section's English text, keyed by citation
@@ -20,11 +21,52 @@ type ReferenceTranslation struct {
 }
 
 // ParseReferenceTranslation extracts every cited section of the citation range
-// from a Perseus perseus-eng2 TEI file. Perseus notes are removed, remaining
-// text is kept as is, whitespace is collapsed, and the citation depth comes
-// from the range so section-only and book/chapter/section work files are read
-// the same way. Sections are returned in citation order.
+// from a Perseus perseus-eng2 TEI file. Perseus notes and editorial textparts
+// (an argument, introduction, chronology or note) are removed, remaining text
+// is kept as is, whitespace is collapsed, and the citation depth comes from the
+// range so section-only and book/chapter/section work files are read the same
+// way. A file with no cited textpart is read by its section milestones when
+// the range has a single level. Sections are returned in citation order.
 func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
+	return parseReferenceTranslation(data, citationStart, citationEnd, false, true)
+}
+
+// ParseReferenceTranslationMeasured reads a translation for measurement rather
+// than admission. It accepts what the strict parser refuses as a misalignment:
+// gaps in the cited numbering are kept as gaps, and a translation keyed at a
+// shallower level than the range (a chapter-level file against section
+// Citations) is read at its own depth, so a join rate can be computed over it.
+// A section repeated in the file keeps its first text and drops the repeat. It
+// still refuses a file that is not well-formed or has no cited section.
+func ParseReferenceTranslationMeasured(data []byte, citationStart, citationEnd string) ([]ReferenceTranslation, error) {
+	sections, err := parseReferenceTranslation(data, citationStart, citationEnd, true, true)
+	if err == nil {
+		return sections, nil
+	}
+	start, ok := parseCitation(citationStart)
+	end, endOK := parseCitation(citationEnd)
+	if !ok || !endOK || len(start) != len(end) {
+		return nil, err
+	}
+	for depth := len(start) - 1; depth >= 1; depth-- {
+		// Section milestones key the Latin's own sections; a shallower read
+		// never takes them for a coarser level.
+		shallow, shallowErr := parseReferenceTranslation(data, start[:depth].String(), end[:depth].String(), true, false)
+		if shallowErr == nil {
+			return shallow, nil
+		}
+	}
+	return nil, err
+}
+
+// detailNoCitedSections is the refusal of a file with no cited section.
+const detailNoCitedSections = "no cited sections"
+
+// parseReferenceTranslation is the shared parser; lenient skips the
+// contiguity check and folds a repeated section into its first occurrence.
+// When milestones is set and a single-level range finds no cited textpart, the
+// file is read again by its section milestones.
+func parseReferenceTranslation(data []byte, citationStart, citationEnd string, lenient, milestones bool) ([]ReferenceTranslation, error) {
 	start, ok := parseCitation(citationStart)
 	if !ok {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation start is not a citation"}
@@ -36,7 +78,15 @@ func ParseReferenceTranslation(data []byte, citationStart, citationEnd string) (
 	if len(start) != len(end) || compareCitation(start, end) > 0 {
 		return nil, &ImportError{Code: CodeUnknownInterpret, Detail: "citation range does not align"}
 	}
-	parser := &eng2Parser{start: start, end: end, depth: len(start), seen: make(map[string]struct{})}
+	sections, err := runReferenceParser(data, &eng2Parser{start: start, end: end, depth: len(start), seen: make(map[string]int), lenient: lenient})
+	if importErr, ok := errors.AsType[*ImportError](err); ok && importErr.Detail == detailNoCitedSections && milestones && len(start) == 1 {
+		return runReferenceParser(data, &eng2Parser{start: start, end: end, depth: len(start), seen: make(map[string]int), lenient: lenient, milestones: true})
+	}
+	return sections, err
+}
+
+// runReferenceParser streams the file through one parser.
+func runReferenceParser(data []byte, parser *eng2Parser) ([]ReferenceTranslation, error) {
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	decoder.Strict = true
 	for {
@@ -79,14 +129,28 @@ func xmlImportError(err error) error {
 
 // eng2Parser is the streaming state machine of ParseReferenceTranslation.
 type eng2Parser struct {
-	start, end []int
+	start, end classical.Citation
 	depth      int
 	divs       []string
 	textparts  []textpart
 	body       strings.Builder
 	noteDepth  int
 	sections   []ReferenceTranslation
-	seen       map[string]struct{}
+	// seen maps an emitted citation to its index in sections.
+	seen map[string]int
+	// lenient skips the contiguity check and folds a repeated section into
+	// its first occurrence, for measurement.
+	lenient bool
+	// editorialDepth counts the open divs inside an editorial textpart, whose
+	// text and divisions are skipped.
+	editorialDepth int
+	// milestones reads sections from section milestones instead of textparts.
+	milestones bool
+	// milestone is the number of the open milestone section, if any, and
+	// milestoneDivs the div depth it began at: it ends at the next section
+	// milestone or when that div closes.
+	milestone     string
+	milestoneDivs int
 }
 
 // textpart is one open textpart div, whose numbers join into a citation.
@@ -103,11 +167,16 @@ func (p *eng2Parser) accept(token xml.Token) error {
 	case xml.EndElement:
 		return p.close(typed.Name.Local)
 	case xml.CharData:
-		if p.noteDepth == 0 && len(p.textparts) == p.depth {
+		if p.collecting() {
 			p.body.Write(typed)
 		}
 	}
 	return nil
+}
+
+// collecting reports whether character data belongs to the open section.
+func (p *eng2Parser) collecting() bool {
+	return p.noteDepth == 0 && p.editorialDepth == 0 && (len(p.textparts) == p.depth || p.milestone != "")
 }
 
 // open tracks div nesting, enters a Perseus note, or opens a textpart. A
@@ -116,18 +185,30 @@ func (p *eng2Parser) accept(token xml.Token) error {
 func (p *eng2Parser) open(element xml.StartElement) error {
 	switch element.Name.Local {
 	case "note":
-		if p.noteDepth == 0 && len(p.textparts) == p.depth && !endsWithSpace(p.body.String()) {
+		if p.collecting() && !endsWithSpace(p.body.String()) {
 			p.body.WriteByte(' ')
 		}
 		p.noteDepth++
 		return nil
+	case "milestone":
+		return p.openMilestone(element)
 	case "div":
 	default:
+		return nil
+	}
+	if p.editorialDepth > 0 {
+		p.editorialDepth++
+		p.divs = append(p.divs, "")
 		return nil
 	}
 	kind, number, err := textpartKind(element)
 	if err != nil {
 		return err
+	}
+	if kind == kindEditorial {
+		p.editorialDepth = 1
+		p.divs = append(p.divs, "")
+		return nil
 	}
 	p.divs = append(p.divs, kind)
 	if kind == "" {
@@ -166,6 +247,15 @@ func (p *eng2Parser) close(local string) error {
 	}
 	kind := p.divs[len(p.divs)-1]
 	p.divs = p.divs[:len(p.divs)-1]
+	if p.editorialDepth > 0 {
+		p.editorialDepth--
+		return nil
+	}
+	if p.milestone != "" && len(p.divs) < p.milestoneDivs {
+		if err := p.closeMilestone(); err != nil {
+			return err
+		}
+	}
 	if kind == "" {
 		return nil
 	}
@@ -184,12 +274,59 @@ func (p *eng2Parser) close(local string) error {
 	return nil
 }
 
-// emit records the closed section when it falls inside the reading unit.
+// openMilestone starts a section at a section milestone, in milestone mode,
+// outside notes, editorial textparts and textparts. Any other milestone is
+// not a section boundary.
+func (p *eng2Parser) openMilestone(element xml.StartElement) error {
+	if !p.milestones || p.noteDepth > 0 || p.editorialDepth > 0 || len(p.textparts) > 0 {
+		return nil
+	}
+	var unit, number string
+	for _, attribute := range element.Attr {
+		switch attribute.Name.Local {
+		case "unit":
+			unit = attribute.Value
+		case "n":
+			number = attribute.Value
+		}
+	}
+	if unit != "section" {
+		return nil
+	}
+	if _, ok := classical.ParseCitation(number); !ok || strings.Contains(number, ".") {
+		return &ImportError{Code: CodeMalformed, Detail: "milestone number is not a Citation component"}
+	}
+	if err := p.closeMilestone(); err != nil {
+		return err
+	}
+	p.milestone, p.milestoneDivs = number, len(p.divs)
+	p.body.Reset()
+	return nil
+}
+
+// closeMilestone emits the open milestone section, if any.
+func (p *eng2Parser) closeMilestone() error {
+	if p.milestone == "" {
+		return nil
+	}
+	citation := p.milestone
+	p.milestone = ""
+	return p.emitCitation(citation)
+}
+
+// emit records the closed textpart section when it falls inside the reading
+// unit.
 func (p *eng2Parser) emit() error {
 	citation, ok := citationFromTextparts(p.textparts)
 	if !ok {
 		return &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
 	}
+	return p.emitCitation(citation)
+}
+
+// emitCitation records the collected text as the section citation when it
+// falls inside the reading unit.
+func (p *eng2Parser) emitCitation(citation string) error {
 	parsed, ok := parseCitation(citation)
 	if !ok {
 		return &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
@@ -202,9 +339,16 @@ func (p *eng2Parser) emit() error {
 		return &ImportError{Code: CodeMalformed, Detail: "cited section has no text"}
 	}
 	if _, duplicate := p.seen[citation]; duplicate {
-		return &ImportError{Code: CodeMalformed, Detail: "duplicate cited section"}
+		if !p.lenient {
+			return &ImportError{Code: CodeMalformed, Detail: "duplicate cited section"}
+		}
+		// A repeated milestone is a numbering error in the file (the repeat is
+		// the following section mislabelled). Its text is dropped, never merged
+		// into the earlier section: the following section stays unjoined and
+		// shows no English rather than the wrong English.
+		return nil
 	}
-	p.seen[citation] = struct{}{}
+	p.seen[citation] = len(p.sections)
 	p.sections = append(p.sections, ReferenceTranslation{Citation: citation, Text: text})
 	return nil
 }
@@ -215,14 +359,19 @@ func (p *eng2Parser) finish() error {
 	if p.noteDepth != 0 {
 		return &ImportError{Code: CodeMalformed, Detail: "unterminated note"}
 	}
-	if len(p.sections) == 0 {
-		return &ImportError{Code: CodeMalformed, Detail: "no cited sections"}
-	}
-	if err := p.checkContiguous(); err != nil {
+	if err := p.closeMilestone(); err != nil {
 		return err
 	}
-	// checkContiguous validated every citation, so the sort comparator cannot
-	// see an unparseable key.
+	if len(p.sections) == 0 {
+		return &ImportError{Code: CodeMalformed, Detail: detailNoCitedSections}
+	}
+	if !p.lenient {
+		if err := p.checkContiguous(); err != nil {
+			return err
+		}
+	}
+	// Every emitted citation parsed in emit, so the sort comparator cannot see
+	// an unparseable key.
 	sort.SliceStable(p.sections, func(i, j int) bool {
 		left, _ := parseCitation(p.sections[i].Citation)
 		right, _ := parseCitation(p.sections[j].Citation)
@@ -262,8 +411,14 @@ func citationGroups(sections []ReferenceTranslation) (map[string][]int, error) {
 			return nil, &ImportError{Code: CodeMalformed, Detail: "section citation is not a citation"}
 		}
 		for length := 1; length <= len(parsed); length++ {
+			component := parsed[length-1]
+			if component.Name != "" {
+				// A named section (pr, ep) has no number to order, so it
+				// takes no part in the contiguity check.
+				continue
+			}
 			prefix := citationPrefix(parsed[:length])
-			groups[prefix] = append(groups[prefix], parsed[length-1])
+			groups[prefix] = append(groups[prefix], component.Number)
 		}
 	}
 	return groups, nil
@@ -288,11 +443,14 @@ func checkContiguousGroup(values []int) error {
 
 // checkRangeBoundary refuses a group that begins after the range start or ends
 // before the range end.
-func checkRangeBoundary(prefix string, values []int, start, end []int) error {
-	if prefix == citationPrefix(start) && values[0] != start[len(start)-1] {
+func checkRangeBoundary(prefix string, values []int, start, end classical.Citation) error {
+	if len(values) == 0 {
+		return nil
+	}
+	if prefix == citationPrefix(start) && start[len(start)-1].Name == "" && values[0] != start[len(start)-1].Number {
 		return &ImportError{Code: CodeMalformed, Detail: "cited range starts at a missing section"}
 	}
-	if prefix == citationPrefix(end) && values[len(values)-1] != end[len(end)-1] {
+	if prefix == citationPrefix(end) && end[len(end)-1].Name == "" && values[len(values)-1] != end[len(end)-1].Number {
 		return &ImportError{Code: CodeMalformed, Detail: "cited range ends at a missing section"}
 	}
 	return nil
@@ -312,19 +470,21 @@ func citationFromTextparts(parts []textpart) (string, bool) {
 
 // citationPrefix returns every citation component except the last as a dotted
 // string.
-func citationPrefix(citation []int) string {
+func citationPrefix(citation classical.Citation) string {
 	if len(citation) <= 1 {
 		return ""
 	}
-	parts := make([]string, len(citation)-1)
-	for index, number := range citation[:len(citation)-1] {
-		parts[index] = strconv.Itoa(number)
-	}
-	return strings.Join(parts, ".")
+	return citation[:len(citation)-1].String()
 }
 
+// kindEditorial marks an editorial textpart, such as an argument, an
+// introduction, a chronology or a note.
+const kindEditorial = "editorial"
+
 // textpartKind reports the reading-unit div kind a TEI textpart carries, and
-// its number. A non-textpart div reports an empty kind.
+// its number. A non-textpart div reports an empty kind. A textpart named by a
+// lowercase word of two or more letters that is not a Citation component is
+// editorial matter, not a cited division.
 func textpartKind(element xml.StartElement) (kind, number string, err error) {
 	var subtype, name string
 	for _, attribute := range element.Attr {
@@ -336,14 +496,31 @@ func textpartKind(element xml.StartElement) (kind, number string, err error) {
 		}
 	}
 	switch subtype {
-	case "book", "chapter", "section", "subsection":
+	case "book", "speech", "chapter", "section", "subsection":
 	default:
 		return "", "", nil
 	}
-	if _, parseErr := strconv.Atoi(name); parseErr != nil {
-		return "", "", &ImportError{Code: CodeMalformed, Detail: "textpart number is not a number"}
+	if _, ok := classical.ParseCitation(name); !ok || strings.Contains(name, ".") {
+		if editorialName(name) {
+			return kindEditorial, "", nil
+		}
+		return "", "", &ImportError{Code: CodeMalformed, Detail: "textpart number is not a Citation component"}
 	}
 	return subtype, name, nil
+}
+
+// editorialName reports whether a textpart name is a lowercase word of two or
+// more letters.
+func editorialName(name string) bool {
+	if len(name) < 2 {
+		return false
+	}
+	for _, letter := range name {
+		if letter < 'a' || letter > 'z' {
+			return false
+		}
+	}
+	return true
 }
 
 // normalizeSectionText collapses the file's formatting whitespace and trims it.

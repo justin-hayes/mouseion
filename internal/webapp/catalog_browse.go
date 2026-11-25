@@ -93,10 +93,12 @@ type catalogSection struct {
 // Classical Reading unit. Plate is the image slot; a retained cover replaces it
 // when the source has one.
 type catalogCard struct {
-	ID         string
-	Title      string
-	GreekTitle string
-	Author     string
+	ID            string
+	Title         string
+	OriginalTitle string
+	// OriginalLang is the Definition language the original title is set in.
+	OriginalLang string
+	Author       string
 	// Detail is the one detail line, the Edition label for a Classical unit.
 	Detail   string
 	TitleURL string
@@ -157,6 +159,10 @@ type catalogBrowseView struct {
 func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections []domain.OpdsConnection, classicalView classicalCatalogView) (catalogBrowseView, error) {
 	filter := catalogBrowseQuery(r)
 	hasClassical := h.services.Classical != nil && h.services.Classical.Counts().Works > 0
+	var classicalLanguages []string
+	if hasClassical {
+		classicalLanguages = h.services.Classical.Languages()
+	}
 	languages, err := h.catalogIndexLanguages(r, owner, connections)
 	if err != nil {
 		return catalogBrowseView{}, err
@@ -164,7 +170,7 @@ func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections [
 	view := catalogBrowseView{
 		Query:           filter.Query,
 		Language:        filter.Language,
-		LanguageOptions: catalogLanguageOptions(r, filter.Language, hasClassical, languages, h.capabilityLanguageNames(r.Context())),
+		LanguageOptions: catalogLanguageOptions(r, filter.Language, classicalLanguages, languages, h.capabilityLanguageNames(r.Context())),
 		HasClassical:    hasClassical,
 	}
 	view.LanguageLabel = catalogLanguageLabel(view.LanguageOptions, filter.Language)
@@ -172,7 +178,7 @@ func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections [
 	view.ShowAllURL = filter.allLanguages().browseURL(nil)
 	pages := make(map[string]int, len(connections)+1)
 	sections := make([]*catalogSection, 0, len(connections)+1)
-	if hasClassical && (filter.Language == "" || filter.Language == classical.Language) {
+	if hasClassical && (filter.Language == "" || slices.Contains(classicalLanguages, filter.Language)) {
 		view.Classical = h.loadCatalogClassicalSection(r, filter, classicalView)
 		pages[catalogClassicalSectionID] = view.Classical.Page
 		sections = append(sections, &view.Classical)
@@ -199,7 +205,7 @@ func (h *Handler) loadCatalogBrowse(r *http.Request, owner string, connections [
 // one card per current Reading unit, ordered and paged like every other
 // section.
 func (h *Handler) loadCatalogClassicalSection(r *http.Request, filter catalogFilter, view classicalCatalogView) catalogSection {
-	cards := classicalCatalogCards(h.services.Classical.Authors(), filter.Query, view)
+	cards := classicalCatalogCardsIn(h.services.Classical.Authors(), filter.Query, filter.Language, view)
 	for i := range cards {
 		cards[i].FilterLanguage = filter.Language
 	}
@@ -309,7 +315,7 @@ func opdsCatalogCard(entry domain.CatalogueEntry) catalogCard {
 		ID:              index.EntryIdentifier,
 		Title:           index.Title,
 		Author:          index.Author,
-		Plate:           newTitlePlate(index.Title, "", index.Author),
+		Plate:           newTitlePlate(index.Title, "", "", index.Author),
 		EntryIdentifier: index.EntryIdentifier,
 	}
 	if index.CoverRetained && index.CoverWidth > 0 && index.CoverHeight > 0 {
@@ -372,7 +378,7 @@ func (h *Handler) capabilityLanguageNames(ctx context.Context) map[string]string
 //
 // capabilityNames supplies display names for languages the learner does not
 // study, so an index language reads as "French", not "fr".
-func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool, indexLanguages []string, capabilityNames map[string]string) []catalogLanguageOption {
+func catalogLanguageOptions(r *http.Request, requested string, classicalLanguages []string, indexLanguages []string, capabilityNames map[string]string) []catalogLanguageOption {
 	names := languageNames{}
 	if shell := shellViewFromContext(r.Context()); shell != nil {
 		for _, option := range shell.Options {
@@ -381,8 +387,8 @@ func catalogLanguageOptions(r *http.Request, requested string, hasClassical bool
 			}
 		}
 	}
-	if hasClassical {
-		names.addIfAbsent(classical.Language, classical.LanguageDisplayName)
+	for _, language := range classicalLanguages {
+		names.addIfAbsent(language, classical.DisplayName(language))
 	}
 	label := func(language string) string {
 		if name := capabilityNames[language]; name != "" {

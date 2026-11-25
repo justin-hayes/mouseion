@@ -5,51 +5,36 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// Import codes name every way the import seam refuses. They are stable, carry
-// no Greek text, and are the only part of a refusal an operator sees.
+// Import codes are the classical package's stable preparation codes, kept under
+// their Greek import names.
 const (
-	CodeReadFailed       = "source_read_failed"
-	CodeOversize         = "source_oversize"
-	CodePinMismatch      = "source_pin_mismatch"
-	CodeMalformed        = "source_malformed"
-	CodeUnknownPOS       = "source_unknown_pos"
-	CodeUnknownInterpret = "interpretation_unknown"
-	// CodeSentenceUnassigned reports a sentence whose first token belongs to no
-	// Reading unit in a whole-work cut.
-	CodeSentenceUnassigned = "sentence_unassigned"
-	// CodeSentenceAmbiguous reports a sentence whose first token belongs to
-	// more than one Reading unit in a whole-work cut.
-	CodeSentenceAmbiguous = "sentence_ambiguous"
-	// CodeEmptyCitationRange reports a Reading-unit range that does not
-	// resolve to real source tokens.
-	CodeEmptyCitationRange = "citation_range_empty"
-	// CodeOpeningMissing reports a Reading unit whose only sentences are
-	// speaker labels, so it has no Opening to derive.
-	CodeOpeningMissing = "opening_missing"
-	// CodeUnknownSourceFormat reports a definition whose source format has no
-	// import adapter.
-	CodeUnknownSourceFormat = "source_format_unknown"
-	// CodeSourceLayerUnknown reports a definition whose layer is absent from the
-	// release's layer pins.
-	CodeSourceLayerUnknown = "source_layer_unknown"
-	// CodeSourceDownloadFailed reports a pinned work file that could not be
-	// fetched.
-	CodeSourceDownloadFailed = "source_download_failed"
-	// CodeAdapterRefused is the stable aggregate code recorded when an import
-	// adapter refuses a pinned source during interpretation or validation,
-	// including a malformed file, an unknown POS, or a citation cut that does not
-	// cover the source. The specific refusal code remains in the job's error.
-	CodeAdapterRefused = "source_adapter_refused"
+	CodeReadFailed           = classical.CodeReadFailed
+	CodeOversize             = classical.CodeOversize
+	CodePinMismatch          = classical.CodePinMismatch
+	CodeMalformed            = classical.CodeMalformed
+	CodeUnknownPOS           = classical.CodeUnknownPOS
+	CodeUnknownInterpret     = classical.CodeUnknownInterpret
+	CodeSentenceUnassigned   = classical.CodeSentenceUnassigned
+	CodeSentenceAmbiguous    = classical.CodeSentenceAmbiguous
+	CodeEmptyCitationRange   = classical.CodeEmptyCitationRange
+	CodeOpeningMissing       = classical.CodeOpeningMissing
+	CodeUnknownSourceFormat  = classical.CodeUnknownSourceFormat
+	CodeSourceLayerUnknown   = classical.CodeSourceLayerUnknown
+	CodeSourceDownloadFailed = classical.CodeSourceDownloadFailed
+	CodeAdapterRefused       = classical.CodeAdapterRefused
 )
+
+// ImportError is a refused import: the neutral classical preparation error.
+type ImportError = classical.PreparationError
 
 // ImportAnalyzerName identifies an imported classical analysis run.
 const ImportAnalyzerName = "mouseion-greek-import"
@@ -96,25 +81,6 @@ const (
 	// show "Syntax unavailable" for a native_agdt or absent run.
 	SyntaxStateAbsent SyntaxState = "absent"
 )
-
-// ImportError is a refused import. Code is stable and safe to print; Detail
-// holds only ASCII diagnostics, never source text.
-type ImportError struct {
-	Code   string
-	Line   int
-	Detail string
-}
-
-func (e *ImportError) Error() string {
-	message := "ancientgreek: import refused: " + e.Code
-	if e.Line > 0 {
-		message += fmt.Sprintf(" (line %d)", e.Line)
-	}
-	if e.Detail != "" {
-		message += ": " + e.Detail
-	}
-	return message
-}
 
 // ImportRequest names the learner's Book, the reviewed definition to import and
 // the local path of the pinned source file.
@@ -237,6 +203,9 @@ func Import(ctx context.Context, req ImportRequest, writer ImportWriter) (Import
 // InterpretationVersion is the versioned interpretation identity recorded on an
 // imported run: every mapping slot that shaped the tokens.
 func InterpretationVersion(definition domain.ReadingUnitDefinition) string {
+	if definition.Language == classical.LanguageLatin {
+		return latinInterpretationVersion(definition)
+	}
 	return strings.Join([]string{
 		definition.InterpretationVersion,
 		FeatsMappingVersion,

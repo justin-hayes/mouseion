@@ -441,11 +441,11 @@ func myBookPositionLabel(book domain.MyBook) string {
 }
 
 func myBookTitlePlate(book domain.MyBook) titlePlate {
-	return newTitlePlate(myBookDisplayTitle(book), myBookGreekTitle(book), book.Book.Author)
+	return newTitlePlate(myBookDisplayTitle(book), myBookOriginalTitle(book), book.Book.LanguageTag, book.Book.Author)
 }
 
-func myBookGreekTitle(book domain.MyBook) string {
-	return readingUnitGreekTitle(book.ReadingUnit)
+func myBookOriginalTitle(book domain.MyBook) string {
+	return readingUnitOriginalTitle(book.ReadingUnit)
 }
 
 func myBooksPageCount(total int) int {

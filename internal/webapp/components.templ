@@ -43,8 +43,8 @@ templ BookCoverMedia(bookID string, plate titlePlate, cover domain.BookCover) {
 		} else {
 			<div class="book-cover-media__placeholder" aria-hidden="true">
 				<span class="title-plate__title">{ plate.Title }</span>
-				if plate.GreekTitle != "" {
-					<span class="title-plate__greek" lang="el">{ plate.GreekTitle }</span>
+				if plate.OriginalTitle != "" {
+					<span class="title-plate__greek" lang={ plate.OriginalLang }>{ plate.OriginalTitle }</span>
 				}
 				if plate.Author != "" {
 					<span class="title-plate__author">{ plate.Author }</span>

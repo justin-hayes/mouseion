@@ -35,13 +35,13 @@ func legacyAnabasisDefinition() domain.ReadingUnitDefinition {
 
 // manifestDefinition builds one valid fixture definition. A per-book definition
 // is a withdrawn ADR 0116 entry: only those may carry a constituent book.
-func manifestDefinition(key, workKey, workTitle, author, greekTitle, editionKey, editionLabel, citationStart, citationEnd string, book *int, books int, revision int) classical.Definition {
+func manifestDefinition(key, workKey, workTitle, author, originalTitle, editionKey, editionLabel, citationStart, citationEnd string, book *int, books int, revision int) classical.Definition {
 	return classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
 		WorkTitle:             workTitle,
 		WorkAuthor:            author,
-		GreekTitle:            greekTitle,
+		OriginalTitle:         originalTitle,
 		EditionKey:            editionKey,
 		EditionLabel:          editionLabel,
 		Language:              classical.Language,
@@ -121,7 +121,7 @@ func TestReconcileManifestCorrectsLegacyKeysAndKeepsTheBook(t *testing.T) {
 	// The Anabasis Work and Edition rows are the same rows, corrected to the
 	// shared keys, and the Book still points at the same Reading unit.
 	var gotWorkID, gotEditionID, gotReadingUnitID string
-	var workKey, greekTitle, editionKey, editionLabel, unitKey string
+	var workKey, originalTitle, editionKey, editionLabel, unitKey string
 	require.NoError(t, pool.QueryRow(ctx, `
 		SELECT w.id::text, w.definition_key, w.greek_title,
 		       e.id::text, e.definition_key, e.label,
@@ -131,7 +131,7 @@ func TestReconcileManifestCorrectsLegacyKeysAndKeepsTheBook(t *testing.T) {
 		JOIN editions e ON e.id = ru.edition_id
 		JOIN works w ON w.id = e.work_id
 		WHERE bru.book_id = $1`, legacy.BookID).Scan(
-		&gotWorkID, &workKey, &greekTitle,
+		&gotWorkID, &workKey, &originalTitle,
 		&gotEditionID, &editionKey, &editionLabel,
 		&gotReadingUnitID, &unitKey))
 	assert.Equal(t, workID, gotWorkID, "the Work row is corrected in place")
@@ -140,7 +140,7 @@ func TestReconcileManifestCorrectsLegacyKeysAndKeepsTheBook(t *testing.T) {
 	assert.Equal(t, "xenophon-anabasis", workKey)
 	assert.Equal(t, "xenophon-anabasis-marchant-1904", editionKey)
 	assert.Equal(t, "xenophon-anabasis-1", unitKey)
-	assert.Equal(t, "Ἀνάβασις", greekTitle)
+	assert.Equal(t, "Ἀνάβασις", originalTitle)
 	assert.Equal(t, "Marchant 1904, reviewed", editionLabel)
 
 	var translationSHA string
@@ -350,21 +350,21 @@ func TestReconcileManifestUpdatesCuratorialFieldsInPlace(t *testing.T) {
 	corrected := first
 	corrected.WorkTitle = "Anabasis (corrected)"
 	corrected.WorkAuthor = "Xenophon of Athens"
-	corrected.GreekTitle = "Ἀνάβασις (corrected)"
+	corrected.OriginalTitle = "Ἀνάβασις (corrected)"
 	corrected.EditionLabel = "Marchant 1904, second state"
 	require.NoError(t, reconcileManifest(t, store, corrected))
 
-	var gotWorkID, gotEditionID, title, author, greekTitle, label string
+	var gotWorkID, gotEditionID, title, author, originalTitle, label string
 	require.NoError(t, pool.QueryRow(ctx, `
 		SELECT w.id::text, w.title, w.author, w.greek_title, e.id::text, e.label
 		FROM reading_units ru
 		JOIN editions e ON e.id = ru.edition_id
 		JOIN works w ON w.id = e.work_id
-		WHERE ru.definition_key = 'xenophon-anabasis-1'`).Scan(&gotWorkID, &title, &author, &greekTitle, &gotEditionID, &label))
+		WHERE ru.definition_key = 'xenophon-anabasis-1'`).Scan(&gotWorkID, &title, &author, &originalTitle, &gotEditionID, &label))
 	assert.Equal(t, workID, gotWorkID)
 	assert.Equal(t, editionID, gotEditionID)
 	assert.Equal(t, "Anabasis (corrected)", title)
 	assert.Equal(t, "Xenophon of Athens", author)
-	assert.Equal(t, "Ἀνάβασις (corrected)", greekTitle)
+	assert.Equal(t, "Ἀνάβασις (corrected)", originalTitle)
 	assert.Equal(t, "Marchant 1904, second state", label)
 }

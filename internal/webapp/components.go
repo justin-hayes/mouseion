@@ -84,24 +84,31 @@ func bookCoverLabel(cover domain.BookCover) string {
 // titlePlate is the text a Title plate composes when a text has no cover
 // image (ADR 0130). It is presentation only: never stored, never fetched.
 type titlePlate struct {
-	Title, GreekTitle, Author string
+	Title, OriginalTitle, Author string
+	// OriginalLang is the language tag of OriginalTitle: the language of the
+	// Reading unit's Definition.
+	OriginalLang string
 }
 
-func newTitlePlate(title, greekTitle, author string) titlePlate {
+// newTitlePlate builds a plate. An original title that only repeats the English
+// title (ignoring case and spacing) is dropped (ADR 0132), so every surface
+// shows it once or not at all.
+func newTitlePlate(title, originalTitle, originalLang, author string) titlePlate {
 	return titlePlate{
-		Title:      strings.TrimSpace(title),
-		GreekTitle: strings.TrimSpace(greekTitle),
-		Author:     strings.TrimSpace(author),
+		Title:         strings.TrimSpace(title),
+		OriginalTitle: distinctOriginalTitle(title, originalTitle),
+		OriginalLang:  strings.TrimSpace(originalLang),
+		Author:        strings.TrimSpace(author),
 	}
 }
 
-// readingUnitGreekTitle is the trimmed Greek title of a Book's Reading unit, or
+// readingUnitOriginalTitle is the trimmed original title of a Book's Reading unit, or
 // "" when the Book has none.
-func readingUnitGreekTitle(unit *domain.BookReadingUnit) string {
+func readingUnitOriginalTitle(unit *domain.BookReadingUnit) string {
 	if unit == nil {
 		return ""
 	}
-	return strings.TrimSpace(unit.GreekTitle)
+	return strings.TrimSpace(unit.OriginalTitle)
 }
 
 type StatusTone string

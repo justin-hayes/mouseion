@@ -48,9 +48,13 @@ func (s *PostgresStore) ReconcileClassicalManifest(ctx context.Context, definiti
 	if err := classical.ValidateManifest(definitions); err != nil {
 		return err
 	}
-	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+	if err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		return reconcileClassicalManifestTx(ctx, tx, definitions)
-	})
+	}); err != nil {
+		return err
+	}
+	s.rememberClassicalLanguages(definitions)
+	return nil
 }
 
 // reconcileClassicalManifestTx is the one-transaction reconciliation. It
@@ -235,7 +239,7 @@ func reconcileClassicalWork(ctx context.Context, tx pgx.Tx, definition classical
 	switch {
 	case err == nil:
 		_, err = tx.Exec(ctx, `UPDATE works SET title = $2, author = $3, greek_title = $4 WHERE id = $1`,
-			id, definition.WorkTitle, definition.WorkAuthor, definition.GreekTitle)
+			id, definition.WorkTitle, definition.WorkAuthor, definition.OriginalTitle)
 		return id, err
 	case !errors.Is(err, pgx.ErrNoRows):
 		return "", err
@@ -249,7 +253,7 @@ func reconcileClassicalWork(ctx context.Context, tx pgx.Tx, definition classical
 	switch {
 	case err == nil:
 		_, err = tx.Exec(ctx, `UPDATE works SET definition_key = $2, title = $3, author = $4, greek_title = $5 WHERE id = $1`,
-			id, definition.WorkKey, definition.WorkTitle, definition.WorkAuthor, definition.GreekTitle)
+			id, definition.WorkKey, definition.WorkTitle, definition.WorkAuthor, definition.OriginalTitle)
 		return id, err
 	case !errors.Is(err, pgx.ErrNoRows):
 		return "", err
@@ -258,7 +262,7 @@ func reconcileClassicalWork(ctx context.Context, tx pgx.Tx, definition classical
 		INSERT INTO works(definition_key, title, author, greek_title)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id::text`,
-		definition.WorkKey, definition.WorkTitle, definition.WorkAuthor, definition.GreekTitle).Scan(&id)
+		definition.WorkKey, definition.WorkTitle, definition.WorkAuthor, definition.OriginalTitle).Scan(&id)
 	return id, err
 }
 
@@ -366,7 +370,7 @@ func applyCurrentClassicalMetadata(ctx context.Context, tx pgx.Tx, definitions [
 	}
 	for key, definition := range works {
 		if _, err := tx.Exec(ctx, `UPDATE works SET title = $2, author = $3, greek_title = $4 WHERE definition_key = $1`,
-			key, definition.WorkTitle, definition.WorkAuthor, definition.GreekTitle); err != nil {
+			key, definition.WorkTitle, definition.WorkAuthor, definition.OriginalTitle); err != nil {
 			return err
 		}
 	}

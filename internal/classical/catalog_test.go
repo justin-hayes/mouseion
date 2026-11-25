@@ -17,7 +17,7 @@ func catalogDefinitions() []Definition {
 	whole.WorkKey = "beta"
 	whole.WorkTitle = "Beta"
 	whole.WorkAuthor = "Other"
-	whole.GreekTitle = ""
+	whole.OriginalTitle = ""
 	whole.EditionKey = "beta-test"
 	whole.ConstituentBook = nil
 	whole.ConstituentBooks = 1
@@ -74,7 +74,7 @@ func TestCatalogHidesWithdrawnDefinitionsAndCountsTheRest(t *testing.T) {
 
 	alpha, ok := catalog.Work("alpha")
 	require.True(t, ok)
-	assert.Equal(t, "Ἄλφα", alpha.GreekTitle)
+	assert.Equal(t, "Ἄλφα", alpha.OriginalTitle)
 	assert.Equal(t, "Test Edition", alpha.EditionLabel)
 	assert.Equal(t, 2, alpha.ConstituentBooks)
 	assert.Equal(t, 14, alpha.Words)
@@ -198,18 +198,39 @@ func TestCatalogUnitFindsAWorkByReadingUnitKey(t *testing.T) {
 func TestLoadCatalogReadsTheEmbeddedRelease(t *testing.T) {
 	catalog, err := LoadCatalog(ManifestJSONL)
 	require.NoError(t, err)
-	assert.Equal(t, 7, catalog.Counts().Works)
-	assert.Equal(t, 2, catalog.Counts().Authors)
-	assert.Equal(t, 7, catalog.Counts().Units, "each Work is one whole-work Reading unit")
+	assert.Equal(t, 18, catalog.Counts().Works, "7 Greek and 11 Latin Works")
+	assert.Equal(t, 6, catalog.Counts().Authors)
+	assert.Equal(t, 18, catalog.Counts().Units, "each Work is one whole-work Reading unit")
 	work, ok := catalog.Work("xenophon-anabasis")
 	require.True(t, ok)
 	assert.Equal(t, "Anabasis", work.Title)
 	assert.Equal(t, 7, work.ConstituentBooks)
 	require.Len(t, work.Units, 1)
 	assert.Len(t, work.Units[0].Contents, 7)
-	for _, key := range []string{"xenophon-anabasis", "plato-apology", "plato-crito", "plato-phaedo", "plato-symposium", "plato-meno", "plato-republic"} {
+	for _, key := range []string{
+		"xenophon-anabasis", "plato-apology", "plato-crito", "plato-phaedo", "plato-symposium", "plato-meno", "plato-republic",
+		"caesar-gallic-war", "sallust-catiline", "sallust-jugurthine-war", "cicero-in-catilinam", "cicero-pro-archia", "cicero-pro-milone",
+		"cicero-pro-caelio", "cicero-de-amicitia", "cicero-de-senectute", "tacitus-agricola", "tacitus-germania",
+	} {
 		work, ok := catalog.Work(key)
 		require.True(t, ok, key)
 		assert.True(t, work.TranslationAvailable, key)
 	}
+}
+
+func TestCatalogListsTheClassicalLanguagesPresent(t *testing.T) {
+	definitions := catalogDefinitions()
+	greekOnly, err := NewCatalog(definitions)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"grc"}, greekOnly.Languages())
+
+	latin := validWholeWorkDefinition()
+	latin.Key, latin.WorkKey, latin.EditionKey = "gamma-la", "gamma-la", "gamma-la-test"
+	latin.Language = LanguageLatin
+	both, err := NewCatalog(append(definitions, latin))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"grc", "la"}, both.Languages())
+	work, ok := both.Work("gamma-la")
+	require.True(t, ok)
+	assert.Equal(t, "la", work.Language)
 }

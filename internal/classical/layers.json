@@ -224,6 +224,388 @@
           "deckNotice": "Passage context: Plato, Republic, translated by Paul Shorey (1935-37), Plato in Twelve Volumes, vols. 5-6, Loeb Classical Library, in the Perseus perseus-eng2 digitisation (PerseusDL/canonical-greekLit@0189b9c8d8d1f148133f2f0af309b4ee90ea4332, data/tlg0059/tlg030/tlg0059.tlg030.perseus-eng2.xml, SHA-256 da9a595341a58134c9def4af2623675abf8ff13a32ebcf9e4aadbd14c836e64f). CC BY-SA 4.0; derived data remains share-alike."
         }
       ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi0448-phi001",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0448/phi001/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Caesar, The Gallic War, translated by W. A. McDevitte and W. S. Bohn (1870-72), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0448.phi001.perseus-eng2.xml",
+          "size": 658664,
+          "sha256": "fa4aa7c8892d986e6a12660c39ff2906d7295a7fee915fc2e23cf54d65b52d7c",
+          "passageLabel": "McDevitte (1870-72), Caes. Gal.",
+          "deckNotice": "Passage context: Caesar, The Gallic War, translated by W. A. McDevitte and W. S. Bohn (1870-72), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0448/phi001/phi0448.phi001.perseus-eng2.xml, SHA-256 fa4aa7c8892d986e6a12660c39ff2906d7295a7fee915fc2e23cf54d65b52d7c). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi0631-phi001",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0631/phi001/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Sallust, The Conspiracy of Catiline, translated by John Selby Watson (1899), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0631.phi001.perseus-eng2.xml",
+          "size": 287332,
+          "sha256": "3c68139f8e3e218c6175c6438517c5da4146d78cad38b6c69113f68084e0aaeb",
+          "passageLabel": "Watson (1899), Sall. Cat.",
+          "deckNotice": "Passage context: Sallust, The Conspiracy of Catiline, translated by John Selby Watson (1899), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0631/phi001/phi0631.phi001.perseus-eng2.xml, SHA-256 3c68139f8e3e218c6175c6438517c5da4146d78cad38b6c69113f68084e0aaeb). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi0631-phi002",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0631/phi002/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Sallust, The Jugurthine War, translated by John Selby Watson (1899), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0631.phi002.perseus-eng2.xml",
+          "size": 382398,
+          "sha256": "4a93c8b53836b83f82e0a362bde7b9771fed67dc0d9246545cbde00a431aa3ee",
+          "passageLabel": "Watson (1899), Sall. Jug.",
+          "deckNotice": "Passage context: Sallust, The Jugurthine War, translated by John Selby Watson (1899), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0631/phi002/phi0631.phi002.perseus-eng2.xml, SHA-256 4a93c8b53836b83f82e0a362bde7b9771fed67dc0d9246545cbde00a431aa3ee). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi0474-phi013",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0474/phi013/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Cicero, Against Catiline, translated by C. D. Yonge (1856), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0474.phi013.perseus-eng2.xml",
+          "size": 160342,
+          "sha256": "751291a78be36354ec39ee579e9e2c556c85bcbfc329fca7cee7d0915f5066c7",
+          "passageLabel": "Yonge (1856), Cic. Catil.",
+          "deckNotice": "Passage context: Cicero, Against Catiline, translated by C. D. Yonge (1856), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0474/phi013/phi0474.phi013.perseus-eng2.xml, SHA-256 751291a78be36354ec39ee579e9e2c556c85bcbfc329fca7cee7d0915f5066c7). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi0474-phi016",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0474/phi016/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Cicero, For Archias the Poet, translated by C. D. Yonge (1856), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0474.phi016.perseus-eng2.xml",
+          "size": 45523,
+          "sha256": "9480d691f4fa487b0cb7596b28a223a9be5c6ade4aaa1b86eb31d5ba38ddf25b",
+          "passageLabel": "Yonge (1856), Cic. Arch.",
+          "deckNotice": "Passage context: Cicero, For Archias the Poet, translated by C. D. Yonge (1856), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0474/phi016/phi0474.phi016.perseus-eng2.xml, SHA-256 9480d691f4fa487b0cb7596b28a223a9be5c6ade4aaa1b86eb31d5ba38ddf25b). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng1-phi0474-phi031",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0474/phi031/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Cicero, In Defence of Milo, translated by C. D. Yonge (1891), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0474.phi031.perseus-eng1.xml",
+          "size": 149502,
+          "sha256": "d7a20aa46f240359fd27ad367c65d1362523ae1085b213fd4877bcce04c5e19e",
+          "passageLabel": "Yonge (1891), Cic. Mil.",
+          "deckNotice": "Passage context: Cicero, In Defence of Milo, translated by C. D. Yonge (1891), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0474/phi031/phi0474.phi031.perseus-eng1.xml, SHA-256 d7a20aa46f240359fd27ad367c65d1362523ae1085b213fd4877bcce04c5e19e). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng1-phi0474-phi024",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0474/phi024/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Cicero, In Defence of Caelius, translated by C. D. Yonge (1891), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0474.phi024.perseus-eng1.xml",
+          "size": 123587,
+          "sha256": "bb2dc20252ac457e4a99f96e499a525cb3ad307f36e3ae849922b052553afa5b",
+          "passageLabel": "Yonge (1891), Cic. Cael.",
+          "deckNotice": "Passage context: Cicero, In Defence of Caelius, translated by C. D. Yonge (1891), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0474/phi024/phi0474.phi024.perseus-eng1.xml, SHA-256 bb2dc20252ac457e4a99f96e499a525cb3ad307f36e3ae849922b052553afa5b). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi0474-phi052",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0474/phi052/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Cicero, On Friendship, translated by W. A. Falconer (1923), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0474.phi052.perseus-eng2.xml",
+          "size": 121491,
+          "sha256": "ba5521bd239168dbff0ad34a49707a1235ef8c54381b77d57c660897c0c8f662",
+          "passageLabel": "Falconer (1923), Cic. Amic.",
+          "deckNotice": "Passage context: Cicero, On Friendship, translated by W. A. Falconer (1923), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0474/phi052/phi0474.phi052.perseus-eng2.xml, SHA-256 ba5521bd239168dbff0ad34a49707a1235ef8c54381b77d57c660897c0c8f662). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng1-phi0474-phi051",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi0474/phi051/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Cicero, On Old Age, translated by W. A. Falconer (1923), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi0474.phi051.perseus-eng1.xml",
+          "size": 96132,
+          "sha256": "3c6f0e42cf7fffc1c102724754966321762d1a440ac2a18d73bd6123ad6ae196",
+          "passageLabel": "Falconer (1923), Cic. Sen.",
+          "deckNotice": "Passage context: Cicero, On Old Age, translated by W. A. Falconer (1923), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi0474/phi051/phi0474.phi051.perseus-eng1.xml, SHA-256 3c6f0e42cf7fffc1c102724754966321762d1a440ac2a18d73bd6123ad6ae196). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng4-phi1351-phi001",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi1351/phi001/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Tacitus, Agricola, translated by A. J. Church and W. J. Brodribb (1877), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi1351.phi001.perseus-eng4.xml",
+          "size": 85063,
+          "sha256": "be6317bc9a3192509adb187cfc9d2e144e75449f1804b3129071b3aede125350",
+          "passageLabel": "Church (1877), Tac. Ag.",
+          "deckNotice": "Passage context: Tacitus, Agricola, translated by A. J. Church and W. J. Brodribb (1877), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi1351/phi001/phi1351.phi001.perseus-eng4.xml, SHA-256 be6317bc9a3192509adb187cfc9d2e144e75449f1804b3129071b3aede125350). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "latinlit-perseus-eng2-phi1351-phi002",
+      "commit": "8cef51623130f2412da410858e32c322eb796c0a",
+      "baseURL": "https://raw.githubusercontent.com/PerseusDL/canonical-latinLit/8cef51623130f2412da410858e32c322eb796c0a/data/phi1351/phi002/",
+      "licenceClass": "source-content",
+      "restriction": "share-alike",
+      "deployerRegisterRow": "Tacitus, Germania, translated by A. J. Church and W. J. Brodribb (1877), Perseus canonical-latinLit digitisation, CC BY-SA 4.0.",
+      "files": [
+        {
+          "name": "phi1351.phi002.perseus-eng2.xml",
+          "size": 65841,
+          "sha256": "c417d45d26f075c13e2072d5523bdd3fa12a8c46b5decb0cc825f4532c2e3d31",
+          "passageLabel": "Church (1877), Tac. Ger.",
+          "deckNotice": "Passage context: Tacitus, Germania, translated by A. J. Church and W. J. Brodribb (1877), in the Perseus digitisation (PerseusDL/canonical-latinLit@8cef51623130f2412da410858e32c322eb796c0a, data/phi1351/phi002/phi1351.phi002.perseus-eng2.xml, SHA-256 c417d45d26f075c13e2072d5523bdd3fa12a8c46b5decb0cc825f4532c2e3d31). CC BY-SA 4.0; derived data remains share-alike."
+        }
+      ]
+    },
+    {
+      "key": "ola-v0.2.0",
+      "release": "v0.2.0",
+      "fetchKind": "archive-range",
+      "archiveURL": "https://zenodo.org/records/15183688/files/opera_latina_adnotata_v0.2.0.zip",
+      "archiveSize": 3857914226,
+      "record": "10.5281/zenodo.15183688",
+      "licenceClass": "analysis-resource",
+      "restriction": "unclear",
+      "deployerRegisterRow": "Opera Latina Adnotata v0.2.0 (Zenodo 10.5281/zenodo.15183688): LatinPipe-predicted lemmas, parts of speech, morphology and syntax over the Perseus canonical-latinLit text, fetched member by member with Range requests when a learner prepares a Book.",
+      "files": [
+        {
+          "name": "conllu/sentence-seg.ola.phi0448.phi001.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "The Gallic War",
+          "workAuthor": "Caesar",
+          "originalTitle": "De Bello Gallico",
+          "editionLabel": "Holmes 1914",
+          "size": 3723379,
+          "sha256": "b09510653c8072e9fbb1986c1727fe74792d3adbbd4b9cd7348e52578f44942c"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0448.phi001.perseus-lat2/ola.phi0448.phi001.perseus-lat2.tok01_cts01.xml",
+          "size": 3713545,
+          "sha256": "dd48767fab6499e2ca83987892f0c0548dc6d810c085e7a8209079a500581dc2"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0631.phi001.perseus-lat3.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "The Conspiracy of Catiline",
+          "workAuthor": "Sallust",
+          "originalTitle": "Catilinae Coniuratio",
+          "editionLabel": "Ahlberg 1919",
+          "size": 779689,
+          "sha256": "87f1b45f7953d564a19062a4b75b4d23fd45b0b8b3259ae75895a0b6aa7eec15"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0631.phi001.perseus-lat3/ola.phi0631.phi001.perseus-lat3.tok01_cts01.xml",
+          "size": 726138,
+          "sha256": "32fa6a92f954f9a11384f959048f9b5fa9096845fcb9843870c020cd2b63effd"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0631.phi002.perseus-lat3.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "The Jugurthine War",
+          "workAuthor": "Sallust",
+          "originalTitle": "Bellum Iugurthinum",
+          "editionLabel": "Ahlberg 1919",
+          "size": 1542236,
+          "sha256": "f4c2fb855a9a483a808d32b175b1908cf39d7ddd8f11ef3dcb992b325d7e3d39"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0631.phi002.perseus-lat3/ola.phi0631.phi002.perseus-lat3.tok01_cts01.xml",
+          "size": 1470437,
+          "sha256": "9aa9ee700b651902ea414efa9fc8b5f1248ac71aaa085fdfda1056381ce1e1ce"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0474.phi013.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "Against Catiline",
+          "workAuthor": "Cicero",
+          "originalTitle": "In L. Catilinam",
+          "editionLabel": "Clark 1908",
+          "size": 884824,
+          "sha256": "24c2dab74777db49146c58bb6f6843d0e4d15056722213c1da50563a1df69d70"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0474.phi013.perseus-lat2/ola.phi0474.phi013.perseus-lat2.tok01_cts01.xml",
+          "size": 865423,
+          "sha256": "5980ed279aec6c1e8f67f3d5349cda55a1cb7f2edeaaa37e2495a584cf2ccb5b"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0474.phi016.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "For Archias the Poet",
+          "workAuthor": "Cicero",
+          "originalTitle": "Pro Archia Poeta",
+          "editionLabel": "Clark 1911",
+          "size": 210005,
+          "sha256": "b1c4319f353fbe3ebb2c85c723fc2f8b01a8cd450ba9442d3e9ca0702f7f3eee"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0474.phi016.perseus-lat2/ola.phi0474.phi016.perseus-lat2.tok01_cts01.xml",
+          "size": 199557,
+          "sha256": "31e7f45637b734a7e6f812a437a1412d65c5fb7b718686f2324c3a4603fa90f8"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0474.phi031.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "In Defence of Milo",
+          "workAuthor": "Cicero",
+          "originalTitle": "Pro T. Annio Milone",
+          "editionLabel": "Clark 1918",
+          "size": 747779,
+          "sha256": "f2281c05e66840a9e0babf6776fab3502d7e99b064911ae4860f707e33c47170"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0474.phi031.perseus-lat2/ola.phi0474.phi031.perseus-lat2.tok01_cts01.xml",
+          "size": 709614,
+          "sha256": "3aa1eb2bb0a3668bc3863261891d533cde2ee528fcd4adba100640f6f0134cce"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0474.phi024.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "In Defence of Caelius",
+          "workAuthor": "Cicero",
+          "originalTitle": "Pro M. Caelio",
+          "editionLabel": "Clark 1908",
+          "size": 600310,
+          "sha256": "753d96ec27378541e47b6d1c2d6c999eeaee89f12ceac2e98aef0690b0af1abb"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0474.phi024.perseus-lat2/ola.phi0474.phi024.perseus-lat2.tok01_cts01.xml",
+          "size": 565298,
+          "sha256": "3a97461759a7dc16960edf86789f444d0e51b4931f8286d0c2aadfeee0573498"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0474.phi052.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "On Friendship",
+          "workAuthor": "Cicero",
+          "originalTitle": "Laelius De Amicitia",
+          "editionLabel": "Falconer 1923",
+          "size": 656209,
+          "sha256": "00ad9179d61746e7fb961296619b76bc0fdec0508394f6a73f78cec2e93e5b34"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0474.phi052.perseus-lat2/ola.phi0474.phi052.perseus-lat2.tok01_cts01.xml",
+          "size": 631438,
+          "sha256": "7e40d9ace0fccbe3a01cc22271f15256b29654195356990799027f2dcb1abc92"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi0474.phi051.perseus-lat1.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "On Old Age",
+          "workAuthor": "Cicero",
+          "originalTitle": "Cato Maior De Senectute",
+          "editionLabel": "Falconer 1923",
+          "size": 584750,
+          "sha256": "a9f5dd880fce5d65c67d5ca42a8f0d8bd4ebab2270115f53fc7c28c83082858f"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi0474.phi051.perseus-lat1/ola.phi0474.phi051.perseus-lat1.tok01_cts01.xml",
+          "size": 554710,
+          "sha256": "6785c5a252911156f3f5ebd2bd34e554edbe37e1400dd8f27975d366bc9c1b1c"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi1351.phi001.perseus-lat1.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "Agricola",
+          "workAuthor": "Tacitus",
+          "originalTitle": "Vita Agricolae",
+          "editionLabel": "Furneaux 1900",
+          "size": 488837,
+          "sha256": "c5fd1cc9c21a228f3483c3513425c9997b63d22ca51312d7847d5c43eb3b7d44"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi1351.phi001.perseus-lat1/ola.phi1351.phi001.perseus-lat1.tok01_cts01.xml",
+          "size": 465477,
+          "sha256": "c5f7ddfbc299dcc2429cf8a50824d43557b97277b03d4b989ee803d832517bb4"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi1351.phi002.perseus-lat1.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "Germania",
+          "workAuthor": "Tacitus",
+          "originalTitle": "Germania",
+          "editionLabel": "Furneaux 1900",
+          "size": 409309,
+          "sha256": "b644e2708ed219ad13f489d4ba09441426dabde99e058837923ade2b28f95f6f"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi1351.phi002.perseus-lat1/ola.phi1351.phi002.perseus-lat1.tok01_cts01.xml",
+          "size": 388109,
+          "sha256": "42a76630a47ef97ef0ea427218b59bb5e9d488389b975093ffaf34d16fe93312"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi1348.abo011.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "Life of Julius Caesar",
+          "workAuthor": "Suetonius",
+          "originalTitle": "Divus Julius",
+          "editionLabel": "Ihm 1908",
+          "size": 692270,
+          "sha256": "b37e34cee78f91c0ed29baae8f6c754faeb9a18214e8af591afe1c580e5d1ca6"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi1348.abo011.perseus-lat2/ola.phi1348.abo011.perseus-lat2.tok01_cts01.xml",
+          "size": 645870,
+          "sha256": "464c379fb7b777f150be65e2d9379652a5b98ea7645e17da861d0ba824204f23"
+        },
+        {
+          "name": "conllu/sentence-seg.ola.phi1348.abo012.perseus-lat2.tok01_sentence-seg01.predicted.conllu",
+          "workTitle": "Life of Augustus",
+          "workAuthor": "Suetonius",
+          "originalTitle": "Divus Augustus",
+          "editionLabel": "Ihm 1908",
+          "size": 984574,
+          "sha256": "2b0a90810a5cd6b563d93bf4fd111378512d584c44de2ca584e280ef14ee7dda"
+        },
+        {
+          "name": "ola/ola_v0.2.0_1/phi1348.abo012.perseus-lat2/ola.phi1348.abo012.perseus-lat2.tok01_cts01.xml",
+          "size": 927155,
+          "sha256": "a32dca73bfb9430e7c18b6d98e9510b062545f0a8f9e43327990371c3b12ff9e"
+        }
+      ]
     }
   ]
 }

@@ -89,6 +89,16 @@ Regenerate rather than hand-edit:
   manifest. CI runs `make verify-classical-manifest` and fails on any byte
   difference. The real OGA and translation files never enter the repository or
   CI.
+- Generating a Latin Work also runs ADR 0132's dictionary-match gate, which
+  reads the Lewis & Short keys from a derived dictionary index: build one with
+  `make dictionary-index` (with `DICTIONARY_LS_DIR` set) and pass it as
+  `CLASSICAL_MANIFEST_LS_INDEX=<path>`. Verify never needs the index or the
+  archive; it relies on the manifest generation committed. A Latin Work whose
+  members sit inside a stored inner zip of the archive names that zip in the
+  override (`source.container`, `source.citationContainer`); the generator
+  pins such a member by its absolute offset in the outer archive, so
+  preparation's single-level reader fetches it unchanged. A compressed inner
+  zip is refused.
 - Run `make templ` after changing a `.templ` file and commit both. Go-compiling
   `make` targets also regenerate templ output when the pinned templ is
   installed, and otherwise build the committed files, so a fresh checkout

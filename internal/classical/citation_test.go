@@ -41,3 +41,101 @@ func TestCompareCitationsOrdersComponentsAndRefusesInvalidInput(t *testing.T) {
 	_, err = CompareCitations("1.x", "1.2")
 	require.Error(t, err)
 }
+
+func TestParseCitationAcceptsNumbersSuffixesAndNamedSections(t *testing.T) {
+	for _, value := range []string{"17", "1.2.3", "331a", "1.pr.1", "1.ep", "0", "pr"} {
+		parsed, ok := ParseCitation(value)
+		require.True(t, ok, value)
+		assert.Equal(t, value, parsed.String())
+		assert.True(t, IsCitation(value))
+	}
+}
+
+func TestParseCitationRefusesUnknownNamesLeadingZerosAndMalformedInput(t *testing.T) {
+	for _, value := range []string{"", "1.", ".1", "1..2", "01", "1.02", "00", "1.x", "1.-2", "331A", "331ab", "a331", "1.praef", "1.PR.1", "+1", "1 .2", "pr1"} {
+		assert.False(t, IsCitation(value), value)
+		_, ok := ParseCitation(value)
+		assert.False(t, ok, value)
+	}
+}
+
+func TestCompareCitationsOrdersSuffixesAndNamedSections(t *testing.T) {
+	for _, test := range []struct {
+		a, b string
+		want int
+	}{
+		{"1.pr.1", "1.1.1", -1},
+		{"1.1.1", "1.pr.1", 1},
+		{"1.pr.1", "1.pr.2", -1},
+		{"1.9.9", "1.ep", -1},
+		{"1.ep", "1.9.9", 1},
+		{"1.pr", "1", -1},
+		{"331", "331a", -1},
+		{"331a", "331b", -1},
+		{"331b", "332", -1},
+		{"1.2", "1.2.0", 0},
+		{"1.pr.1", "1.pr.1", 0},
+	} {
+		order, err := CompareCitations(test.a, test.b)
+		require.NoError(t, err)
+		assert.Equal(t, test.want, order, "%s vs %s", test.a, test.b)
+	}
+	_, err := CompareCitations("1.01", "1.2")
+	require.Error(t, err)
+	_, err = CompareCitations("1.2", "1.foo")
+	require.Error(t, err)
+}
+
+func TestCitationWithinRangeFollowsTheWidenedOrder(t *testing.T) {
+	parse := func(value string) Citation {
+		parsed, ok := ParseCitation(value)
+		require.True(t, ok, value)
+		return parsed
+	}
+	assert.True(t, parse("1.pr.2").Within(parse("1.pr.1"), parse("1.1.1")))
+	assert.True(t, parse("1.1.1").Within(parse("1.pr.1"), parse("1.1.1")))
+	assert.False(t, parse("1.2.1").Within(parse("1.pr.1"), parse("1.1.9")))
+	assert.False(t, parse("1.pr.1").Within(parse("1.1.1"), parse("1.2.1")))
+	assert.True(t, parse("331a").Within(parse("331"), parse("332")))
+	assert.False(t, parse("331a").Within(parse("331b"), parse("332")))
+	assert.True(t, parse("1.ep").Within(parse("1.9"), parse("2")))
+}
+
+func TestFormatCitationRangeHandlesSuffixesAndNamedSections(t *testing.T) {
+	assert.Equal(t, "1.pr.1–2, 1.1.1", FormatCitationRange([]string{"1.1.1", "1.pr.2", "1.pr.1"}))
+	assert.Equal(t, "331, 331a, 331b", FormatCitationRange([]string{"331b", "331", "331a"}))
+	assert.Equal(t, "1.pr, 1.ep", FormatCitationRange([]string{"1.ep", "1.pr"}))
+}
+
+func TestCTSTextgroupReadsThePerseusFileName(t *testing.T) {
+	for name, want := range map[string]string{
+		"phi0474.phi001.perseus-eng2.xml":               "phi0474",
+		"tlg0059.tlg002.perseus-grc2_oga020_src.conllu": "tlg0059",
+		"synthetic-latin-translation.xml":               "",
+		"":                                              "",
+	} {
+		if got := CTSTextgroup(name); got != want {
+			t.Errorf("CTSTextgroup(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestCitationContains(t *testing.T) {
+	cases := map[string]struct {
+		outer, inner string
+		want         bool
+	}{
+		"equal":                  {"1.2", "1.2", true},
+		"ancestor":               {"1.2", "1.2.3", true},
+		"named section ancestor": {"1.pr", "1.pr.1", true},
+		"longer number":          {"1.2", "1.20", false},
+		"suffixed section":       {"1.2", "1.2a", false},
+		"descendant":             {"1.2.3", "1.2", false},
+		"empty":                  {"", "1", false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, CitationContains(tc.outer, tc.inner))
+		})
+	}
+}

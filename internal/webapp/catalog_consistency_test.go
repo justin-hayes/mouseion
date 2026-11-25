@@ -89,7 +89,7 @@ func TestCatalogCardsOrderByTitleThenAuthorInEverySource(t *testing.T) {
 func TestCatalogLanguageOptionsNameIndexLanguagesWhenTheServiceKnowsThem(t *testing.T) {
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "/catalogs", nil)
 	require.NoError(t, err)
-	options := catalogLanguageOptions(request, "", false, []string{"fr", "xx"}, map[string]string{"fr": "French"})
+	options := catalogLanguageOptions(request, "", nil, []string{"fr", "xx"}, map[string]string{"fr": "French"})
 	labels := map[string]string{}
 	for _, option := range options {
 		labels[option.Value] = option.Label

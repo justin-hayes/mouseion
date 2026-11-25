@@ -27,6 +27,11 @@ func TestPinnedFilesKeepPrintedSpansAndCarryCleanNativeSyntax(t *testing.T) {
 	parsed := map[string]*ParsedWork{}
 	documents := map[string]*sourceDocument{}
 	for _, definition := range definitions {
+		// The OGA directory holds the Greek pins; Latin Works are OLA archive
+		// members and are checked by the manifest generator.
+		if definition.Language != classical.Language {
+			continue
+		}
 		t.Run(definition.Key, func(t *testing.T) {
 			data := readLocalPinnedFile(t, dir, definition)
 			var err error

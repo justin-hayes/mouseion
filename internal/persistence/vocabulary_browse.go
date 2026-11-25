@@ -109,8 +109,10 @@ WITH all_books AS (
   -- so it is read once from the analysis tokens that carry one (imported
   -- classical analyses) rather than stored on the count. Modern-language tokens
   -- carry an empty headword, so this set is empty for them and Browse is
-  -- unchanged.
-  SELECT p.book_id::text AS book_id,t.canonical_lemma,t.upos,t.lexical_discriminator,min(t.headword) AS headword
+  -- unchanged. When lowercasing merges spellings of one Latin lemma
+  -- (Roma and roma), the lowercase spelling is shown (ADR 0132); every other
+  -- language keeps the byte-order minimum.
+  SELECT p.book_id::text AS book_id,t.canonical_lemma,t.upos,t.lexical_discriminator,(array_agg(t.headword ORDER BY (t.headword<>lower(t.headword) AND $2='la'),t.headword) FILTER (WHERE t.headword IS NOT NULL AND t.headword<>''))[1] AS headword
   FROM corpus_tokens t JOIN projection_ready p
     ON p.owner_id=t.owner_id AND p.analysis_run_id=t.analysis_run_id AND p.corpus_id=t.corpus_id
   WHERE t.language=$2 AND t.headword <> ''
@@ -137,7 +139,7 @@ WITH all_books AS (
  ), book_identities AS MATERIALIZED (
    -- Only counted identities are vocabulary; a headword or mark alone adds no row.
    SELECT book_id,lemma,upos,discriminator,sum(occurrence_count)::bigint AS occurrences,bool_or(corrected) AS corrected,
-     COALESCE(min(headword),'') AS headword,bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
+     COALESCE((array_agg(headword ORDER BY (headword<>lower(headword) AND $2='la'),headword) FILTER (WHERE headword IS NOT NULL AND headword<>''))[1],'') AS headword,bool_or(bare_with_numbered_sibling) AS bare_with_numbered_sibling
    FROM current_evidence GROUP BY book_id,lemma,upos,discriminator
    HAVING count(occurrence_count) > 0
 ), identity_totals AS MATERIALIZED (
@@ -150,7 +152,7 @@ WITH all_books AS (
     sum(occurrences) FILTER (WHERE in_scope)::bigint AS occurrences,
     count(*) FILTER (WHERE in_scope)::bigint AS books,
     bool_or(corrected) FILTER (WHERE in_scope) AS corrected,
-    COALESCE(min(headword) FILTER (WHERE in_scope AND headword<>''),'') AS headword,
+    COALESCE((array_agg(headword ORDER BY (headword<>lower(headword) AND $2='la'),headword) FILTER (WHERE in_scope AND headword IS NOT NULL AND headword<>''))[1],'') AS headword,
     bool_or(bare_with_numbered_sibling) FILTER (WHERE in_scope) AS bare_with_numbered_sibling
   FROM (
     SELECT bi.*, (sb.id IS NOT NULL AND (COALESCE(cardinality($5::text[]),0)=0 OR bi.upos=ANY($5::text[]))) AS in_scope

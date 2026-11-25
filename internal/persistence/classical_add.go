@@ -20,7 +20,7 @@ import (
 const classicalAddLockSalt = 469
 
 // AddClassicalReadingUnits gives the learner one To Read Book per named current
-// Reading unit, linked immutably to that unit and chosen for Ancient Greek. It
+// Reading unit, linked immutably to that unit and chosen for the unit's classical language. It
 // downloads nothing, starts no job and never changes the active study language;
 // the Add route submits preparation after this transaction commits. Re-adding
 // returns the existing Book, restoring an active membership and setting To
@@ -36,7 +36,7 @@ func (s *PostgresStore) AddClassicalReadingUnits(ctx context.Context, owner stri
 	}
 	report := classical.AddReport{Books: make([]classical.AddedBook, 0, len(keys))}
 	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		return addClassicalReadingUnitsTx(ctx, tx, owner, keys, &report)
+		return s.addClassicalReadingUnitsTx(ctx, tx, owner, keys, &report)
 	})
 	if err != nil {
 		return classical.AddReport{}, err
@@ -47,7 +47,7 @@ func (s *PostgresStore) AddClassicalReadingUnits(ctx context.Context, owner stri
 // addClassicalReadingUnitsTx holds the precondition and every write in one
 // transaction: legacy rows are rechecked with the same snapshot the Books are
 // written under.
-func addClassicalReadingUnitsTx(ctx context.Context, tx pgx.Tx, owner string, keys []string, report *classical.AddReport) error {
+func (s *PostgresStore) addClassicalReadingUnitsTx(ctx context.Context, tx pgx.Tx, owner string, keys []string, report *classical.AddReport) error {
 	q := sqlcgen.New(tx)
 	if err := lockClassicalAddKeys(ctx, tx, owner, keys); err != nil {
 		return err
@@ -55,13 +55,14 @@ func addClassicalReadingUnitsTx(ctx context.Context, tx pgx.Tx, owner string, ke
 	if err := refuseClassicalAddOnLegacyRows(ctx, q); err != nil {
 		return err
 	}
-	if _, err := q.PutSupportedLanguage(ctx, sqlcgen.PutSupportedLanguageParams{
-		Language: classical.Language, DisplayName: classical.LanguageDisplayName,
-	}); err != nil {
-		return err
-	}
 	for _, key := range keys {
-		added, err := addClassicalReadingUnitTx(ctx, q, owner, key)
+		language := s.classicalLanguage(key)
+		if _, err := q.PutSupportedLanguage(ctx, sqlcgen.PutSupportedLanguageParams{
+			Language: language, DisplayName: s.classicalDisplayName(language),
+		}); err != nil {
+			return err
+		}
+		added, err := addClassicalReadingUnitTx(ctx, q, owner, key, language)
 		if err != nil {
 			return err
 		}
@@ -120,7 +121,7 @@ func lockClassicalAddKeys(ctx context.Context, tx pgx.Tx, owner string, keys []s
 }
 
 // addClassicalReadingUnitTx creates or reopens one Book for a current unit.
-func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, key string) (classical.AddedBook, error) {
+func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, key, language string) (classical.AddedBook, error) {
 	unit, err := q.GetCurrentClassicalUnitByKey(ctx, key)
 	err = missing(err)
 	if errors.Is(err, ErrNotFound) {
@@ -148,7 +149,7 @@ func addClassicalReadingUnitTx(ctx context.Context, q *sqlcgen.Queries, owner, k
 		Author:             unit.WorkAuthor,
 		MetadataProvenance: domain.MetadataProvenanceOperatorRegistration,
 		LanguageState:      domain.LanguageChosen,
-		LanguageTag:        textArg(classical.Language),
+		LanguageTag:        textArg(language),
 	})
 	if err != nil {
 		return classical.AddedBook{}, err

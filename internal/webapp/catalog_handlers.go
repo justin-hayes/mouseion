@@ -356,7 +356,7 @@ func (h *Handler) classicalWork(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, classicalLengthAxis(h.services.Classical.Authors()), h.loadClassicalAddConfirmation(r), r.URL.Query().Get("error")))
+	render(w, r, ClassicalWorkPage(user(r), h.csrf(w, r), work, view, classicalLengthAxis(h.services.Classical.Authors()), h.loadClassicalAddConfirmation(r, work.Language), r.URL.Query().Get("error")))
 }
 
 // addClassicalUnit adds one current Reading unit, normally a whole Edition.
@@ -371,6 +371,15 @@ func (h *Handler) addClassicalUnit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.addClassicalEdition(w, r, work.Key, key)
+}
+
+// classicalWorkLanguage is the classical language of a catalog Work, Ancient
+// Greek for a Work the catalog does not hold.
+func (h *Handler) classicalWorkLanguage(workKey string) string {
+	if work, ok := h.services.Classical.Work(workKey); ok && classical.IsLanguage(work.Language) {
+		return work.Language
+	}
+	return classical.Language
 }
 
 func (h *Handler) addClassicalEdition(w http.ResponseWriter, r *http.Request, workKey, key string) {
@@ -395,7 +404,7 @@ func (h *Handler) addClassicalEdition(w http.ResponseWriter, r *http.Request, wo
 			confirmation.BookID = report.Books[0].BookID
 		}
 	} else {
-		confirmation = classicalAddConfirmationFor(report, preparation, activeLanguageOf(r))
+		confirmation = classicalAddConfirmationIn(report, preparation, activeLanguageOf(r), h.classicalWorkLanguage(workKey))
 	}
 	redirectClassicalAdd(w, r, target, confirmation)
 }
@@ -522,14 +531,20 @@ func (c classicalAddConfirmation) InMyBooksURL() string {
 }
 
 func classicalAddConfirmationFor(report classical.AddReport, preparation classicalAddPreparation, activeLanguage string) classicalAddConfirmation {
+	return classicalAddConfirmationIn(report, preparation, activeLanguage, classical.Language)
+}
+
+// classicalAddConfirmationIn is classicalAddConfirmationFor for Books added in
+// the named classical language.
+func classicalAddConfirmationIn(report classical.AddReport, preparation classicalAddPreparation, activeLanguage, language string) classicalAddConfirmation {
 	message := classicalAddMessage(report)
-	if !classicalAddNamesOtherLanguage(activeLanguage) {
+	if !classicalAddNamesOtherLanguageThan(activeLanguage, language) {
 		return classicalAddConfirmation{Message: message + classicalAddPreparationMessage(preparation)}
 	}
 	// Every membership message is one sentence ending with a period, so the
 	// language joins that sentence instead of starting a second one.
 	confirmation := classicalAddConfirmation{
-		Message: strings.TrimSuffix(message, ".") + " in " + classical.LanguageDisplayName + ". Your study language is unchanged." + classicalAddPreparationMessage(preparation),
+		Message: strings.TrimSuffix(message, ".") + " in " + classical.DisplayName(language) + ". Your study language is unchanged." + classicalAddPreparationMessage(preparation),
 	}
 	if len(report.Books) == 1 {
 		confirmation.BookID = report.Books[0].BookID
@@ -554,12 +569,12 @@ func classicalAddPreparationMessage(preparation classicalAddPreparation) string 
 	}
 }
 
-// classicalAddNamesOtherLanguage reports whether the Add must name Ancient
-// Greek: the learner has a study language and it is not the language the Books
-// were added to. With no resolved language, the Add makes Ancient Greek the only
-// study language, so My Books shows the Books without a language link.
-func classicalAddNamesOtherLanguage(activeLanguage string) bool {
-	return activeLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != classical.Language
+// classicalAddNamesOtherLanguageThan reports whether the Add must name the
+// language its Books were added in: the learner has a study language and it is
+// not that language. With no resolved language, the Add makes it the only study
+// language, so My Books shows the Books without a language link.
+func classicalAddNamesOtherLanguageThan(activeLanguage, language string) bool {
+	return activeLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != language
 }
 
 // withQuery appends query to a target that may already carry one.
@@ -583,14 +598,14 @@ func redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string,
 
 // loadClassicalAddConfirmation only links to a current Classical Book owned
 // by the learner. An Add link is shown only while another language is active.
-func (h *Handler) loadClassicalAddConfirmation(r *http.Request) classicalAddConfirmation {
+func (h *Handler) loadClassicalAddConfirmation(r *http.Request, language string) classicalAddConfirmation {
 	message := r.URL.Query().Get("message")
 	if message == "" {
 		return classicalAddConfirmation{}
 	}
 	confirmation := classicalAddConfirmation{Message: message}
 	bookID := r.URL.Query().Get("read_book")
-	if bookID == "" && classicalAddNamesOtherLanguage(activeLanguageOf(r)) {
+	if bookID == "" && classicalAddNamesOtherLanguageThan(activeLanguageOf(r), language) {
 		bookID = r.URL.Query().Get("added_book")
 	}
 	if bookID != "" {

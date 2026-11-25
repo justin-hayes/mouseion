@@ -213,3 +213,37 @@ func TestClassicalTranslationWorkerUsesGeneralisedParserForShallowCitations(t *t
 	require.NoError(t, worker.Work(context.Background(), translationJob(args)))
 	assert.Equal(t, map[string]string{"1": "First."}, store.put)
 }
+
+func TestClassicalTranslationWorkerReadsAMisalignedFileLeniently(t *testing.T) {
+	t.Parallel()
+	// The file is keyed at chapter level against a section-level Citation range,
+	// which the strict reader refuses as a misalignment.
+	body := []byte(`<TEI><div type="textpart" subtype="chapter" n="1"><p>First.</p></div></TEI>`)
+	sum := sha256.Sum256(body)
+	base := ClassicalTranslationArgs{
+		Layer: "translation-layer", FileName: "translation.xml", Size: int64(len(body)),
+		SHA256: hex.EncodeToString(sum[:]), CitationStart: "1.1", CitationEnd: "1.2",
+	}
+	t.Run("Latin imports the sections it has", func(t *testing.T) {
+		t.Parallel()
+		args := base
+		args.Language = classical.LanguageLatin
+		var requests atomic.Int64
+		store := &translationStoreStub{}
+		worker := &ClassicalTranslationWorker{Store: store, Config: translationLayer(t, body, &requests)}
+
+		require.NoError(t, worker.Work(context.Background(), translationJob(args)))
+		assert.NotEmpty(t, store.put)
+	})
+	t.Run("Ancient Greek keeps the strict refusal", func(t *testing.T) {
+		t.Parallel()
+		args := base
+		args.Language = classical.Language
+		var requests atomic.Int64
+		store := &translationStoreStub{}
+		worker := &ClassicalTranslationWorker{Store: store, Config: translationLayer(t, body, &requests)}
+
+		require.Error(t, worker.Work(context.Background(), translationJob(args)))
+		assert.Zero(t, store.putCall)
+	})
+}

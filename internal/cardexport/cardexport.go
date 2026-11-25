@@ -19,6 +19,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
@@ -499,12 +500,6 @@ func escapeField(value string) string {
 	value = strings.ReplaceAll(value, "\x1f", "&#31;")
 	value = strings.ReplaceAll(value, "{", "&#123;")
 	return strings.ReplaceAll(value, "}", "&#125;")
-}
-
-// IsAncientGreek reports whether a language tag is Ancient Greek, whose
-// editions do not capitalise sentence starts.
-func IsAncientGreek(language string) bool {
-	return sentencequality.IsAncientGreek(language)
 }
 
 func nounArticle(language, upos, lemma, morphology string) (article, genderLabel string) {
@@ -1727,12 +1722,8 @@ func attributionNotices(entries []RenderInput) (string, error) {
 	if dictionaryAttribution(entries) != "" {
 		notices = append(notices, dictionary.AttributionNotice)
 	}
-	if pin, ok := ancientGreekLSJPin(entries); ok {
-		notices = append(notices, dictionary.AncientGreekLSJNotice(pin))
-	}
-	if deckIsAncientGreek(entries) {
-		notices = append(notices, dictionary.AncientGreekSourceNotice)
-	}
+	notices = append(notices, dictionaryEntryNotices(entries)...)
+	notices = append(notices, importedSourceNotices(entries)...)
 	passages, err := passageNotices(entries)
 	if err != nil {
 		return "", err
@@ -1749,7 +1740,7 @@ func attributionNotices(entries []RenderInput) (string, error) {
 // Ancient Greek analysis is imported (ADR 0099).
 func deckIsNLPAnalysed(entries []RenderInput) bool {
 	for _, entry := range entries {
-		if language := strings.TrimSpace(entry.Language); language != "" && !IsAncientGreek(language) {
+		if language := strings.TrimSpace(entry.Language); language != "" && cardpolicy.For(language).NLPAnalysed {
 			return true
 		}
 	}
@@ -1780,15 +1771,30 @@ func passageNotices(entries []RenderInput) ([]string, error) {
 	return notices, nil
 }
 
-// ancientGreekLSJPin reports the pinned LSJ revision named by any entry that
-// carries a matched LSJ dictionary entry.
-func ancientGreekLSJPin(entries []RenderInput) (string, bool) {
+// dictionaryEntryNotices returns the notice of each source dictionary a frozen
+// entry came from, in policy order of first use: the LSJ/Perseus notice for a
+// matched LSJ entry and the Lewis & Short notice for Latin entries, each with
+// the pin the entries froze.
+func dictionaryEntryNotices(entries []RenderInput) []string {
+	var lsj, lewisShort, notices []string
 	for _, entry := range entries {
-		if strings.TrimSpace(entry.DictionaryEntryID) != "" {
-			return strings.TrimSpace(entry.DictionaryPin), true
+		if strings.TrimSpace(entry.DictionaryEntryID) == "" {
+			continue
+		}
+		pin := strings.TrimSpace(entry.DictionaryPin)
+		switch cardpolicy.For(entry.Language).Entries {
+		case cardpolicy.EntryLewisShort:
+			if lewisShort == nil {
+				lewisShort = []string{dictionary.LatinLSNotice(pin)}
+			}
+		default:
+			if lsj == nil {
+				lsj = []string{dictionary.AncientGreekLSJNotice(pin)}
+			}
 		}
 	}
-	return "", false
+	notices = append(notices, lsj...)
+	return append(notices, lewisShort...)
 }
 
 func dictionaryAttribution(entries []RenderInput) string {
@@ -1800,13 +1806,21 @@ func dictionaryAttribution(entries []RenderInput) string {
 	return ""
 }
 
-// deckIsAncientGreek reports whether any entry belongs to the dedicated Ancient
-// Greek language.
-func deckIsAncientGreek(entries []RenderInput) bool {
+// importedSourceNotices returns each distinct imported-source notice the
+// entries' language policies carry, in policy order of first use.
+func importedSourceNotices(entries []RenderInput) []string {
+	seen := map[string]struct{}{}
+	var notices []string
 	for _, entry := range entries {
-		if IsAncientGreek(entry.Language) {
-			return true
+		notice := cardpolicy.For(entry.Language).SourceNotice
+		if notice == "" {
+			continue
 		}
+		if _, duplicate := seen[notice]; duplicate {
+			continue
+		}
+		seen[notice] = struct{}{}
+		notices = append(notices, notice)
 	}
-	return false
+	return notices
 }

@@ -11,15 +11,62 @@ import (
 	"strings"
 )
 
-// Language is the only language the Classical catalog currently ships.
+// Language is the Ancient Greek language tag, the first classical language the
+// Classical catalog ships. A Definition carries its own language; code that is
+// not Greek-specific reads it from the Definition, not from this constant.
 const Language = "grc"
 
 // LanguageDisplayName is the learner-facing name recorded when an Add makes
 // Ancient Greek available as a study language.
 const LanguageDisplayName = "Ancient Greek"
 
+// LanguageLatin is the Latin language tag, the second classical language
+// (ADR 0132).
+const LanguageLatin = "la"
+
+// LatinDisplayName is the learner-facing name recorded when an Add makes
+// Latin available as a study language.
+const LatinDisplayName = "Latin"
+
+// Languages lists the classical languages a Definition may carry, in display
+// order.
+func Languages() []string { return []string{Language, LanguageLatin} }
+
+// IsLanguage reports whether language is a classical language.
+func IsLanguage(language string) bool {
+	return DisplayName(language) != ""
+}
+
+// DisplayName is the learner-facing name of a classical language, or "" for a
+// language that is not classical.
+func DisplayName(language string) string {
+	switch language {
+	case Language:
+		return LanguageDisplayName
+	case LanguageLatin:
+		return LatinDisplayName
+	default:
+		return ""
+	}
+}
+
 // SourceFormatOGACoNLLU names the single-file oga_src CoNLL-U adapter.
 const SourceFormatOGACoNLLU = "oga-conllu"
+
+// SourceFormatOLACoNLLU names the two-member Opera Latina Adnotata adapter: the
+// Work's CoNLL-U and its PAULA Citation layer, both read from the pinned OLA
+// archive (ADR 0132).
+const SourceFormatOLACoNLLU = "ola-conllu"
+
+// InterpretationVersionOLA is the interpretation version of the ola-conllu
+// format: native AGDT syntax stored verbatim, with OLA's _CO, _AP and _ExD
+// relation suffixes read at read time (ADR 0122).
+const InterpretationVersionOLA = "ola-agdt-syntax/1"
+
+// FetchKindArchiveRange is the layer fetch kind that reads individual members
+// of one pinned archive with HTTP Range requests instead of fetching a whole
+// file under a base URL.
+const FetchKindArchiveRange = "archive-range"
 
 // SplitWholeWork is the only split kind a work override may request: the whole
 // pinned file is one Reading unit (ADR 0128).
@@ -51,6 +98,66 @@ type SourcePin struct {
 	Size     int64  `json:"size"`
 	SHA256   string `json:"sha256"`
 	Format   string `json:"format"`
+	// Members pins the archive members an ola-conllu source reads: the CoNLL-U
+	// first, then the PAULA Citation layer. FileName, Size and SHA256 repeat the
+	// CoNLL-U member so the stored single-file pin columns identify it.
+	Members []ArchiveMember `json:"members,omitempty"`
+}
+
+// ArchiveMember pins one member of a zip archive for a Range fetch: where its
+// local header starts, how many bytes it occupies compressed and
+// uncompressed, and the checksums of its uncompressed bytes.
+type ArchiveMember struct {
+	Name           string `json:"name"`
+	HeaderOffset   int64  `json:"headerOffset"`
+	CompressedSize int64  `json:"compressedSize"`
+	Size           int64  `json:"size"`
+	// CRC32 is the IEEE CRC-32 of the uncompressed bytes, eight lowercase hex
+	// digits.
+	CRC32  string `json:"crc32"`
+	SHA256 string `json:"sha256"`
+}
+
+// Validate reports whether an archive member pin is complete.
+func (m ArchiveMember) Validate() error {
+	switch {
+	case strings.TrimSpace(m.Name) == "":
+		return errors.New("classical: archive member name is required")
+	case m.HeaderOffset < 0:
+		return errors.New("classical: archive member header offset must not be negative")
+	case m.CompressedSize <= 0 || m.Size <= 0:
+		return errors.New("classical: archive member sizes must be positive")
+	case !isLowerHex(m.CRC32, 8):
+		return errors.New("classical: archive member CRC-32 must be 8 lowercase hex characters")
+	case !isLowerHexSHA256(m.SHA256):
+		return errors.New("classical: archive member SHA-256 must be 64 lowercase hex characters")
+	}
+	return nil
+}
+
+// validateMembers checks that the source pin's members agree with its format:
+// an ola-conllu source pins exactly its CoNLL-U and PAULA members, and no other
+// format pins members at all.
+func (p SourcePin) validateMembers() error {
+	if p.Format != SourceFormatOLACoNLLU {
+		if len(p.Members) > 0 {
+			return fmt.Errorf("classical: source format %q does not pin archive members", p.Format)
+		}
+		return nil
+	}
+	if len(p.Members) != 2 {
+		return errors.New("classical: an ola-conllu source pins exactly two archive members")
+	}
+	for _, member := range p.Members {
+		if err := member.Validate(); err != nil {
+			return err
+		}
+	}
+	conllu := p.Members[0]
+	if p.FileName != conllu.Name || p.Size != conllu.Size || p.SHA256 != conllu.SHA256 {
+		return errors.New("classical: an ola-conllu source's file pin must repeat its CoNLL-U member")
+	}
+	return nil
 }
 
 // TranslationPin identifies one exact reference-translation file and the
@@ -78,14 +185,14 @@ type ConstituentBookSpan struct {
 // and Edition keys are separate from the Reading-unit Key so all Books of a
 // Work share one Work and one Edition.
 type Definition struct {
-	Key          string `json:"key"`
-	WorkKey      string `json:"workKey"`
-	WorkTitle    string `json:"workTitle"`
-	WorkAuthor   string `json:"workAuthor"`
-	GreekTitle   string `json:"greekTitle,omitempty"`
-	EditionKey   string `json:"editionKey"`
-	EditionLabel string `json:"editionLabel"`
-	Language     string `json:"language"`
+	Key           string `json:"key"`
+	WorkKey       string `json:"workKey"`
+	WorkTitle     string `json:"workTitle"`
+	WorkAuthor    string `json:"workAuthor"`
+	OriginalTitle string `json:"originalTitle,omitempty"`
+	EditionKey    string `json:"editionKey"`
+	EditionLabel  string `json:"editionLabel"`
+	Language      string `json:"language"`
 	// ConstituentBook is absent for a whole-work unit. Only a withdrawn
 	// per-book definition from before ADR 0128 still carries it.
 	ConstituentBook *int `json:"constituentBook,omitempty"`
@@ -130,8 +237,8 @@ func (d Definition) Validate() error {
 		return errors.New("classical: definition Edition key is required")
 	case strings.TrimSpace(d.EditionLabel) == "":
 		return errors.New("classical: definition Edition label is required")
-	case d.Language != Language:
-		return fmt.Errorf("classical: definition language must be %q", Language)
+	case !IsLanguage(d.Language):
+		return fmt.Errorf("classical: definition language %q is not a classical language", d.Language)
 	case d.ConstituentBooks <= 0:
 		return errors.New("classical: definition constituent book count must be positive")
 	case d.ConstituentBook != nil && (*d.ConstituentBook < 1 || *d.ConstituentBook > d.ConstituentBooks):
@@ -156,6 +263,9 @@ func (d Definition) Validate() error {
 		return errors.New("classical: definition interpretation version is required")
 	case d.Revision < 1:
 		return errors.New("classical: definition revision must be positive")
+	}
+	if err := d.Source.validateMembers(); err != nil {
+		return err
 	}
 	if err := d.validateContents(); err != nil {
 		return err
@@ -226,10 +336,19 @@ func (t TranslationPin) Validate() error {
 
 // Layer pins one upstream layer under ADR 0111.
 type Layer struct {
-	Key                 string      `json:"key"`
-	Release             string      `json:"release,omitempty"`
-	Commit              string      `json:"commit,omitempty"`
-	BaseURL             string      `json:"baseURL"`
+	Key     string `json:"key"`
+	Release string `json:"release,omitempty"`
+	Commit  string `json:"commit,omitempty"`
+	BaseURL string `json:"baseURL,omitempty"`
+	// FetchKind is empty for a layer of whole files under BaseURL, or
+	// FetchKindArchiveRange for a layer of members of one pinned archive.
+	FetchKind string `json:"fetchKind,omitempty"`
+	// ArchiveURL, ArchiveSize and Record describe the pinned archive of an
+	// archive-range layer: the URL its members are requested from, its total
+	// size in bytes and the Zenodo record it comes from.
+	ArchiveURL          string      `json:"archiveURL,omitempty"`
+	ArchiveSize         int64       `json:"archiveSize,omitempty"`
+	Record              string      `json:"record,omitempty"`
 	LicenceClass        string      `json:"licenceClass"`
 	Restriction         string      `json:"restriction"`
 	DeployerRegisterRow string      `json:"deployerRegisterRow"`
@@ -242,13 +361,13 @@ type Layer struct {
 // generator verifies. A reference translation also carries the credit an
 // exported card and deck show for its passage context.
 type LayerFile struct {
-	Name         string `json:"name"`
-	WorkTitle    string `json:"workTitle,omitempty"`
-	WorkAuthor   string `json:"workAuthor,omitempty"`
-	GreekTitle   string `json:"greekTitle,omitempty"`
-	EditionLabel string `json:"editionLabel,omitempty"`
-	Size         int64  `json:"size,omitempty"`
-	SHA256       string `json:"sha256,omitempty"`
+	Name          string `json:"name"`
+	WorkTitle     string `json:"workTitle,omitempty"`
+	WorkAuthor    string `json:"workAuthor,omitempty"`
+	OriginalTitle string `json:"originalTitle,omitempty"`
+	EditionLabel  string `json:"editionLabel,omitempty"`
+	Size          int64  `json:"size,omitempty"`
+	SHA256        string `json:"sha256,omitempty"`
 	// PassageLabel names the translation and work on a card, such as
 	// "Brownson (1922), Xen. Anab.". The card appends the cited sections.
 	PassageLabel string `json:"passageLabel,omitempty"`
@@ -301,16 +420,37 @@ func (l Layer) validateHeader() error {
 		return errors.New("classical: layer key is required")
 	case l.Release == "" && l.Commit == "":
 		return errors.New("classical: layer needs a release or commit")
-	case l.BaseURL == "":
-		return errors.New("classical: layer base URL is required")
 	case l.DeployerRegisterRow == "":
 		return errors.New("classical: layer deployer-register row is required")
 	}
-	parsed, err := url.Parse(l.BaseURL)
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
-		return fmt.Errorf("classical: layer %q base URL is not an absolute HTTP URL", l.Key)
+	switch l.FetchKind {
+	case "":
+		if l.BaseURL == "" {
+			return errors.New("classical: layer base URL is required")
+		}
+		if !isAbsoluteHTTPURL(l.BaseURL) {
+			return fmt.Errorf("classical: layer %q base URL is not an absolute HTTP URL", l.Key)
+		}
+	case FetchKindArchiveRange:
+		if !isAbsoluteHTTPURL(l.ArchiveURL) {
+			return fmt.Errorf("classical: layer %q archive URL is not an absolute HTTP URL", l.Key)
+		}
+		if l.ArchiveSize <= 0 {
+			return fmt.Errorf("classical: layer %q archive size must be positive", l.Key)
+		}
+		if strings.TrimSpace(l.Record) == "" {
+			return fmt.Errorf("classical: layer %q archive record is required", l.Key)
+		}
+	default:
+		return fmt.Errorf("classical: layer %q has unknown fetch kind %q", l.Key, l.FetchKind)
 	}
 	return nil
+}
+
+// isAbsoluteHTTPURL reports whether value is an absolute http or https URL.
+func isAbsoluteHTTPURL(value string) bool {
+	parsed, err := url.Parse(value)
+	return err == nil && (parsed.Scheme == "https" || parsed.Scheme == "http") && parsed.Host != ""
 }
 
 // validateLicence applies the ADR 0111 admissibility rule for the layer's
@@ -412,6 +552,27 @@ type SourceSpec struct {
 	Layer    string `json:"layer"`
 	FileName string `json:"fileName"`
 	Format   string `json:"format"`
+	// CitationFileName names the PAULA Citation member of an ola-conllu source,
+	// beside FileName's CoNLL-U member. No other format has one.
+	CitationFileName string `json:"citationFileName,omitempty"`
+	// Container and CitationContainer name the stored inner zip of the archive
+	// that holds FileName and CitationFileName, when the member is not at the
+	// archive's top level. The generator resolves a nested member to an
+	// absolute offset in the outer archive, so the pin never records the
+	// nesting; only an ola-conllu source may name one.
+	Container         string `json:"container,omitempty"`
+	CitationContainer string `json:"citationContainer,omitempty"`
+}
+
+// validateCitationMember requires the PAULA member exactly for an OLA source.
+func (s SourceSpec) validateCitationMember(workKey string) error {
+	if (s.Format == SourceFormatOLACoNLLU) != (s.CitationFileName != "") {
+		return fmt.Errorf("classical: work override %q needs a citation file name exactly for an %s source", workKey, SourceFormatOLACoNLLU)
+	}
+	if s.Format != SourceFormatOLACoNLLU && (s.Container != "" || s.CitationContainer != "") {
+		return fmt.Errorf("classical: work override %q names an archive container for a source that is not an %s source", workKey, SourceFormatOLACoNLLU)
+	}
+	return nil
 }
 
 // TranslationSpec names the optional upstream translation file for a Work.
@@ -429,11 +590,13 @@ type UnitSpec struct {
 // Override is one line of overrides.jsonl. A work override has WorkKey; a unit
 // override has Key. Work-level values apply to every constituent unit.
 type Override struct {
-	WorkKey      string           `json:"workKey,omitempty"`
-	Key          string           `json:"key,omitempty"`
-	WorkTitle    string           `json:"workTitle,omitempty"`
-	WorkAuthor   string           `json:"workAuthor,omitempty"`
-	GreekTitle   string           `json:"greekTitle,omitempty"`
+	WorkKey       string `json:"workKey,omitempty"`
+	Key           string `json:"key,omitempty"`
+	WorkTitle     string `json:"workTitle,omitempty"`
+	WorkAuthor    string `json:"workAuthor,omitempty"`
+	OriginalTitle string `json:"originalTitle,omitempty"`
+	// Language is the Work's classical language; it defaults to Ancient Greek.
+	Language     string           `json:"language,omitempty"`
 	EditionKey   string           `json:"editionKey,omitempty"`
 	EditionLabel string           `json:"editionLabel,omitempty"`
 	Note         string           `json:"note,omitempty"`
@@ -445,6 +608,37 @@ type Override struct {
 	Contents string     `json:"contents,omitempty"`
 	Units    []UnitSpec `json:"units,omitempty"`
 	Revision *int       `json:"revision,omitempty"`
+	// ReviewerNote records that a reviewer read a Latin Work the generator's
+	// text gates flagged and cleared it (ADR 0132). It is the gate's only
+	// override, and a Work that does not need one must not carry it.
+	ReviewerNote string `json:"reviewerNote,omitempty"`
+	// SpotCheck records the reviewer's check of source-and-translation pairs
+	// that admits a Latin Work with a translation (ADR 0132 gate iii).
+	SpotCheck *SpotCheck `json:"spotCheck,omitempty"`
+}
+
+// SpotCheck is the recorded human check of a Latin Work's translation join:
+// who read it and the Citations of the sentence and segment pairs read.
+type SpotCheck struct {
+	Reviewer string   `json:"reviewer"`
+	Pairs    []string `json:"pairs"`
+}
+
+// Validate reports whether the spot check names a reviewer and at least one
+// pair, each a Citation.
+func (c SpotCheck) Validate() error {
+	if strings.TrimSpace(c.Reviewer) == "" {
+		return errors.New("classical: spot check needs a reviewer")
+	}
+	if len(c.Pairs) == 0 {
+		return errors.New("classical: spot check needs at least one checked pair")
+	}
+	for _, pair := range c.Pairs {
+		if !isCitation(pair) {
+			return fmt.Errorf("classical: spot check pair %q is not a Citation", pair)
+		}
+	}
+	return nil
 }
 
 // IsWork reports whether the override applies to a Work.
@@ -459,6 +653,8 @@ func (o Override) Validate() error {
 		return errors.New("classical: an override needs workKey or key")
 	case o.Revision != nil && *o.Revision < 1:
 		return errors.New("classical: override revision must be positive")
+	case o.Language != "" && !IsLanguage(o.Language):
+		return fmt.Errorf("classical: override language %q is not a classical language", o.Language)
 	}
 	if o.Key != "" {
 		return o.validateUnit()
@@ -469,7 +665,7 @@ func (o Override) Validate() error {
 // validateUnit restricts a unit override to curatorial fields, a note and a
 // revision.
 func (o Override) validateUnit() error {
-	if o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
+	if o.ReviewerNote != "" || o.SpotCheck != nil || o.Language != "" || o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
 		return fmt.Errorf("classical: unit override %q may only change curatorial fields, a note or a revision", o.Key)
 	}
 	return nil
@@ -482,6 +678,9 @@ func (o Override) validateWork() error {
 	}
 	if o.Source.Layer == "" || o.Source.FileName == "" || o.Source.Format == "" {
 		return fmt.Errorf("classical: work override %q has an incomplete source", o.WorkKey)
+	}
+	if err := o.Source.validateCitationMember(o.WorkKey); err != nil {
+		return err
 	}
 	if o.Split != SplitWholeWork {
 		return fmt.Errorf("classical: work override %q has unknown split %q", o.WorkKey, o.Split)
@@ -497,9 +696,19 @@ func (o Override) validateWork() error {
 	if o.Translation != nil && (o.Translation.Layer == "" || o.Translation.FileName == "") {
 		return fmt.Errorf("classical: work override %q has an incomplete translation", o.WorkKey)
 	}
+	if o.SpotCheck != nil {
+		if err := o.SpotCheck.Validate(); err != nil {
+			return fmt.Errorf("classical: work override %q: %w", o.WorkKey, err)
+		}
+	}
 	if o.EditionKey == "" {
 		return fmt.Errorf("classical: work override %q needs an Edition key", o.WorkKey)
 	}
+	return o.validateUnitRanges()
+}
+
+// validateUnitRanges checks that every reviewed unit range is a Citation range.
+func (o Override) validateUnitRanges() error {
 	for _, unit := range o.Units {
 		if !isCitation(unit.CitationStart) || !isCitation(unit.CitationEnd) {
 			return fmt.Errorf("classical: work override %q has an invalid unit range", o.WorkKey)
@@ -523,30 +732,17 @@ func OverrideSortKey(o Override) string {
 	return "unit:" + o.Key
 }
 
-// isCitation reports whether value is dotted non-negative numbers without
-// leading zeros, matching the glossary's citation form.
-func isCitation(value string) bool {
-	parts := strings.Split(value, ".")
-	if len(parts) == 0 {
-		return false
-	}
-	for _, part := range parts {
-		if part == "" || (len(part) > 1 && part[0] == '0') {
-			return false
-		}
-		for _, r := range part {
-			if r < '0' || r > '9' {
-				return false
-			}
-		}
-	}
-	return true
-}
+// isCitation reports whether value is a valid Citation (see ParseCitation).
+func isCitation(value string) bool { return IsCitation(value) }
 
 // isLowerHexSHA256 reports whether value is exactly 64 lowercase hexadecimal
 // characters.
-func isLowerHexSHA256(value string) bool {
-	if len(value) != 64 {
+func isLowerHexSHA256(value string) bool { return isLowerHex(value, 64) }
+
+// isLowerHex reports whether value is exactly length lowercase hexadecimal
+// characters.
+func isLowerHex(value string, length int) bool {
+	if len(value) != length {
 		return false
 	}
 	for _, r := range value {
