@@ -7,6 +7,7 @@ import (
 	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/syntax"
 	"github.com/justin-hayes/mouseion/internal/syntax/agdt"
@@ -460,7 +461,11 @@ func sentenceStudyWordRelations(study domain.SentenceStudy) sentenceStudyRelatio
 			nodes[i].HeadToken = &ordinal
 		}
 	}
-	tree := agdt.Adapt(tokens, nodes)
+	adapt := agdt.Adapt
+	if study.Language == classical.LanguageLatin {
+		adapt = agdt.AdaptLatin
+	}
+	tree := adapt(tokens, nodes)
 
 	var relations sentenceStudyRelations
 	for index, node := range tree.Nodes {
