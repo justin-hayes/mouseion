@@ -1722,9 +1722,7 @@ func attributionNotices(entries []RenderInput) (string, error) {
 	if dictionaryAttribution(entries) != "" {
 		notices = append(notices, dictionary.AttributionNotice)
 	}
-	if pin, ok := ancientGreekLSJPin(entries); ok {
-		notices = append(notices, dictionary.AncientGreekLSJNotice(pin))
-	}
+	notices = append(notices, dictionaryEntryNotices(entries)...)
 	notices = append(notices, importedSourceNotices(entries)...)
 	passages, err := passageNotices(entries)
 	if err != nil {
@@ -1773,15 +1771,30 @@ func passageNotices(entries []RenderInput) ([]string, error) {
 	return notices, nil
 }
 
-// ancientGreekLSJPin reports the pinned LSJ revision named by any entry that
-// carries a matched LSJ dictionary entry.
-func ancientGreekLSJPin(entries []RenderInput) (string, bool) {
+// dictionaryEntryNotices returns the notice of each source dictionary a frozen
+// entry came from, in policy order of first use: the LSJ/Perseus notice for a
+// matched LSJ entry and the Lewis & Short notice for Latin entries, each with
+// the pin the entries froze.
+func dictionaryEntryNotices(entries []RenderInput) []string {
+	var lsj, lewisShort, notices []string
 	for _, entry := range entries {
-		if strings.TrimSpace(entry.DictionaryEntryID) != "" {
-			return strings.TrimSpace(entry.DictionaryPin), true
+		if strings.TrimSpace(entry.DictionaryEntryID) == "" {
+			continue
+		}
+		pin := strings.TrimSpace(entry.DictionaryPin)
+		switch cardpolicy.For(entry.Language).Entries {
+		case cardpolicy.EntryLewisShort:
+			if lewisShort == nil {
+				lewisShort = []string{dictionary.LatinLSNotice(pin)}
+			}
+		default:
+			if lsj == nil {
+				lsj = []string{dictionary.AncientGreekLSJNotice(pin)}
+			}
 		}
 	}
-	return "", false
+	notices = append(notices, lsj...)
+	return append(notices, lewisShort...)
 }
 
 func dictionaryAttribution(entries []RenderInput) string {

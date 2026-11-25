@@ -46,6 +46,12 @@ type CandidateProjection struct {
 	// them (ADR 0101).
 	ReferenceTranslations map[string]string
 	ReferencePin          string
+	// WorkAuthor is the author of the card's own Work, which a Latin card's
+	// full dictionary entry filters its citations against (ADR 0133).
+	WorkAuthor string
+	// WorkTextgroup is the Work's CTS textgroup (for example "phi0474"), which
+	// matches the URN-form author a Lewis & Short citation falls back to.
+	WorkTextgroup string
 	// EvidenceAssistedPass marks a source-evidence projection that also opts
 	// into the Ancient Greek provider pass. The projection still freezes its
 	// LSJ entry and passage context, and the pass adds provider-proposed
@@ -306,6 +312,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idio
 		entry.LSJSummaryProviderVersion = projection.LSJSummaryProviderVersion
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
+			resolveLatinLS(ctx, lexical, &entry, projection.WorkAuthor, projection.WorkTextgroup)
 			matched, found := resolveAncientGreekLSJ(ctx, lexical, &entry)
 			if projection.EvidenceAssistedPass && found {
 				// The pass transmits the pinned LSJ senses with their native IDs

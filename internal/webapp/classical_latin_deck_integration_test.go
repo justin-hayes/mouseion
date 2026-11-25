@@ -38,7 +38,7 @@ import (
 
 const (
 	latinDeckUnitKey          = "synthetic-latin-history"
-	latinDeckTranslationFile  = "synthetic-latin-translation.xml"
+	latinDeckTranslationFile  = "phi0474.phi001.perseus-eng9.xml"
 	latinDeckTranslationLabel = "Synthetic (1900), Fixture Hist."
 	latinDeckTranslationPin   = "0123456789abcdef0123456789abcdef01234567"
 )
@@ -120,6 +120,27 @@ func (latinDeckLexicon) Version() string { return "kaikki-la-test" }
 func (latinDeckLexicon) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	senses := []enrichment.LexicalSense{{EvidenceID: "wikt:domus", Source: "wiktionary", Gloss: "house, home", MatchStrength: "exact"}}
 	return enrichment.LexicalEntry{Senses: senses, CandidateSenses: senses}, true, nil
+}
+
+const latinDeckLSPin = "56061ca127f4a2844980baffc5f2b6d1332897b3"
+
+// LookupLatinLS answers the Lewis & Short capability: two homograph entries
+// for domus, one with a citation of the Work's author and one of another, and
+// none for sto.
+func (latinDeckLexicon) LookupLatinLS(_ context.Context, lemma string) ([]enrichment.LatinLSEntry, bool) {
+	if lemma != "domus" {
+		return nil, false
+	}
+	return []enrichment.LatinLSEntry{
+		{EntryID: "n100", Headword: "domus", Orth: "domus", Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
+			{ID: "n100.0", Number: "I", Level: 1, Definitions: []string{"a house"}, Glosses: []string{"a house"},
+				Citations: []enrichment.LatinLSCitation{{Author: "Anon.", Text: "Anon. 1, 2"}, {Author: "Cic.", Text: "Cic. Att. 3, 4"},
+					{Author: "phi0474", Text: "urn own 5, 6"}, {Author: "phi0914", Text: "urn other 7, 8"}}},
+		}},
+		{EntryID: "n101", Headword: "domus", Orth: "domus", Pin: latinDeckLSPin, Senses: []enrichment.LatinLSSense{
+			{ID: "n101.0", Number: "I", Level: 1, Definitions: []string{"a household"}, Glosses: []string{"a household"}},
+		}},
+	}, true
 }
 
 // TestClassicalLatinDeckHasPassageContextWithNoProvider extends the Latin loop
@@ -264,15 +285,16 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 	assert.Equal(t, 2, preparation.TotalCards, "one default card per identity and no Idiom card")
 	assert.Zero(t, provider.calls, "no provider request is made for a Latin deck")
 
-	rows, err := pool.Query(ctx, `SELECT render_payload, passage_context, passage_citation, brownson_pin FROM deck_preparation_manifest_items WHERE owner_id=$1`, learner.ID)
+	rows, err := pool.Query(ctx, `SELECT render_payload, passage_context, passage_citation, brownson_pin, canonical_lemma, lsj_entry_id, lsj_pin FROM deck_preparation_manifest_items WHERE owner_id=$1`, learner.ID)
 	require.NoError(t, err)
 	defer rows.Close()
 	cards := 0
 	for rows.Next() {
 		var payload []byte
-		var passage, citation, pin string
-		require.NoError(t, rows.Scan(&payload, &passage, &citation, &pin))
+		var passage, citation, pin, lemma, entryID, entryPin string
+		require.NoError(t, rows.Scan(&payload, &passage, &citation, &pin, &lemma, &entryID, &entryPin))
 		var item struct {
+			DictionaryEntry string            `json:"dictionary_entry"`
 			Gloss           string            `json:"gloss"`
 			CandidateSenses []json.RawMessage `json:"candidate_senses"`
 		}
@@ -282,15 +304,28 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 		assert.Contains(t, passage, "synthetic section", "the card froze the pinned English passage")
 		assert.Contains(t, citation, "1.pr.")
 		assert.Equal(t, "sha256:"+translationSHA, pin)
+		if lemma == "domus" {
+			assert.Equal(t, "n100,n101", entryID, "the frozen item records every Lewis & Short entry")
+			assert.Equal(t, latinDeckLSPin, entryPin)
+			assert.Contains(t, item.DictionaryEntry, "a house")
+			assert.Contains(t, item.DictionaryEntry, "a household")
+			assert.Contains(t, item.DictionaryEntry, "Anon. 1, 2")
+			assert.Contains(t, item.DictionaryEntry, "urn own 5, 6", "a URN-only citation matches the Work's CTS textgroup from its file name")
+			assert.NotContains(t, item.DictionaryEntry, "urn other 7, 8")
+			assert.NotContains(t, item.DictionaryEntry, "Cic. Att.", "the full entry keeps only the Work author's citations")
+		} else {
+			assert.Empty(t, entryID, "a lemma with no entry freezes none")
+			assert.Empty(t, item.DictionaryEntry, "and its card has no dictionary block")
+		}
 		cards++
 	}
 	require.NoError(t, rows.Err())
 	assert.Equal(t, 2, cards)
 
-	for _, want := range []string{"Passage context: " + latinDeckTranslationLabel + " 1.pr.", "Not a translation of this sentence", "Opera Latina Adnotata", "canonical-latinLit", latinDeckTranslationPin} {
+	for _, want := range []string{"Passage context: " + latinDeckTranslationLabel + " 1.pr.", "Not a translation of this sentence", "Opera Latina Adnotata", "canonical-latinLit", latinDeckTranslationPin, "PerseusDL/lexica@" + latinDeckLSPin, "a household"} {
 		assert.True(t, bytes.Contains(preparation.Artifact, []byte(want)), "exported Latin deck is missing %q", want)
 	}
-	for _, unwanted := range []string{"Wiktionary", "house, home", "Liddell", "PerseusDL/lexica", "OGA v0.2.0", "Stanza"} {
+	for _, unwanted := range []string{"Wiktionary", "house, home", "Liddell", "OGA v0.2.0", "Stanza"} {
 		assert.False(t, bytes.Contains(preparation.Artifact, []byte(unwanted)), "exported Latin deck must not carry %q", unwanted)
 	}
 }

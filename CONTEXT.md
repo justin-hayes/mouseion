@@ -1022,9 +1022,10 @@ sentence itself may support a context-only gloss when no sense fits.
 _Avoid_: card Gloss, undifferentiated definitions.
 
 **Dictionary entry display**:
-The whole sense hierarchy of the target's dictionary entry, in source order,
-shown on a card when no contextual Gloss is supported. It abstains from
-choosing a sense rather than ranking or truncating the entry.
+The target's dictionary entries, every one the lookup returns, in source order,
+each with its whole sense hierarchy, shown on a card when no contextual Gloss is
+supported. It abstains from choosing an entry or a sense rather than ranking or
+truncating.
 _Avoid_: definition, first sense, Gloss.
 
 **Sense summary**:
