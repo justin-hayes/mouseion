@@ -74,7 +74,7 @@ func (r *Registry) Register(profile Profile, active bool) error {
 // dedicatedProfileLanguages require a profile of their own. The registry never
 // substitutes the language-neutral fallback for them: resolution returns either
 // the registered dedicated profile or an error.
-var dedicatedProfileLanguages = map[string]struct{}{ancientGreekLanguage: {}}
+var dedicatedProfileLanguages = map[string]struct{}{ancientGreekLanguage: {}, latinLanguage: {}}
 
 // DedicatedProfileLanguage reports whether language requires a dedicated
 // normalization profile and therefore never uses the language-neutral fallback.
@@ -140,6 +140,9 @@ var defaultRegistry = func() *Registry {
 		panic(err)
 	}
 	if err := r.Register(AncientGreek(), true); err != nil {
+		panic(err)
+	}
+	if err := r.Register(Latin(), true); err != nil {
 		panic(err)
 	}
 	if err := r.Register(FrenchProfile{version: "1"}, false); err != nil {

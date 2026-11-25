@@ -498,7 +498,7 @@ func (s *Service) resolve(ctx context.Context, owner, bookID string, p Proposal)
 	lemma := ""
 	if p.Action == "correct" {
 		lemma = profile.Canonical(strings.TrimSpace(p.Lemma))
-		if !lexical.IsLemma(lemma) {
+		if !lexical.IsAdmissibleLemma(p.Language, lemma) {
 			return domain.LemmaReviewProposal{}, domain.ErrLemmaReviewLemma
 		}
 	}
