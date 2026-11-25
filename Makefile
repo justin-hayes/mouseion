@@ -227,7 +227,7 @@ sqlc: go-tmp
 # repository).
 CLASSICAL_MANIFEST_UPSTREAM ?=
 classical-manifest: go-tmp
-	go run ./cmd/classicalmanifest generate $(if $(CLASSICAL_MANIFEST_UPSTREAM),-upstream "$(CLASSICAL_MANIFEST_UPSTREAM)",) $(if $(CLASSICAL_MANIFEST_NOTES),-notes "$(CLASSICAL_MANIFEST_NOTES)",)
+	go run ./cmd/classicalmanifest generate $(if $(CLASSICAL_MANIFEST_UPSTREAM),-upstream "$(CLASSICAL_MANIFEST_UPSTREAM)",) $(if $(CLASSICAL_MANIFEST_NOTES),-notes "$(CLASSICAL_MANIFEST_NOTES)",) $(if $(CLASSICAL_MANIFEST_LS_INDEX),-ls-index "$(CLASSICAL_MANIFEST_LS_INDEX)",)
 
 # CI gate: reproduce the committed manifest byte-for-byte. Without an upstream
 # directory it retains the committed byte pins and word counts; with one it

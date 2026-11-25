@@ -555,12 +555,22 @@ type SourceSpec struct {
 	// CitationFileName names the PAULA Citation member of an ola-conllu source,
 	// beside FileName's CoNLL-U member. No other format has one.
 	CitationFileName string `json:"citationFileName,omitempty"`
+	// Container and CitationContainer name the stored inner zip of the archive
+	// that holds FileName and CitationFileName, when the member is not at the
+	// archive's top level. The generator resolves a nested member to an
+	// absolute offset in the outer archive, so the pin never records the
+	// nesting; only an ola-conllu source may name one.
+	Container         string `json:"container,omitempty"`
+	CitationContainer string `json:"citationContainer,omitempty"`
 }
 
 // validateCitationMember requires the PAULA member exactly for an OLA source.
 func (s SourceSpec) validateCitationMember(workKey string) error {
 	if (s.Format == SourceFormatOLACoNLLU) != (s.CitationFileName != "") {
 		return fmt.Errorf("classical: work override %q needs a citation file name exactly for an %s source", workKey, SourceFormatOLACoNLLU)
+	}
+	if s.Format != SourceFormatOLACoNLLU && (s.Container != "" || s.CitationContainer != "") {
+		return fmt.Errorf("classical: work override %q names an archive container for a source that is not an %s source", workKey, SourceFormatOLACoNLLU)
 	}
 	return nil
 }
@@ -602,6 +612,33 @@ type Override struct {
 	// text gates flagged and cleared it (ADR 0132). It is the gate's only
 	// override, and a Work that does not need one must not carry it.
 	ReviewerNote string `json:"reviewerNote,omitempty"`
+	// SpotCheck records the reviewer's check of source-and-translation pairs
+	// that admits a Latin Work with a translation (ADR 0132 gate iii).
+	SpotCheck *SpotCheck `json:"spotCheck,omitempty"`
+}
+
+// SpotCheck is the recorded human check of a Latin Work's translation join:
+// who read it and the Citations of the sentence and segment pairs read.
+type SpotCheck struct {
+	Reviewer string   `json:"reviewer"`
+	Pairs    []string `json:"pairs"`
+}
+
+// Validate reports whether the spot check names a reviewer and at least one
+// pair, each a Citation.
+func (c SpotCheck) Validate() error {
+	if strings.TrimSpace(c.Reviewer) == "" {
+		return errors.New("classical: spot check needs a reviewer")
+	}
+	if len(c.Pairs) == 0 {
+		return errors.New("classical: spot check needs at least one checked pair")
+	}
+	for _, pair := range c.Pairs {
+		if !isCitation(pair) {
+			return fmt.Errorf("classical: spot check pair %q is not a Citation", pair)
+		}
+	}
+	return nil
 }
 
 // IsWork reports whether the override applies to a Work.
@@ -628,7 +665,7 @@ func (o Override) Validate() error {
 // validateUnit restricts a unit override to curatorial fields, a note and a
 // revision.
 func (o Override) validateUnit() error {
-	if o.ReviewerNote != "" || o.Language != "" || o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
+	if o.ReviewerNote != "" || o.SpotCheck != nil || o.Language != "" || o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
 		return fmt.Errorf("classical: unit override %q may only change curatorial fields, a note or a revision", o.Key)
 	}
 	return nil
@@ -658,6 +695,11 @@ func (o Override) validateWork() error {
 	}
 	if o.Translation != nil && (o.Translation.Layer == "" || o.Translation.FileName == "") {
 		return fmt.Errorf("classical: work override %q has an incomplete translation", o.WorkKey)
+	}
+	if o.SpotCheck != nil {
+		if err := o.SpotCheck.Validate(); err != nil {
+			return fmt.Errorf("classical: work override %q: %w", o.WorkKey, err)
+		}
 	}
 	if o.EditionKey == "" {
 		return fmt.Errorf("classical: work override %q needs an Edition key", o.WorkKey)

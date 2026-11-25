@@ -290,6 +290,8 @@ func TestLatinGateReportListsEveryGateOfEveryWork(t *testing.T) {
 		"- Gates for caesar-gallic-war:",
 		"  - citations: pass (44 tokens, all cited, none backwards)",
 		"  - split-words: pass (0 of 40 words, 0.000%, limit 2.000%)",
+		"  - translation-join: not evaluated (the Work declares no translation)",
+		"  - dictionary-match: not evaluated (no dictionary index was given; generation evaluates it)",
 		"",
 	}, "\n"), report)
 }

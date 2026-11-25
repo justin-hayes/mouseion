@@ -76,3 +76,17 @@ func TestRunRefusesAnUnknownMode(t *testing.T) {
 	require.ErrorContains(t, run(nil, &bytes.Buffer{}), "usage")
 	require.Error(t, run([]string{"verify", "-unknown"}, &bytes.Buffer{}))
 }
+
+func TestRunGenerateRefusesADictionaryIndexItCannotOpen(t *testing.T) {
+	dir := t.TempDir()
+	testdata := filepath.Join("..", "..", "internal", "classicalmanifest", "testdata")
+	err := run([]string{
+		"generate",
+		"-layers", filepath.Join(testdata, "layers.json"),
+		"-overrides", filepath.Join(testdata, "overrides.jsonl"),
+		"-manifest", filepath.Join(dir, "manifest.jsonl"),
+		"-upstream", filepath.Join(testdata, "upstream"),
+		"-ls-index", filepath.Join(dir, "missing.sqlite"),
+	}, &bytes.Buffer{})
+	require.ErrorContains(t, err, "open dictionary index")
+}

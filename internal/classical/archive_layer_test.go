@@ -40,3 +40,20 @@ func TestAnOLASourceNeedsItsCitationMemberAndNoOtherSourceHasOne(t *testing.T) {
 	unit := Override{Key: "w", ReviewerNote: "read"}
 	require.Error(t, unit.Validate(), "a reviewer note clears a Work, never a unit")
 }
+
+func TestASpotCheckNamesAReviewerAndCitationPairsAndBelongsToAWork(t *testing.T) {
+	check := SpotCheck{Reviewer: "Justin", Pairs: []string{"1.1", "2.3"}}
+	require.NoError(t, check.Validate())
+	require.Error(t, SpotCheck{Pairs: []string{"1.1"}}.Validate(), "a spot check needs a reviewer")
+	require.Error(t, SpotCheck{Reviewer: "Justin"}.Validate(), "a spot check needs pairs")
+	require.Error(t, SpotCheck{Reviewer: "Justin", Pairs: []string{"not a citation"}}.Validate())
+
+	require.Error(t, Override{Key: "w", SpotCheck: &check}.Validate(), "a spot check admits a Work, never a unit")
+}
+
+func TestAnArchiveContainerBelongsToAnOLASourceOnly(t *testing.T) {
+	source := SourceSpec{Layer: "ola", FileName: "a.conllu", CitationFileName: "a.xml", Format: SourceFormatOLACoNLLU, Container: "w/conllu.zip", CitationContainer: "w/paula.zip"}
+	require.NoError(t, source.validateCitationMember("w"))
+	greek := SourceSpec{Layer: "oga", FileName: "a.conllu", Format: SourceFormatOGACoNLLU, Container: "w/conllu.zip"}
+	require.Error(t, greek.validateCitationMember("w"))
+}

@@ -36,6 +36,13 @@ type Options struct {
 	// without the real files. CI runs this mode; generation always requires
 	// them.
 	AllowMissingUpstream bool
+	// Generating marks a generate run, the only mode that evaluates the
+	// dictionary-match gate (iv) and so the only one that needs LatinLS.
+	Generating bool
+	// LatinLS answers whether a lemma has a Lewis & Short entry, read from a
+	// derived dictionary index. Verify mode never needs it: it reproduces the
+	// committed manifest, which only admitted Works.
+	LatinLS LatinLSLookup
 }
 
 // Result is the deterministic output of one run.
@@ -84,6 +91,7 @@ func Generate(options Options) (Result, error) {
 		previousByKey:   previousByKey,
 		generated:       map[string]classical.Definition{},
 		matchedUnitKeys: map[string]bool{},
+		pending:         map[string]WorkGateReport{},
 	}
 	if err := builder.build(); err != nil {
 		return Result{}, err
@@ -138,7 +146,10 @@ type builder struct {
 	matchedUnitKeys map[string]bool
 	definitions     []classical.Definition
 	gates           []WorkGateReport
-	notes           strings.Builder
+	// pending holds a Latin Work's report between its text gates and its join
+	// gates, which need the planned unit.
+	pending map[string]WorkGateReport
+	notes   strings.Builder
 }
 
 // build generates every work override in stable order.
@@ -152,6 +163,11 @@ func (b *builder) build() error {
 	for _, workKey := range workKeys {
 		if err := b.buildWork(b.workOverrides[workKey]); err != nil {
 			return err
+		}
+		// A Work that stopped before its join gates still reports the gates it ran.
+		if report, ok := b.pending[workKey]; ok {
+			delete(b.pending, workKey)
+			b.recordGates(report)
 		}
 	}
 	return nil
@@ -181,6 +197,9 @@ func (b *builder) buildWork(override classical.Override) error {
 	if err != nil {
 		return err
 	}
+	if isLatinWork(override) && override.Translation != nil && override.SpotCheck == nil {
+		return b.candidateFailure(override.WorkKey, "", fmt.Errorf("classical: %s has a translation and needs a recorded spot check (reviewer and the pairs checked)", override.WorkKey))
+	}
 	if err := checkSourceContentLayers(override, sourceLayer, translationLayer, hasTranslationLayer); err != nil {
 		return b.candidateFailure(override.WorkKey, "", err)
 	}
@@ -201,6 +220,14 @@ func (b *builder) buildWork(override classical.Override) error {
 		units[index].total = total
 	}
 	b.writeWorkNotes(override, units, total, sourceAvailable, coverage)
+	if sourceAvailable && isLatinWork(override) {
+		if err := b.admitLatinJoins(override, source, units, translationLayer, hasTranslationLayer); err != nil {
+			if errors.Is(err, errNeedsLSIndex) {
+				return err
+			}
+			return b.candidateFailure(override.WorkKey, "", err)
+		}
+	}
 	return b.buildSelectedUnits(override, units, sourcePin, source, sourceAvailable, translationLayer, hasTranslationLayer)
 }
 

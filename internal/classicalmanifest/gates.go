@@ -7,6 +7,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
 // MaxSplitWordRate is the share of a Latin Work's words that may be one-letter
@@ -23,10 +24,28 @@ import (
 // would reopen ADR 0132.
 const MaxSplitWordRate = 0.02
 
+// MinTranslationJoinRate is the share of a Latin Work's sentences that must
+// resolve to at least one pinned translation segment (gate iii). ADR 0132 puts
+// it "on the order of 98%": a Perseus section the join cannot reach is a
+// sentence whose card shows no passage context, and one lost sentence in fifty
+// is the most a learner can lose before the Work reads as untranslated. No
+// measured distribution backs it yet: the first batch (#2686) is the first run
+// against real perseus-engN files, and its measured rates go in that PR; a
+// Work that misses the floor is excluded or cleared by a reviewer note, never
+// admitted silently.
+const MinTranslationJoinRate = 0.98
+
+// MinDictionaryMatchRate is the share of a Latin Work's eligible occurrences
+// that must match a Lewis & Short key (gate iv), as ADR 0132 sets it.
+const MinDictionaryMatchRate = 0.90
+
 // Gate names, as the report prints them.
 const (
-	GateCitations = "citations"
-	GateSplitWord = "split-words"
+	GateCitations       = "citations"
+	GateSplitWord       = "split-words"
+	GateTranslationJoin = "translation-join"
+	GateDictionaryMatch = "dictionary-match"
+	GateSpotCheck       = "spot-check"
 )
 
 // GateResult is one gate's outcome for one Work.
@@ -37,6 +56,10 @@ type GateResult struct {
 	Detail string
 	// Clearable is false for a failure no reviewer note can clear.
 	Clearable bool
+	// NotEvaluated marks a gate the run had no input for, such as the
+	// dictionary index in verify mode. It passes: verify mode relies on what
+	// generation admitted and committed.
+	NotEvaluated bool
 }
 
 // WorkGateReport is every gate result of one Latin Work.
@@ -86,7 +109,10 @@ func (r WorkGateReport) Lines() []string {
 	lines := []string{fmt.Sprintf("- Gates for %s:", r.WorkKey)}
 	for _, gate := range r.Gates {
 		status := "pass"
-		if !gate.Passed {
+		switch {
+		case gate.NotEvaluated:
+			status = "not evaluated"
+		case !gate.Passed:
 			status = "FAIL"
 		}
 		lines = append(lines, fmt.Sprintf("  - %s: %s (%s)", gate.Name, status, gate.Detail))
@@ -169,4 +195,105 @@ func (r Result) GateReport() string {
 		}
 	}
 	return out.String()
+}
+
+// translationJoinGate is gate (iii): at least MinTranslationJoinRate of the
+// Work's sentences resolve to a segment. A sentence resolves when some segment
+// Citation equals or contains a Citation it touches, the passage rule of ADR
+// 0101.
+func translationJoinGate(sentences [][]string, segments []ancientgreek.ReferenceTranslation) GateResult {
+	texts := make(map[string]string, len(segments))
+	for _, segment := range segments {
+		texts[segment.Citation] = segment.Text
+	}
+	resolved := 0
+	for _, citations := range sentences {
+		for _, citation := range citations {
+			if joinsSegment(citation, texts) {
+				resolved++
+				break
+			}
+		}
+	}
+	gate := GateResult{Name: GateTranslationJoin, Clearable: true}
+	if len(sentences) == 0 {
+		gate.Detail = "the Work has no sentences"
+		return gate
+	}
+	rate := float64(resolved) / float64(len(sentences))
+	gate.Passed = rate >= MinTranslationJoinRate
+	gate.Detail = fmt.Sprintf("%d of %d sentences, %.3f%%, floor %.3f%%", resolved, len(sentences), rate*100, MinTranslationJoinRate*100)
+	return gate
+}
+
+// joinsSegment reports whether a non-empty segment equals or contains the
+// Citation, as cardexport's passage context does.
+func joinsSegment(citation string, segments map[string]string) bool {
+	for key, text := range segments {
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		if key == citation || strings.HasPrefix(citation, key+".") {
+			return true
+		}
+	}
+	return false
+}
+
+// spotCheckGate is the recorded human check that admits a Work with a
+// translation. It cannot be cleared by a reviewer note: the note is the
+// reviewer's clearance of a flagged gate, and this record is what admits a
+// Work at all. Every pair must lie in the Work.
+func spotCheckGate(check *classical.SpotCheck, sentences [][]string) GateResult {
+	gate := GateResult{Name: GateSpotCheck}
+	if check == nil {
+		gate.Detail = "no spot check is recorded"
+		return gate
+	}
+	touched := map[string]struct{}{}
+	for _, citations := range sentences {
+		for _, citation := range citations {
+			touched[citation] = struct{}{}
+		}
+	}
+	for _, pair := range check.Pairs {
+		if _, ok := touched[pair]; !ok {
+			gate.Detail = fmt.Sprintf("checked pair %s is not a Citation of the Work", pair)
+			return gate
+		}
+	}
+	gate.Passed = true
+	gate.Detail = fmt.Sprintf("%s checked %d pair(s)", check.Reviewer, len(check.Pairs))
+	return gate
+}
+
+// LatinLSLookup reports whether a lemma has a Lewis & Short entry under its
+// latin key.
+type LatinLSLookup func(lemma string) bool
+
+// dictionaryMatchGate is gate (iv): at least MinDictionaryMatchRate of the
+// eligible occurrences (noun, verb, adjective and adverb, after admission)
+// match a Lewis & Short key.
+func dictionaryMatchGate(occurrences []ancientgreek.LatinOccurrence, lookup LatinLSLookup) GateResult {
+	// The default configuration allows exactly noun, verb, adjective and adverb.
+	config := selection.DefaultConfig("classical-gate")
+	eligible, matched := 0, 0
+	for _, occurrence := range occurrences {
+		if !selection.OccurrenceEligible(config, classical.LanguageLatin, occurrence.CanonicalLemma, occurrence.UPOS, occurrence.Dependency) {
+			continue
+		}
+		eligible++
+		if lookup(occurrence.Headword) {
+			matched++
+		}
+	}
+	gate := GateResult{Name: GateDictionaryMatch, Clearable: true}
+	if eligible == 0 {
+		gate.Detail = "the Work has no eligible occurrences"
+		return gate
+	}
+	rate := float64(matched) / float64(eligible)
+	gate.Passed = rate >= MinDictionaryMatchRate
+	gate.Detail = fmt.Sprintf("%d of %d eligible occurrences, %.3f%%, floor %.3f%%", matched, eligible, rate*100, MinDictionaryMatchRate*100)
+	return gate
 }
