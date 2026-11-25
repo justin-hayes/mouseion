@@ -1,0 +1,210 @@
+work	class	author	title	verse	source_words	tier	file	print_date	print_date_class	licence_element	level	units	one	coarse	fine	none	plausible	median_words_per_coarse_segment	median_words_per_translation_leaf	word_ratio
+phi0119.phi001	core	Plautus, Titus Maccius	Amphitruo	True	9936	C	phi0119.phi001.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	15	0	0	0	1.0		797.0	2.03
+phi0119.phi002	core	Plautus, Titus Maccius	Asinaria	True	8216	C	phi0119.phi002.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	15	0	0	0	1.0		605.0	1.86
+phi0119.phi003	core	Plautus, Titus Maccius	Aulularia	True	6966	B	phi0119.phi003.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	29	0	0	0	1.0		344.5	2.03
+phi0119.phi004	core	Plautus, Titus Maccius	Bacchides	True	10190	C	phi0119.phi004.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	24	0	0	0	0.9167		617	1.89
+phi0119.phi005	core	Plautus, Titus Maccius	Captivi	True	8799	C	phi0119.phi005.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	19	0	0	0	1.0		558	1.77
+phi0119.phi006	core	Plautus, Titus Maccius	Casina	True	7804	C	phi0119.phi006.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	24	0	0	0	1.0		556.5	1.85
+phi0119.phi007	core	Plautus, Titus Maccius	Cistellaria	True	5338	C	phi0119.phi007.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	10	0	0	0	0.9		499	1.51
+phi0119.phi008	core	Plautus, Titus Maccius	Curculio	True	6252	C	phi0119.phi008.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	14	0	0	0	1.0		790	1.88
+phi0119.phi009	core	Plautus, Titus Maccius	Epidicus	True	6570	C	phi0119.phi009.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	13	0	0	0	1.0		750.0	1.87
+phi0119.phi010	core	Plautus, Titus Maccius	Menaechmi	True	9612	C	phi0119.phi010.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	23	0	0	0	1.0		612	1.88
+phi0119.phi011	core	Plautus, Titus Maccius	Mercator	True	8763	C	phi0119.phi011.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	20	0	0	0	0.9		589	2.06
+phi0119.phi012	core	Plautus, Titus Maccius	Miles Gloriosus	True	12829	C	phi0119.phi012.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	20	0	0	0	0.7		503.5	1.8
+phi0119.phi013	core	Plautus, Titus Maccius	Mostellaria	True	9786	C	phi0119.phi013.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	15	0	0	0	1.0		923.0	1.8
+phi0119.phi014	core	Plautus, Titus Maccius	Persa	True	7946	C	phi0119.phi014.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	22	0	0	0	1.0		446.5	1.84
+phi0119.phi015	core	Plautus, Titus Maccius	Poenulus	True	11720	C	phi0119.phi015.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	20	0	0	0	0.95		744.5	1.75
+phi0119.phi016	core	Plautus, Titus Maccius	Pseudolus	True	11388	C	phi0119.phi016.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	22	0	0	0	0.9545		672.0	1.77
+phi0119.phi017	core	Plautus, Titus Maccius	Rudens	True	11954	C	phi0119.phi017.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	29	0	0	1	1.0		599.0	1.84
+phi0119.phi018	core	Plautus, Titus Maccius	Stichus	True	6384	C	phi0119.phi018.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	16	0	0	0	1.0		582	1.81
+phi0119.phi019	core	Plautus, Titus Maccius	Trinummus	True	10007	C	phi0119.phi019.perseus-eng2.xml	1912	pre-1931	True	without_line	act/scene	16	0	0	0	1.0		636	1.83
+phi0119.phi020	core	Plautus, Titus Maccius	Truculentus	True	8380	C	phi0119.phi020.perseus-eng2.xml	1913	pre-1931	True	without_line	act/scene	18	0	0	0	1.0		704	1.88
+phi0134.phi001	core	Terence	Andria	True	9853	C	phi0134.phi001.perseus-eng2.xml	1874	pre-1931	False	without_line	act/scene	29	0	0	0	1.0		523	1.67
+phi0134.phi002	core	Terence	Heautontimorumenos	True	10989	C	phi0134.phi002.perseus-eng2.xml	1874	pre-1931	False	without_line	act/scene	24	0	0	0	0.9583		641.5	1.58
+phi0134.phi003	core	Terence	Eunuchus	True	10847	C	phi0134.phi003.perseus-eng2.xml	1874	pre-1931	False	without_line	act/scene	27	0	0	0	0.963		499	1.65
+phi0134.phi004	core	Terence	Phormio	True	10856	C	phi0134.phi004.perseus-eng2.xml	1874	pre-1931	False	without_line	act/scene	26	0	0	0	0.9615		623	1.66
+phi0134.phi005	core	Terence	Hecyra	True	9039	C	phi0134.phi005.perseus-eng2.xml	1874	pre-1931	False	without_line	act/scene	21	0	0	0	0.9524		656	1.53
+phi0134.phi006	core	Terence	Adelphi	True	9902	C	phi0134.phi006.perseus-eng2.xml	1874	pre-1931	False	without_line	act/scene	28	0	0	1	0.9643		444	1.6
+phi0448.phi001	core	Julius Caesar	De Bello Gallico	False	51316	B	phi0448.phi001.perseus-eng2.xml	1870-1872	pre-1931	True	with_line	book/chapter/section	0	2150	0	0		199.0	199.0	1.68
+phi0448.phi002	core	Julius Caesar	De Bello Civili	False	32370	B	phi0448.phi002.perseus-eng2.xml	1914	pre-1931	True	with_line	book/chapter/section	0	1186	0	0		211	211	1.65
+phi0472.phi001	core	Catullus, C. Valerius	Carmina	True	12869	A	phi0472.phi001.perseus-eng3.xml	1894	pre-1931	True	with_line	poem/line	2280	0	0	6	0.9978		9	1.65
+phi0474.phi001	core	Cicero, Marcus Tullius	Pro P. Quinctio	False	8655	A	phi0474.phi001.perseus-eng2.xml	1856	pre-1931	True	with_line	section	99	0	0	0	0.9899		140.5	1.69
+phi0474.phi002	core	Cicero, Marcus Tullius	Pro S. Roscio Amerino	False	13343	A	phi0474.phi002.perseus-eng2.xml	1856	pre-1931	True	with_line	section	154	0	0	0	1.0		136	1.63
+phi0474.phi003	core	Cicero, Marcus Tullius	Pro Q. Roscio Comoedo	False	4770	A	phi0474.phi003.perseus-eng2.xml	1856	pre-1931	True	with_line	section	56	0	0	0	1.0		147	1.74
+phi0474.phi004	core	Cicero, Marcus Tullius	Divinatio in Q. Caecilium	False	5828	A	phi0474.phi004.perseus-eng2.xml	1856	pre-1931	True	with_line	section	73	0	0	0	1.0		134.0	1.78
+phi0474.phi005	core	Cicero, Marcus Tullius	In C. Verrem	False	100626	A	phi0474.phi005.perseus-eng2.xml	1856	pre-1931	True	with_line	actio/book/section	974	0	0	0	1.0		174.0	1.77
+phi0474.phi006	core	Cicero, Marcus Tullius	Pro M. Tullio	False	3479	A	phi0474.phi006.perseus-eng2.xml	1856	pre-1931	True	with_line	section	56	0	0	0	0.9821		107	1.8
+phi0474.phi007	core	Cicero, Marcus Tullius	Pro Fonteio	False	4558	A	phi0474.phi007.perseus-eng2.xml	1856	pre-1931	True	with_line	section	48	0	0	1	1.0		166	1.67
+phi0474.phi008	core	Cicero, Marcus Tullius	Pro A. Caecina	False	10395	A	phi0474.phi008.perseus-eng2.xml	1856	pre-1931	True	with_line	section	104	0	0	0	1.0		171	1.77
+phi0474.phi009	core	Cicero, Marcus Tullius	De Imperio Cn. Pompei Ad Quirites	False	6720	A	phi0474.phi009.perseus-eng2.xml	1856	pre-1931	True	with_line	section	71	0	0	0	1.0		155.0	1.74
+phi0474.phi010	core	Cicero, Marcus Tullius	Pro A. Cluentio	False	20936	A	phi0474.phi010.perseus-eng2.xml	1856	pre-1931	True	with_line	section	202	0	0	0	1.0		176	1.75
+phi0474.phi011	core	Cicero, Marcus Tullius	De Lege Agraria	False	13918	A	phi0474.phi011.perseus-eng2.xml	1856	pre-1931	True	with_line	speech/section	146	0	0	4	1.0		165.0	1.85
+phi0474.phi012	core	Cicero, Marcus Tullius	Pro C. Rabirio Perduellionis Reo Ad Quirites	False	3640	A	phi0474.phi012.perseus-eng3.xml	1856	pre-1931	True	with_line	section	38	0	0	1	1.0		169	1.81
+phi0474.phi013	core	Cicero, Marcus Tullius	In Catilinam	False	12734	A	phi0474.phi013.perseus-eng2.xml	1856	pre-1931	True	with_line	speech/section	115	0	0	0	1.0		171	1.77
+phi0474.phi014	core	Cicero, Marcus Tullius	Pro L. Murena	False	10644	A	phi0474.phi014.perseus-eng2.xml	1856	pre-1931	True	with_line	section	90	0	0	0	1.0		203	1.8
+phi0474.phi015	core	Cicero, Marcus Tullius	Pro P. Sulla	False	9308	A	phi0474.phi015.perseus-eng2.xml	1856	pre-1931	True	with_line	section	93	0	0	0	1.0		174.5	1.79
+phi0474.phi016	core	Cicero, Marcus Tullius	Pro Archia Poeta	False	3121	A	phi0474.phi016.perseus-eng2.xml	1856	pre-1931	True	with_line	section	32	0	0	0	1.0		177	1.84
+phi0474.phi017	core	Cicero, Marcus Tullius	Pro L. Flacco	False	10933	A	phi0474.phi017.perseus-eng2.xml	1856	pre-1931	True	with_line	section	106	0	0	1	0.9906		180	1.85
+phi0474.phi018	core	Cicero, Marcus Tullius	Cum Populo Gratias Egit	False	2648	A	phi0474.phi018.perseus-eng2.xml	1856	pre-1931	True	with_line	section	25	0	0	0	1.0		205.0	1.82
+phi0474.phi019	core	Cicero, Marcus Tullius	Cum Senatui Gratias Egit	False	4335	A	phi0474.phi019.perseus-eng2.xml	1856	pre-1931	True	with_line	section	39	0	0	0	1.0		202.5	2.09
+phi0474.phi020	core	Cicero, Marcus Tullius	De Domo Sua Ad Pontifices	False	15155	A	phi0474.phi020.perseus-eng1.xml	1891	pre-1931	False	with_line	section	147	0	0	0	1.0		183	1.83
+phi0474.phi021	core	Cicero, Marcus Tullius	De Haruspicum Responso In P. Clodium	False	7538	A	phi0474.phi021.perseus-eng1.xml	1891	pre-1931	False	with_line	section	63	0	0	0	1.0		214	1.81
+phi0474.phi022	core	Cicero, Marcus Tullius	Pro P. Sestio	False	16795	A	phi0474.phi022.perseus-eng1.xml	1891	pre-1931	False	with_line	section	147	0	0	0	1.0		210	1.88
+phi0474.phi023	core	Cicero, Marcus Tullius	Against Vatinius	False	4495	A	phi0474.phi023.perseus-eng1.xml	1891	pre-1931	False	with_line	section	41	0	0	0	1.0		189	1.91
+phi0474.phi024	core	Cicero, Marcus Tullius	Pro M. Caelio	False	8551	A	phi0474.phi024.perseus-eng1.xml	1891	pre-1931	False	with_line	section	80	0	0	0	1.0		195.0	1.93
+phi0474.phi025	core	Cicero, Marcus Tullius	De Provinciis Consularibus	False	5138	A	phi0474.phi025.perseus-eng1.xml	1891	pre-1931	False	with_line	section	46	0	0	1	0.9783		207.0	1.94
+phi0474.phi026	core	Cicero, Marcus Tullius	Pro L. Cornelio Balbo	False	6805	A	phi0474.phi026.perseus-eng1.xml	1891	pre-1931	False	with_line	section	65	0	0	0	1.0		201	1.95
+phi0474.phi027	core	Cicero, Marcus Tullius	In L. Calpurnium Pisonem	False	10924	C	phi0474.phi027.perseus-eng1.xml	1891	pre-1931	False	with_line	section	105	0	0	13	1.0		194	1.85
+phi0474.phi028	core	Cicero, Marcus Tullius	Pro Cn. Plancio	False	11643	A	phi0474.phi028.perseus-eng1.xml	1891	pre-1931	False	with_line	section	104	0	0	0	1.0		200.0	1.86
+phi0474.phi029	core	Cicero, Marcus Tullius	Pro M. Scauro	False	3009	C	phi0474.phi029.perseus-eng1.xml	1856	pre-1931	False	with_line	section	43	0	0	33	0.9535		94	2.48
+phi0474.phi030	core	Cicero, Marcus Tullius	Pro C. Rabirio Postumo	False	4079	A	phi0474.phi030.perseus-eng1.xml	1891	pre-1931	False	with_line	section	48	0	0	0	1.0		155.5	1.89
+phi0474.phi031	core	Cicero, Marcus Tullius	Pro T. Annio Milone	False	10523	A	phi0474.phi031.perseus-eng1.xml	1891	pre-1931	False	with_line	section	105	0	0	0	1.0		189	1.86
+phi0474.phi032	core	Cicero, Marcus Tullius	Pro M. Marcello	False	2771	A	phi0474.phi032.perseus-eng1.xml	1891	pre-1931	False	with_line	section	34	0	0	0	1.0		146.5	1.81
+phi0474.phi033	core	Cicero, Marcus Tullius	Pro Q. Ligario	False	3284	A	phi0474.phi033.perseus-eng1.xml	1891	pre-1931	False	with_line	section	38	0	0	0	1.0		159.0	1.87
+phi0474.phi034	core	Cicero, Marcus Tullius	Pro Rege Deiotaro	False	3911	A	phi0474.phi034.perseus-eng1.xml	1891	pre-1931	False	with_line	section	43	0	0	0	1.0		166	1.88
+phi0474.phi035	core	Cicero, Marcus Tullius	Philippicae	False	52665	A	phi0474.phi035.perseus-eng1.xml	1903	pre-1931	False	with_line	speech/section	543	0	0	1	0.9245		160	1.91
+phi0474.phi036	core	Cicero, Marcus Tullius	De Inventione	False	32216	-														
+phi0474.phi037	core	Cicero, Marcus Tullius	On Oratory	False	62162	-														
+phi0474.phi038	core	Cicero, Marcus Tullius	Partitiones Oratoriae	False	9916	-														
+phi0474.phi039	core	Cicero, Marcus Tullius	Brutus	False	25105	-														
+phi0474.phi040	core	Cicero, Marcus Tullius	Orator	False	18507	-														
+phi0474.phi041	core	Cicero, Marcus Tullius	De Optimo Genere Oratorum	False	1602	-														
+phi0474.phi042	core	Cicero, Marcus Tullius	Topica	False	6927	-														
+phi0474.phi043	core	Cicero, Marcus Tullius	De Republica	False	22437	-														
+phi0474.phi045	core	Cicero, Marcus Tullius	Academica	False	4897	-														
+phi0474.phi046	core	Cicero, Marcus Tullius	Lucullus	False	17995	-														
+phi0474.phi047	core	Cicero, Marcus Tullius	Paradoxa Stoicorum	False	4398	-														
+phi0474.phi048	core	Cicero, Marcus Tullius	de Finibus Bonorum et Malorum	False	47242	-														
+phi0474.phi049	core	Cicero, Marcus Tullius	Tusculanae Disputationes	False	47132	-														
+phi0474.phi050	core	Cicero, Marcus Tullius	De Natura Deorum	False	36121	-														
+phi0474.phi051	core	Cicero, Marcus Tullius	De Senectute	False	8263	A	phi0474.phi051.perseus-eng1.xml	1923	pre-1931	False	with_line	section	84	0	0	1	1.0		157.5	1.65
+phi0474.phi052	core	Cicero, Marcus Tullius	De Amicitia	False	9339	A	phi0474.phi052.perseus-eng2.xml	1923	pre-1931	False	with_line	section	103	0	0	1	1.0		141.0	1.65
+phi0474.phi053	core	Cicero, Marcus Tullius	De Divinatione	False	28357	A	phi0474.phi053.perseus-eng1.xml	1923	pre-1931	False	with_line	book/section	280	0	0	4	0.9964		164.0	1.63
+phi0474.phi054	core	Cicero, Marcus Tullius	De Fato	False	5612	-														
+phi0474.phi055	core	Cicero, Marcus Tullius	De Officiis	False	34248	C	phi0474.phi055.perseus-eng1.xml	1913	pre-1931	False	with_line	book/section	250	0	0	121	0.872		220.0	1.7
+phi0474.phi056	core	Cicero, Marcus Tullius	Letters to his Friends	False	122436	B	phi0474.phi056.perseus-eng1.xml	1908-1909	pre-1931	False	with_line	book/letter/section	4	1276	0	64	0.25	368.0	368.5	1.87
+phi0474.phi057	core	Cicero, Marcus Tullius	Letters to Atticus	False	129937	C	phi0474.phi057.perseus-eng1.xml	1908-1909	pre-1931	False	with_line	book/letter/section	0	1317	0	177		397	378.5	1.66
+phi0474.phi058	core	Cicero, Marcus Tullius	Letters to his brother Quintus	False	18838	C	phi0474.phi058.perseus-eng1.xml	1908-1909	pre-1931	False	with_line	book/letter/section	14	184	0	0	0.0714	1274	1148	3.25
+phi0474.phi059	core	Cicero, Marcus Tullius	Letters to Brutus	False	9843	C	phi0474.phi059.perseus-eng1.xml	1908-1909	pre-1931	False	with_line	book/letter/section	0	92	0	17		504.0	449.0	1.65
+phi0474.phi072	core	Cicero, Marcus Tullius	Timaeus	False	4217	-														
+phi0478.phi003	core	Quintus Tullius Cicero	Commentariolum Petitionis	False	4376	-														
+phi0550.phi001	core	Lucretius	De Rerum Natura	True	49150	C	phi0550.phi001.perseus-eng1.xml	1916	pre-1931	False	without_line	book	6	0	0	0	1.0		12429.0	1.53
+phi0588.abo001	core	Nepos, Cornelius	Miltiades	False	1357	-														
+phi0588.abo002	core	Nepos, Cornelius	Themistocles	False	1716	-														
+phi0588.abo003	core	Nepos, Cornelius	Aristides	False	347	-														
+phi0588.abo004	core	Nepos, Cornelius	Pausanias	False	887	-														
+phi0588.abo005	core	Nepos, Cornelius	Cimon	False	543	-														
+phi0588.abo006	core	Nepos, Cornelius	Lysander	False	540	-														
+phi0588.abo007	core	Nepos, Cornelius	Alcibiades	False	2021	-														
+phi0588.abo008	core	Nepos, Cornelius	Thrasybulus	False	603	-														
+phi0588.abo009	core	Nepos, Cornelius	Conon	False	740	-														
+phi0588.abo010	core	Nepos, Cornelius	Dion	False	1484	-														
+phi0588.abo011	core	Nepos, Cornelius	Iphicrates	False	411	-														
+phi0588.abo012	core	Nepos, Cornelius	Chabrias	False	489	-														
+phi0588.abo013	core	Nepos, Cornelius	Timotheus	False	657	-														
+phi0588.abo014	core	Nepos, Cornelius	Datames	False	1822	-														
+phi0588.abo015	core	Nepos, Cornelius	Epaminondas	False	1673	-														
+phi0588.abo016	core	Nepos, Cornelius	Pelopidas	False	714	-														
+phi0588.abo017	core	Nepos, Cornelius	Agesilaus	False	1390	-														
+phi0588.abo018	core	Nepos, Cornelius	Eumenes	False	2289	-														
+phi0588.abo019	core	Nepos, Cornelius	Phocion	False	542	-														
+phi0588.abo020	core	Nepos, Cornelius	Timoleon	False	828	-														
+phi0588.abo021	core	Nepos, Cornelius	De Regibus	False	443	-														
+phi0588.abo022	core	Nepos, Cornelius	Hamilcar	False	519	-														
+phi0588.abo023	core	Nepos, Cornelius	Hannibal	False	2105	-														
+phi0588.abo024	core	Nepos, Cornelius	Cato	False	457	-														
+phi0588.abo025	core	Nepos, Cornelius	Atticus	False	3635	-														
+phi0620.phi001	core	Propertius, Sextus	Elegiae	True	25383	-														
+phi0631.phi001	core	Sallust	Catilinae Coniuratio	False	10655	A	phi0631.phi001.perseus-eng2.xml	1899	pre-1931	False	with_line	chapter	59	0	0	2	0.9831		245	2.02
+phi0631.phi002	core	Sallust	Bellum Iugurthinum	False	21250	A	phi0631.phi002.perseus-eng2.xml	1899	pre-1931	False	with_line	chapter	114	0	0	0	1.0		281.0	1.72
+phi0631.phi003	core	Sallust	Historiae	False	4108	-														
+phi0660.phi001	core	Tibullus	Elegiae	True	12366	-														
+phi0660.phi003	core	Tibullus	Sulpicia Elegiae	True	256	A	phi0660.phi003.perseus-eng2.xml		unknown	False	with_line	poem/line	40	0	0	0	1.0		9.0	1.38
+phi0684.phi002	core				36043	-														
+phi0690.phi001	core	P. Vergilius Maro (Virgil)		True	5757	C	phi0690.phi001.perseus-eng2.xml	1921	pre-1931	False	without_line	poem	10	0	0	0	1.0		801.5	1.49
+phi0690.phi002	core	P. Vergilius Maro (Virgil)	Georgics	True	14183	C	phi0690.phi002.perseus-eng2.xml	1921	pre-1931	False	without_line	book	4	0	0	0	1.0		5391.0	1.55
+phi0690.phi003	core	P. Vergilius Maro (Virgil)	Aeneid	True	63724	C	phi0690.phi003.perseus-eng2.xml	1910	pre-1931	False	without_line	book	12	0	0	0	1.0		8618.0	1.63
+phi0836.phi002	core	Celsus, Aulus Cornelius	De Medicina	False	105656	A	phi0836.phi002.perseus-eng2.xml	1935-1938	1931-or-later	False	with_line	book/chapter	210	0	0	1	0.9952		404	1.44
+phi0845.phi002	core	Columella, Lucius Junius Moderatus	Res Rustica	False	79255	C	phi0845.phi002.perseus-eng1.xml	1941-1955	1931-or-later	False	with_line	book/chapter/section	1359	0	0	47	0.7873		96.0	1.77
+phi0860.phi001	core	Curtius Rufus, Quintus	Historiarum Alexandri Magni	False	74199	-														
+phi0893.phi001	core	Horace	Carmina	True	13292	A	phi0893.phi001.perseus-eng2.xml	1882	pre-1931	False	with_line	book/poem/line	2954	0	0	80	0.9963		7	1.48
+phi0893.phi002	core	Horace	Carmen Saeculare	True	309	-														
+phi0893.phi003	core	Horace	Epodi	True	3006	-														
+phi0893.phi004	core	Horace	Sermones	True	14372	C	phi0893.phi004.perseus-eng2.xml	1863	pre-1931	False	without_line	book/poem	18	0	0	0	1.0		1467.0	1.85
+phi0893.phi005	core	Horace	Epistulae	True	9905	-														
+phi0893.phi006	core	Horace	Ars Poetica	True	3090	-														
+phi0914.phi001	core	Titus Livius (Livy)	Ab urbe condita	False	529789	A	phi0914.phi001.perseus-eng2.xml	1857	pre-1931	False	with_line	book/chapter/section	20117	0	0	165	0.9564		42.0	1.67
+phi0917.phi001	core	Lucan	Civil War	True	53338	C	phi0917.phi001.perseus-eng2.xml	1905	pre-1931	False	without_line	book	10	0	0	0	1.0		7506.5	1.4
+phi0959.phi001	core	Ovid	Amores	True	15635	C	phi0959.phi001.perseus-eng2.xml	1855	pre-1931	False	without_line	book/poem	48	0	0	4	0.875		461.5	1.53
+phi0959.phi002	core	Ovid	Epistulae	True	25762	C	phi0959.phi002.perseus-eng2.xml	1813	pre-1931	False	without_line	poem	21	0	0	0	1.0		1881	1.73
+phi0959.phi003	core	Ovid	Medicamina faciei femineae	True	613	C	phi0959.phi003.perseus-eng2.xml	1855	pre-1931	False	without_line	poem	1	0	0	0	1.0		675	1.1
+phi0959.phi004	core	Ovid	Ars Amatoria	True	14903	C	phi0959.phi004.perseus-eng2.xml	1855	pre-1931	False	without_line	book	3	0	0	0	1.0		7285	1.42
+phi0959.phi005	core	Ovid	Remedia amoris	True	5258	C	phi0959.phi005.perseus-eng2.xml	1855	pre-1931	False	without_line		1	0	0	0	1.0		7473	1.42
+phi0959.phi006	core	Ovid	Metamorphoses	True	77642	C	phi0959.phi006.perseus-eng4.xml	1567	pre-1931	False	without_line	book	15	0	0	0	1.0		10680.0	2.18
+phi0959.phi007	core	Ovid	Fasti	True	31282	-														
+phi0959.phi008	core	Ovid	Tristia	True	22794	-														
+phi0959.phi009	core	Ovid	Ex Ponto	True	20749	-														
+phi0959.phi010	core	Ovid	Ibis	True	4032	-														
+phi0969.phi001	core			True	4528	-														
+phi0972.phi001	core			False	30480	A	phi0972.phi001.perseus-eng1.xml	1913	pre-1931	False	with_line	section	141	0	0	0	1.0		314	1.59
+phi0975.phi001	core			False	11575	C	phi0975.phi001.perseus-eng1.xml	1913	pre-1931	False	with_line	book/poem	101	0	0	31	0.8911		121	1.32
+phi1002.phi001	core	Quintilian	Institutio Oratoria	False	172544	B	phi1002.phi001.perseus-eng2.xml	1920-1922	pre-1931	False	with_line	book/chapter/section	2465	994	0	310	0.9959	20729.5	82.0	1.84
+phi1014.phi001	core	Seneca the Elder	Controversiae	False	67550	-														
+phi1014.phi002	core	Seneca the Elder	Excerpta Controversiae	False	21745	-														
+phi1014.phi003	core	Seneca the Elder	Suasoriae	False	10382	-														
+phi1014.phi004	core	Seneca the Elder	Fragmenta	False	157	-														
+phi1017.phi001	core	Seneca, Lucius Annaeus	Hercules Furens	True	7652	-														
+phi1017.phi002	core	Seneca, Lucius Annaeus	Troades Furens	True	6836	-														
+phi1017.phi003	core	Seneca, Lucius Annaeus	Phoenissae	True	4111	-														
+phi1017.phi004	core	Seneca, Lucius Annaeus	Medea	True	5693	-														
+phi1017.phi005	core	Seneca, Lucius Annaeus	Phaedra	True	7207	-														
+phi1017.phi006	core	Seneca, Lucius Annaeus	Oedipus	True	5940	-														
+phi1017.phi007	core	Seneca, Lucius Annaeus	Agamemnon	True	5583	-														
+phi1017.phi008	core	Seneca, Lucius Annaeus	Thyestes	True	6316	-														
+phi1017.phi009	core	Seneca, Lucius Annaeus	Hercules Oetaeus	True	11325	-														
+phi1017.phi010	core	Seneca, Lucius Annaeus	Octavia	True	5259	-														
+phi1017.phi011	core	Seneca, Lucius Annaeus	Apocolocyntosis	False	3011	D	phi1017.phi011.perseus-eng2.xml	1913	pre-1931	False	with_line	section	3	0	0	10	1.0		396.5	1.68
+phi1017.phi013	core	Seneca, Lucius Annaeus	De Beneficiis	False	45483	-														
+phi1017.phi014	core	Seneca, Lucius Annaeus	De Clementia	False	8362	-														
+phi1017.phi015	core	Seneca, Lucius Annaeus	Epistulae	False	119662	-														
+phi1020.phi001	core	Statius, P. Papinius (Publius Papinius)	Thebais	True	62594	-														
+phi1020.phi002	core	Statius, P. Papinius (Publius Papinius)	Silvae	False	25203	-														
+phi1020.phi003	core	Statius, P. Papinius (Publius Papinius)	Achilleis	True	7207	-														
+phi1035.phi001	core	Valerius Flaccus, Gaius	Argonautica	True	37234	-														
+phi1038.phi001	core	Valerius Maximus	Facta et Dicta Memorabilia	False	80292	-														
+phi1056.phi001	core	Vitruvius Pollio	On Architecture	False	57907	A	phi1056.phi001.perseus-eng2.xml	1914	pre-1931	True	with_line	book/chapter/section	731	0	0	0	0.9986		122	1.6
+phi1103.phi001	core				3463	-														
+phi1212.phi001	borderline	Apuleius	Apologia	False	22153	-														
+phi1212.phi002	borderline	Apuleius	Metamorphoses	False	53360	C	phi1212.phi002.perseus-eng1.xml	1915	pre-1931	False	with_line	book/chapter	0	351	0	0		8354	8031.0	1.74
+phi1212.phi003	borderline	Apuleius	Florida	False	8055	-														
+phi1242.phi001	core	Florus, Lucius Annaeus	Epitome Rerum Romanorum	False	26595	-														
+phi1254.phi001	borderline	Gellius, Aulus	Noctes Atticae	False	118359	D	phi1254.phi001.perseus-eng1.xml	1927	pre-1931	False	with_line	book/chapter/section	264	0	0	3699	0.0833		145	1.5
+phi1276.phi001	core	Juvenal	Saturae	True	25093	-														
+phi1294.phi002	core	Martial	Epigrammata	True	58364	-														
+phi1318.phi001	core	Pliny, the Younger	Epistulae	False	67116	-														
+phi1345.phi001	core	Silius Italicus, Tiberius Catius	Punica	True	76676	-														
+phi1348.abo011	core	Suetonius	Divus Julius	False	9797	A	phi1348.abo011.rolfe-eng1.xml	1914	pre-1931	True	with_line	chapter/section	187	0	0	0	1.0		89	1.76
+phi1348.abo012	core	Suetonius	Divus Augustus	False	13915	B	phi1348.abo012.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	234	0	8		222	222.5	1.98
+phi1348.abo013	core	Suetonius	Tiberius	False	9338	B	phi1348.abo013.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	158	0	0		201.5	202	2.19
+phi1348.abo014	core	Suetonius	Caligula	False	7781	B	phi1348.abo014.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	137	0	0		211.0	214	1.97
+phi1348.abo015	core	Suetonius	Divus Claudius	False	6583	B	phi1348.abo015.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	111	0	0		226.0	231	1.9
+phi1348.abo016	core	Suetonius	Nero	False	7966	B	phi1348.abo016.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	134	0	1		253.5	256	2.11
+phi1348.abo017	core	Suetonius	Galba	False	2874	B	phi1348.abo017.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	49	0	0		218	232.5	2.0
+phi1348.abo018	core	Suetonius	Otho	False	1671	B	phi1348.abo018.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	28	0	0		268.5	253	2.03
+phi1348.abo019	core	Suetonius	Vitellius	False	2411	B	phi1348.abo019.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	41	0	0		216.0	216	2.02
+phi1348.abo020	core	Suetonius	Divus Vespasianus	False	3229	B	phi1348.abo020.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	57	0	0		176	178.0	2.14
+phi1348.abo021	core	Suetonius	Divus Titus	False	1493	B	phi1348.abo021.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	26	0	0		209	233.0	2.06
+phi1348.abo022	core	Suetonius	Domitianus	False	3596	B	phi1348.abo022.perseus-eng2.xml	1883	pre-1931	False	with_line	chapter/section	0	61	0	0		318	321.5	2.09
+phi1351.phi001	core	Tacitus, Cornelius	Agricola	False	6737	B	phi1351.phi001.perseus-eng4.xml	1877	pre-1931	True	with_line	chapter/section	0	213	0	0		260.0	260.0	1.81
+phi1351.phi002	core	Tacitus, Cornelius	Germania	False	5513	B	phi1351.phi002.perseus-eng2.xml	1877	pre-1931	True	with_line	chapter/section	0	187	0	0		211.0	211.0	1.75
+phi1351.phi004	core	Tacitus, Cornelius	Historiae	False	51431	A	phi1351.phi004.perseus-eng2.xml	1864	pre-1931	True	with_line	book/chapter	389	0	0	0	1.0		243	1.92
+stoa0255.stoa004	core			False	6189	-														
+stoa0255.stoa006	core			False	6772	-														
+stoa0255.stoa007	core			False	8437	-														
+stoa0255.stoa008	core			False	5676	-														
+stoa0255.stoa009	core			False	5298	-														
+stoa0255.stoa010	core			False	22321	-														
+stoa0255.stoa011	core			False	1967	-														
+stoa0255.stoa012	core			False	4111	-														
+stoa0255.stoa013	core			False	7562	-														
+stoa0255.stoa014	core			False	7272	-														

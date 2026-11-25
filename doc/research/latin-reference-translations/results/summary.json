@@ -1,0 +1,204 @@
+{
+ "works": 209,
+ "by_class": {
+  "core": 205,
+  "borderline": 4
+ },
+ "all": {
+  "works": 209,
+  "words": 4343861,
+  "prose": {
+   "works": 141,
+   "by_tier_works": {
+    "-": 69,
+    "A": 44,
+    "B": 17,
+    "C": 9,
+    "D": 2
+   },
+   "by_tier_words": {
+    "-": 1075247,
+    "A": 1266868,
+    "B": 451773,
+    "C": 350989,
+    "D": 121370
+   }
+  },
+  "verse": {
+   "works": 68,
+   "by_tier_works": {
+    "-": 27,
+    "A": 3,
+    "B": 1,
+    "C": 37
+   },
+   "by_tier_words": {
+    "-": 470534,
+    "A": 26417,
+    "B": 6966,
+    "C": 573697
+   }
+  }
+ },
+ "core": {
+  "works": 205,
+  "words": 4141934,
+  "prose": {
+   "works": 137,
+   "by_tier_works": {
+    "-": 67,
+    "A": 44,
+    "B": 17,
+    "C": 8,
+    "D": 1
+   },
+   "by_tier_words": {
+    "-": 1045039,
+    "A": 1266868,
+    "B": 451773,
+    "C": 297629,
+    "D": 3011
+   }
+  },
+  "verse": {
+   "works": 68,
+   "by_tier_works": {
+    "-": 27,
+    "A": 3,
+    "B": 1,
+    "C": 37
+   },
+   "by_tier_words": {
+    "-": 470534,
+    "A": 26417,
+    "B": 6966,
+    "C": 573697
+   }
+  }
+ },
+ "by_author": {
+  "Apuleius": {
+   "-": 2,
+   "C": 1
+  },
+  "Catullus, C. Valerius": {
+   "A": 1
+  },
+  "Celsus, Aulus Cornelius": {
+   "A": 1
+  },
+  "Cicero, Marcus Tullius": {
+   "A": 36,
+   "C": 6,
+   "-": 16,
+   "B": 1
+  },
+  "Columella, Lucius Junius Moderatus": {
+   "C": 1
+  },
+  "Curtius Rufus, Quintus": {
+   "-": 1
+  },
+  "Florus, Lucius Annaeus": {
+   "-": 1
+  },
+  "Gellius, Aulus": {
+   "D": 1
+  },
+  "Horace": {
+   "A": 1,
+   "-": 4,
+   "C": 1
+  },
+  "Julius Caesar": {
+   "B": 2
+  },
+  "Juvenal": {
+   "-": 1
+  },
+  "Lucan": {
+   "C": 1
+  },
+  "Lucretius": {
+   "C": 1
+  },
+  "Martial": {
+   "-": 1
+  },
+  "Nepos, Cornelius": {
+   "-": 25
+  },
+  "null": {
+   "-": 13,
+   "A": 1,
+   "C": 1
+  },
+  "Ovid": {
+   "C": 6,
+   "-": 4
+  },
+  "P. Vergilius Maro (Virgil)": {
+   "C": 3
+  },
+  "Plautus, Titus Maccius": {
+   "C": 19,
+   "B": 1
+  },
+  "Pliny, the Younger": {
+   "-": 1
+  },
+  "Propertius, Sextus": {
+   "-": 1
+  },
+  "Quintilian": {
+   "B": 1
+  },
+  "Quintus Tullius Cicero": {
+   "-": 1
+  },
+  "Sallust": {
+   "A": 2,
+   "-": 1
+  },
+  "Seneca the Elder": {
+   "-": 4
+  },
+  "Seneca, Lucius Annaeus": {
+   "-": 13,
+   "D": 1
+  },
+  "Silius Italicus, Tiberius Catius": {
+   "-": 1
+  },
+  "Statius, P. Papinius (Publius Papinius)": {
+   "-": 3
+  },
+  "Suetonius": {
+   "A": 1,
+   "B": 11
+  },
+  "Tacitus, Cornelius": {
+   "B": 2,
+   "A": 1
+  },
+  "Terence": {
+   "C": 6
+  },
+  "Tibullus": {
+   "-": 1,
+   "A": 1
+  },
+  "Titus Livius (Livy)": {
+   "A": 1
+  },
+  "Valerius Flaccus, Gaius": {
+   "-": 1
+  },
+  "Valerius Maximus": {
+   "-": 1
+  },
+  "Vitruvius Pollio": {
+   "A": 1
+  }
+ }
+}
