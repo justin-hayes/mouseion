@@ -223,12 +223,17 @@ func (i *Index) Lookup(ctx context.Context, request enrichment.LexicalLookupRequ
 // the in-memory key index; every other language uses the stored-normalized
 // entries query, unchanged.
 func (i *Index) matchEntries(ctx context.Context, language, lemma, targetWord, upos string) (exactSenses, weakSenses []enrichment.LexicalSense, morphology lookupMorphology, foundExact bool, err error) {
-	if cardpolicy.For(language).DictionaryLookup == cardpolicy.LookupExactlyOne {
+	switch cardpolicy.For(language).DictionaryLookup {
+	case cardpolicy.LookupExactlyOne:
 		if !i.greekAvailable {
 			return nil, nil, lookupMorphology{}, false, nil
 		}
 		exact, weak, found := i.ancientGreekRows(lemma, upos)
 		return exact, weak, lookupMorphology{}, found, nil
+	case cardpolicy.LookupEveryEntry:
+		// Lewis & Short entries are frozen whole through LookupLatinLS; they
+		// carry no generic lexical senses, and the Greek index is never read.
+		return nil, nil, lookupMorphology{}, false, nil
 	}
 	return lookupEntryRows(ctx, i.db, language, lemma, targetWord, upos, i.hStatusAvailable)
 }
@@ -423,7 +428,8 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 	if language == "" || lemma == "" || upos == "" {
 		return false, nil
 	}
-	if cardpolicy.For(language).DictionaryLookup == cardpolicy.LookupExactlyOne {
+	switch cardpolicy.For(language).DictionaryLookup {
+	case cardpolicy.LookupExactlyOne:
 		if !i.greekAvailable {
 			return false, nil
 		}
@@ -433,6 +439,10 @@ func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (
 			}
 		}
 		return false, nil
+	case cardpolicy.LookupEveryEntry:
+		// Any Lewis & Short entry under the lemma's key counts; the part of
+		// speech is not matched.
+		return i.lsAvailable && len(i.lsEntries[lemma]) > 0, nil
 	}
 	if language == frenchLanguage && !i.frenchFormsAvailable {
 		return false, ErrFrenchFormsUnavailable
