@@ -32,7 +32,7 @@ func (LatinProfile) Canonical(value string) string {
 	var out strings.Builder
 	out.Grow(len(decomposed))
 	for _, r := range decomposed {
-		if unicode.Is(unicode.Mn, r) {
+		if unicode.IsMark(r) {
 			continue
 		}
 		switch r = unicode.ToLower(r); r {

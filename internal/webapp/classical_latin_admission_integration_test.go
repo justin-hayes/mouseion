@@ -49,6 +49,7 @@ const latinAdmissionConllu = `# absolute_id = 0
 8	militibus	miles	n	_	Case=b|Gender=m|Number=p	7	ADV	_	t_8
 9	que	que	c	_	_	2	COORD	_	t_9
 10	.	.	u	_	_	2	AuxK	_	t_10
+11	nugae	nug2ae3	n	_	Case=n|Gender=f|Number=p	2	SBJ	_	t_11
 
 `
 
@@ -56,7 +57,7 @@ func latinAdmissionPaula() string {
 	var layer strings.Builder
 	layer.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>` + "\n" +
 		`<paula version="1.1"><header paula_id="synthetic"/><featList xmlns:xlink="http://www.w3.org/1999/xlink" type="cts" xml:base="x.tok01.xml">` + "\n")
-	for index := 1; index <= 10; index++ {
+	for index := 1; index <= 11; index++ {
 		fmt.Fprintf(&layer, `<feat id="u_%d" xlink:href="#t_%d" value="1.1"/>`+"\n", index, index)
 	}
 	layer.WriteString("</featList></paula>\n")
@@ -141,6 +142,7 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 	require.Equal(t, http.StatusOK, study.Code, study.Body.String())
 	assert.Contains(t, study.Body.String(), "λόγον")
 	assert.Contains(t, study.Body.String(), "M.")
+	assert.Contains(t, study.Body.String(), "nugae", "a lemma with a digit left after the strip stays in the text")
 
 	// Browse lists only admitted identities, keyed by the latin/1 profile:
 	// no abbreviation, no Greek-script lemma, no enclitic, no cum (ADP and

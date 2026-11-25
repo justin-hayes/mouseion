@@ -29,6 +29,7 @@ func TestLatinStripsMacronsAndIsStable(t *testing.T) {
 	assert.Equal(t, "amaui", profile.Canonical("amāvī"))
 	assert.Equal(t, "amaui", profile.Canonical("amāvī"), "decomposed input")
 	assert.Equal(t, "amaui", profile.Canonical("ĂMĀVĪ"))
+	assert.Equal(t, "a", profile.Canonical("a\u20DD"), "enclosing marks are stripped too")
 	key := profile.Canonical("Vīdī")
 	assert.Equal(t, key, profile.Canonical(key))
 }
