@@ -58,10 +58,7 @@ func reconcileCatalogueIndex(ctx context.Context, tx pgx.Tx, owner, connectionID
 	}
 	// Cover bookkeeping is optional metadata (ADR 0077): it runs in a savepoint
 	// so its failure is logged and never rolls back or fails the index.
-	covers, coversErr := newCatalogCoverReconciler(ctx, tx, owner, connectionID)
-	if coversErr != nil {
-		log.Printf("catalog entry covers: %v", coversErr)
-	}
+	covers := newCatalogCoverReconciler(tx, owner, connectionID)
 	for _, entry := range entries {
 		if err := q.UpsertCatalogueEntry(ctx, sqlcgen.UpsertCatalogueEntryParams{
 			ConnectionID:    connectionID,
@@ -82,10 +79,8 @@ func reconcileCatalogueIndex(ctx context.Context, tx pgx.Tx, owner, connectionID
 	}); err != nil {
 		return err
 	}
-	if coversErr == nil {
-		if err := covers.reconcile(ctx, entries, observedAt); err != nil {
-			log.Printf("catalog entry covers: %v", err)
-		}
+	if err := covers.reconcile(ctx, entries, observedAt); err != nil {
+		log.Printf("catalog entry covers: %v", err)
 	}
 	return nil
 }

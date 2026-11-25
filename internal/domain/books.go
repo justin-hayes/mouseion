@@ -115,6 +115,12 @@ type CatalogEntryCoverResource struct {
 	Width, Height          int
 }
 
+// CatalogEntryKey identifies one Catalog entry of one owner's connection (ADR
+// 0044): the key of its retained cover.
+type CatalogEntryKey struct {
+	OwnerID, ConnectionID, EntryIdentifier string
+}
+
 // CatalogEntryCoverRetrieval is the owner-scoped state the entry retrieval
 // worker reloads before it fetches anything.
 type CatalogEntryCoverRetrieval struct {

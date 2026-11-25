@@ -4,6 +4,7 @@ package persistence
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -37,12 +38,7 @@ func migrateThroughCatalogEntryCovers(databaseURL string) (err error) {
 	}
 	defer func() {
 		sourceErr, databaseErr := m.Close()
-		if err == nil {
-			err = sourceErr
-		}
-		if err == nil {
-			err = databaseErr
-		}
+		err = errors.Join(err, sourceErr, databaseErr)
 	}()
 	return m.Migrate(catalogEntryCoversMigration)
 }
@@ -135,8 +131,9 @@ func TestBookCoverContractRefusesToDropImagesWithNoSelectedEntry(t *testing.T) {
 	require.NoError(t, err)
 	err = migrator.Migrate(bookCoversContractMigration)
 	sourceErr, databaseErr := migrator.Close()
-	require.NoError(t, sourceErr)
-	require.NoError(t, databaseErr)
+	if closeErr := errors.Join(sourceErr, databaseErr); closeErr != nil {
+		t.Errorf("close migrator: %v", closeErr)
+	}
 	require.Error(t, err)
 	var remaining int
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_covers WHERE state = 'available'`).Scan(&remaining))

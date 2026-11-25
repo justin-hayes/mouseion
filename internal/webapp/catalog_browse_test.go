@@ -51,12 +51,22 @@ func TestCatalogEmptyStateChoosesOneDistinctReason(t *testing.T) {
 }
 
 func TestCatalogPagingAndSummaryHelpers(t *testing.T) {
-	assert.Equal(t, 1, catalogPageCount(0))
-	assert.Equal(t, 1, catalogPageCount(12))
-	assert.Equal(t, 2, catalogPageCount(13))
-	assert.Equal(t, "1 result from 1 source.", catalogResultSummary(1, 1))
-	assert.Equal(t, "4 results from 1 source.", catalogResultSummary(4, 1))
-	assert.Equal(t, "4 results from 2 sources.", catalogResultSummary(4, 2))
-	assert.Equal(t, "1 entry", catalogCountLabel(1, "entry", "entries"))
-	assert.Equal(t, "3 entries", catalogCountLabel(3, "entry", "entries"))
+	t.Run("an empty result still has one page", func(t *testing.T) {
+		require.Equal(t, 1, catalogPageCount(0))
+	})
+	t.Run("a full page is one page", func(t *testing.T) {
+		require.Equal(t, 1, catalogPageCount(12))
+	})
+	t.Run("one past a page adds a page", func(t *testing.T) {
+		require.Equal(t, 2, catalogPageCount(13))
+	})
+	t.Run("summary pluralizes results and sources", func(t *testing.T) {
+		require.Equal(t, "1 result from 1 source.", catalogResultSummary(1, 1))
+		require.Equal(t, "4 results from 1 source.", catalogResultSummary(4, 1))
+		require.Equal(t, "4 results from 2 sources.", catalogResultSummary(4, 2))
+	})
+	t.Run("count label pluralizes", func(t *testing.T) {
+		require.Equal(t, "1 entry", catalogCountLabel(1, "entry", "entries"))
+		require.Equal(t, "3 entries", catalogCountLabel(3, "entry", "entries"))
+	})
 }

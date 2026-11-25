@@ -208,10 +208,10 @@ type blockingEntryCoverStore struct {
 	releaseSave chan struct{}
 }
 
-func (s *blockingEntryCoverStore) SaveCatalogEntryCover(ctx context.Context, owner, connectionID, entryIdentifier string, advertisedAt time.Time, mediaType string, width, height int, contentHash string, bytes []byte) error {
+func (s *blockingEntryCoverStore) SaveCatalogEntryCover(ctx context.Context, key domain.CatalogEntryKey, advertisedAt time.Time, mediaType string, width, height int, contentHash string, bytes []byte) error {
 	close(s.saveStarted)
 	<-s.releaseSave
-	return s.entryCoverStore.SaveCatalogEntryCover(ctx, owner, connectionID, entryIdentifier, advertisedAt, mediaType, width, height, contentHash, bytes)
+	return s.entryCoverStore.SaveCatalogEntryCover(ctx, key, advertisedAt, mediaType, width, height, contentHash, bytes)
 }
 
 func newCoverFixture(t *testing.T) *coverFixture {
@@ -336,10 +336,10 @@ func TestCatalogueSyncBookCoverResolvesThroughRetainedEntryCover(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, retained, entryCover.Bytes, "the Book and the Catalog card share one image")
 
-	// An unchanged, already-retained advertisement is not fetched again: ADR
-	// 0077 requires no refetch of an image whose advertised URL did not change.
+	// An already-retained advertisement is refetched on each sync, so an image
+	// replaced at the same URL is picked up (ADR 0077 refresh).
 	require.NoError(t, f.sync(f.connection.ID))
-	assert.Len(t, f.pendingEntryCoverArgs(), 1, "unchanged retained cover was scheduled again")
+	assert.Len(t, f.pendingEntryCoverArgs(), 2, "retained cover was not scheduled for refresh")
 }
 
 func TestCatalogueSyncOversizedCalibreWebJPEGPreservesColorAndReplacesRetainedBlackRaster(t *testing.T) {

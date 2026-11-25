@@ -55,9 +55,11 @@ chosen language is not listed in My Books.
   aliases remain fallbacks rather than competing display images. There is no
   Catalog priority in this feature: an atomic first-success selection resolves
   concurrent initial retrievals, and later completion cannot displace the winner.
-- A successful refresh of the selected Catalog entry may replace its image. The
-  prior validated image remains visible until the replacement has been fetched
-  and validated, then the replacement is swapped in atomically.
+- A successful refresh of the selected Catalog entry may replace its image. Each
+  successful complete sync refetches every entry's advertised image, including
+  one whose link is unchanged, so an image replaced at the same URL is picked
+  up. The prior validated image remains visible until the replacement has been
+  fetched and validated, then the replacement is swapped in atomically.
 - If a successful complete reconciliation finds the selected Catalog entry but
   it contains no recognized cover-image link, that is explicit absence: Mouseion
   removes the selected image and another alias may supply a fallback. A missing
@@ -112,9 +114,10 @@ section records the shape settled under ADR 0038 before any SQL.
   separate data-only backfill from `book_covers` (000065: idempotent, fetches
   nothing), then contract (000066: `book_covers` shrinks to the pointer,
   `book_cover_candidates` is dropped, the foreign key is added; it refuses to
-  run if an available per-Book image has no selected entry), shipped in one
+  run if an available per-Book image has no selected entry, or a selection has
+  no entry row), shipped in one
   deploy. Covers of Books still waiting at upgrade are retrieved at the next
-  Catalog sync; the retired per-Book retrieval jobs are not run.
+  Catalog sync; queued retired per-Book retrieval jobs are discarded by a separate data-only migration (000067).
 - **Catalog cards.** The OPDS Catalog card shows the retained image through an
   owner-scoped endpoint, or the Title plate while none is retained. The upstream
   image URL never reaches the browser.

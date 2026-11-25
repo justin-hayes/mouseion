@@ -113,7 +113,7 @@ type CatalogsStore interface {
 // CatalogEntryCoverStore reads one retained Catalog entry image for its owner.
 // Anything but an available image is ErrNotFound.
 type CatalogEntryCoverStore interface {
-	GetCatalogEntryCoverResource(context.Context, string, string, string) (domain.CatalogEntryCoverResource, error)
+	GetCatalogEntryCoverResource(context.Context, domain.CatalogEntryKey) (domain.CatalogEntryCoverResource, error)
 }
 
 // CatalogueAddStore creates or restores the Book for one indexed Catalog entry

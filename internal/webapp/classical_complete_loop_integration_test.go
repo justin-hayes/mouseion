@@ -121,7 +121,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Zero(t, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE queue='analysis'`), "classical preparation never delays EPUB analysis")
 
 	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/synthetic-whole-1/add", url.Values{
-		"csrf_token": {csrf}, "return": {"index"},
+		"csrf_token": {csrf}, "return": {"index"}, "catalog_language": {"grc"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
 	assert.Contains(t, whole.Header().Get("Location"), "/catalogs?language=grc&")
@@ -213,7 +213,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		unit, content := h.sourceMaterial(t, learner.ID, id)
 		assert.Contains(t, []string{h.unitOneKey, h.unitTwoKey}, unit, "the source identifier is the Reading-unit key")
 		assert.Less(t, len(content), len(h.layer.source), "the whole work file is never stored per Book")
-		assert.NotEmpty(t, h.preparedDefinitionRunID(t, learner.ID, id))
+		assert.NotEmpty(t, h.waitForPreparedDefinition(t, learner.ID, id))
 	}
 	assert.Equal(t, int64(1), h.sourceServed(), "the retried failures reused one stored work file")
 
@@ -755,6 +755,24 @@ func (h *classicalLoopHarness) preparedDefinitionRunID(t *testing.T, owner, book
 	require.NoError(t, h.pool.QueryRow(h.ctx,
 		`SELECT analysis_run_id::text FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`,
 		owner, bookID).Scan(&runID))
+	return runID
+}
+
+// waitForPreparedDefinition waits for the prepared-definition row that a
+// preparation records after it publishes the analysis, then returns its run. The
+// analysis being current does not imply this row exists yet.
+func (h *classicalLoopHarness) waitForPreparedDefinition(t *testing.T, owner, bookID string) string {
+	t.Helper()
+	var runID string
+	testutil.Eventually(t, 60*time.Second, "prepared definition recorded", func() (bool, string) {
+		err := h.pool.QueryRow(h.ctx,
+			`SELECT analysis_run_id::text FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`,
+			owner, bookID).Scan(&runID)
+		if err != nil {
+			return false, err.Error()
+		}
+		return true, ""
+	})
 	return runID
 }
 

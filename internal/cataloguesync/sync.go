@@ -125,9 +125,9 @@ type CatalogueStore interface {
 type entryCoverStore interface {
 	CatalogueStore
 	CatalogEntryCoverGeneration(context.Context, string, string, time.Time) ([]string, error)
-	GetCatalogEntryCoverForRetrieval(context.Context, string, string, string) (domain.CatalogEntryCoverRetrieval, error)
-	SaveCatalogEntryCover(context.Context, string, string, string, time.Time, string, int, int, string, []byte) error
-	MarkCatalogEntryCoverUnavailable(context.Context, string, string, string, time.Time, string) error
+	GetCatalogEntryCoverForRetrieval(context.Context, domain.CatalogEntryKey) (domain.CatalogEntryCoverRetrieval, error)
+	SaveCatalogEntryCover(context.Context, domain.CatalogEntryKey, time.Time, string, int, int, string, []byte) error
+	MarkCatalogEntryCoverUnavailable(context.Context, domain.CatalogEntryKey, time.Time, string) error
 }
 
 // CatalogueSyncStatusStore contains the durable sync status operations.
@@ -857,6 +857,11 @@ type Worker struct {
 // EntryCoverWorker retrieves one Catalog entry's cover (ADR 0130). It reloads
 // the entry from the Catalog index and fetches through the owner's connection,
 // so the job never carries a URL or credentials.
+// entryKey is the Catalog entry a cover retrieval job is for.
+func entryKey(args EntryCoverArgs) domain.CatalogEntryKey {
+	return domain.CatalogEntryKey{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, EntryIdentifier: args.SourceIdentifier}
+}
+
 type EntryCoverWorker struct {
 	river.WorkerDefaults[EntryCoverArgs]
 	Connections ConnectionStore
@@ -872,7 +877,7 @@ func (w *EntryCoverWorker) Work(ctx context.Context, job *river.Job[EntryCoverAr
 	if strings.TrimSpace(args.OwnerID) == "" || strings.TrimSpace(args.ConnectionID) == "" || strings.TrimSpace(args.SourceIdentifier) == "" {
 		return nil
 	}
-	current, err := w.Catalogue.GetCatalogEntryCoverForRetrieval(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier)
+	current, err := w.Catalogue.GetCatalogEntryCoverForRetrieval(ctx, entryKey(args))
 	if errors.Is(err, persistence.ErrNotFound) {
 		return nil
 	}
@@ -902,13 +907,13 @@ func (w *EntryCoverWorker) Work(ctx context.Context, job *river.Job[EntryCoverAr
 	if err != nil {
 		return w.failEntryCover(ctx, args)
 	}
-	return w.Catalogue.SaveCatalogEntryCover(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
+	return w.Catalogue.SaveCatalogEntryCover(ctx, entryKey(args), args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
 }
 
 // failEntryCover keeps any retained image, records the failure for operators,
 // and returns an error so River retries. It never surfaces URLs or credentials.
 func (w *EntryCoverWorker) failEntryCover(ctx context.Context, args EntryCoverArgs) error {
-	if err := w.Catalogue.MarkCatalogEntryCoverUnavailable(context.WithoutCancel(ctx), args.OwnerID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, "cover retrieval or validation failed"); err != nil {
+	if err := w.Catalogue.MarkCatalogEntryCoverUnavailable(context.WithoutCancel(ctx), entryKey(args), args.AdvertisedAt, "cover retrieval or validation failed"); err != nil {
 		return err
 	}
 	return errors.New("catalog entry cover retrieval or validation failed")

@@ -90,7 +90,7 @@ func TestClassicalPreviouslyReadRecordsAReadBookWithoutPreparing(t *testing.T) {
 
 	read := perform(t, h, http.MethodPost, "/catalogs/classical/units/homer-iliad/previously-read", url.Values{
 		"csrf_token": {csrf},
-		"return":     {"index"},
+		"return":     {"index"}, "catalog_language": {"grc"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, read.Code, read.Body.String())
 	location, err := url.Parse(read.Header().Get("Location"))

@@ -110,13 +110,13 @@ func (s *Store) SeedCatalogEntryCover(owner, connectionID, entryIdentifier strin
 }
 
 // GetCatalogEntryCoverResource serves a seeded entry cover to its owner.
-func (s *Store) GetCatalogEntryCoverResource(_ context.Context, owner, connectionID, entryIdentifier string) (domain.CatalogEntryCoverResource, error) {
+func (s *Store) GetCatalogEntryCoverResource(_ context.Context, key domain.CatalogEntryKey) (domain.CatalogEntryCoverResource, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if err := s.getOpdsConnectionLocked(owner, connectionID); err != nil {
+	if err := s.getOpdsConnectionLocked(key.OwnerID, key.ConnectionID); err != nil {
 		return domain.CatalogEntryCoverResource{}, domain.ErrNotFound
 	}
-	resource, ok := s.entryCovers[connectionID+"\x00"+entryIdentifier]
+	resource, ok := s.entryCovers[key.ConnectionID+"\x00"+key.EntryIdentifier]
 	if !ok {
 		return domain.CatalogEntryCoverResource{}, domain.ErrNotFound
 	}

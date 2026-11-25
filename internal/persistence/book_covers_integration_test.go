@@ -59,7 +59,7 @@ func (f *coverStoreFixture) reconcile(connectionID string, entries ...coverEntry
 
 func (f *coverStoreFixture) save(connectionID, entryID string, generation time.Time, body string) {
 	f.t.Helper()
-	require.NoError(f.t, f.store.SaveCatalogEntryCover(f.ctx, f.owner, connectionID, entryID, generation, "image/png", 4, 6, "hash-"+body, []byte(body)))
+	require.NoError(f.t, f.store.SaveCatalogEntryCover(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: connectionID, EntryIdentifier: entryID}, generation, "image/png", 4, 6, "hash-"+body, []byte(body)))
 }
 
 // book adds the Book for an indexed entry through the production Add path.
@@ -138,7 +138,7 @@ func TestBookCoverFirstSuccessSelectsAndStaysStable(t *testing.T) {
 
 	// A failed refresh keeps the retained image.
 	failing := f.reconcile(second.ID, coverEntry{"entry-2", "https://second.example/2-v3.png"})
-	require.NoError(t, f.store.MarkCatalogEntryCoverUnavailable(f.ctx, f.owner, second.ID, "entry-2", failing, "fetch failed"))
+	require.NoError(t, f.store.MarkCatalogEntryCoverUnavailable(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: second.ID, EntryIdentifier: "entry-2"}, failing, "fetch failed"))
 	assert.Equal(t, domain.BookCoverAvailable, f.state(bookID))
 	assert.Equal(t, "replacement-image", f.bytes(bookID))
 }
@@ -151,7 +151,7 @@ func TestBookCoverStateIsDerivedFromEntryRows(t *testing.T) {
 
 	assert.Equal(t, domain.BookCoverPending, f.state(covered))
 	assert.Equal(t, domain.BookCoverNone, f.state(bare))
-	require.NoError(t, f.store.MarkCatalogEntryCoverUnavailable(f.ctx, f.owner, conn.ID, "with-cover", gen, "fetch failed"))
+	require.NoError(t, f.store.MarkCatalogEntryCoverUnavailable(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: conn.ID, EntryIdentifier: "with-cover"}, gen, "fetch failed"))
 	assert.Equal(t, domain.BookCoverUnavailable, f.state(covered))
 	f.save(conn.ID, "with-cover", gen, "late-image")
 	assert.Equal(t, domain.BookCoverAvailable, f.state(covered), "a retried success replaces the failure")
@@ -179,7 +179,7 @@ func TestBookCoverConcurrentFirstSuccessChoosesOneEntry(t *testing.T) {
 		generation        time.Time
 	}{{first.ID, "entry-1", genFirst}, {second.ID, "entry-2", genSecond}} {
 		wg.Go(func() {
-			errs <- f.store.SaveCatalogEntryCover(f.ctx, f.owner, candidate.connection, candidate.entry, candidate.generation, "image/png", 4, 6, "hash-"+candidate.entry, []byte("image-"+candidate.entry))
+			errs <- f.store.SaveCatalogEntryCover(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: candidate.connection, EntryIdentifier: candidate.entry}, candidate.generation, "image/png", 4, 6, "hash-"+candidate.entry, []byte("image-"+candidate.entry))
 		})
 	}
 	wg.Wait()
@@ -228,7 +228,7 @@ func TestBookCoverSurvivesEntryLeavingIndexUnusedOneDoesNot(t *testing.T) {
 	f.reconcile(conn.ID)
 	assert.Equal(t, "used-image", f.bytes(used))
 	assert.Equal(t, 1, f.entryRows())
-	_, err := f.store.GetCatalogEntryCoverResource(f.ctx, f.owner, conn.ID, "unused")
+	_, err := f.store.GetCatalogEntryCoverResource(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: conn.ID, EntryIdentifier: "unused"})
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -249,7 +249,7 @@ func TestBookCoverConnectionDeletionKeepsUsedCoversOnly(t *testing.T) {
 	assert.Equal(t, "used-image", f.bytes(used), "a cover a Book uses survives its connection")
 	assert.Equal(t, 2, f.entryRows(), "only the unused cover was removed")
 	assert.Equal(t, domain.BookCoverUnavailable, f.state(waiting), "a retrieval that can never run is unavailable")
-	_, err = f.store.GetCatalogEntryCoverResource(f.ctx, f.owner, conn.ID, "unused")
+	_, err = f.store.GetCatalogEntryCoverResource(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: conn.ID, EntryIdentifier: "unused"})
 	require.ErrorIs(t, err, ErrNotFound)
 }
 
@@ -280,6 +280,6 @@ func TestSaveCatalogEntryCoverPropagatesSelectionFailure(t *testing.T) {
 	f.book(conn.ID, "entry-1")
 	raiseOnWrite(t, f.ctx, f.store, "book_covers", "INSERT", "")
 
-	err := f.store.SaveCatalogEntryCover(f.ctx, f.owner, conn.ID, "entry-1", gen, "image/png", 4, 6, "hash", []byte("image"))
+	err := f.store.SaveCatalogEntryCover(f.ctx, domain.CatalogEntryKey{OwnerID: f.owner, ConnectionID: conn.ID, EntryIdentifier: "entry-1"}, gen, "image/png", 4, 6, "hash", []byte("image"))
 	require.Error(t, err)
 }

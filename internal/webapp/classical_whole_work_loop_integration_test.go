@@ -92,7 +92,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	h.waitForBookAnalysis(t, learner.ID, book)
 	assert.Equal(t, int64(1), h.sourceServed())
 	assert.Equal(t, 1, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue))
-	assert.NotEmpty(t, h.preparedDefinitionRunID(t, learner.ID, book))
+	assert.NotEmpty(t, h.waitForPreparedDefinition(t, learner.ID, book))
 
 	// The chooser lists the Work as one ordinary entry.
 	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)

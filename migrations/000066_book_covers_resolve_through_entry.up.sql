@@ -7,7 +7,9 @@
 --
 -- Recovery: the file runs as one transaction, so a failure (including the guard
 -- below) leaves the schema unchanged, but golang-migrate marks the version
--- dirty: fix the data, run `migrate force 65`, and re-run. After a successful
+-- dirty: fix the data, run `migrate force 64` (so 000065, which is idempotent,
+-- replays and copies any selection a repair changed), then migrate up again.
+-- After a successful
 -- run the per-Book bytes and book_cover_candidates are gone; the only recovery
 -- is a database backup taken before this deploy (take one first), because the
 -- images now live only in catalog_entry_covers (copied by 000065). Pending
@@ -22,6 +24,18 @@ BEGIN
           AND (selected_connection_id IS NULL OR btrim(COALESCE(selected_source_identifier, '')) = '')
     ) THEN
         RAISE EXCEPTION 'book_covers holds available images with no selected Catalog entry; they cannot move to catalog_entry_covers';
+    END IF;
+    -- Per-selection completion signal of 000065: every selection has its entry row.
+    IF EXISTS (
+        SELECT 1 FROM public.book_covers bc
+        WHERE bc.selected_connection_id IS NOT NULL
+          AND btrim(COALESCE(bc.selected_source_identifier, '')) <> ''
+          AND NOT EXISTS (
+              SELECT 1 FROM public.catalog_entry_covers c
+              WHERE c.owner_id = bc.owner_id AND c.connection_id = bc.selected_connection_id
+                AND c.entry_identifier = bc.selected_source_identifier)
+    ) THEN
+        RAISE EXCEPTION 'a book_covers selection has no catalog_entry_covers row; 000065 did not copy it';
     END IF;
 END $$;
 

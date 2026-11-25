@@ -40,12 +40,12 @@ func TestBookCoverEndpointRequiresActiveMyBooksMembership(t *testing.T) {
 	added, err := store.AddCatalogueEntry(ctx, alice.ID, connection.ID, "cover-entry")
 	require.NoError(t, err)
 	book := added.Book
-	require.NoError(t, store.SaveCatalogEntryCover(ctx, alice.ID, connection.ID, "cover-entry", generation, "image/png", 1, 1, "cover-v1", []byte("cover bytes")))
+	require.NoError(t, store.SaveCatalogEntryCover(ctx, domain.CatalogEntryKey{OwnerID: alice.ID, ConnectionID: connection.ID, EntryIdentifier: "cover-entry"}, generation, "image/png", 1, 1, "cover-v1", []byte("cover bytes")))
 
 	addedUnavailable, err := store.AddCatalogueEntry(ctx, alice.ID, connection.ID, "unavailable-entry")
 	require.NoError(t, err)
 	unavailable := addedUnavailable.Book
-	require.NoError(t, store.MarkCatalogEntryCoverUnavailable(ctx, alice.ID, connection.ID, "unavailable-entry", generation, "fetch failed"))
+	require.NoError(t, store.MarkCatalogEntryCoverUnavailable(ctx, domain.CatalogEntryKey{OwnerID: alice.ID, ConnectionID: connection.ID, EntryIdentifier: "unavailable-entry"}, generation, "fetch failed"))
 
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
