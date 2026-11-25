@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -51,10 +52,33 @@ func translationXML(n int) []byte {
 // a spot check, as an admitted Work carries.
 func (f latinFixture) withTranslation(t *testing.T, sections int) latinFixture {
 	t.Helper()
-	data := translationXML(sections)
+	return f.withTranslationData(t, translationXML(sections), "1.1", "1.2")
+}
+
+// booksTranslationXML is a perseus-eng2-shaped file with the given sections
+// under each book number.
+func booksTranslationXML(books map[int][]int) []byte {
+	var out strings.Builder
+	out.WriteString(`<TEI>`)
+	for _, book := range slices.Sorted(maps.Keys(books)) {
+		fmt.Fprintf(&out, `<div type="textpart" subtype="book" n="%d">`, book)
+		for _, section := range books[book] {
+			fmt.Fprintf(&out, `<div type="textpart" subtype="section" n="%d"><p>Segment %d.%d.</p></div>`, section, book, section)
+		}
+		out.WriteString(`</div>`)
+	}
+	out.WriteString(`</TEI>`)
+	return []byte(out.String())
+}
+
+// withTranslationData pins the given translation file and records a spot check
+// of the pairs.
+func (f latinFixture) withTranslationData(t *testing.T, data []byte, pairs ...string) latinFixture {
+	t.Helper()
 	require.NoError(t, os.WriteFile(filepath.Join(f.upstream, latinTranslationFile), data, 0o600))
 	layers, err := classical.ParseLayers(f.layers)
 	require.NoError(t, err)
+	layers.Layers = slices.DeleteFunc(layers.Layers, func(layer classical.Layer) bool { return layer.Key == "perseus-eng" })
 	layers.Layers = append(layers.Layers, classical.Layer{
 		Key: "perseus-eng", Release: "fixture-1", BaseURL: "https://example.test/translation/",
 		LicenceClass: classical.LicenceClassSourceContent, Restriction: classical.RestrictionShareAlike, DeployerRegisterRow: "synthetic translation",
@@ -63,7 +87,7 @@ func (f latinFixture) withTranslation(t *testing.T, sections int) latinFixture {
 	f.layers, err = json.Marshal(layers)
 	require.NoError(t, err)
 	f.override.Translation = &classical.TranslationSpec{Layer: "perseus-eng", FileName: latinTranslationFile}
-	f.override.SpotCheck = &classical.SpotCheck{Reviewer: "Justin", Pairs: []string{"1.1", "1.2"}}
+	f.override.SpotCheck = &classical.SpotCheck{Reviewer: "Justin", Pairs: pairs}
 	return f
 }
 
@@ -295,4 +319,44 @@ func TestANestedZipThatIsNotStoredIsRefused(t *testing.T) {
 	result := generate(t, fixture.options(t, nil))
 	assert.Empty(t, result.Definitions)
 	assert.Contains(t, result.Notes, "is not stored")
+}
+
+func TestALatinWorkWithoutATranslationFailsGateIII(t *testing.T) {
+	fixture := newLatinFixture(t, citedSentences(5)...)
+	fixture.override.Translation, fixture.override.SpotCheck = nil, nil
+	refused := generate(t, fixture.options(t, nil))
+	assert.Empty(t, refused.Definitions)
+	assert.Contains(t, refused.GateReport(), "translation-join: FAIL (the Work declares no translation")
+
+	// Out of scope is not a reviewer's call: a note does not clear it.
+	fixture.override.ReviewerNote = "Read in full."
+	assert.Empty(t, generate(t, fixture.options(t, nil)).Definitions)
+}
+
+func TestATranslationWithGapsIsMeasuredNotRefused(t *testing.T) {
+	// Section 3 of ten is missing from the translation: nine of ten sentences
+	// resolve, which fails the floor but is a measured, clearable failure.
+	sections := []int{1, 2, 4, 5, 6, 7, 8, 9, 10}
+	fixture := newLatinFixture(t, citedSentences(10)...)
+	fixture = fixture.withTranslationData(t, booksTranslationXML(map[int][]int{1: sections}), "1.1", "1.2")
+	refused := generate(t, fixture.options(t, nil))
+	assert.Empty(t, refused.Definitions)
+	assert.Contains(t, refused.GateReport(), "translation-join: FAIL (9 of 10 sentences, 90.000%, floor 98.000%)")
+
+	fixture.override.ReviewerNote = "Read in full; the translator skipped one section."
+	cleared := generate(t, fixture.options(t, nil))
+	require.Len(t, cleared.Definitions, 1)
+	assert.NotNil(t, cleared.Definitions[0].Translation)
+	assert.Contains(t, cleared.GateReport(), "cleared by reviewer note")
+}
+
+func TestATranslationKeyedAboveTheSourceIsMeasuredAtItsOwnDepth(t *testing.T) {
+	// Book-level segments against section Citations: every sentence's Citation
+	// is contained by its book segment, so the join rate is 100%.
+	data := []byte(`<TEI><div type="textpart" subtype="book" n="1"><p>Whole book one.</p></div></TEI>`)
+	fixture := newLatinFixture(t, citedSentences(5)...)
+	fixture = fixture.withTranslationData(t, data, "1.1", "1.2")
+	result := generate(t, fixture.options(t, nil))
+	require.Len(t, result.Definitions, 1)
+	assert.Contains(t, result.GateReport(), "translation-join: pass (5 of 5 sentences, 100.000%")
 }
