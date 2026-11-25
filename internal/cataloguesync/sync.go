@@ -27,7 +27,6 @@ import (
 const (
 	Queue                 = "catalogue_sync"
 	Kind                  = "catalogue_sync"
-	CoverKind             = "book_cover"
 	EntryCoverKind        = "catalog_entry_cover"
 	DefaultCadence        = 24 * time.Hour
 	defaultMaxAttempts    = 3
@@ -63,25 +62,9 @@ type SyncArgs struct {
 	ConnectionID string `json:"connection_id" river:"unique"`
 }
 
-// CoverArgs deliberately carries no URL, credential, or image data. The
-// worker reloads all mutable catalog state before it fetches anything. The
-// source identifier is the owner-scoped Catalog entry identity, not a URL.
-// AdvertisedAt fences completion against a newer pending source generation.
-type CoverArgs struct {
-	OwnerID          string    `json:"owner_id" river:"unique"`
-	BookID           string    `json:"book_id" river:"unique"`
-	ConnectionID     string    `json:"connection_id" river:"unique"`
-	SourceIdentifier string    `json:"source_identifier" river:"unique"`
-	AdvertisedAt     time.Time `json:"advertised_at" river:"unique"`
-}
-
-func (CoverArgs) Kind() string { return CoverKind }
-
 // EntryCoverArgs is the entry-keyed retrieval job (ADR 0130): it names a
 // Catalog entry, never a Book, a URL, or credentials. AdvertisedAt fences the
-// completion against a newer retrieval generation. Book-keyed CoverArgs jobs
-// already queued drain through their own worker until the per-Book store is
-// retired.
+// completion against a newer retrieval generation.
 type EntryCoverArgs struct {
 	OwnerID          string    `json:"owner_id" river:"unique"`
 	ConnectionID     string    `json:"connection_id" river:"unique"`
@@ -136,14 +119,6 @@ type CatalogueStore interface {
 	UpdateCatalogueBookMetadata(context.Context, string, string, string, string, string) (persistence.CatalogueBookMetadataResult, error)
 	ReconcileCatalogueIndex(context.Context, string, string, []domain.CatalogueIndexEntry, time.Time) error
 	GetCatalogueEntry(context.Context, string, string, string) (domain.CatalogueIndexEntry, error)
-}
-
-type coverStore interface {
-	CatalogueStore
-	RecordBookCoverAdvertisement(context.Context, string, string, string, string, bool) (bool, time.Time, error)
-	SaveBookCover(context.Context, string, string, string, string, time.Time, string, int, int, string, []byte) error
-	MarkBookCoverUnavailable(context.Context, string, string, string, string, time.Time, string) error
-	GetBookCoverForRetrieval(context.Context, string, string) (domain.BookCoverRetrieval, error)
 }
 
 // entryCoverStore is the entry-keyed retained cover store (ADR 0130).
@@ -231,31 +206,6 @@ func (s *Service) Enqueue(ctx context.Context, owner, connectionID string) (Hand
 	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
 }
 
-// EnqueueCover schedules optional cover retrieval independently of metadata
-// reconciliation. The River payload remains safe to inspect and replay.
-func (s *Service) EnqueueCover(ctx context.Context, owner, bookID, connectionID, sourceIdentifier string, advertisedAt time.Time) (Handle, error) {
-	if s == nil || s.connections == nil || s.client == nil || strings.TrimSpace(owner) == "" || strings.TrimSpace(bookID) == "" || strings.TrimSpace(connectionID) == "" || strings.TrimSpace(sourceIdentifier) == "" {
-		return Handle{}, ErrNotFound
-	}
-	exists, err := s.connections.OpdsConnectionExists(ctx, owner, connectionID)
-	if err != nil {
-		return Handle{}, err
-	}
-	if !exists {
-		return Handle{}, ErrNotFound
-	}
-	inserted, err := s.client.Insert(ctx, CoverArgs{OwnerID: owner, BookID: bookID, ConnectionID: connectionID, SourceIdentifier: sourceIdentifier, AdvertisedAt: advertisedAt}, &river.InsertOpts{
-		Queue: Queue, MaxAttempts: defaultMaxAttempts, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates},
-	})
-	if err != nil {
-		return Handle{}, fmt.Errorf("enqueue book cover retrieval: %w", err)
-	}
-	if inserted == nil || inserted.Job == nil {
-		return Handle{}, errors.New("book cover enqueue returned no River job")
-	}
-	return Handle{ID: inserted.Job.ID, DisplayNumber: inserted.Job.ID}, nil
-}
-
 // EnqueueEntryCover schedules retrieval of one Catalog entry's cover,
 // independently of metadata reconciliation and of any Book.
 func (s *Service) EnqueueEntryCover(ctx context.Context, owner, connectionID, sourceIdentifier string, advertisedAt time.Time) (Handle, error) {
@@ -318,52 +268,6 @@ func (s *Service) UnregisterConnection(owner, connectionID string) error {
 	delete(s.periodicIDs, PeriodicJobID(owner, connectionID))
 	s.client.PeriodicJobs().RemoveByID(PeriodicJobID(owner, connectionID))
 	return nil
-}
-
-// findEntryForConnection reloads the owner-scoped connection and walks its
-// eligible language feeds for the requested Catalog entry. It never trusts a
-// job-supplied URL: the source identifier is resolved against live state.
-func (s *Service) findEntryForConnection(ctx context.Context, owner, connectionID, sourceIdentifier string) (opds.Entry, bool, error) {
-	if _, err := s.connections.GetOpdsConnection(ctx, owner, connectionID); err != nil {
-		return opds.Entry{}, false, err
-	}
-	languages, err := s.reader.Languages(ctx, owner, connectionID)
-	if err != nil {
-		return opds.Entry{}, false, err
-	}
-	scopes, err := s.entryLanguageScopes(ctx, languages)
-	if err != nil {
-		return opds.Entry{}, false, err
-	}
-	for _, scope := range scopes {
-		feed, feedErr := s.reader.BrowseLanguage(ctx, owner, connectionID, scope.languageID)
-		if feedErr != nil {
-			return opds.Entry{}, false, feedErr
-		}
-		for _, entry := range opds.FilterEPUBEntries(feed).Entries {
-			if strings.TrimSpace(entry.ID) == strings.TrimSpace(sourceIdentifier) {
-				return entry, true, nil
-			}
-		}
-	}
-	return opds.Entry{}, false, nil
-}
-
-// entryLanguageScopes mirrors the sync scope: ready non-English capabilities
-// when available, otherwise every advertised language feed.
-func (s *Service) entryLanguageScopes(ctx context.Context, languages opds.Feed) ([]languageScope, error) {
-	if s.capabilities != nil {
-		capabilities, err := s.capabilities.GetCapabilities(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return eligibleLanguages(languages, capabilities), nil
-	}
-	var scopes []languageScope
-	for _, id := range opds.LanguageIDs(languages) {
-		scopes = append(scopes, languageScope{languageID: id})
-	}
-	return scopes, nil
 }
 
 // FindAcquisitionTarget resolves a metadata-only Book's EPUB link from the
@@ -742,12 +646,6 @@ func riverError(pool *pgxpool.Pool, ctx context.Context, id int64, owner string)
 	return value, err
 }
 
-type coverAdvertisement struct {
-	bookID           string
-	sourceIdentifier string
-	advertised       bool
-}
-
 // syncEntry is one EPUB entry a complete traversal observed. Metadata
 // propagation runs after the index is written.
 type syncEntry struct {
@@ -791,22 +689,15 @@ func (s *Service) work(ctx context.Context, args SyncArgs) (int, error) {
 	// transaction; schedule retrieval for the generation this run started.
 	s.scheduleEntryCovers(ctx, args.OwnerID, args.ConnectionID, observedAt)
 	// Metadata follows the index, and only for Books linked to an observed
-	// entry. Only a complete, successful traversal changes retained cover state:
-	// this is the point at which explicit upstream absence is conclusive.
-	updated, advertisements, err := s.reconcileLinkedBooks(ctx, args, result.entries)
-	if err != nil {
-		return updated, err
-	}
-	s.applyCoverAdvertisements(ctx, args.OwnerID, args.ConnectionID, advertisements)
-	return updated, nil
+	// entry.
+	return s.reconcileLinkedBooks(ctx, args, result.entries)
 }
 
 // reconcileLinkedBooks propagates observed entry metadata to Books the learner
 // already chose, collecting the first conflict so the rest of the entries still
 // reconcile. It never creates a Book or touches learner state.
-func (s *Service) reconcileLinkedBooks(ctx context.Context, args SyncArgs, entries []syncEntry) (int, []coverAdvertisement, error) {
+func (s *Service) reconcileLinkedBooks(ctx context.Context, args SyncArgs, entries []syncEntry) (int, error) {
 	var updated int
-	var advertisements []coverAdvertisement
 	var firstConflict error
 	for _, observed := range entries {
 		update, err := s.catalogue.UpdateCatalogueBookMetadata(ctx, args.OwnerID, args.ConnectionID, observed.entry.ID, observed.entry.Title, observed.entry.Author)
@@ -819,14 +710,11 @@ func (s *Service) reconcileLinkedBooks(ctx context.Context, args SyncArgs, entri
 		if update.Updated {
 			updated++
 		}
-		if update.Book.ID != "" {
-			advertisements = append(advertisements, coverAdvertisement{bookID: update.Book.ID, sourceIdentifier: observed.entry.ID, advertised: opds.FindCoverImage(observed.entry) != nil})
-		}
 	}
 	if firstConflict != nil {
-		return updated, advertisements, firstConflict
+		return updated, firstConflict
 	}
-	return updated, advertisements, nil
+	return updated, nil
 }
 
 // loadSyncConnection reloads the owner-scoped connection for a job. A
@@ -937,29 +825,6 @@ func (s *Service) scheduleEntryCovers(ctx context.Context, owner, connectionID s
 	}
 }
 
-// applyCoverAdvertisements records advertised provenance and schedules
-// deduplicated retrieval after reconciliation succeeds. Cover work is optional
-// metadata: a scheduling failure is logged and never fails catalog sync.
-func (s *Service) applyCoverAdvertisements(ctx context.Context, owner, connectionID string, advertisements []coverAdvertisement) {
-	covers, ok := s.catalogue.(coverStore)
-	if !ok {
-		return
-	}
-	for _, advertisement := range advertisements {
-		retrieve, advertisedAt, err := covers.RecordBookCoverAdvertisement(ctx, owner, advertisement.bookID, connectionID, advertisement.sourceIdentifier, advertisement.advertised)
-		if err != nil {
-			log.Printf("record book cover advertisement: %v", err)
-			continue
-		}
-		if !retrieve || s.client == nil {
-			continue
-		}
-		if _, err := s.EnqueueCover(ctx, owner, advertisement.bookID, connectionID, advertisement.sourceIdentifier, advertisedAt); err != nil {
-			log.Printf("schedule book cover retrieval: %v", err)
-		}
-	}
-}
-
 func safeSyncError(err error, connection domain.OpdsConnection) error {
 	if strings.HasPrefix(err.Error(), "catalog entry ") || strings.HasPrefix(err.Error(), "catalog index ") || strings.HasPrefix(err.Error(), "NLP language readiness") || strings.HasPrefix(err.Error(), "catalog connection could not be loaded") || strings.HasPrefix(err.Error(), "authentication failed") || strings.HasPrefix(err.Error(), "catalog returned an unsafe target") || strings.HasPrefix(err.Error(), "could not reach ") {
 		return errors.New(err.Error())
@@ -987,112 +852,6 @@ type Worker struct {
 	Reader       catalogueReader
 	Capabilities analyzer.CapabilityProvider
 	Client       *river.Client[pgx.Tx]
-}
-
-type CoverWorker struct {
-	river.WorkerDefaults[CoverArgs]
-	Connections  ConnectionStore
-	Catalogue    coverStore
-	Reader       coverReader
-	Capabilities analyzer.CapabilityProvider
-}
-
-func (w *CoverWorker) Work(ctx context.Context, job *river.Job[CoverArgs]) error {
-	if w == nil || w.Connections == nil || w.Catalogue == nil || w.Reader == nil || job == nil {
-		return errors.New("book cover worker is unavailable")
-	}
-	args := job.Args
-	if !coverArgsComplete(args) {
-		return nil
-	}
-	eligible, err := w.coverRetrievalEligible(ctx, args)
-	if err != nil {
-		return err
-	}
-	if !eligible {
-		return nil
-	}
-	service := &Service{connections: w.Connections, catalogue: w.Catalogue, reader: w.Reader, capabilities: w.Capabilities}
-	entry, found, err := service.findEntryForConnection(ctx, args.OwnerID, args.ConnectionID, args.SourceIdentifier)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return w.failCoverRetrieval(ctx, args)
-	}
-	links := opds.CoverImages(entry)
-	if len(links) == 0 {
-		// The entry no longer advertises an image; complete reconciliation owns
-		// explicit absence, so leave retained state untouched.
-		return nil
-	}
-	normalized, mediaType, width, height, contentHash, ok := w.normalizeCover(ctx, args, links)
-	if !ok {
-		return w.failCoverRetrieval(ctx, args)
-	}
-	return w.Catalogue.SaveBookCover(ctx, args.OwnerID, args.BookID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, mediaType, width, height, contentHash, normalized)
-}
-
-// coverArgsComplete reports whether a job carries the owner-scoped identity
-// needed to reload mutable catalog state.
-func coverArgsComplete(args CoverArgs) bool {
-	return strings.TrimSpace(args.OwnerID) != "" && strings.TrimSpace(args.BookID) != "" &&
-		strings.TrimSpace(args.ConnectionID) != "" && strings.TrimSpace(args.SourceIdentifier) != ""
-}
-
-// coverRetrievalEligible reloads the cover and alias state and reports whether
-// this job may still attempt retrieval for its source generation.
-func (w *CoverWorker) coverRetrievalEligible(ctx context.Context, args CoverArgs) (bool, error) {
-	cover, err := w.Catalogue.GetBookCoverForRetrieval(ctx, args.OwnerID, args.BookID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	// A validated image is already selected from another source; a later
-	// completion cannot displace the winner.
-	if cover.State == domain.BookCoverAvailable && (cover.SelectedConnectionID != args.ConnectionID || cover.SelectedSourceIdentifier != args.SourceIdentifier) {
-		return false, nil
-	}
-	alias, err := w.Catalogue.GetBookCatalogEntryAliasForConnection(ctx, args.OwnerID, args.BookID, args.ConnectionID)
-	if errors.Is(err, persistence.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	if strings.TrimSpace(alias.Value) != strings.TrimSpace(args.SourceIdentifier) {
-		return false, nil
-	}
-	return true, nil
-}
-
-// normalizeCover fetches advertised images in preference order and returns the
-// first one that normalises, skipping unreachable or invalid candidates.
-func (w *CoverWorker) normalizeCover(ctx context.Context, args CoverArgs, links []opds.Link) ([]byte, string, int, int, string, bool) {
-	for _, link := range links {
-		raw, advertisedType, err := w.Reader.FetchCover(ctx, args.OwnerID, args.ConnectionID, link.Href)
-		if err != nil {
-			continue
-		}
-		normalized, mediaType, width, height, contentHash, err := bookcover.Normalize(raw, link.Type, advertisedType)
-		if err != nil {
-			continue
-		}
-		return normalized, mediaType, width, height, contentHash, true
-	}
-	return nil, "", 0, 0, "", false
-}
-
-// failCoverRetrieval preserves any retained image, records the failure for
-// operators, and returns an error so River retries with existing diagnostics.
-// It deliberately does not surface upstream URLs or credentials.
-func (w *CoverWorker) failCoverRetrieval(ctx context.Context, args CoverArgs) error {
-	if err := w.Catalogue.MarkBookCoverUnavailable(context.WithoutCancel(ctx), args.OwnerID, args.BookID, args.ConnectionID, args.SourceIdentifier, args.AdvertisedAt, "cover retrieval or validation failed"); err != nil {
-		return err
-	}
-	return errors.New("book cover retrieval or validation failed")
 }
 
 // EntryCoverWorker retrieves one Catalog entry's cover (ADR 0130). It reloads
@@ -1186,9 +945,6 @@ func AddWorker(workers *river.Workers, deps StoreDependencies, reader catalogueR
 	worker := &Worker{Connections: deps.Connections, Catalogue: deps.Catalogue, Statuses: deps.Statuses, Reader: reader, Capabilities: capabilities}
 	river.AddWorker(workers, worker)
 	if coverReader, readerOK := reader.(coverReader); readerOK {
-		if covers, storeOK := deps.Catalogue.(coverStore); storeOK {
-			river.AddWorker(workers, &CoverWorker{Connections: deps.Connections, Catalogue: covers, Reader: coverReader, Capabilities: capabilities})
-		}
 		if covers, storeOK := deps.Catalogue.(entryCoverStore); storeOK {
 			river.AddWorker(workers, &EntryCoverWorker{Connections: deps.Connections, Catalogue: covers, Reader: coverReader})
 		}

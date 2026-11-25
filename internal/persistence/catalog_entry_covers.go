@@ -63,6 +63,9 @@ func newCatalogCoverReconciler(ctx context.Context, tx pgx.Tx, owner, connection
 func (r *catalogCoverReconciler) reconcile(ctx context.Context, entries []domain.CatalogueIndexEntry, observedAt time.Time) error {
 	return pgx.BeginFunc(ctx, r.tx, func(sp pgx.Tx) error {
 		q := sqlcgen.New(sp)
+		if err := demoteAbsentBookCovers(ctx, q, r.owner, r.connectionID); err != nil {
+			return err
+		}
 		if _, err := q.DeleteCatalogEntryCoversNotAdvertised(ctx, sqlcgen.DeleteCatalogEntryCoversNotAdvertisedParams{OwnerID: r.owner, ConnectionID: r.connectionID}); err != nil {
 			return err
 		}
@@ -78,6 +81,18 @@ func (r *catalogCoverReconciler) reconcile(ctx context.Context, entries []domain
 		}
 		return r.advertise(ctx, q, entries, settled, observedAt.Truncate(CatalogEntryCoverFence))
 	})
+}
+
+// demoteAbsentBookCovers handles explicit upstream absence (ADR 0077): a Book
+// that selected an entry which is still in the index but advertises no image
+// gives the selection up and falls back to another alias, before the entry's
+// row is deleted (the foreign key forbids the reverse order).
+func demoteAbsentBookCovers(ctx context.Context, q *sqlcgen.Queries, owner, connectionID string) error {
+	books, err := q.DemoteBookCoversForAbsentEntries(ctx, sqlcgen.DemoteBookCoversForAbsentEntriesParams{Owner: owner, Connection: connectionID})
+	if err != nil || len(books) == 0 {
+		return err
+	}
+	return q.SelectFallbackBookCovers(ctx, sqlcgen.SelectFallbackBookCoversParams{Owner: owner, BookIds: books})
 }
 
 // advertise starts a retrieval generation for every entry that advertises an
@@ -128,11 +143,19 @@ func (s *PostgresStore) SaveCatalogEntryCover(ctx context.Context, owner, connec
 	if len(bytes) == 0 || width <= 0 || height <= 0 || mediaType == "" || contentHash == "" {
 		return errors.New("persistence: incomplete normalized catalog entry cover")
 	}
-	_, err := s.queries().SaveCatalogEntryCover(ctx, sqlcgen.SaveCatalogEntryCoverParams{
-		OwnerID: owner, ConnectionID: connectionID, EntryIdentifier: entryIdentifier, AdvertisedAt: advertisedAt,
-		MediaType: textArg(mediaType), Width: int4Arg(width), Height: int4Arg(height), ContentHash: textArg(contentHash), Bytes: bytes,
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		saved, err := q.SaveCatalogEntryCover(ctx, sqlcgen.SaveCatalogEntryCoverParams{
+			OwnerID: owner, ConnectionID: connectionID, EntryIdentifier: entryIdentifier, AdvertisedAt: advertisedAt,
+			MediaType: textArg(mediaType), Width: int4Arg(width), Height: int4Arg(height), ContentHash: textArg(contentHash), Bytes: bytes,
+		})
+		if err != nil || saved == 0 {
+			return err
+		}
+		// First success selects: Books aliasing this entry that have no
+		// available image take it (ADR 0077).
+		return selectBookCoversFromEntry(ctx, q, owner, connectionID, entryIdentifier)
 	})
-	return err
 }
 
 // MarkCatalogEntryCoverUnavailable records a failed retrieval for the current

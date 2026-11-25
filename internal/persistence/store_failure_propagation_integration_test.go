@@ -112,25 +112,6 @@ func TestResolveOrCreateBookForAcquisitionPropagatesPersistenceFailures(t *testi
 	})
 }
 
-// TestRecordBookCoverAdvertisementPropagatesPersistenceFailures drops the
-// connection table so the lock failure reaches the caller.
-func TestRecordBookCoverAdvertisementPropagatesPersistenceFailures(t *testing.T) {
-	ctx := context.Background()
-	url, _ := testutil.Postgres(t, ctx, Migrate)
-	store := openIntegrationStore(t, ctx, url)
-	owner, err := store.CreateUser(ctx, "cover-lookup-failure", false)
-	require.NoError(t, err)
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Cover", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
-	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Cover catalog", URL: "https://cover.example/opds"})
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `DROP TABLE opds_connections CASCADE`)
-	require.NoError(t, err)
-
-	_, _, err = store.RecordBookCoverAdvertisement(ctx, owner.ID, book.ID, connection.ID, "cover-source", true)
-	require.Error(t, err)
-}
-
 // raiseOnWrite installs a trigger that raises for one write statement, so a
 // failure reaches the caller instead of being read as a successful write.
 func raiseOnWrite(t *testing.T, ctx context.Context, store *PostgresStore, table, event, when string) {
@@ -189,61 +170,6 @@ func TestUpdateCatalogueBookMetadataPropagatesPersistenceFailures(t *testing.T) 
 		raiseOnWrite(t, ctx, store, "books", "UPDATE", "")
 
 		_, err = store.UpdateCatalogueBookMetadata(ctx, owner, connection.ID, "entry", "Retitled", "")
-		require.Error(t, err)
-	})
-}
-
-// TestBookCoverAdvertisementPropagatesWriteFailures breaks the cover writes so a
-// failure reaches the caller instead of being read as a settled advertisement.
-func TestBookCoverAdvertisementPropagatesWriteFailures(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("the cover row read fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "cover-read-failure-owner")
-		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Cover", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `DROP TABLE book_covers CASCADE`)
-		require.NoError(t, err)
-
-		_, _, err = store.RecordBookCoverAdvertisement(ctx, owner, book.ID, connection.ID, "cover-source", true)
-		require.Error(t, err)
-	})
-
-	t.Run("the refresh write fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "cover-refresh-failure-owner")
-		connection := addFailureConnection(t, ctx, store, owner, "Failure")
-		reconciled, err := seedCatalogueBook(t, ctx, store, owner, connection.ID, "entry", "Title", "", "de")
-		require.NoError(t, err)
-		_, advertisedAt, err := store.RecordBookCoverAdvertisement(ctx, owner, reconciled.Book.ID, connection.ID, "entry", true)
-		require.NoError(t, err)
-		require.NoError(t, store.SaveBookCover(ctx, owner, reconciled.Book.ID, connection.ID, "entry", advertisedAt, "image/png", 4, 6, "image", []byte("image")))
-		raiseOnWrite(t, ctx, store, "book_covers", "UPDATE", "WHEN (OLD.state = 'available')")
-
-		_, _, err = store.RecordBookCoverAdvertisement(ctx, owner, reconciled.Book.ID, connection.ID, "entry", true)
-		require.Error(t, err)
-	})
-
-	t.Run("the demotion write fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "cover-demote-failure-owner")
-		first := addFailureConnection(t, ctx, store, owner, "First")
-		second := addFailureConnection(t, ctx, store, owner, "Second")
-		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner, first, second, "Demotion", "demote-1", "demote-2")
-		require.NoError(t, store.SaveBookCover(ctx, owner, bookID, first.ID, "demote-1", advertisedAt, "image/png", 4, 6, "image", []byte("image")))
-		raiseOnWrite(t, ctx, store, "book_covers", "UPDATE", "WHEN (NEW.state = 'pending')")
-
-		_, _, err := store.RecordBookCoverAdvertisement(ctx, owner, bookID, first.ID, "demote-1", false)
-		require.Error(t, err)
-	})
-
-	t.Run("the candidate failure write fails", func(t *testing.T) {
-		store, owner := newFailureStore(t, ctx, "cover-candidate-failure-owner")
-		first := addFailureConnection(t, ctx, store, owner, "First")
-		second := addFailureConnection(t, ctx, store, owner, "Second")
-		bookID, advertisedAt := advertiseBookCoverCandidates(t, ctx, store, owner, first, second, "Candidate failure", "fail-1", "fail-2")
-		raiseOnWrite(t, ctx, store, "book_cover_candidates", "UPDATE", "")
-
-		err := store.MarkBookCoverUnavailable(ctx, owner, bookID, second.ID, "fail-2", advertisedAt, "forced failure")
 		require.Error(t, err)
 	})
 }

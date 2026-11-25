@@ -85,22 +85,35 @@ section records the shape settled under ADR 0038 before any SQL.
   index loses its cover in the same transaction as index reconciliation, and
   deleting a connection removes the covers of its entries that no Book uses.
   Ownership is enforced by an `owner_id` predicate on every read.
-- **Book reference.** A Book's selected cover is the existing
-  `book_covers (owner_id, selected_connection_id, selected_source_identifier)`
-  pair pointing at an entry row. A later migration adds a composite foreign key
-  once existing rows are backfilled.
+- **Book reference.** `book_covers (owner_id, book_id)` is only the Book's
+  selection pointer: `selected_connection_id` and `selected_source_identifier`
+  name an entry row through a composite foreign key, and the table holds no
+  image, state, or diagnostics. A Book without a selection has no row. The
+  first alias whose image becomes available selects it (written in the same
+  transaction as the image, and when a Book is added for an entry whose image is
+  already retained), and a selection whose entry has no image yet gives way to
+  an available one. A Book's presentation state is derived: the selected
+  entry's state, or, while nothing is selected, `pending` while an alias entry
+  is pending, `unavailable` when its alias entries all failed, and `none`
+  otherwise (the `book_cover_states` view, which `my_books_evidence` joins).
 - **Retrieval.** Every index entry that advertises a cover is retrieved
   independently of Books, by a job keyed by owner, connection, entry, and
   `advertised_at`. A completion whose `advertised_at` no longer matches the row
   is dropped. The previous image stays until a replacement validates. Explicit
   absence in a complete sync removes the row.
+- **Lifecycle.** An entry cover a Book selects survives its entry leaving the
+  index and its connection being deleted; covers no Book selects are removed
+  with either. A retrieval still pending when its connection is deleted becomes
+  `unavailable`. When a selected entry explicitly stops advertising a cover, in
+  one transaction the Book's selection is demoted to another alias with an
+  available image (or removed) and then the entry row is deleted.
 - **Migration sequence.** Expand (`catalog_entry_covers`, structural only), a
-  separate data-only backfill from `book_covers`, then contract (drop the
-  per-Book bytes and `book_cover_candidates`, add the foreign key), shipped in
-  one deploy. Covers of Books still waiting at upgrade are retrieved at the
-  next Catalog sync. When a Book's selected entry explicitly stops advertising a
-  cover, the Book's selection is demoted to another alias before the entry row
-  is deleted, in one transaction.
+  separate data-only backfill from `book_covers` (000065: idempotent, fetches
+  nothing), then contract (000066: `book_covers` shrinks to the pointer,
+  `book_cover_candidates` is dropped, the foreign key is added; it refuses to
+  run if an available per-Book image has no selected entry), shipped in one
+  deploy. Covers of Books still waiting at upgrade are retrieved at the next
+  Catalog sync; the retired per-Book retrieval jobs are not run.
 - **Catalog cards.** The OPDS Catalog card shows the retained image through an
   owner-scoped endpoint, or the Title plate while none is retained. The upstream
   image URL never reaches the browser.

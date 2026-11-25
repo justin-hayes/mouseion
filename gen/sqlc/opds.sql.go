@@ -64,21 +64,6 @@ func (q *Queries) CreateOpdsConnection(ctx context.Context, arg CreateOpdsConnec
 	return i, err
 }
 
-const deleteBookCoverCandidatesForConnection = `-- name: DeleteBookCoverCandidatesForConnection :exec
-DELETE FROM book_cover_candidates
-WHERE owner_id = $1 AND connection_id = $2
-`
-
-type DeleteBookCoverCandidatesForConnectionParams struct {
-	OwnerID      string
-	ConnectionID string
-}
-
-func (q *Queries) DeleteBookCoverCandidatesForConnection(ctx context.Context, arg DeleteBookCoverCandidatesForConnectionParams) error {
-	_, err := q.db.Exec(ctx, deleteBookCoverCandidatesForConnection, arg.OwnerID, arg.ConnectionID)
-	return err
-}
-
 const deleteOpdsConnection = `-- name: DeleteOpdsConnection :execrows
 DELETE FROM opds_connections WHERE owner_id = $1 AND id = $2
 `
@@ -211,47 +196,6 @@ func (q *Queries) ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) 
 	return items, nil
 }
 
-const lockBookCoversForConnection = `-- name: LockBookCoversForConnection :many
-SELECT cover.owner_id::text, cover.book_id::text
-FROM book_covers AS cover
-JOIN book_cover_candidates AS candidate
-  ON candidate.owner_id = cover.owner_id AND candidate.book_id = cover.book_id
-WHERE candidate.owner_id = $1
-  AND candidate.connection_id = $2
-ORDER BY cover.owner_id, cover.book_id
-FOR UPDATE OF cover
-`
-
-type LockBookCoversForConnectionParams struct {
-	OwnerID      string
-	ConnectionID string
-}
-
-type LockBookCoversForConnectionRow struct {
-	CoverOwnerID string
-	CoverBookID  string
-}
-
-func (q *Queries) LockBookCoversForConnection(ctx context.Context, arg LockBookCoversForConnectionParams) ([]LockBookCoversForConnectionRow, error) {
-	rows, err := q.db.Query(ctx, lockBookCoversForConnection, arg.OwnerID, arg.ConnectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []LockBookCoversForConnectionRow{}
-	for rows.Next() {
-		var i LockBookCoversForConnectionRow
-		if err := rows.Scan(&i.CoverOwnerID, &i.CoverBookID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const lockOpdsConnection = `-- name: LockOpdsConnection :one
 SELECT id::text
 FROM opds_connections
@@ -285,34 +229,6 @@ func (q *Queries) OpdsConnectionExists(ctx context.Context, arg OpdsConnectionEx
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
-}
-
-const resolveBookCoverAfterConnectionDeletion = `-- name: ResolveBookCoverAfterConnectionDeletion :exec
-UPDATE book_covers AS cover
-SET state = 'unavailable',
-    media_type = NULL,
-    width = NULL,
-    height = NULL,
-    content_hash = NULL,
-    bytes = NULL,
-    fetched_at = NULL,
-    failure_reason = 'cover retrieval source was deleted',
-    updated_at = now()
-WHERE cover.owner_id = $1
-  AND cover.state = 'pending'
-  AND NOT EXISTS (
-      SELECT 1
-      FROM book_cover_candidates AS candidate
-      WHERE candidate.owner_id = cover.owner_id
-        AND candidate.book_id = cover.book_id
-        AND candidate.advertised_at = cover.advertised_at
-        AND candidate.state = 'pending'
-  )
-`
-
-func (q *Queries) ResolveBookCoverAfterConnectionDeletion(ctx context.Context, ownerID string) error {
-	_, err := q.db.Exec(ctx, resolveBookCoverAfterConnectionDeletion, ownerID)
-	return err
 }
 
 const updateOpdsConnection = `-- name: UpdateOpdsConnection :one

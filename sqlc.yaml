@@ -59,6 +59,14 @@ sql:
             go_type: "int"
           - column: "my_books_evidence.book_cover_height"
             go_type: "int"
+          # book_cover_states derives each column through a LEFT JOIN and a
+          # correlated subquery; pin the concrete values it always produces.
+          - column: "book_cover_states.state"
+            go_type: "string"
+          - column: "book_cover_states.width"
+            go_type: "int"
+          - column: "book_cover_states.height"
+            go_type: "int"
           # source_created_at is passed through the LEFT JOIN without
           # COALESCE, so the column is nullable at runtime even though the
           # base table is NOT NULL; keep pointer semantics.

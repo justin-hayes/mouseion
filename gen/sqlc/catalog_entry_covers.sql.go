@@ -41,21 +41,6 @@ func (q *Queries) AdvertiseCatalogEntryCover(ctx context.Context, arg AdvertiseC
 	return err
 }
 
-const deleteCatalogEntryCoversForConnection = `-- name: DeleteCatalogEntryCoversForConnection :exec
-DELETE FROM catalog_entry_covers
-WHERE owner_id = $1 AND connection_id = $2
-`
-
-type DeleteCatalogEntryCoversForConnectionParams struct {
-	OwnerID      string
-	ConnectionID string
-}
-
-func (q *Queries) DeleteCatalogEntryCoversForConnection(ctx context.Context, arg DeleteCatalogEntryCoversForConnectionParams) error {
-	_, err := q.db.Exec(ctx, deleteCatalogEntryCoversForConnection, arg.OwnerID, arg.ConnectionID)
-	return err
-}
-
 const deleteCatalogEntryCoversNotAdvertised = `-- name: DeleteCatalogEntryCoversNotAdvertised :execrows
 DELETE FROM catalog_entry_covers AS cover
 WHERE cover.owner_id = $1
@@ -67,6 +52,13 @@ WHERE cover.owner_id = $1
         AND e.entry_identifier = cover.entry_identifier
         AND e.cover_href <> ''
   )
+  AND NOT EXISTS (
+      SELECT 1
+      FROM book_covers AS bc
+      WHERE bc.owner_id = cover.owner_id
+        AND bc.selected_connection_id = cover.connection_id
+        AND bc.selected_source_identifier = cover.entry_identifier
+  )
 `
 
 type DeleteCatalogEntryCoversNotAdvertisedParams struct {
@@ -75,13 +67,39 @@ type DeleteCatalogEntryCoversNotAdvertisedParams struct {
 }
 
 // Removes the covers of entries that left the index or no longer advertise an
-// image. Only a complete run reaches this (explicit absence).
+// image, except one a Book still selects: a Book keeps the image of an entry
+// that left the index (ADR 0077). An entry that explicitly stopped advertising
+// one has already had its Books demoted.
 func (q *Queries) DeleteCatalogEntryCoversNotAdvertised(ctx context.Context, arg DeleteCatalogEntryCoversNotAdvertisedParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteCatalogEntryCoversNotAdvertised, arg.OwnerID, arg.ConnectionID)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteUnusedCatalogEntryCoversForConnection = `-- name: DeleteUnusedCatalogEntryCoversForConnection :exec
+DELETE FROM catalog_entry_covers AS cover
+WHERE cover.owner_id = $1
+  AND cover.connection_id = $2
+  AND NOT EXISTS (
+      SELECT 1
+      FROM book_covers AS bc
+      WHERE bc.owner_id = cover.owner_id
+        AND bc.selected_connection_id = cover.connection_id
+        AND bc.selected_source_identifier = cover.entry_identifier
+  )
+`
+
+type DeleteUnusedCatalogEntryCoversForConnectionParams struct {
+	OwnerID      string
+	ConnectionID string
+}
+
+// A deleted connection takes the covers no Book selects; a selected image stays.
+func (q *Queries) DeleteUnusedCatalogEntryCoversForConnection(ctx context.Context, arg DeleteUnusedCatalogEntryCoversForConnectionParams) error {
+	_, err := q.db.Exec(ctx, deleteUnusedCatalogEntryCoversForConnection, arg.OwnerID, arg.ConnectionID)
+	return err
 }
 
 const getCatalogEntryCoverForRetrieval = `-- name: GetCatalogEntryCoverForRetrieval :one
@@ -302,4 +320,26 @@ func (q *Queries) SaveCatalogEntryCover(ctx context.Context, arg SaveCatalogEntr
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const settlePendingCatalogEntryCoversForConnection = `-- name: SettlePendingCatalogEntryCoversForConnection :exec
+UPDATE catalog_entry_covers
+SET state = 'unavailable',
+    failure_reason = 'cover retrieval source was deleted',
+    updated_at = now()
+WHERE owner_id = $1
+  AND connection_id = $2
+  AND state = 'pending'
+`
+
+type SettlePendingCatalogEntryCoversForConnectionParams struct {
+	OwnerID      string
+	ConnectionID string
+}
+
+// A retrieval that can never run again, because its connection is gone, is
+// unavailable rather than pending forever.
+func (q *Queries) SettlePendingCatalogEntryCoversForConnection(ctx context.Context, arg SettlePendingCatalogEntryCoversForConnectionParams) error {
+	_, err := q.db.Exec(ctx, settlePendingCatalogEntryCoversForConnection, arg.OwnerID, arg.ConnectionID)
+	return err
 }

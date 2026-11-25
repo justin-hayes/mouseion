@@ -122,17 +122,6 @@ type CatalogEntryCoverRetrieval struct {
 	AdvertisedAt time.Time
 }
 
-// BookCoverRetrieval is the owner-scoped cover state read by the retrieval
-// worker before it fetches anything. It names the selected Catalog entry so the
-// worker can reload the current entry without persisting URLs or credentials.
-type BookCoverRetrieval struct {
-	State                    string
-	SelectedConnectionID     string
-	SelectedSourceIdentifier string
-	FailureReason            string
-	AdvertisedAt             time.Time
-}
-
 // MyBook is the complete learner-facing My Books read model. Acquired is nil
 // for metadata-only membership; when present it contains only the current
 // owner-scoped acquired source and its derived analysis state.
