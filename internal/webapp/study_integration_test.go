@@ -6,6 +6,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -97,7 +100,7 @@ func newStudyHarness(t *testing.T) *studyHarness {
 	h := New(Services{
 		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
 		Analysis: analysis.NewService(store.Pool(), nil), Capabilities: readyGerman(),
-		Study: study.NewService(store, client), Clock: clock.Func(), SessionLifetime: time.Hour,
+		Study: study.NewService(store, client), StudyScheduler: study.NewScheduler(), Clock: clock.Func(), SessionLifetime: time.Hour,
 	})
 	owner := createAccount(t, ctx, store, "study-learner", "study-password")
 	cookies, _ := loginCookies(t, h, owner.Username, "study-password")
@@ -232,4 +235,168 @@ func TestStudyIsNotAvailableForLatinAndAncientGreek(t *testing.T) {
 	}
 	assert.Empty(t, s.lemmasByReservation(), "no preparation is enqueued for a language without Study")
 	assert.Zero(t, s.provider.Calls())
+}
+
+// prepared seeds a Book with two words, opens the page so their material is
+// enqueued and waits until both are ready.
+func (s *studyHarness) prepared() {
+	s.t.Helper()
+	s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
+	require.Equal(s.t, http.StatusOK, getAs(s.t, s.h, "/de/study", s.cookies).Code)
+	require.NoError(s.t, s.client.Start(s.ctx))
+	testutil.StopOnCleanup(s.t, "study River client", s.client.Stop)
+	testutil.Eventually(s.t, 60*time.Second, "material to settle", func() (bool, string) {
+		return s.counts().Preparing == 0, "preparing words remain"
+	})
+}
+
+func (s *studyHarness) post(path string, form url.Values) *httptest.ResponseRecorder {
+	s.t.Helper()
+	form.Set("csrf_token", s.cookies[0].Value)
+	return perform(s.t, s.h, http.MethodPost, path, form, s.cookies)
+}
+
+func (s *studyHarness) progress() []domain.StudyProgress {
+	s.t.Helper()
+	progress, err := s.store.ListStudyProgress(s.ctx, s.owner.ID, "de")
+	require.NoError(s.t, err)
+	return progress
+}
+
+func (s *studyHarness) reviewLog(progressID string) []domain.StudyReviewLog {
+	s.t.Helper()
+	logs, err := s.store.ListStudyReviewLog(s.ctx, s.owner.ID, progressID)
+	require.NoError(s.t, err)
+	return logs
+}
+
+func TestStudyDecliningABatchIntroducesNoWord(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+
+	page := getAs(t, s.h, "/de/study", s.cookies).Body.String()
+	assert.Contains(t, page, "new words are ready to learn.")
+	assert.Contains(t, page, "Take these words")
+
+	response := s.post("/study/batches/decline", url.Values{"language": {"de"}})
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/de/study", response.Header().Get("Location"))
+	assert.Empty(t, s.progress(), "declining introduces none")
+	page = getAs(t, s.h, "/de/study", s.cookies).Body.String()
+	assert.NotContains(t, page, "Take these words", "the batch is answered for the day")
+	assert.Contains(t, page, "Nothing to study right now.")
+
+	// Taking is refused for the rest of the day, but a new Study day offers again.
+	s.post("/study/batches/take", url.Values{"language": {"de"}})
+	assert.Empty(t, s.progress())
+	s.clock.Advance(24 * time.Hour)
+	assert.Contains(t, getAs(t, s.h, "/de/study", s.cookies).Body.String(), "Take these words")
+}
+
+func TestStudyTakingABatchIntroducesWordsAndGradesThemOnTheCard(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	taken := s.clock.Now()
+
+	response := s.post("/study/batches/take", url.Values{"language": {"de"}})
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	progress := s.progress()
+	require.Len(t, progress, 2, "taking the batch introduces its words")
+	for _, word := range progress {
+		assert.Equal(t, "the "+word.CanonicalLemma+" (gloss)", word.LearnedMeaning, "the Gloss shown on introduction is the learned meaning")
+		assert.True(t, taken.Equal(word.IntroducedAt))
+		assert.Equal(t, domain.StudyStateNew, word.Memory.State)
+	}
+	// Taking again on the same day introduces nothing more.
+	s.post("/study/batches/take", url.Values{"language": {"de"}})
+	assert.Len(t, s.progress(), 2)
+
+	// The card shows the sentence with the word marked, and the answer only
+	// after Show answer.
+	page := getAs(t, s.h, "/de/study", s.cookies).Body.String()
+	assert.Contains(t, page, "Show answer")
+	assert.Contains(t, page, `<mark class="study-card__target">`)
+	assert.NotContains(t, page, "(gloss)", "the answer stays hidden until it is asked for")
+	assert.NotContains(t, page, `value="got-it"`)
+	page = getAs(t, s.h, "/de/study?answer=1", s.cookies).Body.String()
+	assert.Contains(t, page, "(gloss)")
+	assert.Contains(t, page, `id="study-translation"`)
+	assert.Contains(t, page, `id="study-headword"`)
+	assert.Contains(t, page, `value="got-it"`)
+	assert.Contains(t, page, `value="again"`)
+	assert.NotContains(t, page, `value="hard"`)
+
+	first := s.currentCard()
+	// Got it on first sight: due at the start of the next Study day.
+	grade := func(card domain.StudyProgress, grade string) *httptest.ResponseRecorder {
+		return s.post("/study/grades", url.Values{"language": {"de"}, "progress": {card.ID}, "reps": {strconv.FormatInt(card.Memory.Reps, 10)}, "grade": {grade}})
+	}
+	require.Equal(t, http.StatusSeeOther, grade(first, "got-it").Code)
+	after := s.progressByID(first.ID)
+	assert.Equal(t, domain.StudyStateReview, after.Memory.State)
+	assert.True(t, domain.NextStudyDayStart(taken).Equal(after.Memory.Due), "Got it on first sight is due the next Study day: %v", after.Memory.Due)
+	logs := s.reviewLog(first.ID)
+	require.Len(t, logs, 1)
+	assert.Equal(t, domain.StudyGradeGotIt, logs[0].Grade)
+	assert.Equal(t, domain.StudyStateNew, logs[0].Before.State)
+	assert.Equal(t, domain.StudyStateReview, logs[0].After.State)
+	assert.Equal(t, domain.StudyDay(taken), logs[0].StudyDay)
+
+	// A repeated tap on the same card grades it once.
+	grade(first, "got-it")
+	grade(first, "again")
+	assert.Len(t, s.reviewLog(first.ID), 1)
+
+	// Again on the other word repeats it the same day.
+	second := s.currentCard()
+	require.NotEqual(t, first.ID, second.ID)
+	require.Equal(t, http.StatusSeeOther, grade(second, "again").Code)
+	repeated := s.progressByID(second.ID)
+	assert.Equal(t, domain.StudyStateLearning, repeated.Memory.State)
+	assert.True(t, repeated.Memory.Due.After(taken))
+	assert.True(t, repeated.Memory.Due.Before(domain.NextStudyDayStart(taken)), "Again repeats the word the same Study day")
+	page = getAs(t, s.h, "/de/study", s.cookies).Body.String()
+	assert.Contains(t, page, "1 word comes back later today.")
+	assert.NotContains(t, page, "Show answer")
+
+	s.clock.Advance(5 * time.Minute)
+	assert.Equal(t, second.ID, s.currentCard().ID, "the word comes back once its repeat is due")
+	require.Equal(t, http.StatusSeeOther, grade(s.currentCard(), "got-it").Code)
+	assert.Len(t, s.reviewLog(second.ID), 2, "every grade writes a review-log row")
+	assert.True(t, domain.NextStudyDayStart(taken).Equal(s.progressByID(second.ID).Memory.Due))
+	assert.Contains(t, getAs(t, s.h, "/de/study", s.cookies).Body.String(), "Nothing to study right now.")
+}
+
+func (s *studyHarness) progressByID(id string) domain.StudyProgress {
+	s.t.Helper()
+	for _, item := range s.progress() {
+		if item.ID == id {
+			return item
+		}
+	}
+	s.t.Fatalf("no study progress %s", id)
+	return domain.StudyProgress{}
+}
+
+// currentCard is the word the Study page would show now.
+func (s *studyHarness) currentCard() domain.StudyProgress {
+	s.t.Helper()
+	card, err := s.store.NextStudyCard(s.ctx, s.owner.ID, "de", s.clock.Now())
+	require.NoError(s.t, err)
+	return card.Progress
+}
+
+func TestStudyActionsAreProtected(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+
+	forged := perform(t, s.h, http.MethodPost, "/study/batches/take", url.Values{"csrf_token": {"forged"}, "language": {"de"}}, s.cookies)
+	assert.Equal(t, http.StatusForbidden, forged.Code)
+	assert.Empty(t, s.progress())
+	anonymous := perform(t, s.h, http.MethodPost, "/study/batches/take", url.Values{"language": {"de"}}, nil)
+	assert.NotEqual(t, http.StatusOK, anonymous.Code, "a signed-out request is refused")
+	assert.Empty(t, s.progress())
+	assert.Equal(t, http.StatusNotFound, s.post("/study/batches/take", url.Values{"language": {"la"}}).Code, "Study is not available for Latin")
+	assert.Equal(t, http.StatusBadRequest, s.post("/study/grades", url.Values{"language": {"de"}, "progress": {"x"}, "reps": {"0"}, "grade": {"hard"}}).Code, "Study has two grades")
+	assert.Empty(t, s.progress())
 }

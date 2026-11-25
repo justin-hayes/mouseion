@@ -246,8 +246,12 @@ type Services struct {
 	PreparedDeck     PreparedDeck
 	// Study enqueues Study material preparation. It may be nil, in which case
 	// the Study page only reports what is ready.
-	Study        Study
-	Capabilities analyzer.CapabilityProvider
+	Study Study
+	// StudyScheduler computes a word's next state when a Study card is graded.
+	// It is required for grading; the FSRS adapter in internal/study is the
+	// implementation.
+	StudyScheduler domain.StudyScheduler
+	Capabilities   analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service
@@ -323,6 +327,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.perLanguage(pageKindReading, h.reading)
 	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
 	h.perLanguage(pageKindStudy, h.study)
+	h.mux.Handle("POST /study/batches/take", h.user(http.HandlerFunc(h.takeStudyBatch)))
+	h.mux.Handle("POST /study/batches/decline", h.user(http.HandlerFunc(h.declineStudyBatch)))
+	h.mux.Handle("POST /study/grades", h.user(http.HandlerFunc(h.gradeStudyCard)))
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))

@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
+	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -35,6 +36,14 @@ func main() {
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
 	store.SeedWithdrawnClassicalBooks()
+	// The Books present one German word; Study's browser journey needs a batch
+	// of several, so seed more.
+	for i, lemma := range []string{"haus", "hund"} {
+		store.SeedStudyCandidate(fixtures.OwnerID, domain.StudyCandidate{
+			Language: "de", CanonicalLemma: lemma, UPOS: "NOUN",
+			PersonalOccurrences: int64(10 - i),
+		})
+	}
 	classicalCatalog, err := fixtures.NewClassicalCatalog()
 	if err != nil {
 		log.Fatalf("initialize fixture Classical catalog: %v", err)
@@ -67,7 +76,7 @@ func main() {
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtureOPDS,
 		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.ClassicalInsights{},
-		PreparedDeck: preparedDeck, Study: fixtures.Study{Store: store}, Capabilities: fixtures.Capabilities{},
+		PreparedDeck: preparedDeck, Study: fixtures.Study{Store: store}, StudyScheduler: study.NewScheduler(), Capabilities: fixtures.Capabilities{},
 		ClassicalPreparation: fixtures.ClassicalPreparation{}, ReadingIntent: readingIntent,
 		Classical:     classicalCatalog,
 		CatalogueSync: catalogueSync, LemmaReview: lemmaReview,
