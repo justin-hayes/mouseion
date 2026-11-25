@@ -238,3 +238,30 @@ func TestStudyProgressIsUnchangedByTheReadingLifecycle(t *testing.T) {
 	assert.Equal(t, before, s.progress(), "finishing a Book takes none of its words out of study and changes no due time")
 	assert.Equal(t, today, s.today())
 }
+
+// A review belongs to the Study day that contains its due time, so one due in
+// the evening is due from the start of that day.
+func TestStudyReviewDueInTheEveningIsDueFromTheStartOfThatStudyDay(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	s.introduceAllGotIt()
+	s.clock.Set(berlinTime(t, 26, 20, 0))
+	first := s.currentCard()
+	s.grade(first, "got-it")
+	s.grade(s.currentCard(), "got-it")
+	due := s.progressByID(first.ID).Memory.Due
+	dayStart := domain.StudyDayStart(due)
+	assert.Equal(t, 20, due.In(dayStart.Location()).Hour(), "FSRS due is the review time plus whole days")
+
+	s.clock.Set(dayStart.Add(-time.Second))
+	_, err := s.store.NextStudyCard(s.ctx, s.owner.ID, "de", s.clock.Now())
+	require.ErrorIs(t, err, domain.ErrNotFound, "the day before, nothing of it is due")
+	s.clock.Set(dayStart)
+	assert.Equal(t, first.ID, s.currentCard().ID, "due at 20:00, the review is due from 05:00 that day")
+	assert.NotZero(t, s.today().Remaining)
+	assert.Contains(t, s.page(), "reviews left today.")
+	for !s.today().Finished {
+		s.grade(s.currentCard(), "got-it")
+	}
+}

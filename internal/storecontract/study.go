@@ -299,13 +299,15 @@ func studyScenarios() []Scenario {
 			_, err = progressStore.NextStudyCard(owner, Language, boundary.Add(time.Hour))
 			require.NoError(t, err)
 
-			// A review due later in a Study day waits for the next one.
+			// A review due later in a Study day belongs to that day and is due
+			// from its start; one due on a later day waits.
 			require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: byLemma["haus"].ID, ExpectedReps: 2, Grade: domain.StudyGradeGotIt, ReviewedAt: boundary, StudyDay: "2026-11-25", After: domain.StudyMemory{State: domain.StudyStateReview, Due: boundary.Add(72 * time.Hour), Stability: 3, Difficulty: 5, Reps: 3, Lapses: 1, LastReview: boundary}}))
-			_, err = progressStore.NextStudyCard(owner, Language, boundary.Add(10*time.Hour))
-			require.ErrorIs(t, err, domain.ErrNotFound, "a review due after the day began is not part of it")
-			card, err = progressStore.NextStudyCard(owner, Language, domain.NextStudyDayStart(boundary))
+			card, err = progressStore.NextStudyCard(owner, Language, boundary.Add(time.Minute))
 			require.NoError(t, err)
-			assert.Equal(t, hund, card.Progress.StudyIdentity)
+			assert.Equal(t, hund, card.Progress.StudyIdentity, "a review due at 14:00 is due from the start of its Study day")
+			require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: byLemma["hund"].ID, ExpectedReps: 1, Grade: domain.StudyGradeGotIt, ReviewedAt: boundary.Add(time.Minute), StudyDay: "2026-11-25", After: domain.StudyMemory{State: domain.StudyStateReview, Due: boundary.Add(72 * time.Hour), Stability: 3, Difficulty: 5, Reps: 2, LastReview: boundary.Add(time.Minute)}}))
+			_, err = progressStore.NextStudyCard(owner, Language, boundary.Add(10*time.Hour))
+			require.ErrorIs(t, err, domain.ErrNotFound, "a review due on a later Study day waits for it")
 		}},
 	}
 }

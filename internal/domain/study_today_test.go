@@ -31,7 +31,10 @@ func TestStudyReviewsDueAtTheStartOfTheStudyDay(t *testing.T) {
 	}{
 		{"due before the day began", reviewWord("a", StudyStateReview, berlin(11, 24, 20, 0), berlin(11, 21, 20, 0)), true, true},
 		{"due exactly at the start", reviewWord("b", StudyStateReview, berlin(11, 25, 5, 0), berlin(11, 24, 8, 0)), true, true},
-		{"due later today waits for the next Study day", reviewWord("c", StudyStateReview, berlin(11, 25, 14, 0), berlin(11, 22, 14, 0)), false, false},
+		{"due at 20:00 is due that same Study day", reviewWord("c", StudyStateReview, berlin(11, 25, 20, 0), berlin(11, 22, 20, 0)), true, true},
+		{"due just before the next Study day starts", reviewWord("c2", StudyStateReview, berlin(11, 26, 4, 59), berlin(11, 22, 20, 0)), true, true},
+		{"due at the next Study day start waits for it", reviewWord("c3", StudyStateReview, berlin(11, 26, 5, 0), berlin(11, 25, 8, 0)), false, false},
+		{"answered today is not due again today", reviewWord("c4", StudyStateReview, berlin(11, 26, 4, 0), berlin(11, 25, 6, 0)), false, false},
 		{"due tomorrow", reviewWord("d", StudyStateReview, berlin(11, 26, 5, 0), berlin(11, 25, 8, 0)), false, false},
 		{"three missed days are all due", reviewWord("e", StudyStateReview, berlin(11, 22, 7, 0), berlin(11, 20, 7, 0)), true, true},
 		{"a repeat that is due", reviewWord("f", StudyStateRelearning, berlin(11, 25, 8, 50), berlin(11, 25, 8, 40)), true, true},

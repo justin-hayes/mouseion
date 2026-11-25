@@ -22,32 +22,43 @@ func StudyReviewDue(p StudyProgress) time.Time {
 	return due
 }
 
+// studyReviewInToday reports whether a word on a day-scale schedule belongs to
+// Today's due set: its due time falls in the current Study day or an earlier
+// one, so a review due at 20:00 is due from the day's start and every overdue
+// review is due after missed days. A word already answered in the current
+// Study day is not due again, whatever the length of the day.
+func studyReviewInToday(p StudyProgress, now time.Time) bool {
+	if !StudyReviewDue(p).Before(NextStudyDayStart(now)) {
+		return false
+	}
+	return p.Memory.LastReview.IsZero() || p.Memory.LastReview.Before(StudyDayStart(now))
+}
+
 // StudyCardIsDue reports whether Today shows the word at now. A word on a
-// day-scale schedule is due once its due time falls on or before the start of
-// the current Study day, so a missed day or three leaves every overdue review
-// due; the day's set is fixed when the day begins. A word still repeating,
-// and a word just introduced, is due when its due time arrives.
+// day-scale schedule belongs to the Study day that contains its due time and
+// is due once that Study day is today or earlier; the day's set is fixed when
+// the day begins. A word still repeating, and a word just introduced, is due
+// when its due time arrives.
 func StudyCardIsDue(p StudyProgress, now time.Time) bool {
 	if p.Withdrawn {
 		return false
 	}
-	due := StudyReviewDue(p)
 	if p.Memory.State == StudyStateReview {
-		return !due.After(StudyDayStart(now))
+		return studyReviewInToday(p, now)
 	}
-	return !due.After(now)
+	return !StudyReviewDue(p).After(now)
 }
 
 // StudyCountsToday reports whether the word is part of Today's finish line: a
-// review due at the start of the Study day, or a review the learner forgot and
-// is repeating. New-word introductions and their repeats are never part of
-// it (spec #2691), so a word still new or learning is not counted.
+// review whose due Study day is today or earlier, or a review the learner
+// forgot and is repeating. New-word introductions and their repeats are never
+// part of it (spec #2691), so a word still new or learning is not counted.
 func StudyCountsToday(p StudyProgress, now time.Time) bool {
 	if p.Withdrawn {
 		return false
 	}
 	if p.Memory.State == StudyStateReview {
-		return !StudyReviewDue(p).After(StudyDayStart(now))
+		return studyReviewInToday(p, now)
 	}
 	return p.Memory.State == StudyStateRelearning
 }
