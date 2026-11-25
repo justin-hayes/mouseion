@@ -146,6 +146,48 @@ func (q *Queries) InsertStudyFluencyContext(ctx context.Context, arg InsertStudy
 	return id, err
 }
 
+const listStudyFluencyContextResponses = `-- name: ListStudyFluencyContextResponses :many
+SELECT r.context_id::text AS context_id, r.response, r.responded_at
+  FROM study_fluency_response r
+  JOIN study_fluency_context c ON c.owner_id = r.owner_id AND c.id = r.context_id
+  JOIN study_progress p ON p.owner_id = c.owner_id AND p.id = c.progress_id
+ WHERE r.owner_id = $1 AND p.language = $2
+ ORDER BY r.responded_at, r.created_at, r.id
+`
+
+type ListStudyFluencyContextResponsesParams struct {
+	Owner    string
+	Language string
+}
+
+type ListStudyFluencyContextResponsesRow struct {
+	ContextID   string
+	Response    string
+	RespondedAt time.Time
+}
+
+// Every answer to the owner's contexts in the study language, oldest first:
+// the evidence the weighted rotation reads.
+func (q *Queries) ListStudyFluencyContextResponses(ctx context.Context, arg ListStudyFluencyContextResponsesParams) ([]ListStudyFluencyContextResponsesRow, error) {
+	rows, err := q.db.Query(ctx, listStudyFluencyContextResponses, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudyFluencyContextResponsesRow{}
+	for rows.Next() {
+		var i ListStudyFluencyContextResponsesRow
+		if err := rows.Scan(&i.ContextID, &i.Response, &i.RespondedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudyFluencyContexts = `-- name: ListStudyFluencyContexts :many
 SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement,
        c.book_id::text AS book_id, c.analysis_run_id::text AS analysis_run_id, c.corpus_id::text AS corpus_id,

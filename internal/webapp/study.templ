@@ -152,6 +152,7 @@ templ FluencyCard(csrf string, view studyPageView) {
 		} else {
 			<form method="get" action={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>
 				<input type="hidden" name="answer" value="1"/>
+				<input type="hidden" name="context" value={ view.Fluency.ContextID }/>
 				<button class="button study-card__show" type="submit">Show answer</button>
 			</form>
 		}

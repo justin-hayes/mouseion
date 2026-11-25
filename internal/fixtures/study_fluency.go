@@ -6,6 +6,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -47,11 +48,7 @@ func (s *Store) ListStudyFluencyContexts(_ context.Context, owner, language stri
 			continue
 		}
 		item.SentenceTranslationTargets = append([]string{}, item.SentenceTranslationTargets...)
-		for _, response := range s.studyFluencyResponses {
-			if response.OwnerID == owner && response.ContextID == item.ID && response.RespondedAt.After(item.LastResponseAt) {
-				item.LastResponseAt = response.RespondedAt
-			}
-		}
+		s.attachFluencyResponsesLocked(owner, &item)
 		contexts = append(contexts, item)
 	}
 	return contexts, nil
@@ -171,4 +168,19 @@ func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyIdentity,
 func (s *Store) SeedFluencyContext(owner, progressID string, record domain.FluencyContextRecord) error {
 	record.ProgressID = progressID
 	return s.RecordStudyFluencyContext(context.Background(), owner, record)
+}
+
+// attachFluencyResponsesLocked sets a context's answers, oldest first, and when
+// it was last answered. The caller holds s.mu.
+func (s *Store) attachFluencyResponsesLocked(owner string, item *domain.FluencyContext) {
+	for _, response := range s.studyFluencyResponses {
+		if response.OwnerID != owner || response.ContextID != item.ID {
+			continue
+		}
+		item.Responses = append(item.Responses, domain.FluencyResponseEvent{Response: response.Response, At: response.RespondedAt})
+		if response.RespondedAt.After(item.LastResponseAt) {
+			item.LastResponseAt = response.RespondedAt
+		}
+	}
+	sort.SliceStable(item.Responses, func(i, j int) bool { return item.Responses[i].At.Before(item.Responses[j].At) })
 }

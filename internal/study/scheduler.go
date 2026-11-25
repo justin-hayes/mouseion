@@ -20,7 +20,10 @@ type Scheduler struct {
 	fsrs *fsrs.FSRS
 }
 
-var _ domain.StudyScheduler = (*Scheduler)(nil)
+var (
+	_ domain.StudyScheduler = (*Scheduler)(nil)
+	_ domain.StudyRecaller  = (*Scheduler)(nil)
+)
 
 // NewScheduler returns the FSRS scheduler with Study's parameters.
 func NewScheduler() *Scheduler {
@@ -64,6 +67,21 @@ func (s *Scheduler) Schedule(memory domain.StudyMemory, grade domain.StudyGrade,
 		after.ScheduledDays = 1
 	}
 	return after, nil
+}
+
+// Recall is the probability that the word is recalled at now, from FSRS's
+// forgetting curve. It reads the state and changes nothing. A word with no
+// review yet has no recall: 0 and no error.
+func (s *Scheduler) Recall(memory domain.StudyMemory, now time.Time) (float64, error) {
+	card, err := toCard(memory)
+	if err != nil {
+		return 0, err
+	}
+	recall, err := s.fsrs.Retrievability(card, now)
+	if err != nil {
+		return 0, fmt.Errorf("study: recall: %w", err)
+	}
+	return recall, nil
 }
 
 func ratingFor(grade domain.StudyGrade) (fsrs.Rating, bool) {

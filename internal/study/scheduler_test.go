@@ -99,3 +99,21 @@ func TestSchedulerRejectsAnUnknownGradeAndAReviewBeforeTheLastOne(t *testing.T) 
 	_, err = scheduler.Schedule(first, domain.StudyGradeGotIt, now.Add(-time.Hour))
 	require.Error(t, err, "a clock that moved backwards cannot grade a card")
 }
+
+func TestRecallFallsAsTimePassesAndChangesNothing(t *testing.T) {
+	scheduler := NewScheduler()
+	reviewed := time.Date(2026, 6, 1, 9, 0, 0, 0, time.UTC)
+	memory := domain.StudyMemory{State: domain.StudyStateReview, Stability: 30, Difficulty: 5, ScheduledDays: 30, Reps: 3, LastReview: reviewed, Due: reviewed.Add(30 * 24 * time.Hour)}
+	before := memory
+	soon, err := scheduler.Recall(memory, reviewed.Add(24*time.Hour))
+	require.NoError(t, err)
+	late, err := scheduler.Recall(memory, reviewed.Add(90*24*time.Hour))
+	require.NoError(t, err)
+	assert.Greater(t, soon, late)
+	atStability, err := scheduler.Recall(memory, reviewed.Add(30*24*time.Hour))
+	require.NoError(t, err)
+	assert.InDelta(t, 0.9, atStability, 0.02, "recall is the target at the stability")
+	assert.Equal(t, before, memory)
+	_, err = scheduler.Recall(domain.StudyMemory{State: "bogus"}, reviewed)
+	assert.Error(t, err)
+}

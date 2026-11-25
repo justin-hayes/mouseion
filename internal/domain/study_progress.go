@@ -130,6 +130,14 @@ type StudyScheduler interface {
 	Schedule(memory StudyMemory, grade StudyGrade, now time.Time) (StudyMemory, error)
 }
 
+// StudyRecaller reports how likely a word is to be recalled at a time, from
+// its scheduling state. It only reads: Fluency uses it to weight contexts and
+// never writes Study progress. The FSRS adapter in internal/study implements
+// it alongside StudyScheduler.
+type StudyRecaller interface {
+	Recall(memory StudyMemory, now time.Time) (float64, error)
+}
+
 // StudyBatchWord is one word of a New-word batch with the Study material it
 // is introduced in.
 type StudyBatchWord struct {

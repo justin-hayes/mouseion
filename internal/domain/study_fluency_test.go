@@ -2,7 +2,6 @@ package domain
 
 import (
 	"testing"
-	"time"
 )
 
 func matureWord(id string, state StudyCardState, days int64) StudyProgress {
@@ -98,41 +97,6 @@ func TestRankFluencyCandidatesTieBreaks(t *testing.T) {
 
 func fluencyContext(id, progress string) FluencyContext {
 	return FluencyContext{ID: id, ProgressID: progress, Agreement: FluencyAgrees}
-}
-
-func TestNextFluencyCardIsRoundRobin(t *testing.T) {
-	now := time.Date(2026, 6, 1, 8, 0, 0, 0, time.UTC)
-	words := []StudyProgress{matureWord("a", StudyStateReview, 30), matureWord("b", StudyStateReview, 30), matureWord("c", StudyStateReview, 10)}
-	contexts := []FluencyContext{
-		fluencyContext("a1", "a"), fluencyContext("a2", "a"),
-		fluencyContext("b1", "b"), fluencyContext("c1", "c"),
-	}
-	contexts[1].CreatedAt = now
-	// A word that is not mature, and a disagreeing context, are never shown.
-	contexts = append(contexts, FluencyContext{ID: "b-no", ProgressID: "b", Agreement: FluencyDisagrees})
-
-	var shown []string
-	for i := range 5 {
-		card, ok := NextFluencyCard(contexts, words)
-		if !ok {
-			t.Fatal("expected a card")
-		}
-		shown = append(shown, card.Context.ID)
-		for j := range contexts {
-			if contexts[j].ID == card.Context.ID {
-				contexts[j].LastResponseAt = now.Add(time.Duration(i) * time.Minute)
-			}
-		}
-	}
-	want := []string{"a1", "b1", "a2", "b1", "a1"}
-	for i := range want {
-		if shown[i] != want[i] {
-			t.Fatalf("round robin: got %v, want %v", shown, want)
-		}
-	}
-	if _, ok := NextFluencyCard(nil, words); ok {
-		t.Error("no contexts means no card")
-	}
 }
 
 func TestFluencyContextsNeeded(t *testing.T) {

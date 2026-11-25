@@ -190,12 +190,13 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	if !view.FluencyUnlocked {
 		return nil
 	}
-	return h.loadFluencyView(r, owner, view, progress)
+	return h.loadFluencyView(r, owner, view, progress, now)
 }
 
-// loadFluencyView picks the Fluency card to show: a round-robin over the mature
-// words' contexts. Fluency only reads Study progress.
-func (h *Handler) loadFluencyView(r *http.Request, owner string, view *studyPageView, progress []domain.StudyProgress) error {
+// loadFluencyView picks the Fluency card to show with the weighted rotation over
+// the mature words' contexts (domain.NextFluencyCard). Fluency only reads Study
+// progress.
+func (h *Handler) loadFluencyView(r *http.Request, owner string, view *studyPageView, progress []domain.StudyProgress, now time.Time) error {
 	mature := false
 	for _, item := range progress {
 		mature = mature || domain.IsStudyMature(item)
@@ -208,13 +209,37 @@ func (h *Handler) loadFluencyView(r *http.Request, owner string, view *studyPage
 	if err != nil {
 		return err
 	}
-	card, ok := domain.NextFluencyCard(contexts, progress)
+	// Show answer sends back the card it revealed, so the card cannot change
+	// between its question and its answer.
+	card, ok := domain.FluencyCardByID(contexts, progress, r.URL.Query().Get("context"))
+	if !ok || r.URL.Query().Get("answer") != "1" {
+		card, ok = domain.NextFluencyCard(domain.FluencyRotation{Contexts: contexts, Progress: progress, Recall: h.fluencyRecall(progress, now), Now: now})
+	}
 	if !ok {
 		view.FluencyPreparing = true
 		return nil
 	}
 	view.Fluency = newFluencyCardView(view.Language, card, r.URL.Query().Get("answer") == "1")
 	return nil
+}
+
+// fluencyRecall is each mature word's recall now, for the rotation's weights. A
+// word whose recall cannot be computed has no entry and so no recall term.
+func (h *Handler) fluencyRecall(progress []domain.StudyProgress, now time.Time) map[string]float64 {
+	recaller, ok := h.services.StudyScheduler.(domain.StudyRecaller)
+	if !ok {
+		return nil
+	}
+	recall := map[string]float64{}
+	for _, item := range progress {
+		if !domain.IsStudyMature(item) {
+			continue
+		}
+		if value, err := recaller.Recall(item.Memory, now); err == nil {
+			recall[item.ID] = value
+		}
+	}
+	return recall
 }
 
 func newFluencyCardView(language string, card domain.FluencyCard, showAnswer bool) *fluencyCardView {
