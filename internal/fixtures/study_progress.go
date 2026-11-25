@@ -7,6 +7,7 @@ package fixtures
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -28,6 +29,19 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 			progress = append(progress, item)
 		}
 	}
+	sort.SliceStable(progress, func(i, j int) bool {
+		a, b := progress[i], progress[j]
+		if !a.IntroducedAt.Equal(b.IntroducedAt) {
+			return a.IntroducedAt.Before(b.IntroducedAt)
+		}
+		if a.CanonicalLemma != b.CanonicalLemma {
+			return a.CanonicalLemma < b.CanonicalLemma
+		}
+		if a.UPOS != b.UPOS {
+			return a.UPOS < b.UPOS
+		}
+		return a.LexicalDiscriminator < b.LexicalDiscriminator
+	})
 	return progress, nil
 }
 

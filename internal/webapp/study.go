@@ -133,7 +133,7 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {
 	view := &studyCardView{
-		ProgressID: card.Progress.ID, Reps: card.Progress.Memory.Reps, Introduction: !card.Progress.Graded(), ShowAnswer: showAnswer,
+		ProgressID: card.Progress.ID, Reps: card.Progress.Memory.Reps, Introduction: card.Progress.Memory.State == domain.StudyStateNew || card.Progress.Memory.State == domain.StudyStateLearning, ShowAnswer: showAnswer,
 		Headword:    lemmadisplay.Format(language, card.Progress.CanonicalLemma, card.Progress.UPOS),
 		Gloss:       card.Progress.LearnedMeaning,
 		Translation: card.Material.SentenceTranslation,
@@ -273,7 +273,7 @@ func (h *Handler) gradeStudyCard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if current.Memory.Reps != reps {
+	if current.Memory.Reps != reps || current.Memory.Due.After(now) {
 		redirect(w, r, back)
 		return
 	}
