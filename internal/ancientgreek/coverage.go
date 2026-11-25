@@ -39,11 +39,16 @@ type CoverageReport struct {
 // a stable code. A sentence that crosses a unit boundary is assigned to the
 // unit holding its first token and reported as a crossing.
 func CheckUnitCoverage(data []byte, units []UnitRange) (CoverageReport, error) {
-	ranges, err := parseUnitRanges(units)
+	source, err := ParseManifestSource(data)
 	if err != nil {
 		return CoverageReport{}, err
 	}
-	doc, err := parseOgaSrc(data)
+	return source.CheckUnitCoverage(units)
+}
+
+// checkDocumentCoverage is CheckUnitCoverage over a parsed document.
+func checkDocumentCoverage(doc *sourceDocument, units []UnitRange) (CoverageReport, error) {
+	ranges, err := parseUnitRanges(units)
 	if err != nil {
 		return CoverageReport{}, err
 	}
@@ -170,6 +175,11 @@ func ProposeUnits(data []byte) ([]UnitRange, error) {
 	if err != nil {
 		return nil, err
 	}
+	return proposeDocumentUnits(doc)
+}
+
+// proposeDocumentUnits is ProposeUnits over a parsed document.
+func proposeDocumentUnits(doc *sourceDocument) ([]UnitRange, error) {
 	books, err := citationExtents(doc)
 	if err != nil {
 		return nil, err
@@ -208,7 +218,8 @@ func citationExtents(doc *sourceDocument) (map[int]citationExtent, error) {
 			if !ok || len(citation) == 0 {
 				return nil, malformed(0, "token citation is not a citation")
 			}
-			if citation[0].Name != "" {
+			// A named top-level section (a Latin preface) is book 0.
+			if citation[0].Name != "" && !doc.latin {
 				return nil, malformed(0, "token citation has a named top-level section")
 			}
 			addCitationExtent(books, citation[0].Number, citation)
@@ -252,6 +263,15 @@ func SummarizeUnit(data []byte, start, end string) (UnitSummary, error) {
 	if err != nil {
 		return UnitSummary{}, err
 	}
+	return summarizeDocumentUnit(doc, start, end)
+}
+
+// summarizeDocumentUnit is SummarizeUnit over a parsed document.
+func summarizeDocumentUnit(doc *sourceDocument, start, end string) (UnitSummary, error) {
+	language := Language
+	if doc.latin {
+		language = classical.LanguageLatin
+	}
 	startCitation, endCitation, err := parseUnitBounds(start, end)
 	if err != nil {
 		return UnitSummary{}, err
@@ -261,7 +281,7 @@ func SummarizeUnit(data []byte, start, end string) (UnitSummary, error) {
 	}
 	reading, err := interpret(doc, domain.ReadingUnitDefinition{
 		Key:           "manifest-unit",
-		Language:      Language,
+		Language:      language,
 		CitationStart: start,
 		CitationEnd:   end,
 	}, "manifest-unit")
@@ -293,7 +313,7 @@ func unitOpening(doc *sourceDocument, start, end classical.Citation) (string, er
 		if located != locationInside || isSpeakerLabel(sentence) {
 			continue
 		}
-		opening := reconstruct(sentence).text
+		opening := reconstructFor(sentence, doc.latin).text
 		if strings.TrimSpace(opening) != "" {
 			return opening, nil
 		}

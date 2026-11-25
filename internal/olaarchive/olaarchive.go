@@ -48,6 +48,12 @@ func Window(member classical.ArchiveMember, archiveSize int64) (start, end int64
 // pinned member, the data must inflate to exactly the pinned size, and its
 // CRC-32 and SHA-256 must match.
 func Extract(window []byte, member classical.ArchiveMember) ([]byte, error) {
+	return extract(window, member, true)
+}
+
+// extract is Extract, optionally leaving the SHA-256 unchecked so a generator
+// can compute it from a member the zip directory described.
+func extract(window []byte, member classical.ArchiveMember, checkSHA bool) ([]byte, error) {
 	if len(window) < localHeaderFixed || binary.LittleEndian.Uint32(window) != localHeaderSignature {
 		return nil, mismatch("no local header at the pinned offset")
 	}
@@ -77,7 +83,7 @@ func Extract(window []byte, member classical.ArchiveMember) ([]byte, error) {
 	if checksum := crc32.ChecksumIEEE(data); hex.EncodeToString(binary.BigEndian.AppendUint32(nil, checksum)) != member.CRC32 {
 		return nil, mismatch("member CRC-32 disagrees with the pin")
 	}
-	if sum := sha256.Sum256(data); hex.EncodeToString(sum[:]) != member.SHA256 {
+	if checkSHA && sha256Hex(data) != member.SHA256 {
 		return nil, mismatch("member SHA-256 disagrees with the pin")
 	}
 	return data, nil
@@ -105,4 +111,10 @@ func inflate(raw []byte, method uint16, limit int64) ([]byte, error) {
 
 func mismatch(detail string) error {
 	return &classical.PreparationError{Code: classical.CodePinMismatch, Detail: detail}
+}
+
+// sha256Hex is the lowercase hexadecimal SHA-256 of data.
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }

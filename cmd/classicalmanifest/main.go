@@ -97,14 +97,14 @@ func emit(mode string, command *commandFlags, committed []byte, result classical
 		if !bytes.Equal(result.Manifest, committed) {
 			return fmt.Errorf("classicalmanifest: %s is stale; run make classical-manifest", *command.manifest)
 		}
-		_, err := fmt.Fprintf(output, "classical manifest verified: %d definitions\n", len(result.Definitions))
+		_, err := fmt.Fprintf(output, "classical manifest verified: %d definitions\n%s", len(result.Definitions), result.GateReport())
 		return err
 	}
 	//nolint:gosec // the maintainer names the output path and it contains no learner data.
 	if err := os.WriteFile(*command.manifest, result.Manifest, 0o600); err != nil {
 		return fmt.Errorf("classicalmanifest: write manifest: %w", err)
 	}
-	if _, err := fmt.Fprintf(output, "classical manifest generated: %d definitions\n", len(result.Definitions)); err != nil {
+	if _, err := fmt.Fprintf(output, "classical manifest generated: %d definitions\n%s", len(result.Definitions), result.GateReport()); err != nil {
 		return err
 	}
 	if *command.notes == "" {
