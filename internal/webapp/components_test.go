@@ -59,6 +59,7 @@ func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T
 func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
 		ActiveLanguage: "de",
+		PageLanguage:   "de",
 		Options: []activeStudyLanguageOption{
 			{Language: "de", DisplayName: "German", HasBooks: true},
 			{Language: "it", DisplayName: "Italian", HasBooks: true, NewArrival: true},
@@ -83,14 +84,13 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	assert.NotContains(t, html, `value="">Choose a study language`, "active language switcher exposes a selectable empty option")
 }
 
-func TestActiveStudyLanguageSwitcherDisplaysUnselectedPrompt(t *testing.T) {
+func TestActiveStudyLanguageSwitcherIsHiddenWithoutAPageLanguage(t *testing.T) {
 	view := &shellView{
-		Options: []activeStudyLanguageOption{
-			{Language: "de", DisplayName: "German", HasBooks: true},
-		},
+		ActiveLanguage: "de",
+		Options:        []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}},
 	}
 	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
-	requireMarkup(t, html, `<option value="" disabled selected>Choose a study language</option>`)
+	assert.Empty(t, html, "job status and other pages without a language have no picker")
 }
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {

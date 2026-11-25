@@ -77,15 +77,10 @@ func TestVocabularyPagesAreAddressedByStudyLanguage(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, response.code)
 		assert.Equal(t, "/de/vocabulary/concordance?as=lemma&term=gehen", response.location)
 	})
-	t.Run("a valid query language wins and is dropped from the address", func(t *testing.T) {
+	t.Run("a query language is dropped and never honoured", func(t *testing.T) {
 		response := get("/vocabulary/concordance?language=it&term=andare")
 		assert.Equal(t, http.StatusSeeOther, response.code)
-		assert.Equal(t, "/it/vocabulary/concordance?term=andare", response.location)
-		require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
-	})
-	t.Run("an invalid query language falls back to the Last study language", func(t *testing.T) {
-		response := get("/vocabulary/concordance?language=xx&term=gehen")
-		assert.Equal(t, "/de/vocabulary/concordance?term=gehen", response.location)
+		assert.Equal(t, "/de/vocabulary/concordance?term=andare", response.location)
 	})
 	t.Run("a language the learner does not study redirects to the Last study language", func(t *testing.T) {
 		response := get("/fr/vocabulary/concordance?term=gehen")

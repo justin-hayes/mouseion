@@ -3,8 +3,6 @@ package webapp
 import (
 	"context"
 	"errors"
-	"net/http"
-	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -104,14 +102,11 @@ func activeStudyLanguageForContext(ctx context.Context) (language, label string)
 	return language, language
 }
 
-// showStudyLanguagePicker reports whether the shell shows the picker: never in
-// the Catalog, which has no page language, and not on a per-language page that
-// has none, such as the My Books empty state.
+// showStudyLanguagePicker reports whether the shell shows the picker: only on a
+// per-language page, whose URL names a language. Job status, the Catalog, and
+// Book-addressed pages have no page language and no picker.
 func showStudyLanguagePicker(view *shellView, context NavigationContext) bool {
-	if view == nil || len(view.Options) == 0 || context == NavigationCatalogs {
-		return false
-	}
-	return view.PageKind == "" || view.PageLanguage != ""
+	return view != nil && len(view.Options) > 0 && context != NavigationCatalogs && view.PageLanguage != ""
 }
 
 // shellNavigationPath is a primary navigation link: the page kind under the
@@ -161,41 +156,4 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 		view.Options = append(view.Options, activeStudyLanguageOption{StudyLanguage: language})
 	}
 	return view, nil
-}
-
-func (h *Handler) activeStudyLanguage(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRFAnyLanguage(w, r) {
-		return
-	}
-	u := user(r)
-	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.FormValue("language")))
-	if language == "" {
-		redirect(w, r, "/library")
-		return
-	}
-	languages, err := h.services.Store.Shell.ListStudyLanguages(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(r.Context(), u.ID)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if !learnerLanguagePresent(languages, knownLanguages, language) {
-		http.Error(w, "choose a current study language", http.StatusBadRequest)
-		return
-	}
-	if err = h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), u.ID, language); err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			http.NotFound(w, r)
-			return
-		}
-		fail(w, err)
-		return
-	}
-	// A deliberate change resets screen, filter, and return state: the learner
-	// lands at My Books in the newly active language.
-	redirect(w, r, "/library")
 }

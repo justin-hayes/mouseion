@@ -846,9 +846,11 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     expect(historicalDeckDownload.status()).toBe(200);
     expect(historicalDeckDownload.headers()['content-disposition']).toContain('Fixture German deck.apkg');
 
+    // Deck status has no page language, so the picker lives on My Books.
+    await page.goto('/de/library');
     await page.getByLabel('Study language').selectOption('it');
     await expect(page.getByLabel('Study language')).toHaveValue('it');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
+    await expect(page).toHaveURL(/\/it\/library(?:\?|$)/);
     await page.goto('/deck-preparations/fixture-preparation/status');
     // An old-language Book links to Reading in the Book's own language; the retired handoff chooser is gone.
     await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', /^\/de\/reading#/);
@@ -859,9 +861,10 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.locator('a[href="/it/reading#journey-book-fixture-empty"]')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
 
+    await page.goto('/it/library');
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page).toHaveURL(/\/library(?:\?|$)/);
+    await expect(page).toHaveURL(/\/de\/library(?:\?|$)/);
     await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
     const addToJourney = page.getByRole('button', { name: 'Move to To Read' });
     if (await addToJourney.count() > 0) {

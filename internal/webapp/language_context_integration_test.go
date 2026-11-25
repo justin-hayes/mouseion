@@ -77,12 +77,13 @@ func TestMyBooksResolvesItsLanguageFromTheURL(t *testing.T) {
 	assert.Contains(t, again.Body.String(), "Language context")
 	assert.Equal(t, "de", stored())
 
-	// Unprefixed addresses and a legacy ?language= redirect to the prefixed form.
+	// An unprefixed address redirects to the prefixed form; the one-request
+	// ?language= override no longer exists.
 	unprefixed := getAs(t, h, "/library?q=haus", cookies)
 	assert.Equal(t, http.StatusSeeOther, unprefixed.Code)
 	assert.Equal(t, "/de/library?q=haus", unprefixed.Header().Get("Location"))
 	legacy := getAs(t, h, "/library?language=it", cookies)
-	assert.Equal(t, "/it/library", legacy.Header().Get("Location"))
+	assert.Equal(t, "/de/library", legacy.Header().Get("Location"))
 	assert.Equal(t, "de", stored(), "a redirect alone never switches the language")
 
 	// An unknown prefix recovers under the Last study language; an alias or
@@ -92,6 +93,11 @@ func TestMyBooksResolvesItsLanguageFromTheURL(t *testing.T) {
 	assert.Equal(t, "/de/library?q=haus", unknown.Header().Get("Location"))
 	upper := getAs(t, h, "/DE/library", cookies)
 	assert.Equal(t, "/de/library", upper.Header().Get("Location"))
+	for _, spelling := range []string{"de-DE", "de_DE", "DE-de"} {
+		locale := getAs(t, h, "/"+spelling+"/library?q=haus", cookies)
+		assert.Equal(t, http.StatusSeeOther, locale.Code, spelling)
+		assert.Equal(t, "/de/library?q=haus", locale.Header().Get("Location"), spelling)
+	}
 
 	// The picker is a plain GET navigation that opens My Books in the chosen
 	// language and drops search and paging.
@@ -126,4 +132,19 @@ func TestMyBooksWithoutAStudyLanguageIsTheUnprefixedEmptyState(t *testing.T) {
 	prefixed := getAs(t, h, "/de/library", cookies)
 	assert.Equal(t, http.StatusSeeOther, prefixed.Code)
 	assert.Equal(t, "/library", prefixed.Header().Get("Location"))
+}
+
+func TestPerLanguageSurfacesWithoutAStudyLanguageRedirectToMyBooks(t *testing.T) {
+	h, _, _, store, _, _ := languageContextHandler(t)
+	ctx := context.Background()
+	empty := createAccount(t, ctx, store, "no-language-surfaces", "empty-learner-password")
+	cookies, _ := loginCookies(t, h, empty.Username, "empty-learner-password")
+
+	for _, path := range []string{"/reading", "/reading/switch", "/vocabulary", "/vocabulary/concordance?term=haus"} {
+		response := getAs(t, h, path, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code, path)
+		assert.Equal(t, "/library", response.Header().Get("Location"), path)
+	}
+	myBooks := getAs(t, h, "/library", cookies)
+	assert.Equal(t, http.StatusOK, myBooks.Code)
 }

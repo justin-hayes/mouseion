@@ -30,13 +30,13 @@ func TestReadingResolvesItsLanguageFromTheURL(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "it", stored, "a prefixed view records the Last study language")
 
-	// Unprefixed addresses and a legacy ?language= redirect to the prefixed form.
+	// Unprefixed addresses redirect, dropping a legacy ?language=, to the prefixed form.
 	for path, want := range map[string]string{
 		"/reading":                    "/it/reading",
-		"/reading?language=de":        "/de/reading",
-		"/reading?q=haus&language=de": "/de/reading?q=haus",
+		"/reading?language=de":        "/it/reading",
+		"/reading?q=haus&language=de": "/it/reading?q=haus",
 		"/reading/switch":             "/it/reading/switch",
-		"/reading/switch?language=de": "/de/reading/switch",
+		"/reading/switch?language=de": "/it/reading/switch",
 		"/DE/reading":                 "/de/reading",
 	} {
 		response := getAs(t, h, path, cookies)
