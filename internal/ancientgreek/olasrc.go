@@ -237,43 +237,51 @@ func olaPostag(pos, feats string, lineNo int) (string, error) {
 	return string(postag), nil
 }
 
-// decodeLemmaFor splits a source lemma by the document's language. A Latin
-// lemma's one trailing digit is a source artefact (et1, ut1), not a homograph
-// number: it is stripped and no discriminator is recorded (ADR 0132). A lemma
-// that still has a digit (rex12 -> rex1) keeps its token in the text; Latin
-// vocabulary admission refuses it.
-func decodeLemmaFor(lemma string, latin bool) (headword, discriminator string) {
-	if !latin {
-		return decodeLemma(lemma)
-	}
-	trimmed := lemma
-	if last := len(lemma) - 1; last > 0 && lemma[last] >= '0' && lemma[last] <= '9' {
-		trimmed = lemma[:last]
-	}
-	return trimmed, ""
+// sourceDialect is the set of language rules a source document is read with:
+// how a lemma splits, how a postag maps to features, and which tokens take no
+// space before them. A document selects one dialect once; the Greek oga_src
+// dialect is the zero document's.
+type sourceDialect struct {
+	decodeLemma   func(lemma string) (headword, discriminator string)
+	mapFeatures   func(postag string) (map[string]string, []FeatureValueCount)
+	noSpaceBefore func(surface string) bool
 }
 
-// mapFeaturesFor maps a postag with the document language's value mapping.
-func mapFeaturesFor(postag string, latin bool) (map[string]string, []FeatureValueCount) {
+var (
+	greekDialect = sourceDialect{decodeLemma: decodeLemma, mapFeatures: mapFeatures, noSpaceBefore: noSpaceBefore}
+	// latinDialect reads an OLA lemma's one trailing digit as a source artefact
+	// (et1, ut1), not a homograph number: it is stripped and no discriminator is
+	// recorded (ADR 0132). A lemma that still has a digit (rex12 -> rex1) keeps
+	// its token in the text; Latin vocabulary admission refuses it.
+	latinDialect = sourceDialect{
+		decodeLemma: func(lemma string) (string, string) {
+			trimmed := lemma
+			if last := len(lemma) - 1; last > 0 && lemma[last] >= '0' && lemma[last] <= '9' {
+				trimmed = lemma[:last]
+			}
+			return trimmed, ""
+		},
+		mapFeatures: func(postag string) (map[string]string, []FeatureValueCount) {
+			return mapFeaturesWith(postag, latinFeatureMappings)
+		},
+		noSpaceBefore: func(surface string) bool {
+			first, _ := utf8.DecodeRuneInString(surface)
+			switch first {
+			case ',', '.', ';', ':', '!', '?', ')', ']':
+				return true
+			default:
+				return false
+			}
+		},
+	}
+)
+
+// dialectFor selects the dialect of a document's language.
+func dialectFor(latin bool) sourceDialect {
 	if latin {
-		return mapFeaturesWith(postag, latinFeatureMappings)
+		return latinDialect
 	}
-	return mapFeatures(postag)
-}
-
-// noSpaceBeforeFor reports whether a token must not be preceded by a space in
-// the reconstructed sentence text, by the document language.
-func noSpaceBeforeFor(surface string, latin bool) bool {
-	if !latin {
-		return noSpaceBefore(surface)
-	}
-	first, _ := utf8.DecodeRuneInString(surface)
-	switch first {
-	case ',', '.', ';', ':', '!', '?', ')', ']':
-		return true
-	default:
-		return false
-	}
+	return greekDialect
 }
 
 // latinInterpretationVersion is the interpretation identity of an ola-conllu

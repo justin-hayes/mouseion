@@ -162,19 +162,19 @@ func TestOlaDocumentRefusesAGreekDefinition(t *testing.T) {
 }
 
 func TestLatinHelpersLeaveGreekRulesAlone(t *testing.T) {
-	headword, discriminator := decodeLemmaFor("et1", true)
+	headword, discriminator := latinDialect.decodeLemma("et1")
 	assert.Equal(t, "et", headword)
 	assert.Empty(t, discriminator)
-	headword, _ = decodeLemmaFor("rex1", true)
+	headword, _ = latinDialect.decodeLemma("rex1")
 	assert.Equal(t, "rex", headword)
-	headword, _ = decodeLemmaFor("rex12", true)
+	headword, _ = latinDialect.decodeLemma("rex12")
 	assert.Equal(t, "rex1", headword, "only one trailing digit is stripped")
-	headword, discriminator = decodeLemmaFor("λόγος2", false)
+	headword, discriminator = greekDialect.decodeLemma("λόγος2")
 	assert.Equal(t, "λόγος", headword)
 	assert.Equal(t, "morpheus:2", discriminator)
-	assert.True(t, noSpaceBeforeFor("?", true))
-	assert.False(t, noSpaceBeforeFor("?", false), "a Latin question mark is not Greek punctuation")
-	assert.True(t, noSpaceBeforeFor(";", false))
+	assert.True(t, latinDialect.noSpaceBefore("?"))
+	assert.False(t, greekDialect.noSpaceBefore("?"), "a Latin question mark is not Greek punctuation")
+	assert.True(t, greekDialect.noSpaceBefore(";"))
 }
 
 // underscoredSentences is latinSentences with OLA's PAULA spelling of a
