@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -131,6 +132,17 @@ type StudyMaterialReadyContent struct {
 	Gloss                           string
 	SentenceTranslation             string
 	SentenceTranslationTargets      []string
+}
+
+// Complete reports whether the sentence, target word, Gloss and translation
+// are all present: material is never ready without them.
+func (c StudyMaterialReadyContent) Complete() bool {
+	for _, text := range []string{c.Sentence, c.TargetWord, c.Gloss, c.SentenceTranslation} {
+		if strings.TrimSpace(text) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 // Study material omission reasons. A sentence-quality omission and a meaning

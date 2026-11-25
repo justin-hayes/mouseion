@@ -27,22 +27,15 @@ func IsStudyMature(p StudyProgress) bool {
 	return !p.Withdrawn && p.Memory.State == StudyStateReview && p.Memory.ScheduledDays >= FluencyMaturityDays
 }
 
-// FluencyBatchAwaiting reports whether a New-word batch is on offer that the
-// learner has not yet answered. Fluency opens once every offered batch has
-// been taken or declined, but a batch still on offer after the learner has
-// answered one stays takeable from inside Fluency, so only the first offer of
-// the day holds Fluency back.
-//
-// It is the one place Fluency reads the batch offers. The batch ledger that
-// records every offer replaces its inputs.
-func FluencyBatchAwaiting(ledger StudyBatchLedger, offerOnHand bool) bool {
-	return offerOnHand && ledger.Decided() == 0
-}
-
 // FluencyUnlocked reports whether Fluency is reachable: the finish line is
-// reached and no offered batch awaits an answer.
-func FluencyUnlocked(today StudyToday, batchAwaiting bool) bool {
-	return today.Finished && !batchAwaiting
+// reached and no New-word batch on offer awaits an answer. A batch on offer
+// must be taken or declined, including one offered after an earlier batch was
+// taken. Once the learner has declined, Today offers no more: a batch still
+// takeable then no longer holds Fluency back, and the learner may take it from
+// inside Fluency. It is the one place the page and the Fluency response read
+// the unlock rule.
+func FluencyUnlocked(today StudyToday, ledger StudyBatchLedger, offerOnHand bool) bool {
+	return today.Finished && (!offerOnHand || ledger.Declined > 0)
 }
 
 // FluencyAgreement is whether a Fluency context uses the word's learned

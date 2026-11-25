@@ -262,7 +262,12 @@ func TestStudyAStaleDeclineIsIgnored(t *testing.T) {
 
 	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"2"}})
 	assert.Equal(t, 1, s.ledger().Declined)
-	assert.NotContains(t, s.page(), "Take these words")
+	page := s.page()
+	assert.NotContains(t, page, "Not today", "Today offers no further decline")
+	assert.Contains(t, page, "Take these words", "the batch stays takeable from inside Fluency")
+
+	s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"3"}})
+	assert.Equal(t, 1, s.ledger().Declined, "a decline once Today has stopped offering changes nothing")
 }
 
 func TestStudyTakingABatchPreparesTheNextWordsAhead(t *testing.T) {

@@ -157,6 +157,9 @@ func normalizedStudyIdentity(identity domain.StudyIdentity) domain.StudyIdentity
 // RecordStudyMaterialReady stores a pending word's prepared material. It
 // returns ErrNotFound when the record is missing or no longer pending.
 func (s *PostgresStore) RecordStudyMaterialReady(ctx context.Context, owner, id string, content domain.StudyMaterialReadyContent) error {
+	if !content.Complete() {
+		return fmt.Errorf("record study material: %w", domain.ErrInvalidStudyMaterial)
+	}
 	if !validUUID(id) || !validUUID(content.BookID) || !validUUID(content.AnalysisRunID) || !validUUID(content.CorpusID) {
 		return ErrNotFound
 	}

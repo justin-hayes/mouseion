@@ -16,21 +16,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStudyIsAvailableOnlyOnTheModernLanguageRoute(t *testing.T) {
-	assert.True(t, studyAvailable("de"))
-	assert.True(t, studyAvailable("it"))
-	assert.False(t, studyAvailable("la"))
-	assert.False(t, studyAvailable("grc"))
-}
-
 func TestStudyPageSaysPlainlyWhenALanguageHasNoStudy(t *testing.T) {
-	for _, language := range []string{"la", "grc"} {
-		t.Run(language, func(t *testing.T) {
+	cases := []struct {
+		name, language string
+	}{
+		{"Latin", "la"},
+		{"Ancient Greek", "grc"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
 			var body bytes.Buffer
-			view := studyPageView{Language: language, LanguageLabel: "Latin", Available: studyAvailable(language)}
+			view := studyPageView{Language: tc.language, LanguageLabel: tc.name, Available: study.Available(tc.language)}
 			require.NoError(t, StudyPage(domain.User{}, "csrf", view).Render(t.Context(), &body))
-			assert.Contains(t, body.String(), "Study isn't available for this language yet")
-			assert.NotContains(t, body.String(), "study-ready")
+			require.Contains(t, body.String(), "Study isn't available for this language yet")
+			require.NotContains(t, body.String(), "study-ready")
 		})
 	}
 }
@@ -86,11 +85,32 @@ func TestStudyDecliningABatchOverTheFixtureStoreIntroducesNothing(t *testing.T) 
 	assert.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Take these words")
 	require.Equal(t, http.StatusSeeOther, readingTestRequest(t, h, "/study/batches/decline", form, cookies).Code)
 	page := getAs(t, h, "/de/study", cookies).Body.String()
-	assert.NotContains(t, page, "Take these words", "a declined batch is not offered again the same day")
-	assert.Contains(t, page, "Nothing to study right now.")
+	assert.Contains(t, page, "Nothing is mature yet", "declining opens Fluency")
+	assert.NotContains(t, page, "Not today", "Today offers no further batch once the learner declined")
 	progress, err := store.ListStudyProgress(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, progress)
+}
+
+func TestStudyAfterDecliningABatchTheLearnerCanStillTakeItFromFluency(t *testing.T) {
+	h, cookies, csrf, store, _ := studyFixtureSession(t)
+	form := func(extra url.Values) url.Values {
+		extra.Set("csrf_token", csrf)
+		extra.Set("language", "de")
+		return extra
+	}
+
+	assert.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Take these words")
+	require.Equal(t, http.StatusSeeOther, readingTestRequest(t, h, "/study/batches/decline", form(url.Values{"offer": {"1"}}), cookies).Code)
+	page := getAs(t, h, "/de/study", cookies).Body.String()
+	require.Contains(t, page, "Nothing is mature yet", "Fluency is open")
+	require.Contains(t, page, "Take these words", "the learner can change their mind")
+
+	require.Equal(t, http.StatusSeeOther, readingTestRequest(t, h, "/study/batches/take", form(url.Values{}), cookies).Code)
+	progress, err := store.ListStudyProgress(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	require.Len(t, progress, 1, "the batch was taken from inside Fluency")
+	assert.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Show answer", "its word is the next card")
 }
 
 func TestStudyTakingABatchOverTheFixtureStoreShowsACardAndGradesIt(t *testing.T) {

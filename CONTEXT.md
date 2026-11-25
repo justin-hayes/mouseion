@@ -38,8 +38,8 @@ syntax node**, **Grammar reference** and **Concept note** below, the
 `native_agdt` reading of **Imported analysis**, and the carry-over of decisions
 in an **Analysis update**.
 The Study terms (**Study**, **Study day**, **Today** and the terms after them)
-describe a pilot under design. No ADR has accepted it yet, and it is not
-implemented.
+describe the Study pilot, which [ADR 0134](doc/adr/0134-study-in-mouseion-vocabulary-review.md)
+accepts and the pilot implements.
 
 ## Language
 

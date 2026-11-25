@@ -9,17 +9,21 @@ async function signIn(page: Page) {
 }
 
 test.describe('Study new-word batch', () => {
-  test('declining the batch takes one tap and introduces no word', async ({ page }) => {
+  test('declining the batch takes one tap, introduces no word and can be undone from Fluency', async ({ page }) => {
     await signIn(page);
     await page.goto('/de/study');
     await expect(page.locator('#study-offer')).toBeVisible();
 
     await page.getByRole('button', { name: 'Not today' }).click();
 
-    await expect(page.locator('#study-idle')).toHaveText('Nothing to study right now.');
-    await expect(page.getByRole('button', { name: 'Take these words' })).toHaveCount(0);
+    // Declining opens Fluency, which has nothing mature to show yet.
+    await expect(page.locator('#study-nothing-mature')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Not today' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Show answer' })).toHaveCount(0);
-    // The words stay ready for another Study day.
     await expect(page.locator('#study-ready')).toHaveText('3 new words are ready.');
+
+    // The learner can still change their mind from inside Fluency.
+    await page.getByRole('button', { name: 'Take these words' }).click();
+    await expect(page.getByRole('button', { name: 'Show answer' })).toBeVisible();
   });
 });

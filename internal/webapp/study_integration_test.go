@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -164,6 +165,8 @@ func (s *studyHarness) seedBook(key string, words ...testutil.CorpusWord) domain
 	}
 	tx, err := s.store.Pool().Begin(s.ctx)
 	require.NoError(s.t, err)
+	// Rolled back when an assertion aborts before the commit; a no-op after it.
+	testutil.Cleanup(s.t, "transaction", func() error { return txcleanup.Rollback(s.ctx, tx) })
 	require.NoError(s.t, persistence.BuildVocabularyBrowseCountsTx(s.ctx, tx, s.owner.ID, book.ID, source.ID, runID, corpus.ID, "de"))
 	require.NoError(s.t, tx.Commit(s.ctx))
 	require.NoError(s.t, s.store.SetBookDisposition(s.ctx, s.owner.ID, book.ID, domain.BookDispositionToRead))
@@ -316,12 +319,15 @@ func TestStudyDecliningABatchIntroducesNoWord(t *testing.T) {
 	assert.Equal(t, "/de/study", response.Header().Get("Location"))
 	assert.Empty(t, s.progress(), "declining introduces none")
 	page = getAs(t, s.h, "/de/study", s.cookies).Body.String()
-	assert.NotContains(t, page, "Take these words", "the batch is answered for the day")
-	assert.Contains(t, page, "Nothing to study right now.")
+	assert.Contains(t, page, "Nothing is mature yet", "declining the batch opens Fluency")
+	assert.NotContains(t, page, "Not today", "Today offers no further decline")
 
-	// Taking is refused for the rest of the day, but a new Study day offers again.
+	// The learner can change their mind inside Fluency while the cap allows.
+	assert.Contains(t, page, "Take these words")
 	s.post("/study/batches/take", url.Values{"language": {"de"}})
-	assert.Empty(t, s.progress())
+	assert.NotEmpty(t, s.progress(), "the declined batch was taken from inside Fluency")
+
+	// A new Study day offers a batch again.
 	s.clock.Advance(24 * time.Hour)
 	assert.Contains(t, getAs(t, s.h, "/de/study", s.cookies).Body.String(), "Take these words")
 }

@@ -53,11 +53,12 @@ func StudyBatchesAllowed(forecast int) int {
 }
 
 // StudyBatchOfferable reports whether another batch may be offered on a day
-// whose ledger is given. Declining a batch ends the day's offers: declining
-// marks no word, so the same words would otherwise be offered again at once.
-// The cap counts batches taken, never those declined.
+// whose ledger is given. The cap counts batches taken, never those declined.
+// Declining ends only Today's own offers (see FluencyUnlocked): the learner may
+// still take a remaining batch from inside Fluency while the cap and the
+// backlog brake allow it.
 func StudyBatchOfferable(ledger StudyBatchLedger, forecast int) bool {
-	return ledger.Declined == 0 && ledger.Taken < StudyBatchesAllowed(forecast)
+	return ledger.Taken < StudyBatchesAllowed(forecast)
 }
 
 // studyCarriedOver reports whether the word was taken in an earlier Study

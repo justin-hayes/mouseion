@@ -80,7 +80,6 @@ func TestStudyCorrectedCardAndReintroducingWord(t *testing.T) {
 
 	word = StudyProgress{Memory: review, Reintroducing: true}
 	assert.False(t, StudyCardIsDue(word, now), "a word waiting for new material has no card to show")
-	assert.True(t, StudyCountsToday(word, now), "but its review stays on the finish line")
-	next, ok := NextStudyReview([]StudyProgress{word, {Memory: StudyMemory{State: StudyStateNew, Due: now}}}, now)
-	assert.False(t, ok, "an introduction waits behind it: %v", next)
+	assert.False(t, StudyCountsToday(word, now), "and it does not hold the finish line open")
+	assert.True(t, StudyAwaitsMaterial(word, now), "it is reported as waiting for new material")
 }

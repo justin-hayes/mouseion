@@ -52,8 +52,20 @@ func StudyCardIsDue(p StudyProgress, now time.Time) bool {
 // StudyCountsToday reports whether the word is part of Today's finish line: a
 // review whose due Study day is today or earlier, or a review the learner
 // forgot and is repeating. New-word introductions and their repeats are never
-// part of it (spec #2691), so a word still new or learning is not counted.
+// part of it (spec #2691), so a word still new or learning is not counted. A
+// review waiting for new Study material after a correction is not counted
+// either, since it cannot be shown; it joins Today once its material is ready.
 func StudyCountsToday(p StudyProgress, now time.Time) bool {
+	return !p.Reintroducing && studyInTodaysDueSet(p, now)
+}
+
+// StudyAwaitsMaterial reports whether the word is part of Today's due set but
+// waits for new Study material after a correction.
+func StudyAwaitsMaterial(p StudyProgress, now time.Time) bool {
+	return p.Reintroducing && studyInTodaysDueSet(p, now)
+}
+
+func studyInTodaysDueSet(p StudyProgress, now time.Time) bool {
 	if p.Withdrawn {
 		return false
 	}

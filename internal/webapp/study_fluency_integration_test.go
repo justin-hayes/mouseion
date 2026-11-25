@@ -250,8 +250,18 @@ func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *test
 	assert.Contains(t, page, "Take these words")
 	assert.NotContains(t, page, `id="fluency-card-heading"`, "an offered batch must be taken or declined first")
 
+	s.post("/study/fluency/responses", url.Values{"language": {"de"}, "context": {card0.Context.ID}, "response": {"recognised"}})
+	require.NoError(t, s.store.Pool().QueryRow(s.ctx, `SELECT count(*) FROM study_fluency_response WHERE owner_id=$1`, s.owner.ID).Scan(&responses))
+	assert.Zero(t, responses, "a response while a batch awaits an answer records nothing")
+
 	require.Equal(t, http.StatusSeeOther, s.post("/study/batches/decline", url.Values{"language": {"de"}, "offer": {"1"}}).Code)
-	assert.Contains(t, card(), `id="fluency-card-heading"`, "declining the batch opens Fluency")
+	page = card()
+	assert.Contains(t, page, `id="fluency-card-heading"`, "declining the batch opens Fluency")
+	assert.Contains(t, page, "Take these words", "the learner can still change their mind inside Fluency")
+	assert.NotContains(t, page, "Not today", "Today offers no further decline")
+	s.post("/study/fluency/responses", url.Values{"language": {"de"}, "context": {card0.Context.ID}, "response": {"recognised"}})
+	require.NoError(t, s.store.Pool().QueryRow(s.ctx, `SELECT count(*) FROM study_fluency_response WHERE owner_id=$1`, s.owner.ID).Scan(&responses))
+	assert.Equal(t, 1, responses, "once Fluency is open the response is kept")
 }
 
 func TestStudyFluencyEndsWhenAWordLapsesAndTodayNotesNothingMature(t *testing.T) {

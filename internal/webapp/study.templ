@@ -70,6 +70,17 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 					<p id="study-empty">No new words are queued yet. They come from the Books you have analysed.</p>
 				}
 			</section>
+			if len(view.WaitingForSentence) > 0 {
+				<section class="study-waiting-sentence" aria-labelledby="study-waiting-sentence-heading">
+					<h2 id="study-waiting-sentence-heading">Waiting for a usable sentence</h2>
+					<p>These words have no usable sentence yet after a correction. Your progress is kept, and they return when new evidence gives them one.</p>
+					<ul id="study-waiting-sentence" lang={ view.Language }>
+						for _, word := range view.WaitingForSentence {
+							<li>{ word }</li>
+						}
+					</ul>
+				</section>
+			}
 			if len(view.Withdrawn) > 0 {
 				<section class="study-withdrawn" aria-labelledby="study-withdrawn-heading">
 					<h2 id="study-withdrawn-heading">Withdrawn by a correction</h2>
@@ -95,24 +106,10 @@ templ StudyCard(csrf string, view studyPageView) {
 			}
 		</h2>
 		if view.Card.Corrected {
-			<p id="study-corrected" class="study-status">Corrected: a new sentence for a word you already know.</p>
+			<p id="study-corrected" class="study-status">Corrected: a new sentence for a word already in study.</p>
 		}
-		<p class="study-card__sentence" lang={ view.Language }>
-			{ view.Card.Before }
-			if view.Card.Marked {
-				<mark class="study-card__target">{ view.Card.Target }</mark>
-			}
-			{ view.Card.After }
-		</p>
+		@cardFaceView(view.Language, "study", view.Card.cardFace)
 		if view.Card.ShowAnswer {
-			<dl class="study-card__answer">
-				<dt>Meaning</dt>
-				<dd id="study-gloss">{ view.Card.Gloss }</dd>
-				<dt>Translation</dt>
-				<dd id="study-translation">{ view.Card.Translation }</dd>
-				<dt>Word</dt>
-				<dd id="study-headword" lang={ view.Language }>{ view.Card.Headword }</dd>
-			</dl>
 			<div class="study-card__grades">
 				@studyGradeForm(csrf, view, "again", "Again", "button button--outline")
 				@studyGradeForm(csrf, view, "got-it", "Got it", "button")
@@ -129,22 +126,8 @@ templ StudyCard(csrf string, view studyPageView) {
 templ FluencyCard(csrf string, view studyPageView) {
 	<section class="study-card study-card--fluency" aria-labelledby="fluency-card-heading">
 		<h2 id="fluency-card-heading">Fluency</h2>
-		<p class="study-card__sentence" lang={ view.Language }>
-			{ view.Fluency.Before }
-			if view.Fluency.Marked {
-				<mark class="study-card__target">{ view.Fluency.Target }</mark>
-			}
-			{ view.Fluency.After }
-		</p>
+		@cardFaceView(view.Language, "fluency", view.Fluency.cardFace)
 		if view.Fluency.ShowAnswer {
-			<dl class="study-card__answer">
-				<dt>Meaning</dt>
-				<dd id="fluency-gloss">{ view.Fluency.Gloss }</dd>
-				<dt>Translation</dt>
-				<dd id="fluency-translation">{ view.Fluency.Translation }</dd>
-				<dt>Word</dt>
-				<dd id="fluency-headword" lang={ view.Language }>{ view.Fluency.Headword }</dd>
-			</dl>
 			<div class="study-card__grades">
 				@fluencyResponseForm(csrf, view, "not-recognised", "Didn't recognise it", "button button--outline")
 				@fluencyResponseForm(csrf, view, "recognised", "Recognised", "button")
@@ -157,6 +140,28 @@ templ FluencyCard(csrf string, view studyPageView) {
 			</form>
 		}
 	</section>
+}
+
+// cardFaceView is the sentence with the target word marked and, once revealed,
+// the answer. Graded and Fluency cards share it; prefix keeps their ids apart.
+templ cardFaceView(language, prefix string, face cardFace) {
+	<p class="study-card__sentence" lang={ language }>
+		{ face.Before }
+		if face.Marked {
+			<mark class="study-card__target">{ face.Target }</mark>
+		}
+		{ face.After }
+	</p>
+	if face.ShowAnswer {
+		<dl class="study-card__answer">
+			<dt>Meaning</dt>
+			<dd id={ prefix + "-gloss" }>{ face.Gloss }</dd>
+			<dt>Translation</dt>
+			<dd id={ prefix + "-translation" }>{ face.Translation }</dd>
+			<dt>Word</dt>
+			<dd id={ prefix + "-headword" } lang={ language }>{ face.Headword }</dd>
+		</dl>
+	}
 }
 
 templ fluencyResponseForm(csrf string, view studyPageView, response, label, class string) {
@@ -193,12 +198,14 @@ templ StudyBatchOffer(csrf string, view studyPageView) {
 				<input type="hidden" name="language" value={ view.Language }/>
 				<button class="button" type="submit">Take these words</button>
 			</form>
-			<form method="post" action="/study/batches/decline">
-				<input type="hidden" name="csrf_token" value={ csrf }/>
-				<input type="hidden" name="language" value={ view.Language }/>
-				<input type="hidden" name="offer" value={ fmt.Sprint(view.OfferNumber) }/>
-				<button class="button button--outline" type="submit">Not today</button>
-			</form>
+			if !view.FluencyUnlocked {
+				<form method="post" action="/study/batches/decline">
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					<input type="hidden" name="language" value={ view.Language }/>
+					<input type="hidden" name="offer" value={ fmt.Sprint(view.OfferNumber) }/>
+					<button class="button button--outline" type="submit">Not today</button>
+				</form>
+			}
 		</div>
 	</section>
 }

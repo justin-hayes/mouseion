@@ -107,6 +107,10 @@ func studyScenarios() []Scenario {
 			assert.Equal(t, domain.StudyMaterialCounts{Preparing: 2}, counts)
 
 			content := studyReadyContent()
+			requireBlankMaterialRefused(t, store, owner, hausID)
+			counts, err = store.CountStudyMaterial(owner, Language)
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyMaterialCounts{Preparing: 2}, counts, "refused material leaves the word pending")
 			require.NoError(t, store.RecordStudyMaterialReady(owner, hausID, content))
 			ready, err := store.GetStudyMaterial(owner, hausID)
 			require.NoError(t, err)
@@ -377,4 +381,24 @@ func readyStudyWord(t *testing.T, store StudyStore, owner string, identity domai
 	content.TargetWord = identity.CanonicalLemma
 	require.NoError(t, store.RecordStudyMaterialReady(owner, id, content))
 	return id
+}
+
+// requireBlankMaterialRefused checks that material missing its sentence, target
+// word, Gloss or translation is not recorded as ready.
+func requireBlankMaterialRefused(t *testing.T, store StudyStore, owner, id string) {
+	t.Helper()
+	blank := []struct {
+		name     string
+		blankOut func(*domain.StudyMaterialReadyContent)
+	}{
+		{"sentence", func(c *domain.StudyMaterialReadyContent) { c.Sentence = " " }},
+		{"target word", func(c *domain.StudyMaterialReadyContent) { c.TargetWord = "" }},
+		{"gloss", func(c *domain.StudyMaterialReadyContent) { c.Gloss = "\t" }},
+		{"translation", func(c *domain.StudyMaterialReadyContent) { c.SentenceTranslation = "" }},
+	}
+	for _, tc := range blank {
+		content := studyReadyContent()
+		tc.blankOut(&content)
+		require.ErrorIs(t, store.RecordStudyMaterialReady(owner, id, content), domain.ErrInvalidStudyMaterial, "a blank %s is not ready material", tc.name)
+	}
 }

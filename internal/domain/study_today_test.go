@@ -159,3 +159,23 @@ func TestNextStudyReviewHoldsIntroductionsBackWhileARepeatIsStillToCome(t *testi
 	assert.True(t, ok)
 	assert.Equal(t, "haus", got.ID)
 }
+
+func TestStudyFinishLineIgnoresAWordWaitingForNewMaterial(t *testing.T) {
+	now := berlin(11, 25, 9, 0)
+	waiting := reviewWord("a", StudyStateReview, berlin(11, 24, 8, 0), berlin(11, 22, 8, 0))
+	waiting.Reintroducing = true
+	progress := []StudyProgress{waiting}
+	assert.Equal(t, StudyToday{Finished: true}, StudyFinishLine(progress, now), "a review without material does not hold the finish line open")
+	assert.False(t, StudyCardIsDue(waiting, now))
+	assert.True(t, StudyAwaitsMaterial(waiting, now))
+
+	// Once its material is ready it is an ordinary due review again.
+	waiting.Reintroducing = false
+	assert.Equal(t, 1, StudyFinishLine([]StudyProgress{waiting}, now).Remaining)
+	assert.False(t, StudyAwaitsMaterial(waiting, now))
+
+	// A waiting word that is not due today is not counted as waiting.
+	later := reviewWord("b", StudyStateReview, berlin(11, 30, 8, 0), berlin(11, 25, 8, 0))
+	later.Reintroducing = true
+	assert.False(t, StudyAwaitsMaterial(later, now))
+}
