@@ -1,0 +1,89 @@
+{
+ "all": {
+  "alltags": 52794,
+  "feat_n": {
+   "case": 30572,
+   "degree": 1647,
+   "gender": 30521,
+   "mood": 13090,
+   "number": 38727,
+   "person": 8222,
+   "tense": 12971,
+   "voice": 12713
+  },
+  "feat_ok": {
+   "case": 30259,
+   "degree": 1429,
+   "gender": 30216,
+   "mood": 12962,
+   "number": 38584,
+   "person": 8193,
+   "tense": 12802,
+   "voice": 12476
+  },
+  "head_n": 49414,
+  "las": 46546,
+  "lemma": 51592,
+  "n": 54049,
+  "uas": 47425,
+  "upos": 53537
+ },
+ "dev": {
+  "alltags": 3612,
+  "feat_n": {
+   "case": 2334,
+   "degree": 137,
+   "gender": 2328,
+   "mood": 958,
+   "number": 2944,
+   "person": 622,
+   "tense": 948,
+   "voice": 927
+  },
+  "feat_ok": {
+   "case": 2237,
+   "degree": 54,
+   "gender": 2222,
+   "mood": 915,
+   "number": 2896,
+   "person": 615,
+   "tense": 888,
+   "voice": 841
+  },
+  "head_n": 3745,
+  "las": 2977,
+  "lemma": 3662,
+  "n": 4039,
+  "uas": 3238,
+  "upos": 3868
+ },
+ "test": {
+  "alltags": 3553,
+  "feat_n": {
+   "case": 2235,
+   "degree": 161,
+   "gender": 2233,
+   "mood": 969,
+   "number": 2837,
+   "person": 607,
+   "tense": 962,
+   "voice": 940
+  },
+  "feat_ok": {
+   "case": 2147,
+   "degree": 68,
+   "gender": 2145,
+   "mood": 929,
+   "number": 2805,
+   "person": 602,
+   "tense": 911,
+   "voice": 865
+  },
+  "head_n": 3644,
+  "las": 2974,
+  "lemma": 3576,
+  "n": 3968,
+  "uas": 3222,
+  "upos": 3811
+ }
+}

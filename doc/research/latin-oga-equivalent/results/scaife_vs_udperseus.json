@@ -1,0 +1,167 @@
+{
+ "test": {
+  "pct": {
+   "aligned": 99.17,
+   "feats_exact": 44.48,
+   "las": 37.34,
+   "lemma": 89.56,
+   "uas": 56.5,
+   "upos": 85.8
+  },
+  "per_work": {
+   "phi0690.phi003": {
+    "aligned": 529,
+    "feats_exact": 241,
+    "gold_tokens": 529,
+    "head_n": 529,
+    "las": 197,
+    "lemma": 475,
+    "n": 529,
+    "uas": 303,
+    "upos": 459
+   },
+   "phi0959.phi006": {
+    "aligned": 2198,
+    "feats_exact": 977,
+    "gold_tokens": 2233,
+    "head_n": 2193,
+    "las": 693,
+    "lemma": 1958,
+    "n": 2198,
+    "uas": 1110,
+    "upos": 1807
+   },
+   "phi0975.phi001": {
+    "aligned": 1448,
+    "feats_exact": 639,
+    "gold_tokens": 1448,
+    "head_n": 1448,
+    "las": 667,
+    "lemma": 1306,
+    "n": 1448,
+    "uas": 943,
+    "upos": 1316
+   }
+  },
+  "total": {
+   "aligned": 4175,
+   "feats_exact": 1857,
+   "gold_tokens": 4210,
+   "head_n": 4170,
+   "las": 1557,
+   "lemma": 3739,
+   "n": 4175,
+   "uas": 2356,
+   "upos": 3582
+  }
+ },
+ "train": {
+  "pct": {
+   "aligned": 97.44,
+   "feats_exact": 56.38,
+   "las": 73.49,
+   "lemma": 91.63,
+   "uas": 85.35,
+   "upos": 97.05
+  },
+  "per_work": {
+   "phi0448.phi001": {
+    "aligned": 309,
+    "feats_exact": 185,
+    "gold_tokens": 310,
+    "head_n": 309,
+    "las": 259,
+    "lemma": 284,
+    "n": 309,
+    "uas": 292,
+    "upos": 300
+   },
+   "phi0474.phi013": {
+    "aligned": 1585,
+    "feats_exact": 825,
+    "gold_tokens": 1612,
+    "head_n": 1585,
+    "las": 1174,
+    "lemma": 1484,
+    "n": 1585,
+    "uas": 1324,
+    "upos": 1556
+   },
+   "phi0620.phi001": {
+    "aligned": 2217,
+    "feats_exact": 1119,
+    "gold_tokens": 2368,
+    "head_n": 2163,
+    "las": 1223,
+    "lemma": 2053,
+    "n": 2217,
+    "uas": 1534,
+    "upos": 2149
+   },
+   "phi0631.phi001": {
+    "aligned": 4075,
+    "feats_exact": 2456,
+    "gold_tokens": 4204,
+    "head_n": 4007,
+    "las": 3330,
+    "lemma": 3706,
+    "n": 4075,
+    "uas": 3736,
+    "upos": 3938
+   },
+   "phi0690.phi003": {
+    "aligned": 113,
+    "feats_exact": 63,
+    "gold_tokens": 116,
+    "head_n": 113,
+    "las": 58,
+    "lemma": 103,
+    "n": 113,
+    "uas": 78,
+    "upos": 107
+   },
+   "phi0975.phi001": {
+    "aligned": 1978,
+    "feats_exact": 1009,
+    "gold_tokens": 1979,
+    "head_n": 1978,
+    "las": 1179,
+    "lemma": 1810,
+    "n": 1978,
+    "uas": 1528,
+    "upos": 1908
+   },
+   "phi1221.phi007": {
+    "error": "no Scaife file"
+   },
+   "phi1348.abo012": {
+    "aligned": 1786,
+    "feats_exact": 1144,
+    "gold_tokens": 1791,
+    "head_n": 1783,
+    "las": 1550,
+    "lemma": 1613,
+    "n": 1786,
+    "uas": 1697,
+    "upos": 1749
+   },
+   "phi1351.phi005": {
+    "error": "no Scaife file"
+   },
+   "tlg0031.tlg027": {
+    "error": "no Scaife file"
+   }
+  },
+  "total": {
+   "aligned": 12063,
+   "feats_exact": 6801,
+   "gold_tokens": 12380,
+   "head_n": 11938,
+   "las": 8773,
+   "lemma": 11053,
+   "n": 12063,
+   "uas": 10189,
+   "upos": 11707
+  }
+ }
+}

@@ -1,0 +1,737 @@
+urn	class	text_source_repo	text_licence_instrument	conllu_sha256	tokens	words	sentences	modal_citation_depth
+anthoLat.anthoLat.musisquedeoque-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	11ab90ca28abf4ab250614dd824d986231cebd93f73a75a645c18374a5bfbac5	72653	60318	5553	2
+anthoLat.phi1017.musisquedeoque-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	760a191cf552014ac9d9f28b3c08ab5ab7fecd0ae0230a6d668920598fbffe2e	4819	3883	413	2
+dlt000386.dlt000386.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2e2f256e1ebfa5d668dec86618702d7de486941b4731ce2466b368bd9192f847	54018	46848	2468	2
+dlt000493.dlt000493.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	6b0b1bc1ea33ec0cc69ab3f4424f301e591b837b112191495e5d05b3df0e261f	264	235	17	1
+lasc0001.lasc001.musisquedeoque-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	1dee2e378e16e4476d0c6518df508f05e80563b331c891526515fb93ede63aff	3648	2965	317	2
+phi0119.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	5938fa1bf08deea5311bcb7ee3d1b2e1f00c76e6cf8bdc0013f80a40a0c11add	11403	9276	1177	1
+phi0119.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	55073294c93f7102a57fd1879e8c383b5c910965586f1d19d58cf4db0789a7a8	9544	7623	1025	1
+phi0119.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0d8331c9f1a9a73c1a5a1670e4f14e217aafc3cae1b70170cd32a51e0a21c9d4	8292	6628	891	1
+phi0119.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	55754588ffd78d50d0ba316830217115c2be5c3ba7fa0aa95848180f80fbeda8	11641	9285	1379	1
+phi0119.phi005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f57b4c2d40e902730a27ea0558ae2bc8782b9c035428aba4fddca33802ad4c7b	10345	8408	1006	1
+phi0119.phi006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	91de70fa3b989490cfe48de67190a08c131d099759a3a877d7d5713f09205614	9318	7303	1074	1
+phi0119.phi007.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	43d8381fd25ff1dde0e994c8c350424f6b55c87f9c9bc4bde98bba1e282189b5	6065	4838	647	1
+phi0119.phi008.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6ed24d61cb42f03c202e52c86be11a7f5bde05e87b85aee79ab7526c02f78ccb	7367	5781	884	1
+phi0119.phi009.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	feb7f17756132be4d61635e845cfce4a5689c9769eb4eadd52792788f91441bc	7560	6036	923	1
+phi0119.phi010.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	798e3357c64f8e39a03bfee596b33701035df987b8f621e18ed900180e9c3c0c	11417	9014	1313	1
+phi0119.phi011.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ef2efc0461c0e863733d8a4c071064192e6cafadaebb54234434bc2c9c3f1b29	10109	7959	1268	1
+phi0119.phi012.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	53462d2bff34977d1b38b9f62d8eaa75f2a50b547b8476561013d1561760f9fe	14940	11971	1643	1
+phi0119.phi013.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dcf962db06a518d1fbe05ed0a1e97ffb021e1c6785f3751232191d9c2d728df8	11380	8951	1442	1
+phi0119.phi014.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b58b5ee3eaf59abbf7e818e319899e517ffbfb54a7da3570c838dff965a73e63	9254	7243	1163	1
+phi0119.phi015.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f8d19e928da71e6b32722f23d34d1f23ba0b96ac8933ac71589b992dae7e6e86	12996	10345	1506	1
+phi0119.phi016.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a4d66ae629bba53f774a6a1c8bf9e8b5dde195e723f193461c85debe9657813e	12555	10003	1455	1
+phi0119.phi017.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9c43c0cc8ee4077845223e24bd010ce4f62709c1fbb49bb8a84c5a03a9aeace2	13995	11169	1592	1
+phi0119.phi018.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1ad056f6eacb6fb9eb8cc715c968cc209c1c05b104aa8090a40b9325cb94e663	7428	5907	867	1
+phi0119.phi019.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7e24c49e3f32cf48d2bac641665b548570fb8ba28a755ab30fe731c4d9562a3b	11705	9442	1212	1
+phi0119.phi020.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	12e2e00657559decbdff58ec78902f7fb47864c3ec2d5aaed31e023d6128fc22	9886	7875	1102	1
+phi0134.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b52285e535a092b396b227dbe5b0f3b817f7df5fe3ec024be162a4ff5773ec02	10317	8318	1505	1
+phi0134.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4d369e917dc03fa57097bbe7f0d0bb61db05b316d4814e9570cb17da97bbff32	11424	8989	1547	1
+phi0134.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	37004c6f46929b6a24a500709f61c6c233988378f56e72dcbcd7415675fea2e7	11681	9179	1734	1
+phi0134.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	39988aeca5205a0ead700aeab017ffd0b29a5e349c7a82bd69b8bc6b3a4e8a64	11114	8701	1559	1
+phi0134.phi005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	83001054b9f7693c460a5d5a0fc208ce1f45b708ec82c56b49ade1c8d6a54be4	9178	7538	1036	1
+phi0134.phi006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4792fb4f1815e2cac52d6af0d187d139a53304aeab2a7d48d1ccaaf44bf6fe48	10587	8313	1552	1
+phi0448.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b09510653c8072e9fbb1986c1727fe74792d3adbbd4b9cd7348e52578f44942c	60404	52686	2845	3
+phi0448.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	614c19ee021ff08380ac41b4a6e710f882602457063e873145c7ae3505e37859	38171	33347	1868	3
+phi0472.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8cd7df5575069a37e7b6e9b1db8f06fe648246b7e42f5d14393d77394f72d07f	15806	13239	916	2
+phi0474.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	af9ffed94e64e228806815e95a5bc7e14e7de98e78e630563ce99a719acc11d9	10408	8767	652	1
+phi0474.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	51ad77ae7cb382e180370956628872b943866ff5e0bc786d26b4c1f2064e13cd	15762	13546	885	1
+phi0474.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8c45b1d5a8973ba31a6e511af80373d2f142383ec276d3432727aadf85c468c2	5825	4811	484	1
+phi0474.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ed0c7888fd06994a7e184615b504bf4f338882141558588432ffa469e1702237	6994	5949	332	1
+phi0474.phi005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	146a94a1f33e8d9f7c5c48de12932020629937e008fda189f333135fd9bebc8c	120397	102264	6718	3
+phi0474.phi006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	17f9a7ac81e82cb2d909910c9acab44537c686227e0fdb2cd20e99e979f58bdb	4143	3523	228	1
+phi0474.phi007.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f2f0d4bae2d776c2428c30eefc856a36ca9ff5635af123f7b49ab3228b37911b	5337	4604	233	1
+phi0474.phi008.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6739d977a2f375f9b9161bc7f604efa6502c036f812276a1792233f505e47312	12433	10574	638	1
+phi0474.phi009.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	03c862e297c7db5c12aa68c380a31d2a012c786e4cc1d9833ea7f66c59eb9866	7628	6816	299	1
+phi0474.phi010.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a1ab9a4efb337d41672e0391c473c679cd69d23e319feffbeb366f936441020b	24419	21182	1238	1
+phi0474.phi011.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c9a4606d9e6c07ab4332904603181622e7a36e59cccf8829bd10520cf9cae765	16557	14034	844	2
+phi0474.phi012.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c5e1e1de259d8f44f8dda9a08fd36805d5427613b438a69dafaffe8f11035a1b	4335	3685	168	1
+phi0474.phi013.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	24c2dab74777db49146c58bb6f6843d0e4d15056722213c1da50563a1df69d70	14862	12840	670	2
+phi0474.phi014.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c19171b7817d78ebd0cc0307f0611fba6071274ac5dc5ba6b8459cbc41419200	12679	10772	657	1
+phi0474.phi015.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c28056987a6a1037d026aca93a97af39eba4cb7fa916c1a90dae6594311ff8e1	11111	9408	525	1
+phi0474.phi016.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b1c4319f353fbe3ebb2c85c723fc2f8b01a8cd450ba9442d3e9ca0702f7f3eee	3616	3169	144	1
+phi0474.phi017.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	83bde8b795ac5d4adff0ddc04ef51aa51fbe659e96fb2fc1fed9e93b22bcc77d	13275	11035	822	1
+phi0474.phi018.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	eae63d2b1138e07cbd261538bda055fbcde96e10172603dbea28c7a9b843fd6a	3145	2698	107	1
+phi0474.phi019.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7810cc7e0eb435f797562a0cbaff7ca3aa649633d64a4b9d03e46abb920596e2	5144	4428	180	1
+phi0474.phi020.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6543f03c204a78f5be82e9fb2d3079864e450d8f5893736003a57a75b9084f3d	18058	15397	803	1
+phi0474.phi021.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2a0b6ba480f9c010c4c93f957f70cfee93cdd38240393443c6b15f19cec65335	8929	7662	417	1
+phi0474.phi022.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ade174871ca63af66e66a059d17038db202da0076e806eb9f9ad7bbfbc11362b	20026	17083	904	1
+phi0474.phi023.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	77bb3ba10c77405c49c8acc7a1eb9cd94c2fb8245314d2d0f4484514462293c8	5378	4589	191	1
+phi0474.phi024.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	753d96ec27378541e47b6d1c2d6c999eeaee89f12ceac2e98aef0690b0af1abb	10141	8655	527	1
+phi0474.phi025.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7aeafbc3880975c2afd8956b8201b2c0bf0385880b8e50594acc8f4c668213de	5988	5183	263	1
+phi0474.phi026.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8a0c5a1b4009e00898ce0f9f3bed06c4c8266cf202f58f71b09750bfa6e504b3	8050	6878	342	1
+phi0474.phi027.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	18e6c6d8f3d833923756af104ea8c4920aaec823761f98781914dfd0bd80244f	13055	11069	632	1
+phi0474.phi028.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	fca6584cde38dc7b92c47e07a679ee3a0c8e3c0fcd9c4820c1e24c5bc4ce366f	13854	11799	666	1
+phi0474.phi029.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	890b2773613eaece0a41d57834a4cc280579449e46eddedf04b3c56cc98b1b0c	3596	3047	190	1
+phi0474.phi030.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d8f63dbbf1a8faa27b9c742071d72d8e7e2dff4a5190ff10fd93589795a01a22	4919	4143	304	1
+phi0474.phi031.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f2281c05e66840a9e0babf6776fab3502d7e99b064911ae4860f707e33c47170	12618	10678	636	1
+phi0474.phi032.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3084093feaae8b87b15bb38075467cae161672d5bcfe7ab6389ffeabd0fa0315	3268	2828	149	1
+phi0474.phi033.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4781fe0ead3fcf4179beff85b8a25c011a57c75330190e29e1e17e3ad198465a	3975	3324	255	1
+phi0474.phi034.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	44a2d7cb309b483ea6dd9d3e2aadb3e2e9b72fa1771cf313fb0fa7e6e2b3d107	4656	3971	254	1
+phi0474.phi035.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	32ccc2f2fdd29749446c5c2dacef959a6d40ed977d7b998c0c005a13bd235e3c	63552	53584	4164	2
+phi0474.phi036.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	097eff5bf4749d28b11d86e41ceae559d00daa015f91df84f259fc8f28d4821a	41547	33499	2211	2
+phi0474.phi037.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	998895095b8ae1ac1c4d39337fd15244d97888941327b375fb5af65f46b01314	76083	62912	3337	2
+phi0474.phi038.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8fbd5cd2ee5fdaa55424adfebcee09a9f1384b7df57f4cf9cbd930d4af14e407	11519	9974	540	1
+phi0474.phi039.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	09be78f59fe053b10ab593a5cf926067c82ba726b4af3e11eac324a4ea2dcfcd	29996	25567	1589	1
+phi0474.phi040.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	fbbb384aa86b6c0c97c6bc7a653fc020de98ab5f0c3e192be8d06e44ee49c104	22102	18904	1235	1
+phi0474.phi041.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	36b3d9ab6261f56407e8490aed6748847866ce810b86c6735e0ab692bb02ef00	1901	1600	109	1
+phi0474.phi042.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bac1d7270ed8e4629b645120d8682a868318606fd1164340bbaf855405b94fb4	8233	6930	566	1
+phi0474.phi043.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	24ca7c25f45d68190a8546bcd197902ab7adadcbd1ddc0ed3c41364b8c260f5e	26629	22386	1171	2
+phi0474.phi045.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	138030a56aad58f3d7780b2e74004ebc43466f5e584a5fa22328e40e42ce9b6d	4921	4330	216	2
+phi0474.phi046.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	86f70b76cf8360531e936350f72496247ef1d8d78442d438207344cd2769eae3	21290	18340	1172	1
+phi0474.phi047.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	12b21de9e5fbe1602e5d06cd5ce3143d433c0e2883d6667c61775c40b361aa88	5409	4453	312	2
+phi0474.phi048.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e91035225e88131387d62676406f96ebebfacf7bc3d3be62ef2173f4ed9c8e51	58699	48300	2758	2
+phi0474.phi049.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b85a8d5fcbcfccaf0d728e0681b85224ffa52719ddb41260435a861091e9045a	72208	56974	4145	2
+phi0474.phi050.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7a5b4fae5ecbff049d780eddf5d15315de9e7ee370ad4c722799feef561a4256	41909	36644	2144	2
+phi0474.phi051.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a9f5dd880fce5d65c67d5ca42a8f0d8bd4ebab2270115f53fc7c28c83082858f	9958	8427	527	1
+phi0474.phi052.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	00ad9179d61746e7fb961296619b76bc0fdec0508394f6a73f78cec2e93e5b34	11270	9531	575	1
+phi0474.phi053.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	707936b21da10ed309d86827b688a3478b2e5008e9de006cc852fc1e452bdf92	33832	28135	1960	2
+phi0474.phi054.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	29465ada7913f1306729cc0a9bd53e37ff880e2f9133f611a50bc6e6f429c355	6453	5303	341	1
+phi0474.phi055.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	63161dde510f9e9bb94dc394af9b65a2fff31a491df290c260c4f9b053c54484	41796	34767	1985	2
+phi0474.phi056.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	490033fcd3f9353285d27ca427659f587b41ca7a290bd9ae51d6c7c347fec866	136489	115853	7181	3
+phi0474.phi057.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	303d8853f45cba6b33eb03f6703910e27d326b7442151fadb2934dc36c332292	146108	125060	10892	3
+phi0474.phi058.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	fe698161234515cc3206fbae1c8a0d21e836b6f784ae48e04eecc4af9fd23508	21681	18732	1230	3
+phi0474.phi059.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a6223f3eee5245eeed9958426d721b23e146f8e464c498a466a5f661511628b8	11121	9722	653	3
+phi0474.phi072.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e58f5b8941959d0ee0d753904f6042d9c5f8a53770569bb43eda221789cc7c0d	5130	4352	193	1
+phi0474.phi073.corpcorp-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	339a3cc1003ef982fcf79150127c699c837a9c72aa85703aff11b91a280a563d	38635	30723	2536	2
+phi0478.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0f340227fb4b75e72761089f2a2bb46a67772a8348640d07edcf54b45118bf99	5030	4385	205	1
+phi0550.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ae400a6908a6c38bceff9684f7d1f6afa4ca666786ca892e565c9e188e383730	57125	50877	2440	2
+phi0588.abo001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a5e2c9516fa015913e1855e2adfd04c285ff33f78fe09a621239c0d86cfba9b1	1599	1372	76	2
+phi0588.abo002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	cef7aa2e9089bcdc43ca7db6898241dd9304e0dc3e63947b371044d53d8c81c5	2062	1762	109	2
+phi0588.abo003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d50795de15f5b312b494dfbef815331da2ea63638d3cd1b715fe6866506dd435	401	349	19	2
+phi0588.abo004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	41c9415033361914d6328e9f65977cad0384492e226046840783ce95d10b6010	1068	906	62	2
+phi0588.abo005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	23bd0aff9eb4525c613b5dbd62e56c280743202720f4466390ef8bf70bb9f63e	644	549	32	2
+phi0588.abo006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8537293ffa81eabddf7e60ac7ecc65f07f2ead2c966cc9f63ecfc912e5699f66	635	551	31	2
+phi0588.abo007.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a122e4a636a87acf23ce492f4608cccf0f53601c4e440d880af4580a719deb64	2451	2083	118	2
+phi0588.abo008.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	86a55391058b9121a1e14907f0786e7a0d57ae7fda251a110eb4a9faa1eb71ed	726	620	40	2
+phi0588.abo009.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	19cef6b8c8966626dce1e6d2eb2f5cdffab31676b34c4e4003bb76e248ccbdc3	894	758	42	2
+phi0588.abo010.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	752abb6f7e59e1a1bae3ef94c936ab91d0043d8b07326cc71f38aef461fb1f04	1815	1522	89	2
+phi0588.abo011.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	eeb0ff2ec4d32a6204f1831da086730f5db0f0c70bac6b183f1a3fb0a294f4f8	501	420	24	2
+phi0588.abo012.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	015122866d9d5f6c71a0b02bf05d2431d781c4c8bdbc5a09f3d96c949b170cb9	588	500	33	2
+phi0588.abo013.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	97249db669ec6de6703fb420e135dcabccc07b4c46a0643b3dc97a389a276c33	786	667	43	2
+phi0588.abo014.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	daff60140790c608e4c8cbdb6eb88624fe15edd83d62be34a19d3ab6a77e8a11	2249	1888	114	2
+phi0588.abo015.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ae7f07300f000a9b4b5a3622e2badab5ec3d57cac71fed054706e435da2d2bb5	2068	1722	94	2
+phi0588.abo016.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dce036c2ff83bb25755e443567363494e9c0061b066cdcc7a3773258f7e7313a	865	729	40	2
+phi0588.abo017.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8be2914d85e82d19b0ed0af562be3e0502392c5d1846b7169b4a09fc885923eb	1665	1424	80	2
+phi0588.abo018.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c81172a93d6975db07f04931953a7db7c77fc40af791f9e92b43016e30714b53	2782	2349	134	2
+phi0588.abo019.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1de5c49f02322c7f9948c4fce466182547df39bb4ef632f8a822f68f61b73826	645	548	32	2
+phi0588.abo020.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	38b40a1c1cebdbd3c519a78b55d41ad4cbc91aad93e184629f0fecd4d8101605	998	852	47	2
+phi0588.abo021.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2032cc7813aa47ac0d12d29f933e75e6814ad929186de16f728db5558bd790e3	535	452	33	2
+phi0588.abo022.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bdcf25a51cda6373c3cd051efa4e0c6919b91f9f32b9c75218bc93a5ec334c3c	631	535	28	2
+phi0588.abo023.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ecd07c3023132e53eb225cd3eb907dc7edaa9bcab296f3944b980b8519e1dbbd	2530	2158	133	2
+phi0588.abo024.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6ffa97aac3e33c729fe3e31f8ac4d3f7c23d4b0755318ebe578d310e07a29064	539	465	32	2
+phi0588.abo025.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dd8e647b586dcc4ac999e9071a21bdb53bd20eabfced327e211b1a04a2d2e7b4	4374	3724	199	2
+phi0620.phi001.perseus-lat3	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	83dbdd01ba8fcb665406c5c068be8c5bcea5730b133949f337354733dd03785e	30993	25866	2277	3
+phi0631.phi001.perseus-lat3	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	87f1b45f7953d564a19062a4b75b4d23fd45b0b8b3259ae75895a0b6aa7eec15	12924	10943	698	1
+phi0631.phi001.perseus-lat4	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	5aa213b18a116399b1309146b375fd633ab2dc797831de2c7367fabc70ba11fc	13072	10931	705	1
+phi0631.phi002.perseus-lat3	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f4c2fb855a9a483a808d32b175b1908cf39d7ddd8f11ef3dcb992b325d7e3d39	25705	21824	1316	1
+phi0631.phi002.perseus-lat4	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	cf86b427228973c9b7e75ed9c1cf53ce0ba60858276a0f5a16b13c20ae02b2f9	25707	21820	1321	1
+phi0631.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dd301e4f47a515b7d1a86dbe94c8042ee43e3a8bb26495d34d645e30fe66b5a0	4916	4167	248	2
+phi0631.phi007.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	718ecdb924a486fd7fe4e6af7a0f819b29bbb4d5052c5e6dcdc79f06a44fa425	4818	4129	239	3
+phi0631.phi008.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	acdc6a4ca8f3e7c23398c7238c9bcb6e0e773baba8e02cffeb7b4ff10a6a6670	889	722	47	1
+phi0660.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	86a37fe6883365d4a29e83500ea8ef0541a750551d0bc01e3f93be79b98658dd	15175	12820	998	3
+phi0660.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	902a46716bfc2b015b7a93bec59186673adb202b36c885794f0764ae74f53110	313	261	23	2
+phi0684.phi001.remacle-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	f37a3fcab57485a2902ade833fafd49aa69aaad064cd4f6ea8addfe94c122b92	49673	40372	3526	2
+phi0684.phi002.ogl-lat1	core	Latin	CC-BY-SA-4.0 (license.md)	3f9aae9986ac0c136ffd48774df71afa3a2d3d540c93657c4e499a8f860915a9	43266	36043	2160	3
+phi0690.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6de274bae32618f3cc2028e68f7a48597760a26b3059fa75f0f2b768e8c0f7ee	7282	5778	587	2
+phi0690.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f14efc2415474f068235fb534ee9ee6385ae5a0258df5c70e920bf20a5abe64a	17028	14944	896	2
+phi0690.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4f91ba560a3d8d8b98ff334e7c8fc97747379b933f654751d231b80ece52d75b	79284	67226	5058	2
+phi0692.phi002.remacle-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	b471890bdaaccea23620ca4ffb0a3c232c2eaccc4fd6ece2a2ec994e53bfbc8e	1492	1201	106	1
+phi0830.phi001.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	f28fb0f15e3f798f3878e4adc5b047ef928984520e1206a5a886fd94c72ef7b4	6203	5203	413	2
+phi0836.phi002.perseus-lat4	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	af129542b627746790f68a59fda05c3cb7c11de0b8f2599348657b7d6d55f8c5	128918	105665	8357	2
+phi0836.phi002.perseus-lat5	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f769b5c79c482b59de73d9ad711a0f4fb42a72b9663235cc95e17799feb24d84	135026	106087	10569	2
+phi0836.phi002.perseus-lat6	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e974a9294c332dfff517a304b46c04ddcd4d432dc4493c49d38d34a7022195a2	131389	107910	8247	2
+phi0845.phi002.perseus-lat3	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	953992ccf76435bf2b22e0075891b213ae673216b388d817be2a80968df2380a	96153	81102	5205	3
+phi0860.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e2107cc29105b3244f417d10852ac769b796d34705b6f0863f804d5612b84c20	90838	75834	5474	3
+phi0893.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e44dcd96dc86964dffdda7167cdda5d2bc692885a79e43f73ff2f44b04856c6d	15877	13860	833	3
+phi0893.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	15ca0d03373be5ac77fde183e6abd2b32d02bc5bbdbb5693e2fa0c2774bbbe4e	389	335	17	1
+phi0893.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8959a85df2b94dc77f1d9ae359e24a4d47b28733d0a46b51966145977faa5238	3620	3123	189	2
+phi0893.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	209224d3946e82176ed5b51758602c6e775c9331d534fd7ad1cd315ea2b8e266	18259	14689	1283	3
+phi0893.phi005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	04e8409b94943db156c0975b275784ba95e994837a4c2f9243731e91718733d8	12344	10196	703	3
+phi0893.phi006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bdc53a1241ea7c53b9f0bda274de0d3e76aef7734326861a7436878b028a493b	3825	3236	224	1
+phi0911.phi001.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	47ea08e880cf76b31d02cedd6542bfa3e8c1f888ec9834fc8dfe81a320dbf549	2040	1744	121	1
+phi0914.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4a354a08c513e78108c3f81f8833a57a1f1c8710d1df21731a676d8421d0776c	607341	518260	29938	3
+phi0917.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e7f4019a03522df87880d47ac519259a3d5a6b0f0f08cacdd61d5e885e620795	65306	53652	4794	3
+phi0959.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d775742a29f7b8fa1d8e38f0343da6a82b7324416a1ca7d8233dc222a8cdc6fd	19880	16149	1681	4
+phi0959.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d75e0b937a27d1c33ebad263e4f87de780fea7e6462f07f0bb35b9257480c2f0	32739	26568	2631	3
+phi0959.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0bebb5ff4451ae71c59f79d3568ae317a6969a08a811d22dcd4c644ad4338cb0	757	637	62	2
+phi0959.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	998b7cf64ccb3be79198bfee2cc2abc29a3e49b91f16cdd3636d4c54a89cc844	19331	15461	1755	3
+phi0959.phi005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3ddbb4f6392d2af325732e1b5cedc27f735020ceec50586d426a0e690bc30744	6756	5394	637	2
+phi0959.phi006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a31aeae00e9fed63dfe2b5f286b25264795118b0896293359253c674d4e8d966	99588	83120	6139	2
+phi0959.phi007.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2eabb315cdb3e5ac13e10a4d38234db0054216270c99f36fd0f74cfe504578d7	39410	32360	2829	3
+phi0959.phi008.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	fad2b62c2f30b8e0dfe6ae11dcba8dadb5f5fe71ed2c7c720f9d5d1f0eba4048	28817	23883	1613	4
+phi0959.phi009.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a5bfd212d2844e70fdfa666bb7df5d14f733fc58cfe0e7ac50f3e71c14b27cb2	25964	21541	1453	4
+phi0959.phi010.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f33640614dbb363fe131d732cb5b866b82566335168f2bdd12aad8f86ed627ca	4952	4144	346	2
+phi0969.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d6b8709310009607b837ab208aa241aeb68846faa07d252a15972a55c7b9d992	5621	4681	425	2
+phi0972.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	df419b2a64bd4bf2203d01ac6ca7d3d419b03eee796da41fa026550dc6f02bda	38074	31298	2453	1
+phi0975.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f1beab10ab23278f51b58a3fe447d712309a261689f1358f3549579b28ef6480	13395	11123	1185	3
+phi1002.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9dbe373d4c4fbff5a796d5d1cebe56ec5e5a1d385ef662cd232e1bddae7140e9	210776	175337	11884	3
+phi1002.phi003.latinlibrary-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	93302aa92b4cf7b1d86ec9dcddc480ae87b36db3baddfdff9342ebfda0e7c5ae	85109	67827	5763	2
+phi1011.phi001.lascivaroma-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	5e80d9ea0bda10c53797f708ce4f0ea8d28731249a003ade8c80e8f328117c02	29058	24640	2281	1
+phi1014.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	35de8642e430b553fe00a83b58f72982d9e1b19a82e84501982a2f038033ad11	83673	66589	8709	3
+phi1014.phi002.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1412d708c8d6b4b515f3fd12a33fe81580ce845d9d96b66630565777fcb20e01	27002	21927	3066	2
+phi1014.phi003.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8f27a5f8e65687788955232dbff7b1baaf2353cb52a8aeb684309c0090780841	12593	10407	1053	2
+phi1014.phi004.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	cb66cf6558a2e636877331606c7343437c81b38cdae427d039e579b53547114e	164	137	9	1
+phi1017.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	61baa6a6e89fb7782537c55627c291fe0ef9eb46172fef3cade0265ec9ea78a4	9090	7698	719	1
+phi1017.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7bf5bc3f4cf1702dbef3f127b200413446b4635dae998e95fbc73b139bb21df4	8251	6863	636	1
+phi1017.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	231da596c418194de35694e328d05e32f2fa85da3d381c95a7803653a6e3d5bd	4997	4152	378	1
+phi1017.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0147a2665dab41e98b63c7b86512e161bf6d82500bfb411026686b72bef71ab3	6907	5680	518	1
+phi1017.phi005.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	35d4707a788930146cc8c5da4ce99ef1674e9cd79d8d3bff29703cb1624ef4e9	8496	7183	675	1
+phi1017.phi006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9e0b95c7785d480c78d7b38fbb19f21b742e24c0d0c0c512a50d18a74f4aed12	7038	5945	581	1
+phi1017.phi007.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2d540deea0e34ec1ea5caf40b9bdec982903a3f3ed5fe32a29a964075b27212b	6629	5585	503	1
+phi1017.phi008.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	51f4a8f4285062d977b42c217f67a210e70122e124dfbf45dfe791fe7b1d2093	7514	6329	542	1
+phi1017.phi009.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	cd2daa6f0e636aa7792f22610d2925ef9427bc52d8597aa550ded1fb1199e3cd	13715	11390	1146	1
+phi1017.phi010.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bd76f5a44c21366bed4f80bb41dc6e5bc95ca5ca9d3505e93ce20debb4c5da0e	6159	5240	422	1
+phi1017.phi011.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	09563f57976b283a8b9635504e0462172a34fd4170c0e5e7132a0487f23bbd70	3706	3034	278	1
+phi1017.phi013.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3ff16f50b7db710808a276b9759e7092793f97ae703122e1c9abe17d01fbf13f	57504	46281	3835	3
+phi1017.phi014.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	acc56c2ad98181c8964587e1e729d7c8842873d3ad55b6d5d837d722baa4dbb1	10321	8540	620	3
+phi1017.phi015.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	47ccdfd080e3e8470da610ff093be17d81141a36ed851c21c19664738b5af9d2	149703	121572	11621	2
+phi1017.phi016.corpuscorporum-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	297b8609e55da147ed65fd46366165ad4a9fd2cb08dce40e9f53e78f467e95fe	57507	48574	3700	3
+phi1020.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8bea92cce37c805758821276c7c310714f847df1f88033d0d8781dd73b6737fd	78477	66518	4123	2
+phi1020.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bb4e8ee5653cb11f953ccedc77b36314f890b2d9fae020985ac618997769c7e4	29507	25512	1583	3
+phi1020.phi003.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b72e36194b756cf95e6ddd32e3e8f48dbabe7a997c3414a9a75c75b5699f0147	8996	7739	476	2
+phi1035.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	88d22a98ab2117a562611d0aba9df1bc57dedbcfa75cf7f2c6b0669aba9ec361	45951	39605	2802	2
+phi1038.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a5c56232bca508d03c062573206c6e28f4ede55917ac5a8f2983edb28c201d43	93471	81527	3747	3
+phi1056.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7ff1d516875e432fc1e2d157fa6e9d1bd17af5d4a80336fac785f1c75bd4aabb	68612	58919	3078	3
+phi1103.phi001.lascivaroma-lat1	core	priapeia	CC-BY-SA-4.0 (LICENSE.MD)	3713e14a19e5fb36e5568adba93d1d0d9e21320fe5152751e10b6259e908b23a	4264	3463	262	2
+phi1212.phi001.perseus-lat1	borderline	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b94ccd7d130e562f4311b1a6f37f6718e40e9da3af9aee74904392291a8b471d	26351	22345	1326	1
+phi1212.phi002.perseus-lat1	borderline	canonical-latinLit	CC-BY-SA-4.0 (license.md)	abcae4309dae656438e4785f6b3bbcb55d1f751158c48494c0c22a6e025ca75b	62583	54814	2690	2
+phi1212.phi003.perseus-lat2	borderline	canonical-latinLit	CC-BY-SA-4.0 (license.md)	cc5c602a88a5b04d40d2b6734b936b7f06f0da40625fd4ff5c31dcae38143710	9503	8147	390	1
+phi1242.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9c435df89993ebc63392321f1da2bb2040390baec12a76181bade67dcc0eab47	31706	27003	1797	4
+phi1251.phi001.corpuscorporum-lat1	borderline	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	e2f92629c2fba9a7c80e89f958f4f8180f6f7b2a59a5d970fd4fea01b13526e4	103893	88006	5244	2
+phi1254.phi001.perseus-lat2	borderline	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6f8029bfd79045a0464da2dbb5ae77da1bea649798ecaf9ca193e416ffe14ce4	139836	119833	6868	3
+phi1257.phi001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	b31397d8e6cd57e8fc10df69117b15a41ecbe2cb1f2bd1aca1391244e477f3e9	7575	3581	631	2
+phi1263.phi001.corpuscorporum-lat1	borderline	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	360df660aa1f6040c960c6309e0faa60e21b715178e0df8acce97e299f0d1d5e	32103	27523	2165	2
+phi1276.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	5830b350e2bff9e0c778f61235e584c5abed4c61bc5730c1e49788544fa6cdb3	29871	25579	1532	2
+phi1294.phi002.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bb484ca9251db561e47d20337b93a3a72ffa16bab7415468d584cd4fefcf0c0d	72474	58213	5812	3
+phi1318.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1938eb677644f2112427f0cd35cf94099ac5eeca9412506ecb611cf2b256193b	79793	66673	5317	3
+phi1345.phi001.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	33890d7017358e080db29eb323d80ccbad4a1487c3c12f0b77450b9b85ebd7a0	93317	80229	5287	2
+phi1348.abo011.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b37e34cee78f91c0ed29baae8f6c754faeb9a18214e8af591afe1c580e5d1ca6	11530	10018	527	1
+phi1348.abo012.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2b0a90810a5cd6b563d93bf4fd111378512d584c44de2ca584e280ef14ee7dda	16372	14263	761	1
+phi1348.abo013.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2b0ce22772846b5e94fa791b3b5dea52665a25ef49bbbbc59389fe5bb66d42ec	11013	9544	508	1
+phi1348.abo014.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bb668e7b53e20def0e79727cbfd4c8fab8c7029e39183c8c95001ca1cc1cf9d4	9256	8007	411	1
+phi1348.abo015.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1d32b8ada2dcf753fdc61889af5818a0fff3c1691e331609c34f37202b9d1594	7803	6771	372	1
+phi1348.abo016.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	962ac1067f85472cd18bb18ab7916e3cba212adace4da4c03c524d06d8a139a0	9440	8224	458	1
+phi1348.abo017.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b8dcb299d76b2f1d011f4c3518420cb7c136d644c85d1321b1ff8274ca895bf1	3381	2959	154	1
+phi1348.abo018.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	65cd6986e36f73d29088c5f477269c763da285150a47af1702d15b9c403625bf	1984	1733	86	1
+phi1348.abo019.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	23b445ec1a0813819751769d2283b8720d9760665fb3e0b6833eac985f17536e	2850	2484	109	1
+phi1348.abo020.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9b541f742c8d5db5522caecb04a7ad0fcdc111f024ea3ae3c3f9d01916f950f8	3845	3322	186	1
+phi1348.abo021.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	74661f4aea2b42a0cd0620cb9193001821fe264c036da21fe10d7ce9c5448589	1777	1550	75	1
+phi1348.abo022.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	50ecc28df0884e25c313612af8841d2b227a11a5e86c60b2875bca430dcb60c2	4317	3717	217	1
+phi1348.phi002.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	779d64e3ba402d0eb0984e67b2f78061aaced2bcbd562b886086319d2043af7a	4309	3641	232	1
+phi1348.phi005a.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	cc06303396cf919d2e13d738b6a3eba6cc332ef7b4398bc184ee7b62715f7573	3554	2957	166	1
+phi1348.phi005b.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	47f52ef3cea24f3a3da959fc38e435409e0e4a29bbcca32fc7af6ecb7fba1b59	1360	1132	66	1
+phi1351.phi001.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c5fd1cc9c21a228f3483c3513425c9997b63d22ca51312d7847d5c43eb3b7d44	8083	6912	443	2
+phi1351.phi002.perseus-lat1	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b644e2708ed219ad13f489d4ba09441426dabde99e058837923ade2b28f95f6f	6746	5733	459	2
+phi1351.phi004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0b1b4d3ba4110c599c501e973cbc409e0eb976423082f3a6a468fbb8fc55f130	61964	52992	3714	3
+phi1351.phi005.lascivaroma-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	7d038e8a888fedf868141f64e12dab99bfb7a0e3f16c97cee0ac797a1c00acd5	105623	91473	5699	2
+phi1363.phi002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	5652f72aee41c230d8dea1a3b05de175b694982f33d2f7a67cf0cb51952597aa	753	509	42	1
+phi1500.phi001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	9a1d5f4242b1fb7622a55d025f1fd7b9a9eaab9ae153ed24defc67fa5646f241	938	700	166	1
+phi1512.phi001.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	2c965d5729ae4e4616ca56c30d2814d7355c82042bcff6ca76dce3cb502d6e99	38019	30244	3945	3
+phi1512.phi002.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	b82bbd717315f5c509c50198c4e114d3606a15302737ee073213d538f7d7544a	4056	3262	396	1
+phi1512.phi003.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	e1d82cfca8cdc20fee950f0d4699d60e536eac8bfda90988932be7ef4d04115a	1058	836	101	1
+phi1512.phi004.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	a3fca2c03dbc983d2537f6518f9417caf76a3ef34d61485b477d823d15003e81	9505	7529	938	2
+phi1512.phi005.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	4752cd739f68f8c418649822da19df9fd4edaeac9e1b2dad530e535c28a5779f	22819	18032	2281	3
+phi1512.phi006.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	93a150439cb353593f9bad7e9ad013bfe74902a0b959c3d513abcb590ba42ff6	20953	16392	2463	3
+phi1672.phi002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	5ea5650b3b64e6914d1bf90fc663fc38a7c42c94b8b172e04cf28d5dee6a8327	38719	34475	1877	2
+phi2003.phi003.opp-lat2	out	Latin	CC-BY-SA-4.0 (license.md)	88063d7051dd04e9da59f7ed871d3df1c6d23ac5dd595b7da9b98ba1f3d63235	195	122	15	1
+phi2331.phi001.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	494a1f10af98b8515f3b688a69cda577683c545fa6aef60e6b1c0069b0ae66e8	6036	5196	219	1
+phi2331.phi002.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bc97b466cd0612006fb9f7f6e48b48110b16fbac8be91d6a14190bf2351d5a86	1703	1464	58	1
+phi2331.phi003.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	126fb87fc986029c8f2890d75c2a1d837aead11d8fee6b922fd15219a19c5d71	2662	2272	99	1
+phi2331.phi004.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8bb63e6b284c55d835c8f0570a51c2ecb2c17aef92766450c97cbd0dccb33e94	6410	5612	225	1
+phi2331.phi005.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8c2ad1457f70ecce0eec286209b992d697ad68c2a6f73d9f38ae583c656f0f06	2403	2094	78	1
+phi2331.phi006.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f6cfa933579b6bfe3eeeec571b1d8c0bf0613289e906fff2fac06bb5e6ceca91	3131	2651	115	1
+phi2331.phi007.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d68af1a2e04587a36db75a8a29b0963386e960299fd97e04a39a58228bda6d09	4145	3504	213	1
+phi2331.phi008.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ab3c013f452e61eb1b0dc9dacae7956265586d0aa195a4d1b8fa77047086f32f	3049	2641	115	1
+phi2331.phi009.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3a053bdb5c93fd2694f625431350122de6f7f38437162813ce21b68a54cbdb78	1880	1620	75	1
+phi2331.phi010.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	749924a2d1827a44edca105bcef8624e158427002b1a402e8fe3070be2566eea	4977	4278	181	1
+phi2331.phi011.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	db8f88ca680fa3c437c3cbff48cad349f38e775d07e40f4bd7210c92a4725ded	2750	2311	97	1
+phi2331.phi012.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f4ae890d80ccecc8dfa4280c27ae64e5ff84557628468e05d67b5476b780835c	3204	2733	104	1
+phi2331.phi013.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7e5e9c4981392b79b8ed9a72b95585ee336ce101239d4ca8a00fc425406620a9	2415	2071	89	1
+phi2331.phi014.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	165913d06edab6c443fb00a5547e7e934ecd87e06ca734c30e975ceec66259bc	1482	1253	43	1
+phi2331.phi015.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	270a7738badc590ca74e9ec72800f9f6bdf644c70528a6c5ce8de776f4a870d9	2958	2517	87	1
+phi2331.phi016.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e2066fc1bb639530d010405bbb1fc832097e5b8cd46448caa6ebab2f45792d94	1982	1685	68	1
+phi2331.phi017.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	978a3650085067e4c65a932ced8922a83c929e3f925d962ffd4e22d8e91bf799	6817	5873	190	1
+phi2331.phi018.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9804e4b08011d519322e01474947bdff7c32ae8b1ebb65f6ddd8b99fecec29af	12801	10859	450	1
+phi2331.phi019.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3b4e2b898b54d560b22347943be11f06e5293a360d02de63b656fe2f964fe858	6461	5474	236	1
+phi2331.phi020.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3ca930d9a5a7d2867320a5cbbe6f8ed063bfbb99f1ab78a846ecf93a642cb579	6614	5629	212	1
+phi2331.phi021.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dfb6e5550daf2f04128653aeaf1230b07b235da26d16288455e528a6e1aed609	3729	3190	112	1
+phi2331.phi022.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e7b4faaa6fca45a5f78e07f974f6661d70ee58e6b0e5d50e79174f4f49c80444	1221	1021	53	1
+phi2331.phi023.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2bbcac5b108a4745146a4fedd70613c9bdef4647907c4c98732c41435dba0a4b	4376	3742	151	1
+phi2331.phi024.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e993981333a6c33e63e9d4738238b51796c7db0b625b4fe62efa9e58ba134f0d	7862	6705	252	1
+phi2331.phi025.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	12bf9595beb86df630a6f621425a9780f3cb73319a3163ec9eae37f45c1fd3d5	3624	3005	149	1
+phi2331.phi026.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bf51b824e55a521a9452756759c8a4cac54b57c6b491ae5522f4bed5b7c96ae4	9393	7918	344	1
+phi2331.phi027.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c6cb3293a9b3d03e4efc4279c02fad2f0a1dfe5cd0fcbaf2b19c249153cecc95	3742	3146	164	1
+phi2331.phi028.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ec047abd0890de3fbed1e95c9c515313b2817df7552998eb4bf906fadf71cdb4	4976	4184	180	1
+phi2331.phi029.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	76ad0a7af5e121b57077b974079a300951206c2dcf59e56bd4ec4c906fc51f74	2801	2339	97	1
+phi2331.phi030.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7f74c335abef063b2165ff9fc9b9741365ef146a30d29f8ca4ce8a8f8f415237	3147	2677	108	1
+phi2349.phi005.perseus-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	dd3c55f625a2628dd1c559e6ef66505b1a4e70ca880bcb7420f2fd37a904d31e	403004	313219	35756	2
+phi2349.phi006.perseus-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	f72b46aba91d54df59e8da178cc8d42a9de5ab01b6518f9852834e19c07c8d83	37923	30088	3463	2
+phi2349.phi007.perseus-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	415a5cacdcaa29acee02e89d331c83c62f3f6e727d81832350a243cfa1af569e	75721	57902	7390	2
+phi9500.phi035.opp-lat1	out	csel-dev	none in repository	bf8f0e349c9715c6c3a3ee91627f2ef53c774dd0f10fdc11c85dfe9db3772b8e	133	113	9	2
+phi963.phi002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	37112824c1e0d6ef2b70aad6158657aa68a2747921d15fe8521cc49c89a9c6ae	9475	5973	392	2
+phi996.phi004.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	a376979d49397931d2a0bd8aef576da09ddd065888b611aa4b8bdf2412710215	249	208	16	1
+stoa0004a.stoa001.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	299adbed863afe04af73274521737e67474573a5fffc1190474368a5aeac6c9a	60453	47522	7995	3
+stoa0004a.stoa002.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	15b6e5939d0cb167348291fdaf410a4cb2804063b9a36e3b8f3724e51144d114	2287	1838	233	1
+stoa0004a.stoa003.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	689a816dc86e511bb67369002f614482fb484d568274de32ec1b8fc37dd69a82	13631	10595	1775	2
+stoa0004a.stoa004.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	73599ab50675c2bef60fa96aa91934d89d32ed8a61bf5b9dd8a3d9db7cc9be11	40234	30689	4785	3
+stoa0004a.stoa005.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	542f9fe9f0bff83047b685e4d660812e3c0814b38cf38e2942db0424372fb639	19523	15361	2014	3
+stoa0004a.stoa006.horatiusNet-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	a22e7cc081082708508bf36f5410e6b0f40f0747f26ca6ad72539539f4be8b5b	15083	11469	1673	1
+stoa0007.stoa002.opp-lat1	out	csel-dev	none in repository	948b97d40529d7b65133f91c36c8053860e2f316478e75cf5e81f4814c928f99	13316	11717	547	3
+stoa0012a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	b5c93e3fe77f56bc3f83b6df022ffd78cf80d1c75005df0fc821681cabddf582	7099	6173	393	1
+stoa0012a.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	f06f48d9e2f296eddba197bef57ecea5d3886b7a6ea3bc7a2b89675a1b82cf64	1809	1521	102	1
+stoa0012a.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	5575ce35fe4c25f41990ee14da0278ec6aa9f160299ea7bb427c0d75aae845a3	3769	3187	205	1
+stoa0013c.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	a5cfa0929377a74d108e6808b104ab7684060b88276d9d1f9b97a78f3c17772b	3197	2473	320	1
+stoa0020b.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	1b9a9a62dedc30652e75d8c24801b97616c70b01f12f98f19549cbb1c0734582	6157	5406	297	1
+stoa0020b.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	ffff677c4d937fa8d45bccf8500366d4e365af0d0c52e5c6eaafc3d8a8ec3445	4392	3699	255	1
+stoa0022.stoa014.opp-lat1	out	csel-dev	none in repository	ce7706150fb28b1dcf36a684f899dca48afa71cd55e094a9a0e793d2358e4d22	12064	10253	761	2
+stoa0022.stoa015.opp-lat1	out	csel-dev	none in repository	efb7301db28b36f028683a133dbd26f35dbd6d21182a5c803ae8090d6c0963c3	11917	10180	797	2
+stoa0022.stoa019.opp-lat1	out	csel-dev	none in repository	a1a18efed212e132fe0fa873b4bfb358c6586b88e3ab38c9b363e8ba329b411a	7721	6609	481	2
+stoa0022.stoa021.opp-lat1	out	csel-dev	none in repository	e671208c67783ee2b94be7dddafd7ba11e09148090931598ee68be1600f82266	17783	15201	1072	3
+stoa0022.stoa025.opp-lat1	out	csel-dev	none in repository	aef8bb7a82ccba64fdf5dc33a221b2c1cb4922e566d11a437e0273210f6b05f6	10639	8813	839	2
+stoa0022.stoa029.opp-lat1	out	csel-dev	none in repository	b2822f4719cb40514fe06bfa7720a4d496a9e27be4958e205fb615f1d76aaa53	10130	8599	663	2
+stoa0022.stoa032.opp-lat1	out	csel-dev	none in repository	fb637344534ddd2c18ab23309a18a82db7eaa3c7f53a3f581c61a7371c45fee4	20683	17488	1475	3
+stoa0022.stoa034.opp-lat1	out	csel-dev	none in repository	2d049e3f7755ec60130cbfb07dbfe173e1104419794218096490443c66b52062	15449	13095	947	3
+stoa0022.stoa035.opp-lat1	out	csel-dev	none in repository	9be9833ff990a7730a83cd67a5184e055536aa4de50eb465d4cc961df270969a	11488	9737	816	2
+stoa0022.stoa036.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	a0ee50e2da26484bd5dc2c9a88604dd3c9af015e9412122e240453d33a8e89e1	4954	4088	387	2
+stoa0022.stoa038.opp-lat1	out	csel-dev	none in repository	9533ac45294278622b2a453f756b3fbc80c659e290cd67f748ca75562cec4bed	9695	8047	771	2
+stoa0022.stoa039.opp-lat1	out	csel-dev	none in repository	428d5916603bcb5f0572e97f005d686e6804ff3fc92a684937c4dc8218a2e800	20928	18023	1098	2
+stoa0022.stoa042.opp-lat1	out	csel-dev	none in repository	c0ad6d2309cde04f370f6b0b90ae913b8402cb5abdd291d897d9041c7c083a56	16422	14134	973	2
+stoa0022.stoa044.opp-lat1	out	csel-dev	none in repository	45ecf18a99d3e3534b8de8df933c630cf0ff0bfff12e788ff54fff2903a6d5a8	12387	10243	967	2
+stoa0022.stoa048.opp-lat1	out	csel-dev	none in repository	3e9537b068531a6b066e4557214df5c6b08639f885fe6379666553763f285c89	115059	95939	7551	4
+stoa0022.stoa051.opp-lat1	out	csel-dev	none in repository	4bb651dd63bea81badc35b8582d619b817d30f23ce24577a781b1ba64083087d	125984	107328	8131	3
+stoa0022.stoa052.opp-lat1	out	csel-dev	none in repository	31165ebb8afd6f27e3c85959541df7fe58f733ab9db609a5b011842b2d4a3941	141984	117909	9871	4
+stoa0022.stoa054.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	cc41459fd06ff423b86710664a2310a9aa88f05d9e3809898a6b30c9f411f8f4	64055	52120	4529	3
+stoa0022.stoa054.opp-lat1	out	csel-dev	none in repository	608d150d7441bfe2399ad1a0d9fd3e3a811232232815f99b8fe8dacda5fe7c1f	60716	52302	3329	3
+stoa0022a.stoa001.opp-lat1	out	csel-dev	none in repository	caec2842ec641ba89c26a7dfe57c2a88052b8f91f03a841d12b37f645d2bb741	115573	96890	6640	4
+stoa0023.stoa001.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	008cde9e291b1b6d2ddff05cf5bc40a5e6a3d7a45288f5ec9febb41af9925f64	157527	131160	5124	3
+stoa0024.stoa001.digilibLT-lat1	borderline	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	8babd3b9faabaeaef60972e7117bc18186a8cbf5946998ed850313d258d57e28	8865	7364	582	1
+stoa0028e.stoa001.opp-lat1	out	csel-dev	none in repository	9687c989eabde968180488d30c25805c79a8124fd2060c2ed3630e9f2be6a0ed	7112	6037	389	2
+stoa0028e.stoa001.opp-lat2	out	csel-dev	none in repository	9c245c9fc3c19b54ce006cd9727f1ffe88849bce21d433a7cae7147f203a811f	6821	5819	415	2
+stoa0029.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2f0fb73178475bb447f005fb7fcf58c1410bc2b275d99ae45122de1fa82002b9	21005	15475	1970	2
+stoa0030.stoa008.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	18f11f4dffbe3347f0b29c92a0b01361b3ee79f7aabec5f151fdd3b6f41f33a8	10467	8847	519	1
+stoa0030b.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	3167e4843b22479a0d3c3a186cab507cc21c1f7eeb7f08f74285967f6e92760e	5414	4346	363	1
+stoa0034.stoa001.opp-lat1	out	csel-dev	none in repository	835e3ceb16ef5c4a5ce9b90b188514b46b1563caf4737359634739bc25ef43d9	77583	67582	3122	3
+stoa0035a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	3aaf707c1e37743269d44136ce9b3d1def700747a70a7a3f9996445ed8241904	21850	14075	4311	1
+stoa0039c.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	e0e9c4c03068be7703b3e2cb324f5db5d60e24e39f357394c339cafaad1e048b	13152	10472	1028	0
+stoa0040.stoa001.opp-lat1	out	csel-dev	none in repository	30eaee4ece8d110d69c5f36a919b2f6371b9d8d9a346b92afab49432acf2577f	94998	80137	4465	3
+stoa0040.stoa001a.opp-lat1	out	csel-dev	none in repository	21c236da682ea84afba01e0d4713d440c86f73d9234b49736038559a868c3eed	31863	26548	3237	2
+stoa0040.stoa003.opp-lat3	out	csel-dev	none in repository	6905c32cde0ebd7de11e33edf21f1c499ec668bf1ef136efe248ab83b2b87e52	359006	303257	18057	3
+stoa0040.stoa006.opp-lat1	out	csel-dev	none in repository	2cc347e076b8826dfffb54289ef55fe60e47b4fc3d5876c6b43b33d2234c51b2	6995	5880	345	2
+stoa0040.stoa0071.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	6a5cfb9477e366b2a954ab6d105163666f548b852625079b2912b058b3a09217	5224	4290	278	1
+stoa0040.stoa011.opp-lat2	out	csel-dev	none in repository	2c8d697b66f51cfbc86d991a18f7211e0c4c5d2faf5c788b9c07ec4a22ae563e	888	730	66	4
+stoa0040.stoa014a.opp-lat1	out	csel-dev	none in repository	dd6f242a7af2e8f2cf1a24ca3dcf86d42e414352068b52109837de0998be5486	16239	14098	491	3
+stoa0040.stoa015b.opp-lat1	out	csel-dev	none in repository	376b3c51574310e8e95d140352315d11f6394bccbe704be18731a5204270c23f	997	861	36	2
+stoa0040.stoa016.opp-lat1	out	csel-dev	none in repository	4c0a3d5f08e9faa68de7d6faa07b3b2e18a11ad25f4fdaa2e52a22e04e55afa1	26658	22057	1555	3
+stoa0040.stoa017.opp-lat1	out	csel-dev	none in repository	0593d0f28efec9d6c801dd50b464a6d3ec7249ef75f29dc4f10b4d15af7c8b0a	20684	17640	1473	2
+stoa0040.stoa020.opp-lat1	out	csel-dev	none in repository	ab183dd821bab904f0dbe79572289d53e21b7c6883c13ac1dc338bf7ea52b289	26367	22670	1367	2
+stoa0040.stoa021a.opp-lat1	out	csel-dev	none in repository	0e74a4a5585c6c631c6ab741add4c541d3bdc95f74e9a4559c22138f7dcf390f	15711	13179	906	2
+stoa0040.stoa023.opp-lat1	out	csel-dev	none in repository	7d911795bcfc9cd13be8201e080e515872e2229c4e7f3a20b8394d90ead04efe	32923	28464	1456	3
+stoa0040.stoa024.opp-lat1	out	csel-dev	none in repository	67afe836819758a066460c3af529848effab37db50959aee36e340d706b94df0	150080	127043	8635	3
+stoa0040.stoa024b.opp-lat1	out	csel-dev	none in repository	2b9cd2d4f79c3bf46172d5020bff7ade5ddb612167e2617b9e04be38012dad8a	7996	6631	656	2
+stoa0040.stoa025.opp-lat1	out	csel-dev	none in repository	46673e770e2b4b392295277aa263546043479e8a96d60a4f198be73b6583b26f	22658	19115	1123	3
+stoa0040.stoa027.opp-lat1	out	csel-dev	none in repository	2f8298f5c24ab3e1279010c6fce30bcd8ab0341c40d4f65d7cfbcdb0f717bed6	68378	57856	3747	3
+stoa0040.stoa029.opp-lat1	out	csel-dev	none in repository	c43e2402a8992a9e07cf7a172ce0c4615410a08d17d219617ccd7fc80f437e7c	14326	11979	706	2
+stoa0040.stoa029a.opp-lat1	out	csel-dev	none in repository	96c8fb7578ac54cdc3049ceb0039974838e5c7a5590e5781dfce94c15f3513d8	17984	15355	749	2
+stoa0040.stoa031.opp-lat1	out	csel-dev	none in repository	eced56c4034cf9299aa3927d63bc78b8f6ca622f9a5306e94febaf3977512e8e	12428	10375	698	2
+stoa0040.stoa031a.opp-lat1	out	csel-dev	none in repository	ebd4857ffdad6471d5f118bbaa5fc79e40467adeaad165572f60da5665e3b0bc	16584	13281	1521	3
+stoa0040.stoa032.opp-lat1	out	csel-dev	none in repository	155433793957a4846b3369a077b05eac0a9ffe088d6c79108197dbcf61f03d49	8898	7536	456	2
+stoa0040.stoa033.opp-lat1	out	csel-dev	none in repository	a393c776be5d6cc2250e8b1c0a34303159cb8e31519e8112d2ede00fb5845e50	36779	30868	1626	3
+stoa0040.stoa033a.opp-lat1	out	csel-dev	none in repository	6244d1356665f5dce181d8f85127d5373e7cb916d8e24a9db8fc8781becaa4ec	61373	53243	2776	3
+stoa0040.stoa034.opp-lat1	out	csel-dev	none in repository	c65193ceff0316f336f0e1d9f21e812bf6edcaab20a18774def9e9219f9b95ba	9234	7425	594	2
+stoa0040.stoa035.opp-lat1	out	csel-dev	none in repository	ad2818f527bcbd9305886ac47a4abd9e37b5d1aa90e35bc2753abb7464774f5d	10577	9003	493	2
+stoa0040.stoa035a.opp-lat1	out	csel-dev	none in repository	ff386cfb46ce58d337bc7a1d531214a6a7f395db3d963593e7074a0698a47a07	9153	7654	497	2
+stoa0040.stoa036.opp-lat1	out	csel-dev	none in repository	48b4a7b6b53e7356df041d6c08417d7e46d0baac58a4ca663d4210d4f0e7b295	16618	13747	880	3
+stoa0040.stoa037.opp-lat1	out	csel-dev	none in repository	0fe2fdf28645bc84ad9d73829b9b97542ff92eede3b1e1f7706aa1d7a5efe5eb	89763	76328	5090	3
+stoa0040.stoa037a.opp-lat1	out	csel-dev	none in repository	b66f44950ea446c69f6663291a24b02e8401bdbc077c3067cff2d514c470ad1a	10573	8851	635	2
+stoa0040.stoa037c.opp-lat1	out	csel-dev	none in repository	55f0b4df680efe34fb3b454929975ec0df220f510fa1b55bcf3f240e2a6074eb	8033	6864	314	2
+stoa0040.stoa038a.opp-lat1	out	csel-dev	none in repository	a86d2dbea500083a1a36b3b77445f26e2e464cc1e509370fa34c48496055a225	4304	3648	171	2
+stoa0040.stoa040.opp-lat1	out	csel-dev	none in repository	a2f45b7f5378757f641d4cfad37fce45d0fd10fca9d755a9bba2f17e2d519fbf	7968	6710	566	2
+stoa0040.stoa041.opp-lat1	out	csel-dev	none in repository	a09c6aefe2038197169405520aa404ed6d95403d9679501dd881e81085ada969	14875	12500	639	2
+stoa0040.stoa042.opp-lat1	out	csel-dev	none in repository	3063f746f693d8bc67281988920435b3d243b1419fb43208cd14cabb25b4c2b4	12445	10663	718	2
+stoa0040.stoa042a.opp-lat1	out	csel-dev	none in repository	426085aa9e9901d2d68d228b90c0ddc6c3c0e556c365fb86d5835335d7da943c	115632	98184	5029	3
+stoa0040.stoa044.opp-lat1	out	csel-dev	none in repository	6dc0c4872d373dcbb1f8faeb97a80a4a5a8826f28180f5b7514482cbed56d0aa	18773	15717	899	2
+stoa0040.stoa046.opp-lat1	out	csel-dev	none in repository	8d00e5bdc444e7b38db71a7857f3c7e2ae93792f129e6a98285b85614c5cf7f1	12288	10120	520	2
+stoa0040.stoa050.opp-lat1	out	csel-dev	none in repository	12cb4d8c08034caad1e75b1e89682e1fe92dab2b6896f5000c28e5085a169675	14403	12063	709	2
+stoa0040.stoa053.opp-lat1	out	csel-dev	none in repository	6573006b54cec7d1d179c24911d41e444dc79d0523d912e3b958cf012122b204	9592	8036	523	2
+stoa0040.stoa054.opp-lat1	out	csel-dev	none in repository	d418140df2fbe0d51f9bb8cfb345eb5a2b967ef13b2efb605a7c67d668642ef0	20313	16831	1294	2
+stoa0040.stoa054.opp-lat2	out	csel-dev	none in repository	c37bd221c8968a207ed81badf3b871d0cf6aa1122011af61135230eb43feec14	3574	2902	205	2
+stoa0040.stoa055.opp-lat1	out	csel-dev	none in repository	e78e04375100a8866f1fe1a3bf75060ba42a78efa9bfd4204c172d2aa1d1403b	15039	12725	810	2
+stoa0040.stoa056.opp-lat1	out	csel-dev	none in repository	594955160b99ecabdad0ff9da559ece64f5d10bacb72d92b4a93e07ec05056b8	21902	18131	1143	3
+stoa0040.stoa056a.opp-lat1	out	csel-dev	none in repository	3c8a9418d16c518f66eb70bb05848954221cf67f3dc83982496b7c49309274f0	28485	23618	1337	3
+stoa0040.stoa056b.opp-lat1	out	csel-dev	none in repository	b26095dab14db4753dde401a971cfe47ebd01040abe178a4c1ccc486b29d02a8	6327	5312	325	2
+stoa0040.stoa056c.opp-lat1	out	csel-dev	none in repository	df0fb3d687a99669d9278fb8e2a5e34177bc6ce51987e09707ae5ed636869ca7	11239	9528	466	2
+stoa0040.stoa057.opp-lat1	out	csel-dev	none in repository	56fd49d09f30f65679e4737695ede04e73796f2e8d83a8e5f785992cccbb68f3	41763	35279	1904	3
+stoa0040.stoa057a.opp-lat1	out	csel-dev	none in repository	47294505b6c0004f0cc2bb1a0b19f6efaa58664bd1c37ad5000af7e1bb1403f7	12188	10064	723	2
+stoa0040.stoa060.opp-lat1	out	csel-dev	none in repository	624993698d6dc76f96377363309de4304dd062226109334b8de67f639f597221	14844	12435	861	2
+stoa0040.stoa062.opp-lat1	out	csel-dev	none in repository	b1c4a1ce4ac79404318ffafacbfd5f9fcb548a224e17fa6e94a0a92aee59e454	232	194	13	3
+stoa0040.stoa063.opp-lat1	out	csel-dev	none in repository	fc1246522d6c7ee6f7c2fa9c6a20eeccdd53ac0e7e8091fd819994faa351eef5	165	143	9	3
+stoa0040.stoa064.opp-lat1	out	csel-dev	none in repository	d9b6caad4394ef64b92ccd28e145ad62a118d0052ebf1f2b2d6660276baf8290	13114	11017	771	2
+stoa0040.stoa066c.opp-lat1	out	csel-dev	none in repository	f5421b8ad16467c8264ba8ca9027a3b5a1dc16b28bd1cde560a0d3d1f7e8c9a4	4402	3714	238	2
+stoa0040.stoa070.opp-lat1	out	csel-dev	none in repository	537b9833afba92ea3056433365e24878df1fe974a21c41baa62eab61c2406e2c	28581	23143	2746	3
+stoa0040.stoa070a.opp-lat1	out	csel-dev	none in repository	4d00eb1555fe8d68ac500a658791530982e4afaace9f37adf3f3d18fd0d454a1	6443	5313	517	2
+stoa0040.stoa072.opp-lat1	out	csel-dev	none in repository	5559edebb57bb05d9c3583444b852f1ddc74262055c83a369e608ce4064ae5f5	2802	2306	225	3
+stoa0040.stoa074.opp-lat1	out	csel-dev	none in repository	8268cd53d97e980c953699980a225ffefe8d8550e365e16a51de22546105b44e	135941	115966	8300	3
+stoa0040.stoa077.opp-lat1	out	csel-dev	none in repository	61d6b8a86afaf7ad9ac75186fc280972d7656f4646d921d5ce8e0aee909756e5	32712	27269	1840	4
+stoa0040.stoa077c.opp-lat1	out	csel-dev	none in repository	596c4b59381bfe1f0d12d0493d0f6914ad2d0704d402c8dd4cfe3739d00b5496	3788	2992	342	2
+stoa0040.stoa077d.opp-lat1	out	csel-dev	none in repository	038c13bea3780a11ff6a628679a08fc56377b1050f86da287b555235d0290e01	1785	1503	109	2
+stoa0040.stoa080.opp-lat1	out	csel-dev	none in repository	8fe15468d93c0b908729ea57a3dfe1a80b7e2b08e8a31e8a207ca6cf6da7550e	74370	61998	6465	2
+stoa0040.stoa080a.opp-lat1	out	csel-dev	none in repository	503089fd00dd53efed22505372e9f381b784e85003f13a7b9fea5d17e2750789	63769	52814	6398	2
+stoa0040a.stoa004.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	dc794a96b7155f634cf7a678ce2ed27c2a256fb083444152d2f63062727fe8ba	9538	7276	591	1
+stoa0041a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	21ceb51f9e8f644f2bf22e5ed004f1d2b301b0c30717b51ba668e11e993cd298	60328	51672	2670	2
+stoa0041a.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	c8618bbe48fcad4ea540c3dbb35b3a51a8d5f6c600b025e23969da33a20a3791	79571	68790	3095	2
+stoa0041a.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	e1a22a84ecbd402f6a96eeee48db2286825bb083e967f6c18cf9a697800d59b3	2949	2500	244	1
+stoa0041a.stoa004.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	c6eb15bb1e9a36720389c8749d2f380862f6baf5e98f267250efe20f46fc3e9d	6476	5660	427	1
+stoa0041a.stoa005.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	10c6dd640609f8ac32b6d5e1abff8fbe0ca4ad7f0710a6b2dbc41b84651cc140	66343	56994	3321	2
+stoa0043.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	133571b1a7407dbb7d187e631b96cc7c4a004dcc24420832929148b62dad5c5f	12841	10965	645	1
+stoa0044.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	fd05df677dae3d343027b7b684dae605cfbebb29ab74b28c023f5f89cb0220eb	5239	4569	189	1
+stoa0044.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	d6fd89362f704e5b97489a5984a002d41659b234003a5d266a68d5a42750ae5f	10979	9347	749	1
+stoa0044.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	f41460a9aa9dcea2666d37eed091596460e3966204f7909c72f4eb7a9ca03eb6	10958	9214	657	1
+stoa0045.stoa002.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	5d2b5563a159cac7547263b011ad8013bda3b0c56315c29230e29bebec86ed8b	1059	866	74	2
+stoa0045.stoa003a.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	ed07b307c69d5ed583e5fbb430b5f78a2236fee00b0925c78c60ad97cf4838df	567	487	31	1
+stoa0045.stoa004.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c3fd8d387fbd3633ab6feb031f78f2293bf9fd4b7a6450d906051a0cc15a48a1	3283	2699	170	2
+stoa0045.stoa007.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d2a5e81a9ae4d2a1f2c527d679573f3667f93037de08ed9e7270b38577b0ad48	3351	2842	225	2
+stoa0045.stoa008.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4e12376fcb427a03b6df4e04903048061058effd4bb1ab4b7330ff3a212528fc	1586	1325	105	2
+stoa0045.stoa010.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	71632ba0318f0fe1789c970934eb8e825fe627653e4f2258d12cb8eb011604b8	4869	3818	462	2
+stoa0045.stoa011.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	f929ce26e3815ef1e734c067f7e37e15c18a289a6cf253b0002f642197b8ac43	8746	7445	489	1
+stoa0045.stoa013.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1350ca8cd2313f8818b9c318746462bab48ba8810d649b69b5e5e55490ab37f3	207	180	10	1
+stoa0045.stoa014.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2c74ac8d4acd5d2a386707b77f60a15d84c8c2dff907f3c7d93e163135839fb7	5128	4181	331	1
+stoa0045.stoa014.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9b448256bc961f7ec4756cee1f049904424561e188a160e09f04ac951408f3dd	5140	4195	310	1
+stoa0045.stoa017.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b6a330c6630bddac6a8aa0a0061c57814b2e3ca83bfdd97b62c4c17de61dcdf9	181	146	11	1
+stoa0045.stoa018.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a71179dae84e8fcb0c0dc3ea99d0f1079aa3ce7b22d3846a87e3a04b72d9530e	1739	1388	140	1
+stoa0045.stoa020.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	751f3f1d691244cff1fb1357cbbafec7d8d0d519ca4d5b0acd18dd12d1716256	268	211	20	1
+stoa0045.stoa021.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9c7609151bd1f077ef2d06b4ea0ee005b7065dd52345d3a040062380ae715aa5	1298	1086	65	2
+stoa0045.stoa026.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	31e1f768a6a498a779db3f81dff1fa3b4b53fcc68885fcdfbdb1dcc78d659968	599	475	42	2
+stoa0045.stoa027.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	be9650428a57d4ec8a426274cbe7b440a9ac264a67e181c2e188cbdab0514561	241	207	9	1
+stoa0045a.stoa001.opp-lat1	out	csel-dev	none in repository	7d80c535ee294b5d6b6eba3478f26437ecffa7a5786812d0dedf3f6481bcf9cf	179909	155510	7886	3
+stoa0054.stoa001a.opp-lat1	out	csel-dev	none in repository	86f404680b9d092e9a63667a64a0ff2f7805f65900d326a123b0d4982de4493e	4676	4046	230	2
+stoa0058.stoa001.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4f154e6e94cd08685da010278f10a147365962b9c9e2bc5b04178347952a3c3e	29283	25347	1801	2
+stoa0058.stoa003.perseus-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2614d14a97cd9df2fc88b7a46920ec0abea529304e4eeead0915f1aa06dac28b	1630	1425	110	1
+stoa0058.stoa006.perseus-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	84b2d39d08e69cfcd89e802043fa495744bac2451f6a8d6e47e167f40cf159d1	2214	1978	74	1
+stoa0058.stoa007.opp-lat2	out	csel-dev	none in repository	241066ae539a52b30ca19cf197280105a21c35bf16794d2f6a1c37749d9c4ce7	31760	26649	1576	3
+stoa0058.stoa021.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	7808dabc421ebc84af3eadebefdd39db1d1ca0cc5d2347649b83b59d35f64cc5	11183	9562	632	1
+stoa0058.stoa023.perseus-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d30b3edc1d35d4d388daffe4db2fcb12d01f940bbd3cee0adb795575c7d2b176	6855	6050	320	1
+stoa0058.stoa025.perseus-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7601c52cc12a63819c2685fe3895930dd1332b77d83dfc7f7736017c4a5aa41b	3383	2965	174	1
+stoa0058.stoa028.perseus-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0ae26319f6c1a40fbb3afb84694e0abccfbd2a392a9476fd5aacca44a32dd22d	656	577	40	1
+stoa0072.stoa001.digilibLT-lat1	borderline	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	5692ca424bff49fa5bfc34d62eac586eed3eb7fe26e792e4efb8622ee098e34a	8780	7050	907	1
+stoa0076c.stoa001.opp-lat2	out	csel-dev	none in repository	41b4e51f3accef85c13b3270113cd4bc8fe51177023dd7e1f11732866c05ef21	157715	138824	6503	4
+stoa0076c.stoa002.opp-lat2	out	csel-dev	none in repository	ac400bc3482c8dd2cc23378bcf19889fd4ab5033a4c062a95d950cbae21111e1	50565	44209	1826	4
+stoa0076c.stoa003.opp-lat1	out	csel-dev	none in repository	15322a4f65515baea55102a8005008bb6e1ccf3ba738644a6cd9bf9f661afde6	45924	39057	2244	4
+stoa0077.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	9f712d0b2f890b223bf8e3ee397820ae333d007f45f319208668f0df1622f9fa	33712	28517	1773	2
+stoa0077.stoa006.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	11ccfec28575d9be30a201c734bac0577cd97601a3fd8395db8aa7bbf621a44e	14037	12707	995	1
+stoa0077.stoa016.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	7121590aac2db1aa3fda3e67d2f516d8c4d08601f3a034131d9cc077822f37ae	16886	10263	696	1
+stoa0077.stoa024.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	ebb493aad079b80fe82d7d989ba96b3ef0ff641566041299480cbb2cbc1675f1	233	205	13	1
+stoa0077a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	7576e24e1476f8ce6b0096c19e872a9d1c884dd058a033a771136a1fc5a8ecaf	34024	29387	2117	2
+stoa0085a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	1f83887dd6d86a2f9ce07ec7e0f9830f385814f6d84b6e8e7c50602b0818a0e9	6301	5494	379	1
+stoa0089.stoa001.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b3e5300c843963f26072e34fd04821c51cc08e80e629924a584458630d17bdd8	9049	7787	618	2
+stoa0089.stoa001a.mgh-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	7617377cd3a03b52eba8a31da557aee5dea9e8dd9bcc97e8440b1e23bae17515	2912	2507	185	2
+stoa0089.stoa002.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e990603aeb505efdf712543a2ce941cb3589bb94a495c9ae175937c5db503bb6	3961	3350	331	1
+stoa0089.stoa003.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	13ea791b90810893e114fe559ab35780e737fb6b96f87d9326b879a6ad7769eb	4848	4248	257	2
+stoa0089.stoa004.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	96aa854ae52a74b8382989e207d11f885c755a80ba2a54e166aa41dfdc91e318	9224	7954	598	2
+stoa0089.stoa005.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9f33a51705346d5b1b91dbf85ff00d2e2087731441ddf9b520bb65253e2a2771	8527	7330	664	3
+stoa0089.stoa006.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9f12b88dfc30f38d80a70ad52b5a9b26a6972a80e010b95ec71712ce5d2f58e2	2729	2301	224	2
+stoa0089.stoa007.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	daf1e17531cabba5dd6b6146426d3fda16c9ffab82b3460b7b7988046964629c	663	566	48	2
+stoa0089.stoa008.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f3aa65e518a66c5c4f6377fd3a77ba52c138e70e6d2468046a270e79c1fb5b82	8862	7550	689	2
+stoa0089.stoa009.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0757d88275460f3b3d5c2bdea042f9a98e04e1eb3391d3f9a23d7e405a6fb18c	7018	6047	503	3
+stoa0089.stoa010.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	549662cbf13a4c4e6b81fe9b854316907145fe3572d741aac3488468d8c7e0a9	1659	1450	84	2
+stoa0089.stoa011.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e84ed273099d9f5a6d17ead2e4f4eb94e4e9c4fa62b7bc9ffe3dcbd127a9be6d	4874	4166	378	1
+stoa0089.stoa012.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	081d2c763650354192240a7cf519031aa3c7ef9b10b949e97b78f318935847e0	5000	4378	282	2
+stoa0089.stoa013.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8d57920ba99300bfdf905eb9c3d8a1e78b05251d00c4333c3d61fdc892cd3793	2610	2261	177	2
+stoa0089.stoa014.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a55c8727c82134dda0af7ff5fc4b6e108b17754053b9a3c59bd10e397071ff54	2057	1782	133	1
+stoa0089a.stoa001.opp-lat1	out	csel-dev	none in repository	11f1d38365a8fed1bc2e7aed41e1f1df8a5386ce0a9a3a35020d8f19a8fc0c39	37264	32001	1672	3
+stoa0089a.stoa002.opp-lat1	out	csel-dev	none in repository	885d9873498dbfd051e7c3d01e58e3831c3933cdf7f3e44c8d88ab0ba32e5e6c	1983	1713	70	2
+stoa0096.stoa003.opp-lat2	out	csel-dev	none in repository	94f0acf6376ab70d7f887572ec50892cbbe2485ce3b454f298c8f3a4055b1d0b	10851	8633	914	4
+stoa0096.stoa004.opp-lat2	out	csel-dev	none in repository	a1557ecb3b3457a97f1949138c62d20bb0ec2b44f1eb3eaa61c13dc5b732d630	9233	7436	712	2
+stoa0104a.stoa001.opp-lat1	out	csel-dev	none in repository	b40d0b08d148160a9c61606c82bbde366fa58edfc503f279eb271e1c35cc0e13	3278	2773	174	2
+stoa0104a.stoa002.opp-lat1	out	csel-dev	none in repository	135ef287e4dccb04e7b8d6c1c6e70528baf3035fb7c074744b822ca6181bb3e6	5244	4667	250	2
+stoa0104a.stoa003.opp-lat1	out	csel-dev	none in repository	ed034a9e2e9380447d7708a3abfbdb5d3350d1b500b2ccfeeebc7d75804a573d	4737	4185	224	2
+stoa0104a.stoa004.opp-lat1	out	csel-dev	none in repository	1c877fddf6144c4f53feb64c3d7b3f8841fd187f8caf7fef8fcf298b600d31b6	4734	4126	252	2
+stoa0104a.stoa005.opp-lat1	out	csel-dev	none in repository	d8ce87a2d3cb66c84ea1e315482f276b4b77a6c815fda79f0baf5029830c48cf	7385	6481	442	2
+stoa0104a.stoa006.opp-lat1	out	csel-dev	none in repository	9d8c76efc7cf45052a381d1e8de0814d0b89e72f4e0045ee231c44df6c4b4234	2108	1786	112	2
+stoa0104a.stoa007.opp-lat1	out	csel-dev	none in repository	ed10b35cca20e243e514fb3ecc079b195ee9227536c9a3cac2346bfad48b8378	6841	6004	360	2
+stoa0104a.stoa008.opp-lat1	out	csel-dev	none in repository	bd15e77df17909bf854949a88647e974ba336fc759e4aa7f02c3d3c54dcc0db4	4479	3947	216	2
+stoa0104a.stoa009.opp-lat1	out	csel-dev	none in repository	779ecde33bfc682efd765a45a704bdcd60ac50f5ae655b0c7bb4b732f53751fb	5526	4890	274	2
+stoa0104a.stoa010.opp-lat1	out	csel-dev	none in repository	e22c001c53bdccabcc58406c464b67c3f8347887936fea2e9396f7a229428474	5885	5099	337	2
+stoa0104a.stoa011.opp-lat1	out	csel-dev	none in repository	4d2fc5112f9c3f67611212c8905265c18c7ff679fc5655ec7d64bf525d27d4aa	3411	2960	171	2
+stoa0104a.stoa012.opp-lat1	out	csel-dev	none in repository	8ca3c0accbf1a761e5eeb5f62049f5ca9edbdfc4cf3624a842969996bf64b859	80859	72477	3142	3
+stoa0104a.stoa013.opp-lat1	out	csel-dev	none in repository	1494c3f8d62e0ec79225e030d379de5e4ff78a763cca504a6247794c1955489d	4497	3902	322	2
+stoa0104a.stoa014.opp-lat1	out	csel-dev	none in repository	891d69318e2e4ebd9f63f159d68559ffae4f32a4e2540537c0c40c7a943f595b	33004	27923	3127	3
+stoa0104a.stoa015.opp-lat1	out	csel-dev	none in repository	86673b39d73409bdfe6b36a47d8bb1ace56148c069d0dd7da187b9dd7bbe8524	7164	6293	374	2
+stoa0104c.stoa001.opp-lat1	out	csel-dev	none in repository	ca49b6fdf0211e7c0a21d8b063da4d9002d8d083273605305b01a48c0bc1bad8	42320	36107	3144	3
+stoa0104p.stoa001.opp-lat1	out	csel-dev	none in repository	3f490294a81519326ce96ac16d609179b076aa9c94df4e293a98042124a42808	4602	4005	287	2
+stoa0104p.stoa002.opp-lat1	out	csel-dev	none in repository	0184dd889ae98103d927e26f37fc7d54bbb6dbb9d89f25c54e3ff0e287ce0d78	2661	2412	97	2
+stoa0104p.stoa003.opp-lat2	out	csel-dev	none in repository	b38a91a087fbfbf744189f5b7625f45cf4296dc3f7d12c0618b7f9ec75aa1c3c	7558	6541	428	3
+stoa0104p.stoa005.opp-lat1	out	csel-dev	none in repository	17280718d1c127b11ae29eb2baf520cd21b96118fb8bed6031e719ad5549e9b8	2878	2497	168	2
+stoa0104p.stoa006.opp-lat1	out	csel-dev	none in repository	6d92bb58326b0194e8f35ddf5ba8ebc0b1dcbbb7c3485d82d8d8acf50af0a20a	10145	8757	595	2
+stoa0104p.stoa007.opp-lat1	out	csel-dev	none in repository	85ee3f8802a032f491ef05dd0a76f73c6d79bc463ce6ac716fabb50501f2db78	5489	4820	250	2
+stoa0104p.stoa008.opp-lat1	out	csel-dev	none in repository	75c132161af3bda9ddb3d834f7e80f1a347fdd4856caf59efe46cfc377557e47	3353	2940	191	2
+stoa0104p.stoa009.opp-lat1	out	csel-dev	none in repository	b86be488c7f319ba7c54ac4ea3de6676fa99aff2f04f94961bce323864be3d1d	5715	5087	337	2
+stoa0104p.stoa010.opp-lat1	out	csel-dev	none in repository	bb623a84c2cd884434bf5d11a4173f7990ee3dd29b22f69b037ecb08ba8dcf22	7796	7028	237	2
+stoa0104p.stoa011.opp-lat1	out	csel-dev	none in repository	c2ec517df84e5a10954f6bb518535cbaca4f25391991f32a3ef611c6373774d9	13453	11666	744	2
+stoa0104p.stoa013.opp-lat1	out	csel-dev	none in repository	097e9fd3292c2de2f917e37ac41959c7ff8402c0a0f07aa1049ab5acb328c7a2	2305	1999	124	2
+stoa0104p.stoa014.opp-lat1	out	csel-dev	none in repository	912f1b06733cd64f52a91b5150e318c1e2cce635a5eb1c25c040f1d5f065d5a1	4976	4331	275	2
+stoa0104p.stoa015.opp-lat1	out	csel-dev	none in repository	4615bae5cb01702b9c594d9c18643a29e50f71a24a4898c4ebb25533cedb0fd3	1069	903	63	2
+stoa0104p.stoa016.opp-lat1	out	csel-dev	none in repository	5ab26b561d9c8ab510e4425d0a9d7a33243d0f4e05496a22f2a9f1dcd247d2f5	2516	2171	157	2
+stoa0104p.stoa018.opp-lat1	out	csel-dev	none in repository	b35c7785d806ddf782dcad2d84c94e6adc77c97a3662056c910be09f2267094b	2438	2093	151	2
+stoa0104p.stoa019.opp-lat1	out	csel-dev	none in repository	ca3e9d6ba5de69f476633ec7d35379c09cecaf71b079dacf0679f6081d6be6d1	446	366	23	2
+stoa0104p.stoa020.opp-lat1	out	csel-dev	none in repository	0d62c157305102e35ffbf7b2d2f5c766bdc41d5ebe68dcb921dff6bfbf838103	2584	2184	179	2
+stoa0104p.stoa021.opp-lat1	out	csel-dev	none in repository	c160146a53cda04b21e2faecf865262626b9ade8215179a4956686b362fc93f3	734	597	73	2
+stoa0111.stoa001.opp-lat3	out	csel-dev	none in repository	06c03aba180f34e7dc50d07952b564fecd503227eada9d53b3e839ce0daab498	20692	17679	859	3
+stoa0114a.stoa001.opp-lat1	out	csel-dev	none in repository	14dccdd7552c54f878abf15b9e0c4191a132d432f7930e811cfd87e6688be045	733	641	30	2
+stoa0114a.stoa002.opp-lat1	out	csel-dev	none in repository	9f9cd71cc69d64f33fe164cbc8695d7bbed1cc636442bcd7a188d3044786e027	680	587	30	2
+stoa0114a.stoa003.opp-lat1	out	csel-dev	none in repository	f0881671d97e739fe1ced3d448d99ed7fa99fa28374d36ee528d9d38f2557ac0	13956	11507	1132	4
+stoa0114a.stoa004.opp-lat1	out	csel-dev	none in repository	92192b79c3367e33a1215beb31ff70d6eb5322ab155502bad57833f80f6bde67	19523	16543	1331	2
+stoa0114a.stoa005.opp-lat1	out	csel-dev	none in repository	c985a05377b926cb1efae0782245c845aa458fc2b82341e7b35a82579b16d62d	2515	2191	121	2
+stoa0114a.stoa006.opp-lat2	out	csel-dev	none in repository	46aff844462017911836e7c79d3313a1f871090c50fc1f3944e72d59c17a7480	5662	4858	377	2
+stoa0114a.stoa007.opp-lat1	out	csel-dev	none in repository	e890c32a334f7c4c3ba8b4ef2af294e35d65d67faaef951bc9c7df3696938b9d	1718	1471	105	2
+stoa0114a.stoa008.opp-lat1	out	csel-dev	none in repository	cb30a9b6845e06e6cf8fb8a7fc0c6ca67770023f44b0a108a3706dbaad913536	56656	48490	3798	3
+stoa0114a.stoa011.opp-lat1	out	csel-dev	none in repository	a6e2bde41901924e40607b75c152b941b12c82a10c95e83d7876894eff956d13	1871	1618	91	2
+stoa0114a.stoa012.opp-lat1	out	csel-dev	none in repository	b9bd13b02e3ef56bb63746f51b62993f79c944626bb703fc119272eaef716b2c	9370	8005	544	2
+stoa0114a.stoa013.opp-lat1	out	csel-dev	none in repository	884f255b5fdf43153066c680bb56b674031aa7f02acd385c347068cb2d1472bd	305	265	17	2
+stoa0114a.stoa014.opp-lat1	out	csel-dev	none in repository	cce6a215d05f018acbec797c69eb5bfcc8f77f4f23d0e0876f814394a7107992	755	666	30	2
+stoa0114a.stoa015.opp-lat1	out	csel-dev	none in repository	14ec7fc07da16504fcdd33da091d9afd7c4d924c5bdc3200cf9ee8d079c212a9	12463	10740	665	2
+stoa0117.stoa001.opp-lat1	out	csel-dev	none in repository	31578ac96b131121b8f0a7de01f53a6bbb7973db21709e479e1958ac2deedae6	4487	3900	235	2
+stoa0117.stoa002.opp-lat1	out	csel-dev	none in repository	41ee416bc131e62b12153ed019581687d3c87645206e13c0e338f10f1172ad7c	10884	8859	1697	2
+stoa0117.stoa003.opp-lat1	out	csel-dev	none in repository	c8ae14d8dee4d66f2b4eb98441e6921cfa7ba47b911c22caa04443ffcbd802d8	17223	14717	1203	4
+stoa0117.stoa004.opp-lat1	out	csel-dev	none in repository	ab008ea5cc1f72f38c85457ecc78de09e2ab892840bcbb14d2f4516d9a96481d	1894	1687	90	2
+stoa0117p.stoa001.opp-lat1	out	csel-dev	none in repository	62e4c9046d3bd4dcd5c5a63c74308f23a2b49113568ef8e1324d39b74ca7f6de	1794	1543	78	2
+stoa0119.stoa001.opp-lat2	out	csel-dev	none in repository	d74e00b9f2f65358671cbdfe2915eda1f1cd900dc15cb484d690d3a7f34d5026	12661	10611	627	3
+stoa0119.stoa002.opp-lat1	out	csel-dev	none in repository	d0e4e2e7724a5e6e653004c9dc4485e158b39a9ad30dae1a8b59865c486e3cc7	696	624	29	2
+stoa0119.stoa003.opp-lat1	out	csel-dev	none in repository	fb3ca0d110b051fd577a61baf46cb60e6d6108fb8a73c34383911cefa8e80691	288448	243711	17016	2
+stoa0119a.stoa001b.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	98380218729f1b60a2ed7655e12f51dc9d8312c1cad386d59360ad67e7dc128a	22816	18132	1327	1
+stoa0119a.stoa001c.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	224855b5d9d7ec1090c32ecf4f965d9d91d563291a2c7296021349f632af66b7	16234	13458	922	1
+stoa0120a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	e4006df847c35ed24cd7af4d9089976ca31ef665a7c45d9134fc906787d55d2e	2948	2541	137	1
+stoa0120a.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	bb74238c5d9e924588c17414bb9bb848372e0c38f0ad24ae676519251e2065bf	4823	4194	204	1
+stoa0120a.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	7901150445a5d9363318e350d81650931bd53fe803860d82208fb243bac4357b	3780	3313	126	1
+stoa0120c.stoa001.opp-lat1	out	csel-dev	none in repository	79f6233ea1b85a2f6c531133eb96f0a257dca34bfea32ea919e1396e0b306196	8127	6770	653	2
+stoa0120d.stoa001.opp-lat1	out	csel-dev	none in repository	e2c50019f17e9298218ae884ceb8d12f16eb19cf61cc93d24c7a4e6857505abd	8607	7270	578	2
+stoa0121.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	07e34e5e1c2510036e0de39f84c677982f8cc7b04d30b18f00473ee9ac2e5833	21970	18632	1152	2
+stoa0121g.stoa001.opp-lat1	out	csel-dev	none in repository	de7eb6eaa5f771163650490aff10d1cd9dc37c11cc6d808d2531b0bcb9931b9a	25963	21729	1525	3
+stoa0121g.stoa002.opp-lat1	out	csel-dev	none in repository	ca9c4d0ac3c9bd529a262c230c96350fb1767288daad791bbecabc29deefa02d	14264	12032	893	3
+stoa0121g.stoa003.opp-lat2	out	csel-dev	none in repository	527930b6d4412bc196dee29df3027855bb03c0b1ad2c1599df613c57099326c4	14016	11861	602	2
+stoa0121g.stoa004.opp-lat1	out	csel-dev	none in repository	cd9d7ca94cab53dc502601db1c630b39645749d4aca6cedabe5bc18b8b23d474	33848	28252	1778	2
+stoa0121g.stoa005.opp-lat1	out	csel-dev	none in repository	455c4bf393c67f14d917589d876d34f64b7a8d2c7761ee584b2c6df6ebfa8265	1818	1510	130	2
+stoa0122a.stoa001.opp-lat1	out	csel-dev	none in repository	9f6443436ba27fedc1fb7abaac338d0e2401e854d223d5ecfdb6ab9dbe31d9aa	32796	27878	1481	3
+stoa0122c.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	dd7d70991eaa0033d7594358f9baa2cf2e35208fc56c829f43c6f5392cfed77f	5797	4842	334	1
+stoa0123a.stoa001.opp-lat1	out	csel-dev	none in repository	5f1a14bdc3dbec92847088d87d98542a8dffc3a1c88a6abfaa6d5bc373f18b26	16160	13879	943	3
+stoa0123a.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	cb927fa641dc9dd8cc1eaf449a4658f0bd6074f06c1243db73d93ff5039d5214	147849	126326	7919	2
+stoa0123a.stoa002.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	5e262acc6669656f19c07b4ebdb7f5c4f64b333c3dc770abed0eb0f768b4590a	146646	125013	7437	3
+stoa0124.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	10b3d6d30ed6b9c05abb2022e5f99b6917c2a2a12bca870cd4959d06aa7778f6	1069	868	66	2
+stoa0128b.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	45466623ac44995fe02adfc5d6e2340adf3da66887977569ea6ca28a8078fc15	11226	9834	564	1
+stoa0128b.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	297d51a290e89f51ad9e022aa1655dfe8438f300c1f69463b1b3929008035699	2226	1770	184	1
+stoa0128b.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	8394ed4f731aa8ddfa7b6d16e797e8419028c142807d19ce5c997e6dd7762ae5	4842	4072	344	1
+stoa0128b.stoa004.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	67c80ea13337dd449166bfb698bb7410fe469e9233ec2fe7831cc7327dd846bb	15369	13192	947	2
+stoa0149b.stoa001.opp-lat1	out	csel-dev	none in repository	aa57f92ada9e92041101c34568023c970d776f1df35675f9dd1c9d2d24bb9e20	225924	190310	15007	3
+stoa0149b.stoa003.opp-lat1	out	csel-dev	none in repository	7c344ad03d1c893e6247cd09558468f6f542138eacfc93ac5399224ec95db085	379	320	19	4
+stoa0149b.stoa004.opp-lat1	out	csel-dev	none in repository	f3bfbc10dda47452ac431087440213b611a8fb946518b0e9e3944e9867fa519e	1620	1285	118	4
+stoa0149b.stoa005.opp-lat1	out	csel-dev	none in repository	804f7ce354b018b9bf54b03035976ec0c75cfc964d3aaa7733dfe9d061dbecd4	2063	1676	79	3
+stoa0149b.stoa006.opp-lat1	out	csel-dev	none in repository	489afde6383027931838823f3c61006de3b79521a94d38e750a9a7f1d291ce7a	746	495	53	2
+stoa0149b.stoa007.opp-lat1	out	csel-dev	none in repository	1f74b07fb64568cfe949de7b0f9b5c5acdc3a2155c53a70d47b1fc1686f8d03a	1441	1200	71	4
+stoa0149b.stoa009.opp-lat1	out	csel-dev	none in repository	31da0b5dfc3953b58c57c9efb163baf9bb8abc425bac0fa32bdef0d6379f0faf	9763	8114	495	4
+stoa0149b.stoa023.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	da4555b5dcac4f1137b78f328833262d7452db55960e32074764227baa4b7fb0	8491	6820	653	1
+stoa0149c.stoa001.opp-lat1	out	csel-dev	none in repository	e3277bc4d2286c168b7388c510892042e9fca84dc72032f80b950a8f88db4c02	126	111	6	2
+stoa0149p.stoa001.opp-lat1	out	csel-dev	none in repository	0eb24c49afcbe063b1d7d691ba0105e5c0cd3d48cc65da6ecfc414e6733b7aab	942	773	114	2
+stoa0149p.stoa002.opp-lat1	out	csel-dev	none in repository	b6c14c65f9345a3d5c6482155af8a851f090998dd2c9b6db4ea0b4a29cf5dd57	3478	2803	313	2
+stoa0149p.stoa003.opp-lat1	out	csel-dev	none in repository	12a88db947be1dbfc5f057c99e73ca6a9a448c052eb12454c0796ac317fea750	1626	1362	164	2
+stoa0156.stoa005.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	448a837eb67c2b00fd9a14d9099c9a02be6a66b6c39d58908b13880136b69810	3751	3108	218	1
+stoa0159.stoa003a.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2e539d39675be2414f43c2893ceb661ef4ae523d329b73250afb75d8f8f9fc56	242	210	12	1
+stoa0159.stoa004.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	627a09bda5a174d0d5d9b501d94487e7f19b12b2f9dc6f212daf545e8e0f540c	209027	168368	18364	2
+stoa0162.stoa004.opp-lat1	out	csel-dev	none in repository	39e45dad59323999ee8fe67ea3b51276a9d93c46e4a4fc6f31a1f4b1850a9fd5	349364	287819	18730	4
+stoa0162.stoa004.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7e555d94e12325a6afc5709fb65cdd1180cb06e2bb17ca38885e36b11df487ec	53218	44260	3290	2
+stoa0162.stoa007.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	66d034826cc9417aa3c3827d784dfba355ae803246cb356c0bd67a69e02044c3	56443	44440	4026	2
+stoa0162.stoa023.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	eab7ad96459a27e1121b8e97ebc94c69a652c43659fbf4a28656d941bd7fa209	287587	234471	20572	1
+stoa0162.stoa024.opp-lat1	out	csel-dev	none in repository	dfb1a7358c038292fc4e88c1cbfefcb596759910178c5e1182d9458286c369c3	104606	83937	6478	4
+stoa0162.stoa038.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	8c94aabe8d267c16f968cde6b1693f613f1bda22553f316337e7d2fd4dbe0267	5494	4445	384	2
+stoa0162.stoa062.corpuscorporum-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	5125bf5f29b6562828566ec40973f75351a96ed28931137c3ee8447b15198200	2652	2109	200	1
+stoa0167.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	7ef67cb4cc081d109f846edb99d110b338d7cdd52d14d26f67035643cf450df0	71606	61880	3440	3
+stoa0168.stoa001c.droitromain-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	25906d31b846b47ed40834f5e096a0e45a8e6b9c0eb8f8c4e8afb8cd55ca6016	442585	365257	42074	3
+stoa0169a.stoa002.opp-lat2	out	csel-dev	none in repository	3f8e2b4543414108e0dfdd3b236b85cc736fe6ddb7ef6641baff10aef1f8462d	24438	20430	1651	3
+stoa0170a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	999a4fe59572a6361d34b91c66032a3361f678115a861f485673fba206b68b9d	1554	1344	63	1
+stoa0171.stoa001.opp-lat3	out	csel-dev	none in repository	585ca91704d13a0b01a8d0576a78218234814d3f947d4c4e86edc2cc225b4ce7	1285	1117	76	2
+stoa0171.stoa002.opp-lat1	out	csel-dev	none in repository	ef20faba1950e6d28e6a0d3ecd8f1baf57552f03bd18e72e09aac404b76d9b7f	12934	10999	710	3
+stoa0171.stoa004.opp-lat1	out	csel-dev	none in repository	3d28c1bfe80c33678e26e9fb695133db1c4d2fa277da34c8077c891994e623b2	603	547	23	2
+stoa0171.stoa006.opp-lat1	out	csel-dev	none in repository	a91c19d9cf52da00fa27bfd1d6de5b51d9bc9964c404a95f01cff45babf07042	14363	12405	717	3
+stoa0171.stoa007.opp-lat1	out	csel-dev	none in repository	2716e65aeeb105763e37f214ce89978b4fb05f4f2c6dcc65df625714610d6be9	12681	11134	597	3
+stoa0171.stoa008.opp-lat1	out	csel-dev	none in repository	0b58c87a3b7d9e5cc1568612008242d741aed56b36f8fd7f1f2080e32060194e	21191	18102	1114	3
+stoa0171.stoa009.opp-lat1	out	csel-dev	none in repository	5cef914f43c5bccda2be8c7feecd55fb0d7073b0ad54943135f65e5017fc4492	138894	120623	6910	4
+stoa0171.stoa010.opp-lat1	out	csel-dev	none in repository	e45a3462af2d1e40ebc1d626aaeb01e3335f5b325c419848c46b1a2c9b7967f3	2656	2036	279	3
+stoa0171a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	1d393de1596d2ee57a3a1f4d8313bdcc9aca5e4563554d14b43862cae8384ea7	114481	87240	9508	2
+stoa0180a.stoa001.opp-lat1	out	csel-dev	none in repository	5a3a15230a809cb1261e5da2ae9d68c2e99dcaf9953772877bb82e04958ba137	10039	8727	506	2
+stoa0180a.stoa002.opp-lat1	out	csel-dev	none in repository	6137108c0c5de9d0c79a1905b41eac31d7574a545254da32fe4d6e8a7af2efb4	24141	20850	1323	2
+stoa0180a.stoa003.opp-lat1	out	csel-dev	none in repository	e9949710f42e6dbdc085bed7ede9d2048db6cbfbfc7b9c246d05ebf90c3cee98	10067	8681	510	2
+stoa0180a.stoa004.opp-lat1	out	csel-dev	none in repository	b640246f4ef6be58a9386e63f75c8af53917d6fcfef393ff2053fa1608f9c4b8	46063	39226	2720	3
+stoa0180a.stoa005.opp-lat1	out	csel-dev	none in repository	fe4641b739601d7fe1657db1c5336e69eea07387ad45d4c43c444ae0a559cc35	3433	2984	159	2
+stoa0180a.stoa006.opp-lat1	out	csel-dev	none in repository	3676c88c1434145088ed1462464d4b7e52d7d193eee98995272d0de7db4c4c37	10474	9089	470	2
+stoa0186.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	30a499eb4bf7bda21c3fbb8247f4a96a7cdaeb95d3b71015dd7c27ed14c2203a	104191	88463	5326	2
+stoa0186.stoa001.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	c95c363a4329c6dbb3fb7eb855624f86603b478990357ccd024fd5e6bd429a1f	100472	86325	5590	2
+stoa0186.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	698681c20588b588c8c0ec5728b8fdfffe28a62b3ebc6da6a046b14c284d179d	47016	40074	2103	2
+stoa0187a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	ee0c56e3594dcbfe7b863e086cb58206991362af8d17fe368e2bd6f6a8091a5c	4393	3576	234	1
+stoa0187b.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	c40d53ca33f2cdce466f0feca5172b2e13b75074c20e4c4befbe1536a8ebb1fd	6262	5429	349	1
+stoa0187b.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	9b2f175def191345a9706a02b6b31b36e96a739ab716c01072ad05bc7116c8f1	3508	3058	161	1
+stoa0187b.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	df5f4f23b69229bdf150f2da0ec80e3244d2d6dd0386d1b6a78978adb3797c99	3119	2715	120	1
+stoa0192a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	502d8cc6cdb24696fba132e81f69e61086ee037960a31c131fea7432975a31dd	96671	80795	5429	2
+stoa0195a.stoa002.opp-lat1	out	csel-dev	none in repository	0af59779779e23d728884a31bb454af7a3527ceae70a55d3f53deadc56782d88	1106	837	70	2
+stoa0196.stoa001.latinlibrary-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	3f11c1b1b48557d51799c727f08b7ab0d498f003ac72ac4df4145c17e0065651	5158	4344	393	2
+stoa0200.stoa001.latinlibrary-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	4c1d22af89b586da591185341350438ed419c7c91bb3fc262fe7c72a8da1f972	19763	16863	961	2
+stoa0203.stoa001.opp-lat2	out	csel-dev	none in repository	15ed39926b7facc16dfcedd6313bb5bd011477335600cc436665e488fa2d6635	14039	11814	732	3
+stoa0203.stoa001.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	1073fba719238cd0826771c3f04d9fbc98d36e5b2963675753d86920896811ec	14126	11809	744	2
+stoa0205b.stoa001.bolton-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	a21ec5c40cb2f5234eb12d037dc013a6d2f977d7e2a3a0f12faaa5ee7bad96de	21058	18712	1151	1
+stoa0208a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	12791d92e50891a5e67fc31ad8522501ed44601953ee60d732733138400dbd93	7404	6383	365	1
+stoa0209.stoa001.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	238a091523fcaf6ff7557c03cc9a86a645d8159dc62044743b5d205acd3229f6	2616	2195	178	2
+stoa0209.stoa002.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	a98f1b7c53ca2a73a4977d3221e1f91fa9b108d96eca32741d0a4ef374cf41b6	2414	2136	122	1
+stoa0213a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	d15756204f28922731f3c2294c8e42f64baccbb9eb0aafa83b8778fe58f74360	37535	30162	4293	3
+stoa0213c.stoa001.latinlibrary-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	d48a41734e6ddcda0da74e530481308d3044b747f174ee2b519ef720c83512b8	24246	20776	1110	2
+stoa0215a.stoa001.opp-lat1	out	csel-dev	none in repository	7eeb55e383520f38865901d3a1207cff6c5703c48e52f2067e6986cfef137a07	40961	34043	2468	3
+stoa0215a.stoa002.opp-lat1	out	csel-dev	none in repository	db8cb0e207ee9365c60824a0d9cf643b399aba4549b525c36b06f4bfd585d9e7	11325	9228	1021	2
+stoa0215b.stoa001.opp-lat1	out	csel-dev	none in repository	b1e949f61f60dbb9b45b9f501d7a5575af0cb140700a1c9073428f5cc45b2d84	4852	4007	283	3
+stoa0215b.stoa002.opp-lat1	out	csel-dev	none in repository	a605ae680337ec02a3798dd92165a98234a1e2dc9c938f437794b47b952c245c	1781	1416	169	3
+stoa0215b.stoa003.opp-lat1	out	csel-dev	none in repository	4d7a805bf59775f3e6b97cedf88e096377793bf37745f53843e0b81caa3e3323	428	347	31	2
+stoa0215c.stoa001.opp-lat1	out	csel-dev	none in repository	52d4b26dc8bdc6d27390e9811e5ccee515dc7ee1f99e4b9db758e75f694af429	87268	76379	4062	4
+stoa0215c.stoa002.opp-lat1	out	csel-dev	none in repository	a39de87da251fed2e2b48bfa916d305f3923ff5739dd3a511e54f04303003f5b	13687	11549	778	3
+stoa0215c.stoa003.opp-lat1	out	csel-dev	none in repository	d9812a193afc6748267d414d3e551323756d899171233f1e30b8f3524ebc9d46	1326	1135	65	2
+stoa0217a.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	29b2a786d80ebc56ea7b90dacf1be7966bbbd206cfd13f5de7a38c6d18430054	10794	9342	551	1
+stoa0218.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	fbbe6c4a891316e963d6a485062a2dac8f330c69e539d04953bf6c76c6ed9598	1278	1161	73	1
+stoa0222a.stoa001.opp-lat1	out	csel-dev	none in repository	5b0ca805a5e4875a4f1912b87c7938a75603f1ad255d57326e0f44e9f418ed7a	956	777	50	3
+stoa0223.stoa002.opp-lat1	out	csel-dev	none in repository	22a69dcccb35262707bffaad8ac3bbc1178680009c8905186375be00f61c9cbe	880	730	65	4
+stoa0223a.stoa001.opp-lat2	out	csel-dev	none in repository	9b8e61be4eea5aae101075f54daa7d0f53137e9eaf8ed512cd7753cb0b310674	4612	4035	100	3
+stoa0224.stoa004.alim-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	ca85d671ac770139db3ecee915e4e87be9fbeba002d2a5e0794adcd3a64ffbce	46913	36639	4533	2
+stoa0224b.stoa001.opp-lat1	out	csel-dev	none in repository	028169345bbf6ac208cae86025920bb03933cfc9940dd0912cec12b8a2f009e8	26101	22475	1389	3
+stoa0224b.stoa002.opp-lat1	out	csel-dev	none in repository	3e6d9e60b3060d3a317e12cbb95c11fce02467873dc2c5f9504cd6351d608d9a	614	529	37	2
+stoa0224b.stoa003.opp-lat1	out	csel-dev	none in repository	7ebea30dc3efa6c4d05eeee72e99bab30fa550708016e9d8b630e1a707e08642	199	157	16	2
+stoa0224c.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	bed85799b0be218cc68abc2b7b7120441a0de7051f163f51d9e031279ea6ee2d	29769	23532	2489	1
+stoa0227b.stoa001.opp-lat1	out	csel-dev	none in repository	788af362dd3bc0de271ab181f8c3f82bea6e427fd1e0012567dda7aa2cff2fd7	5340	4512	308	2
+stoa0233d.stoa001.opp-lat1	out	csel-dev	none in repository	d50de59d1665a69df29fe1841f14ca0cb90d56c44b29b095207ea98bbb41870f	4864	4241	256	2
+stoa0233d.stoa002.opp-lat1	out	csel-dev	none in repository	79bebf5969bbad6d72b8af71a131741dc02494d611283a7555925802545bdcbc	977	853	85	2
+stoa0233h.stoa001.opp-lat1	out	csel-dev	none in repository	a3410fe1ad44e21cd0cbdd56b3dee3864fb989f414922b86bb6f1d06616ccb87	1164	925	92	2
+stoa0234b.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	36b54381698763569be8ee139b7394443d781d72d546c29f40bc488bd0eb1ee8	34278	29992	2156	2
+stoa0234b.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	9496549342f33543cc754a973aed8c3448b7df16e545af5985712294816dcdc3	1012	896	66	0
+stoa0234e.stoa001.opp-lat1	out	csel-dev	none in repository	300eece4066200e5df84f71d74ced7a244c6480d5810468fabb648c0e7e1c576	6602	3938	1749	2
+stoa0234e.stoa002.opp-lat1	out	csel-dev	none in repository	eb0cbbe2fff8e690e49f517efae233303079473cd2cb83c313d19bc6c60c43d1	23408	20453	854	3
+stoa0234f.stoa001.opp-lat1	out	csel-dev	none in repository	9540ee9bf178067c369a48b217546aeaa589100b69db4ced0362793a7f3f1e65	6259	4951	368	3
+stoa0238.stoa001.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	d703e6b68e5e967a0262d5dbbb17442a52c4b9f3a4bcb1fa28cfb89dc413ae19	21611	17965	1228	2
+stoa0238.stoa002.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ed649660fc10c1d5739576fc419c51cb9fdc190edde1be2ab61ec8a076cae121	7179	6183	264	2
+stoa0238.stoa003.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a5494fe9530a29ea90bfbcd00fe59d9dd6990d2722519e195e920b3e4326e303	292	236	18	1
+stoa0238.stoa004.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f333f52d3aa0ca0407ca19dcdda5f91c1d7f66942bd250d2360a81aa3e8a21e8	9004	7556	482	2
+stoa0238.stoa005.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	9576a1a12ee8e939b51687a0265763bf4ca5801e427a6dcf6d7acc5997e1a597	9028	7620	378	2
+stoa0238.stoa006.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dd6e16b5cc26019968172c8990a14a87b6151f6aac03ff004075e9c9d9b38ee2	7659	6603	259	2
+stoa0238.stoa007.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b2365be10b43563f175ab8a49be36de7cc2d022622e73725c4cfea5cc3c54416	14339	12441	588	3
+stoa0238.stoa008.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f5b792fb3eb10ab000dbdad06ed1d27ef3bad88f7ff3e54596d7df85ad1415d8	1449	1242	111	1
+stoa0238.stoa009.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	09288162b995042e8375a37c7fec2d406e641682cb6c83b5ed3753a5f9beb865	162	140	12	1
+stoa0241d.stoa002.opp-lat1	out	csel-dev	none in repository	4bf51fc0974e2514832e168f84a025ca8675ecac8a780b0ee3478fe348dfad09	15506	12469	1496	2
+stoa0244d.stoa005.opp-lat1	out	csel-dev	none in repository	e50e7628306a1c9946d9e411fbef61bb4902598af99c79d4e80a7efb95be4733	27626	24102	1221	3
+stoa0245a.stoa001.opp-lat1	out	csel-dev	none in repository	194fadf86c2da864d2cac36117e460c3a1caf44d8e00a3e2caf3079751af245c	25443	21368	933	3
+stoa0245c.stoa001.opp-lat1	out	csel-dev	none in repository	829e7eafbdf649d8cfee5ebd807a024ad04ae6c3d54cb26273b05265e7b40fde	336	298	12	2
+stoa0247.stoa001.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	b8bc98084ce54fd2dfe2260e58e5f222fd15d66861dc7bb039824109ad2ef8b8	4785	4097	416	2
+stoa0249a.stoa002.opp-lat1	out	csel-dev	none in repository	329c896de02a4aca3f154707690e6cb483c64456920e3105d26ef8e7160baea3	53541	45198	3135	3
+stoa0249a.stoa003.opp-lat1	out	csel-dev	none in repository	970dfe5b3f54d1510d254a2d5f719ad59df66c1dedd6f55c0f91599ffd9af334	204	171	7	2
+stoa0249a.stoa003.opp-lat2	out	csel-dev	none in repository	64abf691d76736c852d9f8bb1ec5418409623e5e843384aff2ac8502fc65dee8	6512	5482	307	3
+stoa0249a.stoa004.opp-lat1	out	csel-dev	none in repository	ebe34363beccf56027c5bd199daaf052e2da3f9df4dc2aff8b22ee0f805224d1	26149	22341	1416	3
+stoa0251.stoa001.opp-lat1	out	csel-dev	none in repository	414e85317e2a2d2f14d741a86117ae8a375026a292c6e6a3896ab22da92446d4	2090	1748	130	2
+stoa0252.stoa001.opp-lat1	out	csel-dev	none in repository	2c2c1bc0488b864e671719abeb4a4df666a0d3ee15ceb145b3dab17d3c5790f6	367	307	29	2
+stoa0252.stoa002.opp-lat1	out	csel-dev	none in repository	157b675e5f5fb59e289679008a6d61217072d3a0fedc7e43c83fb0717625254a	13432	11524	646	3
+stoa0252.stoa003.opp-lat1	out	csel-dev	none in repository	ac0c64374fe71e78a7a64535ae7adaa86eb28f36eeda43395433bebcd7485dbb	976	760	62	2
+stoa0252.stoa003.opp-lat2	out	csel-dev	none in repository	46bcf582b721050565281f952626d126a0e2bfc936bdc85d690a339809dcbc2f	1286	1063	65	3
+stoa0252.stoa006.opp-lat1	out	csel-dev	none in repository	f5bd07b9b400bf72f89c8863ed0525bb1f69d1d90febb5864b0140099b1a8524	1313	1138	61	2
+stoa0252.stoa006.opp-lat2	out	csel-dev	none in repository	4cd1601474ff653f5f591ea9239bdece0cdc6559130cac3d489a2f356e2e1f10	519	446	26	2
+stoa0252.stoa007.opp-lat1	out	csel-dev	none in repository	ed2b4cd7c0ec9e81e328d36625daa36572f49fd17a220f8857af935039f64e29	891	701	113	2
+stoa0252.stoa008.opp-lat1	out	csel-dev	none in repository	927596c3276bb876acd0c3904276f73a4dc1e804f7b936c43749206047e6753f	23261	20195	1031	3
+stoa0255.stoa004.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	01e9a388cb42dbe392eb1cc40684eb7b1c3f9dfe76ee96e4bd0fcca2096d9144	7552	6282	487	2
+stoa0255.stoa006.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	005ecdaa7b5885a3b4a24398b4c7c046a579a5108d23979a3bf0d8e68d66a1f2	8199	6858	525	2
+stoa0255.stoa007.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	805f567909d3a40bc7745f02b0de169ca55346dc3e6e2dfbcf4df3126594cef1	10308	8630	631	2
+stoa0255.stoa008.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	2f5bcdcddaebba031c0ab6634e9176945a7b1e2a7f8b9d9a7f2a069832722391	6794	5773	385	2
+stoa0255.stoa009.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	8d319a58afb727b28596d0a9dd4993bb0cc04c89002e8fe427ff8bf77a2d9cae	6366	5414	344	2
+stoa0255.stoa010.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	4ea48fc232ab340c817148ed52897c69a50cd84a501ed6f3c785c1507e18bb60	27507	22855	1898	3
+stoa0255.stoa011.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	052b36ac76e32861ed3789c5104e4c77ecdeabb6a87425074e657acefb6207f2	2422	2012	137	2
+stoa0255.stoa012.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	68605a3e10123f36934bb94ed05efc1862bbaf74ac0a1f96bf967d22c5e37b7d	4962	4154	368	2
+stoa0255.stoa013.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	63f60c4ec1747be85e3b3d220695802517118a0d8e70c282cb943104d986faa0	9269	7785	529	2
+stoa0255.stoa014.perseus-lat2	core	canonical-latinLit	CC-BY-SA-4.0 (license.md)	3d910b2e75d30f39c8308a415532d08878553b6ce88d8b0765f846de46cbcd73	9022	7469	540	2
+stoa0259.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2301529f705265ea3a40223745c9fef52607df169231e6798eb36cb298583a90	241069	187799	18587	2
+stoa0270.stoa001.opp-lat1	out	csel-dev	none in repository	25575be9ea3e5bb2e732c73f6b778897897da30fc1da9d288618ed7fc53f7670	29630	25025	1802	4
+stoa0270.stoa002.opp-lat2	out	csel-dev	none in repository	af4b5c8bb96d91af4da5f05ef1195bbe363321c70f99fc56845f03a0fb6e99f0	8047	6784	420	3
+stoa0270.stoa003.opp-lat2	out	csel-dev	none in repository	76fbe1092cfcd72b24db2f3fc386350653ac6d998df8d6b253d593719427e28a	18320	15316	993	4
+stoa0270.stoa005.opp-lat1	out	csel-dev	none in repository	dd0532dc0bde22fb049fcca720a65df9fc8bcf99e28222e03f967da8b78b75c2	3406	2838	181	3
+stoa0270p.stoa001.opp-lat1	out	csel-dev	none in repository	561850d0609ba9e61ce2978ee12bd5d6a026c8187cddec51e522b1a9939ffff9	8949	7476	468	3
+stoa0271.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	9b26f49848564a2713cfa5d625b202c6963232a94c5923d64495f6f3870022b5	15445	13573	804	2
+stoa0275.stoa001.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	be4bf158f08ea47f4133bd856fa123b839461fc2f25d9d3cfc84130393d3d24a	1807	1506	101	1
+stoa0275.stoa002.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	758aa919d9a1a0f34471eb60f5667b6f80740665ffd653fb65b3cd4245f59b47	18090	15187	1085	2
+stoa0275.stoa002.opp-lat2	out	csel-dev	none in repository	579eb1852bc7edab2bca58fb26300f7d55574b9a6a4cdefab1e055b2c7cb187d	19251	16031	1108	3
+stoa0275.stoa003.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	dd58f482ebc03e10eb431136d8575d700b8a304e0da803f8fa66614d6cf1ac7a	1817	1528	95	1
+stoa0275.stoa004.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	549cbf5d29a636e027ab4bfe60bdbd0d464762d863e9f499d660f0471e635aed	13388	11276	691	1
+stoa0275.stoa004.opp-lat2	out	csel-dev	none in repository	2e2c79e62097f235ab42aaf50611201695009441dde4001baa0d70057c78056c	13926	11331	782	2
+stoa0275.stoa005.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	aa52c2ed8bd7f7ccc492c47b53a6cd5f6e6a8890cc5235ce2c75d3cbe61cfa40	13457	11334	596	1
+stoa0275.stoa006.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	38763191d75e50678b10924138f3781ab4897ff4618e79c8af06c013d88c0d84	99374	83813	5110	2
+stoa0275.stoa006.opp-lat2	out	csel-dev	none in repository	2de8d04c79bcbd3fca0933d5c68250e9533078dc859d6ca9f8a7392301a64715	102120	84065	5706	3
+stoa0275.stoa007.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	395241caf504c526dcaecd43ad4c5ffef5e49b2d1b8ebb194974b50b536388a1	18057	14866	974	1
+stoa0275.stoa007.opp-lat2	out	csel-dev	none in repository	5f5d33f0a2fd85fa994a591e6930de2758fc47f547d38efaa310c5f7cce9e8c8	17941	14607	1043	2
+stoa0275.stoa008.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	e22004bdfb53a3ff196efa958acaa8d8b6e4a49efb72e02c36f8499eb6324211	7743	6423	427	1
+stoa0275.stoa008.opp-lat2	out	csel-dev	none in repository	fea7e0ed8d0a8ea4a6b709119680580816130b6eac3c2e4fd448edb48399222f	7899	6442	443	2
+stoa0275.stoa009.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	40384f43e34b055bf8377e19a82eb98dbd43f78d4fbb86acd7b0f787ad22df77	23908	20234	1354	2
+stoa0275.stoa010.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	69c2091fd246ee0059668e2bde74bfbd5ce93a8428a849fd9034bca209854b02	28440	24017	1427	1
+stoa0275.stoa010.opp-lat2	out	csel-dev	none in repository	76fa1c26144b2e6e1d610eb71c48e7801e2e9e5c72f17d94823f992c5e40b93f	28148	24049	1488	2
+stoa0275.stoa011.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	7141fc40766a366026f4a3935bf1623c5b9653534bf3f70ff9ebfa857424c6c7	5205	4323	314	1
+stoa0275.stoa011.opp-lat2	out	csel-dev	none in repository	259e55fc4f22678cd5581a3d0ea76055ff5bcc8b954189e63b7e030b17ea3559	5139	4341	304	2
+stoa0275.stoa012.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	bea0f7f1159091259aa2c07073d783ee81aa9ad0951f183a73373cfa90e5d999	11412	9649	662	1
+stoa0275.stoa013.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	b5007a4bdb8fc142283a61af761740e1b60ddfbfc072043f598b38293d4338e0	5914	4943	346	1
+stoa0275.stoa014.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c7635b4db4b9f7ff34faea51df39d9b3d3c016160696b71092eea090988f4aca	6098	5185	344	1
+stoa0275.stoa015.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	27e9bcf77830ec2b1a130a76a5fdcca19eff21ef0772fe97d9ad6dafdcb88196	4680	3958	273	1
+stoa0275.stoa016.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	61e5568a206630623a5b25f50c4eb5c3fe5288c533a5810fae67460a6b1240f9	6485	5397	356	1
+stoa0275.stoa017.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c239523a9ed126c3cfa7fd786c2403a2f9534cec0d46db8b3f4f1627fb00b593	8371	6997	505	1
+stoa0275.stoa017.opp-lat2	out	csel-dev	none in repository	b706f98a6b83c011132aa4765712ce70424fe6c9a74ff6db574d7a9c84846645	8391	7080	517	2
+stoa0275.stoa018.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f05b538178be3431bb75733cf95062636ef2200773486f917186525ea03cefc4	6967	5978	316	1
+stoa0275.stoa018.opp-lat2	out	csel-dev	none in repository	625f56b3e097f2e4abf8134de336f13839f5bfec548d421578045d28387bf16b	6971	5988	333	2
+stoa0275.stoa019.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	fe4453a01ec0c88cd3d11468bfc2a39d222b7f081a911e698290aef0b0469bc8	8446	7105	429	1
+stoa0275.stoa020.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	25d93c98a2667be113ca6782503eb3b0839ac774b94fac23e8e02805e83ac370	5515	4531	351	1
+stoa0275.stoa020.opp-lat2	out	csel-dev	none in repository	a4f59c0b727f166529efe2ad0f5ec267b3d0a006e967ea143b1940f1176e43c9	5422	4538	332	2
+stoa0275.stoa021.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6949681adad8937fde90395513b812eb362f91db2b2b69990ae79ff307e2f5c6	4958	4134	299	1
+stoa0275.stoa022.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	6ecdad7d22274d19598427437f3285fa3b00907a4274974c1f02c0df42f2de3b	4157	3474	264	1
+stoa0275.stoa023.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	967f6b8048a2a750d10b372f91d5809f48d0d4ec47f817d8abe0b659d863ae7b	5487	4584	349	1
+stoa0275.stoa023.opp-lat2	out	csel-dev	none in repository	10782e14fcd22e8a736bb0600acada48fbc0646545da76709328c600f50c92b1	5581	4631	359	2
+stoa0275.stoa024.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	969a35e3c1552a9995ac86f75e163daa78548c9480a0379460fe3b40d1cb2f65	9948	8414	541	1
+stoa0275.stoa025.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	a0ab3d334259f46afad6a3564b804560c9340cf1b7ef887900cc8f15c10e47eb	16301	13590	928	1
+stoa0275.stoa025.opp-lat2	out	csel-dev	none in repository	f937c7b1a47deaae7b61caead75e0f7d5ae8ea91e7c1651c6484b31d6df998ae	16135	13625	911	2
+stoa0275.stoa026.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0846fbdf3b1bee9594dd1ccf90ad84f9df2d7a435b2ba40479adb3ff60cd1206	27315	23007	1419	1
+stoa0275.stoa026.opp-lat2	out	csel-dev	none in repository	a9b1587faa7bb121ec302dabecc8dde1fe7481ad98da3974d106d217b5c7bb73	27615	23000	1602	2
+stoa0275.stoa027.opp-lat2	out	csel-dev	none in repository	b462a96bc7457166231090094bb5b861daf4e9c35202945e2dde8c423327ca41	8079	6865	444	2
+stoa0275.stoa027.perseus-lat2	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	0b8cc48de2c265effa60dcf51a24f587f33d5085d9ba9dc918dcd129e3548adb	7626	6442	426	2
+stoa0275.stoa028.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	ffa1903dda68785bef62e1a920af0c78e248aa8f353c74e8226ce284811ad839	2698	2271	141	1
+stoa0275.stoa028.opp-lat2	out	csel-dev	none in repository	39ff0216c4747fedfee94236ed05215c35979a5fc5a4c7b2f1bd6d53246a5714	2897	2486	136	2
+stoa0275.stoa029.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	c4fae56b115341bf512cf015388257ea62c314a8d10446852af4257490e7d647	6752	5639	376	1
+stoa0275.stoa030.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	f0a59092ed11a4bf9656c35a41e60b8c4b256b0244a29388717bf808e4e30a7f	9650	8096	542	1
+stoa0275.stoa030.opp-lat2	out	csel-dev	none in repository	a5b7249ecb5667cf6d7822937741a2ac9f62f357ebe2c7b93734b4e00194e561	10190	8656	558	2
+stoa0276.stoa002.opp-lat1	out	canonical-latinLit	CC-BY-SA-4.0 (license.md)	134ad88f65e86d00cf5a9a56d7a7ef2e01bc100acba5462fbce3ae35efc21ce9	5000	4182	309	2
+stoa0276.stoa003.opp-lat2	out	csel-dev	none in repository	9353b14e5ee6757bbb9c0626f29b10032791714c83f510a89e8620f8eab38d06	3134	2581	170	2
+stoa0276.stoa006.opp-lat2	out	csel-dev	none in repository	7f730cf171356e4c970363466a438852e184fc9e15f0699c8371cf2cd614292f	873	726	93	2
+stoa0276.stoa010.opp-lat2	out	csel-dev	none in repository	8acd5fb7d3f76df50cf57277fdf3ab2e9ec3aecde4055b9cbcb24a9ee0da2b9b	1350	1126	173	2
+stoa0278a.stoa001.opp-lat1	out	csel-dev	none in repository	017fe7e789fc46f41f19b37d0f3256b9542acdcd0574d28b8ae086e4cc7b069d	2992	2521	176	2
+stoa0287.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	b0af5e3c4ea7977d70661649a13e0e391de2152b540889eac8a5dccb82310097	27334	24252	1324	3
+stoa0287.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	75b8ae485a84404d5f663a86faa697e4574b59cf4f13aab68bcbbc2a8ac51f58	49065	40835	3578	3
+stoa0289.stoa001.thayer-lat1	core	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	175ab76193164860a904b5891932d3eed689a9a86bab8e249be0ae40ffc87237	31377	26988	1160	2
+stoa0292a.stoa004.opp-lat1	out	csel-dev	none in repository	9f52c0cc56d632af88340d36ea23f51ce883983a9d2bc61923a2f75049ec9158	3319	2752	330	2
+stoa0292b.stoa001.opp-lat1	out	csel-dev	none in repository	df35714964fb3441128e62915236ab0f8c0724c3b8998eb35d554a61f1c5a0fb	14705	12748	567	3
+stoa0292b.stoa001.opp-lat2	out	csel-dev	none in repository	b3112adbaf7ad6035879f5c8b02ee49fbb5e1eae35afd8900e71acd4a199b1c5	15007	12058	1480	3
+stoa0292d.stoa001.opp-lat1	out	csel-dev	none in repository	dabfeb75cffa2a6dee2a6c5be60d8b9e6912691ede48362df7dc2e6690125b7e	24298	20312	1336	3
+stoa0292e.stoa001.opp-lat1	out	csel-dev	none in repository	161cfcdf41fcfcc534d7873a78c6fd7d683716f14ca004ddfb9b4f015ce87529	22735	18342	1632	3
+stoa0292e.stoa002.opp-lat1	out	csel-dev	none in repository	f1140d531a5d6b69dac383770afc230c3bd88c20469f77c4fecf25a9b3d3900b	1587	1299	99	2
+stoa0292p.stoa001.opp-lat1	out	csel-dev	none in repository	c888df9f8851ad731d308af8f35c3d5c52e03460ab9775ae16f4baf88346f8c5	1446	1230	68	2
+stoa0293b.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	bcaf653f5d493e39ce377a8a6a470f477934d797c992e3fe7cccb50b25ea6208	870	759	59	1
+stoa0293b.stoa003.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2189d2739bb765a6553cf710994386fefd32fe1de665d2f58900c700636c213a	1402	1160	75	1
+stoa0293b.stoa005.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	5c47c6ae3f125a264c4f3f8421cb2c0791af37134d294f77ae0539ed7dbc9126	3951	3349	290	1
+stoa0293i.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	c8a1eab07006f12c3a630a70c78b122898a7eead54a9c4158c12e07e33b0f784	208	124	19	1
+stoa0297.stoa001.thayer-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	d1dce56896bda20e968873dd0c5bd923368640df89e725aaa35e319b24d2d84f	5106	4406	341	1
+stoa0318.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	82f44ee1e0cab22263471f69a5a7df7448835f0ca892baaee97d63fb606920fa	1820	1579	113	2
+stoa0323.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	30d119fd40bb6f68e54ab74da0ada7be5738d412dc1f512ffa66b2c1a87bf61d	12258	9715	1085	2
+stoa0329.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	6902074b3505e12598a23c062b35ddf9b7aa31fa03f93d6bcb542bf5496c4cc9	4326	3573	571	1
+stoa0329.stoa001.opp-lat1	out	csel-dev	none in repository	429fa0b13d7e0b089c338c0f41d28445725cb2a5445309131fa3c800549152df	13817	3757	530	2
+stoa0329c.stoa001.opp-lat1	out	csel-dev	none in repository	34ad4a14f663164efb2ee2ca52f58ea2b5ba54358fe8d225f84aa5686216277d	642	544	44	2
+stoa0349.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	2c3bbb7f91479ebb2b9d31ddaf1f8097cfce019d71257d5f6358c9e6fc6556ec	392	305	32	1
+stoa0353.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	87a0e613d92d83283c72ed32f147e964838865a6a5b36b61a1bc39dc5a828323	2940	2519	123	1
+stoa0353.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	a8d8ecfe3a26b71f4cbbfdb21b097bb1b77dd94ee4768a137b8f03e5985d4ff2	5036	4335	236	1
+stoa0357c.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	366414c5a0365e3247953625e628e78a63a178e3da611c838b78bd58f49dd729	83849	68712	7333	2
+stoa0357c.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	075188edb0ff3ac930b02f7f845e1fbd239f9b2b6d400c35c82ee188ef22ceb0	196380	124213	22657	2
+stoa0357c.stoa004.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	cac71bfef74f5e2740689455592262c3e6ff9c15611994be041442ab2bb5198a	81337	64663	6640	2
+stoa0359.stoa004.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	49cba2f07c597dd277da9870e0c57dc79a1b0df4a6172d8586593bcd98087788	155	133	7	1
+stoa0364.stoa001.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	db05c9a6d42e4aaf3030a175edcc188b41464e56d37971183ae8347b69c16180	27273	22829	1889	2
+stoa0365.stoa002.digilibLT-lat1	out	digiliblt	CC-BY-NC-SA-4.0 (LICENSE.md)	638ddfac18da91b3e3c144ce6c57d58c3acd3889c6f5fe8347c0e242b3ff9966	15622	13186	825	2
+stoa0367.stoa001.ogl-lat1	out	Latin	CC-BY-SA-4.0 (license.md)	c6d6b57474b20c1fe09e5c373eba31b056959bc37adf0811152cfa2546cb8f3c	85556	70382	9943	2
+tlg0526.tlg003.opp-lat1	out	csel-dev	none in repository	e16d051ca29cc1c80dd46d6272dc119a132250da5310ec7690f8fc8929ce3f47	24445	21415	1031	3
+tlg0527.tlg017.obi-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	86216bd91dcb21a6707349547ea817267f05d48adb8ddaf1a9a10155094bd8cf	9188	8065	461	2
+tlg0527.tlg028.obi-lat1	out	additional-texts	CC-BY-NC-SA-4.0 (LICENSE.md)	154e067758973c2a16e7d6f339ac096195796250bc605284cc4660fe01d541c4	242	209	9	2

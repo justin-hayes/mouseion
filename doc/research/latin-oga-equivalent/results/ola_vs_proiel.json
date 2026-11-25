@@ -1,0 +1,47 @@
+{
+ "phi0448.phi001": {
+  "_counts": {
+   "lemma": 22051,
+   "n": 25134,
+   "pos": 23841,
+   "posd": 24274
+  },
+  "aligned": 25134,
+  "gold_tokens": 27386,
+  "lemma": 87.73,
+  "pos_det_lenient": 96.58,
+  "pos_exact": 94.86,
+  "sentences": 1446,
+  "title": "Commentarii belli Gallici"
+ },
+ "phi0474.phi055": {
+  "_counts": {
+   "lemma": 9900,
+   "n": 10973,
+   "pos": 10011,
+   "posd": 10202
+  },
+  "aligned": 10973,
+  "gold_tokens": 11375,
+  "lemma": 90.22,
+  "pos_det_lenient": 92.97,
+  "pos_exact": 91.23,
+  "sentences": 609,
+  "title": "De officiis"
+ },
+ "phi0474.phi057": {
+  "_counts": {
+   "lemma": 31872,
+   "n": 35955,
+   "pos": 32906,
+   "posd": 33467
+  },
+  "aligned": 35955,
+  "gold_tokens": 45308,
+  "lemma": 88.64,
+  "pos_det_lenient": 93.08,
+  "pos_exact": 91.52,
+  "sentences": 3895,
+  "title": "Epistulae ad Atticum"
+ }
+}

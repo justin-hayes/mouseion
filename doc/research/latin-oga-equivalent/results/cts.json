@@ -1,0 +1,6647 @@
+{
+ "anthoLat.anthoLat.musisquedeoque-lat1": {
+  "depth_hist": {
+   "2": 72653
+  },
+  "distinct": 9336,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 72653
+ },
+ "anthoLat.phi1017.musisquedeoque-lat1": {
+  "depth_hist": {
+   "2": 4819
+  },
+  "distinct": 614,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4819
+ },
+ "dlt000386.dlt000386.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 54018
+  },
+  "distinct": 269,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 54018
+ },
+ "dlt000493.dlt000493.digilibLT-lat1": {
+  "depth_hist": {
+   "0": 38,
+   "1": 226
+  },
+  "distinct": 4,
+  "empty": 38,
+  "modal_depth": 1,
+  "tokens": 264
+ },
+ "lasc0001.lasc001.musisquedeoque-lat1": {
+  "depth_hist": {
+   "2": 3648
+  },
+  "distinct": 452,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3648
+ },
+ "phi0119.phi001.perseus-lat2": {
+  "depth_hist": {
+   "1": 11403
+  },
+  "distinct": 1376,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11403
+ },
+ "phi0119.phi002.perseus-lat2": {
+  "depth_hist": {
+   "1": 9544
+  },
+  "distinct": 1161,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9544
+ },
+ "phi0119.phi003.perseus-lat2": {
+  "depth_hist": {
+   "1": 8292
+  },
+  "distinct": 1010,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8292
+ },
+ "phi0119.phi004.perseus-lat2": {
+  "depth_hist": {
+   "0": 56,
+   "1": 11585
+  },
+  "distinct": 1511,
+  "empty": 56,
+  "modal_depth": 1,
+  "tokens": 11641
+ },
+ "phi0119.phi005.perseus-lat2": {
+  "depth_hist": {
+   "1": 10345
+  },
+  "distinct": 1235,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10345
+ },
+ "phi0119.phi006.perseus-lat2": {
+  "depth_hist": {
+   "1": 9318
+  },
+  "distinct": 1276,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9318
+ },
+ "phi0119.phi007.perseus-lat2": {
+  "depth_hist": {
+   "1": 6065
+  },
+  "distinct": 795,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6065
+ },
+ "phi0119.phi008.perseus-lat2": {
+  "depth_hist": {
+   "1": 7367
+  },
+  "distinct": 987,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7367
+ },
+ "phi0119.phi009.perseus-lat2": {
+  "depth_hist": {
+   "1": 7560
+  },
+  "distinct": 1061,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7560
+ },
+ "phi0119.phi010.perseus-lat2": {
+  "depth_hist": {
+   "1": 11417
+  },
+  "distinct": 1432,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11417
+ },
+ "phi0119.phi011.perseus-lat2": {
+  "depth_hist": {
+   "1": 10109
+  },
+  "distinct": 1383,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10109
+ },
+ "phi0119.phi012.perseus-lat2": {
+  "depth_hist": {
+   "1": 14940
+  },
+  "distinct": 1923,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 14940
+ },
+ "phi0119.phi013.perseus-lat2": {
+  "depth_hist": {
+   "1": 11380
+  },
+  "distinct": 1552,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11380
+ },
+ "phi0119.phi014.perseus-lat2": {
+  "depth_hist": {
+   "1": 9254
+  },
+  "distinct": 1260,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9254
+ },
+ "phi0119.phi015.perseus-lat2": {
+  "depth_hist": {
+   "1": 12996
+  },
+  "distinct": 1766,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12996
+ },
+ "phi0119.phi016.perseus-lat2": {
+  "depth_hist": {
+   "1": 12555
+  },
+  "distinct": 1687,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12555
+ },
+ "phi0119.phi017.perseus-lat2": {
+  "depth_hist": {
+   "1": 13995
+  },
+  "distinct": 1842,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13995
+ },
+ "phi0119.phi018.perseus-lat2": {
+  "depth_hist": {
+   "1": 7428
+  },
+  "distinct": 946,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7428
+ },
+ "phi0119.phi019.perseus-lat2": {
+  "depth_hist": {
+   "1": 11705
+  },
+  "distinct": 1459,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11705
+ },
+ "phi0119.phi020.perseus-lat2": {
+  "depth_hist": {
+   "1": 9886
+  },
+  "distinct": 1175,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9886
+ },
+ "phi0134.phi001.perseus-lat2": {
+  "depth_hist": {
+   "0": 2078,
+   "1": 8239
+  },
+  "distinct": 983,
+  "empty": 2078,
+  "modal_depth": 1,
+  "tokens": 10317
+ },
+ "phi0134.phi002.perseus-lat2": {
+  "depth_hist": {
+   "0": 2267,
+   "1": 9157
+  },
+  "distinct": 1069,
+  "empty": 2267,
+  "modal_depth": 1,
+  "tokens": 11424
+ },
+ "phi0134.phi003.perseus-lat2": {
+  "depth_hist": {
+   "0": 2158,
+   "1": 9523
+  },
+  "distinct": 1105,
+  "empty": 2158,
+  "modal_depth": 1,
+  "tokens": 11681
+ },
+ "phi0134.phi004.perseus-lat2": {
+  "depth_hist": {
+   "0": 2256,
+   "1": 8858
+  },
+  "distinct": 1056,
+  "empty": 2256,
+  "modal_depth": 1,
+  "tokens": 11114
+ },
+ "phi0134.phi005.perseus-lat2": {
+  "depth_hist": {
+   "0": 829,
+   "1": 8349
+  },
+  "distinct": 880,
+  "empty": 829,
+  "modal_depth": 1,
+  "tokens": 9178
+ },
+ "phi0134.phi006.perseus-lat2": {
+  "depth_hist": {
+   "0": 1814,
+   "1": 8773
+  },
+  "distinct": 1003,
+  "empty": 1814,
+  "modal_depth": 1,
+  "tokens": 10587
+ },
+ "phi0448.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 60405
+  },
+  "distinct": 2150,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 60405
+ },
+ "phi0448.phi002.perseus-lat2": {
+  "depth_hist": {
+   "3": 38171
+  },
+  "distinct": 1186,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 38171
+ },
+ "phi0472.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 15806
+  },
+  "distinct": 2286,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15806
+ },
+ "phi0474.phi001.perseus-lat2": {
+  "depth_hist": {
+   "1": 10408
+  },
+  "distinct": 99,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10408
+ },
+ "phi0474.phi002.perseus-lat2": {
+  "depth_hist": {
+   "1": 15762
+  },
+  "distinct": 154,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 15762
+ },
+ "phi0474.phi003.perseus-lat2": {
+  "depth_hist": {
+   "1": 5834
+  },
+  "distinct": 56,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5834
+ },
+ "phi0474.phi004.perseus-lat2": {
+  "depth_hist": {
+   "1": 6994
+  },
+  "distinct": 73,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6994
+ },
+ "phi0474.phi005.perseus-lat2": {
+  "depth_hist": {
+   "3": 120397
+  },
+  "distinct": 974,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 120397
+ },
+ "phi0474.phi006.perseus-lat2": {
+  "depth_hist": {
+   "1": 4143
+  },
+  "distinct": 56,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4143
+ },
+ "phi0474.phi007.perseus-lat2": {
+  "depth_hist": {
+   "1": 5337
+  },
+  "distinct": 49,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5337
+ },
+ "phi0474.phi008.perseus-lat2": {
+  "depth_hist": {
+   "1": 12433
+  },
+  "distinct": 104,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12433
+ },
+ "phi0474.phi009.perseus-lat2": {
+  "depth_hist": {
+   "1": 7628
+  },
+  "distinct": 71,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7628
+ },
+ "phi0474.phi010.perseus-lat2": {
+  "depth_hist": {
+   "1": 24419
+  },
+  "distinct": 202,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 24419
+ },
+ "phi0474.phi011.perseus-lat2": {
+  "depth_hist": {
+   "2": 16557
+  },
+  "distinct": 150,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 16557
+ },
+ "phi0474.phi012.perseus-lat2": {
+  "depth_hist": {
+   "1": 4335
+  },
+  "distinct": 39,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4335
+ },
+ "phi0474.phi013.perseus-lat2": {
+  "depth_hist": {
+   "2": 14862
+  },
+  "distinct": 115,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14862
+ },
+ "phi0474.phi014.perseus-lat2": {
+  "depth_hist": {
+   "1": 12679
+  },
+  "distinct": 90,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12679
+ },
+ "phi0474.phi015.perseus-lat2": {
+  "depth_hist": {
+   "1": 11111
+  },
+  "distinct": 93,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11111
+ },
+ "phi0474.phi016.perseus-lat2": {
+  "depth_hist": {
+   "1": 3616
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3616
+ },
+ "phi0474.phi017.perseus-lat2": {
+  "depth_hist": {
+   "1": 13275
+  },
+  "distinct": 121,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13275
+ },
+ "phi0474.phi018.perseus-lat2": {
+  "depth_hist": {
+   "1": 3145
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3145
+ },
+ "phi0474.phi019.perseus-lat2": {
+  "depth_hist": {
+   "1": 5144
+  },
+  "distinct": 39,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5144
+ },
+ "phi0474.phi020.perseus-lat2": {
+  "depth_hist": {
+   "1": 18058
+  },
+  "distinct": 147,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 18058
+ },
+ "phi0474.phi021.perseus-lat2": {
+  "depth_hist": {
+   "1": 8929
+  },
+  "distinct": 63,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8929
+ },
+ "phi0474.phi022.perseus-lat2": {
+  "depth_hist": {
+   "1": 20026
+  },
+  "distinct": 147,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 20026
+ },
+ "phi0474.phi023.perseus-lat2": {
+  "depth_hist": {
+   "1": 5378
+  },
+  "distinct": 41,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5378
+ },
+ "phi0474.phi024.perseus-lat2": {
+  "depth_hist": {
+   "1": 10141
+  },
+  "distinct": 80,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10141
+ },
+ "phi0474.phi025.perseus-lat2": {
+  "depth_hist": {
+   "1": 5988
+  },
+  "distinct": 47,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5988
+ },
+ "phi0474.phi026.perseus-lat2": {
+  "depth_hist": {
+   "1": 8050
+  },
+  "distinct": 65,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8050
+ },
+ "phi0474.phi027.perseus-lat2": {
+  "depth_hist": {
+   "1": 13055
+  },
+  "distinct": 116,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13055
+ },
+ "phi0474.phi028.perseus-lat2": {
+  "depth_hist": {
+   "1": 13854
+  },
+  "distinct": 104,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13854
+ },
+ "phi0474.phi029.perseus-lat2": {
+  "depth_hist": {
+   "1": 3602
+  },
+  "distinct": 76,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3602
+ },
+ "phi0474.phi030.perseus-lat2": {
+  "depth_hist": {
+   "1": 4919
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4919
+ },
+ "phi0474.phi031.perseus-lat2": {
+  "depth_hist": {
+   "1": 12618
+  },
+  "distinct": 105,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12618
+ },
+ "phi0474.phi032.perseus-lat2": {
+  "depth_hist": {
+   "1": 3268
+  },
+  "distinct": 34,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3268
+ },
+ "phi0474.phi033.perseus-lat2": {
+  "depth_hist": {
+   "1": 3975
+  },
+  "distinct": 38,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3975
+ },
+ "phi0474.phi034.perseus-lat2": {
+  "depth_hist": {
+   "1": 4656
+  },
+  "distinct": 43,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4656
+ },
+ "phi0474.phi035.perseus-lat2": {
+  "depth_hist": {
+   "2": 63552
+  },
+  "distinct": 544,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 63552
+ },
+ "phi0474.phi036.perseus-lat1": {
+  "depth_hist": {
+   "2": 41547
+  },
+  "distinct": 287,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 41547
+ },
+ "phi0474.phi037.perseus-lat1": {
+  "depth_hist": {
+   "2": 76083
+  },
+  "distinct": 862,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 76083
+ },
+ "phi0474.phi038.perseus-lat1": {
+  "depth_hist": {
+   "1": 11519
+  },
+  "distinct": 139,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11519
+ },
+ "phi0474.phi039.perseus-lat1": {
+  "depth_hist": {
+   "1": 29996
+  },
+  "distinct": 311,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 29996
+ },
+ "phi0474.phi040.perseus-lat1": {
+  "depth_hist": {
+   "1": 22102
+  },
+  "distinct": 238,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 22102
+ },
+ "phi0474.phi041.perseus-lat1": {
+  "depth_hist": {
+   "1": 1901
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1901
+ },
+ "phi0474.phi042.perseus-lat1": {
+  "depth_hist": {
+   "1": 8233
+  },
+  "distinct": 100,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8233
+ },
+ "phi0474.phi043.perseus-lat1": {
+  "depth_hist": {
+   "2": 26641
+  },
+  "distinct": 251,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 26641
+ },
+ "phi0474.phi045.perseus-lat1": {
+  "depth_hist": {
+   "2": 4922
+  },
+  "distinct": 46,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4922
+ },
+ "phi0474.phi046.perseus-lat1": {
+  "depth_hist": {
+   "1": 21290
+  },
+  "distinct": 147,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 21290
+ },
+ "phi0474.phi047.perseus-lat1": {
+  "depth_hist": {
+   "2": 5409
+  },
+  "distinct": 52,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5409
+ },
+ "phi0474.phi048.perseus-lat1": {
+  "depth_hist": {
+   "2": 58699
+  },
+  "distinct": 443,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 58699
+ },
+ "phi0474.phi049.perseus-lat1": {
+  "depth_hist": {
+   "2": 72208
+  },
+  "distinct": 476,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 72208
+ },
+ "phi0474.phi050.perseus-lat1": {
+  "depth_hist": {
+   "2": 41909
+  },
+  "distinct": 386,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 41909
+ },
+ "phi0474.phi051.perseus-lat1": {
+  "depth_hist": {
+   "1": 9958
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9958
+ },
+ "phi0474.phi052.perseus-lat2": {
+  "depth_hist": {
+   "1": 11270
+  },
+  "distinct": 104,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11270
+ },
+ "phi0474.phi053.perseus-lat1": {
+  "depth_hist": {
+   "2": 33832
+  },
+  "distinct": 282,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 33832
+ },
+ "phi0474.phi054.perseus-lat1": {
+  "depth_hist": {
+   "1": 6453
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6453
+ },
+ "phi0474.phi055.perseus-lat1": {
+  "depth_hist": {
+   "2": 41796
+  },
+  "distinct": 370,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 41796
+ },
+ "phi0474.phi056.perseus-lat1": {
+  "depth_hist": {
+   "3": 136489
+  },
+  "distinct": 1297,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 136489
+ },
+ "phi0474.phi057.perseus-lat1": {
+  "depth_hist": {
+   "3": 146108
+  },
+  "distinct": 1464,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 146108
+ },
+ "phi0474.phi058.perseus-lat1": {
+  "depth_hist": {
+   "3": 21681
+  },
+  "distinct": 198,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 21681
+ },
+ "phi0474.phi059.perseus-lat1": {
+  "depth_hist": {
+   "3": 11121
+  },
+  "distinct": 109,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 11121
+ },
+ "phi0474.phi072.perseus-lat1": {
+  "depth_hist": {
+   "1": 5160
+  },
+  "distinct": 52,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5160
+ },
+ "phi0474.phi073.corpcorp-lat1": {
+  "depth_hist": {
+   "2": 38635
+  },
+  "distinct": 186,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 38635
+ },
+ "phi0478.phi003.perseus-lat2": {
+  "depth_hist": {
+   "0": 15,
+   "1": 5015
+  },
+  "distinct": 59,
+  "empty": 15,
+  "modal_depth": 1,
+  "tokens": 5030
+ },
+ "phi0550.phi001.perseus-lat1": {
+  "depth_hist": {
+   "2": 57125
+  },
+  "distinct": 7382,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 57125
+ },
+ "phi0588.abo001.perseus-lat2": {
+  "depth_hist": {
+   "2": 1599
+  },
+  "distinct": 41,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1599
+ },
+ "phi0588.abo002.perseus-lat2": {
+  "depth_hist": {
+   "2": 2062
+  },
+  "distinct": 51,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2062
+ },
+ "phi0588.abo003.perseus-lat2": {
+  "depth_hist": {
+   "2": 401
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 401
+ },
+ "phi0588.abo004.perseus-lat2": {
+  "depth_hist": {
+   "2": 1068
+  },
+  "distinct": 28,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1068
+ },
+ "phi0588.abo005.perseus-lat2": {
+  "depth_hist": {
+   "2": 644
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 644
+ },
+ "phi0588.abo006.perseus-lat2": {
+  "depth_hist": {
+   "2": 635
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 635
+ },
+ "phi0588.abo007.perseus-lat2": {
+  "depth_hist": {
+   "2": 2451
+  },
+  "distinct": 60,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2451
+ },
+ "phi0588.abo008.perseus-lat2": {
+  "depth_hist": {
+   "2": 726
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 726
+ },
+ "phi0588.abo009.perseus-lat2": {
+  "depth_hist": {
+   "2": 894
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 894
+ },
+ "phi0588.abo010.perseus-lat2": {
+  "depth_hist": {
+   "2": 1815
+  },
+  "distinct": 46,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1815
+ },
+ "phi0588.abo011.perseus-lat2": {
+  "depth_hist": {
+   "2": 501
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 501
+ },
+ "phi0588.abo012.perseus-lat2": {
+  "depth_hist": {
+   "2": 588
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 588
+ },
+ "phi0588.abo013.perseus-lat2": {
+  "depth_hist": {
+   "2": 786
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 786
+ },
+ "phi0588.abo014.perseus-lat2": {
+  "depth_hist": {
+   "2": 2249
+  },
+  "distinct": 53,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2249
+ },
+ "phi0588.abo015.perseus-lat2": {
+  "depth_hist": {
+   "2": 2068
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2068
+ },
+ "phi0588.abo016.perseus-lat2": {
+  "depth_hist": {
+   "2": 865
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 865
+ },
+ "phi0588.abo017.perseus-lat2": {
+  "depth_hist": {
+   "2": 1665
+  },
+  "distinct": 42,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1665
+ },
+ "phi0588.abo018.perseus-lat2": {
+  "depth_hist": {
+   "2": 2782
+  },
+  "distinct": 66,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2782
+ },
+ "phi0588.abo019.perseus-lat2": {
+  "depth_hist": {
+   "2": 645
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 645
+ },
+ "phi0588.abo020.perseus-lat2": {
+  "depth_hist": {
+   "2": 998
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 998
+ },
+ "phi0588.abo021.perseus-lat2": {
+  "depth_hist": {
+   "2": 535
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 535
+ },
+ "phi0588.abo022.perseus-lat2": {
+  "depth_hist": {
+   "2": 631
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 631
+ },
+ "phi0588.abo023.perseus-lat2": {
+  "depth_hist": {
+   "2": 2530
+  },
+  "distinct": 62,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2530
+ },
+ "phi0588.abo024.perseus-lat2": {
+  "depth_hist": {
+   "2": 539
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 539
+ },
+ "phi0588.abo025.perseus-lat2": {
+  "depth_hist": {
+   "2": 4374
+  },
+  "distinct": 105,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4374
+ },
+ "phi0620.phi001.perseus-lat3": {
+  "depth_hist": {
+   "3": 30993
+  },
+  "distinct": 3993,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 30993
+ },
+ "phi0631.phi001.perseus-lat3": {
+  "depth_hist": {
+   "1": 12924
+  },
+  "distinct": 60,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12924
+ },
+ "phi0631.phi001.perseus-lat4": {
+  "depth_hist": {
+   "1": 13072
+  },
+  "distinct": 61,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13072
+ },
+ "phi0631.phi002.perseus-lat3": {
+  "depth_hist": {
+   "1": 25705
+  },
+  "distinct": 67,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 25705
+ },
+ "phi0631.phi002.perseus-lat4": {
+  "depth_hist": {
+   "1": 25707
+  },
+  "distinct": 114,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 25707
+ },
+ "phi0631.phi003.perseus-lat2": {
+  "depth_hist": {
+   "2": 4916
+  },
+  "distinct": 124,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4916
+ },
+ "phi0631.phi007.thayer-lat1": {
+  "depth_hist": {
+   "3": 4818
+  },
+  "distinct": 101,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 4818
+ },
+ "phi0631.phi008.thayer-lat1": {
+  "depth_hist": {
+   "1": 889
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 889
+ },
+ "phi0660.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 15175
+  },
+  "distinct": 1929,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 15175
+ },
+ "phi0660.phi003.perseus-lat2": {
+  "depth_hist": {
+   "2": 313
+  },
+  "distinct": 40,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 313
+ },
+ "phi0684.phi001.remacle-lat1": {
+  "depth_hist": {
+   "2": 49673
+  },
+  "distinct": 673,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 49673
+ },
+ "phi0684.phi002.ogl-lat1": {
+  "depth_hist": {
+   "3": 43266
+  },
+  "distinct": 589,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 43266
+ },
+ "phi0690.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 7282
+  },
+  "distinct": 828,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7282
+ },
+ "phi0690.phi002.perseus-lat2": {
+  "depth_hist": {
+   "2": 17028
+  },
+  "distinct": 2183,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 17028
+ },
+ "phi0690.phi003.perseus-lat2": {
+  "depth_hist": {
+   "2": 79284
+  },
+  "distinct": 9843,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 79284
+ },
+ "phi0692.phi002.remacle-lat1": {
+  "depth_hist": {
+   "1": 1492
+  },
+  "distinct": 183,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1492
+ },
+ "phi0830.phi001.thayer-lat1": {
+  "depth_hist": {
+   "2": 6203
+  },
+  "distinct": 761,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6203
+ },
+ "phi0836.phi002.perseus-lat4": {
+  "depth_hist": {
+   "2": 128918
+  },
+  "distinct": 211,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 128918
+ },
+ "phi0836.phi002.perseus-lat5": {
+  "depth_hist": {
+   "2": 135026
+  },
+  "distinct": 211,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 135026
+ },
+ "phi0836.phi002.perseus-lat6": {
+  "depth_hist": {
+   "2": 131389
+  },
+  "distinct": 211,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 131389
+ },
+ "phi0845.phi002.perseus-lat3": {
+  "depth_hist": {
+   "3": 96153
+  },
+  "distinct": 1406,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 96153
+ },
+ "phi0860.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 90838
+  },
+  "distinct": 2620,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 90838
+ },
+ "phi0893.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 15877
+  },
+  "distinct": 1670,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 15877
+ },
+ "phi0893.phi002.perseus-lat2": {
+  "depth_hist": {
+   "1": 389
+  },
+  "distinct": 76,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 389
+ },
+ "phi0893.phi003.perseus-lat2": {
+  "depth_hist": {
+   "2": 3620
+  },
+  "distinct": 625,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3620
+ },
+ "phi0893.phi004.perseus-lat2": {
+  "depth_hist": {
+   "3": 18259
+  },
+  "distinct": 2112,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 18259
+ },
+ "phi0893.phi005.perseus-lat2": {
+  "depth_hist": {
+   "3": 12344
+  },
+  "distinct": 1492,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 12344
+ },
+ "phi0893.phi006.perseus-lat2": {
+  "depth_hist": {
+   "1": 3825
+  },
+  "distinct": 476,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3825
+ },
+ "phi0911.phi001.thayer-lat1": {
+  "depth_hist": {
+   "1": 2040
+  },
+  "distinct": 261,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2040
+ },
+ "phi0914.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 607341
+  },
+  "distinct": 20282,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 607341
+ },
+ "phi0917.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 65306
+  },
+  "distinct": 8043,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 65306
+ },
+ "phi0959.phi001.perseus-lat2": {
+  "depth_hist": {
+   "4": 19880
+  },
+  "distinct": 2458,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 19880
+ },
+ "phi0959.phi002.perseus-lat2": {
+  "depth_hist": {
+   "3": 32739
+  },
+  "distinct": 3946,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 32739
+ },
+ "phi0959.phi003.perseus-lat2": {
+  "depth_hist": {
+   "2": 757
+  },
+  "distinct": 100,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 757
+ },
+ "phi0959.phi004.perseus-lat2": {
+  "depth_hist": {
+   "3": 19331
+  },
+  "distinct": 2328,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 19331
+ },
+ "phi0959.phi005.perseus-lat2": {
+  "depth_hist": {
+   "2": 6756
+  },
+  "distinct": 812,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6756
+ },
+ "phi0959.phi006.perseus-lat2": {
+  "depth_hist": {
+   "2": 99588
+  },
+  "distinct": 11927,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 99588
+ },
+ "phi0959.phi007.perseus-lat2": {
+  "depth_hist": {
+   "3": 39410
+  },
+  "distinct": 4959,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 39410
+ },
+ "phi0959.phi008.perseus-lat2": {
+  "depth_hist": {
+   "4": 28817
+  },
+  "distinct": 3530,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 28817
+ },
+ "phi0959.phi009.perseus-lat2": {
+  "depth_hist": {
+   "4": 25964
+  },
+  "distinct": 3192,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 25964
+ },
+ "phi0959.phi010.perseus-lat2": {
+  "depth_hist": {
+   "2": 4952
+  },
+  "distinct": 626,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4952
+ },
+ "phi0969.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 5621
+  },
+  "distinct": 664,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5621
+ },
+ "phi0972.phi001.perseus-lat2": {
+  "depth_hist": {
+   "1": 38094
+  },
+  "distinct": 141,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 38094
+ },
+ "phi0975.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 13395
+  },
+  "distinct": 1939,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 13395
+ },
+ "phi1002.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 210776
+  },
+  "distinct": 3761,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 210776
+ },
+ "phi1002.phi003.latinlibrary-lat1": {
+  "depth_hist": {
+   "2": 85109
+  },
+  "distinct": 352,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 85109
+ },
+ "phi1011.phi001.lascivaroma-lat1": {
+  "depth_hist": {
+   "1": 29058
+  },
+  "distinct": 272,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 29058
+ },
+ "phi1014.phi001.perseus-lat1": {
+  "depth_hist": {
+   "3": 83679
+  },
+  "distinct": 668,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 83679
+ },
+ "phi1014.phi002.perseus-lat1": {
+  "depth_hist": {
+   "2": 27002
+  },
+  "distinct": 76,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 27002
+ },
+ "phi1014.phi003.perseus-lat1": {
+  "depth_hist": {
+   "2": 12593
+  },
+  "distinct": 100,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12593
+ },
+ "phi1014.phi004.perseus-lat1": {
+  "depth_hist": {
+   "1": 164
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 164
+ },
+ "phi1017.phi001.perseus-lat2": {
+  "depth_hist": {
+   "1": 9090
+  },
+  "distinct": 1382,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9090
+ },
+ "phi1017.phi002.perseus-lat2": {
+  "depth_hist": {
+   "1": 8251
+  },
+  "distinct": 1211,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8251
+ },
+ "phi1017.phi003.perseus-lat2": {
+  "depth_hist": {
+   "1": 4997
+  },
+  "distinct": 669,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4997
+ },
+ "phi1017.phi004.perseus-lat2": {
+  "depth_hist": {
+   "1": 6907
+  },
+  "distinct": 1062,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6907
+ },
+ "phi1017.phi005.perseus-lat2": {
+  "depth_hist": {
+   "1": 8496
+  },
+  "distinct": 1288,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8496
+ },
+ "phi1017.phi006.perseus-lat2": {
+  "depth_hist": {
+   "1": 7038
+  },
+  "distinct": 1090,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7038
+ },
+ "phi1017.phi007.perseus-lat2": {
+  "depth_hist": {
+   "1": 6630
+  },
+  "distinct": 1055,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6630
+ },
+ "phi1017.phi008.perseus-lat2": {
+  "depth_hist": {
+   "1": 7514
+  },
+  "distinct": 1160,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7514
+ },
+ "phi1017.phi009.perseus-lat2": {
+  "depth_hist": {
+   "1": 13715
+  },
+  "distinct": 2020,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13715
+ },
+ "phi1017.phi010.perseus-lat2": {
+  "depth_hist": {
+   "0": 98,
+   "1": 6061
+  },
+  "distinct": 991,
+  "empty": 98,
+  "modal_depth": 1,
+  "tokens": 6159
+ },
+ "phi1017.phi011.perseus-lat2": {
+  "depth_hist": {
+   "1": 3706
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3706
+ },
+ "phi1017.phi013.perseus-lat2": {
+  "depth_hist": {
+   "3": 57504
+  },
+  "distinct": 906,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 57504
+ },
+ "phi1017.phi014.perseus-lat2": {
+  "depth_hist": {
+   "3": 10321
+  },
+  "distinct": 152,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 10321
+ },
+ "phi1017.phi015.perseus-lat2": {
+  "depth_hist": {
+   "2": 149703
+  },
+  "distinct": 2139,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 149703
+ },
+ "phi1017.phi016.corpuscorporum-lat1": {
+  "depth_hist": {
+   "3": 57507
+  },
+  "distinct": 898,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 57507
+ },
+ "phi1020.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 78477
+  },
+  "distinct": 9731,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 78477
+ },
+ "phi1020.phi002.perseus-lat2": {
+  "depth_hist": {
+   "3": 29507
+  },
+  "distinct": 3898,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 29507
+ },
+ "phi1020.phi003.perseus-lat2": {
+  "depth_hist": {
+   "2": 8996
+  },
+  "distinct": 1125,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8996
+ },
+ "phi1035.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 45951
+  },
+  "distinct": 5586,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 45951
+ },
+ "phi1038.phi001.perseus-lat1": {
+  "depth_hist": {
+   "3": 93471
+  },
+  "distinct": 1024,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 93471
+ },
+ "phi1056.phi001.perseus-lat1": {
+  "depth_hist": {
+   "3": 68612
+  },
+  "distinct": 726,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 68612
+ },
+ "phi1103.phi001.lascivaroma-lat1": {
+  "depth_hist": {
+   "2": 4264
+  },
+  "distinct": 610,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4264
+ },
+ "phi1212.phi001.perseus-lat1": {
+  "depth_hist": {
+   "1": 26351
+  },
+  "distinct": 103,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 26351
+ },
+ "phi1212.phi002.perseus-lat1": {
+  "depth_hist": {
+   "2": 62583
+  },
+  "distinct": 351,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 62583
+ },
+ "phi1212.phi003.perseus-lat2": {
+  "depth_hist": {
+   "1": 9503
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9503
+ },
+ "phi1242.phi001.perseus-lat1": {
+  "depth_hist": {
+   "4": 31706
+  },
+  "distinct": 979,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 31706
+ },
+ "phi1251.phi001.corpuscorporum-lat1": {
+  "depth_hist": {
+   "2": 103893
+  },
+  "distinct": 530,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 103893
+ },
+ "phi1254.phi001.perseus-lat2": {
+  "depth_hist": {
+   "3": 139843
+  },
+  "distinct": 3961,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 139843
+ },
+ "phi1257.phi001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 7576
+  },
+  "distinct": 223,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7576
+ },
+ "phi1263.phi001.corpuscorporum-lat1": {
+  "depth_hist": {
+   "2": 32103
+  },
+  "distinct": 938,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 32103
+ },
+ "phi1276.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 29905
+  },
+  "distinct": 3854,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 29905
+ },
+ "phi1294.phi002.perseus-lat2": {
+  "depth_hist": {
+   "3": 72474
+  },
+  "distinct": 9462,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 72474
+ },
+ "phi1318.phi001.perseus-lat1": {
+  "depth_hist": {
+   "3": 79793
+  },
+  "distinct": 1981,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 79793
+ },
+ "phi1345.phi001.perseus-lat2": {
+  "depth_hist": {
+   "2": 93317
+  },
+  "distinct": 12197,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 93317
+ },
+ "phi1348.abo011.perseus-lat2": {
+  "depth_hist": {
+   "1": 11530
+  },
+  "distinct": 89,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11530
+ },
+ "phi1348.abo012.perseus-lat2": {
+  "depth_hist": {
+   "1": 16372
+  },
+  "distinct": 101,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 16372
+ },
+ "phi1348.abo013.perseus-lat2": {
+  "depth_hist": {
+   "1": 11013
+  },
+  "distinct": 76,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11013
+ },
+ "phi1348.abo014.perseus-lat2": {
+  "depth_hist": {
+   "1": 9256
+  },
+  "distinct": 60,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9256
+ },
+ "phi1348.abo015.perseus-lat2": {
+  "depth_hist": {
+   "1": 7803
+  },
+  "distinct": 46,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7803
+ },
+ "phi1348.abo016.perseus-lat2": {
+  "depth_hist": {
+   "1": 9440
+  },
+  "distinct": 57,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9440
+ },
+ "phi1348.abo017.perseus-lat2": {
+  "depth_hist": {
+   "1": 3381
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3381
+ },
+ "phi1348.abo018.perseus-lat2": {
+  "depth_hist": {
+   "1": 1984
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1984
+ },
+ "phi1348.abo019.perseus-lat2": {
+  "depth_hist": {
+   "1": 2850
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2850
+ },
+ "phi1348.abo020.perseus-lat2": {
+  "depth_hist": {
+   "1": 3845
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3845
+ },
+ "phi1348.abo021.perseus-lat2": {
+  "depth_hist": {
+   "1": 1777
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1777
+ },
+ "phi1348.abo022.perseus-lat2": {
+  "depth_hist": {
+   "1": 4317
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4317
+ },
+ "phi1348.phi002.thayer-lat1": {
+  "depth_hist": {
+   "1": 4309
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4309
+ },
+ "phi1348.phi005a.thayer-lat1": {
+  "depth_hist": {
+   "1": 3554
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3554
+ },
+ "phi1348.phi005b.thayer-lat1": {
+  "depth_hist": {
+   "1": 1360
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1360
+ },
+ "phi1351.phi001.perseus-lat1": {
+  "depth_hist": {
+   "2": 8083
+  },
+  "distinct": 212,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8083
+ },
+ "phi1351.phi002.perseus-lat1": {
+  "depth_hist": {
+   "2": 6746
+  },
+  "distinct": 185,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6746
+ },
+ "phi1351.phi004.perseus-lat2": {
+  "depth_hist": {
+   "3": 61982
+  },
+  "distinct": 405,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 61982
+ },
+ "phi1351.phi005.lascivaroma-lat1": {
+  "depth_hist": {
+   "2": 105633
+  },
+  "distinct": 721,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 105633
+ },
+ "phi1363.phi002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 753
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 753
+ },
+ "phi1500.phi001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 938
+  },
+  "distinct": 73,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 938
+ },
+ "phi1512.phi001.horatiusNet-lat1": {
+  "depth_hist": {
+   "3": 38019
+  },
+  "distinct": 1253,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 38019
+ },
+ "phi1512.phi002.horatiusNet-lat1": {
+  "depth_hist": {
+   "1": 4056
+  },
+  "distinct": 123,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4056
+ },
+ "phi1512.phi003.horatiusNet-lat1": {
+  "depth_hist": {
+   "1": 1058
+  },
+  "distinct": 27,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1058
+ },
+ "phi1512.phi004.horatiusNet-lat1": {
+  "depth_hist": {
+   "2": 9505
+  },
+  "distinct": 262,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9505
+ },
+ "phi1512.phi005.horatiusNet-lat1": {
+  "depth_hist": {
+   "3": 22819
+  },
+  "distinct": 683,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 22819
+ },
+ "phi1512.phi006.horatiusNet-lat1": {
+  "depth_hist": {
+   "3": 20953
+  },
+  "distinct": 723,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 20953
+ },
+ "phi1672.phi002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 38719
+  },
+  "distinct": 90,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 38719
+ },
+ "phi2003.phi003.opp-lat2": {
+  "depth_hist": {
+   "1": 195
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 195
+ },
+ "phi2331.phi001.perseus-lat2": {
+  "depth_hist": {
+   "1": 6036
+  },
+  "distinct": 27,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6036
+ },
+ "phi2331.phi002.perseus-lat2": {
+  "depth_hist": {
+   "1": 1703
+  },
+  "distinct": 7,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1703
+ },
+ "phi2331.phi003.perseus-lat2": {
+  "depth_hist": {
+   "1": 2662
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2662
+ },
+ "phi2331.phi004.perseus-lat2": {
+  "depth_hist": {
+   "1": 6410
+  },
+  "distinct": 29,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6410
+ },
+ "phi2331.phi005.perseus-lat2": {
+  "depth_hist": {
+   "1": 2403
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2403
+ },
+ "phi2331.phi006.perseus-lat2": {
+  "depth_hist": {
+   "1": 3131
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3131
+ },
+ "phi2331.phi007.perseus-lat2": {
+  "depth_hist": {
+   "1": 4145
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4145
+ },
+ "phi2331.phi008.perseus-lat2": {
+  "depth_hist": {
+   "1": 3049
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3049
+ },
+ "phi2331.phi009.perseus-lat2": {
+  "depth_hist": {
+   "1": 1880
+  },
+  "distinct": 9,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1880
+ },
+ "phi2331.phi010.perseus-lat2": {
+  "depth_hist": {
+   "1": 4977
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4977
+ },
+ "phi2331.phi011.perseus-lat2": {
+  "depth_hist": {
+   "1": 2750
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2750
+ },
+ "phi2331.phi012.perseus-lat2": {
+  "depth_hist": {
+   "1": 3204
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3204
+ },
+ "phi2331.phi013.perseus-lat2": {
+  "depth_hist": {
+   "1": 2415
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2415
+ },
+ "phi2331.phi014.perseus-lat2": {
+  "depth_hist": {
+   "1": 1482
+  },
+  "distinct": 7,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1482
+ },
+ "phi2331.phi015.perseus-lat2": {
+  "depth_hist": {
+   "1": 2958
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2958
+ },
+ "phi2331.phi016.perseus-lat2": {
+  "depth_hist": {
+   "1": 1982
+  },
+  "distinct": 9,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1982
+ },
+ "phi2331.phi017.perseus-lat2": {
+  "depth_hist": {
+   "1": 6817
+  },
+  "distinct": 35,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6817
+ },
+ "phi2331.phi018.perseus-lat2": {
+  "depth_hist": {
+   "1": 12801
+  },
+  "distinct": 68,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12801
+ },
+ "phi2331.phi019.perseus-lat2": {
+  "depth_hist": {
+   "1": 6461
+  },
+  "distinct": 33,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6461
+ },
+ "phi2331.phi020.perseus-lat2": {
+  "depth_hist": {
+   "1": 6614
+  },
+  "distinct": 34,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6614
+ },
+ "phi2331.phi021.perseus-lat2": {
+  "depth_hist": {
+   "1": 3729
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3729
+ },
+ "phi2331.phi022.perseus-lat2": {
+  "depth_hist": {
+   "1": 1221
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1221
+ },
+ "phi2331.phi023.perseus-lat2": {
+  "depth_hist": {
+   "1": 4376
+  },
+  "distinct": 21,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4376
+ },
+ "phi2331.phi024.perseus-lat2": {
+  "depth_hist": {
+   "1": 7862
+  },
+  "distinct": 33,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7862
+ },
+ "phi2331.phi025.perseus-lat2": {
+  "depth_hist": {
+   "1": 3624
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3624
+ },
+ "phi2331.phi026.perseus-lat2": {
+  "depth_hist": {
+   "1": 9393
+  },
+  "distinct": 50,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9393
+ },
+ "phi2331.phi027.perseus-lat2": {
+  "depth_hist": {
+   "1": 3742
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3742
+ },
+ "phi2331.phi028.perseus-lat2": {
+  "depth_hist": {
+   "1": 4976
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4976
+ },
+ "phi2331.phi029.perseus-lat2": {
+  "depth_hist": {
+   "1": 2801
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2801
+ },
+ "phi2331.phi030.perseus-lat2": {
+  "depth_hist": {
+   "1": 3165
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3165
+ },
+ "phi2349.phi005.perseus-lat1": {
+  "depth_hist": {
+   "2": 402864,
+   "3": 140
+  },
+  "distinct": 7326,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 403004
+ },
+ "phi2349.phi006.perseus-lat1": {
+  "depth_hist": {
+   "2": 37923
+  },
+  "distinct": 657,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 37923
+ },
+ "phi2349.phi007.perseus-lat1": {
+  "depth_hist": {
+   "2": 75721
+  },
+  "distinct": 1505,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 75721
+ },
+ "phi9500.phi035.opp-lat1": {
+  "depth_hist": {
+   "2": 133
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 133
+ },
+ "phi963.phi002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 9475
+  },
+  "distinct": 126,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9475
+ },
+ "phi996.phi004.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 249
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 249
+ },
+ "stoa0004a.stoa001.horatiusNet-lat1": {
+  "depth_hist": {
+   "3": 60453
+  },
+  "distinct": 2259,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 60453
+ },
+ "stoa0004a.stoa002.horatiusNet-lat1": {
+  "depth_hist": {
+   "1": 2287
+  },
+  "distinct": 54,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2287
+ },
+ "stoa0004a.stoa003.horatiusNet-lat1": {
+  "depth_hist": {
+   "2": 13631
+  },
+  "distinct": 505,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 13631
+ },
+ "stoa0004a.stoa004.horatiusNet-lat1": {
+  "depth_hist": {
+   "3": 40234
+  },
+  "distinct": 1181,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 40234
+ },
+ "stoa0004a.stoa005.horatiusNet-lat1": {
+  "depth_hist": {
+   "3": 19523
+  },
+  "distinct": 666,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 19523
+ },
+ "stoa0004a.stoa006.horatiusNet-lat1": {
+  "depth_hist": {
+   "1": 15083
+  },
+  "distinct": 342,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 15083
+ },
+ "stoa0007.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 13316
+  },
+  "distinct": 62,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 13316
+ },
+ "stoa0012a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 7099
+  },
+  "distinct": 81,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7099
+ },
+ "stoa0012a.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 1809
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1809
+ },
+ "stoa0012a.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 3769
+  },
+  "distinct": 21,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3769
+ },
+ "stoa0013c.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "0": 276,
+   "1": 2921
+  },
+  "distinct": 141,
+  "empty": 276,
+  "modal_depth": 1,
+  "tokens": 3197
+ },
+ "stoa0020b.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 6157
+  },
+  "distinct": 34,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6157
+ },
+ "stoa0020b.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 4392
+  },
+  "distinct": 5,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4392
+ },
+ "stoa0022.stoa014.opp-lat1": {
+  "depth_hist": {
+   "2": 12064
+  },
+  "distinct": 75,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12064
+ },
+ "stoa0022.stoa015.opp-lat1": {
+  "depth_hist": {
+   "2": 11917
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 11917
+ },
+ "stoa0022.stoa019.opp-lat1": {
+  "depth_hist": {
+   "2": 7721
+  },
+  "distinct": 59,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7721
+ },
+ "stoa0022.stoa021.opp-lat1": {
+  "depth_hist": {
+   "3": 17783
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 17783
+ },
+ "stoa0022.stoa025.opp-lat1": {
+  "depth_hist": {
+   "2": 10639
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10639
+ },
+ "stoa0022.stoa029.opp-lat1": {
+  "depth_hist": {
+   "2": 10130
+  },
+  "distinct": 58,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10130
+ },
+ "stoa0022.stoa032.opp-lat1": {
+  "depth_hist": {
+   "3": 20683
+  },
+  "distinct": 121,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 20683
+ },
+ "stoa0022.stoa034.opp-lat1": {
+  "depth_hist": {
+   "3": 15449
+  },
+  "distinct": 95,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 15449
+ },
+ "stoa0022.stoa035.opp-lat1": {
+  "depth_hist": {
+   "2": 11488
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 11488
+ },
+ "stoa0022.stoa036.corpuscorporum-lat1": {
+  "depth_hist": {
+   "2": 4954
+  },
+  "distinct": 53,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4954
+ },
+ "stoa0022.stoa038.opp-lat1": {
+  "depth_hist": {
+   "2": 9695
+  },
+  "distinct": 73,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9695
+ },
+ "stoa0022.stoa039.opp-lat1": {
+  "depth_hist": {
+   "2": 20928
+  },
+  "distinct": 128,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 20928
+ },
+ "stoa0022.stoa042.opp-lat1": {
+  "depth_hist": {
+   "2": 16422
+  },
+  "distinct": 77,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 16422
+ },
+ "stoa0022.stoa044.opp-lat1": {
+  "depth_hist": {
+   "2": 12387
+  },
+  "distinct": 93,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12387
+ },
+ "stoa0022.stoa048.opp-lat1": {
+  "depth_hist": {
+   "4": 115059
+  },
+  "distinct": 1476,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 115059
+ },
+ "stoa0022.stoa051.opp-lat1": {
+  "depth_hist": {
+   "3": 125984
+  },
+  "distinct": 1071,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 125984
+ },
+ "stoa0022.stoa052.opp-lat1": {
+  "depth_hist": {
+   "4": 141984
+  },
+  "distinct": 1925,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 141984
+ },
+ "stoa0022.stoa054.corpuscorporum-lat1": {
+  "depth_hist": {
+   "3": 64055
+  },
+  "distinct": 327,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 64055
+ },
+ "stoa0022.stoa054.opp-lat1": {
+  "depth_hist": {
+   "3": 60716
+  },
+  "distinct": 334,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 60716
+ },
+ "stoa0022a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "4": 115573
+  },
+  "distinct": 842,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 115573
+ },
+ "stoa0023.stoa001.perseus-lat2": {
+  "depth_hist": {
+   "3": 157527
+  },
+  "distinct": 2883,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 157527
+ },
+ "stoa0024.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 8865
+  },
+  "distinct": 51,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8865
+ },
+ "stoa0028e.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 7112
+  },
+  "distinct": 47,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7112
+ },
+ "stoa0028e.stoa001.opp-lat2": {
+  "depth_hist": {
+   "2": 6821
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6821
+ },
+ "stoa0029.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 21005
+  },
+  "distinct": 124,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 21005
+ },
+ "stoa0030.stoa008.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 10467
+  },
+  "distinct": 36,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10467
+ },
+ "stoa0030b.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 5414
+  },
+  "distinct": 49,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5414
+ },
+ "stoa0034.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 77584
+  },
+  "distinct": 347,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 77584
+ },
+ "stoa0035a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 21850
+  },
+  "distinct": 1012,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 21850
+ },
+ "stoa0039c.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "0": 6740,
+   "1": 6412
+  },
+  "distinct": 9,
+  "empty": 6740,
+  "modal_depth": 0,
+  "tokens": 13152
+ },
+ "stoa0040.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 94998
+  },
+  "distinct": 453,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 94998
+ },
+ "stoa0040.stoa001a.opp-lat1": {
+  "depth_hist": {
+   "2": 31863
+  },
+  "distinct": 39,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 31863
+ },
+ "stoa0040.stoa003.opp-lat3": {
+  "depth_hist": {
+   "3": 359006
+  },
+  "distinct": 664,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 359006
+ },
+ "stoa0040.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 6995
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6995
+ },
+ "stoa0040.stoa0071.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 5224
+  },
+  "distinct": 21,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5224
+ },
+ "stoa0040.stoa011.opp-lat2": {
+  "depth_hist": {
+   "4": 888
+  },
+  "distinct": 108,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 888
+ },
+ "stoa0040.stoa014a.opp-lat1": {
+  "depth_hist": {
+   "3": 16239
+  },
+  "distinct": 64,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 16239
+ },
+ "stoa0040.stoa015b.opp-lat1": {
+  "depth_hist": {
+   "2": 997
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 997
+ },
+ "stoa0040.stoa016.opp-lat1": {
+  "depth_hist": {
+   "3": 26658
+  },
+  "distinct": 113,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 26658
+ },
+ "stoa0040.stoa017.opp-lat1": {
+  "depth_hist": {
+   "2": 20684
+  },
+  "distinct": 28,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 20684
+ },
+ "stoa0040.stoa020.opp-lat1": {
+  "depth_hist": {
+   "2": 26367
+  },
+  "distinct": 75,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 26367
+ },
+ "stoa0040.stoa021a.opp-lat1": {
+  "depth_hist": {
+   "2": 15711
+  },
+  "distinct": 43,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15711
+ },
+ "stoa0040.stoa023.opp-lat1": {
+  "depth_hist": {
+   "3": 32923
+  },
+  "distinct": 96,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 32923
+ },
+ "stoa0040.stoa024.opp-lat1": {
+  "depth_hist": {
+   "3": 150080
+  },
+  "distinct": 431,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 150080
+ },
+ "stoa0040.stoa024b.opp-lat1": {
+  "depth_hist": {
+   "2": 7996
+  },
+  "distinct": 37,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7996
+ },
+ "stoa0040.stoa025.opp-lat1": {
+  "depth_hist": {
+   "3": 22658
+  },
+  "distinct": 77,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 22658
+ },
+ "stoa0040.stoa027.opp-lat1": {
+  "depth_hist": {
+   "3": 68378
+  },
+  "distinct": 351,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 68378
+ },
+ "stoa0040.stoa029.opp-lat1": {
+  "depth_hist": {
+   "2": 14326
+  },
+  "distinct": 41,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14326
+ },
+ "stoa0040.stoa029a.opp-lat1": {
+  "depth_hist": {
+   "2": 17984
+  },
+  "distinct": 59,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 17984
+ },
+ "stoa0040.stoa031.opp-lat1": {
+  "depth_hist": {
+   "2": 12428
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12428
+ },
+ "stoa0040.stoa031a.opp-lat1": {
+  "depth_hist": {
+   "3": 16584
+  },
+  "distinct": 42,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 16584
+ },
+ "stoa0040.stoa032.opp-lat1": {
+  "depth_hist": {
+   "2": 8898
+  },
+  "distinct": 35,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8898
+ },
+ "stoa0040.stoa033.opp-lat1": {
+  "depth_hist": {
+   "3": 36779
+  },
+  "distinct": 122,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 36779
+ },
+ "stoa0040.stoa033a.opp-lat1": {
+  "depth_hist": {
+   "3": 61373
+  },
+  "distinct": 338,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 61373
+ },
+ "stoa0040.stoa034.opp-lat1": {
+  "depth_hist": {
+   "2": 9234
+  },
+  "distinct": 37,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9234
+ },
+ "stoa0040.stoa035.opp-lat1": {
+  "depth_hist": {
+   "2": 10607
+  },
+  "distinct": 36,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10607
+ },
+ "stoa0040.stoa035a.opp-lat1": {
+  "depth_hist": {
+   "2": 9153
+  },
+  "distinct": 29,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9153
+ },
+ "stoa0040.stoa036.opp-lat1": {
+  "depth_hist": {
+   "3": 16618
+  },
+  "distinct": 56,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 16618
+ },
+ "stoa0040.stoa037.opp-lat1": {
+  "depth_hist": {
+   "3": 89763
+  },
+  "distinct": 318,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 89763
+ },
+ "stoa0040.stoa037a.opp-lat1": {
+  "depth_hist": {
+   "2": 10573
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10573
+ },
+ "stoa0040.stoa037c.opp-lat1": {
+  "depth_hist": {
+   "2": 8036
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8036
+ },
+ "stoa0040.stoa038a.opp-lat1": {
+  "depth_hist": {
+   "2": 4304
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4304
+ },
+ "stoa0040.stoa040.opp-lat1": {
+  "depth_hist": {
+   "2": 7968
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7968
+ },
+ "stoa0040.stoa041.opp-lat1": {
+  "depth_hist": {
+   "2": 14875
+  },
+  "distinct": 49,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14875
+ },
+ "stoa0040.stoa042.opp-lat1": {
+  "depth_hist": {
+   "2": 12445
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12445
+ },
+ "stoa0040.stoa042a.opp-lat1": {
+  "depth_hist": {
+   "3": 115632
+  },
+  "distinct": 329,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 115632
+ },
+ "stoa0040.stoa044.opp-lat1": {
+  "depth_hist": {
+   "2": 18773
+  },
+  "distinct": 66,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 18773
+ },
+ "stoa0040.stoa046.opp-lat1": {
+  "depth_hist": {
+   "2": 12288
+  },
+  "distinct": 55,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12288
+ },
+ "stoa0040.stoa050.opp-lat1": {
+  "depth_hist": {
+   "2": 14403
+  },
+  "distinct": 43,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14403
+ },
+ "stoa0040.stoa053.opp-lat1": {
+  "depth_hist": {
+   "2": 9592
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9592
+ },
+ "stoa0040.stoa054.opp-lat1": {
+  "depth_hist": {
+   "2": 20313
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 20313
+ },
+ "stoa0040.stoa054.opp-lat2": {
+  "depth_hist": {
+   "2": 3617
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3617
+ },
+ "stoa0040.stoa055.opp-lat1": {
+  "depth_hist": {
+   "2": 15039
+  },
+  "distinct": 41,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15039
+ },
+ "stoa0040.stoa056.opp-lat1": {
+  "depth_hist": {
+   "3": 21902
+  },
+  "distinct": 96,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 21902
+ },
+ "stoa0040.stoa056a.opp-lat1": {
+  "depth_hist": {
+   "3": 28485
+  },
+  "distinct": 103,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 28485
+ },
+ "stoa0040.stoa056b.opp-lat1": {
+  "depth_hist": {
+   "2": 6327
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6327
+ },
+ "stoa0040.stoa056c.opp-lat1": {
+  "depth_hist": {
+   "2": 11239
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 11239
+ },
+ "stoa0040.stoa057.opp-lat1": {
+  "depth_hist": {
+   "3": 41763
+  },
+  "distinct": 156,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 41763
+ },
+ "stoa0040.stoa057a.opp-lat1": {
+  "depth_hist": {
+   "2": 12188
+  },
+  "distinct": 44,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12188
+ },
+ "stoa0040.stoa060.opp-lat1": {
+  "depth_hist": {
+   "2": 14844
+  },
+  "distinct": 57,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14844
+ },
+ "stoa0040.stoa062.opp-lat1": {
+  "depth_hist": {
+   "3": 232
+  },
+  "distinct": 3,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 232
+ },
+ "stoa0040.stoa063.opp-lat1": {
+  "depth_hist": {
+   "3": 165
+  },
+  "distinct": 3,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 165
+ },
+ "stoa0040.stoa064.opp-lat1": {
+  "depth_hist": {
+   "2": 13114
+  },
+  "distinct": 36,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 13114
+ },
+ "stoa0040.stoa066c.opp-lat1": {
+  "depth_hist": {
+   "2": 4402
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4402
+ },
+ "stoa0040.stoa070.opp-lat1": {
+  "depth_hist": {
+   "3": 28581
+  },
+  "distinct": 735,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 28581
+ },
+ "stoa0040.stoa070a.opp-lat1": {
+  "depth_hist": {
+   "2": 6443
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6443
+ },
+ "stoa0040.stoa072.opp-lat1": {
+  "depth_hist": {
+   "3": 2802
+  },
+  "distinct": 288,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 2802
+ },
+ "stoa0040.stoa074.opp-lat1": {
+  "depth_hist": {
+   "3": 135941
+  },
+  "distinct": 653,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 135941
+ },
+ "stoa0040.stoa077.opp-lat1": {
+  "depth_hist": {
+   "4": 32712
+  },
+  "distinct": 448,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 32712
+ },
+ "stoa0040.stoa077c.opp-lat1": {
+  "depth_hist": {
+   "2": 3788
+  },
+  "distinct": 9,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3788
+ },
+ "stoa0040.stoa077d.opp-lat1": {
+  "depth_hist": {
+   "2": 1785
+  },
+  "distinct": 7,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1785
+ },
+ "stoa0040.stoa080.opp-lat1": {
+  "depth_hist": {
+   "2": 74370
+  },
+  "distinct": 52,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 74370
+ },
+ "stoa0040.stoa080a.opp-lat1": {
+  "depth_hist": {
+   "2": 63769
+  },
+  "distinct": 145,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 63769
+ },
+ "stoa0040a.stoa004.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 9538
+  },
+  "distinct": 103,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9538
+ },
+ "stoa0041a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 60328
+  },
+  "distinct": 590,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 60328
+ },
+ "stoa0041a.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 79571
+  },
+  "distinct": 55,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 79571
+ },
+ "stoa0041a.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 2949
+  },
+  "distinct": 67,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2949
+ },
+ "stoa0041a.stoa004.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 6476
+  },
+  "distinct": 144,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6476
+ },
+ "stoa0041a.stoa005.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 66343
+  },
+  "distinct": 183,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 66343
+ },
+ "stoa0043.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 12841
+  },
+  "distinct": 42,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 12841
+ },
+ "stoa0044.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 5239
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5239
+ },
+ "stoa0044.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 10979
+  },
+  "distinct": 86,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10979
+ },
+ "stoa0044.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 10958
+  },
+  "distinct": 48,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10958
+ },
+ "stoa0045.stoa002.perseus-lat2": {
+  "depth_hist": {
+   "2": 1059
+  },
+  "distinct": 135,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1059
+ },
+ "stoa0045.stoa003a.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 567
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 567
+ },
+ "stoa0045.stoa004.perseus-lat2": {
+  "depth_hist": {
+   "2": 3283
+  },
+  "distinct": 557,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3283
+ },
+ "stoa0045.stoa007.perseus-lat2": {
+  "depth_hist": {
+   "2": 3351
+  },
+  "distinct": 447,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3351
+ },
+ "stoa0045.stoa008.perseus-lat2": {
+  "depth_hist": {
+   "2": 1614
+  },
+  "distinct": 237,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1614
+ },
+ "stoa0045.stoa010.perseus-lat2": {
+  "depth_hist": {
+   "2": 4869
+  },
+  "distinct": 613,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4869
+ },
+ "stoa0045.stoa011.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 8746
+  },
+  "distinct": 29,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8746
+ },
+ "stoa0045.stoa013.perseus-lat2": {
+  "depth_hist": {
+   "1": 207
+  },
+  "distinct": 28,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 207
+ },
+ "stoa0045.stoa014.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 5128
+  },
+  "distinct": 83,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5128
+ },
+ "stoa0045.stoa014.perseus-lat2": {
+  "depth_hist": {
+   "1": 5140
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5140
+ },
+ "stoa0045.stoa017.perseus-lat2": {
+  "depth_hist": {
+   "1": 181
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 181
+ },
+ "stoa0045.stoa018.perseus-lat2": {
+  "depth_hist": {
+   "1": 1739
+  },
+  "distinct": 231,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1739
+ },
+ "stoa0045.stoa020.perseus-lat2": {
+  "depth_hist": {
+   "1": 268
+  },
+  "distinct": 42,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 268
+ },
+ "stoa0045.stoa021.perseus-lat2": {
+  "depth_hist": {
+   "2": 1298
+  },
+  "distinct": 168,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1298
+ },
+ "stoa0045.stoa026.perseus-lat2": {
+  "depth_hist": {
+   "2": 599
+  },
+  "distinct": 72,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 599
+ },
+ "stoa0045.stoa027.perseus-lat2": {
+  "depth_hist": {
+   "1": 241
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 241
+ },
+ "stoa0045a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 179909
+  },
+  "distinct": 2505,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 179909
+ },
+ "stoa0054.stoa001a.opp-lat1": {
+  "depth_hist": {
+   "2": 4676
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4676
+ },
+ "stoa0058.stoa001.perseus-lat2": {
+  "depth_hist": {
+   "2": 29283
+  },
+  "distinct": 78,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 29283
+ },
+ "stoa0058.stoa003.perseus-lat1": {
+  "depth_hist": {
+   "1": 1630
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1630
+ },
+ "stoa0058.stoa006.perseus-lat1": {
+  "depth_hist": {
+   "1": 2214
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2214
+ },
+ "stoa0058.stoa007.opp-lat2": {
+  "depth_hist": {
+   "3": 31760
+  },
+  "distinct": 58,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 31760
+ },
+ "stoa0058.stoa021.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 11183
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11183
+ },
+ "stoa0058.stoa023.perseus-lat1": {
+  "depth_hist": {
+   "1": 6855
+  },
+  "distinct": 9,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6855
+ },
+ "stoa0058.stoa025.perseus-lat1": {
+  "depth_hist": {
+   "1": 3383
+  },
+  "distinct": 7,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3383
+ },
+ "stoa0058.stoa028.perseus-lat1": {
+  "depth_hist": {
+   "1": 656
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 656
+ },
+ "stoa0072.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "0": 429,
+   "1": 8351
+  },
+  "distinct": 54,
+  "empty": 429,
+  "modal_depth": 1,
+  "tokens": 8780
+ },
+ "stoa0076c.stoa001.opp-lat2": {
+  "depth_hist": {
+   "4": 157715
+  },
+  "distinct": 1732,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 157715
+ },
+ "stoa0076c.stoa002.opp-lat2": {
+  "depth_hist": {
+   "4": 50565
+  },
+  "distinct": 474,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 50565
+ },
+ "stoa0076c.stoa003.opp-lat1": {
+  "depth_hist": {
+   "4": 45924
+  },
+  "distinct": 456,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 45924
+ },
+ "stoa0077.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 33712
+  },
+  "distinct": 45,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 33712
+ },
+ "stoa0077.stoa006.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 14037
+  },
+  "distinct": 1371,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 14037
+ },
+ "stoa0077.stoa016.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 16886
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 16886
+ },
+ "stoa0077.stoa024.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 233
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 233
+ },
+ "stoa0077a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 34024
+  },
+  "distinct": 520,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 34024
+ },
+ "stoa0085a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 6301
+  },
+  "distinct": 30,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6301
+ },
+ "stoa0089.stoa001.perseus-lat2": {
+  "depth_hist": {
+   "2": 9049
+  },
+  "distinct": 1262,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9049
+ },
+ "stoa0089.stoa001a.mgh-lat1": {
+  "depth_hist": {
+   "2": 2912
+  },
+  "distinct": 372,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2912
+ },
+ "stoa0089.stoa002.perseus-lat2": {
+  "depth_hist": {
+   "1": 3961
+  },
+  "distinct": 526,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3961
+ },
+ "stoa0089.stoa003.perseus-lat2": {
+  "depth_hist": {
+   "2": 4848
+  },
+  "distinct": 665,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4848
+ },
+ "stoa0089.stoa004.perseus-lat2": {
+  "depth_hist": {
+   "2": 9224
+  },
+  "distinct": 893,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9224
+ },
+ "stoa0089.stoa005.perseus-lat2": {
+  "depth_hist": {
+   "3": 8527
+  },
+  "distinct": 1171,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 8527
+ },
+ "stoa0089.stoa006.perseus-lat2": {
+  "depth_hist": {
+   "2": 2729
+  },
+  "distinct": 363,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2729
+ },
+ "stoa0089.stoa007.perseus-lat2": {
+  "depth_hist": {
+   "2": 663
+  },
+  "distinct": 135,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 663
+ },
+ "stoa0089.stoa008.perseus-lat2": {
+  "depth_hist": {
+   "2": 8862
+  },
+  "distinct": 1191,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8862
+ },
+ "stoa0089.stoa009.perseus-lat2": {
+  "depth_hist": {
+   "3": 7018
+  },
+  "distinct": 952,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 7018
+ },
+ "stoa0089.stoa010.perseus-lat2": {
+  "depth_hist": {
+   "2": 1659
+  },
+  "distinct": 229,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1659
+ },
+ "stoa0089.stoa011.perseus-lat2": {
+  "depth_hist": {
+   "1": 4874
+  },
+  "distinct": 656,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4874
+ },
+ "stoa0089.stoa012.perseus-lat2": {
+  "depth_hist": {
+   "2": 5000
+  },
+  "distinct": 686,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5000
+ },
+ "stoa0089.stoa013.perseus-lat2": {
+  "depth_hist": {
+   "2": 2610
+  },
+  "distinct": 360,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2610
+ },
+ "stoa0089.stoa014.perseus-lat2": {
+  "depth_hist": {
+   "1": 2057
+  },
+  "distinct": 279,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2057
+ },
+ "stoa0089a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 37264
+  },
+  "distinct": 58,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 37264
+ },
+ "stoa0089a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 1983
+  },
+  "distinct": 2,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1983
+ },
+ "stoa0096.stoa003.opp-lat2": {
+  "depth_hist": {
+   "4": 10851
+  },
+  "distinct": 1257,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 10851
+ },
+ "stoa0096.stoa004.opp-lat2": {
+  "depth_hist": {
+   "2": 9243
+  },
+  "distinct": 1057,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9243
+ },
+ "stoa0104a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 3278
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3278
+ },
+ "stoa0104a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 5244
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5244
+ },
+ "stoa0104a.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 4737
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4737
+ },
+ "stoa0104a.stoa004.opp-lat1": {
+  "depth_hist": {
+   "2": 4734
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4734
+ },
+ "stoa0104a.stoa005.opp-lat1": {
+  "depth_hist": {
+   "2": 7385
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7385
+ },
+ "stoa0104a.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 2108
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2108
+ },
+ "stoa0104a.stoa007.opp-lat1": {
+  "depth_hist": {
+   "2": 6841
+  },
+  "distinct": 36,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6841
+ },
+ "stoa0104a.stoa008.opp-lat1": {
+  "depth_hist": {
+   "2": 4479
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4479
+ },
+ "stoa0104a.stoa009.opp-lat1": {
+  "depth_hist": {
+   "2": 5526
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5526
+ },
+ "stoa0104a.stoa010.opp-lat1": {
+  "depth_hist": {
+   "2": 5885
+  },
+  "distinct": 27,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5885
+ },
+ "stoa0104a.stoa011.opp-lat1": {
+  "depth_hist": {
+   "2": 3411
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3411
+ },
+ "stoa0104a.stoa012.opp-lat1": {
+  "depth_hist": {
+   "3": 80859
+  },
+  "distinct": 400,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 80859
+ },
+ "stoa0104a.stoa013.opp-lat1": {
+  "depth_hist": {
+   "2": 4497
+  },
+  "distinct": 86,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4497
+ },
+ "stoa0104a.stoa014.opp-lat1": {
+  "depth_hist": {
+   "3": 33004
+  },
+  "distinct": 176,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 33004
+ },
+ "stoa0104a.stoa015.opp-lat1": {
+  "depth_hist": {
+   "2": 7164
+  },
+  "distinct": 36,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7164
+ },
+ "stoa0104c.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 42320
+  },
+  "distinct": 5550,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 42320
+ },
+ "stoa0104p.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 4613
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4613
+ },
+ "stoa0104p.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 2661
+  },
+  "distinct": 10,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2661
+ },
+ "stoa0104p.stoa003.opp-lat2": {
+  "depth_hist": {
+   "3": 7558
+  },
+  "distinct": 996,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 7558
+ },
+ "stoa0104p.stoa005.opp-lat1": {
+  "depth_hist": {
+   "2": 2878
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2878
+ },
+ "stoa0104p.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 10145
+  },
+  "distinct": 40,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10145
+ },
+ "stoa0104p.stoa007.opp-lat1": {
+  "depth_hist": {
+   "2": 5489
+  },
+  "distinct": 30,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5489
+ },
+ "stoa0104p.stoa008.opp-lat1": {
+  "depth_hist": {
+   "2": 3353
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3353
+ },
+ "stoa0104p.stoa009.opp-lat1": {
+  "depth_hist": {
+   "2": 5715
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5715
+ },
+ "stoa0104p.stoa010.opp-lat1": {
+  "depth_hist": {
+   "2": 7796
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7796
+ },
+ "stoa0104p.stoa011.opp-lat1": {
+  "depth_hist": {
+   "2": 13453
+  },
+  "distinct": 46,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 13453
+ },
+ "stoa0104p.stoa013.opp-lat1": {
+  "depth_hist": {
+   "2": 2305
+  },
+  "distinct": 10,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2305
+ },
+ "stoa0104p.stoa014.opp-lat1": {
+  "depth_hist": {
+   "2": 4976
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4976
+ },
+ "stoa0104p.stoa015.opp-lat1": {
+  "depth_hist": {
+   "2": 1069
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1069
+ },
+ "stoa0104p.stoa016.opp-lat1": {
+  "depth_hist": {
+   "2": 2516
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2516
+ },
+ "stoa0104p.stoa018.opp-lat1": {
+  "depth_hist": {
+   "2": 2438
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2438
+ },
+ "stoa0104p.stoa019.opp-lat1": {
+  "depth_hist": {
+   "2": 446
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 446
+ },
+ "stoa0104p.stoa020.opp-lat1": {
+  "depth_hist": {
+   "2": 2584
+  },
+  "distinct": 10,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2584
+ },
+ "stoa0104p.stoa021.opp-lat1": {
+  "depth_hist": {
+   "2": 734
+  },
+  "distinct": 85,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 734
+ },
+ "stoa0111.stoa001.opp-lat3": {
+  "depth_hist": {
+   "3": 20692
+  },
+  "distinct": 278,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 20692
+ },
+ "stoa0114a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 758
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 758
+ },
+ "stoa0114a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 680
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 680
+ },
+ "stoa0114a.stoa003.opp-lat1": {
+  "depth_hist": {
+   "4": 13956
+  },
+  "distinct": 1958,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 13956
+ },
+ "stoa0114a.stoa004.opp-lat1": {
+  "depth_hist": {
+   "2": 19523
+  },
+  "distinct": 28,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 19523
+ },
+ "stoa0114a.stoa005.opp-lat1": {
+  "depth_hist": {
+   "2": 2515
+  },
+  "distinct": 9,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2515
+ },
+ "stoa0114a.stoa006.opp-lat2": {
+  "depth_hist": {
+   "2": 5662
+  },
+  "distinct": 21,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5662
+ },
+ "stoa0114a.stoa007.opp-lat1": {
+  "depth_hist": {
+   "2": 1718
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1718
+ },
+ "stoa0114a.stoa008.opp-lat1": {
+  "depth_hist": {
+   "3": 56656
+  },
+  "distinct": 297,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 56656
+ },
+ "stoa0114a.stoa011.opp-lat1": {
+  "depth_hist": {
+   "2": 1871
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1871
+ },
+ "stoa0114a.stoa012.opp-lat1": {
+  "depth_hist": {
+   "2": 9370
+  },
+  "distinct": 33,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9370
+ },
+ "stoa0114a.stoa013.opp-lat1": {
+  "depth_hist": {
+   "2": 305
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 305
+ },
+ "stoa0114a.stoa014.opp-lat1": {
+  "depth_hist": {
+   "2": 755
+  },
+  "distinct": 2,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 755
+ },
+ "stoa0114a.stoa015.opp-lat1": {
+  "depth_hist": {
+   "2": 12463
+  },
+  "distinct": 44,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12463
+ },
+ "stoa0117.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 4487
+  },
+  "distinct": 44,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4487
+ },
+ "stoa0117.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 10884
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10884
+ },
+ "stoa0117.stoa003.opp-lat1": {
+  "depth_hist": {
+   "4": 17223
+  },
+  "distinct": 204,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 17223
+ },
+ "stoa0117.stoa004.opp-lat1": {
+  "depth_hist": {
+   "2": 1894
+  },
+  "distinct": 9,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1894
+ },
+ "stoa0117p.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 1794
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1794
+ },
+ "stoa0119.stoa001.opp-lat2": {
+  "depth_hist": {
+   "3": 12661
+  },
+  "distinct": 196,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 12661
+ },
+ "stoa0119.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 696
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 696
+ },
+ "stoa0119.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 288448
+  },
+  "distinct": 393,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 288448
+ },
+ "stoa0119a.stoa001b.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 22817
+  },
+  "distinct": 455,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 22817
+ },
+ "stoa0119a.stoa001c.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 16234
+  },
+  "distinct": 389,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 16234
+ },
+ "stoa0120a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 2948
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2948
+ },
+ "stoa0120a.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 4823
+  },
+  "distinct": 23,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4823
+ },
+ "stoa0120a.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 3780
+  },
+  "distinct": 21,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3780
+ },
+ "stoa0120c.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 8127
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8127
+ },
+ "stoa0120d.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 8607
+  },
+  "distinct": 49,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8607
+ },
+ "stoa0121.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 21970
+  },
+  "distinct": 224,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 21970
+ },
+ "stoa0121g.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 25965
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 25965
+ },
+ "stoa0121g.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 14264
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 14264
+ },
+ "stoa0121g.stoa003.opp-lat2": {
+  "depth_hist": {
+   "2": 14016
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14016
+ },
+ "stoa0121g.stoa004.opp-lat1": {
+  "depth_hist": {
+   "2": 33848
+  },
+  "distinct": 31,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 33848
+ },
+ "stoa0121g.stoa005.opp-lat1": {
+  "depth_hist": {
+   "2": 1818
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1818
+ },
+ "stoa0122a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 32796
+  },
+  "distinct": 663,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 32796
+ },
+ "stoa0122c.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 5797
+  },
+  "distinct": 28,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5797
+ },
+ "stoa0123a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 16160
+  },
+  "distinct": 160,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 16160
+ },
+ "stoa0123a.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 147849
+  },
+  "distinct": 191,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 147849
+ },
+ "stoa0123a.stoa002.thayer-lat1": {
+  "depth_hist": {
+   "3": 146646
+  },
+  "distinct": 1956,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 146646
+ },
+ "stoa0124.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 1108
+  },
+  "distinct": 3,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1108
+ },
+ "stoa0128b.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 11226
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11226
+ },
+ "stoa0128b.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 2226
+  },
+  "distinct": 63,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2226
+ },
+ "stoa0128b.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 4842
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4842
+ },
+ "stoa0128b.stoa004.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 15369
+  },
+  "distinct": 53,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15369
+ },
+ "stoa0149b.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 225924
+  },
+  "distinct": 1204,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 225924
+ },
+ "stoa0149b.stoa003.opp-lat1": {
+  "depth_hist": {
+   "4": 379
+  },
+  "distinct": 5,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 379
+ },
+ "stoa0149b.stoa004.opp-lat1": {
+  "depth_hist": {
+   "4": 1620
+  },
+  "distinct": 222,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 1620
+ },
+ "stoa0149b.stoa005.opp-lat1": {
+  "depth_hist": {
+   "3": 2063
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 2063
+ },
+ "stoa0149b.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 748
+  },
+  "distinct": 3,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 748
+ },
+ "stoa0149b.stoa007.opp-lat1": {
+  "depth_hist": {
+   "4": 1446
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 1446
+ },
+ "stoa0149b.stoa009.opp-lat1": {
+  "depth_hist": {
+   "4": 9763
+  },
+  "distinct": 169,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 9763
+ },
+ "stoa0149b.stoa023.corpuscorporum-lat1": {
+  "depth_hist": {
+   "1": 8491
+  },
+  "distinct": 22,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8491
+ },
+ "stoa0149c.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 126
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 126
+ },
+ "stoa0149p.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 942
+  },
+  "distinct": 114,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 942
+ },
+ "stoa0149p.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 3478
+  },
+  "distinct": 394,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3478
+ },
+ "stoa0149p.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 1626
+  },
+  "distinct": 204,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1626
+ },
+ "stoa0156.stoa005.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 3751
+  },
+  "distinct": 58,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3751
+ },
+ "stoa0159.stoa003a.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 242
+  },
+  "distinct": 2,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 242
+ },
+ "stoa0159.stoa004.thayer-lat1": {
+  "depth_hist": {
+   "2": 209027
+  },
+  "distinct": 489,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 209027
+ },
+ "stoa0162.stoa004.opp-lat1": {
+  "depth_hist": {
+   "4": 349364
+  },
+  "distinct": 4488,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 349364
+ },
+ "stoa0162.stoa004.perseus-lat2": {
+  "depth_hist": {
+   "2": 53218
+  },
+  "distinct": 221,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 53218
+ },
+ "stoa0162.stoa007.corpuscorporum-lat1": {
+  "depth_hist": {
+   "2": 54955,
+   "3": 1488
+  },
+  "distinct": 95,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 56443
+ },
+ "stoa0162.stoa023.corpuscorporum-lat1": {
+  "depth_hist": {
+   "1": 287587
+  },
+  "distinct": 78,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 287587
+ },
+ "stoa0162.stoa024.opp-lat1": {
+  "depth_hist": {
+   "4": 104606
+  },
+  "distinct": 1403,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 104606
+ },
+ "stoa0162.stoa038.corpuscorporum-lat1": {
+  "depth_hist": {
+   "2": 5494
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5494
+ },
+ "stoa0162.stoa062.corpuscorporum-lat1": {
+  "depth_hist": {
+   "1": 2652
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2652
+ },
+ "stoa0167.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "3": 71606
+  },
+  "distinct": 322,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 71606
+ },
+ "stoa0168.stoa001c.droitromain-lat1": {
+  "depth_hist": {
+   "3": 442585
+  },
+  "distinct": 4502,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 442585
+ },
+ "stoa0169a.stoa002.opp-lat2": {
+  "depth_hist": {
+   "3": 24438
+  },
+  "distinct": 3211,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 24438
+ },
+ "stoa0170a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 1554
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1554
+ },
+ "stoa0171.stoa001.opp-lat3": {
+  "depth_hist": {
+   "2": 1285
+  },
+  "distinct": 170,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1285
+ },
+ "stoa0171.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 12934
+  },
+  "distinct": 365,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 12934
+ },
+ "stoa0171.stoa004.opp-lat1": {
+  "depth_hist": {
+   "2": 603
+  },
+  "distinct": 80,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 603
+ },
+ "stoa0171.stoa006.opp-lat1": {
+  "depth_hist": {
+   "3": 14363
+  },
+  "distinct": 306,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 14363
+ },
+ "stoa0171.stoa007.opp-lat1": {
+  "depth_hist": {
+   "3": 12681
+  },
+  "distinct": 276,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 12681
+ },
+ "stoa0171.stoa008.opp-lat1": {
+  "depth_hist": {
+   "3": 21191
+  },
+  "distinct": 491,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 21191
+ },
+ "stoa0171.stoa009.opp-lat1": {
+  "depth_hist": {
+   "4": 138894
+  },
+  "distinct": 3274,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 138894
+ },
+ "stoa0171.stoa010.opp-lat1": {
+  "depth_hist": {
+   "3": 2656
+  },
+  "distinct": 27,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 2656
+ },
+ "stoa0171a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 114481
+  },
+  "distinct": 3874,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 114481
+ },
+ "stoa0180a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 10039
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10039
+ },
+ "stoa0180a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 24141
+  },
+  "distinct": 35,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 24141
+ },
+ "stoa0180a.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 10067
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10067
+ },
+ "stoa0180a.stoa004.opp-lat1": {
+  "depth_hist": {
+   "3": 46063
+  },
+  "distinct": 78,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 46063
+ },
+ "stoa0180a.stoa005.opp-lat1": {
+  "depth_hist": {
+   "2": 3433
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3433
+ },
+ "stoa0180a.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 10474
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10474
+ },
+ "stoa0186.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 104201
+  },
+  "distinct": 106,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 104201
+ },
+ "stoa0186.stoa001.thayer-lat1": {
+  "depth_hist": {
+   "2": 100472
+  },
+  "distinct": 100,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 100472
+ },
+ "stoa0186.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 47016
+  },
+  "distinct": 39,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 47016
+ },
+ "stoa0187a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 4393
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4393
+ },
+ "stoa0187b.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 6262
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6262
+ },
+ "stoa0187b.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 3508
+  },
+  "distinct": 19,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3508
+ },
+ "stoa0187b.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 3119
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3119
+ },
+ "stoa0192a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 96671
+  },
+  "distinct": 998,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 96671
+ },
+ "stoa0195a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 1106
+  },
+  "distinct": 116,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1106
+ },
+ "stoa0196.stoa001.latinlibrary-lat1": {
+  "depth_hist": {
+   "2": 5158
+  },
+  "distinct": 686,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5158
+ },
+ "stoa0200.stoa001.latinlibrary-lat1": {
+  "depth_hist": {
+   "2": 19763
+  },
+  "distinct": 307,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 19763
+ },
+ "stoa0203.stoa001.opp-lat2": {
+  "depth_hist": {
+   "3": 14039
+  },
+  "distinct": 304,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 14039
+ },
+ "stoa0203.stoa001.perseus-lat2": {
+  "depth_hist": {
+   "2": 14126
+  },
+  "distinct": 269,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 14126
+ },
+ "stoa0205b.stoa001.bolton-lat1": {
+  "depth_hist": {
+   "1": 21062
+  },
+  "distinct": 188,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 21062
+ },
+ "stoa0208a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 7404
+  },
+  "distinct": 38,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7404
+ },
+ "stoa0209.stoa001.thayer-lat1": {
+  "depth_hist": {
+   "2": 2616
+  },
+  "distinct": 319,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2616
+ },
+ "stoa0209.stoa002.thayer-lat1": {
+  "depth_hist": {
+   "1": 2414
+  },
+  "distinct": 325,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2414
+ },
+ "stoa0213a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "3": 37535
+  },
+  "distinct": 979,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 37535
+ },
+ "stoa0213c.stoa001.latinlibrary-lat1": {
+  "depth_hist": {
+   "2": 24246
+  },
+  "distinct": 416,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 24246
+ },
+ "stoa0215a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 40961
+  },
+  "distinct": 101,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 40961
+ },
+ "stoa0215a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 11325
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 11325
+ },
+ "stoa0215b.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 4852
+  },
+  "distinct": 618,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 4852
+ },
+ "stoa0215b.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 1781
+  },
+  "distinct": 197,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 1781
+ },
+ "stoa0215b.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 428
+  },
+  "distinct": 66,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 428
+ },
+ "stoa0215c.stoa001.opp-lat1": {
+  "depth_hist": {
+   "4": 87268
+  },
+  "distinct": 2362,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 87268
+ },
+ "stoa0215c.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 13687
+  },
+  "distinct": 241,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 13687
+ },
+ "stoa0215c.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 1326
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1326
+ },
+ "stoa0217a.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 10794
+  },
+  "distinct": 47,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 10794
+ },
+ "stoa0218.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 1278
+  },
+  "distinct": 3,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1278
+ },
+ "stoa0222a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 956
+  },
+  "distinct": 112,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 956
+ },
+ "stoa0223.stoa002.opp-lat1": {
+  "depth_hist": {
+   "4": 880
+  },
+  "distinct": 108,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 880
+ },
+ "stoa0223a.stoa001.opp-lat2": {
+  "depth_hist": {
+   "3": 4612
+  },
+  "distinct": 616,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 4612
+ },
+ "stoa0224.stoa004.alim-lat1": {
+  "depth_hist": {
+   "2": 40425,
+   "3": 5645,
+   "4": 591,
+   "5": 168,
+   "6": 55,
+   "7": 29
+  },
+  "distinct": 2981,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 46913
+ },
+ "stoa0224b.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 26101
+  },
+  "distinct": 3622,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 26101
+ },
+ "stoa0224b.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 614
+  },
+  "distinct": 80,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 614
+ },
+ "stoa0224b.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 199
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 199
+ },
+ "stoa0224c.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 29769
+  },
+  "distinct": 563,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 29769
+ },
+ "stoa0227b.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 5340
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5340
+ },
+ "stoa0233d.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 4864
+  },
+  "distinct": 18,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4864
+ },
+ "stoa0233d.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 977
+  },
+  "distinct": 4,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 977
+ },
+ "stoa0233h.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 1166
+  },
+  "distinct": 132,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1166
+ },
+ "stoa0234b.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 34278
+  },
+  "distinct": 73,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 34278
+ },
+ "stoa0234b.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "0": 520,
+   "1": 511
+  },
+  "distinct": 4,
+  "empty": 520,
+  "modal_depth": 0,
+  "tokens": 1031
+ },
+ "stoa0234e.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 6602
+  },
+  "distinct": 86,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6602
+ },
+ "stoa0234e.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 23408
+  },
+  "distinct": 147,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 23408
+ },
+ "stoa0234f.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 6259
+  },
+  "distinct": 709,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 6259
+ },
+ "stoa0238.stoa001.perseus-lat2": {
+  "depth_hist": {
+   "2": 21611
+  },
+  "distinct": 3762,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 21611
+ },
+ "stoa0238.stoa002.perseus-lat2": {
+  "depth_hist": {
+   "2": 7179
+  },
+  "distinct": 983,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7179
+ },
+ "stoa0238.stoa003.perseus-lat2": {
+  "depth_hist": {
+   "1": 292
+  },
+  "distinct": 45,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 292
+ },
+ "stoa0238.stoa004.perseus-lat2": {
+  "depth_hist": {
+   "2": 9004
+  },
+  "distinct": 1745,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9004
+ },
+ "stoa0238.stoa005.perseus-lat2": {
+  "depth_hist": {
+   "2": 9028
+  },
+  "distinct": 1152,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9028
+ },
+ "stoa0238.stoa006.perseus-lat2": {
+  "depth_hist": {
+   "2": 7659
+  },
+  "distinct": 1029,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7659
+ },
+ "stoa0238.stoa007.perseus-lat2": {
+  "depth_hist": {
+   "3": 14339
+  },
+  "distinct": 1943,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 14339
+ },
+ "stoa0238.stoa008.perseus-lat2": {
+  "depth_hist": {
+   "1": 1449
+  },
+  "distinct": 193,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1449
+ },
+ "stoa0238.stoa009.perseus-lat2": {
+  "depth_hist": {
+   "1": 163
+  },
+  "distinct": 34,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 163
+ },
+ "stoa0241d.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 15506
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15506
+ },
+ "stoa0244d.stoa005.opp-lat1": {
+  "depth_hist": {
+   "3": 27626
+  },
+  "distinct": 139,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 27626
+ },
+ "stoa0245a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 25443
+  },
+  "distinct": 91,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 25443
+ },
+ "stoa0245c.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 336
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 336
+ },
+ "stoa0247.stoa001.thayer-lat1": {
+  "depth_hist": {
+   "2": 4785
+  },
+  "distinct": 712,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4785
+ },
+ "stoa0249a.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 53541
+  },
+  "distinct": 540,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 53541
+ },
+ "stoa0249a.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 204
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 204
+ },
+ "stoa0249a.stoa003.opp-lat2": {
+  "depth_hist": {
+   "3": 6512
+  },
+  "distinct": 76,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 6512
+ },
+ "stoa0249a.stoa004.opp-lat1": {
+  "depth_hist": {
+   "3": 26149
+  },
+  "distinct": 281,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 26149
+ },
+ "stoa0251.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 2090
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2090
+ },
+ "stoa0252.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 367
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 367
+ },
+ "stoa0252.stoa002.opp-lat1": {
+  "depth_hist": {
+   "3": 13432
+  },
+  "distinct": 1745,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 13432
+ },
+ "stoa0252.stoa003.opp-lat1": {
+  "depth_hist": {
+   "2": 976
+  },
+  "distinct": 111,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 976
+ },
+ "stoa0252.stoa003.opp-lat2": {
+  "depth_hist": {
+   "3": 1286
+  },
+  "distinct": 151,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 1286
+ },
+ "stoa0252.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 1313
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1313
+ },
+ "stoa0252.stoa006.opp-lat2": {
+  "depth_hist": {
+   "2": 519
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 519
+ },
+ "stoa0252.stoa007.opp-lat1": {
+  "depth_hist": {
+   "2": 891
+  },
+  "distinct": 1,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 891
+ },
+ "stoa0252.stoa008.opp-lat1": {
+  "depth_hist": {
+   "3": 23261
+  },
+  "distinct": 134,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 23261
+ },
+ "stoa0255.stoa004.perseus-lat2": {
+  "depth_hist": {
+   "2": 7552
+  },
+  "distinct": 104,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7552
+ },
+ "stoa0255.stoa006.perseus-lat2": {
+  "depth_hist": {
+   "2": 8199
+  },
+  "distinct": 121,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8199
+ },
+ "stoa0255.stoa007.perseus-lat2": {
+  "depth_hist": {
+   "2": 10308
+  },
+  "distinct": 137,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10308
+ },
+ "stoa0255.stoa008.perseus-lat2": {
+  "depth_hist": {
+   "2": 6794
+  },
+  "distinct": 98,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6794
+ },
+ "stoa0255.stoa009.perseus-lat2": {
+  "depth_hist": {
+   "2": 6366
+  },
+  "distinct": 83,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6366
+ },
+ "stoa0255.stoa010.perseus-lat2": {
+  "depth_hist": {
+   "3": 27507
+  },
+  "distinct": 485,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 27507
+ },
+ "stoa0255.stoa011.perseus-lat2": {
+  "depth_hist": {
+   "2": 2422
+  },
+  "distinct": 35,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2422
+ },
+ "stoa0255.stoa012.perseus-lat2": {
+  "depth_hist": {
+   "2": 4962
+  },
+  "distinct": 68,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 4962
+ },
+ "stoa0255.stoa013.perseus-lat2": {
+  "depth_hist": {
+   "2": 9269
+  },
+  "distinct": 139,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9269
+ },
+ "stoa0255.stoa014.perseus-lat2": {
+  "depth_hist": {
+   "2": 9022
+  },
+  "distinct": 126,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9022
+ },
+ "stoa0259.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 241069
+  },
+  "distinct": 6374,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 241069
+ },
+ "stoa0270.stoa001.opp-lat1": {
+  "depth_hist": {
+   "4": 29630
+  },
+  "distinct": 726,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 29630
+ },
+ "stoa0270.stoa002.opp-lat2": {
+  "depth_hist": {
+   "3": 8047
+  },
+  "distinct": 190,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 8047
+ },
+ "stoa0270.stoa003.opp-lat2": {
+  "depth_hist": {
+   "4": 18320
+  },
+  "distinct": 406,
+  "empty": 0,
+  "modal_depth": 4,
+  "tokens": 18320
+ },
+ "stoa0270.stoa005.opp-lat1": {
+  "depth_hist": {
+   "3": 3406
+  },
+  "distinct": 55,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 3406
+ },
+ "stoa0270p.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 8949
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 8949
+ },
+ "stoa0271.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 15445
+  },
+  "distinct": 222,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15445
+ },
+ "stoa0275.stoa001.opp-lat1": {
+  "depth_hist": {
+   "1": 1807
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1807
+ },
+ "stoa0275.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 18090
+  },
+  "distinct": 37,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 18090
+ },
+ "stoa0275.stoa002.opp-lat2": {
+  "depth_hist": {
+   "3": 19251
+  },
+  "distinct": 37,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 19251
+ },
+ "stoa0275.stoa003.opp-lat1": {
+  "depth_hist": {
+   "1": 1817
+  },
+  "distinct": 5,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1817
+ },
+ "stoa0275.stoa004.opp-lat1": {
+  "depth_hist": {
+   "1": 13388
+  },
+  "distinct": 43,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13388
+ },
+ "stoa0275.stoa004.opp-lat2": {
+  "depth_hist": {
+   "2": 13926
+  },
+  "distinct": 45,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 13926
+ },
+ "stoa0275.stoa005.opp-lat1": {
+  "depth_hist": {
+   "1": 13457
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 13457
+ },
+ "stoa0275.stoa006.opp-lat1": {
+  "depth_hist": {
+   "2": 99374
+  },
+  "distinct": 143,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 99374
+ },
+ "stoa0275.stoa006.opp-lat2": {
+  "depth_hist": {
+   "3": 102120
+  },
+  "distinct": 146,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 102120
+ },
+ "stoa0275.stoa007.opp-lat1": {
+  "depth_hist": {
+   "1": 18057
+  },
+  "distinct": 31,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 18057
+ },
+ "stoa0275.stoa007.opp-lat2": {
+  "depth_hist": {
+   "2": 17941
+  },
+  "distinct": 31,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 17941
+ },
+ "stoa0275.stoa008.opp-lat1": {
+  "depth_hist": {
+   "1": 7743
+  },
+  "distinct": 38,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 7743
+ },
+ "stoa0275.stoa008.opp-lat2": {
+  "depth_hist": {
+   "2": 7899
+  },
+  "distinct": 39,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7899
+ },
+ "stoa0275.stoa009.perseus-lat2": {
+  "depth_hist": {
+   "2": 23908
+  },
+  "distinct": 413,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 23908
+ },
+ "stoa0275.stoa010.opp-lat1": {
+  "depth_hist": {
+   "1": 28440
+  },
+  "distinct": 58,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 28440
+ },
+ "stoa0275.stoa010.opp-lat2": {
+  "depth_hist": {
+   "2": 28148
+  },
+  "distinct": 58,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 28148
+ },
+ "stoa0275.stoa011.opp-lat1": {
+  "depth_hist": {
+   "1": 5205
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5205
+ },
+ "stoa0275.stoa011.opp-lat2": {
+  "depth_hist": {
+   "2": 5139
+  },
+  "distinct": 20,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5139
+ },
+ "stoa0275.stoa012.opp-lat1": {
+  "depth_hist": {
+   "1": 11412
+  },
+  "distinct": 25,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 11412
+ },
+ "stoa0275.stoa013.opp-lat1": {
+  "depth_hist": {
+   "1": 5914
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5914
+ },
+ "stoa0275.stoa014.opp-lat1": {
+  "depth_hist": {
+   "1": 6098
+  },
+  "distinct": 2,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6098
+ },
+ "stoa0275.stoa015.opp-lat1": {
+  "depth_hist": {
+   "1": 4680
+  },
+  "distinct": 13,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4680
+ },
+ "stoa0275.stoa016.opp-lat1": {
+  "depth_hist": {
+   "1": 6485
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6485
+ },
+ "stoa0275.stoa017.opp-lat1": {
+  "depth_hist": {
+   "1": 8371
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8371
+ },
+ "stoa0275.stoa017.opp-lat2": {
+  "depth_hist": {
+   "2": 8391
+  },
+  "distinct": 24,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8391
+ },
+ "stoa0275.stoa018.opp-lat1": {
+  "depth_hist": {
+   "1": 6967
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6967
+ },
+ "stoa0275.stoa018.opp-lat2": {
+  "depth_hist": {
+   "2": 6971
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 6971
+ },
+ "stoa0275.stoa019.opp-lat1": {
+  "depth_hist": {
+   "1": 8446
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 8446
+ },
+ "stoa0275.stoa020.opp-lat1": {
+  "depth_hist": {
+   "1": 5515
+  },
+  "distinct": 29,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5515
+ },
+ "stoa0275.stoa020.opp-lat2": {
+  "depth_hist": {
+   "2": 5422
+  },
+  "distinct": 29,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5422
+ },
+ "stoa0275.stoa021.opp-lat1": {
+  "depth_hist": {
+   "1": 4958
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4958
+ },
+ "stoa0275.stoa022.opp-lat1": {
+  "depth_hist": {
+   "1": 4157
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4157
+ },
+ "stoa0275.stoa023.opp-lat1": {
+  "depth_hist": {
+   "1": 5487
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5487
+ },
+ "stoa0275.stoa023.opp-lat2": {
+  "depth_hist": {
+   "2": 5582
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5582
+ },
+ "stoa0275.stoa024.opp-lat1": {
+  "depth_hist": {
+   "1": 9948
+  },
+  "distinct": 41,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9948
+ },
+ "stoa0275.stoa025.opp-lat1": {
+  "depth_hist": {
+   "1": 16301
+  },
+  "distinct": 22,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 16301
+ },
+ "stoa0275.stoa025.opp-lat2": {
+  "depth_hist": {
+   "2": 16135
+  },
+  "distinct": 22,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 16135
+ },
+ "stoa0275.stoa026.opp-lat1": {
+  "depth_hist": {
+   "1": 27315
+  },
+  "distinct": 63,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 27315
+ },
+ "stoa0275.stoa026.opp-lat2": {
+  "depth_hist": {
+   "2": 27615
+  },
+  "distinct": 63,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 27615
+ },
+ "stoa0275.stoa027.opp-lat2": {
+  "depth_hist": {
+   "2": 8079
+  },
+  "distinct": 30,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 8079
+ },
+ "stoa0275.stoa027.perseus-lat2": {
+  "depth_hist": {
+   "2": 7626
+  },
+  "distinct": 30,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 7626
+ },
+ "stoa0275.stoa028.opp-lat1": {
+  "depth_hist": {
+   "1": 2698
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2698
+ },
+ "stoa0275.stoa028.opp-lat2": {
+  "depth_hist": {
+   "2": 2897
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2897
+ },
+ "stoa0275.stoa029.opp-lat1": {
+  "depth_hist": {
+   "1": 6752
+  },
+  "distinct": 17,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 6752
+ },
+ "stoa0275.stoa030.opp-lat1": {
+  "depth_hist": {
+   "1": 9650
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 9650
+ },
+ "stoa0275.stoa030.opp-lat2": {
+  "depth_hist": {
+   "2": 10190
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 10190
+ },
+ "stoa0276.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 5000
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 5000
+ },
+ "stoa0276.stoa003.opp-lat2": {
+  "depth_hist": {
+   "2": 3134
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3134
+ },
+ "stoa0276.stoa006.opp-lat2": {
+  "depth_hist": {
+   "2": 873
+  },
+  "distinct": 105,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 873
+ },
+ "stoa0276.stoa010.opp-lat2": {
+  "depth_hist": {
+   "2": 1350
+  },
+  "distinct": 167,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1350
+ },
+ "stoa0278a.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 2992
+  },
+  "distinct": 32,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 2992
+ },
+ "stoa0287.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "3": 27334
+  },
+  "distinct": 532,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 27334
+ },
+ "stoa0287.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "3": 49065
+  },
+  "distinct": 677,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 49065
+ },
+ "stoa0289.stoa001.thayer-lat1": {
+  "depth_hist": {
+   "2": 31377
+  },
+  "distinct": 149,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 31377
+ },
+ "stoa0292a.stoa004.opp-lat1": {
+  "depth_hist": {
+   "2": 3319
+  },
+  "distinct": 390,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 3319
+ },
+ "stoa0292b.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 14705
+  },
+  "distinct": 1897,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 14705
+ },
+ "stoa0292b.stoa001.opp-lat2": {
+  "depth_hist": {
+   "3": 15007
+  },
+  "distinct": 1849,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 15007
+ },
+ "stoa0292d.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 24298
+  },
+  "distinct": 227,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 24298
+ },
+ "stoa0292e.stoa001.opp-lat1": {
+  "depth_hist": {
+   "3": 22735
+  },
+  "distinct": 131,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 22735
+ },
+ "stoa0292e.stoa002.opp-lat1": {
+  "depth_hist": {
+   "2": 1587
+  },
+  "distinct": 10,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1587
+ },
+ "stoa0292p.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 1446
+  },
+  "distinct": 16,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1446
+ },
+ "stoa0293b.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 870
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 870
+ },
+ "stoa0293b.stoa003.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 1402
+  },
+  "distinct": 12,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 1402
+ },
+ "stoa0293b.stoa005.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 3951
+  },
+  "distinct": 37,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 3951
+ },
+ "stoa0293i.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 208
+  },
+  "distinct": 6,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 208
+ },
+ "stoa0297.stoa001.thayer-lat1": {
+  "depth_hist": {
+   "1": 5106
+  },
+  "distinct": 646,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5106
+ },
+ "stoa0318.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 1820
+  },
+  "distinct": 35,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 1820
+ },
+ "stoa0323.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 12259
+  },
+  "distinct": 74,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 12259
+ },
+ "stoa0329.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 4326
+  },
+  "distinct": 69,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 4326
+ },
+ "stoa0329.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 13859
+  },
+  "distinct": 69,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 13859
+ },
+ "stoa0329c.stoa001.opp-lat1": {
+  "depth_hist": {
+   "2": 642
+  },
+  "distinct": 8,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 642
+ },
+ "stoa0349.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 392
+  },
+  "distinct": 11,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 392
+ },
+ "stoa0353.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 2940
+  },
+  "distinct": 14,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 2940
+ },
+ "stoa0353.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 5036
+  },
+  "distinct": 26,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 5036
+ },
+ "stoa0357c.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 83849
+  },
+  "distinct": 4526,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 83849
+ },
+ "stoa0357c.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 196380
+  },
+  "distinct": 7067,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 196380
+ },
+ "stoa0357c.stoa004.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 81337
+  },
+  "distinct": 3721,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 81337
+ },
+ "stoa0359.stoa004.digilibLT-lat1": {
+  "depth_hist": {
+   "1": 155
+  },
+  "distinct": 7,
+  "empty": 0,
+  "modal_depth": 1,
+  "tokens": 155
+ },
+ "stoa0364.stoa001.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 27273
+  },
+  "distinct": 231,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 27273
+ },
+ "stoa0365.stoa002.digilibLT-lat1": {
+  "depth_hist": {
+   "2": 15622
+  },
+  "distinct": 139,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 15622
+ },
+ "stoa0367.stoa001.ogl-lat1": {
+  "depth_hist": {
+   "2": 85556
+  },
+  "distinct": 359,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 85556
+ },
+ "tlg0526.tlg003.opp-lat1": {
+  "depth_hist": {
+   "3": 24445
+  },
+  "distinct": 616,
+  "empty": 0,
+  "modal_depth": 3,
+  "tokens": 24445
+ },
+ "tlg0527.tlg017.obi-lat1": {
+  "depth_hist": {
+   "2": 9188
+  },
+  "distinct": 451,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 9188
+ },
+ "tlg0527.tlg028.obi-lat1": {
+  "depth_hist": {
+   "2": 242
+  },
+  "distinct": 15,
+  "empty": 0,
+  "modal_depth": 2,
+  "tokens": 242
+ }
+}

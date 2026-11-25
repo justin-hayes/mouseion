@@ -1,0 +1,30 @@
+{
+ "borderline|BY-SA": {
+  "files": 4,
+  "words": 205139
+ },
+ "borderline|NC-SA": {
+  "files": 4,
+  "words": 129943
+ },
+ "core|BY-SA": {
+  "files": 209,
+  "words": 4413485
+ },
+ "core|NC-SA": {
+  "files": 16,
+  "words": 368189
+ },
+ "out|BY-SA": {
+  "files": 108,
+  "words": 878416
+ },
+ "out|NC-SA": {
+  "files": 132,
+  "words": 3655561
+ },
+ "out|none": {
+  "files": 263,
+  "words": 5280142
+ }
+}

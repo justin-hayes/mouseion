@@ -1,0 +1,87 @@
+{
+ "ldt": {
+  "phi0448.phi001": {
+   "gold": 1378,
+   "lemma": 91.01,
+   "n": 1291,
+   "pos_lenient": 95.74
+  },
+  "phi0474.phi013": {
+   "gold": 5672,
+   "lemma": 92.72,
+   "n": 5410,
+   "pos_lenient": 95.36
+  },
+  "phi0620.phi001": {
+   "gold": 4450,
+   "lemma": 92.84,
+   "n": 4104,
+   "pos_lenient": 94.69
+  },
+  "phi0631.phi001": {
+   "gold": 11087,
+   "lemma": 89.86,
+   "n": 10237,
+   "pos_lenient": 93.26
+  },
+  "phi0690.phi003": {
+   "gold": 2326,
+   "lemma": 92.12,
+   "n": 2069,
+   "pos_lenient": 93.28
+  },
+  "phi0959.phi006": {
+   "gold": 4350,
+   "lemma": 91.41,
+   "n": 3841,
+   "pos_lenient": 94.04
+  },
+  "phi0972.phi001": {
+   "gold": 11392,
+   "lemma": 89.66,
+   "n": 10904,
+   "pos_lenient": 92.55
+  },
+  "phi0975.phi001": {
+   "gold": 5508,
+   "lemma": 90.81,
+   "n": 5269,
+   "pos_lenient": 93.6
+  },
+  "phi1221.phi007": {
+   "error": "no file"
+  },
+  "phi1348.abo012": {
+   "gold": 7298,
+   "lemma": 90.37,
+   "n": 6831,
+   "pos_lenient": 92.07
+  },
+  "phi1351.phi005": {
+   "gold": 3034,
+   "lemma": 90.44,
+   "n": 2845,
+   "pos_lenient": 91.99
+  }
+ },
+ "proiel": {
+  "phi0448.phi001": {
+   "gold": 27386,
+   "lemma": 93.4,
+   "n": 23815,
+   "pos_lenient": 97.11
+  },
+  "phi0474.phi055": {
+   "gold": 11375,
+   "lemma": 95.36,
+   "n": 10390,
+   "pos_lenient": 93.94
+  },
+  "phi0474.phi057": {
+   "gold": 45308,
+   "lemma": 93.01,
+   "n": 35655,
+   "pos_lenient": 92.81
+  }
+ }
+}

@@ -1,0 +1,90 @@
+{
+ "lemmatized_texts": {
+  "by_class": {
+   "borderline": {
+    "multi_edition_works": 0,
+    "words": 345279,
+    "works": 8
+   },
+   "core": {
+    "multi_edition_works": 4,
+    "words": 5931308,
+    "works": 222
+   },
+   "out": {
+    "multi_edition_works": 36,
+    "words": 13062958,
+    "works": 579
+   }
+  },
+  "core_size_buckets": {
+   "20-60k": 32,
+   "5-20k": 102,
+   "60-200k": 25,
+   "<5k": 60,
+   ">=200k": 3
+  }
+ },
+ "ola": {
+  "by_class": {
+   "borderline": {
+    "multi_edition_works": 0,
+    "words": 335082,
+    "works": 8
+   },
+   "core": {
+    "multi_edition_works": 3,
+    "words": 4537171,
+    "works": 221
+   },
+   "out": {
+    "multi_edition_works": 29,
+    "words": 9229547,
+    "works": 474
+   }
+  },
+  "core_size_buckets": {
+   "20-60k": 37,
+   "5-20k": 94,
+   "60-200k": 18,
+   "<5k": 71,
+   ">=200k": 1
+  }
+ },
+ "overlap_core_works": {
+  "all_three": 203,
+  "lemmatized_texts": 222,
+  "ola": 221,
+  "ola_and_scaife": 203,
+  "ola_only_vs_scaife": 18,
+  "scaife": 204,
+  "scaife_only_vs_ola": 1,
+  "union": 222
+ },
+ "scaife": {
+  "by_class": {
+   "borderline": {
+    "multi_edition_works": 0,
+    "words": 211070,
+    "works": 4
+   },
+   "core": {
+    "multi_edition_works": 3,
+    "words": 5130056,
+    "works": 204
+   },
+   "out": {
+    "multi_edition_works": 21,
+    "words": 1600852,
+    "works": 127
+   }
+  },
+  "core_size_buckets": {
+   "20-60k": 32,
+   "5-20k": 94,
+   "60-200k": 18,
+   "<5k": 58,
+   ">=200k": 2
+  }
+ }
+}

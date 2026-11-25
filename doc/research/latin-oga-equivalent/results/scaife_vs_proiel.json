@@ -1,0 +1,20 @@
+{
+ "phi0448.phi001": {
+  "aligned": 24797,
+  "gold": 27386,
+  "lemma": 92.91,
+  "pos_lenient": 96.46
+ },
+ "phi0474.phi055": {
+  "aligned": 10795,
+  "gold": 11375,
+  "lemma": 91.79,
+  "pos_lenient": 94.28
+ },
+ "phi0474.phi057": {
+  "aligned": 35607,
+  "gold": 45308,
+  "lemma": 91.74,
+  "pos_lenient": 95.39
+ }
+}
