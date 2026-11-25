@@ -76,10 +76,6 @@ func (h *postgresHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 	return h.store.RemoveBookFromMyBooks(h.ctx, owner, bookID)
 }
 
-func (h *postgresHarness) RemoveWorkFromMyBooks(owner, workKey string) (domain.MyBooksWorkRemoval, error) {
-	return h.store.RemoveWorkFromMyBooks(h.ctx, owner, workKey)
-}
-
 func (h *postgresHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
 	return h.store.ImportPreviouslyRead(h.ctx, owner, bookID)
 }

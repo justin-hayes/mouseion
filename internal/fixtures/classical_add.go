@@ -60,7 +60,7 @@ func (s *Store) AddClassicalReadingUnits(_ context.Context, owner string, readin
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, key := range keys {
-		if _, ok := s.classicalDefinitions[key]; !ok {
+		if definition, ok := s.classicalDefinitions[key]; !ok || definition.Withdrawn {
 			return classical.AddReport{}, fmt.Errorf("fixtures: classical Reading unit %q is not current", key)
 		}
 	}

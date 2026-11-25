@@ -112,7 +112,7 @@ func newClassicalFailureHarness(t *testing.T, opts classicalFailureOptions) *cla
 		Layer: "synthetic-layer", FileName: "synthetic-failure.conllu",
 		Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Format: classical.SourceFormatOGACoNLLU,
 	}
-	definition := preparationDefinition(failureUnitKey, "Synthetic Failure Work", pin, nil, "1.1.1", "2.1.1", 13)
+	definition := preparationDefinition(failureUnitKey, "Synthetic Failure Work", pin, "1.1.1", "2.1.1", 13)
 	definition.WorkKey, definition.EditionKey = "synthetic-failure", "synthetic-failure-edition"
 	definition.ConstituentBooks = 1
 	definition.Withdrawn = opts.withdrawal
@@ -441,6 +441,16 @@ func TestClassicalPreparationFailureRows(t *testing.T) {
 		page := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
 		assert.Contains(t, page.Body.String(), classicalWithdrawnLabel)
 		assert.NotContains(t, page.Body.String(), `action="/reading/books/`+bookID+`/reanalyze"`)
+
+		// A Book on a withdrawn definition is an ordinary My Books row the
+		// learner can remove one by one.
+		assert.Contains(t, myBookRowHTML(t, page.Body.String(), bookID), `action="/library/books/`+bookID+`/remove"`)
+		removed := perform(t, h.h, http.MethodPost, "/library/books/"+bookID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
+		require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
+		_, removedErr := h.store.GetBookDetail(h.ctx, learner.ID, bookID)
+		require.ErrorIs(t, removedErr, domain.ErrNotFound, "Remove ends the withdrawn Book's membership")
+		restored := perform(t, h.h, http.MethodGet, "/library", nil, cookies)
+		assert.NotContains(t, restored.Body.String(), `id="book-row-`+bookID+`"`)
 
 		_, err := h.submit(learner.ID, bookID)
 		require.ErrorIs(t, err, analysis.ErrWithdrawnClassicalDefinition)

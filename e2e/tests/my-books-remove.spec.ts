@@ -54,28 +54,38 @@ test.describe('Remove from My Books', () => {
     await expect(current.getByText('Your current reading cannot be removed. Finish or end the reading first.')).toBeVisible();
   });
 
-  test('removes a classical Work and adds it back from the Catalog', async ({ page }) => {
+  test('removes a withdrawn Book without offering to restore it', async ({ page }) => {
     await signIn(page);
-    await page.goto('/catalogs/classical/works/fixture-iliad');
-    await page.getByRole('button', { name: 'Add and prepare the whole work', exact: true }).click();
-    await expect(page).toHaveURL(/\/catalogs\/classical/);
-
     await page.goto('/library');
     await showStudyLanguage(page, 'grc');
-    const work = page.locator('#work-row-fixture-iliad');
-    await expect(work).toBeVisible();
-    await work.getByText('More actions', { exact: true }).click();
-    await expect(work.getByRole('button', { name: 'Move the work back to Inbox', exact: true })).toHaveCount(0);
-    await work.getByRole('button', { name: 'Remove the work', exact: true }).click();
+    const first = page.locator('#book-row-fixture-classical-fixture-iliad-1-fixture-learner');
+    const second = page.locator('#book-row-fixture-classical-fixture-iliad-2-fixture-learner');
+    await expect(first).toBeVisible();
+    await expect(second).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Remove the work', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Move the work to To Read', exact: true })).toHaveCount(0);
+
+    await first.getByText('More actions', { exact: true }).click();
+    await first.getByRole('button', { name: 'Remove from My Books', exact: true }).click();
     await expect(page).toHaveURL(/\/library\?.*message=/);
-    await expect(page.getByText(/Removed 3 Books from My Books\./)).toBeVisible();
-    await expect(work).toHaveCount(0);
+    await expect(page.getByText(/This Reading unit is no longer in the Catalog, so it can't be added back\./)).toBeVisible();
+    await expect(first).toHaveCount(0);
+    await expect(second).toBeVisible();
 
+    // Owning a leftover Book does not block adding the whole Work.
     await page.goto('/catalogs/classical/works/fixture-iliad');
-    await expect(page.getByRole('button', { name: 'Add and prepare the whole work', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Add and prepare the whole work', exact: true }).click();
+    const contents = page.getByRole('region', { name: /Contents of Iliad/ }).getByRole('table');
+    await expect(contents.getByRole('row')).toHaveCount(4);
+    await expect(contents.getByRole('button')).toHaveCount(0);
+    const add = page.getByRole('button', { name: 'Add and prepare the work', exact: true });
+    await expect(add).toHaveCount(1);
+    await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(1);
+    await add.click();
+    await expect(page).toHaveURL(/\/catalogs\/classical/);
     await page.goto('/library');
     await showStudyLanguage(page, 'grc');
-    await expect(page.locator('#work-row-fixture-iliad')).toBeVisible();
+    await expect(first).toHaveCount(0);
+    await expect(second).toBeVisible();
+    await expect(page.locator('#book-row-fixture-classical-fixture-iliad-fixture-learner')).toBeVisible();
   });
 });

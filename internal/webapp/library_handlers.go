@@ -25,11 +25,6 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "HX-Request-Type")
 	u := user(r)
 	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
-	currentReading, currentReadingErr := h.services.Store.MyBooks.GetCurrentReading(r.Context(), u.ID, activeLanguage)
-	if currentReadingErr != nil {
-		h.renderMyBooksFailure(w, r, u)
-		return
-	}
 	request, ok := parseMyBooksBrowseRequest(r.URL)
 	if !ok {
 		http.NotFound(w, r)
@@ -59,21 +54,11 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		h.renderMyBooksFailure(w, r, u)
 		return
 	}
-	currentReadingBookID := ""
-	if currentReading.IsActive() {
-		currentReadingBookID = currentReading.BookID
-		currentWorkBook, hasCurrentWorkBook, currentErr := h.currentWorkBookForMyBooks(r.Context(), u.ID, currentReading.BookID, browse.Rows)
-		if currentErr != nil {
-			h.renderMyBooksFailure(w, r, u)
-			return
-		}
-		attachCurrentWorkBook(browse.Rows, currentWorkBook, hasCurrentWorkBook)
-	}
 	if isPartialHTMXRequest(r) {
-		render(w, r, MyBooksResults(h.csrf(w, r), books, browse, currentReadingBookID))
+		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
 		return
 	}
-	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), currentReadingBookID, browse))
+	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), browse))
 }
 
 // myBooksLibraryRequest is the My Books browse state the /library query asks for.
@@ -88,7 +73,7 @@ type myBooksLibraryRequest struct {
 // a non-empty result, or any page beyond the first of an empty one, recovers to
 // the tab's own first page.
 func myBooksRedirectPage(request myBooksLibraryRequest, result domain.MyBooksBrowseResult) (int, bool) {
-	rowTotal := myBooksRowCount(result)
+	rowTotal := result.Total
 	if rowTotal > 0 && myBooksPageOffset(request.page) >= rowTotal {
 		return myBooksPageCount(rowTotal), true
 	}
@@ -100,8 +85,7 @@ func myBooksRedirectPage(request myBooksLibraryRequest, result domain.MyBooksBro
 
 // loadLibraryBrowsingExtras runs the My Books reads that decorate the result
 // rows: disposition annotations and Analysis update offers. It keeps their
-// order, which the validated rows depend on. Books are the page's visible cells,
-// shared by pointer with the grouped rows their Work offers cover.
+// order, which the validated rows depend on.
 func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) error {
 	if err := h.annotateMyBooksWithDisposition(ctx, owner, books); err != nil {
 		return err
@@ -109,45 +93,6 @@ func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, b
 	h.annotateAnalysisUpdates(ctx, owner, books)
 	h.annotateSourceStructureUpdates(ctx, owner, books)
 	return nil
-}
-
-// currentWorkBookForMyBooks loads the current Reading's Book with its Analysis
-// update offer. A grouped Work row names it even when a filter keeps its cell
-// out of the row.
-func (h *Handler) currentWorkBookForMyBooks(ctx context.Context, owner, bookID string, rows []domain.MyBooksBrowseRow) (domain.MyBook, bool, error) {
-	if h.services.AnalysisUpdates == nil || !myBooksHasGroupedWork(rows) {
-		return domain.MyBook{}, false, nil
-	}
-	book, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-	if errors.Is(err, domain.ErrNotFound) {
-		return domain.MyBook{}, false, nil
-	}
-	if err != nil {
-		return domain.MyBook{}, false, err
-	}
-	if book.ReadingUnit == nil || strings.TrimSpace(book.ReadingUnit.WorkKey) == "" {
-		return domain.MyBook{}, false, nil
-	}
-	// GetBookDetail does not carry the current-Reading role, and this Book is
-	// here precisely because the caller resolved it as the current Reading.
-	book.IsCurrentReading = true
-	annotated := []domain.MyBook{book}
-	h.annotateAnalysisUpdates(ctx, owner, annotated)
-	return annotated[0], true, nil
-}
-
-// attachCurrentWorkBook points the matching grouped Work row at the current
-// Reading's Book. The offer names and skips it; it is never queued.
-func attachCurrentWorkBook(rows []domain.MyBooksBrowseRow, current domain.MyBook, ok bool) {
-	if !ok || current.ReadingUnit == nil {
-		return
-	}
-	for i := range rows {
-		if rows[i].Grouped && rows[i].WorkKey == current.ReadingUnit.WorkKey {
-			rows[i].CurrentWorkBook = &current
-			return
-		}
-	}
 }
 
 // redirectMyBooksBrowse preserves ordinary browser redirects while asking
@@ -239,7 +184,7 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 				return offset/myBooksPageSize + 1, nil
 			}
 		}
-		if offset+myBooksPageSize >= myBooksRowCount(result) {
+		if offset+myBooksPageSize >= result.Total {
 			return 0, fmt.Errorf("book %q is not present in its visible My Books bucket", book.Book.ID)
 		}
 	}
@@ -256,20 +201,9 @@ func myBooksBrowseState(query string, page int, disposition domain.BookDispositi
 		ReadCount:     result.ReadCount,
 		ScopeTotal:    result.ScopeTotal,
 		Total:         result.Total,
-		BookTotal:     result.BookTotal,
-		WorkTotal:     result.WorkTotal,
-		RowCount:      result.RowCount,
-		HasWorks:      result.HasWorks,
-		Rows:          result.Rows,
 		Page:          page,
-		PageCount:     myBooksPageCount(myBooksRowCount(result)),
+		PageCount:     myBooksPageCount(result.Total),
 		TextNoMatch:   query != "" && result.Total == 0,
-	}
-	if browse.BookTotal == 0 {
-		browse.BookTotal = result.Total
-	}
-	if browse.RowCount == 0 {
-		browse.RowCount = result.Total
 	}
 	for _, count := range result.DispositionCounts {
 		if count.Disposition == domain.BookDispositionToRead {
@@ -279,22 +213,21 @@ func myBooksBrowseState(query string, page int, disposition domain.BookDispositi
 	return browse
 }
 
-// myBooksRowCount is the rendered-row count that paging uses. Ordinary Books
-// and grouped Work rows each count once.
-func myBooksRowCount(result domain.MyBooksBrowseResult) int {
-	if result.RowCount > 0 {
-		return result.RowCount
-	}
-	return result.Total
-}
-
 func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
 	returnTo := myBooksReturnURL(r.FormValue("return_to"))
-	err := h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
+	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
+	// A retried removal may no longer have an active My Books detail. The
+	// store still decides whether the Book exists and can be removed.
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		fail(w, err)
+		return
+	}
+	hasDetail := err == nil
+	err = h.services.Store.MyBooks.RemoveBookFromMyBooks(r.Context(), owner, bookID)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		http.NotFound(w, r)
@@ -306,7 +239,14 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		fail(w, err)
 		return
 	}
-	myBooksRedirectWithNotice(w, r, returnTo, "Removed from My Books. Its analysis, history and Known vocabulary are unchanged, and the Catalog can add it back.")
+	notice := "Removed from My Books. Its analysis, history and Known vocabulary are unchanged."
+	switch {
+	case book.ReadingUnit != nil && book.ReadingUnit.Withdrawn:
+		notice += " This Reading unit is no longer in the Catalog, so it can't be added back."
+	case hasDetail:
+		notice += " The Catalog can add it back."
+	}
+	myBooksRedirectWithNotice(w, r, returnTo, notice)
 }
 
 func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
@@ -449,4 +389,12 @@ func expectedDispositionRevision(r *http.Request) (int64, bool) {
 	}
 	revision, err := strconv.ParseInt(r.FormValue("expected_revision"), 10, 64)
 	return revision, err == nil && revision > 0
+}
+
+func myBooksRedirectWithNotice(w http.ResponseWriter, r *http.Request, returnTo, text string) {
+	separator := "?"
+	if strings.Contains(returnTo, "?") {
+		separator = "&"
+	}
+	redirect(w, r, returnTo+separator+"message="+url.QueryEscape(text))
 }

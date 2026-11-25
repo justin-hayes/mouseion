@@ -42,7 +42,7 @@ func ValidateManifest(definitions []Definition) error {
 	if err := validateCurrentDefinitions(definitions); err != nil {
 		return err
 	}
-	return validateConstituentBooks(definitions)
+	return nil
 }
 
 // validateManifestKeys refuses an incomplete definition or a repeated
@@ -100,8 +100,6 @@ func validateWorkDefinition(works map[string]Definition, definition Definition) 
 		return fmt.Errorf("classical: Work %q has conflicting Greek titles", definition.WorkKey)
 	case previous.ConstituentBooks != definition.ConstituentBooks:
 		return fmt.Errorf("classical: Work %q has conflicting constituent-book counts", definition.WorkKey)
-	case (previous.ConstituentBook == nil) != (definition.ConstituentBook == nil):
-		return fmt.Errorf("classical: Work %q mixes a whole-work unit with constituent books", definition.WorkKey)
 	}
 	return nil
 }
@@ -123,28 +121,6 @@ func validateEditionDefinition(editions map[string]Definition, definition Defini
 	return nil
 }
 
-// validateConstituentBooks refuses two current units claiming one constituent
-// book of the same Work, because a constituent book is one Reading unit.
-func validateConstituentBooks(definitions []Definition) error {
-	bookNumbers := map[string]map[int]string{}
-	for _, definition := range definitions {
-		if definition.Withdrawn || definition.ConstituentBook == nil {
-			continue
-		}
-		work := bookNumbers[definition.WorkKey]
-		if work == nil {
-			work = map[int]string{}
-			bookNumbers[definition.WorkKey] = work
-		}
-		book := *definition.ConstituentBook
-		if previous, duplicate := work[book]; duplicate {
-			return fmt.Errorf("classical: Work %q repeats constituent book %d in %q and %q", definition.WorkKey, book, previous, definition.Key)
-		}
-		work[book] = definition.Key
-	}
-	return nil
-}
-
 // CatalogCounts states the running release's catalog: current works, authors
 // and Reading units. Withdrawn tombstones are not counted.
 type CatalogCounts struct {
@@ -161,7 +137,7 @@ type CatalogAuthor struct {
 }
 
 // CatalogWork is one Work as the catalog index and work page render it. Units
-// are ordered by constituent book.
+// are ordered by key.
 type CatalogWork struct {
 	Key                  string
 	Title                string
@@ -170,20 +146,23 @@ type CatalogWork struct {
 	EditionLabel         string
 	Opening              string
 	ConstituentBooks     int
-	WholeWork            bool
 	Words                int
 	TranslationAvailable bool
 	Units                []CatalogUnit
 }
 
-// CatalogUnit is one constituent book, or the whole work when ConstituentBook is zero.
+// CatalogUnit is one whole-work Reading unit, one per Edition.
 type CatalogUnit struct {
 	Key             string
+	EditionLabel    string
 	ConstituentBook int
 	CitationStart   string
 	CitationEnd     string
 	Words           int
 	Opening         string
+	// Contents lists the constituent books of a whole-work unit whose Work
+	// names books. It is information only: none is a Reading unit.
+	Contents []ConstituentBookSpan
 }
 
 // Catalog is the read-only view of the embedded, reconciled manifest. It is
@@ -217,7 +196,11 @@ func NewCatalog(definitions []Definition) (*Catalog, error) {
 		work.TranslationAvailable = translationAvailable(definitions, key)
 		sortUnits(work.Units)
 		if len(work.Units) > 0 {
+			// The catalog index describes one consistent Edition: the first
+			// by key. Other Editions' facts belong on the Work page.
 			work.Opening = work.Units[0].Opening
+			work.EditionLabel = work.Units[0].EditionLabel
+			work.Words = work.Units[0].Words
 		}
 		catalog.works[key] = *work
 	}
@@ -250,21 +233,19 @@ func buildCatalogWorks(definitions []Definition) map[string]*CatalogWork {
 			}
 			worksByKey[definition.WorkKey] = work
 		}
-		if definition.ConstituentBook == nil {
-			work.WholeWork = true
-		}
 		unit := CatalogUnit{
 			Key:           definition.Key,
+			EditionLabel:  definition.EditionLabel,
 			CitationStart: definition.CitationStart,
 			CitationEnd:   definition.CitationEnd,
 			Words:         definition.WordCount,
 			Opening:       definition.Opening,
+			Contents:      append([]ConstituentBookSpan(nil), definition.Contents...),
 		}
 		if definition.ConstituentBook != nil {
 			unit.ConstituentBook = *definition.ConstituentBook
 		}
 		work.Units = append(work.Units, unit)
-		work.Words += definition.WordCount
 	}
 	return worksByKey
 }

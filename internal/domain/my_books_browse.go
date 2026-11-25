@@ -5,38 +5,6 @@ type DispositionCount struct {
 	Count       int
 }
 
-// MyBooksBrowseRow is one visible My Books row. An ordinary row has one Book;
-// a grouped Work row has the matching Books of that Work in constituent-book
-// order.
-type MyBooksBrowseRow struct {
-	Key        string
-	Grouped    bool
-	WorkKey    string
-	WorkTitle  string
-	WorkAuthor string
-	GreekTitle string
-	// ConstituentBooks is the Work's reviewed total; OwnedBooks is how many of
-	// them the learner owns in the active language.
-	ConstituentBooks int
-	OwnedBooks       int
-	// Books are the row's visible cells: the Work's Books matching the current
-	// search and disposition filter. A grouped Work's Analysis update offer
-	// covers exactly the eligible Books in this slice.
-	Books []MyBook
-	// CurrentWorkBook is the current Reading's Book when it belongs to this
-	// Work, even when a filter keeps its cell out of Books. The Work offer names
-	// and skips it; it is never queued. Ordinary rows leave it nil.
-	CurrentWorkBook *MyBook
-}
-
-// MyBooksWorkRemoval reports what removing one classical Work from My Books
-// ended and what it deliberately skipped. CurrentReading is the Work's Book the
-// learner is reading, or nil when the Work holds none.
-type MyBooksWorkRemoval struct {
-	RemovedBooks   int
-	CurrentReading *Book
-}
-
 // MyBooksBackfillReport is the Inbox retirement backfill's result. Removed
 // counts ended memberships; LanguageLessWithHistory names the Books among them
 // that have reading history but no chosen language. Their membership ended
@@ -48,32 +16,14 @@ type MyBooksBackfillReport struct {
 }
 
 type MyBooksBrowseResult struct {
-	Items []MyBook
-	// Rows is the page as rendered: ordinary rows and grouped Work rows. Items
-	// is the same page flattened to Books for callers that only need Book
-	// identity.
-	Rows       []MyBooksBrowseRow
+	// Items is the page: every Book is one ordinary row.
+	Items      []MyBook
 	ScopeTotal int
-	// Total counts every matching Book. BookTotal counts the matching Books
-	// that belong to a reviewed Work, so it pairs with WorkTotal for the shape
-	// line. RowCount is the rendered row count paging uses.
+	// Total counts every matching Book; paging uses it as the row count.
 	Total             int
-	BookTotal         int
-	WorkTotal         int
-	RowCount          int
-	HasWorks          bool
 	DispositionCounts []DispositionCount
 	AllCount          int
 	ReadCount         int
-}
-
-// MyBookWorkGroupKey is the row-grouping key: one Work's Books share a key, and
-// an ordinary Book is its own group.
-func MyBookWorkGroupKey(book MyBook) string {
-	if unit := book.ReadingUnit; unit != nil && unit.WorkKey != "" {
-		return "work:" + unit.WorkKey
-	}
-	return "book:" + book.Book.ID
 }
 
 // MyBookWorkOrderLess orders two Books of one Work by reviewed constituent

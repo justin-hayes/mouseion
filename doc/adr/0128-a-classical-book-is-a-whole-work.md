@@ -1,6 +1,6 @@
 # ADR 0128: A classical Book is a whole Work in one Edition
 
-Status: **Accepted — implementation pending** · Date: 2026-11-24 · Author: Justin + OpenCode
+Status: **Accepted; implemented (#2634)** · Date: 2026-11-24 · Author: Justin + OpenCode
 
 Decided by Justin in a grilling session on 2026-11-24. Amends
 [ADR 0116](0116-classical-catalog.md) and

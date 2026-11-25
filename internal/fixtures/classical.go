@@ -13,8 +13,7 @@ import (
 )
 
 // NewClassicalCatalog builds the fixture server's built-in Classical catalog:
-// one Work split into three constituent books and one whole-work unit under a
-// second author.
+// two whole-work units with contents and one whole-work unit without books.
 func NewClassicalCatalog() (*classical.Catalog, error) {
 	return classical.NewCatalog(fixtureClassicalDefinitions())
 }
@@ -44,20 +43,47 @@ func fixtureClassicalDefinition(key, workKey, title, author, greekTitle, edition
 }
 
 // fixtureClassicalDefinitions is the small release the fixture server exposes.
-// The Iliad is one Work of three constituent books; the Hellenica is one
-// whole-work unit. A Work cannot mix the two shapes.
+// The Odyssey and Iliad list contents as the shipped Anabasis does. Withdrawn
+// per-book Iliad definitions let the browser exercise leftover Books.
 func fixtureClassicalDefinitions() []classical.Definition {
 	one, two, three := 1, 2, 3
-	return []classical.Definition{
+	odyssey := fixtureClassicalDefinition("fixture-odyssey", "fixture-odyssey", "Odyssey", "Homer", "Ὀδύσσεια",
+		"fixture-odyssey-monro-1901", "1.1.1", "3.10.19", "ἄνδρα μοι ἔννεπε, μοῦσα, πολύτροπον, ὃς μάλα πολλὰ", nil, 3, 600)
+	odyssey.Contents = []classical.ConstituentBookSpan{
+		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 100},
+		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.10.19", WordCount: 200},
+		{Book: 3, CitationStart: "3.1.1", CitationEnd: "3.10.19", WordCount: 300},
+	}
+	iliad := fixtureClassicalDefinition("fixture-iliad", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
+		"fixture-iliad-monro-1902", "1.1.1", "3.10.19", "μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος", nil, 3, 600)
+	iliad.Contents = odyssey.Contents
+	withdrawn := []classical.Definition{
 		fixtureClassicalDefinition("fixture-iliad-1", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
 			"fixture-iliad-monro-1902", "1.1.1", "1.10.19", "μῆνιν ἄειδε θεὰ Πηληϊάδεω Ἀχιλῆος", &one, 3, 100),
 		fixtureClassicalDefinition("fixture-iliad-2", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
 			"fixture-iliad-monro-1902", "2.1.1", "2.10.19", "ἄλλοι μέν ῥα θεοί τε καὶ ἀνέρες ἱπποκορυσταὶ", &two, 3, 200),
 		fixtureClassicalDefinition("fixture-iliad-3", "fixture-iliad", "Iliad", "Homer", "Ἰλιάς",
 			"fixture-iliad-monro-1902", "3.1.1", "3.10.19", "αὐτὰρ ἐπεὶ κόσμηθεν ἅμʼ ἡγεμόνεσσιν ἕκαστοι", &three, 3, 300),
-		fixtureClassicalDefinition("fixture-hellenica", "fixture-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
-			"fixture-hellenica-dindorf-1866", "1.1.1", "1.1.10", "μετὰ δὲ ταῦτα οὐ πολλαῖς ἡμέραις ὕστερον", nil, 1, 500),
 	}
+	for i := range withdrawn {
+		withdrawn[i].Withdrawn = true
+	}
+	hellenica := fixtureClassicalDefinition("fixture-hellenica", "fixture-hellenica", "Hellenica", "Xenophon", "Ἑλληνικά",
+		"fixture-hellenica-dindorf-1866", "1.1.1", "1.1.10", "μετὰ δὲ ταῦτα οὐ πολλαῖς ἡμέραις ὕστερον", nil, 1, 500)
+	return append([]classical.Definition{odyssey, iliad, hellenica}, withdrawn...)
+}
+
+// SeedWithdrawnClassicalBooks models a learner who owned per-book units
+// before their definitions were withdrawn.
+func (s *Store) SeedWithdrawnClassicalBooks() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, definition := range fixtureClassicalDefinitions() {
+		if definition.Withdrawn {
+			s.addFixtureClassicalReadingUnitLocked(OwnerID, definition)
+		}
+	}
+	s.ensureFixtureSupportedLanguageLocked(classical.Language, classical.LanguageDisplayName)
 }
 
 func fixtureClassicalDefinitionsByKey() map[string]classical.Definition {
@@ -97,8 +123,8 @@ func fixtureClassicalSource(owner, bookID string, unit domain.BookReadingUnit) *
 	}
 }
 
-// ClassicalInsights reports one deterministic coverage band per constituent
-// fixture book, so the Reading chooser's grouped band rows are exercised.
+// ClassicalInsights gives the leftover fixture Books different coverage bands
+// so the chooser can show independent evidence for each Book.
 type ClassicalInsights struct{}
 
 // Coverage returns the fixture Insights projection with the classical corpus

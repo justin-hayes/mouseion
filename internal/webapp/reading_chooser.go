@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
@@ -24,14 +23,6 @@ type readingChooserBookView struct {
 	Band        domain.CoverageBand
 	State       readingChooserState
 	Description string
-	// Work facts come from the reviewed Reading-unit definition, never from the
-	// Books the learner happens to have added.
-	WorkKey        string
-	WorkTitle      string
-	WorkAuthor     string
-	WorkGreekTitle string
-	WorkBooks      int
-	Position       int
 	// RecoveryLabel and RecoveryAllowed come from the same preparation evidence
 	// as State, so a terminal refusal never offers a retry.
 	RecoveryLabel   string
@@ -50,27 +41,12 @@ const (
 	readingChooserUpdating       readingChooserState = "updating"
 )
 
-// readingChooserEntryView is one neutral chooser entry: a single candidate Book,
-// or one Work whose To Read Books are grouped into a band table.
+// readingChooserEntryView is one neutral chooser entry: a single To Read Book.
 type readingChooserEntryView struct {
-	Key        string
-	Grouped    bool
-	WorkKey    string
-	Title      string
-	Author     string
-	GreekTitle string
-	WorkBooks  int
-	Books      []readingChooserBookView
-	Bands      []readingChooserBandView
-	// Update is the grouped Work's one Analysis update offer. A single-Book
-	// Work stays an ordinary entry and keeps the per-Book notice.
-	Update workAnalysisUpdate
-}
-
-// readingChooserBandView is one non-empty band row inside a grouped Work entry.
-type readingChooserBandView struct {
-	Label string
-	Books []readingChooserBookView
+	Key    string
+	Title  string
+	Author string
+	Book   readingChooserBookView
 }
 
 type readingChooserPageView struct {
@@ -398,81 +374,16 @@ func (h *Handler) buildReadingChooser(ctx context.Context, owner, language, lang
 		if err := h.classifyReadingChooserCandidate(ctx, owner, &candidate); err != nil {
 			return readingChooserPageView{}, err
 		}
-		h.annotateReadingChooserWorkFacts(&candidate)
 		views = append(views, candidate)
 	}
 	view.Entries = readingChooserEntries(views)
-	attachReadingChooserWorkAnalysisUpdates(view.Entries, h.currentChooserBook(ctx, owner, books, excludeBookID))
 	return view, nil
-}
-
-// currentChooserBook returns the switch-mode current Book with its Analysis
-// update offer attached. The Book has no cell in the chooser, but its Work's
-// row still names it when it must End first.
-func (h *Handler) currentChooserBook(ctx context.Context, owner string, books []domain.MyBook, excludeBookID string) *domain.MyBook {
-	if strings.TrimSpace(excludeBookID) == "" {
-		return nil
-	}
-	for _, book := range books {
-		if book.Book.ID != excludeBookID {
-			continue
-		}
-		annotated := []domain.MyBook{book}
-		h.annotateAnalysisUpdates(ctx, owner, annotated)
-		return &annotated[0]
-	}
-	return nil
-}
-
-// attachReadingChooserWorkAnalysisUpdates gives each grouped Work entry one
-// Analysis update offer. current is consulted when the current Reading's Book
-// belongs to the same Work but is deliberately absent from the entry's cells.
-func attachReadingChooserWorkAnalysisUpdates(entries []readingChooserEntryView, current *domain.MyBook) {
-	for i := range entries {
-		if !entries[i].Grouped {
-			continue
-		}
-		books := make([]domain.MyBook, 0, len(entries[i].Books))
-		for _, item := range entries[i].Books {
-			books = append(books, item.Book)
-		}
-		var currentForWork *domain.MyBook
-		if current != nil && current.ReadingUnit != nil && current.ReadingUnit.WorkKey == entries[i].WorkKey {
-			currentForWork = current
-		}
-		entries[i].Update = workAnalysisUpdateFor(entries[i].WorkKey, entries[i].Title, books, currentForWork)
-	}
 }
 
 // readingChooserCandidate reports whether a Book belongs in the chooser at all:
 // a To Read Book in the active language.
 func readingChooserCandidate(book domain.MyBook, language string) bool {
 	return book.Disposition == domain.BookDispositionToRead && language != "" && book.Book.LanguageTag == language
-}
-
-// annotateReadingChooserWorkFacts copies the reviewed definition's Work identity
-// and constituent position onto one candidate. A Book with no current reviewed
-// unit keeps no Work facts, so its row stays ordinary.
-func (h *Handler) annotateReadingChooserWorkFacts(candidate *readingChooserBookView) {
-	work, unit, ok := h.readingBookWork(candidate.Book)
-	if !ok {
-		return
-	}
-	candidate.WorkKey = work.Key
-	candidate.WorkTitle = work.Title
-	candidate.WorkAuthor = work.Author
-	candidate.WorkGreekTitle = work.GreekTitle
-	candidate.WorkBooks = work.ConstituentBooks
-	candidate.Position = unit.ConstituentBook
-}
-
-// readingBookWork resolves a Book's reviewed Work and Reading unit. It reads the
-// immutable Reading-unit association, never the learner's added Books.
-func (h *Handler) readingBookWork(book domain.MyBook) (work classical.CatalogWork, unit classical.CatalogUnit, ok bool) {
-	if h.services.Classical == nil || book.ReadingUnit == nil || strings.TrimSpace(book.ReadingUnit.ReadingUnitKey) == "" {
-		return classical.CatalogWork{}, classical.CatalogUnit{}, false
-	}
-	return h.services.Classical.Unit(book.ReadingUnit.ReadingUnitKey)
 }
 
 // readingChooserPreparationInProgress reports a classical candidate whose
@@ -529,70 +440,20 @@ func (h *Handler) classifyReadingChooserCandidate(ctx context.Context, owner str
 	return nil
 }
 
-// readingChooserEntries groups multiple To Read Books of one Work into a single
-// entry and leaves every other candidate ordinary, then applies the same neutral
-// title order across both kinds.
+// readingChooserEntries lists one ordinary entry per candidate Book in neutral
+// title order.
 func readingChooserEntries(candidates []readingChooserBookView) []readingChooserEntryView {
-	workCounts := map[string]int{}
-	for _, candidate := range candidates {
-		if candidate.WorkKey != "" && candidate.Position > 0 {
-			workCounts[candidate.WorkKey]++
-		}
-	}
-	works := map[string][]readingChooserBookView{}
 	entries := make([]readingChooserEntryView, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.WorkKey != "" && candidate.Position > 0 && workCounts[candidate.WorkKey] > 1 {
-			works[candidate.WorkKey] = append(works[candidate.WorkKey], candidate)
-			continue
-		}
 		entries = append(entries, readingChooserEntryView{
-			Key:        "book:" + candidate.Book.Book.ID,
-			Title:      readingChooserBookTitle(candidate.Book),
-			Author:     strings.TrimSpace(candidate.Book.Book.Author),
-			GreekTitle: candidate.WorkGreekTitle,
-			WorkBooks:  candidate.WorkBooks,
-			Books:      []readingChooserBookView{candidate},
+			Key:    "book:" + candidate.Book.Book.ID,
+			Title:  readingChooserBookTitle(candidate.Book),
+			Author: strings.TrimSpace(candidate.Book.Book.Author),
+			Book:   candidate,
 		})
-	}
-	for key, books := range works {
-		entries = append(entries, readingChooserWorkEntry(key, books))
 	}
 	sort.Slice(entries, func(i, j int) bool { return readingChooserEntryLess(entries[i], entries[j]) })
 	return entries
-}
-
-// readingChooserWorkEntry builds one grouped Work entry. Its books stay in
-// constituent-book order, independent of how many the learner added.
-func readingChooserWorkEntry(key string, books []readingChooserBookView) readingChooserEntryView {
-	sort.SliceStable(books, func(i, j int) bool {
-		if books[i].Position != books[j].Position {
-			return books[i].Position < books[j].Position
-		}
-		return readingChooserLess(books[i], books[j])
-	})
-	first := books[0]
-	entry := readingChooserEntryView{
-		Key:        "work:" + key,
-		Grouped:    true,
-		WorkKey:    key,
-		Title:      first.WorkTitle,
-		Author:     first.WorkAuthor,
-		GreekTitle: first.WorkGreekTitle,
-		WorkBooks:  first.WorkBooks,
-		Books:      books,
-	}
-	if entry.Title == "" {
-		entry.Title = readingChooserBookTitle(first.Book)
-	}
-	if entry.Author == "" {
-		entry.Author = strings.TrimSpace(first.Book.Book.Author)
-	}
-	if entry.WorkBooks <= 0 {
-		entry.WorkBooks = len(books)
-	}
-	entry.Bands = readingChooserWorkBands(books)
-	return entry
 }
 
 func readingChooserEntryLess(left, right readingChooserEntryView) bool {
@@ -607,63 +468,8 @@ func readingChooserEntryLess(left, right readingChooserEntryView) bool {
 	return left.Key < right.Key
 }
 
-// readingChooserBandOrder is the shipped order of grouped Work band rows.
-var readingChooserBandOrder = []string{
-	"99% or above",
-	"97% to below 99%",
-	"95% to below 97%",
-	"Below 95%",
-	"No vocabulary comparison",
-	"Analysis in progress or Updating",
-	"Not assessed",
-}
-
-// readingChooserWorkBands lists one row per shipped band in shipped order,
-// omitting a band with no candidate. The books inside a row keep book order.
-func readingChooserWorkBands(books []readingChooserBookView) []readingChooserBandView {
-	rows := make([]readingChooserBandView, 0, len(readingChooserBandOrder))
-	for _, band := range readingChooserBandOrder {
-		matching := make([]readingChooserBookView, 0, len(books))
-		for _, item := range books {
-			if readingChooserBand(item) == band {
-				matching = append(matching, item)
-			}
-		}
-		if len(matching) > 0 {
-			rows = append(rows, readingChooserBandView{Label: band, Books: matching})
-		}
-	}
-	return rows
-}
-
-// readingChooserBand names the grouped row one candidate belongs to.
-func readingChooserBand(item readingChooserBookView) string {
-	if item.Coverage != nil {
-		return readingChooserBandLabel(item.Band)
-	}
-	switch item.State {
-	case readingChooserInProgress, readingChooserUpdating:
-		return "Analysis in progress or Updating"
-	case readingChooserNeedsAttention:
-		return "Not assessed"
-	}
-	return ""
-}
-
-func readingChooserLess(left, right readingChooserBookView) bool {
-	leftTitle, rightTitle := strings.ToLower(readingChooserBookTitle(left.Book)), strings.ToLower(readingChooserBookTitle(right.Book))
-	if leftTitle != rightTitle {
-		return leftTitle < rightTitle
-	}
-	leftAuthor, rightAuthor := strings.ToLower(strings.TrimSpace(left.Book.Book.Author)), strings.ToLower(strings.TrimSpace(right.Book.Book.Author))
-	if leftAuthor != rightAuthor {
-		return leftAuthor < rightAuthor
-	}
-	return left.Book.Book.ID < right.Book.Book.ID
-}
-
 func readingChooserBookTitle(book domain.MyBook) string {
-	if title := strings.TrimSpace(book.Book.Title); title != "" {
+	if title := strings.TrimSpace(myBookDisplayTitle(book)); title != "" {
 		return title
 	}
 	if book.Acquired != nil {
@@ -723,16 +529,6 @@ func readingChooserPageTitle(view readingChooserPageView) string {
 	return readingChooserTitle(view)
 }
 
-// readingChooserPath is the page that renders the chooser: Reading while the
-// learner is between Books, or the Switch page while a Book is current. A Work
-// update confirmation returns here, and My Books' To Read cells open here.
-func readingChooserPath(currentBookID string) string {
-	if currentBookID != "" {
-		return "/reading/switch"
-	}
-	return "/reading"
-}
-
 func readingChooserPageDescription(view readingChooserPageView) string {
 	if view.CurrentBookID != "" {
 		return "Choose another To Read Book. Your current Book will return to To Read, so you can come back to it later. Coverage groups describe your current vocabulary, not what you ought to read next."
@@ -741,19 +537,13 @@ func readingChooserPageDescription(view readingChooserPageView) string {
 }
 
 func readingChooserCandidateCount(view readingChooserPageView) int {
-	count := 0
-	for _, entry := range view.Entries {
-		count += len(entry.Books)
-	}
-	return count
+	return len(view.Entries)
 }
 
 func readingChooserHasCoverage(view readingChooserPageView) bool {
 	for _, entry := range view.Entries {
-		for _, item := range entry.Books {
-			if item.Coverage != nil {
-				return true
-			}
+		if entry.Book.Coverage != nil {
+			return true
 		}
 	}
 	return false
@@ -785,70 +575,8 @@ func readingChooserBookBandLabel(item readingChooserBookView) string {
 	return readingChooserStateLabel(item.State)
 }
 
-// readingChooserWorkCounts states the grouped Work's candidate counts: only To
-// Read Books appear, and assessed means a coverage reading is available.
-func readingChooserWorkCounts(entry readingChooserEntryView) string {
-	assessed := 0
-	for _, item := range entry.Books {
-		if item.Coverage != nil {
-			assessed++
-		}
-	}
-	return fmt.Sprintf("%s, %d assessed", classicalCountLabel(len(entry.Books), "To Read Book", "To Read Books"), assessed)
-}
-
-// readingChooserWorkCoverageRange is one Known coverage range across the
-// grouped Work's numerically assessed Books, to one decimal.
-func readingChooserWorkCoverageRange(books []readingChooserBookView) string {
-	low, high := 0.0, 0.0
-	found := false
-	for _, item := range books {
-		if item.Coverage == nil {
-			continue
-		}
-		value, ok := readingChooserCoveragePercent(*item.Coverage)
-		if !ok {
-			continue
-		}
-		if !found || value < low {
-			low = value
-		}
-		if !found || value > high {
-			high = value
-		}
-		found = true
-	}
-	if !found {
-		return ""
-	}
-	if low == high {
-		return fmt.Sprintf("Known coverage %.1f%%", low)
-	}
-	return fmt.Sprintf("Known coverage %.1f%%–%.1f%%", low, high)
-}
-
-// readingChooserWorkPosition names a constituent Book's place in the reviewed
-// Work. A whole-work unit has no position.
-func readingChooserWorkPosition(item readingChooserBookView) string {
-	if item.Position <= 0 || item.WorkBooks <= 0 {
-		return ""
-	}
-	return fmt.Sprintf("Book %d of %d", item.Position, item.WorkBooks)
-}
-
-// readingChooserCandidateTitle adds the constituent number when one Book is
-// opened inline inside its Work's grouped entry.
-func readingChooserCandidateTitle(item readingChooserBookView, inWork bool) string {
-	title := readingChooserBookTitle(item.Book)
-	if inWork && item.Position > 0 {
-		return fmt.Sprintf("%s, Book %d", title, item.Position)
-	}
-	return title
-}
-
-// readingChooserBookAnchorID is the fragment target a grouped Work's band cells
-// open inline. My Books' grouped strip uses the same target so a To Read cell
-// lands on that Book's ordinary candidate entry.
+// readingChooserBookAnchorID is the fragment target My Books' To Read cells open
+// on that Book's chooser entry.
 func readingChooserBookAnchorID(bookID string) string {
 	return "reading-chooser-book-" + bookID
 }
@@ -856,29 +584,6 @@ func readingChooserBookAnchorID(bookID string) string {
 // readingChooserCandidateAnchorID names the anchor for one chooser candidate.
 func readingChooserCandidateAnchorID(item readingChooserBookView) string {
 	return readingChooserBookAnchorID(item.Book.Book.ID)
-}
-
-// readingChooserBookAccessibleLabel names one band-cell link completely: Work,
-// constituent Book and its evidence.
-func readingChooserBookAccessibleLabel(item readingChooserBookView) string {
-	identity := readingChooserBookTitle(item.Book)
-	if item.Position > 0 {
-		identity = fmt.Sprintf("%s, Book %d", identity, item.Position)
-	}
-	evidence := readingChooserBookBandLabel(item)
-	if item.Coverage != nil && item.Coverage.AnalyzableTokenCount > 0 {
-		evidence = "Known coverage " + readingChooserCoverageDisplay(*item.Coverage)
-	}
-	return identity + ", " + evidence
-}
-
-// readingChooserBookNumber is the visible band-cell text: the constituent book
-// number only, never a coverage figure.
-func readingChooserBookNumber(item readingChooserBookView) string {
-	if item.Position <= 0 {
-		return ""
-	}
-	return strconv.Itoa(item.Position)
 }
 
 func readingChooserNextMarkerText(coverage domain.AnalysisCoverage, band domain.CoverageBand) string {
@@ -928,8 +633,7 @@ func readingChooserCoverageDisplay(coverage domain.AnalysisCoverage) string {
 	return fmt.Sprintf("%.1f%%", percent)
 }
 
-// readingChooserCoveragePercent is the one clamped percentage both a Book's
-// margin and its Work's range use.
+// readingChooserCoveragePercent is the one clamped percentage a Book's margin uses.
 func readingChooserCoveragePercent(coverage domain.AnalysisCoverage) (float64, bool) {
 	if coverage.AnalyzableTokenCount <= 0 {
 		return 0, false

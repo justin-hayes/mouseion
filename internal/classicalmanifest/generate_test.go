@@ -3,6 +3,7 @@ package classicalmanifest
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -56,8 +57,8 @@ func baseOverride() classical.Override {
 		EditionLabel: "Test Edition",
 		Source:       &classical.SourceSpec{Layer: "fixture-source", FileName: "work.conllu", Format: classical.SourceFormatOGACoNLLU},
 		Translation:  &classical.TranslationSpec{Layer: "fixture-translation", FileName: "work.xml"},
-		Split:        classical.SplitConstituentBooks,
-		Books:        []int{1},
+		Split:        classical.SplitWholeWork,
+		Contents:     classical.ContentsBooks,
 		Revision:     &revision,
 		Note:         "Fixture curatorial sign-off.",
 	}
@@ -111,12 +112,17 @@ func TestGenerateAndVerifyProduceDeterministicSortedJSONL(t *testing.T) {
 	second := generate(t, options)
 	assert.Equal(t, first.Manifest, second.Manifest)
 	require.Len(t, first.Definitions, 1)
-	assert.Equal(t, "alpha-1", first.Definitions[0].Key)
+	assert.Equal(t, "alpha", first.Definitions[0].Key)
 	assert.Equal(t, "alpha", first.Definitions[0].WorkKey)
 	assert.Equal(t, "alpha-test", first.Definitions[0].EditionKey)
-	assert.Equal(t, 1, *first.Definitions[0].ConstituentBook)
+	assert.Nil(t, first.Definitions[0].ConstituentBook)
 	assert.Equal(t, 2, first.Definitions[0].ConstituentBooks)
-	assert.Equal(t, 8, first.Definitions[0].WordCount)
+	assert.Equal(t, 10, first.Definitions[0].WordCount)
+	assert.Equal(t, []classical.ConstituentBookSpan{
+		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.2", WordCount: 8},
+		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.1.1", WordCount: 2},
+	}, first.Definitions[0].Contents)
+	assert.Equal(t, "2.1.1", first.Definitions[0].Translation.CitationEnd, "the translation covers the whole Edition")
 	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", first.Definitions[0].Opening)
 	require.NotNil(t, first.Definitions[0].Translation)
 	assert.Contains(t, first.Notes, "Crossing sentences: none")
@@ -141,7 +147,7 @@ func TestGeneratedKeysAreSortedAcrossWorks(t *testing.T) {
 	overrides := overrideFile(t, baseOverride(), beta)
 	result := generate(t, Options{Layers: layers, Overrides: overrides, UpstreamDir: upstream})
 	require.Len(t, result.Definitions, 2)
-	assert.Equal(t, []string{"alpha-1", "zeta-1"}, []string{result.Definitions[0].Key, result.Definitions[1].Key})
+	assert.Equal(t, []string{"alpha", "zeta"}, []string{result.Definitions[0].Key, result.Definitions[1].Key})
 }
 
 func TestPinMismatchStopsAnExistingEntry(t *testing.T) {
@@ -192,24 +198,23 @@ func TestUnknownNativePOSIsRefused(t *testing.T) {
 	assert.Contains(t, result.Notes, "source_unknown_pos")
 }
 
-func TestMissingSelectedBookIsSkippedForANewCandidate(t *testing.T) {
+func TestConstituentBooksSplitKindIsRejected(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	override := baseOverride()
-	override.Books = []int{9}
-	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
-	assert.Empty(t, result.Definitions)
-	assert.Contains(t, result.Notes, "selected book 9 has no citation range")
+	override.Split = "constituent-books"
+	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
+	require.ErrorContains(t, err, `unknown split "constituent-books"`)
 
-	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
-	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), Manifest: first.Manifest, UpstreamDir: upstream})
-	require.ErrorContains(t, err, "selected book 9 has no citation range")
+	_, err = Generate(Options{Layers: layers, Overrides: []byte(`{"workKey":"alpha","books":[1]}` + "\n"), UpstreamDir: upstream})
+	require.Error(t, err, "the per-book selection field no longer exists")
 }
 
 func TestUnassignedSentenceStopsAnExistingWork(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
 	override := baseOverride()
-	override.Units = []classical.UnitSpec{{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.2"}}
+	override.Contents = ""
+	override.Units = []classical.UnitSpec{{CitationStart: "1.1.1", CitationEnd: "1.1.2"}}
 	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), Manifest: first.Manifest, UpstreamDir: upstream})
 	require.ErrorContains(t, err, "sentence_unassigned")
 }
@@ -228,11 +233,11 @@ func TestTranslationMisalignmentIsRefused(t *testing.T) {
 	upstream := copyUpstream(t)
 	data, err := os.ReadFile(filepath.Join(upstream, "work.xml")) //nolint:gosec // test temp path.
 	require.NoError(t, err)
-	data = bytes.Replace(data, []byte(`<div type="textpart" subtype="section" n="2"><p>Book one, section two.</p></div>`), nil, 1)
+	data = bytes.Replace(data, []byte(`<div type="textpart" subtype="section" n="1"><p>Book two, section one.</p></div>`), nil, 1)
 	require.NoError(t, os.WriteFile(filepath.Join(upstream, "work.xml"), data, 0o600)) //nolint:gosec // test temp path.
 	result := generate(t, Options{Layers: layersForUpstream(t, layers, upstream), Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
 	assert.Empty(t, result.Definitions)
-	assert.Contains(t, result.Notes, "cited range ends at a missing section")
+	assert.Contains(t, result.Notes, "Rejected new candidate alpha", "a translation that cannot cover the whole Edition refuses the unit")
 }
 
 func TestContentChangeNeedsARevisionBump(t *testing.T) {
@@ -285,7 +290,7 @@ func TestRemovedEntryBecomesAWithdrawnTombstone(t *testing.T) {
 	require.Len(t, removed.Definitions, 1)
 	tombstone := removed.Definitions[0]
 	assert.True(t, tombstone.Withdrawn)
-	assert.Equal(t, "alpha-1", tombstone.Key)
+	assert.Equal(t, "alpha", tombstone.Key)
 	assert.Equal(t, first.Definitions[0].Revision, tombstone.Revision)
 	assert.Equal(t, first.Definitions[0].Source, tombstone.Source)
 }
@@ -304,27 +309,90 @@ func TestOverrideDepartureWithoutANoteIsRefused(t *testing.T) {
 func TestUnitOverrideDepartureWithoutANoteIsRefused(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
-	unit := classical.Override{Key: "alpha-1", GreekTitle: "Ἄλφα ἄλλη"}
+	unit := classical.Override{Key: "alpha", GreekTitle: "Ἄλφα ἄλλη"}
 	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride(), unit), Manifest: first.Manifest, UpstreamDir: upstream})
 	require.ErrorContains(t, err, "departs from its Work Greek title without a note")
 }
 
-func TestWholeWorkSplitCreatesOneUnit(t *testing.T) {
+func TestBookRangesWithoutContentsOverrideAreRefused(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	override := baseOverride()
-	override.Split = classical.SplitWholeWork
-	override.Books = nil
+	override.Contents = ""
 	override.Translation = nil
-	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
-	require.Len(t, result.Definitions, 1)
-	definition := result.Definitions[0]
-	assert.Equal(t, "alpha", definition.Key)
-	assert.Nil(t, definition.ConstituentBook)
-	assert.Equal(t, 1, definition.ConstituentBooks)
-	assert.Equal(t, "1.1.1", definition.CitationStart)
-	assert.Equal(t, "2.1.1", definition.CitationEnd)
-	assert.Equal(t, 10, definition.WordCount)
-	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", definition.Opening)
+	_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
+	require.ErrorContains(t, err, "multiple book ranges but no contents")
+}
+
+func TestGeneratePreservesTheSourceCitationScheme(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	whole := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
+
+	t.Run("hand-reviewed bounds cannot hide derived books", func(t *testing.T) {
+		override := baseOverride()
+		override.Contents = ""
+		override.Units = []classical.UnitSpec{{CitationStart: "1.1.1", CitationEnd: "2.1.1"}}
+		opts := Options{Layers: layers, Overrides: overrideFile(t, override), Manifest: whole.Manifest, UpstreamDir: upstream}
+		_, err := Generate(opts)
+		require.ErrorContains(t, err, "cannot replace derived book contents")
+		opts.UpstreamDir, opts.AllowMissingUpstream = "", true
+		_, err = Generate(opts)
+		require.ErrorContains(t, err, "cannot replace derived book contents")
+	})
+	t.Run("backwards hand-reviewed bounds are refused", func(t *testing.T) {
+		override := baseOverride()
+		override.Contents = ""
+		override.Units = []classical.UnitSpec{{CitationStart: "2.1.1", CitationEnd: "1.1.1"}}
+		_, err := Generate(Options{Layers: layers, Overrides: overrideFile(t, override), Manifest: whole.Manifest, UpstreamDir: upstream})
+		require.ErrorContains(t, err, "backwards citation range")
+	})
+	t.Run("flat citations are not constituent books", func(t *testing.T) {
+		root := copyUpstream(t)
+		path := filepath.Join(root, "work.conllu")
+		data, err := os.ReadFile(path) //nolint:gosec // test temp path.
+		require.NoError(t, err)
+		replacer := strings.NewReplacer("_1.1.1", "_17", "_1.1.2", "_18", "_2.1.1", "_19")
+		require.NoError(t, os.WriteFile(path, []byte(replacer.Replace(string(data))), 0o600)) //nolint:gosec // test temp path.
+		pins := layersForUpstream(t, layers, root)
+		override := baseOverride()
+		override.Contents, override.Translation = "", nil
+		flat := generate(t, Options{Layers: pins, Overrides: overrideFile(t, override), UpstreamDir: root})
+		require.Len(t, flat.Definitions, 1)
+		require.Equal(t, 1, flat.Definitions[0].ConstituentBooks)
+		require.Empty(t, flat.Definitions[0].Contents)
+		override.Units = []classical.UnitSpec{{CitationStart: "17", CitationEnd: "19"}}
+		reviewed := overrideFile(t, override)
+		for name, opts := range map[string]Options{
+			"with upstream":    {Layers: pins, Overrides: reviewed, Manifest: flat.Manifest, UpstreamDir: root},
+			"without upstream": {Layers: pins, Overrides: reviewed, Manifest: flat.Manifest, AllowMissingUpstream: true},
+		} {
+			t.Run(name, func(t *testing.T) {
+				require.Equal(t, flat.Manifest, generate(t, opts).Manifest)
+			})
+		}
+		override.Units = nil
+		override.Contents = classical.ContentsBooks
+		_, err = Generate(Options{Layers: pins, Overrides: overrideFile(t, override), Manifest: flat.Manifest, UpstreamDir: root})
+		require.ErrorContains(t, err, "source has no multiple book ranges")
+		_, err = Generate(Options{Layers: pins, Overrides: overrideFile(t, override), Manifest: flat.Manifest, AllowMissingUpstream: true})
+		require.ErrorContains(t, err, "committed manifest has no book ranges")
+	})
+	t.Run("a different whole-work key is not an offline source", func(t *testing.T) {
+		previous := whole.Definitions[0]
+		previous.Key = "alpha-old"
+		manifest, err := classical.RenderDefinitions([]classical.Definition{previous})
+		require.NoError(t, err)
+		_, err = Generate(Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), Manifest: manifest, AllowMissingUpstream: true})
+		require.ErrorContains(t, err, "new work alpha needs the upstream source file")
+	})
+	t.Run("book zero is refused", func(t *testing.T) {
+		root := copyUpstream(t)
+		path := filepath.Join(root, "work.conllu")
+		data, err := os.ReadFile(path) //nolint:gosec // test temp path.
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(path, bytes.ReplaceAll(data, []byte("_1.1."), []byte("_0.1.")), 0o600)) //nolint:gosec // test temp path.
+		_, err = Generate(Options{Layers: layersForUpstream(t, layers, root), Overrides: overrideFile(t, baseOverride()), Manifest: whole.Manifest, UpstreamDir: root})
+		require.ErrorContains(t, err, `citation "0.1.1" has no constituent book number`)
+	})
 }
 
 func TestGenerateOpeningSkipsASpeakerLabel(t *testing.T) {
@@ -355,6 +423,7 @@ func TestGenerateFailsWhenAUnitHasOnlySpeakerLabels(t *testing.T) {
 	upstream := copyUpstream(t)
 	require.NoError(t, os.WriteFile(filepath.Join(upstream, "work.conllu"), []byte(speakerLabelSentence("ΜΕΝ", "μεν", true)), 0o600))
 	override := baseOverride()
+	override.Contents = ""
 	override.Translation = nil
 
 	_, err := Generate(Options{Layers: layersForUpstream(t, layers, upstream), Overrides: overrideFile(t, override), UpstreamDir: upstream})
@@ -407,20 +476,81 @@ func speakerLabelSentence(surface, lemma string, elliptical bool) string {
 	return b.String()
 }
 
-func TestExplicitUnitSplitSelectsOneBook(t *testing.T) {
+func TestWholeWorkWithBooksRecordsEachConstituentBook(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
-	override := baseOverride()
-	override.Units = []classical.UnitSpec{
-		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.2"},
-		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.1.1"},
-	}
-	override.Books = []int{2}
-	override.Translation = nil
-	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
+	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
 	require.Len(t, result.Definitions, 1)
-	assert.Equal(t, "alpha-2", result.Definitions[0].Key)
-	assert.Equal(t, 2, result.Definitions[0].ConstituentBooks)
-	assert.Equal(t, 2, result.Definitions[0].WordCount)
+	definition := result.Definitions[0]
+	assert.Equal(t, "alpha", definition.Key)
+	assert.Equal(t, 2, definition.ConstituentBooks)
+	require.Len(t, definition.Contents, 2)
+	words := 0
+	for _, book := range definition.Contents {
+		words += book.WordCount
+	}
+	assert.Equal(t, definition.WordCount, words, "the contents sum to the whole Work")
+	assert.Contains(t, result.Notes, "whole work (2 books)")
+}
+
+// perBookManifest renders the ADR 0116 shape of a generated whole-work
+// definition: one definition per constituent book.
+func perBookManifest(t *testing.T, whole classical.Definition) []byte {
+	t.Helper()
+	definitions := make([]classical.Definition, 0, len(whole.Contents))
+	for _, book := range whole.Contents {
+		number := book.Book
+		definition := whole
+		definition.Key = fmt.Sprintf("%s-%d", whole.WorkKey, number)
+		definition.ConstituentBook = &number
+		definition.Withdrawn = true
+		definition.CitationStart, definition.CitationEnd, definition.WordCount = book.CitationStart, book.CitationEnd, book.WordCount
+		definition.Contents = nil
+		translation := *whole.Translation
+		translation.CitationStart, translation.CitationEnd = book.CitationStart, book.CitationEnd
+		definition.Translation = &translation
+		definitions = append(definitions, definition)
+	}
+	manifest, err := classical.RenderDefinitions(definitions)
+	require.NoError(t, err)
+	return manifest
+}
+
+func TestPerBookDefinitionsBecomeTombstonesUnderTheWholeWorkUnit(t *testing.T) {
+	layers, _, upstream := fixtureInputs(t)
+	overrides := overrideFile(t, baseOverride())
+	whole := generate(t, Options{Layers: layers, Overrides: overrides, UpstreamDir: upstream}).Definitions[0]
+	legacy := perBookManifest(t, whole)
+
+	for name, options := range map[string]Options{
+		"with upstream":    {Layers: layers, Overrides: overrides, Manifest: legacy, UpstreamDir: upstream},
+		"without upstream": {Layers: layers, Overrides: overrides, Manifest: legacy, AllowMissingUpstream: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			result := generate(t, options)
+			byKey := map[string]classical.Definition{}
+			for _, definition := range result.Definitions {
+				byKey[definition.Key] = definition
+			}
+			require.Len(t, byKey, 3)
+			assert.Equal(t, whole, byKey["alpha"], "the whole-work definition is the same offline and with upstream")
+			assert.False(t, byKey["alpha"].Withdrawn)
+			assert.True(t, byKey["alpha-1"].Withdrawn)
+			assert.True(t, byKey["alpha-2"].Withdrawn)
+
+			again := generate(t, Options{Layers: layers, Overrides: overrides, Manifest: result.Manifest, AllowMissingUpstream: true})
+			assert.Equal(t, result.Manifest, again.Manifest, "the committed manifest reproduces offline")
+		})
+	}
+}
+
+func TestNewWholeWorkUnitOfAWorkWithCommittedBooksNeverFailsQuietly(t *testing.T) {
+	failing := &builder{previousByKey: map[string]classical.Definition{"alpha-1": {Key: "alpha-1", WorkKey: "alpha"}}}
+	err := failing.candidateFailure("alpha", "alpha", errors.New("boom"))
+	require.ErrorContains(t, err, "existing alpha failed a check", "skipping would withdraw the Books learners own")
+
+	fresh := &builder{previousByKey: map[string]classical.Definition{}}
+	require.NoError(t, fresh.candidateFailure("alpha", "alpha", errors.New("boom")), "a brand-new Work is only rejected")
+	assert.Contains(t, fresh.notes.String(), "Rejected new candidate alpha")
 }
 
 func TestNewWorkWithoutUpstreamFilesIsSkipped(t *testing.T) {
@@ -443,7 +573,7 @@ func TestUnitRevisionCanBumpWithoutContentChange(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	first := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride()), UpstreamDir: upstream})
 	revision := 2
-	unit := classical.Override{Key: "alpha-1", Revision: &revision}
+	unit := classical.Override{Key: "alpha", Revision: &revision}
 	updated := generate(t, Options{Layers: layers, Overrides: overrideFile(t, baseOverride(), unit), Manifest: first.Manifest, UpstreamDir: upstream})
 	require.Len(t, updated.Definitions, 1)
 	assert.Equal(t, 2, updated.Definitions[0].Revision)
@@ -487,25 +617,12 @@ func TestChangedCitationRangeNeedsANewKey(t *testing.T) {
 func TestEmptyCitationRangeIsSkippedForANewCandidate(t *testing.T) {
 	layers, _, upstream := fixtureInputs(t)
 	override := baseOverride()
-	override.Units = []classical.UnitSpec{
-		{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.2"},
-		{Book: 2, CitationStart: "2.1.1", CitationEnd: "2.1.1"},
-		{Book: 3, CitationStart: "3.1.1", CitationEnd: "3.1.2"},
-	}
-	override.Books = []int{3}
+	override.Contents = ""
+	override.Units = []classical.UnitSpec{{CitationStart: "3.1.1", CitationEnd: "3.1.2"}}
 	override.Translation = nil
 	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
 	assert.Empty(t, result.Definitions)
-	assert.Contains(t, result.Notes, "citation_range_empty")
-}
-
-func TestExplicitUnitCannotSpanConstituentBooks(t *testing.T) {
-	layers, _, upstream := fixtureInputs(t)
-	override := baseOverride()
-	override.Units = []classical.UnitSpec{{Book: 1, CitationStart: "1.1.1", CitationEnd: "2.1.1"}}
-	result := generate(t, Options{Layers: layers, Overrides: overrideFile(t, override), UpstreamDir: upstream})
-	assert.Empty(t, result.Definitions)
-	assert.Contains(t, result.Notes, "spans or misses its constituent book")
+	assert.Contains(t, result.Notes, "Rejected new candidate")
 }
 
 func TestTranslationRemovalNeedsARevisionBump(t *testing.T) {

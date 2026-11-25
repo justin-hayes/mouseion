@@ -433,7 +433,7 @@ test.describe('native WebKit smoke journey', () => {
     const secondRemainsOpen = await secondRow.evaluate(element => element.hasAttribute('open'));
     expect([[false, true], [true, true]]).toContainEqual([firstRemainsOpen, secondRemainsOpen]);
 
-    const studyLink = firstRow.locator('xpath=following-sibling::a');
+    const studyLink = firstRow.locator('xpath=following-sibling::div[contains(concat(" ", @class, " "), " concordance-result-end ")]/a');
     await firstSummary.focus();
     await page.keyboard.press('Tab');
     await expect(studyLink).toBeFocused();
@@ -481,7 +481,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(firstRow).toHaveAttribute('open', '');
       await expect(firstRow.locator('.concordance-context')).toContainText('Das Haus sieht gut aus.');
       await expect(firstRow.locator('.concordance-observed-target')).toHaveText('Haus');
-      const studyLink = firstRow.locator('xpath=following-sibling::a');
+      const studyLink = firstRow.locator('xpath=following-sibling::div[contains(concat(" ", @class, " "), " concordance-result-end ")]/a');
       await expect(studyLink).toHaveAccessibleName('Study this sentence');
       await studyLink.click();
       await expect(page.getByRole('heading', { name: 'Study this sentence' })).toBeVisible();

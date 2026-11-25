@@ -21,7 +21,7 @@ language without a product reason.
 |---|---|---|
 | **My Books** | Every Book the learner has chosen: acquired or metadata-only, assessed or unassessed, current, To Read or Read. It is a collection, not a task list or readiness ranking. | My Library, Dashboard, Corpus |
 | **To Read** | The persisted disposition expressing that a chosen Book is a possible future reading, ensuring acquisition and analysis when needed. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. | Inbox (retired), Reading status, Journey position, Set Aside (retired), Hidden (retired) |
-| **Reading** | The current Book with its vocabulary Browse, or, between Books, the neutral title-ordered chooser of To Read candidates, where a Work's multiple To Read Books form one entry. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
+| **Reading** | The current Book with its vocabulary Browse, or, between Books, the neutral title-ordered chooser of To Read candidates, one ordinary entry per Book. Coverage bands describe current evidence; they are not recommendations. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in the active study language, when one exists. Starting freezes a vocabulary snapshot; finishing records history and accepts eligible identities into modeled Known vocabulary. | Primary Goal, current project |
 | **Choose what to read next** | The completion-receipt action that opens `/reading`. It presents To Read candidates without ranking or choosing automatically. | Where next?, Start next, continue plan, complete Journey |
 | **Read / Read again** | Read is the visible bucket for a Book with reading history, not a persisted disposition. Read again returns it to To Read without deleting prior completions. | Read as a disposition; reread replaces history |
@@ -44,9 +44,9 @@ completion** are not primary learner-facing concepts.
 | **Catalog** | The authenticated destination at `/catalogs` where one search and one language filter cover the built-in, read-only Classical catalog and each OPDS connection's local Catalog index, with one sync status line and **Sync now** per source. Connection setup lives on Manage sources. | Catalogs (the retired plural label), library, Browse (the vocabulary view), Import books, ingest books |
 | **Manage sources** | The connection-management page at `/catalogs/sources` for adding, editing and deleting an OPDS connection, saving credentials, running Sync now, and recovering a failed sync. | Catalog settings, admin catalog |
 | **Add** | Choose a Catalog entry for My Books. It creates or restores the Book as To Read, then acquires the current EPUB when needed and ensures whole-book analysis once. The control's copy says the text is downloaded and analyzed. | Add to library, import, queue |
-| **I've read this** | Record a Catalog entry the learner read outside Mouseion. It creates or restores the Book as Read with a **Previously read** record, downloads nothing and changes no Known vocabulary. It is offered on OPDS entries and per classical Reading unit, never for a whole Work. | Mark as read, import as read |
+| **I've read this** | Record a Catalog entry the learner read outside Mouseion. It creates or restores the Book as Read with a **Previously read** record, downloads nothing and changes no Known vocabulary. It is offered on OPDS entries and once per Edition of a classical Work, on the Work page; a classical Work is one Book, so there is no per-book control. | Mark as read, import as read |
 | **Mark as previously read** | The My Books form of **I've read this**. It appears only on an unstarted To Read Book and moves that Book to Read. | Mark as read, complete book |
-| **Move to To Read** | The reading-intent transition into the To Read disposition. Catalog **Add** is its entry point; **Read again** and the grouped Work row's **Move the work to To Read** are its My Books forms. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
+| **Move to To Read** | The reading-intent transition into the To Read disposition. Catalog **Add** is its entry point; **Read again** is its My Books form. It acquires the current EPUB when needed and ensures whole-book analysis once. | Start analysis, import and analyze, add to queue |
 | **Catalog connection** | A learner-owned OPDS endpoint and credentials. | Global catalog, admin catalog |
 | **Catalog sync** | Periodic, owner-scoped reconciliation that maintains each connection's Catalog index for offered non-English languages whose NLP pipelines are ready and follows title, author and cover changes onto already-chosen Books. It never creates a Book or membership, never implies EPUB content download, and never mirrors destructively; optional Book cover retrieval is independent metadata work. | Import all books, mirror, admin sync |
 | **Catalog entry** | One book offered by a connection's Catalog index. It is browsable and addable but is not a Book until the learner chooses it. | Imported book, synced Book |
@@ -60,7 +60,7 @@ completion** are not primary learner-facing concepts.
 
 Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
 upload unless a shipped route and feature contract support it. Reading intent —
-expressed by Catalog **Add**, **Read again**, or the Work-level move — acquires
+expressed by Catalog **Add** or **Read again** — acquires
 and validates content when needed as an ensure-once consequence. Historical
 compatibility artifacts may retain **Add to My Books** or **Add to library**.
 
@@ -97,9 +97,9 @@ remain only as compatibility redirects to the Reading anchor.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Coverage band** | Classification of a To Read Book's current lexical coverage. A grouped Work entry lists its constituent Book numbers in band rows; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
+| **Coverage band** | Classification of a To Read Book's current lexical coverage. Each To Read Book shows its band in its own margin; a band provides no recommendation or predicted outcome. | Difficulty, readiness, best next book |
 | **Work position** | A constituent Book's plain bibliographic place, such as "Book 2 of 24", from the reviewed definition rather than the learner's added Books. A whole-work unit has none, and it never becomes a pointer to the next Book. | Next Book, recommended order |
-| **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read, and a grouped Work row's **Move the work to To Read** moves its Read Books; it reads **Move the remaining books to To Read** when the tab shows only some of the Work's Books. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
+| **Move to To Read** | Express reading intent from My Books: **Read again** returns a Read Book to To Read. The action also ensures current content and analysis when needed. | Add to Journey, queue, schedule |
 | **Start reading** | Make an eligible To Read Book the current Book and freeze its vocabulary snapshot. Requires explicit confirmation. | Choose as Primary Goal |
 | **Switch current reading** | Replace the current Book with an eligible To Read Book after explicit confirmation. The former current Book remains To Read. | Reorder Journey |
 | **Mark reading finished** | Record the completion and exact modeled vocabulary transition. It does not choose the next Book. | Complete Goal, finish Journey |
@@ -159,7 +159,7 @@ verified mastery. Earlier Goal-specific behavior in ADR 0072 is historical.
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
 | **Current coverage** | Coverage from current Known vocabulary under the accepted metric contract. | Reading level |
-| **Coverage band** | A row in a grouped Work entry, or a margin label on one ordinary candidate, based on current token-weighted lexical coverage. It compares evidence only and does not rank or recommend candidates. | Difficulty score, readiness rank |
+| **Coverage band** | A margin label on one To Read candidate, based on current token-weighted lexical coverage. It compares evidence only and does not rank or recommend candidates. | Difficulty score, readiness rank |
 | **Projected coverage** | Historical term for a hypothetical result after a named vocabulary transition; not presented in current Reading. | Predicted outcome, recommended route |
 | **Evidence needs review** | Existing evidence is stale, questionable, or no longer safely comparable. | Low confidence as an unexplained score |
 | **Not assessed** | Mouseion has no completed comparable analysis for this book. | 0% ready |

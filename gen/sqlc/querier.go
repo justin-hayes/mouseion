@@ -390,10 +390,6 @@ type Querier interface {
 	// the learner's current Known vocabulary. A Book without ready counts for its
 	// current analysis produces no row, so it never shows a stale or scanned figure.
 	ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error)
-	// The owner's Books of one reviewed Work, in constituent-book order, with the
-	// current-Reading flag Remove the work must skip. Only active membership is a
-	// candidate; a previously removed Book already stays out of My Books.
-	ListMyBooksWorkForRemoval(ctx context.Context, arg ListMyBooksWorkForRemovalParams) ([]ListMyBooksWorkForRemovalRow, error)
 	ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	// The learner's active Books associated with a Reading unit. The catalog uses

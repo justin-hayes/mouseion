@@ -59,7 +59,6 @@ type MyBooksStore interface {
 	TransitionBookDisposition(context.Context, string, string, int64, domain.BookDisposition) (bool, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	RemoveBookFromMyBooks(context.Context, string, string) error
-	RemoveWorkFromMyBooks(context.Context, string, string) (domain.MyBooksWorkRemoval, error)
 }
 
 // ReadingStore provides the Reading (/reading/**) surface: the owner-scoped
@@ -315,9 +314,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
-	h.mux.Handle("POST /library/works/{workKey}/to-read", h.user(http.HandlerFunc(h.moveWorkToRead)))
-	h.mux.Handle("POST /library/works/{workKey}/analysis-update", h.user(http.HandlerFunc(h.updateWorkAnalysis)))
-	h.mux.Handle("POST /library/works/{workKey}/remove", h.user(http.HandlerFunc(h.removeWorkFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
@@ -343,10 +339,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /catalogs/classical", h.user(http.HandlerFunc(h.classicalAuthorIndex)))
 	h.mux.Handle("GET /catalogs/classical/authors/{author}", h.user(http.HandlerFunc(h.classicalAuthor)))
 	h.mux.Handle("GET /catalogs/classical/works/{workKey}", h.user(http.HandlerFunc(h.classicalWork)))
-	h.mux.Handle("POST /catalogs/classical/works/{workKey}/add", h.user(http.HandlerFunc(h.addClassicalWork)))
 	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/add", h.user(http.HandlerFunc(h.addClassicalUnit)))
 	h.mux.Handle("POST /catalogs/classical/units/{unitKey}/previously-read", h.user(http.HandlerFunc(h.markClassicalUnitPreviouslyRead)))
-	h.mux.Handle("GET /catalogs/classical/works/{workKey}/in-my-books", h.user(http.HandlerFunc(h.classicalWorkInMyBooks)))
 	h.mux.Handle("GET /catalogs/classical/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.classicalBookInMyBooks)))
 	h.mux.Handle("GET /catalogs/books/{bookID}/in-my-books", h.user(http.HandlerFunc(h.catalogBookInMyBooks)))
 	h.mux.Handle("GET /connections", h.user(http.HandlerFunc(h.legacyConnections)))

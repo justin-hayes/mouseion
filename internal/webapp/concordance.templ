@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -139,17 +140,22 @@ templ concordanceResultItems(occurrences []domain.ConcordanceResultOccurrence, l
 					}
 				</div>
 			</details>
-			if occurrence.StudyUnavailable {
-				// A sentence overlapping a speaker label is
-				// raw evidence, never study context. The
-				// occurrence itself stays and, when it is a
-				// label, is named as such.
-				if occurrence.SpeakerLabel {
-					<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
+			<div class="concordance-result-end">
+				if citation := sentenceCitation(occurrence.Citations); citation != "" {
+					<p class="concordance-location">{ citation }</p>
 				}
-			} else {
-				<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
-			}
+				if occurrence.StudyUnavailable {
+					// A sentence overlapping a speaker label is
+					// raw evidence, never study context. The
+					// occurrence itself stays and, when it is a
+					// label, is named as such.
+					if occurrence.SpeakerLabel {
+						<span class="concordance-speaker-label" aria-label="Speaker label evidence">Speaker label</span>
+					}
+				} else {
+					<a class="concordance-study-link" aria-label="Study this sentence" href={ templ.SafeURL(vocabularySentenceStudyURL(occurrence, concordanceAppliedLookup(lookup, result), origin)) }>Study</a>
+				}
+			</div>
 		</li>
 	}
 }
@@ -172,7 +178,11 @@ templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domai
 		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
 		<section class="reading-width" aria-labelledby="sentence-study-heading">
 			<h2 id="sentence-study-heading">{ study.BookTitle }</h2>
-			<p>{ study.ChapterTitle } · sentence { fmt.Sprintf("%d", study.SentenceOrdinal+1) }</p>
+			if citation := sentenceCitation(study.Citations); citation != "" {
+				<p class="sentence-study-location">{ citation }</p>
+			} else {
+				<p>{ study.ChapterTitle } · sentence { fmt.Sprintf("%d", study.SentenceOrdinal+1) }</p>
+			}
 			<p>Identified target: <strong>{ sentenceStudyTarget(study) }</strong></p>
 			if sentenceStudySyntaxUnavailable(study) {
 				<p class="sentence-study-note" id="sentence-study-syntax-unavailable">Syntax unavailable for this analysis. The sentence and its morphology are shown; relation and head are not available.</p>
@@ -806,11 +816,14 @@ func concordanceResultRange(result domain.ConcordanceResult) string {
 	return fmt.Sprintf("Results %d–%d", start, start+len(result.Occurrences)-1)
 }
 
-func concordanceLocation(occurrence domain.ConcordanceResultOccurrence) string {
-	if occurrence.ChapterTitle != "" {
-		return occurrence.ChapterTitle
+// sentenceCitation is the one rendering of a classical sentence's Citation, used
+// wherever a location is shown. A modern-language sentence stores none, so the
+// result is empty and its surface keeps its own location.
+func sentenceCitation(citations []string) string {
+	if len(citations) == 0 {
+		return ""
 	}
-	return "sentence " + fmt.Sprintf("%d", occurrence.SentenceOrdinal+1)
+	return classical.FormatCitationRange(citations)
 }
 
 func concordanceDecisionLabel(occurrence domain.ConcordanceResultOccurrence) string {

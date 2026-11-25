@@ -34,6 +34,7 @@ func main() {
 	authService := auth.New(authStore, auth.DefaultSessionLifetime)
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
+	store.SeedWithdrawnClassicalBooks()
 	classicalCatalog, err := fixtures.NewClassicalCatalog()
 	if err != nil {
 		log.Fatalf("initialize fixture Classical catalog: %v", err)

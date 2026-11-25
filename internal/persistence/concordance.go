@@ -302,7 +302,7 @@ func projectConcordanceOccurrences(rows []sqlcgen.ListVocabularyConcordanceRow, 
 				row.UnitEndOffset, row.BookStartOffset, row.BookEndOffset,
 				row.BookID, row.BookTitle, row.SourceMaterialID, row.AnalysisRunID,
 				row.CorpusID, row.UnitID, row.ChapterTitle, row.UnitOrder,
-				row.SentenceOrdinal, row.TokenOrdinal,
+				row.SentenceOrdinal, row.TokenOrdinal, row.SentenceCitations,
 			),
 			RawLemma: row.RawLemma, EffectiveLemma: row.EffectiveLemma,
 			Corrected: row.Corrected, Excluded: row.Excluded,
@@ -373,7 +373,7 @@ func (s *PostgresStore) GetVocabularySentenceStudy(ctx context.Context, owner, b
 	}
 	first := rows[0]
 	study := domain.SentenceStudy{AnalysisRunID: run, BookID: first.BookID, BookTitle: first.BookTitle,
-		ChapterTitle: first.ChapterTitle, SentenceText: first.SentenceText,
+		ChapterTitle: first.ChapterTitle, Citations: first.SentenceCitations, SentenceText: first.SentenceText,
 		UnitText:            first.UnitText,
 		SentenceStartOffset: first.SentenceStartOffset,
 		SentenceEndOffset:   first.SentenceEndOffset,
@@ -468,7 +468,7 @@ func concordanceOccurrenceFromFields(
 	sentenceStartOffset, sentenceEndOffset, unitStartOffset, unitEndOffset,
 	bookStartOffset, bookEndOffset int64,
 	bookID, bookTitle, sourceMaterialID, analysisRunID, corpusID, unitID, chapterTitle string,
-	unitOrder, sentenceOrdinal, tokenOrdinal int64,
+	unitOrder, sentenceOrdinal, tokenOrdinal int64, citations []string,
 ) domain.ConcordanceOccurrence {
 	return domain.ConcordanceOccurrence{
 		Surface: surface, CanonicalLemma: canonicalLemma, UPOS: upos, Headword: headword,
@@ -480,7 +480,7 @@ func concordanceOccurrenceFromFields(
 		BookID: bookID, BookTitle: bookTitle, SourceMaterialID: sourceMaterialID,
 		AnalysisRunID: analysisRunID, CorpusID: corpusID, UnitID: unitID,
 		ChapterTitle: chapterTitle, UnitOrder: unitOrder, SentenceOrdinal: sentenceOrdinal,
-		TokenOrdinal: tokenOrdinal,
+		TokenOrdinal: tokenOrdinal, Citations: citations,
 	}
 }
 

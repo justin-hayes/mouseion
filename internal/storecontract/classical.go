@@ -28,21 +28,20 @@ const (
 )
 
 // ClassicalDefinitions is the small release every adapter reconciles for the
-// Classical Add scenarios: one Work of two constituent books and one
-// whole-work unit.
+// Classical Add scenarios: one Work with two Editions, each one whole-work
+// unit, and another whole-work unit.
 func ClassicalDefinitions() []classical.Definition {
-	one, two := 1, 2
 	return []classical.Definition{
 		classicalDefinition(ClassicalWorkKey, ClassicalWorkTitle, ClassicalWorkAuthor, ClassicalWorkGreek,
-			ClassicalUnitBook1Key, &one, 2, "1.1.1", "1.10.19", "contract-iliad-edition"),
+			ClassicalUnitBook1Key, "1.1.1", "1.10.19", "contract-iliad-edition-1"),
 		classicalDefinition(ClassicalWorkKey, ClassicalWorkTitle, ClassicalWorkAuthor, ClassicalWorkGreek,
-			ClassicalUnitBook2Key, &two, 2, "2.1.1", "2.10.19", "contract-iliad-edition"),
+			ClassicalUnitBook2Key, "2.1.1", "2.10.19", "contract-iliad-edition-2"),
 		classicalDefinition(ClassicalWholeWorkKey, ClassicalWholeWorkName, ClassicalWholeAuthor, "Ἑλληνικά",
-			ClassicalWholeUnitKey, nil, 1, "1.1.1", "1.1.10", "contract-hellenica-edition"),
+			ClassicalWholeUnitKey, "1.1.1", "1.1.10", "contract-hellenica-edition"),
 	}
 }
 
-func classicalDefinition(workKey, title, author, greekTitle, key string, book *int, books int, citationStart, citationEnd, editionKey string) classical.Definition {
+func classicalDefinition(workKey, title, author, greekTitle, key, citationStart, citationEnd, editionKey string) classical.Definition {
 	definition := classical.Definition{
 		Key:                   key,
 		WorkKey:               workKey,
@@ -52,8 +51,7 @@ func classicalDefinition(workKey, title, author, greekTitle, key string, book *i
 		EditionKey:            editionKey,
 		EditionLabel:          "Contract edition",
 		Language:              classical.Language,
-		ConstituentBook:       book,
-		ConstituentBooks:      books,
+		ConstituentBooks:      1,
 		CitationStart:         citationStart,
 		CitationEnd:           citationEnd,
 		WordCount:             100,
@@ -90,8 +88,8 @@ func classicalScenarios() []Scenario {
 			require.NotNil(t, first.ReadingUnit)
 			assert.Equal(t, ClassicalUnitBook1Key, first.ReadingUnit.ReadingUnitKey)
 			assert.Equal(t, ClassicalWorkKey, first.ReadingUnit.WorkKey)
-			assert.Equal(t, 1, first.ReadingUnit.ConstituentBook)
-			assert.Equal(t, 2, first.ReadingUnit.ConstituentBooks)
+			assert.Zero(t, first.ReadingUnit.ConstituentBook, "a whole-work unit has no constituent position")
+			assert.Equal(t, 1, first.ReadingUnit.ConstituentBooks)
 			assert.Equal(t, ClassicalWorkGreek, first.ReadingUnit.GreekTitle)
 
 			whole := requireDetail(t, h, owner, owned[ClassicalWholeUnitKey].BookID)
@@ -216,35 +214,6 @@ func classicalScenarios() []Scenario {
 			after, err := h.Store().ListKnownVocabulary(owner, Language)
 			require.NoError(t, err)
 			assert.ElementsMatch(t, before, after, "restoring as Read changes no Known vocabulary")
-		},
-	}, {
-		Name: "remove the work ends every other Book and names the skipped current Book",
-		Run: func(t *testing.T, h Harness) {
-			h.Seeds().SeedClassicalCatalog(t)
-			owner := h.Seeds().Owner()
-			report, err := h.Classical().AddClassicalReadingUnits(owner, []string{ClassicalUnitBook1Key, ClassicalUnitBook2Key})
-			require.NoError(t, err)
-			require.Len(t, report.Books, 2)
-			currentBookID := report.Books[0].BookID
-			otherBookID := report.Books[1].BookID
-			h.Seeds().SeedCurrentReading(t, owner, classical.Language, currentBookID)
-
-			removal, err := h.BookState().RemoveWorkFromMyBooks(owner, ClassicalWorkKey)
-			require.NoError(t, err)
-			assert.Equal(t, 1, removal.RemovedBooks)
-			require.NotNil(t, removal.CurrentReading, "the current Book is named in the result")
-			assert.Equal(t, currentBookID, removal.CurrentReading.ID)
-			assert.Equal(t, ClassicalWorkTitle, removal.CurrentReading.Title)
-
-			current := requireDetail(t, h, owner, currentBookID)
-			assert.Equal(t, currentBookID, current.Book.ID, "the current Book stays in My Books")
-			_, err = h.BookState().GetBookDetail(owner, otherBookID)
-			require.ErrorIs(t, err, domain.ErrNotFound, "the Work's other Book leaves My Books")
-			assert.Contains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook1Key)
-			assert.NotContains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook2Key)
-
-			_, err = h.BookState().RemoveWorkFromMyBooks(owner, "not-a-work")
-			require.ErrorIs(t, err, domain.ErrNotFound)
 		},
 	}, {
 		Name: "classical add is owner-scoped",

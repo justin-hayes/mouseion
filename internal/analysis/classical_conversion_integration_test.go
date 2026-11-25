@@ -38,12 +38,11 @@ type preUpgradeAnabasis struct {
 func preUpgradeDefinition(t *testing.T, data []byte, interpretationVersion string) classical.Definition {
 	t.Helper()
 	sum := sha256.Sum256(data)
-	book := 1
 	return classical.Definition{
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis",
 		WorkTitle: "Anabasis", WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις",
 		EditionKey: "xenophon-anabasis-marchant-1904", EditionLabel: "Marchant 1904",
-		Language: classical.Language, ConstituentBook: &book, ConstituentBooks: 7,
+		Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.",
 		Source: classical.SourcePin{
 			Layer: "oga-src-v0.2.0-text", FileName: "tlg0032.tlg006.perseus-grc2_oga020_src.conllu",

@@ -21,14 +21,14 @@ const LanguageDisplayName = "Ancient Greek"
 // SourceFormatOGACoNLLU names the single-file oga_src CoNLL-U adapter.
 const SourceFormatOGACoNLLU = "oga-conllu"
 
-// Split kinds a work override may request.
-const (
-	// SplitConstituentBooks makes one Reading unit per top-level citation
-	// number, such as one unit per Book of a work.
-	SplitConstituentBooks = "constituent-books"
-	// SplitWholeWork makes the whole pinned file one Reading unit.
-	SplitWholeWork = "whole-work"
-)
+// SplitWholeWork is the only split kind a work override may request: the whole
+// pinned file is one Reading unit (ADR 0128).
+const SplitWholeWork = "whole-work"
+
+// ContentsBooks is the work override's authority that the whole-work unit
+// records each constituent book. The generator fails when a source with
+// multiple book ranges lacks it, and when a source without them asks for it.
+const ContentsBooks = "books"
 
 // ADR 0111 licence classes and restriction kinds.
 const (
@@ -64,6 +64,16 @@ type TranslationPin struct {
 	CitationEnd   string `json:"citationEnd"`
 }
 
+// ConstituentBookSpan is one constituent book inside a whole-work Reading
+// unit: its number, citation range and word count. It is read-only catalog
+// information; a constituent book is never a Reading unit of its own.
+type ConstituentBookSpan struct {
+	Book          int    `json:"book"`
+	CitationStart string `json:"citationStart"`
+	CitationEnd   string `json:"citationEnd"`
+	WordCount     int    `json:"wordCount"`
+}
+
 // Definition is one Reading-unit definition in the generated manifest. Work
 // and Edition keys are separate from the Reading-unit Key so all Books of a
 // Work share one Work and one Edition.
@@ -76,13 +86,18 @@ type Definition struct {
 	EditionKey   string `json:"editionKey"`
 	EditionLabel string `json:"editionLabel"`
 	Language     string `json:"language"`
-	// ConstituentBook is absent for a whole-work unit and present for one
-	// constituent book.
-	ConstituentBook  *int   `json:"constituentBook,omitempty"`
+	// ConstituentBook is absent for a whole-work unit. Only a withdrawn
+	// per-book definition from before ADR 0128 still carries it.
+	ConstituentBook *int `json:"constituentBook,omitempty"`
+	// ConstituentBooks is how many books the Work's citation scheme names;
+	// it is one for a Work without books.
 	ConstituentBooks int    `json:"constituentBooks"`
 	CitationStart    string `json:"citationStart"`
 	CitationEnd      string `json:"citationEnd"`
 	WordCount        int    `json:"wordCount"`
+	// Contents lists each constituent book of a whole-work unit whose Work
+	// has more than one. It is empty otherwise.
+	Contents []ConstituentBookSpan `json:"contents,omitempty"`
 	// Opening is the first sentence that is not a speaker label, exactly as
 	// the Edition prints it. It is derived from the source pin, so changing it
 	// alone does not bump the revision. A withdrawn tombstone may omit it.
@@ -121,8 +136,6 @@ func (d Definition) Validate() error {
 		return errors.New("classical: definition constituent book count must be positive")
 	case d.ConstituentBook != nil && (*d.ConstituentBook < 1 || *d.ConstituentBook > d.ConstituentBooks):
 		return errors.New("classical: definition constituent book number is outside its Work")
-	case d.ConstituentBook == nil && d.ConstituentBooks != 1:
-		return errors.New("classical: a whole-work definition has one constituent unit")
 	case !isCitation(d.CitationStart):
 		return errors.New("classical: definition citation start is not a citation")
 	case !isCitation(d.CitationEnd):
@@ -144,10 +157,50 @@ func (d Definition) Validate() error {
 	case d.Revision < 1:
 		return errors.New("classical: definition revision must be positive")
 	}
+	if err := d.validateContents(); err != nil {
+		return err
+	}
 	if d.Translation != nil {
 		if err := d.Translation.Validate(); err != nil {
 			return err
 		}
+	}
+	if d.ConstituentBook != nil && !d.Withdrawn {
+		return errors.New("classical: only a withdrawn definition may be a constituent book")
+	}
+	return nil
+}
+
+// validateContents checks that a whole-work definition's contents list agrees
+// with its constituent-book count, range and word count.
+func (d Definition) validateContents() error {
+	if d.ConstituentBook != nil || d.ConstituentBooks == 1 {
+		if len(d.Contents) > 0 {
+			return errors.New("classical: only a whole-work definition of a multi-book Work lists contents")
+		}
+		return nil
+	}
+	if len(d.Contents) != d.ConstituentBooks {
+		return errors.New("classical: a whole-work definition lists one content entry per constituent book")
+	}
+	words, previousBook := 0, 0
+	for _, book := range d.Contents {
+		switch {
+		case book.Book <= previousBook:
+			return errors.New("classical: definition contents must ascend by book number")
+		case !isCitation(book.CitationStart) || !isCitation(book.CitationEnd):
+			return errors.New("classical: definition contents citation is not a citation")
+		case book.WordCount <= 0:
+			return errors.New("classical: definition contents word count must be positive")
+		}
+		previousBook = book.Book
+		words += book.WordCount
+	}
+	switch {
+	case d.Contents[0].CitationStart != d.CitationStart || d.Contents[len(d.Contents)-1].CitationEnd != d.CitationEnd:
+		return errors.New("classical: definition contents must cover the definition citation range")
+	case words != d.WordCount:
+		return errors.New("classical: definition contents word counts must sum to the definition word count")
 	}
 	return nil
 }
@@ -367,10 +420,8 @@ type TranslationSpec struct {
 	FileName string `json:"fileName"`
 }
 
-// UnitSpec is one explicitly reviewed Reading-unit range. Book is zero for a
-// whole-work unit.
+// UnitSpec is the explicitly reviewed range of a whole-work Reading unit.
 type UnitSpec struct {
-	Book          int    `json:"book"`
 	CitationStart string `json:"citationStart"`
 	CitationEnd   string `json:"citationEnd"`
 }
@@ -389,9 +440,11 @@ type Override struct {
 	Source       *SourceSpec      `json:"source,omitempty"`
 	Translation  *TranslationSpec `json:"translation,omitempty"`
 	Split        string           `json:"split,omitempty"`
-	Books        []int            `json:"books,omitempty"`
-	Units        []UnitSpec       `json:"units,omitempty"`
-	Revision     *int             `json:"revision,omitempty"`
+	// ContentsBooks is the authority that the whole-work unit records its
+	// constituent books; the source must have a multi-book citation scheme.
+	Contents string     `json:"contents,omitempty"`
+	Units    []UnitSpec `json:"units,omitempty"`
+	Revision *int       `json:"revision,omitempty"`
 }
 
 // IsWork reports whether the override applies to a Work.
@@ -416,7 +469,7 @@ func (o Override) Validate() error {
 // validateUnit restricts a unit override to curatorial fields, a note and a
 // revision.
 func (o Override) validateUnit() error {
-	if o.Source != nil || o.Translation != nil || o.Split != "" || o.Books != nil || o.Units != nil || o.EditionKey != "" {
+	if o.Source != nil || o.Translation != nil || o.Split != "" || o.Contents != "" || o.Units != nil || o.EditionKey != "" {
 		return fmt.Errorf("classical: unit override %q may only change curatorial fields, a note or a revision", o.Key)
 	}
 	return nil
@@ -430,10 +483,16 @@ func (o Override) validateWork() error {
 	if o.Source.Layer == "" || o.Source.FileName == "" || o.Source.Format == "" {
 		return fmt.Errorf("classical: work override %q has an incomplete source", o.WorkKey)
 	}
-	switch o.Split {
-	case SplitConstituentBooks, SplitWholeWork:
-	default:
+	if o.Split != SplitWholeWork {
 		return fmt.Errorf("classical: work override %q has unknown split %q", o.WorkKey, o.Split)
+	}
+	switch {
+	case o.Contents != "" && o.Contents != ContentsBooks:
+		return fmt.Errorf("classical: work override %q has unknown contents %q", o.WorkKey, o.Contents)
+	case o.Contents != "" && len(o.Units) > 0:
+		return fmt.Errorf("classical: work override %q cannot list book contents for a hand-reviewed range", o.WorkKey)
+	case len(o.Units) > 1:
+		return fmt.Errorf("classical: whole-work override %q needs one unit", o.WorkKey)
 	}
 	if o.Translation != nil && (o.Translation.Layer == "" || o.Translation.FileName == "") {
 		return fmt.Errorf("classical: work override %q has an incomplete translation", o.WorkKey)
@@ -441,11 +500,8 @@ func (o Override) validateWork() error {
 	if o.EditionKey == "" {
 		return fmt.Errorf("classical: work override %q needs an Edition key", o.WorkKey)
 	}
-	if o.Split == SplitWholeWork && len(o.Books) > 0 {
-		return fmt.Errorf("classical: whole-work override %q cannot select books", o.WorkKey)
-	}
 	for _, unit := range o.Units {
-		if unit.Book < 0 || !isCitation(unit.CitationStart) || !isCitation(unit.CitationEnd) {
+		if !isCitation(unit.CitationStart) || !isCitation(unit.CitationEnd) {
 			return fmt.Errorf("classical: work override %q has an invalid unit range", o.WorkKey)
 		}
 	}

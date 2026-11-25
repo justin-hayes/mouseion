@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"html"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -46,15 +47,13 @@ import (
 // in-process River workers, with no NLP service configured.
 //
 // Scenario map (spec #2401, Testing Decisions). The loop directly covers the
-// main path of scenarios 1, 2, 5, 6, 7, 9, 10, 11, 13 and 14 and the grouped
-// surfaces of 3 and 8. Detailed slice coverage stays in these tests, which
+// main path of scenarios 1, 2, 5, 6, 7, 9, 10, 11, 13 and 14 and the ordinary
+// surfaces of 3 and 8. TestClassicalWholeWorkBookLoop follows a multi-book
+// Work added whole. Detailed slice coverage stays in these tests, which
 // this loop references rather than duplicates:
 //
 //   - scenario 3 search and compact markup:
-//     TestMyBooksWorkSearchMatchesAuthorEnglishAndGreekTitlesAndNarrowsByBook
-//   - scenario 4 history and mixed-state bulk moves:
-//     TestMyBooksWorkToReadSkipsReadingHistoryAndTheCurrentBook,
-//     TestMyBooksWorkToReadMovesTheRestAroundTheCurrentBook
+//     TestMyBooksSearchMatchesAuthorEnglishAndGreekTitlesButNotATrailingBookNumber
 //   - scenario 5 terminal failures and newer-revision retry:
 //     classical_preparation_failure_integration_test.go
 //   - scenario 7 failed translation import: TestClassicalTranslationFailureLeavesBookAnalyzed
@@ -86,7 +85,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	for _, want := range []string{
 		"Classical catalog", "Synthetic Author", "Synthetic Work", "Synthetic Whole",
 		"English translation available", "English translation not available",
-		`action="/catalogs/classical/works/synthetic-whole/add"`,
+		`action="/catalogs/classical/units/synthetic-whole-1/add"`,
 	} {
 		assert.Contains(t, index.Body.String(), want, "catalog index missing %q", want)
 	}
@@ -96,18 +95,15 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	work := perform(t, h.handler, http.MethodGet, "/catalogs/classical/works/synthetic-work", nil, cookies)
 	require.Equal(t, http.StatusOK, work.Code, work.Body.String())
 	for _, want := range []string{
-		"Book 1", "Book 2", `action="/catalogs/classical/works/synthetic-work/add"`,
-		`action="/catalogs/classical/units/synthetic-work-1/add"`,
+		"Add and prepare the work", `action="/catalogs/classical/units/synthetic-work-1/add"`,
 	} {
 		assert.Contains(t, work.Body.String(), want, "work page missing %q", want)
 	}
 
-	// 2. Add a whole Work. Every current Reading unit becomes a To Read Book and
-	// one preparation is queued in constituent-book order. The whole-work unit
-	// from the index is added separately.
-	added := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
-	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 2 Books to My Books. Downloading and preparing the text."))
+	// 2. Add the two reviewed legacy fixture units individually. Each becomes
+	// a To Read Book and queues one preparation. Then add a whole-work unit
+	// from the index.
+	addClassicalTestUnits(t, h.handler, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	owned := h.booksByUnit(t, learner.ID)
 	require.Len(t, owned, 2)
 	bookOne, bookTwo := owned[h.unitOneKey], owned[h.unitTwoKey]
@@ -124,7 +120,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.Zero(t, h.sourceServed(), "the worker, not Add, downloads the source")
 	assert.Zero(t, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE queue='analysis'`), "classical preparation never delays EPUB analysis")
 
-	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-whole/add", url.Values{
+	whole := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/synthetic-whole-1/add", url.Values{
 		"csrf_token": {csrf}, "return": {"index"},
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, whole.Code, whole.Body.String())
@@ -144,40 +140,38 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	assert.NotContains(t, library.Body.String(), "Book 1 of 1")
 
 	// Re-add is idempotent and keeps one live job per Book.
-	again := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, again.Code, again.Body.String())
-	assert.Contains(t, again.Header().Get("Location"), url.QueryEscape("Opened 2 existing Books. Downloading and preparing the text."))
+	addClassicalTestUnits(t, h.handler, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	afterReAdd := h.booksByUnit(t, learner.ID)
 	assert.Equal(t, bookOne, afterReAdd[h.unitOneKey])
 	assert.Equal(t, bookTwo, afterReAdd[h.unitTwoKey])
 	assert.Equal(t, wholeBook, afterReAdd[h.wholeUnitKey])
 	assert.Equal(t, 3, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue), "ensure-once keeps one live job per Book")
 
-	// 3. My Books groups the reviewed work: identity, one badge, counts, strip,
-	// one legend, Book-counting filters.
+	// 3. My Books lists every Book as an ordinary row with its own identity,
+	// badge and Book-counting filters.
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
-	grouped := library.Body.String()
+	ordinary := library.Body.String()
 	for _, want := range []string{
-		"Synthetic Work", "By Synthetic Author", "Συνθετικὸν ἔργον", "all 2 books", "Classical catalog",
-		"To Read", `aria-label="Synthetic Work, Book 1 of 2, To Read"`,
-		`aria-label="Synthetic Work, Book 2 of 2, To Read"`,
-		"To Read (3)",
+		"Synthetic Work", "Synthetic Edition", "Second Synthetic Edition",
+		"By Synthetic Author", "Συνθετικὸν ἔργον", "Classical catalog", "To Read", "To Read (3)",
 	} {
-		assert.Contains(t, grouped, want, "grouped Work row missing %q", want)
+		require.Contains(t, ordinary, want, "ordinary row missing %q", want)
 	}
 	for _, id := range []string{bookOne, bookTwo} {
-		assert.Contains(t, grouped, `href="/reading#reading-chooser-book-`+id+`"`, "a To Read cell opens the chooser")
+		assert.Contains(t, ordinary, `id="book-row-`+id+`"`, "each Book is its own row")
+		assert.Contains(t, ordinary, "/library/books/"+id+"/remove")
 	}
-	assert.Equal(t, 1, strings.Count(grouped, `class="library-work-legend"`), "one legend per page")
-	assert.Contains(t, grouped, "3 Books in 2 works")
+	for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work", "Book 1 of"} {
+		assert.NotContains(t, ordinary, retired)
+	}
 
 	// 4. The Add's queued preparation first meets a fetch failure, then
 	// recovers through the Reading retry route.
 	h.layer.failSource.Store(true)
 	queuedPage := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, queuedPage.Code, queuedPage.Body.String())
-	assert.Contains(t, queuedPage.Body.String(), "Preparing Books 1–2…", "a grouped Work collapses queued Books into one line")
+	assert.Equal(t, 3, strings.Count(queuedPage.Body.String(), classicalAnalysisIncompleteLabel), "each queued Book states its own preparation")
 	assert.NotContains(t, queuedPage.Body.String(), classicalRetryAcquisitionLabel)
 
 	h.startWorkers(t)
@@ -230,12 +224,16 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	chooserBody := chooser.Body.String()
 	for _, want := range []string{
-		"Synthetic Work", "Synthetic Author", "Συνθετικὸν ἔργον", "2 To Read Books, 2 assessed",
-		"Known coverage", "Book 1 of 2", "Book 2 of 2",
-		`href="#reading-chooser-book-` + bookOne + `"`,
-		`href="#reading-chooser-book-` + bookTwo + `"`,
+		"Synthetic Work", "Synthetic Author", "Known vocabulary coverage",
+		`id="reading-chooser-book-` + bookOne + `"`,
+		`id="reading-chooser-book-` + bookTwo + `"`,
+		`action="/reading/books/` + bookOne + `/start"`,
+		`action="/reading/books/` + bookTwo + `/start"`,
 	} {
-		assert.Contains(t, chooserBody, want, "grouped chooser missing %q", want)
+		assert.Contains(t, chooserBody, want, "chooser missing %q", want)
+	}
+	for _, gone := range []string{"To Read Books, ", "Book 1 of", "Book 2 of", "reading-chooser-work__"} {
+		assert.NotContains(t, chooserBody, gone, "the chooser has no grouped Work entry")
 	}
 	assert.Contains(t, chooserBody, "Choose a To Read book when you are ready.")
 
@@ -248,7 +246,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, bookOne, firstReading.BookID)
 	readingPage := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingPage.Code)
-	assert.Contains(t, readingPage.Body.String(), "Book 1 of 2", "Reading shows the reviewed position")
+	assert.NotContains(t, readingPage.Body.String(), "Book 1 of", "Reading shows no Book N of M line")
 
 	prepared := perform(t, h.handler, http.MethodPost, "/reading/books/"+bookOne+"/deck/retry", url.Values{
 		"csrf_token": {csrf}, "expected_current_snapshot_id": {firstReading.SnapshotID},
@@ -283,27 +281,27 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, switchedBack.Code, switchedBack.Body.String())
 
-	// 8. An Analysis update is offered once per work. The current Book is named
-	// and skipped; the other Book updates and keeps the published evidence
-	// until its own update publishes.
+	// 8. My Books offers each Book its own Analysis update. The current Book is
+	// asked to end the Reading first; the other Book updates and keeps the
+	// published evidence until its own update publishes.
 	// A translation-pin revision is content-bearing for the definition but not
 	// for the Analysis update, so it offers nothing.
 	_, err = h.pool.Exec(h.ctx, `UPDATE reading_units
 		SET translation_citation_end='1.2.18', revision=revision+1 WHERE definition_key=$1`, h.unitOneKey)
 	require.NoError(t, err)
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
-	assert.NotContains(t, library.Body.String(), "A newer analysis is available for")
+	assert.NotContains(t, library.Body.String(), analysisUpdateNotice)
 
 	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.unitOneKey, h.unitTwoKey)
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	updateBody := library.Body.String()
 	for _, want := range []string{
-		"A newer analysis is available for 1 book shown here.", "Book 1: End the Reading first",
-		"Update 1 book of Synthetic Work", `action="/library/works/synthetic-work/analysis-update"`,
+		analysisUpdateNotice, html.EscapeString(analysisUpdateEndReadingFirst), `action="` + readingAnalysisUpdateURL(bookTwo) + `"`,
 	} {
 		assert.Contains(t, updateBody, want, "update offer missing %q", want)
 	}
+	assert.NotContains(t, updateBody, `action="`+readingAnalysisUpdateURL(bookOne)+`"`, "the current Book is never queued")
 	oneRun := preparedRunID(t, h.pool, learner.ID, bookOne)
 	twoRun := preparedRunID(t, h.pool, learner.ID, bookTwo)
 
@@ -313,17 +311,15 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 		fixture: classicalPreparationFixture{unitOneKey: h.unitOneKey, unitTwoKey: h.unitTwoKey},
 		firstID: bookOne, secondID: bookTwo,
 	}
-	form := workAnalysisUpdateForm(t, update, h.detail(t, learner.ID, bookTwo))
-	require.Len(t, form["book_id"], 1)
-	submitted := perform(t, h.handler, http.MethodPost, "/library/works/synthetic-work/analysis-update", form, cookies)
+	submitted := submitBookAnalysisUpdate(t, update, h.detail(t, learner.ID, bookTwo))
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
-	assert.Contains(t, submitted.Header().Get("Location"), url.QueryEscape("Queued analysis updates for 1 book."))
+	assert.Contains(t, submitted.Header().Get("Location"), url.QueryEscape("Analysis update for"))
 
 	h.waitForInterpretation(t, learner.ID, "oga-agdt-upos/6", 1)
 	assert.Equal(t, oneRun, preparedRunID(t, h.pool, learner.ID, bookOne), "the current Book keeps its published analysis")
 	assert.NotEqual(t, twoRun, preparedRunID(t, h.pool, learner.ID, bookTwo), "the eligible Book publishes its update")
 	library = perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
-	assert.Contains(t, library.Body.String(), "Book 1: End the Reading first")
+	assert.Contains(t, library.Body.String(), html.EscapeString(analysisUpdateEndReadingFirst))
 	assert.Equal(t, deckEvidence, h.deckEvidence(t, learner.ID, deck.ID), "a skipped current Book's deck is untouched")
 	assert.Equal(t, secondDeckEvidence, h.deckEvidence(t, learner.ID, deckTwo.ID), "an Analysis update never rewrites the updated Book's frozen deck")
 
@@ -370,8 +366,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	// no translation is fetched again.
 	other := createAccount(t, h.ctx, h.store, "classical-loop-other", "learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h.handler, other.Username, "learner-password")
-	otherAdd := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
-	require.Equal(t, http.StatusSeeOther, otherAdd.Code, otherAdd.Body.String())
+	addClassicalTestUnits(t, h.handler, otherCookies, otherCSRF, "synthetic-work-1", "synthetic-work-2")
 	otherOwned := h.booksByUnit(t, other.ID)
 	require.Len(t, otherOwned, 2)
 	h.waitForBookAnalysis(t, other.ID, otherOwned[h.unitOneKey])
@@ -445,7 +440,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, blocked.Code, blocked.Body.String())
 	assert.Contains(t, blocked.Body.String(), classical.LegacyRowsCode)
 	assert.Contains(t, blocked.Body.String(), "Add is unavailable")
-	refused := perform(t, h.handler, http.MethodPost, "/catalogs/classical/works/replacement-work/add", url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
+	refused := perform(t, h.handler, http.MethodPost, "/catalogs/classical/units/replacement-work-1/add", url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
 	require.Equal(t, http.StatusSeeOther, refused.Code)
 	assert.Contains(t, refused.Header().Get("Location"), url.QueryEscape(classical.LegacyRowsCode))
 	connection := perform(t, h.handler, http.MethodPost, "/connections", url.Values{
@@ -504,6 +499,10 @@ func (l *classicalLoopLayer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+// loopTreatiseKey is the Work and whole-work unit key of the multi-book
+// fixture Work used by the whole-Work loop.
+const loopTreatiseKey = "synthetic-treatise"
 
 // classicalLoopSeed is the pre-upgrade Anabasis state conversion must handle.
 type classicalLoopSeed struct {
@@ -588,20 +587,20 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	anabasis := classical.Definition{
 		Key: "xenophon-anabasis-1", WorkKey: "xenophon-anabasis", WorkTitle: "Anabasis",
 		WorkAuthor: "Xenophon", GreekTitle: "Ἀνάβασις", EditionKey: "xenophon-anabasis-marchant-1904",
-		EditionLabel: "Marchant 1904", Language: classical.Language, ConstituentBook: &one, ConstituentBooks: 7,
+		EditionLabel: "Marchant 1904", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 7, Opening: "ἄρχεται ὁ λόγος.", Source: anabasisPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	firstUnit := classical.Definition{
 		Key: "synthetic-work-1", WorkKey: "synthetic-work", WorkTitle: "Synthetic Work",
 		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν ἔργον", EditionKey: "synthetic-work-edition",
-		EditionLabel: "Synthetic Edition", Language: classical.Language, ConstituentBook: &one, ConstituentBooks: 2,
+		EditionLabel: "Synthetic Edition", Language: classical.Language, ConstituentBooks: 1,
 		CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16, Opening: "ἄρχεται ὁ λόγος.", Source: pin, Translation: translationPin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 	secondUnit := firstUnit
 	secondUnit.Key = "synthetic-work-2"
-	secondUnit.ConstituentBook = &two
+	secondUnit.EditionKey, secondUnit.EditionLabel = "synthetic-work-second-edition", "Second Synthetic Edition"
 	secondUnit.CitationStart = "1.1.4"
 	secondUnit.CitationEnd = "1.1.6"
 	secondUnit.WordCount = 16
@@ -612,7 +611,29 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
 		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
-	definitions := []classical.Definition{anabasis, firstUnit, secondUnit, wholeUnit}
+	// A multi-book Work is one whole-work unit with a contents list; its
+	// per-book definitions from before ADR 0128 survive only as tombstones.
+	treatise := classical.Definition{
+		Key: loopTreatiseKey, WorkKey: loopTreatiseKey, WorkTitle: "Synthetic Treatise",
+		WorkAuthor: "Synthetic Author", GreekTitle: "Συνθετικὸν σύγγραμμα", EditionKey: "synthetic-treatise-edition",
+		EditionLabel: "Synthetic Treatise Edition", Language: classical.Language, ConstituentBooks: 2,
+		CitationStart: "1.1.1", CitationEnd: "1.1.6", WordCount: 32, Opening: "ἄρχεται ὁ λόγος.", Source: pin,
+		InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
+		Contents: []classical.ConstituentBookSpan{
+			{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.1.3", WordCount: 16},
+			{Book: 2, CitationStart: "1.1.4", CitationEnd: "1.1.6", WordCount: 16},
+		},
+	}
+	treatiseBookOne, treatiseBookTwo := treatise, treatise
+	treatiseBookOne.Key, treatiseBookTwo.Key = loopTreatiseKey+"-1", loopTreatiseKey+"-2"
+	treatiseBookOne.ConstituentBook, treatiseBookTwo.ConstituentBook = &one, &two
+	treatiseBookOne.Contents, treatiseBookTwo.Contents = nil, nil
+	for i, tombstone := range []*classical.Definition{&treatiseBookOne, &treatiseBookTwo} {
+		span := treatise.Contents[i]
+		tombstone.CitationStart, tombstone.CitationEnd, tombstone.WordCount = span.CitationStart, span.CitationEnd, span.WordCount
+	}
+	treatiseBookOne.Withdrawn, treatiseBookTwo.Withdrawn = true, true
+	definitions := []classical.Definition{anabasis, firstUnit, secondUnit, wholeUnit, treatise, treatiseBookOne, treatiseBookTwo}
 
 	seed := seedLoopPreUpgradeAnabasis(t, ctx, store, pool, anabasis)
 	manifest, err := classical.RenderDefinitions(definitions)

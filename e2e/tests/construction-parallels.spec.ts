@@ -10,7 +10,7 @@ async function signInToGreek(page: Page) {
   await page.getByRole('button', { name: /sign in|log in/i }).click();
   await expect(page).toHaveURL(/\/library/);
   await page.goto('/catalogs/classical/works/fixture-iliad');
-  const add = page.getByRole('button', { name: 'Add and prepare the whole work', exact: true });
+  const add = page.getByRole('button', { name: 'Add and prepare the work', exact: true });
   if (await add.isVisible().catch(() => false)) await add.click();
   await page.goto('/library');
   await page.getByLabel('Study language').selectOption('grc');

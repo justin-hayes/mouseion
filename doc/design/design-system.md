@@ -333,27 +333,14 @@ Use when peer content and actions no longer fit comfortably side by side.
 My Books uses one semantic unordered list at every width. Each Book follows the
 [`AnnotatedBookRow`](components.md#annotatedbookrow) pattern: a small reserved
 cover, full title and author in a text column, contextual actions beneath that
-identity, and canonical bucket status in a visibly edged right margin. A Work
-with more than one owned Book in the active language is one grouped row with
-Work identity, one leading bucket badge, counts, work-level bulk actions, and a
-wrapping strip of 44px Book cells whose three distinct shapes distinguish the
-buckets. The current Book's cell opens the current-reading card, and a To Read
-Book's cell opens that Book's inline chooser candidate on Reading or the Switch
-page; Read cells are status-only, because Reading has
-no entry to select, while keeping their 44px cell and accessible label but not
-a link target. A filtered row keeps only its matching cells.
-Bulk To Read skips the current Book and moves the work's remaining Books in book
-order. A grouped row carries one Analysis
-update notice and bulk action over the whole Work: the current Reading's Book is
-named and skipped, and one native disclosure confirmation states the Work's
-totals and only the per-Book losses that exist. Preparing Books collapse into
-one line while each problem Book keeps its own note and recovery. A single-Book
-Work stays an ordinary row with its reviewed position and the ordinary per-Book
-notice. Reading's
+identity, and canonical bucket status in a visibly edged right margin. A classical
+Book is an ordinary row with its Work title, Edition label and position, and two
+Editions of one Work are two rows. Each Book carries the ordinary per-Book
+Analysis update notice and its own preparation notes with recovery. Reading's
 between-Books candidate list reuses that cover/identity/margin composition while the section
 provides bucket context and the margin carries coverage or its recovery state.
-On compact screens the cover stays beside title and author, then the margin note,
-actions, and grouped Book strip follow below the text column. Rows separate
+On compact screens the cover stays beside title and author, then the margin note
+and actions follow below the text column. Rows separate
 through whitespace and the margin edge rather than boxes or heavy rules. Neither
 list introduces horizontal page scrolling or an ARIA-grid keyboard model.
 
@@ -426,9 +413,10 @@ overflow.
   Work's Opening is set whole in the reading typeface at the page-title size on
   wide screens and the section-title size on compact screens. Its length strip
   shares one page-wide word scale and is hidden from assistive technology,
-  because the caption, books table and ownership line state the same facts.
-  Edition, passage, translation, ownership and Add sit in a margin note, and
-  **Choose books** is a native disclosure. Add creates or restores the Book as
+  because the caption and ownership line state the same facts.
+  Edition, passage, translation, ownership and Add sit in a margin note; the
+  work page adds one I've read this per Edition and a read-only contents list.
+  Add creates or restores the Book as
   To Read and starts downloading and preparing the text; its control and
   confirmation say so. The author-detail page is retired: its URL permanently
   redirects to that author's index section. The index uses existing tokens and
@@ -500,11 +488,10 @@ progress, focused deck preparation, Vocabulary Browse/selection/Concordance/
 sentence study, occurrence-level lemma review, and Custom decks. `/journey` is
 only a compatibility redirect and is not an adopted screen. Reading presents
 the current Book as a title-page identity with its “Reading since” date,
-reviewed Work position when it is a constituent Book, and lifecycle actions;
+and lifecycle actions;
 preparation and vocabulary evidence annotate it in a narrow margin. The
-between-Books chooser lists unordered candidates in neutral title order, groups a
-Work's multiple To Read Books into one entry whose band table names constituent
-Book numbers, and asks for explicit start/switch confirmation. The completion
+between-Books chooser lists unordered candidates in neutral title order, lists
+one ordinary entry per Book, and asks for explicit start/switch confirmation. The completion
 receipt reports exact modeled vocabulary changes and returns to that neutral
 chooser.
 

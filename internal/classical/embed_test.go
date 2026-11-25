@@ -1,6 +1,7 @@
 package classical_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -9,26 +10,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEmbeddedManifestCarriesTheAnabasisPilot(t *testing.T) {
+func TestEmbeddedManifestCarriesTheAnabasisAsOneWholeWorkUnit(t *testing.T) {
 	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
 	require.NoError(t, err)
 	byKey := map[string]classical.Definition{}
 	for _, definition := range definitions {
 		byKey[definition.Key] = definition
 	}
-	definition, ok := byKey["xenophon-anabasis-1"]
+	definition, ok := byKey["xenophon-anabasis"]
 	require.True(t, ok)
 	assert.Equal(t, "xenophon-anabasis", definition.WorkKey)
 	assert.Equal(t, "xenophon-anabasis-marchant-1904", definition.EditionKey)
 	assert.Equal(t, "Anabasis", definition.WorkTitle)
 	assert.Equal(t, "Xenophon", definition.WorkAuthor)
 	assert.Equal(t, "grc", definition.Language)
-	require.NotNil(t, definition.ConstituentBook)
-	assert.Equal(t, 1, *definition.ConstituentBook)
+	assert.Nil(t, definition.ConstituentBook, "the Anabasis is one whole-work unit")
 	assert.Equal(t, 7, definition.ConstituentBooks)
 	assert.Equal(t, "1.1.1", definition.CitationStart)
-	assert.Equal(t, "1.10.19", definition.CitationEnd)
-	assert.Positive(t, definition.WordCount)
+	assert.Equal(t, "7.8.24", definition.CitationEnd)
+	assert.Equal(t, 56862, definition.WordCount)
+	require.Len(t, definition.Contents, 7)
+	assert.Equal(t, classical.ConstituentBookSpan{Book: 1, CitationStart: "1.1.1", CitationEnd: "1.10.19", WordCount: 9305}, definition.Contents[0])
+	assert.Equal(t, classical.ConstituentBookSpan{Book: 7, CitationStart: "7.1.2", CitationEnd: "7.8.24", WordCount: 10915}, definition.Contents[6])
 	assert.Equal(t, "Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο, πρεσβύτερος μὲν Ἀρταξέρξης, νεώτερος δὲ Κῦρος·", definition.Opening)
 	assert.False(t, definition.Withdrawn)
 
@@ -41,21 +44,50 @@ func TestEmbeddedManifestCarriesTheAnabasisPilot(t *testing.T) {
 	assert.Equal(t, "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7", definition.Translation.SHA256)
 	assert.Equal(t, "tlg0032.tlg006.perseus-eng2.xml", definition.Translation.FileName)
 	assert.Equal(t, "1.1.1", definition.Translation.CitationStart)
-	assert.Equal(t, "1.10.19", definition.Translation.CitationEnd)
+	assert.Equal(t, "7.8.24", definition.Translation.CitationEnd)
+
+	for book := 1; book <= 7; book++ {
+		perBook, ok := byKey[fmt.Sprintf("xenophon-anabasis-%d", book)]
+		require.True(t, ok, "the per-book definition stays as a tombstone")
+		assert.True(t, perBook.Withdrawn)
+	}
+}
+
+func TestEmbeddedRepublicIsOneWholeWorkUnitOfTenBooks(t *testing.T) {
+	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
+	require.NoError(t, err)
+	byKey := map[string]classical.Definition{}
+	for _, definition := range definitions {
+		byKey[definition.Key] = definition
+	}
+	definition := byKey["plato-republic"]
+	assert.Nil(t, definition.ConstituentBook)
+	assert.Equal(t, 10, definition.ConstituentBooks)
+	assert.Len(t, definition.Contents, 10)
+	assert.Equal(t, 89148, definition.WordCount)
+	assert.Equal(t, "1.327", definition.CitationStart)
+	assert.Equal(t, "10.621", definition.CitationEnd)
+	assert.False(t, definition.Withdrawn)
+	for book := 1; book <= 10; book++ {
+		assert.True(t, byKey[fmt.Sprintf("plato-republic-%d", book)].Withdrawn)
+	}
 }
 
 func TestEveryEmbeddedDefinitionCarriesItsOpening(t *testing.T) {
 	definitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
 	require.NoError(t, err)
 	expected := map[string]string{
-		"plato-apology":       "ὅτι μὲν ὑμεῖς, ὦ ἄνδρες Ἀθηναῖοι, πεπόνθατε ὑπὸ τῶν ἐμῶν κατηγόρων, οὐκ οἶδα·",
-		"plato-crito":         "τί τηνικάδε ἀφῖξαι, ὦ Κρίτων;",
-		"plato-symposium":     "δοκῶ μοι περὶ ὧν πυνθάνεσθε οὐκ ἀμελέτητος εἶναι.",
-		"plato-republic-8":    "εἶεν·",
-		"xenophon-anabasis-2": "ἅμα δὲ τῇ ἡμέρᾳ συνελθόντες οἱ στρατηγοὶ ἐθαύμαζον ὅτι Κῦρος οὔ τε ἄλλον πέμπει σημανοῦντα ὅ τι χρὴ ποιεῖν οὔ τε αὐτὸς φαίνοιτο.",
+		"plato-apology":     "ὅτι μὲν ὑμεῖς, ὦ ἄνδρες Ἀθηναῖοι, πεπόνθατε ὑπὸ τῶν ἐμῶν κατηγόρων, οὐκ οἶδα·",
+		"plato-crito":       "τί τηνικάδε ἀφῖξαι, ὦ Κρίτων;",
+		"plato-symposium":   "δοκῶ μοι περὶ ὧν πυνθάνεσθε οὐκ ἀμελέτητος εἶναι.",
+		"plato-republic":    "κατέβην χθὲς εἰς Πειραιᾶ μετὰ Γλαύκωνος τοῦ Ἀρίστωνος προσευξόμενός τε τῇ θεῷ καὶ ἅμα τὴν ἑορτὴν βουλόμενος θεάσασθαι τίνα τρόπον ποιήσουσιν ἅτε νῦν πρῶτον ἄγοντες.",
+		"xenophon-anabasis": "Δαρείου καὶ Παρυσάτιδος γίγνονται παῖδες δύο, πρεσβύτερος μὲν Ἀρταξέρξης, νεώτερος δὲ Κῦρος·",
 	}
-	require.Len(t, definitions, 22)
+	require.Len(t, definitions, 24, "22 definitions plus the two whole-work units; the per-book ones are tombstones")
 	for _, definition := range definitions {
+		if definition.Withdrawn {
+			continue
+		}
 		assert.NotEmpty(t, definition.Opening, definition.Key)
 		if want, ok := expected[definition.Key]; ok {
 			assert.Equal(t, want, definition.Opening, definition.Key)

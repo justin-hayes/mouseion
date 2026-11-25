@@ -94,13 +94,10 @@ instead of adding Books.
 
 **Reading** at `/reading` owns the current Book for the active study language or,
 between Books, an unordered chooser of To Read candidates in neutral title order.
-A Work with more than one To Read Book is one entry with a band table of
-constituent Book numbers; each number opens that Book's ordinary candidate entry
-inline. While a Book is current, the same page hosts its full vocabulary Browse
+Every To Read Book is its own entry. While a Book is current, the same page hosts its full vocabulary Browse
 (the working desk); other To Read candidates are not listed. Coverage bands label
-current evidence and do not rank candidates or predict outcomes. A constituent
-Book's "Book N of M" position is a plain fact from the reviewed definition; a
-whole-work unit shows none and nothing points to a next Book. Starting freezes a
+current evidence and do not rank candidates or predict outcomes. Reading shows no
+"Book N of M" line and nothing points to a next Book. Starting freezes a
 vocabulary snapshot; finishing records a completion without selecting the next
 Book. End and switch are explicit reversible actions.
 
@@ -233,7 +230,7 @@ Reading (active study language)
     current Book, when present
     current Book's vocabulary Browse (working desk)
     between Books: unordered To Read candidates in neutral title order,
-        a Work's multiple To Read Books grouped into one entry with a band table
+        one ordinary entry per Book
     Book anchors for current evidence and recovery
         focused deck-preparation task
         exact-analysis compatibility redirect to the Book anchor
@@ -328,27 +325,11 @@ sections on a generic learner-facing Book page. The grid remains moderately
 dense and does not establish a generic large-card pattern.
 
 The current My Books grid presents cover, title, author, disposition, and
-explicit actions. A classical Work with more than one owned Book in the active
-language is one grouped row: Work identity and provenance, one leading bucket
-badge and counts, work-level bulk actions, then a strip of one cell per owned
-Book in book order. Each cell shows the Book's bucket by shape; the current
-Book's cell opens the current-reading card and a To Read Book's cell
-opens that Book's inline chooser candidate on Reading or the Switch page. Read
-cells are status-only, because Reading has no entry to select, and are not link
-targets, though they keep the 44px cell and accessible label. The strip has no
-per-Book actions. Bulk To Read moves every Read Book, leaves the current Book
-alone, prepares Books in book order, and
-Remove the work ends the other Books' membership while naming the current
-Book it skips. Preparing
-Books collapse into one line and each problem Book keeps its own recovery. A
-grouped Work row also carries one Analysis update notice and one bulk action when
-its definitions changed; the offer covers the eligible To Read Books in the
-row's visible cells, so a search or filter narrows it with the cells it keeps. The
-current Reading's Book is named and skipped, and one confirmation discloses the
-Work's Lemma corrections and Occurrence exclusions. A single-Book Work stays an
-ordinary row with its reviewed position and the ordinary per-Book notice; a
-whole-work unit shows no position. Filters count Books and a filtered Work row
-keeps only its matching cells, with a shape line such as "57 Books in 5 works".
+explicit actions. Every Book is one ordinary row, classical or not: a classical
+Book adds its Work title, Edition label, position and Classical catalog
+provenance, and two Editions of one Work are two rows told apart by their
+Edition labels. Each row carries the ordinary per-Book Analysis update notice;
+there is no Work-level move, removal or update. Filters count Books.
 My Books does not present analysis evidence or current-reading state; those
 remain on the Reading anchor.
 
@@ -363,11 +344,9 @@ Reading answers questions in this order:
 
 Current reading is visually distinct but remains book-led rather than a large
 metric card. The between-Books chooser lists candidates in neutral title order
-and groups a Work's multiple To Read Books into one entry with a band table;
-incomplete evidence stays distinct in that table or in an ordinary candidate's
-margin. A grouped entry carries one Analysis update notice and bulk action covering
-only its visible To Read candidates, while a
-single-Book Work keeps the ordinary per-Book notice. No learner order,
+with one ordinary entry per Book; incomplete evidence stays distinct in that
+Book's margin, and each Book carries the ordinary per-Book Analysis update
+notice. No learner order,
 after-reading projection, forecast,
 next-Book pointer, or recommendation is presented. Unassessed or otherwise
 untrustworthy Books remain visible with an explicit evidence gap and no

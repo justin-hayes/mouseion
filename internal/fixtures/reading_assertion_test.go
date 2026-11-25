@@ -74,12 +74,12 @@ func TestMarkClassicalReadingUnitPreviouslyReadRefusesIncompleteIdentityAndUnkno
 func TestMarkClassicalReadingUnitPreviouslyReadRefusesTheCurrentReading(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
-	report, err := store.AddClassicalReadingUnits(ctx, OwnerID, []string{"fixture-iliad-1"})
+	report, err := store.AddClassicalReadingUnits(ctx, OwnerID, []string{"fixture-iliad"})
 	require.NoError(t, err)
 	bookID := report.Books[0].BookID
 	store.currentReadings[fixtureGoalKey(OwnerID, "de")] = domain.CurrentReading{OwnerID: OwnerID, Language: "de", BookID: bookID}
 
-	_, err = store.MarkClassicalReadingUnitPreviouslyRead(ctx, OwnerID, "fixture-iliad-1")
+	_, err = store.MarkClassicalReadingUnitPreviouslyRead(ctx, OwnerID, "fixture-iliad")
 	require.ErrorIs(t, err, domain.ErrBookIsCurrentReading)
 }
 

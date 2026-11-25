@@ -214,10 +214,6 @@ func (h *contractHarness) RemoveBookFromMyBooks(owner, bookID string) error {
 	return h.store.RemoveBookFromMyBooks(context.Background(), owner, bookID)
 }
 
-func (h *contractHarness) RemoveWorkFromMyBooks(owner, workKey string) (domain.MyBooksWorkRemoval, error) {
-	return h.store.RemoveWorkFromMyBooks(context.Background(), owner, workKey)
-}
-
 func (h *contractHarness) ImportPreviouslyRead(owner, bookID string) (domain.ReadingCompletion, error) {
 	return h.store.ImportPreviouslyRead(context.Background(), owner, bookID)
 }

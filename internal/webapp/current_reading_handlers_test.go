@@ -123,7 +123,7 @@ func TestMyBooksCurrentReadingControlsAndReadingLink(t *testing.T) {
 		{Book: domain.Book{ID: "other-book", OwnerID: "owner", Title: "Other book"}},
 	}
 	var output bytes.Buffer
-	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", "goal-book", MyBooksBrowseState{}).Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
 	currentReadingStart := strings.Index(html, `aria-labelledby="book-title-goal-book"`)
 	otherStart := strings.Index(html, `aria-labelledby="book-title-other-book"`)

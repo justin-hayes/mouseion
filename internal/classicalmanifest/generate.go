@@ -155,12 +155,18 @@ func (b *builder) build() error {
 
 // plannedUnit is one proposed Reading unit of a work.
 type plannedUnit struct {
-	book      int
 	key       string
 	start     string
 	end       string
 	wordCount int
 	total     int
+	// contents lists the constituent books of a whole-work unit whose Work
+	// names books.
+	contents []classical.ConstituentBookSpan
+	// opening and translation are carried over from the committed
+	// definitions a new unit replaces, for runs without the upstream bytes.
+	opening     string
+	translation *classical.TranslationPin
 }
 
 // buildWork generates one work's selected Reading units. It returns an error
@@ -181,6 +187,9 @@ func (b *builder) buildWork(override classical.Override) error {
 	}
 
 	units, total, coverage, err := b.planUnits(override, sourceData, sourceAvailable)
+	if errors.Is(err, errContentsOverride) {
+		return err
+	}
 	if err != nil {
 		return b.candidateFailure(override.WorkKey, "", err)
 	}
@@ -188,12 +197,7 @@ func (b *builder) buildWork(override classical.Override) error {
 		units[index].total = total
 	}
 	b.writeWorkNotes(override, units, total, sourceAvailable, coverage)
-
-	selected, err := selectUnits(units, override.Books, override.Split)
-	if err != nil {
-		return b.candidateFailure(override.WorkKey, "", err)
-	}
-	return b.buildSelectedUnits(override, selected, sourcePin, sourceData, sourceAvailable, translationLayer, hasTranslationLayer)
+	return b.buildSelectedUnits(override, units, sourcePin, sourceData, sourceAvailable, translationLayer, hasTranslationLayer)
 }
 
 // resolveWorkLayers validates a work's curatorial fields, source format and
@@ -236,7 +240,7 @@ func checkSourceContentLayers(override classical.Override, sourceLayer, translat
 // writeWorkNotes records the proposed split, crossings and source availability.
 func (b *builder) writeWorkNotes(override classical.Override, units []plannedUnit, total int, sourceAvailable bool, coverage *ancientgreek.CoverageReport) {
 	fmt.Fprintf(&b.notes, "\n### %s (%s, %s)\n", override.WorkKey, override.WorkTitle, override.WorkAuthor)
-	fmt.Fprintf(&b.notes, "- Split: %s, %d constituent unit(s)\n", override.Split, total)
+	fmt.Fprintf(&b.notes, "- Split: %s, %d constituent book(s)\n", override.Split, total)
 	if sourceAvailable {
 		fmt.Fprintf(&b.notes, "- Proposed units: %s\n", describeUnits(units))
 	} else {
@@ -344,22 +348,12 @@ func (b *builder) previousSourcePin(workKey string) (classical.SourcePin, bool, 
 	return pin, found, nil
 }
 
-// planUnits derives or reads the whole set of units for a work, checks that
-// every sentence belongs to exactly one, and returns the selected unit count.
+// planUnits derives or reads the whole-work unit of a work and checks that
+// every sentence belongs to it. The returned count is the number of
+// constituent books the Work's citation scheme names.
 func (b *builder) planUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
 	if len(override.Units) > 0 {
-		units, total, err := explicitUnits(override)
-		if err != nil {
-			return nil, 0, nil, err
-		}
-		if !sourceAvailable {
-			return units, total, nil, nil
-		}
-		coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
-		if err != nil {
-			return nil, 0, nil, err
-		}
-		return units, total, &coverage, nil
+		return b.planExplicitUnits(override, sourceData, sourceAvailable)
 	}
 
 	if sourceAvailable {
@@ -367,179 +361,126 @@ func (b *builder) planUnits(override classical.Override, sourceData []byte, sour
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		units, total, err := b.proposedUnits(override, proposed)
+		unit, err := proposedUnit(override, sourceData, proposed)
 		if err != nil {
 			return nil, 0, nil, err
 		}
+		units := []plannedUnit{unit}
 		coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		return units, total, &coverage, nil
+		return units, max(len(unit.contents), 1), &coverage, nil
 	}
 
-	units, total, err := b.committedUnits(override)
+	unit, err := b.committedUnit(override)
 	if err != nil {
 		return nil, 0, nil, err
 	}
-	return units, total, nil, nil
+	if override.Contents == classical.ContentsBooks && len(unit.contents) < 2 {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q lists book contents but the committed manifest has no book ranges; verify with upstream files", override.WorkKey)
+	}
+	return []plannedUnit{unit}, max(len(unit.contents), 1), nil, nil
 }
 
-// proposedUnits converts the adapter's proposed ranges into units, either one
-// per constituent book or one whole-work unit.
-func (b *builder) proposedUnits(override classical.Override, proposed []ancientgreek.UnitRange) ([]plannedUnit, int, error) {
-	if len(proposed) == 0 {
-		return nil, 0, fmt.Errorf("classical: source for %s proposes no units", override.WorkKey)
+func (b *builder) planExplicitUnits(override classical.Override, sourceData []byte, sourceAvailable bool) ([]plannedUnit, int, *ancientgreek.CoverageReport, error) {
+	spec := override.Units[0] // The override validator allows at most one.
+	order, err := classical.CompareCitations(spec.CitationStart, spec.CitationEnd)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q: %w", override.WorkKey, err)
 	}
-	if override.Split == classical.SplitWholeWork {
-		unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: proposed[0].Start, end: proposed[len(proposed)-1].End}
-		return []plannedUnit{unit}, 1, nil
+	if order > 0 {
+		return nil, 0, nil, fmt.Errorf("classical: work override %q has a backwards citation range", override.WorkKey)
 	}
-	units := make([]plannedUnit, 0, len(proposed))
+	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: spec.CitationStart, end: spec.CitationEnd}
+	units := []plannedUnit{unit}
+	if !sourceAvailable {
+		if definition := b.previousByKey[unit.key]; len(definition.Contents) > 0 {
+			return nil, 0, nil, bookRangeOverrideError(override)
+		}
+		return units, 1, nil, nil
+	}
+	coverage, err := ancientgreek.CheckUnitCoverage(sourceData, unitRanges(units))
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	proposed, err := ancientgreek.ProposeUnits(sourceData)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	if hasBookRanges(proposed) {
+		return nil, 0, nil, bookRangeOverrideError(override)
+	}
+	return units, 1, &coverage, nil
+}
+
+func bookRangeOverrideError(override classical.Override) error {
+	return fmt.Errorf("classical: work override %q cannot replace derived book contents with a hand-reviewed range", override.WorkKey)
+}
+
+// errContentsOverride marks a work override whose contents: books disagrees
+// with its source. It always fails generation, even for a new Work.
+var errContentsOverride = errors.New("classical: contents override disagrees with the source")
+
+// proposedUnit converts the adapter's proposed ranges into the one whole-work
+// unit. When the work override asks for contents: books, each proposed range is a
+// constituent book and is recorded, with its word count, as contents.
+func proposedUnit(override classical.Override, sourceData []byte, proposed []ancientgreek.UnitRange) (plannedUnit, error) {
+	unit := plannedUnit{key: workUnitKey(override.WorkKey, 0), start: proposed[0].Start, end: proposed[len(proposed)-1].End}
+	hasBooks := hasBookRanges(proposed)
+	switch {
+	case override.Contents == classical.ContentsBooks && !hasBooks:
+		return plannedUnit{}, fmt.Errorf("classical: work override %q lists book contents but its source has no multiple book ranges: %w", override.WorkKey, errContentsOverride)
+	case override.Contents != classical.ContentsBooks && hasBooks:
+		return plannedUnit{}, fmt.Errorf("classical: work override %q has a source with multiple book ranges but no contents: %q: %w", override.WorkKey, classical.ContentsBooks, errContentsOverride)
+	case !hasBooks:
+		return unit, nil
+	}
 	for _, rangeValue := range proposed {
 		book, err := firstCitationNumber(rangeValue.Start)
 		if err != nil {
-			return nil, 0, err
-		}
-		units = append(units, plannedUnit{book: book, key: workUnitKey(override.WorkKey, book), start: rangeValue.Start, end: rangeValue.End})
-	}
-	return units, len(units), nil
-}
-
-// committedUnits reconstructs units from the committed manifest when verify
-// mode has no upstream files. A selected unit that was never generated needs
-// the source file, so verify fails until the maintainer regenerates.
-func (b *builder) committedUnits(override classical.Override) ([]plannedUnit, int, error) {
-	definitions := make([]classical.Definition, 0)
-	for _, definition := range b.previousByKey {
-		if definition.WorkKey == override.WorkKey {
-			definitions = append(definitions, definition)
-		}
-	}
-	if len(definitions) == 0 {
-		return nil, 0, fmt.Errorf("classical: new work %s needs the upstream source file", override.WorkKey)
-	}
-	sort.Slice(definitions, func(i, j int) bool {
-		left, right := definitions[i].ConstituentBook, definitions[j].ConstituentBook
-		if left == nil || right == nil {
-			return definitions[i].Key < definitions[j].Key
-		}
-		return *left < *right
-	})
-	total := definitions[0].ConstituentBooks
-	units := make([]plannedUnit, 0, len(definitions))
-	for _, definition := range definitions {
-		if definition.ConstituentBooks != total {
-			return nil, 0, fmt.Errorf("classical: committed definitions of %s disagree on their constituent book count", override.WorkKey)
-		}
-		book := 0
-		if definition.ConstituentBook != nil {
-			book = *definition.ConstituentBook
-		}
-		units = append(units, plannedUnit{book: book, key: definition.Key, start: definition.CitationStart, end: definition.CitationEnd, wordCount: definition.WordCount})
-	}
-	selected, err := selectUnits(units, override.Books, override.Split)
-	if err != nil {
-		return nil, 0, err
-	}
-	return selected, total, nil
-}
-
-// explicitUnits validates a hand-reviewed split.
-func explicitUnits(override classical.Override) ([]plannedUnit, int, error) {
-	if override.Split == classical.SplitWholeWork && len(override.Units) != 1 {
-		return nil, 0, fmt.Errorf("classical: whole-work override %q needs one unit", override.WorkKey)
-	}
-	units := make([]plannedUnit, 0, len(override.Units))
-	seenBooks := map[int]struct{}{}
-	for _, spec := range override.Units {
-		unit, err := explicitUnit(override, spec, seenBooks)
-		if err != nil {
-			return nil, 0, err
-		}
-		units = append(units, unit)
-	}
-	sort.Slice(units, func(i, j int) bool { return units[i].book < units[j].book })
-	if err := checkExplicitOrder(units, override.WorkKey); err != nil {
-		return nil, 0, err
-	}
-	return units, len(units), nil
-}
-
-// explicitUnit validates one hand-reviewed range.
-func explicitUnit(override classical.Override, spec classical.UnitSpec, seenBooks map[int]struct{}) (plannedUnit, error) {
-	book := spec.Book
-	if override.Split == classical.SplitWholeWork {
-		book = 0
-	}
-	if _, duplicate := seenBooks[book]; duplicate {
-		return plannedUnit{}, fmt.Errorf("classical: work override %q repeats book %d", override.WorkKey, book)
-	}
-	seenBooks[book] = struct{}{}
-	if compareCitations(spec.CitationStart, spec.CitationEnd) > 0 {
-		return plannedUnit{}, fmt.Errorf("classical: work override %q has a backwards citation range", override.WorkKey)
-	}
-	if override.Split == classical.SplitConstituentBooks {
-		if err := checkConstituentUnitRange(spec, override.WorkKey); err != nil {
 			return plannedUnit{}, err
 		}
+		summary, err := ancientgreek.SummarizeUnit(sourceData, rangeValue.Start, rangeValue.End)
+		if err != nil {
+			return plannedUnit{}, err
+		}
+		unit.contents = append(unit.contents, classical.ConstituentBookSpan{Book: book, CitationStart: rangeValue.Start, CitationEnd: rangeValue.End, WordCount: summary.WordCount})
 	}
-	return plannedUnit{book: book, key: workUnitKey(override.WorkKey, book), start: spec.CitationStart, end: spec.CitationEnd}, nil
+	return unit, nil
 }
 
-// checkExplicitOrder refuses overlapping ranges.
-func checkExplicitOrder(units []plannedUnit, workKey string) error {
-	for index := 1; index < len(units); index++ {
-		if compareCitations(units[index].start, units[index-1].end) <= 0 {
-			return fmt.Errorf("classical: work override %q has overlapping unit ranges", workKey)
+// OGA sources cite multi-book Works with the book as their outer level.
+// Flat citations, such as Stephanus pages, are not book numbers.
+func hasBookRanges(proposed []ancientgreek.UnitRange) bool {
+	return len(proposed) > 1 && strings.Contains(proposed[0].Start, ".")
+}
+
+// committedUnit reconstructs the whole-work unit from the committed manifest
+// when verify mode has no upstream files. Before the whole-work key exists it
+// aggregates the Work's per-book definitions of ADR 0116, so the first
+// generation can derive the new unit offline-consistently.
+func (b *builder) committedUnit(override classical.Override) (plannedUnit, error) {
+	key := workUnitKey(override.WorkKey, 0)
+	if definition, ok := b.previousByKey[key]; ok {
+		return plannedUnit{key: key, start: definition.CitationStart, end: definition.CitationEnd, wordCount: definition.WordCount, contents: definition.Contents}, nil
+	}
+	books := make([]classical.Definition, 0)
+	for _, definition := range b.previousByKey {
+		if definition.WorkKey == override.WorkKey && definition.ConstituentBook != nil {
+			books = append(books, definition)
 		}
 	}
-	return nil
-}
-
-// selectUnits applies Books to the proposed units.
-// checkConstituentUnitRange keeps an explicit unit inside one constituent
-// book; the split may not hand-pick a passage or merge two books.
-func checkConstituentUnitRange(spec classical.UnitSpec, workKey string) error {
-	startBook, err := firstCitationNumber(spec.CitationStart)
-	if err != nil {
-		return err
-	}
-	endBook, err := firstCitationNumber(spec.CitationEnd)
-	if err != nil {
-		return err
-	}
-	if startBook != spec.Book || endBook != spec.Book {
-		return fmt.Errorf("classical: work override %q unit %d spans or misses its constituent book", workKey, spec.Book)
-	}
-	return nil
-}
-
-func selectUnits(units []plannedUnit, books []int, split string) ([]plannedUnit, error) {
 	if len(books) == 0 {
-		if split == classical.SplitWholeWork && len(units) != 1 {
-			return nil, errors.New("classical: a whole-work override has one unit")
-		}
-		return units, nil
+		return plannedUnit{}, fmt.Errorf("classical: new work %s needs the upstream source file", override.WorkKey)
 	}
-	byBook := make(map[int]plannedUnit, len(units))
-	for _, unit := range units {
-		byBook[unit.book] = unit
+	sort.Slice(books, func(i, j int) bool { return *books[i].ConstituentBook < *books[j].ConstituentBook })
+	unit := plannedUnit{key: key, start: books[0].CitationStart, end: books[len(books)-1].CitationEnd, opening: books[0].Opening, translation: books[0].Translation}
+	for _, definition := range books {
+		unit.wordCount += definition.WordCount
+		unit.contents = append(unit.contents, classical.ConstituentBookSpan{Book: *definition.ConstituentBook, CitationStart: definition.CitationStart, CitationEnd: definition.CitationEnd, WordCount: definition.WordCount})
 	}
-	selected := make([]plannedUnit, 0, len(books))
-	seen := map[int]bool{}
-	for _, book := range books {
-		if seen[book] {
-			return nil, fmt.Errorf("classical: book %d is selected twice", book)
-		}
-		seen[book] = true
-		unit, ok := byBook[book]
-		if !ok {
-			return nil, fmt.Errorf("classical: selected book %d has no citation range", book)
-		}
-		selected = append(selected, unit)
-	}
-	return selected, nil
+	return unit, nil
 }
 
 // buildDefinition assembles one definition from the work and unit overrides.
@@ -578,14 +519,11 @@ func baseDefinition(override, unitOverride classical.Override, unit plannedUnit,
 		CitationStart:         unit.start,
 		CitationEnd:           unit.end,
 		WordCount:             unit.wordCount,
+		Contents:              unit.contents,
 		Source:                sourcePin,
 		InterpretationVersion: firstNonEmpty(defaultInterpretationVersion(override.Source.Format), previous.InterpretationVersion),
 		Revision:              effectiveRevision(unitOverride, override, previous, hadPrevious),
 		Note:                  firstNonEmpty(unitOverride.Note, override.Note, previous.Note),
-	}
-	if unit.book != 0 {
-		book := unit.book
-		definition.ConstituentBook = &book
 	}
 	return definition
 }
@@ -612,6 +550,8 @@ func applyGeneratedFacts(definition *classical.Definition, unit plannedUnit, sou
 	}
 	if hadPrevious {
 		definition.Opening = previous.Opening
+	} else {
+		definition.Opening = unit.opening
 	}
 	if strings.TrimSpace(definition.Opening) == "" {
 		return fmt.Errorf("classical: %s has no generated Opening", unit.key)
@@ -656,13 +596,17 @@ func (b *builder) loadTranslation(override classical.Override, unit plannedUnit,
 	if found {
 		return pin, note, nil
 	}
-	if !b.options.AllowMissingUpstream || !hadPrevious || previous.Translation == nil {
+	retained := unit.translation
+	if hadPrevious {
+		retained = previous.Translation
+	}
+	if !b.options.AllowMissingUpstream || retained == nil {
 		return nil, "", fmt.Errorf("classical: translation file %q is missing", spec.FileName)
 	}
-	if previous.Translation.Layer != spec.Layer || previous.Translation.FileName != spec.FileName {
+	if retained.Layer != spec.Layer || retained.FileName != spec.FileName {
 		return nil, "", fmt.Errorf("classical: translation pin changed for %s; run generate with the upstream files", unit.key)
 	}
-	committed := *previous.Translation
+	committed := *retained
 	committed.CitationStart = unit.start
 	committed.CitationEnd = unit.end
 	return &committed, "committed pin retained", nil
@@ -751,15 +695,13 @@ func (b *builder) candidateFailure(workKey, key string, err error) error {
 	if errors.As(err, &refusal) && refusal.Code == ancientgreek.CodeOpeningMissing {
 		return fmt.Errorf("classical: %s has no Opening: %w", displayKey(workKey, key), err)
 	}
+	// A Work with committed definitions never fails quietly: skipping its
+	// new unit would withdraw the Books its learners already own.
 	existing := false
-	if key != "" {
-		_, existing = b.previousByKey[key]
-	} else {
-		for _, definition := range b.previousByKey {
-			if definition.WorkKey == workKey {
-				existing = true
-				break
-			}
+	for _, definition := range b.previousByKey {
+		if definition.WorkKey == workKey {
+			existing = true
+			break
 		}
 	}
 	if existing {
@@ -990,8 +932,8 @@ func describeUnits(units []plannedUnit) string {
 	parts := make([]string, 0, len(units))
 	for _, unit := range units {
 		label := "whole work"
-		if unit.book != 0 {
-			label = "Book " + strconv.Itoa(unit.book)
+		if len(unit.contents) > 0 {
+			label = fmt.Sprintf("whole work (%d books)", len(unit.contents))
 		}
 		parts = append(parts, fmt.Sprintf("%s %s-%s", label, unit.start, unit.end))
 	}
@@ -1015,35 +957,6 @@ func firstCitationNumber(citation string) (int, error) {
 		return 0, fmt.Errorf("classical: citation %q has no constituent book number", citation)
 	}
 	return number, nil
-}
-
-// compareCitations compares two dotted citations component-wise.
-func compareCitations(a, b string) int {
-	left, right := strings.Split(a, "."), strings.Split(b, ".")
-	length := max(len(left), len(right))
-	for index := range length {
-		lv, rv := citationPart(left, index), citationPart(right, index)
-		if lv != rv {
-			if lv < rv {
-				return -1
-			}
-			return 1
-		}
-	}
-	return 0
-}
-
-// citationPart returns one parsed component, or zero for a missing or invalid
-// one. Callers validate citations before comparing them.
-func citationPart(parts []string, index int) int {
-	if index >= len(parts) {
-		return 0
-	}
-	number, err := strconv.Atoi(parts[index])
-	if err != nil {
-		return 0
-	}
-	return number
 }
 
 // resolveUpstream joins a pinned file name under the upstream directory and

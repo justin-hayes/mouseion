@@ -98,16 +98,16 @@ one-pattern/one-Templ-component implementation.
 
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
-| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; grouped Work row with one cell per owned Book and bulk Work actions; one grouped Work Analysis update notice and bulk action covering the eligible Books the row shows, with current-Book End wording and one confirmation, while a single-Book Work keeps the ordinary notice; preparing Books collapsed into one line with per-Book problem recovery; single-Book Work position; long title/author; compact reflow | My Books; reusable by Reading and chooser |
+| `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; a classical Book as an ordinary row with its Work title, Edition label and position (none for a whole Work), two Editions of one Work as two rows; the ordinary per-Book Analysis update notice with current-Book End wording; per-Book preparation notes with their own recovery; long title/author; compact reflow | My Books; reusable by Reading and chooser |
 | `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
-| `ReadingChooser` | List neutral To Read candidates in title order; group a Work's multiple To Read Books into one entry with a band table; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, grouped Work, single-Book Work, inline constituent entry, start/switch confirmation; a grouped Work Analysis update offer covers only its visible To Read candidates | Between-Books Reading chooser |
+| `ReadingChooser` | List neutral To Read candidates in title order; one ordinary entry per Book; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, start/switch confirmation, the ordinary per-Book Analysis update notice | Between-Books Reading chooser |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. The Goal leads with Book identity, shows current and after-completion coverage only, and keeps deck actions snapshot-bound. | No evidence, analysis active/failed/complete, reading active, vocabulary work active/complete, deck missing/active/ready/failed/empty | Reading Journey |
 | `JourneyOrder` | Present one semantic ordered list with explicit provisional membership and accessible reordering. | Empty, no Goal, recalculating, recalculation failed, unavailable evidence, compact viewport | Reading Journey |
 | `JourneyForecast` | Show current, after-Goal, and on-arrival coverage in the learner's one stored order, including lower-bound labeling. | No Goal, active Goal, unavailable predecessor, recalculating | Reading Journey |
 | `EvidenceDelta` | State a current, prior, conditional, or lower-bound value and its exact unit/basis without relying on sign, color, or position alone. | Actual change, unchanged current value, future conditional effect, lower bound, stale/unavailable evidence | Journey books |
 | `OutcomeSummary` | Identify the completed Book, report exact newly-Known and already-Known counts, and return to the neutral chooser without implying mastery or selecting another Book. | Non-empty snapshot, empty snapshot, zero counts, retry/idempotent completion | Reading completion receipt |
-| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note; each Reading unit also offers I've read this, never the whole Work. | None, partial or full ownership; whole-work or multi-book Work; Choose books open or closed; compact reflow | Catalog |
+| `ClassicalCatalogEntry` | Identify each Work under its author by its Opening and length, with its facts and Add controls in a margin note; the work page offers one Add and one I've read this per Edition above a read-only contents list. | Owned or not owned; Work with or without constituent books; compact reflow | Catalog |
 | `CatalogSourceSection` | Group Catalog results under the source that offers them, with one search and language filter above every source. | Classical author index or OPDS cover grid; paged; no sources, no match, nothing in this language; owned or unowned entry; unowned entry offering Add and I've read this; compact reflow | Catalog |
 
 The patterns above should compose mostly through typography, ordered lists,
@@ -125,31 +125,31 @@ keeps its identity first: linked title with its Greek title beside it. Under the
 identity, the Opening is set whole in the reading typeface at the page-title
 size on wide screens and the section-title size on compact screens, marked as
 Ancient Greek, preceded by its starting citation and a visually hidden "Begins
-at". A caption states the word count and whether the Work is read whole or in
-constituent books; the length strip below it draws one segment per Reading unit
+at". A caption states the word count and how many constituent books divide the whole
+Work; the length strip below it draws one segment for the Work
 on a single page-wide word scale ending at the next 10,000 words above the
 longest Work, with owned segments in the accent colour. The strip is hidden from
-assistive technology because the caption, books table and ownership line carry
-the same facts.
+assistive technology because the caption and ownership line carry the same
+facts. When a Work has several Editions, the caption, strip and passage range
+describe one consistent Edition; the work page carries each Edition's own facts.
 
 The margin note carries the Edition, the passage range, translation
-availability, ownership and one whole-Work Add control. A Work split into
-constituent books adds a native `details` **Choose books** disclosure, closed by
-default, with a table of book, passage, word count and per-book Add or "In My
-Books". Add creates or restores the Book as **To Read** and starts downloading
-and preparing the text; the confirmation says so. The Add label names what it
-will add: "Add and prepare the work" for a whole-work unit, "Add and prepare the
-whole work" when none of a multi-book Work is owned, and "Add and prepare the
-remaining books" when some are; a fully owned Work offers no Add. A page-level
+availability, ownership and one Add control. A Work is one Book (ADR 0128), so
+the index has no per-book control: the Add label is "Add and prepare the work",
+and an owned Work offers no Add. Add creates or restores the Book as **To Read**
+and starts downloading and preparing the text; the confirmation says so. The
+work page shows, per Edition, the passage range, one **Add and prepare the
+work** and one **I've read this** (or an **In My Books** link once owned), above
+a read-only contents list in a responsive table of constituent book, passage and
+word count. The contents list has no actions and no preparation state. A page-level
 attribution line credits the Greek text to its source layer and licence. The
 index shows no preparation state, coverage or difficulty.
 
 The Opening is announced as Ancient Greek, and its starting citation is preceded
 by a visually hidden "Begins at" so the reference is not read as part of the
-sentence. The length strip is `aria-hidden` and adds no focus stop. Title links,
-the native **Choose books** summary and every Add submit button follow document
-order and keep the shared focus ring and 44px target; the summary is operated by
-Enter or Space. Add posts the existing form with CSRF and returns to the
+sentence. The length strip is `aria-hidden` and adds no focus stop. Title links
+and every Add submit button follow document order and keep the shared focus
+ring and 44px target. Add posts the existing form with CSRF and returns to the
 confirmation through the shared `Feedback` live region. No interaction requires
 a pointer.
 
@@ -174,10 +174,8 @@ document order: the Classical catalog first when it matches, then each OPDS
 connection in its configured order.
 
 The Classical group reuses the author-grouped index above unchanged. A search
-matches author, English title and Greek title through the Go search key, and a
-trailing number narrows the match to a Work carrying that constituent Book,
-displaying only that Book's cell and length segment while the Work's reviewed
-totals and Add controls stay whole.
+matches author, English title and Greek title through the Go search key; a
+number is ordinary search text, as a Work has no constituent Book to narrow to.
 Each OPDS group is a cover grid with cover, title and author, ordered by title
 then author and paged locally per connection. The cover frame shows the title's
 initial until locally retained index covers exist; the Catalog never sends an
@@ -185,7 +183,7 @@ upstream cover URL to the browser. An entry linked to an active Book
 shows **In My Books** as a link to that Book's My Books row. An unowned entry
 offers **Add**, whose copy says plainly that the text is downloaded and
 analyzed; Add creates or restores the Book as To Read and starts the same
-preparation as **Read again** and the Work-level move. The confirmation names
+preparation as **Read again**. The confirmation names
 the Book, links to My Books, and receives focus after the ordinary POST
 redirect. Entries never show disposition, analysis or preparation state.
 
@@ -255,33 +253,13 @@ unavailable-content notes retain an adjacent, valid recovery action whenever
 recovery is available; do not show a dead route or offer refresh for the current
 Book.
 
-A Work with more than one owned Book in the active language uses the grouped
-form of the same row. The identity carries the Work title, author, Greek title,
-"all N books" or "M of N books", and Classical catalog provenance. The margin
-carries one `StatusBadge` for the leading bucket by the ordinary precedence —
-**Currently reading Book N**, **To Read**, **Read** — followed by
-counts such as "22 more To Read · 1 Read". Under the identity, a wrapping strip
-has one 44px cell per owned Book in book order; each cell states its bucket by a
-distinct shape — filled dot for **Currently reading**, ring for **To Read**, and
-bar for **Read**. A cell opens only the Reading entry
-its Book actually has: the current Book's cell opens the current-reading card,
-and a To Read Book's cell opens that Book's ordinary candidate entry
-inline in the chooser, on Reading when no Book is current or on the Switch page
-when one is. A Read cell is a status-only cell, not a link: Reading
-lists only the current Book and To Read candidates, so there is nothing to
-select, and the strip must not imply a next Book. It keeps the 44px cell and
-full accessible label but is not a link target; **Read again** and the
-Work-level **Move to To Read** remain the route back to a candidate. My Books
-shows two tabs, **To Read** and **Read**. Cells
-carry full accessible labels, the page has one shared legend,
-and the row has no per-Book actions. A filtered row keeps only its matching cells, and a line states the
-shape, such as "57 Books in 5 works". "M of N books" counts the owned Books in
-the active language; every owned Book contributes a cell. A
-single-Book Work stays an ordinary row
-with its position, such as "Histories, Book 1" and "Book 1 of 9"; a whole-work
-unit shows no position. On compact screens the cover stays beside title and
-author, while the margin and strip move below the text column; the strip wraps
-instead of scrolling sideways.
+A classical Book is an ordinary row. The identity carries the Work title, the
+Edition label that tells two Editions of one Work apart, the Work position such as
+"Histories, Book 1" and "Book 1 of 9" for a leftover per-book Book (a whole Work
+has none), the Greek title, and Classical catalog provenance. A leftover Book on a
+withdrawn definition stays an ordinary row with its own Remove. My Books shows two
+tabs, **To Read** and **Read**. On compact screens the cover stays beside title and
+author, while the margin moves below the text column.
 
 Reading's between-Books To Read candidate list reuses the same cover/identity/edged-margin
 composition, but not My Books' bucket note or action set. The section heading
@@ -291,15 +269,8 @@ analysis/content problem with its recovery action; it never ranks candidates or
 frames coverage as readiness. A quiet **Switch current reading** link remains
 under the identity when the Book is eligible. Keep the list unordered.
 
-A grouped Work's Analysis update offer covers exactly the eligible To Read Books
-shown on the issuing surface. On My Books that is the grouped row's visible
-cells: a search or disposition filter narrows the offer with the cells it keeps.
-In the chooser it
-is the grouped entry's visible To Read candidates; an otherwise
-excluded sibling never joins the offer. The notice and action name that count,
-the current Reading's Book is named and skipped rather than counted even when a
-filtered scope keeps its cell out of the row, and confirming queues
-exactly those Books in book order.
+Neither the chooser nor My Books has a Work-level Analysis update offer: each
+Book carries the ordinary per-Book notice.
 
 Repeated items form one native unordered list at every width, not an ARIA grid.
 Keep cover, title, author, action, and note content in document and keyboard
@@ -527,24 +498,17 @@ no-JavaScript operation.
   Margin notes move below the Book on compact screens, after its identity and
   lifecycle actions.
 - Every To Read candidate collection is unordered. The between-Books chooser
-  lists candidates in neutral title order. A Work with more than one To Read
-  Book is one entry: Work title, author, Greek title and the reviewed "N books"
-  identity sit beside a margin with To Read/assessed counts and one Known
-  coverage range. A band table lists constituent Book numbers in the shipped
-  band order, omitting empty rows; each 44px number carries the full accessible
-  label and opens that Book's ordinary candidate entry inline. Bands describe
-  evidence, not learner intent, difficulty, or a recommended order.
-  Single-Book Works and other candidates reuse the annotated Book row: cover
-  beside full title, reviewed Work position, author, start/switch confirmation
-  and word review beneath the author, and the band name plus rounded coverage
-  and next-band distinct-word counts in a visibly edged margin. A grouped
-  entry's Analysis update offer covers only its visible To Read candidates.
-  Analysis
+  lists candidates in neutral title order, one ordinary entry per Book,
+  including every Book of a Work. Each entry reuses the annotated Book row: cover
+  beside full title, author, start/switch confirmation and word review beneath
+  the author, and the band name plus rounded coverage and next-band
+  distinct-word counts in a visibly edged margin. A Book's Analysis update offer
+  is the ordinary per-Book notice. Bands describe evidence, not learner intent,
+  difficulty, or a recommended order. Analysis
   progress and unavailable coverage occupy that margin while their review/retry
   action stays under the identity. Retry is an outline action. On compact
-  screens the band label stacks above its numbers, the margin follows the
-  identity and actions, and native disclosure, route, and stale-write safeguards
-  remain unchanged.
+  screens the margin follows the identity and actions, and native disclosure,
+  route, and stale-write safeguards remain unchanged.
 - Reading Journey exposes one learner order. Forecast stages explain that order
   and never become a second route or recommendation.
 - A status badge never replaces a heading, explanatory sentence, progress

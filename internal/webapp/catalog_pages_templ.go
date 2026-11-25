@@ -452,7 +452,7 @@ func CatalogResults(csrf string, browse catalogBrowseView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = ClassicalCatalogIndexSections(csrf, browse.ClassicalAuthors, browse.ClassicalView, browse.NarrowedUnits).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ClassicalCatalogIndexSections(csrf, browse.ClassicalAuthors, browse.ClassicalView).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

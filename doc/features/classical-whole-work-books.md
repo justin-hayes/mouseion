@@ -1,6 +1,6 @@
 # Classical Books are whole Works
 
-Status: **Accepted specification — implementation pending** · Date: 2026-11-24 ·
+Status: **Accepted specification; implemented (#2634)** · Date: 2026-11-24 ·
 Author: Justin + OpenCode
 
 Decided in a grilling session on 2026-11-24. The decision is recorded in

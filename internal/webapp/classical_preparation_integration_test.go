@@ -103,7 +103,6 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 		Layer: "synthetic-layer", FileName: "synthetic-work.conllu",
 		Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:]), Format: classical.SourceFormatOGACoNLLU,
 	}
-	one, two := 1, 2
 	fixture := classicalPreparationFixture{
 		data:       data,
 		unitOneKey: "synthetic-work-1",
@@ -118,8 +117,8 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 			CitationStart: "1.1.1", CitationEnd: "1.2.18",
 		}
 	}
-	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, &one, source.firstStart, source.firstEnd, source.firstWords)
-	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, &two, source.secondStart, source.secondEnd, source.secondWords)
+	first := preparationDefinition("synthetic-work-1", "Synthetic Work", pin, source.firstStart, source.firstEnd, source.firstWords)
+	second := preparationDefinition("synthetic-work-2", "Synthetic Work", pin, source.secondStart, source.secondEnd, source.secondWords)
 	if source.interpretation != "" {
 		first.InterpretationVersion, second.InterpretationVersion = source.interpretation, source.interpretation
 	}
@@ -180,12 +179,14 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 	return ctx, store, pool, h, service, client, requests, fixture
 }
 
-func preparationDefinition(key, title string, pin classical.SourcePin, book *int, start, end string, words int) classical.Definition {
+// preparationDefinition builds one whole-work unit; two units of the synthetic
+// Work are two Editions cut from one file.
+func preparationDefinition(key, title string, pin classical.SourcePin, start, end string, words int) classical.Definition {
 	return classical.Definition{
 		Key: key, WorkKey: "synthetic-work", WorkTitle: title, WorkAuthor: "Author",
-		EditionKey: "synthetic-edition", EditionLabel: "Synthetic Edition", Language: classical.Language,
-		ConstituentBook: book, ConstituentBooks: 2,
-		CitationStart: start, CitationEnd: end, WordCount: words, Opening: "ἄρχεται ὁ λόγος.",
+		EditionKey: key + "-edition", EditionLabel: "Synthetic Edition " + key, Language: classical.Language,
+		ConstituentBooks: 1,
+		CitationStart:    start, CitationEnd: end, WordCount: words, Opening: "ἄρχεται ὁ λόγος.",
 		Source: pin, InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
 	}
 }
@@ -232,8 +233,7 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	learner := createAccount(t, ctx, store, "classical-prep-one", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	addClassicalTestUnits(t, h, cookies, csrf, "synthetic-work-1", "synthetic-work-2")
 	owned := booksByReadingUnit(t, store, learner.ID)
 	require.Len(t, owned, 2)
 	firstID, secondID := owned[fixture.unitOneKey], owned[fixture.unitTwoKey]
@@ -391,10 +391,9 @@ func TestClassicalPreparationFetchesOnceAndPublishesEachUnit(t *testing.T) {
 	// A second learner reuses the stored work file and downloads nothing.
 	other := createAccount(t, ctx, store, "classical-prep-two", "learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "learner-password")
-	otherAdd := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
-	require.Equal(t, http.StatusSeeOther, otherAdd.Code, otherAdd.Body.String())
+	addClassicalTestUnits(t, h, otherCookies, otherCSRF, fixture.unitOneKey)
 	otherOwned := booksByReadingUnit(t, store, other.ID)
-	require.Len(t, otherOwned, 2)
+	require.Len(t, otherOwned, 1)
 	otherID := otherOwned[fixture.unitOneKey]
 	require.NotEmpty(t, otherID)
 	otherDetail, err := store.GetBookDetail(ctx, other.ID, otherID)
@@ -428,10 +427,9 @@ func TestClassicalPreparationPrunesSourcesAtStartup(t *testing.T) {
 	ctx, store, pool, h, _, client, _, fixture := preparationHarness(t)
 	learner := createAccount(t, ctx, store, "classical-prep-prune", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code)
+	addClassicalTestUnits(t, h, cookies, csrf, fixture.unitOneKey)
 	owned := booksByReadingUnit(t, store, learner.ID)
-	require.Len(t, owned, 2)
+	require.Len(t, owned, 1)
 	bookID := owned[fixture.unitOneKey]
 	require.NotEmpty(t, bookID)
 	detail, err := store.GetBookDetail(ctx, learner.ID, bookID)
@@ -451,7 +449,7 @@ func TestClassicalPreparationPrunesSourcesAtStartup(t *testing.T) {
 	other := preparationDefinition("replacement-work-1", "Replacement", classical.SourcePin{
 		Layer: "synthetic-layer", FileName: "replacement.conllu", Size: 1,
 		SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU,
-	}, nil, "1.1.1", "1.1.1", 1)
+	}, "1.1.1", "1.1.1", 1)
 	other.WorkKey, other.EditionKey = "replacement-work", "replacement-edition"
 	other.ConstituentBooks = 1
 	require.NoError(t, store.ReconcileClassicalManifest(ctx, []classical.Definition{other}))
@@ -469,8 +467,7 @@ func TestClassicalTranslationFetchedOnceAndSharedByTwoLearners(t *testing.T) {
 	learner := createAccount(t, ctx, store, "classical-translation-one", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	addClassicalTestUnits(t, h, cookies, csrf, fixture.unitOneKey)
 	owned := booksByReadingUnit(t, store, learner.ID)
 	bookID := owned[fixture.unitOneKey]
 	require.NotEmpty(t, bookID)
@@ -498,8 +495,7 @@ func TestClassicalTranslationFetchedOnceAndSharedByTwoLearners(t *testing.T) {
 	// file and the parsed translation, so neither is downloaded again.
 	other := createAccount(t, ctx, store, "classical-translation-two", "learner-password")
 	otherCookies, otherCSRF := loginCookies(t, h, other.Username, "learner-password")
-	otherAdd := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {otherCSRF}}, otherCookies)
-	require.Equal(t, http.StatusSeeOther, otherAdd.Code, otherAdd.Body.String())
+	addClassicalTestUnits(t, h, otherCookies, otherCSRF, fixture.unitOneKey)
 	otherBookID := booksByReadingUnit(t, store, other.ID)[fixture.unitOneKey]
 	require.NotEmpty(t, otherBookID)
 	otherDetail, err := store.GetBookDetail(ctx, other.ID, otherBookID)
@@ -546,8 +542,7 @@ func TestClassicalTranslationFailureLeavesBookAnalyzed(t *testing.T) {
 
 	learner := createAccount(t, ctx, store, "classical-translation-failure", "learner-password")
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	added := perform(t, h, http.MethodPost, "/catalogs/classical/works/synthetic-work/add", url.Values{"csrf_token": {csrf}}, cookies)
-	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
+	addClassicalTestUnits(t, h, cookies, csrf, fixture.unitOneKey)
 	bookID := booksByReadingUnit(t, store, learner.ID)[fixture.unitOneKey]
 	require.NotEmpty(t, bookID)
 	detail, err := store.GetBookDetail(ctx, learner.ID, bookID)

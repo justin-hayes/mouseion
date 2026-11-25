@@ -77,9 +77,6 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 				if author := canonicalBookAuthor(item.Book); author != "" {
 					<p class="journey-book__author">By { author }</p>
 				}
-				if position := readingBookPositionText(item); position != "" {
-					<p class="journey-book__position">{ position }</p>
-				}
 				@CurrentReadingLifecycleActions(item, csrf)
 				if item.ReadingOnly {
 					@StatusBadge("Reading only", StatusInfo)
@@ -252,87 +249,29 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 			}
 			<ul class="reading-chooser-list" role="list">
 				for _, entry := range chooser.Entries {
-					if entry.Grouped {
-						@ReadingChooserWorkEntry(entry, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-					} else {
-						@ReadingChooserBook(entry.Books[0], csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
-					}
+					@ReadingChooserBook(entry.Book, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
 				}
 			</ul>
 		}
 	}
 }
 
-// ReadingChooserWorkEntry groups one Work's To Read Books into a single neutral
-// entry. Band rows name candidate Book numbers only; a number opens that Book's
-// ordinary candidate entry inline.
-templ ReadingChooserWorkEntry(entry readingChooserEntryView, csrf, currentBookID, currentSnapshotID string) {
-	<li class="reading-chooser-book reading-chooser-work">
-		<article class="reading-chooser-entry reading-chooser-work__entry" aria-labelledby={ "reading-chooser-work-" + entry.Key }>
-			<div class="reading-chooser-entry__cover">@BookCoverMedia(entry.Books[0].Book.Book.ID, entry.Books[0].Book.Book.Title, entry.Books[0].Book.Book.LanguageTag, entry.Books[0].Book.Cover)</div>
-			<div class="reading-chooser-entry__identity">
-				<h3 class="bibliographic-title" id={ "reading-chooser-work-" + entry.Key }>{ entry.Title }</h3>
-				if entry.GreekTitle != "" {
-					<p class="reading-chooser-work__greek" lang="grc">{ entry.GreekTitle }</p>
-				}
-				if entry.Author != "" {
-					<p>By { entry.Author }</p>
-				}
-				<p class="reading-chooser-work__size">{ classicalCountLabel(entry.WorkBooks, "book", "books") }</p>
-			</div>
-			<div class="reading-chooser-entry__evidence reading-chooser-work__margin">
-				<p class="numeric"><strong>{ readingChooserWorkCounts(entry) }</strong></p>
-				if coverageRange := readingChooserWorkCoverageRange(entry.Books); coverageRange != "" {
-					<p class="numeric">{ coverageRange }</p>
-				}
-				<dl class="reading-chooser-bands" aria-label={ "Bands in " + entry.Title }>
-					for _, band := range entry.Bands {
-						<div class="reading-chooser-bands__row">
-							<dt>{ band.Label }</dt>
-							<dd>
-								<ul class="reading-chooser-band-books" role="list">
-									for _, item := range band.Books {
-										<li><a class="reading-chooser-band-book" href={ templ.SafeURL("#" + readingChooserCandidateAnchorID(item)) } aria-label={ readingChooserBookAccessibleLabel(item) }>{ readingChooserBookNumber(item) }</a></li>
-									}
-								</ul>
-							</dd>
-						</div>
-					}
-				</dl>
-				@WorkAnalysisUpdateNotice(entry.Update, csrf, readingChooserPath(currentBookID), "button button--outline")
-			</div>
-			<div class="reading-chooser-work__books">
-				for _, item := range entry.Books {
-					<div class="reading-chooser-work__book" id={ readingChooserCandidateAnchorID(item) } tabindex="-1">
-						@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID, true)
-					</div>
-				}
-			</div>
-		</article>
-	</li>
-}
-
 templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<li class="reading-chooser-book" id={ readingChooserCandidateAnchorID(item) } tabindex="-1">
-		@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID, false)
+		@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID)
 	</li>
 }
 
-templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string, inWork bool) {
+templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
 	<article class="reading-chooser-entry">
 		<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, item.Book.Book.Title, item.Book.Book.LanguageTag, item.Book.Cover)</div>
 		<div class="reading-chooser-entry__identity">
-				<h3 class="bibliographic-title">{ readingChooserCandidateTitle(item, inWork) }</h3>
-				if position := readingChooserWorkPosition(item); position != "" {
-					<p class="reading-chooser-entry__position">{ position }</p>
-				}
+				<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
 				if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
 					<p>By { author }</p>
 				}
 			<div class="reading-chooser-entry__actions">
-				if !inWork {
-					@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
-				}
+				@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
 				@SourceStructureUpdateNotice(item.Book, csrf, "button button--outline")
 				if item.Coverage != nil {
 					if currentBookID != "" {

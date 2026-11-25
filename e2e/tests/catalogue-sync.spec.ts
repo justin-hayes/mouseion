@@ -148,9 +148,11 @@ test.describe('catalog sources and browsing', () => {
     await page.goto('/catalogs?language=&q=homer');
     await expect(page.locator('#catalog-source-classical')).toBeVisible();
     await expect(page.locator('#catalog-source-classical')).toContainText('Homer');
+    await expect(page.locator('#catalog-source-classical')).toContainText('Iliad');
+    await expect(page.locator('#catalog-source-classical')).toContainText('Odyssey');
     await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Ödipus auf Kolonos');
     await expect(page.locator('#catalog-source-fixture-connection')).toContainText('Hómēr Nachfolger');
-    await expect(page.locator('#catalog-result-summary')).toHaveText('2 results from 2 sources.');
+    await expect(page.locator('#catalog-result-summary')).toHaveText('3 results from 2 sources.');
     await expect(page.locator('#catalog-source-fixture-connection')).not.toContainText('Der lange Weg nach Hause');
     expect(contacted, `Catalog search contacted ${contacted.join(', ')}`).toEqual([]);
 
