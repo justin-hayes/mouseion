@@ -102,8 +102,8 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	assert.NotContains(t, chooser.Body.String(), "Book 1 of")
 
 	// Concordance shows one group, one count and a Citation on every occurrence.
-	query := url.Values{"language": {classical.Language}, "term": {"λόγος"}, "as": {domain.ConcordanceMatchLemma}}
-	concordance := perform(t, h.handler, http.MethodGet, "/vocabulary/concordance?"+query.Encode(), nil, cookies)
+	query := url.Values{"term": {"λόγος"}, "as": {domain.ConcordanceMatchLemma}}
+	concordance := perform(t, h.handler, http.MethodGet, "/grc/vocabulary/concordance?"+query.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, concordance.Code, concordance.Body.String())
 	body := concordance.Body.String()
 	occurrences := countRows(t, h.pool, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND canonical_lemma=$2`,

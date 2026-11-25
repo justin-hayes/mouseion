@@ -72,7 +72,7 @@ test('Vocabulary heading keeps the compact hierarchy without peer navigation', a
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 800 });
   // Browse lives in Reading; /vocabulary is the single Concordance view.
-  await page.goto('/vocabulary');
+  await page.goto('/de/vocabulary');
   const header = page.locator('.vocabulary-page-header');
   const heading = header.getByRole('heading', { name: 'Vocabulary', exact: true });
   await expect(heading).toBeVisible();
@@ -92,7 +92,7 @@ test('Concordance query and applied results summary fit the first desktop and co
   // The project's viewport is either the desktop or the compact layout under test.
   await signIn(page);
   const viewport = page.viewportSize()!;
-  await page.goto('/vocabulary/concordance?term=Haus');
+  await page.goto('/de/vocabulary/concordance?term=Haus');
   await expect(page.locator('#concordance-term')).toHaveValue('Haus');
   await expect(page.locator('#concordance-summary')).toBeVisible();
   const initiallyVisible = await page.evaluate(() => {
@@ -171,7 +171,7 @@ test('Concordance groups and KWIC rows wrap long German, Italian, and Greek text
   // Runs at the project's viewport; desktop and compact are separate projects.
   const viewport = page.viewportSize()!;
   for (const example of examples) {
-    await page.goto('/vocabulary/concordance?term=Haus');
+    await page.goto('/de/vocabulary/concordance?term=Haus');
     await page.locator('.concordance-row').first().evaluate((row, content) => {
       row.closest('.concordance-result')!.querySelector('.concordance-source-title')!.textContent = content.title;
       row.querySelector('.concordance-before')!.textContent = content.before;

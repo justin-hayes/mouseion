@@ -64,7 +64,7 @@ func TestClassicalPreparationStoresNativeAGDTSyntax(t *testing.T) {
 			"book": {firstID}, "run": {runID}, "corpus": {corpusID}, "unit": {unitID},
 			"sentence": {"0"}, "target": {"1"},
 		}
-		response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 		body := response.Body.String()
 		assert.Contains(t, body, `<summary>Word relations</summary>`)

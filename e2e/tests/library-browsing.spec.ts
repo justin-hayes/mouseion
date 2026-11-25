@@ -145,7 +145,7 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('.journey-book__since')).toContainText('Reading since');
     await expect(page.locator('#vocabulary-prefix')).toHaveClass(/\binput\b/);
     await expect(page.locator('.reading-supporting')).toHaveCount(1);
-    await page.goto('/vocabulary/concordance');
+    await page.goto('/de/vocabulary/concordance');
     const concordanceSelects = page.locator('#concordance-workflow select');
     await expect(concordanceSelects).toHaveCount(0);
   });

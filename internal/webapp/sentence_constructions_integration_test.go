@@ -72,7 +72,7 @@ func TestAncientGreekSentenceStudyShowsConstructions(t *testing.T) {
 			"book": {registration.BookID}, "run": {run}, "corpus": {corpus}, "unit": {unit},
 			"sentence": {strconv.FormatInt(sentence, 10)}, "target": {strconv.FormatInt(target, 10)},
 		}
-		response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, "body=%s", response.Body.String())
 		return response.Body.String()
 	}
@@ -185,7 +185,7 @@ func TestImportedAbsentRunGetsNoConstructions(t *testing.T) {
 	assert.Zero(t, markers)
 
 	query := url.Values{"book": {registration.BookID}, "run": {run}, "corpus": {corpus}, "unit": {domain.ClassicalUnitID(definition.Key)}, "sentence": {"0"}, "target": {"1"}}
-	response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+	response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	assert.NotContains(t, response.Body.String(), "Constructions")
 }
@@ -244,7 +244,7 @@ func TestClassicalPreparationBuildsConstructionsBeforePublishing(t *testing.T) {
 	assert.Equal(t, constructions.AGDTDetectorVersion, version)
 
 	query := url.Values{"book": {firstID}, "run": {run}, "corpus": {corpus}, "unit": {unit}, "sentence": {"0"}, "target": {"1"}}
-	response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+	response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	body := response.Body.String()
 	assert.Contains(t, body, `<h3 id="sentence-study-constructions-heading">Constructions</h3>`)

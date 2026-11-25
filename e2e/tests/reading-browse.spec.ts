@@ -157,9 +157,9 @@ test('Reading Browse works without JavaScript for prefix, paging, and page recov
 
 test('/vocabulary is the Concordance and the retired vocabulary pages are not found without redirect', async ({ page }) => {
   await signIn(page);
-  const vocabulary = await page.goto('/vocabulary');
+  const vocabulary = await page.goto('/de/vocabulary');
   expect(vocabulary?.status()).toBe(200);
-  expect(new URL(page.url()).pathname).toBe('/vocabulary');
+  expect(new URL(page.url()).pathname).toBe('/de/vocabulary');
   const header = page.locator('.vocabulary-page-header');
   await expect(header.getByRole('heading', { level: 1, name: 'Vocabulary', exact: true })).toBeVisible();
   await expect(header.getByRole('navigation', { name: 'Vocabulary views' })).toHaveCount(0);

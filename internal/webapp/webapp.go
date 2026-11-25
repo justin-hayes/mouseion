@@ -355,9 +355,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
-	h.mux.Handle("GET /vocabulary", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
-	h.mux.Handle("GET /vocabulary/concordance", h.user(http.HandlerFunc(h.vocabularyConcordancePage)))
-	h.mux.Handle("GET /vocabulary/concordance/sentence", h.user(http.HandlerFunc(h.vocabularySentenceStudyPage)))
+	h.perLanguage(pageKindVocabulary, h.vocabularyConcordancePage)
+	h.perLanguage(pageKindConcordance, h.vocabularyConcordancePage)
+	h.perLanguage(pageKindSentenceStudy, h.vocabularySentenceStudyPage)
 	h.mux.Handle("POST /active-study-language", h.user(http.HandlerFunc(h.activeStudyLanguage)))
 	h.mux.Handle("GET /study-language", h.user(http.HandlerFunc(h.studyLanguageSwitch)))
 	return h, nil

@@ -48,14 +48,14 @@ func TestAncientGreekConcordanceAndSentenceStudy(t *testing.T) {
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 
 	lemmaQuery := func(term string) url.Values {
-		return url.Values{"language": {"grc"}, "term": {term}, "as": {domain.ConcordanceMatchLemma}}
+		return url.Values{"term": {term}, "as": {domain.ConcordanceMatchLemma}}
 	}
 	formQuery := func(term string) url.Values {
-		return url.Values{"language": {"grc"}, "term": {term}, "as": {domain.ConcordanceMatchForm}}
+		return url.Values{"term": {term}, "as": {domain.ConcordanceMatchForm}}
 	}
 	find := func(t *testing.T, query url.Values) string {
 		t.Helper()
-		response := perform(t, h, http.MethodGet, "/vocabulary/concordance?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, "body=%s", response.Body.String())
 		return response.Body.String()
 	}
@@ -108,7 +108,7 @@ func TestAncientGreekConcordanceAndSentenceStudy(t *testing.T) {
 			"book": {registration.BookID}, "run": {run}, "corpus": {corpus}, "unit": {unit},
 			"sentence": {strconv.FormatInt(sentence, 10)}, "target": {strconv.FormatInt(target, 10)},
 		}
-		response := perform(t, h, http.MethodGet, "/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, "body=%s", response.Body.String())
 		return response.Body.String()
 	}

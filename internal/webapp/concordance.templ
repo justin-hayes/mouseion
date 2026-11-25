@@ -23,8 +23,7 @@ templ VocabularyConcordancePageView(user domain.User, csrf, language string, loo
 			}
 			if language != "" {
 				@concordanceOriginReturn(origin, language)
-				<form method="get" action="/vocabulary/concordance" hx-get="/vocabulary/concordance" hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
-					<input type="hidden" name="language" value={ lookup.Language }/>
+				<form method="get" action={ studyLanguagePath(pageKindConcordance, lookup.Language) } hx-get={ studyLanguagePath(pageKindConcordance, lookup.Language) } hx-target="#concordance-workflow" hx-select="#concordance-workflow" hx-swap="outerHTML" hx-push-url="true" hx-sync="#concordance-workflow:replace" hx-config="timeout:9s" hx-indicator="#concordance-pending" hx-status:409="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:4xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" hx-status:5xx="target:#concordance-recovery select:#concordance-recovery swap:outerHTML push:false" class="concordance-query">
 					@concordanceOriginFields(origin)
 					<div class="concordance-query-term">
 						<label for="concordance-term">Lemma or word form</label>
@@ -726,9 +725,6 @@ func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, l
 		"unit": {occurrence.UnitID}, "sentence": {fmt.Sprintf("%d", occurrence.SentenceOrdinal)},
 		"target": {fmt.Sprintf("%d", occurrence.TokenOrdinal)}, "target_surface": {occurrence.Surface},
 	}
-	if lookup.Language != "" {
-		values.Set("language", lookup.Language)
-	}
 	focusTarget := concordanceOccurrenceID(occurrence)
 	backValues, _ := url.Parse(vocabularyConcordancePageURL(lookup.Page, lookup))
 	backQuery := backValues.Query()
@@ -741,9 +737,9 @@ func vocabularySentenceStudyURL(occurrence domain.ConcordanceResultOccurrence, l
 		// The construction is focused in Sentence study; its entry's fragment
 		// scrolls it into view without JavaScript.
 		values.Set("construction", occurrence.ConstructionID)
-		return "/vocabulary/concordance/sentence?" + values.Encode() + "#" + url.PathEscape(constructionAnchorID(occurrence.ConstructionID, int(occurrence.TokenOrdinal)))
+		return studyLanguagePath(pageKindSentenceStudy, lookup.Language) + "?" + values.Encode() + "#" + url.PathEscape(constructionAnchorID(occurrence.ConstructionID, int(occurrence.TokenOrdinal)))
 	}
-	return "/vocabulary/concordance/sentence?" + values.Encode()
+	return studyLanguagePath(pageKindSentenceStudy, lookup.Language) + "?" + values.Encode()
 }
 
 func sentenceStudyTarget(study domain.SentenceStudy) string {
@@ -887,8 +883,7 @@ templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeou
 		} else {
 			@Feedback(FeedbackError, "Concordance lookup was not applied", "The lookup did not complete. A failed lookup is not a zero-result claim.")
 		}
-		<form method="get" action="/vocabulary/concordance">
-			<input type="hidden" name="language" value={ lookup.Language }/>
+		<form method="get" action={ studyLanguagePath(pageKindConcordance, lookup.Language) }>
 			@concordanceOriginFields(origin)
 			<input type="hidden" name="term" value={ lookup.Term }/>
 			if lookup.Match != "" {

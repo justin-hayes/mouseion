@@ -228,7 +228,7 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Equal(t, domain.DeckPreparationQueued, requeued.State)
 	assert.Empty(t, requeued.Error)
 
-	deVocabulary := perform(t, h, http.MethodGet, "/vocabulary", nil, aliceCookies)
+	deVocabulary := perform(t, h, http.MethodGet, "/de/vocabulary", nil, aliceCookies)
 	assert.Equal(t, http.StatusOK, deVocabulary.Code)
 	assert.Contains(t, deVocabulary.Body.String(), "Concordance", "Vocabulary is the Concordance surface")
 	assert.NotContains(t, deVocabulary.Body.String(), "Known vocabulary</h2>", "known-vocabulary heading rendered: body=%s", deVocabulary.Body.String())
