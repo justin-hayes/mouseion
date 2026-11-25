@@ -30,18 +30,23 @@ func TestReadingResolvesItsLanguageFromTheURL(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "it", stored, "a prefixed view records the Last study language")
 
-	// Unprefixed addresses redirect, dropping a legacy ?language=, to the prefixed form.
-	for path, want := range map[string]string{
-		"/reading":                    "/it/reading",
-		"/reading?language=de":        "/it/reading",
-		"/reading?q=haus&language=de": "/it/reading?q=haus",
-		"/reading/switch":             "/it/reading/switch",
-		"/reading/switch?language=de": "/it/reading/switch",
-		"/DE/reading":                 "/de/reading",
-	} {
-		response := getAs(t, h, path, cookies)
-		assert.Equal(t, http.StatusSeeOther, response.Code, path)
-		assert.Equal(t, want, response.Header().Get("Location"), path)
+	// Unprefixed addresses redirect to the prefixed form; a valid legacy
+	// ?language= names the language and is stripped.
+	redirects := []struct{ name, path, want string }{
+		{"reading", "/reading", "/it/reading"},
+		{"reading with a valid language", "/reading?language=de", "/de/reading"},
+		{"reading with a valid language and a query", "/reading?q=haus&language=de", "/de/reading?q=haus"},
+		{"reading with an invalid language", "/reading?language=fr", "/it/reading"},
+		{"switch", "/reading/switch", "/it/reading/switch"},
+		{"switch with a valid language", "/reading/switch?language=de", "/de/reading/switch"},
+		{"upper-case prefix", "/DE/reading", "/de/reading"},
+	}
+	for _, tc := range redirects {
+		t.Run(tc.name, func(t *testing.T) {
+			response := getAs(t, h, tc.path, cookies)
+			require.Equal(t, http.StatusSeeOther, response.Code)
+			require.Equal(t, tc.want, response.Header().Get("Location"))
+		})
 	}
 
 	// The picker opens Reading as Reading and Switch as Switch.

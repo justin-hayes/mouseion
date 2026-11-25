@@ -77,10 +77,19 @@ func TestVocabularyPagesAreAddressedByStudyLanguage(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, response.code)
 		assert.Equal(t, "/de/vocabulary/concordance?as=lemma&term=gehen", response.location)
 	})
-	t.Run("a query language is dropped and never honoured", func(t *testing.T) {
+	t.Run("a valid query language names the prefix and is stripped", func(t *testing.T) {
 		response := get("/vocabulary/concordance?language=it&term=andare")
 		assert.Equal(t, http.StatusSeeOther, response.code)
-		assert.Equal(t, "/de/vocabulary/concordance?term=andare", response.location)
+		assert.Equal(t, "/it/vocabulary/concordance?term=andare", response.location)
+	})
+	t.Run("an invalid query language uses the Last study language", func(t *testing.T) {
+		response := get("/vocabulary/concordance?language=fr&term=gehen")
+		assert.Equal(t, "/de/vocabulary/concordance?term=gehen", response.location)
+	})
+	t.Run("a stale prefix on a deep page falls back to the landing page", func(t *testing.T) {
+		response := get("/fr/vocabulary/concordance/sentence?sentence=0&target=1")
+		assert.Equal(t, http.StatusSeeOther, response.code)
+		assert.Equal(t, "/de/vocabulary/concordance", response.location)
 	})
 	t.Run("a language the learner does not study redirects to the Last study language", func(t *testing.T) {
 		response := get("/fr/vocabulary/concordance?term=gehen")
@@ -100,9 +109,11 @@ func TestVocabularyPagesAreAddressedByStudyLanguage(t *testing.T) {
 	})
 	t.Run("the picker lands a deep page on the Concordance landing of the chosen language", func(t *testing.T) {
 		for _, kind := range []string{"sentence-study", "concordance", "vocabulary"} {
-			response := get("/study-language?to=" + kind + "&lang=it")
-			assert.Equal(t, http.StatusSeeOther, response.code, kind)
-			assert.Equal(t, "/it/vocabulary/concordance", response.location, kind)
+			t.Run(kind, func(t *testing.T) {
+				response := get("/study-language?to=" + kind + "&lang=it")
+				require.Equal(t, http.StatusSeeOther, response.code)
+				require.Equal(t, "/it/vocabulary/concordance", response.location)
+			})
 		}
 	})
 }

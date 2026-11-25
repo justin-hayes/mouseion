@@ -22,39 +22,35 @@ const (
 )
 
 // studyLanguagePage describes one per-language surface. Path is the route
-// beneath the language prefix. Prefixed is false until the surface moves under
-// the prefix; an unmoved kind keeps its unprefixed route and the picker lands
-// on Landing's page instead. Landing is the kind a deep page falls back to when
-// the picker changes language (a lemma or sentence does not survive the
-// change); a surface's own landing page names itself.
+// beneath the language prefix. Landing is the kind a deep page falls back to
+// when the language changes (a lemma or sentence does not survive the change);
+// a surface's own landing page names itself.
 type studyLanguagePage struct {
-	Path     string
-	Prefixed bool
-	Landing  studyLanguagePageKind
+	Path    string
+	Landing studyLanguagePageKind
 }
 
 // studyLanguagePages is the page-kind registry every link builder, the
-// resolver and the picker target read. A ticket that moves a surface flips
-// Prefixed and registers its route with Handler.perLanguage.
+// resolver and the picker target read. A surface registers its route with
+// Handler.perLanguage.
 var studyLanguagePages = map[studyLanguagePageKind]studyLanguagePage{
-	pageKindMyBooks:       {Path: "library", Prefixed: true, Landing: pageKindMyBooks},
-	pageKindReading:       {Path: "reading", Prefixed: true, Landing: pageKindReading},
-	pageKindReadingSwitch: {Path: "reading/switch", Prefixed: true, Landing: pageKindReadingSwitch},
-	pageKindVocabulary:    {Path: "vocabulary", Prefixed: true, Landing: pageKindConcordance},
-	pageKindConcordance:   {Path: "vocabulary/concordance", Prefixed: true, Landing: pageKindConcordance},
-	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Prefixed: true, Landing: pageKindConcordance},
+	pageKindMyBooks:       {Path: "library", Landing: pageKindMyBooks},
+	pageKindReading:       {Path: "reading", Landing: pageKindReading},
+	pageKindReadingSwitch: {Path: "reading/switch", Landing: pageKindReadingSwitch},
+	pageKindVocabulary:    {Path: "vocabulary", Landing: pageKindConcordance},
+	pageKindConcordance:   {Path: "vocabulary/concordance", Landing: pageKindConcordance},
+	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Landing: pageKindConcordance},
 }
 
 // studyLanguagePath is the address of a page kind: prefixed with the language
-// when the kind has moved and a language is known, otherwise today's
-// unprefixed route (which redirects once the kind is prefixed).
+// when one is known, otherwise the unprefixed route.
 func studyLanguagePath(kind studyLanguagePageKind, language string) string {
 	page, ok := studyLanguagePages[kind]
 	if !ok {
 		return "/"
 	}
 	language = canonicalization.NormalizeLanguage(language)
-	if !page.Prefixed || language == "" {
+	if language == "" {
 		return "/" + page.Path
 	}
 	return "/" + language + "/" + page.Path
@@ -62,13 +58,13 @@ func studyLanguagePath(kind studyLanguagePageKind, language string) string {
 
 // studyLanguagePickerTarget is where the shell picker opens kind in language:
 // the kind's landing page, with every language-specific detail dropped. An
-// unmoved kind falls back to My Books, today's landing for a language change.
+// unknown kind falls back to My Books.
 func studyLanguagePickerTarget(kind studyLanguagePageKind, language string) string {
-	landing := studyLanguagePages[kind].Landing
-	if page, ok := studyLanguagePages[landing]; !ok || !page.Prefixed {
-		landing = pageKindMyBooks
+	landing, ok := studyLanguagePages[kind]
+	if !ok {
+		return studyLanguagePath(pageKindMyBooks, language)
 	}
-	return studyLanguagePath(landing, language)
+	return studyLanguagePath(landing.Landing, language)
 }
 
 // languagePrefixed is a per-language route registered through perLanguage.
@@ -77,15 +73,10 @@ type languagePrefixed struct {
 	handler http.Handler
 }
 
-// perLanguage registers a GET surface. A moved kind is served under
-// /{language}/<path>, and its unprefixed route redirects to the prefixed form;
-// an unmoved kind keeps the plain route.
+// perLanguage registers a GET surface. It is served under /{language}/<path>,
+// and its unprefixed route redirects to the prefixed form.
 func (h *Handler) perLanguage(kind studyLanguagePageKind, handler http.HandlerFunc) {
 	page := studyLanguagePages[kind]
-	if !page.Prefixed {
-		h.mux.Handle("GET /"+page.Path, h.user(handler))
-		return
-	}
 	if h.languagePages == nil {
 		h.languagePages = map[string]languagePrefixed{}
 	}
@@ -141,16 +132,22 @@ func (h *Handler) prefixedLanguagePage(page languagePrefixed) http.Handler {
 		language := canonicalization.NormalizeLanguage(raw)
 		rest := strings.TrimPrefix(r.URL.Path, "/"+raw)
 		if view == nil || !view.hasLanguage(language) {
-			redirectLocal(w, r, languageFallbackPath(view, rest), r.URL.RawQuery)
+			path, rawQuery := languageFallback(view, page.kind, rest, r.URL.RawQuery)
+			redirectLocal(w, r, path, rawQuery)
 			return
 		}
 		if language != raw {
 			redirectLocal(w, r, "/"+language+rest, r.URL.RawQuery)
 			return
 		}
-		view.ActiveLanguage = language
+		changed := view.LastLanguage != language
+		view.LastLanguage = language
 		view.PageLanguage = language
 		view.PageKind = page.kind
+		if !changed {
+			page.handler.ServeHTTP(w, r)
+			return
+		}
 		// The Last study language is recorded only once the page renders: a
 		// refused request, such as a stale Browse origin, leaves it alone.
 		recorder := &lastLanguageRecorder{ResponseWriter: w, record: func() error {
@@ -190,13 +187,19 @@ func (w *lastLanguageRecorder) Write(body []byte) (int, error) {
 // Unwrap lets http.ResponseController reach the underlying writer.
 func (w *lastLanguageRecorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
-// languageFallbackPath is the same page under the Last study language, or the
-// unprefixed page when the learner has none.
-func languageFallbackPath(view *shellView, rest string) string {
-	if view == nil || view.ActiveLanguage == "" {
-		return rest
+// languageFallback is where a prefix the learner has nothing in recovers to: the
+// same page under the Last study language, or the unprefixed page when the
+// learner has none. A deep page (a sentence) does not survive the change of
+// language, so it goes to its surface's landing page with its query dropped,
+// as the picker does.
+func languageFallback(view *shellView, kind studyLanguagePageKind, rest, rawQuery string) (path, query string) {
+	if view == nil || view.LastLanguage == "" {
+		return rest, rawQuery
 	}
-	return "/" + view.ActiveLanguage + rest
+	if landing := studyLanguagePages[kind].Landing; landing != kind {
+		return studyLanguagePath(landing, view.LastLanguage), ""
+	}
+	return "/" + view.LastLanguage + rest, rawQuery
 }
 
 // unprefixedLanguagePage redirects an unprefixed address to the prefixed form.
@@ -206,8 +209,12 @@ func (h *Handler) unprefixedLanguagePage(kind studyLanguagePageKind, handler htt
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		view := shellViewFromContext(r.Context())
 		language := view.lastLanguage()
-		// A legacy ?language= is dropped, never honoured.
+		// An old ?language= link keeps its language when the learner has it, and
+		// the parameter is stripped either way.
 		query := r.URL.Query()
+		if queried := canonicalization.NormalizeLanguage(query.Get("language")); view.hasLanguage(queried) {
+			language = queried
+		}
 		query.Del("language")
 		if language == "" && kind != pageKindMyBooks {
 			// Without a study language every other surface has nothing to show;

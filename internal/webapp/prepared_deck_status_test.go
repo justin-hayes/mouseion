@@ -200,7 +200,7 @@ func TestReachablePreparationReturnURLRequiresCurrentAnalysisAndLinksTheBooksLan
 	require.NoError(t, err)
 	assert.Equal(t, "/de/reading#journey-book-book-1", got)
 
-	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{ActiveLanguage: "it"})
+	crossLanguageContext := context.WithValue(context.Background(), shellViewContextKey{}, &shellView{LastLanguage: "it"})
 	got, err = h.reachablePreparationReturnURL(crossLanguageContext, "owner-1", action)
 	require.NoError(t, err)
 	assert.Equal(t, "/de/reading#journey-book-book-1", got, "a Book in another language links to its own language")

@@ -650,10 +650,6 @@ func (h *Handler) openBookInMyBooks(w http.ResponseWriter, r *http.Request, book
 		http.NotFound(w, r)
 		return
 	}
-	if err := h.services.Store.Shell.SetActiveStudyLanguage(r.Context(), owner, language); err != nil {
-		fail(w, err)
-		return
-	}
 	page, err := myBooksPageForBook(r.Context(), h.services.Store.MyBooks, owner, language, book)
 	if err != nil {
 		fail(w, err)
