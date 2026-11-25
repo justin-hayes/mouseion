@@ -1,6 +1,6 @@
 # ADR 0104: Compact LSJ definition outline on Ancient Greek cards
 
-Status: **Accepted** · Date: 2026-10-18 · Author: Justin + opencode
+Status: **Accepted; outline extended to every source-evidence language by [ADR 0133](0133-per-language-card-policy.md)** · Date: 2026-10-18 · Author: Justin + opencode
 
 Implemented by [#2206](https://github.com/justin-hayes/mouseion/pull/2206).
 Amends the "Dictionary entry display" bullet of
