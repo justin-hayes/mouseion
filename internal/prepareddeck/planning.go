@@ -393,7 +393,7 @@ func (p *BatchPlanner) validateIdiomAssessment(languages []string) error {
 // drifted or unrecorded assessment sends nothing: the deck falls back to the
 // default card.
 func (p *BatchPlanner) evidenceAssistedPassAllowed(projections []cardexport.CandidateProjection) bool {
-	if p.Codec == nil || len(projections) == 0 {
+	if p.Codec == nil || len(projections) == 0 || !cardpolicy.For(projections[0].Candidate.Language).EvidenceAssistedPass {
 		return false
 	}
 	return p.assessments().MaySend(enrichment.EvidenceAssistedPassPayload, projections[0].Candidate.Language, p.Codec) == nil
