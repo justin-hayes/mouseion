@@ -1,0 +1,196 @@
+package domain
+
+import (
+	"errors"
+	"time"
+)
+
+// StudyBatchSize is how many new words a New-word batch offers (spec #2691).
+const StudyBatchSize = 10
+
+// StudyBatchesPerDay is how many New-word batches Today offers. This ticket
+// offers one; the three-batch cap and the backlog brake that lower it replace
+// this constant.
+const StudyBatchesPerDay = 1
+
+// StudyGrade is the learner's answer to a Study card. Study has exactly two
+// grades; they map to FSRS Again and Good, never Hard or Easy (ADR 0134 §5).
+type StudyGrade string
+
+const (
+	// StudyGradeAgain keeps the word in learning and repeats it the same day.
+	StudyGradeAgain StudyGrade = "again"
+	// StudyGradeGotIt is a recalled answer.
+	StudyGradeGotIt StudyGrade = "got-it"
+)
+
+// ParseStudyGrade reads a grade from its stored or submitted name.
+func ParseStudyGrade(name string) (StudyGrade, bool) {
+	switch grade := StudyGrade(name); grade {
+	case StudyGradeAgain, StudyGradeGotIt:
+		return grade, true
+	}
+	return "", false
+}
+
+// StudyCardState is where a word is in the FSRS lifecycle.
+type StudyCardState string
+
+const (
+	// StudyStateNew is a word introduced but not yet graded.
+	StudyStateNew StudyCardState = "new"
+	// StudyStateLearning is a word still repeating on the day it was introduced.
+	StudyStateLearning StudyCardState = "learning"
+	// StudyStateReview is a word on a day-scale schedule.
+	StudyStateReview StudyCardState = "review"
+	// StudyStateRelearning is a reviewed word that was forgotten and repeats
+	// on the same day.
+	StudyStateRelearning StudyCardState = "relearning"
+)
+
+// StudyMemory is a word's scheduling state: the FSRS memory state and due time.
+// It is plain values, so the domain stays free of the scheduling library. The
+// review log stores it before and after every grade, which is enough to replay
+// the history under other parameters.
+type StudyMemory struct {
+	State          StudyCardState `json:"state"`
+	Due            time.Time      `json:"due"`
+	Stability      float64        `json:"stability"`
+	Difficulty     float64        `json:"difficulty"`
+	ScheduledDays  int64          `json:"scheduled_days"`
+	Reps           int64          `json:"reps"`
+	Lapses         int64          `json:"lapses"`
+	RemainingSteps int            `json:"remaining_steps"`
+	LastReview     time.Time      `json:"last_review"`
+}
+
+// NewStudyMemory is the state of a word at introduction: new and due now.
+func NewStudyMemory(now time.Time) StudyMemory {
+	return StudyMemory{State: StudyStateNew, Due: now.UTC()}
+}
+
+// StudyProgress is one word in study (ADR 0134 §2): its scheduling state, when
+// it was introduced, the meaning it was learned with and the Study material it
+// is currently reviewed in. It belongs to the word, never to a Book.
+type StudyProgress struct {
+	ID, OwnerID string
+	StudyIdentity
+	MaterialID     string
+	IntroducedAt   time.Time
+	LearnedMeaning string
+	Memory         StudyMemory
+	// Withdrawn marks a word a correction left with no valid occurrence. Its
+	// progress is kept and it is not due.
+	Withdrawn            bool
+	CreatedAt, UpdatedAt time.Time
+}
+
+// Graded reports whether the learner has answered the word at least once.
+func (p StudyProgress) Graded() bool { return p.Memory.Reps > 0 }
+
+// StudyCard is a due word with the Study material it is shown in.
+type StudyCard struct {
+	Progress StudyProgress
+	Material StudyMaterial
+}
+
+// StudyReviewLog is one append-only row per graded review: the grade, time,
+// Study day and the scheduling state before and after.
+type StudyReviewLog struct {
+	ID, OwnerID, ProgressID, MaterialID string
+	Grade                               StudyGrade
+	ReviewedAt                          time.Time
+	StudyDay                            string
+	Before, After                       StudyMemory
+}
+
+// StudyGradeRecord is a grade ready to be stored: the state the scheduler
+// computed for it. ExpectedReps is the number of grades the learner saw
+// recorded when the card was shown, so a repeated tap of the same card is
+// rejected rather than graded twice.
+type StudyGradeRecord struct {
+	ProgressID   string
+	ExpectedReps int64
+	Grade        StudyGrade
+	ReviewedAt   time.Time
+	StudyDay     string
+	After        StudyMemory
+}
+
+// StudyScheduler computes a word's next scheduling state from a grade. The
+// FSRS adapter in internal/study is its only implementation.
+type StudyScheduler interface {
+	Schedule(memory StudyMemory, grade StudyGrade, now time.Time) (StudyMemory, error)
+}
+
+// StudyBatchWord is one word of a New-word batch with the Study material it
+// is introduced in.
+type StudyBatchWord struct {
+	StudyIdentity
+	MaterialID string
+}
+
+// StudyBatchLedger is what Today has offered on one Study day: the batches
+// taken and the batches declined.
+type StudyBatchLedger struct {
+	StudyDay        string
+	Taken, Declined int
+}
+
+// Decided is how many batches the learner has answered on the day.
+func (l StudyBatchLedger) Decided() int { return l.Taken + l.Declined }
+
+// Errors of the Study progress store.
+var (
+	// ErrStudyBatchLimit rejects a batch answer beyond the day's batches.
+	ErrStudyBatchLimit = errors.New("study: no batch left to answer today")
+	// ErrStudyStale rejects a grade for a card that was already graded or is
+	// no longer the learner's.
+	ErrStudyStale = errors.New("study: the card was already graded")
+)
+
+// NextStudyBatch returns the words a New-word batch introduces: the first
+// StudyBatchSize candidates in stream order that are not in study and whose
+// current Study material is ready. A word whose material is still being
+// prepared or is unpreparable is passed over, so a batch never holds a card
+// with missing material. ordered must already be in stream order.
+func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress) []StudyBatchWord {
+	ready := make(map[StudyIdentity]string, len(material))
+	for _, item := range material {
+		if item.State == StudyMaterialReady {
+			ready[item.StudyIdentity] = item.ID
+		}
+	}
+	inStudy := make(map[StudyIdentity]bool, len(progress))
+	for _, item := range progress {
+		inStudy[item.StudyIdentity] = true
+	}
+	batch := make([]StudyBatchWord, 0, StudyBatchSize)
+	for _, candidate := range ordered {
+		id, ok := ready[candidate.StudyIdentity]
+		if !ok || inStudy[candidate.StudyIdentity] {
+			continue
+		}
+		batch = append(batch, StudyBatchWord{StudyIdentity: candidate.StudyIdentity, MaterialID: id})
+		if len(batch) == StudyBatchSize {
+			break
+		}
+	}
+	return batch
+}
+
+// WithoutStudyProgress drops the candidates already in study, so preparation
+// and batches only look ahead at new words.
+func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress) []StudyCandidate {
+	inStudy := make(map[StudyIdentity]bool, len(progress))
+	for _, item := range progress {
+		inStudy[item.StudyIdentity] = true
+	}
+	remaining := make([]StudyCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if !inStudy[candidate.StudyIdentity] {
+			remaining = append(remaining, candidate)
+		}
+	}
+	return remaining
+}
