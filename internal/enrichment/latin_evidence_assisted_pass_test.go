@@ -20,19 +20,19 @@ func latinPassRequest() TranslationRequest {
 		PassageContext:              "Caesar speaks.",
 		RequireEvidenceAssistedPass: true,
 		CandidateSenses: []LexicalSense{
-			{EvidenceID: LatinEvidenceID("n1", "n1.0"), Source: "ls", Gloss: "to dedicate"},
-			{EvidenceID: LatinEvidenceID("n1", "n1.1"), Source: "ls", Gloss: "to devote"},
-			{EvidenceID: LatinEvidenceID("n2", "n2.0"), Source: "ls", Gloss: "to say"},
+			{EvidenceID: EntryEvidenceID("n1", "n1.0"), Source: "ls", Gloss: "to dedicate"},
+			{EvidenceID: EntryEvidenceID("n1", "n1.1"), Source: "ls", Gloss: "to devote"},
+			{EvidenceID: EntryEvidenceID("n2", "n2.0"), Source: "ls", Gloss: "to say"},
 		},
 	}
 }
 
 func TestLatinEvidenceIDRoundTrips(t *testing.T) {
-	entry, sense, ok := SplitLatinEvidenceID(LatinEvidenceID("n1", "n1.0"))
+	entry, sense, ok := SplitEntryEvidenceID(EntryEvidenceID("n1", "n1.0"))
 	require.True(t, ok)
 	assert.Equal(t, "n1", entry)
 	assert.Equal(t, "n1.0", sense)
-	_, _, ok = SplitLatinEvidenceID("n1.0")
+	_, _, ok = SplitEntryEvidenceID("n1.0")
 	assert.False(t, ok, "a bare sense ID names no entry")
 }
 
@@ -80,7 +80,7 @@ func TestLatinPassDecodesACitedHandleToOneEntryAndSense(t *testing.T) {
 	resolved, err := codec.DecodeResponse(input, passChatBody(t, `{"item_id":"`+ContextualGlossItemHandle+`","source_language":"la","target_language":"en","translation":"say","sentence_translation":"Caesar speaks.","sentence_translation_targets":[],"gloss":"say","evidence_ids":["e3"],"context_only":false}`))
 	require.NoError(t, err)
 	require.Len(t, resolved.EvidenceIDs, 1)
-	entry, sense, ok := SplitLatinEvidenceID(resolved.EvidenceIDs[0])
+	entry, sense, ok := SplitEntryEvidenceID(resolved.EvidenceIDs[0])
 	require.True(t, ok)
 	assert.Equal(t, "n2", entry)
 	assert.Equal(t, "n2.0", sense)
@@ -131,9 +131,9 @@ func TestLatinEvidenceAssistedPassAssessmentIsRecordedForLatinOnly(t *testing.T)
 func TestLatinPassRequestSendsOnlyShortHandles(t *testing.T) {
 	input := latinPassRequest()
 	input.CandidateSenses = []LexicalSense{
-		{EvidenceID: LatinEvidenceID("n40213", "n40213.0"), Source: "ls", Gloss: "to dedicate"},
-		{EvidenceID: LatinEvidenceID("n40213", "n40213.1"), Source: "ls", Gloss: "to devote"},
-		{EvidenceID: LatinEvidenceID("n40214", "n40214.0"), Source: "ls", Gloss: "to say"},
+		{EvidenceID: EntryEvidenceID("n40213", "n40213.0"), Source: "ls", Gloss: "to dedicate"},
+		{EvidenceID: EntryEvidenceID("n40213", "n40213.1"), Source: "ls", Gloss: "to devote"},
+		{EvidenceID: EntryEvidenceID("n40214", "n40214.0"), Source: "ls", Gloss: "to say"},
 	}
 	body, err := passCodec(t).EncodeRequest(input)
 	require.NoError(t, err)

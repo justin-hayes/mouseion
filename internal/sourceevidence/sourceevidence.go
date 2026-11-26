@@ -64,7 +64,8 @@ type Target struct {
 type Entry struct {
 	// ID is the source's native entry ID.
 	ID string
-	// Number is the L&S number shown when several entries stack, or zero.
+	// Number is the entry number shown when several entries stack (the L&S
+	// number, or an LSJ entry's place in order), or zero.
 	Number int
 	// Senses is every sense with a native ID, flattened in source order, so a
 	// caller never branches on the dictionary's own hierarchy.
@@ -89,16 +90,30 @@ type Resolution struct {
 	Pin string
 }
 
-// Resolve looks the lemma up in the dictionary the policy names and returns
-// every entry with its structured outline; cited is the set of entry senses to
-// flag. It resolves nothing for a policy with no dictionary, a provider without
-// the capability, or a lemma with no usable entry.
+// Resolve looks the lemma up for a Prepared deck, by the policy's deck lookup
+// rule, and returns every entry with its structured outline; cited is the set of
+// entry senses to flag. It resolves nothing for a policy with no dictionary, a
+// provider without the capability, or a lemma with no usable entry.
 func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+	return resolve(ctx, lexical, policy, policy.DictionaryLookup, lemma, cited)
+}
+
+// ResolveStudy is Resolve under the policy's Study lookup rule (ADR 0139): Greek
+// Study takes every competing LSJ entry in source order where the deck takes
+// exactly one.
+func ResolveStudy(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+	return resolve(ctx, lexical, policy, policy.StudyLookup, lemma, cited)
+}
+
+func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, rule cardpolicy.Lookup, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	if lexical == nil {
 		return Resolution{}, false
 	}
 	switch policy.Entries {
 	case cardpolicy.EntryLSJ:
+		if rule == cardpolicy.LookupEveryEntry {
+			return resolveEveryLSJ(ctx, lexical, lemma, cited)
+		}
 		return resolveLSJ(ctx, lexical, lemma, cited)
 	case cardpolicy.EntryLewisShort:
 		return resolveLewisShort(ctx, lexical, lemma, cited)
@@ -117,6 +132,40 @@ func resolveLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma s
 		return Resolution{}, false
 	}
 	return Resolution{Entries: []Entry{BuildLSJ(matched, cited)}, EntryID: matched.EntryID, Pin: matched.Pin}, true
+}
+
+// resolveEveryLSJ stacks every competing LSJ entry of the lemma, in source
+// order, each with its position as its label: the index carries no LSJ homograph
+// number of its own.
+func resolveEveryLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+	provider, ok := lexical.(enrichment.AncientGreekLSJEntriesProvider)
+	if !ok {
+		return Resolution{}, false
+	}
+	found, ok := provider.LookupAncientGreekLSJEntries(ctx, lemma)
+	if !ok {
+		return Resolution{}, false
+	}
+	var kept []enrichment.AncientGreekLSJEntry
+	for _, candidate := range found {
+		if !candidate.Empty() {
+			kept = append(kept, candidate)
+		}
+	}
+	if len(kept) == 0 {
+		return Resolution{}, false
+	}
+	entries := make([]Entry, 0, len(kept))
+	ids := make([]string, 0, len(kept))
+	for i, candidate := range kept {
+		entry := BuildLSJ(candidate, cited)
+		if len(kept) > 1 {
+			entry.Number = i + 1
+		}
+		entries = append(entries, entry)
+		ids = append(ids, candidate.EntryID)
+	}
+	return Resolution{Entries: entries, EntryID: strings.Join(ids, EntryIDSeparator), Pin: kept[0].Pin}, true
 }
 
 // BuildLSJ gives a matched LSJ entry its structured outline, flagging the senses
@@ -182,6 +231,22 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 	return entries
 }
 
+// PassSenses are the pinned dictionary senses an entry-carrying evidence pass
+// may cite across every resolved entry, by the dictionary the policy names. Each
+// sense's evidence ID names its entry and its sense (enrichment.EntryEvidenceID),
+// so a cited sense is exactly one sense of one entry across homographs.
+func PassSenses(policy cardpolicy.Policy, entries []Entry) []enrichment.LexicalSense {
+	perEntry := make([][]enrichment.LexicalSense, len(entries))
+	for i, entry := range entries {
+		if policy.Entries == cardpolicy.EntryLSJ {
+			perEntry[i] = lsjEntryPassSenses(entry)
+		} else {
+			perEntry[i] = latinEntryPassSenses(entry)
+		}
+	}
+	return capRoundRobin(perEntry)
+}
+
 // LatinPassSenses are the pinned Lewis & Short senses the Latin evidence-assisted
 // pass may cite, across every resolved entry. Each sense's evidence ID names its
 // entry and its sense, so a cited sense is exactly one sense of one entry, even
@@ -195,7 +260,14 @@ func LatinPassSenses(entries []Entry) []enrichment.LexicalSense {
 	for i, entry := range entries {
 		perEntry[i] = latinEntryPassSenses(entry)
 	}
-	keep := make([]int, len(entries))
+	return capRoundRobin(perEntry)
+}
+
+// capRoundRobin keeps at most enrichment.DefaultMaxCandidateSenses senses, taken
+// round-robin across the entries so every entry is represented, and each entry's
+// senses stay in source order.
+func capRoundRobin(perEntry [][]enrichment.LexicalSense) []enrichment.LexicalSense {
+	keep := make([]int, len(perEntry))
 	for taken := 0; taken < enrichment.DefaultMaxCandidateSenses; {
 		before := taken
 		for i := range perEntry {
@@ -225,7 +297,26 @@ func latinEntryPassSenses(entry Entry) []enrichment.LexicalSense {
 		}
 		gloss := strings.Join(text, "; ")
 		if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
-			senses = append(senses, enrichment.LexicalSense{EvidenceID: enrichment.LatinEvidenceID(entry.ID, sense.ID), Source: "ls", Gloss: gloss})
+			senses = append(senses, enrichment.LexicalSense{EvidenceID: enrichment.EntryEvidenceID(entry.ID, sense.ID), Source: "ls", Gloss: gloss})
+		}
+	}
+	return senses
+}
+
+// lsjEntryPassSenses are one LSJ entry's senses that have an ID and text to send:
+// its definitions (ADR 0104), or every gloss when no sense of the entry has a
+// definition. Each sense's evidence ID names the entry.
+func lsjEntryPassSenses(entry Entry) []enrichment.LexicalSense {
+	useDefinitions := slices.ContainsFunc(entry.Senses, func(sense Sense) bool { return len(sense.Definitions) > 0 })
+	var senses []enrichment.LexicalSense
+	for _, sense := range entry.Senses {
+		text := sense.Glosses
+		if useDefinitions {
+			text = sense.Definitions
+		}
+		gloss := strings.Join(text, "; ")
+		if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
+			senses = append(senses, enrichment.LexicalSense{EvidenceID: enrichment.EntryEvidenceID(entry.ID, sense.ID), Source: "lsj", Gloss: gloss})
 		}
 	}
 	return senses
@@ -237,7 +328,7 @@ func latinEntryPassSenses(entry Entry) []enrichment.LexicalSense {
 func LatinCitedSenseIDs(entries []Entry, citedIDs []string) ([]string, bool) {
 	native := make([]string, 0, len(citedIDs))
 	for _, id := range citedIDs {
-		entryID, senseID, ok := enrichment.SplitLatinEvidenceID(id)
+		entryID, senseID, ok := enrichment.SplitEntryEvidenceID(id)
 		if !ok {
 			return nil, false
 		}
