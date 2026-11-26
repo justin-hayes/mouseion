@@ -313,14 +313,7 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idio
 		entry.LSJSummaryProviderVersion = projection.LSJSummaryProviderVersion
 		if projection.SkipMeaningEvidence {
 			clearDictionaryFacts(&entry)
-			resolveLatinLS(ctx, lexical, &entry, projection.WorkAuthor, projection.WorkTextgroup)
-			matched, found := resolveAncientGreekLSJ(ctx, lexical, &entry)
-			if projection.EvidenceAssistedPass && found {
-				// The pass transmits the pinned LSJ senses with their native IDs
-				// as its meaning evidence; the displayed entry is the frozen
-				// entry above (ADR 0101).
-				entry.CandidateSenses = ancientGreekLSJPassSenses(matched)
-			}
+			resolveSourceEvidenceEntry(ctx, lexical, &entry, projection)
 			entries = append(entries, entry)
 			continue
 		}
@@ -330,6 +323,22 @@ func freezeEntries(ctx context.Context, lexical enrichment.LexicalProvider, idio
 		entries = append(entries, entry)
 	}
 	return entries, nil
+}
+
+// resolveSourceEvidenceEntry freezes the dictionary entries of a source-evidence
+// card, Lewis & Short for Latin and LSJ for Ancient Greek. When the card also
+// opts into the evidence-assisted pass, the pass transmits the pinned senses,
+// with their native IDs, as its meaning evidence; the displayed entry is the
+// frozen entry (ADR 0101, ADR 0138). A Latin sense's ID names its entry too.
+func resolveSourceEvidenceEntry(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry, projection CandidateProjection) {
+	latinEntries, latinFound := resolveLatinLSEntries(ctx, lexical, entry, projection.WorkAuthor, projection.WorkTextgroup)
+	if projection.EvidenceAssistedPass && latinFound {
+		entry.CandidateSenses = sourceevidence.LatinPassSenses(latinEntries)
+	}
+	matched, found := resolveAncientGreekLSJ(ctx, lexical, entry)
+	if projection.EvidenceAssistedPass && found {
+		entry.CandidateSenses = ancientGreekLSJPassSenses(matched)
+	}
 }
 
 // applySourceAttribution derives the optional typed attribution of the frozen

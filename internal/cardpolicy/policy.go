@@ -134,20 +134,22 @@ var (
 		SentenceBoundary:     BoundaryTerminalMark,
 		DictionaryLookup:     LookupExactlyOne,
 	}
-	// sourceEvidenceLatin has no evidence-assisted pass yet: the provider payload
-	// has no recorded assessment for Latin (ADR 0133), so a Latin deck is the
-	// default card with no provider request, and Latin Study stays off until its
-	// pass and evidence run are recorded (ADR 0138 §6). Its dictionary is Lewis &
-	// Short, and its full entry keeps only the Work author's citations.
+	// sourceEvidenceLatin turns the evidence-assisted pass on (ADR 0138 §1), with
+	// its own Lewis & Short contract. The pass is sent only once the Latin payload
+	// assessment is recorded (ADR 0133, #2766); until then a Latin deck is the
+	// default card with no provider request. Latin Study stays off until its
+	// evidence run is recorded (ADR 0138 §6). Its dictionary is Lewis & Short, and
+	// its full entry keeps only the Work author's citations.
 	sourceEvidenceLatin = Policy{
-		SourceEvidence:   true,
-		Study:            false,
-		SourceNotice:     LatinSourceNotice,
-		Entries:          EntryLewisShort,
-		Citations:        CitationsWorkAuthor,
-		Translations:     TranslationPerseus,
-		SentenceBoundary: BoundaryTerminalMark,
-		DictionaryLookup: LookupEveryEntry,
+		SourceEvidence:       true,
+		EvidenceAssistedPass: true,
+		Study:                false,
+		SourceNotice:         LatinSourceNotice,
+		Entries:              EntryLewisShort,
+		Citations:            CitationsWorkAuthor,
+		Translations:         TranslationPerseus,
+		SentenceBoundary:     BoundaryTerminalMark,
+		DictionaryLookup:     LookupEveryEntry,
 	}
 	modern = Policy{
 		Study:            true,

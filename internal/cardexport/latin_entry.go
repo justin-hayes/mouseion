@@ -28,21 +28,28 @@ const DictionaryEntryIDSeparator = sourceevidence.EntryIDSeparator
 // author and workTextgroup its CTS textgroup, which the full entry's
 // citations are filtered against.
 func resolveLatinLS(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry, workAuthor, workTextgroup string) bool {
+	_, found := resolveLatinLSEntries(ctx, lexical, entry, workAuthor, workTextgroup)
+	return found
+}
+
+// resolveLatinLSEntries is resolveLatinLS returning the resolved entries too, so
+// the evidence-assisted pass can send their senses as its meaning evidence.
+func resolveLatinLSEntries(ctx context.Context, lexical enrichment.LexicalProvider, entry *Entry, workAuthor, workTextgroup string) ([]sourceevidence.Entry, bool) {
 	policy := cardpolicy.For("")
 	if entry != nil {
 		policy = cardpolicy.For(entry.Language)
 	}
 	if entry == nil || policy.Entries != cardpolicy.EntryLewisShort {
-		return false
+		return nil, false
 	}
 	resolution, found := sourceevidence.Resolve(ctx, lexical, policy, entry.CanonicalLemma, nil)
 	if !found {
-		return false
+		return nil, false
 	}
 	entry.DictionaryEntryID = resolution.EntryID
 	entry.DictionaryPin = resolution.Pin
 	entry.DictionaryEntry = renderLatinLSResolved(resolution.Entries, policy.Citations, workAuthor, workTextgroup)
-	return true
+	return resolution.Entries, true
 }
 
 // renderLatinLSEntries stacks every entry, each with its own head line, outline

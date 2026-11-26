@@ -175,6 +175,76 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 	return entries
 }
 
+// LatinPassSenses are the pinned Lewis & Short senses the Latin evidence-assisted
+// pass may cite, across every resolved entry. Each sense's evidence ID names its
+// entry and its sense, so a cited sense is exactly one sense of one entry, even
+// across stacked homographs. A sense sends its definitions, or its glosses when
+// it has none; a sense with no native ID or nothing to send gives no evidence and
+// is skipped. The pass carries at most enrichment.DefaultMaxCandidateSenses
+// senses, taken round-robin across the entries so every returned entry is
+// represented, and kept in source order.
+func LatinPassSenses(entries []Entry) []enrichment.LexicalSense {
+	perEntry := make([][]enrichment.LexicalSense, len(entries))
+	for i, entry := range entries {
+		perEntry[i] = latinEntryPassSenses(entry)
+	}
+	keep := make([]int, len(entries))
+	for taken := 0; taken < enrichment.DefaultMaxCandidateSenses; {
+		before := taken
+		for i := range perEntry {
+			if keep[i] < len(perEntry[i]) && taken < enrichment.DefaultMaxCandidateSenses {
+				keep[i]++
+				taken++
+			}
+		}
+		if taken == before {
+			break
+		}
+	}
+	var senses []enrichment.LexicalSense
+	for i := range perEntry {
+		senses = append(senses, perEntry[i][:keep[i]]...)
+	}
+	return senses
+}
+
+// latinEntryPassSenses are one entry's senses that have an ID and text to send.
+func latinEntryPassSenses(entry Entry) []enrichment.LexicalSense {
+	var senses []enrichment.LexicalSense
+	for _, sense := range entry.Senses {
+		text := sense.Definitions
+		if len(text) == 0 {
+			text = sense.Glosses
+		}
+		gloss := strings.Join(text, "; ")
+		if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
+			senses = append(senses, enrichment.LexicalSense{EvidenceID: enrichment.LatinEvidenceID(entry.ID, sense.ID), Source: "ls", Gloss: gloss})
+		}
+	}
+	return senses
+}
+
+// LatinCitedSenseIDs returns the native sense IDs a Latin pass answer cited, in
+// order. It reports false when a cited ID names no entry, or a sense the named
+// entry does not hold.
+func LatinCitedSenseIDs(entries []Entry, citedIDs []string) ([]string, bool) {
+	native := make([]string, 0, len(citedIDs))
+	for _, id := range citedIDs {
+		entryID, senseID, ok := enrichment.SplitLatinEvidenceID(id)
+		if !ok {
+			return nil, false
+		}
+		held := slices.ContainsFunc(entries, func(entry Entry) bool {
+			return entry.ID == entryID && slices.ContainsFunc(entry.Senses, func(sense Sense) bool { return sense.ID == senseID })
+		})
+		if !held {
+			return nil, false
+		}
+		native = append(native, senseID)
+	}
+	return native, true
+}
+
 // HasOwnSense reports whether a Lewis & Short entry has a sense of its own: any
 // sense below the level-0 pseudo-sense that carries only its citations and
 // redirects.

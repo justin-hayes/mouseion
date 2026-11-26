@@ -23,6 +23,12 @@ const (
 	// the representative sentence, its passage context, and the pinned LSJ
 	// definitions as short evidence handles (ADR 0101, ADR 0105).
 	EvidenceAssistedPassPayload ProviderPayloadKind = "evidence-assisted-pass"
+	// LatinEvidenceAssistedPassPayload is the Classical Latin evidence-assisted
+	// pass: the representative sentence, its passage context, and the pinned
+	// Lewis & Short senses as short evidence handles that each name their entry
+	// (ADR 0138 §1). It has its own contract, so it needs its own record; none is
+	// recorded until the human review (#2766), so it sends nothing.
+	LatinEvidenceAssistedPassPayload ProviderPayloadKind = "latin-evidence-assisted-pass"
 	// LSJSenseSummaryPayload is the context-free summary of a pinned LSJ entry:
 	// its headword, sense IDs and English glosses alone (ADR 0101).
 	LSJSenseSummaryPayload ProviderPayloadKind = "lsj-sense-summary"
@@ -226,6 +232,8 @@ func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (
 	switch kind {
 	case EvidenceAssistedPassPayload:
 		return payloadContract{codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()}, true
+	case LatinEvidenceAssistedPassPayload:
+		return payloadContract{codec.ProviderName(), codec.LatinEvidenceAssistedPassPromptContract(), LatinEvidenceAssistedPassPayloadFields()}, true
 	case LSJSenseSummaryPayload:
 		return payloadContract{codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()}, true
 	case IdiomCardPayload:
@@ -257,4 +265,14 @@ func (a ProviderAssessment) allows(contract payloadContract) error {
 // language.
 func sameAssessmentLanguage(left, right string) bool {
 	return canonicalization.NormalizeLanguage(left) == canonicalization.NormalizeLanguage(right)
+}
+
+// EvidenceAssistedPassKind is the payload kind a source-evidence language's
+// evidence-assisted pass transmits: Latin has its own contract, every other
+// language the Greek one.
+func EvidenceAssistedPassKind(language string) ProviderPayloadKind {
+	if isLatinPass(language) {
+		return LatinEvidenceAssistedPassPayload
+	}
+	return EvidenceAssistedPassPayload
 }

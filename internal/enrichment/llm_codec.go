@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 )
 
 var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_targets (an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Do not include the whole sentence or unrelated words in an alignment. Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_targets must be empty. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
@@ -56,6 +58,13 @@ var idiomCardSystemPrompt = "Confirm and translate the supplied idiom in the com
 // card: a failed or abstaining answer leaves the source-evidence card as it
 // was (ADR 0101).
 var evidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of an Ancient Greek text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+
+// latinEvidenceAssistedPassSystemPrompt is the strict Classical Latin
+// evidence-assisted pass contract. It differs from the Greek contract only in
+// the language and the dictionary it names: each pinned Lewis & Short sense
+// carries a short evidence handle and the short handle of its entry, so a cited
+// sense is exactly one sense of one entry across stacked homographs.
+var latinEvidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of a Classical Latin text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned Lewis & Short senses of the lemma, each with a short evidence_id handle and the short entry handle of the dictionary entry it belongs to (stacked homograph entries have different entry handles). Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
 // lsjSenseSummarySystemPrompt is the strict Ancient Greek LSJ sense summary
 // contract. The payload carries only the pinned LSJ entry (its headword and its
@@ -166,6 +175,36 @@ func (c *TranslationCodec) EvidenceAssistedPassProviderVersion() string {
 // changes.
 func (c *TranslationCodec) EvidenceAssistedPassPromptContract() string {
 	return evidenceAssistedPassPromptVersion
+}
+
+// LatinEvidenceAssistedPassProviderVersion identifies the strict Classical
+// Latin evidence-assisted pass response contract used by a pass run.
+func (c *TranslationCodec) LatinEvidenceAssistedPassProviderVersion() string {
+	if c == nil {
+		return ""
+	}
+	version := c.model + "/" + latinEvidenceAssistedPassPromptVersion
+	if c.usesReasoningEffort {
+		version += "-reasoning-" + c.reasoningEffort
+	}
+	return version
+}
+
+// LatinEvidenceAssistedPassPromptContract returns the versioned Latin
+// evidence-assisted pass prompt contract alone, without the configured model.
+// The Latin provider-payload assessment pins this contract.
+func (c *TranslationCodec) LatinEvidenceAssistedPassPromptContract() string {
+	return latinEvidenceAssistedPassPromptVersion
+}
+
+// EvidenceAssistedPassProviderVersionFor identifies the pass response contract
+// for a language: Latin has its own, every other source-evidence language the
+// Greek one.
+func (c *TranslationCodec) EvidenceAssistedPassProviderVersionFor(language string) string {
+	if isLatinPass(language) {
+		return c.LatinEvidenceAssistedPassProviderVersion()
+	}
+	return c.EvidenceAssistedPassProviderVersion()
 }
 
 // LSJSenseSummaryProviderVersion identifies the strict Ancient Greek LSJ sense
@@ -328,7 +367,16 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 	if input.RequireContextualGloss || input.RequireEvidenceAssistedPass {
 		handles := newContextualGlossHandles(input)
 		itemID = ContextualGlossItemHandle
+		entryHandles := map[string]string{}
 		for i := range candidateSenses {
+			if input.RequireEvidenceAssistedPass && isLatinPass(input.Language) {
+				if entryID, _, ok := SplitLatinEvidenceID(candidateSenses[i].EvidenceID); ok {
+					if _, seen := entryHandles[entryID]; !seen {
+						entryHandles[entryID] = "h" + strconv.Itoa(len(entryHandles)+1)
+					}
+					candidateSenses[i].Entry = entryHandles[entryID]
+				}
+			}
 			if handle, ok := handles.toHandle[candidateSenses[i].EvidenceID]; ok {
 				candidateSenses[i].EvidenceID = handle
 			}
@@ -374,6 +422,9 @@ func promptForRequest(input TranslationRequest) string {
 		return lsjSenseSummarySystemPrompt
 	}
 	if input.RequireEvidenceAssistedPass {
+		if isLatinPass(input.Language) {
+			return latinEvidenceAssistedPassSystemPrompt
+		}
 		return evidenceAssistedPassSystemPrompt
 	}
 	if input.RequireIdiomCard {
@@ -553,6 +604,46 @@ var evidenceAssistedPassPayloadFields = []string{
 // evidence-assisted pass request transmits.
 func EvidenceAssistedPassPayloadFields() []string {
 	return slices.Clone(evidenceAssistedPassPayloadFields)
+}
+
+// latinEvidenceAssistedPassPayloadFields is the exact ordered field set a
+// Classical Latin evidence-assisted pass request transmits. Its candidate_senses
+// carry a short entry handle beside each short evidence handle. It is the
+// contract the Latin provider-payload assessment pins before any request is
+// sent.
+var latinEvidenceAssistedPassPayloadFields = []string{
+	"item_id", "language", "target_language", "canonical_lemma", "upos",
+	"target_word", "example_sentence", "passage_context", "candidate_senses",
+}
+
+// LatinEvidenceAssistedPassPayloadFields returns a copy of the ordered field set
+// a Latin evidence-assisted pass request transmits.
+func LatinEvidenceAssistedPassPayloadFields() []string {
+	return slices.Clone(latinEvidenceAssistedPassPayloadFields)
+}
+
+// isLatinPass reports whether a pass request's language selects the Latin
+// contract.
+func isLatinPass(language string) bool {
+	return canonicalization.NormalizeLanguage(language) == "la"
+}
+
+// latinEvidenceIDSeparator joins a Lewis & Short entry ID and one of its sense
+// IDs into the stable evidence ID the Latin pass cites.
+const latinEvidenceIDSeparator = "#"
+
+// LatinEvidenceID is the stable evidence ID of one Lewis & Short sense: it names
+// the entry and the sense, so a cited sense resolves to exactly one of each even
+// across stacked homograph entries.
+func LatinEvidenceID(entryID, senseID string) string {
+	return entryID + latinEvidenceIDSeparator + senseID
+}
+
+// SplitLatinEvidenceID returns the entry and sense a Latin evidence ID names. It
+// reports false for an ID that names no entry or no sense.
+func SplitLatinEvidenceID(id string) (entryID, senseID string, ok bool) {
+	entryID, senseID, ok = strings.Cut(id, latinEvidenceIDSeparator)
+	return entryID, senseID, ok && entryID != "" && senseID != ""
 }
 
 // ContextualGlossItemHandle is the short handle a contextual Gloss payload
