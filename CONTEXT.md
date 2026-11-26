@@ -827,7 +827,9 @@ _Avoid_: card, deck, prepared deck.
 
 **Learned meaning**:
 The Gloss a word showed when Today introduced it. Fluency contexts must agree
-with it. If a confirmed correction shows that the introducing context was not
+with it. In a language that uses source-evidence cards, the Gloss comes from
+the Evidence-assisted provider pass and must cite at least one sense of the
+language's dictionary; it records the senses it cites. If a confirmed correction shows that the introducing context was not
 this word, the next review re-introduces the word with valid Study material and
 re-anchors its learned meaning, keeping its Study progress.
 _Avoid_: sense (a dictionary entry's meaning), pedagogical sense, definition.
