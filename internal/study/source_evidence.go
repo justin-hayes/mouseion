@@ -47,11 +47,11 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 		// Nothing is sent; the word waits until its assessment is recorded.
 		return river.JobSnooze(notConfiguredDelay)
 	}
-	resolution, found := sourceevidence.Resolve(ctx, evidence.Lexical, policy, material.CanonicalLemma, nil)
+	resolution, found := sourceevidence.ResolveStudy(ctx, evidence.Lexical, policy, material.CanonicalLemma, nil)
 	if !found {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionNoDictionaryEntry)
 	}
-	senses := passSenses(policy, resolution)
+	senses := sourceevidence.PassSenses(policy, resolution.Entries)
 	if len(senses) == 0 || strings.TrimSpace(resolution.Pin) == "" {
 		// The entry has nothing the Gloss could cite.
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
@@ -79,7 +79,7 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	if err != nil {
 		return err
 	}
-	refs, validCitations := citedSenses(policy, resolution, meaning.CitedSenseIDs)
+	refs, validCitations := citedSenses(resolution, meaning.CitedSenseIDs)
 	cited := citationsOf(resolution, refs)
 	if !validCitations || meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
@@ -95,50 +95,21 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	})
 }
 
-// passSenses are the pinned dictionary senses the pass may cite across every
-// resolved entry in source order. A Greek sense's evidence ID is its native
-// sense ID; a Latin sense's names its entry and its sense, so a cited sense
-// resolves to exactly one of each across stacked homographs.
-func passSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution) []enrichment.LexicalSense {
-	if policy.Entries != cardpolicy.EntryLSJ {
-		return sourceevidence.LatinPassSenses(resolution.Entries)
-	}
-	var senses []enrichment.LexicalSense
-	for _, entry := range resolution.Entries {
-		senses = append(senses, sourceevidence.GreekPassSenses(entry.LSJ)...)
-	}
-	return senses
-}
-
 // citedSenses resolves the evidence IDs a pass answer cited to the (entry,
-// sense) pairs they name, in the order cited, with no repeats. A Latin answer's
-// IDs each name an entry and a sense, so a sense ID two stacked homographs share
-// resolves to the entry that was cited. A Greek answer's ID is the native sense
-// ID, which resolves to the first resolved entry that holds it. It reports false
-// when a cited ID names no sense the resolved entries hold (ADR 0138 §2).
-func citedSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited []string) ([]sourceevidence.SenseRef, bool) {
+// sense) pairs they name, in the order cited, with no repeats. Every ID names an
+// entry and a sense, so a sense ID two homograph entries share resolves to the
+// entry that was cited. It reports false when a cited ID names no sense the
+// resolved entries hold (ADR 0138 §2).
+func citedSenses(resolution sourceevidence.Resolution, cited []string) ([]sourceevidence.SenseRef, bool) {
 	refs := make([]sourceevidence.SenseRef, 0, len(cited))
-	add := func(ref sourceevidence.SenseRef) {
-		if !slices.Contains(refs, ref) {
-			refs = append(refs, ref)
-		}
-	}
 	for _, id := range cited {
-		if policy.Entries == cardpolicy.EntryLSJ {
-			entryIndex := slices.IndexFunc(resolution.Entries, func(entry sourceevidence.Entry) bool {
-				return slices.ContainsFunc(entry.Senses, func(sense sourceevidence.Sense) bool { return sense.ID == id })
-			})
-			if entryIndex < 0 {
-				return nil, false
-			}
-			add(sourceevidence.SenseRef{EntryID: resolution.Entries[entryIndex].ID, SenseID: id})
-			continue
-		}
-		entryID, senseID, ok := enrichment.SplitLatinEvidenceID(id)
+		entryID, senseID, ok := enrichment.SplitEntryEvidenceID(id)
 		if !ok || !holdsSense(resolution, entryID, senseID) {
 			return nil, false
 		}
-		add(sourceevidence.SenseRef{EntryID: entryID, SenseID: senseID})
+		if ref := (sourceevidence.SenseRef{EntryID: entryID, SenseID: senseID}); !slices.Contains(refs, ref) {
+			refs = append(refs, ref)
+		}
 	}
 	return refs, true
 }

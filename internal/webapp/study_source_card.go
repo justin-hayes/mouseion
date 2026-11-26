@@ -33,7 +33,8 @@ func (s sourceCardView) Notices() []string { return s.notices }
 // dictionaryEntryView is one cited dictionary entry's compact outline.
 type dictionaryEntryView struct {
 	// Source names the dictionary; Headword and Number label the entry. Number
-	// is the entry number when the policy stacks entries, otherwise zero.
+	// is the entry number (Lewis & Short's own, or an LSJ entry's place in order)
+	// when several entries stack, otherwise zero.
 	Source, Headword string
 	Number           int
 	Outline          []outlineSenseView
@@ -104,12 +105,12 @@ func resolveCited(ctx context.Context, lexical enrichment.LexicalProvider, polic
 	for i, id := range cited.SenseIDs {
 		flagged[sourceevidence.SenseRef{EntryID: cited.EntryIDs[i], SenseID: id}] = struct{}{}
 	}
-	resolution, ok := sourceevidence.Resolve(ctx, lexical, policy, lemma, flagged)
+	resolution, ok := sourceevidence.ResolveStudy(ctx, lexical, policy, lemma, flagged)
 	if !ok {
 		return sourceevidence.Resolution{}, false
 	}
 	if strings.TrimSpace(cited.DictionaryPin) != strings.TrimSpace(resolution.Pin) {
-		resolution, ok = sourceevidence.Resolve(ctx, lexical, policy, lemma, nil)
+		resolution, ok = sourceevidence.ResolveStudy(ctx, lexical, policy, lemma, nil)
 		if !ok {
 			return sourceevidence.Resolution{}, false
 		}
@@ -138,7 +139,7 @@ func dictionaryEntryViews(policy cardpolicy.Policy, resolution sourceevidence.Re
 				view.Targets = append(view.Targets, targetOutlineView{Reference: target.Reference, Outline: outlineSenseViews(target.Outline)})
 			}
 		} else {
-			view.Source, view.Headword = "LSJ", strings.TrimSpace(entry.LSJ.Headword)
+			view.Source, view.Number, view.Headword = "LSJ", entry.Number, strings.TrimSpace(entry.LSJ.Headword)
 		}
 		views = append(views, view)
 	}

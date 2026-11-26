@@ -31,6 +31,11 @@ const (
 	// context and the pinned Lewis & Short senses, each handle naming its entry
 	// and sense, and the same resolved-or-abstained answer (ADR 0138 §1).
 	latinEvidenceAssistedPassPromptVersion = "translation-v18-evidence-assisted-latin"
+	// greekEntryEvidenceAssistedPassPromptVersion pins the strict Ancient Greek
+	// evidence-assisted pass contract of Study: the same answer as Greek's deck
+	// contract, over every LSJ homograph, each sense handle carrying the short
+	// handle of its entry (ADR 0139).
+	greekEntryEvidenceAssistedPassPromptVersion = "translation-v19-evidence-assisted-greek-entries"
 	// lsjSenseSummaryPromptVersion pins the strict Ancient Greek LSJ sense
 	// summary contract: the pinned LSJ entry alone (headword, sense IDs and
 	// English glosses), and a few short lines each citing sense IDs that exist

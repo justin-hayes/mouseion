@@ -25,6 +25,7 @@ import (
 
 const (
 	greekStudyLemma      = "λόγοσ"
+	greekStudyHomograph  = "λέγω"
 	greekStudyDictionary = "lsj-study-pin-1"
 	// greekStudyTranslate is the reviewed Brownson file digest, so the register
 	// credits the passage.
@@ -60,6 +61,20 @@ func (l greekStudyLexicon) LookupAncientGreekLSJ(_ context.Context, lemma string
 			{ID: "lsj-logos.1", Number: "B", Level: 1, Definitions: []string{"account"}},
 		},
 	}, true
+}
+
+func (l greekStudyLexicon) LookupAncientGreekLSJEntries(ctx context.Context, lemma string) ([]enrichment.AncientGreekLSJEntry, bool) {
+	if lemma == greekStudyHomograph {
+		return []enrichment.AncientGreekLSJEntry{
+			{EntryID: "lsj-lego-1", Headword: lemma, Pin: *l.pin, Senses: []enrichment.AncientGreekLSJSense{{ID: "s0", Number: "A", Level: 1, Definitions: []string{"lay"}}}},
+			{EntryID: "lsj-lego-2", Headword: lemma, Pin: *l.pin, Senses: []enrichment.AncientGreekLSJSense{{ID: "s0", Number: "A", Level: 1, Definitions: []string{"say"}}}},
+		}, true
+	}
+	entry, ok := l.LookupAncientGreekLSJ(ctx, lemma)
+	if !ok {
+		return nil, false
+	}
+	return []enrichment.AncientGreekLSJEntry{entry}, true
 }
 
 type greekStudyHarness struct {
@@ -155,7 +170,7 @@ func TestGreekStudyIntroducesAWordWithItsCitedMeaning(t *testing.T) {
 	assert.True(t, requests[0].RequireEvidenceAssistedPass)
 	assert.Equal(t, "He halted his chariot in front of the phalanx.", requests[0].PassageContext)
 	require.Len(t, requests[0].CandidateSenses, 2)
-	assert.Equal(t, "lsj-logos.0", requests[0].CandidateSenses[0].EvidenceID)
+	assert.Equal(t, enrichment.EntryEvidenceID("lsj-logos", "lsj-logos.0"), requests[0].CandidateSenses[0].EvidenceID)
 
 	// Today offers the word; taking it introduces it with its citations.
 	page := getAs(t, g.h, "/grc/study", g.cookies).Body.String()
@@ -285,4 +300,31 @@ func TestGreekStudyIdlePageCreditsTheDictionaryAndTranslationWithTheirPins(t *te
 	assert.Contains(t, page, cardpolicy.GreekSourceNotice)
 	assert.Contains(t, page, "PerseusDL/lexica@"+greekStudyDictionary, "the dictionary notice carries the loaded index's pin")
 	assert.Contains(t, page, greekStudyTranslate, "the translation notice carries its pin")
+}
+
+// TestGreekStudyPreparesAnLSJHomographCitingTheSecondEntry proves a lemma with two
+// LSJ entries, which the deck's exactly-one lookup would omit as having no entry,
+// becomes ready material that cites a sense of the second entry, and that the
+// card shows that entry alone with its position.
+func TestGreekStudyPreparesAnLSJHomographCitingTheSecondEntry(t *testing.T) {
+	g := newGreekStudyHarness(t)
+	g.provider.citeLast = true
+	g.seedGreekBook(testutil.CorpusWord{Lemma: greekStudyHomograph, UPOS: "VERB", Occurrences: 3})
+	g.prepareGreek()
+
+	material := g.greekMaterial()
+	require.Len(t, material, 1)
+	ready := material[0]
+	require.Equal(t, domain.StudyMaterialReady, ready.State, "omission: %q", ready.OmissionReason)
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"s0"}, EntryIDs: []string{"lsj-lego-2"}, DictionaryPin: greekStudyDictionary}, ready.Cited)
+
+	requests := g.provider.passRequests()
+	require.Len(t, requests, 1)
+	require.Len(t, requests[0].CandidateSenses, 2, "every homograph's sense is offered")
+
+	require.Equal(t, http.StatusSeeOther, g.post("/study/batches/take", url.Values{"language": {"grc"}}).Code)
+	answer := getAs(t, g.h, "/grc/study?answer=1", g.cookies).Body.String()
+	assert.Contains(t, answer, "<sup>2</sup>", "the entry is labelled by its position")
+	assert.Contains(t, answer, "say")
+	assert.NotContains(t, answer, ">lay", "the uncited homograph is not shown")
 }

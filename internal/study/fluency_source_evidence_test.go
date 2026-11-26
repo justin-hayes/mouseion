@@ -30,7 +30,7 @@ func newSourceEvidenceFluencyFixture(t *testing.T) (*FluencyWorker, *fluencyFake
 func TestSourceEvidenceFluencyCitedSensesReachTheAgreementCall(t *testing.T) {
 	worker, store, enricher, _ := newSourceEvidenceFluencyFixture(t)
 	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{
-		"hausa": {Gloss: "an account", SentenceTranslation: "An account.", CitedSenseIDs: []string{"n100.2"}},
+		"hausa": {Gloss: "an account", SentenceTranslation: "An account.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n100.2")}},
 	}
 
 	require.NoError(t, fluencyWork(worker))
@@ -73,7 +73,7 @@ func newLatinFluencyFixture(t *testing.T) (*FluencyWorker, *fluencyFakeStore, *f
 
 func TestLatinFluencyContextCitingAnotherHomographIsADifferentMeaning(t *testing.T) {
 	worker, store, enricher := newLatinFluencyFixture(t)
-	other := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.LatinEvidenceID("n10", "s1")}}
+	other := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n10", "s1")}}
 	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"dicoa": other, "dicob": other}
 
 	require.NoError(t, fluencyWork(worker))
@@ -89,7 +89,7 @@ func TestLatinFluencyContextCitingAnotherHomographIsADifferentMeaning(t *testing
 
 func TestLatinFluencyContextCitingTheLearnedHomographGoesToTheAgreementCall(t *testing.T) {
 	worker, store, enricher := newLatinFluencyFixture(t)
-	same := enrichment.EvidenceAssistedMeaning{Gloss: "to dedicate", SentenceTranslation: "He dedicates.", CitedSenseIDs: []string{enrichment.LatinEvidenceID("n9", "s1")}}
+	same := enrichment.EvidenceAssistedMeaning{Gloss: "to dedicate", SentenceTranslation: "He dedicates.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n9", "s1")}}
 	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"dicoa": same, "dicob": same}
 
 	require.NoError(t, fluencyWork(worker))
@@ -109,7 +109,7 @@ func TestLatinFluencyContextCitingTheLearnedHomographGoesToTheAgreementCall(t *t
 
 func TestLatinFluencyRejectsACitationOfASenseTheNamedEntryDoesNotHold(t *testing.T) {
 	worker, store, enricher := newLatinFluencyFixture(t)
-	bad := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.LatinEvidenceID("n9", "nope")}}
+	bad := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n9", "nope")}}
 	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"dicoa": bad, "dicob": bad}
 
 	require.NoError(t, fluencyWork(worker))
@@ -126,6 +126,8 @@ func TestSourceEvidenceFluencyADifferentPinGoesToTheAgreementCheck(t *testing.T)
 	worker, store, enricher, lexicon := newSourceEvidenceFluencyFixture(t)
 	lexicon.entry.EntryID = "n200"
 	store.progress.LearnedCitations.DictionaryPin = "lsj-pin-0"
+	renumbered := enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "A translation.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n200", "n100.1")}}
+	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"hausa": renumbered, "hausb": renumbered}
 
 	require.NoError(t, fluencyWork(worker))
 
@@ -140,7 +142,7 @@ func TestSourceEvidenceFluencyAnUncitedContextIsUndefendable(t *testing.T) {
 		"abstention":                     {SentenceTranslation: "A translation.", ContextOnly: true, UnresolvedReason: "no sense fits"},
 		"invalid citation":               {InvalidCitation: true},
 		"invalid citation with its text": {InvalidCitation: true, Gloss: "a word", SentenceTranslation: "A translation."},
-		"unknown sense":                  {Gloss: "a word", SentenceTranslation: "A translation.", CitedSenseIDs: []string{"n999.9"}},
+		"unknown sense":                  {Gloss: "a word", SentenceTranslation: "A translation.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n999.9")}},
 	}
 	for name, answer := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -254,4 +256,51 @@ func TestSourceEvidenceFluencyProviderFailureIsRetriedNotRecorded(t *testing.T) 
 
 	enricher.err = enrichment.ErrExternalNotConfigured
 	assert.True(t, isSnooze(fluencyWork(worker)))
+}
+
+// newGreekHomographFluencyFixture is a mature Greek word whose Learned meaning
+// cites sense s0 of the first of two LSJ homograph entries that share that
+// sense ID.
+func newGreekHomographFluencyFixture(t *testing.T) (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnricher) {
+	t.Helper()
+	worker, store, enricher := newFluencyFixture()
+	store.progress.Language, store.progress.CanonicalLemma = "grc", "lego"
+	store.material.Language = "grc"
+	store.progress.LearnedCitations = domain.StudyCitations{SenseIDs: []string{"s0"}, EntryIDs: []string{"n1"}, DictionaryPin: "lsj-pin-1"}
+	store.addOccurrence(2, "legoa", map[string]string{"Number": "Plur"})
+	store.addOccurrence(3, "legob", map[string]string{"Case": "Gen"})
+	worker.Evidence = &SourceEvidence{Lexical: &greekLexicon{homographs: twoLegoEntries()}, Translations: &fakeTranslations{}, MaySend: func(string) error { return nil }}
+	worker.MaySendAgreement = func(string) error { return nil }
+	return worker, store, enricher
+}
+
+func TestGreekFluencyContextCitingAnotherHomographIsADifferentMeaning(t *testing.T) {
+	worker, store, enricher := newGreekHomographFluencyFixture(t)
+	other := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n2", "s0")}}
+	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"legoa": other, "legob": other}
+
+	require.NoError(t, fluencyWork(worker))
+
+	assert.Empty(t, enricher.variant, "λέγω 'say' against λέγω 'lay' on the same pin makes no agreement call")
+	require.Len(t, store.recorded, 2)
+	for _, record := range store.recorded {
+		assert.Equal(t, domain.FluencyReasonDifferentMeaning, record.Reason)
+		assert.Equal(t, domain.FluencyDisagrees, record.Agreement)
+		assert.Equal(t, []string{"n2"}, record.Cited.EntryIDs)
+	}
+}
+
+func TestGreekFluencyContextCitingAnotherSenseOfTheLearnedEntryIsStillChecked(t *testing.T) {
+	worker, store, enricher := newGreekHomographFluencyFixture(t)
+	entries := twoLegoEntries()
+	entries[0].Senses = append(entries[0].Senses, enrichment.AncientGreekLSJSense{ID: "s1", Number: "B", Level: 1, Definitions: []string{"pick"}})
+	worker.Evidence.Lexical = &greekLexicon{homographs: entries}
+	same := enrichment.EvidenceAssistedMeaning{Gloss: "to pick", SentenceTranslation: "He picks.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n1", "s1")}}
+	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"legoa": same, "legob": same}
+
+	require.NoError(t, fluencyWork(worker))
+
+	require.Len(t, enricher.variant, 2, "a sub-sense of the same entry is the agreement check's to judge")
+	require.Len(t, store.recorded, 2)
+	assert.Equal(t, []string{"n1"}, store.recorded[0].Cited.EntryIDs)
 }
