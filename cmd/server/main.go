@@ -258,7 +258,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		TempDir: cfg.acquisitionTempDir,
 	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
-	registerStudyWorker(workers, store, translationProvider, batchCodec)
+	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -272,6 +272,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
 	studyService := study.NewService(store, riverClient)
+	studyPlanWorker.Planner = studyService
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
 	if err := prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
@@ -304,13 +305,15 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 // occurrence of a mature word uses the learned meaning. That payload sends the
 // learned meaning, so the worker sends nothing until its provider payload
 // assessment is recorded and matches the codec (ADR 0133).
-func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec) {
+func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec) *study.PlanWorker {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
 	study.AddMaterialWorker(workers, store, enricher)
+	planWorker := study.AddPlanWorker(workers)
 	assessments := enrichment.ProviderAssessments()
 	study.AddFluencyWorker(workers, store, enricher, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementPayload, language, codec)
 	})
+	return planWorker
 }
 
 // registerEPUBAcquisitionWorker wires the acquisition worker to the Catalog

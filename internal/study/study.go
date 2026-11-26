@@ -38,6 +38,7 @@ type PrepareMaterialArgs struct {
 func (PrepareMaterialArgs) Kind() string { return "study_prepare_material" }
 
 type riverClient interface {
+	Insert(context.Context, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
 	InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
 }
 
@@ -53,13 +54,44 @@ func NewService(store *persistence.PostgresStore, client riverClient) *Service {
 	return &Service{store: store, client: client}
 }
 
-// EnqueueStudyPreparation brings the learner's Study material up to date with the
+// PlanPreparationArgs identifies the learner and Study language whose
+// preparation is to be planned. It carries no source text.
+type PlanPreparationArgs struct {
+	OwnerID  string `json:"owner_id" river:"unique"`
+	Language string `json:"language" river:"unique"`
+}
+
+// Kind names the job for River.
+func (PlanPreparationArgs) Kind() string { return "study_plan_preparation" }
+
+// planUniqueStates are River's default unique states without completed: a plan
+// that has finished must not stop the next trigger from queueing another.
+var planUniqueStates = []rivertype.JobState{
+	rivertype.JobStateAvailable, rivertype.JobStatePending, rivertype.JobStateRunning,
+	rivertype.JobStateRetryable, rivertype.JobStateScheduled,
+}
+
+// EnqueueStudyPreparation asks for the learner's Study material to be brought
+// up to date with the stream. It inserts one planning job, which River does not
+// queue twice while one is waiting, and reads nothing else: the planning runs in
+// PlanWorker. It is safe to call whenever Today is opened or a batch is taken;
+// the Study-day rollover is seen by the next page load, as before.
+func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
+	if _, err := s.client.Insert(ctx, PlanPreparationArgs{OwnerID: owner, Language: language}, &river.InsertOpts{
+		Queue: Queue, MaxAttempts: maxPreparationAttempts,
+		UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: planUniqueStates},
+	}); err != nil {
+		return fmt.Errorf("enqueue study preparation planning: %w", err)
+	}
+	return nil
+}
+
+// PlanPreparation brings the learner's Study material up to date with the
 // stream: the first domain.StudyPreparationWindow words in stream order that
 // are not in study and not unpreparable each get a pending record and a durable job. A word
 // whose material is ready is left alone, and one whose job is still live is not
-// enqueued twice. It is safe to call whenever Today is opened, a batch is taken
-// or the Study day rolls over.
-func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
+// enqueued twice.
+func (s *Service) PlanPreparation(ctx context.Context, owner, language string) error {
 	candidates, err := s.store.ListStudyCandidates(ctx, owner, language)
 	if err != nil {
 		return err

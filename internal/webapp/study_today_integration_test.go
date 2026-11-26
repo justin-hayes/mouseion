@@ -114,10 +114,14 @@ func TestStudyTodayStaysFinishedWhenMoreMaterialBecomesReady(t *testing.T) {
 	require.True(t, s.today().Finished)
 
 	// More words are analysed and prepared; the finish line does not move.
+	testutil.Eventually(t, 60*time.Second, "earlier planning to finish", s.settled)
 	s.seedBook("more", testutil.CorpusWord{Lemma: "tisch", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "stuhl", UPOS: "NOUN", Occurrences: 2})
 	require.Equal(t, http.StatusOK, getAs(t, s.h, "/de/study", s.cookies).Code)
 	testutil.Eventually(t, 60*time.Second, "new material to settle", func() (bool, string) {
-		return s.counts().Preparing == 0, "preparing words remain"
+		if settled, why := s.settled(); !settled {
+			return false, why
+		}
+		return s.counts().Ready == 4, "the new words are not ready"
 	})
 	for _, now := range []time.Time{berlinTime(t, 26, 9, 30), berlinTime(t, 26, 23, 59), berlinTime(t, 27, 0, 30), berlinTime(t, 27, 4, 59)} {
 		s.clock.Set(now)
@@ -195,7 +199,7 @@ func TestStudyProgressIsUnchangedByTheReadingLifecycle(t *testing.T) {
 	require.NoError(t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
 	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) {
-		return s.counts().Preparing == 0, "preparing words remain"
+		return s.settled()
 	})
 	s.clock.Set(berlinTime(t, 25, 9, 0))
 	s.introduceAllGotIt()

@@ -120,6 +120,7 @@ func newStudyHarness(t *testing.T) *studyHarness {
 	provider := &studyProvider{FakeTranslationProvider: testutil.NewFakeTranslationProvider(), failures: map[string]int{"tisch": 1}, disagree: map[string]bool{}}
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
 	workers := river.NewWorkers()
+	planWorker := study.AddPlanWorker(workers)
 	study.AddMaterialWorker(workers, store, enricher)
 	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil })
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{
@@ -129,12 +130,14 @@ func newStudyHarness(t *testing.T) *studyHarness {
 	})
 	require.NoError(t, err)
 
+	studyService := study.NewService(store, client)
+	planWorker.Planner = studyService
 	clock := testutil.NewManualClock(time.Date(2026, 11, 25, 4, 0, 0, 0, time.UTC))
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
 		Analysis: analysis.NewService(store.Pool(), nil), Capabilities: readyGerman(),
-		Study: study.NewService(store, client), StudyScheduler: study.NewScheduler(), Clock: clock.Func(), SessionLifetime: time.Hour,
+		Study: studyService, StudyScheduler: study.NewScheduler(), Clock: clock.Func(), SessionLifetime: time.Hour,
 	})
 	owner := createAccount(t, ctx, store, "study-learner", "study-password")
 	cookies, _ := loginCookies(t, h, owner.Username, "study-password")
@@ -188,6 +191,22 @@ func (s *studyHarness) lemmasByReservation() []string {
 	return lemmas
 }
 
+// planJobs counts the Study planning jobs River has not finished.
+func (s *studyHarness) planJobs() int {
+	s.t.Helper()
+	var n int
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT count(*) FROM river_job WHERE kind='study_plan_preparation' AND state IN ('available','pending','retryable','scheduled','running')`).Scan(&n))
+	return n
+}
+
+// settled reports that no planning job is waiting and no word is preparing.
+func (s *studyHarness) settled() (bool, string) {
+	if s.planJobs() > 0 {
+		return false, "planning jobs remain"
+	}
+	return s.counts().Preparing == 0, "preparing words remain"
+}
+
 func (s *studyHarness) counts() domain.StudyMaterialCounts {
 	s.t.Helper()
 	counts, err := s.store.CountStudyMaterial(s.ctx, s.owner.ID, "de")
@@ -210,27 +229,27 @@ func TestStudyPreparesMaterialAheadInStreamOrder(t *testing.T) {
 	_, err = s.store.Pool().Exec(s.ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos,lexical_discriminator) VALUES($1,'de','haus','NOUN','')`, s.owner.ID)
 	require.NoError(t, err)
 
-	// Opening the page enqueues preparation and never calls a provider: no
-	// River client is running yet, so a provider call here would be a request
-	// making one.
+	// Opening the page queues one planning job and never calls a provider or
+	// plans: no River client is running yet, so any planning or provider call
+	// here would be the request making it.
 	page := getAs(t, s.h, "/de/study", s.cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), "0 new words are ready.")
-	assert.Contains(t, page.Body.String(), "6 more words are being prepared.")
-	assert.Zero(t, s.provider.Calls(), "a page request never calls a provider")
-	assert.Equal(t, []string{"haus", "buch", "hund", "schule", "kind", "tisch"}, s.lemmasByReservation(),
-		"Current-reading words come first, then the library by Personal analyzed-Book occurrences")
+	t.Run("a page request never calls a provider", func(t *testing.T) { require.Zero(t, s.provider.Calls()) })
+	t.Run("a page request reserves no material; the planning job does", func(t *testing.T) { require.Empty(t, s.lemmasByReservation()) })
+	t.Run("a page request queues one planning job", func(t *testing.T) { require.Equal(t, 1, s.planJobs()) })
 
-	// Opening it again does not enqueue a second job for the same word.
+	// Opening it again while the job is pending queues no duplicate.
 	getAs(t, s.h, "/de/study", s.cookies)
-	assert.Len(t, s.lemmasByReservation(), 6)
+	assert.Equal(t, 1, s.planJobs())
 
 	require.NoError(t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
 	testutil.Eventually(t, 60*time.Second, "every word to settle", func() (bool, string) {
-		counts := s.counts()
-		return counts.Preparing == 0, "preparing words remain"
+		return s.settled()
 	})
+	assert.Equal(t, []string{"haus", "buch", "hund", "schule", "kind", "tisch"}, s.lemmasByReservation(),
+		"Current-reading words come first, then the library by Personal analyzed-Book occurrences")
 
 	assert.Equal(t, domain.StudyMaterialCounts{Ready: 4, Unpreparable: 2}, s.counts(),
 		"the Known word, the Current reading's words and the retried word are ready; the other two are skipped")
@@ -270,6 +289,7 @@ func TestStudyIsNotAvailableForLatinAndAncientGreek(t *testing.T) {
 		assert.Contains(t, page.Body.String(), "Study isn't available for this language yet", language)
 	}
 	assert.Empty(t, s.lemmasByReservation(), "no preparation is enqueued for a language without Study")
+	assert.Zero(t, s.planJobs(), "no planning job is queued for a language without Study")
 	assert.Zero(t, s.provider.Calls())
 }
 
@@ -282,7 +302,7 @@ func (s *studyHarness) prepared() {
 	require.NoError(s.t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(s.t, "study River client", s.client.Stop)
 	testutil.Eventually(s.t, 60*time.Second, "material to settle", func() (bool, string) {
-		return s.counts().Preparing == 0, "preparing words remain"
+		return s.settled()
 	})
 }
 
