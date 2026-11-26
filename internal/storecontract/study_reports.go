@@ -29,12 +29,20 @@ type StudyReportStore interface {
 	CreateStudyReport(owner string, record domain.StudyReportRecord) (domain.StudyReport, error)
 	GetStudyReport(owner, id string) (domain.StudyReport, error)
 	GetOpenStudyReport(owner, language, progressID string, kind domain.StudyReportKind) (domain.StudyReport, error)
+	GetOpenStudyReportOfMaterial(owner, materialID string, kind domain.StudyReportKind) (domain.StudyReport, error)
 	ListOpenStudyReports(owner, language string, kind domain.StudyReportKind) ([]domain.StudyReport, error)
 	ListOpenWrongWordReportsForBook(owner, bookID string) ([]domain.StudyReport, error)
+	StudyReportEndingStore
+	StudyReportEvidenceStore
+}
+
+// StudyReportEndingStore is how a report ends: repaired, dismissed, undone or
+// retired once the learner moved on (ADR 0135).
+type StudyReportEndingStore interface {
 	EndStudyReport(owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(owner, id string, now time.Time) error
 	UndoStudyReport(owner, id string, now time.Time) error
-	StudyReportEvidenceStore
+	RetireClosedStudyReports(owner, language string, now time.Time) error
 }
 
 // StudyReportEvidenceStore is what Study reports leave on the word's evidence
@@ -53,7 +61,7 @@ type StudyReportEvidenceStore interface {
 var studyReportDay = time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 
 func reportRecord(word domain.StudyProgress, kind domain.StudyReportKind, note string) domain.StudyReportRecord {
-	return domain.StudyReportRecord{ProgressID: word.ID, ExpectedReps: word.Memory.Reps, Kind: kind, Note: note, CreatedAt: studyReportDay.Add(time.Hour)}
+	return domain.StudyReportRecord{ProgressID: word.ID, MaterialID: word.MaterialID, ExpectedReps: word.Memory.Reps, Kind: kind, Note: note, CreatedAt: studyReportDay.Add(time.Hour)}
 }
 
 // requireSameMemory checks that a word's scheduling state is as it was.
@@ -348,6 +356,10 @@ func studyReportScenarios() []Scenario {
 			require.ErrorIs(t, reports.UndoStudyReport(h.Seeds().OtherOwner(), third.ID, studyReportDay), domain.ErrNotFound)
 			require.ErrorIs(t, reports.UndoStudyReport(owner, second.ID, studyReportDay), domain.ErrNotFound, "an undone report is not undone again")
 		}},
+		{Name: "Undo is refused after a batch is taken or declined and after a Fluency response", Run: undoRefusedAfterActionScenario},
+		{Name: "a report of replaced material is stale, and a repeat of a report returns it", Run: repeatedReportScenario},
+		{Name: "a retired report keeps its sentence retired and can no longer be undone", Run: retiredReportScenario},
+		{Name: "a retired report keeps its Fluency contexts hidden and their slots free", Run: retiredFluencyScenario},
 	}
 }
 
@@ -538,4 +550,148 @@ func unsuitableStaleGradeScenario(t *testing.T, h Harness) {
 	logs, err := progress.ListStudyReviewLog(owner, word.ID)
 	require.NoError(t, err)
 	assert.Len(t, logs, 1, "and writes no review-log row")
+}
+
+// undoRefusedAfterActionScenario checks that a batch taken, a batch declined and
+// a Fluency response each close the Undo window (ADR 0135 §3).
+func undoRefusedAfterActionScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, progress, fluency := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress(), h.StudyFluency()
+	later := studyReportDay.Add(2 * time.Hour)
+	refused := func(name string, word domain.StudyProgress, act func()) {
+		t.Helper()
+		report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+		require.NoError(t, err, name)
+		act()
+		require.ErrorIs(t, reports.UndoStudyReport(owner, report.ID, later), domain.ErrStudyStale, name)
+		got, err := reports.GetStudyReport(owner, report.ID)
+		require.NoError(t, err, name)
+		assert.True(t, got.Open(), "%s: the report stands", name)
+	}
+
+	taken := readyStudyWord(t, h.Study(), owner, studyNoun("baum"))
+	refused("a batch taken", gradedStudyWord(t, h, owner, studyNoun("haus")), func() {
+		_, err := progress.TakeStudyBatch(owner, Language, "2026-11-26", later, 3, []domain.StudyBatchWord{{StudyIdentity: studyNoun("baum"), MaterialID: taken}})
+		require.NoError(t, err)
+	})
+	refused("a batch declined", gradedStudyWord(t, h, owner, studyNoun("hund")), func() {
+		require.NoError(t, progress.DeclineStudyBatch(owner, Language, "2026-11-27", 3))
+	})
+	answered := gradedStudyWord(t, h, owner, studyNoun("katze"))
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(answered.ID, 91, domain.FluencyAgrees)))
+	contexts, err := fluency.ListStudyFluencyContexts(owner, Language)
+	require.NoError(t, err)
+	require.NotEmpty(t, contexts)
+	refused("a Fluency response", answered, func() {
+		require.NoError(t, fluency.RecordStudyFluencyResponse(owner, domain.FluencyResponseRecord{ContextID: contexts[0].ID, Response: domain.FluencyRecognised, RespondedAt: later}))
+	})
+}
+
+// repeatedReportScenario checks the report guards that run under the word's
+// lock: the material the learner was shown, and a repeated report.
+func repeatedReportScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
+
+	// A card whose material was replaced since it was shown is stale.
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	shown := reportRecord(word, domain.StudyReportWrongWord, "")
+	shown.MaterialID = "00000000-0000-4000-8000-0000000000aa"
+	_, err := reports.CreateStudyReport(owner, shown)
+	require.ErrorIs(t, err, domain.ErrStudyStale)
+	listed, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	assert.False(t, listed[0].Held, "a stale report holds nothing")
+
+	// A repeat of an Unsuitable-context report returns it, though the word has
+	// moved to other material since.
+	unsuitable, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	replacement, created, err := h.Study().ReserveStudyMaterial(owner, word.StudyIdentity)
+	require.NoError(t, err)
+	require.True(t, created)
+	require.NoError(t, h.Study().RecordStudyMaterialReady(owner, replacement, studyReadyContent()))
+	require.NoError(t, h.StudyCorrections().CompleteStudyReintroductions(owner, Language, studyReportDay.Add(2*time.Hour)))
+	again, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	assert.Equal(t, unsuitable.ID, again.ID)
+	found, err := reports.GetOpenStudyReportOfMaterial(owner, word.MaterialID, domain.StudyReportUnsuitableContext)
+	require.NoError(t, err)
+	assert.Equal(t, unsuitable.ID, found.ID)
+
+	// A repeat of a Wrong-word report of a never-graded word, which has no Study
+	// progress left, returns the report instead of reporting the word missing.
+	fresh := introducedStudyWord(t, h, owner, studyNoun("baum"))
+	wrong, err := reports.CreateStudyReport(owner, reportRecord(fresh, domain.StudyReportWrongWord, ""))
+	require.NoError(t, err)
+	repeat, err := reports.CreateStudyReport(owner, reportRecord(fresh, domain.StudyReportWrongWord, ""))
+	require.NoError(t, err)
+	assert.Equal(t, wrong.ID, repeat.ID)
+	_, err = reports.GetOpenStudyReportOfMaterial(h.Seeds().OtherOwner(), fresh.MaterialID, domain.StudyReportWrongWord)
+	require.ErrorIs(t, err, domain.ErrNotFound)
+	_, err = reports.GetOpenStudyReportOfMaterial(owner, fresh.MaterialID, domain.StudyReportUnsuitableContext)
+	require.ErrorIs(t, err, domain.ErrNotFound, "the kind is part of the key")
+}
+
+// retiredReportScenario checks that ending an Unsuitable-context report as
+// retired, once the learner moves on, keeps its sentence retired (ADR 0135 §3).
+func retiredReportScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports := h.Seeds().Owner(), h.StudyReports()
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	other := gradedStudyWord(t, h, owner, studyNoun("hund"))
+	earlier, err := reports.CreateStudyReport(owner, reportRecord(other, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	latest, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	now := studyReportDay.Add(3 * time.Hour)
+
+	// Another report followed the earlier one, which closed its Undo window; the
+	// latest report is still undoable.
+	require.NoError(t, reports.RetireClosedStudyReports(owner, Language, now))
+	got, err := reports.GetStudyReport(owner, earlier.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StudyReportEndRetired, got.EndReason)
+	assert.True(t, got.Retires())
+	got, err = reports.GetStudyReport(owner, latest.ID)
+	require.NoError(t, err)
+	assert.True(t, got.Open(), "a report nothing followed stays open")
+	require.ErrorIs(t, reports.UndoStudyReport(owner, earlier.ID, now), domain.ErrNotFound, "a retired report is not undone")
+	retired, err := reports.ListRetiredStudyOccurrences(owner, other.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.StudyOccurrenceRef{earlier.Source}, retired, "its sentence stays retired")
+	byWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, other.StudyIdentity)
+	require.NoError(t, err)
+	assert.Equal(t, retired, byWord)
+
+	// Moving on from the latest report retires it the same way.
+	require.NoError(t, reports.EndStudyReport(owner, latest.ID, domain.StudyReportEndRetired, now))
+	retired, err = reports.ListRetiredStudyOccurrences(owner, word.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.StudyOccurrenceRef{latest.Source}, retired)
+}
+
+// retiredFluencyScenario checks that a report ended as retired, unlike an undone
+// one, keeps the reported sentence's Fluency contexts hidden and uncounted.
+func retiredFluencyScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, fluency := h.Seeds().Owner(), h.StudyReports(), h.StudyFluency()
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	material, err := h.Study().GetStudyMaterial(owner, word.MaterialID)
+	require.NoError(t, err)
+	inSentence := fluencyRecord(word.ID, material.SentenceOrdinal, domain.FluencyAgrees)
+	inSentence.BookID, inSentence.AnalysisRunID, inSentence.CorpusID, inSentence.TokenOrdinal = material.BookID, material.AnalysisRunID, material.CorpusID, material.TokenOrdinal
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, inSentence))
+	for i := int64(1); i <= 4; i++ {
+		require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+10+i, domain.FluencyAgrees)))
+	}
+	report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	require.NoError(t, reports.EndStudyReport(owner, report.ID, domain.StudyReportEndRetired, studyReportDay.Add(2*time.Hour)))
+
+	contexts, err := fluency.ListStudyFluencyContexts(owner, Language)
+	require.NoError(t, err)
+	assert.Len(t, contexts, 4, "the retired sentence's context stays hidden")
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+30, domain.FluencyAgrees)), "the hidden context's slot is free")
+	require.ErrorIs(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+31, domain.FluencyAgrees)), domain.ErrFluencyContextNotStored)
 }

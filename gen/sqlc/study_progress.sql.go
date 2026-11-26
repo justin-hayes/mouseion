@@ -194,7 +194,7 @@ SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discri
                   AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held,
        COALESCE((SELECT max(r.created_at) FROM study_report r
                   WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
-                    AND r.kind = 'unsuitable_context' AND r.ended_at IS NULL), 'epoch'::timestamptz)::timestamptz AS context_reported_at
+                    AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone'), 'epoch'::timestamptz)::timestamptz AS context_reported_at
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = $1 AND p.language = $2
@@ -218,8 +218,9 @@ type ListStudyProgressRow struct {
 // reintroducing is true while the word's own Study material has been
 // superseded by a correction and its replacement is not yet in place.
 // held is true while the word has an open Wrong-word report (ADR 0135 §2).
-// context_reported_at is when its latest open Unsuitable-context report was
-// made (ADR 0135 §3), the epoch when there is none.
+// context_reported_at is when its latest Unsuitable-context report that retires
+// a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
+// is none.
 func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error) {
 	rows, err := q.db.Query(ctx, listStudyProgress, arg.Owner, arg.Language)
 	if err != nil {
@@ -562,7 +563,7 @@ UPDATE study_progress p
    SET withdrawn_at = $1::timestamptz, updated_at = now(),
        withdrawn_reason = CASE WHEN EXISTS (SELECT 1 FROM study_report r
                                              WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
-                                               AND r.kind = 'unsuitable_context' AND r.ended_at IS NULL)
+                                               AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone')
                                THEN 'no_suitable_context' END
   FROM study_material m
  WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL

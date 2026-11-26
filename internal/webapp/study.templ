@@ -156,7 +156,11 @@ templ StudyReportedCard(csrf string, view studyPageView) {
 				<input type="hidden" name="language" value={ view.Language }/>
 				<button id="study-reported-undo" class="button button--outline" type="submit">Undo</button>
 			</form>
-			<a id="study-reported-next" class="button" href={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>Next</a>
+			<form method="post" action={ "/study/reports/" + view.Reported.ReportID + "/next" }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="language" value={ view.Language }/>
+				<button id="study-reported-next" class="button" type="submit">Next</button>
+			</form>
 		</div>
 	</section>
 }
@@ -334,6 +338,16 @@ func studySkippedText(count int) string {
 		return "1 word was skipped because it has no usable sentence or meaning."
 	}
 	return fmt.Sprintf("%d words were skipped because they have no usable sentence or meaning.", count)
+}
+
+// StudyReportInvalidPage says why a report could not be sent and where to go
+// next: the form was incomplete, so nothing was reported.
+templ StudyReportInvalidPage(user domain.User, csrf, language string) {
+	@ShellLayout("Report not sent", &user, csrf, NavigationLearning) {
+		@PageHeader("Report not sent", "Your report was not saved because it was incomplete or its note was longer than "+fmt.Sprint(domain.StudyReportNoteMax)+" characters.", nil)
+		<p id="study-report-invalid">Nothing was changed. Go back to Study, open the card's Report control again and send a shorter note.</p>
+		<p><a class="button" href={ templ.SafeURL(studyLanguagePath(pageKindStudy, language)) }>Back to Study</a></p>
+	}
 }
 
 // StudyReportsPage lists the learner's open Wrong-word reports in one study

@@ -471,34 +471,31 @@ func (q *Queries) ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenS
 	return items, nil
 }
 
-const listOpenStudyReportsOfIdentity = `-- name: ListOpenStudyReportsOfIdentity :many
+const listRetiredStudyReportsOfIdentity = `-- name: ListRetiredStudyReportsOfIdentity :many
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
  WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3
    AND upos = $4 AND lexical_discriminator = $5
-   AND kind = $6 AND ended_at IS NULL
+   AND kind = 'unsuitable_context' AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id
 `
 
-type ListOpenStudyReportsOfIdentityParams struct {
+type ListRetiredStudyReportsOfIdentityParams struct {
 	Owner                string
 	Language             string
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
-	Kind                 string
 }
 
-// The open reports of one word by its vocabulary identity, which the word's
-// material preparation knows; for an Unsuitable-context report these are the
-// word's retired occurrences.
-func (q *Queries) ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOpenStudyReportsOfIdentityParams) ([]StudyReport, error) {
-	rows, err := q.db.Query(ctx, listOpenStudyReportsOfIdentity,
+// The same by the word's vocabulary identity, which the word's material
+// preparation knows.
+func (q *Queries) ListRetiredStudyReportsOfIdentity(ctx context.Context, arg ListRetiredStudyReportsOfIdentityParams) ([]StudyReport, error) {
+	rows, err := q.db.Query(ctx, listRetiredStudyReportsOfIdentity,
 		arg.Owner,
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,
 		arg.LexicalDiscriminator,
-		arg.Kind,
 	)
 	if err != nil {
 		return nil, err
@@ -545,22 +542,83 @@ func (q *Queries) ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOp
 	return items, nil
 }
 
-const listOpenStudyReportsOfWord = `-- name: ListOpenStudyReportsOfWord :many
+const listRetiredStudyReportsOfWord = `-- name: ListRetiredStudyReportsOfWord :many
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
- WHERE owner_id = $1 AND progress_id = $2 AND kind = $3 AND ended_at IS NULL
+ WHERE owner_id = $1 AND progress_id = $2 AND kind = 'unsuitable_context'
+   AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id
 `
 
-type ListOpenStudyReportsOfWordParams struct {
+type ListRetiredStudyReportsOfWordParams struct {
 	Owner    string
 	Progress pgtype.UUID
-	Kind     string
 }
 
-// The open reports of one word; for an Unsuitable-context report these are the
-// word's retired occurrences.
-func (q *Queries) ListOpenStudyReportsOfWord(ctx context.Context, arg ListOpenStudyReportsOfWordParams) ([]StudyReport, error) {
-	rows, err := q.db.Query(ctx, listOpenStudyReportsOfWord, arg.Owner, arg.Progress, arg.Kind)
+// The Unsuitable-context reports that retire one word's occurrences: those not
+// ended as undone (ADR 0135 §3). Ending a report because the learner moved on
+// keeps its sentence retired.
+func (q *Queries) ListRetiredStudyReportsOfWord(ctx context.Context, arg ListRetiredStudyReportsOfWordParams) ([]StudyReport, error) {
+	rows, err := q.db.Query(ctx, listRetiredStudyReportsOfWord, arg.Owner, arg.Progress)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StudyReport{}
+	for rows.Next() {
+		var i StudyReport
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.ProgressID,
+			&i.MaterialID,
+			&i.Kind,
+			&i.Note,
+			&i.BookID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Sentence,
+			&i.TargetWord,
+			&i.Gloss,
+			&i.SentenceTranslation,
+			&i.PreviousMaterialID,
+			&i.PreviousCorrectedAt,
+			&i.PreviousLearnedMeaning,
+			&i.CreatedAt,
+			&i.RecordedAt,
+			&i.EndedAt,
+			&i.EndReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRetiredStudyReportsOfWords = `-- name: ListRetiredStudyReportsOfWords :many
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+ WHERE owner_id = $1 AND progress_id = ANY ($2::uuid[]) AND kind = 'unsuitable_context'
+   AND end_reason IS DISTINCT FROM 'undone'
+ ORDER BY created_at, id
+`
+
+type ListRetiredStudyReportsOfWordsParams struct {
+	Owner    string
+	Progress []string
+}
+
+// The same for several words, keyed by their Study progress.
+func (q *Queries) ListRetiredStudyReportsOfWords(ctx context.Context, arg ListRetiredStudyReportsOfWordsParams) ([]StudyReport, error) {
+	rows, err := q.db.Query(ctx, listRetiredStudyReportsOfWords, arg.Owner, arg.Progress)
 	if err != nil {
 		return nil, err
 	}

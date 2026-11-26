@@ -117,7 +117,7 @@ func (s *Store) CompleteStudyReintroductions(_ context.Context, owner, language 
 // reported as unsuitable. The caller holds s.mu.
 func (s *Store) withdrawUnpreparableLocked(owner string, item *domain.StudyProgress, now time.Time) {
 	item.Withdrawn, item.UpdatedAt = true, now.UTC()
-	if s.hasOpenUnsuitableReportLocked(owner, item.ID) {
+	if s.hasRetiringReportLocked(owner, item.ID) {
 		item.WithdrawnReason = domain.StudyWithdrawnNoSuitableContext
 	}
 }

@@ -101,6 +101,13 @@ type StudyReport struct {
 // Open reports whether the report has not ended.
 func (r StudyReport) Open() bool { return r.EndedAt.IsZero() }
 
+// Retires reports whether the report retires its reported sentence as the
+// word's context: an Unsuitable-context report not ended as undone (ADR 0135
+// §3). Ending the report when the learner moves on keeps it retired.
+func (r StudyReport) Retires() bool {
+	return r.Kind == StudyReportUnsuitableContext && r.EndReason != StudyReportEndUndone
+}
+
 // Held reports whether the report holds its word: an open Wrong-word report.
 func (r StudyReport) Held() bool { return r.Open() && r.Kind == StudyReportWrongWord }
 
@@ -108,9 +115,13 @@ func (r StudyReport) Held() bool { return r.Open() && r.Kind == StudyReportWrong
 // of grades the learner saw recorded when the card was shown, so a report of a
 // card that has since been answered is rejected like a repeated grade
 // (ErrStudyStale). The store copies the occurrence, sentence, Gloss and
-// translation from the word's current material.
+// translation from the word's current material. MaterialID is the material the
+// learner was shown: when it is set, the report of a card whose material was
+// replaced since is ErrStudyStale, and a repeat of a report open on that
+// material returns the report.
 type StudyReportRecord struct {
 	ProgressID   string
+	MaterialID   string
 	ExpectedReps int64
 	Kind         StudyReportKind
 	Note         string

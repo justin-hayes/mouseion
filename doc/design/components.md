@@ -91,6 +91,17 @@ and says “Account” on compact screens; its panel always names the learner an
 contains the native logout form. Keep its open state visible and all shell
 controls keyboard-operable without JavaScript.
 
+## Study report controls
+
+The Report control is a native `details` disclosure on the answer side of a
+Study card, with a radio fieldset for the two report kinds, an optional note and
+one **Send report** button; the form carries the CSRF token, language, card,
+reps and material like a grade does. The reported card is a card face with
+**Undo** (outline) and **Next** (primary), each its own CSRF form, so neither is
+a bare link. Reported words entries reuse the Study card's sentence with its
+marked target and one **Dismiss** form. See
+[`screen-inventory.md`](screen-inventory.md#study-reports).
+
 ## Canonical shipped patterns
 
 These names describe durable interaction purposes. They do not require a

@@ -176,7 +176,8 @@ func reconcileReport(ctx context.Context, store ReportStore, owner string, repor
 	if state.Present && action == domain.StudyEvidenceNone {
 		// The occurrence still resolves to the word's identity; an Analysis
 		// update that kept it only moves the material to the new run.
-		return ignoreMissing(applyOnly(ctx, store, owner, word, evidence, current, now))
+		_, err := applyEvidence(ctx, store, owner, word, evidence, current, now)
+		return ignoreMissing(err)
 	}
 	// The report ends first: the word is due again at the start of the next
 	// Study day, and is then re-introduced, or withdrawn when no valid
@@ -197,7 +198,8 @@ func reconcileReport(ctx context.Context, store ReportStore, owner string, repor
 		}
 		return ignoreMissing(store.SupersedeStudyMaterial(ctx, owner, word.MaterialID))
 	}
-	return ignoreMissing(applyOnly(ctx, store, owner, word, evidence, current, now))
+	_, err = applyEvidence(ctx, store, owner, word, evidence, current, now)
+	return ignoreMissing(err)
 }
 
 // ignoreMissing drops the not-found of a word or material another request
@@ -206,10 +208,5 @@ func ignoreMissing(err error) error {
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil
 	}
-	return err
-}
-
-func applyOnly(ctx context.Context, store CorrectionStore, owner string, word domain.StudyProgress, evidence domain.StudyEvidence, current domain.StudyMaterial, now time.Time) error {
-	_, err := applyEvidence(ctx, store, owner, word, evidence, current, now)
 	return err
 }

@@ -158,10 +158,17 @@ func (h *Handler) prepareStudyView(r *http.Request, owner string, view *studyPag
 			log.Printf("mouseion: enqueue fluency preparation: %v", err)
 		}
 	}
-	if err := h.loadStudyView(r, owner, view); err != nil {
+	// The Undo offer of a report the learner has acted past is over: the report
+	// ends as retired (ADR 0135 §3).
+	if err := h.services.Store.Study.RetireClosedStudyReports(r.Context(), owner, language, h.now()); err != nil {
 		return err
 	}
-	return h.loadReportedCard(r, owner, view)
+	// The reported card is read first: while its Undo offer is shown, the page
+	// offers no new batch behind it.
+	if err := h.loadReportedCard(r, owner, view); err != nil {
+		return err
+	}
+	return h.loadStudyView(r, owner, view)
 }
 
 // noteCorrections records the words a correction left waiting for new
@@ -237,6 +244,10 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	}
 	if err := h.noteCorrections(ctx, owner, view, progress, now); err != nil {
 		return err
+	}
+	if view.Reported != nil {
+		// The reported card is shown with Undo; it is not a new card or offer.
+		return nil
 	}
 	card, err := store.NextStudyCard(ctx, owner, view.Language, now)
 	switch {

@@ -364,6 +364,9 @@ type Querier interface {
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
 	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
 	ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error)
+	// The occurrences of one word's agreeing contexts, to count those a retired
+	// sentence hides.
+	ListAgreeingStudyFluencyContextSourcesOfWord(ctx context.Context, arg ListAgreeingStudyFluencyContextSourcesOfWordParams) ([]ListAgreeingStudyFluencyContextSourcesOfWordRow, error)
 	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
 	ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error)
@@ -453,13 +456,6 @@ type Querier interface {
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	ListOpenStudyReports(ctx context.Context, arg ListOpenStudyReportsParams) ([]StudyReport, error)
 	ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenStudyReportsForBookParams) ([]StudyReport, error)
-	// The open reports of one word by its vocabulary identity, which the word's
-	// material preparation knows; for an Unsuitable-context report these are the
-	// word's retired occurrences.
-	ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOpenStudyReportsOfIdentityParams) ([]StudyReport, error)
-	// The open reports of one word; for an Unsuitable-context report these are the
-	// word's retired occurrences.
-	ListOpenStudyReportsOfWord(ctx context.Context, arg ListOpenStudyReportsOfWordParams) ([]StudyReport, error)
 	// The learner's active Books associated with a Reading unit. The catalog uses
 	// this to show "In My Books" without exposing preparation state.
 	ListOwnedClassicalReadingUnits(ctx context.Context, ownerID string) ([]ListOwnedClassicalReadingUnitsRow, error)
@@ -479,6 +475,15 @@ type Querier interface {
 	ListProjectedCorpusVocabulary(ctx context.Context, arg ListProjectedCorpusVocabularyParams) ([]ListProjectedCorpusVocabularyRow, error)
 	ListReferenceTranslationsByPin(ctx context.Context, translationPinSha256 string) ([]ListReferenceTranslationsByPinRow, error)
 	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
+	// The same by the word's vocabulary identity, which the word's material
+	// preparation knows.
+	ListRetiredStudyReportsOfIdentity(ctx context.Context, arg ListRetiredStudyReportsOfIdentityParams) ([]StudyReport, error)
+	// The Unsuitable-context reports that retire one word's occurrences: those not
+	// ended as undone (ADR 0135 §3). Ending a report because the learner moved on
+	// keeps its sentence retired.
+	ListRetiredStudyReportsOfWord(ctx context.Context, arg ListRetiredStudyReportsOfWordParams) ([]StudyReport, error)
+	// The same for several words, keyed by their Study progress.
+	ListRetiredStudyReportsOfWords(ctx context.Context, arg ListRetiredStudyReportsOfWordsParams) ([]StudyReport, error)
 	ListReviewSentences(ctx context.Context, arg ListReviewSentencesParams) ([]ListReviewSentencesRow, error)
 	ListReviewSentencesForBook(ctx context.Context, arg ListReviewSentencesForBookParams) ([]ListReviewSentencesForBookRow, error)
 	ListSelectedSentences(ctx context.Context, arg ListSelectedSentencesParams) ([]ListSelectedSentencesRow, error)
@@ -526,8 +531,9 @@ type Querier interface {
 	// reintroducing is true while the word's own Study material has been
 	// superseded by a correction and its replacement is not yet in place.
 	// held is true while the word has an open Wrong-word report (ADR 0135 §2).
-	// context_reported_at is when its latest open Unsuitable-context report was
-	// made (ADR 0135 §3), the epoch when there is none.
+	// context_reported_at is when its latest Unsuitable-context report that retires
+	// a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
+	// is none.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	// The tokens of one Book's current analysis that a Study word's introducing

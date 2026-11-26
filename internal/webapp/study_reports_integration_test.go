@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,7 +18,12 @@ import (
 
 func (s *studyHarness) report(card domain.StudyProgress, kind, note string) *httptest.ResponseRecorder {
 	s.t.Helper()
-	return s.post("/study/reports", url.Values{"language": {"de"}, "progress": {card.ID}, "reps": {strconv.FormatInt(card.Memory.Reps, 10)}, "kind": {kind}, "note": {note}})
+	return s.post("/study/reports", s.reportForm(card, kind, note))
+}
+
+// reportForm is the form a card's Report control submits.
+func (s *studyHarness) reportForm(card domain.StudyProgress, kind, note string) url.Values {
+	return url.Values{"language": {"de"}, "progress": {card.ID}, "reps": {strconv.FormatInt(card.Memory.Reps, 10)}, "material": {card.MaterialID}, "kind": {kind}, "note": {note}}
 }
 
 func (s *studyHarness) openReports() []domain.StudyReport {
@@ -115,15 +121,31 @@ func TestStudyReportIsRefusedForAStaleOrUnknownRequest(t *testing.T) {
 	s.twoReviewsDue()
 	card := s.currentCard()
 
-	assert.Equal(t, http.StatusBadRequest, s.report(card, "bug", "").Code)
-	long := make([]byte, domain.StudyReportNoteMax+1)
-	for i := range long {
-		long[i] = 'x'
+	long := strings.Repeat("x", domain.StudyReportNoteMax+1)
+	for _, tc := range []struct {
+		name     string
+		form     url.Values
+		wantCode int
+	}{
+		{"an unknown kind", s.reportForm(card, "bug", ""), http.StatusBadRequest},
+		{"a note over the bound", s.reportForm(card, "wrong_word", long), http.StatusBadRequest},
+		{"a language the learner does not study", func() url.Values {
+			form := s.reportForm(card, "wrong_word", "")
+			form.Set("language", "la")
+			return form
+		}(), http.StatusNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := s.post("/study/reports", tc.form)
+			require.Equal(t, tc.wantCode, response.Code)
+			if tc.wantCode == http.StatusBadRequest {
+				require.Contains(t, response.Body.String(), "Back to Study", "the error says what to do next")
+			}
+			require.Empty(t, s.openReports())
+		})
 	}
-	assert.Equal(t, http.StatusBadRequest, s.report(card, "wrong_word", string(long)).Code, "a note has a bound")
 	forged := perform(t, s.h, http.MethodPost, "/study/reports", url.Values{"csrf_token": {"forged"}, "language": {"de"}, "progress": {card.ID}, "reps": {"1"}, "kind": {"wrong_word"}}, s.cookies)
 	assert.Equal(t, http.StatusForbidden, forged.Code)
-	assert.Equal(t, http.StatusNotFound, s.post("/study/reports", url.Values{"language": {"la"}, "progress": {card.ID}, "reps": {"1"}, "kind": {"wrong_word"}}).Code)
 	assert.Equal(t, http.StatusNotFound, s.report(domain.StudyProgress{ID: "00000000-0000-4000-8000-000000000000"}, "wrong_word", "").Code)
 	assert.Empty(t, s.openReports())
 
@@ -228,4 +250,19 @@ func TestStudyDismissIsRefusedForAnotherLearnerLanguageOrForgedRequest(t *testin
 	assert.Equal(t, http.StatusNotFound, foreign.Code)
 	assert.Len(t, s.openReports(), 1)
 	assert.True(t, s.progressByID(card.ID).Held)
+}
+
+func TestStudyReportOfReplacedMaterialIsStaleUnderTheLock(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	s.twoReviewsDue()
+	card := s.currentCard()
+
+	form := s.reportForm(card, "wrong_word", "")
+	form.Set("material", "00000000-0000-4000-8000-0000000000aa")
+	response := s.post("/study/reports", form)
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/de/study", response.Header().Get("Location"))
+	assert.Empty(t, s.openReports(), "a card of other material is not reported")
+	assert.False(t, s.progressByID(card.ID).Held)
 }

@@ -54,6 +54,7 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	review.Recovery.ReferenceAssessed = assessment.Assessed
+	review.Occurrences = h.onlyReportedOccurrences(r, owner.ID, bookID, review.Occurrences)
 	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, lemmaReviewPageError(review.CanCorrect), review.CanCorrect, review.Occurrences, nil, review.Recovery, nil, h.lemmaReviewReports(r, owner.ID, bookID)))
 }
 
@@ -299,4 +300,39 @@ func lemmaReviewReported(report domain.StudyReport, occurrence domain.LemmaRevie
 		return source.UnitID == occurrence.SourceDocumentID && source.StartOffset == occurrence.StartOffset && source.EndOffset == occurrence.EndOffset
 	}
 	return source.AnalysisRunID == occurrence.AnalysisRunID && source.SentenceOrdinal == occurrence.SentenceOrdinal && source.TokenOrdinal == occurrence.TokenOrdinal
+}
+
+// lemmaReviewReportPath opens the Book's Lemma review at the occurrence a Study
+// report names: the report's own occurrence, not every occurrence of its
+// surface form, which a homograph could match (ADR 0135 §2).
+func lemmaReviewReportPath(bookID string, report domain.StudyReport) string {
+	return "/reading/books/" + url.PathEscape(bookID) + "/lemma-review?" + url.Values{"form": {report.TargetWord}, "report": {report.ID}}.Encode()
+}
+
+// lemmaReviewReportParam names the Study report whose occurrence the page opens.
+const lemmaReviewReportParam = "report"
+
+// onlyReportedOccurrences narrows the searched occurrences to the one the Study
+// report named by the page's report parameter is of. The page keeps the whole
+// search when the parameter is absent, is not the learner's open report in this
+// Book, or its occurrence is no longer among the results.
+func (h *Handler) onlyReportedOccurrences(r *http.Request, owner, bookID string, occurrences []domain.LemmaReviewOccurrence) []domain.LemmaReviewOccurrence {
+	id := strings.TrimSpace(r.URL.Query().Get(lemmaReviewReportParam))
+	if id == "" {
+		return occurrences
+	}
+	report, err := h.services.Store.Study.GetStudyReport(r.Context(), owner, id)
+	if err != nil || !report.Open() || report.Source.BookID != bookID {
+		return occurrences
+	}
+	var reported []domain.LemmaReviewOccurrence
+	for _, occurrence := range occurrences {
+		if lemmaReviewReported(report, occurrence) {
+			reported = append(reported, occurrence)
+		}
+	}
+	if len(reported) == 0 {
+		return occurrences
+	}
+	return reported
 }

@@ -53,3 +53,11 @@ func (h *contractHarness) DismissStudyReport(owner, id string, now time.Time) er
 func (h *contractHarness) UndoStudyReport(owner, id string, now time.Time) error {
 	return h.store.UndoStudyReport(context.Background(), owner, id, now)
 }
+
+func (h *contractHarness) GetOpenStudyReportOfMaterial(owner, materialID string, kind domain.StudyReportKind) (domain.StudyReport, error) {
+	return h.store.GetOpenStudyReportOfMaterial(context.Background(), owner, materialID, kind)
+}
+
+func (h *contractHarness) RetireClosedStudyReports(owner, language string, now time.Time) error {
+	return h.store.RetireClosedStudyReports(context.Background(), owner, language, now)
+}

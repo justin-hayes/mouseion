@@ -8,12 +8,25 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library/);
 }
 
-// The fixture server for this spec has the usual three new words on offer.
+// The fixture server for this spec has the usual three new words on offer and
+// is shared by the tests of this file, which may run in any order. Every test
+// sets up its own state with openRevealedCard: it takes the batch when it is
+// still on offer and reveals the answer of the card that is due. The reports of
+// one test never use up what another needs: a test reports at most one word, and
+// only the Wrong-word test leaves a word held.
+async function openRevealedCard(page: Page) {
+  await page.goto('/de/study');
+  const take = page.getByRole('button', { name: 'Take these words' });
+  if (await take.count()) await take.click();
+  await page.getByRole('button', { name: 'Show answer' }).click();
+}
+
 test.describe('Study reports', () => {
   test('reports a wrong word after Show answer, goes on to the next card and lists the report', async ({ page }) => {
     await signIn(page);
     await page.goto('/de/study');
-    await page.getByRole('button', { name: 'Take these words' }).click();
+    const take = page.getByRole('button', { name: 'Take these words' });
+    if (await take.count()) await take.click();
 
     // Report waits for Show answer.
     await expect(page.locator('#study-report')).toHaveCount(0);
@@ -47,7 +60,8 @@ test.describe('Study reports', () => {
 
     // The entry opens the Book's Lemma review, which lists the report.
     await entry.getByRole('link', { name: 'Review in Lemma review' }).click();
-    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/lemma-review\?form=/);
+    // The link names the reported occurrence, not only its surface form.
+    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/lemma-review\?form=[^&]+&report=[^&]+$/);
     await expect(page.getByRole('heading', { level: 2, name: 'Reported in Study' })).toBeVisible();
     await expect(page.locator('#lemma-review-study-reports')).toContainText('The highlighted word is another word here.');
     // The reported occurrence is marked, with the note.
@@ -69,11 +83,7 @@ test.describe('Study reports', () => {
 
   test('reports an unsuitable context, sees the reported card once more and goes on with Next', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/study');
-    // The fixture server is shared by the specs of this file: its batch may be taken already.
-    const take = page.getByRole('button', { name: 'Take these words' });
-    if (await take.count()) await take.click();
-    await page.getByRole('button', { name: 'Show answer' }).click();
+    await openRevealedCard(page);
     const reported = await page.locator('#study-headword').innerText();
     const sentence = await page.locator('.study-card__sentence').innerText();
 
@@ -87,18 +97,20 @@ test.describe('Study reports', () => {
     await expect(page.locator('#study-headword')).toHaveText(reported);
 
     // Next goes on to another word; the reported one is not held.
+    const reportedUrl = page.url();
     await page.locator('#study-reported-next').click();
     await expect(page.locator('#study-reported')).toHaveCount(0);
     await page.getByRole('button', { name: 'Show answer' }).click();
     expect(await page.locator('#study-headword').innerText()).not.toBe(reported);
+
+    // Moving on ended the offer: back on the reported card, Undo is gone.
+    await page.goto(reportedUrl);
+    await expect(page.locator('#study-reported-undo')).toHaveCount(0);
   });
 
   test('undoes an unsuitable-context report while its card is shown', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/study');
-    const take = page.getByRole('button', { name: 'Take these words' });
-    if (await take.count()) await take.click();
-    await page.getByRole('button', { name: 'Show answer' }).click();
+    await openRevealedCard(page);
     const reported = await page.locator('#study-headword').innerText();
 
     await page.locator('#study-report summary').click();
@@ -111,5 +123,45 @@ test.describe('Study reports', () => {
     // The report has ended and the reported word's card is back.
     await expect(page.locator('#study-reported')).toHaveCount(0);
     await expect(page.locator('#study-headword')).toHaveText(reported);
+  });
+
+  test('a card with Report open fits a phone viewport and keeps its controls reachable', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await signIn(page);
+    await openRevealedCard(page);
+    await page.locator('#study-report summary').click();
+
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(await overflow()).toBeLessThanOrEqual(0);
+
+    // Every control of the open Report form is inside the viewport's width and
+    // can be scrolled to and used.
+    for (const control of [
+      page.getByRole('radio', { name: /Wrong word/ }),
+      page.getByRole('radio', { name: /Unsuitable context/ }),
+      page.getByLabel('Note (optional)'),
+      page.getByRole('button', { name: 'Send report' }),
+    ]) {
+      await control.scrollIntoViewIfNeeded();
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    }
+
+    // The reported card's Undo and Next stay reachable too.
+    await page.getByRole('radio', { name: /Unsuitable context/ }).check();
+    await page.getByRole('button', { name: 'Send report' }).click();
+    await expect(page.locator('#study-reported')).toBeVisible();
+    expect(await overflow()).toBeLessThanOrEqual(0);
+    for (const control of [page.locator('#study-reported-undo'), page.locator('#study-reported-next')]) {
+      await control.scrollIntoViewIfNeeded();
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    }
+    await page.locator('#study-reported-undo').click();
+    await expect(page.locator('#study-reported')).toHaveCount(0);
   });
 });

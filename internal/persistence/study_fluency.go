@@ -39,7 +39,7 @@ func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, lan
 	if err != nil {
 		return nil, err
 	}
-	return s.withoutRetiredFluencyContexts(ctx, owner, language, contexts)
+	return s.withoutRetiredFluencyContexts(ctx, owner, contexts)
 }
 
 // allStudyFluencyContexts lists every stored context, retired ones included.
@@ -79,14 +79,26 @@ func (s *PostgresStore) allStudyFluencyContexts(ctx context.Context, owner, lang
 
 // withoutRetiredFluencyContexts leaves out the contexts in a sentence the
 // learner retired as the word's context (ADR 0135 §3), so a reported sentence
-// is never asked about again. The contexts stay stored.
-func (s *PostgresStore) withoutRetiredFluencyContexts(ctx context.Context, owner, language string, contexts []domain.FluencyContext) ([]domain.FluencyContext, error) {
-	reports, err := s.ListOpenStudyReports(ctx, owner, language, domain.StudyReportUnsuitableContext)
-	if err != nil || len(reports) == 0 {
-		return contexts, err
+// is never asked about again. The contexts stay stored. Only the retirements of
+// the words that have contexts are read.
+func (s *PostgresStore) withoutRetiredFluencyContexts(ctx context.Context, owner string, contexts []domain.FluencyContext) ([]domain.FluencyContext, error) {
+	var words []string
+	seen := map[string]bool{}
+	for _, item := range contexts {
+		if !seen[item.ProgressID] {
+			seen[item.ProgressID] = true
+			words = append(words, item.ProgressID)
+		}
+	}
+	if len(words) == 0 {
+		return contexts, nil
+	}
+	rows, err := sqlcgen.New(s.pool).ListRetiredStudyReportsOfWords(ctx, sqlcgen.ListRetiredStudyReportsOfWordsParams{Owner: owner, Progress: words})
+	if err != nil || len(rows) == 0 {
+		return contexts, wrapRetiredReports(err)
 	}
 	byWord := map[string][]domain.StudyReport{}
-	for _, report := range reports {
+	for _, report := range studyReportsFromRows(rows) {
 		byWord[report.ProgressID] = append(byWord[report.ProgressID], report)
 	}
 	retired := map[string][]domain.StudyOccurrenceRef{}
@@ -95,41 +107,43 @@ func (s *PostgresStore) withoutRetiredFluencyContexts(ctx context.Context, owner
 	}
 	kept := contexts[:0:0]
 	for _, item := range contexts {
-		ref := domain.StudyOccurrenceRef{BookID: item.BookID, AnalysisRunID: item.AnalysisRunID, CorpusID: item.CorpusID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}
-		if !domain.RetiredStudyOccurrence(retired[item.ProgressID], ref) {
+		if !domain.RetiredStudyOccurrence(retired[item.ProgressID], fluencyContextRef(item.BookID, item.AnalysisRunID, item.CorpusID, item.SentenceOrdinal, item.TokenOrdinal)) {
 			kept = append(kept, item)
 		}
 	}
 	return kept, nil
 }
 
-// hiddenAgreeingFluencyContexts counts the word's agreeing contexts that a
-// retired sentence hides. They do not count towards the word's limit, so the
-// slot can be refilled.
-func (s *PostgresStore) hiddenAgreeingFluencyContexts(ctx context.Context, owner, progressID string) (int, error) {
-	progress, err := s.GetStudyProgress(ctx, owner, progressID)
+func wrapRetiredReports(err error) error {
 	if err != nil {
-		return 0, err
+		return fmt.Errorf("list retired study reports: %w", err)
 	}
-	all, err := s.allStudyFluencyContexts(ctx, owner, progress.Language)
-	if err != nil {
-		return 0, err
-	}
-	visible, err := s.withoutRetiredFluencyContexts(ctx, owner, progress.Language, all)
-	if err != nil {
-		return 0, err
-	}
-	return agreeingContextsOf(all, progressID) - agreeingContextsOf(visible, progressID), nil
+	return nil
 }
 
-func agreeingContextsOf(contexts []domain.FluencyContext, progressID string) int {
-	count := 0
-	for _, item := range contexts {
-		if item.ProgressID == progressID && item.Agreement == domain.FluencyAgrees {
-			count++
+func fluencyContextRef(book, run, corpus string, sentence, token int64) domain.StudyOccurrenceRef {
+	return domain.StudyOccurrenceRef{BookID: book, AnalysisRunID: run, CorpusID: corpus, SentenceOrdinal: sentence, TokenOrdinal: token}
+}
+
+// hiddenAgreeingFluencyContexts counts the word's agreeing contexts that a
+// retired sentence hides. They do not count towards the word's limit, so the
+// slot can be refilled. It reads only the word's own contexts and retirements.
+func (s *PostgresStore) hiddenAgreeingFluencyContexts(ctx context.Context, owner, progressID string) (int, error) {
+	retired, err := s.ListRetiredStudyOccurrences(ctx, owner, progressID)
+	if err != nil || len(retired) == 0 {
+		return 0, err
+	}
+	rows, err := sqlcgen.New(s.pool).ListAgreeingStudyFluencyContextSourcesOfWord(ctx, sqlcgen.ListAgreeingStudyFluencyContextSourcesOfWordParams{Owner: owner, Progress: progressID})
+	if err != nil {
+		return 0, fmt.Errorf("list agreeing study fluency contexts: %w", err)
+	}
+	hidden := 0
+	for _, row := range rows {
+		if domain.RetiredStudyOccurrence(retired, fluencyContextRef(row.BookID, row.AnalysisRunID, row.CorpusID, row.SentenceOrdinal, row.TokenOrdinal)) {
+			hidden++
 		}
 	}
-	return count
+	return hidden, nil
 }
 
 // RecordStudyFluencyContext stores one assessed occurrence of a mature word. It

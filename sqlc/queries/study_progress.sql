@@ -5,8 +5,9 @@
 -- reintroducing is true while the word's own Study material has been
 -- superseded by a correction and its replacement is not yet in place.
 -- held is true while the word has an open Wrong-word report (ADR 0135 §2).
--- context_reported_at is when its latest open Unsuitable-context report was
--- made (ADR 0135 §3), the epoch when there is none.
+-- context_reported_at is when its latest Unsuitable-context report that retires
+-- a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
+-- is none.
 SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
        EXISTS (SELECT 1 FROM study_report r
                 WHERE r.owner_id = p.owner_id AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
@@ -14,7 +15,7 @@ SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
                   AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held,
        COALESCE((SELECT max(r.created_at) FROM study_report r
                   WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
-                    AND r.kind = 'unsuitable_context' AND r.ended_at IS NULL), 'epoch'::timestamptz)::timestamptz AS context_reported_at
+                    AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone'), 'epoch'::timestamptz)::timestamptz AS context_reported_at
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
@@ -149,7 +150,7 @@ UPDATE study_progress p
    SET withdrawn_at = sqlc.arg('now')::timestamptz, updated_at = now(),
        withdrawn_reason = CASE WHEN EXISTS (SELECT 1 FROM study_report r
                                              WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
-                                               AND r.kind = 'unsuitable_context' AND r.ended_at IS NULL)
+                                               AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone')
                                THEN 'no_suitable_context' END
   FROM study_material m
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND p.withdrawn_at IS NULL

@@ -60,21 +60,29 @@ SELECT * FROM study_report
  WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND kind = sqlc.arg('kind') AND ended_at IS NULL
  ORDER BY created_at, id;
 
--- name: ListOpenStudyReportsOfWord :many
--- The open reports of one word; for an Unsuitable-context report these are the
--- word's retired occurrences.
+-- name: ListRetiredStudyReportsOfWord :many
+-- The Unsuitable-context reports that retire one word's occurrences: those not
+-- ended as undone (ADR 0135 §3). Ending a report because the learner moved on
+-- keeps its sentence retired.
 SELECT * FROM study_report
- WHERE owner_id = sqlc.arg('owner') AND progress_id = sqlc.arg('progress') AND kind = sqlc.arg('kind') AND ended_at IS NULL
+ WHERE owner_id = sqlc.arg('owner') AND progress_id = sqlc.arg('progress') AND kind = 'unsuitable_context'
+   AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id;
 
--- name: ListOpenStudyReportsOfIdentity :many
--- The open reports of one word by its vocabulary identity, which the word's
--- material preparation knows; for an Unsuitable-context report these are the
--- word's retired occurrences.
+-- name: ListRetiredStudyReportsOfWords :many
+-- The same for several words, keyed by their Study progress.
+SELECT * FROM study_report
+ WHERE owner_id = sqlc.arg('owner') AND progress_id = ANY (sqlc.arg('progress')::uuid[]) AND kind = 'unsuitable_context'
+   AND end_reason IS DISTINCT FROM 'undone'
+ ORDER BY created_at, id;
+
+-- name: ListRetiredStudyReportsOfIdentity :many
+-- The same by the word's vocabulary identity, which the word's material
+-- preparation knows.
 SELECT * FROM study_report
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
    AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
-   AND kind = sqlc.arg('kind') AND ended_at IS NULL
+   AND kind = 'unsuitable_context' AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id;
 
 -- name: EndStudyReport :execrows

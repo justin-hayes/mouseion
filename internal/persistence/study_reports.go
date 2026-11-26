@@ -46,20 +46,12 @@ func (s *PostgresStore) CreateStudyReport(ctx context.Context, owner string, rec
 // createStudyReport runs CreateStudyReport inside its transaction, with the
 // word locked.
 func createStudyReport(ctx context.Context, q *sqlcgen.Queries, owner string, record domain.StudyReportRecord, note string) (domain.StudyReport, error) {
-	row, err := q.LockStudyProgress(ctx, sqlcgen.LockStudyProgressParams{Owner: owner, ID: record.ProgressID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.StudyReport{}, ErrNotFound
-	}
+	progress, existing, err := lockReportedWord(ctx, q, owner, record)
 	if err != nil {
-		return domain.StudyReport{}, fmt.Errorf("lock study progress: %w", err)
+		return domain.StudyReport{}, err
 	}
-	progress := studyProgressFromRow(row)
-	existing, found, err := openStudyReportOf(ctx, q, owner, progress, record.Kind)
-	if err != nil || found {
-		return existing, err
-	}
-	if progress.Withdrawn || progress.Memory.Reps != record.ExpectedReps {
-		return domain.StudyReport{}, domain.ErrStudyStale
+	if existing != nil {
+		return *existing, nil
 	}
 	created, err := q.CreateStudyReport(ctx, sqlcgen.CreateStudyReportParams{
 		Owner: owner, Progress: record.ProgressID, Kind: string(record.Kind), Note: note, CreatedAt: record.CreatedAt.UTC(),
@@ -88,16 +80,68 @@ func createStudyReport(ctx context.Context, q *sqlcgen.Queries, owner string, re
 	return studyReportFromRow(created), nil
 }
 
-// openStudyReportOf finds the open report that a new report of the kind would
-// repeat: a Wrong-word report of the word, or an Unsuitable-context report of
-// its current material.
-func openStudyReportOf(ctx context.Context, q *sqlcgen.Queries, owner string, progress domain.StudyProgress, kind domain.StudyReportKind) (report domain.StudyReport, found bool, err error) {
-	var row sqlcgen.StudyReport
-	if kind == domain.StudyReportWrongWord {
-		row, err = q.GetOpenStudyReport(ctx, sqlcgen.GetOpenStudyReportParams{Owner: owner, Language: progress.Language, Progress: uuidArg(progress.ID), Kind: string(kind)})
-	} else {
-		row, err = q.GetOpenStudyReportOfMaterial(ctx, sqlcgen.GetOpenStudyReportOfMaterialParams{Owner: owner, Material: progress.MaterialID, Kind: string(kind)})
+// lockReportedWord locks the word a report names and settles what the report
+// may do. It returns a report that stands when the new one repeats it, which a
+// word with no Study progress left can only be, and domain.ErrStudyStale for a
+// card answered, withdrawn or replaced since it was shown. The material the
+// learner was shown is compared under the lock.
+func lockReportedWord(ctx context.Context, q *sqlcgen.Queries, owner string, record domain.StudyReportRecord) (domain.StudyProgress, *domain.StudyReport, error) {
+	row, err := q.LockStudyProgress(ctx, sqlcgen.LockStudyProgressParams{Owner: owner, ID: record.ProgressID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// A word reported before its first graded review has no progress left:
+		// a repeat of that report is the report, not a missing word.
+		existing, found, lookupErr := openStudyReportOfMaterial(ctx, q, owner, record.MaterialID, record.Kind)
+		switch {
+		case lookupErr != nil:
+			return domain.StudyProgress{}, nil, lookupErr
+		case !found:
+			return domain.StudyProgress{}, nil, ErrNotFound
+		}
+		return domain.StudyProgress{}, &existing, nil
 	}
+	if err != nil {
+		return domain.StudyProgress{}, nil, fmt.Errorf("lock study progress: %w", err)
+	}
+	progress := studyProgressFromRow(row)
+	existing, found, err := openStudyReportOf(ctx, q, owner, progress, record)
+	if err != nil {
+		return progress, nil, err
+	}
+	if found {
+		return progress, &existing, nil
+	}
+	if progress.Withdrawn || progress.Memory.Reps != record.ExpectedReps || (record.MaterialID != "" && progress.MaterialID != record.MaterialID) {
+		return progress, nil, domain.ErrStudyStale
+	}
+	return progress, nil, nil
+}
+
+// openStudyReportOf finds the open report that a new report would repeat: a
+// Wrong-word report of the word, or an Unsuitable-context report of the
+// material the learner was shown (the word's current material when the record
+// names none).
+func openStudyReportOf(ctx context.Context, q *sqlcgen.Queries, owner string, progress domain.StudyProgress, record domain.StudyReportRecord) (report domain.StudyReport, found bool, err error) {
+	if record.Kind == domain.StudyReportWrongWord {
+		row, err := q.GetOpenStudyReport(ctx, sqlcgen.GetOpenStudyReportParams{Owner: owner, Language: progress.Language, Progress: uuidArg(progress.ID), Kind: string(record.Kind)})
+		return studyReportOrNone(row, err)
+	}
+	material := record.MaterialID
+	if material == "" {
+		material = progress.MaterialID
+	}
+	return openStudyReportOfMaterial(ctx, q, owner, material, record.Kind)
+}
+
+// openStudyReportOfMaterial finds the open report of the kind on the material.
+func openStudyReportOfMaterial(ctx context.Context, q *sqlcgen.Queries, owner, material string, kind domain.StudyReportKind) (domain.StudyReport, bool, error) {
+	if !validUUID(material) {
+		return domain.StudyReport{}, false, nil
+	}
+	row, err := q.GetOpenStudyReportOfMaterial(ctx, sqlcgen.GetOpenStudyReportOfMaterialParams{Owner: owner, Material: material, Kind: string(kind)})
+	return studyReportOrNone(row, err)
+}
+
+func studyReportOrNone(row sqlcgen.StudyReport, err error) (domain.StudyReport, bool, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StudyReport{}, false, nil
 	}
@@ -105,6 +149,43 @@ func openStudyReportOf(ctx context.Context, q *sqlcgen.Queries, owner string, pr
 		return domain.StudyReport{}, false, fmt.Errorf("get open study report: %w", err)
 	}
 	return studyReportFromRow(row), true, nil
+}
+
+// GetOpenStudyReportOfMaterial returns the open report of the kind on the Study
+// material, or ErrNotFound. It finds a report whose word has no Study progress.
+func (s *PostgresStore) GetOpenStudyReportOfMaterial(ctx context.Context, owner, materialID string, kind domain.StudyReportKind) (domain.StudyReport, error) {
+	report, found, err := openStudyReportOfMaterial(ctx, sqlcgen.New(s.pool), owner, materialID, kind)
+	if err != nil {
+		return domain.StudyReport{}, err
+	}
+	if !found {
+		return domain.StudyReport{}, ErrNotFound
+	}
+	return report, nil
+}
+
+// RetireClosedStudyReports ends, as retired, the learner's open
+// Unsuitable-context reports in the language whose Undo window has closed
+// because another Study action followed. Their sentences stay retired. The
+// open reports are the few the learner has not yet moved on from.
+func (s *PostgresStore) RetireClosedStudyReports(ctx context.Context, owner, language string, now time.Time) error {
+	reports, err := s.ListOpenStudyReports(ctx, owner, language, domain.StudyReportUnsuitableContext)
+	if err != nil {
+		return err
+	}
+	for _, report := range reports {
+		undoable, err := s.StudyReportUndoable(ctx, owner, report.ID)
+		if err != nil {
+			return err
+		}
+		if undoable {
+			continue
+		}
+		if err := s.EndStudyReport(ctx, owner, report.ID, domain.StudyReportEndRetired, now); err != nil && !errors.Is(err, ErrNotFound) {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetStudyReport returns one report, open or ended. A missing or foreign
@@ -169,15 +250,14 @@ func (s *PostgresStore) ListOpenWrongWordReportsForBook(ctx context.Context, own
 }
 
 // ListRetiredStudyOccurrences returns the occurrences retired as the word's
-// context by its open Unsuitable-context reports, each with its locator so it
-// is found again after an Analysis update (domain.RetiredStudyOccurrence).
+// context by its Unsuitable-context reports not ended as undone, each with its
+// locator so it is found again after an Analysis update
+// (domain.RetiredStudyOccurrence).
 func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error) {
 	if !validUUID(progressID) {
 		return nil, nil
 	}
-	rows, err := sqlcgen.New(s.pool).ListOpenStudyReportsOfWord(ctx, sqlcgen.ListOpenStudyReportsOfWordParams{
-		Owner: owner, Progress: uuidArg(progressID), Kind: string(domain.StudyReportUnsuitableContext),
-	})
+	rows, err := sqlcgen.New(s.pool).ListRetiredStudyReportsOfWord(ctx, sqlcgen.ListRetiredStudyReportsOfWordParams{Owner: owner, Progress: uuidArg(progressID)})
 	if err != nil {
 		return nil, fmt.Errorf("list retired study occurrences: %w", err)
 	}
@@ -188,9 +268,9 @@ func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, 
 // vocabulary identity, for material preparation, which knows no progress row.
 func (s *PostgresStore) ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
 	identity = normalizedStudyIdentity(identity)
-	rows, err := sqlcgen.New(s.pool).ListOpenStudyReportsOfIdentity(ctx, sqlcgen.ListOpenStudyReportsOfIdentityParams{
+	rows, err := sqlcgen.New(s.pool).ListRetiredStudyReportsOfIdentity(ctx, sqlcgen.ListRetiredStudyReportsOfIdentityParams{
 		Owner: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
-		LexicalDiscriminator: identity.LexicalDiscriminator, Kind: string(domain.StudyReportUnsuitableContext),
+		LexicalDiscriminator: identity.LexicalDiscriminator,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list retired study occurrences of word: %w", err)
