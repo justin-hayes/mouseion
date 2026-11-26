@@ -75,7 +75,7 @@ type fluencyFakeEnricher struct {
 // variantRequest is what the source-evidence agreement variant was sent.
 type variantRequest struct {
 	candidate         enrichment.Candidate
-	learned, occurred []enrichment.FluencySense
+	learned, occurred []string
 }
 
 func (e *fluencyFakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, candidate enrichment.Candidate, _ string) (enrichment.EvidenceAssistedMeaning, error) {
@@ -89,7 +89,7 @@ func (e *fluencyFakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, cand
 	return enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "A translation.", SentenceTranslationTargets: []string{"word"}, CitedSenseIDs: []string{"n100.1"}}, nil
 }
 
-func (e *fluencyFakeEnricher) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurred []enrichment.FluencySense) (enrichment.FluencyAgreement, error) {
+func (e *fluencyFakeEnricher) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurred []string) (enrichment.FluencyAgreement, error) {
 	e.variant = append(e.variant, variantRequest{candidate, learned, occurred})
 	return e.EnrichFluencyAgreement(ctx, candidate, learnedMeaning)
 }
@@ -268,7 +268,7 @@ func (reasonEnricher) EnrichEvidenceAssistedPass(context.Context, enrichment.Can
 	return enrichment.EvidenceAssistedMeaning{}, errors.New("not used")
 }
 
-func (reasonEnricher) EnrichSourceEvidenceFluencyAgreement(context.Context, enrichment.Candidate, string, []enrichment.FluencySense, []enrichment.FluencySense) (enrichment.FluencyAgreement, error) {
+func (reasonEnricher) EnrichSourceEvidenceFluencyAgreement(context.Context, enrichment.Candidate, string, []string, []string) (enrichment.FluencyAgreement, error) {
 	return enrichment.FluencyAgreement{}, errors.New("not used")
 }
 

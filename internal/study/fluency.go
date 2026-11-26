@@ -97,7 +97,7 @@ type FluencyEnricher interface {
 	EnrichEvidenceAssistedPass(ctx context.Context, candidate enrichment.Candidate, passageContext string) (enrichment.EvidenceAssistedMeaning, error)
 	// EnrichSourceEvidenceFluencyAgreement is the agreement check of a
 	// source-evidence language: its payload adds both sides' cited senses.
-	EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurrence []enrichment.FluencySense) (enrichment.FluencyAgreement, error)
+	EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurrence []string) (enrichment.FluencyAgreement, error)
 }
 
 // FluencyWorker prepares one mature word's Fluency contexts per River

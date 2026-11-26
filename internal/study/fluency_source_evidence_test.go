@@ -43,8 +43,8 @@ func TestSourceEvidenceFluencyCitedSensesReachTheAgreementCall(t *testing.T) {
 			first = request
 		}
 	}
-	assert.Equal(t, []enrichment.FluencySense{{ID: "n100.1", Definition: "word"}}, first.learned, "the Learned meaning's cited senses carry their definitions")
-	assert.Equal(t, []enrichment.FluencySense{{ID: "n100.2", Definition: "account"}}, first.occurred)
+	assert.Equal(t, []string{"word"}, first.learned, "the Learned meaning's cited senses carry their definitions")
+	assert.Equal(t, []string{"account"}, first.occurred)
 	require.Len(t, store.recorded, 2)
 	for _, record := range store.recorded {
 		assert.NotEmpty(t, record.Cited.SenseIDs, "each stored context keeps its citations")
@@ -95,7 +95,7 @@ func TestLatinFluencyContextCitingTheLearnedHomographGoesToTheAgreementCall(t *t
 	require.NoError(t, fluencyWork(worker))
 
 	require.Len(t, enricher.variant, 2)
-	learned := []enrichment.FluencySense{{ID: enrichment.LatinEvidenceID("n9", "s1"), Definition: "to dedicate"}}
+	learned := []string{"to dedicate"}
 	for _, request := range enricher.variant {
 		assert.Equal(t, learned, request.learned, "the Learned meaning's sense is the learned homograph's, not the other's")
 		assert.Equal(t, learned, request.occurred)
@@ -203,8 +203,11 @@ func TestSourceEvidenceFluencyDoesNotLookUpLearnedSensesOnAnotherPin(t *testing.
 
 	require.NoError(t, fluencyWork(worker))
 
-	require.NotEmpty(t, enricher.variant)
-	assert.Equal(t, []enrichment.FluencySense{{ID: "n100.2"}}, enricher.variant[0].learned, "an older pin's sense ID may name another sense now: no definition is guessed")
+	require.NotEmpty(t, enricher.variant, "a dictionary pin change never stops the agreement check")
+	assert.Empty(t, enricher.variant[0].learned, "an older pin's sense ID may name another sense now: no definition is guessed, and no ID is sent")
+	assert.NotEmpty(t, enricher.variant[0].occurred)
+	require.NotEmpty(t, store.recorded, "the answer is recorded, not retried forever")
+	assert.Equal(t, domain.FluencyAgrees, store.recorded[0].Agreement)
 }
 
 func TestSourceEvidenceFluencyNeedsTheLearnedMeaningsCitations(t *testing.T) {
