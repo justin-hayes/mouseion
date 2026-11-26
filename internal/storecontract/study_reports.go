@@ -31,11 +31,19 @@ type StudyReportStore interface {
 	GetOpenStudyReport(owner, language, progressID string, kind domain.StudyReportKind) (domain.StudyReport, error)
 	ListOpenStudyReports(owner, language string, kind domain.StudyReportKind) ([]domain.StudyReport, error)
 	ListOpenWrongWordReportsForBook(owner, bookID string) ([]domain.StudyReport, error)
-	ListRetiredStudyOccurrences(owner, progressID string) ([]domain.StudyOccurrenceRef, error)
-	ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	EndStudyReport(owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(owner, id string, now time.Time) error
 	UndoStudyReport(owner, id string, now time.Time) error
+	StudyReportEvidenceStore
+}
+
+// StudyReportEvidenceStore is what Study reports leave on the word's evidence
+// and what current evidence says of a reported occurrence: the occurrences open
+// Unsuitable-context reports retired, read when material and Fluency contexts
+// are chosen, and the state reconciliation ends a report by.
+type StudyReportEvidenceStore interface {
+	ListRetiredStudyOccurrences(owner, progressID string) ([]domain.StudyOccurrenceRef, error)
+	ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	// StudyOccurrenceState says whether a reported occurrence is still in the
 	// current analysis of a Book in the library, and whether the learner
 	// excluded or corrected it.

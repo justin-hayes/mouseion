@@ -92,15 +92,23 @@ type StudyReportStore interface {
 	// ListOpenWrongWordReportsForBook is what the Book's Lemma review lists next
 	// to its Lemma review flags.
 	ListOpenWrongWordReportsForBook(ctx context.Context, owner, bookID string) ([]domain.StudyReport, error)
+	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
+	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	StudyReportEvidenceStore
+}
+
+// StudyReportEvidenceStore is what Study reports leave on the word's evidence
+// and what current evidence says of a reported occurrence: the occurrences open
+// Unsuitable-context reports retired, read when material and Fluency contexts
+// are chosen, and the state reconciliation ends a report by.
+type StudyReportEvidenceStore interface {
 	// ListRetiredStudyOccurrences names the occurrences the word's open
 	// Unsuitable-context reports retired as its context.
 	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
 	// ListRetiredStudyOccurrencesOfWord is the same by the word's vocabulary
 	// identity, for material preparation, which knows no progress row.
 	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
-	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
-	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
-	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
 	// StudyOccurrenceState says whether a reported occurrence is still in the
 	// current analysis of a Book in the library, and whether the learner
 	// excluded or corrected it.

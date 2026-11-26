@@ -192,3 +192,47 @@ func TestStudyDecisionEndsOnlyTheReportsItCoversForTheirOwnReason(t *testing.T) 
 	assert.Equal(t, domain.StudyReportEndCorrected, s.reportOf(hausReport).EndReason)
 	assert.Equal(t, domain.StudyReportEndAnalysisUpdate, s.reportOf(buchReport).EndReason)
 }
+
+// reportedNewHaus takes a batch and reports the new word "haus" on its
+// introduction card, so the report outlives its word's Study progress.
+func (s *studyHarness) reportedNewHaus() (bookID string, report domain.StudyReport, source domain.StudyMaterial) {
+	s.t.Helper()
+	bookID = s.preparedBook(testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
+	s.take()
+	word := s.word("haus")
+	require.Zero(s.t, word.Memory.Reps)
+	require.Equal(s.t, http.StatusSeeOther, s.report(word, "wrong_word", "").Code)
+	require.NotContains(s.t, s.studiedLemmas(), "haus", "the reported new word has no Study progress")
+	reports := s.openReports()
+	require.Len(s.t, reports, 1)
+	require.Empty(s.t, reports[0].ProgressID)
+	return bookID, reports[0], s.material(word.MaterialID)
+}
+
+func TestStudyLemmaCorrectionEndsTheReportOfANewWordWithNoStudyProgress(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID, report, source := s.reportedNewHaus()
+
+	s.decide(bookID, "haus", source.SentenceOrdinal, "correct", "hof")
+
+	ended := s.reportOf(report.ID)
+	assert.False(t, ended.Open())
+	assert.Equal(t, domain.StudyReportEndCorrected, ended.EndReason)
+	assert.Empty(t, s.openReports())
+	assert.NotContains(t, s.page(), "held because you reported it")
+}
+
+func TestStudyOccurrenceThatDisappearsEndsTheReportOfANewWordWithNoStudyProgress(t *testing.T) {
+	s := newStudyHarness(t)
+	_, report, source := s.reportedNewHaus()
+
+	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
+		s.owner.ID, source.AnalysisRunID, source.SentenceOrdinal, source.TokenOrdinal)
+	require.NoError(t, err)
+	s.page()
+
+	ended := s.reportOf(report.ID)
+	assert.False(t, ended.Open())
+	assert.Equal(t, domain.StudyReportEndOccurrenceGone, ended.EndReason)
+	assert.Empty(t, s.openReports())
+}

@@ -126,37 +126,42 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	language, label := activeStudyLanguageForContext(r.Context())
 	view := studyPageView{Language: language, LanguageLabel: label, Available: study.Available(language)}
 	if view.Available {
-		// Corrections are applied first, so a word whose sentence no longer
-		// belongs to it is prepared again in the same request.
-		if err := study.ReconcileReports(r.Context(), h.services.Store.Study, owner, language, h.now()); err != nil {
-			fail(w, err)
-			return
-		}
-		if err := h.reconcileStudyCorrections(r.Context(), owner, language, h.now()); err != nil {
-			fail(w, err)
-			return
-		}
-		if h.services.Study != nil {
-			// Preparation is best effort: the page still reports what is ready.
-			if err := h.services.Study.EnqueueStudyPreparation(r.Context(), owner, language); err != nil {
-				log.Printf("mouseion: enqueue study preparation: %v", err)
-			}
-			// Fluency contexts are prepared for mature words by a durable job
-			// too, never by this request.
-			if err := h.services.Study.EnqueueFluencyPreparation(r.Context(), owner, language); err != nil {
-				log.Printf("mouseion: enqueue fluency preparation: %v", err)
-			}
-		}
-		if err := h.loadStudyView(r, owner, &view); err != nil {
-			fail(w, err)
-			return
-		}
-		if err := h.loadReportedCard(r, owner, &view); err != nil {
+		if err := h.prepareStudyView(r, owner, &view); err != nil {
 			fail(w, err)
 			return
 		}
 	}
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
+}
+
+// prepareStudyView reconciles the learner's Study reports and corrections,
+// asks for material and Fluency contexts to be prepared ahead, and loads what
+// the page shows.
+func (h *Handler) prepareStudyView(r *http.Request, owner string, view *studyPageView) error {
+	language := view.Language
+	// Corrections are applied first, so a word whose sentence no longer
+	// belongs to it is prepared again in the same request.
+	if err := study.ReconcileReports(r.Context(), h.services.Store.Study, owner, language, h.now()); err != nil {
+		return err
+	}
+	if err := h.reconcileStudyCorrections(r.Context(), owner, language, h.now()); err != nil {
+		return err
+	}
+	if h.services.Study != nil {
+		// Preparation is best effort: the page still reports what is ready.
+		if err := h.services.Study.EnqueueStudyPreparation(r.Context(), owner, language); err != nil {
+			log.Printf("mouseion: enqueue study preparation: %v", err)
+		}
+		// Fluency contexts are prepared for mature words by a durable job
+		// too, never by this request.
+		if err := h.services.Study.EnqueueFluencyPreparation(r.Context(), owner, language); err != nil {
+			log.Printf("mouseion: enqueue fluency preparation: %v", err)
+		}
+	}
+	if err := h.loadStudyView(r, owner, view); err != nil {
+		return err
+	}
+	return h.loadReportedCard(r, owner, view)
 }
 
 // noteCorrections records the words a correction left waiting for new
