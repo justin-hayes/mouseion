@@ -38,6 +38,7 @@ type PrepareMaterialArgs struct {
 func (PrepareMaterialArgs) Kind() string { return "study_prepare_material" }
 
 type riverClient interface {
+	Insert(context.Context, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
 	InsertTx(context.Context, pgx.Tx, river.JobArgs, *river.InsertOpts) (*rivertype.JobInsertResult, error)
 }
 
@@ -73,21 +74,16 @@ var planUniqueStates = []rivertype.JobState{
 // EnqueueStudyPreparation asks for the learner's Study material to be brought
 // up to date with the stream. It inserts one planning job, which River does not
 // queue twice while one is waiting, and reads nothing else: the planning runs in
-// PlanWorker. It is safe to call whenever Today is opened, a batch is taken or
-// the Study day rolls over.
-func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language string) (err error) {
-	tx, err := s.store.Pool().Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	if _, err := s.client.InsertTx(ctx, tx, PlanPreparationArgs{OwnerID: owner, Language: language}, &river.InsertOpts{
+// PlanWorker. It is safe to call whenever Today is opened or a batch is taken;
+// the Study-day rollover is seen by the next page load, as before.
+func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
+	if _, err := s.client.Insert(ctx, PlanPreparationArgs{OwnerID: owner, Language: language}, &river.InsertOpts{
 		Queue: Queue, MaxAttempts: maxPreparationAttempts,
 		UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: planUniqueStates},
 	}); err != nil {
 		return fmt.Errorf("enqueue study preparation planning: %w", err)
 	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 // PlanPreparation brings the learner's Study material up to date with the

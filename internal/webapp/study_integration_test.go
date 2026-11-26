@@ -235,9 +235,9 @@ func TestStudyPreparesMaterialAheadInStreamOrder(t *testing.T) {
 	page := getAs(t, s.h, "/de/study", s.cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	assert.Contains(t, page.Body.String(), "0 new words are ready.")
-	assert.Zero(t, s.provider.Calls(), "a page request never calls a provider")
-	assert.Empty(t, s.lemmasByReservation(), "a page request reserves no material; the planning job does")
-	assert.Equal(t, 1, s.planJobs())
+	t.Run("a page request never calls a provider", func(t *testing.T) { require.Zero(t, s.provider.Calls()) })
+	t.Run("a page request reserves no material; the planning job does", func(t *testing.T) { require.Empty(t, s.lemmasByReservation()) })
+	t.Run("a page request queues one planning job", func(t *testing.T) { require.Equal(t, 1, s.planJobs()) })
 
 	// Opening it again while the job is pending queues no duplicate.
 	getAs(t, s.h, "/de/study", s.cookies)

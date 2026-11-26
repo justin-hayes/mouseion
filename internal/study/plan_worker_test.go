@@ -26,8 +26,8 @@ func TestPlanWorkerPlansTheJobsLearnerAndLanguage(t *testing.T) {
 
 	require.NoError(t, worker.Work(context.Background(), &river.Job[PlanPreparationArgs]{Args: PlanPreparationArgs{OwnerID: "owner", Language: "de"}}))
 
-	assert.Equal(t, "owner", planner.owner)
-	assert.Equal(t, "de", planner.language)
+	t.Run("plans the job's learner", func(t *testing.T) { assert.Equal(t, "owner", planner.owner) })
+	t.Run("plans the job's language", func(t *testing.T) { assert.Equal(t, "de", planner.language) })
 }
 
 func TestPlanWorkerReturnsThePlannerErrorSoRiverRetries(t *testing.T) {
