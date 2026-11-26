@@ -4,7 +4,9 @@ Status: **Accepted; implemented in the pilot** · Date: 2026-11-25 · Decisions:
 [ADR 0134](../adr/0134-study-in-mouseion-vocabulary-review.md),
 [ADR 0135](../adr/0135-study-reports.md), [ADR 0133](../adr/0133-per-language-card-policy.md),
 [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
-(direction after the pilot, see [After the pilot](#after-the-pilot))
+(direction after the pilot, see [After the pilot](#after-the-pilot)),
+[ADR 0138](../adr/0138-study-for-source-evidence-languages.md) (Latin and
+Ancient Greek)
 
 Specified in
 [Spec: Study pilot](https://github.com/justin-hayes/mouseion/issues/2691).
@@ -258,12 +260,26 @@ Study is offered only for study languages whose card policy
 ([ADR 0133](../adr/0133-per-language-card-policy.md)) is the modern-language
 provider route, because Study needs a Gloss and a sentence translation. The
 pilot runs on German. For Latin and Ancient Greek, whose source-evidence cards
-have no defensible Gloss to anchor a Learned meaning, the Study page says
-plainly that Study is not available for the language yet. These are the
-languages where Fluency's variety of form should pay off most, because of how
-heavily they inflect; their Learned meaning would plausibly be anchored to the
-lexical discriminator and a dictionary entry rather than a Gloss (open
-question 6).
+have no Gloss, the Study page says plainly that Study is not available for the
+language yet.
+
+[ADR 0138](../adr/0138-study-for-source-evidence-languages.md) decides how
+Study will serve them, with parity to the modern languages:
+
+- Their Study material comes from the Evidence-assisted provider pass, whose
+  Gloss must cite at least one dictionary sense. It becomes the Learned meaning
+  and records the senses it cites. There is no providerless fallback.
+- A Gloss that cites nothing, or an abstention, makes the word unpreparable
+  for its meaning. A word with no dictionary entry is unpreparable with its own
+  reason.
+- The card back has the usual Meaning, Translation and Word rows, then a
+  collapsed dictionary outline with the cited senses marked and the collapsed
+  passage context.
+- Fluency uses the usual agreement check with the cited senses added. A
+  context that cites only a different entry disagrees at once.
+- Each language turns on after its assessments are recorded and an evidence
+  run on about 50 Corpus words reaches at least 90% acceptable Glosses with no
+  invented sense. Greek comes first, then Latin.
 
 ### Separation from the rest of Mouseion
 
@@ -296,7 +312,8 @@ question 6).
 [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
 makes Study the only vocabulary workflow, at one cutover. Until then the
 separation above holds. The cutover waits until Study supports the
-source-evidence card policy (Ancient Greek and Latin) and introduces Idioms as
+source-evidence card policy (Ancient Greek and Latin,
+[ADR 0138](../adr/0138-study-for-source-evidence-languages.md)) and introduces Idioms as
 items with their own Study progress
 ([ADR 0137](../adr/0137-idioms-are-study-items.md)). Both of those are left
 out of the pilot above. At the cutover:
@@ -340,8 +357,11 @@ These stay open for after the pilot.
    keep one sentence. In between, keep observing. A gap only on different-form
    contexts argues for weighting Fluency further towards forms, not for
    rotating Today. The thresholds are starting values.
-6. How should Study work for Latin and Ancient Greek, perhaps with the Learned
-   meaning anchored to a dictionary entry?
+6. ~~How should Study work for Latin and Ancient Greek, perhaps with the
+   Learned meaning anchored to a dictionary entry?~~ **Closed** (2026-11-26) by
+   [ADR 0138](../adr/0138-study-for-source-evidence-languages.md): a
+   contextual Gloss from the Evidence-assisted provider pass that cites the
+   dictionary, not the entry alone.
 7. Should progress be tracked per meaning? **Decision rule (2026-11-26):**
    measure the share of mature words with at least one disagreeing context
    whose reason is a different meaning. Above about 25%, the next step is an
