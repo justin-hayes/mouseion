@@ -288,6 +288,9 @@ type Querier interface {
 	// Where an analyzed token sits in its Book's extracted unit: the locator an
 	// Analysis update carries decisions across runs by.
 	GetStudyOccurrenceLocator(ctx context.Context, arg GetStudyOccurrenceLocatorParams) (GetStudyOccurrenceLocatorRow, error)
+	// The token a retired occurrence names, with the locator and the surface and
+	// source lemma an Analysis update carries a decision across runs by (ADR 0126).
+	GetStudyOccurrenceToken(ctx context.Context, arg GetStudyOccurrenceTokenParams) (GetStudyOccurrenceTokenRow, error)
 	// Fluency contexts and responses (ADR 0134 §7, spec #2691). Fluency never
 	// writes study_progress or study_review_log.
 	GetStudyProgress(ctx context.Context, arg GetStudyProgressParams) (StudyProgress, error)
@@ -673,6 +676,9 @@ type Querier interface {
 	// a graded review, a batch taken or declined, a Fluency response or another
 	// report. Times are the database's own clock.
 	StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error)
+	// Whether the material the word is reviewed in has been replaced, so a grade of
+	// its card is stale.
+	StudyMaterialIsSuperseded(ctx context.Context, arg StudyMaterialIsSupersededParams) (bool, error)
 	// Undo of an Unsuitable-context report: the word's current material, other than
 	// the one being restored, is replaced so the restored record can be current.
 	SupersedeOtherCurrentStudyMaterialOfWord(ctx context.Context, arg SupersedeOtherCurrentStudyMaterialOfWordParams) (int64, error)

@@ -35,6 +35,15 @@ func (s *PostgresStore) GetStudyProgress(ctx context.Context, owner, id string) 
 // disagree with the learned meaning are included; the domain shows only the
 // agreeing ones.
 func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error) {
+	contexts, err := s.allStudyFluencyContexts(ctx, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	return s.withoutRetiredFluencyContexts(ctx, owner, language, contexts)
+}
+
+// allStudyFluencyContexts lists every stored context, retired ones included.
+func (s *PostgresStore) allStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error) {
 	rows, err := sqlcgen.New(s.pool).ListStudyFluencyContexts(ctx, sqlcgen.ListStudyFluencyContextsParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
 	if err != nil {
 		return nil, fmt.Errorf("list study fluency contexts: %w", err)
@@ -65,10 +74,10 @@ func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, lan
 		}
 		contexts = append(contexts, item)
 	}
-	return s.withoutRetiredFluencyContexts(ctx, owner, language, contexts)
+	return contexts, nil
 }
 
-// withoutRetiredFluencyContexts leaves out the contexts on an occurrence the
+// withoutRetiredFluencyContexts leaves out the contexts in a sentence the
 // learner retired as the word's context (ADR 0135 §3), so a reported sentence
 // is never asked about again. The contexts stay stored.
 func (s *PostgresStore) withoutRetiredFluencyContexts(ctx context.Context, owner, language string, contexts []domain.FluencyContext) ([]domain.FluencyContext, error) {
@@ -76,20 +85,51 @@ func (s *PostgresStore) withoutRetiredFluencyContexts(ctx context.Context, owner
 	if err != nil || len(reports) == 0 {
 		return contexts, err
 	}
-	retired := map[string][]domain.StudyOccurrenceRef{}
+	byWord := map[string][]domain.StudyReport{}
 	for _, report := range reports {
-		retired[report.ProgressID] = append(retired[report.ProgressID], s.locatedOccurrence(ctx, owner, report.Source))
+		byWord[report.ProgressID] = append(byWord[report.ProgressID], report)
+	}
+	retired := map[string][]domain.StudyOccurrenceRef{}
+	for progress, list := range byWord {
+		retired[progress] = s.locatedReportSources(ctx, owner, list)
 	}
 	kept := contexts[:0:0]
 	for _, item := range contexts {
-		refs := retired[item.ProgressID]
 		ref := domain.StudyOccurrenceRef{BookID: item.BookID, AnalysisRunID: item.AnalysisRunID, CorpusID: item.CorpusID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}
-		if len(refs) > 0 && domain.RetiredStudyOccurrence(refs, s.locatedOccurrence(ctx, owner, ref)) {
-			continue
+		if !domain.RetiredStudyOccurrence(retired[item.ProgressID], ref) {
+			kept = append(kept, item)
 		}
-		kept = append(kept, item)
 	}
 	return kept, nil
+}
+
+// hiddenAgreeingFluencyContexts counts the word's agreeing contexts that a
+// retired sentence hides. They do not count towards the word's limit, so the
+// slot can be refilled.
+func (s *PostgresStore) hiddenAgreeingFluencyContexts(ctx context.Context, owner, progressID string) (int, error) {
+	progress, err := s.GetStudyProgress(ctx, owner, progressID)
+	if err != nil {
+		return 0, err
+	}
+	all, err := s.allStudyFluencyContexts(ctx, owner, progress.Language)
+	if err != nil {
+		return 0, err
+	}
+	visible, err := s.withoutRetiredFluencyContexts(ctx, owner, progress.Language, all)
+	if err != nil {
+		return 0, err
+	}
+	return agreeingContextsOf(all, progressID) - agreeingContextsOf(visible, progressID), nil
+}
+
+func agreeingContextsOf(contexts []domain.FluencyContext, progressID string) int {
+	count := 0
+	for _, item := range contexts {
+		if item.ProgressID == progressID && item.Agreement == domain.FluencyAgrees {
+			count++
+		}
+	}
+	return count
 }
 
 // RecordStudyFluencyContext stores one assessed occurrence of a mature word. It
@@ -117,6 +157,10 @@ func (s *PostgresStore) RecordStudyFluencyContext(ctx context.Context, owner str
 	} else if err != nil {
 		return fmt.Errorf("get study progress: %w", err)
 	}
+	hidden, err := s.hiddenAgreeingFluencyContexts(ctx, owner, record.ProgressID)
+	if err != nil {
+		return err
+	}
 	_, err = q.InsertStudyFluencyContext(ctx, sqlcgen.InsertStudyFluencyContextParams{
 		Owner: owner, Progress: record.ProgressID, Agreement: string(record.Agreement), Reason: string(record.Reason),
 		Book: record.BookID, AnalysisRun: record.AnalysisRunID, Corpus: record.CorpusID,
@@ -124,7 +168,7 @@ func (s *PostgresStore) RecordStudyFluencyContext(ctx context.Context, owner str
 		Sentence: record.Sentence, TargetWord: record.TargetWord, Gloss: record.Gloss, SentenceTranslation: record.SentenceTranslation,
 		SentenceTranslationTargets: encoded,
 		FormSurface:                record.Form.Surface, FormFeatures: record.Form.Features, FormSplit: record.Form.Split,
-		PerWord: domain.FluencyContextsPerWord,
+		PerWord: domain.FluencyContextsPerWord + hidden,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ErrFluencyContextNotStored

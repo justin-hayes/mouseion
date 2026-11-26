@@ -88,6 +88,12 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 // leaves the word within its limit. The caller holds s.mu.
 func (s *Store) fluencyContextFitsLocked(owner string, record domain.FluencyContextRecord) bool {
 	agreeing := 0
+	// A context in a retired sentence is hidden and does not count towards the
+	// word's limit.
+	visible := map[string]bool{}
+	for _, item := range s.withoutRetiredFluencyContextsLocked(owner, s.studyFluencyContexts) {
+		visible[item.ID] = true
+	}
 	for _, item := range s.studyFluencyContexts {
 		if item.OwnerID != owner || item.ProgressID != record.ProgressID {
 			continue
@@ -95,7 +101,7 @@ func (s *Store) fluencyContextFitsLocked(owner string, record domain.FluencyCont
 		if item.AnalysisRunID == record.AnalysisRunID && item.SentenceOrdinal == record.SentenceOrdinal && item.TokenOrdinal == record.TokenOrdinal {
 			return false
 		}
-		if item.Agreement == domain.FluencyAgrees {
+		if item.Agreement == domain.FluencyAgrees && visible[item.ID] {
 			agreeing++
 		}
 	}

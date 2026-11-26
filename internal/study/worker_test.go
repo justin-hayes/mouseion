@@ -272,15 +272,26 @@ func TestWorkRecordsAnOmissionWhenEveryRemainingOccurrenceIsRetired(t *testing.T
 	assert.Empty(t, enricher.requests, "no provider call for a retired sentence")
 }
 
-func TestWorkKeepsAnOccurrenceRetiredAfterAnAnalysisUpdate(t *testing.T) {
-	// The report was made in run 1; an Analysis update re-published the same
-	// token in run 2 with other ordinals. The locator finds it again.
-	retired := domain.StudyOccurrenceRef{BookID: otherBook, AnalysisRunID: "run-1", CorpusID: "corpus-1", SentenceOrdinal: 7, TokenOrdinal: 2, UnitID: "unit-1", StartOffset: 40, EndOffset: 44}
-	moved := occurrence(otherBook, goodText, 3)
-	moved.UnitID, moved.UnitStartOffset, moved.UnitEndOffset = "unit-1", 40, 44
+func TestWorkSkipsEveryTokenOfARetiredSentence(t *testing.T) {
+	// The reported sentence holds the word twice: the other token is retired too.
+	reported := occurrence(otherBook, goodText, 3)
+	reported.TokenOrdinal = 2
+	sameSentence := occurrence(otherBook, goodText, 3)
+	sameSentence.TokenOrdinal = 6
 	other := occurrence(otherBook, otherText, 4)
-	store := &fakeStore{occurrences: []domain.ConcordanceResultOccurrence{moved, other}, retired: []domain.StudyOccurrenceRef{retired}}
+	store := &fakeStore{occurrences: []domain.ConcordanceResultOccurrence{sameSentence, other}, retired: []domain.StudyOccurrenceRef{reported.StudyRef()}}
 	require.NoError(t, work(newWorker(store, &fakeEnricher{meaning: resolved()})))
 	require.NotNil(t, store.ready)
-	assert.EqualValues(t, 4, store.ready.SentenceOrdinal, "the retired token is still retired in the new run")
+	assert.EqualValues(t, 4, store.ready.SentenceOrdinal, "the sentence is retired for the word, not only the reported token")
+}
+
+func TestWorkKeepsASentenceRetiredInTheRunAnAnalysisUpdateCarriedItTo(t *testing.T) {
+	// The store resolves the report to the sentence in the current run as well.
+	reportedOld := domain.StudyOccurrenceRef{BookID: otherBook, AnalysisRunID: "run-1", CorpusID: "corpus-1", SentenceOrdinal: 7, TokenOrdinal: 2}
+	moved := occurrence(otherBook, goodText, 3)
+	other := occurrence(otherBook, otherText, 4)
+	store := &fakeStore{occurrences: []domain.ConcordanceResultOccurrence{moved, other}, retired: []domain.StudyOccurrenceRef{reportedOld, moved.StudyRef()}}
+	require.NoError(t, work(newWorker(store, &fakeEnricher{meaning: resolved()})))
+	require.NotNil(t, store.ready)
+	assert.EqualValues(t, 4, store.ready.SentenceOrdinal)
 }

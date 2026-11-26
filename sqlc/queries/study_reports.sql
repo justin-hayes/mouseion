@@ -127,3 +127,22 @@ SELECT EXISTS (SELECT 1 FROM study_report
                 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
                   AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
                   AND kind = 'wrong_word' AND ended_at IS NULL)::boolean AS held;
+
+-- name: GetStudyOccurrenceToken :one
+-- The token a retired occurrence names, with the locator and the surface and
+-- source lemma an Analysis update carries a decision across runs by (ADR 0126).
+SELECT s.unit_id::text AS unit_id, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset,
+       t.surface, t.raw_lemma
+  FROM corpus_tokens t
+  JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.analysis_run_id = t.analysis_run_id
+   AND s.corpus_id = t.corpus_id AND s.sentence_ordinal = t.sentence_ordinal
+ WHERE t.owner_id = sqlc.arg('owner') AND t.analysis_run_id = sqlc.arg('analysis_run') AND t.corpus_id = sqlc.arg('corpus')
+   AND t.sentence_ordinal = sqlc.arg('sentence_ordinal') AND t.token_ordinal = sqlc.arg('token_ordinal');
+
+-- name: StudyMaterialIsSuperseded :one
+-- Whether the material the word is reviewed in has been replaced, so a grade of
+-- its card is stale.
+SELECT (m.superseded_at IS NOT NULL)::boolean AS superseded
+  FROM study_progress p
+  JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
+ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('id');

@@ -159,19 +159,27 @@ func ReviewStudyEvidence(e StudyEvidence) StudyEvidenceAction {
 	}
 }
 
-// RetiredStudyOccurrence reports whether the occurrence is one the learner
-// retired as the word's context with an Unsuitable-context report (ADR 0135
-// §3): the same occurrence in the same run, or the same token of the same Book
-// after an Analysis update, as a Lemma correction relocates an occurrence. The
-// retired refs should carry their locator (StudyOccurrenceLocator) for the
-// second match.
+// RetiredStudyOccurrence reports whether the occurrence is in a sentence the
+// learner retired as the word's context with an Unsuitable-context report
+// (ADR 0135 §3). The report retires the sentence, so every token of the word in
+// it is retired, whichever token was reported. The retired refs name the
+// sentence in each run it is known in: the run it was reported in, and the
+// Book's current run when an Analysis update carried the reported token there
+// (same source span, surface and source lemma, as a Lemma correction is
+// carried). The store resolves them; this matches by run and sentence.
 func RetiredStudyOccurrence(retired []StudyOccurrenceRef, ref StudyOccurrenceRef) bool {
 	for _, item := range retired {
-		if item.sameRun(ref) || item.sameToken(ref) {
+		if item.sameSentence(ref) {
 			return true
 		}
 	}
 	return false
+}
+
+// sameSentence reports that the other ref is in the same sentence of the same
+// analysis run, whatever its token.
+func (r StudyOccurrenceRef) sameSentence(o StudyOccurrenceRef) bool {
+	return r.BookID == o.BookID && r.AnalysisRunID == o.AnalysisRunID && r.CorpusID == o.CorpusID && r.SentenceOrdinal == o.SentenceOrdinal
 }
 
 // WithoutRetiredStudyOccurrences drops the retired occurrences from the list.

@@ -229,7 +229,8 @@ func studyReportScenarios() []Scenario {
 		{Name: "an Unsuitable-context report retires its occurrence without holding the word, and Undo restores the material", Run: unsuitableContextScenario},
 		{Name: "an Unsuitable-context report re-introduces the word on the next Study day with its schedule untouched", Run: unsuitableReintroductionScenario},
 		{Name: "a word whose every context was reported unsuitable is withdrawn with its own reason and returns", Run: unsuitableWithdrawalScenario},
-		{Name: "a retired occurrence leaves the word's Fluency contexts, and Undo shows it again", Run: unsuitableFluencyScenario},
+		{Name: "a grade of material an Unsuitable-context report replaced is stale", Run: unsuitableStaleGradeScenario},
+		{Name: "a retired sentence leaves the word's Fluency contexts and frees their slots, and Undo shows them again", Run: unsuitableFluencyScenario},
 		{Name: "a held word cannot be graded, and showing an offer or another learner's action does not block Undo", Run: func(t *testing.T, h Harness) {
 			owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
 			word := gradedStudyWord(t, h, owner, studyNoun("haus"))
@@ -406,18 +407,27 @@ func unsuitableFluencyScenario(t *testing.T, h Harness) {
 	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
 	material, err := h.Study().GetStudyMaterial(owner, word.MaterialID)
 	require.NoError(t, err)
-	retired := fluencyRecord(word.ID, material.SentenceOrdinal, domain.FluencyAgrees)
-	retired.BookID, retired.AnalysisRunID, retired.CorpusID, retired.TokenOrdinal = material.BookID, material.AnalysisRunID, material.CorpusID, material.TokenOrdinal
-	require.NoError(t, fluency.RecordStudyFluencyContext(owner, retired))
-	kept := fluencyRecord(word.ID, material.SentenceOrdinal+3, domain.FluencyAgrees)
-	require.NoError(t, fluency.RecordStudyFluencyContext(owner, kept))
+	inSentence := func(token int64) domain.FluencyContextRecord {
+		record := fluencyRecord(word.ID, material.SentenceOrdinal, domain.FluencyAgrees)
+		record.BookID, record.AnalysisRunID, record.CorpusID, record.TokenOrdinal = material.BookID, material.AnalysisRunID, material.CorpusID, token
+		return record
+	}
+	// Two tokens of the word in the reported sentence, and three other contexts.
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, inSentence(material.TokenOrdinal)))
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, inSentence(material.TokenOrdinal+4)))
+	for i := int64(1); i <= 3; i++ {
+		require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+10+i, domain.FluencyAgrees)))
+	}
+	require.ErrorIs(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+20, domain.FluencyAgrees)), domain.ErrFluencyContextNotStored, "the word has its five")
 
 	report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
 	require.NoError(t, err)
 	contexts, err := fluency.ListStudyFluencyContexts(owner, Language)
 	require.NoError(t, err)
-	require.Len(t, contexts, 1, "the context on the retired occurrence is no longer shown")
-	assert.Equal(t, kept.SentenceOrdinal, contexts[0].SentenceOrdinal)
+	require.Len(t, contexts, 3, "every context in the retired sentence is hidden, whichever token it is on")
+	for _, item := range contexts {
+		assert.NotEqual(t, material.SentenceOrdinal, item.SentenceOrdinal)
+	}
 	retiredWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, word.StudyIdentity)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.StudyOccurrenceRef{report.Source}, retiredWord)
@@ -425,8 +435,26 @@ func unsuitableFluencyScenario(t *testing.T, h Harness) {
 	require.NoError(t, err)
 	assert.Empty(t, other)
 
+	// The hidden contexts do not count towards the limit: both slots refill.
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+21, domain.FluencyAgrees)))
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+22, domain.FluencyAgrees)))
+	require.ErrorIs(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+23, domain.FluencyAgrees)), domain.ErrFluencyContextNotStored)
+
 	require.NoError(t, reports.UndoStudyReport(owner, report.ID, studyReportDay.Add(2*time.Hour)))
 	contexts, err = fluency.ListStudyFluencyContexts(owner, Language)
 	require.NoError(t, err)
-	assert.Len(t, contexts, 2, "an undone report retires nothing")
+	assert.Len(t, contexts, 7, "an undone report retires nothing")
+}
+
+func unsuitableStaleGradeScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	_, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	grade := domain.StudyGradeRecord{ProgressID: word.ID, ExpectedReps: word.Memory.Reps, Grade: domain.StudyGradeGotIt, ReviewedAt: studyReportDay.Add(3 * time.Hour), StudyDay: "2026-11-25", After: word.Memory}
+	require.ErrorIs(t, progress.RecordStudyGrade(owner, grade), domain.ErrStudyStale, "a grade in flight on the replaced material is stale")
+	logs, err := progress.ListStudyReviewLog(owner, word.ID)
+	require.NoError(t, err)
+	assert.Len(t, logs, 1, "and writes no review-log row")
 }

@@ -198,18 +198,43 @@ func (s *Store) retiredLocked(owner string, match func(domain.StudyReport) bool)
 	for _, report := range s.openStudyReportsLocked(func(r domain.StudyReport) bool {
 		return r.OwnerID == owner && r.Kind == domain.StudyReportUnsuitableContext && match(r)
 	}) {
-		refs = append(refs, s.locatedLocked(owner, report.Source))
+		refs = append(refs, s.sentencesRetiredLocked(owner, report.Source)...)
 	}
 	return refs
 }
 
-// locatedLocked is the occurrence with its locator, or as it was when it has
-// none. The caller holds s.mu.
-func (s *Store) locatedLocked(owner string, ref domain.StudyOccurrenceRef) domain.StudyOccurrenceRef {
-	if located, err := s.studyLocatorLocked(owner, ref); err == nil {
-		return located
+// sentencesRetiredLocked names the sentence of a report in every run it is
+// known in: the run it was reported in and the runs that carry the reported
+// token with the same source span, surface and source lemma. The caller holds
+// s.mu.
+func (s *Store) sentencesRetiredLocked(owner string, source domain.StudyOccurrenceRef) []domain.StudyOccurrenceRef {
+	refs := []domain.StudyOccurrenceRef{source}
+	var token *domain.LemmaReviewOccurrence
+	for _, occurrences := range s.lemmaOccurrences {
+		for i := range occurrences {
+			item := &occurrences[i]
+			if item.OwnerID == owner && item.AnalysisRunID == source.AnalysisRunID && item.CorpusID == source.CorpusID &&
+				item.SentenceOrdinal == source.SentenceOrdinal && item.TokenOrdinal == source.TokenOrdinal {
+				token = item
+			}
+		}
 	}
-	return ref
+	if token == nil {
+		return refs
+	}
+	for _, occurrences := range s.lemmaOccurrences {
+		for _, item := range occurrences {
+			if item.OwnerID == owner && item.BookID == token.BookID && item.AnalysisRunID != token.AnalysisRunID &&
+				item.SourceDocumentID == token.SourceDocumentID && item.StartOffset == token.StartOffset && item.EndOffset == token.EndOffset &&
+				item.Surface == token.Surface && item.RawLemma == token.RawLemma {
+				refs = append(refs, domain.StudyOccurrenceRef{
+					BookID: item.BookID, AnalysisRunID: item.AnalysisRunID, CorpusID: item.CorpusID,
+					SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal,
+				})
+			}
+		}
+	}
+	return refs
 }
 
 // hasOpenUnsuitableReportLocked reports whether the word has an open
@@ -234,17 +259,16 @@ func (s *Store) contextReportedAtLocked(owner, progressID string) time.Time {
 	return latest
 }
 
-// withoutRetiredFluencyContextsLocked leaves out the contexts on an occurrence
-// the learner retired as the word's context. The caller holds s.mu.
+// withoutRetiredFluencyContextsLocked leaves out the contexts in a sentence the
+// learner retired as the word's context. The caller holds s.mu.
 func (s *Store) withoutRetiredFluencyContextsLocked(owner string, contexts []domain.FluencyContext) []domain.FluencyContext {
 	kept := contexts[:0:0]
 	for _, item := range contexts {
 		retired := s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.ProgressID == item.ProgressID })
 		ref := domain.StudyOccurrenceRef{BookID: item.BookID, AnalysisRunID: item.AnalysisRunID, CorpusID: item.CorpusID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}
-		if len(retired) > 0 && domain.RetiredStudyOccurrence(retired, s.locatedLocked(owner, ref)) {
-			continue
+		if !domain.RetiredStudyOccurrence(retired, ref) {
+			kept = append(kept, item)
 		}
-		kept = append(kept, item)
 	}
 	return kept
 }

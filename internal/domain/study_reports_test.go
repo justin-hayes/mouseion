@@ -128,14 +128,24 @@ func TestAWordWhoseContextWasReportedIsDueAgainOnTheNextStudyDay(t *testing.T) {
 	assert.Equal(t, 1, StudyForecast([]StudyProgress{word}, berlin(11, 25, 9, 0)), "it is forecast for the next Study day")
 }
 
-func TestRetiredStudyOccurrenceMatchesTheSameOccurrenceAcrossRuns(t *testing.T) {
-	retired := located(StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c1", SentenceOrdinal: 4, TokenOrdinal: 2})
-	moved := located(StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-2", CorpusID: "c2", SentenceOrdinal: 7, TokenOrdinal: 1})
-	other := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c1", SentenceOrdinal: 5, TokenOrdinal: 2}
-	retiredSet := []StudyOccurrenceRef{retired}
-	assert.True(t, RetiredStudyOccurrence(retiredSet, retired), "the same occurrence in the same run")
-	assert.True(t, RetiredStudyOccurrence(retiredSet, moved), "the same token after an Analysis update")
-	assert.False(t, RetiredStudyOccurrence(retiredSet, other), "another sentence is not retired")
-	assert.False(t, RetiredStudyOccurrence(nil, retired))
-	assert.Equal(t, []StudyOccurrenceRef{other}, WithoutRetiredStudyOccurrences([]StudyOccurrenceRef{retired, moved, other}, retiredSet))
+func TestRetiredStudyOccurrenceRetiresTheWholeSentence(t *testing.T) {
+	reported := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c1", SentenceOrdinal: 4, TokenOrdinal: 2}
+	relocated := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-2", CorpusID: "c2", SentenceOrdinal: 14, TokenOrdinal: 2}
+	retired := []StudyOccurrenceRef{reported, relocated}
+	otherToken := reported
+	otherToken.TokenOrdinal = 7
+	otherTokenMoved := relocated
+	otherTokenMoved.TokenOrdinal = 7
+	otherSentence := reported
+	otherSentence.SentenceOrdinal = 5
+	otherBook := reported
+	otherBook.BookID = "other"
+	assert.True(t, RetiredStudyOccurrence(retired, reported))
+	assert.True(t, RetiredStudyOccurrence(retired, otherToken), "another token of the word in the sentence is retired too")
+	assert.True(t, RetiredStudyOccurrence(retired, relocated), "the sentence in the Book's current run")
+	assert.True(t, RetiredStudyOccurrence(retired, otherTokenMoved))
+	assert.False(t, RetiredStudyOccurrence(retired, otherSentence), "another sentence is not retired")
+	assert.False(t, RetiredStudyOccurrence(retired, otherBook))
+	assert.False(t, RetiredStudyOccurrence(nil, reported))
+	assert.Equal(t, []StudyOccurrenceRef{otherSentence}, WithoutRetiredStudyOccurrences([]StudyOccurrenceRef{reported, otherToken, relocated, otherSentence}, retired))
 }

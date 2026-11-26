@@ -181,7 +181,7 @@ func (s *Store) RecordStudyGrade(_ context.Context, owner string, record domain.
 		if item.OwnerID != owner || item.ID != record.ProgressID {
 			continue
 		}
-		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps || s.studyHeldLocked(owner, item.StudyIdentity) {
+		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps || s.studyHeldLocked(owner, item.StudyIdentity) || s.studySuperseded[item.MaterialID] {
 			return domain.ErrStudyStale
 		}
 		s.studyReviewLog = append(s.studyReviewLog, domain.StudyReviewLog{

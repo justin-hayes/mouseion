@@ -191,25 +191,56 @@ func (s *PostgresStore) ListRetiredStudyOccurrencesOfWord(ctx context.Context, o
 	return s.locatedReportSources(ctx, owner, studyReportsFromRows(rows)), nil
 }
 
-// locatedReportSources completes each report's occurrence with its locator, so
-// a retired occurrence is matched across Analysis runs the way a Lemma
-// correction relocates an occurrence. An occurrence whose token is gone keeps
-// its run-specific key.
+// locatedReportSources names the sentences the reports retired, in every run
+// they are known in: the run each was reported in and, when an Analysis update
+// carried the reported token to the Book's current run, the sentence it is in
+// there. The token is carried as a Lemma correction is (ADR 0126): the same
+// source span, surface and source lemma. A report whose token is gone keeps its
+// own run only.
 func (s *PostgresStore) locatedReportSources(ctx context.Context, owner string, reports []domain.StudyReport) []domain.StudyOccurrenceRef {
 	refs := make([]domain.StudyOccurrenceRef, 0, len(reports))
 	for _, report := range reports {
-		refs = append(refs, s.locatedOccurrence(ctx, owner, report.Source))
+		refs = append(refs, report.Source)
+		for _, moved := range s.currentRunOccurrences(ctx, owner, report) {
+			if moved.AnalysisRunID != report.Source.AnalysisRunID || moved.SentenceOrdinal != report.Source.SentenceOrdinal {
+				refs = append(refs, moved)
+			}
+		}
 	}
 	return refs
 }
 
-// locatedOccurrence is the occurrence with its locator, or as it was when the
-// token cannot be found.
-func (s *PostgresStore) locatedOccurrence(ctx context.Context, owner string, ref domain.StudyOccurrenceRef) domain.StudyOccurrenceRef {
-	if located, err := s.StudyOccurrenceLocator(ctx, owner, ref); err == nil {
-		return located
+// currentRunOccurrences finds the reported token in the Book's current analysis
+// when it is carried there unchanged.
+func (s *PostgresStore) currentRunOccurrences(ctx context.Context, owner string, report domain.StudyReport) []domain.StudyOccurrenceRef {
+	source, q := report.Source, sqlcgen.New(s.pool)
+	if !validUUID(source.AnalysisRunID) || !validUUID(source.CorpusID) || !validUUID(source.BookID) {
+		return nil
 	}
-	return ref
+	token, err := q.GetStudyOccurrenceToken(ctx, sqlcgen.GetStudyOccurrenceTokenParams{
+		Owner: owner, AnalysisRun: source.AnalysisRunID, Corpus: source.CorpusID, SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+	})
+	if err != nil {
+		return nil
+	}
+	rows, err := q.ListStudySourceTokens(ctx, sqlcgen.ListStudySourceTokensParams{
+		Owner: owner, Language: report.Language, Book: source.BookID, AnalysisRun: source.AnalysisRunID,
+		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+		UnitID: token.UnitID, StartOffset: token.StartOffset, EndOffset: token.EndOffset,
+	})
+	if err != nil {
+		return nil
+	}
+	var moved []domain.StudyOccurrenceRef
+	for _, row := range rows {
+		if row.Surface == token.Surface && row.RawLemma == token.RawLemma {
+			moved = append(moved, domain.StudyOccurrenceRef{
+				BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
+				SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
+			})
+		}
+	}
+	return moved
 }
 
 // EndStudyReport ends an open report because its occurrence was repaired or is

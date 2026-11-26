@@ -236,6 +236,15 @@ func refuseStaleStudyGrade(ctx context.Context, q *sqlcgen.Queries, owner string
 	if word.Withdrawn || word.Memory.Reps != expectedReps {
 		return domain.ErrStudyStale
 	}
+	// A word whose material was replaced by an Unsuitable-context report has no
+	// card to grade; a grade that was already in flight is stale.
+	superseded, err := q.StudyMaterialIsSuperseded(ctx, sqlcgen.StudyMaterialIsSupersededParams{Owner: owner, ID: word.ID})
+	if err != nil {
+		return fmt.Errorf("check study material: %w", err)
+	}
+	if superseded {
+		return domain.ErrStudyStale
+	}
 	held, err := q.HasOpenWrongWordReport(ctx, sqlcgen.HasOpenWrongWordReportParams{
 		Owner: owner, Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
 	})

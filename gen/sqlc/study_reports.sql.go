@@ -210,6 +210,53 @@ func (q *Queries) GetOpenStudyReportOfMaterial(ctx context.Context, arg GetOpenS
 	return i, err
 }
 
+const getStudyOccurrenceToken = `-- name: GetStudyOccurrenceToken :one
+SELECT s.unit_id::text AS unit_id, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset,
+       t.surface, t.raw_lemma
+  FROM corpus_tokens t
+  JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.analysis_run_id = t.analysis_run_id
+   AND s.corpus_id = t.corpus_id AND s.sentence_ordinal = t.sentence_ordinal
+ WHERE t.owner_id = $1 AND t.analysis_run_id = $2 AND t.corpus_id = $3
+   AND t.sentence_ordinal = $4 AND t.token_ordinal = $5
+`
+
+type GetStudyOccurrenceTokenParams struct {
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+}
+
+type GetStudyOccurrenceTokenRow struct {
+	UnitID      string
+	StartOffset int64
+	EndOffset   int64
+	Surface     string
+	RawLemma    string
+}
+
+// The token a retired occurrence names, with the locator and the surface and
+// source lemma an Analysis update carries a decision across runs by (ADR 0126).
+func (q *Queries) GetStudyOccurrenceToken(ctx context.Context, arg GetStudyOccurrenceTokenParams) (GetStudyOccurrenceTokenRow, error) {
+	row := q.db.QueryRow(ctx, getStudyOccurrenceToken,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+		arg.TokenOrdinal,
+	)
+	var i GetStudyOccurrenceTokenRow
+	err := row.Scan(
+		&i.UnitID,
+		&i.StartOffset,
+		&i.EndOffset,
+		&i.Surface,
+		&i.RawLemma,
+	)
+	return i, err
+}
+
 const getStudyReport = `-- name: GetStudyReport :one
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
  WHERE owner_id = $1 AND id = $2
@@ -646,6 +693,27 @@ func (q *Queries) StudyActionSince(ctx context.Context, arg StudyActionSincePara
 	var acted bool
 	err := row.Scan(&acted)
 	return acted, err
+}
+
+const studyMaterialIsSuperseded = `-- name: StudyMaterialIsSuperseded :one
+SELECT (m.superseded_at IS NOT NULL)::boolean AS superseded
+  FROM study_progress p
+  JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
+ WHERE p.owner_id = $1 AND p.id = $2
+`
+
+type StudyMaterialIsSupersededParams struct {
+	Owner string
+	ID    string
+}
+
+// Whether the material the word is reviewed in has been replaced, so a grade of
+// its card is stale.
+func (q *Queries) StudyMaterialIsSuperseded(ctx context.Context, arg StudyMaterialIsSupersededParams) (bool, error) {
+	row := q.db.QueryRow(ctx, studyMaterialIsSuperseded, arg.Owner, arg.ID)
+	var superseded bool
+	err := row.Scan(&superseded)
+	return superseded, err
 }
 
 const supersedeOtherCurrentStudyMaterialOfWord = `-- name: SupersedeOtherCurrentStudyMaterialOfWord :execrows

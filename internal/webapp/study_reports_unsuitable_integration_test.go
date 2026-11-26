@@ -196,26 +196,25 @@ func TestStudyRetiredOccurrenceSurvivesAnAnalysisUpdate(t *testing.T) {
 	// An Analysis update re-publishes the Book: the same token sits in a new
 	// run at other ordinals.
 	newRun := s.republish(bookID, "")
+	newCorpus := s.corpusOfRun(newRun)
 	retired, err := s.store.ListRetiredStudyOccurrencesOfWord(s.ctx, s.owner.ID, haus.StudyIdentity)
 	require.NoError(t, err)
-	require.Len(t, retired, 1)
-	assert.NotEmpty(t, retired[0].UnitID, "the retired occurrence is located so it can be found in another run")
 	moved := original.Source()
-	moved.AnalysisRunID, moved.SentenceOrdinal = newRun, original.SentenceOrdinal+10
-	newCorpus := s.corpusOfRun(newRun)
-	moved.CorpusID = newCorpus
-	located, err := s.store.StudyOccurrenceLocator(s.ctx, s.owner.ID, moved)
-	require.NoError(t, err)
-	assert.True(t, domain.RetiredStudyOccurrence(retired, located), "the same token in the new run is still retired")
-	other := located
-	other.SentenceOrdinal = original.SentenceOrdinal + 11
-	other.UnitID, other.StartOffset, other.EndOffset = located.UnitID, located.StartOffset+1000, located.EndOffset+1000
-	assert.False(t, domain.RetiredStudyOccurrence(retired, other), "another occurrence is not")
+	moved.AnalysisRunID, moved.CorpusID, moved.SentenceOrdinal = newRun, newCorpus, original.SentenceOrdinal+10
+	assert.Contains(t, retired, original.Source(), "the sentence in the run it was reported in")
+	assert.Contains(t, retired, moved, "and the same token carried to the new run (same span, surface and source lemma)")
+	otherToken := moved
+	otherToken.TokenOrdinal++
+	assert.True(t, domain.RetiredStudyOccurrence(retired, otherToken), "every token of the word in the retired sentence is retired")
+	otherSentence := moved
+	otherSentence.SentenceOrdinal++
+	assert.False(t, domain.RetiredStudyOccurrence(retired, otherSentence), "another sentence is not")
 
-	// A context stored in the new run for the same token is hidden too.
-	fluency.AnalysisRunID, fluency.CorpusID, fluency.SentenceOrdinal = newRun, newCorpus, moved.SentenceOrdinal
+	// A context stored in the new run, on another token of the same sentence, is
+	// hidden too, and does not count towards the limit.
+	fluency.AnalysisRunID, fluency.CorpusID, fluency.SentenceOrdinal, fluency.TokenOrdinal = newRun, newCorpus, moved.SentenceOrdinal, original.TokenOrdinal+1
 	require.NoError(t, s.store.RecordStudyFluencyContext(s.ctx, s.owner.ID, fluency))
-	assert.Empty(t, s.fluencyContexts(), "a Fluency context on the relocated occurrence is hidden")
+	assert.Empty(t, s.fluencyContexts(), "a Fluency context in the relocated sentence is hidden")
 }
 
 // corpusOfRun is the corpus an Analysis run read.
