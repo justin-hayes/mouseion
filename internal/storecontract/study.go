@@ -56,6 +56,7 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Empty(t, other, "candidates are scoped to the study language")
 		}},
+		studyCandidatesAmongScenario(),
 		{Name: "study candidates apply confirmed corrections and exclusions and ignore unanalyzed or other-language Books", Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			bookID := seedReviewBook(t, h) // two occurrences of "weg"
@@ -436,4 +437,41 @@ func declinedBatchTakenOnce(t *testing.T, h Harness) {
 	require.NoError(t, err, "under the backlog brake the one batch, declined, can still be taken")
 	_, err = progressStore.TakeStudyBatch(owner, Language, brakeDay, now.Add(24*time.Hour), 1, words[3:])
 	require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
+}
+
+// studyCandidatesAmongScenario holds ListStudyCandidatesAmong to the full
+// candidate list for the identities it is asked about.
+func studyCandidatesAmongScenario() Scenario {
+	return Scenario{Name: "study candidates among identities agree with the full candidate list for those identities", Run: func(t *testing.T, h Harness) {
+		owner := h.Seeds().Owner()
+		current := h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: []OccurrenceSeed{
+			{Surface: "Haus", Lemma: "haus", UPOS: "NOUN"}, {Surface: "Haus", Lemma: "haus", UPOS: "NOUN"},
+		}})
+		h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: []OccurrenceSeed{
+			{Surface: "Hund", Lemma: "hund", UPOS: "NOUN"}, {Surface: "Haus", Lemma: "haus", UPOS: "NOUN"},
+			{Surface: "Katze", Lemma: "katze", UPOS: "NOUN"},
+		}})
+		h.Seeds().SeedCurrentReading(t, owner, Language, current)
+
+		all, err := h.Study().ListStudyCandidates(owner, Language)
+		require.NoError(t, err)
+		want := map[domain.StudyIdentity]domain.StudyCandidate{}
+		for _, candidate := range all {
+			want[candidate.StudyIdentity] = candidate
+		}
+		among, err := h.Study().ListStudyCandidatesAmong(owner, Language, []domain.StudyIdentity{studyNoun("haus"), studyNoun("katze"), studyNoun("nope"), {Language: Language, CanonicalLemma: "hund", UPOS: "VERB"}})
+		require.NoError(t, err)
+		require.ElementsMatch(t, []domain.StudyCandidate{want[studyNoun("haus")], want[studyNoun("katze")]}, among,
+			"only the asked identities that are candidates: a word that is not one, or with another part of speech, is absent")
+		t.Run("no identities asked for", func(t *testing.T) {
+			none, err := h.Study().ListStudyCandidatesAmong(owner, Language, nil)
+			require.NoError(t, err)
+			require.Empty(t, none)
+		})
+		t.Run("another learner", func(t *testing.T) {
+			other, err := h.Study().ListStudyCandidatesAmong(h.Seeds().OtherOwner(), Language, []domain.StudyIdentity{studyNoun("haus")})
+			require.NoError(t, err)
+			require.Empty(t, other, "another learner's Books are not candidates")
+		})
+	}}
 }

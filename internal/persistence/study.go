@@ -35,6 +35,37 @@ func (s *PostgresStore) ListStudyCandidates(ctx context.Context, owner, language
 	return candidates, nil
 }
 
+// ListStudyCandidatesAmong is ListStudyCandidates for the given identities
+// only. It reads just their rows, so its cost follows the identities asked for
+// and not the library. An identity that is not a candidate is absent.
+func (s *PostgresStore) ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	wanted := make(map[domain.StudyIdentity]bool, len(identities))
+	lemmas := make([]string, 0, len(identities))
+	for _, identity := range identities {
+		identity.Language = language
+		if !wanted[identity] {
+			wanted[identity] = true
+			lemmas = append(lemmas, identity.CanonicalLemma)
+		}
+	}
+	if len(lemmas) == 0 {
+		return nil, nil
+	}
+	rows, err := sqlcgen.New(s.pool).ListStudyCandidates(ctx, sqlcgen.ListStudyCandidatesParams{Owner: owner, Language: language, OnlyLemmas: true, Lemmas: lemmas})
+	if err != nil {
+		return nil, fmt.Errorf("list study candidates among: %w", err)
+	}
+	candidates := make([]domain.StudyCandidate, 0, len(rows))
+	for _, row := range rows {
+		identity := domain.StudyIdentity{Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator}
+		if wanted[identity] {
+			candidates = append(candidates, domain.StudyCandidate{StudyIdentity: identity, InCurrentReading: row.InCurrentReading, PersonalOccurrences: row.PersonalOccurrences})
+		}
+	}
+	return candidates, nil
+}
+
 // ListCurrentStudyMaterial returns every word's current Study material in the
 // study language.
 func (s *PostgresStore) ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error) {

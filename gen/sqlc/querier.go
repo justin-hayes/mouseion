@@ -474,7 +474,11 @@ type Querier interface {
 	// projection, which already applies confirmed Lemma corrections and Occurrence
 	// exclusions. A Book whose projection is not ready contributes nothing yet.
 	// Known and Reserved vocabulary are deliberately not consulted (ADR 0134 §3).
-	// The builder version is the one Browse reads.
+	// The builder version is the one Browse reads. With only_lemmas, the rows of
+	// those lemmas alone are read (the identity index finds them), so a batch is
+	// ordered from the few words whose material is ready without aggregating the
+	// library; the caller keeps the identities it asked for, since a part of speech
+	// or discriminator it did not ask for may come back with its lemma.
 	ListStudyCandidates(ctx context.Context, arg ListStudyCandidatesParams) ([]ListStudyCandidatesRow, error)
 	// Every answer to the owner's contexts in the study language, oldest first:
 	// the evidence the weighted rotation reads.

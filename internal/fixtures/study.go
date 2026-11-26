@@ -47,6 +47,26 @@ func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) (
 	return append(candidates, s.seededStudyCandidatesLocked(owner, language, tallies)...), nil
 }
 
+// ListStudyCandidatesAmong is ListStudyCandidates for the given identities only.
+func (s *Store) ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+	all, err := s.ListStudyCandidates(ctx, owner, language)
+	if err != nil {
+		return nil, err
+	}
+	wanted := make(map[domain.StudyIdentity]bool, len(identities))
+	for _, identity := range identities {
+		identity.Language = language
+		wanted[identity] = true
+	}
+	var among []domain.StudyCandidate
+	for _, candidate := range all {
+		if wanted[candidate.StudyIdentity] {
+			among = append(among, candidate)
+		}
+	}
+	return among, nil
+}
+
 // seededStudyCandidatesLocked returns the seeded candidates the Books do not
 // already contribute. The caller holds s.mu.
 func (s *Store) seededStudyCandidatesLocked(owner, language string, tallies map[domain.StudyIdentity]*domain.StudyCandidate) []domain.StudyCandidate {
