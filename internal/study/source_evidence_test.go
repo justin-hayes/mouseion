@@ -332,13 +332,13 @@ func TestDictionaryPinIsTheLoadedIndexsPinForThePoliciesDictionary(t *testing.T)
 	assert.Empty(t, DictionaryPin(nil, cardpolicy.For("grc")))
 }
 
-type latinLexicon struct{ greekLexicon }
+type pinnedLatinLexicon struct{ greekLexicon }
 
-func (latinLexicon) LatinLSPin() string { return " ls-pin-1 " }
+func (*pinnedLatinLexicon) LatinLSPin() string { return " ls-pin-1 " }
 
 func TestDictionaryPinOfLatinIsTheLewisAndShortPin(t *testing.T) {
-	assert.Equal(t, "ls-pin-1", DictionaryPin(latinLexicon{}, cardpolicy.For("la")))
-	assert.Empty(t, DictionaryPin(latinLexicon{}, cardpolicy.For("grc")), "Greek reads LSJ's pin, which this index does not give")
+	assert.Equal(t, "ls-pin-1", DictionaryPin(&pinnedLatinLexicon{}, cardpolicy.For("la")))
+	assert.Empty(t, DictionaryPin(&pinnedLatinLexicon{}, cardpolicy.For("grc")), "Greek reads LSJ's pin, which this index does not give")
 }
 
 func TestSourceEvidenceWordStillWithoutAnEntryIsRecordedAgainstTheNewPin(t *testing.T) {

@@ -32,9 +32,9 @@ type fakeStore struct {
 	omissionPin string
 	// occurrencesErr fails listing the occurrences an attempt saw.
 	occurrencesErr error
-	evidence    string
-	pagesRead   int
-	tokens      map[int64][]analyzer.Token
+	evidence       string
+	pagesRead      int
+	tokens         map[int64][]analyzer.Token
 	// citations are the cited sections every sentence touches.
 	citations []string
 	retired   []domain.StudyOccurrenceRef
