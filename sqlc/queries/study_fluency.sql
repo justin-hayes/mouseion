@@ -12,7 +12,8 @@ SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement, c.reas
        c.book_id::text AS book_id, c.analysis_run_id::text AS analysis_run_id, c.corpus_id::text AS corpus_id,
        c.sentence_ordinal, c.token_ordinal, c.sentence, c.target_word, c.gloss,
        c.sentence_translation, c.sentence_translation_targets,
-       c.form_surface, c.form_features, c.form_split, c.created_at,
+       c.form_surface, c.form_features, c.form_split,
+       c.cited_sense_ids, c.cited_entry_ids, c.dictionary_pin, c.created_at,
        COALESCE((SELECT max(r.responded_at) FROM study_fluency_response r
                   WHERE r.owner_id = c.owner_id AND r.context_id = c.id), 'epoch'::timestamptz)::timestamptz AS last_response_at
   FROM study_fluency_context c
@@ -35,11 +36,13 @@ SELECT r.context_id::text AS context_id, r.response, r.responded_at
 -- word's limit, and an occurrence already assessed, return no row.
 INSERT INTO study_fluency_context (owner_id, progress_id, agreement, reason, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal,
                                    sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
-                                   form_surface, form_features, form_split)
+                                   form_surface, form_features, form_split,
+                                   cited_sense_ids, cited_entry_ids, dictionary_pin)
 SELECT p.owner_id, p.id, sqlc.arg('agreement'), sqlc.arg('reason'), sqlc.arg('book'), sqlc.arg('analysis_run'), sqlc.arg('corpus'),
        sqlc.arg('sentence_ordinal'), sqlc.arg('token_ordinal'), sqlc.arg('sentence'), sqlc.arg('target_word'),
        sqlc.arg('gloss'), sqlc.arg('sentence_translation'), sqlc.arg('sentence_translation_targets')::jsonb,
-       sqlc.arg('form_surface'), sqlc.arg('form_features'), sqlc.arg('form_split')
+       sqlc.arg('form_surface'), sqlc.arg('form_features'), sqlc.arg('form_split'),
+       sqlc.arg('cited_sense_ids')::text[], sqlc.arg('cited_entry_ids')::text[], sqlc.arg('dictionary_pin')
   FROM study_progress p
  WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('progress')
    AND (sqlc.arg('agreement')::text <> 'agrees'

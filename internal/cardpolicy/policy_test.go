@@ -29,13 +29,13 @@ func TestGreekPolicyNamesItsTranslationsAndEntries(t *testing.T) {
 	assert.Equal(t, CitationsNone, policy.Citations)
 }
 
-func TestLatinPolicyUsesSourceEvidenceWithNoProviderPass(t *testing.T) {
+func TestLatinPolicyUsesSourceEvidenceWithItsOwnProviderPass(t *testing.T) {
 	for _, tag := range []string{"la", "LA", " la "} {
 		t.Run(tag, func(t *testing.T) {
 			policy := For(tag)
 			require.True(t, policy.SourceEvidence, "source-evidence cards")
 			assert.False(t, policy.NLPAnalysed, "no NLP notice")
-			assert.False(t, policy.EvidenceAssistedPass, "no evidence-assisted pass")
+			assert.True(t, policy.EvidenceAssistedPass, "the evidence-assisted pass is on; it is sent only once the la assessment is recorded")
 			assert.Equal(t, LatinSourceNotice, policy.SourceNotice)
 			assert.Equal(t, TranslationPerseus, policy.Translations)
 			assert.Equal(t, BoundaryTerminalMark, policy.SentenceBoundary)
@@ -56,6 +56,49 @@ func TestModernLanguagesTakeTheProviderRoute(t *testing.T) {
 			assert.True(t, policy.NLPAnalysed, "provider route")
 			assert.Equal(t, BoundaryCapitalisedStart, policy.SentenceBoundary)
 			assert.Equal(t, LookupStored, policy.DictionaryLookup)
+		})
+	}
+}
+
+func TestStudySwitchIsOnForModernLanguagesAndOffForSourceEvidence(t *testing.T) {
+	tests := []struct {
+		language string
+		study    bool
+	}{
+		{"de", true},
+		{"it", true},
+		{"grc", false}, // Greek Study is switched on only after its evidence run
+		{"la", false},  // Latin Study is switched on only after its evidence run
+	}
+	for _, tc := range tests {
+		t.Run(tc.language, func(t *testing.T) {
+			require.Equal(t, tc.study, For(tc.language).Study)
+		})
+	}
+}
+
+func TestStudyOverrideForTestSwitchesOneLanguageAndRestores(t *testing.T) {
+	restore := OverrideStudyForTest("grc", true)
+	assert.True(t, For("grc").Study)
+	assert.True(t, For("GRC").Study, "the override follows the language tag's normal form")
+	assert.False(t, For("la").Study, "the override names one language")
+	restore()
+	assert.False(t, For("grc").Study)
+}
+
+func TestPassContractIsChosenByPolicy(t *testing.T) {
+	tests := []struct {
+		language string
+		contract PassContract
+	}{
+		{"grc", PassContractGreek},
+		{"la", PassContractLatin},
+		{"LA", PassContractLatin},
+		{"de", PassContractGreek}, // no pass runs for a modern language; the zero value is the Greek contract
+	}
+	for _, tc := range tests {
+		t.Run(tc.language, func(t *testing.T) {
+			require.Equal(t, tc.contract, For(tc.language).PassContract)
 		})
 	}
 }

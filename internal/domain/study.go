@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -110,10 +111,97 @@ type StudyMaterial struct {
 	SentenceTranslation             string
 	// SentenceTranslationTargets is the English target alignment, if any.
 	SentenceTranslationTargets []string
+	// Cited is the dictionary senses the Gloss rests on and the pin they were
+	// made against. It is empty for modern-language material.
+	Cited StudyCitations
+	// Passage is the translated passage the Representative sentence sits in. It
+	// is empty when no passage applies.
+	Passage StudyPassage
 	// EvidenceFingerprint identifies the occurrences the attempt to prepare an
 	// unpreparable word's material saw; see StudyEvidenceFingerprint.
 	EvidenceFingerprint  string
 	CreatedAt, UpdatedAt time.Time
+}
+
+// StudyCitations are the dictionary senses a source-evidence Gloss rests on
+// (ADR 0138 §2): the source's native sense IDs, the native ID of the entry each
+// sense belongs to and the pinned dictionary revision they were made against.
+// SenseIDs and EntryIDs are parallel: EntryIDs[i] is the entry of SenseIDs[i],
+// because a native sense ID may be shared by stacked homograph entries and the
+// sense alone would not say which one was cited. They are empty for a
+// modern-language word, whose Learned meaning is a Gloss alone.
+type StudyCitations struct {
+	SenseIDs, EntryIDs []string
+	// DictionaryPin is the pinned dictionary revision. It is set exactly when
+	// SenseIDs is not empty.
+	DictionaryPin string
+}
+
+// Clone returns citations that share no slice with the receiver.
+func (c StudyCitations) Clone() StudyCitations {
+	c.SenseIDs, c.EntryIDs = append([]string{}, c.SenseIDs...), append([]string{}, c.EntryIDs...)
+	return c
+}
+
+// Empty reports whether nothing is cited.
+func (c StudyCitations) Empty() bool {
+	return len(c.SenseIDs) == 0 && strings.TrimSpace(c.DictionaryPin) == ""
+}
+
+// Valid reports whether the citations are all or nothing: a pin comes with at
+// least one cited sense, and every cited sense names its entry.
+func (c StudyCitations) Valid() bool {
+	if (len(c.SenseIDs) > 0) != (strings.TrimSpace(c.DictionaryPin) != "") {
+		return false
+	}
+	return len(c.EntryIDs) == len(c.SenseIDs)
+}
+
+// ReadyValid reports whether the citations may stand on a ready row. Empty
+// citations do (a modern-language word); cited ones are valid and name no blank
+// entry or sense.
+func (c StudyCitations) ReadyValid() bool {
+	if !c.Valid() {
+		return false
+	}
+	return c.Empty() || (!slices.Contains(c.EntryIDs, "") && !slices.Contains(c.SenseIDs, ""))
+}
+
+// Has reports whether the sense of the entry is cited.
+func (c StudyCitations) Has(entryID, senseID string) bool {
+	for i, id := range c.SenseIDs {
+		if id == senseID && i < len(c.EntryIDs) && c.EntryIDs[i] == entryID {
+			return true
+		}
+	}
+	return false
+}
+
+// EntrySet is the distinct entries the cited senses belong to, in citation order.
+func (c StudyCitations) EntrySet() []string {
+	var entries []string
+	for _, id := range c.EntryIDs {
+		if !slices.Contains(entries, id) {
+			entries = append(entries, id)
+		}
+	}
+	return entries
+}
+
+// StudyPassage is the translated passage a Representative sentence sits in: its
+// text, the cited sections as one range label and the pin of the translation it
+// came from. The three are set together.
+type StudyPassage struct {
+	Text, Citation, TranslationPin string
+}
+
+// Empty reports whether no passage applies.
+func (p StudyPassage) Empty() bool { return strings.TrimSpace(p.Text) == "" }
+
+// Valid reports whether the passage is all or nothing.
+func (p StudyPassage) Valid() bool {
+	text := strings.TrimSpace(p.Text) != ""
+	return text == (strings.TrimSpace(p.Citation) != "") && text == (strings.TrimSpace(p.TranslationPin) != "")
 }
 
 // StudyMaterialCounts is what the Study page reports about preparation: the
@@ -132,17 +220,23 @@ type StudyMaterialReadyContent struct {
 	Gloss                           string
 	SentenceTranslation             string
 	SentenceTranslationTargets      []string
+	// Cited and Passage are empty for modern-language material. A
+	// source-evidence word's material carries its citations and pin, and its
+	// passage when one applies.
+	Cited   StudyCitations
+	Passage StudyPassage
 }
 
 // Complete reports whether the sentence, target word, Gloss and translation
-// are all present: material is never ready without them.
+// are all present: material is never ready without them. Its citations and
+// passage are each all or nothing.
 func (c StudyMaterialReadyContent) Complete() bool {
 	for _, text := range []string{c.Sentence, c.TargetWord, c.Gloss, c.SentenceTranslation} {
 		if strings.TrimSpace(text) == "" {
 			return false
 		}
 	}
-	return true
+	return c.Cited.ReadyValid() && c.Passage.Valid()
 }
 
 // Study material omission reasons. A sentence-quality omission and a meaning
@@ -150,6 +244,10 @@ func (c StudyMaterialReadyContent) Complete() bool {
 const (
 	StudyOmissionSentenceQuality = "sentence-quality"
 	StudyOmissionMeaning         = "meaning"
+	// StudyOmissionNoDictionaryEntry is the omission of a source-evidence word
+	// the configured dictionary has no entry for (ADR 0138 §1). It is terminal:
+	// no provider is asked.
+	StudyOmissionNoDictionaryEntry = "no-dictionary-entry"
 )
 
 // ErrInvalidStudyMaterial rejects Study material input that names no word or

@@ -122,7 +122,7 @@ const brownsonPin = "sha256:f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7
 
 func TestPassageAttributionComesFromTheTranslationPin(t *testing.T) {
 	t.Run("the Brownson pin keeps its label and notice", func(t *testing.T) {
-		label, err := passageContextLabel(brownsonPin, "1.2.17")
+		label, err := PassageContextLabel(brownsonPin, "1.2.17")
 		require.NoError(t, err)
 		assert.Equal(t, "Passage context: Brownson (1922), Xen. Anab. 1.2.17. Not a translation of this sentence", label)
 		attribution, err := passageAttribution(brownsonPin)

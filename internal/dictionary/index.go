@@ -53,6 +53,9 @@ type Index struct {
 	// lsjAvailable is true when the index format carries the LSJ table, so an
 	// older index reports no LSJ entry rather than an empty dictionary.
 	lsjAvailable bool
+	// lsjPin and lsPin are the pinned revisions the LSJ and Lewis & Short tables
+	// were derived from; empty while the table is unavailable.
+	lsjPin, lsPin string
 	// skippedLSJHeadwords counts LSJ source headwords whose ancient-greek/1 key
 	// was not admissible and were therefore not indexed.
 	skippedLSJHeadwords int

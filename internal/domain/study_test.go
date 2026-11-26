@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func studyID(lemma string) StudyIdentity {
@@ -76,4 +77,36 @@ func TestStudyPreparationTargets(t *testing.T) {
 	t.Run("a short stream yields what it has", func(t *testing.T) {
 		assert.Len(t, StudyPreparationTargets(ordered[:4], nil), 4)
 	})
+}
+
+func TestStudyMaterialReadyContentCitationsAreCompleteOnlyWhenWhole(t *testing.T) {
+	tests := []struct {
+		name     string
+		cited    StudyCitations
+		complete bool
+	}{
+		{"modern material cites nothing", StudyCitations{}, true},
+		{"senses across entries", StudyCitations{SenseIDs: []string{"n1.1", "n2.1"}, EntryIDs: []string{"n1", "n2"}, DictionaryPin: "pin"}, true},
+		{"a sense two entries share is cited once per entry", StudyCitations{SenseIDs: []string{"s1", "s1"}, EntryIDs: []string{"n1", "n2"}, DictionaryPin: "pin"}, true},
+		{"a cited sense needs the pin", StudyCitations{SenseIDs: []string{"n1.1"}, EntryIDs: []string{"n1"}}, false},
+		{"a pin needs a cited sense", StudyCitations{DictionaryPin: "pin"}, false},
+		{"entries need senses", StudyCitations{EntryIDs: []string{"n1"}, DictionaryPin: "pin"}, false},
+		{"cited senses name their entries", StudyCitations{SenseIDs: []string{"n1.1"}, DictionaryPin: "pin"}, false},
+		{"each sense names exactly one entry", StudyCitations{SenseIDs: []string{"n1.1", "n1.2"}, EntryIDs: []string{"n1"}, DictionaryPin: "pin"}, false},
+		{"an entry is never blank", StudyCitations{SenseIDs: []string{"n1.1"}, EntryIDs: []string{""}, DictionaryPin: "pin"}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			content := StudyMaterialReadyContent{Sentence: "s", TargetWord: "t", Gloss: "g", SentenceTranslation: "x", Cited: tc.cited}
+			require.Equal(t, tc.complete, content.Complete())
+		})
+	}
+}
+
+func TestStudyCitationsResolveSensesPerEntry(t *testing.T) {
+	cited := StudyCitations{SenseIDs: []string{"s1", "s2", "s1"}, EntryIDs: []string{"n1", "n1", "n3"}, DictionaryPin: "pin"}
+	require.True(t, cited.Has("n1", "s1"))
+	require.True(t, cited.Has("n3", "s1"))
+	require.False(t, cited.Has("n2", "s1"), "a homograph that shares the sense ID is not cited")
+	require.Equal(t, []string{"n1", "n3"}, cited.EntrySet())
 }

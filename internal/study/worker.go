@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/sentencequality"
@@ -39,10 +40,11 @@ type MaterialStore interface {
 	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 }
 
-// Enricher is the per-word enrichment entry point with a contextual Gloss
-// required.
+// Enricher is the per-word enrichment entry point: a contextual Gloss for a
+// modern language, the evidence-assisted pass for a source-evidence language.
 type Enricher interface {
 	EnrichExternalContextual(ctx context.Context, candidate enrichment.Candidate) (enrichment.ContextualMeaning, error)
+	EnrichEvidenceAssistedPass(ctx context.Context, candidate enrichment.Candidate, passageContext string) (enrichment.EvidenceAssistedMeaning, error)
 }
 
 // MaterialWorker prepares one word's Study material per River invocation. Its
@@ -52,11 +54,16 @@ type MaterialWorker struct {
 	river.WorkerDefaults[PrepareMaterialArgs]
 	Store    MaterialStore
 	Enricher Enricher
+	// Evidence is what a source-evidence language's material needs besides the
+	// provider: its dictionary, its passage translations and the pass payload
+	// gate. Without it such a word waits; a modern-language word never uses it.
+	Evidence *SourceEvidence
 }
 
-// AddMaterialWorker registers the worker with its dependencies.
-func AddMaterialWorker(workers *river.Workers, store MaterialStore, enricher Enricher) {
-	river.AddWorker(workers, &MaterialWorker{Store: store, Enricher: enricher})
+// AddMaterialWorker registers the worker with its dependencies. evidence is
+// nil when no source-evidence language can be prepared.
+func AddMaterialWorker(workers *river.Workers, store MaterialStore, enricher Enricher, evidence *SourceEvidence) {
+	river.AddWorker(workers, &MaterialWorker{Store: store, Enricher: enricher, Evidence: evidence})
 }
 
 // Work prepares the record's sentence, Gloss and translation. A word with no
@@ -77,6 +84,9 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 	}
 	if material.State != domain.StudyMaterialPending {
 		return nil
+	}
+	if policy := cardpolicy.For(material.Language); policy.SourceEvidence {
+		return w.workSourceEvidence(ctx, owner, material, policy)
 	}
 	evidence, found, err := w.representativeSentence(ctx, owner, material.StudyIdentity)
 	if err != nil {
@@ -128,6 +138,9 @@ type sentenceChoice struct {
 	quality    sentencequality.SentenceQuality
 	// form is the form the word takes in the occurrence, for Fluency.
 	form domain.FluencyForm
+	// citations are the cited source sections the sentence touches; they are
+	// empty for a modern-language analysis.
+	citations []string
 }
 
 // representativeSentence chooses the word's Representative sentence from
@@ -257,7 +270,7 @@ func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, i
 		if !quality.Accepted {
 			continue
 		}
-		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal)})
+		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal), citations: sentence.Citations})
 	}
 	return choices, nil
 }

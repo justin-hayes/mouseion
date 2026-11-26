@@ -109,6 +109,14 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 					</ul>
 				</section>
 			}
+			if len(view.SourceNotices) > 0 {
+				<section class="study-source-notices" aria-labelledby="study-source-notices-heading">
+					<h2 id="study-source-notices-heading">Sources</h2>
+					for _, notice := range view.SourceNotices {
+						<p class="study-source-notice">{ notice }</p>
+					}
+				</section>
+			}
 		}
 	}
 }
@@ -203,7 +211,71 @@ templ cardFaceView(language, prefix string, face cardFace) {
 			<dt>Word</dt>
 			<dd id={ prefix + "-headword" } lang={ language }>{ face.Headword }</dd>
 		</dl>
+		@sourceCardSections(language, face.Source)
 	}
+}
+
+// sourceCardSections are a source-evidence word's two collapsed sections below
+// the answer rows (ADR 0138 §3). They reuse the native details disclosure of
+// the Report control; each is absent when it has nothing to show.
+templ sourceCardSections(language string, source sourceCardView) {
+	if len(source.Entries) > 0 {
+		<details class="study-dictionary" id="study-dictionary">
+			<summary>Dictionary</summary>
+			for _, entry := range source.Entries {
+				<div class="study-dictionary__entry">
+					<p class="study-dictionary__source">
+						{ entry.Source }
+						if entry.Headword != "" {
+							<span lang={ language }>
+								{ entry.Headword }
+								if entry.Number > 0 {
+									<sup>{ fmt.Sprint(entry.Number) }</sup>
+								}
+							</span>
+						}
+					</p>
+					@outlineSenses(entry.Outline)
+					for _, target := range entry.Targets {
+						<div class="study-dictionary__target">
+							<p class="study-dictionary__reference">{ target.Reference }</p>
+							@outlineSenses(target.Outline)
+						</div>
+					}
+				</div>
+			}
+		</details>
+	}
+	if !source.Passage.Empty() {
+		<details class="study-passage" id="study-passage">
+			<summary>Passage context</summary>
+			<p class="study-passage__label">{ source.Passage.Label }</p>
+			<p class="study-passage__text">{ source.Passage.Text }</p>
+		</details>
+	}
+}
+
+templ outlineSenses(senses []outlineSenseView) {
+	<ul class="study-outline">
+		for _, sense := range senses {
+			<li class={ outlineSenseClass(sense) } data-level={ fmt.Sprint(sense.Level) }>
+				if sense.Number != "" {
+					<span class="study-sense__number">{ sense.Number }</span>
+				}
+				{ sense.Definitions }
+				if sense.Cited {
+					<strong class="study-sense__flag">(cited)</strong>
+				}
+			</li>
+		}
+	</ul>
+}
+
+func outlineSenseClass(sense outlineSenseView) string {
+	if sense.Cited {
+		return "study-sense study-sense--cited"
+	}
+	return "study-sense"
 }
 
 templ fluencyResponseForm(csrf string, view studyPageView, response, label, class string) {

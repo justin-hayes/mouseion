@@ -251,3 +251,29 @@ func TestLatinCrossReferenceEntryShowsTheTargetMeaningOrOnlyItsHeadLine(t *testi
 		assert.NotContains(t, html, "the foll.")
 	})
 }
+
+func TestLatinEvidenceAssistedPassSendsEntryCarryingSensesAcrossStackedHomographs(t *testing.T) {
+	projections := latinFreezeProjection("Livy")
+	projections[0].Provider, projections[0].ProviderVersion, projections[0].TargetLanguage = "openai-compatible", "model/translation-v18-evidence-assisted-latin", "en"
+	projections[0].EvidenceAssistedPass = true
+	projections[0].Entry.Sentence = "vir magnam rem dico et cum amicis in forum venit."
+	projections[0].Entry.TargetWord = "dico"
+	deck, _, err := NewPresentation(&lsStub{found: true, entries: dicoEntries()}).Freeze(t.Context(), "owner-1", "Livy", projections)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	request := work[0].Request
+	require.True(t, request.RequireEvidenceAssistedPass)
+	assert.Equal(t, []string{
+		enrichment.LatinEvidenceID("n9", "n9.0"),
+		enrichment.LatinEvidenceID("n9", "n9.1"),
+		enrichment.LatinEvidenceID("n10", "n10.0"),
+	}, evidenceIDs(request.CandidateSenses), "each cited sense names its entry; a glosses-only sense is evidence, the level-0 pseudo-sense is not")
+	assert.Equal(t, "to dedicate", request.CandidateSenses[0].Gloss)
+}
+
+func TestLatinDeckWithoutThePassSendsNoCandidateSenses(t *testing.T) {
+	deck, _, err := NewPresentation(&lsStub{found: true, entries: dicoEntries()}).Freeze(t.Context(), "owner-1", "Livy", latinFreezeProjection("Livy"))
+	require.NoError(t, err)
+	assert.Empty(t, deck.WorkProjection(), "the default Latin card has no provider work")
+}

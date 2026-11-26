@@ -2,10 +2,10 @@ package cardexport
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/sourceevidence"
 )
 
 // The Ancient Greek default card shows the pinned reference-translation
@@ -36,9 +36,12 @@ func passageAttribution(pin string) (classical.PassageAttribution, error) {
 	return attribution, nil
 }
 
-// passageContextLabel renders the frozen passage citation as the labelled,
-// unhighlighted card heading, crediting the translation the pin names.
-func passageContextLabel(pin, citation string) (string, error) {
+// PassageContextLabel renders the frozen passage citation as the labelled,
+// unhighlighted card heading, crediting the translation the pin names: the
+// translation, the citation range and the text that it is not a translation of
+// the sentence. A deck card and Study show the same label (ADR 0138 §3). A pin
+// the translation register does not list is an error, never a guess.
+func PassageContextLabel(pin, citation string) (string, error) {
 	attribution, err := passageAttribution(pin)
 	if err != nil {
 		return "", err
@@ -46,50 +49,20 @@ func passageContextLabel(pin, citation string) (string, error) {
 	return passageContextPrefix + attribution.Label + " " + citation + passageContextSuffix, nil
 }
 
-// resolvePassage returns the passage text, its citation label and the pin for a
-// representative sentence, or empty values when the card must show no English.
-// Every cited section must have a translation; a single missing key withholds
-// the whole passage, never a partial one.
-func resolvePassage(citations []string, translations map[string]string, pin string) (text, citation, sourcePin string) {
-	if strings.TrimSpace(pin) == "" || len(citations) == 0 || len(translations) == 0 {
-		return "", "", ""
+// PassageNotice is the attribution and licence notice of the translation a
+// stored passage pin names, the one a deck carries; see PassageContextLabel for
+// the error case.
+func PassageNotice(pin string) (string, error) {
+	attribution, err := passageAttribution(pin)
+	if err != nil {
+		return "", err
 	}
-	// Every segment whose Citation equals or contains a touched one is shown
-	// (ADR 0101): a 1.2 translation covers a sentence touching 1.2.3.
-	shown := map[string]struct{}{}
-	for _, section := range citations {
-		if !collectSegments(section, translations, shown) {
-			return "", "", ""
-		}
-	}
-	keys := make([]string, 0, len(shown))
-	for key := range shown {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		order, err := classical.CompareCitations(keys[i], keys[j])
-		if err != nil {
-			return keys[i] < keys[j]
-		}
-		return order < 0
-	})
-	sections := make([]string, 0, len(keys))
-	for _, key := range keys {
-		sections = append(sections, strings.TrimSpace(translations[key]))
-	}
-	return strings.Join(sections, " "), classical.FormatCitationRange(keys), pin
+	return attribution.Notice, nil
 }
 
-// collectSegments adds every segment key that equals or contains section and
-// reports whether there is at least one.
-func collectSegments(section string, translations map[string]string, shown map[string]struct{}) bool {
-	found := false
-	for key, translation := range translations {
-		if strings.TrimSpace(translation) == "" || !classical.CitationContains(key, section) {
-			continue
-		}
-		shown[key] = struct{}{}
-		found = true
-	}
-	return found
+// resolvePassage returns the passage text, its citation label and the pin for a
+// representative sentence, or empty values when the card must show no English.
+func resolvePassage(citations []string, translations map[string]string, pin string) (text, citation, sourcePin string) {
+	passage := sourceevidence.ResolvePassage(cardpolicy.Policy{Translations: cardpolicy.TranslationPerseus}, citations, translations, pin)
+	return passage.Text, passage.Citation, passage.Pin
 }

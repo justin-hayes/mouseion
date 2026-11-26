@@ -153,13 +153,13 @@ func (rederivedLatinLexicon) LookupLatinLS(context.Context, string) ([]enrichmen
 	}}}, true
 }
 
-// TestClassicalLatinDeckHasPassageContextWithNoProvider extends the Latin loop
-// to a prepared deck with no provider configured and Idiom cards listed for
-// Latin: the Work's pinned translation is fetched at preparation, every card
+// TestClassicalLatinDeckHasPassageContextWhileTheLatinPassIsNotRecorded extends the Latin loop
+// to a prepared deck with a provider configured but no recorded Latin pass
+// assessment, and Idiom cards listed for Latin: the Work's pinned translation is fetched at preparation, every card
 // shows its labelled passage context, and the deck carries no Wiktionary
 // meaning evidence, no Idiom card, no analysis-models notice and the Latin
 // source and translation notices.
-func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
+func TestClassicalLatinDeckHasPassageContextWhileTheLatinPassIsNotRecorded(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "classical-latin-deck-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	t.Cleanup(cancel)
@@ -244,9 +244,13 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 	}
 	batchConfig := prepareddeck.BatchConfig{MaxRequests: 1, PollInterval: time.Millisecond}
 	metrics := prepareddeck.NewMetricsCollector()
-	provider := &greekDeckRecordingProvider{}
-	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, nil, batchConfig, preparedConfig, false)
-	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, provider, preparedConfig, time.Second, metrics)
+	unrecordedPassProvider := &greekDeckRecordingProvider{}
+	// A provider is configured and the Latin pass is on in the card policy, but the
+	// compiled assessments record nothing for Latin (#2766): nothing is sent.
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, codec, batchConfig, preparedConfig, true)
+	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, unrecordedPassProvider, preparedConfig, time.Second, metrics)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, nil, nil, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, PollInterval: batchConfig.PollInterval, Metrics: metrics})
 	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: presentation, Metrics: metrics})
@@ -293,7 +297,7 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 	preparation := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
 	require.Equal(t, domain.DeckPreparationReady, preparation.State, "preparation error=%q", preparation.Error)
 	assert.Equal(t, 2, preparation.TotalCards, "one default card per identity and no Idiom card")
-	assert.Zero(t, provider.calls, "no provider request is made for a Latin deck")
+	assert.Zero(t, unrecordedPassProvider.calls, "no provider request is made for a Latin deck")
 
 	rows, err := pool.Query(ctx, `SELECT render_payload, passage_context, passage_citation, brownson_pin, canonical_lemma, lsj_entry_id, lsj_pin FROM deck_preparation_manifest_items WHERE owner_id=$1`, learner.ID)
 	require.NoError(t, err)

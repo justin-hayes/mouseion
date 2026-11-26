@@ -106,6 +106,14 @@ type TranslationRequest struct {
 	// (ADR 0134 §7). It is the one payload that sends a learned meaning.
 	RequireFluencyAgreement bool   `json:"-"`
 	LearnedMeaning          string `json:"-"`
+	// RequireSourceEvidenceFluencyAgreement marks the separate contract variant
+	// of the Fluency agreement for a source-evidence language (ADR 0138 §4). It
+	// also sends LearnedSenses and ContextSenses: the dictionary senses, with
+	// their definitions, that the Learned meaning and the occurrence's Gloss
+	// cite. It takes the place of RequireFluencyAgreement, never joins it.
+	RequireSourceEvidenceFluencyAgreement bool           `json:"-"`
+	LearnedSenses                         []FluencySense `json:"-"`
+	ContextSenses                         []FluencySense `json:"-"`
 	// Headword and LSJSenses are the pinned LSJ entry the sense summary
 	// condenses. They are transmitted only under RequireLSJSenseSummary.
 	Headword  string                 `json:"-"`

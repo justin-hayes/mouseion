@@ -396,7 +396,7 @@ func (p *BatchPlanner) evidenceAssistedPassAllowed(projections []cardexport.Cand
 	if p.Codec == nil || len(projections) == 0 || !cardpolicy.For(projections[0].Candidate.Language).EvidenceAssistedPass {
 		return false
 	}
-	return p.assessments().MaySend(enrichment.EvidenceAssistedPassPayload, projections[0].Candidate.Language, p.Codec) == nil
+	return p.assessments().MaySend(enrichment.EvidenceAssistedPassKind(projections[0].Candidate.Language), projections[0].Candidate.Language, p.Codec) == nil
 }
 
 // planExternalRun freezes a deck whose contextual Glosses come from the
@@ -532,7 +532,7 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 	language := projections[0].Candidate.Language
 	// The pass runs only while its exact payload assessment is recorded:
 	// otherwise no request is transmitted.
-	if err := p.assessments().MaySend(enrichment.EvidenceAssistedPassPayload, language, p.Codec); err != nil {
+	if err := p.assessments().MaySend(enrichment.EvidenceAssistedPassKind(language), language, p.Codec); err != nil {
 		return persistence.FreezePreparedDeckRunParams{}, err
 	}
 	// The context-free LSJ sense summary is a second, separately assessed
@@ -550,7 +550,7 @@ func (p *BatchPlanner) planEvidenceAssistedRun(ctx context.Context, preparation 
 		TargetLanguage:                "en",
 		ContextMode:                   string(enrichment.SentenceContext),
 		Provider:                      provider,
-		ProviderVersion:               p.Codec.EvidenceAssistedPassProviderVersion(),
+		ProviderVersion:               p.Codec.EvidenceAssistedPassProviderVersionFor(language),
 		Endpoint:                      enrichment.OpenAIChatCompletionsEndpoint,
 		Model:                         p.Codec.Model(),
 	}

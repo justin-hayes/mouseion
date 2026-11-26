@@ -71,6 +71,7 @@ func (i *Index) loadAncientGreekLSJ(ctx context.Context) error {
 	}
 	i.lsjEntries = entries
 	i.lsjAvailable = true
+	i.lsjPin = pin
 	return nil
 }
 
@@ -107,6 +108,15 @@ func (i *Index) metadataValue(ctx context.Context, key string) (string, error) {
 // older index reports the LSJ path unavailable rather than an empty dictionary.
 func (i *Index) AncientGreekLSJAvailable() bool {
 	return i != nil && i.lsjAvailable
+}
+
+// AncientGreekLSJPin is the pinned LSJ revision the index was derived from, or
+// empty when the index carries no LSJ entries.
+func (i *Index) AncientGreekLSJPin() string {
+	if i == nil {
+		return ""
+	}
+	return i.lsjPin
 }
 
 // SkippedLSJHeadwords reports how many LSJ source headwords were not indexed

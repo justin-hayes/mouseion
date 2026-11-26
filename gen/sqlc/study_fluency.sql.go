@@ -41,7 +41,7 @@ func (q *Queries) AppendStudyFluencyResponse(ctx context.Context, arg AppendStud
 
 const getStudyProgress = `-- name: GetStudyProgress :one
 
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin FROM study_progress
  WHERE owner_id = $1 AND id = $2
 `
 
@@ -79,6 +79,9 @@ func (q *Queries) GetStudyProgress(ctx context.Context, arg GetStudyProgressPara
 		&i.UpdatedAt,
 		&i.CorrectedAt,
 		&i.WithdrawnReason,
+		&i.LearnedSenseIds,
+		&i.LearnedEntryIds,
+		&i.LearnedDictionaryPin,
 	)
 	return i, err
 }
@@ -86,16 +89,18 @@ func (q *Queries) GetStudyProgress(ctx context.Context, arg GetStudyProgressPara
 const insertStudyFluencyContext = `-- name: InsertStudyFluencyContext :one
 INSERT INTO study_fluency_context (owner_id, progress_id, agreement, reason, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal,
                                    sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
-                                   form_surface, form_features, form_split)
+                                   form_surface, form_features, form_split,
+                                   cited_sense_ids, cited_entry_ids, dictionary_pin)
 SELECT p.owner_id, p.id, $1, $2, $3, $4, $5,
        $6, $7, $8, $9,
        $10, $11, $12::jsonb,
-       $13, $14, $15
+       $13, $14, $15,
+       $16::text[], $17::text[], $18
   FROM study_progress p
- WHERE p.owner_id = $16 AND p.id = $17
+ WHERE p.owner_id = $19 AND p.id = $20
    AND ($1::text <> 'agrees'
         OR (SELECT count(*) FROM study_fluency_context x
-             WHERE x.owner_id = p.owner_id AND x.progress_id = p.id AND x.agreement = 'agrees') < $18::int)
+             WHERE x.owner_id = p.owner_id AND x.progress_id = p.id AND x.agreement = 'agrees') < $21::int)
 ON CONFLICT (owner_id, progress_id, analysis_run_id, sentence_ordinal, token_ordinal) DO NOTHING
 RETURNING id::text AS id
 `
@@ -116,6 +121,9 @@ type InsertStudyFluencyContextParams struct {
 	FormSurface                string
 	FormFeatures               string
 	FormSplit                  bool
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
 	Owner                      string
 	Progress                   string
 	PerWord                    int
@@ -140,6 +148,9 @@ func (q *Queries) InsertStudyFluencyContext(ctx context.Context, arg InsertStudy
 		arg.FormSurface,
 		arg.FormFeatures,
 		arg.FormSplit,
+		arg.CitedSenseIds,
+		arg.CitedEntryIds,
+		arg.DictionaryPin,
 		arg.Owner,
 		arg.Progress,
 		arg.PerWord,
@@ -243,7 +254,8 @@ SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement, c.reas
        c.book_id::text AS book_id, c.analysis_run_id::text AS analysis_run_id, c.corpus_id::text AS corpus_id,
        c.sentence_ordinal, c.token_ordinal, c.sentence, c.target_word, c.gloss,
        c.sentence_translation, c.sentence_translation_targets,
-       c.form_surface, c.form_features, c.form_split, c.created_at,
+       c.form_surface, c.form_features, c.form_split,
+       c.cited_sense_ids, c.cited_entry_ids, c.dictionary_pin, c.created_at,
        COALESCE((SELECT max(r.responded_at) FROM study_fluency_response r
                   WHERE r.owner_id = c.owner_id AND r.context_id = c.id), 'epoch'::timestamptz)::timestamptz AS last_response_at
   FROM study_fluency_context c
@@ -275,6 +287,9 @@ type ListStudyFluencyContextsRow struct {
 	FormSurface                string
 	FormFeatures               string
 	FormSplit                  bool
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
 	CreatedAt                  time.Time
 	LastResponseAt             time.Time
 }
@@ -308,6 +323,9 @@ func (q *Queries) ListStudyFluencyContexts(ctx context.Context, arg ListStudyFlu
 			&i.FormSurface,
 			&i.FormFeatures,
 			&i.FormSplit,
+			&i.CitedSenseIds,
+			&i.CitedEntryIds,
+			&i.DictionaryPin,
 			&i.CreatedAt,
 			&i.LastResponseAt,
 		); err != nil {

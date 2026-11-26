@@ -48,6 +48,7 @@ func (s *Store) ListStudyFluencyContexts(_ context.Context, owner, language stri
 			continue
 		}
 		item.SentenceTranslationTargets = append([]string{}, item.SentenceTranslationTargets...)
+		item.Cited = item.Cited.Clone()
 		s.attachFluencyResponsesLocked(owner, &item)
 		contexts = append(contexts, item)
 	}
@@ -78,7 +79,7 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 		SentenceOrdinal: record.SentenceOrdinal, TokenOrdinal: record.TokenOrdinal,
 		Sentence: record.Sentence, TargetWord: record.TargetWord, Gloss: record.Gloss, SentenceTranslation: record.SentenceTranslation,
 		SentenceTranslationTargets: append([]string{}, record.SentenceTranslationTargets...),
-		Form:                       record.Form, CreatedAt: time.Now().UTC(),
+		Form:                       record.Form, Cited: record.Cited.Clone(), CreatedAt: time.Now().UTC(),
 	})
 	return nil
 }
@@ -155,12 +156,13 @@ func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyIdentity,
 		SentenceOrdinal: content.SentenceOrdinal, TokenOrdinal: content.TokenOrdinal,
 		Sentence: content.Sentence, TargetWord: content.TargetWord, Gloss: content.Gloss,
 		SentenceTranslation: content.SentenceTranslation, SentenceTranslationTargets: content.SentenceTranslationTargets,
+		Cited: content.Cited.Clone(), Passage: content.Passage,
 		CreatedAt: now, UpdatedAt: now,
 	})
 	id := s.nextStudyProgressIDLocked()
 	s.studyProgress = append(s.studyProgress, domain.StudyProgress{
 		ID: id, OwnerID: owner, StudyIdentity: identity, MaterialID: materialID,
-		IntroducedAt: now.Add(-40 * 24 * time.Hour), LearnedMeaning: content.Gloss,
+		IntroducedAt: now.Add(-40 * 24 * time.Hour), LearnedMeaning: content.Gloss, LearnedCitations: content.Cited.Clone(),
 		Memory: domain.StudyMemory{
 			State: domain.StudyStateReview, Due: now.Add(30 * 24 * time.Hour), Stability: 30, Difficulty: 5,
 			ScheduledDays: 30, Reps: 6, LastReview: now.Add(-24 * time.Hour),

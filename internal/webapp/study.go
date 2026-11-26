@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/study"
@@ -23,7 +25,10 @@ type studyPageView struct {
 	// Available is false for a language whose card policy has no contextual
 	// Gloss to anchor a learned meaning (Latin and Ancient Greek).
 	Available bool
-	Counts    domain.StudyMaterialCounts
+	// SourceNotices are a source-evidence language's imported-source notices,
+	// each with its pin and licence (ADR 0138 §3).
+	SourceNotices []string
+	Counts        domain.StudyMaterialCounts
 	// Card is the word to show now, if one is due.
 	Card *studyCardView
 	// Offer is how many words the day's New-word batch holds; zero means no
@@ -84,6 +89,9 @@ type cardFace struct {
 	Headword              string
 	Gloss                 string
 	Translation           string
+	// Source is a source-evidence word's dictionary outline and passage; it is
+	// zero for every other card.
+	Source sourceCardView
 }
 
 // newCardFace builds the face of a card from its sentence and the word's
@@ -130,8 +138,35 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
+		view.SourceNotices = h.pageSourceNotices(r.Context(), owner, view)
 	}
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
+}
+
+// pageSourceNotices are the notices of a source-evidence language's Study page,
+// each with its pin and licence (ADR 0138 §3). The dictionary's pin is the
+// loaded index's own, and the translation pins are those of the passages the
+// learner's Study material carries and the card shows, so an idle page credits
+// what a card would, with no card to read them from.
+func (h *Handler) pageSourceNotices(ctx context.Context, owner string, view studyPageView) []string {
+	policy := cardpolicy.For(view.Language)
+	pin := dictionaryPin(h.services.Dictionary, policy)
+	var passagePins []string
+	if view.Card != nil {
+		if pin == "" {
+			pin = view.Card.Source.dictionaryPin
+		}
+		passagePins = append(passagePins, view.Card.Source.passagePin)
+	}
+	if material, err := h.services.Store.Study.ListCurrentStudyMaterial(ctx, owner, view.Language); err == nil {
+		for _, item := range material {
+			passagePins = append(passagePins, item.Passage.TranslationPin)
+		}
+	} else {
+		log.Printf("mouseion: list study material for source notices: %v", err)
+	}
+	slices.Sort(passagePins)
+	return sourceNotices(policy, pin, passagePins...)
 }
 
 // prepareStudyView reconciles the learner's Study reports and corrections,
@@ -253,6 +288,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	switch {
 	case err == nil:
 		view.Card = newStudyCardView(view.Language, card, r.URL.Query().Get("answer") == "1")
+		attachSourceEvidence(ctx, h.services.Dictionary, view.Language, card, view.Card)
 		return nil
 	case !errors.Is(err, domain.ErrNotFound):
 		return err

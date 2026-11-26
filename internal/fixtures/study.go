@@ -220,6 +220,7 @@ func (s *Store) RecordStudyMaterialReady(_ context.Context, owner, id string, co
 		item.Sentence, item.TargetWord, item.Gloss = content.Sentence, content.TargetWord, content.Gloss
 		item.SentenceTranslation = content.SentenceTranslation
 		item.SentenceTranslationTargets = append([]string{}, content.SentenceTranslationTargets...)
+		item.Cited, item.Passage = content.Cited.Clone(), content.Passage
 		item.UpdatedAt = time.Now().UTC()
 		return nil
 	}
@@ -246,6 +247,7 @@ func (s *Store) RecordStudyMaterialUnpreparable(_ context.Context, owner, id, re
 
 func cloneStudyMaterial(item domain.StudyMaterial) domain.StudyMaterial {
 	item.SentenceTranslationTargets = append([]string{}, item.SentenceTranslationTargets...)
+	item.Cited = item.Cited.Clone()
 	return item
 }
 

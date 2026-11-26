@@ -30,7 +30,11 @@ const SyntaxStateUD = "ud"
 // LexicalSense is one ordered gloss sense with the context metadata retained
 // by the local dictionary index.
 type LexicalSense struct {
-	EvidenceID    string   `json:"evidence_id,omitempty"`
+	EvidenceID string `json:"evidence_id,omitempty"`
+	// Entry is the short handle of the dictionary entry a Lewis & Short pass
+	// sense belongs to, assigned per request so stacked homographs stay apart.
+	// It is empty everywhere else.
+	Entry         string   `json:"entry,omitempty"`
 	Source        string   `json:"source,omitempty"`
 	Kind          string   `json:"kind,omitempty"`
 	Origin        string   `json:"origin,omitempty"`

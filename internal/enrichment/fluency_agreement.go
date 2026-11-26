@@ -180,6 +180,12 @@ func (s *Service) EnrichFluencyAgreement(ctx context.Context, c Candidate, learn
 		TargetWord: textmatch.CleanLexicalSurface(c.TargetWord), ExampleSentence: c.ExampleSentence,
 		LearnedMeaning: learnedMeaning, RequireFluencyAgreement: true,
 	}
+	return s.fluencyAgreementOf(ctx, request)
+}
+
+// fluencyAgreementOf sends one Fluency agreement request, either contract, and
+// reads its answer.
+func (s *Service) fluencyAgreementOf(ctx context.Context, request TranslationRequest) (FluencyAgreement, error) {
 	var metrics ExternalMetrics
 	response, err := s.callTranslationWithRetry(ctx, request, &metrics)
 	if err != nil {
@@ -193,4 +199,103 @@ func (s *Service) EnrichFluencyAgreement(ctx context.Context, c Candidate, learn
 		Reason: response.FluencyReason, Gloss: gloss, SentenceTranslation: translation,
 		SentenceTranslationTargets: ValidateSentenceTranslationTargets(translation, response.SentenceTranslationTargets),
 	}, nil
+}
+
+// fluencyAgreementSourceEvidencePromptVersion pins the source-evidence variant
+// of the Fluency agreement contract (ADR 0138 §4). It is a contract of its own:
+// the modern contract, its fields and its recorded assessment are unchanged.
+const fluencyAgreementSourceEvidencePromptVersion = "fluency-agreement-source-evidence-v1"
+
+// requiresFluencyAgreement reports whether the request is a Fluency agreement of
+// either contract, whose answer has one shape.
+func (r TranslationRequest) requiresFluencyAgreement() bool {
+	return r.RequireFluencyAgreement || r.RequireSourceEvidenceFluencyAgreement
+}
+
+// FluencySense is one dictionary sense a Fluency agreement variant request
+// sends: its native sense ID and its definition.
+type FluencySense struct {
+	ID         string `json:"sense_id"`
+	Definition string `json:"definition"`
+}
+
+var fluencyAgreementSourceEvidenceSystemPrompt = "You are checking whether one occurrence of a word uses the meaning a learner already knows for it. The payload carries a lemma with its part of speech, the word as it appears in a sentence, the sentence, learned_meaning: a short English gloss for the lemma, learned_senses: the dictionary senses, each with its definition, that learned_meaning rests on, and context_senses: the dictionary senses, each with its definition, that the word's gloss in this sentence rests on. Decide whether, in this sentence, the word has the learned meaning, judging by the definitions of the cited senses. Return exactly one JSON object using only these five fields: item_id, reason, gloss, sentence_translation, sentence_translation_targets. reason is exactly one of: same-meaning, when the word in this sentence has the same meaning as learned_meaning; different-meaning, when it has a different sense; idiomatic, when it is a figurative or idiomatic use that changes the meaning; not-this-lemma, when the occurrence is not the lemma; undefendable, when you cannot defend any of the others. gloss is one brief English cue for the word's meaning in this sentence, required for every reason. sentence_translation is a natural English translation of the complete sentence, required for every reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the target word; use an empty array when no reliable alignment exists. Echo item_id exactly. Do not return HTML or markup."
+
+// fluencyAgreementSourceEvidencePayloadFields is the exact ordered field set the
+// variant transmits: the modern fields plus both sides' cited senses.
+var fluencyAgreementSourceEvidencePayloadFields = []string{
+	"item_id", "language", "target_language", "canonical_lemma", "upos",
+	"target_word", "example_sentence", "learned_meaning", "learned_senses", "context_senses",
+}
+
+// FluencyAgreementSourceEvidencePayloadFields returns a copy of the ordered
+// field set the source-evidence variant transmits.
+func FluencyAgreementSourceEvidencePayloadFields() []string {
+	return slices.Clone(fluencyAgreementSourceEvidencePayloadFields)
+}
+
+// FluencyAgreementSourceEvidencePromptContract returns the versioned variant
+// prompt contract alone, without the configured model.
+func (c *TranslationCodec) FluencyAgreementSourceEvidencePromptContract() string {
+	return fluencyAgreementSourceEvidencePromptVersion
+}
+
+func (c *TranslationCodec) encodeSourceEvidenceFluencyAgreementRequest(input TranslationRequest) ([]byte, error) {
+	if strings.TrimSpace(input.Language) == "" || strings.TrimSpace(input.CanonicalLemma) == "" || strings.TrimSpace(input.UPOS) == "" ||
+		strings.TrimSpace(input.TargetWord) == "" || strings.TrimSpace(input.ExampleSentence) == "" || strings.TrimSpace(input.LearnedMeaning) == "" ||
+		len(input.LearnedSenses) == 0 || len(input.ContextSenses) == 0 {
+		return nil, errors.New("encode fluency agreement input: lemma, part of speech, word, sentence, learned meaning and both sides' cited senses are required")
+	}
+	privateInput, err := json.Marshal(struct {
+		ItemID          string         `json:"item_id"`
+		Language        string         `json:"language"`
+		TargetLanguage  string         `json:"target_language"`
+		CanonicalLemma  string         `json:"canonical_lemma"`
+		UPOS            string         `json:"upos"`
+		TargetWord      string         `json:"target_word"`
+		ExampleSentence string         `json:"example_sentence"`
+		LearnedMeaning  string         `json:"learned_meaning"`
+		LearnedSenses   []FluencySense `json:"learned_senses"`
+		ContextSenses   []FluencySense `json:"context_senses"`
+	}{FluencyAgreementItemHandle, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, input.LearnedMeaning, input.LearnedSenses, input.ContextSenses})
+	if err != nil {
+		return nil, fmt.Errorf("encode fluency agreement input: %w", err)
+	}
+	payload := chatRequest{
+		Model: c.model,
+		Messages: []chatMessage{
+			{Role: "system", Content: fluencyAgreementSourceEvidenceSystemPrompt},
+			{Role: "user", Content: string(privateInput)},
+		},
+	}
+	if c.usesReasoningEffort {
+		payload.ReasoningEffort = c.reasoningEffort
+	} else {
+		temperature := 0
+		payload.Temperature = &temperature
+	}
+	payload.ResponseFormat.Type = "json_object"
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("encode fluency agreement request: %w", err)
+	}
+	return body, nil
+}
+
+// EnrichSourceEvidenceFluencyAgreement is EnrichFluencyAgreement for a
+// source-evidence language: it also sends the dictionary senses, with their
+// definitions, that the learned meaning and the occurrence's Gloss cite. Both
+// sides must cite something. The caller checks the variant's payload assessment
+// before calling, so nothing is transmitted without it.
+func (s *Service) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, c Candidate, learnedMeaning string, learned, occurrence []FluencySense) (FluencyAgreement, error) {
+	if !s.ExternalConfigured() {
+		return FluencyAgreement{}, ErrExternalNotConfigured
+	}
+	request := TranslationRequest{
+		Language: c.Language, TargetLanguage: "en", CanonicalLemma: c.CanonicalLemma, UPOS: strings.ToUpper(c.UPOS),
+		TargetWord: textmatch.CleanLexicalSurface(c.TargetWord), ExampleSentence: c.ExampleSentence,
+		LearnedMeaning: learnedMeaning, RequireSourceEvidenceFluencyAgreement: true,
+		LearnedSenses: slices.Clone(learned), ContextSenses: slices.Clone(occurrence),
+	}
+	return s.fluencyAgreementOf(ctx, request)
 }

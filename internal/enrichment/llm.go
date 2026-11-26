@@ -26,6 +26,11 @@ const (
 	// resolved contextual Gloss with a sentence translation and target
 	// alignment, or an explicit abstention (ADR 0101).
 	evidenceAssistedPassPromptVersion = "translation-v16-evidence-assisted-greek"
+	// latinEvidenceAssistedPassPromptVersion pins the strict Classical Latin
+	// evidence-assisted pass contract: the representative sentence, its passage
+	// context and the pinned Lewis & Short senses, each handle naming its entry
+	// and sense, and the same resolved-or-abstained answer (ADR 0138 §1).
+	latinEvidenceAssistedPassPromptVersion = "translation-v18-evidence-assisted-latin"
 	// lsjSenseSummaryPromptVersion pins the strict Ancient Greek LSJ sense
 	// summary contract: the pinned LSJ entry alone (headword, sense IDs and
 	// English glosses), and a few short lines each citing sense IDs that exist

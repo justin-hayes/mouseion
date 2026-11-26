@@ -155,3 +155,11 @@ func TestLatinGenericLookupsNeverEnterTheGreekIndex(t *testing.T) {
 		assert.False(t, found)
 	})
 }
+
+func TestLatinLSPinIsTheIndexPinWithoutALookup(t *testing.T) {
+	index := newTestIndex(t, latinLSFixtureStatements...)
+	assert.Equal(t, "lspin", index.LatinLSPin())
+	assert.Empty(t, index.AncientGreekLSJPin(), "an index with no LSJ table has no LSJ pin")
+	var none *Index
+	assert.Empty(t, none.LatinLSPin())
+}

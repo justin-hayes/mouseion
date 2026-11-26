@@ -78,7 +78,12 @@ type StudyProgress struct {
 	MaterialID     string
 	IntroducedAt   time.Time
 	LearnedMeaning string
-	Memory         StudyMemory
+	// LearnedCitations are the dictionary senses the Learned meaning was made
+	// with, and the pin they were made against, copied from the material at
+	// introduction and at every re-anchoring. A later pin change never
+	// re-introduces the word. They are empty for a modern-language word.
+	LearnedCitations StudyCitations
+	Memory           StudyMemory
 	// Withdrawn marks a word a correction left with no valid occurrence. Its
 	// progress is kept and it is not due.
 	Withdrawn bool

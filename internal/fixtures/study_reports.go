@@ -73,6 +73,7 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 	}
 	if record.Kind == domain.StudyReportUnsuitableContext {
 		report.PreviousMaterialID, report.PreviousCorrectedAt, report.PreviousLearnedMeaning = progress.MaterialID, progress.CorrectedAt, progress.LearnedMeaning
+		report.PreviousLearnedCitations = progress.LearnedCitations.Clone()
 	}
 	s.supersedeReportedLocked(record.Kind, material.ID)
 	s.noteStudyActionLocked(owner, progress.Language)
@@ -446,6 +447,7 @@ func (s *Store) UndoStudyReport(_ context.Context, owner, id string, now time.Ti
 	}
 	delete(s.studySuperseded, report.PreviousMaterialID)
 	progress.MaterialID, progress.LearnedMeaning, progress.CorrectedAt = report.PreviousMaterialID, report.PreviousLearnedMeaning, report.PreviousCorrectedAt
+	progress.LearnedCitations = report.PreviousLearnedCitations.Clone()
 	if progress.WithdrawnReason == domain.StudyWithdrawnNoSuitableContext {
 		progress.Withdrawn = false
 	}

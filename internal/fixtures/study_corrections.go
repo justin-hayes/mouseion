@@ -103,6 +103,7 @@ func (s *Store) CompleteStudyReintroductions(_ context.Context, owner, language 
 			switch material.State {
 			case domain.StudyMaterialReady:
 				item.MaterialID, item.LearnedMeaning, item.CorrectedAt, item.UpdatedAt = material.ID, material.Gloss, now.UTC(), now.UTC()
+				item.LearnedCitations = material.Cited.Clone()
 			case domain.StudyMaterialUnpreparable:
 				s.withdrawUnpreparableLocked(owner, item, now)
 			case domain.StudyMaterialPending:

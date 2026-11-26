@@ -41,6 +41,16 @@ type studyProvider struct {
 	// sense" for, and fluency records the Fluency agreement requests it received.
 	disagree map[string]bool
 	fluency  []enrichment.TranslationRequest
+	// pass records the evidence-assisted pass requests a source-evidence word's
+	// material sent.
+	pass []enrichment.TranslationRequest
+}
+
+// passRequests are the evidence-assisted pass requests received so far.
+func (p *studyProvider) passRequests() []enrichment.TranslationRequest {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]enrichment.TranslationRequest(nil), p.pass...)
 }
 
 // fluencyRequests are the Fluency agreement requests received so far.
@@ -72,6 +82,18 @@ func (p *studyProvider) Translate(ctx context.Context, request enrichment.Transl
 			return enrichment.TranslationResponse{FluencyReason: enrichment.FluencyReasonDifferentMeaning, Gloss: "another sense", SentenceTranslation: "Another sense: " + request.ExampleSentence}, nil
 		}
 		return enrichment.TranslationResponse{FluencyReason: enrichment.FluencyReasonSameMeaning, Gloss: request.LearnedMeaning, SentenceTranslation: "Fluency: " + request.ExampleSentence, SentenceTranslationTargets: []string{request.CanonicalLemma}}, nil
+	}
+	if request.RequireEvidenceAssistedPass {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		p.pass = append(p.pass, request)
+		if len(request.CandidateSenses) == 0 {
+			return enrichment.TranslationResponse{}, errors.New("the pass sent no candidate senses")
+		}
+		return enrichment.TranslationResponse{
+			Translation: "word", Gloss: "word (gloss)", EvidenceIDs: []string{request.CandidateSenses[0].EvidenceID},
+			SentenceTranslation: "He sees the word.", SentenceTranslationTargets: []string{"word"},
+		}, nil
 	}
 	p.mu.Lock()
 	failing := p.failures[request.CanonicalLemma] > 0
@@ -108,6 +130,21 @@ type studyHarness struct {
 
 func newStudyHarness(t *testing.T) *studyHarness {
 	t.Helper()
+	return newStudyHarnessWith(t, studyHarnessOptions{capabilities: readyGerman()})
+}
+
+// studyHarnessOptions say what a Study harness serves beyond German.
+type studyHarnessOptions struct {
+	capabilities staticCapabilities
+	// evidence is a source-evidence language's dictionary, translations and pass
+	// gate; nil for a modern-language harness.
+	evidence func(store *persistence.PostgresStore) *study.SourceEvidence
+	// dictionary is the lexicon the card reads its cited entries from.
+	dictionary enrichment.LexicalProvider
+}
+
+func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarness {
+	t.Helper()
 	t.Setenv("MOUSEION_SECRET", "study-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
@@ -121,8 +158,12 @@ func newStudyHarness(t *testing.T) *studyHarness {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
 	workers := river.NewWorkers()
 	planWorker := study.AddPlanWorker(workers)
-	study.AddMaterialWorker(workers, store, enricher)
-	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil })
+	var evidence *study.SourceEvidence
+	if options.evidence != nil {
+		evidence = options.evidence(store)
+	}
+	study.AddMaterialWorker(workers, store, enricher, evidence)
+	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil }, nil, nil)
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{
 		Queues: map[string]river.QueueConfig{study.Queue: {MaxWorkers: 2}}, Workers: workers,
 		// A short retry keeps the provider-omission scenario fast.
@@ -136,7 +177,7 @@ func newStudyHarness(t *testing.T) *studyHarness {
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
-		Analysis: analysis.NewService(store.Pool(), nil), Capabilities: readyGerman(),
+		Analysis: analysis.NewService(store.Pool(), nil), Capabilities: options.capabilities, Dictionary: options.dictionary,
 		Study: studyService, StudyScheduler: study.NewScheduler(), Clock: clock.Func(), SessionLifetime: time.Hour,
 	})
 	owner := createAccount(t, ctx, store, "study-learner", "study-password")
@@ -149,11 +190,17 @@ func newStudyHarness(t *testing.T) *studyHarness {
 // sentence-quality gate rejects.
 func (s *studyHarness) seedBook(key string, words ...testutil.CorpusWord) domain.Book {
 	s.t.Helper()
+	return s.seedBookIn("de", key, words...)
+}
+
+// seedBookIn is seedBook for a Book in any language.
+func (s *studyHarness) seedBookIn(language, key string, words ...testutil.CorpusWord) domain.Book {
+	s.t.Helper()
 	lemmas := make([]domain.LemmaOccurrence, 0, len(words))
 	for _, word := range words {
-		lemmas = append(lemmas, domain.LemmaOccurrence{Language: "de", CanonicalLemma: word.Lemma, UPOS: word.UPOS, OccurrenceCount: int64(word.Occurrences)})
+		lemmas = append(lemmas, domain.LemmaOccurrence{Language: language, CanonicalLemma: word.Lemma, UPOS: word.UPOS, OccurrenceCount: int64(word.Occurrences)})
 	}
-	book, source, corpus, _ := seedMigrationAnalyzedBook(s.t, s.ctx, s.store, s.owner.ID, key, "Study "+key, lemmas)
+	book, source, corpus, _ := seedAnalyzedBookIn(s.t, s.ctx, s.store, language, s.owner.ID, key, "Study "+key, lemmas)
 	var runID string
 	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, s.owner.ID, book.ID).Scan(&runID))
 	// The sentences sit in the Book's extracted unit, so the concordance and the
@@ -161,16 +208,16 @@ func (s *studyHarness) seedBook(key string, words ...testutil.CorpusWord) domain
 	unitID := domain.EPUBUnitID(0, key)
 	var ordinal, offset int64
 	for _, word := range words {
-		sentence := testutil.CorpusSentence("de", word)
+		sentence := testutil.CorpusSentence(language, word)
 		for range word.Occurrences {
-			ordinal, offset = testutil.SeedCorpusSentence(s.t, s.ctx, s.store.Pool(), s.owner.ID, corpus.ID, "de", runID, unitID, ordinal, offset, sentence)
+			ordinal, offset = testutil.SeedCorpusSentence(s.t, s.ctx, s.store.Pool(), s.owner.ID, corpus.ID, language, runID, unitID, ordinal, offset, sentence)
 		}
 	}
 	tx, err := s.store.Pool().Begin(s.ctx)
 	require.NoError(s.t, err)
 	// Rolled back when an assertion aborts before the commit; a no-op after it.
 	testutil.Cleanup(s.t, "transaction", func() error { return txcleanup.Rollback(s.ctx, tx) })
-	require.NoError(s.t, persistence.BuildVocabularyBrowseCountsTx(s.ctx, tx, s.owner.ID, book.ID, source.ID, runID, corpus.ID, "de"))
+	require.NoError(s.t, persistence.BuildVocabularyBrowseCountsTx(s.ctx, tx, s.owner.ID, book.ID, source.ID, runID, corpus.ID, language))
 	require.NoError(s.t, tx.Commit(s.ctx))
 	require.NoError(s.t, s.store.SetBookDisposition(s.ctx, s.owner.ID, book.ID, domain.BookDispositionToRead))
 	return book
