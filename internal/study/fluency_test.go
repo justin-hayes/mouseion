@@ -73,9 +73,9 @@ func (e *fluencyFakeEnricher) EnrichFluencyAgreement(_ context.Context, candidat
 		return enrichment.FluencyAgreement{}, e.err
 	}
 	if e.disagree[candidate.TargetWord] {
-		return enrichment.FluencyAgreement{}, nil
+		return enrichment.FluencyAgreement{Reason: enrichment.FluencyReasonIdiomatic, Gloss: "to be fine", SentenceTranslation: "It is fine.", SentenceTranslationTargets: []string{"fine"}}, nil
 	}
-	return enrichment.FluencyAgreement{Agrees: true, Gloss: "a building", SentenceTranslation: "A translation.", SentenceTranslationTargets: []string{"house"}}, nil
+	return enrichment.FluencyAgreement{Reason: enrichment.FluencyReasonSameMeaning, Gloss: "a building", SentenceTranslation: "A translation.", SentenceTranslationTargets: []string{"house"}}, nil
 }
 
 func nominative() map[string]string { return map[string]string{"Number": "Sing", "Case": "Nom"} }
@@ -147,11 +147,12 @@ func TestFluencyWorkerPrefersDifferentFormsAndStopsAtFiveAgreeingContexts(t *tes
 	require.Len(t, store.recorded, domain.FluencyContextsPerWord)
 	for _, record := range store.recorded {
 		assert.Equal(t, domain.FluencyAgrees, record.Agreement)
+		assert.Equal(t, domain.FluencyReasonSameMeaning, record.Reason)
 		assert.NotEmpty(t, record.Form.Features, "the form the context was chosen for is kept")
 	}
 }
 
-func TestFluencyWorkerDiscardsContextsThatDisagreeWithTheLearnedMeaning(t *testing.T) {
+func TestFluencyWorkerKeepsContextsThatDisagreeWithTheLearnedMeaning(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
 	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
 	store.addOccurrence(3, "hauses", map[string]string{"Case": "Gen"})
@@ -165,7 +166,10 @@ func TestFluencyWorkerDiscardsContextsThatDisagreeWithTheLearnedMeaning(t *testi
 	for _, record := range store.recorded {
 		if record.Agreement == domain.FluencyDisagrees {
 			disagreeing++
-			assert.Empty(t, record.Gloss, "a disagreeing context keeps no Gloss to show")
+			assert.Equal(t, domain.FluencyReasonIdiomatic, record.Reason, "a disagreeing context keeps its reason")
+			assert.Equal(t, "to be fine", record.Gloss, "a disagreeing context keeps its Gloss as evidence")
+			assert.Equal(t, "It is fine.", record.SentenceTranslation)
+			assert.Equal(t, []string{"fine"}, record.SentenceTranslationTargets)
 			assert.Equal(t, "hauses", record.TargetWord)
 		} else {
 			agreeing++
@@ -179,7 +183,7 @@ func TestFluencyWorkerDoesNotAskAboutAnOccurrenceTwice(t *testing.T) {
 	worker, store, enricher := newFluencyFixture()
 	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
 	item := store.occurrences[1]
-	store.existing = []domain.FluencyContext{{ProgressID: "p1", Agreement: domain.FluencyDisagrees, AnalysisRunID: item.AnalysisRunID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}}
+	store.existing = []domain.FluencyContext{{ProgressID: "p1", Agreement: domain.FluencyDisagrees, Reason: domain.FluencyReasonUndefendable, AnalysisRunID: item.AnalysisRunID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}}
 
 	require.NoError(t, fluencyWork(worker))
 	assert.Empty(t, enricher.requests)
@@ -219,4 +223,19 @@ func TestFluencyFormOfDescribesFeaturesAndASplitParticle(t *testing.T) {
 	assert.True(t, form.Split, "a verb whose particle is its own token is split")
 	assert.False(t, fluencyFormOf(tokens, 1).Split)
 	assert.Equal(t, domain.FluencyForm{}, fluencyFormOf(tokens, 5))
+}
+
+func TestFluencyWorkerRefusesAnUnknownReason(t *testing.T) {
+	worker, store, _ := newFluencyFixture()
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
+	worker.Enricher = reasonEnricher("maybe")
+
+	require.Error(t, fluencyWork(worker))
+	assert.Empty(t, store.recorded)
+}
+
+type reasonEnricher string
+
+func (r reasonEnricher) EnrichFluencyAgreement(context.Context, enrichment.Candidate, string) (enrichment.FluencyAgreement, error) {
+	return enrichment.FluencyAgreement{Reason: string(r), Gloss: "x", SentenceTranslation: "y"}, nil
 }

@@ -167,7 +167,7 @@ func seedFluencyWord(store *fixtures.Store) {
 		{Sentence: "Gestern ging er allein nach Hause.", TargetWord: "ging", SentenceTranslation: "Yesterday he went home alone.", SentenceTranslationTargets: []string{"went"}, Form: domain.FluencyForm{Surface: "ging", Features: "Tense=Past"}},
 		{Sentence: "Wir gehen morgen zusammen ins Kino.", TargetWord: "gehen", SentenceTranslation: "Tomorrow we are going to the cinema together.", SentenceTranslationTargets: []string{"going"}, Form: domain.FluencyForm{Surface: "gehen", Features: "Number=Plur"}},
 	} {
-		context.Agreement, context.Gloss = domain.FluencyAgrees, "to go"
+		context.Agreement, context.Reason, context.Gloss = domain.FluencyAgrees, domain.FluencyReasonSameMeaning, "to go"
 		context.BookID, context.AnalysisRunID, context.CorpusID = fixtures.BookID, fixtures.ResultRunID, "fixture-corpus"
 		context.SentenceOrdinal, context.TokenOrdinal = int64(10+i), 1
 		if err := store.SeedFluencyContext(fixtures.OwnerID, progressID, context); err != nil {

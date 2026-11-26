@@ -1115,6 +1115,7 @@ type StudyFluencyContext struct {
 	OwnerID                    string
 	ProgressID                 string
 	Agreement                  string
+	Reason                     string
 	BookID                     string
 	AnalysisRunID              string
 	CorpusID                   string

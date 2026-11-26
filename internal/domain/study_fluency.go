@@ -46,10 +46,43 @@ const (
 	// FluencyAgrees is a context whose contextual Gloss is the learned
 	// meaning. Only these are shown.
 	FluencyAgrees FluencyAgreement = "agrees"
-	// FluencyDisagrees is a context that uses another meaning. It is kept so
-	// the occurrence is not asked about again, and never shown.
+	// FluencyDisagrees is a context that does not use the learned meaning. It
+	// is kept, with its reason, Gloss and translation, so the occurrence is not
+	// asked about again and as evidence of the word's other uses; it is never
+	// shown.
 	FluencyDisagrees FluencyAgreement = "disagrees"
 )
+
+// FluencyReason is why a Fluency context does or does not use the word's
+// learned meaning. Only FluencyReasonSameMeaning agrees.
+type FluencyReason string
+
+const (
+	FluencyReasonSameMeaning      FluencyReason = "same-meaning"
+	FluencyReasonDifferentMeaning FluencyReason = "different-meaning"
+	FluencyReasonIdiomatic        FluencyReason = "idiomatic"
+	// FluencyReasonNotThisLemma is evidence only: it raises no Lemma review
+	// flag.
+	FluencyReasonNotThisLemma FluencyReason = "not-this-lemma"
+	FluencyReasonUndefendable FluencyReason = "undefendable"
+)
+
+// ParseFluencyReason reads a reason from its stored or provider name.
+func ParseFluencyReason(name string) (FluencyReason, bool) {
+	switch reason := FluencyReason(name); reason {
+	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable:
+		return reason, true
+	}
+	return "", false
+}
+
+// Agreement is what the reason means for the learned meaning.
+func (r FluencyReason) Agreement() FluencyAgreement {
+	if r == FluencyReasonSameMeaning {
+		return FluencyAgrees
+	}
+	return FluencyDisagrees
+}
 
 // FluencyForm is the form a word takes in one occurrence: its surface form and
 // morphological features, and whether it is a separable verb split from its
@@ -139,12 +172,15 @@ func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[st
 type FluencyContext struct {
 	ID, OwnerID, ProgressID string
 	Agreement               FluencyAgreement
+	// Reason is why the context does or does not use the learned meaning.
+	Reason FluencyReason
 	// Source occurrence of the sentence.
 	BookID, AnalysisRunID, CorpusID string
 	SentenceOrdinal, TokenOrdinal   int64
 	Sentence, TargetWord            string
 	// Gloss is the contextual Gloss the provider gave this occurrence, and
-	// SentenceTranslation its translation.
+	// SentenceTranslation its translation. A disagreeing context keeps both as
+	// evidence of the word's other meanings.
 	Gloss                      string
 	SentenceTranslation        string
 	SentenceTranslationTargets []string
@@ -214,6 +250,7 @@ type FluencyResponseRecord struct {
 type FluencyContextRecord struct {
 	ProgressID                      string
 	Agreement                       FluencyAgreement
+	Reason                          FluencyReason
 	BookID, AnalysisRunID, CorpusID string
 	SentenceOrdinal, TokenOrdinal   int64
 	Sentence, TargetWord            string

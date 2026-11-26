@@ -8,7 +8,7 @@ SELECT * FROM study_progress
 -- name: ListStudyFluencyContexts :many
 -- Every context of the owner's words in the study language, with when the
 -- learner last answered it; the Unix epoch means never.
-SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement,
+SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement, c.reason,
        c.book_id::text AS book_id, c.analysis_run_id::text AS analysis_run_id, c.corpus_id::text AS corpus_id,
        c.sentence_ordinal, c.token_ordinal, c.sentence, c.target_word, c.gloss,
        c.sentence_translation, c.sentence_translation_targets,
@@ -33,10 +33,10 @@ SELECT r.context_id::text AS context_id, r.response, r.responded_at
 -- name: InsertStudyFluencyContext :one
 -- Stores one assessed occurrence of a word. An agreeing context beyond the
 -- word's limit, and an occurrence already assessed, return no row.
-INSERT INTO study_fluency_context (owner_id, progress_id, agreement, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal,
+INSERT INTO study_fluency_context (owner_id, progress_id, agreement, reason, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal,
                                    sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
                                    form_surface, form_features, form_split)
-SELECT p.owner_id, p.id, sqlc.arg('agreement'), sqlc.arg('book'), sqlc.arg('analysis_run'), sqlc.arg('corpus'),
+SELECT p.owner_id, p.id, sqlc.arg('agreement'), sqlc.arg('reason'), sqlc.arg('book'), sqlc.arg('analysis_run'), sqlc.arg('corpus'),
        sqlc.arg('sentence_ordinal'), sqlc.arg('token_ordinal'), sqlc.arg('sentence'), sqlc.arg('target_word'),
        sqlc.arg('gloss'), sqlc.arg('sentence_translation'), sqlc.arg('sentence_translation_targets')::jsonb,
        sqlc.arg('form_surface'), sqlc.arg('form_features'), sqlc.arg('form_split')

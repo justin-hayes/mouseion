@@ -4,9 +4,12 @@
 
 -- Up to five contexts of a mature word: other occurrences of the word in the
 -- learner's library, prepared by the study job package. agreement is the
--- provider's answer to whether the occurrence uses the word's learned meaning.
--- A disagreeing context is kept so the occurrence is not asked about again and
--- is never shown; only an agreeing one carries a Gloss and a translation. The
+-- provider's answer to whether the occurrence uses the word's learned meaning,
+-- and reason is why: same-meaning agrees; different-meaning, idiomatic,
+-- not-this-lemma and undefendable disagree. A disagreeing context is kept so the
+-- occurrence is not asked about again and as evidence of the word's other uses
+-- (its reason, Gloss and translation); it is never shown, only same-meaning is.
+-- An agreeing context always carries a Gloss and a translation. The
 -- source occurrence (analysis run, corpus, sentence and token) is plain data,
 -- not a foreign key: a replaced analysis must not delete a sentence the learner
 -- has been shown. The form columns record the form the context was chosen for:
@@ -20,6 +23,7 @@ CREATE TABLE public.study_fluency_context (
     owner_id uuid NOT NULL,
     progress_id uuid NOT NULL,
     agreement text NOT NULL,
+    reason text NOT NULL,
     book_id uuid NOT NULL,
     analysis_run_id uuid NOT NULL,
     corpus_id uuid NOT NULL,
@@ -38,6 +42,8 @@ CREATE TABLE public.study_fluency_context (
     CONSTRAINT study_fluency_context_owner_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id) ON DELETE CASCADE,
     CONSTRAINT study_fluency_context_progress_fkey FOREIGN KEY (owner_id, progress_id) REFERENCES public.study_progress(owner_id, id),
     CONSTRAINT study_fluency_context_agreement_check CHECK ((agreement = ANY (ARRAY['agrees'::text, 'disagrees'::text]))),
+    CONSTRAINT study_fluency_context_reason_check CHECK ((reason = ANY (ARRAY['same-meaning'::text, 'different-meaning'::text, 'idiomatic'::text, 'not-this-lemma'::text, 'undefendable'::text]))),
+    CONSTRAINT study_fluency_context_reason_agreement_check CHECK (((reason = 'same-meaning'::text) = (agreement = 'agrees'::text))),
     CONSTRAINT study_fluency_context_sentence_check CHECK ((btrim(sentence) <> ''::text AND btrim(target_word) <> ''::text)),
     CONSTRAINT study_fluency_context_agrees_check CHECK (((agreement <> 'agrees'::text) OR (btrim(gloss) <> ''::text AND btrim(sentence_translation) <> ''::text))),
     CONSTRAINT study_fluency_context_targets_check CHECK ((jsonb_typeof(sentence_translation_targets) = 'array'::text))

@@ -37,11 +37,17 @@ The user message carries exactly these fields, in this order (pinned in
 | `example_sentence` | one sentence of a Book in the learner's library |
 | `learned_meaning` | the word's learned meaning (a short English Gloss) |
 
-The system prompt is `fluency-agreement-v1` (`fluencyAgreementSystemPrompt` in
+The system prompt is `fluency-agreement-v2` (`fluencyAgreementSystemPrompt` in
 `internal/enrichment/fluency_agreement.go`). It asks one question: does the word
-in this sentence have the meaning in `learned_meaning`? It returns
-`uses_learned_meaning`, a contextual Gloss, a sentence translation and a target
-alignment. Contexts that answer no are discarded and never shown.
+in this sentence have the meaning in `learned_meaning`? It returns a `reason`,
+a contextual Gloss, a sentence translation and a target alignment, all required
+for every answer. The reason is one of `same-meaning`, `different-meaning`,
+`idiomatic`, `not-this-lemma` or `undefendable`. The field set sent is the one
+above, unchanged from `fluency-agreement-v1`; only the prompt and the answer
+shape differ (v1 returned a boolean `uses_learned_meaning`). Only
+`same-meaning` is ever shown. The other answers are kept with their reason,
+Gloss and translation as evidence of the word's other meanings; that data
+comes from the provider's answer and is not sent anywhere.
 
 ## What is not sent
 

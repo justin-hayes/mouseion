@@ -147,9 +147,10 @@ type TranslationResponse struct {
 	// SenseSummary is the provider-written LSJ sense summary an
 	// LSJ-sense-summary request resolves. It is empty for every other contract.
 	SenseSummary []LSJSenseSummaryLine `json:"-"`
-	// UsesLearnedMeaning is a Fluency agreement answer: the occurrence has the
-	// learned meaning. It is false for every other contract.
-	UsesLearnedMeaning bool `json:"-"`
+	// FluencyReason is a Fluency agreement answer: why the occurrence does or
+	// does not have the learned meaning, one of the FluencyReason constants. It
+	// is empty for every other contract.
+	FluencyReason string `json:"-"`
 }
 
 // TranslationUsage is the bounded usage portion of a provider response. It

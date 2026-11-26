@@ -56,8 +56,8 @@ func (s *Store) ListStudyFluencyContexts(_ context.Context, owner, language stri
 
 // RecordStudyFluencyContext stores one assessed occurrence of a mature word.
 func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, record domain.FluencyContextRecord) error {
-	if record.Agreement != domain.FluencyAgrees && record.Agreement != domain.FluencyDisagrees {
-		return fmt.Errorf("record study fluency context: unknown agreement %q", record.Agreement)
+	if reason, ok := domain.ParseFluencyReason(string(record.Reason)); !ok || reason.Agreement() != record.Agreement {
+		return fmt.Errorf("record study fluency context: reason %q does not give agreement %q", record.Reason, record.Agreement)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -73,8 +73,8 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 	}
 	s.studyFluencyContexts = append(s.studyFluencyContexts, domain.FluencyContext{
 		ID: fmt.Sprintf("fixture-fluency-context-%d", len(s.studyFluencyContexts)+1), OwnerID: owner, ProgressID: record.ProgressID,
-		Agreement: record.Agreement,
-		BookID:    record.BookID, AnalysisRunID: record.AnalysisRunID, CorpusID: record.CorpusID,
+		Agreement: record.Agreement, Reason: record.Reason,
+		BookID: record.BookID, AnalysisRunID: record.AnalysisRunID, CorpusID: record.CorpusID,
 		SentenceOrdinal: record.SentenceOrdinal, TokenOrdinal: record.TokenOrdinal,
 		Sentence: record.Sentence, TargetWord: record.TargetWord, Gloss: record.Gloss, SentenceTranslation: record.SentenceTranslation,
 		SentenceTranslationTargets: append([]string{}, record.SentenceTranslationTargets...),

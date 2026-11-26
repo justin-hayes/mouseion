@@ -139,7 +139,9 @@ func TestStudyFluencyPreparesUpToFiveAgreeingContextsOfDifferentForms(t *testing
 			assert.Equal(t, word.LearnedMeaning, item.Gloss, "a context agrees with the learned meaning")
 		} else {
 			disagreeing++
-			assert.Empty(t, item.Gloss)
+			assert.Equal(t, domain.FluencyReasonDifferentMeaning, item.Reason)
+			assert.Equal(t, "another sense", item.Gloss, "a disagreeing context keeps its Gloss as evidence")
+			assert.NotEmpty(t, item.SentenceTranslation)
 		}
 	}
 	assert.Equal(t, domain.FluencyContextsPerWord, agreeing, "at most five contexts per word")

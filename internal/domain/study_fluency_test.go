@@ -124,3 +124,16 @@ func TestParseFluencyResponse(t *testing.T) {
 		t.Error("a grade is not a Fluency response")
 	}
 }
+
+func TestFluencyReasonAgreesOnlyForTheSameMeaning(t *testing.T) {
+	for name, want := range map[string]FluencyAgreement{
+		"same-meaning": FluencyAgrees, "different-meaning": FluencyDisagrees, "idiomatic": FluencyDisagrees,
+		"not-this-lemma": FluencyDisagrees, "undefendable": FluencyDisagrees,
+	} {
+		reason, ok := ParseFluencyReason(name)
+		require.True(t, ok, name)
+		require.Equal(t, want, reason.Agreement(), name)
+	}
+	_, ok := ParseFluencyReason("maybe")
+	require.False(t, ok)
+}

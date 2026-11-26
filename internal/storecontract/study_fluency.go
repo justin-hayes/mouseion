@@ -11,24 +11,29 @@ import (
 )
 
 func fluencyRecord(progressID string, ordinal int64, agreement domain.FluencyAgreement) domain.FluencyContextRecord {
+	reason := domain.FluencyReasonSameMeaning
+	if agreement == domain.FluencyDisagrees {
+		reason = domain.FluencyReasonDifferentMeaning
+	}
 	record := domain.FluencyContextRecord{
-		ProgressID: progressID, Agreement: agreement,
+		ProgressID: progressID, Agreement: agreement, Reason: reason,
 		BookID: uuid.NewString(), AnalysisRunID: "00000000-0000-4000-8000-000000000001", CorpusID: uuid.NewString(),
 		SentenceOrdinal: ordinal, TokenOrdinal: 1,
 		Sentence: "Das Haus ist alt.", TargetWord: "Haus",
 		Form: domain.FluencyForm{Surface: "Haus", Features: "Case=Nom|Number=Sing"},
 	}
-	if agreement == domain.FluencyAgrees {
-		record.Gloss, record.SentenceTranslation, record.SentenceTranslationTargets = "a building", "The house is old.", []string{"house"}
+	record.Gloss, record.SentenceTranslation, record.SentenceTranslationTargets = "a building", "The house is old.", []string{"house"}
+	if agreement == domain.FluencyDisagrees {
+		record.Gloss, record.SentenceTranslation, record.SentenceTranslationTargets = "a company", "The firm is old.", []string{"firm"}
 	}
 	return record
 }
 
 // gradedStudyWord introduces a word and returns its progress.
-func introducedStudyWord(t *testing.T, h Harness, owner string, identity domain.StudyIdentity, day string) domain.StudyProgress {
+func introducedStudyWord(t *testing.T, h Harness, owner string, identity domain.StudyIdentity) domain.StudyProgress {
 	t.Helper()
 	materialID := readyStudyWord(t, h.Study(), owner, identity)
-	introduced, err := h.StudyProgress().TakeStudyBatch(owner, Language, day, time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC), 3, []domain.StudyBatchWord{{StudyIdentity: identity, MaterialID: materialID}})
+	introduced, err := h.StudyProgress().TakeStudyBatch(owner, Language, "2026-11-25", time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC), 3, []domain.StudyBatchWord{{StudyIdentity: identity, MaterialID: materialID}})
 	require.NoError(t, err)
 	require.Len(t, introduced, 1)
 	return introduced[0]
@@ -37,15 +42,42 @@ func introducedStudyWord(t *testing.T, h Harness, owner string, identity domain.
 func studyFluencyScenarios() []Scenario {
 	return []Scenario{
 		{Name: "a word keeps at most five agreeing Fluency contexts, one per occurrence", Run: fluencyContextLimitScenario},
+		{Name: "a Fluency context refuses a reason that does not give its agreement", Run: fluencyReasonScenario},
 		{Name: "a Fluency context of a word the learner does not have is refused", Run: fluencyForeignContextScenario},
 		{Name: "a Fluency response is appended and changes no Study progress or review log", Run: fluencyResponseScenario},
 	}
 }
 
+func fluencyReasonScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, store := h.Seeds().Owner(), h.StudyFluency()
+	word := introducedStudyWord(t, h, owner, studyNoun("haus"))
+
+	for ordinal, reason := range []domain.FluencyReason{domain.FluencyReasonDifferentMeaning, domain.FluencyReasonIdiomatic, domain.FluencyReasonNotThisLemma, domain.FluencyReasonUndefendable} {
+		record := fluencyRecord(word.ID, int64(ordinal+1), domain.FluencyDisagrees)
+		record.Reason = reason
+		require.NoError(t, store.RecordStudyFluencyContext(owner, record), reason)
+	}
+	mismatched := fluencyRecord(word.ID, 10, domain.FluencyAgrees)
+	mismatched.Reason = domain.FluencyReasonIdiomatic
+	require.Error(t, store.RecordStudyFluencyContext(owner, mismatched), "a disagreeing reason cannot agree")
+	unknown := fluencyRecord(word.ID, 11, domain.FluencyDisagrees)
+	unknown.Reason = "maybe"
+	require.Error(t, store.RecordStudyFluencyContext(owner, unknown), "an unknown reason is refused")
+
+	contexts, err := store.ListStudyFluencyContexts(owner, Language)
+	require.NoError(t, err)
+	var reasons []domain.FluencyReason
+	for _, item := range contexts {
+		reasons = append(reasons, item.Reason)
+	}
+	assert.ElementsMatch(t, []domain.FluencyReason{domain.FluencyReasonDifferentMeaning, domain.FluencyReasonIdiomatic, domain.FluencyReasonNotThisLemma, domain.FluencyReasonUndefendable}, reasons)
+}
+
 func fluencyContextLimitScenario(t *testing.T, h Harness) {
 	t.Helper()
 	owner, store := h.Seeds().Owner(), h.StudyFluency()
-	word := introducedStudyWord(t, h, owner, studyNoun("haus"), "2026-11-25")
+	word := introducedStudyWord(t, h, owner, studyNoun("haus"))
 
 	for ordinal := int64(1); ordinal <= domain.FluencyContextsPerWord; ordinal++ {
 		require.NoError(t, store.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, ordinal, domain.FluencyAgrees)))
@@ -62,7 +94,14 @@ func fluencyContextLimitScenario(t *testing.T, h Harness) {
 		assert.Equal(t, word.ID, item.ProgressID)
 		assert.True(t, item.LastResponseAt.IsZero(), "an unanswered context has no response time")
 		assert.Empty(t, item.Responses, "an unanswered context has no answers")
+		if item.Agreement == domain.FluencyDisagrees {
+			assert.Equal(t, domain.FluencyReasonDifferentMeaning, item.Reason, "a disagreeing context keeps its reason")
+			assert.Equal(t, "a company", item.Gloss, "a disagreeing context keeps its Gloss as evidence")
+			assert.Equal(t, "The firm is old.", item.SentenceTranslation)
+			assert.Equal(t, []string{"firm"}, item.SentenceTranslationTargets)
+		}
 		if item.Agreement == domain.FluencyAgrees {
+			assert.Equal(t, domain.FluencyReasonSameMeaning, item.Reason)
 			agreeing++
 			assert.Equal(t, "a building", item.Gloss)
 			assert.Equal(t, []string{"house"}, item.SentenceTranslationTargets)
@@ -83,7 +122,7 @@ func fluencyContextLimitScenario(t *testing.T, h Harness) {
 func fluencyForeignContextScenario(t *testing.T, h Harness) {
 	t.Helper()
 	owner, store := h.Seeds().Owner(), h.StudyFluency()
-	word := introducedStudyWord(t, h, owner, studyNoun("haus"), "2026-11-25")
+	word := introducedStudyWord(t, h, owner, studyNoun("haus"))
 	require.ErrorIs(t, store.RecordStudyFluencyContext(h.Seeds().OtherOwner(), fluencyRecord(word.ID, 1, domain.FluencyAgrees)), domain.ErrNotFound)
 	require.ErrorIs(t, store.RecordStudyFluencyContext(owner, fluencyRecord(uuid.NewString(), 1, domain.FluencyAgrees)), domain.ErrNotFound)
 }
@@ -91,7 +130,7 @@ func fluencyForeignContextScenario(t *testing.T, h Harness) {
 func fluencyResponseScenario(t *testing.T, h Harness) {
 	t.Helper()
 	owner, store, progressStore := h.Seeds().Owner(), h.StudyFluency(), h.StudyProgress()
-	word := introducedStudyWord(t, h, owner, studyNoun("haus"), "2026-11-25")
+	word := introducedStudyWord(t, h, owner, studyNoun("haus"))
 	require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{
 		ProgressID: word.ID, ExpectedReps: 0, Grade: domain.StudyGradeGotIt, ReviewedAt: time.Date(2026, 11, 25, 8, 5, 0, 0, time.UTC), StudyDay: "2026-11-25",
 		After: domain.StudyMemory{State: domain.StudyStateReview, Due: time.Date(2026, 12, 20, 4, 0, 0, 0, time.UTC), Stability: 25, Difficulty: 5, ScheduledDays: 25, Reps: 1, LastReview: time.Date(2026, 11, 25, 8, 5, 0, 0, time.UTC)},

@@ -50,7 +50,7 @@ func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, lan
 	contexts := make([]domain.FluencyContext, 0, len(rows))
 	for _, row := range rows {
 		item := domain.FluencyContext{
-			ID: row.ID, OwnerID: owner, ProgressID: row.ProgressID, Agreement: domain.FluencyAgreement(row.Agreement),
+			ID: row.ID, OwnerID: owner, ProgressID: row.ProgressID, Agreement: domain.FluencyAgreement(row.Agreement), Reason: domain.FluencyReason(row.Reason),
 			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Sentence: row.Sentence, TargetWord: row.TargetWord, Gloss: row.Gloss, SentenceTranslation: row.SentenceTranslation,
@@ -76,8 +76,8 @@ func (s *PostgresStore) RecordStudyFluencyContext(ctx context.Context, owner str
 	if !validUUID(record.ProgressID) || !validUUID(record.BookID) || !validUUID(record.AnalysisRunID) || !validUUID(record.CorpusID) {
 		return ErrNotFound
 	}
-	if record.Agreement != domain.FluencyAgrees && record.Agreement != domain.FluencyDisagrees {
-		return fmt.Errorf("record study fluency context: unknown agreement %q", record.Agreement)
+	if err := checkFluencyReason(record); err != nil {
+		return err
 	}
 	targets := record.SentenceTranslationTargets
 	if targets == nil {
@@ -94,7 +94,7 @@ func (s *PostgresStore) RecordStudyFluencyContext(ctx context.Context, owner str
 		return fmt.Errorf("get study progress: %w", err)
 	}
 	_, err = q.InsertStudyFluencyContext(ctx, sqlcgen.InsertStudyFluencyContextParams{
-		Owner: owner, Progress: record.ProgressID, Agreement: string(record.Agreement),
+		Owner: owner, Progress: record.ProgressID, Agreement: string(record.Agreement), Reason: string(record.Reason),
 		Book: record.BookID, AnalysisRun: record.AnalysisRunID, Corpus: record.CorpusID,
 		SentenceOrdinal: record.SentenceOrdinal, TokenOrdinal: record.TokenOrdinal,
 		Sentence: record.Sentence, TargetWord: record.TargetWord, Gloss: record.Gloss, SentenceTranslation: record.SentenceTranslation,
@@ -155,4 +155,14 @@ func (s *PostgresStore) ListStudyFluencyResponses(ctx context.Context, owner, co
 		responses = append(responses, StudyFluencyResponse{ID: row.ID, ContextID: row.ContextID, Response: domain.FluencyResponse(row.Response), RespondedAt: row.RespondedAt})
 	}
 	return responses, nil
+}
+
+// checkFluencyReason refuses a record whose reason is unknown or does not match
+// its agreement.
+func checkFluencyReason(record domain.FluencyContextRecord) error {
+	reason, ok := domain.ParseFluencyReason(string(record.Reason))
+	if !ok || reason.Agreement() != record.Agreement {
+		return fmt.Errorf("record study fluency context: reason %q does not give agreement %q", record.Reason, record.Agreement)
+	}
+	return nil
 }

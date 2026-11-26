@@ -176,7 +176,7 @@ func (w *FluencyWorker) askAbout(ctx context.Context, owner string, word domain.
 		if err != nil {
 			return err
 		}
-		if stored && agreement.Agrees {
+		if stored && agreement.Agrees() {
 			agreeing++
 		}
 	}
@@ -185,16 +185,18 @@ func (w *FluencyWorker) askAbout(ctx context.Context, owner string, word domain.
 
 func (w *FluencyWorker) record(ctx context.Context, owner, progressID string, choice sentenceChoice, agreement enrichment.FluencyAgreement) (bool, error) {
 	record := domain.FluencyContextRecord{
-		ProgressID: progressID, Agreement: domain.FluencyDisagrees,
-		BookID: choice.occurrence.BookID, AnalysisRunID: choice.occurrence.AnalysisRunID, CorpusID: choice.occurrence.CorpusID,
+		ProgressID: progressID,
+		BookID:     choice.occurrence.BookID, AnalysisRunID: choice.occurrence.AnalysisRunID, CorpusID: choice.occurrence.CorpusID,
 		SentenceOrdinal: choice.occurrence.SentenceOrdinal, TokenOrdinal: choice.occurrence.TokenOrdinal,
 		Sentence: choice.sentence, TargetWord: choice.target, Form: choice.form,
 	}
-	if agreement.Agrees {
-		record.Agreement = domain.FluencyAgrees
-		record.Gloss, record.SentenceTranslation = agreement.Gloss, agreement.SentenceTranslation
-		record.SentenceTranslationTargets = agreement.SentenceTranslationTargets
+	reason, ok := domain.ParseFluencyReason(agreement.Reason)
+	if !ok {
+		return false, fmt.Errorf("record fluency context: unknown reason %q", agreement.Reason)
 	}
+	record.Reason, record.Agreement = reason, reason.Agreement()
+	record.Gloss, record.SentenceTranslation = agreement.Gloss, agreement.SentenceTranslation
+	record.SentenceTranslationTargets = agreement.SentenceTranslationTargets
 	err := w.Store.RecordStudyFluencyContext(ctx, owner, record)
 	if errors.Is(err, domain.ErrFluencyContextNotStored) {
 		return false, nil

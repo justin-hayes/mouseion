@@ -14,9 +14,26 @@ import (
 
 // fluencyAgreementPromptVersion pins the Fluency agreement contract: one
 // occurrence of a mature word, the meaning the learner learned for the word,
-// and an answer whether this occurrence uses that meaning (ADR 0134 §7,
+// and an answer giving the reason this occurrence does or does not use that meaning (ADR 0134 §7,
 // spec #2691).
-const fluencyAgreementPromptVersion = "fluency-agreement-v1"
+const fluencyAgreementPromptVersion = "fluency-agreement-v2"
+
+// The reasons a Fluency agreement answer gives. Only FluencyReasonSameMeaning
+// agrees with the learned meaning; the others are evidence of the word's other
+// uses and are never shown.
+const (
+	FluencyReasonSameMeaning      = "same-meaning"
+	FluencyReasonDifferentMeaning = "different-meaning"
+	FluencyReasonIdiomatic        = "idiomatic"
+	FluencyReasonNotThisLemma     = "not-this-lemma"
+	FluencyReasonUndefendable     = "undefendable"
+)
+
+// fluencyReasons is the closed set of reasons the codec accepts.
+var fluencyReasons = []string{
+	FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic,
+	FluencyReasonNotThisLemma, FluencyReasonUndefendable,
+}
 
 // FluencyAgreementItemHandle is the short per-request item handle a Fluency
 // agreement payload transmits as item_id.
@@ -26,7 +43,7 @@ const FluencyAgreementItemHandle = "f1"
 // payload carries the lemma, its part of speech, the word as it appears, the
 // sentence and the learned meaning: a short English Gloss the same provider gave
 // the word when it was introduced. It carries no Book, learner or passage data.
-var fluencyAgreementSystemPrompt = "You are checking whether one occurrence of a word uses the meaning a learner already knows for it. The payload carries a lemma with its part of speech, the word as it appears in a sentence, the sentence, and learned_meaning: a short English gloss for the lemma. Decide whether, in this sentence, the word has that meaning. Return exactly one JSON object using only these five fields: item_id, uses_learned_meaning, gloss, sentence_translation, sentence_translation_targets. uses_learned_meaning is true only when the word in this sentence has the same meaning as learned_meaning; it is false for a different sense, a figurative or idiomatic use that changes the meaning, an occurrence that is not the lemma, or when you cannot defend the match. gloss is one brief English cue for the word's meaning in this sentence. sentence_translation is a natural English translation of the complete sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the target word; use an empty array when no reliable alignment exists. Echo item_id exactly. Do not return HTML or markup."
+var fluencyAgreementSystemPrompt = "You are checking whether one occurrence of a word uses the meaning a learner already knows for it. The payload carries a lemma with its part of speech, the word as it appears in a sentence, the sentence, and learned_meaning: a short English gloss for the lemma. Decide whether, in this sentence, the word has that meaning. Return exactly one JSON object using only these five fields: item_id, reason, gloss, sentence_translation, sentence_translation_targets. reason is exactly one of: same-meaning, when the word in this sentence has the same meaning as learned_meaning; different-meaning, when it has a different sense; idiomatic, when it is a figurative or idiomatic use that changes the meaning; not-this-lemma, when the occurrence is not the lemma; undefendable, when you cannot defend any of the others. gloss is one brief English cue for the word's meaning in this sentence, required for every reason. sentence_translation is a natural English translation of the complete sentence, required for every reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the target word; use an empty array when no reliable alignment exists. Echo item_id exactly. Do not return HTML or markup."
 
 // fluencyAgreementPayloadFields is the exact ordered field set a Fluency
 // agreement request transmits in its user message. It is the reviewed contract
@@ -100,7 +117,7 @@ func decodeFluencyAgreement(envelope chatCompletionEnvelope) (TranslationRespons
 	}
 	var result struct {
 		ItemID                     string   `json:"item_id"`
-		UsesLearnedMeaning         *bool    `json:"uses_learned_meaning"`
+		Reason                     string   `json:"reason"`
 		Gloss                      string   `json:"gloss"`
 		SentenceTranslation        string   `json:"sentence_translation"`
 		SentenceTranslationTargets []string `json:"sentence_translation_targets"`
@@ -116,8 +133,8 @@ func decodeFluencyAgreement(envelope chatCompletionEnvelope) (TranslationRespons
 	if strings.TrimSpace(result.ItemID) != FluencyAgreementItemHandle {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode fluency agreement: item_id mismatch")
 	}
-	if result.UsesLearnedMeaning == nil {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode fluency agreement: uses_learned_meaning is required")
+	if !slices.Contains(fluencyReasons, result.Reason) {
+		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode fluency agreement: reason %q is not one of %s", result.Reason, strings.Join(fluencyReasons, ", "))
 	}
 	if hasMarkup(result.Gloss) || hasMarkup(result.SentenceTranslation) {
 		return TranslationResponse{}, TranslationUsage{}, errors.New("decode fluency agreement: HTML or markup is not allowed")
@@ -125,30 +142,34 @@ func decodeFluencyAgreement(envelope chatCompletionEnvelope) (TranslationRespons
 	response := TranslationResponse{
 		Gloss:                      strings.TrimSpace(result.Gloss),
 		SentenceTranslation:        strings.TrimSpace(result.SentenceTranslation),
-		UsesLearnedMeaning:         *result.UsesLearnedMeaning,
+		FluencyReason:              result.Reason,
 		SentenceTranslationTargets: ValidateSentenceTranslationTargets(strings.TrimSpace(result.SentenceTranslation), result.SentenceTranslationTargets),
 	}
-	if response.UsesLearnedMeaning && (response.Gloss == "" || response.SentenceTranslation == "") {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode fluency agreement: an agreeing answer needs a gloss and a sentence translation")
+	if response.Gloss == "" || response.SentenceTranslation == "" {
+		return TranslationResponse{}, TranslationUsage{}, errors.New("decode fluency agreement: every answer needs a gloss and a sentence translation")
 	}
 	return response, envelope.Usage, nil
 }
 
-// FluencyAgreement is the outcome of one Fluency agreement request: whether the
-// occurrence uses the learned meaning, with its own contextual Gloss and
-// sentence translation when it does.
+// FluencyAgreement is the outcome of one Fluency agreement request: the reason
+// the occurrence does or does not use the learned meaning, with its own
+// contextual Gloss and sentence translation whichever it is. A disagreeing
+// answer's Gloss and translation are evidence of the word's other uses.
 type FluencyAgreement struct {
-	Agrees                     bool
+	Reason                     string
 	Gloss                      string
 	SentenceTranslation        string
 	SentenceTranslationTargets []string
 }
 
+// Agrees reports whether the occurrence uses the learned meaning.
+func (a FluencyAgreement) Agrees() bool { return a.Reason == FluencyReasonSameMeaning }
+
 // EnrichFluencyAgreement asks the provider whether one occurrence of a mature
 // word, given as the candidate's word and example sentence, uses the learned
 // meaning. It returns ErrExternalNotConfigured, not an agreement, when external
 // enrichment is off. A provider failure is returned as an error and is
-// retryable; a disagreement is an answer and is not an error. The caller checks
+// retryable; a disagreement is an answer, with a reason, and is not an error. The caller checks
 // the payload assessment before calling, so nothing is transmitted without it.
 func (s *Service) EnrichFluencyAgreement(ctx context.Context, c Candidate, learnedMeaning string) (FluencyAgreement, error) {
 	if !s.ExternalConfigured() {
@@ -164,15 +185,12 @@ func (s *Service) EnrichFluencyAgreement(ctx context.Context, c Candidate, learn
 	if err != nil {
 		return FluencyAgreement{}, err
 	}
-	if !response.UsesLearnedMeaning {
-		return FluencyAgreement{}, nil
-	}
 	gloss, translation := strings.TrimSpace(response.Gloss), strings.TrimSpace(response.SentenceTranslation)
 	if gloss == "" || translation == "" {
-		return FluencyAgreement{}, fmt.Errorf("%w: an agreeing answer needs a gloss and a sentence translation", ErrInvalidTranslationResponse)
+		return FluencyAgreement{}, fmt.Errorf("%w: every answer needs a gloss and a sentence translation", ErrInvalidTranslationResponse)
 	}
 	return FluencyAgreement{
-		Agrees: true, Gloss: gloss, SentenceTranslation: translation,
+		Reason: response.FluencyReason, Gloss: gloss, SentenceTranslation: translation,
 		SentenceTranslationTargets: ValidateSentenceTranslationTargets(translation, response.SentenceTranslationTargets),
 	}, nil
 }

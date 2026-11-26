@@ -69,9 +69,9 @@ func (p *studyProvider) Translate(ctx context.Context, request enrichment.Transl
 		defer p.mu.Unlock()
 		p.fluency = append(p.fluency, request)
 		if p.disagree[request.ExampleSentence] {
-			return enrichment.TranslationResponse{Gloss: "another sense"}, nil
+			return enrichment.TranslationResponse{FluencyReason: enrichment.FluencyReasonDifferentMeaning, Gloss: "another sense", SentenceTranslation: "Another sense: " + request.ExampleSentence}, nil
 		}
-		return enrichment.TranslationResponse{UsesLearnedMeaning: true, Gloss: request.LearnedMeaning, SentenceTranslation: "Fluency: " + request.ExampleSentence, SentenceTranslationTargets: []string{request.CanonicalLemma}}, nil
+		return enrichment.TranslationResponse{FluencyReason: enrichment.FluencyReasonSameMeaning, Gloss: request.LearnedMeaning, SentenceTranslation: "Fluency: " + request.ExampleSentence, SentenceTranslationTargets: []string{request.CanonicalLemma}}, nil
 	}
 	p.mu.Lock()
 	failing := p.failures[request.CanonicalLemma] > 0

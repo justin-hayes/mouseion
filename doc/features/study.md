@@ -173,8 +173,7 @@ Fluency gives variety once a word is familiar, without grading it.
   translation, and contexts that do not agree are never shown. A disagreeing
   context keeps its reason (a different meaning, an idiomatic use, not this
   lemma, or no defensible answer), its Gloss and its translation as evidence
-  of the word's other meanings. *(Decided 2026-11-26; the reason and the kept
-  Gloss follow the original Fluency implementation in this pull request.)*
+  of the word's other meanings.
 - **Responses.** Each card has **Show answer**, then **Recognised** or **Didn't
   recognise it**. A context marked Didn't recognise it returns later in the
   same sitting and more often afterwards; Recognised lowers its weight again
