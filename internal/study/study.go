@@ -9,7 +9,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -61,6 +63,11 @@ func NewService(store *persistence.PostgresStore, client riverClient) *Service {
 type PlanPreparationArgs struct {
 	OwnerID  string `json:"owner_id" river:"unique"`
 	Language string `json:"language" river:"unique"`
+	// Trigger is empty for a page trigger, so waiting and running plans absorb
+	// it. A publication sets a value no other plan has: a running plan may
+	// already have read the stream before that analysis was published, so it
+	// must never absorb the publication's plan.
+	Trigger string `json:"trigger,omitempty" river:"unique"`
 }
 
 // Kind names the job for River.
@@ -107,11 +114,12 @@ func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) e
 	if language == "" || !Available(language) {
 		return nil
 	}
+	trigger := strconv.FormatInt(time.Now().UnixNano(), 10)
 	client, err := planInserter()
 	if err != nil {
 		return fmt.Errorf("create study planning inserter: %w", err)
 	}
-	if _, err := client.InsertTx(ctx, tx, PlanPreparationArgs{OwnerID: owner, Language: language}, planInsertOpts()); err != nil {
+	if _, err := client.InsertTx(ctx, tx, PlanPreparationArgs{OwnerID: owner, Language: language, Trigger: trigger}, planInsertOpts()); err != nil {
 		return fmt.Errorf("enqueue study preparation planning: %w", err)
 	}
 	return nil

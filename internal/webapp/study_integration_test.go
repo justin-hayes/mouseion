@@ -460,9 +460,9 @@ func TestStudyActionsAreProtected(t *testing.T) {
 	assert.Empty(t, s.progress())
 }
 
-// A Book's analysis being published prepares its Study material with no Study
+// A Browse-count rebuild (publication is covered in internal/analysis) prepares Study material with no Study
 // page ever opened, so the first open finds the first words ready.
-func TestStudyMaterialIsReadyAfterAnalysisWithoutOpeningStudy(t *testing.T) {
+func TestStudyMaterialIsReadyAfterBrowseCountRebuildWithoutOpeningStudy(t *testing.T) {
 	s := newStudyHarness(t)
 	book := s.seedBook("published", testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})
 	require.Zero(t, s.planJobs(), "seeding the counts directly queues nothing")
