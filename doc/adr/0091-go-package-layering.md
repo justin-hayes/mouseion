@@ -14,6 +14,8 @@ Amended 2026-11-21 by [ADR 0120](0120-retire-catalogue-alias-backfill.md): `cmd/
 
 Amended 2026-11-22 by [issue #2504](https://github.com/justin-hayes/mouseion/issues/2504): the web app and the fixture server no longer import `internal/persistence`. The domain owns the remaining sentinels and value types, and depguard denies the import in their non-test files.
 
+Amended 2026-11-25 by [ADR 0134](0134-study-in-mouseion-vocabulary-review.md): `internal/study`, the Study job package, joins §3's pgx owners and §6's composed job packages.
+
 Tracked by [issue #1973](https://github.com/justin-hayes/mouseion/issues/1973), under parent [#1811](https://github.com/justin-hayes/mouseion/issues/1811). Enforcement with golangci-lint's `depguard` follows in [#1974](https://github.com/justin-hayes/mouseion/issues/1974) (test infrastructure and fixtures) and [#1975](https://github.com/justin-hayes/mouseion/issues/1975) (persistence layering).
 
 ## Context
@@ -66,6 +68,7 @@ Non-test files may import `github.com/jackc/pgx/v5` and its subpackages only in 
 | `internal/analysis` | Job package: enqueues River jobs in the same transaction as the run state it writes ([ADR 0010](0010-river-job-queue.md)). |
 | `internal/cataloguesync` | Job package: same reason as `analysis`. |
 | `internal/prepareddeck` | Job package: same reason as `analysis` ([ADR 0030](0030-durable-prepared-deck-translation.md)). |
+| `internal/study` | Job package: same reason as `analysis`; it enqueues Study material preparation in the same transaction as the pending record ([ADR 0134](0134-study-in-mouseion-vocabulary-review.md) §8). |
 | `internal/testutil` | Test infrastructure: provisions the per-test PostgreSQL database. |
 
 Test files in any package may import pgx.
@@ -95,7 +98,7 @@ The test-infrastructure packages are `internal/storecontract`, `internal/testuti
 
 ### 6. Web app: domain, services and store interfaces
 
-- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/classical`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`, `readingintent`), `internal/auth` and `internal/webauth`. It may not import `internal/persistence`.
+- **Allow:** the standard library, the third-party libraries it already uses (templ, `golang.org/x/text` for localized formatting, River's `rivertype` for job identifiers), `internal/domain`, `internal/canonicalization`, `internal/classical`, `internal/deploysecret`, the service and job packages it composes (`analysis`, `analysisinsights`, `analyzer`, `cataloguesync`, `enrichment`, `epub`, `lemmadisplay`, `lemmareview`, `opds`, `prepareddeck`, `readingintent`, `study`), `internal/auth` and `internal/webauth`. It may not import `internal/persistence`.
 - **Enforcement:** the allow list states intent. Lint enforces the deny entries below. A new internal dependency outside the allow list needs this ADR amended, and review checks for one.
 - **Deny (non-test files):** pgx, `gen/sqlc`, `internal/persistence`, `internal/fixtures` and every test-infrastructure package.
 - **Deny (test files):** `gen/sqlc`. Web app tests may import fixtures, test infrastructure and pgx.

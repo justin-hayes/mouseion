@@ -107,6 +107,24 @@ type Store struct {
 	// against them.
 	lemmaOccurrences map[string][]domain.LemmaReviewOccurrence
 	browseScenario   string
+	// studyMaterial is every Study material record, current and superseded,
+	// keyed by owner and record ID order of creation.
+	studyMaterial []domain.StudyMaterial
+	// studyProgress is every word in study, studyReviewLog the append-only log
+	// of its graded reviews and studyLedger the batches answered per owner,
+	// language and Study day.
+	studyProgress []domain.StudyProgress
+	// studyCandidates are extra Study candidates a browser fixture seeds
+	// without an analyzed Book behind them.
+	studyCandidates []seededStudyCandidate
+	studyReviewLog  []domain.StudyReviewLog
+	studyLedger     map[string]domain.StudyBatchLedger
+	// studySuperseded holds the IDs of Study material a correction replaced.
+	studySuperseded map[string]bool
+	// studyFluencyContexts are the Fluency contexts of mature words and
+	// studyFluencyResponses the append-only answers to them.
+	studyFluencyContexts  []domain.FluencyContext
+	studyFluencyResponses []StudyFluencyResponse
 	// classicalDefinitions is the release the fixture's Add resolves Reading
 	// units from. Tests may install the shared contract's release.
 	classicalDefinitions map[string]classical.Definition

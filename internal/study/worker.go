@@ -1,0 +1,288 @@
+package study
+
+import (
+	"context"
+	"errors"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
+	"github.com/riverqueue/river"
+)
+
+const (
+	// notConfiguredDelay is how long a job waits when no provider is
+	// configured. A missing provider is never an omission.
+	notConfiguredDelay = 10 * time.Minute
+)
+
+// MaterialStore is what the worker needs from the store.
+type MaterialStore interface {
+	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
+	GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error)
+	ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error)
+	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+	RecordStudyMaterialReady(ctx context.Context, owner, id string, content domain.StudyMaterialReadyContent) error
+	RecordStudyMaterialUnpreparable(ctx context.Context, owner, id, reason string) error
+	// ListStudyOccurrences and SetStudyMaterialEvidence record what an attempt
+	// saw when a word is found unpreparable, so it is not tried again on the
+	// same evidence.
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	SetStudyMaterialEvidence(ctx context.Context, owner, id, evidence string) error
+}
+
+// Enricher is the per-word enrichment entry point with a contextual Gloss
+// required.
+type Enricher interface {
+	EnrichExternalContextual(ctx context.Context, candidate enrichment.Candidate) (enrichment.ContextualMeaning, error)
+}
+
+// MaterialWorker prepares one word's Study material per River invocation. Its
+// dependencies are optional so worker registration tests can validate the job
+// type without a database or provider.
+type MaterialWorker struct {
+	river.WorkerDefaults[PrepareMaterialArgs]
+	Store    MaterialStore
+	Enricher Enricher
+}
+
+// AddMaterialWorker registers the worker with its dependencies.
+func AddMaterialWorker(workers *river.Workers, store MaterialStore, enricher Enricher) {
+	river.AddWorker(workers, &MaterialWorker{Store: store, Enricher: enricher})
+}
+
+// Work prepares the record's sentence, Gloss and translation. A word with no
+// usable sentence, or whose meaning cannot be defended, is recorded as
+// unpreparable with its reason. A missing provider or a provider failure is
+// never recorded: the job waits or fails and River retries it.
+func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMaterialArgs]) error {
+	if job == nil || w.Store == nil || w.Enricher == nil {
+		return errors.New("study: material worker is not configured")
+	}
+	owner, id := job.Args.OwnerID, job.Args.MaterialID
+	material, err := w.Store.GetStudyMaterial(ctx, owner, id)
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if material.State != domain.StudyMaterialPending {
+		return nil
+	}
+	evidence, found, err := w.representativeSentence(ctx, owner, material.StudyIdentity)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return w.unpreparable(ctx, owner, id, material.StudyIdentity, domain.StudyOmissionSentenceQuality)
+	}
+	meaning, err := w.Enricher.EnrichExternalContextual(ctx, enrichment.Candidate{
+		Language: material.Language, CanonicalLemma: material.CanonicalLemma, UPOS: material.UPOS,
+		TargetWord:      evidence.target,
+		ExampleSentence: evidence.sentence,
+	})
+	if errors.Is(err, enrichment.ErrExternalNotConfigured) {
+		return river.JobSnooze(notConfiguredDelay)
+	}
+	if err != nil {
+		return err
+	}
+	if !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" {
+		return w.unpreparable(ctx, owner, id, material.StudyIdentity, domain.StudyOmissionMeaning)
+	}
+	return w.Store.RecordStudyMaterialReady(ctx, owner, id, domain.StudyMaterialReadyContent{
+		BookID: evidence.occurrence.BookID, AnalysisRunID: evidence.occurrence.AnalysisRunID, CorpusID: evidence.occurrence.CorpusID,
+		SentenceOrdinal: evidence.occurrence.SentenceOrdinal, TokenOrdinal: evidence.occurrence.TokenOrdinal,
+		Sentence: evidence.sentence, TargetWord: evidence.target,
+		Gloss: meaning.Gloss, SentenceTranslation: meaning.SentenceTranslation,
+		SentenceTranslationTargets: meaning.SentenceTranslationTargets,
+	})
+}
+
+// unpreparable records the occurrences the attempt saw and then the omission.
+func (w *MaterialWorker) unpreparable(ctx context.Context, owner, id string, identity domain.StudyIdentity, reason string) error {
+	seen, err := w.Store.ListStudyOccurrences(ctx, owner, identity)
+	if err != nil {
+		return err
+	}
+	if err := w.Store.SetStudyMaterialEvidence(ctx, owner, id, domain.StudyEvidenceFingerprint(seen)); err != nil {
+		return err
+	}
+	return w.Store.RecordStudyMaterialUnpreparable(ctx, owner, id, reason)
+}
+
+// sentenceChoice is the Representative sentence chosen for a word.
+type sentenceChoice struct {
+	occurrence domain.ConcordanceResultOccurrence
+	sentence   string
+	target     string
+	quality    sentencequality.SentenceQuality
+	// form is the form the word takes in the occurrence, for Fluency.
+	form domain.FluencyForm
+}
+
+// representativeSentence chooses the word's Representative sentence from
+// current evidence with the existing sentence-quality gate and ranking: the
+// Current reading's occurrences when any of them passes, otherwise the
+// library's. The concordance lists the Current reading's occurrences first and
+// is read page by page until the choice is settled or the evidence is
+// exhausted, so found is false only when every occurrence fails the gate.
+func (w *MaterialWorker) representativeSentence(ctx context.Context, owner string, identity domain.StudyIdentity) (sentenceChoice, bool, error) {
+	reading, err := w.Store.GetCurrentReading(ctx, owner, identity.Language)
+	if err != nil {
+		return sentenceChoice{}, false, err
+	}
+	priority := ""
+	if reading.IsActive() {
+		priority = reading.BookID
+	}
+	lookupPriority := priority
+	if lookupPriority == "" {
+		lookupPriority = domain.ConcordancePriorityNone
+	}
+	search := sentenceSearch{priority: priority}
+	for page := 1; ; page++ {
+		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
+			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
+			UPOS: identity.UPOS, Priority: lookupPriority, Page: page,
+		})
+		if err != nil {
+			return sentenceChoice{}, false, err
+		}
+		choices, err := w.scoreOccurrences(ctx, owner, identity, result.Occurrences)
+		if err != nil {
+			return sentenceChoice{}, false, err
+		}
+		search.add(result.Occurrences, choices)
+		if search.settled() || !result.HasNext {
+			break
+		}
+	}
+	return search.best()
+}
+
+// sentenceSearch collects accepted sentences page by page, the Current
+// reading's apart from the library's.
+type sentenceSearch struct {
+	priority             string
+	inReading, elsewhere []sentenceChoice
+	pastReading          bool
+}
+
+func (s *sentenceSearch) inPriorityBook(occurrence domain.ConcordanceResultOccurrence) bool {
+	return s.priority != "" && occurrence.BookID == s.priority
+}
+
+func (s *sentenceSearch) add(occurrences []domain.ConcordanceResultOccurrence, choices []sentenceChoice) {
+	for _, choice := range choices {
+		if s.inPriorityBook(choice.occurrence) {
+			s.inReading = append(s.inReading, choice)
+		} else {
+			s.elsewhere = append(s.elsewhere, choice)
+		}
+	}
+	for _, occurrence := range occurrences {
+		s.pastReading = s.pastReading || !s.inPriorityBook(occurrence)
+	}
+}
+
+// settled reports that one more page cannot change the choice. The concordance
+// lists the Current reading's occurrences first, so once it has moved past them,
+// or there is no Current reading, an accepted sentence settles it.
+func (s *sentenceSearch) settled() bool {
+	return (len(s.inReading) > 0 && s.pastReading) || (s.priority == "" && len(s.elsewhere) > 0)
+}
+
+// best returns the Current reading's best sentence, else the library's.
+func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
+	for _, group := range [][]sentenceChoice{s.inReading, s.elsewhere} {
+		if best, ok := bestChoice(group); ok {
+			return best, true, nil
+		}
+	}
+	return sentenceChoice{}, false, nil
+}
+
+// scoreOccurrences keeps the occurrences of the word's full identity whose
+// sentence the gate accepts. An occurrence belongs to the identity only when
+// its effective lexical discriminator matches: a corrected occurrence carries
+// none, and any other carries its token's.
+func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
+	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences)
+}
+
+// sentenceReader is what scoring occurrences needs of the store.
+type sentenceReader interface {
+	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+}
+
+func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
+	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
+	ordinals := map[string][]int64{}
+	for _, occurrence := range occurrences {
+		if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel {
+			continue
+		}
+		usable = append(usable, occurrence)
+		ordinals[occurrence.CorpusID] = append(ordinals[occurrence.CorpusID], occurrence.SentenceOrdinal)
+	}
+	sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
+	for corpusID, list := range ordinals {
+		loaded, err := store.ListCorpusSentences(ctx, owner, corpusID, list)
+		if err != nil {
+			return nil, err
+		}
+		sentences[corpusID] = loaded
+	}
+	choices := make([]sentenceChoice, 0, len(usable))
+	for _, occurrence := range usable {
+		sentence, ok := sentences[occurrence.CorpusID][occurrence.SentenceOrdinal]
+		if !ok || effectiveDiscriminator(occurrence, sentence) != identity.LexicalDiscriminator {
+			continue
+		}
+		quality := sentencequality.ScoreSentenceQuality(identity.Language, occurrence.SentenceText, occurrence.Surface, occurrence.BookStartOffset, sentence.Tokens, sentence.Location.StartOffset)
+		if !quality.Accepted {
+			continue
+		}
+		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal)})
+	}
+	return choices, nil
+}
+
+// effectiveDiscriminator is the lexical discriminator an occurrence counts
+// under: none after a Lemma correction, otherwise its token's.
+func effectiveDiscriminator(occurrence domain.ConcordanceResultOccurrence, sentence analyzer.Sentence) string {
+	if occurrence.Corrected || occurrence.TokenOrdinal < 0 || occurrence.TokenOrdinal >= int64(len(sentence.Tokens)) {
+		return ""
+	}
+	return sentence.Tokens[occurrence.TokenOrdinal].LexicalDiscriminator
+}
+
+// bestChoice orders accepted sentences by descending GDEX score, descending
+// quality score, then source position, so the choice is deterministic.
+func bestChoice(choices []sentenceChoice) (sentenceChoice, bool) {
+	if len(choices) == 0 {
+		return sentenceChoice{}, false
+	}
+	sort.SliceStable(choices, func(i, j int) bool {
+		a, b := choices[i], choices[j]
+		switch {
+		case a.quality.GDEXScore != b.quality.GDEXScore:
+			return a.quality.GDEXScore > b.quality.GDEXScore
+		case a.quality.Score != b.quality.Score:
+			return a.quality.Score > b.quality.Score
+		case a.occurrence.BookStartOffset != b.occurrence.BookStartOffset:
+			return a.occurrence.BookStartOffset < b.occurrence.BookStartOffset
+		case a.occurrence.SentenceOrdinal != b.occurrence.SentenceOrdinal:
+			return a.occurrence.SentenceOrdinal < b.occurrence.SentenceOrdinal
+		default:
+			return a.sentence < b.sentence
+		}
+	})
+	return choices[0], true
+}

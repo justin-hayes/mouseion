@@ -1,0 +1,76 @@
+# Fluency agreement payload assessment (German)
+
+Status: **Recorded** · 2026-11-26 · Justin approved the `fluency-agreement-v2`
+payload for German, for personal use of the locally produced Study surface.
+
+Ticket: #2702 (Study: Fluency for mature words), spec #2691, ADR 0134 §7,
+ADR 0133 ("Each language needs its own provider payload assessment for each
+payload kind. Justin reviews each one before anything is sent.").
+
+## Why an assessment is needed
+
+Fluency asks the configured provider whether another occurrence of a mature
+word uses the meaning the learner already knows for it. The request therefore
+sends one thing no recorded payload sends: the **learned meaning**, the short
+English Gloss the same provider gave the word when the learner first saw it.
+That makes it a new payload kind, `fluency-agreement`. The existing German
+contextual Gloss payload is not assessed (a payload that is not assessed does
+not consult the gate), but this one is, because it carries a value derived from
+the learner's own study record.
+
+## The payload
+
+Transport: the configured OpenAI-compatible Chat Completions endpoint, the same
+one prepared decks and Study material use. One request per occurrence, sent
+only by the study job package, never by a page request.
+
+The user message carries exactly these fields, in this order (pinned in
+`enrichment.FluencyAgreementPayloadFields`):
+
+| Field | Value |
+| --- | --- |
+| `item_id` | the constant handle `f1` |
+| `language` | `de` |
+| `target_language` | `en` |
+| `canonical_lemma` | the word's lemma |
+| `upos` | its part of speech |
+| `target_word` | the word as it appears in the sentence |
+| `example_sentence` | one sentence of a Book in the learner's library |
+| `learned_meaning` | the word's learned meaning (a short English Gloss) |
+
+The system prompt is `fluency-agreement-v2` (`fluencyAgreementSystemPrompt` in
+`internal/enrichment/fluency_agreement.go`). It asks one question: does the word
+in this sentence have the meaning in `learned_meaning`? It returns a `reason`,
+a contextual Gloss, a sentence translation and a target alignment, all required
+for every answer. The reason is one of `same-meaning`, `different-meaning`,
+`idiomatic`, `not-this-lemma` or `undefendable`. The field set sent is the one
+above, unchanged from `fluency-agreement-v1`; only the prompt and the answer
+shape differ (v1 returned a boolean `uses_learned_meaning`). Only
+`same-meaning` is ever shown. The other answers are kept with their reason,
+Gloss and translation as evidence of the word's other meanings; that data
+comes from the provider's answer and is not sent anywhere.
+
+## What is not sent
+
+No learner identity, username or account data. No Book title, author or
+identifier. No review history, grades, Fluency responses or schedule. No Known
+or Reserved vocabulary. No passage context beyond the one sentence. No lexical
+discriminator. The sentence is library text the existing German payload already
+sends for the same word.
+
+## What is new compared with the recorded German payload
+
+Only `learned_meaning`. It is text the provider itself produced for the word,
+echoed back; it reveals that the learner has this word in study, which the
+existing Study material request already implies for the same word.
+
+## Disposition
+
+Approved for personal use of the locally produced Study surface, for German
+only, with the provider, prompt contract (`fluency-agreement-v2`) and field set
+pinned as above. Recorded on 2026-11-26 in `fluencyAgreementAssessment`
+(`internal/enrichment/provider_assessment.go`) and proved by
+`TestFluencyAgreementAssessmentIsRecordedForGermanOnly`.
+
+A changed prompt, provider or field set fails closed again until it is
+re-recorded, and so does any other language.

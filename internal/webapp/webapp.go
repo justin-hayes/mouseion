@@ -148,6 +148,7 @@ type StoreDependencies struct {
 	CatalogueAdd  CatalogueAddStore
 	CatalogueRead CatalogueReadStore
 	Jobs          JobsStore
+	Study         StudyStore
 }
 
 type csrfFailureContextKey struct{}
@@ -243,7 +244,14 @@ type Services struct {
 	ReadingIntent    *readingintent.Module
 	AnalysisInsights AnalysisInsights
 	PreparedDeck     PreparedDeck
-	Capabilities     analyzer.CapabilityProvider
+	// Study enqueues Study material preparation. It may be nil, in which case
+	// the Study page only reports what is ready.
+	Study Study
+	// StudyScheduler computes a word's next state when a Study card is graded.
+	// It is required for grading; the FSRS adapter in internal/study is the
+	// implementation.
+	StudyScheduler domain.StudyScheduler
+	Capabilities   analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service
@@ -256,11 +264,19 @@ type Services struct {
 	// InteractiveReadTimeout bounds Browse and Concordance reads; zero uses
 	// defaultInteractiveReadTimeout.
 	InteractiveReadTimeout time.Duration
+	// Clock reports the current time for time-dependent behaviour such as the
+	// Study day. NewWithError uses time.Now when it is nil. It is a plain
+	// function so a test can pass a controllable clock whose state the handler
+	// shares.
+	Clock func() time.Time
 }
 
 // defaultInteractiveReadTimeout stays below the 9s htmx request timeout so the
 // server's recoverable timeout page wins over the browser-side one.
 const defaultInteractiveReadTimeout = 8 * time.Second
+
+// now returns the current time from the injected clock.
+func (h *Handler) now() time.Time { return h.services.Clock() }
 
 func (h *Handler) interactiveReadTimeout() time.Duration {
 	if h.services.InteractiveReadTimeout > 0 {
@@ -288,6 +304,9 @@ func NewWithError(s Services) (*Handler, error) {
 	if err := deploysecret.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return nil, fmt.Errorf("webapp: validate MOUSEION_SECRET: %w", err)
 	}
+	if s.Clock == nil {
+		s.Clock = time.Now
+	}
 	if s.LemmaReview == nil {
 		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
 	}
@@ -307,6 +326,11 @@ func NewWithError(s Services) (*Handler, error) {
 	h.perLanguage(pageKindMyBooks, h.library)
 	h.perLanguage(pageKindReading, h.reading)
 	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
+	h.perLanguage(pageKindStudy, h.study)
+	h.mux.Handle("POST /study/batches/take", h.user(http.HandlerFunc(h.takeStudyBatch)))
+	h.mux.Handle("POST /study/batches/decline", h.user(http.HandlerFunc(h.declineStudyBatch)))
+	h.mux.Handle("POST /study/grades", h.user(http.HandlerFunc(h.gradeStudyCard)))
+	h.mux.Handle("POST /study/fluency/responses", h.user(http.HandlerFunc(h.recordFluencyResponse)))
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))

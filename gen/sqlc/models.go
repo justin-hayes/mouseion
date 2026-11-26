@@ -1100,6 +1100,110 @@ type SourceStructureCheck struct {
 	CheckedAt              time.Time
 }
 
+type StudyBatchLedger struct {
+	OwnerID         string
+	Language        string
+	StudyDay        pgtype.Date
+	BatchesTaken    int
+	BatchesDeclined int
+	UpdatedAt       time.Time
+	BatchesOffered  int
+}
+
+type StudyFluencyContext struct {
+	ID                         string
+	OwnerID                    string
+	ProgressID                 string
+	Agreement                  string
+	Reason                     string
+	BookID                     string
+	AnalysisRunID              string
+	CorpusID                   string
+	SentenceOrdinal            int64
+	TokenOrdinal               int64
+	Sentence                   string
+	TargetWord                 string
+	Gloss                      string
+	SentenceTranslation        string
+	SentenceTranslationTargets []byte
+	FormSurface                string
+	FormFeatures               string
+	FormSplit                  bool
+	CreatedAt                  time.Time
+}
+
+type StudyFluencyResponse struct {
+	ID          string
+	OwnerID     string
+	ContextID   string
+	Response    string
+	RespondedAt time.Time
+	CreatedAt   time.Time
+}
+
+type StudyMaterial struct {
+	ID                         string
+	OwnerID                    string
+	Language                   string
+	CanonicalLemma             string
+	Upos                       string
+	LexicalDiscriminator       string
+	State                      string
+	OmissionReason             string
+	BookID                     pgtype.UUID
+	AnalysisRunID              pgtype.UUID
+	CorpusID                   pgtype.UUID
+	SentenceOrdinal            pgtype.Int8
+	TokenOrdinal               pgtype.Int8
+	Sentence                   string
+	TargetWord                 string
+	Gloss                      string
+	SentenceTranslation        string
+	SentenceTranslationTargets []byte
+	SupersededAt               pgtype.Timestamptz
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
+	EvidenceFingerprint        string
+}
+
+type StudyProgress struct {
+	ID                   string
+	OwnerID              string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	MaterialID           string
+	IntroducedAt         time.Time
+	LearnedMeaning       string
+	State                string
+	Due                  time.Time
+	Stability            float64
+	Difficulty           float64
+	ScheduledDays        int64
+	Reps                 int64
+	Lapses               int64
+	RemainingSteps       int
+	LastReview           pgtype.Timestamptz
+	WithdrawnAt          pgtype.Timestamptz
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	CorrectedAt          pgtype.Timestamptz
+}
+
+type StudyReviewLog struct {
+	ID          string
+	OwnerID     string
+	ProgressID  string
+	MaterialID  string
+	Grade       string
+	ReviewedAt  time.Time
+	StudyDay    pgtype.Date
+	StateBefore []byte
+	StateAfter  []byte
+	CreatedAt   time.Time
+}
+
 type SupportedLanguage struct {
 	Language    string
 	DisplayName string

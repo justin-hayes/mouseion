@@ -30,6 +30,10 @@ const (
 	// matched forms, representative sentence and bounded candidate senses alone
 	// (ADR 0114).
 	IdiomCardPayload ProviderPayloadKind = "idiom-card"
+	// FluencyAgreementPayload is the Study Fluency agreement: the lemma, its
+	// part of speech, the word as it appears, one library sentence and the
+	// learned meaning alone (ADR 0134 §7).
+	FluencyAgreementPayload ProviderPayloadKind = "fluency-agreement"
 )
 
 // ProviderAssessment is the reviewed personal-use disposition for sending one
@@ -130,6 +134,31 @@ var idiomCardAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// fluencyAgreementAssessment is the disposition for the exact German Fluency
+// agreement payload: the lemma, part of speech, the word as it appears, one
+// library sentence and the learned meaning. Justin reviewed that payload in
+// doc/reviews/fluency-agreement-payload-assessment.md and recorded the
+// disposition on #2702, so Fluency contexts are prepared for German (ADR 0133,
+// ADR 0134 §7).
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
+var fluencyAgreementAssessment = ProviderAssessment{
+	Kind:          FluencyAgreementPayload,
+	Language:      "de",
+	Provider:      "openai-compatible",
+	PromptVersion: "fluency-agreement-v2",
+	Fields: []string{
+		"item_id", "language", "target_language", "canonical_lemma", "upos",
+		"target_word", "example_sentence", "learned_meaning",
+	},
+	Disposition: "approved for personal use of the locally produced Study surface",
+	Ticket:      "#2702",
+	Recorded:    true,
+}
+
 // ProviderAssessmentSet is the recorded personal-use payload assessments. Its
 // one question decides whether an assessed payload may be sent.
 type ProviderAssessmentSet []ProviderAssessment
@@ -138,7 +167,7 @@ type ProviderAssessmentSet []ProviderAssessment
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to MaySend instead.
 func ProviderAssessments() ProviderAssessmentSet {
-	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment}
+	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment}
 }
 
 // MaySend reports whether one payload kind may be sent for a language with the
@@ -195,6 +224,8 @@ func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (
 		return payloadContract{codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()}, true
 	case IdiomCardPayload:
 		return payloadContract{codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()}, true
+	case FluencyAgreementPayload:
+		return payloadContract{codec.ProviderName(), codec.FluencyAgreementPromptContract(), FluencyAgreementPayloadFields()}, true
 	default:
 		return payloadContract{}, false
 	}

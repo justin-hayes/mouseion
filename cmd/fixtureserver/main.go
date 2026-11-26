@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
+	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/webapp"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -35,13 +36,22 @@ func main() {
 	authHandler := webauth.New(authService, false, auth.DefaultSessionLifetime)
 	store := fixtures.NewStore()
 	store.SeedWithdrawnClassicalBooks()
+	// The Books present one German word; Study's browser journey needs a batch
+	// of several, so seed more.
+	for i, lemma := range []string{"haus", "hund"} {
+		store.SeedStudyCandidate(fixtures.OwnerID, domain.StudyCandidate{
+			Language: "de", CanonicalLemma: lemma, UPOS: "NOUN",
+			PersonalOccurrences: int64(10 - i),
+		})
+	}
+	seedFluencyWordIfRequested(store)
 	classicalCatalog, err := fixtures.NewClassicalCatalog()
 	if err != nil {
 		log.Fatalf("initialize fixture Classical catalog: %v", err)
 	}
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
-	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
 	preparedDeck := fixtures.PreparedDeck{Store: store}
 	lemmaReview := lemmareview.New(lemmareview.Config{
 		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
@@ -67,7 +77,7 @@ func main() {
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtureOPDS,
 		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.ClassicalInsights{},
-		PreparedDeck: preparedDeck, Capabilities: fixtures.Capabilities{},
+		PreparedDeck: preparedDeck, Study: fixtures.Study{Store: store}, StudyScheduler: study.NewScheduler(), Capabilities: fixtures.Capabilities{},
 		ClassicalPreparation: fixtures.ClassicalPreparation{}, ReadingIntent: readingIntent,
 		Classical:     classicalCatalog,
 		CatalogueSync: catalogueSync, LemmaReview: lemmaReview,
@@ -132,4 +142,36 @@ func (fixtureLemmaSuggestions) SuggestLemma(_ context.Context, request enrichmen
 		return enrichment.LemmaSuggestion{Lemma: "Pfad"}, nil
 	}
 	return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
+}
+
+// seedFluencyWordIfRequested seeds the Fluency journey's word when the browser
+// spec asks for it, so every other spec keeps its usual Study state.
+func seedFluencyWordIfRequested(store *fixtures.Store) {
+	if os.Getenv("MOUSEION_FIXTURE_STUDY_FLUENCY") == "1" {
+		seedFluencyWord(store)
+	}
+}
+
+// seedFluencyWord gives the learner a mature German word with two Fluency
+// contexts, so the browser journey can show a Fluency card without weeks of
+// reviews. The fixture server binds no provider or River to prepare them.
+func seedFluencyWord(store *fixtures.Store) {
+	identity := domain.StudyIdentity{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}
+	progressID := store.SeedMatureStudyWord(fixtures.OwnerID, identity, domain.StudyMaterialReadyContent{
+		BookID: fixtures.BookID, AnalysisRunID: fixtures.ResultRunID, CorpusID: "fixture-corpus",
+		SentenceOrdinal: 1, TokenOrdinal: 1,
+		Sentence: "Ich gehe jeden Morgen zur Arbeit.", TargetWord: "gehe",
+		Gloss: "to go", SentenceTranslation: "I go to work every morning.", SentenceTranslationTargets: []string{"go"},
+	}, time.Now())
+	for i, context := range []domain.FluencyContextRecord{
+		{Sentence: "Gestern ging er allein nach Hause.", TargetWord: "ging", SentenceTranslation: "Yesterday he went home alone.", SentenceTranslationTargets: []string{"went"}, Form: domain.FluencyForm{Surface: "ging", Features: "Tense=Past"}},
+		{Sentence: "Wir gehen morgen zusammen ins Kino.", TargetWord: "gehen", SentenceTranslation: "Tomorrow we are going to the cinema together.", SentenceTranslationTargets: []string{"going"}, Form: domain.FluencyForm{Surface: "gehen", Features: "Number=Plur"}},
+	} {
+		context.Agreement, context.Reason, context.Gloss = domain.FluencyAgrees, domain.FluencyReasonSameMeaning, "to go"
+		context.BookID, context.AnalysisRunID, context.CorpusID = fixtures.BookID, fixtures.ResultRunID, "fixture-corpus"
+		context.SentenceOrdinal, context.TokenOrdinal = int64(10+i), 1
+		if err := store.SeedFluencyContext(fixtures.OwnerID, progressID, context); err != nil {
+			log.Fatalf("seed Fluency context: %v", err)
+		}
+	}
 }
