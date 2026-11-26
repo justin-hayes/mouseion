@@ -131,7 +131,7 @@ const studyReportedParam = "reported"
 // studyReportedView is the card of an Unsuitable-context report, shown after
 // the report with its answer side: the sentence, Gloss and translation that were
 // rejected. The word has already been replaced; the next card is a Next away.
-// The Undo control of #2720 belongs beside Next.
+// Undo sits beside Next.
 type studyReportedView struct {
 	cardFace
 	ReportID string
