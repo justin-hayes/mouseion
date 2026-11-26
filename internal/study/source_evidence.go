@@ -79,8 +79,8 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	if err != nil {
 		return err
 	}
-	citedIDs, citable, validCitations := nativeCitedIDs(policy, resolution, meaning.CitedSenseIDs)
-	cited := citationsOf(citable, citedIDs)
+	refs, validCitations := citedSenses(policy, resolution, meaning.CitedSenseIDs)
+	cited := citationsOf(resolution, refs)
 	if !validCitations || meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
 	}
@@ -110,65 +110,62 @@ func passSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution) 
 	return senses
 }
 
-// nativeCitedIDs turns the evidence IDs a pass answer cited into the native
-// sense IDs the stored citations use, with the resolution those citations are
-// made against. A Latin answer's IDs each name an entry and a sense, so the
-// returned resolution holds only the cited senses of the entries that name them:
-// a sense ID two stacked homographs share is recorded under the entry that was
-// cited. An ID the resolved entries do not hold makes the answer invalid.
-func nativeCitedIDs(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited []string) ([]string, sourceevidence.Resolution, bool) {
-	if policy.Entries == cardpolicy.EntryLSJ {
-		return cited, resolution, true
+// citedSenses resolves the evidence IDs a pass answer cited to the (entry,
+// sense) pairs they name, in the order cited, with no repeats. A Latin answer's
+// IDs each name an entry and a sense, so a sense ID two stacked homographs share
+// resolves to the entry that was cited. A Greek answer's ID is the native sense
+// ID, which resolves to the first resolved entry that holds it. It reports false
+// when a cited ID names no sense the resolved entries hold (ADR 0138 §2).
+func citedSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited []string) ([]sourceevidence.SenseRef, bool) {
+	refs := make([]sourceevidence.SenseRef, 0, len(cited))
+	add := func(ref sourceevidence.SenseRef) {
+		if !slices.Contains(refs, ref) {
+			refs = append(refs, ref)
+		}
 	}
-	native, ok := sourceevidence.LatinCitedSenseIDs(resolution.Entries, cited)
-	if !ok {
-		return nil, resolution, false
+	for _, id := range cited {
+		if policy.Entries == cardpolicy.EntryLSJ {
+			entryIndex := slices.IndexFunc(resolution.Entries, func(entry sourceevidence.Entry) bool {
+				return slices.ContainsFunc(entry.Senses, func(sense sourceevidence.Sense) bool { return sense.ID == id })
+			})
+			if entryIndex < 0 {
+				return nil, false
+			}
+			add(sourceevidence.SenseRef{EntryID: resolution.Entries[entryIndex].ID, SenseID: id})
+			continue
+		}
+		entryID, senseID, ok := enrichment.SplitLatinEvidenceID(id)
+		if !ok || !holdsSense(resolution, entryID, senseID) {
+			return nil, false
+		}
+		add(sourceevidence.SenseRef{EntryID: entryID, SenseID: senseID})
 	}
-	narrowed := resolution
-	narrowed.Entries = make([]sourceevidence.Entry, len(resolution.Entries))
-	for i, entry := range resolution.Entries {
-		narrowed.Entries[i] = entry
-		narrowed.Entries[i].Senses = slices.DeleteFunc(slices.Clone(entry.Senses), func(sense sourceevidence.Sense) bool {
-			return !slices.Contains(cited, enrichment.LatinEvidenceID(entry.ID, sense.ID))
-		})
-	}
-	return native, narrowed, true
+	return refs, true
 }
 
-// citationsOf names the entries the cited senses belong to, in the order the
-// entries resolved, with the dictionary pin they were made against. A cited ID
-// that no resolved entry holds makes the citations empty: the Gloss must cite
-// only senses that exist (ADR 0138 §2).
-func citationsOf(resolution sourceevidence.Resolution, citedIDs []string) domain.StudyCitations {
+// holdsSense reports whether a resolved entry holds the sense.
+func holdsSense(resolution sourceevidence.Resolution, entryID, senseID string) bool {
+	return slices.ContainsFunc(resolution.Entries, func(entry sourceevidence.Entry) bool {
+		return entry.ID == entryID && slices.ContainsFunc(entry.Senses, func(sense sourceevidence.Sense) bool { return sense.ID == senseID })
+	})
+}
+
+// citationsOf stores the cited senses as parallel sense and entry IDs, in the
+// order the entries and senses resolved, with the dictionary pin they were made
+// against. An empty cited set gives empty citations.
+func citationsOf(resolution sourceevidence.Resolution, refs []sourceevidence.SenseRef) domain.StudyCitations {
 	var cited domain.StudyCitations
-	if !allSensesExist(resolution, citedIDs) {
-		return cited
-	}
 	for _, entry := range resolution.Entries {
-		held := false
 		for _, sense := range entry.Senses {
-			if slices.Contains(citedIDs, sense.ID) && !slices.Contains(cited.SenseIDs, sense.ID) {
+			ref := sourceevidence.SenseRef{EntryID: entry.ID, SenseID: sense.ID}
+			if slices.Contains(refs, ref) && !cited.Has(entry.ID, sense.ID) {
 				cited.SenseIDs = append(cited.SenseIDs, sense.ID)
-				held = true
+				cited.EntryIDs = append(cited.EntryIDs, entry.ID)
 			}
-		}
-		if held {
-			cited.EntryIDs = append(cited.EntryIDs, entry.ID)
 		}
 	}
 	if len(cited.SenseIDs) > 0 {
 		cited.DictionaryPin = resolution.Pin
 	}
 	return cited
-}
-
-// allSensesExist reports whether every cited ID is a sense of a resolved entry.
-func allSensesExist(resolution sourceevidence.Resolution, citedIDs []string) bool {
-	known := map[string]bool{}
-	for _, entry := range resolution.Entries {
-		for _, sense := range entry.Senses {
-			known[sense.ID] = true
-		}
-	}
-	return !slices.ContainsFunc(citedIDs, func(id string) bool { return !known[id] })
 }

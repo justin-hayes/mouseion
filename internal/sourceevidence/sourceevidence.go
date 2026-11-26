@@ -22,6 +22,11 @@ import (
 // never contains it, so the joined value splits back exactly.
 const EntryIDSeparator = ","
 
+// SenseRef names one sense of one entry. A native sense ID can be shared by
+// stacked homograph entries, so a sense is only ever cited together with its
+// entry.
+type SenseRef struct{ EntryID, SenseID string }
+
 // OutlineSense is one sense of an entry's compact outline: its label, its
 // nesting level, its definitions and whether the caller cited it.
 type OutlineSense struct {
@@ -33,7 +38,8 @@ type OutlineSense struct {
 	Level int
 	// Definitions are the sense's definitions, in source order.
 	Definitions []string
-	// Cited reports whether the sense's ID is in the cited set the caller gave.
+	// Cited reports whether the sense, of its entry, is in the cited set the
+	// caller gave.
 	Cited bool
 }
 
@@ -84,10 +90,10 @@ type Resolution struct {
 }
 
 // Resolve looks the lemma up in the dictionary the policy names and returns
-// every entry with its structured outline; cited is the set of sense IDs to
+// every entry with its structured outline; cited is the set of entry senses to
 // flag. It resolves nothing for a policy with no dictionary, a provider without
 // the capability, or a lemma with no usable entry.
-func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[string]struct{}) (Resolution, bool) {
+func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	if lexical == nil {
 		return Resolution{}, false
 	}
@@ -101,7 +107,7 @@ func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy car
 	return Resolution{}, false
 }
 
-func resolveLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[string]struct{}) (Resolution, bool) {
+func resolveLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	provider, ok := lexical.(enrichment.AncientGreekLSJProvider)
 	if !ok {
 		return Resolution{}, false
@@ -114,12 +120,13 @@ func resolveLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma s
 }
 
 // BuildLSJ gives a matched LSJ entry its structured outline, flagging the senses
-// whose IDs are in cited.
-func BuildLSJ(matched enrichment.AncientGreekLSJEntry, cited map[string]struct{}) Entry {
-	return Entry{ID: matched.EntryID, LSJ: matched, Senses: lsjSenses(matched.Senses, 1), Outline: lsjOutline(matched.Senses, cited)}
+// of the entry that are in cited.
+func BuildLSJ(matched enrichment.AncientGreekLSJEntry, cited map[SenseRef]struct{}) Entry {
+	senses := lsjSenses(matched.Senses, 1)
+	return Entry{ID: matched.EntryID, LSJ: matched, Senses: senses, Outline: outlineOf(matched.EntryID, senses, cited)}
 }
 
-func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[string]struct{}) (Resolution, bool) {
+func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	provider, ok := lexical.(enrichment.LatinLSProvider)
 	if !ok {
 		return Resolution{}, false
@@ -151,9 +158,9 @@ func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, 
 // BuildLewisShort stacks entries in the order given, each with its L&S number
 // (the source's own homograph number, or its place in order when the source key
 // carries none; zero for a lone entry), its structured outline and the outlines
-// of its resolved cross-reference targets. cited flags the senses whose IDs it
+// of its resolved cross-reference targets. cited flags the entry senses it
 // holds.
-func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry, cited map[string]struct{}) []Entry {
+func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry, cited map[SenseRef]struct{}) []Entry {
 	entries := make([]Entry, 0, len(found))
 	for i, candidate := range found {
 		number := 0
@@ -168,7 +175,7 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 			Number:     number,
 			LewisShort: candidate,
 			Senses:     lewisShortSenses(candidate.Senses),
-			Outline:    lewisShortOutline(candidate.Senses, cited),
+			Outline:    outlineOf(candidate.EntryID, lewisShortSenses(candidate.Senses), cited),
 			Targets:    targetOutlines(candidate, targets, cited),
 		})
 	}
@@ -292,7 +299,7 @@ func lookupEntry(ctx context.Context, provider enrichment.LatinLSProvider, ref e
 // targetOutlines returns the outline of each entry a senseless entry's resolved
 // cross-references name, in source order, once per target, skipping a target
 // with no outline.
-func targetOutlines(entry enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry, cited map[string]struct{}) []Target {
+func targetOutlines(entry enrichment.LatinLSEntry, targets map[string]enrichment.LatinLSEntry, cited map[SenseRef]struct{}) []Target {
 	if HasOwnSense(entry.Senses) {
 		return nil
 	}
@@ -304,7 +311,7 @@ func targetOutlines(entry enrichment.LatinLSEntry, targets map[string]enrichment
 			if _, done := seen[ref.EntryID]; !ok || done {
 				continue
 			}
-			outline := lewisShortOutline(target.Senses, cited)
+			outline := outlineOf(ref.EntryID, lewisShortSenses(target.Senses), cited)
 			if len(outline) == 0 {
 				continue
 			}
@@ -342,44 +349,20 @@ func lewisShortSenses(senses []enrichment.LatinLSSense) []Sense {
 	return out
 }
 
-// lsjOutline flattens the senses in source order and keeps each sense that has
-// definitions, plus each heading whose span holds one (ADR 0104). Perseus LSJ
-// senses are mostly flat siblings that carry their level, so a sense's span is
-// the run of deeper-level senses after it, nested or not.
-func lsjOutline(senses []enrichment.AncientGreekLSJSense, cited map[string]struct{}) []OutlineSense {
-	var flat []OutlineSense
-	var walk func([]enrichment.AncientGreekLSJSense, int)
-	walk = func(level []enrichment.AncientGreekLSJSense, depth int) {
-		for _, sense := range level {
-			effective := sense.Level
-			if effective <= 0 {
-				effective = depth
-			}
-			flat = append(flat, newOutlineSense(sense.ID, sense.Number, effective, sense.Definitions, cited))
-			walk(sense.Senses, effective+1)
-		}
-	}
-	walk(senses, 1)
-	return spanOutline(flat)
-}
-
-// lewisShortOutline keeps each sense that has definitions, plus each heading
-// whose span holds one (ADR 0104, per entry). Senses are flat and in id order;
-// a sense's span is the run of deeper senses after it. The level-0 pseudo-sense
-// that carries an entry's own citations and redirects is never outlined.
-func lewisShortOutline(senses []enrichment.LatinLSSense, cited map[string]struct{}) []OutlineSense {
-	var flat []OutlineSense
+// outlineOf keeps each flattened sense that has definitions, plus each heading
+// whose span holds one (ADR 0104, per entry). Perseus LSJ senses are mostly flat
+// siblings that carry their level, and L&S senses are flat and in id order, so a
+// sense's span is the run of deeper-level senses after it, nested or not.
+func outlineOf(entryID string, senses []Sense, cited map[SenseRef]struct{}) []OutlineSense {
+	flat := make([]OutlineSense, 0, len(senses))
 	for _, sense := range senses {
-		if sense.Level <= 0 {
-			continue
-		}
-		flat = append(flat, newOutlineSense(sense.ID, sense.Number, sense.Level, sense.Definitions, cited))
+		flat = append(flat, newOutlineSense(entryID, sense.ID, sense.Number, sense.Level, sense.Definitions, cited))
 	}
 	return spanOutline(flat)
 }
 
-func newOutlineSense(id, number string, level int, definitions []string, cited map[string]struct{}) OutlineSense {
-	_, isCited := cited[strings.TrimSpace(id)]
+func newOutlineSense(entryID, id, number string, level int, definitions []string, cited map[SenseRef]struct{}) OutlineSense {
+	_, isCited := cited[SenseRef{EntryID: entryID, SenseID: strings.TrimSpace(id)}]
 	return OutlineSense{ID: id, Number: number, Level: level, Definitions: definitions, Cited: isCited && strings.TrimSpace(id) != ""}
 }
 
