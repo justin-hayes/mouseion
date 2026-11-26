@@ -153,6 +153,16 @@ func (c StudyCitations) Valid() bool {
 	return len(c.EntryIDs) == 0 || len(c.SenseIDs) > 0
 }
 
+// ReadyValid reports whether the citations may stand on a ready row. Empty
+// citations do (a modern-language word); cited ones name at least one entry,
+// and no more entries than senses, since each cited sense belongs to one entry.
+func (c StudyCitations) ReadyValid() bool {
+	if !c.Valid() {
+		return false
+	}
+	return c.Empty() || (len(c.EntryIDs) > 0 && len(c.EntryIDs) <= len(c.SenseIDs))
+}
+
 // StudyPassage is the translated passage a Representative sentence sits in: its
 // text, the cited sections as one range label and the pin of the translation it
 // came from. The three are set together.
@@ -201,7 +211,7 @@ func (c StudyMaterialReadyContent) Complete() bool {
 			return false
 		}
 	}
-	return c.Cited.Valid() && c.Passage.Valid()
+	return c.Cited.ReadyValid() && c.Passage.Valid()
 }
 
 // Study material omission reasons. A sentence-quality omission and a meaning

@@ -77,3 +77,15 @@ func TestStudyPreparationTargets(t *testing.T) {
 		assert.Len(t, StudyPreparationTargets(ordered[:4], nil), 4)
 	})
 }
+
+func TestStudyMaterialReadyContentCitationsAreCompleteOnlyWhenWhole(t *testing.T) {
+	ready := func(c StudyCitations) StudyMaterialReadyContent {
+		return StudyMaterialReadyContent{Sentence: "s", TargetWord: "t", Gloss: "g", SentenceTranslation: "x", Cited: c}
+	}
+	assert.True(t, ready(StudyCitations{}).Complete(), "modern material cites nothing")
+	assert.True(t, ready(StudyCitations{SenseIDs: []string{"n1.1", "n1.2"}, EntryIDs: []string{"n1"}, DictionaryPin: "pin"}).Complete())
+	assert.False(t, ready(StudyCitations{SenseIDs: []string{"n1.1"}, EntryIDs: []string{"n1"}}).Complete(), "a cited sense needs the pin")
+	assert.False(t, ready(StudyCitations{EntryIDs: []string{"n1"}, DictionaryPin: "pin"}).Complete(), "a pin needs a cited sense")
+	assert.False(t, ready(StudyCitations{SenseIDs: []string{"n1.1"}, DictionaryPin: "pin"}).Complete(), "cited senses name their entries")
+	assert.False(t, ready(StudyCitations{SenseIDs: []string{"n1.1"}, EntryIDs: []string{"n1", "n2"}, DictionaryPin: "pin"}).Complete(), "no more entries than senses")
+}

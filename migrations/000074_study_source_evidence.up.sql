@@ -12,6 +12,9 @@
 -- set together: a row with one has the other, and a row with entry IDs has
 -- sense IDs. The database cannot see a language's card policy, so whether a
 -- ready source-evidence row must carry them is enforced where it is recorded.
+-- What the database can enforce is the shape of a ready row that does carry a
+-- pin: at least one cited sense, and the entries those senses belong to (one
+-- per entry, never more than the senses).
 
 ALTER TABLE public.study_material
     ADD COLUMN cited_sense_ids text[] DEFAULT '{}'::text[] NOT NULL,
@@ -23,6 +26,7 @@ ALTER TABLE public.study_material
 
 ALTER TABLE public.study_material
     ADD CONSTRAINT study_material_citations_check CHECK (((cardinality(cited_sense_ids) > 0) = (btrim(dictionary_pin) <> ''::text) AND (cardinality(cited_entry_ids) = 0 OR cardinality(cited_sense_ids) > 0))),
+    ADD CONSTRAINT study_material_ready_citations_check CHECK ((state <> 'ready'::text OR btrim(dictionary_pin) = ''::text OR (cardinality(cited_sense_ids) > 0 AND cardinality(cited_entry_ids) > 0 AND cardinality(cited_entry_ids) <= cardinality(cited_sense_ids)))),
     ADD CONSTRAINT study_material_passage_check CHECK (((btrim(passage_context) <> ''::text) = (btrim(passage_citation) <> ''::text) AND (btrim(passage_context) <> ''::text) = (btrim(passage_translation_pin) <> ''::text)));
 
 -- The Learned meaning's citations, copied from the material at introduction and
