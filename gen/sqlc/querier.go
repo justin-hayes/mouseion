@@ -492,6 +492,18 @@ type Querier interface {
 	// superseded by a correction and its replacement is not yet in place.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
+	// The tokens of one Book's current analysis that a Study word's introducing
+	// occurrence can be found as: the token itself when its run is still current,
+	// and the token at the same unit and offsets when an Analysis update
+	// re-published it in a new run. Each branch reads tokens by their primary key
+	// through the Book's one current analysis, never the word's occurrences, so the
+	// correction check costs the same for any word (#2705). Predicates on the
+	// owner and language stay out of the token scans: they match an index that
+	// holds every token of the owner. The eligibility is the concordance's: a
+	// current analysis of a Book in the study language whose sentence's unit is in
+	// the current snapshot. The effective lemma, Occurrence exclusion and part of
+	// speech come back for Go to decide, as the listing's ranked stage does.
+	ListStudySourceTokens(ctx context.Context, arg ListStudySourceTokensParams) ([]ListStudySourceTokensRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
 	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	// One page of the concordance_occurrences model, read selectively (#2595).

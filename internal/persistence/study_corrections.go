@@ -44,6 +44,101 @@ func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, 
 	}
 }
 
+// FindStudyOccurrences returns what ReviewStudyEvidence needs of the word's
+// occurrences without listing them all: the introducing occurrence in the
+// Book's current analysis when it still resolves to the identity, found by key,
+// else the first occurrence of the identity that does. Its cost does not grow
+// with how often the word occurs (#2705). source should carry its locator, so
+// an occurrence an Analysis update re-published is found in its new run.
+func (s *PostgresStore) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	identity = normalizedStudyIdentity(identity)
+	if refs, err := s.studySourceOccurrence(ctx, owner, identity, source); err != nil || len(refs) > 0 {
+		return refs, err
+	}
+	for page := 1; ; page++ {
+		result, err := s.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
+			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
+			UPOS: identity.UPOS, Priority: domain.ConcordancePriorityNone, Page: page,
+		})
+		if err != nil {
+			return nil, err
+		}
+		found, err := s.studyOccurrencesOnPage(ctx, owner, identity, result.Occurrences)
+		if err != nil {
+			return nil, err
+		}
+		if len(found) > 0 {
+			return found[:1], nil
+		}
+		if !result.HasNext {
+			return nil, nil
+		}
+	}
+}
+
+// studySourceOccurrence reads the introducing occurrence's token by key, in its
+// own run or at its locator in the Book's current run, and keeps it when it
+// resolves to the identity under the same rules the concordance applies.
+func (s *PostgresStore) studySourceOccurrence(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	if !validUUID(source.BookID) || !validUUID(source.AnalysisRunID) {
+		return nil, nil
+	}
+	term, _, err := concordanceTerms(identity.Language, identity.CanonicalLemma)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := sqlcgen.New(s.pool).ListStudySourceTokens(ctx, sqlcgen.ListStudySourceTokensParams{
+		Owner: owner, Language: identity.Language, Book: source.BookID, AnalysisRun: source.AnalysisRunID,
+		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+		UnitID: source.UnitID, StartOffset: source.StartOffset, EndOffset: source.EndOffset,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list study source tokens: %w", err)
+	}
+	for _, row := range rows {
+		if !studySourceTokenResolves(row, identity, term) {
+			continue
+		}
+		occurrence, err := s.studySourceOccurrenceOf(ctx, owner, row)
+		if err != nil {
+			return nil, err
+		}
+		refs, err := s.studyOccurrencesOnPage(ctx, owner, identity, []domain.ConcordanceResultOccurrence{occurrence})
+		if err != nil || len(refs) > 0 {
+			return refs, err
+		}
+	}
+	return nil, nil
+}
+
+// studySourceTokenResolves applies the concordance's lemma match to a token: it
+// is not excluded, its effective lemma is the term and its part of speech is
+// the identity's.
+func studySourceTokenResolves(row sqlcgen.ListStudySourceTokensRow, identity domain.StudyIdentity, term string) bool {
+	effective := row.CanonicalLemma
+	if row.DecisionLemma.Valid {
+		effective = row.DecisionLemma.String
+	}
+	return !row.DecisionExcluded && effective == term && (identity.UPOS == "" || row.Upos == identity.UPOS)
+}
+
+// studySourceOccurrenceOf projects a token row the way the concordance does,
+// with the speaker-label restrictions of its snapshot.
+func (s *PostgresStore) studySourceOccurrenceOf(ctx context.Context, owner string, row sqlcgen.ListStudySourceTokensRow) (domain.ConcordanceResultOccurrence, error) {
+	structure, err := LoadSnapshotStructure(ctx, s.pool, owner, row.SourceMaterialID, row.SnapshotID)
+	if err != nil {
+		return domain.ConcordanceResultOccurrence{}, err
+	}
+	return domain.ConcordanceResultOccurrence{
+		BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID, UnitID: row.UnitID,
+		SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
+		UnitStartOffset: row.UnitStartOffset, UnitEndOffset: row.UnitEndOffset,
+		Corrected:        row.DecisionLemma.Valid && !row.DecisionExcluded,
+		SpeakerLabel:     speakerLabelOverlap(structure, row.UnitID, row.UnitStartOffset, row.UnitEndOffset),
+		StudyUnavailable: speakerLabelOverlap(structure, row.UnitID, row.SentenceUnitStartOffset, row.SentenceUnitEndOffset),
+	}, nil
+}
+
 // studyOccurrencesOnPage keeps the page's occurrences that resolve to the
 // identity.
 func (s *PostgresStore) studyOccurrencesOnPage(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]domain.StudyOccurrenceRef, error) {

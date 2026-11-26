@@ -150,7 +150,7 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 	for _, item := range progress {
 		switch {
 		case item.Withdrawn:
-			occurrences, err := h.services.Store.Study.ListStudyOccurrences(ctx, owner, item.StudyIdentity)
+			occurrences, err := h.services.Store.Study.FindStudyOccurrences(ctx, owner, item.StudyIdentity, domain.StudyOccurrenceRef{})
 			if err != nil {
 				return err
 			}

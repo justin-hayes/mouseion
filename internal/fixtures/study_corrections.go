@@ -42,6 +42,16 @@ func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity d
 	return refs, nil
 }
 
+// FindStudyOccurrences returns the occurrences that decide a correction check:
+// the source when it still resolves to the identity, else one valid occurrence.
+func (s *Store) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	valid, err := s.ListStudyOccurrences(ctx, owner, identity)
+	if err != nil {
+		return nil, err
+	}
+	return domain.StudyEvidenceWitnesses(valid, source), nil
+}
+
 // SupersedeStudyMaterial replaces a word's current Study material after a
 // correction. A record that is missing, foreign or already superseded is
 // domain.ErrNotFound.

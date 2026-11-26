@@ -47,6 +47,10 @@ type StudyCorrectionsStore interface {
 	// identity under current evidence; GetStudyMaterial reads the material a
 	// word was introduced in.
 	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	// FindStudyOccurrences is the correction check's cheaper read: the source
+	// when it still resolves to the identity, else one valid occurrence, so its
+	// cost does not grow with how often the word occurs.
+	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
 	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	// SupersedeStudyMaterial replaces a word's material so it is prepared

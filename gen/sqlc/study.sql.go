@@ -307,6 +307,154 @@ func (q *Queries) ListStudyCandidates(ctx context.Context, arg ListStudyCandidat
 	return items, nil
 }
 
+const listStudySourceTokens = `-- name: ListStudySourceTokens :many
+WITH current_run AS MATERIALIZED (
+  SELECT ca.owner_id, ca.book_id, ca.analysis_run_id, ca.corpus_id, ca.source_material_id, ca.snapshot_id
+    FROM current_analysis_identity ca
+    JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
+      AND b.language_state = 'chosen' AND b.language_tag = $1::text
+   WHERE ca.owner_id = $2::uuid AND ca.book_id = $3::uuid
+),
+located AS MATERIALIZED (
+  SELECT t.owner_id, t.language, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
+         t.canonical_lemma, t.upos, t.start_offset, t.end_offset
+    FROM current_run cr
+    JOIN corpus_tokens t ON t.analysis_run_id = cr.analysis_run_id
+   WHERE cr.analysis_run_id = $4::uuid
+     AND t.sentence_ordinal = $5::bigint
+     AND t.token_ordinal = $6::bigint
+  UNION ALL
+  SELECT t.owner_id, t.language, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
+         t.canonical_lemma, t.upos, t.start_offset, t.end_offset
+    FROM current_run cr
+    JOIN corpus_sentences s ON s.analysis_run_id = cr.analysis_run_id
+    JOIN corpus_tokens t ON t.analysis_run_id = s.analysis_run_id
+      AND t.sentence_ordinal = s.sentence_ordinal
+   WHERE $7::text <> ''
+     AND s.unit_id = $7::text
+     AND t.start_offset = $8::bigint AND t.end_offset = $9::bigint
+)
+SELECT l.analysis_run_id::text AS analysis_run_id,
+       l.corpus_id::text AS corpus_id,
+       l.sentence_ordinal,
+       l.token_ordinal,
+       l.canonical_lemma,
+       l.upos,
+       l.start_offset AS unit_start_offset,
+       l.end_offset AS unit_end_offset,
+       s.unit_id,
+       s.start_offset::bigint AS sentence_unit_start_offset,
+       s.end_offset::bigint AS sentence_unit_end_offset,
+       cr.book_id::text AS book_id,
+       cr.source_material_id::text AS source_material_id,
+       cr.snapshot_id::text AS snapshot_id,
+       d.canonical_lemma AS decision_lemma,
+       COALESCE(d.excluded, false)::boolean AS decision_excluded
+  FROM located l
+  JOIN current_run cr ON cr.owner_id = l.owner_id
+    AND cr.analysis_run_id = l.analysis_run_id AND cr.corpus_id = l.corpus_id
+  JOIN corpus_sentences s ON s.analysis_run_id = l.analysis_run_id
+    AND s.sentence_ordinal = l.sentence_ordinal
+    AND s.owner_id = l.owner_id AND s.corpus_id = l.corpus_id
+  JOIN source_material_units u ON u.owner_id = cr.owner_id
+    AND u.source_material_id = cr.source_material_id
+    AND u.snapshot_id = cr.snapshot_id AND u.unit_id = s.unit_id
+  LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cr.owner_id
+    AND d.book_id = cr.book_id AND d.corpus_id = l.corpus_id
+    AND d.analysis_run_id = l.analysis_run_id AND d.source_document_id = s.unit_id
+    AND d.start_offset = l.start_offset AND d.end_offset = l.end_offset
+ WHERE l.language = $1::text
+`
+
+type ListStudySourceTokensParams struct {
+	Language        string
+	Owner           string
+	Book            string
+	AnalysisRun     string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+	UnitID          string
+	StartOffset     int64
+	EndOffset       int64
+}
+
+type ListStudySourceTokensRow struct {
+	AnalysisRunID           string
+	CorpusID                string
+	SentenceOrdinal         int64
+	TokenOrdinal            int64
+	CanonicalLemma          string
+	Upos                    string
+	UnitStartOffset         int64
+	UnitEndOffset           int64
+	UnitID                  string
+	SentenceUnitStartOffset int64
+	SentenceUnitEndOffset   int64
+	BookID                  string
+	SourceMaterialID        string
+	SnapshotID              string
+	DecisionLemma           pgtype.Text
+	DecisionExcluded        bool
+}
+
+// The tokens of one Book's current analysis that a Study word's introducing
+// occurrence can be found as: the token itself when its run is still current,
+// and the token at the same unit and offsets when an Analysis update
+// re-published it in a new run. Each branch reads tokens by their primary key
+// through the Book's one current analysis, never the word's occurrences, so the
+// correction check costs the same for any word (#2705). Predicates on the
+// owner and language stay out of the token scans: they match an index that
+// holds every token of the owner. The eligibility is the concordance's: a
+// current analysis of a Book in the study language whose sentence's unit is in
+// the current snapshot. The effective lemma, Occurrence exclusion and part of
+// speech come back for Go to decide, as the listing's ranked stage does.
+func (q *Queries) ListStudySourceTokens(ctx context.Context, arg ListStudySourceTokensParams) ([]ListStudySourceTokensRow, error) {
+	rows, err := q.db.Query(ctx, listStudySourceTokens,
+		arg.Language,
+		arg.Owner,
+		arg.Book,
+		arg.AnalysisRun,
+		arg.SentenceOrdinal,
+		arg.TokenOrdinal,
+		arg.UnitID,
+		arg.StartOffset,
+		arg.EndOffset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudySourceTokensRow{}
+	for rows.Next() {
+		var i ListStudySourceTokensRow
+		if err := rows.Scan(
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
+			&i.UnitID,
+			&i.SentenceUnitStartOffset,
+			&i.SentenceUnitEndOffset,
+			&i.BookID,
+			&i.SourceMaterialID,
+			&i.SnapshotID,
+			&i.DecisionLemma,
+			&i.DecisionExcluded,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markStudyMaterialReady = `-- name: MarkStudyMaterialReady :execrows
 UPDATE study_material
    SET state = 'ready', book_id = $1, analysis_run_id = $2,
