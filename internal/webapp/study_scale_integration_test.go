@@ -101,3 +101,29 @@ func TestStudyFluencyPageAndResponseAvoidTheFullCandidateScanOnTheScaleLibrary(t
 	s.clock.Advance(time.Minute)
 	s.timedPost("answering a Fluency card", "/study/fluency/responses", url.Values{"language": {"de"}, "context": {card}, "response": {"recognised"}})
 }
+
+// TestStudyReportReconciliationIsBoundedByOpenReportsOnTheScaleLibrary holds a
+// batch of reported words on the scale library and holds that Today's
+// reconciliation of them, and the one a Lemma decision triggers, cost a bounded
+// number of token lookups per report, never a scan of the candidates.
+func TestStudyReportReconciliationIsBoundedByOpenReportsOnTheScaleLibrary(t *testing.T) {
+	s := newStudyHarness(t)
+	s.preparedTwelve()
+	s.inflateLibrary(studyScaleIdentities / 5)
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	s.settle()
+	s.introduceAllGotIt()
+	s.clock.Advance(24 * time.Hour)
+	reported := 0
+	for _, word := range s.progress() {
+		require.Equal(t, http.StatusSeeOther, s.report(word, "wrong_word", "").Code)
+		reported++
+	}
+	require.Len(t, s.openReports(), reported)
+	require.Greater(t, reported, 5)
+
+	s.timedPage("Today with every word reported")
+	assert.Len(t, s.openReports(), reported, "the occurrences are unchanged, so every report stays open")
+	s.timedPage("Today again")
+	s.within("the Reported words page", func() int { return getAs(t, s.h, "/de/study/reports", s.cookies).Code }, http.StatusOK)
+}

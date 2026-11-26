@@ -23,13 +23,14 @@ const (
 // words in study, other than those introduced and not yet answered, whose
 // review is due on the next Study day or earlier. It applies the rule Today
 // uses (a review is due on the Study day containing its due time), so what is
-// counted here is what Today then shows. A word repeating today counts, since
+// counted here is what Today then shows. A held word gets no reviews, so it
+// is not counted. A word repeating today counts, since
 // it becomes a review the next day.
 func StudyForecast(progress []StudyProgress, now time.Time) int {
 	end := NextStudyDayStart(NextStudyDayStart(now))
 	count := 0
 	for _, item := range progress {
-		if item.Withdrawn || item.Memory.State == StudyStateNew {
+		if item.Withdrawn || item.Held || item.Memory.State == StudyStateNew {
 			continue
 		}
 		if StudyReviewDue(item).Before(end) {
@@ -74,12 +75,12 @@ func StudyBatchOfferable(ledger StudyBatchLedger, forecast int) bool {
 // day's batch and never answered. It is held out of Today until the batch it
 // now belongs to is taken.
 func studyCarriedOver(p StudyProgress, now time.Time) bool {
-	return !p.Withdrawn && p.Memory.State == StudyStateNew && !p.Graded() && p.IntroducedAt.Before(StudyDayStart(now))
+	return !p.Withdrawn && !p.Held && p.Memory.State == StudyStateNew && !p.Graded() && p.IntroducedAt.Before(StudyDayStart(now))
 }
 
 // StudyCarryOver returns the words taken on an earlier Study day and not yet
 // introduced, oldest first. They lead the next batch and count towards its
-// size, the daily cap and the backlog brake. While no batch is taken they are
+// size, the daily cap and the backlog brake. A held word is not carried over. While no batch is taken they are
 // not shown, so under the brake they wait at the front of the stream.
 func StudyCarryOver(progress []StudyProgress, now time.Time) []StudyProgress {
 	var carried []StudyProgress
@@ -98,7 +99,7 @@ func StudyCarryOver(progress []StudyProgress, now time.Time) []StudyProgress {
 func StudyUnintroduced(progress []StudyProgress, now time.Time) []StudyProgress {
 	var pending []StudyProgress
 	for _, item := range progress {
-		if !item.Withdrawn && !item.Graded() && !studyCarriedOver(item, now) {
+		if !item.Withdrawn && !item.Held && !item.Graded() && !studyCarriedOver(item, now) && !item.StudyContextReplaced(now) {
 			pending = append(pending, item)
 		}
 	}

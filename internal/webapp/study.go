@@ -46,7 +46,16 @@ type studyPageView struct {
 	// correction; Withdrawn names the words a correction left with no valid
 	// occurrence. Their progress is kept.
 	Reintroducing int
-	Withdrawn     []string
+	// Held is how many words are held by an open Wrong-word report.
+	Held      int
+	Withdrawn []string
+	// NoSuitableContext names the words withdrawn because every context was
+	// reported as unsuitable or fails the sentence-quality gate (ADR 0135 §3).
+	// Their progress is kept, and they return when a new Book provides a context.
+	NoSuitableContext []string
+	// Reported is the card the learner has just reported as an unsuitable
+	// context, shown once more in place of the next card.
+	Reported *studyReportedView
 	// WaitingForSentence names the words a correction left with valid
 	// occurrences but no usable sentence yet, so their replacement material
 	// could not be prepared. They stay out of Today, and return when the
@@ -99,7 +108,7 @@ type fluencyCardView struct {
 // studyCardView is one card of Today.
 type studyCardView struct {
 	cardFace
-	ProgressID string
+	ProgressID, MaterialID string
 	// Reps is the number of grades recorded when the card was shown. Grading
 	// presents it back, so a double tap grades the card once.
 	Reps         int64
@@ -117,29 +126,49 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	language, label := activeStudyLanguageForContext(r.Context())
 	view := studyPageView{Language: language, LanguageLabel: label, Available: study.Available(language)}
 	if view.Available {
-		// Corrections are applied first, so a word whose sentence no longer
-		// belongs to it is prepared again in the same request.
-		if err := h.reconcileStudyCorrections(r.Context(), owner, language, h.now()); err != nil {
-			fail(w, err)
-			return
-		}
-		if h.services.Study != nil {
-			// Preparation is best effort: the page still reports what is ready.
-			if err := h.services.Study.EnqueueStudyPreparation(r.Context(), owner, language); err != nil {
-				log.Printf("mouseion: enqueue study preparation: %v", err)
-			}
-			// Fluency contexts are prepared for mature words by a durable job
-			// too, never by this request.
-			if err := h.services.Study.EnqueueFluencyPreparation(r.Context(), owner, language); err != nil {
-				log.Printf("mouseion: enqueue fluency preparation: %v", err)
-			}
-		}
-		if err := h.loadStudyView(r, owner, &view); err != nil {
+		if err := h.prepareStudyView(r, owner, &view); err != nil {
 			fail(w, err)
 			return
 		}
 	}
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
+}
+
+// prepareStudyView reconciles the learner's Study reports and corrections,
+// asks for material and Fluency contexts to be prepared ahead, and loads what
+// the page shows.
+func (h *Handler) prepareStudyView(r *http.Request, owner string, view *studyPageView) error {
+	language := view.Language
+	// Corrections are applied first, so a word whose sentence no longer
+	// belongs to it is prepared again in the same request.
+	if err := study.ReconcileReports(r.Context(), h.services.Store.Study, owner, language, h.now()); err != nil {
+		return err
+	}
+	if err := h.reconcileStudyCorrections(r.Context(), owner, language, h.now()); err != nil {
+		return err
+	}
+	if h.services.Study != nil {
+		// Preparation is best effort: the page still reports what is ready.
+		if err := h.services.Study.EnqueueStudyPreparation(r.Context(), owner, language); err != nil {
+			log.Printf("mouseion: enqueue study preparation: %v", err)
+		}
+		// Fluency contexts are prepared for mature words by a durable job
+		// too, never by this request.
+		if err := h.services.Study.EnqueueFluencyPreparation(r.Context(), owner, language); err != nil {
+			log.Printf("mouseion: enqueue fluency preparation: %v", err)
+		}
+	}
+	// The Undo offer of a report the learner has acted past is over: the report
+	// ends as retired (ADR 0135 §3).
+	if err := h.services.Store.Study.RetireClosedStudyReports(r.Context(), owner, language, h.now()); err != nil {
+		return err
+	}
+	// The reported card is read first: while its Undo offer is shown, the page
+	// offers no new batch behind it.
+	if err := h.loadReportedCard(r, owner, view); err != nil {
+		return err
+	}
+	return h.loadStudyView(r, owner, view)
 }
 
 // noteCorrections records the words a correction left waiting for new
@@ -149,6 +178,8 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) noteCorrections(ctx context.Context, owner string, view *studyPageView, progress []domain.StudyProgress, now time.Time) error {
 	for _, item := range progress {
 		switch {
+		case item.Withdrawn && item.WithdrawnReason == domain.StudyWithdrawnNoSuitableContext:
+			view.NoSuitableContext = append(view.NoSuitableContext, lemmadisplay.Format(view.Language, item.CanonicalLemma, item.UPOS))
 		case item.Withdrawn:
 			occurrences, err := h.services.Store.Study.FindStudyOccurrences(ctx, owner, item.StudyIdentity, domain.StudyOccurrenceRef{})
 			if err != nil {
@@ -167,6 +198,34 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 	return nil
 }
 
+// studyHeldCount is how many words an open Wrong-word report holds, read
+// from the open reports rather than Study progress: a new word reported on its
+// introduction card has no Study progress left (ADR 0135 §2). The open reports
+// are few, so the read stays bounded.
+func (h *Handler) studyHeldCount(ctx context.Context, owner, language string) (int, error) {
+	reports, err := h.services.Store.Study.ListOpenStudyReports(ctx, owner, language, domain.StudyReportWrongWord)
+	if err != nil {
+		return 0, err
+	}
+	held := map[domain.StudyIdentity]struct{}{}
+	for _, identity := range domain.StudyHeldIdentities(reports) {
+		held[identity] = struct{}{}
+	}
+	return len(held), nil
+}
+
+// studyRepeatingCount is how many words are still in learning or relearning
+// once no card is due: they come back later today.
+func studyRepeatingCount(progress []domain.StudyProgress) int {
+	repeating := 0
+	for _, item := range progress {
+		if !item.Withdrawn && !item.Held && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
+			repeating++
+		}
+	}
+	return repeating
+}
+
 func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
 	ctx, store, now := r.Context(), h.services.Store.Study, h.now()
 	counts, err := store.CountStudyMaterial(ctx, owner, view.Language)
@@ -180,8 +239,15 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	}
 	today := domain.StudyFinishLine(progress, now)
 	view.Remaining, view.Finished = today.Remaining, today.Finished
+	if view.Held, err = h.studyHeldCount(ctx, owner, view.Language); err != nil {
+		return err
+	}
 	if err := h.noteCorrections(ctx, owner, view, progress, now); err != nil {
 		return err
+	}
+	if view.Reported != nil {
+		// The reported card is shown with Undo; it is not a new card or offer.
+		return nil
 	}
 	card, err := store.NextStudyCard(ctx, owner, view.Language, now)
 	switch {
@@ -191,11 +257,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	case !errors.Is(err, domain.ErrNotFound):
 		return err
 	}
-	for _, item := range progress {
-		if !item.Withdrawn && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
-			view.Repeating++
-		}
-	}
+	view.Repeating = studyRepeatingCount(progress)
 	if !today.Finished {
 		// New words come only after the due reviews are answered.
 		return nil
@@ -309,28 +371,35 @@ func (h *Handler) studyBatchOffer(r *http.Request, owner, language string, progr
 
 // nextStudyBatch is the batch Today would offer now: the words carried over
 // from earlier Study days, then the first ready words in stream order that are
-// not in study.
+// not in study and not held by a Wrong-word report.
 func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) ([]domain.StudyBatchWord, error) {
 	store := h.services.Store.Study
 	material, err := store.ListCurrentStudyMaterial(r.Context(), owner, language)
 	if err != nil {
 		return nil, err
 	}
-	// Only a word whose material is ready can be offered, so only those words
-	// need their place in the stream: the rest of the library's candidates are
-	// never read.
-	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, domain.StudyBatchLookup(material, progress))
+	// A word held by a report that left it no Study progress is passed over too;
+	// the open reports are few, and their identities are all that is read.
+	reports, err := store.ListOpenStudyReports(r.Context(), owner, language, domain.StudyReportWrongWord)
 	if err != nil {
 		return nil, err
 	}
-	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, now), nil
+	held := domain.StudyHeldIdentities(reports)
+	// Only a word whose material is ready can be offered, so only those words
+	// need their place in the stream: the rest of the library's candidates are
+	// never read.
+	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, domain.StudyBatchLookup(material, progress, held))
+	if err != nil {
+		return nil, err
+	}
+	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
 }
 
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {
 	memory := card.Progress.Memory
 	return &studyCardView{
-		cardFace:     newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
-		ProgressID:   card.Progress.ID,
+		cardFace:   newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
+		ProgressID: card.Progress.ID, MaterialID: card.Progress.MaterialID,
 		Reps:         memory.Reps,
 		Introduction: memory.State == domain.StudyStateNew || memory.State == domain.StudyStateLearning,
 		Corrected:    card.Progress.Corrected(),

@@ -23,7 +23,12 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 			if view.Reintroducing > 0 {
 				<p id="study-reintroducing" class="study-status">{ studyReintroducingText(view.Reintroducing) }</p>
 			}
-			if view.Card != nil {
+			if view.Held > 0 {
+				<p id="study-held" class="study-status">{ studyHeldText(view.Held) }</p>
+			}
+			if view.Reported != nil {
+				@StudyReportedCard(csrf, view)
+			} else if view.Card != nil {
 				@StudyCard(csrf, view)
 			} else if !view.Finished {
 				<section class="study-today" aria-labelledby="study-today-heading">
@@ -70,12 +75,24 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 					<p id="study-empty">No new words are queued yet. They come from the Books you have analysed.</p>
 				}
 			</section>
+			<p id="study-reported-link"><a href={ templ.SafeURL(studyLanguagePath(pageKindStudyReports, view.Language)) }>Reported words</a></p>
 			if len(view.WaitingForSentence) > 0 {
 				<section class="study-waiting-sentence" aria-labelledby="study-waiting-sentence-heading">
 					<h2 id="study-waiting-sentence-heading">Waiting for a usable sentence</h2>
 					<p>These words have no usable sentence yet after a correction. Your progress is kept, and they return when new evidence gives them one.</p>
 					<ul id="study-waiting-sentence" lang={ view.Language }>
 						for _, word := range view.WaitingForSentence {
+							<li>{ word }</li>
+						}
+					</ul>
+				</section>
+			}
+			if len(view.NoSuitableContext) > 0 {
+				<section class="study-no-suitable-context" aria-labelledby="study-no-suitable-context-heading">
+					<h2 id="study-no-suitable-context-heading">No suitable context left</h2>
+					<p>Every sentence for these words was reported as unsuitable or is not good enough to study. Your progress is kept, and they return when a new Book provides a context.</p>
+					<ul id="study-no-suitable-context" lang={ view.Language }>
+						for _, word := range view.NoSuitableContext {
 							<li>{ word }</li>
 						}
 					</ul>
@@ -114,12 +131,37 @@ templ StudyCard(csrf string, view studyPageView) {
 				@studyGradeForm(csrf, view, "again", "Again", "button button--outline")
 				@studyGradeForm(csrf, view, "got-it", "Got it", "button")
 			</div>
+			@studyReportForm(csrf, view)
 		} else {
 			<form method="get" action={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>
 				<input type="hidden" name="answer" value="1"/>
 				<button class="button study-card__show" type="submit">Show answer</button>
 			</form>
 		}
+	</section>
+}
+
+// StudyReportedCard shows the card just reported as an unsuitable context, with
+// its answer side. The review was not graded: the word comes back on the next
+// Study day from another context. Undo restores the word and its card while no
+// other Study action has followed; moving on ends the offer.
+templ StudyReportedCard(csrf string, view studyPageView) {
+	<section class="study-card study-card--reported" aria-labelledby="study-reported-heading">
+		<h2 id="study-reported-heading">Reported</h2>
+		<p id="study-reported" class="study-status">Reported as an unsuitable context. This sentence will not be used for this word again, and it comes back on the next Study day from another one.</p>
+		@cardFaceView(view.Language, "study", view.Reported.cardFace)
+		<div class="study-card__grades">
+			<form method="post" action={ "/study/reports/" + view.Reported.ReportID + "/undo" }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="language" value={ view.Language }/>
+				<button id="study-reported-undo" class="button button--outline" type="submit">Undo</button>
+			</form>
+			<form method="post" action={ "/study/reports/" + view.Reported.ReportID + "/next" }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="language" value={ view.Language }/>
+				<button id="study-reported-next" class="button" type="submit">Next</button>
+			</form>
+		</div>
 	</section>
 }
 
@@ -172,6 +214,34 @@ templ fluencyResponseForm(csrf string, view studyPageView, response, label, clas
 		<input type="hidden" name="response" value={ response }/>
 		<button class={ class } type="submit">{ label }</button>
 	</form>
+}
+
+// studyReportForm is the Report control of a revealed card (ADR 0135). The
+// reported review is not graded.
+templ studyReportForm(csrf string, view studyPageView) {
+	<details class="study-report" id="study-report">
+		<summary>Report</summary>
+		<form method="post" action="/study/reports">
+			<input type="hidden" name="csrf_token" value={ csrf }/>
+			<input type="hidden" name="language" value={ view.Language }/>
+			<input type="hidden" name="progress" value={ view.Card.ProgressID }/>
+			<input type="hidden" name="reps" value={ fmt.Sprint(view.Card.Reps) }/>
+			<input type="hidden" name="material" value={ view.Card.MaterialID }/>
+			<fieldset>
+				<legend>What is wrong with this card?</legend>
+				<label>
+					<input type="radio" name="kind" value="wrong_word" checked/>
+					<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
+				</label>
+				<label>
+					<input type="radio" name="kind" value="unsuitable_context"/>
+					<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning, for example inside an Idiom. The sentence is never used for this word again, and the word comes back on the next Study day from another one.</span>
+				</label>
+			</fieldset>
+			<label>Note (optional)<textarea class="input" name="note" maxlength={ fmt.Sprint(domain.StudyReportNoteMax) } rows="2"></textarea></label>
+			<button class="button button--outline" type="submit">Send report</button>
+		</form>
+	</details>
 }
 
 templ studyGradeForm(csrf string, view studyPageView, grade, label, class string) {
@@ -235,6 +305,13 @@ func studyReintroducingText(count int) string {
 	return fmt.Sprintf("%d reviews are waiting for a new sentence after a correction.", count)
 }
 
+func studyHeldText(count int) string {
+	if count == 1 {
+		return "1 word is held because you reported it. It gets no reviews until its occurrence is repaired."
+	}
+	return fmt.Sprintf("%d words are held because you reported them. They get no reviews until their occurrences are repaired.", count)
+}
+
 func studyRepeatingText(count int) string {
 	if count == 1 {
 		return "1 word comes back later today."
@@ -261,4 +338,59 @@ func studySkippedText(count int) string {
 		return "1 word was skipped because it has no usable sentence or meaning."
 	}
 	return fmt.Sprintf("%d words were skipped because they have no usable sentence or meaning.", count)
+}
+
+// StudyReportInvalidPage says why a report could not be sent and where to go
+// next: the form was incomplete, so nothing was reported.
+templ StudyReportInvalidPage(user domain.User, csrf, language string) {
+	@ShellLayout("Report not sent", &user, csrf, NavigationLearning) {
+		@PageHeader("Report not sent", "Your report was not saved because it was incomplete or its note was longer than "+fmt.Sprint(domain.StudyReportNoteMax)+" characters.", nil)
+		<p id="study-report-invalid">Nothing was changed. Go back to Study, open the card's Report control again and send a shorter note.</p>
+		<p><a class="button" href={ templ.SafeURL(studyLanguagePath(pageKindStudy, language)) }>Back to Study</a></p>
+	}
+}
+
+// StudyReportsPage lists the learner's open Wrong-word reports in one study
+// language (ADR 0135 §2).
+templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
+	@ShellLayout("Reported words", &user, csrf, NavigationLearning) {
+		@PageHeader("Reported words", "Words held because you reported their Study material as a wrong word. They get no reviews until the occurrence is repaired in Lemma review.", nil)
+		<p><a href={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>Back to Study</a></p>
+		if len(view.Reports) == 0 {
+			<p id="study-reports-empty" class="study-status">No words are held. A word you report as a wrong word appears here.</p>
+		} else {
+			<ul id="study-reports" class="study-reports">
+				for _, report := range view.Reports {
+					<li class="study-report-entry" id={ "study-report-" + report.ID }>
+						<h2 lang={ view.Language }>{ report.Word }</h2>
+						<p class="study-card__sentence" lang={ view.Language }>
+							{ report.Before }
+							if report.Marked {
+								<mark class="study-card__target">{ report.Target }</mark>
+							}
+							{ report.After }
+						</p>
+						<dl>
+							<dt>Book</dt>
+							<dd>{ report.BookTitle }</dd>
+							<dt>Reported</dt>
+							<dd>{ report.Date }</dd>
+							if report.Note != "" {
+								<dt>Note</dt>
+								<dd>{ report.Note }</dd>
+							}
+						</dl>
+						if report.ReviewPath != "" {
+							<p><a class="study-report-review" href={ templ.SafeURL(report.ReviewPath) }>Review in Lemma review</a></p>
+						}
+						<form method="post" action={ templ.SafeURL("/study/reports/" + report.ID + "/dismiss") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<input type="hidden" name="language" value={ view.Language }/>
+							<button class="button button--outline" type="submit">Dismiss</button>
+						</form>
+					</li>
+				}
+			</ul>
+		}
+	}
 }

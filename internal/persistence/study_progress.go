@@ -26,6 +26,10 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 	for _, row := range rows {
 		item := studyProgressFromRow(row.StudyProgress)
 		item.Reintroducing = row.Reintroducing
+		item.Held = row.Held
+		if row.ContextReportedAt.Unix() != 0 {
+			item.ContextReportedAt = row.ContextReportedAt
+		}
 		progress = append(progress, item)
 	}
 	return progress, nil
@@ -206,8 +210,8 @@ func (s *PostgresStore) RecordStudyGrade(ctx context.Context, owner string, reco
 			return fmt.Errorf("lock study progress: %w", err)
 		}
 		before := studyProgressFromRow(row)
-		if before.Withdrawn || before.Memory.Reps != record.ExpectedReps {
-			return domain.ErrStudyStale
+		if err := refuseStaleStudyGrade(ctx, q, owner, before, record.ExpectedReps); err != nil {
+			return err
 		}
 		if err := appendStudyReview(ctx, q, owner, before, record, day); err != nil {
 			return err
@@ -223,6 +227,34 @@ func (s *PostgresStore) RecordStudyGrade(ctx context.Context, owner string, reco
 		}
 		return nil
 	})
+}
+
+// refuseStaleStudyGrade rejects a grade of a card already graded, of a
+// withdrawn word, or of a word an open Wrong-word report holds: a report made
+// as the card was answered wins.
+func refuseStaleStudyGrade(ctx context.Context, q *sqlcgen.Queries, owner string, word domain.StudyProgress, expectedReps int64) error {
+	if word.Withdrawn || word.Memory.Reps != expectedReps {
+		return domain.ErrStudyStale
+	}
+	// A word whose material was replaced by an Unsuitable-context report has no
+	// card to grade; a grade that was already in flight is stale.
+	superseded, err := q.StudyMaterialIsSuperseded(ctx, sqlcgen.StudyMaterialIsSupersededParams{Owner: owner, ID: word.ID})
+	if err != nil {
+		return fmt.Errorf("check study material: %w", err)
+	}
+	if superseded {
+		return domain.ErrStudyStale
+	}
+	held, err := q.HasOpenWrongWordReport(ctx, sqlcgen.HasOpenWrongWordReportParams{
+		Owner: owner, Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
+	})
+	if err != nil {
+		return fmt.Errorf("check study report: %w", err)
+	}
+	if held {
+		return domain.ErrStudyStale
+	}
+	return nil
 }
 
 func appendStudyReview(ctx context.Context, q *sqlcgen.Queries, owner string, before domain.StudyProgress, record domain.StudyGradeRecord, day pgtype.Date) error {
@@ -293,6 +325,6 @@ func studyProgressFromRow(row sqlcgen.StudyProgress) domain.StudyProgress {
 		ID: row.ID, OwnerID: row.OwnerID,
 		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		MaterialID: row.MaterialID, IntroducedAt: row.IntroducedAt, LearnedMeaning: row.LearnedMeaning,
-		Memory: memory, Withdrawn: row.WithdrawnAt.Valid, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Memory: memory, Withdrawn: row.WithdrawnAt.Valid, WithdrawnReason: row.WithdrawnReason.String, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }

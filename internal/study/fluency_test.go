@@ -239,3 +239,17 @@ type reasonEnricher string
 func (r reasonEnricher) EnrichFluencyAgreement(context.Context, enrichment.Candidate, string) (enrichment.FluencyAgreement, error) {
 	return enrichment.FluencyAgreement{Reason: string(r), Gloss: "x", SentenceTranslation: "y"}, nil
 }
+
+func TestFluencyWorkerNeverAsksAboutARetiredOccurrence(t *testing.T) {
+	worker, store, enricher := newFluencyFixture()
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur", "Case": "Nom"})
+	store.addOccurrence(3, "hause", map[string]string{"Number": "Sing", "Case": "Dat"})
+	store.retired = []domain.StudyOccurrenceRef{store.occurrences[1].StudyRef()}
+
+	require.NoError(t, fluencyWork(worker))
+	for _, request := range enricher.requests {
+		assert.NotEqual(t, "haeuser", request.TargetWord, "the reported sentence is not asked about")
+	}
+	require.Len(t, store.recorded, 1)
+	assert.EqualValues(t, 3, store.recorded[0].SentenceOrdinal)
+}

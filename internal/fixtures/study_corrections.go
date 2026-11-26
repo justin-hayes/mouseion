@@ -77,7 +77,7 @@ func (s *Store) SetStudyWordWithdrawn(_ context.Context, owner, progressID strin
 	defer s.mu.Unlock()
 	for i := range s.studyProgress {
 		if item := &s.studyProgress[i]; item.OwnerID == owner && item.ID == progressID {
-			item.Withdrawn = withdrawn
+			item.Withdrawn, item.WithdrawnReason = withdrawn, ""
 			return nil
 		}
 	}
@@ -104,7 +104,7 @@ func (s *Store) CompleteStudyReintroductions(_ context.Context, owner, language 
 			case domain.StudyMaterialReady:
 				item.MaterialID, item.LearnedMeaning, item.CorrectedAt, item.UpdatedAt = material.ID, material.Gloss, now.UTC(), now.UTC()
 			case domain.StudyMaterialUnpreparable:
-				item.Withdrawn, item.UpdatedAt = true, now.UTC()
+				s.withdrawUnpreparableLocked(owner, item, now)
 			case domain.StudyMaterialPending:
 			}
 		}
@@ -112,11 +112,27 @@ func (s *Store) CompleteStudyReintroductions(_ context.Context, owner, language 
 	return nil
 }
 
+// withdrawUnpreparableLocked withdraws a word whose replacement material cannot
+// be prepared, with the reason "no suitable context left" when its contexts were
+// reported as unsuitable. The caller holds s.mu.
+func (s *Store) withdrawUnpreparableLocked(owner string, item *domain.StudyProgress, now time.Time) {
+	item.Withdrawn, item.UpdatedAt = true, now.UTC()
+	if s.hasRetiringReportLocked(owner, item.ID) {
+		item.WithdrawnReason = domain.StudyWithdrawnNoSuitableContext
+	}
+}
+
 // StudyOccurrenceLocator completes an occurrence with its locator. A token the
 // analyses do not hold is domain.ErrNotFound.
 func (s *Store) StudyOccurrenceLocator(_ context.Context, owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.studyLocatorLocked(owner, ref)
+}
+
+// studyLocatorLocked completes an occurrence with its locator. The caller holds
+// s.mu.
+func (s *Store) studyLocatorLocked(owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error) {
 	for key, occurrences := range s.lemmaOccurrences {
 		if !strings.HasPrefix(key, owner+"\x00") {
 			continue

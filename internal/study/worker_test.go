@@ -31,6 +31,15 @@ type fakeStore struct {
 	evidence     string
 	pagesRead    int
 	tokens       map[int64][]analyzer.Token
+	retired      []domain.StudyOccurrenceRef
+}
+
+func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+	return s.retired, nil
+}
+
+func (s *fakeStore) ListRetiredStudyOccurrences(context.Context, string, string) ([]domain.StudyOccurrenceRef, error) {
+	return s.retired, nil
 }
 
 func (s *fakeStore) GetStudyMaterial(context.Context, string, string) (domain.StudyMaterial, error) {
@@ -235,4 +244,54 @@ func TestWorkUsesOnlyOccurrencesOfTheFullIdentity(t *testing.T) {
 	require.NoError(t, work(worker))
 	require.NotNil(t, store.ready)
 	assert.EqualValues(t, 3, store.ready.SentenceOrdinal, "another discriminator's sentence, and a corrected occurrence (which carries none), are not this word's")
+}
+
+func TestWorkNeverChoosesARetiredOccurrence(t *testing.T) {
+	retired := occurrence(readingBook, goodText, 1)
+	store := &fakeStore{
+		reading:     domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
+		occurrences: []domain.ConcordanceResultOccurrence{retired, occurrence(otherBook, otherText, 2)},
+		retired:     []domain.StudyOccurrenceRef{retired.StudyRef()},
+	}
+	enricher := &fakeEnricher{meaning: resolved()}
+	require.NoError(t, work(newWorker(store, enricher)))
+	require.NotNil(t, store.ready)
+	assert.Equal(t, otherBook, store.ready.BookID, "the reported sentence is passed over for another one, though it is the Current reading's")
+	assert.Equal(t, otherText, store.ready.Sentence)
+	require.Len(t, enricher.requests, 1)
+	assert.Equal(t, otherText, enricher.requests[0].ExampleSentence, "the provider never sees the retired sentence")
+}
+
+func TestWorkRecordsAnOmissionWhenEveryRemainingOccurrenceIsRetired(t *testing.T) {
+	only := occurrence(otherBook, goodText, 1)
+	store := &fakeStore{occurrences: []domain.ConcordanceResultOccurrence{only}, retired: []domain.StudyOccurrenceRef{only.StudyRef()}}
+	enricher := &fakeEnricher{meaning: resolved()}
+	require.NoError(t, work(newWorker(store, enricher)))
+	assert.Nil(t, store.ready)
+	assert.Equal(t, domain.StudyOmissionSentenceQuality, store.unpreparable, "the word is unpreparable, and withdrawn as having no suitable context")
+	assert.Empty(t, enricher.requests, "no provider call for a retired sentence")
+}
+
+func TestWorkSkipsEveryTokenOfARetiredSentence(t *testing.T) {
+	// The reported sentence holds the word twice: the other token is retired too.
+	reported := occurrence(otherBook, goodText, 3)
+	reported.TokenOrdinal = 2
+	sameSentence := occurrence(otherBook, goodText, 3)
+	sameSentence.TokenOrdinal = 6
+	other := occurrence(otherBook, otherText, 4)
+	store := &fakeStore{occurrences: []domain.ConcordanceResultOccurrence{sameSentence, other}, retired: []domain.StudyOccurrenceRef{reported.StudyRef()}}
+	require.NoError(t, work(newWorker(store, &fakeEnricher{meaning: resolved()})))
+	require.NotNil(t, store.ready)
+	assert.EqualValues(t, 4, store.ready.SentenceOrdinal, "the sentence is retired for the word, not only the reported token")
+}
+
+func TestWorkKeepsASentenceRetiredInTheRunAnAnalysisUpdateCarriedItTo(t *testing.T) {
+	// The store resolves the report to the sentence in the current run as well.
+	reportedOld := domain.StudyOccurrenceRef{BookID: otherBook, AnalysisRunID: "run-1", CorpusID: "corpus-1", SentenceOrdinal: 7, TokenOrdinal: 2}
+	moved := occurrence(otherBook, goodText, 3)
+	other := occurrence(otherBook, otherText, 4)
+	store := &fakeStore{occurrences: []domain.ConcordanceResultOccurrence{moved, other}, retired: []domain.StudyOccurrenceRef{reportedOld, moved.StudyRef()}}
+	require.NoError(t, work(newWorker(store, &fakeEnricher{meaning: resolved()})))
+	require.NotNil(t, store.ready)
+	assert.EqualValues(t, 4, store.ready.SentenceOrdinal)
 }

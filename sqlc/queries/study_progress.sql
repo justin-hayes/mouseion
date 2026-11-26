@@ -4,7 +4,18 @@
 -- name: ListStudyProgress :many
 -- reintroducing is true while the word's own Study material has been
 -- superseded by a correction and its replacement is not yet in place.
-SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing
+-- held is true while the word has an open Wrong-word report (ADR 0135 §2).
+-- context_reported_at is when its latest Unsuitable-context report that retires
+-- a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
+-- is none.
+SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
+       EXISTS (SELECT 1 FROM study_report r
+                WHERE r.owner_id = p.owner_id AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
+                  AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
+                  AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held,
+       COALESCE((SELECT max(r.created_at) FROM study_report r
+                  WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                    AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone'), 'epoch'::timestamptz)::timestamptz AS context_reported_at
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
@@ -49,22 +60,28 @@ RETURNING batches_declined;
 -- name: RecordStudyBatchOffer :exec
 -- Records that Today has offered this many batches on the Study day. The count
 -- only grows, so showing the same offer again changes nothing.
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered)
-VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, sqlc.arg('offered')::int)
+-- An offer is not a Study action, so it leaves updated_at, which Undo reads as
+-- the time of the last batch taken or declined, alone (a new row starts at the
+-- epoch).
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, updated_at)
+VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, sqlc.arg('offered')::int, 'epoch'::timestamptz)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered),
-       updated_at = now();
+   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered);
 
 -- name: IntroduceStudyWord :one
 -- Introduces a word from its ready, current Study material: the word enters
 -- study new and due now, with the material's Gloss as its learned meaning. A
--- word already in study, or whose material is not ready and current, returns
--- no row.
+-- word already in study, held by an open Wrong-word report, or whose material
+-- is not ready and current, returns no row.
 INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due)
 SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, sqlc.arg('now')::timestamptz, m.gloss, 'new', sqlc.arg('now')::timestamptz
   FROM study_material m
  WHERE m.owner_id = sqlc.arg('owner') AND m.id = sqlc.arg('material') AND m.language = sqlc.arg('language')
    AND m.state = 'ready' AND m.superseded_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM study_report r
+                    WHERE r.owner_id = m.owner_id AND r.language = m.language AND r.canonical_lemma = m.canonical_lemma
+                      AND r.upos = m.upos AND r.lexical_discriminator = m.lexical_discriminator
+                      AND r.kind = 'wrong_word' AND r.ended_at IS NULL)
 ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
 RETURNING *;
 
@@ -107,7 +124,7 @@ UPDATE study_material
 
 -- name: SetStudyProgressWithdrawn :execrows
 UPDATE study_progress
-   SET withdrawn_at = sqlc.narg('withdrawn_at')::timestamptz, updated_at = now()
+   SET withdrawn_at = sqlc.narg('withdrawn_at')::timestamptz, withdrawn_reason = NULL, updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
    AND (withdrawn_at IS NULL) <> (sqlc.narg('withdrawn_at')::timestamptz IS NULL);
 
@@ -125,9 +142,16 @@ UPDATE study_progress p
 
 -- name: WithdrawUnpreparableStudyReintroductions :execrows
 -- A word whose replacement material cannot be prepared has no usable
--- occurrence left: it is withdrawn, with its progress kept.
+-- occurrence left: it is withdrawn, with its progress kept. A word whose
+-- contexts the learner reported as unsuitable is withdrawn with the reason
+-- 'no_suitable_context' (ADR 0135 §3): its other contexts are retired or fail
+-- the sentence-quality gate.
 UPDATE study_progress p
-   SET withdrawn_at = sqlc.arg('now')::timestamptz, updated_at = now()
+   SET withdrawn_at = sqlc.arg('now')::timestamptz, updated_at = now(),
+       withdrawn_reason = CASE WHEN EXISTS (SELECT 1 FROM study_report r
+                                             WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                                               AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone')
+                               THEN 'no_suitable_context' END
   FROM study_material m
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND p.withdrawn_at IS NULL
    AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma

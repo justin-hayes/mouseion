@@ -41,7 +41,7 @@ func (q *Queries) AppendStudyFluencyResponse(ctx context.Context, arg AppendStud
 
 const getStudyProgress = `-- name: GetStudyProgress :one
 
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason FROM study_progress
  WHERE owner_id = $1 AND id = $2
 `
 
@@ -78,6 +78,7 @@ func (q *Queries) GetStudyProgress(ctx context.Context, arg GetStudyProgressPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CorrectedAt,
+		&i.WithdrawnReason,
 	)
 	return i, err
 }
@@ -146,6 +147,53 @@ func (q *Queries) InsertStudyFluencyContext(ctx context.Context, arg InsertStudy
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const listAgreeingStudyFluencyContextSourcesOfWord = `-- name: ListAgreeingStudyFluencyContextSourcesOfWord :many
+SELECT book_id::text AS book_id, analysis_run_id::text AS analysis_run_id, corpus_id::text AS corpus_id, sentence_ordinal, token_ordinal
+  FROM study_fluency_context
+ WHERE owner_id = $1 AND progress_id = $2 AND agreement = 'agrees'
+`
+
+type ListAgreeingStudyFluencyContextSourcesOfWordParams struct {
+	Owner    string
+	Progress string
+}
+
+type ListAgreeingStudyFluencyContextSourcesOfWordRow struct {
+	BookID          string
+	AnalysisRunID   string
+	CorpusID        string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+}
+
+// The occurrences of one word's agreeing contexts, to count those a retired
+// sentence hides.
+func (q *Queries) ListAgreeingStudyFluencyContextSourcesOfWord(ctx context.Context, arg ListAgreeingStudyFluencyContextSourcesOfWordParams) ([]ListAgreeingStudyFluencyContextSourcesOfWordRow, error) {
+	rows, err := q.db.Query(ctx, listAgreeingStudyFluencyContextSourcesOfWord, arg.Owner, arg.Progress)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAgreeingStudyFluencyContextSourcesOfWordRow{}
+	for rows.Next() {
+		var i ListAgreeingStudyFluencyContextSourcesOfWordRow
+		if err := rows.Scan(
+			&i.BookID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listStudyFluencyContextResponses = `-- name: ListStudyFluencyContextResponses :many

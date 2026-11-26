@@ -141,7 +141,7 @@ WITH current_run AS MATERIALIZED (
 ),
 located AS MATERIALIZED (
   SELECT t.owner_id, t.language, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
-         t.canonical_lemma, t.upos, t.start_offset, t.end_offset
+         t.canonical_lemma, t.upos, t.start_offset, t.end_offset, t.surface, t.raw_lemma
     FROM current_run cr
     JOIN corpus_tokens t ON t.analysis_run_id = cr.analysis_run_id
    WHERE cr.analysis_run_id = sqlc.arg('analysis_run')::uuid
@@ -149,7 +149,7 @@ located AS MATERIALIZED (
      AND t.token_ordinal = sqlc.arg('token_ordinal')::bigint
   UNION ALL
   SELECT t.owner_id, t.language, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
-         t.canonical_lemma, t.upos, t.start_offset, t.end_offset
+         t.canonical_lemma, t.upos, t.start_offset, t.end_offset, t.surface, t.raw_lemma
     FROM current_run cr
     JOIN corpus_sentences s ON s.analysis_run_id = cr.analysis_run_id
     JOIN corpus_tokens t ON t.analysis_run_id = s.analysis_run_id
@@ -164,6 +164,8 @@ SELECT l.analysis_run_id::text AS analysis_run_id,
        l.token_ordinal,
        l.canonical_lemma,
        l.upos,
+       l.surface,
+       l.raw_lemma,
        l.start_offset AS unit_start_offset,
        l.end_offset AS unit_end_offset,
        s.unit_id,
@@ -188,3 +190,8 @@ SELECT l.analysis_run_id::text AS analysis_run_id,
     AND d.analysis_run_id = l.analysis_run_id AND d.source_document_id = s.unit_id
     AND d.start_offset = l.start_offset AND d.end_offset = l.end_offset
  WHERE l.language = sqlc.arg('language')::text;
+
+-- name: StudyBookInLibrary :one
+-- Whether the Book is still an active member of the learner's library.
+SELECT EXISTS (SELECT 1 FROM book_membership
+                WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')::uuid AND state = 'active')::boolean;

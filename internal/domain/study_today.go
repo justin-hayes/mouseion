@@ -40,7 +40,7 @@ func studyReviewInToday(p StudyProgress, now time.Time) bool {
 // the day begins. A word still repeating, and a word just introduced, is due
 // when its due time arrives.
 func StudyCardIsDue(p StudyProgress, now time.Time) bool {
-	if p.Withdrawn || p.Reintroducing || studyCarriedOver(p, now) {
+	if p.Withdrawn || p.Held || p.StudyContextReplaced(now) || p.Reintroducing || studyCarriedOver(p, now) {
 		return false
 	}
 	if p.Memory.State == StudyStateReview {
@@ -55,6 +55,8 @@ func StudyCardIsDue(p StudyProgress, now time.Time) bool {
 // part of it (spec #2691), so a word still new or learning is not counted. A
 // review waiting for new Study material after a correction is not counted
 // either, since it cannot be shown; it joins Today once its material is ready.
+// A held word (an open Wrong-word report) is not counted: it gets no reviews, so
+// Today can finish with a held word outstanding.
 func StudyCountsToday(p StudyProgress, now time.Time) bool {
 	return !p.Reintroducing && studyInTodaysDueSet(p, now)
 }
@@ -66,7 +68,7 @@ func StudyAwaitsMaterial(p StudyProgress, now time.Time) bool {
 }
 
 func studyInTodaysDueSet(p StudyProgress, now time.Time) bool {
-	if p.Withdrawn {
+	if p.Withdrawn || p.Held || p.StudyContextReplaced(now) {
 		return false
 	}
 	if p.Memory.State == StudyStateReview {

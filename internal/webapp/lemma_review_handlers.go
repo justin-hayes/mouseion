@@ -2,12 +2,14 @@ package webapp
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
+	"github.com/justin-hayes/mouseion/internal/study"
 )
 
 // lemmaReviewSuggestion is the optional LLM suggestion shown beside the
@@ -52,7 +54,8 @@ func (h *Handler) lemmaReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	review.Recovery.ReferenceAssessed = assessment.Assessed
-	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, lemmaReviewPageError(review.CanCorrect), review.CanCorrect, review.Occurrences, nil, review.Recovery, nil))
+	review.Occurrences = h.onlyReportedOccurrences(r, owner.ID, bookID, review.Occurrences)
+	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, lemmaReviewPageError(review.CanCorrect), review.CanCorrect, review.Occurrences, nil, review.Recovery, nil, h.lemmaReviewReports(r, owner.ID, bookID)))
 }
 
 func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +86,7 @@ func (h *Handler) suggestLemma(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, lemmaReviewPageError(review.CanCorrect), review.CanCorrect, review.Occurrences, nil, review.Recovery, lemmaSuggestionView(occurrenceID, suggestion)))
+	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, lemmaReviewPageError(review.CanCorrect), review.CanCorrect, review.Occurrences, nil, review.Recovery, lemmaSuggestionView(occurrenceID, suggestion), h.lemmaReviewReports(r, owner.ID, bookID)))
 }
 
 func lemmaSuggestionView(occurrenceID string, suggestion lemmareview.Suggestion) *lemmaReviewSuggestion {
@@ -150,7 +153,7 @@ func (h *Handler) previewLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		return
 	}
 	review.Recovery.ReferenceAssessed = assessment.Assessed
-	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, "", true, review.Occurrences, &preview, review.Recovery, nil))
+	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, detail.Book.Title, form, "", true, review.Occurrences, &preview, review.Recovery, nil, h.lemmaReviewReports(r, owner.ID, bookID)))
 }
 
 func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, owner domain.User, bookID string) {
@@ -171,6 +174,7 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		writeLemmaReviewError(w, err)
 		return
 	}
+	h.repairStudyReports(r, owner.ID, bookID)
 	switch outcome.Kind {
 	case lemmareview.OutcomePreparing:
 		redirect(w, r, "/deck-preparations/"+url.PathEscape(outcome.PreparationID)+"/status")
@@ -182,6 +186,40 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		// Both return to the review page; the latter shows the flags that block the restart.
 		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
 	}
+}
+
+// repairStudyReports ends the open Wrong-word reports in the Book that the
+// confirmed decision repaired, so their words return to Study (ADR 0135 §2). The
+// decision is already saved; a failure here is logged, and Today's own
+// reconciliation ends the report on the next visit.
+func (h *Handler) repairStudyReports(r *http.Request, owner, bookID string) {
+	if h.services.Store.Study == nil {
+		return
+	}
+	if err := study.ReconcileBookReports(r.Context(), h.services.Store.Study, owner, bookID, h.now()); err != nil {
+		log.Printf("mouseion: repair study reports after a lemma decision: %v", err)
+	}
+}
+
+// lemmaReviewReports lists the Book's open Wrong-word reports for its Lemma
+// review page. A failure shows none rather than failing the review.
+func (h *Handler) lemmaReviewReports(r *http.Request, owner, bookID string) []domain.StudyReport {
+	if h.services.Store.Study == nil {
+		return nil
+	}
+	reports, err := h.services.Store.Study.ListOpenWrongWordReportsForBook(r.Context(), owner, bookID)
+	if err != nil {
+		log.Printf("mouseion: list study reports for lemma review: %v", err)
+		return nil
+	}
+	// An Analysis update re-publishes an occurrence in a new run, so each
+	// report is located by its place in the Book's unit, as corrections are.
+	for i, report := range reports {
+		if located, err := h.services.Store.Study.StudyOccurrenceLocator(r.Context(), owner, report.Source); err == nil {
+			reports[i].Source = located
+		}
+	}
+	return reports
 }
 
 // previewOccurrenceIDs is the occurrence a preview starts from plus any others
@@ -248,4 +286,53 @@ func yesNo(value bool) string {
 		return "yes"
 	}
 	return "no"
+}
+
+// lemmaReviewReported reports whether a Study report is of the occurrence: the
+// same place in the Book's unit when the report is located, else the same token
+// of the same run.
+func lemmaReviewReported(report domain.StudyReport, occurrence domain.LemmaReviewOccurrence) bool {
+	source := report.Source
+	if source.BookID != occurrence.BookID {
+		return false
+	}
+	if source.UnitID != "" {
+		return source.UnitID == occurrence.SourceDocumentID && source.StartOffset == occurrence.StartOffset && source.EndOffset == occurrence.EndOffset
+	}
+	return source.AnalysisRunID == occurrence.AnalysisRunID && source.SentenceOrdinal == occurrence.SentenceOrdinal && source.TokenOrdinal == occurrence.TokenOrdinal
+}
+
+// lemmaReviewReportPath opens the Book's Lemma review at the occurrence a Study
+// report names: the report's own occurrence, not every occurrence of its
+// surface form, which a homograph could match (ADR 0135 §2).
+func lemmaReviewReportPath(bookID string, report domain.StudyReport) string {
+	return "/reading/books/" + url.PathEscape(bookID) + "/lemma-review?" + url.Values{"form": {report.TargetWord}, "report": {report.ID}}.Encode()
+}
+
+// lemmaReviewReportParam names the Study report whose occurrence the page opens.
+const lemmaReviewReportParam = "report"
+
+// onlyReportedOccurrences narrows the searched occurrences to the one the Study
+// report named by the page's report parameter is of. The page keeps the whole
+// search when the parameter is absent, is not the learner's open report in this
+// Book, or its occurrence is no longer among the results.
+func (h *Handler) onlyReportedOccurrences(r *http.Request, owner, bookID string, occurrences []domain.LemmaReviewOccurrence) []domain.LemmaReviewOccurrence {
+	id := strings.TrimSpace(r.URL.Query().Get(lemmaReviewReportParam))
+	if id == "" {
+		return occurrences
+	}
+	report, err := h.services.Store.Study.GetStudyReport(r.Context(), owner, id)
+	if err != nil || !report.Open() || report.Source.BookID != bookID {
+		return occurrences
+	}
+	var reported []domain.LemmaReviewOccurrence
+	for _, occurrence := range occurrences {
+		if lemmaReviewReported(report, occurrence) {
+			reported = append(reported, occurrence)
+		}
+	}
+	if len(reported) == 0 {
+		return occurrences
+	}
+	return reported
 }

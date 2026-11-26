@@ -259,6 +259,14 @@ Catalog
     Manage sources (`/catalogs/sources`): connection setup, credentials,
         editing, deletion, sync, and failure recovery
 
+Study (active study language)
+    Today: due cards, the day's New-word batch, Fluency
+    Report on a revealed card: Wrong word or Unsuitable context
+        Unsuitable context -> the reported card with Undo and Next
+    Reported words (`/{language}/study/reports`): open Wrong-word reports
+        Review in Lemma review (opens the reported occurrence)
+        Dismiss
+
 Vocabulary (partially shipped)
     Concordance exact lookup and KWIC context (shipped landing slice)
     focused sentence study and grammar exploration (shipped)

@@ -51,7 +51,7 @@ func (s *Store) ListStudyFluencyContexts(_ context.Context, owner, language stri
 		s.attachFluencyResponsesLocked(owner, &item)
 		contexts = append(contexts, item)
 	}
-	return contexts, nil
+	return s.withoutRetiredFluencyContextsLocked(owner, contexts), nil
 }
 
 // RecordStudyFluencyContext stores one assessed occurrence of a mature word.
@@ -88,6 +88,12 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 // leaves the word within its limit. The caller holds s.mu.
 func (s *Store) fluencyContextFitsLocked(owner string, record domain.FluencyContextRecord) bool {
 	agreeing := 0
+	// A context in a retired sentence is hidden and does not count towards the
+	// word's limit.
+	visible := map[string]bool{}
+	for _, item := range s.withoutRetiredFluencyContextsLocked(owner, s.studyFluencyContexts) {
+		visible[item.ID] = true
+	}
 	for _, item := range s.studyFluencyContexts {
 		if item.OwnerID != owner || item.ProgressID != record.ProgressID {
 			continue
@@ -95,7 +101,7 @@ func (s *Store) fluencyContextFitsLocked(owner string, record domain.FluencyCont
 		if item.AnalysisRunID == record.AnalysisRunID && item.SentenceOrdinal == record.SentenceOrdinal && item.TokenOrdinal == record.TokenOrdinal {
 			return false
 		}
-		if item.Agreement == domain.FluencyAgrees {
+		if item.Agreement == domain.FluencyAgrees && visible[item.ID] {
 			agreeing++
 		}
 	}
@@ -116,6 +122,7 @@ func (s *Store) RecordStudyFluencyResponse(_ context.Context, owner string, reco
 				ID: fmt.Sprintf("fixture-fluency-response-%d", len(s.studyFluencyResponses)+1), OwnerID: owner,
 				ContextID: record.ContextID, Response: record.Response, RespondedAt: record.RespondedAt.UTC(),
 			})
+			s.noteStudyActionLocked(owner, s.contextLanguageLocked(owner, item.ProgressID))
 			return nil
 		}
 	}
@@ -150,7 +157,7 @@ func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyIdentity,
 		SentenceTranslation: content.SentenceTranslation, SentenceTranslationTargets: content.SentenceTranslationTargets,
 		CreatedAt: now, UpdatedAt: now,
 	})
-	id := fmt.Sprintf("fixture-study-progress-%d", len(s.studyProgress)+1)
+	id := s.nextStudyProgressIDLocked()
 	s.studyProgress = append(s.studyProgress, domain.StudyProgress{
 		ID: id, OwnerID: owner, StudyIdentity: identity, MaterialID: materialID,
 		IntroducedAt: now.Add(-40 * 24 * time.Hour), LearnedMeaning: content.Gloss,
@@ -183,4 +190,13 @@ func (s *Store) attachFluencyResponsesLocked(owner string, item *domain.FluencyC
 		}
 	}
 	sort.SliceStable(item.Responses, func(i, j int) bool { return item.Responses[i].At.Before(item.Responses[j].At) })
+}
+
+// contextLanguageLocked is the study language of the word a context belongs to.
+// The caller holds s.mu.
+func (s *Store) contextLanguageLocked(owner, progressID string) string {
+	if progress := s.progressByIDLocked(owner, progressID); progress != nil {
+		return progress.Language
+	}
+	return ""
 }

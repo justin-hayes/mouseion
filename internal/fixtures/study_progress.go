@@ -27,6 +27,8 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 	for _, item := range s.studyProgress {
 		if item.OwnerID == owner && item.Language == language {
 			item.Reintroducing = s.studySuperseded[item.MaterialID]
+			item.Held = s.studyHeldLocked(owner, item.StudyIdentity)
+			item.ContextReportedAt = s.contextReportedAtLocked(owner, item.ID)
 			progress = append(progress, item)
 		}
 	}
@@ -110,11 +112,11 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 			continue
 		}
 		material, ok := s.currentReadyMaterialLocked(owner, language, word.MaterialID)
-		if !ok || s.progressIndexLocked(owner, material.StudyIdentity) >= 0 {
+		if !ok || s.progressIndexLocked(owner, material.StudyIdentity) >= 0 || s.studyHeldLocked(owner, material.StudyIdentity) {
 			continue
 		}
 		item := domain.StudyProgress{
-			ID: fmt.Sprintf("fixture-study-progress-%d", len(s.studyProgress)+1), OwnerID: owner, StudyIdentity: material.StudyIdentity,
+			ID: s.nextStudyProgressIDLocked(), OwnerID: owner, StudyIdentity: material.StudyIdentity,
 			MaterialID: material.ID, IntroducedAt: now.UTC(), LearnedMeaning: material.Gloss,
 			Memory:    domain.NewStudyMemory(now),
 			CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
@@ -125,6 +127,7 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 	if len(introduced) == 0 {
 		return nil, errNotFound
 	}
+	s.noteStudyActionLocked(owner, language)
 	s.storeLedgerLocked(key, ledger)
 	return introduced, nil
 }
@@ -138,6 +141,7 @@ func (s *Store) DeclineStudyBatch(_ context.Context, owner, language, studyDay s
 	if err != nil {
 		return err
 	}
+	s.noteStudyActionLocked(owner, language)
 	s.storeLedgerLocked(key, ledger)
 	return nil
 }
@@ -177,7 +181,7 @@ func (s *Store) RecordStudyGrade(_ context.Context, owner string, record domain.
 		if item.OwnerID != owner || item.ID != record.ProgressID {
 			continue
 		}
-		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps {
+		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps || s.studyHeldLocked(owner, item.StudyIdentity) || s.studySuperseded[item.MaterialID] {
 			return domain.ErrStudyStale
 		}
 		s.studyReviewLog = append(s.studyReviewLog, domain.StudyReviewLog{
@@ -186,6 +190,7 @@ func (s *Store) RecordStudyGrade(_ context.Context, owner string, record domain.
 		})
 		item.Memory = record.After
 		item.UpdatedAt = record.ReviewedAt.UTC()
+		s.noteStudyActionLocked(owner, item.Language)
 		return nil
 	}
 	return errNotFound

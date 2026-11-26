@@ -337,7 +337,7 @@ WITH current_run AS MATERIALIZED (
 ),
 located AS MATERIALIZED (
   SELECT t.owner_id, t.language, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
-         t.canonical_lemma, t.upos, t.start_offset, t.end_offset
+         t.canonical_lemma, t.upos, t.start_offset, t.end_offset, t.surface, t.raw_lemma
     FROM current_run cr
     JOIN corpus_tokens t ON t.analysis_run_id = cr.analysis_run_id
    WHERE cr.analysis_run_id = $4::uuid
@@ -345,7 +345,7 @@ located AS MATERIALIZED (
      AND t.token_ordinal = $6::bigint
   UNION ALL
   SELECT t.owner_id, t.language, t.analysis_run_id, t.corpus_id, t.sentence_ordinal, t.token_ordinal,
-         t.canonical_lemma, t.upos, t.start_offset, t.end_offset
+         t.canonical_lemma, t.upos, t.start_offset, t.end_offset, t.surface, t.raw_lemma
     FROM current_run cr
     JOIN corpus_sentences s ON s.analysis_run_id = cr.analysis_run_id
     JOIN corpus_tokens t ON t.analysis_run_id = s.analysis_run_id
@@ -360,6 +360,8 @@ SELECT l.analysis_run_id::text AS analysis_run_id,
        l.token_ordinal,
        l.canonical_lemma,
        l.upos,
+       l.surface,
+       l.raw_lemma,
        l.start_offset AS unit_start_offset,
        l.end_offset AS unit_end_offset,
        s.unit_id,
@@ -405,6 +407,8 @@ type ListStudySourceTokensRow struct {
 	TokenOrdinal            int64
 	CanonicalLemma          string
 	Upos                    string
+	Surface                 string
+	RawLemma                string
 	UnitStartOffset         int64
 	UnitEndOffset           int64
 	UnitID                  string
@@ -454,6 +458,8 @@ func (q *Queries) ListStudySourceTokens(ctx context.Context, arg ListStudySource
 			&i.TokenOrdinal,
 			&i.CanonicalLemma,
 			&i.Upos,
+			&i.Surface,
+			&i.RawLemma,
 			&i.UnitStartOffset,
 			&i.UnitEndOffset,
 			&i.UnitID,
@@ -627,4 +633,22 @@ func (q *Queries) SetStudyMaterialEvidence(ctx context.Context, arg SetStudyMate
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const studyBookInLibrary = `-- name: StudyBookInLibrary :one
+SELECT EXISTS (SELECT 1 FROM book_membership
+                WHERE owner_id = $1 AND book_id = $2::uuid AND state = 'active')::boolean
+`
+
+type StudyBookInLibraryParams struct {
+	Owner string
+	Book  string
+}
+
+// Whether the Book is still an active member of the learner's library.
+func (q *Queries) StudyBookInLibrary(ctx context.Context, arg StudyBookInLibraryParams) (bool, error) {
+	row := q.db.QueryRow(ctx, studyBookInLibrary, arg.Owner, arg.Book)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }

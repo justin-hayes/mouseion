@@ -81,7 +81,7 @@ func (seed BookSeed) DeclaresUnusable(identity domain.SnapshotIdentity) bool {
 // Harness is what an adapter implements to run the scenarios. Store exposes the
 // operations under test, which return the adapter's own errors; Seeds builds the
 // facts a scenario needs and fails the test on error.
-type Harness interface {
+type Harness interface { //nolint:interfacebloat // the harness exposes one accessor per store surface under test
 	Store() Store
 	LemmaReview() LemmaReviewStore
 	BookState() BookStateStore
@@ -90,6 +90,7 @@ type Harness interface {
 	Study() StudyStore
 	StudyProgress() StudyProgressStore
 	StudyCorrections() StudyCorrectionsStore
+	StudyReports() StudyReportStore
 	StudyFluency() StudyFluencyStore
 	Seeds() Seeder
 }
@@ -326,6 +327,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, catalogueScenarios()...)
 	scenarios = append(scenarios, studyScenarios()...)
 	scenarios = append(scenarios, studyCorrectionsScenarios()...)
+	scenarios = append(scenarios, studyReportScenarios()...)
 	scenarios = append(scenarios, studyFluencyScenarios()...)
 	scenarios = append(scenarios, chosenBookScenarios()...)
 	return append(scenarios, bookStateScenarios()...)

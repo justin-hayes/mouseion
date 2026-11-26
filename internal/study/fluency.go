@@ -82,6 +82,9 @@ type FluencyStore interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
 	RecordStudyFluencyContext(ctx context.Context, owner string, record domain.FluencyContextRecord) error
+	// ListRetiredStudyOccurrences names the occurrences the learner reported as
+	// an unsuitable context for the word; none is ever asked about (ADR 0135 §3).
+	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
 }
 
 // FluencyEnricher asks the provider whether an occurrence uses the learned
@@ -244,7 +247,11 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 	if reading.IsActive() {
 		priority, lookupPriority = reading.BookID, reading.BookID
 	}
-	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, lookupPriority)
+	retired, err := w.Store.ListRetiredStudyOccurrences(ctx, owner, word.ID)
+	if err != nil {
+		return nil, err
+	}
+	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +277,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 // occurrences the sentence-quality gate accepts, leaving out the occurrences
 // already assessed and the word's own introducing sentence, wherever else the
 // library repeats that text.
-func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, lookupPriority string) ([]sentenceChoice, error) {
+func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string) ([]sentenceChoice, error) {
 	introducing := strings.TrimSpace(material.Sentence)
 	var kept []sentenceChoice
 	for page := 1; page <= maxFluencyPages; page++ {
@@ -281,7 +288,7 @@ func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word
 		if err != nil {
 			return nil, err
 		}
-		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyIdentity, result.Occurrences)
+		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyIdentity, result.Occurrences, retired)
 		if err != nil {
 			return nil, err
 		}

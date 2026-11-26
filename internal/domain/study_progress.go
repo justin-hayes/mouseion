@@ -64,6 +64,11 @@ func NewStudyMemory(now time.Time) StudyMemory {
 	return StudyMemory{State: StudyStateNew, Due: now.UTC()}
 }
 
+// StudyWithdrawnNoSuitableContext is the reason a word is withdrawn when no
+// other context passes the sentence-quality gate after an Unsuitable-context
+// report (ADR 0135 §3).
+const StudyWithdrawnNoSuitableContext = "no_suitable_context"
+
 // StudyProgress is one word in study (ADR 0134 §2): its scheduling state, when
 // it was introduced, the meaning it was learned with and the Study material it
 // is currently reviewed in. It belongs to the word, never to a Book.
@@ -77,6 +82,21 @@ type StudyProgress struct {
 	// Withdrawn marks a word a correction left with no valid occurrence. Its
 	// progress is kept and it is not due.
 	Withdrawn bool
+	// WithdrawnReason says why the word was withdrawn: empty for a withdrawal
+	// by a correction, StudyWithdrawnNoSuitableContext when every context was
+	// reported as unsuitable.
+	WithdrawnReason string
+	// Held marks a word with an open Wrong-word report (ADR 0135 §2). It is
+	// derived from the open reports, never stored on the word: a held word gets
+	// no reviews, is not part of Today's finish line and does not fall overdue.
+	// Its progress is kept.
+	Held bool
+	// ContextReportedAt is when the learner last reported the word's context as
+	// unsuitable (ADR 0135 §3), zero when they never did. It is derived from the
+	// open Unsuitable-context reports. The reported review is ungraded and the
+	// word is re-introduced from another context, so it waits for the next Study
+	// day (StudyContextReplaced).
+	ContextReportedAt time.Time
 	// CorrectedAt is when a correction re-introduced the word in new Study
 	// material, zero for a word never corrected. Reintroducing is true while
 	// the word's replacement material is still being prepared: the review is
@@ -84,6 +104,14 @@ type StudyProgress struct {
 	CorrectedAt          time.Time
 	Reintroducing        bool
 	CreatedAt, UpdatedAt time.Time
+}
+
+// StudyContextReplaced reports that the learner reported the word's context as
+// unsuitable on the current Study day. The word is not shown again today, and
+// is not part of Today's finish line: it is re-introduced from another context
+// on the next Study day, with its schedule untouched.
+func (p StudyProgress) StudyContextReplaced(now time.Time) bool {
+	return !p.ContextReportedAt.IsZero() && !p.ContextReportedAt.Before(StudyDayStart(now))
 }
 
 // Corrected reports that the word's card is its re-introduction after a
@@ -210,18 +238,18 @@ var (
 // and whose current Study material is ready fill the rest, up to
 // StudyBatchSize. A word whose material is still being prepared or is
 // unpreparable is passed over, so a batch never holds a card with missing
-// material. ordered must already be in stream order.
-func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, now time.Time) []StudyBatchWord {
+// material. A held word (an open Wrong-word report, ADR 0135 §2) is passed
+// over too: held names the identities held by a report that left no Study
+// progress, and a held word in progress is never carried over. ordered must
+// already be in stream order.
+func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, held []StudyIdentity, now time.Time) []StudyBatchWord {
 	ready := make(map[StudyIdentity]string, len(material))
 	for _, item := range material {
 		if item.State == StudyMaterialReady {
 			ready[item.StudyIdentity] = item.ID
 		}
 	}
-	inStudy := make(map[StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
+	inStudy := studyIdentitySet(progress, held)
 	batch := make([]StudyBatchWord, 0, StudyBatchSize)
 	for _, item := range StudyCarryOver(progress, now) {
 		if len(batch) == StudyBatchSize {
@@ -244,13 +272,10 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 
 // StudyBatchLookup returns the identities NextStudyBatch can fill a batch
 // with from the stream: words whose material is ready and that are not in
-// study. Only these need their place in the stream, so a store need not read
-// the other candidates.
-func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress) []StudyIdentity {
-	inStudy := make(map[StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
+// study or held. Only these need their place in the stream, so a store need not
+// read the other candidates.
+func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress, held []StudyIdentity) []StudyIdentity {
+	inStudy := studyIdentitySet(progress, held)
 	var identities []StudyIdentity
 	for _, item := range material {
 		if item.State == StudyMaterialReady && !inStudy[item.StudyIdentity] {
@@ -260,13 +285,11 @@ func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress) []Stud
 	return identities
 }
 
-// WithoutStudyProgress drops the candidates already in study, so preparation
-// and batches only look ahead at new words.
-func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress) []StudyCandidate {
-	inStudy := make(map[StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
+// WithoutStudyProgress drops the candidates already in study or held by a
+// report, so preparation and batches only look ahead at new words that can be
+// introduced.
+func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress, held []StudyIdentity) []StudyCandidate {
+	inStudy := studyIdentitySet(progress, held)
 	remaining := make([]StudyCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !inStudy[candidate.StudyIdentity] {
@@ -274,4 +297,17 @@ func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress)
 		}
 	}
 	return remaining
+}
+
+// studyIdentitySet is the words a batch cannot introduce: those in study and
+// those held by a report.
+func studyIdentitySet(progress []StudyProgress, held []StudyIdentity) map[StudyIdentity]bool {
+	set := make(map[StudyIdentity]bool, len(progress)+len(held))
+	for _, item := range progress {
+		set[item.StudyIdentity] = true
+	}
+	for _, identity := range held {
+		set[identity] = true
+	}
+	return set
 }

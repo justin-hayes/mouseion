@@ -158,3 +158,43 @@ func ReviewStudyEvidence(e StudyEvidence) StudyEvidenceAction {
 		return StudyEvidenceReintroduce
 	}
 }
+
+// RetiredStudyOccurrence reports whether the occurrence is in a sentence the
+// learner retired as the word's context with an Unsuitable-context report
+// (ADR 0135 §3). The report retires the sentence, so every token of the word in
+// it is retired, whichever token was reported. The retired refs name the
+// sentence in each run it is known in: the run it was reported in, and the
+// Book's current run when an Analysis update carried the reported token there
+// (same source span, surface and source lemma, as a Lemma correction is
+// carried). The store resolves them; this matches by run and sentence.
+func RetiredStudyOccurrence(retired []StudyOccurrenceRef, ref StudyOccurrenceRef) bool {
+	for _, item := range retired {
+		if item.sameSentence(ref) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameSentence reports that the other ref is in the same sentence of the same
+// analysis run, whatever its token.
+func (r StudyOccurrenceRef) sameSentence(o StudyOccurrenceRef) bool {
+	return r.BookID == o.BookID && r.AnalysisRunID == o.AnalysisRunID && r.CorpusID == o.CorpusID && r.SentenceOrdinal == o.SentenceOrdinal
+}
+
+// WithoutRetiredStudyOccurrences drops the retired occurrences from the list.
+func WithoutRetiredStudyOccurrences(refs, retired []StudyOccurrenceRef) []StudyOccurrenceRef {
+	if len(retired) == 0 {
+		return refs
+	}
+	return slices.DeleteFunc(slices.Clone(refs), func(ref StudyOccurrenceRef) bool { return RetiredStudyOccurrence(retired, ref) })
+}
+
+// StudyRef is the occurrence a concordance result names, with its locator.
+func (o ConcordanceResultOccurrence) StudyRef() StudyOccurrenceRef {
+	return StudyOccurrenceRef{
+		BookID: o.BookID, AnalysisRunID: o.AnalysisRunID, CorpusID: o.CorpusID,
+		SentenceOrdinal: o.SentenceOrdinal, TokenOrdinal: o.TokenOrdinal,
+		UnitID: o.UnitID, StartOffset: o.UnitStartOffset, EndOffset: o.UnitEndOffset,
+	}
+}

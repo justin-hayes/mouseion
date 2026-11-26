@@ -174,7 +174,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 
 	var sentenceStudy, lemmaReview, concordanceError, concordanceChanged bytes.Buffer
 	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/vocabulary/concordance", "").Render(context.Background(), &sentenceStudy))
-	require.NoError(t, LemmaReviewPage(domain.User{Username: "learner"}, "csrf", "book", "Book", "", "", true, nil, nil, lemmareview.Recovery{}, nil).Render(context.Background(), &lemmaReview))
+	require.NoError(t, LemmaReviewPage(domain.User{Username: "learner"}, "csrf", "book", "Book", "", "", true, nil, nil, lemmareview.Recovery{}, nil, nil).Render(context.Background(), &lemmaReview))
 	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false, browseOrigin{}).Render(context.Background(), &concordanceError))
 	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, browseOrigin{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), lemmaReview.String(), concordanceError.String(), concordanceChanged.String()} {
