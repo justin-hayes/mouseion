@@ -108,7 +108,7 @@ type fluencyCardView struct {
 // studyCardView is one card of Today.
 type studyCardView struct {
 	cardFace
-	ProgressID string
+	ProgressID, MaterialID string
 	// Reps is the number of grades recorded when the card was shown. Grading
 	// presents it back, so a double tap grades the card once.
 	Reps         int64
@@ -357,7 +357,7 @@ func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *
 	memory := card.Progress.Memory
 	return &studyCardView{
 		cardFace:     newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
-		ProgressID:   card.Progress.ID,
+		ProgressID:   card.Progress.ID, MaterialID: card.Progress.MaterialID,
 		Reps:         memory.Reps,
 		Introduction: memory.State == domain.StudyStateNew || memory.State == domain.StudyStateLearning,
 		Corrected:    card.Progress.Corrected(),

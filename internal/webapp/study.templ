@@ -218,6 +218,7 @@ templ studyReportForm(csrf string, view studyPageView) {
 			<input type="hidden" name="language" value={ view.Language }/>
 			<input type="hidden" name="progress" value={ view.Card.ProgressID }/>
 			<input type="hidden" name="reps" value={ fmt.Sprint(view.Card.Reps) }/>
+			<input type="hidden" name="material" value={ view.Card.MaterialID }/>
 			<fieldset>
 				<legend>What is wrong with this card?</legend>
 				<label>

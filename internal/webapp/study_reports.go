@@ -106,7 +106,9 @@ func (h *Handler) reportStudyCard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) {
+	// A form for a card whose material was replaced since is stale, though the
+	// replacement keeps the word's reps.
+	if material := strings.TrimSpace(r.FormValue("material")); (material != "" && material != current.MaterialID) || current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) {
 		redirect(w, r, back)
 		return
 	}
