@@ -30,5 +30,6 @@ func (h *Handler) undoStudyReport(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, back)
+	// The card comes back as it was reported: with its answer side shown.
+	redirect(w, r, back+"?answer=1")
 }

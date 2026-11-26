@@ -155,6 +155,13 @@ func (h *Handler) loadReportedCard(r *http.Request, owner string, view *studyPag
 	if report.Kind != domain.StudyReportUnsuitableContext || !report.Open() || report.Language != view.Language {
 		return nil
 	}
+	undoable, err := h.services.Store.Study.StudyReportUndoable(r.Context(), owner, id)
+	if err != nil {
+		return err
+	}
+	if !undoable {
+		return nil
+	}
 	face := cardFace{
 		ShowAnswer: true, Headword: lemmadisplay.Format(view.Language, report.CanonicalLemma, report.UPOS),
 		Gloss: report.Gloss, Translation: report.SentenceTranslation,

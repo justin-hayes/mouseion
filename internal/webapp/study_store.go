@@ -99,7 +99,15 @@ type StudyReportStore interface {
 	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	StudyReportUndoStore
+}
+
+// StudyReportUndoStore is the Undo of an Unsuitable-context report.
+// StudyReportUndoable is whether Undo is still offered: the report is open and
+// no other Study action followed.
+type StudyReportUndoStore interface {
 	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	StudyReportUndoable(ctx context.Context, owner, id string) (bool, error)
 }
 
 // StudyFluencyStore is the Fluency part of the Study store: the contexts of the

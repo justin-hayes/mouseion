@@ -36,7 +36,7 @@ func TestStudyUndoRestoresTheReportedWordAndItsCard(t *testing.T) {
 
 	response := s.undo(report.ID)
 	require.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/study", response.Header().Get("Location"))
+	assert.Equal(t, "/de/study?answer=1", response.Header().Get("Location"))
 
 	assert.Empty(t, s.unsuitableReports(), "the report has ended")
 	ended, err := s.store.GetStudyReport(s.ctx, s.owner.ID, report.ID)
@@ -45,6 +45,8 @@ func TestStudyUndoRestoresTheReportedWordAndItsCard(t *testing.T) {
 	restored := s.progressByID(card.ID)
 	assert.Equal(t, original.ID, restored.MaterialID, "the word is back on the reported material")
 	assert.False(t, restored.Reintroducing)
+	assert.Equal(t, card.CorrectedAt, restored.CorrectedAt, "the correction time is as it was")
+	assert.False(t, restored.Withdrawn)
 	assert.Equal(t, card.Memory, restored.Memory, "Undo never touches the schedule")
 	assert.Equal(t, card.ID, s.currentCard().ID, "the reported card is due again")
 	assert.Contains(t, s.page(), original.TargetWord, "the reported sentence is shown again")
@@ -71,6 +73,7 @@ func TestStudyUndoIsRefusedOnceAnotherStudyActionFollowed(t *testing.T) {
 	response := s.undo(report.ID)
 	require.Equal(t, http.StatusSeeOther, response.Code, "a refusal redirects back like a stale grade")
 	require.Len(t, s.unsuitableReports(), 1, "the report stands")
+	assert.NotContains(t, getAs(t, s.h, "/de/study?reported="+report.ID, s.cookies).Body.String(), `id="study-reported-undo"`, "the offer ends with the next Study action")
 	assert.Equal(t, replaced.MaterialID, s.progressByID(card.ID).MaterialID, "nothing changed")
 }
 

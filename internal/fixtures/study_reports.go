@@ -378,6 +378,23 @@ func (s *Store) UndoStudyReport(_ context.Context, owner, id string, now time.Ti
 	}
 	delete(s.studySuperseded, report.PreviousMaterialID)
 	progress.MaterialID, progress.LearnedMeaning, progress.CorrectedAt = report.PreviousMaterialID, report.PreviousLearnedMeaning, report.PreviousCorrectedAt
+	if progress.WithdrawnReason == domain.StudyWithdrawnNoSuitableContext {
+		progress.Withdrawn = false
+	}
+	progress.WithdrawnReason = ""
 	progress.UpdatedAt = now.UTC()
 	return nil
+}
+
+// StudyReportUndoable reports whether the report is an open Unsuitable-context
+// report that no other Study action has followed.
+func (s *Store) StudyReportUndoable(_ context.Context, owner, id string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	index := s.openReportIndexLocked(owner, id)
+	if index < 0 || s.studyReports[index].Kind != domain.StudyReportUnsuitableContext {
+		return false, nil
+	}
+	report := s.studyReports[index]
+	return !s.studyActionSince(owner, report.Language, s.studyReportSeq[report.ID]), nil
 }

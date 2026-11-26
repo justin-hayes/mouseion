@@ -98,7 +98,6 @@ test.describe('Study reports', () => {
 
     // The report has ended and the reported word's card is back.
     await expect(page.locator('#study-reported')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Show answer' }).click();
     await expect(page.locator('#study-headword')).toHaveText(reported);
   });
 });

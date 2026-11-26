@@ -322,6 +322,31 @@ func (s *PostgresStore) UndoStudyReport(ctx context.Context, owner, id string, n
 	})
 }
 
+// StudyReportUndoable reports whether the report is an open Unsuitable-context
+// report that no other Study action has followed, so Undo is still offered.
+func (s *PostgresStore) StudyReportUndoable(ctx context.Context, owner, id string) (bool, error) {
+	if !validUUID(id) {
+		return false, nil
+	}
+	q := sqlcgen.New(s.pool)
+	row, err := q.GetStudyReport(ctx, sqlcgen.GetStudyReportParams{Owner: owner, ID: id})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get study report: %w", err)
+	}
+	report := studyReportFromRow(row)
+	if !report.Open() || report.Kind != domain.StudyReportUnsuitableContext {
+		return false, nil
+	}
+	acted, err := q.StudyActionSince(ctx, sqlcgen.StudyActionSinceParams{Owner: owner, Language: report.Language, Since: row.RecordedAt, Report: id})
+	if err != nil {
+		return false, fmt.Errorf("study action since: %w", err)
+	}
+	return !acted, nil
+}
+
 // restoreReportedMaterial returns the word to the material it was reported in:
 // any replacement is itself replaced, the reported record is current again and
 // the word's learned meaning and correction time are as they were.
