@@ -53,6 +53,9 @@ candidates**, **Reserved vocabulary**, **Unknown vocabulary**,
 **Lemma review flag** and **Lemma suggestion**, and **Reading** as a page.
 Reading completion then records history only. Until the cutover, those entries
 describe the running system.
+[ADR 0137](doc/adr/0137-idioms-are-study-items.md) (accepted, implementation
+pending) defines **Study item** below and makes an **Idiom** one, ahead of the
+cutover.
 
 ## Language
 
@@ -182,7 +185,9 @@ A multi-word lexeme with its own dictionary entry, such as Italian *in gamba*
 ("capable") or *macchina da scrivere* ("typewriter"), whose meaning belongs to
 the whole expression rather than to any one of its words. A proper name
 (*La Calamita*, *Palazzo Madama*) is never an idiom. An idiom is card-only:
-it has no Known, Reserved, Unknown or Generated state. It is not a
+it has no Known, Reserved, Unknown or Generated state. In Study it is a Study
+item in its own right, matched across the Corpus and confirmed by the
+provider sentence by sentence. It is not a
 Construction, which is a syntactic pattern rather than a lexeme.
 _Avoid_: multi-word expression (fine in prose), collocation, phrase,
 construction.
@@ -782,6 +787,15 @@ learner may take or decline. Taking one introduces its words. A daily cap
 limits how many are offered, and fewer, or none, are offered when the
 forecast review load is high.
 _Avoid_: daily new allowance, new-card limit, quota.
+
+**Study item**:
+What Study introduces and reviews: a word (a vocabulary identity) or an Idiom,
+which is identified by its study language and dictionary headword. Each Study
+item has its own Study progress and Learned meaning, and takes one place in a
+New-word batch. Neither kind needs the other: an Idiom is introduced whether or
+not its member words are in study. "Word" means a vocabulary identity only, so
+coverage, which counts word tokens, is unchanged by Idioms.
+_Avoid_: learning item, card, entry, word (for an Idiom).
 
 **In study**:
 A word Today has introduced, which therefore has Study progress. A word stays
