@@ -323,21 +323,28 @@ func (h *Handler) studyBatchOffer(r *http.Request, owner, language string, progr
 
 // nextStudyBatch is the batch Today would offer now: the words carried over
 // from earlier Study days, then the first ready words in stream order that are
-// not in study.
+// not in study and not held by a Wrong-word report.
 func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) ([]domain.StudyBatchWord, error) {
 	store := h.services.Store.Study
 	material, err := store.ListCurrentStudyMaterial(r.Context(), owner, language)
 	if err != nil {
 		return nil, err
 	}
-	// Only a word whose material is ready can be offered, so only those words
-	// need their place in the stream: the rest of the library's candidates are
-	// never read.
-	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, domain.StudyBatchLookup(material, progress))
+	// A word held by a report that left it no Study progress is passed over too;
+	// the open reports are few, and their identities are all that is read.
+	reports, err := store.ListOpenStudyReports(r.Context(), owner, language, domain.StudyReportWrongWord)
 	if err != nil {
 		return nil, err
 	}
-	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, now), nil
+	held := domain.StudyHeldIdentities(reports)
+	// Only a word whose material is ready can be offered, so only those words
+	// need their place in the stream: the rest of the library's candidates are
+	// never read.
+	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, domain.StudyBatchLookup(material, progress, held))
+	if err != nil {
+		return nil, err
+	}
+	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
 }
 
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {

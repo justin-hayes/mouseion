@@ -70,6 +70,13 @@ func createStudyReport(ctx context.Context, q *sqlcgen.Queries, owner string, re
 	if err != nil {
 		return domain.StudyReport{}, fmt.Errorf("create study report: %w", err)
 	}
+	if record.Kind == domain.StudyReportWrongWord && progress.Memory.Reps == 0 {
+		// A word never graded stays unintroduced while it is held: it has no
+		// Study progress to hold. The report keeps naming it.
+		if _, err := q.DeleteUnreviewedStudyProgress(ctx, sqlcgen.DeleteUnreviewedStudyProgressParams{Owner: owner, ID: record.ProgressID}); err != nil {
+			return domain.StudyReport{}, fmt.Errorf("remove unreviewed study progress: %w", err)
+		}
+	}
 	return studyReportFromRow(created), nil
 }
 

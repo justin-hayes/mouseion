@@ -115,6 +115,11 @@ type Querier interface {
 	DeleteOpdsConnection(ctx context.Context, arg DeleteOpdsConnectionParams) (int64, error)
 	DeleteSelectedSentences(ctx context.Context, arg DeleteSelectedSentencesParams) error
 	DeleteSession(ctx context.Context, tokenHash string) error
+	// A Wrong-word report of a word with no graded review leaves it unintroduced
+	// (ADR 0135 §2): its Study progress goes, and the report keeps naming the word
+	// (study_report.progress_id is set to null). A word with a graded review is
+	// left alone.
+	DeleteUnreviewedStudyProgress(ctx context.Context, arg DeleteUnreviewedStudyProgressParams) (int64, error)
 	// A deleted connection takes the covers no Book selects; a selected image stays.
 	DeleteUnusedCatalogEntryCoversForConnection(ctx context.Context, arg DeleteUnusedCatalogEntryCoversForConnectionParams) error
 	DeleteUserSessions(ctx context.Context, userID string) error
@@ -348,8 +353,8 @@ type Querier interface {
 	InsertStudyFluencyContext(ctx context.Context, arg InsertStudyFluencyContextParams) (string, error)
 	// Introduces a word from its ready, current Study material: the word enters
 	// study new and due now, with the material's Gloss as its learned meaning. A
-	// word already in study, or whose material is not ready and current, returns
-	// no row.
+	// word already in study, held by an open Wrong-word report, or whose material
+	// is not ready and current, returns no row.
 	IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error)
 	IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error)
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)

@@ -90,6 +90,15 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 		s.studyReportSeq = map[string]int{}
 	}
 	s.studyReportSeq[report.ID] = len(s.studyActions)
+	if record.Kind == domain.StudyReportWrongWord && progress.Memory.Reps == 0 {
+		// A word never graded stays unintroduced while it is held: it has no
+		// Study progress to hold. The stored report keeps naming the word.
+		s.removeStudyProgressLocked(owner, progress.ID)
+		stored := report
+		stored.ProgressID = ""
+		s.studyReports = append(s.studyReports, stored)
+		return report, nil
+	}
 	s.studyReports = append(s.studyReports, report)
 	return report, nil
 }
@@ -184,6 +193,24 @@ func (s *Store) openReportIndexLocked(owner, id string) int {
 		}
 	}
 	return -1
+}
+
+// nextStudyProgressIDLocked returns an ID no word has had, even one since
+// removed. The caller holds s.mu.
+func (s *Store) nextStudyProgressIDLocked() string {
+	s.studyProgressSeq++
+	return fmt.Sprintf("fixture-study-progress-%d", s.studyProgressSeq)
+}
+
+// removeStudyProgressLocked drops a word's Study progress. The caller holds
+// s.mu.
+func (s *Store) removeStudyProgressLocked(owner, id string) {
+	for i := range s.studyProgress {
+		if s.studyProgress[i].OwnerID == owner && s.studyProgress[i].ID == id {
+			s.studyProgress = append(s.studyProgress[:i], s.studyProgress[i+1:]...)
+			return
+		}
+	}
 }
 
 func (s *Store) progressByIDLocked(owner, id string) *domain.StudyProgress {

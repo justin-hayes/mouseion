@@ -273,7 +273,11 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	for _, item := range material {
 		states[item.StudyIdentity] = item.State
 	}
-	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress))
+	reports, err := s.Store.ListOpenStudyReports(ctx, owner, language, domain.StudyReportWrongWord)
+	if err != nil {
+		return err
+	}
+	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)))
 	for _, target := range domain.StudyPreparationTargets(ordered, states) {
 		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyIdentity)
 		if err != nil {

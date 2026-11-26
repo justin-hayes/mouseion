@@ -151,7 +151,7 @@ func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyIdentity,
 		SentenceTranslation: content.SentenceTranslation, SentenceTranslationTargets: content.SentenceTranslationTargets,
 		CreatedAt: now, UpdatedAt: now,
 	})
-	id := fmt.Sprintf("fixture-study-progress-%d", len(s.studyProgress)+1)
+	id := s.nextStudyProgressIDLocked()
 	s.studyProgress = append(s.studyProgress, domain.StudyProgress{
 		ID: id, OwnerID: owner, StudyIdentity: identity, MaterialID: materialID,
 		IntroducedAt: now.Add(-40 * 24 * time.Hour), LearnedMeaning: content.Gloss,

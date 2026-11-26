@@ -130,6 +130,10 @@ SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminato
   FROM study_material m
  WHERE m.owner_id = $2 AND m.id = $3 AND m.language = $4
    AND m.state = 'ready' AND m.superseded_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM study_report r
+                    WHERE r.owner_id = m.owner_id AND r.language = m.language AND r.canonical_lemma = m.canonical_lemma
+                      AND r.upos = m.upos AND r.lexical_discriminator = m.lexical_discriminator
+                      AND r.kind = 'wrong_word' AND r.ended_at IS NULL)
 ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
 RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason
 `
@@ -143,8 +147,8 @@ type IntroduceStudyWordParams struct {
 
 // Introduces a word from its ready, current Study material: the word enters
 // study new and due now, with the material's Gloss as its learned meaning. A
-// word already in study, or whose material is not ready and current, returns
-// no row.
+// word already in study, held by an open Wrong-word report, or whose material
+// is not ready and current, returns no row.
 func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error) {
 	row := q.db.QueryRow(ctx, introduceStudyWord,
 		arg.Now,

@@ -84,6 +84,29 @@ func (q *Queries) CreateStudyReport(ctx context.Context, arg CreateStudyReportPa
 	return i, err
 }
 
+const deleteUnreviewedStudyProgress = `-- name: DeleteUnreviewedStudyProgress :execrows
+DELETE FROM study_progress p
+ WHERE p.owner_id = $1 AND p.id = $2 AND p.reps = 0
+   AND NOT EXISTS (SELECT 1 FROM study_review_log l WHERE l.owner_id = p.owner_id AND l.progress_id = p.id)
+`
+
+type DeleteUnreviewedStudyProgressParams struct {
+	Owner string
+	ID    string
+}
+
+// A Wrong-word report of a word with no graded review leaves it unintroduced
+// (ADR 0135 §2): its Study progress goes, and the report keeps naming the word
+// (study_report.progress_id is set to null). A word with a graded review is
+// left alone.
+func (q *Queries) DeleteUnreviewedStudyProgress(ctx context.Context, arg DeleteUnreviewedStudyProgressParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUnreviewedStudyProgress, arg.Owner, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const endStudyReport = `-- name: EndStudyReport :execrows
 UPDATE study_report
    SET ended_at = $1::timestamptz, end_reason = $2::text
