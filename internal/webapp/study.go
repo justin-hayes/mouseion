@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -137,19 +138,35 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
-		view.SourceNotices = pageSourceNotices(view)
+		view.SourceNotices = h.pageSourceNotices(r.Context(), owner, view)
 	}
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
 }
 
-// pageSourceNotices are the notices of a source-evidence language's Study page:
-// those of the card shown, which carry the pins in use, or else the language's
-// own.
-func pageSourceNotices(view studyPageView) []string {
-	if view.Card != nil && len(view.Card.Source.Notices()) > 0 {
-		return view.Card.Source.Notices()
+// pageSourceNotices are the notices of a source-evidence language's Study page,
+// each with its pin and licence (ADR 0138 §3). The dictionary's pin is the
+// loaded index's own, and the translation pins are those of the passages the
+// learner's Study material carries and the card shows, so an idle page credits
+// what a card would, with no card to read them from.
+func (h *Handler) pageSourceNotices(ctx context.Context, owner string, view studyPageView) []string {
+	policy := cardpolicy.For(view.Language)
+	pin := dictionaryPin(h.services.Dictionary, policy)
+	var passagePins []string
+	if view.Card != nil {
+		if pin == "" {
+			pin = view.Card.Source.dictionaryPin
+		}
+		passagePins = append(passagePins, view.Card.Source.passagePin)
 	}
-	return sourceNotices(cardpolicy.For(view.Language), "", "")
+	if material, err := h.services.Store.Study.ListCurrentStudyMaterial(ctx, owner, view.Language); err == nil {
+		for _, item := range material {
+			passagePins = append(passagePins, item.Passage.TranslationPin)
+		}
+	} else {
+		log.Printf("mouseion: list study material for source notices: %v", err)
+	}
+	slices.Sort(passagePins)
+	return sourceNotices(policy, pin, passagePins...)
 }
 
 // prepareStudyView reconciles the learner's Study reports and corrections,

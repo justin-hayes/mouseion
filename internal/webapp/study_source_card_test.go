@@ -3,6 +3,7 @@ package webapp
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
@@ -26,6 +27,8 @@ func (lsjCardLexicon) Version() string { return "1" }
 func (lsjCardLexicon) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return enrichment.LexicalEntry{}, false, nil
 }
+
+func (l lsjCardLexicon) AncientGreekLSJPin() string { return l.pin }
 
 func (l lsjCardLexicon) LookupAncientGreekLSJ(_ context.Context, lemma string) (enrichment.AncientGreekLSJEntry, bool) {
 	if lemma != cardLSJLemma {
@@ -178,4 +181,48 @@ func TestSourceCardWithoutADictionaryShowsNoOutline(t *testing.T) {
 	view := newStudyCardView("grc", card, true)
 	attachSourceEvidence(t.Context(), nil, "grc", card, view)
 	assert.Empty(t, view.Source.Entries)
+}
+
+// sharedSenseLexicon stacks two Lewis & Short homographs that both hold a sense
+// "s1", as the source's sense IDs are only unique within an entry.
+type sharedSenseLexicon struct{ lsjCardLexicon }
+
+func (sharedSenseLexicon) LookupLatinLS(context.Context, string) ([]enrichment.LatinLSEntry, bool) {
+	return []enrichment.LatinLSEntry{
+		{EntryID: "n1", Headword: "sum", Orth: "sum", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{{ID: "s1", Number: "I", Level: 1, Definitions: []string{"to take"}}}},
+		{EntryID: "n2", Headword: "sum", Orth: "sum", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{{ID: "s1", Number: "I", Level: 1, Definitions: []string{"to be"}}}},
+	}, true
+}
+
+func TestSourceCardMarksTheSenseOnlyInTheCitedHomograph(t *testing.T) {
+	cited := domain.StudyCitations{SenseIDs: []string{"s1"}, EntryIDs: []string{"n2"}, DictionaryPin: "ls-pin"}
+	card := domain.StudyCard{
+		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "la", CanonicalLemma: "sum", UPOS: "VERB"}, LearnedMeaning: "be", LearnedCitations: cited},
+		Material: domain.StudyMaterial{Sentence: "sum.", TargetWord: "sum", Cited: cited},
+	}
+	view := newStudyCardView("la", card, true)
+	attachSourceEvidence(t.Context(), sharedSenseLexicon{}, "la", card, view)
+
+	require.Len(t, view.Source.Entries, 1, "only the cited homograph is shown")
+	require.Len(t, view.Source.Entries[0].Outline, 1)
+	assert.Equal(t, "to be", view.Source.Entries[0].Outline[0].Definitions)
+	assert.True(t, view.Source.Entries[0].Outline[0].Cited)
+
+	both := cited
+	both.SenseIDs, both.EntryIDs = []string{"s1", "s1"}, []string{"n1", "n2"}
+	card.Progress.LearnedCitations, card.Material.Cited = both, both
+	attachSourceEvidence(t.Context(), sharedSenseLexicon{}, "la", card, view)
+	require.Len(t, view.Source.Entries, 2)
+	for _, entry := range view.Source.Entries {
+		assert.True(t, entry.Outline[0].Cited, entry.Outline[0].Definitions)
+	}
+}
+
+func TestSourceCardKeepsTheDictionaryPinWhenTheCitedEntryIsGone(t *testing.T) {
+	card := greekCard(cardLSJPinOne, domain.StudyPassage{})
+	card.Progress.LearnedCitations.EntryIDs = []string{"lsj-gone"}
+	view := newStudyCardView("grc", card, true)
+	attachSourceEvidence(t.Context(), lsjCardLexicon{pin: cardLSJPinOne}, "grc", card, view)
+	assert.Empty(t, view.Source.Entries)
+	assert.Contains(t, strings.Join(view.Source.Notices(), "\n"), "PerseusDL/lexica@"+cardLSJPinOne, "the dictionary in use is still credited with its pin")
 }
