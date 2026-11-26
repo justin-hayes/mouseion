@@ -29,6 +29,10 @@ type MaterialStore interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 	RecordStudyMaterialReady(ctx context.Context, owner, id string, content domain.StudyMaterialReadyContent) error
 	RecordStudyMaterialUnpreparable(ctx context.Context, owner, id, reason string) error
+	// RecordStudyMaterialNoDictionaryEntry records the no-dictionary-entry
+	// omission with the dictionary pin it was made against, so the word is tried
+	// again when the pin changes and not before.
+	RecordStudyMaterialNoDictionaryEntry(ctx context.Context, owner, id, pin string) error
 	// ListStudyOccurrences and SetStudyMaterialEvidence record what an attempt
 	// saw when a word is found unpreparable, so it is not tried again on the
 	// same evidence.
@@ -120,14 +124,27 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 
 // unpreparable records the occurrences the attempt saw and then the omission.
 func (w *MaterialWorker) unpreparable(ctx context.Context, owner, id string, identity domain.StudyIdentity, reason string) error {
+	if err := w.recordSeenEvidence(ctx, owner, id, identity); err != nil {
+		return err
+	}
+	return w.Store.RecordStudyMaterialUnpreparable(ctx, owner, id, reason)
+}
+
+// unpreparableNoDictionaryEntry records the occurrences the attempt saw and then
+// the no-dictionary-entry omission with the pin of the dictionary that was asked.
+func (w *MaterialWorker) unpreparableNoDictionaryEntry(ctx context.Context, owner, id string, identity domain.StudyIdentity, pin string) error {
+	if err := w.recordSeenEvidence(ctx, owner, id, identity); err != nil {
+		return err
+	}
+	return w.Store.RecordStudyMaterialNoDictionaryEntry(ctx, owner, id, pin)
+}
+
+func (w *MaterialWorker) recordSeenEvidence(ctx context.Context, owner, id string, identity domain.StudyIdentity) error {
 	seen, err := w.Store.ListStudyOccurrences(ctx, owner, identity)
 	if err != nil {
 		return err
 	}
-	if err := w.Store.SetStudyMaterialEvidence(ctx, owner, id, domain.StudyEvidenceFingerprint(seen)); err != nil {
-		return err
-	}
-	return w.Store.RecordStudyMaterialUnpreparable(ctx, owner, id, reason)
+	return w.Store.SetStudyMaterialEvidence(ctx, owner, id, domain.StudyEvidenceFingerprint(seen))
 }
 
 // sentenceChoice is the Representative sentence chosen for a word.

@@ -41,3 +41,11 @@ func (h *contractHarness) RelocateStudyMaterial(owner, materialID string, ref do
 func (h *contractHarness) SetStudyMaterialEvidence(owner, materialID, evidence string) error {
 	return h.store.SetStudyMaterialEvidence(context.Background(), owner, materialID, evidence)
 }
+
+func (h *contractHarness) RecordStudyMaterialNoDictionaryEntry(owner, materialID, pin string) error {
+	return h.store.RecordStudyMaterialNoDictionaryEntry(context.Background(), owner, materialID, pin)
+}
+
+func (h *contractHarness) ReopenStudyMaterialNoDictionaryEntry(owner, materialID, pin string) error {
+	return h.store.ReopenStudyMaterialNoDictionaryEntry(context.Background(), owner, materialID, pin)
+}

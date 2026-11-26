@@ -20,6 +20,7 @@ type greekLexicon struct {
 	entry enrichment.AncientGreekLSJEntry
 	found bool
 	calls int
+	pin   string
 	// homographs, when set, are every entry the Study lookup returns for any lemma.
 	homographs []enrichment.AncientGreekLSJEntry
 }
@@ -29,6 +30,9 @@ func (l *greekLexicon) Version() string { return "stub-v1" }
 func (l *greekLexicon) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return enrichment.LexicalEntry{}, false, nil
 }
+
+// AncientGreekLSJPin is the pin of the loaded index; it is empty when pin is.
+func (l *greekLexicon) AncientGreekLSJPin() string { return l.pin }
 
 func (l *greekLexicon) LookupAncientGreekLSJ(context.Context, string) (enrichment.AncientGreekLSJEntry, bool) {
 	l.calls++
@@ -155,9 +159,10 @@ func TestSourceEvidenceOmitsAMeaningTheEvidenceCannotDefend(t *testing.T) {
 
 func TestSourceEvidenceWordWithNoDictionaryEntryAsksNoProvider(t *testing.T) {
 	f := newGreekFixture(t)
-	f.lexicon.found = false
+	f.lexicon.found, f.lexicon.pin = false, " lsj-pin-1 "
 	require.NoError(t, work(f.worker))
 	assert.Equal(t, domain.StudyOmissionNoDictionaryEntry, f.store.unpreparable)
+	assert.Equal(t, "lsj-pin-1", f.store.omissionPin, "the omission records the dictionary pin it was made against")
 	assert.Empty(t, f.enricher.passRequests, "no entry, no provider call")
 	assert.Empty(t, f.enricher.requests)
 	assert.Nil(t, f.store.ready)
@@ -327,6 +332,43 @@ func TestLatinStudyRecordsTheCitedEntryWhenHomographsShareASenseID(t *testing.T)
 	require.NotNil(t, f.store.ready)
 	assert.Equal(t, []string{"n9.0"}, f.store.ready.Cited.SenseIDs)
 	assert.Equal(t, []string{"n10"}, f.store.ready.Cited.EntryIDs)
+}
+
+func TestDictionaryPinIsTheLoadedIndexsPinForThePoliciesDictionary(t *testing.T) {
+	lexicon := &greekLexicon{pin: " lsj-pin-1 "}
+	assert.Equal(t, "lsj-pin-1", DictionaryPin(lexicon, cardpolicy.For("grc")))
+	assert.Empty(t, DictionaryPin(lexicon, cardpolicy.For("la")), "an index that does not say has no pin")
+	assert.Empty(t, DictionaryPin(lexicon, cardpolicy.For("de")), "a modern language has no dictionary")
+	assert.Empty(t, DictionaryPin(nil, cardpolicy.For("grc")))
+}
+
+type pinnedLatinLexicon struct{ greekLexicon }
+
+func (*pinnedLatinLexicon) LatinLSPin() string { return " ls-pin-1 " }
+
+func TestDictionaryPinOfLatinIsTheLewisAndShortPin(t *testing.T) {
+	assert.Equal(t, "ls-pin-1", DictionaryPin(&pinnedLatinLexicon{}, cardpolicy.For("la")))
+	assert.Empty(t, DictionaryPin(&pinnedLatinLexicon{}, cardpolicy.For("grc")), "Greek reads LSJ's pin, which this index does not give")
+}
+
+func TestSourceEvidenceWordStillWithoutAnEntryIsRecordedAgainstTheNewPin(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.found, f.lexicon.pin = false, "lsj-pin-1"
+	require.NoError(t, work(f.worker))
+	require.Equal(t, "lsj-pin-1", f.store.omissionPin)
+
+	f.lexicon.pin = "lsj-pin-2"
+	require.NoError(t, work(f.worker))
+	assert.Equal(t, "lsj-pin-2", f.store.omissionPin, "a retry that still finds no entry is unpreparable under the new pin")
+	assert.Empty(t, f.enricher.passRequests)
+}
+
+func TestSourceEvidenceNoEntryOmissionIsNotRecordedWhenTheAttemptCannotBeRecorded(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.found = false
+	f.store.occurrencesErr = errors.New("database down")
+	require.ErrorContains(t, work(f.worker), "database down")
+	assert.Empty(t, f.store.unpreparable, "River retries the job; nothing is recorded")
 }
 
 func twoLegoEntries() []enrichment.AncientGreekLSJEntry {

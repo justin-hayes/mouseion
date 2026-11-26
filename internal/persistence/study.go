@@ -80,7 +80,7 @@ func (s *PostgresStore) ListCurrentStudyMaterial(ctx context.Context, owner, lan
 		if err != nil {
 			return nil, err
 		}
-		item.EvidenceFingerprint = row.EvidenceFingerprint
+		item.EvidenceFingerprint, item.OmissionDictionaryPin = row.EvidenceFingerprint, row.OmissionDictionaryPin
 		item.Cited = domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin}
 		item.Passage = domain.StudyPassage{Text: row.PassageContext, Citation: row.PassageCitation, TranslationPin: row.PassageTranslationPin}
 		item.OwnerID = owner
@@ -108,7 +108,7 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 	if err != nil {
 		return domain.StudyMaterial{}, err
 	}
-	item.EvidenceFingerprint = row.EvidenceFingerprint
+	item.EvidenceFingerprint, item.OmissionDictionaryPin = row.EvidenceFingerprint, row.OmissionDictionaryPin
 	item.Cited = domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin}
 	item.Passage = domain.StudyPassage{Text: row.PassageContext, Citation: row.PassageCitation, TranslationPin: row.PassageTranslationPin}
 	item.OwnerID = owner
@@ -247,6 +247,42 @@ func (s *PostgresStore) RecordStudyMaterialUnpreparable(ctx context.Context, own
 	updated, err := sqlcgen.New(s.pool).MarkStudyMaterialUnpreparable(ctx, sqlcgen.MarkStudyMaterialUnpreparableParams{Owner: owner, ID: id, Reason: strings.TrimSpace(reason)})
 	if err != nil {
 		return fmt.Errorf("record study material omission: %w", err)
+	}
+	if updated == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// RecordStudyMaterialNoDictionaryEntry marks a pending source-evidence word
+// unpreparable because the dictionary has no entry for it, recording the pin of
+// the dictionary that was asked. It returns ErrNotFound when the record is
+// missing or no longer pending.
+func (s *PostgresStore) RecordStudyMaterialNoDictionaryEntry(ctx context.Context, owner, id, pin string) error {
+	if !validUUID(id) {
+		return ErrNotFound
+	}
+	updated, err := sqlcgen.New(s.pool).MarkStudyMaterialNoDictionaryEntry(ctx, sqlcgen.MarkStudyMaterialNoDictionaryEntryParams{Owner: owner, ID: id, Pin: strings.TrimSpace(pin)})
+	if err != nil {
+		return fmt.Errorf("record study material omission: %w", err)
+	}
+	if updated == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ReopenStudyMaterialNoDictionaryEntry makes a no-dictionary-entry omission
+// pending again when pin differs from the pin it was recorded against, so the
+// word is prepared against the new dictionary. It returns ErrNotFound when the
+// record is missing, is not such an omission or was made against pin.
+func (s *PostgresStore) ReopenStudyMaterialNoDictionaryEntry(ctx context.Context, owner, id, pin string) error {
+	if !validUUID(id) {
+		return ErrNotFound
+	}
+	updated, err := sqlcgen.New(s.pool).ReopenStudyMaterialNoDictionaryEntry(ctx, sqlcgen.ReopenStudyMaterialNoDictionaryEntryParams{Owner: owner, ID: id, Pin: strings.TrimSpace(pin)})
+	if err != nil {
+		return fmt.Errorf("reopen study material: %w", err)
 	}
 	if updated == 0 {
 		return ErrNotFound

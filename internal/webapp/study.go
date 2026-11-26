@@ -150,7 +150,7 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 // what a card would, with no card to read them from.
 func (h *Handler) pageSourceNotices(ctx context.Context, owner string, view studyPageView) []string {
 	policy := cardpolicy.For(view.Language)
-	pin := dictionaryPin(h.services.Dictionary, policy)
+	pin := study.DictionaryPin(h.services.Dictionary, policy)
 	var passagePins []string
 	if view.Card != nil {
 		if pin == "" {
