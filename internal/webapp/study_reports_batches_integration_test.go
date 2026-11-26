@@ -72,3 +72,20 @@ func TestStudyAHeldNewWordFromATakenBatchDoesNotReturnToTheFrontOfTheStream(t *t
 	s.gradeAll()
 	assert.Contains(t, s.page(), "2 new words are ready to learn.", "wasser and the released word")
 }
+
+func TestStudyRepeatedReportOfAnUnintroducedWordIsAHarmlessNoOp(t *testing.T) {
+	s := newStudyHarness(t)
+	s.preparedTwelve()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	s.take()
+	baum := s.word("baum")
+	require.Equal(t, http.StatusSeeOther, s.report(baum, "wrong_word", "not a tree").Code)
+	require.NotContains(t, s.studiedLemmas(), "baum", "the first report left the word with no Study progress")
+
+	// A double tap posts the same card again: not a missing word, only Today.
+	again := s.report(baum, "wrong_word", "not a tree")
+	require.Equal(t, http.StatusSeeOther, again.Code)
+	assert.Equal(t, "/de/study", again.Header().Get("Location"))
+	assert.Len(t, s.openReports(), 1, "one report")
+	assert.Equal(t, http.StatusNotFound, s.report(domain.StudyProgress{ID: "00000000-0000-4000-8000-000000000000", MaterialID: "00000000-0000-4000-8000-0000000000bb"}, "wrong_word", "").Code, "a word that was never the learner's is still not found")
+}

@@ -149,6 +149,53 @@ func (q *Queries) InsertStudyFluencyContext(ctx context.Context, arg InsertStudy
 	return id, err
 }
 
+const listAgreeingStudyFluencyContextSourcesOfWord = `-- name: ListAgreeingStudyFluencyContextSourcesOfWord :many
+SELECT book_id::text AS book_id, analysis_run_id::text AS analysis_run_id, corpus_id::text AS corpus_id, sentence_ordinal, token_ordinal
+  FROM study_fluency_context
+ WHERE owner_id = $1 AND progress_id = $2 AND agreement = 'agrees'
+`
+
+type ListAgreeingStudyFluencyContextSourcesOfWordParams struct {
+	Owner    string
+	Progress string
+}
+
+type ListAgreeingStudyFluencyContextSourcesOfWordRow struct {
+	BookID          string
+	AnalysisRunID   string
+	CorpusID        string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+}
+
+// The occurrences of one word's agreeing contexts, to count those a retired
+// sentence hides.
+func (q *Queries) ListAgreeingStudyFluencyContextSourcesOfWord(ctx context.Context, arg ListAgreeingStudyFluencyContextSourcesOfWordParams) ([]ListAgreeingStudyFluencyContextSourcesOfWordRow, error) {
+	rows, err := q.db.Query(ctx, listAgreeingStudyFluencyContextSourcesOfWord, arg.Owner, arg.Progress)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListAgreeingStudyFluencyContextSourcesOfWordRow{}
+	for rows.Next() {
+		var i ListAgreeingStudyFluencyContextSourcesOfWordRow
+		if err := rows.Scan(
+			&i.BookID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudyFluencyContextResponses = `-- name: ListStudyFluencyContextResponses :many
 SELECT r.context_id::text AS context_id, r.response, r.responded_at
   FROM study_fluency_response r

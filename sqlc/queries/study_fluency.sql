@@ -62,3 +62,10 @@ SELECT id::text AS id, context_id::text AS context_id, response, responded_at
   FROM study_fluency_response
  WHERE owner_id = sqlc.arg('owner') AND context_id = sqlc.arg('context')
  ORDER BY responded_at, created_at, id;
+
+-- name: ListAgreeingStudyFluencyContextSourcesOfWord :many
+-- The occurrences of one word's agreeing contexts, to count those a retired
+-- sentence hides.
+SELECT book_id::text AS book_id, analysis_run_id::text AS analysis_run_id, corpus_id::text AS corpus_id, sentence_ordinal, token_ordinal
+  FROM study_fluency_context
+ WHERE owner_id = sqlc.arg('owner') AND progress_id = sqlc.arg('progress') AND agreement = 'agrees';

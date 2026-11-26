@@ -54,3 +54,11 @@ func (h *postgresHarness) DismissStudyReport(owner, id string, now time.Time) er
 func (h *postgresHarness) UndoStudyReport(owner, id string, now time.Time) error {
 	return h.store.UndoStudyReport(h.ctx, owner, id, now)
 }
+
+func (h *postgresHarness) GetOpenStudyReportOfMaterial(owner, materialID string, kind domain.StudyReportKind) (domain.StudyReport, error) {
+	return h.store.GetOpenStudyReportOfMaterial(h.ctx, owner, materialID, kind)
+}
+
+func (h *postgresHarness) RetireClosedStudyReports(owner, language string, now time.Time) error {
+	return h.store.RetireClosedStudyReports(h.ctx, owner, language, now)
+}

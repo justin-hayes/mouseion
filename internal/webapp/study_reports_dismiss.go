@@ -7,6 +7,22 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// ownedStudyReport reads the report named by the request's path for a Study
+// form. A report that is missing, of another learner or of another language is
+// not found; the response is written and false returned.
+func (h *Handler) ownedStudyReport(w http.ResponseWriter, r *http.Request, language string) (domain.StudyReport, bool) {
+	report, err := h.services.Store.Study.GetStudyReport(r.Context(), user(r).ID, r.PathValue("id"))
+	if errors.Is(err, domain.ErrNotFound) || (err == nil && report.Language != language) {
+		http.NotFound(w, r)
+		return domain.StudyReport{}, false
+	}
+	if err != nil {
+		fail(w, err)
+		return domain.StudyReport{}, false
+	}
+	return report, true
+}
+
 // dismissStudyReport ends a Wrong-word report the learner no longer wants held.
 // The word's due time moves later by the time it was held, so nothing becomes
 // overdue; no grade or review-log row is written and the material and Learned
@@ -17,22 +33,12 @@ func (h *Handler) dismissStudyReport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	owner, store, id := user(r).ID, h.services.Store.Study, r.PathValue("id")
-	report, err := store.GetStudyReport(r.Context(), owner, id)
-	if errors.Is(err, domain.ErrNotFound) || (err == nil && report.Language != language) {
-		http.NotFound(w, r)
+	report, ok := h.ownedStudyReport(w, r, language)
+	if !ok {
 		return
 	}
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	if err := store.DismissStudyReport(r.Context(), owner, id, h.now()); err != nil {
-		if errors.Is(err, domain.ErrNotFound) {
-			// Already ended (a second tap, or repaired meanwhile): the list is current.
-			redirect(w, r, studyLanguagePath(pageKindStudyReports, language))
-			return
-		}
+	// Already ended (a second tap, or repaired meanwhile) leaves the list current.
+	if err := h.services.Store.Study.DismissStudyReport(r.Context(), user(r).ID, report.ID, h.now()); err != nil && !errors.Is(err, domain.ErrNotFound) {
 		fail(w, err)
 		return
 	}

@@ -57,20 +57,9 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var progress *domain.StudyProgress
-	for i := range s.studyProgress {
-		if s.studyProgress[i].OwnerID == owner && s.studyProgress[i].ID == record.ProgressID {
-			progress = &s.studyProgress[i]
-		}
-	}
-	if progress == nil {
-		return domain.StudyReport{}, errNotFound
-	}
-	if existing, ok := s.repeatedStudyReportLocked(owner, *progress, record.Kind); ok {
-		return existing, nil
-	}
-	if progress.Withdrawn || progress.Memory.Reps != record.ExpectedReps {
-		return domain.StudyReport{}, domain.ErrStudyStale
+	progress := s.progressByIDLocked(owner, record.ProgressID)
+	if existing, ok, err := s.repeatedOrStaleReportLocked(owner, progress, record); err != nil || ok {
+		return existing, err
 	}
 	material, ok := s.currentReadyMaterialLocked(owner, progress.Language, progress.MaterialID)
 	if !ok {
@@ -104,6 +93,30 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 	return report, nil
 }
 
+// repeatedOrStaleReportLocked is the check a report makes under the word's lock:
+// a repeat of a report that stands returns it, and a card answered or whose
+// material was replaced since it was shown is stale. A word with no Study
+// progress is missing unless a report of its material stands. The caller holds
+// s.mu.
+func (s *Store) repeatedOrStaleReportLocked(owner string, progress *domain.StudyProgress, record domain.StudyReportRecord) (domain.StudyReport, bool, error) {
+	if progress == nil {
+		// A word reported before its first graded review has no progress left: a
+		// repeat of that report is the report, not a missing word.
+		if existing, ok := s.openReportOfMaterialLocked(owner, record.MaterialID, record.Kind); ok {
+			return existing, true, nil
+		}
+		return domain.StudyReport{}, false, errNotFound
+	}
+	if existing, ok := s.repeatedStudyReportLocked(owner, *progress, record); ok {
+		return existing, true, nil
+	}
+	// The material the learner was shown is compared under the lock.
+	if progress.Withdrawn || progress.Memory.Reps != record.ExpectedReps || (record.MaterialID != "" && progress.MaterialID != record.MaterialID) {
+		return domain.StudyReport{}, false, domain.ErrStudyStale
+	}
+	return domain.StudyReport{}, false, nil
+}
+
 // supersedeReportedLocked re-introduces the word of an Unsuitable-context
 // report: its reported material is replaced, so new material is prepared from
 // another context (ADR 0135 §3). The caller holds s.mu.
@@ -117,19 +130,62 @@ func (s *Store) supersedeReportedLocked(kind domain.StudyReportKind, materialID 
 	s.studySuperseded[materialID] = true
 }
 
-// repeatedStudyReportLocked finds the open report a new report of the kind
-// would repeat: a Wrong-word report of the word, or an Unsuitable-context
-// report of its current material. The caller holds s.mu.
-func (s *Store) repeatedStudyReportLocked(owner string, progress domain.StudyProgress, kind domain.StudyReportKind) (domain.StudyReport, bool) {
-	for _, report := range s.studyReports {
-		if report.OwnerID != owner || !report.Open() || report.Kind != kind {
-			continue
+// repeatedStudyReportLocked finds the open report a new report would repeat: a
+// Wrong-word report of the word, or an Unsuitable-context report of the
+// material the learner was shown (the word's current material when the record
+// names none). The caller holds s.mu.
+func (s *Store) repeatedStudyReportLocked(owner string, progress domain.StudyProgress, record domain.StudyReportRecord) (domain.StudyReport, bool) {
+	if record.Kind == domain.StudyReportWrongWord {
+		for _, report := range s.studyReports {
+			if report.OwnerID == owner && report.Open() && report.Kind == record.Kind && report.ProgressID == progress.ID {
+				return report, true
+			}
 		}
-		if (kind == domain.StudyReportWrongWord && report.ProgressID == progress.ID) || report.MaterialID == progress.MaterialID {
+		return domain.StudyReport{}, false
+	}
+	material := record.MaterialID
+	if material == "" {
+		material = progress.MaterialID
+	}
+	return s.openReportOfMaterialLocked(owner, material, record.Kind)
+}
+
+// openReportOfMaterialLocked finds the open report of the kind on the material.
+// The caller holds s.mu.
+func (s *Store) openReportOfMaterialLocked(owner, material string, kind domain.StudyReportKind) (domain.StudyReport, bool) {
+	for _, report := range s.studyReports {
+		if material != "" && report.OwnerID == owner && report.Open() && report.Kind == kind && report.MaterialID == material {
 			return report, true
 		}
 	}
 	return domain.StudyReport{}, false
+}
+
+// GetOpenStudyReportOfMaterial returns the open report of the kind on the Study
+// material, including one whose word has no Study progress.
+func (s *Store) GetOpenStudyReportOfMaterial(_ context.Context, owner, materialID string, kind domain.StudyReportKind) (domain.StudyReport, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if report, ok := s.openReportOfMaterialLocked(owner, materialID, kind); ok {
+		return report, nil
+	}
+	return domain.StudyReport{}, errNotFound
+}
+
+// RetireClosedStudyReports ends, as retired, the learner's open
+// Unsuitable-context reports in the language whose Undo window has closed
+// because another Study action followed. Their sentences stay retired.
+func (s *Store) RetireClosedStudyReports(_ context.Context, owner, language string, now time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyReports {
+		report := &s.studyReports[i]
+		if report.OwnerID == owner && report.Open() && report.Kind == domain.StudyReportUnsuitableContext && report.Language == canonicalization.NormalizeLanguage(language) &&
+			s.studyActionSince(owner, report.Language, s.studyReportSeq[report.ID]) {
+			report.EndedAt, report.EndReason = now.UTC(), domain.StudyReportEndRetired
+		}
+	}
+	return nil
 }
 
 // GetStudyReport returns one report, open or ended.
@@ -202,12 +258,14 @@ func (s *Store) ListRetiredStudyOccurrencesOfWord(_ context.Context, owner strin
 	return s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.StudyIdentity == identity }), nil
 }
 
+// retiredLocked names the sentences the word's retiring reports retired: its
+// Unsuitable-context reports not ended as undone.
 func (s *Store) retiredLocked(owner string, match func(domain.StudyReport) bool) []domain.StudyOccurrenceRef {
 	refs := []domain.StudyOccurrenceRef{}
-	for _, report := range s.openStudyReportsLocked(func(r domain.StudyReport) bool {
-		return r.OwnerID == owner && r.Kind == domain.StudyReportUnsuitableContext && match(r)
-	}) {
-		refs = append(refs, s.sentencesRetiredLocked(owner, report.Source)...)
+	for _, report := range s.studyReports {
+		if report.OwnerID == owner && report.Retires() && match(report) {
+			refs = append(refs, s.sentencesRetiredLocked(owner, report.Source)...)
+		}
 	}
 	return refs
 }
@@ -246,22 +304,23 @@ func (s *Store) sentencesRetiredLocked(owner string, source domain.StudyOccurren
 	return refs
 }
 
-// hasOpenUnsuitableReportLocked reports whether the word has an open
-// Unsuitable-context report. The caller holds s.mu.
-func (s *Store) hasOpenUnsuitableReportLocked(owner, progressID string) bool {
-	return len(s.openStudyReportsLocked(func(r domain.StudyReport) bool {
-		return r.OwnerID == owner && r.ProgressID == progressID && r.Kind == domain.StudyReportUnsuitableContext
-	})) > 0
+// hasRetiringReportLocked reports whether the word has an Unsuitable-context
+// report that retires a context. The caller holds s.mu.
+func (s *Store) hasRetiringReportLocked(owner, progressID string) bool {
+	for _, report := range s.studyReports {
+		if report.OwnerID == owner && report.ProgressID == progressID && report.Retires() {
+			return true
+		}
+	}
+	return false
 }
 
-// contextReportedAtLocked is when the word's latest open Unsuitable-context
-// report was made, zero when it has none. The caller holds s.mu.
+// contextReportedAtLocked is when the word's latest retiring report was made,
+// zero when it has none. The caller holds s.mu.
 func (s *Store) contextReportedAtLocked(owner, progressID string) time.Time {
 	var latest time.Time
-	for _, report := range s.openStudyReportsLocked(func(r domain.StudyReport) bool {
-		return r.OwnerID == owner && r.ProgressID == progressID && r.Kind == domain.StudyReportUnsuitableContext
-	}) {
-		if report.CreatedAt.After(latest) {
+	for _, report := range s.studyReports {
+		if report.OwnerID == owner && report.ProgressID == progressID && report.Retires() && report.CreatedAt.After(latest) {
 			latest = report.CreatedAt
 		}
 	}

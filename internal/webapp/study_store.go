@@ -88,17 +88,29 @@ type StudyReportStore interface {
 	CreateStudyReport(ctx context.Context, owner string, record domain.StudyReportRecord) (domain.StudyReport, error)
 	GetStudyReport(ctx context.Context, owner, id string) (domain.StudyReport, error)
 	GetOpenStudyReport(ctx context.Context, owner, language, progressID string, kind domain.StudyReportKind) (domain.StudyReport, error)
+	// GetOpenStudyReportOfMaterial finds the open report of the kind on a Study
+	// material, including one whose word has no Study progress left.
+	GetOpenStudyReportOfMaterial(ctx context.Context, owner, materialID string, kind domain.StudyReportKind) (domain.StudyReport, error)
 	ListOpenStudyReports(ctx context.Context, owner, language string, kind domain.StudyReportKind) ([]domain.StudyReport, error)
 	// ListOpenWrongWordReportsForBook is what the Book's Lemma review lists next
 	// to its Lemma review flags.
 	ListOpenWrongWordReportsForBook(ctx context.Context, owner, bookID string) ([]domain.StudyReport, error)
-	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
-	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
-	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	StudyReportEndingStore
 	// StudyReportUndoable is whether Undo is still offered: the report is open
 	// and no other Study action followed.
 	StudyReportUndoable(ctx context.Context, owner, id string) (bool, error)
 	StudyReportEvidenceStore
+}
+
+// StudyReportEndingStore is how a report ends. RetireClosedStudyReports ends, as
+// retired, the learner's open Unsuitable-context reports in the language whose
+// Undo window has closed because another Study action followed; their sentences
+// stay retired.
+type StudyReportEndingStore interface {
+	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
+	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	RetireClosedStudyReports(ctx context.Context, owner, language string, now time.Time) error
 }
 
 // StudyReportEvidenceStore is what Study reports leave on the word's evidence
@@ -106,8 +118,8 @@ type StudyReportStore interface {
 // Unsuitable-context reports retired, read when material and Fluency contexts
 // are chosen, and the state reconciliation ends a report by.
 type StudyReportEvidenceStore interface {
-	// ListRetiredStudyOccurrences names the occurrences the word's open
-	// Unsuitable-context reports retired as its context.
+	// ListRetiredStudyOccurrences names the occurrences the word's
+	// Unsuitable-context reports not ended as undone retired as its context.
 	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
 	// ListRetiredStudyOccurrencesOfWord is the same by the word's vocabulary
 	// identity, for material preparation, which knows no progress row.

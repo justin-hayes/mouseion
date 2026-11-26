@@ -251,9 +251,9 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var12 templ.SafeURL
-					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL("/reading/books/" + url.PathEscape(bookID) + "/lemma-review?form=" + url.QueryEscape(report.TargetWord)))
+					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(lemmaReviewReportPath(bookID, report)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_review.templ`, Line: 69, Col: 136}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_review.templ`, Line: 69, Col: 70}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -266,7 +266,7 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(report.TargetWord)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_review.templ`, Line: 69, Col: 158}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_review.templ`, Line: 69, Col: 92}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {

@@ -64,7 +64,13 @@ func TestStudyLemmaCorrectionOfTheReportedOccurrenceEndsTheReportAndReintroduces
 	assert.Contains(t, review, "kam … umhin")
 	assert.Contains(t, review, "Reported as a wrong word in Study.")
 	assert.Equal(t, 1, strings.Count(review, "Reported as a wrong word in Study."), "only the reported occurrence is marked")
-	assert.Contains(t, getAs(t, s.h, "/de/study/reports", s.cookies).Body.String(), "/reading/books/"+bookID+"/lemma-review?form=")
+	assert.Contains(t, getAs(t, s.h, "/de/study/reports", s.cookies).Body.String(), "/reading/books/"+bookID+"/lemma-review?form=haus&amp;report="+id, "the link names the reported occurrence")
+
+	// Opened by its report, the page shows the reported occurrence alone.
+	opened := getAs(t, s.h, "/reading/books/"+bookID+"/lemma-review?form=haus&report="+id, s.cookies).Body.String()
+	assert.Equal(t, 1, strings.Count(opened, "Reported as a wrong word in Study."))
+	assert.Equal(t, 1, strings.Count(opened, "<strong>Observed form:</strong>"), "other occurrences of the form are not listed")
+	assert.Greater(t, strings.Count(review, "<strong>Observed form:</strong>"), 1, "a plain search lists every occurrence of the form")
 
 	// A decision about another occurrence of the form leaves the report open.
 	other := sentence + 1

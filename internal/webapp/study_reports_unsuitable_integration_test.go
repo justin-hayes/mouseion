@@ -22,6 +22,14 @@ func (s *studyHarness) unsuitableReports() []domain.StudyReport {
 	return reports
 }
 
+// retiredReportID is the ID of the word's Unsuitable-context report.
+func (s *studyHarness) retiredReportID(progressID string) string {
+	s.t.Helper()
+	var id string
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT id::text FROM study_report WHERE owner_id=$1 AND progress_id=$2 AND kind='unsuitable_context'`, s.owner.ID, progressID).Scan(&id))
+	return id
+}
+
 // waitForNewMaterial opens Study until the word is moved onto material other
 // than the one it was reported in.
 func (s *studyHarness) waitForNewMaterial(lemma, oldMaterialID string) domain.StudyProgress {
@@ -96,7 +104,13 @@ func TestStudyUnsuitableContextReplacesTheSentenceAndReintroducesTheWordNextDay(
 	assert.Contains(t, page, replacement.TargetWord)
 	assert.NotContains(t, page, original.Sentence, "the retired sentence is never shown again")
 	assert.Zero(t, s.counts().Preparing)
-	assert.Len(t, s.unsuitableReports(), 1, "the retirement stands")
+	retired, err := s.store.ListRetiredStudyOccurrences(s.ctx, s.owner.ID, card.ID)
+	require.NoError(t, err)
+	assert.Len(t, retired, 1, "the retirement stands, though the report ended once the learner moved on")
+	assert.Empty(t, s.unsuitableReports(), "and the Undo window is over")
+	ended, err := s.store.GetStudyReport(s.ctx, s.owner.ID, s.retiredReportID(card.ID))
+	require.NoError(t, err)
+	assert.Equal(t, domain.StudyReportEndRetired, ended.EndReason)
 }
 
 func TestStudyReportingTheSameCardTwiceYieldsOneUnsuitableContextReport(t *testing.T) {
@@ -223,4 +237,25 @@ func (s *studyHarness) corpusOfRun(runID string) string {
 	var corpusID string
 	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, s.owner.ID, runID).Scan(&corpusID))
 	return corpusID
+}
+
+func TestStudyRepeatedUnsuitableReportReturnsToTheReportsUndoScreen(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	s.twoReviewsDue()
+	card := s.currentCard()
+	first := s.report(card, "unsuitable_context", "")
+	require.Equal(t, http.StatusSeeOther, first.Code)
+	report := s.unsuitableReports()[0]
+	assert.Equal(t, "/de/study?reported="+report.ID, first.Header().Get("Location"))
+
+	again := s.report(card, "unsuitable_context", "")
+	require.Equal(t, http.StatusSeeOther, again.Code)
+	assert.Equal(t, first.Header().Get("Location"), again.Header().Get("Location"), "a double tap returns to the same Undo screen")
+
+	// The word has moved on to new material since; the repeat still finds the report.
+	s.waitForNewMaterial(card.CanonicalLemma, card.MaterialID)
+	late := s.report(card, "unsuitable_context", "")
+	assert.Equal(t, first.Header().Get("Location"), late.Header().Get("Location"))
+	assert.Len(t, s.unsuitableReports(), 1)
 }

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
@@ -50,7 +51,7 @@ func (h *Handler) studyReports(w http.ResponseWriter, r *http.Request) {
 				BookTitle: titles[report.Source.BookID], Date: domain.StudyDay(report.CreatedAt), Note: report.Note,
 			}
 			if titles[report.Source.BookID] != studyReportMissingBook {
-				entry.ReviewPath = "/reading/books/" + url.PathEscape(report.Source.BookID) + "/lemma-review?form=" + url.QueryEscape(report.TargetWord)
+				entry.ReviewPath = lemmaReviewReportPath(report.Source.BookID, report)
 			}
 			entry.Before, entry.Target, entry.After, entry.Marked = markTarget(report.Sentence, report.TargetWord)
 			view.Reports = append(view.Reports, entry)
@@ -85,7 +86,9 @@ func (h *Handler) studyReportBookTitles(ctx context.Context, owner string, repor
 // Unsuitable-context report replaces the word's context and shows the reported
 // card once more, so the learner can see what was reported (decision on Undo,
 // ADR 0135 §3). Like a grade, a report of a card that is no longer the one due
-// is ignored.
+// is ignored, and a repeat of a report is the report, so a double tap changes
+// nothing more (the store compares the card's material and reps under the
+// word's lock).
 func (h *Handler) reportStudyCard(w http.ResponseWriter, r *http.Request) {
 	language, back, ok := h.studyForm(w, r)
 	if !ok {
@@ -96,41 +99,79 @@ func (h *Handler) reportStudyCard(w http.ResponseWriter, r *http.Request) {
 	progressID := strings.TrimSpace(r.FormValue("progress"))
 	note, noteOK := domain.CleanStudyReportNote(r.FormValue("note"))
 	if !kindOK || repsErr != nil || reps < 0 || progressID == "" || !noteOK {
-		http.Error(w, "invalid report", http.StatusBadRequest)
+		renderStatus(w, r, http.StatusBadRequest, StudyReportInvalidPage(user(r), h.csrf(w, r), language))
 		return
 	}
 	owner, store, now := user(r).ID, h.services.Store.Study, h.now()
-	progress, err := store.ListStudyProgress(r.Context(), owner, language)
+	material := strings.TrimSpace(r.FormValue("material"))
+	// A repeat of a report that stands is that report, whatever the word has
+	// become since: a double tap is harmless (story 50).
+	if repeated, err := store.GetOpenStudyReportOfMaterial(r.Context(), owner, material, kind); err == nil {
+		redirectAfterReport(w, r, back, repeated)
+		return
+	} else if !errors.Is(err, domain.ErrNotFound) {
+		fail(w, err)
+		return
+	}
+	state, err := h.studyCardState(r, owner, language, progressID, now)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	var current *domain.StudyProgress
-	for i := range progress {
-		if progress[i].ID == progressID {
-			current = &progress[i]
-		}
-	}
-	if current == nil {
-		http.NotFound(w, r)
-		return
-	}
-	// A form for a card whose material was replaced since is stale, though the
-	// replacement keeps the word's reps.
-	if material := strings.TrimSpace(r.FormValue("material")); (material != "" && material != current.MaterialID) || current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) {
+	if state == studyCardNotDue {
 		redirect(w, r, back)
 		return
 	}
-	report, err := store.CreateStudyReport(r.Context(), owner, domain.StudyReportRecord{ProgressID: progressID, ExpectedReps: reps, Kind: kind, Note: note, CreatedAt: now})
-	if err != nil && !errors.Is(err, domain.ErrStudyStale) && !errors.Is(err, domain.ErrNotFound) {
+	report, err := store.CreateStudyReport(r.Context(), owner, domain.StudyReportRecord{ProgressID: progressID, MaterialID: material, ExpectedReps: reps, Kind: kind, Note: note, CreatedAt: now})
+	switch {
+	case err == nil:
+		redirectAfterReport(w, r, back, report)
+	case errors.Is(err, domain.ErrNotFound) && state == studyCardUnknown:
+		http.NotFound(w, r)
+	case errors.Is(err, domain.ErrStudyStale) || errors.Is(err, domain.ErrNotFound):
+		redirect(w, r, back)
+	default:
 		fail(w, err)
-		return
 	}
-	if err == nil && kind == domain.StudyReportUnsuitableContext {
-		redirect(w, r, back+"?"+url.Values{studyReportedParam: {report.ID}}.Encode())
-		return
+}
+
+// redirectAfterReport sends the learner on after a report: an Unsuitable-context
+// report stays on its card with Undo, any other goes to the next card.
+func redirectAfterReport(w http.ResponseWriter, r *http.Request, back string, report domain.StudyReport) {
+	if report.Kind == domain.StudyReportUnsuitableContext {
+		back += "?" + url.Values{studyReportedParam: {report.ID}}.Encode()
 	}
 	redirect(w, r, back)
+}
+
+// studyCardStateOf is what the Study progress says of the card a report names.
+type studyCardStateOf int
+
+const (
+	// studyCardUnknown: the learner has no Study progress with that ID.
+	studyCardUnknown studyCardStateOf = iota
+	// studyCardNotDue: the card is not due, so the tap is ignored.
+	studyCardNotDue
+	// studyCardDue: the card is due.
+	studyCardDue
+)
+
+// studyCardState says whether the report's card is due now. The reps and the
+// material the card showed are compared by the store, under the word's lock.
+func (h *Handler) studyCardState(r *http.Request, owner, language, progressID string, now time.Time) (studyCardStateOf, error) {
+	progress, err := h.services.Store.Study.ListStudyProgress(r.Context(), owner, language)
+	if err != nil {
+		return studyCardUnknown, err
+	}
+	for _, item := range progress {
+		if item.ID == progressID {
+			if domain.StudyCardIsDue(item, now) {
+				return studyCardDue, nil
+			}
+			return studyCardNotDue, nil
+		}
+	}
+	return studyCardUnknown, nil
 }
 
 // studyReportedParam names the report whose card the Study page shows once more
