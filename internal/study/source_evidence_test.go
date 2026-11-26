@@ -21,6 +21,8 @@ type greekLexicon struct {
 	found bool
 	calls int
 	pin   string
+	// homographs, when set, are every entry the Study lookup returns for any lemma.
+	homographs []enrichment.AncientGreekLSJEntry
 }
 
 func (l *greekLexicon) Name() string    { return "stub" }
@@ -35,6 +37,14 @@ func (l *greekLexicon) AncientGreekLSJPin() string { return l.pin }
 func (l *greekLexicon) LookupAncientGreekLSJ(context.Context, string) (enrichment.AncientGreekLSJEntry, bool) {
 	l.calls++
 	return l.entry, l.found
+}
+
+func (l *greekLexicon) LookupAncientGreekLSJEntries(context.Context, string) ([]enrichment.AncientGreekLSJEntry, bool) {
+	l.calls++
+	if len(l.homographs) > 0 {
+		return l.homographs, true
+	}
+	return []enrichment.AncientGreekLSJEntry{l.entry}, l.found
 }
 
 func syntheticLSJ() enrichment.AncientGreekLSJEntry {
@@ -73,7 +83,7 @@ func newGreekFixture(t *testing.T) *greekFixture {
 	f := &greekFixture{
 		lexicon:  &greekLexicon{entry: syntheticLSJ(), found: true},
 		trans:    &fakeTranslations{translations: map[string]string{"1.2": "The man sees the word."}, pin: "sha256:abc"},
-		enricher: &fakeEnricher{pass: enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "The man sees the word.", SentenceTranslationTargets: []string{"word"}, CitedSenseIDs: []string{"n100.1"}}},
+		enricher: &fakeEnricher{pass: enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "The man sees the word.", SentenceTranslationTargets: []string{"word"}, CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n100.1")}}},
 	}
 	f.store = &fakeStore{
 		occurrences: []domain.ConcordanceResultOccurrence{{
@@ -109,9 +119,9 @@ func TestSourceEvidenceWordIsReadyWithItsCitationsPinAndPassage(t *testing.T) {
 	assert.Equal(t, "λόγον", request.TargetWord)
 	assert.Equal(t, greekText, request.ExampleSentence)
 	assert.Equal(t, []enrichment.LexicalSense{
-		{EvidenceID: "n100.1", Source: "lsj", Gloss: "word"},
-		{EvidenceID: "n100.2", Source: "lsj", Gloss: "account"},
-	}, request.CandidateSenses, "the pass cites the pinned dictionary senses by native ID")
+		{EvidenceID: enrichment.EntryEvidenceID("n100", "n100.1"), Source: "lsj", Gloss: "word"},
+		{EvidenceID: enrichment.EntryEvidenceID("n100", "n100.2"), Source: "lsj", Gloss: "account"},
+	}, request.CandidateSenses, "the pass cites the pinned dictionary senses by their entry and sense")
 	assert.Equal(t, []string{"The man sees the word."}, f.enricher.passages)
 	assert.Empty(t, f.enricher.requests, "the contextual-Gloss call is the modern path's")
 	assert.Equal(t, []string{otherBook}, f.trans.books, "the passage comes from the sentence's Book")
@@ -130,10 +140,10 @@ func TestSourceEvidenceOmitsAMeaningTheEvidenceCannotDefend(t *testing.T) {
 	cases := map[string]enrichment.EvidenceAssistedMeaning{
 		"context only":              {Gloss: "a word", SentenceTranslation: "The man sees the word.", ContextOnly: true},
 		"abstention":                {SentenceTranslation: "The man sees the word.", ContextOnly: true, UnresolvedReason: "no sense fits"},
-		"empty Gloss":               {SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{"n100.1"}},
-		"no translation":            {Gloss: "a word", CitedSenseIDs: []string{"n100.1"}},
+		"empty Gloss":               {SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n100.1")}},
+		"no translation":            {Gloss: "a word", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n100.1")}},
 		"provider invalid citation": {InvalidCitation: true},
-		"invalid citation":          {Gloss: "a word", SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{"n999.9"}},
+		"invalid citation":          {Gloss: "a word", SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n999.9")}},
 	}
 	for name, answer := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -221,15 +231,15 @@ func TestSourceEvidencePassageStoreFailureIsRetried(t *testing.T) {
 
 func TestSourceEvidenceCitesEntriesInOrderAndDropsNothingValid(t *testing.T) {
 	resolution := resolutionOf(syntheticLSJ())
-	refs, ok := citedSenses(cardpolicy.For("grc"), resolution, []string{"n100.2", "n100.1", "n100.2"})
+	refs, ok := citedSenses(resolution, []string{enrichment.EntryEvidenceID("n100", "n100.2"), enrichment.EntryEvidenceID("n100", "n100.1"), enrichment.EntryEvidenceID("n100", "n100.2")})
 	require.True(t, ok)
 	cited := citationsOf(resolution, refs)
 	assert.Equal(t, []string{"n100.1", "n100.2"}, cited.SenseIDs, "senses follow the entry's source order, once each")
 	assert.Equal(t, []string{"n100", "n100"}, cited.EntryIDs, "each sense names its entry")
 	assert.Equal(t, "lsj-pin-1", cited.DictionaryPin)
-	_, ok = citedSenses(cardpolicy.For("grc"), resolution, []string{"nope"})
+	_, ok = citedSenses(resolution, []string{"nope"})
 	assert.False(t, ok)
-	_, ok = citedSenses(cardpolicy.For("grc"), resolution, []string{"n100.1", "nope"})
+	_, ok = citedSenses(resolution, []string{enrichment.EntryEvidenceID("n100", "n100.1"), "nope"})
 	assert.False(t, ok, "one unknown ID invalidates the citations")
 	assert.True(t, citationsOf(resolution, nil).Empty())
 }
@@ -251,7 +261,7 @@ func TestTheStudySwitchIsOffForSourceEvidenceLanguagesInProduction(t *testing.T)
 }
 
 func resolutionOf(entry enrichment.AncientGreekLSJEntry) sourceevidence.Resolution {
-	resolution, _ := sourceevidence.Resolve(context.Background(), &greekLexicon{entry: entry, found: true}, cardpolicy.For("grc"), "λόγοσ", nil)
+	resolution, _ := sourceevidence.ResolveStudy(context.Background(), &greekLexicon{entry: entry, found: true}, cardpolicy.For("grc"), "λόγοσ", nil)
 	return resolution
 }
 
@@ -282,23 +292,23 @@ func latinFixture(t *testing.T, cited ...string) *greekFixture {
 }
 
 func TestLatinStudySendsEntryCarryingSensesAndResolvesACitationToOneEntry(t *testing.T) {
-	f := latinFixture(t, enrichment.LatinEvidenceID("n10", "n10.0"))
+	f := latinFixture(t, enrichment.EntryEvidenceID("n10", "n10.0"))
 	require.NoError(t, work(f.worker))
 	require.Len(t, f.enricher.passRequests, 1)
-	assert.Equal(t, []string{enrichment.LatinEvidenceID("n9", "n9.0"), enrichment.LatinEvidenceID("n10", "n10.0")}, evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses))
+	assert.Equal(t, []string{enrichment.EntryEvidenceID("n9", "n9.0"), enrichment.EntryEvidenceID("n10", "n10.0")}, evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses))
 	require.NotNil(t, f.store.ready)
 	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"n10.0"}, EntryIDs: []string{"n10"}, DictionaryPin: "ls-pin-1"}, f.store.ready.Cited)
 }
 
 func TestLatinStudyOmitsACitationOfASenseTheNamedEntryDoesNotHold(t *testing.T) {
-	f := latinFixture(t, enrichment.LatinEvidenceID("n9", "n10.0"))
+	f := latinFixture(t, enrichment.EntryEvidenceID("n9", "n10.0"))
 	require.NoError(t, work(f.worker))
 	assert.Nil(t, f.store.ready)
 	assert.Equal(t, domain.StudyOmissionMeaning, f.store.unpreparable)
 }
 
 func TestLatinStudySendsNothingWhileTheLatinPassIsNotRecorded(t *testing.T) {
-	f := latinFixture(t, enrichment.LatinEvidenceID("n9", "n9.0"))
+	f := latinFixture(t, enrichment.EntryEvidenceID("n9", "n9.0"))
 	f.gate = enrichment.ErrProviderAssessmentNotRecorded
 	require.Error(t, work(f.worker), "the word waits")
 	assert.Empty(t, f.enricher.passRequests)
@@ -316,7 +326,7 @@ func evidenceIDsOf(senses []enrichment.LexicalSense) []string {
 func TestLatinStudyRecordsTheCitedEntryWhenHomographsShareASenseID(t *testing.T) {
 	entries := stackedDico()
 	entries[1].Senses[0].ID = entries[0].Senses[0].ID
-	f := latinFixture(t, enrichment.LatinEvidenceID("n10", "n9.0"))
+	f := latinFixture(t, enrichment.EntryEvidenceID("n10", "n9.0"))
 	f.worker.Evidence.Lexical = &latinLexicon{entries: entries}
 	require.NoError(t, work(f.worker))
 	require.NotNil(t, f.store.ready)
@@ -359,4 +369,48 @@ func TestSourceEvidenceNoEntryOmissionIsNotRecordedWhenTheAttemptCannotBeRecorde
 	f.store.occurrencesErr = errors.New("database down")
 	require.ErrorContains(t, work(f.worker), "database down")
 	assert.Empty(t, f.store.unpreparable, "River retries the job; nothing is recorded")
+}
+
+func twoLegoEntries() []enrichment.AncientGreekLSJEntry {
+	return []enrichment.AncientGreekLSJEntry{
+		{EntryID: "n1", Headword: "λέγω", Pin: "lsj-pin-1", Senses: []enrichment.AncientGreekLSJSense{{ID: "s0", Number: "A", Level: 1, Definitions: []string{"lay"}}}},
+		{EntryID: "n2", Headword: "λέγω", Pin: "lsj-pin-1", Senses: []enrichment.AncientGreekLSJSense{{ID: "s0", Number: "A", Level: 1, Definitions: []string{"say"}}}},
+	}
+}
+
+// TestGreekStudyOfAnLSJHomographIsReadyWithTheCitedEntry proves a lemma with two
+// LSJ entries is no longer a "no dictionary entry" omission: the pass is offered
+// both entries' senses, and a cited sense, even one whose native ID the entries
+// share, records the entry that was cited.
+func TestGreekStudyOfAnLSJHomographIsReadyWithTheCitedEntry(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.homographs = twoLegoEntries()
+	f.store.material.CanonicalLemma = "λέγω"
+	f.enricher.pass.CitedSenseIDs = []string{enrichment.EntryEvidenceID("n2", "s0")}
+	require.NoError(t, work(f.worker))
+
+	assert.Empty(t, f.store.unpreparable)
+	require.NotNil(t, f.store.ready)
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"s0"}, EntryIDs: []string{"n2"}, DictionaryPin: "lsj-pin-1"}, f.store.ready.Cited)
+	require.Len(t, f.enricher.passRequests, 1)
+	assert.Equal(t, []string{enrichment.EntryEvidenceID("n1", "s0"), enrichment.EntryEvidenceID("n2", "s0")}, evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses))
+}
+
+func TestGreekStudyOmitsACitationOfAnotherEntrysSense(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.homographs = twoLegoEntries()
+	f.lexicon.homographs[1].Senses[0].ID = "s1"
+	f.enricher.pass.CitedSenseIDs = []string{enrichment.EntryEvidenceID("n1", "s1")}
+	require.NoError(t, work(f.worker))
+	assert.Nil(t, f.store.ready)
+	assert.Equal(t, domain.StudyOmissionMeaning, f.store.unpreparable)
+}
+
+func TestGreekStudySendsNothingWhileTheGreekEntryPassIsNotRecorded(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.homographs = twoLegoEntries()
+	f.gate = enrichment.ErrProviderAssessmentNotRecorded
+	require.True(t, isSnooze(work(f.worker)), "the word waits")
+	assert.Empty(t, f.enricher.passRequests)
+	assert.Empty(t, f.store.unpreparable)
 }

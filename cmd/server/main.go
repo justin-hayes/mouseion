@@ -331,7 +331,7 @@ func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStor
 	evidence := &study.SourceEvidence{
 		Translations: store,
 		MaySend: func(language string) error {
-			return assessments.MaySend(enrichment.EvidenceAssistedPassKind(language), language, codec)
+			return assessments.MaySend(enrichment.StudyEvidenceAssistedPassKind(language), language, codec)
 		},
 	}
 	if dictionaryIndex != nil {

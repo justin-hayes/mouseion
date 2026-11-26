@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 )
 
 // ErrProviderAssessmentNotRecorded marks a provider call whose exact payload
@@ -28,6 +29,12 @@ const (
 	// Lewis & Short senses as short evidence handles that each name their entry
 	// (ADR 0138 §1). It has its own contract and its own record (#2766).
 	LatinEvidenceAssistedPassPayload ProviderPayloadKind = "latin-evidence-assisted-pass"
+	// GreekEntryEvidenceAssistedPassPayload is the Ancient Greek evidence-assisted
+	// pass of Study: the representative sentence, its passage context, and the
+	// pinned LSJ senses of every homograph entry as short evidence handles that
+	// each name their entry (ADR 0139). It has its own contract and, until its
+	// assessment is recorded (#2774), sends nothing.
+	GreekEntryEvidenceAssistedPassPayload ProviderPayloadKind = "greek-entry-evidence-assisted-pass" //nolint:gosec // a payload kind name, not a credential
 	// LSJSenseSummaryPayload is the context-free summary of a pinned LSJ entry:
 	// its headword, sense IDs and English glosses alone (ADR 0101).
 	LSJSenseSummaryPayload ProviderPayloadKind = "lsj-sense-summary"
@@ -324,6 +331,8 @@ func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (
 		return payloadContract{codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()}, true
 	case LatinEvidenceAssistedPassPayload:
 		return payloadContract{codec.ProviderName(), codec.LatinEvidenceAssistedPassPromptContract(), LatinEvidenceAssistedPassPayloadFields()}, true
+	case GreekEntryEvidenceAssistedPassPayload:
+		return payloadContract{codec.ProviderName(), codec.GreekEntryEvidenceAssistedPassPromptContract(), GreekEntryEvidenceAssistedPassPayloadFields()}, true
 	case LSJSenseSummaryPayload:
 		return payloadContract{codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()}, true
 	case IdiomCardPayload:
@@ -363,6 +372,19 @@ func sameAssessmentLanguage(left, right string) bool {
 func EvidenceAssistedPassKind(language string) ProviderPayloadKind {
 	if isLatinPass(language) {
 		return LatinEvidenceAssistedPassPayload
+	}
+	return EvidenceAssistedPassPayload
+}
+
+// StudyEvidenceAssistedPassKind is the payload kind Study's evidence-assisted
+// pass transmits for a source-evidence language, selected by its card policy.
+func StudyEvidenceAssistedPassKind(language string) ProviderPayloadKind {
+	switch cardpolicy.For(language).StudyPassContract {
+	case cardpolicy.PassContractLatin:
+		return LatinEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreekEntries:
+		return GreekEntryEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreek:
 	}
 	return EvidenceAssistedPassPayload
 }

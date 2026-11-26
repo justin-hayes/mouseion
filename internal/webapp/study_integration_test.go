@@ -44,6 +44,9 @@ type studyProvider struct {
 	// pass records the evidence-assisted pass requests a source-evidence word's
 	// material sent.
 	pass []enrichment.TranslationRequest
+	// citeLast makes the pass cite its last candidate sense instead of its first,
+	// so a test can cite a later homograph entry.
+	citeLast bool
 }
 
 // passRequests are the evidence-assisted pass requests received so far.
@@ -90,8 +93,12 @@ func (p *studyProvider) Translate(ctx context.Context, request enrichment.Transl
 		if len(request.CandidateSenses) == 0 {
 			return enrichment.TranslationResponse{}, errors.New("the pass sent no candidate senses")
 		}
+		cited := request.CandidateSenses[0].EvidenceID
+		if p.citeLast {
+			cited = request.CandidateSenses[len(request.CandidateSenses)-1].EvidenceID
+		}
 		return enrichment.TranslationResponse{
-			Translation: "word", Gloss: "word (gloss)", EvidenceIDs: []string{request.CandidateSenses[0].EvidenceID},
+			Translation: "word", Gloss: "word (gloss)", EvidenceIDs: []string{cited},
 			SentenceTranslation: "He sees the word.", SentenceTranslationTargets: []string{"word"},
 		}, nil
 	}

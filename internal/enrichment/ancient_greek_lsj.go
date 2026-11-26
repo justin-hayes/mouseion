@@ -126,3 +126,10 @@ func (e AncientGreekLSJEntry) Empty() bool {
 type AncientGreekLSJProvider interface {
 	LookupAncientGreekLSJ(context.Context, string) (AncientGreekLSJEntry, bool)
 }
+
+// AncientGreekLSJEntriesProvider is the optional local capability that resolves
+// an Ancient Greek headword to every competing LSJ entry, in source order
+// (ADR 0139). found=false means no entry competes.
+type AncientGreekLSJEntriesProvider interface {
+	LookupAncientGreekLSJEntries(context.Context, string) ([]AncientGreekLSJEntry, bool)
+}

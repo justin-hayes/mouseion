@@ -85,6 +85,9 @@ type TranslationRequest struct {
 	// pinned LSJ senses with their native IDs. The pass can only add to a card,
 	// so an abstaining or failed answer is not an omission (ADR 0101).
 	RequireEvidenceAssistedPass bool `json:"-"`
+	// StudyPass marks a pass request made for Study, whose payload contract is
+	// the policy's Study contract rather than the Prepared deck's (ADR 0139).
+	StudyPass bool `json:"-"`
 	// RequireLSJSenseSummary marks the context-free Ancient Greek LSJ sense
 	// summary contract: the pinned LSJ entry alone, with no representative
 	// sentence and no learner data. Its payload is only the entry's headword,
