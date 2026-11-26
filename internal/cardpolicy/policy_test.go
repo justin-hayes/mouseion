@@ -59,3 +59,19 @@ func TestModernLanguagesTakeTheProviderRoute(t *testing.T) {
 		})
 	}
 }
+
+func TestStudySwitchIsOnForModernLanguagesAndOffForSourceEvidence(t *testing.T) {
+	assert.True(t, For("de").Study)
+	assert.True(t, For("it").Study)
+	assert.False(t, For("grc").Study, "Greek Study is switched on only after its evidence run")
+	assert.False(t, For("la").Study, "Latin Study is switched on only after its evidence run")
+}
+
+func TestStudyOverrideForTestSwitchesOneLanguageAndRestores(t *testing.T) {
+	restore := OverrideStudyForTest("grc", true)
+	assert.True(t, For("grc").Study)
+	assert.True(t, For("GRC").Study, "the override follows the language tag's normal form")
+	assert.False(t, For("la").Study, "the override names one language")
+	restore()
+	assert.False(t, For("grc").Study)
+}

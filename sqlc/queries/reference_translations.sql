@@ -23,3 +23,15 @@ ORDER BY citation;
 SELECT EXISTS(
   SELECT 1 FROM reference_translations WHERE translation_pin_sha256 = $1
 );
+
+-- name: GetBookTranslationPin :one
+-- The pinned translation file a Book's reading unit imported its passage
+-- translations from, empty when it has none. Study reads it to freeze a
+-- representative sentence's passage with the word's material (ADR 0138).
+SELECT COALESCE(ru.translation_file_sha256, '')::text AS pin
+FROM book_reading_units bru
+JOIN reading_units ru ON ru.id = bru.reading_unit_id
+WHERE bru.owner_id = sqlc.arg('owner') AND bru.book_id = sqlc.arg('book')
+  AND COALESCE(ru.translation_file_sha256, '') <> ''
+ORDER BY ru.id
+LIMIT 1;

@@ -71,3 +71,71 @@ func TestEnrichExternalContextualSeparatesNotConfiguredFromAProviderFailure(t *t
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrExternalNotConfigured)
 }
+
+func passCandidate() Candidate {
+	return Candidate{
+		Identity:        Identity{Language: "grc", CanonicalLemma: "λόγοσ", UPOS: "NOUN"},
+		TargetWord:      "λόγον",
+		ExampleSentence: "ἄνθρωπος ὁρᾷ τὸν λόγον.",
+		CandidateSenses: []LexicalSense{{EvidenceID: "n1.s1", Source: "lsj", Gloss: "word"}, {EvidenceID: "n1.s2", Source: "lsj", Gloss: "account"}},
+	}
+}
+
+func TestEnrichEvidenceAssistedPassReturnsAGlossWithItsCitedSenses(t *testing.T) {
+	provider := &contextualProvider{enabled: true, response: TranslationResponse{
+		Translation: "word", Gloss: "word", EvidenceIDs: []string{"n1.s2"}, SentenceTranslation: "The man sees the word.", SentenceTranslationTargets: []string{"word"},
+	}}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
+
+	meaning, err := service.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "The man sees the word.")
+	require.NoError(t, err)
+	assert.True(t, meaning.Resolved())
+	assert.Equal(t, "word", meaning.Gloss)
+	assert.Equal(t, []string{"n1.s2"}, meaning.CitedSenseIDs)
+	assert.Equal(t, "The man sees the word.", meaning.SentenceTranslation)
+	assert.Equal(t, []string{"word"}, meaning.SentenceTranslationTargets)
+	require.Len(t, provider.requests, 1)
+	request := provider.requests[0]
+	assert.True(t, request.RequireEvidenceAssistedPass, "the call uses the pass contract")
+	assert.False(t, request.RequireContextualGloss)
+	assert.Equal(t, "The man sees the word.", request.PassageContext)
+	assert.Equal(t, passCandidate().CandidateSenses, request.CandidateSenses)
+	assert.Equal(t, "λόγον", request.TargetWord)
+}
+
+func TestEnrichEvidenceAssistedPassIsNotResolvedWithoutACitedSense(t *testing.T) {
+	cases := map[string]TranslationResponse{
+		"context only": {Translation: "word", Gloss: "word", ContextOnly: true, SentenceTranslation: "The man sees the word."},
+		"abstention":   {Translation: "word", ContextOnly: true, UnresolvedReason: "no sense fits", SentenceTranslation: "The man sees the word."},
+	}
+	for name, response := range cases {
+		t.Run(name, func(t *testing.T) {
+			provider := &contextualProvider{enabled: true, response: response}
+			service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
+			meaning, err := service.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "")
+			require.NoError(t, err)
+			assert.False(t, meaning.Resolved())
+		})
+	}
+}
+
+func TestEnrichEvidenceAssistedPassRejectsAnInventedSenseID(t *testing.T) {
+	provider := &contextualProvider{enabled: true, response: TranslationResponse{
+		Translation: "word", Gloss: "word", EvidenceIDs: []string{"n9.s9"}, SentenceTranslation: "The man sees the word.",
+	}}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
+	_, err := service.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "")
+	require.Error(t, err, "a cited ID outside the frozen senses is a malformed answer, not a citation")
+}
+
+func TestEnrichEvidenceAssistedPassSeparatesNotConfiguredFromAProviderFailure(t *testing.T) {
+	off := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, &contextualProvider{enabled: false}, nil)
+	_, err := off.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "")
+	require.ErrorIs(t, err, ErrExternalNotConfigured)
+
+	failing := &contextualProvider{enabled: true, err: errors.New("provider unavailable")}
+	on := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, failing, nil)
+	_, err = on.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "")
+	require.Error(t, err)
+	assert.NotErrorIs(t, err, ErrExternalNotConfigured)
+}

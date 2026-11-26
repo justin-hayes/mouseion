@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -100,4 +101,33 @@ func isLowerHexSHA256String(value string) bool {
 		}
 	}
 	return true
+}
+
+// BookReferenceTranslations loads the passage translations of the translation
+// file a Book's reading unit was imported with, and the pin to record beside
+// them ("sha256:" and the file's digest). A Book with no translation pin, or
+// whose import has not succeeded yet, yields an empty map and pin, so a caller
+// abstains from passage context instead of inventing English.
+func (s *PostgresStore) BookReferenceTranslations(ctx context.Context, owner, bookID string) (map[string]string, string, error) {
+	if s == nil {
+		return nil, "", ErrInvalidTransition
+	}
+	if !validUUID(bookID) {
+		return map[string]string{}, "", nil
+	}
+	pin, err := sqlcgen.New(s.pool).GetBookTranslationPin(ctx, sqlcgen.GetBookTranslationPinParams{Owner: owner, Book: bookID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return map[string]string{}, "", nil
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("get book translation pin: %w", err)
+	}
+	translations, err := listReferenceTranslationsByPin(ctx, s.pool, pin)
+	if err != nil {
+		return nil, "", fmt.Errorf("list book reference translations: %w", err)
+	}
+	if len(translations) == 0 {
+		return map[string]string{}, "", nil
+	}
+	return translations, "sha256:" + pin, nil
 }

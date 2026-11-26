@@ -3,6 +3,7 @@ package enrichment
 import (
 	"context"
 	"errors"
+	"strings"
 )
 
 // ErrExternalNotConfigured reports that no translation provider can be used:
@@ -52,6 +53,64 @@ func (s *Service) EnrichExternalContextual(ctx context.Context, c Candidate) (Co
 		SentenceTranslation:        response.SentenceTranslation,
 		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
 		UnresolvedKind:             response.UnresolvedKind,
+		UnresolvedReason:           response.UnresolvedReason,
+	}, nil
+}
+
+// EvidenceAssistedMeaning is the outcome of one evidence-assisted pass request
+// for a source-evidence word (ADR 0138 §1): a Gloss that cites the dictionary
+// senses it rests on, with the sentence translation and its alignment, or an
+// abstention.
+type EvidenceAssistedMeaning struct {
+	Gloss                      string
+	SentenceTranslation        string
+	SentenceTranslationTargets []string
+	// CitedSenseIDs are the native sense IDs of the senses the Gloss rests on,
+	// each one drawn from the candidate senses the request sent.
+	CitedSenseIDs []string
+	// ContextOnly reports a Gloss given from context with no cited sense, or an
+	// abstention.
+	ContextOnly      bool
+	UnresolvedReason string
+}
+
+// Resolved reports whether the pass produced a Gloss that cites at least one
+// dictionary sense. A Gloss from context alone, or an abstention, is not.
+func (m EvidenceAssistedMeaning) Resolved() bool {
+	return strings.TrimSpace(m.Gloss) != "" && !m.ContextOnly && len(m.CitedSenseIDs) > 0
+}
+
+// EnrichEvidenceAssistedPass is the per-word enrichment entry point of the
+// evidence-assisted pass (ADR 0101, ADR 0138): the candidate's representative
+// sentence and target, the labelled passage context and the candidate's pinned
+// dictionary senses with their native IDs are sent, and the answer is a Gloss
+// with the senses it cites, or an abstention. It returns
+// ErrExternalNotConfigured, not an empty result, when external enrichment is
+// off; a provider failure or a malformed answer is returned as an error and is
+// retryable. Whether the payload may be sent at all is the caller's gate
+// (ProviderAssessmentSet.MaySend); the answer is not cached here.
+func (s *Service) EnrichEvidenceAssistedPass(ctx context.Context, c Candidate, passageContext string) (EvidenceAssistedMeaning, error) {
+	if !s.ExternalConfigured() {
+		return EvidenceAssistedMeaning{}, ErrExternalNotConfigured
+	}
+	request := externalTranslationRequest(c, c.ExampleSentence)
+	request.PassageContext = passageContext
+	request.RequireEvidenceAssistedPass = true
+	var metrics ExternalMetrics
+	response, err := s.callTranslationWithRetry(ctx, request, &metrics)
+	if err != nil {
+		return EvidenceAssistedMeaning{}, err
+	}
+	response, err = NormalizeTranslationResponse(request, response)
+	if err != nil {
+		return EvidenceAssistedMeaning{}, err
+	}
+	return EvidenceAssistedMeaning{
+		Gloss:                      response.Gloss,
+		SentenceTranslation:        response.SentenceTranslation,
+		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
+		CitedSenseIDs:              append([]string(nil), response.EvidenceIDs...),
+		ContextOnly:                response.ContextOnly,
 		UnresolvedReason:           response.UnresolvedReason,
 	}, nil
 }

@@ -138,3 +138,48 @@ func senseIDs(senses []Sense) []string {
 	}
 	return ids
 }
+
+type translations struct {
+	byBook map[string]map[string]string
+	pin    string
+	err    error
+	calls  int
+}
+
+func (t *translations) BookReferenceTranslations(_ context.Context, _, bookID string) (map[string]string, string, error) {
+	t.calls++
+	return t.byBook[bookID], t.pin, t.err
+}
+
+func TestResolvePassageOfBookReadsTheBooksTranslationsFromTheStore(t *testing.T) {
+	store := &translations{pin: "sha256:abc", byBook: map[string]map[string]string{"book-1": {"1.2.17": "First.", "1.2.18": "Second."}}}
+	got, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "book-1", []string{"1.2.17", "1.2.18"})
+	require.NoError(t, err)
+	want := ResolvePassage(cardpolicy.For("grc"), []string{"1.2.17", "1.2.18"}, store.byBook["book-1"], "sha256:abc")
+	assert.Equal(t, want, got, "the store seam resolves the same passage the argument form does")
+	assert.Equal(t, "First. Second.", got.Text)
+	assert.Equal(t, "sha256:abc", got.Pin)
+
+	none, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "book-2", []string{"1.2.17"})
+	require.NoError(t, err)
+	assert.True(t, none.Empty(), "a Book with no translations has no passage")
+}
+
+func TestResolvePassageOfBookAsksNothingWhenNoPassageApplies(t *testing.T) {
+	store := &translations{pin: "p", byBook: map[string]map[string]string{"b": {"1.1": "x"}}}
+	got, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("de"), "owner", "b", []string{"1.1"})
+	require.NoError(t, err)
+	assert.True(t, got.Empty())
+	got, err = ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "b", nil)
+	require.NoError(t, err)
+	assert.True(t, got.Empty())
+	got, err = ResolvePassageOfBook(t.Context(), nil, cardpolicy.For("grc"), "owner", "b", []string{"1.1"})
+	require.NoError(t, err)
+	assert.True(t, got.Empty())
+	assert.Zero(t, store.calls)
+}
+
+func TestResolvePassageOfBookReturnsAStoreFailure(t *testing.T) {
+	_, err := ResolvePassageOfBook(t.Context(), &translations{err: assert.AnError}, cardpolicy.For("grc"), "owner", "b", []string{"1.1"})
+	require.ErrorIs(t, err, assert.AnError)
+}

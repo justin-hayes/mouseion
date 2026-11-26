@@ -3,7 +3,11 @@
 // callers read the policy for the language instead of naming a language.
 package cardpolicy
 
-import "github.com/justin-hayes/mouseion/internal/canonicalization"
+import (
+	"sync"
+
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
+)
 
 // Boundary is the rule that decides whether a sentence is complete.
 type Boundary int
@@ -96,6 +100,10 @@ type Policy struct {
 	// EvidenceAssistedPass reports whether the evidence-assisted provider pass
 	// may run on top of the source-evidence card.
 	EvidenceAssistedPass bool
+	// Study reports whether the language is served by Study (ADR 0138). It is
+	// compiled in, never a learner setting or a runtime toggle: a source-evidence
+	// language is switched on only once its evidence run is recorded.
+	Study bool
 	// SourceNotice is the imported-source notice a deck of this language
 	// carries, or empty when the language has none.
 	SourceNotice string
@@ -118,6 +126,7 @@ var (
 	sourceEvidenceGreek = Policy{
 		SourceEvidence:       true,
 		EvidenceAssistedPass: true,
+		Study:                false, // switched on by the Greek evidence run (ADR 0138 §6)
 		SourceNotice:         GreekSourceNotice,
 		Translations:         TranslationPerseus,
 		Entries:              EntryLSJ,
@@ -125,12 +134,14 @@ var (
 		SentenceBoundary:     BoundaryTerminalMark,
 		DictionaryLookup:     LookupExactlyOne,
 	}
-	// sourceEvidenceLatin has no evidence-assisted pass: the provider payload
+	// sourceEvidenceLatin has no evidence-assisted pass yet: the provider payload
 	// has no recorded assessment for Latin (ADR 0133), so a Latin deck is the
-	// default card with no provider request. Its dictionary is Lewis & Short, and
-	// its full entry keeps only the Work author's citations.
+	// default card with no provider request, and Latin Study stays off until its
+	// pass and evidence run are recorded (ADR 0138 §6). Its dictionary is Lewis &
+	// Short, and its full entry keeps only the Work author's citations.
 	sourceEvidenceLatin = Policy{
 		SourceEvidence:   true,
+		Study:            false,
 		SourceNotice:     LatinSourceNotice,
 		Entries:          EntryLewisShort,
 		Citations:        CitationsWorkAuthor,
@@ -139,6 +150,7 @@ var (
 		DictionaryLookup: LookupEveryEntry,
 	}
 	modern = Policy{
+		Study:            true,
 		NLPAnalysed:      true,
 		SentenceBoundary: BoundaryCapitalisedStart,
 		DictionaryLookup: LookupStored,
@@ -148,11 +160,53 @@ var (
 // For returns the card policy of a language tag. Every language without its own
 // policy takes the modern-language provider route.
 func For(language string) Policy {
-	switch canonicalization.NormalizeLanguage(language) {
+	tag := canonicalization.NormalizeLanguage(language)
+	policy := modern
+	switch tag {
 	case "grc":
-		return sourceEvidenceGreek
+		policy = sourceEvidenceGreek
 	case "la":
-		return sourceEvidenceLatin
+		policy = sourceEvidenceLatin
 	}
-	return modern
+	if on, ok := studyOverride(tag); ok {
+		policy.Study = on
+	}
+	return policy
+}
+
+var (
+	studyOverridesMu sync.RWMutex
+	studyOverrides   map[string]bool
+)
+
+// studyOverride returns the Study value a test installed for a language.
+func studyOverride(tag string) (on, ok bool) {
+	studyOverridesMu.RLock()
+	defer studyOverridesMu.RUnlock()
+	on, ok = studyOverrides[tag]
+	return on, ok
+}
+
+// OverrideStudyForTest sets the Study switch of one language until the returned
+// function is called. It is the test seam for exercising Study on a language
+// whose switch is still off in production: nothing outside tests calls it, and
+// there is no learner setting or runtime toggle (ADR 0138).
+func OverrideStudyForTest(language string, on bool) (restore func()) {
+	tag := canonicalization.NormalizeLanguage(language)
+	studyOverridesMu.Lock()
+	defer studyOverridesMu.Unlock()
+	previous, had := studyOverrides[tag]
+	if studyOverrides == nil {
+		studyOverrides = map[string]bool{}
+	}
+	studyOverrides[tag] = on
+	return func() {
+		studyOverridesMu.Lock()
+		defer studyOverridesMu.Unlock()
+		if had {
+			studyOverrides[tag] = previous
+		} else {
+			delete(studyOverrides, tag)
+		}
+	}
 }
