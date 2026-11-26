@@ -193,6 +193,10 @@ func TestStudyDismissingAReportReleasesTheWordLaterByTheTimeItWasHeld(t *testing
 	assert.InDelta(t, card.Memory.Stability, word.Memory.Stability, 0)
 	assert.Equal(t, card.Memory.State, word.Memory.State)
 	assert.Equal(t, card.MaterialID, word.MaterialID, "the material is unchanged")
+	assert.Equal(t, card.LearnedMeaning, word.LearnedMeaning, "the Learned meaning is unchanged")
+	unchanged, shifted := card.Memory, word.Memory
+	unchanged.Due, shifted.Due = time.Time{}, time.Time{}
+	assert.Equal(t, unchanged, shifted, "the FSRS state is otherwise unchanged")
 	assert.Len(t, s.reviewLog(card.ID), logs, "no review-log row is written")
 	materialAfter, err := s.store.GetStudyMaterial(s.ctx, s.owner.ID, card.MaterialID)
 	require.NoError(t, err)
