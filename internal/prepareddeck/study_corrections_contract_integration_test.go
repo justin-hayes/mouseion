@@ -15,6 +15,10 @@ func (h *postgresHarness) ListStudyOccurrences(owner string, identity domain.Stu
 	return h.store.ListStudyOccurrences(h.ctx, owner, identity)
 }
 
+func (h *postgresHarness) FindStudyOccurrences(owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	return h.store.FindStudyOccurrences(h.ctx, owner, identity, source)
+}
+
 func (h *postgresHarness) SupersedeStudyMaterial(owner, materialID string) error {
 	return h.store.SupersedeStudyMaterial(h.ctx, owner, materialID)
 }

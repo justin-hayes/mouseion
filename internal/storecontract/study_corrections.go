@@ -17,6 +17,10 @@ import (
 // is withdrawn and returned with SetStudyWordWithdrawn.
 type StudyCorrectionsStore interface {
 	ListStudyOccurrences(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	// FindStudyOccurrences returns what the correction check decides from
+	// without listing every occurrence: the given source when it still resolves
+	// to the identity, otherwise one valid occurrence, otherwise none.
+	FindStudyOccurrences(owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
 	SupersedeStudyMaterial(owner, materialID string) error
 	SetStudyWordWithdrawn(owner, progressID string, withdrawn bool, now time.Time) error
 	CompleteStudyReintroductions(owner, language string, now time.Time) error
@@ -63,6 +67,54 @@ func studyCorrectionsScenarios() []Scenario {
 			other, err := h.StudyCorrections().ListStudyOccurrences(h.Seeds().OtherOwner(), pfad)
 			require.NoError(t, err)
 			assert.Empty(t, other, "occurrences belong to their learner")
+		}},
+		{Name: "the correction check finds the source, else one valid occurrence, as the full listing decides", Run: func(t *testing.T, h Harness) {
+			owner, corrections := h.Seeds().Owner(), h.StudyCorrections()
+			bookID := seedReviewBook(t, h)
+			weg, pfad := studyNoun("weg"), studyNoun("pfad")
+			all, err := corrections.ListStudyOccurrences(owner, weg)
+			require.NoError(t, err)
+			require.Len(t, all, 2)
+			bare := func(ref domain.StudyOccurrenceRef) domain.StudyOccurrenceRef {
+				ref.UnitID, ref.StartOffset, ref.EndOffset = "", 0, 0
+				return ref
+			}
+
+			for _, source := range all {
+				found, err := corrections.FindStudyOccurrences(owner, weg, source)
+				require.NoError(t, err)
+				assert.Equal(t, []domain.StudyOccurrenceRef{source}, found, "a source that resolves is its own witness")
+			}
+			found, err := corrections.FindStudyOccurrences(owner, weg, bare(all[1]))
+			require.NoError(t, err)
+			assert.Equal(t, []domain.StudyOccurrenceRef{all[1]}, found, "an unlocated source is still found in its own run")
+
+			corrected := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(corrected, previewProposal(t, h, corrected)))
+			found, err = corrections.FindStudyOccurrences(owner, weg, all[0])
+			require.NoError(t, err)
+			assert.Equal(t, all[1:], found, "a corrected-away source yields another valid occurrence")
+			found, err = corrections.FindStudyOccurrences(owner, pfad, all[0])
+			require.NoError(t, err)
+			assert.Equal(t, all[:1], found, "and the identity a correction points to resolves it")
+
+			other := all[0]
+			other.SentenceOrdinal, other.TokenOrdinal = 98, 97
+			found, err = corrections.FindStudyOccurrences(owner, weg, other)
+			require.NoError(t, err)
+			assert.Equal(t, all[1:], found, "a source that does not exist yields another valid occurrence")
+
+			excluded := reviewProposal(h, bookID, "exclude", "", reviewOccurrence(t, h, bookID, 1))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(excluded, previewProposal(t, h, excluded)))
+			found, err = corrections.FindStudyOccurrences(owner, weg, all[0])
+			require.NoError(t, err)
+			assert.Empty(t, found, "no valid occurrence remains")
+			found, err = corrections.FindStudyOccurrences(owner, weg, all[1])
+			require.NoError(t, err)
+			assert.Empty(t, found, "an excluded source does not resolve")
+			found, err = corrections.FindStudyOccurrences(h.Seeds().OtherOwner(), pfad, all[0])
+			require.NoError(t, err)
+			assert.Empty(t, found, "occurrences belong to their learner")
 		}},
 		{Name: "a re-introduced word moves onto new material and keeps its scheduling state", Run: func(t *testing.T, h Harness) {
 			owner, material, progressStore, corrections := h.Seeds().Owner(), h.Study(), h.StudyProgress(), h.StudyCorrections()

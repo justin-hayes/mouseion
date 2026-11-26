@@ -86,7 +86,10 @@ const (
 type StudyEvidence struct {
 	Withdrawn bool
 	Source    StudyOccurrenceRef
-	// Valid lists the identity's occurrences under current evidence.
+	// Valid lists occurrences of the identity under current evidence: all of
+	// them, or the few that decide the review (see StudyEvidenceWitnesses). A
+	// withdrawn word whose material was found unpreparable needs all of them,
+	// for the fingerprint.
 	Valid []StudyOccurrenceRef
 	// CurrentUnpreparable reports that the word's current Study material was
 	// found unpreparable, and FailedEvidence is the fingerprint of the
@@ -95,6 +98,24 @@ type StudyEvidence struct {
 	// provider.
 	CurrentUnpreparable bool
 	FailedEvidence      string
+}
+
+// StudyEvidenceWitnesses reduces the identity's occurrences to those that decide
+// ReviewStudyEvidence: the source occurrence in its own run, else the same token
+// in a new run, else any one occurrence, else none. A store that cannot list
+// every occurrence cheaply returns the same witness, so the decision is the one
+// the full list gives (#2705).
+func StudyEvidenceWitnesses(valid []StudyOccurrenceRef, source StudyOccurrenceRef) []StudyOccurrenceRef {
+	if i := slices.IndexFunc(valid, source.sameRun); i >= 0 {
+		return valid[i : i+1]
+	}
+	if i := slices.IndexFunc(valid, source.sameToken); i >= 0 {
+		return valid[i : i+1]
+	}
+	if len(valid) > 0 {
+		return valid[:1]
+	}
+	return nil
 }
 
 // StudyRelocation finds the word's introducing occurrence in a new analysis

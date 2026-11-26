@@ -122,24 +122,34 @@ func (h *Handler) studyEvidence(ctx context.Context, owner string, word domain.S
 	case !errors.Is(err, domain.ErrNotFound):
 		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
 	}
-	valid, err := store.ListStudyOccurrences(ctx, owner, word.StudyIdentity)
-	if err != nil {
-		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
-	}
-	evidence := domain.StudyEvidence{Withdrawn: word.Withdrawn, Source: source, Valid: valid}
-	if !word.Withdrawn {
-		return evidence, material, nil
-	}
-	all, err := store.ListCurrentStudyMaterial(ctx, owner, word.Language)
-	if err != nil {
-		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
-	}
-	for _, item := range all {
-		if item.StudyIdentity == word.StudyIdentity {
-			evidence.CurrentUnpreparable = item.State == domain.StudyMaterialUnpreparable
-			evidence.FailedEvidence = item.EvidenceFingerprint
-			return evidence, item, nil
+	evidence := domain.StudyEvidence{Withdrawn: word.Withdrawn, Source: source}
+	current := material
+	if word.Withdrawn {
+		all, err := store.ListCurrentStudyMaterial(ctx, owner, word.Language)
+		if err != nil {
+			return domain.StudyEvidence{}, domain.StudyMaterial{}, err
+		}
+		current = domain.StudyMaterial{}
+		for _, item := range all {
+			if item.StudyIdentity == word.StudyIdentity {
+				evidence.CurrentUnpreparable = item.State == domain.StudyMaterialUnpreparable
+				evidence.FailedEvidence = item.EvidenceFingerprint
+				current = item
+				break
+			}
 		}
 	}
-	return evidence, domain.StudyMaterial{}, nil
+	// The decision needs the introducing occurrence and, when it no longer
+	// resolves, one other valid occurrence, so the store never lists them all.
+	// Only a word withdrawn after unpreparable material compares the whole
+	// evidence, against what the failed attempt saw.
+	if evidence.CurrentUnpreparable {
+		evidence.Valid, err = store.ListStudyOccurrences(ctx, owner, word.StudyIdentity)
+	} else {
+		evidence.Valid, err = store.FindStudyOccurrences(ctx, owner, word.StudyIdentity, source)
+	}
+	if err != nil {
+		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
+	}
+	return evidence, current, nil
 }

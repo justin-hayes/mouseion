@@ -14,6 +14,10 @@ func (h *contractHarness) ListStudyOccurrences(owner string, identity domain.Stu
 	return h.store.ListStudyOccurrences(context.Background(), owner, identity)
 }
 
+func (h *contractHarness) FindStudyOccurrences(owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	return h.store.FindStudyOccurrences(context.Background(), owner, identity, source)
+}
+
 func (h *contractHarness) SupersedeStudyMaterial(owner, materialID string) error {
 	return h.store.SupersedeStudyMaterial(context.Background(), owner, materialID)
 }

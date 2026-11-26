@@ -83,3 +83,33 @@ func TestStudyCorrectedCardAndReintroducingWord(t *testing.T) {
 	assert.False(t, StudyCountsToday(word, now), "and it does not hold the finish line open")
 	assert.True(t, StudyAwaitsMaterial(word, now), "it is reported as waiting for new material")
 }
+
+func TestStudyEvidenceWitnessesKeepWhatTheDecisionNeeds(t *testing.T) {
+	source := located(StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c", SentenceOrdinal: 4, TokenOrdinal: 2})
+	other := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c", SentenceOrdinal: 9, TokenOrdinal: 1}
+	moved := located(StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-2", CorpusID: "c2", SentenceOrdinal: 7, TokenOrdinal: 1})
+	cases := []struct {
+		name  string
+		valid []StudyOccurrenceRef
+		want  []StudyOccurrenceRef
+	}{
+		{"none", nil, nil},
+		{"the source in its own run", []StudyOccurrenceRef{other, source}, []StudyOccurrenceRef{source}},
+		{"the same token in a new run", []StudyOccurrenceRef{other, moved}, []StudyOccurrenceRef{moved}},
+		{"the source wins over a relocation", []StudyOccurrenceRef{moved, source}, []StudyOccurrenceRef{source}},
+		{"any one other occurrence", []StudyOccurrenceRef{other, {BookID: "b", AnalysisRunID: "run-1", CorpusID: "c", SentenceOrdinal: 10}}, []StudyOccurrenceRef{other}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			witnesses := StudyEvidenceWitnesses(tc.valid, source)
+			assert.Equal(t, tc.want, witnesses)
+			evidence := StudyEvidence{Source: source, Valid: tc.valid}
+			reduced := StudyEvidence{Source: source, Valid: witnesses}
+			assert.Equal(t, ReviewStudyEvidence(evidence), ReviewStudyEvidence(reduced), "the decision is the one the full list gives")
+			wantMoved, wantOK := StudyRelocation(evidence)
+			gotMoved, gotOK := StudyRelocation(reduced)
+			assert.Equal(t, wantOK, gotOK)
+			assert.Equal(t, wantMoved, gotMoved)
+		})
+	}
+}
