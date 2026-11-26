@@ -354,6 +354,9 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 	if input.RequireIdiomCard {
 		return c.encodeIdiomCardRequest(input)
 	}
+	if input.RequireSourceEvidenceFluencyAgreement {
+		return c.encodeSourceEvidenceFluencyAgreementRequest(input)
+	}
 	if input.RequireFluencyAgreement {
 		return c.encodeFluencyAgreementRequest(input)
 	}
@@ -804,7 +807,7 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if input.RequireLSJSenseSummary {
 		return decodeLSJSenseSummary(decoded)
 	}
-	if input.RequireFluencyAgreement {
+	if input.requiresFluencyAgreement() {
 		return decodeFluencyAgreement(decoded)
 	}
 	result, err := decodeTranslationFields(decoded.Choices[0].Message.Content)

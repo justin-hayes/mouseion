@@ -64,6 +64,34 @@ type fluencyFakeEnricher struct {
 	err      error
 	requests []enrichment.Candidate
 	meanings []string
+	// passFor answers the evidence-assisted pass by target word; a word with no
+	// answer cites the first sense. passes are the pass requests, and variant
+	// the agreement variant requests, sent.
+	passFor map[string]enrichment.EvidenceAssistedMeaning
+	passes  []enrichment.Candidate
+	variant []variantRequest
+}
+
+// variantRequest is what the source-evidence agreement variant was sent.
+type variantRequest struct {
+	candidate         enrichment.Candidate
+	learned, occurred []enrichment.FluencySense
+}
+
+func (e *fluencyFakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, candidate enrichment.Candidate, _ string) (enrichment.EvidenceAssistedMeaning, error) {
+	e.passes = append(e.passes, candidate)
+	if e.err != nil {
+		return enrichment.EvidenceAssistedMeaning{}, e.err
+	}
+	if answer, ok := e.passFor[candidate.TargetWord]; ok {
+		return answer, nil
+	}
+	return enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "A translation.", SentenceTranslationTargets: []string{"word"}, CitedSenseIDs: []string{"n100.1"}}, nil
+}
+
+func (e *fluencyFakeEnricher) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurred []enrichment.FluencySense) (enrichment.FluencyAgreement, error) {
+	e.variant = append(e.variant, variantRequest{candidate, learned, occurred})
+	return e.EnrichFluencyAgreement(ctx, candidate, learnedMeaning)
 }
 
 func (e *fluencyFakeEnricher) EnrichFluencyAgreement(_ context.Context, candidate enrichment.Candidate, learnedMeaning string) (enrichment.FluencyAgreement, error) {
@@ -235,6 +263,14 @@ func TestFluencyWorkerRefusesAnUnknownReason(t *testing.T) {
 }
 
 type reasonEnricher string
+
+func (reasonEnricher) EnrichEvidenceAssistedPass(context.Context, enrichment.Candidate, string) (enrichment.EvidenceAssistedMeaning, error) {
+	return enrichment.EvidenceAssistedMeaning{}, errors.New("not used")
+}
+
+func (reasonEnricher) EnrichSourceEvidenceFluencyAgreement(context.Context, enrichment.Candidate, string, []enrichment.FluencySense, []enrichment.FluencySense) (enrichment.FluencyAgreement, error) {
+	return enrichment.FluencyAgreement{}, errors.New("not used")
+}
 
 func (r reasonEnricher) EnrichFluencyAgreement(context.Context, enrichment.Candidate, string) (enrichment.FluencyAgreement, error) {
 	return enrichment.FluencyAgreement{Reason: string(r), Gloss: "x", SentenceTranslation: "y"}, nil
