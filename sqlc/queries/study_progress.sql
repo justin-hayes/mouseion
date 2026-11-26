@@ -70,9 +70,10 @@ ON CONFLICT (owner_id, language, study_day) DO UPDATE
 
 -- name: IntroduceStudyWord :one
 -- Introduces a word from its ready, current Study material: the word enters
--- study new and due now, with the material's Gloss, citations and dictionary pin as its learned meaning. A
--- word already in study, held by an open Wrong-word report, or whose material
--- is not ready and current, returns no row.
+-- study new and due now, with the material's Gloss, citations and dictionary
+-- pin as its learned meaning. A word already in study, held by an open
+-- Wrong-word report, or whose material is not ready and current, returns no
+-- row.
 INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning,
                             learned_sense_ids, learned_entry_ids, learned_dictionary_pin, state, due)
 SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, sqlc.arg('now')::timestamptz, m.gloss,

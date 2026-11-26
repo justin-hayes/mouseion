@@ -241,13 +241,19 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 
 func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {
 	t.Helper()
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	return seedAnalyzedBookIn(t, ctx, store, "de", owner, suffix, title, lemmas)
+}
+
+// seedAnalyzedBookIn is seedMigrationAnalyzedBook for a Book in any language.
+func seedAnalyzedBookIn(t *testing.T, ctx context.Context, store *persistence.PostgresStore, language, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {
+	t.Helper()
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 	require.NoError(t, err)
 	text := suffix + " content"
-	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: "de", SourceIdentifier: "migration-" + suffix, Title: title, MediaType: "application/epub+zip", Content: []byte(text), FullText: text}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, suffix), Order: 0, SpineIndex: 0, ManifestID: suffix, Text: text, EndOffset: uint64(len([]rune(text))), MediaType: "application/xhtml+xml", Linear: true}}})
+	source, err := store.PutSourceMaterialWithExtractedUnits(ctx, domain.SourceMaterial{OwnerID: owner, Language: language, SourceIdentifier: "migration-" + suffix, Title: title, MediaType: "application/epub+zip", Content: []byte(text), FullText: text}, domain.ExtractedUnits{SchemaVersion: 1, Units: []domain.ExtractedUnit{{ID: domain.EPUBUnitID(0, suffix), Order: 0, SpineIndex: 0, ManifestID: suffix, Text: text, EndOffset: uint64(len([]rune(text))), MediaType: "application/xhtml+xml", Linear: true}}})
 	require.NoError(t, err)
 	require.NoError(t, store.LinkSourceToBook(ctx, owner, book.ID, source.ID))
-	require.NoError(t, store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: source.ContentHash, Language: "de", SchemaVersion: "1", NormalizationProfile: "migration", NormalizationVersion: "1", AnalyzerName: "migration-fixture", AnalyzerVersion: "1"}, toSharedLemmas(lemmas)))
+	require.NoError(t, store.PutArtifact(ctx, domain.NormalizedArtifact{ContentHash: source.ContentHash, Language: language, SchemaVersion: "1", NormalizationProfile: "migration", NormalizationVersion: "1", AnalyzerName: "migration-fixture", AnalyzerVersion: "1"}, toSharedLemmas(lemmas)))
 	corpus, err := store.PutCorpus(ctx, owner, source.ID, source.ContentHash)
 	require.NoError(t, err)
 	var tokenCount int64

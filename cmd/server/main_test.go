@@ -290,7 +290,7 @@ func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
 
 func TestRegisterStudyWorkerRegistersTheJobKind(t *testing.T) {
 	workers := river.NewWorkers()
-	registerStudyWorker(workers, nil, enrichment.DisabledTranslationProvider{}, nil)
+	registerStudyWorker(workers, nil, enrichment.DisabledTranslationProvider{}, nil, nil)
 
 	require.Error(t, river.AddWorkerSafely(workers, &study.MaterialWorker{}), "worker kind must already be registered")
 	require.Error(t, river.AddWorkerSafely(workers, &study.FluencyWorker{}), "worker kind must already be registered")

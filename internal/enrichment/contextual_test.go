@@ -74,7 +74,7 @@ func TestEnrichExternalContextualSeparatesNotConfiguredFromAProviderFailure(t *t
 
 func passCandidate() Candidate {
 	return Candidate{
-		Identity:        Identity{Language: "grc", CanonicalLemma: "λόγοσ", UPOS: "NOUN"},
+		Language: "grc", CanonicalLemma: "λόγοσ", UPOS: "NOUN",
 		TargetWord:      "λόγον",
 		ExampleSentence: "ἄνθρωπος ὁρᾷ τὸν λόγον.",
 		CandidateSenses: []LexicalSense{{EvidenceID: "n1.s1", Source: "lsj", Gloss: "word"}, {EvidenceID: "n1.s2", Source: "lsj", Gloss: "account"}},

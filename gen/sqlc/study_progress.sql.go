@@ -149,9 +149,10 @@ type IntroduceStudyWordParams struct {
 }
 
 // Introduces a word from its ready, current Study material: the word enters
-// study new and due now, with the material's Gloss, citations and dictionary pin as its learned meaning. A
-// word already in study, held by an open Wrong-word report, or whose material
-// is not ready and current, returns no row.
+// study new and due now, with the material's Gloss, citations and dictionary
+// pin as its learned meaning. A word already in study, held by an open
+// Wrong-word report, or whose material is not ready and current, returns no
+// row.
 func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error) {
 	row := q.db.QueryRow(ctx, introduceStudyWord,
 		arg.Now,
