@@ -1,11 +1,13 @@
 # ADR 0136: Study replaces Known vocabulary and the Prepared deck
 
-Status: **Proposed** · Date: 2026-11-26 · Author: Justin + OpenCode
+Status: **Accepted; implementation pending (the Study cutover, §8)** ·
+Date: 2026-11-26 · Author: Justin + OpenCode
 
-Decided by Justin in a grilling session on future product direction. Accepted
-by merging this ADR's pull request.
+Accepted by merging this ADR's pull request. Justin decided it in a grilling
+session on future product direction. Until the cutover, the ADRs below keep
+describing the running system.
 
-It would amend or retire parts of:
+At the cutover, this ADR amends or retires parts of:
 
 - [ADR 0036](0036-primary-goal-justified-graduation.md) and
   [ADR 0078](0078-book-dispositions-and-current-reading.md): Known vocabulary,
@@ -182,11 +184,12 @@ after it.
 
 ## Consequences
 
-- **Large retirement.** Many `CONTEXT.md` terms become retired, marked the way
-  Inbox is, and the Prepared-deck, snapshot and Lemma review code is removed.
-  Those terms change only after this ADR is accepted.
-- **New terms.** Corpus, Already known and target coverage are added to
-  `CONTEXT.md`.
+- **Large retirement.** At the cutover, many `CONTEXT.md` terms become
+  retired, marked the way Inbox is, and the Prepared-deck, snapshot and Lemma
+  review code is removed. Until then, `CONTEXT.md` lists them in its status
+  notes as retiring.
+- **New terms.** `CONTEXT.md` defines Corpus, Already known and Target
+  coverage.
 - **Migrations need human review.** The Known-to-Study migration and dropping
   the Known, snapshot and reservation tables go through `migrations/`.
 - **Study must grow first.** Source-evidence card policy support and Idioms in

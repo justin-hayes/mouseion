@@ -2,6 +2,8 @@
 
 Status: **Accepted specification — implemented** · Date: 2026-10-06
 
+**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), the Current-reading snapshot, Reserved vocabulary, Book vocabulary candidates and Book-deck preparation are retired; the Current reading only puts its words first in Study until it reaches Target coverage. Until then this document describes the running system.
+
 Implementation status: issue #1505 binds new Book preparation, retries, and
 re-preparation to the active Current-reading snapshot; issue #1506 freezes the
 corpus-qualified two-occurrence exception; issue #1507 retires Browse selection

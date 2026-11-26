@@ -40,6 +40,19 @@ in an **Analysis update**.
 The Study terms (**Study**, **Study day**, **Today** and the terms after them)
 describe the Study pilot, which [ADR 0134](doc/adr/0134-study-in-mouseion-vocabulary-review.md)
 accepts and the pilot implements.
+[ADR 0136](doc/adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
+(accepted, implementation pending) makes Study the only vocabulary workflow at
+one cutover. It defines **Corpus**, **Already known** and **Target coverage**
+below. At the cutover it retires **Known vocabulary**, **Prepared deck** and
+every term that serves them: **Recurring vocabulary**, **Book vocabulary
+candidates**, **Reserved vocabulary**, **Unknown vocabulary**,
+**Current-reading vocabulary snapshot**, **Generated vocabulary**, every
+**Omission** kind, **Deck specification**, **Card presentation**,
+**Presentation version**, **Render-input version**, **Deck revision**,
+**Vocabulary transition** and **Graduation**. It also retires **Lemma review**,
+**Lemma review flag** and **Lemma suggestion**, and **Reading** as a page.
+Reading completion then records history only. Until the cutover, those entries
+describe the running system.
 
 ## Language
 
@@ -729,6 +742,27 @@ studies one sentence's grammar, and from a Prepared deck, which is studied in
 Anki.
 _Avoid_: review deck, practice, SRS, vocabulary study (the avoided name for a
 Vocabulary transition), Explore (a retired idea for browsing upcoming words).
+
+**Corpus**:
+The analysed Books in My Books in one study language. Study draws Study
+material and Fluency contexts from all of it, Read Books included, and
+Concordance searches it. Adding a Book from the Catalog is how a learner
+includes it; only its To Read Books set the priority of new words.
+_Avoid_: library, analysed library, collection.
+
+**Target coverage**:
+The coverage, counting Mature and in-study words, up to which the Current
+reading's words come first among new words. It is one fixed value for every
+language, 98%. Once the Book reaches it, frequency across the To Read Books
+decides, until the Book falls below it again.
+_Avoid_: readiness, goal, threshold (alone).
+
+**Already known**:
+An answer the learner can give when Study introduces a word. The word enters
+study already Mature, and from then on is an ordinary word: a lapse ends its
+maturity. It is an answer, not a status, and nothing else marks a word as
+known.
+_Avoid_: Known (a retiring fact), skip, ignore, mark as known.
 
 **Study day**:
 The learner's day for Study. It begins at a fixed early-morning hour rather

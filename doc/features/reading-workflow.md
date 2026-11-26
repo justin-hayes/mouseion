@@ -2,6 +2,8 @@
 
 Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the one production Set Aside row was converted to Inbox by hand before migration 000033 was re-run; ADR 0117 later retired Inbox as a visible state.
 
+**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), the Reading page merges into My Books, Start and Switch become one **Read next** action with no snapshot or confirmation, and Finish records history only, with no Known acceptance. Until then this document describes the running system.
+
 The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
 contract is being implemented in slices. New Book-deck preparation is now
 available only for the Current reading and uses its frozen snapshot; starting,
