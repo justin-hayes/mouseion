@@ -124,11 +124,12 @@ func TestSourceEvidenceWordWithoutATranslationHasNoPassage(t *testing.T) {
 
 func TestSourceEvidenceOmitsAMeaningTheEvidenceCannotDefend(t *testing.T) {
 	cases := map[string]enrichment.EvidenceAssistedMeaning{
-		"context only":     {Gloss: "a word", SentenceTranslation: "The man sees the word.", ContextOnly: true},
-		"abstention":       {SentenceTranslation: "The man sees the word.", ContextOnly: true, UnresolvedReason: "no sense fits"},
-		"empty Gloss":      {SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{"n100.1"}},
-		"no translation":   {Gloss: "a word", CitedSenseIDs: []string{"n100.1"}},
-		"invalid citation": {Gloss: "a word", SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{"n999.9"}},
+		"context only":              {Gloss: "a word", SentenceTranslation: "The man sees the word.", ContextOnly: true},
+		"abstention":                {SentenceTranslation: "The man sees the word.", ContextOnly: true, UnresolvedReason: "no sense fits"},
+		"empty Gloss":               {SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{"n100.1"}},
+		"no translation":            {Gloss: "a word", CitedSenseIDs: []string{"n100.1"}},
+		"provider invalid citation": {InvalidCitation: true},
+		"invalid citation":          {Gloss: "a word", SentenceTranslation: "The man sees the word.", CitedSenseIDs: []string{"n999.9"}},
 	}
 	for name, answer := range cases {
 		t.Run(name, func(t *testing.T) {

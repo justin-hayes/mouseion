@@ -72,6 +72,10 @@ type EvidenceAssistedMeaning struct {
 	// abstention.
 	ContextOnly      bool
 	UnresolvedReason string
+	// InvalidCitation reports an answer that cited a sense the request did not
+	// send, or one twice. It carries no Gloss and is not retryable: the evidence
+	// cannot defend it.
+	InvalidCitation bool
 }
 
 // Resolved reports whether the pass produced a Gloss that cites at least one
@@ -87,7 +91,8 @@ func (m EvidenceAssistedMeaning) Resolved() bool {
 // with the senses it cites, or an abstention. It returns
 // ErrExternalNotConfigured, not an empty result, when external enrichment is
 // off; a provider failure or a malformed answer is returned as an error and is
-// retryable. Whether the payload may be sent at all is the caller's gate
+// retryable, but an answer citing a sense the request did not send, or one
+// twice, is the InvalidCitation outcome. Whether the payload may be sent at all is the caller's gate
 // (ProviderAssessmentSet.MaySend); the answer is not cached here.
 func (s *Service) EnrichEvidenceAssistedPass(ctx context.Context, c Candidate, passageContext string) (EvidenceAssistedMeaning, error) {
 	if !s.ExternalConfigured() {
@@ -98,10 +103,12 @@ func (s *Service) EnrichEvidenceAssistedPass(ctx context.Context, c Candidate, p
 	request.RequireEvidenceAssistedPass = true
 	var metrics ExternalMetrics
 	response, err := s.callTranslationWithRetry(ctx, request, &metrics)
-	if err != nil {
-		return EvidenceAssistedMeaning{}, err
+	if err == nil {
+		response, err = NormalizeTranslationResponse(request, response)
 	}
-	response, err = NormalizeTranslationResponse(request, response)
+	if errors.Is(err, ErrInvalidEvidenceCitation) {
+		return EvidenceAssistedMeaning{InvalidCitation: true}, nil
+	}
 	if err != nil {
 		return EvidenceAssistedMeaning{}, err
 	}

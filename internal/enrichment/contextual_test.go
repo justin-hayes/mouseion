@@ -119,13 +119,30 @@ func TestEnrichEvidenceAssistedPassIsNotResolvedWithoutACitedSense(t *testing.T)
 	}
 }
 
-func TestEnrichEvidenceAssistedPassRejectsAnInventedSenseID(t *testing.T) {
-	provider := &contextualProvider{enabled: true, response: TranslationResponse{
-		Translation: "word", Gloss: "word", EvidenceIDs: []string{"n9.s9"}, SentenceTranslation: "The man sees the word.",
-	}}
+func TestEnrichEvidenceAssistedPassReportsAnInvalidCitationAsAnOutcome(t *testing.T) {
+	cases := map[string][]string{
+		"invented": {"n9.s9"},
+		"repeated": {"n1.s2", "n1.s2"},
+	}
+	for name, ids := range cases {
+		t.Run(name, func(t *testing.T) {
+			provider := &contextualProvider{enabled: true, response: TranslationResponse{
+				Translation: "word", Gloss: "word", EvidenceIDs: ids, SentenceTranslation: "The man sees the word.",
+			}}
+			service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
+			meaning, err := service.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "")
+			require.NoError(t, err, "an answer citing what the evidence does not hold is an outcome, not a retryable failure")
+			assert.True(t, meaning.InvalidCitation)
+			assert.False(t, meaning.Resolved())
+		})
+	}
+}
+
+func TestEnrichEvidenceAssistedPassKeepsAMalformedAnswerRetryable(t *testing.T) {
+	provider := &contextualProvider{enabled: true, response: TranslationResponse{Gloss: "word", EvidenceIDs: []string{"n1.s2"}}}
 	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
 	_, err := service.EnrichEvidenceAssistedPass(context.Background(), passCandidate(), "")
-	require.Error(t, err, "a cited ID outside the frozen senses is a malformed answer, not a citation")
+	require.Error(t, err)
 }
 
 func TestEnrichEvidenceAssistedPassSeparatesNotConfiguredFromAProviderFailure(t *testing.T) {

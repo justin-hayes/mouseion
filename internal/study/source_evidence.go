@@ -80,7 +80,7 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 		return err
 	}
 	cited := citationsOf(resolution, meaning.CitedSenseIDs)
-	if !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
+	if meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
 	}
 	return w.Store.RecordStudyMaterialReady(ctx, owner, material.ID, domain.StudyMaterialReadyContent{
