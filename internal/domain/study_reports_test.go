@@ -92,3 +92,60 @@ func TestOnlyAnOpenWrongWordReportHolds(t *testing.T) {
 	assert.False(t, StudyReportEndDismissed.Repair())
 	assert.False(t, StudyReportEndUndone.Repair())
 }
+
+func replacedToday(word StudyProgress, reportedAt time.Time) StudyProgress {
+	word.ContextReportedAt = reportedAt
+	return word
+}
+
+func TestAWordWhoseContextWasReportedWaitsForTheNextStudyDay(t *testing.T) {
+	now := berlin(11, 25, 9, 0)
+	cases := map[string]StudyProgress{
+		"a review due today":     reviewWord("a", StudyStateReview, berlin(11, 25, 20, 0), berlin(11, 22, 20, 0)),
+		"a review overdue":       reviewWord("b", StudyStateReview, berlin(11, 24, 20, 0), berlin(11, 21, 20, 0)),
+		"a repeat that is due":   reviewWord("c", StudyStateRelearning, berlin(11, 25, 8, 50), berlin(11, 25, 8, 40)),
+		"a word just introduced": reviewWord("d", StudyStateNew, berlin(11, 25, 8, 0), time.Time{}),
+	}
+	for name, word := range cases {
+		t.Run(name, func(t *testing.T) {
+			reported := replacedToday(word, berlin(11, 25, 8, 55))
+			assert.False(t, StudyCardIsDue(reported, now), "the reported review is not shown again today")
+			assert.False(t, StudyCountsToday(reported, now), "and Today can finish without it")
+			assert.False(t, StudyAwaitsMaterial(reported, now))
+			_, ok := NextStudyReview([]StudyProgress{reported}, now)
+			assert.False(t, ok)
+			assert.Empty(t, StudyUnintroduced([]StudyProgress{reported}, now), "a batch is not held back by it")
+		})
+	}
+}
+
+func TestAWordWhoseContextWasReportedIsDueAgainOnTheNextStudyDay(t *testing.T) {
+	reportedAt := berlin(11, 25, 8, 55)
+	word := replacedToday(reviewWord("a", StudyStateReview, berlin(11, 25, 20, 0), berlin(11, 22, 20, 0)), reportedAt)
+	tomorrow := berlin(11, 26, 5, 30)
+	assert.True(t, StudyCardIsDue(word, tomorrow), "the report defers its word by a Study day, no more")
+	assert.Equal(t, 1, StudyFinishLine([]StudyProgress{word}, tomorrow).Remaining)
+	assert.Equal(t, 1, StudyForecast([]StudyProgress{word}, berlin(11, 25, 9, 0)), "it is forecast for the next Study day")
+}
+
+func TestRetiredStudyOccurrenceRetiresTheWholeSentence(t *testing.T) {
+	reported := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c1", SentenceOrdinal: 4, TokenOrdinal: 2}
+	relocated := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-2", CorpusID: "c2", SentenceOrdinal: 14, TokenOrdinal: 2}
+	retired := []StudyOccurrenceRef{reported, relocated}
+	otherToken := reported
+	otherToken.TokenOrdinal = 7
+	otherTokenMoved := relocated
+	otherTokenMoved.TokenOrdinal = 7
+	otherSentence := reported
+	otherSentence.SentenceOrdinal = 5
+	otherBook := reported
+	otherBook.BookID = "other"
+	assert.True(t, RetiredStudyOccurrence(retired, reported))
+	assert.True(t, RetiredStudyOccurrence(retired, otherToken), "another token of the word in the sentence is retired too")
+	assert.True(t, RetiredStudyOccurrence(retired, relocated), "the sentence in the Book's current run")
+	assert.True(t, RetiredStudyOccurrence(retired, otherTokenMoved))
+	assert.False(t, RetiredStudyOccurrence(retired, otherSentence), "another sentence is not retired")
+	assert.False(t, RetiredStudyOccurrence(retired, otherBook))
+	assert.False(t, RetiredStudyOccurrence(nil, reported))
+	assert.Equal(t, []StudyOccurrenceRef{otherSentence}, WithoutRetiredStudyOccurrences([]StudyOccurrenceRef{reported, otherToken, relocated, otherSentence}, retired))
+}

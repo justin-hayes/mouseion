@@ -91,6 +91,12 @@ type StudyProgress struct {
 	// no reviews, is not part of Today's finish line and does not fall overdue.
 	// Its progress is kept.
 	Held bool
+	// ContextReportedAt is when the learner last reported the word's context as
+	// unsuitable (ADR 0135 §3), zero when they never did. It is derived from the
+	// open Unsuitable-context reports. The reported review is ungraded and the
+	// word is re-introduced from another context, so it waits for the next Study
+	// day (StudyContextReplaced).
+	ContextReportedAt time.Time
 	// CorrectedAt is when a correction re-introduced the word in new Study
 	// material, zero for a word never corrected. Reintroducing is true while
 	// the word's replacement material is still being prepared: the review is
@@ -98,6 +104,14 @@ type StudyProgress struct {
 	CorrectedAt          time.Time
 	Reintroducing        bool
 	CreatedAt, UpdatedAt time.Time
+}
+
+// StudyContextReplaced reports that the learner reported the word's context as
+// unsuitable on the current Study day. The word is not shown again today, and
+// is not part of Today's finish line: it is re-introduced from another context
+// on the next Study day, with its schedule untouched.
+func (p StudyProgress) StudyContextReplaced(now time.Time) bool {
+	return !p.ContextReportedAt.IsZero() && !p.ContextReportedAt.Before(StudyDayStart(now))
 }
 
 // Corrected reports that the word's card is its re-introduction after a

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -71,9 +72,11 @@ func (h *Handler) studyReportBookTitles(ctx context.Context, owner string, repor
 
 // reportStudyCard records the learner's report of the card they were shown. A
 // reported review is not graded: no grade, review-log row or schedule change is
-// written. Only a Wrong-word report is accepted until Unsuitable context
-// exists. Like a grade, a report of a card that is no longer the one due is
-// ignored.
+// written. A Wrong-word report advances to the next card. An
+// Unsuitable-context report replaces the word's context and shows the reported
+// card once more, so the learner can see what was reported (decision on Undo,
+// ADR 0135 §3). Like a grade, a report of a card that is no longer the one due
+// is ignored.
 func (h *Handler) reportStudyCard(w http.ResponseWriter, r *http.Request) {
 	language, back, ok := h.studyForm(w, r)
 	if !ok {
@@ -83,7 +86,7 @@ func (h *Handler) reportStudyCard(w http.ResponseWriter, r *http.Request) {
 	reps, repsErr := strconv.ParseInt(r.FormValue("reps"), 10, 64)
 	progressID := strings.TrimSpace(r.FormValue("progress"))
 	note, noteOK := domain.CleanStudyReportNote(r.FormValue("note"))
-	if !kindOK || kind != domain.StudyReportWrongWord || repsErr != nil || reps < 0 || progressID == "" || !noteOK {
+	if !kindOK || repsErr != nil || reps < 0 || progressID == "" || !noteOK {
 		http.Error(w, "invalid report", http.StatusBadRequest)
 		return
 	}
@@ -103,14 +106,60 @@ func (h *Handler) reportStudyCard(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) {
+	// A form for a card whose material was replaced since is stale, though the
+	// replacement keeps the word's reps.
+	if material := strings.TrimSpace(r.FormValue("material")); (material != "" && material != current.MaterialID) || current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) {
 		redirect(w, r, back)
 		return
 	}
-	_, err = store.CreateStudyReport(r.Context(), owner, domain.StudyReportRecord{ProgressID: progressID, ExpectedReps: reps, Kind: kind, Note: note, CreatedAt: now})
+	report, err := store.CreateStudyReport(r.Context(), owner, domain.StudyReportRecord{ProgressID: progressID, ExpectedReps: reps, Kind: kind, Note: note, CreatedAt: now})
 	if err != nil && !errors.Is(err, domain.ErrStudyStale) && !errors.Is(err, domain.ErrNotFound) {
 		fail(w, err)
 		return
 	}
+	if err == nil && kind == domain.StudyReportUnsuitableContext {
+		redirect(w, r, back+"?"+url.Values{studyReportedParam: {report.ID}}.Encode())
+		return
+	}
 	redirect(w, r, back)
+}
+
+// studyReportedParam names the report whose card the Study page shows once more
+// after an Unsuitable-context report.
+const studyReportedParam = "reported"
+
+// studyReportedView is the card of an Unsuitable-context report, shown after
+// the report with its answer side: the sentence, Gloss and translation that were
+// rejected. The word has already been replaced; the next card is a Next away.
+// The Undo control of #2720 belongs beside Next.
+type studyReportedView struct {
+	cardFace
+	ReportID string
+}
+
+// loadReportedCard reads the report the Study page was asked to show once more.
+// It is nothing unless the report is the learner's open Unsuitable-context
+// report in this language.
+func (h *Handler) loadReportedCard(r *http.Request, owner string, view *studyPageView) error {
+	id := strings.TrimSpace(r.URL.Query().Get(studyReportedParam))
+	if id == "" {
+		return nil
+	}
+	report, err := h.services.Store.Study.GetStudyReport(r.Context(), owner, id)
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if report.Kind != domain.StudyReportUnsuitableContext || !report.Open() || report.Language != view.Language {
+		return nil
+	}
+	face := cardFace{
+		ShowAnswer: true, Headword: lemmadisplay.Format(view.Language, report.CanonicalLemma, report.UPOS),
+		Gloss: report.Gloss, Translation: report.SentenceTranslation,
+	}
+	face.Before, face.Target, face.After, face.Marked = markTarget(report.Sentence, report.TargetWord)
+	view.Reported = &studyReportedView{cardFace: face, ReportID: report.ID}
+	return nil
 }

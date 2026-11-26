@@ -191,7 +191,10 @@ SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discri
        EXISTS (SELECT 1 FROM study_report r
                 WHERE r.owner_id = p.owner_id AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
                   AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
-                  AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held
+                  AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held,
+       COALESCE((SELECT max(r.created_at) FROM study_report r
+                  WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                    AND r.kind = 'unsuitable_context' AND r.ended_at IS NULL), 'epoch'::timestamptz)::timestamptz AS context_reported_at
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = $1 AND p.language = $2
@@ -204,9 +207,10 @@ type ListStudyProgressParams struct {
 }
 
 type ListStudyProgressRow struct {
-	StudyProgress StudyProgress
-	Reintroducing bool
-	Held          bool
+	StudyProgress     StudyProgress
+	Reintroducing     bool
+	Held              bool
+	ContextReportedAt time.Time
 }
 
 // Study progress, the review log and the per-day batch ledger (ADR 0134, spec
@@ -214,6 +218,8 @@ type ListStudyProgressRow struct {
 // reintroducing is true while the word's own Study material has been
 // superseded by a correction and its replacement is not yet in place.
 // held is true while the word has an open Wrong-word report (ADR 0135 §2).
+// context_reported_at is when its latest open Unsuitable-context report was
+// made (ADR 0135 §3), the epoch when there is none.
 func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error) {
 	rows, err := q.db.Query(ctx, listStudyProgress, arg.Owner, arg.Language)
 	if err != nil {
@@ -249,6 +255,7 @@ func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressPa
 			&i.StudyProgress.WithdrawnReason,
 			&i.Reintroducing,
 			&i.Held,
+			&i.ContextReportedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -552,7 +559,11 @@ func (q *Queries) UpdateStudyProgressMemory(ctx context.Context, arg UpdateStudy
 
 const withdrawUnpreparableStudyReintroductions = `-- name: WithdrawUnpreparableStudyReintroductions :execrows
 UPDATE study_progress p
-   SET withdrawn_at = $1::timestamptz, updated_at = now()
+   SET withdrawn_at = $1::timestamptz, updated_at = now(),
+       withdrawn_reason = CASE WHEN EXISTS (SELECT 1 FROM study_report r
+                                             WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                                               AND r.kind = 'unsuitable_context' AND r.ended_at IS NULL)
+                               THEN 'no_suitable_context' END
   FROM study_material m
  WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL
    AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
@@ -567,7 +578,10 @@ type WithdrawUnpreparableStudyReintroductionsParams struct {
 }
 
 // A word whose replacement material cannot be prepared has no usable
-// occurrence left: it is withdrawn, with its progress kept.
+// occurrence left: it is withdrawn, with its progress kept. A word whose
+// contexts the learner reported as unsuitable is withdrawn with the reason
+// 'no_suitable_context' (ADR 0135 §3): its other contexts are retired or fail
+// the sentence-quality gate.
 func (q *Queries) WithdrawUnpreparableStudyReintroductions(ctx context.Context, arg WithdrawUnpreparableStudyReintroductionsParams) (int64, error) {
 	result, err := q.db.Exec(ctx, withdrawUnpreparableStudyReintroductions, arg.Now, arg.Owner, arg.Language)
 	if err != nil {

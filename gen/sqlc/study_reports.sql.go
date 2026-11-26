@@ -233,6 +233,53 @@ func (q *Queries) GetOpenStudyReportOfMaterial(ctx context.Context, arg GetOpenS
 	return i, err
 }
 
+const getStudyOccurrenceToken = `-- name: GetStudyOccurrenceToken :one
+SELECT s.unit_id::text AS unit_id, t.start_offset::bigint AS start_offset, t.end_offset::bigint AS end_offset,
+       t.surface, t.raw_lemma
+  FROM corpus_tokens t
+  JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.analysis_run_id = t.analysis_run_id
+   AND s.corpus_id = t.corpus_id AND s.sentence_ordinal = t.sentence_ordinal
+ WHERE t.owner_id = $1 AND t.analysis_run_id = $2 AND t.corpus_id = $3
+   AND t.sentence_ordinal = $4 AND t.token_ordinal = $5
+`
+
+type GetStudyOccurrenceTokenParams struct {
+	Owner           string
+	AnalysisRun     string
+	Corpus          string
+	SentenceOrdinal int64
+	TokenOrdinal    int64
+}
+
+type GetStudyOccurrenceTokenRow struct {
+	UnitID      string
+	StartOffset int64
+	EndOffset   int64
+	Surface     string
+	RawLemma    string
+}
+
+// The token a retired occurrence names, with the locator and the surface and
+// source lemma an Analysis update carries a decision across runs by (ADR 0126).
+func (q *Queries) GetStudyOccurrenceToken(ctx context.Context, arg GetStudyOccurrenceTokenParams) (GetStudyOccurrenceTokenRow, error) {
+	row := q.db.QueryRow(ctx, getStudyOccurrenceToken,
+		arg.Owner,
+		arg.AnalysisRun,
+		arg.Corpus,
+		arg.SentenceOrdinal,
+		arg.TokenOrdinal,
+	)
+	var i GetStudyOccurrenceTokenRow
+	err := row.Scan(
+		&i.UnitID,
+		&i.StartOffset,
+		&i.EndOffset,
+		&i.Surface,
+		&i.RawLemma,
+	)
+	return i, err
+}
+
 const getStudyReport = `-- name: GetStudyReport :one
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
  WHERE owner_id = $1 AND id = $2
@@ -379,6 +426,80 @@ type ListOpenStudyReportsForBookParams struct {
 
 func (q *Queries) ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenStudyReportsForBookParams) ([]StudyReport, error) {
 	rows, err := q.db.Query(ctx, listOpenStudyReportsForBook, arg.Owner, arg.Book, arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StudyReport{}
+	for rows.Next() {
+		var i StudyReport
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.ProgressID,
+			&i.MaterialID,
+			&i.Kind,
+			&i.Note,
+			&i.BookID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Sentence,
+			&i.TargetWord,
+			&i.Gloss,
+			&i.SentenceTranslation,
+			&i.PreviousMaterialID,
+			&i.PreviousCorrectedAt,
+			&i.PreviousLearnedMeaning,
+			&i.CreatedAt,
+			&i.RecordedAt,
+			&i.EndedAt,
+			&i.EndReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenStudyReportsOfIdentity = `-- name: ListOpenStudyReportsOfIdentity :many
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+ WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3
+   AND upos = $4 AND lexical_discriminator = $5
+   AND kind = $6 AND ended_at IS NULL
+ ORDER BY created_at, id
+`
+
+type ListOpenStudyReportsOfIdentityParams struct {
+	Owner                string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	Kind                 string
+}
+
+// The open reports of one word by its vocabulary identity, which the word's
+// material preparation knows; for an Unsuitable-context report these are the
+// word's retired occurrences.
+func (q *Queries) ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOpenStudyReportsOfIdentityParams) ([]StudyReport, error) {
+	rows, err := q.db.Query(ctx, listOpenStudyReportsOfIdentity,
+		arg.Owner,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.LexicalDiscriminator,
+		arg.Kind,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -595,6 +716,27 @@ func (q *Queries) StudyActionSince(ctx context.Context, arg StudyActionSincePara
 	var acted bool
 	err := row.Scan(&acted)
 	return acted, err
+}
+
+const studyMaterialIsSuperseded = `-- name: StudyMaterialIsSuperseded :one
+SELECT (m.superseded_at IS NOT NULL)::boolean AS superseded
+  FROM study_progress p
+  JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
+ WHERE p.owner_id = $1 AND p.id = $2
+`
+
+type StudyMaterialIsSupersededParams struct {
+	Owner string
+	ID    string
+}
+
+// Whether the material the word is reviewed in has been replaced, so a grade of
+// its card is stale.
+func (q *Queries) StudyMaterialIsSuperseded(ctx context.Context, arg StudyMaterialIsSupersededParams) (bool, error) {
+	row := q.db.QueryRow(ctx, studyMaterialIsSuperseded, arg.Owner, arg.ID)
+	var superseded bool
+	err := row.Scan(&superseded)
+	return superseded, err
 }
 
 const supersedeOtherCurrentStudyMaterialOfWord = `-- name: SupersedeOtherCurrentStudyMaterialOfWord :execrows

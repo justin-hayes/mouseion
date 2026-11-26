@@ -26,7 +26,9 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 			if view.Held > 0 {
 				<p id="study-held" class="study-status">{ studyHeldText(view.Held) }</p>
 			}
-			if view.Card != nil {
+			if view.Reported != nil {
+				@StudyReportedCard(csrf, view)
+			} else if view.Card != nil {
 				@StudyCard(csrf, view)
 			} else if !view.Finished {
 				<section class="study-today" aria-labelledby="study-today-heading">
@@ -85,6 +87,17 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 					</ul>
 				</section>
 			}
+			if len(view.NoSuitableContext) > 0 {
+				<section class="study-no-suitable-context" aria-labelledby="study-no-suitable-context-heading">
+					<h2 id="study-no-suitable-context-heading">No suitable context left</h2>
+					<p>Every sentence for these words was reported as unsuitable or is not good enough to study. Your progress is kept, and they return when a new Book provides a context.</p>
+					<ul id="study-no-suitable-context" lang={ view.Language }>
+						for _, word := range view.NoSuitableContext {
+							<li>{ word }</li>
+						}
+					</ul>
+				</section>
+			}
 			if len(view.Withdrawn) > 0 {
 				<section class="study-withdrawn" aria-labelledby="study-withdrawn-heading">
 					<h2 id="study-withdrawn-heading">Withdrawn by a correction</h2>
@@ -125,6 +138,22 @@ templ StudyCard(csrf string, view studyPageView) {
 				<button class="button study-card__show" type="submit">Show answer</button>
 			</form>
 		}
+	</section>
+}
+
+// StudyReportedCard shows the card just reported as an unsuitable context, with
+// its answer side. The review was not graded: the word comes back on the next
+// Study day from another context. Moving on ends the offer. The Undo control of
+// #2720 belongs in the actions before Next. The Undo control
+// of #2720 belongs in the actions beside Next.
+templ StudyReportedCard(csrf string, view studyPageView) {
+	<section class="study-card study-card--reported" aria-labelledby="study-reported-heading">
+		<h2 id="study-reported-heading">Reported</h2>
+		<p id="study-reported" class="study-status">Reported as an unsuitable context. This sentence will not be used for this word again, and it comes back on the next Study day from another one.</p>
+		@cardFaceView(view.Language, "study", view.Reported.cardFace)
+		<div class="study-card__grades">
+			<a id="study-reported-next" class="button" href={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>Next</a>
+		</div>
 	</section>
 }
 
@@ -180,8 +209,7 @@ templ fluencyResponseForm(csrf string, view studyPageView, response, label, clas
 }
 
 // studyReportForm is the Report control of a revealed card (ADR 0135). The
-// reported review is not graded. Unsuitable context is shown but not yet
-// available.
+// reported review is not graded.
 templ studyReportForm(csrf string, view studyPageView) {
 	<details class="study-report" id="study-report">
 		<summary>Report</summary>
@@ -190,6 +218,7 @@ templ studyReportForm(csrf string, view studyPageView) {
 			<input type="hidden" name="language" value={ view.Language }/>
 			<input type="hidden" name="progress" value={ view.Card.ProgressID }/>
 			<input type="hidden" name="reps" value={ fmt.Sprint(view.Card.Reps) }/>
+			<input type="hidden" name="material" value={ view.Card.MaterialID }/>
 			<fieldset>
 				<legend>What is wrong with this card?</legend>
 				<label>
@@ -197,8 +226,8 @@ templ studyReportForm(csrf string, view studyPageView) {
 					<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
 				</label>
 				<label>
-					<input type="radio" name="kind" value="unsuitable_context" disabled/>
-					<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning. Not available yet.</span>
+					<input type="radio" name="kind" value="unsuitable_context"/>
+					<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning, for example inside an Idiom. The sentence is never used for this word again, and the word comes back on the next Study day from another one.</span>
 				</label>
 			</fieldset>
 			<label>Note (optional)<textarea class="input" name="note" maxlength={ fmt.Sprint(domain.StudyReportNoteMax) } rows="2"></textarea></label>

@@ -20,10 +20,10 @@ test.describe('Study reports', () => {
     await page.getByRole('button', { name: 'Show answer' }).click();
     const reported = await page.locator('#study-headword').innerText();
 
-    // Both kinds are shown; only Wrong word can be chosen yet.
+    // Both kinds are shown, and Wrong word is the default.
     await page.locator('#study-report summary').click();
     await expect(page.getByRole('radio', { name: /Wrong word/ })).toBeChecked();
-    await expect(page.getByRole('radio', { name: /Unsuitable context/ })).toBeDisabled();
+    await expect(page.getByRole('radio', { name: /Unsuitable context/ })).toBeEnabled();
     await page.getByLabel('Note (optional)').fill('The highlighted word is another word here.');
     await page.getByRole('button', { name: 'Send report' }).click();
 
@@ -53,5 +53,31 @@ test.describe('Study reports', () => {
     await expect(page.locator('#study-reports-empty')).toBeVisible();
     await page.goto('/de/study');
     await expect(page.locator('#study-held')).toHaveCount(0);
+  });
+
+  test('reports an unsuitable context, sees the reported card once more and goes on with Next', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/de/study');
+    // The fixture server is shared by the specs of this file: its batch may be taken already.
+    const take = page.getByRole('button', { name: 'Take these words' });
+    if (await take.count()) await take.click();
+    await page.getByRole('button', { name: 'Show answer' }).click();
+    const reported = await page.locator('#study-headword').innerText();
+    const sentence = await page.locator('.study-card__sentence').innerText();
+
+    await page.locator('#study-report summary').click();
+    await page.getByRole('radio', { name: /Unsuitable context/ }).check();
+    await page.getByRole('button', { name: 'Send report' }).click();
+
+    // The reported card stays on screen, with its answer side and a Next control.
+    await expect(page.locator('#study-reported')).toContainText('Reported as an unsuitable context');
+    await expect(page.locator('.study-card__sentence')).toHaveText(sentence);
+    await expect(page.locator('#study-headword')).toHaveText(reported);
+
+    // Next goes on to another word; the reported one is not held.
+    await page.locator('#study-reported-next').click();
+    await expect(page.locator('#study-reported')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Show answer' }).click();
+    expect(await page.locator('#study-headword').innerText()).not.toBe(reported);
   });
 });

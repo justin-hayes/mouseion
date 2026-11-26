@@ -293,6 +293,9 @@ type Querier interface {
 	// Where an analyzed token sits in its Book's extracted unit: the locator an
 	// Analysis update carries decisions across runs by.
 	GetStudyOccurrenceLocator(ctx context.Context, arg GetStudyOccurrenceLocatorParams) (GetStudyOccurrenceLocatorRow, error)
+	// The token a retired occurrence names, with the locator and the surface and
+	// source lemma an Analysis update carries a decision across runs by (ADR 0126).
+	GetStudyOccurrenceToken(ctx context.Context, arg GetStudyOccurrenceTokenParams) (GetStudyOccurrenceTokenRow, error)
 	// Fluency contexts and responses (ADR 0134 §7, spec #2691). Fluency never
 	// writes study_progress or study_review_log.
 	GetStudyProgress(ctx context.Context, arg GetStudyProgressParams) (StudyProgress, error)
@@ -450,6 +453,10 @@ type Querier interface {
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	ListOpenStudyReports(ctx context.Context, arg ListOpenStudyReportsParams) ([]StudyReport, error)
 	ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenStudyReportsForBookParams) ([]StudyReport, error)
+	// The open reports of one word by its vocabulary identity, which the word's
+	// material preparation knows; for an Unsuitable-context report these are the
+	// word's retired occurrences.
+	ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOpenStudyReportsOfIdentityParams) ([]StudyReport, error)
 	// The open reports of one word; for an Unsuitable-context report these are the
 	// word's retired occurrences.
 	ListOpenStudyReportsOfWord(ctx context.Context, arg ListOpenStudyReportsOfWordParams) ([]StudyReport, error)
@@ -519,6 +526,8 @@ type Querier interface {
 	// reintroducing is true while the word's own Study material has been
 	// superseded by a correction and its replacement is not yet in place.
 	// held is true while the word has an open Wrong-word report (ADR 0135 §2).
+	// context_reported_at is when its latest open Unsuitable-context report was
+	// made (ADR 0135 §3), the epoch when there is none.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	// The tokens of one Book's current analysis that a Study word's introducing
@@ -672,6 +681,9 @@ type Querier interface {
 	// a graded review, a batch taken or declined, a Fluency response or another
 	// report. Times are the database's own clock.
 	StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error)
+	// Whether the material the word is reviewed in has been replaced, so a grade of
+	// its card is stale.
+	StudyMaterialIsSuperseded(ctx context.Context, arg StudyMaterialIsSupersededParams) (bool, error)
 	// Undo of an Unsuitable-context report: the word's current material, other than
 	// the one being restored, is replaced so the restored record can be current.
 	SupersedeOtherCurrentStudyMaterialOfWord(ctx context.Context, arg SupersedeOtherCurrentStudyMaterialOfWordParams) (int64, error)
@@ -727,7 +739,10 @@ type Querier interface {
 	UpsertWork(ctx context.Context, arg UpsertWorkParams) (UpsertWorkRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
 	// A word whose replacement material cannot be prepared has no usable
-	// occurrence left: it is withdrawn, with its progress kept.
+	// occurrence left: it is withdrawn, with its progress kept. A word whose
+	// contexts the learner reported as unsuitable is withdrawn with the reason
+	// 'no_suitable_context' (ADR 0135 §3): its other contexts are retired or fail
+	// the sentence-quality gate.
 	WithdrawUnpreparableStudyReintroductions(ctx context.Context, arg WithdrawUnpreparableStudyReintroductionsParams) (int64, error)
 }
 

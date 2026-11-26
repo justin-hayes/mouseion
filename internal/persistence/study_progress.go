@@ -27,6 +27,9 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 		item := studyProgressFromRow(row.StudyProgress)
 		item.Reintroducing = row.Reintroducing
 		item.Held = row.Held
+		if row.ContextReportedAt.Unix() != 0 {
+			item.ContextReportedAt = row.ContextReportedAt
+		}
 		progress = append(progress, item)
 	}
 	return progress, nil
@@ -231,6 +234,15 @@ func (s *PostgresStore) RecordStudyGrade(ctx context.Context, owner string, reco
 // as the card was answered wins.
 func refuseStaleStudyGrade(ctx context.Context, q *sqlcgen.Queries, owner string, word domain.StudyProgress, expectedReps int64) error {
 	if word.Withdrawn || word.Memory.Reps != expectedReps {
+		return domain.ErrStudyStale
+	}
+	// A word whose material was replaced by an Unsuitable-context report has no
+	// card to grade; a grade that was already in flight is stale.
+	superseded, err := q.StudyMaterialIsSuperseded(ctx, sqlcgen.StudyMaterialIsSupersededParams{Owner: owner, ID: word.ID})
+	if err != nil {
+		return fmt.Errorf("check study material: %w", err)
+	}
+	if superseded {
 		return domain.ErrStudyStale
 	}
 	held, err := q.HasOpenWrongWordReport(ctx, sqlcgen.HasOpenWrongWordReportParams{

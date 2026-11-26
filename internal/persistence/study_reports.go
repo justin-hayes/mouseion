@@ -77,6 +77,14 @@ func createStudyReport(ctx context.Context, q *sqlcgen.Queries, owner string, re
 			return domain.StudyReport{}, fmt.Errorf("remove unreviewed study progress: %w", err)
 		}
 	}
+	if record.Kind == domain.StudyReportUnsuitableContext {
+		// The word is re-introduced: its reported material is replaced, so new
+		// material is prepared from another context (ADR 0135 §3). Its FSRS state
+		// is untouched.
+		if _, err := q.SupersedeStudyMaterial(ctx, sqlcgen.SupersedeStudyMaterialParams{Owner: owner, ID: created.MaterialID}); err != nil {
+			return domain.StudyReport{}, fmt.Errorf("supersede reported study material: %w", err)
+		}
+	}
 	return studyReportFromRow(created), nil
 }
 
@@ -161,7 +169,8 @@ func (s *PostgresStore) ListOpenWrongWordReportsForBook(ctx context.Context, own
 }
 
 // ListRetiredStudyOccurrences returns the occurrences retired as the word's
-// context by its open Unsuitable-context reports.
+// context by its open Unsuitable-context reports, each with its locator so it
+// is found again after an Analysis update (domain.RetiredStudyOccurrence).
 func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error) {
 	if !validUUID(progressID) {
 		return nil, nil
@@ -172,11 +181,73 @@ func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, 
 	if err != nil {
 		return nil, fmt.Errorf("list retired study occurrences: %w", err)
 	}
-	refs := make([]domain.StudyOccurrenceRef, 0, len(rows))
-	for _, report := range studyReportsFromRows(rows) {
-		refs = append(refs, report.Source)
+	return s.locatedReportSources(ctx, owner, studyReportsFromRows(rows)), nil
+}
+
+// ListRetiredStudyOccurrencesOfWord is ListRetiredStudyOccurrences by the word's
+// vocabulary identity, for material preparation, which knows no progress row.
+func (s *PostgresStore) ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+	identity = normalizedStudyIdentity(identity)
+	rows, err := sqlcgen.New(s.pool).ListOpenStudyReportsOfIdentity(ctx, sqlcgen.ListOpenStudyReportsOfIdentityParams{
+		Owner: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
+		LexicalDiscriminator: identity.LexicalDiscriminator, Kind: string(domain.StudyReportUnsuitableContext),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list retired study occurrences of word: %w", err)
 	}
-	return refs, nil
+	return s.locatedReportSources(ctx, owner, studyReportsFromRows(rows)), nil
+}
+
+// locatedReportSources names the sentences the reports retired, in every run
+// they are known in: the run each was reported in and, when an Analysis update
+// carried the reported token to the Book's current run, the sentence it is in
+// there. The token is carried as a Lemma correction is (ADR 0126): the same
+// source span, surface and source lemma. A report whose token is gone keeps its
+// own run only.
+func (s *PostgresStore) locatedReportSources(ctx context.Context, owner string, reports []domain.StudyReport) []domain.StudyOccurrenceRef {
+	refs := make([]domain.StudyOccurrenceRef, 0, len(reports))
+	for _, report := range reports {
+		refs = append(refs, report.Source)
+		for _, moved := range s.currentRunOccurrences(ctx, owner, report) {
+			if moved.AnalysisRunID != report.Source.AnalysisRunID || moved.SentenceOrdinal != report.Source.SentenceOrdinal {
+				refs = append(refs, moved)
+			}
+		}
+	}
+	return refs
+}
+
+// currentRunOccurrences finds the reported token in the Book's current analysis
+// when it is carried there unchanged.
+func (s *PostgresStore) currentRunOccurrences(ctx context.Context, owner string, report domain.StudyReport) []domain.StudyOccurrenceRef {
+	source, q := report.Source, sqlcgen.New(s.pool)
+	if !validUUID(source.AnalysisRunID) || !validUUID(source.CorpusID) || !validUUID(source.BookID) {
+		return nil
+	}
+	token, err := q.GetStudyOccurrenceToken(ctx, sqlcgen.GetStudyOccurrenceTokenParams{
+		Owner: owner, AnalysisRun: source.AnalysisRunID, Corpus: source.CorpusID, SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+	})
+	if err != nil {
+		return nil
+	}
+	rows, err := q.ListStudySourceTokens(ctx, sqlcgen.ListStudySourceTokensParams{
+		Owner: owner, Language: report.Language, Book: source.BookID, AnalysisRun: source.AnalysisRunID,
+		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+		UnitID: token.UnitID, StartOffset: token.StartOffset, EndOffset: token.EndOffset,
+	})
+	if err != nil {
+		return nil
+	}
+	var moved []domain.StudyOccurrenceRef
+	for _, row := range rows {
+		if row.Surface == token.Surface && row.RawLemma == token.RawLemma {
+			moved = append(moved, domain.StudyOccurrenceRef{
+				BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
+				SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
+			})
+		}
+	}
+	return moved
 }
 
 // EndStudyReport ends an open report because its occurrence was repaired or is
