@@ -958,7 +958,7 @@ func applyPassageLabel(note *Note, input RenderInput) error {
 	if strings.TrimSpace(input.PassageContext) == "" || strings.TrimSpace(input.PassageCitation) == "" {
 		return nil
 	}
-	label, err := passageContextLabel(input.PassagePin, input.PassageCitation)
+	label, err := PassageContextLabel(input.PassagePin, input.PassageCitation)
 	if err != nil {
 		return err
 	}

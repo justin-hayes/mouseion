@@ -87,9 +87,15 @@ func TestLatinPassDecodesACitedHandleToOneEntryAndSense(t *testing.T) {
 func TestLatinPassRejectsUnknownAndRepeatedHandles(t *testing.T) {
 	codec := passCodec(t)
 	input := latinPassRequest()
-	for _, ids := range []string{`["e9"]`, `["e1","e1"]`} {
-		_, err := codec.DecodeResponse(input, passChatBody(t, `{"item_id":"`+ContextualGlossItemHandle+`","source_language":"la","target_language":"en","translation":"say","sentence_translation":"Caesar speaks.","sentence_translation_targets":[],"gloss":"say","evidence_ids":`+ids+`,"context_only":false}`))
-		require.Error(t, err, ids)
+	tests := []struct{ name, ids string }{
+		{"an unknown handle", `["e9"]`},
+		{"a repeated handle", `["e1","e1"]`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := codec.DecodeResponse(input, passChatBody(t, `{"item_id":"`+ContextualGlossItemHandle+`","source_language":"la","target_language":"en","translation":"say","sentence_translation":"Caesar speaks.","sentence_translation_targets":[],"gloss":"say","evidence_ids":`+tc.ids+`,"context_only":false}`))
+			require.Error(t, err)
+		})
 	}
 }
 

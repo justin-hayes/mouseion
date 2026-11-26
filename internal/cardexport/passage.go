@@ -36,23 +36,17 @@ func passageAttribution(pin string) (classical.PassageAttribution, error) {
 	return attribution, nil
 }
 
-// passageContextLabel renders the frozen passage citation as the labelled,
-// unhighlighted card heading, crediting the translation the pin names.
-func passageContextLabel(pin, citation string) (string, error) {
+// PassageContextLabel renders the frozen passage citation as the labelled,
+// unhighlighted card heading, crediting the translation the pin names: the
+// translation, the citation range and the text that it is not a translation of
+// the sentence. A deck card and Study show the same label (ADR 0138 §3). A pin
+// the translation register does not list is an error, never a guess.
+func PassageContextLabel(pin, citation string) (string, error) {
 	attribution, err := passageAttribution(pin)
 	if err != nil {
 		return "", err
 	}
 	return passageContextPrefix + attribution.Label + " " + citation + passageContextSuffix, nil
-}
-
-// PassageContextLabel is the labelled, unhighlighted heading of a stored
-// passage: the translation the pin credits, the citation range and the text
-// that it is not a translation of the sentence. Study shows the same label a
-// deck card does (ADR 0138 §3). A pin the translation register does not list is
-// an error, never a guess.
-func PassageContextLabel(pin, citation string) (string, error) {
-	return passageContextLabel(pin, citation)
 }
 
 // PassageNotice is the attribution and licence notice of the translation a

@@ -216,12 +216,17 @@ func TestSourceEvidencePassageStoreFailureIsRetried(t *testing.T) {
 
 func TestSourceEvidenceCitesEntriesInOrderAndDropsNothingValid(t *testing.T) {
 	resolution := resolutionOf(syntheticLSJ())
-	cited := citationsOf(resolution, []string{"n100.2", "n100.1", "n100.2"})
+	refs, ok := citedSenses(cardpolicy.For("grc"), resolution, []string{"n100.2", "n100.1", "n100.2"})
+	require.True(t, ok)
+	cited := citationsOf(resolution, refs)
 	assert.Equal(t, []string{"n100.1", "n100.2"}, cited.SenseIDs, "senses follow the entry's source order, once each")
-	assert.Equal(t, []string{"n100"}, cited.EntryIDs)
+	assert.Equal(t, []string{"n100", "n100"}, cited.EntryIDs, "each sense names its entry")
 	assert.Equal(t, "lsj-pin-1", cited.DictionaryPin)
-	assert.True(t, citationsOf(resolution, []string{"nope"}).Empty())
-	assert.True(t, citationsOf(resolution, []string{"n100.1", "nope"}).Empty(), "one unknown ID invalidates the citations")
+	_, ok = citedSenses(cardpolicy.For("grc"), resolution, []string{"nope"})
+	assert.False(t, ok)
+	_, ok = citedSenses(cardpolicy.For("grc"), resolution, []string{"n100.1", "nope"})
+	assert.False(t, ok, "one unknown ID invalidates the citations")
+	assert.True(t, citationsOf(resolution, nil).Empty())
 }
 
 func TestModernWordNeverUsesTheSourceEvidencePath(t *testing.T) {
@@ -310,5 +315,6 @@ func TestLatinStudyRecordsTheCitedEntryWhenHomographsShareASenseID(t *testing.T)
 	f.worker.Evidence.Lexical = &latinLexicon{entries: entries}
 	require.NoError(t, work(f.worker))
 	require.NotNil(t, f.store.ready)
+	assert.Equal(t, []string{"n9.0"}, f.store.ready.Cited.SenseIDs)
 	assert.Equal(t, []string{"n10"}, f.store.ready.Cited.EntryIDs)
 }

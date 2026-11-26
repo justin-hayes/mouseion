@@ -102,6 +102,23 @@ a bare link. Reported words entries reuse the Study card's sentence with its
 marked target and one **Dismiss** form. See
 [`screen-inventory.md`](screen-inventory.md#study-reports).
 
+## Study source sections
+
+A source-evidence word's (Ancient Greek, Latin) Study card shows two more
+native `details` disclosures on the answer side, below the usual rows (ADR 0138
+§3, [`0138`](../adr/0138-study-for-source-evidence-languages.md)). Both start
+collapsed, so the answer stays the card's focus, and are keyboard-operable
+without JavaScript. **Dictionary** is shown when a cited entry is still in the
+dictionary: the compact outline of each cited entry (Lewis & Short entries
+carry their number, and a senseless entry outlines the entry its cross-reference
+names), with the senses the Gloss rests on marked only while the stored
+dictionary pin is the dictionary's own. **Passage context** is shown only when
+the word stores a passage whose translation the register credits: its label
+states that it is not a translation of the sentence. A section with nothing to
+show is omitted, never shown empty. A modern-language card has neither. The
+imported-source notices, each with its pin and licence, sit at the foot of the
+Study page, whether or not a card is shown.
+
 ## Canonical shipped patterns
 
 These names describe durable interaction purposes. They do not require a

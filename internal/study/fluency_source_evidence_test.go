@@ -53,20 +53,72 @@ func TestSourceEvidenceFluencyCitedSensesReachTheAgreementCall(t *testing.T) {
 	}
 }
 
-func TestSourceEvidenceFluencyDisjointEntriesOnTheSamePinAreADifferentMeaning(t *testing.T) {
-	worker, store, enricher, lexicon := newSourceEvidenceFluencyFixture(t)
-	// The context cites an entry the Learned meaning does not.
-	lexicon.entry.EntryID = "n200"
-	store.progress.LearnedCitations = domain.StudyCitations{SenseIDs: []string{"n100.1"}, EntryIDs: []string{"n100"}, DictionaryPin: "lsj-pin-1"}
+// newLatinFluencyFixture is a mature Latin word whose Learned meaning cites
+// sense "s1" of entry n9, with stacked homographs n9 and n10 that both hold a
+// sense "s1" (Lewis & Short sense IDs are only unique within an entry).
+func newLatinFluencyFixture(t *testing.T) (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnricher) {
+	t.Helper()
+	worker, store, enricher := newFluencyFixture()
+	store.progress.Language, store.progress.CanonicalLemma = "la", "dico"
+	store.material.Language = "la"
+	store.progress.LearnedCitations = domain.StudyCitations{SenseIDs: []string{"s1"}, EntryIDs: []string{"n9"}, DictionaryPin: "ls-pin-1"}
+	store.addOccurrence(2, "dicoa", map[string]string{"Number": "Plur"})
+	store.addOccurrence(3, "dicob", map[string]string{"Case": "Gen"})
+	entries := stackedDico()
+	entries[0].Senses[0].ID, entries[1].Senses[0].ID = "s1", "s1"
+	worker.Evidence = &SourceEvidence{Lexical: &latinLexicon{entries: entries}, Translations: &fakeTranslations{}, MaySend: func(string) error { return nil }}
+	worker.MaySendAgreement = func(string) error { return nil }
+	return worker, store, enricher
+}
+
+func TestLatinFluencyContextCitingAnotherHomographIsADifferentMeaning(t *testing.T) {
+	worker, store, enricher := newLatinFluencyFixture(t)
+	other := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.LatinEvidenceID("n10", "s1")}}
+	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"dicoa": other, "dicob": other}
 
 	require.NoError(t, fluencyWork(worker))
 
-	assert.Empty(t, enricher.variant, "a different entry on the same pin makes no agreement call")
+	assert.Empty(t, enricher.variant, "a different entry on the same pin makes no agreement call, though the sense ID is shared")
 	require.Len(t, store.recorded, 2)
 	for _, record := range store.recorded {
 		assert.Equal(t, domain.FluencyReasonDifferentMeaning, record.Reason)
 		assert.Equal(t, domain.FluencyDisagrees, record.Agreement)
-		assert.Equal(t, []string{"n200"}, record.Cited.EntryIDs)
+		assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"s1"}, EntryIDs: []string{"n10"}, DictionaryPin: "ls-pin-1"}, record.Cited)
+	}
+}
+
+func TestLatinFluencyContextCitingTheLearnedHomographGoesToTheAgreementCall(t *testing.T) {
+	worker, store, enricher := newLatinFluencyFixture(t)
+	same := enrichment.EvidenceAssistedMeaning{Gloss: "to dedicate", SentenceTranslation: "He dedicates.", CitedSenseIDs: []string{enrichment.LatinEvidenceID("n9", "s1")}}
+	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"dicoa": same, "dicob": same}
+
+	require.NoError(t, fluencyWork(worker))
+
+	require.Len(t, enricher.variant, 2)
+	learned := []enrichment.FluencySense{{ID: enrichment.LatinEvidenceID("n9", "s1"), Definition: "to dedicate"}}
+	for _, request := range enricher.variant {
+		assert.Equal(t, learned, request.learned, "the Learned meaning's sense is the learned homograph's, not the other's")
+		assert.Equal(t, learned, request.occurred)
+	}
+	require.Len(t, store.recorded, 2)
+	for _, record := range store.recorded {
+		assert.Equal(t, []string{"n9"}, record.Cited.EntryIDs)
+		assert.Equal(t, domain.FluencyAgrees, record.Agreement)
+	}
+}
+
+func TestLatinFluencyRejectsACitationOfASenseTheNamedEntryDoesNotHold(t *testing.T) {
+	worker, store, enricher := newLatinFluencyFixture(t)
+	bad := enrichment.EvidenceAssistedMeaning{Gloss: "to say", SentenceTranslation: "He says.", CitedSenseIDs: []string{enrichment.LatinEvidenceID("n9", "nope")}}
+	enricher.passFor = map[string]enrichment.EvidenceAssistedMeaning{"dicoa": bad, "dicob": bad}
+
+	require.NoError(t, fluencyWork(worker))
+
+	assert.Empty(t, enricher.variant)
+	require.Len(t, store.recorded, 2)
+	for _, record := range store.recorded {
+		assert.Equal(t, domain.FluencyReasonUndefendable, record.Reason)
+		assert.True(t, record.Cited.Empty())
 	}
 }
 
@@ -84,10 +136,11 @@ func TestSourceEvidenceFluencyADifferentPinGoesToTheAgreementCheck(t *testing.T)
 
 func TestSourceEvidenceFluencyAnUncitedContextIsUndefendable(t *testing.T) {
 	cases := map[string]enrichment.EvidenceAssistedMeaning{
-		"context only":     {Gloss: "a word", SentenceTranslation: "A translation.", ContextOnly: true},
-		"abstention":       {SentenceTranslation: "A translation.", ContextOnly: true, UnresolvedReason: "no sense fits"},
-		"invalid citation": {InvalidCitation: true},
-		"unknown sense":    {Gloss: "a word", SentenceTranslation: "A translation.", CitedSenseIDs: []string{"n999.9"}},
+		"context only":                   {Gloss: "a word", SentenceTranslation: "A translation.", ContextOnly: true},
+		"abstention":                     {SentenceTranslation: "A translation.", ContextOnly: true, UnresolvedReason: "no sense fits"},
+		"invalid citation":               {InvalidCitation: true},
+		"invalid citation with its text": {InvalidCitation: true, Gloss: "a word", SentenceTranslation: "A translation."},
+		"unknown sense":                  {Gloss: "a word", SentenceTranslation: "A translation.", CitedSenseIDs: []string{"n999.9"}},
 	}
 	for name, answer := range cases {
 		t.Run(name, func(t *testing.T) {

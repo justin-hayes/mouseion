@@ -134,6 +134,9 @@ func TestEnrichEvidenceAssistedPassReportsAnInvalidCitationAsAnOutcome(t *testin
 			require.NoError(t, err, "an answer citing what the evidence does not hold is an outcome, not a retryable failure")
 			assert.True(t, meaning.InvalidCitation)
 			assert.False(t, meaning.Resolved())
+			assert.Equal(t, "word", meaning.Gloss, "the answer's Gloss survives the invalid citation")
+			assert.Equal(t, "The man sees the word.", meaning.SentenceTranslation)
+			assert.Empty(t, meaning.CitedSenseIDs)
 		})
 	}
 }

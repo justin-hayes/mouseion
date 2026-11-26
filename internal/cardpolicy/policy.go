@@ -89,6 +89,17 @@ const (
 	LatinSourceNotice = "Latin text and annotation: Opera Latina Adnotata (OLA) v0.2.0, LatinPipe output (CC BY-SA 4.0, Zenodo record 15183688), derived from Perseus/canonical-latinLit (CC BY-SA 4.0; the text is the revision OLA v0.2.0 annotates, recorded in the release). Commentary and derived data remain share-alike under the same licence."
 )
 
+// PassContract is the evidence-assisted pass payload contract of a language.
+type PassContract int
+
+const (
+	// PassContractGreek is the Ancient Greek (LSJ) pass contract.
+	PassContractGreek PassContract = iota
+	// PassContractLatin is the Lewis & Short pass contract, which cites a sense
+	// by its entry and its sense.
+	PassContractLatin
+)
+
 // Policy is the card behaviour of one study language. A language either uses
 // source-evidence cards or takes the modern-language provider route, never
 // both.
@@ -100,6 +111,10 @@ type Policy struct {
 	// EvidenceAssistedPass reports whether the evidence-assisted provider pass
 	// may run on top of the source-evidence card.
 	EvidenceAssistedPass bool
+	// PassContract names the provider payload contract the evidence-assisted
+	// pass of the language transmits. It is the one decision that selects both
+	// the codec's request encoding and the recorded assessment it is gated by.
+	PassContract PassContract
 	// Study reports whether the language is served by Study (ADR 0138). It is
 	// compiled in, never a learner setting or a runtime toggle: a source-evidence
 	// language is switched on only once its evidence run is recorded.
@@ -143,6 +158,7 @@ var (
 	sourceEvidenceLatin = Policy{
 		SourceEvidence:       true,
 		EvidenceAssistedPass: true,
+		PassContract:         PassContractLatin,
 		Study:                false,
 		SourceNotice:         LatinSourceNotice,
 		Entries:              EntryLewisShort,

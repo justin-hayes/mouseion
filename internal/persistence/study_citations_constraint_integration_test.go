@@ -12,7 +12,7 @@ import (
 
 // TestStudyMaterialReadyRowCitationsAreEnforcedByTheDatabase holds that a ready
 // row carrying a dictionary pin cannot be stored without a cited sense, its
-// entry, or with more entries than senses, whatever the Go layer does (spec
+// entry, or with an entry count that differs from the senses, whatever the Go layer does (spec
 // #2759): the invariant lives in the table.
 func TestStudyMaterialReadyRowCitationsAreEnforcedByTheDatabase(t *testing.T) {
 	ctx := context.Background()
@@ -33,17 +33,34 @@ func TestStudyMaterialReadyRowCitationsAreEnforcedByTheDatabase(t *testing.T) {
 	require.NoError(t, store.RecordStudyMaterialReady(ctx, owner.ID, id, domain.StudyMaterialReadyContent{
 		BookID: book.ID, AnalysisRunID: run, CorpusID: corpus, Sentence: "Das Haus steht.", TargetWord: "Haus",
 		Gloss: "house", SentenceTranslation: "The house stands.",
-		Cited: domain.StudyCitations{SenseIDs: []string{"n1.1", "n1.2"}, EntryIDs: []string{"n1"}, DictionaryPin: "lsj-1"},
+		Cited: domain.StudyCitations{SenseIDs: []string{"n1.1", "n1.2"}, EntryIDs: []string{"n1", "n1"}, DictionaryPin: "lsj-1"},
 	}))
 
 	update := func(set string) error {
 		_, err := store.Pool().Exec(ctx, `UPDATE study_material SET `+set+` WHERE owner_id=$1 AND id=$2`, owner.ID, id)
 		return err
 	}
-	require.Error(t, update(`cited_entry_ids='{}'`), "a cited sense names its entry")
-	require.Error(t, update(`cited_entry_ids='{n1,n2,n3}'`), "no more entries than senses")
-	require.Error(t, update(`cited_sense_ids='{}', cited_entry_ids='{}'`), "a pin needs a cited sense")
-	require.Error(t, update(`dictionary_pin=' '`), "a cited sense needs a non-blank pin")
-	require.NoError(t, update(`cited_sense_ids='{n1.1,n2.1}', cited_entry_ids='{n1,n2}'`), "a Gloss may cite across entries")
-	require.NoError(t, update(`cited_sense_ids='{}', cited_entry_ids='{}', dictionary_pin=''`), "a ready row with no pin is a modern row")
+	tests := []struct {
+		name  string
+		set   string
+		valid bool
+	}{
+		{"a cited sense names its entry", `cited_entry_ids='{}'`, false},
+		{"each sense names exactly one entry", `cited_entry_ids='{n1}'`, false},
+		{"no more entries than senses", `cited_entry_ids='{n1,n2,n3}'`, false},
+		{"a pin needs a cited sense", `cited_sense_ids='{}', cited_entry_ids='{}'`, false},
+		{"a cited sense needs a non-blank pin", `dictionary_pin=' '`, false},
+		{"a Gloss may cite across entries", `cited_sense_ids='{n1.1,n2.1}', cited_entry_ids='{n1,n2}'`, true},
+		{"homographs may share a sense ID", `cited_sense_ids='{s1,s1}', cited_entry_ids='{n1,n2}'`, true},
+		{"a ready row with no pin is a modern row", `cited_sense_ids='{}', cited_entry_ids='{}', dictionary_pin=''`, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.valid {
+				require.NoError(t, update(tc.set))
+			} else {
+				require.Error(t, update(tc.set))
+			}
+		})
+	}
 }

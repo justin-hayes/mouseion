@@ -700,7 +700,11 @@ func retiredFluencyScenario(t *testing.T, h Harness) {
 func citedStudyContent(gloss, pin string, senses ...string) domain.StudyMaterialReadyContent {
 	content := studyReadyContent()
 	content.Gloss = gloss
-	content.Cited = domain.StudyCitations{SenseIDs: senses, EntryIDs: []string{"n1"}, DictionaryPin: pin}
+	entries := make([]string, len(senses))
+	for i := range entries {
+		entries[i] = "n1"
+	}
+	content.Cited = domain.StudyCitations{SenseIDs: senses, EntryIDs: entries, DictionaryPin: pin}
 	content.Passage = domain.StudyPassage{Text: "He went home.", Citation: "1.2", TranslationPin: "sha256:abc"}
 	return content
 }
@@ -709,7 +713,7 @@ func citedLearnedMeaningScenario(t *testing.T, h Harness) {
 	t.Helper()
 	owner, reports, progress, material, corrections := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress(), h.Study(), h.StudyCorrections()
 	identity := studyNoun("haus")
-	incomplete := citedStudyContent("a building", "")
+	incomplete := citedStudyContent("a building", "", "s1")
 	pending, _, err := material.ReserveStudyMaterial(owner, identity)
 	require.NoError(t, err)
 	require.ErrorIs(t, material.RecordStudyMaterialReady(owner, pending, incomplete), domain.ErrInvalidStudyMaterial, "a cited sense needs the dictionary pin")
@@ -721,7 +725,7 @@ func citedLearnedMeaningScenario(t *testing.T, h Harness) {
 	stored, err := material.GetStudyMaterial(owner, pending)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"s1", "s2"}, stored.Cited.SenseIDs)
-	assert.Equal(t, []string{"n1"}, stored.Cited.EntryIDs)
+	assert.Equal(t, []string{"n1", "n1"}, stored.Cited.EntryIDs)
 	assert.Equal(t, "lsj-1", stored.Cited.DictionaryPin)
 	assert.Equal(t, domain.StudyPassage{Text: "He went home.", Citation: "1.2", TranslationPin: "sha256:abc"}, stored.Passage)
 

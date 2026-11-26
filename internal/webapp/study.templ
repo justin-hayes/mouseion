@@ -255,9 +255,9 @@ templ sourceCardSections(language string, source sourceCardView) {
 	}
 }
 
-templ outlineSenses(outline []outlineSenseView) {
+templ outlineSenses(senses []outlineSenseView) {
 	<ul class="study-outline">
-		for _, sense := range outline {
+		for _, sense := range senses {
 			<li class={ outlineSenseClass(sense) } data-level={ fmt.Sprint(sense.Level) }>
 				if sense.Number != "" {
 					<span class="study-sense__number">{ sense.Number }</span>

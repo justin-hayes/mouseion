@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 )
 
 var llmSystemPrompt = fmt.Sprintf("Translate the supplied lemma into the target language. Return exactly one JSON object using only these eight field names, with no markdown or additional keys: item_id, source_language, target_language, translation (a concise lemma translation), sentence_translation (a natural translation of the complete example sentence), sentence_translation_targets (an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists), sense_order (an optional array of distinct 0-based integer indices into the frozen candidate_senses list, in best-fit order; return at most %d indices, capped at the display limit of %d; omit it, or return an empty array, when no candidate sense fits), and fallback_gloss (an optional concise English gloss only when no candidate sense fits or the candidate list is empty). Do not include the whole sentence or unrelated words in an alignment. Echo item_id and both languages exactly. When no example sentence is supplied, sentence_translation and sentence_translation_targets must be empty. Do not return HTML or markup in any field.", DefaultMaxSenses, DefaultMaxSenses)
@@ -92,12 +92,25 @@ var ErrInvalidTranslationResponse = errors.New("enrichment: invalid translation 
 // pass reports it as an outcome (EvidenceAssistedMeaning.InvalidCitation).
 var ErrInvalidEvidenceCitation = errors.New("enrichment: invalid evidence citation")
 
-// evidenceCitationError keeps the decode message and matches
-// ErrInvalidEvidenceCitation.
-type evidenceCitationError string
+// evidenceCitationError keeps the decode message and the answer's own text, and
+// matches ErrInvalidEvidenceCitation. The text is what the provider returned
+// besides the citation: the evidence cannot defend the answer, but a caller may
+// still keep the Gloss and sentence translation it came with.
+type evidenceCitationError struct {
+	message  string
+	response TranslationResponse
+}
 
-func (e evidenceCitationError) Error() string      { return string(e) }
+func (e evidenceCitationError) Error() string      { return e.message }
 func (evidenceCitationError) Is(target error) bool { return target == ErrInvalidEvidenceCitation }
+
+// invalidCitation is an invalid-citation error that carries the response's text.
+func invalidCitation(message string, response TranslationResponse) evidenceCitationError {
+	return evidenceCitationError{message: message, response: TranslationResponse{
+		Gloss: response.Gloss, SentenceTranslation: response.SentenceTranslation,
+		SentenceTranslationTargets: slices.Clone(response.SentenceTranslationTargets),
+	}}
+}
 
 // TranslationCodec owns the provider request and response semantics shared by
 // synchronous and Batch transports. It deliberately contains no credentials,
@@ -622,10 +635,10 @@ func LatinEvidenceAssistedPassPayloadFields() []string {
 	return slices.Clone(latinEvidenceAssistedPassPayloadFields)
 }
 
-// isLatinPass reports whether a pass request's language selects the Latin
-// contract.
+// isLatinPass reports whether the language's card policy selects the Latin pass
+// contract. Encoding and assessment lookup share this one decision.
 func isLatinPass(language string) bool {
-	return canonicalization.NormalizeLanguage(language) == "la"
+	return cardpolicy.For(language).PassContract == cardpolicy.PassContractLatin
 }
 
 // latinEvidenceIDSeparator joins a Lewis & Short entry ID and one of its sense
@@ -703,7 +716,7 @@ func mapContextualEvidenceHandles(input TranslationRequest, response *Translatio
 		}
 		stable, ok := handles.toEvidence[handle]
 		if !ok {
-			return evidenceCitationError("decode LLM translation: unknown evidence ID")
+			return invalidCitation("decode LLM translation: unknown evidence ID", *response)
 		}
 		response.EvidenceIDs[i] = stable
 	}
@@ -1105,6 +1118,9 @@ func validateContextualMeaning(input TranslationRequest, response TranslationRes
 		return err
 	}
 	if err := validateContextualEvidence(input, response); err != nil {
+		if citation, ok := errors.AsType[evidenceCitationError](err); ok {
+			return invalidCitation(citation.message, response)
+		}
 		return err
 	}
 	if err := validateContextualEvidenceAgreement(response); err != nil {
@@ -1186,10 +1202,10 @@ func validateEvidenceID(id string, knownEvidence, seenEvidence map[string]struct
 		return errors.New("decode LLM translation: empty evidence ID")
 	}
 	if _, ok := knownEvidence[id]; !ok {
-		return evidenceCitationError("decode LLM translation: unknown evidence ID")
+		return evidenceCitationError{message: "decode LLM translation: unknown evidence ID"}
 	}
 	if _, duplicate := seenEvidence[id]; duplicate {
-		return evidenceCitationError("decode LLM translation: duplicate evidence ID")
+		return evidenceCitationError{message: "decode LLM translation: duplicate evidence ID"}
 	}
 	seenEvidence[id] = struct{}{}
 	return nil

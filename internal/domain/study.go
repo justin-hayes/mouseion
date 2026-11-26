@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -123,9 +124,12 @@ type StudyMaterial struct {
 }
 
 // StudyCitations are the dictionary senses a source-evidence Gloss rests on
-// (ADR 0138 §2): the source's native sense IDs, the native entry IDs they belong
-// to and the pinned dictionary revision they were made against. They are empty
-// for a modern-language word, whose Learned meaning is a Gloss alone.
+// (ADR 0138 §2): the source's native sense IDs, the native ID of the entry each
+// sense belongs to and the pinned dictionary revision they were made against.
+// SenseIDs and EntryIDs are parallel: EntryIDs[i] is the entry of SenseIDs[i],
+// because a native sense ID may be shared by stacked homograph entries and the
+// sense alone would not say which one was cited. They are empty for a
+// modern-language word, whose Learned meaning is a Gloss alone.
 type StudyCitations struct {
 	SenseIDs, EntryIDs []string
 	// DictionaryPin is the pinned dictionary revision. It is set exactly when
@@ -145,22 +149,43 @@ func (c StudyCitations) Empty() bool {
 }
 
 // Valid reports whether the citations are all or nothing: a pin comes with at
-// least one cited sense, and entry IDs with sense IDs.
+// least one cited sense, and every cited sense names its entry.
 func (c StudyCitations) Valid() bool {
 	if (len(c.SenseIDs) > 0) != (strings.TrimSpace(c.DictionaryPin) != "") {
 		return false
 	}
-	return len(c.EntryIDs) == 0 || len(c.SenseIDs) > 0
+	return len(c.EntryIDs) == len(c.SenseIDs)
 }
 
 // ReadyValid reports whether the citations may stand on a ready row. Empty
-// citations do (a modern-language word); cited ones name at least one entry,
-// and no more entries than senses, since each cited sense belongs to one entry.
+// citations do (a modern-language word); cited ones are valid and name no blank
+// entry or sense.
 func (c StudyCitations) ReadyValid() bool {
 	if !c.Valid() {
 		return false
 	}
-	return c.Empty() || (len(c.EntryIDs) > 0 && len(c.EntryIDs) <= len(c.SenseIDs))
+	return c.Empty() || (!slices.Contains(c.EntryIDs, "") && !slices.Contains(c.SenseIDs, ""))
+}
+
+// Has reports whether the sense of the entry is cited.
+func (c StudyCitations) Has(entryID, senseID string) bool {
+	for i, id := range c.SenseIDs {
+		if id == senseID && i < len(c.EntryIDs) && c.EntryIDs[i] == entryID {
+			return true
+		}
+	}
+	return false
+}
+
+// EntrySet is the distinct entries the cited senses belong to, in citation order.
+func (c StudyCitations) EntrySet() []string {
+	var entries []string
+	for _, id := range c.EntryIDs {
+		if !slices.Contains(entries, id) {
+			entries = append(entries, id)
+		}
+	}
+	return entries
 }
 
 // StudyPassage is the translated passage a Representative sentence sits in: its

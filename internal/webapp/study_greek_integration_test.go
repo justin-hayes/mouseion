@@ -45,6 +45,10 @@ func (greekStudyLexicon) Lookup(context.Context, enrichment.LexicalLookupRequest
 	return enrichment.LexicalEntry{}, false, nil
 }
 
+// AncientGreekLSJPin is the loaded dictionary's own pin, as the real index
+// reports it without a lookup.
+func (l greekStudyLexicon) AncientGreekLSJPin() string { return *l.pin }
+
 func (l greekStudyLexicon) LookupAncientGreekLSJ(_ context.Context, lemma string) (enrichment.AncientGreekLSJEntry, bool) {
 	if lemma != greekStudyLemma {
 		return enrichment.AncientGreekLSJEntry{}, false
@@ -269,4 +273,16 @@ func TestGreekStudyCardHasNoPassageSectionWithoutATranslation(t *testing.T) {
 	assert.Contains(t, page, `id="study-dictionary"`)
 	assert.NotContains(t, page, "study-passage")
 	assert.Contains(t, page, cardpolicy.GreekSourceNotice, "the page still shows the source notices")
+}
+
+func TestGreekStudyIdlePageCreditsTheDictionaryAndTranslationWithTheirPins(t *testing.T) {
+	g := newGreekStudyHarness(t)
+	g.seedGreekBook(testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
+	g.prepareGreek()
+
+	page := getAs(t, g.h, "/grc/study", g.cookies).Body.String()
+	require.NotContains(t, page, `id="study-gloss"`, "no card is shown: the batch is only on offer")
+	assert.Contains(t, page, cardpolicy.GreekSourceNotice)
+	assert.Contains(t, page, "PerseusDL/lexica@"+greekStudyDictionary, "the dictionary notice carries the loaded index's pin")
+	assert.Contains(t, page, greekStudyTranslate, "the translation notice carries its pin")
 }

@@ -73,8 +73,9 @@ type EvidenceAssistedMeaning struct {
 	ContextOnly      bool
 	UnresolvedReason string
 	// InvalidCitation reports an answer that cited a sense the request did not
-	// send, or one twice. It carries no Gloss and is not retryable: the evidence
-	// cannot defend it.
+	// send, or one twice. It is not retryable: the evidence cannot defend it. It
+	// carries no cited sense, but keeps whatever Gloss and sentence translation
+	// came back with the answer (empty when they were unusable).
 	InvalidCitation bool
 }
 
@@ -107,7 +108,7 @@ func (s *Service) EnrichEvidenceAssistedPass(ctx context.Context, c Candidate, p
 		response, err = NormalizeTranslationResponse(request, response)
 	}
 	if errors.Is(err, ErrInvalidEvidenceCitation) {
-		return EvidenceAssistedMeaning{InvalidCitation: true}, nil
+		return invalidCitationMeaning(err), nil
 	}
 	if err != nil {
 		return EvidenceAssistedMeaning{}, err
@@ -120,4 +121,24 @@ func (s *Service) EnrichEvidenceAssistedPass(ctx context.Context, c Candidate, p
 		ContextOnly:                response.ContextOnly,
 		UnresolvedReason:           response.UnresolvedReason,
 	}, nil
+}
+
+// invalidCitationMeaning is the outcome of an answer whose citation the evidence
+// cannot defend. It keeps the Gloss and sentence translation that came back, as
+// long as they pass the same checks a defended answer's do, and drops them
+// otherwise.
+func invalidCitationMeaning(err error) EvidenceAssistedMeaning {
+	meaning := EvidenceAssistedMeaning{InvalidCitation: true}
+	citation, ok := errors.AsType[evidenceCitationError](err)
+	if !ok {
+		return meaning
+	}
+	returned := citation.response
+	gloss, translation := strings.TrimSpace(returned.Gloss), strings.TrimSpace(returned.SentenceTranslation)
+	if validateContextualGloss(gloss) != nil || hasMarkup(translation) {
+		return meaning
+	}
+	meaning.Gloss, meaning.SentenceTranslation = gloss, translation
+	meaning.SentenceTranslationTargets = ValidateSentenceTranslationTargets(translation, returned.SentenceTranslationTargets)
+	return meaning
 }

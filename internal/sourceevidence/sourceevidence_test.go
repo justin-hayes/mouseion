@@ -43,7 +43,7 @@ func TestGreekOutlineFlagsCitedSenses(t *testing.T) {
 			{ID: "n1.3", Number: "B", Level: 1, Definitions: []string{"reason"}},
 		},
 	}}
-	cited := map[string]struct{}{"n1.1": {}, "n1.3": {}, "missing": {}}
+	cited := map[SenseRef]struct{}{{"n1", "n1.1"}: {}, {"n1", "n1.3"}: {}, {"n1", "missing"}: {}, {"other", "n1.2"}: {}}
 
 	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("grc"), "logos", cited)
 	require.True(t, ok)
@@ -76,7 +76,7 @@ func TestLatinStackedEntriesCarryTheirLSNumbersAndOutlines(t *testing.T) {
 		}},
 		{},
 	}}}
-	cited := map[string]struct{}{"n10.0": {}}
+	cited := map[SenseRef]struct{}{{"n10", "n10.0"}: {}}
 
 	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "dico", cited)
 	require.True(t, ok)
@@ -98,7 +98,7 @@ func TestLatinSingleEntryHasNoNumberAndSenselessEntryOutlinesItsTarget(t *testin
 			{ID: "n9.0", Number: "I", Level: 1, Definitions: []string{"to say"}},
 		}}},
 	}}
-	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "dicto", map[string]struct{}{"n9.0": {}})
+	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "dicto", map[SenseRef]struct{}{{"n9", "n9.0"}: {}})
 	require.True(t, ok)
 	require.Len(t, resolution.Entries, 1)
 	entry := resolution.Entries[0]
@@ -199,4 +199,18 @@ func TestLatinPassSensesRepresentEveryEntryWithinTheCap(t *testing.T) {
 	last := senses[len(senses)-1]
 	assert.Equal(t, enrichment.LatinEvidenceID("n2", "n2.0"), last.EvidenceID, "a later entry is not starved, and a glosses-only sense is sent")
 	assert.Equal(t, "only a gloss", last.Gloss)
+}
+
+func TestSharedSenseIDIsFlaggedOnlyOnTheCitedHomograph(t *testing.T) {
+	shared := func(id string) enrichment.LatinLSEntry {
+		return enrichment.LatinLSEntry{EntryID: id, Headword: "sum", Pin: "pin", Senses: []enrichment.LatinLSSense{
+			{ID: "s1", Number: "I", Level: 1, Definitions: []string{"to be " + id}},
+		}}
+	}
+	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"sum": {shared("n1"), shared("n2")}}}
+	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "sum", map[SenseRef]struct{}{{"n2", "s1"}: {}})
+	require.True(t, ok)
+	require.Len(t, resolution.Entries, 2)
+	assert.False(t, resolution.Entries[0].Outline[0].Cited)
+	assert.True(t, resolution.Entries[1].Outline[0].Cited)
 }

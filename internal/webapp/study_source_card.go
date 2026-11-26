@@ -23,6 +23,8 @@ type sourceCardView struct {
 	// translation cannot be credited.
 	Passage passageView
 	notices []string
+	// dictionaryPin and passagePin are the pins the card was shown against.
+	dictionaryPin, passagePin string
 }
 
 // Notices are the source notices the Study page shows for the card.
@@ -85,6 +87,11 @@ func attachSourceEvidence(ctx context.Context, lexical enrichment.LexicalProvide
 			passagePin = passage.TranslationPin
 		}
 	}
+	if shownPin == "" {
+		// The cited entry may be gone, yet the dictionary in use is still credited.
+		shownPin = dictionaryPin(lexical, policy)
+	}
+	source.dictionaryPin, source.passagePin = shownPin, passagePin
 	source.notices = sourceNotices(policy, shownPin, passagePin)
 	view.Source = source
 }
@@ -93,9 +100,9 @@ func attachSourceEvidence(ctx context.Context, lexical enrichment.LexicalProvide
 // cited senses are flagged only when the stored pin is the dictionary's own pin;
 // an entry the dictionary no longer holds is left out.
 func resolveCited(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited domain.StudyCitations) (sourceevidence.Resolution, bool) {
-	flagged := map[string]struct{}{}
-	for _, id := range cited.SenseIDs {
-		flagged[id] = struct{}{}
+	flagged := map[sourceevidence.SenseRef]struct{}{}
+	for i, id := range cited.SenseIDs {
+		flagged[sourceevidence.SenseRef{EntryID: cited.EntryIDs[i], SenseID: id}] = struct{}{}
 	}
 	resolution, ok := sourceevidence.Resolve(ctx, lexical, policy, lemma, flagged)
 	if !ok {
@@ -109,7 +116,7 @@ func resolveCited(ctx context.Context, lexical enrichment.LexicalProvider, polic
 	}
 	kept := resolution.Entries[:0:0]
 	for _, entry := range resolution.Entries {
-		if slices.Contains(cited.EntryIDs, entry.ID) {
+		if slices.Contains(cited.EntrySet(), entry.ID) {
 			kept = append(kept, entry)
 		}
 	}
@@ -152,10 +159,28 @@ func outlineSenseViews(outline []sourceevidence.OutlineSense) []outlineSenseView
 	return views
 }
 
+// dictionaryPin is the pinned revision of the dictionary the policy names, read
+// from the loaded index and not from any entry, or empty when the dictionary
+// does not say.
+func dictionaryPin(lexical enrichment.LexicalProvider, policy cardpolicy.Policy) string {
+	switch policy.Entries {
+	case cardpolicy.EntryLSJ:
+		if pinned, ok := lexical.(interface{ AncientGreekLSJPin() string }); ok {
+			return strings.TrimSpace(pinned.AncientGreekLSJPin())
+		}
+	case cardpolicy.EntryLewisShort:
+		if pinned, ok := lexical.(interface{ LatinLSPin() string }); ok {
+			return strings.TrimSpace(pinned.LatinLSPin())
+		}
+	case cardpolicy.EntryNone:
+	}
+	return ""
+}
+
 // sourceNotices are the notices the Study page shows for a source-evidence
 // language: the treebank and text source, the dictionary with its pin, and the
-// translation a shown passage came from, as a deck carries them.
-func sourceNotices(policy cardpolicy.Policy, dictionaryPin, passagePin string) []string {
+// translation of each passage pin, as a deck carries them.
+func sourceNotices(policy cardpolicy.Policy, dictionaryPin string, passagePins ...string) []string {
 	if !policy.SourceEvidence {
 		return nil
 	}
@@ -170,8 +195,13 @@ func sourceNotices(policy cardpolicy.Policy, dictionaryPin, passagePin string) [
 		notices = append(notices, dictionary.LatinLSNotice(dictionaryPin))
 	case cardpolicy.EntryNone:
 	}
-	if passagePin != "" {
-		if notice, err := cardexport.PassageNotice(passagePin); err == nil {
+	seen := map[string]struct{}{}
+	for _, pin := range passagePins {
+		if _, done := seen[pin]; pin == "" || done {
+			continue
+		}
+		seen[pin] = struct{}{}
+		if notice, err := cardexport.PassageNotice(pin); err == nil {
 			notices = append(notices, notice)
 		}
 	}

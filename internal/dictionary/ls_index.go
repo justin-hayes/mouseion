@@ -70,7 +70,17 @@ func (i *Index) loadLatinLS(ctx context.Context) error {
 	}
 	i.lsEntries = entries
 	i.lsAvailable = true
+	i.lsPin = pin
 	return nil
+}
+
+// LatinLSPin is the pinned Lewis & Short revision the index was derived from, or
+// empty when the index carries no Lewis & Short entries.
+func (i *Index) LatinLSPin() string {
+	if i == nil {
+		return ""
+	}
+	return i.lsPin
 }
 
 // latinKey derives the latin/1 key of a headword. A headword with no letter is
