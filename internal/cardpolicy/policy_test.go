@@ -61,10 +61,20 @@ func TestModernLanguagesTakeTheProviderRoute(t *testing.T) {
 }
 
 func TestStudySwitchIsOnForModernLanguagesAndOffForSourceEvidence(t *testing.T) {
-	assert.True(t, For("de").Study)
-	assert.True(t, For("it").Study)
-	assert.False(t, For("grc").Study, "Greek Study is switched on only after its evidence run")
-	assert.False(t, For("la").Study, "Latin Study is switched on only after its evidence run")
+	tests := []struct {
+		language string
+		study    bool
+	}{
+		{"de", true},
+		{"it", true},
+		{"grc", false}, // Greek Study is switched on only after its evidence run
+		{"la", false},  // Latin Study is switched on only after its evidence run
+	}
+	for _, tc := range tests {
+		t.Run(tc.language, func(t *testing.T) {
+			require.Equal(t, tc.study, For(tc.language).Study)
+		})
+	}
 }
 
 func TestStudyOverrideForTestSwitchesOneLanguageAndRestores(t *testing.T) {
@@ -74,4 +84,21 @@ func TestStudyOverrideForTestSwitchesOneLanguageAndRestores(t *testing.T) {
 	assert.False(t, For("la").Study, "the override names one language")
 	restore()
 	assert.False(t, For("grc").Study)
+}
+
+func TestPassContractIsChosenByPolicy(t *testing.T) {
+	tests := []struct {
+		language string
+		contract PassContract
+	}{
+		{"grc", PassContractGreek},
+		{"la", PassContractLatin},
+		{"LA", PassContractLatin},
+		{"de", PassContractGreek}, // no pass runs for a modern language; the zero value is the Greek contract
+	}
+	for _, tc := range tests {
+		t.Run(tc.language, func(t *testing.T) {
+			require.Equal(t, tc.contract, For(tc.language).PassContract)
+		})
+	}
 }
