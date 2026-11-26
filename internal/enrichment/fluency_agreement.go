@@ -204,7 +204,7 @@ func (s *Service) fluencyAgreementOf(ctx context.Context, request TranslationReq
 // fluencyAgreementSourceEvidencePromptVersion pins the source-evidence variant
 // of the Fluency agreement contract (ADR 0138 §4). It is a contract of its own:
 // the modern contract, its fields and its recorded assessment are unchanged.
-const fluencyAgreementSourceEvidencePromptVersion = "fluency-agreement-source-evidence-v1"
+const fluencyAgreementSourceEvidencePromptVersion = "fluency-agreement-source-evidence-v2"
 
 // requiresFluencyAgreement reports whether the request is a Fluency agreement of
 // either contract, whose answer has one shape.
@@ -212,17 +212,11 @@ func (r TranslationRequest) requiresFluencyAgreement() bool {
 	return r.RequireFluencyAgreement || r.RequireSourceEvidenceFluencyAgreement
 }
 
-// FluencySense is one dictionary sense a Fluency agreement variant request
-// sends: its native sense ID and its definition.
-type FluencySense struct {
-	ID         string `json:"sense_id"`
-	Definition string `json:"definition"`
-}
-
-var fluencyAgreementSourceEvidenceSystemPrompt = "You are checking whether one occurrence of a word uses the meaning a learner already knows for it. The payload carries a lemma with its part of speech, the word as it appears in a sentence, the sentence, learned_meaning: a short English gloss for the lemma, learned_senses: the dictionary senses, each with its definition, that learned_meaning rests on, and context_senses: the dictionary senses, each with its definition, that the word's gloss in this sentence rests on. Decide whether, in this sentence, the word has the learned meaning, judging by the definitions of the cited senses. Return exactly one JSON object using only these five fields: item_id, reason, gloss, sentence_translation, sentence_translation_targets. reason is exactly one of: same-meaning, when the word in this sentence has the same meaning as learned_meaning; different-meaning, when it has a different sense; idiomatic, when it is a figurative or idiomatic use that changes the meaning; not-this-lemma, when the occurrence is not the lemma; undefendable, when you cannot defend any of the others. gloss is one brief English cue for the word's meaning in this sentence, required for every reason. sentence_translation is a natural English translation of the complete sentence, required for every reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the target word; use an empty array when no reliable alignment exists. Echo item_id exactly. Do not return HTML or markup."
+var fluencyAgreementSourceEvidenceSystemPrompt = "You are checking whether one occurrence of a word uses the meaning a learner already knows for it. The payload carries a lemma with its part of speech, the word as it appears in a sentence, the sentence, learned_meaning: a short English gloss for the lemma, learned_senses: the definitions of the dictionary senses that learned_meaning rests on (it may be empty when the dictionary has moved on, in which case judge against learned_meaning alone), and context_senses: the definitions of the dictionary senses that the word's gloss in this sentence rests on. Decide whether, in this sentence, the word has the learned meaning, judging by those definitions. Return exactly one JSON object using only these five fields: item_id, reason, gloss, sentence_translation, sentence_translation_targets. reason is exactly one of: same-meaning, when the word in this sentence has the same meaning as learned_meaning; different-meaning, when it has a different sense; idiomatic, when it is a figurative or idiomatic use that changes the meaning; not-this-lemma, when the occurrence is not the lemma; undefendable, when you cannot defend any of the others. gloss is one brief English cue for the word's meaning in this sentence, required for every reason. sentence_translation is a natural English translation of the complete sentence, required for every reason. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the target word; use an empty array when no reliable alignment exists. Echo item_id exactly. Do not return HTML or markup."
 
 // fluencyAgreementSourceEvidencePayloadFields is the exact ordered field set the
-// variant transmits: the modern fields plus both sides' cited senses.
+// variant transmits: the modern fields plus both sides' cited sense
+// definitions. No dictionary sense ID is transmitted.
 var fluencyAgreementSourceEvidencePayloadFields = []string{
 	"item_id", "language", "target_language", "canonical_lemma", "upos",
 	"target_word", "example_sentence", "learned_meaning", "learned_senses", "context_senses",
@@ -243,21 +237,21 @@ func (c *TranslationCodec) FluencyAgreementSourceEvidencePromptContract() string
 func (c *TranslationCodec) encodeSourceEvidenceFluencyAgreementRequest(input TranslationRequest) ([]byte, error) {
 	if strings.TrimSpace(input.Language) == "" || strings.TrimSpace(input.CanonicalLemma) == "" || strings.TrimSpace(input.UPOS) == "" ||
 		strings.TrimSpace(input.TargetWord) == "" || strings.TrimSpace(input.ExampleSentence) == "" || strings.TrimSpace(input.LearnedMeaning) == "" ||
-		len(input.LearnedSenses) == 0 || len(input.ContextSenses) == 0 {
-		return nil, errors.New("encode fluency agreement input: lemma, part of speech, word, sentence, learned meaning and both sides' cited senses are required")
+		len(input.ContextSenses) == 0 {
+		return nil, errors.New("encode fluency agreement input: lemma, part of speech, word, sentence, learned meaning and the occurrence's cited sense definitions are required")
 	}
 	privateInput, err := json.Marshal(struct {
-		ItemID          string         `json:"item_id"`
-		Language        string         `json:"language"`
-		TargetLanguage  string         `json:"target_language"`
-		CanonicalLemma  string         `json:"canonical_lemma"`
-		UPOS            string         `json:"upos"`
-		TargetWord      string         `json:"target_word"`
-		ExampleSentence string         `json:"example_sentence"`
-		LearnedMeaning  string         `json:"learned_meaning"`
-		LearnedSenses   []FluencySense `json:"learned_senses"`
-		ContextSenses   []FluencySense `json:"context_senses"`
-	}{FluencyAgreementItemHandle, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, input.LearnedMeaning, input.LearnedSenses, input.ContextSenses})
+		ItemID          string   `json:"item_id"`
+		Language        string   `json:"language"`
+		TargetLanguage  string   `json:"target_language"`
+		CanonicalLemma  string   `json:"canonical_lemma"`
+		UPOS            string   `json:"upos"`
+		TargetWord      string   `json:"target_word"`
+		ExampleSentence string   `json:"example_sentence"`
+		LearnedMeaning  string   `json:"learned_meaning"`
+		LearnedSenses   []string `json:"learned_senses"`
+		ContextSenses   []string `json:"context_senses"`
+	}{FluencyAgreementItemHandle, input.Language, translationTargetLanguage(input), input.CanonicalLemma, input.UPOS, input.TargetWord, input.ExampleSentence, input.LearnedMeaning, append([]string{}, input.LearnedSenses...), input.ContextSenses})
 	if err != nil {
 		return nil, fmt.Errorf("encode fluency agreement input: %w", err)
 	}
@@ -283,11 +277,12 @@ func (c *TranslationCodec) encodeSourceEvidenceFluencyAgreementRequest(input Tra
 }
 
 // EnrichSourceEvidenceFluencyAgreement is EnrichFluencyAgreement for a
-// source-evidence language: it also sends the dictionary senses, with their
-// definitions, that the learned meaning and the occurrence's Gloss cite. Both
-// sides must cite something. The caller checks the variant's payload assessment
+// source-evidence language: it also sends the definitions of the dictionary
+// senses that the learned meaning and the occurrence's Gloss cite, never their
+// IDs. The occurrence must cite something; the learned side is empty when its
+// senses are no longer in the dictionary. The caller checks the variant's payload assessment
 // before calling, so nothing is transmitted without it.
-func (s *Service) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, c Candidate, learnedMeaning string, learned, occurrence []FluencySense) (FluencyAgreement, error) {
+func (s *Service) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, c Candidate, learnedMeaning string, learned, occurrence []string) (FluencyAgreement, error) {
 	if !s.ExternalConfigured() {
 		return FluencyAgreement{}, ErrExternalNotConfigured
 	}

@@ -28,7 +28,7 @@ type fluencyEvidence struct {
 	senses     []enrichment.LexicalSense
 	learned    domain.StudyCitations
 	// learnedSenses are the Learned meaning's cited senses, with definitions.
-	learnedSenses []enrichment.FluencySense
+	learnedSenses []string
 }
 
 // sourceEvidence prepares a source-evidence word's evidence. It reports not ready,
@@ -53,10 +53,7 @@ func (w *FluencyWorker) sourceEvidence(ctx context.Context, word domain.StudyPro
 	if len(senses) == 0 || strings.TrimSpace(resolution.Pin) == "" {
 		return nil, false, true
 	}
-	learnedSenses := learnedSenseDefinitions(policy, resolution, word.LearnedCitations)
-	if len(learnedSenses) == 0 {
-		return nil, false, true
-	}
+	learnedSenses := learnedSenseDefinitions(resolution, word.LearnedCitations)
 	return &fluencyEvidence{source: source, policy: policy, resolution: resolution, senses: senses, learned: word.LearnedCitations, learnedSenses: learnedSenses}, true, false
 }
 
@@ -89,7 +86,7 @@ func (w *FluencyWorker) assessSourceEvidence(ctx context.Context, word domain.St
 		return answer, nil
 	}
 	agreement, err := w.Enricher.EnrichSourceEvidenceFluencyAgreement(ctx, candidate, word.LearnedMeaning,
-		evidence.learnedSenses, citedSenseDefinitions(evidence.policy, evidence.resolution, cited))
+		evidence.learnedSenses, citedSenseDefinitions(evidence.resolution, cited))
 	if err != nil {
 		return fluencyAnswer{}, err
 	}
@@ -104,42 +101,29 @@ func sharesEntry(a, b []string) bool {
 	return slices.ContainsFunc(a, func(id string) bool { return slices.Contains(b, id) })
 }
 
-// learnedSenseDefinitions are the Learned meaning's cited senses. On the
-// current pin their definitions are the dictionary's; on another pin the same
-// IDs may name other senses, so none is looked up and only the IDs are sent.
-// Nothing is returned when the current pin holds none of them.
-func learnedSenseDefinitions(policy cardpolicy.Policy, resolution sourceevidence.Resolution, learned domain.StudyCitations) []enrichment.FluencySense {
+// learnedSenseDefinitions are the definitions of the Learned meaning's cited
+// senses. On the current pin they are the dictionary's; on another pin the same
+// IDs may name other senses, so none is looked up and none is sent. Nothing is
+// returned when the current pin holds none of them.
+func learnedSenseDefinitions(resolution sourceevidence.Resolution, learned domain.StudyCitations) []string {
 	if learned.DictionaryPin != resolution.Pin {
-		senses := make([]enrichment.FluencySense, 0, len(learned.SenseIDs))
-		for i, id := range learned.SenseIDs {
-			senses = append(senses, enrichment.FluencySense{ID: fluencySenseID(policy, learned.EntryIDs[i], id)})
-		}
-		return senses
+		return nil
 	}
-	return citedSenseDefinitions(policy, resolution, learned)
+	return citedSenseDefinitions(resolution, learned)
 }
 
-// citedSenseDefinitions are the cited (entry, sense) pairs the resolved entries
-// hold, with their definitions, in the entries' order. A cited sense the entries
-// no longer hold, because the dictionary moved on, has no definition to send and
-// is left out. A sense ID another entry shares is never taken for the cited one.
-func citedSenseDefinitions(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited domain.StudyCitations) []enrichment.FluencySense {
-	var senses []enrichment.FluencySense
+// citedSenseDefinitions are the definitions of the cited (entry, sense) pairs
+// the resolved entries hold, in the entries' order. A cited sense the entries no
+// longer hold, because the dictionary moved on, has no definition to send and is
+// left out. A sense ID another entry shares is never taken for the cited one.
+func citedSenseDefinitions(resolution sourceevidence.Resolution, cited domain.StudyCitations) []string {
+	var senses []string
 	for _, entry := range resolution.Entries {
 		for _, sense := range entry.Senses {
 			if definition := strings.Join(sense.Definitions, "; "); cited.Has(entry.ID, sense.ID) && strings.TrimSpace(definition) != "" {
-				senses = append(senses, enrichment.FluencySense{ID: fluencySenseID(policy, entry.ID, sense.ID), Definition: definition})
+				senses = append(senses, definition)
 			}
 		}
 	}
 	return senses
-}
-
-// fluencySenseID is the ID a sense carries in the agreement payload. A Latin
-// sense ID is only unique within its entry, so it names both, as the pass does.
-func fluencySenseID(policy cardpolicy.Policy, entryID, senseID string) string {
-	if policy.Entries == cardpolicy.EntryLewisShort {
-		return enrichment.LatinEvidenceID(entryID, senseID)
-	}
-	return senseID
 }

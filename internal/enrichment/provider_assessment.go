@@ -43,8 +43,8 @@ const (
 	// FluencyAgreementSourceEvidencePayload is the separate Fluency agreement
 	// variant for a source-evidence language: the modern payload's fields plus
 	// the dictionary senses, with their definitions, that the Learned meaning
-	// and the occurrence's Gloss cite (ADR 0138 §4). No assessment of it is
-	// recorded until a human reviews it, so it sends nothing yet.
+	// and the occurrence's Gloss cite (ADR 0138 §4). Greek's is recorded
+	// (#2765); no other language's is, so it sends nothing for them.
 	FluencyAgreementSourceEvidencePayload ProviderPayloadKind = "fluency-agreement-source-evidence"
 )
 
@@ -171,6 +171,36 @@ var fluencyAgreementAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// fluencyAgreementSourceEvidenceGreekAssessment is the disposition for the exact
+// Ancient Greek source-evidence Fluency agreement payload: the modern Fluency
+// fields plus the definitions of the LSJ senses that the Learned meaning
+// and the occurrence's Gloss cite. Justin reviewed that payload in
+// doc/reviews/fluency-agreement-source-evidence-greek-payload-assessment.md and
+// recorded the disposition on #2765, so Greek Fluency can send it (ADR 0138 §4).
+//
+// The transport is the configured OpenAI-compatible Chat Completions endpoint.
+// The cited senses are sent as definition strings alone: no dictionary sense ID,
+// native or handle, is transmitted, because the answer cites no senses. No
+// learner identity, Book title or review history is transmitted.
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
+var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
+	Kind:          FluencyAgreementSourceEvidencePayload,
+	Language:      "grc",
+	Provider:      "openai-compatible",
+	PromptVersion: "fluency-agreement-source-evidence-v2",
+	Fields: []string{
+		"item_id", "language", "target_language", "canonical_lemma", "upos",
+		"target_word", "example_sentence", "learned_meaning", "learned_senses", "context_senses",
+	},
+	Disposition: "approved for personal use of the locally produced Study surface",
+	Ticket:      "#2765",
+	Recorded:    true,
+}
+
 // ProviderAssessmentSet is the recorded personal-use payload assessments. Its
 // one question decides whether an assessed payload may be sent.
 type ProviderAssessmentSet []ProviderAssessment
@@ -179,7 +209,7 @@ type ProviderAssessmentSet []ProviderAssessment
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to MaySend instead.
 func ProviderAssessments() ProviderAssessmentSet {
-	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment}
+	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment}
 }
 
 // MaySend reports whether one payload kind may be sent for a language with the
