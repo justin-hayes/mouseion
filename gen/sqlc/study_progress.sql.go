@@ -131,7 +131,7 @@ SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminato
  WHERE m.owner_id = $2 AND m.id = $3 AND m.language = $4
    AND m.state = 'ready' AND m.superseded_at IS NULL
 ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
-RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason
 `
 
 type IntroduceStudyWordParams struct {
@@ -176,13 +176,17 @@ func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWord
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CorrectedAt,
+		&i.WithdrawnReason,
 	)
 	return i, err
 }
 
 const listStudyProgress = `-- name: ListStudyProgress :many
 
-SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, (m.superseded_at IS NOT NULL)::boolean AS reintroducing
+SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, p.withdrawn_reason, (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
+       EXISTS (SELECT 1 FROM study_report r
+                WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                  AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = $1 AND p.language = $2
@@ -197,12 +201,14 @@ type ListStudyProgressParams struct {
 type ListStudyProgressRow struct {
 	StudyProgress StudyProgress
 	Reintroducing bool
+	Held          bool
 }
 
 // Study progress, the review log and the per-day batch ledger (ADR 0134, spec
 // #2691).
 // reintroducing is true while the word's own Study material has been
 // superseded by a correction and its replacement is not yet in place.
+// held is true while the word has an open Wrong-word report (ADR 0135 §2).
 func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error) {
 	rows, err := q.db.Query(ctx, listStudyProgress, arg.Owner, arg.Language)
 	if err != nil {
@@ -235,7 +241,9 @@ func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressPa
 			&i.StudyProgress.CreatedAt,
 			&i.StudyProgress.UpdatedAt,
 			&i.StudyProgress.CorrectedAt,
+			&i.StudyProgress.WithdrawnReason,
 			&i.Reintroducing,
+			&i.Held,
 		); err != nil {
 			return nil, err
 		}
@@ -290,7 +298,7 @@ func (q *Queries) ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLog
 }
 
 const lockStudyProgress = `-- name: LockStudyProgress :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason FROM study_progress
  WHERE owner_id = $1 AND id = $2
  FOR UPDATE
 `
@@ -326,6 +334,7 @@ func (q *Queries) LockStudyProgress(ctx context.Context, arg LockStudyProgressPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CorrectedAt,
+		&i.WithdrawnReason,
 	)
 	return i, err
 }
@@ -359,7 +368,7 @@ func (q *Queries) RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatc
 
 const setStudyProgressWithdrawn = `-- name: SetStudyProgressWithdrawn :execrows
 UPDATE study_progress
-   SET withdrawn_at = $1::timestamptz, updated_at = now()
+   SET withdrawn_at = $1::timestamptz, withdrawn_reason = NULL, updated_at = now()
  WHERE owner_id = $2 AND id = $3
    AND (withdrawn_at IS NULL) <> ($1::timestamptz IS NULL)
 `
@@ -406,7 +415,7 @@ UPDATE study_progress
  WHERE owner_id = $2 AND id = $3 AND language = $4
    AND state = 'new' AND reps = 0 AND withdrawn_at IS NULL
    AND introduced_at < $5::timestamptz
-RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason
 `
 
 type TakeCarriedStudyWordParams struct {
@@ -452,6 +461,7 @@ func (q *Queries) TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudy
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.CorrectedAt,
+		&i.WithdrawnReason,
 	)
 	return i, err
 }

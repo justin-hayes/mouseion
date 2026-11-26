@@ -77,7 +77,7 @@ func (s *Store) SetStudyWordWithdrawn(_ context.Context, owner, progressID strin
 	defer s.mu.Unlock()
 	for i := range s.studyProgress {
 		if item := &s.studyProgress[i]; item.OwnerID == owner && item.ID == progressID {
-			item.Withdrawn = withdrawn
+			item.Withdrawn, item.WithdrawnReason = withdrawn, ""
 			return nil
 		}
 	}

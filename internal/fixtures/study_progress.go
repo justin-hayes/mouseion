@@ -27,6 +27,7 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 	for _, item := range s.studyProgress {
 		if item.OwnerID == owner && item.Language == language {
 			item.Reintroducing = s.studySuperseded[item.MaterialID]
+			item.Held = s.studyHeldLocked(owner, item.ID)
 			progress = append(progress, item)
 		}
 	}
@@ -81,6 +82,7 @@ func (s *Store) RecordStudyBatchOffer(_ context.Context, owner, language, studyD
 	key := studyLedgerKey(owner, language, studyDay)
 	ledger := s.studyLedger[key]
 	ledger.Offered = max(ledger.Offered, offered)
+	s.studyActionSeq++
 	s.storeLedgerLocked(key, ledger)
 	return nil
 }
@@ -125,6 +127,7 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 	if len(introduced) == 0 {
 		return nil, errNotFound
 	}
+	s.studyActionSeq++
 	s.storeLedgerLocked(key, ledger)
 	return introduced, nil
 }
@@ -138,6 +141,7 @@ func (s *Store) DeclineStudyBatch(_ context.Context, owner, language, studyDay s
 	if err != nil {
 		return err
 	}
+	s.studyActionSeq++
 	s.storeLedgerLocked(key, ledger)
 	return nil
 }
@@ -186,6 +190,7 @@ func (s *Store) RecordStudyGrade(_ context.Context, owner string, record domain.
 		})
 		item.Memory = record.After
 		item.UpdatedAt = record.ReviewedAt.UTC()
+		s.studyActionSeq++
 		return nil
 	}
 	return errNotFound

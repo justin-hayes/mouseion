@@ -4,7 +4,11 @@
 -- name: ListStudyProgress :many
 -- reintroducing is true while the word's own Study material has been
 -- superseded by a correction and its replacement is not yet in place.
-SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing
+-- held is true while the word has an open Wrong-word report (ADR 0135 §2).
+SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
+       EXISTS (SELECT 1 FROM study_report r
+                WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                  AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
@@ -107,7 +111,7 @@ UPDATE study_material
 
 -- name: SetStudyProgressWithdrawn :execrows
 UPDATE study_progress
-   SET withdrawn_at = sqlc.narg('withdrawn_at')::timestamptz, updated_at = now()
+   SET withdrawn_at = sqlc.narg('withdrawn_at')::timestamptz, withdrawn_reason = NULL, updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id')
    AND (withdrawn_at IS NULL) <> (sqlc.narg('withdrawn_at')::timestamptz IS NULL);
 

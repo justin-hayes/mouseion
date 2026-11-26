@@ -116,6 +116,7 @@ func (s *Store) RecordStudyFluencyResponse(_ context.Context, owner string, reco
 				ID: fmt.Sprintf("fixture-fluency-response-%d", len(s.studyFluencyResponses)+1), OwnerID: owner,
 				ContextID: record.ContextID, Response: record.Response, RespondedAt: record.RespondedAt.UTC(),
 			})
+			s.studyActionSeq++
 			return nil
 		}
 	}

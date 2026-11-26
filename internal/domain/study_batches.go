@@ -23,13 +23,14 @@ const (
 // words in study, other than those introduced and not yet answered, whose
 // review is due on the next Study day or earlier. It applies the rule Today
 // uses (a review is due on the Study day containing its due time), so what is
-// counted here is what Today then shows. A word repeating today counts, since
+// counted here is what Today then shows. A held word gets no reviews, so it
+// is not counted. A word repeating today counts, since
 // it becomes a review the next day.
 func StudyForecast(progress []StudyProgress, now time.Time) int {
 	end := NextStudyDayStart(NextStudyDayStart(now))
 	count := 0
 	for _, item := range progress {
-		if item.Withdrawn || item.Memory.State == StudyStateNew {
+		if item.Withdrawn || item.Held || item.Memory.State == StudyStateNew {
 			continue
 		}
 		if StudyReviewDue(item).Before(end) {

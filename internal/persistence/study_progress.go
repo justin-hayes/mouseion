@@ -26,6 +26,7 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 	for _, row := range rows {
 		item := studyProgressFromRow(row.StudyProgress)
 		item.Reintroducing = row.Reintroducing
+		item.Held = row.Held
 		progress = append(progress, item)
 	}
 	return progress, nil
@@ -293,6 +294,6 @@ func studyProgressFromRow(row sqlcgen.StudyProgress) domain.StudyProgress {
 		ID: row.ID, OwnerID: row.OwnerID,
 		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		MaterialID: row.MaterialID, IntroducedAt: row.IntroducedAt, LearnedMeaning: row.LearnedMeaning,
-		Memory: memory, Withdrawn: row.WithdrawnAt.Valid, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Memory: memory, Withdrawn: row.WithdrawnAt.Valid, WithdrawnReason: row.WithdrawnReason.String, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }

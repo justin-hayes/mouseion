@@ -119,6 +119,12 @@ type Store struct {
 	studyCandidates []seededStudyCandidate
 	studyReviewLog  []domain.StudyReviewLog
 	studyLedger     map[string]domain.StudyBatchLedger
+	// studyReports is every Study report, open and ended. studyActionSeq counts
+	// Study actions and studyReportSeq records where it stood when each report
+	// was made, so Undo can tell whether another action followed.
+	studyReports   []domain.StudyReport
+	studyActionSeq int
+	studyReportSeq map[string]int
 	// studySuperseded holds the IDs of Study material a correction replaced.
 	studySuperseded map[string]bool
 	// studyFluencyContexts are the Fluency contexts of mature words and
