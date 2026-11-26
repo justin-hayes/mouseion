@@ -226,6 +226,20 @@ func studyReportScenarios() []Scenario {
 			assert.Len(t, logs, 1, "dismissing writes no review-log row")
 		}},
 		{Name: "an Unsuitable-context report retires its occurrence without holding the word, and Undo restores the material", Run: unsuitableContextScenario},
+		{Name: "a held word cannot be graded, and showing an offer or another learner's action does not block Undo", Run: func(t *testing.T, h Harness) {
+			owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
+			word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+			unsuitable, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+			require.NoError(t, err)
+			require.NoError(t, progress.RecordStudyBatchOffer(owner, Language, "2026-11-25", 1))
+			require.NoError(t, progress.RecordStudyBatchOffer(owner, Language, "2026-11-26", 1))
+			require.NoError(t, reports.UndoStudyReport(owner, unsuitable.ID, studyReportDay.Add(2*time.Hour)), "showing an offer is not a Study action")
+
+			_, err = reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, ""))
+			require.NoError(t, err)
+			grade := domain.StudyGradeRecord{ProgressID: word.ID, ExpectedReps: word.Memory.Reps, Grade: domain.StudyGradeGotIt, ReviewedAt: studyReportDay.Add(3 * time.Hour), StudyDay: "2026-11-25", After: word.Memory}
+			require.ErrorIs(t, progress.RecordStudyGrade(owner, grade), domain.ErrStudyStale, "a held word is not graded")
+		}},
 		{Name: "Undo is refused once another Study action followed the report", Run: func(t *testing.T, h Harness) {
 			owner, reports := h.Seeds().Owner(), h.StudyReports()
 			word := gradedStudyWord(t, h, owner, studyNoun("haus"))

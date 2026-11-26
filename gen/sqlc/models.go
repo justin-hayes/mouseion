@@ -1199,7 +1199,7 @@ type StudyReport struct {
 	CanonicalLemma         string
 	Upos                   string
 	LexicalDiscriminator   string
-	ProgressID             string
+	ProgressID             pgtype.UUID
 	MaterialID             string
 	Kind                   string
 	Note                   string

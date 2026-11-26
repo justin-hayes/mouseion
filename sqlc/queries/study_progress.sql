@@ -7,7 +7,8 @@
 -- held is true while the word has an open Wrong-word report (ADR 0135 §2).
 SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
        EXISTS (SELECT 1 FROM study_report r
-                WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                WHERE r.owner_id = p.owner_id AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
+                  AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
                   AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
@@ -53,11 +54,13 @@ RETURNING batches_declined;
 -- name: RecordStudyBatchOffer :exec
 -- Records that Today has offered this many batches on the Study day. The count
 -- only grows, so showing the same offer again changes nothing.
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered)
-VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, sqlc.arg('offered')::int)
+-- An offer is not a Study action, so it leaves updated_at, which Undo reads as
+-- the time of the last batch taken or declined, alone (a new row starts at the
+-- epoch).
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, updated_at)
+VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('study_day')::date, sqlc.arg('offered')::int, 'epoch'::timestamptz)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered),
-       updated_at = now();
+   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered);
 
 -- name: IntroduceStudyWord :one
 -- Introduces a word from its ready, current Study material: the word enters

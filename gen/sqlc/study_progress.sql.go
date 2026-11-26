@@ -185,7 +185,8 @@ const listStudyProgress = `-- name: ListStudyProgress :many
 
 SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, p.withdrawn_reason, (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
        EXISTS (SELECT 1 FROM study_report r
-                WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                WHERE r.owner_id = p.owner_id AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
+                  AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
                   AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
@@ -340,11 +341,10 @@ func (q *Queries) LockStudyProgress(ctx context.Context, arg LockStudyProgressPa
 }
 
 const recordStudyBatchOffer = `-- name: RecordStudyBatchOffer :exec
-INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered)
-VALUES ($1, $2, $3::date, $4::int)
+INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, updated_at)
+VALUES ($1, $2, $3::date, $4::int, 'epoch'::timestamptz)
 ON CONFLICT (owner_id, language, study_day) DO UPDATE
-   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered),
-       updated_at = now()
+   SET batches_offered = GREATEST(study_batch_ledger.batches_offered, EXCLUDED.batches_offered)
 `
 
 type RecordStudyBatchOfferParams struct {
@@ -356,6 +356,9 @@ type RecordStudyBatchOfferParams struct {
 
 // Records that Today has offered this many batches on the Study day. The count
 // only grows, so showing the same offer again changes nothing.
+// An offer is not a Study action, so it leaves updated_at, which Undo reads as
+// the time of the last batch taken or declined, alone (a new row starts at the
+// epoch).
 func (q *Queries) RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatchOfferParams) error {
 	_, err := q.db.Exec(ctx, recordStudyBatchOffer,
 		arg.Owner,

@@ -122,7 +122,7 @@ SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, pro
 type GetOpenStudyReportParams struct {
 	Owner    string
 	Language string
-	Progress string
+	Progress pgtype.UUID
 	Kind     string
 }
 
@@ -254,6 +254,35 @@ func (q *Queries) GetStudyReport(ctx context.Context, arg GetStudyReportParams) 
 	return i, err
 }
 
+const hasOpenWrongWordReport = `-- name: HasOpenWrongWordReport :one
+SELECT EXISTS (SELECT 1 FROM study_report
+                WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3
+                  AND upos = $4 AND lexical_discriminator = $5
+                  AND kind = 'wrong_word' AND ended_at IS NULL)::boolean AS held
+`
+
+type HasOpenWrongWordReportParams struct {
+	Owner                string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+}
+
+// Whether the word is held, for the grade that must not land on a held word.
+func (q *Queries) HasOpenWrongWordReport(ctx context.Context, arg HasOpenWrongWordReportParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasOpenWrongWordReport,
+		arg.Owner,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.LexicalDiscriminator,
+	)
+	var held bool
+	err := row.Scan(&held)
+	return held, err
+}
+
 const listOpenStudyReports = `-- name: ListOpenStudyReports :many
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
  WHERE owner_id = $1 AND language = $2 AND kind = $3 AND ended_at IS NULL
@@ -380,7 +409,7 @@ SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, pro
 
 type ListOpenStudyReportsOfWordParams struct {
 	Owner    string
-	Progress string
+	Progress pgtype.UUID
 	Kind     string
 }
 

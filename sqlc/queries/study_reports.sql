@@ -110,3 +110,10 @@ UPDATE study_material
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
    AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
    AND superseded_at IS NULL AND id <> sqlc.arg('keep');
+
+-- name: HasOpenWrongWordReport :one
+-- Whether the word is held, for the grade that must not land on a held word.
+SELECT EXISTS (SELECT 1 FROM study_report
+                WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
+                  AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
+                  AND kind = 'wrong_word' AND ended_at IS NULL)::boolean AS held;

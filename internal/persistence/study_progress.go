@@ -207,8 +207,8 @@ func (s *PostgresStore) RecordStudyGrade(ctx context.Context, owner string, reco
 			return fmt.Errorf("lock study progress: %w", err)
 		}
 		before := studyProgressFromRow(row)
-		if before.Withdrawn || before.Memory.Reps != record.ExpectedReps {
-			return domain.ErrStudyStale
+		if err := refuseStaleStudyGrade(ctx, q, owner, before, record.ExpectedReps); err != nil {
+			return err
 		}
 		if err := appendStudyReview(ctx, q, owner, before, record, day); err != nil {
 			return err
@@ -224,6 +224,25 @@ func (s *PostgresStore) RecordStudyGrade(ctx context.Context, owner string, reco
 		}
 		return nil
 	})
+}
+
+// refuseStaleStudyGrade rejects a grade of a card already graded, of a
+// withdrawn word, or of a word an open Wrong-word report holds: a report made
+// as the card was answered wins.
+func refuseStaleStudyGrade(ctx context.Context, q *sqlcgen.Queries, owner string, word domain.StudyProgress, expectedReps int64) error {
+	if word.Withdrawn || word.Memory.Reps != expectedReps {
+		return domain.ErrStudyStale
+	}
+	held, err := q.HasOpenWrongWordReport(ctx, sqlcgen.HasOpenWrongWordReportParams{
+		Owner: owner, Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
+	})
+	if err != nil {
+		return fmt.Errorf("check study report: %w", err)
+	}
+	if held {
+		return domain.ErrStudyStale
+	}
+	return nil
 }
 
 func appendStudyReview(ctx context.Context, q *sqlcgen.Queries, owner string, before domain.StudyProgress, record domain.StudyGradeRecord, day pgtype.Date) error {

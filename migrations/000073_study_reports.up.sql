@@ -14,6 +14,9 @@
 -- Unsuitable-context report) and retired (the retired context is gone for
 -- good). ended_at is set if and only if end_reason is.
 --
+-- progress_id is null once the word's Study progress row has been removed; the
+-- identity columns still name the word.
+--
 -- The reported occurrence (Book, analysis run, corpus, sentence and token),
 -- sentence, target word, Gloss and sentence translation are copied from the
 -- reported Study material when the report is made. The source occurrence is
@@ -43,7 +46,7 @@ CREATE TABLE public.study_report (
     canonical_lemma text NOT NULL,
     upos text NOT NULL,
     lexical_discriminator text DEFAULT ''::text NOT NULL,
-    progress_id uuid NOT NULL,
+    progress_id uuid,
     material_id uuid NOT NULL,
     kind text NOT NULL,
     note text DEFAULT ''::text NOT NULL,
@@ -65,7 +68,7 @@ CREATE TABLE public.study_report (
     end_reason text,
     CONSTRAINT study_report_pkey PRIMARY KEY (owner_id, id),
     CONSTRAINT study_report_owner_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id) ON DELETE CASCADE,
-    CONSTRAINT study_report_progress_fkey FOREIGN KEY (owner_id, progress_id) REFERENCES public.study_progress(owner_id, id),
+    CONSTRAINT study_report_progress_fkey FOREIGN KEY (owner_id, progress_id) REFERENCES public.study_progress(owner_id, id) ON DELETE SET NULL (progress_id),
     CONSTRAINT study_report_material_fkey FOREIGN KEY (owner_id, material_id) REFERENCES public.study_material(owner_id, id),
     CONSTRAINT study_report_previous_material_fkey FOREIGN KEY (owner_id, previous_material_id) REFERENCES public.study_material(owner_id, id),
     CONSTRAINT study_report_kind_check CHECK ((kind = ANY (ARRAY['wrong_word'::text, 'unsuitable_context'::text]))),
@@ -76,9 +79,11 @@ CREATE TABLE public.study_report (
     CONSTRAINT study_report_end_pairing_check CHECK (((ended_at IS NULL) = (end_reason IS NULL)))
 );
 
--- A word has at most one open Wrong-word report: it is held once.
+-- A word has at most one open Wrong-word report: it is held once. A word is
+-- held by its identity, not its progress row, so a held word whose progress is
+-- removed (a word reported before its first graded review) stays held.
 CREATE UNIQUE INDEX study_report_open_wrong_word_idx
-    ON public.study_report(owner_id, progress_id)
+    ON public.study_report(owner_id, language, canonical_lemma, upos, lexical_discriminator)
     WHERE kind = 'wrong_word' AND ended_at IS NULL;
 
 -- Reporting the same material twice while a report is open yields one report.

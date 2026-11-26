@@ -303,6 +303,8 @@ type Querier interface {
 	// every persisted word the decision addresses (GetSentenceStudyDecisions).
 	GetVocabularySentenceStudy(ctx context.Context, arg GetVocabularySentenceStudyParams) ([]GetVocabularySentenceStudyRow, error)
 	HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error)
+	// Whether the word is held, for the grade that must not land on a held word.
+	HasOpenWrongWordReport(ctx context.Context, arg HasOpenWrongWordReportParams) (bool, error)
 	HasReferenceTranslations(ctx context.Context, translationPinSha256 string) (bool, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
@@ -600,6 +602,9 @@ type Querier interface {
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	// Records that Today has offered this many batches on the Study day. The count
 	// only grows, so showing the same offer again changes nothing.
+	// An offer is not a Study action, so it leaves updated_at, which Undo reads as
+	// the time of the last batch taken or declined, alone (a new row starts at the
+	// epoch).
 	RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatchOfferParams) error
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error

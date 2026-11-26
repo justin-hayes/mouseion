@@ -79,7 +79,7 @@ func createStudyReport(ctx context.Context, q *sqlcgen.Queries, owner string, re
 func openStudyReportOf(ctx context.Context, q *sqlcgen.Queries, owner string, progress domain.StudyProgress, kind domain.StudyReportKind) (report domain.StudyReport, found bool, err error) {
 	var row sqlcgen.StudyReport
 	if kind == domain.StudyReportWrongWord {
-		row, err = q.GetOpenStudyReport(ctx, sqlcgen.GetOpenStudyReportParams{Owner: owner, Language: progress.Language, Progress: progress.ID, Kind: string(kind)})
+		row, err = q.GetOpenStudyReport(ctx, sqlcgen.GetOpenStudyReportParams{Owner: owner, Language: progress.Language, Progress: uuidArg(progress.ID), Kind: string(kind)})
 	} else {
 		row, err = q.GetOpenStudyReportOfMaterial(ctx, sqlcgen.GetOpenStudyReportOfMaterialParams{Owner: owner, Material: progress.MaterialID, Kind: string(kind)})
 	}
@@ -115,7 +115,7 @@ func (s *PostgresStore) GetOpenStudyReport(ctx context.Context, owner, language,
 		return domain.StudyReport{}, ErrNotFound
 	}
 	row, err := sqlcgen.New(s.pool).GetOpenStudyReport(ctx, sqlcgen.GetOpenStudyReportParams{
-		Owner: owner, Language: canonicalization.NormalizeLanguage(language), Progress: progressID, Kind: string(kind),
+		Owner: owner, Language: canonicalization.NormalizeLanguage(language), Progress: uuidArg(progressID), Kind: string(kind),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.StudyReport{}, ErrNotFound
@@ -160,7 +160,7 @@ func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, 
 		return nil, nil
 	}
 	rows, err := sqlcgen.New(s.pool).ListOpenStudyReportsOfWord(ctx, sqlcgen.ListOpenStudyReportsOfWordParams{
-		Owner: owner, Progress: progressID, Kind: string(domain.StudyReportUnsuitableContext),
+		Owner: owner, Progress: uuidArg(progressID), Kind: string(domain.StudyReportUnsuitableContext),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list retired study occurrences: %w", err)
@@ -204,6 +204,9 @@ func (s *PostgresStore) DismissStudyReport(ctx context.Context, owner, id string
 		if err := endStudyReport(ctx, q, owner, report.ID, domain.StudyReportEndDismissed, now); err != nil {
 			return err
 		}
+		if progress.ID == "" {
+			return nil
+		}
 		due := domain.StudyHeldDue(progress.Memory.Due, report.CreatedAt, now)
 		if err := q.UpdateStudyProgressDue(ctx, sqlcgen.UpdateStudyProgressDueParams{Owner: owner, ID: progress.ID, Due: due.UTC()}); err != nil {
 			return fmt.Errorf("move study due: %w", err)
@@ -245,7 +248,7 @@ func (s *PostgresStore) UndoStudyReport(ctx context.Context, owner, id string, n
 // any replacement is itself replaced, the reported record is current again and
 // the word's learned meaning and correction time are as they were.
 func restoreReportedMaterial(ctx context.Context, q *sqlcgen.Queries, owner string, report domain.StudyReport, progress domain.StudyProgress) error {
-	if report.PreviousMaterialID == "" {
+	if report.PreviousMaterialID == "" || progress.ID == "" {
 		return nil
 	}
 	if _, err := q.SupersedeOtherCurrentStudyMaterialOfWord(ctx, sqlcgen.SupersedeOtherCurrentStudyMaterialOfWordParams{
@@ -281,9 +284,14 @@ func (s *PostgresStore) changeStudyReport(ctx context.Context, owner, id string,
 		if err != nil {
 			return fmt.Errorf("get study report: %w", err)
 		}
-		progressRow, err := q.LockStudyProgress(ctx, sqlcgen.LockStudyProgressParams{Owner: owner, ID: row.ProgressID})
-		if err != nil {
-			return fmt.Errorf("lock study progress: %w", err)
+		// The word's progress row is gone when it was removed after the report.
+		var progress domain.StudyProgress
+		if row.ProgressID.Valid {
+			progressRow, err := q.LockStudyProgress(ctx, sqlcgen.LockStudyProgressParams{Owner: owner, ID: uuidString(row.ProgressID)})
+			if err != nil {
+				return fmt.Errorf("lock study progress: %w", err)
+			}
+			progress = studyProgressFromRow(progressRow)
 		}
 		locked, err := q.LockStudyReport(ctx, sqlcgen.LockStudyReportParams{Owner: owner, ID: id})
 		if err != nil {
@@ -293,7 +301,7 @@ func (s *PostgresStore) changeStudyReport(ctx context.Context, owner, id string,
 		if !report.Open() {
 			return ErrNotFound
 		}
-		return change(ctx, q, report, studyProgressFromRow(progressRow))
+		return change(ctx, q, report, progress)
 	})
 }
 
@@ -320,7 +328,7 @@ func studyReportFromRow(row sqlcgen.StudyReport) domain.StudyReport {
 	report := domain.StudyReport{
 		ID: row.ID, OwnerID: row.OwnerID,
 		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
-		ProgressID: row.ProgressID, MaterialID: row.MaterialID, Kind: domain.StudyReportKind(row.Kind), Note: row.Note,
+		ProgressID: uuidString(row.ProgressID), MaterialID: row.MaterialID, Kind: domain.StudyReportKind(row.Kind), Note: row.Note,
 		Source: domain.StudyOccurrenceRef{
 			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,

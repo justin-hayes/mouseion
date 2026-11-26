@@ -8,14 +8,35 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// studyAction is one Study action of a learner in a study language.
+type studyAction struct{ owner, language string }
+
+// noteStudyActionLocked records a Study action, so Undo can refuse once one
+// followed a report. The caller holds s.mu.
+func (s *Store) noteStudyActionLocked(owner, language string) {
+	s.studyActions = append(s.studyActions, studyAction{owner: owner, language: canonicalization.NormalizeLanguage(language)})
+}
+
+// studyActionSince reports whether the learner took a Study action in the
+// language after the first n actions.
+func (s *Store) studyActionSince(owner, language string, n int) bool {
+	for _, action := range s.studyActions[min(n, len(s.studyActions)):] {
+		if action.owner == owner && action.language == language {
+			return true
+		}
+	}
+	return false
+}
+
 // studyHeldLocked reports whether the word has an open Wrong-word report. The
 // caller holds s.mu.
-func (s *Store) studyHeldLocked(owner, progressID string) bool {
+func (s *Store) studyHeldLocked(owner string, identity domain.StudyIdentity) bool {
 	for _, report := range s.studyReports {
-		if report.OwnerID == owner && report.ProgressID == progressID && report.Held() {
+		if report.OwnerID == owner && report.StudyIdentity == identity && report.Held() {
 			return true
 		}
 	}
@@ -64,11 +85,11 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 	if record.Kind == domain.StudyReportUnsuitableContext {
 		report.PreviousMaterialID, report.PreviousCorrectedAt, report.PreviousLearnedMeaning = progress.MaterialID, progress.CorrectedAt, progress.LearnedMeaning
 	}
-	s.studyActionSeq++
+	s.noteStudyActionLocked(owner, progress.Language)
 	if s.studyReportSeq == nil {
 		s.studyReportSeq = map[string]int{}
 	}
-	s.studyReportSeq[report.ID] = s.studyActionSeq
+	s.studyReportSeq[report.ID] = len(s.studyActions)
 	s.studyReports = append(s.studyReports, report)
 	return report, nil
 }
@@ -105,7 +126,7 @@ func (s *Store) GetOpenStudyReport(_ context.Context, owner, language, progressI
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, report := range s.studyReports {
-		if report.OwnerID == owner && report.Language == language && report.ProgressID == progressID && report.Kind == kind && report.Open() {
+		if report.OwnerID == owner && report.Language == canonicalization.NormalizeLanguage(language) && report.ProgressID == progressID && report.Kind == kind && report.Open() {
 			return report, nil
 		}
 	}
@@ -128,7 +149,7 @@ func (s *Store) ListOpenStudyReports(_ context.Context, owner, language string, 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.openStudyReportsLocked(func(r domain.StudyReport) bool {
-		return r.OwnerID == owner && r.Language == language && r.Kind == kind
+		return r.OwnerID == owner && r.Language == canonicalization.NormalizeLanguage(language) && r.Kind == kind
 	}), nil
 }
 
@@ -219,7 +240,7 @@ func (s *Store) UndoStudyReport(_ context.Context, owner, id string, now time.Ti
 		return errNotFound
 	}
 	report := &s.studyReports[index]
-	if s.studyActionSeq > s.studyReportSeq[report.ID] {
+	if s.studyActionSince(owner, report.Language, s.studyReportSeq[report.ID]) {
 		return domain.ErrStudyStale
 	}
 	report.EndedAt, report.EndReason = now.UTC(), domain.StudyReportEndUndone
