@@ -266,8 +266,9 @@ func TestLatinEvidenceAssistedPassSendsEntryCarryingSensesAcrossStackedHomograph
 	require.True(t, request.RequireEvidenceAssistedPass)
 	assert.Equal(t, []string{
 		enrichment.LatinEvidenceID("n9", "n9.0"),
+		enrichment.LatinEvidenceID("n9", "n9.1"),
 		enrichment.LatinEvidenceID("n10", "n10.0"),
-	}, evidenceIDs(request.CandidateSenses), "each cited sense names its entry; senses with no definition are not evidence")
+	}, evidenceIDs(request.CandidateSenses), "each cited sense names its entry; a glosses-only sense is evidence, the level-0 pseudo-sense is not")
 	assert.Equal(t, "to dedicate", request.CandidateSenses[0].Gloss)
 }
 

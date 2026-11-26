@@ -79,8 +79,8 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	if err != nil {
 		return err
 	}
-	citedIDs, validCitations := nativeCitedIDs(policy, resolution, meaning.CitedSenseIDs)
-	cited := citationsOf(resolution, citedIDs)
+	citedIDs, citable, validCitations := nativeCitedIDs(policy, resolution, meaning.CitedSenseIDs)
+	cited := citationsOf(citable, citedIDs)
 	if !validCitations || meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
 	}
@@ -111,14 +111,28 @@ func passSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution) 
 }
 
 // nativeCitedIDs turns the evidence IDs a pass answer cited into the native
-// sense IDs the stored citations use. A Latin answer's IDs each name an entry
-// and a sense, and one the resolved entries do not hold makes the answer
-// invalid (nil, false).
-func nativeCitedIDs(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited []string) ([]string, bool) {
+// sense IDs the stored citations use, with the resolution those citations are
+// made against. A Latin answer's IDs each name an entry and a sense, so the
+// returned resolution holds only the cited senses of the entries that name them:
+// a sense ID two stacked homographs share is recorded under the entry that was
+// cited. An ID the resolved entries do not hold makes the answer invalid.
+func nativeCitedIDs(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited []string) ([]string, sourceevidence.Resolution, bool) {
 	if policy.Entries == cardpolicy.EntryLSJ {
-		return cited, true
+		return cited, resolution, true
 	}
-	return sourceevidence.LatinCitedSenseIDs(resolution.Entries, cited)
+	native, ok := sourceevidence.LatinCitedSenseIDs(resolution.Entries, cited)
+	if !ok {
+		return nil, resolution, false
+	}
+	narrowed := resolution
+	narrowed.Entries = make([]sourceevidence.Entry, len(resolution.Entries))
+	for i, entry := range resolution.Entries {
+		narrowed.Entries[i] = entry
+		narrowed.Entries[i].Senses = slices.DeleteFunc(slices.Clone(entry.Senses), func(sense sourceevidence.Sense) bool {
+			return !slices.Contains(cited, enrichment.LatinEvidenceID(entry.ID, sense.ID))
+		})
+	}
+	return native, narrowed, true
 }
 
 // citationsOf names the entries the cited senses belong to, in the order the

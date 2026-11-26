@@ -176,18 +176,49 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 }
 
 // LatinPassSenses are the pinned Lewis & Short senses the Latin evidence-assisted
-// pass may cite, across every resolved entry in source order. Each sense's
-// evidence ID names its entry and its sense, so a cited sense is exactly one
-// sense of one entry, even across stacked homographs. A sense with no native ID,
-// or with no definition to send, gives no evidence and is skipped.
+// pass may cite, across every resolved entry. Each sense's evidence ID names its
+// entry and its sense, so a cited sense is exactly one sense of one entry, even
+// across stacked homographs. A sense sends its definitions, or its glosses when
+// it has none; a sense with no native ID or nothing to send gives no evidence and
+// is skipped. The pass carries at most enrichment.DefaultMaxCandidateSenses
+// senses, taken round-robin across the entries so every returned entry is
+// represented, and kept in source order.
 func LatinPassSenses(entries []Entry) []enrichment.LexicalSense {
-	var senses []enrichment.LexicalSense
-	for _, entry := range entries {
-		for _, sense := range entry.Senses {
-			gloss := strings.Join(sense.Definitions, "; ")
-			if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
-				senses = append(senses, enrichment.LexicalSense{EvidenceID: enrichment.LatinEvidenceID(entry.ID, sense.ID), Source: "ls", Gloss: gloss})
+	perEntry := make([][]enrichment.LexicalSense, len(entries))
+	for i, entry := range entries {
+		perEntry[i] = latinEntryPassSenses(entry)
+	}
+	keep := make([]int, len(entries))
+	for taken := 0; taken < enrichment.DefaultMaxCandidateSenses; {
+		before := taken
+		for i := range perEntry {
+			if keep[i] < len(perEntry[i]) && taken < enrichment.DefaultMaxCandidateSenses {
+				keep[i]++
+				taken++
 			}
+		}
+		if taken == before {
+			break
+		}
+	}
+	var senses []enrichment.LexicalSense
+	for i := range perEntry {
+		senses = append(senses, perEntry[i][:keep[i]]...)
+	}
+	return senses
+}
+
+// latinEntryPassSenses are one entry's senses that have an ID and text to send.
+func latinEntryPassSenses(entry Entry) []enrichment.LexicalSense {
+	var senses []enrichment.LexicalSense
+	for _, sense := range entry.Senses {
+		text := sense.Definitions
+		if len(text) == 0 {
+			text = sense.Glosses
+		}
+		gloss := strings.Join(text, "; ")
+		if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
+			senses = append(senses, enrichment.LexicalSense{EvidenceID: enrichment.LatinEvidenceID(entry.ID, sense.ID), Source: "ls", Gloss: gloss})
 		}
 	}
 	return senses

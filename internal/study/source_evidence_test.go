@@ -302,3 +302,13 @@ func evidenceIDsOf(senses []enrichment.LexicalSense) []string {
 	}
 	return ids
 }
+
+func TestLatinStudyRecordsTheCitedEntryWhenHomographsShareASenseID(t *testing.T) {
+	entries := stackedDico()
+	entries[1].Senses[0].ID = entries[0].Senses[0].ID
+	f := latinFixture(t, enrichment.LatinEvidenceID("n10", "n9.0"))
+	f.worker.Evidence.Lexical = &latinLexicon{entries: entries}
+	require.NoError(t, work(f.worker))
+	require.NotNil(t, f.store.ready)
+	assert.Equal(t, []string{"n10"}, f.store.ready.Cited.EntryIDs)
+}

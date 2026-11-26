@@ -183,3 +183,20 @@ func TestResolvePassageOfBookReturnsAStoreFailure(t *testing.T) {
 	_, err := ResolvePassageOfBook(t.Context(), &translations{err: assert.AnError}, cardpolicy.For("grc"), "owner", "b", []string{"1.1"})
 	require.ErrorIs(t, err, assert.AnError)
 }
+
+func TestLatinPassSensesRepresentEveryEntryWithinTheCap(t *testing.T) {
+	first := enrichment.LatinLSEntry{EntryID: "n1", Senses: nil}
+	for i := range 9 {
+		first.Senses = append(first.Senses, enrichment.LatinLSSense{ID: "n1." + string(rune('a'+i)), Level: 1, Definitions: []string{"d"}})
+	}
+	second := enrichment.LatinLSEntry{EntryID: "n2", Senses: []enrichment.LatinLSSense{
+		{ID: "n2.0", Level: 1, Glosses: []string{"only a gloss"}},
+		{ID: "n2.1", Level: 1},
+	}}
+	senses := LatinPassSenses(BuildLewisShort([]enrichment.LatinLSEntry{first, second}, nil, nil))
+	require.Len(t, senses, enrichment.DefaultMaxCandidateSenses)
+	assert.Equal(t, enrichment.LatinEvidenceID("n1", "n1.a"), senses[0].EvidenceID, "source order is kept")
+	last := senses[len(senses)-1]
+	assert.Equal(t, enrichment.LatinEvidenceID("n2", "n2.0"), last.EvidenceID, "a later entry is not starved, and a glosses-only sense is sent")
+	assert.Equal(t, "only a gloss", last.Gloss)
+}
