@@ -68,7 +68,7 @@ func (s *studyHarness) matureHaus() domain.StudyProgress {
 	require.NoError(s.t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(s.t, "study River client", s.client.Stop)
 	testutil.Eventually(s.t, 60*time.Second, "material to settle", func() (bool, string) {
-		return s.counts().Preparing == 0, "preparing words remain"
+		return s.settled()
 	})
 	s.clock.Set(berlinTime(s.t, 25, 9, 0))
 	require.Equal(s.t, http.StatusSeeOther, s.post("/study/batches/take", url.Values{"language": {"de"}}).Code)
@@ -230,12 +230,16 @@ func TestStudyFluencyIsReachableOnlyAfterTheFinishLineAndTheOfferedBatch(t *test
 
 	// A review is due on the next Study day: Fluency waits for the finish line.
 	// The library holds a second Book with the word "buch", so its introducing
-	// occurrence is real: Study withdraws a word that has none.
+	// occurrence is real: Study withdraws a word that has none. A trigger that
+	// arrives while a plan is running joins it, so the earlier plans finish first.
+	testutil.Eventually(t, 60*time.Second, "the earlier planning to finish", s.settled)
 	s.seedBook("library", testutil.CorpusWord{Lemma: "stuhl", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2})
 	require.Equal(t, http.StatusOK, getAs(t, s.h, "/de/study", s.cookies).Code)
 	testutil.Eventually(t, 60*time.Second, "the next words to be prepared", func() (bool, string) {
-		counts := s.counts()
-		return counts.Preparing == 0 && counts.Ready >= 3, "preparing words remain"
+		if settled, why := s.settled(); !settled {
+			return false, why
+		}
+		return s.counts().Ready >= 3, "too few words are ready"
 	})
 	// Introduced as a review due on the next Study day, from its prepared material.
 	_, err := s.store.Pool().Exec(s.ctx, `INSERT INTO study_progress(owner_id,language,canonical_lemma,upos,material_id,introduced_at,learned_meaning,state,due,stability,difficulty,scheduled_days,reps,last_review)

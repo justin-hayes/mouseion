@@ -294,4 +294,5 @@ func TestRegisterStudyWorkerRegistersTheJobKind(t *testing.T) {
 
 	require.Error(t, river.AddWorkerSafely(workers, &study.MaterialWorker{}), "worker kind must already be registered")
 	require.Error(t, river.AddWorkerSafely(workers, &study.FluencyWorker{}), "worker kind must already be registered")
+	require.Error(t, river.AddWorkerSafely(workers, &study.PlanWorker{}), "worker kind must already be registered")
 }

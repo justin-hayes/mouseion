@@ -22,7 +22,7 @@ func (s *studyHarness) preparedBook(words ...testutil.CorpusWord) string {
 	require.NoError(s.t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(s.t, "study River client", s.client.Stop)
 	testutil.Eventually(s.t, 60*time.Second, "material to settle", func() (bool, string) {
-		return s.counts().Preparing == 0, "preparing words remain"
+		return s.settled()
 	})
 	return book.ID
 }
@@ -277,7 +277,7 @@ func TestStudyWordWithdrawnForUnpreparableMaterialReturnsOnlyWhenItsEvidenceChan
 	assert.True(t, s.today().Finished, "the word stays out of Today")
 
 	// The same evidence is not tried again: no provider is asked.
-	testutil.Eventually(t, 30*time.Second, "preparation to settle", func() (bool, string) { return s.counts().Preparing == 0, "words are preparing" })
+	testutil.Eventually(t, 30*time.Second, "preparation to settle", s.settled)
 	calls := s.provider.Calls()
 	for range 3 {
 		s.page()
