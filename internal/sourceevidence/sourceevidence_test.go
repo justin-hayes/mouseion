@@ -291,15 +291,15 @@ func TestPassSensesGreekSendsGlossesForAnEntryWithNoDefinitions(t *testing.T) {
 	assert.Equal(t, "old", senses[0].Gloss)
 }
 
-func TestPassSensesGreekRepresentEveryEntryWithinTheCap(t *testing.T) {
+func TestPassSensesGreekSendsEverySenseOfEveryEntry(t *testing.T) {
 	long := enrichment.AncientGreekLSJEntry{EntryID: "n1"}
 	for i := range 10 {
 		long.Senses = append(long.Senses, enrichment.AncientGreekLSJSense{ID: "n1." + string(rune('a'+i)), Definitions: []string{"long"}})
 	}
 	short := enrichment.AncientGreekLSJEntry{EntryID: "n2", Senses: []enrichment.AncientGreekLSJSense{{ID: "n2.0", Definitions: []string{"short"}}}}
 	senses := PassSenses(cardpolicy.For("grc"), []Entry{BuildLSJ(long, nil), BuildLSJ(short, nil)})
-	require.Len(t, senses, enrichment.DefaultMaxCandidateSenses)
-	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[len(senses)-1].EvidenceID, "the later homograph is not starved")
+	require.Len(t, senses, 11, "Greek Study keeps its uncapped senses")
+	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[10].EvidenceID)
 }
 
 func TestResolveStudyDropsEmptyEntriesAndFindsNothingWhenNoneIsLeft(t *testing.T) {

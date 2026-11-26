@@ -236,15 +236,16 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 // sense's evidence ID names its entry and its sense (enrichment.EntryEvidenceID),
 // so a cited sense is exactly one sense of one entry across homographs.
 func PassSenses(policy cardpolicy.Policy, entries []Entry) []enrichment.LexicalSense {
-	perEntry := make([][]enrichment.LexicalSense, len(entries))
-	for i, entry := range entries {
-		if policy.Entries == cardpolicy.EntryLSJ {
-			perEntry[i] = lsjEntryPassSenses(entry)
-		} else {
-			perEntry[i] = latinEntryPassSenses(entry)
+	if policy.Entries == cardpolicy.EntryLSJ {
+		// Greek Study sends every sense, as it did for one entry: the cap is
+		// Latin's, and a frequent lemma's entries need their later senses citable.
+		var senses []enrichment.LexicalSense
+		for _, entry := range entries {
+			senses = append(senses, lsjEntryPassSenses(entry)...)
 		}
+		return senses
 	}
-	return capRoundRobin(perEntry)
+	return LatinPassSenses(entries)
 }
 
 // LatinPassSenses are the pinned Lewis & Short senses the Latin evidence-assisted

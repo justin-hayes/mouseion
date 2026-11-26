@@ -154,7 +154,7 @@ func (i *Index) LookupAncientGreekLSJ(_ context.Context, lemma string) (enrichme
 }
 
 // LookupAncientGreekLSJEntries resolves an Ancient Greek headword to every
-// competing LSJ entry, in source order (ADR 0139). A homograph is not a reason to
+// competing LSJ entry, in index order (ADR 0139): the order the derivation wrote the rows, which is entry ID order. A homograph is not a reason to
 // match none: Study cites a sense of the entry that fits the sentence. The same
 // entries compete as for LookupAncientGreekLSJ, so a phrase or redirect
 // sub-entry never joins and a capitalised proper name does not join a lowercase

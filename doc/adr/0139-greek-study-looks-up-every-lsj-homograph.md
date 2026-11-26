@@ -30,7 +30,7 @@ pass contract carries each sense's entry (ADR 0138 §1).
 ### 1. Study looks up every competing LSJ entry
 
 - **Study lookup.** The card policy gains a Study lookup rule. For Greek it is
-  every competing LSJ entry, in source order. The entries are those the exactly-one
+  every competing LSJ entry, in index order (the derivation's entry ID order). The entries are those the exactly-one
   lookup counts: a phrase or redirect sub-entry never joins, and a capitalised
   proper name does not join a lowercase lemma.
 - **Prepared deck unchanged.** The deck keeps its exactly-one lookup, the existing
@@ -38,6 +38,8 @@ pass contract carries each sense's entry (ADR 0138 §1).
   ([#2171](https://github.com/justin-hayes/mouseion/issues/2171)). The deck output
   is byte-identical. [ADR 0136](0136-study-replaces-known-vocabulary-and-prepared-deck.md)
   retires the deck at the cutover.
+- **Senses.** Greek Study offers every sense of every entry, uncapped, as it did
+  for a single entry; Latin's cap does not apply.
 - **Keyed to the policy.** Study branches on the card policy values, never on
   `grc`.
 
