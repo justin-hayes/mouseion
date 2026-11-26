@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 )
 
 // ErrProviderAssessmentNotRecorded marks a provider call whose exact payload
@@ -28,6 +29,11 @@ const (
 	// Lewis & Short senses as short evidence handles that each name their entry
 	// (ADR 0138 §1). It has its own contract and its own record (#2766).
 	LatinEvidenceAssistedPassPayload ProviderPayloadKind = "latin-evidence-assisted-pass"
+	// GreekEntryEvidenceAssistedPassPayload is the Ancient Greek evidence-assisted
+	// pass of Study: the representative sentence, its passage context, and the
+	// pinned LSJ senses of every homograph entry as short evidence handles that
+	// each name their entry (ADR 0139). It has its own contract and its own record (#2774).
+	GreekEntryEvidenceAssistedPassPayload ProviderPayloadKind = "greek-entry-evidence-assisted-pass" //nolint:gosec // a payload kind name, not a credential
 	// LSJSenseSummaryPayload is the context-free summary of a pinned LSJ entry:
 	// its headword, sense IDs and English glosses alone (ADR 0101).
 	LSJSenseSummaryPayload ProviderPayloadKind = "lsj-sense-summary"
@@ -231,6 +237,37 @@ var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// greekEntryEvidenceAssistedPassAssessment is the disposition for the exact
+// Ancient Greek Study evidence-assisted pass payload: the representative
+// sentence, its passage context (the Perseus reference translation) and the
+// pinned LSJ definitions of every homograph entry as short evidence handles,
+// each beside the short handle of its entry. Justin reviewed that payload in
+// doc/reviews/greek-entry-evidence-assisted-pass-payload-assessment.md and
+// recorded the disposition on #2774, so Greek Study material can send it
+// (ADR 0139). The Prepared deck's pass is unaffected: it keeps the #2171 record.
+//
+// The transport is the configured OpenAI-compatible Chat Completions endpoint.
+// No learner identity, Book title, whole Book, raw annotation, lexical
+// discriminator or native LSJ entry or sense ID is transmitted.
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
+var greekEntryEvidenceAssistedPassAssessment = ProviderAssessment{
+	Kind:          GreekEntryEvidenceAssistedPassPayload,
+	Language:      "grc",
+	Provider:      "openai-compatible",
+	PromptVersion: "translation-v19-evidence-assisted-greek-entries",
+	Fields: []string{
+		"item_id", "language", "target_language", "canonical_lemma", "upos",
+		"target_word", "example_sentence", "passage_context", "candidate_senses",
+	},
+	Disposition: "approved for personal use of the locally produced Study surface",
+	Ticket:      "#2774",
+	Recorded:    true,
+}
+
 // fluencyAgreementSourceEvidenceLatinAssessment is the disposition for the exact
 // Classical Latin source-evidence Fluency agreement payload: the modern Fluency
 // fields plus the Lewis & Short definitions of the senses that the Learned
@@ -269,7 +306,7 @@ type ProviderAssessmentSet []ProviderAssessment
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to MaySend instead.
 func ProviderAssessments() ProviderAssessmentSet {
-	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment, latinEvidenceAssistedPassAssessment, fluencyAgreementSourceEvidenceLatinAssessment}
+	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment, latinEvidenceAssistedPassAssessment, fluencyAgreementSourceEvidenceLatinAssessment, greekEntryEvidenceAssistedPassAssessment}
 }
 
 // MaySend reports whether one payload kind may be sent for a language with the
@@ -324,6 +361,8 @@ func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (
 		return payloadContract{codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()}, true
 	case LatinEvidenceAssistedPassPayload:
 		return payloadContract{codec.ProviderName(), codec.LatinEvidenceAssistedPassPromptContract(), LatinEvidenceAssistedPassPayloadFields()}, true
+	case GreekEntryEvidenceAssistedPassPayload:
+		return payloadContract{codec.ProviderName(), codec.GreekEntryEvidenceAssistedPassPromptContract(), GreekEntryEvidenceAssistedPassPayloadFields()}, true
 	case LSJSenseSummaryPayload:
 		return payloadContract{codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()}, true
 	case IdiomCardPayload:
@@ -363,6 +402,19 @@ func sameAssessmentLanguage(left, right string) bool {
 func EvidenceAssistedPassKind(language string) ProviderPayloadKind {
 	if isLatinPass(language) {
 		return LatinEvidenceAssistedPassPayload
+	}
+	return EvidenceAssistedPassPayload
+}
+
+// StudyEvidenceAssistedPassKind is the payload kind Study's evidence-assisted
+// pass transmits for a source-evidence language, selected by its card policy.
+func StudyEvidenceAssistedPassKind(language string) ProviderPayloadKind {
+	switch cardpolicy.For(language).StudyPassContract {
+	case cardpolicy.PassContractLatin:
+		return LatinEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreekEntries:
+		return GreekEntryEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreek:
 	}
 	return EvidenceAssistedPassPayload
 }

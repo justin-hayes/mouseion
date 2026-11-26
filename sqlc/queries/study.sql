@@ -48,7 +48,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
-       created_at, updated_at
+       omission_dictionary_pin, created_at, updated_at
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND superseded_at IS NULL
  ORDER BY canonical_lemma, upos, lexical_discriminator;
@@ -62,7 +62,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
-       created_at, updated_at
+       omission_dictionary_pin, created_at, updated_at
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id');
 
@@ -98,6 +98,22 @@ UPDATE study_material
 UPDATE study_material
    SET state = 'unpreparable', omission_reason = sqlc.arg('reason'), updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'pending';
+
+-- name: MarkStudyMaterialNoDictionaryEntry :execrows
+-- A source-evidence word the dictionary has no entry for, with the pin of the
+-- dictionary that was asked (ADR 0138 §2).
+UPDATE study_material
+   SET state = 'unpreparable', omission_reason = 'no-dictionary-entry', omission_dictionary_pin = sqlc.arg('pin'), updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'pending';
+
+-- name: ReopenStudyMaterialNoDictionaryEntry :execrows
+-- Makes a no-dictionary-entry omission pending again when the dictionary's pin
+-- is not the one it was recorded against. An omission for any other reason, or
+-- one made against the current pin, is left alone.
+UPDATE study_material
+   SET state = 'pending', omission_reason = '', omission_dictionary_pin = '', evidence_fingerprint = '', updated_at = now()
+ WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'unpreparable' AND superseded_at IS NULL
+   AND omission_reason = 'no-dictionary-entry' AND omission_dictionary_pin <> sqlc.arg('pin');
 
 -- name: SetStudyMaterialEvidence :execrows
 -- Records the occurrences a preparation attempt saw, before it finds the

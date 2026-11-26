@@ -1173,6 +1173,7 @@ type StudyMaterial struct {
 	PassageContext             string
 	PassageCitation            string
 	PassageTranslationPin      string
+	OmissionDictionaryPin      string
 }
 
 type StudyProgress struct {

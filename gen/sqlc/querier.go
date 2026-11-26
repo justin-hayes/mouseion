@@ -594,6 +594,9 @@ type Querier interface {
 	// A failed retrieval keeps any retained image and records the reason.
 	MarkCatalogEntryCoverUnavailable(ctx context.Context, arg MarkCatalogEntryCoverUnavailableParams) (int64, error)
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
+	// A source-evidence word the dictionary has no entry for, with the pin of the
+	// dictionary that was asked (ADR 0138 §2).
+	MarkStudyMaterialNoDictionaryEntry(ctx context.Context, arg MarkStudyMaterialNoDictionaryEntryParams) (int64, error)
 	MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMaterialReadyParams) (int64, error)
 	MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStudyMaterialUnpreparableParams) (int64, error)
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
@@ -639,6 +642,10 @@ type Querier interface {
 	RelocateStudyMaterial(ctx context.Context, arg RelocateStudyMaterialParams) (int64, error)
 	RemoveBookMembership(ctx context.Context, arg RemoveBookMembershipParams) error
 	RemoveUnchosenBookMembership(ctx context.Context) (int64, error)
+	// Makes a no-dictionary-entry omission pending again when the dictionary's pin
+	// is not the one it was recorded against. An omission for any other reason, or
+	// one made against the current pin, is left alone.
+	ReopenStudyMaterialNoDictionaryEntry(ctx context.Context, arg ReopenStudyMaterialNoDictionaryEntryParams) (int64, error)
 	RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error)
 	// Starts a word's material as pending. A word that already has current
 	// material returns no row.

@@ -59,6 +59,13 @@ var idiomCardSystemPrompt = "Confirm and translate the supplied idiom in the com
 // was (ADR 0101).
 var evidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of an Ancient Greek text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
+// greekEntryEvidenceAssistedPassSystemPrompt is the strict Ancient Greek
+// evidence-assisted pass contract of Study. It differs from the deck's Greek
+// contract only in the entry handle: each pinned LSJ sense carries a short
+// evidence handle and the short handle of its entry, so a cited sense is exactly
+// one sense of one entry across homographs (ADR 0139).
+var greekEntryEvidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of an Ancient Greek text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle and the short entry handle of the LSJ entry it belongs to (homograph entries have different entry handles). Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
+
 // latinEvidenceAssistedPassSystemPrompt is the strict Classical Latin
 // evidence-assisted pass contract. It differs from the Greek contract only in
 // the language and the dictionary it names: each pinned Lewis & Short sense
@@ -208,6 +215,26 @@ func (c *TranslationCodec) LatinEvidenceAssistedPassProviderVersion() string {
 // The Latin provider-payload assessment pins this contract.
 func (c *TranslationCodec) LatinEvidenceAssistedPassPromptContract() string {
 	return latinEvidenceAssistedPassPromptVersion
+}
+
+// GreekEntryEvidenceAssistedPassProviderVersion identifies the strict Ancient
+// Greek entry-carrying evidence-assisted pass response contract Study uses.
+func (c *TranslationCodec) GreekEntryEvidenceAssistedPassProviderVersion() string {
+	if c == nil {
+		return ""
+	}
+	version := c.model + "/" + greekEntryEvidenceAssistedPassPromptVersion
+	if c.usesReasoningEffort {
+		version += "-reasoning-" + c.reasoningEffort
+	}
+	return version
+}
+
+// GreekEntryEvidenceAssistedPassPromptContract returns the versioned Greek
+// entry-carrying pass prompt contract alone, without the configured model. A
+// provider-payload assessment of that payload pins this contract.
+func (c *TranslationCodec) GreekEntryEvidenceAssistedPassPromptContract() string {
+	return greekEntryEvidenceAssistedPassPromptVersion
 }
 
 // EvidenceAssistedPassProviderVersionFor identifies the pass response contract
@@ -382,8 +409,8 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		itemID = ContextualGlossItemHandle
 		entryHandles := map[string]string{}
 		for i := range candidateSenses {
-			if input.RequireEvidenceAssistedPass && isLatinPass(input.Language) {
-				if entryID, _, ok := SplitLatinEvidenceID(candidateSenses[i].EvidenceID); ok {
+			if input.RequireEvidenceAssistedPass && carriesEntryHandles(input) {
+				if entryID, _, ok := SplitEntryEvidenceID(candidateSenses[i].EvidenceID); ok {
 					if _, seen := entryHandles[entryID]; !seen {
 						entryHandles[entryID] = "h" + strconv.Itoa(len(entryHandles)+1)
 					}
@@ -435,8 +462,12 @@ func promptForRequest(input TranslationRequest) string {
 		return lsjSenseSummarySystemPrompt
 	}
 	if input.RequireEvidenceAssistedPass {
-		if isLatinPass(input.Language) {
+		switch passContractOf(input) {
+		case cardpolicy.PassContractLatin:
 			return latinEvidenceAssistedPassSystemPrompt
+		case cardpolicy.PassContractGreekEntries:
+			return greekEntryEvidenceAssistedPassSystemPrompt
+		case cardpolicy.PassContractGreek:
 		}
 		return evidenceAssistedPassSystemPrompt
 	}
@@ -635,27 +666,51 @@ func LatinEvidenceAssistedPassPayloadFields() []string {
 	return slices.Clone(latinEvidenceAssistedPassPayloadFields)
 }
 
+// GreekEntryEvidenceAssistedPassPayloadFields returns a copy of the ordered
+// field set a Greek entry-carrying pass request transmits. It is the Latin pass's
+// field set: each candidate sense carries a short entry handle beside its short
+// evidence handle.
+func GreekEntryEvidenceAssistedPassPayloadFields() []string {
+	return slices.Clone(latinEvidenceAssistedPassPayloadFields)
+}
+
+// passContractOf is the pass contract one request transmits: Study's pass uses
+// its policy's Study contract, every other pass the policy's deck contract.
+func passContractOf(input TranslationRequest) cardpolicy.PassContract {
+	policy := cardpolicy.For(input.Language)
+	if input.StudyPass {
+		return policy.StudyPassContract
+	}
+	return policy.PassContract
+}
+
+// carriesEntryHandles reports whether a pass request's contract sends the short
+// handle of each sense's entry.
+func carriesEntryHandles(input TranslationRequest) bool {
+	return passContractOf(input) != cardpolicy.PassContractGreek
+}
+
 // isLatinPass reports whether the language's card policy selects the Latin pass
 // contract. Encoding and assessment lookup share this one decision.
 func isLatinPass(language string) bool {
 	return cardpolicy.For(language).PassContract == cardpolicy.PassContractLatin
 }
 
-// latinEvidenceIDSeparator joins a Lewis & Short entry ID and one of its sense
-// IDs into the stable evidence ID the Latin pass cites.
-const latinEvidenceIDSeparator = "#"
+// entryEvidenceIDSeparator joins a dictionary entry ID and one of its sense IDs
+// into the stable evidence ID an entry-carrying pass cites.
+const entryEvidenceIDSeparator = "#"
 
-// LatinEvidenceID is the stable evidence ID of one Lewis & Short sense: it names
-// the entry and the sense, so a cited sense resolves to exactly one of each even
-// across stacked homograph entries.
-func LatinEvidenceID(entryID, senseID string) string {
-	return entryID + latinEvidenceIDSeparator + senseID
+// EntryEvidenceID is the stable evidence ID of one dictionary sense (Lewis &
+// Short or LSJ) for an entry-carrying pass: it names the entry and the sense, so a cited sense resolves to exactly one of each even
+// across homograph entries.
+func EntryEvidenceID(entryID, senseID string) string {
+	return entryID + entryEvidenceIDSeparator + senseID
 }
 
-// SplitLatinEvidenceID returns the entry and sense a Latin evidence ID names. It
+// SplitEntryEvidenceID returns the entry and sense an entry-carrying evidence ID names. It
 // reports false for an ID that names no entry or no sense.
-func SplitLatinEvidenceID(id string) (entryID, senseID string, ok bool) {
-	entryID, senseID, ok = strings.Cut(id, latinEvidenceIDSeparator)
+func SplitEntryEvidenceID(id string) (entryID, senseID string, ok bool) {
+	entryID, senseID, ok = strings.Cut(id, entryEvidenceIDSeparator)
 	return entryID, senseID, ok && entryID != "" && senseID != ""
 }
 

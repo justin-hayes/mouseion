@@ -28,9 +28,13 @@ type fakeStore struct {
 	occurrences  []domain.ConcordanceResultOccurrence
 	ready        *domain.StudyMaterialReadyContent
 	unpreparable string
-	evidence     string
-	pagesRead    int
-	tokens       map[int64][]analyzer.Token
+	// omissionPin is the dictionary pin a no-dictionary-entry omission recorded.
+	omissionPin string
+	// occurrencesErr fails listing the occurrences an attempt saw.
+	occurrencesErr error
+	evidence       string
+	pagesRead      int
+	tokens         map[int64][]analyzer.Token
 	// citations are the cited sections every sentence touches.
 	citations []string
 	retired   []domain.StudyOccurrenceRef
@@ -80,8 +84,13 @@ func (s *fakeStore) RecordStudyMaterialUnpreparable(_ context.Context, _, _, rea
 	return nil
 }
 
+func (s *fakeStore) RecordStudyMaterialNoDictionaryEntry(_ context.Context, _, _, pin string) error {
+	s.unpreparable, s.omissionPin = domain.StudyOmissionNoDictionaryEntry, pin
+	return nil
+}
+
 func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
-	return nil, nil
+	return nil, s.occurrencesErr
 }
 
 func (s *fakeStore) SetStudyMaterialEvidence(_ context.Context, _, _, evidence string) error {

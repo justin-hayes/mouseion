@@ -110,3 +110,25 @@ func TestStudyCitationsResolveSensesPerEntry(t *testing.T) {
 	require.False(t, cited.Has("n2", "s1"), "a homograph that shares the sense ID is not cited")
 	require.Equal(t, []string{"n1", "n3"}, cited.EntrySet())
 }
+
+func TestStudyMaterialRetriesANoDictionaryEntryOmissionOnlyAgainstAnotherDictionary(t *testing.T) {
+	omitted := StudyMaterial{State: StudyMaterialUnpreparable, OmissionReason: StudyOmissionNoDictionaryEntry, OmissionDictionaryPin: "pin-1"}
+	cases := map[string]struct {
+		material StudyMaterial
+		pin      string
+		want     bool
+	}{
+		"a changed pin retries":                 {omitted, "pin-2", true},
+		"the same pin does not":                 {omitted, "pin-1", false},
+		"a padded pin is the same pin":          {omitted, " pin-1 ", false},
+		"no loaded dictionary never retries":    {omitted, "", false},
+		"an omission before pins were recorded": {StudyMaterial{State: StudyMaterialUnpreparable, OmissionReason: StudyOmissionNoDictionaryEntry}, "pin-1", true},
+		"a meaning omission is not retried":     {StudyMaterial{State: StudyMaterialUnpreparable, OmissionReason: StudyOmissionMeaning}, "pin-2", false},
+		"a sentence-quality omission is not":    {StudyMaterial{State: StudyMaterialUnpreparable, OmissionReason: StudyOmissionSentenceQuality}, "pin-2", false},
+		"ready material is not an omission":     {StudyMaterial{State: StudyMaterialReady}, "pin-2", false},
+		"pending material is not an omission":   {StudyMaterial{State: StudyMaterialPending}, "pin-2", false},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) { assert.Equal(t, c.want, c.material.RetriesAgainstDictionary(c.pin)) })
+	}
+}

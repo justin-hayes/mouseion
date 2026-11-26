@@ -42,3 +42,11 @@ func (h *postgresHarness) RelocateStudyMaterial(owner, materialID string, ref do
 func (h *postgresHarness) SetStudyMaterialEvidence(owner, materialID, evidence string) error {
 	return h.store.SetStudyMaterialEvidence(h.ctx, owner, materialID, evidence)
 }
+
+func (h *postgresHarness) RecordStudyMaterialNoDictionaryEntry(owner, materialID, pin string) error {
+	return h.store.RecordStudyMaterialNoDictionaryEntry(h.ctx, owner, materialID, pin)
+}
+
+func (h *postgresHarness) ReopenStudyMaterialNoDictionaryEntry(owner, materialID, pin string) error {
+	return h.store.ReopenStudyMaterialNoDictionaryEntry(h.ctx, owner, materialID, pin)
+}

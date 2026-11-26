@@ -86,7 +86,7 @@ func (e *fluencyFakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, cand
 	if answer, ok := e.passFor[candidate.TargetWord]; ok {
 		return answer, nil
 	}
-	return enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "A translation.", SentenceTranslationTargets: []string{"word"}, CitedSenseIDs: []string{"n100.1"}}, nil
+	return enrichment.EvidenceAssistedMeaning{Gloss: "a word", SentenceTranslation: "A translation.", SentenceTranslationTargets: []string{"word"}, CitedSenseIDs: []string{enrichment.EntryEvidenceID("n100", "n100.1")}}, nil
 }
 
 func (e *fluencyFakeEnricher) EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurred []string) (enrichment.FluencyAgreement, error) {
