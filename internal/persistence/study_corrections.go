@@ -99,7 +99,8 @@ func (s *PostgresStore) studySourceOccurrence(ctx context.Context, owner string,
 	}
 	// The introducing occurrence itself outranks a token found by its locator.
 	slices.SortStableFunc(rows, func(a, b sqlcgen.ListStudySourceTokensRow) int {
-		return cmp.Compare(studySourceRank(a, source), studySourceRank(b, source))
+		return cmp.Or(cmp.Compare(studySourceRank(a, source), studySourceRank(b, source)),
+			cmp.Compare(a.SentenceOrdinal, b.SentenceOrdinal), cmp.Compare(a.TokenOrdinal, b.TokenOrdinal))
 	})
 	for _, row := range rows {
 		if !studySourceTokenResolves(row, identity, term) {
