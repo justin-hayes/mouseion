@@ -141,13 +141,16 @@ var (
 	sourceEvidenceGreek = Policy{
 		SourceEvidence:       true,
 		EvidenceAssistedPass: true,
-		Study:                false, // switched on by the Greek evidence run (ADR 0138 §6)
-		SourceNotice:         GreekSourceNotice,
-		Translations:         TranslationPerseus,
-		Entries:              EntryLSJ,
-		Citations:            CitationsNone,
-		SentenceBoundary:     BoundaryTerminalMark,
-		DictionaryLookup:     LookupExactlyOne,
+		// Study is on after the Greek evidence run (ADR 0138 §6, #2767). The
+		// report, with Justin's judgement, is
+		// doc/evidence/greek-study-evidence-run-2026-11-26.md.
+		Study:            true,
+		SourceNotice:     GreekSourceNotice,
+		Translations:     TranslationPerseus,
+		Entries:          EntryLSJ,
+		Citations:        CitationsNone,
+		SentenceBoundary: BoundaryTerminalMark,
+		DictionaryLookup: LookupExactlyOne,
 	}
 	// sourceEvidenceLatin turns the evidence-assisted pass on (ADR 0138 §1), with
 	// its own Lewis & Short contract. The pass is sent only once the Latin payload

@@ -21,7 +21,6 @@ func TestStudyPageSaysPlainlyWhenALanguageHasNoStudy(t *testing.T) {
 		name, language string
 	}{
 		{"Latin", "la"},
-		{"Ancient Greek", "grc"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

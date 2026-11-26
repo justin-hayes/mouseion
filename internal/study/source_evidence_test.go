@@ -240,8 +240,8 @@ func TestModernWordNeverUsesTheSourceEvidencePath(t *testing.T) {
 	assert.Empty(t, enricher.passRequests)
 }
 
-func TestTheStudySwitchIsOffForSourceEvidenceLanguagesInProduction(t *testing.T) {
-	assert.False(t, cardpolicy.For("grc").Study)
+func TestTheStudySwitchIsOnForGreekAndOffForLatinInProduction(t *testing.T) {
+	assert.True(t, cardpolicy.For("grc").Study)
 	assert.False(t, cardpolicy.For("la").Study)
 }
 
