@@ -555,7 +555,7 @@ func (s *studyHarness) currentRun(bookID string) string {
 }
 
 // A word omitted for having no dictionary entry is prepared again only after the
-// dictionary's pin changes; every other omission stays skipped (ADR 0138 §1).
+// dictionary's pin changes; every other omission stays skipped (#2775).
 func TestStudyRetriesANoDictionaryEntryWordOnlyWhenTheDictionaryPinChanges(t *testing.T) {
 	var mu sync.Mutex
 	pin := "pin-1"

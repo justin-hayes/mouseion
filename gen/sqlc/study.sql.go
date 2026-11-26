@@ -524,7 +524,7 @@ type MarkStudyMaterialNoDictionaryEntryParams struct {
 }
 
 // A source-evidence word the dictionary has no entry for, with the pin of the
-// dictionary that was asked (ADR 0138 §1).
+// dictionary that was asked (ADR 0138 §2).
 func (q *Queries) MarkStudyMaterialNoDictionaryEntry(ctx context.Context, arg MarkStudyMaterialNoDictionaryEntryParams) (int64, error) {
 	result, err := q.db.Exec(ctx, markStudyMaterialNoDictionaryEntry, arg.Pin, arg.Owner, arg.ID)
 	if err != nil {

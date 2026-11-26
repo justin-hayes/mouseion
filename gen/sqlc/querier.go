@@ -595,7 +595,7 @@ type Querier interface {
 	MarkCatalogEntryCoverUnavailable(ctx context.Context, arg MarkCatalogEntryCoverUnavailableParams) (int64, error)
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
 	// A source-evidence word the dictionary has no entry for, with the pin of the
-	// dictionary that was asked (ADR 0138 §1).
+	// dictionary that was asked (ADR 0138 §2).
 	MarkStudyMaterialNoDictionaryEntry(ctx context.Context, arg MarkStudyMaterialNoDictionaryEntryParams) (int64, error)
 	MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMaterialReadyParams) (int64, error)
 	MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStudyMaterialUnpreparableParams) (int64, error)

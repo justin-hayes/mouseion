@@ -101,7 +101,7 @@ UPDATE study_material
 
 -- name: MarkStudyMaterialNoDictionaryEntry :execrows
 -- A source-evidence word the dictionary has no entry for, with the pin of the
--- dictionary that was asked (ADR 0138 §1).
+-- dictionary that was asked (ADR 0138 §2).
 UPDATE study_material
    SET state = 'unpreparable', omission_reason = 'no-dictionary-entry', omission_dictionary_pin = sqlc.arg('pin'), updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'pending';

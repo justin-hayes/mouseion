@@ -340,6 +340,8 @@ func studyCorrectionsScenarios() []Scenario {
 			require.True(t, created)
 			require.NoError(t, material.RecordStudyMaterialUnpreparable(owner, other, domain.StudyOmissionMeaning))
 			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, other, "pin-2"), domain.ErrNotFound, "a meaning omission is never reopened")
+			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, "missing", "pin-2"), domain.ErrNotFound)
+			require.ErrorIs(t, corrections.RecordStudyMaterialNoDictionaryEntry(owner, "missing", "pin-2"), domain.ErrNotFound)
 		}},
 	}
 }

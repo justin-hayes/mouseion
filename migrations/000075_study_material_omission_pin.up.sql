@@ -1,6 +1,6 @@
 -- Study re-prepares a word recorded as unpreparable for no-dictionary-entry
--- when the loaded dictionary index's pin for the language changes (ADR 0138
--- §1, ticket #2775). The omission's cause is the dictionary, so it is only
+-- when the loaded dictionary index's pin for the language changes (ticket
+-- #2775, after ADR 0138 §2's no-dictionary-entry omission). The omission's cause is the dictionary, so it is only
 -- worth trying again against a different one.
 --
 -- omission_dictionary_pin is the pinned dictionary revision a

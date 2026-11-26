@@ -59,7 +59,7 @@ type Service struct {
 
 // WithDictionaryPin sets how planning learns the loaded dictionary's pin for a
 // language, so a word omitted for having no dictionary entry is prepared again
-// when the pin changes (ADR 0138 §1). Without it such a word is never retried.
+// when the pin changes (#2775). Without it such a word is never retried.
 func (s *Service) WithDictionaryPin(pin func(language string) string) *Service {
 	s.dictionaryPin = pin
 	return s

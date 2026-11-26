@@ -296,3 +296,8 @@ func TestRegisterStudyWorkerRegistersTheJobKind(t *testing.T) {
 	require.Error(t, river.AddWorkerSafely(workers, &study.FluencyWorker{}), "worker kind must already be registered")
 	require.Error(t, river.AddWorkerSafely(workers, &study.PlanWorker{}), "worker kind must already be registered")
 }
+
+func TestStudyDictionaryPinIsEmptyWithoutAnIndexOrADictionary(t *testing.T) {
+	assert.Empty(t, studyDictionaryPin(nil)("grc"), "without an index there is no pin to compare")
+	assert.Empty(t, studyDictionaryPin(&dictionary.Index{})("de"), "a modern language has no dictionary")
+}

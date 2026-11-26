@@ -128,7 +128,7 @@ type StudyMaterial struct {
 
 // RetriesAgainstDictionary reports whether a no-dictionary-entry omission is
 // worth trying again: the loaded dictionary's pin for the language is known and
-// is not the one the omission was recorded against (ADR 0138 §1). A meaning or
+// is not the one the omission was recorded against (#2775). A meaning or
 // sentence-quality omission is never retried here, and an unknown pin never
 // retries, since without a dictionary there is nothing new to ask.
 func (m StudyMaterial) RetriesAgainstDictionary(currentPin string) bool {

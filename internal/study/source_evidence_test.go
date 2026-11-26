@@ -331,3 +331,32 @@ func TestDictionaryPinIsTheLoadedIndexsPinForThePoliciesDictionary(t *testing.T)
 	assert.Empty(t, DictionaryPin(lexicon, cardpolicy.For("de")), "a modern language has no dictionary")
 	assert.Empty(t, DictionaryPin(nil, cardpolicy.For("grc")))
 }
+
+type latinLexicon struct{ greekLexicon }
+
+func (latinLexicon) LatinLSPin() string { return " ls-pin-1 " }
+
+func TestDictionaryPinOfLatinIsTheLewisAndShortPin(t *testing.T) {
+	assert.Equal(t, "ls-pin-1", DictionaryPin(latinLexicon{}, cardpolicy.For("la")))
+	assert.Empty(t, DictionaryPin(latinLexicon{}, cardpolicy.For("grc")), "Greek reads LSJ's pin, which this index does not give")
+}
+
+func TestSourceEvidenceWordStillWithoutAnEntryIsRecordedAgainstTheNewPin(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.found, f.lexicon.pin = false, "lsj-pin-1"
+	require.NoError(t, work(f.worker))
+	require.Equal(t, "lsj-pin-1", f.store.omissionPin)
+
+	f.lexicon.pin = "lsj-pin-2"
+	require.NoError(t, work(f.worker))
+	assert.Equal(t, "lsj-pin-2", f.store.omissionPin, "a retry that still finds no entry is unpreparable under the new pin")
+	assert.Empty(t, f.enricher.passRequests)
+}
+
+func TestSourceEvidenceNoEntryOmissionIsNotRecordedWhenTheAttemptCannotBeRecorded(t *testing.T) {
+	f := newGreekFixture(t)
+	f.lexicon.found = false
+	f.store.occurrencesErr = errors.New("database down")
+	require.ErrorContains(t, work(f.worker), "database down")
+	assert.Empty(t, f.store.unpreparable, "River retries the job; nothing is recorded")
+}

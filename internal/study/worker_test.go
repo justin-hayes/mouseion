@@ -30,6 +30,8 @@ type fakeStore struct {
 	unpreparable string
 	// omissionPin is the dictionary pin a no-dictionary-entry omission recorded.
 	omissionPin string
+	// occurrencesErr fails listing the occurrences an attempt saw.
+	occurrencesErr error
 	evidence    string
 	pagesRead   int
 	tokens      map[int64][]analyzer.Token
@@ -88,7 +90,7 @@ func (s *fakeStore) RecordStudyMaterialNoDictionaryEntry(_ context.Context, _, _
 }
 
 func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
-	return nil, nil
+	return nil, s.occurrencesErr
 }
 
 func (s *fakeStore) SetStudyMaterialEvidence(_ context.Context, _, _, evidence string) error {
