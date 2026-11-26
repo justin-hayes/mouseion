@@ -29,13 +29,13 @@ func TestGreekPolicyNamesItsTranslationsAndEntries(t *testing.T) {
 	assert.Equal(t, CitationsNone, policy.Citations)
 }
 
-func TestLatinPolicyUsesSourceEvidenceWithNoProviderPass(t *testing.T) {
+func TestLatinPolicyUsesSourceEvidenceWithItsOwnProviderPass(t *testing.T) {
 	for _, tag := range []string{"la", "LA", " la "} {
 		t.Run(tag, func(t *testing.T) {
 			policy := For(tag)
 			require.True(t, policy.SourceEvidence, "source-evidence cards")
 			assert.False(t, policy.NLPAnalysed, "no NLP notice")
-			assert.False(t, policy.EvidenceAssistedPass, "no evidence-assisted pass")
+			assert.True(t, policy.EvidenceAssistedPass, "the evidence-assisted pass is on; it is sent only once the la assessment is recorded")
 			assert.Equal(t, LatinSourceNotice, policy.SourceNotice)
 			assert.Equal(t, TranslationPerseus, policy.Translations)
 			assert.Equal(t, BoundaryTerminalMark, policy.SentenceBoundary)

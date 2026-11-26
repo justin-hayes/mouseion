@@ -79,8 +79,9 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	if err != nil {
 		return err
 	}
-	cited := citationsOf(resolution, meaning.CitedSenseIDs)
-	if meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
+	citedIDs, validCitations := nativeCitedIDs(policy, resolution, meaning.CitedSenseIDs)
+	cited := citationsOf(resolution, citedIDs)
+	if !validCitations || meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
 	}
 	return w.Store.RecordStudyMaterialReady(ctx, owner, material.ID, domain.StudyMaterialReadyContent{
@@ -94,24 +95,30 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	})
 }
 
-// passSenses are the pinned dictionary senses the pass may cite, each with its
-// native sense ID as its evidence ID, across every resolved entry in source
-// order.
+// passSenses are the pinned dictionary senses the pass may cite across every
+// resolved entry in source order. A Greek sense's evidence ID is its native
+// sense ID; a Latin sense's names its entry and its sense, so a cited sense
+// resolves to exactly one of each across stacked homographs.
 func passSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution) []enrichment.LexicalSense {
+	if policy.Entries != cardpolicy.EntryLSJ {
+		return sourceevidence.LatinPassSenses(resolution.Entries)
+	}
 	var senses []enrichment.LexicalSense
 	for _, entry := range resolution.Entries {
-		if policy.Entries == cardpolicy.EntryLSJ {
-			senses = append(senses, sourceevidence.GreekPassSenses(entry.LSJ)...)
-			continue
-		}
-		for _, sense := range entry.Senses {
-			gloss := strings.Join(sense.Definitions, "; ")
-			if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
-				senses = append(senses, enrichment.LexicalSense{EvidenceID: sense.ID, Source: "ls", Gloss: gloss})
-			}
-		}
+		senses = append(senses, sourceevidence.GreekPassSenses(entry.LSJ)...)
 	}
 	return senses
+}
+
+// nativeCitedIDs turns the evidence IDs a pass answer cited into the native
+// sense IDs the stored citations use. A Latin answer's IDs each name an entry
+// and a sense, and one the resolved entries do not hold makes the answer
+// invalid (nil, false).
+func nativeCitedIDs(policy cardpolicy.Policy, resolution sourceevidence.Resolution, cited []string) ([]string, bool) {
+	if policy.Entries == cardpolicy.EntryLSJ {
+		return cited, true
+	}
+	return sourceevidence.LatinCitedSenseIDs(resolution.Entries, cited)
 }
 
 // citationsOf names the entries the cited senses belong to, in the order the

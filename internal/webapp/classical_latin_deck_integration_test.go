@@ -154,8 +154,8 @@ func (rederivedLatinLexicon) LookupLatinLS(context.Context, string) ([]enrichmen
 }
 
 // TestClassicalLatinDeckHasPassageContextWithNoProvider extends the Latin loop
-// to a prepared deck with no provider configured and Idiom cards listed for
-// Latin: the Work's pinned translation is fetched at preparation, every card
+// to a prepared deck with a provider configured but no recorded Latin pass
+// assessment, and Idiom cards listed for Latin: the Work's pinned translation is fetched at preparation, every card
 // shows its labelled passage context, and the deck carries no Wiktionary
 // meaning evidence, no Idiom card, no analysis-models notice and the Latin
 // source and translation notices.
@@ -245,7 +245,11 @@ func TestClassicalLatinDeckHasPassageContextWithNoProvider(t *testing.T) {
 	batchConfig := prepareddeck.BatchConfig{MaxRequests: 1, PollInterval: time.Millisecond}
 	metrics := prepareddeck.NewMetricsCollector()
 	provider := &greekDeckRecordingProvider{}
-	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, nil, batchConfig, preparedConfig, false)
+	// A provider is configured and the Latin pass is on in the card policy, but the
+	// compiled assessments record nothing for Latin (#2766): nothing is sent.
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, codec, batchConfig, preparedConfig, true)
 	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, provider, preparedConfig, time.Second, metrics)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, nil, nil, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, PollInterval: batchConfig.PollInterval, Metrics: metrics})

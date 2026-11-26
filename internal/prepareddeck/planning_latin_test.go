@@ -25,8 +25,8 @@ func cutoverLatinProjection() cardexport.CandidateProjection {
 }
 
 // A Latin deck is the providerless default even when a provider is configured,
-// the evidence-assisted pass has a recorded assessment, and the Idiom switch
-// lists Latin: no provider request, no cache identity, no Idiom card.
+// a Greek-payload record names Latin, and the Idiom switch lists Latin: no
+// provider request, no cache identity, no Idiom card.
 func TestBatchPlannerPlansLatinDeckWithNoProviderRequest(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
@@ -64,4 +64,48 @@ func TestBatchPlannerPlansLatinDeckWithNoProviderConfigured(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, plan.Config.Provider)
 	require.Len(t, plan.Projection.Items, 1)
+}
+
+// With the compiled assessments, which record nothing for Latin, a Latin deck
+// sends nothing even with a provider configured (ADR 0133, #2766).
+func TestBatchPlannerPlansLatinDeckWithNoRequestWhileTheLatinPassIsUnrecorded(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverLatinProjection()}, deckName: "Book", language: "la"}
+	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
+	planner.Assessments = enrichment.ProviderAssessments()
+
+	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+	assert.False(t, plan.Config.ExternalTranslationConsent)
+	assert.Empty(t, plan.Config.Provider)
+	require.Len(t, plan.Projection.Items, 1)
+	assert.Nil(t, plan.Projection.Items[0].CacheKey)
+}
+
+// With a test-recorded Latin assessment a Latin deck freezes the pass under the
+// Latin contract.
+func TestBatchPlannerPlansLatinEvidenceAssistedPassWithRecordedAssessment(t *testing.T) {
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
+	require.NoError(t, err)
+	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverLatinProjection()}, deckName: "Book", language: "la"}
+	planner := NewBatchPlanner(assembler, cardexport.NewPresentation(plannerDictionary{}), codec, true, BatchConfig{})
+	planner.Assessments = []enrichment.ProviderAssessment{{
+		Kind: enrichment.LatinEvidenceAssistedPassPayload, Language: "la", Provider: codec.ProviderName(),
+		PromptVersion: codec.LatinEvidenceAssistedPassPromptContract(),
+		Fields:        enrichment.LatinEvidenceAssistedPassPayloadFields(),
+		Disposition:   "recorded for this test", Ticket: "#test", Recorded: true,
+	}}
+
+	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
+	require.NoError(t, err)
+	assert.True(t, plan.Config.ExternalTranslationConsent)
+	assert.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
+
+	deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	assert.True(t, work[0].Request.RequireEvidenceAssistedPass)
+	assert.Equal(t, "la", work[0].Request.Language)
 }

@@ -244,3 +244,61 @@ func resolutionOf(entry enrichment.AncientGreekLSJEntry) sourceevidence.Resoluti
 	resolution, _ := sourceevidence.Resolve(context.Background(), &greekLexicon{entry: entry, found: true}, cardpolicy.For("grc"), "λόγοσ", nil)
 	return resolution
 }
+
+type latinLexicon struct {
+	greekLexicon
+	entries []enrichment.LatinLSEntry
+}
+
+func (l *latinLexicon) LookupLatinLS(context.Context, string) ([]enrichment.LatinLSEntry, bool) {
+	return l.entries, len(l.entries) > 0
+}
+
+func stackedDico() []enrichment.LatinLSEntry {
+	return []enrichment.LatinLSEntry{
+		{EntryID: "n9", Headword: "dico", Pin: "ls-pin-1", Senses: []enrichment.LatinLSSense{{ID: "n9.0", Level: 1, Definitions: []string{"to dedicate"}}}},
+		{EntryID: "n10", Headword: "dico", Pin: "ls-pin-1", Senses: []enrichment.LatinLSSense{{ID: "n10.0", Level: 1, Definitions: []string{"to say"}}}},
+	}
+}
+
+func latinFixture(t *testing.T, cited ...string) *greekFixture {
+	t.Helper()
+	t.Cleanup(cardpolicy.OverrideStudyForTest("la", true))
+	f := newGreekFixture(t)
+	f.store.material = domain.StudyMaterial{ID: "m1", Language: "la", CanonicalLemma: "dico", UPOS: "VERB", State: domain.StudyMaterialPending}
+	f.enricher.pass.CitedSenseIDs = cited
+	f.worker.Evidence.Lexical = &latinLexicon{entries: stackedDico()}
+	return f
+}
+
+func TestLatinStudySendsEntryCarryingSensesAndResolvesACitationToOneEntry(t *testing.T) {
+	f := latinFixture(t, enrichment.LatinEvidenceID("n10", "n10.0"))
+	require.NoError(t, work(f.worker))
+	require.Len(t, f.enricher.passRequests, 1)
+	assert.Equal(t, []string{enrichment.LatinEvidenceID("n9", "n9.0"), enrichment.LatinEvidenceID("n10", "n10.0")}, evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses))
+	require.NotNil(t, f.store.ready)
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"n10.0"}, EntryIDs: []string{"n10"}, DictionaryPin: "ls-pin-1"}, f.store.ready.Cited)
+}
+
+func TestLatinStudyOmitsACitationOfASenseTheNamedEntryDoesNotHold(t *testing.T) {
+	f := latinFixture(t, enrichment.LatinEvidenceID("n9", "n10.0"))
+	require.NoError(t, work(f.worker))
+	assert.Nil(t, f.store.ready)
+	assert.Equal(t, domain.StudyOmissionMeaning, f.store.unpreparable)
+}
+
+func TestLatinStudySendsNothingWhileTheLatinPassIsNotRecorded(t *testing.T) {
+	f := latinFixture(t, enrichment.LatinEvidenceID("n9", "n9.0"))
+	f.gate = enrichment.ErrProviderAssessmentNotRecorded
+	require.Error(t, work(f.worker), "the word waits")
+	assert.Empty(t, f.enricher.passRequests)
+	assert.Nil(t, f.store.ready)
+}
+
+func evidenceIDsOf(senses []enrichment.LexicalSense) []string {
+	ids := make([]string, 0, len(senses))
+	for _, sense := range senses {
+		ids = append(ids, sense.EvidenceID)
+	}
+	return ids
+}
