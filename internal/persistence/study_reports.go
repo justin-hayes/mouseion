@@ -173,23 +173,26 @@ func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, 
 }
 
 // EndStudyReport ends an open report because its occurrence was repaired or is
-// gone (domain.StudyReportEnd.Repair). It never changes the word's schedule.
-// A report that is missing, foreign or already ended is ErrNotFound.
+// gone (domain.StudyReportEnd.Repair). A repaired Wrong-word report releases its
+// word, keeping its Study progress: the word is due at the start of the next
+// Study day, to be re-introduced. A report that is missing, foreign or already
+// ended is ErrNotFound.
 func (s *PostgresStore) EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error {
 	if !reason.Repair() {
 		return fmt.Errorf("end study report: %q is not a repair", reason)
 	}
-	if !validUUID(id) {
-		return ErrNotFound
-	}
-	ended, err := sqlcgen.New(s.pool).EndStudyReport(ctx, sqlcgen.EndStudyReportParams{Owner: owner, ID: id, Now: now.UTC(), Reason: string(reason)})
-	if err != nil {
-		return fmt.Errorf("end study report: %w", err)
-	}
-	if ended == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return s.changeStudyReport(ctx, owner, id, func(ctx context.Context, q *sqlcgen.Queries, report domain.StudyReport, progress domain.StudyProgress) error {
+		if err := endStudyReport(ctx, q, owner, id, reason, now); err != nil {
+			return err
+		}
+		if report.Kind != domain.StudyReportWrongWord || progress.ID == "" {
+			return nil
+		}
+		if err := q.UpdateStudyProgressDue(ctx, sqlcgen.UpdateStudyProgressDueParams{Owner: owner, ID: progress.ID, Due: domain.NextStudyDayStart(now).UTC()}); err != nil {
+			return fmt.Errorf("move study due: %w", err)
+		}
+		return nil
+	})
 }
 
 // DismissStudyReport ends an open Wrong-word report without a repair. The

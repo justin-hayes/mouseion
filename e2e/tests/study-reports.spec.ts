@@ -44,5 +44,11 @@ test.describe('Study reports', () => {
     await expect(entry).toContainText('The highlighted word is another word here.');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+
+    // The entry opens the Book's Lemma review, which lists the report.
+    await entry.getByRole('link', { name: 'Review in Lemma review' }).click();
+    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/lemma-review\?form=/);
+    await expect(page.getByRole('heading', { level: 2, name: 'Reported in Study' })).toBeVisible();
+    await expect(page.locator('#lemma-review-study-reports')).toContainText('The highlighted word is another word here.');
   });
 });

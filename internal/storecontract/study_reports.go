@@ -18,7 +18,8 @@ import (
 // CreateStudyReport takes the word's lock as a grade does: a card answered
 // since it was shown is domain.ErrStudyStale, and reporting the same material
 // twice while a report is open returns that report. EndStudyReport ends a
-// report because its occurrence was repaired or is gone. DismissStudyReport
+// report because its occurrence was repaired or is gone; a repaired Wrong-word
+// report releases its word, due at the start of the next Study day. DismissStudyReport
 // ends a Wrong-word report without a repair and moves the word's due time later
 // by the time it was held. UndoStudyReport ends an Unsuitable-context report
 // and restores the word's material; it is domain.ErrStudyStale once another
@@ -198,7 +199,10 @@ func studyReportScenarios() []Scenario {
 			listed, err := progress.ListStudyProgress(owner, Language)
 			require.NoError(t, err)
 			assert.False(t, listed[0].Held, "the word is no longer held")
-			requireSameMemory(t, word.Memory, listed[0].Memory)
+			assert.True(t, domain.NextStudyDayStart(ended).Equal(listed[0].Memory.Due), "a repaired word is due at the start of the next Study day, due %v", listed[0].Memory.Due)
+			want := word.Memory
+			want.Due = listed[0].Memory.Due
+			requireSameMemory(t, want, listed[0].Memory)
 			open, err := reports.ListOpenStudyReports(owner, Language, domain.StudyReportWrongWord)
 			require.NoError(t, err)
 			assert.Empty(t, open)

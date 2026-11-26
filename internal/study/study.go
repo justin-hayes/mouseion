@@ -131,6 +131,11 @@ func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) e
 // whose material is ready is left alone, and one whose job is still live is not
 // enqueued twice.
 func (s *Service) PlanPreparation(ctx context.Context, owner, language string) error {
+	// A publication may have repaired a reported word's occurrence; a held word
+	// is never due, so Today alone would not notice.
+	if err := ReconcileReports(ctx, s.store, owner, language, time.Now()); err != nil {
+		return err
+	}
 	candidates, err := s.store.ListStudyCandidates(ctx, owner, language)
 	if err != nil {
 		return err

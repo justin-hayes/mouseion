@@ -7,7 +7,7 @@ import (
 	"net/url"
 )
 
-templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmareview.Preview, recovery lemmareview.Recovery, suggestion *lemmaReviewSuggestion) {
+templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmareview.Preview, recovery lemmareview.Recovery, suggestion *lemmaReviewSuggestion, reports []domain.StudyReport) {
 	@ShellLayout("Review a word", &user, csrf, NavigationReading, shellStyleReading, shellStyleVocabulary) {
 		<main class="page-container data-width lemma-review">
 			<p><a href={ templ.SafeURL(readingPagePath(ctx)) }>Back to Reading</a></p>
@@ -59,10 +59,35 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			if form != "" && len(occurrences) == 0 {
 				<p role="status">No matching content-word occurrence was found in the current analysis. Check the exact spelling and try again.</p>
 			}
+			if len(reports) > 0 {
+				<section id="lemma-review-study-reports" aria-labelledby="lemma-review-study-reports-heading">
+					<h2 id="lemma-review-study-reports-heading">Reported in Study</h2>
+					<p>You reported these words as wrong words in Study. Study holds each word until you correct or exclude the occurrence here.</p>
+					<ul>
+						for _, report := range reports {
+							<li>
+								<a href={ templ.SafeURL("/reading/books/" + url.PathEscape(bookID) + "/lemma-review?form=" + url.QueryEscape(report.TargetWord)) }>{ report.TargetWord }</a>
+								if report.Note != "" {
+									— { report.Note }
+								}
+							</li>
+						}
+					</ul>
+				</section>
+			}
 			for _, occurrence := range occurrences {
 				{{ id := occurrence.ID() }}
 				<article>
 					<p class="reading-text">{ occurrence.SentenceText }</p>
+					for _, report := range reports {
+						if lemmaReviewReported(report, occurrence) {
+							<p role="status" class="lemma-review-study-report"><strong>Reported as a wrong word in Study.</strong>
+								if report.Note != "" {
+									{ report.Note }
+								}
+							</p>
+						}
+					}
 					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
 					if occurrence.ReviewFlagReason != "" {
 						if occurrence.ReviewFlagResolution == "" {
