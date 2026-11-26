@@ -141,6 +141,9 @@ type studyHarnessOptions struct {
 	evidence func(store *persistence.PostgresStore) *study.SourceEvidence
 	// dictionary is the lexicon the card reads its cited entries from.
 	dictionary enrichment.LexicalProvider
+	// dictionaryPin is the loaded dictionary's pin Study planning compares a
+	// no-dictionary-entry omission with; nil when no dictionary is loaded.
+	dictionaryPin func(language string) string
 }
 
 func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarness {
@@ -171,7 +174,7 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	})
 	require.NoError(t, err)
 
-	studyService := study.NewService(store, client)
+	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin)
 	planWorker.Planner = studyService
 	clock := testutil.NewManualClock(time.Date(2026, 11, 25, 4, 0, 0, 0, time.UTC))
 	webAuth := auth.New(store, time.Hour)
@@ -549,4 +552,58 @@ func (s *studyHarness) currentRun(bookID string) string {
 	var runID string
 	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, s.owner.ID, bookID).Scan(&runID))
 	return runID
+}
+
+// A word omitted for having no dictionary entry is prepared again only after the
+// dictionary's pin changes; every other omission stays skipped (ADR 0138 §1).
+func TestStudyRetriesANoDictionaryEntryWordOnlyWhenTheDictionaryPinChanges(t *testing.T) {
+	var mu sync.Mutex
+	pin := "pin-1"
+	setPin := func(next string) { mu.Lock(); pin = next; mu.Unlock() }
+	s := newStudyHarnessWith(t, studyHarnessOptions{capabilities: readyGerman(), dictionaryPin: func(string) string {
+		mu.Lock()
+		defer mu.Unlock()
+		return pin
+	}})
+	s.seedBook("library", testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "schule", UPOS: "NOUN", Occurrences: 2})
+	omit := func(lemma string, record func(id string) error) string {
+		id, created, err := s.store.ReserveStudyMaterial(s.ctx, s.owner.ID, domain.StudyIdentity{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"})
+		require.NoError(t, err)
+		require.True(t, created)
+		require.NoError(t, record(id))
+		return id
+	}
+	noEntry := omit("buch", func(id string) error {
+		return s.store.RecordStudyMaterialNoDictionaryEntry(s.ctx, s.owner.ID, id, "pin-1")
+	})
+	meaning := omit("schule", func(id string) error {
+		return s.store.RecordStudyMaterialUnpreparable(s.ctx, s.owner.ID, id, domain.StudyOmissionMeaning)
+	})
+	require.NoError(t, s.client.Start(s.ctx))
+	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
+	settle := func() {
+		testutil.Eventually(t, 60*time.Second, "planning to settle", func() (bool, string) { return s.settled() })
+	}
+	state := func(id string) domain.StudyMaterial {
+		item, err := s.store.GetStudyMaterial(s.ctx, s.owner.ID, id)
+		require.NoError(t, err)
+		return item
+	}
+
+	getAs(t, s.h, "/de/study", s.cookies)
+	settle()
+	assert.Equal(t, domain.StudyMaterialUnpreparable, state(noEntry).State, "with the pin unchanged the word is not retried")
+	assert.Equal(t, "pin-1", state(noEntry).OmissionDictionaryPin)
+	assert.Zero(t, s.provider.Calls(), "and no provider call is made")
+
+	setPin("pin-2")
+	getAs(t, s.h, "/de/study", s.cookies)
+	settle()
+	retried := state(noEntry)
+	assert.Equal(t, noEntry, retried.ID, "the same record is prepared again")
+	assert.Equal(t, domain.StudyMaterialReady, retried.State, "after the pin changes the word is prepared against the new dictionary")
+	assert.Empty(t, retried.OmissionDictionaryPin)
+	assert.Equal(t, domain.StudyMaterialUnpreparable, state(meaning).State, "a meaning omission is never retried")
+	assert.Equal(t, domain.StudyOmissionMeaning, state(meaning).OmissionReason)
+	assert.Equal(t, 1, s.provider.Calls(), "only the retried word asked the provider")
 }

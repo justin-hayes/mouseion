@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/sourceevidence"
+	"github.com/justin-hayes/mouseion/internal/study"
 )
 
 // sourceCardView is what a source-evidence word's card back shows below the
@@ -89,7 +90,7 @@ func attachSourceEvidence(ctx context.Context, lexical enrichment.LexicalProvide
 	}
 	if shownPin == "" {
 		// The cited entry may be gone, yet the dictionary in use is still credited.
-		shownPin = dictionaryPin(lexical, policy)
+		shownPin = study.DictionaryPin(lexical, policy)
 	}
 	source.dictionaryPin, source.passagePin = shownPin, passagePin
 	source.notices = sourceNotices(policy, shownPin, passagePin)
@@ -157,24 +158,6 @@ func outlineSenseViews(outline []sourceevidence.OutlineSense) []outlineSenseView
 		views = append(views, outlineSenseView{Number: strings.TrimSpace(sense.Number), Level: sense.Level, Definitions: strings.Join(definitions, "; "), Cited: sense.Cited})
 	}
 	return views
-}
-
-// dictionaryPin is the pinned revision of the dictionary the policy names, read
-// from the loaded index and not from any entry, or empty when the dictionary
-// does not say.
-func dictionaryPin(lexical enrichment.LexicalProvider, policy cardpolicy.Policy) string {
-	switch policy.Entries {
-	case cardpolicy.EntryLSJ:
-		if pinned, ok := lexical.(interface{ AncientGreekLSJPin() string }); ok {
-			return strings.TrimSpace(pinned.AncientGreekLSJPin())
-		}
-	case cardpolicy.EntryLewisShort:
-		if pinned, ok := lexical.(interface{ LatinLSPin() string }); ok {
-			return strings.TrimSpace(pinned.LatinLSPin())
-		}
-	case cardpolicy.EntryNone:
-	}
-	return ""
 }
 
 // sourceNotices are the notices the Study page shows for a source-evidence

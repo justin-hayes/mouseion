@@ -119,8 +119,22 @@ type StudyMaterial struct {
 	Passage StudyPassage
 	// EvidenceFingerprint identifies the occurrences the attempt to prepare an
 	// unpreparable word's material saw; see StudyEvidenceFingerprint.
-	EvidenceFingerprint  string
-	CreatedAt, UpdatedAt time.Time
+	EvidenceFingerprint string
+	// OmissionDictionaryPin is the dictionary pin a no-dictionary-entry omission
+	// was recorded against. It is empty for any other material.
+	OmissionDictionaryPin string
+	CreatedAt, UpdatedAt  time.Time
+}
+
+// RetriesAgainstDictionary reports whether a no-dictionary-entry omission is
+// worth trying again: the loaded dictionary's pin for the language is known and
+// is not the one the omission was recorded against (ADR 0138 §1). A meaning or
+// sentence-quality omission is never retried here, and an unknown pin never
+// retries, since without a dictionary there is nothing new to ask.
+func (m StudyMaterial) RetriesAgainstDictionary(currentPin string) bool {
+	currentPin = strings.TrimSpace(currentPin)
+	return m.State == StudyMaterialUnpreparable && m.OmissionReason == StudyOmissionNoDictionaryEntry &&
+		currentPin != "" && m.OmissionDictionaryPin != currentPin
 }
 
 // StudyCitations are the dictionary senses a source-evidence Gloss rests on

@@ -272,7 +272,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	sourceStructureChecks := sourcecheck.NewService(store, riverClient, sourcecheck.ConfiguredTarget())
 	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
-	studyService := study.NewService(store, riverClient)
+	studyService := study.NewService(store, riverClient).WithDictionaryPin(studyDictionaryPin(dictionaryIndex))
 	studyPlanWorker.Planner = studyService
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
@@ -296,6 +296,18 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		riverClient:       riverClient,
 		studyService:      studyService,
 	}, nil
+}
+
+// studyDictionaryPin reads the loaded dictionary index's pin for a language, so
+// Study tries a no-dictionary-entry word again when the index is rebuilt. It is
+// empty for a language with no dictionary, and without an index.
+func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string) string {
+	return func(language string) string {
+		if dictionaryIndex == nil {
+			return ""
+		}
+		return study.DictionaryPin(dictionaryIndex, cardpolicy.For(language))
+	}
 }
 
 // registerStudyWorker registers the Study material worker. The translation

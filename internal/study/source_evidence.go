@@ -32,6 +32,25 @@ type SourceEvidence struct {
 	Available func(policy cardpolicy.Policy) bool
 }
 
+// DictionaryPin is the pinned revision of the dictionary the policy names, read
+// from the loaded index, or empty when there is no dictionary or it does not say.
+// A no-dictionary-entry omission is recorded against it, and Study preparation
+// tries the word again when it changes.
+func DictionaryPin(lexical enrichment.LexicalProvider, policy cardpolicy.Policy) string {
+	switch policy.Entries {
+	case cardpolicy.EntryLSJ:
+		if pinned, ok := lexical.(interface{ AncientGreekLSJPin() string }); ok {
+			return strings.TrimSpace(pinned.AncientGreekLSJPin())
+		}
+	case cardpolicy.EntryLewisShort:
+		if pinned, ok := lexical.(interface{ LatinLSPin() string }); ok {
+			return strings.TrimSpace(pinned.LatinLSPin())
+		}
+	case cardpolicy.EntryNone:
+	}
+	return ""
+}
+
 // workSourceEvidence prepares a source-evidence word's material in the order
 // ADR 0138 §1 gives: the payload gate, the dictionary entries, the Representative
 // sentence and its passage, the evidence-assisted pass, then the outcome. A
@@ -49,7 +68,7 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	}
 	resolution, found := sourceevidence.Resolve(ctx, evidence.Lexical, policy, material.CanonicalLemma, nil)
 	if !found {
-		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionNoDictionaryEntry)
+		return w.unpreparableNoDictionaryEntry(ctx, owner, material.ID, material.StudyIdentity, DictionaryPin(evidence.Lexical, policy))
 	}
 	senses := passSenses(policy, resolution)
 	if len(senses) == 0 || strings.TrimSpace(resolution.Pin) == "" {

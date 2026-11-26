@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,26 @@ type riverClient interface {
 type Service struct {
 	store  *persistence.PostgresStore
 	client riverClient
+	// dictionaryPin reports the loaded dictionary's pin for a language, or empty
+	// when none is loaded; see WithDictionaryPin.
+	dictionaryPin func(language string) string
+}
+
+// WithDictionaryPin sets how planning learns the loaded dictionary's pin for a
+// language, so a word omitted for having no dictionary entry is prepared again
+// when the pin changes (ADR 0138 §1). Without it such a word is never retried.
+func (s *Service) WithDictionaryPin(pin func(language string) string) *Service {
+	s.dictionaryPin = pin
+	return s
+}
+
+// currentDictionaryPin is the loaded dictionary's pin for the language, or
+// empty when there is none to compare with.
+func (s *Service) currentDictionaryPin(language string) string {
+	if s.dictionaryPin == nil {
+		return ""
+	}
+	return strings.TrimSpace(s.dictionaryPin(language))
 }
 
 // NewService returns the preparation enqueuer over the store and River client.
@@ -153,21 +174,45 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	if err != nil {
 		return err
 	}
+	pin := s.currentDictionaryPin(language)
 	current := make(map[domain.StudyIdentity]domain.StudyMaterial, len(material))
 	states := make(map[domain.StudyIdentity]domain.StudyMaterialState, len(material))
 	for _, item := range material {
 		current[item.StudyIdentity] = item
 		states[item.StudyIdentity] = item.State
+		if item.RetriesAgainstDictionary(pin) {
+			// Its omission was made against another dictionary: the word counts
+			// as waiting, not skipped, so it takes its place in the window.
+			states[item.StudyIdentity] = domain.StudyMaterialPending
+		}
 	}
-	for _, target := range domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states) {
-		if existing, ok := current[target.StudyIdentity]; ok && existing.State == domain.StudyMaterialReady {
+	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states)
+	if err := s.prepareTargets(ctx, owner, targets, current, pin); err != nil {
+		return err
+	}
+	return s.enqueueReintroductions(ctx, owner, progress, current)
+}
+
+// prepareTargets enqueues each target whose material is not ready. A word
+// skipped for having no dictionary entry against another pin is made pending
+// again first, so it is prepared against the dictionary now loaded.
+func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyIdentity]domain.StudyMaterial, pin string) error {
+	for _, target := range targets {
+		existing, ok := current[target.StudyIdentity]
+		if ok && existing.State == domain.StudyMaterialReady {
 			continue
 		}
-		if err := s.enqueueWord(ctx, owner, target.StudyIdentity, current[target.StudyIdentity].ID); err != nil {
+		if ok && existing.RetriesAgainstDictionary(pin) {
+			// A missing record means the omission was settled again meanwhile.
+			if err := s.store.ReopenStudyMaterialNoDictionaryEntry(ctx, owner, existing.ID, pin); err != nil && !errors.Is(err, domain.ErrNotFound) {
+				return err
+			}
+		}
+		if err := s.enqueueWord(ctx, owner, target.StudyIdentity, existing.ID); err != nil {
 			return err
 		}
 	}
-	return s.enqueueReintroductions(ctx, owner, progress, current)
+	return nil
 }
 
 // enqueueReintroductions prepares new material for the words in study whose
