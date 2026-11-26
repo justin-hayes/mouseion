@@ -56,6 +56,8 @@ func TestGreekOutlineFlagsCitedSenses(t *testing.T) {
 		{ID: "n1.3", Number: "B", Level: 1, Definitions: []string{"reason"}, Cited: true},
 	}, resolution.Entries[0].Outline, "a heading is kept for its span; only cited IDs are flagged")
 
+	assert.Equal(t, []string{"n1.0", "n1.1", "n1.2", "n1.3"}, senseIDs(resolution.Entries[0].Senses))
+
 	plain, ok := Resolve(t.Context(), lex, cardpolicy.For("grc"), "logos", nil)
 	require.True(t, ok)
 	for _, sense := range plain.Entries[0].Outline {
@@ -127,4 +129,12 @@ func TestResolvePassageWithholdsAPartialPassageAndAnUntranslatedPolicy(t *testin
 
 	assert.True(t, ResolvePassage(cardpolicy.For("grc"), []string{"1.2.17", "1.2.99"}, translations, "pin").Empty())
 	assert.True(t, ResolvePassage(cardpolicy.For("de"), []string{"1.2.17"}, translations, "pin").Empty())
+}
+
+func senseIDs(senses []Sense) []string {
+	ids := make([]string, 0, len(senses))
+	for _, sense := range senses {
+		ids = append(ids, sense.ID)
+	}
+	return ids
 }

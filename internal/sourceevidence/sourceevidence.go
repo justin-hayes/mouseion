@@ -37,6 +37,15 @@ type OutlineSense struct {
 	Cited bool
 }
 
+// Sense is one flattened dictionary sense with its native ID.
+type Sense struct {
+	ID          string
+	Number      string
+	Level       int
+	Definitions []string
+	Glosses     []string
+}
+
 // Target is the outline of the entry a senseless Lewis & Short entry's resolved
 // cross-reference names, led by the reference as the source writes it.
 type Target struct {
@@ -51,6 +60,9 @@ type Entry struct {
 	ID string
 	// Number is the L&S number shown when several entries stack, or zero.
 	Number int
+	// Senses is every sense with a native ID, flattened in source order, so a
+	// caller never branches on the dictionary's own hierarchy.
+	Senses []Sense
 	// Outline is the entry's compact outline, in source order.
 	Outline []OutlineSense
 	// Targets are the resolved cross-reference outlines of a Lewis & Short
@@ -104,7 +116,7 @@ func resolveLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma s
 // BuildLSJ gives a matched LSJ entry its structured outline, flagging the senses
 // whose IDs are in cited.
 func BuildLSJ(matched enrichment.AncientGreekLSJEntry, cited map[string]struct{}) Entry {
-	return Entry{ID: matched.EntryID, LSJ: matched, Outline: lsjOutline(matched.Senses, cited)}
+	return Entry{ID: matched.EntryID, LSJ: matched, Senses: lsjSenses(matched.Senses, 1), Outline: lsjOutline(matched.Senses, cited)}
 }
 
 func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[string]struct{}) (Resolution, bool) {
@@ -155,6 +167,7 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 			ID:         candidate.EntryID,
 			Number:     number,
 			LewisShort: candidate,
+			Senses:     lewisShortSenses(candidate.Senses),
 			Outline:    lewisShortOutline(candidate.Senses, cited),
 			Targets:    targetOutlines(candidate, targets, cited),
 		})
@@ -227,6 +240,33 @@ func targetOutlines(entry enrichment.LatinLSEntry, targets map[string]enrichment
 			}
 			seen[ref.EntryID] = struct{}{}
 			out = append(out, Target{Reference: strings.TrimSpace(ref.Text), Outline: outline})
+		}
+	}
+	return out
+}
+
+// lsjSenses flattens the LSJ hierarchy in source order with each sense's native
+// ID and effective level.
+func lsjSenses(senses []enrichment.AncientGreekLSJSense, depth int) []Sense {
+	var out []Sense
+	for _, sense := range senses {
+		level := sense.Level
+		if level <= 0 {
+			level = depth
+		}
+		out = append(out, Sense{ID: sense.ID, Number: sense.Number, Level: level, Definitions: sense.Definitions, Glosses: sense.Glosses})
+		out = append(out, lsjSenses(sense.Senses, level+1)...)
+	}
+	return out
+}
+
+// lewisShortSenses returns the entry's own senses in source order, leaving out
+// the level-0 pseudo-sense.
+func lewisShortSenses(senses []enrichment.LatinLSSense) []Sense {
+	var out []Sense
+	for _, sense := range senses {
+		if sense.Level > 0 {
+			out = append(out, Sense{ID: sense.ID, Number: sense.Number, Level: sense.Level, Definitions: sense.Definitions, Glosses: sense.Glosses})
 		}
 	}
 	return out
