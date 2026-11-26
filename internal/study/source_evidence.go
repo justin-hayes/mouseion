@@ -25,6 +25,11 @@ type SourceEvidence struct {
 	// a language: its provider payload assessment is recorded and matches the
 	// codec (ADR 0133). While it fails, nothing is transmitted.
 	MaySend func(language string) error
+	// Available reports whether the configured dictionary holds the source the
+	// policy names. A loaded index may lack it; the word then waits, because
+	// "no entry" is only an answer from a dictionary that is present. Nil means
+	// the dictionary is present.
+	Available func(policy cardpolicy.Policy) bool
 }
 
 // workSourceEvidence prepares a source-evidence word's material in the order
@@ -35,7 +40,7 @@ type SourceEvidence struct {
 // returned for River to retry.
 func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, material domain.StudyMaterial, policy cardpolicy.Policy) error {
 	evidence := w.Evidence
-	if evidence == nil || evidence.Lexical == nil || evidence.MaySend == nil {
+	if evidence == nil || evidence.Lexical == nil || evidence.MaySend == nil || (evidence.Available != nil && !evidence.Available(policy)) {
 		return river.JobSnooze(notConfiguredDelay)
 	}
 	if err := evidence.MaySend(material.Language); err != nil {
@@ -111,10 +116,13 @@ func passSenses(policy cardpolicy.Policy, resolution sourceevidence.Resolution) 
 
 // citationsOf names the entries the cited senses belong to, in the order the
 // entries resolved, with the dictionary pin they were made against. A cited ID
-// that no resolved entry holds is dropped, so a citation always names a real
-// sense.
+// that no resolved entry holds makes the citations empty: the Gloss must cite
+// only senses that exist (ADR 0138 §2).
 func citationsOf(resolution sourceevidence.Resolution, citedIDs []string) domain.StudyCitations {
 	var cited domain.StudyCitations
+	if !allSensesExist(resolution, citedIDs) {
+		return cited
+	}
 	for _, entry := range resolution.Entries {
 		held := false
 		for _, sense := range entry.Senses {
@@ -131,4 +139,15 @@ func citationsOf(resolution sourceevidence.Resolution, citedIDs []string) domain
 		cited.DictionaryPin = resolution.Pin
 	}
 	return cited
+}
+
+// allSensesExist reports whether every cited ID is a sense of a resolved entry.
+func allSensesExist(resolution sourceevidence.Resolution, citedIDs []string) bool {
+	known := map[string]bool{}
+	for _, entry := range resolution.Entries {
+		for _, sense := range entry.Senses {
+			known[sense.ID] = true
+		}
+	}
+	return !slices.ContainsFunc(citedIDs, func(id string) bool { return !known[id] })
 }

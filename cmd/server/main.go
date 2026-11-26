@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/deploysecret"
@@ -321,6 +322,16 @@ func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStor
 	}
 	if dictionaryIndex != nil {
 		evidence.Lexical = dictionaryIndex
+		evidence.Available = func(policy cardpolicy.Policy) bool {
+			switch policy.Entries {
+			case cardpolicy.EntryLSJ:
+				return dictionaryIndex.AncientGreekLSJAvailable()
+			case cardpolicy.EntryLewisShort:
+				return dictionaryIndex.LatinLSAvailable()
+			case cardpolicy.EntryNone:
+			}
+			return false
+		}
 	}
 	study.AddMaterialWorker(workers, store, enricher, evidence)
 	planWorker := study.AddPlanWorker(workers)

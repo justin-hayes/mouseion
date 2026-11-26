@@ -176,6 +176,14 @@ func TestSourceEvidenceWordSendsNothingWhileTheAssessmentIsNotRecorded(t *testin
 	assert.Nil(t, f.store.ready)
 }
 
+func TestSourceEvidenceWordWaitsWhenTheLoadedDictionaryLacksTheSource(t *testing.T) {
+	f := newGreekFixture(t)
+	f.worker.Evidence.Available = func(cardpolicy.Policy) bool { return false }
+	require.True(t, isSnooze(work(f.worker)))
+	assert.Empty(t, f.store.unpreparable, "a missing LSJ table is not a 'no entry' answer")
+	assert.Zero(t, f.lexicon.calls)
+}
+
 func TestSourceEvidenceProviderFailureIsNeverRecorded(t *testing.T) {
 	f := newGreekFixture(t)
 	f.enricher.passErr = errors.New("provider unavailable")
@@ -212,6 +220,7 @@ func TestSourceEvidenceCitesEntriesInOrderAndDropsNothingValid(t *testing.T) {
 	assert.Equal(t, []string{"n100"}, cited.EntryIDs)
 	assert.Equal(t, "lsj-pin-1", cited.DictionaryPin)
 	assert.True(t, citationsOf(resolution, []string{"nope"}).Empty())
+	assert.True(t, citationsOf(resolution, []string{"n100.1", "nope"}).Empty(), "one unknown ID invalidates the citations")
 }
 
 func TestModernWordNeverUsesTheSourceEvidencePath(t *testing.T) {
