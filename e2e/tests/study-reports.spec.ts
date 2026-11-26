@@ -44,5 +44,14 @@ test.describe('Study reports', () => {
     await expect(entry).toContainText('The highlighted word is another word here.');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+
+    // Dismiss ends the report: the entry leaves the list and the word is no
+    // longer held.
+    await entry.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(page).toHaveURL(/\/de\/study\/reports$/);
+    await expect(page.locator('#study-reports')).toHaveCount(0);
+    await expect(page.locator('#study-reports-empty')).toBeVisible();
+    await page.goto('/de/study');
+    await expect(page.locator('#study-held')).toHaveCount(0);
   });
 });
