@@ -111,11 +111,11 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 			continue
 		}
 		material, ok := s.currentReadyMaterialLocked(owner, language, word.MaterialID)
-		if !ok || s.progressIndexLocked(owner, material.StudyIdentity) >= 0 {
+		if !ok || s.progressIndexLocked(owner, material.StudyIdentity) >= 0 || s.studyHeldLocked(owner, material.StudyIdentity) {
 			continue
 		}
 		item := domain.StudyProgress{
-			ID: fmt.Sprintf("fixture-study-progress-%d", len(s.studyProgress)+1), OwnerID: owner, StudyIdentity: material.StudyIdentity,
+			ID: s.nextStudyProgressIDLocked(), OwnerID: owner, StudyIdentity: material.StudyIdentity,
 			MaterialID: material.ID, IntroducedAt: now.UTC(), LearnedMeaning: material.Gloss,
 			Memory:    domain.NewStudyMemory(now),
 			CreatedAt: now.UTC(), UpdatedAt: now.UTC(),

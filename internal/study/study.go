@@ -143,13 +143,18 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	if err != nil {
 		return err
 	}
+	// A held word is not prepared ahead: it would crowd the window.
+	reports, err := s.store.ListOpenStudyReports(ctx, owner, language, domain.StudyReportWrongWord)
+	if err != nil {
+		return err
+	}
 	current := make(map[domain.StudyIdentity]domain.StudyMaterial, len(material))
 	states := make(map[domain.StudyIdentity]domain.StudyMaterialState, len(material))
 	for _, item := range material {
 		current[item.StudyIdentity] = item
 		states[item.StudyIdentity] = item.State
 	}
-	for _, target := range domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress)), states) {
+	for _, target := range domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states) {
 		if existing, ok := current[target.StudyIdentity]; ok && existing.State == domain.StudyMaterialReady {
 			continue
 		}

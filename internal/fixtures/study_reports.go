@@ -195,6 +195,13 @@ func (s *Store) openReportIndexLocked(owner, id string) int {
 	return -1
 }
 
+// nextStudyProgressIDLocked returns an ID no word has had, even one since
+// removed. The caller holds s.mu.
+func (s *Store) nextStudyProgressIDLocked() string {
+	s.studyProgressSeq++
+	return fmt.Sprintf("fixture-study-progress-%d", s.studyProgressSeq)
+}
+
 // removeStudyProgressLocked drops a word's Study progress. The caller holds
 // s.mu.
 func (s *Store) removeStudyProgressLocked(owner, id string) {

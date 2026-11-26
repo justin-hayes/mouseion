@@ -271,13 +271,11 @@ func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress, held [
 	return identities
 }
 
-// WithoutStudyProgress drops the candidates already in study, so preparation
-// and batches only look ahead at new words.
-func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress) []StudyCandidate {
-	inStudy := make(map[StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
+// WithoutStudyProgress drops the candidates already in study or held by a
+// report, so preparation and batches only look ahead at new words that can be
+// introduced.
+func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress, held []StudyIdentity) []StudyCandidate {
+	inStudy := studyIdentitySet(progress, held)
 	remaining := make([]StudyCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		if !inStudy[candidate.StudyIdentity] {

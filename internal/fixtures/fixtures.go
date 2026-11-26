@@ -125,6 +125,8 @@ type Store struct {
 	studyReports   []domain.StudyReport
 	studyActions   []studyAction
 	studyReportSeq map[string]int
+	// studyProgressSeq numbers Study progress IDs, which are never reused.
+	studyProgressSeq int
 	// studySuperseded holds the IDs of Study material a correction replaced.
 	studySuperseded map[string]bool
 	// studyFluencyContexts are the Fluency contexts of mature words and

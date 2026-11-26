@@ -122,6 +122,10 @@ func studyReportScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Equal(t, report.Source, material.Source(), "the material the report names survives")
 
+			stale, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchWord{{StudyIdentity: word.StudyIdentity, MaterialID: word.MaterialID}})
+			require.ErrorIs(t, err, domain.ErrNotFound, "a batch taken after the report cannot introduce the held word")
+			assert.Empty(t, stale)
+
 			require.NoError(t, reports.DismissStudyReport(owner, report.ID, studyReportDay.Add(2*time.Hour)))
 			open, err = reports.ListOpenStudyReports(owner, Language, domain.StudyReportWrongWord)
 			require.NoError(t, err)

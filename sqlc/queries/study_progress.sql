@@ -65,13 +65,17 @@ ON CONFLICT (owner_id, language, study_day) DO UPDATE
 -- name: IntroduceStudyWord :one
 -- Introduces a word from its ready, current Study material: the word enters
 -- study new and due now, with the material's Gloss as its learned meaning. A
--- word already in study, or whose material is not ready and current, returns
--- no row.
+-- word already in study, held by an open Wrong-word report, or whose material
+-- is not ready and current, returns no row.
 INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due)
 SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, sqlc.arg('now')::timestamptz, m.gloss, 'new', sqlc.arg('now')::timestamptz
   FROM study_material m
  WHERE m.owner_id = sqlc.arg('owner') AND m.id = sqlc.arg('material') AND m.language = sqlc.arg('language')
    AND m.state = 'ready' AND m.superseded_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM study_report r
+                    WHERE r.owner_id = m.owner_id AND r.language = m.language AND r.canonical_lemma = m.canonical_lemma
+                      AND r.upos = m.upos AND r.lexical_discriminator = m.lexical_discriminator
+                      AND r.kind = 'wrong_word' AND r.ended_at IS NULL)
 ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
 RETURNING *;
 

@@ -88,6 +88,7 @@ func TestNextStudyBatchTakesReadyWordsInStreamOrder(t *testing.T) {
 func TestWithoutStudyProgressDropsWordsInStudy(t *testing.T) {
 	a := StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "NOUN"}
 	b := StudyIdentity{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}
-	got := WithoutStudyProgress([]StudyCandidate{{StudyIdentity: a}, {StudyIdentity: b}}, []StudyProgress{{StudyIdentity: a}})
+	got := WithoutStudyProgress([]StudyCandidate{{StudyIdentity: a}, {StudyIdentity: b}}, []StudyProgress{{StudyIdentity: a}}, nil)
 	assert.Equal(t, []StudyCandidate{{StudyIdentity: b}}, got)
+	assert.Empty(t, WithoutStudyProgress([]StudyCandidate{{StudyIdentity: a}, {StudyIdentity: b}}, []StudyProgress{{StudyIdentity: a}}, []StudyIdentity{b}), "a held word is not looked ahead at either")
 }
