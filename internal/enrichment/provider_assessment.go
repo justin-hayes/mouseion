@@ -34,6 +34,12 @@ const (
 	// part of speech, the word as it appears, one library sentence and the
 	// learned meaning alone (ADR 0134 §7).
 	FluencyAgreementPayload ProviderPayloadKind = "fluency-agreement"
+	// FluencyAgreementSourceEvidencePayload is the separate Fluency agreement
+	// variant for a source-evidence language: the modern payload's fields plus
+	// the dictionary senses, with their definitions, that the Learned meaning
+	// and the occurrence's Gloss cite (ADR 0138 §4). No assessment of it is
+	// recorded until a human reviews it, so it sends nothing yet.
+	FluencyAgreementSourceEvidencePayload ProviderPayloadKind = "fluency-agreement-source-evidence"
 )
 
 // ProviderAssessment is the reviewed personal-use disposition for sending one
@@ -226,6 +232,8 @@ func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (
 		return payloadContract{codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()}, true
 	case FluencyAgreementPayload:
 		return payloadContract{codec.ProviderName(), codec.FluencyAgreementPromptContract(), FluencyAgreementPayloadFields()}, true
+	case FluencyAgreementSourceEvidencePayload:
+		return payloadContract{codec.ProviderName(), codec.FluencyAgreementSourceEvidencePromptContract(), FluencyAgreementSourceEvidencePayloadFields()}, true
 	default:
 		return payloadContract{}, false
 	}

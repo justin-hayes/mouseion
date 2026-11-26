@@ -163,7 +163,7 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 		evidence = options.evidence(store)
 	}
 	study.AddMaterialWorker(workers, store, enricher, evidence)
-	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil })
+	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil }, nil, nil)
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{
 		Queues: map[string]river.QueueConfig{study.Queue: {MaxWorkers: 2}}, Workers: workers,
 		// A short retry keeps the provider-omission scenario fast.
