@@ -40,7 +40,7 @@ func (i *Index) loadAncientGreekLSJ(ctx context.Context) error {
 		// derived; a present pin with a missing table is still invalid.
 		return nil
 	}
-	rows, err := i.db.QueryContext(ctx, `SELECT entry_id, headword, senses_json, subordinate FROM lsj_entries`)
+	rows, err := i.db.QueryContext(ctx, `SELECT entry_id, headword, senses_json, subordinate FROM lsj_entries ORDER BY rowid`)
 	if err != nil {
 		return fmt.Errorf("%w: lsj schema: %w", ErrInvalidIndex, err)
 	}
@@ -151,6 +151,24 @@ func (i *Index) LookupAncientGreekLSJ(_ context.Context, lemma string) (enrichme
 		return enrichment.AncientGreekLSJEntry{}, false
 	}
 	return candidates[0], true
+}
+
+// LookupAncientGreekLSJEntries resolves an Ancient Greek headword to every
+// competing LSJ entry, in index order (ADR 0139): the order the derivation wrote the rows, which is entry ID order. A homograph is not a reason to
+// match none: Study cites a sense of the entry that fits the sentence. The same
+// entries compete as for LookupAncientGreekLSJ, so a phrase or redirect
+// sub-entry never joins and a capitalised proper name does not join a lowercase
+// lemma. It reports false only when no entry competes.
+func (i *Index) LookupAncientGreekLSJEntries(_ context.Context, lemma string) ([]enrichment.AncientGreekLSJEntry, bool) {
+	if i == nil || !i.lsjAvailable {
+		return nil, false
+	}
+	key, admitted := ancientGreekKey(lemma)
+	if !admitted {
+		return nil, false
+	}
+	candidates := competingLSJEntries(i.lsjEntries[key], lemma)
+	return candidates, len(candidates) > 0
 }
 
 // lsjEntry is one loaded LSJ source entry with the derivation's sub-entry

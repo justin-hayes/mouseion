@@ -43,6 +43,25 @@ func (l lsjCardLexicon) LookupAncientGreekLSJ(_ context.Context, lemma string) (
 	}, true
 }
 
+func (l lsjCardLexicon) LookupAncientGreekLSJEntries(ctx context.Context, lemma string) ([]enrichment.AncientGreekLSJEntry, bool) {
+	entry, ok := l.LookupAncientGreekLSJ(ctx, lemma)
+	if !ok {
+		return nil, false
+	}
+	return []enrichment.AncientGreekLSJEntry{entry}, true
+}
+
+// lsHomographLexicon is a synthetic LSJ lexicon with two homograph entries of
+// one lemma that share a native sense ID.
+type lsjHomographLexicon struct{ lsjCardLexicon }
+
+func (lsjHomographLexicon) LookupAncientGreekLSJEntries(context.Context, string) ([]enrichment.AncientGreekLSJEntry, bool) {
+	return []enrichment.AncientGreekLSJEntry{
+		{EntryID: "n1", Headword: "λέγω", Pin: cardLSJPinOne, Senses: []enrichment.AncientGreekLSJSense{{ID: "s0", Number: "A", Level: 1, Definitions: []string{"lay"}}}},
+		{EntryID: "n2", Headword: "λέγω", Pin: cardLSJPinOne, Senses: []enrichment.AncientGreekLSJSense{{ID: "s0", Number: "A", Level: 1, Definitions: []string{"say"}}}},
+	}, true
+}
+
 // lsCardLexicon is a synthetic Lewis & Short lexicon with two stacked entries.
 type lsCardLexicon struct{ lsjCardLexicon }
 
@@ -225,4 +244,31 @@ func TestSourceCardKeepsTheDictionaryPinWhenTheCitedEntryIsGone(t *testing.T) {
 	attachSourceEvidence(t.Context(), lsjCardLexicon{pin: cardLSJPinOne}, "grc", card, view)
 	assert.Empty(t, view.Source.Entries)
 	assert.Contains(t, strings.Join(view.Source.Notices(), "\n"), "PerseusDL/lexica@"+cardLSJPinOne, "the dictionary in use is still credited with its pin")
+}
+
+func TestSourceCardShowsEachCitedGreekHomographSeparatelyWithItsLabel(t *testing.T) {
+	cited := domain.StudyCitations{SenseIDs: []string{"s0", "s0"}, EntryIDs: []string{"n1", "n2"}, DictionaryPin: cardLSJPinOne}
+	card := domain.StudyCard{
+		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "grc", CanonicalLemma: "λέγω", UPOS: "VERB"}, LearnedMeaning: "say", LearnedCitations: cited},
+		Material: domain.StudyMaterial{Sentence: "λέγει.", TargetWord: "λέγει", Cited: cited},
+	}
+	view := newStudyCardView("grc", card, true)
+	attachSourceEvidence(t.Context(), lsjHomographLexicon{}, "grc", card, view)
+
+	require.Len(t, view.Source.Entries, 2)
+	assert.Equal(t, []int{1, 2}, []int{view.Source.Entries[0].Number, view.Source.Entries[1].Number})
+	body := renderCard(t, "grc", view, view.Source.Notices())
+	assert.Equal(t, 2, strings.Count(body, `class="study-dictionary__entry"`), "each cited entry has its own block")
+	assert.Contains(t, body, "<sup>1</sup>")
+	assert.Contains(t, body, "<sup>2</sup>")
+	assert.Contains(t, body, "lay")
+	assert.Contains(t, body, "say")
+
+	only := cited
+	only.SenseIDs, only.EntryIDs = []string{"s0"}, []string{"n2"}
+	card.Progress.LearnedCitations, card.Material.Cited = only, only
+	attachSourceEvidence(t.Context(), lsjHomographLexicon{}, "grc", card, view)
+	require.Len(t, view.Source.Entries, 1, "only the cited homograph is shown")
+	assert.Equal(t, "say", view.Source.Entries[0].Outline[0].Definitions)
+	assert.True(t, view.Source.Entries[0].Outline[0].Cited, "the shared sense ID is flagged in the cited entry alone")
 }

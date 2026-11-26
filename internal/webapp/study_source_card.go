@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/sourceevidence"
+	"github.com/justin-hayes/mouseion/internal/study"
 )
 
 // sourceCardView is what a source-evidence word's card back shows below the
@@ -33,7 +34,8 @@ func (s sourceCardView) Notices() []string { return s.notices }
 // dictionaryEntryView is one cited dictionary entry's compact outline.
 type dictionaryEntryView struct {
 	// Source names the dictionary; Headword and Number label the entry. Number
-	// is the entry number when the policy stacks entries, otherwise zero.
+	// is the entry number (Lewis & Short's own, or an LSJ entry's place in order)
+	// when several entries stack, otherwise zero.
 	Source, Headword string
 	Number           int
 	Outline          []outlineSenseView
@@ -89,7 +91,7 @@ func attachSourceEvidence(ctx context.Context, lexical enrichment.LexicalProvide
 	}
 	if shownPin == "" {
 		// The cited entry may be gone, yet the dictionary in use is still credited.
-		shownPin = dictionaryPin(lexical, policy)
+		shownPin = study.DictionaryPin(lexical, policy)
 	}
 	source.dictionaryPin, source.passagePin = shownPin, passagePin
 	source.notices = sourceNotices(policy, shownPin, passagePin)
@@ -104,12 +106,12 @@ func resolveCited(ctx context.Context, lexical enrichment.LexicalProvider, polic
 	for i, id := range cited.SenseIDs {
 		flagged[sourceevidence.SenseRef{EntryID: cited.EntryIDs[i], SenseID: id}] = struct{}{}
 	}
-	resolution, ok := sourceevidence.Resolve(ctx, lexical, policy, lemma, flagged)
+	resolution, ok := sourceevidence.ResolveStudy(ctx, lexical, policy, lemma, flagged)
 	if !ok {
 		return sourceevidence.Resolution{}, false
 	}
 	if strings.TrimSpace(cited.DictionaryPin) != strings.TrimSpace(resolution.Pin) {
-		resolution, ok = sourceevidence.Resolve(ctx, lexical, policy, lemma, nil)
+		resolution, ok = sourceevidence.ResolveStudy(ctx, lexical, policy, lemma, nil)
 		if !ok {
 			return sourceevidence.Resolution{}, false
 		}
@@ -138,7 +140,7 @@ func dictionaryEntryViews(policy cardpolicy.Policy, resolution sourceevidence.Re
 				view.Targets = append(view.Targets, targetOutlineView{Reference: target.Reference, Outline: outlineSenseViews(target.Outline)})
 			}
 		} else {
-			view.Source, view.Headword = "LSJ", strings.TrimSpace(entry.LSJ.Headword)
+			view.Source, view.Number, view.Headword = "LSJ", entry.Number, strings.TrimSpace(entry.LSJ.Headword)
 		}
 		views = append(views, view)
 	}
@@ -157,24 +159,6 @@ func outlineSenseViews(outline []sourceevidence.OutlineSense) []outlineSenseView
 		views = append(views, outlineSenseView{Number: strings.TrimSpace(sense.Number), Level: sense.Level, Definitions: strings.Join(definitions, "; "), Cited: sense.Cited})
 	}
 	return views
-}
-
-// dictionaryPin is the pinned revision of the dictionary the policy names, read
-// from the loaded index and not from any entry, or empty when the dictionary
-// does not say.
-func dictionaryPin(lexical enrichment.LexicalProvider, policy cardpolicy.Policy) string {
-	switch policy.Entries {
-	case cardpolicy.EntryLSJ:
-		if pinned, ok := lexical.(interface{ AncientGreekLSJPin() string }); ok {
-			return strings.TrimSpace(pinned.AncientGreekLSJPin())
-		}
-	case cardpolicy.EntryLewisShort:
-		if pinned, ok := lexical.(interface{ LatinLSPin() string }); ok {
-			return strings.TrimSpace(pinned.LatinLSPin())
-		}
-	case cardpolicy.EntryNone:
-	}
-	return ""
 }
 
 // sourceNotices are the notices the Study page shows for a source-evidence

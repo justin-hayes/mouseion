@@ -102,3 +102,20 @@ func TestPassContractIsChosenByPolicy(t *testing.T) {
 		})
 	}
 }
+
+// TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne proves the policy keeps
+// the deck's lookup and pass contract and gives Study its own (ADR 0139).
+func TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne(t *testing.T) {
+	policy := For("grc")
+	assert.Equal(t, LookupExactlyOne, policy.DictionaryLookup, "the deck keeps one candidate")
+	assert.Equal(t, PassContractGreek, policy.PassContract, "the deck keeps the existing Greek contract")
+	assert.Equal(t, LookupEveryEntry, policy.StudyLookup)
+	assert.Equal(t, PassContractGreekEntries, policy.StudyPassContract)
+	assert.False(t, policy.Study, "Greek's Study switch stays off")
+}
+
+func TestLatinStudyUsesTheDeckLookupAndContract(t *testing.T) {
+	policy := For("la")
+	assert.Equal(t, policy.DictionaryLookup, policy.StudyLookup)
+	assert.Equal(t, policy.PassContract, policy.StudyPassContract)
+}

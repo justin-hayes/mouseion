@@ -102,6 +102,7 @@ func (s *Service) EnrichEvidenceAssistedPass(ctx context.Context, c Candidate, p
 	request := externalTranslationRequest(c, c.ExampleSentence)
 	request.PassageContext = passageContext
 	request.RequireEvidenceAssistedPass = true
+	request.StudyPass = true
 	var metrics ExternalMetrics
 	response, err := s.callTranslationWithRetry(ctx, request, &metrics)
 	if err == nil {

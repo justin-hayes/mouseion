@@ -245,6 +245,40 @@ func (s *Store) RecordStudyMaterialUnpreparable(_ context.Context, owner, id, re
 	return errNotFound
 }
 
+// RecordStudyMaterialNoDictionaryEntry marks a pending word unpreparable for
+// having no dictionary entry, with the pin of the dictionary that was asked.
+func (s *Store) RecordStudyMaterialNoDictionaryEntry(_ context.Context, owner, id, pin string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyMaterial {
+		item := &s.studyMaterial[i]
+		if item.OwnerID != owner || item.ID != id || item.State != domain.StudyMaterialPending {
+			continue
+		}
+		item.State, item.OmissionReason, item.OmissionDictionaryPin = domain.StudyMaterialUnpreparable, domain.StudyOmissionNoDictionaryEntry, strings.TrimSpace(pin)
+		item.UpdatedAt = time.Now().UTC()
+		return nil
+	}
+	return errNotFound
+}
+
+// ReopenStudyMaterialNoDictionaryEntry makes a no-dictionary-entry omission
+// pending again when pin is not the pin it was recorded against.
+func (s *Store) ReopenStudyMaterialNoDictionaryEntry(_ context.Context, owner, id, pin string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyMaterial {
+		item := &s.studyMaterial[i]
+		if item.OwnerID != owner || item.ID != id || s.studySuperseded[item.ID] || !item.RetriesAgainstDictionary(pin) {
+			continue
+		}
+		item.State, item.OmissionReason, item.OmissionDictionaryPin, item.EvidenceFingerprint = domain.StudyMaterialPending, "", "", ""
+		item.UpdatedAt = time.Now().UTC()
+		return nil
+	}
+	return errNotFound
+}
+
 func cloneStudyMaterial(item domain.StudyMaterial) domain.StudyMaterial {
 	item.SentenceTranslationTargets = append([]string{}, item.SentenceTranslationTargets...)
 	item.Cited = item.Cited.Clone()

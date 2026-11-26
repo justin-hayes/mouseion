@@ -45,11 +45,11 @@ func (w *FluencyWorker) sourceEvidence(ctx context.Context, word domain.StudyPro
 	if source.Lexical == nil || (source.Available != nil && !source.Available(policy)) {
 		return nil, false, true
 	}
-	resolution, found := sourceevidence.Resolve(ctx, source.Lexical, policy, word.CanonicalLemma, nil)
+	resolution, found := sourceevidence.ResolveStudy(ctx, source.Lexical, policy, word.CanonicalLemma, nil)
 	if !found {
 		return nil, false, true
 	}
-	senses := passSenses(policy, resolution)
+	senses := sourceevidence.PassSenses(policy, resolution.Entries)
 	if len(senses) == 0 || strings.TrimSpace(resolution.Pin) == "" {
 		return nil, false, true
 	}
@@ -72,7 +72,7 @@ func (w *FluencyWorker) assessSourceEvidence(ctx context.Context, word domain.St
 	if err != nil {
 		return fluencyAnswer{}, err
 	}
-	refs, validCitations := citedSenses(evidence.policy, evidence.resolution, meaning.CitedSenseIDs)
+	refs, validCitations := citedSenses(evidence.resolution, meaning.CitedSenseIDs)
 	cited := citationsOf(evidence.resolution, refs)
 	answer := fluencyAnswer{Cited: cited}
 	answer.Reason, answer.Gloss = enrichment.FluencyReasonUndefendable, meaning.Gloss

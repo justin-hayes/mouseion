@@ -272,7 +272,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	sourceStructureChecks := sourcecheck.NewService(store, riverClient, sourcecheck.ConfiguredTarget())
 	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
-	studyService := study.NewService(store, riverClient)
+	studyService := study.NewService(store, riverClient).WithDictionaryPin(studyDictionaryPin(dictionaryIndex))
 	studyPlanWorker.Planner = studyService
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
@@ -298,6 +298,18 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	}, nil
 }
 
+// studyDictionaryPin reads the loaded dictionary index's pin for a language, so
+// Study tries a no-dictionary-entry word again when the index is rebuilt. It is
+// empty for a language with no dictionary, and without an index.
+func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string) string {
+	return func(language string) string {
+		if dictionaryIndex == nil {
+			return ""
+		}
+		return study.DictionaryPin(dictionaryIndex, cardpolicy.For(language))
+	}
+}
+
 // registerStudyWorker registers the Study material worker. The translation
 // provider is the one prepared decks use; Study asks it for a contextual Gloss
 // only from a job, never from a request.
@@ -319,7 +331,7 @@ func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStor
 	evidence := &study.SourceEvidence{
 		Translations: store,
 		MaySend: func(language string) error {
-			return assessments.MaySend(enrichment.EvidenceAssistedPassKind(language), language, codec)
+			return assessments.MaySend(enrichment.StudyEvidenceAssistedPassKind(language), language, codec)
 		},
 	}
 	if dictionaryIndex != nil {

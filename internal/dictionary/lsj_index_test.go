@@ -183,3 +183,43 @@ func TestAncientGreekLSJNilIndexIsSafe(t *testing.T) {
 		assert.True(t, entry.Empty())
 	})
 }
+
+// TestAncientGreekLSJEveryEntryReturnsHomographsInSourceOrder proves Study's
+// lookup returns every competing entry of a headword, in source order, where the
+// deck's exactly-one lookup returns none. A subordinate sub-entry never joins.
+func TestAncientGreekLSJEveryEntryReturnsHomographsInSourceOrder(t *testing.T) {
+	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
+		`INSERT INTO lsj_entries VALUES ('n3', 'λέγω', '[{"id":"n3.0","n":"A","level":1,"glosses":["lay"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n1', 'λέγω', '[{"id":"n1.0","n":"A","level":1,"glosses":["say"]}]', 0)`,
+		`INSERT INTO lsj_entries VALUES ('n2', 'λέγω', '[{"id":"n2.0","n":"A","level":1,"glosses":["phrase"]}]', 1)`,
+		`INSERT INTO lsj_entries VALUES ('n9', 'λόγοσ', '[{"id":"n9.0","n":"A","level":1,"glosses":["word"]}]', 0)`,
+	)...)
+
+	entries, found := index.LookupAncientGreekLSJEntries(t.Context(), "λέγω")
+	require.True(t, found)
+	require.Len(t, entries, 2)
+	assert.Equal(t, []string{"n3", "n1"}, []string{entries[0].EntryID, entries[1].EntryID}, "source order, not entry id order")
+	assert.Equal(t, "56061ca127f4a2844980baffc5f2b6d1332897b3", entries[0].Pin)
+
+	_, deckFound := index.LookupAncientGreekLSJ(t.Context(), "λέγω")
+	assert.False(t, deckFound, "the deck's lookup still takes exactly one candidate")
+
+	single, found := index.LookupAncientGreekLSJEntries(t.Context(), "λόγος")
+	require.True(t, found)
+	assert.Len(t, single, 1)
+
+	_, found = index.LookupAncientGreekLSJEntries(t.Context(), "οὐδέν")
+	assert.False(t, found)
+}
+
+func TestAncientGreekLSJEveryEntryFindsNothingWithoutAnAdmissibleKeyOrIndex(t *testing.T) {
+	var none *Index
+	_, found := none.LookupAncientGreekLSJEntries(t.Context(), "λέγω")
+	assert.False(t, found)
+
+	index := newTestIndex(t, append(ancientGreekLSJFixtureStatements,
+		`INSERT INTO lsj_entries VALUES ('n1', 'λέγω', '[{"id":"n1.0","n":"A","level":1,"glosses":["say"]}]', 0)`,
+	)...)
+	_, found = index.LookupAncientGreekLSJEntries(t.Context(), "123")
+	assert.False(t, found, "a lemma with no admissible key matches no entry")
+}

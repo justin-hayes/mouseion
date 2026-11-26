@@ -33,6 +33,12 @@ type StudyCorrectionsStore interface {
 	StudyOccurrenceLocator(owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error)
 	RelocateStudyMaterial(owner, materialID string, ref domain.StudyOccurrenceRef) error
 	SetStudyMaterialEvidence(owner, materialID, evidence string) error
+	// RecordStudyMaterialNoDictionaryEntry settles a pending record as
+	// unpreparable for having no dictionary entry, with the dictionary pin that
+	// was asked. ReopenStudyMaterialNoDictionaryEntry makes it pending again
+	// only for a different pin; anything else is domain.ErrNotFound.
+	RecordStudyMaterialNoDictionaryEntry(owner, materialID, pin string) error
+	ReopenStudyMaterialNoDictionaryEntry(owner, materialID, pin string) error
 }
 
 func studyCorrectionsScenarios() []Scenario {
@@ -300,6 +306,42 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Equal(t, "fingerprint-1", skipped.EvidenceFingerprint)
 			require.ErrorIs(t, corrections.SetStudyMaterialEvidence(owner, pending, "fingerprint-2"), domain.ErrNotFound, "a settled record is not rewritten")
+		}},
+		{Name: "a no-dictionary-entry omission records its pin and is reopened only by a different pin", Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			material, corrections := h.Study(), h.StudyCorrections()
+			weg := studyNoun("weg")
+			id, created, err := material.ReserveStudyMaterial(owner, weg)
+			require.NoError(t, err)
+			require.True(t, created)
+			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, id, "pin-2"), domain.ErrNotFound, "a pending record is not reopened")
+			require.NoError(t, corrections.SetStudyMaterialEvidence(owner, id, "fingerprint-1"))
+			require.NoError(t, corrections.RecordStudyMaterialNoDictionaryEntry(owner, id, "pin-1"))
+			require.ErrorIs(t, corrections.RecordStudyMaterialNoDictionaryEntry(owner, id, "pin-1"), domain.ErrNotFound, "a settled record is not rewritten")
+			skipped, err := material.GetStudyMaterial(owner, id)
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyMaterialUnpreparable, skipped.State)
+			assert.Equal(t, domain.StudyOmissionNoDictionaryEntry, skipped.OmissionReason)
+			assert.Equal(t, "pin-1", skipped.OmissionDictionaryPin)
+
+			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, id, "pin-1"), domain.ErrNotFound, "the same pin is not retried")
+			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(h.Seeds().OtherOwner(), id, "pin-2"), domain.ErrNotFound)
+			require.NoError(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, id, "pin-2"))
+			reopened, err := material.GetStudyMaterial(owner, id)
+			require.NoError(t, err)
+			assert.Equal(t, id, reopened.ID, "the same record is prepared again")
+			assert.Equal(t, domain.StudyMaterialPending, reopened.State)
+			assert.Empty(t, reopened.OmissionReason)
+			assert.Empty(t, reopened.OmissionDictionaryPin)
+			assert.Empty(t, reopened.EvidenceFingerprint)
+
+			other, created, err := material.ReserveStudyMaterial(owner, studyNoun("pfad"))
+			require.NoError(t, err)
+			require.True(t, created)
+			require.NoError(t, material.RecordStudyMaterialUnpreparable(owner, other, domain.StudyOmissionMeaning))
+			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, other, "pin-2"), domain.ErrNotFound, "a meaning omission is never reopened")
+			require.ErrorIs(t, corrections.ReopenStudyMaterialNoDictionaryEntry(owner, "missing", "pin-2"), domain.ErrNotFound)
+			require.ErrorIs(t, corrections.RecordStudyMaterialNoDictionaryEntry(owner, "missing", "pin-2"), domain.ErrNotFound)
 		}},
 	}
 }
