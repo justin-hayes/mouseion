@@ -2,6 +2,8 @@ package enrichment
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,28 +117,46 @@ func TestGreekDeckPassContractIsUnchanged(t *testing.T) {
 	assert.Contains(t, codec.GreekEntryEvidenceAssistedPassProviderVersion(), codec.GreekEntryEvidenceAssistedPassPromptContract())
 }
 
-// TestGreekEntryPassIsRefusedUntilRecorded proves the new payload kind has no
-// recorded assessment, so the gate refuses it for every language, while a record
-// pinned to the current contract would allow it.
-func TestGreekEntryPassIsRefusedUntilRecorded(t *testing.T) {
-	codec := passCodec(t)
-	for _, language := range []string{"grc", "la", "de"} {
-		t.Run(language, func(t *testing.T) {
-			require.ErrorIs(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, language, codec), ErrProviderAssessmentNotRecorded)
+// TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly proves the
+// #2774 disposition is recorded for Greek alone, under the Greek entry contract,
+// and that the other records are unchanged.
+func TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly(t *testing.T) {
+	assertRecordedAssessment(t, "#2774", GreekEntryEvidenceAssistedPassPayload, "grc",
+		(*TranslationCodec).GreekEntryEvidenceAssistedPassPromptContract, GreekEntryEvidenceAssistedPassPayloadFields)
+
+	t.Run("the disposition serves the Study surface", func(t *testing.T) {
+		require.Equal(t, "approved for personal use of the locally produced Study surface", greekEntryEvidenceAssistedPassAssessment.Disposition)
+		require.Equal(t, "translation-v19-evidence-assisted-greek-entries", greekEntryEvidenceAssistedPassAssessment.PromptVersion)
+	})
+	for _, language := range []string{"la", "de", "it"} {
+		t.Run(language+" is refused", func(t *testing.T) {
+			require.ErrorIs(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, language, passCodec(t)), ErrProviderAssessmentNotRecorded)
 		})
 	}
 	t.Run("the Greek deck and Latin records never answer for it", func(t *testing.T) {
 		set := ProviderAssessmentSet{evidenceAssistedPassAssessment, latinEvidenceAssistedPassAssessment}
-		require.ErrorIs(t, set.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec), ErrProviderAssessmentNotRecorded)
+		require.ErrorIs(t, set.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
 	})
-	t.Run("a record pinned to the current contract allows it", func(t *testing.T) {
-		record := ProviderAssessment{
-			Kind: GreekEntryEvidenceAssistedPassPayload, Language: "grc", Provider: codec.ProviderName(),
-			PromptVersion: codec.GreekEntryEvidenceAssistedPassPromptContract(), Fields: GreekEntryEvidenceAssistedPassPayloadFields(), Recorded: true,
-		}
-		require.NoError(t, ProviderAssessmentSet{record}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec))
-		record.Recorded = false
-		require.ErrorIs(t, ProviderAssessmentSet{record}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec), ErrProviderAssessmentNotRecorded)
+	t.Run("the new record never answers for the deck or Latin payload", func(t *testing.T) {
+		set := ProviderAssessmentSet{greekEntryEvidenceAssistedPassAssessment}
+		require.ErrorIs(t, set.MaySend(EvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
+		require.ErrorIs(t, set.MaySend(LatinEvidenceAssistedPassPayload, "la", passCodec(t)), ErrProviderAssessmentNotRecorded)
+	})
+	t.Run("the #2171 record is unchanged", func(t *testing.T) {
+		require.Equal(t, ProviderAssessment{
+			Kind: EvidenceAssistedPassPayload, Language: "grc", Provider: "openai-compatible",
+			PromptVersion: "translation-v16-evidence-assisted-greek",
+			Fields: []string{
+				"item_id", "language", "target_language", "canonical_lemma", "upos",
+				"target_word", "example_sentence", "passage_context", "candidate_senses",
+			},
+			Disposition: "approved for personal use of the locally produced deck", Ticket: "#2171", Recorded: true,
+		}, evidenceAssistedPassAssessment)
+	})
+	t.Run("a record that drifts from the contract refuses", func(t *testing.T) {
+		drifted := greekEntryEvidenceAssistedPassAssessment
+		drifted.PromptVersion = "translation-v18-evidence-assisted-greek-entries"
+		require.ErrorIs(t, ProviderAssessmentSet{drifted}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
 	})
 }
 
@@ -162,4 +182,84 @@ func passCodecVersion(t *testing.T) string {
 
 func TestStudyEvidenceAssistedPassKindOfAModernLanguageIsTheDeckPass(t *testing.T) {
 	assert.Equal(t, EvidenceAssistedPassPayload, StudyEvidenceAssistedPassKind("de"))
+}
+
+// TestGreekStudyPassRequestPayloadIsTheRecordedFieldSetInOrder proves from a
+// real encoded request that the user message carries exactly the recorded fields
+// in the recorded order.
+func TestGreekStudyPassRequestPayloadIsTheRecordedFieldSetInOrder(t *testing.T) {
+	body, err := passCodec(t).EncodeRequest(greekEntryPassRequest())
+	require.NoError(t, err)
+	var request struct {
+		Messages []struct {
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(body, &request))
+	decoder := json.NewDecoder(strings.NewReader(request.Messages[1].Content))
+	_, err = decoder.Token()
+	require.NoError(t, err)
+	var fields []string
+	for decoder.More() {
+		key, err := decoder.Token()
+		require.NoError(t, err)
+		name, isString := key.(string)
+		require.True(t, isString)
+		fields = append(fields, name)
+		var skip json.RawMessage
+		require.NoError(t, decoder.Decode(&skip))
+	}
+	assert.Equal(t, greekEntryEvidenceAssistedPassAssessment.Fields, fields)
+}
+
+// syntheticLargeGreekEntryRequest is a Study pass request over three synthetic
+// homograph entries holding 140 senses between them, shaped like a frequent verb
+// such as ἔχω (the test data holds no real LSJ text). Definitions run 30 to 130
+// characters, as compact LSJ definitions do.
+func syntheticLargeGreekEntryRequest() (TranslationRequest, int) {
+	request := greekEntryPassRequest()
+	request.CanonicalLemma, request.TargetWord = "ἔχω", "ἔχει"
+	request.CandidateSenses = nil
+	perEntry := []int{90, 36, 14}
+	for e, count := range perEntry {
+		entry := fmt.Sprintf("n%d", 20000+e)
+		for s := range count {
+			definition := strings.Repeat("hold, possess, carry, keep; ", 6)[:30+(s*7)%100]
+			request.CandidateSenses = append(request.CandidateSenses, LexicalSense{
+				EvidenceID: EntryEvidenceID(entry, fmt.Sprintf("%s.%d", entry, s)), Source: "lsj", Gloss: definition,
+			})
+		}
+	}
+	return request, len(request.CandidateSenses)
+}
+
+// TestGreekStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget measures
+// the request a frequent word's uncapped senses produce. The sizes are recorded
+// in the payload assessment; this test keeps them from drifting unnoticed.
+func TestGreekStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget(t *testing.T) {
+	request, senses := syntheticLargeGreekEntryRequest()
+	body, err := passCodec(t).EncodeRequest(request)
+	require.NoError(t, err)
+	var decoded struct {
+		Messages []struct {
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(body, &decoded))
+	var payload struct {
+		Senses []map[string]any `json:"candidate_senses"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(decoded.Messages[1].Content), &payload))
+	t.Logf("senses=%d request_bytes=%d user_message_bytes=%d approx_tokens=%d", senses, len(body), len(decoded.Messages[1].Content), len(body)/4)
+
+	t.Run("no sense is capped", func(t *testing.T) {
+		require.Len(t, payload.Senses, 140)
+	})
+	t.Run("the request stays inside a few thousand tokens", func(t *testing.T) {
+		require.Greater(t, len(body), 8*1024)
+		require.Less(t, len(body), 32*1024)
+	})
+	t.Run("no native ID goes out for a large entry either", func(t *testing.T) {
+		require.NotContains(t, string(body), "n2000")
+	})
 }
