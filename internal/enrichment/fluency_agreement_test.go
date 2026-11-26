@@ -210,15 +210,27 @@ func TestSourceEvidenceFluencyAgreementDecodesLikeTheModernAnswer(t *testing.T) 
 	assert.Equal(t, FluencyReasonDifferentMeaning, response.FluencyReason)
 }
 
-func TestSourceEvidenceFluencyAgreementAssessmentIsRecordedForGreekOnly(t *testing.T) {
-	assertRecordedAssessment(t, "#2765", FluencyAgreementSourceEvidencePayload, "grc",
-		(*TranslationCodec).FluencyAgreementSourceEvidencePromptContract, FluencyAgreementSourceEvidencePayloadFields)
-
-	for _, language := range []string{"la", "de"} {
-		t.Run(language+" is refused", func(t *testing.T) {
-			require.ErrorIs(t, ProviderAssessments().MaySend(FluencyAgreementSourceEvidencePayload, language, passCodec(t)), ErrProviderAssessmentNotRecorded)
+func TestSourceEvidenceFluencyAgreementAssessmentsAreRecordedForGreekAndLatinOnly(t *testing.T) {
+	for _, record := range []struct{ ticket, language string }{{"#2765", "grc"}, {"#2766", "la"}} {
+		t.Run(record.language+" is recorded", func(t *testing.T) {
+			assertRecordedAssessment(t, record.ticket, FluencyAgreementSourceEvidencePayload, record.language,
+				(*TranslationCodec).FluencyAgreementSourceEvidencePromptContract, FluencyAgreementSourceEvidencePayloadFields)
 		})
 	}
+	t.Run("the Latin disposition is the Study surface", func(t *testing.T) {
+		require.Equal(t, "approved for personal use of the locally produced Study surface", fluencyAgreementSourceEvidenceLatinAssessment.Disposition)
+	})
+	t.Run("de is refused", func(t *testing.T) {
+		require.ErrorIs(t, ProviderAssessments().MaySend(FluencyAgreementSourceEvidencePayload, "de", passCodec(t)), ErrProviderAssessmentNotRecorded)
+	})
+	t.Run("the Greek record is unchanged", func(t *testing.T) {
+		require.Equal(t, "fluency-agreement-source-evidence-v2", fluencyAgreementSourceEvidenceGreekAssessment.PromptVersion)
+		require.Equal(t, "grc", fluencyAgreementSourceEvidenceGreekAssessment.Language)
+	})
+	t.Run("the German record is unchanged", func(t *testing.T) {
+		require.Equal(t, "de", fluencyAgreementAssessment.Language)
+		require.Equal(t, "fluency-agreement-v2", fluencyAgreementAssessment.PromptVersion)
+	})
 }
 
 func TestSourceEvidenceFluencyAgreementGateAcceptsATestRecordedAssessment(t *testing.T) {

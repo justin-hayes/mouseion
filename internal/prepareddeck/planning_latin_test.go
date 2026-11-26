@@ -66,9 +66,9 @@ func TestBatchPlannerPlansLatinDeckWithNoProviderConfigured(t *testing.T) {
 	require.Len(t, plan.Projection.Items, 1)
 }
 
-// With the compiled assessments, which record nothing for Latin, a Latin deck
-// sends nothing even with a provider configured (ADR 0133, #2766).
-func TestBatchPlannerPlansLatinDeckWithNoRequestWhileTheLatinPassIsUnrecorded(t *testing.T) {
+// With the compiled assessments, which record the Latin pass (#2766), a Latin
+// deck with a configured provider plans the pass and sends it.
+func TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverLatinProjection()}, deckName: "Book", language: "la"}
@@ -77,10 +77,20 @@ func TestBatchPlannerPlansLatinDeckWithNoRequestWhileTheLatinPassIsUnrecorded(t 
 
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
-	assert.False(t, plan.Config.ExternalTranslationConsent)
-	assert.Empty(t, plan.Config.Provider)
-	require.Len(t, plan.Projection.Items, 1)
-	assert.Nil(t, plan.Projection.Items[0].CacheKey)
+	t.Run("the run is consented", func(t *testing.T) {
+		require.True(t, plan.Config.ExternalTranslationConsent)
+	})
+	t.Run("the run uses the Latin pass contract", func(t *testing.T) {
+		require.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
+	})
+	t.Run("the word is frozen as pass work", func(t *testing.T) {
+		deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
+		require.NoError(t, err)
+		work := deck.WorkProjection()
+		require.Len(t, work, 1)
+		assert.True(t, work[0].Request.RequireEvidenceAssistedPass)
+		assert.Equal(t, "la", work[0].Request.Language)
+	})
 }
 
 // With a test-recorded Latin assessment a Latin deck freezes the pass under the

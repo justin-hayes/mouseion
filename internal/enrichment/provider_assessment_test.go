@@ -53,7 +53,7 @@ func TestIdiomCardAssessmentIsRecordedForItalianOnly(t *testing.T) {
 // list, so the compiled set allows its payload.
 func assertRecordedAssessment(t *testing.T, ticket string, kind ProviderPayloadKind, language string, promptContract func(*TranslationCodec) string, payloadFields func() []string) {
 	t.Helper()
-	assessment := assessmentByTicket(t, ticket)
+	assessment := assessmentByTicketAndKind(t, ticket, kind)
 	codec := passCodec(t)
 
 	t.Run("the assessment is recorded", func(t *testing.T) {
@@ -191,6 +191,19 @@ func TestEvidenceAssistedPassUnrecordedAssessmentFailsClosed(t *testing.T) {
 		}
 	}
 	require.ErrorIs(t, unrecorded.MaySend(EvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
+}
+
+// assessmentByTicketAndKind returns the compiled assessment recorded for one
+// ticket and payload kind; one ticket can record several kinds.
+func assessmentByTicketAndKind(t *testing.T, ticket string, kind ProviderPayloadKind) ProviderAssessment {
+	t.Helper()
+	for _, assessment := range ProviderAssessments() {
+		if assessment.Ticket == ticket && assessment.Kind == kind {
+			return assessment
+		}
+	}
+	t.Fatalf("no %s provider assessment recorded for %s", kind, ticket)
+	return ProviderAssessment{}
 }
 
 // assessmentByTicket returns the compiled assessment recorded for one ticket.

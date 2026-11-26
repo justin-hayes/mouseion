@@ -255,19 +255,34 @@ func requireGreekDeckAgreesWithSnapshot(t *testing.T, status domain.DeckPreparat
 // greekDeckRecordingProvider is a configured provider that records every call.
 // A providerless Greek deck must never reach it.
 type greekDeckRecordingProvider struct {
-	mu    sync.Mutex
-	calls int
+	mu       sync.Mutex
+	calls    int
+	requests []enrichment.TranslationRequest
 }
 
 func (p *greekDeckRecordingProvider) Name() string    { return "openai-compatible" }
 func (p *greekDeckRecordingProvider) Version() string { return "greek-deck" }
 func (p *greekDeckRecordingProvider) Enabled() bool   { return true }
 
-func (p *greekDeckRecordingProvider) Translate(context.Context, enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
+func (p *greekDeckRecordingProvider) Translate(_ context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	p.mu.Lock()
 	p.calls++
+	p.requests = append(p.requests, request)
 	p.mu.Unlock()
 	return enrichment.TranslationResponse{}, errors.New("a providerless Greek deck must make no provider request")
+}
+
+// passRequests reports the language and pass flag of every request received.
+func (p *greekDeckRecordingProvider) passRequests() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var out []string
+	for _, request := range p.requests {
+		if request.RequireEvidenceAssistedPass {
+			out = append(out, request.Language)
+		}
+	}
+	return out
 }
 
 // callCount reports how many provider requests the deck pipeline made.

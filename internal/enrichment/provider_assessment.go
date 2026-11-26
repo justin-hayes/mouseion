@@ -26,8 +26,7 @@ const (
 	// LatinEvidenceAssistedPassPayload is the Classical Latin evidence-assisted
 	// pass: the representative sentence, its passage context, and the pinned
 	// Lewis & Short senses as short evidence handles that each name their entry
-	// (ADR 0138 §1). It has its own contract, so it needs its own record; none is
-	// recorded until the human review (#2766), so it sends nothing.
+	// (ADR 0138 §1). It has its own contract and its own record (#2766).
 	LatinEvidenceAssistedPassPayload ProviderPayloadKind = "latin-evidence-assisted-pass"
 	// LSJSenseSummaryPayload is the context-free summary of a pinned LSJ entry:
 	// its headword, sense IDs and English glosses alone (ADR 0101).
@@ -43,8 +42,8 @@ const (
 	// FluencyAgreementSourceEvidencePayload is the separate Fluency agreement
 	// variant for a source-evidence language: the modern payload's fields plus
 	// the dictionary senses, with their definitions, that the Learned meaning
-	// and the occurrence's Gloss cite (ADR 0138 §4). Greek's is recorded
-	// (#2765); no other language's is, so it sends nothing for them.
+	// and the occurrence's Gloss cite (ADR 0138 §4). Greek's (#2765) and Latin's
+	// (#2766) are recorded; no other language's is, so it sends nothing for them.
 	FluencyAgreementSourceEvidencePayload ProviderPayloadKind = "fluency-agreement-source-evidence"
 )
 
@@ -201,6 +200,67 @@ var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
 	Recorded:    true,
 }
 
+// latinEvidenceAssistedPassAssessment is the disposition for the exact Classical
+// Latin evidence-assisted pass payload: the representative sentence, its passage
+// context (the Perseus reference translation) and the pinned Lewis & Short
+// definitions as short evidence handles, each beside the short handle of its
+// entry. Justin reviewed that payload in
+// doc/reviews/latin-evidence-assisted-pass-payload-assessment.md and recorded the
+// disposition on #2766, so the pass runs for Latin Prepared decks and Study
+// material with a configured provider (ADR 0138 §1).
+//
+// The transport is the configured OpenAI-compatible Chat Completions endpoint.
+// No learner identity, Book title, whole Book, raw annotation, lexical
+// discriminator or native Lewis & Short entry or sense ID is transmitted.
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
+var latinEvidenceAssistedPassAssessment = ProviderAssessment{
+	Kind:          LatinEvidenceAssistedPassPayload,
+	Language:      "la",
+	Provider:      "openai-compatible",
+	PromptVersion: "translation-v18-evidence-assisted-latin",
+	Fields: []string{
+		"item_id", "language", "target_language", "canonical_lemma", "upos",
+		"target_word", "example_sentence", "passage_context", "candidate_senses",
+	},
+	Disposition: "approved for personal use of the locally produced deck and Study surface",
+	Ticket:      "#2766",
+	Recorded:    true,
+}
+
+// fluencyAgreementSourceEvidenceLatinAssessment is the disposition for the exact
+// Classical Latin source-evidence Fluency agreement payload: the modern Fluency
+// fields plus the Lewis & Short definitions of the senses that the Learned
+// meaning and the occurrence's Gloss cite. Justin reviewed that payload in
+// doc/reviews/fluency-agreement-source-evidence-latin-payload-assessment.md and
+// recorded the disposition on #2766, so Latin Fluency can send it (ADR 0138 §4).
+//
+// The transport is the configured OpenAI-compatible Chat Completions endpoint.
+// The cited senses are sent as definition strings alone: no dictionary entry or
+// sense ID, native or handle, is transmitted. No learner identity, Book title or
+// review history is transmitted.
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
+var fluencyAgreementSourceEvidenceLatinAssessment = ProviderAssessment{
+	Kind:          FluencyAgreementSourceEvidencePayload,
+	Language:      "la",
+	Provider:      "openai-compatible",
+	PromptVersion: "fluency-agreement-source-evidence-v2",
+	Fields: []string{
+		"item_id", "language", "target_language", "canonical_lemma", "upos",
+		"target_word", "example_sentence", "learned_meaning", "learned_senses", "context_senses",
+	},
+	Disposition: "approved for personal use of the locally produced Study surface",
+	Ticket:      "#2766",
+	Recorded:    true,
+}
+
 // ProviderAssessmentSet is the recorded personal-use payload assessments. Its
 // one question decides whether an assessed payload may be sent.
 type ProviderAssessmentSet []ProviderAssessment
@@ -209,7 +269,7 @@ type ProviderAssessmentSet []ProviderAssessment
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to MaySend instead.
 func ProviderAssessments() ProviderAssessmentSet {
-	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment}
+	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment, latinEvidenceAssistedPassAssessment, fluencyAgreementSourceEvidenceLatinAssessment}
 }
 
 // MaySend reports whether one payload kind may be sent for a language with the
