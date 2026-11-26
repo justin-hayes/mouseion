@@ -92,4 +92,24 @@ test.describe('Study reports', () => {
     await page.getByRole('button', { name: 'Show answer' }).click();
     expect(await page.locator('#study-headword').innerText()).not.toBe(reported);
   });
+
+  test('undoes an unsuitable-context report while its card is shown', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/de/study');
+    const take = page.getByRole('button', { name: 'Take these words' });
+    if (await take.count()) await take.click();
+    await page.getByRole('button', { name: 'Show answer' }).click();
+    const reported = await page.locator('#study-headword').innerText();
+
+    await page.locator('#study-report summary').click();
+    await page.getByRole('radio', { name: /Unsuitable context/ }).check();
+    await page.getByRole('button', { name: 'Send report' }).click();
+    await expect(page.locator('#study-reported')).toBeVisible();
+
+    await page.locator('#study-reported-undo').click();
+
+    // The report has ended and the reported word's card is back.
+    await expect(page.locator('#study-reported')).toHaveCount(0);
+    await expect(page.locator('#study-headword')).toHaveText(reported);
+  });
 });

@@ -95,6 +95,9 @@ type StudyReportStore interface {
 	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
 	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	// StudyReportUndoable is whether Undo is still offered: the report is open
+	// and no other Study action followed.
+	StudyReportUndoable(ctx context.Context, owner, id string) (bool, error)
 	StudyReportEvidenceStore
 }
 

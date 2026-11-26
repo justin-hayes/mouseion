@@ -96,10 +96,13 @@ UPDATE study_material
 
 -- name: RestoreStudyProgressMaterial :exec
 -- Undo of an Unsuitable-context report: the word goes back to the material,
--- learned meaning and correction time it had. The FSRS state was never touched.
+-- learned meaning and correction time it had, and a withdrawal for want of a
+-- suitable context ends. The FSRS state was never touched.
 UPDATE study_progress
    SET material_id = sqlc.arg('material'), learned_meaning = sqlc.arg('learned_meaning'),
-       corrected_at = sqlc.narg('corrected_at')::timestamptz, updated_at = now()
+       corrected_at = sqlc.narg('corrected_at')::timestamptz,
+       withdrawn_at = CASE WHEN withdrawn_reason = 'no_suitable_context' THEN NULL ELSE withdrawn_at END,
+       withdrawn_reason = NULL, updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id');
 
 -- name: StudyActionSince :one

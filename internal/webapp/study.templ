@@ -143,15 +143,19 @@ templ StudyCard(csrf string, view studyPageView) {
 
 // StudyReportedCard shows the card just reported as an unsuitable context, with
 // its answer side. The review was not graded: the word comes back on the next
-// Study day from another context. Moving on ends the offer. The Undo control of
-// #2720 belongs in the actions before Next. The Undo control
-// of #2720 belongs in the actions beside Next.
+// Study day from another context. Undo restores the word and its card while no
+// other Study action has followed; moving on ends the offer.
 templ StudyReportedCard(csrf string, view studyPageView) {
 	<section class="study-card study-card--reported" aria-labelledby="study-reported-heading">
 		<h2 id="study-reported-heading">Reported</h2>
 		<p id="study-reported" class="study-status">Reported as an unsuitable context. This sentence will not be used for this word again, and it comes back on the next Study day from another one.</p>
 		@cardFaceView(view.Language, "study", view.Reported.cardFace)
 		<div class="study-card__grades">
+			<form method="post" action={ "/study/reports/" + view.Reported.ReportID + "/undo" }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="language" value={ view.Language }/>
+				<button id="study-reported-undo" class="button button--outline" type="submit">Undo</button>
+			</form>
 			<a id="study-reported-next" class="button" href={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>Next</a>
 		</div>
 	</section>

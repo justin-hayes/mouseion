@@ -635,7 +635,8 @@ type Querier interface {
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
 	// Undo of an Unsuitable-context report: the word goes back to the material,
-	// learned meaning and correction time it had. The FSRS state was never touched.
+	// learned meaning and correction time it had, and a withdrawal for want of a
+	// suitable context ends. The FSRS state was never touched.
 	RestoreStudyProgressMaterial(ctx context.Context, arg RestoreStudyProgressMaterialParams) error
 	RetireDeckPreparationForSnapshot(ctx context.Context, arg RetireDeckPreparationForSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
