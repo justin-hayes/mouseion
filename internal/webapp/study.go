@@ -356,8 +356,8 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {
 	memory := card.Progress.Memory
 	return &studyCardView{
-		cardFace:     newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
-		ProgressID:   card.Progress.ID, MaterialID: card.Progress.MaterialID,
+		cardFace:   newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
+		ProgressID: card.Progress.ID, MaterialID: card.Progress.MaterialID,
 		Reps:         memory.Reps,
 		Introduction: memory.State == domain.StudyStateNew || memory.State == domain.StudyStateLearning,
 		Corrected:    card.Progress.Corrected(),

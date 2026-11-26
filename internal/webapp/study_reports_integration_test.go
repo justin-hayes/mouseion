@@ -159,3 +159,73 @@ func TestStudyTodayWithOpenReportsStaysFastOnTheScaleLibrary(t *testing.T) {
 	s.within("the Reported words page", func() int { return getAs(t, s.h, "/de/study/reports", s.cookies).Code }, http.StatusOK)
 	s.timedPost("reporting a word", "/study/reports", url.Values{"language": {"de"}, "progress": {s.currentCard().ID}, "reps": {"1"}, "kind": {"wrong_word"}, "note": {"x"}})
 }
+
+func (s *studyHarness) dismiss(report domain.StudyReport) *httptest.ResponseRecorder {
+	s.t.Helper()
+	return s.post("/study/reports/"+report.ID+"/dismiss", url.Values{"language": {"de"}})
+}
+
+func TestStudyDismissingAReportReleasesTheWordLaterByTheTimeItWasHeld(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	s.twoReviewsDue()
+	card := s.currentCard()
+	require.Equal(t, http.StatusSeeOther, s.report(card, "wrong_word", "").Code)
+	report := s.openReports()[0]
+	logs := len(s.reviewLog(card.ID))
+	materialBefore, err := s.store.GetStudyMaterial(s.ctx, s.owner.ID, card.MaterialID)
+	require.NoError(t, err)
+
+	held := 30 * time.Hour
+	s.clock.Set(report.CreatedAt.Add(held))
+	response := s.dismiss(report)
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/de/study/reports", response.Header().Get("Location"))
+
+	assert.Empty(t, s.openReports(), "the entry leaves Reported words")
+	ended, err := s.store.GetStudyReport(s.ctx, s.owner.ID, report.ID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StudyReportEndDismissed, ended.EndReason)
+	word := s.progressByID(card.ID)
+	assert.False(t, word.Held)
+	assert.True(t, card.Memory.Due.Add(held).Equal(word.Memory.Due), "due moved from %v by %v, got %v", card.Memory.Due, held, word.Memory.Due)
+	assert.Equal(t, card.Memory.Reps, word.Memory.Reps)
+	assert.InDelta(t, card.Memory.Stability, word.Memory.Stability, 0)
+	assert.Equal(t, card.Memory.State, word.Memory.State)
+	assert.Equal(t, card.MaterialID, word.MaterialID, "the material is unchanged")
+	assert.Equal(t, card.LearnedMeaning, word.LearnedMeaning, "the Learned meaning is unchanged")
+	unchanged, shifted := card.Memory, word.Memory
+	unchanged.Due, shifted.Due = time.Time{}, time.Time{}
+	assert.Equal(t, unchanged, shifted, "the FSRS state is otherwise unchanged")
+	assert.Len(t, s.reviewLog(card.ID), logs, "no review-log row is written")
+	materialAfter, err := s.store.GetStudyMaterial(s.ctx, s.owner.ID, card.MaterialID)
+	require.NoError(t, err)
+	assert.Equal(t, materialBefore, materialAfter)
+
+	// A second tap on the same entry changes nothing.
+	require.Equal(t, http.StatusSeeOther, s.dismiss(report).Code)
+	assert.True(t, card.Memory.Due.Add(held).Equal(s.progressByID(card.ID).Memory.Due))
+}
+
+func TestStudyDismissIsRefusedForAnotherLearnerLanguageOrForgedRequest(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	s.twoReviewsDue()
+	card := s.currentCard()
+	require.Equal(t, http.StatusSeeOther, s.report(card, "wrong_word", "").Code)
+	report := s.openReports()[0]
+
+	forged := perform(t, s.h, http.MethodPost, "/study/reports/"+report.ID+"/dismiss", url.Values{"csrf_token": {"forged"}, "language": {"de"}}, s.cookies)
+	assert.Equal(t, http.StatusForbidden, forged.Code)
+	assert.Equal(t, http.StatusNotFound, s.post("/study/reports/"+report.ID+"/dismiss", url.Values{"language": {"la"}}).Code)
+	assert.Equal(t, http.StatusNotFound, s.post("/study/reports/"+report.ID+"/dismiss", url.Values{"language": {"it"}}).Code, "the report is of another language")
+	assert.Equal(t, http.StatusNotFound, s.post("/study/reports/00000000-0000-4000-8000-000000000000/dismiss", url.Values{"language": {"de"}}).Code)
+	assert.Len(t, s.openReports(), 1)
+
+	other := createAccount(t, s.ctx, s.store, "other-learner", "other-password")
+	otherCookies, _ := loginCookies(t, s.h, other.Username, "other-password")
+	foreign := perform(t, s.h, http.MethodPost, "/study/reports/"+report.ID+"/dismiss", url.Values{"csrf_token": {otherCookies[0].Value}, "language": {"de"}}, otherCookies)
+	assert.Equal(t, http.StatusNotFound, foreign.Code)
+	assert.Len(t, s.openReports(), 1)
+	assert.True(t, s.progressByID(card.ID).Held)
+}
