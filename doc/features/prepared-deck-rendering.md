@@ -2,6 +2,8 @@
 
 Status: Proposed · Date: 2026-09-15
 
+**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), the Prepared deck is retired, with no Anki export. Until then this document describes the running system.
+
 ## Motivation
 
 Prepared decks already separate data from presentation in practice: a durable

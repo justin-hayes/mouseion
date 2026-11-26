@@ -2,6 +2,8 @@
 
 Status: **Manual occurrence review, conservative German and French risk flags, opt-in LLM lemma suggestions, and provider-raised advisory flags implemented (#2340).** · Date: 2026-11-07
 
+**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), Lemma review flags, Lemma suggestions, the lemma-risk assessment and the Book-scoped review queue are retired; a correction starts only from a Wrong-word Study report, still confirmed per occurrence, with matching occurrences offered to correct too. Until then this document describes the running system.
+
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct
 prepared-deck projection, Book vocabulary insights, and current-reading

@@ -2,7 +2,9 @@
 
 Status: **Accepted; implemented in the pilot** · Date: 2026-11-25 · Decisions:
 [ADR 0134](../adr/0134-study-in-mouseion-vocabulary-review.md),
-[ADR 0135](../adr/0135-study-reports.md), [ADR 0133](../adr/0133-per-language-card-policy.md)
+[ADR 0135](../adr/0135-study-reports.md), [ADR 0133](../adr/0133-per-language-card-policy.md),
+[ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
+(direction after the pilot, see [After the pilot](#after-the-pilot))
 
 Specified in
 [Spec: Study pilot](https://github.com/justin-hayes/mouseion/issues/2691).
@@ -288,6 +290,28 @@ question 6).
 - Progress per meaning, and "this word also means...".
 - Idiom cards in Study, production cards (English to German) and audio.
 - External frequency lists.
+
+### After the pilot
+
+[ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
+makes Study the only vocabulary workflow, at one cutover. Until then the
+separation above holds. The cutover waits until Study supports the
+source-evidence card policy (Ancient Greek and Latin) and introduces Idioms as
+items with their own Study progress. Both of those are left out of the pilot
+above. At the cutover:
+
+- Known vocabulary and the Prepared deck retire. Each Known word becomes
+  **Already known** Study progress, with first reviews spread over several
+  weeks.
+- **Already known** becomes an answer at introduction, and it makes the word
+  Mature at once.
+- New words come from the **Corpus**. The Current reading's words come first
+  until the Book reaches **Target coverage**. After that, frequency across the
+  To Read Books decides.
+- A Book's coverage counts Mature words, with in-study coverage shown as a
+  second figure.
+- A Wrong-word report opens a remediation screen instead of the Book's Lemma
+  review, which retires.
 - Cognates, etymology and recommendations.
 - An FSRS parameter optimiser, Hard and Easy grades, and words leaving study.
 - A fixed split of new words between the Book and the library, and fading words

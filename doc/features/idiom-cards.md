@@ -4,6 +4,8 @@ Status: **Implemented; Italian reviewed (German and Modern Greek pending)** · D
 [ADR 0114](../adr/0114-idiom-cards-from-dictionary-evidence.md),
 [ADR 0112](../adr/0112-gloss-is-lemma-sense-in-citation-form.md)
 
+**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), Idiom cards leave the Prepared deck; Idioms become items Study introduces and reviews, which is a prerequisite of the cutover. Until then this document describes the running system.
+
 Decided in [#2351](https://github.com/justin-hayes/mouseion/issues/2351).
 
 ## Motivation and goal
