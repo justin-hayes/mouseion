@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
 // reportMeta is what the report pins besides the per-word rows.
@@ -12,6 +14,8 @@ type reportMeta struct {
 	Model, Reasoning, ProviderVersion    string
 	DictionaryPin                        string
 	Calls                                int64
+	MaxRequest                           int64
+	PayloadKind                          string
 	Analyzers, TranslationPins, BookList []string
 }
 
@@ -47,14 +51,19 @@ func renderRow(n int, r wordResult) string {
 		translation = highlight(r.Ready.SentenceTranslation, r.Ready.SentenceTranslationTargets)
 		var lines []string
 		for i, id := range r.Ready.Cited.SenseIDs {
+			entryID := r.Ready.Cited.EntryIDs[i]
 			definition := ""
 			for _, sense := range r.Candidates {
-				if sense.EvidenceID == id {
+				if sense.EvidenceID == enrichment.EntryEvidenceID(entryID, id) {
 					definition = sense.Gloss
 					break
 				}
 			}
-			lines = append(lines, fmt.Sprintf("`%s` (entry `%s`): %s", id, r.Ready.Cited.EntryIDs[i], definition))
+			label := ""
+			if n := entryCount(r.Candidates); n > 1 {
+				label = fmt.Sprintf(" [entry %d of %d]", entryPosition(r.Candidates, entryID), n)
+			}
+			lines = append(lines, fmt.Sprintf("`%s` (entry `%s`%s): %s", id, entryID, label, definition))
 		}
 		cited = strings.Join(lines, "<br>")
 		passage = r.Ready.Passage.Citation
@@ -114,12 +123,12 @@ func renderReport(meta reportMeta, results []wordResult) string {
 	fmt.Fprintf(&b, "- **Words:** the first %d in Study's new-word order for Justin's Greek (`%s`) account: Current reading first, then Personal occurrences descending, then lemma. Words already in study or held by an open Wrong-word report are skipped, as Study skips them.\n", len(results), meta.Language)
 	fmt.Fprintf(&b, "- **Books drawn on:** %s.\n", pins(meta.BookList))
 	fmt.Fprintf(&b, "- **Model:** `%s`, reasoning effort `%s`.\n", meta.Model, meta.Reasoning)
-	fmt.Fprintf(&b, "- **Prompt contract (provider version):** `%s`, the Greek evidence-assisted pass, unchanged from its recorded assessment.\n", meta.ProviderVersion)
+	fmt.Fprintf(&b, "- **Prompt contract (provider version):** `%s`, payload kind `%s`: Study's Greek stacked-homograph pass, which looks up every competing LSJ entry (ADR 0139) and carries each sense's entry handle.\n", meta.ProviderVersion, meta.PayloadKind)
 	fmt.Fprintf(&b, "- **Dictionary pin:** LSJ index `%s`.\n", meta.DictionaryPin)
 	fmt.Fprintf(&b, "- **Translation pins:** %s.\n", pins(meta.TranslationPins))
 	fmt.Fprintf(&b, "- **Treebank:** OGA `oga_src` v0.2.0 annotations (Zenodo `10.5281/zenodo.15199546`); analysis run(s): %s.\n", pins(meta.Analyzers))
 	fmt.Fprintf(&b, "- **Gate:** `ProviderAssessments().MaySend` accepted the compiled codec for `%s` before anything was sent.\n", meta.Language)
-	fmt.Fprintf(&b, "- **Provider calls made:** %d HTTP requests (one per word that had a dictionary entry with citable senses, plus any retry of a failed request; the other words cost no call).\n", meta.Calls)
+	fmt.Fprintf(&b, "- **Provider calls made:** %d HTTP requests; the largest request body was %d bytes (one call per word that had a dictionary entry with citable senses, plus any retry of a failed request; the other words cost no call).\n", meta.Calls, meta.MaxRequest)
 	b.WriteString("- **Tool:** `cmd/studyevidencerun` on the branch `prototype/2767-greek-evidence-run`, never merged. It runs `study.MaterialWorker` unchanged against a restored copy of the database, with a store that records nothing.\n\n")
 
 	b.WriteString("## Automatic summary\n\n| Outcome | Words |\n|---|---|\n")
@@ -141,4 +150,36 @@ func renderReport(meta reportMeta, results []wordResult) string {
 	}
 	b.WriteString("\n## Judgement tally\n\nJustin fills this in after judging: acceptable Glosses ___ of ___ ready words; threshold (90%) met: yes / no.\n")
 	return b.String()
+}
+
+// entryOrder lists the entry IDs of a request's candidate senses in order.
+func entryOrder(senses []enrichment.LexicalSense) []string {
+	var order []string
+	for _, sense := range senses {
+		entryID, _, ok := enrichment.SplitEntryEvidenceID(sense.EvidenceID)
+		if ok && !slicesContains(order, entryID) {
+			order = append(order, entryID)
+		}
+	}
+	return order
+}
+
+func slicesContains(list []string, v string) bool {
+	for _, x := range list {
+		if x == v {
+			return true
+		}
+	}
+	return false
+}
+
+func entryCount(senses []enrichment.LexicalSense) int { return len(entryOrder(senses)) }
+
+func entryPosition(senses []enrichment.LexicalSense, entryID string) int {
+	for i, id := range entryOrder(senses) {
+		if id == entryID {
+			return i + 1
+		}
+	}
+	return 0
 }

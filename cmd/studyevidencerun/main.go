@@ -120,7 +120,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	assessments := enrichment.ProviderAssessments()
-	if err := assessments.MaySend(enrichment.EvidenceAssistedPassKind(*language), *language, codec); err != nil {
+	if err := assessments.MaySend(enrichment.StudyEvidenceAssistedPassKind(*language), *language, codec); err != nil {
 		return fmt.Errorf("the gate refuses the %s pass payload; nothing sent: %w", *language, err)
 	}
 	index, err := dictionary.OpenIndex(ctx, os.Getenv("MOUSEION_DICTIONARY_INDEX"))
@@ -156,10 +156,17 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		Lexical:      index,
 		Translations: store,
 		MaySend: func(language string) error {
-			return assessments.MaySend(enrichment.EvidenceAssistedPassKind(language), language, codec)
+			return assessments.MaySend(enrichment.StudyEvidenceAssistedPassKind(language), language, codec)
 		},
 		Available: func(policy cardpolicy.Policy) bool {
-			return policy.Entries == cardpolicy.EntryLSJ && index.AncientGreekLSJAvailable()
+			switch policy.Entries {
+			case cardpolicy.EntryLSJ:
+				return index.AncientGreekLSJAvailable()
+			case cardpolicy.EntryLewisShort:
+				return index.LatinLSAvailable()
+			case cardpolicy.EntryNone:
+			}
+			return false
 		},
 	}
 	started := time.Now()
@@ -178,7 +185,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	meta := reportMeta{
 		Owner: learner, Language: *language, Date: started.UTC().Format("2006-01-02"),
 		Model: cfg.Model, Reasoning: cfg.ReasoningEffort,
-		ProviderVersion: codec.EvidenceAssistedPassProviderVersion(),
+		ProviderVersion: studyProviderVersion(codec, *language),
+		PayloadKind:     string(enrichment.StudyEvidenceAssistedPassKind(*language)),
+		MaxRequest:      transport.maxRequest.Load(),
 		DictionaryPin:   index.Version(),
 		Calls:           transport.calls.Load(),
 	}
@@ -387,6 +396,12 @@ func (s *recordingStore) RecordStudyMaterialUnpreparable(_ context.Context, _, _
 	return nil
 }
 
+// RecordStudyMaterialNoDictionaryEntry overrides the embedded store's write.
+func (s *recordingStore) RecordStudyMaterialNoDictionaryEntry(_ context.Context, _, _, _ string) error {
+	s.omission = domain.StudyOmissionNoDictionaryEntry
+	return nil
+}
+
 func (s *recordingStore) SetStudyMaterialEvidence(context.Context, string, string, string) error {
 	return nil
 }
@@ -396,7 +411,10 @@ func (s *recordingStore) SetStudyMaterialEvidence(context.Context, string, strin
 type countingTransport struct {
 	base  http.RoundTripper
 	calls atomic.Int64
-	last  atomic.Value // []string
+	// maxRequest is the largest request body sent, in bytes. Bodies are
+	// measured, never kept.
+	maxRequest atomic.Int64
+	last       atomic.Value // []string
 }
 
 var handlePattern = regexp.MustCompile(`evidence_ids\\*"\s*:\s*\[([^\]]*)\]`)
@@ -404,6 +422,20 @@ var quotedPattern = regexp.MustCompile(`[A-Za-z0-9_.:-]+`)
 
 func (t *countingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	t.calls.Add(1)
+	if request.Body != nil {
+		sent, err := io.ReadAll(request.Body)
+		_ = request.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		for size := int64(len(sent)); ; {
+			current := t.maxRequest.Load()
+			if size <= current || t.maxRequest.CompareAndSwap(current, size) {
+				break
+			}
+		}
+		request.Body = io.NopCloser(bytes.NewReader(sent))
+	}
 	response, err := t.base.RoundTrip(request)
 	if err != nil {
 		return response, err
@@ -460,4 +492,16 @@ func pinsOf(ctx context.Context, store *persistence.PostgresStore, results []wor
 	slices.Sort(meta.TranslationPins)
 	slices.Sort(meta.Analyzers)
 	return nil
+}
+
+// studyProviderVersion is the response contract version Study's pass sends under.
+func studyProviderVersion(codec *enrichment.TranslationCodec, language string) string {
+	switch cardpolicy.For(language).StudyPassContract {
+	case cardpolicy.PassContractGreekEntries:
+		return codec.GreekEntryEvidenceAssistedPassProviderVersion()
+	case cardpolicy.PassContractLatin:
+		return codec.LatinEvidenceAssistedPassProviderVersion()
+	case cardpolicy.PassContractGreek:
+	}
+	return codec.EvidenceAssistedPassProviderVersion()
 }
