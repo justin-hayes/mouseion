@@ -116,6 +116,7 @@ func (s *Store) RecordStudyFluencyResponse(_ context.Context, owner string, reco
 				ID: fmt.Sprintf("fixture-fluency-response-%d", len(s.studyFluencyResponses)+1), OwnerID: owner,
 				ContextID: record.ContextID, Response: record.Response, RespondedAt: record.RespondedAt.UTC(),
 			})
+			s.noteStudyActionLocked(owner, s.contextLanguageLocked(owner, item.ProgressID))
 			return nil
 		}
 	}
@@ -183,4 +184,13 @@ func (s *Store) attachFluencyResponsesLocked(owner string, item *domain.FluencyC
 		}
 	}
 	sort.SliceStable(item.Responses, func(i, j int) bool { return item.Responses[i].At.Before(item.Responses[j].At) })
+}
+
+// contextLanguageLocked is the study language of the word a context belongs to.
+// The caller holds s.mu.
+func (s *Store) contextLanguageLocked(owner, progressID string) string {
+	if progress := s.progressByIDLocked(owner, progressID); progress != nil {
+		return progress.Language
+	}
+	return ""
 }

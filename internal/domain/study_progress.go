@@ -64,6 +64,11 @@ func NewStudyMemory(now time.Time) StudyMemory {
 	return StudyMemory{State: StudyStateNew, Due: now.UTC()}
 }
 
+// StudyWithdrawnNoSuitableContext is the reason a word is withdrawn when no
+// other context passes the sentence-quality gate after an Unsuitable-context
+// report (ADR 0135 §3).
+const StudyWithdrawnNoSuitableContext = "no_suitable_context"
+
 // StudyProgress is one word in study (ADR 0134 §2): its scheduling state, when
 // it was introduced, the meaning it was learned with and the Study material it
 // is currently reviewed in. It belongs to the word, never to a Book.
@@ -77,6 +82,15 @@ type StudyProgress struct {
 	// Withdrawn marks a word a correction left with no valid occurrence. Its
 	// progress is kept and it is not due.
 	Withdrawn bool
+	// WithdrawnReason says why the word was withdrawn: empty for a withdrawal
+	// by a correction, StudyWithdrawnNoSuitableContext when every context was
+	// reported as unsuitable.
+	WithdrawnReason string
+	// Held marks a word with an open Wrong-word report (ADR 0135 §2). It is
+	// derived from the open reports, never stored on the word: a held word gets
+	// no reviews, is not part of Today's finish line and does not fall overdue.
+	// Its progress is kept.
+	Held bool
 	// CorrectedAt is when a correction re-introduced the word in new Study
 	// material, zero for a word never corrected. Reintroducing is true while
 	// the word's replacement material is still being prepared: the review is

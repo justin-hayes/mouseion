@@ -1189,6 +1189,36 @@ type StudyProgress struct {
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 	CorrectedAt          pgtype.Timestamptz
+	WithdrawnReason      pgtype.Text
+}
+
+type StudyReport struct {
+	ID                     string
+	OwnerID                string
+	Language               string
+	CanonicalLemma         string
+	Upos                   string
+	LexicalDiscriminator   string
+	ProgressID             pgtype.UUID
+	MaterialID             string
+	Kind                   string
+	Note                   string
+	BookID                 string
+	AnalysisRunID          string
+	CorpusID               string
+	SentenceOrdinal        int64
+	TokenOrdinal           int64
+	Sentence               string
+	TargetWord             string
+	Gloss                  string
+	SentenceTranslation    string
+	PreviousMaterialID     pgtype.UUID
+	PreviousCorrectedAt    pgtype.Timestamptz
+	PreviousLearnedMeaning pgtype.Text
+	CreatedAt              time.Time
+	RecordedAt             time.Time
+	EndedAt                pgtype.Timestamptz
+	EndReason              pgtype.Text
 }
 
 type StudyReviewLog struct {

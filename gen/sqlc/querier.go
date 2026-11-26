@@ -87,6 +87,13 @@ type Querier interface {
 	// OPDS connection queries. Credential decryption stays in Go; these queries
 	// own the row iteration and RETURNING composition.
 	CreateOpdsConnection(ctx context.Context, arg CreateOpdsConnectionParams) (CreateOpdsConnectionRow, error)
+	// Study reports (ADR 0135, spec #2714): a learner's report that a word's Study
+	// material is wrong. See migration 000073.
+	// Records a report of the word's current Study material, copying the
+	// occurrence, sentence, Gloss and translation from it. An Unsuitable-context
+	// report also records what Undo restores. No row means the material is not
+	// ready and current.
+	CreateStudyReport(ctx context.Context, arg CreateStudyReportParams) (StudyReport, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	CuratedSentenceExists(ctx context.Context, arg CuratedSentenceExistsParams) (bool, error)
@@ -115,6 +122,8 @@ type Querier interface {
 	// image, so every Book that selected it gives the selection up.
 	DemoteBookCoversForAbsentEntries(ctx context.Context, arg DemoteBookCoversForAbsentEntriesParams) ([]string, error)
 	DownloadDeckPreparation(ctx context.Context, arg DownloadDeckPreparationParams) (DeckPreparation, error)
+	// Ends an open report. A report already ended is left as it is.
+	EndStudyReport(ctx context.Context, arg EndStudyReportParams) (int64, error)
 	EnrichmentCacheLookup(ctx context.Context, arg EnrichmentCacheLookupParams) (int32, error)
 	FailDeckPreparationTranslation(ctx context.Context, arg FailDeckPreparationTranslationParams) (int64, error)
 	FailPreparedDeckBatchChunk(ctx context.Context, arg FailPreparedDeckBatchChunkParams) (int64, error)
@@ -238,6 +247,8 @@ type Querier interface {
 	GetMyBookMarginEvidence(ctx context.Context, arg GetMyBookMarginEvidenceParams) (GetMyBookMarginEvidenceRow, error)
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
 	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
+	GetOpenStudyReport(ctx context.Context, arg GetOpenStudyReportParams) (StudyReport, error)
+	GetOpenStudyReportOfMaterial(ctx context.Context, arg GetOpenStudyReportOfMaterialParams) (StudyReport, error)
 	GetPreparedDeckBatchChunkForUpdate(ctx context.Context, arg GetPreparedDeckBatchChunkForUpdateParams) (DeckPreparationBatchChunk, error)
 	GetPreparedDeckManifest(ctx context.Context, arg GetPreparedDeckManifestParams) (DeckPreparationManifest, error)
 	GetPreparedDeckManifestDigest(ctx context.Context, arg GetPreparedDeckManifestDigestParams) (string, error)
@@ -280,6 +291,7 @@ type Querier interface {
 	// Fluency contexts and responses (ADR 0134 §7, spec #2691). Fluency never
 	// writes study_progress or study_review_log.
 	GetStudyProgress(ctx context.Context, arg GetStudyProgressParams) (StudyProgress, error)
+	GetStudyReport(ctx context.Context, arg GetStudyReportParams) (StudyReport, error)
 	GetUnretiredDeckPreparationBySourceAnalysis(ctx context.Context, arg GetUnretiredDeckPreparationBySourceAnalysisParams) (DeckPreparation, error)
 	GetUnretiredDeckPreparationBySourceHash(ctx context.Context, arg GetUnretiredDeckPreparationBySourceHashParams) (DeckPreparation, error)
 	GetUnscopedAliasBookForUpdate(ctx context.Context, arg GetUnscopedAliasBookForUpdateParams) (string, error)
@@ -291,6 +303,8 @@ type Querier interface {
 	// every persisted word the decision addresses (GetSentenceStudyDecisions).
 	GetVocabularySentenceStudy(ctx context.Context, arg GetVocabularySentenceStudyParams) ([]GetVocabularySentenceStudyRow, error)
 	HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error)
+	// Whether the word is held, for the grade that must not land on a held word.
+	HasOpenWrongWordReport(ctx context.Context, arg HasOpenWrongWordReportParams) (bool, error)
 	HasReferenceTranslations(ctx context.Context, translationPinSha256 string) (bool, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
@@ -429,6 +443,11 @@ type Querier interface {
 	ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error)
 	ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
+	ListOpenStudyReports(ctx context.Context, arg ListOpenStudyReportsParams) ([]StudyReport, error)
+	ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenStudyReportsForBookParams) ([]StudyReport, error)
+	// The open reports of one word; for an Unsuitable-context report these are the
+	// word's retired occurrences.
+	ListOpenStudyReportsOfWord(ctx context.Context, arg ListOpenStudyReportsOfWordParams) ([]StudyReport, error)
 	// The learner's active Books associated with a Reading unit. The catalog uses
 	// this to show "In My Books" without exposing preparation state.
 	ListOwnedClassicalReadingUnits(ctx context.Context, ownerID string) ([]ListOwnedClassicalReadingUnitsRow, error)
@@ -494,6 +513,7 @@ type Querier interface {
 	// #2691).
 	// reintroducing is true while the word's own Study material has been
 	// superseded by a correction and its replacement is not yet in place.
+	// held is true while the word has an open Wrong-word report (ADR 0135 §2).
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	// The tokens of one Book's current analysis that a Study word's introducing
@@ -545,6 +565,7 @@ type Querier interface {
 	LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error)
 	LockPreparedDeckRunTranslating(ctx context.Context, arg LockPreparedDeckRunTranslatingParams) (int32, error)
 	LockStudyProgress(ctx context.Context, arg LockStudyProgressParams) (StudyProgress, error)
+	LockStudyReport(ctx context.Context, arg LockStudyReportParams) (StudyReport, error)
 	// A failed retrieval keeps any retained image and records the reason.
 	MarkCatalogEntryCoverUnavailable(ctx context.Context, arg MarkCatalogEntryCoverUnavailableParams) (int64, error)
 	MarkPreparedDeckRequiresRepreparation(ctx context.Context, arg MarkPreparedDeckRequiresRepreparationParams) error
@@ -581,6 +602,9 @@ type Querier interface {
 	RecordPreparedDeckBatchSubmitted(ctx context.Context, arg RecordPreparedDeckBatchSubmittedParams) (DeckPreparationBatchChunk, error)
 	// Records that Today has offered this many batches on the Study day. The count
 	// only grows, so showing the same offer again changes nothing.
+	// An offer is not a Study action, so it leaves updated_at, which Undo reads as
+	// the time of the last batch taken or declined, alone (a new row starts at the
+	// epoch).
 	RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatchOfferParams) error
 	RedispatchPreparedDeckTranslationOutcome(ctx context.Context, arg RedispatchPreparedDeckTranslationOutcomeParams) (DeckPreparationTranslationOutcome, error)
 	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
@@ -596,6 +620,9 @@ type Querier interface {
 	ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMaterialParams) (string, error)
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
+	// Undo of an Unsuitable-context report: the word goes back to the material,
+	// learned meaning and correction time it had. The FSRS state was never touched.
+	RestoreStudyProgressMaterial(ctx context.Context, arg RestoreStudyProgressMaterialParams) error
 	RetireDeckPreparationForSnapshot(ctx context.Context, arg RetireDeckPreparationForSnapshotParams) error
 	RetireDeckPreparationsForBook(ctx context.Context, arg RetireDeckPreparationsForBookParams) error
 	RetryPreparedDeckBatchSubmission(ctx context.Context, arg RetryPreparedDeckBatchSubmissionParams) (DeckPreparationBatchChunk, error)
@@ -636,6 +663,13 @@ type Querier interface {
 	// stay in Go; these generated :one statements own the UPDATE ... RETURNING
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
+	// Whether the learner took any Study action in the language after the instant:
+	// a graded review, a batch taken or declined, a Fluency response or another
+	// report. Times are the database's own clock.
+	StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error)
+	// Undo of an Unsuitable-context report: the word's current material, other than
+	// the one being restored, is replaced so the restored record can be current.
+	SupersedeOtherCurrentStudyMaterialOfWord(ctx context.Context, arg SupersedeOtherCurrentStudyMaterialOfWordParams) (int64, error)
 	SupersedePreparedDeckArtifact(ctx context.Context, arg SupersedePreparedDeckArtifactParams) (DeckPreparation, error)
 	// A correction left the word's introducing occurrence resolving elsewhere:
 	// its current material is replaced, so the word has none and new material is
@@ -652,12 +686,15 @@ type Querier interface {
 	TakeStudyBatchSlot(ctx context.Context, arg TakeStudyBatchSlotParams) (int, error)
 	TransitionBookDisposition(ctx context.Context, arg TransitionBookDispositionParams) (int64, error)
 	TransitionDeckPreparation(ctx context.Context, arg TransitionDeckPreparationParams) (DeckPreparation, error)
+	// Returns a replaced Study material record to be the word's current one.
+	UnsupersedeStudyMaterial(ctx context.Context, arg UnsupersedeStudyMaterialParams) (int64, error)
 	UpdateBookMetadata(ctx context.Context, arg UpdateBookMetadataParams) (UpdateBookMetadataRow, error)
 	UpdateCorpusArtifactHash(ctx context.Context, arg UpdateCorpusArtifactHashParams) error
 	UpdateExampleSentenceText(ctx context.Context, arg UpdateExampleSentenceTextParams) error
 	UpdateOpdsConnection(ctx context.Context, arg UpdateOpdsConnectionParams) (UpdateOpdsConnectionRow, error)
 	UpdatePreparedDeckOutcomeFromBatch(ctx context.Context, arg UpdatePreparedDeckOutcomeFromBatchParams) (int64, error)
 	UpdatePreparedDeckRunTranslationRunning(ctx context.Context, arg UpdatePreparedDeckRunTranslationRunningParams) (DeckPreparationRun, error)
+	UpdateStudyProgressDue(ctx context.Context, arg UpdateStudyProgressDueParams) error
 	UpdateStudyProgressMemory(ctx context.Context, arg UpdateStudyProgressMemoryParams) error
 	UpsertBookDisposition(ctx context.Context, arg UpsertBookDispositionParams) error
 	UpsertCatalogueEntry(ctx context.Context, arg UpsertCatalogueEntryParams) error
