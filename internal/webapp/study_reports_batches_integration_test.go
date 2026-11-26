@@ -37,6 +37,7 @@ func TestStudyReportingANewWordLeavesItUnintroducedAndOutOfLaterBatches(t *testi
 	assert.NotContains(t, s.studiedLemmas(), "baum", "the held new word has no Study progress")
 	assert.Len(t, s.progress(), 9)
 	assert.Empty(t, s.reviewLog(baum.ID))
+	assert.Contains(t, s.page(), "1 word is held because you reported it.", "the held new word is counted without Study progress")
 
 	s.gradeAll()
 	assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Offered: 1, Taken: 1}, s.ledger())

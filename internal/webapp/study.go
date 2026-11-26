@@ -169,15 +169,32 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 	return nil
 }
 
-// studyHeldCount is how many words an open Wrong-word report holds.
-func studyHeldCount(progress []domain.StudyProgress) int {
-	held := 0
+// studyHeldCount is how many words an open Wrong-word report holds, read
+// from the open reports rather than Study progress: a new word reported on its
+// introduction card has no Study progress left (ADR 0135 §2). The open reports
+// are few, so the read stays bounded.
+func (h *Handler) studyHeldCount(ctx context.Context, owner, language string) (int, error) {
+	reports, err := h.services.Store.Study.ListOpenStudyReports(ctx, owner, language, domain.StudyReportWrongWord)
+	if err != nil {
+		return 0, err
+	}
+	held := map[domain.StudyIdentity]struct{}{}
+	for _, identity := range domain.StudyHeldIdentities(reports) {
+		held[identity] = struct{}{}
+	}
+	return len(held), nil
+}
+
+// studyRepeatingCount is how many words are still in learning or relearning
+// once no card is due: they come back later today.
+func studyRepeatingCount(progress []domain.StudyProgress) int {
+	repeating := 0
 	for _, item := range progress {
-		if item.Held {
-			held++
+		if !item.Withdrawn && !item.Held && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
+			repeating++
 		}
 	}
-	return held
+	return repeating
 }
 
 func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
@@ -193,7 +210,9 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	}
 	today := domain.StudyFinishLine(progress, now)
 	view.Remaining, view.Finished = today.Remaining, today.Finished
-	view.Held = studyHeldCount(progress)
+	if view.Held, err = h.studyHeldCount(ctx, owner, view.Language); err != nil {
+		return err
+	}
 	if err := h.noteCorrections(ctx, owner, view, progress, now); err != nil {
 		return err
 	}
@@ -205,11 +224,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	case !errors.Is(err, domain.ErrNotFound):
 		return err
 	}
-	for _, item := range progress {
-		if !item.Withdrawn && !item.Held && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
-			view.Repeating++
-		}
-	}
+	view.Repeating = studyRepeatingCount(progress)
 	if !today.Finished {
 		// New words come only after the due reviews are answered.
 		return nil
