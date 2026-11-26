@@ -46,7 +46,9 @@ type studyPageView struct {
 	// correction; Withdrawn names the words a correction left with no valid
 	// occurrence. Their progress is kept.
 	Reintroducing int
-	Withdrawn     []string
+	// Held is how many words are held by an open Wrong-word report.
+	Held      int
+	Withdrawn []string
 	// WaitingForSentence names the words a correction left with valid
 	// occurrences but no usable sentence yet, so their replacement material
 	// could not be prepared. They stay out of Today, and return when the
@@ -167,6 +169,17 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 	return nil
 }
 
+// studyHeldCount is how many words an open Wrong-word report holds.
+func studyHeldCount(progress []domain.StudyProgress) int {
+	held := 0
+	for _, item := range progress {
+		if item.Held {
+			held++
+		}
+	}
+	return held
+}
+
 func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
 	ctx, store, now := r.Context(), h.services.Store.Study, h.now()
 	counts, err := store.CountStudyMaterial(ctx, owner, view.Language)
@@ -180,6 +193,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	}
 	today := domain.StudyFinishLine(progress, now)
 	view.Remaining, view.Finished = today.Remaining, today.Finished
+	view.Held = studyHeldCount(progress)
 	if err := h.noteCorrections(ctx, owner, view, progress, now); err != nil {
 		return err
 	}
@@ -192,7 +206,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 		return err
 	}
 	for _, item := range progress {
-		if !item.Withdrawn && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
+		if !item.Withdrawn && !item.Held && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
 			view.Repeating++
 		}
 	}
