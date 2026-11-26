@@ -251,7 +251,11 @@ type Services struct {
 	// It is required for grading; the FSRS adapter in internal/study is the
 	// implementation.
 	StudyScheduler domain.StudyScheduler
-	Capabilities   analyzer.CapabilityProvider
+	// Dictionary is the imported dictionary a source-evidence word's Study card
+	// reads its cited entries from. It may be nil, in which case the card shows
+	// no dictionary outline.
+	Dictionary   enrichment.LexicalProvider
+	Capabilities analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
 	// the Reading store, PreparedDeck, and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service

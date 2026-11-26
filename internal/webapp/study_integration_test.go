@@ -139,6 +139,8 @@ type studyHarnessOptions struct {
 	// evidence is a source-evidence language's dictionary, translations and pass
 	// gate; nil for a modern-language harness.
 	evidence func(store *persistence.PostgresStore) *study.SourceEvidence
+	// dictionary is the lexicon the card reads its cited entries from.
+	dictionary enrichment.LexicalProvider
 }
 
 func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarness {
@@ -175,7 +177,7 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
-		Analysis: analysis.NewService(store.Pool(), nil), Capabilities: options.capabilities,
+		Analysis: analysis.NewService(store.Pool(), nil), Capabilities: options.capabilities, Dictionary: options.dictionary,
 		Study: studyService, StudyScheduler: study.NewScheduler(), Clock: clock.Func(), SessionLifetime: time.Hour,
 	})
 	owner := createAccount(t, ctx, store, "study-learner", "study-password")
