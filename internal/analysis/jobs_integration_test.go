@@ -579,6 +579,7 @@ func TestBrowseCountsRebuildWorkerRebuildsCurrentBookDurably(t *testing.T) {
 	var readyRun string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&readyRun))
 	assert.Equal(t, runID, readyRun)
+	assert.Equal(t, 1, studyPlanJobs(t, ctx, pool, owner.ID, "de"), "the rebuild queues Study planning in its own transaction")
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
 	require.NoError(t, err)
 	assert.Empty(t, page.Rows, "fixture has an empty eligible corpus, but the rebuild still publishes readiness")
@@ -717,6 +718,7 @@ func TestEmptyAnalysisPublicationAtomicallyPublishesReadyBrowseCounts(t *testing
 	var readyRun string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&readyRun))
 	assert.Equal(t, runID, readyRun)
+	assert.Equal(t, 1, studyPlanJobs(t, ctx, pool, owner.ID, "de"), "publication queues Study planning in the publishing transaction")
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
 	require.NoError(t, err)
 	assert.Empty(t, page.Rows)
@@ -2566,4 +2568,12 @@ func TestAnalysisRetrySurfacesSnapshotArgsFailure(t *testing.T) {
 		_, retryErr := service.Retry(ctx, owner.ID, completed.ID)
 		require.ErrorContains(t, retryErr, "source_content_revisions")
 	})
+}
+
+// studyPlanJobs counts the waiting Study planning jobs for a learner's language.
+func studyPlanJobs(t *testing.T, ctx context.Context, pool *pgxpool.Pool, owner, language string) int {
+	t.Helper()
+	var n int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM river_job WHERE kind='study_plan_preparation' AND state IN ('available','pending','retryable','scheduled','running') AND args->>'owner_id'=$1 AND args->>'language'=$2`, owner, language).Scan(&n))
+	return n
 }

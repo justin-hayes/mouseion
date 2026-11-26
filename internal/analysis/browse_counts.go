@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 )
@@ -65,6 +66,9 @@ func (w *BrowseCountsRebuildWorker) Work(ctx context.Context, job *river.Job[Bro
 	}
 	if !stillCurrent {
 		return nil // rollback the candidate; a later reconciliation queues the current identity
+	}
+	if err := study.EnqueuePlanningTx(ctx, tx, a.OwnerID, language); err != nil {
+		return err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("publish rebuilt Browse counts: %w", err)

@@ -459,3 +459,47 @@ func TestStudyActionsAreProtected(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, s.post("/study/grades", url.Values{"language": {"de"}, "progress": {"x"}, "reps": {"0"}, "grade": {"hard"}}).Code, "Study has two grades")
 	assert.Empty(t, s.progress())
 }
+
+// A Browse-count rebuild (publication is covered in internal/analysis) prepares Study material with no Study
+// page ever opened, so the first open finds the first words ready.
+func TestStudyMaterialIsReadyAfterBrowseCountRebuildWithoutOpeningStudy(t *testing.T) {
+	s := newStudyHarness(t)
+	book := s.seedBook("published", testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})
+	require.Zero(t, s.planJobs(), "seeding the counts directly queues nothing")
+
+	// The Browse-count rebuild publishes the counts and queues the planning.
+	require.NoError(t, (&analysis.BrowseCountsRebuildWorker{Pool: s.store.Pool()}).Work(s.ctx, &river.Job[analysis.BrowseCountsRebuildArgs]{Args: analysis.BrowseCountsRebuildArgs{
+		OwnerID: s.owner.ID, BookID: book.ID, RunID: s.currentRun(book.ID)}}))
+	require.Equal(t, 1, s.planJobs())
+
+	require.NoError(t, s.client.Start(s.ctx))
+	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
+	testutil.Eventually(t, 60*time.Second, "the words to be prepared", func() (bool, string) {
+		return s.settled()
+	})
+	assert.Equal(t, 2, s.counts().Ready)
+	assert.Positive(t, s.provider.Calls())
+}
+
+func TestStudyPlanningIsNotQueuedForUnavailableLanguages(t *testing.T) {
+	s := newStudyHarness(t)
+	for _, language := range []string{"la", "grc", ""} {
+		tx, err := s.store.Pool().Begin(s.ctx)
+		require.NoError(t, err)
+		require.NoError(t, study.EnqueuePlanningTx(s.ctx, tx, s.owner.ID, language))
+		require.NoError(t, tx.Commit(s.ctx))
+	}
+	assert.Zero(t, s.planJobs())
+	tx, err := s.store.Pool().Begin(s.ctx)
+	require.NoError(t, err)
+	require.NoError(t, study.EnqueuePlanningTx(s.ctx, tx, s.owner.ID, "de"))
+	require.NoError(t, tx.Rollback(s.ctx))
+	assert.Zero(t, s.planJobs(), "a rolled-back publication queues nothing")
+}
+
+func (s *studyHarness) currentRun(bookID string) string {
+	s.t.Helper()
+	var runID string
+	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, s.owner.ID, bookID).Scan(&runID))
+	return runID
+}

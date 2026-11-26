@@ -24,6 +24,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/sourcecheck"
+	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -1953,7 +1954,9 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 		WHERE book_current_analyses.analysis_run_id IS DISTINCT FROM excluded.analysis_run_id`, a.OwnerID, bookID, a.SourceMaterialID, a.RunID); err != nil {
 		return fmt.Errorf("publish completed analysis: %w", err)
 	}
-	return nil
+	// Study material is prepared as soon as the analysis is published, so the
+	// first open of Study finds the first words ready.
+	return study.EnqueuePlanningTx(ctx, tx, a.OwnerID, a.Language)
 }
 
 const (
