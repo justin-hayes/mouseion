@@ -226,6 +226,17 @@ row-key shortcuts, and pinned app-wide HTMX 4.0.0 for existing enhanced flows.
 The handwritten Concordance lookup/history enhancement remains temporarily in
 this intermediate slice; a follow-up moves it to HTMX.
 
+## Study reports
+
+Owned by [ADR 0135](../adr/0135-study-reports.md) and the Study reports section
+of [`study.md`](../features/study.md).
+
+| Screen | Current/target route | Learner goal | Primary exit | Required states |
+|---|---|---|---|---|
+| Study card with Report | Shipped `GET /{language}/study` after Show answer; `POST /study/reports` | Say what is wrong with a card whose answer is shown without grading it: a **Wrong word** (the highlighted word is another word here) or an **Unsuitable context** (the word is right but the sentence does not teach it). | The next card (Wrong word), or the reported card's Undo screen (Unsuitable context) | The Report control is a native disclosure beside the grades, shown only on the answer side; both kinds are always offered, Wrong word preselected, each described in one plain sentence; optional note with a visible bound; an incomplete form shows an error page that names what happened and links back to Study; a repeated tap changes nothing more |
+| Reported card with Undo | Shipped `GET /{language}/study?reported={id}`; `POST /study/reports/{id}/undo`; `POST /study/reports/{id}/next` | See what was reported as an unsuitable context, and take it back while its card is still shown. | **Next** (the next card) or **Undo** (the word and its card return) | The reported sentence, Gloss and translation with the answer side open; **Undo** and **Next** are separate buttons that never overlap or wrap off a phone width; Next, or any other Study action, ends the offer, after which Undo is refused and no longer shown, even on Back; no new-word batch is offered behind this screen |
+| Reported words | Shipped `GET /{language}/study/reports` (`/study/reports` redirects to the Last study language); `POST /study/reports/{id}/dismiss` | See the words held because a Wrong-word report is open, and release one without a repair. | Review in Lemma review (the Book's page opened at the reported occurrence), **Dismiss**, or Back to Study | One entry per open report: word, the reported sentence with its target marked, Book (or "A Book no longer in your library"), date and note; empty state "No words are held"; Dismiss changes only the report and the word's due time; works without JavaScript and at phone width without horizontal overflow |
+
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.

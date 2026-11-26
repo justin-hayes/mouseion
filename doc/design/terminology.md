@@ -37,6 +37,19 @@ Books; neither state implies failure or urgency.
 possibility. **Campaign**, **milestone**, **destination**, and **Journey
 completion** are not primary learner-facing concepts.
 
+## Study reports
+
+Owned by [ADR 0135](../adr/0135-study-reports.md).
+
+| Canonical term | Meaning and usage | Avoid |
+|---|---|---|
+| **Report** | The control on a revealed Study card that says the card's material is wrong. A reported review is not graded. | Flag, Mark as wrong, Bury |
+| **Wrong word** | The report kind for an occurrence that belongs to another word. The word is held and gets no reviews until its occurrence is repaired in Lemma review. | Bad lemma, Error |
+| **Unsuitable context** | The report kind for a sentence that does not teach its word, for example inside an Idiom. The sentence is never used for that word again and the word comes back on the next Study day from another one. | Bad sentence, Skip |
+| **Reported words** | The page listing the words held by open Wrong-word reports. | Held words (as a destination), Reports |
+| **Held** | A word an open Wrong-word report keeps out of Today; counted in plain words ("1 word is held because you reported it"). | Suspended, Paused |
+| **Undo** | Takes back an Unsuitable-context report while its card is still shown. **Next** moves on and ends the offer. | Revert, Cancel report |
+
 ## Books and acquisition
 
 | Canonical term | Meaning and usage | Avoid |
