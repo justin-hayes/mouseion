@@ -309,7 +309,9 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 //
 // A source-evidence language's material (ADR 0138) also reads the imported
 // dictionary and the Book's passage translations, and sends its evidence-assisted
-// pass payload only while that assessment is recorded. Without a dictionary
+// pass payload only while that assessment is recorded. Its Fluency contexts run
+// that pass per occurrence and then the separate source-evidence agreement
+// variant, which is sent only while its own assessment is recorded. Without a dictionary
 // index such a word waits instead of being recorded as having no entry.
 func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec, dictionaryIndex *dictionary.Index) *study.PlanWorker {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
@@ -337,6 +339,8 @@ func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStor
 	planWorker := study.AddPlanWorker(workers)
 	study.AddFluencyWorker(workers, store, enricher, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementPayload, language, codec)
+	}, evidence, func(language string) error {
+		return assessments.MaySend(enrichment.FluencyAgreementSourceEvidencePayload, language, codec)
 	})
 	return planWorker
 }
