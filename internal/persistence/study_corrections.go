@@ -1,9 +1,11 @@
 package persistence
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -95,6 +97,10 @@ func (s *PostgresStore) studySourceOccurrence(ctx context.Context, owner string,
 	if err != nil {
 		return nil, fmt.Errorf("list study source tokens: %w", err)
 	}
+	// The introducing occurrence itself outranks a token found by its locator.
+	slices.SortStableFunc(rows, func(a, b sqlcgen.ListStudySourceTokensRow) int {
+		return cmp.Compare(studySourceRank(a, source), studySourceRank(b, source))
+	})
 	for _, row := range rows {
 		if !studySourceTokenResolves(row, identity, term) {
 			continue
@@ -109,6 +115,14 @@ func (s *PostgresStore) studySourceOccurrence(ctx context.Context, owner string,
 		}
 	}
 	return nil, nil
+}
+
+// studySourceRank is 0 for the source's own token and 1 for one found by locator.
+func studySourceRank(row sqlcgen.ListStudySourceTokensRow, source domain.StudyOccurrenceRef) int {
+	if row.AnalysisRunID == source.AnalysisRunID && row.SentenceOrdinal == source.SentenceOrdinal && row.TokenOrdinal == source.TokenOrdinal {
+		return 0
+	}
+	return 1
 }
 
 // studySourceTokenResolves applies the concordance's lemma match to a token: it
