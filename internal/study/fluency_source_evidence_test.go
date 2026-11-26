@@ -117,9 +117,8 @@ func TestSourceEvidenceFluencySendsNothingWhileEitherAssessmentIsNotRecorded(t *
 		"pass": func(w *FluencyWorker) {
 			w.Evidence.MaySend = func(string) error { return enrichment.ErrProviderAssessmentNotRecorded }
 		},
-		"no dictionary": func(w *FluencyWorker) { w.Evidence.Lexical = nil },
-		"no evidence":   func(w *FluencyWorker) { w.Evidence = nil },
-		"no gate":       func(w *FluencyWorker) { w.MaySendAgreement = nil },
+		"no evidence": func(w *FluencyWorker) { w.Evidence = nil },
+		"no gate":     func(w *FluencyWorker) { w.MaySendAgreement = nil },
 	}
 	for name, gate := range gates {
 		t.Run(name, func(t *testing.T) {
@@ -133,6 +132,26 @@ func TestSourceEvidenceFluencySendsNothingWhileEitherAssessmentIsNotRecorded(t *
 			assert.Empty(t, store.recorded)
 		})
 	}
+}
+
+func TestSourceEvidenceFluencyWaitsForAMissingDictionary(t *testing.T) {
+	worker, store, enricher, _ := newSourceEvidenceFluencyFixture(t)
+	worker.Evidence.Lexical = nil
+	assert.True(t, isSnooze(fluencyWork(worker)), "a missing dictionary waits; it is never an answer")
+	worker.Evidence.Lexical = &greekLexicon{}
+	assert.True(t, isSnooze(fluencyWork(worker)), "a dictionary with no entry yet waits too")
+	assert.Empty(t, enricher.passes)
+	assert.Empty(t, store.recorded)
+}
+
+func TestSourceEvidenceFluencyDoesNotLookUpLearnedSensesOnAnotherPin(t *testing.T) {
+	worker, store, enricher, _ := newSourceEvidenceFluencyFixture(t)
+	store.progress.LearnedCitations = domain.StudyCitations{SenseIDs: []string{"n100.2"}, EntryIDs: []string{"n100"}, DictionaryPin: "lsj-pin-0"}
+
+	require.NoError(t, fluencyWork(worker))
+
+	require.NotEmpty(t, enricher.variant)
+	assert.Equal(t, []enrichment.FluencySense{{ID: "n100.2"}}, enricher.variant[0].learned, "an older pin's sense ID may name another sense now: no definition is guessed")
 }
 
 func TestSourceEvidenceFluencyNeedsTheLearnedMeaningsCitations(t *testing.T) {

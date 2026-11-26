@@ -161,10 +161,15 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	policy := cardpolicy.For(word.Language)
 	var evidence *fluencyEvidence
 	if policy.SourceEvidence {
-		var ready bool
-		if evidence, ready = w.sourceEvidence(ctx, word, policy); !ready {
-			// Nothing is sent: a gate is not recorded, a dictionary or its source
-			// is missing, or the Learned meaning cites nothing to compare.
+		var ready, wait bool
+		if evidence, ready, wait = w.sourceEvidence(ctx, word, policy); !ready {
+			if wait {
+				// A missing dictionary, or one without the source, waits like a
+				// missing provider; it is never an answer.
+				return river.JobSnooze(notConfiguredDelay)
+			}
+			// Nothing is sent: a gate is not recorded, or the Learned meaning
+			// cites nothing to compare.
 			return nil
 		}
 	} else if err := w.MaySend(word.Language); err != nil {

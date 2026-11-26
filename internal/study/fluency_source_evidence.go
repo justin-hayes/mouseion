@@ -31,35 +31,33 @@ type fluencyEvidence struct {
 	learnedSenses []enrichment.FluencySense
 }
 
-// sourceEvidence prepares a source-evidence word's evidence. It reports false,
+// sourceEvidence prepares a source-evidence word's evidence. It reports not ready,
 // and nothing is sent, when the pass or the agreement variant is not recorded
 // for the language, the dictionary or its source is missing, the lemma resolves
 // to nothing, or the Learned meaning cites no sense to compare an occurrence
 // against (ADR 0138 §4).
-func (w *FluencyWorker) sourceEvidence(ctx context.Context, word domain.StudyProgress, policy cardpolicy.Policy) (*fluencyEvidence, bool) {
+func (w *FluencyWorker) sourceEvidence(ctx context.Context, word domain.StudyProgress, policy cardpolicy.Policy) (evidence *fluencyEvidence, ready, wait bool) {
 	source := w.Evidence
-	if source == nil || source.Lexical == nil || source.MaySend == nil || w.MaySendAgreement == nil ||
-		(source.Available != nil && !source.Available(policy)) || word.LearnedCitations.Empty() {
-		return nil, false
+	if source == nil || source.MaySend == nil || w.MaySendAgreement == nil || word.LearnedCitations.Empty() ||
+		source.MaySend(word.Language) != nil || w.MaySendAgreement(word.Language) != nil {
+		return nil, false, false
 	}
-	if source.MaySend(word.Language) != nil || w.MaySendAgreement(word.Language) != nil {
-		return nil, false
+	if source.Lexical == nil || (source.Available != nil && !source.Available(policy)) {
+		return nil, false, true
 	}
 	resolution, found := sourceevidence.Resolve(ctx, source.Lexical, policy, word.CanonicalLemma, nil)
 	if !found {
-		return nil, false
+		return nil, false, true
 	}
 	senses := passSenses(policy, resolution)
 	if len(senses) == 0 || strings.TrimSpace(resolution.Pin) == "" {
-		return nil, false
+		return nil, false, true
 	}
-	learnedSenses := citedSenseDefinitions(resolution, word.LearnedCitations.SenseIDs)
+	learnedSenses := learnedSenseDefinitions(resolution, word.LearnedCitations)
 	if len(learnedSenses) == 0 {
-		// The dictionary no longer holds the senses the Learned meaning cited;
-		// there is nothing to compare an occurrence against.
-		return nil, false
+		return nil, false, true
 	}
-	return &fluencyEvidence{source: source, policy: policy, resolution: resolution, senses: senses, learned: word.LearnedCitations, learnedSenses: learnedSenses}, true
+	return &fluencyEvidence{source: source, policy: policy, resolution: resolution, senses: senses, learned: word.LearnedCitations, learnedSenses: learnedSenses}, true, false
 }
 
 // assessSourceEvidence gives one occurrence its own evidence-assisted pass, then
@@ -103,6 +101,21 @@ func (w *FluencyWorker) assessSourceEvidence(ctx context.Context, word domain.St
 // sharesEntry reports whether two sets of native entry IDs have one in common.
 func sharesEntry(a, b []string) bool {
 	return slices.ContainsFunc(a, func(id string) bool { return slices.Contains(b, id) })
+}
+
+// learnedSenseDefinitions are the Learned meaning's cited senses. On the
+// current pin their definitions are the dictionary's; on another pin the same
+// IDs may name other senses, so none is looked up and only the IDs are sent.
+// Nothing is returned when the current pin holds none of them.
+func learnedSenseDefinitions(resolution sourceevidence.Resolution, learned domain.StudyCitations) []enrichment.FluencySense {
+	if learned.DictionaryPin != resolution.Pin {
+		senses := make([]enrichment.FluencySense, 0, len(learned.SenseIDs))
+		for _, id := range learned.SenseIDs {
+			senses = append(senses, enrichment.FluencySense{ID: id})
+		}
+		return senses
+	}
+	return citedSenseDefinitions(resolution, learned.SenseIDs)
 }
 
 // citedSenseDefinitions are the cited senses the resolved entries hold, with
