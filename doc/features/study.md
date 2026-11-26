@@ -124,8 +124,12 @@ word.
   library's.
 - Preparation is demand-led and stays about one Study day's maximum offer (30
   words) ahead of the learner, so providers are not paid for words the learner
-  may never reach. It is triggered when Today is opened, when a batch is taken
-  and at the Study day rollover.
+  may never reach. It is triggered when Today is opened, when a batch is taken,
+  at the Study day rollover and when a Book's analysis is published with its
+  Browse counts, in every language Study serves, whether or not the learner has
+  opened Study for it yet. The first open is then usually instant. The window
+  is the same, so a trigger costs at most about one day's maximum offer of
+  provider calls, and nothing is sent without configuration and consent.
 - A word whose sentences all fail the sentence-quality gate, or whose meaning
   is omitted by the provider on its merits, is marked unpreparable with its
   reason and skipped. Any other provider omission is retried later.

@@ -9,12 +9,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -77,10 +79,39 @@ var planUniqueStates = []rivertype.JobState{
 // PlanWorker. It is safe to call whenever Today is opened or a batch is taken;
 // the Study-day rollover is seen by the next page load, as before.
 func (s *Service) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
-	if _, err := s.client.Insert(ctx, PlanPreparationArgs{OwnerID: owner, Language: language}, &river.InsertOpts{
+	if _, err := s.client.Insert(ctx, PlanPreparationArgs{OwnerID: owner, Language: language}, planInsertOpts()); err != nil {
+		return fmt.Errorf("enqueue study preparation planning: %w", err)
+	}
+	return nil
+}
+
+func planInsertOpts() *river.InsertOpts {
+	return &river.InsertOpts{
 		Queue: Queue, MaxAttempts: maxPreparationAttempts,
 		UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: planUniqueStates},
-	}); err != nil {
+	}
+}
+
+// planInserter is the insert-only River client that queues planning from inside
+// another package's transaction. It has no workers and no queues and never
+// connects: InsertTx writes through the caller's transaction.
+var planInserter = sync.OnceValues(func() (*river.Client[pgx.Tx], error) {
+	return river.NewClient(riverpgxv5.New(nil), &river.Config{})
+})
+
+// EnqueuePlanningTx queues Study preparation planning for the learner and
+// language in the caller's transaction, so planning is durable exactly when the
+// analysis it follows is published (ADR 0010). It queues nothing for a language
+// Study does not serve, and River does not queue a second plan while one waits.
+func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) error {
+	if language == "" || !Available(language) {
+		return nil
+	}
+	client, err := planInserter()
+	if err != nil {
+		return fmt.Errorf("create study planning inserter: %w", err)
+	}
+	if _, err := client.InsertTx(ctx, tx, PlanPreparationArgs{OwnerID: owner, Language: language}, planInsertOpts()); err != nil {
 		return fmt.Errorf("enqueue study preparation planning: %w", err)
 	}
 	return nil
