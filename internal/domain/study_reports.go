@@ -126,3 +126,16 @@ func StudyHeldDue(due, reportedAt, now time.Time) time.Time {
 	}
 	return due.Add(now.Sub(reportedAt))
 }
+
+// StudyHeldIdentities names the words the open Wrong-word reports hold. A New-
+// word batch passes them over, including a word the report left with no Study
+// progress.
+func StudyHeldIdentities(reports []StudyReport) []StudyIdentity {
+	var held []StudyIdentity
+	for _, report := range reports {
+		if report.Held() {
+			held = append(held, report.StudyIdentity)
+		}
+	}
+	return held
+}

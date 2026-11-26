@@ -67,7 +67,7 @@ func TestNextStudyBatchTakesReadyWordsInStreamOrder(t *testing.T) {
 	material[2].State = StudyMaterialUnpreparable           // c has no usable sentence
 	progress := []StudyProgress{{StudyIdentity: word("a")}} // a is already in study
 
-	batch := NextStudyBatch(ordered, material, progress, time.Now())
+	batch := NextStudyBatch(ordered, material, progress, nil, time.Now())
 
 	var lemmas []string
 	for _, item := range batch {
@@ -82,7 +82,7 @@ func TestNextStudyBatchTakesReadyWordsInStreamOrder(t *testing.T) {
 		more = append(more, StudyCandidate{StudyIdentity: word(lemma)})
 		material = append(material, StudyMaterial{ID: "m-" + lemma, StudyIdentity: word(lemma), State: StudyMaterialReady})
 	}
-	assert.Len(t, NextStudyBatch(more, material, progress, time.Now()), StudyBatchSize, "a batch holds at most ten words")
+	assert.Len(t, NextStudyBatch(more, material, progress, nil, time.Now()), StudyBatchSize, "a batch holds at most ten words")
 }
 
 func TestWithoutStudyProgressDropsWordsInStudy(t *testing.T) {

@@ -224,18 +224,18 @@ var (
 // and whose current Study material is ready fill the rest, up to
 // StudyBatchSize. A word whose material is still being prepared or is
 // unpreparable is passed over, so a batch never holds a card with missing
-// material. ordered must already be in stream order.
-func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, now time.Time) []StudyBatchWord {
+// material. A held word (an open Wrong-word report, ADR 0135 §2) is passed
+// over too: held names the identities held by a report that left no Study
+// progress, and a held word in progress is never carried over. ordered must
+// already be in stream order.
+func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, held []StudyIdentity, now time.Time) []StudyBatchWord {
 	ready := make(map[StudyIdentity]string, len(material))
 	for _, item := range material {
 		if item.State == StudyMaterialReady {
 			ready[item.StudyIdentity] = item.ID
 		}
 	}
-	inStudy := make(map[StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
+	inStudy := studyIdentitySet(progress, held)
 	batch := make([]StudyBatchWord, 0, StudyBatchSize)
 	for _, item := range StudyCarryOver(progress, now) {
 		if len(batch) == StudyBatchSize {
@@ -258,13 +258,10 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 
 // StudyBatchLookup returns the identities NextStudyBatch can fill a batch
 // with from the stream: words whose material is ready and that are not in
-// study. Only these need their place in the stream, so a store need not read
-// the other candidates.
-func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress) []StudyIdentity {
-	inStudy := make(map[StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
+// study or held. Only these need their place in the stream, so a store need not
+// read the other candidates.
+func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress, held []StudyIdentity) []StudyIdentity {
+	inStudy := studyIdentitySet(progress, held)
 	var identities []StudyIdentity
 	for _, item := range material {
 		if item.State == StudyMaterialReady && !inStudy[item.StudyIdentity] {
@@ -288,4 +285,17 @@ func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress)
 		}
 	}
 	return remaining
+}
+
+// studyIdentitySet is the words a batch cannot introduce: those in study and
+// those held by a report.
+func studyIdentitySet(progress []StudyProgress, held []StudyIdentity) map[StudyIdentity]bool {
+	set := make(map[StudyIdentity]bool, len(progress)+len(held))
+	for _, item := range progress {
+		set[item.StudyIdentity] = true
+	}
+	for _, identity := range held {
+		set[identity] = true
+	}
+	return set
 }

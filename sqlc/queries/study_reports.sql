@@ -21,6 +21,15 @@ SELECT p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminato
    AND m.state = 'ready' AND m.superseded_at IS NULL
 RETURNING *;
 
+-- name: DeleteUnreviewedStudyProgress :execrows
+-- A Wrong-word report of a word with no graded review leaves it unintroduced
+-- (ADR 0135 §2): its Study progress goes, and the report keeps naming the word
+-- (study_report.progress_id is set to null). A word with a graded review is
+-- left alone.
+DELETE FROM study_progress p
+ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('id') AND p.reps = 0
+   AND NOT EXISTS (SELECT 1 FROM study_review_log l WHERE l.owner_id = p.owner_id AND l.progress_id = p.id);
+
 -- name: GetStudyReport :one
 SELECT * FROM study_report
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id');

@@ -140,7 +140,7 @@ func TestNextStudyBatchLeadsWithTheCarryOverAndFillsFromTheStream(t *testing.T) 
 		ordered = append(ordered, StudyCandidate{StudyIdentity: identity})
 		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyIdentity: identity, State: StudyMaterialReady})
 	}
-	batch := NextStudyBatch(ordered, material, carried, now)
+	batch := NextStudyBatch(ordered, material, carried, nil, now)
 	require.Len(t, batch, StudyBatchSize, "the carry-over counts towards the batch size")
 	assert.Equal(t, "p-alt", batch[0].ProgressID)
 	assert.Equal(t, "p-neu", batch[1].ProgressID)
@@ -152,11 +152,69 @@ func TestNextStudyBatchLeadsWithTheCarryOverAndFillsFromTheStream(t *testing.T) 
 	for i := range 12 {
 		many = append(many, untouched(fmt.Sprintf("c%02d", i), berlin(11, 24, 9, i)))
 	}
-	assert.Len(t, NextStudyBatch(ordered, material, many, now), StudyBatchSize, "a large carry-over still makes one batch")
+	assert.Len(t, NextStudyBatch(ordered, material, many, nil, now), StudyBatchSize, "a large carry-over still makes one batch")
 }
 
 func TestStudyBatchIsShortOnlyWhileWordsArePreparing(t *testing.T) {
 	assert.True(t, StudyBatchIsShort(make([]StudyBatchWord, 4), 2))
 	assert.False(t, StudyBatchIsShort(make([]StudyBatchWord, 4), 0), "a short batch with nothing more coming is not explained")
 	assert.False(t, StudyBatchIsShort(make([]StudyBatchWord, StudyBatchSize), 5))
+}
+
+func batchStream(n int) (ordered []StudyCandidate, material []StudyMaterial) {
+	for i := range n {
+		identity := StudyIdentity{Language: "de", CanonicalLemma: fmt.Sprintf("w%02d", i), UPOS: "NOUN"}
+		ordered = append(ordered, StudyCandidate{StudyIdentity: identity})
+		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyIdentity: identity, State: StudyMaterialReady})
+	}
+	return ordered, material
+}
+
+func TestNextStudyBatchSkipsHeldWordsAndFillsFromTheNextCandidate(t *testing.T) {
+	now := berlin(11, 26, 9, 0)
+	ordered, material := batchStream(12)
+	held := []StudyIdentity{ordered[0].StudyIdentity, ordered[3].StudyIdentity}
+
+	batch := NextStudyBatch(ordered, material, nil, held, now)
+
+	require.Len(t, batch, StudyBatchSize, "the batch fills from the next candidates")
+	var lemmas []string
+	for _, item := range batch {
+		lemmas = append(lemmas, item.CanonicalLemma)
+	}
+	assert.Equal(t, []string{"w01", "w02", "w04", "w05", "w06", "w07", "w08", "w09", "w10", "w11"}, lemmas)
+	for _, identity := range held {
+		assert.NotContains(t, StudyBatchLookup(material, nil, held), identity, "a held word is not read from the stream")
+	}
+	assert.Len(t, StudyBatchLookup(material, nil, held), 10)
+}
+
+func TestAHeldWordIsNotCarriedOverOrWaitingToBeAnswered(t *testing.T) {
+	now := berlin(11, 26, 9, 0)
+	carried := untouched("alt", berlin(11, 24, 9, 0))
+	carried.Held = true
+	today := untouched("heute", berlin(11, 26, 5, 0))
+	today.Held = true
+	other := untouched("neu", berlin(11, 25, 9, 0))
+	all := []StudyProgress{carried, today, other}
+
+	require.Len(t, StudyCarryOver(all, now), 1, "a held word does not come back to the front of the stream")
+	assert.Equal(t, "neu", StudyCarryOver(all, now)[0].CanonicalLemma)
+	assert.Empty(t, StudyUnintroduced(all, now), "a held word does not block the next batch offer")
+	ordered, material := batchStream(2)
+	for _, word := range NextStudyBatch(ordered, material, all, nil, now) {
+		assert.NotEqual(t, "alt", word.CanonicalLemma)
+	}
+	assert.Equal(t, "p-neu", NextStudyBatch(ordered, material, []StudyProgress{func() StudyProgress { o := other; o.ID = "p-neu"; return o }(), carried}, nil, now)[0].ProgressID)
+}
+
+func TestStudyHeldIdentitiesAreTheOpenWrongWordReports(t *testing.T) {
+	a := StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "NOUN"}
+	b := StudyIdentity{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}
+	reports := []StudyReport{
+		{StudyIdentity: a, Kind: StudyReportWrongWord},
+		{StudyIdentity: b, Kind: StudyReportUnsuitableContext},
+		{StudyIdentity: b, Kind: StudyReportWrongWord, EndedAt: berlin(11, 26, 9, 0)},
+	}
+	assert.Equal(t, []StudyIdentity{a}, StudyHeldIdentities(reports))
 }

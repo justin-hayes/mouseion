@@ -97,9 +97,39 @@ func studyReportScenarios() []Scenario {
 			assert.False(t, domain.StudyCardIsDue(listed[0], due))
 			assert.Zero(t, domain.StudyFinishLine(listed, due).Remaining)
 		}},
+		{Name: "a Wrong-word report of a word with no graded review leaves it with no Study progress", Run: func(t *testing.T, h Harness) {
+			owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
+			word := introducedStudyWord(t, h, owner, studyNoun("haus"))
+			graded := gradedStudyWord(t, h, owner, studyNoun("baum"))
+
+			report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, "wrong"))
+			require.NoError(t, err)
+			assert.True(t, report.Held())
+			assert.Equal(t, word.MaterialID, report.MaterialID)
+
+			listed, err := progress.ListStudyProgress(owner, Language)
+			require.NoError(t, err)
+			require.Len(t, listed, 1, "the unreviewed word is no longer in study")
+			assert.Equal(t, graded.ID, listed[0].ID)
+			stored, err := reports.GetStudyReport(owner, report.ID)
+			require.NoError(t, err)
+			assert.True(t, stored.Open())
+			assert.Equal(t, word.StudyIdentity, stored.StudyIdentity, "the report still names the word")
+			open, err := reports.ListOpenStudyReports(owner, Language, domain.StudyReportWrongWord)
+			require.NoError(t, err)
+			assert.Equal(t, []domain.StudyIdentity{word.StudyIdentity}, domain.StudyHeldIdentities(open))
+			material, err := h.Study().GetStudyMaterial(owner, word.MaterialID)
+			require.NoError(t, err)
+			assert.Equal(t, report.Source, material.Source(), "the material the report names survives")
+
+			require.NoError(t, reports.DismissStudyReport(owner, report.ID, studyReportDay.Add(2*time.Hour)))
+			open, err = reports.ListOpenStudyReports(owner, Language, domain.StudyReportWrongWord)
+			require.NoError(t, err)
+			assert.Empty(t, open, "dismissing the report releases the word to the stream")
+		}},
 		{Name: "reporting the same material twice while a report is open yields one report", Run: func(t *testing.T, h Harness) {
 			owner, reports := h.Seeds().Owner(), h.StudyReports()
-			word := introducedStudyWord(t, h, owner, studyNoun("haus"))
+			word := gradedStudyWord(t, h, owner, studyNoun("haus"))
 			first, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, "first"))
 			require.NoError(t, err)
 			again, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, "second"))
@@ -141,8 +171,8 @@ func studyReportScenarios() []Scenario {
 		}},
 		{Name: "open reports are listed for their learner, language, kind and Book", Run: func(t *testing.T, h Harness) {
 			owner, reports := h.Seeds().Owner(), h.StudyReports()
-			haus := introducedStudyWord(t, h, owner, studyNoun("haus"))
-			hund := introducedStudyWord(t, h, owner, studyNoun("hund"))
+			haus := gradedStudyWord(t, h, owner, studyNoun("haus"))
+			hund := gradedStudyWord(t, h, owner, studyNoun("hund"))
 			first, err := reports.CreateStudyReport(owner, reportRecord(haus, domain.StudyReportWrongWord, "a"))
 			require.NoError(t, err)
 			later := reportRecord(hund, domain.StudyReportWrongWord, "b")
@@ -180,7 +210,7 @@ func studyReportScenarios() []Scenario {
 		}},
 		{Name: "ending a report releases the word and records why", Run: func(t *testing.T, h Harness) {
 			owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
-			word := introducedStudyWord(t, h, owner, studyNoun("haus"))
+			word := gradedStudyWord(t, h, owner, studyNoun("haus"))
 			report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, ""))
 			require.NoError(t, err)
 
