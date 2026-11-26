@@ -25,7 +25,7 @@ type CorrectionStore interface {
 // ReportStore adds what repairing a Wrong-word report reads and writes.
 type ReportStore interface {
 	CorrectionStore
-	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
+	StudyOccurrenceState(ctx context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error)
 	ListOpenStudyReports(ctx context.Context, owner, language string, kind domain.StudyReportKind) ([]domain.StudyReport, error)
 	ListOpenWrongWordReportsForBook(ctx context.Context, owner, bookID string) ([]domain.StudyReport, error)
 	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
@@ -123,72 +123,44 @@ func gatherEvidence(ctx context.Context, store CorrectionStore, owner string, wo
 // ReconcileReports repairs the learner's open Wrong-word reports of a language
 // that current evidence has settled (ADR 0135 §2). A held word is never due, so
 // Today's check of the next due word never reaches it; this checks each held
-// word directly. The cost is bounded by the open reports: one token lookup each,
-// never a scan of the candidates. A report whose occurrence still resolves to
-// its identity stays open, including after an Analysis update that kept it.
+// word directly, from the report alone. The cost is bounded by the open reports:
+// a few token lookups each, never a scan of the candidates or of the learner's
+// Study progress. A report whose occurrence still resolves to its identity stays
+// open, including after an Analysis update that kept it.
 func ReconcileReports(ctx context.Context, store ReportStore, owner, language string, now time.Time) error {
 	reports, err := store.ListOpenStudyReports(ctx, owner, language, domain.StudyReportWrongWord)
-	if err != nil || len(reports) == 0 {
-		return err
-	}
-	return reconcileReports(ctx, store, owner, language, reports, "", now)
-}
-
-// ReconcileBookReports does the same for the open Wrong-word reports of one
-// Book, after a Lemma decision was confirmed in it. A report the decision
-// settled ends as the decision's reason: excluded for an Occurrence exclusion,
-// corrected otherwise.
-func ReconcileBookReports(ctx context.Context, store ReportStore, owner, bookID string, excluded bool, now time.Time) error {
-	reports, err := store.ListOpenWrongWordReportsForBook(ctx, owner, bookID)
-	if err != nil || len(reports) == 0 {
-		return err
-	}
-	reason := domain.StudyReportEndCorrected
-	if excluded {
-		reason = domain.StudyReportEndExcluded
-	}
-	byLanguage := map[string][]domain.StudyReport{}
-	for _, report := range reports {
-		byLanguage[report.Language] = append(byLanguage[report.Language], report)
-	}
-	for language, group := range byLanguage {
-		if err := reconcileReports(ctx, store, owner, language, group, reason, now); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// reconcileReports checks each report's word. decided is the reason a Lemma
-// decision gives for a settled report; empty means the cause is found from the
-// evidence, as an Analysis update or the occurrence's disappearance.
-func reconcileReports(ctx context.Context, store ReportStore, owner, language string, reports []domain.StudyReport, decided domain.StudyReportEnd, now time.Time) error {
-	progress, err := store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
 		return err
 	}
-	words := make(map[string]domain.StudyProgress, len(progress))
-	for _, word := range progress {
-		words[word.ID] = word
+	return reconcileReports(ctx, store, owner, reports, now)
+}
+
+// ReconcileBookReports does the same for the open Wrong-word reports of one
+// Book, after a Lemma decision was confirmed in it. Each report ends for what
+// the evidence says of its own occurrence, so a decision about another
+// occurrence ends nothing.
+func ReconcileBookReports(ctx context.Context, store ReportStore, owner, bookID string, now time.Time) error {
+	reports, err := store.ListOpenWrongWordReportsForBook(ctx, owner, bookID)
+	if err != nil {
+		return err
 	}
+	return reconcileReports(ctx, store, owner, reports, now)
+}
+
+func reconcileReports(ctx context.Context, store ReportStore, owner string, reports []domain.StudyReport, now time.Time) error {
 	for _, report := range reports {
-		// A reported new word may have no Study progress; its report still
-		// ends, and there is nothing to re-introduce.
-		word, ok := words[report.ProgressID]
-		if !ok {
-			word = domain.StudyProgress{StudyIdentity: report.StudyIdentity, MaterialID: report.MaterialID}
-		}
-		if word.Withdrawn || word.MaterialID != report.MaterialID {
-			continue
-		}
-		if err := reconcileReport(ctx, store, owner, report, word, decided, now); err != nil {
+		if err := reconcileReport(ctx, store, owner, report, now); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func reconcileReport(ctx context.Context, store ReportStore, owner string, report domain.StudyReport, word domain.StudyProgress, decided domain.StudyReportEnd, now time.Time) error {
+// reconcileReport checks one report's occurrence. The word is the report's: its
+// identity and the material reported. A reported new word may have no Study
+// progress; its report still ends, and there is nothing to re-introduce.
+func reconcileReport(ctx context.Context, store ReportStore, owner string, report domain.StudyReport, now time.Time) error {
+	word := domain.StudyProgress{ID: report.ProgressID, StudyIdentity: report.StudyIdentity, MaterialID: report.MaterialID}
 	evidence, current, err := gatherEvidence(ctx, store, owner, word)
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil
@@ -196,25 +168,20 @@ func reconcileReport(ctx context.Context, store ReportStore, owner string, repor
 	if err != nil {
 		return err
 	}
-	if domain.ReviewStudyEvidence(evidence) == domain.StudyEvidenceNone {
-		// The occurrence still resolves to the word's identity; an Analysis
-		// update that kept it only moves the material to the new run.
-		_, err := applyEvidence(ctx, store, owner, word, evidence, current, now)
+	state, err := store.StudyOccurrenceState(ctx, owner, report.Language, evidence.Source)
+	if err != nil {
 		return err
 	}
-	reason := decided
-	if reason == "" {
-		reason = domain.StudyReportEndAnalysisUpdate
-		if _, err := store.StudyOccurrenceLocator(ctx, owner, report.Source); errors.Is(err, domain.ErrNotFound) {
-			reason = domain.StudyReportEndOccurrenceGone
-		} else if err != nil {
-			return err
-		}
+	action := domain.ReviewStudyEvidence(evidence)
+	if state.Present && action == domain.StudyEvidenceNone {
+		// The occurrence still resolves to the word's identity; an Analysis
+		// update that kept it only moves the material to the new run.
+		return ignoreMissing(applyOnly(ctx, store, owner, word, evidence, current, now))
 	}
 	// The report ends first: the word is due again at the start of the next
 	// Study day, and is then re-introduced, or withdrawn when no valid
 	// occurrence is left, with its progress kept.
-	if err := store.EndStudyReport(ctx, owner, report.ID, reason, now); err != nil {
+	if err := store.EndStudyReport(ctx, owner, report.ID, state.EndReason(), now); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return nil
 		}
@@ -223,6 +190,26 @@ func reconcileReport(ctx context.Context, store ReportStore, owner string, repor
 	if word.ID == "" {
 		return nil
 	}
-	_, err = applyEvidence(ctx, store, owner, word, evidence, current, now)
+	if action == domain.StudyEvidenceNone {
+		// The occurrence left the library but its identity resolves elsewhere.
+		if len(evidence.Valid) == 0 {
+			return ignoreMissing(store.SetStudyWordWithdrawn(ctx, owner, word.ID, true, now))
+		}
+		return ignoreMissing(store.SupersedeStudyMaterial(ctx, owner, word.MaterialID))
+	}
+	return ignoreMissing(applyOnly(ctx, store, owner, word, evidence, current, now))
+}
+
+// ignoreMissing drops the not-found of a word or material another request
+// already changed.
+func ignoreMissing(err error) error {
+	if errors.Is(err, domain.ErrNotFound) {
+		return nil
+	}
+	return err
+}
+
+func applyOnly(ctx context.Context, store CorrectionStore, owner string, word domain.StudyProgress, evidence domain.StudyEvidence, current domain.StudyMaterial, now time.Time) error {
+	_, err := applyEvidence(ctx, store, owner, word, evidence, current, now)
 	return err
 }

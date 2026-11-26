@@ -116,6 +116,8 @@ func TestStudyAnalysisUpdateEndsAReportOnlyWhenTheOccurrenceChangesIdentity(t *t
 	assert.True(t, s.reportOf(id).Open())
 	assert.True(t, s.word("haus").Held)
 	assert.Equal(t, newRun, s.material(s.word("haus").MaterialID).AnalysisRunID, "the held word's material follows the occurrence")
+	review := getAs(t, s.h, "/reading/books/"+bookID+"/lemma-review?form=haus", s.cookies).Body.String()
+	assert.Equal(t, 1, strings.Count(review, "Reported as a wrong word in Study."), "the marker follows the occurrence into the new run")
 
 	// An update that gives the occurrence another lemma ends it.
 	s.republish(bookID, "hof", sentence+10)
@@ -134,4 +136,59 @@ func TestStudyOccurrenceThatDisappearsEndsTheReport(t *testing.T) {
 	require.NoError(t, err)
 	s.page()
 	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
+}
+
+func TestStudyRemovingTheBookEndsTheReportAsOccurrenceGone(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID, word, _ := s.reportedHaus(3)
+	id := s.openReports()[0].ID
+	// Another Book keeps German the learner's active Study language.
+	s.seedBook("library", testutil.CorpusWord{Lemma: "tisch", UPOS: "NOUN", Occurrences: 2})
+
+	_, err := s.store.Pool().Exec(s.ctx, `INSERT INTO book_membership(owner_id, book_id, state, removed_at) VALUES ($1, $2, 'removed', now())
+		ON CONFLICT (owner_id, book_id) DO UPDATE SET state = 'removed', removed_at = now()`, s.owner.ID, bookID)
+	require.NoError(t, err)
+	s.page()
+	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
+}
+
+func TestStudyOccurrenceRemovedInANewRunEndsTheReportAsGoneNotAsAnUpdate(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID, word, _ := s.reportedHaus(3)
+	id := s.openReports()[0].ID
+	newRun := s.republish(bookID, "")
+	s.page()
+	source := s.material(s.word("haus").MaterialID)
+	require.Equal(t, newRun, source.AnalysisRunID)
+
+	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
+		s.owner.ID, newRun, source.SentenceOrdinal, source.TokenOrdinal)
+	require.NoError(t, err)
+	s.page()
+	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
+}
+
+func TestStudyDecisionEndsOnlyTheReportsItCoversForTheirOwnReason(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID := s.preparedBook(testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3}, testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 3})
+	s.introduceAllGotIt()
+	s.clock.Advance(24 * time.Hour)
+	haus, buch := s.word("haus"), s.word("buch")
+	require.Equal(t, http.StatusSeeOther, s.report(haus, "wrong_word", "").Code)
+	require.Equal(t, http.StatusSeeOther, s.report(buch, "wrong_word", "").Code)
+	var hausReport, buchReport string
+	for _, report := range s.openReports() {
+		if report.CanonicalLemma == "haus" {
+			hausReport = report.ID
+		} else {
+			buchReport = report.ID
+		}
+	}
+
+	// An Analysis update gives buch's occurrence another lemma, unseen so far.
+	s.republish(bookID, "hof", s.material(buch.MaterialID).SentenceOrdinal)
+	// Correcting haus does not decide buch: its report ends for its own cause.
+	s.decide(bookID, "haus", s.material(haus.MaterialID).SentenceOrdinal+10, "correct", "hof")
+	assert.Equal(t, domain.StudyReportEndCorrected, s.reportOf(hausReport).EndReason)
+	assert.Equal(t, domain.StudyReportEndAnalysisUpdate, s.reportOf(buchReport).EndReason)
 }

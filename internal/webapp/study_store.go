@@ -98,6 +98,10 @@ type StudyReportStore interface {
 	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
 	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	// StudyOccurrenceState says whether a reported occurrence is still in the
+	// current analysis of a Book in the library, and whether the learner
+	// excluded or corrected it.
+	StudyOccurrenceState(ctx context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error)
 }
 
 // StudyFluencyStore is the Fluency part of the Study store: the contexts of the

@@ -267,3 +267,24 @@ func (s *Store) UndoStudyReport(_ context.Context, owner, id string, now time.Ti
 	progress.UpdatedAt = now.UTC()
 	return nil
 }
+
+// StudyOccurrenceState reads the occurrence a report names: present while an
+// analyzed Book of the language holds it, with the learner's exclusion or
+// correction of it.
+func (s *Store) StudyOccurrenceState(_ context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, book := range s.books {
+		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID != source.BookID {
+			continue
+		}
+		for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, book.BookID)] {
+			if occurrence.AnalysisRunID != source.AnalysisRunID || occurrence.SentenceOrdinal != source.SentenceOrdinal || occurrence.TokenOrdinal != source.TokenOrdinal {
+				continue
+			}
+			key := fixtureLemmaCorrectionKey(owner, book.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+			return domain.StudyOccurrenceState{Present: true, Excluded: s.lemmaExclusions[key], Corrected: s.lemmaCorrections[key] != ""}, nil
+		}
+	}
+	return domain.StudyOccurrenceState{}, nil
+}

@@ -352,3 +352,41 @@ func studyReportFromRow(row sqlcgen.StudyReport) domain.StudyReport {
 	}
 	return report
 }
+
+// StudyOccurrenceState reads the occurrence a report names by key: its own
+// token in the Book's current run, or the token at its locator in a new run. It
+// is not present once the Book has left the library or the token is no longer in
+// the Book's current analysis. The cost is the one source lookup of the
+// correction check, whatever the word.
+func (s *PostgresStore) StudyOccurrenceState(ctx context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error) {
+	if !validUUID(source.BookID) || !validUUID(source.AnalysisRunID) {
+		return domain.StudyOccurrenceState{}, nil
+	}
+	q := sqlcgen.New(s.pool)
+	inLibrary, err := q.StudyBookInLibrary(ctx, sqlcgen.StudyBookInLibraryParams{Owner: owner, Book: source.BookID})
+	if err != nil {
+		return domain.StudyOccurrenceState{}, fmt.Errorf("study book in library: %w", err)
+	}
+	if !inLibrary {
+		return domain.StudyOccurrenceState{}, nil
+	}
+	rows, err := q.ListStudySourceTokens(ctx, sqlcgen.ListStudySourceTokensParams{
+		Owner: owner, Language: canonicalization.NormalizeLanguage(language), Book: source.BookID, AnalysisRun: source.AnalysisRunID,
+		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+		UnitID: source.UnitID, StartOffset: source.StartOffset, EndOffset: source.EndOffset,
+	})
+	if err != nil {
+		return domain.StudyOccurrenceState{}, fmt.Errorf("list study source tokens: %w", err)
+	}
+	if len(rows) == 0 {
+		return domain.StudyOccurrenceState{}, nil
+	}
+	// The token itself outranks one found by its locator.
+	best := rows[0]
+	for _, row := range rows[1:] {
+		if studySourceRank(row, source) < studySourceRank(best, source) {
+			best = row
+		}
+	}
+	return domain.StudyOccurrenceState{Present: true, Excluded: best.DecisionExcluded, Corrected: best.DecisionLemma.Valid && !best.DecisionExcluded}, nil
+}

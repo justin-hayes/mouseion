@@ -35,6 +35,10 @@ func (h *postgresHarness) ListRetiredStudyOccurrences(owner, progressID string) 
 	return h.store.ListRetiredStudyOccurrences(h.ctx, owner, progressID)
 }
 
+func (h *postgresHarness) StudyOccurrenceState(owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error) {
+	return h.store.StudyOccurrenceState(h.ctx, owner, language, source)
+}
+
 func (h *postgresHarness) EndStudyReport(owner, id string, reason domain.StudyReportEnd, now time.Time) error {
 	return h.store.EndStudyReport(h.ctx, owner, id, reason, now)
 }

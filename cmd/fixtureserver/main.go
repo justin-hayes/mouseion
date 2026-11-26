@@ -39,6 +39,14 @@ func main() {
 	// The Books present one German word; Study's browser journey needs a batch
 	// of several, so seed more.
 	for i, lemma := range []string{"haus", "hund"} {
+		// Each has an occurrence in the fixture Book's analysis, so a report of
+		// its Study sentence can be found in Lemma review.
+		store.SeedLemmaReviewOccurrence(domain.LemmaReviewOccurrence{
+			OwnerID: fixtures.OwnerID, BookID: fixtures.BookID, CorpusID: "fixture-corpus", AnalysisRunID: fixtures.ResultRunID,
+			SourceDocumentID: "fixture-unit", StartOffset: int64(40 + 10*i), EndOffset: int64(44 + 10*i),
+			SentenceOrdinal: int64(2 + i), TokenOrdinal: 1, Surface: lemma, RawLemma: lemma,
+			CanonicalLemma: lemma, UPOS: "NOUN", SentenceText: "Hier steht " + lemma + " im Satz.",
+		})
 		store.SeedStudyCandidate(fixtures.OwnerID, domain.StudyCandidate{
 			Language: "de", CanonicalLemma: lemma, UPOS: "NOUN",
 			PersonalOccurrences: int64(10 - i),

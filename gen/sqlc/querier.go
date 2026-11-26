@@ -667,6 +667,8 @@ type Querier interface {
 	// a graded review, a batch taken or declined, a Fluency response or another
 	// report. Times are the database's own clock.
 	StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error)
+	// Whether the Book is still an active member of the learner's library.
+	StudyBookInLibrary(ctx context.Context, arg StudyBookInLibraryParams) (bool, error)
 	// Undo of an Unsuitable-context report: the word's current material, other than
 	// the one being restored, is replaced so the restored record can be current.
 	SupersedeOtherCurrentStudyMaterialOfWord(ctx context.Context, arg SupersedeOtherCurrentStudyMaterialOfWordParams) (int64, error)

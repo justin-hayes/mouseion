@@ -173,7 +173,7 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		writeLemmaReviewError(w, err)
 		return
 	}
-	h.repairStudyReports(r, owner.ID, bookID, proposal.Action == "exclude")
+	h.repairStudyReports(r, owner.ID, bookID)
 	switch outcome.Kind {
 	case lemmareview.OutcomePreparing:
 		redirect(w, r, "/deck-preparations/"+url.PathEscape(outcome.PreparationID)+"/status")
@@ -191,11 +191,11 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 // confirmed decision repaired, so their words return to Study (ADR 0135 §2). The
 // decision is already saved; a failure here is logged, and Today's own
 // reconciliation ends the report on the next visit.
-func (h *Handler) repairStudyReports(r *http.Request, owner, bookID string, excluded bool) {
+func (h *Handler) repairStudyReports(r *http.Request, owner, bookID string) {
 	if h.services.Store.Study == nil {
 		return
 	}
-	if err := study.ReconcileBookReports(r.Context(), h.services.Store.Study, owner, bookID, excluded, h.now()); err != nil {
+	if err := study.ReconcileBookReports(r.Context(), h.services.Store.Study, owner, bookID, h.now()); err != nil {
 		log.Printf("mouseion: repair study reports after a lemma decision: %v", err)
 	}
 }
@@ -210,6 +210,13 @@ func (h *Handler) lemmaReviewReports(r *http.Request, owner, bookID string) []do
 	if err != nil {
 		log.Printf("mouseion: list study reports for lemma review: %v", err)
 		return nil
+	}
+	// An Analysis update re-publishes an occurrence in a new run, so each
+	// report is located by its place in the Book's unit, as corrections are.
+	for i, report := range reports {
+		if located, err := h.services.Store.Study.StudyOccurrenceLocator(r.Context(), owner, report.Source); err == nil {
+			reports[i].Source = located
+		}
 	}
 	return reports
 }
@@ -280,9 +287,16 @@ func yesNo(value bool) string {
 	return "no"
 }
 
-// lemmaReviewReported reports whether a Study report is of the occurrence.
+// lemmaReviewReported reports whether a Study report is of the occurrence: the
+// same place in the Book's unit when the report is located, else the same token
+// of the same run.
 func lemmaReviewReported(report domain.StudyReport, occurrence domain.LemmaReviewOccurrence) bool {
 	source := report.Source
-	return source.BookID == occurrence.BookID && source.AnalysisRunID == occurrence.AnalysisRunID &&
-		source.SentenceOrdinal == occurrence.SentenceOrdinal && source.TokenOrdinal == occurrence.TokenOrdinal
+	if source.BookID != occurrence.BookID {
+		return false
+	}
+	if source.UnitID != "" {
+		return source.UnitID == occurrence.SourceDocumentID && source.StartOffset == occurrence.StartOffset && source.EndOffset == occurrence.EndOffset
+	}
+	return source.AnalysisRunID == occurrence.AnalysisRunID && source.SentenceOrdinal == occurrence.SentenceOrdinal && source.TokenOrdinal == occurrence.TokenOrdinal
 }

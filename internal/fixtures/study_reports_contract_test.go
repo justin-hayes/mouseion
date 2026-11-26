@@ -34,6 +34,10 @@ func (h *contractHarness) ListRetiredStudyOccurrences(owner, progressID string) 
 	return h.store.ListRetiredStudyOccurrences(context.Background(), owner, progressID)
 }
 
+func (h *contractHarness) StudyOccurrenceState(owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error) {
+	return h.store.StudyOccurrenceState(context.Background(), owner, language, source)
+}
+
 func (h *contractHarness) EndStudyReport(owner, id string, reason domain.StudyReportEnd, now time.Time) error {
 	return h.store.EndStudyReport(context.Background(), owner, id, reason, now)
 }

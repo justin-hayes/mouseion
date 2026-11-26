@@ -35,6 +35,10 @@ type StudyReportStore interface {
 	EndStudyReport(owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(owner, id string, now time.Time) error
 	UndoStudyReport(owner, id string, now time.Time) error
+	// StudyOccurrenceState says whether a reported occurrence is still in the
+	// current analysis of a Book in the library, and whether the learner
+	// excluded or corrected it.
+	StudyOccurrenceState(owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error)
 }
 
 var studyReportDay = time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
@@ -206,6 +210,37 @@ func studyReportScenarios() []Scenario {
 			open, err := reports.ListOpenStudyReports(owner, Language, domain.StudyReportWrongWord)
 			require.NoError(t, err)
 			assert.Empty(t, open)
+		}},
+		{Name: "a reported occurrence is present until it is gone, and says whether the learner excluded or corrected it", Run: func(t *testing.T, h Harness) {
+			owner, reports := h.Seeds().Owner(), h.StudyReports()
+			bookID := seedReviewBook(t, h)
+			all, err := h.StudyCorrections().ListStudyOccurrences(owner, studyNoun("weg"))
+			require.NoError(t, err)
+			require.Len(t, all, 2)
+
+			state, err := reports.StudyOccurrenceState(owner, Language, all[0])
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyOccurrenceState{Present: true}, state)
+			assert.Equal(t, domain.StudyReportEndAnalysisUpdate, state.EndReason())
+			missing := all[0]
+			missing.AnalysisRunID, missing.SentenceOrdinal, missing.TokenOrdinal, missing.UnitID, missing.StartOffset, missing.EndOffset = all[0].AnalysisRunID, 98, 97, "", 0, 0
+			gone, err := reports.StudyOccurrenceState(owner, Language, missing)
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyReportEndOccurrenceGone, gone.EndReason())
+			foreign, err := reports.StudyOccurrenceState(h.Seeds().OtherOwner(), Language, all[0])
+			require.NoError(t, err)
+			assert.False(t, foreign.Present, "occurrences belong to their learner")
+
+			corrected := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(corrected, previewProposal(t, h, corrected)))
+			state, err = reports.StudyOccurrenceState(owner, Language, all[0])
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyReportEndCorrected, state.EndReason())
+			excluded := reviewProposal(h, bookID, "exclude", "", reviewOccurrence(t, h, bookID, 1))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(excluded, previewProposal(t, h, excluded)))
+			state, err = reports.StudyOccurrenceState(owner, Language, all[1])
+			require.NoError(t, err)
+			assert.Equal(t, domain.StudyReportEndExcluded, state.EndReason())
 		}},
 		{Name: "dismissing a Wrong-word report moves the word's due time later by the time it was held", Run: func(t *testing.T, h Harness) {
 			owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
