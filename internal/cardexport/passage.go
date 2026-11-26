@@ -2,10 +2,10 @@ package cardexport
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/classical"
+	"github.com/justin-hayes/mouseion/internal/sourceevidence"
 )
 
 // The Ancient Greek default card shows the pinned reference-translation
@@ -48,48 +48,7 @@ func passageContextLabel(pin, citation string) (string, error) {
 
 // resolvePassage returns the passage text, its citation label and the pin for a
 // representative sentence, or empty values when the card must show no English.
-// Every cited section must have a translation; a single missing key withholds
-// the whole passage, never a partial one.
 func resolvePassage(citations []string, translations map[string]string, pin string) (text, citation, sourcePin string) {
-	if strings.TrimSpace(pin) == "" || len(citations) == 0 || len(translations) == 0 {
-		return "", "", ""
-	}
-	// Every segment whose Citation equals or contains a touched one is shown
-	// (ADR 0101): a 1.2 translation covers a sentence touching 1.2.3.
-	shown := map[string]struct{}{}
-	for _, section := range citations {
-		if !collectSegments(section, translations, shown) {
-			return "", "", ""
-		}
-	}
-	keys := make([]string, 0, len(shown))
-	for key := range shown {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		order, err := classical.CompareCitations(keys[i], keys[j])
-		if err != nil {
-			return keys[i] < keys[j]
-		}
-		return order < 0
-	})
-	sections := make([]string, 0, len(keys))
-	for _, key := range keys {
-		sections = append(sections, strings.TrimSpace(translations[key]))
-	}
-	return strings.Join(sections, " "), classical.FormatCitationRange(keys), pin
-}
-
-// collectSegments adds every segment key that equals or contains section and
-// reports whether there is at least one.
-func collectSegments(section string, translations map[string]string, shown map[string]struct{}) bool {
-	found := false
-	for key, translation := range translations {
-		if strings.TrimSpace(translation) == "" || !classical.CitationContains(key, section) {
-			continue
-		}
-		shown[key] = struct{}{}
-		found = true
-	}
-	return found
+	passage := sourceevidence.ResolvePassage(cardpolicy.Policy{Translations: cardpolicy.TranslationPerseus}, citations, translations, pin)
+	return passage.Text, passage.Citation, passage.Pin
 }

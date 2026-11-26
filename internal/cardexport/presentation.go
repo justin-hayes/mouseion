@@ -15,6 +15,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/sourceevidence"
 	"github.com/justin-hayes/mouseion/internal/textmatch"
 )
 
@@ -381,7 +382,8 @@ func applyPassageContext(entry *Entry, projection CandidateProjection) {
 	if !ok {
 		return
 	}
-	entry.PassageContext, entry.PassageCitation, entry.PassagePin = resolvePassage(sentence.Citations, projection.ReferenceTranslations, projection.ReferencePin)
+	passage := sourceevidence.ResolvePassage(cardpolicy.For(entry.Language), sentence.Citations, projection.ReferenceTranslations, projection.ReferencePin)
+	entry.PassageContext, entry.PassageCitation, entry.PassagePin = passage.Text, passage.Citation, passage.Pin
 }
 
 // bindFrozenCacheKeys gives an externally enriched manifest its exact cache
