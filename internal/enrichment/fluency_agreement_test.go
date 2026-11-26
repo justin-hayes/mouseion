@@ -145,3 +145,100 @@ func TestEnrichFluencyAgreement(t *testing.T) {
 		assert.NotErrorIs(t, err, ErrExternalNotConfigured)
 	})
 }
+
+func sourceEvidenceFluencyRequest() TranslationRequest {
+	request := fluencyRequest()
+	request.Language, request.CanonicalLemma, request.TargetWord = "grc", "λόγος", "λόγον"
+	request.RequireFluencyAgreement = false
+	request.RequireSourceEvidenceFluencyAgreement = true
+	request.LearnedSenses = []FluencySense{{ID: "n100.1", Definition: "word"}}
+	request.ContextSenses = []FluencySense{{ID: "n100.2", Definition: "account"}, {ID: "n200.1", Definition: "reason"}}
+	return request
+}
+
+func TestSourceEvidenceFluencyAgreementRequestSendsBothSidesCitedSenses(t *testing.T) {
+	body, err := passCodec(t).EncodeRequest(sourceEvidenceFluencyRequest())
+	require.NoError(t, err)
+	var request struct {
+		Messages []struct {
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(body, &request))
+	require.Len(t, request.Messages, 2)
+	assert.Equal(t, fluencyAgreementSourceEvidenceSystemPrompt, request.Messages[0].Content)
+
+	var payload map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal([]byte(request.Messages[1].Content), &payload))
+	var fields []string
+	for field := range payload {
+		fields = append(fields, field)
+	}
+	assert.ElementsMatch(t, FluencyAgreementSourceEvidencePayloadFields(), fields, "the payload is exactly the variant's field set")
+	assert.JSONEq(t, `[{"sense_id":"n100.1","definition":"word"}]`, string(payload["learned_senses"]))
+	assert.JSONEq(t, `[{"sense_id":"n100.2","definition":"account"},{"sense_id":"n200.1","definition":"reason"}]`, string(payload["context_senses"]))
+	assert.JSONEq(t, `"to go"`, string(payload["learned_meaning"]))
+}
+
+func TestSourceEvidenceFluencyAgreementRequestNeedsBothSidesSenses(t *testing.T) {
+	for name, edit := range map[string]func(*TranslationRequest){
+		"learned": func(r *TranslationRequest) { r.LearnedSenses = nil },
+		"context": func(r *TranslationRequest) { r.ContextSenses = nil },
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := sourceEvidenceFluencyRequest()
+			edit(&request)
+			_, err := passCodec(t).EncodeRequest(request)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestModernFluencyAgreementContractIsNotTheVariants(t *testing.T) {
+	assert.Equal(t, "fluency-agreement-v2", passCodec(t).FluencyAgreementPromptContract())
+	assert.Equal(t, []string{"item_id", "language", "target_language", "canonical_lemma", "upos", "target_word", "example_sentence", "learned_meaning"}, FluencyAgreementPayloadFields())
+	assert.NotEqual(t, passCodec(t).FluencyAgreementPromptContract(), passCodec(t).FluencyAgreementSourceEvidencePromptContract())
+}
+
+func TestSourceEvidenceFluencyAgreementDecodesLikeTheModernAnswer(t *testing.T) {
+	body := fluencyEnvelope(t, `{"item_id":"f1","reason":"different-meaning","gloss":"account","sentence_translation":"An account.","sentence_translation_targets":["account"]}`)
+	response, err := passCodec(t).DecodeResponse(sourceEvidenceFluencyRequest(), body)
+	require.NoError(t, err)
+	assert.Equal(t, FluencyReasonDifferentMeaning, response.FluencyReason)
+}
+
+func TestSourceEvidenceFluencyAgreementPayloadIsRefusedUntilRecorded(t *testing.T) {
+	for _, language := range []string{"grc", "la", "de"} {
+		require.ErrorIs(t, ProviderAssessments().MaySend(FluencyAgreementSourceEvidencePayload, language, passCodec(t)), ErrProviderAssessmentNotRecorded, language)
+	}
+	recorded := ProviderAssessmentSet{{
+		Kind: FluencyAgreementSourceEvidencePayload, Language: "grc", Provider: passCodec(t).ProviderName(),
+		PromptVersion: passCodec(t).FluencyAgreementSourceEvidencePromptContract(), Fields: FluencyAgreementSourceEvidencePayloadFields(),
+		Ticket: "test", Recorded: true,
+	}}
+	require.NoError(t, recorded.MaySend(FluencyAgreementSourceEvidencePayload, "grc", passCodec(t)), "a test-recorded assessment opens the gate")
+	require.ErrorIs(t, recorded.MaySend(FluencyAgreementSourceEvidencePayload, "la", passCodec(t)), ErrProviderAssessmentNotRecorded, "for its own language alone")
+	require.ErrorIs(t, recorded.MaySend(FluencyAgreementPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded, "the modern kind is not covered by the variant's record")
+	drifted := recorded
+	drifted[0].Fields = append([]string{"x"}, drifted[0].Fields...)
+	require.ErrorIs(t, drifted.MaySend(FluencyAgreementSourceEvidencePayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
+}
+
+func TestEnrichSourceEvidenceFluencyAgreement(t *testing.T) {
+	candidate := Candidate{Language: "grc", CanonicalLemma: "λόγος", UPOS: "noun", TargetWord: "λόγον", ExampleSentence: "ὁρᾷ τὸν λόγον."}
+	learned, occurrence := []FluencySense{{ID: "n100.1", Definition: "word"}}, []FluencySense{{ID: "n100.2", Definition: "account"}}
+	provider := &contextualProvider{enabled: true, response: TranslationResponse{FluencyReason: FluencyReasonSameMeaning, Gloss: "word", SentenceTranslation: "He sees the word.", SentenceTranslationTargets: []string{"word"}}}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)
+	agreement, err := service.EnrichSourceEvidenceFluencyAgreement(context.Background(), candidate, "word", learned, occurrence)
+	require.NoError(t, err)
+	assert.True(t, agreement.Agrees())
+	require.Len(t, provider.requests, 1)
+	assert.True(t, provider.requests[0].RequireSourceEvidenceFluencyAgreement)
+	assert.False(t, provider.requests[0].RequireFluencyAgreement)
+	assert.Equal(t, learned, provider.requests[0].LearnedSenses)
+	assert.Equal(t, occurrence, provider.requests[0].ContextSenses)
+
+	notConfigured := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, &contextualProvider{enabled: false}, nil)
+	_, err = notConfigured.EnrichSourceEvidenceFluencyAgreement(context.Background(), candidate, "word", learned, occurrence)
+	require.ErrorIs(t, err, ErrExternalNotConfigured)
+}

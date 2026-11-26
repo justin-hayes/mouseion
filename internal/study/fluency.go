@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
@@ -91,6 +92,12 @@ type FluencyStore interface {
 // meaning.
 type FluencyEnricher interface {
 	EnrichFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string) (enrichment.FluencyAgreement, error)
+	// EnrichEvidenceAssistedPass is the per-item pass a source-evidence
+	// occurrence gets first, exactly as Study material does (ADR 0138 §4).
+	EnrichEvidenceAssistedPass(ctx context.Context, candidate enrichment.Candidate, passageContext string) (enrichment.EvidenceAssistedMeaning, error)
+	// EnrichSourceEvidenceFluencyAgreement is the agreement check of a
+	// source-evidence language: its payload adds both sides' cited senses.
+	EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurrence []enrichment.FluencySense) (enrichment.FluencyAgreement, error)
 }
 
 // FluencyWorker prepares one mature word's Fluency contexts per River
@@ -104,11 +111,20 @@ type FluencyWorker struct {
 	// language: its provider payload assessment is recorded and matches
 	// (ADR 0133). While it fails, nothing is transmitted.
 	MaySend func(language string) error
+	// Evidence is what a source-evidence language's contexts need besides the
+	// provider: its dictionary, its passage translations and the pass payload
+	// gate. Without it, or without MaySendAgreement, such a word sends nothing.
+	Evidence *SourceEvidence
+	// MaySendAgreement reports whether the source-evidence variant of the
+	// agreement payload may be sent for a language (ADR 0133, ADR 0138 §4). The
+	// pass's own gate is Evidence.MaySend; both must pass before any send.
+	MaySendAgreement func(language string) error
 }
 
-// AddFluencyWorker registers the worker with its dependencies.
-func AddFluencyWorker(workers *river.Workers, store FluencyStore, enricher FluencyEnricher, maySend func(language string) error) {
-	river.AddWorker(workers, &FluencyWorker{Store: store, Enricher: enricher, MaySend: maySend})
+// AddFluencyWorker registers the worker with its dependencies. evidence and
+// maySendAgreement are nil when no source-evidence language can be prepared.
+func AddFluencyWorker(workers *river.Workers, store FluencyStore, enricher FluencyEnricher, maySend func(language string) error, evidence *SourceEvidence, maySendAgreement func(language string) error) {
+	river.AddWorker(workers, &FluencyWorker{Store: store, Enricher: enricher, MaySend: maySend, Evidence: evidence, MaySendAgreement: maySendAgreement})
 }
 
 // Work prepares the word's Fluency contexts: it ranks other occurrences of the
@@ -142,7 +158,16 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if agreeing >= domain.FluencyContextsPerWord {
 		return nil
 	}
-	if err := w.MaySend(word.Language); err != nil {
+	policy := cardpolicy.For(word.Language)
+	var evidence *fluencyEvidence
+	if policy.SourceEvidence {
+		var ready bool
+		if evidence, ready = w.sourceEvidence(ctx, word, policy); !ready {
+			// Nothing is sent: a gate is not recorded, a dictionary or its source
+			// is missing, or the Learned meaning cites nothing to compare.
+			return nil
+		}
+	} else if err := w.MaySend(word.Language); err != nil {
 		// Nothing is sent. The job ends instead of waiting: opening the Study
 		// page enqueues it again once an hour, and a waiting job per hour would
 		// all run, and ask about the same occurrences, the moment the assessment
@@ -153,40 +178,52 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if err != nil {
 		return err
 	}
-	return w.askAbout(ctx, owner, word, ranked, agreeing)
+	return w.askAbout(ctx, owner, word, ranked, agreeing, evidence)
 }
 
 // askAbout asks the provider about each ranked occurrence in turn until the word
 // has its agreeing contexts or maxFluencyAsks questions are spent, storing each
 // answer. A missing provider waits; a provider failure is returned for River to
 // retry.
-func (w *FluencyWorker) askAbout(ctx context.Context, owner string, word domain.StudyProgress, ranked []sentenceChoice, agreeing int) error {
+func (w *FluencyWorker) askAbout(ctx context.Context, owner string, word domain.StudyProgress, ranked []sentenceChoice, agreeing int, evidence *fluencyEvidence) error {
 	for asked, choice := range ranked {
 		if agreeing >= domain.FluencyContextsPerWord || asked >= maxFluencyAsks {
 			break
 		}
-		agreement, err := w.Enricher.EnrichFluencyAgreement(ctx, enrichment.Candidate{
-			Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS,
-			TargetWord: choice.target, ExampleSentence: choice.sentence,
-		}, word.LearnedMeaning)
+		answer, err := w.assess(ctx, word, choice, evidence)
 		if errors.Is(err, enrichment.ErrExternalNotConfigured) {
 			return river.JobSnooze(notConfiguredDelay)
 		}
 		if err != nil {
 			return err
 		}
-		stored, err := w.record(ctx, owner, word.ID, choice, agreement)
+		stored, err := w.record(ctx, owner, word.ID, choice, answer)
 		if err != nil {
 			return err
 		}
-		if stored && agreement.Agrees() {
+		if stored && answer.Agrees() {
 			agreeing++
 		}
 	}
 	return nil
 }
 
-func (w *FluencyWorker) record(ctx context.Context, owner, progressID string, choice sentenceChoice, agreement enrichment.FluencyAgreement) (bool, error) {
+// assess asks the provider about one occurrence: a modern language's agreement
+// check, or a source-evidence language's pass and then, when the pass cites a
+// sense, its agreement variant. Both calls are one ask.
+func (w *FluencyWorker) assess(ctx context.Context, word domain.StudyProgress, choice sentenceChoice, evidence *fluencyEvidence) (fluencyAnswer, error) {
+	candidate := enrichment.Candidate{
+		Language: word.Language, CanonicalLemma: word.CanonicalLemma, UPOS: word.UPOS,
+		TargetWord: choice.target, ExampleSentence: choice.sentence,
+	}
+	if evidence == nil {
+		agreement, err := w.Enricher.EnrichFluencyAgreement(ctx, candidate, word.LearnedMeaning)
+		return fluencyAnswer{FluencyAgreement: agreement}, err
+	}
+	return w.assessSourceEvidence(ctx, word, choice, candidate, evidence)
+}
+
+func (w *FluencyWorker) record(ctx context.Context, owner, progressID string, choice sentenceChoice, agreement fluencyAnswer) (bool, error) {
 	record := domain.FluencyContextRecord{
 		ProgressID: progressID,
 		BookID:     choice.occurrence.BookID, AnalysisRunID: choice.occurrence.AnalysisRunID, CorpusID: choice.occurrence.CorpusID,
@@ -200,6 +237,7 @@ func (w *FluencyWorker) record(ctx context.Context, owner, progressID string, ch
 	record.Reason, record.Agreement = reason, reason.Agreement()
 	record.Gloss, record.SentenceTranslation = agreement.Gloss, agreement.SentenceTranslation
 	record.SentenceTranslationTargets = agreement.SentenceTranslationTargets
+	record.Cited = agreement.Cited
 	err := w.Store.RecordStudyFluencyContext(ctx, owner, record)
 	if errors.Is(err, domain.ErrFluencyContextNotStored) {
 		return false, nil
