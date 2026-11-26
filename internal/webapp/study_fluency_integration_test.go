@@ -116,7 +116,7 @@ func (s *studyHarness) openFluency() {
 
 func TestStudyFluencyPreparesUpToFiveAgreeingContextsOfDifferentForms(t *testing.T) {
 	s := newStudyHarness(t)
-	// One occurrence answers "another sense", so it is discarded.
+	// One occurrence answers "another sense"; it is kept with its reason as evidence, never shown.
 	s.provider.disagree["Mara ist nicht mit dem hauses."] = true
 	word := s.matureHaus()
 	require.True(t, domain.IsStudyMature(word))
@@ -154,6 +154,15 @@ func TestStudyFluencyPreparesUpToFiveAgreeingContextsOfDifferentForms(t *testing
 	assert.Len(t, s.provider.fluencyRequests(), domain.FluencyContextsPerWord+1, "an assessed occurrence is not asked again")
 	for _, request := range s.provider.fluencyRequests() {
 		assert.NotContains(t, request.ExampleSentence, "Tina", "a sentence of an already chosen form comes after every different form")
+	}
+
+	// A disagreeing context keeps its Gloss and translation as evidence but is
+	// never shown.
+	for _, answer := range []string{"", "?answer=1"} {
+		page := getAs(t, s.h, "/de/study"+answer, s.cookies).Body.String()
+		assert.NotContains(t, page, "Mara ist nicht mit dem hauses.")
+		assert.NotContains(t, page, "another sense")
+		assert.NotContains(t, page, "Another sense:")
 	}
 
 	// Opening the page again prepares nothing more.

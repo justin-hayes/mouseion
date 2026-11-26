@@ -145,7 +145,7 @@ var fluencyAgreementAssessment = ProviderAssessment{
 	Kind:          FluencyAgreementPayload,
 	Language:      "de",
 	Provider:      "openai-compatible",
-	PromptVersion: "fluency-agreement-v1",
+	PromptVersion: "fluency-agreement-v2",
 	Fields: []string{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "learned_meaning",
