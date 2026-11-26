@@ -4,6 +4,7 @@ package webapp
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 
@@ -12,10 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (s *studyHarness) undo(id string) *http.Response {
+func (s *studyHarness) undo(id string) *httptest.ResponseRecorder {
 	s.t.Helper()
 	response := s.post("/study/reports/"+id+"/undo", url.Values{"language": {"de"}})
-	return response.Result()
+	return response
 }
 
 func TestStudyUndoRestoresTheReportedWordAndItsCard(t *testing.T) {
@@ -34,8 +35,8 @@ func TestStudyUndoRestoresTheReportedWordAndItsCard(t *testing.T) {
 	s.waitForNewMaterial(card.CanonicalLemma, card.MaterialID)
 
 	response := s.undo(report.ID)
-	require.Equal(t, http.StatusSeeOther, response.StatusCode)
-	assert.Equal(t, "/de/study", response.Header.Get("Location"))
+	require.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/de/study", response.Header().Get("Location"))
 
 	assert.Empty(t, s.unsuitableReports(), "the report has ended")
 	ended, err := s.store.GetStudyReport(s.ctx, s.owner.ID, report.ID)
@@ -51,7 +52,7 @@ func TestStudyUndoRestoresTheReportedWordAndItsCard(t *testing.T) {
 	assert.NotContains(t, s.page(), `id="study-reported"`)
 
 	// A second tap changes nothing and is not an error.
-	assert.Equal(t, http.StatusSeeOther, s.undo(report.ID).StatusCode)
+	assert.Equal(t, http.StatusSeeOther, s.undo(report.ID).Code)
 }
 
 func TestStudyUndoIsRefusedOnceAnotherStudyActionFollowed(t *testing.T) {
@@ -68,7 +69,7 @@ func TestStudyUndoIsRefusedOnceAnotherStudyActionFollowed(t *testing.T) {
 	s.grade(other, "got-it")
 
 	response := s.undo(report.ID)
-	require.Equal(t, http.StatusSeeOther, response.StatusCode, "a refusal redirects back like a stale grade")
+	require.Equal(t, http.StatusSeeOther, response.Code, "a refusal redirects back like a stale grade")
 	require.Len(t, s.unsuitableReports(), 1, "the report stands")
 	assert.Equal(t, replaced.MaterialID, s.progressByID(card.ID).MaterialID, "nothing changed")
 }
@@ -97,5 +98,5 @@ func TestStudyUndoOfAnotherLearnersReportIsNotFound(t *testing.T) {
 	s := newStudyHarness(t)
 	s.prepared()
 	s.twoReviewsDue()
-	assert.Equal(t, http.StatusNotFound, s.undo("00000000-0000-4000-8000-000000000000").StatusCode)
+	assert.Equal(t, http.StatusNotFound, s.undo("00000000-0000-4000-8000-000000000000").Code)
 }
