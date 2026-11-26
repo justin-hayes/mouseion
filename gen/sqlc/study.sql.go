@@ -57,6 +57,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(sentence_ordinal, 0)::bigint AS sentence_ordinal,
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
+       cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
        created_at, updated_at
   FROM study_material
  WHERE owner_id = $1 AND id = $2
@@ -86,6 +87,12 @@ type GetStudyMaterialRow struct {
 	SentenceTranslation        string
 	SentenceTranslationTargets []byte
 	EvidenceFingerprint        string
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
+	PassageContext             string
+	PassageCitation            string
+	PassageTranslationPin      string
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -112,6 +119,12 @@ func (q *Queries) GetStudyMaterial(ctx context.Context, arg GetStudyMaterialPara
 		&i.SentenceTranslation,
 		&i.SentenceTranslationTargets,
 		&i.EvidenceFingerprint,
+		&i.CitedSenseIds,
+		&i.CitedEntryIds,
+		&i.DictionaryPin,
+		&i.PassageContext,
+		&i.PassageCitation,
+		&i.PassageTranslationPin,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -164,6 +177,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
        COALESCE(sentence_ordinal, 0)::bigint AS sentence_ordinal,
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
+       cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
        created_at, updated_at
   FROM study_material
  WHERE owner_id = $1 AND language = $2 AND superseded_at IS NULL
@@ -194,6 +208,12 @@ type ListCurrentStudyMaterialRow struct {
 	SentenceTranslation        string
 	SentenceTranslationTargets []byte
 	EvidenceFingerprint        string
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
+	PassageContext             string
+	PassageCitation            string
+	PassageTranslationPin      string
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -226,6 +246,12 @@ func (q *Queries) ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentS
 			&i.SentenceTranslation,
 			&i.SentenceTranslationTargets,
 			&i.EvidenceFingerprint,
+			&i.CitedSenseIds,
+			&i.CitedEntryIds,
+			&i.DictionaryPin,
+			&i.PassageContext,
+			&i.PassageCitation,
+			&i.PassageTranslationPin,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -489,8 +515,11 @@ UPDATE study_material
        target_word = $7, gloss = $8,
        sentence_translation = $9,
        sentence_translation_targets = $10::jsonb,
+       cited_sense_ids = $11::text[], cited_entry_ids = $12::text[],
+       dictionary_pin = $13, passage_context = $14,
+       passage_citation = $15, passage_translation_pin = $16,
        updated_at = now()
- WHERE owner_id = $11 AND id = $12 AND state = 'pending'
+ WHERE owner_id = $17 AND id = $18 AND state = 'pending'
 `
 
 type MarkStudyMaterialReadyParams struct {
@@ -504,6 +533,12 @@ type MarkStudyMaterialReadyParams struct {
 	Gloss                      string
 	SentenceTranslation        string
 	SentenceTranslationTargets []byte
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
+	PassageContext             string
+	PassageCitation            string
+	PassageTranslationPin      string
 	Owner                      string
 	ID                         string
 }
@@ -520,6 +555,12 @@ func (q *Queries) MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMater
 		arg.Gloss,
 		arg.SentenceTranslation,
 		arg.SentenceTranslationTargets,
+		arg.CitedSenseIds,
+		arg.CitedEntryIds,
+		arg.DictionaryPin,
+		arg.PassageContext,
+		arg.PassageCitation,
+		arg.PassageTranslationPin,
 		arg.Owner,
 		arg.ID,
 	)

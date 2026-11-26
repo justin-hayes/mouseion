@@ -117,7 +117,7 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 		}
 		item := domain.StudyProgress{
 			ID: s.nextStudyProgressIDLocked(), OwnerID: owner, StudyIdentity: material.StudyIdentity,
-			MaterialID: material.ID, IntroducedAt: now.UTC(), LearnedMeaning: material.Gloss,
+			MaterialID: material.ID, IntroducedAt: now.UTC(), LearnedMeaning: material.Gloss, LearnedCitations: material.Cited.Clone(),
 			Memory:    domain.NewStudyMemory(now),
 			CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
 		}

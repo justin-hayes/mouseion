@@ -21,6 +21,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/deploysecret"
@@ -258,7 +259,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		TempDir: cfg.acquisitionTempDir,
 	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
-	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec)
+	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -305,11 +306,35 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 // occurrence of a mature word uses the learned meaning. That payload sends the
 // learned meaning, so the worker sends nothing until its provider payload
 // assessment is recorded and matches the codec (ADR 0133).
-func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec) *study.PlanWorker {
+//
+// A source-evidence language's material (ADR 0138) also reads the imported
+// dictionary and the Book's passage translations, and sends its evidence-assisted
+// pass payload only while that assessment is recorded. Without a dictionary
+// index such a word waits instead of being recorded as having no entry.
+func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec, dictionaryIndex *dictionary.Index) *study.PlanWorker {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
-	study.AddMaterialWorker(workers, store, enricher)
-	planWorker := study.AddPlanWorker(workers)
 	assessments := enrichment.ProviderAssessments()
+	evidence := &study.SourceEvidence{
+		Translations: store,
+		MaySend: func(language string) error {
+			return assessments.MaySend(enrichment.EvidenceAssistedPassPayload, language, codec)
+		},
+	}
+	if dictionaryIndex != nil {
+		evidence.Lexical = dictionaryIndex
+		evidence.Available = func(policy cardpolicy.Policy) bool {
+			switch policy.Entries {
+			case cardpolicy.EntryLSJ:
+				return dictionaryIndex.AncientGreekLSJAvailable()
+			case cardpolicy.EntryLewisShort:
+				return dictionaryIndex.LatinLSAvailable()
+			case cardpolicy.EntryNone:
+			}
+			return false
+		}
+	}
+	study.AddMaterialWorker(workers, store, enricher, evidence)
+	planWorker := study.AddPlanWorker(workers)
 	study.AddFluencyWorker(workers, store, enricher, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementPayload, language, codec)
 	})

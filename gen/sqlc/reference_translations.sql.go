@@ -9,6 +9,31 @@ import (
 	"context"
 )
 
+const getBookTranslationPin = `-- name: GetBookTranslationPin :one
+SELECT COALESCE(ru.translation_file_sha256, '')::text AS pin
+FROM book_reading_units bru
+JOIN reading_units ru ON ru.id = bru.reading_unit_id
+WHERE bru.owner_id = $1 AND bru.book_id = $2
+  AND COALESCE(ru.translation_file_sha256, '') <> ''
+ORDER BY ru.id
+LIMIT 1
+`
+
+type GetBookTranslationPinParams struct {
+	Owner string
+	Book  string
+}
+
+// The pinned translation file a Book's reading unit imported its passage
+// translations from, empty when it has none. Study reads it to freeze a
+// representative sentence's passage with the word's material (ADR 0138).
+func (q *Queries) GetBookTranslationPin(ctx context.Context, arg GetBookTranslationPinParams) (string, error) {
+	row := q.db.QueryRow(ctx, getBookTranslationPin, arg.Owner, arg.Book)
+	var pin string
+	err := row.Scan(&pin)
+	return pin, err
+}
+
 const hasReferenceTranslations = `-- name: HasReferenceTranslations :one
 SELECT EXISTS(
   SELECT 1 FROM reference_translations WHERE translation_pin_sha256 = $1

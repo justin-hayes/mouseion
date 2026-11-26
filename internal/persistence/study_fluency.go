@@ -64,6 +64,7 @@ func (s *PostgresStore) allStudyFluencyContexts(ctx context.Context, owner, lang
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Sentence: row.Sentence, TargetWord: row.TargetWord, Gloss: row.Gloss, SentenceTranslation: row.SentenceTranslation,
 			Form:      domain.FluencyForm{Surface: row.FormSurface, Features: row.FormFeatures, Split: row.FormSplit},
+			Cited:     domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin},
 			CreatedAt: row.CreatedAt, Responses: responses[row.ID],
 		}
 		if err := json.Unmarshal(row.SentenceTranslationTargets, &item.SentenceTranslationTargets); err != nil {
@@ -182,6 +183,7 @@ func (s *PostgresStore) RecordStudyFluencyContext(ctx context.Context, owner str
 		Sentence: record.Sentence, TargetWord: record.TargetWord, Gloss: record.Gloss, SentenceTranslation: record.SentenceTranslation,
 		SentenceTranslationTargets: encoded,
 		FormSurface:                record.Form.Surface, FormFeatures: record.Form.Features, FormSplit: record.Form.Split,
+		CitedSenseIds: nonNilStrings(record.Cited.SenseIDs), CitedEntryIds: nonNilStrings(record.Cited.EntryIDs), DictionaryPin: record.Cited.DictionaryPin,
 		PerWord: domain.FluencyContextsPerWord + hidden,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {

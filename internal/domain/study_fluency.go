@@ -185,7 +185,10 @@ type FluencyContext struct {
 	SentenceTranslation        string
 	SentenceTranslationTargets []string
 	// Form is the form the context was chosen for.
-	Form      FluencyForm
+	Form FluencyForm
+	// Cited are the dictionary senses the context's Gloss cites, for a
+	// source-evidence language; they are empty for a modern language.
+	Cited     StudyCitations
 	CreatedAt time.Time
 	// LastResponseAt is when the learner last answered the context, zero when
 	// never.
@@ -257,6 +260,8 @@ type FluencyContextRecord struct {
 	Gloss, SentenceTranslation      string
 	SentenceTranslationTargets      []string
 	Form                            FluencyForm
+	// Cited are empty for a modern language.
+	Cited StudyCitations
 }
 
 // ErrFluencyContextNotStored is returned when a context was not stored because

@@ -381,6 +381,29 @@ type Passage struct {
 // Empty reports whether no passage resolved.
 func (p Passage) Empty() bool { return p.Text == "" }
 
+// TranslationStore is the resolver's seam to the installation's imported
+// passage translations. A Book's reading unit names the translation file it was
+// imported from; the store returns that file's translations by cited section and
+// the pin to record beside them, or an empty map and pin when the Book has none.
+type TranslationStore interface {
+	BookReferenceTranslations(ctx context.Context, owner, bookID string) (translations map[string]string, pin string, err error)
+}
+
+// ResolvePassageOfBook looks the Book's translations up in the store and
+// resolves the passage the citations touch, exactly as ResolvePassage does. A
+// store failure is returned; a Book with no translations, or a policy without
+// them, resolves an empty Passage.
+func ResolvePassageOfBook(ctx context.Context, store TranslationStore, policy cardpolicy.Policy, owner, bookID string, citations []string) (Passage, error) {
+	if store == nil || policy.Translations == cardpolicy.TranslationNone || len(citations) == 0 {
+		return Passage{}, nil
+	}
+	translations, pin, err := store.BookReferenceTranslations(ctx, owner, bookID)
+	if err != nil {
+		return Passage{}, err
+	}
+	return ResolvePassage(policy, citations, translations, pin), nil
+}
+
 // ResolvePassage returns the passage text, its citation label and the pin for a
 // representative sentence's citations, or an empty Passage when the policy has
 // no passage translations or the card must show no English. Every cited section

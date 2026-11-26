@@ -448,7 +448,9 @@ func restoreReportedMaterial(ctx context.Context, q *sqlcgen.Queries, owner stri
 	}
 	if err := q.RestoreStudyProgressMaterial(ctx, sqlcgen.RestoreStudyProgressMaterialParams{
 		Owner: owner, ID: progress.ID, Material: report.PreviousMaterialID, LearnedMeaning: report.PreviousLearnedMeaning,
-		CorrectedAt: pgtype.Timestamptz{Time: report.PreviousCorrectedAt.UTC(), Valid: !report.PreviousCorrectedAt.IsZero()},
+		LearnedSenseIds: nonNilStrings(report.PreviousLearnedCitations.SenseIDs), LearnedEntryIds: nonNilStrings(report.PreviousLearnedCitations.EntryIDs),
+		LearnedDictionaryPin: report.PreviousLearnedCitations.DictionaryPin,
+		CorrectedAt:          pgtype.Timestamptz{Time: report.PreviousCorrectedAt.UTC(), Valid: !report.PreviousCorrectedAt.IsZero()},
 	}); err != nil {
 		return fmt.Errorf("restore study progress: %w", err)
 	}
@@ -529,6 +531,9 @@ func studyReportFromRow(row sqlcgen.StudyReport) domain.StudyReport {
 		report.PreviousCorrectedAt = row.PreviousCorrectedAt.Time
 	}
 	report.PreviousLearnedMeaning = row.PreviousLearnedMeaning.String
+	report.PreviousLearnedCitations = domain.StudyCitations{
+		SenseIDs: row.PreviousLearnedSenseIds, EntryIDs: row.PreviousLearnedEntryIds, DictionaryPin: row.PreviousLearnedDictionaryPin.String,
+	}
 	if row.EndedAt.Valid {
 		report.EndedAt = row.EndedAt.Time
 		report.EndReason = domain.StudyReportEnd(row.EndReason.String)

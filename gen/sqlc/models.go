@@ -1130,6 +1130,9 @@ type StudyFluencyContext struct {
 	FormFeatures               string
 	FormSplit                  bool
 	CreatedAt                  time.Time
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
 }
 
 type StudyFluencyResponse struct {
@@ -1164,6 +1167,12 @@ type StudyMaterial struct {
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 	EvidenceFingerprint        string
+	CitedSenseIds              []string
+	CitedEntryIds              []string
+	DictionaryPin              string
+	PassageContext             string
+	PassageCitation            string
+	PassageTranslationPin      string
 }
 
 type StudyProgress struct {
@@ -1190,35 +1199,41 @@ type StudyProgress struct {
 	UpdatedAt            time.Time
 	CorrectedAt          pgtype.Timestamptz
 	WithdrawnReason      pgtype.Text
+	LearnedSenseIds      []string
+	LearnedEntryIds      []string
+	LearnedDictionaryPin string
 }
 
 type StudyReport struct {
-	ID                     string
-	OwnerID                string
-	Language               string
-	CanonicalLemma         string
-	Upos                   string
-	LexicalDiscriminator   string
-	ProgressID             pgtype.UUID
-	MaterialID             string
-	Kind                   string
-	Note                   string
-	BookID                 string
-	AnalysisRunID          string
-	CorpusID               string
-	SentenceOrdinal        int64
-	TokenOrdinal           int64
-	Sentence               string
-	TargetWord             string
-	Gloss                  string
-	SentenceTranslation    string
-	PreviousMaterialID     pgtype.UUID
-	PreviousCorrectedAt    pgtype.Timestamptz
-	PreviousLearnedMeaning pgtype.Text
-	CreatedAt              time.Time
-	RecordedAt             time.Time
-	EndedAt                pgtype.Timestamptz
-	EndReason              pgtype.Text
+	ID                           string
+	OwnerID                      string
+	Language                     string
+	CanonicalLemma               string
+	Upos                         string
+	LexicalDiscriminator         string
+	ProgressID                   pgtype.UUID
+	MaterialID                   string
+	Kind                         string
+	Note                         string
+	BookID                       string
+	AnalysisRunID                string
+	CorpusID                     string
+	SentenceOrdinal              int64
+	TokenOrdinal                 int64
+	Sentence                     string
+	TargetWord                   string
+	Gloss                        string
+	SentenceTranslation          string
+	PreviousMaterialID           pgtype.UUID
+	PreviousCorrectedAt          pgtype.Timestamptz
+	PreviousLearnedMeaning       pgtype.Text
+	CreatedAt                    time.Time
+	RecordedAt                   time.Time
+	EndedAt                      pgtype.Timestamptz
+	EndReason                    pgtype.Text
+	PreviousLearnedSenseIds      []string
+	PreviousLearnedEntryIds      []string
+	PreviousLearnedDictionaryPin pgtype.Text
 }
 
 type StudyReviewLog struct {

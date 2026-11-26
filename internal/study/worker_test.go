@@ -31,7 +31,9 @@ type fakeStore struct {
 	evidence     string
 	pagesRead    int
 	tokens       map[int64][]analyzer.Token
-	retired      []domain.StudyOccurrenceRef
+	// citations are the cited sections every sentence touches.
+	citations []string
+	retired   []domain.StudyOccurrenceRef
 }
 
 func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
@@ -63,7 +65,7 @@ func (s *fakeStore) ListVocabularyConcordance(_ context.Context, _, _ string, lo
 func (s *fakeStore) ListCorpusSentences(_ context.Context, _, _ string, ordinals []int64) (map[int64]analyzer.Sentence, error) {
 	result := map[int64]analyzer.Sentence{}
 	for _, ordinal := range ordinals {
-		result[ordinal] = analyzer.Sentence{Tokens: s.tokens[ordinal]}
+		result[ordinal] = analyzer.Sentence{Tokens: s.tokens[ordinal], Citations: s.citations}
 	}
 	return result, nil
 }
@@ -91,6 +93,18 @@ type fakeEnricher struct {
 	meaning  enrichment.ContextualMeaning
 	err      error
 	requests []enrichment.Candidate
+	// pass is the evidence-assisted pass answer, passErr its failure, and
+	// passRequests and passages what the pass was sent.
+	pass         enrichment.EvidenceAssistedMeaning
+	passErr      error
+	passRequests []enrichment.Candidate
+	passages     []string
+}
+
+func (e *fakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, candidate enrichment.Candidate, passage string) (enrichment.EvidenceAssistedMeaning, error) {
+	e.passRequests = append(e.passRequests, candidate)
+	e.passages = append(e.passages, passage)
+	return e.pass, e.passErr
 }
 
 func (e *fakeEnricher) EnrichExternalContextual(_ context.Context, candidate enrichment.Candidate) (enrichment.ContextualMeaning, error) {

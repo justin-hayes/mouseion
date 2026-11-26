@@ -2,9 +2,9 @@ package study
 
 import "github.com/justin-hayes/mouseion/internal/cardpolicy"
 
-// Available reports whether Study serves a study language: only those on the
-// modern-language provider route, whose card policy has a contextual Gloss to
-// anchor a learned meaning (ADR 0133, ADR 0134 §1).
+// Available reports whether Study serves a study language: its card policy's
+// Study switch is on (ADR 0138). Modern languages are on; Ancient Greek and
+// Latin are switched on only once their evidence run is recorded.
 func Available(language string) bool {
-	return !cardpolicy.For(language).SourceEvidence
+	return cardpolicy.For(language).Study
 }

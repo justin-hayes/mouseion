@@ -77,6 +77,19 @@ const (
 // configuration failures.
 var ErrInvalidTranslationResponse = errors.New("enrichment: invalid translation response")
 
+// ErrInvalidEvidenceCitation marks a provider response that cites an evidence
+// ID the request did not send, or cites one twice. Unlike a malformed answer it
+// says something about the evidence, not about the transport: the evidence-assisted
+// pass reports it as an outcome (EvidenceAssistedMeaning.InvalidCitation).
+var ErrInvalidEvidenceCitation = errors.New("enrichment: invalid evidence citation")
+
+// evidenceCitationError keeps the decode message and matches
+// ErrInvalidEvidenceCitation.
+type evidenceCitationError string
+
+func (e evidenceCitationError) Error() string      { return string(e) }
+func (evidenceCitationError) Is(target error) bool { return target == ErrInvalidEvidenceCitation }
+
 // TranslationCodec owns the provider request and response semantics shared by
 // synchronous and Batch transports. It deliberately contains no credentials,
 // endpoint, HTTP client, or durable preparation identity.
@@ -596,7 +609,7 @@ func mapContextualEvidenceHandles(input TranslationRequest, response *Translatio
 		}
 		stable, ok := handles.toEvidence[handle]
 		if !ok {
-			return errors.New("decode LLM translation: unknown evidence ID")
+			return evidenceCitationError("decode LLM translation: unknown evidence ID")
 		}
 		response.EvidenceIDs[i] = stable
 	}
@@ -1079,10 +1092,10 @@ func validateEvidenceID(id string, knownEvidence, seenEvidence map[string]struct
 		return errors.New("decode LLM translation: empty evidence ID")
 	}
 	if _, ok := knownEvidence[id]; !ok {
-		return errors.New("decode LLM translation: unknown evidence ID")
+		return evidenceCitationError("decode LLM translation: unknown evidence ID")
 	}
 	if _, duplicate := seenEvidence[id]; duplicate {
-		return errors.New("decode LLM translation: duplicate evidence ID")
+		return evidenceCitationError("decode LLM translation: duplicate evidence ID")
 	}
 	seenEvidence[id] = struct{}{}
 	return nil
