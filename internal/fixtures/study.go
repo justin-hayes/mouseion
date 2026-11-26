@@ -304,11 +304,20 @@ func (s *Store) fixtureStudyContent(owner string, identity domain.StudyIdentity)
 	if refs, err := s.ListStudyOccurrences(context.Background(), owner, identity); err == nil && len(refs) > 0 {
 		source = refs[0]
 	}
+	// The target word is the form the occurrence has, so Lemma review finds it.
+	target := identity.CanonicalLemma
+	s.mu.Lock()
+	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, source.BookID)] {
+		if occurrence.AnalysisRunID == source.AnalysisRunID && occurrence.SentenceOrdinal == source.SentenceOrdinal && occurrence.TokenOrdinal == source.TokenOrdinal {
+			target = occurrence.Surface
+		}
+	}
+	s.mu.Unlock()
 	return domain.StudyMaterialReadyContent{
 		BookID: source.BookID, AnalysisRunID: source.AnalysisRunID, CorpusID: source.CorpusID,
 		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
-		Sentence:                   "Hier steht " + identity.CanonicalLemma + " im Satz.",
-		TargetWord:                 identity.CanonicalLemma,
+		Sentence:                   "Hier steht " + target + " im Satz.",
+		TargetWord:                 target,
 		Gloss:                      "the meaning of " + identity.CanonicalLemma,
 		SentenceTranslation:        "Here " + identity.CanonicalLemma + " stands in the sentence.",
 		SentenceTranslationTargets: []string{identity.CanonicalLemma},

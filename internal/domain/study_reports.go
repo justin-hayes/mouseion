@@ -139,3 +139,25 @@ func StudyHeldIdentities(reports []StudyReport) []StudyIdentity {
 	}
 	return held
 }
+
+// StudyOccurrenceState is what current evidence says about one occurrence a
+// report names: whether it is still in the current analysis of a Book in the
+// library, and whether the learner excluded it or corrected its lemma.
+type StudyOccurrenceState struct {
+	Present, Excluded, Corrected bool
+}
+
+// EndReason is why a Wrong-word report of an occurrence that no longer resolves
+// to the word's identity ends: the occurrence is gone, the learner excluded or
+// corrected it, or an Analysis update gave it another identity.
+func (s StudyOccurrenceState) EndReason() StudyReportEnd {
+	switch {
+	case !s.Present:
+		return StudyReportEndOccurrenceGone
+	case s.Excluded:
+		return StudyReportEndExcluded
+	case s.Corrected:
+		return StudyReportEndCorrected
+	}
+	return StudyReportEndAnalysisUpdate
+}

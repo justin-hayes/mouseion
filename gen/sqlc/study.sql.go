@@ -634,3 +634,21 @@ func (q *Queries) SetStudyMaterialEvidence(ctx context.Context, arg SetStudyMate
 	}
 	return result.RowsAffected(), nil
 }
+
+const studyBookInLibrary = `-- name: StudyBookInLibrary :one
+SELECT EXISTS (SELECT 1 FROM book_membership
+                WHERE owner_id = $1 AND book_id = $2::uuid AND state = 'active')::boolean
+`
+
+type StudyBookInLibraryParams struct {
+	Owner string
+	Book  string
+}
+
+// Whether the Book is still an active member of the learner's library.
+func (q *Queries) StudyBookInLibrary(ctx context.Context, arg StudyBookInLibraryParams) (bool, error) {
+	row := q.db.QueryRow(ctx, studyBookInLibrary, arg.Owner, arg.Book)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}

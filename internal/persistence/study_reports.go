@@ -251,23 +251,26 @@ func (s *PostgresStore) currentRunOccurrences(ctx context.Context, owner string,
 }
 
 // EndStudyReport ends an open report because its occurrence was repaired or is
-// gone (domain.StudyReportEnd.Repair). It never changes the word's schedule.
-// A report that is missing, foreign or already ended is ErrNotFound.
+// gone (domain.StudyReportEnd.Repair). A repaired Wrong-word report releases its
+// word, keeping its Study progress: the word is due at the start of the next
+// Study day, to be re-introduced. A report that is missing, foreign or already
+// ended is ErrNotFound.
 func (s *PostgresStore) EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error {
 	if !reason.Repair() {
 		return fmt.Errorf("end study report: %q is not a repair", reason)
 	}
-	if !validUUID(id) {
-		return ErrNotFound
-	}
-	ended, err := sqlcgen.New(s.pool).EndStudyReport(ctx, sqlcgen.EndStudyReportParams{Owner: owner, ID: id, Now: now.UTC(), Reason: string(reason)})
-	if err != nil {
-		return fmt.Errorf("end study report: %w", err)
-	}
-	if ended == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return s.changeStudyReport(ctx, owner, id, func(ctx context.Context, q *sqlcgen.Queries, report domain.StudyReport, progress domain.StudyProgress) error {
+		if err := endStudyReport(ctx, q, owner, id, reason, now); err != nil {
+			return err
+		}
+		if report.Kind != domain.StudyReportWrongWord || progress.ID == "" {
+			return nil
+		}
+		if err := q.UpdateStudyProgressDue(ctx, sqlcgen.UpdateStudyProgressDueParams{Owner: owner, ID: progress.ID, Due: domain.NextStudyDayStart(now).UTC()}); err != nil {
+			return fmt.Errorf("move study due: %w", err)
+		}
+		return nil
+	})
 }
 
 // DismissStudyReport ends an open Wrong-word report without a repair. The
@@ -426,4 +429,42 @@ func studyReportFromRow(row sqlcgen.StudyReport) domain.StudyReport {
 		report.EndReason = domain.StudyReportEnd(row.EndReason.String)
 	}
 	return report
+}
+
+// StudyOccurrenceState reads the occurrence a report names by key: its own
+// token in the Book's current run, or the token at its locator in a new run. It
+// is not present once the Book has left the library or the token is no longer in
+// the Book's current analysis. The cost is the one source lookup of the
+// correction check, whatever the word.
+func (s *PostgresStore) StudyOccurrenceState(ctx context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error) {
+	if !validUUID(source.BookID) || !validUUID(source.AnalysisRunID) {
+		return domain.StudyOccurrenceState{}, nil
+	}
+	q := sqlcgen.New(s.pool)
+	inLibrary, err := q.StudyBookInLibrary(ctx, sqlcgen.StudyBookInLibraryParams{Owner: owner, Book: source.BookID})
+	if err != nil {
+		return domain.StudyOccurrenceState{}, fmt.Errorf("study book in library: %w", err)
+	}
+	if !inLibrary {
+		return domain.StudyOccurrenceState{}, nil
+	}
+	rows, err := q.ListStudySourceTokens(ctx, sqlcgen.ListStudySourceTokensParams{
+		Owner: owner, Language: canonicalization.NormalizeLanguage(language), Book: source.BookID, AnalysisRun: source.AnalysisRunID,
+		SentenceOrdinal: source.SentenceOrdinal, TokenOrdinal: source.TokenOrdinal,
+		UnitID: source.UnitID, StartOffset: source.StartOffset, EndOffset: source.EndOffset,
+	})
+	if err != nil {
+		return domain.StudyOccurrenceState{}, fmt.Errorf("list study source tokens: %w", err)
+	}
+	if len(rows) == 0 {
+		return domain.StudyOccurrenceState{}, nil
+	}
+	// The token itself outranks one found by its locator.
+	best := rows[0]
+	for _, row := range rows[1:] {
+		if studySourceRank(row, source) < studySourceRank(best, source) {
+			best = row
+		}
+	}
+	return domain.StudyOccurrenceState{Present: true, Excluded: best.DecisionExcluded, Corrected: best.DecisionLemma.Valid && !best.DecisionExcluded}, nil
 }

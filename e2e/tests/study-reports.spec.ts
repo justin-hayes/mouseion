@@ -45,6 +45,18 @@ test.describe('Study reports', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
 
+    // The entry opens the Book's Lemma review, which lists the report.
+    await entry.getByRole('link', { name: 'Review in Lemma review' }).click();
+    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/lemma-review\?form=/);
+    await expect(page.getByRole('heading', { level: 2, name: 'Reported in Study' })).toBeVisible();
+    await expect(page.locator('#lemma-review-study-reports')).toContainText('The highlighted word is another word here.');
+    // The reported occurrence is marked, with the note.
+    const marker = page.locator('.lemma-review-study-report');
+    await expect(marker).toHaveCount(1);
+    await expect(marker).toContainText('Reported as a wrong word in Study.');
+    await expect(marker).toContainText('The highlighted word is another word here.');
+    await page.goto('/de/study/reports');
+
     // Dismiss ends the report: the entry leaves the list and the word is no
     // longer held.
     await entry.getByRole('button', { name: 'Dismiss' }).click();

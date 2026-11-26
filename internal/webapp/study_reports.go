@@ -26,6 +26,9 @@ type studyReportEntry struct {
 	Before, Target, After string
 	Marked                bool
 	BookTitle, Date, Note string
+	// ReviewPath opens the Book's Lemma review at the reported occurrence; it
+	// is empty when the Book has left the library.
+	ReviewPath string
 }
 
 // studyReports serves /{language}/study/reports: the learner's open Wrong-word
@@ -46,12 +49,18 @@ func (h *Handler) studyReports(w http.ResponseWriter, r *http.Request) {
 				ID: report.ID, Word: lemmadisplay.Format(language, report.CanonicalLemma, report.UPOS),
 				BookTitle: titles[report.Source.BookID], Date: domain.StudyDay(report.CreatedAt), Note: report.Note,
 			}
+			if titles[report.Source.BookID] != studyReportMissingBook {
+				entry.ReviewPath = "/reading/books/" + url.PathEscape(report.Source.BookID) + "/lemma-review?form=" + url.QueryEscape(report.TargetWord)
+			}
 			entry.Before, entry.Target, entry.After, entry.Marked = markTarget(report.Sentence, report.TargetWord)
 			view.Reports = append(view.Reports, entry)
 		}
 	}
 	render(w, r, StudyReportsPage(user(r), h.csrf(w, r), view))
 }
+
+// studyReportMissingBook names a Book that has left the library.
+const studyReportMissingBook = "A Book no longer in your library"
 
 // studyReportBookTitles names the Books the reports' occurrences are in. A Book
 // that has left the library is named as such.
@@ -62,7 +71,7 @@ func (h *Handler) studyReportBookTitles(ctx context.Context, owner string, repor
 		if _, done := titles[bookID]; done {
 			continue
 		}
-		titles[bookID] = "A Book no longer in your library"
+		titles[bookID] = studyReportMissingBook
 		if book, err := h.services.Store.Reading.GetBook(ctx, owner, bookID); err == nil && strings.TrimSpace(book.Title) != "" {
 			titles[bookID] = book.Title
 		}

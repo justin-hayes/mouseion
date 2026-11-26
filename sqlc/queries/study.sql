@@ -190,3 +190,8 @@ SELECT l.analysis_run_id::text AS analysis_run_id,
     AND d.analysis_run_id = l.analysis_run_id AND d.source_document_id = s.unit_id
     AND d.start_offset = l.start_offset AND d.end_offset = l.end_offset
  WHERE l.language = sqlc.arg('language')::text;
+
+-- name: StudyBookInLibrary :one
+-- Whether the Book is still an active member of the learner's library.
+SELECT EXISTS (SELECT 1 FROM book_membership
+                WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')::uuid AND state = 'active')::boolean;

@@ -79,7 +79,8 @@ type StudyCorrectionsStore interface {
 // ListStudyProgress reports as Held. CreateStudyReport returns the open report
 // when the same material is reported twice, and domain.ErrStudyStale for a card
 // answered since it was shown. EndStudyReport ends a report whose occurrence was
-// repaired or is gone, DismissStudyReport ends a Wrong-word report without a
+// repaired or is gone, releasing a Wrong-word report's word at the start of the
+// next Study day, DismissStudyReport ends a Wrong-word report without a
 // repair and moves the word's due time by the time it was held, and
 // UndoStudyReport restores an Unsuitable-context report's word; it is
 // domain.ErrStudyStale once another Study action followed.
@@ -100,6 +101,10 @@ type StudyReportStore interface {
 	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
 	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error
+	// StudyOccurrenceState says whether a reported occurrence is still in the
+	// current analysis of a Book in the library, and whether the learner
+	// excluded or corrected it.
+	StudyOccurrenceState(ctx context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error)
 }
 
 // StudyFluencyStore is the Fluency part of the Study store: the contexts of the

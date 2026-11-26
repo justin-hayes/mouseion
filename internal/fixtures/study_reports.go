@@ -319,7 +319,8 @@ func (s *Store) progressByIDLocked(owner, id string) *domain.StudyProgress {
 }
 
 // EndStudyReport ends an open report because its occurrence was repaired or is
-// gone. A report that is missing, foreign or already ended is ErrNotFound.
+// gone. A repaired Wrong-word report releases its word, due at the start of the
+// next Study day. A report that is missing, foreign or already ended is ErrNotFound.
 func (s *Store) EndStudyReport(_ context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error {
 	if !reason.Repair() {
 		return fmt.Errorf("end study report: %q is not a repair", reason)
@@ -330,7 +331,15 @@ func (s *Store) EndStudyReport(_ context.Context, owner, id string, reason domai
 	if index < 0 {
 		return errNotFound
 	}
-	s.studyReports[index].EndedAt, s.studyReports[index].EndReason = now.UTC(), reason
+	report := &s.studyReports[index]
+	report.EndedAt, report.EndReason = now.UTC(), reason
+	if report.Kind != domain.StudyReportWrongWord {
+		return nil
+	}
+	if progress := s.progressByIDLocked(owner, report.ProgressID); progress != nil {
+		progress.Memory.Due = domain.NextStudyDayStart(now).UTC()
+		progress.UpdatedAt = now.UTC()
+	}
 	return nil
 }
 
@@ -380,4 +389,25 @@ func (s *Store) UndoStudyReport(_ context.Context, owner, id string, now time.Ti
 	progress.MaterialID, progress.LearnedMeaning, progress.CorrectedAt = report.PreviousMaterialID, report.PreviousLearnedMeaning, report.PreviousCorrectedAt
 	progress.UpdatedAt = now.UTC()
 	return nil
+}
+
+// StudyOccurrenceState reads the occurrence a report names: present while an
+// analyzed Book of the language holds it, with the learner's exclusion or
+// correction of it.
+func (s *Store) StudyOccurrenceState(_ context.Context, owner, language string, source domain.StudyOccurrenceRef) (domain.StudyOccurrenceState, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, book := range s.books {
+		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID != source.BookID {
+			continue
+		}
+		for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, book.BookID)] {
+			if occurrence.AnalysisRunID != source.AnalysisRunID || occurrence.SentenceOrdinal != source.SentenceOrdinal || occurrence.TokenOrdinal != source.TokenOrdinal {
+				continue
+			}
+			key := fixtureLemmaCorrectionKey(owner, book.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
+			return domain.StudyOccurrenceState{Present: true, Excluded: s.lemmaExclusions[key], Corrected: s.lemmaCorrections[key] != ""}, nil
+		}
+	}
+	return domain.StudyOccurrenceState{}, nil
 }

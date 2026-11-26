@@ -681,6 +681,8 @@ type Querier interface {
 	// a graded review, a batch taken or declined, a Fluency response or another
 	// report. Times are the database's own clock.
 	StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error)
+	// Whether the Book is still an active member of the learner's library.
+	StudyBookInLibrary(ctx context.Context, arg StudyBookInLibraryParams) (bool, error)
 	// Whether the material the word is reviewed in has been replaced, so a grade of
 	// its card is stale.
 	StudyMaterialIsSuperseded(ctx context.Context, arg StudyMaterialIsSupersededParams) (bool, error)

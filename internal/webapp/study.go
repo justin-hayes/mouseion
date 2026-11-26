@@ -128,6 +128,10 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 	if view.Available {
 		// Corrections are applied first, so a word whose sentence no longer
 		// belongs to it is prepared again in the same request.
+		if err := study.ReconcileReports(r.Context(), h.services.Store.Study, owner, language, h.now()); err != nil {
+			fail(w, err)
+			return
+		}
 		if err := h.reconcileStudyCorrections(r.Context(), owner, language, h.now()); err != nil {
 			fail(w, err)
 			return
