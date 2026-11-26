@@ -1,6 +1,7 @@
 # Fluency agreement payload assessment (German)
 
-Status: **pending Justin's review. Nothing is sent until it is recorded.**
+Status: **Recorded** · 2026-11-26 · Justin approved the `fluency-agreement-v2`
+payload for German, for personal use of the locally produced Study surface.
 
 Ticket: #2702 (Study: Fluency for mature words), spec #2691, ADR 0134 §7,
 ADR 0133 ("Each language needs its own provider payload assessment for each
@@ -63,23 +64,13 @@ Only `learned_meaning`. It is text the provider itself produced for the word,
 echoed back; it reveals that the learner has this word in study, which the
 existing Study material request already implies for the same word.
 
-## Proposed disposition
+## Disposition
 
-Approve for personal use of the locally produced Study surface, for German
-only, with the provider, prompt contract and field set pinned as above.
+Approved for personal use of the locally produced Study surface, for German
+only, with the provider, prompt contract (`fluency-agreement-v2`) and field set
+pinned as above. Recorded on 2026-11-26 in `fluencyAgreementAssessment`
+(`internal/enrichment/provider_assessment.go`) and proved by
+`TestFluencyAgreementAssessmentIsRecordedForGermanOnly`.
 
-## How to record it
-
-1. Review the payload above and `encodeFluencyAgreementRequest` in
-   `internal/enrichment/fluency_agreement.go`.
-2. In `internal/enrichment/provider_assessment.go`, set
-   `fluencyAgreementAssessment.Recorded` to `true` and replace its `Disposition`
-   with the recorded wording.
-3. In `internal/enrichment/fluency_agreement_test.go`, replace
-   `TestFluencyAgreementAssessmentFailsClosedUntilRecorded` with
-   `assertRecordedAssessment(t, "#2702", FluencyAgreementPayload, "de", ...)`, as
-   `TestIdiomCardAssessmentIsRecordedForItalianOnly` does for idiom cards.
-
-Until step 2, the Fluency worker ends each job, transmits nothing, and
-reads no occurrence beyond Today's own data. A changed prompt, provider or field
-set fails closed again until it is re-recorded.
+A changed prompt, provider or field set fails closed again until it is
+re-recorded, and so does any other language.

@@ -136,11 +136,15 @@ var idiomCardAssessment = ProviderAssessment{
 
 // fluencyAgreementAssessment is the disposition for the exact German Fluency
 // agreement payload: the lemma, part of speech, the word as it appears, one
-// library sentence and the learned meaning. It is NOT recorded: the payload is
-// new in #2702 and sends the learned meaning, which no recorded payload does, so
-// Justin must review doc/reviews/fluency-agreement-payload-assessment.md and
-// set Recorded before Fluency contexts are prepared. Until then the gate fails
-// closed and nothing is sent (ADR 0133).
+// library sentence and the learned meaning. Justin reviewed that payload in
+// doc/reviews/fluency-agreement-payload-assessment.md and recorded the
+// disposition on #2702, so Fluency contexts are prepared for German (ADR 0133,
+// ADR 0134 §7).
+//
+// PromptVersion and Fields are written out as the recorded literals, not taken
+// from the codec, so the record is a real pin: changing the prompt contract or
+// the payload without re-recording the disposition fails the gate and sends
+// nothing.
 var fluencyAgreementAssessment = ProviderAssessment{
 	Kind:          FluencyAgreementPayload,
 	Language:      "de",
@@ -150,9 +154,9 @@ var fluencyAgreementAssessment = ProviderAssessment{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "learned_meaning",
 	},
-	Disposition: "pending review: doc/reviews/fluency-agreement-payload-assessment.md",
+	Disposition: "approved for personal use of the locally produced Study surface",
 	Ticket:      "#2702",
-	Recorded:    false,
+	Recorded:    true,
 }
 
 // ProviderAssessmentSet is the recorded personal-use payload assessments. Its

@@ -96,9 +96,13 @@ func TestDecodeFluencyAgreement(t *testing.T) {
 	}
 }
 
-func TestFluencyAgreementAssessmentFailsClosedUntilRecorded(t *testing.T) {
-	err := ProviderAssessments().MaySend(FluencyAgreementPayload, "de", passCodec(t))
-	require.ErrorIs(t, err, ErrProviderAssessmentNotRecorded, "the payload sends the learned meaning and has not been reviewed")
+func TestFluencyAgreementAssessmentIsRecordedForGermanOnly(t *testing.T) {
+	assertRecordedAssessment(t, "#2702", FluencyAgreementPayload, "de",
+		(*TranslationCodec).FluencyAgreementPromptContract, FluencyAgreementPayloadFields)
+
+	t.Run("another language is refused", func(t *testing.T) {
+		require.ErrorIs(t, ProviderAssessments().MaySend(FluencyAgreementPayload, "it", passCodec(t)), ErrProviderAssessmentNotRecorded, "a language without a Fluency agreement assessment is not rolled out by implication")
+	})
 }
 
 func TestEnrichFluencyAgreement(t *testing.T) {
