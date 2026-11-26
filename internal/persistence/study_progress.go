@@ -325,6 +325,7 @@ func studyProgressFromRow(row sqlcgen.StudyProgress) domain.StudyProgress {
 		ID: row.ID, OwnerID: row.OwnerID,
 		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		MaterialID: row.MaterialID, IntroducedAt: row.IntroducedAt, LearnedMeaning: row.LearnedMeaning,
-		Memory: memory, Withdrawn: row.WithdrawnAt.Valid, WithdrawnReason: row.WithdrawnReason.String, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		LearnedCitations: domain.StudyCitations{SenseIDs: row.LearnedSenseIds, EntryIDs: row.LearnedEntryIds, DictionaryPin: row.LearnedDictionaryPin},
+		Memory:           memory, Withdrawn: row.WithdrawnAt.Valid, WithdrawnReason: row.WithdrawnReason.String, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 	}
 }

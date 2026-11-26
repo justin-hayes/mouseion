@@ -70,11 +70,13 @@ ON CONFLICT (owner_id, language, study_day) DO UPDATE
 
 -- name: IntroduceStudyWord :one
 -- Introduces a word from its ready, current Study material: the word enters
--- study new and due now, with the material's Gloss as its learned meaning. A
+-- study new and due now, with the material's Gloss, citations and dictionary pin as its learned meaning. A
 -- word already in study, held by an open Wrong-word report, or whose material
 -- is not ready and current, returns no row.
-INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due)
-SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, sqlc.arg('now')::timestamptz, m.gloss, 'new', sqlc.arg('now')::timestamptz
+INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning,
+                            learned_sense_ids, learned_entry_ids, learned_dictionary_pin, state, due)
+SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, sqlc.arg('now')::timestamptz, m.gloss,
+       m.cited_sense_ids, m.cited_entry_ids, m.dictionary_pin, 'new', sqlc.arg('now')::timestamptz
   FROM study_material m
  WHERE m.owner_id = sqlc.arg('owner') AND m.id = sqlc.arg('material') AND m.language = sqlc.arg('language')
    AND m.state = 'ready' AND m.superseded_at IS NULL
@@ -133,7 +135,8 @@ UPDATE study_progress
 -- Gloss becomes the learned meaning and the word is marked corrected. The FSRS
 -- state is not touched.
 UPDATE study_progress p
-   SET material_id = m.id, learned_meaning = m.gloss, corrected_at = sqlc.arg('now')::timestamptz, updated_at = now()
+   SET material_id = m.id, learned_meaning = m.gloss, learned_sense_ids = m.cited_sense_ids,
+       learned_entry_ids = m.cited_entry_ids, learned_dictionary_pin = m.dictionary_pin, corrected_at = sqlc.arg('now')::timestamptz, updated_at = now()
   FROM study_material m
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND p.withdrawn_at IS NULL
    AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma

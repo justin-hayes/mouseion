@@ -16,18 +16,22 @@ const createStudyReport = `-- name: CreateStudyReport :one
 
 INSERT INTO study_report (owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note,
                           book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation,
-                          previous_material_id, previous_corrected_at, previous_learned_meaning, created_at)
+                          previous_material_id, previous_corrected_at, previous_learned_meaning,
+                          previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin, created_at)
 SELECT p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, m.id, $1::text, $2::text,
        m.book_id, m.analysis_run_id, m.corpus_id, m.sentence_ordinal, m.token_ordinal, m.sentence, m.target_word, m.gloss, m.sentence_translation,
        CASE WHEN $1::text = 'unsuitable_context' THEN p.material_id END,
        CASE WHEN $1::text = 'unsuitable_context' THEN p.corrected_at END,
        CASE WHEN $1::text = 'unsuitable_context' THEN p.learned_meaning END,
+       CASE WHEN $1::text = 'unsuitable_context' THEN p.learned_sense_ids END,
+       CASE WHEN $1::text = 'unsuitable_context' THEN p.learned_entry_ids END,
+       CASE WHEN $1::text = 'unsuitable_context' THEN p.learned_dictionary_pin END,
        $3::timestamptz
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = $4 AND p.id = $5
    AND m.state = 'ready' AND m.superseded_at IS NULL
-RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin
 `
 
 type CreateStudyReportParams struct {
@@ -80,6 +84,9 @@ func (q *Queries) CreateStudyReport(ctx context.Context, arg CreateStudyReportPa
 		&i.RecordedAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.PreviousLearnedSenseIds,
+		&i.PreviousLearnedEntryIds,
+		&i.PreviousLearnedDictionaryPin,
 	)
 	return i, err
 }
@@ -135,7 +142,7 @@ func (q *Queries) EndStudyReport(ctx context.Context, arg EndStudyReportParams) 
 }
 
 const getOpenStudyReport = `-- name: GetOpenStudyReport :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND language = $2 AND progress_id = $3
    AND kind = $4 AND ended_at IS NULL
  ORDER BY created_at, id
@@ -184,12 +191,15 @@ func (q *Queries) GetOpenStudyReport(ctx context.Context, arg GetOpenStudyReport
 		&i.RecordedAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.PreviousLearnedSenseIds,
+		&i.PreviousLearnedEntryIds,
+		&i.PreviousLearnedDictionaryPin,
 	)
 	return i, err
 }
 
 const getOpenStudyReportOfMaterial = `-- name: GetOpenStudyReportOfMaterial :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND material_id = $2 AND kind = $3 AND ended_at IS NULL
 `
 
@@ -229,6 +239,9 @@ func (q *Queries) GetOpenStudyReportOfMaterial(ctx context.Context, arg GetOpenS
 		&i.RecordedAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.PreviousLearnedSenseIds,
+		&i.PreviousLearnedEntryIds,
+		&i.PreviousLearnedDictionaryPin,
 	)
 	return i, err
 }
@@ -281,7 +294,7 @@ func (q *Queries) GetStudyOccurrenceToken(ctx context.Context, arg GetStudyOccur
 }
 
 const getStudyReport = `-- name: GetStudyReport :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND id = $2
 `
 
@@ -320,6 +333,9 @@ func (q *Queries) GetStudyReport(ctx context.Context, arg GetStudyReportParams) 
 		&i.RecordedAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.PreviousLearnedSenseIds,
+		&i.PreviousLearnedEntryIds,
+		&i.PreviousLearnedDictionaryPin,
 	)
 	return i, err
 }
@@ -354,7 +370,7 @@ func (q *Queries) HasOpenWrongWordReport(ctx context.Context, arg HasOpenWrongWo
 }
 
 const listOpenStudyReports = `-- name: ListOpenStudyReports :many
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND language = $2 AND kind = $3 AND ended_at IS NULL
  ORDER BY created_at, id
 `
@@ -401,6 +417,9 @@ func (q *Queries) ListOpenStudyReports(ctx context.Context, arg ListOpenStudyRep
 			&i.RecordedAt,
 			&i.EndedAt,
 			&i.EndReason,
+			&i.PreviousLearnedSenseIds,
+			&i.PreviousLearnedEntryIds,
+			&i.PreviousLearnedDictionaryPin,
 		); err != nil {
 			return nil, err
 		}
@@ -413,7 +432,7 @@ func (q *Queries) ListOpenStudyReports(ctx context.Context, arg ListOpenStudyRep
 }
 
 const listOpenStudyReportsForBook = `-- name: ListOpenStudyReportsForBook :many
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND book_id = $2 AND kind = $3 AND ended_at IS NULL
  ORDER BY created_at, id
 `
@@ -460,6 +479,9 @@ func (q *Queries) ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenS
 			&i.RecordedAt,
 			&i.EndedAt,
 			&i.EndReason,
+			&i.PreviousLearnedSenseIds,
+			&i.PreviousLearnedEntryIds,
+			&i.PreviousLearnedDictionaryPin,
 		); err != nil {
 			return nil, err
 		}
@@ -472,7 +494,7 @@ func (q *Queries) ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenS
 }
 
 const listRetiredStudyReportsOfIdentity = `-- name: ListRetiredStudyReportsOfIdentity :many
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3
    AND upos = $4 AND lexical_discriminator = $5
    AND kind = 'unsuitable_context' AND end_reason IS DISTINCT FROM 'undone'
@@ -531,6 +553,9 @@ func (q *Queries) ListRetiredStudyReportsOfIdentity(ctx context.Context, arg Lis
 			&i.RecordedAt,
 			&i.EndedAt,
 			&i.EndReason,
+			&i.PreviousLearnedSenseIds,
+			&i.PreviousLearnedEntryIds,
+			&i.PreviousLearnedDictionaryPin,
 		); err != nil {
 			return nil, err
 		}
@@ -543,7 +568,7 @@ func (q *Queries) ListRetiredStudyReportsOfIdentity(ctx context.Context, arg Lis
 }
 
 const listRetiredStudyReportsOfWord = `-- name: ListRetiredStudyReportsOfWord :many
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND progress_id = $2 AND kind = 'unsuitable_context'
    AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id
@@ -593,6 +618,9 @@ func (q *Queries) ListRetiredStudyReportsOfWord(ctx context.Context, arg ListRet
 			&i.RecordedAt,
 			&i.EndedAt,
 			&i.EndReason,
+			&i.PreviousLearnedSenseIds,
+			&i.PreviousLearnedEntryIds,
+			&i.PreviousLearnedDictionaryPin,
 		); err != nil {
 			return nil, err
 		}
@@ -605,7 +633,7 @@ func (q *Queries) ListRetiredStudyReportsOfWord(ctx context.Context, arg ListRet
 }
 
 const listRetiredStudyReportsOfWords = `-- name: ListRetiredStudyReportsOfWords :many
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND progress_id = ANY ($2::uuid[]) AND kind = 'unsuitable_context'
    AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id
@@ -653,6 +681,9 @@ func (q *Queries) ListRetiredStudyReportsOfWords(ctx context.Context, arg ListRe
 			&i.RecordedAt,
 			&i.EndedAt,
 			&i.EndReason,
+			&i.PreviousLearnedSenseIds,
+			&i.PreviousLearnedEntryIds,
+			&i.PreviousLearnedDictionaryPin,
 		); err != nil {
 			return nil, err
 		}
@@ -665,7 +696,7 @@ func (q *Queries) ListRetiredStudyReportsOfWords(ctx context.Context, arg ListRe
 }
 
 const lockStudyReport = `-- name: LockStudyReport :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason, previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin FROM study_report
  WHERE owner_id = $1 AND id = $2
  FOR UPDATE
 `
@@ -705,6 +736,9 @@ func (q *Queries) LockStudyReport(ctx context.Context, arg LockStudyReportParams
 		&i.RecordedAt,
 		&i.EndedAt,
 		&i.EndReason,
+		&i.PreviousLearnedSenseIds,
+		&i.PreviousLearnedEntryIds,
+		&i.PreviousLearnedDictionaryPin,
 	)
 	return i, err
 }
@@ -712,18 +746,23 @@ func (q *Queries) LockStudyReport(ctx context.Context, arg LockStudyReportParams
 const restoreStudyProgressMaterial = `-- name: RestoreStudyProgressMaterial :exec
 UPDATE study_progress
    SET material_id = $1, learned_meaning = $2,
-       corrected_at = $3::timestamptz,
+       learned_sense_ids = $3::text[], learned_entry_ids = $4::text[],
+       learned_dictionary_pin = $5,
+       corrected_at = $6::timestamptz,
        withdrawn_at = CASE WHEN withdrawn_reason = 'no_suitable_context' THEN NULL ELSE withdrawn_at END,
        withdrawn_reason = NULL, updated_at = now()
- WHERE owner_id = $4 AND id = $5
+ WHERE owner_id = $7 AND id = $8
 `
 
 type RestoreStudyProgressMaterialParams struct {
-	Material       string
-	LearnedMeaning string
-	CorrectedAt    pgtype.Timestamptz
-	Owner          string
-	ID             string
+	Material             string
+	LearnedMeaning       string
+	LearnedSenseIds      []string
+	LearnedEntryIds      []string
+	LearnedDictionaryPin string
+	CorrectedAt          pgtype.Timestamptz
+	Owner                string
+	ID                   string
 }
 
 // Undo of an Unsuitable-context report: the word goes back to the material,
@@ -733,6 +772,9 @@ func (q *Queries) RestoreStudyProgressMaterial(ctx context.Context, arg RestoreS
 	_, err := q.db.Exec(ctx, restoreStudyProgressMaterial,
 		arg.Material,
 		arg.LearnedMeaning,
+		arg.LearnedSenseIds,
+		arg.LearnedEntryIds,
+		arg.LearnedDictionaryPin,
 		arg.CorrectedAt,
 		arg.Owner,
 		arg.ID,

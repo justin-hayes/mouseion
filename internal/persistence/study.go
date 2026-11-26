@@ -81,6 +81,8 @@ func (s *PostgresStore) ListCurrentStudyMaterial(ctx context.Context, owner, lan
 			return nil, err
 		}
 		item.EvidenceFingerprint = row.EvidenceFingerprint
+		item.Cited = domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin}
+		item.Passage = domain.StudyPassage{Text: row.PassageContext, Citation: row.PassageCitation, TranslationPin: row.PassageTranslationPin}
 		item.OwnerID = owner
 		item.CreatedAt, item.UpdatedAt = row.CreatedAt, row.UpdatedAt
 		material = append(material, item)
@@ -107,6 +109,8 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 		return domain.StudyMaterial{}, err
 	}
 	item.EvidenceFingerprint = row.EvidenceFingerprint
+	item.Cited = domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin}
+	item.Passage = domain.StudyPassage{Text: row.PassageContext, Citation: row.PassageCitation, TranslationPin: row.PassageTranslationPin}
 	item.OwnerID = owner
 	item.CreatedAt, item.UpdatedAt = row.CreatedAt, row.UpdatedAt
 	return item, nil
@@ -177,6 +181,15 @@ func reserveStudyMaterial(ctx context.Context, q *sqlcgen.Queries, owner string,
 	return id, true, nil
 }
 
+// nonNilStrings returns a slice a NOT NULL array column accepts: a nil slice
+// would be written as NULL.
+func nonNilStrings(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
 func normalizedStudyIdentity(identity domain.StudyIdentity) domain.StudyIdentity {
 	identity.Language = canonicalization.NormalizeLanguage(identity.Language)
 	identity.CanonicalLemma = strings.TrimSpace(identity.CanonicalLemma)
@@ -208,6 +221,9 @@ func (s *PostgresStore) RecordStudyMaterialReady(ctx context.Context, owner, id 
 		SentenceOrdinal: pgtype.Int8{Int64: content.SentenceOrdinal, Valid: true}, TokenOrdinal: pgtype.Int8{Int64: content.TokenOrdinal, Valid: true},
 		Sentence: content.Sentence, TargetWord: content.TargetWord, Gloss: content.Gloss,
 		SentenceTranslation: content.SentenceTranslation, SentenceTranslationTargets: encoded,
+		CitedSenseIds: nonNilStrings(content.Cited.SenseIDs), CitedEntryIds: nonNilStrings(content.Cited.EntryIDs),
+		DictionaryPin:  strings.TrimSpace(content.Cited.DictionaryPin),
+		PassageContext: content.Passage.Text, PassageCitation: content.Passage.Citation, PassageTranslationPin: content.Passage.TranslationPin,
 	})
 	if err != nil {
 		return fmt.Errorf("record study material: %w", err)

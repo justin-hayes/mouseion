@@ -94,8 +94,11 @@ type StudyReport struct {
 	PreviousMaterialID     string
 	PreviousCorrectedAt    time.Time
 	PreviousLearnedMeaning string
-	CreatedAt, EndedAt     time.Time
-	EndReason              StudyReportEnd
+	// PreviousLearnedCitations are the Learned meaning's citations when it was
+	// reported, which Undo restores beside PreviousLearnedMeaning.
+	PreviousLearnedCitations StudyCitations
+	CreatedAt, EndedAt       time.Time
+	EndReason                StudyReportEnd
 }
 
 // Open reports whether the report has not ended.

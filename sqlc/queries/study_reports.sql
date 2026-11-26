@@ -8,12 +8,16 @@
 -- ready and current.
 INSERT INTO study_report (owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note,
                           book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation,
-                          previous_material_id, previous_corrected_at, previous_learned_meaning, created_at)
+                          previous_material_id, previous_corrected_at, previous_learned_meaning,
+                          previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin, created_at)
 SELECT p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, m.id, sqlc.arg('kind')::text, sqlc.arg('note')::text,
        m.book_id, m.analysis_run_id, m.corpus_id, m.sentence_ordinal, m.token_ordinal, m.sentence, m.target_word, m.gloss, m.sentence_translation,
        CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.material_id END,
        CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.corrected_at END,
        CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.learned_meaning END,
+       CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.learned_sense_ids END,
+       CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.learned_entry_ids END,
+       CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.learned_dictionary_pin END,
        sqlc.arg('created_at')::timestamptz
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
@@ -108,6 +112,8 @@ UPDATE study_material
 -- suitable context ends. The FSRS state was never touched.
 UPDATE study_progress
    SET material_id = sqlc.arg('material'), learned_meaning = sqlc.arg('learned_meaning'),
+       learned_sense_ids = sqlc.arg('learned_sense_ids')::text[], learned_entry_ids = sqlc.arg('learned_entry_ids')::text[],
+       learned_dictionary_pin = sqlc.arg('learned_dictionary_pin'),
        corrected_at = sqlc.narg('corrected_at')::timestamptz,
        withdrawn_at = CASE WHEN withdrawn_reason = 'no_suitable_context' THEN NULL ELSE withdrawn_at END,
        withdrawn_reason = NULL, updated_at = now()

@@ -316,6 +316,7 @@ func studyReportScenarios() []Scenario {
 			assert.Len(t, logs, 1, "dismissing writes no review-log row")
 		}},
 		{Name: "an Unsuitable-context report retires its occurrence without holding the word, and Undo restores the material", Run: unsuitableContextScenario},
+		{Name: "a source-evidence word's citations travel with its Learned meaning: copied at introduction and re-anchoring, restored by Undo", Run: citedLearnedMeaningScenario},
 		{Name: "an Unsuitable-context report re-introduces the word on the next Study day with its schedule untouched", Run: unsuitableReintroductionScenario},
 		{Name: "a word whose every context was reported unsuitable is withdrawn with its own reason and returns", Run: unsuitableWithdrawalScenario},
 		{Name: "a grade of material an Unsuitable-context report replaced is stale", Run: unsuitableStaleGradeScenario},
@@ -694,4 +695,64 @@ func retiredFluencyScenario(t *testing.T, h Harness) {
 	assert.Len(t, contexts, 4, "the retired sentence's context stays hidden")
 	require.NoError(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+30, domain.FluencyAgrees)), "the hidden context's slot is free")
 	require.ErrorIs(t, fluency.RecordStudyFluencyContext(owner, fluencyRecord(word.ID, material.SentenceOrdinal+31, domain.FluencyAgrees)), domain.ErrFluencyContextNotStored)
+}
+
+func citedStudyContent(gloss, pin string, senses ...string) domain.StudyMaterialReadyContent {
+	content := studyReadyContent()
+	content.Gloss = gloss
+	content.Cited = domain.StudyCitations{SenseIDs: senses, EntryIDs: []string{"n1"}, DictionaryPin: pin}
+	content.Passage = domain.StudyPassage{Text: "He went home.", Citation: "1.2", TranslationPin: "sha256:abc"}
+	return content
+}
+
+func citedLearnedMeaningScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, progress, material, corrections := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress(), h.Study(), h.StudyCorrections()
+	identity := studyNoun("haus")
+	incomplete := citedStudyContent("a building", "")
+	pending, _, err := material.ReserveStudyMaterial(owner, identity)
+	require.NoError(t, err)
+	require.ErrorIs(t, material.RecordStudyMaterialReady(owner, pending, incomplete), domain.ErrInvalidStudyMaterial, "a cited sense needs the dictionary pin")
+	torn := citedStudyContent("a building", "lsj-1", "s1")
+	torn.Passage.TranslationPin = ""
+	require.ErrorIs(t, material.RecordStudyMaterialReady(owner, pending, torn), domain.ErrInvalidStudyMaterial, "a passage is all or nothing")
+
+	require.NoError(t, material.RecordStudyMaterialReady(owner, pending, citedStudyContent("a building", "lsj-1", "s1", "s2")))
+	stored, err := material.GetStudyMaterial(owner, pending)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"s1", "s2"}, stored.Cited.SenseIDs)
+	assert.Equal(t, []string{"n1"}, stored.Cited.EntryIDs)
+	assert.Equal(t, "lsj-1", stored.Cited.DictionaryPin)
+	assert.Equal(t, domain.StudyPassage{Text: "He went home.", Citation: "1.2", TranslationPin: "sha256:abc"}, stored.Passage)
+
+	introduced, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchWord{{StudyIdentity: identity, MaterialID: pending}})
+	require.NoError(t, err)
+	require.Len(t, introduced, 1)
+	word := introduced[0]
+	assert.Equal(t, "lsj-1", word.LearnedCitations.DictionaryPin, "the pin is copied at introduction")
+	assert.Equal(t, []string{"s1", "s2"}, word.LearnedCitations.SenseIDs)
+	after := domain.StudyMemory{State: domain.StudyStateReview, Due: studyReportDay.Add(72 * time.Hour), Stability: 4.2, Difficulty: 5.1, ScheduledDays: 3, Reps: 1, LastReview: studyReportDay}
+	require.NoError(t, progress.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: word.ID, Grade: domain.StudyGradeGotIt, ReviewedAt: studyReportDay, StudyDay: "2026-11-25", After: after}))
+	word.Memory = after
+
+	report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	assert.Equal(t, word.LearnedCitations, report.PreviousLearnedCitations, "the report keeps what Undo restores")
+
+	replacement, _, err := material.ReserveStudyMaterial(owner, identity)
+	require.NoError(t, err)
+	require.NoError(t, material.RecordStudyMaterialReady(owner, replacement, citedStudyContent("a home", "lsj-2", "s9")))
+	require.NoError(t, corrections.CompleteStudyReintroductions(owner, Language, studyReportDay.Add(2*time.Hour)))
+	moved, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, moved, 1)
+	assert.Equal(t, "lsj-2", moved[0].LearnedCitations.DictionaryPin, "the citations are re-anchored with the Gloss")
+	assert.Equal(t, []string{"s9"}, moved[0].LearnedCitations.SenseIDs)
+
+	require.NoError(t, reports.UndoStudyReport(owner, report.ID, studyReportDay.Add(3*time.Hour)))
+	restored, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, restored, 1)
+	assert.Equal(t, "a building", restored[0].LearnedMeaning)
+	assert.Equal(t, word.LearnedCitations, restored[0].LearnedCitations, "Undo restores the citations exactly")
 }

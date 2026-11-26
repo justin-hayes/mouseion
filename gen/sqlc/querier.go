@@ -355,7 +355,7 @@ type Querier interface {
 	// word's limit, and an occurrence already assessed, return no row.
 	InsertStudyFluencyContext(ctx context.Context, arg InsertStudyFluencyContextParams) (string, error)
 	// Introduces a word from its ready, current Study material: the word enters
-	// study new and due now, with the material's Gloss as its learned meaning. A
+	// study new and due now, with the material's Gloss, citations and dictionary pin as its learned meaning. A
 	// word already in study, held by an open Wrong-word report, or whose material
 	// is not ready and current, returns no row.
 	IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error)
