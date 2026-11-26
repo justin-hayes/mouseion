@@ -170,7 +170,11 @@ Fluency gives variety once a word is familiar, without grading it.
   preparation is limited to words the learner is keeping.
 - **Only the Learned meaning.** A Fluency context is kept only if the word
   carries its Learned meaning there. Each context has its own Gloss check and
-  translation, and contexts that do not agree are discarded.
+  translation, and contexts that do not agree are never shown. A disagreeing
+  context keeps its reason (a different meaning, an idiomatic use, not this
+  lemma, or no defensible answer), its Gloss and its translation as evidence
+  of the word's other meanings. *(Decided 2026-11-26; the reason and the kept
+  Gloss follow the original Fluency implementation in this pull request.)*
 - **Responses.** Each card has **Show answer**, then **Recognised** or **Didn't
   recognise it**. A context marked Didn't recognise it returns later in the
   same sitting and more often afterwards; Recognised lowers its weight again
@@ -182,6 +186,27 @@ Fluency gives variety once a word is familiar, without grading it.
   schedule, so a bad Fluency day cannot push a mature word back. Responses are
   kept as evidence for deciding later whether Today should rotate sentences.
 
+### Reading Fluency's evidence
+
+Study has three aims: acquiring new words (New-word batches), retaining them
+(Today), and recognising them in unfamiliar contexts (Fluency). Retaining a
+word and recognising it in other contexts are related but separate, so Fluency
+evidence is read alongside Today's grades rather than on its own.
+
+- **Retention or transfer.** A Didn't recognise it is read against the word's
+  next Today review, the graded test in its familiar sentence. Got it there
+  means a transfer problem: the word is retained but not recognised elsewhere.
+  Again there means a retention problem, which FSRS already handles. Fluency has
+  no follow-up card in the familiar sentence: it would come straight after the
+  Gloss was revealed, and so would measure nothing.
+- **Form or sentence.** Fluency shows different-form contexts first and
+  same-form contexts after, so both kinds are answered. A transfer gap on
+  same-form contexts means the sentence has been memorised; a gap only on
+  different-form contexts means the forms have not been learned.
+- **Other meanings.** Disagreeing contexts give how often a mature word turns
+  up in a different meaning, and what that meaning is. The sample undercounts,
+  because a word's search stops once it has enough agreeing contexts.
+
 ## Scope
 
 ### Languages
@@ -191,7 +216,11 @@ Study is offered only for study languages whose card policy
 provider route, because Study needs a Gloss and a sentence translation. The
 pilot runs on German. For Latin and Ancient Greek, whose source-evidence cards
 have no defensible Gloss to anchor a Learned meaning, the Study page says
-plainly that Study is not available for the language yet.
+plainly that Study is not available for the language yet. These are the
+languages where Fluency's variety of form should pay off most, because of how
+heavily they inflect; their Learned meaning would plausibly be anchored to the
+lexical discriminator and a dictionary entry rather than a Gloss (open
+question 6).
 
 ### Separation from the rest of Mouseion
 
@@ -231,12 +260,31 @@ These stay open for after the pilot.
    the main question for a follow-up ADR.
 2. Should batches use a fixed split between the Book and the library?
 3. Should words learned only for one Book fade after the learner finishes it?
-4. Should repeated Didn't recognise it in Fluency pull a word back into Today?
-5. Should Today's mature reviews rotate sentences? Fluency's evidence should
-   decide.
+4. ~~Should repeated Didn't recognise it in Fluency pull a word back into
+   Today?~~ **Closed: no** (2026-11-26). A retention failure already shows as
+   Again at the word's next Today review. A transfer failure would not be
+   helped by Today, whose familiar sentence the learner already recognises. The
+   question returns only as part of rotating sentences in Today (question 5).
+5. Should Today's mature reviews rotate sentences? **Decision rule, agreed
+   before the evidence (2026-11-26):** take Fluency contexts on their first
+   showing whose word was Got it at its next Today review, and measure the share
+   marked Didn't recognise it, separately for same-form and different-form
+   contexts. Consider rotating sentences in Today's mature reviews when the
+   same-form share is at least 20% over at least 100 first showings. Below 10%,
+   keep one sentence. In between, keep observing. A gap only on different-form
+   contexts argues for weighting Fluency further towards forms, not for
+   rotating Today. The thresholds are starting values.
 6. How should Study work for Latin and Ancient Greek, perhaps with the Learned
    meaning anchored to a dictionary entry?
-7. Should progress be tracked per meaning?
+7. Should progress be tracked per meaning? **Decision rule (2026-11-26):**
+   measure the share of mature words with at least one disagreeing context
+   whose reason is a different meaning. Above about 25%, the next step is an
+   ungraded Fluency card showing the word in its other meaning with that
+   meaning's Gloss ("this word also means..."), not separate progress. Progress
+   per meaning is considered only if that card is built and its Didn't
+   recognise it rate stays high. It would first need an ADR for a stable
+   meaning identity, because a Learned meaning is a Gloss, not an identity.
+   Until then, Study progress belongs to the vocabulary identity alone.
 8. What are the right backlog thresholds?
 9. Should the Study day hour be a learner setting?
 

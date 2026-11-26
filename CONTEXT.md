@@ -752,7 +752,7 @@ _Avoid_: daily new allowance, new-card limit, quota.
 **In study**:
 A word Today has introduced, which therefore has Study progress. A word stays
 in study whichever Book is the Current reading, and whether or not it is Known.
-_Avoid_: learning, active card, enrolled.
+_Avoid_: learning, active card, enrolled, learning item.
 
 **Study progress**:
 A learner's graded review record for one vocabulary identity in one study
@@ -782,19 +782,19 @@ The Gloss a word showed when Today introduced it. Fluency contexts must agree
 with it. If a confirmed correction shows that the introducing context was not
 this word, the next review re-introduces the word with valid Study material and
 re-anchors its learned meaning, keeping its Study progress.
-_Avoid_: sense (a dictionary entry's meaning), definition.
+_Avoid_: sense (a dictionary entry's meaning), pedagogical sense, definition.
 
 **Fluency**:
 The ungraded, open-ended part of Study after Today's reviews and new words,
 which cycles mature words through Fluency contexts. Nothing in it changes Study
 progress; the learner's "didn't recognise it" responses are kept as evidence.
-_Avoid_: Explore, free review, cram, extra reviews.
+_Avoid_: Explore, free review, cram, extra reviews, Fluency Development.
 
 **Fluency context**:
 A further study context of a mature word, beyond its Study material, in which
 the word carries its learned meaning, preferably in a different form. It has
 its own Gloss check and translation.
-_Avoid_: example sentence, variant card, alternative sentence.
+_Avoid_: example sentence, variant card, context variant, alternative sentence.
 
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
