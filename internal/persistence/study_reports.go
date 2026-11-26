@@ -70,6 +70,14 @@ func createStudyReport(ctx context.Context, q *sqlcgen.Queries, owner string, re
 	if err != nil {
 		return domain.StudyReport{}, fmt.Errorf("create study report: %w", err)
 	}
+	if record.Kind == domain.StudyReportUnsuitableContext {
+		// The word is re-introduced: its reported material is replaced, so new
+		// material is prepared from another context (ADR 0135 §3). Its FSRS state
+		// is untouched.
+		if _, err := q.SupersedeStudyMaterial(ctx, sqlcgen.SupersedeStudyMaterialParams{Owner: owner, ID: created.MaterialID}); err != nil {
+			return domain.StudyReport{}, fmt.Errorf("supersede reported study material: %w", err)
+		}
+	}
 	return studyReportFromRow(created), nil
 }
 
@@ -154,7 +162,8 @@ func (s *PostgresStore) ListOpenWrongWordReportsForBook(ctx context.Context, own
 }
 
 // ListRetiredStudyOccurrences returns the occurrences retired as the word's
-// context by its open Unsuitable-context reports.
+// context by its open Unsuitable-context reports, each with its locator so it
+// is found again after an Analysis update (domain.RetiredStudyOccurrence).
 func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error) {
 	if !validUUID(progressID) {
 		return nil, nil
@@ -165,11 +174,42 @@ func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, 
 	if err != nil {
 		return nil, fmt.Errorf("list retired study occurrences: %w", err)
 	}
-	refs := make([]domain.StudyOccurrenceRef, 0, len(rows))
-	for _, report := range studyReportsFromRows(rows) {
-		refs = append(refs, report.Source)
+	return s.locatedReportSources(ctx, owner, studyReportsFromRows(rows)), nil
+}
+
+// ListRetiredStudyOccurrencesOfWord is ListRetiredStudyOccurrences by the word's
+// vocabulary identity, for material preparation, which knows no progress row.
+func (s *PostgresStore) ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+	identity = normalizedStudyIdentity(identity)
+	rows, err := sqlcgen.New(s.pool).ListOpenStudyReportsOfIdentity(ctx, sqlcgen.ListOpenStudyReportsOfIdentityParams{
+		Owner: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
+		LexicalDiscriminator: identity.LexicalDiscriminator, Kind: string(domain.StudyReportUnsuitableContext),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list retired study occurrences of word: %w", err)
 	}
-	return refs, nil
+	return s.locatedReportSources(ctx, owner, studyReportsFromRows(rows)), nil
+}
+
+// locatedReportSources completes each report's occurrence with its locator, so
+// a retired occurrence is matched across Analysis runs the way a Lemma
+// correction relocates an occurrence. An occurrence whose token is gone keeps
+// its run-specific key.
+func (s *PostgresStore) locatedReportSources(ctx context.Context, owner string, reports []domain.StudyReport) []domain.StudyOccurrenceRef {
+	refs := make([]domain.StudyOccurrenceRef, 0, len(reports))
+	for _, report := range reports {
+		refs = append(refs, s.locatedOccurrence(ctx, owner, report.Source))
+	}
+	return refs
+}
+
+// locatedOccurrence is the occurrence with its locator, or as it was when the
+// token cannot be found.
+func (s *PostgresStore) locatedOccurrence(ctx context.Context, owner string, ref domain.StudyOccurrenceRef) domain.StudyOccurrenceRef {
+	if located, err := s.StudyOccurrenceLocator(ctx, owner, ref); err == nil {
+		return located
+	}
+	return ref
 }
 
 // EndStudyReport ends an open report because its occurrence was repaired or is

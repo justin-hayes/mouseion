@@ -85,6 +85,7 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 	if record.Kind == domain.StudyReportUnsuitableContext {
 		report.PreviousMaterialID, report.PreviousCorrectedAt, report.PreviousLearnedMeaning = progress.MaterialID, progress.CorrectedAt, progress.LearnedMeaning
 	}
+	s.supersedeReportedLocked(record.Kind, material.ID)
 	s.noteStudyActionLocked(owner, progress.Language)
 	if s.studyReportSeq == nil {
 		s.studyReportSeq = map[string]int{}
@@ -92,6 +93,19 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 	s.studyReportSeq[report.ID] = len(s.studyActions)
 	s.studyReports = append(s.studyReports, report)
 	return report, nil
+}
+
+// supersedeReportedLocked re-introduces the word of an Unsuitable-context
+// report: its reported material is replaced, so new material is prepared from
+// another context (ADR 0135 §3). The caller holds s.mu.
+func (s *Store) supersedeReportedLocked(kind domain.StudyReportKind, materialID string) {
+	if kind != domain.StudyReportUnsuitableContext {
+		return
+	}
+	if s.studySuperseded == nil {
+		s.studySuperseded = map[string]bool{}
+	}
+	s.studySuperseded[materialID] = true
 }
 
 // repeatedStudyReportLocked finds the open report a new report of the kind
@@ -164,17 +178,75 @@ func (s *Store) ListOpenWrongWordReportsForBook(_ context.Context, owner, bookID
 }
 
 // ListRetiredStudyOccurrences returns the occurrences retired as the word's
-// context by its open Unsuitable-context reports.
+// context by its open Unsuitable-context reports, each with its locator.
 func (s *Store) ListRetiredStudyOccurrences(_ context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.ProgressID == progressID }), nil
+}
+
+// ListRetiredStudyOccurrencesOfWord is ListRetiredStudyOccurrences by the word's
+// vocabulary identity.
+func (s *Store) ListRetiredStudyOccurrencesOfWord(_ context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.StudyIdentity == identity }), nil
+}
+
+func (s *Store) retiredLocked(owner string, match func(domain.StudyReport) bool) []domain.StudyOccurrenceRef {
 	refs := []domain.StudyOccurrenceRef{}
+	for _, report := range s.openStudyReportsLocked(func(r domain.StudyReport) bool {
+		return r.OwnerID == owner && r.Kind == domain.StudyReportUnsuitableContext && match(r)
+	}) {
+		refs = append(refs, s.locatedLocked(owner, report.Source))
+	}
+	return refs
+}
+
+// locatedLocked is the occurrence with its locator, or as it was when it has
+// none. The caller holds s.mu.
+func (s *Store) locatedLocked(owner string, ref domain.StudyOccurrenceRef) domain.StudyOccurrenceRef {
+	if located, err := s.studyLocatorLocked(owner, ref); err == nil {
+		return located
+	}
+	return ref
+}
+
+// hasOpenUnsuitableReportLocked reports whether the word has an open
+// Unsuitable-context report. The caller holds s.mu.
+func (s *Store) hasOpenUnsuitableReportLocked(owner, progressID string) bool {
+	return len(s.openStudyReportsLocked(func(r domain.StudyReport) bool {
+		return r.OwnerID == owner && r.ProgressID == progressID && r.Kind == domain.StudyReportUnsuitableContext
+	})) > 0
+}
+
+// contextReportedAtLocked is when the word's latest open Unsuitable-context
+// report was made, zero when it has none. The caller holds s.mu.
+func (s *Store) contextReportedAtLocked(owner, progressID string) time.Time {
+	var latest time.Time
 	for _, report := range s.openStudyReportsLocked(func(r domain.StudyReport) bool {
 		return r.OwnerID == owner && r.ProgressID == progressID && r.Kind == domain.StudyReportUnsuitableContext
 	}) {
-		refs = append(refs, report.Source)
+		if report.CreatedAt.After(latest) {
+			latest = report.CreatedAt
+		}
 	}
-	return refs, nil
+	return latest
+}
+
+// withoutRetiredFluencyContextsLocked leaves out the contexts on an occurrence
+// the learner retired as the word's context. The caller holds s.mu.
+func (s *Store) withoutRetiredFluencyContextsLocked(owner string, contexts []domain.FluencyContext) []domain.FluencyContext {
+	kept := contexts[:0:0]
+	for _, item := range contexts {
+		retired := s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.ProgressID == item.ProgressID })
+		ref := domain.StudyOccurrenceRef{BookID: item.BookID, AnalysisRunID: item.AnalysisRunID, CorpusID: item.CorpusID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}
+		if len(retired) > 0 && domain.RetiredStudyOccurrence(retired, s.locatedLocked(owner, ref)) {
+			continue
+		}
+		kept = append(kept, item)
+	}
+	return kept
 }
 
 func (s *Store) openReportIndexLocked(owner, id string) int {

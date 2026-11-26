@@ -28,6 +28,7 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 		if item.OwnerID == owner && item.Language == language {
 			item.Reintroducing = s.studySuperseded[item.MaterialID]
 			item.Held = s.studyHeldLocked(owner, item.StudyIdentity)
+			item.ContextReportedAt = s.contextReportedAtLocked(owner, item.ID)
 			progress = append(progress, item)
 		}
 	}

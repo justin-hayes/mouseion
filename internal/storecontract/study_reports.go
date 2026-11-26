@@ -31,6 +31,7 @@ type StudyReportStore interface {
 	ListOpenStudyReports(owner, language string, kind domain.StudyReportKind) ([]domain.StudyReport, error)
 	ListOpenWrongWordReportsForBook(owner, bookID string) ([]domain.StudyReport, error)
 	ListRetiredStudyOccurrences(owner, progressID string) ([]domain.StudyOccurrenceRef, error)
+	ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	EndStudyReport(owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(owner, id string, now time.Time) error
 	UndoStudyReport(owner, id string, now time.Time) error
@@ -226,6 +227,9 @@ func studyReportScenarios() []Scenario {
 			assert.Len(t, logs, 1, "dismissing writes no review-log row")
 		}},
 		{Name: "an Unsuitable-context report retires its occurrence without holding the word, and Undo restores the material", Run: unsuitableContextScenario},
+		{Name: "an Unsuitable-context report re-introduces the word on the next Study day with its schedule untouched", Run: unsuitableReintroductionScenario},
+		{Name: "a word whose every context was reported unsuitable is withdrawn with its own reason and returns", Run: unsuitableWithdrawalScenario},
+		{Name: "a retired occurrence leaves the word's Fluency contexts, and Undo shows it again", Run: unsuitableFluencyScenario},
 		{Name: "a held word cannot be graded, and showing an offer or another learner's action does not block Undo", Run: func(t *testing.T, h Harness) {
 			owner, reports, progress := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress()
 			word := gradedStudyWord(t, h, owner, studyNoun("haus"))
@@ -256,7 +260,7 @@ func studyReportScenarios() []Scenario {
 			require.NoError(t, reports.UndoStudyReport(owner, second.ID, studyReportDay.Add(2*time.Hour)), "nothing followed the latest report")
 			third, err := reports.CreateStudyReport(owner, reportRecord(other, domain.StudyReportUnsuitableContext, ""))
 			require.NoError(t, err)
-			_, err = reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, "another report"))
+			_, err = reports.CreateStudyReport(owner, reportRecord(introducedStudyWord(t, h, owner, studyNoun("katze")), domain.StudyReportWrongWord, "another report"))
 			require.NoError(t, err)
 			require.ErrorIs(t, reports.UndoStudyReport(owner, third.ID, studyReportDay.Add(2*time.Hour)), domain.ErrStudyStale, "another report followed")
 			require.ErrorIs(t, reports.UndoStudyReport(h.Seeds().OtherOwner(), third.ID, studyReportDay), domain.ErrNotFound)
@@ -290,7 +294,8 @@ func unsuitableContextScenario(t *testing.T, h Harness) {
 	require.ErrorIs(t, reports.DismissStudyReport(owner, report.ID, studyReportDay), domain.ErrNotFound, "dismiss is for Wrong-word reports")
 
 	// The word is re-introduced from another context, then the report is undone.
-	require.NoError(t, corrections.SupersedeStudyMaterial(owner, word.MaterialID))
+	assert.True(t, listed[0].Reintroducing, "the reported material is replaced")
+	require.ErrorIs(t, corrections.SupersedeStudyMaterial(owner, word.MaterialID), domain.ErrNotFound, "the report already superseded it")
 	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyIdentity)
 	require.NoError(t, err)
 	require.True(t, created)
@@ -319,4 +324,109 @@ func unsuitableContextScenario(t *testing.T, h Harness) {
 	retired, err = reports.ListRetiredStudyOccurrences(owner, word.ID)
 	require.NoError(t, err)
 	assert.Empty(t, retired, "the occurrence is no longer retired")
+}
+
+func unsuitableReintroductionScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, progress, material, corrections := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress(), h.Study(), h.StudyCorrections()
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	reviewDay := word.Memory.Due.Add(-time.Hour)
+	reportedAt := reviewDay.Add(time.Minute)
+	record := reportRecord(word, domain.StudyReportUnsuitableContext, "")
+	record.CreatedAt = reportedAt
+	report, err := reports.CreateStudyReport(owner, record)
+	require.NoError(t, err)
+	assert.Equal(t, "a building", report.Gloss, "the rejected context's Gloss is kept as evidence")
+	assert.Equal(t, "The house is at the end of the street.", report.SentenceTranslation)
+	again, err := reports.CreateStudyReport(owner, record)
+	require.NoError(t, err)
+	assert.Equal(t, report.ID, again.ID, "reporting twice yields one report")
+
+	listed, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.True(t, listed[0].Reintroducing, "the word waits for new material")
+	assert.True(t, reportedAt.Equal(listed[0].ContextReportedAt), "got %v", listed[0].ContextReportedAt)
+	assert.False(t, listed[0].Held)
+	requireSameMemory(t, word.Memory, listed[0].Memory)
+	logs, err := progress.ListStudyReviewLog(owner, word.ID)
+	require.NoError(t, err)
+	assert.Len(t, logs, 1, "the reported review is ungraded")
+	old, err := material.GetStudyMaterial(owner, word.MaterialID)
+	require.NoError(t, err)
+	assert.Equal(t, "a building", old.Gloss, "the rejected material stays stored")
+
+	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyIdentity)
+	require.NoError(t, err)
+	require.True(t, created)
+	content := studyReadyContent()
+	content.Gloss = "a home"
+	require.NoError(t, material.RecordStudyMaterialReady(owner, replacement, content))
+	require.NoError(t, corrections.CompleteStudyReintroductions(owner, Language, reportedAt.Add(time.Hour)))
+	moved, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, moved, 1)
+	assert.Equal(t, replacement, moved[0].MaterialID)
+	assert.Equal(t, "a home", moved[0].LearnedMeaning, "the Learned meaning is re-anchored")
+	requireSameMemory(t, word.Memory, moved[0].Memory)
+	assert.False(t, domain.StudyCardIsDue(moved[0], reportedAt.Add(2*time.Hour)), "not shown again on the Study day it was reported")
+	assert.True(t, domain.StudyCardIsDue(moved[0], domain.NextStudyDayStart(reportedAt)), "due at the start of the next Study day")
+}
+
+func unsuitableWithdrawalScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, progress, material, corrections := h.Seeds().Owner(), h.StudyReports(), h.StudyProgress(), h.Study(), h.StudyCorrections()
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	_, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyIdentity)
+	require.NoError(t, err)
+	require.True(t, created)
+	require.NoError(t, material.RecordStudyMaterialUnpreparable(owner, replacement, domain.StudyOmissionSentenceQuality))
+	require.NoError(t, corrections.CompleteStudyReintroductions(owner, Language, studyReportDay.Add(2*time.Hour)))
+
+	listed, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.True(t, listed[0].Withdrawn, "no context is left")
+	assert.Equal(t, domain.StudyWithdrawnNoSuitableContext, listed[0].WithdrawnReason, "with a reason a correction's withdrawal does not have")
+	requireSameMemory(t, word.Memory, listed[0].Memory)
+	assert.Equal(t, int64(1), listed[0].Memory.Reps, "its progress is kept")
+
+	require.NoError(t, corrections.SetStudyWordWithdrawn(owner, word.ID, false, studyReportDay.Add(3*time.Hour)))
+	returned, err := progress.ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	assert.False(t, returned[0].Withdrawn, "it returns when evidence changes")
+	assert.Empty(t, returned[0].WithdrawnReason)
+}
+
+func unsuitableFluencyScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner, reports, fluency := h.Seeds().Owner(), h.StudyReports(), h.StudyFluency()
+	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
+	material, err := h.Study().GetStudyMaterial(owner, word.MaterialID)
+	require.NoError(t, err)
+	retired := fluencyRecord(word.ID, material.SentenceOrdinal, domain.FluencyAgrees)
+	retired.BookID, retired.AnalysisRunID, retired.CorpusID, retired.TokenOrdinal = material.BookID, material.AnalysisRunID, material.CorpusID, material.TokenOrdinal
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, retired))
+	kept := fluencyRecord(word.ID, material.SentenceOrdinal+3, domain.FluencyAgrees)
+	require.NoError(t, fluency.RecordStudyFluencyContext(owner, kept))
+
+	report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
+	require.NoError(t, err)
+	contexts, err := fluency.ListStudyFluencyContexts(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, contexts, 1, "the context on the retired occurrence is no longer shown")
+	assert.Equal(t, kept.SentenceOrdinal, contexts[0].SentenceOrdinal)
+	retiredWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, word.StudyIdentity)
+	require.NoError(t, err)
+	assert.Equal(t, []domain.StudyOccurrenceRef{report.Source}, retiredWord)
+	other, err := reports.ListRetiredStudyOccurrencesOfWord(owner, studyNoun("hund"))
+	require.NoError(t, err)
+	assert.Empty(t, other)
+
+	require.NoError(t, reports.UndoStudyReport(owner, report.ID, studyReportDay.Add(2*time.Hour)))
+	contexts, err = fluency.ListStudyFluencyContexts(owner, Language)
+	require.NoError(t, err)
+	assert.Len(t, contexts, 2, "an undone report retires nothing")
 }

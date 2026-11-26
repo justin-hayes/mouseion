@@ -49,6 +49,13 @@ type studyPageView struct {
 	// Held is how many words are held by an open Wrong-word report.
 	Held      int
 	Withdrawn []string
+	// NoSuitableContext names the words withdrawn because every context was
+	// reported as unsuitable or fails the sentence-quality gate (ADR 0135 §3).
+	// Their progress is kept, and they return when a new Book provides a context.
+	NoSuitableContext []string
+	// Reported is the card the learner has just reported as an unsuitable
+	// context, shown once more in place of the next card.
+	Reported *studyReportedView
 	// WaitingForSentence names the words a correction left with valid
 	// occurrences but no usable sentence yet, so their replacement material
 	// could not be prepared. They stay out of Today, and return when the
@@ -140,6 +147,10 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
+		if err := h.loadReportedCard(r, owner, &view); err != nil {
+			fail(w, err)
+			return
+		}
 	}
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
 }
@@ -151,6 +162,8 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) noteCorrections(ctx context.Context, owner string, view *studyPageView, progress []domain.StudyProgress, now time.Time) error {
 	for _, item := range progress {
 		switch {
+		case item.Withdrawn && item.WithdrawnReason == domain.StudyWithdrawnNoSuitableContext:
+			view.NoSuitableContext = append(view.NoSuitableContext, lemmadisplay.Format(view.Language, item.CanonicalLemma, item.UPOS))
 		case item.Withdrawn:
 			occurrences, err := h.services.Store.Study.FindStudyOccurrences(ctx, owner, item.StudyIdentity, domain.StudyOccurrenceRef{})
 			if err != nil {

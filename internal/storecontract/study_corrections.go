@@ -255,6 +255,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NoError(t, err)
 			require.Len(t, listed, 1)
 			assert.True(t, listed[0].Withdrawn, "no usable occurrence is left")
+			assert.Empty(t, listed[0].WithdrawnReason, "a correction's withdrawal has no other reason")
 			assert.Equal(t, id, listed[0].MaterialID)
 			assert.Equal(t, int64(0), listed[0].Memory.Reps)
 		}},

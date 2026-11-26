@@ -158,3 +158,35 @@ func ReviewStudyEvidence(e StudyEvidence) StudyEvidenceAction {
 		return StudyEvidenceReintroduce
 	}
 }
+
+// RetiredStudyOccurrence reports whether the occurrence is one the learner
+// retired as the word's context with an Unsuitable-context report (ADR 0135
+// §3): the same occurrence in the same run, or the same token of the same Book
+// after an Analysis update, as a Lemma correction relocates an occurrence. The
+// retired refs should carry their locator (StudyOccurrenceLocator) for the
+// second match.
+func RetiredStudyOccurrence(retired []StudyOccurrenceRef, ref StudyOccurrenceRef) bool {
+	for _, item := range retired {
+		if item.sameRun(ref) || item.sameToken(ref) {
+			return true
+		}
+	}
+	return false
+}
+
+// WithoutRetiredStudyOccurrences drops the retired occurrences from the list.
+func WithoutRetiredStudyOccurrences(refs, retired []StudyOccurrenceRef) []StudyOccurrenceRef {
+	if len(retired) == 0 {
+		return refs
+	}
+	return slices.DeleteFunc(slices.Clone(refs), func(ref StudyOccurrenceRef) bool { return RetiredStudyOccurrence(retired, ref) })
+}
+
+// StudyRef is the occurrence a concordance result names, with its locator.
+func (o ConcordanceResultOccurrence) StudyRef() StudyOccurrenceRef {
+	return StudyOccurrenceRef{
+		BookID: o.BookID, AnalysisRunID: o.AnalysisRunID, CorpusID: o.CorpusID,
+		SentenceOrdinal: o.SentenceOrdinal, TokenOrdinal: o.TokenOrdinal,
+		UnitID: o.UnitID, StartOffset: o.UnitStartOffset, EndOffset: o.UnitEndOffset,
+	}
+}

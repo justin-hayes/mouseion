@@ -401,6 +401,80 @@ func (q *Queries) ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenS
 	return items, nil
 }
 
+const listOpenStudyReportsOfIdentity = `-- name: ListOpenStudyReportsOfIdentity :many
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
+ WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3
+   AND upos = $4 AND lexical_discriminator = $5
+   AND kind = $6 AND ended_at IS NULL
+ ORDER BY created_at, id
+`
+
+type ListOpenStudyReportsOfIdentityParams struct {
+	Owner                string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	Kind                 string
+}
+
+// The open reports of one word by its vocabulary identity, which the word's
+// material preparation knows; for an Unsuitable-context report these are the
+// word's retired occurrences.
+func (q *Queries) ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOpenStudyReportsOfIdentityParams) ([]StudyReport, error) {
+	rows, err := q.db.Query(ctx, listOpenStudyReportsOfIdentity,
+		arg.Owner,
+		arg.Language,
+		arg.CanonicalLemma,
+		arg.Upos,
+		arg.LexicalDiscriminator,
+		arg.Kind,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StudyReport{}
+	for rows.Next() {
+		var i StudyReport
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.ProgressID,
+			&i.MaterialID,
+			&i.Kind,
+			&i.Note,
+			&i.BookID,
+			&i.AnalysisRunID,
+			&i.CorpusID,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Sentence,
+			&i.TargetWord,
+			&i.Gloss,
+			&i.SentenceTranslation,
+			&i.PreviousMaterialID,
+			&i.PreviousCorrectedAt,
+			&i.PreviousLearnedMeaning,
+			&i.CreatedAt,
+			&i.RecordedAt,
+			&i.EndedAt,
+			&i.EndReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenStudyReportsOfWord = `-- name: ListOpenStudyReportsOfWord :many
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, previous_material_id, previous_corrected_at, previous_learned_meaning, created_at, recorded_at, ended_at, end_reason FROM study_report
  WHERE owner_id = $1 AND progress_id = $2 AND kind = $3 AND ended_at IS NULL

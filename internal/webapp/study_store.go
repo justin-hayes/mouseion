@@ -94,6 +94,9 @@ type StudyReportStore interface {
 	// ListRetiredStudyOccurrences names the occurrences the word's open
 	// Unsuitable-context reports retired as its context.
 	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
+	// ListRetiredStudyOccurrencesOfWord is the same by the word's vocabulary
+	// identity, for material preparation, which knows no progress row.
+	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	EndStudyReport(ctx context.Context, owner, id string, reason domain.StudyReportEnd, now time.Time) error
 	DismissStudyReport(ctx context.Context, owner, id string, now time.Time) error
 	UndoStudyReport(ctx context.Context, owner, id string, now time.Time) error

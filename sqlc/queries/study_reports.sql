@@ -58,6 +58,16 @@ SELECT * FROM study_report
  WHERE owner_id = sqlc.arg('owner') AND progress_id = sqlc.arg('progress') AND kind = sqlc.arg('kind') AND ended_at IS NULL
  ORDER BY created_at, id;
 
+-- name: ListOpenStudyReportsOfIdentity :many
+-- The open reports of one word by its vocabulary identity, which the word's
+-- material preparation knows; for an Unsuitable-context report these are the
+-- word's retired occurrences.
+SELECT * FROM study_report
+ WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
+   AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
+   AND kind = sqlc.arg('kind') AND ended_at IS NULL
+ ORDER BY created_at, id;
+
 -- name: EndStudyReport :execrows
 -- Ends an open report. A report already ended is left as it is.
 UPDATE study_report

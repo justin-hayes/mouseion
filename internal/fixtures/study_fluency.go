@@ -51,7 +51,7 @@ func (s *Store) ListStudyFluencyContexts(_ context.Context, owner, language stri
 		s.attachFluencyResponsesLocked(owner, &item)
 		contexts = append(contexts, item)
 	}
-	return contexts, nil
+	return s.withoutRetiredFluencyContextsLocked(owner, contexts), nil
 }
 
 // RecordStudyFluencyContext stores one assessed occurrence of a mature word.

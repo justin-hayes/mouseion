@@ -65,7 +65,31 @@ func (s *PostgresStore) ListStudyFluencyContexts(ctx context.Context, owner, lan
 		}
 		contexts = append(contexts, item)
 	}
-	return contexts, nil
+	return s.withoutRetiredFluencyContexts(ctx, owner, language, contexts)
+}
+
+// withoutRetiredFluencyContexts leaves out the contexts on an occurrence the
+// learner retired as the word's context (ADR 0135 §3), so a reported sentence
+// is never asked about again. The contexts stay stored.
+func (s *PostgresStore) withoutRetiredFluencyContexts(ctx context.Context, owner, language string, contexts []domain.FluencyContext) ([]domain.FluencyContext, error) {
+	reports, err := s.ListOpenStudyReports(ctx, owner, language, domain.StudyReportUnsuitableContext)
+	if err != nil || len(reports) == 0 {
+		return contexts, err
+	}
+	retired := map[string][]domain.StudyOccurrenceRef{}
+	for _, report := range reports {
+		retired[report.ProgressID] = append(retired[report.ProgressID], s.locatedOccurrence(ctx, owner, report.Source))
+	}
+	kept := contexts[:0:0]
+	for _, item := range contexts {
+		refs := retired[item.ProgressID]
+		ref := domain.StudyOccurrenceRef{BookID: item.BookID, AnalysisRunID: item.AnalysisRunID, CorpusID: item.CorpusID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}
+		if len(refs) > 0 && domain.RetiredStudyOccurrence(refs, s.locatedOccurrence(ctx, owner, ref)) {
+			continue
+		}
+		kept = append(kept, item)
+	}
+	return kept, nil
 }
 
 // RecordStudyFluencyContext stores one assessed occurrence of a mature word. It

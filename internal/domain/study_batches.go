@@ -99,7 +99,7 @@ func StudyCarryOver(progress []StudyProgress, now time.Time) []StudyProgress {
 func StudyUnintroduced(progress []StudyProgress, now time.Time) []StudyProgress {
 	var pending []StudyProgress
 	for _, item := range progress {
-		if !item.Withdrawn && !item.Graded() && !studyCarriedOver(item, now) {
+		if !item.Withdrawn && !item.Graded() && !studyCarriedOver(item, now) && !item.StudyContextReplaced(now) {
 			pending = append(pending, item)
 		}
 	}

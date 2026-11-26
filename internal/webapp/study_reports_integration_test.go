@@ -115,7 +115,6 @@ func TestStudyReportIsRefusedForAStaleOrUnknownRequest(t *testing.T) {
 	s.twoReviewsDue()
 	card := s.currentCard()
 
-	assert.Equal(t, http.StatusBadRequest, s.report(card, "unsuitable_context", "").Code, "Unsuitable context is not available yet")
 	assert.Equal(t, http.StatusBadRequest, s.report(card, "bug", "").Code)
 	long := make([]byte, domain.StudyReportNoteMax+1)
 	for i := range long {
@@ -144,7 +143,8 @@ func TestStudyCardOffersReportOnlyAfterShowAnswer(t *testing.T) {
 	answer := getAs(t, s.h, "/de/study?answer=1", s.cookies).Body.String()
 	assert.Contains(t, answer, `action="/study/reports"`)
 	assert.Contains(t, answer, `value="wrong_word"`)
-	assert.Contains(t, answer, `value="unsuitable_context" disabled`, "both kinds show; only Wrong word is enabled")
+	assert.Contains(t, answer, `value="unsuitable_context"`)
+	assert.NotContains(t, answer, `value="unsuitable_context" disabled`, "both kinds are available")
 }
 
 func TestStudyTodayWithOpenReportsStaysFastOnTheScaleLibrary(t *testing.T) {

@@ -92,3 +92,50 @@ func TestOnlyAnOpenWrongWordReportHolds(t *testing.T) {
 	assert.False(t, StudyReportEndDismissed.Repair())
 	assert.False(t, StudyReportEndUndone.Repair())
 }
+
+func replacedToday(word StudyProgress, reportedAt time.Time) StudyProgress {
+	word.ContextReportedAt = reportedAt
+	return word
+}
+
+func TestAWordWhoseContextWasReportedWaitsForTheNextStudyDay(t *testing.T) {
+	now := berlin(11, 25, 9, 0)
+	cases := map[string]StudyProgress{
+		"a review due today":     reviewWord("a", StudyStateReview, berlin(11, 25, 20, 0), berlin(11, 22, 20, 0)),
+		"a review overdue":       reviewWord("b", StudyStateReview, berlin(11, 24, 20, 0), berlin(11, 21, 20, 0)),
+		"a repeat that is due":   reviewWord("c", StudyStateRelearning, berlin(11, 25, 8, 50), berlin(11, 25, 8, 40)),
+		"a word just introduced": reviewWord("d", StudyStateNew, berlin(11, 25, 8, 0), time.Time{}),
+	}
+	for name, word := range cases {
+		t.Run(name, func(t *testing.T) {
+			reported := replacedToday(word, berlin(11, 25, 8, 55))
+			assert.False(t, StudyCardIsDue(reported, now), "the reported review is not shown again today")
+			assert.False(t, StudyCountsToday(reported, now), "and Today can finish without it")
+			assert.False(t, StudyAwaitsMaterial(reported, now))
+			_, ok := NextStudyReview([]StudyProgress{reported}, now)
+			assert.False(t, ok)
+			assert.Empty(t, StudyUnintroduced([]StudyProgress{reported}, now), "a batch is not held back by it")
+		})
+	}
+}
+
+func TestAWordWhoseContextWasReportedIsDueAgainOnTheNextStudyDay(t *testing.T) {
+	reportedAt := berlin(11, 25, 8, 55)
+	word := replacedToday(reviewWord("a", StudyStateReview, berlin(11, 25, 20, 0), berlin(11, 22, 20, 0)), reportedAt)
+	tomorrow := berlin(11, 26, 5, 30)
+	assert.True(t, StudyCardIsDue(word, tomorrow), "the report defers its word by a Study day, no more")
+	assert.Equal(t, 1, StudyFinishLine([]StudyProgress{word}, tomorrow).Remaining)
+	assert.Equal(t, 1, StudyForecast([]StudyProgress{word}, berlin(11, 25, 9, 0)), "it is forecast for the next Study day")
+}
+
+func TestRetiredStudyOccurrenceMatchesTheSameOccurrenceAcrossRuns(t *testing.T) {
+	retired := located(StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c1", SentenceOrdinal: 4, TokenOrdinal: 2})
+	moved := located(StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-2", CorpusID: "c2", SentenceOrdinal: 7, TokenOrdinal: 1})
+	other := StudyOccurrenceRef{BookID: "b", AnalysisRunID: "run-1", CorpusID: "c1", SentenceOrdinal: 5, TokenOrdinal: 2}
+	retiredSet := []StudyOccurrenceRef{retired}
+	assert.True(t, RetiredStudyOccurrence(retiredSet, retired), "the same occurrence in the same run")
+	assert.True(t, RetiredStudyOccurrence(retiredSet, moved), "the same token after an Analysis update")
+	assert.False(t, RetiredStudyOccurrence(retiredSet, other), "another sentence is not retired")
+	assert.False(t, RetiredStudyOccurrence(nil, retired))
+	assert.Equal(t, []StudyOccurrenceRef{other}, WithoutRetiredStudyOccurrences([]StudyOccurrenceRef{retired, moved, other}, retiredSet))
+}

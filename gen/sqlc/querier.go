@@ -445,6 +445,10 @@ type Querier interface {
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
 	ListOpenStudyReports(ctx context.Context, arg ListOpenStudyReportsParams) ([]StudyReport, error)
 	ListOpenStudyReportsForBook(ctx context.Context, arg ListOpenStudyReportsForBookParams) ([]StudyReport, error)
+	// The open reports of one word by its vocabulary identity, which the word's
+	// material preparation knows; for an Unsuitable-context report these are the
+	// word's retired occurrences.
+	ListOpenStudyReportsOfIdentity(ctx context.Context, arg ListOpenStudyReportsOfIdentityParams) ([]StudyReport, error)
 	// The open reports of one word; for an Unsuitable-context report these are the
 	// word's retired occurrences.
 	ListOpenStudyReportsOfWord(ctx context.Context, arg ListOpenStudyReportsOfWordParams) ([]StudyReport, error)
@@ -514,6 +518,8 @@ type Querier interface {
 	// reintroducing is true while the word's own Study material has been
 	// superseded by a correction and its replacement is not yet in place.
 	// held is true while the word has an open Wrong-word report (ADR 0135 §2).
+	// context_reported_at is when its latest open Unsuitable-context report was
+	// made (ADR 0135 §3), the epoch when there is none.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	// The tokens of one Book's current analysis that a Study word's introducing
@@ -722,7 +728,10 @@ type Querier interface {
 	UpsertWork(ctx context.Context, arg UpsertWorkParams) (UpsertWorkRow, error)
 	VerifyPreparedDeckBatchSubmissionClaim(ctx context.Context, arg VerifyPreparedDeckBatchSubmissionClaimParams) (bool, error)
 	// A word whose replacement material cannot be prepared has no usable
-	// occurrence left: it is withdrawn, with its progress kept.
+	// occurrence left: it is withdrawn, with its progress kept. A word whose
+	// contexts the learner reported as unsuitable is withdrawn with the reason
+	// 'no_suitable_context' (ADR 0135 §3): its other contexts are retired or fail
+	// the sentence-quality gate.
 	WithdrawUnpreparableStudyReintroductions(ctx context.Context, arg WithdrawUnpreparableStudyReintroductionsParams) (int64, error)
 }
 

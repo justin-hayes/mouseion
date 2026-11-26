@@ -33,6 +33,10 @@ type MaterialStore interface {
 	// same evidence.
 	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 	SetStudyMaterialEvidence(ctx context.Context, owner, id, evidence string) error
+	// ListRetiredStudyOccurrencesOfWord names the occurrences the learner
+	// reported as an unsuitable context for the word (ADR 0135 §3). They are
+	// never chosen again, whatever Analysis run they are now in.
+	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
 }
 
 // Enricher is the per-word enrichment entry point with a contextual Gloss
@@ -145,6 +149,10 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 	if lookupPriority == "" {
 		lookupPriority = domain.ConcordancePriorityNone
 	}
+	retired, err := w.Store.ListRetiredStudyOccurrencesOfWord(ctx, owner, identity)
+	if err != nil {
+		return sentenceChoice{}, false, err
+	}
 	search := sentenceSearch{priority: priority}
 	for page := 1; ; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
@@ -154,7 +162,7 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
-		choices, err := w.scoreOccurrences(ctx, owner, identity, result.Occurrences)
+		choices, err := w.scoreOccurrences(ctx, owner, identity, result.Occurrences, retired)
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
@@ -211,9 +219,9 @@ func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
 // scoreOccurrences keeps the occurrences of the word's full identity whose
 // sentence the gate accepts. An occurrence belongs to the identity only when
 // its effective lexical discriminator matches: a corrected occurrence carries
-// none, and any other carries its token's.
-func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
-	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences)
+// none, and any other carries its token's. A retired occurrence is skipped.
+func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef) ([]sentenceChoice, error) {
+	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences, retired)
 }
 
 // sentenceReader is what scoring occurrences needs of the store.
@@ -221,11 +229,11 @@ type sentenceReader interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 }
 
-func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]sentenceChoice, error) {
+func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef) ([]sentenceChoice, error) {
 	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
 	for _, occurrence := range occurrences {
-		if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel {
+		if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel || domain.RetiredStudyOccurrence(retired, occurrence.StudyRef()) {
 			continue
 		}
 		usable = append(usable, occurrence)
