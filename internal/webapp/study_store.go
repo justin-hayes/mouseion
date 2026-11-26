@@ -16,6 +16,9 @@ type StudyStore interface {
 	// ListStudyCandidates is the fact a batch is chosen from; the domain orders
 	// them. ListCurrentStudyMaterial, with it, is in StudyCorrectionsStore.
 	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
+	// ListStudyCandidatesAmong is the same fact for the given identities only,
+	// without reading the library's other candidates.
+	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
 	// StudyBatchLedger reports the batches offered, taken and declined on a
 	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.

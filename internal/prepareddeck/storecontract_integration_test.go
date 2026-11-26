@@ -407,6 +407,10 @@ func (h *postgresHarness) RepreparePreparation(owner, id, expectedSnapshotID str
 	return handle.Preparation, err
 }
 
+func (h *postgresHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+	return h.store.ListStudyCandidatesAmong(h.ctx, owner, language, identities)
+}
+
 func (h *postgresHarness) ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidates(h.ctx, owner, language)
 }

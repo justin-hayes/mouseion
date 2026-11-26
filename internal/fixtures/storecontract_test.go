@@ -365,6 +365,10 @@ func (h *contractHarness) ListStudyReviewLog(owner, progressID string) ([]domain
 	return h.store.ListStudyReviewLog(context.Background(), owner, progressID)
 }
 
+func (h *contractHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+	return h.store.ListStudyCandidatesAmong(context.Background(), owner, language, identities)
+}
+
 func (h *contractHarness) ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidates(context.Background(), owner, language)
 }

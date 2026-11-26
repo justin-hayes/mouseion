@@ -312,11 +312,24 @@ func (h *Handler) studyBatchOffer(r *http.Request, owner, language string, progr
 // not in study.
 func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) ([]domain.StudyBatchWord, error) {
 	store := h.services.Store.Study
-	candidates, err := store.ListStudyCandidates(r.Context(), owner, language)
+	material, err := store.ListCurrentStudyMaterial(r.Context(), owner, language)
 	if err != nil {
 		return nil, err
 	}
-	material, err := store.ListCurrentStudyMaterial(r.Context(), owner, language)
+	// Only a word whose material is ready can be offered, so only those words
+	// need their place in the stream: the rest of the library's candidates are
+	// never read.
+	inStudy := make(map[domain.StudyIdentity]bool, len(progress))
+	for _, item := range progress {
+		inStudy[item.StudyIdentity] = true
+	}
+	var ready []domain.StudyIdentity
+	for _, item := range material {
+		if item.State == domain.StudyMaterialReady && !inStudy[item.StudyIdentity] {
+			ready = append(ready, item.StudyIdentity)
+		}
+	}
+	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, ready)
 	if err != nil {
 		return nil, err
 	}

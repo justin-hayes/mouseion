@@ -151,6 +151,7 @@ type ClassicalStore interface {
 // is owner-scoped and keyed by word; a word has one current record.
 type StudyStore interface {
 	ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error)
+	ListStudyCandidatesAmong(owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error)
 	ListCurrentStudyMaterial(owner, language string) ([]domain.StudyMaterial, error)
 	GetStudyMaterial(owner, id string) (domain.StudyMaterial, error)
 	CountStudyMaterial(owner, language string) (domain.StudyMaterialCounts, error)
