@@ -461,15 +461,17 @@ func studyCandidatesAmongScenario() Scenario {
 		}
 		among, err := h.Study().ListStudyCandidatesAmong(owner, Language, []domain.StudyIdentity{studyNoun("haus"), studyNoun("katze"), studyNoun("nope"), {Language: Language, CanonicalLemma: "hund", UPOS: "VERB"}})
 		require.NoError(t, err)
-		require.Len(t, among, 2, "only the asked identities that are candidates: a word that is not one, or with another part of speech, is absent")
-		for _, candidate := range among {
-			assert.Equal(t, want[candidate.StudyIdentity], candidate)
-		}
-		none, err := h.Study().ListStudyCandidatesAmong(owner, Language, nil)
-		require.NoError(t, err)
-		assert.Empty(t, none)
-		other, err := h.Study().ListStudyCandidatesAmong(h.Seeds().OtherOwner(), Language, []domain.StudyIdentity{studyNoun("haus")})
-		require.NoError(t, err)
-		assert.Empty(t, other, "another learner's Books are not candidates")
+		require.ElementsMatch(t, []domain.StudyCandidate{want[studyNoun("haus")], want[studyNoun("katze")]}, among,
+			"only the asked identities that are candidates: a word that is not one, or with another part of speech, is absent")
+		t.Run("no identities asked for", func(t *testing.T) {
+			none, err := h.Study().ListStudyCandidatesAmong(owner, Language, nil)
+			require.NoError(t, err)
+			require.Empty(t, none)
+		})
+		t.Run("another learner", func(t *testing.T) {
+			other, err := h.Study().ListStudyCandidatesAmong(h.Seeds().OtherOwner(), Language, []domain.StudyIdentity{studyNoun("haus")})
+			require.NoError(t, err)
+			require.Empty(t, other, "another learner's Books are not candidates")
+		})
 	}}
 }

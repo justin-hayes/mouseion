@@ -242,6 +242,24 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 	return batch
 }
 
+// StudyBatchLookup returns the identities NextStudyBatch can fill a batch
+// with from the stream: words whose material is ready and that are not in
+// study. Only these need their place in the stream, so a store need not read
+// the other candidates.
+func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress) []StudyIdentity {
+	inStudy := make(map[StudyIdentity]bool, len(progress))
+	for _, item := range progress {
+		inStudy[item.StudyIdentity] = true
+	}
+	var identities []StudyIdentity
+	for _, item := range material {
+		if item.State == StudyMaterialReady && !inStudy[item.StudyIdentity] {
+			identities = append(identities, item.StudyIdentity)
+		}
+	}
+	return identities
+}
+
 // WithoutStudyProgress drops the candidates already in study, so preparation
 // and batches only look ahead at new words.
 func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress) []StudyCandidate {

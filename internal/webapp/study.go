@@ -319,17 +319,7 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 	// Only a word whose material is ready can be offered, so only those words
 	// need their place in the stream: the rest of the library's candidates are
 	// never read.
-	inStudy := make(map[domain.StudyIdentity]bool, len(progress))
-	for _, item := range progress {
-		inStudy[item.StudyIdentity] = true
-	}
-	var ready []domain.StudyIdentity
-	for _, item := range material {
-		if item.State == domain.StudyMaterialReady && !inStudy[item.StudyIdentity] {
-			ready = append(ready, item.StudyIdentity)
-		}
-	}
-	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, ready)
+	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, domain.StudyBatchLookup(material, progress))
 	if err != nil {
 		return nil, err
 	}
