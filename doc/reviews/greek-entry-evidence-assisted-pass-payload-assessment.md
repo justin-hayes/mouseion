@@ -27,8 +27,10 @@ nothing.
 
 Transport: the configured OpenAI-compatible Chat Completions endpoint
 (`POST {MOUSEION_LLM_BASE_URL}/chat/completions`, the same one every other pass
-uses), with `response_format: json_object`. One request per word, sent only by the
-Study job packages, never by a page request.
+uses), with `response_format: json_object`. One request per pass: Study sends one for each
+word it introduces and one for each Fluency context candidate it prepares, and a
+retryable provider error repeats the request. Only the Study job packages send
+it, never a page request.
 
 Prompt version: `translation-v19-evidence-assisted-greek-entries` (provider
 version `<model>/translation-v19-evidence-assisted-greek-entries`, with a
@@ -64,14 +66,17 @@ ten fields: `item_id`, `source_language`, `target_language`, `translation`,
 `sentence_translation`, `sentence_translation_targets`, `gloss`, `evidence_ids`,
 `context_only` and `unresolved_reason`. The `gloss` is one brief English cue for
 the target's meaning in the sentence, with the supporting `evidence_ids`, which
-may only be handles from `candidate_senses`. When no contextual meaning can be
+may only be handles from `candidate_senses`. When no pinned sense applies the
+answer may carry a Gloss with an empty `evidence_ids` and `context_only` true;
+Study does not use such a Gloss. When no contextual meaning can be
 defended it abstains: an empty `gloss`, empty `evidence_ids`, `context_only` and
 an `unresolved_reason`. The decoder rejects an unknown or repeated handle, and
 maps a cited handle back to exactly one entry and sense locally.
 
 ## Sources
 
-Two third-party sources reach the provider through this payload. Both are public
+Three third-party sources reach the provider through this payload: two
+dictionary and translation texts, and the library sentence. All are public
 reference texts, not learner data. Licences are as `doc/third-party-data.md`
 records them.
 
@@ -94,7 +99,13 @@ records them.
   passage. The Greek sentence is credited by `cardpolicy.GreekSourceNotice`
   (OGA v0.2.0, derived from Perseus `canonical-greekLit`, CC BY-SA 4.0).
 
-This payload sends the same two sources to the provider that the #2171 pass
+- **The Greek sentence and its analysis** (`example_sentence`, `target_word`,
+  `canonical_lemma`, `upos`): OGA v0.2.0 text derived from Perseus
+  `canonical-greekLit`, CC BY-SA 4.0 per its Zenodo record. The lemma and part of
+  speech come from the treebank annotation; `doc/third-party-data.md` flags that
+  annotation lineage as unverified. The #2171 pass sends the same fields.
+
+This payload sends the same three sources to the provider that the #2171 pass
 already sends; the licence position is unchanged. Sending them for processing is
 a use inside the personal-use, locally produced Study surface; the attribution
 above stays where the material is shown to the learner.
@@ -133,8 +144,8 @@ Three things, and only these:
    handle (`h1`, `h2`, …) assigned by order of first appearance. It carries no
    native entry ID. The #2171 senses carry no `entry`.
 3. **Uncapped senses.** The deck freezes at most `DefaultMaxCandidateSenses` (8)
-   candidate senses. Study sends every sense of every entry, as it did for one
-   entry before ADR 0139, so a frequent lemma's later senses stay citable.
+   candidate senses. Study sends every citable sense of every entry (a sense
+   with no ID or no usable text is skipped), as it did for one entry before ADR 0139, so a frequent lemma's later senses stay citable.
 
 Unchanged: the transport, the nine payload fields and their order (identical to
 #2171's and to Latin's), the ten-field answer shape, the passage source, the two
@@ -155,14 +166,16 @@ the provider's tokenizer will differ, so treat them as an order of magnitude.
 
 | Request | Senses | Encoded request | Approx. tokens |
 | --- | --- | --- | --- |
-| No senses (system prompt and fields only) | 0 | 2,222 bytes | ~560 |
+| No senses (system prompt and fields only) | 0 | 2,329 bytes | ~580 |
 | Typical, capped at 8 senses | 8 | 3,396 bytes | ~850 |
 | Large synthetic ἔχω-like entry, uncapped | 140 | 23,946 bytes (23.4 KiB) | ~6,000 |
 
-The user message alone is 19,583 bytes for 140 senses, about 140 bytes per sense;
-the system prompt and request envelope are about 2.2 KiB. Cost grows linearly
-with the number of senses. One such request is sent per word and only for a
-handful of very frequent lemmas; most lemmas have a few senses and cost about as
+The user message alone is 19,583 bytes for 140 senses, about 140 bytes per sense.
+The encoded request is larger because the user message travels as an escaped
+JSON string and is joined by the system prompt and envelope (about 4.4 KiB at 140
+senses). Cost grows linearly
+with the number of senses. Such a request is sent once per pass of a word
+with a very large entry; most lemmas have a few senses and cost about as
 much as the 8-sense row. The request stays far inside a modern model's context
 window, and the answer is small (a Gloss, a translation and a few handles).
 `TestGreekStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget` fails if
