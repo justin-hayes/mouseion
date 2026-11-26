@@ -172,8 +172,13 @@ func reconcileReports(ctx context.Context, store ReportStore, owner, language st
 		words[word.ID] = word
 	}
 	for _, report := range reports {
+		// A reported new word may have no Study progress; its report still
+		// ends, and there is nothing to re-introduce.
 		word, ok := words[report.ProgressID]
-		if !ok || word.Withdrawn || word.MaterialID != report.MaterialID {
+		if !ok {
+			word = domain.StudyProgress{StudyIdentity: report.StudyIdentity, MaterialID: report.MaterialID}
+		}
+		if word.Withdrawn || word.MaterialID != report.MaterialID {
 			continue
 		}
 		if err := reconcileReport(ctx, store, owner, report, word, decided, now); err != nil {
@@ -214,6 +219,9 @@ func reconcileReport(ctx context.Context, store ReportStore, owner string, repor
 			return nil
 		}
 		return err
+	}
+	if word.ID == "" {
+		return nil
 	}
 	_, err = applyEvidence(ctx, store, owner, word, evidence, current, now)
 	return err
