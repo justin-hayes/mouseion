@@ -297,8 +297,9 @@ question 6).
 makes Study the only vocabulary workflow, at one cutover. Until then the
 separation above holds. The cutover waits until Study supports the
 source-evidence card policy (Ancient Greek and Latin) and introduces Idioms as
-items with their own Study progress. Both of those are left out of the pilot
-above. At the cutover:
+items with their own Study progress
+([ADR 0137](../adr/0137-idioms-are-study-items.md)). Both of those are left
+out of the pilot above. At the cutover:
 
 - Known vocabulary and the Prepared deck retire. Each Known word becomes
   **Already known** Study progress, with first reviews spread over several
