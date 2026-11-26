@@ -277,3 +277,35 @@ func TestLatinDeckWithoutThePassSendsNoCandidateSenses(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, deck.WorkProjection(), "the default Latin card has no provider work")
 }
+
+// TestLatinEvidenceAssistedPassEncodedRequestCarriesNoNativeLewisShortID encodes
+// the request a frozen Latin deck would send and checks the bytes: only the
+// per-request handles go out, never the native entry or sense IDs (#2766).
+func TestLatinEvidenceAssistedPassEncodedRequestCarriesNoNativeLewisShortID(t *testing.T) {
+	projections := latinFreezeProjection("Livy")
+	projections[0].Provider, projections[0].ProviderVersion, projections[0].TargetLanguage = "openai-compatible", "model/translation-v18-evidence-assisted-latin", "en"
+	projections[0].EvidenceAssistedPass = true
+	projections[0].Entry.Sentence = "vir magnam rem dico et cum amicis in forum venit."
+	projections[0].Entry.TargetWord = "dico"
+	deck, _, err := NewPresentation(&lsStub{found: true, entries: dicoEntries()}).Freeze(t.Context(), "owner-1", "Livy", projections)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test"})
+	require.NoError(t, err)
+	body, err := codec.EncodeRequest(work[0].Request)
+	require.NoError(t, err)
+
+	t.Run("no native entry or sense ID is in the request", func(t *testing.T) {
+		for _, native := range []string{"n9", "n10"} {
+			require.NotContains(t, string(body), `"`+native, "native ID %s must not go out", native)
+			require.NotContains(t, string(body), `\"`+native, "native ID %s must not go out", native)
+		}
+		require.NotContains(t, string(body), enrichment.LatinEvidenceID("n9", "n9.0"))
+	})
+	t.Run("each sense carries its evidence and entry handles", func(t *testing.T) {
+		require.Contains(t, string(body), `\"evidence_id\":\"e1\"`)
+		require.Contains(t, string(body), `\"entry\":\"h1\"`)
+		require.Contains(t, string(body), `\"entry\":\"h2\"`)
+	})
+}
