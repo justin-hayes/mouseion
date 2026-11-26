@@ -297,10 +297,13 @@ func TestLatinEvidenceAssistedPassEncodedRequestCarriesNoNativeLewisShortID(t *t
 	require.NoError(t, err)
 
 	t.Run("no native entry or sense ID is in the request", func(t *testing.T) {
+		var leaked []string
 		for _, native := range []string{"n9", "n10"} {
-			require.NotContains(t, string(body), `"`+native, "native ID %s must not go out", native)
-			require.NotContains(t, string(body), `\"`+native, "native ID %s must not go out", native)
+			if strings.Contains(string(body), `"`+native) || strings.Contains(string(body), `\"`+native) {
+				leaked = append(leaked, native)
+			}
 		}
+		require.Empty(t, leaked, "native IDs must not go out")
 		require.NotContains(t, string(body), enrichment.LatinEvidenceID("n9", "n9.0"))
 	})
 	t.Run("each sense carries its evidence and entry handles", func(t *testing.T) {

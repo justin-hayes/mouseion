@@ -77,9 +77,11 @@ func TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments(t *tes
 
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
-	t.Run("the run is consented and uses the Latin pass contract", func(t *testing.T) {
-		assert.True(t, plan.Config.ExternalTranslationConsent)
-		assert.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
+	t.Run("the run is consented", func(t *testing.T) {
+		require.True(t, plan.Config.ExternalTranslationConsent)
+	})
+	t.Run("the run uses the Latin pass contract", func(t *testing.T) {
+		require.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
 	})
 	t.Run("the word is frozen as pass work", func(t *testing.T) {
 		deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)

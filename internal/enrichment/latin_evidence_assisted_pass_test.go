@@ -2,7 +2,7 @@ package enrichment
 
 import (
 	"encoding/json"
-	"strconv"
+	"slices"
 	"strings"
 	"testing"
 
@@ -170,14 +170,20 @@ func TestLatinPassRequestSendsOnlyShortHandles(t *testing.T) {
 		}
 		require.NoError(t, json.Unmarshal([]byte(request.Messages[1].Content), &payload))
 		require.Len(t, payload.Senses, 3)
-		for i, sense := range payload.Senses {
+		var shapes [][]string
+		var handles []any
+		for _, sense := range payload.Senses {
 			keys := make([]string, 0, len(sense))
 			for key := range sense {
 				keys = append(keys, key)
 			}
-			require.ElementsMatch(t, []string{"evidence_id", "entry", "source", "gloss"}, keys)
-			require.Equal(t, "e"+strconv.Itoa(i+1), sense["evidence_id"])
+			slices.Sort(keys)
+			shapes = append(shapes, keys)
+			handles = append(handles, sense["evidence_id"])
 		}
+		want := []string{"entry", "evidence_id", "gloss", "source"}
+		require.Equal(t, [][]string{want, want, want}, shapes)
+		require.Equal(t, []any{"e1", "e2", "e3"}, handles)
 		require.Equal(t, "h1", payload.Senses[0]["entry"])
 		require.Equal(t, "h2", payload.Senses[2]["entry"])
 	})

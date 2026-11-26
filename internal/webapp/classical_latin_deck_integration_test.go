@@ -298,13 +298,18 @@ func TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFail
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
 	preparation := waitForPreparedDeck(t, ctx, store, learner.ID, reading.SnapshotID)
 	require.Equal(t, domain.DeckPreparationReady, preparation.State, "preparation error=%q", preparation.Error)
-	assert.Equal(t, 2, preparation.TotalCards, "one default card per identity and no Idiom card")
-	assert.Equal(t, 2, failingPassProvider.callCount(), "the recorded Latin pass is sent once per word")
+	t.Run("one default card per identity and no Idiom card", func(t *testing.T) {
+		require.Equal(t, 2, preparation.TotalCards)
+	})
+	t.Run("the recorded Latin pass is sent once per word", func(t *testing.T) {
+		require.Equal(t, 2, failingPassProvider.callCount())
+	})
 
 	rows, err := pool.Query(ctx, `SELECT render_payload, passage_context, passage_citation, brownson_pin, canonical_lemma, lsj_entry_id, lsj_pin FROM deck_preparation_manifest_items WHERE owner_id=$1`, learner.ID)
 	require.NoError(t, err)
 	defer rows.Close()
 	cards := 0
+	senseCounts := map[string]int{}
 	for rows.Next() {
 		var payload []byte
 		var passage, citation, pin, lemma, entryID, entryPin string
@@ -316,11 +321,7 @@ func TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFail
 		}
 		require.NoError(t, json.Unmarshal(payload, &item))
 		assert.Empty(t, item.Gloss, "a Latin deck resolves no contextual Gloss")
-		if lemma == "domus" {
-			assert.Len(t, item.CandidateSenses, 2, "the pass froze one Lewis & Short sense per entry, not Wiktionary evidence")
-		} else {
-			assert.Empty(t, item.CandidateSenses, "a lemma with no entry has no pass evidence")
-		}
+		senseCounts[lemma] = len(item.CandidateSenses)
 		assert.Contains(t, passage, "synthetic section", "the card froze the pinned English passage")
 		assert.Contains(t, citation, "1.pr.")
 		assert.Equal(t, "sha256:"+translationSHA, pin)
@@ -343,6 +344,7 @@ func TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFail
 	}
 	require.NoError(t, rows.Err())
 	assert.Equal(t, 2, cards)
+	assert.Equal(t, map[string]int{"domus": 2, "sto": 0}, senseCounts, "the pass froze one Lewis & Short sense per entry for domus and no Wiktionary evidence")
 
 	for _, want := range []string{"Passage context: " + latinDeckTranslationLabel + " 1.pr.", "Not a translation of this sentence", "Opera Latina Adnotata", "canonical-latinLit", latinDeckTranslationPin, "PerseusDL/lexica@" + latinDeckLSPin, "a household"} {
 		assert.True(t, bytes.Contains(preparation.Artifact, []byte(want)), "exported Latin deck is missing %q", want)
