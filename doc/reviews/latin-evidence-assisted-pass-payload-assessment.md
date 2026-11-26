@@ -33,8 +33,9 @@ never by a page request.
 Prompt version: `translation-v18-evidence-assisted-latin` (provider version
 `<model>/translation-v18-evidence-assisted-latin`).
 
-The user message carries exactly these fields, in this order (pinned in
-`enrichment.LatinEvidenceAssistedPassPayloadFields`):
+The user message carries these fields, in this order (pinned in
+`enrichment.LatinEvidenceAssistedPassPayloadFields`). `passage_context` and
+`candidate_senses` are omitted when empty:
 
 | Field | Value |
 | --- | --- |
@@ -61,8 +62,10 @@ handle, and asks for one JSON object of ten fields: `item_id`, `source_language`
 `target_language`, `translation`, `sentence_translation`,
 `sentence_translation_targets`, `gloss`, `evidence_ids`, `context_only` and
 `unresolved_reason`. The `gloss` is one brief English cue for the target's
-meaning in the sentence and must be supported by the cited `evidence_ids`, which
-may only be handles from `candidate_senses`. When no contextual meaning can be
+meaning in the sentence, with the supporting `evidence_ids`, which may only be
+handles from `candidate_senses`. When no pinned evidence applies the answer may
+carry a Gloss with an empty `evidence_ids` and `context_only` true; Study does not
+use such a Gloss. When no contextual meaning can be
 defended it abstains: an empty `gloss`, empty `evidence_ids`, `context_only` and
 an `unresolved_reason`. The decoder rejects an unknown or repeated handle, and
 maps a cited handle back to exactly one entry and sense locally.
@@ -140,8 +143,10 @@ set pinned as above, recorded in `latinEvidenceAssistedPassAssessment`
 (`internal/enrichment/provider_assessment.go`) and proved by
 `TestLatinEvidenceAssistedPassAssessmentIsRecordedForLatinOnly`.
 
-A changed prompt, provider or field set fails closed again until it is
-re-recorded, and so does any other language.
+The gate compares the provider name, the prompt version and the field list
+the codec reports with this record, so a change to any of them sends nothing
+until it is re-recorded, and so does any other language. It does not hash the
+prompt text.
 
 **Runtime effect once recorded.** A Latin Prepared deck prepared while a
 provider is configured starts sending this pass for every word as soon as the

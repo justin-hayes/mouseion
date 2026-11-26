@@ -58,8 +58,9 @@ those definitions, does the word in this sentence have the meaning in
 `not-this-lemma` or `undefendable`), a contextual `gloss`, a
 `sentence_translation` and `sentence_translation_targets`. The answer cites no
 sense. Only `same-meaning` is ever shown; the others are kept with their reason,
-Gloss and translation as evidence of the word's other meanings. That data comes
-from the provider's answer and is not sent anywhere.
+Gloss and translation as evidence of the word's other meanings. The stored Gloss and
+translation are those of the occurrence's own pass; the agreement answer decides
+only the reason. None of that is sent anywhere.
 
 ## Latin specifics
 
@@ -71,8 +72,9 @@ from the provider's answer and is not sent anywhere.
   meaning may cite `dico` "dedicate" while the occurrence's Gloss cites `dico`
   "say". Both are sent as bare definitions; neither entry is named. When the two
   sides cite no entry in common under the same dictionary pin, the Study worker
-  rejects the context locally as a different meaning before any request is made,
-  so this payload is sent only when they share an entry or the pins differ. The
+  records the context as a different meaning without making this agreement
+  request (the occurrence's own pass has already run), so this payload is sent
+  only when they share an entry or the pins differ. The
   definitions alone are what lets the provider judge a same-entry, different-sense
   case.
 
@@ -116,6 +118,8 @@ above, recorded in `fluencyAgreementSourceEvidenceLatinAssessment`
 (`internal/enrichment/provider_assessment.go`) and proved by
 `TestSourceEvidenceFluencyAgreementAssessmentsAreRecordedForGreekAndLatinOnly`.
 
-A changed prompt, provider or field set fails closed again until it is
-re-recorded, and so does any other language. Recording this assessment has no
+The gate compares the provider name, the prompt contract and the field list
+the codec reports with this record, so a change to any of them sends nothing
+until it is re-recorded, and so does any other language. It does not hash the
+prompt text. Recording this assessment has no
 runtime effect until Latin's Study switch is turned on (#2768).

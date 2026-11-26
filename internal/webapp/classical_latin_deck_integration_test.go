@@ -304,6 +304,9 @@ func TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFail
 	t.Run("the recorded Latin pass is sent once per word", func(t *testing.T) {
 		require.Equal(t, 2, failingPassProvider.callCount())
 	})
+	t.Run("every request that reached the provider is a Latin pass request", func(t *testing.T) {
+		require.Equal(t, []string{"la", "la"}, failingPassProvider.passRequests())
+	})
 
 	rows, err := pool.Query(ctx, `SELECT render_payload, passage_context, passage_citation, brownson_pin, canonical_lemma, lsj_entry_id, lsj_pin FROM deck_preparation_manifest_items WHERE owner_id=$1`, learner.ID)
 	require.NoError(t, err)
