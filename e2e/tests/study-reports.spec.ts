@@ -50,5 +50,15 @@ test.describe('Study reports', () => {
     await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/lemma-review\?form=/);
     await expect(page.getByRole('heading', { level: 2, name: 'Reported in Study' })).toBeVisible();
     await expect(page.locator('#lemma-review-study-reports')).toContainText('The highlighted word is another word here.');
+    await page.goto('/de/study/reports');
+
+    // Dismiss ends the report: the entry leaves the list and the word is no
+    // longer held.
+    await entry.getByRole('button', { name: 'Dismiss' }).click();
+    await expect(page).toHaveURL(/\/de\/study\/reports$/);
+    await expect(page.locator('#study-reports')).toHaveCount(0);
+    await expect(page.locator('#study-reports-empty')).toBeVisible();
+    await page.goto('/de/study');
+    await expect(page.locator('#study-held')).toHaveCount(0);
   });
 });

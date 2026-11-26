@@ -336,6 +336,11 @@ templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
 						if report.ReviewPath != "" {
 							<p><a class="study-report-review" href={ templ.SafeURL(report.ReviewPath) }>Review in Lemma review</a></p>
 						}
+						<form method="post" action={ templ.SafeURL("/study/reports/" + report.ID + "/dismiss") }>
+							<input type="hidden" name="csrf_token" value={ csrf }/>
+							<input type="hidden" name="language" value={ view.Language }/>
+							<button class="button button--outline" type="submit">Dismiss</button>
+						</form>
 					</li>
 				}
 			</ul>
