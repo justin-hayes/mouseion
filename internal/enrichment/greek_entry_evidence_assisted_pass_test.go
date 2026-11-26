@@ -252,8 +252,14 @@ func TestGreekStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget(t *test
 	require.NoError(t, json.Unmarshal([]byte(decoded.Messages[1].Content), &payload))
 	t.Logf("senses=%d request_bytes=%d user_message_bytes=%d approx_tokens=%d", senses, len(body), len(decoded.Messages[1].Content), len(body)/4)
 
-	assert.Len(t, payload.Senses, 140, "no sense is capped")
-	assert.Greater(t, len(body), 8*1024)
-	assert.Less(t, len(body), 32*1024, "a very large entry stays inside a few thousand tokens")
-	assert.NotContains(t, string(body), "n2000", "no native ID goes out for a large entry either")
+	t.Run("no sense is capped", func(t *testing.T) {
+		require.Len(t, payload.Senses, 140)
+	})
+	t.Run("the request stays inside a few thousand tokens", func(t *testing.T) {
+		require.Greater(t, len(body), 8*1024)
+		require.Less(t, len(body), 32*1024)
+	})
+	t.Run("no native ID goes out for a large entry either", func(t *testing.T) {
+		require.NotContains(t, string(body), "n2000")
+	})
 }
