@@ -52,7 +52,7 @@ func (s *PostgresStore) ListStudyCandidatesAmong(ctx context.Context, owner, lan
 	if len(lemmas) == 0 {
 		return nil, nil
 	}
-	rows, err := sqlcgen.New(s.pool).ListStudyCandidatesAmong(ctx, sqlcgen.ListStudyCandidatesAmongParams{Owner: owner, Language: language, Lemmas: lemmas})
+	rows, err := sqlcgen.New(s.pool).ListStudyCandidates(ctx, sqlcgen.ListStudyCandidatesParams{Owner: owner, Language: language, OnlyLemmas: true, Lemmas: lemmas})
 	if err != nil {
 		return nil, fmt.Errorf("list study candidates among: %w", err)
 	}

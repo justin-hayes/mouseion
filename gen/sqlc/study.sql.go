@@ -264,12 +264,15 @@ SELECT c.canonical_lemma::text AS canonical_lemma,
   JOIN vocabulary_browse_counts c ON c.owner_id = e.owner_id AND c.book_id = e.book_id
    AND c.analysis_run_id = e.analysis_run_id AND c.corpus_id = e.corpus_id
  WHERE c.owner_id = $1 AND c.language = $2::text
+   AND (NOT $3::boolean OR c.canonical_lemma = ANY($4::text[]))
  GROUP BY c.canonical_lemma, c.upos, c.lexical_discriminator
 `
 
 type ListStudyCandidatesParams struct {
-	Owner    string
-	Language string
+	Owner      string
+	Language   string
+	OnlyLemmas bool
+	Lemmas     []string
 }
 
 type ListStudyCandidatesRow struct {
@@ -288,9 +291,18 @@ type ListStudyCandidatesRow struct {
 // projection, which already applies confirmed Lemma corrections and Occurrence
 // exclusions. A Book whose projection is not ready contributes nothing yet.
 // Known and Reserved vocabulary are deliberately not consulted (ADR 0134 §3).
-// The builder version is the one Browse reads.
+// The builder version is the one Browse reads. With only_lemmas, the rows of
+// those lemmas alone are read (the identity index finds them), so a batch is
+// ordered from the few words whose material is ready without aggregating the
+// library; the caller keeps the identities it asked for, since a part of speech
+// or discriminator it did not ask for may come back with its lemma.
 func (q *Queries) ListStudyCandidates(ctx context.Context, arg ListStudyCandidatesParams) ([]ListStudyCandidatesRow, error) {
-	rows, err := q.db.Query(ctx, listStudyCandidates, arg.Owner, arg.Language)
+	rows, err := q.db.Query(ctx, listStudyCandidates,
+		arg.Owner,
+		arg.Language,
+		arg.OnlyLemmas,
+		arg.Lemmas,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -298,79 +310,6 @@ func (q *Queries) ListStudyCandidates(ctx context.Context, arg ListStudyCandidat
 	items := []ListStudyCandidatesRow{}
 	for rows.Next() {
 		var i ListStudyCandidatesRow
-		if err := rows.Scan(
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-			&i.PersonalOccurrences,
-			&i.InCurrentReading,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listStudyCandidatesAmong = `-- name: ListStudyCandidatesAmong :many
-WITH eligible AS MATERIALIZED (
-  -- The few Books that contribute: resolved once, so the count rows are not
-  -- checked against each of them one by one.
-  SELECT cai.owner_id, cai.book_id, cai.analysis_run_id, cai.corpus_id,
-         COALESCE(cai.book_id = g.book_id, false) AS current_reading
-    FROM current_analysis_identity cai
-    JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
-     AND b.language_state = 'chosen' AND b.language_tag = $2::text
-    JOIN vocabulary_browse_count_readiness r ON r.owner_id = cai.owner_id AND r.book_id = cai.book_id
-     AND r.analysis_run_id = cai.analysis_run_id AND r.corpus_id = cai.corpus_id
-     AND r.language = $2::text AND r.builder_version = 4
-    LEFT JOIN primary_goals g ON g.owner_id = cai.owner_id AND g.language = $2::text
-   WHERE cai.owner_id = $1
-)
-SELECT c.canonical_lemma::text AS canonical_lemma,
-       c.upos::text AS upos,
-       c.lexical_discriminator::text AS lexical_discriminator,
-       sum(c.occurrence_count)::bigint AS personal_occurrences,
-       COALESCE(bool_or(e.current_reading), false)::boolean AS in_current_reading
-  FROM eligible e
-  JOIN vocabulary_browse_counts c ON c.owner_id = e.owner_id AND c.book_id = e.book_id
-   AND c.analysis_run_id = e.analysis_run_id AND c.corpus_id = e.corpus_id
- WHERE c.owner_id = $1 AND c.language = $2::text
-   AND c.canonical_lemma = ANY($3::text[])
- GROUP BY c.canonical_lemma, c.upos, c.lexical_discriminator
-`
-
-type ListStudyCandidatesAmongParams struct {
-	Owner    string
-	Language string
-	Lemmas   []string
-}
-
-type ListStudyCandidatesAmongRow struct {
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	PersonalOccurrences  int64
-	InCurrentReading     bool
-}
-
-// ListStudyCandidates restricted to the given lemmas, so a batch is ordered
-// from the few words whose material is ready without aggregating the whole
-// library: the identity index finds each lemma's rows. The caller keeps the
-// identities it asked for; a part of speech or discriminator it did not ask
-// for may come back with its lemma.
-func (q *Queries) ListStudyCandidatesAmong(ctx context.Context, arg ListStudyCandidatesAmongParams) ([]ListStudyCandidatesAmongRow, error) {
-	rows, err := q.db.Query(ctx, listStudyCandidatesAmong, arg.Owner, arg.Language, arg.Lemmas)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListStudyCandidatesAmongRow{}
-	for rows.Next() {
-		var i ListStudyCandidatesAmongRow
 		if err := rows.Scan(
 			&i.CanonicalLemma,
 			&i.Upos,
