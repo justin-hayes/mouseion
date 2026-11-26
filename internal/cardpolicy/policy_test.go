@@ -111,7 +111,7 @@ func TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne(t *testing.T) {
 	assert.Equal(t, PassContractGreek, policy.PassContract, "the deck keeps the existing Greek contract")
 	assert.Equal(t, LookupEveryEntry, policy.StudyLookup)
 	assert.Equal(t, PassContractGreekEntries, policy.StudyPassContract)
-	assert.False(t, policy.Study, "Greek's Study switch stays off")
+	assert.True(t, policy.Study, "Greek's Study switch is on after the evidence run (#2767)")
 }
 
 func TestLatinStudyUsesTheDeckLookupAndContract(t *testing.T) {
