@@ -26,7 +26,9 @@ import (
 const (
 	greekStudyLemma      = "λόγοσ"
 	greekStudyDictionary = "lsj-study-pin-1"
-	greekStudyTranslate  = "00000000000000000000000000000000000000000000000000000000000000bb"
+	// greekStudyTranslate is the reviewed Brownson file digest, so the register
+	// credits the passage.
+	greekStudyTranslate = "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
 )
 
 func readyGreek() staticCapabilities {
@@ -69,6 +71,7 @@ func newGreekStudyHarness(t *testing.T) *greekStudyHarness {
 	pin := greekStudyDictionary
 	h := newStudyHarnessWith(t, studyHarnessOptions{
 		capabilities: readyGreek(),
+		dictionary:   greekStudyLexicon{pin: &pin},
 		evidence: func(store *persistence.PostgresStore) *study.SourceEvidence {
 			return &study.SourceEvidence{Lexical: greekStudyLexicon{pin: &pin}, Translations: store, MaySend: func(string) error { return nil }}
 		},
@@ -78,8 +81,9 @@ func newGreekStudyHarness(t *testing.T) *greekStudyHarness {
 
 // seedGreekBook gives the learner an analyzed Greek Book whose sentences cite
 // section 1.2.17, with a pinned translation of it imported for the Book.
-func (g *greekStudyHarness) seedGreekBook(key string, words ...testutil.CorpusWord) {
+func (g *greekStudyHarness) seedGreekBook(words ...testutil.CorpusWord) {
 	g.t.Helper()
+	const key = "anabasis"
 	book := g.seedBookIn("grc", key, words...)
 	_, err := g.store.Pool().Exec(g.ctx, `UPDATE corpus_sentences SET citations = ARRAY['1.2.17'] WHERE owner_id=$1 AND analysis_run_id=(SELECT analysis_run_id FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2)`, g.owner.ID, book.ID)
 	require.NoError(g.t, err)
@@ -128,7 +132,7 @@ func (g *greekStudyHarness) prepareGreek() {
 
 func TestGreekStudyIntroducesAWordWithItsCitedMeaning(t *testing.T) {
 	g := newGreekStudyHarness(t)
-	g.seedGreekBook("anabasis", testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
+	g.seedGreekBook(testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
 	g.prepareGreek()
 
 	material := g.greekMaterial()
@@ -164,6 +168,8 @@ func TestGreekStudyIntroducesAWordWithItsCitedMeaning(t *testing.T) {
 	assert.Contains(t, answer, "He sees the word.", "the Translation row")
 	assert.Contains(t, answer, `id="study-headword"`, "the Word row")
 
+	assertGreekCardBack(t, answer)
+
 	// A dictionary revision change never re-introduces the word: the pin stays
 	// with the Learned meaning.
 	*g.dictionaryPin = "lsj-study-pin-2"
@@ -177,7 +183,7 @@ func TestGreekStudyIntroducesAWordWithItsCitedMeaning(t *testing.T) {
 
 func TestGreekStudyUndoRestoresTheLearnedMeaningsCitations(t *testing.T) {
 	g := newGreekStudyHarness(t)
-	g.seedGreekBook("anabasis", testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
+	g.seedGreekBook(testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
 	g.prepareGreek()
 	require.Equal(t, http.StatusSeeOther, g.post("/study/batches/take", url.Values{"language": {"grc"}}).Code)
 	word := g.greekProgress()[0]
@@ -219,4 +225,48 @@ func TestStudyStaysUnavailableForGreekAndLatinInProduction(t *testing.T) {
 		assert.Contains(t, page.Body.String(), "Study isn't available for this language yet", language)
 	}
 	assert.Zero(t, s.provider.Calls())
+}
+
+// assertGreekCardBack checks the revealed card of the Greek word: the usual
+// rows, then the collapsed Dictionary and Passage context sections, and the
+// source notices on the page.
+func assertGreekCardBack(t *testing.T, page string) {
+	t.Helper()
+	assert.Regexp(t, `<details class="study-dictionary" id="study-dictionary"><summary>Dictionary</summary>`, page, "the Dictionary section starts collapsed")
+	assert.Regexp(t, `<details class="study-passage" id="study-passage"><summary>Passage context</summary>`, page, "the Passage context section starts collapsed")
+	assert.Contains(t, page, "Passage context: Brownson (1922), Xen. Anab. 1.2.17. Not a translation of this sentence")
+	assert.Contains(t, page, "He halted his chariot in front of the phalanx.")
+	assert.Equal(t, 1, strings.Count(page, "study-sense--cited"), "only the cited sense is marked")
+	assert.Regexp(t, `study-sense study-sense--cited"[^>]*>.*?word; speech`, page)
+	assert.NotContains(t, page, "provider-proposed")
+	assert.Contains(t, page, cardpolicy.GreekSourceNotice)
+	assert.Contains(t, page, "PerseusDL/lexica@"+greekStudyDictionary)
+	assert.Contains(t, page, greekStudyTranslate, "the translation notice carries its pin")
+}
+
+func TestGreekStudyCardShowsTheOutlineWithoutMarksWhenThePinMoved(t *testing.T) {
+	g := newGreekStudyHarness(t)
+	g.seedGreekBook(testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
+	g.prepareGreek()
+	require.Equal(t, http.StatusSeeOther, g.post("/study/batches/take", url.Values{"language": {"grc"}}).Code)
+
+	*g.dictionaryPin = "lsj-study-pin-2"
+	page := getAs(t, g.h, "/grc/study?answer=1", g.cookies).Body.String()
+	assert.Contains(t, page, "account", "the outline is shown")
+	assert.NotContains(t, page, "study-sense--cited", "no sense is marked against another revision")
+	assert.Contains(t, page, "PerseusDL/lexica@lsj-study-pin-2")
+}
+
+func TestGreekStudyCardHasNoPassageSectionWithoutATranslation(t *testing.T) {
+	g := newGreekStudyHarness(t)
+	g.seedGreekBook(testutil.CorpusWord{Lemma: greekStudyLemma, UPOS: "NOUN", Occurrences: 3})
+	_, err := g.store.Pool().Exec(g.ctx, `DELETE FROM book_reading_units`)
+	require.NoError(t, err)
+	g.prepareGreek()
+	require.Equal(t, http.StatusSeeOther, g.post("/study/batches/take", url.Values{"language": {"grc"}}).Code)
+
+	page := getAs(t, g.h, "/grc/study?answer=1", g.cookies).Body.String()
+	assert.Contains(t, page, `id="study-dictionary"`)
+	assert.NotContains(t, page, "study-passage")
+	assert.Contains(t, page, cardpolicy.GreekSourceNotice, "the page still shows the source notices")
 }

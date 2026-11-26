@@ -46,6 +46,26 @@ func passageContextLabel(pin, citation string) (string, error) {
 	return passageContextPrefix + attribution.Label + " " + citation + passageContextSuffix, nil
 }
 
+// PassageContextLabel is the labelled, unhighlighted heading of a stored
+// passage: the translation the pin credits, the citation range and the text
+// that it is not a translation of the sentence. Study shows the same label a
+// deck card does (ADR 0138 §3). A pin the translation register does not list is
+// an error, never a guess.
+func PassageContextLabel(pin, citation string) (string, error) {
+	return passageContextLabel(pin, citation)
+}
+
+// PassageNotice is the attribution and licence notice of the translation a
+// stored passage pin names, the one a deck carries; see PassageContextLabel for
+// the error case.
+func PassageNotice(pin string) (string, error) {
+	attribution, err := passageAttribution(pin)
+	if err != nil {
+		return "", err
+	}
+	return attribution.Notice, nil
+}
+
 // resolvePassage returns the passage text, its citation label and the pin for a
 // representative sentence, or empty values when the card must show no English.
 func resolvePassage(citations []string, translations map[string]string, pin string) (text, citation, sourcePin string) {

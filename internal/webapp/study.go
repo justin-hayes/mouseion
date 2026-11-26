@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/study"
@@ -23,7 +24,10 @@ type studyPageView struct {
 	// Available is false for a language whose card policy has no contextual
 	// Gloss to anchor a learned meaning (Latin and Ancient Greek).
 	Available bool
-	Counts    domain.StudyMaterialCounts
+	// SourceNotices are a source-evidence language's imported-source notices,
+	// each with its pin and licence (ADR 0138 §3).
+	SourceNotices []string
+	Counts        domain.StudyMaterialCounts
 	// Card is the word to show now, if one is due.
 	Card *studyCardView
 	// Offer is how many words the day's New-word batch holds; zero means no
@@ -84,6 +88,9 @@ type cardFace struct {
 	Headword              string
 	Gloss                 string
 	Translation           string
+	// Source is a source-evidence word's dictionary outline and passage; it is
+	// zero for every other card.
+	Source sourceCardView
 }
 
 // newCardFace builds the face of a card from its sentence and the word's
@@ -130,8 +137,19 @@ func (h *Handler) study(w http.ResponseWriter, r *http.Request) {
 			fail(w, err)
 			return
 		}
+		view.SourceNotices = pageSourceNotices(view)
 	}
 	render(w, r, StudyPage(user(r), h.csrf(w, r), view))
+}
+
+// pageSourceNotices are the notices of a source-evidence language's Study page:
+// those of the card shown, which carry the pins in use, or else the language's
+// own.
+func pageSourceNotices(view studyPageView) []string {
+	if view.Card != nil && len(view.Card.Source.Notices()) > 0 {
+		return view.Card.Source.Notices()
+	}
+	return sourceNotices(cardpolicy.For(view.Language), "", "")
 }
 
 // prepareStudyView reconciles the learner's Study reports and corrections,
@@ -253,6 +271,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	switch {
 	case err == nil:
 		view.Card = newStudyCardView(view.Language, card, r.URL.Query().Get("answer") == "1")
+		attachSourceEvidence(ctx, h.services.Dictionary, view.Language, card, view.Card)
 		return nil
 	case !errors.Is(err, domain.ErrNotFound):
 		return err
