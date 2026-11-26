@@ -784,6 +784,29 @@ this word, the next review re-introduces the word with valid Study material and
 re-anchors its learned meaning, keeping its Study progress.
 _Avoid_: sense (a dictionary entry's meaning), pedagogical sense, definition.
 
+**Study report**:
+A learner's report, made in Today, that a word's Study material is wrong. It
+is one of two kinds:
+
+- **Wrong word**: the occurrence in the study context belongs to a different
+  vocabulary identity, such as `kam … umhin` taken as `kommen` rather than
+  `umhinkommen`. The word is held: it gets no reviews, is not part of Today's
+  finish line, and does not fall overdue, and it keeps its Study progress. The
+  report ends when the learner confirms a Lemma correction or Occurrence
+  exclusion on that occurrence, when the learner dismisses it, or when an
+  Analysis update gives that occurrence a different effective vocabulary
+  identity. Like a Lemma review flag, it is an input to Lemma review and
+  changes no vocabulary identity itself.
+- **Unsuitable context**: the identity is right, but the study context does not
+  teach the word's own meaning, for example because it is part of an Idiom
+  (`immer` in *immer wieder*) or because its Gloss or translation is wrong. The
+  word is not held. That sentence is never used again as this word's Study
+  material or Fluency context, and the word is re-introduced from another
+  context.
+
+_Avoid_: flag (a Lemma review flag is raised by the system), suspend, bury,
+bug report.
+
 **Fluency**:
 The ungraded, open-ended part of Study after Today's reviews and new words,
 which cycles mature words through Fluency contexts. Nothing in it changes Study

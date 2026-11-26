@@ -2,13 +2,13 @@
 
 Status: **Accepted; implemented in the pilot** · Date: 2026-11-25 · Decisions:
 [ADR 0134](../adr/0134-study-in-mouseion-vocabulary-review.md),
-[ADR 0133](../adr/0133-per-language-card-policy.md)
+[ADR 0135](../adr/0135-study-reports.md), [ADR 0133](../adr/0133-per-language-card-policy.md)
 
 Specified in
 [Spec: Study pilot](https://github.com/justin-hayes/mouseion/issues/2691).
 The terms **Study**, **Study day**, **Today**, **New-word batch**, **In study**,
 **Study progress**, **Mature**, **Study material**, **Learned meaning**,
-**Fluency** and **Fluency context** are defined in
+**Fluency**, **Fluency context** and **Study report** are defined in
 [`CONTEXT.md`](../../CONTEXT.md).
 
 ## Motivation and goal
@@ -153,6 +153,44 @@ checks that its introducing occurrence still resolves to the word's identity.
   such, its progress is kept, and it returns if evidence reappears.
 - The identity a correction points to is never put into study automatically.
   Corrections never create reviews.
+
+### Study reports
+
+Decided in [ADR 0135](../adr/0135-study-reports.md). When Study material is
+wrong, the learner reports it from Today. **Report** appears after **Show
+answer**, beside the grades. The reported review is not graded. The learner
+picks one of two kinds and may add a note.
+
+- **Wrong word.** The occurrence belongs to another vocabulary identity, for
+  example `kam … umhin` studied as `kommen` rather than `umhinkommen`.
+  - The word is **held**. It gets no reviews, is not part of Today's finish
+    line, and does not fall overdue. Its Study progress is kept. A new word that
+    is held is not offered in New-word batches, and the batch takes the next
+    candidate.
+  - The repair happens in the Book's **Lemma review**, which lists open
+    Wrong-word reports next to Lemma review flags and opens the reported
+    occurrence.
+  - The report ends when a Lemma correction or Occurrence exclusion is
+    confirmed on the occurrence. It also ends when an Analysis update gives the
+    occurrence a different effective vocabulary identity, or when the
+    occurrence no longer exists. The word is then re-introduced on the next
+    Study day, as after a correction.
+  - **Dismiss** ends the report without a repair. The word's due date moves
+    later by the time it was held.
+- **Unsuitable context.** The identity is right, but the context does not teach
+  the word's own meaning, for example `immer` inside the Idiom *immer wieder*,
+  or a wrong Gloss or translation.
+  - The word is not held. The sentence is never used again as the word's Study
+    material or Fluency context, and the word is re-introduced from another
+    context on the next Study day.
+  - The learner can undo the report while the card is still shown.
+  - The rejected context's Gloss and translation are kept as evidence.
+- **Nothing left.** If no valid context remains, the word is withdrawn as
+  after a correction, with its own reason when every context was reported as
+  unsuitable. It keeps its progress.
+- **Reported words.** Study lists open Wrong-word reports, each with a link to
+  its occurrence and **Dismiss**.
+- Reports are made in Today only, not in Fluency.
 
 ## Fluency (milestone 2)
 
