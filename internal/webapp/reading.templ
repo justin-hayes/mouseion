@@ -99,11 +99,11 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 templ CurrentReadingLifecycleActions(item readingBookView, csrf string) {
 	<div class="journey-book__lifecycle" role="group" aria-label="Reading actions">
 		@Confirmation("Mark reading finished", currentReadingCompletionConfirmationText, StatusNeutral) {
-			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit">Mark reading finished</button></form>
+			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ item.Book.Source.Language }/><button class="button" type="submit">Mark reading finished</button></form>
 		}
 		<a class="button button--quiet" href={ templ.SafeURL(readingSwitchPath(ctx)) }>Switch current reading</a>
 		@Confirmation("End current reading", "This ends your commitment to this Book without finishing it and records no completion. The Book stays in To Read, and its analysis and history remain. Reading never ends on its own.", StatusDanger) {
-			<form method="post" action="/reading/end"><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Confirm end current reading</button></form>
+			<form method="post" action="/reading/end"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ item.Book.Source.Language }/><button type="submit" class="button button--outline">Confirm end current reading</button></form>
 		}
 	</div>
 }

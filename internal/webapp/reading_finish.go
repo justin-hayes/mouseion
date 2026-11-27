@@ -21,7 +21,7 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r).ID
-	language, _ := activeStudyLanguageForContext(r.Context())
+	language := pageLanguage(r)
 	if language == "" {
 		h.respondCurrentReading(w, r, currentReadingLanguageRequiredMessage)
 		return

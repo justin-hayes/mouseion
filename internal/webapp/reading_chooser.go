@@ -141,7 +141,7 @@ func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	owner := user(r).ID
-	language, _ := activeStudyLanguageForContext(r.Context())
+	language := pageLanguage(r)
 	if language == "" {
 		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language and refresh Reading before ending the current reading."))
 		return
@@ -266,6 +266,8 @@ func (h *Handler) readNext(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	case err == nil && start.Replayed:
 		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
+	case errors.As(err, &ineligible) && ineligible.Reason == domain.CurrentReadingNoChosenLanguage:
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book has no language yet. Choose its language in My Books before reading it. No changes were made."))
 	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
 		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
 	case errors.Is(err, domain.ErrCurrentReadingIneligible):
@@ -580,4 +582,16 @@ func readingChooserCoveragePercent(coverage domain.AnalysisCoverage) (float64, b
 // The learner-facing interface is English; group evidence counts in that locale.
 func readingChooserCount(count int64) string {
 	return message.NewPrinter(language.English).Sprintf("%d", count)
+}
+
+// pageLanguage is the study language the Reading page that posted the form was
+// about, falling back to the active study language. It names a language, not a
+// commitment, so Finish and End act on the language the learner saw even when
+// another tab has moved the Last study language.
+func pageLanguage(r *http.Request) string {
+	if language := strings.TrimSpace(r.FormValue("language")); language != "" {
+		return language
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	return language
 }

@@ -214,12 +214,13 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, ended.Body.String(), `id="vocabulary-workflow"`)
 		assert.NotContains(t, ended.Body.String(), "Choose a To Read book in")
 
-		// The origin names the Book, not a commitment, so reading the same Book
-		// again restores it.
+		// The origin names the Book, not a commitment; the earlier Known change
+		// already moved the Browse revision, so the old origin asks for a refresh.
 		_, err = store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
 		require.NoError(t, err)
 		sameBook := get(back)
-		assert.Equal(t, http.StatusOK, sameBook.Code)
+		assert.Equal(t, http.StatusConflict, sameBook.Code)
+		assert.Contains(t, sameBook.Body.String(), "Refresh vocabulary")
 
 		_, err = store.StartCurrentReading(ctx, alice.ID, "de", second.ID)
 		require.NoError(t, err)

@@ -139,18 +139,13 @@ func TestReadNextRefusalReasonsLeaveTheCurrentReadingUnchanged(t *testing.T) {
 	}{
 		{"not To Read", notToRead.ID, "no+longer+an+eligible+To+Read+candidate"},
 		{"not analysed", notAnalysed.ID, "no+longer+has+trustworthy+current+analysis"},
-		{"no Book language", noLanguage.ID, ""},
+		{"no Book language", noLanguage.ID, "has+no+language+yet"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			response := s.post("/reading/books/" + tt.bookID + "/start")
-			if tt.message != "" {
-				require.Equal(t, http.StatusSeeOther, response.Code)
-				assert.Contains(t, response.Header().Get("Location"), tt.message)
-			} else {
-				assert.GreaterOrEqual(t, response.Code, 300, "a Book with no chosen language is refused")
-				assert.NotContains(t, response.Header().Get("Location"), "is+now+your+current+reading")
-			}
+			require.Equal(t, http.StatusSeeOther, response.Code)
+			assert.Contains(t, response.Header().Get("Location"), tt.message)
 			assert.Equal(t, current.ID, s.current().BookID, "a refusal changes nothing")
 		})
 	}
@@ -166,8 +161,8 @@ func TestFinishAppendsACompletionAndClearsTheRoleWithNoVocabularyEffect(t *testi
 	book := s.toReadBook("finish")
 
 	noReading := s.post("/reading/finish")
-	assert.Equal(t, http.StatusOK, noReading.Code)
-	assert.Contains(t, noReading.Body.String(), "There is no current reading", "Finish with nothing to finish says so")
+	require.Equal(t, http.StatusSeeOther, noReading.Code)
+	assert.Contains(t, noReading.Header().Get("Location"), "error=", "Finish with nothing to finish says so")
 	assert.Zero(t, s.count(`SELECT count(*) FROM reading_history WHERE owner_id=$1`, s.owner.ID))
 
 	require.Equal(t, http.StatusSeeOther, s.post("/reading/books/"+book.ID+"/start").Code)
@@ -184,7 +179,7 @@ func TestFinishAppendsACompletionAndClearsTheRoleWithNoVocabularyEffect(t *testi
 	assert.Zero(t, s.count(`SELECT count(*) FROM study_progress WHERE owner_id=$1`, s.owner.ID), "Finish changes no Study progress")
 
 	again := s.post("/reading/finish")
-	assert.Contains(t, again.Body.String(), "There is no current reading")
+	assert.Contains(t, again.Header().Get("Location"), "error=")
 	assert.Equal(t, 1, s.count(`SELECT count(*) FROM reading_history WHERE owner_id=$1`, s.owner.ID), "a second Finish appends nothing")
 }
 

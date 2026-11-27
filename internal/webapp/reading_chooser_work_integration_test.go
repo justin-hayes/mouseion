@@ -168,7 +168,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	switching := perform(t, h, http.MethodGet, "/grc/reading/switch", nil, cookies)
 	require.Equal(t, http.StatusOK, switching.Code)
 	switchBody := switching.Body.String()
-	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-2"]+`/switch"`)
+	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-2"]+`/start"`)
 	assert.Contains(t, switchBody, "no longer in the Classical catalog. It cannot be prepared, and no retry is available.")
 	assert.NotContains(t, switchBody, `id="reading-chooser-book-`+byUnit["homer-iliad-1"]+`"`, "the current Book has no entry")
 }

@@ -436,7 +436,6 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.Len(t, page.Rows, 1)
 	assert.Equal(t, "haus", page.Rows[0].CanonicalLemma)
 	assert.True(t, page.Rows[0].Known, "Known identities remain visible when current evidence exists")
-	assert.True(t, page.Rows[0].Reserved, "Reserved identities remain visible when current evidence exists")
 	assert.Equal(t, int64(1), page.Rows[0].BookCount, "the To Read Book contributes independently of Inbox")
 	assert.Equal(t, int64(1), page.Rows[0].AcrossBooksOccurrenceCount)
 	assert.Equal(t, int64(2), page.AnalyzedBooks)

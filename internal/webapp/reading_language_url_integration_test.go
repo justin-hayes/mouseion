@@ -73,6 +73,8 @@ func TestReadingActionsReturnToTheBooksLanguage(t *testing.T) {
 	stale := readingTestRequest(t, h, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Contains(t, stale.Header().Get("Location"), "/de/reading?message=")
 
+	// End and Finish act on the active study language.
+	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, "de"))
 	end := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, end.Code)
 	assert.Contains(t, end.Header().Get("Location"), "/de/reading?message=")

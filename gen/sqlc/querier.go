@@ -22,8 +22,9 @@ type Querier interface {
 	// learned meaning. A missing, foreign or disagreeing context returns no row.
 	AppendStudyFluencyResponse(ctx context.Context, arg AppendStudyFluencyResponseParams) (string, error)
 	AppendStudyReviewLog(ctx context.Context, arg AppendStudyReviewLogParams) error
-	// A released snapshot proves the Book held the Current reading role even after
-	// the reading ended, so an unstarted Book is one with no snapshot.
+	// The Book holds the Current reading role now, or held it before the
+	// vocabulary snapshot was retired (a legacy snapshot proves it). A reading
+	// ended since then leaves no trace (ADR 0136 section 4).
 	BookEverCurrentReading(ctx context.Context, arg BookEverCurrentReadingParams) (bool, error)
 	// Book identity and My Books evidence queries. The read models select from
 	// the my_books_evidence view (migration 000066, rebuilt over the shared
