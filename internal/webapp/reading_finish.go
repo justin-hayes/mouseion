@@ -28,25 +28,25 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
-		h.respondCurrentReading(w, r, "", currentReadingLanguageRequiredMessage, "")
+		h.respondCurrentReading(w, r, currentReadingLanguageRequiredMessage)
 		return
 	}
 	if expectedBookID == "" {
-		h.respondCurrentReading(w, r, "", "No current reading is available to finish. Review Reading before trying again.", "")
+		h.respondCurrentReading(w, r, "No current reading is available to finish. Review Reading before trying again.")
 		return
 	}
 
 	result, err := h.services.Store.Reading.FinishCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
 	if errors.Is(err, domain.ErrCurrentReadingStale) {
-		h.respondCurrentReading(w, r, "", currentReadingStaleMessage, "")
+		h.respondCurrentReading(w, r, currentReadingStaleMessage)
 		return
 	}
 	if errors.Is(err, domain.ErrNotFound) {
-		h.respondCurrentReading(w, r, "", "No current reading is available to finish. Review Reading before trying again.", "")
+		h.respondCurrentReading(w, r, "No current reading is available to finish. Review Reading before trying again.")
 		return
 	}
 	if err != nil {
-		h.respondCurrentReading(w, r, "", "Reading could not be marked finished. No changes were made; review Reading and try again.", "")
+		h.respondCurrentReading(w, r, "Reading could not be marked finished. No changes were made; review Reading and try again.")
 		return
 	}
 

@@ -231,10 +231,6 @@ type readingPageView struct {
 	Browse         readingBrowseView
 }
 
-func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
-	return h.services.Store.Reading.ResolveBookID(ctx, owner, id)
-}
-
 func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
 	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)

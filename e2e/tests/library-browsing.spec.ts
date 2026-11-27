@@ -24,7 +24,7 @@ test.describe('My Books collection browsing', () => {
     const analyzedRow = page.locator('#book-row-fixture-book');
     await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
     await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
-    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('Deck ready: 412 cards');
+    await expect(analyzedRow.locator('.library-book__evidence')).not.toContainText('Deck');
     await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');
     await expect(page.locator('#book-row-fixture-failed .library-book__evidence')).not.toContainText('Deck');
     await expect(page.locator('#book-row-fixture-running .library-book__evidence')).toHaveText('Analysis running.');

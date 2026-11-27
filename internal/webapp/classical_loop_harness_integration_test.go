@@ -263,41 +263,11 @@ func (h *classicalLoopHarness) booksByUnit(t *testing.T, owner string) map[strin
 	return booksByReadingUnit(t, h.store, owner)
 }
 
-func (h *classicalLoopHarness) detail(t *testing.T, owner, bookID string) domain.MyBook {
-	t.Helper()
-	book, err := h.store.GetBookDetail(h.ctx, owner, bookID)
-	require.NoError(t, err)
-	return book
-}
-
-func (h *classicalLoopHarness) sourceServed() int64      { return h.layer.sourceServed.Load() }
-func (h *classicalLoopHarness) translationServed() int64 { return h.layer.translationServed.Load() }
+func (h *classicalLoopHarness) sourceServed() int64 { return h.layer.sourceServed.Load() }
 
 func (h *classicalLoopHarness) preparationJobs(t *testing.T) (queues, bookIDs []string) {
 	t.Helper()
 	return workPreparationJobs(t, h.pool)
-}
-
-func (h *classicalLoopHarness) sourceMaterial(t *testing.T, owner, bookID string) (string, []byte) {
-	t.Helper()
-	var identifier string
-	var content []byte
-	require.NoError(t, h.pool.QueryRow(h.ctx,
-		`SELECT sm.source_identifier, COALESCE(r.content, sm.content)
-		 FROM source_materials sm
-		 LEFT JOIN source_content_revisions r
-		   ON r.owner_id = sm.owner_id AND r.revision_id = sm.current_content_revision_id
-		 WHERE sm.owner_id=$1 AND sm.book_id=$2`, owner, bookID).Scan(&identifier, &content))
-	return identifier, content
-}
-
-func (h *classicalLoopHarness) preparedDefinitionRunID(t *testing.T, owner, bookID string) string {
-	t.Helper()
-	var runID string
-	require.NoError(t, h.pool.QueryRow(h.ctx,
-		`SELECT analysis_run_id::text FROM classical_prepared_definitions WHERE owner_id=$1 AND book_id=$2`,
-		owner, bookID).Scan(&runID))
-	return runID
 }
 
 // waitForPreparedDefinition waits for the prepared-definition row that a
@@ -329,68 +299,6 @@ func (h *classicalLoopHarness) waitForBookAnalysis(t *testing.T, owner, bookID s
 		}
 		return count == 1, "analysis not published"
 	})
-}
-
-func (h *classicalLoopHarness) waitForFailure(t *testing.T, owner, bookID string) domain.ClassicalPreparationFailureRecord {
-	t.Helper()
-	var record domain.ClassicalPreparationFailureRecord
-	testutil.Eventually(t, 60*time.Second, "settled preparation failure", func() (bool, string) {
-		got, found, err := h.store.GetClassicalPreparationFailure(h.ctx, owner, bookID)
-		if err != nil || !found {
-			return false, "no failure record"
-		}
-		var state string
-		if err := h.pool.QueryRow(h.ctx, `SELECT state::text FROM river_job
-			WHERE kind=$1 AND args->>'book_id'=$2 ORDER BY id DESC LIMIT 1`,
-			analysis.ClassicalPreparationQueue, bookID).Scan(&state); err != nil {
-			return false, err.Error()
-		}
-		if state != "discarded" && state != "cancelled" {
-			return false, "job still " + state
-		}
-		record = got
-		return true, ""
-	})
-	return record
-}
-
-func (h *classicalLoopHarness) waitForInterpretation(t *testing.T, owner, version string, want int) {
-	t.Helper()
-	testutil.Eventually(t, 60*time.Second, "analysis update published", func() (bool, string) {
-		var count int
-		if err := h.pool.QueryRow(h.ctx,
-			`SELECT count(*) FROM classical_prepared_definitions WHERE owner_id=$1 AND interpretation_version=$2`,
-			owner, version).Scan(&count); err != nil {
-			return false, err.Error()
-		}
-		return count == want, "updated definitions not published"
-	})
-}
-
-func (h *classicalLoopHarness) waitForTranslationSections(t *testing.T, want int) {
-	t.Helper()
-	pin := h.translation.SHA256
-	require.Eventually(t, func() bool {
-		var count int
-		if err := h.pool.QueryRow(h.ctx,
-			`SELECT count(*) FROM reference_translations WHERE translation_pin_sha256=$1`, pin).Scan(&count); err != nil {
-			return false
-		}
-		return count == want
-	}, 60*time.Second, 50*time.Millisecond, "translation rows did not import")
-}
-
-func (h *classicalLoopHarness) replacementDefinition() classical.Definition {
-	return classical.Definition{
-		Key: "replacement-work-1", WorkKey: "replacement-work", WorkTitle: "Replacement",
-		WorkAuthor: "Synthetic Author", EditionKey: "replacement-edition", EditionLabel: "Replacement Edition",
-		Language: classical.Language, ConstituentBooks: 1, CitationStart: "1.1.1", CitationEnd: "1.1.1",
-		WordCount: 1, Opening: "ἄρχεται ὁ λόγος.", InterpretationVersion: "oga-agdt-upos/5", Revision: 1,
-		Source: classical.SourcePin{
-			Layer: "loop-layer", FileName: "replacement.conllu", Size: 1,
-			SHA256: strings.Repeat("a", 64), Format: classical.SourceFormatOGACoNLLU,
-		},
-	}
 }
 
 // lockedBuffer makes the captured operator log safe to read while workers

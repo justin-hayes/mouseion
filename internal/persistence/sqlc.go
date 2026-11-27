@@ -60,13 +60,6 @@ func nullableUUIDArg(value string) pgtype.UUID {
 	return uuidArg(value)
 }
 
-func nullableInt8Arg(corpusID string, value int64) pgtype.Int8 {
-	if corpusID == "" {
-		return pgtype.Int8{}
-	}
-	return pgtype.Int8{Int64: value, Valid: true}
-}
-
 func uuidString(value pgtype.UUID) string {
 	if !value.Valid {
 		return ""
@@ -95,26 +88,6 @@ func pgTimePtr(value pgtype.Timestamptz) *time.Time {
 	}
 	t := value.Time
 	return &t
-}
-
-func pgInt8(value pgtype.Int8) int64 {
-	if !value.Valid {
-		return 0
-	}
-	return value.Int64
-}
-
-func generatedVocabularyFromFields(ownerID, language, lemma, upos, discriminator, headword, firstDeckID, firstSourceMaterialID string, firstGeneratedAt time.Time) domain.GeneratedVocabulary {
-	var sourceMaterialID *string
-	if firstSourceMaterialID != "" {
-		sourceMaterialID = &firstSourceMaterialID
-	}
-	return domain.GeneratedVocabulary{
-		OwnerID: ownerID, Language: language, CanonicalLemma: lemma, UPOS: upos,
-		LexicalDiscriminator: discriminator, Headword: headword,
-		FirstDeckID: firstDeckID, FirstSourceMaterialID: sourceMaterialID,
-		FirstGeneratedAt: firstGeneratedAt,
-	}
 }
 
 func sourceMaterialFromFields(id, ownerID, language, sourceIdentifier, title, mediaType, contentHash, contentDigest, contentRevisionID string, content []byte, fullText string, digestVersion int, createdAt time.Time) domain.SourceMaterial {
@@ -178,25 +151,6 @@ func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos, disc
 	return domain.KnownVocabulary{
 		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
 		UPOS: upos, LexicalDiscriminator: discriminator, Headword: headword, CreatedAt: createdAt,
-	}
-}
-
-func deckPreparationFromModel(row sqlcgen.DeckPreparation) domain.DeckPreparation {
-	return domain.DeckPreparation{
-		ID: row.ID, OwnerID: row.OwnerID, SourceMaterialID: row.SourceMaterialID,
-		BookID:     uuidString(row.BookID),
-		SnapshotID: uuidString(row.GoalSnapshotID),
-		State:      domain.DeckPreparationState(row.State), Artifact: row.Artifact, Filename: row.Filename,
-		DeckName: row.DeckName, ContentHash: row.ContentHash, TotalCards: row.TotalCards,
-		CardsWithEnglish: row.CardsWithEnglish, CardsWithContextualSentenceTranslations: row.CardsWithContextualSentenceTranslations, CardsWithFallbackGloss: row.CardsWithFallbackGloss,
-		QualityOmissions: row.QualityOmissions, Error: row.Error, CreatedAt: row.CreatedAt,
-		RenderInputVersion: row.RenderInputVersion, PresentationVersion: row.PresentationVersion,
-		DeckRevision: row.DeckRevision,
-		UpdatedAt:    row.UpdatedAt, StartedAt: pgTimePtr(row.StartedAt), CompletedAt: pgTimePtr(row.CompletedAt),
-		AnalysisRunID: uuidString(row.AnalysisRunID), CurrentRunID: uuidString(row.CurrentRunID),
-		StudyingAt: pgTimePtr(row.StudyingAt), ReviewedAt: pgTimePtr(row.ReviewedAt),
-		GraduatedAt: pgTimePtr(row.GraduatedAt), ReleasedAt: pgTimePtr(row.ReleasedAt),
-		RetiredAt: pgTimePtr(row.RetiredAt),
 	}
 }
 
@@ -501,130 +455,5 @@ func exampleSentenceFromFields(
 		SelectionScore:   pgInt4(selectionScore),
 		Chosen:           isChosen,
 		CreatedAt:        createdAt,
-	}
-}
-
-func preparedDeckOutcomeFromModel(m sqlcgen.DeckPreparationTranslationOutcome) domain.PreparedDeckTranslationOutcome {
-	return domain.PreparedDeckTranslationOutcome{
-		OwnerID:              m.OwnerID,
-		PreparationID:        m.PreparationID,
-		RunID:                m.RunID,
-		Ordinal:              m.Ordinal,
-		State:                domain.PreparedDeckOutcomeState(m.State),
-		DispatchCount:        m.DispatchCount,
-		ProviderAttemptCount: m.ProviderAttemptCount,
-		MaxProviderAttempts:  m.MaxProviderAttempts,
-		NextAttemptAt:        m.NextAttemptAt,
-		DispatchGeneration:   m.DispatchGeneration,
-		RiverJobID:           pgInt8(m.RiverJobID),
-		ClaimToken:           uuidString(m.ClaimToken),
-		ClaimedAt:            pgTimePtr(m.ClaimedAt),
-		LeaseExpiresAt:       pgTimePtr(m.LeaseExpiresAt),
-		TerminalAt:           pgTimePtr(m.TerminalAt),
-		ErrorClass:           m.ErrorClass,
-		ErrorCode:            m.ErrorCode,
-		OmissionReason:       m.OmissionReason,
-		CacheHitCount:        m.CacheHitCount,
-		ProviderCallCount:    m.ProviderCallCount,
-		CacheLatency:         time.Duration(m.CacheLatencyMs) * time.Millisecond,
-		ProviderLatency:      time.Duration(m.ProviderLatencyMs) * time.Millisecond,
-		UpdatedAt:            m.UpdatedAt,
-	}
-}
-
-func preparedDeckRunFromModel(m sqlcgen.DeckPreparationRun) domain.PreparedDeckRun {
-	return preparedDeckRunFromFields(
-		m.ID, m.OwnerID, m.PreparationID, m.RunNumber, m.State, m.TranslationState,
-		m.ExecutionMode, m.TargetLanguage, m.ExternalTranslationConsent, m.ExternalTranslationConfigured,
-		m.ContextMode, m.Provider, m.ProviderVersion, m.Endpoint, m.Model,
-		m.ManifestSchemaVersion, m.RenderInputVersion, m.PresentationVersion, m.RetryPolicyVersion, m.MaxProviderAttempts, m.MaxBatchGenerations,
-		m.BatchMaxRequests, m.BatchMaxBytes, m.CandidateCount, m.CompletedCount, m.FailedCount,
-		m.FinalizationDispatchGeneration, m.FinalizationDispatchCount, m.FinalizationJobID,
-		m.FinalizationClaimToken, m.ErrorClass, m.ErrorCode, m.CreatedAt, m.UpdatedAt,
-		m.FinalizationClaimedAt, m.FinalizationLeaseExpiresAt, m.TranslationCompletedAt, m.CompletedAt,
-	)
-}
-
-// preparedDeckRunFromFields maps a deck_preparation_runs row onto the domain
-// PreparedDeckRun. The run model and the generated finalization row structs
-// are distinct named types with identical fields; the mapping takes the fields
-// directly.
-func preparedDeckRunFromFields(
-	id, ownerID, preparationID string,
-	runNumber int,
-	state, translationState, executionMode, targetLanguage string,
-	externalTranslationConsent, externalTranslationConfigured bool,
-	contextMode, provider, providerVersion, endpoint, model pgtype.Text,
-	manifestSchemaVersion, renderInputVersion, presentationVersion, retryPolicyVersion, maxProviderAttempts, maxBatchGenerations, batchMaxRequests int,
-	batchMaxBytes int64,
-	candidateCount, completedCount, failedCount, finalizationDispatchGeneration, finalizationDispatchCount int,
-	finalizationJobID pgtype.Int8,
-	finalizationClaimToken pgtype.UUID,
-	errorClass, errorCode string,
-	createdAt, updatedAt time.Time,
-	finalizationClaimedAt, finalizationLeaseExpiresAt, translationCompletedAt, completedAt pgtype.Timestamptz,
-) domain.PreparedDeckRun {
-	return domain.PreparedDeckRun{
-		ID:                             id,
-		OwnerID:                        ownerID,
-		PreparationID:                  preparationID,
-		RunNumber:                      runNumber,
-		State:                          domain.PreparedDeckRunState(state),
-		TranslationState:               domain.PreparedDeckTranslationState(translationState),
-		ExecutionMode:                  domain.PreparedDeckExecutionMode(executionMode),
-		TargetLanguage:                 targetLanguage,
-		ExternalTranslationConsent:     externalTranslationConsent,
-		ExternalTranslationConfigured:  externalTranslationConfigured,
-		ContextMode:                    pgText(contextMode),
-		Provider:                       pgText(provider),
-		ProviderVersion:                pgText(providerVersion),
-		Endpoint:                       pgText(endpoint),
-		Model:                          pgText(model),
-		ManifestSchemaVersion:          manifestSchemaVersion,
-		RenderInputVersion:             renderInputVersion,
-		PresentationVersion:            presentationVersion,
-		RetryPolicyVersion:             retryPolicyVersion,
-		MaxProviderAttempts:            maxProviderAttempts,
-		MaxBatchGenerations:            maxBatchGenerations,
-		BatchMaxRequests:               batchMaxRequests,
-		BatchMaxBytes:                  batchMaxBytes,
-		CandidateCount:                 candidateCount,
-		CompletedCount:                 completedCount,
-		FailedCount:                    failedCount,
-		FinalizationDispatchGeneration: finalizationDispatchGeneration,
-		FinalizationDispatchCount:      finalizationDispatchCount,
-		FinalizationJobID:              pgInt8(finalizationJobID),
-		FinalizationClaimToken:         uuidString(finalizationClaimToken),
-		ErrorClass:                     errorClass,
-		ErrorCode:                      errorCode,
-		CreatedAt:                      createdAt,
-		UpdatedAt:                      updatedAt,
-		FinalizationClaimedAt:          pgTimePtr(finalizationClaimedAt),
-		FinalizationLeaseExpiresAt:     pgTimePtr(finalizationLeaseExpiresAt),
-		TranslationCompletedAt:         pgTimePtr(translationCompletedAt),
-		CompletedAt:                    pgTimePtr(completedAt),
-	}
-}
-
-func preparedDeckBatchChunkFromModel(m sqlcgen.DeckPreparationBatchChunk) domain.PreparedDeckBatchChunk {
-	return domain.PreparedDeckBatchChunk{
-		ID: m.ID, OwnerID: m.OwnerID, PreparationID: m.PreparationID, RunID: m.RunID,
-		ChunkIndex: m.ChunkIndex, Generation: m.Generation, State: domain.PreparedDeckBatchChunkState(m.State),
-		ProviderStatus: pgText(m.ProviderStatus), Model: m.Model, Endpoint: m.Endpoint, SplitReason: m.SplitReason,
-		FirstOrdinal: m.FirstOrdinal, LastOrdinal: m.LastOrdinal, InputDigest: m.InputDigest,
-		RequestCount: m.RequestCount, InputBytes: m.InputBytes, EstimatedPromptTokens: m.EstimatedPromptTokens,
-		CompletedCount: m.CompletedCount, FailedCount: m.FailedCount, ExpiredCount: m.ExpiredCount,
-		InputFileID: pgText(m.InputFileID), BatchID: pgText(m.BatchID), OutputFileID: pgText(m.OutputFileID), ErrorFileID: pgText(m.ErrorFileID),
-		SubmissionJobID: pgInt8(m.SubmissionJobID), SubmissionGeneration: m.SubmissionGeneration, SubmissionClaimToken: uuidString(m.SubmissionClaimToken),
-		SubmissionClaimedAt: pgTimePtr(m.SubmissionClaimedAt), SubmissionLeaseExpiresAt: pgTimePtr(m.SubmissionLeaseExpiresAt),
-		ReconciliationJobID: pgInt8(m.ReconciliationJobID), ReconciliationGeneration: m.ReconciliationGeneration, ReconciliationClaimToken: uuidString(m.ReconciliationClaimToken),
-		ReconciliationClaimedAt: pgTimePtr(m.ReconciliationClaimedAt), ReconciliationLeaseExpiresAt: pgTimePtr(m.ReconciliationLeaseExpiresAt),
-		ErrorClass: m.ErrorClass, ErrorCode: m.ErrorCode, InputTokens: m.InputTokens, OutputTokens: m.OutputTokens, TotalTokens: m.TotalTokens,
-		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, SubmittedAt: pgTimePtr(m.SubmittedAt), LastPolledAt: pgTimePtr(m.LastPolledAt),
-		ProviderCompletedAt: pgTimePtr(m.ProviderCompletedAt), ReconciledAt: pgTimePtr(m.ReconciledAt),
-		InputFileCleanupState: m.InputFileCleanupState, OutputFileCleanupState: m.OutputFileCleanupState, ErrorFileCleanupState: m.ErrorFileCleanupState,
-		InputFileCleanupAttempts: m.InputFileCleanupAttempts, OutputFileCleanupAttempts: m.OutputFileCleanupAttempts, ErrorFileCleanupAttempts: m.ErrorFileCleanupAttempts,
-		CleanupErrorClass: m.CleanupErrorClass, CleanupErrorCode: m.CleanupErrorCode, CleanupClaimToken: uuidString(m.CleanupClaimToken),
-		CleanupClaimedAt: pgTimePtr(m.CleanupClaimedAt), CleanupLeaseExpiresAt: pgTimePtr(m.CleanupLeaseExpiresAt), CleanupCompletedAt: pgTimePtr(m.CleanupCompletedAt),
 	}
 }

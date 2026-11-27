@@ -18,7 +18,7 @@ async function openSupportingDetails(page: Page) {
 // Stateful flows remain ordered within this file and get a fresh fixture store
 // for each project/worker assignment.
 test.describe('Current reading selection', () => {
-  test('current reading opens its focused prepared-deck task', async ({ page }) => {
+  test('current reading offers no deck task', async ({ page }) => {
     await signIn(page);
     const language = page.getByLabel('Study language');
     if (await language.inputValue() !== 'de') {
@@ -37,11 +37,10 @@ test.describe('Current reading selection', () => {
     }
     await expect(currentCard).toBeVisible();
     await openSupportingDetails(page);
-    await currentCard.getByRole('link', { name: 'Open focused deck task' }).click();
-    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
-    await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
-    await expect(page.getByText('Frozen reading snapshot', { exact: true })).toBeVisible();
-    await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
+    await expect(currentCard.getByRole('link', { name: 'Open focused deck task' })).toHaveCount(0);
+    await expect(currentCard.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
+    const retired = await page.request.get('/reading/books/fixture-route-match/deck/preparations/new');
+    expect(retired.status()).toBe(404);
   });
 
   test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
@@ -125,7 +124,7 @@ test.describe('Current reading selection', () => {
       await expect(titleLink).toHaveCSS('text-decoration-line', 'underline');
       await expect(goal.getByRole('heading', { name: 'Reserved vocabulary' })).toBeVisible();
       await expect(goal.getByRole('heading', { name: 'Analysis' })).toBeVisible();
-      await expect(goal.getByRole('heading', { name: 'Book deck' })).toBeVisible();
+      await expect(goal.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
       await expect(goal.getByRole('link', { name: 'Review flagged dictionary forms' })).toHaveAttribute('href', /\/reading\/books\/[^/]+\/lemma-review$/);
       await expect(goal.locator('.journey-book__evidence')).not.toContainText(/immutable artifact|frozen identities|remain independent facts/i);
       const titlePageItems = await goal.locator('.journey-book__cover, .journey-book__title, .journey-book__author, .journey-book__lifecycle').evaluateAll((nodes) => nodes.map((node) => {
@@ -147,9 +146,8 @@ test.describe('Current reading selection', () => {
      await expect(goal.locator('form[action="/goal/clear"], form[action="/goal/finish"]')).toHaveCount(0);
      await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
      await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
-      await expect(goal).toContainText('Book deck');
-      await expect(goal).toContainText('Deck ready');
-      await expect(goal.getByRole('link', { name: 'Download deck' })).toHaveAttribute('download', '');
+      await expect(goal).not.toContainText('Book deck');
+      await expect(goal.getByRole('link', { name: 'Download deck' })).toHaveCount(0);
       await expect(goal.locator('.reading-note').filter({ hasText: '2 lemmas' })).toContainText('2 lemmas');
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
@@ -218,8 +216,7 @@ test.describe('Current reading selection', () => {
       expect(title).toBeTruthy();
 
       await openSupportingDetails(page);
-      await expect(currentCard.getByRole('link', { name: 'Open focused deck task' }))
-        .toHaveAttribute('href', /\/reading\/books\/[^/]+\/deck\/preparations\/new$/);
+      await expect(currentCard.getByRole('link', { name: 'Open focused deck task' })).toHaveCount(0);
 
       const stop = currentCard.locator('details').filter({ hasText: 'End current reading' });
       await stop.locator('summary').click();

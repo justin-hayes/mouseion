@@ -9,7 +9,7 @@ async function signIn(page: Page) {
 }
 
 test.describe('compact task rhythm', () => {
-  test('Manage sources and focused deck forms have deliberate interior spacing', async ({ page }) => {
+  test('Manage sources forms have deliberate interior spacing', async ({ page }) => {
     await signIn(page);
     await page.goto('/catalogs/sources');
 

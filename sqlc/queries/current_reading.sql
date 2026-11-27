@@ -340,3 +340,15 @@ WITH eligible AS (
     RETURNING owner_id
 )
 SELECT count(*)::int AS graduated_count FROM inserted;
+
+-- name: ListReservedDeckVocabulary :many
+-- The owner's Reserved vocabulary: the frozen identities of the active Current
+-- reading snapshot. The legacy deck columns keep their names until the Reading
+-- snapshot is retired.
+SELECT ps.owner_id, ps.id AS deck_preparation_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword, ps.created_at AS generated_at, NULL::timestamptz AS graduated_at
+FROM primary_goal_snapshots ps
+JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
+JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
+WHERE ps.owner_id = sqlc.arg('owner') AND ps.language = sqlc.arg('language')
+  AND ps.released_at IS NULL AND pv.language = sqlc.arg('language')
+ORDER BY canonical_lemma, upos, lexical_discriminator;

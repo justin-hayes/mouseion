@@ -44,25 +44,17 @@ func (h *Handler) currentReadingSection(ctx context.Context, owner, message, pag
 	return currentReadingSectionView{CurrentReading: readingView.CurrentReading, Message: message, Error: pageError}, nil
 }
 
-func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, message, pageError, focusBookID string) {
-	// A Book-addressed action answers in its Book's language.
-	if err := h.adoptBookLanguage(r.Context(), user(r).ID, focusBookID); err != nil {
-		fail(w, err)
-		return
-	}
+func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, pageError string) {
 	if isPartialHTMXRequest(r) {
-		section, err := h.currentReadingSection(r.Context(), user(r).ID, message, pageError)
+		section, err := h.currentReadingSection(r.Context(), user(r).ID, "", pageError)
 		if err != nil {
 			fail(w, err)
 			return
 		}
-		render(w, r, CurrentReadingSection(section.CurrentReading, h.csrf(w, r), section.Message, section.Error, focusBookID))
+		render(w, r, CurrentReadingSection(section.CurrentReading, h.csrf(w, r), section.Message, section.Error, ""))
 		return
 	}
 	query := url.Values{}
-	if message != "" {
-		query.Set("message", message)
-	}
 	if pageError != "" {
 		query.Set("error", pageError)
 	}
@@ -71,19 +63,4 @@ func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, 
 		location += "?" + encoded
 	}
 	redirect(w, r, location)
-}
-
-// expectedCurrentSnapshotID is the Current reading snapshot the request names.
-// An empty value names no snapshot, which admission refuses as stale.
-func expectedCurrentSnapshotID(r *http.Request) string {
-	return strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-}
-
-func (h *Handler) requireStudyLanguage(w http.ResponseWriter, r *http.Request) bool {
-	language, _ := activeStudyLanguageForContext(r.Context())
-	if language == "" {
-		h.respondCurrentReading(w, r, "", currentReadingLanguageRequiredMessage, "")
-		return false
-	}
-	return true
 }

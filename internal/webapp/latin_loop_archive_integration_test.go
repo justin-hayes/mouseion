@@ -168,12 +168,6 @@ func (s *rangeServer) handler() http.Handler {
 	})
 }
 
-func (s *rangeServer) requests() ([]string, int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return append([]string(nil), s.ranges...), s.served
-}
-
 // TestClassicalLatinCatalogLoop walks a Latin Work end to end through the real
 // routes, store and workers with no NLP service: the Catalog filtered to Latin,
 // Add, preparation fetching the Work's two archive members by Range, Reading and

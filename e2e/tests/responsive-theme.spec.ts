@@ -26,7 +26,6 @@ const representativePages: Array<[string, RegExp]> = [
   ['/de/reading#journey-book-fixture-book', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
-  ['/deck-preparations/fixture-preparation/status', /Deck preparation/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalog/],
   ['/catalogs/sources', /Manage sources/],
@@ -314,11 +313,8 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(currentBook.getByRole('heading', { name: 'Reserved vocabulary' })).toBeVisible();
     await expect(currentBook).toContainText('Reserved vocabulary');
     await expect(currentBook.getByRole('heading', { name: 'Analysis' })).toBeVisible();
-    await expect(currentBook.getByRole('heading', { name: 'Book deck' })).toBeVisible();
-    await expect(currentBook.getByRole('link', { name: 'Open focused deck task' })).toHaveAttribute(
-      'href',
-      /\/reading\/books\/[^/]+\/deck\/preparations\/new$/,
-    );
+    await expect(currentBook.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
+    await expect(currentBook.getByRole('link', { name: 'Open focused deck task' })).toHaveCount(0);
 
     const controls = page.locator('#primary-goal-section summary:visible, #primary-goal-section button:visible, #primary-goal-section a[role="button"]:visible');
     const controlBoxes = await controls.evaluateAll((nodes) => nodes.map((node) => {
@@ -555,8 +551,8 @@ test.describe('responsive and theme regression coverage', () => {
     expect(colors.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(colors.background).toBe(colors.tokenBackground);
 
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    const secondaryAction = page.locator('.action-group .button--outline').first();
+    await page.goto('/de/library');
+    const secondaryAction = page.locator('.button--outline:visible').first();
     await expect(secondaryAction).toBeVisible();
     await secondaryAction.hover();
     expect(await textContrast(secondaryAction)).toBeGreaterThanOrEqual(4.5);
@@ -591,7 +587,6 @@ test.describe('responsive and theme regression coverage', () => {
       ['/de/vocabulary', 'Vocabulary'],
       ['/catalogs', 'Catalog'],
       ['/jobs', 'My Books'],
-      ['/deck-preparations/fixture-preparation/status', 'My Books'],
     ] as const) {
       await page.goto(path);
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
@@ -599,8 +594,8 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(destinations).toHaveCount(4);
       await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
-      // Only per-language pages carry the picker; the Catalog, job status and
-      // deck status have no page language (ADR 0131).
+      // Only per-language pages carry the picker; the Catalog and job status
+      // have no page language (ADR 0131).
       if (!path.startsWith('/de/')) await expect(navigation.getByLabel('Study language')).toHaveCount(0);
       else await expect(navigation.getByLabel('Study language')).toBeVisible();
 
@@ -924,7 +919,7 @@ test.describe('responsive and theme regression coverage', () => {
     }
     await page.goto('/de/reading#journey-book-fixture-book');
     await openSupportingDetails(page);
-    await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toBeVisible();
+    await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toHaveCount(0);
   });
 
   test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {

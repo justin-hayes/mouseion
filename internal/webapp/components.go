@@ -265,27 +265,6 @@ func confirmationClass(tone StatusTone) string {
 	return "confirmation"
 }
 
-func statusTone(value string) StatusTone {
-	switch value {
-	case "analyzed", "active", "ready", "complete", "completed", "analysis result ready", "ready to analyze":
-		return StatusSuccess
-	case "analyzing", "queued", "running", "preparing", "analysis queued", "analysis running":
-		return StatusInfo
-	case "review_required", "degraded":
-		return StatusWarning
-	case "unavailable":
-		return StatusDanger
-	case "not acquired":
-		return StatusNeutral
-	case "stale analysis":
-		return StatusWarning
-	case "abandoned", "cancelled", "discarded", "failed", "analysis failed", "analysis cancelled", "analysis failed — action required":
-		return StatusDanger
-	default:
-		return StatusNeutral
-	}
-}
-
 func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
 	out := make([]domain.MyBook, 0, len(books))
 	for _, source := range books {

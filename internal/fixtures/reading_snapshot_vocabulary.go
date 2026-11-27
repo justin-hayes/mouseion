@@ -24,9 +24,19 @@ func (s *Store) reservedDeckVocabularyLocked(owner, language string) []domain.De
 	var result []domain.DeckPreparationVocabulary
 	seen := make(map[string]struct{})
 	goal := s.currentReadings[fixtureGoalKey(owner, language)]
+	hasSnapshot := false
 	if goal.IsActive() && goal.SnapshotID != "" {
-		snapshot := s.goalSnapshotVocabulary[goal.SnapshotID]
+		snapshot, snapshotExists := s.goalSnapshotVocabulary[goal.SnapshotID]
+		hasSnapshot = snapshotExists
 		result = appendReservedVocabulary(result, seen, snapshot, language)
+	}
+	if !hasSnapshot && goal.IsActive() && goal.SourceMaterialID != "" {
+		for _, preparation := range s.preps {
+			if preparation.OwnerID != owner || preparation.SourceMaterialID != goal.SourceMaterialID || preparation.AnalysisRunID != goal.AnalysisRunID {
+				continue
+			}
+			result = appendReservedVocabulary(result, seen, s.deckVocabularyFor(owner, preparation.ID), language)
+		}
 	}
 	return result
 }
@@ -112,21 +122,6 @@ func (s *Store) ListCurrentReadingSnapshotVocabulary(_ context.Context, owner, s
 	return result, nil
 }
 
-// fixtureCurrentReadingFor returns the owner's active current reading for a Book
-// and the Book's analysis identity. The fixture analysis is the reading's own
-// identity, so an active reading always pins its analysis. The caller holds mu.
-func (s *Store) fixtureCurrentReadingFor(owner, bookID string) (domain.CurrentReading, domain.CurrentAnalysis) {
-	if bookID == "" {
-		return domain.CurrentReading{}, domain.CurrentAnalysis{}
-	}
-	for _, current := range s.currentReadings {
-		if current.OwnerID == owner && current.BookID == bookID {
-			return current, domain.CurrentAnalysis{SourceMaterialID: current.SourceMaterialID, AnalysisRunID: current.AnalysisRunID, ContentRevisionID: current.ContentRevisionID, ContentSnapshotID: current.ContentSnapshotID, CorpusID: current.CorpusID}
-		}
-	}
-	return domain.CurrentReading{}, domain.CurrentAnalysis{}
-}
-
 // ListUnattachedGeneratedVocabulary returns the legacy Generated vocabulary
 // history the coverage service still reads for the owner and language.
 func (s *Store) ListUnattachedGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
@@ -139,4 +134,14 @@ func (s *Store) ListUnattachedGeneratedVocabulary(_ context.Context, owner, lang
 		}
 	}
 	return result, nil
+}
+
+func (s *Store) deckVocabularyFor(owner, preparationID string) []domain.DeckPreparationVocabulary {
+	var result []domain.DeckPreparationVocabulary
+	for _, item := range s.deckVocabulary {
+		if item.OwnerID == owner && item.DeckPreparationID == preparationID {
+			result = append(result, item)
+		}
+	}
+	return result
 }
