@@ -236,21 +236,24 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 // sense's evidence ID names its entry and its sense (enrichment.EntryEvidenceID),
 // so a cited sense is exactly one sense of one entry across homographs.
 func PassSenses(policy cardpolicy.Policy, entries []Entry) []enrichment.LexicalSense {
-	if policy.Entries == cardpolicy.EntryLSJ {
-		// Greek Study sends every sense, as it did for one entry: the cap is
-		// Latin's, and a frequent lemma's entries need their later senses citable.
-		var senses []enrichment.LexicalSense
-		for _, entry := range entries {
-			senses = append(senses, lsjEntryPassSenses(entry)...)
-		}
-		return senses
+	// Study sends every sense of every entry, in entry order: the cap belongs to
+	// the Prepared deck, and a frequent lemma's entries need their later senses
+	// citable (ADR 0139; Latin's "dico" "plead" sense sits past the cap).
+	entrySenses := lsjEntryPassSenses
+	if policy.Entries != cardpolicy.EntryLSJ {
+		entrySenses = latinEntryPassSenses
 	}
-	return LatinPassSenses(entries)
+	var senses []enrichment.LexicalSense
+	for _, entry := range entries {
+		senses = append(senses, entrySenses(entry)...)
+	}
+	return senses
 }
 
-// LatinPassSenses are the pinned Lewis & Short senses the Latin evidence-assisted
-// pass may cite, across every resolved entry. Each sense's evidence ID names its
-// entry and its sense, so a cited sense is exactly one sense of one entry, even
+// LatinPassSenses are the pinned Lewis & Short senses the Latin Prepared deck's
+// evidence-assisted pass may cite (Study sends every sense: see PassSenses),
+// across every resolved entry. Each sense's evidence ID names its entry and its
+// sense, so a cited sense is exactly one sense of one entry, even
 // across stacked homographs. A sense sends its definitions, or its glosses when
 // it has none; a sense with no native ID or nothing to send gives no evidence and
 // is skipped. The pass carries at most enrichment.DefaultMaxCandidateSenses

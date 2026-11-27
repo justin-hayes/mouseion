@@ -2,6 +2,7 @@ package sourceevidence
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -313,4 +314,20 @@ func TestResolveStudyDropsEmptyEntriesAndFindsNothingWhenNoneIsLeft(t *testing.T
 	lex.greekEntries = []enrichment.AncientGreekLSJEntry{{}}
 	_, found = ResolveStudy(t.Context(), lex, cardpolicy.For("grc"), "λέγω", nil)
 	assert.False(t, found)
+}
+
+func TestPassSensesLatinSendsEverySenseOfEveryEntryInOrder(t *testing.T) {
+	big := enrichment.LatinLSEntry{EntryID: "n1"}
+	for i := range 34 {
+		big.Senses = append(big.Senses, enrichment.LatinLSSense{ID: fmt.Sprintf("n1.%d", i), Level: 1, Definitions: []string{"say"}})
+	}
+	small := enrichment.LatinLSEntry{EntryID: "n2", Senses: []enrichment.LatinLSSense{{ID: "n2.0", Level: 1, Glosses: []string{"dedicate"}}}}
+	entries := BuildLewisShort([]enrichment.LatinLSEntry{big, small}, nil, nil)
+
+	senses := PassSenses(cardpolicy.For("la"), entries)
+	require.Len(t, senses, 35, "Latin Study is not capped")
+	assert.Equal(t, enrichment.EntryEvidenceID("n1", "n1.33"), senses[33].EvidenceID, "a sense past the old cap is sent, in entry order")
+	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[34].EvidenceID)
+
+	assert.Len(t, LatinPassSenses(entries), enrichment.DefaultMaxCandidateSenses, "the Prepared deck keeps its cap")
 }

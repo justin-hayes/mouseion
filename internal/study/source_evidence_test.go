@@ -3,6 +3,7 @@ package study
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
@@ -297,6 +298,22 @@ func TestLatinStudySendsEntryCarryingSensesAndResolvesACitationToOneEntry(t *tes
 	assert.Equal(t, []string{enrichment.EntryEvidenceID("n9", "n9.0"), enrichment.EntryEvidenceID("n10", "n10.0")}, evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses))
 	require.NotNil(t, f.store.ready)
 	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"n10.0"}, EntryIDs: []string{"n10"}, DictionaryPin: "ls-pin-1"}, f.store.ready.Cited)
+}
+
+func TestLatinStudySendsEverySenseAndAcceptsOnePastTheOldCap(t *testing.T) {
+	entries := stackedDico()
+	for i := 1; i < 34; i++ {
+		entries[1].Senses = append(entries[1].Senses, enrichment.LatinLSSense{ID: fmt.Sprintf("n10.%d", i), Level: 1, Definitions: []string{"to say"}})
+	}
+	f := latinFixture(t, enrichment.EntryEvidenceID("n10", "n10.33"))
+	f.worker.Evidence.Lexical = &latinLexicon{entries: entries}
+	require.NoError(t, work(f.worker))
+	require.Len(t, f.enricher.passRequests, 1)
+	sent := evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses)
+	require.Len(t, sent, 35, "every sense of every stacked entry, past enrichment.DefaultMaxCandidateSenses")
+	assert.Equal(t, enrichment.EntryEvidenceID("n9", "n9.0"), sent[0], "entry order")
+	require.NotNil(t, f.store.ready, "a sense past the old cap is ready material")
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"n10.33"}, EntryIDs: []string{"n10"}, DictionaryPin: "ls-pin-1"}, f.store.ready.Cited)
 }
 
 func TestLatinStudyOmitsACitationOfASenseTheNamedEntryDoesNotHold(t *testing.T) {
