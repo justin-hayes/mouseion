@@ -90,7 +90,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	library := perform(t, h, "GET", "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, "library body=%s", library.Body.String())
 	assert.NotContains(t, library.Body.String(), notPreparedYetNote)
-	assert.Contains(t, library.Body.String(), "0.0% of running words Known")
+	assert.Contains(t, library.Body.String(), "0.0% of running words Mature")
 
 	// To Read changes the disposition and never submits EPUB analysis.
 	detail, err := store.GetBookDetail(ctx, learner.ID, registration.BookID)

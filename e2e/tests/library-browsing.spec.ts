@@ -22,7 +22,7 @@ test.describe('My Books collection browsing', () => {
     await expect(retryAnalysis.locator('xpath=..')).toHaveAttribute('action', '/reading/books/fixture-failed/reanalyze');
     await expect(failedRow.locator('.library-book__evidence')).not.toContainText(/0%|coverage|ready/i);
     const analyzedRow = page.locator('#book-row-fixture-book');
-    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
+    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Mature');
     await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
     await expect(analyzedRow.locator('.library-book__evidence')).toContainText('Deck ready: 412 cards');
     await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');

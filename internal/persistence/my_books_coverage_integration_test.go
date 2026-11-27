@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -103,10 +104,11 @@ func TestMyBooksCoverageMatchesSharedSelectionProjection(t *testing.T) {
 	_, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=$3, distinct_lemma_count=$4 WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID, analyzable, len(candidates))
 	require.NoError(t, err)
 
-	for _, known := range []struct{ lemma, upos string }{{"haus", "NOUN"}, {"laufen", "VERB"}, {"tisch", "NOUN"}, {"straße", ""}, {"stuhl", "NOUN"}} {
-		_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", known.lemma, known.upos)
-		require.NoError(t, err)
+	for _, mature := range []struct{ lemma, upos string }{{"haus", "NOUN"}, {"laufen", "VERB"}, {"tisch", "NOUN"}, {"straße", "ADJ"}, {"stuhl", "NOUN"}} {
+		seedCoverageStudyWord(t, ctx, store, owner.ID, "de", mature.lemma, mature.upos, true)
 	}
+	// baum is in study but not Mature: it counts only in the lighter figure.
+	seedCoverageStudyWord(t, ctx, store, owner.ID, "de", "baum", "NOUN", false)
 
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
@@ -115,26 +117,37 @@ func TestMyBooksCoverageMatchesSharedSelectionProjection(t *testing.T) {
 
 	projected, err := selection.Project(analysis, selection.DefaultConfig(corpusID), decisions)
 	require.NoError(t, err)
-	knownIdentities := map[selection.Identity]bool{}
+	matureIdentities := map[selection.Identity]bool{}
 	for _, identity := range []selection.Identity{
 		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, {Language: "de", CanonicalLemma: "laufen", UPOS: "VERB"},
 		{Language: "de", CanonicalLemma: "tisch", UPOS: "NOUN"}, {Language: "de", CanonicalLemma: "stuhl", UPOS: "NOUN"},
+		{Language: "de", CanonicalLemma: "straße", UPOS: "ADJ"},
 	} {
-		knownIdentities[identity] = true
+		matureIdentities[identity] = true
 	}
-	var wantKnown int64
+	var wantMature, wantInStudy int64
 	for _, candidate := range projected {
 		id := candidate.Identity
-		if knownIdentities[id] || (id.CanonicalLemma == "straße" && id.Language == "de") {
-			wantKnown += int64(candidate.OccurrenceCount)
+		if matureIdentities[id] {
+			wantMature += int64(candidate.OccurrenceCount)
+			wantInStudy += int64(candidate.OccurrenceCount)
+		}
+		if id.CanonicalLemma == "baum" && id.Language == "de" {
+			wantInStudy += int64(candidate.OccurrenceCount)
 		}
 	}
-	require.Positive(t, wantKnown)
+	require.Positive(t, wantMature)
+	require.Greater(t, wantInStudy, wantMature)
 
 	browse, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, browse.Items, 1)
-	assert.Equal(t, wantKnown, browse.Items[0].CoverageKnownTokens, "Browse-count coverage must equal the shared selection projection")
+	assert.Equal(t, wantMature, browse.Items[0].CoverageMatureTokens, "Browse-count coverage must equal the shared selection projection")
+	assert.Equal(t, wantInStudy, browse.Items[0].CoverageInStudyTokens)
+	insights, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpusID)
+	require.NoError(t, err)
+	assert.Equal(t, wantMature, insights.MatureTokenCount, "Analysis Insights agrees with My Books")
+	assert.Equal(t, wantInStudy, insights.InStudyTokenCount)
 	assert.Equal(t, analyzable, browse.Items[0].CoverageTotalTokens)
 
 	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID)
@@ -142,7 +155,7 @@ func TestMyBooksCoverageMatchesSharedSelectionProjection(t *testing.T) {
 	unready, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, unready.Items, 1)
-	assert.Zero(t, unready.Items[0].CoverageKnownTokens, "unready counts never fall back to a token scan")
+	assert.Zero(t, unready.Items[0].CoverageMatureTokens, "unready counts never fall back to a token scan")
 	assert.Zero(t, unready.Items[0].CoverageTotalTokens)
 }
 
@@ -151,4 +164,21 @@ func nilIf(condition bool, value string) any {
 		return nil
 	}
 	return value
+}
+
+// seedCoverageStudyWord puts a word in the learner's study: Mature (in review at
+// the maturity interval) or still learning.
+func seedCoverageStudyWord(t *testing.T, ctx context.Context, store *PostgresStore, owner, language, lemma, upos string, mature bool) {
+	t.Helper()
+	state, days := "learning", int64(0)
+	if mature {
+		state, days = "review", domain.FluencyMaturityDays
+	}
+	_, err := store.Pool().Exec(ctx, `
+WITH m AS (
+  INSERT INTO study_material (owner_id, language, canonical_lemma, upos, state, omission_reason)
+  VALUES ($1, $2, $3, $4, 'unpreparable', 'sentence-quality') RETURNING id)
+INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, last_review)
+SELECT $1, $2, $3, $4, id, now(), 'seeded', $5, now(), 5, 5, $6, 1, now() FROM m`, owner, language, lemma, upos, state, days)
+	require.NoError(t, err)
 }

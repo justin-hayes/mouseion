@@ -40,7 +40,7 @@ func TestReadingChooserFormatsEvidenceWithoutChangingBandBoundaries(t *testing.T
 	}))
 	assert.Equal(t, "1,234,567", readingChooserCount(1234567))
 	assert.Equal(t, "98.9%", readingChooserCoverageDisplay(domain.AnalysisCoverage{
-		KnownTokenCount: 989, AnalyzableTokenCount: 1000,
+		MatureTokenCount: 989, AnalyzableTokenCount: 1000,
 	}))
 	assert.Equal(t, domain.CoverageBand97To99, domain.CoverageBandFor(989, 1000), "display rounding must not determine group membership")
 }
@@ -86,7 +86,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	body := response.Body.String()
 	assert.Contains(t, body, "Choose a To Read book in German")
 	assert.NotContains(t, body, "Choose your next book")
-	assert.Contains(t, body, "Known vocabulary coverage:")
+	assert.Contains(t, body, "Mature vocabulary coverage:")
 	assert.Contains(t, body, `<ul class="reading-chooser-list" role="list">`)
 	assert.Contains(t, body, `class="reading-chooser-entry__cover"`)
 	assert.Contains(t, body, "more distinct words marked Known")
@@ -103,7 +103,7 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	assert.Contains(t, body, "The analysis no longer matches the current book content")
 	assert.Contains(t, body, "No vocabulary comparison")
 	assert.Contains(t, body, "No words to compare")
-	assert.NotContains(t, body, "Known vocabulary coverage: 0.0%")
+	assert.NotContains(t, body, "Mature vocabulary coverage: 0.0%")
 	assert.NotContains(t, body, "Italian goal")
 	assert.NotContains(t, body, "Metadata-only migration book")
 	assert.True(t, strings.Contains(body, `action="/reading/books/`) && strings.Contains(body, `/start"`) && strings.Contains(body, `name="csrf_token"`))
@@ -313,7 +313,7 @@ func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Analysis in progress")
 	assert.NotContains(t, response.Body.String(), "No To Read books yet")
-	assert.NotContains(t, response.Body.String(), "Known vocabulary coverage:")
+	assert.NotContains(t, response.Body.String(), "Mature vocabulary coverage:")
 }
 
 // chooserInsights answers every coverage read with one fixed value, so the
@@ -415,7 +415,7 @@ func TestBuildReadingChooserPlacesUnavailableCoverageWithAttention(t *testing.T)
 	t.Run("blank corpus identity", func(t *testing.T) {
 		blank := chooserReadyCandidate()
 		blank.Acquired.CorpusID = "   "
-		insights := chooserInsights{coverage: domain.AnalysisCoverage{KnownTokenCount: 1, AnalyzableTokenCount: 1}}
+		insights := chooserInsights{coverage: domain.AnalysisCoverage{MatureTokenCount: 1, AnalyzableTokenCount: 1}}
 		view, err := newChooserHandler([]domain.MyBook{blank}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
 		require.NoError(t, err)
 		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
@@ -431,13 +431,13 @@ func TestBuildReadingChooserReportsUnexpectedCoverageFailure(t *testing.T) {
 
 func TestBuildReadingChooserGroupsCoverageByBand(t *testing.T) {
 	for _, coverage := range []domain.AnalysisCoverage{
-		{KnownTokenCount: 995, AnalyzableTokenCount: 1000},
-		{KnownTokenCount: 980, AnalyzableTokenCount: 1000},
-		{KnownTokenCount: 960, AnalyzableTokenCount: 1000},
-		{KnownTokenCount: 900, AnalyzableTokenCount: 1000},
+		{MatureTokenCount: 995, AnalyzableTokenCount: 1000},
+		{MatureTokenCount: 980, AnalyzableTokenCount: 1000},
+		{MatureTokenCount: 960, AnalyzableTokenCount: 1000},
+		{MatureTokenCount: 900, AnalyzableTokenCount: 1000},
 		{AnalyzableTokenCount: 0},
 	} {
-		band := domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount)
+		band := domain.CoverageBandFor(coverage.MatureTokenCount, coverage.AnalyzableTokenCount)
 		t.Run(string(band), func(t *testing.T) {
 			handler := newChooserHandler([]domain.MyBook{chooserReadyCandidate()}, nil, chooserInsights{coverage: coverage})
 			view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")

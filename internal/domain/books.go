@@ -148,7 +148,8 @@ type MyBook struct {
 	CompletionCount        int
 	LatestCompletionAt     *time.Time
 	LatestCompletionSource ReadingCompletionSource
-	CoverageKnownTokens    int64
+	CoverageMatureTokens   int64
+	CoverageInStudyTokens  int64
 	CoverageTotalTokens    int64
 	DeckState              string
 	DeckCardCount          int64

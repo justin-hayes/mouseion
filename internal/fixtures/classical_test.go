@@ -178,6 +178,6 @@ func TestFixtureClassicalInsightsSpreadConstituentBooksAcrossBands(t *testing.T)
 	} {
 		coverage, err := insights.Coverage(context.Background(), OwnerID, fixtureClassicalCorpusID(key))
 		require.NoError(t, err)
-		assert.Equal(t, want, domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount), key)
+		assert.Equal(t, want, domain.CoverageBandFor(coverage.MatureTokenCount, coverage.AnalyzableTokenCount), key)
 	}
 }

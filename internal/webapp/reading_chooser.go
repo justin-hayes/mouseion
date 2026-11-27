@@ -448,7 +448,7 @@ func (h *Handler) classifyReadingChooserCandidate(ctx context.Context, owner str
 		return coverageErr
 	}
 	candidate.Coverage = &coverage
-	candidate.Band = domain.CoverageBandFor(coverage.KnownTokenCount, coverage.AnalyzableTokenCount)
+	candidate.Band = domain.CoverageBandFor(coverage.MatureTokenCount, coverage.AnalyzableTokenCount)
 	return nil
 }
 
@@ -650,7 +650,7 @@ func readingChooserCoveragePercent(coverage domain.AnalysisCoverage) (float64, b
 	if coverage.AnalyzableTokenCount <= 0 {
 		return 0, false
 	}
-	return min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100), true
+	return min(float64(coverage.MatureTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100), true
 }
 
 // The learner-facing interface is English; group evidence counts in that locale.

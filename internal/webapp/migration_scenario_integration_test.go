@@ -135,10 +135,11 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3},
 		{Language: "de", CanonicalLemma: "legacy", UPOS: "ADJ", OccurrenceCount: 1},
 	})
+	seedStudyWord(t, ctx, store, alice.ID, "Haus", true)
 	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), beforeCoverage.KnownTokenCount)
-	assert.Equal(t, int64(6), beforeCoverage.ReservedTokenCount)
+	assert.Equal(t, int64(1), beforeCoverage.MatureTokenCount)
+	assert.Equal(t, int64(1), beforeCoverage.InStudyTokenCount, "Reserved and Known vocabulary are not in study")
 
 	// Stale writes, missing CSRF, cross-owner references, and invalid progress
 	// are rejected without changing the accepted state.
@@ -185,8 +186,8 @@ func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
 	assert.Len(t, knownAgain, len(knownAfterReading))
 	afterCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(7), afterCoverage.KnownTokenCount)
-	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
+	assert.Equal(t, int64(1), afterCoverage.MatureTokenCount, "finishing the reading adds Known vocabulary, never Mature words")
+	assert.Equal(t, int64(1), afterCoverage.InStudyTokenCount)
 	completion, err := store.FinishCurrentReading(ctx, alice.ID, "de", book.ID, currentReading.SnapshotID)
 	require.NoError(t, err)
 	assert.Equal(t, 3, completion.Completion.SnapshotVocabularyCount)

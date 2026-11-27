@@ -468,8 +468,12 @@ type Querier interface {
 	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
-	// the learner's current Known vocabulary. A Book without ready counts for its
-	// current analysis produces no row, so it never shows a stale or scanned figure.
+	// the learner's Study progress (ADR 0136 §3): mature_tokens counts occurrences
+	// of words that are Mature (in review with a scheduled interval of at least
+	// mature_days), and in_study_tokens also counts words introduced but not yet
+	// Mature. Only word items count and a withdrawn word counts as neither. A Book
+	// without ready counts for its current analysis produces no row, so it never
+	// shows a stale or scanned figure.
 	ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error)
 	ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)

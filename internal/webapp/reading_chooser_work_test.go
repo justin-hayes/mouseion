@@ -60,7 +60,7 @@ func chooserUpdateOffer() domain.AnalysisUpdateCandidate {
 }
 
 func chooserCoverage(known, total int64) domain.AnalysisCoverage {
-	return domain.AnalysisCoverage{KnownTokenCount: known, AnalyzableTokenCount: total}
+	return domain.AnalysisCoverage{MatureTokenCount: known, AnalyzableTokenCount: total}
 }
 
 // endFixtureReading ends the fixture's current reading in one language.

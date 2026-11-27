@@ -251,8 +251,8 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 
 	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(0), reservedCoverage.KnownTokenCount)
-	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount)
+	assert.Equal(t, int64(0), reservedCoverage.MatureTokenCount)
+	assert.Equal(t, int64(0), reservedCoverage.InStudyTokenCount, "a prepared deck never puts words in study")
 	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{
 		"csrf_token":                   {csrf},
 		"expected_current_book_id":     {bookID},
@@ -297,8 +297,8 @@ func TestCompleteLearnerLoopFromOnboardingToCurrentReadingCompletion(t *testing.
 	assert.Equal(t, "NOUN", known[0].UPOS)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, detail.Acquired.CorpusID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), coverage.KnownTokenCount)
-	assert.Equal(t, int64(0), coverage.ReservedTokenCount)
+	assert.Equal(t, int64(0), coverage.MatureTokenCount, "finishing a reading adds Known vocabulary, which coverage no longer reads")
+	assert.Equal(t, int64(0), coverage.InStudyTokenCount)
 	var historyCount int
 	var historyBookID string
 	err = store.Pool().QueryRow(ctx, `SELECT count(*), max(book_id::text) FROM reading_history WHERE owner_id=$1 AND language='de'`, owner.ID).Scan(&historyCount, &historyBookID)
