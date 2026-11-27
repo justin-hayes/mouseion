@@ -1545,6 +1545,11 @@ def ls_collect(element, content: LsContent) -> None:
         ls_collect_child(child, content)
         ls_text(child.tail, content)
         lead = child.tail or ""
+        if child.tag == "hi" and ls_plain(element_text(child)).rstrip(".") == "v":
+            # An italic "v." names the entry in the text after it.
+            content.crossrefs.extend(
+                {"text": match} for match in LS_PLAIN_REDIRECT.findall("v. " + lead)
+            )
         if reference := ls_participle_reference(child):
             content.crossrefs.append({"text": reference})
 
@@ -1639,7 +1644,14 @@ def ls_subentry_orth(sense) -> str:
     """The headword a sense opens with, as in "Rōmānus, a, um, adj." inside
     "Roma", or the empty string for a sense that opens with prose."""
     children = list(sense)
-    if not children or (sense.text or "").strip() or children[0].tag != "orth":
+    if (sense.text or "").strip():
+        return ""
+    # A grammatical label may precede the headword ("Subst. absolutorium").
+    while children and children[0].tag == "hi" and ls_is_abbreviation(element_text(children[0])):
+        if (children[0].tail or "").strip(" ,.;:"):
+            return ""
+        children = children[1:]
+    if not children or children[0].tag != "orth":
         return ""
     first = children[0]
     following = children[1] if len(children) > 1 else None
@@ -1782,10 +1794,16 @@ def ls_has_text(entry: dict) -> bool:
 
 def ls_pointed_senses(target: list[dict], number: str | None) -> list[dict]:
     """The target's own senses a stub points at. "fin. N." is the last sense
-    numbered N with the deeper senses that follow it; no number is the whole entry."""
+    numbered N with the deeper senses that follow it; a bare "fin." is the entry's
+    last top-level section; no pointer is the whole entry."""
     own = [sense for sense in target if sense.get("level", 0) > 0 and sense.get("glosses")]
-    if not number:
+    if number is None:
         return own
+    if number == "":
+        tops = [i for i, sense in enumerate(target) if sense.get("level", 0) == 1]
+        if len(tops) < 2:
+            return own
+        return [sense for sense in target[tops[-1] :] if sense.get("glosses")]
     start = next(
         (i for i in range(len(target) - 1, -1, -1) if target[i].get("n") == number),
         None,

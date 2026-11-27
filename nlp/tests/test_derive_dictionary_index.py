@@ -1863,6 +1863,12 @@ SYNTHETIC_LS_LOST_TEXT = """<TEI.2><text><body>
  <sense id="n17.3" n="B" level="2"><hi rend="ital">Hence</hi>.</sense></entryFree>
 <entryFree id="n18" key="Arma" type="main"><orth>arma</orth>, <sense id="n18.0" n="I" level="1"><hi rend="ital">arms</hi>; also
  <orth>Rōma</orth>, <itype>x</itype>, <hi rend="ital">dup</hi>.</sense></entryFree>
+<entryFree id="n20" key="absonus" type="main"><orth>absonus</orth>, <sense id="n20.0" n="I" level="1"><hi rend="ital">discordant</hi>.</sense>
+ <sense id="n20.1" n="II" level="1"><hi rend="ital">Adv.</hi> <hi rend="ital">out of tune</hi>.</sense></entryFree>
+<entryFree id="n21" key="absone" type="main"><orth>absŏnē</orth>, v. absonus <sense id="n21.0" n="I" level="1"><hi rend="ital">fin.</hi></sense></entryFree>
+<entryFree id="n22" key="Abdal" type="main"><orth>Abdal</orth>, <sense id="n22.0" n="I" level="1"><hi rend="ital">v.</hi> bar</sense></entryFree>
+<entryFree id="n23" key="absolutorius" type="main"><orth>absolutorius</orth>, <sense id="n23.0" n="I" level="1"><hi rend="ital">acquitting</hi>.</sense>
+ <sense id="n23.1" n="II" level="1"><hi rend="ital">Subst.</hi> <orth>absŏlūtōrĭum</orth>, <itype>ii</itype>, <gen>n.</gen>, <hi rend="ital">a means of deliverance</hi>.</sense></entryFree>
 <entryFree id="n19" key="Comp" type="main"><orth>comp</orth>, <sense id="n19.0" n="I" level="1"> <orth>comp</orth>, <itype>a</itype>, <hi rend="ital">self</hi>.</sense></entryFree>
 </body></text></TEI.2>"""
 
@@ -1960,6 +1966,43 @@ def test_ls_inner_headword_is_not_added_when_an_entry_with_text_has_it(tmp_path:
     assert "n18.0" not in rows  # "Rōma" is already the entry n17
     assert "n19.0" not in rows  # the entry's own headword repeated
     assert "n1.1" not in rows  # lēgātus already has its redirect entry n2, now with text
+
+
+def test_ls_bare_fin_pointer_copies_only_the_last_top_level_section(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert glosses_of(rows["n21"]) == ["out of tune"]
+
+
+def test_ls_italic_v_names_the_entry_after_it(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert json.loads(rows["n22"][3])[0]["crossrefs"] == [
+        {"text": "bar", "entry_id": "n13", "headword": "bar"}
+    ]
+    assert glosses_of(rows["n22"]) == ["a bar"]
+
+
+def test_ls_label_before_an_inner_headword_does_not_hide_it(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert rows["n23.1"][1] == "absolutorium"
+
+
+def test_ls_pointer_edge_cases_leave_the_entry_as_written():
+    module = load_script()
+    target = [
+        {"id": "t.0", "n": "I", "level": 1, "glosses": ["only"]},
+        {"id": "t.1", "n": "A", "level": 2, "glosses": ["part"]},
+    ]
+
+    assert module.ls_pointed_senses(target, "9") == []  # no sense numbered 9
+    assert [s["id"] for s in module.ls_pointed_senses(target, "")] == ["t.0", "t.1"]  # one section
+    entries = [{"id": "a"}, {"id": "b"}, {"id": "c"}]
+    assert module.ls_neighbour(entries, 2, "the foll") is None
+    assert module.ls_neighbour(entries, 0, "the preced") is None
+    assert module.ls_neighbour(entries, 1, "the preced") == {"id": "a"}
+    assert module.ls_neighbour(entries, 1, "elsewhere") is None
 
 
 def test_ls_the_original_text_entries_are_unchanged_by_the_lost_text_fixes(tmp_path: Path):
