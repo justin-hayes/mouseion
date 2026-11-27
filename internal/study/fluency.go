@@ -75,7 +75,7 @@ func (s *Service) enqueueFluencyWord(ctx context.Context, owner, progressID stri
 }
 
 // FluencyStore is what the Fluency worker needs from the store.
-type FluencyStore interface {
+type FluencyStore interface { //nolint:interfacebloat // the worker reads one store surface, like the Study harness
 	idiomSentenceStore
 	GetStudyProgress(ctx context.Context, owner, id string) (domain.StudyProgress, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
