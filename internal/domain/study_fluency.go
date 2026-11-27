@@ -108,8 +108,12 @@ func (f FluencyForm) surfaceKey() string { return strings.ToLower(strings.TrimSp
 // Fluency context.
 type FluencyCandidate struct {
 	// Key identifies the occurrence, so the ranking is deterministic.
-	Key              string
-	Form             FluencyForm
+	Key  string
+	Form FluencyForm
+	// InIdiom is set when the word lies inside an Idiom candidate of the
+	// sentence and the language's idiom switch is on. Such a candidate ranks
+	// behind every candidate outside one (ADR 0137 §3).
+	InIdiom          bool
 	InCurrentReading bool
 	// Quality is the sentence's score under the existing sentence-quality
 	// rules, higher first.
@@ -121,7 +125,7 @@ type FluencyCandidate struct {
 // features (a split separable verb counts as one), then one that adds only a
 // new surface form, then one of a form already chosen, so different sentences
 // of the same form come after. The word's introducing form counts as chosen.
-// Ties go to the Current reading, then to the higher sentence quality, then to
+// A candidate inside an Idiom candidate comes after every other. Ties go to the Current reading, then to the higher sentence quality, then to
 // the key. The input is not modified.
 func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate) []FluencyCandidate {
 	remaining := append([]FluencyCandidate{}, candidates...)
@@ -155,6 +159,9 @@ func fluencyNovelty(c FluencyCandidate, seenKeys, seenSurfaces map[string]bool) 
 }
 
 func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[string]bool) bool {
+	if a.InIdiom != b.InIdiom {
+		return !a.InIdiom
+	}
 	if na, nb := fluencyNovelty(a, seenKeys, seenSurfaces), fluencyNovelty(b, seenKeys, seenSurfaces); na != nb {
 		return na > nb
 	}
