@@ -331,7 +331,7 @@ func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word
 		if err != nil {
 			return nil, err
 		}
-		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyIdentity, result.Occurrences, retired)
+		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyItem, result.Occurrences, retired)
 		if err != nil {
 			return nil, err
 		}

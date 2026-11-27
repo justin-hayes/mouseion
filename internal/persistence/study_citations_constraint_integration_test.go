@@ -28,7 +28,7 @@ func TestStudyMaterialReadyRowCitationsAreEnforcedByTheDatabase(t *testing.T) {
 		}},
 	})
 	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, book.ID)
-	id, _, err := store.ReserveStudyMaterial(ctx, owner.ID, domain.StudyIdentity{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"})
+	id, _, err := store.ReserveStudyMaterial(ctx, owner.ID, domain.StudyItem{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"})
 	require.NoError(t, err)
 	require.NoError(t, store.RecordStudyMaterialReady(ctx, owner.ID, id, domain.StudyMaterialReadyContent{
 		BookID: book.ID, AnalysisRunID: run, CorpusID: corpus, Sentence: "Das Haus steht.", TargetWord: "Haus",

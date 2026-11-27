@@ -38,11 +38,14 @@ func (s *PostgresStore) ListStudyCandidates(ctx context.Context, owner, language
 // ListStudyCandidatesAmong is ListStudyCandidates for the given identities
 // only. It reads just their rows, so its cost follows the identities asked for
 // and not the library. An identity that is not a candidate is absent.
-func (s *PostgresStore) ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+func (s *PostgresStore) ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error) {
 	language = canonicalization.NormalizeLanguage(language)
-	wanted := make(map[domain.StudyIdentity]bool, len(identities))
+	wanted := make(map[domain.StudyItem]bool, len(identities))
 	lemmas := make([]string, 0, len(identities))
 	for _, identity := range identities {
+		if identity.IsIdiom() {
+			continue // only words are candidates in the stream
+		}
 		identity.Language = language
 		if !wanted[identity] {
 			wanted[identity] = true
@@ -58,9 +61,9 @@ func (s *PostgresStore) ListStudyCandidatesAmong(ctx context.Context, owner, lan
 	}
 	candidates := make([]domain.StudyCandidate, 0, len(rows))
 	for _, row := range rows {
-		identity := domain.StudyIdentity{Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator}
+		identity := domain.StudyItem{Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator}
 		if wanted[identity] {
-			candidates = append(candidates, domain.StudyCandidate{StudyIdentity: identity, InCurrentReading: row.InCurrentReading, PersonalOccurrences: row.PersonalOccurrences})
+			candidates = append(candidates, domain.StudyCandidate{StudyItem: identity, InCurrentReading: row.InCurrentReading, PersonalOccurrences: row.PersonalOccurrences})
 		}
 	}
 	return candidates, nil
@@ -75,7 +78,7 @@ func (s *PostgresStore) ListCurrentStudyMaterial(ctx context.Context, owner, lan
 	}
 	material := make([]domain.StudyMaterial, 0, len(rows))
 	for _, row := range rows {
-		item, err := studyMaterialFromRow(row.ID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.State, row.OmissionReason,
+		item, err := studyMaterialFromRow(row.ID, row.ItemKind, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.State, row.OmissionReason,
 			row.BookID, row.AnalysisRunID, row.CorpusID, row.SentenceOrdinal, row.TokenOrdinal, row.Sentence, row.TargetWord, row.Gloss, row.SentenceTranslation, row.SentenceTranslationTargets)
 		if err != nil {
 			return nil, err
@@ -103,7 +106,7 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 	if err != nil {
 		return domain.StudyMaterial{}, fmt.Errorf("get study material: %w", err)
 	}
-	item, err := studyMaterialFromRow(row.ID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.State, row.OmissionReason,
+	item, err := studyMaterialFromRow(row.ID, row.ItemKind, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.State, row.OmissionReason,
 		row.BookID, row.AnalysisRunID, row.CorpusID, row.SentenceOrdinal, row.TokenOrdinal, row.Sentence, row.TargetWord, row.Gloss, row.SentenceTranslation, row.SentenceTranslationTargets)
 	if err != nil {
 		return domain.StudyMaterial{}, err
@@ -116,10 +119,10 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 	return item, nil
 }
 
-func studyMaterialFromRow(id, language, lemma, upos, discriminator, state, reason, bookID, runID, corpusID string, sentenceOrdinal, tokenOrdinal int64, sentence, target, gloss, translation string, targets []byte) (domain.StudyMaterial, error) {
+func studyMaterialFromRow(id, itemKind, language, lemma, upos, discriminator, state, reason, bookID, runID, corpusID string, sentenceOrdinal, tokenOrdinal int64, sentence, target, gloss, translation string, targets []byte) (domain.StudyMaterial, error) {
 	item := domain.StudyMaterial{
 		ID:       id,
-		Language: language, CanonicalLemma: lemma, UPOS: upos, LexicalDiscriminator: discriminator,
+		ItemKind: studyItemKind(itemKind), Language: language, CanonicalLemma: lemma, UPOS: upos, LexicalDiscriminator: discriminator,
 		State: domain.StudyMaterialState(state), OmissionReason: reason,
 		BookID: bookID, AnalysisRunID: runID, CorpusID: corpusID, SentenceOrdinal: sentenceOrdinal, TokenOrdinal: tokenOrdinal,
 		Sentence: sentence, TargetWord: target, Gloss: gloss, SentenceTranslation: translation,
@@ -153,24 +156,24 @@ func (s *PostgresStore) CountStudyMaterial(ctx context.Context, owner, language 
 
 // ReserveStudyMaterial starts a word's material as pending. It reports false
 // with no ID when the word already has current material.
-func (s *PostgresStore) ReserveStudyMaterial(ctx context.Context, owner string, identity domain.StudyIdentity) (string, bool, error) {
+func (s *PostgresStore) ReserveStudyMaterial(ctx context.Context, owner string, identity domain.StudyItem) (string, bool, error) {
 	return reserveStudyMaterial(ctx, sqlcgen.New(s.pool), owner, identity)
 }
 
 // ReserveStudyMaterialTx is ReserveStudyMaterial inside the caller's
 // transaction, so the study job package enqueues the preparation job in the
 // same transaction as the pending record it prepares (ADR 0010).
-func (s *PostgresStore) ReserveStudyMaterialTx(ctx context.Context, tx pgx.Tx, owner string, identity domain.StudyIdentity) (string, bool, error) {
+func (s *PostgresStore) ReserveStudyMaterialTx(ctx context.Context, tx pgx.Tx, owner string, identity domain.StudyItem) (string, bool, error) {
 	return reserveStudyMaterial(ctx, sqlcgen.New(tx), owner, identity)
 }
 
-func reserveStudyMaterial(ctx context.Context, q *sqlcgen.Queries, owner string, identity domain.StudyIdentity) (string, bool, error) {
+func reserveStudyMaterial(ctx context.Context, q *sqlcgen.Queries, owner string, identity domain.StudyItem) (string, bool, error) {
 	identity = normalizedStudyIdentity(identity)
-	if identity.Language == "" || identity.CanonicalLemma == "" || identity.UPOS == "" {
+	if identity.Language == "" || identity.CanonicalLemma == "" || (identity.UPOS == "") != identity.IsIdiom() {
 		return "", false, fmt.Errorf("reserve study material: %w", domain.ErrInvalidStudyMaterial)
 	}
 	id, err := q.ReserveStudyMaterial(ctx, sqlcgen.ReserveStudyMaterialParams{
-		Owner: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator,
+		Owner: owner, ItemKind: identity.ItemKind.String(), Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
@@ -190,7 +193,14 @@ func nonNilStrings(values []string) []string {
 	return values
 }
 
-func normalizedStudyIdentity(identity domain.StudyIdentity) domain.StudyIdentity {
+// studyItemKind reads a stored item kind. The column's check admits only the
+// two kinds, so any other text cannot occur.
+func studyItemKind(text string) domain.StudyItemKind {
+	kind, _ := domain.ParseStudyItemKind(text)
+	return kind
+}
+
+func normalizedStudyIdentity(identity domain.StudyItem) domain.StudyItem {
 	identity.Language = canonicalization.NormalizeLanguage(identity.Language)
 	identity.CanonicalLemma = strings.TrimSpace(identity.CanonicalLemma)
 	identity.UPOS = strings.ToUpper(strings.TrimSpace(identity.UPOS))

@@ -1133,6 +1133,8 @@ type StudyFluencyContext struct {
 	CitedSenseIds              []string
 	CitedEntryIds              []string
 	DictionaryPin              string
+	// Kind of the Study item the context belongs to; equals the progress row's kind
+	ItemKind string
 }
 
 type StudyFluencyResponse struct {
@@ -1174,6 +1176,8 @@ type StudyMaterial struct {
 	PassageCitation            string
 	PassageTranslationPin      string
 	OmissionDictionaryPin      string
+	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
+	ItemKind string
 }
 
 type StudyProgress struct {
@@ -1203,6 +1207,8 @@ type StudyProgress struct {
 	LearnedSenseIds      []string
 	LearnedEntryIds      []string
 	LearnedDictionaryPin string
+	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
+	ItemKind string
 }
 
 type StudyReport struct {
@@ -1235,6 +1241,8 @@ type StudyReport struct {
 	PreviousLearnedSenseIds      []string
 	PreviousLearnedEntryIds      []string
 	PreviousLearnedDictionaryPin pgtype.Text
+	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
+	ItemKind string
 }
 
 type StudyReviewLog struct {

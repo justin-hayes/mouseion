@@ -20,7 +20,7 @@ func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) (
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.currentReadings[fixtureGoalKey(owner, language)]
-	tallies := map[domain.StudyIdentity]*domain.StudyCandidate{}
+	tallies := map[domain.StudyItem]*domain.StudyCandidate{}
 	for _, book := range s.books {
 		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID == "" {
 			continue
@@ -33,7 +33,7 @@ func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) (
 			}
 			entry := tallies[identity]
 			if entry == nil {
-				entry = &domain.StudyCandidate{StudyIdentity: identity}
+				entry = &domain.StudyCandidate{StudyItem: identity}
 				tallies[identity] = entry
 			}
 			entry.PersonalOccurrences++
@@ -48,19 +48,19 @@ func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) (
 }
 
 // ListStudyCandidatesAmong is ListStudyCandidates for the given identities only.
-func (s *Store) ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+func (s *Store) ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error) {
 	all, err := s.ListStudyCandidates(ctx, owner, language)
 	if err != nil {
 		return nil, err
 	}
-	wanted := make(map[domain.StudyIdentity]bool, len(identities))
+	wanted := make(map[domain.StudyItem]bool, len(identities))
 	for _, identity := range identities {
 		identity.Language = language
 		wanted[identity] = true
 	}
 	var among []domain.StudyCandidate
 	for _, candidate := range all {
-		if wanted[candidate.StudyIdentity] {
+		if wanted[candidate.StudyItem] {
 			among = append(among, candidate)
 		}
 	}
@@ -69,10 +69,10 @@ func (s *Store) ListStudyCandidatesAmong(ctx context.Context, owner, language st
 
 // seededStudyCandidatesLocked returns the seeded candidates the Books do not
 // already contribute. The caller holds s.mu.
-func (s *Store) seededStudyCandidatesLocked(owner, language string, tallies map[domain.StudyIdentity]*domain.StudyCandidate) []domain.StudyCandidate {
+func (s *Store) seededStudyCandidatesLocked(owner, language string, tallies map[domain.StudyItem]*domain.StudyCandidate) []domain.StudyCandidate {
 	var seeded []domain.StudyCandidate
 	for _, item := range s.studyCandidates {
-		if item.owner == owner && item.Language == language && tallies[item.StudyIdentity] == nil {
+		if item.owner == owner && item.Language == language && tallies[item.StudyItem] == nil {
 			seeded = append(seeded, item.StudyCandidate)
 		}
 	}
@@ -96,12 +96,12 @@ func (s *Store) SeedStudyCandidate(owner string, candidate domain.StudyCandidate
 // effectiveStudyIdentityLocked applies the learner's decision to one occurrence:
 // an exclusion removes it and a correction replaces its lemma. The caller holds
 // s.mu.
-func (s *Store) effectiveStudyIdentityLocked(owner, bookID, language string, occurrence domain.LemmaReviewOccurrence) (domain.StudyIdentity, bool) {
+func (s *Store) effectiveStudyIdentityLocked(owner, bookID, language string, occurrence domain.LemmaReviewOccurrence) (domain.StudyItem, bool) {
 	key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
 	if s.lemmaExclusions[key] {
-		return domain.StudyIdentity{}, false
+		return domain.StudyItem{}, false
 	}
-	identity := domain.StudyIdentity{Language: language, CanonicalLemma: occurrence.CanonicalLemma, UPOS: strings.ToUpper(occurrence.UPOS), LexicalDiscriminator: occurrence.LexicalDiscriminator}
+	identity := domain.StudyItem{Language: language, CanonicalLemma: occurrence.CanonicalLemma, UPOS: strings.ToUpper(occurrence.UPOS), LexicalDiscriminator: occurrence.LexicalDiscriminator}
 	if corrected := s.lemmaCorrections[key]; corrected != "" {
 		identity.CanonicalLemma, identity.LexicalDiscriminator = corrected, ""
 	}
@@ -116,12 +116,12 @@ func (s Study) prepareReintroductions(ctx context.Context, owner string, progres
 		if item.Withdrawn {
 			continue
 		}
-		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, item.StudyIdentity)
+		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, item.StudyItem)
 		if err != nil {
 			return err
 		}
 		if created {
-			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, item.StudyIdentity)); err != nil {
+			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, item.StudyItem)); err != nil {
 				return err
 			}
 		}
@@ -181,24 +181,24 @@ func (s *Store) CountStudyMaterial(_ context.Context, owner, language string) (d
 
 // ReserveStudyMaterial starts a word's material as pending, reporting false
 // when the word already has current material.
-func (s *Store) ReserveStudyMaterial(_ context.Context, owner string, identity domain.StudyIdentity) (string, bool, error) {
+func (s *Store) ReserveStudyMaterial(_ context.Context, owner string, identity domain.StudyItem) (string, bool, error) {
 	identity.CanonicalLemma = strings.TrimSpace(identity.CanonicalLemma)
 	identity.UPOS = strings.ToUpper(strings.TrimSpace(identity.UPOS))
 	identity.LexicalDiscriminator = strings.TrimSpace(identity.LexicalDiscriminator)
 	identity.Language = strings.ToLower(strings.TrimSpace(identity.Language))
-	if identity.Language == "" || identity.CanonicalLemma == "" || identity.UPOS == "" {
+	if identity.Language == "" || identity.CanonicalLemma == "" || (identity.UPOS == "") != identity.IsIdiom() {
 		return "", false, domain.ErrInvalidStudyMaterial
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, item := range s.studyMaterial {
-		if item.OwnerID == owner && item.StudyIdentity == identity && !s.studySuperseded[item.ID] {
+		if item.OwnerID == owner && item.StudyItem == identity && !s.studySuperseded[item.ID] {
 			return "", false, nil
 		}
 	}
 	id := fmt.Sprintf("fixture-study-material-%d", len(s.studyMaterial)+1)
 	now := time.Now().UTC()
-	s.studyMaterial = append(s.studyMaterial, domain.StudyMaterial{ID: id, OwnerID: owner, StudyIdentity: identity, State: domain.StudyMaterialPending, CreatedAt: now, UpdatedAt: now})
+	s.studyMaterial = append(s.studyMaterial, domain.StudyMaterial{ID: id, OwnerID: owner, StudyItem: identity, State: domain.StudyMaterialPending, CreatedAt: now, UpdatedAt: now})
 	return id, true, nil
 }
 
@@ -305,9 +305,9 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	if err != nil {
 		return err
 	}
-	states := make(map[domain.StudyIdentity]domain.StudyMaterialState, len(material))
+	states := make(map[domain.StudyItem]domain.StudyMaterialState, len(material))
 	for _, item := range material {
-		states[item.StudyIdentity] = item.State
+		states[item.StudyItem] = item.State
 	}
 	reports, err := s.Store.ListOpenStudyReports(ctx, owner, language, domain.StudyReportWrongWord)
 	if err != nil {
@@ -315,12 +315,12 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	}
 	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)))
 	for _, target := range domain.StudyPreparationTargets(ordered, states) {
-		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyIdentity)
+		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyItem)
 		if err != nil {
 			return err
 		}
 		if created {
-			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, target.StudyIdentity)); err != nil {
+			if err := s.Store.RecordStudyMaterialReady(ctx, owner, id, s.Store.fixtureStudyContent(owner, target.StudyItem)); err != nil {
 				return err
 			}
 		}
@@ -335,7 +335,7 @@ func (s Study) EnqueueFluencyPreparation(context.Context, string, string) error 
 // fixtureStudyContent is the Study material the fixture server shows for a
 // word: a short sentence around its lemma, taken from the first occurrence
 // that resolves to the word under current evidence.
-func (s *Store) fixtureStudyContent(owner string, identity domain.StudyIdentity) domain.StudyMaterialReadyContent {
+func (s *Store) fixtureStudyContent(owner string, identity domain.StudyItem) domain.StudyMaterialReadyContent {
 	source := fixtureStudyDefaultSource
 	if refs, err := s.ListStudyOccurrences(context.Background(), owner, identity); err == nil && len(refs) > 0 {
 		source = refs[0]

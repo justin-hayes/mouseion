@@ -27,7 +27,7 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 	for _, item := range s.studyProgress {
 		if item.OwnerID == owner && item.Language == language {
 			item.Reintroducing = s.studySuperseded[item.MaterialID]
-			item.Held = s.studyHeldLocked(owner, item.StudyIdentity)
+			item.Held = s.studyHeldLocked(owner, item.StudyItem)
 			item.ContextReportedAt = s.contextReportedAtLocked(owner, item.ID)
 			progress = append(progress, item)
 		}
@@ -112,11 +112,11 @@ func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay stri
 			continue
 		}
 		material, ok := s.currentReadyMaterialLocked(owner, language, word.MaterialID)
-		if !ok || s.progressIndexLocked(owner, material.StudyIdentity) >= 0 || s.studyHeldLocked(owner, material.StudyIdentity) {
+		if !ok || s.progressIndexLocked(owner, material.StudyItem) >= 0 || s.studyHeldLocked(owner, material.StudyItem) {
 			continue
 		}
 		item := domain.StudyProgress{
-			ID: s.nextStudyProgressIDLocked(), OwnerID: owner, StudyIdentity: material.StudyIdentity,
+			ID: s.nextStudyProgressIDLocked(), OwnerID: owner, StudyItem: material.StudyItem,
 			MaterialID: material.ID, IntroducedAt: now.UTC(), LearnedMeaning: material.Gloss, LearnedCitations: material.Cited.Clone(),
 			Memory:    domain.NewStudyMemory(now),
 			CreatedAt: now.UTC(), UpdatedAt: now.UTC(),
@@ -181,7 +181,7 @@ func (s *Store) RecordStudyGrade(_ context.Context, owner string, record domain.
 		if item.OwnerID != owner || item.ID != record.ProgressID {
 			continue
 		}
-		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps || s.studyHeldLocked(owner, item.StudyIdentity) || s.studySuperseded[item.MaterialID] {
+		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps || s.studyHeldLocked(owner, item.StudyItem) || s.studySuperseded[item.MaterialID] {
 			return domain.ErrStudyStale
 		}
 		s.studyReviewLog = append(s.studyReviewLog, domain.StudyReviewLog{
@@ -222,9 +222,9 @@ func (s *Store) currentReadyMaterialLocked(owner, language, id string) (domain.S
 
 // progressIndexLocked is the index of the word's progress, or -1. The caller
 // holds s.mu.
-func (s *Store) progressIndexLocked(owner string, identity domain.StudyIdentity) int {
+func (s *Store) progressIndexLocked(owner string, identity domain.StudyItem) int {
 	for i, item := range s.studyProgress {
-		if item.OwnerID == owner && item.StudyIdentity == identity {
+		if item.OwnerID == owner && item.StudyItem == identity {
 			return i
 		}
 	}

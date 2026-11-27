@@ -583,7 +583,7 @@ func TestStudyRetriesANoDictionaryEntryWordOnlyWhenTheDictionaryPinChanges(t *te
 	}})
 	s.seedBook("library", testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "schule", UPOS: "NOUN", Occurrences: 2})
 	omit := func(lemma string, record func(id string) error) string {
-		id, created, err := s.store.ReserveStudyMaterial(s.ctx, s.owner.ID, domain.StudyIdentity{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"})
+		id, created, err := s.store.ReserveStudyMaterial(s.ctx, s.owner.ID, domain.StudyItem{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"})
 		require.NoError(t, err)
 		require.True(t, created)
 		require.NoError(t, record(id))

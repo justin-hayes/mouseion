@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func studyNoun(lemma string) domain.StudyIdentity {
-	return domain.StudyIdentity{Language: Language, CanonicalLemma: lemma, UPOS: "NOUN"}
+func studyNoun(lemma string) domain.StudyItem {
+	return domain.StudyItem{Language: Language, CanonicalLemma: lemma, UPOS: "NOUN"}
 }
 
 func studyReadyContent() domain.StudyMaterialReadyContent {
@@ -43,10 +43,10 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			ordered := domain.OrderStudyStream(candidates)
 			require.Len(t, ordered, 2)
-			assert.Equal(t, studyNoun("haus"), ordered[0].StudyIdentity, "a Known word is still offered, and current-reading words come first")
+			assert.Equal(t, studyNoun("haus"), ordered[0].StudyItem, "a Known word is still offered, and current-reading words come first")
 			assert.True(t, ordered[0].InCurrentReading)
 			assert.EqualValues(t, 3, ordered[0].PersonalOccurrences, "occurrences count across analyzed Books")
-			assert.Equal(t, studyNoun("hund"), ordered[1].StudyIdentity)
+			assert.Equal(t, studyNoun("hund"), ordered[1].StudyItem)
 			assert.False(t, ordered[1].InCurrentReading)
 
 			none, err := h.Study().ListStudyCandidates(h.Seeds().OtherOwner(), Language)
@@ -66,7 +66,7 @@ func studyScenarios() []Scenario {
 			candidates, err := h.Study().ListStudyCandidates(owner, Language)
 			require.NoError(t, err)
 			require.Len(t, candidates, 1)
-			assert.Equal(t, studyNoun("weg"), candidates[0].StudyIdentity)
+			assert.Equal(t, studyNoun("weg"), candidates[0].StudyItem)
 			assert.EqualValues(t, 2, candidates[0].PersonalOccurrences)
 
 			corrected := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
@@ -100,7 +100,7 @@ func studyScenarios() []Scenario {
 			hundID, created, err := store.ReserveStudyMaterial(owner, hund)
 			require.NoError(t, err)
 			require.True(t, created)
-			_, _, err = store.ReserveStudyMaterial(owner, domain.StudyIdentity{Language: Language})
+			_, _, err = store.ReserveStudyMaterial(owner, domain.StudyItem{Language: Language})
 			require.ErrorIs(t, err, domain.ErrInvalidStudyMaterial)
 
 			counts, err := store.CountStudyMaterial(owner, Language)
@@ -116,7 +116,7 @@ func studyScenarios() []Scenario {
 			ready, err := store.GetStudyMaterial(owner, hausID)
 			require.NoError(t, err)
 			assert.Equal(t, domain.StudyMaterialReady, ready.State)
-			assert.Equal(t, haus, ready.StudyIdentity)
+			assert.Equal(t, haus, ready.StudyItem)
 			assert.Equal(t, content.Sentence, ready.Sentence)
 			assert.Equal(t, content.Gloss, ready.Gloss)
 			assert.Equal(t, content.BookID, ready.BookID)
@@ -157,7 +157,7 @@ func studyScenarios() []Scenario {
 			tischID, _, err := store.ReserveStudyMaterial(owner, tisch)
 			require.NoError(t, err)
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			batch := []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}, {StudyIdentity: hund, MaterialID: hundID}, {StudyIdentity: tisch, MaterialID: tischID}}
+			batch := []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}, {StudyItem: tisch, MaterialID: tischID}}
 
 			require.NoError(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1))
 			progress, err := progressStore.ListStudyProgress(owner, Language)
@@ -168,7 +168,7 @@ func studyScenarios() []Scenario {
 			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Offered: 1, Declined: 1}, ledger)
 			require.ErrorIs(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1), domain.ErrStudyBatchLimit, "the day's batch was already answered")
 
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, []domain.StudyBatchWord{{StudyIdentity: tisch, MaterialID: tischID}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, []domain.StudyBatchWord{{StudyItem: tisch, MaterialID: tischID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word whose material is not ready is not introduced")
 			ledger, err = progressStore.StudyBatchLedger(owner, Language, "2026-11-26")
 			require.NoError(t, err)
@@ -195,7 +195,7 @@ func studyScenarios() []Scenario {
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, batch)
 			require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
 
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-27", now, 1, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-27", now, 1, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word already in study is not introduced twice")
 			other, err := progressStore.ListStudyProgress(h.Seeds().OtherOwner(), Language)
 			require.NoError(t, err)
@@ -211,7 +211,7 @@ func studyScenarios() []Scenario {
 			words := make([]domain.StudyBatchWord, 0, 4)
 			for _, lemma := range []string{"haus", "hund", "tisch", "buch"} {
 				identity := studyNoun(lemma)
-				words = append(words, domain.StudyBatchWord{StudyIdentity: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
+				words = append(words, domain.StudyBatchWord{StudyItem: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
 			}
 			const day = "2026-11-25"
 			ledger := func() domain.StudyBatchLedger {
@@ -240,14 +240,14 @@ func studyScenarios() []Scenario {
 			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
 			dayOne := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 			dayTwo := time.Date(2026, 11, 26, 8, 0, 0, 0, time.UTC)
-			taken, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}, {StudyIdentity: hund, MaterialID: hundID}})
+			taken, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
 			require.NoError(t, err)
 			require.Len(t, taken, 2)
 
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word introduced today is not carried over")
 
-			again, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-26", dayTwo, 3, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
+			again, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-26", dayTwo, 3, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
 			require.NoError(t, err)
 			require.Len(t, again, 1)
 			assert.Equal(t, taken[0].ID, again[0].ID, "the same progress is taken again, not a second row")
@@ -265,14 +265,14 @@ func studyScenarios() []Scenario {
 			haus, hund := studyNoun("haus"), studyNoun("hund")
 			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: hund, MaterialID: hundID}, {StudyIdentity: haus, MaterialID: hausID}})
+			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: hund, MaterialID: hundID}, {StudyItem: haus, MaterialID: hausID}})
 			require.NoError(t, err)
 
 			_, err = progressStore.NextStudyCard(owner, Language, now.Add(-time.Hour))
 			require.ErrorIs(t, err, domain.ErrNotFound, "nothing is due before the words were introduced")
 			card, err := progressStore.NextStudyCard(owner, Language, now)
 			require.NoError(t, err)
-			assert.Equal(t, haus, card.Progress.StudyIdentity, "ties break on the word, so the order is deterministic")
+			assert.Equal(t, haus, card.Progress.StudyItem, "ties break on the word, so the order is deterministic")
 			assert.Equal(t, hausID, card.Material.ID)
 			assert.Equal(t, "Das Haus steht am Ende der Strasse.", card.Material.Sentence)
 
@@ -313,14 +313,14 @@ func studyScenarios() []Scenario {
 
 			card, err = progressStore.NextStudyCard(owner, Language, now)
 			require.NoError(t, err)
-			assert.Equal(t, hund, card.Progress.StudyIdentity, "a graded word is no longer due")
+			assert.Equal(t, hund, card.Progress.StudyItem, "a graded word is no longer due")
 			again := domain.StudyMemory{State: domain.StudyStateLearning, Due: now.Add(time.Minute), Stability: 0.2, Difficulty: 6.8, Reps: 1, RemainingSteps: 1, LastReview: now}
 			require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: card.Progress.ID, Grade: domain.StudyGradeAgain, ReviewedAt: now, StudyDay: "2026-11-25", After: again}))
 			_, err = progressStore.NextStudyCard(owner, Language, now)
 			require.ErrorIs(t, err, domain.ErrNotFound, "Again repeats the word later, not now")
 			card, err = progressStore.NextStudyCard(owner, Language, now.Add(2*time.Minute))
 			require.NoError(t, err)
-			assert.Equal(t, hund, card.Progress.StudyIdentity, "and it is due again the same day")
+			assert.Equal(t, hund, card.Progress.StudyItem, "and it is due again the same day")
 			assert.Equal(t, int64(1), card.Progress.Memory.Reps)
 
 			logs, err = progressStore.ListStudyReviewLog(owner, card.Progress.ID)
@@ -334,7 +334,7 @@ func studyScenarios() []Scenario {
 			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
 			// 2026-11-25 04:55 Berlin, five minutes before the Study day ends.
 			late := time.Date(2026, 11, 25, 3, 55, 0, 0, time.UTC)
-			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-24", late, 1, []domain.StudyBatchWord{{StudyIdentity: haus, MaterialID: hausID}, {StudyIdentity: hund, MaterialID: hundID}})
+			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-24", late, 1, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
 			require.NoError(t, err)
 			progress, err := progressStore.ListStudyProgress(owner, Language)
 			require.NoError(t, err)
@@ -354,7 +354,7 @@ func studyScenarios() []Scenario {
 			require.ErrorIs(t, err, domain.ErrNotFound, "the repeat waits a little")
 			card, err := progressStore.NextStudyCard(owner, Language, boundary)
 			require.NoError(t, err)
-			assert.Equal(t, haus, card.Progress.StudyIdentity, "the repeat is due when the next Study day starts")
+			assert.Equal(t, haus, card.Progress.StudyItem, "the repeat is due when the next Study day starts")
 			_, err = progressStore.NextStudyCard(owner, Language, boundary.Add(time.Hour))
 			require.NoError(t, err)
 
@@ -363,7 +363,7 @@ func studyScenarios() []Scenario {
 			require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: byLemma["haus"].ID, ExpectedReps: 2, Grade: domain.StudyGradeGotIt, ReviewedAt: boundary, StudyDay: "2026-11-25", After: domain.StudyMemory{State: domain.StudyStateReview, Due: boundary.Add(72 * time.Hour), Stability: 3, Difficulty: 5, Reps: 3, Lapses: 1, LastReview: boundary}}))
 			card, err = progressStore.NextStudyCard(owner, Language, boundary.Add(time.Minute))
 			require.NoError(t, err)
-			assert.Equal(t, hund, card.Progress.StudyIdentity, "a review due at 14:00 is due from the start of its Study day")
+			assert.Equal(t, hund, card.Progress.StudyItem, "a review due at 14:00 is due from the start of its Study day")
 			require.NoError(t, progressStore.RecordStudyGrade(owner, domain.StudyGradeRecord{ProgressID: byLemma["hund"].ID, ExpectedReps: 1, Grade: domain.StudyGradeGotIt, ReviewedAt: boundary.Add(time.Minute), StudyDay: "2026-11-25", After: domain.StudyMemory{State: domain.StudyStateReview, Due: boundary.Add(72 * time.Hour), Stability: 3, Difficulty: 5, Reps: 2, LastReview: boundary.Add(time.Minute)}}))
 			_, err = progressStore.NextStudyCard(owner, Language, boundary.Add(10*time.Hour))
 			require.ErrorIs(t, err, domain.ErrNotFound, "a review due on a later Study day waits for it")
@@ -372,7 +372,7 @@ func studyScenarios() []Scenario {
 }
 
 // readyStudyWord reserves a word's Study material and marks it ready.
-func readyStudyWord(t *testing.T, store StudyStore, owner string, identity domain.StudyIdentity) string {
+func readyStudyWord(t *testing.T, store StudyStore, owner string, identity domain.StudyItem) string {
 	t.Helper()
 	id, created, err := store.ReserveStudyMaterial(owner, identity)
 	require.NoError(t, err)
@@ -412,7 +412,7 @@ func declinedBatchTakenOnce(t *testing.T, h Harness) {
 	words := make([]domain.StudyBatchWord, 0, 4)
 	for _, lemma := range []string{"haus", "hund", "tisch", "buch"} {
 		identity := studyNoun(lemma)
-		words = append(words, domain.StudyBatchWord{StudyIdentity: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
+		words = append(words, domain.StudyBatchWord{StudyItem: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
 	}
 	const day = "2026-11-25"
 	ledger := func() domain.StudyBatchLedger {
@@ -455,11 +455,11 @@ func studyCandidatesAmongScenario() Scenario {
 
 		all, err := h.Study().ListStudyCandidates(owner, Language)
 		require.NoError(t, err)
-		want := map[domain.StudyIdentity]domain.StudyCandidate{}
+		want := map[domain.StudyItem]domain.StudyCandidate{}
 		for _, candidate := range all {
-			want[candidate.StudyIdentity] = candidate
+			want[candidate.StudyItem] = candidate
 		}
-		among, err := h.Study().ListStudyCandidatesAmong(owner, Language, []domain.StudyIdentity{studyNoun("haus"), studyNoun("katze"), studyNoun("nope"), {Language: Language, CanonicalLemma: "hund", UPOS: "VERB"}})
+		among, err := h.Study().ListStudyCandidatesAmong(owner, Language, []domain.StudyItem{studyNoun("haus"), studyNoun("katze"), studyNoun("nope"), {Language: Language, CanonicalLemma: "hund", UPOS: "VERB"}})
 		require.NoError(t, err)
 		require.ElementsMatch(t, []domain.StudyCandidate{want[studyNoun("haus")], want[studyNoun("katze")]}, among,
 			"only the asked identities that are candidates: a word that is not one, or with another part of speech, is absent")
@@ -469,7 +469,7 @@ func studyCandidatesAmongScenario() Scenario {
 			require.Empty(t, none)
 		})
 		t.Run("another learner", func(t *testing.T) {
-			other, err := h.Study().ListStudyCandidatesAmong(h.Seeds().OtherOwner(), Language, []domain.StudyIdentity{studyNoun("haus")})
+			other, err := h.Study().ListStudyCandidatesAmong(h.Seeds().OtherOwner(), Language, []domain.StudyItem{studyNoun("haus")})
 			require.NoError(t, err)
 			require.Empty(t, other, "another learner's Books are not candidates")
 		})

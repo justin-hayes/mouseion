@@ -266,10 +266,10 @@ func (s *PostgresStore) ListRetiredStudyOccurrences(ctx context.Context, owner, 
 
 // ListRetiredStudyOccurrencesOfWord is ListRetiredStudyOccurrences by the word's
 // vocabulary identity, for material preparation, which knows no progress row.
-func (s *PostgresStore) ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *PostgresStore) ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	identity = normalizedStudyIdentity(identity)
 	rows, err := sqlcgen.New(s.pool).ListRetiredStudyReportsOfIdentity(ctx, sqlcgen.ListRetiredStudyReportsOfIdentityParams{
-		Owner: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
+		Owner: owner, ItemKind: identity.ItemKind.String(), Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, Upos: identity.UPOS,
 		LexicalDiscriminator: identity.LexicalDiscriminator,
 	})
 	if err != nil {
@@ -438,7 +438,7 @@ func restoreReportedMaterial(ctx context.Context, q *sqlcgen.Queries, owner stri
 		return nil
 	}
 	if _, err := q.SupersedeOtherCurrentStudyMaterialOfWord(ctx, sqlcgen.SupersedeOtherCurrentStudyMaterialOfWordParams{
-		Owner: owner, Language: progress.Language, CanonicalLemma: progress.CanonicalLemma, Upos: progress.UPOS,
+		Owner: owner, ItemKind: progress.ItemKind.String(), Language: progress.Language, CanonicalLemma: progress.CanonicalLemma, Upos: progress.UPOS,
 		LexicalDiscriminator: progress.LexicalDiscriminator, Keep: report.PreviousMaterialID,
 	}); err != nil {
 		return fmt.Errorf("supersede replacement material: %w", err)
@@ -515,7 +515,7 @@ func studyReportsFromRows(rows []sqlcgen.StudyReport) []domain.StudyReport {
 func studyReportFromRow(row sqlcgen.StudyReport) domain.StudyReport {
 	report := domain.StudyReport{
 		ID: row.ID, OwnerID: row.OwnerID,
-		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
+		ItemKind: studyItemKind(row.ItemKind), Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		ProgressID: uuidString(row.ProgressID), MaterialID: row.MaterialID, Kind: domain.StudyReportKind(row.Kind), Note: row.Note,
 		Source: domain.StudyOccurrenceRef{
 			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,

@@ -59,7 +59,7 @@ func (s *PostgresStore) allStudyFluencyContexts(ctx context.Context, owner, lang
 	contexts := make([]domain.FluencyContext, 0, len(rows))
 	for _, row := range rows {
 		item := domain.FluencyContext{
-			ID: row.ID, OwnerID: owner, ProgressID: row.ProgressID, Agreement: domain.FluencyAgreement(row.Agreement), Reason: domain.FluencyReason(row.Reason),
+			ID: row.ID, OwnerID: owner, ProgressID: row.ProgressID, ItemKind: studyItemKind(row.ItemKind), Agreement: domain.FluencyAgreement(row.Agreement), Reason: domain.FluencyReason(row.Reason),
 			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID,
 			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
 			Sentence: row.Sentence, TargetWord: row.TargetWord, Gloss: row.Gloss, SentenceTranslation: row.SentenceTranslation,

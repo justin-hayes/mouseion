@@ -34,9 +34,9 @@ func (s *Store) studyActionSince(owner, language string, n int) bool {
 
 // studyHeldLocked reports whether the word has an open Wrong-word report. The
 // caller holds s.mu.
-func (s *Store) studyHeldLocked(owner string, identity domain.StudyIdentity) bool {
+func (s *Store) studyHeldLocked(owner string, identity domain.StudyItem) bool {
 	for _, report := range s.studyReports {
-		if report.OwnerID == owner && report.StudyIdentity == identity && report.Held() {
+		if report.OwnerID == owner && report.StudyItem == identity && report.Held() {
 			return true
 		}
 	}
@@ -66,7 +66,7 @@ func (s *Store) CreateStudyReport(_ context.Context, owner string, record domain
 		return domain.StudyReport{}, domain.ErrStudyStale
 	}
 	report := domain.StudyReport{
-		ID: fmt.Sprintf("fixture-study-report-%d", len(s.studyReports)+1), OwnerID: owner, StudyIdentity: progress.StudyIdentity,
+		ID: fmt.Sprintf("fixture-study-report-%d", len(s.studyReports)+1), OwnerID: owner, StudyItem: progress.StudyItem,
 		ProgressID: progress.ID, MaterialID: material.ID, Kind: record.Kind, Note: note, Source: material.Source(),
 		Sentence: material.Sentence, TargetWord: material.TargetWord, Gloss: material.Gloss, SentenceTranslation: material.SentenceTranslation,
 		CreatedAt: record.CreatedAt.UTC(),
@@ -253,10 +253,10 @@ func (s *Store) ListRetiredStudyOccurrences(_ context.Context, owner, progressID
 
 // ListRetiredStudyOccurrencesOfWord is ListRetiredStudyOccurrences by the word's
 // vocabulary identity.
-func (s *Store) ListRetiredStudyOccurrencesOfWord(_ context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *Store) ListRetiredStudyOccurrencesOfWord(_ context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.StudyIdentity == identity }), nil
+	return s.retiredLocked(owner, func(r domain.StudyReport) bool { return r.StudyItem == identity }), nil
 }
 
 // retiredLocked names the sentences the word's retiring reports retired: its
@@ -441,7 +441,7 @@ func (s *Store) UndoStudyReport(_ context.Context, owner, id string, now time.Ti
 		return nil
 	}
 	for _, material := range s.studyMaterial {
-		if material.OwnerID == owner && material.StudyIdentity == progress.StudyIdentity && material.ID != report.PreviousMaterialID && !s.studySuperseded[material.ID] {
+		if material.OwnerID == owner && material.StudyItem == progress.StudyItem && material.ID != report.PreviousMaterialID && !s.studySuperseded[material.ID] {
 			s.studySuperseded[material.ID] = true
 		}
 	}

@@ -6,11 +6,11 @@
 -- occurrence, sentence, Gloss and translation from it. An Unsuitable-context
 -- report also records what Undo restores. No row means the material is not
 -- ready and current.
-INSERT INTO study_report (owner_id, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note,
+INSERT INTO study_report (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, kind, note,
                           book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation,
                           previous_material_id, previous_corrected_at, previous_learned_meaning,
                           previous_learned_sense_ids, previous_learned_entry_ids, previous_learned_dictionary_pin, created_at)
-SELECT p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, m.id, sqlc.arg('kind')::text, sqlc.arg('note')::text,
+SELECT p.owner_id, p.item_kind, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, m.id, sqlc.arg('kind')::text, sqlc.arg('note')::text,
        m.book_id, m.analysis_run_id, m.corpus_id, m.sentence_ordinal, m.token_ordinal, m.sentence, m.target_word, m.gloss, m.sentence_translation,
        CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.material_id END,
        CASE WHEN sqlc.arg('kind')::text = 'unsuitable_context' THEN p.corrected_at END,
@@ -84,7 +84,7 @@ SELECT * FROM study_report
 -- The same by the word's vocabulary identity, which the word's material
 -- preparation knows.
 SELECT * FROM study_report
- WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
+ WHERE owner_id = sqlc.arg('owner') AND item_kind = sqlc.arg('item_kind') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
    AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
    AND kind = 'unsuitable_context' AND end_reason IS DISTINCT FROM 'undone'
  ORDER BY created_at, id;
@@ -143,14 +143,14 @@ SELECT (
 -- the one being restored, is replaced so the restored record can be current.
 UPDATE study_material
    SET superseded_at = now(), updated_at = now()
- WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
+ WHERE owner_id = sqlc.arg('owner') AND item_kind = sqlc.arg('item_kind') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
    AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
    AND superseded_at IS NULL AND id <> sqlc.arg('keep');
 
 -- name: HasOpenWrongWordReport :one
 -- Whether the word is held, for the grade that must not land on a held word.
 SELECT EXISTS (SELECT 1 FROM study_report
-                WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
+                WHERE owner_id = sqlc.arg('owner') AND item_kind = sqlc.arg('item_kind') AND language = sqlc.arg('language') AND canonical_lemma = sqlc.arg('canonical_lemma')
                   AND upos = sqlc.arg('upos') AND lexical_discriminator = sqlc.arg('lexical_discriminator')
                   AND kind = 'wrong_word' AND ended_at IS NULL)::boolean AS held;
 

@@ -18,7 +18,7 @@ type StudyStore interface { //nolint:interfacebloat // the Study page's store is
 	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
 	// ListStudyCandidatesAmong is the same fact for the given identities only,
 	// without reading the library's other candidates.
-	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error)
+	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
 	// StudyBatchLedger reports the batches offered, taken and declined on a
 	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
@@ -50,11 +50,11 @@ type StudyCorrectionsStore interface {
 	// ListStudyOccurrences reads the occurrences that resolve to a word's
 	// identity under current evidence; GetStudyMaterial reads the material a
 	// word was introduced in.
-	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	// FindStudyOccurrences is the correction check's cheaper read: the source
 	// when it still resolves to the identity, else one valid occurrence, so its
 	// cost does not grow with how often the word occurs.
-	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
+	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
 	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	// SupersedeStudyMaterial replaces a word's material so it is prepared
@@ -123,7 +123,7 @@ type StudyReportEvidenceStore interface {
 	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
 	// ListRetiredStudyOccurrencesOfWord is the same by the word's vocabulary
 	// identity, for material preparation, which knows no progress row.
-	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	// StudyOccurrenceState says whether a reported occurrence is still in the
 	// current analysis of a Book in the library, and whether the learner
 	// excluded or corrected it.

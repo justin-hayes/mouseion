@@ -152,13 +152,13 @@ type ClassicalStore interface {
 // is owner-scoped and keyed by word; a word has one current record.
 type StudyStore interface {
 	ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error)
-	ListStudyCandidatesAmong(owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error)
+	ListStudyCandidatesAmong(owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error)
 	ListCurrentStudyMaterial(owner, language string) ([]domain.StudyMaterial, error)
 	GetStudyMaterial(owner, id string) (domain.StudyMaterial, error)
 	CountStudyMaterial(owner, language string) (domain.StudyMaterialCounts, error)
 	// ReserveStudyMaterial starts a word's material as pending. It reports
 	// false when the word already has current material.
-	ReserveStudyMaterial(owner string, identity domain.StudyIdentity) (string, bool, error)
+	ReserveStudyMaterial(owner string, identity domain.StudyItem) (string, bool, error)
 	// RecordStudyMaterialReady and RecordStudyMaterialUnpreparable settle a
 	// pending record; a missing, foreign or already settled record is
 	// domain.ErrNotFound.

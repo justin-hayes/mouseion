@@ -246,7 +246,7 @@ func refuseStaleStudyGrade(ctx context.Context, q *sqlcgen.Queries, owner string
 		return domain.ErrStudyStale
 	}
 	held, err := q.HasOpenWrongWordReport(ctx, sqlcgen.HasOpenWrongWordReportParams{
-		Owner: owner, Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
+		Owner: owner, ItemKind: word.ItemKind.String(), Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
 	})
 	if err != nil {
 		return fmt.Errorf("check study report: %w", err)
@@ -323,7 +323,7 @@ func studyProgressFromRow(row sqlcgen.StudyProgress) domain.StudyProgress {
 	}
 	return domain.StudyProgress{CorrectedAt: corrected,
 		ID: row.ID, OwnerID: row.OwnerID,
-		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
+		ItemKind: studyItemKind(row.ItemKind), Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		MaterialID: row.MaterialID, IntroducedAt: row.IntroducedAt, LearnedMeaning: row.LearnedMeaning,
 		LearnedCitations: domain.StudyCitations{SenseIDs: row.LearnedSenseIds, EntryIDs: row.LearnedEntryIds, DictionaryPin: row.LearnedDictionaryPin},
 		Memory:           memory, Withdrawn: row.WithdrawnAt.Valid, WithdrawnReason: row.WithdrawnReason.String, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,

@@ -216,7 +216,7 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 		case item.Withdrawn && item.WithdrawnReason == domain.StudyWithdrawnNoSuitableContext:
 			view.NoSuitableContext = append(view.NoSuitableContext, lemmadisplay.Format(view.Language, item.CanonicalLemma, item.UPOS))
 		case item.Withdrawn:
-			occurrences, err := h.services.Store.Study.FindStudyOccurrences(ctx, owner, item.StudyIdentity, domain.StudyOccurrenceRef{})
+			occurrences, err := h.services.Store.Study.FindStudyOccurrences(ctx, owner, item.StudyItem, domain.StudyOccurrenceRef{})
 			if err != nil {
 				return err
 			}
@@ -242,7 +242,7 @@ func (h *Handler) studyHeldCount(ctx context.Context, owner, language string) (i
 	if err != nil {
 		return 0, err
 	}
-	held := map[domain.StudyIdentity]struct{}{}
+	held := map[domain.StudyItem]struct{}{}
 	for _, identity := range domain.StudyHeldIdentities(reports) {
 		held[identity] = struct{}{}
 	}

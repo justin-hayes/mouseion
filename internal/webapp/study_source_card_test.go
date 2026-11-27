@@ -78,7 +78,7 @@ func (lsCardLexicon) LookupLatinLS(_ context.Context, lemma string) ([]enrichmen
 func greekCard(pin string, passage domain.StudyPassage) domain.StudyCard {
 	cited := domain.StudyCitations{SenseIDs: []string{"lsj-logos.0"}, EntryIDs: []string{"lsj-logos"}, DictionaryPin: pin}
 	return domain.StudyCard{
-		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "grc", CanonicalLemma: cardLSJLemma, UPOS: "NOUN"}, LearnedMeaning: "word", LearnedCitations: cited},
+		Progress: domain.StudyProgress{StudyItem: domain.StudyItem{Language: "grc", CanonicalLemma: cardLSJLemma, UPOS: "NOUN"}, LearnedMeaning: "word", LearnedCitations: cited},
 		Material: domain.StudyMaterial{Sentence: "ἄρχεται ὁ λόγος.", TargetWord: "λόγος", SentenceTranslation: "The word begins.", Cited: cited, Passage: passage},
 	}
 }
@@ -167,7 +167,7 @@ func TestSourceCardSkipsAWithheldPassageWhoseTranslationIsNotListed(t *testing.T
 func TestSourceCardLabelsStackedLatinEntriesWithTheirNumber(t *testing.T) {
 	cited := domain.StudyCitations{SenseIDs: []string{"n2.s1"}, EntryIDs: []string{"n2"}, DictionaryPin: "ls-pin"}
 	card := domain.StudyCard{
-		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "la", CanonicalLemma: "ager", UPOS: "NOUN"}, LearnedMeaning: "territory", LearnedCitations: cited},
+		Progress: domain.StudyProgress{StudyItem: domain.StudyItem{Language: "la", CanonicalLemma: "ager", UPOS: "NOUN"}, LearnedMeaning: "territory", LearnedCitations: cited},
 		Material: domain.StudyMaterial{Sentence: "ager est.", TargetWord: "ager", Cited: cited},
 	}
 	view := newStudyCardView("la", card, true)
@@ -183,7 +183,7 @@ func TestSourceCardLabelsStackedLatinEntriesWithTheirNumber(t *testing.T) {
 
 func TestModernCardHasNoSourceSections(t *testing.T) {
 	card := domain.StudyCard{
-		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "de", CanonicalLemma: "tisch", UPOS: "NOUN"}, LearnedMeaning: "table"},
+		Progress: domain.StudyProgress{StudyItem: domain.StudyItem{Language: "de", CanonicalLemma: "tisch", UPOS: "NOUN"}, LearnedMeaning: "table"},
 		Material: domain.StudyMaterial{Sentence: "Der Tisch.", TargetWord: "Tisch", SentenceTranslation: "The table."},
 	}
 	view := newStudyCardView("de", card, true)
@@ -216,7 +216,7 @@ func (sharedSenseLexicon) LookupLatinLS(context.Context, string) ([]enrichment.L
 func TestSourceCardMarksTheSenseOnlyInTheCitedHomograph(t *testing.T) {
 	cited := domain.StudyCitations{SenseIDs: []string{"s1"}, EntryIDs: []string{"n2"}, DictionaryPin: "ls-pin"}
 	card := domain.StudyCard{
-		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "la", CanonicalLemma: "sum", UPOS: "VERB"}, LearnedMeaning: "be", LearnedCitations: cited},
+		Progress: domain.StudyProgress{StudyItem: domain.StudyItem{Language: "la", CanonicalLemma: "sum", UPOS: "VERB"}, LearnedMeaning: "be", LearnedCitations: cited},
 		Material: domain.StudyMaterial{Sentence: "sum.", TargetWord: "sum", Cited: cited},
 	}
 	view := newStudyCardView("la", card, true)
@@ -249,7 +249,7 @@ func TestSourceCardKeepsTheDictionaryPinWhenTheCitedEntryIsGone(t *testing.T) {
 func TestSourceCardShowsEachCitedGreekHomographSeparatelyWithItsLabel(t *testing.T) {
 	cited := domain.StudyCitations{SenseIDs: []string{"s0", "s0"}, EntryIDs: []string{"n1", "n2"}, DictionaryPin: cardLSJPinOne}
 	card := domain.StudyCard{
-		Progress: domain.StudyProgress{StudyIdentity: domain.StudyIdentity{Language: "grc", CanonicalLemma: "λέγω", UPOS: "VERB"}, LearnedMeaning: "say", LearnedCitations: cited},
+		Progress: domain.StudyProgress{StudyItem: domain.StudyItem{Language: "grc", CanonicalLemma: "λέγω", UPOS: "VERB"}, LearnedMeaning: "say", LearnedCitations: cited},
 		Material: domain.StudyMaterial{Sentence: "λέγει.", TargetWord: "λέγει", Cited: cited},
 	}
 	view := newStudyCardView("grc", card, true)

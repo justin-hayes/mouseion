@@ -15,7 +15,7 @@ import (
 // identity under current evidence: the analyzed Books' seeded occurrences with
 // the learner's corrections and exclusions applied, and the occurrence a
 // browser fixture seeds a candidate without a Book from.
-func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var refs []domain.StudyOccurrenceRef
@@ -35,7 +35,7 @@ func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity d
 		}
 	}
 	for _, item := range s.studyCandidates {
-		if item.owner == owner && item.StudyIdentity == identity {
+		if item.owner == owner && item.StudyItem == identity {
 			refs = append(refs, fixtureStudyDefaultSource)
 		}
 	}
@@ -44,7 +44,7 @@ func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity d
 
 // FindStudyOccurrences returns the occurrences that decide a correction check:
 // the source when it still resolves to the identity, else one valid occurrence.
-func (s *Store) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+func (s *Store) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
 	valid, err := s.ListStudyOccurrences(ctx, owner, identity)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (s *Store) CompleteStudyReintroductions(_ context.Context, owner, language 
 			continue
 		}
 		for _, material := range s.studyMaterial {
-			if material.OwnerID != owner || material.StudyIdentity != item.StudyIdentity || s.studySuperseded[material.ID] || material.ID == item.MaterialID {
+			if material.OwnerID != owner || material.StudyItem != item.StudyItem || s.studySuperseded[material.ID] || material.ID == item.MaterialID {
 				continue
 			}
 			switch material.State {
