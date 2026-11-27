@@ -133,6 +133,9 @@ type studyHarness struct {
 	provider *studyProvider
 	client   *river.Client[pgx.Tx]
 	clock    *testutil.ManualClock
+	// planner is the Study service the planning job runs, so a test can run a
+	// plan at a chosen point instead of waiting on River.
+	planner *study.Service
 }
 
 func newStudyHarness(t *testing.T) *studyHarness {
@@ -181,9 +184,9 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	})
 	require.NoError(t, err)
 
-	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin)
-	planWorker.Planner = studyService
 	clock := testutil.NewManualClock(time.Date(2026, 11, 25, 4, 0, 0, 0, time.UTC))
+	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin).WithClock(clock.Func())
+	planWorker.Planner = studyService
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: webAuth, WebAuth: webauth.New(webAuth, false, time.Hour), Store: storeDependencies(store),
@@ -192,7 +195,7 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	})
 	owner := createAccount(t, ctx, store, "study-learner", "study-password")
 	cookies, _ := loginCookies(t, h, owner.Username, "study-password")
-	return &studyHarness{t: t, ctx: ctx, store: store, h: h, cookies: cookies, owner: owner, provider: provider, client: client, clock: clock}
+	return &studyHarness{t: t, ctx: ctx, store: store, h: h, cookies: cookies, owner: owner, provider: provider, client: client, clock: clock, planner: studyService}
 }
 
 // seedBook gives the learner an analyzed German Book whose analysis holds each

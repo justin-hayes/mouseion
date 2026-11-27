@@ -144,6 +144,22 @@ func TestStudyOccurrenceThatDisappearsEndsTheReport(t *testing.T) {
 	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
 }
 
+// The planning job reconciles reports too, and can end one before the page
+// request does: the word it releases is due at the start of the Study day after
+// the app's clock, not the wall clock's (#2786).
+func TestStudyPlanningThatEndsTheReportFirstReleasesTheWordForTheNextStudyDay(t *testing.T) {
+	s := newStudyHarness(t)
+	_, word, _ := s.reportedHaus(3)
+	id := s.openReports()[0].ID
+	source := s.material(word.MaterialID)
+
+	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
+		s.owner.ID, source.AnalysisRunID, source.SentenceOrdinal, source.TokenOrdinal)
+	require.NoError(t, err)
+	require.NoError(t, s.planner.PlanPreparation(s.ctx, s.owner.ID, "de"))
+	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
+}
+
 func TestStudyRemovingTheBookEndsTheReportAsOccurrenceGone(t *testing.T) {
 	s := newStudyHarness(t)
 	bookID, word, _ := s.reportedHaus(3)
