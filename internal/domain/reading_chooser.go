@@ -12,43 +12,43 @@ const (
 	CoverageBandNoComparison CoverageBand = "no_comparison"
 )
 
-// CoverageBandFor classifies exact token counts without using rounded display
+// CoverageBandFor classifies exact Mature token counts without using rounded display
 // percentages. A zero or negative denominator has no numeric comparison.
-func CoverageBandFor(knownTokens, analyzableTokens int64) CoverageBand {
+func CoverageBandFor(matureTokens, analyzableTokens int64) CoverageBand {
 	if analyzableTokens <= 0 {
 		return CoverageBandNoComparison
 	}
-	if knownTokens < 0 {
-		knownTokens = 0
+	if matureTokens < 0 {
+		matureTokens = 0
 	}
-	if knownTokens > analyzableTokens {
-		knownTokens = analyzableTokens
+	if matureTokens > analyzableTokens {
+		matureTokens = analyzableTokens
 	}
 	switch {
-	case coverageAtLeast(knownTokens, analyzableTokens, 99):
+	case coverageAtLeast(matureTokens, analyzableTokens, 99):
 		return CoverageBand99Plus
-	case coverageAtLeast(knownTokens, analyzableTokens, 97):
+	case coverageAtLeast(matureTokens, analyzableTokens, 97):
 		return CoverageBand97To99
-	case coverageAtLeast(knownTokens, analyzableTokens, 95):
+	case coverageAtLeast(matureTokens, analyzableTokens, 95):
 		return CoverageBand95To97
 	default:
 		return CoverageBandBelow95
 	}
 }
 
-// CoverageGapToNextBand returns the number of Known tokens needed to reach the
+// CoverageGapToNextBand returns the number of Mature tokens needed to reach the
 // next coverage band. The target follows CoverageBandFor's exact boundaries.
-func CoverageGapToNextBand(knownTokens, analyzableTokens int64) (targetPercent int, gap int64) {
+func CoverageGapToNextBand(matureTokens, analyzableTokens int64) (targetPercent int, gap int64) {
 	if analyzableTokens <= 0 {
 		return 0, 0
 	}
-	if knownTokens < 0 {
-		knownTokens = 0
+	if matureTokens < 0 {
+		matureTokens = 0
 	}
-	if knownTokens > analyzableTokens {
-		knownTokens = analyzableTokens
+	if matureTokens > analyzableTokens {
+		matureTokens = analyzableTokens
 	}
-	switch CoverageBandFor(knownTokens, analyzableTokens) {
+	switch CoverageBandFor(matureTokens, analyzableTokens) {
 	case CoverageBandBelow95:
 		targetPercent = 95
 	case CoverageBand95To97:
@@ -58,14 +58,14 @@ func CoverageGapToNextBand(knownTokens, analyzableTokens int64) (targetPercent i
 	case CoverageBand99Plus, CoverageBandNoComparison:
 		return 0, 0
 	}
-	return targetPercent, max(minimumTokensForCoverage(analyzableTokens, targetPercent)-knownTokens, 0)
+	return targetPercent, max(minimumTokensForCoverage(analyzableTokens, targetPercent)-matureTokens, 0)
 }
 
-// coverageAtLeast compares known/total with percent/100 by computing the
+// coverageAtLeast compares mature/total with percent/100 by computing the
 // smallest integer token count that reaches the threshold. Splitting total by
 // 100 keeps the exact arithmetic safe for the full int64 range.
-func coverageAtLeast(known, total int64, percent int64) bool {
-	return known >= minimumTokensForCoverage(total, int(percent))
+func coverageAtLeast(mature, total int64, percent int64) bool {
+	return mature >= minimumTokensForCoverage(total, int(percent))
 }
 
 func minimumTokensForCoverage(total int64, percent int) int64 {

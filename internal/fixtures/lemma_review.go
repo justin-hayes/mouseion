@@ -7,6 +7,7 @@ package fixtures
 import (
 	"context"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -94,6 +95,35 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 			occurrence.ReviewFlagResolution = flag.Resolution
 		}
 		result = append(result, occurrence)
+	}
+	return result, nil
+}
+
+// ListCorpusLemmaReviewOccurrences returns the seeded occurrences of surface with
+// the analyzer lemma in every Book of the owner still in My Books, in Book then
+// sentence order, with the learner's decisions and flags applied. The fixtures
+// hold one language, so language is not consulted.
+func (s *Store) ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, _, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
+	s.mu.Lock()
+	books := make([]string, 0, len(s.lemmaOccurrences))
+	for key := range s.lemmaOccurrences {
+		if ownerID, bookID, ok := strings.Cut(key, "\x00"); ok && ownerID == owner && s.fixtureBookActiveLocked(owner, bookID) {
+			books = append(books, bookID)
+		}
+	}
+	s.mu.Unlock()
+	slices.Sort(books)
+	var result []domain.LemmaReviewOccurrence
+	for _, bookID := range books {
+		occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
+		if err != nil {
+			return nil, err
+		}
+		for _, occurrence := range occurrences {
+			if occurrence.RawLemma == lemma {
+				result = append(result, occurrence)
+			}
+		}
 	}
 	return result, nil
 }

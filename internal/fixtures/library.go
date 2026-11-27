@@ -157,7 +157,7 @@ func (s *Store) applyFixtureBookEvidence(books []domain.MyBook) {
 func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
 	s.applyEPUBAcquisitionFailure(book)
 	if book.Book.ID == BookID {
-		book.CoverageKnownTokens = 974
+		book.CoverageMatureTokens = 974
 		book.CoverageTotalTokens = 1000
 	}
 	// A classical Book represents completed preparation once it is To Read.

@@ -237,7 +237,10 @@ type AnalysisCorpusVocabulary struct {
 
 type LemmaOccurrence struct {
 	Language, CanonicalLemma, UPOS string
-	OccurrenceCount                int64
+	// LexicalDiscriminator completes the effective vocabulary identity; it is
+	// empty when the identity has none.
+	LexicalDiscriminator string
+	OccurrenceCount      int64
 }
 
 // LemmaReviewOccurrence is one content-word token in the current exact Book
@@ -305,16 +308,19 @@ type CoverageProjection struct {
 	ProjectedTokenCount int64
 }
 
-// AnalysisCoverage separates explicit mastery from projected study investment.
+// AnalysisCoverage separates Mature words from the lighter in-study figure and
+// from projected study investment (ADR 0136 §3). Mature tokens are those whose
+// effective vocabulary identity is Mature; in-study tokens also count words
+// introduced but not yet Mature, so they include every Mature token.
 type AnalysisCoverage struct {
 	SourceMaterialID     string
 	AnalysisRunID        string
 	AnalyzableTokenCount int64
 	DistinctLemmaCount   int64
-	KnownTokenCount      int64
-	KnownLemmaCount      int64
-	ReservedTokenCount   int64
-	ReservedLemmaCount   int64
+	MatureTokenCount     int64
+	MatureLemmaCount     int64
+	InStudyTokenCount    int64
+	InStudyLemmaCount    int64
 	UnknownTokenCount    int64
 	UnknownLemmaCount    int64
 	TopUnknownLemmas     []LemmaOccurrence

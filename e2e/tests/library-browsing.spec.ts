@@ -22,7 +22,7 @@ test.describe('My Books collection browsing', () => {
     await expect(retryAnalysis.locator('xpath=..')).toHaveAttribute('action', '/reading/books/fixture-failed/reanalyze');
     await expect(failedRow.locator('.library-book__evidence')).not.toContainText(/0%|coverage|ready/i);
     const analyzedRow = page.locator('#book-row-fixture-book');
-    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
+    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Mature');
     await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
     await expect(analyzedRow.locator('.library-book__evidence')).not.toContainText('Deck');
     await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');
@@ -415,5 +415,29 @@ test.describe('My Books collection browsing', () => {
     await expect(tabs.nth(0)).toContainText('To Read');
     await expect(tabs.nth(1)).toContainText('Read');
     await expect(page.locator('aside.library-needs-language')).toHaveCount(0);
+  });
+});
+
+test.describe('My Books needs-action filter', () => {
+  test('shows a status line on Books that need action and filters to them, kept in the address', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/de/library');
+    await expect(page.locator('#book-row-fixture-failed [data-needs-action]')).toContainText('Analysis failed.');
+    await expect(page.locator('#book-row-fixture-acquisition-failed [data-needs-action]')).toContainText('Acquisition failed.');
+    await expect(page.locator('#book-row-fixture-book [data-needs-action]')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Show only Books that need action' }).click();
+    await expect(page).toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-failed')).toHaveCount(1);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(0);
+
+    await page.reload();
+    await expect(page).toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-failed')).toHaveCount(1);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Show all Books' }).click();
+    await expect(page).not.toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(1);
   });
 });

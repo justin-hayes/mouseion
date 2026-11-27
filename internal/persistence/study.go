@@ -16,7 +16,8 @@ import (
 )
 
 // ListStudyCandidates returns the effective vocabulary identities Study could
-// offer as new words, unordered: the domain owns the stream order. Known and
+// offer as new words from the Corpus (the analysed Books still in My Books, Read
+// Books included), unordered: the domain owns the stream order. Known and
 // Reserved vocabulary are not consulted.
 func (s *PostgresStore) ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error) {
 	language = canonicalization.NormalizeLanguage(language)
@@ -29,7 +30,7 @@ func (s *PostgresStore) ListStudyCandidates(ctx context.Context, owner, language
 		candidates = append(candidates, domain.StudyCandidate{
 			Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 			InCurrentReading:    row.InCurrentReading,
-			PersonalOccurrences: row.PersonalOccurrences,
+			PersonalOccurrences: row.PersonalOccurrences, CurrentReadingOccurrences: row.CurrentReadingOccurrences, ToReadOccurrences: row.ToReadOccurrences,
 		})
 	}
 	return candidates, nil
@@ -63,10 +64,40 @@ func (s *PostgresStore) ListStudyCandidatesAmong(ctx context.Context, owner, lan
 	for _, row := range rows {
 		identity := domain.StudyItem{Language: language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator}
 		if wanted[identity] {
-			candidates = append(candidates, domain.StudyCandidate{StudyItem: identity, InCurrentReading: row.InCurrentReading, PersonalOccurrences: row.PersonalOccurrences})
+			candidates = append(candidates, domain.StudyCandidate{
+				StudyItem: identity, InCurrentReading: row.InCurrentReading, PersonalOccurrences: row.PersonalOccurrences,
+				CurrentReadingOccurrences: row.CurrentReadingOccurrences, ToReadOccurrences: row.ToReadOccurrences,
+			})
 		}
 	}
 	return candidates, nil
+}
+
+// GetStudyReadingCoverage is how far the Current reading is toward Target
+// coverage: its in-study-or-Mature tokens over its analyzable tokens, from the
+// same projection and Study progress the Book's coverage uses. With no Current
+// reading, or counts not ready, it is inactive and nothing is boosted.
+func (s *PostgresStore) GetStudyReadingCoverage(ctx context.Context, owner, language string) (domain.StudyReadingCoverage, error) {
+	language = canonicalization.NormalizeLanguage(language)
+	corpusID, err := sqlcgen.New(s.pool).GetStudyCurrentReadingCorpus(ctx, sqlcgen.GetStudyCurrentReadingCorpusParams{Owner: owner, Language: language})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.StudyReadingCoverage{}, nil
+	}
+	if err != nil {
+		return domain.StudyReadingCoverage{}, fmt.Errorf("get current reading corpus: %w", err)
+	}
+	vocabulary, err := s.GetProjectedCorpusVocabulary(ctx, owner, corpusID)
+	if errors.Is(err, ErrNotFound) {
+		return domain.StudyReadingCoverage{}, nil
+	}
+	if err != nil {
+		return domain.StudyReadingCoverage{}, fmt.Errorf("get current reading vocabulary: %w", err)
+	}
+	progress, err := s.ListStudyProgress(ctx, owner, language)
+	if err != nil {
+		return domain.StudyReadingCoverage{}, err
+	}
+	return domain.NewStudyReadingCoverage(vocabulary, progress), nil
 }
 
 // ListCurrentStudyMaterial returns every word's current Study material in the

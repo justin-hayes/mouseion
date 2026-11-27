@@ -231,6 +231,10 @@ type Querier interface {
 	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error)
+	// The corpus of the Current reading's current analysis: the evidence its
+	// coverage toward Target coverage is read from. No row when there is no Current
+	// reading or the Book has no current analysis.
+	GetStudyCurrentReadingCorpus(ctx context.Context, arg GetStudyCurrentReadingCorpusParams) (string, error)
 	GetStudyMaterial(ctx context.Context, arg GetStudyMaterialParams) (GetStudyMaterialRow, error)
 	// Where an analyzed token sits in its Book's extracted unit: the locator an
 	// Analysis update carries decisions across runs by.
@@ -357,6 +361,9 @@ type Querier interface {
 	// version; a Book that was removed has no rows left. in_current_reading says
 	// whether the Current reading contains the headword.
 	ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error)
+	// The same occurrences across every Book in the learner's My Books of one
+	// language, for one observed form and its analyzer lemma (ADR 0136 §6).
+	ListCorpusLemmaReviewOccurrences(ctx context.Context, arg ListCorpusLemmaReviewOccurrencesParams) ([]ListCorpusLemmaReviewOccurrencesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
@@ -390,8 +397,12 @@ type Querier interface {
 	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
-	// the learner's current Known vocabulary. A Book without ready counts for its
-	// current analysis produces no row, so it never shows a stale or scanned figure.
+	// the learner's Study progress (ADR 0136 §3): mature_tokens counts occurrences
+	// of words that are Mature (in review with a scheduled interval of at least
+	// mature_days), and in_study_tokens also counts words introduced but not yet
+	// Mature. Only word items count and a withdrawn word counts as neither. A Book
+	// without ready counts for its current analysis produces no row, so it never
+	// shows a stale or scanned figure.
 	ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error)
 	ListOccurrenceLemmaCorrections(ctx context.Context, arg ListOccurrenceLemmaCorrectionsParams) ([]ListOccurrenceLemmaCorrectionsRow, error)
 	ListOpdsConnections(ctx context.Context, ownerID pgtype.UUID) ([]ListOpdsConnectionsRow, error)
@@ -439,7 +450,7 @@ type Querier interface {
 	// Study (ADR 0134, spec #2691): the stream of new-word candidates and the
 	// Study material prepared for them.
 	// Effective vocabulary identities of the owner's currently analyzed Books in
-	// the study language, with their Personal analyzed-Book occurrences and whether
+	// My Books (the Corpus, Read Books included, ADR 0136 §2) in the study language, with their Personal analyzed-Book occurrences and whether
 	// the Current reading contributes them. The counts are the Browse count
 	// projection, which already applies confirmed Lemma corrections and Occurrence
 	// exclusions. A Book whose projection is not ready contributes nothing yet.
@@ -518,8 +529,12 @@ type Querier interface {
 	// Each stage joins one relation to the previous stage. Later stages restrict
 	// big and unit tables only through join keys, never a literal owner, so the
 	// planner cannot mistake them for one row and rescan the candidates per row.
+	// Eligibility is the Corpus: current analyses of chosen-language Books that are
+	// active members of My Books, Read Books included (ADR 0136 §2). A removed Book
+	// is not searched. The concordance_occurrences view (whose migration is
+	// immutable) does not state the membership, so it is wider than the lookups.
 	// The same eligibility is stated three times: in the concordance_occurrences
-	// view (whose migration is immutable), here across located, eligible, current
+	// view, here across located, eligible, current
 	// and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
 	// three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)

@@ -16,36 +16,79 @@ import (
 
 // ListStudyCandidates derives the Study stream's candidates from the analyzed
 // Books' seeded occurrences, applying the learner's lemma corrections and
-// exclusions. Known and Reserved vocabulary are not consulted.
+// exclusions, from the Books still in My Books. Known and Reserved vocabulary
+// are not consulted.
 func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) ([]domain.StudyCandidate, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.currentReadings[fixtureGoalKey(owner, language)]
 	tallies := map[domain.StudyItem]*domain.StudyCandidate{}
 	for _, book := range s.books {
-		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID == "" {
-			continue
+		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID == "" || !s.fixtureBookActiveLocked(owner, book.BookID) {
+			continue // the Corpus is the analysed Books still in My Books (ADR 0136 §2)
 		}
-		inReading := current.IsActive() && current.BookID == book.BookID
-		for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, book.BookID)] {
-			identity, counts := s.effectiveStudyIdentityLocked(owner, book.BookID, language, occurrence)
-			if !counts {
-				continue
-			}
-			entry := tallies[identity]
-			if entry == nil {
-				entry = &domain.StudyCandidate{StudyItem: identity}
-				tallies[identity] = entry
-			}
-			entry.PersonalOccurrences++
-			entry.InCurrentReading = entry.InCurrentReading || inReading
-		}
+		s.tallyStudyBookLocked(tallies, owner, language, book.BookID, current.IsActive() && current.BookID == book.BookID)
 	}
 	candidates := make([]domain.StudyCandidate, 0, len(tallies)+len(s.studyCandidates))
 	for _, entry := range tallies {
 		candidates = append(candidates, *entry)
 	}
 	return append(candidates, s.seededStudyCandidatesLocked(owner, language, tallies)...), nil
+}
+
+// tallyStudyBookLocked adds one Book's effective occurrences to the candidates'
+// counts: every Book to the Corpus count, a To Read Book to the To Read count
+// and the Current reading to its own.
+func (s *Store) tallyStudyBookLocked(tallies map[domain.StudyItem]*domain.StudyCandidate, owner, language, bookID string, inReading bool) {
+	toRead := s.bookDispositionLocked(owner, bookID) == domain.BookDispositionToRead
+	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] {
+		identity, counts := s.effectiveStudyIdentityLocked(owner, bookID, language, occurrence)
+		if !counts {
+			continue
+		}
+		entry := tallies[identity]
+		if entry == nil {
+			entry = &domain.StudyCandidate{StudyItem: identity}
+			tallies[identity] = entry
+		}
+		entry.PersonalOccurrences++
+		if toRead {
+			entry.ToReadOccurrences++
+		}
+		if inReading {
+			entry.CurrentReadingOccurrences++
+			entry.InCurrentReading = true
+		}
+	}
+}
+
+// GetStudyReadingCoverage is how far the Current reading is toward Target
+// coverage. The fixture Book's analyzable tokens are its seeded occurrences, and
+// an excluded occurrence stays among them, as the persisted statistics do.
+func (s *Store) GetStudyReadingCoverage(ctx context.Context, owner, language string) (domain.StudyReadingCoverage, error) {
+	progress, err := s.ListStudyProgress(ctx, owner, language)
+	if err != nil {
+		return domain.StudyReadingCoverage{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current := s.currentReadings[fixtureGoalKey(owner, language)]
+	if !current.IsActive() || !s.fixtureBookActiveLocked(owner, current.BookID) {
+		return domain.StudyReadingCoverage{}, nil
+	}
+	tallies := map[domain.StudyItem]int64{}
+	var analyzable int64
+	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, current.BookID)] {
+		analyzable++
+		if identity, counts := s.effectiveStudyIdentityLocked(owner, current.BookID, language, occurrence); counts {
+			tallies[identity]++
+		}
+	}
+	vocabulary := domain.ProjectedCorpusVocabulary{Ready: true, Statistics: &domain.AnalysisStatistics{AnalyzableTokenCount: analyzable}}
+	for identity, count := range tallies {
+		vocabulary.Lemmas = append(vocabulary.Lemmas, domain.LemmaOccurrence{Language: language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, OccurrenceCount: count})
+	}
+	return domain.NewStudyReadingCoverage(vocabulary, progress), nil
 }
 
 // ListStudyCandidatesAmong is ListStudyCandidates for the given identities only.
@@ -314,7 +357,11 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	if err != nil {
 		return err
 	}
-	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)))
+	coverage, err := s.Store.GetStudyReadingCoverage(ctx, owner, language)
+	if err != nil {
+		return err
+	}
+	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)), coverage.BoostsCurrentReading())
 	for _, target := range domain.StudyPreparationTargets(ordered, states) {
 		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyItem)
 		if err != nil {

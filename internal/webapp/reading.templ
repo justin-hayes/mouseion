@@ -183,7 +183,7 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 		}
 		if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
 			if readingChooserHasCoverage(chooser) {
-				<p>Coverage shows how often words in your Known vocabulary appear in each Book. These groups use exact counts, though the displayed percentages are rounded. They are not reading recommendations.</p>
+				<p>Coverage shows how often your Mature words appear in each Book. These groups use exact counts, though the displayed percentages are rounded. They are not reading recommendations.</p>
 			}
 			<ul class="reading-chooser-list" role="list">
 				for _, entry := range chooser.Entries {
@@ -249,7 +249,8 @@ templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, 
 		<div class="reading-chooser-entry__evidence">
 			if item.Coverage != nil {
 				<p class="reading-chooser-entry__band"><strong>{ readingChooserBandLabel(item.Band) }</strong></p>
-				<p class="numeric"><strong>Known vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.KnownTokenCount) } of { readingChooserCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
+				<p class="numeric"><strong>Mature vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.MatureTokenCount) } of { readingChooserCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
+				<p class="numeric"><strong>With words in study:</strong> { readingChooserInStudyDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.InStudyTokenCount) } word occurrences)</p>
 				<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
 				<details>
 					<summary>Words to reach 95%, 97%, and 99%</summary>

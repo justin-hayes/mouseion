@@ -161,6 +161,10 @@ func (h *contractHarness) ListLemmaReviewOccurrences(owner, bookID, surface stri
 	return h.store.ListLemmaReviewOccurrences(context.Background(), owner, bookID, surface)
 }
 
+func (h *contractHarness) ListCorpusLemmaReviewOccurrences(owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
+	return h.store.ListCorpusLemmaReviewOccurrences(context.Background(), owner, language, surface, lemma)
+}
+
 func (h *contractHarness) SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error {
 	return h.store.SaveLemmaReviewFlags(context.Background(), flags)
 }

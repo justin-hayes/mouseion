@@ -17,6 +17,14 @@ const (
 	// notPreparedYetNote is shown while a classical Book has no current
 	// analysis, and is the refusal To Read gives for it.
 	notPreparedYetNote = "Not prepared yet."
+	// myBooksNeedsActionValue is the value of the needs query parameter that
+	// shows only the Books with a status line.
+	myBooksNeedsActionValue = "action"
+	// myBooksSortReadableValue is the value of the sort query parameter that
+	// orders the tab by Mature coverage, most readable first (ADR 0136 §3).
+	// Every other address, including no sort parameter at all, keeps the
+	// neutral title order.
+	myBooksSortReadableValue = "readable"
 )
 
 // myBookEditionLabel is the edition a classical Book shows under its author.
@@ -87,19 +95,22 @@ func myBookAnalysisMarginNotes(book domain.MyBook) []string {
 }
 
 // myBookCoverageMarginNote reports the running-word coverage the current
-// analysis published. A Book without a token total stays silent rather than
-// reporting 0%.
+// analysis published: the share Mature, then the lighter share that also counts
+// words in study (ADR 0136 §3). A Book whose counts are not ready reports
+// Updating rather than 0%.
 func myBookCoverageMarginNote(book domain.MyBook) string {
 	if book.CoverageTotalTokens <= 0 {
-		return ""
+		return "Coverage updating."
 	}
-	known := max(min(book.CoverageKnownTokens, book.CoverageTotalTokens), 0)
-	percent := float64(known) * 100 / float64(book.CoverageTotalTokens)
-	bandTarget, gap := domain.CoverageGapToNextBand(known, book.CoverageTotalTokens)
-	if bandTarget > 0 {
-		return fmt.Sprintf("%.1f%% of running words Known. %d more words to reach %d%%.", percent, gap, bandTarget)
+	mature := max(min(book.CoverageMatureTokens, book.CoverageTotalTokens), 0)
+	inStudy := max(min(book.CoverageInStudyTokens, book.CoverageTotalTokens), mature)
+	percent := float64(mature) * 100 / float64(book.CoverageTotalTokens)
+	note := fmt.Sprintf("%.1f%% of running words Mature.", percent)
+	if bandTarget, gap := domain.CoverageGapToNextBand(mature, book.CoverageTotalTokens); bandTarget > 0 {
+		note += fmt.Sprintf(" %d more words to reach %d%%.", gap, bandTarget)
 	}
-	return fmt.Sprintf("%.1f%% of running words Known.", percent)
+	note += fmt.Sprintf(" %.1f%% with words in study.", float64(inStudy)*100/float64(book.CoverageTotalTokens))
+	return note
 }
 
 // reanalysisMarginNote names a newer run that a published analysis outlives.
@@ -181,6 +192,8 @@ type MyBooksBrowseState struct {
 	Query         string
 	Disposition   domain.BookDisposition
 	History       bool
+	NeedsAction   bool
+	MostReadable  bool
 	Language      string
 	LanguageLabel string
 	AllCount      int
@@ -195,7 +208,20 @@ type MyBooksBrowseState struct {
 
 // myBooksScopedURL is the one place a My Books tab location is spelled.
 func myBooksScopedURL(language, query string, page int, disposition domain.BookDisposition, history bool) string {
+	return myBooksFilteredURL(language, query, page, disposition, history, false, false)
+}
+
+// myBooksFilteredURL is myBooksScopedURL plus the needs-action filter and the
+// most-readable sort, both kept in the address so a reload or a shared link
+// shows the same Books in the same order.
+func myBooksFilteredURL(language, query string, page int, disposition domain.BookDisposition, history, needsAction, mostReadable bool) string {
 	values := url.Values{}
+	if needsAction {
+		values.Set("needs", myBooksNeedsActionValue)
+	}
+	if mostReadable {
+		values.Set("sort", myBooksSortReadableValue)
+	}
 	if query != "" {
 		values.Set("q", query)
 	}
@@ -243,8 +269,8 @@ func myBooksPathLanguage(path string) (language string, ok bool) {
 }
 
 // parseMyBooksBrowseRequest reads the two-tab My Books request. The retired
-// needs-language scope and the Inbox filter are unsupported rather than
-// translated.
+// needs-language scope, the Inbox filter and the most-readable sort beside the
+// Read history are unsupported rather than translated, as is an unknown sort.
 func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	values := rURL.Query()
 	if values.Has("needs-language") {
@@ -257,9 +283,26 @@ func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	default:
 		return myBooksLibraryRequest{}, false
 	}
+	switch values.Get("needs") {
+	case "":
+	case myBooksNeedsActionValue:
+		request.needsAction = true
+	default:
+		return myBooksLibraryRequest{}, false
+	}
+	switch values.Get("sort") {
+	case "":
+	case myBooksSortReadableValue:
+		request.mostReadable = true
+	default:
+		return myBooksLibraryRequest{}, false
+	}
 	request.history = values.Get("history") == "read"
 	if request.history {
-		if request.disposition != "" {
+		// The most-readable sort is a To Read control; the Read tab keeps
+		// its own order, so the combination is unsupported rather than
+		// translated, like a disposition beside the history.
+		if request.disposition != "" || request.mostReadable {
 			return myBooksLibraryRequest{}, false
 		}
 	} else if request.disposition == "" {
@@ -299,7 +342,7 @@ func myBooksReturnURL(raw, language string) string {
 	if !ok {
 		return myBooksPath(language)
 	}
-	return myBooksScopedURL(language, request.query, request.page, request.disposition, request.history)
+	return myBooksFilteredURL(language, request.query, request.page, request.disposition, request.history, request.needsAction, request.mostReadable)
 }
 
 // myBookSearchURL searches the tab that lists the Book for its title, so a
@@ -314,20 +357,36 @@ func myBookSearchURL(book domain.MyBook) string {
 }
 
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksScopedURL(browse.Language, browse.Query, page, browse.Disposition, browse.History)
+	return myBooksFilteredURL(browse.Language, browse.Query, page, browse.Disposition, browse.History, browse.NeedsAction, browse.MostReadable)
 }
 
 // myBooksClearSearchURL keeps every control except the search text.
 func myBooksClearSearchURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Language, "", 1, browse.Disposition, browse.History)
+	return myBooksFilteredURL(browse.Language, "", 1, browse.Disposition, browse.History, browse.NeedsAction, browse.MostReadable)
 }
 
 func myBooksToReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false, browse.NeedsAction, browse.MostReadable)
 }
 
+// myBooksReadTabURL is the Read tab's own address. It keeps the search and
+// the needs-action filter but never the most-readable sort, which is a To
+// Read control the Read tab has no way back from.
 func myBooksReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Language, browse.Query, 1, "", true)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, "", true, browse.NeedsAction, false)
+}
+
+// myBooksNeedsActionToggleURL turns the needs-action filter on or off and keeps
+// every other control, starting again at the first page.
+func myBooksNeedsActionToggleURL(browse MyBooksBrowseState) string {
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, browse.Disposition, browse.History, !browse.NeedsAction, browse.MostReadable)
+}
+
+// myBooksSortToggleURL switches between the neutral title order and the
+// most-readable order and keeps every other control, starting again at the
+// first page.
+func myBooksSortToggleURL(browse MyBooksBrowseState) string {
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, browse.Disposition, browse.History, browse.NeedsAction, !browse.MostReadable)
 }
 
 // myBookBucketURL names where a Book is listed.
@@ -445,7 +504,7 @@ func myBooksResultCount(total int) string {
 }
 
 func myBooksHasActiveResultFilter(browse MyBooksBrowseState) bool {
-	return browse.Query != "" || browse.History
+	return browse.Query != "" || browse.History || browse.NeedsAction
 }
 
 func myBooksResultAnnouncementAttributes() templ.Attributes {
@@ -495,4 +554,54 @@ func myBooksBrowseBooks(browse MyBooksBrowseState, books []domain.MyBook) []doma
 		}
 	}
 	return visible
+}
+
+// myBookNeedsAction is the status line of a Book that needs the learner's
+// action, derived only from evidence the Book already carries. A Book with
+// nothing to do has no status line and is never listed by the needs-action
+// filter. The first applicable state wins, most basic first.
+func myBookNeedsAction(book domain.MyBook) (string, bool) {
+	if book.Book.LanguageState != domain.LanguageChosen {
+		return "Choose a Book language.", true
+	}
+	if status, ok := myBookEvidenceNeedsAction(book); ok {
+		return status, true
+	}
+	if _, candidate := myBookAnalysisUpdate(book); candidate != nil {
+		return "Analysis update available.", true
+	}
+	if myBookSourceStructureUpdate(book) != nil {
+		return "Main-text selection update available.", true
+	}
+	return "", false
+}
+
+// myBookEvidenceNeedsAction reports a failed acquisition or preparation, and a
+// failed or stale analysis.
+func myBookEvidenceNeedsAction(book domain.MyBook) (string, bool) {
+	classification := book.Classification()
+	switch classification.Acquisition.State {
+	case domain.AcquisitionNone, domain.AcquisitionInProgress:
+	default:
+		return "Acquisition failed.", true
+	}
+	switch classification.Preparation.State {
+	case domain.PreparationFetchFailed, domain.PreparationImportFailed, domain.PreparationSourceRefused,
+		domain.PreparationWithdrawn, domain.PreparationCatalogUnavailable:
+		return "Preparation failed.", true
+	case domain.PreparationNone, domain.PreparationQueued, domain.PreparationRunning, domain.PreparationCleared:
+	}
+	if book.Acquired == nil {
+		return "", false
+	}
+	if classification.Phase == domain.PhaseFailed {
+		return "Analysis failed.", true
+	}
+	if classification.ReAnalysisShadowed() && classification.Run == domain.RunFailed {
+		return "Re-analysis failed.", true
+	}
+	if classification.Phase == domain.PhaseStale {
+		return "Analysis out of date.", true
+	}
+	return "", false
 }

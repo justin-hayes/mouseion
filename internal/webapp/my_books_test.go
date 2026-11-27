@@ -116,7 +116,7 @@ func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
 		{name: "stale", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testStale}}, want: "Analysis out of date."},
 		{name: "unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testNoContent}}, want: "Content unavailable."},
 		{name: "not analysed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"}, Signals: testNotAnalyzed}}, want: "Not analysed yet."},
-		{name: "coverage with next band gap", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, CoverageKnownTokens: 974, CoverageTotalTokens: 1000}, want: "97.4% of running words Known. 16 more words to reach 99%.", omit: "ready"},
+		{name: "coverage with next band gap", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, CoverageMatureTokens: 974, CoverageTotalTokens: 1000}, want: "97.4% of running words Mature. 16 more words to reach 99%. 97.4% with words in study.", omit: "ready"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -554,4 +554,30 @@ func TestMyBooksTellsTwoEditionsOfOneWorkApartAsOrdinaryRows(t *testing.T) {
 		require.NotContains(t, body, "library-work")
 		require.NotContains(t, body, "Books in")
 	})
+}
+
+func TestMyBooksNeedsActionFilterListsOnlyBooksWithAStatusLine(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
+
+	all := catalogPage(t, h, cookies, "/de/library")
+	require.Equal(t, http.StatusOK, all.Code)
+	allBody := all.Body.String()
+	failed := myBookRowHTML(t, allBody, "fixture-failed")
+	assert.Contains(t, failed, "Analysis failed.")
+	assert.Contains(t, failed, "data-needs-action")
+	assert.NotContains(t, myBookRowHTML(t, allBody, "fixture-book"), "data-needs-action", "a healthy Book has no status line")
+	assert.Contains(t, allBody, "/de/library?disposition=to_read&amp;needs=action", "the filter link is an address")
+
+	filtered := catalogPage(t, h, cookies, "/de/library?needs=action")
+	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
+	body := filtered.Body.String()
+	assert.Contains(t, body, `id="book-row-fixture-failed"`)
+	assert.Contains(t, body, `id="book-row-fixture-acquisition-failed"`)
+	assert.NotContains(t, body, `id="book-row-fixture-book"`)
+	assert.NotContains(t, body, `id="book-row-fixture-running"`)
+	assert.Contains(t, body, `name="needs" value="action"`, "search keeps the filter")
+	assert.Contains(t, body, "Show all Books")
+
+	refused := catalogPage(t, h, cookies, "/de/library?needs=other")
+	assert.Equal(t, http.StatusNotFound, refused.Code)
 }

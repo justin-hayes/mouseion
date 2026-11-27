@@ -49,7 +49,7 @@ func readingChooserWorkHarness(t *testing.T) (context.Context, *persistence.Post
 }
 
 // seedClassicalReadingEvidence attaches a current analysis to an existing
-// Classical Book. known and total are token counts over one Known lemma.
+// Classical Book. known and total are token counts over one Mature lemma.
 func seedClassicalReadingEvidence(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner string, book domain.Book, unitKey string, known int64) {
 	t.Helper()
 	const total int64 = 100
@@ -125,8 +125,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 		require.NoError(t, err)
 		return detail.Book
 	}
-	_, err := store.PutKnownVocabulary(ctx, learner.ID, classical.Language, "λόγος", "NOUN")
-	require.NoError(t, err)
+	seedStudyWordIn(t, ctx, store, learner.ID, classical.Language, "λόγος", true)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-1"), "homer-iliad-1", 99)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-2"), "homer-iliad-2", 92)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-3"), "homer-iliad-3", 96)

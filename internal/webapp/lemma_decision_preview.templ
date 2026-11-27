@@ -12,6 +12,7 @@ import (
 // and the confirm form that posts to action. Lemma review and the Wrong-word
 // remediation screen both render it, so the step is one component (ADR 0136
 // §6). report names the Study report a remediation confirms, or is empty.
+// Children render inside the confirm form, before its button.
 templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview, recovery lemmareview.Recovery) {
 		<article aria-labelledby="lemma-preview-heading">
 			<h2 id="lemma-preview-heading">Review the proposed change</h2>
@@ -44,6 +45,7 @@ templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmarevi
 				for _, selectedID := range proposal.OccurrenceIDs {
 					<input type="hidden" name="selected" value={ selectedID }/>
 				}
+				{ children... }
 				if proposal.Action == "correct" {
 					<button class="button" type="submit">Apply correction to selected occurrences</button>
 				} else if proposal.Action == "keep" {

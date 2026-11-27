@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"sort"
 	"strings"
 	"time"
 
@@ -128,6 +129,42 @@ type CatalogEntryCoverRetrieval struct {
 	AdvertisedAt time.Time
 }
 
+// SortMyBooksMostReadableFirst orders a browse list for the most-readable
+// sort (ADR 0136 §3): the highest share of running words Mature first, then
+// title order. A Book without a coverage figure sorts last, after every Book
+// whose share is known, because neither share can be compared.
+func SortMyBooksMostReadableFirst(books []MyBook) {
+	sort.Slice(books, func(i, j int) bool {
+		return myBookMostReadableBefore(books[i], books[j])
+	})
+}
+
+// myBookMostReadableBefore reports whether left sorts before right: a known
+// coverage figure before an unknown one, a higher Mature share before a lower
+// one, then the browse tab's own lowercased title order.
+func myBookMostReadableBefore(left, right MyBook) bool {
+	leftKnown := left.CoverageTotalTokens > 0
+	rightKnown := right.CoverageTotalTokens > 0
+	if leftKnown != rightKnown {
+		return leftKnown
+	}
+	if leftKnown {
+		leftShare := float64(max(min(left.CoverageMatureTokens, left.CoverageTotalTokens), 0)) / float64(left.CoverageTotalTokens)
+		rightShare := float64(max(min(right.CoverageMatureTokens, right.CoverageTotalTokens), 0)) / float64(right.CoverageTotalTokens)
+		if leftShare != rightShare {
+			return leftShare > rightShare
+		}
+	}
+	leftTitle, rightTitle := strings.ToLower(left.Book.Title), strings.ToLower(right.Book.Title)
+	if leftTitle != rightTitle {
+		return leftTitle < rightTitle
+	}
+	if left.Book.Title != right.Book.Title {
+		return left.Book.Title < right.Book.Title
+	}
+	return left.Book.ID < right.Book.ID
+}
+
 // MyBook is the complete learner-facing My Books read model. Acquired is nil
 // for metadata-only membership; when present it contains only the current
 // owner-scoped acquired source and its derived analysis state.
@@ -148,7 +185,8 @@ type MyBook struct {
 	CompletionCount        int
 	LatestCompletionAt     *time.Time
 	LatestCompletionSource ReadingCompletionSource
-	CoverageKnownTokens    int64
+	CoverageMatureTokens   int64
+	CoverageInStudyTokens  int64
 	CoverageTotalTokens    int64
 }
 

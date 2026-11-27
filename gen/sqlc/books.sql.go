@@ -579,40 +579,49 @@ WITH ready AS (
       AND co.analysis_run_id = r.analysis_run_id
 ), counted AS (
     SELECT ready.book_id, c.occurrence_count,
-           EXISTS (
-               SELECT 1 FROM known_vocabulary kv
-               WHERE kv.owner_id = c.owner_id AND kv.language = c.language
-                 AND kv.canonical_lemma = btrim(c.canonical_lemma)
-                 AND kv.lexical_discriminator = btrim(c.lexical_discriminator)
-                 AND (kv.upos = upper(btrim(c.upos)) OR kv.upos = '')
-           ) AS is_known
+           sp.id IS NOT NULL AS in_study,
+           COALESCE(sp.state = 'review' AND sp.scheduled_days >= $3::bigint, false) AS is_mature
     FROM ready
     JOIN vocabulary_browse_counts c ON c.owner_id = ready.owner_id AND c.book_id = ready.book_id
       AND c.analysis_run_id = ready.analysis_run_id AND c.corpus_id = ready.corpus_id
+    LEFT JOIN study_progress sp ON sp.owner_id = c.owner_id AND sp.item_kind = 'word'
+      AND sp.language = c.language
+      AND sp.canonical_lemma = btrim(c.canonical_lemma)
+      AND sp.upos = upper(btrim(c.upos))
+      AND sp.lexical_discriminator = btrim(c.lexical_discriminator)
+      AND sp.withdrawn_at IS NULL
 )
 SELECT ready.book_id::text AS book_id,
        ready.total_tokens,
        COALESCE((SELECT sum(counted.occurrence_count) FROM counted
-                 WHERE counted.book_id = ready.book_id AND counted.is_known), 0)::bigint AS known_tokens
+                  WHERE counted.book_id = ready.book_id AND counted.is_mature), 0)::bigint AS mature_tokens,
+       COALESCE((SELECT sum(counted.occurrence_count) FROM counted
+                  WHERE counted.book_id = ready.book_id AND counted.in_study), 0)::bigint AS in_study_tokens
 FROM ready
 `
 
 type ListMyBooksCoverageParams struct {
-	Owner   string
-	BookIds []string
+	Owner      string
+	BookIds    []string
+	MatureDays int64
 }
 
 type ListMyBooksCoverageRow struct {
-	BookID      string
-	TotalTokens int64
-	KnownTokens int64
+	BookID        string
+	TotalTokens   int64
+	MatureTokens  int64
+	InStudyTokens int64
 }
 
 // Coverage comes from the durable Vocabulary Browse inventory counts joined to
-// the learner's current Known vocabulary. A Book without ready counts for its
-// current analysis produces no row, so it never shows a stale or scanned figure.
+// the learner's Study progress (ADR 0136 §3): mature_tokens counts occurrences
+// of words that are Mature (in review with a scheduled interval of at least
+// mature_days), and in_study_tokens also counts words introduced but not yet
+// Mature. Only word items count and a withdrawn word counts as neither. A Book
+// without ready counts for its current analysis produces no row, so it never
+// shows a stale or scanned figure.
 func (q *Queries) ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCoverageParams) ([]ListMyBooksCoverageRow, error) {
-	rows, err := q.db.Query(ctx, listMyBooksCoverage, arg.Owner, arg.BookIds)
+	rows, err := q.db.Query(ctx, listMyBooksCoverage, arg.Owner, arg.BookIds, arg.MatureDays)
 	if err != nil {
 		return nil, err
 	}
@@ -620,7 +629,12 @@ func (q *Queries) ListMyBooksCoverage(ctx context.Context, arg ListMyBooksCovera
 	items := []ListMyBooksCoverageRow{}
 	for rows.Next() {
 		var i ListMyBooksCoverageRow
-		if err := rows.Scan(&i.BookID, &i.TotalTokens, &i.KnownTokens); err != nil {
+		if err := rows.Scan(
+			&i.BookID,
+			&i.TotalTokens,
+			&i.MatureTokens,
+			&i.InStudyTokens,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -331,7 +331,7 @@ func TestMyBooksBrowseProjectsPopulatedCoverageAndCurrentReading(t *testing.T) {
 		start := int64(1200) + i*10
 		insertToken(100+i, "123", "NOUN", "root", start, start+3)
 	}
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "el", "σπίτι", "")
+	seedCoverageStudyWord(t, ctx, store, owner.ID, "el", "σπίτι", "NOUN", true)
 	require.NoError(t, err)
 	// Correct an unknown occurrence into Known, and exclude five formerly Known
 	// occurrences. The browse projection must follow the same decisions as Reading.
@@ -364,11 +364,11 @@ func TestMyBooksBrowseProjectsPopulatedCoverageAndCurrentReading(t *testing.T) {
 	require.Len(t, browse.Items, 1)
 	got := browse.Items[0]
 	assert.True(t, got.IsCurrentReading)
-	assert.Equal(t, int64(86), got.CoverageKnownTokens, "wildcard-UPOS identity plus corrections/exclusions drive Known coverage")
+	assert.Equal(t, int64(86), got.CoverageMatureTokens, "Mature identity plus corrections/exclusions drive Mature coverage")
 	assert.Equal(t, int64(100), got.CoverageTotalTokens, "the source-derived denominator is authoritative even when occurrence exclusions exist")
 	authoritativeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpusID)
 	require.NoError(t, err)
-	assert.Equal(t, authoritativeCoverage.KnownTokenCount, got.CoverageKnownTokens, "My Books Known matches the authoritative coverage service after exact-occurrence corrections and exclusions")
+	assert.Equal(t, authoritativeCoverage.MatureTokenCount, got.CoverageMatureTokens, "My Books Mature matches the authoritative coverage service after exact-occurrence corrections and exclusions")
 	assert.Equal(t, authoritativeCoverage.AnalyzableTokenCount, got.CoverageTotalTokens, "My Books total matches the authoritative source-derived denominator after exclusions")
 
 	// Generic detail reads stay lean; corpus-sized current margin evidence
@@ -376,7 +376,7 @@ func TestMyBooksBrowseProjectsPopulatedCoverageAndCurrentReading(t *testing.T) {
 	// current-reading role is part of the detail read model.
 	detail, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
-	assert.Zero(t, detail.CoverageKnownTokens)
+	assert.Zero(t, detail.CoverageMatureTokens)
 	assert.Zero(t, detail.CoverageTotalTokens)
 	assert.True(t, detail.IsCurrentReading, "the detail reports the Book's current-reading role")
 }

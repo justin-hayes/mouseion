@@ -365,6 +365,10 @@ func (h *postgresHarness) ListLemmaReviewOccurrences(owner, bookID, surface stri
 	return h.store.ListLemmaReviewOccurrences(h.ctx, owner, bookID, surface)
 }
 
+func (h *postgresHarness) ListCorpusLemmaReviewOccurrences(owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
+	return h.store.ListCorpusLemmaReviewOccurrences(h.ctx, owner, language, surface, lemma)
+}
+
 func (h *postgresHarness) SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error {
 	return h.store.SaveLemmaReviewFlags(h.ctx, flags)
 }

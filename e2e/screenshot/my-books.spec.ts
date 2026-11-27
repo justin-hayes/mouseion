@@ -241,7 +241,7 @@ async function analysisState(page: Page, book: ManifestBook): Promise<string> {
   const item = chooserItem(page, book);
   if ((await item.count()) === 0) return 'not listed in Reading';
   const text = (await item.innerText()).replace(/\s+/g, ' ').trim();
-  if (text.includes('Known vocabulary coverage')) return 'ready';
+  if (text.includes('Mature vocabulary coverage')) return 'ready';
   return `not ready: ${text.slice(0, 160)}`;
 }
 
@@ -277,13 +277,13 @@ async function measureCoverage(page: Page, book: ManifestBook): Promise<number> 
       if ((await item.count()) === 0) return false;
       const status = page.locator('#vocabulary-counts-status');
       if ((await status.count()) > 0 && (await status.innerText()).includes('Updating')) return false;
-      const match = /Known vocabulary coverage:\s*(\d+(?:\.\d+)?)%/.exec((await item.innerText()).replace(/\s+/g, ' '));
+      const match = /Mature vocabulary coverage:\s*(\d+(?:\.\d+)?)%/.exec((await item.innerText()).replace(/\s+/g, ' '));
       if (!match) return false;
       percent = Number(match[1]);
       return true;
     },
     COUNTS_TIMEOUT_MS,
-    `Known vocabulary coverage for ${book.title} to appear in Reading`,
+    `Mature vocabulary coverage for ${book.title} to appear in Reading`,
   );
   return percent;
 }

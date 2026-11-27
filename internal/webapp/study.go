@@ -508,7 +508,11 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 		return nil, err
 	}
 	candidates = append(candidates, idioms...)
-	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
+	coverage, err := store.GetStudyReadingCoverage(r.Context(), owner, language)
+	if err != nil {
+		return nil, err
+	}
+	return domain.NextStudyBatch(domain.OrderStudyStream(candidates, coverage.BoostsCurrentReading()), material, progress, held, now), nil
 }
 
 // idiomMaterialCounts splits the Idioms out of the counts, so the page can
