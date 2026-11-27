@@ -645,6 +645,15 @@ func readingChooserCoverageDisplay(coverage domain.AnalysisCoverage) string {
 	return fmt.Sprintf("%.1f%%", percent)
 }
 
+// readingChooserInStudyDisplay is the lighter figure that also counts words in
+// study.
+func readingChooserInStudyDisplay(coverage domain.AnalysisCoverage) string {
+	if coverage.AnalyzableTokenCount <= 0 {
+		return "No words to compare"
+	}
+	return fmt.Sprintf("%.1f%%", min(float64(coverage.InStudyTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100))
+}
+
 // readingChooserCoveragePercent is the one clamped percentage a Book's margin uses.
 func readingChooserCoveragePercent(coverage domain.AnalysisCoverage) (float64, bool) {
 	if coverage.AnalyzableTokenCount <= 0 {

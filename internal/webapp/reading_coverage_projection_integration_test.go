@@ -108,6 +108,10 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	assert.Contains(t, myBooksPage.Body.String(), "83.3% with words in study.")
 	assert.Equal(t, wantTotal, below95[0].Coverage.AnalyzableTokenCount)
 	assert.Empty(t, chooserBooksInState(view, readingChooserUpdating))
+	chooserPage := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
+	require.Equal(t, http.StatusOK, chooserPage.Code)
+	assert.Contains(t, chooserPage.Body.String(), "66.7% (4 of 6 word occurrences)")
+	assert.Contains(t, chooserPage.Body.String(), "83.3% (5 word occurrences)")
 
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)

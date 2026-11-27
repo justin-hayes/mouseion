@@ -91,11 +91,11 @@ func myBookAnalysisMarginNotes(book domain.MyBook) []string {
 
 // myBookCoverageMarginNote reports the running-word coverage the current
 // analysis published: the share Mature, then the lighter share that also counts
-// words in study (ADR 0136 §3). A Book without a token total stays silent
-// rather than reporting 0%.
+// words in study (ADR 0136 §3). A Book whose counts are not ready reports
+// Updating rather than 0%.
 func myBookCoverageMarginNote(book domain.MyBook) string {
 	if book.CoverageTotalTokens <= 0 {
-		return ""
+		return "Coverage updating."
 	}
 	mature := max(min(book.CoverageMatureTokens, book.CoverageTotalTokens), 0)
 	inStudy := max(min(book.CoverageInStudyTokens, book.CoverageTotalTokens), mature)
@@ -104,9 +104,7 @@ func myBookCoverageMarginNote(book domain.MyBook) string {
 	if bandTarget, gap := domain.CoverageGapToNextBand(mature, book.CoverageTotalTokens); bandTarget > 0 {
 		note += fmt.Sprintf(" %d more words to reach %d%%.", gap, bandTarget)
 	}
-	if inStudy > mature {
-		note += fmt.Sprintf(" %.1f%% with words in study.", float64(inStudy)*100/float64(book.CoverageTotalTokens))
-	}
+	note += fmt.Sprintf(" %.1f%% with words in study.", float64(inStudy)*100/float64(book.CoverageTotalTokens))
 	return note
 }
 
