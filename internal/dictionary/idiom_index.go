@@ -141,8 +141,8 @@ func (i *Index) IdiomDigest(ctx context.Context) (string, error) {
 			return "", fmt.Errorf("dictionary idiom digest row: %w", err)
 		}
 		for _, field := range fields {
-			hash.Write([]byte(field)) //nolint:errcheck // hash.Hash.Write never fails.
-			hash.Write([]byte{0})     //nolint:errcheck // hash.Hash.Write never fails.
+			hash.Write([]byte(field))
+			hash.Write([]byte{0})
 		}
 	}
 	if err = rows.Err(); err != nil {
