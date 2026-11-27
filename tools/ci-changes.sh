@@ -85,7 +85,7 @@ classify() {
     internal/webapp/components.go)
       mark go frontend browser
       echo "stylesheet class source: $path" >&2 ;;
-    internal/canonicalization/german_post1996.json | internal/cardexport/templates/*)
+    internal/canonicalization/german_post1996.json)
       mark go browser
       echo "embedded data: $path" >&2 ;;
 
