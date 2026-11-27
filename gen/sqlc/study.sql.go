@@ -287,6 +287,7 @@ WITH eligible AS MATERIALIZED (
     FROM current_analysis_identity cai
     JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
      AND b.language_state = 'chosen' AND b.language_tag = $2::text
+    JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id AND m.state = 'active'
     JOIN vocabulary_browse_count_readiness r ON r.owner_id = cai.owner_id AND r.book_id = cai.book_id
      AND r.analysis_run_id = cai.analysis_run_id AND r.corpus_id = cai.corpus_id
      AND r.language = $2::text AND r.builder_version = 5
@@ -324,7 +325,7 @@ type ListStudyCandidatesRow struct {
 // Study (ADR 0134, spec #2691): the stream of new-word candidates and the
 // Study material prepared for them.
 // Effective vocabulary identities of the owner's currently analyzed Books in
-// the study language, with their Personal analyzed-Book occurrences and whether
+// My Books (the Corpus, Read Books included, ADR 0136 §2) in the study language, with their Personal analyzed-Book occurrences and whether
 // the Current reading contributes them. The counts are the Browse count
 // projection, which already applies confirmed Lemma corrections and Occurrence
 // exclusions. A Book whose projection is not ready contributes nothing yet.

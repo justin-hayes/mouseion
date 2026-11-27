@@ -39,6 +39,7 @@ SELECT EXISTS (
       AND ca.analysis_run_id = c.analysis_run_id AND ca.corpus_id = c.corpus_id
     JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
       AND b.language_state = 'chosen' AND b.language_tag = $2::text
+    JOIN book_membership bm ON bm.owner_id = ca.owner_id AND bm.book_id = ca.book_id AND bm.state = 'active'
     LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = ca.owner_id
       AND d.book_id = ca.book_id AND d.corpus_id = c.corpus_id
       AND d.analysis_run_id = c.analysis_run_id AND d.source_document_id = s.unit_id
@@ -596,6 +597,7 @@ eligible AS MATERIALIZED (
     FROM current_analysis_identity ca
     JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
       AND b.language_state = 'chosen' AND b.language_tag = $2::text
+    JOIN book_membership bm ON bm.owner_id = ca.owner_id AND bm.book_id = ca.book_id AND bm.state = 'active'
     JOIN construction_run_markers m ON m.owner_id = ca.owner_id
       AND m.analysis_run_id = ca.analysis_run_id AND m.corpus_id = ca.corpus_id
       AND m.detector_version = $8::integer
@@ -991,6 +993,7 @@ eligible AS MATERIALIZED (
     FROM current_analysis_identity ca
     JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
       AND b.language_state = 'chosen' AND b.language_tag = $4::text
+    JOIN book_membership bm ON bm.owner_id = ca.owner_id AND bm.book_id = ca.book_id AND bm.state = 'active'
    WHERE ca.owner_id = $3::uuid
 ),
 current AS MATERIALIZED (
@@ -1146,8 +1149,12 @@ type ListVocabularyConcordanceRow struct {
 // Each stage joins one relation to the previous stage. Later stages restrict
 // big and unit tables only through join keys, never a literal owner, so the
 // planner cannot mistake them for one row and rescan the candidates per row.
+// Eligibility is the Corpus: current analyses of chosen-language Books that are
+// active members of My Books, Read Books included (ADR 0136 §2). A removed Book
+// is not searched. The concordance_occurrences view (whose migration is
+// immutable) does not state the membership, so it is wider than the lookups.
 // The same eligibility is stated three times: in the concordance_occurrences
-// view (whose migration is immutable), here across located, eligible, current
+// view, here across located, eligible, current
 // and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
 // three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 func (q *Queries) ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error) {

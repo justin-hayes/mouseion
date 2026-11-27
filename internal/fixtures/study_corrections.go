@@ -20,7 +20,7 @@ func (s *Store) ListStudyOccurrences(_ context.Context, owner string, identity d
 	defer s.mu.Unlock()
 	var refs []domain.StudyOccurrenceRef
 	for _, book := range s.books {
-		if book.Source.OwnerID != owner || book.Source.Language != identity.Language || book.BookID == "" {
+		if book.Source.OwnerID != owner || book.Source.Language != identity.Language || book.BookID == "" || !s.fixtureBookActiveLocked(owner, book.BookID) {
 			continue
 		}
 		for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, book.BookID)] {

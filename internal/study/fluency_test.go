@@ -20,6 +20,12 @@ type fluencyFakeStore struct {
 	progress domain.StudyProgress
 	existing []domain.FluencyContext
 	recorded []domain.FluencyContextRecord
+	// removed names the Books that have left My Books.
+	removed map[string]bool
+}
+
+func (s *fluencyFakeStore) StudyBookInCorpus(_ context.Context, _, book string) (bool, error) {
+	return !s.removed[book], nil
 }
 
 func (s *fluencyFakeStore) GetStudyProgress(context.Context, string, string) (domain.StudyProgress, error) {
@@ -228,6 +234,17 @@ func TestFluencyWorkerDoesNotAskAboutAnOccurrenceTwice(t *testing.T) {
 
 	require.NoError(t, fluencyWork(worker))
 	assert.Empty(t, enricher.requests)
+}
+
+// A Book removed from My Books while its sentence is being assessed supplies no
+// new context: Fluency never draws from outside the Corpus (ADR 0136 §2).
+func TestFluencyWorkerStoresNoContextFromABookRemovedMeanwhile(t *testing.T) {
+	worker, store, _ := newFluencyFixture()
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
+	store.removed = map[string]bool{store.occurrences[1].BookID: true}
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, store.recorded)
 }
 
 func TestFluencyWorkerLeavesAWordThatLapsedAlone(t *testing.T) {

@@ -16,15 +16,16 @@ import (
 
 // ListStudyCandidates derives the Study stream's candidates from the analyzed
 // Books' seeded occurrences, applying the learner's lemma corrections and
-// exclusions. Known and Reserved vocabulary are not consulted.
+// exclusions, from the Books still in My Books. Known and Reserved vocabulary
+// are not consulted.
 func (s *Store) ListStudyCandidates(_ context.Context, owner, language string) ([]domain.StudyCandidate, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	current := s.currentReadings[fixtureGoalKey(owner, language)]
 	tallies := map[domain.StudyItem]*domain.StudyCandidate{}
 	for _, book := range s.books {
-		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID == "" {
-			continue
+		if book.Source.OwnerID != owner || book.Source.Language != language || book.BookID == "" || !s.fixtureBookActiveLocked(owner, book.BookID) {
+			continue // the Corpus is the analysed Books still in My Books (ADR 0136 §2)
 		}
 		inReading := current.IsActive() && current.BookID == book.BookID
 		for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, book.BookID)] {
