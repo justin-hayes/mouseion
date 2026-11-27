@@ -97,10 +97,17 @@ const idiomTestIndexVersion = "idiom-test-index"
 // the durable job does after an analysis publishes.
 func (s *studyHarness) buildIdiomCounts(book domain.Book, lookup idiom.Index) {
 	s.t.Helper()
+	s.buildIdiomCountsAt(book, lookup, idiomTestIndexVersion)
+}
+
+// buildIdiomCountsAt is buildIdiomCounts stamped with an index version, as a
+// dictionary refresh stamps it.
+func (s *studyHarness) buildIdiomCountsAt(book domain.Book, lookup idiom.Index, indexVersion string) {
+	s.t.Helper()
 	tx, err := s.store.Pool().Begin(s.ctx)
 	require.NoError(s.t, err)
 	testutil.Cleanup(s.t, "transaction", func() error { return txcleanup.Rollback(s.ctx, tx) })
-	built, err := persistence.BuildIdiomCandidateCountsTx(s.ctx, tx, s.owner.ID, book.ID, lookup, idiomTestIndexVersion)
+	built, err := persistence.BuildIdiomCandidateCountsTx(s.ctx, tx, s.owner.ID, book.ID, lookup, indexVersion)
 	require.NoError(s.t, err)
 	require.True(s.t, built)
 	require.NoError(s.t, tx.Commit(s.ctx))

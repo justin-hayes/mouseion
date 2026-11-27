@@ -152,4 +152,8 @@ type Study interface {
 	// Corpus candidate counts; none while the language's idiom switch is off.
 	IdiomsActive(language string) bool
 	IdiomCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
+	// ReviewIdiom checks an Idiom in study against current evidence and applies
+	// what that requires; it reports whether the Idiom's progress or material
+	// changed (ADR 0137 §5).
+	ReviewIdiom(ctx context.Context, owner string, word domain.StudyProgress, now time.Time) (bool, error)
 }
