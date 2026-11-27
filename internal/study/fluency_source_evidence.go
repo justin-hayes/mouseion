@@ -120,7 +120,13 @@ func citedSenseDefinitions(resolution sourceevidence.Resolution, cited domain.St
 	var senses []string
 	for _, entry := range resolution.Entries {
 		for _, sense := range entry.Senses {
-			if definition := strings.Join(sense.Definitions, "; "); cited.Has(entry.ID, sense.ID) && strings.TrimSpace(definition) != "" {
+			// The pass sends a sense's glosses when it has no definitions, and
+			// uncapped Study can cite such a sense: agreement sees the same text.
+			text := sense.Definitions
+			if len(text) == 0 {
+				text = sense.Glosses
+			}
+			if definition := strings.Join(text, "; "); cited.Has(entry.ID, sense.ID) && strings.TrimSpace(definition) != "" {
 				senses = append(senses, definition)
 			}
 		}
