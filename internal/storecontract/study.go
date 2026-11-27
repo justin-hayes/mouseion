@@ -533,6 +533,7 @@ func alreadyKnownScenario() Scenario {
 		require.NoError(t, progressStore.RecordStudyGrade(owner, gradedRecord), "later reviews are graded as ordinary")
 		require.ErrorIs(t, progressStore.RecordStudyAlreadyKnown(owner, domain.StudyAlreadyKnownRecord{ProgressID: stored.ID, ExpectedReps: stored.Memory.Reps + 1, AnsweredAt: known.Due, StudyDay: "2026-12-16", After: known}), domain.ErrStudyStale, "Already known is never offered on a later review")
 	}}
+}
 
 // studyCorpusScenario holds the Corpus (ADR 0136 §2): the analysed Books in My
 // Books, Read Books included, supply the Study stream. Removing a Book stops
