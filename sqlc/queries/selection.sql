@@ -95,7 +95,7 @@ JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id 
 WHERE cai.owner_id = sqlc.arg('owner')
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
-  AND t.surface = sqlc.arg('surface')::text AND t.canonical_lemma = sqlc.arg('lemma')::text
+  AND t.surface = sqlc.arg('surface')::text AND t.raw_lemma = sqlc.arg('lemma')::text
 ORDER BY b.title, cai.book_id, s.sentence_ordinal, t.token_ordinal;
 
 -- name: ListOccurrenceLemmaCorrections :many

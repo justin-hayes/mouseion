@@ -433,7 +433,7 @@ JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id 
 WHERE cai.owner_id = $2
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
-  AND t.surface = $3::text AND t.canonical_lemma = $4::text
+  AND t.surface = $3::text AND t.raw_lemma = $4::text
 ORDER BY b.title, cai.book_id, s.sentence_ordinal, t.token_ordinal
 `
 

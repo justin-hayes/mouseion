@@ -289,7 +289,7 @@ type CorpusMatch struct {
 // match is previewed and confirmed on its own, in its own Book's analysis, so
 // no decision becomes a rule over a form and lemma (ADR 0136 §6).
 func (s *Service) CorpusMatches(ctx context.Context, owner, language string, reported domain.LemmaReviewOccurrence) ([]CorpusMatch, error) {
-	found, err := s.store.ListCorpusLemmaReviewOccurrences(ctx, owner, language, reported.Surface, reported.CanonicalLemma)
+	found, err := s.store.ListCorpusLemmaReviewOccurrences(ctx, owner, language, reported.Surface, reported.RawLemma)
 	if err != nil {
 		return nil, err
 	}

@@ -120,7 +120,7 @@ func (s *Store) ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, _, 
 			return nil, err
 		}
 		for _, occurrence := range occurrences {
-			if occurrence.CanonicalLemma == lemma {
+			if occurrence.RawLemma == lemma {
 				result = append(result, occurrence)
 			}
 		}
