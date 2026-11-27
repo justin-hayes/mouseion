@@ -360,6 +360,10 @@ type Querier interface {
 	InsertSourceMaterialUnitRoleSpan(ctx context.Context, arg InsertSourceMaterialUnitRoleSpanParams) error
 	InsertSourceMaterialUnitSnapshot(ctx context.Context, arg InsertSourceMaterialUnitSnapshotParams) (string, error)
 	InsertSourceStructureCheck(ctx context.Context, arg InsertSourceStructureCheckParams) error
+	// An Already-known answer or backfilled word: an event, never a grade. The
+	// item identity is copied from the word's progress, so the event is keyed like
+	// Study progress.
+	InsertStudyAlreadyKnownEvent(ctx context.Context, arg InsertStudyAlreadyKnownEventParams) error
 	// Stores one assessed occurrence of a word. An agreeing context beyond the
 	// word's limit, and an occurrence already assessed, return no row.
 	InsertStudyFluencyContext(ctx context.Context, arg InsertStudyFluencyContextParams) (string, error)
@@ -521,6 +525,7 @@ type Querier interface {
 	// check yet. Imported classical sources and unlinked sources are excluded.
 	ListSourceStructureCheckCandidates(ctx context.Context, arg ListSourceStructureCheckCandidatesParams) ([]ListSourceStructureCheckCandidatesRow, error)
 	ListStalePreparedDecks(ctx context.Context, arg ListStalePreparedDecksParams) ([]ListStalePreparedDecksRow, error)
+	ListStudyAlreadyKnownEvents(ctx context.Context, arg ListStudyAlreadyKnownEventsParams) ([]StudyAlreadyKnownEvent, error)
 	// Study (ADR 0134, spec #2691): the stream of new-word candidates and the
 	// Study material prepared for them.
 	// Effective vocabulary identities of the owner's currently analyzed Books in

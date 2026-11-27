@@ -1121,6 +1121,22 @@ type SourceStructureCheck struct {
 	CheckedAt              time.Time
 }
 
+type StudyAlreadyKnownEvent struct {
+	ID                   string
+	OwnerID              string
+	ItemKind             string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	ProgressID           pgtype.UUID
+	MaterialID           pgtype.UUID
+	Source               string
+	AnsweredAt           time.Time
+	StudyDay             pgtype.Date
+	CreatedAt            time.Time
+}
+
 type StudyBatchLedger struct {
 	OwnerID         string
 	Language        string
