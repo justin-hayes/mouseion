@@ -51,7 +51,9 @@ type studyProvider struct {
 	// idiomAnswers and idiom are the fake idiom answers and the idiom-card
 	// requests received. See study_idiom_harness_integration_test.go.
 	idiomAnswers map[string]idiomAnswer
-	idiom        []enrichment.TranslationRequest
+	// idiomSentenceAnswers override them for one sentence.
+	idiomSentenceAnswers map[string]idiomAnswer
+	idiom                []enrichment.TranslationRequest
 }
 
 // passRequests are the evidence-assisted pass requests received so far.

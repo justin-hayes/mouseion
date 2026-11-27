@@ -70,6 +70,19 @@ type fluencyFakeEnricher struct {
 	passFor map[string]enrichment.EvidenceAssistedMeaning
 	passes  []enrichment.Candidate
 	variant []variantRequest
+	// idiomFor answers an Idiom's idiom-card request by its sentence; a sentence
+	// with no answer is confirmed with the learned sense. idiomCards are the
+	// requests sent.
+	idiomFor   map[string]enrichment.ContextualMeaning
+	idiomCards []enrichment.IdiomCard
+}
+
+func (e *fluencyFakeEnricher) EnrichIdiomCard(_ context.Context, card enrichment.IdiomCard) (enrichment.ContextualMeaning, error) {
+	e.idiomCards = append(e.idiomCards, card)
+	if e.err != nil {
+		return enrichment.ContextualMeaning{}, e.err
+	}
+	return e.agreeingIdiom(card.Sentence), nil
 }
 
 // variantRequest is what the source-evidence agreement variant was sent.
@@ -266,6 +279,10 @@ type reasonEnricher string
 
 func (reasonEnricher) EnrichEvidenceAssistedPass(context.Context, enrichment.Candidate, string) (enrichment.EvidenceAssistedMeaning, error) {
 	return enrichment.EvidenceAssistedMeaning{}, errors.New("not used")
+}
+
+func (reasonEnricher) EnrichIdiomCard(context.Context, enrichment.IdiomCard) (enrichment.ContextualMeaning, error) {
+	return enrichment.ContextualMeaning{}, errors.New("not used")
 }
 
 func (reasonEnricher) EnrichSourceEvidenceFluencyAgreement(context.Context, enrichment.Candidate, string, []string, []string) (enrichment.FluencyAgreement, error) {

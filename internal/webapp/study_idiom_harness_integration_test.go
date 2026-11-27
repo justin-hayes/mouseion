@@ -70,6 +70,13 @@ func germanIdiom(headword string) idiom.Entry {
 	}
 }
 
+// withSecondSense gives the entry a second sense, which an answer can cite
+// instead of the first.
+func withSecondSense(entry idiom.Entry) idiom.Entry {
+	entry.Senses = append(entry.Senses, enrichment.LexicalSense{EvidenceID: "test-idiom/" + entry.Headword + "/2", Gloss: "another idiom " + entry.Headword})
+	return entry
+}
+
 // germanIdiomAvoidance is the Study idiom switch for German over the lookup.
 // With on false the operator has not enabled German, so Study selects exactly
 // as it did before Idioms.
@@ -116,6 +123,9 @@ const (
 	idiomLiteralUse idiomAnswer = "literal_use"
 	// idiomAmbiguous says no sense can be defended.
 	idiomAmbiguous idiomAnswer = "ambiguous"
+	// idiomOtherSense resolves the idiom with a Gloss citing the entry's second
+	// sense.
+	idiomOtherSense idiomAnswer = "other-sense"
 	// idiomFailure is a provider failure, which River retries.
 	idiomFailure idiomAnswer = "failure"
 )
@@ -133,6 +143,17 @@ func (p *studyProvider) answerIdioms(headword string, answer idiomAnswer) {
 	p.idiomAnswers[headword] = answer
 }
 
+// answerIdiomSentence makes the provider answer the idiom-card requests of one
+// sentence the given way, whatever the headword's answer is.
+func (p *studyProvider) answerIdiomSentence(sentence string, answer idiomAnswer) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.idiomSentenceAnswers == nil {
+		p.idiomSentenceAnswers = map[string]idiomAnswer{}
+	}
+	p.idiomSentenceAnswers[sentence] = answer
+}
+
 // idiomRequests are the idiom-card requests received so far.
 func (p *studyProvider) idiomRequests() []enrichment.TranslationRequest {
 	p.mu.Lock()
@@ -148,6 +169,9 @@ func (p *studyProvider) answerIdiom(request enrichment.TranslationRequest) (enri
 	if !ok {
 		answer = idiomConfirmed
 	}
+	if sentenceAnswer, ok := p.idiomSentenceAnswers[request.ExampleSentence]; ok {
+		answer = sentenceAnswer
+	}
 	switch answer {
 	case idiomFailure:
 		return enrichment.TranslationResponse{}, errors.New("provider unavailable")
@@ -158,7 +182,7 @@ func (p *studyProvider) answerIdiom(request enrichment.TranslationRequest) (enri
 		}
 		return enrichment.TranslationResponse{ContextOnly: true, UnresolvedKind: kind, UnresolvedReason: string(answer),
 			SentenceTranslation: "Idiom: " + request.ExampleSentence, SentenceTranslationTargets: request.IdiomMatchedForms}, nil
-	case idiomConfirmed:
+	case idiomConfirmed, idiomOtherSense:
 	}
 	response := enrichment.TranslationResponse{
 		Translation: request.IdiomHeadword, Gloss: "the idiom " + request.IdiomHeadword,
@@ -166,6 +190,9 @@ func (p *studyProvider) answerIdiom(request enrichment.TranslationRequest) (enri
 	}
 	if len(request.CandidateSenses) > 0 {
 		response.EvidenceIDs = []string{request.CandidateSenses[0].EvidenceID}
+	}
+	if answer == idiomOtherSense && len(request.CandidateSenses) > 1 {
+		response.EvidenceIDs = []string{request.CandidateSenses[1].EvidenceID}
 	}
 	return response, nil
 }

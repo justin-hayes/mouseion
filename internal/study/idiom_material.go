@@ -28,13 +28,20 @@ const (
 
 // idiomChoices returns the Idiom's usable sentences, best first.
 func (w *MaterialWorker) idiomChoices(ctx context.Context, owner string, reader *idiomReader, entry idiom.Entry, retired []domain.StudyOccurrenceRef) ([]idiomChoice, error) {
-	refs, err := w.Store.ListStudyIdiomSentenceRefs(ctx, owner, reader.language, entry.Headword, entry.Words)
+	return idiomChoicesOf(ctx, w.Store, owner, reader, entry, retired, nil)
+}
+
+// idiomChoicesOf is idiomChoices over any store of Idiom sentences. A choice
+// that skip accepts is left out before it counts towards the bound, so Fluency
+// can set aside the sentences it has no use for.
+func idiomChoicesOf(ctx context.Context, store idiomSentenceStore, owner string, reader *idiomReader, entry idiom.Entry, retired []domain.StudyOccurrenceRef, skip func(idiomChoice) bool) ([]idiomChoice, error) {
+	refs, err := store.ListStudyIdiomSentenceRefs(ctx, owner, reader.language, entry.Headword, entry.Words)
 	if err != nil {
 		return nil, err
 	}
 	var choices []idiomChoice
 	for start := 0; start < len(refs) && len(choices) < maxIdiomChoices; start += idiomBatch {
-		batch, err := w.Store.LoadStudyIdiomSentences(ctx, owner, refs[start:min(start+idiomBatch, len(refs))])
+		batch, err := store.LoadStudyIdiomSentences(ctx, owner, refs[start:min(start+idiomBatch, len(refs))])
 		if err != nil {
 			return nil, err
 		}
@@ -42,7 +49,11 @@ func (w *MaterialWorker) idiomChoices(ctx context.Context, owner string, reader 
 		if err != nil {
 			return nil, err
 		}
-		choices = append(choices, usable...)
+		for _, choice := range usable {
+			if skip == nil || !skip(choice) {
+				choices = append(choices, choice)
+			}
+		}
 	}
 	sort.SliceStable(choices, func(i, j int) bool {
 		if choices[i].inReading != choices[j].inReading {
@@ -177,6 +188,8 @@ type idiomChoice struct {
 	// inReading is set for a sentence of the Current reading.
 	inReading bool
 	offset    int64
+	// form is the form the Idiom's matched words take in the sentence, for Fluency.
+	form domain.FluencyForm
 }
 
 // entry finds the dictionary entry of the headword by looking up its words.
@@ -237,7 +250,7 @@ func (r *idiomReader) choose(ctx context.Context, entry idiom.Entry, sentence pe
 			return idiomChoice{}, false, nil
 		}
 		ref.TokenOrdinal = int64(matched[0])
-		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, pin: entryPin(candidate.Entry), headword: candidate.Entry.Headword, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset}, true, nil
+		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, pin: entryPin(candidate.Entry), headword: candidate.Entry.Headword, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset, form: idiomFormOf(sentence.Sentence.Tokens, matched)}, true, nil
 	}
 	return idiomChoice{}, false, nil
 }

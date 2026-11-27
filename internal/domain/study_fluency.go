@@ -65,12 +65,16 @@ const (
 	// flag.
 	FluencyReasonNotThisLemma FluencyReason = "not-this-lemma"
 	FluencyReasonUndefendable FluencyReason = "undefendable"
+	// FluencyReasonLiteralUse and FluencyReasonAmbiguous are an Idiom context's
+	// outcomes of the idiom-card request that is not a confirmed Gloss.
+	FluencyReasonLiteralUse FluencyReason = "literal-use"
+	FluencyReasonAmbiguous  FluencyReason = "ambiguous"
 )
 
 // ParseFluencyReason reads a reason from its stored or provider name.
 func ParseFluencyReason(name string) (FluencyReason, bool) {
 	switch reason := FluencyReason(name); reason {
-	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable:
+	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable, FluencyReasonLiteralUse, FluencyReasonAmbiguous:
 		return reason, true
 	}
 	return "", false
