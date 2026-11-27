@@ -1,0 +1,73 @@
+package webapp
+
+import (
+	"context"
+	"fmt"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
+	"github.com/justin-hayes/mouseion/internal/lemmareview"
+)
+
+// LemmaDecisionPreview is the preview-and-confirm step of a Lemma decision: the
+// consequence of correcting, keeping or excluding the selected occurrences,
+// and the confirm form that posts to action. Lemma review and the Wrong-word
+// remediation screen both render it, so the step is one component (ADR 0136
+// §6). report names the Study report a remediation confirms, or is empty.
+templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview, recovery lemmareview.Recovery) {
+		<article aria-labelledby="lemma-preview-heading">
+			<h2 id="lemma-preview-heading">Review the proposed change</h2>
+			<p>This is a preview only. Nothing changes until you confirm.</p>
+			<p><strong>Selected occurrences:</strong> { fmt.Sprint(len(proposal.OccurrenceIDs)) } · <strong>Decision:</strong> { proposal.Action }</p>
+			<ul>
+				for _, change := range proposal.Changes {
+					<li><span class="reading-text">{ change.Sentence }</span> — effective identity { lemmaReviewKeyDisplay(ctx, change.Before) } → { lemmaReviewKeyDisplay(ctx, change.After) }</li>
+				}
+			</ul>
+			<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p>
+			<ul>
+				for _, impact := range proposal.Impacts {
+					<li><strong>{ lemmaReviewKeyDisplay(ctx, impact.Identity.CanonicalLemma) } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
+				}
+			</ul>
+			if len(proposal.Impacts) == 0 {
+				<p role="status">The selected contexts do not currently change an effective vocabulary identity.</p>
+			}
+			<form method="post" action={ templ.SafeURL(action) }>
+				<input type="hidden" name="csrf_token" value={ csrf }/>
+				<input type="hidden" name="stage" value="confirm"/>
+				if report != "" {
+					<input type="hidden" name="report" value={ report }/>
+				}
+				<input type="hidden" name="form" value={ form }/>
+				<input type="hidden" name="decision" value={ proposal.Action }/>
+				<input type="hidden" name="lemma" value={ proposal.Lemma }/>
+				<input type="hidden" name="fingerprint" value={ proposal.Fingerprint }/>
+				for _, selectedID := range proposal.OccurrenceIDs {
+					<input type="hidden" name="selected" value={ selectedID }/>
+				}
+				if recovery.ReadyPreparationID != "" && proposal.IdentityChanged {
+					if recovery.ReadyDeckSnapshotID != "" {
+						<p>Confirming will restart this Book with a new snapshot and prepare its deck from the corrected identities. The ready deck stays available as history.</p>
+						<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</span></label>
+					} else {
+						<p>The ready deck is a historical artifact. Confirming this identity change will explicitly create a new deck generation; the existing artifact will remain downloadable. This is a full re-preparation, not a presentation-only re-render.</p>
+						<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Re-prepare the ready deck with these current vocabulary identities when I confirm this decision</span></label>
+					}
+				}
+				if proposal.Action == "correct" {
+					<button class="button" type="submit">Apply correction to selected occurrences</button>
+				} else if proposal.Action == "keep" {
+					<button class="button button--outline" type="submit">Keep analyzer lemma for selected occurrences</button>
+				} else {
+					<button class="button button--danger" type="submit">Exclude selected occurrences from vocabulary</button>
+				}
+			</form>
+		</article>
+}
+
+// lemmaReviewKeyDisplay is the learner-facing form of a lemma key shown on the
+// review page: the active study language's display form, so Greek shows a
+// word-final ς. The correction field and form values keep the key itself.
+func lemmaReviewKeyDisplay(ctx context.Context, key string) string {
+	language, _ := activeStudyLanguageForContext(ctx)
+	return lemmadisplay.Format(language, key, "")
+}
