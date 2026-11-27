@@ -233,7 +233,7 @@ func (i *Index) matchEntries(ctx context.Context, language, lemma, targetWord, u
 		}
 		exact, weak, found := i.ancientGreekRows(lemma, upos)
 		return exact, weak, lookupMorphology{}, found, nil
-	case cardpolicy.LookupEveryEntry:
+	case cardpolicy.LookupEveryEntry, cardpolicy.LookupCompetingEntries:
 		// Lewis & Short entries are frozen whole through LookupLatinLS; they
 		// carry no generic lexical senses, and the Greek index is never read.
 		return nil, nil, lookupMorphology{}, false, nil
@@ -436,7 +436,7 @@ func (i *Index) sourceLemmaExists(rule cardpolicy.Lookup, lemma, upos string) (e
 			}
 		}
 		return false, true
-	case cardpolicy.LookupEveryEntry:
+	case cardpolicy.LookupEveryEntry, cardpolicy.LookupCompetingEntries:
 		// Any Lewis & Short entry under the lemma's key counts; the part of
 		// speech is not matched.
 		return i.lsAvailable && len(i.lsEntries[lemma]) > 0, true
