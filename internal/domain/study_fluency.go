@@ -106,11 +106,6 @@ func (f FluencyForm) Key() string {
 	return f.Features
 }
 
-// sameAs reports whether the form is the other's in features and surface.
-func (f FluencyForm) sameAs(other FluencyForm) bool {
-	return f.Key() == other.Key() && f.surfaceKey() == other.surfaceKey()
-}
-
 func (f FluencyForm) surfaceKey() string { return strings.ToLower(strings.TrimSpace(f.Surface)) }
 
 // FluencyCandidate is one occurrence of a mature word that could become a
@@ -133,8 +128,7 @@ type FluencyCandidate struct {
 // pick is, in turn, the candidate that adds a new set of morphological
 // features (a split separable verb counts as one), then one that adds only a
 // new surface form, then one of a form already chosen, so different sentences
-// of the same form come after. The word's introducing form counts as chosen, and a candidate of that form
-// comes after every candidate of another form (within the same Idiom-candidate tier).
+// of the same form come after. The word's introducing form counts as chosen.
 // A candidate inside an Idiom candidate comes after every other. Ties go to the Current reading, then to the higher sentence quality, then to
 // the key. The input is not modified.
 func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate) []FluencyCandidate {
@@ -145,7 +139,7 @@ func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate
 	for len(remaining) > 0 {
 		best := 0
 		for i := 1; i < len(remaining); i++ {
-			if fluencyCandidateBefore(remaining[i], remaining[best], seenKeys, seenSurfaces, introduced) {
+			if fluencyCandidateBefore(remaining[i], remaining[best], seenKeys, seenSurfaces) {
 				best = i
 			}
 		}
@@ -168,16 +162,12 @@ func fluencyNovelty(c FluencyCandidate, seenKeys, seenSurfaces map[string]bool) 
 	return 0
 }
 
-func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[string]bool, introduced FluencyForm) bool {
+func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[string]bool) bool {
 	if a.InIdiom != b.InIdiom {
 		return !a.InIdiom
 	}
 	if na, nb := fluencyNovelty(a, seenKeys, seenSurfaces), fluencyNovelty(b, seenKeys, seenSurfaces); na != nb {
 		return na > nb
-	}
-	if ia, ib := a.Form.sameAs(introduced), b.Form.sameAs(introduced); ia != ib {
-		// A context of the introducing form never ranks ahead of another form.
-		return !ia
 	}
 	if a.InCurrentReading != b.InCurrentReading {
 		return a.InCurrentReading
