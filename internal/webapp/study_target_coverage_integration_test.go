@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 	"testing"
@@ -30,7 +31,11 @@ func (s *studyHarness) introducedLemmas() []string {
 func TestNewWordBatchesBoostTheCurrentReadingUntilTargetCoverage(t *testing.T) {
 	s := newStudyHarness(t)
 	readingWords := []string{"baum", "blume", "brot", "fisch", "garten", "katze", "kind", "licht", "mond", "stadt", "wald", "wasser"} // by key
-	libraryWords := []string{"stuhl", "bett", "lampe", "tuer", "fenster", "bild", "uhr", "buch", "schule", "markt"}
+	// 22 library words, so more than a batch of them remains after the second.
+	var libraryWords []string
+	for i := range 22 {
+		libraryWords = append(libraryWords, fmt.Sprintf("lib%02d", i))
+	}
 	// "haus" is 88 of the Current reading's 100 tokens and already in study.
 	words := []testutil.CorpusWord{{Lemma: "haus", UPOS: "NOUN", Occurrences: 88}}
 	for _, lemma := range readingWords {
@@ -42,6 +47,15 @@ func TestNewWordBatchesBoostTheCurrentReadingUntilTargetCoverage(t *testing.T) {
 		library = append(library, testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 5})
 	}
 	s.seedBook("library", library...)
+	// The Book the learner later switches to: most of its tokens are not in study.
+	secondWords := make([]string, 0, 12)
+	second := []testutil.CorpusWord{{Lemma: "haus", UPOS: "NOUN", Occurrences: 40}}
+	for i := range 12 {
+		lemma := fmt.Sprintf("zz%02d", i)
+		secondWords = append(secondWords, lemma)
+		second = append(second, testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 1})
+	}
+	secondBook := s.seedBook("second", second...)
 	// A Read Book is in the Corpus but adds no priority, however frequent.
 	readBook := s.seedBook("finished", testutil.CorpusWord{Lemma: "mauer", UPOS: "NOUN", Occurrences: 500})
 	require.NoError(t, s.store.MarkBookPreviouslyRead(s.ctx, s.owner.ID, readBook.ID))
@@ -53,7 +67,7 @@ func TestNewWordBatchesBoostTheCurrentReadingUntilTargetCoverage(t *testing.T) {
 	require.NoError(t, s.client.Start(s.ctx))
 	testutil.StopOnCleanup(t, "study River client", s.client.Stop)
 	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
-	require.GreaterOrEqual(t, s.counts().Ready, len(readingWords)+len(libraryWords)+1, "every candidate's material is ready")
+	require.GreaterOrEqual(t, s.counts().Ready, 25, "the preparation window is ready")
 	s.clock.Set(berlinTime(t, 25, 9, 0))
 
 	// At 88% the Current reading is below target: its ten most frequent words
@@ -70,25 +84,30 @@ func TestNewWordBatchesBoostTheCurrentReadingUntilTargetCoverage(t *testing.T) {
 	assert.Equal(t, 98, s.currentReadingInStudyTokens(reading.ID))
 	s.page()
 	s.take()
-	want := append(append([]string{"haus"}, readingWords[:10]...), libraryWords...)
+	want := append(append([]string{"haus"}, readingWords[:10]...), libraryWords[:10]...)
 	slices.Sort(want)
 	assert.Equal(t, want, s.introducedLemmas(), "at target the To Read Books' frequency decides")
 	s.gradeAll()
 
-	// A word withdrawn from study lowers coverage below the target, and the
-	// Current reading's remaining words come first again.
-	for _, word := range s.progress() {
-		if word.CanonicalLemma == "haus" {
-			require.NoError(t, s.store.SetStudyWordWithdrawn(s.ctx, s.owner.ID, word.ID, true, s.clock.Now()))
-		}
-	}
+	// The learner switches to a Book of which most is not in study: its words
+	// come first again, ahead of the library words that occur more often.
+	_, err = s.store.Pool().Exec(s.ctx, `UPDATE primary_goals SET book_id=$2 WHERE owner_id=$1 AND language='de'`, s.owner.ID, secondBook.ID)
+	require.NoError(t, err)
 	s.clock.Set(berlinTime(t, 26, 9, 0))
 	s.gradeAll() // the day-after reviews are done first
 	s.page()
+	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
+	before := len(s.progress())
 	s.take()
 	got := s.introducedLemmas()
-	assert.Contains(t, got, "wald", "the boost returned and offered the Current reading's remaining words")
-	assert.Contains(t, got, "wasser")
+	assert.Len(t, got, before+10)
+	for _, lemma := range secondWords[:6] {
+		assert.Contains(t, got, lemma, "below target again, the new Current reading's words come first")
+	}
+	// Without the boost the one-occurrence words of the old reading, which sort
+	// before these, would have filled the batch ahead of them.
+	assert.NotContains(t, got, "wald")
+	assert.NotContains(t, got, "wasser")
 }
 
 // currentReadingInStudyTokens counts the Current reading's tokens whose word is
