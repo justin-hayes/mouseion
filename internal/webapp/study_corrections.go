@@ -68,7 +68,14 @@ func (h *Handler) reviewWithdrawnWords(ctx context.Context, owner string, progre
 }
 
 // reviewStudyWord checks one word's introducing occurrence against current
-// evidence and applies what that requires; see study.ReviewWord.
+// evidence and applies what that requires; see study.ReviewWord. An Idiom has
+// no introducing word occurrence: see study.Service.ReviewIdiom.
 func (h *Handler) reviewStudyWord(ctx context.Context, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
+	if word.IsIdiom() {
+		if h.services.Study == nil {
+			return false, nil
+		}
+		return h.services.Study.ReviewIdiom(ctx, owner, word, now)
+	}
 	return study.ReviewWord(ctx, h.services.Store.Study, owner, word, now)
 }

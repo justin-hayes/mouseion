@@ -340,6 +340,11 @@ func (s Study) IdiomCandidates(context.Context, string, string) ([]domain.StudyC
 	return nil, nil
 }
 
+// ReviewIdiom changes nothing: the fixture server has no Idioms in study.
+func (s Study) ReviewIdiom(context.Context, string, domain.StudyProgress, time.Time) (bool, error) {
+	return false, nil
+}
+
 // fixtureStudyContent is the Study material the fixture server shows for a
 // word: a short sentence around its lemma, taken from the first occurrence
 // that resolves to the word under current evidence.

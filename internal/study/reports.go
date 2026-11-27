@@ -37,9 +37,8 @@ type ReportStore interface {
 // keeps its material, which then names the occurrence in the new run.
 func ReviewWord(ctx context.Context, store CorrectionStore, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
 	if word.IsIdiom() {
-		// An Idiom has no introducing word occurrence to re-check: its
-		// corrections and withdrawal are defined with its reports (#2755), so
-		// until then Today never withdraws it for lacking one.
+		// An Idiom has no introducing word occurrence to re-check: Service.
+		// ReviewIdiom checks it against its headword and the Corpus counts.
 		return false, nil
 	}
 	evidence, current, err := gatherEvidence(ctx, store, owner, word)

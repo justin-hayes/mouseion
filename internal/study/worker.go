@@ -163,7 +163,16 @@ func (w *MaterialWorker) unpreparableNoDictionaryEntry(ctx context.Context, owne
 }
 
 func (w *MaterialWorker) recordSeenEvidence(ctx context.Context, owner, id string, identity domain.StudyItem) error {
-	seen, err := w.Store.ListStudyOccurrences(ctx, owner, identity)
+	var seen []domain.StudyOccurrenceRef
+	var err error
+	if identity.IsIdiom() {
+		// An Idiom's evidence is its candidate sentences.
+		if w.Idioms != nil && w.Idioms.Index != nil {
+			seen, err = idiomEvidence(ctx, w.Store, w.Idioms, owner, identity)
+		}
+	} else {
+		seen, err = w.Store.ListStudyOccurrences(ctx, owner, identity)
+	}
 	if err != nil {
 		return err
 	}
