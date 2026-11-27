@@ -27,6 +27,16 @@ func (s *studyHarness) idiomMaterial() (domain.StudyMaterial, bool) {
 	return domain.StudyMaterial{}, false
 }
 
+// idiomSettled reports that the words have settled and the Idiom's material is
+// no longer pending (Today's counts are of words only).
+func (s *studyHarness) idiomSettled() (bool, string) {
+	if ok, why := s.settled(); !ok {
+		return false, why
+	}
+	item, ok := s.idiomMaterial()
+	return ok && item.State != domain.StudyMaterialPending, "the Idiom is still preparing"
+}
+
 // startStudy opens the page so planning is queued and starts River.
 func (s *studyHarness) startStudy() {
 	s.t.Helper()
@@ -50,7 +60,7 @@ func idiomStudyHarness(t *testing.T, on bool) *studyHarness {
 func TestStudyPreparesIdiomMaterialAlongsideWordsInStreamOrder(t *testing.T) {
 	s := idiomStudyHarness(t, true)
 	s.startStudy()
-	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
+	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.idiomSettled() })
 
 	assert.Equal(t, []string{"haus", "mit dem haus", "buch"}, s.lemmasByReservation(),
 		"an Idiom ranks by its candidate count among the words, a tie going to the word")
@@ -63,12 +73,13 @@ func TestStudyPreparesIdiomMaterialAlongsideWordsInStreamOrder(t *testing.T) {
 	assert.Equal(t, []int{3, 4, 5}, item.MatchedTokenOrdinals)
 	assert.Equal(t, int64(3), item.TokenOrdinal)
 	assert.NotEmpty(t, item.SentenceTranslation)
-	assert.Equal(t, domain.StudyMaterialCounts{Ready: 3}, s.counts())
+	assert.Equal(t, domain.StudyMaterialCounts{Ready: 2}, s.counts(), "Today counts words only")
 	require.Len(t, s.provider.idiomRequests(), 1, "one request for the Idiom")
 
 	page := getAs(t, s.h, "/de/study", s.cookies)
 	require.Equal(t, http.StatusOK, page.Code, "ready Idiom material does not break Today")
 	assert.Contains(t, page.Body.String(), "2 new words are ready", "Idioms are not offered in batches until Today introduces them")
+	assert.NotContains(t, page.Body.String(), "3 new words are ready", "nor counted as words")
 }
 
 func TestStudySkipsAnIdiomWhoseSentenceIsLiteralOrAmbiguous(t *testing.T) {
@@ -77,13 +88,13 @@ func TestStudySkipsAnIdiomWhoseSentenceIsLiteralOrAmbiguous(t *testing.T) {
 			s := idiomStudyHarness(t, true)
 			s.provider.answerIdioms("mit dem haus", answer)
 			s.startStudy()
-			testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
+			testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.idiomSettled() })
 
 			item, ok := s.idiomMaterial()
 			require.True(t, ok)
 			assert.Equal(t, domain.StudyMaterialUnpreparable, item.State)
 			assert.Equal(t, reason, item.OmissionReason)
-			assert.Equal(t, domain.StudyMaterialCounts{Ready: 2, Unpreparable: 1}, s.counts(), "the words after it are prepared")
+			assert.Equal(t, domain.StudyMaterialCounts{Ready: 2}, s.counts(), "the words after it are prepared")
 		})
 	}
 }
@@ -148,7 +159,7 @@ SELECT t.owner_id, cai.book_id, t.corpus_id, t.analysis_run_id, s.unit_id, t.sta
 	s.buildIdiomCounts(domain.Book{ID: book}, newFakeIdiomLookup(germanIdiom("mit dem haus")))
 
 	s.startStudy()
-	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
+	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.idiomSettled() })
 	item, ok := s.idiomMaterial()
 	require.True(t, ok)
 	assert.Equal(t, domain.StudyMaterialReady, item.State)

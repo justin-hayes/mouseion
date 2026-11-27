@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -46,31 +47,59 @@ func (w *MaterialWorker) workIdiom(ctx context.Context, owner string, material d
 	if err != nil {
 		return err
 	}
-	choice, ok, err := reader.bestSentence(ctx, entry, sentences, retired)
+	choices, err := reader.rankedSentences(ctx, entry, sentences, retired)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	if len(choices) == 0 {
 		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, domain.StudyOmissionSentenceQuality)
 	}
-	meaning, err := w.Enricher.EnrichIdiomCard(ctx, enrichment.IdiomCard{
-		Language: material.Language, Headword: headword, MatchedForms: choice.forms,
-		Sentence: choice.sentence, Senses: boundedIdiomSenses(entry.Senses),
-	})
-	if errors.Is(err, enrichment.ErrExternalNotConfigured) {
-		return river.JobSnooze(notConfiguredDelay)
-	}
+	choice, meaning, reason, err := w.confirmIdiom(ctx, material, choices)
 	if err != nil {
 		return err
 	}
-	if !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" {
-		reason := domain.StudyOmissionMeaning
+	if reason != "" {
+		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, reason)
+	}
+	return w.recordIdiomReady(ctx, owner, material.ID, choice, meaning)
+}
+
+// confirmIdiom asks the provider about each candidate sentence, best first,
+// until one confirms the Idiom. When none does it returns the omission reason
+// of the last answer: literal use or no defensible meaning. The Idiom is given
+// up on only when every sentence tried came back literal or ambiguous
+// (bounded by maxIdiomAttempts).
+func (w *MaterialWorker) confirmIdiom(ctx context.Context, material domain.StudyMaterial, choices []idiomChoice) (idiomChoice, enrichment.ContextualMeaning, string, error) {
+	headword, _ := material.Headword()
+	reason := domain.StudyOmissionMeaning
+	for _, choice := range choices[:min(len(choices), maxIdiomAttempts)] {
+		meaning, err := w.Enricher.EnrichIdiomCard(ctx, enrichment.IdiomCard{
+			Language: material.Language, Headword: headword, MatchedForms: choice.forms,
+			Sentence: choice.sentence, Senses: boundedIdiomSenses(choice.senses),
+		})
+		if errors.Is(err, enrichment.ErrExternalNotConfigured) {
+			return idiomChoice{}, meaning, "", river.JobSnooze(notConfiguredDelay)
+		}
+		if err != nil {
+			return idiomChoice{}, meaning, "", err
+		}
+		if meaning.Resolved() && strings.TrimSpace(meaning.SentenceTranslation) != "" {
+			return choice, meaning, "", nil
+		}
+		reason = domain.StudyOmissionMeaning
 		if meaning.UnresolvedKind == enrichment.ContextualGlossUnresolvedLiteralUse {
 			reason = domain.StudyOmissionLiteralUse
 		}
-		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, reason)
 	}
-	return w.Store.RecordStudyMaterialReady(ctx, owner, material.ID, domain.StudyMaterialReadyContent{
+	return idiomChoice{}, enrichment.ContextualMeaning{}, reason, nil
+}
+
+// maxIdiomAttempts bounds how many candidate sentences one Idiom's preparation
+// sends before giving up on it.
+const maxIdiomAttempts = 3
+
+func (w *MaterialWorker) recordIdiomReady(ctx context.Context, owner, id string, choice idiomChoice, meaning enrichment.ContextualMeaning) error {
+	return w.Store.RecordStudyMaterialReady(ctx, owner, id, domain.StudyMaterialReadyContent{
 		BookID: choice.sentenceRef.BookID, AnalysisRunID: choice.sentenceRef.AnalysisRunID, CorpusID: choice.sentenceRef.CorpusID,
 		SentenceOrdinal: choice.sentenceRef.SentenceOrdinal, TokenOrdinal: int64(choice.matched[0]),
 		Sentence: choice.sentence, TargetWord: strings.Join(choice.forms, " "),
@@ -98,6 +127,8 @@ type idiomChoice struct {
 	matched []int
 	forms   []string
 	quality sentencequality.SentenceQuality
+	// senses are the matched entry's senses (every part of speech pooled).
+	senses []enrichment.LexicalSense
 	// inReading is set for a sentence of the Current reading.
 	inReading bool
 	offset    int64
@@ -119,12 +150,12 @@ func (r *idiomReader) entry(ctx context.Context, headword string) (idiom.Entry, 
 	return idiom.Entry{}, false, nil
 }
 
-// bestSentence chooses the Idiom's sentence from the candidate sentences: those
+// rankedSentences returns the usable sentences of the Idiom, best first: those
 // where the matcher finds the headword on the effective lemmas, that are not
 // retired and that pass the sentence-quality gate. The Current reading's come
 // first; within each group the best GDEX score, quality score and source
-// position win, so the choice is deterministic.
-func (r *idiomReader) bestSentence(ctx context.Context, entry idiom.Entry, sentences []persistence.StudyIdiomSentence, retired []domain.StudyOccurrenceRef) (idiomChoice, bool, error) {
+// position win, so the order is deterministic.
+func (r *idiomReader) rankedSentences(ctx context.Context, entry idiom.Entry, sentences []persistence.StudyIdiomSentence, retired []domain.StudyOccurrenceRef) ([]idiomChoice, error) {
 	var inReading, elsewhere []idiomChoice
 	for _, sentence := range sentences {
 		ref := domain.StudyOccurrenceRef{BookID: sentence.BookID, AnalysisRunID: sentence.AnalysisRunID, CorpusID: sentence.CorpusID, SentenceOrdinal: sentence.SentenceOrdinal}
@@ -133,7 +164,7 @@ func (r *idiomReader) bestSentence(ctx context.Context, entry idiom.Entry, sente
 		}
 		choice, ok, err := r.choose(ctx, entry, sentence, ref)
 		if err != nil {
-			return idiomChoice{}, false, err
+			return nil, err
 		}
 		if !ok {
 			continue
@@ -145,11 +176,9 @@ func (r *idiomReader) bestSentence(ctx context.Context, entry idiom.Entry, sente
 		}
 	}
 	for _, group := range [][]idiomChoice{inReading, elsewhere} {
-		if best, ok := bestIdiomChoice(group); ok {
-			return best, true, nil
-		}
+		sort.SliceStable(group, func(i, j int) bool { return betterIdiomChoice(group[i], group[j]) })
 	}
-	return idiomChoice{}, false, nil
+	return append(inReading, elsewhere...), nil
 }
 
 // choose reads the sentence's Idiom candidates on its effective tokens and
@@ -173,7 +202,7 @@ func (r *idiomReader) choose(ctx context.Context, entry idiom.Entry, sentence pe
 			return idiomChoice{}, false, nil
 		}
 		ref.TokenOrdinal = int64(matched[0])
-		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset}, true, nil
+		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset}, true, nil
 	}
 	return idiomChoice{}, false, nil
 }
@@ -195,19 +224,8 @@ func matchedForms(tokens []analyzer.Token, ordinals []int) ([]string, []int) {
 	return forms, kept
 }
 
-// bestIdiomChoice orders accepted sentences by descending GDEX score,
-// descending quality score, then source position.
-func bestIdiomChoice(choices []idiomChoice) (idiomChoice, bool) {
-	var best idiomChoice
-	found := false
-	for _, choice := range choices {
-		if !found || betterIdiomChoice(choice, best) {
-			best, found = choice, true
-		}
-	}
-	return best, found
-}
-
+// betterIdiomChoice orders by descending GDEX score, descending quality
+// score, then source position.
 func betterIdiomChoice(a, b idiomChoice) bool {
 	switch {
 	case a.quality.GDEXScore != b.quality.GDEXScore:

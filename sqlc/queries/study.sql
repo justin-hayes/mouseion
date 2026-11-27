@@ -70,6 +70,7 @@ SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discr
 SELECT state, count(*)::bigint AS total
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND superseded_at IS NULL
+   AND item_kind = 'word' -- Idioms are counted when Today introduces them (#2754)
  GROUP BY state;
 
 -- name: ReserveStudyMaterial :one

@@ -158,3 +158,11 @@ func TestWorkIdiomPreparesNothingWhileTheSwitchIsOff(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkIdiomTriesTheNextSentenceWhenTheBestIsLiteral(t *testing.T) {
+	store := &fakeStore{idiomSentences: []persistence.StudyIdiomSentence{idiomSentence(otherBook, 1, "mit", false), idiomSentence(otherBook, 2, "mit", false)}}
+	enricher := &fakeEnricher{idiom: enrichment.ContextualMeaning{SentenceTranslation: "x", UnresolvedKind: enrichment.ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "no"}}
+	require.NoError(t, work(newIdiomWorker(store, enricher)))
+	assert.Len(t, enricher.idiomCards, 2, "every candidate sentence is asked before the Idiom is given up")
+	assert.Equal(t, domain.StudyOmissionLiteralUse, store.unpreparable)
+}
