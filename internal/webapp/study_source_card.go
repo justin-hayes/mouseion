@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
-	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/studycard"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -85,7 +85,7 @@ func attachSourceEvidence(ctx context.Context, lexical enrichment.LexicalProvide
 	}
 	passagePin := ""
 	if passage := card.Material.Passage; !passage.Empty() {
-		if label, err := cardexport.PassageContextLabel(passage.TranslationPin, passage.Citation); err == nil {
+		if label, err := studycard.PassageContextLabel(passage.TranslationPin, passage.Citation); err == nil {
 			source.Passage = passageView{Label: label, Text: passage.Text}
 			passagePin = passage.TranslationPin
 		}
@@ -186,7 +186,7 @@ func sourceNotices(policy cardpolicy.Policy, dictionaryPin string, passagePins .
 			continue
 		}
 		seen[pin] = struct{}{}
-		if notice, err := cardexport.PassageNotice(pin); err == nil {
+		if notice, err := studycard.PassageNotice(pin); err == nil {
 			notices = append(notices, notice)
 		}
 	}

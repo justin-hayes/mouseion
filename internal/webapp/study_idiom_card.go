@@ -3,7 +3,7 @@ package webapp
 import (
 	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/cardexport"
+	"github.com/justin-hayes/mouseion/internal/studycard"
 )
 
 // sentenceSegment is a run of an Idiom card's sentence: Marked runs are the
@@ -21,7 +21,7 @@ type sentenceSegment struct {
 func (f *cardFace) markIdiom(sentence string, forms []string, translation string, targets []string) {
 	f.Idiom = true
 	f.Segments = segmentMarked(sentence, forms)
-	f.TranslationHTML = cardexport.HighlightEnglishTargets(translation, targets, "")
+	f.TranslationHTML = studycard.HighlightEnglishTargets(translation, targets, "")
 }
 
 // segmentMarked splits the sentence around the forms, taken in order, each the
