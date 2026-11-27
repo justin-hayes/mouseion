@@ -94,7 +94,7 @@ func TestStudyTodayIntroducesAnIdiomAndShowsItsIdiomCard(t *testing.T) {
 	require.True(t, card.IsIdiom())
 	front := s.page()
 	for _, word := range []string{"mit", "dem", "haus"} {
-		assert.Contains(t, front, `<mark class="study-card__target">`+word+`</mark>`, "every matched word is marked")
+		assert.Contains(t, front, `<mark class="study-card__target"><strong>`+word+`</strong></mark>`, "every matched word is marked")
 	}
 	assert.NotContains(t, front, "study-kind", "the idiom label is on the answer side")
 	assert.NotContains(t, front, "study-gloss")
@@ -151,7 +151,7 @@ func TestStudyTodayReviewsAnIdiomAfterTheSwitchIsTurnedOff(t *testing.T) {
 	assert.Equal(t, 3, s.today().Remaining, "the Idiom's review is due with the words'")
 	card := s.showIdiomCard()
 	assert.Equal(t, http.StatusOK, getAs(t, s.h, "/de/study", s.cookies).Code)
-	assert.Contains(t, s.page(), `<mark class="study-card__target">mit</mark>`)
+	assert.Contains(t, s.page(), `<mark class="study-card__target"><strong>mit</strong></mark>`)
 	s.grade(card, "got-it")
 	assert.Len(t, s.reviewLog(card.ID), 2)
 }

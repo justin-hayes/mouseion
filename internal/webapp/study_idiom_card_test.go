@@ -23,3 +23,8 @@ func TestSegmentMarkedSkipsAFormItCannotFindAndKeepsTheSentenceWhole(t *testing.
 func TestIdiomFormsSplitsTheTargetWord(t *testing.T) {
 	assert.Equal(t, []string{"mit", "dem", "haus"}, idiomForms(" mit dem  haus "))
 }
+
+func TestSegmentMarkedPrefersTheTightestRunOfForms(t *testing.T) {
+	segments := segmentMarked("Si dice in paese che sia in gamba", []string{"in", "gamba"})
+	assert.Equal(t, []sentenceSegment{{Text: "Si dice in paese che sia "}, {Text: "in", Marked: true}, {Text: " "}, {Text: "gamba", Marked: true}}, segments)
+}

@@ -199,7 +199,7 @@ templ cardFaceView(language, prefix string, face cardFace) {
 		if face.Idiom {
 			for _, segment := range face.Segments {
 				if segment.Marked {
-					<mark class="study-card__target">{ segment.Text }</mark>
+					<mark class="study-card__target"><strong>{ segment.Text }</strong></mark>
 				} else {
 					{ segment.Text }
 				}
