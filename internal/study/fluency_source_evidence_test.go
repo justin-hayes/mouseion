@@ -7,6 +7,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/sourceevidence"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -303,4 +304,14 @@ func TestGreekFluencyContextCitingAnotherSenseOfTheLearnedEntryIsStillChecked(t 
 	require.Len(t, enricher.variant, 2, "a sub-sense of the same entry is the agreement check's to judge")
 	require.Len(t, store.recorded, 2)
 	assert.Equal(t, []string{"n1"}, store.recorded[0].Cited.EntryIDs)
+}
+
+func TestCitedSenseDefinitionsFallBackToGlossesForAGlossOnlySense(t *testing.T) {
+	entry := enrichment.LatinLSEntry{EntryID: "n9", Senses: []enrichment.LatinLSSense{
+		{ID: "n9.0", Level: 1, Definitions: []string{"to say"}},
+		{ID: "n9.1", Level: 1, Glosses: []string{"to plead"}},
+	}}
+	resolution := sourceevidence.Resolution{Entries: sourceevidence.BuildLewisShort([]enrichment.LatinLSEntry{entry}, nil, nil)}
+	cited := domain.StudyCitations{SenseIDs: []string{"n9.1"}, EntryIDs: []string{"n9"}}
+	assert.Equal(t, []string{"to plead"}, citedSenseDefinitions(resolution, cited), "the pass sends a sense's glosses when it has no definitions, so agreement sees the same text")
 }

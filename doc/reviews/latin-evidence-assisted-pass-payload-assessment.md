@@ -219,9 +219,11 @@ The Latin evidence run for #2768 (`doc/evidence/latin-study-evidence-run-2026-11
 
 | Request | Senses | Encoded request | Approx. tokens |
 | --- | --- | --- | --- |
-| Capped at 8 senses (before) | 8 | 3,833 bytes | ~960 |
+| Capped at 8 senses, round-robin 4 + 4 (before) | 8 | 3,770 bytes | ~940 |
 | Large synthetic *dico*-like entry, uncapped (after) | 41 | 8,857 bytes (8.6 KiB) | ~2,200 |
 
 The user message alone is 5,562 bytes. The evidence run's largest real request was 6,112 bytes. Cost grows linearly, about 130 bytes per sense, and a request is sent once per Study pass of a word. Most lemmas have few senses and cost about the same as before. `TestLatinStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget` fails if this fixture's request exceeds 16 KiB or drops a sense.
 
 **Disposition, if approved.** The existing Latin disposition is extended to uncapped candidate senses for Study. No change to `latinEvidenceAssistedPassAssessment`.
+
+**Fluency agreement.** A Fluency context can now cite a gloss-only sense past the old cap. The agreement check reads a cited sense's definitions, or its glosses when it has none, the same text the pass sent; this adds no new field to the agreement payload.
