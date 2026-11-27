@@ -16,7 +16,8 @@ import (
 )
 
 // ListStudyCandidates returns the effective vocabulary identities Study could
-// offer as new words, unordered: the domain owns the stream order. Known and
+// offer as new words from the Corpus (the analysed Books still in My Books, Read
+// Books included), unordered: the domain owns the stream order. Known and
 // Reserved vocabulary are not consulted.
 func (s *PostgresStore) ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error) {
 	language = canonicalization.NormalizeLanguage(language)

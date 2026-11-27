@@ -57,6 +57,7 @@ func studyScenarios() []Scenario {
 			assert.Empty(t, other, "candidates are scoped to the study language")
 		}},
 		studyCandidatesAmongScenario(),
+		{Name: "study candidates come from the Corpus: Read Books supply them and a removed Book stops, keeping its words' progress", Run: studyCorpusScenario},
 		{Name: "study candidates apply confirmed corrections and exclusions and ignore unanalyzed or other-language Books", Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			bookID := seedReviewBook(t, h) // two occurrences of "weg"
@@ -474,4 +475,49 @@ func studyCandidatesAmongScenario() Scenario {
 			require.Empty(t, other, "another learner's Books are not candidates")
 		})
 	}}
+}
+
+// studyCorpusScenario holds the Corpus (ADR 0136 §2): the analysed Books in My
+// Books, Read Books included, supply the Study stream. Removing a Book stops
+// its words being offered but costs no Study progress, material or review.
+func studyCorpusScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner := h.Seeds().Owner()
+	read := h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: []OccurrenceSeed{{Surface: "Haus", Lemma: "haus", UPOS: "NOUN"}}})
+	toRead := h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: []OccurrenceSeed{{Surface: "Hund", Lemma: "hund", UPOS: "NOUN"}}})
+	require.NoError(t, h.BookState().MarkBookPreviouslyRead(owner, read))
+
+	lemmas := func() []string {
+		candidates, err := h.Study().ListStudyCandidates(owner, Language)
+		require.NoError(t, err)
+		var found []string
+		for _, candidate := range candidates {
+			found = append(found, candidate.CanonicalLemma)
+		}
+		return found
+	}
+	require.ElementsMatch(t, []string{"haus", "hund"}, lemmas(), "a Read Book supplies Study candidates")
+
+	word := introducedStudyWord(t, h, owner, studyNoun("haus"))
+	require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, read))
+	assert.Equal(t, []string{"hund"}, lemmas(), "a removed Book's words are no longer offered")
+	among, err := h.Study().ListStudyCandidatesAmong(owner, Language, []domain.StudyItem{studyNoun("haus"), studyNoun("hund")})
+	require.NoError(t, err)
+	require.Len(t, among, 1)
+	assert.Equal(t, "hund", among[0].CanonicalLemma)
+
+	progress, err := h.StudyProgress().ListStudyProgress(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, progress, 1, "Remove keeps Study progress")
+	assert.Equal(t, word.ID, progress[0].ID)
+	material, err := h.Study().ListCurrentStudyMaterial(owner, Language)
+	require.NoError(t, err)
+	require.Len(t, material, 1, "Remove keeps Study material")
+	assert.Equal(t, domain.StudyMaterialReady, material[0].State)
+	card, err := h.StudyProgress().NextStudyCard(owner, Language, time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC))
+	require.NoError(t, err, "reviews continue")
+	assert.Equal(t, word.ID, card.Progress.ID)
+
+	require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, toRead))
+	assert.Empty(t, lemmas(), "the Corpus is the Books in My Books")
 }
