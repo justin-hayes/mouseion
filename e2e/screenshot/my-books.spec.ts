@@ -335,10 +335,9 @@ async function seedKnownVocabulary(page: Page, target: ManifestBook): Promise<vo
 
 async function startReading(page: Page, book: ManifestBook): Promise<void> {
   await page.goto('/de/reading');
-  const start = chooserItem(page, book).locator('details').filter({ hasText: 'Start reading' });
-  await expect(start, `${book.title} has a Start reading control`).toHaveCount(1, { timeout: 30_000 });
-  await start.locator('summary').click();
-  await start.getByRole('button', { name: 'Confirm start reading' }).click();
+  const start = chooserItem(page, book).getByRole('button', { name: 'Read next' });
+  await expect(start, `${book.title} has a Read next control`).toHaveCount(1, { timeout: 30_000 });
+  await start.click();
   await expect(page, `starting ${book.title} as the Current reading`).toHaveURL(/\/reading\?message=/, { timeout: 30_000 });
 }
 

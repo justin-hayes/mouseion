@@ -99,7 +99,7 @@ test.describe('Analysis evidence situations', () => {
         // a newer run's recovery stays in My Books, not in the chooser.
         await expect(candidate.locator('.reading-chooser-entry__evidence')).toContainText('45,678 of 123,456 word occurrences');
         // A current reading exists in the fixture, so the chooser offers the switch.
-        await expect(candidate.locator('summary').filter({ hasText: 'Switch to this book' })).toBeVisible();
+        await expect(candidate.getByRole('button', { name: 'Read next' })).toBeVisible();
         await expect(candidate.getByRole('link', { name: 'Review a word in this Book' })).toBeVisible();
       }
       if (situation.chooserBand === 'Analysis in progress') {

@@ -26,10 +26,10 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
   await finishDisclosure.locator('summary').click();
   await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toBeVisible();
   await expect(finishForm.getByRole('button', { name: 'Mark reading finished' })).toHaveClass(/\bbutton\b/);
-  await expect(goal).toContainText('Record the reading achievement');
+  await expect(goal).toContainText('This changes no vocabulary');
   await expect(finishForm.locator('input[name="csrf_token"]')).toHaveCount(1);
-  await expect(finishForm.locator('input[name="expected_current_book_id"]')).toHaveCount(1);
-  await expect(finishForm.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(1);
+  await expect(finishForm.locator('input[name="expected_current_book_id"]')).toHaveCount(0);
+  await expect(finishForm.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(0);
 
   for (const [label, button] of [
     ['End current reading', 'Confirm end current reading'],
@@ -40,10 +40,8 @@ test('Current reading exposes a native reading-finish confirmation without JavaS
   }
 
   await page.goto('/de/reading/switch');
-  const switchCandidate = page.locator('.reading-chooser-book').filter({ hasText: 'Switch to this book' }).first();
-  const switchDisclosure = switchCandidate.locator('details').filter({ hasText: 'Switch to this book' }).first();
-  await switchDisclosure.locator('summary').click();
-  await expect(switchDisclosure.getByRole('button', { name: /Confirm switch to this book/ })).toBeVisible();
+  const switchCandidate = page.locator('.reading-chooser-book').filter({ has: page.getByRole('button', { name: 'Read next' }) }).first();
+  await expect(switchCandidate.getByRole('button', { name: 'Read next' })).toBeVisible();
   await context.close();
 });
 
@@ -60,15 +58,14 @@ test('finishing current reading records Read history and supports reading again'
     const title = 'Italian route baseline';
     const candidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
     await expect(candidate.locator('.reading-chooser-entry__evidence')).toContainText('Below 95%');
-    await candidate.locator('details').filter({ hasText: 'Start reading' }).locator('summary').click();
-    await candidate.getByRole('button', { name: 'Confirm start reading' }).click();
+    await candidate.getByRole('button', { name: 'Read next' }).click();
     await expect(page).toHaveURL(/\/reading\?message=/);
   }
   const title = (await currentReading.getByRole('heading', { level: 1 }).locator('a').textContent())?.trim() ?? '';
   expect(title).toBeTruthy();
   const finishDisclosure = currentReading.locator('details').filter({ hasText: 'Mark reading finished' }).first();
   await finishDisclosure.locator('summary').click();
-  await expect(finishDisclosure).toContainText('Record the reading achievement');
+  await expect(finishDisclosure).toContainText('This changes no vocabulary');
   await finishDisclosure.getByRole('button', { name: 'Mark reading finished' }).click();
 
   await expect(page.getByRole('heading', { name: /Reading finished/i })).toBeVisible();
@@ -78,7 +75,7 @@ test('finishing current reading records Read history and supports reading again'
   await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
   await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
   await expect(page.locator('#primary-goal-section')).toHaveClass(/journey-finish-outcome/);
-  await expect(page.locator('#primary-goal-section')).toContainText('Vocabulary transition');
+  await expect(page.locator('#primary-goal-section')).not.toContainText('Vocabulary transition');
   await expect(page.locator('#primary-goal-finish-heading')).toBeFocused();
   await expect(page.getByRole('link', { name: 'Choose a To Read book' })).toHaveAttribute('href', '/it/reading');
   await page.goto('/it/library?history=read');

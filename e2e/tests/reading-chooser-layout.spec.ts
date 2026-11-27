@@ -13,7 +13,7 @@ test('switch chooser keeps Book actions with identity and coverage in the margin
   await expect(candidate.getByRole('heading', { name: 'Route match: familiar German' })).toBeVisible();
   const identity = candidate.locator('.reading-chooser-entry__identity');
   await expect(identity).toContainText('By');
-  await expect(identity.locator('summary').filter({ hasText: 'Switch to this book' })).toBeVisible();
+  await expect(identity.getByRole('button', { name: 'Read next' })).toBeVisible();
   await expect(identity.getByRole('link', { name: 'Review a word in this Book' })).toHaveAttribute('href', /\/lemma-review$/);
   const evidence = candidate.locator('.reading-chooser-entry__evidence');
   await expect(evidence).toContainText(/Mature vocabulary coverage:\s*\d+\.\d%/);
@@ -33,6 +33,6 @@ test('switch chooser keeps Book actions with identity and coverage in the margin
   expect(await noOverflow()).toBe(true);
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
   expect(await noOverflow()).toBe(true);
-  await expect(identity.locator('summary').filter({ hasText: 'Switch to this book' })).toBeVisible();
+  await expect(identity.getByRole('button', { name: 'Read next' })).toBeVisible();
   await expect(retry).toBeVisible();
 });

@@ -189,12 +189,10 @@ test.describe('authenticated learner smoke', () => {
       expect(enlargedTextOverflow).toBe(false);
 
       await switchLink.click();
-      const candidateConfirmation = noScript.locator('details.confirmation').filter({ hasText: 'Switch to this book' }).first();
-      const candidateSummary = candidateConfirmation.locator('summary');
-      await candidateSummary.focus();
-      await noScript.keyboard.press('Space');
-      await expect(candidateConfirmation).toHaveAttribute('open', '');
-      await expect(candidateConfirmation.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+      const readNext = noScript.getByRole('button', { name: 'Read next' }).first();
+      await readNext.focus();
+      await expect(readNext).toBeFocused();
+      await expect(readNext).toBeVisible();
     } finally {
       await noScript.close();
     }

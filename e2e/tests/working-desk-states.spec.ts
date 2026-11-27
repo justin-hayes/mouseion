@@ -166,7 +166,7 @@ test('Working desk states fit 390 and 320 px without page overflow, with a compl
       const disclosure = page.locator('details.reading-supporting');
       await expect(disclosure.locator(':scope > summary'), label).toBeVisible();
       expect(await disclosure.evaluate(node => (node as HTMLDetailsElement).open), label).toBe(false);
-      await expect(page.getByRole('heading', { name: 'Reserved vocabulary', exact: true }), label).toBeHidden();
+      await expect(page.getByRole('heading', { name: 'Analysis', exact: true }), label).toBeHidden();
     }
   }
 });

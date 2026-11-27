@@ -33,7 +33,7 @@ test('Reading shows the current Book with Vocabulary Browse in the primary area 
   await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
   await expect(page.locator('.journey-list')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Read next' })).toHaveCount(0);
 });
 
 test('Reading chooser lists the other To Read books and returns to the current Book', async ({ page }) => {
@@ -56,7 +56,7 @@ test('Reading keeps analysis details in a disclosure that is open on desktop and
   await page.goto('/de/reading');
   const disclosure = page.locator('details.reading-supporting');
   const summary = disclosure.locator(':scope > summary');
-  const reserved = page.getByRole('heading', { name: 'Reserved vocabulary', exact: true });
+  const analysis = page.getByRole('heading', { name: 'Analysis', exact: true });
 
   // The Prepared deck is retired, so Reading shows no deck status or download.
   await expect(page.locator('.goal-card__deck')).toHaveCount(0);
@@ -65,13 +65,13 @@ test('Reading keeps analysis details in a disclosure that is open on desktop and
   if (isCompact(test.info().project.name)) {
     await expect(summary).toBeVisible();
     expect(await disclosure.evaluate(node => (node as HTMLDetailsElement).open)).toBe(false);
-    await expect(reserved).toBeHidden();
+    await expect(analysis).toBeHidden();
     await summary.click();
-    await expect(reserved).toBeVisible();
+    await expect(analysis).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
   } else {
     await expect(summary).toBeHidden();
-    await expect(reserved).toBeVisible();
+    await expect(analysis).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
   }
 });

@@ -14,8 +14,7 @@ async function signIn(page: Page, disableEnhancement = false) {
 async function switchCurrentReadingTo(page: Page, title: string) {
   await page.goto('/de/reading/switch');
   const candidate = page.locator('li.reading-chooser-book').filter({ hasText: title });
-  await candidate.locator('details').filter({ hasText: 'Switch to this book' }).locator('summary').click();
-  await candidate.getByRole('button', { name: 'Confirm switch to this book' }).click();
+  await candidate.getByRole('button', { name: 'Read next' }).click();
   await expect(page).toHaveURL(/\/reading\?message=/);
 }
 
@@ -32,9 +31,7 @@ async function switchToRouteMatch(page: Page) {
   const currentID = await current.count() ? await current.getAttribute('id') : null;
   if (!currentID) {
     const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
-    const start = candidate.locator('details').filter({ hasText: 'Start reading' });
-    await start.locator('summary').click();
-    await start.getByRole('button', { name: 'Confirm start reading' }).click();
+    await candidate.getByRole('button', { name: 'Read next' }).click();
     await expect(page).toHaveURL(/\/reading\?message=/);
     return;
   }
@@ -54,9 +51,7 @@ async function restoreFixtureBookCurrent(page: Page) {
     return;
   }
   const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Der lange Weg nach Hause' });
-  const start = candidate.locator('details').filter({ hasText: 'Start reading' });
-  await start.locator('summary').click();
-  await start.getByRole('button', { name: 'Confirm start reading' }).click();
+  await candidate.getByRole('button', { name: 'Read next' }).click();
   await expect(page).toHaveURL(/\/reading\?message=/);
 }
 

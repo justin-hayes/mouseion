@@ -310,8 +310,7 @@ test.describe('responsive and theme regression coverage', () => {
       test.info().project.name.startsWith('compact') ? 'flex' : 'grid',
     );
     await openSupportingDetails(page);
-    await expect(currentBook.getByRole('heading', { name: 'Reserved vocabulary' })).toBeVisible();
-    await expect(currentBook).toContainText('Reserved vocabulary');
+    await expect(currentBook.getByRole('heading', { name: 'Reserved vocabulary' })).toHaveCount(0);
     await expect(currentBook.getByRole('heading', { name: 'Analysis' })).toBeVisible();
     await expect(currentBook.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
     await expect(currentBook.getByRole('link', { name: 'Open focused deck task' })).toHaveCount(0);
@@ -890,10 +889,9 @@ test.describe('responsive and theme regression coverage', () => {
         expect(action.right, action.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
       }
     } else {
-      const eligibleCandidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('button', { name: 'Confirm start reading' }) }).first();
+      const eligibleCandidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('button', { name: 'Read next' }) }).first();
       await expect(eligibleCandidate).toBeVisible();
-      await eligibleCandidate.locator('details').filter({ hasText: 'Start reading' }).locator('summary').click();
-      const startAction = eligibleCandidate.getByRole('button', { name: 'Confirm start reading' });
+      const startAction = eligibleCandidate.getByRole('button', { name: 'Read next' });
       await expect(startAction).toBeVisible();
       const box = await startAction.boundingBox();
       expect(box).not.toBeNull();
