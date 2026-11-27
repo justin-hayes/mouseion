@@ -18,16 +18,18 @@ speech. Both classical treebanks tag some function words ADV, so they pass.
   1,638 and οὐ 1,429. In the #2767 evidence run, 11 of the first 50 new words
   were such words, and the pass wrote grammar notes for them, not meanings.
 - **Latin (OLA).** The native AGDT tags map to UD in `mapUPOS`: `c` becomes
-  CCONJ or SCONJ, `g` PART and `d` ADV. The Latin check ran over 828,000 tokens
-  of Caesar, Sallust, Nepos and Livy (OLA v0.2.0, the pinned source; the live
-  database holds no Latin yet). Conjunctions are tagged `c` and never reach
-  the filter: *que* (14,452), *sed* (2,611), *autem*, *enim*, *nam*, *at*,
-  *atque*, *aut*, *nisi*, *quia*. The rest pass as `d`: *non* (4,601), *ne*
-  (4,788 as `d`, 1,778 as `c`), *tamen* (1,038), *quoque* (1,026), *haud*
-  (908), *quidem* (783), *etiam* (314 `d`, 1,088 `c`), *ergo* (110), *et* (81
-  `d`, 16,106 `c`), *vel* (32), *vero* (20), *igitur* (12) and *nonne*, *num*.
-  A word is therefore tagged by its use, and the same lemma can pass in one
-  sentence and not in the next.
+  CCONJ or SCONJ, `g` PART and `d` ADV. The Latin check tallied canonical lemma
+  by tag over 2.65 million tokens of seven Works (OLA v0.2.0, the pinned
+  source; the live database holds no Latin yet): Caesar, Sallust, Nepos, Livy,
+  Cicero, Pliny and Seneca. Most conjunctions are tagged `c` and never reach
+  the filter: *que* (31,643), *sed* (13,878), *aut* (10,850), *autem* (5,221),
+  *at*, *namque*, *quia*, *seu*. Others pass as `d` at least sometimes, and the
+  same lemma can pass in one sentence and not in the next: *non* (28,854 `d`),
+  *ne* (15,790 `d`, 4,820 `c`), *quidem* (5,570), *tamen* (5,563), *quoque*
+  (2,515), *etiam* (2,519 `d`, 5,696 `c`), *ergo* (1,457), *haud* (1,033),
+  *num* (678), *et* (340 `d`, 53,904 `c`), *nonne* (309), *vel* (258), *vero*
+  (85), *igitur* (12), *ve* (12), *nec* (8), *enim* (2), *nam* (1), *atque* (1)
+  and *itaque* (1).
 
 ## Decision
 
@@ -44,13 +46,14 @@ languages, including Modern Greek, are unchanged.
 lemma μη the treebank also emits), οὐδέ and μηδέ. ὡς, οὕτως, νῦν, ἐνταῦθα and
 the pronouns αὐτός, οὗτος, τις stay eligible.
 
-**Latin (`la`, canonical lemmas, so v is u).** *et*, *que*, *ue*, *ac*, *atque*,
-*aut*, *uel*, *nec*, *neque*, *sed*, *at*, *autem*, *enim*, *nam*, *namque*,
-*uero*, *igitur*, *ergo*, *itaque*, *tamen*, *quoque*, *quidem*, *etiam*,
-*non*, *ne*, *nonne*, *num* and *haud*. Words the check found as ADV are the
-ones that matter; the conjunctions tagged `c` are listed because the tags vary
-by sentence. Deictic and manner adverbs (*nunc*, *ita*, *sic*, *iam*, *tum*,
-*semper*) stay eligible.
+**Latin (`la`, canonical lemmas, so v is u).** Only function words the check
+found tagged ADV: *et*, *ue*, *uel*, *nec*, *atque*, *enim*, *nam*, *uero*,
+*igitur*, *ergo*, *itaque*, *tamen*, *quoque*, *quidem*, *etiam*, *non*, *ne*,
+*nonne*, *num* and *haud*. The conjunctions that were always `c` (*que*, *sed*,
+*aut*, *autem*, *at*, *ac*, *neque*, *namque*) are not listed, as they never pass
+the filter. Subordinators that are only occasionally mis-tagged (*si*, *nisi*,
+*ut*, *sive*, with 2 to 116 ADV tokens) and the deictic and manner adverbs
+(*nunc*, *ita*, *sic*, *iam*, *tum*, *semper*) stay eligible.
 
 ## Consequences
 
@@ -59,6 +62,11 @@ by sentence. Deictic and manner adverbs (*nunc*, *ita*, *sic*, *iam*, *tum*,
   untouched.
 - A function word tagged with another eligible part of speech by a parse error
   (for example Greek VERB οὐ, twice in the Corpus) stays eligible.
+- Stored Browse counts carry the old projection, so the builder version moves
+  from 4 to 5. Startup reconciliation then rebuilds each Book's counts, and
+  Study and coverage read the new ones.
+- The Latin dictionary-match gate counts eligible occurrences, so a classical
+  Work's match rate is now measured without these words.
 - The lists are code, so a change is a reviewed change.
 
 ## Alternatives considered

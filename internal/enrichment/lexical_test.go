@@ -163,13 +163,13 @@ func TestIsContextWordUsesTheFrenchStopwordSet(t *testing.T) {
 }
 
 func TestIsContextWordUsesTheClassicalFunctionWordSets(t *testing.T) {
-	for _, word := range []string{"δέ", "καί", "οὐ", "οὐκ", "μή", "ἄν", "ἀλλά"} {
+	for _, word := range []string{"δέ", "καί", "οὐ", "οὐκ", "μή", "ἄν", "ἀλλά", "δὲ", "καὶ", "γὰρ"} {
 		assert.False(t, isContextWord("grc", word), word)
 	}
 	for _, word := range []string{"ὡς", "νῦν", "λόγος", "αὐτός"} {
 		assert.True(t, isContextWord("grc", word), word)
 	}
-	for _, word := range []string{"et", "non", "ne", "uero", "tamen", "sed"} {
+	for _, word := range []string{"et", "non", "ne", "uero", "vero", "uel", "vel", "tamen", "Vero"} {
 		assert.False(t, isContextWord("la", word), word)
 	}
 	for _, word := range []string{"nunc", "rex", "ita"} {

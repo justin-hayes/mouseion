@@ -364,10 +364,19 @@ var classicalContextStopWords = map[string]map[string]struct{}{
 	"la":  lexicalFunctionWordSet("la"),
 }
 
+// greekGraveFunctionWords are the grave-accent surface forms of the listed
+// Greek function words, which running text uses before another word.
+var greekGraveFunctionWords = []string{"δὲ", "καὶ", "τὲ", "μὲν", "γὰρ", "δὴ", "ἀλλὰ", "ἢ", "μὴ", "οὐδὲ", "μηδὲ"}
+
 func lexicalFunctionWordSet(language string) map[string]struct{} {
 	set := map[string]struct{}{}
 	for _, lemma := range lexical.FunctionWordLemmas(language) {
 		set[lemma] = struct{}{}
+	}
+	if language == "grc" {
+		for _, form := range greekGraveFunctionWords {
+			set[form] = struct{}{}
+		}
 	}
 	return set
 }
@@ -386,8 +395,12 @@ func isContextWord(language, word string) bool {
 	case "fr":
 		_, stop := frenchContextStopWords[word]
 		return !stop
-	case "grc", "la":
-		_, stop := classicalContextStopWords[canonicalization.NormalizeLanguage(language)][word]
+	case "grc":
+		_, stop := classicalContextStopWords["grc"][word]
+		return !stop
+	case "la":
+		// Dictionary text and surfaces write v and j; the list is canonical.
+		_, stop := classicalContextStopWords["la"][canonicalization.Latin().Canonical(word)]
 		return !stop
 	default:
 		return true

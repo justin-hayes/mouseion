@@ -772,10 +772,10 @@ func TestGreekFunctionWordsLeaveVocabularySelection(t *testing.T) {
 func TestLatinFunctionWordsLeaveVocabularySelection(t *testing.T) {
 	counts := selectedCounts(t, languageFixture("la",
 		tok("non", "non", "ADV"), tok("ne", "ne", "ADV"), tok("et", "et", "ADV"),
-		tok("vero", "uero", "ADV"), tok("tamen", "tamen", "ADV"),
+		tok("vero", "uero", "ADV"), tok("que", "que", "ADV"), tok("tamen", "tamen", "ADV"),
 		tok("vero", "uero", "VERB"), tok("nunc", "nunc", "ADV"), tok("rex", "rex", "NOUN"),
 	))
-	assert.Equal(t, map[string]int{"uero/VERB": 1, "nunc/ADV": 1, "rex/NOUN": 1}, counts)
+	assert.Equal(t, map[string]int{"que/ADV": 1, "uero/VERB": 1, "nunc/ADV": 1, "rex/NOUN": 1}, counts)
 }
 
 func TestOccurrenceEligibleKeepsModernGreekFunctionWords(t *testing.T) {

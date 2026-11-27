@@ -49,6 +49,7 @@ func TestIsVocabularyStopword(t *testing.T) {
 		{"Latin ADV ne", "la", "ne", "ADV", true},
 		{"Latin ADV et", "la", "et", "ADV", true},
 		{"Latin ADV tamen", "la", "tamen", "ADV", true},
+		{"Latin que is a CCONJ in the treebank and never listed as ADV", "la", "que", "ADV", false},
 		{"Latin canonical uero (v folds to u)", "la", "uero", "ADV", true},
 		{"Latin VERB homograph uero stays eligible", "la", "uero", "VERB", false},
 		{"Latin NOUN homograph ne stays eligible", "la", "ne", "NOUN", false},

@@ -13,10 +13,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
-// Version 4 applies exact-snapshot speaker spans through selection.Project.
+// Version 5 drops the closed Ancient Greek and Latin function-word lists (ADR
+// 0140) from the projection. Version 4 applies exact-snapshot speaker spans through selection.Project.
 // Version 3 derived counts only through selection.Project (ADR 0087). Version 2
 // normalized identities like the projection in SQL; version 1 matched verbatim.
-const vocabularyBrowseCountBuilderVersion = 4
+const vocabularyBrowseCountBuilderVersion = 5
 
 var ErrBrowseCountDecisionsChanged = errors.New("occurrence decisions changed during Browse count rebuild")
 

@@ -32,9 +32,8 @@ var functionWordAdverbs = map[string][]string{
 		"τοίνυν", "μέντοι", "οὐ", "οὐκ", "οὐχ", "μή", "μη", "οὐδέ", "μηδέ",
 	},
 	"la": {
-		"et", "que", "ue", "ac", "atque", "aut", "uel", "nec", "neque", "sed", "at", "autem",
-		"enim", "nam", "namque", "uero", "igitur", "ergo", "itaque", "tamen", "quoque",
-		"quidem", "etiam", "non", "ne", "nonne", "num", "haud",
+		"et", "ue", "uel", "nec", "atque", "enim", "nam", "uero", "igitur", "ergo", "itaque",
+		"tamen", "quoque", "quidem", "etiam", "non", "ne", "nonne", "num", "haud",
 	},
 }
 
