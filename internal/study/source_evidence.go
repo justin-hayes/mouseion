@@ -68,19 +68,19 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	}
 	resolution, found := sourceevidence.ResolveStudy(ctx, evidence.Lexical, policy, material.CanonicalLemma, nil)
 	if !found {
-		return w.unpreparableNoDictionaryEntry(ctx, owner, material.ID, material.StudyIdentity, DictionaryPin(evidence.Lexical, policy))
+		return w.unpreparableNoDictionaryEntry(ctx, owner, material.ID, material.StudyItem, DictionaryPin(evidence.Lexical, policy))
 	}
 	senses := sourceevidence.PassSenses(policy, resolution.Entries)
 	if len(senses) == 0 || strings.TrimSpace(resolution.Pin) == "" {
 		// The entry has nothing the Gloss could cite.
-		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
+		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, domain.StudyOmissionMeaning)
 	}
-	choice, found, err := w.representativeSentence(ctx, owner, material.StudyIdentity)
+	choice, found, err := w.representativeSentence(ctx, owner, material.StudyItem)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionSentenceQuality)
+		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, domain.StudyOmissionSentenceQuality)
 	}
 	passage, err := sourceevidence.ResolvePassageOfBook(ctx, evidence.Translations, policy, owner, choice.occurrence.BookID, choice.citations)
 	if err != nil {
@@ -101,7 +101,7 @@ func (w *MaterialWorker) workSourceEvidence(ctx context.Context, owner string, m
 	refs, validCitations := citedSenses(resolution, meaning.CitedSenseIDs)
 	cited := citationsOf(resolution, refs)
 	if !validCitations || meaning.InvalidCitation || !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" || len(cited.SenseIDs) == 0 {
-		return w.unpreparable(ctx, owner, material.ID, material.StudyIdentity, domain.StudyOmissionMeaning)
+		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, domain.StudyOmissionMeaning)
 	}
 	return w.Store.RecordStudyMaterialReady(ctx, owner, material.ID, domain.StudyMaterialReadyContent{
 		BookID: choice.occurrence.BookID, AnalysisRunID: choice.occurrence.AnalysisRunID, CorpusID: choice.occurrence.CorpusID,

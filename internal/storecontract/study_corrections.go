@@ -16,11 +16,11 @@ import (
 // CompleteStudyReintroductions moves a word onto its ready replacement. A word
 // is withdrawn and returned with SetStudyWordWithdrawn.
 type StudyCorrectionsStore interface {
-	ListStudyOccurrences(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListStudyOccurrences(owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	// FindStudyOccurrences returns what the correction check decides from
 	// without listing every occurrence: the given source when it still resolves
 	// to the identity, otherwise one valid occurrence, otherwise none.
-	FindStudyOccurrences(owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
+	FindStudyOccurrences(owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
 	SupersedeStudyMaterial(owner, materialID string) error
 	SetStudyWordWithdrawn(owner, progressID string, withdrawn bool, now time.Time) error
 	CompleteStudyReintroductions(owner, language string, now time.Time) error
@@ -132,7 +132,7 @@ func studyCorrectionsScenarios() []Scenario {
 
 			first := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: weg, MaterialID: first}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: weg, MaterialID: first}})
 			require.NoError(t, err)
 			kept := domain.StudyMemory{State: domain.StudyStateReview, Due: now.Add(72 * time.Hour), Stability: 4.2, Difficulty: 5.1, ScheduledDays: 3, Reps: 2, Lapses: 1, LastReview: now}
 			listed, err := progressStore.ListStudyProgress(owner, Language)
@@ -217,7 +217,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NotEmpty(t, occurrences)
 			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: weg, MaterialID: id}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: weg, MaterialID: id}})
 			require.NoError(t, err)
 			listed, err := progressStore.ListStudyProgress(owner, Language)
 			require.NoError(t, err)
@@ -237,7 +237,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NoError(t, corrections.SetStudyWordWithdrawn(owner, listed[0].ID, false, now))
 			card, err := progressStore.NextStudyCard(owner, Language, now.Add(time.Hour))
 			require.NoError(t, err)
-			assert.Equal(t, weg, card.Progress.StudyIdentity, "it returns when evidence reappears")
+			assert.Equal(t, weg, card.Progress.StudyItem, "it returns when evidence reappears")
 		}},
 		{Name: "a word whose replacement material cannot be prepared is withdrawn", Run: func(t *testing.T, h Harness) {
 			owner, material, progressStore, corrections := h.Seeds().Owner(), h.Study(), h.StudyProgress(), h.StudyCorrections()
@@ -248,7 +248,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NotEmpty(t, occurrences)
 			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyIdentity: weg, MaterialID: id}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: weg, MaterialID: id}})
 			require.NoError(t, err)
 
 			require.NoError(t, corrections.SupersedeStudyMaterial(owner, id))
@@ -347,7 +347,7 @@ func studyCorrectionsScenarios() []Scenario {
 }
 
 // studyCorrectionMaterial prepares a word's material from one occurrence.
-func studyCorrectionMaterial(t *testing.T, store StudyStore, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) string {
+func studyCorrectionMaterial(t *testing.T, store StudyStore, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) string {
 	t.Helper()
 	id, created, err := store.ReserveStudyMaterial(owner, identity)
 	require.NoError(t, err)

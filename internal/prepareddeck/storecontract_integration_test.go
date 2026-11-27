@@ -407,7 +407,7 @@ func (h *postgresHarness) RepreparePreparation(owner, id, expectedSnapshotID str
 	return handle.Preparation, err
 }
 
-func (h *postgresHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+func (h *postgresHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidatesAmong(h.ctx, owner, language, identities)
 }
 
@@ -427,7 +427,7 @@ func (h *postgresHarness) CountStudyMaterial(owner, language string) (domain.Stu
 	return h.store.CountStudyMaterial(h.ctx, owner, language)
 }
 
-func (h *postgresHarness) ReserveStudyMaterial(owner string, identity domain.StudyIdentity) (string, bool, error) {
+func (h *postgresHarness) ReserveStudyMaterial(owner string, identity domain.StudyItem) (string, bool, error) {
 	return h.store.ReserveStudyMaterial(h.ctx, owner, identity)
 }
 

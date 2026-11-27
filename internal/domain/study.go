@@ -13,11 +13,69 @@ import (
 // ten (ADR 0134, spec #2691).
 const StudyPreparationWindow = 30
 
-// StudyIdentity is the full vocabulary identity Study progress and Study
-// material are owned by: learner (the caller's owner), study language, lemma,
-// part of speech and lexical discriminator (ADR 0134 §2).
-type StudyIdentity struct {
+// StudyItemKind is which kind of thing a Study item is (ADR 0137 §1). The zero
+// value is StudyItemWord, so an item built without naming a kind is a word.
+type StudyItemKind int
+
+const (
+	// StudyItemWord is a word, keyed by its full vocabulary identity.
+	StudyItemWord StudyItemKind = iota
+	// StudyItemIdiom is an Idiom, keyed by language and headword.
+	StudyItemIdiom
+)
+
+// String is the kind as stored: "word" or "idiom".
+func (k StudyItemKind) String() string {
+	if k == StudyItemIdiom {
+		return "idiom"
+	}
+	return "word"
+}
+
+// ParseStudyItemKind reads a stored kind. It reports false for any other text.
+func ParseStudyItemKind(text string) (StudyItemKind, bool) {
+	switch text {
+	case "word":
+		return StudyItemWord, true
+	case "idiom":
+		return StudyItemIdiom, true
+	}
+	return StudyItemWord, false
+}
+
+// StudyItem is what Study progress, Study material, Fluency contexts and Study
+// reports are owned by: learner (the caller's owner), study language and a key
+// that depends on the kind (ADR 0137 §1).
+//
+// A word is keyed by its full vocabulary identity: lemma, part of speech and
+// lexical discriminator (ADR 0134 §2). An Idiom is keyed by its headword, held
+// in CanonicalLemma, with UPOS and LexicalDiscriminator empty. Two items of
+// different kinds are never equal, so a word and an Idiom with the same text
+// never collide in a map or a uniqueness rule.
+type StudyItem struct {
+	ItemKind                                             StudyItemKind
 	Language, CanonicalLemma, UPOS, LexicalDiscriminator string
+}
+
+// WordItem is the word item of a full vocabulary identity.
+func WordItem(language, canonicalLemma, upos, lexicalDiscriminator string) StudyItem {
+	return StudyItem{Language: language, CanonicalLemma: canonicalLemma, UPOS: upos, LexicalDiscriminator: lexicalDiscriminator}
+}
+
+// IdiomItem is the Idiom item of a headword.
+func IdiomItem(language, headword string) StudyItem {
+	return StudyItem{ItemKind: StudyItemIdiom, Language: language, CanonicalLemma: headword}
+}
+
+// IsIdiom reports whether the item is an Idiom.
+func (i StudyItem) IsIdiom() bool { return i.ItemKind == StudyItemIdiom }
+
+// Headword is an Idiom's headword. It reports false for a word.
+func (i StudyItem) Headword() (string, bool) {
+	if !i.IsIdiom() {
+		return "", false
+	}
+	return i.CanonicalLemma, true
 }
 
 // StudyCandidate is one effective vocabulary identity that Study could offer
@@ -26,7 +84,7 @@ type StudyIdentity struct {
 // vocabulary are deliberately not part of a candidate: Study never consults
 // them (ADR 0134 §3).
 type StudyCandidate struct {
-	StudyIdentity
+	StudyItem
 	InCurrentReading    bool
 	PersonalOccurrences int64
 }
@@ -54,7 +112,10 @@ func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
 		if a.LexicalDiscriminator != b.LexicalDiscriminator {
 			return a.LexicalDiscriminator < b.LexicalDiscriminator
 		}
-		return a.Language < b.Language
+		if a.Language != b.Language {
+			return a.Language < b.Language
+		}
+		return a.ItemKind < b.ItemKind
 	})
 	return ordered
 }
@@ -78,10 +139,10 @@ const (
 // counts toward the window, so preparation stays about one day ahead and no
 // further. states holds each word's current material state; a missing word has
 // no material yet. ordered must already be in stream order.
-func StudyPreparationTargets(ordered []StudyCandidate, states map[StudyIdentity]StudyMaterialState) []StudyCandidate {
+func StudyPreparationTargets(ordered []StudyCandidate, states map[StudyItem]StudyMaterialState) []StudyCandidate {
 	targets := make([]StudyCandidate, 0, StudyPreparationWindow)
 	for _, candidate := range ordered {
-		if states[candidate.StudyIdentity] == StudyMaterialUnpreparable {
+		if states[candidate.StudyItem] == StudyMaterialUnpreparable {
 			continue
 		}
 		targets = append(targets, candidate)
@@ -99,7 +160,7 @@ func StudyPreparationTargets(ordered []StudyCandidate, states map[StudyIdentity]
 // only its reason.
 type StudyMaterial struct {
 	ID, OwnerID string
-	StudyIdentity
+	StudyItem
 	State          StudyMaterialState
 	OmissionReason string
 	// Source occurrence: the Book, analysis run, corpus, sentence and token the

@@ -660,7 +660,7 @@ type Querier interface {
 	// one made against the current pin, is left alone.
 	ReopenStudyMaterialNoDictionaryEntry(ctx context.Context, arg ReopenStudyMaterialNoDictionaryEntryParams) (int64, error)
 	RequeueDeckPreparation(ctx context.Context, arg RequeueDeckPreparationParams) (DeckPreparation, error)
-	// Starts a word's material as pending. A word that already has current
+	// Starts a Study item's material as pending. A word that already has current
 	// material returns no row.
 	ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMaterialParams) (string, error)
 	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)

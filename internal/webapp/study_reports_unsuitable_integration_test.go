@@ -211,7 +211,7 @@ func TestStudyRetiredOccurrenceSurvivesAnAnalysisUpdate(t *testing.T) {
 	// run at other ordinals.
 	newRun := s.republish(bookID, "")
 	newCorpus := s.corpusOfRun(newRun)
-	retired, err := s.store.ListRetiredStudyOccurrencesOfWord(s.ctx, s.owner.ID, haus.StudyIdentity)
+	retired, err := s.store.ListRetiredStudyOccurrencesOfWord(s.ctx, s.owner.ID, haus.StudyItem)
 	require.NoError(t, err)
 	moved := original.Source()
 	moved.AnalysisRunID, moved.CorpusID, moved.SentenceOrdinal = newRun, newCorpus, original.SentenceOrdinal+10

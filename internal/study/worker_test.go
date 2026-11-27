@@ -40,7 +40,7 @@ type fakeStore struct {
 	retired   []domain.StudyOccurrenceRef
 }
 
-func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return s.retired, nil
 }
 
@@ -89,7 +89,7 @@ func (s *fakeStore) RecordStudyMaterialNoDictionaryEntry(_ context.Context, _, _
 	return nil
 }
 
-func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return nil, s.occurrencesErr
 }
 

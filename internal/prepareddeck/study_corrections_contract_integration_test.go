@@ -11,11 +11,11 @@ import (
 
 func (h *postgresHarness) StudyCorrections() storecontract.StudyCorrectionsStore { return h }
 
-func (h *postgresHarness) ListStudyOccurrences(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (h *postgresHarness) ListStudyOccurrences(owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return h.store.ListStudyOccurrences(h.ctx, owner, identity)
 }
 
-func (h *postgresHarness) FindStudyOccurrences(owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+func (h *postgresHarness) FindStudyOccurrences(owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
 	return h.store.FindStudyOccurrences(h.ctx, owner, identity, source)
 }
 

@@ -178,7 +178,9 @@ func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[st
 // sentence where the word has its learned meaning.
 type FluencyContext struct {
 	ID, OwnerID, ProgressID string
-	Agreement               FluencyAgreement
+	// ItemKind is the kind of the Study item the context belongs to.
+	ItemKind  StudyItemKind
+	Agreement FluencyAgreement
 	// Reason is why the context does or does not use the learned meaning.
 	Reason FluencyReason
 	// Source occurrence of the sentence.
@@ -217,14 +219,17 @@ type FluencyCard struct {
 	Progress StudyProgress
 }
 
-func studyIdentityBefore(a, b StudyIdentity) bool {
+func studyIdentityBefore(a, b StudyItem) bool {
 	if a.CanonicalLemma != b.CanonicalLemma {
 		return a.CanonicalLemma < b.CanonicalLemma
 	}
 	if a.UPOS != b.UPOS {
 		return a.UPOS < b.UPOS
 	}
-	return a.LexicalDiscriminator < b.LexicalDiscriminator
+	if a.LexicalDiscriminator != b.LexicalDiscriminator {
+		return a.LexicalDiscriminator < b.LexicalDiscriminator
+	}
+	return a.ItemKind < b.ItemKind
 }
 
 // FluencyResponse is the learner's answer to a Fluency card. Fluency is

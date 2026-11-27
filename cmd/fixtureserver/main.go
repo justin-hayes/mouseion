@@ -164,7 +164,7 @@ func seedFluencyWordIfRequested(store *fixtures.Store) {
 // contexts, so the browser journey can show a Fluency card without weeks of
 // reviews. The fixture server binds no provider or River to prepare them.
 func seedFluencyWord(store *fixtures.Store) {
-	identity := domain.StudyIdentity{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}
+	identity := domain.StudyItem{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}
 	progressID := store.SeedMatureStudyWord(fixtures.OwnerID, identity, domain.StudyMaterialReadyContent{
 		BookID: fixtures.BookID, AnalysisRunID: fixtures.ResultRunID, CorpusID: "fixture-corpus",
 		SentenceOrdinal: 1, TokenOrdinal: 1,

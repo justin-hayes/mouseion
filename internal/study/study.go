@@ -186,15 +186,15 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 		return err
 	}
 	pin := s.currentDictionaryPin(language)
-	current := make(map[domain.StudyIdentity]domain.StudyMaterial, len(material))
-	states := make(map[domain.StudyIdentity]domain.StudyMaterialState, len(material))
+	current := make(map[domain.StudyItem]domain.StudyMaterial, len(material))
+	states := make(map[domain.StudyItem]domain.StudyMaterialState, len(material))
 	for _, item := range material {
-		current[item.StudyIdentity] = item
-		states[item.StudyIdentity] = item.State
+		current[item.StudyItem] = item
+		states[item.StudyItem] = item.State
 		if item.RetriesAgainstDictionary(pin) {
 			// Its omission was made against another dictionary: the word counts
 			// as waiting, not skipped, so it takes its place in the window.
-			states[item.StudyIdentity] = domain.StudyMaterialPending
+			states[item.StudyItem] = domain.StudyMaterialPending
 		}
 	}
 	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states)
@@ -207,9 +207,9 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 // prepareTargets enqueues each target whose material is not ready. A word
 // skipped for having no dictionary entry against another pin is made pending
 // again first, so it is prepared against the dictionary now loaded.
-func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyIdentity]domain.StudyMaterial, pin string) error {
+func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyItem]domain.StudyMaterial, pin string) error {
 	for _, target := range targets {
-		existing, ok := current[target.StudyIdentity]
+		existing, ok := current[target.StudyItem]
 		if ok && existing.State == domain.StudyMaterialReady {
 			continue
 		}
@@ -219,7 +219,7 @@ func (s *Service) prepareTargets(ctx context.Context, owner string, targets []do
 				return err
 			}
 		}
-		if err := s.enqueueWord(ctx, owner, target.StudyIdentity, existing.ID); err != nil {
+		if err := s.enqueueWord(ctx, owner, target.StudyItem, existing.ID); err != nil {
 			return err
 		}
 	}
@@ -229,13 +229,13 @@ func (s *Service) prepareTargets(ctx context.Context, owner string, targets []do
 // enqueueReintroductions prepares new material for the words in study whose
 // material a correction replaced, so a due review is re-introduced in a sentence
 // that belongs to the word. A word withdrawn by a correction waits.
-func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyIdentity]domain.StudyMaterial) error {
+func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyItem]domain.StudyMaterial) error {
 	for _, item := range progress {
-		existing, ok := current[item.StudyIdentity]
+		existing, ok := current[item.StudyItem]
 		if item.Withdrawn || (ok && existing.State != domain.StudyMaterialPending) {
 			continue
 		}
-		if err := s.enqueueWord(ctx, owner, item.StudyIdentity, existing.ID); err != nil {
+		if err := s.enqueueWord(ctx, owner, item.StudyItem, existing.ID); err != nil {
 			return err
 		}
 	}
@@ -244,7 +244,7 @@ func (s *Service) enqueueReintroductions(ctx context.Context, owner string, prog
 
 // enqueueWord reserves the word's pending record, unless existingID names one,
 // and inserts its preparation job in the same transaction.
-func (s *Service) enqueueWord(ctx context.Context, owner string, identity domain.StudyIdentity, existingID string) (err error) {
+func (s *Service) enqueueWord(ctx context.Context, owner string, identity domain.StudyItem, existingID string) (err error) {
 	tx, err := s.store.Pool().Begin(ctx)
 	if err != nil {
 		return err

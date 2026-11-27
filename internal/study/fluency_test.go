@@ -115,7 +115,7 @@ func newFluencyFixture() (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnriche
 		reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
 		tokens:  map[int64][]analyzer.Token{},
 		progress: domain.StudyProgress{
-			ID: "p1", StudyIdentity: domain.StudyIdentity{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, MaterialID: "m1", LearnedMeaning: "a building",
+			ID: "p1", StudyItem: domain.StudyItem{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, MaterialID: "m1", LearnedMeaning: "a building",
 			Memory: domain.StudyMemory{State: domain.StudyStateReview, ScheduledDays: 30},
 		},
 	}
