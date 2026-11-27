@@ -40,6 +40,7 @@ type Store interface {
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
+	ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error)
 	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
 	ReadLemmaReviewProposal(context.Context, domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
 	PutLemmaDecisionProposal(context.Context, domain.LemmaReviewProposal, string) error
@@ -269,6 +270,46 @@ func (s *Service) Review(ctx context.Context, owner, bookID, form string) (Revie
 		}
 	}
 	return review, nil
+}
+
+// CorpusMatch is another occurrence in the learner's Corpus of the same observed
+// form and analyzer lemma as a reported occurrence, with what the learner may do
+// with its Book.
+type CorpusMatch struct {
+	Occurrence domain.LemmaReviewOccurrence
+	BookTitle  string
+	// CanCorrect is false while the occurrence's Book is the Current reading,
+	// whose vocabulary cannot change.
+	CanCorrect bool
+}
+
+// CorpusMatches lists the occurrences in the Corpus, in any Book, that share
+// the reported occurrence's observed form and analyzer lemma and still await a
+// decision. The reported occurrence itself is left out. Nothing is decided: each
+// match is previewed and confirmed on its own, in its own Book's analysis, so
+// no decision becomes a rule over a form and lemma (ADR 0136 §6).
+func (s *Service) CorpusMatches(ctx context.Context, owner, language string, reported domain.LemmaReviewOccurrence) ([]CorpusMatch, error) {
+	found, err := s.store.ListCorpusLemmaReviewOccurrences(ctx, owner, language, reported.Surface, reported.CanonicalLemma)
+	if err != nil {
+		return nil, err
+	}
+	titles := map[string]string{}
+	editable := map[string]bool{}
+	var matches []CorpusMatch
+	for _, occurrence := range found {
+		if occurrence.ID() == reported.ID() || occurrence.Excluded || occurrence.CorrectedLemma != "" {
+			continue
+		}
+		if _, known := titles[occurrence.BookID]; !known {
+			detail, recovery, err := s.load(ctx, owner, occurrence.BookID)
+			if err != nil {
+				return nil, err
+			}
+			titles[occurrence.BookID], editable[occurrence.BookID] = detail.Book.Title, !recovery.ActiveReading
+		}
+		matches = append(matches, CorpusMatch{Occurrence: occurrence, BookTitle: titles[occurrence.BookID], CanCorrect: editable[occurrence.BookID]})
+	}
+	return matches, nil
 }
 
 // Suggest asks the optional LLM provider for a lemma for one occurrence. The

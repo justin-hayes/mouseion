@@ -436,6 +436,9 @@ type Querier interface {
 	// version; a Book that was removed has no rows left. in_current_reading says
 	// whether the Current reading contains the headword.
 	ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error)
+	// The same occurrences across every Book in the learner's My Books of one
+	// language, for one observed form and its analyzer lemma (ADR 0136 §6).
+	ListCorpusLemmaReviewOccurrences(ctx context.Context, arg ListCorpusLemmaReviewOccurrencesParams) ([]ListCorpusLemmaReviewOccurrencesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)

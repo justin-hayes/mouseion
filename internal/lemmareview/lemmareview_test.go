@@ -37,6 +37,10 @@ func (s *fakeStore) ListLemmaReviewOccurrences(context.Context, string, string, 
 	return s.occurrences, nil
 }
 
+func (s *fakeStore) ListCorpusLemmaReviewOccurrences(context.Context, string, string, string, string) ([]domain.LemmaReviewOccurrence, error) {
+	return s.occurrences, nil
+}
+
 func (s *fakeStore) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
 	s.saved = append(s.saved, flags...)
 	return nil

@@ -90,7 +90,52 @@ func requireLocalHighRiskFlag(t *testing.T, h Harness, bookID string) {
 func lemmaReviewScenarios() []Scenario {
 	scenarios := lemmaDecisionScenarios()
 	scenarios = append(scenarios, lemmaFlagScenarios()...)
+	scenarios = append(scenarios, lemmaCorpusScenarios()...)
 	return append(scenarios, lemmaProviderFlagScenarios()...)
+}
+
+// lemmaCorpusScenarios pin the Corpus-wide lookup the Wrong-word remediation
+// screen offers matching occurrences from, and that a decision on one Book's
+// occurrence leaves every other occurrence unchanged (ADR 0136 §6).
+func lemmaCorpusScenarios() []Scenario {
+	return []Scenario{{
+		Name: "the Corpus lists the occurrences of a form and lemma in every Book of My Books, and a decision on one leaves the rest unchanged",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			first := seedReviewBook(t, h)
+			second := seedReviewBook(t, h)
+			// Another lemma for the same form, and another form of the lemma,
+			// are not matches.
+			h.Seeds().SeedBook(t, owner, BookSeed{Vocabulary: defaultVocabulary, Occurrences: []OccurrenceSeed{
+				{Surface: reviewSurface, Lemma: "wegen", UPOS: "ADP"}, {Surface: "Wege", Lemma: "weg", UPOS: "NOUN"},
+			}})
+			removed := seedReviewBook(t, h)
+			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, removed))
+
+			found, err := h.LemmaReview().ListCorpusLemmaReviewOccurrences(owner, Language, reviewSurface, "weg")
+			require.NoError(t, err)
+			books := map[string]int{}
+			for _, occurrence := range found {
+				books[occurrence.BookID]++
+				assert.Equal(t, owner, occurrence.OwnerID)
+			}
+			assert.Equal(t, map[string]int{first: 2, second: 2}, books, "both Books in My Books, none removed")
+
+			corrected := reviewProposal(h, first, "correct", "pfad", reviewOccurrence(t, h, first, 0))
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(corrected, previewProposal(t, h, corrected)))
+			found, err = h.LemmaReview().ListCorpusLemmaReviewOccurrences(owner, Language, reviewSurface, "weg")
+			require.NoError(t, err)
+			decided := 0
+			for _, occurrence := range found {
+				if occurrence.CorrectedLemma != "" {
+					decided++
+					assert.Equal(t, first, occurrence.BookID)
+				}
+			}
+			assert.Equal(t, 1, decided, "only the decided occurrence carries the correction")
+			assert.Empty(t, reviewOccurrence(t, h, second, 0).CorrectedLemma)
+		},
+	}}
 }
 
 func lemmaDecisionScenarios() []Scenario {
