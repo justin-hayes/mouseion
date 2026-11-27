@@ -209,7 +209,7 @@ Status: **Addendum drafted, pending Justin's approval in the PR** · ticket #278
 new prompt version.
 
 **What changed in the system prompt.** Two rules; nothing else in the prompt
-changed. They are the modern contextual Gloss's rules, applied to this pass.
+changed. The Gloss rule is the modern contextual Gloss's rule, applied to this pass; the alignment rule is tighter than the modern one.
 
 1. The old Gloss rule ("gloss must be one brief English cue for the target's
    meaning in this sentence, not a list of unrelated senses") is replaced by:
