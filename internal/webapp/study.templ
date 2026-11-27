@@ -334,7 +334,7 @@ templ studyReportForm(csrf string, view studyPageView) {
 				} else {
 					<label>
 						<input type="radio" name="kind" value="wrong_word" checked/>
-						<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
+						<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until you repair the occurrence.</span>
 					</label>
 					<label>
 						<input type="radio" name="kind" value="unsuitable_context"/>
@@ -476,7 +476,7 @@ templ StudyReportInvalidPage(user domain.User, csrf, language string) {
 // language (ADR 0135 §2).
 templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
 	@ShellLayout("Reported words", &user, csrf, NavigationLearning) {
-		@PageHeader("Reported words", "Words held because you reported their Study material as a wrong word. They get no reviews until the occurrence is repaired in Lemma review.", nil)
+		@PageHeader("Reported words", "Words held because you reported their Study material as a wrong word. They get no reviews until you repair the occurrence.", nil)
 		<p><a href={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>Back to Study</a></p>
 		if len(view.Reports) == 0 {
 			<p id="study-reports-empty" class="study-status">No words are held. A word you report as a wrong word appears here.</p>
@@ -502,8 +502,8 @@ templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
 								<dd>{ report.Note }</dd>
 							}
 						</dl>
-						if report.ReviewPath != "" {
-							<p><a class="study-report-review" href={ templ.SafeURL(report.ReviewPath) }>Review in Lemma review</a></p>
+						if report.RemediationPath != "" {
+							<p><a class="study-report-review" href={ templ.SafeURL(report.RemediationPath) }>Repair this word</a></p>
 						}
 						<form method="post" action={ templ.SafeURL("/study/reports/" + report.ID + "/dismiss") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
@@ -514,5 +514,52 @@ templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
 				}
 			</ul>
 		}
+	}
+}
+
+// StudyRemediationPage repairs one Wrong-word report: the learner corrects the
+// reported occurrence's Lemma or excludes the occurrence, after a preview of the
+// consequence (ADR 0136 §6). The preview and its confirmation are Lemma review's
+// own step.
+templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationView) {
+	@ShellLayout("Repair a reported word", &user, csrf, NavigationLearning) {
+		@PageHeader("Repair a reported word", "You reported this word as a wrong word. Correct the word's Lemma or exclude this occurrence; the word returns to Study on the next Study day.", nil)
+		<p><a href={ templ.SafeURL(studyLanguagePath(pageKindStudyReports, view.Language)) }>Back to Reported words</a></p>
+		<main class="page-container data-width study-remediation">
+			<h2 lang={ view.Language }>{ view.Report.TargetWord }</h2>
+			<p><strong>Book:</strong> { view.BookTitle }</p>
+			if view.Report.Note != "" {
+				<p><strong>Your note:</strong> { view.Report.Note }</p>
+			}
+			if !view.Found {
+				<p role="status" id="study-remediation-missing">The reported occurrence is no longer in this Book's analysis, so it cannot be repaired here. Dismiss the report from Reported words to release the word.</p>
+			} else {
+				<p class="reading-text" lang={ view.Language }>{ view.Occurrence.SentenceText }</p>
+				<p><strong>Observed form:</strong> { view.Occurrence.Surface } · <strong>Analyzer lemma:</strong> { lemmaReviewKeyDisplay(ctx, view.Occurrence.CanonicalLemma) } · <strong>Part of speech:</strong> { view.Occurrence.UPOS }</p>
+				if view.Occurrence.Excluded {
+					<p role="status"><strong>Vocabulary selection:</strong> excluded for this occurrence.</p>
+				} else if view.Occurrence.CorrectedLemma != "" {
+					<p role="status"><strong>Effective lemma:</strong> { lemmaReviewKeyDisplay(ctx, view.Occurrence.CorrectedLemma) } (corrected)</p>
+				}
+				if !view.CanCorrect {
+					<article role="alert">This Book is current reading. End current reading before changing its vocabulary; the frozen reading snapshot remains unchanged.</article>
+				} else if view.Preview == nil {
+					<form method="post" action={ templ.SafeURL(view.Path) } id="study-remediation-form">
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<input type="hidden" name="stage" value="preview"/>
+						<label>Corrected canonical lemma<input class="input" name="lemma" value={ lemmaReviewKeyDisplay(ctx, view.Occurrence.CorrectedLemma) } required/></label>
+						<button class="button" type="submit" name="decision" value="correct">Preview correction</button>
+						<details>
+							<summary>Exclude this occurrence from vocabulary selection</summary>
+							<p>Only this occurrence stops contributing to vocabulary. It remains in the analyzed text and the coverage denominator.</p>
+							<button class="button button--danger" type="submit" name="decision" value="exclude" formnovalidate>Preview exclusion</button>
+						</details>
+					</form>
+				}
+			}
+			if view.Preview != nil {
+				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview, view.Recovery)
+			}
+		</main>
 	}
 }
