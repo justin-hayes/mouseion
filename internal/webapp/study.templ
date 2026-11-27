@@ -196,13 +196,35 @@ templ FluencyCard(csrf string, view studyPageView) {
 // the answer. Graded and Fluency cards share it; prefix keeps their ids apart.
 templ cardFaceView(language, prefix string, face cardFace) {
 	<p class="study-card__sentence" lang={ language }>
-		{ face.Before }
-		if face.Marked {
-			<mark class="study-card__target">{ face.Target }</mark>
+		if face.Idiom {
+			for _, segment := range face.Segments {
+				if segment.Marked {
+					<mark class="study-card__target">{ segment.Text }</mark>
+				} else {
+					{ segment.Text }
+				}
+			}
+		} else {
+			{ face.Before }
+			if face.Marked {
+				<mark class="study-card__target">{ face.Target }</mark>
+			}
+			{ face.After }
 		}
-		{ face.After }
 	</p>
-	if face.ShowAnswer {
+	if face.ShowAnswer && face.Idiom {
+		<dl class="study-card__answer study-card__answer--idiom">
+			<dt>Idiom</dt>
+			<dd id={ prefix + "-headword" } lang={ language }>
+				{ face.Headword }
+				<span class="metadata study-card__kind" id={ prefix + "-kind" }>idiom</span>
+			</dd>
+			<dt>Meaning</dt>
+			<dd id={ prefix + "-gloss" }>{ face.Gloss }</dd>
+			<dt>Translation</dt>
+			<dd id={ prefix + "-translation" }>@templ.Raw(face.TranslationHTML)</dd>
+		</dl>
+	} else if face.ShowAnswer {
 		<dl class="study-card__answer">
 			<dt>Meaning</dt>
 			<dd id={ prefix + "-gloss" }>{ face.Gloss }</dd>
@@ -301,14 +323,21 @@ templ studyReportForm(csrf string, view studyPageView) {
 			<input type="hidden" name="material" value={ view.Card.MaterialID }/>
 			<fieldset>
 				<legend>What is wrong with this card?</legend>
-				<label>
-					<input type="radio" name="kind" value="wrong_word" checked/>
-					<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
-				</label>
-				<label>
-					<input type="radio" name="kind" value="unsuitable_context"/>
-					<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning, for example inside an Idiom. The sentence is never used for this word again, and the word comes back on the next Study day from another one.</span>
-				</label>
+				if view.Card.Idiom {
+					<label>
+						<input type="radio" name="kind" value="unsuitable_context" checked/>
+						<span>Unsuitable context: the idiom is right, but this sentence does not teach its meaning. The sentence is never used for this idiom again, and the idiom comes back on the next Study day from another one.</span>
+					</label>
+				} else {
+					<label>
+						<input type="radio" name="kind" value="wrong_word" checked/>
+						<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
+					</label>
+					<label>
+						<input type="radio" name="kind" value="unsuitable_context"/>
+						<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning, for example inside an Idiom. The sentence is never used for this word again, and the word comes back on the next Study day from another one.</span>
+					</label>
+				}
 			</fieldset>
 			<label>Note (optional)<textarea class="input" name="note" maxlength={ fmt.Sprint(domain.StudyReportNoteMax) } rows="2"></textarea></label>
 			<button class="button button--outline" type="submit">Send report</button>

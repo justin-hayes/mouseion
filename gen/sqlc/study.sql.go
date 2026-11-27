@@ -16,7 +16,6 @@ const countCurrentStudyMaterial = `-- name: CountCurrentStudyMaterial :many
 SELECT state, count(*)::bigint AS total
   FROM study_material
  WHERE owner_id = $1 AND language = $2 AND superseded_at IS NULL
-   AND item_kind = 'word' -- Idioms are counted when Today introduces them (#2754)
  GROUP BY state
 `
 
