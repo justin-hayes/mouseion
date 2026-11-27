@@ -30,7 +30,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	result, err := h.services.Store.MyBooks.ListMyBooksBrowse(r.Context(), u.ID, request.query, activeLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
+	result, err := h.listMyBooksPage(r.Context(), u.ID, request, activeLanguage)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
@@ -42,13 +42,16 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	}
 	browse := myBooksBrowseState(request.query, request.page, request.disposition, activeLanguage, activeLanguageLabel, result)
 	browse.History = request.history
+	browse.NeedsAction = request.needsAction
 	if page, redirect := myBooksRedirectPage(request, result); redirect {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(activeLanguage, request.query, page, request.disposition, request.history))
+		redirectMyBooksBrowse(w, r, myBooksFilteredURL(activeLanguage, request.query, page, request.disposition, request.history, request.needsAction))
 		return
 	}
-	if err = h.loadLibraryBrowsingExtras(r.Context(), u.ID, books); err != nil {
-		h.renderMyBooksFailure(w, r, u)
-		return
+	if !request.needsAction {
+		if err = h.loadLibraryBrowsingExtras(r.Context(), u.ID, books); err != nil {
+			h.renderMyBooksFailure(w, r, u)
+			return
+		}
 	}
 	if isPartialHTMXRequest(r) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
@@ -57,12 +60,50 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), browse))
 }
 
+// listMyBooksPage reads the requested page. The needs-action filter is derived
+// from evidence the store pages cannot filter on, such as pending Analysis
+// updates, so it reads the whole tab, decorates it, keeps the Books with a
+// status line and pages those. Nothing about the filter is stored.
+func (h *Handler) listMyBooksPage(ctx context.Context, owner string, request myBooksLibraryRequest, language string) (domain.MyBooksBrowseResult, error) {
+	store := h.services.Store.MyBooks
+	if !request.needsAction {
+		return store.ListMyBooksBrowse(ctx, owner, request.query, language, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
+	}
+	var result domain.MyBooksBrowseResult
+	var needing []domain.MyBook
+	for offset := 0; ; offset += myBooksPageSize {
+		page, err := store.ListMyBooksBrowse(ctx, owner, request.query, language, string(request.disposition), request.history, offset, myBooksPageSize)
+		if err != nil {
+			return domain.MyBooksBrowseResult{}, err
+		}
+		result = page
+		if err := h.loadLibraryBrowsingExtras(ctx, owner, page.Items); err != nil {
+			return domain.MyBooksBrowseResult{}, err
+		}
+		for _, book := range page.Items {
+			if _, needs := myBookNeedsAction(book); needs {
+				needing = append(needing, book)
+			}
+		}
+		if len(page.Items) == 0 || offset+myBooksPageSize >= page.Total {
+			break
+		}
+	}
+	result.Total = len(needing)
+	result.Items = nil
+	if start := myBooksPageOffset(request.page); start < len(needing) {
+		result.Items = needing[start:min(start+myBooksPageSize, len(needing))]
+	}
+	return result, nil
+}
+
 // myBooksLibraryRequest is the My Books browse state the /library query asks for.
 type myBooksLibraryRequest struct {
 	query       string
 	page        int
 	disposition domain.BookDisposition
 	history     bool
+	needsAction bool
 }
 
 // myBooksRedirectPage clamps an out-of-range page. A page past the last page of
