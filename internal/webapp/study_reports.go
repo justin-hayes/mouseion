@@ -27,9 +27,9 @@ type studyReportEntry struct {
 	Before, Target, After string
 	Marked                bool
 	BookTitle, Date, Note string
-	// ReviewPath opens the Book's Lemma review at the reported occurrence; it
-	// is empty when the Book has left the library.
-	ReviewPath string
+	// RemediationPath opens the remediation screen on the reported occurrence;
+	// it is empty when the Book has left the library.
+	RemediationPath string
 }
 
 // studyReports serves /{language}/study/reports: the learner's open Wrong-word
@@ -51,7 +51,7 @@ func (h *Handler) studyReports(w http.ResponseWriter, r *http.Request) {
 				BookTitle: titles[report.Source.BookID], Date: domain.StudyDay(report.CreatedAt), Note: report.Note,
 			}
 			if titles[report.Source.BookID] != studyReportMissingBook {
-				entry.ReviewPath = lemmaReviewReportPath(report.Source.BookID, report)
+				entry.RemediationPath = studyRemediationPath(report.ID)
 			}
 			entry.Before, entry.Target, entry.After, entry.Marked = markTarget(report.Sentence, report.TargetWord)
 			view.Reports = append(view.Reports, entry)
