@@ -261,7 +261,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
 	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex, preparedDeckConfig.IdiomCardLanguages)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
-	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
+	riverClient, err := newRiverClient(ctx, store, nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers, dictionaryIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -296,6 +296,29 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		riverClient:       riverClient,
 		studyService:      studyService,
 	}, nil
+}
+
+// idiomIndexVersion stamps Idiom candidate counts with the matching rules, the
+// dictionary index version and a digest of its idiom entries (which carry the
+// reviewed idiom list), so a change to any of them rebuilds the counts.
+func idiomIndexVersion(ctx context.Context, dictionaryIndex *dictionary.Index) (string, error) {
+	digest, err := dictionaryIndex.IdiomDigest(ctx)
+	if err != nil {
+		return "", fmt.Errorf("fingerprint idiom entries: %w", err)
+	}
+	return persistence.IdiomIndexVersion(dictionaryIndex.Version(), digest), nil
+}
+
+// newRiverClient registers the Idiom candidate count rebuild, which derives
+// counts against the loaded dictionary index and stamps them with its idiom
+// version, and builds the River client over the complete worker set.
+func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workers *river.Workers, dictionaryIndex *dictionary.Index) (*river.Client[pgx.Tx], error) {
+	version, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, version)
+	return analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, standardWorkers, workers)
 }
 
 // studyDictionaryPin reads the loaded dictionary index's pin for a language, so
@@ -387,6 +410,13 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	analysisService := analysis.NewService(store.Pool(), deps.riverClient).WithCapabilities(deps.capabilities).WithClassicalPreparationStore(store)
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
+	}
+	idiomVersion, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	if err := analysisService.EnqueueMissingIdiomCountRebuilds(ctx, idiomVersion); err != nil {
+		return nil, fmt.Errorf("schedule missing Idiom candidate counts: %w", err)
 	}
 	if err := analysisService.EnqueueMissingConstructionRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Construction occurrences: %w", err)

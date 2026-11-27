@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
@@ -82,6 +83,10 @@ type Index struct {
 	// idiom lookup. An older index reports no idiom candidates rather than
 	// failing the whole index.
 	idiomAvailable bool
+	// digestOnce guards the remembered idiom digest.
+	digestOnce sync.Once
+	digest     string
+	digestErr  error
 }
 
 type evidenceIdentity struct {
