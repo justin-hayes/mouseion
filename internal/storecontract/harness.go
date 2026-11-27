@@ -269,6 +269,10 @@ type LemmaReviewStore interface {
 	// Book's current analysis, with any learner decision and flag applied. An
 	// empty surface returns every occurrence.
 	ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error)
+	// ListCorpusLemmaReviewOccurrences returns the occurrences of one observed
+	// form with one analyzer lemma in the current analysis of every Book of
+	// the owner's My Books in the language, with any learner decision applied.
+	ListCorpusLemmaReviewOccurrences(owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error)
 	// SaveLemmaReviewFlags records detector flags without reopening a flag the
 	// learner has already resolved.
 	SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error

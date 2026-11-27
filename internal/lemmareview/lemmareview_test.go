@@ -37,6 +37,10 @@ func (s *fakeStore) ListLemmaReviewOccurrences(context.Context, string, string, 
 	return s.occurrences, nil
 }
 
+func (s *fakeStore) ListCorpusLemmaReviewOccurrences(context.Context, string, string, string, string) ([]domain.LemmaReviewOccurrence, error) {
+	return s.occurrences, nil
+}
+
 func (s *fakeStore) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
 	s.saved = append(s.saved, flags...)
 	return nil
@@ -321,4 +325,23 @@ func TestCorrectedLemmaForAModernLanguageUsesTheActiveProfile(t *testing.T) {
 	t.Run("the active profile normalized the correction", func(t *testing.T) {
 		assert.Equal(t, "hass", store.proposal.Lemma)
 	})
+}
+
+func TestCorpusMatchesLeavesOutTheReportedAndTheAlreadyDecidedOccurrences(t *testing.T) {
+	reported := occurrence()
+	other := occurrence()
+	other.StartOffset, other.EndOffset = 10, 13
+	corrected := occurrence()
+	corrected.StartOffset, corrected.EndOffset, corrected.CorrectedLemma = 20, 23, "pfad"
+	excluded := occurrence()
+	excluded.StartOffset, excluded.EndOffset, excluded.Excluded = 30, 33, true
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{reported, other, corrected, excluded}}
+	service := New(Config{Store: store})
+
+	matches, err := service.CorpusMatches(context.Background(), "owner", "de", reported)
+
+	require.NoError(t, err)
+	require.Len(t, matches, 1, "a match is an occurrence that still awaits a decision")
+	assert.Equal(t, other.ID(), matches[0].Occurrence.ID())
+	assert.True(t, matches[0].CanCorrect)
 }

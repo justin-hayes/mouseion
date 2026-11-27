@@ -160,6 +160,40 @@ func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, 
 	return result, nil
 }
 
+// ListCorpusLemmaReviewOccurrences resolves one observed form with one analyzer
+// lemma in the current completed analysis of every Book in the owner's My
+// Books of the language, with each occurrence's learner decision and flag
+// applied. Selection decides which occurrences count as vocabulary, as in a
+// Book's own review.
+func (s *PostgresStore) ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
+	rows, err := s.queries().ListCorpusLemmaReviewOccurrences(ctx, sqlcgen.ListCorpusLemmaReviewOccurrencesParams{Owner: owner, Language: language, Surface: surface, Lemma: lemma})
+	if err != nil {
+		return nil, err
+	}
+	cfg := selection.DefaultConfig("")
+	result := make([]domain.LemmaReviewOccurrence, 0, len(rows))
+	for _, row := range rows {
+		if !selection.OccurrenceEligible(cfg, row.Language, row.CanonicalLemma, row.Upos, row.Dependency) {
+			continue
+		}
+		occurrence := domain.LemmaReviewOccurrence{
+			OwnerID: owner, BookID: row.BookID, CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID,
+			SourceDocumentID: row.UnitID, StartOffset: row.StartOffset, EndOffset: row.EndOffset,
+			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
+			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
+			UPOS: row.Upos, Dependency: row.Dependency, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
+			LexicalDiscriminator: row.LexicalDiscriminator,
+			ReviewFlagReason:     row.ReviewFlagReason, ReviewFlagResolution: row.ReviewFlagResolution,
+			NormalizationProfile: row.NormalizationProfile, NormalizationVersion: row.NormalizationVersion,
+		}
+		if err := json.Unmarshal([]byte(row.ReviewFlagProvenance), &occurrence.ReviewFlagProvenance); err != nil {
+			return nil, err
+		}
+		result = append(result, occurrence)
+	}
+	return result, nil
+}
+
 // PutLemmaDecisions applies an explicitly reviewed set atomically. Every row
 // retains its own expected prior state, and one stale member rolls back the set.
 // Learner decisions reach it only through PutLemmaDecisionProposal; the set form

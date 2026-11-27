@@ -563,6 +563,7 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<input type="hidden" name="stage" value="preview"/>
 						<label>Corrected canonical lemma<input class="input" name="lemma" value={ lemmaReviewKeyDisplay(ctx, view.Occurrence.CorrectedLemma) } required/></label>
+						@StudyRemediationMatches(view.Books)
 						<button class="button" type="submit" name="decision" value="correct">Preview correction</button>
 						<details>
 							<summary>Exclude this occurrence from vocabulary selection</summary>
@@ -573,8 +574,63 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 				}
 			}
 			if view.Preview != nil {
-				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview, view.Recovery)
+				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview, view.Recovery) {
+					for _, match := range view.MatchPreviews {
+						@StudyRemediationMatchPreview(match)
+					}
+				}
 			}
 		</main>
 	}
+}
+
+// StudyRemediationMatches offers the other occurrences in the Corpus of the
+// reported word's form and lemma, none ticked. Each ticked occurrence is
+// decided on its own in its own Book's analysis; ticking is never a rule for
+// every occurrence of the form (ADR 0136 §6).
+templ StudyRemediationMatches(books []studyRemediationBook) {
+	if len(books) > 0 {
+		<fieldset id="study-remediation-matches">
+			<legend>Other occurrences of this form and lemma in your Books</legend>
+			<p>The same decision is applied only to the occurrences you tick, each in its own Book. Unticked occurrences stay as they are.</p>
+			for _, book := range books {
+				<h3>{ book.Title }</h3>
+				if !book.CanCorrect {
+					<p role="status">This Book is current reading. End current reading before changing its vocabulary.</p>
+				}
+				<ul>
+					for _, match := range book.Matches {
+						<li>
+							<label>
+								<input type="checkbox" name="match" value={ match.Value } disabled?={ !book.CanCorrect }/>
+								<span class="reading-text">{ match.Sentence }</span>
+							</label>
+						</li>
+					}
+				</ul>
+			}
+		</fieldset>
+	}
+}
+
+// StudyRemediationMatchPreview is the consequence of the ticked occurrences in
+// one Book, and what its confirmation carries: the occurrences and the preview
+// fingerprint the Book's own decision is checked against.
+templ StudyRemediationMatchPreview(match studyRemediationMatchPreview) {
+	<section aria-label={ "Matching occurrences in " + match.Title }>
+		<h3>{ match.Title }</h3>
+		<p><strong>Selected occurrences:</strong> { fmt.Sprint(len(match.Preview.OccurrenceIDs)) }</p>
+		<ul>
+			for _, change := range match.Preview.Changes {
+				<li><span class="reading-text">{ change.Sentence }</span> — effective identity { lemmaReviewKeyDisplay(ctx, change.Before) } → { lemmaReviewKeyDisplay(ctx, change.After) }</li>
+			}
+		</ul>
+		if match.Preview.RequiresReprepare {
+			<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</span></label>
+		}
+		<input type="hidden" name="match_fingerprint" value={ match.BookID + "/" + match.Preview.Fingerprint }/>
+		for _, occurrenceID := range match.Preview.OccurrenceIDs {
+			<input type="hidden" name="match" value={ matchValue(match.BookID, occurrenceID) }/>
+		}
+	</section>
 }

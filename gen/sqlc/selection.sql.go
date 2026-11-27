@@ -394,6 +394,133 @@ func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysi
 	return items, nil
 }
 
+const listCorpusLemmaReviewOccurrences = `-- name: ListCorpusLemmaReviewOccurrences :many
+SELECT cai.book_id::text AS book_id, c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+       t.language,
+       t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
+       t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
+       t.lexical_discriminator,
+       s.sentence_text, s.unit_id,
+       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
+       COALESCE(d.excluded, false)::boolean AS excluded,
+       COALESCE(f.reason, '')::text AS review_flag_reason,
+       COALESCE(f.evidence_provenance::text, '{}')::text AS review_flag_provenance,
+       COALESCE(f.resolution, '')::text AS review_flag_resolution,
+       COALESCE(a.normalization_profile, '')::text AS normalization_profile,
+       COALESCE(a.normalization_version, '')::text AS normalization_version
+FROM book_current_analyses cai
+JOIN source_materials source ON source.owner_id = cai.owner_id
+  AND source.id = cai.source_material_id AND source.book_id = cai.book_id
+JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
+  AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
+JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
+  AND c.source_material_id = r.source_material_id AND c.analysis_run_id = r.id
+  AND c.status = 'complete'
+LEFT JOIN normalized_corpus_artifacts a ON a.content_hash = c.artifact_hash
+JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
+  AND t.analysis_run_id = c.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
+  AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
+   AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
+LEFT JOIN occurrence_lemma_review_flags f ON f.owner_id = cai.owner_id AND f.book_id = cai.book_id
+  AND f.analysis_run_id = c.analysis_run_id AND f.source_document_id = s.unit_id
+  AND f.start_offset = t.start_offset AND f.end_offset = t.end_offset
+JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
+  AND b.language_state = 'chosen' AND b.language_tag = $1::text
+JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id AND m.state = 'active'
+WHERE cai.owner_id = $2
+  AND source.current_content_revision_id = r.content_revision_id
+  AND source.current_snapshot_id = r.snapshot_id
+  AND t.surface = $3::text AND t.raw_lemma = $4::text
+ORDER BY b.title, cai.book_id, s.sentence_ordinal, t.token_ordinal
+`
+
+type ListCorpusLemmaReviewOccurrencesParams struct {
+	Language string
+	Owner    string
+	Surface  string
+	Lemma    string
+}
+
+type ListCorpusLemmaReviewOccurrencesRow struct {
+	BookID               string
+	CorpusID             string
+	AnalysisRunID        string
+	Language             string
+	SentenceOrdinal      int64
+	TokenOrdinal         int64
+	Surface              string
+	RawLemma             string
+	CanonicalLemma       string
+	Upos                 string
+	Dependency           string
+	StartOffset          int64
+	EndOffset            int64
+	LexicalDiscriminator string
+	SentenceText         string
+	UnitID               string
+	CorrectedLemma       string
+	Excluded             bool
+	ReviewFlagReason     string
+	ReviewFlagProvenance string
+	ReviewFlagResolution string
+	NormalizationProfile string
+	NormalizationVersion string
+}
+
+// The same occurrences across every Book in the learner's My Books of one
+// language, for one observed form and its analyzer lemma (ADR 0136 §6).
+func (q *Queries) ListCorpusLemmaReviewOccurrences(ctx context.Context, arg ListCorpusLemmaReviewOccurrencesParams) ([]ListCorpusLemmaReviewOccurrencesRow, error) {
+	rows, err := q.db.Query(ctx, listCorpusLemmaReviewOccurrences,
+		arg.Language,
+		arg.Owner,
+		arg.Surface,
+		arg.Lemma,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCorpusLemmaReviewOccurrencesRow{}
+	for rows.Next() {
+		var i ListCorpusLemmaReviewOccurrencesRow
+		if err := rows.Scan(
+			&i.BookID,
+			&i.CorpusID,
+			&i.AnalysisRunID,
+			&i.Language,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Surface,
+			&i.RawLemma,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.LexicalDiscriminator,
+			&i.SentenceText,
+			&i.UnitID,
+			&i.CorrectedLemma,
+			&i.Excluded,
+			&i.ReviewFlagReason,
+			&i.ReviewFlagProvenance,
+			&i.ReviewFlagResolution,
+			&i.NormalizationProfile,
+			&i.NormalizationVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.language,
