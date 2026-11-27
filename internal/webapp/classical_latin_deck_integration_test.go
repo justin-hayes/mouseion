@@ -154,7 +154,7 @@ func (rederivedLatinLexicon) LookupLatinLS(context.Context, string) ([]enrichmen
 }
 
 // TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFails extends the Latin loop
-// to a prepared deck with a provider configured, the Latin pass recorded (#2766)
+// to a prepared deck with a provider configured, the Latin pass recorded for the test
 // and Idiom cards listed for Latin: the Work's pinned translation is fetched at
 // preparation, the pass is sent once per word, and the provider failing it (the
 // pass is best-effort) leaves every default card with its labelled passage
@@ -251,7 +251,15 @@ func TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFail
 	// this provider fails every request.
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
-	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, client, codec, batchConfig, preparedConfig, true)
+	// The compiled assessments refuse the citation-form Latin contract until
+	// #2781 records it, so the test records it for itself.
+	assessments := []enrichment.ProviderAssessment{{
+		Kind: enrichment.LatinEvidenceAssistedPassPayload, Language: "la", Provider: codec.ProviderName(),
+		PromptVersion: codec.LatinEvidenceAssistedPassPromptContract(),
+		Fields:        enrichment.LatinEvidenceAssistedPassPayloadFields(),
+		Disposition:   "recorded for this test", Ticket: "#test", Recorded: true,
+	}}
+	prepareddeck.AddPreparedDeckWorkerWithAssessments(workers, store, presentation, client, codec, batchConfig, preparedConfig, true, assessments)
 	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, failingPassProvider, preparedConfig, time.Second, metrics)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, nil, nil, metrics)
 	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, PollInterval: batchConfig.PollInterval, Metrics: metrics})

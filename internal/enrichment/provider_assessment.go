@@ -223,6 +223,10 @@ var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
 // from the codec, so the record is a real pin: changing the prompt contract or
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
+//
+// The codec's Latin pass contract has since moved to a citation-form version
+// (#2779), so this record no longer matches it: the gate refuses and Latin Study
+// and Prepared decks send nothing until the new contract is recorded (#2781).
 var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          LatinEvidenceAssistedPassPayload,
 	Language:      "la",
@@ -254,6 +258,10 @@ var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 // from the codec, so the record is a real pin: changing the prompt contract or
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
+//
+// The codec's Study pass contract has since moved to a citation-form version
+// (#2779), so this record no longer matches it: the gate refuses and Greek Study
+// sends nothing until the new contract is recorded (#2781).
 var greekEntryEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          GreekEntryEvidenceAssistedPassPayload,
 	Language:      "grc",
@@ -417,4 +425,26 @@ func StudyEvidenceAssistedPassKind(language string) ProviderPayloadKind {
 	case cardpolicy.PassContractGreek:
 	}
 	return EvidenceAssistedPassPayload
+}
+
+// CheckPassAssessment refuses a request for an evidence-assisted pass whose
+// payload contract the compiled assessments do not record for the codec's
+// current prompt version. It is the last check before a pass request is
+// encoded for the provider, so work frozen before a contract changed (a queued
+// Prepared deck item, a retried Study item) sends nothing under the new,
+// unrecorded contract (#2779). A request that is not a pass is never refused.
+func CheckPassAssessment(codec *TranslationCodec, input TranslationRequest) error {
+	if !input.RequireEvidenceAssistedPass {
+		return nil
+	}
+	var kind ProviderPayloadKind
+	switch passContractOf(input) {
+	case cardpolicy.PassContractLatin:
+		kind = LatinEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreekEntries:
+		kind = GreekEntryEvidenceAssistedPassPayload
+	default:
+		kind = EvidenceAssistedPassPayload
+	}
+	return ProviderAssessments().MaySend(kind, input.Language, codec)
 }
