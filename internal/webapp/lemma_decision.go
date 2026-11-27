@@ -34,10 +34,6 @@ func (h *Handler) previewLemmaDecisionStep(r *http.Request, owner, bookID string
 	if err != nil {
 		return lemmaDecisionPreview{}, err
 	}
-	assessment, err := h.services.LemmaReview.Assess(ctx, owner, bookID)
-	if err != nil {
-		return lemmaDecisionPreview{}, err
-	}
 	adoptDetailLanguage(ctx, detail)
 	language, _ := activeStudyLanguageForContext(ctx)
 	preview, err := h.services.LemmaReview.Preview(ctx, owner, bookID, lemmaReviewProposal(r, language, occurrenceIDs))
@@ -49,7 +45,6 @@ func (h *Handler) previewLemmaDecisionStep(r *http.Request, owner, bookID string
 	if err != nil {
 		return lemmaDecisionPreview{}, err
 	}
-	review.Recovery.ReferenceAssessed = assessment.Assessed
 	return lemmaDecisionPreview{Detail: detail, Form: form, Review: review, Preview: preview}, nil
 }
 

@@ -133,6 +133,12 @@ func (h *Handler) previewLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
+	assessment, err := h.services.LemmaReview.Assess(r.Context(), owner.ID, bookID)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	step.Review.Recovery.ReferenceAssessed = assessment.Assessed
 	render(w, r, LemmaReviewPage(owner, h.csrf(w, r), bookID, step.Detail.Book.Title, step.Form, "", true, step.Review.Occurrences, &step.Preview, step.Review.Recovery, nil, h.lemmaReviewReports(r, owner.ID, bookID)))
 }
 

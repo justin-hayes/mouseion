@@ -114,6 +114,10 @@ func (h *Handler) decideStudyRemediation(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Invalid review form.", http.StatusBadRequest)
 		return
 	}
+	if decision := r.FormValue("decision"); decision != "correct" && decision != "exclude" {
+		http.Error(w, "Choose a correction or an exclusion to preview.", http.StatusBadRequest)
+		return
+	}
 	owner, bookID := user(r).ID, report.Source.BookID
 	_, occurrence, found, err := h.reportedOccurrence(r, owner, report)
 	if err != nil {
