@@ -418,6 +418,13 @@ type Querier interface {
 	// or a Stanza-path run. A native_agdt run is never listed, even when its marker
 	// is behind: that is a rebuild, and it stays silent.
 	ListConstructionUnsearchedBooks(ctx context.Context, arg ListConstructionUnsearchedBooksParams) ([]ListConstructionUnsearchedBooksRow, error)
+	// Per-Book Idiom candidate counts (ADR 0137). The Corpus sums the counts of
+	// every Book whose counts are ready for its current analysis.
+	// Each Idiom headword's candidate count across the owner's currently analyzed
+	// Books in a language, with the number of Books containing it. A Book counts
+	// only while its readiness row names its current analysis and the builder
+	// version; a Book that was removed has no rows left.
+	ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
 	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)

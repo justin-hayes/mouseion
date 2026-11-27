@@ -260,6 +260,9 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
 	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex)
+	// Idiom candidate counts are derived against the loaded dictionary index,
+	// which carries the reviewed idiom list; its version stamps the counts.
+	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, persistence.IdiomIndexVersion(dictionaryIndex.Version()))
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -377,6 +380,9 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	analysisService := analysis.NewService(store.Pool(), deps.riverClient).WithCapabilities(deps.capabilities).WithClassicalPreparationStore(store)
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
+	}
+	if err := analysisService.EnqueueMissingIdiomCountRebuilds(ctx, persistence.IdiomIndexVersion(dictionaryIndex.Version())); err != nil {
+		return nil, fmt.Errorf("schedule missing Idiom candidate counts: %w", err)
 	}
 	if err := analysisService.EnqueueMissingConstructionRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Construction occurrences: %w", err)

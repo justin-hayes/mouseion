@@ -243,6 +243,11 @@ func applyLemmaDecisionsTx(ctx context.Context, tx pgx.Tx, owner, book string, d
 	if len(changed) == 0 {
 		return nil
 	}
+	// A changed decision can change an Idiom match, so the Book's Idiom counts
+	// stop counting until the rebuild the caller queues after commit.
+	if _, err := tx.Exec(ctx, `DELETE FROM idiom_candidate_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner, book); err != nil {
+		return err
+	}
 	if countReadiness.ready {
 		return applyVocabularyBrowseDecisionDeltasTx(ctx, tx, countReadiness, changed)
 	}

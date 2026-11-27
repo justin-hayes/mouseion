@@ -1954,6 +1954,11 @@ func publishEligibleAnalysis(ctx context.Context, tx pgx.Tx, a JobArgs, bookID s
 		WHERE book_current_analyses.analysis_run_id IS DISTINCT FROM excluded.analysis_run_id`, a.OwnerID, bookID, a.SourceMaterialID, a.RunID); err != nil {
 		return fmt.Errorf("publish completed analysis: %w", err)
 	}
+	// The Book's Idiom candidate counts are derived by their own durable job,
+	// queued with the publication so it is never lost.
+	if err := EnqueueIdiomCountsTx(ctx, tx, a.OwnerID, bookID, a.RunID); err != nil {
+		return err
+	}
 	// Study material is prepared as soon as the analysis is published, so the
 	// first open of Study finds the first words ready.
 	return study.EnqueuePlanningTx(ctx, tx, a.OwnerID, a.Language)

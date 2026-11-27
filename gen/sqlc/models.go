@@ -721,6 +721,27 @@ type GeneratedVocabulary struct {
 	Headword              string
 }
 
+type IdiomCandidateCount struct {
+	OwnerID        string
+	BookID         string
+	Language       string
+	AnalysisRunID  string
+	CorpusID       string
+	Headword       string
+	CandidateCount int64
+}
+
+type IdiomCandidateCountReadiness struct {
+	OwnerID        string
+	BookID         string
+	Language       string
+	AnalysisRunID  string
+	CorpusID       string
+	BuilderVersion int
+	IndexVersion   string
+	ReadyAt        time.Time
+}
+
 type KnownVocabulary struct {
 	ID                             string
 	OwnerID                        string

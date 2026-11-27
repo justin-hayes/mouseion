@@ -267,3 +267,11 @@ const (
 // ErrInvalidStudyMaterial rejects Study material input that names no word or
 // records no reason for an omission.
 var ErrInvalidStudyMaterial = errors.New("study: invalid study material")
+
+// IdiomCandidateCount is one Idiom headword's candidate count across the
+// Corpus: the sum of its per-Book counts and the number of Books containing it.
+type IdiomCandidateCount struct {
+	Headword   string
+	Candidates int64
+	Books      int64
+}
