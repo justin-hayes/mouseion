@@ -5,8 +5,8 @@
 --
 -- DDL only (ADR 0038): the CHECK is replaced by a wider one that every stored
 -- row already satisfies, so no data is rewritten and there is no backfill.
--- Forward-only in production (ADR 0038, ADR 0070); a second run fails on the
--- missing old constraint name and changes nothing.
+-- Forward-only in production (ADR 0038, ADR 0070); a second run drops and
+-- re-adds the same constraint and changes nothing.
 ALTER TABLE public.study_fluency_context
     DROP CONSTRAINT study_fluency_context_reason_check,
     ADD CONSTRAINT study_fluency_context_reason_check CHECK ((reason = ANY (ARRAY['same-meaning'::text, 'different-meaning'::text, 'idiomatic'::text, 'not-this-lemma'::text, 'undefendable'::text, 'literal-use'::text, 'ambiguous'::text])));

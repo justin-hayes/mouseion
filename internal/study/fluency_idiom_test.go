@@ -253,3 +253,13 @@ func TestFluencyWorkerNeverAsksAboutTheIntroducingSentenceAndRanksItsFormLast(t 
 	require.Len(t, asked, 3)
 	assert.Contains(t, asked[2], "Nina", "the context of the introducing form comes after the two of another form")
 }
+
+func TestFluencyWorkerNeverAsksAboutTheIntroducingSentenceWhereverItsTextIsRepeatedOrChanged(t *testing.T) {
+	worker, store, enricher := newIdiomFluencyFixture()
+	// The same sentence of the same corpus, read again with other text.
+	changed := fluencyIdiomSentence(1, "Lena", "haeuser", map[string]string{"Number": "Plur"})
+	store.idiomSentences = []persistence.StudyIdiomSentence{changed}
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, enricher.idiomCards, "the introducing sentence's place is never a context")
+}

@@ -133,7 +133,8 @@ type FluencyCandidate struct {
 // pick is, in turn, the candidate that adds a new set of morphological
 // features (a split separable verb counts as one), then one that adds only a
 // new surface form, then one of a form already chosen, so different sentences
-// of the same form come after. The word's introducing form counts as chosen.
+// of the same form come after. The word's introducing form counts as chosen, and a candidate of that form
+// comes after every candidate of another form (within the same Idiom-candidate tier).
 // A candidate inside an Idiom candidate comes after every other. Ties go to the Current reading, then to the higher sentence quality, then to
 // the key. The input is not modified.
 func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate) []FluencyCandidate {
