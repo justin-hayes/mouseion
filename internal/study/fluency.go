@@ -75,7 +75,7 @@ func (s *Service) enqueueFluencyWord(ctx context.Context, owner, progressID stri
 }
 
 // FluencyStore is what the Fluency worker needs from the store.
-type FluencyStore interface {
+type FluencyStore interface { //nolint:interfacebloat // the worker reads one store surface, like the Study harness
 	idiomSentenceStore
 	GetStudyProgress(ctx context.Context, owner, id string) (domain.StudyProgress, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
@@ -85,6 +85,10 @@ type FluencyStore interface {
 	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
 	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
 	RecordStudyFluencyContext(ctx context.Context, owner string, record domain.FluencyContextRecord) error
+	// StudyBookInCorpus reports whether the Book is still an active member of
+	// My Books. A Book removed while a context was being assessed is not a
+	// source of new Fluency contexts (ADR 0136 §2).
+	StudyBookInCorpus(ctx context.Context, owner, book string) (bool, error)
 	// ListRetiredStudyOccurrences names the occurrences the learner reported as
 	// an unsuitable context for the word; none is ever asked about (ADR 0135 §3).
 	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
@@ -280,7 +284,11 @@ func (w *FluencyWorker) recordContext(ctx context.Context, owner, progressID str
 	record.Gloss, record.SentenceTranslation = agreement.Gloss, agreement.SentenceTranslation
 	record.SentenceTranslationTargets = agreement.SentenceTranslationTargets
 	record.Cited = agreement.Cited
-	err := w.Store.RecordStudyFluencyContext(ctx, owner, record)
+	inCorpus, err := w.Store.StudyBookInCorpus(ctx, owner, occurrence.BookID)
+	if err != nil || !inCorpus {
+		return false, err
+	}
+	err = w.Store.RecordStudyFluencyContext(ctx, owner, record)
 	if errors.Is(err, domain.ErrFluencyContextNotStored) {
 		return false, nil
 	}

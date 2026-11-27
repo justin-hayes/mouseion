@@ -205,3 +205,11 @@ func (s *Store) contextLanguageLocked(owner, progressID string) string {
 	}
 	return ""
 }
+
+// StudyBookInCorpus reports whether the Book is still in My Books. A Book the
+// fixture does not know (a seeded Fluency source) counts as in the Corpus.
+func (s *Store) StudyBookInCorpus(_ context.Context, owner, bookID string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.fixtureBookActiveLocked(owner, bookID), nil
+}
