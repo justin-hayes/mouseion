@@ -298,9 +298,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	}, nil
 }
 
-// studyDictionaryPin reads the loaded dictionary index's pin for a language, so
-// Study tries a no-dictionary-entry word again when the index is rebuilt. It is
-// empty for a language with no dictionary, and without an index.
 // idiomIndexVersion stamps Idiom candidate counts with the matching rules, the
 // dictionary index version and a digest of its idiom entries (which carry the
 // reviewed idiom list), so a change to any of them rebuilds the counts.
@@ -324,6 +321,9 @@ func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *
 	return analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, standardWorkers, workers)
 }
 
+// studyDictionaryPin reads the loaded dictionary index's pin for a language, so
+// Study tries a no-dictionary-entry word again when the index is rebuilt. It is
+// empty for a language with no dictionary, and without an index.
 func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string) string {
 	return func(language string) string {
 		if dictionaryIndex == nil {

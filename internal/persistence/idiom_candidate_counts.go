@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/idiom"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 )
 
 // IdiomCountBuilderVersion identifies how a Book's Idiom candidate counts are
@@ -30,8 +31,15 @@ func IdiomIndexVersion(dictionaryVersion, idiomDigest string) string {
 // whose counts are ready for their current analysis at indexVersion
 // contribute; PendingBooks says how many do not, so a reader can tell a
 // headword with no candidates from one whose Books are still being counted.
-func (s *PostgresStore) ListCorpusIdiomCandidateCounts(ctx context.Context, owner, language, indexVersion string) (domain.CorpusIdiomCounts, error) {
-	q := sqlcgen.New(s.pool)
+func (s *PostgresStore) ListCorpusIdiomCandidateCounts(ctx context.Context, owner, language, indexVersion string) (result domain.CorpusIdiomCounts, err error) {
+	// One snapshot: a rebuild committing between the two reads must not leave a
+	// Book missing from the sum and also absent from the pending count.
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		return domain.CorpusIdiomCounts{}, fmt.Errorf("begin Idiom count read: %w", err)
+	}
+	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
+	q := sqlcgen.New(tx)
 	rows, err := q.ListCorpusIdiomCandidateCounts(ctx, sqlcgen.ListCorpusIdiomCandidateCountsParams{
 		BuilderVersion: IdiomCountBuilderVersion, IndexVersion: indexVersion, OwnerID: owner, Language: language,
 	})
@@ -44,7 +52,7 @@ func (s *PostgresStore) ListCorpusIdiomCandidateCounts(ctx context.Context, owne
 	if err != nil {
 		return domain.CorpusIdiomCounts{}, fmt.Errorf("count Books without ready Idiom counts: %w", err)
 	}
-	result := domain.CorpusIdiomCounts{PendingBooks: pending, Counts: make([]domain.IdiomCandidateCount, len(rows))}
+	result = domain.CorpusIdiomCounts{PendingBooks: pending, Counts: make([]domain.IdiomCandidateCount, len(rows))}
 	for i, row := range rows {
 		result.Counts[i] = domain.IdiomCandidateCount{Headword: row.Headword, Candidates: row.Candidates, Books: row.Books}
 	}
@@ -134,6 +142,9 @@ func currentIdiomCountScope(ctx context.Context, tx pgx.Tx, owner, book string) 
 // counts the candidates of each headword. The index is wrapped in a per-word
 // cache because common words recur in nearly every sentence.
 func deriveIdiomCandidateCounts(ctx context.Context, tx pgx.Tx, scope idiomCountScope, index idiom.Index) (map[string]int64, error) {
+	if available, ok := index.(interface{ HasIdiomEntries() bool }); ok && !available.HasIdiomEntries() {
+		return map[string]int64{}, nil // nothing can match: skip the scan
+	}
 	rows, err := tx.Query(ctx, `
 SELECT t.sentence_ordinal,t.surface,t.canonical_lemma,d.canonical_lemma,COALESCE(d.excluded,false)
 FROM corpus_tokens t
@@ -151,9 +162,6 @@ ORDER BY t.sentence_ordinal,t.token_ordinal`,
 		return nil, fmt.Errorf("load Idiom count tokens: %w", err)
 	}
 	defer rows.Close()
-	if available, ok := index.(interface{ HasIdiomEntries() bool }); ok && !available.HasIdiomEntries() {
-		return map[string]int64{}, nil // nothing can match: skip the scan
-	}
 	counter := &idiomSentenceCounter{ctx: ctx, index: idiom.NewCachedIndex(index), language: scope.language, counts: make(map[string]int64)}
 	current := int64(-1)
 	for rows.Next() {

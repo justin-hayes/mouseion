@@ -310,6 +310,7 @@ func TestIdiomCountsRebuildAfterAnOccurrenceExclusion(t *testing.T) {
 	f.rebuild(t, spoon, "v1")
 	require.Len(t, f.corpusCounts(t), 1)
 	f.confirmDecision(t, "löffel", 0, "", true)
+	require.EqualValues(t, 1, f.pending(t, "v1"))
 	require.Equal(t, 1, f.jobs(t))
 	f.rebuild(t, spoon, "v1")
 	require.Empty(t, f.corpusCounts(t))

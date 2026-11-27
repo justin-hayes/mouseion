@@ -124,10 +124,17 @@ func (i *Index) IdiomEntries(ctx context.Context, language, word string) ([]idio
 // index's provider version names its dump, not its derivation, so an index
 // rebuilt with a changed reviewed idiom list can keep it; the digest changes
 // whenever an entry does. An index without idiom lookup has the empty digest.
+//
+// The digest is computed once and remembered: the index is read-only.
 func (i *Index) IdiomDigest(ctx context.Context) (string, error) {
 	if i == nil || i.db == nil || !i.idiomAvailable {
 		return "", nil
 	}
+	i.digestOnce.Do(func() { i.digest, i.digestErr = i.computeIdiomDigest(ctx) })
+	return i.digest, i.digestErr
+}
+
+func (i *Index) computeIdiomDigest(ctx context.Context) (string, error) {
 	rows, err := i.db.QueryContext(ctx, `SELECT language, headword, upos, source, version, words_json
 		FROM idiom_entries ORDER BY language, headword, upos, source`)
 	if err != nil {
@@ -147,6 +154,26 @@ func (i *Index) IdiomDigest(ctx context.Context) (string, error) {
 	}
 	if err = rows.Err(); err != nil {
 		return "", fmt.Errorf("dictionary idiom digest rows: %w", err)
+	}
+	// Matching finds entries through the word lookup, so it is part of the evidence.
+	words, err := i.db.QueryContext(ctx, `SELECT language, word, headword, upos, source FROM idiom_words
+		ORDER BY language, word, headword, upos, source`)
+	if err != nil {
+		return "", fmt.Errorf("dictionary idiom word digest: %w", err)
+	}
+	defer words.Close() //nolint:errcheck // Rows.Err below reports actionable failures.
+	for words.Next() {
+		var fields [5]string
+		if err = words.Scan(&fields[0], &fields[1], &fields[2], &fields[3], &fields[4]); err != nil {
+			return "", fmt.Errorf("dictionary idiom word digest row: %w", err)
+		}
+		for _, field := range fields {
+			hash.Write([]byte(field))
+			hash.Write([]byte{0})
+		}
+	}
+	if err = words.Err(); err != nil {
+		return "", fmt.Errorf("dictionary idiom word digest rows: %w", err)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }
