@@ -433,6 +433,14 @@ func (h *postgresHarness) RecordStudyGrade(owner string, record domain.StudyGrad
 	return h.store.RecordStudyGrade(h.ctx, owner, record)
 }
 
+func (h *postgresHarness) RecordStudyAlreadyKnown(owner string, record domain.StudyAlreadyKnownRecord) error {
+	return h.store.RecordStudyAlreadyKnown(h.ctx, owner, record)
+}
+
+func (h *postgresHarness) ListStudyAlreadyKnownEvents(owner, language string) ([]domain.StudyAlreadyKnownEvent, error) {
+	return h.store.ListStudyAlreadyKnownEvents(h.ctx, owner, language)
+}
+
 func (h *postgresHarness) ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error) {
 	return h.store.ListStudyReviewLog(h.ctx, owner, progressID)
 }

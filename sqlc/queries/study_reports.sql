@@ -121,12 +121,14 @@ UPDATE study_progress
 
 -- name: StudyActionSince :one
 -- Whether the learner took any Study action in the language after the instant:
--- a graded review, a batch taken or declined, a Fluency response or another
+-- a graded review, an Already-known answer, a batch taken or declined, a Fluency response or another
 -- report. Times are the database's own clock.
 SELECT (
     EXISTS (SELECT 1 FROM study_review_log l
               JOIN study_progress p ON p.owner_id = l.owner_id AND p.id = l.progress_id
              WHERE l.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND l.created_at > sqlc.arg('since')::timestamptz)
+    OR EXISTS (SELECT 1 FROM study_already_known_event k
+                WHERE k.owner_id = sqlc.arg('owner') AND k.language = sqlc.arg('language') AND k.created_at > sqlc.arg('since')::timestamptz)
     OR EXISTS (SELECT 1 FROM study_batch_ledger b
                 WHERE b.owner_id = sqlc.arg('owner') AND b.language = sqlc.arg('language') AND b.updated_at > sqlc.arg('since')::timestamptz)
     OR EXISTS (SELECT 1 FROM study_fluency_response f

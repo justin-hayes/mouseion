@@ -118,7 +118,9 @@ type Store struct {
 	// without an analyzed Book behind them.
 	studyCandidates []seededStudyCandidate
 	studyReviewLog  []domain.StudyReviewLog
-	studyLedger     map[string]domain.StudyBatchLedger
+	// studyAlreadyKnown is the Already-known events, never grades.
+	studyAlreadyKnown []domain.StudyAlreadyKnownEvent
+	studyLedger       map[string]domain.StudyBatchLedger
 	// studyReports is every Study report, open and ended. studyActions lists
 	// Study actions and studyReportSeq records how many there were when each
 	// report was made, so Undo can tell whether another action followed.

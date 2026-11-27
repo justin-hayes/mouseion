@@ -196,6 +196,49 @@ func (s *Store) RecordStudyGrade(_ context.Context, owner string, record domain.
 	return errNotFound
 }
 
+// RecordStudyAlreadyKnown stores an Already-known answer on an introduction: the
+// event, which is never a grade and so is not in the review log, and the word's
+// new scheduling state. An introduction answered twice is answered once: the
+// second answer, or an answer to a card that is not an introduction, is
+// domain.ErrStudyStale.
+func (s *Store) RecordStudyAlreadyKnown(_ context.Context, owner string, record domain.StudyAlreadyKnownRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyProgress {
+		item := &s.studyProgress[i]
+		if item.OwnerID != owner || item.ID != record.ProgressID {
+			continue
+		}
+		if item.Withdrawn || item.Memory.Reps != record.ExpectedReps || s.studyHeldLocked(owner, item.StudyItem) || s.studySuperseded[item.MaterialID] || !domain.StudyAlreadyKnownOffered(*item) {
+			return domain.ErrStudyStale
+		}
+		s.studyAlreadyKnown = append(s.studyAlreadyKnown, domain.StudyAlreadyKnownEvent{
+			ID: fmt.Sprintf("fixture-study-already-known-%d", len(s.studyAlreadyKnown)+1), OwnerID: owner, StudyItem: item.StudyItem,
+			ProgressID: item.ID, MaterialID: item.MaterialID, Source: domain.StudyAlreadyKnownIntroduction,
+			AnsweredAt: record.AnsweredAt.UTC(), StudyDay: record.StudyDay,
+		})
+		item.Memory = record.After
+		item.UpdatedAt = record.AnsweredAt.UTC()
+		s.noteStudyActionLocked(owner, item.Language)
+		return nil
+	}
+	return errNotFound
+}
+
+// ListStudyAlreadyKnownEvents returns the learner's Already-known events of a
+// study language, oldest first.
+func (s *Store) ListStudyAlreadyKnownEvents(_ context.Context, owner, language string) ([]domain.StudyAlreadyKnownEvent, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var events []domain.StudyAlreadyKnownEvent
+	for _, event := range s.studyAlreadyKnown {
+		if event.OwnerID == owner && event.Language == language {
+			events = append(events, event)
+		}
+	}
+	return events, nil
+}
+
 // ListStudyReviewLog returns a word's review log, oldest first.
 func (s *Store) ListStudyReviewLog(_ context.Context, owner, progressID string) ([]domain.StudyReviewLog, error) {
 	s.mu.Lock()

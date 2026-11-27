@@ -188,6 +188,12 @@ type StudyProgressStore interface {
 	NextStudyCard(owner, language string, now time.Time) (domain.StudyCard, error)
 	RecordStudyGrade(owner string, record domain.StudyGradeRecord) error
 	ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error)
+	// RecordStudyAlreadyKnown answers an introduction Already known: it stores
+	// the Already-known event (never a review-log row) and the word's new
+	// state. An introduction answered twice, or a card that is not an
+	// introduction, is domain.ErrStudyStale.
+	RecordStudyAlreadyKnown(owner string, record domain.StudyAlreadyKnownRecord) error
+	ListStudyAlreadyKnownEvents(owner, language string) ([]domain.StudyAlreadyKnownEvent, error)
 }
 
 // StudyFluencyStore is the Fluency context and response surface under test

@@ -45,6 +45,10 @@ type StudyGradeStore interface {
 	// RecordStudyGrade appends the review-log row and updates the word's
 	// state; a card already graded is domain.ErrStudyStale.
 	RecordStudyGrade(ctx context.Context, owner string, record domain.StudyGradeRecord) error
+	// RecordStudyAlreadyKnown stores the Already-known answer on an
+	// introduction as an event, never a grade, with the word's new state; an
+	// introduction already answered is domain.ErrStudyStale.
+	RecordStudyAlreadyKnown(ctx context.Context, owner string, record domain.StudyAlreadyKnownRecord) error
 	StudyCorrectionsStore
 }
 
