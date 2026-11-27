@@ -361,6 +361,14 @@ func (h *contractHarness) RecordStudyGrade(owner string, record domain.StudyGrad
 	return h.store.RecordStudyGrade(context.Background(), owner, record)
 }
 
+func (h *contractHarness) RecordStudyAlreadyKnown(owner string, record domain.StudyAlreadyKnownRecord) error {
+	return h.store.RecordStudyAlreadyKnown(context.Background(), owner, record)
+}
+
+func (h *contractHarness) ListStudyAlreadyKnownEvents(owner, language string) ([]domain.StudyAlreadyKnownEvent, error) {
+	return h.store.ListStudyAlreadyKnownEvents(context.Background(), owner, language)
+}
+
 func (h *contractHarness) ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error) {
 	return h.store.ListStudyReviewLog(context.Background(), owner, progressID)
 }

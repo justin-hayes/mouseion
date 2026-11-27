@@ -161,3 +161,18 @@ UPDATE study_progress p
    AND m.owner_id = p.owner_id AND m.item_kind = p.item_kind AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
    AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
    AND m.superseded_at IS NULL AND m.state = 'unpreparable' AND m.id <> p.material_id;
+
+-- name: InsertStudyAlreadyKnownEvent :exec
+-- An Already-known answer or backfilled word: an event, never a grade. The
+-- item identity is copied from the word's progress, so the event is keyed like
+-- Study progress.
+INSERT INTO study_already_known_event (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, source, answered_at, study_day)
+SELECT p.owner_id, p.item_kind, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, p.material_id,
+       sqlc.arg('source'), sqlc.arg('answered_at'), sqlc.arg('study_day')::date
+  FROM study_progress p
+ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('progress');
+
+-- name: ListStudyAlreadyKnownEvents :many
+SELECT * FROM study_already_known_event
+ WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
+ ORDER BY answered_at, created_at, id;

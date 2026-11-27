@@ -58,17 +58,16 @@ test.describe('Study reports', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
 
-    // The entry opens the Book's Lemma review, which lists the report.
-    await entry.getByRole('link', { name: 'Review in Lemma review' }).click();
-    // The link names the reported occurrence, not only its surface form.
-    await expect(page).toHaveURL(/\/reading\/books\/[^/]+\/lemma-review\?form=[^&]+&report=[^&]+$/);
-    await expect(page.getByRole('heading', { level: 2, name: 'Reported in Study' })).toBeVisible();
-    await expect(page.locator('#lemma-review-study-reports')).toContainText('The highlighted word is another word here.');
-    // The reported occurrence is marked, with the note.
-    const marker = page.locator('.lemma-review-study-report');
-    await expect(marker).toHaveCount(1);
-    await expect(marker).toContainText('Reported as a wrong word in Study.');
-    await expect(marker).toContainText('The highlighted word is another word here.');
+    // The entry opens the remediation screen on the reported occurrence, not the
+    // Book's Lemma review.
+    await entry.getByRole('link', { name: 'Repair this word' }).click();
+    await expect(page).toHaveURL(/\/study\/reports\/[^/]+\/remediation$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Repair a reported word' })).toBeVisible();
+    await expect(page.locator('.study-remediation')).toContainText('The highlighted word is another word here.');
+    await expect(page.locator('.study-remediation .reading-text')).toHaveCount(1);
+    // The fixture Book is current reading, which blocks a decision until it
+    // ends; the preview and confirmation are covered over HTTP against Postgres.
+    await expect(page.getByRole('alert')).toContainText('End current reading before changing its vocabulary');
     await page.goto('/de/study/reports');
 
     // Dismiss ends the report: the entry leaves the list and the word is no

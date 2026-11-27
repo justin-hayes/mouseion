@@ -801,6 +801,8 @@ SELECT (
     EXISTS (SELECT 1 FROM study_review_log l
               JOIN study_progress p ON p.owner_id = l.owner_id AND p.id = l.progress_id
              WHERE l.owner_id = $1 AND p.language = $2 AND l.created_at > $3::timestamptz)
+    OR EXISTS (SELECT 1 FROM study_already_known_event k
+                WHERE k.owner_id = $1 AND k.language = $2 AND k.created_at > $3::timestamptz)
     OR EXISTS (SELECT 1 FROM study_batch_ledger b
                 WHERE b.owner_id = $1 AND b.language = $2 AND b.updated_at > $3::timestamptz)
     OR EXISTS (SELECT 1 FROM study_fluency_response f
@@ -821,7 +823,7 @@ type StudyActionSinceParams struct {
 }
 
 // Whether the learner took any Study action in the language after the instant:
-// a graded review, a batch taken or declined, a Fluency response or another
+// a graded review, an Already-known answer, a batch taken or declined, a Fluency response or another
 // report. Times are the database's own clock.
 func (q *Queries) StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error) {
 	row := q.db.QueryRow(ctx, studyActionSince,
