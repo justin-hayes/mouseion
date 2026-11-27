@@ -118,15 +118,20 @@ func TestGreekDeckPassContractIsUnchanged(t *testing.T) {
 }
 
 // TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly proves the
-// #2774 disposition is recorded for Greek alone, under the Greek entry contract,
-// and that the other records are unchanged.
+// #2774 disposition, re-recorded on #2781 for the citation-form contract, is
+// recorded for Greek alone, and that the other records are unchanged.
 func TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly(t *testing.T) {
-	assertSupersededRecord(t, "#2774", GreekEntryEvidenceAssistedPassPayload, "grc", GreekEntryEvidenceAssistedPassPayloadFields,
-		"translation-v19-evidence-assisted-greek-entries", (*TranslationCodec).GreekEntryEvidenceAssistedPassPromptContract)
+	assertRecordedAssessment(t, "#2781", GreekEntryEvidenceAssistedPassPayload, "grc",
+		(*TranslationCodec).GreekEntryEvidenceAssistedPassPromptContract, GreekEntryEvidenceAssistedPassPayloadFields)
 
 	t.Run("the disposition serves the Study surface", func(t *testing.T) {
 		require.Equal(t, "approved for personal use of the locally produced Study surface", greekEntryEvidenceAssistedPassAssessment.Disposition)
-		require.Equal(t, "translation-v19-evidence-assisted-greek-entries", greekEntryEvidenceAssistedPassAssessment.PromptVersion)
+		require.Equal(t, "translation-v20-evidence-assisted-greek-entries-citation-form", greekEntryEvidenceAssistedPassAssessment.PromptVersion)
+	})
+	t.Run("the superseded v19 contract is refused", func(t *testing.T) {
+		superseded := greekEntryEvidenceAssistedPassAssessment
+		superseded.PromptVersion = "translation-v19-evidence-assisted-greek-entries"
+		require.ErrorIs(t, ProviderAssessmentSet{superseded}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
 	})
 	for _, language := range []string{"la", "de", "it"} {
 		t.Run(language+" is refused", func(t *testing.T) {

@@ -66,11 +66,10 @@ func TestBatchPlannerPlansLatinDeckWithNoProviderConfigured(t *testing.T) {
 	require.Len(t, plan.Projection.Items, 1)
 }
 
-// The compiled assessments record the Latin pass only under its superseded
-// contract (#2766); the citation-form contract (#2779) is not recorded until
-// #2781, so a Latin deck with a configured provider plans without the pass and
-// sends nothing.
-func TestBatchPlannerPlansLatinDeckWithoutThePassUnderTheCompiledAssessments(t *testing.T) {
+// The compiled assessments record the Latin pass under its citation-form
+// contract (#2781), so a Latin deck with a configured provider plans and sends
+// the pass again.
+func TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
 	assembler := &cutoverAssembler{projections: []cardexport.CandidateProjection{cutoverLatinProjection()}, deckName: "Book", language: "la"}
@@ -79,18 +78,15 @@ func TestBatchPlannerPlansLatinDeckWithoutThePassUnderTheCompiledAssessments(t *
 
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
-	t.Run("the run is not consented and names no provider", func(t *testing.T) {
-		require.False(t, plan.Config.ExternalTranslationConsent)
-		require.Empty(t, plan.Config.Provider)
-		require.Empty(t, plan.Config.ProviderVersion)
-	})
-	t.Run("the word is not frozen as pass work", func(t *testing.T) {
-		deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
-		require.NoError(t, err)
-		for _, work := range deck.WorkProjection() {
-			assert.False(t, work.Request.RequireEvidenceAssistedPass)
-		}
-	})
+	assert.True(t, plan.Config.ExternalTranslationConsent)
+	assert.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
+	assert.Contains(t, plan.Config.ProviderVersion, "translation-v21-evidence-assisted-latin-citation-form")
+
+	deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	assert.True(t, work[0].Request.RequireEvidenceAssistedPass)
 }
 
 // With a test-recorded Latin assessment a Latin deck freezes the pass under the

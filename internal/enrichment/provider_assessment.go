@@ -224,20 +224,20 @@ var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
 //
-// The codec's Latin pass contract has since moved to a citation-form version
-// (#2779), so this record no longer matches it: the gate refuses and Latin Study
-// and Prepared decks send nothing until the new contract is recorded (#2781).
+// The record was re-recorded on #2781 for the citation-form contract of #2779
+// (v21): only the prompt changed, the field set and transport are the same, and
+// the v18 contract is refused. See the addendum in the review document.
 var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          LatinEvidenceAssistedPassPayload,
 	Language:      "la",
 	Provider:      "openai-compatible",
-	PromptVersion: "translation-v18-evidence-assisted-latin",
+	PromptVersion: "translation-v21-evidence-assisted-latin-citation-form",
 	Fields: []string{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "passage_context", "candidate_senses",
 	},
 	Disposition: "approved for personal use of the locally produced deck and Study surface",
-	Ticket:      "#2766",
+	Ticket:      "#2781",
 	Recorded:    true,
 }
 
@@ -259,20 +259,20 @@ var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
 //
-// The codec's Study pass contract has since moved to a citation-form version
-// (#2779), so this record no longer matches it: the gate refuses and Greek Study
-// sends nothing until the new contract is recorded (#2781).
+// The record was re-recorded on #2781 for the citation-form contract of #2779
+// (v20): only the prompt changed, the field set and transport are the same, and
+// the v19 contract is refused. See the addendum in the review document.
 var greekEntryEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          GreekEntryEvidenceAssistedPassPayload,
 	Language:      "grc",
 	Provider:      "openai-compatible",
-	PromptVersion: "translation-v19-evidence-assisted-greek-entries",
+	PromptVersion: "translation-v20-evidence-assisted-greek-entries-citation-form",
 	Fields: []string{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "passage_context", "candidate_senses",
 	},
 	Disposition: "approved for personal use of the locally produced Study surface",
-	Ticket:      "#2774",
+	Ticket:      "#2781",
 	Recorded:    true,
 }
 

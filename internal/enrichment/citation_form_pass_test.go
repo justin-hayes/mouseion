@@ -72,24 +72,27 @@ func TestCitationFormPassFieldSetsAreUnchanged(t *testing.T) {
 	assert.Equal(t, want, LatinEvidenceAssistedPassPayloadFields())
 }
 
-// TestCitationFormPassContractsFailClosedUntilRecorded proves the compiled
-// assessments refuse both new prompt versions: the records pin the versions
-// they were recorded under, so Greek Study, Latin Study and Latin Prepared
-// decks send nothing for the new contracts until #2781 records them.
-func TestCitationFormPassContractsFailClosedUntilRecorded(t *testing.T) {
+// TestCitationFormPassContractsAreRecordedExactly proves the compiled
+// assessments (#2781) allow exactly the new prompt versions for Greek and Latin
+// and refuse the superseded ones.
+func TestCitationFormPassContractsAreRecordedExactly(t *testing.T) {
 	codec := passCodec(t)
-	require.ErrorIs(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec), ErrProviderAssessmentNotRecorded)
-	require.ErrorIs(t, ProviderAssessments().MaySend(LatinEvidenceAssistedPassPayload, "la", codec), ErrProviderAssessmentNotRecorded)
+	require.NoError(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec))
+	require.NoError(t, ProviderAssessments().MaySend(LatinEvidenceAssistedPassPayload, "la", codec))
+	assert.Equal(t, greekCitationFormVersion, greekEntryEvidenceAssistedPassAssessment.PromptVersion)
+	assert.Equal(t, latinCitationFormVersion, latinEvidenceAssistedPassAssessment.PromptVersion)
+	assert.Equal(t, "#2781", greekEntryEvidenceAssistedPassAssessment.Ticket)
+	assert.Equal(t, "#2781", latinEvidenceAssistedPassAssessment.Ticket)
 
-	t.Run("the superseded records still pin the superseded versions", func(t *testing.T) {
-		assert.Equal(t, "translation-v19-evidence-assisted-greek-entries", greekEntryEvidenceAssistedPassAssessment.PromptVersion)
-		assert.Equal(t, "translation-v18-evidence-assisted-latin", latinEvidenceAssistedPassAssessment.PromptVersion)
-	})
-	t.Run("a record of the new versions would allow them", func(t *testing.T) {
+	t.Run("the superseded versions are refused", func(t *testing.T) {
 		greek, latin := greekEntryEvidenceAssistedPassAssessment, latinEvidenceAssistedPassAssessment
-		greek.PromptVersion, latin.PromptVersion = greekCitationFormVersion, latinCitationFormVersion
-		require.NoError(t, ProviderAssessmentSet{greek}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec))
-		require.NoError(t, ProviderAssessmentSet{latin}.MaySend(LatinEvidenceAssistedPassPayload, "la", codec))
+		greek.PromptVersion, latin.PromptVersion = "translation-v19-evidence-assisted-greek-entries", "translation-v18-evidence-assisted-latin"
+		require.ErrorIs(t, ProviderAssessmentSet{greek}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec), ErrProviderAssessmentNotRecorded)
+		require.ErrorIs(t, ProviderAssessmentSet{latin}.MaySend(LatinEvidenceAssistedPassPayload, "la", codec), ErrProviderAssessmentNotRecorded)
+	})
+	t.Run("the records answer only for their own language", func(t *testing.T) {
+		require.ErrorIs(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, "la", codec), ErrProviderAssessmentNotRecorded)
+		require.ErrorIs(t, ProviderAssessments().MaySend(LatinEvidenceAssistedPassPayload, "grc", codec), ErrProviderAssessmentNotRecorded)
 	})
 }
 
@@ -118,11 +121,10 @@ func TestCitationFormChangeLeavesOtherContractsByteForByte(t *testing.T) {
 	assert.Equal(t, "fluency-agreement-source-evidence-v2", fluencyAgreementSourceEvidencePromptVersion)
 }
 
-// TestCheckPassAssessmentRefusesFrozenWorkUnderAnUnrecordedContract proves the
-// last check before a pass is encoded: work frozen before the contract changed
-// sends nothing under the new one, while non-pass requests and the recorded
-// #2171 Greek deck pass are untouched.
-func TestCheckPassAssessmentRefusesFrozenWorkUnderAnUnrecordedContract(t *testing.T) {
+// TestCheckPassAssessmentAllowsFrozenWorkUnderTheRecordedContracts proves the
+// last check before a pass is encoded allows Latin and Greek work under the
+// recorded contracts, and that the client no longer refuses on the assessment.
+func TestCheckPassAssessmentAllowsFrozenWorkUnderTheRecordedContracts(t *testing.T) {
 	codec := passCodec(t)
 	latin := latinPassRequest()
 	latin.RequireEvidenceAssistedPass = true
@@ -131,13 +133,8 @@ func TestCheckPassAssessmentRefusesFrozenWorkUnderAnUnrecordedContract(t *testin
 	greekDeck := greekEntryPassRequest()
 	greekDeck.RequireEvidenceAssistedPass, greekDeck.StudyPass = true, false
 
-	require.ErrorIs(t, CheckPassAssessment(codec, latin), ErrProviderAssessmentNotRecorded)
-	require.ErrorIs(t, CheckPassAssessment(codec, greekStudy), ErrProviderAssessmentNotRecorded)
+	require.NoError(t, CheckPassAssessment(codec, latin))
+	require.NoError(t, CheckPassAssessment(codec, greekStudy))
 	require.NoError(t, CheckPassAssessment(codec, greekDeck))
 	require.NoError(t, CheckPassAssessment(codec, TranslationRequest{Language: "la"}), "a request that is not a pass is never refused")
-
-	client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "gpt-test", BaseURL: "http://127.0.0.1:1"}, nil)
-	require.NoError(t, err)
-	_, err = client.Translate(t.Context(), latin)
-	require.ErrorIs(t, err, ErrProviderAssessmentNotRecorded, "the client sends nothing")
 }

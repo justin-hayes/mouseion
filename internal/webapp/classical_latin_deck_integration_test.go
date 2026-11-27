@@ -251,14 +251,7 @@ func TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFail
 	// this provider fails every request.
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
-	// The compiled assessments refuse the citation-form Latin contract until
-	// #2781 records it, so the test records it for itself.
-	assessments := []enrichment.ProviderAssessment{{
-		Kind: enrichment.LatinEvidenceAssistedPassPayload, Language: "la", Provider: codec.ProviderName(),
-		PromptVersion: codec.LatinEvidenceAssistedPassPromptContract(),
-		Fields:        enrichment.LatinEvidenceAssistedPassPayloadFields(),
-		Disposition:   "recorded for this test", Ticket: "#test", Recorded: true,
-	}}
+	assessments := enrichment.ProviderAssessments()
 	prepareddeck.AddPreparedDeckWorkerWithAssessments(workers, store, presentation, client, codec, batchConfig, preparedConfig, true, assessments)
 	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, failingPassProvider, preparedConfig, time.Second, metrics)
 	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, nil, nil, metrics)

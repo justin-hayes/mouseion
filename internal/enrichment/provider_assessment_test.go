@@ -73,29 +73,6 @@ func assertRecordedAssessment(t *testing.T, ticket string, kind ProviderPayloadK
 	})
 }
 
-// assertSupersededRecord asserts a recorded assessment whose prompt contract the
-// codec has since moved past (#2779): the record keeps the version and field set
-// it was recorded under, and the compiled set refuses the codec's current
-// contract until it is re-recorded.
-func assertSupersededRecord(t *testing.T, ticket string, kind ProviderPayloadKind, language string, payloadFields func() []string, recordedVersion string, promptContract func(*TranslationCodec) string) {
-	t.Helper()
-	assessment := assessmentByTicketAndKind(t, ticket, kind)
-	codec := passCodec(t)
-
-	t.Run("the record keeps the version it was recorded under", func(t *testing.T) {
-		require.True(t, assessment.Recorded)
-		require.Equal(t, kind, assessment.Kind)
-		require.Equal(t, recordedVersion, assessment.PromptVersion)
-	})
-	t.Run("the field set is unchanged", func(t *testing.T) {
-		require.Equal(t, payloadFields(), assessment.Fields)
-	})
-	t.Run("the codec has moved on to a contract that is not recorded", func(t *testing.T) {
-		require.NotEqual(t, recordedVersion, promptContract(codec))
-		require.ErrorIs(t, ProviderAssessments().MaySend(kind, language, codec), ErrProviderAssessmentNotRecorded)
-	})
-}
-
 // TestProviderAssessmentSetMaySend proves the one question, for every payload
 // kind, allows only an exact match against the current codec and refuses every
 // other case.
