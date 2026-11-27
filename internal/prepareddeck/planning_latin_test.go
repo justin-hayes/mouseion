@@ -66,8 +66,9 @@ func TestBatchPlannerPlansLatinDeckWithNoProviderConfigured(t *testing.T) {
 	require.Len(t, plan.Projection.Items, 1)
 }
 
-// With the compiled assessments, which record the Latin pass (#2766), a Latin
-// deck with a configured provider plans the pass and sends it.
+// The compiled assessments record the Latin pass under its citation-form
+// contract (#2781), so a Latin deck with a configured provider plans and sends
+// the pass again.
 func TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments(t *testing.T) {
 	codec, err := enrichment.NewTranslationCodec(enrichment.LLMConfig{Model: "gpt-test", BaseURL: "https://api.openai.com/v1"})
 	require.NoError(t, err)
@@ -77,20 +78,15 @@ func TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments(t *tes
 
 	plan, err := planner.PlanPreparedDeckRun(context.Background(), nil, domain.DeckPreparation{ID: "preparation", OwnerID: "alice", SourceMaterialID: "book"})
 	require.NoError(t, err)
-	t.Run("the run is consented", func(t *testing.T) {
-		require.True(t, plan.Config.ExternalTranslationConsent)
-	})
-	t.Run("the run uses the Latin pass contract", func(t *testing.T) {
-		require.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
-	})
-	t.Run("the word is frozen as pass work", func(t *testing.T) {
-		deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
-		require.NoError(t, err)
-		work := deck.WorkProjection()
-		require.Len(t, work, 1)
-		assert.True(t, work[0].Request.RequireEvidenceAssistedPass)
-		assert.Equal(t, "la", work[0].Request.Language)
-	})
+	assert.True(t, plan.Config.ExternalTranslationConsent)
+	assert.Equal(t, codec.LatinEvidenceAssistedPassProviderVersion(), plan.Config.ProviderVersion)
+	assert.Contains(t, plan.Config.ProviderVersion, "translation-v21-evidence-assisted-latin-citation-form")
+
+	deck, err := cardexport.NewPresentation(nil).Restore(plan.Projection)
+	require.NoError(t, err)
+	work := deck.WorkProjection()
+	require.Len(t, work, 1)
+	assert.True(t, work[0].Request.RequireEvidenceAssistedPass)
 }
 
 // With a test-recorded Latin assessment a Latin deck freezes the pass under the

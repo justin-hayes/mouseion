@@ -223,17 +223,21 @@ var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
 // from the codec, so the record is a real pin: changing the prompt contract or
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
+//
+// The record was re-recorded on #2781 for the citation-form contract of #2779
+// (v21): only the prompt changed, the field set and transport are the same, and
+// the v18 contract is refused. See the addendum in the review document.
 var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          LatinEvidenceAssistedPassPayload,
 	Language:      "la",
 	Provider:      "openai-compatible",
-	PromptVersion: "translation-v18-evidence-assisted-latin",
+	PromptVersion: "translation-v21-evidence-assisted-latin-citation-form",
 	Fields: []string{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "passage_context", "candidate_senses",
 	},
 	Disposition: "approved for personal use of the locally produced deck and Study surface",
-	Ticket:      "#2766",
+	Ticket:      "#2781",
 	Recorded:    true,
 }
 
@@ -254,17 +258,21 @@ var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 // from the codec, so the record is a real pin: changing the prompt contract or
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
+//
+// The record was re-recorded on #2781 for the citation-form contract of #2779
+// (v20): only the prompt changed, the field set and transport are the same, and
+// the v19 contract is refused. See the addendum in the review document.
 var greekEntryEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          GreekEntryEvidenceAssistedPassPayload,
 	Language:      "grc",
 	Provider:      "openai-compatible",
-	PromptVersion: "translation-v19-evidence-assisted-greek-entries",
+	PromptVersion: "translation-v20-evidence-assisted-greek-entries-citation-form",
 	Fields: []string{
 		"item_id", "language", "target_language", "canonical_lemma", "upos",
 		"target_word", "example_sentence", "passage_context", "candidate_senses",
 	},
 	Disposition: "approved for personal use of the locally produced Study surface",
-	Ticket:      "#2774",
+	Ticket:      "#2781",
 	Recorded:    true,
 }
 
@@ -417,4 +425,26 @@ func StudyEvidenceAssistedPassKind(language string) ProviderPayloadKind {
 	case cardpolicy.PassContractGreek:
 	}
 	return EvidenceAssistedPassPayload
+}
+
+// CheckPassAssessment refuses a request for an evidence-assisted pass whose
+// payload contract the compiled assessments do not record for the codec's
+// current prompt version. It is the last check before a pass request is
+// encoded for the provider, so work frozen before a contract changed (a queued
+// Prepared deck item, a retried Study item) sends nothing under the new,
+// unrecorded contract (#2779). A request that is not a pass is never refused.
+func CheckPassAssessment(codec *TranslationCodec, input TranslationRequest) error {
+	if !input.RequireEvidenceAssistedPass {
+		return nil
+	}
+	var kind ProviderPayloadKind
+	switch passContractOf(input) {
+	case cardpolicy.PassContractLatin:
+		kind = LatinEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreekEntries:
+		kind = GreekEntryEvidenceAssistedPassPayload
+	default:
+		kind = EvidenceAssistedPassPayload
+	}
+	return ProviderAssessments().MaySend(kind, input.Language, codec)
 }
