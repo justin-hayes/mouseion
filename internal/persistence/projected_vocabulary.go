@@ -29,7 +29,7 @@ func (s *PostgresStore) GetProjectedCorpusVocabulary(ctx context.Context, owner,
 		if row.CanonicalLemma == "" {
 			continue
 		}
-		value.Lemmas = append(value.Lemmas, domain.LemmaOccurrence{Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, OccurrenceCount: row.OccurrenceCount})
+		value.Lemmas = append(value.Lemmas, domain.LemmaOccurrence{Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator, OccurrenceCount: row.OccurrenceCount})
 	}
 	if value.Statistics != nil {
 		value.Statistics.DistinctLemmaCount = int64(len(value.Lemmas))
