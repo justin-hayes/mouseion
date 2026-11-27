@@ -381,11 +381,17 @@ func (p *BatchPlanner) validateIdiomAssessment(languages []string) error {
 		return errTranslationProviderRequired
 	}
 	for _, language := range languages {
-		if err := p.assessments().MaySend(enrichment.IdiomCardPayload, language, p.Codec); err != nil {
+		if err := idiomPayloadMaySend(p.assessments(), language, p.Codec); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// idiomPayloadMaySend is the recorded-assessment gate of the idiom-card
+// payload, shared by the deck planner and Study's idiom switch.
+func idiomPayloadMaySend(assessments enrichment.ProviderAssessmentSet, language string, codec *enrichment.TranslationCodec) error {
+	return assessments.MaySend(enrichment.IdiomCardPayload, language, codec)
 }
 
 // IdiomSwitch reports whether a language's idiom switch is on: the operator
@@ -402,7 +408,7 @@ func IdiomSwitch(languages map[string]bool, assessments enrichment.ProviderAsses
 		if codec == nil || !languages[language] {
 			return false
 		}
-		return assessments.MaySend(enrichment.IdiomCardPayload, language, codec) == nil
+		return idiomPayloadMaySend(assessments, language, codec) == nil
 	}
 }
 

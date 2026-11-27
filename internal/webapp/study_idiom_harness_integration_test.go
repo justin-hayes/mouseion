@@ -63,7 +63,7 @@ func (f *fakeIdiomLookup) IdiomEntries(_ context.Context, language, word string)
 func germanIdiom(headword string) idiom.Entry {
 	return idiom.Entry{
 		Language: "de", Headword: headword, UPOS: "PHRASE", Words: strings.Fields(headword),
-		Senses: []enrichment.LexicalSense{{Gloss: "the idiom " + headword}},
+		Senses: []enrichment.LexicalSense{{EvidenceID: "test-idiom/" + headword + "/1", Gloss: "the idiom " + headword}},
 		Source: "test-dictionary", Version: "1",
 	}
 }

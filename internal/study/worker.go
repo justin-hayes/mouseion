@@ -193,6 +193,9 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 	}
 	reader := w.Idioms.reader(identity.Language)
 	search := sentenceSearch{priority: priority, preferOutsideIdiom: reader != nil}
+	// existing is the search as it ran before Idioms: it stops reading where it
+	// always did, and is the fallback when no sentence is outside a candidate.
+	existing := sentenceSearch{priority: priority}
 	for page := 1; ; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
 			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
@@ -205,12 +208,21 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
+		if !existing.settled() {
+			existing.add(result.Occurrences, choices)
+		}
 		search.add(result.Occurrences, choices)
-		if search.settled() || !result.HasNext {
+		if (search.settled() && (reader == nil || existing.settled())) || !result.HasNext {
 			break
 		}
 	}
-	return search.best()
+	if reader == nil {
+		return existing.best()
+	}
+	if choice, found, err := search.best(); found || err != nil {
+		return choice, found, err
+	}
+	return existing.best()
 }
 
 // sentenceSearch collects accepted sentences page by page, the Current
@@ -219,8 +231,8 @@ type sentenceSearch struct {
 	priority             string
 	inReading, elsewhere []sentenceChoice
 	pastReading          bool
-	// preferOutsideIdiom ranks a sentence where the word is outside every Idiom
-	// candidate ahead of the rest, the Current reading's order included.
+	// preferOutsideIdiom limits the search to sentences where the word is
+	// outside every Idiom candidate, ahead of the Current reading's order.
 	preferOutsideIdiom bool
 }
 
@@ -256,19 +268,20 @@ func (s *sentenceSearch) add(occurrences []domain.ConcordanceResultOccurrence, c
 // lists the Current reading's occurrences first, so once it has moved past them,
 // or there is no Current reading, an accepted sentence settles it.
 func (s *sentenceSearch) settled() bool {
+	inReading, elsewhere := s.inReading, s.elsewhere
 	if s.preferOutsideIdiom {
-		return (len(outsideIdiom(s.inReading)) > 0 && s.pastReading) || (s.priority == "" && len(outsideIdiom(s.elsewhere)) > 0)
+		inReading, elsewhere = outsideIdiom(inReading), outsideIdiom(elsewhere)
 	}
-	return (len(s.inReading) > 0 && s.pastReading) || (s.priority == "" && len(s.elsewhere) > 0)
+	return (len(inReading) > 0 && s.pastReading) || (s.priority == "" && len(elsewhere) > 0)
 }
 
 // best returns the Current reading's best sentence, else the library's.
 func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
 	groups := [][]sentenceChoice{s.inReading, s.elsewhere}
 	if s.preferOutsideIdiom {
-		// Outside an Idiom candidate first, the Current reading's before the
-		// library's; the existing order is the fallback.
-		groups = [][]sentenceChoice{outsideIdiom(s.inReading), outsideIdiom(s.elsewhere), s.inReading, s.elsewhere}
+		// Only a sentence outside every Idiom candidate, the Current reading's
+		// before the library's; the caller falls back to the existing search.
+		groups = [][]sentenceChoice{outsideIdiom(s.inReading), outsideIdiom(s.elsewhere)}
 	}
 	for _, group := range groups {
 		if best, ok := bestChoice(group); ok {
