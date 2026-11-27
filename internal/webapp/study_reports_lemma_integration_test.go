@@ -5,6 +5,7 @@ package webapp
 import (
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -308,4 +309,171 @@ func TestStudyRemediationRepairsOnlyTheReportedOccurrence(t *testing.T) {
 	s.remediate(id, "exclude", "")
 	assert.Equal(t, http.StatusNotFound, getAs(t, s.h, path, s.cookies).Code, "an ended report has no screen")
 	assert.Empty(t, s.openReports())
+}
+
+// matchValues lists the ticks a remediation page offers or carries: the
+// value of every input named match.
+func matchValues(body string) []string {
+	var values []string
+	for _, found := range regexp.MustCompile(`name="match" value="([^"]+)"`).FindAllStringSubmatch(body, -1) {
+		values = append(values, found[1])
+	}
+	return values
+}
+
+// matchFingerprints lists the preview fingerprints a remediation preview carries
+// for the matches' Books.
+func matchFingerprints(body string) []string {
+	var values []string
+	for _, found := range regexp.MustCompile(`name="match_fingerprint" value="([^"]+)"`).FindAllStringSubmatch(body, -1) {
+		values = append(values, found[1])
+	}
+	return values
+}
+
+// hausAt is the Book's occurrence of haus in the sentence.
+func (s *studyHarness) hausAt(bookID string, sentence int64) domain.LemmaReviewOccurrence {
+	s.t.Helper()
+	for _, occurrence := range s.hausOccurrences(bookID) {
+		if occurrence.SentenceOrdinal == sentence {
+			return occurrence
+		}
+	}
+	s.t.Fatalf("no occurrence of haus in sentence %d", sentence)
+	return domain.LemmaReviewOccurrence{}
+}
+
+// otherHaus is an occurrence of haus in the Book other than the sentence's.
+func (s *studyHarness) otherHaus(bookID string, sentence int64) domain.LemmaReviewOccurrence {
+	s.t.Helper()
+	for _, occurrence := range s.hausOccurrences(bookID) {
+		if occurrence.SentenceOrdinal != sentence {
+			return occurrence
+		}
+	}
+	s.t.Fatalf("no other occurrence of haus than sentence %d", sentence)
+	return domain.LemmaReviewOccurrence{}
+}
+
+func (s *studyHarness) hausOccurrences(bookID string) []domain.LemmaReviewOccurrence {
+	s.t.Helper()
+	occurrences, err := s.store.ListLemmaReviewOccurrences(s.ctx, s.owner.ID, bookID, "haus")
+	require.NoError(s.t, err)
+	return occurrences
+}
+
+func TestStudyRemediationDecidesOnlyTheTickedMatchesEachInItsOwnBook(t *testing.T) {
+	s := newStudyHarness(t)
+	firstBook, _, sentence := s.reportedHaus(3)
+	secondBook := s.seedBook("second", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 2}).ID
+	id := s.openReports()[0].ID
+	path := "/study/reports/" + id + "/remediation"
+	csrf := s.cookies[0].Value
+
+	// The screen offers the other occurrences in every Book, none ticked.
+	opened := getAs(t, s.h, path, s.cookies).Body.String()
+	offered := matchValues(opened)
+	assert.Len(t, offered, 4, "two other occurrences in the reported Book and two in the other")
+	assert.NotContains(t, opened, "checked")
+	for _, book := range []string{firstBook, secondBook} {
+		assert.Contains(t, strings.Join(offered, " "), book+"/")
+	}
+	assert.Contains(t, opened, "Study second")
+	assert.NotContains(t, strings.Join(offered, " "), s.hausAt(firstBook, sentence).ID(), "the reported occurrence is not offered again")
+
+	// One match in each Book is ticked, with the decision's own preview.
+	first := s.otherHaus(firstBook, sentence)
+	second := s.hausOccurrences(secondBook)[0]
+	ticked := []string{matchValue(firstBook, first.ID()), matchValue(secondBook, second.ID())}
+	preview := perform(t, s.h, "POST", path, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "decision": {"correct"}, "lemma": {"hof"}, "match": ticked}, s.cookies)
+	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
+	assert.ElementsMatch(t, ticked, matchValues(preview.Body.String()), "the preview carries what was ticked")
+	assert.Empty(t, s.hausOccurrences(secondBook)[0].CorrectedLemma, "a preview saves nothing")
+
+	confirm := perform(t, s.h, "POST", path, url.Values{
+		"csrf_token": {csrf}, "stage": {"confirm"}, "decision": {"correct"}, "lemma": {"hof"},
+		"fingerprint": {previewFingerprint(t, preview.Body.String())}, "match": matchValues(preview.Body.String()),
+		"match_fingerprint": matchFingerprints(preview.Body.String()),
+	}, s.cookies)
+	require.Equal(t, http.StatusSeeOther, confirm.Code, confirm.Body.String())
+
+	corrected := map[string]string{}
+	for _, book := range []string{firstBook, secondBook} {
+		for _, occurrence := range s.hausOccurrences(book) {
+			corrected[matchValue(book, occurrence.ID())] = occurrence.CorrectedLemma
+		}
+	}
+	want := map[string]string{}
+	for _, value := range offered {
+		want[value] = ""
+	}
+	for _, value := range ticked {
+		want[value] = "hof"
+	}
+	want[matchValue(firstBook, s.hausAt(firstBook, sentence).ID())] = "hof"
+	assert.Equal(t, want, corrected, "the reported and the ticked occurrences are corrected; every other one is unchanged")
+	assert.False(t, s.reportOf(id).Open())
+}
+
+func TestStudyRemediationWithoutTicksDecidesNothingElse(t *testing.T) {
+	s := newStudyHarness(t)
+	firstBook, _, sentence := s.reportedHaus(3)
+	secondBook := s.seedBook("second", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 2}).ID
+	id := s.openReports()[0].ID
+
+	s.remediate(id, "exclude", "")
+
+	for _, book := range []string{firstBook, secondBook} {
+		for _, occurrence := range s.hausOccurrences(book) {
+			reported := book == firstBook && occurrence.SentenceOrdinal == sentence
+			assert.Equal(t, reported, occurrence.Excluded, "only the reported occurrence is excluded")
+		}
+	}
+}
+
+func TestStudyRemediationIgnoresATickThatIsNotAMatch(t *testing.T) {
+	s := newStudyHarness(t)
+	firstBook, _, sentence := s.reportedHaus(3)
+	buch := s.hausOccurrences(firstBook)[0]
+	other := s.seedBook("second", testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 1}).ID
+	id := s.openReports()[0].ID
+	path := "/study/reports/" + id + "/remediation"
+
+	foreign, err := s.store.ListLemmaReviewOccurrences(s.ctx, s.owner.ID, other, "buch")
+	require.NoError(t, err)
+	require.NotEmpty(t, foreign)
+	preview := perform(t, s.h, "POST", path, url.Values{
+		"csrf_token": {s.cookies[0].Value}, "stage": {"preview"}, "decision": {"exclude"},
+		"match": {matchValue(other, foreign[0].ID()), matchValue(firstBook, s.hausAt(firstBook, sentence).ID()), matchValue(firstBook, buch.ID()+"x")},
+	}, s.cookies)
+	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
+	assert.Empty(t, matchValues(preview.Body.String()), "another word's occurrence and the reported one are not matches")
+}
+
+func TestStudyRemediationSavesNothingWhenATickedBookChangedAfterThePreview(t *testing.T) {
+	s := newStudyHarness(t)
+	firstBook, _, sentence := s.reportedHaus(3)
+	secondBook := s.seedBook("second", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 2}).ID
+	id := s.openReports()[0].ID
+	path := "/study/reports/" + id + "/remediation"
+	csrf := s.cookies[0].Value
+	occurrences := s.hausOccurrences(secondBook)
+
+	preview := perform(t, s.h, "POST", path, url.Values{
+		"csrf_token": {csrf}, "stage": {"preview"}, "decision": {"exclude"}, "match": {matchValue(secondBook, occurrences[0].ID())},
+	}, s.cookies)
+	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
+
+	// The learner decides another occurrence of the form in that Book elsewhere.
+	s.decide(secondBook, "haus", occurrences[1].SentenceOrdinal, "exclude", "")
+
+	confirm := perform(t, s.h, "POST", path, url.Values{
+		"csrf_token": {csrf}, "stage": {"confirm"}, "decision": {"exclude"},
+		"fingerprint": {previewFingerprint(t, preview.Body.String())}, "match": matchValues(preview.Body.String()),
+		"match_fingerprint": matchFingerprints(preview.Body.String()),
+	}, s.cookies)
+	assert.Equal(t, http.StatusConflict, confirm.Code, confirm.Body.String())
+	assert.True(t, s.reportOf(id).Open(), "the reported occurrence is not decided either")
+	assert.False(t, s.hausAt(firstBook, sentence).Excluded)
+	assert.False(t, s.hausOccurrences(secondBook)[0].Excluded)
 }

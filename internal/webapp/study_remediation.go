@@ -2,8 +2,11 @@ package webapp
 
 import (
 	"errors"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
@@ -24,6 +27,57 @@ type studyRemediationView struct {
 	CanCorrect bool
 	Preview    *lemmareview.Preview
 	Recovery   lemmareview.Recovery
+	// Books are the other occurrences in the Corpus of the reported word's
+	// form and lemma, by Book, none ticked. MatchPreviews are the previews of
+	// the ticked ones, one per Book, each decided in its own Book's analysis.
+	Books         []studyRemediationBook
+	MatchPreviews []studyRemediationMatchPreview
+}
+
+// studyRemediationBook is one Book's matching occurrences.
+type studyRemediationBook struct {
+	ID, Title  string
+	CanCorrect bool
+	Matches    []studyRemediationMatch
+}
+
+// studyRemediationMatch is one matching occurrence a learner may tick.
+type studyRemediationMatch struct {
+	Value, Sentence string
+}
+
+// studyRemediationMatchPreview is the preview of the ticked occurrences of one
+// Book.
+type studyRemediationMatchPreview struct {
+	BookID, Title string
+	Preview       lemmareview.Preview
+}
+
+// matchValue names a ticked occurrence by its Book, which the occurrence's own
+// identity does not carry.
+func matchValue(bookID, occurrenceID string) string { return bookID + "/" + occurrenceID }
+
+// tickedMatches reads the matches the learner ticked, by Book. Only an
+// occurrence the Corpus offers for this word counts, and only in a Book whose
+// vocabulary can change; anything else the form names is ignored.
+func tickedMatches(r *http.Request, books []studyRemediationBook) map[string][]string {
+	offered := map[string]bool{}
+	for _, book := range books {
+		if !book.CanCorrect {
+			continue
+		}
+		for _, match := range book.Matches {
+			offered[match.Value] = true
+		}
+	}
+	ticked := map[string][]string{}
+	for _, value := range r.Form["match"] {
+		bookID, occurrenceID, ok := strings.Cut(value, "/")
+		if ok && offered[value] && !slices.Contains(ticked[bookID], occurrenceID) {
+			ticked[bookID] = append(ticked[bookID], occurrenceID)
+		}
+	}
+	return ticked
 }
 
 // studyRemediationPath is the remediation screen of a report.
@@ -92,10 +146,32 @@ func (h *Handler) studyRemediationView(r *http.Request, report domain.StudyRepor
 	if err != nil {
 		return studyRemediationView{}, err
 	}
-	return studyRemediationView{
+	view := studyRemediationView{
 		Report: report, Language: report.Language, BookTitle: detail.Book.Title, Path: studyRemediationPath(report.ID),
 		Occurrence: occurrence, Found: found, CanCorrect: review.CanCorrect, Recovery: review.Recovery,
-	}, nil
+	}
+	if found {
+		matches, err := h.services.LemmaReview.CorpusMatches(r.Context(), owner, report.Language, occurrence)
+		if err != nil {
+			return studyRemediationView{}, err
+		}
+		view.Books = remediationBooks(matches)
+	}
+	return view, nil
+}
+
+// remediationBooks groups matches by Book, in the order the Corpus lists them.
+func remediationBooks(matches []lemmareview.CorpusMatch) []studyRemediationBook {
+	var books []studyRemediationBook
+	for _, match := range matches {
+		id := match.Occurrence.BookID
+		if len(books) == 0 || books[len(books)-1].ID != id {
+			books = append(books, studyRemediationBook{ID: id, Title: match.BookTitle, CanCorrect: match.CanCorrect})
+		}
+		last := &books[len(books)-1]
+		last.Matches = append(last.Matches, studyRemediationMatch{Value: matchValue(id, match.Occurrence.ID()), Sentence: match.Occurrence.SentenceText})
+	}
+	return books
 }
 
 // decideStudyRemediation takes the preview and the confirmation of a decision
@@ -118,7 +194,7 @@ func (h *Handler) decideStudyRemediation(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Choose a correction or an exclusion to preview.", http.StatusBadRequest)
 		return
 	}
-	owner, bookID := user(r).ID, report.Source.BookID
+	owner := user(r).ID
 	_, occurrence, found, err := h.reportedOccurrence(r, owner, report)
 	if err != nil {
 		writeLemmaDecisionError(w, r, err)
@@ -131,32 +207,117 @@ func (h *Handler) decideStudyRemediation(w http.ResponseWriter, r *http.Request)
 	// The decision is of the report's word, whatever form the request names.
 	r.Form.Set("form", report.TargetWord)
 	only := []string{occurrence.ID()}
-	switch r.FormValue("stage") {
-	case "preview":
-		h.previewStudyRemediation(w, r, report, only)
-	case "confirm":
-		outcome, _, err := h.confirmLemmaDecisionStep(r, owner, bookID, only)
-		if err != nil {
-			writeLemmaDecisionError(w, r, err)
-			return
-		}
-		respondLemmaOutcome(w, r, outcome, studyLanguagePath(pageKindStudyReports, report.Language))
-	default:
-		http.Error(w, "Review the proposed consequence before confirming a decision.", http.StatusBadRequest)
-	}
-}
-
-func (h *Handler) previewStudyRemediation(w http.ResponseWriter, r *http.Request, report domain.StudyReport, only []string) {
-	step, err := h.previewLemmaDecisionStep(r, user(r).ID, report.Source.BookID, only)
-	if err != nil {
-		writeLemmaDecisionError(w, r, err)
-		return
-	}
 	view, err := h.studyRemediationView(r, report)
 	if err != nil {
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
+	ticked := tickedMatches(r, view.Books)
+	switch r.FormValue("stage") {
+	case "preview":
+		h.previewStudyRemediation(w, r, view, only, ticked)
+	case "confirm":
+		h.confirmStudyRemediation(w, r, report, only, ticked)
+	default:
+		http.Error(w, "Review the proposed consequence before confirming a decision.", http.StatusBadRequest)
+	}
+}
+
+// previewStudyRemediation previews the decision on the reported occurrence and,
+// in each Book with ticked matches, on those matches. Nothing is saved.
+func (h *Handler) previewStudyRemediation(w http.ResponseWriter, r *http.Request, view studyRemediationView, only []string, ticked map[string][]string) {
+	owner, report := user(r).ID, view.Report
+	step, err := h.previewLemmaDecisionStep(r, owner, report.Source.BookID, only)
+	if err != nil {
+		writeLemmaDecisionError(w, r, err)
+		return
+	}
 	view.Preview, view.Recovery = &step.Preview, step.Review.Recovery
+	for _, book := range view.Books {
+		if len(ticked[book.ID]) == 0 {
+			continue
+		}
+		match, err := h.previewLemmaDecisionStep(r, owner, book.ID, ticked[book.ID])
+		if err != nil {
+			writeLemmaDecisionError(w, r, err)
+			return
+		}
+		view.MatchPreviews = append(view.MatchPreviews, studyRemediationMatchPreview{BookID: book.ID, Title: book.Title, Preview: match.Preview})
+	}
 	render(w, r, StudyRemediationPage(user(r), h.csrf(w, r), view))
+}
+
+// confirmStudyRemediation saves the decision on the reported occurrence, then
+// each Book's ticked matches as that Book's own decision. Every Book's preview
+// is checked against what the learner reviewed before anything is saved. A
+// decision changes the identities' counts across the Corpus, so each later
+// Book's fingerprint is read again once the earlier ones are saved; a Book
+// whose state still changed under the request saves nothing and ends the run,
+// and the decisions already saved stand.
+func (h *Handler) confirmStudyRemediation(w http.ResponseWriter, r *http.Request, report domain.StudyReport, only []string, ticked map[string][]string) {
+	owner := user(r).ID
+	books := slices.Sorted(maps.Keys(ticked))
+	if err := h.checkReviewedMatches(r, owner, books, ticked); err != nil {
+		writeLemmaDecisionError(w, r, err)
+		return
+	}
+	outcome, _, err := h.confirmLemmaDecisionStep(r, owner, report.Source.BookID, only)
+	if err != nil {
+		writeLemmaDecisionError(w, r, err)
+		return
+	}
+	for _, bookID := range books {
+		next, err := h.confirmMatches(r, owner, bookID, ticked[bookID])
+		if err != nil {
+			writeMatchDecisionError(w, r, err)
+			return
+		}
+		if outcome.Kind == lemmareview.OutcomeSaved && next.Kind != lemmareview.OutcomeSaved && next.Kind != lemmareview.OutcomeFlagsUnresolved {
+			outcome = next
+		}
+	}
+	respondLemmaOutcome(w, r, outcome, studyLanguagePath(pageKindStudyReports, report.Language))
+}
+
+// checkReviewedMatches previews each Book's ticked matches again and rejects
+// the request when one no longer matches what the learner reviewed.
+func (h *Handler) checkReviewedMatches(r *http.Request, owner string, books []string, ticked map[string][]string) error {
+	reviewed := map[string]string{}
+	for _, value := range r.Form["match_fingerprint"] {
+		if bookID, fingerprint, ok := strings.Cut(value, "/"); ok {
+			reviewed[bookID] = fingerprint
+		}
+	}
+	for _, bookID := range books {
+		step, err := h.previewLemmaDecisionStep(r, owner, bookID, ticked[bookID])
+		if err != nil {
+			return err
+		}
+		if step.Preview.Fingerprint != reviewed[bookID] {
+			return domain.ErrLemmaReviewStale
+		}
+	}
+	return nil
+}
+
+// confirmMatches saves one Book's ticked matches against the Book's state now.
+func (h *Handler) confirmMatches(r *http.Request, owner, bookID string, occurrenceIDs []string) (lemmareview.Outcome, error) {
+	step, err := h.previewLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
+	if err != nil {
+		return lemmareview.Outcome{}, err
+	}
+	r.Form.Set("fingerprint", step.Preview.Fingerprint)
+	outcome, _, err := h.confirmLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
+	return outcome, err
+}
+
+// writeMatchDecisionError answers a match's rejected decision. The reported
+// occurrence's decision was already saved, so the workflow's "no decision was
+// saved" is not the whole truth.
+func writeMatchDecisionError(w http.ResponseWriter, r *http.Request, err error) {
+	if rejection, ok := lemmaReviewRejectionFor(err); ok {
+		http.Error(w, rejection.message+" The reported occurrence and the matches before this one were saved; repair the rest from another report or review them again.", rejection.status)
+		return
+	}
+	writeLemmaDecisionError(w, r, err)
 }
