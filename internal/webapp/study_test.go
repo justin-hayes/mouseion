@@ -155,3 +155,40 @@ func TestStudyTakingABatchOverTheFixtureStoreShowsACardAndGradesIt(t *testing.T)
 	assert.Equal(t, http.StatusBadRequest, grade("hard").Code, "Study has two grades")
 	assert.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Nothing to study right now.")
 }
+
+func TestStudyAlreadyKnownOverTheFixtureStoreIsOfferedOnlyOnTheIntroduction(t *testing.T) {
+	h, cookies, csrf, store, clock := studyFixtureSession(t)
+	form := func(extra url.Values) url.Values {
+		extra.Set("csrf_token", csrf)
+		extra.Set("language", "de")
+		return extra
+	}
+	require.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Take these words")
+	require.Equal(t, http.StatusSeeOther, readingTestRequest(t, h, "/study/batches/take", form(url.Values{}), cookies).Code)
+	progress, err := store.ListStudyProgress(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	require.Len(t, progress, 1)
+	assert.NotContains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Already known", "the answer side is hidden until Show answer")
+	assert.Contains(t, getAs(t, h, "/de/study?answer=1", cookies).Body.String(), "Already known")
+
+	answer := func(reps string) *httptest.ResponseRecorder {
+		return readingTestRequest(t, h, "/study/already-known", form(url.Values{"progress": {progress[0].ID}, "reps": {reps}}), cookies)
+	}
+	require.Equal(t, http.StatusSeeOther, answer("0").Code)
+	known, err := store.ListStudyProgress(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.True(t, domain.IsStudyMature(known[0]))
+	assert.True(t, clock.Now().AddDate(0, 0, domain.FluencyMaturityDays).Equal(known[0].Memory.Due))
+	logs, err := store.ListStudyReviewLog(t.Context(), fixtures.OwnerID, progress[0].ID)
+	require.NoError(t, err)
+	assert.Empty(t, logs, "never a grade")
+	events, err := store.ListStudyAlreadyKnownEvents(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Len(t, events, 1)
+
+	require.Equal(t, http.StatusSeeOther, answer("1").Code, "a later review cannot be answered Already known")
+	events, err = store.ListStudyAlreadyKnownEvents(t.Context(), fixtures.OwnerID, "de")
+	require.NoError(t, err)
+	assert.Len(t, events, 1)
+	assert.Contains(t, getAs(t, h, "/de/study", cookies).Body.String(), "Nothing to study right now.")
+}

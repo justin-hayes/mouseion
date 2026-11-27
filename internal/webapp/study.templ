@@ -140,6 +140,9 @@ templ StudyCard(csrf string, view studyPageView) {
 				@studyGradeForm(csrf, view, "again", "Again", "button button--outline")
 				@studyGradeForm(csrf, view, "got-it", "Got it", "button")
 			</div>
+			if view.Card.AlreadyKnown {
+				@studyAlreadyKnownForm(csrf, view)
+			}
 			if !view.Card.NoReport {
 				@studyReportForm(csrf, view)
 			}
@@ -356,6 +359,18 @@ templ studyGradeForm(csrf string, view studyPageView, grade, label, class string
 		<input type="hidden" name="reps" value={ fmt.Sprint(view.Card.Reps) }/>
 		<input type="hidden" name="grade" value={ grade }/>
 		<button class={ class } type="submit">{ label }</button>
+	</form>
+}
+
+// studyAlreadyKnownForm answers an introduction Already known: the word enters
+// study Mature. It is an answer, never a grade.
+templ studyAlreadyKnownForm(csrf string, view studyPageView) {
+	<form class="study-card__already-known" method="post" action="/study/already-known">
+		<input type="hidden" name="csrf_token" value={ csrf }/>
+		<input type="hidden" name="language" value={ view.Language }/>
+		<input type="hidden" name="progress" value={ view.Card.ProgressID }/>
+		<input type="hidden" name="reps" value={ fmt.Sprint(view.Card.Reps) }/>
+		<button class="button button--outline" type="submit">Already known</button>
 	</form>
 }
 

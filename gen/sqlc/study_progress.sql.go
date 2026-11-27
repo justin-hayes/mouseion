@@ -125,6 +125,36 @@ func (q *Queries) GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedg
 	return i, err
 }
 
+const insertStudyAlreadyKnownEvent = `-- name: InsertStudyAlreadyKnownEvent :exec
+INSERT INTO study_already_known_event (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, source, answered_at, study_day)
+SELECT p.owner_id, p.item_kind, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, p.material_id,
+       $1, $2, $3::date
+  FROM study_progress p
+ WHERE p.owner_id = $4 AND p.id = $5
+`
+
+type InsertStudyAlreadyKnownEventParams struct {
+	Source     string
+	AnsweredAt time.Time
+	StudyDay   pgtype.Date
+	Owner      string
+	Progress   string
+}
+
+// An Already-known answer or backfilled word: an event, never a grade. The
+// item identity is copied from the word's progress, so the event is keyed like
+// Study progress.
+func (q *Queries) InsertStudyAlreadyKnownEvent(ctx context.Context, arg InsertStudyAlreadyKnownEventParams) error {
+	_, err := q.db.Exec(ctx, insertStudyAlreadyKnownEvent,
+		arg.Source,
+		arg.AnsweredAt,
+		arg.StudyDay,
+		arg.Owner,
+		arg.Progress,
+	)
+	return err
+}
+
 const introduceStudyWord = `-- name: IntroduceStudyWord :one
 INSERT INTO study_progress (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning,
                             learned_sense_ids, learned_entry_ids, learned_dictionary_pin, state, due)
@@ -191,6 +221,51 @@ func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWord
 		&i.ItemKind,
 	)
 	return i, err
+}
+
+const listStudyAlreadyKnownEvents = `-- name: ListStudyAlreadyKnownEvents :many
+SELECT id, owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, source, answered_at, study_day, created_at FROM study_already_known_event
+ WHERE owner_id = $1 AND language = $2
+ ORDER BY answered_at, created_at, id
+`
+
+type ListStudyAlreadyKnownEventsParams struct {
+	Owner    string
+	Language string
+}
+
+func (q *Queries) ListStudyAlreadyKnownEvents(ctx context.Context, arg ListStudyAlreadyKnownEventsParams) ([]StudyAlreadyKnownEvent, error) {
+	rows, err := q.db.Query(ctx, listStudyAlreadyKnownEvents, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StudyAlreadyKnownEvent{}
+	for rows.Next() {
+		var i StudyAlreadyKnownEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.ItemKind,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.ProgressID,
+			&i.MaterialID,
+			&i.Source,
+			&i.AnsweredAt,
+			&i.StudyDay,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listStudyProgress = `-- name: ListStudyProgress :many

@@ -335,6 +335,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /study/batches/take", h.user(http.HandlerFunc(h.takeStudyBatch)))
 	h.mux.Handle("POST /study/batches/decline", h.user(http.HandlerFunc(h.declineStudyBatch)))
 	h.mux.Handle("POST /study/grades", h.user(http.HandlerFunc(h.gradeStudyCard)))
+	h.mux.Handle("POST /study/already-known", h.user(http.HandlerFunc(h.alreadyKnownStudyCard)))
 	h.mux.Handle("POST /study/reports", h.user(http.HandlerFunc(h.reportStudyCard)))
 	h.mux.Handle("POST /study/reports/{id}/dismiss", h.user(http.HandlerFunc(h.dismissStudyReport)))
 	h.mux.Handle("GET /study/reports/{id}/remediation", h.user(http.HandlerFunc(h.studyRemediation)))
