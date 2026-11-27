@@ -276,6 +276,9 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	if err != nil {
 		return err
 	}
+	if counts, err = h.withoutUnofferedIdioms(r, owner, view.Language, counts); err != nil {
+		return err
+	}
 	view.Counts = counts
 	progress, err := store.ListStudyProgress(ctx, owner, view.Language)
 	if err != nil {
@@ -444,6 +447,33 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 	}
 	candidates = append(candidates, idioms...)
 	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
+}
+
+// withoutUnofferedIdioms takes the Idioms out of the counts while the
+// language's idiom switch is off: none is prepared or offered then, so a pending
+// one must not hold the "still being prepared" note up.
+func (h *Handler) withoutUnofferedIdioms(r *http.Request, owner, language string, counts domain.StudyMaterialCounts) (domain.StudyMaterialCounts, error) {
+	if h.services.Study != nil && h.services.Study.IdiomsActive(language) {
+		return counts, nil
+	}
+	material, err := h.services.Store.Study.ListCurrentStudyMaterial(r.Context(), owner, language)
+	if err != nil {
+		return counts, err
+	}
+	for _, item := range material {
+		if !item.IsIdiom() {
+			continue
+		}
+		switch item.State {
+		case domain.StudyMaterialReady:
+			counts.Ready--
+		case domain.StudyMaterialPending:
+			counts.Preparing--
+		case domain.StudyMaterialUnpreparable:
+			counts.Unpreparable--
+		}
+	}
+	return counts, nil
 }
 
 // readyIdiomCandidates are the Idioms among the lookup that are still Study

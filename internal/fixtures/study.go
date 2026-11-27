@@ -332,6 +332,9 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 // word with its Fluency contexts up front, since it binds no provider or River.
 func (s Study) EnqueueFluencyPreparation(context.Context, string, string) error { return nil }
 
+// IdiomsActive is false: the fixture server has no idiom switch.
+func (s Study) IdiomsActive(string) bool { return false }
+
 // IdiomCandidates offers no Idiom: the fixture server has no idiom switch.
 func (s Study) IdiomCandidates(context.Context, string, string) ([]domain.StudyCandidate, error) {
 	return nil, nil

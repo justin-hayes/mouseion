@@ -181,3 +181,31 @@ func TestStudyTodayCountsAnIdiomStillBeingPrepared(t *testing.T) {
 	assert.Contains(t, page, "2 new words are ready to learn.")
 	assert.Contains(t, page, `id="study-short-batch"`, "the batch is short because the Idiom is still being prepared")
 }
+
+func TestStudyTodayAnIdiomInABatchCountsAgainstTheDailyCap(t *testing.T) {
+	s, _ := idiomTodayHarness(t)
+	s.preparedIdiom()
+	s.clock.Set(berlinTime(t, 25, 9, 0))
+	s.seedLedger("2026-11-25", 2)
+
+	s.take()
+	_, ok := s.progressOfIdiom()
+	require.True(t, ok, "the third batch carries the Idiom")
+	assert.Equal(t, 3, s.ledger().Taken, "the batch with the Idiom is one of the day's batches")
+	s.gradeAll()
+	assert.NotContains(t, s.page(), "Take these words", "the cap is reached")
+}
+
+func TestStudyTodayAPendingIdiomDoesNotHoldTheNoteUpWhileTheSwitchIsOff(t *testing.T) {
+	s, on := idiomTodayHarness(t)
+	s.provider.answerIdioms("mit dem haus", idiomFailure)
+	s.startStudy()
+	testutil.Eventually(t, 60*time.Second, "the words to be ready and the Idiom to fail once", func() (bool, string) {
+		return s.counts().Ready == 2 && len(s.provider.idiomRequests()) > 0, "words or the Idiom still preparing"
+	})
+	on.Store(false)
+
+	page := s.page()
+	assert.NotContains(t, page, `id="study-short-batch"`, "an Idiom that will not be prepared is not waited for")
+	assert.NotContains(t, page, `id="study-preparing"`)
+}

@@ -150,5 +150,6 @@ type Study interface {
 	EnqueueFluencyPreparation(ctx context.Context, owner, language string) error
 	// IdiomCandidates are the language's Idioms in the stream, with their
 	// Corpus candidate counts; none while the language's idiom switch is off.
+	IdiomsActive(language string) bool
 	IdiomCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
 }

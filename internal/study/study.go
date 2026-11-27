@@ -175,6 +175,9 @@ func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) e
 	return nil
 }
 
+// IdiomsActive reports whether the language's idiom switch is on.
+func (s *Service) IdiomsActive(language string) bool { return s.idioms.active(language) }
+
 // IdiomCandidates returns the language's Idioms as Study candidates, with their
 // Corpus candidate counts, for the stream a New-word batch is chosen from. It is
 // empty while the language's idiom switch is off, so no new Idiom is offered
