@@ -4,6 +4,7 @@ package webapp
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -67,19 +68,13 @@ func TestStudyLemmaCorrectionOfTheReportedOccurrenceEndsTheReportAndReintroduces
 	bookID, word, sentence := s.reportedHaus(3)
 	id := s.openReports()[0].ID
 
-	// The Book's Lemma review shows the report and marks its occurrence.
-	review := getAs(t, s.h, "/reading/books/"+bookID+"/lemma-review?form=haus", s.cookies).Body.String()
-	assert.Contains(t, review, "Reported in Study")
-	assert.Contains(t, review, "kam … umhin")
-	assert.Contains(t, review, "Reported as a wrong word in Study.")
-	assert.Equal(t, 1, strings.Count(review, "Reported as a wrong word in Study."), "only the reported occurrence is marked")
-	assert.Contains(t, getAs(t, s.h, "/de/study/reports", s.cookies).Body.String(), "/reading/books/"+bookID+"/lemma-review?form=haus&amp;report="+id, "the link names the reported occurrence")
-
-	// Opened by its report, the page shows the reported occurrence alone.
-	opened := getAs(t, s.h, "/reading/books/"+bookID+"/lemma-review?form=haus&report="+id, s.cookies).Body.String()
-	assert.Equal(t, 1, strings.Count(opened, "Reported as a wrong word in Study."))
-	assert.Equal(t, 1, strings.Count(opened, "<strong>Observed form:</strong>"), "other occurrences of the form are not listed")
-	assert.Greater(t, strings.Count(review, "<strong>Observed form:</strong>"), 1, "a plain search lists every occurrence of the form")
+	// The report links to its remediation screen, which shows its occurrence.
+	remediation := "/study/reports/" + id + "/remediation"
+	assert.Contains(t, getAs(t, s.h, "/de/study/reports", s.cookies).Body.String(), remediation, "the list links to the remediation screen")
+	assert.NotContains(t, getAs(t, s.h, "/de/study/reports", s.cookies).Body.String(), "/lemma-review", "not to the Book's Lemma review")
+	opened := getAs(t, s.h, remediation, s.cookies).Body.String()
+	assert.Contains(t, opened, "kam … umhin")
+	assert.Equal(t, 1, strings.Count(opened, "<strong>Observed form:</strong>"), "only the reported occurrence is shown")
 
 	// A decision about another occurrence of the form leaves the report open.
 	other := sentence + 1
@@ -89,7 +84,7 @@ func TestStudyLemmaCorrectionOfTheReportedOccurrenceEndsTheReportAndReintroduces
 	s.decide(bookID, "haus", other, "keep", "")
 	assert.True(t, s.reportOf(id).Open())
 
-	s.decide(bookID, "haus", sentence, "correct", "hof")
+	s.remediate(id, "correct", "hof")
 	s.requireReleased(id, word, domain.StudyReportEndCorrected)
 	assert.Equal(t, 1, s.today().Remaining, "only the other word is due today")
 
@@ -111,10 +106,10 @@ func TestStudyLemmaCorrectionOfTheReportedOccurrenceEndsTheReportAndReintroduces
 
 func TestStudyOccurrenceExclusionEndsTheReportAndWithdrawsAWordWithNoOtherOccurrence(t *testing.T) {
 	s := newStudyHarness(t)
-	bookID, word, sentence := s.reportedHaus(1)
+	_, word, _ := s.reportedHaus(1)
 	id := s.openReports()[0].ID
 
-	s.decide(bookID, "haus", sentence, "exclude", "")
+	s.remediate(id, "exclude", "")
 	s.requireReleased(id, word, domain.StudyReportEndExcluded)
 	assert.True(t, s.word("haus").Withdrawn, "no valid occurrence is left")
 	assert.Equal(t, word.LearnedMeaning, s.word("haus").LearnedMeaning)
@@ -262,5 +257,55 @@ func TestStudyOccurrenceThatDisappearsEndsTheReportOfANewWordWithNoStudyProgress
 	ended := s.reportOf(report.ID)
 	assert.False(t, ended.Open())
 	assert.Equal(t, domain.StudyReportEndOccurrenceGone, ended.EndReason)
+	assert.Empty(t, s.openReports())
+}
+
+// remediate previews and confirms a decision on the report's occurrence through
+// its remediation screen, as the learner does.
+func (s *studyHarness) remediate(reportID, decision, lemma string) {
+	s.t.Helper()
+	path := "/study/reports/" + reportID + "/remediation"
+	csrf := s.cookies[0].Value
+	preview := perform(s.t, s.h, "POST", path, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "decision": {decision}, "lemma": {lemma}}, s.cookies)
+	require.Equal(s.t, http.StatusOK, preview.Code, preview.Body.String())
+	assert.Contains(s.t, preview.Body.String(), "This is a preview only. Nothing changes until you confirm.")
+	assert.True(s.t, s.reportOf(reportID).Open(), "a preview changes nothing")
+	confirm := perform(s.t, s.h, "POST", path, url.Values{
+		"csrf_token": {csrf}, "stage": {"confirm"}, "decision": {decision}, "lemma": {lemma},
+		"fingerprint": {previewFingerprint(s.t, preview.Body.String())},
+	}, s.cookies)
+	require.Equal(s.t, http.StatusSeeOther, confirm.Code, confirm.Body.String())
+	assert.Equal(s.t, "/de/study/reports", confirm.Header().Get("Location"))
+}
+
+func TestStudyRemediationRepairsOnlyTheReportedOccurrence(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID, _, sentence := s.reportedHaus(3)
+	id := s.openReports()[0].ID
+	other := sentence + 1
+	if other >= 3 {
+		other = sentence - 1
+	}
+	occurrences, err := s.store.ListLemmaReviewOccurrences(s.ctx, s.owner.ID, bookID, "haus")
+	require.NoError(t, err)
+	var otherID string
+	for _, occurrence := range occurrences {
+		if occurrence.SentenceOrdinal == other {
+			otherID = occurrence.ID()
+		}
+	}
+	require.NotEmpty(t, otherID)
+
+	// A form naming another occurrence still decides the reported one only.
+	path := "/study/reports/" + id + "/remediation"
+	csrf := s.cookies[0].Value
+	preview := perform(t, s.h, "POST", path, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "decision": {"exclude"}, "target": {otherID}, "also": {otherID}}, s.cookies)
+	require.Equal(t, http.StatusOK, preview.Code)
+	assert.Contains(t, preview.Body.String(), "<strong>Selected occurrences:</strong> 1")
+
+	// Another learner's, an unknown and an ended report have no screen.
+	assert.Equal(t, http.StatusNotFound, getAs(t, s.h, "/study/reports/unknown/remediation", s.cookies).Code)
+	s.remediate(id, "exclude", "")
+	assert.Equal(t, http.StatusNotFound, getAs(t, s.h, path, s.cookies).Code, "an ended report has no screen")
 	assert.Empty(t, s.openReports())
 }
