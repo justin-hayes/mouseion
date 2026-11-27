@@ -217,6 +217,9 @@ func (h *Handler) loadReportedCard(r *http.Request, owner string, view *studyPag
 		Gloss: report.Gloss, Translation: report.SentenceTranslation,
 	}
 	face.Before, face.Target, face.After, face.Marked = markTarget(report.Sentence, report.TargetWord)
+	if report.IsIdiom() {
+		face.markIdiom(report.Sentence, idiomForms(report.TargetWord), report.SentenceTranslation, nil)
+	}
 	view.Reported = &studyReportedView{cardFace: face, ReportID: report.ID}
 	return nil
 }

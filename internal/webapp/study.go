@@ -85,10 +85,16 @@ type cardFace struct {
 	// Before, Target and After are the sentence split around the marked word.
 	Before, Target, After string
 	Marked                bool
-	ShowAnswer            bool
-	Headword              string
-	Gloss                 string
-	Translation           string
+	// Idiom marks an Idiom's card: Segments are the sentence with every matched
+	// word marked, and TranslationHTML is the translation with its aligned
+	// excerpts highlighted (owned, escaped markup).
+	Idiom           bool
+	Segments        []sentenceSegment
+	TranslationHTML string
+	ShowAnswer      bool
+	Headword        string
+	Gloss           string
+	Translation     string
 	// Source is a source-evidence word's dictionary outline and passage; it is
 	// zero for every other card.
 	Source sourceCardView
@@ -123,6 +129,9 @@ type studyCardView struct {
 	Introduction bool
 	// Corrected marks the re-introduction of a word after a correction.
 	Corrected bool
+	// Idiom marks the card of an Idiom, whose Report offers Unsuitable context
+	// only.
+	Idiom bool
 }
 
 // study serves /{language}/study. Opening it asks for Study material to be
@@ -265,6 +274,9 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	ctx, store, now := r.Context(), h.services.Store.Study, h.now()
 	counts, err := store.CountStudyMaterial(ctx, owner, view.Language)
 	if err != nil {
+		return err
+	}
+	if counts, err = h.withoutUnofferedIdioms(r, owner, view.Language, counts); err != nil {
 		return err
 	}
 	view.Counts = counts
@@ -424,21 +436,85 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 	// Only a word whose material is ready can be offered, so only those words
 	// need their place in the stream: the rest of the library's candidates are
 	// never read.
-	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, domain.StudyBatchLookup(material, progress, held))
+	lookup := domain.StudyBatchLookup(material, progress, held)
+	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, lookup)
 	if err != nil {
 		return nil, err
 	}
+	idioms, err := h.readyIdiomCandidates(r, owner, language, lookup)
+	if err != nil {
+		return nil, err
+	}
+	candidates = append(candidates, idioms...)
 	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
+}
+
+// withoutUnofferedIdioms takes the Idioms out of the counts while the
+// language's idiom switch is off: none is prepared or offered then, so a pending
+// one must not hold the "still being prepared" note up.
+func (h *Handler) withoutUnofferedIdioms(r *http.Request, owner, language string, counts domain.StudyMaterialCounts) (domain.StudyMaterialCounts, error) {
+	if h.services.Study != nil && h.services.Study.IdiomsActive(language) {
+		return counts, nil
+	}
+	material, err := h.services.Store.Study.ListCurrentStudyMaterial(r.Context(), owner, language)
+	if err != nil {
+		return counts, err
+	}
+	for _, item := range material {
+		if !item.IsIdiom() {
+			continue
+		}
+		switch item.State {
+		case domain.StudyMaterialReady:
+			counts.Ready--
+		case domain.StudyMaterialPending:
+			counts.Preparing--
+		case domain.StudyMaterialUnpreparable:
+			counts.Unpreparable--
+		}
+	}
+	return counts, nil
+}
+
+// readyIdiomCandidates are the Idioms among the lookup that are still Study
+// candidates: Idioms rank in the stream with words (ADR 0137 §4). None are
+// while the language's idiom switch is off, so no new Idiom is offered then.
+func (h *Handler) readyIdiomCandidates(r *http.Request, owner, language string, lookup []domain.StudyItem) ([]domain.StudyCandidate, error) {
+	wanted := map[domain.StudyItem]bool{}
+	for _, item := range lookup {
+		if item.IsIdiom() {
+			wanted[item] = true
+		}
+	}
+	if len(wanted) == 0 || h.services.Study == nil {
+		return nil, nil
+	}
+	all, err := h.services.Study.IdiomCandidates(r.Context(), owner, language)
+	if err != nil {
+		return nil, err
+	}
+	var candidates []domain.StudyCandidate
+	for _, candidate := range all {
+		if wanted[candidate.StudyItem] {
+			candidates = append(candidates, candidate)
+		}
+	}
+	return candidates, nil
 }
 
 func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *studyCardView {
 	memory := card.Progress.Memory
+	face := newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer)
+	if card.Progress.IsIdiom() {
+		face.markIdiom(card.Material.Sentence, idiomForms(card.Material.TargetWord), card.Material.SentenceTranslation, card.Material.SentenceTranslationTargets)
+	}
 	return &studyCardView{
-		cardFace:   newCardFace(language, card.Progress, card.Material.Sentence, card.Material.TargetWord, card.Material.SentenceTranslation, showAnswer),
+		cardFace:   face,
 		ProgressID: card.Progress.ID, MaterialID: card.Progress.MaterialID,
 		Reps:         memory.Reps,
 		Introduction: memory.State == domain.StudyStateNew || memory.State == domain.StudyStateLearning,
 		Corrected:    card.Progress.Corrected(),
+		Idiom:        card.Progress.IsIdiom(),
 	}
 }
 

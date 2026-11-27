@@ -175,6 +175,21 @@ func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) e
 	return nil
 }
 
+// IdiomsActive reports whether the language's idiom switch is on.
+func (s *Service) IdiomsActive(language string) bool { return s.idioms.active(language) }
+
+// IdiomCandidates returns the language's Idioms as Study candidates, with their
+// Corpus candidate counts, for the stream a New-word batch is chosen from. It is
+// empty while the language's idiom switch is off, so no new Idiom is offered
+// then; an Idiom already in study is reviewed regardless.
+func (s *Service) IdiomCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error) {
+	if !s.idioms.active(language) {
+		return nil, nil
+	}
+	candidates, _, err := s.store.ListStudyIdiomCandidates(ctx, owner, language, s.idioms.IndexVersion)
+	return candidates, err
+}
+
 // PlanPreparation brings the learner's Study material up to date with the
 // stream: the first domain.StudyPreparationWindow words in stream order that
 // are not in study and not unpreparable each get a pending record and a durable job. A word

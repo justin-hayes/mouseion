@@ -148,4 +148,8 @@ type Study interface {
 	// EnqueueFluencyPreparation asks for Fluency contexts for the mature words
 	// that lack them.
 	EnqueueFluencyPreparation(ctx context.Context, owner, language string) error
+	// IdiomCandidates are the language's Idioms in the stream, with their
+	// Corpus candidate counts; none while the language's idiom switch is off.
+	IdiomsActive(language string) bool
+	IdiomCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
 }

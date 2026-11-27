@@ -74,13 +74,12 @@ func TestStudyPreparesIdiomMaterialAlongsideWordsInStreamOrder(t *testing.T) {
 	assert.Equal(t, []int{3, 4, 5}, item.MatchedTokenOrdinals)
 	assert.Equal(t, int64(3), item.TokenOrdinal)
 	assert.NotEmpty(t, item.SentenceTranslation)
-	assert.Equal(t, domain.StudyMaterialCounts{Ready: 2}, s.counts(), "Today counts words only")
+	assert.Equal(t, domain.StudyMaterialCounts{Ready: 3}, s.counts(), "Today counts the Idiom as an item")
 	require.Len(t, s.provider.idiomRequests(), 1, "one request for the Idiom")
 
 	page := getAs(t, s.h, "/de/study", s.cookies)
 	require.Equal(t, http.StatusOK, page.Code, "ready Idiom material does not break Today")
-	assert.Contains(t, page.Body.String(), "2 new words are ready", "Idioms are not offered in batches until Today introduces them")
-	assert.NotContains(t, page.Body.String(), "3 new words are ready", "nor counted as words")
+	assert.Contains(t, page.Body.String(), "3 new words are ready", "the Idiom is offered in batches with the words")
 }
 
 func TestStudySkipsAnIdiomWhoseSentenceIsLiteralOrAmbiguous(t *testing.T) {
@@ -95,7 +94,7 @@ func TestStudySkipsAnIdiomWhoseSentenceIsLiteralOrAmbiguous(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, domain.StudyMaterialUnpreparable, item.State)
 			assert.Equal(t, reason, item.OmissionReason)
-			assert.Equal(t, domain.StudyMaterialCounts{Ready: 2}, s.counts(), "the words after it are prepared")
+			assert.Equal(t, domain.StudyMaterialCounts{Ready: 2, Unpreparable: 1}, s.counts(), "the words after it are prepared")
 		})
 	}
 }
