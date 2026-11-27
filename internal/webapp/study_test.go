@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/study"
@@ -24,6 +25,9 @@ func TestStudyPageSaysPlainlyWhenALanguageHasNoStudy(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Latin's switch is on in production (#2768), so the page for a
+			// language without Study is exercised with the switch forced off.
+			t.Cleanup(cardpolicy.OverrideStudyForTest(tc.language, false))
 			var body bytes.Buffer
 			view := studyPageView{Language: tc.language, LanguageLabel: tc.name, Available: study.Available(tc.language)}
 			require.NoError(t, StudyPage(domain.User{}, "csrf", view).Render(t.Context(), &body))

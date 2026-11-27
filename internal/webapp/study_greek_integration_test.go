@@ -83,7 +83,7 @@ type greekStudyHarness struct {
 }
 
 // newGreekStudyHarness serves Ancient Greek Study with its switch on for the
-// test only (cardpolicy.OverrideStudyForTest); production leaves it off.
+// test only (cardpolicy.OverrideStudyForTest); production has it on since #2767.
 func newGreekStudyHarness(t *testing.T) *greekStudyHarness {
 	t.Helper()
 	t.Cleanup(cardpolicy.OverrideStudyForTest("grc", true))
@@ -233,19 +233,6 @@ func TestGreekStudyUndoRestoresTheLearnedMeaningsCitations(t *testing.T) {
 	assert.Equal(t, word.MaterialID, restored[0].MaterialID, "the word returns to its material")
 	assert.Equal(t, word.LearnedMeaning, restored[0].LearnedMeaning)
 	assert.Equal(t, word.LearnedCitations, restored[0].LearnedCitations, "and to the citations and pin it had")
-}
-
-func TestStudyStaysUnavailableForLatinInProduction(t *testing.T) {
-	s := newStudyHarness(t)
-	for _, language := range []string{"la"} {
-		book, err := s.store.CreateBook(s.ctx, domain.Book{OwnerID: s.owner.ID, Title: "Book in " + language, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
-		require.NoError(t, err)
-		require.NoError(t, s.store.SetBookDisposition(s.ctx, s.owner.ID, book.ID, domain.BookDispositionToRead))
-		page := getAs(t, s.h, "/"+language+"/study", s.cookies)
-		require.Equal(t, http.StatusOK, page.Code, language)
-		assert.Contains(t, page.Body.String(), "Study isn't available for this language yet", language)
-	}
-	assert.Zero(t, s.provider.Calls())
 }
 
 // assertGreekCardBack checks the revealed card of the Greek word: the usual

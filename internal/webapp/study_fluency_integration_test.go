@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -172,6 +173,8 @@ func TestStudyFluencyPreparesUpToFiveAgreeingContextsOfDifferentForms(t *testing
 }
 
 func TestStudyFluencyCardsAreUngradedAndNeverChangeProgress(t *testing.T) {
+	// "la" stands for a language without Study; its switch is on in production.
+	t.Cleanup(cardpolicy.OverrideStudyForTest("la", false))
 	s := newStudyHarness(t)
 	word := s.matureHaus()
 	s.openFluency()

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -116,6 +117,7 @@ func (s *studyHarness) reportedSentenceMark(card domain.StudyProgress) string {
 }
 
 func TestStudyReportIsRefusedForAStaleOrUnknownRequest(t *testing.T) {
+	t.Cleanup(cardpolicy.OverrideStudyForTest("la", false))
 	s := newStudyHarness(t)
 	s.prepared()
 	s.twoReviewsDue()
