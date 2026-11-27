@@ -151,8 +151,11 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 	<section id="library-results" tabindex="-1" aria-label="My Books results" data-focus-id="library-results">
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
-				if browse.NeedsAction && !browse.TextNoMatch {
+				if browse.NeedsAction {
 					No { myBooksTabLabel(browse) } books in { myBooksLanguageName(browse) } need action.
+					if browse.Query != "" {
+						<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) }>Clear search</a>
+					}
 				} else if browse.TextNoMatch {
 					No { myBooksTabLabel(browse) } books in { myBooksLanguageName(browse) } match “{ browse.Query }”.
 					<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>

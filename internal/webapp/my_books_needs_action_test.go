@@ -30,12 +30,15 @@ func TestMyBookNeedsActionNamesEachActionableState(t *testing.T) {
 	mainText := needsActionBook(testAnalyzed)
 	mainText.Acquired.SourceStructureUpdate = &domain.SourceStructureUpdateCandidate{}
 
+	reanalysisFailed := needsActionBook(domain.AnalysisSignals{Content: domain.ContentCurrentEPUB, Published: domain.PublishedCurrent, LatestRun: domain.RunFailed})
+
 	tests := []struct {
 		name string
 		book domain.MyBook
 		want string
 	}{
 		{"analysis failed", needsActionBook(testFailed), "Analysis failed."},
+		{"re-analysis failed over a current publication", reanalysisFailed, "Re-analysis failed."},
 		{"analysis stale", needsActionBook(testStale), "Analysis out of date."},
 		{"acquisition failed", failedAcquisition, "Acquisition failed."},
 		{"missing Book language", languageless, "Choose a Book language."},

@@ -344,3 +344,32 @@ func TestEPUBAcquisitionFailurePresentationOffersRetryOnlyWhenItCanHelp(t *testi
 		})
 	}
 }
+
+func TestMyBooksNeedsActionFilterAgainstPostgres(t *testing.T) {
+	fixture := newAcquisitionHandlerFixture(t)
+	ctx := context.Background()
+	failing := fixture.createToReadBook(t, "Failing Book")
+	healthy := fixture.createToReadBook(t, "Quiet Book")
+	require.NoError(t, fixture.store.RecordEPUBAcquisitionFailure(ctx, domain.EPUBAcquisitionFailureRecord{
+		OwnerID: fixture.owner.ID, BookID: failing.ID,
+		ConnectionID: fixture.connection.ID, EntryIdentifier: "needs-action-entry",
+		Stage: domain.BookPreparationStageFetch, Code: domain.BookPreparationCodeSourceDownloadFailed,
+	}))
+	require.NoError(t, fixture.store.SetActiveStudyLanguage(ctx, fixture.owner.ID, "de"))
+
+	all := perform(t, fixture.handler, http.MethodGet, "/de/library?disposition=to_read", nil, fixture.cookies)
+	require.Equal(t, http.StatusOK, all.Code, all.Body.String())
+	assert.Contains(t, all.Body.String(), "Acquisition failed.")
+	assert.Contains(t, all.Body.String(), `id="book-row-`+healthy.ID+`"`)
+
+	filtered := perform(t, fixture.handler, http.MethodGet, "/de/library?needs=action", nil, fixture.cookies)
+	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
+	body := filtered.Body.String()
+	assert.Contains(t, body, `id="book-row-`+failing.ID+`"`)
+	assert.NotContains(t, body, `id="book-row-`+healthy.ID+`"`)
+
+	searched := perform(t, fixture.handler, http.MethodGet, "/de/library?needs=action&q=quiet", nil, fixture.cookies)
+	require.Equal(t, http.StatusOK, searched.Code)
+	assert.Contains(t, searched.Body.String(), "need action.")
+	assert.NotContains(t, searched.Body.String(), "match “quiet”")
+}

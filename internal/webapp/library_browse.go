@@ -589,6 +589,9 @@ func myBookEvidenceNeedsAction(book domain.MyBook) (string, bool) {
 	if classification.Phase == domain.PhaseFailed {
 		return "Analysis failed.", true
 	}
+	if classification.ReAnalysisShadowed() && classification.Run == domain.RunFailed {
+		return "Re-analysis failed.", true
+	}
 	if classification.Phase == domain.PhaseStale {
 		return "Analysis out of date.", true
 	}
