@@ -224,7 +224,7 @@ func TestClassicalCatalogCompleteLoop(t *testing.T) {
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	chooserBody := chooser.Body.String()
 	for _, want := range []string{
-		"Synthetic Work", "Synthetic Author", "Known vocabulary coverage",
+		"Synthetic Work", "Synthetic Author", "Mature vocabulary coverage",
 		`id="reading-chooser-book-` + bookOne + `"`,
 		`id="reading-chooser-book-` + bookTwo + `"`,
 		`action="/reading/books/` + bookOne + `/start"`,

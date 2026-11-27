@@ -336,7 +336,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.locator('ul.reading-chooser-list').first()).toBeVisible();
     await expect(page.locator('ol.reading-chooser-list')).toHaveCount(0);
-    await expect(page.locator('.reading-chooser-book').filter({ hasText: 'Known vocabulary coverage:' }).first()).toContainText('Known vocabulary coverage:');
+    await expect(page.locator('.reading-chooser-book').filter({ hasText: 'Mature vocabulary coverage:' }).first()).toContainText('Mature vocabulary coverage:');
     await expectNoPageOverflow(page);
     const chooserSummaries = await page.locator('.reading-chooser-book details > summary:visible').evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();

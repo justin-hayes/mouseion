@@ -828,11 +828,11 @@ func deckCompletenessSummary(preparation domain.DeckPreparation) string {
 	return summary
 }
 
-func knownCoveragePercent(coverage domain.AnalysisCoverage) float64 {
+func matureCoveragePercent(coverage domain.AnalysisCoverage) float64 {
 	if coverage.AnalyzableTokenCount == 0 {
 		return 0
 	}
-	return min(float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
+	return min(float64(coverage.MatureTokenCount)*100/float64(coverage.AnalyzableTokenCount), 100)
 }
 
 func corpusUnitLabel(unit domain.CorpusSelectedUnit) string {

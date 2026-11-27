@@ -157,8 +157,8 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	excludedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), excludedCoverage.AnalyzableTokenCount)
-	assert.Zero(t, excludedCoverage.KnownTokenCount, "an excluded occurrence cannot become Known")
-	assert.Zero(t, excludedCoverage.ReservedTokenCount, "an excluded occurrence cannot become Reserved")
+	assert.Zero(t, excludedCoverage.MatureTokenCount, "an excluded occurrence cannot become Mature")
+	assert.Zero(t, excludedCoverage.InStudyTokenCount, "an excluded occurrence cannot be in study")
 	excludedTx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	excludedDeck, _, assembleErr := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, excludedTx, domain.DeckPreparation{
@@ -230,13 +230,16 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	buildBrowseProjection(t, ctx, store, book.ID)
 	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), reservedCoverage.ReservedTokenCount, "the effective corrected identity matches the active reading reservation")
-	assert.Zero(t, reservedCoverage.KnownTokenCount, "Reserved vocabulary is not counted as Known")
+	assert.Zero(t, reservedCoverage.InStudyTokenCount, "an active reading reservation is not study")
+	assert.Zero(t, reservedCoverage.MatureTokenCount, "an active reading reservation is not Mature")
+	// Known vocabulary is unchanged and no longer read by coverage; the Mature
+	// word is what moves it.
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "drache", "NOUN")
 	require.NoError(t, err)
+	seedStudyWord(t, ctx, store, owner.ID, "drache", true)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(3), coverage.KnownTokenCount, "Known matches the corrected effective identity")
+	assert.Equal(t, int64(3), coverage.MatureTokenCount, "Mature matches the corrected effective identity")
 	assert.Zero(t, coverage.UnknownTokenCount)
 	assert.Equal(t, int64(3), coverage.AnalyzableTokenCount, "correction does not change the source-derived denominator")
 	// Decisions retire the Book's Browse counts until the durable rebuild runs;
@@ -250,8 +253,9 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	cookies, _ := loginCookies(t, myBooksHandler, "lemma-review-owner", "learner-password")
 	myBooksPage := perform(t, myBooksHandler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, myBooksPage.Code)
-	assert.Contains(t, myBooksPage.Body.String(), fmt.Sprintf("%.1f%% of running words Known.", float64(coverage.KnownTokenCount)*100/float64(coverage.AnalyzableTokenCount)), "My Books margin coverage must match analysisinsights.Coverage after the exact-occurrence correction and exclusion decisions")
-	assert.NotContains(t, myBooksPage.Body.String(), ">0.0% of running words Known.")
+	assert.Contains(t, myBooksPage.Body.String(), fmt.Sprintf("%.1f%% of running words Mature.", float64(coverage.MatureTokenCount)*100/float64(coverage.AnalyzableTokenCount)), "My Books margin coverage must match analysisinsights.Coverage after the exact-occurrence correction and exclusion decisions")
+	assert.NotContains(t, myBooksPage.Body.String(), ">0.0% of running words Mature.")
+	assert.Equal(t, coverage.InStudyTokenCount, coverage.MatureTokenCount)
 
 	oldSnapshotID := reading.SnapshotID
 	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, oldSnapshotID))
