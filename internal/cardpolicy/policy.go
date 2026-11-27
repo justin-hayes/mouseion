@@ -156,7 +156,7 @@ var (
 		EvidenceAssistedPass: true,
 		// Study is on after the Greek evidence run (ADR 0138 §6, #2767). The
 		// report, with Justin's judgement, is
-		// doc/evidence/greek-study-evidence-run-2026-11-26.md.
+		// doc/evidence/greek-study-evidence-run-2026-11-27.md.
 		Study:             true,
 		StudyPassContract: PassContractGreekEntries,
 		SourceNotice:      GreekSourceNotice,
