@@ -298,6 +298,10 @@ type Querier interface {
 	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error)
+	// The corpus of the Current reading's current analysis: the evidence its
+	// coverage toward Target coverage is read from. No row when there is no Current
+	// reading or the Book has no current analysis.
+	GetStudyCurrentReadingCorpus(ctx context.Context, arg GetStudyCurrentReadingCorpusParams) (string, error)
 	GetStudyMaterial(ctx context.Context, arg GetStudyMaterialParams) (GetStudyMaterialRow, error)
 	// Where an analyzed token sits in its Book's extracted unit: the locator an
 	// Analysis update carries decisions across runs by.

@@ -240,7 +240,11 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 			states[item.StudyItem] = domain.StudyMaterialPending
 		}
 	}
-	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states)
+	coverage, err := s.store.GetStudyReadingCoverage(ctx, owner, language)
+	if err != nil {
+		return err
+	}
+	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)), coverage.BoostsCurrentReading()), states)
 	if err := s.prepareTargets(ctx, owner, targets, current, func(item domain.StudyItem) string { return s.pinOf(item, pin) }); err != nil {
 		return err
 	}
