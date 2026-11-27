@@ -19,24 +19,55 @@ func IsLemma(value string) bool {
 	return false
 }
 
-// frenchNegationAdverbs are French adverbs that mark grammatical negation, not
-// vocabulary. ADV is otherwise an eligible part of speech, so they need an
-// explicit exclusion (ADR 0102). NOUN pas, près, là and où stay eligible.
-var frenchNegationAdverbs = map[string]struct{}{"ne": {}, "pas": {}}
+// functionWordAdverbs are closed per-language lists of function words that the
+// language's treebank tags ADV, an otherwise eligible part of speech: French
+// negation (ADR 0102), and the Ancient Greek and Latin conjunctions, particles
+// and negations (ADR 0140). Lemmas are canonical (Latin folds v to u). A word
+// matches by canonical lemma plus part of speech, so a content-word homograph
+// tagged NOUN, VERB or ADJ stays eligible, and real adverbs are not listed.
+var functionWordAdverbs = map[string][]string{
+	"fr": {"ne", "pas"},
+	"grc": {
+		"δέ", "καί", "τε", "μέν", "γάρ", "οὖν", "δή", "ἄν", "ἀλλά", "γε", "ἤ", "ἄρα",
+		"τοίνυν", "μέντοι", "οὐ", "οὐκ", "οὐχ", "μή", "μη", "οὐδέ", "μηδέ",
+	},
+	"la": {
+		"et", "ue", "uel", "nec", "atque", "enim", "nam", "uero", "igitur", "ergo", "itaque",
+		"tamen", "quoque", "quidem", "etiam", "non", "ne", "nonne", "num", "haud",
+	},
+}
+
+var functionWordSets = func() map[string]map[string]struct{} {
+	sets := make(map[string]map[string]struct{}, len(functionWordAdverbs))
+	for language, lemmas := range functionWordAdverbs {
+		set := make(map[string]struct{}, len(lemmas))
+		for _, lemma := range lemmas {
+			set[lemma] = struct{}{}
+		}
+		sets[language] = set
+	}
+	return sets
+}()
+
+// FunctionWordLemmas returns a copy of the language's closed function-word
+// list (canonical lemmas), or nil when the language has none. Context
+// stopwords reuse it so the two lists cannot drift.
+func FunctionWordLemmas(language string) []string {
+	return append([]string(nil), functionWordAdverbs[canonicalization.NormalizeLanguage(language)]...)
+}
 
 // IsVocabularyStopword reports whether a canonical lemma with the given part of
-// speech is a stopword that never becomes vocabulary in its language, even
+// speech is a function word that never becomes vocabulary in its language, even
 // though its part of speech is otherwise eligible: French ADV ne/n' (lemma ne)
-// and ADV pas. Every other language is unaffected, so a homograph such as NOUN
-// pas stays eligible.
+// and ADV pas, and the Ancient Greek and Latin ADV function words. Every other
+// language is unaffected, and so is a homograph with another part of speech,
+// such as French NOUN pas.
 func IsVocabularyStopword(language, lemma, upos string) bool {
-	if canonicalization.NormalizeLanguage(language) != "fr" {
+	set := functionWordSets[canonicalization.NormalizeLanguage(language)]
+	if set == nil || strings.ToUpper(strings.TrimSpace(upos)) != "ADV" {
 		return false
 	}
-	if strings.ToUpper(strings.TrimSpace(upos)) != "ADV" {
-		return false
-	}
-	_, stop := frenchNegationAdverbs[strings.TrimSpace(lemma)]
+	_, stop := set[strings.TrimSpace(lemma)]
 	return stop
 }
 

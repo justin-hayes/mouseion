@@ -199,6 +199,20 @@ deployment. The
 [provenance research note](https://github.com/justin-hayes/mouseion/blob/c90b50de9583fa367986a3cac13700b6d19835df/doc/research/french-resource-provenance.md)
 records the evidence.
 
+## Ancient Greek and Latin function words
+
+The Greek and Latin treebanks tag some conjunctions, particles and negations
+ADV, so the part-of-speech filter lets them through.
+[ADR 0140](../adr/0140-classical-function-words-leave-vocabulary.md) records the
+closed lists, as [ADR 0102](../adr/0102-french-language-support.md) did for
+French `ne` and `pas`. Ancient Greek `δέ`, `καί`, `μέν`, `οὐ`, `μή` and the rest
+of the list, and Latin `et`, `non`, `ne`, `tamen` and the rest, are excluded
+from Study new words, coverage and Prepared deck vocabulary, and added to the
+language's context stopwords. The match is canonical lemma plus part of speech
+ADV, so a content-word homograph (Latin VERB `uero`) stays eligible, and real
+adverbs (`ὡς`, `νῦν`, `nunc`, `ita`) and pronouns do too. Modern languages are
+unchanged.
+
 ## Model cache and deployment
 
 `MOUSEION_NLP_WARM_LANGUAGES` selects which Stanza pipelines to provision, load,
