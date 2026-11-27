@@ -18,6 +18,7 @@ JOIN idiom_candidate_count_readiness r ON r.owner_id=c.owner_id AND r.book_id=c.
  AND r.builder_version=$1::int
 JOIN books b ON b.owner_id=c.owner_id AND b.id=c.book_id
  AND b.language_state='chosen' AND b.language_tag=$2::text
+JOIN book_membership m ON m.owner_id=c.owner_id AND m.book_id=c.book_id AND m.state='active'
 JOIN current_analysis_identity cai ON cai.owner_id=c.owner_id AND cai.book_id=c.book_id
  AND cai.analysis_run_id=c.analysis_run_id AND cai.corpus_id=c.corpus_id
 WHERE c.owner_id=$3::uuid AND c.language=$2::text
@@ -41,7 +42,8 @@ type ListCorpusIdiomCandidateCountsRow struct {
 // every Book whose counts are ready for its current analysis.
 // Each Idiom headword's candidate count across the owner's currently analyzed
 // Books in a language, with the number of Books containing it. A Book counts
-// only while its readiness row names its current analysis and the builder
+// only while it is in My Books (removing a Book leaves its rows but not the
+// sum; adding it back restores them) and its readiness row names its current analysis and the builder
 // version; a Book that was removed has no rows left.
 func (q *Queries) ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error) {
 	rows, err := q.db.Query(ctx, listCorpusIdiomCandidateCounts, arg.BuilderVersion, arg.Language, arg.OwnerID)

@@ -186,14 +186,20 @@ func TestIdiomCountsOfARemovedBookLeaveTheCorpus(t *testing.T) {
 	f := newIdiomCountFixture(t)
 	f.sentence(t, "er", "wird", "den", "löffel", "abgeben")
 	f.rebuild(t, spoon, "v1")
-	require.Len(t, f.corpusCounts(t), 1)
-	_, err := f.pool.Exec(f.ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, f.owner, f.book)
+	want := map[string]int64{"den Löffel abgeben": 1}
+	require.Equal(t, want, f.corpusCounts(t))
+	require.NoError(t, f.store.RemoveBookFromMyBooks(f.ctx, f.owner, f.book))
+	require.Empty(t, f.corpusCounts(t), "a removed Book leaves the Corpus sum")
+	_, err := f.pool.Exec(f.ctx, `UPDATE book_membership SET state='active',activated_at=now(),removed_at=NULL WHERE owner_id=$1 AND book_id=$2`, f.owner, f.book)
+	require.NoError(t, err)
+	require.Equal(t, want, f.corpusCounts(t), "adding the Book back restores its counts")
+	// A deleted Book row takes its rows with it.
+	_, err = f.pool.Exec(f.ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, f.owner, f.book)
 	require.NoError(t, err)
 	_, err = f.pool.Exec(f.ctx, `DELETE FROM source_materials WHERE owner_id=$1 AND book_id=$2`, f.owner, f.book)
 	require.NoError(t, err)
 	_, err = f.pool.Exec(f.ctx, `DELETE FROM books WHERE owner_id=$1 AND id=$2`, f.owner, f.book)
 	require.NoError(t, err)
-	require.Empty(t, f.corpusCounts(t))
 	var rows int
 	require.NoError(t, f.pool.QueryRow(f.ctx, `SELECT (SELECT count(*) FROM idiom_candidate_counts)+(SELECT count(*) FROM idiom_candidate_count_readiness)`).Scan(&rows))
 	require.Zero(t, rows)

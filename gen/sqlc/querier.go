@@ -422,7 +422,8 @@ type Querier interface {
 	// every Book whose counts are ready for its current analysis.
 	// Each Idiom headword's candidate count across the owner's currently analyzed
 	// Books in a language, with the number of Books containing it. A Book counts
-	// only while its readiness row names its current analysis and the builder
+	// only while it is in My Books (removing a Book leaves its rows but not the
+	// sum; adding it back restores them) and its readiness row names its current analysis and the builder
 	// version; a Book that was removed has no rows left.
 	ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
