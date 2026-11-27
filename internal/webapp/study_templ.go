@@ -1817,7 +1817,7 @@ func studyGradeForm(csrf string, view studyPageView, grade, label, class string)
 	})
 }
 
-// studyAlreadyKnownForm answers an introduction Already known: the word enters
+// studyAlreadyKnownForm answers an introduction Already known: the word or Idiom enters
 // study Mature. It is an answer, never a grade.
 func studyAlreadyKnownForm(csrf string, view studyPageView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {

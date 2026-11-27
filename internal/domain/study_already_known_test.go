@@ -49,10 +49,20 @@ func TestStudyAlreadyKnownMemoryKeepsALongerInterval(t *testing.T) {
 	assert.EqualValues(t, 40, StudyAlreadyKnownMemory(before, now).ScheduledDays)
 }
 
-func TestStudyAlreadyKnownIsNotOfferedOnAnIdiomYet(t *testing.T) {
+func TestStudyAlreadyKnownIsOfferedOnAnIdiomIntroduction(t *testing.T) {
 	now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 	idiom := StudyProgress{ID: "a", StudyItem: IdiomItem("de", "ins gras beissen"), Memory: NewStudyMemory(now)}
-	assert.False(t, StudyAlreadyKnownOffered(idiom), "Idioms gain the answer with #2757")
+	assert.True(t, StudyAlreadyKnownOffered(idiom))
+	idiom.Memory.Reps = 1
+	assert.False(t, StudyAlreadyKnownOffered(idiom), "only the introduction, as for a word")
+}
+
+func TestAnAlreadyKnownIdiomIsMatureAndLosesMaturityOnALapse(t *testing.T) {
+	now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+	known := StudyProgress{StudyItem: IdiomItem("de", "ins gras beissen"), Memory: StudyAlreadyKnownMemory(NewStudyMemory(now), now)}
+	require.True(t, IsStudyMature(known))
+	known.Memory.State, known.Memory.Lapses, known.Memory.ScheduledDays = StudyStateRelearning, 1, 0
+	assert.False(t, IsStudyMature(known))
 }
 
 func TestAnAlreadyKnownWordLosesMaturityOnALapse(t *testing.T) {

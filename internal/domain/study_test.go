@@ -206,7 +206,11 @@ func TestStudyMaterialRetriesANoDictionaryEntryOmissionOnlyAgainstAnotherDiction
 
 func TestOrderStudyStreamRanksWordsAndIdiomsTogether(t *testing.T) {
 	idiom := func(headword string, current bool, count int64) StudyCandidate {
-		return StudyCandidate{StudyItem: IdiomItem("de", headword), InCurrentReading: current, PersonalOccurrences: count}
+		candidate := StudyCandidate{StudyItem: IdiomItem("de", headword), InCurrentReading: current, PersonalOccurrences: count}
+		if current {
+			candidate.CurrentReadingOccurrences = count
+		}
+		return candidate
 	}
 	word := func(lemma string, current bool, count int64) StudyCandidate {
 		return StudyCandidate{StudyItem: studyID(lemma), InCurrentReading: current, CurrentReadingOccurrences: count, ToReadOccurrences: count}
@@ -232,18 +236,19 @@ func TestOrderStudyStreamRanksWordsAndIdiomsTogether(t *testing.T) {
 	}, got)
 
 	boosted := OrderStudyStream(candidates, true)
-	assert.Equal(t, "reading word", boosted[0].CanonicalLemma, "below target the Current reading's word is first")
-	assert.Equal(t, []string{"many", "high"}, []string{boosted[1].CanonicalLemma, boosted[2].CanonicalLemma},
-		"an Idiom is not in the boosted group, even one in the Current reading")
+	assert.Equal(t, []string{"reading word", "reading idiom"}, []string{boosted[0].CanonicalLemma, boosted[1].CanonicalLemma},
+		"below target the Current reading's word and Idiom are first, by their count within it")
+	assert.Equal(t, []string{"many", "high"}, []string{boosted[2].CanonicalLemma, boosted[3].CanonicalLemma},
+		"everything else follows by Corpus count")
 }
 
 func TestIdiomStudyCandidatesCarryTheirCorpusCount(t *testing.T) {
 	candidates := IdiomStudyCandidates("de", []IdiomCandidateCount{
-		{Headword: "mit dem haus", Candidates: 4, Books: 2, InCurrentReading: true},
+		{Headword: "mit dem haus", Candidates: 4, Books: 2, InCurrentReading: true, CurrentReadingCandidates: 3},
 		{Headword: "gone", Candidates: 0},
 	})
 	require.Len(t, candidates, 1, "a headword with no candidates is not one")
-	assert.Equal(t, StudyCandidate{StudyItem: IdiomItem("de", "mit dem haus"), InCurrentReading: true, PersonalOccurrences: 4}, candidates[0])
+	assert.Equal(t, StudyCandidate{StudyItem: IdiomItem("de", "mit dem haus"), InCurrentReading: true, PersonalOccurrences: 4, CurrentReadingOccurrences: 3}, candidates[0])
 }
 
 func TestStudyPreparationTargetsCountIdiomsInTheWindow(t *testing.T) {
