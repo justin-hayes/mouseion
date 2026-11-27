@@ -162,6 +162,23 @@ func TestIsContextWordUsesTheFrenchStopwordSet(t *testing.T) {
 	assert.True(t, isContextWord("it", "pas"), "Italian pas is not a French stopword")
 }
 
+func TestIsContextWordUsesTheClassicalFunctionWordSets(t *testing.T) {
+	for _, word := range []string{"δέ", "καί", "οὐ", "οὐκ", "μή", "ἄν", "ἀλλά"} {
+		assert.False(t, isContextWord("grc", word), word)
+	}
+	for _, word := range []string{"ὡς", "νῦν", "λόγος", "αὐτός"} {
+		assert.True(t, isContextWord("grc", word), word)
+	}
+	for _, word := range []string{"et", "non", "ne", "uero", "tamen", "sed"} {
+		assert.False(t, isContextWord("la", word), word)
+	}
+	for _, word := range []string{"nunc", "rex", "ita"} {
+		assert.True(t, isContextWord("la", word), word)
+	}
+	assert.True(t, isContextWord("de", "tamen"), "the Latin set is language-scoped")
+	assert.True(t, isContextWord("el", "δέ"), "the Greek set is not the Modern Greek set")
+}
+
 func TestCloneLexicalSensesDeepCopiesDictionaryMetadata(t *testing.T) {
 	original := []LexicalSense{{Examples: []string{"example"}, Topics: []string{"topic"}, Tags: []string{"tag"}}}
 	clone := CloneLexicalSenses(original)

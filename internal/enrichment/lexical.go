@@ -7,6 +7,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
 // LexicalLookupRequest contains the lexical context needed to resolve one
@@ -356,6 +357,21 @@ var frenchContextStopWords = map[string]struct{}{
 	"ton": {}, "tu": {}, "un": {}, "une": {}, "vos": {}, "votre": {}, "vous": {}, "y": {},
 }
 
+// classicalContextStopWords are the Ancient Greek and Latin function words that
+// leave vocabulary eligibility (ADR 0140); they are no Lesk signal either.
+var classicalContextStopWords = map[string]map[string]struct{}{
+	"grc": lexicalFunctionWordSet("grc"),
+	"la":  lexicalFunctionWordSet("la"),
+}
+
+func lexicalFunctionWordSet(language string) map[string]struct{} {
+	set := map[string]struct{}{}
+	for _, lemma := range lexical.FunctionWordLemmas(language) {
+		set[lemma] = struct{}{}
+	}
+	return set
+}
+
 func isContextWord(language, word string) bool {
 	if word == "" {
 		return false
@@ -369,6 +385,9 @@ func isContextWord(language, word string) bool {
 		return !stop
 	case "fr":
 		_, stop := frenchContextStopWords[word]
+		return !stop
+	case "grc", "la":
+		_, stop := classicalContextStopWords[canonicalization.NormalizeLanguage(language)][word]
 		return !stop
 	default:
 		return true

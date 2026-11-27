@@ -737,3 +737,51 @@ func TestOccurrenceEligibleIgnoresAGDTRelationsForGreek(t *testing.T) {
 		})
 	}
 }
+
+// languageFixture builds a one-sentence-per-token corpus in any language.
+func languageFixture(language string, tokens ...analyzer.Token) analyzer.Result {
+	corpus := frenchFixture(tokens...)
+	corpus.Language = language
+	return corpus
+}
+
+func selectedCounts(t *testing.T, corpus analyzer.Result) map[string]int {
+	t.Helper()
+	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
+	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("book"))
+	require.NoError(t, err)
+	counts := map[string]int{}
+	for _, candidate := range got {
+		counts[candidate.Identity.CanonicalLemma+"/"+candidate.Identity.UPOS] = candidate.OccurrenceCount
+	}
+	return counts
+}
+
+func TestGreekFunctionWordsLeaveVocabularySelection(t *testing.T) {
+	counts := selectedCounts(t, languageFixture("grc",
+		tok("δέ", "δέ", "ADV"), tok("καί", "καί", "ADV"), tok("μέν", "μέν", "ADV"),
+		tok("οὐκ", "οὐ", "ADV"), tok("μή", "μή", "ADV"), tok("ἄν", "ἄν", "ADV"),
+		tok("ὡς", "ὡς", "ADV"), tok("νῦν", "νῦν", "ADV"), tok("ἐνταῦθα", "ἐνταῦθα", "ADV"),
+		tok("γε", "γε", "NOUN"), tok("λόγος", "λόγος", "NOUN"),
+	))
+	assert.Equal(t, map[string]int{
+		"ὡς/ADV": 1, "νῦν/ADV": 1, "ἐνταῦθα/ADV": 1, "γε/NOUN": 1, "λόγος/NOUN": 1,
+	}, counts)
+}
+
+func TestLatinFunctionWordsLeaveVocabularySelection(t *testing.T) {
+	counts := selectedCounts(t, languageFixture("la",
+		tok("non", "non", "ADV"), tok("ne", "ne", "ADV"), tok("et", "et", "ADV"),
+		tok("vero", "uero", "ADV"), tok("tamen", "tamen", "ADV"),
+		tok("vero", "uero", "VERB"), tok("nunc", "nunc", "ADV"), tok("rex", "rex", "NOUN"),
+	))
+	assert.Equal(t, map[string]int{"uero/VERB": 1, "nunc/ADV": 1, "rex/NOUN": 1}, counts)
+}
+
+func TestOccurrenceEligibleKeepsModernGreekFunctionWords(t *testing.T) {
+	cfg := DefaultConfig("")
+	assert.True(t, OccurrenceEligible(cfg, "el", "και", "ADV", "advmod"))
+	assert.False(t, OccurrenceEligible(cfg, "grc", "καί", "ADV", "advmod"))
+	assert.False(t, OccurrenceEligible(cfg, "la", "non", "ADV", "advmod"))
+	assert.True(t, OccurrenceEligible(cfg, "de", "non", "ADV", "advmod"))
+}
