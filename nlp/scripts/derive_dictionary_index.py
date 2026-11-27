@@ -1457,12 +1457,13 @@ LS_SHORTHAND_WORDS = frozenset(
         "dat", "decl", "dep", "dim", "f", "fem", "fin", "finit", "freq", "fut", "gen",
         "imper", "imperf", "impers", "inch", "indecl", "indic", "inf", "init", "intr", "m",
         "masc", "med", "mid", "n", "neutr", "nom", "num", "numer", "p", "part", "pass",
-        "perf", "pers", "pl", "plqpf", "plur", "pos", "posit", "praes", "pres", "pron",
+        "perf", "pers", "pl", "plqpf", "plur", "pos", "posit", "pr", "praes", "pres", "pron",
+        "propr",
         "sing", "subj", "subst", "sup", "tant", "trans", "v", "voc",
     }
 )  # fmt: skip
-# An opening "a" or connective is an English word ("a part"), not shorthand.
-LS_SHORTHAND_NOT_FIRST = frozenset({"a", "and", "or"})
+# An opening connective is an English word, not shorthand.
+LS_SHORTHAND_NOT_FIRST = frozenset({"and", "or"})
 LS_REPEAT_AUTHORS = frozenset({"id"})
 LS_PUNCTUATION = re.compile(r"[^\w]+")
 
@@ -1483,10 +1484,16 @@ def ls_is_abbreviation(text: str) -> bool:
     return LS_PUNCTUATION.sub(" ", text.casefold()).strip() in LS_ABBREVIATIONS
 
 
+def ls_opens_with_article(text: str, words: list[str]) -> bool:
+    """ "a part" opens with the English article; "a." and "a. inch" open with the
+    abbreviation for active, which the dictionary always writes with its stop."""
+    return words[0] == "a" and len(words) > 1 and not text.lstrip().casefold().startswith("a.")
+
+
 def ls_is_shorthand(text: str) -> bool:
     """Whether text is only L&S grammatical abbreviations ("gen. sing")."""
     words = LS_PUNCTUATION.sub(" ", text.casefold()).split()
-    if not words or words[0] in LS_SHORTHAND_NOT_FIRST:
+    if not words or words[0] in LS_SHORTHAND_NOT_FIRST or ls_opens_with_article(text, words):
         return False
     return all(word in LS_SHORTHAND_WORDS for word in words)
 
@@ -1502,12 +1509,6 @@ def ls_lost_to_shorthand(text: str) -> bool:
     older abbreviation list already dropped does not count."""
     text = clean_gloss(" ".join(text.split())).rstrip(".")
     return ls_is_shorthand(text) and not ls_is_abbreviation(text)
-
-
-def ls_translation(text: str) -> str:
-    """Clean one <tr> into a gloss, or the empty string for shorthand."""
-    text = clean_gloss(text)
-    return "" if ls_is_shorthand(text) else text
 
 
 def ls_homograph_number(key: str) -> int:
@@ -1670,10 +1671,8 @@ def ls_collect_child(child, content: LsContent) -> None:
         if reference := ls_reference(child):
             content.crossrefs.append({"text": reference})
     elif child.tag == "tr":
-        if gloss := ls_translation(element_text(child)):
+        if gloss := clean_gloss(element_text(child)):
             content.translations.append(gloss)
-        else:
-            content.shorthand |= ls_is_shorthand(element_text(child))
     elif child.tag == "hi" and child.get("rend") == "ital":
         ls_add_definition(child, content)
     else:
@@ -1784,7 +1783,9 @@ def ls_span_end(senses: list[dict], start: int) -> int:
     return len(senses)
 
 
-def ls_subentries(entry_id: str, headword: str, senses: list, contents: list[dict]) -> list[dict]:
+def ls_subentries(
+    entry_id: str, headword: str, senses: list, contents: list[dict], lost: list[bool]
+) -> list[dict]:
     """The entries written inside this entry's senses (ls_subentry_orth), each
     with its own sense and the deeper senses that follow it. Their ids are their
     sense ids, so a citation still names the sense it cites."""
@@ -1794,7 +1795,8 @@ def ls_subentries(entry_id: str, headword: str, senses: list, contents: list[dic
         plain = ls_plain_letters(orth)
         if not LS_SUBENTRY_HEADWORD.match(plain) or ls_plain(plain) == ls_plain(headword):
             continue
-        span = [copy.deepcopy(item) for item in contents[index : ls_span_end(contents, index)]]
+        end = ls_span_end(contents, index)
+        span = [copy.deepcopy(item) for item in contents[index:end]]
         found.append(
             {
                 "id": contents[index]["id"],
@@ -1804,6 +1806,7 @@ def ls_subentries(entry_id: str, headword: str, senses: list, contents: list[dic
                 "homograph": 0,
                 "senses": span,
                 "parent": entry_id,
+                "shorthand": any(lost[index:end]),
             }
         )
     return found
@@ -1817,6 +1820,7 @@ def ls_entry(element) -> dict | None:
     if not admitted or not entry_id:
         return None
     contents = []
+    lost = []
     kept = []
     pointer = None
     entry_content = LsContent()
@@ -1833,6 +1837,7 @@ def ls_entry(element) -> dict | None:
             pointer = number
             continue
         contents.append(ls_sense(sense, content))
+        lost.append(content.shorthand)
         kept.append(sense)
     return {
         "id": entry_id,
@@ -1844,7 +1849,7 @@ def ls_entry(element) -> dict | None:
         "type": element.get("type"),
         "pointer": pointer,
         "shorthand": shorthand,
-        "subentries": ls_subentries(entry_id, headword, kept, contents),
+        "subentries": ls_subentries(entry_id, headword, kept, contents, lost),
     }
 
 
@@ -1992,7 +1997,7 @@ def ls_add_subentries(entries: list[dict]) -> list[dict]:
     for entry in entries:
         for sub in entry["subentries"]:
             plain = ls_plain(sub["headword"])
-            if plain not in held and ls_has_text(sub):
+            if plain not in held and (ls_has_text(sub) or sub["shorthand"]):
                 held.add(plain)
                 added.append(sub)
     return entries + added

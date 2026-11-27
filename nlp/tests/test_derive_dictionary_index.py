@@ -2053,11 +2053,16 @@ SYNTHETIC_LS_SHORTHAND = """<TEI.2><text><body>
  <sense id="n2.0" n="I" level="1"><hi rend="ital">gen. sing</hi>.</sense>
  <sense id="n2.1" n="II" level="1"><hi rend="ital">a part</hi> <hi rend="ital">abl. sing</hi>.</sense></entryFree>
 <entryFree id="n3" key="loco" type="main"><orth>loco</orth>,
- <sense id="n3.0" n="I" level="1"><hi rend="ital">v. dep. a</hi>. <tr>part. perf</tr> <tr>a place</tr>.</sense>
+ <sense id="n3.0" n="I" level="1"><hi rend="ital">v. dep. a</hi>. <tr>pass</tr> <tr>a place</tr>.</sense>
  <sense id="n3.1" n="II" level="1"><hi rend="ital">fut</hi>. <bibl><author>Cic.</author> A 1</bibl>.</sense></entryFree>
 <entryFree id="n4" key="nomen" type="main"><orth>nōmen</orth>,
  <sense id="n4.0" n="I" level="1"><hi rend="ital">nom. sing. of a name</hi>.</sense>
  <sense id="n4.1" n="II" level="1"><hi rend="ital">a name</hi>.</sense></entryFree>
+<entryFree id="n7" key="verbum" type="main"><orth>verbum</orth>,
+ <sense id="n7.0" n="I" level="1"><hi rend="ital">a.</hi> <hi rend="ital">nom. propr.</hi></sense>
+ <sense id="n7.1" n="II" level="1"><hi rend="ital">a. inch</hi></sense>
+ <sense id="n7.2" n="III" level="1"><hi rend="ital">a part</hi>.</sense>
+ <sense id="n7.3" n="A" level="2"> <orth>subverbum</orth>, <itype>i</itype>, <hi rend="ital">gen. sing</hi>.</sense></entryFree>
 <entryFree id="n5" key="cuso" type="gloss"><orth>cūso</orth>,
  <sense id="n5.0" n="I" level="1"><hi rend="ital">v. freq.</hi> <bibl><author>Prisc.</author> p. 1</bibl>.</sense></entryFree>
 <entryFree id="n6" key="legicrepa" type="gloss"><orth>lēgĭcrĕpa</orth>, Gloss. Philox.</entryFree>
@@ -2076,7 +2081,8 @@ def test_ls_shorthand_only_definitions_and_glosses_are_dropped(tmp_path: Path):
     assert "definitions" not in senses["n1"]["n1.0"]
     assert senses["n1"]["n1.2"]["glosses"] == []
     assert senses["n2"]["n2.0"]["glosses"] == []
-    assert senses["n3"]["n3.0"]["glosses"] == ["a place"]
+    # A <tr> is a translation, so a one-word meaning such as "pass" stays.
+    assert senses["n3"]["n3.0"]["glosses"] == ["pass", "a place"]
     assert senses["n3"]["n3.1"]["glosses"] == []
 
 
@@ -2098,7 +2104,17 @@ def test_ls_shorthand_filtering_keeps_every_entry_and_sense_id(tmp_path: Path):
         "n3": ["n3.0", "n3.1"],
         "n4": ["n4.0", "n4.1"],
         "n5": ["n5.0"],
+        "n7": ["n7.0", "n7.1", "n7.2", "n7.3"],
+        "n7.3": ["n7.3"],
     }
+
+
+def test_ls_shorthand_reads_active_with_its_stop_but_not_the_article(tmp_path: Path):
+    senses = shorthand_senses(tmp_path)["n7"]
+
+    assert senses["n7.0"]["glosses"] == []  # "a." (active) and "nom. propr."
+    assert senses["n7.1"]["glosses"] == []  # "a. inch"
+    assert senses["n7.2"]["definitions"] == ["a part"]
 
 
 def test_ls_glossary_entry_left_with_only_shorthand_keeps_its_id_and_citations(tmp_path: Path):
