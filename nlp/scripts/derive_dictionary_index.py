@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import gzip
 import hashlib
 import json
@@ -1397,7 +1398,32 @@ LS_SKIPPED_ENTRY_TYPES = frozenset({"gloss"})
 # The pinned lexica holds two encodings of the dictionary; indexing both would
 # duplicate every entry id.
 LS_FILE = "lat.ls.perseus-eng1.xml"
-LS_PLAIN_REDIRECT = re.compile(r"\bv\.\s+([^\W\d_]+\d?)")
+# "v. pueritia" and "v. 1. lego": the optional number is the L&S homograph
+# number, written before the headword and moved to its end by ls_reference_key.
+LS_PLAIN_REDIRECT = re.compile(r"\bv\.\s+(the\s+(?:foll|preced)\.?|(?:\d+\.\s+)?[^\W\d_]+\d?)")
+# A participle entry names the verb it comes from, after its <mood>Part.</mood>
+# or <pos>P. a.</pos> label: "Part., from percello", "Part. and P. a., from 2. insero".
+LS_PARTICIPLE_LABELS = frozenset({"mood", "pos"})
+LS_PARTICIPLE_REDIRECT = re.compile(
+    r"^\s*[,.]?\s*(?:and\s+P\.\s*a\.\s*[,.]?\s*)?(?:from|of)\s+((?:\d+\.\s+)?[^\W\d_]+\d?)"
+)
+# "= clueo, q. v." names its entry too.
+LS_QV_REDIRECT = re.compile(r"(?:\bfrom|=)\s+((?:\d+\.\s+)?[^\W\d_]+\d?),?\s+q\.\s*v\.")
+# "v." written before a child element, as in "v. <itype>prior</itype>".
+LS_REDIRECT_LEAD = re.compile(r"\bv\.\s*$")
+LS_NUMBERED_REFERENCE = re.compile(r"^(\d+)\.\s+(.+)$")
+# A sense that only points at the end of another entry ("v. 1. lego" followed by
+# a sense holding "fin. 1."): it carries no text of its own.
+LS_POINTER_SENSE = re.compile(r"^fin\.(?:\s*(\d+)\.?)?$")
+# A sub-entry opens a sense with its own headword and a grammatical label, as
+# "Rōmānus, a, um, adj." does inside "Roma".
+LS_SUBENTRY_LABELS = frozenset({"itype", "pos", "gen"})
+LS_SUBENTRY_HEADWORD = re.compile(r"^[^\W\d_]+$")
+# Italic text after the first citation counts as a definition only when the
+# sense has none before it (a sense that opens with a citation, as "turtur" does).
+LS_LATE_DEFINITIONS = 3
+# What a redirect copies from the entry it names.
+LS_INHERITED_KEYS = ("id", "n", "level", "definitions", "glosses")
 # Italic text in an L&S sense is a definition unless it is one of the dictionary's
 # own abbreviations, a grammatical label or a connective. Compared after
 # casefolding and dropping punctuation and spaces.
@@ -1484,6 +1510,7 @@ class LsContent:
     translations: list[str] = field(default_factory=list)
     citations: list[dict] = field(default_factory=list)
     crossrefs: list[dict] = field(default_factory=list)
+    late_definitions: list[str] = field(default_factory=list)
     cited: bool = False
     author: str = ""
 
@@ -1495,14 +1522,31 @@ def ls_text(text: str | None, content: LsContent) -> None:
         return
     if LSJ_MEANING_START in text:
         content.cited = False
-    content.crossrefs.extend({"text": match} for match in LS_PLAIN_REDIRECT.findall(text))
+    for pattern in (LS_PLAIN_REDIRECT, LS_QV_REDIRECT):
+        content.crossrefs.extend({"text": match} for match in pattern.findall(text))
+
+
+def ls_participle_reference(label) -> str:
+    """The verb a participle label names in the text after it, or the empty string."""
+    if label.tag not in LS_PARTICIPLE_LABELS or not (label.tail or "").strip():
+        return ""
+    if not re.match(r"(?:Part|P\. ?a)", element_text(label)):
+        return ""
+    match = LS_PARTICIPLE_REDIRECT.match(label.tail)
+    return match.group(1) if match else ""
 
 
 def ls_collect(element, content: LsContent) -> None:
     ls_text(element.text, content)
+    lead = element.text or ""
     for child in element:
+        if child.tag == "itype" and LS_REDIRECT_LEAD.search(lead) and element_text(child).strip():
+            content.crossrefs.append({"text": element_text(child).strip()})
         ls_collect_child(child, content)
         ls_text(child.tail, content)
+        lead = child.tail or ""
+        if reference := ls_participle_reference(child):
+            content.crossrefs.append({"text": reference})
 
 
 def ls_collect_child(child, content: LsContent) -> None:
@@ -1526,9 +1570,10 @@ def ls_collect_child(child, content: LsContent) -> None:
 
 
 def ls_add_definition(element, content: LsContent) -> None:
-    """Record italic text before the first citation as a definition."""
-    if not content.cited and (definition := ls_definition(element_text(element))):
-        content.definitions.append(definition)
+    """Record italic text before the first citation as a definition, and keep
+    the italic text after it for a sense that has no definition before it."""
+    if definition := ls_definition(element_text(element)):
+        (content.late_definitions if content.cited else content.definitions).append(definition)
 
 
 def ls_reference(xr) -> str:
@@ -1546,7 +1591,8 @@ def ls_sense(element, content: LsContent) -> dict:
         sense["level"] = 0
     if content.definitions:
         sense["definitions"] = dedupe(content.definitions)
-    sense["glosses"] = dedupe(content.definitions + content.translations)
+    late = [] if content.definitions else content.late_definitions[:LS_LATE_DEFINITIONS]
+    sense["glosses"] = dedupe(content.definitions + late + content.translations)
     if content.citations:
         sense["citations"] = [dict(item) for item in dedupe_dicts(content.citations)]
     if content.crossrefs:
@@ -1574,6 +1620,75 @@ def ls_entry_level_sense(entry_id: str, content: LsContent) -> list[dict]:
     return [sense]
 
 
+def ls_pointer(element) -> tuple[bool, str]:
+    """Whether a sense only points at the end of another entry ("fin. 1."), and
+    the number it names. Such a sense carries no text of its own."""
+    match = LS_POINTER_SENSE.match(" ".join("".join(element.itertext()).split()))
+    return (True, match.group(1) or "") if match else (False, "")
+
+
+def ls_plain_letters(text: str) -> str:
+    """Drop vowel-length marks, keeping case."""
+    decomposed = unicodedata.normalize("NFD", text.strip())
+    return unicodedata.normalize(
+        "NFC", "".join(c for c in decomposed if not unicodedata.combining(c))
+    )
+
+
+def ls_subentry_orth(sense) -> str:
+    """The headword a sense opens with, as in "Rōmānus, a, um, adj." inside
+    "Roma", or the empty string for a sense that opens with prose."""
+    children = list(sense)
+    if not children or (sense.text or "").strip() or children[0].tag != "orth":
+        return ""
+    first = children[0]
+    following = children[1] if len(children) > 1 else None
+    if first.get("type") == "alt" or following is None or following.tag not in LS_SUBENTRY_LABELS:
+        return ""
+    if (first.tail or "").strip(" ,") != "":
+        return ""
+    return element_text(first)
+
+
+def ls_span_end(senses: list[dict], start: int) -> int:
+    """The index after the senses that belong under the sense at start: the run up
+    to the next sense of the same or a higher level. A heading with no text of its
+    own ("1. lēgātus, i, m.") is followed by senses written one level above it, so
+    its run ends only at the next sense of its own level."""
+    level = senses[start].get("level", 0)
+    bare = not senses[start].get("glosses")
+    for index in range(start + 1, len(senses)):
+        later = senses[index].get("level", 0)
+        if later == level or (later < level and not bare):
+            return index
+    return len(senses)
+
+
+def ls_subentries(entry_id: str, headword: str, senses: list, contents: list[dict]) -> list[dict]:
+    """The entries written inside this entry's senses (ls_subentry_orth), each
+    with its own sense and the deeper senses that follow it. Their ids are their
+    sense ids, so a citation still names the sense it cites."""
+    found: list[dict] = []
+    for index, sense in enumerate(senses):
+        orth = ls_subentry_orth(sense)
+        plain = ls_plain_letters(orth)
+        if not LS_SUBENTRY_HEADWORD.match(plain) or ls_plain(plain) == ls_plain(headword):
+            continue
+        span = [copy.deepcopy(item) for item in contents[index : ls_span_end(contents, index)]]
+        found.append(
+            {
+                "id": contents[index]["id"],
+                "key": plain,
+                "headword": plain,
+                "orth": orth,
+                "homograph": 0,
+                "senses": span,
+                "parent": entry_id,
+            }
+        )
+    return found
+
+
 def ls_entry(element) -> dict | None:
     """Derive one L&S entry, or None when it is not an indexable main entry."""
     entry_id = (element.get("id") or "").strip()
@@ -1582,6 +1697,8 @@ def ls_entry(element) -> dict | None:
     if element.get("type") in LS_SKIPPED_ENTRY_TYPES or not admitted or not entry_id:
         return None
     contents = []
+    kept = []
+    pointer = None
     entry_content = LsContent()
     ls_collect(element, entry_content)
     author = entry_content.author
@@ -1589,7 +1706,12 @@ def ls_entry(element) -> dict | None:
         content = LsContent(author=author)
         ls_collect(sense, content)
         author = content.author
+        is_pointer, number = ls_pointer(sense)
+        if is_pointer and not content.citations:
+            pointer = number
+            continue
         contents.append(ls_sense(sense, content))
+        kept.append(sense)
     return {
         "id": entry_id,
         "key": key.strip(),
@@ -1597,7 +1719,28 @@ def ls_entry(element) -> dict | None:
         "orth": lsj_first_orth(element),
         "homograph": ls_homograph_number(key),
         "senses": ls_entry_level_sense(entry_id, entry_content) + contents,
+        "pointer": pointer,
+        "subentries": ls_subentries(entry_id, headword, kept, contents),
     }
+
+
+def ls_reference_key(text: str) -> str:
+    """Move a leading homograph number to the end ("1. lego" names key lego1)."""
+    match = LS_NUMBERED_REFERENCE.match(text.strip())
+    return f"{match.group(2)}{match.group(1)}" if match else text
+
+
+def ls_neighbour(entries: list[dict], position: int, text: str) -> dict | None:
+    """The entry "the foll. art." or "the preced. word" names: the next or the
+    previous entry in the dictionary's own order."""
+    if text.startswith("the foll"):
+        step = 1
+    elif text.startswith("the preced"):
+        step = -1
+    else:
+        return None
+    index = position + step
+    return entries[index] if 0 <= index < len(entries) else None
 
 
 def ls_resolve(entries: list[dict]) -> None:
@@ -1611,16 +1754,97 @@ def ls_resolve(entries: list[dict]) -> None:
     for entry in entries:
         by_key.setdefault(ls_plain(entry["key"]), []).append(entry)
         by_headword.setdefault(ls_plain(entry["headword"]), []).append(entry)
-    for entry in entries:
+    for position, entry in enumerate(entries):
         for sense in entry["senses"]:
             for reference in sense.get("crossrefs", []):
-                plain = ls_plain(reference["text"]).strip()
+                plain = ls_plain(ls_reference_key(reference["text"])).strip()
+                if neighbour := ls_neighbour(entries, position, plain):
+                    reference["entry_id"] = neighbour["id"]
+                    reference["headword"] = neighbour["headword"]
+                    continue
                 candidates = (
                     by_key.get(plain, []) if plain[-1:].isdigit() else by_headword.get(plain, [])
                 )
+                if len(candidates) > 1:
+                    # "asper" names the adjective, not the surname "Asper".
+                    spelled = ls_plain_letters(ls_reference_key(reference["text"]))
+                    candidates = [
+                        item for item in candidates if ls_plain_letters(item["headword"]) == spelled
+                    ]
                 if len(candidates) == 1:
                     reference["entry_id"] = candidates[0]["id"]
                     reference["headword"] = candidates[0]["headword"]
+
+
+def ls_has_text(entry: dict) -> bool:
+    return any(sense.get("glosses") for sense in entry["senses"])
+
+
+def ls_pointed_senses(target: list[dict], number: str | None) -> list[dict]:
+    """The target's own senses a stub points at. "fin. N." is the last sense
+    numbered N with the deeper senses that follow it; no number is the whole entry."""
+    own = [sense for sense in target if sense.get("level", 0) > 0 and sense.get("glosses")]
+    if not number:
+        return own
+    start = next(
+        (i for i in range(len(target) - 1, -1, -1) if target[i].get("n") == number),
+        None,
+    )
+    if start is None:
+        return []
+    end = ls_span_end(target, start)
+    return [sense for sense in target[start:end] if sense.get("glosses")]
+
+
+def ls_inherit(entries: list[dict]) -> None:
+    """Give an entry that only redirects ("v. pueritia") the text of the one entry
+    it resolves to: the definitions and glosses of that entry's senses, or the
+    span "fin. N." points at. A redirect that resolves to no single entry, or to
+    an entry with no text, stays as written. Citations are not copied."""
+    by_id = {entry["id"]: entry for entry in entries}
+
+    def targets_of(entry: dict) -> list[str]:
+        ids = []
+        for sense in entry["senses"]:
+            for reference in sense.get("crossrefs", []):
+                target = reference.get("entry_id")
+                if target and target != entry["id"] and target not in ids:
+                    ids.append(target)
+        return ids
+
+    def settle(entry: dict, visiting: frozenset[str]) -> None:
+        if entry.get("settled"):
+            return
+        entry["settled"] = True
+        if ls_has_text(entry):
+            return
+        targets = targets_of(entry)
+        if len(targets) != 1 or targets[0] in visiting:
+            return
+        target = by_id[targets[0]]
+        settle(target, visiting | {entry["id"]})
+        copied = [
+            {key: value for key, value in sense.items() if key in LS_INHERITED_KEYS}
+            for sense in ls_pointed_senses(target["senses"], entry.get("pointer"))
+        ]
+        entry["senses"] = entry["senses"] + copied
+
+    for entry in entries:
+        settle(entry, frozenset())
+
+
+def ls_add_subentries(entries: list[dict]) -> list[dict]:
+    """Add the entries written inside other entries' senses whose headword has no
+    entry with text of its own, once per source sense."""
+    held = {ls_plain(entry["headword"]) for entry in entries if ls_has_text(entry)}
+    added = []
+    for entry in entries:
+        for sub in entry["subentries"]:
+            plain = ls_plain(sub["headword"])
+            if plain not in held and ls_has_text(sub):
+                held.add(plain)
+                added.append(sub)
+    return entries + added
 
 
 def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str, int]]:
@@ -1634,6 +1858,9 @@ def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str, int]]:
                 element.clear()
     entries.sort(key=lambda item: (ls_id_order(item["id"]), item["id"]))
     ls_resolve(entries)
+    ls_inherit(entries)
+    entries = ls_add_subentries(entries)
+    entries.sort(key=lambda item: (ls_id_order(item["id"]), item["id"]))
     return [
         (
             entry["id"],

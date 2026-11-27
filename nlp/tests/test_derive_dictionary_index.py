@@ -1827,3 +1827,143 @@ def test_ls_definition_window_restarts_after_the_meaning_marker():
     module.ls_collect(sense, content)
 
     assert content.definitions == ["first", "second"]
+
+
+# ---- Lewis & Short: entries that lost their text (#2793) --------------------
+
+SYNTHETIC_LS_LOST_TEXT = """<TEI.2><text><body>
+<entryFree id="n1" key="lego1" type="main"><orth>lēgo</orth>, <itype>āvi</itype>,
+ <sense id="n1.0" n="I" level="1"><hi rend="ital">To send</hi>.</sense>
+ <sense id="n1.1" n="1" level="3"> <orth>lēgātus</orth>, <itype>i</itype>, <gen>m.</gen> </sense>
+ <sense id="n1.2" n="A" level="2"><hi rend="ital">An ambassador</hi>, <bibl><author>Cic.</author> A 1</bibl>.</sense>
+ <sense id="n1.3" n="a" level="4"><hi rend="ital">a deputy</hi>.</sense>
+ <sense id="n1.4" n="2" level="3"> <orth>lēgātum</orth>, <itype>i</itype>, <gen>n.</gen>, <hi rend="ital">a bequest</hi>.</sense>
+</entryFree>
+<entryFree id="n2" key="legatus" type="main"><orth>lēgātus</orth>, <itype>i</itype>, v. 1. lego
+ <sense id="n2.0" n="I" level="1"><hi rend="ital">fin.</hi> 1.</sense></entryFree>
+<entryFree id="n3" key="legatum" type="main"><orth>lēgātum</orth>, <itype>i</itype>, v. 1. lego
+ <sense id="n3.0" n="I" level="1"><hi rend="ital">fin.</hi> 2.</sense></entryFree>
+<entryFree id="n4" key="pueritia" type="main"><orth>pŭerĭtia</orth>, <sense id="n4.0" n="I" level="1"><hi rend="ital">boyhood</hi>.</sense></entryFree>
+<entryFree id="n5" key="puritia" type="main"><orth>pūrĭtia</orth>, v. pueritia.</entryFree>
+<entryFree id="n6" key="percello" type="main"><orth>percello</orth>, <sense id="n6.0" n="I" level="1"><hi rend="ital">to strike down</hi>.</sense></entryFree>
+<entryFree id="n7" key="perculsus" type="main"><orth>perculsus</orth>, <itype>a, um</itype>, <mood>Part.</mood>, from percello.</entryFree>
+<entryFree id="n8" key="prior" type="main"><orth>prior</orth>, <sense id="n8.0" n="I" level="1"><hi rend="ital">former</hi>.</sense></entryFree>
+<entryFree id="n9" key="prius" type="main"><orth>prĭus</orth>, v. <itype>prior</itype>, <pos>adv.</pos></entryFree>
+<entryFree id="n10" key="clueo" type="main"><orth>clueo</orth>, <sense id="n10.0" n="I" level="1"><hi rend="ital">to be called</hi>.</sense></entryFree>
+<entryFree id="n11" key="cluo" type="main"><orth>clŭo</orth> = clueo, q. v.</entryFree>
+<entryFree id="n12" key="foo" type="main"><orth>foo</orth>, v. the foll. art.</entryFree>
+<entryFree id="n13" key="bar" type="main"><orth>bar</orth>, <sense id="n13.0" n="I" level="1"><hi rend="ital">a bar</hi>.</sense></entryFree>
+<entryFree id="n14" key="loop1" type="main"><orth>loop</orth>, v. loop2.</entryFree>
+<entryFree id="n15" key="loop2" type="main"><orth>loop</orth>, v. loop1.</entryFree>
+<entryFree id="n16" key="turtur" type="main"><orth>turtur</orth>, <sense id="n16.0" n="I" level="1"><hi rend="ital">fem.</hi> x <bibl><author>Plin.</author> 30</bibl>, <hi rend="ital">a turtle-dove</hi>: <bibl><author>Varr.</author> R. 3</bibl>.</sense></entryFree>
+<entryFree id="n17" key="Roma" type="main"><orth>Rōma</orth>, <itype>ae</itype>, <gen>f.</gen>
+ <sense id="n17.0" n="I" level="1"><hi rend="ital">the city</hi>.</sense>
+ <sense id="n17.1" n="A" level="2"> <orth>Rōmānus</orth>, <itype>a, um</itype>, <pos>adj.</pos>, <hi rend="ital">Roman</hi>.</sense>
+ <sense id="n17.2" n="a" level="4"><hi rend="ital">the Romans</hi>.</sense>
+ <sense id="n17.3" n="B" level="2"><hi rend="ital">Hence</hi>.</sense></entryFree>
+<entryFree id="n18" key="Arma" type="main"><orth>arma</orth>, <sense id="n18.0" n="I" level="1"><hi rend="ital">arms</hi>; also
+ <orth>Rōma</orth>, <itype>x</itype>, <hi rend="ital">dup</hi>.</sense></entryFree>
+<entryFree id="n19" key="Comp" type="main"><orth>comp</orth>, <sense id="n19.0" n="I" level="1"> <orth>comp</orth>, <itype>a</itype>, <hi rend="ital">self</hi>.</sense></entryFree>
+</body></text></TEI.2>"""
+
+
+def lost_text_rows(tmp_path: Path) -> dict:
+    rows = ls_index(tmp_path, load_script(), SYNTHETIC_LS_LOST_TEXT)
+    return {row[0]: row for row in rows}
+
+
+def glosses_of(row) -> list[str]:
+    return [item for sense in json.loads(row[3]) for item in sense.get("glosses", [])]
+
+
+def test_ls_redirect_inherits_the_text_of_the_entry_it_names(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    senses = json.loads(rows["n5"][3])
+    assert glosses_of(rows["n5"]) == ["boyhood"]
+    assert senses[0]["crossrefs"] == [
+        {"text": "pueritia", "entry_id": "n4", "headword": "pueritia"}
+    ]
+    assert "citations" not in senses[1]
+
+
+def test_ls_fin_pointer_copies_the_numbered_group_it_points_at(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    # "v. 1. lego fin. 1.": the span of the last sense numbered 1, written one
+    # level above its bare heading, and not the bequest that follows it.
+    assert glosses_of(rows["n2"]) == ["An ambassador", "a deputy"]
+    assert glosses_of(rows["n3"]) == ["a bequest"]
+    assert [sense["id"] for sense in json.loads(rows["n2"][3])] == ["n2", "n1.2", "n1.3"]
+
+
+def test_ls_participle_label_itype_redirect_and_qv_name_their_entries(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert glosses_of(rows["n7"]) == ["to strike down"]
+    assert glosses_of(rows["n9"]) == ["former"]
+    assert glosses_of(rows["n11"]) == ["to be called"]
+
+
+def test_ls_the_foll_names_the_next_entry(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert glosses_of(rows["n12"]) == ["a bar"]
+
+
+def test_ls_redirects_that_resolve_to_no_text_stay_as_written(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert glosses_of(rows["n14"]) == []
+    assert glosses_of(rows["n15"]) == []
+    assert json.loads(rows["n14"][3])[0]["crossrefs"][0]["entry_id"] == "n15"
+
+
+def test_ls_bare_reference_prefers_the_exact_case_among_casefolded_homographs():
+    module = load_script()
+    entries = [
+        {"id": "n1", "key": "Asper", "headword": "Asper", "senses": []},
+        {"id": "n2", "key": "asper1", "headword": "asper", "senses": []},
+        {"id": "n3", "key": "x", "headword": "x", "senses": [{"crossrefs": [{"text": "asper"}]}]},
+    ]
+
+    module.ls_resolve(entries)
+
+    assert entries[2]["senses"][0]["crossrefs"] == [
+        {"text": "asper", "entry_id": "n2", "headword": "asper"}
+    ]
+
+
+def test_ls_italic_after_the_first_citation_is_a_gloss_when_none_precedes_it(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    sense = json.loads(rows["n16"][3])[0]
+    assert sense["glosses"] == ["a turtle-dove"]
+    assert "definitions" not in sense
+
+
+def test_ls_entry_written_inside_a_sense_becomes_its_own_entry(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    row = rows["n17.1"]
+    assert (row[1], row[2], row[4]) == ("Romanus", "Rōmānus", 0)
+    # Its own sense and the deeper sense under it, not the next sibling "B".
+    assert [sense["id"] for sense in json.loads(row[3])] == ["n17.1", "n17.2"]
+    assert glosses_of(row) == ["Roman", "the Romans"]
+    # The parent still holds all of its own senses.
+    assert len(json.loads(rows["n17"][3])) == 4
+
+
+def test_ls_inner_headword_is_not_added_when_an_entry_with_text_has_it(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert "n18.0" not in rows  # "Rōma" is already the entry n17
+    assert "n19.0" not in rows  # the entry's own headword repeated
+    assert "n1.1" not in rows  # lēgātus already has its redirect entry n2, now with text
+
+
+def test_ls_the_original_text_entries_are_unchanged_by_the_lost_text_fixes(tmp_path: Path):
+    rows = lost_text_rows(tmp_path)
+
+    assert glosses_of(rows["n4"]) == ["boyhood"]
+    assert json.loads(rows["n4"][3])[0].keys() >= {"id", "n", "level", "glosses"}
