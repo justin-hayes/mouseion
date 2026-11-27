@@ -140,9 +140,10 @@ const studyAlreadyKnownDifficulty = 5.0
 
 // StudyAlreadyKnownOffered reports whether the word's card offers the Already
 // known answer: only the review that introduces a word, never a later one. An
-// introduction is a word nobody has answered yet.
+// introduction is a word nobody has answered yet. Idioms are not offered it
+// until they gain the answer (#2757); the event table already keys them.
 func StudyAlreadyKnownOffered(p StudyProgress) bool {
-	return !p.Withdrawn && !p.Graded() && p.Memory.State == StudyStateNew
+	return !p.Withdrawn && !p.IsIdiom() && !p.Graded() && p.Memory.State == StudyStateNew
 }
 
 // StudyAlreadyKnownMemory is the scheduling state of a word the learner

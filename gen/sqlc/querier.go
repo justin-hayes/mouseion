@@ -731,7 +731,7 @@ type Querier interface {
 	// composition and run inside the caller's transaction via WithTx.
 	StartPreparedDeckTranslation(ctx context.Context, arg StartPreparedDeckTranslationParams) error
 	// Whether the learner took any Study action in the language after the instant:
-	// a graded review, a batch taken or declined, a Fluency response or another
+	// a graded review, an Already-known answer, a batch taken or declined, a Fluency response or another
 	// report. Times are the database's own clock.
 	StudyActionSince(ctx context.Context, arg StudyActionSinceParams) (bool, error)
 	// Whether the Book is still an active member of the learner's library.

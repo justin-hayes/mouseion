@@ -48,3 +48,24 @@ func TestStudyAlreadyKnownMemoryKeepsALongerInterval(t *testing.T) {
 	before.ScheduledDays = 40
 	assert.EqualValues(t, 40, StudyAlreadyKnownMemory(before, now).ScheduledDays)
 }
+
+func TestStudyAlreadyKnownIsNotOfferedOnAnIdiomYet(t *testing.T) {
+	now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+	idiom := StudyProgress{ID: "a", StudyItem: IdiomItem("de", "ins gras beissen"), Memory: NewStudyMemory(now)}
+	assert.False(t, StudyAlreadyKnownOffered(idiom), "Idioms gain the answer with #2757")
+}
+
+func TestAnAlreadyKnownWordLosesMaturityOnALapse(t *testing.T) {
+	now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+	known := StudyProgress{Memory: StudyAlreadyKnownMemory(NewStudyMemory(now), now)}
+	require.True(t, IsStudyMature(known))
+
+	// A lapse puts it into relearning with a short interval; once it is back
+	// on a day-scale schedule shorter than the threshold it is still not Mature.
+	lapsed := known
+	lapsed.Memory.State, lapsed.Memory.Lapses, lapsed.Memory.ScheduledDays = StudyStateRelearning, 1, 0
+	assert.False(t, IsStudyMature(lapsed))
+	regraduated := lapsed
+	regraduated.Memory.State, regraduated.Memory.ScheduledDays = StudyStateReview, FluencyMaturityDays-1
+	assert.False(t, IsStudyMature(regraduated))
+}
