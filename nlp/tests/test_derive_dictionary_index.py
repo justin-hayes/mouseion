@@ -1629,7 +1629,7 @@ SYNTHETIC_LS = """<?xml version="1.0" encoding="UTF-8"?>
 </entryFree>
 <entryFree id="n11" key="dicto" type="main"><orth extent="full" lang="la">dictō</orth>, <itype>are</itype>, <hi rend="ital">no sense element</hi>.</entryFree>
 <entryFree id="n12" key="Roma" type="main"><orth extent="full" lang="la">Rōma</orth>, <sense id="n12.0" n="I" level="1"><hi rend="ital">Rome</hi>.</sense></entryFree>
-<entryFree id="n13" key="stub" type="gloss"><orth>stub</orth><sense id="n13.0" n="I" level="1"><hi rend="ital">skip</hi></sense></entryFree>
+<entryFree id="n13" key="stub" type="gloss"><orth>stub</orth>, <foreign lang="greek">x</foreign>, Gloss. Philox.</entryFree>
 </body></text>
 </TEI.2>
 """
@@ -1869,6 +1869,8 @@ SYNTHETIC_LS_LOST_TEXT = """<TEI.2><text><body>
 <entryFree id="n22" key="Abdal" type="main"><orth>Abdal</orth>, <sense id="n22.0" n="I" level="1"><hi rend="ital">v.</hi> bar</sense></entryFree>
 <entryFree id="n23" key="absolutorius" type="main"><orth>absolutorius</orth>, <sense id="n23.0" n="I" level="1"><hi rend="ital">acquitting</hi>.</sense>
  <sense id="n23.1" n="II" level="1"><hi rend="ital">Subst.</hi> <orth>absŏlūtōrĭum</orth>, <itype>ii</itype>, <gen>n.</gen>, <hi rend="ital">a means of deliverance</hi>.</sense></entryFree>
+<entryFree id="n24" key="abante" type="gloss"><orth>ăbante</orth> <sense id="n24.0" n="I" level="1"><hi rend="ital">from before</hi>.</sense></entryFree>
+<entryFree id="n25" key="legicrepa" type="gloss"><orth>lēgĭcrĕpa</orth>, <foreign lang="greek">x</foreign>, Gloss. Philox.</entryFree>
 <entryFree id="n19" key="Comp" type="main"><orth>comp</orth>, <sense id="n19.0" n="I" level="1"> <orth>comp</orth>, <itype>a</itype>, <hi rend="ital">self</hi>.</sense></entryFree>
 </body></text></TEI.2>"""
 
@@ -2003,6 +2005,34 @@ def test_ls_pointer_edge_cases_leave_the_entry_as_written():
     assert module.ls_neighbour(entries, 0, "the preced") is None
     assert module.ls_neighbour(entries, 1, "the preced") == {"id": "a"}
     assert module.ls_neighbour(entries, 1, "elsewhere") is None
+
+
+@pytest.mark.parametrize(
+    "sense",
+    [
+        "prose <orth>x</orth>, <pos>adj.</pos>",
+        '<hi rend="ital">Subst.</hi> and prose <orth>x</orth>, <pos>adj.</pos>',
+        '<hi rend="ital">Subst.</hi>',
+        '<orth type="alt">x</orth>, <pos>adj.</pos>',
+        "<orth>x</orth>, <hi>y</hi>",
+        "<orth>x</orth>",
+        "<orth>x</orth> and also <pos>adj.</pos>",
+    ],
+)
+def test_ls_sense_that_does_not_open_with_a_headword_and_label_has_no_inner_entry(sense: str):
+    module = load_script()
+    element = ElementTree.fromstring(f'<sense id="n1.0">{sense}</sense>')  # noqa: S314
+
+    assert module.ls_subentry_orth(element) == ""
+
+
+def test_ls_glossary_word_is_kept_when_it_has_sense_text_and_left_out_when_it_has_none(
+    tmp_path: Path,
+):
+    rows = lost_text_rows(tmp_path)
+
+    assert glosses_of(rows["n24"]) == ["from before"]
+    assert "n25" not in rows
 
 
 def test_ls_the_original_text_entries_are_unchanged_by_the_lost_text_fixes(tmp_path: Path):

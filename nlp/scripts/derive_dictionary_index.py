@@ -1392,9 +1392,10 @@ def collect_lsj_entries(lsj_dir: Path) -> list[tuple[str, str, str, int]]:
 # the English definitions are italic <hi rend="ital"> text rather than <tr>
 # (which only translates quoted usages), and its cross-references name a
 # headword in <xr><ref>.
-# Every entry type but "gloss", a stub that only points at another entry. The
-# "greek", "foreign" and "spur" types are real Latin entries.
-LS_SKIPPED_ENTRY_TYPES = frozenset({"gloss"})
+# Every entry type is indexed. A "gloss" entry is a word the dictionary knows
+# only from an ancient glossary, and most carry a defined sense like any other;
+# one that carries no text of its own (ls_keep) is left out.
+LS_GLOSS_TYPE = "gloss"
 # The pinned lexica holds two encodings of the dictionary; indexing both would
 # duplicate every entry id.
 LS_FILE = "lat.ls.perseus-eng1.xml"
@@ -1706,7 +1707,7 @@ def ls_entry(element) -> dict | None:
     entry_id = (element.get("id") or "").strip()
     key = element.get("key") or ""
     headword, admitted = ls_headword(key)
-    if element.get("type") in LS_SKIPPED_ENTRY_TYPES or not admitted or not entry_id:
+    if not admitted or not entry_id:
         return None
     contents = []
     kept = []
@@ -1731,6 +1732,7 @@ def ls_entry(element) -> dict | None:
         "orth": lsj_first_orth(element),
         "homograph": ls_homograph_number(key),
         "senses": ls_entry_level_sense(entry_id, entry_content) + contents,
+        "type": element.get("type"),
         "pointer": pointer,
         "subentries": ls_subentries(entry_id, headword, kept, contents),
     }
@@ -1790,6 +1792,12 @@ def ls_resolve(entries: list[dict]) -> None:
 
 def ls_has_text(entry: dict) -> bool:
     return any(sense.get("glosses") for sense in entry["senses"])
+
+
+def ls_keep(entry: dict) -> bool:
+    """Every entry stays, but a glossary-only word with no sense text of its own
+    (a bare "Gloss. Philox." line) is not a dictionary entry."""
+    return entry.get("type") != LS_GLOSS_TYPE or ls_has_text(entry)
 
 
 def ls_pointed_senses(target: list[dict], number: str | None) -> list[dict]:
@@ -1874,6 +1882,7 @@ def collect_ls_entries(ls_dir: Path) -> list[tuple[str, str, str, str, int]]:
                 if entry := ls_entry(element):
                     entries.append(entry)
                 element.clear()
+    entries = [entry for entry in entries if ls_keep(entry)]
     entries.sort(key=lambda item: (ls_id_order(item["id"]), item["id"]))
     ls_resolve(entries)
     ls_inherit(entries)
