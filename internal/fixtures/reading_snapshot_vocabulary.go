@@ -126,3 +126,17 @@ func (s *Store) fixtureCurrentReadingFor(owner, bookID string) (domain.CurrentRe
 	}
 	return domain.CurrentReading{}, domain.CurrentAnalysis{}
 }
+
+// ListUnattachedGeneratedVocabulary returns the legacy Generated vocabulary
+// history the coverage service still reads for the owner and language.
+func (s *Store) ListUnattachedGeneratedVocabulary(_ context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var result []domain.GeneratedVocabulary
+	for _, item := range s.legacyGenerated {
+		if item.OwnerID == owner && item.Language == language {
+			result = append(result, item)
+		}
+	}
+	return result, nil
+}

@@ -17,7 +17,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -100,7 +99,7 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 	alice := createAccount(t, ctx, store, "lookup-alice", "alice-password")
 	bob := createAccount(t, ctx, store, "lookup-bob", "bob-password")
 	seed := func(owner, key, title string) (domain.Book, domain.SourceMaterial) {
-		book, source, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+		book, source, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 		return book, source
 	}
 	alpha, _ := seed(alice.ID, "lookup-alpha", "Alpha")

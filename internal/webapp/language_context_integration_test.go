@@ -33,7 +33,7 @@ func languageContextHandler(t *testing.T) (*Handler, []*http.Cookie, string, *pe
 	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	owner := createAccount(t, ctx, store, "language-context", "learner-password")
-	book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "language-context", "Language context", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
+	book, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "language-context", "Language context", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Italian catalog", URL: "https://italian.example/opds"})
 	require.NoError(t, err)

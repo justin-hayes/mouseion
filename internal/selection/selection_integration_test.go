@@ -29,7 +29,7 @@ func TestSelectionPersistsProvenanceAndIsolatesOwners(t *testing.T) {
 	require.NoError(t, err)
 	deck, err := store.PutDeck(ctx, alice.ID, "de", "Reserved")
 	require.NoError(t, err)
-	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "reserviert", UPOS: "ADJ", FirstDeckID: deck.ID, FirstSourceMaterialID: &source.ID})
+	testutil.SeedGeneratedVocabulary(t, ctx, store.Pool(), alice.ID, "de", "reserviert", "ADJ", deck.ID, &source.ID)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `INSERT INTO vocabulary_states(owner_id,language,canonical_lemma,upos,state) VALUES ($1,'de','alt','ADJ','ignored'),($1,'de','legacy','NOUN','generated')`, alice.ID)
 	require.NoError(t, err)

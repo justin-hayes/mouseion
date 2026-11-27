@@ -59,7 +59,7 @@ func TestFinishCurrentReadingPropagatesPersistenceFailures(t *testing.T) {
 		store := openIntegrationStore(t, ctx, url)
 		owner, err := store.CreateUser(ctx, "finish-snapshot-failure", false)
 		require.NoError(t, err)
-		book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-snapshot")
+		book, source := createReadingFixture(t, ctx, store, owner.ID, "finish-snapshot")
 		makeAnalyzedToReadBook(t, ctx, store, book, source)
 		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 		reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)

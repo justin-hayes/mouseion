@@ -16,7 +16,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -43,7 +42,6 @@ func readingChooserWorkHarness(t *testing.T) (context.Context, *persistence.Post
 		Store:            storeDependencies(store),
 		Analysis:         analysis.NewService(store.Pool(), nil),
 		AnalysisInsights: analysisinsights.NewService(store),
-		PreparedDeck:     prepareddeck.NewService(store, nil),
 		Classical:        workCatalog(t),
 		SessionLifetime:  time.Hour,
 	})

@@ -14,7 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +62,7 @@ func TestPoetrySpeakerLabelRefusesStudyAndLabelsConcordance(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 
 	alice := createAccount(t, ctx, store, "poetry-alice", "alice-password")
-	book, source, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "poetry", "Faust", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "valentin", UPOS: "PROPN", OccurrenceCount: 1}})
+	book, source, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "poetry", "Faust", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "valentin", UPOS: "PROPN", OccurrenceCount: 1}})
 
 	const text = "Valentin fällt Faust tritt ein"
 	switchPoetrySourceToV2(t, ctx, store, source, text, 14, 15)

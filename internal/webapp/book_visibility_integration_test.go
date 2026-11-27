@@ -17,7 +17,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
@@ -58,7 +57,7 @@ func retiredVisibilityHandler(store *persistence.PostgresStore) http.Handler {
 func seedRetiredVisibilityToReadBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title, lemma string) domain.Book {
 	t.Helper()
 	counts := []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}}
-	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, suffix, title, counts)
+	book, _, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner, suffix, title, counts)
 	publishProjectedCounts(t, ctx, store, owner, book.ID, counts)
 	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner, corpus.ID, "de", testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 3})
 	require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))

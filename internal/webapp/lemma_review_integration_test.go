@@ -9,13 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +31,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	owner := createAccount(t, ctx, store, "lemma-review-owner", "learner-password")
 	otherOwner, err := store.CreateUser(ctx, "lemma-review-other", false)
 	require.NoError(t, err)
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "lemma-review", "Lemma review", []domain.LemmaOccurrence{
+	book, source, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "lemma-review", "Lemma review", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "drach", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "drache", UPOS: "NOUN", OccurrenceCount: 2},
 	})
@@ -81,12 +79,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, flag.Reason, flaggedOccurrences[0].ReviewFlagReason)
 	assert.Equal(t, "drache", flaggedOccurrences[0].ReviewFlagProvenance["alternative_lemma"])
-	readyDeck, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun, Filename: "historical.apkg", DeckName: "Historical", ContentHash: source.ContentHash})
-	require.NoError(t, err)
-	readyDeck, err = store.ClaimDeckPreparation(ctx, owner.ID, readyDeck.ID)
-	require.NoError(t, err)
-	readyDeck, err = store.CompleteDeckPreparation(ctx, owner.ID, readyDeck.ID, domain.DeckPreparation{Artifact: []byte("historical-an identity-deck"), Filename: "historical.apkg", DeckName: "Historical", TotalCards: 1})
-	require.NoError(t, err)
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: occurrences[0].CanonicalLemma, Excluded: false, NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}), "an explicit keep resolves the review flag")
 	require.NoError(t, store.SaveLemmaReviewFlags(ctx, []domain.LemmaReviewFlag{flag}), "later reference refreshes cannot reopen a resolved occurrence flag")
 	resolved, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
@@ -110,10 +102,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Empty(t, unchangedAfterStaleProposal[0].CorrectedLemma, "a stale preview cannot persist its proposed identity")
 	assert.Empty(t, occurrences[0].CorrectedLemma)
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "drache", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
-	historicalDeck, err := store.GetDeckPreparation(ctx, owner.ID, readyDeck.ID)
-	require.NoError(t, err)
-	assert.Equal(t, []byte("historical-an identity-deck"), historicalDeck.Artifact, "accepting a later identity decision preserves the ready historical artifact")
-	assert.Equal(t, domain.DeckPreparationReady, historicalDeck.State)
 	require.ErrorIs(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "drachenwesen", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}), persistence.ErrNotFound, "a stale occurrence decision cannot overwrite a newer correction")
 	updated, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
@@ -159,14 +147,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, int64(3), excludedCoverage.AnalyzableTokenCount)
 	assert.Zero(t, excludedCoverage.KnownTokenCount, "an excluded occurrence cannot become Known")
 	assert.Zero(t, excludedCoverage.ReservedTokenCount, "an excluded occurrence cannot become Reserved")
-	excludedTx, err := store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	excludedDeck, _, assembleErr := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, excludedTx, domain.DeckPreparation{
-		ID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,
-	})
-	require.NoError(t, excludedTx.Rollback(ctx))
-	require.NoError(t, assembleErr)
-	assert.Empty(t, excludedDeck, "effective direct-deck candidates must omit the excluded occurrence and honor the three-occurrence floor")
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: excluded[0], CanonicalLemma: "drache", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}), "a correction replaces the exclusion on that exact occurrence")
 	updated, err = store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
@@ -190,19 +170,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, int64(3), insights.Lemmas[0].OccurrenceCount)
 	assert.Equal(t, int64(3), insights.Statistics.AnalyzableTokenCount, "the source-derived coverage denominator is unchanged")
 
-	directTx, err := store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	directProjections, _, assembleErr := prepareddeck.NewInputAssembler(store).AssemblePreparedDeckInputs(ctx, directTx, domain.DeckPreparation{
-		ID: uuid.NewString(), OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,
-	})
-	rollbackErr := directTx.Rollback(ctx)
-	require.NoError(t, rollbackErr)
-	require.NoError(t, assembleErr)
-	require.Len(t, directProjections, 1, "direct preparation selects the corrected identity across the recurrence floor")
-	assert.Equal(t, "drache", directProjections[0].Candidate.CanonicalLemma)
-	assert.Equal(t, 3, directProjections[0].Candidate.OccurrenceCount)
-	assert.Equal(t, "Ein Drache sieht einen Drachen heute.", directProjections[0].Entry.Sentence)
-
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
@@ -211,15 +178,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, "drache", snapshot[0].CanonicalLemma)
 	assert.Equal(t, 3, snapshot[0].OccurrenceCount, "the one corrected occurrence joins the two existing occurrences across the recurrence floor")
 	assert.Contains(t, string(snapshot[0].SentenceReferences), "Ein Drache sieht einen Drachen heute.", "the reading snapshot freezes a representative sentence from the effective candidate")
-	tx, err := store.Pool().Begin(ctx)
-	require.NoError(t, err)
-	defer func() { require.NoError(t, tx.Rollback(ctx)) }()
-	deckFacts, err := store.LoadPreparedDeckCandidateFactsTx(ctx, tx, domain.DeckPreparation{
-		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: analysisRun,
-	}, snapshot)
-	require.NoError(t, err)
-	require.Len(t, deckFacts, 1)
-	assert.Equal(t, "Ein Drache sieht einen Drachen heute.", deckFacts[0].Entry.Sentence, "deck preparation uses a corrected representative source sentence, not a stale analyzer candidate row")
 	require.ErrorIs(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: updated[1], CanonicalLemma: "", Excluded: true, NormalizationProfile: "", NormalizationVersion: ""}}), persistence.ErrNotFound, "an active snapshot rejects later occurrence exclusions")
 	stillCurrent, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
 	require.NoError(t, err)
@@ -285,7 +243,7 @@ func TestLemmaReviewCanSelectContextSpecificDrachenOccurrences(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	owner := createAccount(t, ctx, store, "drachen-review-owner", "learner-password")
-	book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "drachen-context", "Drachen contexts", []domain.LemmaOccurrence{
+	book, _, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "drachen-context", "Drachen contexts", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "drach", UPOS: "NOUN", OccurrenceCount: 2},
 	})
 	var analysisRun string

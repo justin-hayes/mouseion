@@ -1,5 +1,5 @@
 // Package storecontract holds the scenarios that pin Current reading lifecycle,
-// deck admission, lemma review, Book visibility, disposition, previously read
+// lemma review, Book visibility, disposition, previously read
 // import, and Classical catalog membership behavior. Each store adapter that
 // carries contractual transitions (ADR 0088) implements Harness and runs every
 // scenario, so the fixtures and PostgreSQL adapters are held to the same
@@ -236,7 +236,7 @@ type CatalogueEntrySeed struct {
 	BookID string
 }
 
-// Store is the Current reading and deck admission surface under test.
+// Store is the Current reading surface under test.
 type Store interface {
 	GetCurrentReading(owner, language string) (domain.CurrentReading, error)
 	StartCurrentReading(owner, language, bookID string) (domain.CurrentReading, error)
@@ -247,13 +247,6 @@ type Store interface {
 	// ListReservedVocabulary returns the vocabulary the owner's active reading
 	// reserves in language.
 	ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error)
-
-	// PrepareCurrentReadingDeck submits the Book's deck for the snapshot the
-	// request names and returns the resulting preparation.
-	PrepareCurrentReadingDeck(owner, bookID, expectedSnapshotID string) (domain.DeckPreparation, error)
-	// RepreparePreparation rolls the preparation forward for the snapshot the
-	// request names and returns the resulting preparation.
-	RepreparePreparation(owner, id, expectedSnapshotID string) (domain.DeckPreparation, error)
 }
 
 // LemmaReviewStore is the lemma review surface under test: occurrences, flags,
@@ -285,8 +278,6 @@ type Seeder interface {
 	SeedBook(t *testing.T, owner string, seed BookSeed) string
 	// SeedKnownVocabulary records Known identities for owner.
 	SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity)
-	// SeedReadyPreparation makes the snapshot's preparation ready and returns its ID.
-	SeedReadyPreparation(t *testing.T, owner, bookID, snapshotID string) string
 	// SeedCurrentReading records an already-current Book without a Start
 	// transition, for scenarios that need a Work's current Book before Remove.
 	SeedCurrentReading(t *testing.T, owner, language, bookID string)
@@ -319,7 +310,6 @@ func Scenarios() []Scenario {
 	for _, tc := range finishCases() {
 		scenarios = append(scenarios, finishScenario(tc))
 	}
-	scenarios = append(scenarios, admissionScenarios()...)
 	scenarios = append(scenarios, lemmaReviewScenarios()...)
 	scenarios = append(scenarios, greekScenarios()...)
 	scenarios = append(scenarios, classicalScenarios()...)

@@ -18,7 +18,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	alice := createAccount(t, ctx, store, "priority-alice", "alice-password")
 	bob := createAccount(t, ctx, store, "priority-bob", "bob-password")
 	seed := func(owner, key, title string) domain.Book {
-		book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+		book, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 		return book
 	}
 	hits := func(n int) [][]lookupToken {
@@ -60,7 +59,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	leer := seed(alice.ID, "priority-leer", "Leer")
 	pending := seed(alice.ID, "priority-pending", "Pending")
 	bobBook := seed(bob.ID, "priority-bob", "Bobs Buch")
-	italian, italianSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "priority-italian", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+	italian, italianSource, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "priority-italian", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 	setLookupBookLanguage(t, ctx, store, italian, italianSource, "it")
 
 	seedLookupSentences(t, ctx, store, zeta, "de", hits(60))

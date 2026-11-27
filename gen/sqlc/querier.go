@@ -258,7 +258,6 @@ type Querier interface {
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
-	GetMyBookMarginEvidence(ctx context.Context, arg GetMyBookMarginEvidenceParams) (GetMyBookMarginEvidenceRow, error)
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
 	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
 	GetOpenStudyReport(ctx context.Context, arg GetOpenStudyReportParams) (StudyReport, error)

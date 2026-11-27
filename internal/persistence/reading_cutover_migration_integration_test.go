@@ -54,11 +54,6 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary ADD COLUMN lexical_discriminator text NOT NULL DEFAULT '', ADD COLUMN headword text NOT NULL DEFAULT ''`)
 	require.NoError(t, err)
-	// The evidence-assisted pass flag joins the deck specification in a
-	// successor migration. Add it while seeding, then drop it so migration 43
-	// still runs below.
-	_, err = pool.Exec(ctx, `ALTER TABLE deck_preparations ADD COLUMN evidence_assisted_provider_pass boolean NOT NULL DEFAULT false`)
-	require.NoError(t, err)
 	// Current writers name the successor snapshot convention column. Add an
 	// empty stand-in while seeding against this old schema, then drop it so
 	// migration 45 still runs below.
@@ -66,12 +61,12 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
-	active, activeSource, deck := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
+	active, activeSource := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
 	makeAnalyzedToReadBook(t, ctx, store, active, activeSource)
 	current, err := store.StartCurrentReading(ctx, owner.ID, "de", active.ID)
 	require.NoError(t, err)
 
-	finished, finishedSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "cutover-finished")
+	finished, finishedSource := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "cutover-finished")
 	makeAnalyzedToReadBook(t, ctx, store, finished, finishedSource)
 	finishedReading, err := store.StartCurrentReading(ctx, owner.ID, "it", finished.ID)
 	require.NoError(t, err)
@@ -96,8 +91,6 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE primary_goal_snapshot_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `ALTER TABLE deck_preparations DROP COLUMN evidence_assisted_provider_pass`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE source_material_unit_snapshots DROP COLUMN structure_convention_set`)
 	require.NoError(t, err)
@@ -143,11 +136,4 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	assert.Equal(t, finishedReading.SnapshotID, historySnapshotID, "completion lost its frozen snapshot provenance")
 	assert.True(t, hasGoalSnapshot, "Mouseion completion lost its snapshot provenance")
 	assert.Equal(t, finishedReading.SnapshotSize, historySnapshotVocabularyCount)
-
-	persistedDeck, err := store.GetDeckPreparation(ctx, owner.ID, deck.ID)
-	require.NoError(t, err)
-	assert.Equal(t, deck, persistedDeck, "prepared-deck provenance changed during cutover")
-	artifact, err := store.DownloadDeckPreparation(ctx, owner.ID, deck.ID)
-	require.NoError(t, err)
-	assert.NotEmpty(t, artifact.Artifact)
 }

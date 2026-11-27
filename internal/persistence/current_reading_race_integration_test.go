@@ -150,7 +150,7 @@ func newCurrentReadingRaceFixture(t *testing.T, ctx context.Context, store *Post
 	fixture := currentReadingRaceFixture{owner: owner.ID}
 	for i := range bookCount {
 		suffix := name + "-" + string(rune('a'+i))
-		book, source, _ := createReadingFixture(t, ctx, store, owner.ID, suffix)
+		book, source := createReadingFixture(t, ctx, store, owner.ID, suffix)
 		makeAnalyzedToReadBook(t, ctx, store, book, source)
 		fixture.books = append(fixture.books, book)
 	}

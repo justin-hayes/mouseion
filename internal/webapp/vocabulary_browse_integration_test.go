@@ -16,7 +16,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
@@ -89,11 +88,11 @@ func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.
 	testutil.Cleanup(t, "store", store.Close)
 	owner, err := store.CreateUser(ctx, "browse-render-rank", false)
 	require.NoError(t, err)
-	current, currentSource, currentCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "render-current", "Current", []domain.LemmaOccurrence{
+	current, currentSource, currentCorpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "render-current", "Current", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "zeta", UPOS: "NOUN", OccurrenceCount: 1},
 	})
-	_, otherSource, otherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "render-other", "Other", []domain.LemmaOccurrence{
+	_, otherSource, otherCorpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "render-other", "Other", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 1},
 		{Language: "de", CanonicalLemma: "zeta", UPOS: "NOUN", OccurrenceCount: 3},
 	})
@@ -168,34 +167,14 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 
 	alice := createAccount(t, ctx, store, "browse-http-alice", "alice-password")
 	bob := createAccount(t, ctx, store, "browse-http-bob", "bob-password")
-	aliceBook, aliceSource, aliceCorpus, aliceDeck := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "browse-http-alice", "Alice German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	aliceOtherBook, aliceOtherSource, aliceOtherCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "browse-http-alice-other", "Alice German Other", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
-	_, bobSource, bobCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, bob.ID, "browse-http-bob", "Bob German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	aliceBook, aliceSource, aliceCorpus := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "browse-http-alice", "Alice German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	aliceOtherBook, aliceOtherSource, aliceOtherCorpus := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "browse-http-alice-other", "Alice German Other", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	_, bobSource, bobCorpus := seedMigrationAnalyzedBook(t, ctx, store, bob.ID, "browse-http-bob", "Bob German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	seedBrowseHTTPToken(t, ctx, store, aliceSource, aliceCorpus)
 	seedBrowseHTTPToken(t, ctx, store, aliceOtherSource, aliceOtherCorpus)
 	seedBrowseHTTPToken(t, ctx, store, bobSource, bobCorpus)
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook.ID, domain.BookDispositionToRead))
 	current, err := store.StartCurrentReading(ctx, alice.ID, "de", aliceBook.ID)
-	require.NoError(t, err)
-	beforeBookDeck, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1, IncludeAll: true})
-	require.NoError(t, err)
-	var firstDeckID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','Earlier deck') RETURNING id::text`, alice.ID).Scan(&firstDeckID))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','haus','NOUN',$2,$3)`, alice.ID, firstDeckID, aliceOtherSource.ID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_vocabulary(owner_id,deck_preparation_id,language,canonical_lemma,upos,generated_at) VALUES($1,$2,'de','haus','NOUN',now())`, alice.ID, aliceDeck.ID)
-	require.NoError(t, err)
-	var preparationRunID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `INSERT INTO deck_preparation_runs(owner_id,preparation_id,run_number,state,translation_state,external_translation_consent,external_translation_configured,manifest_schema_version,retry_policy_version,max_provider_attempts,max_batch_generations,batch_max_requests,batch_max_bytes,candidate_count,completed_count,translation_completed_at,completed_at,execution_mode) VALUES($1,$2,1,'completed','completed',false,false,1,1,1,1,1,1,2,2,now(),now(),'standard') RETURNING id::text`, alice.ID, aliceDeck.ID).Scan(&preparationRunID))
-	_, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_manifests(owner_id,preparation_id,run_id,schema_version,manifest_digest,deck_name,filename,selected_count,accepted_count,omitted_count) VALUES($1,$2,$3,1,repeat('b',64),'Alice German','alice.apkg',2,1,1)`, alice.ID, aliceDeck.ID, preparationRunID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO deck_preparation_manifest_items(owner_id,preparation_id,run_id,ordinal,disposition,language,target_language,canonical_lemma,upos,source_sentence,tested_target,first_encounter,quality_score,quality_gdex_score,quality_reasons,render_payload,candidate_digest) VALUES($1,$2,$3,0,'accepted','de','en','haus','NOUN','Das Haus bleibt hell.','Haus',1,80,0.5,'{}','{}',repeat('a',64)),($1,$2,$3,1,'quality_omitted','de','en','wort02','NOUN','Das Wort bleibt hell.','Wort',2,20,0.2,'{}','{}',repeat('c',64))`, alice.ID, aliceDeck.ID, preparationRunID)
-	require.NoError(t, err)
-	afterBookDeck, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1, IncludeAll: true})
-	require.NoError(t, err)
-	assert.NotEqual(t, beforeBookDeck.CorpusRevision, afterBookDeck.CorpusRevision, "successful per-Book deck inclusion invalidates Browse paging")
-
-	beforeDeck, err := store.GetDeckPreparation(ctx, alice.ID, aliceDeck.ID)
 	require.NoError(t, err)
 	var readingCountBefore int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1`, alice.ID).Scan(&readingCountBefore))
@@ -212,7 +191,6 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Alice German")
 	assert.Contains(t, response.Body.String(), "haus")
-	assert.Contains(t, response.Body.String(), "In a Book deck")
 	assert.Contains(t, response.Body.String(), "Current reading")
 	assert.Contains(t, response.Body.String(), "In this Book: 1; Across analyzed books: 2")
 	assert.Regexp(t, `href="/de/vocabulary/concordance\?as=lemma&amp;from_all=1&amp;from_book=`+aliceBook.ID+`&amp;from_q=HA&amp;from_rev=[0-9a-f]+&amp;from_row=NOUN%3Ahaus&amp;from_snap=`+current.SnapshotID+`&amp;page=1&amp;term=haus&amp;upos=NOUN"`, response.Body.String(), "Browse hands the exact lemma and POS identity, plus its origin, to Concordance")
@@ -230,10 +208,6 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.NotContains(t, response.Body.String(), "Custom deck")
 	assert.NotContains(t, response.Body.String(), `name="lemma"`)
 
-	afterDeck, err := store.GetDeckPreparation(ctx, alice.ID, aliceDeck.ID)
-	require.NoError(t, err)
-	assert.Equal(t, beforeDeck.State, afterDeck.State)
-	assert.Equal(t, beforeDeck.Artifact, afterDeck.Artifact)
 	var readingCountAfter int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1`, alice.ID).Scan(&readingCountAfter))
 	assert.Equal(t, readingCountBefore, readingCountAfter, "Browse must not create or change Reading state")
@@ -493,7 +467,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	owner := createAccount(t, ctx, store, "browse-projection-http", "projection-password")
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "browse-projection-http", "Projected German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2}})
+	book, source, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "browse-projection-http", "Projected German", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2}})
 	seedBrowseHTTPToken(t, ctx, store, source, corpus)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)

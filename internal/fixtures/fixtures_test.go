@@ -537,33 +537,6 @@ func TestFixtureToReadBooksExposeDeterministicCoverStates(t *testing.T) {
 	}
 }
 
-func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	goal, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, 2, goal.SnapshotSize)
-	preparation, err := store.GetDeckPreparationForSnapshot(ctx, OwnerID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, goal.SnapshotID, preparation.SnapshotID)
-
-	emptyGoal, err := store.GetCurrentReading(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	assert.Zero(t, emptyGoal.SnapshotSize)
-	_, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrNotFound)
-
-	fixtureDeck := PreparedDeck{Store: store}
-	_, err = fixtureDeck.PrepareCurrentReadingDeck(ctx, OwnerID, goal.BookID, goal.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrDeckPreparationInvalidTransition, "a healthy ready deck for the exact snapshot is not resubmitted")
-	preparation, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, PrepID, preparation.ID)
-
-	_, err = fixtureDeck.PrepareCurrentReadingDeck(ctx, OwnerID, goal.BookID, "fresh-goal-snapshot")
-	require.ErrorIs(t, err, domain.ErrDeckPreparationStale, "a request naming another snapshot is refused")
-}
-
 func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()

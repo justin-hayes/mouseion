@@ -26,7 +26,7 @@ func TestCurrentReadingFreezeRecordsGateVersionAndAcceptsLegacySnapshot(t *testi
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-gate-version", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "gate-version")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "gate-version")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
@@ -73,7 +73,7 @@ func TestGatedCurrentReadingCandidatesRequireResolvableSentenceReferences(t *tes
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "gate-missing-sentence", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "gate-missing-sentence")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "gate-missing-sentence")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
@@ -104,7 +104,7 @@ func TestCurrentReadingFrozenSentenceReferencesResolveLikeTheDeck(t *testing.T) 
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-sentence-numbers", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "sentence-numbers")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "sentence-numbers")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
@@ -147,7 +147,7 @@ func TestCurrentReadingFreezesAndReleasesVocabularySnapshot(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-snapshot", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "snapshot-one")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "snapshot-one")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
@@ -200,7 +200,7 @@ func TestCurrentReadingFreezesIdentitiesKnownOnlyWhenAnalyzed(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-known-when-analyzed", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "known-when-analyzed")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "known-when-analyzed")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))
@@ -239,15 +239,15 @@ func TestCurrentReadingFreezesCorpusQualifiedCandidates(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-corpus-qualified", false)
 	require.NoError(t, err)
-	target, targetSource, _ := createReadingFixture(t, ctx, store, owner.ID, "corpus-qualified-target")
+	target, targetSource := createReadingFixture(t, ctx, store, owner.ID, "corpus-qualified-target")
 	makeAnalyzedToReadBook(t, ctx, store, target, targetSource)
-	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "corpus-qualified-other")
+	other, otherSource := createReadingFixture(t, ctx, store, owner.ID, "corpus-qualified-other")
 	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
-	italian, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "corpus-qualified-italian")
+	italian, italianSource := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "corpus-qualified-italian")
 	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
 	otherOwner, err := store.CreateUser(ctx, "goal-corpus-qualified-other-owner", false)
 	require.NoError(t, err)
-	foreign, foreignSource, _ := createReadingFixture(t, ctx, store, otherOwner.ID, "corpus-qualified-foreign")
+	foreign, foreignSource := createReadingFixture(t, ctx, store, otherOwner.ID, "corpus-qualified-foreign")
 	makeAnalyzedToReadBook(t, ctx, store, foreign, foreignSource)
 
 	for _, candidate := range []struct {
@@ -272,10 +272,7 @@ func TestCurrentReadingFreezesCorpusQualifiedCandidates(t *testing.T) {
 	require.NoError(t, err)
 	generatedDeck, err := store.PutDeck(ctx, owner.ID, "de", "Generated provenance")
 	require.NoError(t, err)
-	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{
-		OwnerID: owner.ID, Language: "de", CanonicalLemma: "generated-total", UPOS: "NOUN",
-		FirstDeckID: generatedDeck.ID, FirstSourceMaterialID: &targetSource.ID,
-	})
+	testutil.SeedGeneratedVocabulary(t, ctx, store.Pool(), owner.ID, "de", "generated-total", "NOUN", generatedDeck.ID, &targetSource.ID)
 	require.NoError(t, err)
 
 	type countRow struct {
@@ -333,17 +330,17 @@ func TestCurrentReadingCrossBookReadinessIsAtomicAndOnlyNeededBelowTheInBookFloo
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-count-readiness", false)
 	require.NoError(t, err)
-	current, currentSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-current")
+	current, currentSource := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-current")
 	makeAnalyzedToReadBook(t, ctx, store, current, currentSource)
 	var currentCorpus string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, current.ID).Scan(&currentCorpus))
 	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, currentCorpus, "de", testutil.CorpusWord{Lemma: "three-local", UPOS: "NOUN", Occurrences: 3})
-	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-other")
+	other, otherSource := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-other")
 	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", current.ID)
 	require.NoError(t, err, "a three-occurrence-only freeze does not wait for another Book's count projection")
 
-	target, targetSource, _ := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-target")
+	target, targetSource := createReadingFixture(t, ctx, store, owner.ID, "count-readiness-target")
 	makeAnalyzedToReadBook(t, ctx, store, target, targetSource)
 	var targetCorpus, targetRun string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text,analysis_run_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, target.ID).Scan(&targetCorpus, &targetRun))
@@ -402,7 +399,7 @@ func TestCurrentReadingCompletionGraduatesFrozenVocabularyWithProvenance(t *test
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-graduation", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "graduation")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "graduation")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
@@ -427,10 +424,7 @@ func TestCurrentReadingCompletionGraduatesFrozenVocabularyWithProvenance(t *test
 	require.NoError(t, err)
 	deck, err := store.PutDeck(ctx, owner.ID, "de", "Graduation provenance deck")
 	require.NoError(t, err)
-	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{
-		OwnerID: owner.ID, Language: "de", CanonicalLemma: "bleiben", UPOS: "VERB",
-		FirstDeckID: deck.ID, FirstSourceMaterialID: &source.ID,
-	})
+	testutil.SeedGeneratedVocabulary(t, ctx, store.Pool(), owner.ID, "de", "bleiben", "VERB", deck.ID, &source.ID)
 	require.NoError(t, err)
 	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "reisen", "")
 	require.NoError(t, err)
@@ -508,7 +502,7 @@ func TestCurrentReadingCompletionAcceptsEmptySnapshot(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-empty-completion", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "empty-completion")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "empty-completion")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -530,7 +524,7 @@ func TestCurrentReadingCompletionRejectsReadingWithoutSnapshot(t *testing.T) {
 	owner, err := store.CreateUser(ctx, "goal-missing-snapshot", false)
 	require.NoError(t, err)
 
-	book, _, _ := createReadingFixture(t, ctx, store, owner.ID, "missing-snapshot")
+	book, _ := createReadingFixture(t, ctx, store, owner.ID, "missing-snapshot")
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	// A current reading without a snapshot is corrupt data, not a legacy reading.
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id, language, book_id) VALUES ($1, 'de', $2)`, owner.ID, book.ID)
@@ -562,7 +556,7 @@ func TestCurrentReadingStartAndSwitchRejectIncompleteIdentity(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "reading-incomplete-identity", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "incomplete-identity")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "incomplete-identity")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 
 	t.Run("start rejects an incomplete reading identity", func(t *testing.T) {
@@ -588,7 +582,7 @@ func TestCurrentReadingFreezeWithholdsSpeakerLabelSentenceReferences(t *testing.
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-speaker-label", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "speaker-label")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "speaker-label")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID))

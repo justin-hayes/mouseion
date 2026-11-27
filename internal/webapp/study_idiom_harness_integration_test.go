@@ -12,7 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/idiom"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
@@ -29,7 +28,7 @@ import (
 //	})
 //	h.provider.answerIdioms("mit dem haus", idiomConfirmed)
 //
-// The switch is the production one (prepareddeck.IdiomSwitch) over a test-only
+// The switch is the production one (study.IdiomSwitch) over a test-only
 // assessment set that records German's idiom-card payload, so the ADR 0115 gate
 // is exercised and the production set is not changed.
 
@@ -93,7 +92,7 @@ func germanIdiomAvoidance(t *testing.T, lookup idiom.Index, on bool) *study.Idio
 	if on {
 		languages["de"] = true
 	}
-	return &study.IdiomAvoidance{Index: lookup, Enabled: prepareddeck.IdiomSwitch(languages, assessments, codec), IndexVersion: idiomTestIndexVersion}
+	return &study.IdiomAvoidance{Index: lookup, Enabled: study.IdiomSwitch(languages, assessments, codec), IndexVersion: idiomTestIndexVersion}
 }
 
 // idiomTestIndexVersion stamps the Idiom counts the harness builds, which Study

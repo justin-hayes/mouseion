@@ -291,7 +291,7 @@ func TestVocabularyBrowseCountsMatchSelectionProjection(t *testing.T) {
 		tx, beginErr := store.Pool().Begin(ctx)
 		require.NoError(t, beginErr)
 		defer func() { require.NoError(t, txcleanup.Rollback(ctx, tx)) }()
-		analysis, corrections, loadErr := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), domain.DeckPreparation{OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID}, corpusID)
+		analysis, corrections, loadErr := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), owner.ID, source.ID, runID, corpusID)
 		require.NoError(t, loadErr)
 		var decisions []selection.OccurrenceDecision
 		for _, c := range corrections {

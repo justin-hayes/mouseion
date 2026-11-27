@@ -14,7 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -173,7 +172,7 @@ func TestRemoveEndsMembershipAndPreservesBookEvidence(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	alice := createAccount(t, ctx, store, "remove-preservation-owner", "owner-password")
-	book, _, _, preparation := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "remove-preservation", "Retained book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
+	book, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "remove-preservation", "Retained book", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 1}})
 	_, err = store.ImportPreviouslyRead(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	authService := auth.New(store, time.Hour)
@@ -196,10 +195,6 @@ func TestRemoveEndsMembershipAndPreservesBookEvidence(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, sources, 1)
 	assert.Equal(t, book.ID, sources[0].BookID)
-	preparations, err := store.ListDeckPreparationsForSourceMaterial(ctx, alice.ID, sources[0].Source.ID)
-	require.NoError(t, err)
-	require.Len(t, preparations, 1)
-	assert.Equal(t, preparation.ID, preparations[0].ID)
 	var analyses, histories int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&analyses))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&histories))

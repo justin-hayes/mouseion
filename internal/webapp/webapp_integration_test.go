@@ -22,7 +22,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river/rivertype"
@@ -55,103 +54,6 @@ func createAccount(t *testing.T, ctx context.Context, store *persistence.Postgre
 	u, err := store.CreateUserWithPassword(ctx, username, hash, false)
 	require.NoError(t, err)
 	return u
-}
-
-type recordingPreparedDeck struct {
-	preparations map[string]domain.DeckPreparation
-	downloads    int
-}
-
-// CurrentReadingDeck reports the stored live preparation of the Book, admitted.
-func (r *recordingPreparedDeck) CurrentReadingDeck(_ context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error) {
-	for _, p := range r.preparations {
-		if p.OwnerID == owner && p.BookID == bookID && p.RetiredAt == nil {
-			preparation := p
-			return prepareddeck.CurrentDeck{Preparation: &preparation, Admission: domain.DeckAdmit}, nil
-		}
-	}
-	return prepareddeck.CurrentDeck{Admission: domain.DeckAdmit}, nil
-}
-
-func (r *recordingPreparedDeck) PreparationAdmissions(_ context.Context, owner, id string) (prepareddeck.PreparationAdmissions, error) {
-	p, err := r.Get(context.Background(), owner, id)
-	if err != nil {
-		return prepareddeck.PreparationAdmissions{}, err
-	}
-	retry := domain.DeckAdmit
-	if p.State == domain.DeckPreparationReady && p.Error != domain.DeckPreparationRequiresRepreparationError {
-		retry = domain.DeckAdmissionInvalidTransition
-	}
-	reprepare := domain.DeckAdmissionInvalidTransition
-	if p.State == domain.DeckPreparationReady && p.RetiredAt == nil {
-		reprepare = domain.DeckAdmit
-	}
-	return prepareddeck.PreparationAdmissions{Retry: retry, Reprepare: reprepare}, nil
-}
-
-func (r *recordingPreparedDeck) PrepareCurrentReadingDeck(_ context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error) {
-	p := domain.DeckPreparation{ID: "goal-prep-1", OwnerID: owner, BookID: bookID, SourceMaterialID: "00000000-0000-0000-0000-000000000001", SnapshotID: expectedSnapshotID, State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
-	r.preparations[p.ID] = p
-	return prepareddeck.Handle{Preparation: p, JobID: 94}, nil
-}
-func (r *recordingPreparedDeck) Get(_ context.Context, owner, id string) (domain.DeckPreparation, error) {
-	p, ok := r.preparations[id]
-	if !ok || p.OwnerID != owner {
-		return domain.DeckPreparation{}, persistence.ErrNotFound
-	}
-	return p, nil
-}
-func (r *recordingPreparedDeck) Cancel(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
-	p, err := r.Get(ctx, owner, id)
-	if err != nil {
-		return p, err
-	}
-	if p.State != domain.DeckPreparationQueued && p.State != domain.DeckPreparationPreparing {
-		return p, persistence.ErrInvalidTransition
-	}
-	p.State = domain.DeckPreparationCancelled
-	r.preparations[id] = p
-	return p, nil
-}
-func (r *recordingPreparedDeck) Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error) {
-	p, err := r.Get(ctx, owner, id)
-	if err != nil {
-		return prepareddeck.Handle{}, err
-	}
-	if expectedSnapshotID != p.SnapshotID {
-		return prepareddeck.Handle{}, domain.ErrDeckPreparationStale
-	}
-	if p.State != domain.DeckPreparationReady || p.RetiredAt != nil {
-		return prepareddeck.Handle{}, persistence.ErrInvalidTransition
-	}
-	retiredAt := time.Now()
-	p.RetiredAt = &retiredAt
-	r.preparations[id] = p
-	p.ID += "-next"
-	p.RetiredAt, p.State, p.Error = nil, domain.DeckPreparationQueued, ""
-	r.preparations[p.ID] = p
-	return prepareddeck.Handle{Preparation: p, JobID: 95}, nil
-}
-func (r *recordingPreparedDeck) Rerender(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error) {
-	p, err := r.Get(ctx, owner, id)
-	if err != nil {
-		return prepareddeck.Handle{}, err
-	}
-	if expectedSnapshotID != p.SnapshotID {
-		return prepareddeck.Handle{}, domain.ErrDeckPreparationStale
-	}
-	return prepareddeck.Handle{Preparation: p, JobID: 93}, nil
-}
-func (r *recordingPreparedDeck) Download(ctx context.Context, owner, id string) (domain.DeckPreparation, error) {
-	p, err := r.Get(ctx, owner, id)
-	if err != nil {
-		return p, err
-	}
-	if p.State != domain.DeckPreparationReady {
-		return p, persistence.ErrInvalidTransition
-	}
-	r.downloads++
-	return p, nil
 }
 
 func (r *recordingAnalysis) SubmitToReadBookAnalysis(_ context.Context, owner, bookID, source string) (analysis.Handle, error) {
@@ -240,82 +142,6 @@ func TestAuthenticatedNeedsLanguageBookIsRetiredFromMyBooks(t *testing.T) {
 	studyLanguages, err := store.ListStudyLanguages(ctx, owner.ID)
 	require.NoError(t, err)
 	assert.Empty(t, studyLanguages, "a retired Inbox Book produces no study-language scope")
-}
-
-func TestPreparedDeckWebLifecycleOwnershipAndPureDownload(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "prepared-deck-web-secret-0123456789")
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "alice", "alice-password")
-	createAccount(t, ctx, store, "bob", "bob-password")
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Disposition from My Books", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
-	require.NoError(t, err)
-	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), alice.ID, book.ID)
-	decks := &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)}
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: decks, Capabilities: readyGerman(), SessionLifetime: time.Hour})
-	aliceCookies, aliceCSRF := loginCookies(t, h, "alice", "alice-password")
-	bobCookies, bobCSRF := loginCookies(t, h, "bob", "bob-password")
-
-	decks.preparations["prep-1"] = domain.DeckPreparation{ID: "prep-1", OwnerID: alice.ID, SourceMaterialID: book.ID, AnalysisRunID: "run-1", State: domain.DeckPreparationQueued, Filename: "Stored Book.apkg", DeckName: "Mouseion::de::Stored Book"}
-	statusPage := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, aliceCookies)
-	assert.Equal(t, http.StatusOK, statusPage.Code)
-	assert.Contains(t, statusPage.Body.String(), "Deck preparation queued", "body=%s", statusPage.Body.String())
-	assert.Contains(t, statusPage.Body.String(), "Cancel preparation", "body=%s", statusPage.Body.String())
-	status := perform(t, h, "GET", "/deck-preparations/prep-1/status?format=json", nil, aliceCookies)
-	assert.Equal(t, http.StatusOK, status.Code)
-	assert.Equal(t, "application/json; charset=utf-8", status.Header().Get("Content-Type"))
-	assert.Contains(t, status.Body.String(), `"state":"queued"`, "body=%s", status.Body.String())
-	assert.Contains(t, status.Body.String(), `"progress":0`, "body=%s", status.Body.String())
-	got := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, bobCookies)
-	assert.Equal(t, http.StatusNotFound, got.Code)
-	got = perform(t, h, "GET", "/deck-preparations/missing/status", nil, aliceCookies)
-	assert.Equal(t, http.StatusNotFound, got.Code)
-	got = perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
-	assert.Equal(t, http.StatusConflict, got.Code)
-	got = perform(t, h, "POST", "/deck-preparations/prep-1/cancel", nil, aliceCookies)
-	assert.Equal(t, http.StatusForbidden, got.Code)
-	cancelled := perform(t, h, "POST", "/deck-preparations/prep-1/cancel?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
-	assert.Equal(t, http.StatusOK, cancelled.Code)
-	assert.Contains(t, cancelled.Body.String(), `"state":"cancelled"`, "body=%s", cancelled.Body.String())
-	retried := perform(t, h, "POST", "/deck-preparations/prep-1/retry?format=json", url.Values{"csrf_token": {aliceCSRF}}, aliceCookies)
-	assert.Equal(t, http.StatusNotFound, retried.Code, "the retired deck retry route is gone; Book retries use the Reading route")
-	got = perform(t, h, "POST", "/deck-preparations/prep-1/cancel", url.Values{"csrf_token": {bobCSRF}}, bobCookies)
-	assert.Equal(t, http.StatusNotFound, got.Code)
-
-	ready := decks.preparations["prep-1"]
-	ready.State, ready.Artifact = domain.DeckPreparationReady, []byte("newest-rendered-apkg")
-	ready.DeckRevision = 2
-	ready.TotalCards, ready.CardsWithEnglish, ready.CardsWithContextualSentenceTranslations, ready.QualityOmissions = 7, 6, 5, 2
-	decks.preparations[ready.ID] = ready
-	updatedPage := perform(t, h, "GET", "/deck-preparations/prep-1/status", nil, aliceCookies)
-	assert.Equal(t, http.StatusOK, updatedPage.Code)
-	assert.Contains(t, updatedPage.Body.String(), "Updated deck revision available")
-	assert.Contains(t, updatedPage.Body.String(), "revision 2")
-	assert.Contains(t, updatedPage.Body.String(), "Not in To Read")
-	assert.Contains(t, updatedPage.Body.String(), `href="/de/library"`, "focused deck disposition action leads to My Books")
-	assert.NotContains(t, updatedPage.Body.String(), "Move to To Read")
-	assert.NotContains(t, updatedPage.Body.String(), `action="/reading/books/`)
-	for i := range 2 {
-		download := perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, aliceCookies)
-		assert.Equal(t, http.StatusOK, download.Code, "download %d", i)
-		assert.Equal(t, "newest-rendered-apkg", download.Body.String(), "download %d", i)
-		assert.Equal(t, "application/vnd.anki", download.Header().Get("Content-Type"), "download %d", i)
-		assert.Contains(t, download.Header().Get("Content-Disposition"), `filename="Stored Book.apkg"`, "download %d content-disposition=%q", i, download.Header().Get("Content-Disposition"))
-		assert.Equal(t, "Mouseion::de::Stored Book", download.Header().Get("X-Mouseion-Deck-Name"), "download %d", i)
-		assert.Equal(t, "7", download.Header().Get("X-Mouseion-Cards-Total"), "download %d", i)
-		assert.Equal(t, "6", download.Header().Get("X-Mouseion-Cards-With-English"), "download %d", i)
-		assert.Equal(t, "5", download.Header().Get("X-Mouseion-Cards-With-English-Sentence"), "download %d", i)
-		assert.Equal(t, "2", download.Header().Get("X-Mouseion-Cards-Quality-Omitted"), "download %d", i)
-		assert.Equal(t, "2", download.Header().Get("X-Mouseion-Deck-Revision"), "download %d", i)
-	}
-	assert.Equal(t, 2, decks.downloads)
-	assert.Equal(t, domain.DeckPreparationReady, decks.preparations["prep-1"].State)
-	got = perform(t, h, "GET", "/deck-preparations/prep-1/download", nil, bobCookies)
-	assert.Equal(t, http.StatusNotFound, got.Code)
 }
 
 func loginCookies(t *testing.T, h http.Handler, username, password string) ([]*http.Cookie, string) {
