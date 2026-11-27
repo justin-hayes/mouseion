@@ -49,6 +49,28 @@ func (q *Queries) CountCurrentStudyMaterial(ctx context.Context, arg CountCurren
 	return items, nil
 }
 
+const getStudyCurrentReadingCorpus = `-- name: GetStudyCurrentReadingCorpus :one
+SELECT cai.corpus_id::text AS corpus_id
+  FROM primary_goals g
+  JOIN current_analysis_identity cai ON cai.owner_id = g.owner_id AND cai.book_id = g.book_id
+ WHERE g.owner_id = $1 AND g.language = $2::text
+`
+
+type GetStudyCurrentReadingCorpusParams struct {
+	Owner    string
+	Language string
+}
+
+// The corpus of the Current reading's current analysis: the evidence its
+// coverage toward Target coverage is read from. No row when there is no Current
+// reading or the Book has no current analysis.
+func (q *Queries) GetStudyCurrentReadingCorpus(ctx context.Context, arg GetStudyCurrentReadingCorpusParams) (string, error) {
+	row := q.db.QueryRow(ctx, getStudyCurrentReadingCorpus, arg.Owner, arg.Language)
+	var corpus_id string
+	err := row.Scan(&corpus_id)
+	return corpus_id, err
+}
+
 const getStudyMaterial = `-- name: GetStudyMaterial :one
 SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
        COALESCE(book_id::text, '')::text AS book_id,
@@ -283,7 +305,13 @@ WITH eligible AS MATERIALIZED (
   -- The few Books that contribute: resolved once, so the count rows are not
   -- checked against each of them one by one.
   SELECT cai.owner_id, cai.book_id, cai.analysis_run_id, cai.corpus_id,
-         COALESCE(cai.book_id = g.book_id, false) AS current_reading
+         COALESCE(cai.book_id = g.book_id, false) AS current_reading,
+         -- Only To Read Books set the priority of new words (ADR 0136 §2); the
+         -- Current reading stays To Read underneath. A Read Book adds none.
+         EXISTS (
+           SELECT 1 FROM book_dispositions d
+            WHERE d.owner_id = cai.owner_id AND d.book_id = cai.book_id AND d.disposition = 'to_read'
+         ) AS to_read
     FROM current_analysis_identity cai
     JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
      AND b.language_state = 'chosen' AND b.language_tag = $2::text
@@ -298,6 +326,8 @@ SELECT c.canonical_lemma::text AS canonical_lemma,
        c.upos::text AS upos,
        c.lexical_discriminator::text AS lexical_discriminator,
        sum(c.occurrence_count)::bigint AS personal_occurrences,
+       COALESCE(sum(c.occurrence_count) FILTER (WHERE e.current_reading), 0)::bigint AS current_reading_occurrences,
+       COALESCE(sum(c.occurrence_count) FILTER (WHERE e.to_read), 0)::bigint AS to_read_occurrences,
        COALESCE(bool_or(e.current_reading), false)::boolean AS in_current_reading
   FROM eligible e
   JOIN vocabulary_browse_counts c ON c.owner_id = e.owner_id AND c.book_id = e.book_id
@@ -315,11 +345,13 @@ type ListStudyCandidatesParams struct {
 }
 
 type ListStudyCandidatesRow struct {
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	PersonalOccurrences  int64
-	InCurrentReading     bool
+	CanonicalLemma            string
+	Upos                      string
+	LexicalDiscriminator      string
+	PersonalOccurrences       int64
+	CurrentReadingOccurrences int64
+	ToReadOccurrences         int64
+	InCurrentReading          bool
 }
 
 // Study (ADR 0134, spec #2691): the stream of new-word candidates and the
@@ -354,6 +386,8 @@ func (q *Queries) ListStudyCandidates(ctx context.Context, arg ListStudyCandidat
 			&i.Upos,
 			&i.LexicalDiscriminator,
 			&i.PersonalOccurrences,
+			&i.CurrentReadingOccurrences,
+			&i.ToReadOccurrences,
 			&i.InCurrentReading,
 		); err != nil {
 			return nil, err

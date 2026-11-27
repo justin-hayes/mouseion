@@ -41,7 +41,7 @@ func studyScenarios() []Scenario {
 
 			candidates, err := h.Study().ListStudyCandidates(owner, Language)
 			require.NoError(t, err)
-			ordered := domain.OrderStudyStream(candidates)
+			ordered := domain.OrderStudyStream(candidates, true)
 			require.Len(t, ordered, 2)
 			assert.Equal(t, studyNoun("haus"), ordered[0].StudyItem, "a Known word is still offered, and current-reading words come first")
 			assert.True(t, ordered[0].InCurrentReading)
@@ -58,6 +58,7 @@ func studyScenarios() []Scenario {
 		}},
 		studyCandidatesAmongScenario(),
 		{Name: "study candidates come from the Corpus: Read Books supply them and a removed Book stops, keeping its words' progress", Run: studyCorpusScenario},
+		{Name: "study candidates count occurrences in the Current reading and across the To Read Books only", Run: studyPriorityCountsScenario},
 		{Name: "study candidates apply confirmed corrections and exclusions and ignore unanalyzed or other-language Books", Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			bookID := seedReviewBook(t, h) // two occurrences of "weg"
@@ -578,4 +579,59 @@ func studyCorpusScenario(t *testing.T, h Harness) {
 
 	require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, toRead))
 	assert.Empty(t, lemmas(), "the Corpus is the Books in My Books")
+}
+
+// studyPriorityCountsScenario holds both adapters to the counts that order new
+// words (ADR 0136 §2): the Current reading's own count, and the sum over the To
+// Read Books, which the Current reading is one of and a Read Book is not.
+func studyPriorityCountsScenario(t *testing.T, h Harness) {
+	t.Helper()
+	owner := h.Seeds().Owner()
+	occurrences := func(lemma string, count int) []OccurrenceSeed {
+		seeds := make([]OccurrenceSeed, count)
+		for i := range seeds {
+			seeds[i] = OccurrenceSeed{Surface: lemma, Lemma: lemma, UPOS: "NOUN"}
+		}
+		return seeds
+	}
+	join := func(groups ...[]OccurrenceSeed) []OccurrenceSeed {
+		var all []OccurrenceSeed
+		for _, group := range groups {
+			all = append(all, group...)
+		}
+		return all
+	}
+	current := h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: join(occurrences("haus", 2), occurrences("hund", 1))})
+	h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: join(occurrences("hund", 3), occurrences("katze", 1))})
+	read := h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: join(occurrences("katze", 10), occurrences("haus", 5))})
+	require.NoError(t, h.BookState().MarkBookPreviouslyRead(owner, read))
+	h.Seeds().SeedCurrentReading(t, owner, Language, current)
+
+	candidates, err := h.Study().ListStudyCandidates(owner, Language)
+	require.NoError(t, err)
+	type counts struct{ personal, current, toRead int64 }
+	got := map[string]counts{}
+	for _, candidate := range candidates {
+		got[candidate.CanonicalLemma] = counts{candidate.PersonalOccurrences, candidate.CurrentReadingOccurrences, candidate.ToReadOccurrences}
+	}
+	assert.Equal(t, map[string]counts{
+		"haus":  {personal: 7, current: 2, toRead: 2},
+		"hund":  {personal: 4, current: 1, toRead: 4},
+		"katze": {personal: 11, current: 0, toRead: 1},
+	}, got, "a Read Book supplies candidates but adds no priority")
+
+	among, err := h.Study().ListStudyCandidatesAmong(owner, Language, []domain.StudyItem{studyNoun("haus"), studyNoun("katze")})
+	require.NoError(t, err)
+	require.Len(t, among, 2)
+	for _, candidate := range among {
+		assert.Equal(t, counts{candidate.PersonalOccurrences, candidate.CurrentReadingOccurrences, candidate.ToReadOccurrences}, got[candidate.CanonicalLemma], candidate.CanonicalLemma)
+	}
+
+	ordered := domain.OrderStudyStream(candidates, true)
+	require.Len(t, ordered, 3)
+	assert.Equal(t, []string{"haus", "hund", "katze"}, []string{ordered[0].CanonicalLemma, ordered[1].CanonicalLemma, ordered[2].CanonicalLemma},
+		"below target the Current reading's words come first by their own count")
+	ordered = domain.OrderStudyStream(candidates, false)
+	assert.Equal(t, []string{"hund", "haus", "katze"}, []string{ordered[0].CanonicalLemma, ordered[1].CanonicalLemma, ordered[2].CanonicalLemma},
+		"at target the To Read frequency decides, and a Read Book's 11 adds nothing")
 }

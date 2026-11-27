@@ -126,7 +126,7 @@ func TestStudyPreparesNoIdiomWhileTheSwitchIsOff(t *testing.T) {
 	assert.Empty(t, s.provider.idiomRequests())
 }
 
-func TestStudyIdiomRanksFirstWhenTheCurrentReadingHasIt(t *testing.T) {
+func TestStudyIdiomIsNotInTheBoostedGroupYet(t *testing.T) {
 	lookup := newFakeIdiomLookup(germanIdiom("mit dem haus"))
 	s := newStudyHarnessWith(t, studyHarnessOptions{capabilities: readyGerman(), idioms: germanIdiomAvoidance(t, lookup, true)})
 	reading := s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 1})
@@ -139,8 +139,8 @@ func TestStudyIdiomRanksFirstWhenTheCurrentReadingHasIt(t *testing.T) {
 	s.startStudy()
 	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
 
-	assert.Equal(t, []string{"haus", "mit dem haus", "buch", "baum"}, s.lemmasByReservation(),
-		"the Current reading's items lead the stream, Idiom included, though the library's words occur more often")
+	assert.Equal(t, []string{"haus", "buch", "baum", "mit dem haus"}, s.lemmasByReservation(),
+		"below Target coverage the Current reading's words lead the stream, but an Idiom is not in that group yet (#2757): it follows its candidate count")
 }
 
 func TestStudyIdiomMaterialIgnoresExcludedOccurrences(t *testing.T) {

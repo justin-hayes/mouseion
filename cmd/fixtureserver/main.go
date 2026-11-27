@@ -49,7 +49,7 @@ func main() {
 		})
 		store.SeedStudyCandidate(fixtures.OwnerID, domain.StudyCandidate{
 			Language: "de", CanonicalLemma: lemma, UPOS: "NOUN",
-			PersonalOccurrences: int64(10 - i),
+			PersonalOccurrences: int64(10 - i), ToReadOccurrences: int64(10 - i),
 		})
 	}
 	seedFluencyWordIfRequested(store)
