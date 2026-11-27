@@ -259,7 +259,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		TempDir: cfg.acquisitionTempDir,
 	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
-	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex)
+	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex, preparedDeckConfig.IdiomCardLanguages)
 	// Idiom candidate counts are derived against the loaded dictionary index,
 	// which carries the reviewed idiom list; its version stamps the counts.
 	idiomVersion, err := idiomIndexVersion(ctx, dictionaryIndex)
@@ -337,13 +337,16 @@ func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string)
 // learned meaning, so the worker sends nothing until its provider payload
 // assessment is recorded and matches the codec (ADR 0133).
 //
+// With a language's idiom switch on, a word's material and Fluency contexts
+// prefer a sentence outside every Idiom candidate (ADR 0137 §3).
+//
 // A source-evidence language's material (ADR 0138) also reads the imported
 // dictionary and the Book's passage translations, and sends its evidence-assisted
 // pass payload only while that assessment is recorded. Its Fluency contexts run
 // that pass per occurrence and then the separate source-evidence agreement
 // variant, which is sent only while its own assessment is recorded. Without a dictionary
 // index such a word waits instead of being recorded as having no entry.
-func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec, dictionaryIndex *dictionary.Index) *study.PlanWorker {
+func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec, dictionaryIndex *dictionary.Index, idiomLanguages map[string]bool) *study.PlanWorker {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
 	assessments := enrichment.ProviderAssessments()
 	evidence := &study.SourceEvidence{
@@ -365,13 +368,20 @@ func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStor
 			return false
 		}
 	}
-	study.AddMaterialWorker(workers, store, enricher, evidence)
+	// A word's sentence avoids Idiom candidates only for a language whose idiom
+	// switch is on and whose idiom-card payload assessment is recorded, the
+	// gate the deck planner applies (ADR 0137 §3).
+	var idioms *study.IdiomAvoidance
+	if dictionaryIndex != nil && len(idiomLanguages) > 0 {
+		idioms = &study.IdiomAvoidance{Index: dictionaryIndex, Enabled: prepareddeck.IdiomSwitch(idiomLanguages, assessments, codec)}
+	}
+	study.AddMaterialWorker(workers, store, enricher, evidence, idioms)
 	planWorker := study.AddPlanWorker(workers)
 	study.AddFluencyWorker(workers, store, enricher, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementPayload, language, codec)
 	}, evidence, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementSourceEvidencePayload, language, codec)
-	})
+	}, idioms)
 	return planWorker
 }
 

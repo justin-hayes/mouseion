@@ -35,6 +35,9 @@ func (s *studyHarness) addFluencySentence(key string, form fluencyForm) string {
 	target := len(sentence.Tokens) - 1
 	start := sentence.Tokens[target].Location.StartOffset
 	sentence.Text = sentence.Text[:start] + form.surface + "."
+	if s.weakerFluencyForms[form.surface] {
+		weakenSentence(&sentence)
+	}
 	sentence.Tokens[target].Surface = form.surface
 	sentence.Tokens[target].Location = analyzer.SourceLocation{StartOffset: start, EndOffset: start + uint64(len(form.surface))}
 	sentence.Tokens[target].Morphology = form.morphology
