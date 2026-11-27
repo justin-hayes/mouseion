@@ -206,3 +206,22 @@ provider, the new prompt version (`translation-v21-evidence-assisted-latin-citat
 refuses `translation-v18-evidence-assisted-latin`, which this addendum supersedes.
 
 **Runtime effect once recorded.** Between #2784 and this record the gate refused v21, so Latin Prepared decks sent no pass. Merging restores it: a Latin Prepared deck prepared while a provider is configured sends the pass for every word again (`TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments`). Latin Study is unaffected until its switch is turned on (#2768).
+
+## Addendum, 2026-11-27: Study sends every Lewis & Short sense
+
+Status: **Addendum drafted, pending Justin's approval in the PR** · ticket #2792, spec #2759
+
+The Latin evidence run for #2768 (`doc/evidence/latin-study-evidence-run-2026-11-27.md`) abstained on *pars*, *uideo*, *dico*, *do* and *nullus*. For *dico* the provider said the sense the sentence uses ("to plead") was not among the candidate senses: the pass carried at most 8 senses (`enrichment.DefaultMaxCandidateSenses`), taken round-robin across stacked entries, and *dico* has 7 + 34 senses. Following Greek Study (ADR 0139, #2773), Latin Study and Latin Fluency now send every sense of every stacked Lewis & Short entry, in entry order, each with its entry handle.
+
+**Unchanged.** The prompt version (`translation-v21-evidence-assisted-latin-citation-form`), the nine-field payload and the ten-field answer are untouched, so the recorded `la` assessment still matches and the gate still allows it. No new field, source or learner datum is transmitted: only more of the same `candidate_senses` rows (`{evidence_id, entry, source, gloss}`, with per-request handles and no native IDs). Latin Prepared decks keep the 8-sense cap and their output is unchanged. Latin's Study switch stays off, so nothing is sent for Study until #2768 turns it on.
+
+**Request size.** The Lewis & Short index is not in the repository's tests, so this is measured on a synthetic fixture (`syntheticLargeLatinEntryRequest`) shaped like *dico*: two stacked entries with 7 and 34 senses (41 in all), definitions of 30 to 129 characters. Tokens are estimated at four bytes each; the provider's tokenizer will differ.
+
+| Request | Senses | Encoded request | Approx. tokens |
+| --- | --- | --- | --- |
+| Capped at 8 senses (before) | 8 | 3,833 bytes | ~960 |
+| Large synthetic *dico*-like entry, uncapped (after) | 41 | 8,857 bytes (8.6 KiB) | ~2,200 |
+
+The user message alone is 5,562 bytes. The evidence run's largest real request was 6,112 bytes. Cost grows linearly, about 130 bytes per sense, and a request is sent once per Study pass of a word. Most lemmas have few senses and cost about the same as before. `TestLatinStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget` fails if this fixture's request exceeds 16 KiB or drops a sense.
+
+**Disposition, if approved.** The existing Latin disposition is extended to uncapped candidate senses for Study. No change to `latinEvidenceAssistedPassAssessment`.
