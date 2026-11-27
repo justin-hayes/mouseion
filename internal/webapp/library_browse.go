@@ -294,8 +294,8 @@ func myBooksPathLanguage(path string) (language string, ok bool) {
 }
 
 // parseMyBooksBrowseRequest reads the two-tab My Books request. The retired
-// needs-language scope and the Inbox filter are unsupported rather than
-// translated, as is an unknown sort.
+// needs-language scope, the Inbox filter and the most-readable sort beside the
+// Read history are unsupported rather than translated, as is an unknown sort.
 func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	values := rURL.Query()
 	if values.Has("needs-language") {
@@ -324,7 +324,10 @@ func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	}
 	request.history = values.Get("history") == "read"
 	if request.history {
-		if request.disposition != "" {
+		// The most-readable sort is a To Read control; the Read tab keeps
+		// its own order, so the combination is unsupported rather than
+		// translated, like a disposition beside the history.
+		if request.disposition != "" || request.mostReadable {
 			return myBooksLibraryRequest{}, false
 		}
 	} else if request.disposition == "" {
@@ -391,8 +394,11 @@ func myBooksToReadTabURL(browse MyBooksBrowseState) string {
 	return myBooksFilteredURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false, browse.NeedsAction, browse.MostReadable)
 }
 
+// myBooksReadTabURL is the Read tab's own address. It keeps the search and
+// the needs-action filter but never the most-readable sort, which is a To
+// Read control the Read tab has no way back from.
 func myBooksReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksFilteredURL(browse.Language, browse.Query, 1, "", true, browse.NeedsAction, browse.MostReadable)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, "", true, browse.NeedsAction, false)
 }
 
 // myBooksNeedsActionToggleURL turns the needs-action filter on or off and keeps

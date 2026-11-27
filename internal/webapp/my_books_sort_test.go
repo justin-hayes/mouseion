@@ -26,9 +26,12 @@ func TestMyBooksMostReadableSortIsKeptInTheAddress(t *testing.T) {
 	browse := MyBooksBrowseState{Language: "de", Disposition: domain.BookDispositionToRead, MostReadable: true, Query: "faust"}
 	assert.Equal(t, "/de/library?disposition=to_read&q=faust&sort=readable", myBooksResultsURL(browse, 1))
 	assert.Equal(t, "/de/library?disposition=to_read&sort=readable", myBooksClearSearchURL(browse))
-	assert.Equal(t, "/de/library?history=read&q=faust&sort=readable", myBooksReadTabURL(browse))
+	assert.Equal(t, "/de/library?history=read&q=faust", myBooksReadTabURL(browse), "the Read tab keeps its own order")
 	assert.Equal(t, "/de/library?disposition=to_read&q=faust", myBooksSortToggleURL(browse), "the toggle returns to the default title order")
 	assert.Equal(t, "/de/library?disposition=to_read&q=faust&sort=readable", myBooksSortToggleURL(MyBooksBrowseState{Language: "de", Disposition: domain.BookDispositionToRead, Query: "faust"}))
+
+	_, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: "history=read&sort=readable"})
+	assert.False(t, ok, "the most-readable sort is a To Read control")
 
 	// The sort composes with the needs-action filter in one address.
 	filtered := MyBooksBrowseState{Language: "de", Disposition: domain.BookDispositionToRead, NeedsAction: true, MostReadable: true, Query: "faust"}

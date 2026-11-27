@@ -98,6 +98,7 @@ func TestMyBooksToReadSortsByMatureCoverageOverHTTP(t *testing.T) {
 		assert.False(t, titleOrder(body), "the sorted tab must not be in title order")
 		assert.Contains(t, body, "Title order", "the control offers the way back to the default")
 		assert.Contains(t, body, `name="sort" value="readable"`, "a search keeps the sort in the address")
+		assert.Contains(t, body, `href="/de/library?history=read"`, "the Read tab keeps its own order")
 	})
 
 	t.Run("an unknown sort value is unsupported", func(t *testing.T) {
