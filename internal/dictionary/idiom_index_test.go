@@ -284,3 +284,16 @@ func TestIndexIdiomDigestChangesWithTheReviewedListAndNotTheProviderVersion(t *t
 		require.Empty(t, digest)
 	})
 }
+
+func TestIndexIdiomDigestReportsAnUnreadableTable(t *testing.T) {
+	for _, table := range []string{"idiom_entries", "idiom_words"} {
+		t.Run(table, func(t *testing.T) {
+			index := newIdiomTestIndex(t, "DROP TABLE "+table)
+			index.idiomAvailable = true // as if the table went missing after the index opened
+
+			_, err := index.IdiomDigest(t.Context())
+
+			require.Error(t, err)
+		})
+	}
+}
