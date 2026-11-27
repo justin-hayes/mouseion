@@ -1401,17 +1401,24 @@ LS_GLOSS_TYPE = "gloss"
 LS_FILE = "lat.ls.perseus-eng1.xml"
 # "v. pueritia" and "v. 1. lego": the optional number is the L&S homograph
 # number, written before the headword and moved to its end by ls_reference_key.
-LS_PLAIN_REDIRECT = re.compile(r"\bv\.\s+(the\s+(?:foll|preced)\.?|(?:\d+\.\s+)?[^\W\d_]+\d?)")
+# Each redirect is read by a small helper (ls_plain_redirects and friends) over
+# these simple patterns, which keeps every pattern linear.
+LS_V_MARK = re.compile(r"\bv\.\s+")
+LS_NEIGHBOUR_REFERENCE = re.compile(r"the\s+(?:foll|preced)\.?")
+LS_NUMBER_PREFIX = re.compile(r"\d+\.\s+")
+LS_HEADWORD_REFERENCE = re.compile(r"[^\W\d_]+\d?")
+LS_SPACE = re.compile(r"\s*")
+LS_REQUIRED_SPACE = re.compile(r"\s+")
 # A participle entry names the verb it comes from, after its <mood>Part.</mood>
 # or <pos>P. a.</pos> label: "Part., from percello", "Part. and P. a., from 2. insero".
 LS_PARTICIPLE_LABELS = frozenset({"mood", "pos"})
-LS_PARTICIPLE_REDIRECT = re.compile(
-    r"^\s*[,.]?\s*(?:and\s+P\.\s*a\.\s*[,.]?\s*)?(?:from|of)\s+((?:\d+\.\s+)?[^\W\d_]+\d?)"
-)
+LS_PARTICIPLE_AND = re.compile(r"and\s+P\.\s*a\.\s*[,.]?")
+LS_PARTICIPLE_SOURCE = re.compile(r"(?:from|of)\s+")
 # "= clueo, q. v." names its entry too.
-LS_QV_REDIRECT = re.compile(r"(?:\bfrom|=)\s+((?:\d+\.\s+)?[^\W\d_]+\d?),?\s+q\.\s*v\.")
+LS_QV_MARK = re.compile(r"(?:\bfrom|=)\s+")
+LS_QV_TAIL = re.compile(r",?\s+q\.\s*v\.")
 # "v." written before a child element, as in "v. <itype>prior</itype>".
-LS_REDIRECT_LEAD = re.compile(r"\bv\.\s*$")
+LS_REDIRECT_LEAD = re.compile(r"\bv\.$")
 LS_NUMBERED_REFERENCE = re.compile(r"^(\d+)\.\s+(.+)$")
 # A sense that only points at the end of another entry ("v. 1. lego" followed by
 # a sense holding "fin. 1."): it carries no text of its own.
@@ -1516,6 +1523,61 @@ class LsContent:
     author: str = ""
 
 
+def ls_reference_at(text: str, position: int) -> tuple[str, int] | None:
+    """The headword reference ("pueritia", "1. lego", "lego1") that starts at
+    position, with the position after it."""
+    start = position
+    if prefix := LS_NUMBER_PREFIX.match(text, position):
+        position = prefix.end()
+    if word := LS_HEADWORD_REFERENCE.match(text, position):
+        return text[start : word.end()], word.end()
+    return None
+
+
+def ls_plain_redirects(text: str) -> list[str]:
+    """The entries named by each "v. word" in the text."""
+    found = []
+    resume = 0
+    for mark in LS_V_MARK.finditer(text):
+        if mark.start() < resume:
+            continue
+        if neighbour := LS_NEIGHBOUR_REFERENCE.match(text, mark.end()):
+            found.append(neighbour.group())
+            resume = neighbour.end()
+        elif reference := ls_reference_at(text, mark.end()):
+            found.append(reference[0])
+            resume = reference[1]
+    return found
+
+
+def ls_qv_redirects(text: str) -> list[str]:
+    """The entries named by each "from word, q. v." or "= word, q. v."."""
+    found = []
+    resume = 0
+    for mark in LS_QV_MARK.finditer(text):
+        if mark.start() < resume:
+            continue
+        reference = ls_reference_at(text, mark.end())
+        if reference and (tail := LS_QV_TAIL.match(text, reference[1])):
+            found.append(reference[0])
+            resume = tail.end()
+    return found
+
+
+def ls_participle_source(tail: str) -> str:
+    """The verb named after a participle label, as in ", from percello" or
+    " and P. a., from 2. insero", or the empty string."""
+    position = LS_SPACE.match(tail).end()
+    if tail[position : position + 1] in (",", "."):
+        position += 1
+    position = LS_SPACE.match(tail, position).end()
+    if conjunction := LS_PARTICIPLE_AND.match(tail, position):
+        position = LS_SPACE.match(tail, conjunction.end()).end()
+    source = LS_PARTICIPLE_SOURCE.match(tail, position)
+    reference = ls_reference_at(tail, source.end()) if source else None
+    return reference[0] if reference else ""
+
+
 def ls_text(text: str | None, content: LsContent) -> None:
     """Read the source's own prose: ":—" restarts the definition window, and a
     plain "v. word" outside <xr> is a redirect."""
@@ -1523,8 +1585,8 @@ def ls_text(text: str | None, content: LsContent) -> None:
         return
     if LSJ_MEANING_START in text:
         content.cited = False
-    for pattern in (LS_PLAIN_REDIRECT, LS_QV_REDIRECT):
-        content.crossrefs.extend({"text": match} for match in pattern.findall(text))
+    for found in (ls_plain_redirects(text), ls_qv_redirects(text)):
+        content.crossrefs.extend({"text": match} for match in found)
 
 
 def ls_participle_reference(label) -> str:
@@ -1533,24 +1595,25 @@ def ls_participle_reference(label) -> str:
         return ""
     if not re.match(r"(?:Part|P\. ?a)", element_text(label)):
         return ""
-    match = LS_PARTICIPLE_REDIRECT.match(label.tail)
-    return match.group(1) if match else ""
+    return ls_participle_source(label.tail)
 
 
 def ls_collect(element, content: LsContent) -> None:
     ls_text(element.text, content)
     lead = element.text or ""
     for child in element:
-        if child.tag == "itype" and LS_REDIRECT_LEAD.search(lead) and element_text(child).strip():
+        if (
+            child.tag == "itype"
+            and LS_REDIRECT_LEAD.search(lead.rstrip())
+            and element_text(child).strip()
+        ):
             content.crossrefs.append({"text": element_text(child).strip()})
         ls_collect_child(child, content)
         ls_text(child.tail, content)
         lead = child.tail or ""
         if child.tag == "hi" and ls_plain(element_text(child)).rstrip(".") == "v":
             # An italic "v." names the entry in the text after it.
-            content.crossrefs.extend(
-                {"text": match} for match in LS_PLAIN_REDIRECT.findall("v. " + lead)
-            )
+            content.crossrefs.extend({"text": match} for match in ls_plain_redirects("v. " + lead))
         if reference := ls_participle_reference(child):
             content.crossrefs.append({"text": reference})
 
@@ -1757,6 +1820,26 @@ def ls_neighbour(entries: list[dict], position: int, text: str) -> dict | None:
     return entries[index] if 0 <= index < len(entries) else None
 
 
+def ls_resolve_reference(
+    entries: list[dict],
+    position: int,
+    reference: dict,
+    by_key: dict[str, list[dict]],
+    by_headword: dict[str, list[dict]],
+) -> dict | None:
+    """The one entry a cross-reference names, or None when it names none or
+    several."""
+    plain = ls_plain(ls_reference_key(reference["text"])).strip()
+    if neighbour := ls_neighbour(entries, position, plain):
+        return neighbour
+    candidates = by_key.get(plain, []) if plain[-1:].isdigit() else by_headword.get(plain, [])
+    if len(candidates) > 1:
+        # "asper" names the adjective, not the surname "Asper".
+        spelled = ls_plain_letters(ls_reference_key(reference["text"]))
+        candidates = [item for item in candidates if ls_plain_letters(item["headword"]) == spelled]
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def ls_resolve(entries: list[dict]) -> None:
     """Resolve each cross-reference to the one entry it names.
 
@@ -1771,23 +1854,10 @@ def ls_resolve(entries: list[dict]) -> None:
     for position, entry in enumerate(entries):
         for sense in entry["senses"]:
             for reference in sense.get("crossrefs", []):
-                plain = ls_plain(ls_reference_key(reference["text"])).strip()
-                if neighbour := ls_neighbour(entries, position, plain):
-                    reference["entry_id"] = neighbour["id"]
-                    reference["headword"] = neighbour["headword"]
-                    continue
-                candidates = (
-                    by_key.get(plain, []) if plain[-1:].isdigit() else by_headword.get(plain, [])
-                )
-                if len(candidates) > 1:
-                    # "asper" names the adjective, not the surname "Asper".
-                    spelled = ls_plain_letters(ls_reference_key(reference["text"]))
-                    candidates = [
-                        item for item in candidates if ls_plain_letters(item["headword"]) == spelled
-                    ]
-                if len(candidates) == 1:
-                    reference["entry_id"] = candidates[0]["id"]
-                    reference["headword"] = candidates[0]["headword"]
+                target = ls_resolve_reference(entries, position, reference, by_key, by_headword)
+                if target:
+                    reference["entry_id"] = target["id"]
+                    reference["headword"] = target["headword"]
 
 
 def ls_has_text(entry: dict) -> bool:
@@ -1822,41 +1892,44 @@ def ls_pointed_senses(target: list[dict], number: str | None) -> list[dict]:
     return [sense for sense in target[start:end] if sense.get("glosses")]
 
 
+def ls_redirect_targets(entry: dict) -> list[str]:
+    """The ids of the other entries an entry's cross-references resolve to."""
+    ids: list[str] = []
+    for sense in entry["senses"]:
+        for reference in sense.get("crossrefs", []):
+            target = reference.get("entry_id")
+            if target and target != entry["id"] and target not in ids:
+                ids.append(target)
+    return ids
+
+
+def ls_settle(entry: dict, by_id: dict[str, dict], visiting: frozenset[str]) -> None:
+    """Give a redirect-only entry the text of the single entry it resolves to."""
+    if entry.get("settled"):
+        return
+    entry["settled"] = True
+    if ls_has_text(entry):
+        return
+    targets = ls_redirect_targets(entry)
+    if len(targets) != 1 or targets[0] in visiting:
+        return
+    target = by_id[targets[0]]
+    ls_settle(target, by_id, visiting | {entry["id"]})
+    copied = [
+        {key: value for key, value in sense.items() if key in LS_INHERITED_KEYS}
+        for sense in ls_pointed_senses(target["senses"], entry.get("pointer"))
+    ]
+    entry["senses"] = entry["senses"] + copied
+
+
 def ls_inherit(entries: list[dict]) -> None:
     """Give an entry that only redirects ("v. pueritia") the text of the one entry
     it resolves to: the definitions and glosses of that entry's senses, or the
     span "fin. N." points at. A redirect that resolves to no single entry, or to
     an entry with no text, stays as written. Citations are not copied."""
     by_id = {entry["id"]: entry for entry in entries}
-
-    def targets_of(entry: dict) -> list[str]:
-        ids = []
-        for sense in entry["senses"]:
-            for reference in sense.get("crossrefs", []):
-                target = reference.get("entry_id")
-                if target and target != entry["id"] and target not in ids:
-                    ids.append(target)
-        return ids
-
-    def settle(entry: dict, visiting: frozenset[str]) -> None:
-        if entry.get("settled"):
-            return
-        entry["settled"] = True
-        if ls_has_text(entry):
-            return
-        targets = targets_of(entry)
-        if len(targets) != 1 or targets[0] in visiting:
-            return
-        target = by_id[targets[0]]
-        settle(target, visiting | {entry["id"]})
-        copied = [
-            {key: value for key, value in sense.items() if key in LS_INHERITED_KEYS}
-            for sense in ls_pointed_senses(target["senses"], entry.get("pointer"))
-        ]
-        entry["senses"] = entry["senses"] + copied
-
     for entry in entries:
-        settle(entry, frozenset())
+        ls_settle(entry, by_id, frozenset())
 
 
 def ls_add_subentries(entries: list[dict]) -> list[dict]:
