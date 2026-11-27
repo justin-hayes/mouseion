@@ -128,6 +128,75 @@ func (p StudyProgress) Corrected() bool {
 // Graded reports whether the learner has answered the word at least once.
 func (p StudyProgress) Graded() bool { return p.Memory.Reps > 0 }
 
+// StudyAlreadyKnownDays is the interval an Already-known answer schedules the
+// word with: the Fluency maturity threshold, so the word is Mature at once
+// (ADR 0136 §1).
+const StudyAlreadyKnownDays = FluencyMaturityDays
+
+// studyAlreadyKnownDifficulty is the FSRS difficulty an Already-known word
+// starts with, the middle of the scale: the learner told us nothing about how
+// hard it is.
+const studyAlreadyKnownDifficulty = 5.0
+
+// StudyAlreadyKnownOffered reports whether the word's card offers the Already
+// known answer: only the review that introduces a word, never a later one. An
+// introduction is a word nobody has answered yet.
+func StudyAlreadyKnownOffered(p StudyProgress) bool {
+	return !p.Withdrawn && !p.Graded() && p.Memory.State == StudyStateNew
+}
+
+// StudyAlreadyKnownMemory is the scheduling state of a word the learner
+// answered Already known on its introduction: in the review state with an
+// interval of at least StudyAlreadyKnownDays, so it is Mature at once. It is
+// an answered card (one rep), and ordinary reviews follow: a lapse sends it
+// into relearning, which ends maturity.
+func StudyAlreadyKnownMemory(before StudyMemory, now time.Time) StudyMemory {
+	days := max(before.ScheduledDays, StudyAlreadyKnownDays)
+	now = now.UTC()
+	return StudyMemory{
+		State: StudyStateReview, Due: now.AddDate(0, 0, int(days)),
+		Stability: float64(days), Difficulty: studyAlreadyKnownDifficulty,
+		ScheduledDays: days, Reps: max(before.Reps, 0) + 1, Lapses: before.Lapses, LastReview: now,
+	}
+}
+
+// StudyAlreadyKnownSource is where an Already-known event came from.
+type StudyAlreadyKnownSource string
+
+const (
+	// StudyAlreadyKnownIntroduction is the learner's answer on an introduction
+	// review.
+	StudyAlreadyKnownIntroduction StudyAlreadyKnownSource = "introduction"
+	// StudyAlreadyKnownBackfill is a word carried over from the retired Known
+	// vocabulary (spec #2727).
+	StudyAlreadyKnownBackfill StudyAlreadyKnownSource = "backfill"
+)
+
+// StudyAlreadyKnownEvent is one stored Already-known event. It is never a
+// grade, so it is not in the review log. It is keyed like Study progress by
+// the Study item, which lets Idioms and the backfill record it too.
+type StudyAlreadyKnownEvent struct {
+	ID, OwnerID string
+	StudyItem
+	// ProgressID and MaterialID are the word's progress and the Study material
+	// it was answered in; empty when the event has none.
+	ProgressID, MaterialID string
+	Source                 StudyAlreadyKnownSource
+	AnsweredAt             time.Time
+	StudyDay               string
+}
+
+// StudyAlreadyKnownRecord is an Already-known answer ready to be stored: the
+// state the word starts study with. ExpectedReps guards a repeated tap, as for
+// a grade.
+type StudyAlreadyKnownRecord struct {
+	ProgressID   string
+	ExpectedReps int64
+	AnsweredAt   time.Time
+	StudyDay     string
+	After        StudyMemory
+}
+
 // StudyCard is a due word with the Study material it is shown in.
 type StudyCard struct {
 	Progress StudyProgress

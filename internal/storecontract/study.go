@@ -260,6 +260,7 @@ func studyScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Equal(t, 1, ledger.Taken)
 		}},
+		alreadyKnownScenario(),
 		{Name: "a graded card is logged with its state before and after and is graded once", Run: func(t *testing.T, h Harness) {
 			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
 			haus, hund := studyNoun("haus"), studyNoun("hund")
@@ -473,5 +474,62 @@ func studyCandidatesAmongScenario() Scenario {
 			require.NoError(t, err)
 			require.Empty(t, other, "another learner's Books are not candidates")
 		})
+	}}
+}
+
+// alreadyKnownScenario is the Already-known answer: an event beside the review
+// log, never a grade.
+func alreadyKnownScenario() Scenario {
+	return Scenario{Name: "an Already-known answer is an event, never a grade, and the word enters study Mature", Run: func(t *testing.T, h Harness) {
+		owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
+		haus, hund := studyNoun("haus"), studyNoun("hund")
+		hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
+		now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
+		_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
+		require.NoError(t, err)
+		card, err := progressStore.NextStudyCard(owner, Language, now)
+		require.NoError(t, err)
+		require.Equal(t, haus, card.Progress.StudyItem)
+
+		known := domain.StudyAlreadyKnownMemory(card.Progress.Memory, now)
+		record := domain.StudyAlreadyKnownRecord{ProgressID: card.Progress.ID, ExpectedReps: 0, AnsweredAt: now, StudyDay: "2026-11-25", After: known}
+		require.NoError(t, progressStore.RecordStudyAlreadyKnown(owner, record))
+		require.ErrorIs(t, progressStore.RecordStudyAlreadyKnown(owner, record), domain.ErrStudyStale, "an introduction is answered once")
+		require.ErrorIs(t, progressStore.RecordStudyAlreadyKnown(h.Seeds().OtherOwner(), record), domain.ErrNotFound, "another learner cannot answer it")
+
+		logs, err := progressStore.ListStudyReviewLog(owner, card.Progress.ID)
+		require.NoError(t, err)
+		assert.Empty(t, logs, "an Already-known answer is never a grade")
+		events, err := progressStore.ListStudyAlreadyKnownEvents(owner, Language)
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		assert.Equal(t, haus, events[0].StudyItem, "the event is keyed like Study progress")
+		assert.Equal(t, card.Progress.ID, events[0].ProgressID)
+		assert.Equal(t, hausID, events[0].MaterialID)
+		assert.Equal(t, domain.StudyAlreadyKnownIntroduction, events[0].Source)
+		assert.Equal(t, "2026-11-25", events[0].StudyDay)
+		assert.True(t, now.Equal(events[0].AnsweredAt))
+
+		progress, err := progressStore.ListStudyProgress(owner, Language)
+		require.NoError(t, err)
+		var stored domain.StudyProgress
+		for _, item := range progress {
+			if item.ID == card.Progress.ID {
+				stored = item
+			}
+		}
+		assert.Equal(t, domain.StudyStateReview, stored.Memory.State)
+		assert.GreaterOrEqual(t, stored.Memory.ScheduledDays, int64(domain.FluencyMaturityDays))
+		assert.True(t, known.Due.Equal(stored.Memory.Due))
+		assert.True(t, domain.IsStudyMature(stored))
+		assert.False(t, domain.StudyAlreadyKnownOffered(stored))
+
+		card, err = progressStore.NextStudyCard(owner, Language, now)
+		require.NoError(t, err)
+		assert.Equal(t, hund, card.Progress.StudyItem, "the answered word is no longer due: its place in the batch is complete")
+
+		gradedRecord := domain.StudyGradeRecord{ProgressID: stored.ID, ExpectedReps: stored.Memory.Reps, Grade: domain.StudyGradeGotIt, ReviewedAt: known.Due, StudyDay: "2026-12-16", After: known}
+		require.NoError(t, progressStore.RecordStudyGrade(owner, gradedRecord), "later reviews are graded as ordinary")
+		require.ErrorIs(t, progressStore.RecordStudyAlreadyKnown(owner, domain.StudyAlreadyKnownRecord{ProgressID: stored.ID, ExpectedReps: stored.Memory.Reps + 1, AnsweredAt: known.Due, StudyDay: "2026-12-16", After: known}), domain.ErrStudyStale, "Already known is never offered on a later review")
 	}}
 }

@@ -117,3 +117,30 @@ func TestRecallFallsAsTimePassesAndChangesNothing(t *testing.T) {
 	_, err = scheduler.Recall(domain.StudyMemory{State: "bogus"}, reviewed)
 	assert.Error(t, err)
 }
+
+func TestAnAlreadyKnownWordReviewsOrdinarilyAndALapseEndsMaturity(t *testing.T) {
+	scheduler := NewScheduler()
+	now := time.Date(2026, 11, 25, 9, 0, 0, 0, berlin)
+	known := domain.StudyAlreadyKnownMemory(domain.NewStudyMemory(now), now)
+	require.True(t, domain.IsStudyMature(domain.StudyProgress{Memory: known}))
+
+	// A recalled review stays on a day-scale schedule and Mature.
+	recalled, err := scheduler.Schedule(known, domain.StudyGradeGotIt, known.Due)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StudyStateReview, recalled.State)
+	assert.GreaterOrEqual(t, recalled.ScheduledDays, int64(domain.FluencyMaturityDays))
+	assert.True(t, domain.IsStudyMature(domain.StudyProgress{Memory: recalled}))
+
+	// A lapse ends maturity: the word relearns with a short interval.
+	lapsed, err := scheduler.Schedule(known, domain.StudyGradeAgain, known.Due)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StudyStateRelearning, lapsed.State)
+	assert.EqualValues(t, 1, lapsed.Lapses)
+	assert.False(t, domain.IsStudyMature(domain.StudyProgress{Memory: lapsed}))
+
+	// Re-graduating after the lapse on a short interval is still not Mature.
+	again, err := scheduler.Schedule(lapsed, domain.StudyGradeGotIt, lapsed.Due)
+	require.NoError(t, err)
+	assert.Less(t, again.ScheduledDays, int64(domain.FluencyMaturityDays))
+	assert.False(t, domain.IsStudyMature(domain.StudyProgress{Memory: again}))
+}
