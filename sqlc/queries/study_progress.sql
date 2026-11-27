@@ -19,7 +19,7 @@ SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')
- ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator;
+ ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator, p.item_kind;
 
 -- name: LockStudyProgress :one
 SELECT * FROM study_progress

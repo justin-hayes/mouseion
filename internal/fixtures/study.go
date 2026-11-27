@@ -186,7 +186,7 @@ func (s *Store) ReserveStudyMaterial(_ context.Context, owner string, identity d
 	identity.UPOS = strings.ToUpper(strings.TrimSpace(identity.UPOS))
 	identity.LexicalDiscriminator = strings.TrimSpace(identity.LexicalDiscriminator)
 	identity.Language = strings.ToLower(strings.TrimSpace(identity.Language))
-	if identity.Language == "" || identity.CanonicalLemma == "" || (identity.UPOS == "") != identity.IsIdiom() {
+	if identity.Language == "" || identity.CanonicalLemma == "" || (identity.UPOS == "") != identity.IsIdiom() || (identity.IsIdiom() && identity.LexicalDiscriminator != "") {
 		return "", false, domain.ErrInvalidStudyMaterial
 	}
 	s.mu.Lock()

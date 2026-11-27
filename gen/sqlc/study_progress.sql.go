@@ -206,7 +206,7 @@ SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discri
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = $1 AND p.language = $2
- ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator
+ ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator, p.item_kind
 `
 
 type ListStudyProgressParams struct {

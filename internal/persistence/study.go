@@ -169,7 +169,7 @@ func (s *PostgresStore) ReserveStudyMaterialTx(ctx context.Context, tx pgx.Tx, o
 
 func reserveStudyMaterial(ctx context.Context, q *sqlcgen.Queries, owner string, identity domain.StudyItem) (string, bool, error) {
 	identity = normalizedStudyIdentity(identity)
-	if identity.Language == "" || identity.CanonicalLemma == "" || (identity.UPOS == "") != identity.IsIdiom() {
+	if identity.Language == "" || identity.CanonicalLemma == "" || (identity.UPOS == "") != identity.IsIdiom() || (identity.IsIdiom() && identity.LexicalDiscriminator != "") {
 		return "", false, fmt.Errorf("reserve study material: %w", domain.ErrInvalidStudyMaterial)
 	}
 	id, err := q.ReserveStudyMaterial(ctx, sqlcgen.ReserveStudyMaterialParams{

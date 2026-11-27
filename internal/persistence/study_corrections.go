@@ -25,6 +25,9 @@ import (
 // speaker-label text, and one whose effective lexical discriminator is another
 // word's are not the identity's.
 func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
+	if identity.IsIdiom() {
+		return nil, nil // an Idiom's occurrences are not words'; defined with Idiom material
+	}
 	identity = normalizedStudyIdentity(identity)
 	var refs []domain.StudyOccurrenceRef
 	for page := 1; ; page++ {
@@ -53,6 +56,9 @@ func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, 
 // with how often the word occurs (#2705). source should carry its locator, so
 // an occurrence an Analysis update re-published is found in its new run.
 func (s *PostgresStore) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	if identity.IsIdiom() {
+		return nil, nil
+	}
 	identity = normalizedStudyIdentity(identity)
 	if refs, err := s.studySourceOccurrence(ctx, owner, identity, source); err != nil || len(refs) > 0 {
 		return refs, err

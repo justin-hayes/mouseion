@@ -219,7 +219,10 @@ func studyIdentityBefore(a, b StudyItem) bool {
 	if a.UPOS != b.UPOS {
 		return a.UPOS < b.UPOS
 	}
-	return a.LexicalDiscriminator < b.LexicalDiscriminator
+	if a.LexicalDiscriminator != b.LexicalDiscriminator {
+		return a.LexicalDiscriminator < b.LexicalDiscriminator
+	}
+	return a.ItemKind < b.ItemKind
 }
 
 // FluencyResponse is the learner's answer to a Fluency card. Fluency is

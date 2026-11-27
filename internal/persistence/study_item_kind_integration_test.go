@@ -68,7 +68,9 @@ func TestStudyItemKindKeepsAWordAndAnIdiomApart(t *testing.T) {
 	require.NoError(t, exec(insertProgress, owner.ID, "idiom", "", idiomMaterial), "an Idiom with the word's key text has its own progress")
 	require.Error(t, exec(insertProgress, owner.ID, "word", "NOUN", wordMaterial), "a word has one progress row")
 	require.Error(t, exec(insertProgress, owner.ID, "idiom", "", idiomMaterial), "an Idiom has one progress row")
-	require.Error(t, exec(insertProgress, owner.ID, "idiom", "", wordMaterial), "progress carries its material's kind")
+
+	require.Error(t, exec(`INSERT INTO study_progress (owner_id, item_kind, language, canonical_lemma, upos, material_id, introduced_at, learned_meaning, due)
+		VALUES ($1,'idiom','de','other','',$2,now(),'x',now())`, owner.ID, wordMaterial), "progress carries its material's kind")
 
 	var wordProgress, idiomProgress string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT id::text FROM study_progress WHERE owner_id=$1 AND item_kind='word'`, owner.ID).Scan(&wordProgress))
@@ -95,7 +97,9 @@ func TestStudyItemKindKeepsAWordAndAnIdiomApart(t *testing.T) {
 			book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, created_at)
 		VALUES ($1,$2,'de','haus',$3,'',$4,$5,'wrong_word',$6,$7,$8,0,0,'Das Haus steht.','Haus','house','The house stands.',now())`
 	require.NoError(t, exec(insertReport, owner.ID, "word", "NOUN", wordProgress, wordMaterial, book.ID, run, corpus))
-	require.Error(t, exec(insertReport, owner.ID, "word", "NOUN", wordProgress, idiomMaterial, book.ID, run, corpus), "a report carries its material's kind")
+	require.Error(t, exec(`INSERT INTO study_report (owner_id, item_kind, language, canonical_lemma, upos, progress_id, material_id, kind,
+			book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation, created_at)
+		VALUES ($1,'word','de','other','NOUN',NULL,$2,'unsuitable_context',$3,$4,$5,0,0,'s','t','g','x',now())`, owner.ID, idiomMaterial, book.ID, run, corpus), "a report carries its material's kind")
 	require.Error(t, exec(insertReport, owner.ID, "idiom", "", wordProgress, idiomMaterial, book.ID, run, corpus), "a report carries its progress's kind")
 	require.NoError(t, exec(insertReport, owner.ID, "idiom", "", idiomProgress, idiomMaterial, book.ID, run, corpus), "an Idiom with the word's key text is held on its own")
 }

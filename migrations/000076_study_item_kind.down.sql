@@ -19,6 +19,8 @@ DELETE FROM public.study_review_log l
 DELETE FROM public.study_material WHERE item_kind = 'idiom';
 
 ALTER TABLE public.study_report
+    DROP CONSTRAINT study_report_previous_material_fkey,
+    ADD CONSTRAINT study_report_previous_material_fkey FOREIGN KEY (owner_id, previous_material_id) REFERENCES public.study_material(owner_id, id),
     DROP CONSTRAINT study_report_progress_fkey,
     ADD CONSTRAINT study_report_progress_fkey FOREIGN KEY (owner_id, progress_id) REFERENCES public.study_progress(owner_id, id) ON DELETE SET NULL (progress_id),
     DROP CONSTRAINT study_report_material_fkey,

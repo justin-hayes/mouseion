@@ -13,7 +13,7 @@
 -- This migration is structural DDL only; ADR 0038's separate-backfill rule has
 -- nothing to separate. Every existing row is a word, which is the constant
 -- column default, so Postgres fills it without a rewrite and no data backfill
--- exists. The migration is idempotent in effect (a second run fails on the
+-- exists. Forward-only in production (ADR 0038, ADR 0070). The migration is idempotent in effect (a second run fails on the
 -- existing column and changes nothing), and the schema adds no idiom
 -- behaviour: only word items are created until a later ticket.
 
@@ -80,6 +80,8 @@ ALTER TABLE public.study_fluency_context
 ALTER TABLE public.study_report
     DROP CONSTRAINT study_report_material_fkey,
     ADD CONSTRAINT study_report_material_fkey FOREIGN KEY (owner_id, material_id, item_kind) REFERENCES public.study_material(owner_id, id, item_kind),
+    DROP CONSTRAINT study_report_previous_material_fkey,
+    ADD CONSTRAINT study_report_previous_material_fkey FOREIGN KEY (owner_id, previous_material_id, item_kind) REFERENCES public.study_material(owner_id, id, item_kind),
     DROP CONSTRAINT study_report_progress_fkey,
     ADD CONSTRAINT study_report_progress_fkey FOREIGN KEY (owner_id, progress_id, item_kind) REFERENCES public.study_progress(owner_id, id, item_kind) ON DELETE SET NULL (progress_id);
 
