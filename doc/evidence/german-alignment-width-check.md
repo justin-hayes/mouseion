@@ -4,7 +4,7 @@ Issue: #2782 (parent #2759). Research only: no code or contract change and no pr
 
 ## Question
 
-The Greek evidence run (`doc/evidence/greek-study-evidence-run-2026-11-26.md` on `issue-2767-greek-study-switch`) showed English highlights wider than the target, for example "with three hundred Greek hoplites" for ἔχων. The modern contextual-Gloss contract words its alignment instruction the same way, so does German show the same fault?
+The Greek evidence run (`doc/evidence/greek-study-evidence-run-2026-11-27.md`) showed English highlights wider than the target, for example "with three hundred Greek hoplites" for ἔχων. The modern contextual-Gloss contract words its alignment instruction the same way, so does German show the same fault?
 
 ## What data exists
 

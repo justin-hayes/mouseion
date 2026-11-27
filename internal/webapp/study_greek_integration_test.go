@@ -186,6 +186,8 @@ func TestGreekStudyIntroducesAWordWithItsCitedMeaning(t *testing.T) {
 	assert.Contains(t, answer, "word (gloss)", "the Meaning row")
 	assert.Contains(t, answer, "He sees the word.", "the Translation row")
 	assert.Contains(t, answer, `id="study-headword"`, "the Word row")
+	assert.Regexp(t, `id="study-headword"[^>]*>λόγος</dd>`, answer, "the Word row shows the word-final ς")
+	assert.Regexp(t, `<span lang="grc">\s*λόγος\s*</span>`, answer, "the Dictionary headword shows ς")
 
 	assertGreekCardBack(t, answer)
 
