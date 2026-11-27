@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/idiom"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 )
 
 // idiomReviewStore is what checking an Idiom against current evidence reads and
@@ -22,6 +24,7 @@ type idiomReviewStore interface {
 	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
 	SupersedeStudyMaterial(ctx context.Context, owner, materialID string) error
 	SetStudyWordWithdrawn(ctx context.Context, owner, progressID string, withdrawn bool, now time.Time) error
+	ListStudyIdiomSentenceRefs(ctx context.Context, owner, language, headword string, words []string) ([]persistence.StudyIdiomSentenceRef, error)
 }
 
 // ReviewIdiom checks one Idiom in study against current evidence and applies
@@ -44,10 +47,10 @@ func (s *Service) ReviewIdiom(ctx context.Context, owner string, word domain.Stu
 	if s.idioms == nil || s.idioms.Index == nil {
 		return false, nil
 	}
-	return reviewIdiom(ctx, s.store, s.idioms, owner, word, now)
+	return reviewIdiom(ctx, s.store, s.idioms, s.idioms.active(word.Language), owner, word, now)
 }
 
-func reviewIdiom(ctx context.Context, store idiomReviewStore, avoidance *IdiomAvoidance, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
+func reviewIdiom(ctx context.Context, store idiomReviewStore, avoidance *IdiomAvoidance, active bool, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
 	if !word.IsIdiom() {
 		return false, nil
 	}
@@ -63,17 +66,21 @@ func reviewIdiom(ctx context.Context, store idiomReviewStore, avoidance *IdiomAv
 		}
 	}
 	switch {
-	case !hasCandidate && pending == 0:
+	case !hasCandidate && pending > 0:
+		// A Book's counts are not ready: it may hold candidates, so it does not
+		// count as having none. Nothing changes until the counts are rebuilt.
+		return false, nil
+	case !hasCandidate:
 		if word.Withdrawn {
 			return false, nil
 		}
 		return true, ignoreMissing(store.SetStudyWordWithdrawn(ctx, owner, word.ID, true, now))
-	case word.Withdrawn && hasCandidate:
-		return returnIdiom(ctx, store, owner, word, now)
-	case word.Withdrawn:
-		// A Book's counts are not ready: it may hold candidates, so the Idiom
-		// is not counted as having none, and it does not return on a guess.
+	case !active:
+		// With the language's switch off no Idiom material is prepared, so a
+		// replacement would never arrive: the Idiom keeps its reviews as they are.
 		return false, nil
+	case word.Withdrawn:
+		return returnIdiom(ctx, store, avoidance, owner, word, now)
 	}
 	material, err := store.GetStudyMaterial(ctx, owner, word.MaterialID)
 	if errors.Is(err, domain.ErrNotFound) {
@@ -91,9 +98,9 @@ func reviewIdiom(ctx context.Context, store idiomReviewStore, avoidance *IdiomAv
 
 // returnIdiom brings a withdrawn Idiom back when evidence reappears, and
 // replaces its material so it is re-introduced in a current sentence. One
-// withdrawn because its material was unpreparable stays withdrawn: the counts
-// say nothing new about its sentences.
-func returnIdiom(ctx context.Context, store idiomReviewStore, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
+// withdrawn because its material was unpreparable stays withdrawn until its
+// sentences differ from the ones that attempt saw.
+func returnIdiom(ctx context.Context, store idiomReviewStore, avoidance *IdiomAvoidance, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
 	all, err := store.ListCurrentStudyMaterial(ctx, owner, word.Language)
 	if err != nil {
 		return false, err
@@ -106,7 +113,11 @@ func returnIdiom(ctx context.Context, store idiomReviewStore, owner string, word
 		}
 	}
 	if current.State == domain.StudyMaterialUnpreparable {
-		return false, nil
+		// It returns only on evidence the failed attempt did not see.
+		seen, err := idiomEvidence(ctx, store, avoidance, owner, word.StudyItem)
+		if err != nil || current.EvidenceFingerprint == domain.StudyEvidenceFingerprint(seen) {
+			return false, err
+		}
 	}
 	if err := store.SetStudyWordWithdrawn(ctx, owner, word.ID, false, now); err != nil {
 		return false, ignoreMissing(err)
@@ -132,11 +143,22 @@ func introducingSentenceMatches(ctx context.Context, store idiomReviewStore, avo
 	}
 	headword, _ := word.Headword()
 	reader := &idiomReader{avoidance: avoidance, index: idiom.NewCachedIndex(avoidance.Index), language: canonicalization.NormalizeLanguage(word.Language)}
-	if _, found, err := reader.entry(ctx, headword); err != nil || !found {
+	entry, found, err := reader.entry(ctx, headword)
+	if err != nil || !found {
 		// A refresh dropped the headword: its Corpus counts say so once they
 		// are rebuilt, and the Idiom is withdrawn then. Until then there is
 		// no sentence to compare it with.
 		return true, err
+	}
+	// The sentence must still be in a current analysis of a Book in My Books.
+	refs, err := store.ListStudyIdiomSentenceRefs(ctx, owner, reader.language, entry.Headword, entry.Words)
+	if err != nil {
+		return false, err
+	}
+	if !slices.ContainsFunc(refs, func(ref persistence.StudyIdiomSentenceRef) bool {
+		return ref.BookID == source.BookID && ref.AnalysisRunID == source.AnalysisRunID && ref.SentenceOrdinal == source.SentenceOrdinal
+	}) {
+		return false, nil
 	}
 	candidates, err := idiom.CandidatesInSentence(ctx, reader.index, avoidance.Parameters, reader.language, sentence)
 	if err != nil {
@@ -148,4 +170,26 @@ func introducingSentenceMatches(ctx context.Context, store idiomReviewStore, avo
 		}
 	}
 	return false, nil
+}
+
+// idiomEvidence names the candidate sentences the Idiom has now, as the
+// evidence an unpreparable attempt saw and a later check compares with.
+func idiomEvidence(ctx context.Context, store interface {
+	ListStudyIdiomSentenceRefs(ctx context.Context, owner, language, headword string, words []string) ([]persistence.StudyIdiomSentenceRef, error)
+}, avoidance *IdiomAvoidance, owner string, item domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
+	headword, _ := item.Headword()
+	reader := &idiomReader{avoidance: avoidance, index: idiom.NewCachedIndex(avoidance.Index), language: canonicalization.NormalizeLanguage(item.Language)}
+	entry, found, err := reader.entry(ctx, headword)
+	if err != nil || !found {
+		return nil, err
+	}
+	refs, err := store.ListStudyIdiomSentenceRefs(ctx, owner, reader.language, entry.Headword, entry.Words)
+	if err != nil {
+		return nil, err
+	}
+	seen := make([]domain.StudyOccurrenceRef, len(refs))
+	for i, ref := range refs {
+		seen[i] = domain.StudyOccurrenceRef{BookID: ref.BookID, AnalysisRunID: ref.AnalysisRunID, CorpusID: ref.CorpusID, SentenceOrdinal: ref.SentenceOrdinal}
+	}
+	return seen, nil
 }

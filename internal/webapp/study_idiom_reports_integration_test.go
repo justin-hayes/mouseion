@@ -156,6 +156,7 @@ func TestStudyExclusionThatBreaksAnIdiomsMatchReintroducesItWithItsProgressKept(
 	// The learner excludes "haus" in the introducing sentence, so the sentence
 	// no longer holds "mit dem haus".
 	s.decide(s.idiomBook(original), "haus", original.SentenceOrdinal, "exclude", "")
+	s.rebuildIdiomCounts(original.BookID)
 
 	s.page()
 	waiting := s.progressByID(idiom.ID)
@@ -168,6 +169,12 @@ func TestStudyExclusionThatBreaksAnIdiomsMatchReintroducesItWithItsProgressKept(
 	assert.Equal(t, idiom.Memory, replaced.Memory)
 	assert.Len(t, s.reviewLog(idiom.ID), log, "a correction never creates a review")
 	assert.False(t, replaced.Withdrawn)
+}
+
+// rebuildIdiomCounts is the job that follows a decision in the Book.
+func (s *studyHarness) rebuildIdiomCounts(bookID string) {
+	s.t.Helper()
+	s.buildIdiomCounts(domain.Book{ID: bookID}, newFakeIdiomLookup(germanIdiom("mit dem haus")))
 }
 
 func TestStudyAnIdiomWhoseIntroducingMatchStandsIsLeftAlone(t *testing.T) {
