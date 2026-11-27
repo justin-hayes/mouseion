@@ -35,6 +35,11 @@ const (
 	// between homographs (Lewis & Short for Latin; every competing LSJ entry
 	// for Greek Study, ADR 0139).
 	LookupEveryEntry
+	// LookupCompetingEntries is LookupEveryEntry narrowed to the entries that can
+	// be the lemma's own: entries of the lemma's capitalisation (the other
+	// capitalisation only when none has it), and entries with a citable sense
+	// (every entry when none has one). Latin Study uses it (#2793).
+	LookupCompetingEntries
 )
 
 // TranslationSource is where a language's passage-context translations come
@@ -185,7 +190,7 @@ var (
 		Translations:         TranslationPerseus,
 		SentenceBoundary:     BoundaryTerminalMark,
 		DictionaryLookup:     LookupEveryEntry,
-		StudyLookup:          LookupEveryEntry,
+		StudyLookup:          LookupCompetingEntries,
 	}
 	modern = Policy{
 		Study:            true,

@@ -396,3 +396,16 @@ func evidenceIDs(senses []enrichment.LexicalSense) []string {
 	}
 	return ids
 }
+
+func TestLatinStudyKeepsACitedEntryTheNarrowingWouldDrop(t *testing.T) {
+	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"marcus": {
+		{EntryID: "n1", Headword: "Marcus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n1.0", "a praenomen")}},
+		{EntryID: "n2", Headword: "marcus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n2.0", "a hammer")}},
+	}}}
+
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "marcus", map[SenseRef]struct{}{{"n1", "n1.0"}: {}})
+
+	require.True(t, ok)
+	require.Len(t, resolution.Entries, 2, "the cited entry stays on the card")
+	assert.True(t, resolution.Entries[0].Outline[0].Cited)
+}

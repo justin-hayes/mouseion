@@ -96,17 +96,17 @@ type Resolution struct {
 // entry senses to flag. It resolves nothing for a policy with no dictionary, a
 // provider without the capability, or a lemma with no usable entry.
 func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	return resolve(ctx, lexical, policy, policy.DictionaryLookup, false, lemma, cited)
+	return resolve(ctx, lexical, policy, policy.DictionaryLookup, lemma, cited)
 }
 
 // ResolveStudy is Resolve under the policy's Study lookup rule (ADR 0139): Greek
 // Study takes every competing LSJ entry in source order where the deck takes
 // exactly one.
 func ResolveStudy(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	return resolve(ctx, lexical, policy, policy.StudyLookup, true, lemma, cited)
+	return resolve(ctx, lexical, policy, policy.StudyLookup, lemma, cited)
 }
 
-func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, rule cardpolicy.Lookup, study bool, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, rule cardpolicy.Lookup, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	if lexical == nil {
 		return Resolution{}, false
 	}
@@ -117,7 +117,7 @@ func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy car
 		}
 		return resolveLSJ(ctx, lexical, lemma, cited)
 	case cardpolicy.EntryLewisShort:
-		return resolveLewisShort(ctx, lexical, study, lemma, cited)
+		return resolveLewisShort(ctx, lexical, rule == cardpolicy.LookupCompetingEntries, lemma, cited)
 	case cardpolicy.EntryNone:
 	}
 	return Resolution{}, false
@@ -176,9 +176,10 @@ func BuildLSJ(matched enrichment.AncientGreekLSJEntry, cited map[SenseRef]struct
 	return Entry{ID: matched.EntryID, LSJ: matched, Senses: senses, Outline: outlineOf(matched.EntryID, senses, cited)}
 }
 
-// resolveLewisShort stacks the lemma's Lewis & Short entries. Study narrows them
-// first (competingLewisShort); the Prepared deck keeps every entry under the key.
-func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, study bool, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+// resolveLewisShort stacks the lemma's Lewis & Short entries. When the policy's
+// rule is LookupCompetingEntries (Study) they are narrowed first
+// (competingLewisShort); the Prepared deck keeps every entry under the key.
+func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, narrow bool, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	provider, ok := lexical.(enrichment.LatinLSProvider)
 	if !ok {
 		return Resolution{}, false
@@ -193,8 +194,8 @@ func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, 
 			kept = append(kept, candidate)
 		}
 	}
-	if study {
-		kept = competingLewisShort(kept, lemma)
+	if narrow {
+		kept = competingLewisShort(kept, lemma, cited)
 	}
 	targets := map[string]enrichment.LatinLSEntry{}
 	for _, candidate := range kept {
@@ -218,7 +219,7 @@ func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, 
 // entry with no citable sense, such as a participle's cross-reference stub, never
 // displaces an entry that has one; when every entry is senseless they all stay,
 // so the card can show the targets they resolve to.
-func competingLewisShort(entries []enrichment.LatinLSEntry, lemma string) []enrichment.LatinLSEntry {
+func competingLewisShort(entries []enrichment.LatinLSEntry, lemma string, cited map[SenseRef]struct{}) []enrichment.LatinLSEntry {
 	capitalised := startsCapitalised(lemma)
 	var sameCase, otherCase []enrichment.LatinLSEntry
 	for _, entry := range entries {
@@ -238,9 +239,21 @@ func competingLewisShort(entries []enrichment.LatinLSEntry, lemma string) []enri
 		}
 	}
 	if len(citable) == 0 {
-		return sameCase
+		citable = sameCase
 	}
-	return citable
+	// An entry the Gloss cited stays on the card even when a newer pin's
+	// narrowing would drop it.
+	return slices.DeleteFunc(slices.Clone(entries), func(entry enrichment.LatinLSEntry) bool {
+		return !slices.ContainsFunc(citable, func(kept enrichment.LatinLSEntry) bool { return kept.EntryID == entry.EntryID }) && !holdsCitedSense(entry, cited)
+	})
+}
+
+// holdsCitedSense reports whether the entry holds a sense in cited.
+func holdsCitedSense(entry enrichment.LatinLSEntry, cited map[SenseRef]struct{}) bool {
+	return slices.ContainsFunc(entry.Senses, func(sense enrichment.LatinLSSense) bool {
+		_, ok := cited[SenseRef{entry.EntryID, sense.ID}]
+		return ok
+	})
 }
 
 // hasCitableSense reports whether the entry has a sense a Gloss could cite: one
