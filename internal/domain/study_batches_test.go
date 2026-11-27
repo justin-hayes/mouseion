@@ -136,9 +136,9 @@ func TestNextStudyBatchLeadsWithTheCarryOverAndFillsFromTheStream(t *testing.T) 
 	var ordered []StudyCandidate
 	var material []StudyMaterial
 	for i := range 12 {
-		identity := StudyIdentity{Language: "de", CanonicalLemma: fmt.Sprintf("w%02d", i), UPOS: "NOUN"}
-		ordered = append(ordered, StudyCandidate{StudyIdentity: identity})
-		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyIdentity: identity, State: StudyMaterialReady})
+		identity := StudyItem{Language: "de", CanonicalLemma: fmt.Sprintf("w%02d", i), UPOS: "NOUN"}
+		ordered = append(ordered, StudyCandidate{StudyItem: identity})
+		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyItem: identity, State: StudyMaterialReady})
 	}
 	batch := NextStudyBatch(ordered, material, carried, nil, now)
 	require.Len(t, batch, StudyBatchSize, "the carry-over counts towards the batch size")
@@ -163,9 +163,9 @@ func TestStudyBatchIsShortOnlyWhileWordsArePreparing(t *testing.T) {
 
 func batchStream(n int) (ordered []StudyCandidate, material []StudyMaterial) {
 	for i := range n {
-		identity := StudyIdentity{Language: "de", CanonicalLemma: fmt.Sprintf("w%02d", i), UPOS: "NOUN"}
-		ordered = append(ordered, StudyCandidate{StudyIdentity: identity})
-		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyIdentity: identity, State: StudyMaterialReady})
+		identity := StudyItem{Language: "de", CanonicalLemma: fmt.Sprintf("w%02d", i), UPOS: "NOUN"}
+		ordered = append(ordered, StudyCandidate{StudyItem: identity})
+		material = append(material, StudyMaterial{ID: "m" + identity.CanonicalLemma, StudyItem: identity, State: StudyMaterialReady})
 	}
 	return ordered, material
 }
@@ -173,7 +173,7 @@ func batchStream(n int) (ordered []StudyCandidate, material []StudyMaterial) {
 func TestNextStudyBatchSkipsHeldWordsAndFillsFromTheNextCandidate(t *testing.T) {
 	now := berlin(11, 26, 9, 0)
 	ordered, material := batchStream(12)
-	held := []StudyIdentity{ordered[0].StudyIdentity, ordered[3].StudyIdentity}
+	held := []StudyItem{ordered[0].StudyItem, ordered[3].StudyItem}
 
 	batch := NextStudyBatch(ordered, material, nil, held, now)
 
@@ -209,12 +209,12 @@ func TestAHeldWordIsNotCarriedOverOrWaitingToBeAnswered(t *testing.T) {
 }
 
 func TestStudyHeldIdentitiesAreTheOpenWrongWordReports(t *testing.T) {
-	a := StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "NOUN"}
-	b := StudyIdentity{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}
+	a := StudyItem{Language: "de", CanonicalLemma: "a", UPOS: "NOUN"}
+	b := StudyItem{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}
 	reports := []StudyReport{
-		{StudyIdentity: a, Kind: StudyReportWrongWord},
-		{StudyIdentity: b, Kind: StudyReportUnsuitableContext},
-		{StudyIdentity: b, Kind: StudyReportWrongWord, EndedAt: berlin(11, 26, 9, 0)},
+		{StudyItem: a, Kind: StudyReportWrongWord},
+		{StudyItem: b, Kind: StudyReportUnsuitableContext},
+		{StudyItem: b, Kind: StudyReportWrongWord, EndedAt: berlin(11, 26, 9, 0)},
 	}
-	assert.Equal(t, []StudyIdentity{a}, StudyHeldIdentities(reports))
+	assert.Equal(t, []StudyItem{a}, StudyHeldIdentities(reports))
 }

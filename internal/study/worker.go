@@ -36,12 +36,12 @@ type MaterialStore interface {
 	// ListStudyOccurrences and SetStudyMaterialEvidence record what an attempt
 	// saw when a word is found unpreparable, so it is not tried again on the
 	// same evidence.
-	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	SetStudyMaterialEvidence(ctx context.Context, owner, id, evidence string) error
 	// ListRetiredStudyOccurrencesOfWord names the occurrences the learner
 	// reported as an unsuitable context for the word (ADR 0135 §3). They are
 	// never chosen again, whatever Analysis run they are now in.
-	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 }
 
 // Enricher is the per-word enrichment entry point: a contextual Gloss for a
@@ -96,12 +96,12 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 	if policy := cardpolicy.For(material.Language); policy.SourceEvidence {
 		return w.workSourceEvidence(ctx, owner, material, policy)
 	}
-	evidence, found, err := w.representativeSentence(ctx, owner, material.StudyIdentity)
+	evidence, found, err := w.representativeSentence(ctx, owner, material.StudyItem)
 	if err != nil {
 		return err
 	}
 	if !found {
-		return w.unpreparable(ctx, owner, id, material.StudyIdentity, domain.StudyOmissionSentenceQuality)
+		return w.unpreparable(ctx, owner, id, material.StudyItem, domain.StudyOmissionSentenceQuality)
 	}
 	meaning, err := w.Enricher.EnrichExternalContextual(ctx, enrichment.Candidate{
 		Language: material.Language, CanonicalLemma: material.CanonicalLemma, UPOS: material.UPOS,
@@ -115,7 +115,7 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 		return err
 	}
 	if !meaning.Resolved() || strings.TrimSpace(meaning.SentenceTranslation) == "" {
-		return w.unpreparable(ctx, owner, id, material.StudyIdentity, domain.StudyOmissionMeaning)
+		return w.unpreparable(ctx, owner, id, material.StudyItem, domain.StudyOmissionMeaning)
 	}
 	return w.Store.RecordStudyMaterialReady(ctx, owner, id, domain.StudyMaterialReadyContent{
 		BookID: evidence.occurrence.BookID, AnalysisRunID: evidence.occurrence.AnalysisRunID, CorpusID: evidence.occurrence.CorpusID,
@@ -127,7 +127,7 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 }
 
 // unpreparable records the occurrences the attempt saw and then the omission.
-func (w *MaterialWorker) unpreparable(ctx context.Context, owner, id string, identity domain.StudyIdentity, reason string) error {
+func (w *MaterialWorker) unpreparable(ctx context.Context, owner, id string, identity domain.StudyItem, reason string) error {
 	if err := w.recordSeenEvidence(ctx, owner, id, identity); err != nil {
 		return err
 	}
@@ -136,14 +136,14 @@ func (w *MaterialWorker) unpreparable(ctx context.Context, owner, id string, ide
 
 // unpreparableNoDictionaryEntry records the occurrences the attempt saw and then
 // the no-dictionary-entry omission with the pin of the dictionary that was asked.
-func (w *MaterialWorker) unpreparableNoDictionaryEntry(ctx context.Context, owner, id string, identity domain.StudyIdentity, pin string) error {
+func (w *MaterialWorker) unpreparableNoDictionaryEntry(ctx context.Context, owner, id string, identity domain.StudyItem, pin string) error {
 	if err := w.recordSeenEvidence(ctx, owner, id, identity); err != nil {
 		return err
 	}
 	return w.Store.RecordStudyMaterialNoDictionaryEntry(ctx, owner, id, pin)
 }
 
-func (w *MaterialWorker) recordSeenEvidence(ctx context.Context, owner, id string, identity domain.StudyIdentity) error {
+func (w *MaterialWorker) recordSeenEvidence(ctx context.Context, owner, id string, identity domain.StudyItem) error {
 	seen, err := w.Store.ListStudyOccurrences(ctx, owner, identity)
 	if err != nil {
 		return err
@@ -174,7 +174,7 @@ type sentenceChoice struct {
 // library's. The concordance lists the Current reading's occurrences first and
 // is read page by page until the choice is settled or the evidence is
 // exhausted, so found is false only when every occurrence fails the gate.
-func (w *MaterialWorker) representativeSentence(ctx context.Context, owner string, identity domain.StudyIdentity) (sentenceChoice, bool, error) {
+func (w *MaterialWorker) representativeSentence(ctx context.Context, owner string, identity domain.StudyItem) (sentenceChoice, bool, error) {
 	reading, err := w.Store.GetCurrentReading(ctx, owner, identity.Language)
 	if err != nil {
 		return sentenceChoice{}, false, err
@@ -322,7 +322,7 @@ func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
 // sentence the gate accepts. An occurrence belongs to the identity only when
 // its effective lexical discriminator matches: a corrected occurrence carries
 // none, and any other carries its token's. A retired occurrence is skipped.
-func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
+func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyItem, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
 	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences, retired, reader)
 }
 
@@ -331,7 +331,7 @@ type sentenceReader interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 }
 
-func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
+func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyItem, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
 	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
 	for _, occurrence := range occurrences {

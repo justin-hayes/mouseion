@@ -74,7 +74,7 @@ const StudyWithdrawnNoSuitableContext = "no_suitable_context"
 // is currently reviewed in. It belongs to the word, never to a Book.
 type StudyProgress struct {
 	ID, OwnerID string
-	StudyIdentity
+	StudyItem
 	MaterialID     string
 	IntroducedAt   time.Time
 	LearnedMeaning string
@@ -174,7 +174,7 @@ type StudyRecaller interface {
 // StudyBatchWord is one word of a New-word batch with the Study material it
 // is introduced in.
 type StudyBatchWord struct {
-	StudyIdentity
+	StudyItem
 	MaterialID string
 	// ProgressID is set for a word carried over from an earlier Study day: it
 	// is already in study and is taken again rather than introduced.
@@ -247,11 +247,11 @@ var (
 // over too: held names the identities held by a report that left no Study
 // progress, and a held word in progress is never carried over. ordered must
 // already be in stream order.
-func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, held []StudyIdentity, now time.Time) []StudyBatchWord {
-	ready := make(map[StudyIdentity]string, len(material))
+func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, held []StudyItem, now time.Time) []StudyBatchWord {
+	ready := make(map[StudyItem]string, len(material))
 	for _, item := range material {
 		if item.State == StudyMaterialReady {
-			ready[item.StudyIdentity] = item.ID
+			ready[item.StudyItem] = item.ID
 		}
 	}
 	inStudy := studyIdentitySet(progress, held)
@@ -260,17 +260,17 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 		if len(batch) == StudyBatchSize {
 			return batch
 		}
-		batch = append(batch, StudyBatchWord{StudyIdentity: item.StudyIdentity, MaterialID: item.MaterialID, ProgressID: item.ID})
+		batch = append(batch, StudyBatchWord{StudyItem: item.StudyItem, MaterialID: item.MaterialID, ProgressID: item.ID})
 	}
 	for _, candidate := range ordered {
 		if len(batch) == StudyBatchSize {
 			break
 		}
-		id, ok := ready[candidate.StudyIdentity]
-		if !ok || inStudy[candidate.StudyIdentity] {
+		id, ok := ready[candidate.StudyItem]
+		if !ok || inStudy[candidate.StudyItem] {
 			continue
 		}
-		batch = append(batch, StudyBatchWord{StudyIdentity: candidate.StudyIdentity, MaterialID: id})
+		batch = append(batch, StudyBatchWord{StudyItem: candidate.StudyItem, MaterialID: id})
 	}
 	return batch
 }
@@ -279,12 +279,12 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 // with from the stream: words whose material is ready and that are not in
 // study or held. Only these need their place in the stream, so a store need not
 // read the other candidates.
-func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress, held []StudyIdentity) []StudyIdentity {
+func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress, held []StudyItem) []StudyItem {
 	inStudy := studyIdentitySet(progress, held)
-	var identities []StudyIdentity
+	var identities []StudyItem
 	for _, item := range material {
-		if item.State == StudyMaterialReady && !inStudy[item.StudyIdentity] {
-			identities = append(identities, item.StudyIdentity)
+		if item.State == StudyMaterialReady && !inStudy[item.StudyItem] {
+			identities = append(identities, item.StudyItem)
 		}
 	}
 	return identities
@@ -293,11 +293,11 @@ func StudyBatchLookup(material []StudyMaterial, progress []StudyProgress, held [
 // WithoutStudyProgress drops the candidates already in study or held by a
 // report, so preparation and batches only look ahead at new words that can be
 // introduced.
-func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress, held []StudyIdentity) []StudyCandidate {
+func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress, held []StudyItem) []StudyCandidate {
 	inStudy := studyIdentitySet(progress, held)
 	remaining := make([]StudyCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
-		if !inStudy[candidate.StudyIdentity] {
+		if !inStudy[candidate.StudyItem] {
 			remaining = append(remaining, candidate)
 		}
 	}
@@ -306,10 +306,10 @@ func WithoutStudyProgress(candidates []StudyCandidate, progress []StudyProgress,
 
 // studyIdentitySet is the words a batch cannot introduce: those in study and
 // those held by a report.
-func studyIdentitySet(progress []StudyProgress, held []StudyIdentity) map[StudyIdentity]bool {
-	set := make(map[StudyIdentity]bool, len(progress)+len(held))
+func studyIdentitySet(progress []StudyProgress, held []StudyItem) map[StudyItem]bool {
+	set := make(map[StudyItem]bool, len(progress)+len(held))
 	for _, item := range progress {
-		set[item.StudyIdentity] = true
+		set[item.StudyItem] = true
 	}
 	for _, identity := range held {
 		set[identity] = true

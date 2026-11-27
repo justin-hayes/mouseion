@@ -40,7 +40,7 @@ SELECT c.canonical_lemma::text AS canonical_lemma,
  GROUP BY c.canonical_lemma, c.upos, c.lexical_discriminator;
 
 -- name: ListCurrentStudyMaterial :many
-SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
+SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
        COALESCE(book_id::text, '')::text AS book_id,
        COALESCE(analysis_run_id::text, '')::text AS analysis_run_id,
        COALESCE(corpus_id::text, '')::text AS corpus_id,
@@ -54,7 +54,7 @@ SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, s
  ORDER BY canonical_lemma, upos, lexical_discriminator;
 
 -- name: GetStudyMaterial :one
-SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
+SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
        COALESCE(book_id::text, '')::text AS book_id,
        COALESCE(analysis_run_id::text, '')::text AS analysis_run_id,
        COALESCE(corpus_id::text, '')::text AS corpus_id,
@@ -73,11 +73,11 @@ SELECT state, count(*)::bigint AS total
  GROUP BY state;
 
 -- name: ReserveStudyMaterial :one
--- Starts a word's material as pending. A word that already has current
+-- Starts a Study item's material as pending. A word that already has current
 -- material returns no row.
-INSERT INTO study_material (owner_id, language, canonical_lemma, upos, lexical_discriminator, state)
-VALUES (sqlc.arg('owner'), sqlc.arg('language'), sqlc.arg('canonical_lemma'), sqlc.arg('upos'), sqlc.arg('lexical_discriminator'), 'pending')
-ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) WHERE superseded_at IS NULL DO NOTHING
+INSERT INTO study_material (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state)
+VALUES (sqlc.arg('owner'), sqlc.arg('item_kind'), sqlc.arg('language'), sqlc.arg('canonical_lemma'), sqlc.arg('upos'), sqlc.arg('lexical_discriminator'), 'pending')
+ON CONFLICT (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator) WHERE superseded_at IS NULL DO NOTHING
 RETURNING id::text AS id;
 
 -- name: MarkStudyMaterialReady :execrows

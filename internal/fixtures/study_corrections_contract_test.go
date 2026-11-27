@@ -10,11 +10,11 @@ import (
 
 func (h *contractHarness) StudyCorrections() storecontract.StudyCorrectionsStore { return h }
 
-func (h *contractHarness) ListStudyOccurrences(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (h *contractHarness) ListStudyOccurrences(owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return h.store.ListStudyOccurrences(context.Background(), owner, identity)
 }
 
-func (h *contractHarness) FindStudyOccurrences(owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+func (h *contractHarness) FindStudyOccurrences(owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
 	return h.store.FindStudyOccurrences(context.Background(), owner, identity, source)
 }
 

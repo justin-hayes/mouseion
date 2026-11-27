@@ -30,10 +30,10 @@ func fluencyRecord(progressID string, ordinal int64, agreement domain.FluencyAgr
 }
 
 // gradedStudyWord introduces a word and returns its progress.
-func introducedStudyWord(t *testing.T, h Harness, owner string, identity domain.StudyIdentity) domain.StudyProgress {
+func introducedStudyWord(t *testing.T, h Harness, owner string, identity domain.StudyItem) domain.StudyProgress {
 	t.Helper()
 	materialID := readyStudyWord(t, h.Study(), owner, identity)
-	introduced, err := h.StudyProgress().TakeStudyBatch(owner, Language, "2026-11-25", time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC), 3, []domain.StudyBatchWord{{StudyIdentity: identity, MaterialID: materialID}})
+	introduced, err := h.StudyProgress().TakeStudyBatch(owner, Language, "2026-11-25", time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC), 3, []domain.StudyBatchWord{{StudyItem: identity, MaterialID: materialID}})
 	require.NoError(t, err)
 	require.Len(t, introduced, 1)
 	return introduced[0]

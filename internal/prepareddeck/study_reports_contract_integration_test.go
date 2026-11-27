@@ -35,7 +35,7 @@ func (h *postgresHarness) ListRetiredStudyOccurrences(owner, progressID string) 
 	return h.store.ListRetiredStudyOccurrences(h.ctx, owner, progressID)
 }
 
-func (h *postgresHarness) ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (h *postgresHarness) ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return h.store.ListRetiredStudyOccurrencesOfWord(h.ctx, owner, identity)
 }
 

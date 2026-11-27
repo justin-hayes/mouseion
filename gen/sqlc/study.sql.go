@@ -50,7 +50,7 @@ func (q *Queries) CountCurrentStudyMaterial(ctx context.Context, arg CountCurren
 }
 
 const getStudyMaterial = `-- name: GetStudyMaterial :one
-SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
+SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
        COALESCE(book_id::text, '')::text AS book_id,
        COALESCE(analysis_run_id::text, '')::text AS analysis_run_id,
        COALESCE(corpus_id::text, '')::text AS corpus_id,
@@ -70,6 +70,7 @@ type GetStudyMaterialParams struct {
 
 type GetStudyMaterialRow struct {
 	ID                         string
+	ItemKind                   string
 	Language                   string
 	CanonicalLemma             string
 	Upos                       string
@@ -103,6 +104,7 @@ func (q *Queries) GetStudyMaterial(ctx context.Context, arg GetStudyMaterialPara
 	var i GetStudyMaterialRow
 	err := row.Scan(
 		&i.ID,
+		&i.ItemKind,
 		&i.Language,
 		&i.CanonicalLemma,
 		&i.Upos,
@@ -172,7 +174,7 @@ func (q *Queries) GetStudyOccurrenceLocator(ctx context.Context, arg GetStudyOcc
 }
 
 const listCurrentStudyMaterial = `-- name: ListCurrentStudyMaterial :many
-SELECT id::text AS id, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
+SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state, omission_reason,
        COALESCE(book_id::text, '')::text AS book_id,
        COALESCE(analysis_run_id::text, '')::text AS analysis_run_id,
        COALESCE(corpus_id::text, '')::text AS corpus_id,
@@ -193,6 +195,7 @@ type ListCurrentStudyMaterialParams struct {
 
 type ListCurrentStudyMaterialRow struct {
 	ID                         string
+	ItemKind                   string
 	Language                   string
 	CanonicalLemma             string
 	Upos                       string
@@ -232,6 +235,7 @@ func (q *Queries) ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentS
 		var i ListCurrentStudyMaterialRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.ItemKind,
 			&i.Language,
 			&i.CanonicalLemma,
 			&i.Upos,
@@ -675,25 +679,27 @@ func (q *Queries) ReopenStudyMaterialNoDictionaryEntry(ctx context.Context, arg 
 }
 
 const reserveStudyMaterial = `-- name: ReserveStudyMaterial :one
-INSERT INTO study_material (owner_id, language, canonical_lemma, upos, lexical_discriminator, state)
-VALUES ($1, $2, $3, $4, $5, 'pending')
-ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) WHERE superseded_at IS NULL DO NOTHING
+INSERT INTO study_material (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, state)
+VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+ON CONFLICT (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator) WHERE superseded_at IS NULL DO NOTHING
 RETURNING id::text AS id
 `
 
 type ReserveStudyMaterialParams struct {
 	Owner                string
+	ItemKind             string
 	Language             string
 	CanonicalLemma       string
 	Upos                 string
 	LexicalDiscriminator string
 }
 
-// Starts a word's material as pending. A word that already has current
+// Starts a Study item's material as pending. A word that already has current
 // material returns no row.
 func (q *Queries) ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMaterialParams) (string, error) {
 	row := q.db.QueryRow(ctx, reserveStudyMaterial,
 		arg.Owner,
+		arg.ItemKind,
 		arg.Language,
 		arg.CanonicalLemma,
 		arg.Upos,

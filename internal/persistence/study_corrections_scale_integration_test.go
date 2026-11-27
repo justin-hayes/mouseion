@@ -36,8 +36,8 @@ func TestStudyCorrectionCheckStaysFastHoweverCommonTheWordIs(t *testing.T) {
 	books := seedScaleLibrary(t, ctx, store, owner.ID, library)
 	bookIndex := 5
 	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, books[bookIndex])
-	der := domain.StudyIdentity{Language: "de", CanonicalLemma: "der", UPOS: "DET"}
-	aufstehen := domain.StudyIdentity{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB"}
+	der := domain.StudyItem{Language: "de", CanonicalLemma: "der", UPOS: "DET"}
+	aufstehen := domain.StudyItem{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB"}
 
 	// occurrenceAt names the token a sentence's token holds, the way a Study
 	// word's introducing occurrence is located.
@@ -49,7 +49,7 @@ func TestStudyCorrectionCheckStaysFastHoweverCommonTheWordIs(t *testing.T) {
 			UnitID: fmt.Sprintf("epub-unit-v1:%d:scale-%d-%d", unitIndex, bookIndex, unitIndex), StartOffset: start, EndOffset: start + 5,
 		}
 	}
-	timed := func(identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, time.Duration) {
+	timed := func(identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, time.Duration) {
 		started := time.Now()
 		found, err := store.FindStudyOccurrences(ctx, owner.ID, identity, source)
 		elapsed := time.Since(started)
@@ -112,8 +112,8 @@ func TestStudyCorrectionCheckDecidesAsTheFullListingDoes(t *testing.T) {
 	books := seedScaleLibrary(t, ctx, store, owner.ID, library)
 	bookIndex := 1
 	corpus, run := currentSentenceStudyAnalysis(t, ctx, store, owner.ID, books[bookIndex])
-	der := domain.StudyIdentity{Language: "de", CanonicalLemma: "der", UPOS: "DET"}
-	aufstehen := domain.StudyIdentity{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB"}
+	der := domain.StudyItem{Language: "de", CanonicalLemma: "der", UPOS: "DET"}
+	aufstehen := domain.StudyItem{Language: "de", CanonicalLemma: "aufstehen", UPOS: "VERB"}
 	occurrenceAt := func(sentence, token int64) domain.StudyOccurrenceRef {
 		unitIndex, within := sentence/int64(library.sentencesPerUnit), sentence%int64(library.sentencesPerUnit)
 		start := within*60 + token*6
@@ -137,7 +137,7 @@ func TestStudyCorrectionCheckDecidesAsTheFullListingDoes(t *testing.T) {
 
 	for _, tc := range []struct {
 		name     string
-		identity domain.StudyIdentity
+		identity domain.StudyItem
 		source   domain.StudyOccurrenceRef
 	}{
 		{"source resolves", der, occurrenceAt(2, 0)},
@@ -147,9 +147,9 @@ func TestStudyCorrectionCheckDecidesAsTheFullListingDoes(t *testing.T) {
 		{"source corrected in", aufstehen, occurrenceAt(11, 0)},
 		{"source in a replaced run, found by its locator", der, moved},
 		{"source in a replaced run with no locator", der, unlocated},
-		{"source of another part of speech", domain.StudyIdentity{Language: "de", CanonicalLemma: "der", UPOS: "VERB"}, occurrenceAt(12, 0)},
+		{"source of another part of speech", domain.StudyItem{Language: "de", CanonicalLemma: "der", UPOS: "VERB"}, occurrenceAt(12, 0)},
 		{"source of another word", aufstehen, occurrenceAt(12, 0)},
-		{"unknown identity", domain.StudyIdentity{Language: "de", CanonicalLemma: "nirgendwo", UPOS: "NOUN"}, occurrenceAt(12, 0)},
+		{"unknown identity", domain.StudyItem{Language: "de", CanonicalLemma: "nirgendwo", UPOS: "NOUN"}, occurrenceAt(12, 0)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			full, err := store.ListStudyOccurrences(ctx, owner.ID, tc.identity)
