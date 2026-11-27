@@ -96,7 +96,7 @@ func TestStudyFluencyPreparesUpToFiveContextsForAMatureIdiomAndKeepsDisagreeingO
 		}
 		switch item.Sentence {
 		case "Mara ist nicht mit dem hauses.":
-			assert.Equal(t, domain.FluencyReasonNotThisLemma, item.Reason, "literal use")
+			assert.Equal(t, domain.FluencyReasonLiteralUse, item.Reason, "literal use")
 		case "Nina ist nicht mit dem haeusern.":
 			assert.Equal(t, domain.FluencyReasonDifferentMeaning, item.Reason, "another sense")
 			assert.Equal(t, "the idiom mit dem haus", item.Gloss, "a disagreeing context keeps its Gloss as evidence")

@@ -43,7 +43,7 @@ func (w *FluencyWorker) workIdiom(ctx context.Context, owner string, word domain
 	}
 	introducing := strings.TrimSpace(material.Sentence)
 	choices, err := idiomChoicesOf(ctx, w.Store, owner, reader, entry, retired, func(choice idiomChoice) bool {
-		return choice.sentence == introducing || assessed[occurrenceKey{choice.sentenceRef.AnalysisRunID, choice.sentenceRef.SentenceOrdinal, choice.sentenceRef.TokenOrdinal}]
+		return choice.sentence == introducing || (choice.sentenceRef.CorpusID == material.CorpusID && choice.sentenceRef.SentenceOrdinal == material.SentenceOrdinal) || assessed[occurrenceKey{choice.sentenceRef.AnalysisRunID, choice.sentenceRef.SentenceOrdinal, choice.sentenceRef.TokenOrdinal}]
 	})
 	if err != nil {
 		return err
@@ -126,7 +126,9 @@ func (w *FluencyWorker) assessIdiom(ctx context.Context, word domain.StudyProgre
 		}
 		return idiomAnswer(enrichment.FluencyReasonSameMeaning, meaning, cited), nil
 	case meaning.UnresolvedKind == enrichment.ContextualGlossUnresolvedLiteralUse:
-		return idiomDisagreement(enrichment.FluencyReasonNotThisLemma, meaning, domain.StudyCitations{}), nil
+		return idiomDisagreement(string(domain.FluencyReasonLiteralUse), meaning, domain.StudyCitations{}), nil
+	case meaning.UnresolvedKind == enrichment.ContextualGlossUnresolvedAmbiguous:
+		return idiomDisagreement(string(domain.FluencyReasonAmbiguous), meaning, domain.StudyCitations{}), nil
 	}
 	return idiomDisagreement(enrichment.FluencyReasonUndefendable, meaning, domain.StudyCitations{}), nil
 }

@@ -74,9 +74,9 @@ func TestRankFluencyCandidatesPrefersDifferentForms(t *testing.T) {
 	}
 	// Each pick adds a new set of features while one is left: the past form
 	// (its better sentence first), then the imperative and the split form. What
-	// is left repeats a form already chosen, so a second past sentence comes
-	// after a sentence of the introduced form.
-	want := []string{"e-past-again", "b-surface", "d-split", "a-same", "c-past"}
+	// is left comes last: a second past sentence still has a form other than the
+	// introduced one, so it is ranked before the sentence of the introduced form.
+	want := []string{"e-past-again", "b-surface", "d-split", "c-past", "a-same"}
 	if len(keys) != len(want) {
 		t.Fatalf("got %v, want %v", keys, want)
 	}
@@ -148,4 +148,18 @@ func TestRankFluencyCandidatesPutsIdiomCandidatesLast(t *testing.T) {
 	require.Len(t, ranked, 2)
 	require.Equal(t, "b", ranked[0].Key, "outside an Idiom candidate leads, whatever the form, reading or quality")
 	require.Equal(t, "a", ranked[1].Key)
+}
+
+func TestRankFluencyCandidatesNeverPutsTheIntroducedFormAheadOfAnotherForm(t *testing.T) {
+	introduced := FluencyForm{Surface: "haus", Features: "Case=Nom"}
+	plural := FluencyForm{Surface: "haeuser", Features: "Case=Nom|Number=Plur"}
+	candidates := []FluencyCandidate{
+		// Better in the Current reading and quality, but of the introducing form.
+		{Key: "a", Form: introduced, InCurrentReading: true, Quality: 9},
+		{Key: "b", Form: plural, Quality: 1},
+		{Key: "c", Form: plural, Quality: 1},
+	}
+	ranked := RankFluencyCandidates(introduced, candidates)
+	require.Len(t, ranked, 3)
+	require.Equal(t, "a", ranked[2].Key, "a context of the introducing form comes after every other form, even a repeat of one already chosen")
 }

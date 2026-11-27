@@ -65,12 +65,16 @@ const (
 	// flag.
 	FluencyReasonNotThisLemma FluencyReason = "not-this-lemma"
 	FluencyReasonUndefendable FluencyReason = "undefendable"
+	// FluencyReasonLiteralUse and FluencyReasonAmbiguous are an Idiom context's
+	// outcomes of the idiom-card request that is not a confirmed Gloss.
+	FluencyReasonLiteralUse FluencyReason = "literal-use"
+	FluencyReasonAmbiguous  FluencyReason = "ambiguous"
 )
 
 // ParseFluencyReason reads a reason from its stored or provider name.
 func ParseFluencyReason(name string) (FluencyReason, bool) {
 	switch reason := FluencyReason(name); reason {
-	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable:
+	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable, FluencyReasonLiteralUse, FluencyReasonAmbiguous:
 		return reason, true
 	}
 	return "", false
@@ -100,6 +104,11 @@ func (f FluencyForm) Key() string {
 		return f.Features + "|split"
 	}
 	return f.Features
+}
+
+// sameAs reports whether the form is the other's in features and surface.
+func (f FluencyForm) sameAs(other FluencyForm) bool {
+	return f.Key() == other.Key() && f.surfaceKey() == other.surfaceKey()
 }
 
 func (f FluencyForm) surfaceKey() string { return strings.ToLower(strings.TrimSpace(f.Surface)) }
@@ -135,7 +144,7 @@ func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate
 	for len(remaining) > 0 {
 		best := 0
 		for i := 1; i < len(remaining); i++ {
-			if fluencyCandidateBefore(remaining[i], remaining[best], seenKeys, seenSurfaces) {
+			if fluencyCandidateBefore(remaining[i], remaining[best], seenKeys, seenSurfaces, introduced) {
 				best = i
 			}
 		}
@@ -158,12 +167,16 @@ func fluencyNovelty(c FluencyCandidate, seenKeys, seenSurfaces map[string]bool) 
 	return 0
 }
 
-func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[string]bool) bool {
+func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[string]bool, introduced FluencyForm) bool {
 	if a.InIdiom != b.InIdiom {
 		return !a.InIdiom
 	}
 	if na, nb := fluencyNovelty(a, seenKeys, seenSurfaces), fluencyNovelty(b, seenKeys, seenSurfaces); na != nb {
 		return na > nb
+	}
+	if ia, ib := a.Form.sameAs(introduced), b.Form.sameAs(introduced); ia != ib {
+		// A context of the introducing form never ranks ahead of another form.
+		return !ia
 	}
 	if a.InCurrentReading != b.InCurrentReading {
 		return a.InCurrentReading

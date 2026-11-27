@@ -119,9 +119,9 @@ func TestFluencyWorkerKeepsAnIdiomContextThatDisagreesAsEvidence(t *testing.T) {
 		reason domain.FluencyReason
 		gloss  string
 	}{
-		"Lena": {enrichment.ContextualMeaning{SentenceTranslation: "She holds the house.", UnresolvedKind: enrichment.ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"}, domain.FluencyReasonNotThisLemma, ""},
+		"Lena": {enrichment.ContextualMeaning{SentenceTranslation: "She holds the house.", UnresolvedKind: enrichment.ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "literal"}, domain.FluencyReasonLiteralUse, ""},
 		"Mara": {enrichment.ContextualMeaning{Gloss: "a building", SentenceTranslation: "The building.", SentenceTranslationTargets: []string{"building"}, CitedSenseIDs: []string{"test/mit dem haus/2"}}, domain.FluencyReasonDifferentMeaning, "a building"},
-		"Nina": {enrichment.ContextualMeaning{SentenceTranslation: "Unclear.", UnresolvedKind: enrichment.ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "no sense"}, domain.FluencyReasonUndefendable, ""},
+		"Nina": {enrichment.ContextualMeaning{SentenceTranslation: "Unclear.", UnresolvedKind: enrichment.ContextualGlossUnresolvedAmbiguous, UnresolvedReason: "no sense"}, domain.FluencyReasonAmbiguous, ""},
 	}
 	enricher.idiomFor = map[string]enrichment.ContextualMeaning{}
 	forms := map[string]map[string]string{
@@ -228,4 +228,28 @@ func TestIdiomFormTellsInflectionAndArrangementApart(t *testing.T) {
 	assert.NotEqual(t, base.Key(), idiomFormOf(tokens(false, "Plur"), matched(false)).Key(), "a different inflection")
 	assert.NotEqual(t, base.Key(), idiomFormOf(tokens(true, "Sing"), matched(true)).Key(), "a different arrangement: a word between the matched ones")
 	assert.Equal(t, "mit dem haus", strings.ToLower(base.Surface))
+}
+
+func TestFluencyWorkerNeverAsksAboutTheIntroducingSentenceAndRanksItsFormLast(t *testing.T) {
+	worker, store, enricher := newIdiomFluencyFixture()
+	// The introducing sentence's text is repeated elsewhere in the library, in
+	// the reading, with the same matched form; two sentences share a form that
+	// differs from it.
+	repeat := fluencyIdiomSentence(5, "Emma", "haus", nominative())
+	repeat.InCurrentReading = true
+	store.idiomSentences = append(store.idiomSentences, repeat,
+		fluencyIdiomSentence(10, "Lena", "haeuser", map[string]string{"Number": "Plur"}),
+		fluencyIdiomSentence(11, "Mara", "haeuserr", map[string]string{"Number": "Plur"}))
+	store.idiomSentences = append(store.idiomSentences, fluencyIdiomSentence(12, "Nina", "haus", nominative()))
+	store.idiomSentences[len(store.idiomSentences)-1].InCurrentReading = true
+
+	require.NoError(t, fluencyWork(worker))
+
+	var asked []string
+	for _, card := range enricher.idiomCards {
+		asked = append(asked, card.Sentence)
+		assert.NotContains(t, card.Sentence, "Emma ist", "the introducing sentence is never a context")
+	}
+	require.Len(t, asked, 3)
+	assert.Contains(t, asked[2], "Nina", "the context of the introducing form comes after the two of another form")
 }
