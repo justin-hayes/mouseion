@@ -60,7 +60,7 @@ func TestModernLanguagesTakeTheProviderRoute(t *testing.T) {
 	}
 }
 
-func TestStudySwitchIsOnForModernLanguagesAndGreekAndOffForLatin(t *testing.T) {
+func TestStudySwitchIsOnForModernLanguagesGreekAndLatin(t *testing.T) {
 	tests := []struct {
 		language string
 		study    bool
@@ -68,7 +68,7 @@ func TestStudySwitchIsOnForModernLanguagesAndGreekAndOffForLatin(t *testing.T) {
 		{"de", true},
 		{"it", true},
 		{"grc", true}, // Greek Study is on after its evidence run (#2767)
-		{"la", false}, // Latin Study is switched on only after its evidence run
+		{"la", true},  // Latin Study is on after its evidence run (#2768)
 	}
 	for _, tc := range tests {
 		t.Run(tc.language, func(t *testing.T) {
@@ -78,12 +78,12 @@ func TestStudySwitchIsOnForModernLanguagesAndGreekAndOffForLatin(t *testing.T) {
 }
 
 func TestStudyOverrideForTestSwitchesOneLanguageAndRestores(t *testing.T) {
-	restore := OverrideStudyForTest("la", true)
-	assert.True(t, For("la").Study)
-	assert.True(t, For("LA").Study, "the override follows the language tag's normal form")
+	restore := OverrideStudyForTest("la", false)
+	assert.False(t, For("la").Study)
+	assert.False(t, For("LA").Study, "the override follows the language tag's normal form")
 	assert.True(t, For("grc").Study, "the override leaves the other languages as they are")
 	restore()
-	assert.False(t, For("la").Study)
+	assert.True(t, For("la").Study)
 }
 
 func TestPassContractIsChosenByPolicy(t *testing.T) {

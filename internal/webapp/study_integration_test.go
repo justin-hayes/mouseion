@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
@@ -334,7 +335,10 @@ func TestStudyPreparesMaterialAheadInStreamOrder(t *testing.T) {
 	assert.Contains(t, page.Body.String(), "2 words were skipped")
 }
 
-func TestStudyIsNotAvailableForLatin(t *testing.T) {
+// A language whose Study switch is off gets the plain page and no preparation.
+// Every language is on in production, so Latin's switch is forced off here.
+func TestStudyIsNotAvailableForALanguageWithItsSwitchOff(t *testing.T) {
+	t.Cleanup(cardpolicy.OverrideStudyForTest("la", false))
 	s := newStudyHarness(t)
 	s.seedBook("german", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})
 	for _, language := range []string{"la"} {
@@ -506,6 +510,7 @@ func (s *studyHarness) currentCard() domain.StudyProgress {
 }
 
 func TestStudyActionsAreProtected(t *testing.T) {
+	t.Cleanup(cardpolicy.OverrideStudyForTest("la", false))
 	s := newStudyHarness(t)
 	s.prepared()
 
@@ -515,7 +520,7 @@ func TestStudyActionsAreProtected(t *testing.T) {
 	anonymous := perform(t, s.h, http.MethodPost, "/study/batches/take", url.Values{"language": {"de"}}, nil)
 	assert.NotEqual(t, http.StatusOK, anonymous.Code, "a signed-out request is refused")
 	assert.Empty(t, s.progress())
-	assert.Equal(t, http.StatusNotFound, s.post("/study/batches/take", url.Values{"language": {"la"}}).Code, "Study is not available for Latin")
+	assert.Equal(t, http.StatusNotFound, s.post("/study/batches/take", url.Values{"language": {"la"}}).Code, "Study is not available for a language with its switch off")
 	assert.Equal(t, http.StatusBadRequest, s.post("/study/grades", url.Values{"language": {"de"}, "progress": {"x"}, "reps": {"0"}, "grade": {"hard"}}).Code, "Study has two grades")
 	assert.Empty(t, s.progress())
 }
@@ -542,6 +547,7 @@ func TestStudyMaterialIsReadyAfterBrowseCountRebuildWithoutOpeningStudy(t *testi
 }
 
 func TestStudyPlanningIsNotQueuedForUnavailableLanguages(t *testing.T) {
+	t.Cleanup(cardpolicy.OverrideStudyForTest("la", false))
 	s := newStudyHarness(t)
 	for _, language := range []string{"la", ""} {
 		tx, err := s.store.Pool().Begin(s.ctx)

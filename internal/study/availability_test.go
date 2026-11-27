@@ -14,7 +14,7 @@ func TestAvailableFollowsTheStudySwitch(t *testing.T) {
 		{"de", true},
 		{"it", true},
 		{"el", true},
-		{"la", false},
+		{"la", true},
 		{"grc", true},
 	}
 	for _, tc := range cases {

@@ -256,9 +256,9 @@ func TestModernWordNeverUsesTheSourceEvidencePath(t *testing.T) {
 	assert.Empty(t, enricher.passRequests)
 }
 
-func TestTheStudySwitchIsOnForGreekAndOffForLatinInProduction(t *testing.T) {
+func TestTheStudySwitchIsOnForGreekAndLatinInProduction(t *testing.T) {
 	assert.True(t, cardpolicy.For("grc").Study)
-	assert.False(t, cardpolicy.For("la").Study)
+	assert.True(t, cardpolicy.For("la").Study)
 }
 
 func resolutionOf(entry enrichment.AncientGreekLSJEntry) sourceevidence.Resolution {
@@ -284,7 +284,6 @@ func stackedDico() []enrichment.LatinLSEntry {
 
 func latinFixture(t *testing.T, cited ...string) *greekFixture {
 	t.Helper()
-	t.Cleanup(cardpolicy.OverrideStudyForTest("la", true))
 	f := newGreekFixture(t)
 	f.store.material = domain.StudyMaterial{ID: "m1", Language: "la", CanonicalLemma: "dico", UPOS: "VERB", State: domain.StudyMaterialPending}
 	f.enricher.pass.CitedSenseIDs = cited
