@@ -117,3 +117,27 @@ func TestCitationFormChangeLeavesOtherContractsByteForByte(t *testing.T) {
 	assert.Equal(t, "fluency-agreement-v2", fluencyAgreementPromptVersion)
 	assert.Equal(t, "fluency-agreement-source-evidence-v2", fluencyAgreementSourceEvidencePromptVersion)
 }
+
+// TestCheckPassAssessmentRefusesFrozenWorkUnderAnUnrecordedContract proves the
+// last check before a pass is encoded: work frozen before the contract changed
+// sends nothing under the new one, while non-pass requests and the recorded
+// #2171 Greek deck pass are untouched.
+func TestCheckPassAssessmentRefusesFrozenWorkUnderAnUnrecordedContract(t *testing.T) {
+	codec := passCodec(t)
+	latin := latinPassRequest()
+	latin.RequireEvidenceAssistedPass = true
+	greekStudy := greekEntryPassRequest()
+	greekStudy.RequireEvidenceAssistedPass = true
+	greekDeck := greekEntryPassRequest()
+	greekDeck.RequireEvidenceAssistedPass, greekDeck.StudyPass = true, false
+
+	require.ErrorIs(t, CheckPassAssessment(codec, latin), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, CheckPassAssessment(codec, greekStudy), ErrProviderAssessmentNotRecorded)
+	require.NoError(t, CheckPassAssessment(codec, greekDeck))
+	require.NoError(t, CheckPassAssessment(codec, TranslationRequest{Language: "la"}), "a request that is not a pass is never refused")
+
+	client, err := NewOpenAITranslationClient(LLMConfig{APIKey: "key", Model: "gpt-test", BaseURL: "http://127.0.0.1:1"}, nil)
+	require.NoError(t, err)
+	_, err = client.Translate(t.Context(), latin)
+	require.ErrorIs(t, err, ErrProviderAssessmentNotRecorded, "the client sends nothing")
+}

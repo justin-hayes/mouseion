@@ -78,6 +78,9 @@ func encodeBatchItems(codec *enrichment.TranslationCodec, runID string, generati
 		if _, err := codec.WriteBatchJSONL(&line, runID, generation, []enrichment.BatchTranslationItem{batchItem}); err != nil {
 			return nil, fmt.Errorf("encode Batch item %d: %w", item.Ordinal, err)
 		}
+		if err := enrichment.CheckPassAssessment(codec, batchItem.Request); err != nil {
+			return nil, fmt.Errorf("encode Batch item %d: %w", item.Ordinal, err)
+		}
 		body, err := codec.EncodeRequest(batchItem.Request)
 		if err != nil {
 			return nil, err

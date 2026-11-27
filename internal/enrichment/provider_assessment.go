@@ -426,3 +426,25 @@ func StudyEvidenceAssistedPassKind(language string) ProviderPayloadKind {
 	}
 	return EvidenceAssistedPassPayload
 }
+
+// CheckPassAssessment refuses a request for an evidence-assisted pass whose
+// payload contract the compiled assessments do not record for the codec's
+// current prompt version. It is the last check before a pass request is
+// encoded for the provider, so work frozen before a contract changed (a queued
+// Prepared deck item, a retried Study item) sends nothing under the new,
+// unrecorded contract (#2779). A request that is not a pass is never refused.
+func CheckPassAssessment(codec *TranslationCodec, input TranslationRequest) error {
+	if !input.RequireEvidenceAssistedPass {
+		return nil
+	}
+	var kind ProviderPayloadKind
+	switch passContractOf(input) {
+	case cardpolicy.PassContractLatin:
+		kind = LatinEvidenceAssistedPassPayload
+	case cardpolicy.PassContractGreekEntries:
+		kind = GreekEntryEvidenceAssistedPassPayload
+	default:
+		kind = EvidenceAssistedPassPayload
+	}
+	return ProviderAssessments().MaySend(kind, input.Language, codec)
+}

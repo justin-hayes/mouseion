@@ -250,6 +250,9 @@ func (c *OpenAITranslationClient) Translate(ctx context.Context, input Translati
 // validation harness. Normal enrichment deliberately keeps usage out of its
 // semantic result and cache identity.
 func (c *OpenAITranslationClient) TranslateWithUsage(ctx context.Context, input TranslationRequest) (response TranslationResponse, usage TranslationUsage, err error) {
+	if err := CheckPassAssessment(c.codec, input); err != nil {
+		return TranslationResponse{}, TranslationUsage{}, err
+	}
 	body, err := c.codec.EncodeRequest(input)
 	if err != nil {
 		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("encode LLM request: %w", err)
