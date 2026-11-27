@@ -7,9 +7,11 @@
 -- only while it is in My Books (removing a Book leaves its rows but not the
 -- sum; adding it back restores them) and its readiness row names its current analysis and the builder
 -- version; a Book that was removed has no rows left. in_current_reading says
--- whether the Current reading contains the headword.
+-- whether the Current reading contains the headword and current_reading_candidates
+-- its candidate count within it.
 SELECT c.headword, sum(c.candidate_count)::bigint AS candidates, count(*)::bigint AS books,
- COALESCE(bool_or(c.book_id = g.book_id), false)::boolean AS in_current_reading
+ COALESCE(bool_or(c.book_id = g.book_id), false)::boolean AS in_current_reading,
+ COALESCE(sum(c.candidate_count) FILTER (WHERE c.book_id = g.book_id), 0)::bigint AS current_reading_candidates
 FROM idiom_candidate_counts c
 JOIN idiom_candidate_count_readiness r ON r.owner_id=c.owner_id AND r.book_id=c.book_id
  AND r.analysis_run_id=c.analysis_run_id AND r.corpus_id=c.corpus_id

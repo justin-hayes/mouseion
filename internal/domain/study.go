@@ -139,11 +139,10 @@ type StudyCandidate struct {
 }
 
 // boosted reports whether the candidate is in the boosted group while the
-// Current reading is below Target coverage. Only words are for now; an Idiom
-// joins the group here (#2757).
-func (c StudyCandidate) boosted() bool {
-	return c.InCurrentReading && !c.IsIdiom()
-}
+// Current reading is below Target coverage: its words and its Idioms. Coverage
+// counts word tokens only, so an Idiom joins the group but never extends the
+// boost (ADR 0137).
+func (c StudyCandidate) boosted() bool { return c.InCurrentReading }
 
 // boostCount is the count a boosted candidate is ranked by.
 func (c StudyCandidate) boostCount() int64 { return c.CurrentReadingOccurrences }
@@ -430,6 +429,9 @@ type IdiomCandidateCount struct {
 	Books      int64
 	// InCurrentReading is set when the Current reading contains the headword.
 	InCurrentReading bool
+	// CurrentReadingCandidates is the headword's candidate count within the
+	// Current reading, zero when it is not there.
+	CurrentReadingCandidates int64
 }
 
 // IdiomStudyCandidates are the Idioms of a language as Study candidates: each
@@ -443,6 +445,7 @@ func IdiomStudyCandidates(language string, counts []IdiomCandidateCount) []Study
 		}
 		candidates = append(candidates, StudyCandidate{
 			StudyItem: IdiomItem(language, count.Headword), InCurrentReading: count.InCurrentReading, PersonalOccurrences: count.Candidates,
+			CurrentReadingOccurrences: count.CurrentReadingCandidates,
 		})
 	}
 	return candidates

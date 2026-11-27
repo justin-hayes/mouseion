@@ -362,7 +362,7 @@ templ studyGradeForm(csrf string, view studyPageView, grade, label, class string
 	</form>
 }
 
-// studyAlreadyKnownForm answers an introduction Already known: the word enters
+// studyAlreadyKnownForm answers an introduction Already known: the word or Idiom enters
 // study Mature. It is an answer, never a grade.
 templ studyAlreadyKnownForm(csrf string, view studyPageView) {
 	<form class="study-card__already-known" method="post" action="/study/already-known">

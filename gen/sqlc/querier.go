@@ -438,7 +438,8 @@ type Querier interface {
 	// only while it is in My Books (removing a Book leaves its rows but not the
 	// sum; adding it back restores them) and its readiness row names its current analysis and the builder
 	// version; a Book that was removed has no rows left. in_current_reading says
-	// whether the Current reading contains the headword.
+	// whether the Current reading contains the headword and current_reading_candidates
+	// its candidate count within it.
 	ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error)
 	// The same occurrences across every Book in the learner's My Books of one
 	// language, for one observed form and its analyzer lemma (ADR 0136 §6).
