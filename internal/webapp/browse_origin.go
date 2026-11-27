@@ -15,7 +15,6 @@ import (
 // request that consumes it revalidates owner, language, commitment, and evidence.
 const (
 	originKeyBook     = "from_book"
-	originKeySnapshot = "from_snap"
 	originKeyPrefix   = "from_q"
 	originKeyAll      = "from_all"
 	originKeyPage     = "from_page"
@@ -27,25 +26,24 @@ const (
 	maxOriginValueLength = 512
 )
 
-var originKeys = []string{originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision}
+var originKeys = []string{originKeyBook, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision}
 
-// browseOrigin names the exact Current reading commitment (Book and snapshot),
-// the applied Browse controls, the row the learner left from, and the live
-// Browse evidence revision at that time. The snapshot proves commitment only; the
-// revision is the freshness guard. The study language travels as the ordinary
+// browseOrigin names the Current reading Book, the applied Browse controls, the
+// row the learner left from, and the live Browse evidence revision at that time.
+// The revision is the freshness guard. The study language travels as the ordinary
 // language parameter.
 type browseOrigin struct {
-	BookID, SnapshotID string
-	Prefix             string
-	IncludeAll         bool
-	Page               int
-	Row                string
-	Revision           string
+	BookID     string
+	Prefix     string
+	IncludeAll bool
+	Page       int
+	Row        string
+	Revision   string
 }
 
-// Active reports whether this origin identifies a commitment. A direct
+// Active reports whether this origin names a Book. A direct
 // Concordance visit has none, and none is ever fabricated.
-func (o browseOrigin) Active() bool { return o.BookID != "" && o.SnapshotID != "" }
+func (o browseOrigin) Active() bool { return o.BookID != "" }
 
 // hasOriginKeys reports whether a request carries any origin parameter.
 func hasOriginKeys(values url.Values) bool {
@@ -61,7 +59,7 @@ func parseBrowseOrigin(values url.Values) browseOrigin {
 		}
 	}
 	origin := browseOrigin{
-		BookID: strings.TrimSpace(values.Get(originKeyBook)), SnapshotID: strings.TrimSpace(values.Get(originKeySnapshot)),
+		BookID: strings.TrimSpace(values.Get(originKeyBook)),
 		Prefix: values.Get(originKeyPrefix), Row: values.Get(originKeyRow), Revision: values.Get(originKeyRevision), Page: 1,
 	}
 	switch values.Get(originKeyAll) {
@@ -91,7 +89,6 @@ func (o browseOrigin) Values() url.Values {
 		return values
 	}
 	values.Set(originKeyBook, o.BookID)
-	values.Set(originKeySnapshot, o.SnapshotID)
 	if o.Prefix != "" {
 		values.Set(originKeyPrefix, o.Prefix)
 	}
@@ -137,7 +134,6 @@ func (o browseOrigin) ReturnURL(language string) string {
 		values.Set("all", "1")
 	}
 	values.Set("reading", o.BookID)
-	values.Set("snapshot", o.SnapshotID)
 	if o.Revision != "" {
 		values.Set("rev", o.Revision)
 	}

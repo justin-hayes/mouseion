@@ -10,19 +10,13 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// missingBookID and missingSnapshotID are well-formed UUIDs that name nothing,
-// so the commitment checks pass and the lookup underneath is exercised.
-const (
-	missingBookID     = "00000000-0000-0000-0000-000000000001"
-	missingSnapshotID = "00000000-0000-0000-0000-000000000002"
-)
-
 // TestFinishCurrentReadingPropagatesPersistenceFailures drops the table behind
-// one read so a database failure reaches the caller instead of being read as a
-// stale or unknown reading.
+// one step so a database failure reaches the caller instead of being read as an
+// unknown reading.
 func TestFinishCurrentReadingPropagatesPersistenceFailures(t *testing.T) {
 	ctx := context.Background()
 
@@ -34,43 +28,29 @@ func TestFinishCurrentReadingPropagatesPersistenceFailures(t *testing.T) {
 		_, err = store.Pool().Exec(ctx, `DROP TABLE primary_goals CASCADE`)
 		require.NoError(t, err)
 
-		_, err = store.FinishCurrentReading(ctx, owner.ID, "de", missingBookID, missingSnapshotID)
+		_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
 		require.Error(t, err)
 		require.NotErrorIs(t, err, ErrNotFound)
-		require.NotErrorIs(t, err, ErrCurrentReadingStale)
 	})
 
-	t.Run("the completion lookup fails", func(t *testing.T) {
+	t.Run("the completion write fails", func(t *testing.T) {
 		url, _ := testutil.Postgres(t, ctx, Migrate)
 		store := openIntegrationStore(t, ctx, url)
 		owner, err := store.CreateUser(ctx, "finish-completion-failure", false)
 		require.NoError(t, err)
+		book, source := createReadingFixture(t, ctx, store, owner.ID, "finish-completion")
+		makeAnalyzedToReadBook(t, ctx, store, book, source)
+		_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+		require.NoError(t, err)
 		_, err = store.Pool().Exec(ctx, `DROP TABLE reading_history CASCADE`)
 		require.NoError(t, err)
 
-		_, err = store.FinishCurrentReading(ctx, owner.ID, "de", missingBookID, missingSnapshotID)
+		_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
 		require.Error(t, err)
 		require.NotErrorIs(t, err, ErrNotFound)
-		require.NotErrorIs(t, err, ErrCurrentReadingStale)
-	})
-
-	t.Run("the snapshot identities lookup fails", func(t *testing.T) {
-		url, _ := testutil.Postgres(t, ctx, Migrate)
-		store := openIntegrationStore(t, ctx, url)
-		owner, err := store.CreateUser(ctx, "finish-snapshot-failure", false)
+		current, err := store.GetCurrentReading(ctx, owner.ID, "de")
 		require.NoError(t, err)
-		book, source := createReadingFixture(t, ctx, store, owner.ID, "finish-snapshot")
-		makeAnalyzedToReadBook(t, ctx, store, book, source)
-		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
-		reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-		require.NoError(t, err)
-		_, err = store.Pool().Exec(ctx, `DROP TABLE primary_goal_snapshot_vocabulary CASCADE`)
-		require.NoError(t, err)
-
-		_, err = store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, reading.SnapshotID)
-		require.Error(t, err)
-		require.NotErrorIs(t, err, ErrNotFound)
-		require.NotErrorIs(t, err, ErrCurrentReadingStale)
+		assert.Equal(t, book.ID, current.BookID, "a failed Finish leaves the reading current")
 	})
 }
 

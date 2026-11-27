@@ -51,18 +51,6 @@ func reviewImpactBook(t *testing.T, ctx context.Context, store *PostgresStore, o
 	return book
 }
 
-// reviewImpactReservingBook creates a To Read Book whose three "haus"
-// occurrences exist only through a correction, which makes the snapshot freeze
-// project them, so starting it reserves the identity "haus".
-func reviewImpactReservingBook(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string) domain.Book {
-	t.Helper()
-	book := reviewImpactBook(t, ctx, store, ownerID, "reserving", true, []string{"Haus", "Haus", "Heim"})
-	occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, book.ID, "Heim")
-	require.NoError(t, err)
-	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
-	return book
-}
-
 // reviewProposal builds a single-occurrence proposal on the Book's surface form.
 func reviewProposal(ownerID, bookID, form, action, lemma string, occurrence domain.LemmaReviewOccurrence) domain.LemmaReviewProposal {
 	return domain.LemmaReviewProposal{
@@ -71,69 +59,61 @@ func reviewProposal(ownerID, bookID, form, action, lemma string, occurrence doma
 	}
 }
 
-// TestLemmaReviewImpactAgreesWithSnapshotFreeze previews a decision, confirms
-// it, freezes the Current reading, and requires the previewed "after"
-// eligibility to match whether the identity is in the frozen snapshot.
-func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
+// TestLemmaReviewImpactPreviewsEligibility previews a decision and requires the
+// previewed "before" and "after" eligibility to match the expected outcome. The
+// Current reading no longer freezes a snapshot, so the preview is checked on its
+// own.
+func TestLemmaReviewImpactPreviewsEligibility(t *testing.T) {
 	repeat := func(word string, n int) []string { return strings.Fields(strings.Repeat(word+" ", n)) }
 	tests := []struct {
 		name          string
 		target        []string
 		otherBooks    [][]string
 		known         bool
-		reserved      bool
 		action, lemma string
 		form          string
 		wantBefore    bool
 		wantAfter     bool
-		wantAfterSize int
 	}{
 		{
 			name:   "a correction crosses the three-occurrence threshold",
 			target: append(repeat("Haus", 2), "Heim"),
 			form:   "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: true, wantAfterSize: 3,
+			wantBefore: false, wantAfter: true,
 		},
 		{
 			name:       "a correction qualifies only through fifteen across Books",
 			target:     append(repeat("Haus", 1), "Heim"),
 			otherBooks: [][]string{repeat("Haus", 13)},
 			form:       "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: true, wantAfterSize: 2,
+			wantBefore: false, wantAfter: true,
 		},
 		{
 			name:       "two occurrences with fourteen across Books stay ineligible",
 			target:     append(repeat("Haus", 1), "Heim"),
 			otherBooks: [][]string{repeat("Haus", 12)},
 			form:       "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: false, wantAfterSize: 0,
+			wantBefore: false, wantAfter: false,
 		},
 		{
 			name:       "a correction creating a single occurrence qualifies with fifteen across Books",
 			target:     []string{"Heim", "Garten"},
 			otherBooks: [][]string{repeat("Haus", 7), repeat("Haus", 7)},
 			form:       "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: true, wantAfterSize: 1,
+			wantBefore: false, wantAfter: true,
 		},
 		{
 			name:   "a correction into a Known identity is not eligible",
 			target: append(repeat("Haus", 2), "Heim"),
 			known:  true,
 			form:   "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: false, wantAfterSize: 0,
-		},
-		{
-			name:     "a correction into a Reserved identity is not eligible",
-			target:   append(repeat("Haus", 2), "Heim"),
-			reserved: true,
-			form:     "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: false, wantAfterSize: 0,
+			wantBefore: false, wantAfter: false,
 		},
 		{
 			name:   "an exclusion drops an identity below the threshold",
 			target: repeat("Haus", 3),
 			form:   "Haus", action: "exclude",
-			wantBefore: true, wantAfter: false, wantAfterSize: 0,
+			wantBefore: true, wantAfter: false,
 		},
 	}
 	for index, tt := range tests {
@@ -149,15 +129,7 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 				_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "haus", "NOUN")
 				require.NoError(t, err)
 			}
-			var reservingBook domain.Book
-			if tt.reserved {
-				reservingBook = reviewImpactReservingBook(t, ctx, store, owner.ID)
-			}
 			book := reviewImpactBook(t, ctx, store, owner.ID, "target", true, tt.target)
-			if tt.reserved {
-				_, err = store.StartCurrentReading(ctx, owner.ID, "de", reservingBook.ID)
-				require.NoError(t, err)
-			}
 
 			occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, tt.form)
 			require.NoError(t, err)
@@ -177,25 +149,7 @@ func TestLemmaReviewImpactAgreesWithSnapshotFreeze(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, occurrences, unchanged, "previewing writes nothing")
 
-			if tt.reserved {
-				require.NoError(t, store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint))
-				_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-				require.ErrorIs(t, err, ErrCurrentReadingExists, "while the identity is Reserved no other snapshot can freeze it")
-				return
-			}
 			require.NoError(t, store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint))
-			reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-			require.NoError(t, err)
-			snapshot, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-			require.NoError(t, err)
-			frozen := 0
-			for _, candidate := range snapshot {
-				if candidate.CanonicalLemma == "haus" {
-					frozen = candidate.OccurrenceCount
-				}
-			}
-			assert.Equal(t, haus.AfterEligible, frozen > 0, "the previewed eligibility is what the freeze selects")
-			assert.Equal(t, tt.wantAfterSize, frozen)
 		})
 	}
 }
@@ -224,14 +178,13 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 		name      string
 		target    []string
 		other     []string
-		reserving bool
-		change    func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, other, reserving domain.Book)
+		change    func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, other domain.Book)
 		wantStale bool
 	}{
 		{
 			name:   "a decision on another surface form of the same lemma",
 			target: []string{"Haus", "Heim", "Dach"},
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, _, _ domain.Book) {
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, _ domain.Book) {
 				t.Helper()
 				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, target.ID, "Dach")
 				require.NoError(t, err)
@@ -243,7 +196,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			name:   "a cross-Book count change that flips the two-plus-ten route",
 			target: []string{"Haus", "Heim"},
 			other:  repeat("Haus", 8),
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, other, _ domain.Book) {
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, other domain.Book) {
 				t.Helper()
 				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, other.ID, "Haus")
 				require.NoError(t, err)
@@ -254,7 +207,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 		{
 			name:   "an affected identity becoming Known",
 			target: []string{"Haus", "Heim"},
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, _ domain.Book) {
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _ domain.Book) {
 				t.Helper()
 				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "haus", "NOUN")
 				require.NoError(t, err)
@@ -262,20 +215,9 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			wantStale: true,
 		},
 		{
-			name:      "an affected identity becoming Reserved",
-			target:    []string{"Haus", "Heim"},
-			reserving: true,
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, reserving domain.Book) {
-				t.Helper()
-				_, err := store.StartCurrentReading(ctx, ownerID, "de", reserving.ID)
-				require.NoError(t, err)
-			},
-			wantStale: true,
-		},
-		{
 			name:   "an unaffected identity becoming Known",
 			target: []string{"Haus", "Heim"},
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _, _ domain.Book) {
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _ domain.Book) {
 				t.Helper()
 				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "unrelated", "NOUN")
 				require.NoError(t, err)
@@ -288,12 +230,9 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 			owner, err := store.CreateUser(ctx, fmt.Sprintf("review-fingerprint-%d", index), false)
 			require.NoError(t, err)
-			var other, reserving domain.Book
+			var other domain.Book
 			if tt.other != nil {
 				other = reviewImpactBook(t, ctx, store, owner.ID, "other", false, tt.other)
-			}
-			if tt.reserving {
-				reserving = reviewImpactReservingBook(t, ctx, store, owner.ID)
 			}
 			target := reviewImpactBook(t, ctx, store, owner.ID, "target", true, tt.target)
 			occurrences, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, target.ID, "Heim")
@@ -306,7 +245,7 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			require.NoError(t, err)
 			require.Equal(t, previewed.Fingerprint, again.Fingerprint, "the fingerprint is stable while nothing changes")
 
-			tt.change(t, ctx, store, owner.ID, target, other, reserving)
+			tt.change(t, ctx, store, owner.ID, target, other)
 
 			err = store.PutLemmaDecisionProposal(ctx, proposal, previewed.Fingerprint)
 			if tt.wantStale {

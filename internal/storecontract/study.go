@@ -36,14 +36,12 @@ func studyScenarios() []Scenario {
 				{Surface: "Hund", Lemma: "hund", UPOS: "NOUN"}, {Surface: "Haus", Lemma: "haus", UPOS: "NOUN"},
 			}})
 			h.Seeds().SeedCurrentReading(t, owner, Language, current)
-			// Known vocabulary is never consulted.
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{german("haus", "NOUN")})
 
 			candidates, err := h.Study().ListStudyCandidates(owner, Language)
 			require.NoError(t, err)
 			ordered := domain.OrderStudyStream(candidates, true)
 			require.Len(t, ordered, 2)
-			assert.Equal(t, studyNoun("haus"), ordered[0].StudyItem, "a Known word is still offered, and current-reading words come first")
+			assert.Equal(t, studyNoun("haus"), ordered[0].StudyItem, "current-reading words come first")
 			assert.True(t, ordered[0].InCurrentReading)
 			assert.EqualValues(t, 3, ordered[0].PersonalOccurrences, "occurrences count across analyzed Books")
 			assert.Equal(t, studyNoun("hund"), ordered[1].StudyItem)

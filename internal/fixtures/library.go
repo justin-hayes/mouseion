@@ -183,19 +183,12 @@ func (s *Store) fixtureBookIsCurrentReading(owner, bookID string) bool {
 	return false
 }
 
-// fixtureBookEverCurrentReading reports whether the Book has held the Current
-// reading role. An active reading counts, and a released snapshot records the
-// role after the reading ends. Callers hold s.mu.
+// fixtureBookEverCurrentReading reports whether the Book holds the Current
+// reading role now. A reading no longer leaves a snapshot behind to prove the
+// role after it ends (ADR 0136 §4), so a finished reading is proved by its
+// history instead. Callers hold s.mu.
 func (s *Store) fixtureBookEverCurrentReading(owner, bookID string) bool {
-	if s.fixtureBookIsCurrentReading(owner, bookID) {
-		return true
-	}
-	for _, lifecycle := range s.snapshotLifecycles {
-		if lifecycle.BookID == bookID {
-			return true
-		}
-	}
-	return false
+	return s.fixtureBookIsCurrentReading(owner, bookID)
 }
 
 // applyFixtureBookCompletions counts the imported and current-reading history of

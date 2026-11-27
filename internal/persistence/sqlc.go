@@ -154,23 +154,6 @@ func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos, disc
 	}
 }
 
-func selectionCandidateFromFields(ownerID, corpusID, language, canonicalLemma, upos string, occurrenceCount int, observedForms, sentenceReferences, provenance []byte, selectedAt time.Time, firstEncounter int64) domain.SelectionCandidate {
-	return domain.SelectionCandidate{
-		OwnerID: ownerID, CorpusID: corpusID, Language: language, CanonicalLemma: canonicalLemma, UPOS: upos,
-		OccurrenceCount: occurrenceCount, ObservedForms: observedForms, SentenceReferences: sentenceReferences,
-		Provenance: provenance, SelectedAt: selectedAt, FirstEncounter: firstEncounter,
-	}
-}
-
-// snapshotCandidateFromFields maps one frozen snapshot row onto the candidate
-// shape its consumers read. The discriminator and headword are the imported
-// identity's display evidence, empty for every modern-language row.
-func snapshotCandidateFromFields(ownerID, corpusID, language, canonicalLemma, upos, discriminator, headword string, occurrenceCount int, observedForms, sentenceReferences, provenance []byte, selectedAt time.Time, firstEncounter int64) domain.SelectionCandidate {
-	candidate := selectionCandidateFromFields(ownerID, corpusID, language, canonicalLemma, upos, occurrenceCount, observedForms, sentenceReferences, provenance, selectedAt, firstEncounter)
-	candidate.LexicalDiscriminator, candidate.Headword = discriminator, headword
-	return candidate
-}
-
 func curatedSentenceFromFields(id, ownerID, exampleSentenceID, language, canonicalLemma, upos, notes string, createdAt time.Time) domain.CuratedSentence {
 	return domain.CuratedSentence{
 		ID: id, OwnerID: ownerID, ExampleSentenceID: exampleSentenceID, Language: language,

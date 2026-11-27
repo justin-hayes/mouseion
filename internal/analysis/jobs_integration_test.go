@@ -109,7 +109,6 @@ func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *te
 	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, current.BookID)
-	assert.NotEmpty(t, current.SnapshotID)
 	var runCount, historyCount, jobCount int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&runCount))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis'`, owner.ID).Scan(&historyCount))
@@ -121,7 +120,7 @@ func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *te
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, accepted.RunID).Scan(&acceptedState))
 	assert.Equal(t, "queued", acceptedState, "the accepted job remains queued")
 
-	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de"))
 	transition, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -142,11 +141,11 @@ func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *te
 		queryErr := store.Pool().QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE 'SELECT id::text FROM books%'`).Scan(&waiting)
 		return queryErr == nil && waiting > 0
 	}, 5*time.Second, 10*time.Millisecond, "guarded submission should wait for the concurrent current-reading transition")
-	_, err = transition.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id,snapshot_id) VALUES($1,'de',$2,$3)`, owner.ID, book.ID, current.SnapshotID)
+	_, err = transition.Exec(ctx, `INSERT INTO primary_goals(owner_id,language,book_id) VALUES($1,'de',$2)`, owner.ID, book.ID)
 	require.NoError(t, err)
 	require.NoError(t, transition.Commit(ctx))
 	require.ErrorIs(t, <-racedSubmission, ErrCurrentBook, "submission must observe the current state after acquiring the shared Book lock")
-	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de"))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_runs WHERE owner_id=$1`, owner.ID).Scan(&runCount))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis'`, owner.ID).Scan(&historyCount))
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM analysis_jobs WHERE owner_id=$1`, owner.ID).Scan(&jobCount))

@@ -40,7 +40,6 @@ var ErrInvalidTransition = domain.ErrInvalidTransition
 var ErrImmutable = errors.New("persistence: ready artifact is immutable")
 var ErrCurrentReadingExists = domain.ErrCurrentReadingExists
 
-var ErrCurrentReadingStale = domain.ErrCurrentReadingStale
 var ErrCurrentReadingIneligible = domain.ErrCurrentReadingIneligible
 var ErrReadingAlreadyCompleted = errors.New("persistence: Book has already been completed")
 var ErrBookLanguageRequired = errors.New("persistence: book language must be chosen before moving to To Read")

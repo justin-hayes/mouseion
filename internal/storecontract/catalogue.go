@@ -160,12 +160,6 @@ func catalogueScenarios() []Scenario {
 			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
 				Entry: domain.CatalogueIndexEntry{EntryIdentifier: "read-entry", Title: "Read Entry", Author: "Entry Author", LanguageTag: Language, EPUBHref: "https://catalog.example/read-entry.epub"},
 			}})
-			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
-			before, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			require.NotEmpty(t, before)
-
 			read, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "read-entry")
 			require.NoError(t, err)
 			assert.True(t, read.Created, "the unowned entry has no Book yet")
@@ -186,10 +180,6 @@ func catalogueScenarios() []Scenario {
 			require.NoError(t, err)
 			require.Len(t, page.Entries, 1)
 			assert.Equal(t, read.Book.ID, page.Entries[0].BookID, "the Book is linked through its catalog-entry alias")
-
-			after, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			assert.ElementsMatch(t, before, after, "I've read this changes no Known vocabulary")
 		},
 	}, {
 		Name: "catalogue I've read this restores the same Book after it leaves My Books",
@@ -197,12 +187,6 @@ func catalogueScenarios() []Scenario {
 			owner, connectionID, bookID := seedRemovedCatalogueBook(t, h, "removed-read-entry", "Removed Read Entry")
 			_, err := h.BookState().GetBookDetail(owner, bookID)
 			require.ErrorIs(t, err, domain.ErrNotFound)
-			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
-			before, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			require.NotEmpty(t, before)
-
 			read, err := h.Catalogue().MarkCatalogueEntryPreviouslyRead(owner, connectionID, "removed-read-entry")
 			require.NoError(t, err)
 			assert.False(t, read.Created, "the alias still names the learner's Book")
@@ -215,9 +199,6 @@ func catalogueScenarios() []Scenario {
 			assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
 			assert.Equal(t, 1, detail.CompletionCount)
 			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, detail.LatestCompletionSource)
-			after, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			assert.ElementsMatch(t, before, after, "restoring as Read changes no Known vocabulary")
 		},
 	}, {
 		Name: "catalogue I've read this replay keeps one Book and one Previously read record",

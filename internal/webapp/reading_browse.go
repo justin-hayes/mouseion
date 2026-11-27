@@ -37,9 +37,6 @@ type readingBrowseView struct {
 	Page          domain.VocabularyBrowsePage
 	Problem       readingBrowseProblem
 	RequestedPage string
-	// SnapshotID is the Current reading's commitment identity. Rows carry it in
-	// their Concordance origin; it is empty where no commitment is known.
-	SnapshotID string
 	// FocusRow is the row a Back to book vocabulary request asks to focus, and
 	// FocusRowFound reports whether the restored page still has it. A missing row
 	// gives focus to the results heading, never to a different row.
@@ -53,13 +50,13 @@ func (v readingBrowseView) FocusRowMissing() bool {
 }
 
 // rowOrigin is the Concordance origin for one Browse row. It is inactive when
-// Browse has no commitment identity to name.
+// Browse has no Current reading Book to name.
 func (v readingBrowseView) rowOrigin(row domain.VocabularyBrowseRow) browseOrigin {
-	if v.SnapshotID == "" {
+	if v.Query.CurrentBookID == "" {
 		return browseOrigin{}
 	}
 	return browseOrigin{
-		BookID: v.Query.CurrentBookID, SnapshotID: v.SnapshotID, Prefix: v.Prefix, IncludeAll: v.Query.IncludeAll,
+		BookID: v.Query.CurrentBookID, Prefix: v.Prefix, IncludeAll: v.Query.IncludeAll,
 		Page: v.Page.Page, Revision: v.Page.CorpusRevision, Row: browseRowKey(row.UPOS, row.CanonicalLemma, row.LexicalDiscriminator),
 	}
 }

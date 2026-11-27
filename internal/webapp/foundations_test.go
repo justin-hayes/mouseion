@@ -118,12 +118,12 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 		Book:     domain.MyBook{Book: domain.Book{ID: "candidate-1", Title: "Candidate book"}},
 		Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 1},
 	}
-	require.NoError(t, ReadingChooserBook(candidate, "csrf", "", "").Render(context.Background(), &chooser))
+	require.NoError(t, ReadingChooserBook(candidate, "csrf").Render(context.Background(), &chooser))
 	assert.Contains(t, current.String(), `<button class="button" type="submit">Mark reading finished</button>`)
 	assert.Contains(t, current.String(), `<a class="button button--quiet" href="/reading/switch">Switch current reading</a>`)
 	assert.NotContains(t, current.String(), `role="button"`)
-	assert.Contains(t, chooser.String(), `<button class="button" type="submit">Confirm start reading</button>`)
-	assert.Contains(t, chooser.String(), `class="confirmation"`)
+	assert.Contains(t, chooser.String(), `<button class="button" type="submit">Read next</button>`)
+	assert.NotContains(t, chooser.String(), `class="confirmation"`, "Read next needs no confirmation")
 	assert.NotContains(t, chooser.String(), `role="button"`)
 
 	var fragment bytes.Buffer

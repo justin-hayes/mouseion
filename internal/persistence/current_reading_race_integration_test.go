@@ -79,60 +79,31 @@ func requireOneRaceWinner(t *testing.T, errs []error, allowedLoserErrs ...error)
 }
 
 // requireCurrentReadingStateConsistent asserts the language holds at most one
-// Current reading and that its active reservation set is exactly the current
-// reading's snapshot.
+// Current reading and that no vocabulary snapshot exists.
 func requireCurrentReadingStateConsistent(t *testing.T, ctx context.Context, store *PostgresStore, owner string) domain.CurrentReading {
 	t.Helper()
-	const language = "de"
-	var currentRows int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1 AND language=$2`, owner, language).Scan(&currentRows))
+	var currentRows, snapshots int
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1 AND language='de'`, owner).Scan(&currentRows))
 	require.LessOrEqual(t, currentRows, 1, "more than one Current reading for the language")
-	var activeSnapshots int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND language=$2 AND released_at IS NULL`, owner, language).Scan(&activeSnapshots))
-	require.Equal(t, currentRows, activeSnapshots, "active reservation sets must match the Current reading")
-
-	current, err := store.GetCurrentReading(ctx, owner, language)
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1`, owner).Scan(&snapshots))
+	require.Zero(t, snapshots, "a transition wrote a vocabulary snapshot")
+	current, err := store.GetCurrentReading(ctx, owner, "de")
 	require.NoError(t, err)
-	if currentRows == 1 {
-		var currentSnapshotActive int
-		require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NULL`, owner, current.SnapshotID).Scan(&currentSnapshotActive))
-		require.Equal(t, 1, currentSnapshotActive, "Current reading names a released snapshot")
-	}
 	return current
 }
 
-// requireFinishAtomicity asserts a completion fact and Known acceptance exist
-// together or not at all.
-func requireFinishAtomicity(t *testing.T, ctx context.Context, store *PostgresStore, owner, bookID string, finished bool) {
+// requireCompletions asserts how many completions Reading history holds for the
+// Book, and that the Book's disposition is the one Finish or End leaves.
+func requireCompletions(t *testing.T, ctx context.Context, store *PostgresStore, owner, bookID string, want int) {
 	t.Helper()
 	var completions int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND language='de' AND book_id=$2`, owner, bookID).Scan(&completions))
-	known, err := store.ListKnownVocabulary(ctx, owner, "de")
-	require.NoError(t, err)
-	knownLemmas := make([]string, 0, len(known))
-	for _, entry := range known {
-		knownLemmas = append(knownLemmas, entry.CanonicalLemma)
+	assert.Equal(t, want, completions, "completions recorded")
+	disposition := domain.BookDispositionToRead
+	if want > 0 {
+		disposition = domain.BookDispositionInbox
 	}
-	if finished {
-		assert.Equal(t, 1, completions, "Finish recorded exactly one completion")
-		assert.Equal(t, []string{currentReadingRaceLemma}, knownLemmas, "completion without Known acceptance")
-		assert.Equal(t, domain.BookDispositionInbox, mustBookDisposition(t, store, owner, bookID), "completed Book returns to Inbox")
-		return
-	}
-	assert.Zero(t, completions, "transition other than Finish recorded a completion")
-	assert.Empty(t, knownLemmas, "Known acceptance without a completion")
-	assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, owner, bookID), "unfinished Book keeps its disposition")
-}
-
-func requireSnapshotReleased(t *testing.T, ctx context.Context, store *PostgresStore, owner, snapshotID string, released bool) {
-	t.Helper()
-	var count int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1 AND id=$2 AND released_at IS NOT NULL`, owner, snapshotID).Scan(&count))
-	want := 0
-	if released {
-		want = 1
-	}
-	assert.Equal(t, want, count, "snapshot %s released=%t", snapshotID, released)
+	assert.Equal(t, disposition, mustBookDisposition(t, store, owner, bookID))
 }
 
 type currentReadingRaceFixture struct {
@@ -141,8 +112,6 @@ type currentReadingRaceFixture struct {
 }
 
 // newCurrentReadingRaceFixture creates bookCount analyzed To Read German Books.
-// The first Book's corpus carries one candidate so its snapshot has vocabulary
-// that Finish must accept as Known.
 func newCurrentReadingRaceFixture(t *testing.T, ctx context.Context, store *PostgresStore, name string, bookCount int) currentReadingRaceFixture {
 	t.Helper()
 	owner, err := store.CreateUser(ctx, name, false)
@@ -154,18 +123,17 @@ func newCurrentReadingRaceFixture(t *testing.T, ctx context.Context, store *Post
 		makeAnalyzedToReadBook(t, ctx, store, book, source)
 		fixture.books = append(fixture.books, book)
 	}
-	var corpusID string
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, fixture.books[0].ID).Scan(&corpusID))
-	testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpusID, "de", testutil.CorpusWord{Lemma: currentReadingRaceLemma, UPOS: "NOUN", Occurrences: 5})
 	return fixture
 }
 
-func TestConcurrentCurrentReadingStartsOnDifferentBooksKeepOneWinner(t *testing.T) {
+func TestConcurrentCurrentReadingStartsOnDifferentBooksLeaveOneReading(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-start-different", 2)
 
+	// Read next replaces, so both succeed one after the other; the learner lock
+	// leaves exactly one reading and the loser's Book stays To Read.
 	errs := raceCurrentReadingTransitions(t, ctx,
 		func(ctx context.Context) error {
 			_, err := store.StartCurrentReading(ctx, fixture.owner, "de", fixture.books[0].ID)
@@ -176,13 +144,14 @@ func TestConcurrentCurrentReadingStartsOnDifferentBooksKeepOneWinner(t *testing.
 			return err
 		},
 	)
-	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingExists)
-
+	for slot, err := range errs {
+		require.NoError(t, err, "Read next %d", slot)
+	}
 	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
-	assert.Equal(t, fixture.books[winner].ID, current.BookID, "the winning Start owns the Current reading")
-	var snapshots int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1`, fixture.owner).Scan(&snapshots))
-	assert.Equal(t, 1, snapshots, "the losing Start leaves no snapshot behind")
+	assert.Contains(t, []string{fixture.books[0].ID, fixture.books[1].ID}, current.BookID)
+	for _, book := range fixture.books {
+		assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, fixture.owner, book.ID))
+	}
 }
 
 func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
@@ -192,7 +161,7 @@ func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-start-same", 1)
 
 	// The loser of a same-Book race finds the winner's reading under the
-	// learner lock and replays it: both Starts succeed, one writes.
+	// learner lock and replays it: both succeed, one writes.
 	var results sync.Map
 	start := func(slot int) func(context.Context) error {
 		return func(ctx context.Context) error {
@@ -205,9 +174,8 @@ func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
 	}
 	errs := raceCurrentReadingTransitions(t, ctx, start(0), start(1))
 	for slot, err := range errs {
-		require.NoError(t, err, "same-Book Start %d", slot)
+		require.NoError(t, err, "same-Book Read next %d", slot)
 	}
-
 	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
 	assert.Equal(t, fixture.books[0].ID, current.BookID)
 	fresh := 0
@@ -216,54 +184,11 @@ func TestConcurrentCurrentReadingStartsOnSameBookKeepOneWinner(t *testing.T) {
 		require.True(t, ok)
 		result, ok := loaded.(StartResult)
 		require.True(t, ok)
-		assert.Equal(t, current.SnapshotID, result.Reading.SnapshotID, "Start %d reports the one reading", slot)
 		if !result.Replayed {
 			fresh++
 		}
 	}
-	assert.Equal(t, 1, fresh, "exactly one Start writes the reading; the other replays it")
-	var snapshots int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE owner_id=$1`, fixture.owner).Scan(&snapshots))
-	assert.Equal(t, 1, snapshots, "the replayed Start leaves no snapshot behind")
-}
-
-func TestConcurrentCurrentReadingSwitchAndFinishKeepOneWinner(t *testing.T) {
-	ctx := context.Background()
-	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
-	store := openIntegrationStore(t, ctx, databaseURL)
-	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-switch-finish", 2)
-	initial, err := store.StartCurrentReading(ctx, fixture.owner, "de", fixture.books[0].ID)
-	require.NoError(t, err)
-	require.NotEmpty(t, initial.SnapshotID)
-
-	const switchIndex, finishIndex = 0, 1
-	errs := raceCurrentReadingTransitions(t, ctx,
-		func(ctx context.Context) error {
-			_, err := store.SwitchCurrentReading(ctx, fixture.owner, "de", fixture.books[1].ID, initial.BookID, initial.SnapshotID)
-			return err
-		},
-		func(ctx context.Context) error {
-			_, err := store.FinishCurrentReading(ctx, fixture.owner, "de", initial.BookID, initial.SnapshotID)
-			return err
-		},
-	)
-	// A Switch that loses finds no Current reading; a Finish that loses finds a
-	// different one.
-	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingStale, ErrNotFound)
-
-	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
-	requireSnapshotReleased(t, ctx, store, fixture.owner, initial.SnapshotID, true)
-	switch winner {
-	case switchIndex:
-		require.ErrorIs(t, errs[finishIndex], ErrCurrentReadingStale)
-		assert.Equal(t, fixture.books[1].ID, current.BookID, "Switch made the target Current")
-		requireFinishAtomicity(t, ctx, store, fixture.owner, initial.BookID, false)
-	case finishIndex:
-		require.ErrorIs(t, errs[switchIndex], ErrNotFound)
-		assert.Empty(t, current.BookID, "Finish left no Current reading")
-		requireFinishAtomicity(t, ctx, store, fixture.owner, initial.BookID, true)
-		assert.Equal(t, domain.BookDispositionToRead, mustBookDisposition(t, store, fixture.owner, fixture.books[1].ID), "losing Switch target keeps its disposition")
-	}
+	assert.Equal(t, 1, fresh, "exactly one Read next writes the reading; the other replays it")
 }
 
 func TestConcurrentCurrentReadingEndAndFinishKeepOneWinner(t *testing.T) {
@@ -273,31 +198,43 @@ func TestConcurrentCurrentReadingEndAndFinishKeepOneWinner(t *testing.T) {
 	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-end-finish", 1)
 	initial, err := store.StartCurrentReading(ctx, fixture.owner, "de", fixture.books[0].ID)
 	require.NoError(t, err)
-	require.NotEmpty(t, initial.SnapshotID)
 
 	const endIndex, finishIndex = 0, 1
 	errs := raceCurrentReadingTransitions(t, ctx,
 		func(ctx context.Context) error {
-			return store.EndCurrentReading(ctx, fixture.owner, "de", initial.BookID, initial.SnapshotID)
+			return store.EndCurrentReading(ctx, fixture.owner, "de")
 		},
 		func(ctx context.Context) error {
-			_, err := store.FinishCurrentReading(ctx, fixture.owner, "de", initial.BookID, initial.SnapshotID)
+			_, err := store.FinishCurrentReading(ctx, fixture.owner, "de")
 			return err
 		},
 	)
-	// Neither transition replays the other: a completed snapshot is stale to End,
-	// and an ended one has no completion for Finish to replay.
-	winner := requireOneRaceWinner(t, errs, ErrCurrentReadingStale, ErrNotFound)
+	// The loser finds no current reading.
+	winner := requireOneRaceWinner(t, errs, ErrNotFound)
 
 	current := requireCurrentReadingStateConsistent(t, ctx, store, fixture.owner)
 	assert.Empty(t, current.BookID, "the winning transition ended the Current reading")
-	requireSnapshotReleased(t, ctx, store, fixture.owner, initial.SnapshotID, true)
 	switch winner {
 	case endIndex:
-		require.ErrorIs(t, errs[finishIndex], ErrNotFound)
-		requireFinishAtomicity(t, ctx, store, fixture.owner, initial.BookID, false)
+		requireCompletions(t, ctx, store, fixture.owner, initial.BookID, 0)
 	case finishIndex:
-		require.ErrorIs(t, errs[endIndex], ErrCurrentReadingStale)
-		requireFinishAtomicity(t, ctx, store, fixture.owner, initial.BookID, true)
+		requireCompletions(t, ctx, store, fixture.owner, initial.BookID, 1)
 	}
+}
+
+func TestConcurrentCurrentReadingFinishesRecordOneCompletion(t *testing.T) {
+	ctx := context.Background()
+	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
+	store := openIntegrationStore(t, ctx, databaseURL)
+	fixture := newCurrentReadingRaceFixture(t, ctx, store, "race-finish-finish", 1)
+	_, err := store.StartCurrentReading(ctx, fixture.owner, "de", fixture.books[0].ID)
+	require.NoError(t, err)
+
+	finish := func(ctx context.Context) error {
+		_, err := store.FinishCurrentReading(ctx, fixture.owner, "de")
+		return err
+	}
+	errs := raceCurrentReadingTransitions(t, ctx, finish, func(ctx context.Context) error { return finish(ctx) })
+	requireOneRaceWinner(t, errs, ErrNotFound)
+	requireCompletions(t, ctx, store, fixture.owner, fixture.books[0].ID, 1)
 }

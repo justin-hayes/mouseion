@@ -66,7 +66,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	err = seedWebappCatalogueBook(t, ctx, store, alice.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
-	reading, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
 	require.NoError(t, err)
 
 	authService := auth.New(store, time.Hour)
@@ -92,7 +92,6 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	assert.Equal(t, "lemma", parsed.Query().Get("as"))
 	assert.Equal(t, "NOUN", parsed.Query().Get("upos"))
 	assert.Equal(t, first.ID, parsed.Query().Get(originKeyBook))
-	assert.Equal(t, reading.SnapshotID, parsed.Query().Get(originKeySnapshot))
 	assert.Equal(t, "2", parsed.Query().Get(originKeyPage))
 	assert.Equal(t, "NOUN:wort26", parsed.Query().Get(originKeyRow))
 	assert.NotEmpty(t, parsed.Query().Get(originKeyRevision))
@@ -107,21 +106,21 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	t.Run("a new independent search keeps the origin but not the exact identity", func(t *testing.T) {
 		search := url.Values{"term": {"wort27"}}
 		for key, value := range parsed.Query() {
-			if _, ok := map[string]bool{originKeyBook: true, originKeySnapshot: true, originKeyPage: true, originKeyRow: true, originKeyRevision: true}[key]; ok {
+			if _, ok := map[string]bool{originKeyBook: true, originKeyPage: true, originKeyRow: true, originKeyRevision: true}[key]; ok {
 				search[key] = value
 			}
 		}
 		response := get("/de/vocabulary/concordance?" + search.Encode())
 		require.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, back, link(originBackPattern, response.Body.String()))
-		assert.Contains(t, response.Body.String(), `name="from_snap" value="`+reading.SnapshotID+`"`, "the search form carries the origin separately from the typed term")
+		assert.Contains(t, response.Body.String(), `name="from_book" value="`+first.ID+`"`, "the search form carries the origin separately from the typed term")
 	})
 
 	t.Run("Study returns to the applied Concordance state and Back restores the row", func(t *testing.T) {
 		study := get(link(originStudyPattern, exact.Body.String()))
 		require.Equal(t, http.StatusOK, study.Code)
 		returned := link(originReturnPattern, study.Body.String())
-		assert.Contains(t, returned, "from_snap="+reading.SnapshotID)
+		assert.Contains(t, returned, "from_book="+first.ID)
 		assert.Contains(t, returned, "focus=occurrence-")
 		// A browser never sends the fragment; it only positions the page.
 		again := get(strings.SplitN(returned, "#", 2)[0])
@@ -162,10 +161,10 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 
 	t.Run("invalid or foreign origins are dropped and expose nothing", func(t *testing.T) {
 		for name, mutate := range map[string]func(url.Values){
-			"page zero":        func(v url.Values) { v.Set(originKeyPage, "0") },
-			"bad accounting":   func(v url.Values) { v.Set(originKeyAll, "yes") },
-			"missing snapshot": func(v url.Values) { v.Del(originKeySnapshot) },
-			"oversized value":  func(v url.Values) { v.Set(originKeyPrefix, string(make([]byte, maxOriginValueLength+1))) },
+			"page zero":       func(v url.Values) { v.Set(originKeyPage, "0") },
+			"bad accounting":  func(v url.Values) { v.Set(originKeyAll, "yes") },
+			"missing book":    func(v url.Values) { v.Del(originKeyBook) },
+			"oversized value": func(v url.Values) { v.Set(originKeyPrefix, string(make([]byte, maxOriginValueLength+1))) },
 		} {
 			values := parsed.Query()
 			mutate(values)
@@ -201,15 +200,12 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.Equal(t, "wort", refreshedURL.Query().Get("q"))
 		assert.Equal(t, "1", refreshedURL.Query().Get("all"))
 		assert.Equal(t, "1", refreshedURL.Query().Get("page"))
-		assert.Empty(t, refreshedURL.Query().Get("snapshot"), "refresh never carries the old commitment forward")
+		assert.Empty(t, refreshedURL.Query().Get("snapshot"), "refresh never carries a retired commitment token")
 		assert.Contains(t, refreshed.Body.String(), "Page 1 of 2")
 	})
 
 	t.Run("lifecycle changes explain an expired origin before opening another context", func(t *testing.T) {
-		current, err := store.GetCurrentReading(ctx, alice.ID, "de")
-		require.NoError(t, err)
-		// Same-Book restart: End then Start again freezes a new snapshot.
-		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de", first.ID, current.SnapshotID))
+		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 		ended := get(back)
 		assert.Equal(t, http.StatusConflict, ended.Code)
 		assert.Contains(t, ended.Body.String(), "That book vocabulary was not restored")
@@ -218,15 +214,14 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, ended.Body.String(), `id="vocabulary-workflow"`)
 		assert.NotContains(t, ended.Body.String(), "Choose a To Read book in")
 
-		restarted, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
+		// The origin names the Book, not a commitment, so reading the same Book
+		// again restores it.
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
 		require.NoError(t, err)
-		require.NotEqual(t, current.SnapshotID, restarted.SnapshotID)
 		sameBook := get(back)
-		assert.Equal(t, http.StatusConflict, sameBook.Code)
-		assert.Contains(t, sameBook.Body.String(), "Open current Reading")
-		assert.NotContains(t, sameBook.Body.String(), `id="vocabulary-workflow"`)
+		assert.Equal(t, http.StatusOK, sameBook.Code)
 
-		_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID, restarted.SnapshotID)
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", second.ID)
 		require.NoError(t, err)
 		switched := get(back)
 		assert.Equal(t, http.StatusConflict, switched.Code)

@@ -39,15 +39,14 @@ func TestFinishProjectsReadHistoryAndReadAgainOnlySetsToRead(t *testing.T) {
 	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 
-	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.MyBookBucketCurrentReading, finishedBookState(t, ctx, store, owner.ID, book.ID).WorkflowBucket())
 
-	first, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	replay, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, first.Completion, replay.Completion)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
+	require.ErrorIs(t, err, ErrNotFound, "a second Finish has no reading to finish and appends nothing")
 
 	state := finishedBookState(t, ctx, store, owner.ID, book.ID)
 	assert.Equal(t, domain.BookDispositionInbox, state.Disposition)

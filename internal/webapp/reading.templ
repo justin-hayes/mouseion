@@ -37,8 +37,6 @@ templ CurrentReadingFinish(outcome currentReadingFinishView) {
 	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome" data-focus-id="primary-goal-finish-heading">
 		<h1 id="primary-goal-finish-heading" tabindex="-1">Reading finished</h1>
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
-		<h2>Vocabulary transition</h2>
-		<p>{ finishGraduationText(outcome) }</p>
 		<p><a class="button button--outline" href={ templ.SafeURL(readingPagePath(ctx)) }>Choose a To Read book</a></p>
 	</section>
 }
@@ -78,23 +76,11 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 					<p class="journey-book__author">By { author }</p>
 				}
 				@CurrentReadingLifecycleActions(item, csrf)
-				if item.ReadingOnly {
-					@StatusBadge("Reading only", StatusInfo)
-					if item.CurrentReadingUnassessed {
-						<p>No analysis or recurring vocabulary exists yet, so Mouseion cannot model vocabulary for this Book. Reading directly is the current path.</p>
-					} else {
-						<p>Analysis evidence exists, but this Book has no recurring vocabulary. Reading directly is the current path.</p>
-					}
-				}
 			</div>
 		</div>
 		<div class="journey-book__evidence">
 			<details class="reading-supporting">
-				<summary>Analysis and reservation details</summary>
-				<section class="reading-note" aria-labelledby={ "reading-note-reserved-" + readingBookID(item) }>
-					<h2 id={ "reading-note-reserved-" + readingBookID(item) }>Reserved vocabulary</h2>
-					<p>{ reservedVocabularySummary(item.CurrentReadingSnapshotSize) }</p>
-				</section>
+				<summary>Analysis details</summary>
 				<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + readingBookID(item) }>
 					<h2 id={ "reading-note-analysis-" + readingBookID(item) }>Analysis</h2>
 					if readingEvidenceState(item) == "current" {
@@ -112,12 +98,12 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 
 templ CurrentReadingLifecycleActions(item readingBookView, csrf string) {
 	<div class="journey-book__lifecycle" role="group" aria-label="Reading actions">
-		@Confirmation("Mark reading finished", currentReadingCompletionConfirmationText(item), StatusNeutral) {
-			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ readingBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.CurrentReadingSnapshotID }/><button class="button" type="submit">Mark reading finished</button></form>
+		@Confirmation("Mark reading finished", currentReadingCompletionConfirmationText, StatusNeutral) {
+			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button" type="submit">Mark reading finished</button></form>
 		}
 		<a class="button button--quiet" href={ templ.SafeURL(readingSwitchPath(ctx)) }>Switch current reading</a>
-		@Confirmation("End current reading", "This ends your commitment to this Book without finishing it. It releases only the Reserved vocabulary for this reading, records no completion, and accepts nothing as Known. The Book stays in To Read, and its analysis and history remain. Reading never ends on its own; choosing this Book again freezes a fresh snapshot.", StatusDanger) {
-			<form method="post" action="/reading/end"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_current_book_id" value={ readingBookID(item) }/><input type="hidden" name="expected_current_snapshot_id" value={ item.CurrentReadingSnapshotID }/><button type="submit" class="button button--outline">Confirm end current reading</button></form>
+		@Confirmation("End current reading", "This ends your commitment to this Book without finishing it and records no completion. The Book stays in To Read, and its analysis and history remain. Reading never ends on its own.", StatusDanger) {
+			<form method="post" action="/reading/end"><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">Confirm end current reading</button></form>
 		}
 	</div>
 }
@@ -187,20 +173,20 @@ templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPa
 			}
 			<ul class="reading-chooser-list" role="list">
 				for _, entry := range chooser.Entries {
-					@ReadingChooserBook(entry.Book, csrf, chooser.CurrentBookID, chooser.CurrentSnapshotID)
+					@ReadingChooserBook(entry.Book, csrf)
 				}
 			</ul>
 		}
 	}
 }
 
-templ ReadingChooserBook(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
+templ ReadingChooserBook(item readingChooserBookView, csrf string) {
 	<li class="reading-chooser-book" id={ readingChooserCandidateAnchorID(item) } tabindex="-1">
-		@ReadingChooserCandidate(item, csrf, currentBookID, currentSnapshotID)
+		@ReadingChooserCandidate(item, csrf)
 	</li>
 }
 
-templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, currentSnapshotID string) {
+templ ReadingChooserCandidate(item readingChooserBookView, csrf string) {
 	<article class="reading-chooser-entry">
 		<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, myBookTitlePlate(item.Book), item.Book.Cover)</div>
 		<div class="reading-chooser-entry__identity">
@@ -212,23 +198,10 @@ templ ReadingChooserCandidate(item readingChooserBookView, csrf, currentBookID, 
 				@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
 				@SourceStructureUpdateNotice(item.Book, csrf, "button button--outline")
 				if item.Coverage != nil {
-					if currentBookID != "" {
-						@Confirmation("Switch to this book", "Switching atomically releases the current book's active reservation and freezes this To Read book's current analysis snapshot. The former current book remains To Read; its analysis and history remain. You can start either book again later.", StatusNeutral) {
-							<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/switch") }>
-								<input type="hidden" name="csrf_token" value={ csrf }/>
-								<input type="hidden" name="expected_current_book_id" value={ currentBookID }/>
-								<input type="hidden" name="expected_current_snapshot_id" value={ currentSnapshotID }/>
-								<button class="button" type="submit">Confirm switch to this book</button>
-							</form>
-						}
-					} else {
-						@Confirmation("Start reading", "Starting this book makes it your current reading and freezes its current analysis and vocabulary snapshot.", StatusNeutral) {
-							<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
-								<input type="hidden" name="csrf_token" value={ csrf }/>
-								<button class="button" type="submit">Confirm start reading</button>
-							</form>
-						}
-					}
+					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
+						<input type="hidden" name="csrf_token" value={ csrf }/>
+						<button class="button" type="submit">Read next</button>
+					</form>
 					<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
 				} else if item.State == readingChooserInProgress {
 					if item.Book.Acquired != nil && item.Book.Acquired.AnalysisJobID > 0 {

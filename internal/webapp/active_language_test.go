@@ -73,8 +73,6 @@ func TestRenderedFormsCarryTheBareCSRFToken(t *testing.T) {
 // (ADR 0131): the Last study language never refuses a submission.
 func TestSubmissionsIgnoreTheLastStudyLanguage(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	before, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	for _, path := range []string{
@@ -84,9 +82,7 @@ func TestSubmissionsIgnoreTheLastStudyLanguage(t *testing.T) {
 	} {
 		t.Run(path, func(t *testing.T) {
 			response := readingTestRequest(t, h, path, url.Values{
-				"csrf_token":                   {csrf},
-				"expected_current_book_id":     {before.BookID},
-				"expected_current_snapshot_id": {before.SnapshotID},
+				"csrf_token": {csrf},
 			}, cookies)
 			assert.NotEqual(t, http.StatusForbidden, response.Code)
 			assert.NotContains(t, response.Header().Get("Location"), "study language changed")

@@ -3,7 +3,6 @@ package webapp
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -13,24 +12,19 @@ import (
 )
 
 type readingBookView struct {
-	Book                             domain.SourceMaterialSummary
-	BookID                           string
-	ReadingUnit                      *domain.BookReadingUnit
-	ClassicalPreparation             *domain.ClassicalPreparationStatus
-	Cover                            domain.BookCover
-	ReadingSince                     time.Time
-	CurrentReading                   bool
-	ReadingOnly                      bool
-	CurrentReadingUnassessed         bool
-	CurrentReadingVocabularyEligible int
-	CurrentReadingSnapshotID         string
-	CurrentReadingSnapshotSize       int
-	CanMoveEarlier                   bool
-	CanMoveLater                     bool
-	CanChooseCurrentReading          bool
-	Coverage                         *domain.AnalysisCoverage
-	StatisticsUnavailable            bool
-	CountsUpdating                   bool
+	Book                    domain.SourceMaterialSummary
+	BookID                  string
+	ReadingUnit             *domain.BookReadingUnit
+	ClassicalPreparation    *domain.ClassicalPreparationStatus
+	Cover                   domain.BookCover
+	ReadingSince            time.Time
+	CurrentReading          bool
+	CanMoveEarlier          bool
+	CanMoveLater            bool
+	CanChooseCurrentReading bool
+	Coverage                *domain.AnalysisCoverage
+	StatisticsUnavailable   bool
+	CountsUpdating          bool
 }
 
 func readingBookAnchorID(bookID string) string {
@@ -153,13 +147,6 @@ func readingEvidenceDescription(item readingBookView) string {
 	default:
 		return ""
 	}
-}
-
-func reservedVocabularySummary(count int) string {
-	if count == 1 {
-		return "1 lemma is set aside from vocabulary selection while you read this Book."
-	}
-	return fmt.Sprintf("%d lemmas are set aside from vocabulary selection while you read this Book.", count)
 }
 
 func readingAnalysisAction(item readingBookView) bookLifecycleAction {
@@ -322,14 +309,6 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		if err := h.addReadingEvidence(ctx, owner, &book); err != nil {
 			return readingPageView{}, err
 		}
-		book.CurrentReadingUnassessed = book.Book.EvidenceState() != domain.BookAnalyzed
-		book.CurrentReadingVocabularyEligible, err = h.services.Store.Reading.CountCurrentReadingVocabularyToAccept(ctx, owner, language)
-		if err != nil {
-			return readingPageView{}, err
-		}
-		book.ReadingOnly = book.CurrentReadingVocabularyEligible == 0
-		book.CurrentReadingSnapshotID = currentReading.SnapshotID
-		book.CurrentReadingSnapshotSize = currentReading.SnapshotSize
 		view.CurrentReading = &book
 	}
 	return view, nil

@@ -37,6 +37,9 @@ type Querier interface {
 	BookIsCurrentReading(ctx context.Context, arg BookIsCurrentReadingParams) (bool, error)
 	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error)
 	CatalogueIndexBackfillBlocked(ctx context.Context) (bool, error)
+	// Replaces the Book of the language's current reading. A reading started before
+	// the snapshot was retired loses its snapshot reference here; the caller
+	// releases it first.
 	ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurrentReadingBookParams) (ChangeCurrentReadingBookRow, error)
 	// Moves each word whose replacement material is ready onto it: the new
 	// Gloss becomes the learned meaning and the word is marked corrected. The FSRS
@@ -62,7 +65,6 @@ type Querier interface {
 	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
-	CreateCurrentReadingSnapshot(ctx context.Context, arg CreateCurrentReadingSnapshotParams) (CreateCurrentReadingSnapshotRow, error)
 	CreateFirstUserAndSession(ctx context.Context, arg CreateFirstUserAndSessionParams) (CreateFirstUserAndSessionRow, error)
 	// OPDS connection queries. Credential decryption stays in Go; these queries
 	// own the row iteration and RETURNING composition.
@@ -109,7 +111,6 @@ type Querier interface {
 	EndStudyReport(ctx context.Context, arg EndStudyReportParams) (int64, error)
 	FindSourceMaterialForAcquisition(ctx context.Context, arg FindSourceMaterialForAcquisitionParams) (FindSourceMaterialForAcquisitionRow, error)
 	GetActiveBookCoverResource(ctx context.Context, arg GetActiveBookCoverResourceParams) (GetActiveBookCoverResourceRow, error)
-	GetActiveCurrentReadingSnapshotForPreparation(ctx context.Context, arg GetActiveCurrentReadingSnapshotForPreparationParams) (GetActiveCurrentReadingSnapshotForPreparationRow, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)
 	GetBookByAlias(ctx context.Context, arg GetBookByAliasParams) (GetBookByAliasRow, error)
 	GetBookByUnscopedAliasForUpdate(ctx context.Context, arg GetBookByUnscopedAliasForUpdateParams) (GetBookByUnscopedAliasForUpdateRow, error)
@@ -180,10 +181,10 @@ type Querier interface {
 	// It selects only what eligibility needs, so the classifier does not depend on
 	// display-only failure codes.
 	GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentReadingEvidenceParams) (GetCurrentReadingEvidenceRow, error)
+	// A reading started before the vocabulary snapshot was retired still names one;
+	// callers that replace or clear the reading release it. Newer readings name
+	// none, and snapshot_id is then empty.
 	GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrentReadingForUpdateParams) (GetCurrentReadingForUpdateRow, error)
-	// Durable facts that prove a lifecycle replay: who the commitment belonged to,
-	// when it was frozen and released, and whether it was completed.
-	GetCurrentReadingSnapshotLifecycle(ctx context.Context, arg GetCurrentReadingSnapshotLifecycleParams) (GetCurrentReadingSnapshotLifecycleRow, error)
 	GetCurrentSourceEvidenceForUpdate(ctx context.Context, arg GetCurrentSourceEvidenceForUpdateParams) (GetCurrentSourceEvidenceForUpdateRow, error)
 	GetCurrentSourceMaterialContent(ctx context.Context, arg GetCurrentSourceMaterialContentParams) (GetCurrentSourceMaterialContentRow, error)
 	// Legacy enrichment reads used by the immediate card-export path. Exact
@@ -206,7 +207,6 @@ type Querier interface {
 	GetOpenStudyReport(ctx context.Context, arg GetOpenStudyReportParams) (StudyReport, error)
 	GetOpenStudyReportOfMaterial(ctx context.Context, arg GetOpenStudyReportOfMaterialParams) (StudyReport, error)
 	GetPreviouslyReadImport(ctx context.Context, arg GetPreviouslyReadImportParams) (GetPreviouslyReadImportRow, error)
-	GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error)
 	GetRegisteredBookID(ctx context.Context, arg GetRegisteredBookIDParams) (string, error)
 	// One sentence's Construction occurrences, read only when the run's marker
 	// carries the current detector version. No marker, or an older one, returns no
@@ -268,15 +268,15 @@ type Querier interface {
 	InsertBookReadingUnit(ctx context.Context, arg InsertBookReadingUnitParams) error
 	InsertCatalogueEntryAlias(ctx context.Context, arg InsertCatalogueEntryAliasParams) error
 	InsertConstructionOccurrence(ctx context.Context, arg InsertConstructionOccurrenceParams) error
+	// Read next never freezes a vocabulary snapshot (ADR 0136 §4), so the row names
+	// none.
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
-	// Inserts the identities the domain decided to accept, only where absent.
-	// Which identities become Known is never decided here.
-	InsertCurrentReadingKnownVocabulary(ctx context.Context, arg InsertCurrentReadingKnownVocabularyParams) (int, error)
-	InsertCurrentReadingSnapshotVocabulary(ctx context.Context, arg InsertCurrentReadingSnapshotVocabularyParams) error
 	InsertPreviouslyReadImport(ctx context.Context, arg InsertPreviouslyReadImportParams) (InsertPreviouslyReadImportRow, error)
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error
-	InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error)
+	// Finish appends one completion with no snapshot and no vocabulary counts
+	// (ADR 0136 §4). Every Finish is a new row, so a Book can be completed again.
+	InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) error
 	InsertSelectedSentence(ctx context.Context, arg InsertSelectedSentenceParams) error
 	InsertSession(ctx context.Context, arg InsertSessionParams) error
 	InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error)
@@ -298,7 +298,6 @@ type Querier interface {
 	// Wrong-word report, or whose material is not ready and current, returns no
 	// row.
 	IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error)
-	IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error)
 	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
 	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
 	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
@@ -366,15 +365,10 @@ type Querier interface {
 	// language, for one observed form and its analyzer lemma (ADR 0136 §6).
 	ListCorpusLemmaReviewOccurrences(ctx context.Context, arg ListCorpusLemmaReviewOccurrencesParams) ([]ListCorpusLemmaReviewOccurrencesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
-	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
-	ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error)
 	ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentStudyMaterialParams) ([]ListCurrentStudyMaterialRow, error)
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
-	// Known rows that can match a frozen identity (same language and lemma, any
-	// POS and discriminator). The domain decides which identities they cover.
-	ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error)
 	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
 	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)

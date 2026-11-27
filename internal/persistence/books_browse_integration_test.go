@@ -162,7 +162,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.NoError(t, err)
 	book, source := createReadingFixture(t, ctx, store, owner.ID, "bucket-german")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
-	current, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 
 	toRead, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
@@ -179,7 +179,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	assert.Equal(t, domain.MyBookBucketCurrentReading, all.Items[0].WorkflowBucket())
 	assert.Equal(t, domain.BookDispositionToRead, all.Items[0].Disposition, "visible bucket does not rewrite persisted disposition")
 
-	_, err = store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, current.SnapshotID)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	read, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", true, 0, 25)
 	require.NoError(t, err)
@@ -263,19 +263,17 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 		}
 		assert.Equal(t, 1, currentCount, "current reading remains independent in %s", language)
 	}
-	stopped, err := store.GetCurrentReading(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", book.ID, stopped.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de"))
 	toRead, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", string(domain.BookDispositionToRead), false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, toRead.Items, 1)
 	assert.Equal(t, domain.MyBookBucketToRead, toRead.Items[0].WorkflowBucket(), "stopping preserves To Read intent")
 
-	stopped, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	replacement, replacementSource := createReadingFixture(t, ctx, store, owner.ID, "bucket-switch")
 	makeAnalyzedToReadBook(t, ctx, store, replacement, replacementSource)
-	switched, err := store.SwitchCurrentReading(ctx, owner.ID, "de", replacement.ID, book.ID, stopped.SnapshotID)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", replacement.ID)
 	require.NoError(t, err)
 	all, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
@@ -285,7 +283,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	}
 	assert.Equal(t, domain.MyBookBucketToRead, buckets[book.ID], "switch returns the former current Book to To Read")
 	assert.Equal(t, domain.MyBookBucketCurrentReading, buckets[replacement.ID])
-	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de", replacement.ID, switched.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de"))
 	all, err = store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 25)
 	require.NoError(t, err)
 	for _, item := range all.Items {
@@ -294,7 +292,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 			assert.Equal(t, domain.MyBookBucketToRead, item.WorkflowBucket(), "ending keeps the Book in To Read")
 		}
 	}
-	assert.NotEmpty(t, italianCurrent.SnapshotID)
+	assert.NotEmpty(t, italianCurrent.BookID)
 }
 
 func TestMyBooksBrowseProjectsPopulatedCoverageAndCurrentReading(t *testing.T) {

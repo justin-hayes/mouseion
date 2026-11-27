@@ -73,9 +73,7 @@ func TestReadingActionsReturnToTheBooksLanguage(t *testing.T) {
 	stale := readingTestRequest(t, h, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Contains(t, stale.Header().Get("Location"), "/de/reading?message=")
 
-	end := readingTestRequest(t, h, "/reading/end", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {current.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
-	}, cookies)
+	end := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, end.Code)
 	assert.Contains(t, end.Header().Get("Location"), "/de/reading?message=")
 
@@ -88,10 +86,10 @@ func TestReadingRefusesAStaleBrowseOriginInAnotherLanguage(t *testing.T) {
 	ctx := context.Background()
 	start := readingTestRequest(t, h, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, start.Code)
-	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	_, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 
-	origin := "?reading=" + book.ID + "&snapshot=" + current.SnapshotID
+	origin := "?reading=" + book.ID
 	ok := getAs(t, h, "/de/reading"+origin, cookies)
 	require.Equal(t, http.StatusOK, ok.Code)
 

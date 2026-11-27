@@ -69,12 +69,10 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	ResolveBookID(context.Context, string, string) (string, bool, error)
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
-	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
 	StartCurrentReadingResult(context.Context, string, string, string) (domain.StartResult, error)
-	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
-	EndCurrentReading(context.Context, string, string, string, string) error
-	FinishCurrentReading(context.Context, string, string, string, string) (domain.CurrentReadingFinishResult, error)
+	EndCurrentReading(context.Context, string, string) error
+	FinishCurrentReading(context.Context, string, string) (domain.CurrentReadingFinishResult, error)
 	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
 	lemmareview.Store
 }
@@ -334,8 +332,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
 	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))
-	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.startReading)))
-	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
+	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.readNext)))
+	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.readNext)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))
 	h.mux.Handle("POST /reading/end", h.user(http.HandlerFunc(h.endCurrentReading)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))

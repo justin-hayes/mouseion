@@ -194,29 +194,12 @@ func TestSpeakerLabelsAreStructuralNonVocabularyAcrossCountConsumers(t *testing.
 	assert.Equal(t, int64(9), coverage.AnalyzableTokenCount, "coverage agrees on the same denominator")
 	assert.Equal(t, int64(6), coverage.DistinctLemmaCount)
 
-	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-	require.NoError(t, err)
-	frozen, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	require.Len(t, frozen, 1, "only the identity that reaches the Reading floor freezes")
-	assert.Equal(t, "Buch", frozen[0].CanonicalLemma)
-	assert.Equal(t, 4, frozen[0].OccurrenceCount)
-	assert.NotContains(t, string(frozen[0].SentenceReferences), "Valentin", "the label stays raw corpus evidence, never frozen context")
-
-	// A projection rebuild never mutates the already-frozen Reading evidence.
-	tx, err = pool.Begin(ctx)
-	require.NoError(t, err)
-	require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, tx, owner.ID, book.ID, source.ID, runID, corpusID, "de"))
-	require.NoError(t, tx.Commit(ctx))
-	reloaded, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, frozen, reloaded)
 }
 
-// TestV1CountsAndFrozenReadingStayPinnedAcrossSpeakerAwareRebuild proves that a
-// v1 snapshot (structure not recorded) keeps its ordinary counts and an existing
-// frozen Reading when the speaker-aware projection version rebuilds it.
-func TestV1CountsAndFrozenReadingStayPinnedAcrossSpeakerAwareRebuild(t *testing.T) {
+// TestV1CountsStayPinnedAcrossSpeakerAwareRebuild proves that a
+// v1 snapshot (structure not recorded) keeps its ordinary counts when the
+// speaker-aware projection version rebuilds it.
+func TestV1CountsStayPinnedAcrossSpeakerAwareRebuild(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "speaker-v1-pinned", false)
@@ -268,17 +251,6 @@ func TestV1CountsAndFrozenReadingStayPinnedAcrossSpeakerAwareRebuild(t *testing.
 	want := map[string]int64{"fallen/VERB": 6}
 	assert.Equal(t, want, browseCountRows(t, ctx, store, owner.ID, book.ID), "v1 records no structure, so labels contribute ordinary vocabulary")
 
-	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-	require.NoError(t, err)
-	frozen, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	require.Len(t, frozen, 1)
-	assert.Equal(t, "fallen", frozen[0].CanonicalLemma)
-	assert.Equal(t, 6, frozen[0].OccurrenceCount)
-
 	rebuild()
 	assert.Equal(t, want, browseCountRows(t, ctx, store, owner.ID, book.ID), "a rebuild leaves v1 counts identical")
-	reloaded, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, frozen, reloaded, "the frozen Reading stays pinned across a projection rebuild")
 }
