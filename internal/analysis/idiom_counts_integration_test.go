@@ -4,6 +4,7 @@ package analysis
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -354,4 +355,97 @@ func TestIdiomCountsRebuildQueueIsNotTheAnalysisQueue(t *testing.T) {
 	require.NoError(t, f.pool.QueryRow(f.ctx, `SELECT queue FROM river_job WHERE kind=$1`, (IdiomCountsRebuildArgs{}).Kind()).Scan(&queue))
 	require.Equal(t, IdiomCountsQueue, queue)
 	require.NotEqual(t, Queue, queue)
+}
+
+// failingIdiomIndex fails every lookup.
+type failingIdiomIndex struct{}
+
+func (failingIdiomIndex) IdiomEntries(context.Context, string, string) ([]idiom.Entry, error) {
+	return nil, errors.New("index unavailable")
+}
+
+// breakTable removes a table the rebuild reads or writes, so the step that
+// needs it fails.
+func (f *idiomCountFixture) breakTable(t *testing.T, table string) {
+	t.Helper()
+	_, err := f.pool.Exec(f.ctx, `DROP TABLE `+table+` CASCADE`)
+	require.NoError(t, err)
+}
+
+func TestIdiomCountRebuildReportsWhatItCouldNotDo(t *testing.T) {
+	work := func(f *idiomCountFixture, ctx context.Context, index idiom.Index) error {
+		worker := &IdiomCountsRebuildWorker{Pool: f.pool, Index: index, IndexVersion: "v1"}
+		return worker.Work(ctx, &river.Job[IdiomCountsRebuildArgs]{Args: IdiomCountsRebuildArgs{OwnerID: f.owner, BookID: f.book, RunID: f.run}})
+	}
+	t.Run("a cancelled job does not begin", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		ctx, cancel := context.WithCancel(f.ctx)
+		cancel()
+		require.Error(t, work(f, ctx, spoon))
+	})
+	t.Run("a Book with no current analysis is skipped", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		_, err := f.pool.Exec(f.ctx, `DELETE FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, f.owner, f.book)
+		require.NoError(t, err)
+		require.NoError(t, work(f, f.ctx, spoon))
+	})
+	t.Run("an index that fails leaves no counts", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.sentence(t, "er", "wird", "den", "löffel", "abgeben")
+		require.Error(t, work(f, f.ctx, failingIdiomIndex{}))
+	})
+	t.Run("counts that cannot be cleared fail the job", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.breakTable(t, "idiom_candidate_counts")
+		require.Error(t, work(f, f.ctx, spoon))
+	})
+	t.Run("readiness that cannot be published fails the job", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.breakTable(t, "idiom_candidate_count_readiness")
+		require.Error(t, work(f, f.ctx, spoon))
+	})
+}
+
+func TestIdiomCountSchedulingReportsWhatItCouldNotDo(t *testing.T) {
+	t.Run("an unconfigured service cannot schedule", func(t *testing.T) {
+		require.Error(t, (&Service{}).EnqueueMissingIdiomCountRebuilds(t.Context(), "v1"))
+	})
+	t.Run("a cancelled scheduling does not begin", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		ctx, cancel := context.WithCancel(f.ctx)
+		cancel()
+		require.Error(t, f.service.EnqueueMissingIdiomCountRebuilds(ctx, "v1"))
+	})
+	t.Run("readiness that cannot be read fails the scheduling", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.breakTable(t, "idiom_candidate_count_readiness")
+		require.Error(t, f.service.EnqueueMissingIdiomCountRebuilds(f.ctx, "v1"))
+	})
+	t.Run("a job that cannot be queued fails the scheduling", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.breakTable(t, "river_job")
+		require.Error(t, f.service.EnqueueMissingIdiomCountRebuilds(f.ctx, "v1"))
+	})
+}
+
+func TestCorpusIdiomCountsReportAStorageFailure(t *testing.T) {
+	t.Run("a cancelled read does not begin", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		ctx, cancel := context.WithCancel(f.ctx)
+		cancel()
+		_, err := f.store.ListCorpusIdiomCandidateCounts(ctx, f.owner, "de", "v1")
+		require.Error(t, err)
+	})
+	t.Run("counts that cannot be read fail the read", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.breakTable(t, "idiom_candidate_counts")
+		_, err := f.store.ListCorpusIdiomCandidateCounts(f.ctx, f.owner, "de", "v1")
+		require.Error(t, err)
+	})
+	t.Run("readiness that cannot be read fails the read", func(t *testing.T) {
+		f := newIdiomCountFixture(t)
+		f.breakTable(t, "idiom_candidate_count_readiness")
+		_, err := f.store.ListCorpusIdiomCandidateCounts(f.ctx, f.owner, "de", "v1")
+		require.Error(t, err)
+	})
 }

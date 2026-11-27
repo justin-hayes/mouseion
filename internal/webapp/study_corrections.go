@@ -21,7 +21,7 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 	if err := store.CompleteStudyReintroductions(ctx, owner, language, now); err != nil {
 		return err
 	}
-	progress, err := store.ListStudyProgress(ctx, owner, language)
+	progress, err := h.keepIdiomsReviewable(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -47,6 +47,28 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 			return err
 		}
 	}
+}
+
+// keepIdiomsReviewable reads the learner's progress, after returning each Idiom
+// that waits for new material to its last one while the language's idiom switch
+// is off: no replacement is prepared then, so it would never be reviewed again.
+func (h *Handler) keepIdiomsReviewable(ctx context.Context, owner, language string) ([]domain.StudyProgress, error) {
+	progress, err := h.services.Store.Study.ListStudyProgress(ctx, owner, language)
+	if err != nil || h.services.Study == nil {
+		return progress, err
+	}
+	changed := false
+	for _, word := range progress {
+		kept, err := h.services.Study.KeepIdiomReviewable(ctx, owner, word)
+		if err != nil {
+			return nil, err
+		}
+		changed = changed || kept
+	}
+	if !changed {
+		return progress, nil
+	}
+	return h.services.Store.Study.ListStudyProgress(ctx, owner, language)
 }
 
 // reviewWithdrawnWords checks every withdrawn word against current evidence. It

@@ -79,7 +79,7 @@ func TestStudyPreparesIdiomMaterialAlongsideWordsInStreamOrder(t *testing.T) {
 
 	page := getAs(t, s.h, "/de/study", s.cookies)
 	require.Equal(t, http.StatusOK, page.Code, "ready Idiom material does not break Today")
-	assert.Contains(t, page.Body.String(), "3 new words are ready", "the Idiom is offered in batches with the words")
+	assert.Contains(t, page.Body.String(), "2 new words and 1 idiom are ready", "the Idiom is offered in batches with the words")
 }
 
 func TestStudySkipsAnIdiomWhoseSentenceIsLiteralOrAmbiguous(t *testing.T) {

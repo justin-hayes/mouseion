@@ -3,11 +3,13 @@
 -- contains, matched on effective lemmas. The Corpus sums them to rank Idioms
 -- among new words; page requests never derive them.
 --
--- DDL only: two new tables, nothing to backfill. A Book's counts are written by
--- a durable job after its analysis publishes, so an existing Book has no
--- readiness row until startup reconciliation queues its rebuild, which is
--- idempotent and safe to retry (it replaces the Book's rows in one transaction).
--- Removing a Book removes its rows (ON DELETE CASCADE).
+-- DDL only: two new tables, no data in this migration. A Book's counts are
+-- written by a durable job after its analysis publishes, so an existing Book
+-- has no readiness row until startup reconciliation queues its rebuild. That
+-- rebuild is the backfill of ADR 0038 and its operational contract (owner,
+-- idempotency, retry, locking, how to detect and recover failed jobs) is in
+-- doc/operations.md, "Idiom candidate count rebuild". Removing a Book removes
+-- its rows (ON DELETE CASCADE).
 CREATE TABLE public.idiom_candidate_counts (
     owner_id uuid NOT NULL,
     book_id uuid NOT NULL,

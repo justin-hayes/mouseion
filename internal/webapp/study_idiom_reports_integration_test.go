@@ -272,3 +272,39 @@ func (s *studyHarness) waitForIdiomToReturn(oldMaterialID string) domain.StudyPr
 	})
 	return s.idiomItem()
 }
+
+// inflectHaus gives every "haus" token of the Corpus the surface "häus", one of
+// the same length so no offset moves, so the headword matches on its lemma and
+// not on the surface.
+func (s *studyHarness) inflectHaus() {
+	s.t.Helper()
+	pool := s.store.Pool()
+	_, err := pool.Exec(s.ctx, `UPDATE corpus_tokens SET surface = 'häus', raw_lemma = 'haus' WHERE owner_id = $1 AND canonical_lemma = 'haus'`, s.owner.ID)
+	require.NoError(s.t, err)
+	_, err = pool.Exec(s.ctx, `UPDATE corpus_sentences SET sentence_text = replace(sentence_text, 'haus', 'häus') WHERE owner_id = $1`, s.owner.ID)
+	require.NoError(s.t, err)
+}
+
+func TestStudyLemmaCorrectionThatBreaksAnIdiomsMatchReintroducesItWithItsProgressKept(t *testing.T) {
+	s, _ := idiomTodayHarness(t)
+	s.inflectHaus()
+	s.idiomsDueNextDay()
+	idiom := s.showIdiomCard() // the words are graded, so the Idiom is the next review
+	original := s.material(idiom.MaterialID)
+	log := len(s.reviewLog(idiom.ID))
+
+	// The learner confirms that "häus" in the introducing sentence is another
+	// word. Its surface is not a word of the headword, so only its lemma matched.
+	s.decide(original.BookID, "häus", original.SentenceOrdinal, "correct", "hof")
+	s.rebuildIdiomCounts(original.BookID)
+
+	s.page()
+	waiting := s.progressByID(idiom.ID)
+	assert.True(t, waiting.Reintroducing, "the introducing sentence no longer holds the headword")
+	assert.Equal(t, idiom.Memory, waiting.Memory, "its progress is kept")
+	replaced := s.waitForNewIdiomMaterial(idiom.MaterialID)
+	assert.NotEqual(t, original.SentenceOrdinal, s.material(replaced.MaterialID).SentenceOrdinal, "another sentence")
+	assert.True(t, replaced.Corrected())
+	assert.Len(t, s.reviewLog(idiom.ID), log, "a correction never creates a review")
+	assert.False(t, replaced.Withdrawn)
+}

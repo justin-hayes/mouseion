@@ -180,7 +180,7 @@ type StudyProgressStore interface {
 	// introduces nothing is domain.ErrNotFound. DeclineStudyBatch introduces no
 	// word. Both are domain.ErrStudyBatchLimit once the day's batches are
 	// answered.
-	TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error)
+	TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error)
 	DeclineStudyBatch(owner, language, studyDay string, batchLimit int) error
 	// NextStudyCard is the earliest due word with its material, or
 	// domain.ErrNotFound. RecordStudyGrade appends a review-log row and stores

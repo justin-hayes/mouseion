@@ -157,7 +157,7 @@ func studyScenarios() []Scenario {
 			tischID, _, err := store.ReserveStudyMaterial(owner, tisch)
 			require.NoError(t, err)
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			batch := []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}, {StudyItem: tisch, MaterialID: tischID}}
+			batch := []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}, {StudyItem: tisch, MaterialID: tischID}}
 
 			require.NoError(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1))
 			progress, err := progressStore.ListStudyProgress(owner, Language)
@@ -168,7 +168,7 @@ func studyScenarios() []Scenario {
 			assert.Equal(t, domain.StudyBatchLedger{StudyDay: "2026-11-25", Offered: 1, Declined: 1}, ledger)
 			require.ErrorIs(t, progressStore.DeclineStudyBatch(owner, Language, "2026-11-25", 1), domain.ErrStudyBatchLimit, "the day's batch was already answered")
 
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, []domain.StudyBatchWord{{StudyItem: tisch, MaterialID: tischID}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, []domain.StudyBatchItem{{StudyItem: tisch, MaterialID: tischID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word whose material is not ready is not introduced")
 			ledger, err = progressStore.StudyBatchLedger(owner, Language, "2026-11-26")
 			require.NoError(t, err)
@@ -195,7 +195,7 @@ func studyScenarios() []Scenario {
 			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-26", now, 1, batch)
 			require.ErrorIs(t, err, domain.ErrStudyBatchLimit)
 
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-27", now, 1, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-27", now, 1, []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word already in study is not introduced twice")
 			other, err := progressStore.ListStudyProgress(h.Seeds().OtherOwner(), Language)
 			require.NoError(t, err)
@@ -208,10 +208,10 @@ func studyScenarios() []Scenario {
 		{Name: "the ledger counts offers, takes up to the day's limit, and never lowers an offer", Run: func(t *testing.T, h Harness) {
 			owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			words := make([]domain.StudyBatchWord, 0, 4)
+			words := make([]domain.StudyBatchItem, 0, 4)
 			for _, lemma := range []string{"haus", "hund", "tisch", "buch"} {
 				identity := studyNoun(lemma)
-				words = append(words, domain.StudyBatchWord{StudyItem: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
+				words = append(words, domain.StudyBatchItem{StudyItem: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
 			}
 			const day = "2026-11-25"
 			ledger := func() domain.StudyBatchLedger {
@@ -240,14 +240,14 @@ func studyScenarios() []Scenario {
 			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
 			dayOne := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
 			dayTwo := time.Date(2026, 11, 26, 8, 0, 0, 0, time.UTC)
-			taken, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
+			taken, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
 			require.NoError(t, err)
 			require.Len(t, taken, 2)
 
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", dayOne, 3, []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a word introduced today is not carried over")
 
-			again, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-26", dayTwo, 3, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
+			again, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-26", dayTwo, 3, []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID, ProgressID: taken[0].ID}})
 			require.NoError(t, err)
 			require.Len(t, again, 1)
 			assert.Equal(t, taken[0].ID, again[0].ID, "the same progress is taken again, not a second row")
@@ -265,7 +265,7 @@ func studyScenarios() []Scenario {
 			haus, hund := studyNoun("haus"), studyNoun("hund")
 			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: hund, MaterialID: hundID}, {StudyItem: haus, MaterialID: hausID}})
+			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchItem{{StudyItem: hund, MaterialID: hundID}, {StudyItem: haus, MaterialID: hausID}})
 			require.NoError(t, err)
 
 			_, err = progressStore.NextStudyCard(owner, Language, now.Add(-time.Hour))
@@ -334,7 +334,7 @@ func studyScenarios() []Scenario {
 			hausID, hundID := readyStudyWord(t, store, owner, haus), readyStudyWord(t, store, owner, hund)
 			// 2026-11-25 04:55 Berlin, five minutes before the Study day ends.
 			late := time.Date(2026, 11, 25, 3, 55, 0, 0, time.UTC)
-			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-24", late, 1, []domain.StudyBatchWord{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
+			_, err := progressStore.TakeStudyBatch(owner, Language, "2026-11-24", late, 1, []domain.StudyBatchItem{{StudyItem: haus, MaterialID: hausID}, {StudyItem: hund, MaterialID: hundID}})
 			require.NoError(t, err)
 			progress, err := progressStore.ListStudyProgress(owner, Language)
 			require.NoError(t, err)
@@ -409,10 +409,10 @@ func declinedBatchTakenOnce(t *testing.T, h Harness) {
 	t.Helper()
 	owner, store, progressStore := h.Seeds().Owner(), h.Study(), h.StudyProgress()
 	now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-	words := make([]domain.StudyBatchWord, 0, 4)
+	words := make([]domain.StudyBatchItem, 0, 4)
 	for _, lemma := range []string{"haus", "hund", "tisch", "buch"} {
 		identity := studyNoun(lemma)
-		words = append(words, domain.StudyBatchWord{StudyItem: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
+		words = append(words, domain.StudyBatchItem{StudyItem: identity, MaterialID: readyStudyWord(t, store, owner, identity)})
 	}
 	const day = "2026-11-25"
 	ledger := func() domain.StudyBatchLedger {

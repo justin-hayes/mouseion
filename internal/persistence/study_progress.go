@@ -72,7 +72,7 @@ func (s *PostgresStore) RecordStudyBatchOffer(ctx context.Context, owner, langua
 // no longer ready, is skipped; a batch that introduces nothing is taken by
 // nobody and returns ErrNotFound. domain.ErrStudyBatchLimit means the day's
 // batches are all answered.
-func (s *PostgresStore) TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func (s *PostgresStore) TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	day, err := studyDayDate(studyDay)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func mapBatchSlotError(err error) error {
 	return fmt.Errorf("study batch ledger: %w", err)
 }
 
-func introduceStudyWords(ctx context.Context, q *sqlcgen.Queries, owner, language string, now time.Time, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func introduceStudyWords(ctx context.Context, q *sqlcgen.Queries, owner, language string, now time.Time, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	var introduced []domain.StudyProgress
 	for _, word := range words {
 		if word.ProgressID != "" {

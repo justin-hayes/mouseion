@@ -122,6 +122,6 @@ func studyIntroducedBefore(a, b StudyProgress) bool {
 
 // StudyBatchIsShort reports whether a batch holds fewer words than a full
 // batch while more words are still being prepared, so Today says why.
-func StudyBatchIsShort(batch []StudyBatchWord, preparing int) bool {
+func StudyBatchIsShort(batch []StudyBatchItem, preparing int) bool {
 	return len(batch) < StudyBatchSize && preparing > 0
 }

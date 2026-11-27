@@ -146,10 +146,14 @@ func idiomAnswer(reason string, meaning enrichment.ContextualMeaning, cited doma
 	return answer
 }
 
-// sharesCitedSense reports whether both citations are of the same dictionary
-// revision and name at least one sense of the same entry in common.
+// sharesCitedSense reports whether both citations name at least one sense of
+// the same entry in common. The dictionary pin is not compared: an Idiom sense
+// ID is a content hash of the sense (language, headword, part of speech,
+// Gloss, examples and tags), so it is the same in every index revision that
+// carries the sense unchanged, and a revision that changes the sense changes
+// its ID.
 func sharesCitedSense(learned, occurrence domain.StudyCitations) bool {
-	if learned.DictionaryPin != occurrence.DictionaryPin || len(learned.EntryIDs) != len(learned.SenseIDs) || len(occurrence.EntryIDs) != len(occurrence.SenseIDs) {
+	if len(learned.EntryIDs) != len(learned.SenseIDs) || len(occurrence.EntryIDs) != len(occurrence.SenseIDs) {
 		return false
 	}
 	for i, sense := range occurrence.SenseIDs {

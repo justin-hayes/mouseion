@@ -222,6 +222,30 @@ func (s *PostgresStore) SupersedeStudyMaterial(ctx context.Context, owner, mater
 	return nil
 }
 
+// RestoreStudyMaterial returns a word whose material was replaced to that
+// material, ending any replacement it has: the word is reviewed in the record
+// it was introduced in again. Its progress and learned meaning were never
+// touched, so nothing else changes. A material that is current already is
+// left as it is; a missing or foreign one is ErrNotFound.
+func (s *PostgresStore) RestoreStudyMaterial(ctx context.Context, owner string, word domain.StudyProgress) error {
+	if !validUUID(word.MaterialID) {
+		return ErrNotFound
+	}
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		if _, err := q.SupersedeOtherCurrentStudyMaterialOfWord(ctx, sqlcgen.SupersedeOtherCurrentStudyMaterialOfWordParams{
+			Owner: owner, ItemKind: word.ItemKind.String(), Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS,
+			LexicalDiscriminator: word.LexicalDiscriminator, Keep: word.MaterialID,
+		}); err != nil {
+			return fmt.Errorf("supersede replacement material: %w", err)
+		}
+		if _, err := q.UnsupersedeStudyMaterial(ctx, sqlcgen.UnsupersedeStudyMaterialParams{Owner: owner, ID: word.MaterialID}); err != nil {
+			return fmt.Errorf("restore study material: %w", err)
+		}
+		return nil
+	})
+}
+
 // SetStudyWordWithdrawn withdraws a word by a correction at now, or returns it
 // when withdrawn is false. Its progress is kept either way. A word already in
 // that state is left as it is; a missing or foreign word is ErrNotFound.

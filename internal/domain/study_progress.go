@@ -171,9 +171,9 @@ type StudyRecaller interface {
 	Recall(memory StudyMemory, now time.Time) (float64, error)
 }
 
-// StudyBatchWord is one word of a New-word batch with the Study material it
+// StudyBatchItem is one word of a New-word batch with the Study material it
 // is introduced in.
-type StudyBatchWord struct {
+type StudyBatchItem struct {
 	StudyItem
 	MaterialID string
 	// ProgressID is set for a word carried over from an earlier Study day: it
@@ -247,7 +247,7 @@ var (
 // over too: held names the identities held by a report that left no Study
 // progress, and a held word in progress is never carried over. ordered must
 // already be in stream order.
-func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, held []StudyItem, now time.Time) []StudyBatchWord {
+func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress []StudyProgress, held []StudyItem, now time.Time) []StudyBatchItem {
 	ready := make(map[StudyItem]string, len(material))
 	for _, item := range material {
 		if item.State == StudyMaterialReady {
@@ -255,12 +255,12 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 		}
 	}
 	inStudy := studyIdentitySet(progress, held)
-	batch := make([]StudyBatchWord, 0, StudyBatchSize)
+	batch := make([]StudyBatchItem, 0, StudyBatchSize)
 	for _, item := range StudyCarryOver(progress, now) {
 		if len(batch) == StudyBatchSize {
 			return batch
 		}
-		batch = append(batch, StudyBatchWord{StudyItem: item.StudyItem, MaterialID: item.MaterialID, ProgressID: item.ID})
+		batch = append(batch, StudyBatchItem{StudyItem: item.StudyItem, MaterialID: item.MaterialID, ProgressID: item.ID})
 	}
 	for _, candidate := range ordered {
 		if len(batch) == StudyBatchSize {
@@ -270,7 +270,7 @@ func NextStudyBatch(ordered []StudyCandidate, material []StudyMaterial, progress
 		if !ok || inStudy[candidate.StudyItem] {
 			continue
 		}
-		batch = append(batch, StudyBatchWord{StudyItem: candidate.StudyItem, MaterialID: id})
+		batch = append(batch, StudyBatchItem{StudyItem: candidate.StudyItem, MaterialID: id})
 	}
 	return batch
 }

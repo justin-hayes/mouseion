@@ -266,11 +266,34 @@ func TestIndexIdiomDigestChangesWithTheReviewedListAndNotTheProviderVersion(t *t
 	empty, err := newIdiomTestIndex(t).IdiomDigest(t.Context())
 	require.NoError(t, err)
 
-	assert.NotEmpty(t, first)
-	assert.Equal(t, first, same, "the same entries under the same provider version have one digest")
-	assert.NotEqual(t, first, changed, "a reviewed-list change moves the digest though the provider version is unchanged")
-	assert.NotEqual(t, first, empty)
-	digest, err := (*Index)(nil).IdiomDigest(t.Context())
-	require.NoError(t, err)
-	assert.Empty(t, digest)
+	t.Run("an index with entries has a digest", func(t *testing.T) {
+		require.NotEmpty(t, first)
+	})
+	t.Run("the same entries under the same provider version have one digest", func(t *testing.T) {
+		require.Equal(t, first, same)
+	})
+	t.Run("a reviewed-list change moves the digest though the provider version is unchanged", func(t *testing.T) {
+		require.NotEqual(t, first, changed)
+	})
+	t.Run("an index with no entries has another digest", func(t *testing.T) {
+		require.NotEqual(t, first, empty)
+	})
+	t.Run("an index that is not there has the empty digest", func(t *testing.T) {
+		digest, err := (*Index)(nil).IdiomDigest(t.Context())
+		require.NoError(t, err)
+		require.Empty(t, digest)
+	})
+}
+
+func TestIndexIdiomDigestReportsAnUnreadableTable(t *testing.T) {
+	for _, table := range []string{"idiom_entries", "idiom_words"} {
+		t.Run(table, func(t *testing.T) {
+			index := newIdiomTestIndex(t, "DROP TABLE "+table)
+			index.idiomAvailable = true // as if the table went missing after the index opened
+
+			_, err := index.IdiomDigest(t.Context())
+
+			require.Error(t, err)
+		})
+	}
 }

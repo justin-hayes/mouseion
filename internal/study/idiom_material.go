@@ -26,12 +26,8 @@ const (
 	maxIdiomChoices = 30
 )
 
-// idiomChoices returns the Idiom's usable sentences, best first.
-func (w *MaterialWorker) idiomChoices(ctx context.Context, owner string, reader *idiomReader, entry idiom.Entry, retired []domain.StudyOccurrenceRef) ([]idiomChoice, error) {
-	return idiomChoicesOf(ctx, w.Store, owner, reader, entry, retired, nil)
-}
-
-// idiomChoicesOf is idiomChoices over any store of Idiom sentences. A choice
+// idiomChoicesOf returns the Idiom's usable sentences, best first, from any
+// store of Idiom sentences. A choice
 // that skip accepts is left out before it counts towards the bound, so Fluency
 // can set aside the sentences it has no use for.
 func idiomChoicesOf(ctx context.Context, store idiomSentenceStore, owner string, reader *idiomReader, entry idiom.Entry, retired []domain.StudyOccurrenceRef, skip func(idiomChoice) bool) ([]idiomChoice, error) {
@@ -93,7 +89,7 @@ func (w *MaterialWorker) workIdiom(ctx context.Context, owner string, material d
 	if err != nil {
 		return err
 	}
-	choices, err := w.idiomChoices(ctx, owner, reader, entry, retired)
+	choices, err := idiomChoicesOf(ctx, w.Store, owner, reader, entry, retired, nil)
 	if err != nil {
 		return err
 	}

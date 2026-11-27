@@ -25,6 +25,19 @@ type idiomReviewStore interface {
 	SupersedeStudyMaterial(ctx context.Context, owner, materialID string) error
 	SetStudyWordWithdrawn(ctx context.Context, owner, progressID string, withdrawn bool, now time.Time) error
 	ListStudyIdiomSentenceRefs(ctx context.Context, owner, language, headword string, words []string) ([]persistence.StudyIdiomSentenceRef, error)
+	RestoreStudyMaterial(ctx context.Context, owner string, word domain.StudyProgress) error
+}
+
+// KeepIdiomReviewable returns an Idiom that waits for replacement material to
+// the material it was last reviewed in, while the language's idiom switch is
+// off: no replacement is prepared then, so it would never be reviewed again
+// (spec #2748). It reports whether it did. With the switch on, or for a word or
+// an Idiom that is not waiting, nothing changes.
+func (s *Service) KeepIdiomReviewable(ctx context.Context, owner string, word domain.StudyProgress) (bool, error) {
+	if !word.IsIdiom() || !word.Reintroducing || word.Withdrawn || s.idioms.active(word.Language) {
+		return false, nil
+	}
+	return true, ignoreMissing(s.store.RestoreStudyMaterial(ctx, owner, word))
 }
 
 // ReviewIdiom checks one Idiom in study against current evidence and applies

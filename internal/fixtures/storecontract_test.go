@@ -345,7 +345,7 @@ func (h *contractHarness) RecordStudyBatchOffer(owner, language, studyDay string
 	return h.store.RecordStudyBatchOffer(context.Background(), owner, language, studyDay, offered)
 }
 
-func (h *contractHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func (h *contractHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	return h.store.TakeStudyBatch(context.Background(), owner, language, studyDay, now, batchLimit, words)
 }
 
