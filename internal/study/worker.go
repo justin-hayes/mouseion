@@ -51,9 +51,11 @@ type seenEvidenceStore interface {
 
 // idiomSentenceStore finds an Idiom's candidate sentences.
 type idiomSentenceStore interface {
-	// ListStudyIdiomSentences returns the sentences that contain every word of
-	// an Idiom headword, with their effective tokens (ADR 0137).
-	ListStudyIdiomSentences(ctx context.Context, owner, language string, words []string) ([]persistence.StudyIdiomSentence, error)
+	// ListStudyIdiomSentenceRefs names, in order, the sentences that contain
+	// every word of an Idiom headword; LoadStudyIdiomSentences reads a batch of
+	// them with their effective tokens (ADR 0137).
+	ListStudyIdiomSentenceRefs(ctx context.Context, owner, language, headword string, words []string) ([]persistence.StudyIdiomSentenceRef, error)
+	LoadStudyIdiomSentences(ctx context.Context, owner string, refs []persistence.StudyIdiomSentenceRef) ([]persistence.StudyIdiomSentence, error)
 }
 
 // Enricher is the per-word enrichment entry point: a contextual Gloss for a

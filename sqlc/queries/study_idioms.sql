@@ -7,8 +7,10 @@
 -- word as a token's surface form or its effective lemma (a confirmed Lemma
 -- correction supplies the lemma, an excluded Occurrence matches nothing). It is
 -- a cheap superset of the sentences the matcher accepts, which Go still
--- decides. The Current reading's sentences come first. words are the distinct,
--- lower-case component words.
+-- decides. Only Books whose Idiom counts list the headword are scanned, so the
+-- cost follows the Books that hold the Idiom, not the Corpus. The Current
+-- reading's sentences come first. words are the distinct, lower-case component
+-- words. The sentence's unit and source locate it for the speaker-label rule.
 WITH eligible AS MATERIALIZED (
   SELECT cai.owner_id, cai.book_id, cai.analysis_run_id, cai.corpus_id, cai.source_material_id, ar.snapshot_id,
          COALESCE(cai.book_id = g.book_id, false) AS current_reading
@@ -19,9 +21,13 @@ WITH eligible AS MATERIALIZED (
     JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id AND m.state = 'active'
     LEFT JOIN primary_goals g ON g.owner_id = cai.owner_id AND g.language = sqlc.arg('language')::text
    WHERE cai.owner_id = sqlc.arg('owner')::uuid
+     AND EXISTS (SELECT 1 FROM idiom_candidate_counts c
+                  WHERE c.owner_id = cai.owner_id AND c.book_id = cai.book_id
+                    AND c.analysis_run_id = cai.analysis_run_id AND c.headword = sqlc.arg('headword')::text)
 ), matched AS (
   SELECT e.book_id, e.analysis_run_id, e.corpus_id, e.current_reading, t.sentence_ordinal,
          min(u.start_offset + s.start_offset)::bigint AS book_start_offset,
+         e.source_material_id, e.snapshot_id, s.unit_id, s.start_offset AS unit_start_offset, s.end_offset AS unit_end_offset,
          count(DISTINCT w.word) AS matched_words
     FROM eligible e
     JOIN corpus_tokens t ON t.owner_id = e.owner_id AND t.analysis_run_id = e.analysis_run_id AND t.corpus_id = e.corpus_id
@@ -35,14 +41,16 @@ WITH eligible AS MATERIALIZED (
     CROSS JOIN LATERAL unnest(sqlc.arg('words')::text[]) AS w(word)
    WHERE t.language = sqlc.arg('language')::text AND NOT COALESCE(d.excluded, false)
      AND (lower(t.surface) = w.word OR lower(COALESCE(d.canonical_lemma, t.canonical_lemma)) = w.word)
-   GROUP BY e.book_id, e.analysis_run_id, e.corpus_id, e.current_reading, t.sentence_ordinal
+   GROUP BY e.book_id, e.analysis_run_id, e.corpus_id, e.current_reading, t.sentence_ordinal,
+            e.source_material_id, e.snapshot_id, s.unit_id, s.start_offset, s.end_offset
 )
 SELECT book_id::text AS book_id, analysis_run_id::text AS analysis_run_id, corpus_id::text AS corpus_id,
-       sentence_ordinal, current_reading::boolean AS current_reading, book_start_offset
+       sentence_ordinal, current_reading::boolean AS current_reading, book_start_offset,
+       source_material_id::text AS source_material_id, snapshot_id::text AS snapshot_id, unit_id,
+       unit_start_offset::bigint AS unit_start_offset, unit_end_offset::bigint AS unit_end_offset
   FROM matched
  WHERE matched_words = cardinality(sqlc.arg('words')::text[])
- ORDER BY current_reading DESC, book_id, sentence_ordinal
- LIMIT sqlc.arg('max_rows')::int;
+ ORDER BY current_reading DESC, book_id, sentence_ordinal;
 
 -- name: ListStudySentenceDecisions :many
 -- The Lemma corrections and Occurrence exclusions on the tokens of the given

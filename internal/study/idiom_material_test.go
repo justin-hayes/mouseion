@@ -40,7 +40,7 @@ func newIdiomWorker(store *fakeStore, enricher *fakeEnricher) *MaterialWorker {
 }
 
 func confirmedIdiom() enrichment.ContextualMeaning {
-	return enrichment.ContextualMeaning{Gloss: "at home", SentenceTranslation: "At home it is old.", SentenceTranslationTargets: []string{"at home"}}
+	return enrichment.ContextualMeaning{Gloss: "at home", CitedSenseIDs: []string{"test/mit dem haus/1"}, SentenceTranslation: "At home it is old.", SentenceTranslationTargets: []string{"at home"}}
 }
 
 func TestWorkIdiomStoresTheConfirmedGlossAndTheMatchedWords(t *testing.T) {
@@ -165,4 +165,60 @@ func TestWorkIdiomTriesTheNextSentenceWhenTheBestIsLiteral(t *testing.T) {
 	require.NoError(t, work(newIdiomWorker(store, enricher)))
 	assert.Len(t, enricher.idiomCards, 2, "every candidate sentence is asked before the Idiom is given up")
 	assert.Equal(t, domain.StudyOmissionLiteralUse, store.unpreparable)
+}
+
+func TestWorkIdiomStoresTheCitedSense(t *testing.T) {
+	store := &fakeStore{idiomSentences: []persistence.StudyIdiomSentence{idiomSentence(otherBook, 1, "mit", false)}}
+	require.NoError(t, work(newIdiomWorker(store, &fakeEnricher{idiom: confirmedIdiom()})))
+	require.NotNil(t, store.ready)
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"test/mit dem haus/1"}, EntryIDs: []string{"mit dem haus"}, DictionaryPin: "test/1"}, store.ready.Cited)
+	assert.True(t, store.ready.Cited.ReadyValid())
+}
+
+func TestWorkIdiomWithoutACitedSenseIsNotConfirmed(t *testing.T) {
+	store := &fakeStore{idiomSentences: []persistence.StudyIdiomSentence{idiomSentence(otherBook, 1, "mit", false)}}
+	answer := confirmedIdiom()
+	answer.CitedSenseIDs = nil
+	require.NoError(t, work(newIdiomWorker(store, &fakeEnricher{idiom: answer})))
+	assert.Nil(t, store.ready)
+	assert.Equal(t, domain.StudyOmissionMeaning, store.unpreparable)
+}
+
+func TestWorkIdiomMissingFromTheDictionaryIsRecordedAgainstTheIndexVersion(t *testing.T) {
+	store := &fakeStore{idiomSentences: []persistence.StudyIdiomSentence{idiomSentence(otherBook, 1, "mit", false)}}
+	worker := newIdiomWorker(store, &fakeEnricher{idiom: confirmedIdiom()})
+	worker.Idioms = switchOn(&fakeIdiomIndex{})
+	worker.Idioms.IndexVersion = "v7"
+	require.NoError(t, work(worker))
+	assert.Equal(t, domain.StudyOmissionNoDictionaryEntry, store.unpreparable)
+	assert.Equal(t, "v7", store.omissionPin)
+}
+
+func TestWorkIdiomFindsAUsableSentencePastTheFirstBatch(t *testing.T) {
+	var sentences []persistence.StudyIdiomSentence
+	for ordinal := int64(1); ordinal <= idiomBatch+20; ordinal++ {
+		sentences = append(sentences, idiomSentence(otherBook, ordinal, "auf", false)) // the words are there, the Idiom is not
+	}
+	sentences = append(sentences, idiomSentence(otherBook, idiomBatch+21, "mit", false))
+	store := &fakeStore{idiomSentences: sentences}
+	require.NoError(t, work(newIdiomWorker(store, &fakeEnricher{idiom: confirmedIdiom()})))
+	require.NotNil(t, store.ready, "an Idiom with a candidate is not given up on because the early sentences miss")
+	assert.Equal(t, int64(idiomBatch+21), store.ready.SentenceOrdinal)
+	assert.Empty(t, store.unpreparable)
+}
+
+func TestWorkIdiomStopsReadingOnceItHasEnoughSentences(t *testing.T) {
+	var sentences []persistence.StudyIdiomSentence
+	for ordinal := int64(1); ordinal <= 3*idiomBatch; ordinal++ {
+		sentences = append(sentences, idiomSentence(otherBook, ordinal, "mit", false))
+	}
+	store := &fakeStore{idiomSentences: sentences}
+	require.NoError(t, work(newIdiomWorker(store, &fakeEnricher{idiom: confirmedIdiom()})))
+	assert.Equal(t, []int{idiomBatch}, store.batches)
+}
+
+func TestIdiomOmissionsAreComparedWithTheIndexVersion(t *testing.T) {
+	service := (&Service{}).WithIdioms(&IdiomAvoidance{IndexVersion: " v7 "})
+	assert.Equal(t, "v7", service.pinOf(domain.IdiomItem("de", "x"), "dict"))
+	assert.Equal(t, "dict", service.pinOf(domain.WordItem("de", "x", "NOUN", ""), "dict"))
 }

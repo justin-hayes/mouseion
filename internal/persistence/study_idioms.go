@@ -11,12 +11,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// maxStudyIdiomSentences bounds how many candidate sentences one Idiom's
-// preparation reads: the Current reading's first, then the library's in Book
-// order. A common headword can occur thousands of times and one sentence is
-// chosen.
-const maxStudyIdiomSentences = 300
-
 // StudyIdiomSentence is one sentence of the Corpus that contains every word of
 // an Idiom headword, with what choosing it as the Idiom's study sentence needs.
 type StudyIdiomSentence struct {
@@ -48,27 +42,56 @@ func (s *PostgresStore) ListStudyIdiomCandidates(ctx context.Context, owner, lan
 	return domain.IdiomStudyCandidates(language, counts.Counts), counts.PendingBooks, nil
 }
 
-// ListStudyIdiomSentences returns the sentences of the owner's currently
-// analyzed Books in My Books that contain every one of the headword's component
-// words as a surface form or an effective lemma, the Current reading's first
-// and at most maxStudyIdiomSentences in all. Each carries its tokens with
-// confirmed Lemma corrections and Occurrence exclusions applied, which is what
-// Idiom matching reads. Matching itself is the caller's.
-func (s *PostgresStore) ListStudyIdiomSentences(ctx context.Context, owner, language string, words []string) ([]StudyIdiomSentence, error) {
+// StudyIdiomSentenceRef names one candidate sentence of an Idiom: where it is
+// and what is needed to load it. It carries no text.
+type StudyIdiomSentenceRef struct {
+	BookID, AnalysisRunID, CorpusID string
+	SentenceOrdinal                 int64
+	// InCurrentReading is set when the sentence is in the Current reading.
+	InCurrentReading bool
+	// BookStartOffset is where the sentence starts in its Book.
+	BookStartOffset int64
+	// source locates the sentence's unit for the speaker-label rule.
+	sourceID, snapshotID, unitID string
+	unitStart, unitEnd           int64
+}
+
+// ListStudyIdiomSentenceRefs returns, in order, the sentences of the owner's
+// currently analyzed Books in My Books that contain every one of the headword's
+// component words as a surface form or an effective lemma, the Current
+// reading's first. Only the Books whose Idiom counts list the headword are
+// read. It is a superset of the sentences the matcher accepts, which the
+// caller decides; LoadStudyIdiomSentences reads them in batches.
+func (s *PostgresStore) ListStudyIdiomSentenceRefs(ctx context.Context, owner, language, headword string, words []string) ([]StudyIdiomSentenceRef, error) {
 	language = canonicalization.NormalizeLanguage(language)
 	distinct := distinctLowerWords(words)
 	if len(distinct) == 0 {
 		return nil, nil
 	}
-	rows, err := sqlcgen.New(s.pool).ListStudyIdiomSentences(ctx, sqlcgen.ListStudyIdiomSentencesParams{Owner: owner, Language: language, Words: distinct, MaxRows: maxStudyIdiomSentences})
+	rows, err := sqlcgen.New(s.pool).ListStudyIdiomSentences(ctx, sqlcgen.ListStudyIdiomSentencesParams{Owner: owner, Language: language, Words: distinct, Headword: headword})
 	if err != nil {
 		return nil, fmt.Errorf("list Study Idiom sentences: %w", err)
 	}
+	refs := make([]StudyIdiomSentenceRef, len(rows))
+	for i, row := range rows {
+		refs[i] = StudyIdiomSentenceRef{
+			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID, SentenceOrdinal: row.SentenceOrdinal,
+			InCurrentReading: row.CurrentReading, BookStartOffset: row.BookStartOffset,
+			sourceID: row.SourceMaterialID, snapshotID: row.SnapshotID, unitID: row.UnitID, unitStart: row.UnitStartOffset, unitEnd: row.UnitEndOffset,
+		}
+	}
+	return refs, nil
+}
+
+// LoadStudyIdiomSentences loads the referenced sentences with their effective
+// tokens, in the refs' order. A sentence that overlaps a recorded speaker label
+// supplies no Study context (ADR 0103) and is left out, as for a word.
+func (s *PostgresStore) LoadStudyIdiomSentences(ctx context.Context, owner string, refs []StudyIdiomSentenceRef) ([]StudyIdiomSentence, error) {
 	type scope struct{ book, run, corpus string }
 	ordinals := map[scope][]int64{}
-	for _, row := range rows {
-		key := scope{row.BookID, row.AnalysisRunID, row.CorpusID}
-		ordinals[key] = append(ordinals[key], row.SentenceOrdinal)
+	for _, ref := range refs {
+		key := scope{ref.BookID, ref.AnalysisRunID, ref.CorpusID}
+		ordinals[key] = append(ordinals[key], ref.SentenceOrdinal)
 	}
 	loaded := make(map[scope]map[int64]analyzer.Sentence, len(ordinals))
 	decisions := make(map[scope]map[[2]int64]sqlcgen.ListStudySentenceDecisionsRow, len(ordinals))
@@ -84,20 +107,28 @@ func (s *PostgresStore) ListStudyIdiomSentences(ctx context.Context, owner, lang
 		}
 		decisions[key] = byToken
 	}
-	result := make([]StudyIdiomSentence, 0, len(rows))
-	for _, row := range rows {
-		key := scope{row.BookID, row.AnalysisRunID, row.CorpusID}
-		sentence, ok := loaded[key][row.SentenceOrdinal]
+	structures := map[[2]string]domain.SnapshotStructure{}
+	result := make([]StudyIdiomSentence, 0, len(refs))
+	for _, ref := range refs {
+		key := scope{ref.BookID, ref.AnalysisRunID, ref.CorpusID}
+		sentence, ok := loaded[key][ref.SentenceOrdinal]
 		if !ok {
+			continue
+		}
+		structure, err := s.cachedSnapshotStructure(ctx, owner, structures, ref)
+		if err != nil {
+			return nil, err
+		}
+		if speakerLabelOverlap(structure, ref.unitID, ref.unitStart, ref.unitEnd) {
 			continue
 		}
 		effective := make([]analyzer.Token, len(sentence.Tokens))
 		for i, token := range sentence.Tokens {
-			effective[i] = effectiveStudyToken(token, decisions[key], row.SentenceOrdinal, int64(i))
+			effective[i] = effectiveStudyToken(token, decisions[key], ref.SentenceOrdinal, int64(i))
 		}
 		result = append(result, StudyIdiomSentence{
-			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID, SentenceOrdinal: row.SentenceOrdinal,
-			InCurrentReading: row.CurrentReading, BookStartOffset: row.BookStartOffset, Sentence: sentence, Effective: effective,
+			BookID: ref.BookID, AnalysisRunID: ref.AnalysisRunID, CorpusID: ref.CorpusID, SentenceOrdinal: ref.SentenceOrdinal,
+			InCurrentReading: ref.InCurrentReading, BookStartOffset: ref.BookStartOffset, Sentence: sentence, Effective: effective,
 		})
 	}
 	return result, nil
@@ -174,4 +205,19 @@ func distinctLowerWords(words []string) []string {
 		}
 	}
 	return result
+}
+
+// cachedSnapshotStructure is the recorded structure of the sentence's snapshot,
+// read once per snapshot.
+func (s *PostgresStore) cachedSnapshotStructure(ctx context.Context, owner string, cache map[[2]string]domain.SnapshotStructure, ref StudyIdiomSentenceRef) (domain.SnapshotStructure, error) {
+	key := [2]string{ref.sourceID, ref.snapshotID}
+	if structure, ok := cache[key]; ok {
+		return structure, nil
+	}
+	structure, err := LoadSnapshotStructure(ctx, s.pool, owner, ref.sourceID, ref.snapshotID)
+	if err != nil {
+		return domain.SnapshotStructure{}, err
+	}
+	cache[key] = structure
+	return structure, nil
 }

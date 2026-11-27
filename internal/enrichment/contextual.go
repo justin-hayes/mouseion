@@ -20,6 +20,10 @@ type ContextualMeaning struct {
 	SentenceTranslationTargets []string
 	UnresolvedKind             ContextualGlossUnresolvedKind
 	UnresolvedReason           string
+	// CitedSenseIDs are the dictionary senses an idiom-card Gloss cites, each
+	// one drawn from the senses the request sent. They are empty for any other
+	// request.
+	CitedSenseIDs []string
 }
 
 // Resolved reports whether the request produced a Gloss.
@@ -98,6 +102,7 @@ func (s *Service) EnrichIdiomCard(ctx context.Context, card IdiomCard) (Contextu
 		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
 		UnresolvedKind:             response.UnresolvedKind,
 		UnresolvedReason:           response.UnresolvedReason,
+		CitedSenseIDs:              append([]string(nil), response.EvidenceIDs...),
 	}, nil
 }
 

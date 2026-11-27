@@ -85,6 +85,15 @@ func (s *Service) WithClock(now func() time.Time) *Service {
 	return s
 }
 
+// pinOf is the pin a no-dictionary-entry omission of the item is compared with:
+// an Idiom's is the idiom index version, a word's the language's dictionary pin.
+func (s *Service) pinOf(item domain.StudyItem, languagePin string) string {
+	if item.IsIdiom() && s.idioms != nil {
+		return strings.TrimSpace(s.idioms.IndexVersion)
+	}
+	return languagePin
+}
+
 // currentDictionaryPin is the loaded dictionary's pin for the language, or
 // empty when there is none to compare with.
 func (s *Service) currentDictionaryPin(language string) string {
@@ -210,14 +219,14 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	for _, item := range material {
 		current[item.StudyItem] = item
 		states[item.StudyItem] = item.State
-		if item.RetriesAgainstDictionary(pin) {
+		if item.RetriesAgainstDictionary(s.pinOf(item.StudyItem, pin)) {
 			// Its omission was made against another dictionary: the word counts
 			// as waiting, not skipped, so it takes its place in the window.
 			states[item.StudyItem] = domain.StudyMaterialPending
 		}
 	}
 	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states)
-	if err := s.prepareTargets(ctx, owner, targets, current, pin); err != nil {
+	if err := s.prepareTargets(ctx, owner, targets, current, func(item domain.StudyItem) string { return s.pinOf(item, pin) }); err != nil {
 		return err
 	}
 	return s.enqueueReintroductions(ctx, owner, progress, current)
@@ -226,12 +235,13 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 // prepareTargets enqueues each target whose material is not ready. A word
 // skipped for having no dictionary entry against another pin is made pending
 // again first, so it is prepared against the dictionary now loaded.
-func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyItem]domain.StudyMaterial, pin string) error {
+func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyItem]domain.StudyMaterial, pinOf func(domain.StudyItem) string) error {
 	for _, target := range targets {
 		existing, ok := current[target.StudyItem]
 		if ok && existing.State == domain.StudyMaterialReady {
 			continue
 		}
+		pin := pinOf(target.StudyItem)
 		if ok && existing.RetriesAgainstDictionary(pin) {
 			// A missing record means the omission was settled again meanwhile.
 			if err := s.store.ReopenStudyMaterialNoDictionaryEntry(ctx, owner, existing.ID, pin); err != nil && !errors.Is(err, domain.ErrNotFound) {

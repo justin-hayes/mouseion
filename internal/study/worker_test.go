@@ -43,10 +43,29 @@ type fakeStore struct {
 	effective map[int64][]analyzer.Token
 	// idiomSentences are the sentences an Idiom's search finds.
 	idiomSentences []persistence.StudyIdiomSentence
+	// batches are the sizes of the sentence batches an Idiom's search loaded.
+	batches []int
 }
 
-func (s *fakeStore) ListStudyIdiomSentences(context.Context, string, string, []string) ([]persistence.StudyIdiomSentence, error) {
-	return s.idiomSentences, nil
+func (s *fakeStore) ListStudyIdiomSentenceRefs(context.Context, string, string, string, []string) ([]persistence.StudyIdiomSentenceRef, error) {
+	refs := make([]persistence.StudyIdiomSentenceRef, len(s.idiomSentences))
+	for i, sentence := range s.idiomSentences {
+		refs[i] = persistence.StudyIdiomSentenceRef{BookID: sentence.BookID, AnalysisRunID: sentence.AnalysisRunID, CorpusID: sentence.CorpusID, SentenceOrdinal: sentence.SentenceOrdinal}
+	}
+	return refs, nil
+}
+
+func (s *fakeStore) LoadStudyIdiomSentences(_ context.Context, _ string, refs []persistence.StudyIdiomSentenceRef) ([]persistence.StudyIdiomSentence, error) {
+	s.batches = append(s.batches, len(refs))
+	var loaded []persistence.StudyIdiomSentence
+	for _, ref := range refs {
+		for _, sentence := range s.idiomSentences {
+			if sentence.BookID == ref.BookID && sentence.SentenceOrdinal == ref.SentenceOrdinal {
+				loaded = append(loaded, sentence)
+			}
+		}
+	}
+	return loaded, nil
 }
 
 func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -26,6 +27,41 @@ import (
 // provider failure is never recorded: the job waits or fails and River retries
 // it. With the language's switch off nothing is prepared and the record stays
 // pending.
+// Idiom sentences are read in batches of idiomBatch, in order, until
+// maxIdiomChoices usable ones are found or the candidate sentences run out, so
+// no cap on the sentences read can make an Idiom with candidates unpreparable.
+const (
+	idiomBatch      = 100
+	maxIdiomChoices = 30
+)
+
+// idiomChoices returns the Idiom's usable sentences, best first.
+func (w *MaterialWorker) idiomChoices(ctx context.Context, owner string, reader *idiomReader, entry idiom.Entry, retired []domain.StudyOccurrenceRef) ([]idiomChoice, error) {
+	refs, err := w.Store.ListStudyIdiomSentenceRefs(ctx, owner, reader.language, entry.Headword, entry.Words)
+	if err != nil {
+		return nil, err
+	}
+	var choices []idiomChoice
+	for start := 0; start < len(refs) && len(choices) < maxIdiomChoices; start += idiomBatch {
+		batch, err := w.Store.LoadStudyIdiomSentences(ctx, owner, refs[start:min(start+idiomBatch, len(refs))])
+		if err != nil {
+			return nil, err
+		}
+		usable, err := reader.usableSentences(ctx, entry, batch, retired)
+		if err != nil {
+			return nil, err
+		}
+		choices = append(choices, usable...)
+	}
+	sort.SliceStable(choices, func(i, j int) bool {
+		if choices[i].inReading != choices[j].inReading {
+			return choices[i].inReading
+		}
+		return betterIdiomChoice(choices[i], choices[j])
+	})
+	return choices, nil
+}
+
 func (w *MaterialWorker) workIdiom(ctx context.Context, owner string, material domain.StudyMaterial) error {
 	headword, _ := material.Headword()
 	reader := w.Idioms.reader(material.Language)
@@ -37,17 +73,16 @@ func (w *MaterialWorker) workIdiom(ctx context.Context, owner string, material d
 		return err
 	}
 	if !found {
-		return w.unpreparable(ctx, owner, material.ID, material.StudyItem, domain.StudyOmissionSentenceQuality)
+		// The Idiom is a candidate only while the dictionary index lists it, so
+		// this is the index changing under the job. It is recorded against the
+		// index's version and tried again when that changes.
+		return w.unpreparableNoDictionaryEntry(ctx, owner, material.ID, material.StudyItem, w.Idioms.IndexVersion)
 	}
 	retired, err := w.Store.ListRetiredStudyOccurrencesOfWord(ctx, owner, material.StudyItem)
 	if err != nil {
 		return err
 	}
-	sentences, err := w.Store.ListStudyIdiomSentences(ctx, owner, material.Language, entry.Words)
-	if err != nil {
-		return err
-	}
-	choices, err := reader.rankedSentences(ctx, entry, sentences, retired)
+	choices, err := w.idiomChoices(ctx, owner, reader, entry, retired)
 	if err != nil {
 		return err
 	}
@@ -80,10 +115,15 @@ func (w *MaterialWorker) confirmIdiom(ctx context.Context, material domain.Study
 		if errors.Is(err, enrichment.ErrExternalNotConfigured) {
 			return idiomChoice{}, meaning, "", river.JobSnooze(notConfiguredDelay)
 		}
+		if errors.Is(err, enrichment.ErrInvalidEvidenceCitation) {
+			reason = domain.StudyOmissionMeaning // an answer the evidence cannot defend
+			continue
+		}
 		if err != nil {
 			return idiomChoice{}, meaning, "", err
 		}
-		if meaning.Resolved() && strings.TrimSpace(meaning.SentenceTranslation) != "" {
+		// A confirmed Gloss cites the dictionary sense it rests on (ADR 0137 §1).
+		if meaning.Resolved() && strings.TrimSpace(meaning.SentenceTranslation) != "" && len(meaning.CitedSenseIDs) > 0 {
 			return choice, meaning, "", nil
 		}
 		reason = domain.StudyOmissionMeaning
@@ -106,6 +146,7 @@ func (w *MaterialWorker) recordIdiomReady(ctx context.Context, owner, id string,
 		Gloss: meaning.Gloss, SentenceTranslation: meaning.SentenceTranslation,
 		SentenceTranslationTargets: meaning.SentenceTranslationTargets,
 		MatchedTokenOrdinals:       choice.matched,
+		Cited:                      domain.StudyCitations{SenseIDs: meaning.CitedSenseIDs, EntryIDs: slices.Repeat([]string{choice.headword}, len(meaning.CitedSenseIDs)), DictionaryPin: choice.pin},
 	})
 }
 
@@ -129,6 +170,10 @@ type idiomChoice struct {
 	quality sentencequality.SentenceQuality
 	// senses are the matched entry's senses (every part of speech pooled).
 	senses []enrichment.LexicalSense
+	// pin is the dictionary entry's source and version, the pin its senses are cited against.
+	pin string
+	// headword names the dictionary entry the cited senses belong to.
+	headword string
 	// inReading is set for a sentence of the Current reading.
 	inReading bool
 	offset    int64
@@ -150,13 +195,11 @@ func (r *idiomReader) entry(ctx context.Context, headword string) (idiom.Entry, 
 	return idiom.Entry{}, false, nil
 }
 
-// rankedSentences returns the usable sentences of the Idiom, best first: those
-// where the matcher finds the headword on the effective lemmas, that are not
-// retired and that pass the sentence-quality gate. The Current reading's come
-// first; within each group the best GDEX score, quality score and source
-// position win, so the order is deterministic.
-func (r *idiomReader) rankedSentences(ctx context.Context, entry idiom.Entry, sentences []persistence.StudyIdiomSentence, retired []domain.StudyOccurrenceRef) ([]idiomChoice, error) {
-	var inReading, elsewhere []idiomChoice
+// usableSentences returns the sentences where the matcher finds the headword on
+// the effective lemmas, that are not retired and that pass the sentence-quality
+// gate, in the order given.
+func (r *idiomReader) usableSentences(ctx context.Context, entry idiom.Entry, sentences []persistence.StudyIdiomSentence, retired []domain.StudyOccurrenceRef) ([]idiomChoice, error) {
+	var usable []idiomChoice
 	for _, sentence := range sentences {
 		ref := domain.StudyOccurrenceRef{BookID: sentence.BookID, AnalysisRunID: sentence.AnalysisRunID, CorpusID: sentence.CorpusID, SentenceOrdinal: sentence.SentenceOrdinal}
 		if domain.RetiredStudyOccurrence(retired, ref) {
@@ -166,19 +209,11 @@ func (r *idiomReader) rankedSentences(ctx context.Context, entry idiom.Entry, se
 		if err != nil {
 			return nil, err
 		}
-		if !ok {
-			continue
-		}
-		if sentence.InCurrentReading {
-			inReading = append(inReading, choice)
-		} else {
-			elsewhere = append(elsewhere, choice)
+		if ok {
+			usable = append(usable, choice)
 		}
 	}
-	for _, group := range [][]idiomChoice{inReading, elsewhere} {
-		sort.SliceStable(group, func(i, j int) bool { return betterIdiomChoice(group[i], group[j]) })
-	}
-	return append(inReading, elsewhere...), nil
+	return usable, nil
 }
 
 // choose reads the sentence's Idiom candidates on its effective tokens and
@@ -202,7 +237,7 @@ func (r *idiomReader) choose(ctx context.Context, entry idiom.Entry, sentence pe
 			return idiomChoice{}, false, nil
 		}
 		ref.TokenOrdinal = int64(matched[0])
-		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset}, true, nil
+		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, pin: entryPin(candidate.Entry), headword: candidate.Entry.Headword, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset}, true, nil
 	}
 	return idiomChoice{}, false, nil
 }
@@ -222,6 +257,14 @@ func matchedForms(tokens []analyzer.Token, ordinals []int) ([]string, []int) {
 		}
 	}
 	return forms, kept
+}
+
+// entryPin names the dictionary revision an entry's senses come from.
+func entryPin(entry idiom.Entry) string {
+	if pin := strings.Trim(entry.Source+"/"+entry.Version, "/"); pin != "" {
+		return pin
+	}
+	return "idiom-entry"
 }
 
 // betterIdiomChoice orders by descending GDEX score, descending quality

@@ -19,13 +19,17 @@ WITH eligible AS MATERIALIZED (
     FROM current_analysis_identity cai
     JOIN analysis_runs ar ON ar.owner_id = cai.owner_id AND ar.id = cai.analysis_run_id
     JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
-     AND b.language_state = 'chosen' AND b.language_tag = $3::text
+     AND b.language_state = 'chosen' AND b.language_tag = $2::text
     JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id AND m.state = 'active'
-    LEFT JOIN primary_goals g ON g.owner_id = cai.owner_id AND g.language = $3::text
-   WHERE cai.owner_id = $4::uuid
+    LEFT JOIN primary_goals g ON g.owner_id = cai.owner_id AND g.language = $2::text
+   WHERE cai.owner_id = $3::uuid
+     AND EXISTS (SELECT 1 FROM idiom_candidate_counts c
+                  WHERE c.owner_id = cai.owner_id AND c.book_id = cai.book_id
+                    AND c.analysis_run_id = cai.analysis_run_id AND c.headword = $4::text)
 ), matched AS (
   SELECT e.book_id, e.analysis_run_id, e.corpus_id, e.current_reading, t.sentence_ordinal,
          min(u.start_offset + s.start_offset)::bigint AS book_start_offset,
+         e.source_material_id, e.snapshot_id, s.unit_id, s.start_offset AS unit_start_offset, s.end_offset AS unit_end_offset,
          count(DISTINCT w.word) AS matched_words
     FROM eligible e
     JOIN corpus_tokens t ON t.owner_id = e.owner_id AND t.analysis_run_id = e.analysis_run_id AND t.corpus_id = e.corpus_id
@@ -37,32 +41,39 @@ WITH eligible AS MATERIALIZED (
      AND d.analysis_run_id = t.analysis_run_id AND d.corpus_id = t.corpus_id
      AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
     CROSS JOIN LATERAL unnest($1::text[]) AS w(word)
-   WHERE t.language = $3::text AND NOT COALESCE(d.excluded, false)
+   WHERE t.language = $2::text AND NOT COALESCE(d.excluded, false)
      AND (lower(t.surface) = w.word OR lower(COALESCE(d.canonical_lemma, t.canonical_lemma)) = w.word)
-   GROUP BY e.book_id, e.analysis_run_id, e.corpus_id, e.current_reading, t.sentence_ordinal
+   GROUP BY e.book_id, e.analysis_run_id, e.corpus_id, e.current_reading, t.sentence_ordinal,
+            e.source_material_id, e.snapshot_id, s.unit_id, s.start_offset, s.end_offset
 )
 SELECT book_id::text AS book_id, analysis_run_id::text AS analysis_run_id, corpus_id::text AS corpus_id,
-       sentence_ordinal, current_reading::boolean AS current_reading, book_start_offset
+       sentence_ordinal, current_reading::boolean AS current_reading, book_start_offset,
+       source_material_id::text AS source_material_id, snapshot_id::text AS snapshot_id, unit_id,
+       unit_start_offset::bigint AS unit_start_offset, unit_end_offset::bigint AS unit_end_offset
   FROM matched
  WHERE matched_words = cardinality($1::text[])
  ORDER BY current_reading DESC, book_id, sentence_ordinal
- LIMIT $2::int
 `
 
 type ListStudyIdiomSentencesParams struct {
 	Words    []string
-	MaxRows  int
 	Language string
 	Owner    string
+	Headword string
 }
 
 type ListStudyIdiomSentencesRow struct {
-	BookID          string
-	AnalysisRunID   string
-	CorpusID        string
-	SentenceOrdinal int64
-	CurrentReading  bool
-	BookStartOffset int64
+	BookID           string
+	AnalysisRunID    string
+	CorpusID         string
+	SentenceOrdinal  int64
+	CurrentReading   bool
+	BookStartOffset  int64
+	SourceMaterialID string
+	SnapshotID       string
+	UnitID           string
+	UnitStartOffset  int64
+	UnitEndOffset    int64
 }
 
 // Study's Idiom material (ADR 0137, spec #2748, ticket #2753): where an Idiom's
@@ -72,14 +83,16 @@ type ListStudyIdiomSentencesRow struct {
 // word as a token's surface form or its effective lemma (a confirmed Lemma
 // correction supplies the lemma, an excluded Occurrence matches nothing). It is
 // a cheap superset of the sentences the matcher accepts, which Go still
-// decides. The Current reading's sentences come first. words are the distinct,
-// lower-case component words.
+// decides. Only Books whose Idiom counts list the headword are scanned, so the
+// cost follows the Books that hold the Idiom, not the Corpus. The Current
+// reading's sentences come first. words are the distinct, lower-case component
+// words. The sentence's unit and source locate it for the speaker-label rule.
 func (q *Queries) ListStudyIdiomSentences(ctx context.Context, arg ListStudyIdiomSentencesParams) ([]ListStudyIdiomSentencesRow, error) {
 	rows, err := q.db.Query(ctx, listStudyIdiomSentences,
 		arg.Words,
-		arg.MaxRows,
 		arg.Language,
 		arg.Owner,
+		arg.Headword,
 	)
 	if err != nil {
 		return nil, err
@@ -95,6 +108,11 @@ func (q *Queries) ListStudyIdiomSentences(ctx context.Context, arg ListStudyIdio
 			&i.SentenceOrdinal,
 			&i.CurrentReading,
 			&i.BookStartOffset,
+			&i.SourceMaterialID,
+			&i.SnapshotID,
+			&i.UnitID,
+			&i.UnitStartOffset,
+			&i.UnitEndOffset,
 		); err != nil {
 			return nil, err
 		}
