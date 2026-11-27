@@ -28,34 +28,14 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			if recovery.ActiveReading {
 				<article aria-labelledby="active-reading-lemma-recovery">
 					<h2 id="active-reading-lemma-recovery">Stop before changing this Book's vocabulary</h2>
-					<p>Reading uses a frozen snapshot. To use a corrected identity, stop this reading without marking it finished, review and confirm the occurrence decision, then start the Book again to create a new snapshot. Re-prepare its deck from that new snapshot if needed.</p>
+					<p>Reading uses a frozen snapshot. To use a corrected identity, stop this reading without marking it finished, review and confirm the occurrence decision, then start the Book again to create a new snapshot.</p>
 					<p><a href={ templ.SafeURL(readingPagePath(ctx)) }>Open Reading to stop this Book</a></p>
-				</article>
-			}
-			if recovery.ReadyPreparationID != "" {
-				<article aria-labelledby="ready-deck-lemma-recovery">
-					<h2 id="ready-deck-lemma-recovery">A ready deck is a historical artifact</h2>
-					if recovery.ReadyDeckSnapshotID != "" {
-						<p>The existing deck remains available for download and stays bound to its old Reading snapshot. After confirming an identity change, Mouseion will start a new Reading snapshot and prepare a new deck generation from it. The old artifact is not changed.</p>
-						if recovery.ActiveReadingBookID != "" && recovery.ActiveReadingBookID != bookID {
-							<p role="note">Another Book is current reading. End or switch that reading before confirming this recovery, so Mouseion can restart this Book with its corrected snapshot.</p>
-						}
-					} else {
-						<p>The existing deck remains available for download. An identity-changing decision does not update it; after confirming a decision, explicitly re-prepare into a new generation. Do not use presentation-only re-rendering for a vocabulary identity change.</p>
-					}
-					<p><a href={ templ.SafeURL("/deck-preparations/" + recovery.ReadyPreparationID + "/download") }>Download the existing deck</a></p>
-					if canCorrect && recovery.HasIdentityDecision && recovery.ReadyDeckSnapshotID == "" {
-						<form method="post" action={ templ.SafeURL("/deck-preparations/" + recovery.ReadyPreparationID + "/reprepare") }>
-							<input type="hidden" name="csrf_token" value={ csrf }/>
-							<button class="button" type="submit">Re-prepare deck with current vocabulary identities</button>
-						</form>
-					}
 				</article>
 			}
 			if recovery.HasCompletedReading {
 				<article aria-labelledby="completed-reading-lemma-recovery">
 					<h2 id="completed-reading-lemma-recovery">Completed reading and Known vocabulary stay unchanged</h2>
-					<p>This decision affects future vocabulary preparation only. Mouseion never rewrites finished Reading history or its Known facts. Importing a deck with changed note identities may leave an obsolete note in Anki; you may need to remove that note manually. Mouseion does not delete Anki notes.</p>
+					<p>This decision affects future vocabulary only. Mouseion never rewrites finished Reading history or its Known facts.</p>
 				</article>
 			}
 			if form != "" && len(occurrences) == 0 {
@@ -164,7 +144,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 								<button class="button button--outline" type="submit" name="decision" value="keep" formnovalidate>Preview keeping analyzer lemma</button>
 								<details>
 									<summary>Exclude this occurrence from vocabulary selection</summary>
-									<p>Only this occurrence will stop contributing to recurrence, Reading snapshots, deck candidates, and Known or Reserved counts. It remains in the analyzed text and coverage denominator, so exclusion cannot improve coverage. You can restore it before a Reading snapshot or deck freezes; existing frozen artifacts and completed Known facts will not change.</p>
+									<p>Only this occurrence will stop contributing to recurrence, Reading snapshots and Known or Reserved counts. It remains in the analyzed text and coverage denominator, so exclusion cannot improve coverage. You can restore it before a Reading snapshot freezes; existing frozen snapshots and completed Known facts will not change.</p>
 									<button class="button button--danger" type="submit" name="decision" value="exclude" formnovalidate>Preview exclusion</button>
 								</details>
 							</form>
@@ -182,10 +162,10 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							<li><span class="reading-text">{ change.Sentence }</span> — effective identity { lemmaReviewKeyDisplay(ctx, change.Before) } → { lemmaReviewKeyDisplay(ctx, change.After) }</li>
 						}
 					</ul>
-					<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p>
+					<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot membership. Frozen snapshots are not rewritten.</p>
 					<ul>
 						for _, impact := range proposal.Impacts {
-							<li><strong>{ lemmaReviewKeyDisplay(ctx, impact.Identity.CanonicalLemma) } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
+							<li><strong>{ lemmaReviewKeyDisplay(ctx, impact.Identity.CanonicalLemma) } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
 						}
 					</ul>
 					if len(proposal.Impacts) == 0 {
@@ -201,15 +181,6 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						for _, selectedID := range proposal.OccurrenceIDs {
 							<input type="hidden" name="selected" value={ selectedID }/>
 						}
-						if recovery.ReadyPreparationID != "" && proposal.IdentityChanged {
-							if recovery.ReadyDeckSnapshotID != "" {
-								<p>Confirming will restart this Book with a new snapshot and prepare its deck from the corrected identities. The ready deck stays available as history.</p>
-								<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</span></label>
-							} else {
-								<p>The ready deck is a historical artifact. Confirming this identity change will explicitly create a new deck generation; the existing artifact will remain downloadable. This is a full re-preparation, not a presentation-only re-render.</p>
-								<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Re-prepare the ready deck with these current vocabulary identities when I confirm this decision</span></label>
-							}
-						}
 						if proposal.Action == "correct" {
 							<button class="button" type="submit">Apply correction to selected occurrences</button>
 						} else if proposal.Action == "keep" {
@@ -219,11 +190,6 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						}
 					</form>
 				</article>
-			}
-			if canCorrect && form != "" && len(occurrences) > 0 {
-				if recovery.ReadyPreparationID == "" {
-					<p><a href={ templ.SafeURL("/reading/books/" + bookID + "/deck/preparations/new") }>Prepare a direct deck with the effective vocabulary identity</a></p>
-				}
 			}
 		</main>
 	}

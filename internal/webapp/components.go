@@ -444,123 +444,6 @@ func feedbackAttributes(kind FeedbackKind) templ.Attributes {
 
 func boolString(value bool) string { return strconv.FormatBool(value) }
 
-func deckPreparationAttributes(preparation domain.DeckPreparation) templ.Attributes {
-	attributes := templ.Attributes{"data-deck-preparation": "true", "data-workflow": "deck preparation"}
-	if deckPreparationActive(preparation) {
-		attributes["hx-get"] = "/deck-preparations/" + url.PathEscape(preparation.ID) + "/status"
-		attributes["hx-trigger"] = "every 3s"
-		attributes["hx-swap"] = "outerHTML"
-	}
-	return attributes
-}
-
-func deckPreparationActive(preparation domain.DeckPreparation) bool {
-	return preparation.State.Active()
-}
-
-func preparationProgress(preparation domain.DeckPreparation) int {
-	progress := 0
-	switch preparation.State {
-	case domain.DeckPreparationPreparing:
-		if preparation.TranslationEligible > 0 {
-			progress = (preparation.TranslationDone + preparation.TranslationFailed) * 100 / preparation.TranslationEligible
-		} else {
-			progress = 50
-		}
-	case domain.DeckPreparationReady, domain.DeckPreparationFailed, domain.DeckPreparationCancelled:
-		progress = 100
-	case domain.DeckPreparationQueued:
-		// Queued work has not started, so its progress stays at zero.
-	}
-	if progress < 0 {
-		return 0
-	}
-	if progress > 100 {
-		return 100
-	}
-	return progress
-}
-
-func deckPreparationStatusLabel(state domain.DeckPreparationState) string {
-	switch state {
-	case domain.DeckPreparationQueued:
-		return "Deck preparation queued"
-	case domain.DeckPreparationPreparing:
-		return "Deck preparation running"
-	case domain.DeckPreparationReady:
-		return "Deck ready"
-	case domain.DeckPreparationFailed:
-		return "Deck preparation failed"
-	case domain.DeckPreparationCancelled:
-		return "Deck preparation cancelled"
-	default:
-		return "Deck preparation"
-	}
-}
-
-func deckPreparationTitle(preparation domain.DeckPreparation) string {
-	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
-		return "Re-preparation required"
-	}
-	if deckPreparationEmpty(preparation) {
-		return "No recurring vocabulary"
-	}
-	return deckPreparationStatusLabel(preparation.State)
-}
-
-func deckPreparationStatusTone(preparation domain.DeckPreparation) StatusTone {
-	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
-		return StatusWarning
-	}
-	if deckPreparationEmpty(preparation) {
-		return StatusNeutral
-	}
-	return statusTone(string(preparation.State))
-}
-
-func deckPreparationSummary(preparation domain.DeckPreparation) string {
-	if preparation.Error == domain.DeckPreparationRequiresRepreparationError {
-		return "The previous deck remains available, but a new deck is needed from current analysis."
-	}
-	if preparation.State == domain.DeckPreparationFailed {
-		return "Preparation stopped and can be retried after reviewing the recovery message below."
-	}
-	if preparation.State == domain.DeckPreparationCancelled {
-		return "Preparation was cancelled before the deck was ready. You can try again when you want to continue."
-	}
-	if deckPreparationEmpty(preparation) {
-		return "This book has no recurring vocabulary to study, so there is no deck to download."
-	}
-	if preparation.State == domain.DeckPreparationReady {
-		return "The Book deck is ready to download."
-	}
-	if preparation.State == domain.DeckPreparationQueued {
-		return "Analysis is queued for Book deck preparation."
-	}
-	phase := map[string]string{
-		"freezing":    "Freezing the selected vocabulary.",
-		"submitting":  "Submitting translation requests.",
-		"waiting":     "Waiting for Batch translation; it can take hours (up to 24h).",
-		"reconciling": "Reconciling translation results.",
-		"retrying":    "Retrying temporary translation failures.",
-		"translating": "Translating selected vocabulary.",
-		"finalizing":  "Finishing the Book deck.",
-		"assembling":  "Assembling the Book deck.",
-	}
-	if summary, ok := phase[preparation.Phase]; ok {
-		return summary
-	}
-	return "Preparing the Book deck. You can leave and return later."
-}
-
-func deckPreparationEmpty(preparation domain.DeckPreparation) bool {
-	return preparation.State == domain.DeckPreparationReady && preparation.TotalCards == 0 && preparation.QualityOmissions == 0 && preparation.ProviderOmissions == 0
-}
-
-func deckPreparationHasNewerRevision(preparation domain.DeckPreparation) bool {
-	return preparation.State == domain.DeckPreparationReady && preparation.DeckRevision > 1 && !deckPreparationEmpty(preparation) && preparation.Error != domain.DeckPreparationRequiresRepreparationError
-}
-
 func jobStatusAttributes(id int64, running bool) templ.Attributes {
 	attributes := templ.Attributes{"data-workflow": "analysis"}
 	if !running {
@@ -591,4 +474,11 @@ func maxOne(value int) int {
 		return 1
 	}
 	return value
+}
+
+func completedAtLabel(value *time.Time) string {
+	if value == nil || value.IsZero() {
+		return "Unavailable"
+	}
+	return value.UTC().Format("2006-01-02 15:04:05 UTC")
 }

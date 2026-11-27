@@ -16,7 +16,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
@@ -263,29 +262,6 @@ func TestAttachEPUBAcquisitionAnalysisSuppliesTheSubmission(t *testing.T) {
 	attachEPUBAcquisitionAnalysis(worker, nil, nil)
 
 	require.NotNil(t, worker.Analysis)
-}
-
-func TestRegisterPreparedDeckWorkersRegistersDurableKinds(t *testing.T) {
-	workers := river.NewWorkers()
-	registerPreparedDeckWorkers(workers, nil, nil, nil, nil, 0, nil)
-
-	for _, test := range []struct {
-		name string
-		add  func() error
-	}{
-		{name: "batch submit", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchSubmitWorker{}) }},
-		{name: "batch poll", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchPollWorker{}) }},
-		{name: "finalize", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.FinalizeWorker{}) }},
-		{name: "rerender", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.RerenderWorker{}) }},
-		{name: "batch cleanup", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.BatchCleanupWorker{}) }},
-		{name: "recovery", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.RecoveryWorker{}) }},
-		{name: "standard translation", add: func() error { return river.AddWorkerSafely(workers, &prepareddeck.StandardTranslationWorker{}) }},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			err := test.add()
-			assert.Error(t, err, "worker kind was not registered")
-		})
-	}
 }
 
 func TestRegisterStudyWorkerRegistersTheJobKind(t *testing.T) {

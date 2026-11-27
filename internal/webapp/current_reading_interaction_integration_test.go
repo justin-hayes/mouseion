@@ -42,7 +42,7 @@ func TestCurrentReadingInteractionIntegrationKeepsReadingOnlyBooksAndOwnerBounda
 	readingOnly := newBook(alice, "Reading-only integration book")
 	replacement := newBook(alice, "Replacement integration book")
 
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	aliceCookies, aliceCSRF := loginCookies(t, h, alice.Username, "alice-password")
 	bobCookies, bobCSRF := loginCookies(t, h, bob.Username, "bob-password")
 

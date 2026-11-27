@@ -30,7 +30,7 @@ func concordanceContextHandler(t *testing.T, ctx context.Context, username, pass
 
 	createAccount(t, ctx, store, username, password)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, username, password)
 	return h, cookies
 }
@@ -78,7 +78,7 @@ func TestConcordanceDropsAnOriginBookInAnotherStudyLanguage(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "origin-language-alice", "alice-password")
 
 	response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?term=gehen&from_book="+italian.ID+"&from_snap=snapshot", nil, cookies)

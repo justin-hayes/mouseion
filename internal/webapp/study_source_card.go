@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
-	"github.com/justin-hayes/mouseion/internal/studycard"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/sourceevidence"
 	"github.com/justin-hayes/mouseion/internal/study"
+	"github.com/justin-hayes/mouseion/internal/studycard"
 )
 
 // sourceCardView is what a source-evidence word's card back shows below the

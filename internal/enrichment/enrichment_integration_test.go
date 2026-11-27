@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -98,15 +97,10 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 
 	provider := &postgresFallbackProvider{}
 	service := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, ContextMode: enrichment.SentenceContext}, nil, nil, nil, provider, store)
-	entry := cardexport.Entry{
-		Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", Sentence: "Das seltene Wort ist heute wirklich wichtig.", TargetWord: "seltene",
-		DictionaryProviderVersion: "dictionary-v4", FirstEncounter: 1,
+	candidate := enrichment.Candidate{
+		Language: "de", CanonicalLemma: "seltenes-wort", UPOS: "NOUN", TargetWord: "seltene",
+		ExampleSentence: "Das seltene Wort ist heute wirklich wichtig.", DictionaryProviderVersion: "dictionary-v4",
 	}
-	deck, err := testutil.FreezePresentationDeck(ctx, "owner-1", "Book", []cardexport.Entry{entry}, testutil.PresentationProvider{Name: "llm", Version: "model-1", TargetLanguage: "en"})
-	require.NoError(t, err)
-	work := deck.WorkProjection()
-	require.Len(t, work, 1)
-	candidate := work[0].RequestCandidate()
 
 	first, err := service.EnrichExternal(ctx, candidate)
 	require.NoError(t, err)
@@ -126,19 +120,6 @@ func TestPostgresExternalEmptyCandidateFallbackPersistsByDictionaryIdentity(t *t
 	assert.Equal(t, "something uncommon", stored.FallbackGloss)
 	assert.Equal(t, "dictionary-v4", stored.DictionaryProviderVersion)
 	assert.Empty(t, stored.SenseSelection)
-
-	artifact, _, err := cardexport.NewPresentation(nil).Finalize(ctx, deck, []cardexport.StoredResult{{CacheKey: key, Record: enrichment.CacheEntry{
-		CacheKey:                  key,
-		Translation:               first.Translation.Value,
-		FallbackGloss:             first.FallbackGloss.Value,
-		SentenceTranslation:       first.SentenceTranslation.Value,
-		SentenceTranslationTarget: first.SentenceTranslationTarget.Value,
-		SenseSelection:            append([]int(nil), first.SenseSelection.Value...),
-	}}}, cardexport.RunFacts{})
-	require.NoError(t, err)
-	require.Len(t, artifact.Generated, 1)
-	assert.Equal(t, "something uncommon", artifact.Generated[0].Note.Gloss)
-	assert.Equal(t, 1, artifact.Completeness.CardsWithFallbackGloss)
 
 	otherDictionary := candidate
 	otherDictionary.DictionaryProviderVersion = "dictionary-v5"

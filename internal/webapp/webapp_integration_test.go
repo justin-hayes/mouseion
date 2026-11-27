@@ -175,7 +175,7 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 
 	page := perform(t, h, "GET", "/login", nil, nil)
 	assert.Equal(t, http.StatusOK, page.Code)
@@ -229,7 +229,7 @@ func TestAuthenticatedNeedsLanguageBookIsRetiredFromMyBooks(t *testing.T) {
 	require.NoError(t, err)
 	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, unchosen.ID)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, Capabilities: readyGerman(), SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, owner.Username, "owner-password")
 	page := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
 	assert.Equal(t, http.StatusNotFound, page.Code, "the needs-language browse state is retired")

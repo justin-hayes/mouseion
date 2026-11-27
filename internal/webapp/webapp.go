@@ -25,7 +25,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -211,16 +210,6 @@ type CatalogueSync interface {
 type AnalysisInsights interface {
 	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
 }
-type PreparedDeck interface {
-	PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error)
-	CurrentReadingDeck(ctx context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error)
-	PreparationAdmissions(ctx context.Context, owner, id string) (prepareddeck.PreparationAdmissions, error)
-	Get(context.Context, string, string) (domain.DeckPreparation, error)
-	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
-	Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
-	Rerender(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
-	Download(context.Context, string, string) (domain.DeckPreparation, error)
-}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -243,7 +232,6 @@ type Services struct {
 	// move is observed.
 	ReadingIntent    *readingintent.Module
 	AnalysisInsights AnalysisInsights
-	PreparedDeck     PreparedDeck
 	// Study enqueues Study material preparation. It may be nil, in which case
 	// the Study page only reports what is ready.
 	Study Study
@@ -257,7 +245,7 @@ type Services struct {
 	Dictionary   enrichment.LexicalProvider
 	Capabilities analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
-	// the Reading store, PreparedDeck, and Analysis when it is nil.
+	// the Reading store and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service
 	CatalogueSync CatalogueSync
 	// Classical is the built-in, read-only Classical catalog from the release's
@@ -312,7 +300,7 @@ func NewWithError(s Services) (*Handler, error) {
 		s.Clock = time.Now
 	}
 	if s.LemmaReview == nil {
-		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
+		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, BrowseCounts: s.Analysis})
 	}
 	if s.Classical == nil {
 		catalog, err := classical.LoadCatalog(classical.ManifestJSONL)
@@ -347,8 +335,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))
 	h.mux.Handle("POST /reading/end", h.user(http.HandlerFunc(h.endCurrentReading)))
-	h.mux.Handle("POST /reading/books/{id}/deck/cancel", h.user(http.HandlerFunc(h.cancelCurrentReadingDeck)))
-	h.mux.Handle("POST /reading/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryCurrentReadingDeck)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))
 	h.mux.Handle("POST /reading/books/{id}/analysis-update", h.user(http.HandlerFunc(h.updateToReadBookAnalysis)))
 	h.mux.Handle("POST /reading/books/{id}/source-structure-update", h.user(http.HandlerFunc(h.updateBookSourceStructure)))
@@ -358,13 +344,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
-	h.mux.Handle("GET /reading/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.newReadingDeckPreparation)))
-	h.mux.Handle("POST /reading/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createReadingEntryDeckPreparation)))
-	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
-	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
-	h.mux.Handle("POST /deck-preparations/{id}/reprepare", h.user(http.HandlerFunc(h.reprepareDeckPreparation)))
-	h.mux.Handle("POST /deck-preparations/{id}/rerender", h.user(http.HandlerFunc(h.rerenderDeckPreparation)))
-	h.mux.Handle("GET /deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadDeckPreparation)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/library")

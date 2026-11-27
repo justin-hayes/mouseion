@@ -2363,14 +2363,6 @@ func aggregateLemmas(hash string, result analyzer.Result) ([]domain.SharedLemma,
 }
 
 func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
-	return newClient(pool, a, capabilities, selectionService, 1, workerSets...)
-}
-
-func NewClientWithPreparedDeckConcurrency(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
-	return newClient(pool, a, capabilities, selectionService, standardWorkers, workerSets...)
-}
-
-func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
 	if pool == nil || a == nil || capabilities == nil || selectionService == nil {
 		return nil, errors.New("analysis client requires pool, analyzer, capabilities, and selection service")
 	}
@@ -2385,10 +2377,7 @@ func newClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities, Selection: selectionService})
 	river.AddWorker(workers, &BrowseCountsRebuildWorker{Pool: pool})
 	river.AddWorker(workers, &ConstructionRebuildWorker{Pool: pool})
-	if standardWorkers < 1 {
-		standardWorkers = 1
-	}
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "prepared_decks": {MaxWorkers: 1}, "prepared_deck_translation": {MaxWorkers: standardWorkers}, "study": {MaxWorkers: 2}, IdiomCountsQueue: {MaxWorkers: 1}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}, ClassicalTranslationQueue: {MaxWorkers: 1}, EPUBAcquisitionQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "study": {MaxWorkers: 2}, IdiomCountsQueue: {MaxWorkers: 1}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}, ClassicalTranslationQueue: {MaxWorkers: 1}, EPUBAcquisitionQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
 }
 
 func configuredJobTimeout() (time.Duration, error) {

@@ -34,15 +34,6 @@ func newThreeWegReading(store *fixtures.Store) threeWegReading {
 	return threeWegReading{Store: store}
 }
 
-// ListDeckPreparationsForSourceMaterial reports one ready, snapshotted deck for
-// the route-match Book, so a confirmed identity change takes the restart path.
-func (s threeWegReading) ListDeckPreparationsForSourceMaterial(ctx context.Context, owner, sourceMaterialID string) ([]domain.DeckPreparation, error) {
-	if sourceMaterialID != "fixture-route-match" {
-		return s.Store.ListDeckPreparationsForSourceMaterial(ctx, owner, sourceMaterialID)
-	}
-	return []domain.DeckPreparation{{ID: "fixture-ready-preparation", OwnerID: owner, SourceMaterialID: sourceMaterialID, State: domain.DeckPreparationReady, SnapshotID: "fixture-ready-snapshot"}}, nil
-}
-
 // competingLemmaIndex is a local index that misses every analyzed lemma and
 // offers one sentence-supported competing lemma for each occurrence.
 type competingLemmaIndex struct{}
@@ -62,12 +53,11 @@ func startSessionOver(t *testing.T, reading threeWegReading, index lemmarisk.Alt
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
 	deps := storeDependencies(reading)
 	analysis := fixtures.Analysis{Store: reading.Store}
-	preparedDeck := fixtures.PreparedDeck{Store: reading.Store}
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: deps,
 		Analysis: analysis, CatalogueSync: fixtures.NewCatalogueSync(reading.Store),
-		PreparedDeck: preparedDeck, SessionLifetime: time.Hour,
-		LemmaReview: lemmareview.New(lemmareview.Config{Store: deps.Reading, RiskIndex: index, Preparer: preparedDeck, BrowseCounts: analysis}),
+		SessionLifetime: time.Hour,
+		LemmaReview:     lemmareview.New(lemmareview.Config{Store: deps.Reading, RiskIndex: index, BrowseCounts: analysis}),
 	})
 	loginPage := httptest.NewRecorder()
 	h.ServeHTTP(loginPage, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/login", nil))
@@ -99,31 +89,6 @@ func TestStartRunsLemmaRiskDetectionBeforeFreezingTheBook(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, flagged)
 	assert.NotEmpty(t, flagged[0].ReviewFlagReason, "detection saved the flag Start consulted")
-}
-
-func TestConfirmedIdentityRestartRunsLemmaRiskDetectionBeforeFreezing(t *testing.T) {
-	store := fixtures.NewStore()
-	reading := newThreeWegReading(store)
-	endGermanFixtureReading(t, store)
-	lemmaPath := "/reading/books/fixture-route-match/lemma-review"
-
-	// The preview runs without an index, so detection cannot flag anything
-	// before the confirmed restart does.
-	weg := wegOccurrenceIDs(t, reading, "fixture-route-match")
-	previewHandler, cookies, csrf := startSessionOver(t, reading, nil)
-	preview := readingTestRequest(t, previewHandler, lemmaPath, url.Values{"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {weg[0]}, "decision": {"correct"}, "lemma": {"pfad"}}, cookies)
-	require.Equal(t, http.StatusOK, preview.Code)
-	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(preview.Body.String())
-	require.Len(t, fingerprint, 2)
-
-	confirmHandler, cookies, csrf := startSessionOver(t, reading, competingLemmaIndex{})
-	confirm := url.Values{"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]}, "reprepare_ready_deck": {"yes"}}
-	confirmed := readingTestRequest(t, confirmHandler, lemmaPath, confirm, cookies)
-	require.Equal(t, http.StatusSeeOther, confirmed.Code)
-	assert.Equal(t, lemmaPath+"?form=Weg", confirmed.Header().Get("Location"), "unresolved flags from the restart's own detection pause the restart")
-	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.False(t, current.IsActive(), "a paused restart freezes no new snapshot")
 }
 
 func TestStartWithoutLemmaRiskIndexStillStartsTheBook(t *testing.T) {

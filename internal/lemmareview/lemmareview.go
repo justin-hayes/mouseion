@@ -17,7 +17,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
 
@@ -43,13 +42,6 @@ type Store interface {
 	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
 	ReadLemmaReviewProposal(context.Context, domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
 	PutLemmaDecisionProposal(context.Context, domain.LemmaReviewProposal, string) error
-	ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error)
-}
-
-// Preparer submits the deck preparations that follow a confirmed identity change.
-type Preparer interface {
-	PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error)
-	Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
 }
 
 // BrowseCounts schedules the vocabulary count rebuild a committed decision needs.
@@ -57,14 +49,13 @@ type BrowseCounts interface {
 	EnqueueBrowseCountRebuild(context.Context, string, string) error
 }
 
-// Config supplies a Service's collaborators. RiskIndex, Preparer and BrowseCounts
+// Config supplies a Service's collaborators. RiskIndex and BrowseCounts
 // may be nil; the workflow then runs without the optional step. Suggestions must
 // be set: pass enrichment.DisabledLemmaSuggestionProvider{} when suggestions are off.
 type Config struct {
 	Store        Store
 	RiskIndex    lemmarisk.AlternativeIndex
 	Suggestions  enrichment.LemmaSuggestionProvider
-	Preparer     Preparer
 	BrowseCounts BrowseCounts
 }
 
@@ -73,12 +64,11 @@ type Service struct {
 	store        Store
 	riskIndex    lemmarisk.AlternativeIndex
 	suggestions  enrichment.LemmaSuggestionProvider
-	preparer     Preparer
 	browseCounts BrowseCounts
 }
 
 func New(cfg Config) *Service {
-	return &Service{store: cfg.Store, riskIndex: cfg.RiskIndex, suggestions: cfg.Suggestions, preparer: cfg.Preparer, browseCounts: cfg.BrowseCounts}
+	return &Service{store: cfg.Store, riskIndex: cfg.RiskIndex, suggestions: cfg.Suggestions, browseCounts: cfg.BrowseCounts}
 }
 
 // Assessment reports whether lemma risk was assessed for a Book, and whether
@@ -90,13 +80,11 @@ type Assessment struct {
 	Unresolved bool
 }
 
-// Recovery is what a reviewer needs to know about a Book's existing reading and
-// deck artifacts before changing its vocabulary identities.
+// Recovery is what a reviewer needs to know about a Book's existing reading
+// before changing its vocabulary identities.
 type Recovery struct {
 	ActiveReading       bool
 	ActiveReadingBookID string
-	ReadyPreparationID  string
-	ReadyDeckSnapshotID string
 	HasCompletedReading bool
 	HasIdentityDecision bool
 	// ReferenceAssessed is set by the caller from the Assessment that preceded the page.
@@ -145,38 +133,13 @@ type Change struct{ Sentence, Before, After string }
 // Preview is what confirming a proposal would do, bound to the fingerprint of
 // the state it was previewed against.
 type Preview struct {
-	Action            string
-	Lemma             string
-	OccurrenceIDs     []string
-	Changes           []Change
-	Impacts           []selection.Impact
-	Fingerprint       string
-	IdentityChanged   bool
-	RequiresReprepare bool
-}
-
-// OutcomeKind is how far a committed confirmation got. The decision itself is
-// committed in every case; the kinds describe the follow-on steps.
-type OutcomeKind int
-
-const (
-	// OutcomeSaved: the decision is saved and no re-preparation was needed.
-	OutcomeSaved OutcomeKind = iota
-	// OutcomeFlagsUnresolved: the decision is saved, but restarting the Book is
-	// blocked until its unresolved local high-risk flags are reviewed.
-	OutcomeFlagsUnresolved
-	// OutcomePreparing: the decision is saved and a new deck preparation is queued.
-	OutcomePreparing
-	// OutcomeRestartFailed: the decision is saved, but the Book could not be restarted.
-	OutcomeRestartFailed
-	// OutcomeQueueingFailed: the decision is saved, but re-preparation could not be queued.
-	OutcomeQueueingFailed
-)
-
-// Outcome is the result of a confirmation. PreparationID is set for OutcomePreparing.
-type Outcome struct {
-	Kind          OutcomeKind
-	PreparationID string
+	Action          string
+	Lemma           string
+	OccurrenceIDs   []string
+	Changes         []Change
+	Impacts         []selection.Impact
+	Fingerprint     string
+	IdentityChanged bool
 }
 
 // Assess runs local lemma risk detection for a Book, saves the flags it finds
@@ -323,43 +286,30 @@ func (s *Service) Preview(ctx context.Context, owner, bookID string, p Proposal)
 		return Preview{}, mapStoreError(err)
 	}
 	identityChanged := changesIdentity(proposal)
-	detail, recovery, err := s.load(ctx, owner, bookID)
-	if err != nil {
-		return Preview{}, err
-	}
-	action := decideReprepare(detail, recovery, identityChanged, false)
 	return Preview{
 		Action: p.Action, Lemma: proposal.Lemma, OccurrenceIDs: occurrenceIDs(proposal.Occurrences),
 		Changes: changes(proposal), Impacts: selection.ReviewImpact(impact.States), Fingerprint: impact.Fingerprint,
-		IdentityChanged: identityChanged, RequiresReprepare: action != domain.LemmaRepreparationNone,
+		IdentityChanged: identityChanged,
 	}, nil
 }
 
 // Confirm commits a previewed proposal if its state still matches fingerprint,
-// then performs the follow-on steps the Book's ready deck needs. The decision
-// commits in its own transaction; a failed follow-on step is an Outcome, not an
-// error, because the decision is already safe.
-func (s *Service) Confirm(ctx context.Context, owner, bookID string, p Proposal, fingerprint string, repreparationConfirmed bool) (Outcome, error) {
+// then queues the Browse count rebuild it needs. The decision commits in its
+// own transaction; a failed follow-on step is logged, not an error, because the
+// decision is already safe.
+func (s *Service) Confirm(ctx context.Context, owner, bookID string, p Proposal, fingerprint string) error {
 	if len(p.OccurrenceIDs) == 0 {
-		return Outcome{}, domain.ErrLemmaReviewNoSelection
+		return domain.ErrLemmaReviewNoSelection
 	}
 	if err := s.rejectCurrentReading(ctx, owner, bookID, p.Language); err != nil {
-		return Outcome{}, err
+		return err
 	}
 	proposal, err := s.resolve(ctx, owner, bookID, p)
 	if err != nil {
-		return Outcome{}, err
-	}
-	detail, recovery, err := s.load(ctx, owner, bookID)
-	if err != nil {
-		return Outcome{}, err
-	}
-	action := decideReprepare(detail, recovery, changesIdentity(proposal), repreparationConfirmed)
-	if err := action.Err(); err != nil {
-		return Outcome{}, err
+		return err
 	}
 	if err := s.store.PutLemmaDecisionProposal(ctx, proposal, fingerprint); err != nil {
-		return Outcome{}, mapStoreError(err)
+		return mapStoreError(err)
 	}
 	if s.browseCounts != nil {
 		if err := s.browseCounts.EnqueueBrowseCountRebuild(ctx, owner, bookID); err != nil {
@@ -368,53 +318,11 @@ func (s *Service) Confirm(ctx context.Context, owner, bookID string, p Proposal,
 			log.Printf("mouseion: could not enqueue Browse count rebuild; startup reconciliation will retry")
 		}
 	}
-	switch action {
-	case domain.LemmaRepreparationRestart:
-		return s.restart(ctx, owner, bookID, proposal.Language)
-	case domain.LemmaRepreparationDirect:
-		return s.prepare(func() (prepareddeck.Handle, error) {
-			return s.preparer.Reprepare(ctx, owner, recovery.ReadyPreparationID, recovery.ReadyDeckSnapshotID)
-		}), nil
-	case domain.LemmaRepreparationNone, domain.LemmaRepreparationUnconfirmed, domain.LemmaRepreparationBlockedByReading, domain.LemmaRepreparationNotToRead:
-		// Nothing to re-prepare. The rejected actions returned above.
-	}
-	return Outcome{Kind: OutcomeSaved}, nil
+	return nil
 }
 
-// restart starts the Book again under a new snapshot and prepares that snapshot.
-// Flag detection is a write the new snapshot depends on, so it runs first.
-func (s *Service) restart(ctx context.Context, owner, bookID, language string) (Outcome, error) {
-	if _, err := s.Assess(ctx, owner, bookID); err != nil {
-		return Outcome{}, err
-	}
-	reading, err := s.store.StartCurrentReading(ctx, owner, language, bookID)
-	switch {
-	case errors.Is(err, persistence.ErrUnresolvedLemmaReviewFlags):
-		return Outcome{Kind: OutcomeFlagsUnresolved}, nil
-	case err != nil:
-		// The decision is already committed, so a failed restart is an outcome for
-		// the learner to act on, not an error that would discard it.
-		return Outcome{Kind: OutcomeRestartFailed}, nil //nolint:nilerr // The committed decision must not be reported as failed.
-	}
-	return s.prepare(func() (prepareddeck.Handle, error) {
-		return s.preparer.PrepareCurrentReadingDeck(ctx, owner, bookID, reading.SnapshotID)
-	}), nil
-}
-
-func (s *Service) prepare(submit func() (prepareddeck.Handle, error)) Outcome {
-	handle, err := submit()
-	if errors.Is(err, domain.ErrDeckPreparationNotRequired) {
-		// An empty snapshot has no vocabulary to prepare, so there is nothing to queue.
-		return Outcome{Kind: OutcomeSaved}
-	}
-	if err != nil {
-		return Outcome{Kind: OutcomeQueueingFailed}
-	}
-	return Outcome{Kind: OutcomePreparing, PreparationID: handle.Preparation.ID}
-}
-
-// load reads the Book and the artifacts that decide what a vocabulary change
-// does to it.
+// load reads the Book and the reading state that decides whether a vocabulary
+// change is allowed.
 func (s *Service) load(ctx context.Context, owner, bookID string) (domain.MyBook, Recovery, error) {
 	detail, err := s.store.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
@@ -428,28 +336,7 @@ func (s *Service) load(ctx context.Context, owner, bookID string) (domain.MyBook
 		ActiveReading: current.IsActive() && current.BookID == bookID, ActiveReadingBookID: current.BookID,
 		HasCompletedReading: detail.CompletionCount > 0,
 	}
-	if detail.Acquired == nil || s.preparer == nil {
-		return detail, recovery, nil
-	}
-	preparations, err := s.store.ListDeckPreparationsForSourceMaterial(ctx, owner, detail.Acquired.Source.ID)
-	if err != nil {
-		return domain.MyBook{}, Recovery{}, err
-	}
-	for _, preparation := range preparations {
-		if preparation.State == domain.DeckPreparationReady {
-			recovery.ReadyPreparationID, recovery.ReadyDeckSnapshotID = preparation.ID, preparation.SnapshotID
-			break
-		}
-	}
 	return detail, recovery, nil
-}
-
-func decideReprepare(detail domain.MyBook, recovery Recovery, identityChanged, confirmed bool) domain.LemmaRepreparationAction {
-	return domain.DecideLemmaReprepare(domain.LemmaRepreparationFacts{
-		IdentityChanged: identityChanged, ReadyDeck: recovery.ReadyPreparationID != "", SnapshotBound: recovery.ReadyDeckSnapshotID != "",
-		OtherCurrentReading: recovery.ActiveReadingBookID != "" && !recovery.ActiveReading,
-		ToRead:              detail.Disposition == domain.BookDispositionToRead, Confirmed: confirmed,
-	})
 }
 
 // rejectCurrentReading refuses vocabulary changes to the Book the learner is

@@ -288,9 +288,7 @@ LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos AND c.lexical_
 // corrections. It runs in the same transaction as the freeze, after the Book row
 // is locked.
 func projectedAnalysisCurrentReadingCandidates(ctx context.Context, tx pgx.Tx, q *sqlcgen.Queries, owner, language string, identity sqlcgen.GetCurrentReadingCandidateIdentityRow) ([]domain.SelectionCandidate, error) {
-	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, domain.DeckPreparation{
-		OwnerID: owner, SourceMaterialID: identity.CaSourceMaterialID, AnalysisRunID: identity.CaAnalysisRunID,
-	}, identity.CaCorpusID)
+	analysis, corrections, err := loadAnalysisProjectionFactsTx(ctx, tx, q, owner, identity.CaSourceMaterialID, identity.CaAnalysisRunID, identity.CaCorpusID)
 	if err != nil {
 		return nil, err
 	}

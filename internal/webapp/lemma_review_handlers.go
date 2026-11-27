@@ -169,23 +169,12 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 	language, _ := activeStudyLanguageForContext(r.Context())
 	form := strings.TrimSpace(r.FormValue("form"))
 	proposal := lemmaReviewProposal(r, language, r.Form["selected"])
-	outcome, err := h.services.LemmaReview.Confirm(r.Context(), owner.ID, bookID, proposal, r.FormValue("fingerprint"), r.FormValue("reprepare_ready_deck") == "yes")
-	if err != nil {
+	if err := h.services.LemmaReview.Confirm(r.Context(), owner.ID, bookID, proposal, r.FormValue("fingerprint")); err != nil {
 		writeLemmaReviewError(w, err)
 		return
 	}
 	h.repairStudyReports(r, owner.ID, bookID)
-	switch outcome.Kind {
-	case lemmareview.OutcomePreparing:
-		redirect(w, r, "/deck-preparations/"+url.PathEscape(outcome.PreparationID)+"/status")
-	case lemmareview.OutcomeRestartFailed:
-		http.Error(w, "The identity decision was saved, but a new Reading snapshot could not be started. Start this Book in Reading, then prepare its deck; the historical deck remains available.", http.StatusServiceUnavailable)
-	case lemmareview.OutcomeQueueingFailed:
-		http.Error(w, "The identity decision was saved, but re-preparation could not be queued. The historical deck remains available; retry preparation from the deck task.", http.StatusServiceUnavailable)
-	case lemmareview.OutcomeSaved, lemmareview.OutcomeFlagsUnresolved:
-		// Both return to the review page; the latter shows the flags that block the restart.
-		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
-	}
+	redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
 }
 
 // repairStudyReports ends the open Wrong-word reports in the Book that the
@@ -249,9 +238,6 @@ var lemmaReviewRejections = []lemmaReviewRejection{
 	{domain.ErrLemmaReviewCurrentReading, http.StatusConflict, "Stop this Book's current reading before changing its vocabulary."},
 	{domain.ErrLemmaReviewStale, http.StatusConflict, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again."},
 	{domain.ErrLemmaReviewCountsRefreshing, http.StatusConflict, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly."},
-	{domain.ErrLemmaReviewBlockedByReading, http.StatusConflict, "Stop the other current reading before accepting this change; then Mouseion can start this Book again and prepare its new snapshot."},
-	{domain.ErrLemmaReviewNotToRead, http.StatusConflict, "Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot."},
-	{domain.ErrLemmaReviewRepreparationRequired, http.StatusBadRequest, "Explicitly confirm re-preparation of the existing ready deck before accepting this identity change."},
 	{domain.ErrLemmaReviewOccurrenceUnavailable, http.StatusBadRequest, "The selected occurrence changed. Find it again before reviewing."},
 	{domain.ErrLemmaReviewOccurrenceMissing, http.StatusConflict, "That occurrence is no longer available in this analysis."},
 	{domain.ErrLemmaReviewNoSelection, http.StatusBadRequest, "The preview contains no selected occurrences."},
