@@ -15,6 +15,11 @@ func TestFormat(t *testing.T) {
 		{name: "German verb", language: "de", lemma: "gehen", upos: "VERB", want: "gehen"},
 		{name: "German proper noun", language: "de", lemma: "goethe", upos: "PROPN", want: "goethe"},
 		{name: "German adjective", language: "de", lemma: "schnell", upos: "ADJ", want: "schnell"},
+		{name: "Greek final sigma", language: "grc", lemma: "πᾶσ", upos: "ADJ", want: "πᾶς"},
+		{name: "Greek locale final sigma", language: "grc-GR", lemma: "λόγοσ", upos: "NOUN", want: "λόγος"},
+		{name: "Greek medial sigma stays", language: "grc", lemma: "σοφόσ", upos: "ADJ", want: "σοφός"},
+		{name: "Greek already final", language: "grc", lemma: "λόγος", upos: "NOUN", want: "λόγος"},
+		{name: "non-Greek keeps sigma", language: "en", lemma: "πᾶσ", upos: "ADJ", want: "πᾶσ"},
 		{name: "non-German noun", language: "en", lemma: "house", upos: "NOUN", want: "house"},
 	}
 

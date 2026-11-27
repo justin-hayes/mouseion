@@ -270,3 +270,14 @@ func TestResolveAncientGreekLSJIgnoresOtherLanguages(t *testing.T) {
 	assert.Empty(t, entry.DictionaryEntryID)
 	assert.Zero(t, stub.calls)
 }
+
+// TestLSJHeadwordLineShowsTheWordFinalSigma proves the index's folded headword
+// is shown with ς, and a medial σ is left alone.
+func TestLSJHeadwordLineShowsTheWordFinalSigma(t *testing.T) {
+	rendered := renderAncientGreekLSJEntry(enrichment.AncientGreekLSJEntry{
+		EntryID: "n1", Headword: "σοφόσ", Pin: testLSJPin,
+		Senses: []enrichment.AncientGreekLSJSense{{ID: "s1", Number: "A", Level: 1, Definitions: []string{"wise"}}},
+	})
+	assert.Contains(t, rendered, `<span class="lsj-headword">σοφός</span>`)
+	assert.NotContains(t, rendered, "σοφόσ")
+}
