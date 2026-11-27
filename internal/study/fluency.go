@@ -119,12 +119,16 @@ type FluencyWorker struct {
 	// agreement payload may be sent for a language (ADR 0133, ADR 0138 §4). The
 	// pass's own gate is Evidence.MaySend; both must pass before any send.
 	MaySendAgreement func(language string) error
+	// Idioms makes the ranking prefer an occurrence where the word is not part
+	// of an Idiom candidate; nil leaves the ranking unchanged (ADR 0137 §3).
+	Idioms *IdiomAvoidance
 }
 
 // AddFluencyWorker registers the worker with its dependencies. evidence and
-// maySendAgreement are nil when no source-evidence language can be prepared.
-func AddFluencyWorker(workers *river.Workers, store FluencyStore, enricher FluencyEnricher, maySend func(language string) error, evidence *SourceEvidence, maySendAgreement func(language string) error) {
-	river.AddWorker(workers, &FluencyWorker{Store: store, Enricher: enricher, MaySend: maySend, Evidence: evidence, MaySendAgreement: maySendAgreement})
+// maySendAgreement are nil when no source-evidence language can be prepared,
+// and idioms is nil when no language's idiom switch is on.
+func AddFluencyWorker(workers *river.Workers, store FluencyStore, enricher FluencyEnricher, maySend func(language string) error, evidence *SourceEvidence, maySendAgreement func(language string) error, idioms *IdiomAvoidance) {
+	river.AddWorker(workers, &FluencyWorker{Store: store, Enricher: enricher, MaySend: maySend, Evidence: evidence, MaySendAgreement: maySendAgreement, Idioms: idioms})
 }
 
 // Work prepares the word's Fluency contexts: it ranks other occurrences of the
@@ -294,7 +298,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 	if err != nil {
 		return nil, err
 	}
-	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority)
+	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority, w.Idioms.reader(word.Language))
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +309,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		key := fmt.Sprintf("%s/%d/%d", occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
 		byKey[key] = choice
 		candidates = append(candidates, domain.FluencyCandidate{
-			Key: key, Form: choice.form, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
+			Key: key, Form: choice.form, InIdiom: choice.inIdiom, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
 		})
 	}
 	ranked := domain.RankFluencyCandidates(introduced, candidates)
@@ -320,7 +324,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 // occurrences the sentence-quality gate accepts, leaving out the occurrences
 // already assessed and the word's own introducing sentence, wherever else the
 // library repeats that text.
-func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string) ([]sentenceChoice, error) {
+func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string, reader *idiomReader) ([]sentenceChoice, error) {
 	introducing := strings.TrimSpace(material.Sentence)
 	var kept []sentenceChoice
 	for page := 1; page <= maxFluencyPages; page++ {
@@ -331,7 +335,7 @@ func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word
 		if err != nil {
 			return nil, err
 		}
-		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyIdentity, result.Occurrences, retired)
+		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyIdentity, result.Occurrences, retired, reader)
 		if err != nil {
 			return nil, err
 		}

@@ -62,12 +62,16 @@ type MaterialWorker struct {
 	// provider: its dictionary, its passage translations and the pass payload
 	// gate. Without it such a word waits; a modern-language word never uses it.
 	Evidence *SourceEvidence
+	// Idioms makes a word's sentence prefer one where the word is not part of
+	// an Idiom candidate; nil leaves the choice unchanged (ADR 0137 §3).
+	Idioms *IdiomAvoidance
 }
 
 // AddMaterialWorker registers the worker with its dependencies. evidence is
-// nil when no source-evidence language can be prepared.
-func AddMaterialWorker(workers *river.Workers, store MaterialStore, enricher Enricher, evidence *SourceEvidence) {
-	river.AddWorker(workers, &MaterialWorker{Store: store, Enricher: enricher, Evidence: evidence})
+// nil when no source-evidence language can be prepared, and idioms is nil when
+// no language's idiom switch is on.
+func AddMaterialWorker(workers *river.Workers, store MaterialStore, enricher Enricher, evidence *SourceEvidence, idioms *IdiomAvoidance) {
+	river.AddWorker(workers, &MaterialWorker{Store: store, Enricher: enricher, Evidence: evidence, Idioms: idioms})
 }
 
 // Work prepares the record's sentence, Gloss and translation. A word with no
@@ -158,6 +162,10 @@ type sentenceChoice struct {
 	// citations are the cited source sections the sentence touches; they are
 	// empty for a modern-language analysis.
 	citations []string
+	// inIdiom is set when the word's token lies inside an Idiom candidate and
+	// the language's idiom switch is on; the sentence then ranks behind any
+	// sentence where it does not.
+	inIdiom bool
 }
 
 // representativeSentence chooses the word's Representative sentence from
@@ -183,7 +191,8 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 	if err != nil {
 		return sentenceChoice{}, false, err
 	}
-	search := sentenceSearch{priority: priority}
+	reader := w.Idioms.reader(identity.Language)
+	search := sentenceSearch{priority: priority, preferOutsideIdiom: reader != nil}
 	for page := 1; ; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
 			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
@@ -192,7 +201,7 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
-		choices, err := w.scoreOccurrences(ctx, owner, identity, result.Occurrences, retired)
+		choices, err := w.scoreOccurrences(ctx, owner, identity, result.Occurrences, retired, reader)
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
@@ -210,6 +219,20 @@ type sentenceSearch struct {
 	priority             string
 	inReading, elsewhere []sentenceChoice
 	pastReading          bool
+	// preferOutsideIdiom ranks a sentence where the word is outside every Idiom
+	// candidate ahead of the rest, the Current reading's order included.
+	preferOutsideIdiom bool
+}
+
+// outsideIdiom counts the choices outside every Idiom candidate.
+func outsideIdiom(choices []sentenceChoice) []sentenceChoice {
+	kept := make([]sentenceChoice, 0, len(choices))
+	for _, choice := range choices {
+		if !choice.inIdiom {
+			kept = append(kept, choice)
+		}
+	}
+	return kept
 }
 
 func (s *sentenceSearch) inPriorityBook(occurrence domain.ConcordanceResultOccurrence) bool {
@@ -233,12 +256,21 @@ func (s *sentenceSearch) add(occurrences []domain.ConcordanceResultOccurrence, c
 // lists the Current reading's occurrences first, so once it has moved past them,
 // or there is no Current reading, an accepted sentence settles it.
 func (s *sentenceSearch) settled() bool {
+	if s.preferOutsideIdiom {
+		return (len(outsideIdiom(s.inReading)) > 0 && s.pastReading) || (s.priority == "" && len(outsideIdiom(s.elsewhere)) > 0)
+	}
 	return (len(s.inReading) > 0 && s.pastReading) || (s.priority == "" && len(s.elsewhere) > 0)
 }
 
 // best returns the Current reading's best sentence, else the library's.
 func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
-	for _, group := range [][]sentenceChoice{s.inReading, s.elsewhere} {
+	groups := [][]sentenceChoice{s.inReading, s.elsewhere}
+	if s.preferOutsideIdiom {
+		// Outside an Idiom candidate first, the Current reading's before the
+		// library's; the existing order is the fallback.
+		groups = [][]sentenceChoice{outsideIdiom(s.inReading), outsideIdiom(s.elsewhere), s.inReading, s.elsewhere}
+	}
+	for _, group := range groups {
 		if best, ok := bestChoice(group); ok {
 			return best, true, nil
 		}
@@ -250,8 +282,8 @@ func (s *sentenceSearch) best() (sentenceChoice, bool, error) {
 // sentence the gate accepts. An occurrence belongs to the identity only when
 // its effective lexical discriminator matches: a corrected occurrence carries
 // none, and any other carries its token's. A retired occurrence is skipped.
-func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef) ([]sentenceChoice, error) {
-	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences, retired)
+func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
+	return scoreOccurrences(ctx, w.Store, owner, identity, occurrences, retired, reader)
 }
 
 // sentenceReader is what scoring occurrences needs of the store.
@@ -259,7 +291,7 @@ type sentenceReader interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 }
 
-func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef) ([]sentenceChoice, error) {
+func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
 	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
 	for _, occurrence := range occurrences {
@@ -287,7 +319,11 @@ func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, i
 		if !quality.Accepted {
 			continue
 		}
-		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal), citations: sentence.Citations})
+		inIdiom, err := reader.inCandidate(ctx, sentence.Tokens, occurrence.TokenOrdinal)
+		if err != nil {
+			return nil, err
+		}
+		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal), citations: sentence.Citations, inIdiom: inIdiom})
 	}
 	return choices, nil
 }

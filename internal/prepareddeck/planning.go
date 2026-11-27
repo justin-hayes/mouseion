@@ -388,6 +388,24 @@ func (p *BatchPlanner) validateIdiomAssessment(languages []string) error {
 	return nil
 }
 
+// IdiomSwitch reports whether a language's idiom switch is on: the operator
+// listed it in languages (MOUSEION_IDIOM_CARD_LANGUAGES) and its idiom-card
+// payload assessment is recorded for the codec. A nil assessments set means
+// the production assessments. Study reads the same switch the deck planner
+// does (ADR 0137); a language that fails the gate sends nothing.
+func IdiomSwitch(languages map[string]bool, assessments enrichment.ProviderAssessmentSet, codec *enrichment.TranslationCodec) func(language string) bool {
+	if assessments == nil {
+		assessments = enrichment.ProviderAssessments()
+	}
+	return func(language string) bool {
+		language = canonicalization.NormalizeLanguage(language)
+		if codec == nil || !languages[language] {
+			return false
+		}
+		return assessments.MaySend(enrichment.IdiomCardPayload, language, codec) == nil
+	}
+}
+
 // evidenceAssistedPassAllowed reports whether the configured codec and one
 // candidate's language match a recorded evidence-assisted pass assessment. A
 // drifted or unrecorded assessment sends nothing: the deck falls back to the

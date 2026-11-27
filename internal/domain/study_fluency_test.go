@@ -137,3 +137,15 @@ func TestFluencyReasonAgreesOnlyForTheSameMeaning(t *testing.T) {
 	_, ok := ParseFluencyReason("maybe")
 	require.False(t, ok)
 }
+
+func TestRankFluencyCandidatesPutsIdiomCandidatesLast(t *testing.T) {
+	plural := FluencyForm{Surface: "haeuser", Features: "Number=Plur"}
+	same := FluencyForm{Surface: "haus", Features: "Number=Sing"}
+	ranked := RankFluencyCandidates(same, []FluencyCandidate{
+		{Key: "a", Form: plural, InIdiom: true, InCurrentReading: true, Quality: 9},
+		{Key: "b", Form: same, Quality: 1},
+	})
+	require.Len(t, ranked, 2)
+	require.Equal(t, "b", ranked[0].Key, "outside an Idiom candidate leads, whatever the form, reading or quality")
+	require.Equal(t, "a", ranked[1].Key)
+}
