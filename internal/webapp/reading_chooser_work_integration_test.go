@@ -127,7 +127,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 		require.NoError(t, err)
 		return detail.Book
 	}
-	seedStudyWordIn(t, ctx, store, learner.ID, classical.Language, "λόγος", "NOUN", true)
+	seedStudyWordIn(t, ctx, store, learner.ID, classical.Language, "λόγος", true)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-1"), "homer-iliad-1", 99)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-2"), "homer-iliad-2", 92)
 	seedClassicalReadingEvidence(t, ctx, store, learner.ID, book(t, "homer-iliad-3"), "homer-iliad-3", 96)

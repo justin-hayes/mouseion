@@ -137,11 +137,12 @@ func bookSummary(t *testing.T, ctx context.Context, store *persistence.PostgresS
 // on a day-scale interval at least FluencyMaturityDays long) or still learning.
 func seedStudyWord(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, lemma string, mature bool) {
 	t.Helper()
-	seedStudyWordIn(t, ctx, store, owner, "de", lemma, "NOUN", mature)
+	seedStudyWordIn(t, ctx, store, owner, "de", lemma, mature)
 }
 
-// seedStudyWordIn is seedStudyWord for any study language.
-func seedStudyWordIn(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, language, lemma, upos string, mature bool) {
+// seedStudyWordIn is seedStudyWord for any study language. The word is always
+// a noun, matching the tokens seedBrowseEvidenceTokens writes.
+func seedStudyWordIn(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, language, lemma string, mature bool) {
 	t.Helper()
 	state, days := "learning", int64(0)
 	if mature {
@@ -150,8 +151,8 @@ func seedStudyWordIn(t *testing.T, ctx context.Context, store *persistence.Postg
 	_, err := store.Pool().Exec(ctx, `
 WITH m AS (
   INSERT INTO study_material (owner_id, language, canonical_lemma, upos, state, omission_reason)
-  VALUES ($1, $6, $2, $3, 'unpreparable', 'sentence-quality') RETURNING id)
+  VALUES ($1, $6, $2, 'NOUN', 'unpreparable', 'sentence-quality') RETURNING id)
 INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, last_review)
-SELECT $1, $6, $2, $3, id, now(), 'seeded', $4, now(), 5, 5, $5, 1, now() FROM m`, owner, lemma, upos, state, days, language)
+SELECT $1, $6, $2, 'NOUN', id, now(), 'seeded', $4, now(), 5, 5, $5, 1, now() FROM m`, owner, lemma, state, days, language)
 	require.NoError(t, err)
 }

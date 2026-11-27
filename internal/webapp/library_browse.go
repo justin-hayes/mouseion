@@ -20,6 +20,11 @@ const (
 	// myBooksNeedsActionValue is the value of the needs query parameter that
 	// shows only the Books with a status line.
 	myBooksNeedsActionValue = "action"
+	// myBooksSortReadableValue is the value of the sort query parameter that
+	// orders the tab by Mature coverage, most readable first (ADR 0136 §3).
+	// Every other address, including no sort parameter at all, keeps the
+	// neutral title order.
+	myBooksSortReadableValue = "readable"
 )
 
 // myBookEditionLabel is the edition a classical Book shows under its author.
@@ -213,6 +218,7 @@ type MyBooksBrowseState struct {
 	Disposition   domain.BookDisposition
 	History       bool
 	NeedsAction   bool
+	MostReadable  bool
 	Language      string
 	LanguageLabel string
 	AllCount      int
@@ -227,15 +233,19 @@ type MyBooksBrowseState struct {
 
 // myBooksScopedURL is the one place a My Books tab location is spelled.
 func myBooksScopedURL(language, query string, page int, disposition domain.BookDisposition, history bool) string {
-	return myBooksFilteredURL(language, query, page, disposition, history, false)
+	return myBooksFilteredURL(language, query, page, disposition, history, false, false)
 }
 
-// myBooksFilteredURL is myBooksScopedURL plus the needs-action filter, which
-// is kept in the address so a reload or a shared link shows the same Books.
-func myBooksFilteredURL(language, query string, page int, disposition domain.BookDisposition, history, needsAction bool) string {
+// myBooksFilteredURL is myBooksScopedURL plus the needs-action filter and the
+// most-readable sort, both kept in the address so a reload or a shared link
+// shows the same Books in the same order.
+func myBooksFilteredURL(language, query string, page int, disposition domain.BookDisposition, history, needsAction, mostReadable bool) string {
 	values := url.Values{}
 	if needsAction {
 		values.Set("needs", myBooksNeedsActionValue)
+	}
+	if mostReadable {
+		values.Set("sort", myBooksSortReadableValue)
 	}
 	if query != "" {
 		values.Set("q", query)
@@ -285,7 +295,7 @@ func myBooksPathLanguage(path string) (language string, ok bool) {
 
 // parseMyBooksBrowseRequest reads the two-tab My Books request. The retired
 // needs-language scope and the Inbox filter are unsupported rather than
-// translated.
+// translated, as is an unknown sort.
 func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	values := rURL.Query()
 	if values.Has("needs-language") {
@@ -302,6 +312,13 @@ func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	case "":
 	case myBooksNeedsActionValue:
 		request.needsAction = true
+	default:
+		return myBooksLibraryRequest{}, false
+	}
+	switch values.Get("sort") {
+	case "":
+	case myBooksSortReadableValue:
+		request.mostReadable = true
 	default:
 		return myBooksLibraryRequest{}, false
 	}
@@ -347,7 +364,7 @@ func myBooksReturnURL(raw, language string) string {
 	if !ok {
 		return myBooksPath(language)
 	}
-	return myBooksFilteredURL(language, request.query, request.page, request.disposition, request.history, request.needsAction)
+	return myBooksFilteredURL(language, request.query, request.page, request.disposition, request.history, request.needsAction, request.mostReadable)
 }
 
 // myBookSearchURL searches the tab that lists the Book for its title, so a
@@ -362,26 +379,33 @@ func myBookSearchURL(book domain.MyBook) string {
 }
 
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksFilteredURL(browse.Language, browse.Query, page, browse.Disposition, browse.History, browse.NeedsAction)
+	return myBooksFilteredURL(browse.Language, browse.Query, page, browse.Disposition, browse.History, browse.NeedsAction, browse.MostReadable)
 }
 
 // myBooksClearSearchURL keeps every control except the search text.
 func myBooksClearSearchURL(browse MyBooksBrowseState) string {
-	return myBooksFilteredURL(browse.Language, "", 1, browse.Disposition, browse.History, browse.NeedsAction)
+	return myBooksFilteredURL(browse.Language, "", 1, browse.Disposition, browse.History, browse.NeedsAction, browse.MostReadable)
 }
 
 func myBooksToReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksFilteredURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false, browse.NeedsAction)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false, browse.NeedsAction, browse.MostReadable)
 }
 
 func myBooksReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksFilteredURL(browse.Language, browse.Query, 1, "", true, browse.NeedsAction)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, "", true, browse.NeedsAction, browse.MostReadable)
 }
 
 // myBooksNeedsActionToggleURL turns the needs-action filter on or off and keeps
 // every other control, starting again at the first page.
 func myBooksNeedsActionToggleURL(browse MyBooksBrowseState) string {
-	return myBooksFilteredURL(browse.Language, browse.Query, 1, browse.Disposition, browse.History, !browse.NeedsAction)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, browse.Disposition, browse.History, !browse.NeedsAction, browse.MostReadable)
+}
+
+// myBooksSortToggleURL switches between the neutral title order and the
+// most-readable order and keeps every other control, starting again at the
+// first page.
+func myBooksSortToggleURL(browse MyBooksBrowseState) string {
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, browse.Disposition, browse.History, browse.NeedsAction, !browse.MostReadable)
 }
 
 // myBookBucketURL names where a Book is listed.
