@@ -584,3 +584,29 @@ func TestMyBooksTellsTwoEditionsOfOneWorkApartAsOrdinaryRows(t *testing.T) {
 		require.NotContains(t, body, "Books in")
 	})
 }
+
+func TestMyBooksNeedsActionFilterListsOnlyBooksWithAStatusLine(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
+
+	all := catalogPage(t, h, cookies, "/de/library")
+	require.Equal(t, http.StatusOK, all.Code)
+	allBody := all.Body.String()
+	failed := myBookRowHTML(t, allBody, "fixture-failed")
+	assert.Contains(t, failed, "Analysis failed.")
+	assert.Contains(t, failed, "data-needs-action")
+	assert.NotContains(t, myBookRowHTML(t, allBody, "fixture-book"), "data-needs-action", "a healthy Book has no status line")
+	assert.Contains(t, allBody, "/de/library?disposition=to_read&amp;needs=action", "the filter link is an address")
+
+	filtered := catalogPage(t, h, cookies, "/de/library?needs=action")
+	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
+	body := filtered.Body.String()
+	assert.Contains(t, body, `id="book-row-fixture-failed"`)
+	assert.Contains(t, body, `id="book-row-fixture-acquisition-failed"`)
+	assert.NotContains(t, body, `id="book-row-fixture-book"`)
+	assert.NotContains(t, body, `id="book-row-fixture-running"`)
+	assert.Contains(t, body, `name="needs" value="action"`, "search keeps the filter")
+	assert.Contains(t, body, "Show all Books")
+
+	refused := catalogPage(t, h, cookies, "/de/library?needs=other")
+	assert.Equal(t, http.StatusNotFound, refused.Code)
+}

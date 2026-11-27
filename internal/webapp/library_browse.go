@@ -17,6 +17,9 @@ const (
 	// notPreparedYetNote is shown while a classical Book has no current
 	// analysis, and is the refusal To Read gives for it.
 	notPreparedYetNote = "Not prepared yet."
+	// myBooksNeedsActionValue is the value of the needs query parameter that
+	// shows only the Books with a status line.
+	myBooksNeedsActionValue = "action"
 )
 
 // myBookEditionLabel is the edition a classical Book shows under its author.
@@ -206,6 +209,7 @@ type MyBooksBrowseState struct {
 	Query         string
 	Disposition   domain.BookDisposition
 	History       bool
+	NeedsAction   bool
 	Language      string
 	LanguageLabel string
 	AllCount      int
@@ -220,7 +224,16 @@ type MyBooksBrowseState struct {
 
 // myBooksScopedURL is the one place a My Books tab location is spelled.
 func myBooksScopedURL(language, query string, page int, disposition domain.BookDisposition, history bool) string {
+	return myBooksFilteredURL(language, query, page, disposition, history, false)
+}
+
+// myBooksFilteredURL is myBooksScopedURL plus the needs-action filter, which
+// is kept in the address so a reload or a shared link shows the same Books.
+func myBooksFilteredURL(language, query string, page int, disposition domain.BookDisposition, history, needsAction bool) string {
 	values := url.Values{}
+	if needsAction {
+		values.Set("needs", myBooksNeedsActionValue)
+	}
 	if query != "" {
 		values.Set("q", query)
 	}
@@ -282,6 +295,13 @@ func parseMyBooksBrowseRequest(rURL *url.URL) (myBooksLibraryRequest, bool) {
 	default:
 		return myBooksLibraryRequest{}, false
 	}
+	switch values.Get("needs") {
+	case "":
+	case myBooksNeedsActionValue:
+		request.needsAction = true
+	default:
+		return myBooksLibraryRequest{}, false
+	}
 	request.history = values.Get("history") == "read"
 	if request.history {
 		if request.disposition != "" {
@@ -324,7 +344,7 @@ func myBooksReturnURL(raw, language string) string {
 	if !ok {
 		return myBooksPath(language)
 	}
-	return myBooksScopedURL(language, request.query, request.page, request.disposition, request.history)
+	return myBooksFilteredURL(language, request.query, request.page, request.disposition, request.history, request.needsAction)
 }
 
 // myBookSearchURL searches the tab that lists the Book for its title, so a
@@ -339,20 +359,26 @@ func myBookSearchURL(book domain.MyBook) string {
 }
 
 func myBooksResultsURL(browse MyBooksBrowseState, page int) string {
-	return myBooksScopedURL(browse.Language, browse.Query, page, browse.Disposition, browse.History)
+	return myBooksFilteredURL(browse.Language, browse.Query, page, browse.Disposition, browse.History, browse.NeedsAction)
 }
 
 // myBooksClearSearchURL keeps every control except the search text.
 func myBooksClearSearchURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Language, "", 1, browse.Disposition, browse.History)
+	return myBooksFilteredURL(browse.Language, "", 1, browse.Disposition, browse.History, browse.NeedsAction)
 }
 
 func myBooksToReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, domain.BookDispositionToRead, false, browse.NeedsAction)
 }
 
 func myBooksReadTabURL(browse MyBooksBrowseState) string {
-	return myBooksScopedURL(browse.Language, browse.Query, 1, "", true)
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, "", true, browse.NeedsAction)
+}
+
+// myBooksNeedsActionToggleURL turns the needs-action filter on or off and keeps
+// every other control, starting again at the first page.
+func myBooksNeedsActionToggleURL(browse MyBooksBrowseState) string {
+	return myBooksFilteredURL(browse.Language, browse.Query, 1, browse.Disposition, browse.History, !browse.NeedsAction)
 }
 
 // myBookBucketURL names where a Book is listed.
@@ -470,7 +496,7 @@ func myBooksResultCount(total int) string {
 }
 
 func myBooksHasActiveResultFilter(browse MyBooksBrowseState) bool {
-	return browse.Query != "" || browse.History
+	return browse.Query != "" || browse.History || browse.NeedsAction
 }
 
 func myBooksResultAnnouncementAttributes() templ.Attributes {
@@ -520,4 +546,54 @@ func myBooksBrowseBooks(browse MyBooksBrowseState, books []domain.MyBook) []doma
 		}
 	}
 	return visible
+}
+
+// myBookNeedsAction is the status line of a Book that needs the learner's
+// action, derived only from evidence the Book already carries. A Book with
+// nothing to do has no status line and is never listed by the needs-action
+// filter. The first applicable state wins, most basic first.
+func myBookNeedsAction(book domain.MyBook) (string, bool) {
+	if book.Book.LanguageState != domain.LanguageChosen {
+		return "Choose a Book language.", true
+	}
+	if status, ok := myBookEvidenceNeedsAction(book); ok {
+		return status, true
+	}
+	if _, candidate := myBookAnalysisUpdate(book); candidate != nil {
+		return "Analysis update available.", true
+	}
+	if myBookSourceStructureUpdate(book) != nil {
+		return "Main-text selection update available.", true
+	}
+	return "", false
+}
+
+// myBookEvidenceNeedsAction reports a failed acquisition or preparation, and a
+// failed or stale analysis.
+func myBookEvidenceNeedsAction(book domain.MyBook) (string, bool) {
+	classification := book.Classification()
+	switch classification.Acquisition.State {
+	case domain.AcquisitionNone, domain.AcquisitionInProgress:
+	default:
+		return "Acquisition failed.", true
+	}
+	switch classification.Preparation.State {
+	case domain.PreparationFetchFailed, domain.PreparationImportFailed, domain.PreparationSourceRefused,
+		domain.PreparationWithdrawn, domain.PreparationCatalogUnavailable:
+		return "Preparation failed.", true
+	case domain.PreparationNone, domain.PreparationQueued, domain.PreparationRunning, domain.PreparationCleared:
+	}
+	if book.Acquired == nil {
+		return "", false
+	}
+	if classification.Phase == domain.PhaseFailed {
+		return "Analysis failed.", true
+	}
+	if classification.ReAnalysisShadowed() && classification.Run == domain.RunFailed {
+		return "Re-analysis failed.", true
+	}
+	if classification.Phase == domain.PhaseStale {
+		return "Analysis out of date.", true
+	}
+	return "", false
 }
