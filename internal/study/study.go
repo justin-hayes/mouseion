@@ -55,6 +55,8 @@ type Service struct {
 	// dictionaryPin reports the loaded dictionary's pin for a language, or empty
 	// when none is loaded; see WithDictionaryPin.
 	dictionaryPin func(language string) string
+	// idioms is Study's idiom switch; nil leaves Idioms out of the stream.
+	idioms *IdiomAvoidance
 	// now is the clock planning reconciles reports by; see WithClock.
 	now func() time.Time
 }
@@ -64,6 +66,13 @@ type Service struct {
 // when the pin changes (#2775). Without it such a word is never retried.
 func (s *Service) WithDictionaryPin(pin func(language string) string) *Service {
 	s.dictionaryPin = pin
+	return s
+}
+
+// WithIdioms sets Study's idiom switch. With a language's switch on, its Idioms
+// join the new-word stream (ADR 0137 §4); without it no Idiom is a candidate.
+func (s *Service) WithIdioms(idioms *IdiomAvoidance) *Service {
+	s.idioms = idioms
 	return s
 }
 
@@ -171,6 +180,16 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	candidates, err := s.store.ListStudyCandidates(ctx, owner, language)
 	if err != nil {
 		return err
+	}
+	if s.idioms.active(language) {
+		// An Idiom's count comes from the per-Book counts, which a job keeps;
+		// a Book whose counts are not ready adds its Idioms when they are, at
+		// the next plan.
+		idiomCandidates, _, err := s.store.ListStudyIdiomCandidates(ctx, owner, language, s.idioms.IndexVersion)
+		if err != nil {
+			return err
+		}
+		candidates = append(candidates, idiomCandidates...)
 	}
 	progress, err := s.store.ListStudyProgress(ctx, owner, language)
 	if err != nil {

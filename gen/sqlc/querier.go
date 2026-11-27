@@ -429,7 +429,8 @@ type Querier interface {
 	// Books in a language, with the number of Books containing it. A Book counts
 	// only while it is in My Books (removing a Book leaves its rows but not the
 	// sum; adding it back restores them) and its readiness row names its current analysis and the builder
-	// version; a Book that was removed has no rows left.
+	// version; a Book that was removed has no rows left. in_current_reading says
+	// whether the Current reading contains the headword.
 	ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error)
@@ -541,6 +542,16 @@ type Querier interface {
 	// learner last answered it; the Unix epoch means never.
 	ListStudyFluencyContexts(ctx context.Context, arg ListStudyFluencyContextsParams) ([]ListStudyFluencyContextsRow, error)
 	ListStudyFluencyResponses(ctx context.Context, arg ListStudyFluencyResponsesParams) ([]ListStudyFluencyResponsesRow, error)
+	// Study's Idiom material (ADR 0137, spec #2748, ticket #2753): where an Idiom's
+	// candidate sentences are, and the decisions that make their lemmas effective.
+	// The sentences of the owner's currently analyzed Books in My Books, in the
+	// study language, that contain every component word of an Idiom headword: each
+	// word as a token's surface form or its effective lemma (a confirmed Lemma
+	// correction supplies the lemma, an excluded Occurrence matches nothing). It is
+	// a cheap superset of the sentences the matcher accepts, which Go still
+	// decides. The Current reading's sentences come first. words are the distinct,
+	// lower-case component words.
+	ListStudyIdiomSentences(ctx context.Context, arg ListStudyIdiomSentencesParams) ([]ListStudyIdiomSentencesRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and
 	// ownership decisions remain in the persistence methods.
 	ListStudyLanguages(ctx context.Context, ownerID string) ([]ListStudyLanguagesRow, error)
@@ -554,6 +565,9 @@ type Querier interface {
 	// is none.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
+	// The Lemma corrections and Occurrence exclusions on the tokens of the given
+	// sentences of one Book's analysis: the decisions that make a lemma effective.
+	ListStudySentenceDecisions(ctx context.Context, arg ListStudySentenceDecisionsParams) ([]ListStudySentenceDecisionsRow, error)
 	// The tokens of one Book's current analysis that a Study word's introducing
 	// occurrence can be found as: the token itself when its run is still current,
 	// and the token at the same unit and offsets when an Analysis update

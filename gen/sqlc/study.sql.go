@@ -58,7 +58,7 @@ SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discr
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
-       omission_dictionary_pin, created_at, updated_at
+       omission_dictionary_pin, matched_token_ordinals, created_at, updated_at
   FROM study_material
  WHERE owner_id = $1 AND id = $2
 `
@@ -95,6 +95,7 @@ type GetStudyMaterialRow struct {
 	PassageCitation            string
 	PassageTranslationPin      string
 	OmissionDictionaryPin      string
+	MatchedTokenOrdinals       []int
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -129,6 +130,7 @@ func (q *Queries) GetStudyMaterial(ctx context.Context, arg GetStudyMaterialPara
 		&i.PassageCitation,
 		&i.PassageTranslationPin,
 		&i.OmissionDictionaryPin,
+		&i.MatchedTokenOrdinals,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -182,7 +184,7 @@ SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discr
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
-       omission_dictionary_pin, created_at, updated_at
+       omission_dictionary_pin, matched_token_ordinals, created_at, updated_at
   FROM study_material
  WHERE owner_id = $1 AND language = $2 AND superseded_at IS NULL
  ORDER BY canonical_lemma, upos, lexical_discriminator
@@ -220,6 +222,7 @@ type ListCurrentStudyMaterialRow struct {
 	PassageCitation            string
 	PassageTranslationPin      string
 	OmissionDictionaryPin      string
+	MatchedTokenOrdinals       []int
 	CreatedAt                  time.Time
 	UpdatedAt                  time.Time
 }
@@ -260,6 +263,7 @@ func (q *Queries) ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentS
 			&i.PassageCitation,
 			&i.PassageTranslationPin,
 			&i.OmissionDictionaryPin,
+			&i.MatchedTokenOrdinals,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -548,8 +552,9 @@ UPDATE study_material
        cited_sense_ids = $11::text[], cited_entry_ids = $12::text[],
        dictionary_pin = $13, passage_context = $14,
        passage_citation = $15, passage_translation_pin = $16,
+       matched_token_ordinals = $17::int[],
        updated_at = now()
- WHERE owner_id = $17 AND id = $18 AND state = 'pending'
+ WHERE owner_id = $18 AND id = $19 AND state = 'pending'
 `
 
 type MarkStudyMaterialReadyParams struct {
@@ -569,6 +574,7 @@ type MarkStudyMaterialReadyParams struct {
 	PassageContext             string
 	PassageCitation            string
 	PassageTranslationPin      string
+	MatchedTokenOrdinals       []int
 	Owner                      string
 	ID                         string
 }
@@ -591,6 +597,7 @@ func (q *Queries) MarkStudyMaterialReady(ctx context.Context, arg MarkStudyMater
 		arg.PassageContext,
 		arg.PassageCitation,
 		arg.PassageTranslationPin,
+		arg.MatchedTokenOrdinals,
 		arg.Owner,
 		arg.ID,
 	)

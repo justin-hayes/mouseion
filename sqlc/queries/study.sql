@@ -48,7 +48,7 @@ SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discr
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
-       omission_dictionary_pin, created_at, updated_at
+       omission_dictionary_pin, matched_token_ordinals, created_at, updated_at
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND superseded_at IS NULL
  ORDER BY canonical_lemma, upos, lexical_discriminator;
@@ -62,7 +62,7 @@ SELECT id::text AS id, item_kind, language, canonical_lemma, upos, lexical_discr
        COALESCE(token_ordinal, 0)::bigint AS token_ordinal,
        sentence, target_word, gloss, sentence_translation, sentence_translation_targets, evidence_fingerprint,
        cited_sense_ids, cited_entry_ids, dictionary_pin, passage_context, passage_citation, passage_translation_pin,
-       omission_dictionary_pin, created_at, updated_at
+       omission_dictionary_pin, matched_token_ordinals, created_at, updated_at
   FROM study_material
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id');
 
@@ -91,6 +91,7 @@ UPDATE study_material
        cited_sense_ids = sqlc.arg('cited_sense_ids')::text[], cited_entry_ids = sqlc.arg('cited_entry_ids')::text[],
        dictionary_pin = sqlc.arg('dictionary_pin'), passage_context = sqlc.arg('passage_context'),
        passage_citation = sqlc.arg('passage_citation'), passage_translation_pin = sqlc.arg('passage_translation_pin'),
+       matched_token_ordinals = sqlc.arg('matched_token_ordinals')::int[],
        updated_at = now()
  WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('id') AND state = 'pending';
 

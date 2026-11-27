@@ -8,6 +8,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -38,6 +39,14 @@ type fakeStore struct {
 	// citations are the cited sections every sentence touches.
 	citations []string
 	retired   []domain.StudyOccurrenceRef
+	// effective are sentences' tokens with the learner's decisions applied.
+	effective map[int64][]analyzer.Token
+	// idiomSentences are the sentences an Idiom's search finds.
+	idiomSentences []persistence.StudyIdiomSentence
+}
+
+func (s *fakeStore) ListStudyIdiomSentences(context.Context, string, string, []string) ([]persistence.StudyIdiomSentence, error) {
+	return s.idiomSentences, nil
 }
 
 func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
@@ -70,6 +79,19 @@ func (s *fakeStore) ListCorpusSentences(_ context.Context, _, _ string, ordinals
 	result := map[int64]analyzer.Sentence{}
 	for _, ordinal := range ordinals {
 		result[ordinal] = analyzer.Sentence{Tokens: s.tokens[ordinal], Citations: s.citations}
+	}
+	return result, nil
+}
+
+// ListStudyEffectiveTokens serves the persisted tokens: the fake has no
+// decisions, unless a test sets effective.
+func (s *fakeStore) ListStudyEffectiveTokens(_ context.Context, _, _, _, _ string, ordinals []int64) (map[int64][]analyzer.Token, error) {
+	result := map[int64][]analyzer.Token{}
+	for _, ordinal := range ordinals {
+		result[ordinal] = s.tokens[ordinal]
+		if effective, ok := s.effective[ordinal]; ok {
+			result[ordinal] = effective
+		}
 	}
 	return result, nil
 }
@@ -108,6 +130,16 @@ type fakeEnricher struct {
 	passErr      error
 	passRequests []enrichment.Candidate
 	passages     []string
+	// idiom is the idiom-card answer, idiomErr its failure, idiomCards what it
+	// was sent.
+	idiom      enrichment.ContextualMeaning
+	idiomErr   error
+	idiomCards []enrichment.IdiomCard
+}
+
+func (e *fakeEnricher) EnrichIdiomCard(_ context.Context, card enrichment.IdiomCard) (enrichment.ContextualMeaning, error) {
+	e.idiomCards = append(e.idiomCards, card)
+	return e.idiom, e.idiomErr
 }
 
 func (e *fakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, candidate enrichment.Candidate, passage string) (enrichment.EvidenceAssistedMeaning, error) {

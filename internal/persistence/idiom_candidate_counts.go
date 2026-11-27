@@ -54,7 +54,7 @@ func (s *PostgresStore) ListCorpusIdiomCandidateCounts(ctx context.Context, owne
 	}
 	result = domain.CorpusIdiomCounts{PendingBooks: pending, Counts: make([]domain.IdiomCandidateCount, len(rows))}
 	for i, row := range rows {
-		result.Counts[i] = domain.IdiomCandidateCount{Headword: row.Headword, Candidates: row.Candidates, Books: row.Books}
+		result.Counts[i] = domain.IdiomCandidateCount{Headword: row.Headword, Candidates: row.Candidates, Books: row.Books, InCurrentReading: row.InCurrentReading}
 	}
 	return result, nil
 }

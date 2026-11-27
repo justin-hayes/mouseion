@@ -10,8 +10,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/idiom"
 )
 
-// IdiomAvoidance lets a word's Study material and Fluency contexts prefer a
-// sentence where the word is not part of an Idiom candidate (ADR 0137 §3).
+// IdiomAvoidance is Study's idiom switch and dictionary lookup. It lets a word's Study material and Fluency contexts prefer a
+// sentence where the word is not part of an Idiom candidate (ADR 0137 §3) and
+// makes the language's Idioms Study items (ADR 0137 §1, §4).
 // A nil value, or a language whose switch is off, leaves selection unchanged.
 type IdiomAvoidance struct {
 	// Index is the dictionary's idiom lookup. A nil Index finds no candidates.
@@ -21,6 +22,10 @@ type IdiomAvoidance struct {
 	Enabled func(language string) bool
 	// Parameters are the matching rules; zero means idiom.DefaultParameters.
 	Parameters idiom.Parameters
+	// IndexVersion stamps the Idiom candidate counts Study reads to rank
+	// Idioms (persistence.IdiomIndexVersion): counts built against another
+	// version are not used.
+	IndexVersion string
 }
 
 // active reports whether the language's switch is on.

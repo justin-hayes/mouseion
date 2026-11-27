@@ -57,6 +57,50 @@ func (s *Service) EnrichExternalContextual(ctx context.Context, c Candidate) (Co
 	}, nil
 }
 
+// IdiomCard is what one idiom-card request sends: the dictionary headword, the
+// forms the matcher found in the sentence, the sentence and the entry's bounded
+// candidate senses, with no lemma or learner metadata (ADR 0114).
+type IdiomCard struct {
+	Language, Headword string
+	MatchedForms       []string
+	Sentence           string
+	Senses             []LexicalSense
+}
+
+// EnrichIdiomCard sends one idiom-card request (ADR 0137 "Idiom Study
+// material"). A confirmed Idiom returns its Gloss and sentence translation; a
+// literal_use or ambiguous answer returns no Gloss and says which, a meaning
+// omission rather than a provider failure. It returns ErrExternalNotConfigured,
+// never an empty result, when external enrichment is off, and a provider
+// failure as a retryable error. Whether the payload may be sent at all is the
+// caller's gate (ProviderAssessmentSet.MaySend). The answer is not cached here.
+func (s *Service) EnrichIdiomCard(ctx context.Context, card IdiomCard) (ContextualMeaning, error) {
+	if !s.ExternalConfigured() {
+		return ContextualMeaning{}, ErrExternalNotConfigured
+	}
+	request := TranslationRequest{
+		Language: card.Language, TargetLanguage: "en", CanonicalLemma: card.Headword,
+		ExampleSentence: card.Sentence, CandidateSenses: CloneLexicalSenses(card.Senses),
+		RequireIdiomCard: true, IdiomHeadword: card.Headword, IdiomMatchedForms: append([]string(nil), card.MatchedForms...),
+	}
+	var metrics ExternalMetrics
+	response, err := s.callTranslationWithRetry(ctx, request, &metrics)
+	if err != nil {
+		return ContextualMeaning{}, err
+	}
+	response, err = NormalizeTranslationResponse(request, response)
+	if err != nil {
+		return ContextualMeaning{}, err
+	}
+	return ContextualMeaning{
+		Gloss:                      response.Gloss,
+		SentenceTranslation:        response.SentenceTranslation,
+		SentenceTranslationTargets: append([]string(nil), response.SentenceTranslationTargets...),
+		UnresolvedKind:             response.UnresolvedKind,
+		UnresolvedReason:           response.UnresolvedReason,
+	}, nil
+}
+
 // EvidenceAssistedMeaning is the outcome of one evidence-assisted pass request
 // for a source-evidence word (ADR 0138 §1): a Gloss that cites the dictionary
 // senses it rests on, with the sentence translation and its alignment, or an

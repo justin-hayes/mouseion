@@ -1199,6 +1199,8 @@ type StudyMaterial struct {
 	OmissionDictionaryPin      string
 	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
 	ItemKind string
+	// Idiom material: the sentence token ordinals the headword matched, in sentence order; empty for a word
+	MatchedTokenOrdinals []int
 }
 
 type StudyProgress struct {

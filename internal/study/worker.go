@@ -11,6 +11,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/riverqueue/river"
 )
@@ -26,22 +27,33 @@ type MaterialStore interface {
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
 	GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error)
 	ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error)
-	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+	sentenceReader
 	RecordStudyMaterialReady(ctx context.Context, owner, id string, content domain.StudyMaterialReadyContent) error
 	RecordStudyMaterialUnpreparable(ctx context.Context, owner, id, reason string) error
 	// RecordStudyMaterialNoDictionaryEntry records the no-dictionary-entry
 	// omission with the dictionary pin it was made against, so the word is tried
 	// again when the pin changes and not before.
 	RecordStudyMaterialNoDictionaryEntry(ctx context.Context, owner, id, pin string) error
-	// ListStudyOccurrences and SetStudyMaterialEvidence record what an attempt
-	// saw when a word is found unpreparable, so it is not tried again on the
-	// same evidence.
-	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
-	SetStudyMaterialEvidence(ctx context.Context, owner, id, evidence string) error
+	seenEvidenceStore
 	// ListRetiredStudyOccurrencesOfWord names the occurrences the learner
 	// reported as an unsuitable context for the word (ADR 0135 §3). They are
 	// never chosen again, whatever Analysis run they are now in.
 	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
+	idiomSentenceStore
+}
+
+// seenEvidenceStore records what an attempt saw when a word is found
+// unpreparable, so it is not tried again on the same evidence.
+type seenEvidenceStore interface {
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
+	SetStudyMaterialEvidence(ctx context.Context, owner, id, evidence string) error
+}
+
+// idiomSentenceStore finds an Idiom's candidate sentences.
+type idiomSentenceStore interface {
+	// ListStudyIdiomSentences returns the sentences that contain every word of
+	// an Idiom headword, with their effective tokens (ADR 0137).
+	ListStudyIdiomSentences(ctx context.Context, owner, language string, words []string) ([]persistence.StudyIdiomSentence, error)
 }
 
 // Enricher is the per-word enrichment entry point: a contextual Gloss for a
@@ -49,6 +61,8 @@ type MaterialStore interface {
 type Enricher interface {
 	EnrichExternalContextual(ctx context.Context, candidate enrichment.Candidate) (enrichment.ContextualMeaning, error)
 	EnrichEvidenceAssistedPass(ctx context.Context, candidate enrichment.Candidate, passageContext string) (enrichment.EvidenceAssistedMeaning, error)
+	// EnrichIdiomCard is the Idiom's request under the idiom-card contract.
+	EnrichIdiomCard(ctx context.Context, card enrichment.IdiomCard) (enrichment.ContextualMeaning, error)
 }
 
 // MaterialWorker prepares one word's Study material per River invocation. Its
@@ -92,6 +106,9 @@ func (w *MaterialWorker) Work(ctx context.Context, job *river.Job[PrepareMateria
 	}
 	if material.State != domain.StudyMaterialPending {
 		return nil
+	}
+	if material.IsIdiom() {
+		return w.workIdiom(ctx, owner, material)
 	}
 	if policy := cardpolicy.For(material.Language); policy.SourceEvidence {
 		return w.workSourceEvidence(ctx, owner, material, policy)
@@ -329,25 +346,26 @@ func (w *MaterialWorker) scoreOccurrences(ctx context.Context, owner string, ide
 // sentenceReader is what scoring occurrences needs of the store.
 type sentenceReader interface {
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+	// ListStudyEffectiveTokens are the sentences' tokens with Lemma corrections
+	// and Occurrence exclusions applied, which Idiom matching reads.
+	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
 }
 
 func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, identity domain.StudyItem, occurrences []domain.ConcordanceResultOccurrence, retired []domain.StudyOccurrenceRef, reader *idiomReader) ([]sentenceChoice, error) {
 	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
+	scopes := map[string]domain.ConcordanceResultOccurrence{}
 	for _, occurrence := range occurrences {
 		if occurrence.Excluded || occurrence.StudyUnavailable || occurrence.SpeakerLabel || domain.RetiredStudyOccurrence(retired, occurrence.StudyRef()) {
 			continue
 		}
 		usable = append(usable, occurrence)
 		ordinals[occurrence.CorpusID] = append(ordinals[occurrence.CorpusID], occurrence.SentenceOrdinal)
+		scopes[occurrence.CorpusID] = occurrence
 	}
-	sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
-	for corpusID, list := range ordinals {
-		loaded, err := store.ListCorpusSentences(ctx, owner, corpusID, list)
-		if err != nil {
-			return nil, err
-		}
-		sentences[corpusID] = loaded
+	sentences, effective, err := loadScoredSentences(ctx, store, owner, ordinals, scopes, reader != nil)
+	if err != nil {
+		return nil, err
 	}
 	choices := make([]sentenceChoice, 0, len(usable))
 	for _, occurrence := range usable {
@@ -359,13 +377,46 @@ func scoreOccurrences(ctx context.Context, store sentenceReader, owner string, i
 		if !quality.Accepted {
 			continue
 		}
-		inIdiom, err := reader.inCandidate(ctx, sentence.Tokens, occurrence.TokenOrdinal)
+		inIdiom, err := reader.inCandidate(ctx, effectiveOrRaw(effective[occurrence.CorpusID][occurrence.SentenceOrdinal], sentence.Tokens), occurrence.TokenOrdinal)
 		if err != nil {
 			return nil, err
 		}
 		choices = append(choices, sentenceChoice{occurrence: occurrence, sentence: strings.TrimSpace(occurrence.SentenceText), target: occurrence.Surface, quality: quality, form: fluencyFormOf(sentence.Tokens, occurrence.TokenOrdinal), citations: sentence.Citations, inIdiom: inIdiom})
 	}
 	return choices, nil
+}
+
+// loadScoredSentences reads the sentences of the occurrences being scored by
+// corpus. With effective set it also reads their effective tokens, which Idiom
+// candidates are matched on: a Lemma correction or Occurrence exclusion the
+// learner made changes what matches.
+func loadScoredSentences(ctx context.Context, store sentenceReader, owner string, ordinals map[string][]int64, scopes map[string]domain.ConcordanceResultOccurrence, withEffective bool) (map[string]map[int64]analyzer.Sentence, map[string]map[int64][]analyzer.Token, error) {
+	sentences := make(map[string]map[int64]analyzer.Sentence, len(ordinals))
+	effective := make(map[string]map[int64][]analyzer.Token, len(ordinals))
+	for corpusID, list := range ordinals {
+		loaded, err := store.ListCorpusSentences(ctx, owner, corpusID, list)
+		if err != nil {
+			return nil, nil, err
+		}
+		sentences[corpusID] = loaded
+		if !withEffective {
+			continue
+		}
+		scope := scopes[corpusID]
+		if effective[corpusID], err = store.ListStudyEffectiveTokens(ctx, owner, scope.BookID, scope.AnalysisRunID, corpusID, list); err != nil {
+			return nil, nil, err
+		}
+	}
+	return sentences, effective, nil
+}
+
+// effectiveOrRaw is the sentence's effective tokens, or its persisted tokens
+// when none were read.
+func effectiveOrRaw(effective, persisted []analyzer.Token) []analyzer.Token {
+	if len(effective) == len(persisted) && effective != nil {
+		return effective
+	}
+	return persisted
 }
 
 // effectiveDiscriminator is the lexical discriminator an occurrence counts
