@@ -151,8 +151,8 @@ func seedStudyWordIn(t *testing.T, ctx context.Context, store *persistence.Postg
 	_, err := store.Pool().Exec(ctx, `
 WITH m AS (
   INSERT INTO study_material (owner_id, language, canonical_lemma, upos, state, omission_reason)
-  VALUES ($1, $6, $2, 'NOUN', 'unpreparable', 'sentence-quality') RETURNING id)
+  VALUES ($1, $5, $2, 'NOUN', 'unpreparable', 'sentence-quality') RETURNING id)
 INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, last_review)
-SELECT $1, $6, $2, 'NOUN', id, now(), 'seeded', $4, now(), 5, 5, $5, 1, now() FROM m`, owner, lemma, state, days, language)
+SELECT $1, $5, $2, 'NOUN', id, now(), 'seeded', $3, now(), 5, 5, $4, 1, now() FROM m`, owner, lemma, state, days, language)
 	require.NoError(t, err)
 }
