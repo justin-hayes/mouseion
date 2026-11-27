@@ -154,3 +154,55 @@ record merges (`TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessm
 and `TestClassicalLatinDeckSendsThePassAndKeepsPassageContextWhenTheProviderFails`).
 Latin Study material is not affected until Latin's Study switch is turned on
 (#2768).
+
+
+## Addendum, 2026-11-27: `translation-v21-evidence-assisted-latin-citation-form`
+
+Status: **Addendum drafted, pending Justin's approval in the PR** · ticket #2781
+(spec #2759). #2779 (PR #2784) moved the Latin pass contract from `translation-v18-evidence-assisted-latin` to
+`translation-v21-evidence-assisted-latin-citation-form`. This addendum asks for the same disposition, for Classical Latin only, under the
+new prompt version.
+
+**What changed in the system prompt.** Two rules; nothing else in the prompt
+changed. They are the modern contextual Gloss's rules, applied to this pass.
+
+1. The old Gloss rule ("gloss must be one brief English cue for the target's
+   meaning in this sentence, not a list of unrelated senses") is replaced by:
+
+   > Gloss is the English equivalent of the supplied lemma in the sense the
+   > representative sentence uses, in citation form: verbs as "to …", nouns
+   > singular without an article, adjectives in base form. Never return a
+   > definition-style paraphrase when a short equivalent exists, and never carry
+   > the sentence's inflection, number or arguments. Keep the Gloss to one to
+   > three words; close comma-separated synonyms are allowed only when one word
+   > would mislead.
+
+2. The old alignment rule ("identify only the smallest meaning-bearing words or
+   phrases corresponding to the supplied target") is replaced by:
+
+   > identify only the English words that render the target itself, never its
+   > subject, object, complements or modifiers
+
+   and one sentence is added after the multiple-excerpt rule:
+
+   > Where the English renders the target with a function word (for example
+   > "with" for habens), only that word is highlighted.
+
+**Unchanged.** The field set is the same nine fields and the answer shape is the
+same ten fields. The transport is the configured OpenAI-compatible Chat
+Completions endpoint. `TestCitationFormPassFieldSetsAreUnchanged` proves the
+field set, and `TestCitationFormPassPromptsStateTheGlossAndAlignmentRules` proves
+the rules above are in the prompt. The example word in the added sentence is
+fixed prompt text, not learner data.
+
+**Nothing new is transmitted.** The request carries the same fields from the
+same sources. No learner identity, Book title, whole Book, raw annotation,
+lexical discriminator or native dictionary entry or sense ID is added. The only
+new text is the fixed system-prompt wording quoted above.
+
+**Disposition, if approved.** The disposition above, for Classical Latin only, with the
+provider, the new prompt version (`translation-v21-evidence-assisted-latin-citation-form`) and the unchanged field set pinned in
+`latinEvidenceAssistedPassAssessment` (`internal/enrichment/provider_assessment.go`, ticket #2781). The gate
+refuses `translation-v18-evidence-assisted-latin`, which this addendum supersedes.
+
+**Runtime effect once recorded.** Between #2784 and this record the gate refused v21, so Latin Prepared decks sent no pass. Merging restores it: a Latin Prepared deck prepared while a provider is configured sends the pass for every word again (`TestBatchPlannerPlansLatinDeckWithThePassUnderTheCompiledAssessments`). Latin Study is unaffected until its switch is turned on (#2768).
