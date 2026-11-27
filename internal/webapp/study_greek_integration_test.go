@@ -186,6 +186,8 @@ func TestGreekStudyIntroducesAWordWithItsCitedMeaning(t *testing.T) {
 	assert.Contains(t, answer, "word (gloss)", "the Meaning row")
 	assert.Contains(t, answer, "He sees the word.", "the Translation row")
 	assert.Contains(t, answer, `id="study-headword"`, "the Word row")
+	assert.Regexp(t, `id="study-headword"[^>]*>λόγος</dd>`, answer, "the Word row shows the word-final ς")
+	assert.Regexp(t, `<span lang="grc">\s*λόγος\s*</span>`, answer, "the Dictionary headword shows ς")
 
 	assertGreekCardBack(t, answer)
 
@@ -233,9 +235,9 @@ func TestGreekStudyUndoRestoresTheLearnedMeaningsCitations(t *testing.T) {
 	assert.Equal(t, word.LearnedCitations, restored[0].LearnedCitations, "and to the citations and pin it had")
 }
 
-func TestStudyStaysUnavailableForGreekAndLatinInProduction(t *testing.T) {
+func TestStudyStaysUnavailableForLatinInProduction(t *testing.T) {
 	s := newStudyHarness(t)
-	for _, language := range []string{"la", "grc"} {
+	for _, language := range []string{"la"} {
 		book, err := s.store.CreateBook(s.ctx, domain.Book{OwnerID: s.owner.ID, Title: "Book in " + language, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 		require.NoError(t, err)
 		require.NoError(t, s.store.SetBookDisposition(s.ctx, s.owner.ID, book.ID, domain.BookDispositionToRead))

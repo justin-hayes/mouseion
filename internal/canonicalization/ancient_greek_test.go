@@ -222,3 +222,11 @@ func TestAncientGreekDisplayFormUnfoldsAFinalSigma(t *testing.T) {
 	}
 	assert.Equal(t, "λόγος", AncientGreekDisplayForm("λόγος"), "an already unfolded form is unchanged")
 }
+
+func TestIsAncientGreek(t *testing.T) {
+	for language, want := range map[string]bool{"grc": true, "grc-GR": true, "el": false, "la": false, "de": false, "": false} {
+		if got := IsAncientGreek(language); got != want {
+			t.Errorf("IsAncientGreek(%q) = %v, want %v", language, got, want)
+		}
+	}
+}

@@ -23,6 +23,12 @@ const (
 	ancientGreekLanguage = "grc"
 )
 
+// IsAncientGreek reports whether language is Ancient Greek, the language whose
+// vocabulary keys fold word-final sigma.
+func IsAncientGreek(language string) bool {
+	return normalizeLanguage(language) == ancientGreekLanguage
+}
+
 // AncientGreekDisplayForm reverses the key's sigma folding for display: a σ at
 // the end of a word is always ς in Greek. Accents and breathings are never
 // folded, so nothing else changes. It is for learner-facing text only; keys stay

@@ -1,7 +1,9 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"net/url"
@@ -88,7 +90,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 							</p>
 						}
 					}
-					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { occurrence.CanonicalLemma } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
+					<p><strong>Observed form:</strong> { occurrence.Surface } · <strong>Analyzer lemma:</strong> { lemmaReviewKeyDisplay(ctx, occurrence.CanonicalLemma) } ({ occurrence.RawLemma }) · <strong>Part of speech:</strong> { occurrence.UPOS }</p>
 					if occurrence.ReviewFlagReason != "" {
 						if occurrence.ReviewFlagResolution == "" {
 							<p role="alert"><strong>Needs learner review — not a verdict.</strong> { occurrence.ReviewFlagReason }</p>
@@ -123,15 +125,15 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 						if suggestion.Message != "" {
 							<p role="status">{ suggestion.Message }</p>
 						} else {
-							<p role="status"><strong>LLM lemma suggestion — not applied:</strong> { suggestion.Lemma } · <strong>Provider:</strong> { suggestion.Provider } · <strong>Version:</strong> { suggestion.Version }</p>
+							<p role="status"><strong>LLM lemma suggestion — not applied:</strong> { lemmaReviewKeyDisplay(ctx, suggestion.Lemma) } · <strong>Provider:</strong> { suggestion.Provider } · <strong>Version:</strong> { suggestion.Version }</p>
 						}
 					}
 					if occurrence.Excluded {
 						<p role="status"><strong>Vocabulary selection:</strong> excluded for this occurrence.</p>
 					} else if occurrence.CorrectedLemma != "" {
-						<p role="status"><strong>Effective lemma:</strong> { occurrence.CorrectedLemma } (corrected)</p>
+						<p role="status"><strong>Effective lemma:</strong> { lemmaReviewKeyDisplay(ctx, occurrence.CorrectedLemma) } (corrected)</p>
 					} else {
-						<p><strong>Effective lemma:</strong> { occurrence.CanonicalLemma } (analyzer assignment)</p>
+						<p><strong>Effective lemma:</strong> { lemmaReviewKeyDisplay(ctx, occurrence.CanonicalLemma) } (analyzer assignment)</p>
 					}
 					if form == "" {
 						<p><a href={ templ.SafeURL("/reading/books/" + bookID + "/lemma-review?form=" + url.QueryEscape(occurrence.Surface)) }>Review exact form “{ occurrence.Surface }”</a></p>
@@ -148,7 +150,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 								<input type="hidden" name="stage" value="preview"/>
 								<input type="hidden" name="form" value={ form }/>
 								<input type="hidden" name="target" value={ id }/>
-								<label>Corrected canonical lemma<input class="input" name="lemma" value={ occurrence.CorrectedLemma } required/></label>
+								<label>Corrected canonical lemma<input class="input" name="lemma" value={ lemmaReviewKeyDisplay(ctx, occurrence.CorrectedLemma) } required/></label>
 								<fieldset>
 									<legend>Also include reviewed occurrences of “{ occurrence.Surface }” in this Book</legend>
 									<p>Only the occurrence shown above is selected by default. Review each context before selecting another.</p>
@@ -177,13 +179,13 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 					<p><strong>Selected occurrences:</strong> { fmt.Sprint(len(proposal.OccurrenceIDs)) } · <strong>Decision:</strong> { proposal.Action }</p>
 					<ul>
 						for _, change := range proposal.Changes {
-							<li><span class="reading-text">{ change.Sentence }</span> — effective identity { change.Before } → { change.After }</li>
+							<li><span class="reading-text">{ change.Sentence }</span> — effective identity { lemmaReviewKeyDisplay(ctx, change.Before) } → { lemmaReviewKeyDisplay(ctx, change.After) }</li>
 						}
 					</ul>
 					<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p>
 					<ul>
 						for _, impact := range proposal.Impacts {
-							<li><strong>{ impact.Identity.CanonicalLemma } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
+							<li><strong>{ lemmaReviewKeyDisplay(ctx, impact.Identity.CanonicalLemma) } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot/deck eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
 						}
 					</ul>
 					if len(proposal.Impacts) == 0 {
@@ -225,4 +227,12 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 			}
 		</main>
 	}
+}
+
+// lemmaReviewKeyDisplay is the learner-facing form of a lemma key shown on the
+// review page: the active study language's display form, so Greek shows a
+// word-final ς. The correction field and form values keep the key itself.
+func lemmaReviewKeyDisplay(ctx context.Context, key string) string {
+	language, _ := activeStudyLanguageForContext(ctx)
+	return lemmadisplay.Format(language, key, "")
 }

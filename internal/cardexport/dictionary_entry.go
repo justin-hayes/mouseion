@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/sourceevidence"
@@ -98,7 +99,8 @@ func renderLSJEntry(resolved sourceevidence.Entry) string {
 	b.WriteString(`<div class="dictionary-entry-source">LSJ`)
 	if headword := strings.TrimSpace(entry.Headword); headword != "" {
 		b.WriteString(` <span class="lsj-headword">`)
-		b.WriteString(escapeField(headword))
+		// The index stores the folded headword; learners see word-final ς.
+		b.WriteString(escapeField(canonicalization.AncientGreekDisplayForm(headword)))
 		b.WriteString(`</span>`)
 	}
 	b.WriteString(`</div>`)

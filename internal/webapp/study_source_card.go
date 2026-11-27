@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
@@ -140,7 +141,7 @@ func dictionaryEntryViews(policy cardpolicy.Policy, resolution sourceevidence.Re
 				view.Targets = append(view.Targets, targetOutlineView{Reference: target.Reference, Outline: outlineSenseViews(target.Outline)})
 			}
 		} else {
-			view.Source, view.Number, view.Headword = "LSJ", entry.Number, strings.TrimSpace(entry.LSJ.Headword)
+			view.Source, view.Number, view.Headword = "LSJ", entry.Number, canonicalization.AncientGreekDisplayForm(strings.TrimSpace(entry.LSJ.Headword))
 		}
 		views = append(views, view)
 	}

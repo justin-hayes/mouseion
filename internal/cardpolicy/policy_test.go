@@ -60,15 +60,15 @@ func TestModernLanguagesTakeTheProviderRoute(t *testing.T) {
 	}
 }
 
-func TestStudySwitchIsOnForModernLanguagesAndOffForSourceEvidence(t *testing.T) {
+func TestStudySwitchIsOnForModernLanguagesAndGreekAndOffForLatin(t *testing.T) {
 	tests := []struct {
 		language string
 		study    bool
 	}{
 		{"de", true},
 		{"it", true},
-		{"grc", false}, // Greek Study is switched on only after its evidence run
-		{"la", false},  // Latin Study is switched on only after its evidence run
+		{"grc", true}, // Greek Study is on after its evidence run (#2767)
+		{"la", false}, // Latin Study is switched on only after its evidence run
 	}
 	for _, tc := range tests {
 		t.Run(tc.language, func(t *testing.T) {
@@ -78,12 +78,12 @@ func TestStudySwitchIsOnForModernLanguagesAndOffForSourceEvidence(t *testing.T) 
 }
 
 func TestStudyOverrideForTestSwitchesOneLanguageAndRestores(t *testing.T) {
-	restore := OverrideStudyForTest("grc", true)
-	assert.True(t, For("grc").Study)
-	assert.True(t, For("GRC").Study, "the override follows the language tag's normal form")
-	assert.False(t, For("la").Study, "the override names one language")
+	restore := OverrideStudyForTest("la", true)
+	assert.True(t, For("la").Study)
+	assert.True(t, For("LA").Study, "the override follows the language tag's normal form")
+	assert.True(t, For("grc").Study, "the override leaves the other languages as they are")
 	restore()
-	assert.False(t, For("grc").Study)
+	assert.False(t, For("la").Study)
 }
 
 func TestPassContractIsChosenByPolicy(t *testing.T) {
@@ -111,7 +111,7 @@ func TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne(t *testing.T) {
 	assert.Equal(t, PassContractGreek, policy.PassContract, "the deck keeps the existing Greek contract")
 	assert.Equal(t, LookupEveryEntry, policy.StudyLookup)
 	assert.Equal(t, PassContractGreekEntries, policy.StudyPassContract)
-	assert.False(t, policy.Study, "Greek's Study switch stays off")
+	assert.True(t, policy.Study, "Greek's Study switch is on after the evidence run (#2767)")
 }
 
 func TestLatinStudyUsesTheDeckLookupAndContract(t *testing.T) {

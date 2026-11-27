@@ -7,6 +7,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 )
 
 // concordanceConstruction reports whether the applied lookup lists parallels of
@@ -40,7 +41,7 @@ func concordanceTermValue(lookup domain.ConcordanceLookup) string {
 	if concordanceConstruction(lookup) {
 		return ""
 	}
-	return lookup.Term
+	return lemmadisplay.Format(lookup.Language, lookup.Term, "")
 }
 
 // concordanceTierLabel is the heading of one scope tier.
