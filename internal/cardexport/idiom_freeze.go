@@ -19,9 +19,7 @@ import (
 // IdiomIndex is the optional dictionary capability idiom detection reads. The
 // local dictionary index implements it; a lexical provider without it simply
 // produces no idiom items.
-type IdiomIndex interface {
-	IdiomEntries(ctx context.Context, language, word string) ([]idiom.Entry, error)
-}
+type IdiomIndex = idiom.Index
 
 // IdiomCardBound is the reviewed maximum number of idiom items one
 // frozen deck carries. A phrase-dense Book must not flood the deck. The bound
@@ -325,13 +323,7 @@ func sortedProjectionSentences(sentences map[int64]analyzer.Sentence) []orderedS
 	return result
 }
 
-func idiomTokens(tokens []analyzer.Token) []idiom.Token {
-	result := make([]idiom.Token, len(tokens))
-	for index, token := range tokens {
-		result[index] = idiom.Token{Ordinal: index, Surface: token.Surface, CanonicalLemma: token.CanonicalLemma}
-	}
-	return result
-}
+func idiomTokens(tokens []analyzer.Token) []idiom.Token { return idiom.TokensOf(tokens) }
 
 func anchorIdentityFor(entry Entry) idiom.AnchorIdentity {
 	return idiom.AnchorIdentity{
@@ -367,54 +359,10 @@ func normSurface(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
 }
 
-// cachedIdiomIndex remembers each word's idiom entries for one freeze. Common
-// words such as Italian "di" belong to well over a thousand idioms, and the
-// same word recurs in nearly every sentence of a Book, so an uncached freeze
-// re-reads and re-decodes those entries for every sentence.
-type cachedIdiomIndex struct {
-	index   IdiomIndex
-	entries map[string][]idiom.Entry
-}
-
-func newCachedIdiomIndex(index IdiomIndex) *cachedIdiomIndex {
-	return &cachedIdiomIndex{index: index, entries: make(map[string][]idiom.Entry)}
-}
-
-func (c *cachedIdiomIndex) IdiomEntries(ctx context.Context, language, word string) ([]idiom.Entry, error) {
-	key := language + "\x00" + word
-	if entries, ok := c.entries[key]; ok {
-		return entries, nil
-	}
-	entries, err := c.index.IdiomEntries(ctx, language, word)
-	if err != nil {
-		return nil, err
-	}
-	c.entries[key] = entries
-	return entries, nil
-}
+func newCachedIdiomIndex(index IdiomIndex) *idiom.CachedIndex { return idiom.NewCachedIndex(index) }
 
 func idiomEntriesForSentence(ctx context.Context, index IdiomIndex, language string, tokens []analyzer.Token) ([]idiom.Entry, error) {
-	seen := make(map[string]struct{}, len(tokens))
-	entries := make([]idiom.Entry, 0)
-	for _, token := range tokens {
-		for _, word := range []string{token.CanonicalLemma, token.Surface} {
-			word = strings.TrimSpace(word)
-			if word == "" {
-				continue
-			}
-			cacheKey := language + "\x00" + word
-			if _, ok := seen[cacheKey]; ok {
-				continue
-			}
-			seen[cacheKey] = struct{}{}
-			found, err := index.IdiomEntries(ctx, language, word)
-			if err != nil {
-				return nil, err
-			}
-			entries = append(entries, found...)
-		}
-	}
-	return entries, nil
+	return idiom.SentenceEntries(ctx, index, language, tokens)
 }
 
 func idiomProjectionsFromMatches(matches []idiomMatch, occurrences map[string]int) []CandidateProjection {
