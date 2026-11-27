@@ -529,7 +529,7 @@ type Querier interface {
 	// Study (ADR 0134, spec #2691): the stream of new-word candidates and the
 	// Study material prepared for them.
 	// Effective vocabulary identities of the owner's currently analyzed Books in
-	// the study language, with their Personal analyzed-Book occurrences and whether
+	// My Books (the Corpus, Read Books included, ADR 0136 §2) in the study language, with their Personal analyzed-Book occurrences and whether
 	// the Current reading contributes them. The counts are the Browse count
 	// projection, which already applies confirmed Lemma corrections and Occurrence
 	// exclusions. A Book whose projection is not ready contributes nothing yet.
@@ -608,8 +608,12 @@ type Querier interface {
 	// Each stage joins one relation to the previous stage. Later stages restrict
 	// big and unit tables only through join keys, never a literal owner, so the
 	// planner cannot mistake them for one row and rescan the candidates per row.
+	// Eligibility is the Corpus: current analyses of chosen-language Books that are
+	// active members of My Books, Read Books included (ADR 0136 §2). A removed Book
+	// is not searched. The concordance_occurrences view (whose migration is
+	// immutable) does not state the membership, so it is wider than the lookups.
 	// The same eligibility is stated three times: in the concordance_occurrences
-	// view (whose migration is immutable), here across located, eligible, current
+	// view, here across located, eligible, current
 	// and the units join in ranked, and in ConcordanceLemmaEvidenced. Change all
 	// three together; TestConcordanceLookupMatchesTheOccurrenceView compares them.
 	ListVocabularyConcordance(ctx context.Context, arg ListVocabularyConcordanceParams) ([]ListVocabularyConcordanceRow, error)
