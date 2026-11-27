@@ -192,10 +192,7 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 		return sentenceChoice{}, false, err
 	}
 	reader := w.Idioms.reader(identity.Language)
-	search := sentenceSearch{priority: priority, preferOutsideIdiom: reader != nil}
-	// existing is the search as it ran before Idioms: it stops reading where it
-	// always did, and is the fallback when no sentence is outside a candidate.
-	existing := sentenceSearch{priority: priority}
+	search := newSearch(priority, reader != nil)
 	for page := 1; ; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, identity.Language, domain.ConcordanceLookup{
 			Language: identity.Language, Term: identity.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
@@ -208,21 +205,51 @@ func (w *MaterialWorker) representativeSentence(ctx context.Context, owner strin
 		if err != nil {
 			return sentenceChoice{}, false, err
 		}
-		if !existing.settled() {
-			existing.add(result.Occurrences, choices)
-		}
 		search.add(result.Occurrences, choices)
-		if (search.settled() && (reader == nil || existing.settled())) || !result.HasNext {
+		if search.settled() || !result.HasNext {
 			break
 		}
 	}
-	if reader == nil {
-		return existing.best()
+	return search.best()
+}
+
+// search is the sentence search of one word. With the idiom switch on it runs
+// the Idiom-avoiding search and, beside it, the search as it ran before Idioms,
+// which stops reading where it always did and is the fallback when no sentence
+// lies outside every Idiom candidate.
+type search struct {
+	preferred *sentenceSearch
+	existing  sentenceSearch
+}
+
+func newSearch(priority string, avoidIdioms bool) *search {
+	result := &search{existing: sentenceSearch{priority: priority}}
+	if avoidIdioms {
+		result.preferred = &sentenceSearch{priority: priority, preferOutsideIdiom: true}
 	}
-	if choice, found, err := search.best(); found || err != nil {
-		return choice, found, err
+	return result
+}
+
+func (s *search) add(occurrences []domain.ConcordanceResultOccurrence, choices []sentenceChoice) {
+	if !s.existing.settled() {
+		s.existing.add(occurrences, choices)
 	}
-	return existing.best()
+	if s.preferred != nil {
+		s.preferred.add(occurrences, choices)
+	}
+}
+
+func (s *search) settled() bool {
+	return s.existing.settled() && (s.preferred == nil || s.preferred.settled())
+}
+
+func (s *search) best() (sentenceChoice, bool, error) {
+	if s.preferred != nil {
+		if choice, found, err := s.preferred.best(); found || err != nil {
+			return choice, found, err
+		}
+	}
+	return s.existing.best()
 }
 
 // sentenceSearch collects accepted sentences page by page, the Current
