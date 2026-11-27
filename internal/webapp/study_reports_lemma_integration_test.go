@@ -431,7 +431,7 @@ func TestStudyRemediationWithoutTicksDecidesNothingElse(t *testing.T) {
 	}
 }
 
-func TestStudyRemediationIgnoresATickThatIsNotAMatch(t *testing.T) {
+func TestStudyRemediationRejectsATickThatIsNotAMatch(t *testing.T) {
 	s := newStudyHarness(t)
 	firstBook, _, sentence := s.reportedHaus(3)
 	buch := s.hausOccurrences(firstBook)[0]
@@ -446,8 +446,8 @@ func TestStudyRemediationIgnoresATickThatIsNotAMatch(t *testing.T) {
 		"csrf_token": {s.cookies[0].Value}, "stage": {"preview"}, "decision": {"exclude"},
 		"match": {matchValue(other, foreign[0].ID()), matchValue(firstBook, s.hausAt(firstBook, sentence).ID()), matchValue(firstBook, buch.ID()+"x")},
 	}, s.cookies)
-	require.Equal(t, http.StatusOK, preview.Code, preview.Body.String())
-	assert.Empty(t, matchValues(preview.Body.String()), "another word's occurrence and the reported one are not matches")
+	assert.Equal(t, http.StatusBadRequest, preview.Code, "another word's occurrence and the reported one are not matches")
+	assert.True(t, s.reportOf(id).Open())
 }
 
 func TestStudyRemediationSavesNothingWhenATickedBookChangedAfterThePreview(t *testing.T) {

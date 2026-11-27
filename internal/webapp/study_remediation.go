@@ -59,8 +59,9 @@ func matchValue(bookID, occurrenceID string) string { return bookID + "/" + occu
 
 // tickedMatches reads the matches the learner ticked, by Book. Only an
 // occurrence the Corpus offers for this word counts, and only in a Book whose
-// vocabulary can change; anything else the form names is ignored.
-func tickedMatches(r *http.Request, books []studyRemediationBook) map[string][]string {
+// vocabulary can change. A tick the Corpus no longer offers is rejected, never
+// dropped, so a decision is never saved without one the learner asked for.
+func tickedMatches(r *http.Request, books []studyRemediationBook) (map[string][]string, error) {
 	offered := map[string]bool{}
 	for _, book := range books {
 		if !book.CanCorrect {
@@ -73,11 +74,14 @@ func tickedMatches(r *http.Request, books []studyRemediationBook) map[string][]s
 	ticked := map[string][]string{}
 	for _, value := range r.Form["match"] {
 		bookID, occurrenceID, ok := strings.Cut(value, "/")
-		if ok && offered[value] && !slices.Contains(ticked[bookID], occurrenceID) {
+		if !ok || !offered[value] {
+			return nil, domain.ErrLemmaReviewOccurrenceUnavailable
+		}
+		if !slices.Contains(ticked[bookID], occurrenceID) {
 			ticked[bookID] = append(ticked[bookID], occurrenceID)
 		}
 	}
-	return ticked
+	return ticked, nil
 }
 
 // studyRemediationPath is the remediation screen of a report.
@@ -212,7 +216,11 @@ func (h *Handler) decideStudyRemediation(w http.ResponseWriter, r *http.Request)
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
-	ticked := tickedMatches(r, view.Books)
+	ticked, err := tickedMatches(r, view.Books)
+	if err != nil {
+		writeLemmaDecisionError(w, r, err)
+		return
+	}
 	switch r.FormValue("stage") {
 	case "preview":
 		h.previewStudyRemediation(w, r, view, only, ticked)
