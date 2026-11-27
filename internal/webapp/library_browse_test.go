@@ -378,7 +378,7 @@ func TestMyBooksBrowseRequestDefaultsToToReadTab(t *testing.T) {
 	assert.Equal(t, "/de/library?history=read&q=title", myBooksScopedURL("de", "title", 1, "", true))
 	assert.Equal(t, "/library?history=read&q=title", myBooksScopedURL("", "title", 1, "", true))
 
-	for _, raw := range []string{"needs-language", "disposition=inbox", "disposition=invalid", "disposition=to_read&history=read"} {
+	for _, raw := range []string{"needs-language", "disposition=inbox", "disposition=invalid", "disposition=to_read&history=read", "sort=readable&history=read"} {
 		_, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: raw})
 		assert.False(t, ok, "retired request %q is unsupported", raw)
 	}

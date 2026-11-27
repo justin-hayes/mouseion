@@ -123,6 +123,20 @@ templ MyBooksNeedsActionFilter(browse MyBooksBrowseState) {
 	</p>
 }
 
+templ MyBooksSortControl(browse MyBooksBrowseState) {
+	if !browse.History {
+		<p class="library-sort">
+			<a data-sort-toggle { myBooksSelectedAttributes(browse.MostReadable)... } href={ templ.SafeURL(myBooksSortToggleURL(browse)) }>
+				if browse.MostReadable {
+					Title order
+				} else {
+					Most readable first
+				}
+			</a>
+		</p>
+	}
+}
+
 templ MyBooksResultsError(message, retryURL string) {
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
 		<h2 id="library-books-heading" tabindex="-1">My Books could not be loaded</h2>
@@ -229,6 +243,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					if browse.NeedsAction {
 						<input type="hidden" name="needs" value="action"/>
 					}
+					if browse.MostReadable {
+						<input type="hidden" name="sort" value="readable"/>
+					}
 					<label class="sr-only" for="library-search-query">Search My Books</label>
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or Greek title"/>
@@ -237,6 +254,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				</form>
 				@MyBooksDispositionFilters(browse)
 				@MyBooksNeedsActionFilter(browse)
+				@MyBooksSortControl(browse)
 			</section>
 			<div id="library-recovery" aria-live="polite"></div>
 			@MyBooksResults(csrf, books, browse)
