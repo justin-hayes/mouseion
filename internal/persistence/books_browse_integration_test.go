@@ -160,7 +160,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "browse-buckets", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "bucket-german")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "bucket-german")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	current, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
@@ -217,7 +217,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	require.Len(t, all.Items, 1, "a Book with history appears once in All")
 	assert.Equal(t, book.ID, all.Items[0].Book.ID)
 
-	italian, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "bucket-italian")
+	italian, italianSource := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "it", "bucket-italian")
 	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
 	italianCurrent, err := store.StartCurrentReading(ctx, owner.ID, "it", italian.ID)
 	require.NoError(t, err)
@@ -273,7 +273,7 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 
 	stopped, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	replacement, replacementSource, _ := createReadingFixture(t, ctx, store, owner.ID, "bucket-switch")
+	replacement, replacementSource := createReadingFixture(t, ctx, store, owner.ID, "bucket-switch")
 	makeAnalyzedToReadBook(t, ctx, store, replacement, replacementSource)
 	switched, err := store.SwitchCurrentReading(ctx, owner.ID, "de", replacement.ID, book.ID, stopped.SnapshotID)
 	require.NoError(t, err)
@@ -297,13 +297,13 @@ func TestMyBooksBrowseUsesOneWorkflowBucketForFiltersAndCounts(t *testing.T) {
 	assert.NotEmpty(t, italianCurrent.SnapshotID)
 }
 
-func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.T) {
+func TestMyBooksBrowseProjectsPopulatedCoverageAndCurrentReading(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "browse-margin-evidence", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "el", "margin-evidence")
+	book, source := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "el", "margin-evidence")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var runID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID))
@@ -352,23 +352,10 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 	}
 	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'el',$3,$4,$5)`, owner.ID, book.ID, runID, corpusID, vocabularyBrowseCountBuilderVersion)
 	require.NoError(t, err)
-	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
-		OwnerID: owner.ID, SourceMaterialID: source.ID, AnalysisRunID: runID,
-		Filename: "margin.apkg", DeckName: "Margin evidence", ContentHash: source.ContentHash,
-	})
-	require.NoError(t, err)
-	_, err = store.ClaimDeckPreparation(ctx, owner.ID, preparation.ID)
-	require.NoError(t, err)
-	ready, err := store.CompleteDeckPreparation(ctx, owner.ID, preparation.ID, domain.DeckPreparation{
-		Artifact: []byte("apkg"), Filename: "margin.apkg", DeckName: "Margin evidence", TotalCards: 42,
-	})
-	require.NoError(t, err)
-
 	beforeCurrent, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "el", "", false, 0, 25)
 	require.NoError(t, err)
 	require.Len(t, beforeCurrent.Items, 1)
 	assert.False(t, beforeCurrent.Items[0].IsCurrentReading)
-	assert.Empty(t, beforeCurrent.Items[0].DeckState, "prepared deck evidence is not queried for a non-current Book")
 
 	_, err = store.StartCurrentReading(ctx, owner.ID, "el", book.ID)
 	require.NoError(t, err)
@@ -383,10 +370,6 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, authoritativeCoverage.MatureTokenCount, got.CoverageMatureTokens, "My Books Mature matches the authoritative coverage service after exact-occurrence corrections and exclusions")
 	assert.Equal(t, authoritativeCoverage.AnalyzableTokenCount, got.CoverageTotalTokens, "My Books total matches the authoritative source-derived denominator after exclusions")
-	assert.Equal(t, "ready", got.DeckState)
-	assert.Equal(t, int64(42), got.DeckCardCount)
-	require.NotNil(t, got.DeckPreparedAt)
-	assert.Equal(t, ready.CompletedAt, got.DeckPreparedAt)
 
 	// Generic detail reads stay lean; corpus-sized current margin evidence
 	// belongs to the My Books browse projection only. The cheap
@@ -395,7 +378,6 @@ func TestMyBooksBrowseProjectsPopulatedCoverageCurrentReadingAndDeck(t *testing.
 	require.NoError(t, err)
 	assert.Zero(t, detail.CoverageMatureTokens)
 	assert.Zero(t, detail.CoverageTotalTokens)
-	assert.Empty(t, detail.DeckState)
 	assert.True(t, detail.IsCurrentReading, "the detail reports the Book's current-reading role")
 }
 

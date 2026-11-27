@@ -20,7 +20,7 @@ func TestListAncientGreekVocabularyIdentitiesKeepsHomographsDistinct(t *testing.
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "greek-hit-rate", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "grc", "hit-rate")
+	book, source := createReadingFixtureInLanguage(t, ctx, store, owner.ID, "grc", "hit-rate")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var runID, corpusID string
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT analysis_run_id::text, corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&runID, &corpusID))

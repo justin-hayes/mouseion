@@ -58,9 +58,9 @@ test('Reading keeps analysis details in a disclosure that is open on desktop and
   const summary = disclosure.locator(':scope > summary');
   const reserved = page.getByRole('heading', { name: 'Reserved vocabulary', exact: true });
 
-  // Deck status and its actions are primary and stay visible at every width.
-  await expect(page.locator('.goal-card__deck')).toContainText('Deck status');
-  await expect(page.getByRole('link', { name: 'Download deck' })).toBeVisible();
+  // The Prepared deck is retired, so Reading shows no deck status or download.
+  await expect(page.locator('.goal-card__deck')).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Download deck' })).toHaveCount(0);
 
   if (isCompact(test.info().project.name)) {
     await expect(summary).toBeVisible();

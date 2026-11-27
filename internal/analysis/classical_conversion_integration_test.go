@@ -29,8 +29,7 @@ type preUpgradeAnabasis struct {
 	ownerID, bookID, sourceID, runID, corpusID, snapshotID string
 	oldRevisionID, oldSnapshotID                           string
 	definition                                             classical.Definition
-	deckID, deckRunID                                      string
-	passageContext, passageCitation, brownsonPin           string
+	brownsonPin                                            string
 }
 
 // preUpgradeDefinition builds the pre-manifest definition with the
@@ -154,48 +153,6 @@ func seedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistenc
 		VALUES($1,'en','1.1.1','Cyrus speaks.')`, seed.brownsonPin)
 	require.NoError(t, err)
 
-	// A prepared deck whose frozen passage evidence must survive untouched.
-	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
-		OwnerID: owner.ID, SourceMaterialID: seed.sourceID, AnalysisRunID: written.RunID,
-		SnapshotID: seed.snapshotID, Filename: "anabasis.apkg", DeckName: "Mouseion::grc::Anabasis",
-		ContentHash: "sha256:pre-upgrade",
-	})
-	require.NoError(t, err)
-	seed.deckID = preparation.ID
-	require.NoError(t, pool.QueryRow(ctx, `
-		INSERT INTO deck_preparation_runs(
-			owner_id, preparation_id, run_number, state, translation_state,
-			external_translation_consent, external_translation_configured,
-			manifest_schema_version, retry_policy_version, max_provider_attempts,
-			max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count,
-			completed_count, completed_at, translation_completed_at)
-		VALUES($1,$2,1,'completed','completed',false,false,1,1,1,1,1,1,1,1,now(),now())
-		RETURNING id::text`, owner.ID, preparation.ID).Scan(&seed.deckRunID))
-	seed.passageContext = "Cyrus speaks."
-	seed.passageCitation = "1.1.1"
-	_, err = pool.Exec(ctx, `
-		INSERT INTO deck_preparation_manifests(
-			owner_id, preparation_id, run_id, schema_version, manifest_digest,
-			deck_name, filename, selected_count, accepted_count, omitted_count)
-		VALUES($1,$2,$3,1,$4,'Mouseion::grc::Anabasis','anabasis.apkg',1,1,0)`,
-		owner.ID, preparation.ID, seed.deckRunID, strings.Repeat("b", 64))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
-		INSERT INTO deck_preparation_manifest_items(
-			owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos,
-			source_sentence, tested_target, first_encounter, quality_score, quality_reasons,
-			render_payload, candidate_digest, target_language, quality_gdex_score,
-			passage_context, passage_citation, brownson_pin)
-		VALUES($1,$2,$3,0,'accepted','grc','λόγοσ','NOUN','λέγει Κῦρος·','λόγος',1,50,'{}','{}',
-		       $4,'en',0,$5,$6,$7)`,
-		owner.ID, preparation.ID, seed.deckRunID, strings.Repeat("a", 64),
-		seed.passageContext, seed.passageCitation, seed.brownsonPin)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET state='ready', artifact=decode('00','hex'),
-		total_cards=1, completed_at=now(), current_run_id=$3 WHERE owner_id=$1 AND id=$2`,
-		owner.ID, preparation.ID, seed.deckRunID)
-	require.NoError(t, err)
-
 	return seed
 }
 
@@ -273,16 +230,7 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	_, err = store.ListCurrentReadingSnapshotVocabulary(ctx, seed.ownerID, seed.snapshotID)
 	require.NoError(t, err, "the frozen snapshot remains readable")
 
-	// The deck's frozen passage text, translation pin and evidence are exactly
-	// what they were before conversion.
-	var passageContext, passageCitation, brownsonPin, sourceSentence string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT passage_context, passage_citation, brownson_pin, source_sentence
-		FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2`,
-		seed.ownerID, seed.deckID).Scan(&passageContext, &passageCitation, &brownsonPin, &sourceSentence))
-	assert.Equal(t, seed.passageContext, passageContext)
-	assert.Equal(t, seed.passageCitation, passageCitation)
-	assert.Equal(t, seed.brownsonPin, brownsonPin)
-	assert.Equal(t, "λέγει Κῦρος·", sourceSentence)
+	// The installation-wide translation row is exactly what it was before conversion.
 	var translation string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT translation FROM reference_translations WHERE translation_pin_sha256=$1 AND citation='1.1.1'`, seed.brownsonPin).Scan(&translation))
 	assert.Equal(t, "Cyrus speaks.", translation)
@@ -803,12 +751,6 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 		require.Equal(t, 1, known)
 		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&completed))
 		require.Equal(t, 1, completed)
-		var passageContext, passageCitation string
-		require.NoError(t, pool.QueryRow(ctx, `SELECT passage_context, passage_citation
-			FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2`,
-			seed.ownerID, seed.deckID).Scan(&passageContext, &passageCitation))
-		require.Equal(t, seed.passageContext, passageContext)
-		require.Equal(t, seed.passageCitation, passageCitation)
 	})
 
 	t.Run("a candidate-load failure keeps the catalog fail-closed", func(t *testing.T) {

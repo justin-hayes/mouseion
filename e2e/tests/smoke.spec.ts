@@ -830,54 +830,17 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await page.goto('/books/fixture-book/analyses/fixture-run');
     await expect(page).toHaveURL('/de/reading#journey-book-fixture-book');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
   });
 
-  test('ready decks show truthful Current reading and Journey membership actions', async ({ page }) => {
+  test('the Prepared deck pages and downloads are gone', async ({ page }) => {
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
     await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    await expect(page.getByText('Current Book.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View current book in Reading' })).toHaveAttribute('href', '/de/reading#journey-book-fixture-book');
-    await expect(page.getByText(/campaign operations/i)).toHaveCount(0);
-    const historicalDeckDownload = await page.request.get('/deck-preparations/fixture-preparation/download');
-    expect(historicalDeckDownload.status()).toBe(200);
-    expect(historicalDeckDownload.headers()['content-disposition']).toContain('Fixture German deck.apkg');
-
-    // Deck status has no page language, so the picker lives on My Books.
-    await page.goto('/de/library');
-    await page.getByLabel('Study language').selectOption('it');
-    await expect(page.getByLabel('Study language')).toHaveValue('it');
-    await expect(page).toHaveURL(/\/it\/library(?:\?|$)/);
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    // An old-language Book links to Reading in the Book's own language; the retired handoff chooser is gone.
-    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', /^\/de\/reading#/);
-    await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
-
-    await page.goto('/deck-preparations/fixture-journey-preparation/status');
-    await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/it/reading#journey-book-fixture-empty"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
-
-    await page.goto('/it/library');
-    await page.getByLabel('Study language').selectOption('de');
-    await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page).toHaveURL(/\/de\/library(?:\?|$)/);
-    await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
-    const addToJourney = page.getByRole('button', { name: 'Move to To Read' });
-    if (await addToJourney.count() > 0) {
-      // First project run: the book starts outside the Journey.
-      await expect(page.getByText('Not in To Read.', { exact: false })).toBeVisible();
-      await addToJourney.click();
+    for (const path of ['/deck-preparations/fixture-preparation/status', '/deck-preparations/fixture-preparation/download', '/deck-preparations/fixture-journey-preparation/status', '/reading/books/fixture-book/deck/preparations/new']) {
+      const response = await page.request.get(path);
+      expect(response.status(), path).toBe(404);
     }
-    // Idempotent end state for repeated execution in this worker's fixture:
-    // the book is (or just became) To Read and links to its Reading card.
-    await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/de/reading#journey-book-fixture-failed"]')).toBeVisible();
   });
-
   test('acquisition, Reading Journey, Vocabulary, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/catalogs');
     await expect(page.locator('#source-status-fixture-connection')).toContainText('Fixture catalog');

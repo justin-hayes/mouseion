@@ -24,13 +24,12 @@ const (
 // contractHarness runs the shared store contracts against the in-memory store.
 type contractHarness struct {
 	store *Store
-	deck  PreparedDeck
 	books int
 }
 
 func newContractHarness(*testing.T) storecontract.Harness {
 	store := NewStore()
-	return &contractHarness{store: store, deck: PreparedDeck{Store: store}}
+	return &contractHarness{store: store}
 }
 
 func TestStoreContracts(t *testing.T) {
@@ -124,20 +123,6 @@ func (h *contractHarness) SeedKnownVocabulary(_ *testing.T, owner string, identi
 	}
 }
 
-func (h *contractHarness) SeedReadyPreparation(t *testing.T, owner, bookID, snapshotID string) string {
-	t.Helper()
-	current, err := h.store.GetCurrentReading(context.Background(), owner, storecontract.Language)
-	require.NoError(t, err)
-	id := "contract-ready-" + snapshotID
-	h.store.mu.Lock()
-	defer h.store.mu.Unlock()
-	h.store.preps = append(h.store.preps, domain.DeckPreparation{
-		ID: id, OwnerID: owner, BookID: bookID, SnapshotID: snapshotID, State: domain.DeckPreparationReady,
-		SourceMaterialID: current.SourceMaterialID, AnalysisRunID: current.AnalysisRunID,
-	})
-	return id
-}
-
 func (h *contractHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(context.Background(), owner, language)
 }
@@ -190,16 +175,6 @@ func (h *contractHarness) ReadLemmaReviewProposal(proposal domain.LemmaReviewPro
 
 func (h *contractHarness) PutLemmaDecisionProposal(proposal domain.LemmaReviewProposal, expectedFingerprint string) error {
 	return h.store.PutLemmaDecisionProposal(context.Background(), proposal, expectedFingerprint)
-}
-
-func (h *contractHarness) PrepareCurrentReadingDeck(owner, bookID, expectedSnapshotID string) (domain.DeckPreparation, error) {
-	handle, err := h.deck.PrepareCurrentReadingDeck(context.Background(), owner, bookID, expectedSnapshotID)
-	return handle.Preparation, err
-}
-
-func (h *contractHarness) RepreparePreparation(owner, id, expectedSnapshotID string) (domain.DeckPreparation, error) {
-	handle, err := h.deck.Reprepare(context.Background(), owner, id, expectedSnapshotID)
-	return handle.Preparation, err
 }
 
 func (h *contractHarness) GetBookDetail(owner, bookID string) (domain.MyBook, error) {

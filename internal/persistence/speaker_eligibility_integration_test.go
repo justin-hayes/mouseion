@@ -70,7 +70,7 @@ func speakerAnalysisFacts(t *testing.T, ctx context.Context, store *PostgresStor
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, txcleanup.Rollback(ctx, tx)) }()
-	analysis, _, err := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), domain.DeckPreparation{OwnerID: owner, SourceMaterialID: sourceID, AnalysisRunID: runID}, corpusID)
+	analysis, _, err := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), owner, sourceID, runID, corpusID)
 	require.NoError(t, err)
 	snapshotID, err := analysisRunSnapshotID(ctx, tx, owner, runID)
 	require.NoError(t, err)

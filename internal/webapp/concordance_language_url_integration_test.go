@@ -12,7 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -31,15 +30,15 @@ func TestVocabularyPagesAreAddressedByStudyLanguage(t *testing.T) {
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
 	alice := createAccount(t, ctx, store, "language-url-alice", "alice-password")
-	german, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "language-url-de", "Deutsch", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+	german, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "language-url-de", "Deutsch", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 	seedLookupSentences(t, ctx, store, german, "de", [][]lookupToken{{{"Wir", "wir", "PRON"}, {"gehen", "gehen", "VERB"}}})
-	italian, italianSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "language-url-it", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "andare", UPOS: "VERB", OccurrenceCount: 1}})
+	italian, italianSource, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "language-url-it", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "andare", UPOS: "VERB", OccurrenceCount: 1}})
 	setLookupBookLanguage(t, ctx, store, italian, italianSource, "it")
 	seedLookupSentences(t, ctx, store, italian, "it", [][]lookupToken{{{"Andiamo", "andare", "VERB"}}})
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "language-url-alice", "alice-password")
 	type result struct {
 		code           int

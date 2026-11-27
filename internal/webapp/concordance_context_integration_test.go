@@ -12,7 +12,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +29,7 @@ func concordanceContextHandler(t *testing.T, ctx context.Context, username, pass
 
 	createAccount(t, ctx, store, username, password)
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, username, password)
 	return h, cookies
 }
@@ -71,14 +70,14 @@ func TestConcordanceDropsAnOriginBookInAnotherStudyLanguage(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 
 	alice := createAccount(t, ctx, store, "origin-language-alice", "alice-password")
-	german, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "origin-language-de", "Deutsch", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+	german, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "origin-language-de", "Deutsch", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 	seedLookupSentences(t, ctx, store, german, "de", [][]lookupToken{{{"Wir", "wir", "PRON"}, {"gehen", "gehen", "VERB"}}})
-	italian, italianSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "origin-language-it", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+	italian, italianSource, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "origin-language-it", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 	setLookupBookLanguage(t, ctx, store, italian, italianSource, "it")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "origin-language-alice", "alice-password")
 
 	response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?term=gehen&from_book="+italian.ID+"&from_snap=snapshot", nil, cookies)

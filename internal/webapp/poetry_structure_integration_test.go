@@ -14,7 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -63,7 +62,7 @@ func TestPoetrySpeakerLabelRefusesStudyAndLabelsConcordance(t *testing.T) {
 	testutil.Cleanup(t, "store", store.Close)
 
 	alice := createAccount(t, ctx, store, "poetry-alice", "alice-password")
-	book, source, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "poetry", "Faust", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "valentin", UPOS: "PROPN", OccurrenceCount: 1}})
+	book, source, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "poetry", "Faust", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "valentin", UPOS: "PROPN", OccurrenceCount: 1}})
 
 	const text = "Valentin fällt Faust tritt ein"
 	switchPoetrySourceToV2(t, ctx, store, source, text, 14, 15)
@@ -73,7 +72,7 @@ func TestPoetrySpeakerLabelRefusesStudyAndLabelsConcordance(t *testing.T) {
 	})
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "poetry-alice", "alice-password")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 

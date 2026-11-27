@@ -1094,6 +1094,66 @@ func (q *Queries) ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Conte
 	return items, nil
 }
 
+const listReservedDeckVocabulary = `-- name: ListReservedDeckVocabulary :many
+SELECT ps.owner_id, ps.id AS deck_preparation_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword, ps.created_at AS generated_at, NULL::timestamptz AS graduated_at
+FROM primary_goal_snapshots ps
+JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
+JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
+WHERE ps.owner_id = $1 AND ps.language = $2
+  AND ps.released_at IS NULL AND pv.language = $2
+ORDER BY canonical_lemma, upos, lexical_discriminator
+`
+
+type ListReservedDeckVocabularyParams struct {
+	Owner    string
+	Language string
+}
+
+type ListReservedDeckVocabularyRow struct {
+	OwnerID              string
+	DeckPreparationID    string
+	Language             string
+	CanonicalLemma       string
+	Upos                 string
+	LexicalDiscriminator string
+	Headword             string
+	GeneratedAt          time.Time
+	GraduatedAt          pgtype.Timestamptz
+}
+
+// The owner's Reserved vocabulary: the frozen identities of the active Current
+// reading snapshot. The legacy deck columns keep their names until the Reading
+// snapshot is retired.
+func (q *Queries) ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error) {
+	rows, err := q.db.Query(ctx, listReservedDeckVocabulary, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReservedDeckVocabularyRow{}
+	for rows.Next() {
+		var i ListReservedDeckVocabularyRow
+		if err := rows.Scan(
+			&i.OwnerID,
+			&i.DeckPreparationID,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.Headword,
+			&i.GeneratedAt,
+			&i.GraduatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockCurrentReadingSnapshot = `-- name: LockCurrentReadingSnapshot :one
 SELECT id::text
 FROM primary_goal_snapshots

@@ -625,9 +625,6 @@ templ StudyRemediationMatchPreview(match studyRemediationMatchPreview) {
 				<li><span class="reading-text">{ change.Sentence }</span> — effective identity { lemmaReviewKeyDisplay(ctx, change.Before) } → { lemmaReviewKeyDisplay(ctx, change.After) }</li>
 			}
 		</ul>
-		if match.Preview.RequiresReprepare {
-			<label><input type="checkbox" name="reprepare_ready_deck" value="yes" required/> <span>Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</span></label>
-		}
 		<input type="hidden" name="match_fingerprint" value={ match.BookID + "/" + match.Preview.Fingerprint }/>
 		for _, occurrenceID := range match.Preview.OccurrenceIDs {
 			<input type="hidden" name="match" value={ matchValue(match.BookID, occurrenceID) }/>

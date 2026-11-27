@@ -21,7 +21,7 @@ async function signIn(page: Page) {
 }
 
 // The Working desk's degraded states must leave the Reading lifecycle reachable:
-// switching, finishing, ending, and the retained deck download.
+// switching, finishing, and ending.
 async function expectLifecycleReachable(page: Page) {
   const goal = page.locator('.journey-book--goal');
   await expect(goal.getByRole('link', { name: 'Switch current reading', exact: true })).toBeVisible();
@@ -29,7 +29,6 @@ async function expectLifecycleReachable(page: Page) {
   const end = goal.locator('details').filter({ hasText: 'End current reading' }).locator('summary');
   await end.click();
   await expect(goal.getByRole('button', { name: 'Confirm end current reading' })).toBeVisible();
-  await expect(goal.getByRole('link', { name: 'Download deck' })).toBeVisible();
 }
 
 async function expectInsideViewport(locator: Locator, width: number) {
@@ -163,9 +162,6 @@ test('Working desk states fit 390 and 320 px without page overflow, with a compl
       await expect(title, label).toHaveText('Der lange Weg nach Hause');
       expect(await title.evaluate(element => element.scrollWidth <= element.clientWidth), label).toBe(true);
       await expectInsideViewport(title, width);
-
-      await expect(page.locator('.goal-card__deck'), label).toContainText('Deck status');
-      await expectInsideViewport(page.getByRole('link', { name: 'Download deck' }), width);
 
       const disclosure = page.locator('details.reading-supporting');
       await expect(disclosure.locator(':scope > summary'), label).toBeVisible();

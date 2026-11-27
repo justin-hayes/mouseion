@@ -214,8 +214,8 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
 		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
-			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
+			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady},
+			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady},
 		},
 		deckVocabulary: []domain.DeckPreparationVocabulary{
 			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},

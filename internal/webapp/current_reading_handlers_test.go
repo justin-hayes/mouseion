@@ -14,50 +14,10 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type unavailableCurrentReadingPreparedDeck struct {
-	fixtures.PreparedDeck
-}
-
-// CurrentReadingDeck reports no preparation for a non-empty snapshot: the deck is missing.
-func (unavailableCurrentReadingPreparedDeck) CurrentReadingDeck(context.Context, string, string) (prepareddeck.CurrentDeck, error) {
-	return prepareddeck.CurrentDeck{Admission: domain.DeckAdmit}, nil
-}
-
-type existingCurrentReadingPreparedDeck struct {
-	fixtures.PreparedDeck
-	preparation               domain.DeckPreparation
-	retries                   int
-	currentReadingSubmissions int
-	cancellations             int
-}
-
-func (p *existingCurrentReadingPreparedDeck) CurrentReadingDeck(context.Context, string, string) (prepareddeck.CurrentDeck, error) {
-	preparation := p.preparation
-	return prepareddeck.CurrentDeck{Preparation: &preparation, Admission: domain.DeckAdmit}, nil
-}
-
-func (p *existingCurrentReadingPreparedDeck) PreparationAdmissions(context.Context, string, string) (prepareddeck.PreparationAdmissions, error) {
-	return prepareddeck.PreparationAdmissions{Retry: domain.DeckAdmit, Reprepare: domain.DeckAdmit}, nil
-}
-
-// PrepareCurrentReadingDeck is the Reading-page retry entry; the create route
-// reaches the same operation, and the frozen snapshot is reused, not resubmitted.
-func (p *existingCurrentReadingPreparedDeck) PrepareCurrentReadingDeck(context.Context, string, string, string) (prepareddeck.Handle, error) {
-	p.retries++
-	return prepareddeck.Handle{Preparation: p.preparation, JobID: 9}, nil
-}
-
-func (p *existingCurrentReadingPreparedDeck) Cancel(context.Context, string, string) (domain.DeckPreparation, error) {
-	p.cancellations++
-	return p.preparation, nil
-}
 
 func renderCurrentReadingSection(t *testing.T, currentReading *readingBookView, message, pageError, focusBookID string) string {
 	t.Helper()
@@ -88,7 +48,7 @@ func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) 
 	unassessed.ReadingOnly = true
 	unassessed.CurrentReadingUnassessed = true
 	readingOnlyHTML := renderCurrentReadingSection(t, &unassessed, "", "", "reading-only")
-	for _, want := range []string{"Reading only", "No analysis or deck-eligible vocabulary exists yet", "Reading directly is the current path"} {
+	for _, want := range []string{"Reading only", "No analysis or recurring vocabulary exists yet", "Reading directly is the current path"} {
 		assert.Contains(t, readingOnlyHTML, want, "unassessed Goal missing %q: %s", want, readingOnlyHTML)
 	}
 
@@ -96,7 +56,7 @@ func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) 
 	assessed.ReadingOnly = true
 	assessed.CurrentReadingUnassessed = false
 	assessedHTML := renderCurrentReadingSection(t, &assessed, "", "", "assessed")
-	assert.Contains(t, assessedHTML, "Analysis evidence exists, but this Book has no deck-eligible vocabulary", "assessed reading-only copy missing: %s", assessedHTML)
+	assert.Contains(t, assessedHTML, "Analysis evidence exists, but this Book has no recurring vocabulary", "assessed reading-only copy missing: %s", assessedHTML)
 
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReadingHTML := renderCurrentReadingSection(t, &currentReading, "", "", "goal")
@@ -149,7 +109,7 @@ func readingFixtureSessionWith(t *testing.T, configure func(*Services)) (http.Ha
 	t.Setenv("MOUSEION_SECRET", "goal-unit-test-secret-0123456789")
 	store := fixtures.NewStore()
 	authService := auth.New(fixtures.NewAuthStore(), time.Hour)
-	services := Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Analysis: fixtures.Analysis{Store: store}, CatalogueSync: fixtures.NewCatalogueSync(store), PreparedDeck: fixtures.PreparedDeck{Store: store}, SessionLifetime: time.Hour}
+	services := Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), Analysis: fixtures.Analysis{Store: store}, CatalogueSync: fixtures.NewCatalogueSync(store), SessionLifetime: time.Hour}
 	if configure != nil {
 		configure(&services)
 	}
@@ -221,28 +181,6 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 	assert.NotContains(t, clearedAgain.Header().Get("Location"), "error=")
 }
 
-func TestReadingStartLeavesOptionalDeckPreparationUnsubmitted(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	store.SetGoalSnapshotVocabulary("fixture-goal-de-fixture-route-match", []domain.DeckPreparationVocabulary{{OwnerID: fixtures.OwnerID, Language: "de", CanonicalLemma: "snapshot-word", UPOS: "NOUN"}})
-
-	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	cleared := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
-	require.Equal(t, http.StatusSeeOther, cleared.Code)
-	chosen := readingTestRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{
-		"csrf_token": {csrf},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, chosen.Code)
-
-	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	_, err = store.GetDeckPreparationForSnapshot(context.Background(), fixtures.OwnerID, currentReading.SnapshotID)
-	require.ErrorIs(t, err, persistence.ErrNotFound, "starting Reading does not auto-submit optional deck preparation")
-	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
-	assert.Equal(t, http.StatusOK, page.Code)
-	assert.Contains(t, page.Body.String(), `action="/reading/books/fixture-route-match/deck/retry"`, "the current reading offers explicit preparation from its frozen snapshot")
-}
-
 func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
@@ -278,110 +216,16 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
 }
 
-func TestReadingPageShowsReservedCountWhenCurrentReadingArtifactIsUnavailable(t *testing.T) {
-	h, cookies, _, store := readingFixtureSession(t)
-	handler := requireHandler(t, h)
-	handler.services.PreparedDeck = unavailableCurrentReadingPreparedDeck{Store: store}
+func TestReadingPageShowsReservedCountAndOffersNoDeck(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
 
 	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
-	assert.Contains(t, body, "Deck missing.")
-	assert.Contains(t, body, "Prepare deck")
-}
-
-func TestCurrentReadingDeckRetryRequiresTheRenderedSnapshot(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-
-	response := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/retry", url.Values{
-		"csrf_token":                   {csrf},
-		"expected_current_snapshot_id": {"stale-snapshot"},
-	}, cookies)
-
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	location, err := url.QueryUnescape(response.Header().Get("Location"))
-	require.NoError(t, err)
-	assert.Contains(t, location, currentReadingStaleMessage)
-}
-
-func TestCurrentReadingDeckRetryReusesTheCurrentSnapshotPreparation(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	preparedDeck := &existingCurrentReadingPreparedDeck{
-		Store: store,
-		preparation: domain.DeckPreparation{
-			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
-			SourceMaterialID: currentReading.SourceMaterialID, AnalysisRunID: currentReading.AnalysisRunID,
-			SnapshotID: currentReading.SnapshotID, State: domain.DeckPreparationQueued,
-		},
-	}
-	handler := requireHandler(t, h)
-	handler.services.Analysis = fixtures.Analysis{}
-	handler.services.PreparedDeck = preparedDeck
-
-	response := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/retry", url.Values{
-		"csrf_token":                   {csrf},
-		"expected_current_snapshot_id": {currentReading.SnapshotID},
-	}, cookies)
-
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, 1, preparedDeck.retries)
-	assert.Zero(t, preparedDeck.currentReadingSubmissions, "repeated recovery must not retire the current Book preparation")
-}
-
-func TestCurrentReadingDeckCancelChecksOnlyOwnershipAndLiveState(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	preparedDeck := &existingCurrentReadingPreparedDeck{
-		Store: store,
-		preparation: domain.DeckPreparation{
-			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
-			SourceMaterialID: currentReading.SourceMaterialID, AnalysisRunID: currentReading.AnalysisRunID,
-			SnapshotID: currentReading.SnapshotID, State: domain.DeckPreparationPreparing,
-		},
-	}
-	handler := requireHandler(t, h)
-	handler.services.PreparedDeck = preparedDeck
-
-	// Cancel checks only ownership and the live state, so the named snapshot does
-	// not gate it: the live preparation of the Current reading is cancelled.
-	cancel := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/cancel", url.Values{
-		"csrf_token": {csrf}, "expected_current_snapshot_id": {"stale-snapshot"},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, cancel.Code)
-	assert.Equal(t, 1, preparedDeck.cancellations)
-}
-
-func TestReadingDeckSubmissionKeepsCurrentReadingPreparationLocal(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	preparedDeck := &existingCurrentReadingPreparedDeck{
-		Store: store,
-		preparation: domain.DeckPreparation{
-			ID: "current-goal-preparation", OwnerID: fixtures.OwnerID,
-			SourceMaterialID: currentReading.SourceMaterialID, AnalysisRunID: currentReading.AnalysisRunID,
-			SnapshotID: currentReading.SnapshotID, State: domain.DeckPreparationQueued,
-		},
-	}
-	handler := requireHandler(t, h)
-	handler.services.Analysis = fixtures.Analysis{}
-	handler.services.PreparedDeck = preparedDeck
-
-	response := readingTestRequest(t, h, "/reading/books/"+currentReading.BookID+"/deck/preparations", url.Values{
-		"csrf_token":                   {csrf},
-		"expected_current_snapshot_id": {currentReading.SnapshotID},
-		"external_translation_consent": {"on"},
-	}, cookies)
-
-	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, 1, preparedDeck.retries, "Current reading retry must queue the same contextual preparation")
-	assert.Zero(t, preparedDeck.currentReadingSubmissions, "retry reuses the frozen snapshot instead of submitting a new preparation")
+	assert.NotContains(t, body, "Prepare deck")
+	assert.NotContains(t, body, "/deck/")
+	assert.NotContains(t, body, "deck-preparations")
 }
 
 func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {

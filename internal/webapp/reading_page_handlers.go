@@ -4,15 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 )
 
 type readingBookView struct {
@@ -28,10 +25,6 @@ type readingBookView struct {
 	CurrentReadingVocabularyEligible int
 	CurrentReadingSnapshotID         string
 	CurrentReadingSnapshotSize       int
-	CurrentReadingPreparation        *domain.DeckPreparation
-	CurrentReadingActions            deckPreparationActions
-	CurrentReadingDeckMissing        bool
-	CurrentReadingDeckUnavailable    bool
 	CanMoveEarlier                   bool
 	CanMoveLater                     bool
 	CanChooseCurrentReading          bool
@@ -238,100 +231,6 @@ type readingPageView struct {
 	Browse         readingBrowseView
 }
 
-type deckReadingState string
-
-const (
-	deckReadingUnknown   deckReadingState = ""
-	deckReadingNotMember deckReadingState = "not-member"
-	deckIsToRead         deckReadingState = "member"
-	deckIsCurrentReading deckReadingState = "primary-goal"
-)
-
-type deckReadingActionView struct {
-	BookID string
-	// Language is the Book's study language; its links open that language.
-	Language string
-	State    deckReadingState
-	Message  string
-	Error    string
-	// Actions are decided by the prepared-deck admission. Templates render them
-	// and never compare Current reading fields themselves.
-	Actions deckPreparationActions
-}
-
-// deckPreparationActions are the Book deck actions a surface may offer.
-type deckPreparationActions struct {
-	BookID string
-	// OnCurrentReading reports that the Book is the current reading, so the
-	// deck is still Reading's to act on, even if no action is admitted now.
-	OnCurrentReading bool
-	// Submit prepares, or retries, the deck for the current snapshot.
-	Submit bool
-	// Reprepare rolls a ready deck forward to a new generation.
-	Reprepare bool
-}
-
-func deckActionsFor(bookID string, admissions prepareddeck.PreparationAdmissions) deckPreparationActions {
-	return deckPreparationActions{
-		BookID:           bookID,
-		OnCurrentReading: admissions.Retry != domain.DeckAdmissionNotCurrentReading,
-		Submit:           admissions.Retry.Admitted(),
-		Reprepare:        admissions.Reprepare.Admitted(),
-	}
-}
-
-func emptyDeckReadingAction() deckReadingActionView {
-	return deckReadingActionView{State: deckReadingUnknown}
-}
-
-func deckReadingActionID(bookID string) string {
-	return "deck-preparation-journey-action-" + bookID
-}
-
-func (h *Handler) deckReadingStatus(ctx context.Context, owner, bookID string) (deckReadingActionView, error) {
-	// Deck preparation surfaces are keyed by source_materials.id while Reading
-	// membership and the current reading are keyed by books.id, so every action
-	// identity is resolved to its canonical book first. A source material with
-	// no book identity cannot join Reading, so no action is offered.
-	resolved, ok, err := h.resolveBookID(ctx, owner, bookID)
-	if err != nil {
-		return deckReadingActionView{}, err
-	}
-	if !ok {
-		return deckReadingActionView{}, nil
-	}
-	bookID = resolved
-	// The Book's own study language decides its current reading and where its
-	// Reading and My Books links go (ADR 0131).
-	language, _ := activeStudyLanguageForContext(ctx)
-	detail, detailErr := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
-	if detailErr != nil && !errors.Is(detailErr, domain.ErrNotFound) {
-		return deckReadingActionView{}, detailErr
-	}
-	if detailErr == nil {
-		if bookLanguage := canonicalization.NormalizeLanguage(bookStudyLanguage(detail)); bookLanguage != "" {
-			language = bookLanguage
-		}
-	}
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
-	if err != nil {
-		return deckReadingActionView{}, err
-	}
-	action := deckReadingActionView{BookID: bookID, Language: language, State: deckReadingNotMember}
-	if currentReading.IsActive() && currentReading.BookID == bookID {
-		action.State = deckIsCurrentReading
-		return action, nil
-	}
-	if detailErr == nil && detail.Disposition == domain.BookDispositionToRead {
-		action.State = deckIsToRead
-	}
-	return action, nil
-}
-
-func (h *Handler) resolveBookID(ctx context.Context, owner, id string) (string, bool, error) {
-	return h.services.Store.Reading.ResolveBookID(ctx, owner, id)
-}
-
 func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {
 	language, _ := activeStudyLanguageForContext(ctx)
 	currentReading, err := h.services.Store.Reading.GetCurrentReading(ctx, owner, language)
@@ -431,41 +330,9 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		book.ReadingOnly = book.CurrentReadingVocabularyEligible == 0
 		book.CurrentReadingSnapshotID = currentReading.SnapshotID
 		book.CurrentReadingSnapshotSize = currentReading.SnapshotSize
-		h.addCurrentReadingDeckPreparation(ctx, owner, &book, currentReading)
 		view.CurrentReading = &book
 	}
 	return view, nil
-}
-
-func (h *Handler) addCurrentReadingDeckPreparation(ctx context.Context, owner string, book *readingBookView, currentReading domain.CurrentReading) {
-	if currentReading.SnapshotSize == 0 {
-		return
-	}
-	book.CurrentReadingDeckUnavailable = true
-	deck, err := h.services.PreparedDeck.CurrentReadingDeck(ctx, owner, currentReading.BookID)
-	if err != nil {
-		// The Current reading remains visible; the retry form re-decides on submit.
-		log.Printf("mouseion: Current reading deck unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
-		return
-	}
-	if deck.Admission == domain.DeckAdmissionNotCurrentReading {
-		log.Printf("mouseion: Current reading deck provenance mismatch for owner %s snapshot %s", owner, currentReading.SnapshotID)
-		return
-	}
-	book.CurrentReadingDeckUnavailable = false
-	if deck.Preparation == nil {
-		book.CurrentReadingDeckMissing = true
-		book.CurrentReadingActions = deckPreparationActions{BookID: currentReading.BookID, OnCurrentReading: true, Submit: deck.Admission.Admitted()}
-		return
-	}
-	admissions, err := h.services.PreparedDeck.PreparationAdmissions(ctx, owner, deck.Preparation.ID)
-	if err != nil {
-		log.Printf("mouseion: Current reading deck admissions unavailable for owner %s snapshot %s: %v", owner, currentReading.SnapshotID, err)
-		book.CurrentReadingDeckUnavailable = true
-		return
-	}
-	book.CurrentReadingPreparation = deck.Preparation
-	book.CurrentReadingActions = deckActionsFor(currentReading.BookID, admissions)
 }
 
 func (h *Handler) readingBook(ctx context.Context, owner, bookID string, bookByID map[string]domain.SourceMaterialSummary) (readingBookView, error) {

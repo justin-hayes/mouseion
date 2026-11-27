@@ -38,7 +38,7 @@ func TestCurrentReadingSwitchIsAtomicAndReturnFreezesFreshSnapshot(t *testing.T)
 		for _, lemma := range lemmas {
 			occurrences = append(occurrences, domain.LemmaOccurrence{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3})
 		}
-		book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, suffix, "Switch "+suffix, occurrences)
+		book, _, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, suffix, "Switch "+suffix, occurrences)
 		for _, lemma := range lemmas {
 			testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de", testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 3})
 		}
@@ -158,7 +158,7 @@ func TestCurrentReadingSwitchBlocksOnUnresolvedLemmaReview(t *testing.T) {
 	owner := createAccount(t, ctx, store, "reading-switch-review", "learner-password")
 	seed := func(suffix, lemma string) domain.Book {
 		t.Helper()
-		book, _, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, suffix, "Review "+suffix, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}})
+		book, _, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, suffix, "Review "+suffix, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", OccurrenceCount: 3}})
 		testutil.SeedCorpusWords(t, ctx, store.Pool(), owner.ID, corpus.ID, "de", testutil.CorpusWord{Lemma: lemma, UPOS: "NOUN", Occurrences: 3})
 		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 		return book

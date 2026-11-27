@@ -269,22 +269,18 @@ func (h *Handler) confirmStudyRemediation(w http.ResponseWriter, r *http.Request
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
-	outcome, _, err := h.confirmLemmaDecisionStep(r, owner, report.Source.BookID, only)
+	_, err := h.confirmLemmaDecisionStep(r, owner, report.Source.BookID, only)
 	if err != nil {
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
 	for _, bookID := range books {
-		next, err := h.confirmMatches(r, owner, bookID, ticked[bookID])
-		if err != nil {
+		if err := h.confirmMatches(r, owner, bookID, ticked[bookID]); err != nil {
 			writeMatchDecisionError(w, r, err)
 			return
 		}
-		if outcome.Kind == lemmareview.OutcomeSaved && next.Kind != lemmareview.OutcomeSaved && next.Kind != lemmareview.OutcomeFlagsUnresolved {
-			outcome = next
-		}
 	}
-	respondLemmaOutcome(w, r, outcome, studyLanguagePath(pageKindStudyReports, report.Language))
+	redirect(w, r, studyLanguagePath(pageKindStudyReports, report.Language))
 }
 
 // checkReviewedMatches previews each Book's ticked matches again and rejects
@@ -309,14 +305,14 @@ func (h *Handler) checkReviewedMatches(r *http.Request, owner string, books []st
 }
 
 // confirmMatches saves one Book's ticked matches against the Book's state now.
-func (h *Handler) confirmMatches(r *http.Request, owner, bookID string, occurrenceIDs []string) (lemmareview.Outcome, error) {
+func (h *Handler) confirmMatches(r *http.Request, owner, bookID string, occurrenceIDs []string) error {
 	step, err := h.previewLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
 	if err != nil {
-		return lemmareview.Outcome{}, err
+		return err
 	}
 	r.Form.Set("fingerprint", step.Preview.Fingerprint)
-	outcome, _, err := h.confirmLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
-	return outcome, err
+	_, err = h.confirmLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
+	return err
 }
 
 // writeMatchDecisionError answers a match's rejected decision. The reported

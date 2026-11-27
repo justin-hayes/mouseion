@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -50,39 +49,22 @@ func (h *Handler) previewLemmaDecisionStep(r *http.Request, owner, bookID string
 
 // confirmLemmaDecisionStep saves the decision the request names for the given
 // occurrences, then ends the open Wrong-word reports it repaired. It returns
-// the outcome and the form decided.
-func (h *Handler) confirmLemmaDecisionStep(r *http.Request, owner, bookID string, selected []string) (lemmareview.Outcome, string, error) {
+// the form decided.
+func (h *Handler) confirmLemmaDecisionStep(r *http.Request, owner, bookID string, selected []string) (string, error) {
 	ctx := r.Context()
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
-		return lemmareview.Outcome{}, "", err
+		return "", err
 	}
 	adoptDetailLanguage(ctx, detail)
 	language, _ := activeStudyLanguageForContext(ctx)
 	form := strings.TrimSpace(r.FormValue("form"))
 	proposal := lemmaReviewProposal(r, language, selected)
-	outcome, err := h.services.LemmaReview.Confirm(ctx, owner, bookID, proposal, r.FormValue("fingerprint"), r.FormValue("reprepare_ready_deck") == "yes")
-	if err != nil {
-		return lemmareview.Outcome{}, "", err
+	if err := h.services.LemmaReview.Confirm(ctx, owner, bookID, proposal, r.FormValue("fingerprint")); err != nil {
+		return "", err
 	}
 	h.repairStudyReports(r, owner, bookID)
-	return outcome, form, nil
-}
-
-// respondLemmaOutcome answers a confirmed decision. A saved decision returns to
-// the page's own place, saved; the others are the same wherever it was made.
-func respondLemmaOutcome(w http.ResponseWriter, r *http.Request, outcome lemmareview.Outcome, saved string) {
-	switch outcome.Kind {
-	case lemmareview.OutcomePreparing:
-		redirect(w, r, "/deck-preparations/"+url.PathEscape(outcome.PreparationID)+"/status")
-	case lemmareview.OutcomeRestartFailed:
-		http.Error(w, "The identity decision was saved, but a new Reading snapshot could not be started. Start this Book in Reading, then prepare its deck; the historical deck remains available.", http.StatusServiceUnavailable)
-	case lemmareview.OutcomeQueueingFailed:
-		http.Error(w, "The identity decision was saved, but re-preparation could not be queued. The historical deck remains available; retry preparation from the deck task.", http.StatusServiceUnavailable)
-	case lemmareview.OutcomeSaved, lemmareview.OutcomeFlagsUnresolved:
-		// Both return to the page; the latter shows the flags that block the restart.
-		redirect(w, r, saved)
-	}
+	return form, nil
 }
 
 // writeLemmaDecisionError answers a failed step: a missing Book is not found,
@@ -129,9 +111,6 @@ var lemmaReviewRejections = []lemmaReviewRejection{
 	{domain.ErrLemmaReviewCurrentReading, http.StatusConflict, "Stop this Book's current reading before changing its vocabulary."},
 	{domain.ErrLemmaReviewStale, http.StatusConflict, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again."},
 	{domain.ErrLemmaReviewCountsRefreshing, http.StatusConflict, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly."},
-	{domain.ErrLemmaReviewBlockedByReading, http.StatusConflict, "Stop the other current reading before accepting this change; then Mouseion can start this Book again and prepare its new snapshot."},
-	{domain.ErrLemmaReviewNotToRead, http.StatusConflict, "Move this Book to To Read before accepting this change, so Mouseion can restart it and prepare the new snapshot."},
-	{domain.ErrLemmaReviewRepreparationRequired, http.StatusBadRequest, "Explicitly confirm re-preparation of the existing ready deck before accepting this identity change."},
 	{domain.ErrLemmaReviewOccurrenceUnavailable, http.StatusBadRequest, "The selected occurrence changed. Find it again before reviewing."},
 	{domain.ErrLemmaReviewOccurrenceMissing, http.StatusConflict, "That occurrence is no longer available in this analysis."},
 	{domain.ErrLemmaReviewNoSelection, http.StatusBadRequest, "The preview contains no selected occurrences."},

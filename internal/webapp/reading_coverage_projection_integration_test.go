@@ -14,7 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +30,7 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	store := openWebappIntegrationStore(t, ctx)
 	owner := createAccount(t, ctx, store, "coverage-projection", "learner-password")
 	// haus x3, baum x2, tisch x1: six analyzable tokens.
-	book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "coverage-projection", "Coverage projection", []domain.LemmaOccurrence{
+	book, source, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "coverage-projection", "Coverage projection", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3},
 		{Language: "de", CanonicalLemma: "baum", UPOS: "NOUN", OccurrenceCount: 2},
 		{Language: "de", CanonicalLemma: "tisch", UPOS: "NOUN", OccurrenceCount: 1},
@@ -55,7 +54,7 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
-		Analysis: analysis.NewService(store.Pool(), nil), AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: prepareddeck.NewService(store, nil), SessionLifetime: time.Hour,
+		Analysis: analysis.NewService(store.Pool(), nil), AnalysisInsights: analysisinsights.NewService(store), SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
 

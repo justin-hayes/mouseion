@@ -29,7 +29,7 @@ func TestMyBooksToReadSortsByMatureCoverageOverHTTP(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, "de"))
 
 	// Alpha Low: 2 of 4 running words Mature (50%).
-	alpha, alphaSource, alphaCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "sort-alpha", "Alpha Low", []domain.LemmaOccurrence{
+	alpha, alphaSource, alphaCorpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "sort-alpha", "Alpha Low", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 2},
 		{Language: "de", CanonicalLemma: "extraa", UPOS: "NOUN", OccurrenceCount: 2},
 	})
@@ -39,7 +39,7 @@ func TestMyBooksToReadSortsByMatureCoverageOverHTTP(t *testing.T) {
 	buildBrowseProjection(t, ctx, store, alpha.ID)
 
 	// Zulu High: 4 of 5 running words Mature (80%).
-	zulu, zuluSource, zuluCorpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "sort-zulu", "Zulu High", []domain.LemmaOccurrence{
+	zulu, zuluSource, zuluCorpus := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "sort-zulu", "Zulu High", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "zulu", UPOS: "NOUN", OccurrenceCount: 4},
 		{Language: "de", CanonicalLemma: "extraz", UPOS: "NOUN", OccurrenceCount: 1},
 	})

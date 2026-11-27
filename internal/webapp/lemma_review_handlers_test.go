@@ -90,7 +90,6 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	activePage := httptest.NewRecorder()
 	h.ServeHTTP(activePage, activeRequest)
 	assert.Contains(t, activePage.Body.String(), "Stop before changing this Book's vocabulary")
-	assert.Contains(t, activePage.Body.String(), "A ready deck is a historical artifact")
 	endGermanFixtureReading(t, store)
 	reviewBookID := "fixture-route-match"
 	weg := wegOccurrenceIDs(t, store, reviewBookID)
@@ -171,51 +170,6 @@ func TestLearnerCorrectsOneExactOccurrenceAndStartReadingRemainsAvailable(t *tes
 	assert.Contains(t, start.Header().Get("Location"), "is+now+your+current+reading")
 }
 
-func TestReadyReadingDeckCorrectionRestartsAndPreparesNewSnapshot(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
-	oldReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	oldSnapshotID := oldReading.SnapshotID
-	endGermanFixtureReading(t, store)
-	weg := wegOccurrenceIDs(t, store, fixtures.BookID)
-
-	preview := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"Weg"}, "target": {weg[0]}, "decision": {"correct"}, "lemma": {"Pfad"},
-	}, cookies)
-	require.Equal(t, http.StatusOK, preview.Code)
-	assert.Contains(t, preview.Body.String(), "Start this Book again with a new snapshot and prepare a new deck")
-	fingerprint := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(preview.Body.String())
-	require.Len(t, fingerprint, 2)
-
-	withoutConsent := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]},
-	}, cookies)
-	assert.Equal(t, http.StatusBadRequest, withoutConsent.Code)
-	stillStopped, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.False(t, stillStopped.IsActive(), "missing restart/re-preparation consent cannot start a new reading")
-
-	confirmed := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/lemma-review", url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"Weg"}, "decision": {"correct"}, "lemma": {"pfad"}, "fingerprint": {fingerprint[1]}, "selected": {weg[0]}, "reprepare_ready_deck": {"yes"},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, confirmed.Code)
-	// The restarted snapshot holds no fixture vocabulary, so the service needs no
-	// deck for it and the confirmation returns to the review page as saved.
-	assert.Contains(t, confirmed.Header().Get("Location"), "/reading/books/"+fixtures.BookID+"/lemma-review")
-	newReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, fixtures.BookID, newReading.BookID)
-	assert.NotEqual(t, oldSnapshotID, newReading.SnapshotID)
-	assert.Zero(t, newReading.SnapshotSize)
-	occurrences, err := store.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, fixtures.BookID, "Weg")
-	require.NoError(t, err)
-	assert.Equal(t, "pfad", occurrences[0].CorrectedLemma)
-}
-
-// TestProviderFlagRendersAsModelEvidenceWithoutAProposedLemma pins the review
-// surface's provider presentation: model attribution and the provider's bounded
-// explanation, alongside the ordinary keep, correct, exclude and suggestion
-// actions, and never a local alternative or a proposed lemma.
 func TestProviderFlagRendersAsModelEvidenceWithoutAProposedLemma(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
@@ -336,5 +290,5 @@ func wegOccurrenceIDs(t *testing.T, store lemmareview.Store, bookID string) []st
 // lemmaReviewWithSuggestions rebuilds the handler's lemma review workflow over
 // the same Reading store, with the given suggestion provider.
 func lemmaReviewWithSuggestions(h *Handler, provider enrichment.LemmaSuggestionProvider) *lemmareview.Service {
-	return lemmareview.New(lemmareview.Config{Store: h.services.Store.Reading, Suggestions: provider, Preparer: h.services.PreparedDeck, BrowseCounts: h.services.Analysis})
+	return lemmareview.New(lemmareview.Config{Store: h.services.Store.Reading, Suggestions: provider, BrowseCounts: h.services.Analysis})
 }

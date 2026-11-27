@@ -247,14 +247,12 @@ func lemmaFlagScenarios() []Scenario {
 // evidence still does, and takes precedence over an unresolved provider flag.
 func lemmaProviderFlagScenarios() []Scenario {
 	return []Scenario{{
-		Name: "an unresolved provider flag does not block start or direct deck preparation",
+		Name: "an unresolved provider flag does not block start",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			seedProviderReviewFlag(t, h, reviewOccurrence(t, h, bookID, 0), "provider lemma mismatch")
-			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-			require.NoError(t, err)
-			_, err = h.Store().PrepareCurrentReadingDeck(h.Seeds().Owner(), bookID, reading.SnapshotID)
-			require.NoError(t, err, "a provider flag never pauses a freeze or its deck")
+			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
+			require.NoError(t, err, "a provider flag never pauses a freeze")
 		},
 	}, {
 		Name: "an unresolved local high-risk flag still blocks start",
@@ -319,12 +317,11 @@ func lemmaProviderFlagScenarios() []Scenario {
 			assert.Equal(t, "first local evidence", reviewOccurrence(t, h, bookID, 1).ReviewFlagReason)
 		},
 	}, {
-		Name: "a provider flag saved after the freeze leaves the reading and ready deck unchanged",
+		Name: "a provider flag saved after the freeze leaves the reading unchanged",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
 			require.NoError(t, err)
-			h.Seeds().SeedReadyPreparation(t, h.Seeds().Owner(), bookID, reading.SnapshotID)
 			seedProviderReviewFlag(t, h, reviewOccurrence(t, h, bookID, 1), "provider evidence after freeze")
 
 			current, err := h.Store().GetCurrentReading(h.Seeds().Owner(), Language)
@@ -332,8 +329,6 @@ func lemmaProviderFlagScenarios() []Scenario {
 			assert.Equal(t, reading.BookID, current.BookID)
 			assert.Equal(t, reading.SnapshotID, current.SnapshotID)
 			assert.Equal(t, reading.SnapshotSize, current.SnapshotSize)
-			_, err = h.Store().PrepareCurrentReadingDeck(h.Seeds().Owner(), bookID, reading.SnapshotID)
-			require.ErrorIs(t, err, domain.ErrDeckPreparationInvalidTransition, "the ready deck remains ready")
 		},
 	}, {
 		Name: "a resolved provider flag is not reopened by later provider or local evidence",

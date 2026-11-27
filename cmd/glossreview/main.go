@@ -1,5 +1,7 @@
-// Command glossreview runs a frozen contextual-Gloss or idiom-card review case
-// set through the real codec and the configured OpenAI-compatible provider. It
+// Command glossreview runs a frozen contextual-Gloss review case set
+//
+//	through the real codec and the configured OpenAI-compatible provider. It
+//
 // writes a dated Markdown report under doc/reviews/ and never runs in CI.
 package main
 
@@ -20,34 +22,19 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 )
 
-const usage = "usage: glossreview [-review gloss|idiom] [-out <report.md>] [-date YYYY-MM-DD] [-book <book-id>] [-language <code>] [-seed <value>]"
+const usage = "usage: glossreview [-out <report.md>] [-date YYYY-MM-DD]"
 
-// glossReviewCases and idiomReviewCases are the versioned repository case sets.
+// glossReviewCases is the versioned repository case set.
 // Embedding them keeps a review tied to the code that produced it and makes the
 // command independent of the caller's working directory outside the repository.
 //
 //go:embed testdata/gloss_review_cases.json
 var glossReviewCases []byte
 
-//go:embed testdata/idiom_review_cases.json
-var idiomReviewCases []byte
-
-// reviewKind selects the frozen case set and provider contract one run uses.
-type reviewKind string
-
-const (
-	reviewKindGloss reviewKind = "gloss"
-	reviewKindIdiom reviewKind = "idiom"
-)
-
 // reviewCommandOptions is the parsed command line one review run uses.
 type reviewCommandOptions struct {
-	Kind     reviewKind
-	Now      time.Time
-	OutPath  string
-	BookID   string
-	Language string
-	Seed     string
+	Now     time.Time
+	OutPath string
 }
 
 func main() {
@@ -59,7 +46,7 @@ func main() {
 // reviewEnvironment is the configured provider and the metadata the report
 // pins. Tests inject a real client whose HTTP transport is stubbed, so the
 // command path never reaches the network in CI. Codec is the configured codec
-// the idiom sample freezes with; it is nil when a test supplies the sample.
+// the review runs with.
 type reviewEnvironment struct {
 	Client   translationClient
 	Provider providerMetadata
@@ -75,9 +62,6 @@ func run(ctx context.Context, args []string, output io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if options.Kind == reviewKindIdiom {
-		return executeIdiomCommand(ctx, options, output, openIdiomReviewEnvironment, openIdiomSampleSource)
-	}
 	return executeGlossCommand(ctx, options, output, openReviewEnvironment)
 }
 
@@ -90,17 +74,6 @@ func openReviewEnvironment() (reviewEnvironment, error) {
 		return reviewEnvironment{}, err
 	}
 	return newReviewEnvironment(cfg.Model, cfg.ReasoningEffort, codec, client, codec.ContextualGlossProviderVersion(), codec.ContextualGlossPromptContract()), nil
-}
-
-// openIdiomReviewEnvironment reads the same configured provider and pins the
-// idiom-card contract and its reasoning effort instead of the lemma Gloss
-// contract.
-func openIdiomReviewEnvironment() (reviewEnvironment, error) {
-	cfg, codec, client, err := openProvider()
-	if err != nil {
-		return reviewEnvironment{}, err
-	}
-	return newReviewEnvironment(cfg.Model, codec.IdiomCardReasoningEffort(), codec, client, codec.IdiomCardProviderVersion(), codec.IdiomCardPromptContract()), nil
 }
 
 // newReviewEnvironment builds the client and pinned metadata one report records.
@@ -118,7 +91,7 @@ func newReviewEnvironment(model, reasoningEffort string, codec *enrichment.Trans
 	}
 }
 
-// openProvider builds the configured client and codec shared by both reviews.
+// openProvider builds the configured client and codec the review uses.
 func openProvider() (enrichment.LLMConfig, *enrichment.TranslationCodec, *enrichment.OpenAITranslationClient, error) {
 	cfg, err := enrichment.LLMConfigFromEnv()
 	if err != nil {
@@ -145,9 +118,6 @@ func runWithEnvironment(ctx context.Context, args []string, output io.Writer, op
 	if err != nil {
 		return err
 	}
-	if options.Kind != reviewKindGloss {
-		return errors.New("glossreview: runWithEnvironment only supports the gloss review")
-	}
 	return executeGlossCommand(ctx, options, output, open)
 }
 
@@ -157,12 +127,8 @@ func runWithEnvironment(ctx context.Context, args []string, output io.Writer, op
 func parseReviewCommand(args []string) (reviewCommandOptions, error) {
 	flags := flag.NewFlagSet("glossreview", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	kindValue := flags.String("review", string(reviewKindGloss), "review to run: gloss or idiom")
-	outPath := flags.String("out", "", "report path under doc/reviews (default: dated report for the chosen review)")
+	outPath := flags.String("out", "", "report path under doc/reviews (default: dated report)")
 	dateValue := flags.String("date", "", "report date in YYYY-MM-DD (default: today)")
-	bookID := flags.String("book", "", "Book ID whose current deck preparation is re-frozen in memory for the idiom sample")
-	language := flags.String("language", "it", "language of the idiom sample")
-	seed := flags.String("seed", "", "deterministic idiom sample seed (default: report date)")
 	if err := flags.Parse(args); err != nil {
 		return reviewCommandOptions{}, fmt.Errorf("%s: %w", usage, err)
 	}
@@ -173,25 +139,7 @@ func parseReviewCommand(args []string) (reviewCommandOptions, error) {
 	if err != nil {
 		return reviewCommandOptions{}, err
 	}
-	kind := reviewKind(strings.TrimSpace(*kindValue))
-	if kind != reviewKindGloss && kind != reviewKindIdiom {
-		return reviewCommandOptions{}, fmt.Errorf("%s: unknown review %q", usage, *kindValue)
-	}
-	options := reviewCommandOptions{
-		Kind:     kind,
-		Now:      now,
-		OutPath:  strings.TrimSpace(*outPath),
-		BookID:   strings.TrimSpace(*bookID),
-		Language: strings.TrimSpace(*language),
-		Seed:     strings.TrimSpace(*seed),
-	}
-	if options.Seed == "" {
-		options.Seed = now.Format("2006-01-02")
-	}
-	if kind == reviewKindIdiom && options.BookID != "" && options.Language == "" {
-		return reviewCommandOptions{}, errors.New("glossreview: -language is required with -book")
-	}
-	return options, nil
+	return reviewCommandOptions{Now: now, OutPath: strings.TrimSpace(*outPath)}, nil
 }
 
 // executeGlossCommand runs the contextual Gloss review.

@@ -18,7 +18,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +48,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		lemmas[i] = fmt.Sprintf("wort%02d", i)
 	}
 	seed := func(owner, key, title string) (domain.Book, domain.SourceMaterial, domain.Corpus) {
-		book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "wort00", UPOS: "NOUN", OccurrenceCount: 1}})
+		book, source, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "wort00", UPOS: "NOUN", OccurrenceCount: 1}})
 		seedBrowseEvidenceTokens(t, ctx, store, source, corpus, lemmas)
 		return book, source, corpus
 	}
@@ -71,7 +70,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	require.NoError(t, err)
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "origin-alice", "alice-password")
 	bobCookies, _ := loginCookies(t, h, "origin-bob", "bob-password")
 	get := func(path string) *httptest.ResponseRecorder { return perform(t, h, http.MethodGet, path, nil, cookies) }

@@ -2,179 +2,25 @@
 package domain
 
 import (
-	"slices"
-	"strings"
 	"time"
 )
 
+// DeckPreparationState is the state of a legacy deck preparation. Nothing
+// creates or advances one any more (ADR 0136); the type survives only for the
+// fixture store's Current reading release behaviour until the Reading snapshot
+// is retired.
 type DeckPreparationState string
 
-const DeckPreparationRequiresRepreparationError = "This deck's frozen render inputs are unavailable, so its presentation cannot be updated. Re-prepare the deck from the book's current analysis."
-
-// DeckPreparationProviderOmissionReason is the fixed, learner-facing reason for
-// an accepted identity a ready deck had to leave out because the translation
-// provider gave an unusable answer.
-const DeckPreparationProviderOmissionReason = "the translation provider gave an unusable answer"
-
-// DeckPreparationEvidenceAssistedPassAbstentionReason is the internal outcome
-// reason an Ancient Greek evidence-assisted pass item records when the provider
-// added nothing. The pass only adds to the source-evidence card, so it is never
-// reported as a meaning or provider omission (ADR 0101).
-const DeckPreparationEvidenceAssistedPassAbstentionReason = "the evidence-assisted provider pass added nothing"
-
-// DeckPreparationLemmaMismatchLabel is the learner-facing label for a card the
-// contextual-gloss provider omitted because the representative sentence uses a
-// different lexeme than the target lemma.
-const DeckPreparationLemmaMismatchLabel = "the sentence uses a different word than this lemma"
-
-// DeckPreparationIdiomLiteralUseLabel is the learner-facing label for an idiom
-// card the provider omitted because the sentence uses the words literally
-// (ADR 0114). An idiom omission never raises a lemma review flag.
-const DeckPreparationIdiomLiteralUseLabel = "the words are used literally here"
-
-// DeckPreparationLemmaMismatchPrefix is the reserved, domain-owned prefix that
-// distinguishes a lemma-mismatch omission from an ambiguous one in the existing
-// free-text omission reason. It is deliberately independent of the learner
-// label so rewording the label cannot reclassify already stored rows. No schema
-// change is needed.
-const DeckPreparationLemmaMismatchPrefix = "lemma_mismatch: "
-
-// maxDeckPreparationOmissionReasonRunes matches the persisted omission-reason
-// bound.
-const maxDeckPreparationOmissionReasonRunes = 200
-
-// DeckPreparationLemmaMismatchDetail bounds a provider's lemma-mismatch reason
-// to the space available in the stored omission reason's detail, so evidence
-// provenance and the stored omission carry the same bounded text.
-func DeckPreparationLemmaMismatchDetail(detail string) string {
-	detail = strings.TrimSpace(detail)
-	available := maxDeckPreparationOmissionReasonRunes - len([]rune(DeckPreparationLemmaMismatchPrefix))
-	if runes := []rune(detail); len(runes) > available {
-		detail = string(runes[:available])
-	}
-	return detail
-}
-
-// DeckPreparationLemmaMismatchOmissionReason builds the stored omission reason
-// for a lemma-mismatch outcome: the reserved prefix plus the bounded provider
-// reason, truncated so the persisted value stays within its existing bound.
-func DeckPreparationLemmaMismatchOmissionReason(detail string) string {
-	return DeckPreparationLemmaMismatchPrefix + DeckPreparationLemmaMismatchDetail(detail)
-}
-
-// IsDeckPreparationLemmaMismatchOmission reports whether a stored omission
-// reason uses the reserved lemma-mismatch prefix.
-func IsDeckPreparationLemmaMismatchOmission(reason string) bool {
-	return strings.HasPrefix(reason, DeckPreparationLemmaMismatchPrefix)
-}
-
 const (
-	DeckPreparationQueued    DeckPreparationState = "queued"
-	DeckPreparationPreparing DeckPreparationState = "preparing"
-	DeckPreparationReady     DeckPreparationState = "ready"
-	DeckPreparationFailed    DeckPreparationState = "failed"
-	DeckPreparationCancelled DeckPreparationState = "cancelled"
+	DeckPreparationReady DeckPreparationState = "ready"
 )
 
-// Active reports whether the preparation is still in flight. The SQL
-// predicates that attach a run or cancel a preparation accept exactly these
-// states.
-func (s DeckPreparationState) Active() bool {
-	return s == DeckPreparationQueued || s == DeckPreparationPreparing
-}
-
-// RequeueableDeckPreparationStates is the set a settled attempt may requeue
-// from. The SQL predicate that requeues a preparation accepts exactly these
-// states.
-func RequeueableDeckPreparationStates() []DeckPreparationState {
-	return []DeckPreparationState{DeckPreparationFailed, DeckPreparationCancelled}
-}
-
-// Requeueable reports whether a settled attempt may start again.
-func (s DeckPreparationState) Requeueable() bool {
-	return slices.Contains(RequeueableDeckPreparationStates(), s)
-}
-
+// DeckPreparation is the legacy preparation row the fixture store still models.
 type DeckPreparation struct {
-	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, BookID, SnapshotID, Filename, DeckName, ContentHash, Error string
-	State                                                                                                                  DeckPreparationState
-	Artifact                                                                                                               []byte
-	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                          int
-	// VocabularyCards and IdiomCards split TotalCards by frozen item kind. The
-	// values are derived from the manifest, so no persisted column changes.
-	VocabularyCards, IdiomCards int
-	// VocabularyOmissions and IdiomOmissions split the provider's explicit
-	// abstentions by frozen item kind. An idiom omission is never a vocabulary
-	// omission (ADR 0114). Both are derived from the durable outcomes.
-	VocabularyOmissions, IdiomOmissions int
-	// IdiomOverflow is how many candidate idioms the per-deck bound left out
-	// while freezing. It is derived from the manifest and is not an omission
-	// (doc/features/idiom-cards.md).
-	IdiomOverflow                         int
-	ContextualGlosses, ContextOnlyGlosses int
-	ContextualGlossesReported             bool
-	QualityOmissions                      int
-	// ProviderOmissions counts accepted identities the translation provider
-	// could not answer usably. They were left out of the ready deck and can be
-	// retried; unlike QualityOmissions they would otherwise have produced cards.
-	ProviderOmissions                                     int
-	RenderInputVersion, PresentationVersion, DeckRevision int
-	VocabularyCount                                       int
-	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
-	// MeaningOmissions lists vocabulary items the provider left unresolved.
-	// Idiom abstentions are listed separately so the two are never conflated.
-	MeaningOmissions     []DeckPreparationMeaningOmission
-	IdiomOmissionDetails []DeckPreparationIdiomOmission
-	// LemmaMismatchOmissions counts the subset of MeaningOmissions the
-	// contextual-gloss provider attributed to a different lexeme than the
-	// target lemma. Ambiguous omissions are not included.
-	LemmaMismatchOmissions int
-	// The fields below are a derived, owner-scoped status projection. They are
-	// deliberately not part of the public state machine; they describe the
-	// durable run and Batch work behind the existing preparing state.
-	Phase                                                                                string
-	FailureClass                                                                         string
-	BatchAge                                                                             time.Duration
-	TranslationEligible, TranslationDone                                                 int
-	TranslationPending, TranslationRunning                                               int
-	TranslationFailed, TranslationCancelled                                              int
-	TranslationRetrying                                                                  int
-	BatchChunkCount, BatchSubmittedChunks                                                int
-	BatchPollingChunks, BatchReconcilingChunks                                           int
-	BatchCompletedChunks, BatchFailedChunks, BatchCancelledChunks                        int
-	BatchRequestCount, BatchCompletedRequests, BatchFailedRequests, BatchExpiredRequests int
-	BatchInputTokens, BatchOutputTokens                                                  int64
-	CreatedAt, UpdatedAt                                                                 time.Time
-	StartedAt, CompletedAt                                                               *time.Time
-	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt, RetiredAt                           *time.Time
-}
-
-type DeckPreparationMeaningOmission struct {
-	TargetWord string
-	Reason     string
-}
-
-// DeckPreparationIdiomOmission is an idiom the provider declined in context.
-// It is deliberately distinct from a vocabulary meaning omission (ADR 0114).
-type DeckPreparationIdiomOmission struct {
-	Headword string
-	Reason   string
-}
-
-type DeckPreparationEvidenceCoverage struct {
-	Source     string
-	Configured bool
-	Selected   int
-	Matched    int
-	Candidates int
-	Omitted    int
-}
-
-// PreparedDeckRerenderWork is the content-free identity needed to enqueue an
-// automatic presentation update after a process restart.
-type PreparedDeckRerenderWork struct {
-	OwnerID, PreparationID, RunID string
-	PresentationVersion           int
+	ID, OwnerID, SourceMaterialID, AnalysisRunID, BookID, SnapshotID string
+	State                                                            DeckPreparationState
+	StudyingAt, GraduatedAt, ReleasedAt                              *time.Time
+	UpdatedAt                                                        time.Time
 }
 
 type DeckPreparationVocabulary struct {

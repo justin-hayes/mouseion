@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -409,10 +410,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.NoError(t, err)
 	browseDeck, err := store.PutDeck(ctx, alice.ID, "de", "Browse generated identity")
 	require.NoError(t, err)
-	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{
-		OwnerID: alice.ID, Language: "de", CanonicalLemma: "heim", UPOS: "NOUN", FirstDeckID: browseDeck.ID,
-		FirstSourceMaterialID: &aliceToReadSource.ID,
-	})
+	testutil.SeedGeneratedVocabulary(t, ctx, store.Pool(), alice.ID, "de", "heim", "NOUN", browseDeck.ID, &aliceToReadSource.ID)
 	require.NoError(t, err)
 	staleBook, staleSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse without current analysis", "browse-old", false, []domain.ExtractedUnit{
 		concordanceUnit(0, "browse-old", "Haus", 0, 4),

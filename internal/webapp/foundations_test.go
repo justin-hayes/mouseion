@@ -323,7 +323,7 @@ func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, Layout("Mouseion", nil, "csrf-token").Render(context.Background(), &output))
-	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`, `aria-label="Deck preparation progress"`} {
+	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`} {
 		assert.Contains(t, output.String(), pattern, "application shell missing %q: %s", pattern, output.String())
 	}
 }

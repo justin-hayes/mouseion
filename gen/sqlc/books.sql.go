@@ -8,8 +8,6 @@ package sqlc
 import (
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bookEverCurrentReading = `-- name: BookEverCurrentReading :one
@@ -86,9 +84,6 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
       , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
-      , COALESCE(deck.state, '')::text AS deck_state
-      , COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards
-      , deck.completed_at AS deck_completed_at
      , EXISTS (
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
@@ -121,14 +116,6 @@ LEFT JOIN LATERAL (
     FROM reading_history h
     WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
  ) history ON true
- LEFT JOIN LATERAL (
-     SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
-     FROM deck_preparations p
-      WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
-        AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
-        AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
-     ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
- ) deck ON true
 WHERE e.book_owner_id = $1
   AND (
     $2::text = ''
@@ -194,9 +181,6 @@ type BrowseMyBooksEvidenceRow struct {
 	CompletionCount         int64
 	LatestCompletedAt       interface{}
 	LatestCompletionSource  string
-	DeckState               string
-	DeckTotalCards          int64
-	DeckCompletedAt         pgtype.Timestamptz
 	IsCurrentReading        bool
 	EverCurrentReading      bool
 	ReadingUnitKey          string
@@ -266,9 +250,6 @@ func (q *Queries) BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEv
 			&i.CompletionCount,
 			&i.LatestCompletedAt,
 			&i.LatestCompletionSource,
-			&i.DeckState,
-			&i.DeckTotalCards,
-			&i.DeckCompletedAt,
 			&i.IsCurrentReading,
 			&i.EverCurrentReading,
 			&i.ReadingUnitKey,
@@ -463,47 +444,6 @@ func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams
 		&i.BookCoverState,
 		&i.BookCoverWidth,
 		&i.BookCoverHeight,
-	)
-	return i, err
-}
-
-const getMyBookMarginEvidence = `-- name: GetMyBookMarginEvidence :one
-SELECT COALESCE(deck.state, '')::text AS deck_state,
-       COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards,
-       deck.completed_at AS deck_completed_at,
-       EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id = e.book_owner_id::uuid AND g.book_id = e.book_id::uuid) AS is_current_reading
-FROM my_books_evidence e
-LEFT JOIN LATERAL (
-    SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
-    FROM deck_preparations p
-     WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
-       AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
-       AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
-    ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
-) deck ON true
-WHERE e.book_owner_id = $1 AND e.book_id = $2
-`
-
-type GetMyBookMarginEvidenceParams struct {
-	Owner string
-	Book  string
-}
-
-type GetMyBookMarginEvidenceRow struct {
-	DeckState        string
-	DeckTotalCards   int64
-	DeckCompletedAt  pgtype.Timestamptz
-	IsCurrentReading bool
-}
-
-func (q *Queries) GetMyBookMarginEvidence(ctx context.Context, arg GetMyBookMarginEvidenceParams) (GetMyBookMarginEvidenceRow, error) {
-	row := q.db.QueryRow(ctx, getMyBookMarginEvidence, arg.Owner, arg.Book)
-	var i GetMyBookMarginEvidenceRow
-	err := row.Scan(
-		&i.DeckState,
-		&i.DeckTotalCards,
-		&i.DeckCompletedAt,
-		&i.IsCurrentReading,
 	)
 	return i, err
 }

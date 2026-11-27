@@ -22,7 +22,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
@@ -105,7 +104,7 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 	unusedAnalyzer := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{}, errors.New("the Classical catalog never calls the NLP service")
 	}}
-	client, err := analysis.NewClientWithPreparedDeckConcurrency(pool, unusedAnalyzer, analyzertest.CapabilityProvider{}, selection.NewService(store), 1, workers)
+	client, err := analysis.NewClient(pool, unusedAnalyzer, analyzertest.CapabilityProvider{}, selection.NewService(store), workers)
 	require.NoError(t, err)
 	testutil.StopOnCleanup(t, "latin admission client", client.Stop)
 	service := analysis.NewService(store.Pool(), client).WithClassicalPreparationStore(store)
@@ -113,7 +112,7 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 	handler := New(Services{
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		Analysis: service, AnalysisUpdates: service, AnalysisInsights: analysisinsights.NewService(store),
-		PreparedDeck: prepareddeck.NewService(store, client), Capabilities: analyzertest.CapabilityProvider{},
+		Capabilities:         analyzertest.CapabilityProvider{},
 		ClassicalPreparation: service, Classical: catalog,
 		CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), SessionLifetime: time.Hour,
 	})

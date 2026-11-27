@@ -64,9 +64,6 @@ SELECT e.*
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
       , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
-      , COALESCE(deck.state, '')::text AS deck_state
-      , COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards
-      , deck.completed_at AS deck_completed_at
      , EXISTS (
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
@@ -99,14 +96,6 @@ LEFT JOIN LATERAL (
     FROM reading_history h
     WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
  ) history ON true
- LEFT JOIN LATERAL (
-     SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
-     FROM deck_preparations p
-      WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
-        AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
-        AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
-     ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
- ) deck ON true
 WHERE e.book_owner_id = sqlc.arg('owner')
   AND (
     sqlc.arg('language')::text = ''
@@ -156,22 +145,6 @@ SELECT COALESCE((
     SELECT failure_code FROM latest_analysis_failure
     WHERE owner_id = sqlc.arg('owner') AND source_material_id = sqlc.arg('source')
 ), '')::text AS failure_code;
-
--- name: GetMyBookMarginEvidence :one
-SELECT COALESCE(deck.state, '')::text AS deck_state,
-       COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards,
-       deck.completed_at AS deck_completed_at,
-       EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id = e.book_owner_id::uuid AND g.book_id = e.book_id::uuid) AS is_current_reading
-FROM my_books_evidence e
-LEFT JOIN LATERAL (
-    SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
-    FROM deck_preparations p
-     WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
-       AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
-       AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
-    ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
-) deck ON true
-WHERE e.book_owner_id = sqlc.arg('owner') AND e.book_id = sqlc.arg('book');
 
 -- name: ListMyBooksCoverage :many
 -- Coverage comes from the durable Vocabulary Browse inventory counts joined to

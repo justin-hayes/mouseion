@@ -188,9 +188,6 @@ type MyBook struct {
 	CoverageMatureTokens   int64
 	CoverageInStudyTokens  int64
 	CoverageTotalTokens    int64
-	DeckState              string
-	DeckCardCount          int64
-	DeckPreparedAt         *time.Time
 }
 
 // WorkflowBucket derives the visible My Books role. A current reading keeps

@@ -159,10 +159,6 @@ func (s *Store) applyFixtureBookEvidenceLocked(book *domain.MyBook) {
 	if book.Book.ID == BookID {
 		book.CoverageMatureTokens = 974
 		book.CoverageTotalTokens = 1000
-		book.DeckState = "ready"
-		book.DeckCardCount = 412
-		preparedAt := fixtureJourneyTime
-		book.DeckPreparedAt = &preparedAt
 	}
 	// A classical Book represents completed preparation once it is To Read.
 	// The evidence is a read-model projection; Add still stores a metadata-only

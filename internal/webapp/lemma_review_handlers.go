@@ -147,12 +147,12 @@ func (h *Handler) confirmLemmaDecision(w http.ResponseWriter, r *http.Request, o
 		http.Error(w, "Invalid review form.", http.StatusBadRequest)
 		return
 	}
-	outcome, form, err := h.confirmLemmaDecisionStep(r, owner.ID, bookID, r.Form["selected"])
+	form, err := h.confirmLemmaDecisionStep(r, owner.ID, bookID, r.Form["selected"])
 	if err != nil {
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
-	respondLemmaOutcome(w, r, outcome, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
+	redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review?form="+url.QueryEscape(form))
 }
 
 // lemmaReviewReports lists the Book's open Wrong-word reports for its Lemma

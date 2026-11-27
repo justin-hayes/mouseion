@@ -43,12 +43,11 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		Analysis: fixtures.Analysis{}, AnalysisInsights: analysisinsights.NewService(store), Capabilities: capabilities,
 		CatalogueSync:   fixtures.NewCatalogueSync(fixtures.NewStore()),
-		PreparedDeck:    &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)},
 		SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, "reanalysis-alice", "alice-password")
 
-	book, source, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "reanalysis", "Reanalysis evidence book", []domain.LemmaOccurrence{
+	book, source, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "reanalysis", "Reanalysis evidence book", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 2},
 		{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", OccurrenceCount: 1},
 	})

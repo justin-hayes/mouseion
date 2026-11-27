@@ -166,7 +166,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
   });
 
-  test('focused Book preparation opens only while its snapshot is Current reading', async ({ page }) => {
+  test('the focused Book deck task is gone whether or not the Book is Current reading', async ({ page }) => {
     await signIn(page);
     await restoreFixtureBookCurrent(page);
     const beforeReading = await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
@@ -174,116 +174,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     await switchToRouteMatch(page);
     const whileReading = await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
-    expect(whileReading?.status()).toBe(200);
-    await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
-    await restoreFixtureBookCurrent(page);
-  });
-
-  test('book page leads to preparation and terminal polling stops', async ({ page }) => {
-    await signIn(page);
-    await switchToRouteMatch(page);
-    await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
-    await expect(page.getByRole('heading', { name: 'Deck preparation task' })).toBeVisible();
-    await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
-    await expect(page.getByText(/this exact reading snapshot remains unchanged/i)).toBeVisible();
-    const prepareForm = page.locator('form.focused-deck-form');
-    await expect(prepareForm.getByRole('button', { name: 'Prepare deck' })).toBeVisible();
-    expect(await prepareForm.evaluate(node => Number.parseFloat(getComputedStyle(node).paddingInlineStart))).toBeGreaterThanOrEqual(16);
-    expect(await prepareForm.evaluate(node => Number.parseFloat(getComputedStyle(node).rowGap))).toBeGreaterThan(0);
-    const preparation = page.locator('[data-deck-preparation]');
-    await expect(preparation).toHaveAttribute('role', 'status');
-    await expect(preparation).toHaveAttribute('aria-live', 'polite');
-    await expect(preparation).toHaveAttribute('aria-atomic', 'true');
-
-    let polls = 0;
-    await page.route('**/deck-preparations/*/status', (route) => {
-      polls += 1;
-      if (route.request().headers()['accept'] === 'text/html') {
-        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
-      }
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
-        state: 'ready', progress: 100, ready: true, deck_name: 'Fixture German deck', filename: 'fixture.apkg',
-        download_url: '/deck-preparations/fixture-preparation/download', completeness: { total_cards: 3 },
-      }) });
-    });
-    const prepare = page.getByRole('button', { name: 'Prepare deck' });
-    await prepare.focus();
-    await prepare.press('Enter');
-    await expect(preparation).toContainText('Deck ready');
-    await expect(preparation.getByRole('button', { name: /cancel/i })).toHaveCount(0);
-    await expect(preparation.locator('[aria-busy="true"]')).toHaveCount(0);
-    // Terminal ready state performs exactly one JSON poll plus the server-rendered
-    // ready fragment fetch; polling must not continue afterwards.
-    await expect.poll(() => polls).toBe(2);
-    await page.waitForTimeout(1600);
-    expect(polls).toBe(2);
-    await restoreFixtureBookCurrent(page);
-  });
-
-  test('provider outage leaves an actionable failure without blocking Reading', async ({ page }) => {
-    await signIn(page);
-    await switchToRouteMatch(page);
-    await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
-    await expect(page.locator('input[name="external_translation_consent"]')).toHaveCount(0);
-    await page.route('**/reading/books/fixture-route-match/deck/preparations', async (route) => {
-      expect(route.request().postData() ?? '').not.toContain('external_translation_consent');
-      await route.fulfill({ status: 303, headers: { location: '/deck-preparations/fixture-provider-outage/status' } });
-    });
-    await page.route('**/deck-preparations/fixture-provider-outage/status', (route) => route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        id: 'fixture-provider-outage', state: 'failed', progress: 100, ready: false,
-        error: 'Contextual translation is required for every new deck. Configure the translation provider, then retry; no local-only deck was published.',
-      }),
-    }));
-
-    const status = page.locator('[data-deck-preparation]');
-    await page.getByRole('button', { name: 'Prepare deck' }).click();
-    await expect(status).toContainText('Deck preparation failed');
-    await expect(status).toContainText('no local-only deck was published');
-    await expect(status.getByRole('button', { name: 'Retry preparation' })).toBeVisible();
-    await expect(status.getByRole('link', { name: /download/i })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Back to this Book in Reading' })).toBeVisible();
-    await restoreFixtureBookCurrent(page);
-  });
-
-  test('preparation cancel and retry are keyboard-operable and terminal state removes polling controls', async ({ page }) => {
-    await signIn(page);
-    await switchToRouteMatch(page);
-    await page.goto('/reading/books/fixture-route-match/deck/preparations/new');
-    let state = 'queued';
-    let releaseCancel!: () => void;
-    const cancelGate = new Promise<void>((resolve) => { releaseCancel = resolve; });
-    await page.route('**/deck-preparations/*/status', (route) => {
-      if (route.request().headers()['accept'] === 'text/html') {
-        return route.fulfill({ contentType: 'text/html', body: '<section id="deck-preparation-status" data-deck-preparation><h3>Deck ready</h3><a download href="/download">Download deck</a><div><p>Current Book. This deck is preparation for the Book you are reading now.</p></div></section>' });
-      }
-      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ state, progress: state === 'queued' ? 1 : 100, ready: state === 'ready', deck_name: 'Fixture German deck', download_url: '/download' }) });
-    });
-    await page.route('**/deck-preparations/*/cancel', async (route) => {
-      await cancelGate;
-      state = 'cancelled';
-      await route.fulfill({ contentType: 'application/json', body: '{}' });
-    });
-    const status = page.locator('[data-deck-preparation]');
-    await page.getByRole('button', { name: 'Prepare deck' }).press('Enter');
-    const cancel = status.getByRole('button', { name: 'Cancel preparation' });
-    await expect(cancel).toBeVisible();
-    await cancel.press('Enter');
-    const cancelPending = status.getByRole('button', { name: 'Canceling deck preparation…' });
-    await expect(cancelPending).toBeDisabled();
-    await expect(status.getByRole('status')).toHaveText('Canceling deck preparation…');
-    releaseCancel();
-    await expect(status).toContainText('Deck preparation cancelled');
-    // Retry resubmits the Reading preparation form, so mock that POST rather than a retired retry URL.
-    await page.route('**/reading/books/fixture-route-match/deck/preparations', (route) => {
-      state = 'ready';
-      return route.fulfill({ status: 303, headers: { location: '/deck-preparations/prep-retry/status' } });
-    });
-    const retry = status.getByRole('button', { name: 'Retry preparation' });
-    await retry.press('Enter');
-    await expect(status).toContainText('Deck ready');
-    await expect(status.getByRole('button', { name: /cancel|retry/i })).toHaveCount(0);
+    expect(whileReading?.status()).toBe(404);
     await restoreFixtureBookCurrent(page);
   });
 

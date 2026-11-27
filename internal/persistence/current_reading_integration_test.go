@@ -31,10 +31,10 @@ func TestCurrentReadingPersistence(t *testing.T) {
 	erin, err := store.CreateUser(ctx, "goal-erin", false)
 	require.NoError(t, err)
 
-	aliceBook, _, _ := createReadingFixture(t, ctx, store, alice.ID, "goal-active")
-	bobBook, _, _ := createReadingFixture(t, ctx, store, bob.ID, "goal-queued")
-	_, _, _ = createReadingFixture(t, ctx, store, dave.ID, "goal-complete")
-	_, _, _ = createReadingFixture(t, ctx, store, erin.ID, "goal-abandoned")
+	aliceBook, _ := createReadingFixture(t, ctx, store, alice.ID, "goal-active")
+	bobBook, _ := createReadingFixture(t, ctx, store, bob.ID, "goal-queued")
+	_, _ = createReadingFixture(t, ctx, store, dave.ID, "goal-complete")
+	_, _ = createReadingFixture(t, ctx, store, erin.ID, "goal-abandoned")
 
 	goal, err := store.GetCurrentReading(ctx, carol.ID, "de")
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestCurrentReadingPersistence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, alice.ID, goal.OwnerID, "migrated active goal")
 	assert.Equal(t, aliceBook.ID, goal.BookID, "migrated active goal")
-	italianBook, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, alice.ID, "it", "goal-italian")
+	italianBook, italianSource := createReadingFixtureInLanguage(t, ctx, store, alice.ID, "it", "goal-italian")
 	makeAnalyzedToReadBook(t, ctx, store, italianBook, italianSource)
 	italianReading, err := store.StartCurrentReading(ctx, alice.ID, "it", italianBook.ID)
 	require.NoError(t, err)
@@ -85,11 +85,11 @@ func TestCurrentReadingPersistence(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotFound)
 	})
 
-	replacementBook, replacementSource, _ := createReadingFixture(t, ctx, store, carol.ID, "goal-replacement")
+	replacementBook, replacementSource := createReadingFixture(t, ctx, store, carol.ID, "goal-replacement")
 	makeAnalyzedToReadBook(t, ctx, store, replacementBook, replacementSource)
 	started, err := store.StartCurrentReading(ctx, carol.ID, "de", replacementBook.ID)
 	require.NoError(t, err)
-	switchTarget, switchSource, _ := createReadingFixture(t, ctx, store, carol.ID, "goal-switch-target")
+	switchTarget, switchSource := createReadingFixture(t, ctx, store, carol.ID, "goal-switch-target")
 	makeAnalyzedToReadBook(t, ctx, store, switchTarget, switchSource)
 	t.Run("cross-owner switch target is not found", func(t *testing.T) {
 		_, err := store.SwitchCurrentReading(ctx, carol.ID, "de", otherAliceBook.ID, replacementBook.ID, started.SnapshotID)
@@ -129,8 +129,8 @@ func TestCurrentReadingPersistenceInterfacePreservesLifecycleGuards(t *testing.T
 	require.NoError(t, err)
 	bob, err := store.CreateUser(ctx, "current-reading-bob", false)
 	require.NoError(t, err)
-	first, firstSource, _ := createReadingFixture(t, ctx, store, alice.ID, "current-reading-first")
-	second, secondSource, _ := createReadingFixture(t, ctx, store, alice.ID, "current-reading-second")
+	first, firstSource := createReadingFixture(t, ctx, store, alice.ID, "current-reading-first")
+	second, secondSource := createReadingFixture(t, ctx, store, alice.ID, "current-reading-second")
 	makeAnalyzedToReadBook(t, ctx, store, first, firstSource)
 	makeAnalyzedToReadBook(t, ctx, store, second, secondSource)
 
@@ -201,7 +201,7 @@ func TestCurrentReadingCanStartAnalyzedToReadBookWithoutOrdering(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "current-reading-to-read", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "to-read-only")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "to-read-only")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	queueFailure := errors.New("prepared deck queue unavailable")
@@ -244,7 +244,7 @@ func TestCurrentReadingEndReleasesOnlyActiveSnapshotIdempotently(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "current-reading-transitions", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "current-reading-transition")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "current-reading-transition")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 
@@ -310,7 +310,7 @@ func TestConcurrentCurrentReadingSwitchesKeepOneWinnerAndOneReservation(t *testi
 	require.NoError(t, err)
 	books := make([]domain.Book, 3)
 	for i, suffix := range []string{"switch-first", "switch-second", "switch-third"} {
-		book, source, _ := createReadingFixture(t, ctx, store, owner.ID, suffix)
+		book, source := createReadingFixture(t, ctx, store, owner.ID, suffix)
 		makeAnalyzedToReadBook(t, ctx, store, book, source)
 		books[i] = book
 		require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
@@ -365,8 +365,8 @@ func TestCurrentReadingReadingFinishIsGuardedPersistentAndIdempotent(t *testing.
 
 	owner, err := store.CreateUser(ctx, "goal-finish", false)
 	require.NoError(t, err)
-	book, bookSource, _ := createReadingFixture(t, ctx, store, owner.ID, "finish")
-	replacement, replacementSource, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-replacement")
+	book, bookSource := createReadingFixture(t, ctx, store, owner.ID, "finish")
+	replacement, replacementSource := createReadingFixture(t, ctx, store, owner.ID, "finish-replacement")
 	makeAnalyzedToReadBook(t, ctx, store, book, bookSource)
 	makeAnalyzedToReadBook(t, ctx, store, replacement, replacementSource)
 	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
@@ -441,7 +441,7 @@ func TestCurrentReadingReadingFinishConcurrentRequestsTransitionOnce(t *testing.
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "goal-finish-concurrent", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-concurrent")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "finish-concurrent")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	var corpusID string
 	err = store.Pool().QueryRow(ctx, `SELECT corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&corpusID)
@@ -494,7 +494,7 @@ func TestEndCurrentReadingRequiresExactCommitmentAndVerifiesReplays(t *testing.T
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "end-exact-commitment", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "end-exact")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "end-exact")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 
@@ -522,7 +522,7 @@ func TestEndCurrentReadingRequiresExactCommitmentAndVerifiesReplays(t *testing.T
 	require.NoError(t, err)
 	assert.Equal(t, restarted.SnapshotID, current.SnapshotID, "restarted reading is untouched")
 
-	other, otherSource, _ := createReadingFixture(t, ctx, store, owner.ID, "end-exact-other")
+	other, otherSource := createReadingFixture(t, ctx, store, owner.ID, "end-exact-other")
 	makeAnalyzedToReadBook(t, ctx, store, other, otherSource)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, other.ID, domain.BookDispositionToRead))
 	_, err = store.SwitchCurrentReading(ctx, owner.ID, "de", other.ID, book.ID, first.SnapshotID)
@@ -543,7 +543,7 @@ func TestFinishCurrentReadingRejectsMalformedCommitment(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "finish-malformed-commitment", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "finish-malformed")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "finish-malformed")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
@@ -564,7 +564,7 @@ func TestCurrentReadingStartAndSwitchRejectEachIneligibilityReason(t *testing.T)
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "current-reading-ineligible", false)
 	require.NoError(t, err)
-	anchor, anchorSource, _ := createReadingFixture(t, ctx, store, owner.ID, "ineligible-anchor")
+	anchor, anchorSource := createReadingFixture(t, ctx, store, owner.ID, "ineligible-anchor")
 	makeAnalyzedToReadBook(t, ctx, store, anchor, anchorSource)
 	cases := ineligibleCurrentReadingCases(t, ctx, store, owner.ID)
 
@@ -594,7 +594,7 @@ func TestCurrentReadingStartTreatsMalformedIdentitiesAsNotFound(t *testing.T) {
 	store := openIntegrationStore(t, ctx, databaseURL)
 	owner, err := store.CreateUser(ctx, "current-reading-malformed", false)
 	require.NoError(t, err)
-	book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "malformed-anchor")
+	book, source := createReadingFixture(t, ctx, store, owner.ID, "malformed-anchor")
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 
 	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {
@@ -613,7 +613,7 @@ func TestCurrentReadingStartAcceptsPublishedAnalysisDuringReAnalysis(t *testing.
 	require.NoError(t, err)
 
 	for _, state := range []string{"queued", "running", "failed", "cancelled"} {
-		book, source, _ := createReadingFixture(t, ctx, store, owner.ID, "re-analysis-"+state)
+		book, source := createReadingFixture(t, ctx, store, owner.ID, "re-analysis-"+state)
 		makeAnalyzedToReadBook(t, ctx, store, book, source)
 		insertAnalysisRun(t, ctx, store, source, state)
 
@@ -636,7 +636,7 @@ type currentReadingIneligibleCase struct {
 
 func ineligibleCurrentReadingCases(t *testing.T, ctx context.Context, store *PostgresStore, owner string) []currentReadingIneligibleCase {
 	t.Helper()
-	notToRead, notToReadSource, _ := createReadingFixture(t, ctx, store, owner, "case-inbox")
+	notToRead, notToReadSource := createReadingFixture(t, ctx, store, owner, "case-inbox")
 	makeAnalyzedToReadBook(t, ctx, store, notToRead, notToReadSource)
 	require.NoError(t, store.MarkBookPreviouslyRead(ctx, owner, notToRead.ID))
 
@@ -648,10 +648,10 @@ func ineligibleCurrentReadingCases(t *testing.T, ctx context.Context, store *Pos
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner, unacquired.ID, domain.BookDispositionToRead))
 
-	italian, italianSource, _ := createReadingFixtureInLanguage(t, ctx, store, owner, "it", "case-italian")
+	italian, italianSource := createReadingFixtureInLanguage(t, ctx, store, owner, "it", "case-italian")
 	makeAnalyzedToReadBook(t, ctx, store, italian, italianSource)
 
-	stale, staleSource, _ := createReadingFixture(t, ctx, store, owner, "case-stale")
+	stale, staleSource := createReadingFixture(t, ctx, store, owner, "case-stale")
 	makeAnalyzedToReadBook(t, ctx, store, stale, staleSource)
 	_, err = store.Pool().Exec(ctx, `UPDATE corpora SET status='pending' WHERE owner_id=$1 AND source_material_id=$2`, owner, staleSource.ID)
 	require.NoError(t, err)
@@ -673,7 +673,7 @@ func ineligibleCurrentReadingCases(t *testing.T, ctx context.Context, store *Pos
 // runState, or has none when runState is empty.
 func unanalyzedToReadBook(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix, runState string) domain.Book {
 	t.Helper()
-	book, source, _ := createReadingFixture(t, ctx, store, owner, suffix)
+	book, source := createReadingFixture(t, ctx, store, owner, suffix)
 	require.NoError(t, store.SetBookDisposition(ctx, owner, book.ID, domain.BookDispositionToRead))
 	if runState != "" {
 		insertAnalysisRun(t, ctx, store, source, runState)

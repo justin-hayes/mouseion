@@ -7,6 +7,7 @@ import "errors"
 // the persistence package re-exports them under its own names.
 var (
 	ErrNotFound                   = errors.New("persistence: not found")
+	ErrInvalidTransition          = errors.New("invalid state transition")
 	ErrCurrentReadingExists       = errors.New("persistence: current reading already exists")
 	ErrCurrentReadingStale        = errors.New("persistence: current reading state is stale")
 	ErrCurrentReadingIneligible   = errors.New("persistence: current reading requires an analyzed To Read book")

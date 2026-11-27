@@ -58,9 +58,6 @@ func myBookMarginEvidence(book domain.MyBook) string {
 		return ""
 	}
 	notes := myBookAnalysisMarginNotes(book)
-	if note := myBookDeckMarginNote(book); note != "" {
-		notes = append(notes, note)
-	}
 	return strings.Join(notes, " ")
 }
 
@@ -114,28 +111,6 @@ func myBookCoverageMarginNote(book domain.MyBook) string {
 	}
 	note += fmt.Sprintf(" %.1f%% with words in study.", float64(inStudy)*100/float64(book.CoverageTotalTokens))
 	return note
-}
-
-// myBookDeckMarginNote reports deck preparation for the Current reading only.
-// It is empty for a Book that is not being read and for an unknown deck state.
-func myBookDeckMarginNote(book domain.MyBook) string {
-	if !book.IsCurrentReading {
-		return ""
-	}
-	switch book.DeckState {
-	case "ready":
-		if book.DeckPreparedAt != nil {
-			return fmt.Sprintf("Deck ready: %d cards, prepared %s.", book.DeckCardCount, book.DeckPreparedAt.Local().Format("2 January 2006"))
-		}
-		return fmt.Sprintf("Deck ready: %d cards.", book.DeckCardCount)
-	case "preparing", "queued":
-		return "Deck preparation running."
-	case "failed":
-		return "Deck preparation failed."
-	case "cancelled":
-		return "Deck preparation cancelled."
-	}
-	return ""
 }
 
 // reanalysisMarginNote names a newer run that a published analysis outlives.

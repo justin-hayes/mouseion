@@ -117,7 +117,7 @@ func LemmaDecisionPreview(csrf, action, form, report string, proposal lemmarevie
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</ul><p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot and direct-deck membership. Frozen snapshots and decks are not rewritten.</p><ul>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</ul><p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot membership. Frozen snapshots are not rewritten.</p><ul>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -200,14 +200,14 @@ func LemmaDecisionPreview(csrf, action, form, report string, proposal lemmarevie
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "; Reading snapshot/deck eligible ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "; Reading snapshot eligible ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(yesNo(impact.BeforeEligible))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_decision_preview.templ`, Line: 29, Col: 343}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_decision_preview.templ`, Line: 29, Col: 338}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -220,7 +220,7 @@ func LemmaDecisionPreview(csrf, action, form, report string, proposal lemmarevie
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(yesNo(impact.AfterEligible))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_decision_preview.templ`, Line: 29, Col: 379}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_decision_preview.templ`, Line: 29, Col: 374}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
@@ -369,36 +369,23 @@ func LemmaDecisionPreview(csrf, action, form, report string, proposal lemmarevie
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if recovery.ReadyPreparationID != "" && proposal.IdentityChanged {
-			if recovery.ReadyDeckSnapshotID != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<p>Confirming will restart this Book with a new snapshot and prepare its deck from the corrected identities. The ready deck stays available as history.</p><label><input type=\"checkbox\" name=\"reprepare_ready_deck\" value=\"yes\" required> <span>Start this Book again with a new snapshot and prepare a new deck when I confirm this decision</span></label> ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<p>The ready deck is a historical artifact. Confirming this identity change will explicitly create a new deck generation; the existing artifact will remain downloadable. This is a full re-preparation, not a presentation-only re-render.</p><label><input type=\"checkbox\" name=\"reprepare_ready_deck\" value=\"yes\" required> <span>Re-prepare the ready deck with these current vocabulary identities when I confirm this decision</span></label> ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-		}
 		if proposal.Action == "correct" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<button class=\"button\" type=\"submit\">Apply correction to selected occurrences</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<button class=\"button\" type=\"submit\">Apply correction to selected occurrences</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else if proposal.Action == "keep" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<button class=\"button button--outline\" type=\"submit\">Keep analyzer lemma for selected occurrences</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<button class=\"button button--outline\" type=\"submit\">Keep analyzer lemma for selected occurrences</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<button class=\"button button--danger\" type=\"submit\">Exclude selected occurrences from vocabulary</button>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<button class=\"button button--danger\" type=\"submit\">Exclude selected occurrences from vocabulary</button>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</form></article>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</form></article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

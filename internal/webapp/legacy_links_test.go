@@ -55,5 +55,5 @@ func TestJobStatusOffersNoDeckPreparationForLegacyResult(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, JobStatus("csrf", status, "", "").Render(context.Background(), &output))
 	assert.NotContains(t, output.String(), `action="/jobs/7/deck/preparations"`)
-	assert.Contains(t, output.String(), "Book decks are prepared from the Book in Reading")
+	assert.NotContains(t, output.String(), "deck")
 }

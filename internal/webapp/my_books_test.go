@@ -117,7 +117,6 @@ func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
 		{name: "unavailable", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testNoContent}}, want: "Content unavailable."},
 		{name: "not analysed", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Source: domain.SourceMaterial{ContentRevisionID: "revision", ContentSnapshotID: "snapshot"}, Signals: testNotAnalyzed}}, want: "Not analysed yet."},
 		{name: "coverage with next band gap", book: domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, CoverageMatureTokens: 974, CoverageTotalTokens: 1000}, want: "97.4% of running words Mature. 16 more words to reach 99%. 97.4% with words in study.", omit: "ready"},
-		{name: "deck state is distinct from coverage", book: domain.MyBook{IsCurrentReading: true, Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, CoverageTotalTokens: 0, DeckState: "ready", DeckCardCount: 412}, want: "Deck ready: 412 cards.", omit: "0%"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -130,34 +129,6 @@ func TestMyBookMarginEvidenceUsesOnlyPresentCurrentEvidence(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestMyBookMarginEvidenceShowsDeckStateOnlyForCurrentReading(t *testing.T) {
-	book := domain.MyBook{Acquired: &domain.SourceMaterialSummary{Signals: testAnalyzed}, DeckState: "ready", DeckCardCount: 12}
-	assert.NotContains(t, myBookMarginEvidence(book), "Deck")
-	book.IsCurrentReading = true
-	assert.Contains(t, myBookMarginEvidence(book), "Deck ready: 12 cards.")
-	for state, want := range map[string]string{
-		"queued":    "Deck preparation running.",
-		"preparing": "Deck preparation running.",
-		"failed":    "Deck preparation failed.",
-		"cancelled": "Deck preparation cancelled.",
-	} {
-		book.DeckState = state
-		assert.Contains(t, myBookMarginEvidence(book), want, state)
-	}
-}
-
-func TestMyBookMarginEvidenceDatedDeckReadyNamesThePreparationDate(t *testing.T) {
-	preparedAt := time.Date(2026, time.September, 9, 0, 0, 0, 0, time.UTC)
-	book := domain.MyBook{
-		IsCurrentReading: true,
-		Acquired:         &domain.SourceMaterialSummary{Signals: testAnalyzed},
-		DeckState:        "ready",
-		DeckCardCount:    12,
-		DeckPreparedAt:   &preparedAt,
-	}
-	assert.Contains(t, myBookMarginEvidence(book), "Deck ready: 12 cards, prepared 9 September 2026.")
 }
 
 func TestMyBookMarginEvidenceShowsLatestCompletionForReadBucket(t *testing.T) {
