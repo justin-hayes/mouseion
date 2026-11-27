@@ -89,10 +89,12 @@ type StudyCandidate struct {
 	PersonalOccurrences int64
 }
 
-// OrderStudyStream returns the candidates in stream order: identities that
-// occur in the Current reading first, then all others; within each group by
-// Personal analyzed-Book occurrences descending, then by lemma, part of speech
-// and discriminator so the order is deterministic. The input is not modified.
+// OrderStudyStream returns the candidates in stream order: items that occur in
+// the Current reading first, then all others; within each group by Personal
+// occurrences descending (an Idiom's count is its candidate count in the
+// Corpus), then by kind (words before Idioms) and key, so the order is
+// deterministic. Words and Idioms share the one stream, with no tier for a part
+// of speech (ADR 0137 §4). The input is not modified.
 func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
 	ordered := append([]StudyCandidate{}, candidates...)
 	sort.SliceStable(ordered, func(i, j int) bool {
@@ -103,6 +105,9 @@ func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
 		if a.PersonalOccurrences != b.PersonalOccurrences {
 			return a.PersonalOccurrences > b.PersonalOccurrences
 		}
+		if a.ItemKind != b.ItemKind {
+			return a.ItemKind < b.ItemKind
+		}
 		if a.CanonicalLemma != b.CanonicalLemma {
 			return a.CanonicalLemma < b.CanonicalLemma
 		}
@@ -112,10 +117,7 @@ func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
 		if a.LexicalDiscriminator != b.LexicalDiscriminator {
 			return a.LexicalDiscriminator < b.LexicalDiscriminator
 		}
-		if a.Language != b.Language {
-			return a.Language < b.Language
-		}
-		return a.ItemKind < b.ItemKind
+		return a.Language < b.Language
 	})
 	return ordered
 }
@@ -178,6 +180,9 @@ type StudyMaterial struct {
 	// Passage is the translated passage the Representative sentence sits in. It
 	// is empty when no passage applies.
 	Passage StudyPassage
+	// MatchedTokenOrdinals are an Idiom's matched words, as token ordinals in
+	// the sentence in sentence order. It is empty for a word.
+	MatchedTokenOrdinals []int
 	// EvidenceFingerprint identifies the occurrences the attempt to prepare an
 	// unpreparable word's material saw; see StudyEvidenceFingerprint.
 	EvidenceFingerprint string
@@ -300,6 +305,9 @@ type StudyMaterialReadyContent struct {
 	// passage when one applies.
 	Cited   StudyCitations
 	Passage StudyPassage
+	// MatchedTokenOrdinals are an Idiom's matched words in the sentence; a
+	// word has none.
+	MatchedTokenOrdinals []int
 }
 
 // Complete reports whether the sentence, target word, Gloss and translation
@@ -319,6 +327,9 @@ func (c StudyMaterialReadyContent) Complete() bool {
 const (
 	StudyOmissionSentenceQuality = "sentence-quality"
 	StudyOmissionMeaning         = "meaning"
+	// StudyOmissionLiteralUse is the omission of an Idiom whose sentence uses
+	// its words literally (ADR 0137 "Idiom Study material"). It is terminal.
+	StudyOmissionLiteralUse = "literal-use"
 	// StudyOmissionNoDictionaryEntry is the omission of a source-evidence word
 	// the configured dictionary has no entry for (ADR 0138 §1). It is terminal:
 	// no provider is asked.
@@ -335,6 +346,24 @@ type IdiomCandidateCount struct {
 	Headword   string
 	Candidates int64
 	Books      int64
+	// InCurrentReading is set when the Current reading contains the headword.
+	InCurrentReading bool
+}
+
+// IdiomStudyCandidates are the Idioms of a language as Study candidates: each
+// headword is an Idiom item whose Personal occurrences are its candidate count
+// across the Corpus (ADR 0137 §4).
+func IdiomStudyCandidates(language string, counts []IdiomCandidateCount) []StudyCandidate {
+	candidates := make([]StudyCandidate, 0, len(counts))
+	for _, count := range counts {
+		if count.Candidates <= 0 {
+			continue
+		}
+		candidates = append(candidates, StudyCandidate{
+			StudyItem: IdiomItem(language, count.Headword), InCurrentReading: count.InCurrentReading, PersonalOccurrences: count.Candidates,
+		})
+	}
+	return candidates
 }
 
 // CorpusIdiomCounts is the Corpus sum of Idiom candidate counts. PendingBooks

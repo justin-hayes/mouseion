@@ -81,6 +81,7 @@ type FluencyStore interface {
 	GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error)
 	ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error)
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
 	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
 	RecordStudyFluencyContext(ctx context.Context, owner string, record domain.FluencyContextRecord) error
 	// ListRetiredStudyOccurrences names the occurrences the learner reported as

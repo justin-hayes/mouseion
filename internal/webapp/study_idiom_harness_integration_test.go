@@ -11,9 +11,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/idiom"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/testutil"
+	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,7 +86,24 @@ func germanIdiomAvoidance(t *testing.T, lookup idiom.Index, on bool) *study.Idio
 	if on {
 		languages["de"] = true
 	}
-	return &study.IdiomAvoidance{Index: lookup, Enabled: prepareddeck.IdiomSwitch(languages, assessments, codec)}
+	return &study.IdiomAvoidance{Index: lookup, Enabled: prepareddeck.IdiomSwitch(languages, assessments, codec), IndexVersion: idiomTestIndexVersion}
+}
+
+// idiomTestIndexVersion stamps the Idiom counts the harness builds, which Study
+// reads at the same version.
+const idiomTestIndexVersion = "idiom-test-index"
+
+// buildIdiomCounts derives the Book's Idiom candidate counts over the lookup, as
+// the durable job does after an analysis publishes.
+func (s *studyHarness) buildIdiomCounts(book domain.Book, lookup idiom.Index) {
+	s.t.Helper()
+	tx, err := s.store.Pool().Begin(s.ctx)
+	require.NoError(s.t, err)
+	testutil.Cleanup(s.t, "transaction", func() error { return txcleanup.Rollback(s.ctx, tx) })
+	built, err := persistence.BuildIdiomCandidateCountsTx(s.ctx, tx, s.owner.ID, book.ID, lookup, idiomTestIndexVersion)
+	require.NoError(s.t, err)
+	require.True(s.t, built)
+	require.NoError(s.t, tx.Commit(s.ctx))
 }
 
 // idiomAnswer is how the fake provider answers an idiom-card request.
@@ -103,6 +122,8 @@ const (
 
 // answerIdioms makes the provider answer the headword's idiom-card requests
 // the given way. An unanswered headword is confirmed.
+//
+//nolint:unparam // the harness is shared by every Idiom test, whichever headword it answers
 func (p *studyProvider) answerIdioms(headword string, answer idiomAnswer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

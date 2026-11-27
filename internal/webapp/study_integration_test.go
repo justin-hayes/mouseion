@@ -199,7 +199,7 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	require.NoError(t, err)
 
 	clock := testutil.NewManualClock(time.Date(2026, 11, 25, 4, 0, 0, 0, time.UTC))
-	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin).WithClock(clock.Func())
+	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin).WithIdioms(options.idioms).WithClock(clock.Func())
 	planWorker.Planner = studyService
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{

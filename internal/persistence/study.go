@@ -86,6 +86,7 @@ func (s *PostgresStore) ListCurrentStudyMaterial(ctx context.Context, owner, lan
 		item.EvidenceFingerprint, item.OmissionDictionaryPin = row.EvidenceFingerprint, row.OmissionDictionaryPin
 		item.Cited = domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin}
 		item.Passage = domain.StudyPassage{Text: row.PassageContext, Citation: row.PassageCitation, TranslationPin: row.PassageTranslationPin}
+		item.MatchedTokenOrdinals = matchedTokenOrdinals(row.MatchedTokenOrdinals)
 		item.OwnerID = owner
 		item.CreatedAt, item.UpdatedAt = row.CreatedAt, row.UpdatedAt
 		material = append(material, item)
@@ -114,6 +115,7 @@ func (s *PostgresStore) GetStudyMaterial(ctx context.Context, owner, id string) 
 	item.EvidenceFingerprint, item.OmissionDictionaryPin = row.EvidenceFingerprint, row.OmissionDictionaryPin
 	item.Cited = domain.StudyCitations{SenseIDs: row.CitedSenseIds, EntryIDs: row.CitedEntryIds, DictionaryPin: row.DictionaryPin}
 	item.Passage = domain.StudyPassage{Text: row.PassageContext, Citation: row.PassageCitation, TranslationPin: row.PassageTranslationPin}
+	item.MatchedTokenOrdinals = matchedTokenOrdinals(row.MatchedTokenOrdinals)
 	item.OwnerID = owner
 	item.CreatedAt, item.UpdatedAt = row.CreatedAt, row.UpdatedAt
 	return item, nil
@@ -234,6 +236,7 @@ func (s *PostgresStore) RecordStudyMaterialReady(ctx context.Context, owner, id 
 		CitedSenseIds: nonNilStrings(content.Cited.SenseIDs), CitedEntryIds: nonNilStrings(content.Cited.EntryIDs),
 		DictionaryPin:  strings.TrimSpace(content.Cited.DictionaryPin),
 		PassageContext: content.Passage.Text, PassageCitation: content.Passage.Citation, PassageTranslationPin: content.Passage.TranslationPin,
+		MatchedTokenOrdinals: matchedOrdinalsArg(content.MatchedTokenOrdinals),
 	})
 	if err != nil {
 		return fmt.Errorf("record study material: %w", err)
@@ -298,4 +301,18 @@ func (s *PostgresStore) ReopenStudyMaterialNoDictionaryEntry(ctx context.Context
 		return ErrNotFound
 	}
 	return nil
+}
+
+// matchedTokenOrdinals reads the stored matched token ordinals; a word has none.
+func matchedTokenOrdinals(stored []int) []int {
+	if len(stored) == 0 {
+		return nil
+	}
+	return append([]int(nil), stored...)
+}
+
+// matchedOrdinalsArg is the matched token ordinals as the NOT NULL array
+// column takes them: a word's are empty, never NULL.
+func matchedOrdinalsArg(ordinals []int) []int {
+	return append([]int{}, ordinals...)
 }

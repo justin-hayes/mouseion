@@ -46,7 +46,8 @@ func (q *Queries) CountCorpusIdiomCountsPending(ctx context.Context, arg CountCo
 
 const listCorpusIdiomCandidateCounts = `-- name: ListCorpusIdiomCandidateCounts :many
 
-SELECT c.headword, sum(c.candidate_count)::bigint AS candidates, count(*)::bigint AS books
+SELECT c.headword, sum(c.candidate_count)::bigint AS candidates, count(*)::bigint AS books,
+ COALESCE(bool_or(c.book_id = g.book_id), false)::boolean AS in_current_reading
 FROM idiom_candidate_counts c
 JOIN idiom_candidate_count_readiness r ON r.owner_id=c.owner_id AND r.book_id=c.book_id
  AND r.analysis_run_id=c.analysis_run_id AND r.corpus_id=c.corpus_id
@@ -56,6 +57,7 @@ JOIN books b ON b.owner_id=c.owner_id AND b.id=c.book_id
 JOIN book_membership m ON m.owner_id=c.owner_id AND m.book_id=c.book_id AND m.state='active'
 JOIN current_analysis_identity cai ON cai.owner_id=c.owner_id AND cai.book_id=c.book_id
  AND cai.analysis_run_id=c.analysis_run_id AND cai.corpus_id=c.corpus_id
+LEFT JOIN primary_goals g ON g.owner_id=c.owner_id AND g.language=$3::text
 WHERE c.owner_id=$4::uuid AND c.language=$3::text
 GROUP BY c.headword
 ORDER BY c.headword
@@ -69,9 +71,10 @@ type ListCorpusIdiomCandidateCountsParams struct {
 }
 
 type ListCorpusIdiomCandidateCountsRow struct {
-	Headword   string
-	Candidates int64
-	Books      int64
+	Headword         string
+	Candidates       int64
+	Books            int64
+	InCurrentReading bool
 }
 
 // Per-Book Idiom candidate counts (ADR 0137). The Corpus sums the counts of
@@ -80,7 +83,8 @@ type ListCorpusIdiomCandidateCountsRow struct {
 // Books in a language, with the number of Books containing it. A Book counts
 // only while it is in My Books (removing a Book leaves its rows but not the
 // sum; adding it back restores them) and its readiness row names its current analysis and the builder
-// version; a Book that was removed has no rows left.
+// version; a Book that was removed has no rows left. in_current_reading says
+// whether the Current reading contains the headword.
 func (q *Queries) ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCorpusIdiomCandidateCountsParams) ([]ListCorpusIdiomCandidateCountsRow, error) {
 	rows, err := q.db.Query(ctx, listCorpusIdiomCandidateCounts,
 		arg.BuilderVersion,
@@ -95,7 +99,12 @@ func (q *Queries) ListCorpusIdiomCandidateCounts(ctx context.Context, arg ListCo
 	items := []ListCorpusIdiomCandidateCountsRow{}
 	for rows.Next() {
 		var i ListCorpusIdiomCandidateCountsRow
-		if err := rows.Scan(&i.Headword, &i.Candidates, &i.Books); err != nil {
+		if err := rows.Scan(
+			&i.Headword,
+			&i.Candidates,
+			&i.Books,
+			&i.InCurrentReading,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

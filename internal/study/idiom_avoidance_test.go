@@ -152,3 +152,22 @@ func TestFluencyRanksOccurrencesOutsideAnIdiomCandidateFirst(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, inside, ranked[0].sentence, "with the switch off the ranking is as before")
 }
+
+// TestWorkAvoidsAnIdiomCandidateFoundOnEffectiveLemmas holds that a word's
+// sentence is judged against Idiom candidates on effective lemmas: a Lemma
+// correction the learner made counts, though the persisted lemmas say otherwise.
+func TestWorkAvoidsAnIdiomCandidateFoundOnEffectiveLemmas(t *testing.T) {
+	store := &fakeStore{}
+	addSentence(store, 1, "auf")
+	addSentence(store, 2, "auf")
+	// The learner's correction makes the first sentence's "auf" the lemma "mit".
+	effective := append([]analyzer.Token(nil), store.tokens[1]...)
+	effective[3].CanonicalLemma = "mit"
+	store.effective = map[int64][]analyzer.Token{1: effective}
+	worker := newWorker(store, &fakeEnricher{meaning: resolved()})
+	worker.Idioms = switchOn(&fakeIdiomIndex{entries: []idiom.Entry{mitDemHaus()}})
+
+	require.NoError(t, work(worker))
+	require.NotNil(t, store.ready)
+	assert.Equal(t, int64(2), store.ready.SentenceOrdinal, "the sentence a correction put inside a candidate ranks behind")
+}
