@@ -847,9 +847,9 @@ func LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError stri
 							return templ_7745c5c3_Err
 						}
 						var templ_7745c5c3_Var47 string
-						templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.ResolveAttributeValue(occurrence.CorrectedLemma)
+						templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.ResolveAttributeValue(lemmaReviewKeyDisplay(ctx, occurrence.CorrectedLemma))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_review.templ`, Line: 153, Col: 107}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/lemma_review.templ`, Line: 153, Col: 135}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var47)
 						if templ_7745c5c3_Err != nil {

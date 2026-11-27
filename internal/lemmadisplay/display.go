@@ -10,10 +10,10 @@ import (
 
 // Format formats a canonical lemma for presentation without changing the
 // stored vocabulary identity. German common nouns begin with a capital letter,
-// and a dedicated-profile language's folded key gets its word-final sigma back
+// and an Ancient Greek folded key gets its word-final sigma back
 // (ς, never σ); every other language and part of speech is returned unchanged.
 func Format(language, lemma, upos string) string {
-	if canonicalization.DedicatedProfileLanguage(language) {
+	if canonicalization.IsAncientGreek(language) {
 		return canonicalization.AncientGreekDisplayForm(lemma)
 	}
 	if canonicalization.NormalizeLanguage(language) != "de" || !strings.EqualFold(strings.TrimSpace(upos), "NOUN") || lemma == "" {

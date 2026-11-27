@@ -9,6 +9,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
 )
 
 templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied, readingChanged bool, message, focusTarget string, origin browseOrigin) {
@@ -558,9 +559,9 @@ func concordanceAppliedSummary(lookup domain.ConcordanceLookup, result domain.Co
 	if concordanceConstruction(lookup) {
 		return "Parallels of " + concordanceConstructionHeading(lookup)
 	}
-	term := result.Term
-	if term == "" {
-		term = lookup.Term
+	term := lemmadisplay.Format(lookup.Language, result.Term, "")
+	if result.Term == "" {
+		term = lemmadisplay.Format(lookup.Language, lookup.Term, "")
 	}
 	// An imported occurrence stores a citation headword; a dedicated-profile
 	// language's canonical lemma is a key, so show the headword the view would

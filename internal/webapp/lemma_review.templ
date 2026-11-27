@@ -150,7 +150,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 								<input type="hidden" name="stage" value="preview"/>
 								<input type="hidden" name="form" value={ form }/>
 								<input type="hidden" name="target" value={ id }/>
-								<label>Corrected canonical lemma<input class="input" name="lemma" value={ occurrence.CorrectedLemma } required/></label>
+								<label>Corrected canonical lemma<input class="input" name="lemma" value={ lemmaReviewKeyDisplay(ctx, occurrence.CorrectedLemma) } required/></label>
 								<fieldset>
 									<legend>Also include reviewed occurrences of “{ occurrence.Surface }” in this Book</legend>
 									<p>Only the occurrence shown above is selected by default. Review each context before selecting another.</p>
