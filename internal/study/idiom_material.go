@@ -18,15 +18,6 @@ import (
 	"github.com/riverqueue/river"
 )
 
-// workIdiom prepares one Idiom's Study material (ADR 0137 "Idiom Study
-// material"): the best candidate sentence, the Current reading's first and
-// never a retired one, goes to one idiom-card request, and the confirmed Gloss,
-// the sentence translation and the matched words are stored. An Idiom with no
-// usable sentence, or whose sentence uses its words literally or has no
-// defensible sense, is unpreparable with its reason. A missing provider or a
-// provider failure is never recorded: the job waits or fails and River retries
-// it. With the language's switch off nothing is prepared and the record stays
-// pending.
 // Idiom sentences are read in batches of idiomBatch, in order, until
 // maxIdiomChoices usable ones are found or the candidate sentences run out, so
 // no cap on the sentences read can make an Idiom with candidates unpreparable.
@@ -62,6 +53,15 @@ func (w *MaterialWorker) idiomChoices(ctx context.Context, owner string, reader 
 	return choices, nil
 }
 
+// workIdiom prepares one Idiom's Study material (ADR 0137 "Idiom Study
+// material"): the best candidate sentence, the Current reading's first and
+// never a retired one, goes to up to maxIdiomAttempts idiom-card requests, one per sentence,, and the confirmed Gloss,
+// the sentence translation and the matched words are stored. An Idiom with no
+// usable sentence, or whose sentence uses its words literally or has no
+// defensible sense, is unpreparable with its reason. A missing provider or a
+// provider failure is never recorded: the job waits or fails and River retries
+// it. With the language's switch off nothing is prepared and the record stays
+// pending.
 func (w *MaterialWorker) workIdiom(ctx context.Context, owner string, material domain.StudyMaterial) error {
 	headword, _ := material.Headword()
 	reader := w.Idioms.reader(material.Language)
