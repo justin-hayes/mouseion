@@ -186,14 +186,14 @@ func TestFluencyWorkerSendsNothingWhenTheIdiomsLearnedMeaningCitesNoSense(t *tes
 	assert.Empty(t, store.recorded)
 }
 
-func TestFluencyWorkerRequiresTheSameDictionaryPinForAnIdiomsAgreement(t *testing.T) {
+func TestFluencyWorkerAgreesAcrossADictionaryPinChangeWhenTheSenseIsTheSame(t *testing.T) {
 	worker, store, enricher := newIdiomFluencyFixture()
 	store.progress.LearnedCitations.DictionaryPin = "test/0" // the entry has since moved to test/1
 	store.idiomSentences = append(store.idiomSentences, fluencyIdiomSentence(10, "Lena", "haeuser", map[string]string{"Number": "Plur"}))
 
 	require.NoError(t, fluencyWork(worker))
 	require.Len(t, store.recorded, 1)
-	assert.Equal(t, domain.FluencyDisagrees, store.recorded[0].Agreement, "a sense of another pin is not the Learned meaning's sense")
+	assert.Equal(t, domain.FluencyAgrees, store.recorded[0].Agreement, "a sense ID is a content hash, so the same sense in a newer revision is the Learned meaning's sense")
 	assert.Len(t, enricher.idiomCards, 1)
 }
 
