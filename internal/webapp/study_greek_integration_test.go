@@ -233,9 +233,9 @@ func TestGreekStudyUndoRestoresTheLearnedMeaningsCitations(t *testing.T) {
 	assert.Equal(t, word.LearnedCitations, restored[0].LearnedCitations, "and to the citations and pin it had")
 }
 
-func TestStudyStaysUnavailableForGreekAndLatinInProduction(t *testing.T) {
+func TestStudyStaysUnavailableForLatinInProduction(t *testing.T) {
 	s := newStudyHarness(t)
-	for _, language := range []string{"la", "grc"} {
+	for _, language := range []string{"la"} {
 		book, err := s.store.CreateBook(s.ctx, domain.Book{OwnerID: s.owner.ID, Title: "Book in " + language, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 		require.NoError(t, err)
 		require.NoError(t, s.store.SetBookDisposition(s.ctx, s.owner.ID, book.ID, domain.BookDispositionToRead))

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAvailableOnlyOnTheModernLanguageRoute(t *testing.T) {
+func TestAvailableFollowsTheStudySwitch(t *testing.T) {
 	cases := []struct {
 		language string
 		want     bool
@@ -15,7 +15,7 @@ func TestAvailableOnlyOnTheModernLanguageRoute(t *testing.T) {
 		{"it", true},
 		{"el", true},
 		{"la", false},
-		{"grc", false},
+		{"grc", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.language, func(t *testing.T) {

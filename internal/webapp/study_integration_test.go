@@ -334,16 +334,16 @@ func TestStudyPreparesMaterialAheadInStreamOrder(t *testing.T) {
 	assert.Contains(t, page.Body.String(), "2 words were skipped")
 }
 
-func TestStudyIsNotAvailableForLatinAndAncientGreek(t *testing.T) {
+func TestStudyIsNotAvailableForLatin(t *testing.T) {
 	s := newStudyHarness(t)
 	s.seedBook("german", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})
-	for _, language := range []string{"la", "grc"} {
+	for _, language := range []string{"la"} {
 		book, err := s.store.CreateBook(s.ctx, domain.Book{OwnerID: s.owner.ID, Title: "Book in " + language, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 		require.NoError(t, err)
 		require.NoError(t, s.store.SetBookDisposition(s.ctx, s.owner.ID, book.ID, domain.BookDispositionToRead))
 	}
 
-	for _, language := range []string{"la", "grc"} {
+	for _, language := range []string{"la"} {
 		page := getAs(t, s.h, "/"+language+"/study", s.cookies)
 		require.Equal(t, http.StatusOK, page.Code, language)
 		assert.Contains(t, page.Body.String(), "Study isn't available for this language yet", language)
@@ -543,7 +543,7 @@ func TestStudyMaterialIsReadyAfterBrowseCountRebuildWithoutOpeningStudy(t *testi
 
 func TestStudyPlanningIsNotQueuedForUnavailableLanguages(t *testing.T) {
 	s := newStudyHarness(t)
-	for _, language := range []string{"la", "grc", ""} {
+	for _, language := range []string{"la", ""} {
 		tx, err := s.store.Pool().Begin(s.ctx)
 		require.NoError(t, err)
 		require.NoError(t, study.EnqueuePlanningTx(s.ctx, tx, s.owner.ID, language))
