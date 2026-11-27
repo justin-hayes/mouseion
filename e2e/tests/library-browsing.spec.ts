@@ -417,3 +417,27 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('aside.library-needs-language')).toHaveCount(0);
   });
 });
+
+test.describe('My Books needs-action filter', () => {
+  test('shows a status line on Books that need action and filters to them, kept in the address', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/de/library');
+    await expect(page.locator('#book-row-fixture-failed [data-needs-action]')).toContainText('Analysis failed.');
+    await expect(page.locator('#book-row-fixture-acquisition-failed [data-needs-action]')).toContainText('Acquisition failed.');
+    await expect(page.locator('#book-row-fixture-book [data-needs-action]')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Show only Books that need action' }).click();
+    await expect(page).toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-failed')).toHaveCount(1);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(0);
+
+    await page.reload();
+    await expect(page).toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-failed')).toHaveCount(1);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Show all Books' }).click();
+    await expect(page).not.toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(1);
+  });
+});
