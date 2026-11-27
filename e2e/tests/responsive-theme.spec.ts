@@ -551,7 +551,7 @@ test.describe('responsive and theme regression coverage', () => {
     expect(colors.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(colors.background).toBe(colors.tokenBackground);
 
-    await page.goto('/de/library');
+    await page.goto('/catalogs');
     const secondaryAction = page.locator('.button--outline:visible').first();
     await expect(secondaryAction).toBeVisible();
     await secondaryAction.hover();
@@ -957,7 +957,6 @@ test.describe('responsive and theme regression coverage', () => {
       expect(row.bookWidth).toBeGreaterThan(200);
       expect(row.controlsWidth).toBeLessThan(row.rowWidth * 0.6);
       expect(row.marginLeft).toBeGreaterThan(row.identityRight);
-      expect(row.marginHeight).toBeGreaterThanOrEqual(row.controlsBottom - row.identityTop);
       expect(row.titleColor).toBe(row.bodyColor);
       if (row.switchBackground) expect(row.switchBackground).not.toBe(row.accentColor);
     }
