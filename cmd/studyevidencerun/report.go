@@ -6,7 +6,62 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 )
+
+// notCitationForm is the automatic citation-form check on a ready Gloss. It is
+// a heuristic that flags rows for the learner's eye: a verb Gloss that does not
+// start "to ", or a non-verb Gloss that starts "to ", opens with an article,
+// carries more than two words in one synonym, or ends like an inflected form.
+func notCitationForm(upos, gloss string) string {
+	gloss = strings.TrimSpace(gloss)
+	lower := strings.ToLower(gloss)
+	if gloss == "" {
+		return ""
+	}
+	if upos == "VERB" {
+		if !strings.HasPrefix(lower, "to ") {
+			return "verb Gloss does not start \"to \""
+		}
+		return ""
+	}
+	if strings.HasPrefix(lower, "to ") {
+		return "non-verb Gloss starts \"to \""
+	}
+	for _, article := range []string{"the ", "a ", "an "} {
+		if strings.HasPrefix(lower, article) {
+			return "Gloss opens with an article"
+		}
+	}
+	for _, part := range strings.Split(lower, ",") {
+		words := strings.Fields(part)
+		if len(words) > 2 {
+			return "Gloss carries extra words"
+		}
+		if upos == "ADV" || len(words) == 0 {
+			continue
+		}
+		last := words[len(words)-1]
+		switch {
+		case strings.HasSuffix(last, "ing") && len(last) > 5, strings.HasSuffix(last, "ed") && len(last) > 4,
+			strings.HasSuffix(last, "ies"), strings.HasSuffix(last, "s") && !strings.HasSuffix(last, "ss") &&
+				!strings.HasSuffix(last, "us") && !strings.HasSuffix(last, "is") && len(last) > 3:
+			return "Gloss looks inflected"
+		}
+	}
+	return ""
+}
+
+// wideHighlights lists translation highlight excerpts longer than three words.
+func wideHighlights(targets []string) []string {
+	var wide []string
+	for _, target := range targets {
+		if len(strings.Fields(target)) > 3 {
+			wide = append(wide, target)
+		}
+	}
+	return wide
+}
 
 // reportMeta is what the report pins besides the per-word rows.
 type reportMeta struct {
@@ -85,6 +140,14 @@ func renderRow(n int, r wordResult) string {
 	if len(r.Invented) > 0 {
 		outcome += " **[invented: " + strings.Join(r.Invented, ", ") + "]**"
 	}
+	if r.Ready != nil {
+		if why := notCitationForm(r.Identity.UPOS, r.Ready.Gloss); why != "" {
+			outcome += " **[not citation form: " + why + "]**"
+		}
+		if wide := wideHighlights(r.Ready.SentenceTranslationTargets); len(wide) > 0 {
+			outcome += " **[wide highlight: " + strings.Join(wide, "; ") + "]**"
+		}
+	}
 	return fmt.Sprintf("| %d | %s (%s) | %s | %s | %s | %s | %s | %s | |\n",
 		n, cell(r.Identity.CanonicalLemma), cell(r.Identity.UPOS), cell(sentence), cell(gloss), cell(cited),
 		cell(translation), cell(passage), cell(outcome))
@@ -102,6 +165,21 @@ func renderReport(meta reportMeta, results []wordResult) string {
 		counts[key]++
 		if len(r.Invented) > 0 {
 			invented = append(invented, fmt.Sprintf("%s: %s", r.Identity.CanonicalLemma, strings.Join(r.Invented, ", ")))
+		}
+	}
+	var notForm, wide, functionWords []string
+	for _, r := range results {
+		if lexical.IsVocabularyStopword(meta.Language, r.Identity.CanonicalLemma, r.Identity.UPOS) {
+			functionWords = append(functionWords, r.Identity.CanonicalLemma)
+		}
+		if r.Ready == nil {
+			continue
+		}
+		if why := notCitationForm(r.Identity.UPOS, r.Ready.Gloss); why != "" {
+			notForm = append(notForm, fmt.Sprintf("%s (%s): \"%s\", %s", r.Identity.CanonicalLemma, r.Identity.UPOS, r.Ready.Gloss, why))
+		}
+		if w := wideHighlights(r.Ready.SentenceTranslationTargets); len(w) > 0 {
+			wide = append(wide, fmt.Sprintf("%s: \"%s\"", r.Identity.CanonicalLemma, strings.Join(w, "; ")))
 		}
 	}
 	keys := make([]string, 0, len(counts))
@@ -143,12 +221,51 @@ func renderReport(meta reportMeta, results []wordResult) string {
 			fmt.Fprintf(&b, "- %s\n", line)
 		}
 	}
-	b.WriteString("\n\n## Words\n\nA cited sense shows its native LSJ sense ID, its entry ID and the definition the provider saw. The translation's bold text is the English target highlight; the sentence's bold text is the target word. An omitted answer's Gloss and translation are shown only for context.\n\n")
+	b.WriteString("\n\n")
+	flagList := func(title string, items []string) {
+		fmt.Fprintf(&b, "**%s: %d.**", title, len(items))
+		if len(items) > 0 {
+			b.WriteString("\n\n")
+			for _, line := range items {
+				fmt.Fprintf(&b, "- %s\n", line)
+			}
+		}
+		b.WriteString("\n")
+	}
+	flagList("Glosses not in citation form (automatic heuristic: a verb Gloss not starting \"to \", or a noun or adjective Gloss that starts \"to \", opens with an article, carries more than two words in a synonym, or looks inflected; Justin's judgement decides)", notForm)
+	flagList("Highlights longer than three words", wide)
+	flagList("ADR 0140 function words among the words (must be 0)", functionWords)
+	b.WriteString(homographSection(results))
+	b.WriteString("\n## Words\n\nA cited sense shows its native LSJ sense ID, its entry ID and the definition the provider saw. The translation's bold text is the English target highlight; the sentence's bold text is the target word. An omitted answer's Gloss and translation are shown only for context.\n\n")
 	b.WriteString("| # | Lemma | Sentence | Gloss | Cited senses | Sentence translation | Passage citation | Outcome | Justin's judgement (acceptable / not, note) |\n|---|---|---|---|---|---|---|---|---|\n")
 	for i, r := range results {
 		b.WriteString(renderRow(i+1, r))
 	}
 	b.WriteString("\n## Judgement tally\n\nJustin fills this in after judging: acceptable Glosses ___ of ___ ready words; threshold (90%) met: yes / no.\n")
+	return b.String()
+}
+
+// homographSection names the entry each homograph word's Gloss cites.
+func homographSection(results []wordResult) string {
+	var b strings.Builder
+	b.WriteString("## Homograph words\n\nGreek Study offers every competing LSJ entry (ADR 0139). Words with more than one entry that has citable senses:\n\n")
+	found := 0
+	for i, r := range results {
+		n := entryCount(r.Candidates)
+		if n < 2 {
+			continue
+		}
+		found++
+		if r.Ready != nil && len(r.Ready.Cited.EntryIDs) > 0 {
+			entry := r.Ready.Cited.EntryIDs[0]
+			fmt.Fprintf(&b, "- **%s** (word %d): %d entries; the Gloss \"%s\" cites entry **%d of %d** (`%s`).\n", r.Identity.CanonicalLemma, i+1, n, r.Ready.Gloss, entryPosition(r.Candidates, entry), n, entry)
+		} else {
+			fmt.Fprintf(&b, "- **%s** (word %d): %d entries; outcome %s, no cited entry.\n", r.Identity.CanonicalLemma, i+1, n, r.Outcome)
+		}
+	}
+	if found == 0 {
+		b.WriteString("None of the words had more than one entry.\n")
+	}
 	return b.String()
 }
 

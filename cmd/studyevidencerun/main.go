@@ -32,6 +32,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -81,6 +82,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	count := flags.Int("n", 50, "number of words, in Study's new-word order")
 	reportPath := flags.String("out", "", "Markdown report path (required unless -dry)")
 	dry := flags.Bool("dry", false, "list the words and check the gate; send nothing")
+	rebuild := flags.Bool("rebuild", false, "rebuild the restored copy's stale Browse counts with the production worker, as startup reconciliation does")
 	migrate := flags.Bool("migrate", false, "bring the restored copy up to this commit's schema, then continue")
 	owner := flags.String("owner", "", "learner ID; defaults to the only learner with Books in the language")
 	if err := flags.Parse(args); err != nil {
@@ -103,6 +105,11 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return err
 	}
 	defer func() { _ = store.Close() }()
+	if *rebuild {
+		if err := rebuildBrowseCounts(ctx, store, out); err != nil {
+			return err
+		}
+	}
 
 	policy := cardpolicy.For(*language)
 	if !policy.SourceEvidence {
@@ -504,4 +511,43 @@ func studyProviderVersion(codec *enrichment.TranslationCodec, language string) s
 	case cardpolicy.PassContractGreek:
 	}
 	return codec.EvidenceAssistedPassProviderVersion()
+}
+
+// rebuildBrowseCounts brings every current Book's Browse counts up to this
+// commit's builder version, as server startup reconciliation does, by running
+// the production rebuild worker in-process. Study's new-word order reads only
+// ready counts, so without it the restored copy yields no words.
+func rebuildBrowseCounts(ctx context.Context, store *persistence.PostgresStore, out io.Writer) error {
+	pool := store.Pool()
+	rows, err := pool.Query(ctx, `SELECT cai.owner_id::text,cai.book_id::text,cai.analysis_run_id::text
+		FROM current_analysis_identity cai
+		JOIN source_materials source ON source.owner_id=cai.owner_id AND source.id=cai.source_material_id
+		LEFT JOIN vocabulary_browse_count_readiness ready ON ready.owner_id=cai.owner_id AND ready.book_id=cai.book_id
+			AND ready.analysis_run_id=cai.analysis_run_id AND ready.corpus_id=cai.corpus_id
+			AND ready.language=source.language AND ready.builder_version=5
+		WHERE ready.owner_id IS NULL`)
+	if err != nil {
+		return err
+	}
+	var args []analysis.BrowseCountsRebuildArgs
+	for rows.Next() {
+		var a analysis.BrowseCountsRebuildArgs
+		if err := rows.Scan(&a.OwnerID, &a.BookID, &a.RunID); err != nil {
+			rows.Close()
+			return err
+		}
+		args = append(args, a)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	worker := &analysis.BrowseCountsRebuildWorker{Pool: pool}
+	for _, a := range args {
+		if err := worker.Work(ctx, &river.Job[analysis.BrowseCountsRebuildArgs]{JobRow: &rivertype.JobRow{}, Args: a}); err != nil {
+			return fmt.Errorf("rebuild Browse counts for book %s: %w", a.BookID, err)
+		}
+	}
+	_, _ = fmt.Fprintf(out, "rebuilt Browse counts for %d Books\n", len(args))
+	return nil
 }
