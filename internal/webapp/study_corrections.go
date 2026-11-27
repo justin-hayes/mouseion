@@ -21,12 +21,8 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 	if err := store.CompleteStudyReintroductions(ctx, owner, language, now); err != nil {
 		return err
 	}
-	progress, err := store.ListStudyProgress(ctx, owner, language)
+	progress, err := h.keepIdiomsReviewable(ctx, owner, language)
 	if err != nil {
-		return err
-	}
-	// An Idiom waiting for new material that cannot be prepared keeps its last.
-	if progress, err = h.keepIdiomsReviewable(ctx, owner, language, progress); err != nil {
 		return err
 	}
 	// Withdrawn words return as soon as their evidence does.
@@ -53,12 +49,13 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 	}
 }
 
-// keepIdiomsReviewable returns each Idiom that waits for new material to its
-// last one while the language's idiom switch is off, and reads the progress
-// again when one changed.
-func (h *Handler) keepIdiomsReviewable(ctx context.Context, owner, language string, progress []domain.StudyProgress) ([]domain.StudyProgress, error) {
-	if h.services.Study == nil {
-		return progress, nil
+// keepIdiomsReviewable reads the learner's progress, after returning each Idiom
+// that waits for new material to its last one while the language's idiom switch
+// is off: no replacement is prepared then, so it would never be reviewed again.
+func (h *Handler) keepIdiomsReviewable(ctx context.Context, owner, language string) ([]domain.StudyProgress, error) {
+	progress, err := h.services.Store.Study.ListStudyProgress(ctx, owner, language)
+	if err != nil || h.services.Study == nil {
+		return progress, err
 	}
 	changed := false
 	for _, word := range progress {

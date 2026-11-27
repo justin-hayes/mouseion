@@ -70,7 +70,7 @@ func TestStudyTodayIntroducesAnIdiomAndShowsItsIdiomCard(t *testing.T) {
 
 	assert.Empty(t, s.progress(), "no member word of the Idiom is in study")
 	assert.Equal(t, domain.StudyMaterialCounts{Ready: 3}, s.counts(), "the Idiom counts as an item")
-	assert.Contains(t, s.page(), "3 new words are ready to learn.")
+	assert.Contains(t, s.page(), "2 new words and 1 idiom are ready to learn.")
 	s.take()
 
 	introduced, ok := s.progressOfIdiom()

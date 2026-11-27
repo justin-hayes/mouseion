@@ -389,7 +389,7 @@ func studyPageDescription(view studyPageView) string {
 }
 
 func studyOfferText(words, idioms int) string {
-	return studyKindsText(words, idioms, "new ", "is ready to learn.", "are ready to learn.")
+	return studyKindsText(words, idioms, "new ", "", "is ready to learn.", "are ready to learn.")
 }
 
 func studyRemainingText(count int) string {
@@ -414,19 +414,19 @@ func studyHeldText(count int) string {
 }
 
 func studyRepeatingText(words, idioms int) string {
-	return studyKindsText(words, idioms, "", "comes back later today.", "come back later today.")
+	return studyKindsText(words, idioms, "", "", "comes back later today.", "come back later today.")
 }
 
 func studyReadyText(words, idioms int) string {
-	return studyKindsText(words, idioms, "new ", "is ready.", "are ready.")
+	return studyKindsText(words, idioms, "new ", "", "is ready.", "are ready.")
 }
 
 func studyPreparingText(words, idioms int) string {
-	return studyKindsText(words, idioms, "more ", "is being prepared.", "are being prepared.")
+	return studyKindsText(words, idioms, "more ", "more ", "is being prepared.", "are being prepared.")
 }
 
 func studySkippedText(words, idioms int) string {
-	return studyKindsText(words, idioms, "", "was skipped because it has no usable sentence or meaning.", "were skipped because they have no usable sentence or meaning.")
+	return studyKindsText(words, idioms, "", "", "was skipped because it has no usable sentence or meaning.", "were skipped because they have no usable sentence or meaning.")
 }
 
 // studyPreparationHeading names the preparation section after what it counts.
@@ -439,9 +439,10 @@ func studyPreparationHeading(idioms domain.StudyMaterialCounts) string {
 
 // studyKindsText counts words and Idioms each by name, in one sentence:
 // "2 new words and 1 idiom are ready." Only the kinds present are named, and
-// with neither it counts zero words. The adjective qualifies each noun.
-func studyKindsText(words, idioms int, adjective, singular, plural string) string {
-	noun := func(count int, one, many string) string {
+// with neither it counts zero words. wordAdjective and idiomAdjective qualify
+// each noun.
+func studyKindsText(words, idioms int, wordAdjective, idiomAdjective, singular, plural string) string {
+	noun := func(count int, adjective, one, many string) string {
 		if count == 1 {
 			return fmt.Sprintf("1 %s%s", adjective, one)
 		}
@@ -449,10 +450,10 @@ func studyKindsText(words, idioms int, adjective, singular, plural string) strin
 	}
 	var parts []string
 	if words > 0 || idioms == 0 {
-		parts = append(parts, noun(words, "word", "words"))
+		parts = append(parts, noun(words, wordAdjective, "word", "words"))
 	}
 	if idioms > 0 {
-		parts = append(parts, noun(idioms, "idiom", "idioms"))
+		parts = append(parts, noun(idioms, idiomAdjective, "idiom", "idioms"))
 	}
 	verb := plural
 	if words+idioms == 1 {
