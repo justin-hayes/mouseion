@@ -1445,6 +1445,24 @@ LS_ABBREVIATIONS = frozenset(
         "ad fin", "ad init", "l c", "loc cit",
     }
 )  # fmt: skip
+# L&S's grammatical notes ("v. inch. n", "gen. sing", "p. a. fin") are written
+# only in the dictionary's own abbreviations. The words are the grammatical
+# entries of L&S's list of abbreviations, "Other Abbreviations, Signs, etc."
+# (Perseus: https://perseus.uchicago.edu/LewisShortAbbreviations.html), plus
+# "praes", which the dictionary writes in the same notation as "plqpf". A string
+# made only of these words is a grammatical note, not a meaning.
+LS_SHORTHAND_WORDS = frozenset(
+    {
+        "a", "abl", "abs", "absol", "act", "acc", "adj", "adv", "comm", "comp", "conj",
+        "dat", "decl", "dep", "dim", "f", "fem", "fin", "finit", "freq", "fut", "gen",
+        "imper", "imperf", "impers", "inch", "indecl", "indic", "inf", "init", "intr", "m",
+        "masc", "med", "mid", "n", "neutr", "nom", "num", "numer", "p", "part", "pass",
+        "perf", "pers", "pl", "plqpf", "plur", "pos", "posit", "praes", "pres", "pron",
+        "sing", "subj", "subst", "sup", "tant", "trans", "v", "voc",
+    }
+)  # fmt: skip
+# An opening "a" or connective is an English word ("a part"), not shorthand.
+LS_SHORTHAND_NOT_FIRST = frozenset({"a", "and", "or"})
 LS_REPEAT_AUTHORS = frozenset({"id"})
 LS_PUNCTUATION = re.compile(r"[^\w]+")
 
@@ -1465,10 +1483,31 @@ def ls_is_abbreviation(text: str) -> bool:
     return LS_PUNCTUATION.sub(" ", text.casefold()).strip() in LS_ABBREVIATIONS
 
 
+def ls_is_shorthand(text: str) -> bool:
+    """Whether text is only L&S grammatical abbreviations ("gen. sing")."""
+    words = LS_PUNCTUATION.sub(" ", text.casefold()).split()
+    if not words or words[0] in LS_SHORTHAND_NOT_FIRST:
+        return False
+    return all(word in LS_SHORTHAND_WORDS for word in words)
+
+
 def ls_definition(text: str) -> str:
     """Clean one italic run into a definition, or the empty string."""
     text = clean_gloss(" ".join(text.split())).rstrip(".")
-    return "" if not text or ls_is_abbreviation(text) else text
+    return "" if not text or ls_is_abbreviation(text) or ls_is_shorthand(text) else text
+
+
+def ls_lost_to_shorthand(text: str) -> bool:
+    """Whether a definition run is dropped only because it is shorthand; a run the
+    older abbreviation list already dropped does not count."""
+    text = clean_gloss(" ".join(text.split())).rstrip(".")
+    return ls_is_shorthand(text) and not ls_is_abbreviation(text)
+
+
+def ls_translation(text: str) -> str:
+    """Clean one <tr> into a gloss, or the empty string for shorthand."""
+    text = clean_gloss(text)
+    return "" if ls_is_shorthand(text) else text
 
 
 def ls_homograph_number(key: str) -> int:
@@ -1521,6 +1560,7 @@ class LsContent:
     late_definitions: list[str] = field(default_factory=list)
     cited: bool = False
     author: str = ""
+    shorthand: bool = False
 
 
 def ls_reference_at(text: str, position: int) -> tuple[str, int] | None:
@@ -1630,8 +1670,10 @@ def ls_collect_child(child, content: LsContent) -> None:
         if reference := ls_reference(child):
             content.crossrefs.append({"text": reference})
     elif child.tag == "tr":
-        if gloss := clean_gloss(element_text(child)):
+        if gloss := ls_translation(element_text(child)):
             content.translations.append(gloss)
+        else:
+            content.shorthand |= ls_is_shorthand(element_text(child))
     elif child.tag == "hi" and child.get("rend") == "ital":
         ls_add_definition(child, content)
     else:
@@ -1643,6 +1685,8 @@ def ls_add_definition(element, content: LsContent) -> None:
     the italic text after it for a sense that has no definition before it."""
     if definition := ls_definition(element_text(element)):
         (content.late_definitions if content.cited else content.definitions).append(definition)
+    else:
+        content.shorthand |= ls_lost_to_shorthand(element_text(element))
 
 
 def ls_reference(xr) -> str:
@@ -1777,11 +1821,13 @@ def ls_entry(element) -> dict | None:
     pointer = None
     entry_content = LsContent()
     ls_collect(element, entry_content)
+    shorthand = entry_content.shorthand
     author = entry_content.author
     for sense in sorted(element.iter("sense"), key=lambda item: ls_id_order(item.get("id") or "")):
         content = LsContent(author=author)
         ls_collect(sense, content)
         author = content.author
+        shorthand |= content.shorthand
         is_pointer, number = ls_pointer(sense)
         if is_pointer and not content.citations:
             pointer = number
@@ -1797,6 +1843,7 @@ def ls_entry(element) -> dict | None:
         "senses": ls_entry_level_sense(entry_id, entry_content) + contents,
         "type": element.get("type"),
         "pointer": pointer,
+        "shorthand": shorthand,
         "subentries": ls_subentries(entry_id, headword, kept, contents),
     }
 
@@ -1870,8 +1917,9 @@ def ls_has_text(entry: dict) -> bool:
 
 def ls_keep(entry: dict) -> bool:
     """Every entry stays, but a glossary-only word with no sense text of its own
-    (a bare "Gloss. Philox." line) is not a dictionary entry."""
-    return entry.get("type") != LS_GLOSS_TYPE or ls_has_text(entry)
+    (a bare "Gloss. Philox." line) is not a dictionary entry. One whose text was
+    only grammatical shorthand stays, so its id and citations keep resolving."""
+    return entry.get("type") != LS_GLOSS_TYPE or ls_has_text(entry) or entry.get("shorthand", False)
 
 
 def ls_pointed_senses(target: list[dict], number: str | None) -> list[dict]:

@@ -2040,3 +2040,92 @@ def test_ls_the_original_text_entries_are_unchanged_by_the_lost_text_fixes(tmp_p
 
     assert glosses_of(rows["n4"]) == ["boyhood"]
     assert json.loads(rows["n4"][3])[0].keys() >= {"id", "n", "level", "glosses"}
+
+
+# ---- Lewis & Short: grammatical shorthand is not a definition (#2797) --------
+
+SYNTHETIC_LS_SHORTHAND = """<TEI.2><text><body>
+<entryFree id="n1" key="dico" type="main"><orth>dīco</orth>, <itype>xi</itype>,
+ <sense id="n1.0" n="I" level="1"><hi rend="ital">praes</hi>.</sense>
+ <sense id="n1.1" n="II" level="1"><hi rend="ital">gen. sing</hi>. <hi rend="ital">to say</hi>.</sense>
+ <sense id="n1.2" n="III" level="1"><hi rend="ital">v. inch. n</hi>. <hi rend="ital">p. a. fin</hi>.</sense></entryFree>
+<entryFree id="n2" key="pars" type="main"><orth>pars</orth>,
+ <sense id="n2.0" n="I" level="1"><hi rend="ital">gen. sing</hi>.</sense>
+ <sense id="n2.1" n="II" level="1"><hi rend="ital">a part</hi> <hi rend="ital">abl. sing</hi>.</sense></entryFree>
+<entryFree id="n3" key="loco" type="main"><orth>loco</orth>,
+ <sense id="n3.0" n="I" level="1"><hi rend="ital">v. dep. a</hi>. <tr>part. perf</tr> <tr>a place</tr>.</sense>
+ <sense id="n3.1" n="II" level="1"><hi rend="ital">fut</hi>. <bibl><author>Cic.</author> A 1</bibl>.</sense></entryFree>
+<entryFree id="n4" key="nomen" type="main"><orth>nōmen</orth>,
+ <sense id="n4.0" n="I" level="1"><hi rend="ital">nom. sing. of a name</hi>.</sense>
+ <sense id="n4.1" n="II" level="1"><hi rend="ital">a name</hi>.</sense></entryFree>
+<entryFree id="n5" key="cuso" type="gloss"><orth>cūso</orth>,
+ <sense id="n5.0" n="I" level="1"><hi rend="ital">v. freq.</hi> <bibl><author>Prisc.</author> p. 1</bibl>.</sense></entryFree>
+<entryFree id="n6" key="legicrepa" type="gloss"><orth>lēgĭcrĕpa</orth>, Gloss. Philox.</entryFree>
+</body></text></TEI.2>"""
+
+
+def shorthand_senses(tmp_path: Path) -> dict:
+    rows = ls_index(tmp_path, load_script(), SYNTHETIC_LS_SHORTHAND)
+    return {row[0]: {sense["id"]: sense for sense in json.loads(row[3])} for row in rows}
+
+
+def test_ls_shorthand_only_definitions_and_glosses_are_dropped(tmp_path: Path):
+    senses = shorthand_senses(tmp_path)
+
+    assert senses["n1"]["n1.0"]["glosses"] == []
+    assert "definitions" not in senses["n1"]["n1.0"]
+    assert senses["n1"]["n1.2"]["glosses"] == []
+    assert senses["n2"]["n2.0"]["glosses"] == []
+    assert senses["n3"]["n3.0"]["glosses"] == ["a place"]
+    assert senses["n3"]["n3.1"]["glosses"] == []
+
+
+def test_ls_mixed_shorthand_and_meaning_keeps_the_meaning(tmp_path: Path):
+    senses = shorthand_senses(tmp_path)
+
+    assert senses["n1"]["n1.1"]["definitions"] == ["to say"]
+    assert senses["n2"]["n2.1"]["definitions"] == ["a part"]
+    assert senses["n4"]["n4.0"]["definitions"] == ["nom. sing. of a name"]
+    assert senses["n4"]["n4.1"]["definitions"] == ["a name"]
+
+
+def test_ls_shorthand_filtering_keeps_every_entry_and_sense_id(tmp_path: Path):
+    senses = shorthand_senses(tmp_path)
+
+    assert {entry: list(items) for entry, items in senses.items()} == {
+        "n1": ["n1.0", "n1.1", "n1.2"],
+        "n2": ["n2.0", "n2.1"],
+        "n3": ["n3.0", "n3.1"],
+        "n4": ["n4.0", "n4.1"],
+        "n5": ["n5.0"],
+    }
+
+
+def test_ls_glossary_entry_left_with_only_shorthand_keeps_its_id_and_citations(tmp_path: Path):
+    senses = shorthand_senses(tmp_path)
+
+    assert senses["n5"]["n5.0"]["glosses"] == []
+    assert senses["n5"]["n5.0"]["citations"][0]["author"] == "Prisc."
+    assert "n6" not in senses  # a bare glossary line is still not an entry
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "praes",
+        "gen. sing",
+        "v. inch. n",
+        "p. a. fin",
+        "part. perf",
+        "v. dep. a",
+        "perf. subj",
+        "fut",
+    ],
+)
+def test_ls_is_shorthand_recognises_the_dictionarys_own_abbreviations(text: str):
+    assert load_script().ls_is_shorthand(text)
+
+
+@pytest.mark.parametrize("text", ["", "a part", "gen. sing. of a name", "to say", "plural"])
+def test_ls_is_shorthand_rejects_text_with_a_meaning(text: str):
+    assert not load_script().ls_is_shorthand(text)
