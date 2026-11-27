@@ -55,6 +55,8 @@ type Service struct {
 	// dictionaryPin reports the loaded dictionary's pin for a language, or empty
 	// when none is loaded; see WithDictionaryPin.
 	dictionaryPin func(language string) string
+	// now is the clock planning reconciles reports by; see WithClock.
+	now func() time.Time
 }
 
 // WithDictionaryPin sets how planning learns the loaded dictionary's pin for a
@@ -62,6 +64,15 @@ type Service struct {
 // when the pin changes (#2775). Without it such a word is never retried.
 func (s *Service) WithDictionaryPin(pin func(language string) string) *Service {
 	s.dictionaryPin = pin
+	return s
+}
+
+// WithClock sets the clock planning reconciles Wrong-word reports by. It must
+// be the web app's clock: a report the planning job ends releases its word for
+// the start of the Study day after this time, as the page request would
+// (#2786). Without it the wall clock is used.
+func (s *Service) WithClock(now func() time.Time) *Service {
+	s.now = now
 	return s
 }
 
@@ -76,7 +87,7 @@ func (s *Service) currentDictionaryPin(language string) string {
 
 // NewService returns the preparation enqueuer over the store and River client.
 func NewService(store *persistence.PostgresStore, client riverClient) *Service {
-	return &Service{store: store, client: client}
+	return &Service{store: store, client: client, now: time.Now}
 }
 
 // PlanPreparationArgs identifies the learner and Study language whose
@@ -154,7 +165,7 @@ func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) e
 func (s *Service) PlanPreparation(ctx context.Context, owner, language string) error {
 	// A publication may have repaired a reported word's occurrence; a held word
 	// is never due, so Today alone would not notice.
-	if err := ReconcileReports(ctx, s.store, owner, language, time.Now()); err != nil {
+	if err := ReconcileReports(ctx, s.store, owner, language, s.now()); err != nil {
 		return err
 	}
 	candidates, err := s.store.ListStudyCandidates(ctx, owner, language)

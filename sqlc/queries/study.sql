@@ -23,7 +23,7 @@ WITH eligible AS MATERIALIZED (
      AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text
     JOIN vocabulary_browse_count_readiness r ON r.owner_id = cai.owner_id AND r.book_id = cai.book_id
      AND r.analysis_run_id = cai.analysis_run_id AND r.corpus_id = cai.corpus_id
-     AND r.language = sqlc.arg('language')::text AND r.builder_version = 4
+     AND r.language = sqlc.arg('language')::text AND r.builder_version = 5
     LEFT JOIN primary_goals g ON g.owner_id = cai.owner_id AND g.language = sqlc.arg('language')::text
    WHERE cai.owner_id = sqlc.arg('owner')
 )

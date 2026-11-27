@@ -28,6 +28,15 @@ func (s *studyHarness) reportedHaus(occurrences int) (bookID string, word domain
 	return bookID, word, s.material(word.MaterialID).SentenceOrdinal
 }
 
+// removeOccurrence deletes the token the material was prepared from, as if its
+// Book's analysis no longer held it.
+func (s *studyHarness) removeOccurrence(source domain.StudyMaterial) {
+	s.t.Helper()
+	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
+		s.owner.ID, source.AnalysisRunID, source.SentenceOrdinal, source.TokenOrdinal)
+	require.NoError(s.t, err)
+}
+
 func (s *studyHarness) reportOf(id string) domain.StudyReport {
 	s.t.Helper()
 	report, err := s.store.GetStudyReport(s.ctx, s.owner.ID, id)
@@ -137,10 +146,27 @@ func TestStudyOccurrenceThatDisappearsEndsTheReport(t *testing.T) {
 	id := s.openReports()[0].ID
 	source := s.material(word.MaterialID)
 
-	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
-		s.owner.ID, source.AnalysisRunID, source.SentenceOrdinal, source.TokenOrdinal)
-	require.NoError(t, err)
+	s.removeOccurrence(source)
 	s.page()
+	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
+}
+
+// The planning job reconciles reports too, and can end one before the page
+// request does: the word it releases is due at the start of the Study day after
+// the app's clock, not the wall clock's (#2786).
+func TestStudyReportEndedFirstByPlanningReleasesTheWordForTheNextStudyDay(t *testing.T) {
+	s := newStudyHarness(t)
+	_, word, _ := s.reportedHaus(3)
+	id := s.openReports()[0].ID
+	if domain.NextStudyDayStart(time.Now()).Equal(domain.NextStudyDayStart(s.clock.Now())) {
+		// The wall clock is in the harness's Study day; move the harness to
+		// another, so a plan by the wall clock is caught.
+		s.clock.Advance(24 * time.Hour)
+	}
+	source := s.material(word.MaterialID)
+
+	s.removeOccurrence(source)
+	require.NoError(t, s.planner.PlanPreparation(s.ctx, s.owner.ID, "de"))
 	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
 }
 
@@ -167,9 +193,7 @@ func TestStudyOccurrenceRemovedInANewRunEndsTheReportAsGoneNotAsAnUpdate(t *test
 	source := s.material(s.word("haus").MaterialID)
 	require.Equal(t, newRun, source.AnalysisRunID)
 
-	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
-		s.owner.ID, newRun, source.SentenceOrdinal, source.TokenOrdinal)
-	require.NoError(t, err)
+	s.removeOccurrence(source)
 	s.page()
 	s.requireReleased(id, word, domain.StudyReportEndOccurrenceGone)
 }
@@ -232,9 +256,7 @@ func TestStudyOccurrenceThatDisappearsEndsTheReportOfANewWordWithNoStudyProgress
 	s := newStudyHarness(t)
 	_, report, source := s.reportedNewHaus()
 
-	_, err := s.store.Pool().Exec(s.ctx, `DELETE FROM corpus_tokens WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=$3 AND token_ordinal=$4`,
-		s.owner.ID, source.AnalysisRunID, source.SentenceOrdinal, source.TokenOrdinal)
-	require.NoError(t, err)
+	s.removeOccurrence(source)
 	s.page()
 
 	ended := s.reportOf(report.ID)

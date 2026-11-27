@@ -7,6 +7,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
+	"github.com/justin-hayes/mouseion/internal/lexical"
 )
 
 // LexicalLookupRequest contains the lexical context needed to resolve one
@@ -356,6 +357,30 @@ var frenchContextStopWords = map[string]struct{}{
 	"ton": {}, "tu": {}, "un": {}, "une": {}, "vos": {}, "votre": {}, "vous": {}, "y": {},
 }
 
+// classicalContextStopWords are the Ancient Greek and Latin function words that
+// leave vocabulary eligibility (ADR 0140); they are no Lesk signal either.
+var classicalContextStopWords = map[string]map[string]struct{}{
+	"grc": lexicalFunctionWordSet("grc"),
+	"la":  lexicalFunctionWordSet("la"),
+}
+
+// greekGraveFunctionWords are the grave-accent surface forms of the listed
+// Greek function words, which running text uses before another word.
+var greekGraveFunctionWords = []string{"δὲ", "καὶ", "τὲ", "μὲν", "γὰρ", "δὴ", "ἀλλὰ", "ἢ", "μὴ", "οὐδὲ", "μηδὲ"}
+
+func lexicalFunctionWordSet(language string) map[string]struct{} {
+	set := map[string]struct{}{}
+	for _, lemma := range lexical.FunctionWordLemmas(language) {
+		set[lemma] = struct{}{}
+	}
+	if language == "grc" {
+		for _, form := range greekGraveFunctionWords {
+			set[form] = struct{}{}
+		}
+	}
+	return set
+}
+
 func isContextWord(language, word string) bool {
 	if word == "" {
 		return false
@@ -369,6 +394,13 @@ func isContextWord(language, word string) bool {
 		return !stop
 	case "fr":
 		_, stop := frenchContextStopWords[word]
+		return !stop
+	case "grc":
+		_, stop := classicalContextStopWords["grc"][word]
+		return !stop
+	case "la":
+		// Dictionary text and surfaces write v and j; the list is canonical.
+		_, stop := classicalContextStopWords["la"][canonicalization.Latin().Canonical(word)]
 		return !stop
 	default:
 		return true
