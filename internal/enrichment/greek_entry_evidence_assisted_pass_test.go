@@ -121,8 +121,8 @@ func TestGreekDeckPassContractIsUnchanged(t *testing.T) {
 // #2774 disposition is recorded for Greek alone, under the Greek entry contract,
 // and that the other records are unchanged.
 func TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly(t *testing.T) {
-	assertRecordedAssessment(t, "#2774", GreekEntryEvidenceAssistedPassPayload, "grc",
-		(*TranslationCodec).GreekEntryEvidenceAssistedPassPromptContract, GreekEntryEvidenceAssistedPassPayloadFields)
+	assertSupersededRecord(t, "#2774", GreekEntryEvidenceAssistedPassPayload, "grc", GreekEntryEvidenceAssistedPassPayloadFields,
+		"translation-v19-evidence-assisted-greek-entries", (*TranslationCodec).GreekEntryEvidenceAssistedPassPromptContract)
 
 	t.Run("the disposition serves the Study surface", func(t *testing.T) {
 		require.Equal(t, "approved for personal use of the locally produced Study surface", greekEntryEvidenceAssistedPassAssessment.Disposition)
@@ -169,8 +169,8 @@ func TestStudyEvidenceAssistedPassKindFollowsThePolicy(t *testing.T) {
 func TestGreekEntryPassProviderVersionNamesTheModelAndContract(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "gpt-test", ReasoningEffort: "low", SupportsReasoningEffort: true})
 	require.NoError(t, err)
-	assert.Equal(t, "gpt-test/translation-v19-evidence-assisted-greek-entries-reasoning-low", codec.GreekEntryEvidenceAssistedPassProviderVersion())
-	assert.Equal(t, "gpt-test/translation-v19-evidence-assisted-greek-entries", passCodecVersion(t))
+	assert.Equal(t, "gpt-test/"+greekCitationFormVersion+"-reasoning-low", codec.GreekEntryEvidenceAssistedPassProviderVersion())
+	assert.Equal(t, "gpt-test/"+greekCitationFormVersion, passCodecVersion(t))
 	var none *TranslationCodec
 	assert.Empty(t, none.GreekEntryEvidenceAssistedPassProviderVersion())
 }

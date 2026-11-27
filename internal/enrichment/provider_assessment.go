@@ -223,6 +223,10 @@ var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
 // from the codec, so the record is a real pin: changing the prompt contract or
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
+//
+// The codec's Latin pass contract has since moved to a citation-form version
+// (#2779), so this record no longer matches it: the gate refuses and Latin Study
+// and Prepared decks send nothing until the new contract is recorded (#2781).
 var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          LatinEvidenceAssistedPassPayload,
 	Language:      "la",
@@ -254,6 +258,10 @@ var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 // from the codec, so the record is a real pin: changing the prompt contract or
 // the payload without re-recording the disposition fails the gate and sends
 // nothing.
+//
+// The codec's Study pass contract has since moved to a citation-form version
+// (#2779), so this record no longer matches it: the gate refuses and Greek Study
+// sends nothing until the new contract is recorded (#2781).
 var greekEntryEvidenceAssistedPassAssessment = ProviderAssessment{
 	Kind:          GreekEntryEvidenceAssistedPassPayload,
 	Language:      "grc",

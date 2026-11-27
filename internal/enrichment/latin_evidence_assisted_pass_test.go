@@ -104,8 +104,8 @@ func TestLatinPassRejectsUnknownAndRepeatedHandles(t *testing.T) {
 // TestLatinEvidenceAssistedPassAssessmentIsRecordedForLatinOnly proves the #2766
 // disposition is recorded for Latin alone, under the Latin contract.
 func TestLatinEvidenceAssistedPassAssessmentIsRecordedForLatinOnly(t *testing.T) {
-	assertRecordedAssessment(t, "#2766", LatinEvidenceAssistedPassPayload, "la",
-		(*TranslationCodec).LatinEvidenceAssistedPassPromptContract, LatinEvidenceAssistedPassPayloadFields)
+	assertSupersededRecord(t, "#2766", LatinEvidenceAssistedPassPayload, "la", LatinEvidenceAssistedPassPayloadFields,
+		"translation-v18-evidence-assisted-latin", (*TranslationCodec).LatinEvidenceAssistedPassPromptContract)
 
 	t.Run("the disposition serves the deck and the Study surface", func(t *testing.T) {
 		require.Equal(t, "approved for personal use of the locally produced deck and Study surface", latinEvidenceAssistedPassAssessment.Disposition)

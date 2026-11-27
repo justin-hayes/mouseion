@@ -29,13 +29,18 @@ const (
 	// latinEvidenceAssistedPassPromptVersion pins the strict Classical Latin
 	// evidence-assisted pass contract: the representative sentence, its passage
 	// context and the pinned Lewis & Short senses, each handle naming its entry
-	// and sense, and the same resolved-or-abstained answer (ADR 0138 §1).
-	latinEvidenceAssistedPassPromptVersion = "translation-v18-evidence-assisted-latin"
+	// and sense, and the same resolved-or-abstained answer (ADR 0138 §1). v21
+	// adopts the modern contextual Gloss's citation-form rules and a tighter
+	// target alignment (#2779); it sends nothing until #2781 records it. v18 was
+	// the contract of the #2766 record.
+	latinEvidenceAssistedPassPromptVersion = "translation-v21-evidence-assisted-latin-citation-form"
 	// greekEntryEvidenceAssistedPassPromptVersion pins the strict Ancient Greek
 	// evidence-assisted pass contract of Study: the same answer as Greek's deck
 	// contract, over every LSJ homograph, each sense handle carrying the short
-	// handle of its entry (ADR 0139).
-	greekEntryEvidenceAssistedPassPromptVersion = "translation-v19-evidence-assisted-greek-entries"
+	// handle of its entry (ADR 0139). v20 adopts the modern contextual Gloss's
+	// citation-form rules and a tighter target alignment (#2779); it sends
+	// nothing until #2781 records it. v19 was the contract of the #2774 record.
+	greekEntryEvidenceAssistedPassPromptVersion = "translation-v20-evidence-assisted-greek-entries-citation-form"
 	// lsjSenseSummaryPromptVersion pins the strict Ancient Greek LSJ sense
 	// summary contract: the pinned LSJ entry alone (headword, sense IDs and
 	// English glosses), and a few short lines each citing sense IDs that exist
