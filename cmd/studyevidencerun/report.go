@@ -312,15 +312,23 @@ func entryLabel(entry sourceevidence.Entry) string {
 	if headword != "" {
 		parts = append(parts, headword)
 	}
-	text := ""
+	// The label is the entry's first three definitions of more than a word:
+	// the first sense of a Lewis & Short entry is often a grammatical fragment.
+	var picked []string
 	for _, sense := range entry.Senses {
-		if len(sense.Definitions) > 0 {
-			text = strings.Join(sense.Definitions, "; ")
-			break
+		for _, candidate := range append(append([]string{}, sense.Definitions...), sense.Glosses...) {
+			if len(strings.Fields(candidate)) > 1 && len(picked) < 3 && !slicesContains(picked, candidate) {
+				picked = append(picked, candidate)
+			}
 		}
-		if len(sense.Glosses) > 0 {
-			text = strings.Join(sense.Glosses, "; ")
-			break
+	}
+	text := strings.Join(picked, " | ")
+	if text == "" {
+		for _, sense := range entry.Senses {
+			if len(sense.Definitions) > 0 {
+				text = sense.Definitions[0]
+				break
+			}
 		}
 	}
 	if text == "" && len(entry.Targets) > 0 {
@@ -330,11 +338,15 @@ func entryLabel(entry sourceevidence.Entry) string {
 		text = "no citable sense"
 	}
 	runes := []rune(text)
-	if len(runes) > 70 {
-		text = string(runes[:70]) + "…"
+	if len(runes) > 110 {
+		text = string(runes[:110]) + "…"
 	}
 	parts = append(parts, text)
-	return strings.Join(parts, ": ")
+	noun := "senses"
+	if len(entry.Senses) == 1 {
+		noun = "sense"
+	}
+	return fmt.Sprintf("%s (%d %s)", strings.Join(parts, ": "), len(entry.Senses), noun)
 }
 
 // homographSection names every entry of each homograph word and the entry its
