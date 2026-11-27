@@ -12,8 +12,6 @@ WITH removed_event AS (
     DELETE FROM public.study_progress p
      USING removed_event e
      WHERE p.owner_id = e.owner_id AND p.id = e.progress_id
-    RETURNING p.id
 )
 DELETE FROM public.study_material
- WHERE omission_reason = 'known_vocabulary_backfill'
-   AND (SELECT count(*) FROM removed_progress) >= 0;
+ WHERE omission_reason = 'known_vocabulary_backfill';

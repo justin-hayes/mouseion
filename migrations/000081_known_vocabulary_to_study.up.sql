@@ -14,7 +14,7 @@
 -- grade, so study_review_log is not written.
 --
 -- First due dates. Per owner and language the identities are ordered by
--- (lemma, UPOS, discriminator) and the i-th of n is due i/n * 42 days after the
+-- (lemma, UPOS, discriminator) and the i-th of n is due (i-1)/n * 42 days after the
 -- backfill time (the transaction's now()), so first reviews are spread evenly
 -- and deterministically, with no random draw. last_review is due minus the 21
 -- day interval, so the scheduling state stays consistent.
@@ -39,8 +39,26 @@
 -- imported row, which cannot name a word) is not a Study word, and so is a row
 -- whose identity already has Study progress: existing progress is never touched.
 --
--- Ownership: the learner owns every row, keyed by owner_id; the statement never
--- crosses owners. Idempotent: the progress-existence guard makes a second run
+-- Ownership: Justin (the operator) runs it with the release and watches the
+-- server's migration log; it applies at startup, in the release's one
+-- migration pass. Rows are keyed by owner_id and never cross owners. Expected
+-- impact: one INSERT per Known identity (three tables), a short write lock on
+-- the study tables, no lock on Known vocabulary (read only). Check afterwards:
+-- count(*) of study_already_known_event WHERE source = 'backfill' equals the
+-- Known identities that had no progress.
+--
+-- Runtime consequences. Every migrated word that has a context is Reintroducing
+-- at once, so the next Study preparation run queues one material job per word
+-- (work that is spread over 42 days of reviews is done early). A withdrawn word
+-- (no context) is re-checked on each Study page and returns by itself when the
+-- Corpus gains a context: the placeholder has no source occurrence, so the
+-- occurrence lookup falls back to a concordance search and the word is
+-- re-introduced. A language with many withdrawn words makes that check slower.
+-- Words due within 21 days of the backfill show the 'corrected' label after
+-- re-introduction; later ones do not (last_review is after the backfill for
+-- them, and is only used to make the interval consistent).
+--
+-- Idempotent and safe to retry, as below. Idempotent: the progress-existence guard makes a second run
 -- select nothing, so it inserts and changes nothing. Retry-safe: it is one
 -- statement in one transaction, so a failed run leaves no partial rows, and
 -- re-running recovers. Recovery from a bad run: delete the rows with source
@@ -52,7 +70,7 @@ WITH backfill AS (
     SELECT now() AS at,
            ((now() AT TIME ZONE 'Europe/Berlin') - interval '5 hours')::date AS study_day
 ), todo AS (
-    SELECT k.owner_id, k.language, k.canonical_lemma, k.upos, k.lexical_discriminator,
+    SELECT k.owner_id, k.language, k.canonical_lemma, k.upos, k.lexical_discriminator, k.headword,
            (row_number() OVER w - 1)::double precision / count(*) OVER (PARTITION BY k.owner_id, k.language) AS fraction,
            EXISTS (
                SELECT 1
@@ -84,7 +102,7 @@ WITH backfill AS (
                                        introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses,
                                        remaining_steps, last_review, withdrawn_at)
     SELECT t.owner_id, 'word', t.language, t.canonical_lemma, t.upos, t.lexical_discriminator, m.id,
-           b.at, t.canonical_lemma, 'review',
+           b.at, COALESCE(NULLIF(t.headword, ''), t.canonical_lemma), 'review',
            b.at + t.fraction * interval '42 days', 21, 5, 21, 1, 0,
            0, b.at + t.fraction * interval '42 days' - interval '21 days',
            CASE WHEN t.has_context THEN NULL ELSE b.at END
