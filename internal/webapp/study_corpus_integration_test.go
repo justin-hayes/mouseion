@@ -66,6 +66,7 @@ func TestRemovingABookKeepsStudyProgressAndMaterial(t *testing.T) {
 	page := getAs(t, s.h, "/de/study", s.cookies).Body.String()
 	assert.Contains(t, page, "Show answer")
 	card := s.currentCard()
+	assert.Contains(t, []string{"haus", "buch"}, card.CanonicalLemma, "the card is a word of the removed Book")
 	graded := s.post("/study/grades", url.Values{"language": {"de"}, "progress": {card.ID}, "reps": {strconv.FormatInt(card.Memory.Reps, 10)}, "grade": {"got-it"}})
 	require.Equal(t, http.StatusSeeOther, graded.Code)
 	assert.Len(t, s.reviewLog(card.ID), 1, "a word of the removed Book is still reviewed")

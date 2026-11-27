@@ -597,6 +597,7 @@ eligible AS MATERIALIZED (
     FROM current_analysis_identity ca
     JOIN books b ON b.owner_id = ca.owner_id AND b.id = ca.book_id
       AND b.language_state = 'chosen' AND b.language_tag = $2::text
+    JOIN book_membership bm ON bm.owner_id = ca.owner_id AND bm.book_id = ca.book_id AND bm.state = 'active'
     JOIN construction_run_markers m ON m.owner_id = ca.owner_id
       AND m.analysis_run_id = ca.analysis_run_id AND m.corpus_id = ca.corpus_id
       AND m.detector_version = $8::integer
