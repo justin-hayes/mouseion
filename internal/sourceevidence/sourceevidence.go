@@ -11,6 +11,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -95,17 +96,17 @@ type Resolution struct {
 // entry senses to flag. It resolves nothing for a policy with no dictionary, a
 // provider without the capability, or a lemma with no usable entry.
 func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	return resolve(ctx, lexical, policy, policy.DictionaryLookup, lemma, cited)
+	return resolve(ctx, lexical, policy, policy.DictionaryLookup, false, lemma, cited)
 }
 
 // ResolveStudy is Resolve under the policy's Study lookup rule (ADR 0139): Greek
 // Study takes every competing LSJ entry in source order where the deck takes
 // exactly one.
 func ResolveStudy(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	return resolve(ctx, lexical, policy, policy.StudyLookup, lemma, cited)
+	return resolve(ctx, lexical, policy, policy.StudyLookup, true, lemma, cited)
 }
 
-func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, rule cardpolicy.Lookup, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, rule cardpolicy.Lookup, study bool, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	if lexical == nil {
 		return Resolution{}, false
 	}
@@ -116,7 +117,7 @@ func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy car
 		}
 		return resolveLSJ(ctx, lexical, lemma, cited)
 	case cardpolicy.EntryLewisShort:
-		return resolveLewisShort(ctx, lexical, lemma, cited)
+		return resolveLewisShort(ctx, lexical, study, lemma, cited)
 	case cardpolicy.EntryNone:
 	}
 	return Resolution{}, false
@@ -175,7 +176,9 @@ func BuildLSJ(matched enrichment.AncientGreekLSJEntry, cited map[SenseRef]struct
 	return Entry{ID: matched.EntryID, LSJ: matched, Senses: senses, Outline: outlineOf(matched.EntryID, senses, cited)}
 }
 
-func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
+// resolveLewisShort stacks the lemma's Lewis & Short entries. Study narrows them
+// first (competingLewisShort); the Prepared deck keeps every entry under the key.
+func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, study bool, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	provider, ok := lexical.(enrichment.LatinLSProvider)
 	if !ok {
 		return Resolution{}, false
@@ -185,12 +188,16 @@ func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, 
 		return Resolution{}, false
 	}
 	var kept []enrichment.LatinLSEntry
-	targets := map[string]enrichment.LatinLSEntry{}
 	for _, candidate := range found {
-		if candidate.Empty() {
-			continue
+		if !candidate.Empty() {
+			kept = append(kept, candidate)
 		}
-		kept = append(kept, candidate)
+	}
+	if study {
+		kept = competingLewisShort(kept, lemma)
+	}
+	targets := map[string]enrichment.LatinLSEntry{}
+	for _, candidate := range kept {
 		maps.Copy(targets, resolveTargets(ctx, provider, candidate))
 	}
 	if len(kept) == 0 {
@@ -202,6 +209,54 @@ func resolveLewisShort(ctx context.Context, lexical enrichment.LexicalProvider, 
 		ids = append(ids, candidate.EntryID)
 	}
 	return Resolution{Entries: entries, EntryID: strings.Join(ids, EntryIDSeparator), Pin: kept[0].Pin}, true
+}
+
+// competingLewisShort narrows a lemma's Lewis & Short entries for Study. The
+// latin key ignores case, so a lowercase lemma also finds capitalised
+// proper-name entries: those compete only when no entry has the lemma's own case
+// (the common adjective Romanus, filed under its capitalised headword). Then an
+// entry with no citable sense, such as a participle's cross-reference stub, never
+// displaces an entry that has one; when every entry is senseless they all stay,
+// so the card can show the targets they resolve to.
+func competingLewisShort(entries []enrichment.LatinLSEntry, lemma string) []enrichment.LatinLSEntry {
+	capitalised := startsCapitalised(lemma)
+	var sameCase, otherCase []enrichment.LatinLSEntry
+	for _, entry := range entries {
+		if startsCapitalised(entry.Headword) == capitalised {
+			sameCase = append(sameCase, entry)
+		} else {
+			otherCase = append(otherCase, entry)
+		}
+	}
+	if len(sameCase) == 0 {
+		sameCase = otherCase
+	}
+	citable := make([]enrichment.LatinLSEntry, 0, len(sameCase))
+	for _, entry := range sameCase {
+		if hasCitableSense(entry) {
+			citable = append(citable, entry)
+		}
+	}
+	if len(citable) == 0 {
+		return sameCase
+	}
+	return citable
+}
+
+// hasCitableSense reports whether the entry has a sense a Gloss could cite: one
+// with an ID and text to send.
+func hasCitableSense(entry enrichment.LatinLSEntry) bool {
+	return len(latinEntryPassSenses(Entry{ID: entry.EntryID, Senses: lewisShortSenses(entry.Senses)})) > 0
+}
+
+// startsCapitalised reports whether a word's first letter is uppercase.
+func startsCapitalised(word string) bool {
+	for _, r := range word {
+		if unicode.IsLetter(r) {
+			return unicode.IsUpper(r)
+		}
+	}
+	return false
 }
 
 // BuildLewisShort stacks entries in the order given, each with its L&S number

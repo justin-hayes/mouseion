@@ -314,3 +314,85 @@ func TestResolveStudyDropsEmptyEntriesAndFindsNothingWhenNoneIsLeft(t *testing.T
 	_, found = ResolveStudy(t.Context(), lex, cardpolicy.For("grc"), "λέγω", nil)
 	assert.False(t, found)
 }
+
+func latinSense(id, definition string) enrichment.LatinLSSense {
+	return enrichment.LatinLSSense{ID: id, Number: "I", Level: 1, Definitions: []string{definition}}
+}
+
+func TestLatinStudyTakesTheCapitalisedEntryWhenItIsTheLemmasOnlyEntry(t *testing.T) {
+	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"romanus": {
+		{EntryID: "n7", Headword: "Romanus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n7.0", "Roman")}},
+	}}}
+
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "romanus", nil)
+
+	require.True(t, ok)
+	assert.Equal(t, "n7", resolution.EntryID)
+}
+
+func TestLatinStudyKeepsProperNameEntriesAwayFromALowercaseLemmaWithItsOwnEntry(t *testing.T) {
+	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"marcus": {
+		{EntryID: "n1", Headword: "Marcus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n1.0", "a praenomen")}},
+		{EntryID: "n2", Headword: "marcus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n2.0", "a hammer")}},
+	}, "Marcus": {
+		{EntryID: "n1", Headword: "Marcus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n1.0", "a praenomen")}},
+		{EntryID: "n2", Headword: "marcus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n2.0", "a hammer")}},
+	}}}
+
+	lower, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "marcus", nil)
+	require.True(t, ok)
+	assert.Equal(t, "n2", lower.EntryID)
+
+	upper, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "Marcus", nil)
+	require.True(t, ok)
+	assert.Equal(t, "n1", upper.EntryID)
+
+	deck, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "marcus", nil)
+	require.True(t, ok)
+	assert.Equal(t, "n1,n2", deck.EntryID, "the Prepared deck lookup is unchanged")
+}
+
+func legatusEntries() []enrichment.LatinLSEntry {
+	return []enrichment.LatinLSEntry{
+		{EntryID: "n1", Headword: "legatus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{
+			{ID: "n1", Level: 0, CrossRefs: []enrichment.LatinLSCrossRef{{Text: "lego", EntryID: "n3", Headword: "lego"}}},
+		}},
+		{EntryID: "n2", Headword: "legatus", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n2.0", "an ambassador, envoy")}},
+		{EntryID: "n3", Headword: "lego", Pin: "ls-pin", Senses: []enrichment.LatinLSSense{latinSense("n3.0", "to depute")}},
+	}
+}
+
+func TestLatinStudyNeverLetsASenselessEntryDisplaceAnEntryWithSenses(t *testing.T) {
+	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"legatus": legatusEntries()[:2], "lego": legatusEntries()[2:]}}
+
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "legatus", nil)
+
+	require.True(t, ok)
+	assert.Equal(t, "n2", resolution.EntryID)
+	require.Len(t, resolution.Entries, 1)
+	assert.Zero(t, resolution.Entries[0].Number)
+	assert.Equal(t, []string{enrichment.EntryEvidenceID("n2", "n2.0")}, evidenceIDs(PassSenses(cardpolicy.For("la"), resolution.Entries)))
+
+	deck, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "legatus", nil)
+	require.True(t, ok)
+	assert.Equal(t, "n1,n2", deck.EntryID, "the Prepared deck lookup is unchanged")
+}
+
+func TestLatinStudyKeepsEverySenselessEntryForItsTargetsWhenNoEntryHasSenses(t *testing.T) {
+	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"legatus": legatusEntries()[:1], "lego": legatusEntries()[2:]}}
+
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "legatus", nil)
+
+	require.True(t, ok)
+	require.Len(t, resolution.Entries, 1)
+	require.Len(t, resolution.Entries[0].Targets, 1)
+	assert.Equal(t, "lego", resolution.Entries[0].Targets[0].Reference)
+}
+
+func evidenceIDs(senses []enrichment.LexicalSense) []string {
+	ids := make([]string, 0, len(senses))
+	for _, sense := range senses {
+		ids = append(ids, sense.EvidenceID)
+	}
+	return ids
+}

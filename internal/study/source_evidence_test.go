@@ -300,6 +300,31 @@ func TestLatinStudySendsEntryCarryingSensesAndResolvesACitationToOneEntry(t *tes
 	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"n10.0"}, EntryIDs: []string{"n10"}, DictionaryPin: "ls-pin-1"}, f.store.ready.Cited)
 }
 
+func TestLatinStudyOffersTheNounsSensesWhenASenselessParticipleEntryComesFirst(t *testing.T) {
+	f := latinFixture(t, enrichment.EntryEvidenceID("n2", "n2.0"))
+	f.store.material.CanonicalLemma = "legatus"
+	f.worker.Evidence.Lexical = &latinLexicon{entries: []enrichment.LatinLSEntry{
+		{EntryID: "n1", Headword: "legatus", Pin: "ls-pin-1", Senses: []enrichment.LatinLSSense{{ID: "n1", Level: 0}}},
+		{EntryID: "n2", Headword: "legatus", Pin: "ls-pin-1", Senses: []enrichment.LatinLSSense{{ID: "n2.0", Level: 1, Definitions: []string{"an envoy"}}}},
+	}}
+	require.NoError(t, work(f.worker))
+	require.Len(t, f.enricher.passRequests, 1)
+	assert.Equal(t, []string{enrichment.EntryEvidenceID("n2", "n2.0")}, evidenceIDsOf(f.enricher.passRequests[0].CandidateSenses))
+	require.NotNil(t, f.store.ready)
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"n2.0"}, EntryIDs: []string{"n2"}, DictionaryPin: "ls-pin-1"}, f.store.ready.Cited)
+}
+
+func TestLatinStudyReadiesALowercaseAdjectiveWhoseOnlyEntryIsCapitalised(t *testing.T) {
+	f := latinFixture(t, enrichment.EntryEvidenceID("n7", "n7.0"))
+	f.store.material.CanonicalLemma = "romanus"
+	f.worker.Evidence.Lexical = &latinLexicon{entries: []enrichment.LatinLSEntry{
+		{EntryID: "n7", Headword: "Romanus", Pin: "ls-pin-1", Senses: []enrichment.LatinLSSense{{ID: "n7.0", Level: 1, Definitions: []string{"Roman"}}}},
+	}}
+	require.NoError(t, work(f.worker))
+	require.NotNil(t, f.store.ready)
+	assert.Equal(t, []string{"n7"}, f.store.ready.Cited.EntryIDs)
+}
+
 func TestLatinStudyOmitsACitationOfASenseTheNamedEntryDoesNotHold(t *testing.T) {
 	f := latinFixture(t, enrichment.EntryEvidenceID("n9", "n10.0"))
 	require.NoError(t, work(f.worker))
