@@ -25,6 +25,10 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 	if err != nil {
 		return err
 	}
+	// An Idiom waiting for new material that cannot be prepared keeps its last.
+	if progress, err = h.keepIdiomsReviewable(ctx, owner, language, progress); err != nil {
+		return err
+	}
 	// Withdrawn words return as soon as their evidence does.
 	checked, changed, err := h.reviewWithdrawnWords(ctx, owner, progress, now)
 	if err != nil {
@@ -47,6 +51,27 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 			return err
 		}
 	}
+}
+
+// keepIdiomsReviewable returns each Idiom that waits for new material to its
+// last one while the language's idiom switch is off, and reads the progress
+// again when one changed.
+func (h *Handler) keepIdiomsReviewable(ctx context.Context, owner, language string, progress []domain.StudyProgress) ([]domain.StudyProgress, error) {
+	if h.services.Study == nil {
+		return progress, nil
+	}
+	changed := false
+	for _, word := range progress {
+		kept, err := h.services.Study.KeepIdiomReviewable(ctx, owner, word)
+		if err != nil {
+			return nil, err
+		}
+		changed = changed || kept
+	}
+	if !changed {
+		return progress, nil
+	}
+	return h.services.Store.Study.ListStudyProgress(ctx, owner, language)
 }
 
 // reviewWithdrawnWords checks every withdrawn word against current evidence. It

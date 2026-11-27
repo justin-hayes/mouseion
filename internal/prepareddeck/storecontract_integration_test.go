@@ -447,7 +447,7 @@ func (h *postgresHarness) RecordStudyBatchOffer(owner, language, studyDay string
 	return h.store.RecordStudyBatchOffer(h.ctx, owner, language, studyDay, offered)
 }
 
-func (h *postgresHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func (h *postgresHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	return h.store.TakeStudyBatch(h.ctx, owner, language, studyDay, now, batchLimit, words)
 }
 

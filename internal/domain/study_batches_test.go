@@ -156,9 +156,9 @@ func TestNextStudyBatchLeadsWithTheCarryOverAndFillsFromTheStream(t *testing.T) 
 }
 
 func TestStudyBatchIsShortOnlyWhileWordsArePreparing(t *testing.T) {
-	assert.True(t, StudyBatchIsShort(make([]StudyBatchWord, 4), 2))
-	assert.False(t, StudyBatchIsShort(make([]StudyBatchWord, 4), 0), "a short batch with nothing more coming is not explained")
-	assert.False(t, StudyBatchIsShort(make([]StudyBatchWord, StudyBatchSize), 5))
+	assert.True(t, StudyBatchIsShort(make([]StudyBatchItem, 4), 2))
+	assert.False(t, StudyBatchIsShort(make([]StudyBatchItem, 4), 0), "a short batch with nothing more coming is not explained")
+	assert.False(t, StudyBatchIsShort(make([]StudyBatchItem, StudyBatchSize), 5))
 }
 
 func batchStream(n int) (ordered []StudyCandidate, material []StudyMaterial) {

@@ -132,7 +132,7 @@ func studyCorrectionsScenarios() []Scenario {
 
 			first := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: weg, MaterialID: first}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchItem{{StudyItem: weg, MaterialID: first}})
 			require.NoError(t, err)
 			kept := domain.StudyMemory{State: domain.StudyStateReview, Due: now.Add(72 * time.Hour), Stability: 4.2, Difficulty: 5.1, ScheduledDays: 3, Reps: 2, Lapses: 1, LastReview: now}
 			listed, err := progressStore.ListStudyProgress(owner, Language)
@@ -217,7 +217,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NotEmpty(t, occurrences)
 			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: weg, MaterialID: id}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchItem{{StudyItem: weg, MaterialID: id}})
 			require.NoError(t, err)
 			listed, err := progressStore.ListStudyProgress(owner, Language)
 			require.NoError(t, err)
@@ -248,7 +248,7 @@ func studyCorrectionsScenarios() []Scenario {
 			require.NotEmpty(t, occurrences)
 			id := studyCorrectionMaterial(t, material, owner, weg, occurrences[0])
 			now := time.Date(2026, 11, 25, 8, 0, 0, 0, time.UTC)
-			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchWord{{StudyItem: weg, MaterialID: id}})
+			_, err = progressStore.TakeStudyBatch(owner, Language, "2026-11-25", now, 1, []domain.StudyBatchItem{{StudyItem: weg, MaterialID: id}})
 			require.NoError(t, err)
 
 			require.NoError(t, corrections.SupersedeStudyMaterial(owner, id))

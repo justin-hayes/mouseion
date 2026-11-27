@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -27,8 +28,11 @@ type StudyStore interface { //nolint:interfacebloat // the Study page's store is
 	// TakeStudyBatch introduces the words of one batch, and DeclineStudyBatch
 	// introduces none. Either returns domain.ErrStudyBatchLimit when the day's
 	// batches are all answered.
-	TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error)
+	TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error)
 	DeclineStudyBatch(ctx context.Context, owner, language, studyDay string, batchLimit int) error
+	// ListCorpusSentences reads sentences with their tokens, which an Idiom
+	// card's matched words are taken from.
+	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 	StudyGradeStore
 	StudyFluencyStore
 	StudyReportStore
@@ -156,4 +160,7 @@ type Study interface {
 	// what that requires; it reports whether the Idiom's progress or material
 	// changed (ADR 0137 §5).
 	ReviewIdiom(ctx context.Context, owner string, word domain.StudyProgress, now time.Time) (bool, error)
+	// KeepIdiomReviewable returns an Idiom waiting for new material to its last
+	// material while the language's idiom switch is off, so it is still reviewed.
+	KeepIdiomReviewable(ctx context.Context, owner string, word domain.StudyProgress) (bool, error)
 }

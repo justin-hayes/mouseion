@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -340,6 +341,11 @@ func (s Study) IdiomCandidates(context.Context, string, string) ([]domain.StudyC
 	return nil, nil
 }
 
+// KeepIdiomReviewable changes nothing: the fixture server has no Idioms in study.
+func (s Study) KeepIdiomReviewable(context.Context, string, domain.StudyProgress) (bool, error) {
+	return false, nil
+}
+
 // ReviewIdiom changes nothing: the fixture server has no Idioms in study.
 func (s Study) ReviewIdiom(context.Context, string, domain.StudyProgress, time.Time) (bool, error) {
 	return false, nil
@@ -371,4 +377,10 @@ func (s *Store) fixtureStudyContent(owner string, identity domain.StudyItem) dom
 		SentenceTranslation:        "Here " + identity.CanonicalLemma + " stands in the sentence.",
 		SentenceTranslationTargets: []string{identity.CanonicalLemma},
 	}
+}
+
+// ListCorpusSentences reads no sentence: the fixture server has no Idiom card
+// whose matched words need its tokens.
+func (s *Store) ListCorpusSentences(context.Context, string, string, []int64) (map[int64]analyzer.Sentence, error) {
+	return map[int64]analyzer.Sentence{}, nil
 }

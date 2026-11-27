@@ -144,7 +144,7 @@ func studyReportScenarios() []Scenario {
 			require.NoError(t, err)
 			assert.Equal(t, report.Source, material.Source(), "the material the report names survives")
 
-			stale, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchWord{{StudyItem: word.StudyItem, MaterialID: word.MaterialID}})
+			stale, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchItem{{StudyItem: word.StudyItem, MaterialID: word.MaterialID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a batch taken after the report cannot introduce the held word")
 			assert.Empty(t, stale)
 
@@ -572,7 +572,7 @@ func undoRefusedAfterActionScenario(t *testing.T, h Harness) {
 
 	taken := readyStudyWord(t, h.Study(), owner, studyNoun("baum"))
 	refused("a batch taken", gradedStudyWord(t, h, owner, studyNoun("haus")), func() {
-		_, err := progress.TakeStudyBatch(owner, Language, "2026-11-26", later, 3, []domain.StudyBatchWord{{StudyItem: studyNoun("baum"), MaterialID: taken}})
+		_, err := progress.TakeStudyBatch(owner, Language, "2026-11-26", later, 3, []domain.StudyBatchItem{{StudyItem: studyNoun("baum"), MaterialID: taken}})
 		require.NoError(t, err)
 	})
 	refused("a batch declined", gradedStudyWord(t, h, owner, studyNoun("hund")), func() {
@@ -729,7 +729,7 @@ func citedLearnedMeaningScenario(t *testing.T, h Harness) {
 	assert.Equal(t, "lsj-1", stored.Cited.DictionaryPin)
 	assert.Equal(t, domain.StudyPassage{Text: "He went home.", Citation: "1.2", TranslationPin: "sha256:abc"}, stored.Passage)
 
-	introduced, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchWord{{StudyItem: identity, MaterialID: pending}})
+	introduced, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchItem{{StudyItem: identity, MaterialID: pending}})
 	require.NoError(t, err)
 	require.Len(t, introduced, 1)
 	word := introduced[0]

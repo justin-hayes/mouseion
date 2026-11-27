@@ -12,6 +12,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -29,6 +30,9 @@ type studyPageView struct {
 	// each with its pin and licence (ADR 0138 §3).
 	SourceNotices []string
 	Counts        domain.StudyMaterialCounts
+	// IdiomCounts is the part of Counts that is Idioms, so the page can count
+	// words and Idioms each by name.
+	IdiomCounts domain.StudyMaterialCounts
 	// Card is the word to show now, if one is due.
 	Card *studyCardView
 	// Offer is how many words the day's New-word batch holds; zero means no
@@ -36,12 +40,16 @@ type studyPageView struct {
 	// than a full batch because more are still being prepared.
 	Offer      int
 	ShortBatch bool
+	// OfferIdioms is how many of the Offer are Idioms.
+	OfferIdioms int
 	// OfferNumber is the ordinal of the batch on offer among the day's
 	// batches. Declining presents it back, so a stale tap on a batch that is no
 	// longer the one offered is ignored.
 	OfferNumber int
 	// Repeating is how many words are in learning and come back later today.
 	Repeating int
+	// RepeatingIdioms is how many of the Repeating are Idioms.
+	RepeatingIdioms int
 	// Remaining is how many of Today's due reviews are still unanswered, the
 	// same-day repeats included. Finished is true once none is left, and stays
 	// true until the next Study day.
@@ -132,6 +140,10 @@ type studyCardView struct {
 	// Idiom marks the card of an Idiom, whose Report offers Unsuitable context
 	// only.
 	Idiom bool
+	// NoReport withholds the Report control. An Idiom's Report replaces its
+	// material, which cannot be prepared while the language's idiom switch is
+	// off, so it is not offered then.
+	NoReport bool
 }
 
 // study serves /{language}/study. Opening it asks for Study material to be
@@ -260,14 +272,27 @@ func (h *Handler) studyHeldCount(ctx context.Context, owner, language string) (i
 
 // studyRepeatingCount is how many words are still in learning or relearning
 // once no card is due: they come back later today.
-func studyRepeatingCount(progress []domain.StudyProgress) int {
-	repeating := 0
+func studyRepeatingCount(progress []domain.StudyProgress) (repeating, idioms int) {
 	for _, item := range progress {
 		if !item.Withdrawn && !item.Held && (item.Memory.State == domain.StudyStateLearning || item.Memory.State == domain.StudyStateRelearning) {
 			repeating++
+			if item.IsIdiom() {
+				idioms++
+			}
 		}
 	}
-	return repeating
+	return repeating, idioms
+}
+
+// studyIdiomsOf counts the Idioms among a batch.
+func studyIdiomsOf(batch []domain.StudyBatchItem) int {
+	idioms := 0
+	for _, item := range batch {
+		if item.IsIdiom() {
+			idioms++
+		}
+	}
+	return idioms
 }
 
 func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
@@ -276,14 +301,14 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	if err != nil {
 		return err
 	}
-	if counts, err = h.withoutUnofferedIdioms(r, owner, view.Language, counts); err != nil {
-		return err
-	}
-	view.Counts = counts
 	progress, err := store.ListStudyProgress(ctx, owner, view.Language)
 	if err != nil {
 		return err
 	}
+	if counts, view.IdiomCounts, err = h.idiomMaterialCounts(r, owner, view.Language, counts, progress); err != nil {
+		return err
+	}
+	view.Counts = counts
 	today := domain.StudyFinishLine(progress, now)
 	view.Remaining, view.Finished = today.Remaining, today.Finished
 	if view.Held, err = h.studyHeldCount(ctx, owner, view.Language); err != nil {
@@ -300,12 +325,13 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	switch {
 	case err == nil:
 		view.Card = newStudyCardView(view.Language, card, r.URL.Query().Get("answer") == "1")
+		view.Card.NoReport = card.Progress.IsIdiom() && (h.services.Study == nil || !h.services.Study.IdiomsActive(view.Language))
 		attachSourceEvidence(ctx, h.services.Dictionary, view.Language, card, view.Card)
-		return nil
+		return h.markIdiomCard(ctx, owner, card, view.Card)
 	case !errors.Is(err, domain.ErrNotFound):
 		return err
 	}
-	view.Repeating = studyRepeatingCount(progress)
+	view.Repeating, view.RepeatingIdioms = studyRepeatingCount(progress)
 	if !today.Finished {
 		// New words come only after the due reviews are answered.
 		return nil
@@ -314,7 +340,7 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 	if err != nil {
 		return err
 	}
-	view.Offer = len(offer.Batch)
+	view.Offer, view.OfferIdioms = len(offer.Batch), studyIdiomsOf(offer.Batch)
 	if view.Offer > 0 {
 		view.ShortBatch = domain.StudyBatchIsShort(offer.Batch, counts.Preparing)
 		view.OfferNumber = offer.Ledger.OfferNumber()
@@ -379,6 +405,38 @@ func (h *Handler) fluencyRecall(progress []domain.StudyProgress, now time.Time) 
 	return recall
 }
 
+// markIdiomCard marks an Idiom card's matched words from the positions its
+// material stored: the surface of each matched token of the sentence. An Idiom
+// whose sentence can no longer be read keeps the marking taken from its target
+// word.
+func (h *Handler) markIdiomCard(ctx context.Context, owner string, card domain.StudyCard, view *studyCardView) error {
+	if !card.Progress.IsIdiom() || len(card.Material.MatchedTokenOrdinals) == 0 {
+		return nil
+	}
+	material := card.Material
+	sentences, err := h.services.Store.Study.ListCorpusSentences(ctx, owner, material.CorpusID, []int64{material.SentenceOrdinal})
+	if err != nil {
+		return err
+	}
+	forms := matchedSurfaces(sentences[material.SentenceOrdinal].Tokens, material.MatchedTokenOrdinals)
+	if len(forms) > 0 {
+		view.markIdiom(material.Sentence, forms, material.SentenceTranslation, material.SentenceTranslationTargets)
+	}
+	return nil
+}
+
+// matchedSurfaces are the surfaces of the tokens at the matched ordinals, in
+// sentence order.
+func matchedSurfaces(tokens []analyzer.Token, ordinals []int) []string {
+	forms := make([]string, 0, len(ordinals))
+	for _, ordinal := range ordinals {
+		if ordinal >= 0 && ordinal < len(tokens) {
+			forms = append(forms, tokens[ordinal].Surface)
+		}
+	}
+	return forms
+}
+
 func newFluencyCardView(language string, card domain.FluencyCard, showAnswer bool) *fluencyCardView {
 	face := newCardFace(language, card.Progress, card.Context.Sentence, card.Context.TargetWord, card.Context.SentenceTranslation, showAnswer)
 	if card.Progress.IsIdiom() {
@@ -396,7 +454,7 @@ func newFluencyCardView(language string, card domain.FluencyCard, showAnswer boo
 type studyBatchOffer struct {
 	// Open is true when a batch may be offered, whether or not a word is ready.
 	Open   bool
-	Batch  []domain.StudyBatchWord
+	Batch  []domain.StudyBatchItem
 	Ledger domain.StudyBatchLedger
 	Limit  int
 }
@@ -421,7 +479,7 @@ func (h *Handler) studyBatchOffer(r *http.Request, owner, language string, progr
 // nextStudyBatch is the batch Today would offer now: the words carried over
 // from earlier Study days, then the first ready words in stream order that are
 // not in study and not held by a Wrong-word report.
-func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) ([]domain.StudyBatchWord, error) {
+func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progress []domain.StudyProgress, now time.Time) ([]domain.StudyBatchItem, error) {
 	store := h.services.Store.Study
 	material, err := store.ListCurrentStudyMaterial(r.Context(), owner, language)
 	if err != nil {
@@ -450,31 +508,48 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
 }
 
-// withoutUnofferedIdioms takes the Idioms out of the counts while the
-// language's idiom switch is off: none is prepared or offered then, so a pending
-// one must not hold the "still being prepared" note up.
-func (h *Handler) withoutUnofferedIdioms(r *http.Request, owner, language string, counts domain.StudyMaterialCounts) (domain.StudyMaterialCounts, error) {
-	if h.services.Study != nil && h.services.Study.IdiomsActive(language) {
-		return counts, nil
-	}
+// idiomMaterialCounts splits the Idioms out of the counts, so the page can
+// count each kind by name, and returns the counts to show. While the language's
+// idiom switch is off no Idiom is prepared or offered, so an Idiom that is not
+// in study is taken out of the counts: a pending one must not hold the "still
+// being prepared" note up. An Idiom already in study stays counted like a word
+// in study, since it keeps being reviewed.
+func (h *Handler) idiomMaterialCounts(r *http.Request, owner, language string, counts domain.StudyMaterialCounts, progress []domain.StudyProgress) (domain.StudyMaterialCounts, domain.StudyMaterialCounts, error) {
+	var idioms domain.StudyMaterialCounts
 	material, err := h.services.Store.Study.ListCurrentStudyMaterial(r.Context(), owner, language)
 	if err != nil {
-		return counts, err
+		return counts, idioms, err
+	}
+	active := h.services.Study != nil && h.services.Study.IdiomsActive(language)
+	inStudy := map[domain.StudyItem]bool{}
+	for _, item := range progress {
+		inStudy[item.StudyItem] = true
 	}
 	for _, item := range material {
 		if !item.IsIdiom() {
 			continue
 		}
+		if !active && !inStudy[item.StudyItem] {
+			switch item.State {
+			case domain.StudyMaterialReady:
+				counts.Ready--
+			case domain.StudyMaterialPending:
+				counts.Preparing--
+			case domain.StudyMaterialUnpreparable:
+				counts.Unpreparable--
+			}
+			continue
+		}
 		switch item.State {
 		case domain.StudyMaterialReady:
-			counts.Ready--
+			idioms.Ready++
 		case domain.StudyMaterialPending:
-			counts.Preparing--
+			idioms.Preparing++
 		case domain.StudyMaterialUnpreparable:
-			counts.Unpreparable--
+			idioms.Unpreparable++
 		}
 	}
-	return counts, nil
+	return counts, idioms, nil
 }
 
 // readyIdiomCandidates are the Idioms among the lookup that are still Study

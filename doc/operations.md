@@ -317,6 +317,46 @@ The web server applies the embedded golang-migrate migrations at startup.
 history is preserved at the `migrations/pre-baseline` Git tag. Schema changes
 follow [ADR 0038](adr/0038-schema-change-governance.md).
 
+### Idiom candidate count rebuild
+
+Migration `000077_idiom_candidate_counts` adds the per-Book Idiom candidate
+count tables empty. Filling them is a data backfill in the sense of
+[ADR 0038](adr/0038-schema-change-governance.md), and it is the server's own
+River job, not a command. Its operational contract:
+
+- **Owner.** The operator who deploys the release. The server schedules it at
+  every start (`EnqueueMissingIdiomCountRebuilds`) and River runs it on the
+  `idiom_counts` queue, so no one starts it by hand.
+- **When it runs.** Once after the release for every Book with a current
+  analysis, and again for a Book whenever its analysis publishes, a Lemma
+  correction or Occurrence exclusion changes it, or the idiom index (a
+  dictionary refresh, or a change to the reviewed idiom list) or the builder
+  version changes. A Book is rebuilt when its readiness row is missing or names
+  another analysis run, builder version or index version.
+- **Idempotent and safe to retry.** A job replaces one Book's count rows and
+  readiness row in one transaction, so a repeat gives the same rows and a
+  failed attempt leaves the previous rows. A rebuild already waiting or running
+  for the same Book, run and decision revision absorbs a repeated insert, so
+  restarting the server does not duplicate work. A job retries up to 10 times.
+- **Locking and impact.** Each job works in one transaction that touches only
+  that Book's count and readiness rows. It runs on its own queue, so analysis
+  and enrichment never wait for it. A rebuild of every Book takes minutes, not
+  seconds.
+- **While it runs.** A Book whose counts are not ready is not counted as having
+  no Idioms: an Idiom already in study is not withdrawn for want of a
+  candidate, and Idioms are offered as each Book's counts become ready.
+- **Detecting failure.** A job that exhausts its attempts is `discarded` in
+  River: look for jobs of kind `rebuild_idiom_candidate_counts` in state
+  `discarded` (or `retryable` for long), and for Books with no row in
+  `idiom_candidate_count_readiness` for the current analysis run.
+- **Recovery.** Fix the cause in the job's error (a dictionary index that cannot
+  be opened is the usual one), then restart the server: startup queues a
+  rebuild for every Book still missing ready counts, discarded jobs included,
+  because readiness rather than job history decides what is missing.
+- **Rollback.** None is needed. The tables are derived data: dropping the
+  feature leaves them unread, and the forward fix for wrong counts is a
+  builder version bump, which rebuilds every Book on the next start.
+
 ### Single-version schema and evidence cutover
 
 Some releases add a new source-extraction or analysis contract that must not

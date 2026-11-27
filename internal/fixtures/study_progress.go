@@ -97,7 +97,7 @@ func (s *Store) storeLedgerLocked(key string, ledger domain.StudyBatchLedger) {
 // TakeStudyBatch takes one batch: it records it in the day's ledger and
 // introduces each word from its ready Study material, due now, with the
 // material's Gloss as its learned meaning.
-func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func (s *Store) TakeStudyBatch(_ context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := studyLedgerKey(owner, language, studyDay)
