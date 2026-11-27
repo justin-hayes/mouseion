@@ -53,7 +53,7 @@ func fluencyReasonScenario(t *testing.T, h Harness) {
 	owner, store := h.Seeds().Owner(), h.StudyFluency()
 	word := introducedStudyWord(t, h, owner, studyNoun("haus"))
 
-	for ordinal, reason := range []domain.FluencyReason{domain.FluencyReasonDifferentMeaning, domain.FluencyReasonIdiomatic, domain.FluencyReasonNotThisLemma, domain.FluencyReasonUndefendable} {
+	for ordinal, reason := range []domain.FluencyReason{domain.FluencyReasonDifferentMeaning, domain.FluencyReasonIdiomatic, domain.FluencyReasonNotThisLemma, domain.FluencyReasonUndefendable, domain.FluencyReasonLiteralUse, domain.FluencyReasonAmbiguous} {
 		record := fluencyRecord(word.ID, int64(ordinal+1), domain.FluencyDisagrees)
 		record.Reason = reason
 		require.NoError(t, store.RecordStudyFluencyContext(owner, record), reason)
@@ -71,7 +71,7 @@ func fluencyReasonScenario(t *testing.T, h Harness) {
 	for _, item := range contexts {
 		reasons = append(reasons, item.Reason)
 	}
-	assert.ElementsMatch(t, []domain.FluencyReason{domain.FluencyReasonDifferentMeaning, domain.FluencyReasonIdiomatic, domain.FluencyReasonNotThisLemma, domain.FluencyReasonUndefendable}, reasons)
+	assert.ElementsMatch(t, []domain.FluencyReason{domain.FluencyReasonDifferentMeaning, domain.FluencyReasonIdiomatic, domain.FluencyReasonNotThisLemma, domain.FluencyReasonUndefendable, domain.FluencyReasonLiteralUse, domain.FluencyReasonAmbiguous}, reasons)
 }
 
 func fluencyContextLimitScenario(t *testing.T, h Harness) {

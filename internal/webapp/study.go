@@ -380,10 +380,11 @@ func (h *Handler) fluencyRecall(progress []domain.StudyProgress, now time.Time) 
 }
 
 func newFluencyCardView(language string, card domain.FluencyCard, showAnswer bool) *fluencyCardView {
-	return &fluencyCardView{
-		ContextID: card.Context.ID,
-		cardFace:  newCardFace(language, card.Progress, card.Context.Sentence, card.Context.TargetWord, card.Context.SentenceTranslation, showAnswer),
+	face := newCardFace(language, card.Progress, card.Context.Sentence, card.Context.TargetWord, card.Context.SentenceTranslation, showAnswer)
+	if card.Progress.IsIdiom() {
+		face.markIdiom(card.Context.Sentence, idiomForms(card.Context.TargetWord), card.Context.SentenceTranslation, card.Context.SentenceTranslationTargets)
 	}
+	return &fluencyCardView{ContextID: card.Context.ID, cardFace: face}
 }
 
 // studyBatchOffer is what Today offers now: the batch, and the day's ledger
