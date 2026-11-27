@@ -152,14 +152,26 @@ func (p *studyProvider) answerIdiom(request enrichment.TranslationRequest) (enri
 // addSentenceWithPreposition adds one more sentence of "haus" to the Book's
 // corpus whose preposition ("mit" in the seeded sentences) is the given
 // three-letter word, so a headword such as "mit dem haus" matches the seeded
-// sentences and not this one. It returns the sentence text.
-func (s *studyHarness) addSentenceWithPreposition(key, preposition string) string {
+// sentences and not this one. With weaker set, "nicht" becomes "jetzt", a
+// deictic word that lowers the sentence's quality score below the seeded
+// sentence's. It returns the sentence text.
+func (s *studyHarness) addSentenceWithPreposition(key, preposition string, weaker bool) string {
 	s.t.Helper()
 	require.Len(s.t, preposition, 3, "a same-length word keeps every offset")
 	sentence := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN"})
 	sentence.Text = strings.Replace(sentence.Text, "mit", preposition, 1)
 	sentence.Tokens[3].Surface, sentence.Tokens[3].RawLemma, sentence.Tokens[3].CanonicalLemma = preposition, preposition, preposition
+	if weaker {
+		weakenSentence(&sentence)
+	}
 	return s.appendSentence(key, sentence)
+}
+
+// weakenSentence makes the sentence score lower on quality without changing its
+// length: "nicht" becomes the deictic "jetzt".
+func weakenSentence(sentence *testutil.SeededSentence) {
+	sentence.Text = strings.Replace(sentence.Text, "nicht", "jetzt", 1)
+	sentence.Tokens[2].Surface, sentence.Tokens[2].RawLemma, sentence.Tokens[2].CanonicalLemma = "jetzt", "jetzt", "jetzt"
 }
 
 // appendSentence seeds the sentence after the Book's last one.

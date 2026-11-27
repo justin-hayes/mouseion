@@ -9,6 +9,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/sentencequality"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,8 +19,9 @@ const (
 	// insideSentence is the seeded sentence of "haus"; the entry "mit dem haus"
 	// makes it an Idiom candidate.
 	insideSentence = "Anna ist nicht mit dem haus."
-	// outsideSentence swaps the preposition, so it is outside that candidate.
-	outsideSentence = "Anna ist nicht auf dem haus."
+	// outsideSentence swaps the preposition, so it is outside that candidate, and
+	// is weaker: its deictic "jetzt" scores lower than the seeded sentence.
+	outsideSentence = "Anna ist jetzt auf dem haus."
 )
 
 func newIdiomStudyHarness(t *testing.T, headword string, on bool) *studyHarness {
@@ -53,7 +55,7 @@ func (s *studyHarness) preparedSentence() string {
 func TestStudyMaterialPrefersASentenceOutsideAnIdiomCandidate(t *testing.T) {
 	s := newIdiomStudyHarness(t, "mit dem haus", true)
 	s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 1})
-	assert.Equal(t, outsideSentence, s.addSentenceWithPreposition("reading", "auf"))
+	assert.Equal(t, outsideSentence, s.addSentenceWithPreposition("reading", "auf", true))
 
 	assert.Equal(t, outsideSentence, s.preparedSentence(), "the sentence outside the candidate wins though the one inside comes first")
 }
@@ -68,7 +70,7 @@ func TestStudyMaterialKeepsItsBestSentenceWhenEverySentenceIsInsideACandidate(t 
 func TestStudyMaterialIsUnchangedWhileTheIdiomSwitchIsOff(t *testing.T) {
 	s := newIdiomStudyHarness(t, "mit dem haus", false)
 	s.seedBook("reading", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 1})
-	s.addSentenceWithPreposition("reading", "auf")
+	s.addSentenceWithPreposition("reading", "auf", true)
 
 	assert.Equal(t, insideSentence, s.preparedSentence())
 }
@@ -86,6 +88,12 @@ func TestStudyFluencyPrefersOccurrencesOutsideAnIdiomCandidate(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newIdiomStudyHarness(t, "nicht mit dem haeuser", tc.on)
+			// Lena's sentence, the idiom candidate, scores higher than every
+			// other form's.
+			s.weakerFluencyForms = map[string]bool{}
+			for _, form := range fluencyForms {
+				s.weakerFluencyForms[form.surface] = form.surface != "haeuser"
+			}
 			s.matureHaus()
 			s.openFluency()
 
@@ -132,4 +140,19 @@ func TestStudyHarnessFakeIdiomAnswers(t *testing.T) {
 	require.Error(t, err)
 
 	assert.Len(t, provider.idiomRequests(), 4)
+}
+
+// The acceptance tests rely on the weakened sentence scoring below the seeded
+// one; this pins that, so a change to the sentence-quality rules cannot make
+// them pass vacuously.
+func TestWeakenedSentenceScoresBelowTheSeededSentence(t *testing.T) {
+	score := func(sentence testutil.SeededSentence) float64 {
+		quality := sentencequality.ScoreSentenceQuality("de", sentence.Text, "haus", 0, sentence.Tokens, 0)
+		require.True(t, quality.Accepted)
+		return quality.GDEXScore + float64(quality.Score)
+	}
+	seeded := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN"})
+	weaker := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN"})
+	weakenSentence(&weaker)
+	assert.Greater(t, score(seeded), score(weaker))
 }

@@ -144,6 +144,9 @@ type studyHarness struct {
 	// planner is the Study service the planning job runs, so a test can run a
 	// plan at a chosen point instead of waiting on River.
 	planner *study.Service
+	// weakerFluencyForms names the surfaces whose Fluency sentences
+	// addFluencySentence makes score lower on quality (see weakenSentence).
+	weakerFluencyForms map[string]bool
 }
 
 func newStudyHarness(t *testing.T) *studyHarness {
