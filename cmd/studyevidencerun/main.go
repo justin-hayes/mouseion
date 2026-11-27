@@ -38,6 +38,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/sourceevidence"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -70,6 +71,9 @@ type wordResult struct {
 	Ready     *domain.StudyMaterialReadyContent
 	// Candidates are the evidence IDs and glosses the request sent, in order.
 	Candidates []enrichment.LexicalSense
+	// Entries is every dictionary entry the lemma resolves to under Study's
+	// lookup, in source order, including entries with no citable sense.
+	Entries []sourceevidence.Entry
 	// Invented are handles the answer cited that were not in the candidate set.
 	Invented []string
 	Failure  string
@@ -195,7 +199,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		ProviderVersion: studyProviderVersion(codec, *language),
 		PayloadKind:     string(enrichment.StudyEvidenceAssistedPassKind(*language)),
 		MaxRequest:      transport.maxRequest.Load(),
-		DictionaryPin:   index.Version(),
+		DictionaryPin:   dictionaryPin(index, policy),
 		Calls:           transport.calls.Load(),
 	}
 	if err := pinsOf(ctx, store, results, &meta); err != nil {
@@ -273,6 +277,9 @@ func runWord(ctx context.Context, store *persistence.PostgresStore, enricher *ca
 	result.Calls = transport.calls.Load() - before
 	result.Candidate, result.Passage, result.Meaning = enricher.candidate, enricher.passage, enricher.meaning
 	result.Candidates = enricher.candidate.CandidateSenses
+	if resolution, found := sourceevidence.ResolveStudy(ctx, evidence.Lexical, policy, identity.CanonicalLemma, nil); found {
+		result.Entries = resolution.Entries
+	}
 	var snooze *river.JobSnoozeError
 	switch {
 	case errors.As(err, &snooze):
@@ -550,4 +557,13 @@ func rebuildBrowseCounts(ctx context.Context, store *persistence.PostgresStore, 
 	}
 	_, _ = fmt.Fprintf(out, "rebuilt Browse counts for %d Books\n", len(args))
 	return nil
+}
+
+// dictionaryPin is the pin the report records: the policy's own dictionary pin
+// beside the index version.
+func dictionaryPin(index *dictionary.Index, policy cardpolicy.Policy) string {
+	if pin := study.DictionaryPin(index, policy); pin != "" {
+		return pin + "; index " + index.Version()
+	}
+	return index.Version()
 }
