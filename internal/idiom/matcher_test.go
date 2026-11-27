@@ -346,3 +346,103 @@ func TestMatchKeepsEntriesFromDifferentSourcesApart(t *testing.T) {
 	require.Len(t, got[0].Entry.Senses, 1, "senses are not pooled across sources")
 	assert.Equal(t, "on the ball", got[0].Entry.Senses[0].Gloss)
 }
+
+func TestMatchUnanchoredFindsEveryNonOverlappingCandidate(t *testing.T) {
+	inGamba := testEntry("in gamba", "in", "gamba")
+	ragazzoInGamba := testEntry("ragazzo in gamba", "ragazzo", "in", "gamba")
+	gambaIn := testEntry("gamba in", "gamba", "in")
+	ab := testEntry("a b", "a", "b")
+	bc := testEntry("b c", "b", "c")
+	cd := testEntry("c d", "c", "d")
+
+	tests := []struct {
+		name    string
+		tokens  []Token
+		entries []Entry
+		want    []wantCandidate
+	}{
+		{
+			name:    "no anchor needed",
+			tokens:  []Token{testToken(0, "in", "in"), testToken(1, "gamba", "gamba")},
+			entries: []Entry{inGamba},
+			want:    []wantCandidate{{headword: "in gamba", matched: []int{0, 1}}},
+		},
+		{
+			name:    "longest headword wins an overlap",
+			tokens:  []Token{testToken(0, "ragazzo", "ragazzo"), testToken(1, "in", "in"), testToken(2, "gamba", "gamba")},
+			entries: []Entry{inGamba, ragazzoInGamba},
+			want:    []wantCandidate{{headword: "ragazzo in gamba", matched: []int{0, 1, 2}}},
+		},
+		{
+			name:    "equal length overlap goes to the earlier position",
+			tokens:  []Token{testToken(0, "a", "a"), testToken(1, "b", "b"), testToken(2, "c", "c")},
+			entries: []Entry{bc, ab},
+			want:    []wantCandidate{{headword: "a b", matched: []int{0, 1}}},
+		},
+		{
+			name:    "disjoint candidates are both returned in sentence order",
+			tokens:  []Token{testToken(0, "a", "a"), testToken(1, "b", "b"), testToken(2, "c", "c"), testToken(3, "d", "d")},
+			entries: []Entry{cd, ab},
+			want: []wantCandidate{
+				{headword: "a b", matched: []int{0, 1}},
+				{headword: "c d", matched: []int{2, 3}},
+			},
+		},
+		{
+			name:    "gap bound and word order apply",
+			tokens:  []Token{testToken(0, "in", "in"), testToken(1, "x", "x"), testToken(2, "y", "y"), testToken(3, "gamba", "gamba")},
+			entries: []Entry{inGamba, gambaIn},
+			want:    []wantCandidate{{headword: "in gamba", matched: []int{0, 3}}},
+		},
+		{
+			name:    "too many gap tokens",
+			tokens:  []Token{testToken(0, "in", "in"), testToken(1, "x", "x"), testToken(2, "y", "y"), testToken(3, "z", "z"), testToken(4, "gamba", "gamba")},
+			entries: []Entry{inGamba},
+		},
+		{
+			name:    "an effective lemma matches the headword",
+			tokens:  []Token{testToken(0, "in", "in"), testToken(1, "gambe", "gamba")},
+			entries: []Entry{inGamba},
+			want:    []wantCandidate{{headword: "in gamba", matched: []int{0, 1}}},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := MatchUnanchored(DefaultParameters(), test.tokens, test.entries)
+			require.Len(t, got, len(test.want))
+			for index, want := range test.want {
+				assert.Equal(t, want.headword, got[index].Entry.Headword)
+				assert.Equal(t, want.matched, got[index].MatchedTokenOrdinals)
+				assert.Equal(t, Anchor{}.Identity, got[index].Anchor)
+				assert.Equal(t, MatcherVersion, got[index].Provenance.MatcherVersion)
+			}
+		})
+	}
+}
+
+func TestMatchUnanchoredAgreesWithMatchWhenEveryTokenIsAnchored(t *testing.T) {
+	tokens := []Token{testToken(0, "ragazzo", "ragazzo"), testToken(1, "in", "in"), testToken(2, "gamba", "gamba"), testToken(3, "a", "a"), testToken(4, "b", "b")}
+	entries := []Entry{testEntry("in gamba", "in", "gamba"), testEntry("ragazzo in gamba", "ragazzo", "in", "gamba"), testEntry("a b", "a", "b")}
+	anchors := make([]Anchor, len(tokens))
+	for index := range tokens {
+		anchors[index] = testAnchor(index, tokens[index].CanonicalLemma)
+	}
+	anchored := Match(DefaultParameters(), tokens, anchors, entries)
+	unanchored := MatchUnanchored(DefaultParameters(), tokens, entries)
+	require.Len(t, unanchored, len(anchored))
+	for index := range anchored {
+		assert.Equal(t, anchored[index].Entry.Headword, unanchored[index].Entry.Headword)
+		assert.Equal(t, anchored[index].MatchedTokenOrdinals, unanchored[index].MatchedTokenOrdinals)
+	}
+}
+
+func TestMatchUnanchoredEdgeCases(t *testing.T) {
+	entry := testEntry("in gamba", "in", "gamba")
+	assert.Nil(t, MatchUnanchored(DefaultParameters(), nil, []Entry{entry}))
+	assert.Nil(t, MatchUnanchored(DefaultParameters(), []Token{testToken(0, "in", "in")}, nil))
+	tokens := []Token{testToken(0, "in", "in"), testToken(1, "x", "x"), testToken(2, "gamba", "gamba")}
+	zero := MatchUnanchored(Parameters{}, tokens, []Entry{entry})
+	require.Len(t, zero, 1)
+	assert.Equal(t, DefaultGapBound, zero[0].Provenance.GapBound)
+	assert.Empty(t, MatchUnanchored(Parameters{Version: "v", GapBound: -1}, tokens, []Entry{entry}))
+}

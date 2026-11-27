@@ -152,11 +152,24 @@ func (s *Service) EnqueueBrowseCountRebuild(ctx context.Context, ownerID, bookID
 		WHERE cai.owner_id=$1 AND cai.book_id=$2)`, ownerID, bookID).Scan(&ready); err != nil {
 		return fmt.Errorf("check Browse rebuild readiness: %w", err)
 	}
-	if ready {
-		return nil
+	if !ready {
+		if err := s.insertBrowseCountRebuild(ctx, tx, BrowseCountsRebuildArgs{OwnerID: ownerID, BookID: bookID, RunID: runID}); err != nil {
+			return err
+		}
 	}
-	if err := s.insertBrowseCountRebuild(ctx, tx, BrowseCountsRebuildArgs{OwnerID: ownerID, BookID: bookID, RunID: runID}); err != nil {
-		return err
+	// An Idiom match can follow a decision even when the Browse counts need no
+	// rebuild, so its rebuild is queued whenever its counts are not ready.
+	var idiomReady bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM idiom_candidate_count_readiness r
+		JOIN current_analysis_identity cai ON cai.owner_id=r.owner_id AND cai.book_id=r.book_id
+		 AND cai.analysis_run_id=r.analysis_run_id AND cai.corpus_id=r.corpus_id
+		WHERE r.owner_id=$1 AND r.book_id=$2 AND r.builder_version=$3)`, ownerID, bookID, persistence.IdiomCountBuilderVersion).Scan(&idiomReady); err != nil {
+		return fmt.Errorf("check Idiom count readiness: %w", err)
+	}
+	if !idiomReady {
+		if err := EnqueueIdiomCountsTx(ctx, tx, ownerID, bookID, runID); err != nil {
+			return err
+		}
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit Browse rebuild scheduling: %w", err)

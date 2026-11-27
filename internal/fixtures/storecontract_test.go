@@ -345,7 +345,7 @@ func (h *contractHarness) RecordStudyBatchOffer(owner, language, studyDay string
 	return h.store.RecordStudyBatchOffer(context.Background(), owner, language, studyDay, offered)
 }
 
-func (h *contractHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func (h *contractHarness) TakeStudyBatch(owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	return h.store.TakeStudyBatch(context.Background(), owner, language, studyDay, now, batchLimit, words)
 }
 
@@ -365,7 +365,7 @@ func (h *contractHarness) ListStudyReviewLog(owner, progressID string) ([]domain
 	return h.store.ListStudyReviewLog(context.Background(), owner, progressID)
 }
 
-func (h *contractHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error) {
+func (h *contractHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidatesAmong(context.Background(), owner, language, identities)
 }
 
@@ -385,7 +385,7 @@ func (h *contractHarness) CountStudyMaterial(owner, language string) (domain.Stu
 	return h.store.CountStudyMaterial(context.Background(), owner, language)
 }
 
-func (h *contractHarness) ReserveStudyMaterial(owner string, identity domain.StudyIdentity) (string, bool, error) {
+func (h *contractHarness) ReserveStudyMaterial(owner string, identity domain.StudyItem) (string, bool, error) {
 	return h.store.ReserveStudyMaterial(context.Background(), owner, identity)
 }
 

@@ -25,7 +25,7 @@ type fluencyForm struct {
 }
 
 // addFluencySentence adds one more sentence of "haus" to the Book's corpus.
-func (s *studyHarness) addFluencySentence(key string, form fluencyForm) string {
+func (s *studyHarness) addFluencySentence(key string, form fluencyForm) {
 	s.t.Helper()
 	sentence := testutil.GatePassingSentence("de", testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN"})
 	// A name of the same length keeps every offset; the target is the last
@@ -35,6 +35,9 @@ func (s *studyHarness) addFluencySentence(key string, form fluencyForm) string {
 	target := len(sentence.Tokens) - 1
 	start := sentence.Tokens[target].Location.StartOffset
 	sentence.Text = sentence.Text[:start] + form.surface + "."
+	if s.weakerFluencyForms[form.surface] {
+		weakenSentence(&sentence)
+	}
 	sentence.Tokens[target].Surface = form.surface
 	sentence.Tokens[target].Location = analyzer.SourceLocation{StartOffset: start, EndOffset: start + uint64(len(form.surface))}
 	sentence.Tokens[target].Morphology = form.morphology
@@ -42,7 +45,6 @@ func (s *studyHarness) addFluencySentence(key string, form fluencyForm) string {
 	var ordinal, offset int64
 	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT analysis_run_id::text, corpus_id::text, max(sentence_ordinal)+1, max(end_offset)+1 FROM corpus_sentences WHERE owner_id=$1 GROUP BY analysis_run_id, corpus_id ORDER BY max(sentence_ordinal) DESC LIMIT 1`, s.owner.ID).Scan(&runID, &corpusID, &ordinal, &offset))
 	testutil.SeedCorpusSentence(s.t, s.ctx, s.store.Pool(), s.owner.ID, corpusID, "de", runID, domain.EPUBUnitID(0, key), ordinal, offset, sentence)
-	return sentence.Text
 }
 
 var fluencyForms = []fluencyForm{

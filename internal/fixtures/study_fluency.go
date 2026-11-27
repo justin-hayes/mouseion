@@ -63,8 +63,11 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	known := false
+	var kind domain.StudyItemKind
 	for _, item := range s.studyProgress {
-		known = known || (item.OwnerID == owner && item.ID == record.ProgressID)
+		if item.OwnerID == owner && item.ID == record.ProgressID {
+			known, kind = true, item.ItemKind
+		}
 	}
 	if !known {
 		return errNotFound
@@ -73,7 +76,7 @@ func (s *Store) RecordStudyFluencyContext(_ context.Context, owner string, recor
 		return domain.ErrFluencyContextNotStored
 	}
 	s.studyFluencyContexts = append(s.studyFluencyContexts, domain.FluencyContext{
-		ID: fmt.Sprintf("fixture-fluency-context-%d", len(s.studyFluencyContexts)+1), OwnerID: owner, ProgressID: record.ProgressID,
+		ID: fmt.Sprintf("fixture-fluency-context-%d", len(s.studyFluencyContexts)+1), OwnerID: owner, ProgressID: record.ProgressID, ItemKind: kind,
 		Agreement: record.Agreement, Reason: record.Reason,
 		BookID: record.BookID, AnalysisRunID: record.AnalysisRunID, CorpusID: record.CorpusID,
 		SentenceOrdinal: record.SentenceOrdinal, TokenOrdinal: record.TokenOrdinal,
@@ -146,12 +149,12 @@ func (s *Store) ListStudyFluencyResponses(_ context.Context, owner, contextID st
 // SeedMatureStudyWord puts a word in study as already mature, with its Study
 // material, so a browser fixture can show Fluency without weeks of reviews. The
 // word is on a 30-day schedule, due long after now.
-func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyIdentity, content domain.StudyMaterialReadyContent, now time.Time) string {
+func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyItem, content domain.StudyMaterialReadyContent, now time.Time) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	materialID := fmt.Sprintf("fixture-study-material-%d", len(s.studyMaterial)+1)
 	s.studyMaterial = append(s.studyMaterial, domain.StudyMaterial{
-		ID: materialID, OwnerID: owner, StudyIdentity: identity, State: domain.StudyMaterialReady,
+		ID: materialID, OwnerID: owner, StudyItem: identity, State: domain.StudyMaterialReady,
 		BookID: content.BookID, AnalysisRunID: content.AnalysisRunID, CorpusID: content.CorpusID,
 		SentenceOrdinal: content.SentenceOrdinal, TokenOrdinal: content.TokenOrdinal,
 		Sentence: content.Sentence, TargetWord: content.TargetWord, Gloss: content.Gloss,
@@ -161,7 +164,7 @@ func (s *Store) SeedMatureStudyWord(owner string, identity domain.StudyIdentity,
 	})
 	id := s.nextStudyProgressIDLocked()
 	s.studyProgress = append(s.studyProgress, domain.StudyProgress{
-		ID: id, OwnerID: owner, StudyIdentity: identity, MaterialID: materialID,
+		ID: id, OwnerID: owner, StudyItem: identity, MaterialID: materialID,
 		IntroducedAt: now.Add(-40 * 24 * time.Hour), LearnedMeaning: content.Gloss, LearnedCitations: content.Cited.Clone(),
 		Memory: domain.StudyMemory{
 			State: domain.StudyStateReview, Due: now.Add(30 * 24 * time.Hour), Stability: 30, Difficulty: 5,

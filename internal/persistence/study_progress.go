@@ -72,7 +72,7 @@ func (s *PostgresStore) RecordStudyBatchOffer(ctx context.Context, owner, langua
 // no longer ready, is skipped; a batch that introduces nothing is taken by
 // nobody and returns ErrNotFound. domain.ErrStudyBatchLimit means the day's
 // batches are all answered.
-func (s *PostgresStore) TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func (s *PostgresStore) TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	day, err := studyDayDate(studyDay)
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func mapBatchSlotError(err error) error {
 	return fmt.Errorf("study batch ledger: %w", err)
 }
 
-func introduceStudyWords(ctx context.Context, q *sqlcgen.Queries, owner, language string, now time.Time, words []domain.StudyBatchWord) ([]domain.StudyProgress, error) {
+func introduceStudyWords(ctx context.Context, q *sqlcgen.Queries, owner, language string, now time.Time, words []domain.StudyBatchItem) ([]domain.StudyProgress, error) {
 	var introduced []domain.StudyProgress
 	for _, word := range words {
 		if word.ProgressID != "" {
@@ -246,7 +246,7 @@ func refuseStaleStudyGrade(ctx context.Context, q *sqlcgen.Queries, owner string
 		return domain.ErrStudyStale
 	}
 	held, err := q.HasOpenWrongWordReport(ctx, sqlcgen.HasOpenWrongWordReportParams{
-		Owner: owner, Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
+		Owner: owner, ItemKind: word.ItemKind.String(), Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS, LexicalDiscriminator: word.LexicalDiscriminator,
 	})
 	if err != nil {
 		return fmt.Errorf("check study report: %w", err)
@@ -323,7 +323,7 @@ func studyProgressFromRow(row sqlcgen.StudyProgress) domain.StudyProgress {
 	}
 	return domain.StudyProgress{CorrectedAt: corrected,
 		ID: row.ID, OwnerID: row.OwnerID,
-		Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
+		ItemKind: studyItemKind(row.ItemKind), Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos, LexicalDiscriminator: row.LexicalDiscriminator,
 		MaterialID: row.MaterialID, IntroducedAt: row.IntroducedAt, LearnedMeaning: row.LearnedMeaning,
 		LearnedCitations: domain.StudyCitations{SenseIDs: row.LearnedSenseIds, EntryIDs: row.LearnedEntryIds, DictionaryPin: row.LearnedDictionaryPin},
 		Memory:           memory, Withdrawn: row.WithdrawnAt.Valid, WithdrawnReason: row.WithdrawnReason.String, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,

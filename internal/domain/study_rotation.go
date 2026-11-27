@@ -219,7 +219,7 @@ func fluencyTieBefore(a, b FluencyCard) bool {
 		return a.Context.LastResponseAt.Before(b.Context.LastResponseAt)
 	}
 	if a.Progress.ID != b.Progress.ID {
-		return studyIdentityBefore(a.Progress.StudyIdentity, b.Progress.StudyIdentity)
+		return studyIdentityBefore(a.Progress.StudyItem, b.Progress.StudyItem)
 	}
 	return a.Context.ID < b.Context.ID
 }

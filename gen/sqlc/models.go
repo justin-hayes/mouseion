@@ -721,6 +721,27 @@ type GeneratedVocabulary struct {
 	Headword              string
 }
 
+type IdiomCandidateCount struct {
+	OwnerID        string
+	BookID         string
+	Language       string
+	AnalysisRunID  string
+	CorpusID       string
+	Headword       string
+	CandidateCount int64
+}
+
+type IdiomCandidateCountReadiness struct {
+	OwnerID        string
+	BookID         string
+	Language       string
+	AnalysisRunID  string
+	CorpusID       string
+	BuilderVersion int
+	IndexVersion   string
+	ReadyAt        time.Time
+}
+
 type KnownVocabulary struct {
 	ID                             string
 	OwnerID                        string
@@ -1133,6 +1154,8 @@ type StudyFluencyContext struct {
 	CitedSenseIds              []string
 	CitedEntryIds              []string
 	DictionaryPin              string
+	// Kind of the Study item the context belongs to; equals the progress row's kind
+	ItemKind string
 }
 
 type StudyFluencyResponse struct {
@@ -1174,6 +1197,10 @@ type StudyMaterial struct {
 	PassageCitation            string
 	PassageTranslationPin      string
 	OmissionDictionaryPin      string
+	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
+	ItemKind string
+	// Idiom material: the sentence token ordinals the headword matched, in sentence order; empty for a word
+	MatchedTokenOrdinals []int
 }
 
 type StudyProgress struct {
@@ -1203,6 +1230,8 @@ type StudyProgress struct {
 	LearnedSenseIds      []string
 	LearnedEntryIds      []string
 	LearnedDictionaryPin string
+	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
+	ItemKind string
 }
 
 type StudyReport struct {
@@ -1235,6 +1264,8 @@ type StudyReport struct {
 	PreviousLearnedSenseIds      []string
 	PreviousLearnedEntryIds      []string
 	PreviousLearnedDictionaryPin pgtype.Text
+	// Study item kind: word keyed by lemma, UPOS and discriminator, idiom keyed by headword in canonical_lemma
+	ItemKind string
 }
 
 type StudyReviewLog struct {

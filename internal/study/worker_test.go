@@ -8,6 +8,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
+	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -38,9 +39,36 @@ type fakeStore struct {
 	// citations are the cited sections every sentence touches.
 	citations []string
 	retired   []domain.StudyOccurrenceRef
+	// effective are sentences' tokens with the learner's decisions applied.
+	effective map[int64][]analyzer.Token
+	// idiomSentences are the sentences an Idiom's search finds.
+	idiomSentences []persistence.StudyIdiomSentence
+	// batches are the sizes of the sentence batches an Idiom's search loaded.
+	batches []int
 }
 
-func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *fakeStore) ListStudyIdiomSentenceRefs(context.Context, string, string, string, []string) ([]persistence.StudyIdiomSentenceRef, error) {
+	refs := make([]persistence.StudyIdiomSentenceRef, len(s.idiomSentences))
+	for i, sentence := range s.idiomSentences {
+		refs[i] = persistence.StudyIdiomSentenceRef{BookID: sentence.BookID, AnalysisRunID: sentence.AnalysisRunID, CorpusID: sentence.CorpusID, SentenceOrdinal: sentence.SentenceOrdinal}
+	}
+	return refs, nil
+}
+
+func (s *fakeStore) LoadStudyIdiomSentences(_ context.Context, _ string, refs []persistence.StudyIdiomSentenceRef) ([]persistence.StudyIdiomSentence, error) {
+	s.batches = append(s.batches, len(refs))
+	var loaded []persistence.StudyIdiomSentence
+	for _, ref := range refs {
+		for _, sentence := range s.idiomSentences {
+			if sentence.BookID == ref.BookID && sentence.SentenceOrdinal == ref.SentenceOrdinal {
+				loaded = append(loaded, sentence)
+			}
+		}
+	}
+	return loaded, nil
+}
+
+func (s *fakeStore) ListRetiredStudyOccurrencesOfWord(context.Context, string, domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return s.retired, nil
 }
 
@@ -74,6 +102,19 @@ func (s *fakeStore) ListCorpusSentences(_ context.Context, _, _ string, ordinals
 	return result, nil
 }
 
+// ListStudyEffectiveTokens serves the persisted tokens: the fake has no
+// decisions, unless a test sets effective.
+func (s *fakeStore) ListStudyEffectiveTokens(_ context.Context, _, _, _, _ string, ordinals []int64) (map[int64][]analyzer.Token, error) {
+	result := map[int64][]analyzer.Token{}
+	for _, ordinal := range ordinals {
+		result[ordinal] = s.tokens[ordinal]
+		if effective, ok := s.effective[ordinal]; ok {
+			result[ordinal] = effective
+		}
+	}
+	return result, nil
+}
+
 func (s *fakeStore) RecordStudyMaterialReady(_ context.Context, _, _ string, content domain.StudyMaterialReadyContent) error {
 	s.ready = &content
 	return nil
@@ -89,7 +130,7 @@ func (s *fakeStore) RecordStudyMaterialNoDictionaryEntry(_ context.Context, _, _
 	return nil
 }
 
-func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *fakeStore) ListStudyOccurrences(context.Context, string, domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
 	return nil, s.occurrencesErr
 }
 
@@ -108,6 +149,16 @@ type fakeEnricher struct {
 	passErr      error
 	passRequests []enrichment.Candidate
 	passages     []string
+	// idiom is the idiom-card answer, idiomErr its failure, idiomCards what it
+	// was sent.
+	idiom      enrichment.ContextualMeaning
+	idiomErr   error
+	idiomCards []enrichment.IdiomCard
+}
+
+func (e *fakeEnricher) EnrichIdiomCard(_ context.Context, card enrichment.IdiomCard) (enrichment.ContextualMeaning, error) {
+	e.idiomCards = append(e.idiomCards, card)
+	return e.idiom, e.idiomErr
 }
 
 func (e *fakeEnricher) EnrichEvidenceAssistedPass(_ context.Context, candidate enrichment.Candidate, passage string) (enrichment.EvidenceAssistedMeaning, error) {

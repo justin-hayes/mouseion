@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"fmt"
+	"strings"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -53,7 +54,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 				if view.Repeating > 0 {
 					<section class="study-today" aria-labelledby="study-today-heading">
 						<h2 id="study-today-heading">Today</h2>
-						<p id="study-repeating">{ studyRepeatingText(view.Repeating) }</p>
+						<p id="study-repeating">{ studyRepeatingText(view.Repeating-view.RepeatingIdioms, view.RepeatingIdioms) }</p>
 					</section>
 				} else if view.Fluency == nil && view.Offer == 0 {
 					<section class="study-today" aria-labelledby="study-today-heading">
@@ -63,16 +64,16 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 				}
 			}
 			<section class="study-preparation" aria-labelledby="study-preparation-heading">
-				<h2 id="study-preparation-heading">New words</h2>
-				<p id="study-ready">{ studyReadyText(view.Counts.Ready) }</p>
+				<h2 id="study-preparation-heading">{ studyPreparationHeading(view.IdiomCounts) }</h2>
+				<p id="study-ready">{ studyReadyText(view.Counts.Ready-view.IdiomCounts.Ready, view.IdiomCounts.Ready) }</p>
 				if view.Counts.Preparing > 0 {
-					<p id="study-preparing">{ studyPreparingText(view.Counts.Preparing) }</p>
+					<p id="study-preparing">{ studyPreparingText(view.Counts.Preparing-view.IdiomCounts.Preparing, view.IdiomCounts.Preparing) }</p>
 				}
 				if view.Counts.Unpreparable > 0 {
-					<p id="study-skipped">{ studySkippedText(view.Counts.Unpreparable) }</p>
+					<p id="study-skipped">{ studySkippedText(view.Counts.Unpreparable-view.IdiomCounts.Unpreparable, view.IdiomCounts.Unpreparable) }</p>
 				}
 				if view.Counts.Ready == 0 && view.Counts.Preparing == 0 && view.Counts.Unpreparable == 0 {
-					<p id="study-empty">No new words are queued yet. They come from the Books you have analysed.</p>
+					<p id="study-empty">Nothing new is queued yet. New words and idioms come from the Books you have analysed.</p>
 				}
 			</section>
 			<p id="study-reported-link"><a href={ templ.SafeURL(studyLanguagePath(pageKindStudyReports, view.Language)) }>Reported words</a></p>
@@ -139,7 +140,9 @@ templ StudyCard(csrf string, view studyPageView) {
 				@studyGradeForm(csrf, view, "again", "Again", "button button--outline")
 				@studyGradeForm(csrf, view, "got-it", "Got it", "button")
 			</div>
-			@studyReportForm(csrf, view)
+			if !view.Card.NoReport {
+				@studyReportForm(csrf, view)
+			}
 		} else {
 			<form method="get" action={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>
 				<input type="hidden" name="answer" value="1"/>
@@ -196,13 +199,35 @@ templ FluencyCard(csrf string, view studyPageView) {
 // the answer. Graded and Fluency cards share it; prefix keeps their ids apart.
 templ cardFaceView(language, prefix string, face cardFace) {
 	<p class="study-card__sentence" lang={ language }>
-		{ face.Before }
-		if face.Marked {
-			<mark class="study-card__target">{ face.Target }</mark>
+		if face.Idiom {
+			for _, segment := range face.Segments {
+				if segment.Marked {
+					<mark class="study-card__target"><strong>{ segment.Text }</strong></mark>
+				} else {
+					{ segment.Text }
+				}
+			}
+		} else {
+			{ face.Before }
+			if face.Marked {
+				<mark class="study-card__target">{ face.Target }</mark>
+			}
+			{ face.After }
 		}
-		{ face.After }
 	</p>
-	if face.ShowAnswer {
+	if face.ShowAnswer && face.Idiom {
+		<dl class="study-card__answer study-card__answer--idiom">
+			<dt>Idiom</dt>
+			<dd id={ prefix + "-headword" } lang={ language }>
+				{ face.Headword }
+				<span class="metadata study-card__kind" id={ prefix + "-kind" }>idiom</span>
+			</dd>
+			<dt>Meaning</dt>
+			<dd id={ prefix + "-gloss" }>{ face.Gloss }</dd>
+			<dt>Translation</dt>
+			<dd id={ prefix + "-translation" }>@templ.Raw(face.TranslationHTML)</dd>
+		</dl>
+	} else if face.ShowAnswer {
 		<dl class="study-card__answer">
 			<dt>Meaning</dt>
 			<dd id={ prefix + "-gloss" }>{ face.Gloss }</dd>
@@ -301,14 +326,21 @@ templ studyReportForm(csrf string, view studyPageView) {
 			<input type="hidden" name="material" value={ view.Card.MaterialID }/>
 			<fieldset>
 				<legend>What is wrong with this card?</legend>
-				<label>
-					<input type="radio" name="kind" value="wrong_word" checked/>
-					<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
-				</label>
-				<label>
-					<input type="radio" name="kind" value="unsuitable_context"/>
-					<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning, for example inside an Idiom. The sentence is never used for this word again, and the word comes back on the next Study day from another one.</span>
-				</label>
+				if view.Card.Idiom {
+					<label>
+						<input type="radio" name="kind" value="unsuitable_context" checked/>
+						<span>Unsuitable context: the idiom is right, but this sentence does not teach its meaning. The sentence is never used for this idiom again, and the idiom comes back on the next Study day from another one.</span>
+					</label>
+				} else {
+					<label>
+						<input type="radio" name="kind" value="wrong_word" checked/>
+						<span>Wrong word: the highlighted word is a different word here, so the Gloss does not fit. The word is held and gets no reviews until the occurrence is repaired in Lemma review.</span>
+					</label>
+					<label>
+						<input type="radio" name="kind" value="unsuitable_context"/>
+						<span>Unsuitable context: the word is right, but this sentence does not teach its own meaning, for example inside an Idiom. The sentence is never used for this word again, and the word comes back on the next Study day from another one.</span>
+					</label>
+				}
 			</fieldset>
 			<label>Note (optional)<textarea class="input" name="note" maxlength={ fmt.Sprint(domain.StudyReportNoteMax) } rows="2"></textarea></label>
 			<button class="button button--outline" type="submit">Send report</button>
@@ -330,9 +362,9 @@ templ studyGradeForm(csrf string, view studyPageView, grade, label, class string
 templ StudyBatchOffer(csrf string, view studyPageView) {
 	<section class="study-batch" aria-labelledby="study-batch-heading">
 		<h2 id="study-batch-heading">New-word batch</h2>
-		<p id="study-offer">{ studyOfferText(view.Offer) }</p>
+		<p id="study-offer">{ studyOfferText(view.Offer-view.OfferIdioms, view.OfferIdioms) }</p>
 		if view.ShortBatch {
-			<p id="study-short-batch">This batch is short: more new words are still being prepared.</p>
+			<p id="study-short-batch">This batch is short: more are still being prepared.</p>
 		}
 		<div class="study-batch__actions">
 			<form method="post" action="/study/batches/take">
@@ -356,11 +388,8 @@ func studyPageDescription(view studyPageView) string {
 	return "Review vocabulary from your reading."
 }
 
-func studyOfferText(count int) string {
-	if count == 1 {
-		return "1 new word is ready to learn."
-	}
-	return fmt.Sprintf("%d new words are ready to learn.", count)
+func studyOfferText(words, idioms int) string {
+	return studyKindsText(words, idioms, "new ", "", "is ready to learn.", "are ready to learn.")
 }
 
 func studyRemainingText(count int) string {
@@ -384,32 +413,53 @@ func studyHeldText(count int) string {
 	return fmt.Sprintf("%d words are held because you reported them. They get no reviews until their occurrences are repaired.", count)
 }
 
-func studyRepeatingText(count int) string {
-	if count == 1 {
-		return "1 word comes back later today."
-	}
-	return fmt.Sprintf("%d words come back later today.", count)
+func studyRepeatingText(words, idioms int) string {
+	return studyKindsText(words, idioms, "", "", "comes back later today.", "come back later today.")
 }
 
-func studyReadyText(count int) string {
-	if count == 1 {
-		return "1 new word is ready."
-	}
-	return fmt.Sprintf("%d new words are ready.", count)
+func studyReadyText(words, idioms int) string {
+	return studyKindsText(words, idioms, "new ", "", "is ready.", "are ready.")
 }
 
-func studyPreparingText(count int) string {
-	if count == 1 {
-		return "1 more word is being prepared."
-	}
-	return fmt.Sprintf("%d more words are being prepared.", count)
+func studyPreparingText(words, idioms int) string {
+	return studyKindsText(words, idioms, "more ", "more ", "is being prepared.", "are being prepared.")
 }
 
-func studySkippedText(count int) string {
-	if count == 1 {
-		return "1 word was skipped because it has no usable sentence or meaning."
+func studySkippedText(words, idioms int) string {
+	return studyKindsText(words, idioms, "", "", "was skipped because it has no usable sentence or meaning.", "were skipped because they have no usable sentence or meaning.")
+}
+
+// studyPreparationHeading names the preparation section after what it counts.
+func studyPreparationHeading(idioms domain.StudyMaterialCounts) string {
+	if idioms == (domain.StudyMaterialCounts{}) {
+		return "New words"
 	}
-	return fmt.Sprintf("%d words were skipped because they have no usable sentence or meaning.", count)
+	return "New words and idioms"
+}
+
+// studyKindsText counts words and Idioms each by name, in one sentence:
+// "2 new words and 1 idiom are ready." Only the kinds present are named, and
+// with neither it counts zero words. wordAdjective and idiomAdjective qualify
+// each noun.
+func studyKindsText(words, idioms int, wordAdjective, idiomAdjective, singular, plural string) string {
+	noun := func(count int, adjective, one, many string) string {
+		if count == 1 {
+			return fmt.Sprintf("1 %s%s", adjective, one)
+		}
+		return fmt.Sprintf("%d %s%s", count, adjective, many)
+	}
+	var parts []string
+	if words > 0 || idioms == 0 {
+		parts = append(parts, noun(words, wordAdjective, "word", "words"))
+	}
+	if idioms > 0 {
+		parts = append(parts, noun(idioms, idiomAdjective, "idiom", "idioms"))
+	}
+	verb := plural
+	if words+idioms == 1 {
+		verb = singular
+	}
+	return strings.Join(parts, " and ") + " " + verb
 }
 
 // StudyReportInvalidPage says why a report could not be sent and where to go

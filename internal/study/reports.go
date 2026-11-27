@@ -15,8 +15,8 @@ type CorrectionStore interface {
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
 	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	StudyOccurrenceLocator(ctx context.Context, owner string, ref domain.StudyOccurrenceRef) (domain.StudyOccurrenceRef, error)
-	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
-	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	SupersedeStudyMaterial(ctx context.Context, owner, materialID string) error
 	SetStudyWordWithdrawn(ctx context.Context, owner, progressID string, withdrawn bool, now time.Time) error
 	RelocateStudyMaterial(ctx context.Context, owner, materialID string, ref domain.StudyOccurrenceRef) error
@@ -36,6 +36,11 @@ type ReportStore interface {
 // material changed. An occurrence an Analysis update re-published unchanged
 // keeps its material, which then names the occurrence in the new run.
 func ReviewWord(ctx context.Context, store CorrectionStore, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
+	if word.IsIdiom() {
+		// An Idiom has no introducing word occurrence to re-check: Service.
+		// ReviewIdiom checks it against its headword and the Corpus counts.
+		return false, nil
+	}
 	evidence, current, err := gatherEvidence(ctx, store, owner, word)
 	if err != nil {
 		return false, err
@@ -97,7 +102,7 @@ func gatherEvidence(ctx context.Context, store CorrectionStore, owner string, wo
 		}
 		current = domain.StudyMaterial{}
 		for _, item := range all {
-			if item.StudyIdentity == word.StudyIdentity {
+			if item.StudyItem == word.StudyItem {
 				evidence.CurrentUnpreparable = item.State == domain.StudyMaterialUnpreparable
 				evidence.FailedEvidence = item.EvidenceFingerprint
 				current = item
@@ -110,9 +115,9 @@ func gatherEvidence(ctx context.Context, store CorrectionStore, owner string, wo
 	// Only a word withdrawn after unpreparable material compares the whole
 	// evidence, against what the failed attempt saw.
 	if evidence.CurrentUnpreparable {
-		evidence.Valid, err = store.ListStudyOccurrences(ctx, owner, word.StudyIdentity)
+		evidence.Valid, err = store.ListStudyOccurrences(ctx, owner, word.StudyItem)
 	} else {
-		evidence.Valid, err = store.FindStudyOccurrences(ctx, owner, word.StudyIdentity, source)
+		evidence.Valid, err = store.FindStudyOccurrences(ctx, owner, word.StudyItem, source)
 	}
 	if err != nil {
 		return domain.StudyEvidence{}, domain.StudyMaterial{}, err
@@ -160,7 +165,7 @@ func reconcileReports(ctx context.Context, store ReportStore, owner string, repo
 // identity and the material reported. A reported new word may have no Study
 // progress; its report still ends, and there is nothing to re-introduce.
 func reconcileReport(ctx context.Context, store ReportStore, owner string, report domain.StudyReport, now time.Time) error {
-	word := domain.StudyProgress{ID: report.ProgressID, StudyIdentity: report.StudyIdentity, MaterialID: report.MaterialID}
+	word := domain.StudyProgress{ID: report.ProgressID, StudyItem: report.StudyItem, MaterialID: report.MaterialID}
 	evidence, current, err := gatherEvidence(ctx, store, owner, word)
 	if errors.Is(err, domain.ErrNotFound) {
 		return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
@@ -18,7 +19,7 @@ type StudyStore interface { //nolint:interfacebloat // the Study page's store is
 	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
 	// ListStudyCandidatesAmong is the same fact for the given identities only,
 	// without reading the library's other candidates.
-	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyIdentity) ([]domain.StudyCandidate, error)
+	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
 	// StudyBatchLedger reports the batches offered, taken and declined on a
 	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
@@ -27,8 +28,11 @@ type StudyStore interface { //nolint:interfacebloat // the Study page's store is
 	// TakeStudyBatch introduces the words of one batch, and DeclineStudyBatch
 	// introduces none. Either returns domain.ErrStudyBatchLimit when the day's
 	// batches are all answered.
-	TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchWord) ([]domain.StudyProgress, error)
+	TakeStudyBatch(ctx context.Context, owner, language, studyDay string, now time.Time, batchLimit int, words []domain.StudyBatchItem) ([]domain.StudyProgress, error)
 	DeclineStudyBatch(ctx context.Context, owner, language, studyDay string, batchLimit int) error
+	// ListCorpusSentences reads sentences with their tokens, which an Idiom
+	// card's matched words are taken from.
+	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 	StudyGradeStore
 	StudyFluencyStore
 	StudyReportStore
@@ -50,11 +54,11 @@ type StudyCorrectionsStore interface {
 	// ListStudyOccurrences reads the occurrences that resolve to a word's
 	// identity under current evidence; GetStudyMaterial reads the material a
 	// word was introduced in.
-	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	// FindStudyOccurrences is the correction check's cheaper read: the source
 	// when it still resolves to the identity, else one valid occurrence, so its
 	// cost does not grow with how often the word occurs.
-	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
+	FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
 	ListCurrentStudyMaterial(ctx context.Context, owner, language string) ([]domain.StudyMaterial, error)
 	// SupersedeStudyMaterial replaces a word's material so it is prepared
@@ -123,7 +127,7 @@ type StudyReportEvidenceStore interface {
 	ListRetiredStudyOccurrences(ctx context.Context, owner, progressID string) ([]domain.StudyOccurrenceRef, error)
 	// ListRetiredStudyOccurrencesOfWord is the same by the word's vocabulary
 	// identity, for material preparation, which knows no progress row.
-	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListRetiredStudyOccurrencesOfWord(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	// StudyOccurrenceState says whether a reported occurrence is still in the
 	// current analysis of a Book in the library, and whether the learner
 	// excluded or corrected it.
@@ -148,4 +152,15 @@ type Study interface {
 	// EnqueueFluencyPreparation asks for Fluency contexts for the mature words
 	// that lack them.
 	EnqueueFluencyPreparation(ctx context.Context, owner, language string) error
+	// IdiomCandidates are the language's Idioms in the stream, with their
+	// Corpus candidate counts; none while the language's idiom switch is off.
+	IdiomsActive(language string) bool
+	IdiomCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
+	// ReviewIdiom checks an Idiom in study against current evidence and applies
+	// what that requires; it reports whether the Idiom's progress or material
+	// changed (ADR 0137 §5).
+	ReviewIdiom(ctx context.Context, owner string, word domain.StudyProgress, now time.Time) (bool, error)
+	// KeepIdiomReviewable returns an Idiom waiting for new material to its last
+	// material while the language's idiom switch is off, so it is still reviewed.
+	KeepIdiomReviewable(ctx context.Context, owner string, word domain.StudyProgress) (bool, error)
 }

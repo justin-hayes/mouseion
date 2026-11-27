@@ -159,3 +159,45 @@ func TestEnrichEvidenceAssistedPassSeparatesNotConfiguredFromAProviderFailure(t 
 	require.Error(t, err)
 	assert.NotErrorIs(t, err, ErrExternalNotConfigured)
 }
+
+func idiomCard() IdiomCard {
+	return IdiomCard{
+		Language: "de", Headword: "mit dem haus", MatchedForms: []string{"mit", "dem", "Haus"},
+		Sentence: "Anna ist nicht mit dem Haus.",
+		Senses:   []LexicalSense{{EvidenceID: "d/1", Source: "test", Gloss: "at home"}},
+	}
+}
+
+func TestEnrichIdiomCardSendsTheIdiomCardContractAndReturnsTheConfirmedGloss(t *testing.T) {
+	provider := &contextualProvider{enabled: true, response: TranslationResponse{
+		Translation: "mit dem haus", Gloss: "at home", EvidenceIDs: []string{"d/1"}, SentenceTranslation: "Anna is not at home.", SentenceTranslationTargets: []string{"at home"},
+	}}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
+
+	meaning, err := service.EnrichIdiomCard(context.Background(), idiomCard())
+	require.NoError(t, err)
+	assert.True(t, meaning.Resolved())
+	assert.Equal(t, "at home", meaning.Gloss)
+	require.Len(t, provider.requests, 1)
+	request := provider.requests[0]
+	assert.True(t, request.RequireIdiomCard)
+	assert.False(t, request.RequireContextualGloss)
+	assert.Equal(t, "mit dem haus", request.IdiomHeadword)
+	assert.Equal(t, []string{"mit", "dem", "Haus"}, request.IdiomMatchedForms)
+	assert.Len(t, request.CandidateSenses, 1)
+}
+
+func TestEnrichIdiomCardReportsLiteralUseAndSeparatesNotConfigured(t *testing.T) {
+	provider := &contextualProvider{enabled: true, response: TranslationResponse{
+		ContextOnly: true, SentenceTranslation: "Anna is not with the house.", UnresolvedKind: ContextualGlossUnresolvedLiteralUse, UnresolvedReason: "the words are meant literally",
+	}}
+	service := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, provider, nil)
+	meaning, err := service.EnrichIdiomCard(context.Background(), idiomCard())
+	require.NoError(t, err)
+	assert.False(t, meaning.Resolved())
+	assert.Equal(t, ContextualGlossUnresolvedLiteralUse, meaning.UnresolvedKind)
+
+	off := NewService(Config{ExternalEnabled: true, UserOptIn: true}, nil, nil, nil, &contextualProvider{enabled: false}, nil)
+	_, err = off.EnrichIdiomCard(context.Background(), idiomCard())
+	require.ErrorIs(t, err, ErrExternalNotConfigured)
+}

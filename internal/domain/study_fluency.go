@@ -65,12 +65,16 @@ const (
 	// flag.
 	FluencyReasonNotThisLemma FluencyReason = "not-this-lemma"
 	FluencyReasonUndefendable FluencyReason = "undefendable"
+	// FluencyReasonLiteralUse and FluencyReasonAmbiguous are an Idiom context's
+	// outcomes of the idiom-card request that is not a confirmed Gloss.
+	FluencyReasonLiteralUse FluencyReason = "literal-use"
+	FluencyReasonAmbiguous  FluencyReason = "ambiguous"
 )
 
 // ParseFluencyReason reads a reason from its stored or provider name.
 func ParseFluencyReason(name string) (FluencyReason, bool) {
 	switch reason := FluencyReason(name); reason {
-	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable:
+	case FluencyReasonSameMeaning, FluencyReasonDifferentMeaning, FluencyReasonIdiomatic, FluencyReasonNotThisLemma, FluencyReasonUndefendable, FluencyReasonLiteralUse, FluencyReasonAmbiguous:
 		return reason, true
 	}
 	return "", false
@@ -108,8 +112,12 @@ func (f FluencyForm) surfaceKey() string { return strings.ToLower(strings.TrimSp
 // Fluency context.
 type FluencyCandidate struct {
 	// Key identifies the occurrence, so the ranking is deterministic.
-	Key              string
-	Form             FluencyForm
+	Key  string
+	Form FluencyForm
+	// InIdiom is set when the word lies inside an Idiom candidate of the
+	// sentence and the language's idiom switch is on. Such a candidate ranks
+	// behind every candidate outside one (ADR 0137 §3).
+	InIdiom          bool
 	InCurrentReading bool
 	// Quality is the sentence's score under the existing sentence-quality
 	// rules, higher first.
@@ -121,7 +129,7 @@ type FluencyCandidate struct {
 // features (a split separable verb counts as one), then one that adds only a
 // new surface form, then one of a form already chosen, so different sentences
 // of the same form come after. The word's introducing form counts as chosen.
-// Ties go to the Current reading, then to the higher sentence quality, then to
+// A candidate inside an Idiom candidate comes after every other. Ties go to the Current reading, then to the higher sentence quality, then to
 // the key. The input is not modified.
 func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate) []FluencyCandidate {
 	remaining := append([]FluencyCandidate{}, candidates...)
@@ -155,6 +163,9 @@ func fluencyNovelty(c FluencyCandidate, seenKeys, seenSurfaces map[string]bool) 
 }
 
 func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[string]bool) bool {
+	if a.InIdiom != b.InIdiom {
+		return !a.InIdiom
+	}
 	if na, nb := fluencyNovelty(a, seenKeys, seenSurfaces), fluencyNovelty(b, seenKeys, seenSurfaces); na != nb {
 		return na > nb
 	}
@@ -171,7 +182,9 @@ func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[st
 // sentence where the word has its learned meaning.
 type FluencyContext struct {
 	ID, OwnerID, ProgressID string
-	Agreement               FluencyAgreement
+	// ItemKind is the kind of the Study item the context belongs to.
+	ItemKind  StudyItemKind
+	Agreement FluencyAgreement
 	// Reason is why the context does or does not use the learned meaning.
 	Reason FluencyReason
 	// Source occurrence of the sentence.
@@ -210,14 +223,17 @@ type FluencyCard struct {
 	Progress StudyProgress
 }
 
-func studyIdentityBefore(a, b StudyIdentity) bool {
+func studyIdentityBefore(a, b StudyItem) bool {
 	if a.CanonicalLemma != b.CanonicalLemma {
 		return a.CanonicalLemma < b.CanonicalLemma
 	}
 	if a.UPOS != b.UPOS {
 		return a.UPOS < b.UPOS
 	}
-	return a.LexicalDiscriminator < b.LexicalDiscriminator
+	if a.LexicalDiscriminator != b.LexicalDiscriminator {
+		return a.LexicalDiscriminator < b.LexicalDiscriminator
+	}
+	return a.ItemKind < b.ItemKind
 }
 
 // FluencyResponse is the learner's answer to a Fluency card. Fluency is

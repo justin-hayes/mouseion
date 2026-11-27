@@ -199,6 +199,30 @@ func migrateAndOpenStore(ctx context.Context, databaseURL string) (*persistence.
 	return persistence.Open(ctx, databaseURL)
 }
 
+// registerClassicalWorkers registers the Classical preparation and translation
+// workers over the embedded catalog layers and manifest, and returns the
+// preparation worker so its River client can be attached later.
+func registerClassicalWorkers(workers *river.Workers, store *persistence.PostgresStore, tempDir string) (*analysis.ClassicalPreparationWorker, error) {
+	layers, err := classical.ParseLayers(classical.LayersJSON)
+	if err != nil {
+		return nil, fmt.Errorf("parse Classical catalog layers: %w", err)
+	}
+	classicalDefinitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
+	if err != nil {
+		return nil, fmt.Errorf("parse Classical catalog manifest: %w", err)
+	}
+	worker := analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{
+		Layers:      layers,
+		Definitions: classicalDefinitions,
+		TempDir:     tempDir,
+	})
+	analysis.AddClassicalTranslationWorker(workers, store, analysis.ClassicalPreparationConfig{
+		Layers:  layers,
+		TempDir: tempDir,
+	})
+	return worker, nil
+}
+
 // startServerDependencies builds every long-lived client and provider and
 // starts the River client, in the order the request handlers and workers expect.
 func startServerDependencies(ctx context.Context, cfg serverConfig, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, dictionaryIndex *dictionary.Index, llmConfig enrichment.LLMConfig) (*serverDependencies, error) {
@@ -241,27 +265,18 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	workers := river.NewWorkers()
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
 	sourcecheck.AddWorker(workers, store)
-	layers, err := classical.ParseLayers(classical.LayersJSON)
+	classicalWorker, err := registerClassicalWorkers(workers, store, cfg.acquisitionTempDir)
 	if err != nil {
-		return nil, fmt.Errorf("parse Classical catalog layers: %w", err)
+		return nil, err
 	}
-	classicalDefinitions, err := classical.ParseDefinitions(classical.ManifestJSONL)
-	if err != nil {
-		return nil, fmt.Errorf("parse Classical catalog manifest: %w", err)
-	}
-	classicalWorker := analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{
-		Layers:      layers,
-		Definitions: classicalDefinitions,
-		TempDir:     cfg.acquisitionTempDir,
-	})
-	analysis.AddClassicalTranslationWorker(workers, store, analysis.ClassicalPreparationConfig{
-		Layers:  layers,
-		TempDir: cfg.acquisitionTempDir,
-	})
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
-	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex)
+	studyIdioms, err := newStudyIdioms(ctx, dictionaryIndex, preparedDeckConfig.IdiomCardLanguages, batchCodec)
+	if err != nil {
+		return nil, err
+	}
+	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex, studyIdioms)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
-	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
+	riverClient, err := newRiverClient(ctx, store, nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers, dictionaryIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +287,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	sourceStructureChecks := sourcecheck.NewService(store, riverClient, sourcecheck.ConfiguredTarget())
 	epubService.WithSourceStructureCheckEnqueuer(sourceStructureChecks)
 	catalogueWorker.Client = riverClient
-	studyService := study.NewService(store, riverClient).WithDictionaryPin(studyDictionaryPin(dictionaryIndex))
+	studyService := study.NewService(store, riverClient).WithDictionaryPin(studyDictionaryPin(dictionaryIndex)).WithIdioms(studyIdioms)
 	studyPlanWorker.Planner = studyService
 	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
 	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
@@ -298,6 +313,29 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	}, nil
 }
 
+// idiomIndexVersion stamps Idiom candidate counts with the matching rules, the
+// dictionary index version and a digest of its idiom entries (which carry the
+// reviewed idiom list), so a change to any of them rebuilds the counts.
+func idiomIndexVersion(ctx context.Context, dictionaryIndex *dictionary.Index) (string, error) {
+	digest, err := dictionaryIndex.IdiomDigest(ctx)
+	if err != nil {
+		return "", fmt.Errorf("fingerprint idiom entries: %w", err)
+	}
+	return persistence.IdiomIndexVersion(dictionaryIndex.Version(), digest), nil
+}
+
+// newRiverClient registers the Idiom candidate count rebuild, which derives
+// counts against the loaded dictionary index and stamps them with its idiom
+// version, and builds the River client over the complete worker set.
+func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workers *river.Workers, dictionaryIndex *dictionary.Index) (*river.Client[pgx.Tx], error) {
+	version, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, version)
+	return analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, standardWorkers, workers)
+}
+
 // studyDictionaryPin reads the loaded dictionary index's pin for a language, so
 // Study tries a no-dictionary-entry word again when the index is rebuilt. It is
 // empty for a language with no dictionary, and without an index.
@@ -310,6 +348,24 @@ func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string)
 	}
 }
 
+// newStudyIdioms is Study's Idiom switch over the dictionary's idiom index: a
+// language's Idioms are candidates, and its words' sentences avoid Idiom
+// candidates, only when the operator enabled it and its idiom-card payload
+// assessment is recorded, the gate the deck planner applies (ADR 0137). The
+// counts it reads are the ones stamped with the same idiom index version. It is
+// nil without a dictionary index or an enabled language.
+func newStudyIdioms(ctx context.Context, dictionaryIndex *dictionary.Index, idiomLanguages map[string]bool, codec *enrichment.TranslationCodec) (*study.IdiomAvoidance, error) {
+	var idioms *study.IdiomAvoidance
+	if dictionaryIndex == nil || len(idiomLanguages) == 0 {
+		return idioms, nil
+	}
+	version, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	return &study.IdiomAvoidance{Index: dictionaryIndex, Enabled: prepareddeck.IdiomSwitch(idiomLanguages, enrichment.ProviderAssessments(), codec), IndexVersion: version}, nil
+}
+
 // registerStudyWorker registers the Study material worker. The translation
 // provider is the one prepared decks use; Study asks it for a contextual Gloss
 // only from a job, never from a request.
@@ -319,13 +375,16 @@ func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string)
 // learned meaning, so the worker sends nothing until its provider payload
 // assessment is recorded and matches the codec (ADR 0133).
 //
+// With a language's idiom switch on, a word's material and Fluency contexts
+// prefer a sentence outside every Idiom candidate (ADR 0137 §3).
+//
 // A source-evidence language's material (ADR 0138) also reads the imported
 // dictionary and the Book's passage translations, and sends its evidence-assisted
 // pass payload only while that assessment is recorded. Its Fluency contexts run
 // that pass per occurrence and then the separate source-evidence agreement
 // variant, which is sent only while its own assessment is recorded. Without a dictionary
 // index such a word waits instead of being recorded as having no entry.
-func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec, dictionaryIndex *dictionary.Index) *study.PlanWorker {
+func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStore, provider enrichment.TranslationProvider, codec *enrichment.TranslationCodec, dictionaryIndex *dictionary.Index, idioms *study.IdiomAvoidance) *study.PlanWorker {
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 3}, nil, nil, nil, provider, nil)
 	assessments := enrichment.ProviderAssessments()
 	evidence := &study.SourceEvidence{
@@ -347,13 +406,13 @@ func registerStudyWorker(workers *river.Workers, store *persistence.PostgresStor
 			return false
 		}
 	}
-	study.AddMaterialWorker(workers, store, enricher, evidence)
+	study.AddMaterialWorker(workers, store, enricher, evidence, idioms)
 	planWorker := study.AddPlanWorker(workers)
 	study.AddFluencyWorker(workers, store, enricher, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementPayload, language, codec)
 	}, evidence, func(language string) error {
 		return assessments.MaySend(enrichment.FluencyAgreementSourceEvidencePayload, language, codec)
-	})
+	}, idioms)
 	return planWorker
 }
 
@@ -377,6 +436,13 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	analysisService := analysis.NewService(store.Pool(), deps.riverClient).WithCapabilities(deps.capabilities).WithClassicalPreparationStore(store)
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
+	}
+	idiomVersion, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	if err := analysisService.EnqueueMissingIdiomCountRebuilds(ctx, idiomVersion); err != nil {
+		return nil, fmt.Errorf("schedule missing Idiom candidate counts: %w", err)
 	}
 	if err := analysisService.EnqueueMissingConstructionRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Construction occurrences: %w", err)

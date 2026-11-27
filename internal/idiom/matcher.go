@@ -111,7 +111,32 @@ func Match(parameters Parameters, tokens []Token, anchors []Anchor, entries []En
 	}
 	candidates := make([]Candidate, 0)
 	for _, entry := range poolEntries(entries) {
-		candidate, found := matchEntry(parameters, tokens, anchorsByOrdinal, entry)
+		candidate, found := matchEntry(parameters, tokens, anchorsByOrdinal, true, entry)
+		if found {
+			candidates = append(candidates, candidate)
+		}
+	}
+	return resolveOverlaps(candidates)
+}
+
+// MatchUnanchored returns the idiom candidates in tokens with no anchor
+// requirement: it applies Match's rules (headword order, gap bound,
+// two-to-four-word bound, pooling and overlap resolution) to a sentence that
+// is not tied to a frozen vocabulary occurrence. The candidates carry a zero
+// Anchor and AnchorTokenOrdinal. MatchUnanchored is pure.
+func MatchUnanchored(parameters Parameters, tokens []Token, entries []Entry) []Candidate {
+	if len(tokens) == 0 || len(entries) == 0 {
+		return nil
+	}
+	if parameters.Version == "" {
+		parameters = DefaultParameters()
+	}
+	if parameters.GapBound < 0 {
+		parameters.GapBound = 0
+	}
+	candidates := make([]Candidate, 0)
+	for _, entry := range poolEntries(entries) {
+		candidate, found := matchEntry(parameters, tokens, nil, false, entry)
 		if found {
 			candidates = append(candidates, candidate)
 		}
@@ -162,17 +187,22 @@ func poolEntries(entries []Entry) []Entry {
 	return pooled
 }
 
-func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, entry Entry) (Candidate, bool) {
+func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, anchored bool, entry Entry) (Candidate, bool) {
 	if len(entry.Words) < minWords || len(entry.Words) > maxWords {
 		return Candidate{}, false
 	}
-	positions, found := searchWords(parameters.GapBound, tokens, anchors, entry.Words, 0, 0, -1, nil)
+	positions, found := searchWords(parameters.GapBound, tokens, anchors, anchored, entry.Words, 0, 0, -1, nil)
 	if !found {
 		return Candidate{}, false
 	}
-	anchorPosition, anchor, found := firstAnchor(tokens, anchors, positions)
-	if !found {
-		return Candidate{}, false
+	var anchor Anchor
+	var anchorOrdinal int
+	if anchored {
+		anchorPosition, found, ok := firstAnchor(tokens, anchors, positions)
+		if !ok {
+			return Candidate{}, false
+		}
+		anchor, anchorOrdinal = found, tokens[anchorPosition].Ordinal
 	}
 	ordinals := make([]int, len(positions))
 	for index, position := range positions {
@@ -182,7 +212,7 @@ func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, e
 		Entry:                entry,
 		MatchedTokenOrdinals: ordinals,
 		Anchor:               anchor.Identity,
-		AnchorTokenOrdinal:   tokens[anchorPosition].Ordinal,
+		AnchorTokenOrdinal:   anchorOrdinal,
 		Provenance: Provenance{
 			MatcherVersion: parameters.Version,
 			GapBound:       parameters.GapBound,
@@ -199,11 +229,15 @@ func searchWords(
 	gapBound int,
 	tokens []Token,
 	anchors map[int]Anchor,
+	anchored bool,
 	words []string,
 	wordIndex, start, lastPosition int,
 	matched []int,
 ) ([]int, bool) {
 	if wordIndex == len(words) {
+		if !anchored {
+			return clonePositions(matched), true
+		}
 		if _, _, found := firstAnchor(tokens, anchors, matched); found {
 			return clonePositions(matched), true
 		}
@@ -217,7 +251,7 @@ func searchWords(
 			continue
 		}
 		next := append(clonePositions(matched), position)
-		if sequence, found := searchWords(gapBound, tokens, anchors, words, wordIndex+1, position+1, position, next); found {
+		if sequence, found := searchWords(gapBound, tokens, anchors, anchored, words, wordIndex+1, position+1, position, next); found {
 			return sequence, true
 		}
 	}

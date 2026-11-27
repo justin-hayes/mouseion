@@ -41,7 +41,7 @@ func (q *Queries) AppendStudyFluencyResponse(ctx context.Context, arg AppendStud
 
 const getStudyProgress = `-- name: GetStudyProgress :one
 
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin, item_kind FROM study_progress
  WHERE owner_id = $1 AND id = $2
 `
 
@@ -82,16 +82,17 @@ func (q *Queries) GetStudyProgress(ctx context.Context, arg GetStudyProgressPara
 		&i.LearnedSenseIds,
 		&i.LearnedEntryIds,
 		&i.LearnedDictionaryPin,
+		&i.ItemKind,
 	)
 	return i, err
 }
 
 const insertStudyFluencyContext = `-- name: InsertStudyFluencyContext :one
-INSERT INTO study_fluency_context (owner_id, progress_id, agreement, reason, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal,
+INSERT INTO study_fluency_context (owner_id, progress_id, item_kind, agreement, reason, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal,
                                    sentence, target_word, gloss, sentence_translation, sentence_translation_targets,
                                    form_surface, form_features, form_split,
                                    cited_sense_ids, cited_entry_ids, dictionary_pin)
-SELECT p.owner_id, p.id, $1, $2, $3, $4, $5,
+SELECT p.owner_id, p.id, p.item_kind, $1, $2, $3, $4, $5,
        $6, $7, $8, $9,
        $10, $11, $12::jsonb,
        $13, $14, $15,
@@ -101,7 +102,7 @@ SELECT p.owner_id, p.id, $1, $2, $3, $4, $5,
    AND ($1::text <> 'agrees'
         OR (SELECT count(*) FROM study_fluency_context x
              WHERE x.owner_id = p.owner_id AND x.progress_id = p.id AND x.agreement = 'agrees') < $21::int)
-ON CONFLICT (owner_id, progress_id, analysis_run_id, sentence_ordinal, token_ordinal) DO NOTHING
+ON CONFLICT (owner_id, progress_id, item_kind, analysis_run_id, sentence_ordinal, token_ordinal) DO NOTHING
 RETURNING id::text AS id
 `
 
@@ -250,7 +251,7 @@ func (q *Queries) ListStudyFluencyContextResponses(ctx context.Context, arg List
 }
 
 const listStudyFluencyContexts = `-- name: ListStudyFluencyContexts :many
-SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.agreement, c.reason,
+SELECT c.id::text AS id, c.progress_id::text AS progress_id, c.item_kind, c.agreement, c.reason,
        c.book_id::text AS book_id, c.analysis_run_id::text AS analysis_run_id, c.corpus_id::text AS corpus_id,
        c.sentence_ordinal, c.token_ordinal, c.sentence, c.target_word, c.gloss,
        c.sentence_translation, c.sentence_translation_targets,
@@ -272,6 +273,7 @@ type ListStudyFluencyContextsParams struct {
 type ListStudyFluencyContextsRow struct {
 	ID                         string
 	ProgressID                 string
+	ItemKind                   string
 	Agreement                  string
 	Reason                     string
 	BookID                     string
@@ -308,6 +310,7 @@ func (q *Queries) ListStudyFluencyContexts(ctx context.Context, arg ListStudyFlu
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProgressID,
+			&i.ItemKind,
 			&i.Agreement,
 			&i.Reason,
 			&i.BookID,

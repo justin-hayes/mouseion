@@ -55,6 +55,8 @@ type Service struct {
 	// dictionaryPin reports the loaded dictionary's pin for a language, or empty
 	// when none is loaded; see WithDictionaryPin.
 	dictionaryPin func(language string) string
+	// idioms is Study's idiom switch; nil leaves Idioms out of the stream.
+	idioms *IdiomAvoidance
 	// now is the clock planning reconciles reports by; see WithClock.
 	now func() time.Time
 }
@@ -67,6 +69,13 @@ func (s *Service) WithDictionaryPin(pin func(language string) string) *Service {
 	return s
 }
 
+// WithIdioms sets Study's idiom switch. With a language's switch on, its Idioms
+// join the new-word stream (ADR 0137 §4); without it no Idiom is a candidate.
+func (s *Service) WithIdioms(idioms *IdiomAvoidance) *Service {
+	s.idioms = idioms
+	return s
+}
+
 // WithClock sets the clock planning reconciles Wrong-word reports by. It must
 // be the web app's clock: a report the planning job ends releases its word for
 // the start of the Study day after this time, as the page request would
@@ -74,6 +83,15 @@ func (s *Service) WithDictionaryPin(pin func(language string) string) *Service {
 func (s *Service) WithClock(now func() time.Time) *Service {
 	s.now = now
 	return s
+}
+
+// pinOf is the pin a no-dictionary-entry omission of the item is compared with:
+// an Idiom's is the idiom index version, a word's the language's dictionary pin.
+func (s *Service) pinOf(item domain.StudyItem, languagePin string) string {
+	if item.IsIdiom() && s.idioms != nil {
+		return strings.TrimSpace(s.idioms.IndexVersion)
+	}
+	return languagePin
 }
 
 // currentDictionaryPin is the loaded dictionary's pin for the language, or
@@ -157,6 +175,21 @@ func EnqueuePlanningTx(ctx context.Context, tx pgx.Tx, owner, language string) e
 	return nil
 }
 
+// IdiomsActive reports whether the language's idiom switch is on.
+func (s *Service) IdiomsActive(language string) bool { return s.idioms.active(language) }
+
+// IdiomCandidates returns the language's Idioms as Study candidates, with their
+// Corpus candidate counts, for the stream a New-word batch is chosen from. It is
+// empty while the language's idiom switch is off, so no new Idiom is offered
+// then; an Idiom already in study is reviewed regardless.
+func (s *Service) IdiomCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error) {
+	if !s.idioms.active(language) {
+		return nil, nil
+	}
+	candidates, _, err := s.store.ListStudyIdiomCandidates(ctx, owner, language, s.idioms.IndexVersion)
+	return candidates, err
+}
+
 // PlanPreparation brings the learner's Study material up to date with the
 // stream: the first domain.StudyPreparationWindow words in stream order that
 // are not in study and not unpreparable each get a pending record and a durable job. A word
@@ -172,6 +205,16 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	if err != nil {
 		return err
 	}
+	if s.idioms.active(language) {
+		// An Idiom's count comes from the per-Book counts, which a job keeps;
+		// a Book whose counts are not ready adds its Idioms when they are, at
+		// the next plan.
+		idiomCandidates, _, err := s.store.ListStudyIdiomCandidates(ctx, owner, language, s.idioms.IndexVersion)
+		if err != nil {
+			return err
+		}
+		candidates = append(candidates, idiomCandidates...)
+	}
 	progress, err := s.store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
 		return err
@@ -186,19 +229,19 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 		return err
 	}
 	pin := s.currentDictionaryPin(language)
-	current := make(map[domain.StudyIdentity]domain.StudyMaterial, len(material))
-	states := make(map[domain.StudyIdentity]domain.StudyMaterialState, len(material))
+	current := make(map[domain.StudyItem]domain.StudyMaterial, len(material))
+	states := make(map[domain.StudyItem]domain.StudyMaterialState, len(material))
 	for _, item := range material {
-		current[item.StudyIdentity] = item
-		states[item.StudyIdentity] = item.State
-		if item.RetriesAgainstDictionary(pin) {
+		current[item.StudyItem] = item
+		states[item.StudyItem] = item.State
+		if item.RetriesAgainstDictionary(s.pinOf(item.StudyItem, pin)) {
 			// Its omission was made against another dictionary: the word counts
 			// as waiting, not skipped, so it takes its place in the window.
-			states[item.StudyIdentity] = domain.StudyMaterialPending
+			states[item.StudyItem] = domain.StudyMaterialPending
 		}
 	}
 	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports))), states)
-	if err := s.prepareTargets(ctx, owner, targets, current, pin); err != nil {
+	if err := s.prepareTargets(ctx, owner, targets, current, func(item domain.StudyItem) string { return s.pinOf(item, pin) }); err != nil {
 		return err
 	}
 	return s.enqueueReintroductions(ctx, owner, progress, current)
@@ -207,19 +250,20 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 // prepareTargets enqueues each target whose material is not ready. A word
 // skipped for having no dictionary entry against another pin is made pending
 // again first, so it is prepared against the dictionary now loaded.
-func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyIdentity]domain.StudyMaterial, pin string) error {
+func (s *Service) prepareTargets(ctx context.Context, owner string, targets []domain.StudyCandidate, current map[domain.StudyItem]domain.StudyMaterial, pinOf func(domain.StudyItem) string) error {
 	for _, target := range targets {
-		existing, ok := current[target.StudyIdentity]
+		existing, ok := current[target.StudyItem]
 		if ok && existing.State == domain.StudyMaterialReady {
 			continue
 		}
+		pin := pinOf(target.StudyItem)
 		if ok && existing.RetriesAgainstDictionary(pin) {
 			// A missing record means the omission was settled again meanwhile.
 			if err := s.store.ReopenStudyMaterialNoDictionaryEntry(ctx, owner, existing.ID, pin); err != nil && !errors.Is(err, domain.ErrNotFound) {
 				return err
 			}
 		}
-		if err := s.enqueueWord(ctx, owner, target.StudyIdentity, existing.ID); err != nil {
+		if err := s.enqueueWord(ctx, owner, target.StudyItem, existing.ID); err != nil {
 			return err
 		}
 	}
@@ -229,13 +273,13 @@ func (s *Service) prepareTargets(ctx context.Context, owner string, targets []do
 // enqueueReintroductions prepares new material for the words in study whose
 // material a correction replaced, so a due review is re-introduced in a sentence
 // that belongs to the word. A word withdrawn by a correction waits.
-func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyIdentity]domain.StudyMaterial) error {
+func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyItem]domain.StudyMaterial) error {
 	for _, item := range progress {
-		existing, ok := current[item.StudyIdentity]
+		existing, ok := current[item.StudyItem]
 		if item.Withdrawn || (ok && existing.State != domain.StudyMaterialPending) {
 			continue
 		}
-		if err := s.enqueueWord(ctx, owner, item.StudyIdentity, existing.ID); err != nil {
+		if err := s.enqueueWord(ctx, owner, item.StudyItem, existing.ID); err != nil {
 			return err
 		}
 	}
@@ -244,7 +288,7 @@ func (s *Service) enqueueReintroductions(ctx context.Context, owner string, prog
 
 // enqueueWord reserves the word's pending record, unless existingID names one,
 // and inserts its preparation job in the same transaction.
-func (s *Service) enqueueWord(ctx context.Context, owner string, identity domain.StudyIdentity, existingID string) (err error) {
+func (s *Service) enqueueWord(ctx context.Context, owner string, identity domain.StudyItem, existingID string) (err error) {
 	tx, err := s.store.Pool().Begin(ctx)
 	if err != nil {
 		return err

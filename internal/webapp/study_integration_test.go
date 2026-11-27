@@ -48,6 +48,12 @@ type studyProvider struct {
 	// citeLast makes the pass cite its last candidate sense instead of its first,
 	// so a test can cite a later homograph entry.
 	citeLast bool
+	// idiomAnswers and idiom are the fake idiom answers and the idiom-card
+	// requests received. See study_idiom_harness_integration_test.go.
+	idiomAnswers map[string]idiomAnswer
+	// idiomSentenceAnswers override them for one sentence.
+	idiomSentenceAnswers map[string]idiomAnswer
+	idiom                []enrichment.TranslationRequest
 }
 
 // passRequests are the evidence-assisted pass requests received so far.
@@ -77,6 +83,9 @@ func (p *studyProvider) omit(lemma string, omitted bool) {
 func (p *studyProvider) Translate(ctx context.Context, request enrichment.TranslationRequest) (enrichment.TranslationResponse, error) {
 	if _, err := p.FakeTranslationProvider.Translate(ctx, request); err != nil {
 		return enrichment.TranslationResponse{}, err
+	}
+	if request.RequireIdiomCard {
+		return p.answerIdiom(request)
 	}
 	if request.RequireFluencyAgreement {
 		p.mu.Lock()
@@ -137,6 +146,9 @@ type studyHarness struct {
 	// planner is the Study service the planning job runs, so a test can run a
 	// plan at a chosen point instead of waiting on River.
 	planner *study.Service
+	// weakerFluencyForms names the surfaces whose Fluency sentences
+	// addFluencySentence makes score lower on quality (see weakenSentence).
+	weakerFluencyForms map[string]bool
 }
 
 func newStudyHarness(t *testing.T) *studyHarness {
@@ -155,6 +167,9 @@ type studyHarnessOptions struct {
 	// dictionaryPin is the loaded dictionary's pin Study planning compares a
 	// no-dictionary-entry omission with; nil when no dictionary is loaded.
 	dictionaryPin func(language string) string
+	// idioms is the Idiom avoidance the material and Fluency workers get; nil
+	// is every language's idiom switch off. See germanIdiomAvoidance.
+	idioms *study.IdiomAvoidance
 }
 
 func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarness {
@@ -176,8 +191,8 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	if options.evidence != nil {
 		evidence = options.evidence(store)
 	}
-	study.AddMaterialWorker(workers, store, enricher, evidence)
-	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil }, nil, nil)
+	study.AddMaterialWorker(workers, store, enricher, evidence, options.idioms)
+	study.AddFluencyWorker(workers, store, enricher, func(string) error { return nil }, nil, nil, options.idioms)
 	client, err := river.NewClient[pgx.Tx](riverpgxv5.New(store.Pool()), &river.Config{
 		Queues: map[string]river.QueueConfig{study.Queue: {MaxWorkers: 2}}, Workers: workers,
 		// A short retry keeps the provider-omission scenario fast.
@@ -186,7 +201,7 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	require.NoError(t, err)
 
 	clock := testutil.NewManualClock(time.Date(2026, 11, 25, 4, 0, 0, 0, time.UTC))
-	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin).WithClock(clock.Func())
+	studyService := study.NewService(store, client).WithDictionaryPin(options.dictionaryPin).WithIdioms(options.idioms).WithClock(clock.Func())
 	planWorker.Planner = studyService
 	webAuth := auth.New(store, time.Hour)
 	h := New(Services{
@@ -583,7 +598,7 @@ func TestStudyRetriesANoDictionaryEntryWordOnlyWhenTheDictionaryPinChanges(t *te
 	}})
 	s.seedBook("library", testutil.CorpusWord{Lemma: "buch", UPOS: "NOUN", Occurrences: 2}, testutil.CorpusWord{Lemma: "schule", UPOS: "NOUN", Occurrences: 2})
 	omit := func(lemma string, record func(id string) error) string {
-		id, created, err := s.store.ReserveStudyMaterial(s.ctx, s.owner.ID, domain.StudyIdentity{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"})
+		id, created, err := s.store.ReserveStudyMaterial(s.ctx, s.owner.ID, domain.StudyItem{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"})
 		require.NoError(t, err)
 		require.True(t, created)
 		require.NoError(t, record(id))

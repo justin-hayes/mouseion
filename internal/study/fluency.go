@@ -76,11 +76,13 @@ func (s *Service) enqueueFluencyWord(ctx context.Context, owner, progressID stri
 
 // FluencyStore is what the Fluency worker needs from the store.
 type FluencyStore interface {
+	idiomSentenceStore
 	GetStudyProgress(ctx context.Context, owner, id string) (domain.StudyProgress, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
 	GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error)
 	ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error)
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
+	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
 	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
 	RecordStudyFluencyContext(ctx context.Context, owner string, record domain.FluencyContextRecord) error
 	// ListRetiredStudyOccurrences names the occurrences the learner reported as
@@ -98,6 +100,10 @@ type FluencyEnricher interface {
 	// EnrichSourceEvidenceFluencyAgreement is the agreement check of a
 	// source-evidence language: its payload adds both sides' cited senses.
 	EnrichSourceEvidenceFluencyAgreement(ctx context.Context, candidate enrichment.Candidate, learnedMeaning string, learned, occurrence []string) (enrichment.FluencyAgreement, error)
+	// EnrichIdiomCard is an Idiom context's agreement check: the same
+	// idiom-card request as the Idiom's Study material, whose cited sense is
+	// compared with the Learned meaning's (ADR 0137 §6).
+	EnrichIdiomCard(ctx context.Context, card enrichment.IdiomCard) (enrichment.ContextualMeaning, error)
 }
 
 // FluencyWorker prepares one mature word's Fluency contexts per River
@@ -119,12 +125,16 @@ type FluencyWorker struct {
 	// agreement payload may be sent for a language (ADR 0133, ADR 0138 §4). The
 	// pass's own gate is Evidence.MaySend; both must pass before any send.
 	MaySendAgreement func(language string) error
+	// Idioms makes the ranking prefer an occurrence where the word is not part
+	// of an Idiom candidate; nil leaves the ranking unchanged (ADR 0137 §3).
+	Idioms *IdiomAvoidance
 }
 
 // AddFluencyWorker registers the worker with its dependencies. evidence and
-// maySendAgreement are nil when no source-evidence language can be prepared.
-func AddFluencyWorker(workers *river.Workers, store FluencyStore, enricher FluencyEnricher, maySend func(language string) error, evidence *SourceEvidence, maySendAgreement func(language string) error) {
-	river.AddWorker(workers, &FluencyWorker{Store: store, Enricher: enricher, MaySend: maySend, Evidence: evidence, MaySendAgreement: maySendAgreement})
+// maySendAgreement are nil when no source-evidence language can be prepared,
+// and idioms is nil when no language's idiom switch is on.
+func AddFluencyWorker(workers *river.Workers, store FluencyStore, enricher FluencyEnricher, maySend func(language string) error, evidence *SourceEvidence, maySendAgreement func(language string) error, idioms *IdiomAvoidance) {
+	river.AddWorker(workers, &FluencyWorker{Store: store, Enricher: enricher, MaySend: maySend, Evidence: evidence, MaySendAgreement: maySendAgreement, Idioms: idioms})
 }
 
 // Work prepares the word's Fluency contexts: it ranks other occurrences of the
@@ -158,32 +168,48 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if agreeing >= domain.FluencyContextsPerWord {
 		return nil
 	}
-	policy := cardpolicy.For(word.Language)
-	var evidence *fluencyEvidence
-	if policy.SourceEvidence {
-		var ready, wait bool
-		if evidence, ready, wait = w.sourceEvidence(ctx, word, policy); !ready {
-			if wait {
-				// A missing dictionary, or one without the source, waits like a
-				// missing provider; it is never an answer.
-				return river.JobSnooze(notConfiguredDelay)
-			}
-			// Nothing is sent: a gate is not recorded, or the Learned meaning
-			// cites nothing to compare.
-			return nil
-		}
-	} else if err := w.MaySend(word.Language); err != nil {
-		// Nothing is sent. The job ends instead of waiting: opening the Study
-		// page enqueues it again once an hour, and a waiting job per hour would
-		// all run, and ask about the same occurrences, the moment the assessment
-		// is recorded.
-		return nil //nolint:nilerr // an unrecorded assessment is not a failure: nothing is sent
+	if word.IsIdiom() {
+		return w.workIdiom(ctx, owner, word, assessed, agreeing)
+	}
+	evidence, proceed, err := w.wordGate(ctx, word)
+	if err != nil || !proceed {
+		return err
 	}
 	ranked, err := w.rankedCandidates(ctx, owner, word, assessed)
 	if err != nil {
 		return err
 	}
 	return w.askAbout(ctx, owner, word, ranked, agreeing, evidence)
+}
+
+// wordGate decides whether a word's contexts can be asked about now: a modern
+// language needs its agreement assessment recorded, a source-evidence language
+// its evidence. It returns that evidence, and proceed is false when nothing is
+// sent; the error is a snooze when the job waits.
+func (w *FluencyWorker) wordGate(ctx context.Context, word domain.StudyProgress) (evidence *fluencyEvidence, proceed bool, err error) {
+	policy := cardpolicy.For(word.Language)
+	if policy.SourceEvidence {
+		var ready, wait bool
+		if evidence, ready, wait = w.sourceEvidence(ctx, word, policy); !ready {
+			if wait {
+				// A missing dictionary, or one without the source, waits like a
+				// missing provider; it is never an answer.
+				return nil, false, river.JobSnooze(notConfiguredDelay)
+			}
+			// Nothing is sent: a gate is not recorded, or the Learned meaning
+			// cites nothing to compare.
+			return nil, false, nil
+		}
+		return evidence, true, nil
+	}
+	if err := w.MaySend(word.Language); err != nil {
+		// Nothing is sent. The job ends instead of waiting: opening the Study
+		// page enqueues it again once an hour, and a waiting job per hour would
+		// all run, and ask about the same occurrences, the moment the assessment
+		// is recorded.
+		return nil, false, nil //nolint:nilerr // an unrecorded assessment is not a failure: nothing is sent
+	}
+	return nil, true, nil
 }
 
 // askAbout asks the provider about each ranked occurrence in turn until the word
@@ -229,11 +255,22 @@ func (w *FluencyWorker) assess(ctx context.Context, word domain.StudyProgress, c
 }
 
 func (w *FluencyWorker) record(ctx context.Context, owner, progressID string, choice sentenceChoice, agreement fluencyAnswer) (bool, error) {
+	occurrence := domain.StudyOccurrenceRef{
+		BookID: choice.occurrence.BookID, AnalysisRunID: choice.occurrence.AnalysisRunID, CorpusID: choice.occurrence.CorpusID,
+		SentenceOrdinal: choice.occurrence.SentenceOrdinal, TokenOrdinal: choice.occurrence.TokenOrdinal,
+	}
+	return w.recordContext(ctx, owner, progressID, occurrence, choice.sentence, choice.target, choice.form, agreement)
+}
+
+// recordContext stores one assessed occurrence and reports whether it was
+// stored: a word already at its limit, or an occurrence already assessed,
+// stores nothing.
+func (w *FluencyWorker) recordContext(ctx context.Context, owner, progressID string, occurrence domain.StudyOccurrenceRef, sentence, target string, form domain.FluencyForm, agreement fluencyAnswer) (bool, error) {
 	record := domain.FluencyContextRecord{
 		ProgressID: progressID,
-		BookID:     choice.occurrence.BookID, AnalysisRunID: choice.occurrence.AnalysisRunID, CorpusID: choice.occurrence.CorpusID,
-		SentenceOrdinal: choice.occurrence.SentenceOrdinal, TokenOrdinal: choice.occurrence.TokenOrdinal,
-		Sentence: choice.sentence, TargetWord: choice.target, Form: choice.form,
+		BookID:     occurrence.BookID, AnalysisRunID: occurrence.AnalysisRunID, CorpusID: occurrence.CorpusID,
+		SentenceOrdinal: occurrence.SentenceOrdinal, TokenOrdinal: occurrence.TokenOrdinal,
+		Sentence: sentence, TargetWord: target, Form: form,
 	}
 	reason, ok := domain.ParseFluencyReason(agreement.Reason)
 	if !ok {
@@ -294,7 +331,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 	if err != nil {
 		return nil, err
 	}
-	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority)
+	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority, w.Idioms.reader(word.Language))
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +342,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		key := fmt.Sprintf("%s/%d/%d", occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
 		byKey[key] = choice
 		candidates = append(candidates, domain.FluencyCandidate{
-			Key: key, Form: choice.form, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
+			Key: key, Form: choice.form, InIdiom: choice.inIdiom, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
 		})
 	}
 	ranked := domain.RankFluencyCandidates(introduced, candidates)
@@ -320,7 +357,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 // occurrences the sentence-quality gate accepts, leaving out the occurrences
 // already assessed and the word's own introducing sentence, wherever else the
 // library repeats that text.
-func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string) ([]sentenceChoice, error) {
+func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string, reader *idiomReader) ([]sentenceChoice, error) {
 	introducing := strings.TrimSpace(material.Sentence)
 	var kept []sentenceChoice
 	for page := 1; page <= maxFluencyPages; page++ {
@@ -331,7 +368,7 @@ func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word
 		if err != nil {
 			return nil, err
 		}
-		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyIdentity, result.Occurrences, retired)
+		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyItem, result.Occurrences, retired, reader)
 		if err != nil {
 			return nil, err
 		}

@@ -21,7 +21,7 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 	if err := store.CompleteStudyReintroductions(ctx, owner, language, now); err != nil {
 		return err
 	}
-	progress, err := store.ListStudyProgress(ctx, owner, language)
+	progress, err := h.keepIdiomsReviewable(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -49,6 +49,28 @@ func (h *Handler) reconcileStudyCorrections(ctx context.Context, owner, language
 	}
 }
 
+// keepIdiomsReviewable reads the learner's progress, after returning each Idiom
+// that waits for new material to its last one while the language's idiom switch
+// is off: no replacement is prepared then, so it would never be reviewed again.
+func (h *Handler) keepIdiomsReviewable(ctx context.Context, owner, language string) ([]domain.StudyProgress, error) {
+	progress, err := h.services.Store.Study.ListStudyProgress(ctx, owner, language)
+	if err != nil || h.services.Study == nil {
+		return progress, err
+	}
+	changed := false
+	for _, word := range progress {
+		kept, err := h.services.Study.KeepIdiomReviewable(ctx, owner, word)
+		if err != nil {
+			return nil, err
+		}
+		changed = changed || kept
+	}
+	if !changed {
+		return progress, nil
+	}
+	return h.services.Store.Study.ListStudyProgress(ctx, owner, language)
+}
+
 // reviewWithdrawnWords checks every withdrawn word against current evidence. It
 // returns the words checked and whether any of them changed.
 func (h *Handler) reviewWithdrawnWords(ctx context.Context, owner string, progress []domain.StudyProgress, now time.Time) (checked map[string]bool, changed bool, err error) {
@@ -68,7 +90,14 @@ func (h *Handler) reviewWithdrawnWords(ctx context.Context, owner string, progre
 }
 
 // reviewStudyWord checks one word's introducing occurrence against current
-// evidence and applies what that requires; see study.ReviewWord.
+// evidence and applies what that requires; see study.ReviewWord. An Idiom has
+// no introducing word occurrence: see study.Service.ReviewIdiom.
 func (h *Handler) reviewStudyWord(ctx context.Context, owner string, word domain.StudyProgress, now time.Time) (bool, error) {
+	if word.IsIdiom() {
+		if h.services.Study == nil {
+			return false, nil
+		}
+		return h.services.Study.ReviewIdiom(ctx, owner, word, now)
+	}
 	return study.ReviewWord(ctx, h.services.Store.Study, owner, word, now)
 }

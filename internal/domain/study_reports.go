@@ -78,7 +78,7 @@ func CleanStudyReportNote(note string) (string, bool) {
 // copied from the material when the report was made. It is open until EndedAt.
 type StudyReport struct {
 	ID, OwnerID string
-	StudyIdentity
+	StudyItem
 	ProgressID, MaterialID string
 	Kind                   StudyReportKind
 	Note                   string
@@ -144,11 +144,11 @@ func StudyHeldDue(due, reportedAt, now time.Time) time.Time {
 // StudyHeldIdentities names the words the open Wrong-word reports hold. A New-
 // word batch passes them over, including a word the report left with no Study
 // progress.
-func StudyHeldIdentities(reports []StudyReport) []StudyIdentity {
-	var held []StudyIdentity
+func StudyHeldIdentities(reports []StudyReport) []StudyItem {
+	var held []StudyItem
 	for _, report := range reports {
 		if report.Held() {
-			held = append(held, report.StudyIdentity)
+			held = append(held, report.StudyItem)
 		}
 	}
 	return held

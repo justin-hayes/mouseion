@@ -102,6 +102,24 @@ a bare link. Reported words entries reuse the Study card's sentence with its
 marked target and one **Dismiss** form. See
 [`screen-inventory.md`](screen-inventory.md#study-reports).
 
+An Idiom's card (ADR 0137) offers one report kind only, **Unsuitable context**,
+pre-selected and worded for an idiom: there is no Wrong-word choice, since an
+Idiom is matched on a headword and has no single word to be wrong. While the
+language's idiom switch is off the card has no Report control, because its
+replacement material could not be prepared.
+
+## Idiom card face
+
+An Idiom's Study card, in Today and in Fluency alike, uses one face (ADR 0137,
+the deck's idiom card, ADR 0067). The sentence marks every matched word in
+bold, not one target; on Today the words come from the positions the material
+stored, and a Fluency context, which stores its matched surfaces only, marks
+them by surface. The answer side swaps the target rows for a definition list:
+the headword with an **idiom** label, the Meaning, and the sentence translation
+with its aligned excerpts highlighted. Today's Idiom card and Fluency's Idiom
+card are the same markup (`cardFaceView`), and only the grades and responses
+below it differ.
+
 ## Study source sections
 
 A source-evidence word's (Ancient Greek, Latin) Study card shows two more

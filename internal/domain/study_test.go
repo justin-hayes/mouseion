@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func studyID(lemma string) StudyIdentity {
-	return StudyIdentity{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}
+func studyID(lemma string) StudyItem {
+	return StudyItem{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}
 }
 
 func TestOrderStudyStream(t *testing.T) {
@@ -21,10 +21,10 @@ func TestOrderStudyStream(t *testing.T) {
 		{
 			name: "current reading first, then personal occurrences descending",
 			input: []StudyCandidate{
-				{StudyIdentity: studyID("alpha"), PersonalOccurrences: 90},
-				{StudyIdentity: studyID("beta"), InCurrentReading: true, PersonalOccurrences: 3},
-				{StudyIdentity: studyID("gamma"), InCurrentReading: true, PersonalOccurrences: 7},
-				{StudyIdentity: studyID("delta"), PersonalOccurrences: 120},
+				{StudyItem: studyID("alpha"), PersonalOccurrences: 90},
+				{StudyItem: studyID("beta"), InCurrentReading: true, PersonalOccurrences: 3},
+				{StudyItem: studyID("gamma"), InCurrentReading: true, PersonalOccurrences: 7},
+				{StudyItem: studyID("delta"), PersonalOccurrences: 120},
 			},
 			want: []string{"gamma/NOUN/", "beta/NOUN/", "delta/NOUN/", "alpha/NOUN/"},
 		},
@@ -56,23 +56,23 @@ func TestOrderStudyStream(t *testing.T) {
 func TestStudyPreparationTargets(t *testing.T) {
 	ordered := make([]StudyCandidate, 0, 40)
 	for i := range 40 {
-		ordered = append(ordered, StudyCandidate{StudyIdentity: studyID(string(rune('a'+i%26)) + string(rune('a'+i/26)))})
+		ordered = append(ordered, StudyCandidate{StudyItem: studyID(string(rune('a'+i%26)) + string(rune('a'+i/26)))})
 	}
 	t.Run("takes the first window of the stream", func(t *testing.T) {
 		targets := StudyPreparationTargets(ordered, nil)
 		assert.Len(t, targets, StudyPreparationWindow)
-		assert.Equal(t, ordered[0].StudyIdentity, targets[0].StudyIdentity)
-		assert.Equal(t, ordered[29].StudyIdentity, targets[29].StudyIdentity)
+		assert.Equal(t, ordered[0].StudyItem, targets[0].StudyItem)
+		assert.Equal(t, ordered[29].StudyItem, targets[29].StudyItem)
 	})
 	t.Run("skips unpreparable words and reaches further", func(t *testing.T) {
-		states := map[StudyIdentity]StudyMaterialState{
-			ordered[0].StudyIdentity: StudyMaterialUnpreparable,
-			ordered[1].StudyIdentity: StudyMaterialUnpreparable,
+		states := map[StudyItem]StudyMaterialState{
+			ordered[0].StudyItem: StudyMaterialUnpreparable,
+			ordered[1].StudyItem: StudyMaterialUnpreparable,
 		}
 		targets := StudyPreparationTargets(ordered, states)
 		assert.Len(t, targets, StudyPreparationWindow)
-		assert.Equal(t, ordered[2].StudyIdentity, targets[0].StudyIdentity)
-		assert.Equal(t, ordered[31].StudyIdentity, targets[29].StudyIdentity)
+		assert.Equal(t, ordered[2].StudyItem, targets[0].StudyItem)
+		assert.Equal(t, ordered[31].StudyItem, targets[29].StudyItem)
 	})
 	t.Run("a short stream yields what it has", func(t *testing.T) {
 		assert.Len(t, StudyPreparationTargets(ordered[:4], nil), 4)
@@ -131,4 +131,52 @@ func TestStudyMaterialRetriesANoDictionaryEntryOmissionOnlyAgainstAnotherDiction
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) { assert.Equal(t, c.want, c.material.RetriesAgainstDictionary(c.pin)) })
 	}
+}
+
+func TestOrderStudyStreamRanksWordsAndIdiomsTogether(t *testing.T) {
+	idiom := func(headword string, current bool, count int64) StudyCandidate {
+		return StudyCandidate{StudyItem: IdiomItem("de", headword), InCurrentReading: current, PersonalOccurrences: count}
+	}
+	word := func(lemma string, current bool, count int64) StudyCandidate {
+		return StudyCandidate{StudyItem: studyID(lemma), InCurrentReading: current, PersonalOccurrences: count}
+	}
+	ordered := OrderStudyStream([]StudyCandidate{
+		idiom("zz tie", false, 5),
+		word("zz tie", false, 5),
+		idiom("a tie", false, 5),
+		word("high", false, 50),
+		idiom("many", false, 80),
+		idiom("reading idiom", true, 1),
+		word("reading word", true, 2),
+	})
+	got := make([]string, 0, len(ordered))
+	for _, candidate := range ordered {
+		got = append(got, candidate.ItemKind.String()+":"+candidate.CanonicalLemma)
+	}
+	assert.Equal(t, []string{
+		"word:reading word", "idiom:reading idiom", // the Current reading's items first, by count
+		"idiom:many", "word:high", // then by count, whatever the kind
+		"word:zz tie", "idiom:a tie", "idiom:zz tie", // a tie: kinds in a stable order, then keys
+	}, got)
+}
+
+func TestIdiomStudyCandidatesCarryTheirCorpusCount(t *testing.T) {
+	candidates := IdiomStudyCandidates("de", []IdiomCandidateCount{
+		{Headword: "mit dem haus", Candidates: 4, Books: 2, InCurrentReading: true},
+		{Headword: "gone", Candidates: 0},
+	})
+	require.Len(t, candidates, 1, "a headword with no candidates is not one")
+	assert.Equal(t, StudyCandidate{StudyItem: IdiomItem("de", "mit dem haus"), InCurrentReading: true, PersonalOccurrences: 4}, candidates[0])
+}
+
+func TestStudyPreparationTargetsCountIdiomsInTheWindow(t *testing.T) {
+	var ordered []StudyCandidate
+	for i := range StudyPreparationWindow + 5 {
+		ordered = append(ordered, StudyCandidate{StudyItem: IdiomItem("de", "headword "+string(rune('a'+i%26))+string(rune('a'+i/26)))})
+	}
+	skipped := ordered[0].StudyItem
+	targets := StudyPreparationTargets(ordered, map[StudyItem]StudyMaterialState{skipped: StudyMaterialUnpreparable})
+	require.Len(t, targets, StudyPreparationWindow)
+	assert.NotEqual(t, skipped, targets[0].StudyItem, "an unpreparable Idiom is skipped and the next is prepared")
+	assert.Equal(t, ordered[1].StudyItem, targets[0].StudyItem)
 }

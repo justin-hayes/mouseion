@@ -24,7 +24,10 @@ import (
 // show is exactly an occurrence listed here. An excluded occurrence, one in
 // speaker-label text, and one whose effective lexical discriminator is another
 // word's are not the identity's.
-func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error) {
+func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error) {
+	if identity.IsIdiom() {
+		return nil, nil // an Idiom's occurrences are not words'; defined with Idiom material
+	}
 	identity = normalizedStudyIdentity(identity)
 	var refs []domain.StudyOccurrenceRef
 	for page := 1; ; page++ {
@@ -52,7 +55,10 @@ func (s *PostgresStore) ListStudyOccurrences(ctx context.Context, owner string, 
 // else the first occurrence of the identity that does. Its cost does not grow
 // with how often the word occurs (#2705). source should carry its locator, so
 // an occurrence an Analysis update re-published is found in its new run.
-func (s *PostgresStore) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+func (s *PostgresStore) FindStudyOccurrences(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+	if identity.IsIdiom() {
+		return nil, nil
+	}
 	identity = normalizedStudyIdentity(identity)
 	if refs, err := s.studySourceOccurrence(ctx, owner, identity, source); err != nil || len(refs) > 0 {
 		return refs, err
@@ -81,7 +87,7 @@ func (s *PostgresStore) FindStudyOccurrences(ctx context.Context, owner string, 
 // studySourceOccurrence reads the introducing occurrence's token by key, in its
 // own run or at its locator in the Book's current run, and keeps it when it
 // resolves to the identity under the same rules the concordance applies.
-func (s *PostgresStore) studySourceOccurrence(ctx context.Context, owner string, identity domain.StudyIdentity, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
+func (s *PostgresStore) studySourceOccurrence(ctx context.Context, owner string, identity domain.StudyItem, source domain.StudyOccurrenceRef) ([]domain.StudyOccurrenceRef, error) {
 	if !validUUID(source.BookID) || !validUUID(source.AnalysisRunID) {
 		return nil, nil
 	}
@@ -129,7 +135,7 @@ func studySourceRank(row sqlcgen.ListStudySourceTokensRow, source domain.StudyOc
 // studySourceTokenResolves applies the concordance's lemma match to a token: it
 // is not excluded, its effective lemma is the term and its part of speech is
 // the identity's.
-func studySourceTokenResolves(row sqlcgen.ListStudySourceTokensRow, identity domain.StudyIdentity, term string) bool {
+func studySourceTokenResolves(row sqlcgen.ListStudySourceTokensRow, identity domain.StudyItem, term string) bool {
 	effective := row.CanonicalLemma
 	if row.DecisionLemma.Valid {
 		effective = row.DecisionLemma.String
@@ -156,7 +162,7 @@ func (s *PostgresStore) studySourceOccurrenceOf(ctx context.Context, owner strin
 
 // studyOccurrencesOnPage keeps the page's occurrences that resolve to the
 // identity.
-func (s *PostgresStore) studyOccurrencesOnPage(ctx context.Context, owner string, identity domain.StudyIdentity, occurrences []domain.ConcordanceResultOccurrence) ([]domain.StudyOccurrenceRef, error) {
+func (s *PostgresStore) studyOccurrencesOnPage(ctx context.Context, owner string, identity domain.StudyItem, occurrences []domain.ConcordanceResultOccurrence) ([]domain.StudyOccurrenceRef, error) {
 	usable := make([]domain.ConcordanceResultOccurrence, 0, len(occurrences))
 	ordinals := map[string][]int64{}
 	for _, occurrence := range occurrences {
@@ -214,6 +220,30 @@ func (s *PostgresStore) SupersedeStudyMaterial(ctx context.Context, owner, mater
 		return ErrNotFound
 	}
 	return nil
+}
+
+// RestoreStudyMaterial returns a word whose material was replaced to that
+// material, ending any replacement it has: the word is reviewed in the record
+// it was introduced in again. Its progress and learned meaning were never
+// touched, so nothing else changes. A material that is current already is
+// left as it is; a missing or foreign one is ErrNotFound.
+func (s *PostgresStore) RestoreStudyMaterial(ctx context.Context, owner string, word domain.StudyProgress) error {
+	if !validUUID(word.MaterialID) {
+		return ErrNotFound
+	}
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		if _, err := q.SupersedeOtherCurrentStudyMaterialOfWord(ctx, sqlcgen.SupersedeOtherCurrentStudyMaterialOfWordParams{
+			Owner: owner, ItemKind: word.ItemKind.String(), Language: word.Language, CanonicalLemma: word.CanonicalLemma, Upos: word.UPOS,
+			LexicalDiscriminator: word.LexicalDiscriminator, Keep: word.MaterialID,
+		}); err != nil {
+			return fmt.Errorf("supersede replacement material: %w", err)
+		}
+		if _, err := q.UnsupersedeStudyMaterial(ctx, sqlcgen.UnsupersedeStudyMaterialParams{Owner: owner, ID: word.MaterialID}); err != nil {
+			return fmt.Errorf("restore study material: %w", err)
+		}
+		return nil
+	})
 }
 
 // SetStudyWordWithdrawn withdraws a word by a correction at now, or returns it

@@ -54,18 +54,18 @@ func TestParseStudyGradeAcceptsOnlyTwoGrades(t *testing.T) {
 }
 
 func TestNextStudyBatchTakesReadyWordsInStreamOrder(t *testing.T) {
-	word := func(lemma string) StudyIdentity {
-		return StudyIdentity{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}
+	word := func(lemma string) StudyItem {
+		return StudyItem{Language: "de", CanonicalLemma: lemma, UPOS: "NOUN"}
 	}
 	var ordered []StudyCandidate
 	var material []StudyMaterial
 	for _, lemma := range []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"} {
-		ordered = append(ordered, StudyCandidate{StudyIdentity: word(lemma)})
-		material = append(material, StudyMaterial{ID: "m-" + lemma, StudyIdentity: word(lemma), State: StudyMaterialReady})
+		ordered = append(ordered, StudyCandidate{StudyItem: word(lemma)})
+		material = append(material, StudyMaterial{ID: "m-" + lemma, StudyItem: word(lemma), State: StudyMaterialReady})
 	}
-	material[1].State = StudyMaterialPending                // b is still being prepared
-	material[2].State = StudyMaterialUnpreparable           // c has no usable sentence
-	progress := []StudyProgress{{StudyIdentity: word("a")}} // a is already in study
+	material[1].State = StudyMaterialPending            // b is still being prepared
+	material[2].State = StudyMaterialUnpreparable       // c has no usable sentence
+	progress := []StudyProgress{{StudyItem: word("a")}} // a is already in study
 
 	batch := NextStudyBatch(ordered, material, progress, nil, time.Now())
 
@@ -79,16 +79,16 @@ func TestNextStudyBatchTakesReadyWordsInStreamOrder(t *testing.T) {
 
 	more := append([]StudyCandidate{}, ordered...)
 	for _, lemma := range []string{"m", "n"} {
-		more = append(more, StudyCandidate{StudyIdentity: word(lemma)})
-		material = append(material, StudyMaterial{ID: "m-" + lemma, StudyIdentity: word(lemma), State: StudyMaterialReady})
+		more = append(more, StudyCandidate{StudyItem: word(lemma)})
+		material = append(material, StudyMaterial{ID: "m-" + lemma, StudyItem: word(lemma), State: StudyMaterialReady})
 	}
 	assert.Len(t, NextStudyBatch(more, material, progress, nil, time.Now()), StudyBatchSize, "a batch holds at most ten words")
 }
 
 func TestWithoutStudyProgressDropsWordsInStudy(t *testing.T) {
-	a := StudyIdentity{Language: "de", CanonicalLemma: "a", UPOS: "NOUN"}
-	b := StudyIdentity{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}
-	got := WithoutStudyProgress([]StudyCandidate{{StudyIdentity: a}, {StudyIdentity: b}}, []StudyProgress{{StudyIdentity: a}}, nil)
-	assert.Equal(t, []StudyCandidate{{StudyIdentity: b}}, got)
-	assert.Empty(t, WithoutStudyProgress([]StudyCandidate{{StudyIdentity: a}, {StudyIdentity: b}}, []StudyProgress{{StudyIdentity: a}}, []StudyIdentity{b}), "a held word is not looked ahead at either")
+	a := StudyItem{Language: "de", CanonicalLemma: "a", UPOS: "NOUN"}
+	b := StudyItem{Language: "de", CanonicalLemma: "b", UPOS: "NOUN"}
+	got := WithoutStudyProgress([]StudyCandidate{{StudyItem: a}, {StudyItem: b}}, []StudyProgress{{StudyItem: a}}, nil)
+	assert.Equal(t, []StudyCandidate{{StudyItem: b}}, got)
+	assert.Empty(t, WithoutStudyProgress([]StudyCandidate{{StudyItem: a}, {StudyItem: b}}, []StudyProgress{{StudyItem: a}}, []StudyItem{b}), "a held word is not looked ahead at either")
 }

@@ -49,7 +49,7 @@ UPDATE study_progress p
        learned_entry_ids = m.cited_entry_ids, learned_dictionary_pin = m.dictionary_pin, corrected_at = $1::timestamptz, updated_at = now()
   FROM study_material m
  WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL
-   AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
+   AND m.owner_id = p.owner_id AND m.item_kind = p.item_kind AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
    AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
    AND m.superseded_at IS NULL AND m.state = 'ready' AND m.id <> p.material_id
 `
@@ -126,19 +126,19 @@ func (q *Queries) GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedg
 }
 
 const introduceStudyWord = `-- name: IntroduceStudyWord :one
-INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning,
+INSERT INTO study_progress (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning,
                             learned_sense_ids, learned_entry_ids, learned_dictionary_pin, state, due)
-SELECT m.owner_id, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, $1::timestamptz, m.gloss,
+SELECT m.owner_id, m.item_kind, m.language, m.canonical_lemma, m.upos, m.lexical_discriminator, m.id, $1::timestamptz, m.gloss,
        m.cited_sense_ids, m.cited_entry_ids, m.dictionary_pin, 'new', $1::timestamptz
   FROM study_material m
  WHERE m.owner_id = $2 AND m.id = $3 AND m.language = $4
    AND m.state = 'ready' AND m.superseded_at IS NULL
    AND NOT EXISTS (SELECT 1 FROM study_report r
-                    WHERE r.owner_id = m.owner_id AND r.language = m.language AND r.canonical_lemma = m.canonical_lemma
+                    WHERE r.owner_id = m.owner_id AND r.item_kind = m.item_kind AND r.language = m.language AND r.canonical_lemma = m.canonical_lemma
                       AND r.upos = m.upos AND r.lexical_discriminator = m.lexical_discriminator
                       AND r.kind = 'wrong_word' AND r.ended_at IS NULL)
-ON CONFLICT (owner_id, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
-RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin
+ON CONFLICT (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator) DO NOTHING
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin, item_kind
 `
 
 type IntroduceStudyWordParams struct {
@@ -188,15 +188,16 @@ func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWord
 		&i.LearnedSenseIds,
 		&i.LearnedEntryIds,
 		&i.LearnedDictionaryPin,
+		&i.ItemKind,
 	)
 	return i, err
 }
 
 const listStudyProgress = `-- name: ListStudyProgress :many
 
-SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, p.withdrawn_reason, p.learned_sense_ids, p.learned_entry_ids, p.learned_dictionary_pin, (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
+SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, p.withdrawn_reason, p.learned_sense_ids, p.learned_entry_ids, p.learned_dictionary_pin, p.item_kind, (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
        EXISTS (SELECT 1 FROM study_report r
-                WHERE r.owner_id = p.owner_id AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
+                WHERE r.owner_id = p.owner_id AND r.item_kind = p.item_kind AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
                   AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
                   AND r.kind = 'wrong_word' AND r.ended_at IS NULL) AS held,
        COALESCE((SELECT max(r.created_at) FROM study_report r
@@ -205,7 +206,7 @@ SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discri
   FROM study_progress p
   JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
  WHERE p.owner_id = $1 AND p.language = $2
- ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator
+ ORDER BY p.introduced_at, p.canonical_lemma, p.upos, p.lexical_discriminator, p.item_kind
 `
 
 type ListStudyProgressParams struct {
@@ -264,6 +265,7 @@ func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressPa
 			&i.StudyProgress.LearnedSenseIds,
 			&i.StudyProgress.LearnedEntryIds,
 			&i.StudyProgress.LearnedDictionaryPin,
+			&i.StudyProgress.ItemKind,
 			&i.Reintroducing,
 			&i.Held,
 			&i.ContextReportedAt,
@@ -321,7 +323,7 @@ func (q *Queries) ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLog
 }
 
 const lockStudyProgress = `-- name: LockStudyProgress :one
-SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin FROM study_progress
+SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin, item_kind FROM study_progress
  WHERE owner_id = $1 AND id = $2
  FOR UPDATE
 `
@@ -361,6 +363,7 @@ func (q *Queries) LockStudyProgress(ctx context.Context, arg LockStudyProgressPa
 		&i.LearnedSenseIds,
 		&i.LearnedEntryIds,
 		&i.LearnedDictionaryPin,
+		&i.ItemKind,
 	)
 	return i, err
 }
@@ -443,7 +446,7 @@ UPDATE study_progress
  WHERE owner_id = $2 AND id = $3 AND language = $4
    AND state = 'new' AND reps = 0 AND withdrawn_at IS NULL
    AND introduced_at < $5::timestamptz
-RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin
+RETURNING id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin, item_kind
 `
 
 type TakeCarriedStudyWordParams struct {
@@ -493,6 +496,7 @@ func (q *Queries) TakeCarriedStudyWord(ctx context.Context, arg TakeCarriedStudy
 		&i.LearnedSenseIds,
 		&i.LearnedEntryIds,
 		&i.LearnedDictionaryPin,
+		&i.ItemKind,
 	)
 	return i, err
 }
@@ -583,7 +587,7 @@ UPDATE study_progress p
                                THEN 'no_suitable_context' END
   FROM study_material m
  WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL
-   AND m.owner_id = p.owner_id AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
+   AND m.owner_id = p.owner_id AND m.item_kind = p.item_kind AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
    AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
    AND m.superseded_at IS NULL AND m.state = 'unpreparable' AND m.id <> p.material_id
 `

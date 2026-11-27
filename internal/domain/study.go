@@ -13,11 +13,69 @@ import (
 // ten (ADR 0134, spec #2691).
 const StudyPreparationWindow = 30
 
-// StudyIdentity is the full vocabulary identity Study progress and Study
-// material are owned by: learner (the caller's owner), study language, lemma,
-// part of speech and lexical discriminator (ADR 0134 §2).
-type StudyIdentity struct {
+// StudyItemKind is which kind of thing a Study item is (ADR 0137 §1). The zero
+// value is StudyItemWord, so an item built without naming a kind is a word.
+type StudyItemKind int
+
+const (
+	// StudyItemWord is a word, keyed by its full vocabulary identity.
+	StudyItemWord StudyItemKind = iota
+	// StudyItemIdiom is an Idiom, keyed by language and headword.
+	StudyItemIdiom
+)
+
+// String is the kind as stored: "word" or "idiom".
+func (k StudyItemKind) String() string {
+	if k == StudyItemIdiom {
+		return "idiom"
+	}
+	return "word"
+}
+
+// ParseStudyItemKind reads a stored kind. It reports false for any other text.
+func ParseStudyItemKind(text string) (StudyItemKind, bool) {
+	switch text {
+	case "word":
+		return StudyItemWord, true
+	case "idiom":
+		return StudyItemIdiom, true
+	}
+	return StudyItemWord, false
+}
+
+// StudyItem is what Study progress, Study material, Fluency contexts and Study
+// reports are owned by: learner (the caller's owner), study language and a key
+// that depends on the kind (ADR 0137 §1).
+//
+// A word is keyed by its full vocabulary identity: lemma, part of speech and
+// lexical discriminator (ADR 0134 §2). An Idiom is keyed by its headword, held
+// in CanonicalLemma, with UPOS and LexicalDiscriminator empty. Two items of
+// different kinds are never equal, so a word and an Idiom with the same text
+// never collide in a map or a uniqueness rule.
+type StudyItem struct {
+	ItemKind                                             StudyItemKind
 	Language, CanonicalLemma, UPOS, LexicalDiscriminator string
+}
+
+// WordItem is the word item of a full vocabulary identity.
+func WordItem(language, canonicalLemma, upos, lexicalDiscriminator string) StudyItem {
+	return StudyItem{Language: language, CanonicalLemma: canonicalLemma, UPOS: upos, LexicalDiscriminator: lexicalDiscriminator}
+}
+
+// IdiomItem is the Idiom item of a headword.
+func IdiomItem(language, headword string) StudyItem {
+	return StudyItem{ItemKind: StudyItemIdiom, Language: language, CanonicalLemma: headword}
+}
+
+// IsIdiom reports whether the item is an Idiom.
+func (i StudyItem) IsIdiom() bool { return i.ItemKind == StudyItemIdiom }
+
+// Headword is an Idiom's headword. It reports false for a word.
+func (i StudyItem) Headword() (string, bool) {
+	if !i.IsIdiom() {
+		return "", false
+	}
+	return i.CanonicalLemma, true
 }
 
 // StudyCandidate is one effective vocabulary identity that Study could offer
@@ -26,15 +84,17 @@ type StudyIdentity struct {
 // vocabulary are deliberately not part of a candidate: Study never consults
 // them (ADR 0134 §3).
 type StudyCandidate struct {
-	StudyIdentity
+	StudyItem
 	InCurrentReading    bool
 	PersonalOccurrences int64
 }
 
-// OrderStudyStream returns the candidates in stream order: identities that
-// occur in the Current reading first, then all others; within each group by
-// Personal analyzed-Book occurrences descending, then by lemma, part of speech
-// and discriminator so the order is deterministic. The input is not modified.
+// OrderStudyStream returns the candidates in stream order: items that occur in
+// the Current reading first, then all others; within each group by Personal
+// occurrences descending (an Idiom's count is its candidate count in the
+// Corpus), then by kind (words before Idioms) and key, so the order is
+// deterministic. Words and Idioms share the one stream, with no tier for a part
+// of speech (ADR 0137 §4). The input is not modified.
 func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
 	ordered := append([]StudyCandidate{}, candidates...)
 	sort.SliceStable(ordered, func(i, j int) bool {
@@ -44,6 +104,9 @@ func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
 		}
 		if a.PersonalOccurrences != b.PersonalOccurrences {
 			return a.PersonalOccurrences > b.PersonalOccurrences
+		}
+		if a.ItemKind != b.ItemKind {
+			return a.ItemKind < b.ItemKind
 		}
 		if a.CanonicalLemma != b.CanonicalLemma {
 			return a.CanonicalLemma < b.CanonicalLemma
@@ -78,10 +141,10 @@ const (
 // counts toward the window, so preparation stays about one day ahead and no
 // further. states holds each word's current material state; a missing word has
 // no material yet. ordered must already be in stream order.
-func StudyPreparationTargets(ordered []StudyCandidate, states map[StudyIdentity]StudyMaterialState) []StudyCandidate {
+func StudyPreparationTargets(ordered []StudyCandidate, states map[StudyItem]StudyMaterialState) []StudyCandidate {
 	targets := make([]StudyCandidate, 0, StudyPreparationWindow)
 	for _, candidate := range ordered {
-		if states[candidate.StudyIdentity] == StudyMaterialUnpreparable {
+		if states[candidate.StudyItem] == StudyMaterialUnpreparable {
 			continue
 		}
 		targets = append(targets, candidate)
@@ -99,7 +162,7 @@ func StudyPreparationTargets(ordered []StudyCandidate, states map[StudyIdentity]
 // only its reason.
 type StudyMaterial struct {
 	ID, OwnerID string
-	StudyIdentity
+	StudyItem
 	State          StudyMaterialState
 	OmissionReason string
 	// Source occurrence: the Book, analysis run, corpus, sentence and token the
@@ -117,6 +180,9 @@ type StudyMaterial struct {
 	// Passage is the translated passage the Representative sentence sits in. It
 	// is empty when no passage applies.
 	Passage StudyPassage
+	// MatchedTokenOrdinals are an Idiom's matched words, as token ordinals in
+	// the sentence in sentence order. It is empty for a word.
+	MatchedTokenOrdinals []int
 	// EvidenceFingerprint identifies the occurrences the attempt to prepare an
 	// unpreparable word's material saw; see StudyEvidenceFingerprint.
 	EvidenceFingerprint string
@@ -239,6 +305,9 @@ type StudyMaterialReadyContent struct {
 	// passage when one applies.
 	Cited   StudyCitations
 	Passage StudyPassage
+	// MatchedTokenOrdinals are an Idiom's matched words in the sentence; a
+	// word has none.
+	MatchedTokenOrdinals []int
 }
 
 // Complete reports whether the sentence, target word, Gloss and translation
@@ -258,6 +327,9 @@ func (c StudyMaterialReadyContent) Complete() bool {
 const (
 	StudyOmissionSentenceQuality = "sentence-quality"
 	StudyOmissionMeaning         = "meaning"
+	// StudyOmissionLiteralUse is the omission of an Idiom whose sentence uses
+	// its words literally (ADR 0137 "Idiom Study material"). It is terminal.
+	StudyOmissionLiteralUse = "literal-use"
 	// StudyOmissionNoDictionaryEntry is the omission of a source-evidence word
 	// the configured dictionary has no entry for (ADR 0138 §1). It is terminal:
 	// no provider is asked.
@@ -267,3 +339,37 @@ const (
 // ErrInvalidStudyMaterial rejects Study material input that names no word or
 // records no reason for an omission.
 var ErrInvalidStudyMaterial = errors.New("study: invalid study material")
+
+// IdiomCandidateCount is one Idiom headword's candidate count across the
+// Corpus: the sum of its per-Book counts and the number of Books containing it.
+type IdiomCandidateCount struct {
+	Headword   string
+	Candidates int64
+	Books      int64
+	// InCurrentReading is set when the Current reading contains the headword.
+	InCurrentReading bool
+}
+
+// IdiomStudyCandidates are the Idioms of a language as Study candidates: each
+// headword is an Idiom item whose Personal occurrences are its candidate count
+// across the Corpus (ADR 0137 §4).
+func IdiomStudyCandidates(language string, counts []IdiomCandidateCount) []StudyCandidate {
+	candidates := make([]StudyCandidate, 0, len(counts))
+	for _, count := range counts {
+		if count.Candidates <= 0 {
+			continue
+		}
+		candidates = append(candidates, StudyCandidate{
+			StudyItem: IdiomItem(language, count.Headword), InCurrentReading: count.InCurrentReading, PersonalOccurrences: count.Candidates,
+		})
+	}
+	return candidates
+}
+
+// CorpusIdiomCounts is the Corpus sum of Idiom candidate counts. PendingBooks
+// counts the Books whose counts are not ready yet: while it is above zero a
+// headword missing from Counts may only be waiting, not have no candidates.
+type CorpusIdiomCounts struct {
+	Counts       []IdiomCandidateCount
+	PendingBooks int64
+}

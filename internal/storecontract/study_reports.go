@@ -51,7 +51,7 @@ type StudyReportEndingStore interface {
 // are chosen, and the state reconciliation ends a report by.
 type StudyReportEvidenceStore interface {
 	ListRetiredStudyOccurrences(owner, progressID string) ([]domain.StudyOccurrenceRef, error)
-	ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyIdentity) ([]domain.StudyOccurrenceRef, error)
+	ListRetiredStudyOccurrencesOfWord(owner string, identity domain.StudyItem) ([]domain.StudyOccurrenceRef, error)
 	// StudyOccurrenceState says whether a reported occurrence is still in the
 	// current analysis of a Book in the library, and whether the learner
 	// excluded or corrected it.
@@ -74,7 +74,7 @@ func requireSameMemory(t *testing.T, want, got domain.StudyMemory) {
 }
 
 // gradedStudyWord introduces a word and grades it once, so it has a review log.
-func gradedStudyWord(t *testing.T, h Harness, owner string, identity domain.StudyIdentity) domain.StudyProgress {
+func gradedStudyWord(t *testing.T, h Harness, owner string, identity domain.StudyItem) domain.StudyProgress {
 	t.Helper()
 	word := introducedStudyWord(t, h, owner, identity)
 	after := domain.StudyMemory{State: domain.StudyStateReview, Due: studyReportDay.Add(72 * time.Hour), Stability: 4.2, Difficulty: 5.1, ScheduledDays: 3, Reps: 1, LastReview: studyReportDay}
@@ -93,7 +93,7 @@ func studyReportScenarios() []Scenario {
 			report, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportWrongWord, "  kam … umhin  "))
 			require.NoError(t, err)
 			assert.NotEmpty(t, report.ID)
-			assert.Equal(t, word.StudyIdentity, report.StudyIdentity)
+			assert.Equal(t, word.StudyItem, report.StudyItem)
 			assert.Equal(t, word.ID, report.ProgressID)
 			assert.Equal(t, word.MaterialID, report.MaterialID)
 			assert.Equal(t, domain.StudyReportWrongWord, report.Kind)
@@ -136,15 +136,15 @@ func studyReportScenarios() []Scenario {
 			stored, err := reports.GetStudyReport(owner, report.ID)
 			require.NoError(t, err)
 			assert.True(t, stored.Open())
-			assert.Equal(t, word.StudyIdentity, stored.StudyIdentity, "the report still names the word")
+			assert.Equal(t, word.StudyItem, stored.StudyItem, "the report still names the word")
 			open, err := reports.ListOpenStudyReports(owner, Language, domain.StudyReportWrongWord)
 			require.NoError(t, err)
-			assert.Equal(t, []domain.StudyIdentity{word.StudyIdentity}, domain.StudyHeldIdentities(open))
+			assert.Equal(t, []domain.StudyItem{word.StudyItem}, domain.StudyHeldIdentities(open))
 			material, err := h.Study().GetStudyMaterial(owner, word.MaterialID)
 			require.NoError(t, err)
 			assert.Equal(t, report.Source, material.Source(), "the material the report names survives")
 
-			stale, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchWord{{StudyIdentity: word.StudyIdentity, MaterialID: word.MaterialID}})
+			stale, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchItem{{StudyItem: word.StudyItem, MaterialID: word.MaterialID}})
 			require.ErrorIs(t, err, domain.ErrNotFound, "a batch taken after the report cannot introduce the held word")
 			assert.Empty(t, stale)
 
@@ -391,7 +391,7 @@ func unsuitableContextScenario(t *testing.T, h Harness) {
 	// The word is re-introduced from another context, then the report is undone.
 	assert.True(t, listed[0].Reintroducing, "the reported material is replaced")
 	require.ErrorIs(t, corrections.SupersedeStudyMaterial(owner, word.MaterialID), domain.ErrNotFound, "the report already superseded it")
-	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyIdentity)
+	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyItem)
 	require.NoError(t, err)
 	require.True(t, created)
 	require.NoError(t, material.RecordStudyMaterialReady(owner, replacement, studyReadyContent()))
@@ -451,7 +451,7 @@ func unsuitableReintroductionScenario(t *testing.T, h Harness) {
 	require.NoError(t, err)
 	assert.Equal(t, "a building", old.Gloss, "the rejected material stays stored")
 
-	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyIdentity)
+	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyItem)
 	require.NoError(t, err)
 	require.True(t, created)
 	content := studyReadyContent()
@@ -474,7 +474,7 @@ func unsuitableWithdrawalScenario(t *testing.T, h Harness) {
 	word := gradedStudyWord(t, h, owner, studyNoun("haus"))
 	_, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
 	require.NoError(t, err)
-	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyIdentity)
+	replacement, created, err := material.ReserveStudyMaterial(owner, word.StudyItem)
 	require.NoError(t, err)
 	require.True(t, created)
 	require.NoError(t, material.RecordStudyMaterialUnpreparable(owner, replacement, domain.StudyOmissionSentenceQuality))
@@ -522,7 +522,7 @@ func unsuitableFluencyScenario(t *testing.T, h Harness) {
 	for _, item := range contexts {
 		assert.NotEqual(t, material.SentenceOrdinal, item.SentenceOrdinal)
 	}
-	retiredWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, word.StudyIdentity)
+	retiredWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, word.StudyItem)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.StudyOccurrenceRef{report.Source}, retiredWord)
 	other, err := reports.ListRetiredStudyOccurrencesOfWord(owner, studyNoun("hund"))
@@ -572,7 +572,7 @@ func undoRefusedAfterActionScenario(t *testing.T, h Harness) {
 
 	taken := readyStudyWord(t, h.Study(), owner, studyNoun("baum"))
 	refused("a batch taken", gradedStudyWord(t, h, owner, studyNoun("haus")), func() {
-		_, err := progress.TakeStudyBatch(owner, Language, "2026-11-26", later, 3, []domain.StudyBatchWord{{StudyIdentity: studyNoun("baum"), MaterialID: taken}})
+		_, err := progress.TakeStudyBatch(owner, Language, "2026-11-26", later, 3, []domain.StudyBatchItem{{StudyItem: studyNoun("baum"), MaterialID: taken}})
 		require.NoError(t, err)
 	})
 	refused("a batch declined", gradedStudyWord(t, h, owner, studyNoun("hund")), func() {
@@ -608,7 +608,7 @@ func repeatedReportScenario(t *testing.T, h Harness) {
 	// moved to other material since.
 	unsuitable, err := reports.CreateStudyReport(owner, reportRecord(word, domain.StudyReportUnsuitableContext, ""))
 	require.NoError(t, err)
-	replacement, created, err := h.Study().ReserveStudyMaterial(owner, word.StudyIdentity)
+	replacement, created, err := h.Study().ReserveStudyMaterial(owner, word.StudyItem)
 	require.NoError(t, err)
 	require.True(t, created)
 	require.NoError(t, h.Study().RecordStudyMaterialReady(owner, replacement, studyReadyContent()))
@@ -661,7 +661,7 @@ func retiredReportScenario(t *testing.T, h Harness) {
 	retired, err := reports.ListRetiredStudyOccurrences(owner, other.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []domain.StudyOccurrenceRef{earlier.Source}, retired, "its sentence stays retired")
-	byWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, other.StudyIdentity)
+	byWord, err := reports.ListRetiredStudyOccurrencesOfWord(owner, other.StudyItem)
 	require.NoError(t, err)
 	assert.Equal(t, retired, byWord)
 
@@ -729,7 +729,7 @@ func citedLearnedMeaningScenario(t *testing.T, h Harness) {
 	assert.Equal(t, "lsj-1", stored.Cited.DictionaryPin)
 	assert.Equal(t, domain.StudyPassage{Text: "He went home.", Citation: "1.2", TranslationPin: "sha256:abc"}, stored.Passage)
 
-	introduced, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchWord{{StudyIdentity: identity, MaterialID: pending}})
+	introduced, err := progress.TakeStudyBatch(owner, Language, "2026-11-25", studyReportDay, 3, []domain.StudyBatchItem{{StudyItem: identity, MaterialID: pending}})
 	require.NoError(t, err)
 	require.Len(t, introduced, 1)
 	word := introduced[0]
