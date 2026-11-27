@@ -1419,7 +1419,7 @@ LS_QV_MARK = re.compile(r"(?:\bfrom|=)\s+")
 LS_QV_TAIL = re.compile(r",?\s+q\.\s*v\.")
 # "v." written before a child element, as in "v. <itype>prior</itype>".
 LS_REDIRECT_LEAD = re.compile(r"\bv\.$")
-LS_NUMBERED_REFERENCE = re.compile(r"^(\d+)\.\s+(.+)$")
+LS_NUMBERED_REFERENCE = re.compile(r"(\d+)\.\s+")
 # A sense that only points at the end of another entry ("v. 1. lego" followed by
 # a sense holding "fin. 1."): it carries no text of its own.
 LS_POINTER_SENSE = re.compile(r"^fin\.(?:\s*(\d+)\.?)?$")
@@ -1803,8 +1803,12 @@ def ls_entry(element) -> dict | None:
 
 def ls_reference_key(text: str) -> str:
     """Move a leading homograph number to the end ("1. lego" names key lego1)."""
-    match = LS_NUMBERED_REFERENCE.match(text.strip())
-    return f"{match.group(2)}{match.group(1)}" if match else text
+    stripped = text.strip()
+    match = LS_NUMBERED_REFERENCE.match(stripped)
+    if not match:
+        return text
+    headword = stripped[match.end() :]
+    return f"{headword}{match.group(1)}" if headword and "\n" not in headword else text
 
 
 def ls_neighbour(entries: list[dict], position: int, text: str) -> dict | None:
