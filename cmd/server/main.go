@@ -262,7 +262,11 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex)
 	// Idiom candidate counts are derived against the loaded dictionary index,
 	// which carries the reviewed idiom list; its version stamps the counts.
-	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, persistence.IdiomIndexVersion(dictionaryIndex.Version()))
+	idiomVersion, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, idiomVersion)
 	presentation := cardexport.NewPresentation(dictionaryIndex)
 	riverClient, err := analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers)
 	if err != nil {
@@ -304,6 +308,17 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 // studyDictionaryPin reads the loaded dictionary index's pin for a language, so
 // Study tries a no-dictionary-entry word again when the index is rebuilt. It is
 // empty for a language with no dictionary, and without an index.
+// idiomIndexVersion stamps Idiom candidate counts with the matching rules, the
+// dictionary index version and a digest of its idiom entries (which carry the
+// reviewed idiom list), so a change to any of them rebuilds the counts.
+func idiomIndexVersion(ctx context.Context, dictionaryIndex *dictionary.Index) (string, error) {
+	digest, err := dictionaryIndex.IdiomDigest(ctx)
+	if err != nil {
+		return "", fmt.Errorf("fingerprint idiom entries: %w", err)
+	}
+	return persistence.IdiomIndexVersion(dictionaryIndex.Version(), digest), nil
+}
+
 func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string) string {
 	return func(language string) string {
 		if dictionaryIndex == nil {
@@ -381,7 +396,11 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := analysisService.EnqueueMissingBrowseCountRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Vocabulary Browse counts: %w", err)
 	}
-	if err := analysisService.EnqueueMissingIdiomCountRebuilds(ctx, persistence.IdiomIndexVersion(dictionaryIndex.Version())); err != nil {
+	idiomVersion, err := idiomIndexVersion(ctx, dictionaryIndex)
+	if err != nil {
+		return nil, err
+	}
+	if err := analysisService.EnqueueMissingIdiomCountRebuilds(ctx, idiomVersion); err != nil {
 		return nil, fmt.Errorf("schedule missing Idiom candidate counts: %w", err)
 	}
 	if err := analysisService.EnqueueMissingConstructionRebuilds(ctx); err != nil {

@@ -76,6 +76,11 @@ type Querier interface {
 	// exclusion: a duplicate cannot change EXISTS.
 	ConcordanceLemmaEvidenced(ctx context.Context, arg ConcordanceLemmaEvidencedParams) (bool, error)
 	CorpusOwned(ctx context.Context, arg CorpusOwnedParams) (bool, error)
+	// The Books in the Corpus whose Idiom counts are not ready for their current
+	// analysis, the builder version and the idiom index version, so they add
+	// nothing to the sum yet. A reader must not take a Headword's absence from the
+	// sum as zero candidates while this is above zero.
+	CountCorpusIdiomCountsPending(ctx context.Context, arg CountCorpusIdiomCountsPendingParams) (int64, error)
 	CountCurrentStudyMaterial(ctx context.Context, arg CountCurrentStudyMaterialParams) ([]CountCurrentStudyMaterialRow, error)
 	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)

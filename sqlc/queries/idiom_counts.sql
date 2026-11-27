@@ -11,7 +11,7 @@ SELECT c.headword, sum(c.candidate_count)::bigint AS candidates, count(*)::bigin
 FROM idiom_candidate_counts c
 JOIN idiom_candidate_count_readiness r ON r.owner_id=c.owner_id AND r.book_id=c.book_id
  AND r.analysis_run_id=c.analysis_run_id AND r.corpus_id=c.corpus_id
- AND r.builder_version=sqlc.arg(builder_version)::int
+ AND r.builder_version=sqlc.arg(builder_version)::int AND r.index_version=sqlc.arg(index_version)::text
 JOIN books b ON b.owner_id=c.owner_id AND b.id=c.book_id
  AND b.language_state='chosen' AND b.language_tag=sqlc.arg(language)::text
 JOIN book_membership m ON m.owner_id=c.owner_id AND m.book_id=c.book_id AND m.state='active'
@@ -20,3 +20,18 @@ JOIN current_analysis_identity cai ON cai.owner_id=c.owner_id AND cai.book_id=c.
 WHERE c.owner_id=sqlc.arg(owner_id)::uuid AND c.language=sqlc.arg(language)::text
 GROUP BY c.headword
 ORDER BY c.headword;
+
+-- name: CountCorpusIdiomCountsPending :one
+-- The Books in the Corpus whose Idiom counts are not ready for their current
+-- analysis, the builder version and the idiom index version, so they add
+-- nothing to the sum yet. A reader must not take a Headword's absence from the
+-- sum as zero candidates while this is above zero.
+SELECT count(*)::bigint AS pending
+FROM current_analysis_identity cai
+JOIN books b ON b.owner_id=cai.owner_id AND b.id=cai.book_id
+ AND b.language_state='chosen' AND b.language_tag=sqlc.arg(language)::text
+JOIN book_membership m ON m.owner_id=cai.owner_id AND m.book_id=cai.book_id AND m.state='active'
+LEFT JOIN idiom_candidate_count_readiness r ON r.owner_id=cai.owner_id AND r.book_id=cai.book_id
+ AND r.analysis_run_id=cai.analysis_run_id AND r.corpus_id=cai.corpus_id
+ AND r.builder_version=sqlc.arg(builder_version)::int AND r.index_version=sqlc.arg(index_version)::text
+WHERE cai.owner_id=sqlc.arg(owner_id)::uuid AND r.owner_id IS NULL;

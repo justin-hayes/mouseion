@@ -2,6 +2,8 @@ package dictionary
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -115,4 +117,36 @@ func (i *Index) IdiomEntries(ctx context.Context, language, word string) ([]idio
 		return nil, fmt.Errorf("dictionary idiom rows: %w", err)
 	}
 	return entries, nil
+}
+
+// IdiomDigest fingerprints the idiom evidence matching reads: every entry's
+// language, headword, part of speech, source, version and component words. The
+// index's provider version names its dump, not its derivation, so an index
+// rebuilt with a changed reviewed idiom list can keep it; the digest changes
+// whenever an entry does. An index without idiom lookup has the empty digest.
+func (i *Index) IdiomDigest(ctx context.Context) (string, error) {
+	if i == nil || i.db == nil || !i.idiomAvailable {
+		return "", nil
+	}
+	rows, err := i.db.QueryContext(ctx, `SELECT language, headword, upos, source, version, words_json
+		FROM idiom_entries ORDER BY language, headword, upos, source`)
+	if err != nil {
+		return "", fmt.Errorf("dictionary idiom digest: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // Rows.Err below reports actionable failures.
+	hash := sha256.New()
+	for rows.Next() {
+		var fields [6]string
+		if err = rows.Scan(&fields[0], &fields[1], &fields[2], &fields[3], &fields[4], &fields[5]); err != nil {
+			return "", fmt.Errorf("dictionary idiom digest row: %w", err)
+		}
+		for _, field := range fields {
+			hash.Write([]byte(field)) //nolint:errcheck // hash.Hash.Write never fails.
+			hash.Write([]byte{0})     //nolint:errcheck // hash.Hash.Write never fails.
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return "", fmt.Errorf("dictionary idiom digest rows: %w", err)
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/idiom"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -48,6 +49,7 @@ type idiomCountFixture struct {
 	corpus  string
 	unit    string
 	next    int
+	words   map[int][]string
 }
 
 func newIdiomCountFixture(t *testing.T) *idiomCountFixture {
@@ -82,6 +84,10 @@ func (f *idiomCountFixture) sentenceIn(t *testing.T, _, run, corpus, unit string
 	t.Helper()
 	ordinal := f.next
 	f.next++
+	if f.words == nil {
+		f.words = map[int][]string{}
+	}
+	f.words[ordinal] = words
 	_, err := f.pool.Exec(f.ctx, `INSERT INTO corpus_sentences(owner_id,analysis_run_id,corpus_id,unit_id,sentence_ordinal,sentence_text,start_offset,end_offset)
 		VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, f.owner, run, corpus, unit, ordinal, strings.Join(words, " "), ordinal*1000, ordinal*1000+999)
 	require.NoError(t, err)
@@ -102,10 +108,22 @@ func (f *idiomCountFixture) rebuild(t *testing.T, index idiom.Index, indexVersio
 
 func (f *idiomCountFixture) corpusCounts(t *testing.T) map[string]int64 {
 	t.Helper()
-	counts, err := f.store.ListCorpusIdiomCandidateCounts(f.ctx, f.owner, "de")
+	return f.corpusCountsAt(t, "v1")
+}
+
+func (f *idiomCountFixture) pending(t *testing.T, version string) int64 {
+	t.Helper()
+	counts, err := f.store.ListCorpusIdiomCandidateCounts(f.ctx, f.owner, "de", version)
 	require.NoError(t, err)
-	result := make(map[string]int64, len(counts))
-	for _, count := range counts {
+	return counts.PendingBooks
+}
+
+func (f *idiomCountFixture) corpusCountsAt(t *testing.T, version string) map[string]int64 {
+	t.Helper()
+	counts, err := f.store.ListCorpusIdiomCandidateCounts(f.ctx, f.owner, "de", version)
+	require.NoError(t, err)
+	result := make(map[string]int64, len(counts.Counts))
+	for _, count := range counts.Counts {
 		result[count.Headword] = count.Candidates
 	}
 	return result
@@ -179,7 +197,7 @@ func TestIdiomCountsFollowTheIdiomIndex(t *testing.T) {
 	require.NoError(t, f.service.EnqueueMissingIdiomCountRebuilds(f.ctx, "v2"))
 	require.Equal(t, 1, f.jobs(t), "a dictionary or reviewed-list change queues a rebuild")
 	f.rebuild(t, spoon, "v2")
-	require.Equal(t, map[string]int64{"den Löffel abgeben": 1}, f.corpusCounts(t))
+	require.Equal(t, map[string]int64{"den Löffel abgeben": 1}, f.corpusCountsAt(t, "v2"))
 }
 
 func TestIdiomCountsOfARemovedBookLeaveTheCorpus(t *testing.T) {
@@ -241,4 +259,98 @@ func TestIdiomCountsAreQueuedByPublishAndDecisions(t *testing.T) {
 	require.Equal(t, 1, f.jobs(t))
 	require.NoError(t, f.service.EnqueueBrowseCountRebuild(f.ctx, f.owner, f.book))
 	require.Equal(t, 1, f.jobs(t), "repeating it queues no second rebuild")
+}
+
+func TestIdiomCountsReportBooksWhoseCountsAreNotReady(t *testing.T) {
+	f := newIdiomCountFixture(t)
+	f.sentence(t, "guten", "tag")
+	require.EqualValues(t, 1, f.pending(t, "v1"), "a Book never counted is pending, not empty")
+	f.rebuild(t, spoon, "v1")
+	require.Zero(t, f.pending(t, "v1"), "a counted Book without candidates is ready")
+	require.EqualValues(t, 1, f.pending(t, "v2"), "counts built against another idiom index are pending")
+}
+
+// confirmDecision stores a Lemma decision the way a confirmed review does and
+// runs the hook that follows its commit.
+func (f *idiomCountFixture) confirmDecision(t *testing.T, surface string, sentence int, lemma string, excluded bool) {
+	t.Helper()
+	occurrences, err := f.store.ListLemmaReviewOccurrences(f.ctx, f.owner, f.book, surface)
+	require.NoError(t, err)
+	var target *domain.LemmaReviewOccurrence
+	for i := range occurrences {
+		if strings.Contains(occurrences[i].SentenceText, strings.Join(f.words[sentence], " ")) {
+			target = &occurrences[i]
+		}
+	}
+	require.NotNil(t, target)
+	decision := domain.LemmaReviewDecision{Occurrence: *target, CanonicalLemma: lemma, Excluded: excluded, NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}
+	if excluded {
+		decision.CanonicalLemma, decision.NormalizationProfile, decision.NormalizationVersion = "", "", ""
+	}
+	require.NoError(t, f.store.PutLemmaDecisions(f.ctx, []domain.LemmaReviewDecision{decision}))
+	require.NoError(t, f.service.EnqueueBrowseCountRebuild(f.ctx, f.owner, f.book))
+}
+
+func TestIdiomCountsRebuildAfterAConfirmedLemmaCorrection(t *testing.T) {
+	f := newIdiomCountFixture(t)
+	f.sentence(t, "er", "gab", "den", "löffel", "ab")
+	f.rebuild(t, spoon, "v1")
+	require.Empty(t, f.corpusCounts(t))
+	f.confirmDecision(t, "ab", 0, "abgeben", false)
+	require.EqualValues(t, 1, f.pending(t, "v1"), "the decision withdraws readiness until the rebuild")
+	require.Equal(t, 1, f.jobs(t), "the confirmation queues the rebuild")
+	f.rebuild(t, spoon, "v1")
+	require.Equal(t, map[string]int64{"den Löffel abgeben": 1}, f.corpusCounts(t))
+	require.Zero(t, f.pending(t, "v1"))
+}
+
+func TestIdiomCountsRebuildAfterAnOccurrenceExclusion(t *testing.T) {
+	f := newIdiomCountFixture(t)
+	f.sentence(t, "er", "wird", "den", "löffel", "abgeben")
+	f.rebuild(t, spoon, "v1")
+	require.Len(t, f.corpusCounts(t), 1)
+	f.confirmDecision(t, "löffel", 0, "", true)
+	require.Equal(t, 1, f.jobs(t))
+	f.rebuild(t, spoon, "v1")
+	require.Empty(t, f.corpusCounts(t))
+	require.Zero(t, f.pending(t, "v1"))
+}
+
+func TestIdiomCountsRebuildAfterAnAnalysisUpdate(t *testing.T) {
+	f := newIdiomCountFixture(t)
+	f.sentence(t, "guten", "tag")
+	f.rebuild(t, spoon, "v1")
+	require.Empty(t, f.corpusCounts(t))
+	oldRun := f.run
+	// An Analysis update publishes a new run, with its own Corpus, for the same
+	// source; the new analysis holds a candidate the old one did not.
+	var source, revision, snapshot string
+	require.NoError(t, f.pool.QueryRow(f.ctx, `SELECT source_material_id::text,content_revision_id::text,snapshot_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, f.owner, f.run).Scan(&source, &revision, &snapshot))
+	var hash string
+	require.NoError(t, f.pool.QueryRow(f.ctx, `SELECT artifact_hash FROM corpora WHERE owner_id=$1 AND id=$2`, f.owner, f.corpus).Scan(&hash))
+	require.NoError(t, f.pool.QueryRow(f.ctx, `INSERT INTO corpora(owner_id,source_material_id,artifact_hash,status) VALUES($1,$2,$3,'complete') RETURNING id::text`, f.owner, source, hash).Scan(&f.corpus))
+	require.NoError(t, f.pool.QueryRow(f.ctx, `INSERT INTO analysis_runs(owner_id,source_material_id,content_revision_id,snapshot_id,analyzer_name,analyzer_version,config_identity,state,corpus_id,completed_at)
+		VALUES($1,$2,$3,$4,'test','2','second','completed',$5,now()) RETURNING id::text`, f.owner, source, revision, snapshot, f.corpus).Scan(&f.run))
+	_, err := f.pool.Exec(f.ctx, `UPDATE corpora SET analysis_run_id=$1 WHERE owner_id=$2 AND id=$3`, f.run, f.owner, f.corpus)
+	require.NoError(t, err)
+	f.sentence(t, "er", "wird", "den", "löffel", "abgeben")
+	_, err = f.pool.Exec(f.ctx, `UPDATE book_current_analyses SET analysis_run_id=$3 WHERE owner_id=$1 AND book_id=$2`, f.owner, f.book, f.run)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, f.pending(t, "v1"), "the new analysis has no counts yet")
+	require.NoError(t, f.service.EnqueueMissingIdiomCountRebuilds(f.ctx, "v1"))
+	require.Equal(t, 1, f.jobs(t), "reconciliation queues the new run")
+	f.rebuild(t, spoon, "v1")
+	require.Equal(t, map[string]int64{"den Löffel abgeben": 1}, f.corpusCounts(t))
+	var oldRows int
+	require.NoError(t, f.pool.QueryRow(f.ctx, `SELECT count(*) FROM idiom_candidate_counts WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, f.owner, f.book, oldRun).Scan(&oldRows))
+	require.Zero(t, oldRows)
+}
+
+func TestIdiomCountsRebuildQueueIsNotTheAnalysisQueue(t *testing.T) {
+	f := newIdiomCountFixture(t)
+	require.NoError(t, f.service.EnqueueMissingIdiomCountRebuilds(f.ctx, "v1"))
+	var queue string
+	require.NoError(t, f.pool.QueryRow(f.ctx, `SELECT queue FROM river_job WHERE kind=$1`, (IdiomCountsRebuildArgs{}).Kind()).Scan(&queue))
+	require.Equal(t, IdiomCountsQueue, queue)
+	require.NotEqual(t, Queue, queue)
 }

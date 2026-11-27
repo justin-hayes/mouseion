@@ -15,6 +15,11 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 )
 
+// IdiomCountsQueue is the River queue of Idiom count rebuilds. It is not the
+// analysis queue: a rebuild of every Book after a dictionary refresh takes
+// minutes and must never hold up analysis.
+const IdiomCountsQueue = "idiom_counts"
+
 // IdiomCountsRebuildArgs queues the derivation of one Book's Idiom candidate
 // counts (ADR 0137). The counts are their own durable job, not part of the
 // publish transaction: matching reads the dictionary index, which is outside
@@ -33,7 +38,7 @@ func (IdiomCountsRebuildArgs) Kind() string { return "rebuild_idiom_candidate_co
 // InsertOpts makes a queued rebuild unique per Book, run and decision revision
 // while it waits or runs.
 func (IdiomCountsRebuildArgs) InsertOpts() river.InsertOpts {
-	return river.InsertOpts{Queue: Queue, MaxAttempts: 10, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates}}
+	return river.InsertOpts{Queue: IdiomCountsQueue, MaxAttempts: 10, UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: liveJobStates}}
 }
 
 // IdiomCountsRebuildWorker derives a Book's Idiom candidate counts against the

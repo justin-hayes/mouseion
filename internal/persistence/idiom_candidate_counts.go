@@ -18,27 +18,37 @@ import (
 const IdiomCountBuilderVersion = 1
 
 // IdiomIndexVersion names the idiom evidence the counts were derived against:
-// the matching rules and the dictionary index (which carries the reviewed idiom
-// list) version. A count built against another value is stale.
-func IdiomIndexVersion(dictionaryVersion string) string {
-	return idiom.MatcherVersion + "|" + strings.TrimSpace(dictionaryVersion)
+// the matching rules, the dictionary index version, and a digest of the idiom
+// entries (dictionary and reviewed list) the index carries. A count built
+// against another value is stale, so a change to any of them rebuilds the counts.
+func IdiomIndexVersion(dictionaryVersion, idiomDigest string) string {
+	return idiom.MatcherVersion + "|" + strings.TrimSpace(dictionaryVersion) + "|" + idiomDigest
 }
 
 // ListCorpusIdiomCandidateCounts sums each Idiom headword's candidates across
-// the owner's currently analyzed Books in the language. Only Books whose counts
-// are ready for their current analysis contribute.
-func (s *PostgresStore) ListCorpusIdiomCandidateCounts(ctx context.Context, owner, language string) ([]domain.IdiomCandidateCount, error) {
-	rows, err := sqlcgen.New(s.pool).ListCorpusIdiomCandidateCounts(ctx, sqlcgen.ListCorpusIdiomCandidateCountsParams{
-		BuilderVersion: IdiomCountBuilderVersion, OwnerID: owner, Language: language,
+// the owner's currently analyzed Books in My Books in the language. Only Books
+// whose counts are ready for their current analysis at indexVersion
+// contribute; PendingBooks says how many do not, so a reader can tell a
+// headword with no candidates from one whose Books are still being counted.
+func (s *PostgresStore) ListCorpusIdiomCandidateCounts(ctx context.Context, owner, language, indexVersion string) (domain.CorpusIdiomCounts, error) {
+	q := sqlcgen.New(s.pool)
+	rows, err := q.ListCorpusIdiomCandidateCounts(ctx, sqlcgen.ListCorpusIdiomCandidateCountsParams{
+		BuilderVersion: IdiomCountBuilderVersion, IndexVersion: indexVersion, OwnerID: owner, Language: language,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("list Corpus Idiom candidate counts: %w", err)
+		return domain.CorpusIdiomCounts{}, fmt.Errorf("list Corpus Idiom candidate counts: %w", err)
 	}
-	counts := make([]domain.IdiomCandidateCount, len(rows))
+	pending, err := q.CountCorpusIdiomCountsPending(ctx, sqlcgen.CountCorpusIdiomCountsPendingParams{
+		BuilderVersion: IdiomCountBuilderVersion, IndexVersion: indexVersion, OwnerID: owner, Language: language,
+	})
+	if err != nil {
+		return domain.CorpusIdiomCounts{}, fmt.Errorf("count Books without ready Idiom counts: %w", err)
+	}
+	result := domain.CorpusIdiomCounts{PendingBooks: pending, Counts: make([]domain.IdiomCandidateCount, len(rows))}
 	for i, row := range rows {
-		counts[i] = domain.IdiomCandidateCount{Headword: row.Headword, Candidates: row.Candidates, Books: row.Books}
+		result.Counts[i] = domain.IdiomCandidateCount{Headword: row.Headword, Candidates: row.Candidates, Books: row.Books}
 	}
-	return counts, nil
+	return result, nil
 }
 
 // BuildIdiomCandidateCountsTx replaces a Book's Idiom candidate counts for its
@@ -141,6 +151,9 @@ ORDER BY t.sentence_ordinal,t.token_ordinal`,
 		return nil, fmt.Errorf("load Idiom count tokens: %w", err)
 	}
 	defer rows.Close()
+	if available, ok := index.(interface{ HasIdiomEntries() bool }); ok && !available.HasIdiomEntries() {
+		return map[string]int64{}, nil // nothing can match: skip the scan
+	}
 	counter := &idiomSentenceCounter{ctx: ctx, index: idiom.NewCachedIndex(index), language: scope.language, counts: make(map[string]int64)}
 	current := int64(-1)
 	for rows.Next() {

@@ -252,3 +252,25 @@ func TestIndexIdiomEntriesFeedTheMatcherEveryPartOfSpeech(t *testing.T) {
 		require.Equal(t, []string{"front, fore", "opposite", "in front of"}, glosses)
 	})
 }
+
+func TestIndexIdiomDigestChangesWithTheReviewedListAndNotTheProviderVersion(t *testing.T) {
+	reviewed := func(words string) string {
+		return `INSERT INTO idiom_entries VALUES ('el', 'κάνω τα στραβά μάτια', '', '` + words + `', '[]', 'reviewed-idioms', 'reviewed-idioms/1')`
+	}
+	first, err := newIdiomTestIndex(t, reviewed(`["κάνω","τα","στραβά","μάτια"]`)).IdiomDigest(t.Context())
+	require.NoError(t, err)
+	same, err := newIdiomTestIndex(t, reviewed(`["κάνω","τα","στραβά","μάτια"]`)).IdiomDigest(t.Context())
+	require.NoError(t, err)
+	changed, err := newIdiomTestIndex(t, reviewed(`["κάνω","στραβά","μάτια"]`)).IdiomDigest(t.Context())
+	require.NoError(t, err)
+	empty, err := newIdiomTestIndex(t).IdiomDigest(t.Context())
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, first)
+	assert.Equal(t, first, same, "the same entries under the same provider version have one digest")
+	assert.NotEqual(t, first, changed, "a reviewed-list change moves the digest though the provider version is unchanged")
+	assert.NotEqual(t, first, empty)
+	digest, err := (*Index)(nil).IdiomDigest(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, digest)
+}

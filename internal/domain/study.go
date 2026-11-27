@@ -275,3 +275,11 @@ type IdiomCandidateCount struct {
 	Candidates int64
 	Books      int64
 }
+
+// CorpusIdiomCounts is the Corpus sum of Idiom candidate counts. PendingBooks
+// counts the Books whose counts are not ready yet: while it is above zero a
+// headword missing from Counts may only be waiting, not have no candidates.
+type CorpusIdiomCounts struct {
+	Counts       []IdiomCandidateCount
+	PendingBooks int64
+}
