@@ -2,6 +2,7 @@ package enrichment
 
 import (
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -199,4 +200,46 @@ func TestLatinPassRequestSendsOnlyShortHandles(t *testing.T) {
 func TestEvidenceAssistedPassKindFollowsLanguage(t *testing.T) {
 	assert.Equal(t, LatinEvidenceAssistedPassPayload, EvidenceAssistedPassKind("la"))
 	assert.Equal(t, EvidenceAssistedPassPayload, EvidenceAssistedPassKind("grc"))
+}
+
+// syntheticLargeLatinEntryRequest is a Latin Study pass request over two
+// synthetic stacked entries shaped like dico (7 and 34 senses, as in the Lewis &
+// Short index; the test data holds no real L&S text). Definitions run 30 to 130
+// characters, as compact definitions do.
+func syntheticLargeLatinEntryRequest() (TranslationRequest, int) {
+	request := latinPassRequest()
+	request.CandidateSenses = nil
+	for e, count := range []int{7, 34} {
+		entry := fmt.Sprintf("n%d", 13803+e)
+		for s := range count {
+			definition := strings.Repeat("to say, tell, declare, speak; ", 6)[:30+(s*7)%100]
+			request.CandidateSenses = append(request.CandidateSenses, LexicalSense{
+				EvidenceID: EntryEvidenceID(entry, fmt.Sprintf("%s.%d", entry, s)), Source: "ls", Gloss: definition,
+			})
+		}
+	}
+	return request, len(request.CandidateSenses)
+}
+
+// TestLatinStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget measures
+// the request an uncapped dico-sized entry produces. The size is recorded in the
+// payload assessment addendum; this test keeps it from drifting unnoticed.
+func TestLatinStudyPassRequestOfALargeEntryCarriesEverySenseWithinBudget(t *testing.T) {
+	request, senses := syntheticLargeLatinEntryRequest()
+	body, err := passCodec(t).EncodeRequest(request)
+	require.NoError(t, err)
+	var decoded struct {
+		Messages []struct {
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	require.NoError(t, json.Unmarshal(body, &decoded))
+	var payload struct {
+		Senses []map[string]any `json:"candidate_senses"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(decoded.Messages[1].Content), &payload))
+	t.Logf("senses=%d request_bytes=%d user_message_bytes=%d approx_tokens=%d", senses, len(body), len(decoded.Messages[1].Content), len(body)/4)
+	require.Len(t, payload.Senses, 41, "no sense is capped")
+	require.Less(t, len(body), 16*1024)
+	require.NotContains(t, string(body), "n13803")
 }
