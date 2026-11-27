@@ -70,6 +70,7 @@ func TestStudyPreparesIdiomMaterialAlongsideWordsInStreamOrder(t *testing.T) {
 	assert.Equal(t, "the idiom mit dem haus", item.Gloss)
 	assert.Equal(t, insideSentence, item.Sentence)
 	assert.Equal(t, "mit dem haus", item.TargetWord)
+	assert.Equal(t, domain.StudyCitations{SenseIDs: []string{"test-idiom/mit dem haus/1"}, EntryIDs: []string{"mit dem haus"}, DictionaryPin: "test-dictionary/1"}, item.Cited, "the Gloss cites the dictionary sense it rests on")
 	assert.Equal(t, []int{3, 4, 5}, item.MatchedTokenOrdinals)
 	assert.Equal(t, int64(3), item.TokenOrdinal)
 	assert.NotEmpty(t, item.SentenceTranslation)
