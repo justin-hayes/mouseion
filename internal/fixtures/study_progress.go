@@ -48,6 +48,31 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 	return progress, nil
 }
 
+// SeedDueStudyReview puts a word in study whose review fell due the day before
+// now and was not answered since, for a browser fixture that needs a due count.
+func (s *Store) SeedDueStudyReview(owner string, identity domain.StudyItem, content domain.StudyMaterialReadyContent, now time.Time) string {
+	id := s.SeedMatureStudyWord(owner, identity, content, now)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.studyProgress {
+		if s.studyProgress[i].ID == id {
+			s.studyProgress[i].Memory.Due = now.Add(-24 * time.Hour)
+			s.studyProgress[i].Memory.LastReview = now.Add(-72 * time.Hour)
+		}
+	}
+	return id
+}
+
+// CountStudyReviewsDue counts the reviews still due on the Study day containing
+// now: Today's finish line over the language's progress.
+func (s *Store) CountStudyReviewsDue(ctx context.Context, owner, language string, now time.Time) (int, error) {
+	progress, err := s.ListStudyProgress(ctx, owner, language)
+	if err != nil {
+		return 0, err
+	}
+	return domain.StudyFinishLine(progress, now).Remaining, nil
+}
+
 // StudyBatchLedger reports the batches taken and declined on a Study day.
 func (s *Store) StudyBatchLedger(_ context.Context, owner, language, studyDay string) (domain.StudyBatchLedger, error) {
 	s.mu.Lock()

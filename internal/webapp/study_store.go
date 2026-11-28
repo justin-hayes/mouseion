@@ -24,6 +24,9 @@ type StudyStore interface { //nolint:interfacebloat // the Study page's store is
 	// coverage, which decides whether its words come first in the stream.
 	GetStudyReadingCoverage(ctx context.Context, owner, language string) (domain.StudyReadingCoverage, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
+	// CountStudyReviewsDue is how many reviews are still due on the Study day
+	// containing now: the count Today's finish line holds, read as one count.
+	CountStudyReviewsDue(ctx context.Context, owner, language string, now time.Time) (int, error)
 	// StudyBatchLedger reports the batches offered, taken and declined on a
 	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
 	StudyBatchLedger(ctx context.Context, owner, language, studyDay string) (domain.StudyBatchLedger, error)

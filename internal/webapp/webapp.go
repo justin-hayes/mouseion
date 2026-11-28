@@ -388,6 +388,10 @@ func (h *Handler) user(next http.Handler) http.Handler {
 			return
 		}
 		if view != nil {
+			if err := h.loadStudyDue(r.Context(), view, u.ID); err != nil {
+				fail(w, err)
+				return
+			}
 			r = r.WithContext(context.WithValue(r.Context(), shellViewContextKey{}, view))
 		}
 		next.ServeHTTP(w, r)

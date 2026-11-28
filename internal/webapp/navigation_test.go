@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -136,4 +137,40 @@ func TestRootCompatibilityRedirectsToLibrary(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location := response.Header().Get("Location")
 	assert.Equal(t, "/library", location)
+}
+
+func TestStudyTabDueChip(t *testing.T) {
+	render := func(t *testing.T, view *shellView) string {
+		t.Helper()
+		ctx := context.WithValue(context.Background(), shellViewContextKey{}, view)
+		var output bytes.Buffer
+		require.NoError(t, ShellLayout("Shell test", &domain.User{Username: "learner"}, "csrf", NavigationStudy).Render(ctx, &output))
+		return renderedPrimaryNavigation(t, output.String())
+	}
+	for _, test := range []struct {
+		name string
+		view *shellView
+		want string
+	}{
+		{name: "plural", view: &shellView{LastLanguage: "de", StudyDue: 12}, want: `aria-label="Study, 12 reviews due"`},
+		{name: "singular", view: &shellView{LastLanguage: "de", StudyDue: 1}, want: `aria-label="Study, 1 review due"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			navigation := render(t, test.view)
+			assert.Contains(t, navigation, test.want)
+			assert.Contains(t, navigation, `<span class="site-nav__count" aria-hidden="true">`+strconv.Itoa(test.view.StudyDue)+`</span>`)
+			assert.Equal(t, 1, strings.Count(navigation, `aria-current="page"`))
+		})
+	}
+	for name, view := range map[string]*shellView{
+		"zero":              {LastLanguage: "de"},
+		"no study language": {},
+		"no shell view":     nil,
+	} {
+		t.Run("absent with "+name, func(t *testing.T) {
+			navigation := render(t, view)
+			assert.NotContains(t, navigation, "site-nav__count")
+			assert.NotContains(t, navigation, "aria-label=\"Study")
+		})
+	}
 }

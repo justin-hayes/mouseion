@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/auth"
@@ -52,6 +53,7 @@ func main() {
 		})
 	}
 	seedFluencyWordIfRequested(store)
+	seedDueReviewsIfRequested(store)
 	classicalCatalog, err := fixtures.NewClassicalCatalog()
 	if err != nil {
 		log.Fatalf("initialize fixture Classical catalog: %v", err)
@@ -140,6 +142,24 @@ func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, 
 func seedFluencyWordIfRequested(store *fixtures.Store) {
 	if os.Getenv("MOUSEION_FIXTURE_STUDY_FLUENCY") == "1" {
 		seedFluencyWord(store)
+	}
+}
+
+// seedDueReviewsIfRequested seeds German reviews that are due today when the
+// browser spec asks for them (MOUSEION_FIXTURE_STUDY_DUE is their number), so
+// every other spec keeps its usual Study state and an empty due chip.
+func seedDueReviewsIfRequested(store *fixtures.Store) {
+	count, err := strconv.Atoi(os.Getenv("MOUSEION_FIXTURE_STUDY_DUE"))
+	if err != nil || count <= 0 {
+		return
+	}
+	for i := range count {
+		identity := domain.StudyItem{Language: "de", CanonicalLemma: fmt.Sprintf("fixture-due-%d", i), UPOS: "NOUN"}
+		store.SeedDueStudyReview(fixtures.OwnerID, identity, domain.StudyMaterialReadyContent{
+			BookID: fixtures.BookID, AnalysisRunID: fixtures.ResultRunID, CorpusID: "fixture-corpus",
+			SentenceOrdinal: 1, TokenOrdinal: 1, Sentence: "Hier steht ein Wort.", TargetWord: "Wort",
+			Gloss: "word", SentenceTranslation: "A word is here.", SentenceTranslationTargets: []string{"word"},
+		}, time.Now())
 	}
 }
 

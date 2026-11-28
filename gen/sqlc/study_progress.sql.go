@@ -76,6 +76,53 @@ func (q *Queries) CompleteStudyReintroductions(ctx context.Context, arg Complete
 	return result.RowsAffected(), nil
 }
 
+const countStudyReviewsDue = `-- name: CountStudyReviewsDue :one
+SELECT count(*)::bigint
+  FROM study_progress p
+  JOIN study_material m ON m.owner_id = p.owner_id AND m.id = p.material_id
+ WHERE p.owner_id = $1 AND p.language = $2
+   AND p.withdrawn_at IS NULL
+   AND m.superseded_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM study_report r
+                    WHERE r.owner_id = p.owner_id AND r.item_kind = p.item_kind AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
+                      AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
+                      AND r.kind = 'wrong_word' AND r.ended_at IS NULL)
+   AND NOT EXISTS (SELECT 1 FROM study_report r
+                    WHERE r.owner_id = p.owner_id AND r.progress_id = p.id
+                      AND r.kind = 'unsuitable_context' AND r.end_reason IS DISTINCT FROM 'undone'
+                      AND r.created_at >= $3::timestamptz)
+   AND ((p.state = 'review'
+         AND p.due < $4::timestamptz
+         AND (p.last_review IS NULL OR p.last_review < $3::timestamptz))
+        OR p.state = 'relearning')
+`
+
+type CountStudyReviewsDueParams struct {
+	Owner        string
+	Language     string
+	DayStart     time.Time
+	NextDayStart time.Time
+}
+
+// The reviews still due on one Study day, for the Study tab's due chip. It is
+// domain.StudyCountsToday as one count: a review whose due time falls before
+// next_day_start and that was not answered since day_start, or a relearning
+// word; never a withdrawn word, a held one (open Wrong-word report), one whose
+// material was superseded, or one whose context was reported since day_start.
+// The caller passes domain.StudyDayStart and domain.NextStudyDayStart of now,
+// so SQL needs no time zone.
+func (q *Queries) CountStudyReviewsDue(ctx context.Context, arg CountStudyReviewsDueParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudyReviewsDue,
+		arg.Owner,
+		arg.Language,
+		arg.DayStart,
+		arg.NextDayStart,
+	)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const declineStudyBatchSlot = `-- name: DeclineStudyBatchSlot :one
 INSERT INTO study_batch_ledger (owner_id, language, study_day, batches_offered, batches_declined)
 VALUES ($1, $2, $3::date, 1, 1)

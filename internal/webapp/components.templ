@@ -1,6 +1,7 @@
 package webapp
 
 import "fmt"
+import "strconv"
 import "time"
 import "github.com/justin-hayes/mouseion/internal/domain"
 
@@ -195,4 +196,15 @@ templ CatalogueSyncConnectionActions(csrf string, connection domain.OpdsConnecti
 			<a role="button" class="button button--outline" href="/library">Browse My Books</a>
 		}
 	</div>
+}
+
+// studyTabLabel is the Study tab's text and, while reviews are due, its due
+// chip. The chip is absent at zero. The link's accessible name carries both the
+// destination and the count; the visible number is hidden from assistive
+// technology so it is not read twice.
+templ studyTabLabel(view *shellView) {
+	Study
+	if view != nil && view.StudyDue > 0 {
+		<span class="site-nav__count" aria-hidden="true">{ strconv.Itoa(view.StudyDue) }</span>
+	}
 }
