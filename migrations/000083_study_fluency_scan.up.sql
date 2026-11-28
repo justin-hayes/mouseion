@@ -4,8 +4,9 @@
 -- opening Today does not queue the word again every hour. exhausted_at is when
 -- that scan began. A row is never cleared: it stops applying once the
 -- language's Corpus changes or the word lapses after it, which
--- EnqueueFluencyPreparation reads from My Books, completed analysis runs and
--- the review log. The Study scheduler does not touch it.
+-- EnqueueFluencyPreparation reads from My Books, completed analysis runs,
+-- confirmed Lemma corrections and Occurrence exclusions, Idiom count rebuilds
+-- and the review log. The Study scheduler does not touch it.
 --
 -- Additive structural DDL only: a new table, no change to an existing one and
 -- no data backfill. Forward-only in production (ADR 0038, ADR 0070).
