@@ -94,7 +94,7 @@ func bookWordStates(progress []domain.StudyProgress) map[domain.StudyItem]bookWo
 
 // bookWordStateOf is the state of a word of the list.
 func bookWordStateOf(states map[domain.StudyItem]bookWordState, language string, row domain.VocabularyBrowseRow) bookWordState {
-	item := domain.WordItem(language, row.CanonicalLemma, strings.ToUpper(strings.TrimSpace(row.UPOS)), row.LexicalDiscriminator)
+	item := domain.WordItem(language, strings.TrimSpace(row.CanonicalLemma), strings.ToUpper(strings.TrimSpace(row.UPOS)), strings.TrimSpace(row.LexicalDiscriminator))
 	if state, ok := states[item]; ok {
 		return state
 	}

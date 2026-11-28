@@ -86,3 +86,13 @@ func TestBookDetailOpensForNoBookThatIsNotInMyBooks(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, performReadingRequest(t, h, http.MethodGet, address, nil, cookies).Code, address)
 	}
 }
+
+func TestBookDetailHostsTheBookRetryAction(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
+	response := performReadingRequest(t, h, http.MethodGet, bookDetailURL("fixture-failed"), nil, cookies)
+	require.Equal(t, http.StatusOK, response.Code)
+	_, analysis, found := strings.Cut(response.Body.String(), `id="book-detail-analysis"`)
+	require.True(t, found)
+	assert.Contains(t, analysis, `action="/reading/books/fixture-failed/reanalyze"`, "the Book's retry lives on its detail page")
+	assert.Contains(t, analysis, `name="csrf_token"`)
+}
