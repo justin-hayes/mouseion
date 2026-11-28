@@ -219,7 +219,12 @@ Fluency gives variety once a word is familiar, without grading it.
   different form: another tense, person, case or number, or a separable verb
   split from its prefix. Different sentences of the same form come after. Up
   to 5 contexts per word are prepared when the word becomes mature, so
-  preparation is limited to words the learner is keeping.
+  preparation is limited to words the learner is keeping. When a scan finds
+  no unassessed sentence left for a word, the word is not scanned again until
+  the language's library changes (a Book added to or removed from My Books, a
+  new completed analysis, a confirmed Lemma correction or exclusion, or the undoing of one) or the
+  word lapses; a scan that stops with sentences
+  still unasked leaves the word to be scanned again.
 - **Only the Learned meaning.** A Fluency context is kept only if the word
   carries its Learned meaning there. Each context has its own Gloss check and
   translation, and contexts that do not agree are never shown. A disagreeing

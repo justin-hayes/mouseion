@@ -200,6 +200,32 @@ func TestSourceEvidenceFluencyWaitsForAMissingDictionary(t *testing.T) {
 	assert.Empty(t, store.recorded)
 }
 
+// countingConcordanceStore counts the concordance reads a job makes.
+type countingConcordanceStore struct {
+	*fluencyFakeStore
+	reads *int
+}
+
+func (s countingConcordanceStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+	*s.reads++
+	return s.fluencyFakeStore.ListVocabularyConcordance(ctx, owner, language, lookup)
+}
+
+func TestSourceEvidenceFluencySnoozedJobReadsNoConcordance(t *testing.T) {
+	worker, store, _, _ := newSourceEvidenceFluencyFixture(t)
+	reads := 0
+	worker.Store = countingConcordanceStore{store, &reads}
+	worker.Evidence.Lexical = nil
+
+	assert.True(t, isSnooze(fluencyWork(worker)))
+	assert.Zero(t, reads, "a job the gate snoozes does not scan the concordance on every retry")
+	assert.Empty(t, store.exhausted)
+
+	worker.Evidence.Lexical = &greekLexicon{}
+	assert.True(t, isSnooze(fluencyWork(worker)))
+	assert.Zero(t, reads)
+}
+
 func TestSourceEvidenceFluencyDoesNotLookUpLearnedSensesOnAnotherPin(t *testing.T) {
 	worker, store, enricher, _ := newSourceEvidenceFluencyFixture(t)
 	store.progress.LearnedCitations = domain.StudyCitations{SenseIDs: []string{"n100.2"}, EntryIDs: []string{"n100"}, DictionaryPin: "lsj-pin-0"}

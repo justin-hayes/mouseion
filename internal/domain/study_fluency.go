@@ -284,19 +284,42 @@ type FluencyContextRecord struct {
 // the word already has its contexts or the occurrence was already assessed.
 var ErrFluencyContextNotStored = errors.New("study: fluency context was not stored")
 
+// FluencyScan records that a scan of a Mature word's Corpus found no
+// unassessed candidate (#2817). ExhaustedAt is when that scan began and
+// LastLapseAt when the word was last answered Again; the zero time means never.
+type FluencyScan struct {
+	ProgressID               string
+	ExhaustedAt, LastLapseAt time.Time
+}
+
+// Exhausts reports whether the scan still stands for a word: it is later than
+// both the newest change to the language's Corpus and the word's last lapse.
+// Nothing clears a scan; it stops applying once either time moves past it.
+func (s FluencyScan) Exhausts(corpusChangedAt time.Time) bool {
+	return s.ExhaustedAt.After(corpusChangedAt) && s.ExhaustedAt.After(s.LastLapseAt)
+}
+
 // FluencyContextsNeeded reports whether a mature word still lacks contexts:
-// fewer than FluencyContextsPerWord agree. Words whose candidates ran out stay
-// listed; the preparation job asks about each occurrence only once.
-func FluencyContextsNeeded(progress []StudyProgress, contexts []FluencyContext) []StudyProgress {
+// fewer than FluencyContextsPerWord agree. A word whose scan still exhausts its
+// Corpus is left out until the Corpus changes or the word lapses; otherwise
+// words whose candidates ran out stay listed, and the preparation job asks
+// about each occurrence only once.
+func FluencyContextsNeeded(progress []StudyProgress, contexts []FluencyContext, scans []FluencyScan, corpusChangedAt time.Time) []StudyProgress {
 	agreeing := map[string]int{}
 	for _, context := range contexts {
 		if context.Agreement == FluencyAgrees {
 			agreeing[context.ProgressID]++
 		}
 	}
+	exhausted := map[string]bool{}
+	for _, scan := range scans {
+		if scan.Exhausts(corpusChangedAt) {
+			exhausted[scan.ProgressID] = true
+		}
+	}
 	var needed []StudyProgress
 	for _, item := range progress {
-		if IsStudyMature(item) && agreeing[item.ID] < FluencyContextsPerWord {
+		if IsStudyMature(item) && agreeing[item.ID] < FluencyContextsPerWord && !exhausted[item.ID] {
 			needed = append(needed, item)
 		}
 	}

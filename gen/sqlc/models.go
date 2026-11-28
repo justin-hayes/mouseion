@@ -1183,6 +1183,12 @@ type StudyFluencyResponse struct {
 	CreatedAt   time.Time
 }
 
+type StudyFluencyScan struct {
+	OwnerID     string
+	ProgressID  string
+	ExhaustedAt time.Time
+}
+
 type StudyMaterial struct {
 	ID                         string
 	OwnerID                    string

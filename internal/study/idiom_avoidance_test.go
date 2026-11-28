@@ -140,7 +140,7 @@ func TestFluencyRanksOccurrencesOutsideAnIdiomCandidateFirst(t *testing.T) {
 	outside := store.addOccurrence(3, "hauses", map[string]string{"Case": "Gen", "Number": "Sing"})
 	worker.Idioms = switchOn(&fakeIdiomIndex{entries: []idiom.Entry{{Language: "de", Headword: "nicht mit dem haeuser", UPOS: "PHRASE", Words: []string{"nicht", "mit", "dem", "haeuser"}, Source: "test", Version: "1"}}})
 
-	ranked, err := worker.rankedCandidates(context.Background(), "owner", store.progress, map[occurrenceKey]bool{})
+	ranked, _, err := worker.rankedCandidates(context.Background(), "owner", store.progress, map[occurrenceKey]bool{})
 	require.NoError(t, err)
 	require.Len(t, ranked, 2)
 	assert.Equal(t, outside, ranked[0].sentence)
@@ -148,7 +148,7 @@ func TestFluencyRanksOccurrencesOutsideAnIdiomCandidateFirst(t *testing.T) {
 	assert.True(t, ranked[1].inIdiom)
 
 	worker.Idioms = nil
-	ranked, err = worker.rankedCandidates(context.Background(), "owner", store.progress, map[occurrenceKey]bool{})
+	ranked, _, err = worker.rankedCandidates(context.Background(), "owner", store.progress, map[occurrenceKey]bool{})
 	require.NoError(t, err)
 	assert.Equal(t, inside, ranked[0].sentence, "with the switch off the ranking is as before")
 }

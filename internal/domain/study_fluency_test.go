@@ -2,7 +2,9 @@ package domain
 
 import (
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -108,7 +110,7 @@ func TestFluencyContextsNeeded(t *testing.T) {
 		contexts = append(contexts, fluencyContext("a", "a"))
 	}
 	contexts = append(contexts, FluencyContext{ProgressID: "b", Agreement: FluencyDisagrees})
-	needed := FluencyContextsNeeded(words, contexts)
+	needed := FluencyContextsNeeded(words, contexts, nil, time.Time{})
 	if len(needed) != 1 || needed[0].ID != "b" {
 		t.Fatalf("got %v", needed)
 	}
@@ -148,4 +150,27 @@ func TestRankFluencyCandidatesPutsIdiomCandidatesLast(t *testing.T) {
 	require.Len(t, ranked, 2)
 	require.Equal(t, "b", ranked[0].Key, "outside an Idiom candidate leads, whatever the form, reading or quality")
 	require.Equal(t, "a", ranked[1].Key)
+}
+
+func TestFluencyContextsNeededSkipsAWordWhoseScanStillExhaustsItsCorpus(t *testing.T) {
+	at := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+	words := []StudyProgress{matureWord("a", StudyStateReview, 30), matureWord("b", StudyStateReview, 30), matureWord("c", StudyStateReview, 30)}
+	ids := func(needed []StudyProgress) []string {
+		var got []string
+		for _, item := range needed {
+			got = append(got, item.ID)
+		}
+		return got
+	}
+	scans := []FluencyScan{{ProgressID: "a", ExhaustedAt: at}, {ProgressID: "b", ExhaustedAt: at}}
+
+	assert.Equal(t, []string{"c"}, ids(FluencyContextsNeeded(words, nil, scans, at.Add(-time.Hour))), "scanned words wait while nothing changed")
+	assert.Equal(t, []string{"c"}, ids(FluencyContextsNeeded(words, nil, scans, time.Time{})), "a Corpus that never changed does not release them")
+	assert.Equal(t, []string{"a", "b", "c"}, ids(FluencyContextsNeeded(words, nil, scans, at.Add(time.Hour))), "a Corpus change after the scan releases every scanned word")
+	assert.Equal(t, []string{"a", "b", "c"}, ids(FluencyContextsNeeded(words, nil, scans, at)), "a change at the scan's own instant is not before it")
+
+	scans[0].LastLapseAt = at.Add(time.Minute)
+	assert.Equal(t, []string{"a", "c"}, ids(FluencyContextsNeeded(words, nil, scans, at.Add(-time.Hour))), "a lapse after the scan releases that word only")
+	scans[0].LastLapseAt = at.Add(-time.Minute)
+	assert.Equal(t, []string{"c"}, ids(FluencyContextsNeeded(words, nil, scans, at.Add(-time.Hour))), "a lapse before the scan does not")
 }

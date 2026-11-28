@@ -263,3 +263,19 @@ func TestFluencyWorkerNeverAsksAboutTheIntroducingSentenceWhereverItsTextIsRepea
 	require.NoError(t, fluencyWork(worker))
 	assert.Empty(t, enricher.idiomCards, "the introducing sentence's place is never a context")
 }
+
+func TestFluencyWorkerRecordsAnIdiomWithNoOtherSentenceAsExhausted(t *testing.T) {
+	worker, store, enricher := newIdiomFluencyFixture()
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, enricher.idiomCards)
+	assert.Len(t, store.exhausted, 1)
+}
+
+func TestFluencyWorkerDoesNotRecordAnIdiomExhaustedWhileItsSwitchIsOff(t *testing.T) {
+	worker, store, _ := newIdiomFluencyFixture()
+	worker.Idioms = nil
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, store.exhausted, "nothing was scanned")
+}
