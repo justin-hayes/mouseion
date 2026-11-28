@@ -55,7 +55,8 @@ language) and shows the others in neutral title order.
    Book with nothing to do has no status line.
 7. Every Book in Reading has a **Book detail page** at `/books/{id}`. It hosts
    the Book's analysis actions (retry, Analysis update and Source structure
-   update), shows its Book language, and lists the Book's words in a read-only list of the Book's words by Study state
+   update), shows its Book language, holds its **Reading position** section
+   (below), and lists the Book's words in a read-only list of the Book's words by Study state
    ([Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md)).
    `/reading?reading={bookID}`, an address of the retired working desk, goes to
    that Book's detail page, and the former `/library` address redirects to Reading.
@@ -69,6 +70,37 @@ The current product and architecture decisions are [ADR
 [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md).
 ADR 0072 records the superseded Goal/ordered-Journey model as historical
 context.
+
+## Reading position
+
+A Book in Reading has a **Reading position**: the learner's latest known place
+in it, a fraction of the whole Book. Each entry is a **Position report**, and
+the Reading position is the latest report by recorded time, with insertion order
+breaking a tie. A Book with no report shows **No position yet**, which is not
+0%. Terms are defined in [`CONTEXT.md`](../../CONTEXT.md).
+
+- **Entry.** On Book detail, any Book in Reading can take a position by
+  percentage, whatever its disposition, analysis or Book language. The
+  percentage is from 0 to 100 with at most one decimal place. Entry is a
+  CSRF-protected `POST /library/books/{id}/position` that redirects back to Book
+  detail with a message. A refusal (nothing entered, not a number, outside 0 to
+  100) redirects with its reason and keeps the input in the form. A Book not in
+  Reading, or another learner's, is not found. The time recorded is when the
+  learner entered it; there is no backdating.
+- **Display.** The percentage is whole and rounded down, so 99.6% never reads as
+  100%. The section shows the date entered (a `<time>` element, the same date
+  format as "Reading since") and "entered by you". A lower entry than before is
+  allowed and becomes the position.
+- **A signal only.** Recording a position never finishes, starts or ends a
+  reading and never changes a disposition or the Current reading, and 100% does
+  not finish a Book. Finish, End, Read next, Read again and Remove leave the
+  reports unchanged; reports belong to the Book, so they return if it is added
+  back.
+- **Stored per Book**, owner-scoped, never per language or per reading, and
+  every report is kept.
+
+Page entry with a remembered page count, undo, the Reading list percentage and
+the Current reading hero follow in the same spec.
 
 ## Interaction and recovery contract
 
