@@ -17,7 +17,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 			<div class="library-book__identity-link">
 				@BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover)
 				<div class="library-book__text">
-					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
+					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title"><a class="library-book__details" href={ templ.SafeURL(bookDetailURL(book.Book.ID)) }>{ myBookDisplayTitle(book) }</a></h2>
 					if author := strings.TrimSpace(book.Book.Author); author != "" {
 						<span class="library-book__author">By { author }</span>
 					}
@@ -31,15 +31,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 			}
 			if evidence := myBookMarginEvidence(book); evidence != "" {
 				<p class="library-book__evidence">{ evidence }</p>
-				if action := myBookEvidenceRecovery(book); action != "" {
-					<form method="post" action={ templ.SafeURL(myBookEvidenceRecoveryURL(book)) }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						if book.Disposition != domain.BookDispositionToRead {
-							<input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
-						}
-						<button type="submit" class="library-book__recovery">{ action }</button>
-					</form>
-				}
+				@MyBookEvidenceRecovery(book, csrf)
 			}
 			@AnalysisUpdateNotice(book, csrf, "btn btn-outline")
 			@SourceStructureUpdateNotice(book, csrf, "btn btn-outline")
@@ -80,6 +72,20 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 			</details>
 		</div>
 	</li>
+}
+
+// MyBookEvidenceRecovery is the Book's retry: the one action that queues its
+// analysis again. It is shared by the My Books row and the Book detail page.
+templ MyBookEvidenceRecovery(book domain.MyBook, csrf string) {
+	if action := myBookEvidenceRecovery(book); action != "" {
+		<form method="post" action={ templ.SafeURL(myBookEvidenceRecoveryURL(book)) }>
+			<input type="hidden" name="csrf_token" value={ csrf }/>
+			if book.Disposition != domain.BookDispositionToRead {
+				<input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
+			}
+			<button type="submit" class="library-book__recovery">{ action }</button>
+		</form>
+	}
 }
 
 templ MyBookIdentityDetails(book domain.MyBook) {

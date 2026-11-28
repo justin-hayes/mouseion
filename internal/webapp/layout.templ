@@ -59,13 +59,13 @@ document.addEventListener('htmx:after:swap', function (evt) {
   if (summary) {
     summary.focus();
     var clicked = ctx.sourceEvent && ctx.sourceEvent.target;
-    if (clicked && clicked.closest && clicked.closest('nav[aria-label="Browse pages"]')) {
+    if (clicked && clicked.closest && clicked.closest('nav[aria-label="Word pages"]')) {
       summary.scrollIntoView({block: 'start'});
     }
   }
 });
 document.addEventListener('htmx:after:history:restore', function () {
-  if (window.location.pathname !== '/reading') return;
+  if (!/^\/books\/[^/]+$/.test(window.location.pathname)) return;
   var summary = document.getElementById('vocabulary-results-heading');
   if (summary) summary.focus();
 });

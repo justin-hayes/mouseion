@@ -111,22 +111,11 @@ func (o browseOrigin) Apply(raw string) string {
 	return parsed.String()
 }
 
-// ReturnURL is Back to book vocabulary. Reading revalidates the commitment,
-// language, and evidence revision before showing anything.
-func (o browseOrigin) ReturnURL(language string) string {
-	values := url.Values{}
-	if o.Prefix != "" {
-		values.Set("q", o.Prefix)
-	}
-	values.Set("reading", o.BookID)
-	if o.Revision != "" {
-		values.Set("rev", o.Revision)
-	}
-	if o.Row != "" {
-		values.Set("row", o.Row)
-	}
-	values.Set("page", strconv.Itoa(max(o.Page, 1)))
-	return studyLanguagePath(pageKindReading, language) + "?" + values.Encode()
+// ReturnURL is Back to book vocabulary: the Book's detail page at the prefix,
+// page, evidence revision and row the learner left from. The page revalidates
+// the evidence revision before showing anything.
+func (o browseOrigin) ReturnURL() string {
+	return bookWordsURL(o.BookID, max(o.Page, 1), o.Prefix, o.Revision, o.Row)
 }
 
 // browseRowKey identifies a Browse row by its effective identity. The lexical

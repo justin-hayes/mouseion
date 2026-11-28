@@ -1188,7 +1188,7 @@
   .data-width {
     max-width: var(--mouseion-width-data);
   }
-  #vocabulary-browse-results:has(nav[aria-label="Browse pages"]) {
+  #vocabulary-browse-results:has(nav[aria-label="Word pages"]) {
     min-height: 100vh;
   }
   .bibliographic-title {
@@ -1876,7 +1876,11 @@
     line-height: 1.2;
     text-wrap: balance;
   }
-  .library-book__identity-link:hover .bibliographic-title, .library-book__identity-link:focus-visible .bibliographic-title {
+  .library-book__details {
+    color: inherit;
+    text-decoration: none;
+  }
+  .library-book__details:hover, .library-book__details:focus-visible, .library-book__identity-link:hover .bibliographic-title, .library-book__identity-link:focus-visible .bibliographic-title {
     color: var(--mouseion-color-text);
     text-decoration: underline;
     text-decoration-color: var(--mouseion-color-accent);

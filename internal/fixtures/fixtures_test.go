@@ -633,19 +633,16 @@ func TestVocabularyBrowseWithoutTheFixtureBookReturnsAnEmptyPage(t *testing.T) {
 	store := NewStore()
 	ctx := t.Context()
 	query := domain.VocabularyBrowseQuery{Language: "de", Page: 1}
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de"))
 
-	inactive, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
+	unscoped, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
 	require.NoError(t, err)
-	assert.Empty(t, inactive.CurrentBookID)
-	assert.Empty(t, inactive.Books)
-	assert.Empty(t, inactive.Rows)
+	assert.Empty(t, unscoped.CurrentBookID)
+	assert.Empty(t, unscoped.Books)
+	assert.Empty(t, unscoped.Rows)
 
-	started, err := store.StartCurrentReading(ctx, OwnerID, "de", routeMatchBookID)
-	require.NoError(t, err)
+	query.CurrentBookID = routeMatchBookID
 	other, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
 	require.NoError(t, err)
-	assert.Equal(t, routeMatchBookID, started.BookID)
 	assert.Equal(t, routeMatchBookID, other.CurrentBookID)
 	assert.Empty(t, other.Books)
 	assert.Empty(t, other.Rows)

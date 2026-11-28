@@ -21,7 +21,7 @@ func TestVocabularyBrowseRowShowsCitationHeadwordAndBareLemmaNote(t *testing.T) 
 			{CanonicalLemma: "λόγοσ", UPOS: "NOUN", Headword: "λόγος", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 1, BareLemmaWithNumberedSibling: true},
 		},
 	}
-	html := renderReadingBrowse(t, "grc", page, "")
+	html := renderBookWords(t, "grc", page, "")
 	assert.Contains(t, html, ">λόγος</a>", "the headword is shown")
 	assert.NotContains(t, html, ">λόγοσ</a>", "the stored canonical key is never shown")
 	assert.Equal(t, 1, strings.Count(html, "the source gives no homograph number"), "only the bare lemma is labelled")

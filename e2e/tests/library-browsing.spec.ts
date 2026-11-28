@@ -64,7 +64,7 @@ test.describe('My Books collection browsing', () => {
 
   test('uses one visible native disclosure cue and text-backed status shapes', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading?page=1');
+    await page.goto('/de/library');
 
     const account = page.locator('details').filter({ has: page.getByText('Account', { exact: true }) });
     const summary = account.locator('summary');
@@ -137,14 +137,13 @@ test.describe('My Books collection browsing', () => {
     const readTab = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link', { name: /^Read \(\d+\)$/ });
     expect((await readTab.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
     await expect(page.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
-    await expect(page.locator('.journey-book__since')).toContainText('Reading since');
     await expect(page.locator('#vocabulary-prefix')).toHaveClass(/\binput\b/);
-    await expect(page.locator('.reading-supporting')).toHaveCount(1);
+    await expect(page.locator('#book-detail-analysis')).toHaveCount(1);
     await page.goto('/de/vocabulary/concordance');
     const concordanceSelects = page.locator('#concordance-workflow select');
     await expect(concordanceSelects).toHaveCount(0);

@@ -51,12 +51,8 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 		query.Page = 1
 	}
 	page := domain.VocabularyBrowsePage{Page: query.Page}
-	current, err := s.GetCurrentReading(ctx, owner, language)
-	if err != nil || !current.IsActive() {
-		return page, err
-	}
-	page.CurrentBookID = current.BookID
-	if current.BookID != BookID {
+	page.CurrentBookID = query.CurrentBookID
+	if query.CurrentBookID != BookID {
 		return page, nil
 	}
 	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
