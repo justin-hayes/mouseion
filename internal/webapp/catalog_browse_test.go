@@ -19,11 +19,11 @@ func TestClassicalCatalogCardsMatchTitlesAndAuthorsInTitleOrder(t *testing.T) {
 		return out
 	}
 
-	assert.Equal(t, []string{"Iliad"}, titles(classicalCatalogCards(authors, "HOMER", view)))
-	assert.Equal(t, []string{"Anabasis"}, titles(classicalCatalogCards(authors, "αναβασισ", view)))
-	assert.Empty(t, classicalCatalogCards(authors, "iliad 2", view), "a trailing Book number is ordinary search text: a Work has no constituent Book to narrow to")
+	assert.Equal(t, []string{"Iliad"}, titles(classicalCatalogCardsIn(authors, "HOMER", "", view)))
+	assert.Equal(t, []string{"Anabasis"}, titles(classicalCatalogCardsIn(authors, "αναβασισ", "", view)))
+	assert.Empty(t, classicalCatalogCardsIn(authors, "iliad 2", "", view), "a trailing Book number is ordinary search text: a Work has no constituent Book to narrow to")
 
-	all := titles(classicalCatalogCards(authors, "", view))
+	all := titles(classicalCatalogCardsIn(authors, "", "", view))
 	require.NotEmpty(t, all)
 	assert.True(t, sort.StringsAreSorted(all), "cards are ordered by title: %v", all)
 }
