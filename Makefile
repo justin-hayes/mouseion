@@ -12,7 +12,7 @@ PROTOC_GEN_GO_GRPC = $(shell go tool -n protoc-gen-go-grpc)
 SQLC ?= sqlc
 SQLC_VERSION := v1.31.1
 MOUSEION_TEST_PG_PORT ?= 55432
-MOUSEION_TEST_PACKAGES ?= ./internal/...
+MOUSEION_TEST_PACKAGES ?= ./cmd/... ./internal/...
 # RACE=1 adds the race detector to the Go test targets (`test`, `test-go`,
 # `test-go-integration`, `test-integration`, and `test-integration-shared`). CI
 # sets it for the unit suite, and the integration-test ticket (#1883) reuses the
@@ -94,13 +94,13 @@ test-go: templ-if-installed
 	tools/go-test.sh unit $(RACE_FLAG) $(if $(strip $(PACKAGES)),$(PACKAGES),./...)
 
 test-go-integration: templ-if-installed
-	tools/go-test.sh integration $(RACE_FLAG) $(if $(strip $(PACKAGES)),$(PACKAGES),./internal/...)
+	tools/go-test.sh integration $(RACE_FLAG) $(if $(strip $(PACKAGES)),$(PACKAGES),./cmd/... ./internal/...)
 
 go-test-clean:
 	tools/go-test.sh clean
 
 test-integration: go-tmp
-	go test -count=1 -tags=integration $(RACE_FLAG) ./internal/...
+	go test -count=1 -tags=integration $(RACE_FLAG) ./cmd/... ./internal/...
 
 test-integration-shared: go-tmp
 	@set -eu; \

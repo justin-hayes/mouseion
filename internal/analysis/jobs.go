@@ -1357,6 +1357,20 @@ func (w *Worker) beginSnapshotRun(ctx context.Context, a JobArgs, riverJobID int
 	return runState, nil
 }
 
+// riverStopCause is the message of the cause River v0.51.2 sets on every job
+// context when the client is stopped (its internal rivercommon.ErrStop, which
+// cannot be imported). TestJobContextCauseOnStopAndCancel pins it against the
+// real client.
+const riverStopCause = "stop initiated"
+
+// cancelledByClientStop reports whether ctx was cancelled by a River client
+// stop, as opposed to a user's JobCancel (cause river.ErrJobCancelledRemotely),
+// a timeout, or any other cancellation.
+func cancelledByClientStop(ctx context.Context) bool {
+	cause := context.Cause(ctx)
+	return errors.Is(ctx.Err(), context.Canceled) && cause != nil && cause.Error() == riverStopCause
+}
+
 // recordSnapshotFailure records one failed snapshot run across the run, its
 // attempt, the analysis job, and processing history. Any recording failure is
 // joined onto the original work error.
@@ -1644,8 +1658,9 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	}
 	defer func() {
 		// A job cancelled because the server is stopping is not a failed run:
-		// River runs it again, and a run recorded as failed would not.
-		stopped := errors.Is(ctx.Err(), context.Canceled)
+		// River runs it again, and a run recorded as failed would not. A user's
+		// cancel and any other cancellation still record the failure.
+		stopped := cancelledByClientStop(ctx)
 		if workErr != nil && !stopped {
 			workErr = w.recordSnapshotFailure(ctx, workErr, a, job.ID)
 		}
