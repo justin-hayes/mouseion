@@ -454,7 +454,9 @@ Book.
 **Catalog file**:
 The EPUB exactly as a Catalog entry's acquisition link serves it. Mouseion
 streams it to a temporary file and derives the Retained EPUB from it; it is not
-stored. Its digest is kept in processing history (ADR 0109).
+stored. Its digest is kept in processing history (ADR 0109), and its Document
+digest is recorded so that a device holding the same file links to the Book
+(pending an ADR amending 0109).
 _Avoid_: original EPUB, retained bytes.
 
 **Retained EPUB**:
@@ -713,6 +715,30 @@ _Avoid_: working desk (the retired Reading surface), Reading page.
 Append-only, Book-anchored reading completions and previously-read assertions.
 History remains even when a Book returns to To Read for rereading.
 _Avoid_: Read disposition, completed list, Journey history.
+
+**Reading position**:
+The learner's latest known place in a Book: a fraction of the whole Book, where
+it came from (manual entry or a KOReader device) and when it was recorded, with
+an optional text anchor in the Book's current analysis. A Book has at most one;
+a later report replaces it whatever its source. The fraction is approximate
+because pages and percentages depend on edition and layout; only the anchor is
+exact. A printed copy of a Book counts as that Book. It never changes the Book
+disposition, the Current reading or Reading history, and they never change it.
+_Avoid_: progress (Study progress is a different fact), bookmark, percentage
+read.
+
+**Document digest**:
+KOReader's partial MD5 of a file on the learner's device, the identity its
+progress sync and reading statistics report for a document.
+_Avoid_: hash, MD5, book ID.
+
+**Document link**:
+A Document digest linked to one of the learner's Books, either automatically
+because it equals the digest of that Book's Catalog file, or because the
+learner confirmed it. A Book may have several; a digest links to at most one
+Book. A digest with evidence that it stands for several documents is
+ambiguous: its data is kept unlinked until the learner resolves it.
+_Avoid_: book hash, alias (a Catalog-entry alias is a different link).
 
 **Study**:
 The learner's in-Mouseion review of vocabulary from their reading, on one card
