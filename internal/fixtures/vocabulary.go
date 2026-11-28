@@ -496,23 +496,6 @@ func fixtureKnownCorpusTokens(corpusID string) int64 {
 	}
 }
 
-func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.knownForOwnerLocked(owner, normalizeFixtureLanguage(language)), nil
-}
-
-// knownForOwnerLocked returns the owner's Known rows in language. Callers hold s.mu.
-func (s *Store) knownForOwnerLocked(owner, language string) []domain.KnownVocabulary {
-	var result []domain.KnownVocabulary
-	for _, entry := range s.known {
-		if entry.OwnerID == owner && normalizeFixtureLanguage(entry.Language) == language {
-			result = append(result, entry)
-		}
-	}
-	return result
-}
-
 const (
 	fixtureSyntaxUnit = "fixture-syntax-unit"
 	// fixtureSyntaxLongUnit holds one long synthetic Greek sentence, so browser

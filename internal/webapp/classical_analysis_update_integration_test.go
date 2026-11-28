@@ -306,8 +306,7 @@ func TestClassicalAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *testi
 	_, err := pool.Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,excluded)
 		VALUES($1,$2,$3,$4,$5,$6,$7,true)`, learner.ID, secondID, corpusID, oldRun, documentID, start, end)
 	require.NoError(t, err)
-	_, err = store.PutKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 
 	// An interpretation-only change reuses the stored work file. The update
 	// publishes and rewrites the prepared-definition record, while the earlier

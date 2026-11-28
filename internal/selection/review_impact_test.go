@@ -38,12 +38,6 @@ func TestReviewImpactUsesReadingEligibility(t *testing.T) {
 		assert.False(t, impacts[0].AfterEligible)
 	})
 
-	t.Run("Known state keeps an identity ineligible", func(t *testing.T) {
-		impacts := ReviewImpact([]domain.LemmaReviewIdentityState{{Identity: haus, InBook: 2, AfterInBook: 3, Known: true}})
-		assert.True(t, impacts[0].Known)
-		assert.False(t, impacts[0].AfterEligible)
-	})
-
 	t.Run("impacts are ordered by lemma then UPOS", func(t *testing.T) {
 		impacts := ReviewImpact([]domain.LemmaReviewIdentityState{
 			{Identity: domain.LemmaReviewIdentity{Language: "de", CanonicalLemma: "zug", UPOS: "NOUN"}},

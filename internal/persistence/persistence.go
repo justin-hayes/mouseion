@@ -647,49 +647,6 @@ func (s *PostgresStore) GetCorpus(ctx context.Context, owner, id string) (v doma
 	}
 	return corpusFromRow(row), nil
 }
-func (s *PostgresStore) PutKnownVocabulary(ctx context.Context, owner, lang, lemma, upos string) (v domain.KnownVocabulary, err error) {
-	return s.putKnownVocabularyIdentity(ctx, owner, lang, lemma, upos, "")
-}
-
-// PutKnownVocabularyIdentity records a Known identity with an explicit lexical
-// discriminator, so a discriminated identity (such as morpheus:2) is stored and
-// matched exactly. A modern-language identity carries the empty discriminator.
-// The caller has no headword, so the recorded row keeps the empty one.
-func (s *PostgresStore) PutKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos, discriminator string) (v domain.KnownVocabulary, err error) {
-	return s.putKnownVocabularyIdentity(ctx, owner, lang, lemma, upos, discriminator)
-}
-
-func (s *PostgresStore) putKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos, discriminator string) (v domain.KnownVocabulary, err error) {
-	lang = canonicalization.NormalizeLanguage(lang)
-	err = withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
-			return err
-		}
-		q := sqlcgen.New(tx)
-		existing, lookupErr := q.GetKnownVocabularyByIdentity(ctx, sqlcgen.GetKnownVocabularyByIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, LexicalDiscriminator: discriminator})
-		if lookupErr == nil {
-			v = knownVocabularyFromFields(existing.ID, existing.OwnerID, existing.Language, existing.CanonicalLemma, existing.Upos, existing.LexicalDiscriminator, existing.Headword, existing.CreatedAt)
-			return nil
-		}
-		if !errors.Is(lookupErr, pgx.ErrNoRows) {
-			return lookupErr
-		}
-		row, upsertErr := q.UpsertKnownVocabulary(ctx, sqlcgen.UpsertKnownVocabularyParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, LexicalDiscriminator: discriminator})
-		if upsertErr != nil {
-			return upsertErr
-		}
-		v = knownVocabularyFromFields(row.ID, row.OwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt)
-		return nil
-	})
-	return v, err
-}
-func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string) (v domain.KnownVocabulary, err error) {
-	row, err := s.queries().GetKnownVocabulary(ctx, sqlcgen.GetKnownVocabularyParams{OwnerID: owner, ID: id})
-	if err != nil {
-		return v, missing(err)
-	}
-	return knownVocabularyFromFields(row.KvID, row.KvOwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt), nil
-}
 
 func (s *PostgresStore) ListStudyProgressLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
 	rows, err := s.queries().ListStudyProgressLanguages(ctx, owner)
@@ -851,23 +808,6 @@ func (s *PostgresStore) CurateReviewSentence(ctx context.Context, owner, example
 		})
 	})
 	return v, err
-}
-func (s *PostgresStore) PutDeck(ctx context.Context, owner, lang, name string) (v domain.Deck, err error) {
-	row, err := s.queries().PutDeck(ctx, sqlcgen.PutDeckParams{OwnerID: owner, Language: lang, Name: name})
-	if err != nil {
-		return v, err
-	}
-	return domain.Deck(row), nil
-}
-func (s *PostgresStore) PutCard(ctx context.Context, v domain.Card) (out domain.Card, err error) {
-	row, err := s.queries().PutCard(ctx, sqlcgen.PutCardParams{
-		OwnerID: v.OwnerID, DeckID: v.DeckID, DedupKey: v.DedupKey,
-		CanonicalLemma: v.CanonicalLemma, Upos: v.UPOS, Front: v.Front, Back: v.Back,
-	})
-	if err != nil {
-		return out, err
-	}
-	return cardFromFields(row.ID, row.OwnerID, row.DeckID, row.DedupKey, row.CanonicalLemma, row.Upos, row.Front, row.Back, row.CreatedAt), nil
 }
 func (s *PostgresStore) PutProcessingHistory(ctx context.Context, v domain.ProcessingHistory) (out domain.ProcessingHistory, err error) {
 	row, err := s.queries().PutProcessingHistory(ctx, sqlcgen.PutProcessingHistoryParams{

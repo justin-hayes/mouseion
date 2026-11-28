@@ -135,8 +135,8 @@ ORDER BY sm.owner_id, sm.id;
 -- A Book already associated with a Reading unit, and the source materials
 -- pointing at it, are this feature's own data and are not legacy. A learner's
 -- first Add passes only when they own no such rows, so every derived row
--- (tokens, Known, vocabulary, candidates, decks) a registered learner owns was
--- written by this feature and never refuses an Add.
+-- (tokens, vocabulary states) a registered learner owns was written by this
+-- feature and never refuses an Add.
 -- Legacy classical source rows are counted from the shared definition in
 -- ListLegacyClassicalSourceCandidates, not from a second predicate here.
 WITH registered_owners AS (
@@ -176,40 +176,10 @@ FROM (
           WHERE bru.owner_id = pg.owner_id AND bru.book_id = pg.book_id
       )
     UNION ALL
-    SELECT kv.owner_id::text, 'known_vocabulary'::text
-    FROM known_vocabulary kv
-    WHERE kv.language = $1
-      AND kv.owner_id NOT IN (SELECT owner_id FROM registered_owners)
-    UNION ALL
     SELECT vs.owner_id::text, 'vocabulary_states'::text
     FROM vocabulary_states vs
     WHERE vs.language = $1
       AND vs.owner_id NOT IN (SELECT owner_id FROM registered_owners)
-    UNION ALL
-    SELECT gv.owner_id::text, 'generated_vocabulary'::text
-    FROM generated_vocabulary gv
-    WHERE gv.language = $1
-      AND gv.owner_id NOT IN (SELECT owner_id FROM registered_owners)
-    UNION ALL
-    SELECT sc.owner_id::text, 'selection_candidates'::text
-    FROM selection_candidates sc
-    WHERE sc.language = $1
-      AND sc.owner_id NOT IN (SELECT owner_id FROM registered_owners)
-    UNION ALL
-    SELECT d.owner_id::text, 'decks'::text
-    FROM decks d
-    WHERE d.language = $1
-      AND d.owner_id NOT IN (SELECT owner_id FROM registered_owners)
-    UNION ALL
-    SELECT dpv.owner_id::text, 'deck_preparation_vocabulary'::text
-    FROM deck_preparation_vocabulary dpv
-    WHERE dpv.language = $1
-      AND dpv.owner_id NOT IN (SELECT owner_id FROM registered_owners)
-    UNION ALL
-    SELECT dpmi.owner_id::text, 'deck_preparation_manifest_items'::text
-    FROM deck_preparation_manifest_items dpmi
-    WHERE dpmi.language = $1
-      AND dpmi.owner_id NOT IN (SELECT owner_id FROM registered_owners)
 ) t
 GROUP BY t.owner_id, t.surface
 ORDER BY t.owner_id, t.surface;

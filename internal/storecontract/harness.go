@@ -279,8 +279,6 @@ type Seeder interface {
 
 	// SeedBook creates an analyzed Book for owner and returns its ID.
 	SeedBook(t *testing.T, owner string, seed BookSeed) string
-	// SeedKnownVocabulary records Known identities for owner.
-	SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity)
 	// SeedCurrentReading records an already-current Book without a Start
 	// transition, for scenarios that need a Work's current Book before Remove.
 	SeedCurrentReading(t *testing.T, owner, language, bookID string)

@@ -21,11 +21,7 @@ FROM primary_goals g
 WHERE g.owner_id = sqlc.arg('owner') AND g.language = sqlc.arg('language');
 
 -- name: GetCurrentReadingForUpdate :one
--- A reading started before the vocabulary snapshot was retired still names one;
--- callers that replace or clear the reading release it. Newer readings name
--- none, and snapshot_id is then empty.
-SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
-       COALESCE(g.snapshot_id::text, '')::text AS snapshot_id
+SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at
 FROM primary_goals g
 WHERE g.owner_id = sqlc.arg('owner') AND g.language = sqlc.arg('language')
 FOR UPDATE OF g;
@@ -60,35 +56,6 @@ FROM current_analysis_identity ca
 WHERE ca.owner_id = sqlc.arg('owner')
   AND ca.book_id = sqlc.arg('book');
 
--- name: LockCurrentReadingSnapshot :one
-SELECT id::text
-FROM primary_goal_snapshots
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('snapshot')
-FOR UPDATE;
-
--- name: LockCurrentReadingsForBook :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language') AND book_id = sqlc.arg('book') AND snapshot_id IS NOT NULL
-FOR UPDATE;
-
--- name: LockCurrentReadingsExceptLanguage :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND language <> sqlc.arg('language') AND snapshot_id IS NOT NULL
-FOR UPDATE;
-
--- name: LockCurrentReadingsForAllLanguages :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book') AND snapshot_id IS NOT NULL
-FOR UPDATE;
-
--- name: ReleaseCurrentReadingSnapshot :exec
-UPDATE primary_goal_snapshots
-SET released_at = COALESCE(released_at, now())
-WHERE owner_id = sqlc.arg('owner') AND id = sqlc.arg('snapshot');
-
 -- name: InsertCurrentReading :one
 -- Read next never freezes a vocabulary snapshot (ADR 0136 §4), so the row names
 -- none.
@@ -98,11 +65,9 @@ ON CONFLICT (owner_id, language) DO NOTHING
 RETURNING owner_id::text, language, book_id::text, created_at, updated_at;
 
 -- name: ChangeCurrentReadingBook :one
--- Replaces the Book of the language's current reading. A reading started before
--- the snapshot was retired loses its snapshot reference here; the caller
--- releases it first.
+-- Replaces the Book of the language's current reading.
 UPDATE primary_goals
-SET book_id = sqlc.arg('book'), snapshot_id = NULL, updated_at = now()
+SET book_id = sqlc.arg('book'), updated_at = now()
 WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
 RETURNING owner_id::text, language, book_id::text, created_at, updated_at;
 

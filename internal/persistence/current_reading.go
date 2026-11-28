@@ -31,11 +31,10 @@ func (s *PostgresStore) EndCurrentReading(ctx context.Context, owner, language s
 	if err := lockLemmaReviewLearnerState(ctx, tx, owner); err != nil {
 		return err
 	}
-	current, err := lockCurrentReading(ctx, q, owner, language)
-	if err != nil {
+	if _, err := lockCurrentReading(ctx, q, owner, language); err != nil {
 		return err
 	}
-	if err := clearCurrentReading(ctx, q, owner, language, current); err != nil {
+	if err := clearCurrentReading(ctx, q, owner, language); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -72,7 +71,7 @@ func (s *PostgresStore) FinishCurrentReading(ctx context.Context, owner, languag
 	if err := upsertBookDisposition(ctx, q, owner, current.GBookID, domain.BookDispositionInbox); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
-	if err := clearCurrentReading(ctx, q, owner, language, current); err != nil {
+	if err := clearCurrentReading(ctx, q, owner, language); err != nil {
 		return domain.CurrentReadingFinishResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -106,12 +105,7 @@ func lockCurrentReading(ctx context.Context, q *sqlcgen.Queries, owner, language
 	return current, err
 }
 
-// clearCurrentReading deletes the current role. A reading started before the
-// vocabulary snapshot was retired may still name one; it is released so it no
-// longer holds identities.
-func clearCurrentReading(ctx context.Context, q *sqlcgen.Queries, owner, language string, current sqlcgen.GetCurrentReadingForUpdateRow) error {
-	if err := q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language}); err != nil {
-		return err
-	}
-	return releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID)
+// clearCurrentReading deletes the current role.
+func clearCurrentReading(ctx context.Context, q *sqlcgen.Queries, owner, language string) error {
+	return q.DeleteCurrentReading(ctx, sqlcgen.DeleteCurrentReadingParams{Owner: owner, Language: language})
 }

@@ -101,15 +101,4 @@ func TestPostgresOwnershipAndSharedArtifactBoundaries(t *testing.T) {
 		_, err := store.PutExampleSentence(ctx, bob.ID, corpus.ID, "s1", "stolen", []byte(`{}`))
 		require.Error(t, err, "bob inserted a sentence into alice corpus")
 	})
-
-	known, err := store.PutKnownVocabulary(ctx, alice.ID, "de", "gehen", "VERB")
-	require.NoError(t, err)
-	t.Run("cross-owner known vocabulary lookup is not found", func(t *testing.T) {
-		_, err := store.GetKnownVocabulary(ctx, bob.ID, known.ID)
-		require.ErrorIs(t, err, ErrNotFound)
-	})
-	deck, err := store.PutDeck(ctx, alice.ID, "de", "Study")
-	require.NoError(t, err)
-	_, err = store.PutCard(ctx, domain.Card{OwnerID: bob.ID, DeckID: deck.ID, DedupKey: "x", CanonicalLemma: "Haus", UPOS: "NOUN", Front: "x", Back: "y"})
-	assert.Error(t, err, "bob inserted a card into alice deck")
 }

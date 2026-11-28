@@ -319,14 +319,6 @@ func (h *postgresHarness) seedLemmaOccurrences(t *testing.T, owner, bookID, sour
 	require.NoError(t, tx.Commit(h.ctx))
 }
 
-func (h *postgresHarness) SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity) {
-	t.Helper()
-	for _, identity := range identities {
-		_, err := h.store.PutKnownVocabularyIdentity(h.ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS, identity.LexicalDiscriminator)
-		require.NoError(t, err)
-	}
-}
-
 func (h *postgresHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(h.ctx, owner, language)
 }

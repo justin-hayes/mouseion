@@ -376,8 +376,7 @@ func seedLoopPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persis
 		owner.ID, registration.BookID, corpusID, written.RunID, unit.UnitID,
 		firstStart, firstEnd, secondStart, secondEnd)
 	require.NoError(t, err)
-	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	_, err = pool.Exec(ctx, `INSERT INTO reading_history(owner_id, language, book_id, completed_at)
 		VALUES($1,$2,$3,now())`, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)

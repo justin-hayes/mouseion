@@ -5,34 +5,6 @@ import (
 	"time"
 )
 
-// DeckPreparationState is the state of a legacy deck preparation. Nothing
-// creates or advances one any more (ADR 0136); the type survives only for the
-// fixture store's Current reading release behaviour until the Reading snapshot
-// is retired.
-type DeckPreparationState string
-
-const (
-	DeckPreparationReady DeckPreparationState = "ready"
-)
-
-// DeckPreparation is the legacy preparation row the fixture store still models.
-type DeckPreparation struct {
-	ID, OwnerID, SourceMaterialID, AnalysisRunID, BookID, SnapshotID string
-	State                                                            DeckPreparationState
-	StudyingAt, GraduatedAt, ReleasedAt                              *time.Time
-	UpdatedAt                                                        time.Time
-}
-
-type DeckPreparationVocabulary struct {
-	OwnerID, DeckPreparationID, Language, CanonicalLemma, UPOS string
-	LexicalDiscriminator                                       string
-	// Headword is the imported citation form shown to learners, empty for
-	// modern-language vocabulary.
-	Headword    string
-	GeneratedAt time.Time
-	GraduatedAt *time.Time
-}
-
 type User struct {
 	ID, Username string
 	CreatedAt    time.Time
@@ -654,16 +626,6 @@ type SharedLemma struct {
 	Morphology                                  []byte
 	Frequency                                   int64
 }
-type KnownVocabulary struct {
-	ID, OwnerID, Language, CanonicalLemma, UPOS string
-	LexicalDiscriminator                        string
-	// Headword is the imported citation form the accepted snapshot showed,
-	// empty for modern-language vocabulary. Display-only; never part of the
-	// identity.
-	Headword  string
-	CreatedAt time.Time
-}
-
 type ExampleSentence struct {
 	ID, OwnerID, CorpusID, SentenceKey, Text string
 	Language, CanonicalLemma, UPOS           string
@@ -675,14 +637,6 @@ type ExampleSentence struct {
 type CuratedSentence struct {
 	ID, OwnerID, ExampleSentenceID, Language, CanonicalLemma, UPOS, Notes string
 	CreatedAt                                                             time.Time
-}
-type Deck struct {
-	ID, OwnerID, Language, Name string
-	CreatedAt                   time.Time
-}
-type Card struct {
-	ID, OwnerID, DeckID, DedupKey, CanonicalLemma, UPOS, Front, Back string
-	CreatedAt                                                        time.Time
 }
 type ProcessingHistory struct {
 	ID, OwnerID, CorpusID, Operation, Status string

@@ -28,3 +28,12 @@ func LegacyKnownLemmas(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ow
 	require.NoError(t, rows.Err())
 	return lemmas
 }
+
+// SeedLegacyKnownVocabulary inserts one retained legacy Known vocabulary row,
+// for scenarios that pin "this leaves legacy Known rows in place" until #2746
+// drops the table. No store method writes the table any more (ADR 0136).
+func SeedLegacyKnownVocabulary(t *testing.T, ctx context.Context, pool *pgxpool.Pool, ownerID, language, lemma, upos, discriminator string) {
+	t.Helper()
+	_, err := pool.Exec(ctx, `INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator) VALUES ($1, $2, $3, $4, $5)`, ownerID, language, lemma, upos, discriminator)
+	require.NoError(t, err)
+}

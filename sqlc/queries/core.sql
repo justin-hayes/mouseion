@@ -1,7 +1,6 @@
 -- Core persistence queries: users, sessions, supported languages, analysis
 -- jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
--- states, known vocabulary, generated vocabulary, example/curated sentences,
--- decks, cards, and processing history.
+-- states, example/curated sentences, and processing history.
 
 -- name: HasUsers :one
 SELECT EXISTS(SELECT 1 FROM users);
@@ -218,27 +217,6 @@ RETURNING id::text, owner_id::text, source_material_id::text, artifact_hash, sta
 -- name: UpdateCorpusArtifactHash :exec
 UPDATE corpora SET artifact_hash = $3 WHERE owner_id = $1 AND id = $2;
 
--- name: GetKnownVocabularyByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, created_at
-FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 AND lexical_discriminator = $5 ORDER BY id LIMIT 1;
-
--- name: UpsertKnownVocabulary :one
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, created_at;
-
--- name: GetKnownVocabulary :one
-SELECT kv.id::text,
-       kv.owner_id::text,
-       kv.language,
-       kv.canonical_lemma,
-       kv.upos,
-       kv.lexical_discriminator,
-       kv.headword,
-       kv.created_at
-FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2;
-
 -- name: ListStudyProgressLanguages :many
 -- The languages the learner has Study progress in, whether or not a Book of the
 -- language is still in My Books.
@@ -299,14 +277,3 @@ VALUES ($1, $2, $3, $4, $5);
 INSERT INTO processing_history(owner_id, corpus_id, operation, status, details, completed_at)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id::text, owner_id::text, (COALESCE(corpus_id::text, ''))::text AS corpus_id, operation, status, details, started_at, completed_at;
-
--- name: PutDeck :one
-INSERT INTO decks(owner_id, language, name) VALUES ($1, $2, $3)
-ON CONFLICT(owner_id, language, name) DO UPDATE SET name = excluded.name
-RETURNING id::text, owner_id::text, language, name, created_at;
-
--- name: PutCard :one
-INSERT INTO cards(owner_id, deck_id, dedup_key, canonical_lemma, upos, front, back)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT(owner_id, dedup_key) DO UPDATE SET front = excluded.front, back = excluded.back
-RETURNING id::text, owner_id::text, deck_id::text, dedup_key, canonical_lemma, upos, front, back, created_at;

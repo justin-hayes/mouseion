@@ -134,8 +134,7 @@ func seedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistenc
 		firstStart, firstEnd, secondStart, secondEnd)
 	require.NoError(t, err)
 
-	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	_, err = pool.Exec(ctx, `INSERT INTO reading_history(owner_id, language, book_id, completed_at)
 		VALUES($1,$2,$3,now())`, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)
@@ -386,8 +385,7 @@ func seedUnpublishedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store 
 		owner.ID, stored.ID, definition.Source.FileName)
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, registration.BookID, domain.BookDispositionToRead))
-	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	return seed
 }
 

@@ -41,12 +41,11 @@ type LemmaReviewIdentity struct {
 // LemmaReviewIdentityState is everything a lemma review preview reads about one
 // identity its proposal moves: its effective count in the reviewed Book now and
 // after the proposal, its count across the learner's other currently analyzed
-// Books, and whether it is Known.
+// Books.
 type LemmaReviewIdentityState struct {
 	Identity            LemmaReviewIdentity
 	InBook, AfterInBook int64
 	OtherBooks          int64
-	Known               bool
 }
 
 // LemmaReviewPreview is what previewing one proposal reads: the states of the
@@ -115,7 +114,6 @@ func LemmaReviewFingerprint(proposal LemmaReviewProposal, occurrences []LemmaRev
 		lines = append(lines, strings.Join([]string{
 			state.Identity.Language, state.Identity.CanonicalLemma, state.Identity.UPOS, state.Identity.LexicalDiscriminator,
 			strconv.FormatInt(state.InBook, 10), strconv.FormatInt(state.AfterInBook, 10), strconv.FormatInt(state.OtherBooks, 10),
-			strconv.FormatBool(state.Known),
 		}, "\x00"))
 	}
 	sort.Strings(lines)

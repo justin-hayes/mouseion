@@ -27,8 +27,7 @@ func (f catalogueAddFixture) previouslyRead(t *testing.T) *httptest.ResponseReco
 func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
 	fixture := newCatalogueAddFixture(t)
 	ctx := context.Background()
-	_, err := fixture.store.PutKnownVocabulary(ctx, fixture.owner.ID, "de", "Haus", "NOUN")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, fixture.store.Pool(), fixture.owner.ID, "de", "Haus", "NOUN", "")
 	knownBefore := testutil.LegacyKnownLemmas(t, ctx, fixture.store.Pool(), fixture.owner.ID, "de")
 
 	read := fixture.previouslyRead(t)

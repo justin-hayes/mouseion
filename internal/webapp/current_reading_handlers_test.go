@@ -298,8 +298,6 @@ func performReadingRequest(t *testing.T, h http.Handler, method, path string, fo
 
 func TestCurrentReadingFinishRendersTruthfulOutcomeWithNoVocabularyEffect(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	knownBefore, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
@@ -317,9 +315,6 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeWithNoVocabularyEffect(t *tes
 	disposition, err := store.GetBookDisposition(context.Background(), fixtures.OwnerID, fixtures.BookID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionInbox, disposition)
-	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, knownBefore, known, "Finish accepts nothing as Known")
 
 	repeated := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, repeated.Code, "a second Finish has no reading to finish")
