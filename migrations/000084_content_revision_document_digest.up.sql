@@ -11,8 +11,9 @@
 -- Revisions stay immutable in content (ADR 0035, ADR 0103). The immutability
 -- trigger now permits exactly one change: document_digest going from NULL to a
 -- value, which acquisition and the backfill use to fill an empty digest. Every
--- other column must be unchanged, a recorded digest is never overwritten or
--- cleared, and DELETE is still rejected by its own trigger.
+-- other column must be unchanged, and a recorded digest is never overwritten or
+-- cleared. The trigger gets its own function, because the baseline function
+-- also guards the snapshot and unit tables, which stay fully immutable.
 --
 -- Forward-only in production (ADR 0038, ADR 0070). The down migration drops the
 -- column and restores the original trigger function.
@@ -24,7 +25,7 @@ ALTER TABLE public.source_content_revisions
 CREATE INDEX source_content_revisions_owner_document_digest_idx
     ON public.source_content_revisions (owner_id, document_digest);
 
-CREATE OR REPLACE FUNCTION public.reject_source_content_revision_mutation() RETURNS trigger
+CREATE FUNCTION public.reject_source_content_revision_change() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -44,3 +45,7 @@ BEGIN
  RAISE EXCEPTION 'source content revisions are immutable';
 END;
 $$;
+
+DROP TRIGGER source_content_revisions_immutable ON public.source_content_revisions;
+CREATE TRIGGER source_content_revisions_immutable BEFORE UPDATE ON public.source_content_revisions
+    FOR EACH ROW EXECUTE FUNCTION public.reject_source_content_revision_change();

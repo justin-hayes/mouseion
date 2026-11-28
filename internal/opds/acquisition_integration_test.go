@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -233,10 +234,14 @@ func clearDocumentDigest(t *testing.T, ctx context.Context, store *persistence.P
 	t.Helper()
 	for _, statement := range []string{
 		`ALTER TABLE source_content_revisions DISABLE TRIGGER source_content_revisions_immutable`,
-		`UPDATE source_content_revisions SET document_digest = NULL WHERE revision_id = '` + revisionID + `'`,
+		`UPDATE source_content_revisions SET document_digest = NULL WHERE revision_id = $1`,
 		`ALTER TABLE source_content_revisions ENABLE TRIGGER source_content_revisions_immutable`,
 	} {
-		_, err := store.Pool().Exec(ctx, statement)
+		args := []any{}
+		if strings.Contains(statement, "$1") {
+			args = append(args, revisionID)
+		}
+		_, err := store.Pool().Exec(ctx, statement, args...)
 		require.NoError(t, err)
 	}
 }

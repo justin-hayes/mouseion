@@ -48,8 +48,9 @@ very file from the same OPDS catalog.
   and one digest can stand for several Books on a device.
 - **Revisions stay immutable in content.** The immutability trigger now permits
   exactly one change: `document_digest` going from NULL to a value, with every
-  other column unchanged. A recorded digest is never overwritten or cleared, and
-  DELETE stays rejected. ADR 0035 and ADR 0103, which rely on revision
+  other column unchanged. A recorded digest is never overwritten or cleared. The
+  trigger gets its own function; the snapshot and unit tables keep the original
+  one and stay fully immutable. ADR 0035 and ADR 0103, which rely on revision
   immutability, are unaffected.
 - **A repeat acquisition fills a missing digest.** When the idempotent lookup
   matches a revision, by Retained EPUB or Catalog file SHA-256, that has no
