@@ -204,7 +204,8 @@ func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.List
 	case <-ctx.Done():
 	}
 	log.Print("shutdown signal received; stopping")
-	httpCtx, cancelHTTP := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	// ctx is already cancelled; the drain gets its own deadline.
+	httpCtx, cancelHTTP := context.WithTimeout(context.WithoutCancel(ctx), httpShutdownTimeout)
 	defer cancelHTTP()
 	var result error
 	if err := srv.Shutdown(httpCtx); err != nil {
@@ -234,7 +235,8 @@ func stopWorkers(workers workerStopper) error {
 	if err := workers.Stop(softCtx); err == nil {
 		return nil
 	}
-	hardCtx, cancelHard := context.WithTimeout(context.Background(), riverHardStopTimeout)
+	// softCtx has expired; the hard stop gets its own deadline.
+	hardCtx, cancelHard := context.WithTimeout(context.WithoutCancel(softCtx), riverHardStopTimeout)
 	defer cancelHard()
 	if err := workers.StopAndCancel(hardCtx); err != nil {
 		return fmt.Errorf("stop analysis workers: %w", err)
