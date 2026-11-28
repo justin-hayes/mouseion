@@ -1,22 +1,15 @@
 # Reading workflow
 
-Status: **Implemented** · Date: 2026-09-26. Set Aside retirement and independent Hidden visibility are code-complete in the repository under ADR 0086; the one production Set Aside row was converted to Inbox by hand before migration 000033 was re-run; ADR 0117 later retired Inbox as a visible state.
+Status: **Implemented** · Date: 2026-09-26 · Updated: 2026-11-28. Set Aside retirement and independent Hidden visibility are code-complete under ADR 0086; ADR 0117 retired Inbox as a visible state; at the Study cutover [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) merged the Reading page into My Books and made finishing a Book record history only.
 
-**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), the Reading page merges into My Books, Start and Switch become one **Read next** action with no snapshot or confirmation, and Finish records history only, with no Known acceptance. Until then this document describes the running system.
-
-The accepted [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
-contract is being implemented in slices. New Book-deck preparation is now
-available only for the Current reading and uses its frozen snapshot; starting,
-switching, and finishing do not enqueue or depend on deck work. Selection
-follows the three-occurrence floor plus the library-total route of
-[ADR 0090](../adr/0090-library-total-book-vocabulary-selection.md).
+The Reading page, the Current-reading vocabulary snapshot, Reserved vocabulary and the Start/Switch/End/Finish confirmations are retired. There is no Known vocabulary: finishing a Book changes no vocabulary, and the Current reading only puts its words first in [Study](study.md) until it reaches Target coverage.
 
 ## Goal
 
 Support an explicit, reversible path from catalog discovery to reading without
 turning a set of intended books into an ordered plan. My Books records each
-Book's workflow disposition; Reading owns at most one current Book per study
-language, or presents the learner with an unordered chooser between Books.
+Book's workflow disposition, pins the Current reading (at most one per study
+language) and shows the others in neutral title order.
 
 ## Shipped workflow
 
@@ -27,87 +20,72 @@ language, or presents the learner with an unordered chooser between Books.
    Book as **To Read** and starts the same download and preparation as moving a
    Book to To Read. Analysis may be queued, running, ready, stale, failed, or
    unavailable; evidence status does not create a recommendation or order.
-3. Reading shows either the current Book or To Read candidates in neutral title
-   order. Every To Read Book is one ordinary candidate entry whose margin names
-   its band, with its Start or Switch confirmation and Retry when not assessed.
-   Incomplete
-   evidence stays distinct, and only To Read candidates appear: Read, current and
-   hidden Books get no entries. Reading shows no "Book N of M" line, and nothing
-   names, offers, links to or starts the next Book. While a Book is current, the same page hosts its
-   vocabulary Browse (the working desk) and lists no other To Read candidates.
-   The learner can start a supported candidate, or end or switch a current Book
-   through explicit confirmations. End releases only the Reserved vocabulary,
-   records no completion or Known acceptance, and leaves the Book in To Read
-   with its snapshots, history, and artifacts intact; reading never ends from
-   inactivity. End, Finish, Switch, and new deck preparation, retry, or
-   re-preparation must name the exact expected commitment (Book and snapshot);
-   missing or stale identity, including after a same-Book restart, is rejected
-   with no change. A replay is accepted only when durable facts prove it. The
-   retired Set Aside action and its mutation are removed, not translated.
-   A successful Switch releases the former reservations and freezes a fresh
-   snapshot for the replacement in one transaction; the former Book stays in To
-   Read. A failed, stale, review-gated, or count-readiness-blocked Switch changes
-   nothing: no release, completion, or Known acceptance.
-4. Starting current reading freezes the vocabulary snapshot. Returning to a Book
-   after End or Switch, or rereading it, is always a fresh start with a fresh
-   freeze reflecting the then-current Known and Reserved vocabulary; a released
-   snapshot is never resumed or expanded. Finishing records a
-   completion, accepts eligible snapshot identities into modeled Known
-   vocabulary with set semantics, clears the current role and reservations, and
-   clears the To Read disposition, all atomically; a failure
-   leaves no partial history or Known change. The Book is neither hidden nor
-   replaced by a next Book: the receipt only links to the chooser. Finish does
-   not depend on a deck, its preparation state, omitted cards, or live Browse
-   counts, and works with an empty frozen snapshot. Replaying the same Finish
-   adds no history or acceptance, and a stale snapshot of the same Book cannot
-   finish a newer reading.
+3. My Books, one page per study language, shows the **Current reading** pinned
+   at the top with its progress toward Target coverage (Mature coverage,
+   in-study coverage and roughly how many words are left to introduce), then
+   **To Read**, then **Read**. The Current reading is also listed under To Read,
+   labelled Currently reading. To Read is in title order. The optional **most
+   readable** sort orders it by Mature coverage; the choice is kept in the
+   address (`?sort=readable`), and the Read tab never takes it.
+4. **Read next** is on every To Read Book that has a chosen Book language and a
+   current analysis. One action starts a reading or, when another Book is
+   current, switches to this one and leaves the former Book in To Read. It
+   takes no confirmation and freezes nothing. It is refused, with its reason,
+   when the Book is not To Read, not analysed or has no Book language, and a
+   Book that is already current says so. **End** ends the Current reading
+   without a completion and leaves the Book in To Read. **Finish** appends a
+   Reading completion, clears the current role and the To Read disposition, and
+   changes no vocabulary. None of the three takes a confirmation token. Reading
+   never ends from inactivity.
 5. My Books shows each Book in exactly one visible workflow bucket. In
    precedence order, that is **Currently reading**, **To Read**, then **Read**
-   when completion history exists. My Books has exactly the **To Read** and
-   **Read** tabs. The To Read tab includes the current Book, labeled Currently
-   reading, as well as other To Read Books. A Book with reading history appears
-   in Read without changing its persisted disposition or completion provenance;
-   a historical To Read Book remains To Read. A finished Book is not To Read
-   underneath and projects as Read through its history. **Read again** moves a Read Book to To
-   Read without starting it, changing visibility, erasing history, or adopting a
-   released snapshot. Starting it creates a fresh current-reading snapshot while
-   retaining earlier completions. A **Previously read** assertion is an
-   idempotent assertion-time fact that accepts no vocabulary. From the Catalog,
-   **I've read this** creates or restores the Book as Read; My Books offers
-   **Mark as previously read** only on an unstarted To Read Book and moves that
-   Book to Read. A Read Book is not To Read underneath. Finishing
-   claims no mastery.
-6. **Remove from My Books** is the opposite of Add: it ends membership without
-   erasing the Book, its evidence, history, or artifacts, and the current Book
-   is refused with a reason. Read history is append-only and does not imply
-   Known vocabulary.
+   when completion history exists. A Book with reading history appears in Read
+   without changing its persisted disposition or completion provenance. A
+   finished Book is not To Read underneath and projects as Read through its
+   history. **Read again** moves a Read Book to To Read without starting it or
+   erasing history. A **Previously read** assertion is an idempotent
+   assertion-time fact. From the Catalog, **I've read this** creates or
+   restores the Book as Read; My Books offers **Mark as previously read** only
+   on an unstarted To Read Book and moves that Book to Read. Finishing claims
+   no mastery and has no vocabulary effect.
+6. A Book that needs action shows a **status line** on its entry: a failed
+   acquisition or preparation, a failed or out-of-date analysis, an Analysis
+   update or a main-text selection update available, or a missing Book
+   language. A **needs action** filter (`?needs=…`) lists only those Books; a
+   Book with nothing to do has no status line.
+7. Every Book in My Books has a **Book detail page** at `/books/{id}`. It hosts
+   the Book's analysis actions (retry, Analysis update and Source structure
+   update), shows its Book language, and lists the Book's words in a read-only list of the Book's words by Study state
+   ([Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md)).
+   The retired Reading addresses redirect: `/reading` goes to My Books, and
+   `/reading?reading={bookID}` goes to that Book's detail page.
+8. **Remove from My Books** is the opposite of Add: it ends membership without
+   erasing the Book, its evidence or history, and the Current reading is
+   refused with a reason. It never costs Study progress. Read history is
+   append-only.
 
-The current product and architecture decision is [ADR
-0078](../adr/0078-book-dispositions-and-current-reading.md). ADR 0072 records
-the superseded Goal/ordered-Journey model as historical context.
+The current product and architecture decisions are [ADR
+0078](../adr/0078-book-dispositions-and-current-reading.md) as amended by
+[ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md).
+ADR 0072 records the superseded Goal/ordered-Journey model as historical
+context.
 
 ## Interaction and recovery contract
 
-- The chooser has no learner-authored sequence, ranking, forecast, or suggested
-  next Book. Coverage bands describe current evidence only.
-- Every consequential current-reading mutation names its Book and uses a
-  confirmation. Forms carry expected Book/snapshot identity so stale submissions
-  cannot mutate a newer current-reading state.
+- My Books has no learner-authored sequence, ranking, forecast, or suggested
+  next Book. The most readable sort is optional, and coverage describes current
+  evidence only.
 - Server-rendered links, forms, labels, and status text remain usable without
   enhancement. Mutation outcomes preserve a useful route and announce feedback;
   focus and keyboard order follow document order.
 - Empty To Read, failed or stale analysis, unsupported-language, and recovery
   states retain a clear path back to My Books, Catalog, or the relevant retry.
-- Working desk dependency states stay distinct and never become a successful
-  zero: missing or stale analysis withholds Browse and keeps identity, Finish,
-  Switch, End, and retained downloads; **Updating vocabulary counts** and
+- The Book detail word list keeps its dependency states distinct and never
+  turns one into a successful zero: a Book with no completed analysis lists no
+  words and points to its analysis actions; **Updating vocabulary counts** and
   **Vocabulary counts unavailable** (bounded retries exhausted) both offer a
   plain **Refresh status** link that only re-checks and never requeues work or
-  reruns analysis; **No eligible vocabulary in this analysis** differs from an
-  empty frozen selection; a no-match prefix is retained with **Clear prefix**;
-  all-accounted-for explains Known/Reserved/prepared inclusion without implying
-  mastery. Preparation failure stays preparation-specific with Retry bound to
-  the same frozen snapshot, and Finish depends only on frozen acceptance.
+  reruns analysis; a no-match prefix is retained with **Clear prefix**.
 - Compact and desktop layouts retain Book identity, status, and primary actions
   without page-level horizontal scrolling. Reduced-motion preferences are
   respected.
@@ -115,11 +93,10 @@ the superseded Goal/ordered-Journey model as historical context.
 ## Acceptance coverage
 
 Playwright browser smoke covers the catalog-to-My-Books path, disposition
-controls, current-reading selection and completion, Read history and rereading,
-language-change recovery, recovery states, keyboard/focus semantics, and compact/desktop
-layouts. PostgreSQL integration tests cover cutover migration invariants,
-including disposition contraction, active reservation snapshot contents,
-completion/history provenance, and prepared-deck provenance. See
+controls, Read next, Finish and End, Read history and rereading, the Book detail
+page, language-change recovery, recovery states, keyboard/focus semantics, and
+compact/desktop layouts. PostgreSQL integration tests cover disposition and
+completion/history provenance. See
 [`../design/screen-inventory.md`](../design/screen-inventory.md) for current
 screen responsibilities and [`../../e2e/README.md`](../../e2e/README.md) for
 running browser acceptance.

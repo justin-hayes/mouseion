@@ -1,7 +1,7 @@
 # Architecture
 
 This document describes how Mouseion is built: its processes, how a book
-becomes an analyzed corpus and then an Anki deck, how data is owned and stored,
+becomes an analyzed corpus and then Study material, how data is owned and stored,
 and where each responsibility lives in the code. It describes the system as it
 is. The reasons behind each decision are in the
 [architecture decision records](doc/adr/), linked throughout, and the
@@ -13,11 +13,11 @@ A few rules shape most of the design:
 
 - **Product logic lives in Go; Python only does NLP.** The Python service
   turns text into annotated sentences and nothing else. Vocabulary identity,
-  selection, scoring, and export are Go code that can be tested without models
+  selection, scoring, and Study scheduling are Go code that can be tested without models
   ([ADR 0001](doc/adr/0001-go-core-python-nlp-service.md)).
 - **Analysis output is immutable.** A completed analysis is never edited.
   Learner corrections, newer analyses, and changed presentation are layered on
-  top or recorded as new runs, so every deck can be traced to the exact text
+  top or recorded as new runs, so every Study card can be traced to the exact text
   and analyzer version it came from
   ([ADR 0028](doc/adr/0028-explicit-scoped-analysis-lifecycle.md),
   [ADR 0081](doc/adr/0081-learner-owned-occurrence-lemma-corrections.md)).
@@ -26,7 +26,7 @@ A few rules shape most of the design:
   foreign keys, so a row cannot point at another learner's data even if
   application code is wrong
   ([ADR 0002](doc/adr/0002-multi-user-accounts.md)).
-- **Long work is durable.** Analysis, catalog sync, and deck preparation run as
+- **Long work is durable.** Analysis, catalog sync, and Study material preparation run as
   [River](https://riverqueue.com/) jobs in PostgreSQL. Jobs are inserted in the
   same transaction as the state they act on, survive restarts, and record
   progress in ordinary tables
@@ -72,7 +72,7 @@ flowchart LR
 | --- | --- |
 | Go server ([`cmd/server`](cmd/server)) | HTTP interface, authentication, domain logic, and River workers in one binary. Applies database migrations at startup. |
 | NLP service ([`nlp/`](nlp/src/mouseion_nlp)) | Long-lived gRPC server that keeps Stanza pipelines warm and returns tokenized, tagged, lemmatized, and parsed sentences. A one-shot provisioner downloads models into a volume ([ADR 0063](doc/adr/0063-stanza-models-on-volume.md)). |
-| PostgreSQL | All learner state, the analyzed corpus, stored Anki packages, and the River job tables. |
+| PostgreSQL | All learner state, the analyzed corpus, Study progress, and the River job tables. |
 | Dictionary index | Optional SQLite file derived at build time from Wiktionary data and mounted read-only ([ADR 0064](doc/adr/0064-dictionary-enrichment-provider.md)). |
 
 The Go↔Python boundary is a single versioned Protobuf contract,
@@ -160,178 +160,72 @@ recorded separately in `analysis_run_attempts`. Cancellation commits in the
 database before the River job is cleaned up, so a late-finishing worker cannot
 resurrect a cancelled run.
 
-## From corpus to deck
+## From corpus to Study
+
+Study ([`internal/study`](internal/study)) is the only vocabulary workflow
+([ADR 0134](doc/adr/0134-study-in-mouseion-vocabulary-review.md),
+[ADR 0136](doc/adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)).
+Nothing about a Book's vocabulary is frozen: there is no Current-reading
+snapshot, no Reserved or Known vocabulary and no Prepared deck.
 
 ```mermaid
 flowchart TD
-    start[Start current reading] --> snap[Freeze reading snapshot<br/>eligible vocabulary of this analysis]
-    snap --> prep[Prepare deck]
-    prep --> manifest[Freeze manifest<br/>order by first encounter, choose example sentence,<br/>attach dictionary evidence]
-    manifest --> mode{Translation mode}
-    mode -->|standard, default| std[Per-item translation jobs<br/>bounded concurrency and retries]
-    mode -->|batch, explicit| batch[Batch submit → poll → reconcile]
-    std --> fin[Finalize]
-    batch --> fin
-    fin --> render[Render recognition cards<br/>write .apkg]
-    render --> store[(Stored in PostgreSQL)]
-    store --> dl[Download]
-    store -. presentation version changes .-> rerender[Re-render from manifest<br/>no re-analysis or re-translation]
-    finish[Finish reading] --> known[Snapshot identities become Known<br/>+ reading history entry]
-    snap -.-> finish
+    corpus[Corpus<br/>analysed Books in My Books] --> order[Order new words<br/>Current reading until Target coverage,<br/>then To Read frequency]
+    order --> batch[New-word batch<br/>taken or declined on Today]
+    batch --> plan[study_plan_preparation]
+    plan --> mat[study_prepare_material<br/>one word at a time]
+    mat --> card[Study material<br/>context, Gloss, translation]
+    card --> today[Today<br/>Again, Got it, Already known, Report]
+    today --> fsrs[(Study progress<br/>FSRS state and review log)]
+    fsrs --> fluency[study_prepare_fluency<br/>Fluency contexts for Mature words]
+    today -. Wrong word .-> remed[Remediation screen<br/>correct or exclude, plus ticked matches]
+    remed -. Lemma correction or Occurrence exclusion .-> corpus
 ```
 
-- **Selection** ([`internal/selection`](internal/selection)) keeps content
-  words (NOUN, VERB, ADJ, ADV) that occur at least three times in the book, or
-  at least once when they occur at least fifteen times across the learner's
-  analyzed books. It excludes Known and Reserved vocabulary
-  ([ADR 0048](doc/adr/0048-frequency-floor-deck-selection.md),
-  [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md),
-  [ADR 0090](doc/adr/0090-library-total-book-vocabulary-selection.md)).
-- **The reading snapshot** freezes that vocabulary when reading starts, so
-  later corrections or imports cannot silently change a deck in progress.
-  Finishing the book moves the snapshot into Known vocabulary; generating cards
-  never does ([ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md)).
-- **The manifest** ([`internal/prepareddeck`](internal/prepareddeck)) records
-  every decision before any external call: card order, the chosen sentence
-  and its quality score, omissions, and cache identities. Translation work is
-  then a set of short, resumable jobs, and finalization is idempotent
-  ([ADR 0030](doc/adr/0030-durable-prepared-deck-translation.md),
-  [ADR 0032](doc/adr/0032-standard-first-prepared-deck-translation.md)).
-- **Rendering** ([`internal/cardexport`](internal/cardexport)) writes the Anki
-  package with a pure-Go SQLite driver. Because the manifest is independent of
-  presentation, a card-design change regenerates ready decks without
-  re-analysis or re-translation
-  ([ADR 0071](doc/adr/0071-decouple-deck-data-from-presentation.md)).
+- **The Corpus** is the analysed Books in My Books in the study language. Study
+  material and Fluency contexts draw on all of it, Read Books included. Only To
+  Read Books set the priority of new words, and the Current reading's words come
+  first until its coverage, counting Mature and in-study words, reaches Target
+  coverage (98%). The order is computed from current evidence each time.
+- **Candidates** are effective vocabulary identities
+  ([`internal/selection`](internal/selection) holds the eligibility rules) and
+  Idioms ([ADR 0137](doc/adr/0137-idioms-are-study-items.md)) that are not in
+  study; held words stay excluded.
+- **Study material** is prepared one word at a time by River jobs shortly before
+  Today needs it, from current evidence with the learner's Lemma corrections and
+  Occurrence exclusions applied. A provider-route language gets a contextual
+  Gloss and translation; a source-evidence language (Ancient Greek, Latin) gets
+  a Gloss from the Evidence-assisted provider pass that cites the dictionary
+  ([ADR 0133](doc/adr/0133-per-language-card-policy.md),
+  [ADR 0138](doc/adr/0138-study-for-source-evidence-languages.md)).
+- **Progress** is one FSRS state per learner, language and Study item, with an
+  append-only review log of graded answers. **Already known** is answered at
+  introduction: it writes review-state progress with an interval of at least 21
+  days, so the word is Mature at once, and records the answer in its own event
+  table, never as a grade.
+- **Coverage** is the share of a Book's analyzable tokens whose effective
+  vocabulary identity is Mature, with in-study coverage as a second figure
+  (`analysisinsights`). Coverage counts word tokens only.
+- **Fixes** start only from a Wrong-word Study report. Its remediation screen
+  reuses the lemma-review preview-and-confirm step
+  ([`internal/lemmareview`](internal/lemmareview)) for the reported occurrence
+  and for matching occurrences the learner ticks, each decided in its own Book's
+  analysis; nothing becomes a language-wide rule
+  ([ADR 0081](doc/adr/0081-learner-owned-occurrence-lemma-corrections.md)).
+- **Finishing a Book** appends a Reading completion and clears the current
+  role. It does not read or write vocabulary
+  ([ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md)).
 
-## Prepared-deck state
-
-Each machine below is drawn from the SQL update predicates that write its state
-column, whether the statement lives in `sqlc/queries` or beside its caller. The
-domain deliberately holds no transition table: it names reusable state sets for
-Go code that chooses between outcomes, but a write against a row in any other
-state matches no row and returns the invalid-transition error.
-
-A ready preparation is terminal in this machine. Re-preparation retires it and
-creates a successor for the same Current reading snapshot, so no ready row ever
-changes state.
-
-### Deck preparation
-
-```mermaid
-stateDiagram-v2
-    [*] --> queued: created
-    queued --> preparing: claimed, or a run is attached
-    preparing --> preparing: a run is attached
-    queued --> failed: enqueue failed
-    preparing --> failed: preparation or translation failed
-    preparing --> ready: artifact completed
-    queued --> cancelled
-    preparing --> cancelled
-    failed --> queued: retry or reprepare
-    cancelled --> queued: retry or reprepare
-    ready --> [*]
-```
-
-### Run
-
-```mermaid
-stateDiagram-v2
-    [*] --> translating: created with provider work
-    [*] --> finalizing: created with no provider work
-    translating --> finalizing: all translation work settled
-    translating --> failed: translation failed
-    translating --> cancelled
-    finalizing --> completed: artifact published
-    finalizing --> failed: finalization failed
-    finalizing --> cancelled
-    completed --> [*]
-    failed --> [*]
-    cancelled --> [*]
-```
-
-### Translation
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending: created with provider work
-    [*] --> completed: created with no provider work
-    pending --> running: provider work starts
-    running --> running: a repeated run update marks it running
-    pending --> completed: translation settles as the run finalizes
-    running --> completed: translation settles as the run finalizes
-    pending --> failed: translation or run failed
-    running --> failed: translation or run failed
-    pending --> cancelled
-    running --> cancelled
-    completed --> failed: finalization fails (questioned in #2513)
-    completed --> [*]
-    failed --> [*]
-    cancelled --> [*]
-```
-
-### Translation outcome
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending: run frozen with pending work
-    [*] --> completed: run frozen with an exact cache hit
-    pending --> running: standard worker claims the item
-    pending --> pending: Batch item retried in the next generation
-    running --> pending: provider retry, expired lease, or Batch retry
-    pending --> completed: exact cache hit, or Batch result accepted
-    pending --> failed: Batch result rejected
-    running --> completed: standard or Batch result accepted
-    running --> failed: standard or Batch result rejected
-    pending --> cancelled: bulk cancellation
-    running --> cancelled: bulk cancellation
-    completed --> [*]
-    failed --> [*]
-    cancelled --> [*]
-```
-
-### Batch chunk
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending: chunk planned
-    pending --> submitting: submission claim
-    submitting --> submitting: re-claim after an expired lease
-    submitting --> pending: retry before provider creation
-    submitting --> submitted: provider Batch created
-    submitting --> completed: every item was an exact cache hit
-    submitting --> failed: pre-network terminal failure
-    submitting --> ambiguous: provider acknowledgement unknown
-    submitted --> reconciling: reconciliation claim
-    polling --> reconciling: reconciliation claim
-    reconciling --> reconciling: re-claim after an expired lease
-    reconciling --> polling: nonterminal provider status
-    reconciling --> completed: trusted results reconciled
-    reconciling --> failed: untrustworthy result or provider failure
-    pending --> cancelled: bulk cancellation
-    submitting --> cancelled: bulk cancellation
-    submitted --> cancelled: bulk cancellation
-    polling --> cancelled: bulk cancellation
-    reconciling --> cancelled: bulk cancellation
-    ambiguous --> cancelled: bulk cancellation
-    completed --> [*]
-    failed --> [*]
-    cancelled --> [*]
-```
-
-Provider file cleanup is a separate per-file projection (`pending`, `deleted`,
-`failed`, `not_needed`); it records the durable result of deleting the Batch
-input, output and error files and never feeds back into the chunk state.
 ## Background jobs
 
 All background work runs in River inside the Go server process, on named
-queues so a long analysis never blocks catalog sync or deck work.
+queues so a long analysis never blocks catalog sync or Study work.
 
 | Queue | Job kinds | Work |
 | --- | --- | --- |
-| `analysis` | `analyze_corpus`, `rebuild_vocabulary_browse_counts` | Book analysis; cross-book vocabulary count projections |
+| `analysis` | `analyze_corpus`, `rebuild_vocabulary_browse_counts`, `rebuild_idiom_candidate_counts`, `rebuild_construction_occurrences` | Book analysis; cross-book vocabulary, Idiom and Construction projections |
 | `catalogue_sync` | `catalogue_sync` (periodic per connection), `book_cover` | Metadata-only catalog reconciliation and cover retrieval ([ADR 0041](doc/adr/0041-catalog-sync-metadata-first.md)) |
-| `prepared_decks` | `prepared_deck`, `prepared_deck_finalize`, `prepared_deck_rerender`, `prepared_deck_reconcile`, `prepared_deck_batch_submit`, `prepared_deck_batch_poll`, `prepared_deck_batch_cleanup` | Deck coordination, finalization, recovery, and Batch lifecycle |
-| `prepared_deck_translation` | `prepared_deck_translation` | Standard per-item translation, with configurable concurrency |
+| `study` | `study_plan_preparation`, `study_prepare_material`, `study_prepare_fluency` | Plans the next New-word batch's Study material, prepares one word's material, and prepares Fluency contexts ([ADR 0134](doc/adr/0134-study-in-mouseion-vocabulary-review.md)) |
 | `source_checks` | `check_source_structure` | Extraction-only comparison of existing EPUB snapshots with the configured extraction contract ([ADR 0103](doc/adr/0103-source-structure-and-poetry-evidence.md)) |
 | `classical_preparation` | `classical_preparation` | Serial import of one classical Book's Reading unit: fetch and verify the pinned work file, cut the unit, and publish an ordinary analysis ([ADR 0116](doc/adr/0116-classical-catalog.md)) |
 | `classical_translation` | `classical_translation` | Fetch and parse one pinned reference translation, stored once per installation |
@@ -362,14 +256,12 @@ erDiagram
     corpus_sentences ||--o{ corpus_tokens : contains
     books ||--o| book_current_analyses : "current analysis"
     book_current_analyses }o--|| analysis_runs : "points to"
-    books ||--o| book_dispositions : "Inbox / To Read"
-    books ||--o{ primary_goal_snapshots : "reading snapshots"
-    primary_goal_snapshots ||--o{ primary_goal_snapshot_vocabulary : freezes
+    books ||--o| book_dispositions : "To Read"
     books ||--o{ reading_history : completions
     books ||--o{ occurrence_lemma_corrections : "learner corrections"
-    users ||--o{ known_vocabulary : knows
-    analysis_runs ||--o{ deck_preparations : "deck from"
-    deck_preparations ||--o{ deck_preparation_manifest_items : "frozen cards"
+    users ||--o{ study_progress : "studies"
+    study_progress ||--o{ study_review_log : "graded answers"
+    users ||--o{ study_material : "prepared for"
     works ||--o{ editions : contains
     editions ||--o{ reading_units : contains
     books ||--o| book_reading_units : "one Reading unit"
@@ -380,10 +272,11 @@ erDiagram
     books ||--o| book_preparation_failures : "last failure"
 ```
 
-Notes on naming: `primary_goal_snapshots` stores the current-reading vocabulary
-snapshot (the table predates the current *Reading* terminology), and
-`source_materials` is an acquired EPUB, as distinct from the catalog-level
-`books` entry. Vocabulary identity throughout is
+Notes on naming: `source_materials` is an acquired EPUB, as distinct from the
+catalog-level `books` entry. The Known vocabulary, current-reading snapshot,
+reservation and deck tables stay in the schema with no learner-facing use; a
+separate, later migration drops them after the Known-to-Study backfill has been
+checked ([ADR 0136](doc/adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)). Vocabulary identity throughout is
 `(language, canonical_lemma, upos)`.
 
 The `works`, `editions` and `reading_units` tables are the Classical catalog
@@ -426,7 +319,7 @@ flowchart TB
     subgraph jobs[Durable work]
         analysis[analysis]
         cataloguesync[cataloguesync]
-        prepareddeck[prepareddeck]
+        study[study]
         sourcecheck[sourcecheck]
     end
     subgraph lang[Language and text]
@@ -439,7 +332,6 @@ flowchart TB
         sentencequality[sentencequality]
         dictionary[dictionary]
         enrichment[enrichment]
-        cardexport[cardexport]
     end
     subgraph data[Data]
         domain[domain]
@@ -447,7 +339,7 @@ flowchart TB
         classical[classical<br/>catalog manifest]
         opds[opds]
     end
-    server --> webapp & analysis & cataloguesync & prepareddeck & sourcecheck
+    server --> webapp & analysis & cataloguesync & study & sourcecheck
     fixture --> webapp
     webapp --> webauth --> auth
     webapp --> persistence
@@ -457,8 +349,8 @@ flowchart TB
     analysis --> epub & analyzer & selection & persistence
     sourcecheck --> epub & persistence
     cataloguesync --> opds --> epub
-    prepareddeck --> cardexport & enrichment & persistence
-    cardexport --> sentencequality & dictionary
+    webapp --> study
+    study --> enrichment & sentencequality & persistence
     sentencequality --> gdex
     selection --> lexical
     analyzer --> canonicalization
@@ -482,11 +374,11 @@ flowchart TB
 | [`lexical`](internal/lexical), [`selection`](internal/selection) | Eligibility rules and deterministic vocabulary candidates |
 | [`analysisinsights`](internal/analysisinsights) | Coverage and threshold metrics for a learner and a book |
 | [`gdex`](internal/gdex) | GDEX-informed example-sentence scoring |
-| [`sentencequality`](internal/sentencequality) | The shared sentence-quality gate and representative-sentence selection for the deck and the Reading freeze |
+| [`sentencequality`](internal/sentencequality) | The sentence-quality gate and representative-sentence selection for Study material |
 | [`dictionary`](internal/dictionary) | Read-only access to the Wiktionary-derived index |
 | [`enrichment`](internal/enrichment) | Dictionary and LLM enrichment, caching, and the external-provider privacy boundary |
-| [`prepareddeck`](internal/prepareddeck) | Durable deck preparation: manifest, translation, finalization |
-| [`cardexport`](internal/cardexport) | Recognition-card rendering and `.apkg` packaging |
+| [`study`](internal/study) | Study: FSRS scheduling, New-word batches, Study material and Fluency preparation, Study reports, Idioms |
+| [`lemmareview`](internal/lemmareview) | The preview-and-confirm step for a Lemma correction or Occurrence exclusion, used by the remediation screen |
 | [`opds`](internal/opds), [`cataloguesync`](internal/cataloguesync), [`bookcover`](internal/bookcover) | OPDS client, metadata sync, and cover retrieval |
 | [`auth`](internal/auth), [`webauth`](internal/webauth) | Local accounts, Argon2id passwords, sessions |
 | [`webapp`](internal/webapp) | Handlers, templ views, styles, and static assets |

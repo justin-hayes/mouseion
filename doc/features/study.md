@@ -1,10 +1,10 @@
 # Study
 
-Status: **Accepted; implemented in the pilot** · Date: 2026-11-25 · Decisions:
+Status: **Accepted; implemented, and the only vocabulary workflow since the Study cutover (ADR 0136)** · Date: 2026-11-25 · Decisions:
 [ADR 0134](../adr/0134-study-in-mouseion-vocabulary-review.md),
 [ADR 0135](../adr/0135-study-reports.md), [ADR 0133](../adr/0133-per-language-card-policy.md),
 [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
-(direction after the pilot, see [After the pilot](#after-the-pilot)),
+(the cutover, see [After the pilot](#after-the-pilot-the-cutover)),
 [ADR 0138](../adr/0138-study-for-source-evidence-languages.md) (Latin and
 Ancient Greek)
 
@@ -17,12 +17,15 @@ The terms **Study**, **Study day**, **Today**, **New-word batch**, **In study**,
 
 ## Motivation and goal
 
-A learner reviews Mouseion's vocabulary in their own Anki, on their phone. The
-loop is slow: nothing arrives until a whole Prepared deck is ready, downloaded
-and imported. The words are tied to one Book, while learning a language is a
-continuous project. Each word is seen in one sentence, so the learner learns
-the sentence rather than the word in its other forms. And finishing a Book
-accepts the whole snapshot into Known vocabulary, whatever was learned.
+Before Study, a learner reviewed Mouseion's vocabulary in their own Anki, on
+their phone. The loop was slow: nothing arrived until a whole Prepared deck was
+ready, downloaded and imported. The words were tied to one Book, while learning
+a language is a continuous project. Each word was seen in one sentence, so the
+learner learned the sentence rather than the word in its other forms. And
+finishing a Book accepted the whole snapshot into Known vocabulary, whatever was
+learned. At the cutover ([ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md))
+Study replaced both the Prepared deck and Known vocabulary; the sections below
+describe the pilot's design and say where the cutover changed it.
 
 The goal: Mouseion is the place where the learner learns and reviews
 vocabulary from their reading, on their phone, as material becomes ready.
@@ -95,19 +98,21 @@ finish line and are never part of it.
 ### Where new words come from
 
 - Candidates are vocabulary identities in the study language, evidenced by the
-  learner's currently analysed Books, that are not yet in study. Eligibility
-  uses the same vocabulary-identity rules as Book vocabulary candidates: confirmed Lemma
-  corrections and Occurrence exclusions apply, and nothing that is not
-  vocabulary is included.
-- Words from the Current reading come first, then all others. Within each
-  group, words are ordered by Personal analyzed-Book occurrences, most frequent
-  first, with a deterministic tie-break. Frequency comes only from the
-  learner's own library (ADR 0018, ADR 0090).
+  Corpus (the analysed Books in My Books), that are not yet in study. Confirmed
+  Lemma corrections and Occurrence exclusions apply, and nothing that is not
+  vocabulary is included. Held words stay excluded.
+- While there is a Current reading whose coverage, counting Mature and in-study
+  words, is below Target coverage (98%), its words come first, ordered by
+  occurrences in that Book. Otherwise words are ordered by Personal
+  analyzed-Book occurrences summed over the To Read Books, most frequent first,
+  with a deterministic tie-break. The Book gets the boost again if its coverage
+  falls below the target. Frequency comes only from the learner's own Books
+  (ADR 0018).
 - The order is computed from current evidence, not a frozen snapshot. Study
-  works with no Current reading, and the stream continues from the library when
-  the Current reading has no words left.
-- Known and Reserved vocabulary are not consulted: a word that is Known from a
-  finished Book is still eligible as a new word.
+  works with no Current reading.
+- Nothing else excludes a word: there is no Known or Reserved vocabulary. A
+  word the learner already knows is answered **Already known** when it is
+  introduced (see below).
 - A word with no usable sentence, or for which no meaning can be defended, is
   skipped and the next word is offered.
 
@@ -171,9 +176,10 @@ picks one of two kinds and may add a note.
     line, and does not fall overdue. Its Study progress is kept. A new word that
     is held is not offered in New-word batches, and the batch takes the next
     candidate.
-  - The repair happens in the Book's **Lemma review**, which lists open
-    Wrong-word reports next to Lemma review flags and opens the reported
-    occurrence.
+  - The repair happens on the report's **remediation screen**, which previews
+    and confirms a Lemma correction or Occurrence exclusion on the reported
+    occurrence and offers the matching occurrences in the Corpus to correct too.
+    Each open report in the Reported words list links to its screen.
   - The report ends when a Lemma correction or Occurrence exclusion is
     confirmed on the occurrence. It also ends when an Analysis update gives the
     occurrence a different effective vocabulary identity, or when the
@@ -285,51 +291,65 @@ Study will serve them, with parity to the modern languages:
 
 - Study progress belongs to the word, per learner and study language. It never
   belongs to a Book, a deck or a sentence.
-- Study never makes a word Known, and Known never ends, excludes or demotes a
-  word in study.
+- During the pilot, Study never made a word Known and Known never ended,
+  excluded or demoted a word in study. After the cutover there is no Known
+  vocabulary: the one claim of knowledge is **Mature**.
 - Starting, switching, ending or finishing a Book changes only which new words
   come first.
-- Reading, Reading completion, Known vocabulary, Reserved vocabulary,
-  current-reading snapshots and Prepared decks keep their current behaviour.
-  Anki remains the route for languages Study does not cover.
-- Existing Anki history stays in Anki; Study neither imports nor exports it.
+- Reading completion records history only, and there is no Anki export. Existing
+  Anki history stays in Anki; Study neither imports nor exports it.
 
 ### What the pilot leaves out
 
 - Offline use and a native app.
 - Importing Anki history, and exporting or syncing Study progress to Anki.
-- Study for Latin and Ancient Greek.
+- Study for Latin and Ancient Greek (added by ADR 0138 before the cutover).
 - One shared Today across several languages.
 - Browsing upcoming words and saving words for later.
 - Rotating sentences in Today's graded reviews: Today uses one sentence per
   word.
 - Progress per meaning, and "this word also means...".
-- Idiom cards in Study, production cards (English to German) and audio.
+- Production cards (English to German) and audio.
 - External frequency lists.
 
-### After the pilot
+### After the pilot: the cutover
 
 [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
-makes Study the only vocabulary workflow, at one cutover. Until then the
-separation above holds. The cutover waits until Study supports the
-source-evidence card policy (Ancient Greek and Latin,
-[ADR 0138](../adr/0138-study-for-source-evidence-languages.md)) and introduces Idioms as
-items with their own Study progress
-([ADR 0137](../adr/0137-idioms-are-study-items.md)). Both of those are left
-out of the pilot above. At the cutover:
+made Study the only vocabulary workflow, at one cutover. The separation from
+Known vocabulary described above held during the pilot and no longer does. The
+cutover waited until Study supported the source-evidence card policy (Ancient
+Greek and Latin, [ADR 0138](../adr/0138-study-for-source-evidence-languages.md))
+and introduced Idioms as items with their own Study progress
+([ADR 0137](../adr/0137-idioms-are-study-items.md)). At the cutover:
 
-- Known vocabulary and the Prepared deck retire. Each Known word becomes
-  **Already known** Study progress, with first reviews spread over several
-  weeks.
-- **Already known** becomes an answer at introduction, and it makes the word
-  Mature at once.
-- New words come from the **Corpus**. The Current reading's words come first
-  until the Book reaches **Target coverage**. After that, frequency across the
-  To Read Books decides.
+- Known vocabulary and the Prepared deck retired, with no Anki export. Each
+  Known word became **Already known** Study progress, with first reviews spread
+  over several weeks; a word already in study kept its own progress.
+- **Already known** is an answer the learner can give when Study introduces a
+  word, on its own control beside the two grades. It makes the word Mature at
+  once, is recorded as an event and never as a grade, completes the word's place
+  in the taken New-word batch, and is offered only at introduction. After that
+  the word is ordinary: a lapse ends its maturity.
+- New words come from the **Corpus**, the analysed Books in My Books. Study
+  draws Study material and Fluency contexts from all of it, Read Books included.
+  The Current reading's words come first until the Book reaches **Target
+  coverage** (98%, counting Mature and in-study words). After that, frequency
+  across the To Read Books decides. Removing a Book never costs Study progress.
 - A Book's coverage counts Mature words, with in-study coverage shown as a
-  second figure.
-- A Wrong-word report opens a remediation screen instead of the Book's Lemma
-  review, which retires.
+  second figure. The same Mature coverage drives the Vocabulary coverage band,
+  Analysis Insights and My Books.
+- A Wrong-word report opens a remediation screen
+  (`/study/reports/{id}/remediation`, linked from the open reports list) instead
+  of the Book's Lemma review, which retired. It previews and confirms a Lemma
+  correction or Occurrence exclusion on the reported occurrence, and lists the
+  other occurrences in the Corpus with the same surface and source lemma, none
+  ticked, for the learner to correct too. Each ticked occurrence gets its own
+  per-occurrence correction; no language-wide rule is ever created.
+- My Books holds what the Reading page held, and finishing a Book records
+  history only ([Reading workflow](reading-workflow.md)).
+
+Still out of scope after the cutover:
+
 - Cognates, etymology and recommendations.
 - An FSRS parameter optimiser, Hard and Easy grades, and words leaving study.
 - A fixed split of new words between the Book and the library, and fading words
@@ -337,10 +357,11 @@ out of the pilot above. At the cutover:
 
 ## Open questions
 
-These stay open for after the pilot.
+These were open after the pilot.
 
-1. Should Study progress eventually feed or replace Known vocabulary? This is
-   the main question for a follow-up ADR.
+1. ~~Should Study progress eventually feed or replace Known vocabulary?~~
+   **Closed** by [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md):
+   Study replaces it.
 2. Should batches use a fixed split between the Book and the library?
 3. Should words learned only for one Book fade after the learner finishes it?
 4. ~~Should repeated Didn't recognise it in Fluency pull a word back into

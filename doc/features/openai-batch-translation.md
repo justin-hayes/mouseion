@@ -1,6 +1,9 @@
 # OpenAI Batch API for prepared-deck translation
 
-Status: **Accepted** · Date: 2026-08-28
+Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-08-28
+
+> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](study.md).
+
 
 ## Summary
 

@@ -11,7 +11,7 @@ wording in this feature is historical and has been superseded.
 The learner thinks "I am reading German now," but the app does not: My Books
 defaults to an "All languages" browse nobody wants, Vocabulary re-selects a
 language per visit, and Reading Journey mixes languages silently. Downstream
-artifacts are already per-language (known vocabulary, decks, and
+artifacts are already per-language (Study progress and
 analysis), so the organizing surfaces are the odd ones out.
 Treating language as the app's organizing context — the address of each page
 naming its study language — aligns the surfaces with the artifacts.
@@ -19,7 +19,7 @@ naming its study language — aligns the surfaces with the artifacts.
 ## Goal
 
 Make the study language part of the address of every per-language page
-(`/de/library`, `/grc/reading`): a shell-level switcher that navigates between
+(`/de/library`, `/grc/study`): a shell-level switcher that navigates between
 languages; per-language My Books browse and search; per-language current reading
 and Vocabulary. Remove the "All languages" default and
 per-screen language pickers. Books without a chosen language are not listed in
@@ -29,7 +29,7 @@ language is fixed.
 ## Scope
 
 This feature defines the learner-facing behaviour of the URL-carried study
-language across the shell, My Books, Reading, Vocabulary, and compatibility
+language across the shell, My Books, Study, Vocabulary, and compatibility
 bookmarks. It implements
 [ADR 0131](../adr/0131-the-url-carries-the-study-language.md), which supersedes
 the stored mode of [ADR 0050](../adr/0050-active-study-language.md), and
@@ -70,8 +70,8 @@ Learner-facing labels use **Language** and the language's own name, never
   languages" pill and per-row language tags are removed; a section heading names
   the language.
 - The shipped My Books cover grid communicates disposition but not per-Book
-  evidence or current-reading state. Book evidence remains on the Reading
-  surface. The retired Language view panel does not render.
+  evidence or current-reading state. Book evidence is on the Book detail page
+  and in each entry's status line. The retired Language view panel does not render.
 - A Book without a chosen language is not listed in My Books, but one with
   reading history keeps its membership and is reported by the backfill (see
   [Collection Browsing](collection-browsing.md#upgrading-existing-accounts)).
@@ -81,50 +81,37 @@ Learner-facing labels use **Language** and the language's own name, never
 - Moving a Book to To Read targets that Book's language —
   which equals the active language by construction.
 
-### Reading (`/{language}/reading`)
+### Study (`/{language}/study`)
 
-- Shows the active language's current Book, with its vocabulary Browse, or the unordered To Read chooser between Books.
-- Current reading is independent per language; completion in one language does
+- Shows the active language's Today, New-word batches and Fluency.
+- Current reading is independent per language and is pinned on that language's My Books; completion in one language does
   not affect current reading or history in another.
-- An empty chooser offers a path to the active language's My Books.
+- The retired Reading addresses (`/{language}/reading`) redirect to My Books, or
+  to a Book's detail page when they name a Book.
 
 ### Vocabulary (`/{language}/vocabulary`)
 
-- Opens Concordance; the current Book's Browse lives on Reading.
+- Opens Concordance; a Book's Browse is the word list on its detail page.
 - Scoped to the active language; the page's language `<select>` is removed.
-  Import targets the active language and is always eligible there.
-- Known-vocabulary-only languages are reachable through the switcher
-  (read-only, import disabled).
 
-### Compatibility bookmark (`/journey/{bookID}`)
 
-- The route validates the Book's own language, owner, membership, and current
-  evidence before deciding where to send the learner.
-- A same-language bookmark redirects to its anchor in Reading.
-- A cross-language bookmark is a supported old-language request: it recovers to
-  Reading in the Book's own language (see "Language precedence" below). The
-  former Reading language-selection handoff chooser is retired.
-- The route never depends on a stored language. Unauthorized, non-member,
+### Compatibility bookmarks
+
+- The old `/journey/{bookID}` bookmark route is no longer registered. The retired
+  Reading addresses redirect to My Books, or to the Book's detail page when they
+  name a Book (see Study above), and a Book-addressed route runs in the Book's
+  own study language.
+- A redirect never depends on a stored language. Unauthorized, non-member,
   and unavailable Books remain unavailable.
 
-## Language precedence ([ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concordance.md))
-
-- A switcher change navigates to the landing page of the same kind of page in the
-  chosen language, with screen, query, filter, and return state reset. Opening a
-  page never starts a reading or submits an import.
-- Per-language pages take their language from the address; Book-addressed
-  actions take it from the Book and return to the Book's language. Two tabs may
-  work in two languages at once, and no form is refused for naming a language
-  other than the Last study language.
 - A Browse origin carried to Concordance or Study is validated against the
   address's language and the live Browse evidence **before** anything is
   restored; a stale origin is refused with an explanation and mutates nothing.
 - Language wins over stale commitment, evidence, or return restoration. References
   stay owner/language validated and grant no authorization.
 - A catalog correction that makes a Current reading's Book language incompatible
-  ends that reading with an explanation: reservations are released without
-  completion or Known acceptance; visibility, history, snapshots, and artifacts
-  are preserved; a fresh commitment in the corrected language is required.
+  ends that reading with an explanation: no completion is recorded and history is
+  preserved; a fresh Read next in the corrected language is required.
   Missing or stale analysis alone never ends a commitment.
 - Native cached Back may show stale content without a request; safety is enforced
   on every subsequent request. No polling or Back interception is required.
@@ -138,7 +125,6 @@ Learner-facing labels use **Language** and the language's own name, never
 | Multiple study languages | Switcher lists them; the page's language scopes the page | Switch language |
 | Last study language leaves the set | Lazy reset to most-recently-activated remaining, else none | Switch |
 | New language arrives via resync | Appears in switcher marked "new"; open pages unchanged | Switch |
-| Known-vocabulary-only language | Switcher entry marked "no books", read-only vocab | Switch back |
 | Legacy no-language Books exist | Never listed in My Books; one with reading history keeps its membership and is reported by the backfill | Fix catalog, re-sync |
 
 ## Non-goals

@@ -89,7 +89,7 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   ([ADR 0131](../adr/0131-the-url-carries-the-study-language.md)).
 - **I've read this** creates or restores the same Book as Read with a
   **Previously read** record. It downloads nothing, starts no analysis or
-  preparation and changes no Known vocabulary. On a classical Work it is offered
+  preparation and changes no vocabulary. On a classical Work it is offered
   once per Edition and covers the whole Work. An entry whose Book left My
   Books restores that same Book as Read.
 - Distinct empty states cover no OPDS sources, no match, nothing in this
@@ -177,7 +177,7 @@ shipped independent retrieval of optional catalog-supplied display metadata.
   Books (ADR 0117). Each yields a To Read Book (or a
   Read Book, for "I've read this"). EPUB ingest that matches a Book by its
   source identifier and finds it removed from My Books restores it as To Read,
-  exactly as Add does; its analysis, history and Known vocabulary stay. A Book
+  exactly as Add does; its analysis and history stay. A Book
   that is already an active member keeps its disposition. EPUB ingest that
   matches no Book creates one as To Read. A legacy row (active, not To Read, no
   reading history) is never produced; if one exists, the acquisition and

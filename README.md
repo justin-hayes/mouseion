@@ -4,9 +4,9 @@
 Ancient Greek and Latin, and German, French, Italian and Modern Greek.**
 
 Mouseion connects to a personal ebook library, analyzes each book
-linguistically, tells a learner how much of its vocabulary they already know,
-and prepares the words worth learning, each with an example sentence from the
-book itself, as an Anki deck. It supports German, Italian, French, and Modern
+linguistically, tells a learner how much of its vocabulary they have retained,
+and teaches the words worth learning in Study, each in an example sentence from
+the learner's own books. It supports German, Italian, French, and Modern
 Greek, plus Ancient Greek through a curated Classical catalog; Latin is
 planned. Each language's literature is worth reading for its own sake, and
 Mouseion is not a tool for constructing scholarly editions
@@ -17,7 +17,7 @@ the Library.
 
 ![My Books on its To Read tab, listing ten German public-domain novels with their covers, the current reading marked Currently reading, and each Book's known-vocabulary coverage and reading history. The To Read and Read tabs sit above the list.](doc/images/my-books.png)
 
-*My Books, To Read tab: the Books chosen to read, including the current reading, with each Book's known-vocabulary coverage.*
+*My Books, To Read tab: the Books chosen to read, including the current reading, with each Book's coverage. (The screenshot predates the Study cutover and shows its former known-vocabulary wording.)*
 
 ![My Books on its Read tab, listing two Books: one finished in Mouseion and one recorded as read before Mouseion, each with its completion history.](doc/images/my-books-read.png)
 
@@ -33,10 +33,10 @@ generic flashcard sentences say little about how a word is used in the text
 being read.
 
 Mouseion treats each book as a small corpus. It lemmatizes and parses the text,
-measures coverage against the learner's known vocabulary, and selects the
-recurring unknown lemmas that most improve coverage. It then builds recognition
-cards from the book's own sentences, so studying a word means meeting it in the
-context where it will be read.
+measures coverage against the words the learner has retained (the Mature words
+in Study), and orders new words so that the book being read becomes readable
+first. Study then reviews each word in the book's own sentences, so studying a
+word means meeting it in the context where it will be read.
 
 ## What it does
 
@@ -48,18 +48,21 @@ context where it will be read.
 3. **Analysis.** Selects the book's main text, lemmatizes, tags, and parses it
    with [Stanza](https://stanfordnlp.github.io/stanza/), and persists the
    normalized sentence and token stream with dependency relations.
-4. **Evidence.** Reports coverage of running words and the vocabulary needed to
-   reach 95%, 97%, and 99%. Learners can review and correct suspicious lemmas
-   before vocabulary is frozen.
+4. **Evidence.** Reports coverage of running words by Mature words, and a
+   lighter figure that also counts words in study. A learner who meets a wrong
+   lemma while studying reports it and corrects it on the report's remediation
+   screen.
 5. **Concordance.** A keyword-in-context view of every occurrence of a lemma
    across the learner's analyzed books, with full-sentence study.
-6. **Deck preparation.** Selects eligible unknown lemmas and the best example
-   sentence for each, adds dictionary morphology and a contextual English gloss,
-   and builds an Anki package named `Mouseion::<language>::<book title>`.
-7. **Reading progress.** Starting a book reserves its vocabulary; finishing it
-   moves that vocabulary into the learner's modeled known set. Generating
-   cards never marks a word as known
-   ([ADR 0036](doc/adr/0036-primary-goal-justified-graduation.md)).
+6. **Study.** Reviews vocabulary in context on a phone-first page, scheduled
+   with FSRS: Today's graded reviews, optional batches of new words (each can be
+   answered *Already known*) and ungraded Fluency. New words come first from the
+   book being read until it reaches 98% coverage, then by frequency across the
+   books to read. The learner's analysed books are the Corpus Study draws on.
+7. **Reading progress.** *Read next* makes a book the current reading in one
+   step. Finishing a book records it in the reading history and changes no
+   vocabulary; knowledge comes only from Study
+   ([ADR 0136](doc/adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)).
 
 ## Screenshots
 
@@ -68,10 +71,6 @@ German novels, not from mock data. The novels are pinned Project Gutenberg
 editions, and every author died before 1956. The run is reproducible with
 `make screenshot-my-books`
 ([how to regenerate](doc/development.md#regenerating-screenshots)).
-
-![Reading view for Die Verwandlung, the current reading, showing the share of its running words the learner already knows, the vocabulary reserved for later, and a table of the vocabulary still to learn.](doc/images/reading.png)
-
-*Reading: the book being read, its known-vocabulary coverage, and the vocabulary still to learn.*
 
 ![Concordance of the forms of the German verb aufstehen across two analyzed books, each occurrence shown in its sentence with a link to study it.](doc/images/concordance.png)
 
@@ -160,7 +159,7 @@ flowchart LR
 ```
 
 - **Go core** owns the product logic: domain model, persistence, vocabulary
-  selection, sentence scoring, and Anki export. Python is used only where the
+  selection, sentence scoring, and Study scheduling. Python is used only where the
   NLP libraries require it
   ([ADR 0001](doc/adr/0001-go-core-python-nlp-service.md)).
 - **Python NLP service** is a long-lived Stanza producer behind a versioned
@@ -169,13 +168,13 @@ flowchart LR
   languages are available ([ADR 0023](doc/adr/0023-nlp-capabilities.md)).
 - **PostgreSQL** stores per-learner state, the normalized corpus, and the
   [River](https://riverqueue.com/) job queue, which runs analysis, enrichment,
-  catalog sync, and deck preparation without a separate broker
+  catalog sync, and Study material preparation without a separate broker
   ([ADR 0010](doc/adr/0010-river-job-queue.md)).
 - **Web interface** is server-rendered with [templ](https://templ.guide/) and
   enhanced with [htmx](https://htmx.org/). Core workflows also work without
   JavaScript.
 
-[ARCHITECTURE.md](ARCHITECTURE.md) covers the analysis and deck pipelines,
+[ARCHITECTURE.md](ARCHITECTURE.md) covers the analysis and Study pipelines,
 background jobs, the data model, and a map of the code.
 
 ## Engineering practices
