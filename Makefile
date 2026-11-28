@@ -220,8 +220,9 @@ check-dockerfile-go:
 # through `go tool`, pinned by go.mod.
 deadcode: go-tmp
 	tools/deadcode-check_test.sh
+	mains=$$(go list -f '{{if eq .Name "main"}}{{.ImportPath}}{{end}}' ./...) && test -n "$$mains" && \
 	report=$$(mktemp) && trap 'rm -f "$$report"' EXIT && \
-	go tool deadcode -generated -test=false -f '{{range .Funcs}}{{$$.Path}}.{{.Name}} {{.Position.File}}{{"\n"}}{{end}}' $$(go list -f '{{if eq .Name "main"}}{{.ImportPath}}{{end}}' ./...) > "$$report" && \
+	go tool deadcode -generated -test=false -f '{{range .Funcs}}{{$$.Path}}.{{.Name}} {{.Position.File}}{{"\n"}}{{end}}' $$mains > "$$report" && \
 	tools/deadcode-check.sh tools/deadcode-allowlist.txt < "$$report"
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
