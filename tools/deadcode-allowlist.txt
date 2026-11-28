@@ -4,4 +4,4 @@
 # An entry that no longer matches a report fails `make deadcode`; delete it.
 # See doc/development.md ("Dead code check").
 github.com/justin-hayes/mouseion/internal/cardpolicy.OverrideStudyForTest test seam for exercising Study on a language whose switch is still off in production (ADR 0138)
-github.com/justin-hayes/mouseion/internal/epub.ExtractV1 reads existing snapshots under the historical text-only v1 contract; never the acquisition writer
+github.com/justin-hayes/mouseion/internal/epub.ExtractV1 builds v1 (text-only contract) snapshots for tests that exercise v1 checks and the v1-to-v2 upgrade; never the acquisition writer

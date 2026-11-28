@@ -16,6 +16,7 @@ awk -v allowlist="$allowlist" '
   BEGIN {
     while ((getline line < allowlist) > 0) {
       if (line ~ /^[[:space:]]*(#|$)/) continue
+      sub(/^[[:space:]]+/, "", line)
       name = line; sub(/[[:space:]].*$/, "", name)
       reason = line; sub(/^[^[:space:]]+[[:space:]]*/, "", reason)
       if (reason == "") {
