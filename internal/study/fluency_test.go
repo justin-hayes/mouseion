@@ -198,6 +198,10 @@ func TestFluencyWorkerPrefersDifferentFormsAndStopsAtFiveAgreeingContexts(t *tes
 	store.addOccurrence(8, "hausc", nominative())
 
 	require.NoError(t, fluencyWork(worker))
+	for _, priority := range store.priorities {
+		assert.Equal(t, domain.ConcordancePriorityNone, priority, "no Book is read first")
+	}
+	assert.NotEmpty(t, store.priorities)
 
 	require.Len(t, enricher.requests, domain.FluencyContextsPerWord, "asking stops once five agree")
 	for _, meaning := range enricher.meanings {

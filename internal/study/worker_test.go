@@ -197,7 +197,7 @@ func TestWorkChoosesFromTheWholeCorpusWithNoBookPreferred(t *testing.T) {
 	require.NoError(t, work(newWorker(store, enricher)))
 
 	require.NotNil(t, store.ready)
-	assert.Equal(t, otherBook, store.ready.BookID, "the Current reading's sentence is not preferred")
+	assert.Equal(t, otherBook, store.ready.BookID, "the first page settles the choice; no Book is preferred")
 	assert.Equal(t, goodText, store.ready.Sentence)
 	assert.Equal(t, "a building", store.ready.Gloss)
 	assert.Equal(t, []string{domain.ConcordancePriorityNone}, store.priorities, "the concordance is read with no Book first")
