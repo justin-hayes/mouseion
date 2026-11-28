@@ -104,7 +104,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 			html := output.String()
 			assert.Contains(t, html, `href="/static/app.css"`)
 			assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
-			assert.Regexp(t, `class="(my-books|reading)-shell"`, html)
+			assert.Regexp(t, `class="(reading-list|reading)-shell"`, html)
 			assert.NotContains(t, html, `href="/static/vendor/pico-`)
 		})
 	}
