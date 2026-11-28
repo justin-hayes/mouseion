@@ -108,15 +108,6 @@ type spineItem struct {
 	Linear string `xml:"linear,attr"`
 }
 
-// Extract validates an EPUB byte stream and extracts XHTML documents in spine
-// order under the current writer contract. New acquisitions write contract v2,
-// which records source structure; callers that need that structure use
-// ExtractV2. v1 remains available through ExtractV1 for historical evidence.
-func Extract(data []byte) (ExtractedBook, error) {
-	extraction, err := extractContract(data, ExtractedUnitsSchemaVersion)
-	return extraction.Book, err
-}
-
 // ExtractV1 extracts under the historical text-only contract. Existing
 // snapshots and their checks keep reading as v1; it is never the new
 // acquisition writer.
