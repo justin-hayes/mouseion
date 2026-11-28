@@ -22,14 +22,6 @@ templ PageHeader(title, description string, status templ.Component) {
 	</header>
 }
 
-templ LifecycleActionControl(action bookLifecycleAction, csrf string) {
-	if action.Submit {
-		<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">{ action.Label }</button></form>
-	} else if action.URL != "" {
-		<a role="button" href={ templ.SafeURL(action.URL) }>{ action.Label }</a>
-	}
-}
-
 // CoverImage is a retained cover image at its intrinsic size. The alternative
 // text is empty because the adjacent visible title names the Book.
 templ CoverImage(src string, width, height int) {
@@ -53,13 +45,6 @@ templ BookCoverMedia(bookID string, plate titlePlate, cover domain.BookCover) {
 			</div>
 		}
 	</div>
-}
-
-templ NextActionSummary(action bookLifecycleAction) {
-	<section class="next-action" aria-labelledby="next-action-heading">
-		<h2 id="next-action-heading">Next action</h2>
-		<p><strong>{ action.Status }.</strong> { action.Description }</p>
-	</section>
 }
 
 templ Breadcrumb(href, label string) {
@@ -102,12 +87,6 @@ templ ActionGroup() {
 	</div>
 }
 
-templ ResourceCard() {
-	<article class="resource-card">
-		{ children... }
-	</article>
-}
-
 templ Confirmation(summary, description string, tone StatusTone) {
 	<details class={ confirmationClass(tone) }>
 		<summary>{ summary }</summary>
@@ -118,17 +97,6 @@ templ Confirmation(summary, description string, tone StatusTone) {
 			{ children... }
 		</div>
 	</details>
-}
-
-templ MetadataList(items []MetadataItem) {
-	<dl class="metadata-list">
-		for _, item := range items {
-			<div>
-				<dt>{ item.Term }</dt>
-				<dd>{ item.Description }</dd>
-			</div>
-		}
-	</dl>
 }
 
 templ ResponsiveTable(label string) {
