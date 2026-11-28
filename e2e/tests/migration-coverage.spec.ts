@@ -52,8 +52,8 @@ test.describe('migration and epistemic regression coverage', () => {
 
   test('shows the current reading on Reading and its words on the Book detail page without forecasts', async ({ page }) => {
     await page.goto('/de/reading');
-    await expect(page.locator('.journey-book__title')).toBeVisible();
-    await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
+    await expect(page.locator('.current-hero__title')).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-labelledby', 'current-reading-title');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
     await expect(page.locator('ol.journey-list, ul.journey-list')).toHaveCount(0);

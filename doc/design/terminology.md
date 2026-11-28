@@ -19,7 +19,7 @@ language without a product reason.
 
 | Canonical term | Meaning and usage | Avoid |
 |---|---|---|
-| **Reading** | Every Book the learner has chosen, on one page per study language: the Current reading pinned at the top, then To Read, then Read. It is a collection, not a task list or readiness ranking. A Book that needs action shows a status line. | My Books, My Library, Dashboard |
+| **Reading** | Every Book the learner has chosen, on one page per study language: the Current reading hero at the top, then To Read, then Read. It is a collection, not a task list or readiness ranking. A Book that needs action shows a status line. | My Books, My Library, Dashboard |
 | **To Read** | The persisted disposition expressing that a chosen Book is a possible future reading, ensuring acquisition and analysis when needed. Current reading and Read are derived visible buckets; each Book appears in exactly one bucket. It is in title order unless the learner chooses the optional **most readable** sort by Mature coverage. | Inbox (retired), Reading status, Journey position, Set Aside (retired), Hidden (retired) |
 | **Reading** (earlier page) | A separate Reading page that held the Current reading was retired by ADR 0136; Reading (formerly My Books) holds what it held, and `/reading?reading={bookID}` opens that Book's detail page. "Current reading" remains the role a Book has. | Reading Journey, learning queue, plan, roadmap |
 | **Current reading** | The one Book currently being read in a study language, when one exists. It puts its words first among new words in Study until it reaches Target coverage. Finishing records history and changes no vocabulary. | Primary Goal, current project |
@@ -29,7 +29,7 @@ language without a product reason.
 Reading intent is expressed through the To Read disposition. Current reading,
 disposition, and reading history are independent facts; Reading derives one
 visible bucket in precedence order: Currently reading, To Read, then Read when
-history exists. The Current reading is pinned at the top and is also listed under To Read with its own label;
+history exists. The Current reading is the hero at the top and is also listed under To Read with its own label;
 Books with history appear in Read, while To Read Books stay in To Read. A learner may have no current Book and no To Read
 Books; neither state implies failure or urgency.
 
@@ -180,7 +180,7 @@ claim that the learner can or cannot read a book. Study orders new words by Targ
 
 Reading may annotate a Book with current analysis state, current token-weighted
 Mature coverage and the gap to the next coverage band, or the latest completion
-date for a Read Book. Absent coverage is neutral, never `0%`. The pinned Current reading also shows its in-study coverage and roughly how many words are left to introduce before Target coverage. These notes report evidence;
+date for a Read Book. Absent coverage is neutral, never `0%`. The Current reading hero also shows its in-study coverage and roughly how many words are left to introduce before Target coverage. These notes report evidence;
 they do not imply readiness, recommendation, or vocabulary mastery.
 
 **Language view** and **language corpus view** were the names used for the panel

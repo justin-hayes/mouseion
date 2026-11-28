@@ -20,7 +20,7 @@ language) and shows the others in neutral title order.
    Book as **To Read** and starts the same download and preparation as moving a
    Book to To Read. Analysis may be queued, running, ready, stale, failed, or
    unavailable; evidence status does not create a recommendation or order.
-3. Reading, one page per study language, shows the **Current reading** pinned
+3. Reading, one page per study language, opens with the **Current reading** hero
    at the top with its progress toward Target coverage (Mature coverage,
    in-study coverage and roughly how many words are left to introduce), then
    **To Read**, then **Read**. The Current reading is also listed under To Read,

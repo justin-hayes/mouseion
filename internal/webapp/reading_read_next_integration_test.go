@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -199,4 +200,28 @@ func TestEndClearsTheRoleAndKeepsTheBookToRead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, detail.Disposition)
 	assert.Zero(t, detail.CompletionCount, "End records no completion")
+}
+
+func TestReadingHeroFollowsReadNext(t *testing.T) {
+	s := newReadNextHarness(t)
+	first, second := s.toReadBook("first"), s.toReadBook("second")
+
+	page := perform(t, s.h, http.MethodGet, "/de/reading", nil, s.cookies)
+	require.Equal(t, http.StatusOK, page.Code)
+	assert.NotContains(t, page.Body.String(), `class="current-hero"`, "no Current reading, no hero")
+
+	require.Equal(t, http.StatusSeeOther, s.post("/reading/books/"+first.ID+"/start").Code)
+	page = perform(t, s.h, http.MethodGet, "/de/reading", nil, s.cookies)
+	body := page.Body.String()
+	assert.Contains(t, body, `class="current-hero"`)
+	assert.Contains(t, body, `class="current-hero__title"><a href="`+bookDetailURL(first.ID)+`">Read next first</a>`)
+	assert.Contains(t, body, ">Open Book</a>")
+	assert.NotContains(t, body, "current-hero__status", "an analysed Book needs no action")
+
+	require.Equal(t, http.StatusSeeOther, s.post("/reading/books/"+second.ID+"/switch").Code)
+	page = perform(t, s.h, http.MethodGet, "/de/reading", nil, s.cookies)
+	body = page.Body.String()
+	assert.Equal(t, 1, strings.Count(body, `class="current-hero"`))
+	assert.Contains(t, body, `class="current-hero__title"><a href="`+bookDetailURL(second.ID)+`">Read next second</a>`)
+	assert.NotContains(t, body, `class="current-hero__title"><a href="`+bookDetailURL(first.ID))
 }

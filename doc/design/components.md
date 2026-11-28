@@ -616,8 +616,8 @@ Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly Reading,
 Study, Corpus, and Catalog. Catalog owns the Classical catalog section, every OPDS source section and source status at `/catalogs`;
 Manage sources owns catalogue setup and sync maintenance at `/catalogs/sources`.
-Reading is the page of the learner's chosen Books, with the Current reading
-pinned at the top; the Catalog owns per-book acquisition. The shipped shell
+Reading is the page of the learner's chosen Books, opening with the Current
+reading hero; the Catalog owns per-book acquisition. The shipped shell
 marks the current context while compatibility routes redirect without exposing
 Learning as a peer destination.
 
