@@ -466,6 +466,9 @@
   .inline {
     display: inline;
   }
+  .rounded {
+    border-radius: 0.25rem;
+  }
   .alert-error {
     border-color: var(--color-error);
     color: var(--color-error-content);
