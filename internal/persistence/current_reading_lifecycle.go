@@ -120,25 +120,6 @@ LEFT JOIN counts c ON c.canonical_lemma=i.lemma AND c.upos=i.upos AND c.lexical_
 	return acrossBooks, nil
 }
 
-func releaseCurrentReadingSnapshot(ctx context.Context, q *sqlcgen.Queries, owner, snapshotID string) error {
-	if snapshotID == "" {
-		return nil
-	}
-	if _, err := q.LockCurrentReadingSnapshot(ctx, sqlcgen.LockCurrentReadingSnapshotParams{Owner: owner, Snapshot: snapshotID}); err != nil {
-		return err
-	}
-	return q.ReleaseCurrentReadingSnapshot(ctx, sqlcgen.ReleaseCurrentReadingSnapshotParams{Owner: owner, Snapshot: snapshotID})
-}
-
-func releaseCurrentReadingSnapshots(ctx context.Context, q *sqlcgen.Queries, owner string, snapshotIDs []string) error {
-	for _, snapshotID := range snapshotIDs {
-		if err := releaseCurrentReadingSnapshot(ctx, q, owner, snapshotID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // ImportPreviouslyRead records one owner-and-Book-scoped completion without
 // creating vocabulary evidence. The partial unique index makes concurrent
 // retries converge on the same imported fact.
@@ -245,8 +226,7 @@ func (s *PostgresStore) StartCurrentReadingResult(ctx context.Context, owner, la
 }
 
 // applyReadNext writes the Book as the language's current reading: a change
-// when another Book is current, an insert otherwise. A reading started before
-// the vocabulary snapshot was retired has its snapshot released first.
+// when another Book is current, an insert otherwise.
 func applyReadNext(ctx context.Context, q *sqlcgen.Queries, owner, language, bookID string, current *sqlcgen.GetCurrentReadingForUpdateRow) (domain.CurrentReading, error) {
 	if current == nil {
 		row, err := q.InsertCurrentReading(ctx, sqlcgen.InsertCurrentReadingParams{Owner: owner, Language: language, Book: bookID})
@@ -257,9 +237,6 @@ func applyReadNext(ctx context.Context, q *sqlcgen.Queries, owner, language, boo
 			return domain.CurrentReading{}, err
 		}
 		return currentReadingFromValues(row.OwnerID, row.Language, row.BookID, row.CreatedAt, row.UpdatedAt), nil
-	}
-	if err := releaseCurrentReadingSnapshot(ctx, q, owner, current.SnapshotID); err != nil {
-		return domain.CurrentReading{}, err
 	}
 	row, err := q.ChangeCurrentReadingBook(ctx, sqlcgen.ChangeCurrentReadingBookParams{Owner: owner, Language: language, Book: bookID})
 	if err != nil {

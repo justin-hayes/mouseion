@@ -179,8 +179,9 @@ type MyBook struct {
 	DispositionRevision  int64
 	IsToRead             bool
 	IsCurrentReading     bool
-	// EverCurrentReading reports that the Book has held the Current reading
-	// role at least once. A released snapshot proves it after the reading ends.
+	// EverCurrentReading reports that the Book holds the Current reading role.
+	// An ended reading leaves no trace; its history proves a finished one
+	// (ADR 0136 §4).
 	EverCurrentReading     bool
 	CompletionCount        int
 	LatestCompletionAt     *time.Time

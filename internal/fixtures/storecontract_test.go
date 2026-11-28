@@ -104,14 +104,6 @@ func contractReviewOccurrences(owner, bookID string, seeds []storecontract.Occur
 	return occurrences
 }
 
-func (h *contractHarness) SeedKnownVocabulary(_ *testing.T, owner string, identities []domain.SnapshotIdentity) {
-	h.store.mu.Lock()
-	defer h.store.mu.Unlock()
-	for _, identity := range identities {
-		h.store.known = append(h.store.known, domain.KnownVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword, CreatedAt: time.Now()})
-	}
-}
-
 func (h *contractHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(context.Background(), owner, language)
 }

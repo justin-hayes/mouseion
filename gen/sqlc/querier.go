@@ -22,9 +22,8 @@ type Querier interface {
 	// learned meaning. A missing, foreign or disagreeing context returns no row.
 	AppendStudyFluencyResponse(ctx context.Context, arg AppendStudyFluencyResponseParams) (string, error)
 	AppendStudyReviewLog(ctx context.Context, arg AppendStudyReviewLogParams) error
-	// The Book holds the Current reading role now, or held it before the
-	// vocabulary snapshot was retired (a legacy snapshot proves it). A reading
-	// ended since then leaves no trace (ADR 0136 section 4).
+	// The Book holds the Current reading role now. An ended reading leaves no
+	// trace (ADR 0136 section 4).
 	BookEverCurrentReading(ctx context.Context, arg BookEverCurrentReadingParams) (bool, error)
 	// Book identity and My Books evidence queries. The read models select from
 	// the my_books_evidence view (migration 000066, rebuilt over the shared
@@ -38,9 +37,7 @@ type Querier interface {
 	BookIsCurrentReading(ctx context.Context, arg BookIsCurrentReadingParams) (bool, error)
 	BrowseMyBooksEvidence(ctx context.Context, arg BrowseMyBooksEvidenceParams) ([]BrowseMyBooksEvidenceRow, error)
 	CatalogueIndexBackfillBlocked(ctx context.Context) (bool, error)
-	// Replaces the Book of the language's current reading. A reading started before
-	// the snapshot was retired loses its snapshot reference here; the caller
-	// releases it first.
+	// Replaces the Book of the language's current reading.
 	ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurrentReadingBookParams) (ChangeCurrentReadingBookRow, error)
 	// Moves each word whose replacement material is ready onto it: the new
 	// Gloss becomes the learned meaning and the word is marked corrected, unless
@@ -184,9 +181,6 @@ type Querier interface {
 	// It selects only what eligibility needs, so the classifier does not depend on
 	// display-only failure codes.
 	GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentReadingEvidenceParams) (GetCurrentReadingEvidenceRow, error)
-	// A reading started before the vocabulary snapshot was retired still names one;
-	// callers that replace or clear the reading release it. Newer readings name
-	// none, and snapshot_id is then empty.
 	GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrentReadingForUpdateParams) (GetCurrentReadingForUpdateRow, error)
 	GetCurrentSourceEvidenceForUpdate(ctx context.Context, arg GetCurrentSourceEvidenceForUpdateParams) (GetCurrentSourceEvidenceForUpdateRow, error)
 	GetCurrentSourceMaterialContent(ctx context.Context, arg GetCurrentSourceMaterialContentParams) (GetCurrentSourceMaterialContentRow, error)
@@ -194,8 +188,6 @@ type Querier interface {
 	// prepared-deck enrichment is resolved separately from its manifest keys.
 	GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCacheParams) (GetEnrichmentCacheRow, error)
 	GetExtractedUnitSnapshotIdentity(ctx context.Context, arg GetExtractedUnitSnapshotIdentityParams) (GetExtractedUnitSnapshotIdentityRow, error)
-	GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error)
-	GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error)
 	// Per-entry cache for the provider-written Ancient Greek LSJ sense summary
 	// (ADR 0101, ticket #2172). Its identity is the LSJ pin, the entry's native
 	// identity and the provider prompt version; it carries no learner identity and
@@ -262,8 +254,7 @@ type Querier interface {
 	HasReferenceTranslations(ctx context.Context, translationPinSha256 string) (bool, error)
 	// Core persistence queries: users, sessions, supported languages, analysis
 	// jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
-	// states, known vocabulary, generated vocabulary, example/curated sentences,
-	// decks, cards, and processing history.
+	// states, example/curated sentences, and processing history.
 	HasUsers(ctx context.Context) (bool, error)
 	InsertBook(ctx context.Context, arg InsertBookParams) (InsertBookRow, error)
 	InsertBookAlias(ctx context.Context, arg InsertBookAliasParams) (string, error)
@@ -301,8 +292,6 @@ type Querier interface {
 	// Wrong-word report, or whose material is not ready and current, returns no
 	// row.
 	IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error)
-	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
-	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
 	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
 	ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error)
 	// The occurrences of one word's agreeing contexts, to count those a retired
@@ -371,7 +360,6 @@ type Querier interface {
 	ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentStudyMaterialParams) ([]ListCurrentStudyMaterialRow, error)
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
-	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
 	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)
 	// The one definition of a legacy classical Book. The catalog precondition
@@ -387,11 +375,12 @@ type Querier interface {
 	// A Book already associated with a Reading unit, and the source materials
 	// pointing at it, are this feature's own data and are not legacy. A learner's
 	// first Add passes only when they own no such rows, so every derived row
-	// (tokens, Known, vocabulary, candidates, decks) a registered learner owns was
-	// written by this feature and never refuses an Add.
+	// (tokens, vocabulary states) a registered learner owns was written by this
+	// feature and never refuses an Add.
 	// Legacy classical source rows are counted from the shared definition in
 	// ListLegacyClassicalSourceCandidates, not from a second predicate here.
 	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
+	// Sentence selection and review queries.
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
 	// the learner's Study progress (ADR 0136 §3): mature_tokens counts occurrences
@@ -540,10 +529,6 @@ type Querier interface {
 	// a single transaction: upsert everything it saw, then delete what the
 	// complete run did not see. Ownership is checked through the connection.
 	LockCatalogueIndexConnection(ctx context.Context, arg LockCatalogueIndexConnectionParams) (string, error)
-	LockCurrentReadingSnapshot(ctx context.Context, arg LockCurrentReadingSnapshotParams) (string, error)
-	LockCurrentReadingsExceptLanguage(ctx context.Context, arg LockCurrentReadingsExceptLanguageParams) ([]string, error)
-	LockCurrentReadingsForAllLanguages(ctx context.Context, arg LockCurrentReadingsForAllLanguagesParams) ([]string, error)
-	LockCurrentReadingsForBook(ctx context.Context, arg LockCurrentReadingsForBookParams) ([]string, error)
 	LockOpdsConnection(ctx context.Context, arg LockOpdsConnectionParams) (string, error)
 	LockStudyProgress(ctx context.Context, arg LockStudyProgressParams) (StudyProgress, error)
 	LockStudyReport(ctx context.Context, arg LockStudyReportParams) (StudyReport, error)
@@ -556,7 +541,6 @@ type Querier interface {
 	MarkStudyMaterialUnpreparable(ctx context.Context, arg MarkStudyMaterialUnpreparableParams) (int64, error)
 	MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerID string) (pgtype.Text, error)
 	OpdsConnectionExists(ctx context.Context, arg OpdsConnectionExistsParams) (bool, error)
-	PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error)
 	// One Book preparation failure record (ADR 0121). Classical preparation and
 	// EPUB acquisition share the table, key, stage and code vocabulary; they differ
 	// only in provenance. Each kind reads and writes only its own rows so clearing
@@ -564,13 +548,11 @@ type Querier interface {
 	PutClassicalPreparationFailure(ctx context.Context, arg PutClassicalPreparationFailureParams) error
 	PutCorpus(ctx context.Context, arg PutCorpusParams) (PutCorpusRow, error)
 	PutCuratedSentence(ctx context.Context, arg PutCuratedSentenceParams) (PutCuratedSentenceRow, error)
-	PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error)
 	PutEPUBAcquisitionFailure(ctx context.Context, arg PutEPUBAcquisitionFailureParams) error
 	PutExampleSentence(ctx context.Context, arg PutExampleSentenceParams) (PutExampleSentenceRow, error)
 	PutNormalizedCorpusArtifact(ctx context.Context, arg PutNormalizedCorpusArtifactParams) error
 	PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccurrenceLemmaCorrectionParams) (PutOccurrenceLemmaCorrectionRow, error)
 	PutProcessingHistory(ctx context.Context, arg PutProcessingHistoryParams) (PutProcessingHistoryRow, error)
-	PutSelectionCandidate(ctx context.Context, arg PutSelectionCandidateParams) error
 	PutSharedLemma(ctx context.Context, arg PutSharedLemmaParams) error
 	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
@@ -581,7 +563,6 @@ type Querier interface {
 	// the time of the last batch taken or declined, alone (a new row starts at the
 	// epoch).
 	RecordStudyBatchOffer(ctx context.Context, arg RecordStudyBatchOfferParams) error
-	ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error
 	// An Analysis update re-published the word's introducing occurrence in a new
 	// run: the material keeps its sentence, Gloss and translation and names the
 	// occurrence where it now is.
@@ -595,7 +576,6 @@ type Querier interface {
 	// Starts a Study item's material as pending. A word that already has current
 	// material returns no row.
 	ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMaterialParams) (string, error)
-	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
 	// Undo of an Unsuitable-context report: the word goes back to the material,
 	// learned meaning and correction time it had, and a withdrawal for want of a
@@ -603,11 +583,6 @@ type Querier interface {
 	RestoreStudyProgressMaterial(ctx context.Context, arg RestoreStudyProgressMaterialParams) error
 	// Fenced by the advertisement generation: a stale completion changes nothing.
 	SaveCatalogEntryCover(ctx context.Context, arg SaveCatalogEntryCoverParams) (int64, error)
-	// Sentence selection and review queries. SelectAcquisitionCandidate is the
-	// static replacement for the runtime string-concatenated acquisition query:
-	// an unconditional predicate of the form ($book = '' OR source = $book) keeps
-	// the statement statically analyzable.
-	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
 	// First success selects (ADR 0077): every Book aliasing the entry selects it
 	// once its image is available, unless it already selects an available image.
 	// A selection whose entry has no image yet gives way to an available one.
@@ -667,7 +642,6 @@ type Querier interface {
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
-	UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error)
 	UpsertLSJSenseSummary(ctx context.Context, arg UpsertLSJSenseSummaryParams) error
 	UpsertReadingUnit(ctx context.Context, arg UpsertReadingUnitParams) (UpsertReadingUnitRow, error)
 	// Installation-wide reference translations (ADR 0116, ticket #2412). A pinned
@@ -677,7 +651,6 @@ type Querier interface {
 	// sentence; a re-import upserts the same citations, so it never changes an
 	// already-prepared deck. Different pins coexist.
 	UpsertReferenceTranslation(ctx context.Context, arg UpsertReferenceTranslationParams) error
-	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)
 	// Classical reading units and their Book association. Definitions are shared

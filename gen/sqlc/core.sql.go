@@ -328,96 +328,6 @@ func (q *Queries) GetCorpus(ctx context.Context, arg GetCorpusParams) (GetCorpus
 	return i, err
 }
 
-const getKnownVocabulary = `-- name: GetKnownVocabulary :one
-SELECT kv.id::text,
-       kv.owner_id::text,
-       kv.language,
-       kv.canonical_lemma,
-       kv.upos,
-       kv.lexical_discriminator,
-       kv.headword,
-       kv.created_at
-FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2
-`
-
-type GetKnownVocabularyParams struct {
-	OwnerID string
-	ID      string
-}
-
-type GetKnownVocabularyRow struct {
-	KvID                 string
-	KvOwnerID            string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-	CreatedAt            time.Time
-}
-
-func (q *Queries) GetKnownVocabulary(ctx context.Context, arg GetKnownVocabularyParams) (GetKnownVocabularyRow, error) {
-	row := q.db.QueryRow(ctx, getKnownVocabulary, arg.OwnerID, arg.ID)
-	var i GetKnownVocabularyRow
-	err := row.Scan(
-		&i.KvID,
-		&i.KvOwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.LexicalDiscriminator,
-		&i.Headword,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getKnownVocabularyByIdentity = `-- name: GetKnownVocabularyByIdentity :one
-SELECT id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, created_at
-FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4 AND lexical_discriminator = $5 ORDER BY id LIMIT 1
-`
-
-type GetKnownVocabularyByIdentityParams struct {
-	OwnerID              string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-}
-
-type GetKnownVocabularyByIdentityRow struct {
-	ID                   string
-	OwnerID              string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-	CreatedAt            time.Time
-}
-
-func (q *Queries) GetKnownVocabularyByIdentity(ctx context.Context, arg GetKnownVocabularyByIdentityParams) (GetKnownVocabularyByIdentityRow, error) {
-	row := q.db.QueryRow(ctx, getKnownVocabularyByIdentity,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.LexicalDiscriminator,
-	)
-	var i GetKnownVocabularyByIdentityRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.LexicalDiscriminator,
-		&i.Headword,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const getNormalizedCorpusArtifact = `-- name: GetNormalizedCorpusArtifact :one
 SELECT content_hash, language, schema_version, normalization_profile, normalization_version, analyzer_name, analyzer_version, created_at
 FROM normalized_corpus_artifacts WHERE content_hash = $1
@@ -585,8 +495,7 @@ SELECT EXISTS(SELECT 1 FROM users)
 
 // Core persistence queries: users, sessions, supported languages, analysis
 // jobs, catalogue sync, source materials, artifacts, corpora, vocabulary
-// states, known vocabulary, generated vocabulary, example/curated sentences,
-// decks, cards, and processing history.
+// states, example/curated sentences, and processing history.
 func (q *Queries) HasUsers(ctx context.Context) (bool, error) {
 	row := q.db.QueryRow(ctx, hasUsers)
 	var exists bool
@@ -695,52 +604,6 @@ type InsertSessionParams struct {
 func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
 	_, err := q.db.Exec(ctx, insertSession, arg.UserID, arg.TokenHash, arg.ExpiresAt)
 	return err
-}
-
-const isKnownVocabularyIdentity = `-- name: IsKnownVocabularyIdentity :one
-SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND (upos = $4 OR upos = ''))
-`
-
-type IsKnownVocabularyIdentityParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isKnownVocabularyIdentity,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const knownVocabularyExists = `-- name: KnownVocabularyExists :one
-SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4)
-`
-
-type KnownVocabularyExistsParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error) {
-	row := q.db.QueryRow(ctx, knownVocabularyExists,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }
 
 const latestCorpusForSource = `-- name: LatestCorpusForSource :one
@@ -913,63 +776,6 @@ func (q *Queries) ListCatalogueSyncStatuses(ctx context.Context, ownerID string)
 	return items, nil
 }
 
-const listKnownVocabulary = `-- name: ListKnownVocabulary :many
-SELECT kv.id::text,
-       kv.owner_id::text,
-       kv.language,
-       kv.canonical_lemma,
-       kv.upos,
-       kv.lexical_discriminator,
-       kv.headword,
-       kv.created_at
-FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id
-`
-
-type ListKnownVocabularyParams struct {
-	OwnerID  string
-	Language string
-}
-
-type ListKnownVocabularyRow struct {
-	KvID                 string
-	KvOwnerID            string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-	CreatedAt            time.Time
-}
-
-func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error) {
-	rows, err := q.db.Query(ctx, listKnownVocabulary, arg.OwnerID, arg.Language)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListKnownVocabularyRow{}
-	for rows.Next() {
-		var i ListKnownVocabularyRow
-		if err := rows.Scan(
-			&i.KvID,
-			&i.KvOwnerID,
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-			&i.Headword,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSharedLemmas = `-- name: ListSharedLemmas :many
 SELECT content_hash, language, canonical_lemma, upos, morphology, frequency
 FROM shared_lemmas WHERE content_hash = $1 ORDER BY id
@@ -1088,60 +894,6 @@ func (q *Queries) MostRecentlyActivatedStudyLanguage(ctx context.Context, ownerI
 	return language_tag, err
 }
 
-const putCard = `-- name: PutCard :one
-INSERT INTO cards(owner_id, deck_id, dedup_key, canonical_lemma, upos, front, back)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT(owner_id, dedup_key) DO UPDATE SET front = excluded.front, back = excluded.back
-RETURNING id::text, owner_id::text, deck_id::text, dedup_key, canonical_lemma, upos, front, back, created_at
-`
-
-type PutCardParams struct {
-	OwnerID        string
-	DeckID         string
-	DedupKey       string
-	CanonicalLemma string
-	Upos           string
-	Front          string
-	Back           string
-}
-
-type PutCardRow struct {
-	ID             string
-	OwnerID        string
-	DeckID         string
-	DedupKey       string
-	CanonicalLemma string
-	Upos           string
-	Front          string
-	Back           string
-	CreatedAt      time.Time
-}
-
-func (q *Queries) PutCard(ctx context.Context, arg PutCardParams) (PutCardRow, error) {
-	row := q.db.QueryRow(ctx, putCard,
-		arg.OwnerID,
-		arg.DeckID,
-		arg.DedupKey,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.Front,
-		arg.Back,
-	)
-	var i PutCardRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.DeckID,
-		&i.DedupKey,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.Front,
-		&i.Back,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const putCorpus = `-- name: PutCorpus :one
 INSERT INTO corpora(owner_id, source_material_id, artifact_hash) VALUES ($1, $2, $3)
 RETURNING id::text, owner_id::text, source_material_id::text, artifact_hash, status, created_at
@@ -1222,39 +974,6 @@ func (q *Queries) PutCuratedSentence(ctx context.Context, arg PutCuratedSentence
 		&i.CanonicalLemma,
 		&i.Upos,
 		&i.Notes,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const putDeck = `-- name: PutDeck :one
-INSERT INTO decks(owner_id, language, name) VALUES ($1, $2, $3)
-ON CONFLICT(owner_id, language, name) DO UPDATE SET name = excluded.name
-RETURNING id::text, owner_id::text, language, name, created_at
-`
-
-type PutDeckParams struct {
-	OwnerID  string
-	Language string
-	Name     string
-}
-
-type PutDeckRow struct {
-	ID        string
-	OwnerID   string
-	Language  string
-	Name      string
-	CreatedAt time.Time
-}
-
-func (q *Queries) PutDeck(ctx context.Context, arg PutDeckParams) (PutDeckRow, error) {
-	row := q.db.QueryRow(ctx, putDeck, arg.OwnerID, arg.Language, arg.Name)
-	var i PutDeckRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.Name,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -1385,44 +1104,6 @@ func (q *Queries) PutProcessingHistory(ctx context.Context, arg PutProcessingHis
 	return i, err
 }
 
-const putSelectionCandidate = `-- name: PutSelectionCandidate :exec
-INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-ON CONFLICT(owner_id, corpus_id, language, canonical_lemma, upos) DO UPDATE SET
-  occurrence_count = excluded.occurrence_count,
-  observed_forms = excluded.observed_forms,
-  eligible_sentence_refs = excluded.eligible_sentence_refs,
-  provenance = excluded.provenance,
-  selected_at = now()
-`
-
-type PutSelectionCandidateParams struct {
-	OwnerID              string
-	CorpusID             string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	OccurrenceCount      int
-	ObservedForms        []byte
-	EligibleSentenceRefs []byte
-	Provenance           []byte
-}
-
-func (q *Queries) PutSelectionCandidate(ctx context.Context, arg PutSelectionCandidateParams) error {
-	_, err := q.db.Exec(ctx, putSelectionCandidate,
-		arg.OwnerID,
-		arg.CorpusID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.OccurrenceCount,
-		arg.ObservedForms,
-		arg.EligibleSentenceRefs,
-		arg.Provenance,
-	)
-	return err
-}
-
 const putSharedLemma = `-- name: PutSharedLemma :exec
 INSERT INTO shared_lemmas(content_hash, language, canonical_lemma, upos, morphology, frequency)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -1511,38 +1192,6 @@ ON CONFLICT(language) DO NOTHING
 func (q *Queries) PutSupportedLanguageOrIgnore(ctx context.Context, language string) error {
 	_, err := q.db.Exec(ctx, putSupportedLanguageOrIgnore, language)
 	return err
-}
-
-const reservedVocabularyExists = `-- name: ReservedVocabularyExists :one
-SELECT EXISTS(
-  SELECT 1
-  FROM primary_goal_snapshots ps
-  JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
-  JOIN primary_goal_snapshot_vocabulary pv
-    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
-  WHERE ps.owner_id = $1 AND ps.language = $2
-    AND ps.released_at IS NULL AND pv.language = $2
-    AND pv.canonical_lemma = $3 AND pv.upos = $4
-)
-`
-
-type ReservedVocabularyExistsParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error) {
-	row := q.db.QueryRow(ctx, reservedVocabularyExists,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }
 
 const setActiveStudyLanguage = `-- name: SetActiveStudyLanguage :execrows
@@ -1687,56 +1336,6 @@ func (q *Queries) UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSe
 		&i.CanonicalLemma,
 		&i.Upos,
 		&i.Notes,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const upsertKnownVocabulary = `-- name: UpsertKnownVocabulary :one
-INSERT INTO known_vocabulary(owner_id, language, canonical_lemma, upos, lexical_discriminator, headword)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT(owner_id, language, canonical_lemma, upos, lexical_discriminator) DO UPDATE SET canonical_lemma = excluded.canonical_lemma
-RETURNING id::text, owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, created_at
-`
-
-type UpsertKnownVocabularyParams struct {
-	OwnerID              string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-}
-
-type UpsertKnownVocabularyRow struct {
-	ID                   string
-	OwnerID              string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-	CreatedAt            time.Time
-}
-
-func (q *Queries) UpsertKnownVocabulary(ctx context.Context, arg UpsertKnownVocabularyParams) (UpsertKnownVocabularyRow, error) {
-	row := q.db.QueryRow(ctx, upsertKnownVocabulary,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.LexicalDiscriminator,
-		arg.Headword,
-	)
-	var i UpsertKnownVocabularyRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.LexicalDiscriminator,
-		&i.Headword,
 		&i.CreatedAt,
 	)
 	return i, err

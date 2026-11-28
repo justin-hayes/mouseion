@@ -46,10 +46,6 @@ func (s *fakeStore) PutLemmaDecisionProposal(context.Context, domain.LemmaReview
 	return nil
 }
 
-func (s *fakeStore) ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error) {
-	return nil, nil
-}
-
 func germanBook() domain.MyBook {
 	return domain.MyBook{Book: domain.Book{LanguageTag: "de"}, Acquired: &domain.SourceMaterialSummary{}}
 }

@@ -69,21 +69,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Equal(t, "Drachen liegen im Sand.", occurrences[2].SentenceText)
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: occurrences[0].CanonicalLemma, Excluded: false, NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}), "an explicit keep is a decision")
 	buildBrowseProjection(t, ctx, store, book.ID)
-	// The proposal moves "unrelated-known", so making that identity Known after
-	// the preview is an affected-identity change that must reject the confirm.
-	proposal := domain.LemmaReviewProposal{
-		OwnerID: owner.ID, BookID: book.ID, Language: "de", Surface: "Drachen", Action: "correct", Lemma: "unrelated-known",
-		Occurrences: occurrences[:1], NormalizationProfile: "german-post-1996", NormalizationVersion: "6",
-	}
-	preview, err := store.ReadLemmaReviewProposal(ctx, proposal)
-	require.NoError(t, err)
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "unrelated-known", "NOUN")
-	require.NoError(t, err)
-	err = store.PutLemmaDecisionProposal(ctx, proposal, preview.Fingerprint)
-	require.ErrorIs(t, err, domain.ErrLemmaReviewPreviewStale, "a Known change to an identity the proposal affects after preview is rejected inside the decision transaction")
-	unchangedAfterStaleProposal, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
-	require.NoError(t, err)
-	assert.Empty(t, unchangedAfterStaleProposal[0].CorrectedLemma, "a stale preview cannot persist its proposed identity")
 	assert.Empty(t, occurrences[0].CorrectedLemma)
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "drache", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}))
 	require.ErrorIs(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "drachenwesen", NormalizationProfile: "german-post-1996", NormalizationVersion: "6"}}), persistence.ErrNotFound, "a stale occurrence decision cannot overwrite a newer correction")
@@ -161,10 +146,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, reservedCoverage.InStudyTokenCount, "an active reading reservation is not study")
 	assert.Zero(t, reservedCoverage.MatureTokenCount, "an active reading reservation is not Mature")
-	// Known vocabulary is unchanged and no longer read by coverage; the Mature
-	// word is what moves it.
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "drache", "NOUN")
-	require.NoError(t, err)
+	// The Mature word is what moves coverage.
 	seedStudyWord(t, ctx, store, owner.ID, "drache", true)
 	coverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
 	require.NoError(t, err)
@@ -195,11 +177,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	finished, err := store.FinishCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, finished.Completion.BookID)
-	knownAfterFinish, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
-	require.NoError(t, err)
-	assert.Len(t, knownAfterFinish, 2, "Finish adds no Known identity")
-	assert.Contains(t, []string{knownAfterFinish[0].CanonicalLemma, knownAfterFinish[1].CanonicalLemma}, "drache", "the pre-existing Known identity remains unchanged after the later reading")
-	assert.Contains(t, []string{knownAfterFinish[0].CanonicalLemma, knownAfterFinish[1].CanonicalLemma}, "unrelated-known")
+	assert.Empty(t, testutil.LegacyKnownLemmas(t, ctx, store.Pool(), owner.ID, "de"), "Finish adds no Known identity")
 	completedBook, err := store.GetBookDetail(ctx, owner.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, completedBook.CompletionCount)

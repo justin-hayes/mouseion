@@ -114,7 +114,10 @@ BEFORE UPDATE ON primary_goals FOR EACH ROW EXECUTE FUNCTION test_current_readin
 	assert.Zero(t, snapshotRefs, "the reading names no snapshot")
 }
 
-func TestReadNextReleasesALegacySnapshotItReplaces(t *testing.T) {
+// TestReadNextReplacesALegacyReadingThatNamesASnapshot holds that a reading
+// started before the snapshot was retired is replaced like any other; the store
+// no longer reads or releases the snapshot it names (ADR 0136 §4).
+func TestReadNextReplacesALegacyReadingThatNamesASnapshot(t *testing.T) {
 	ctx := context.Background()
 	databaseURL, _ := testutil.Postgres(t, ctx, Migrate)
 	store := openIntegrationStore(t, ctx, databaseURL)
@@ -137,9 +140,10 @@ FROM current_analysis_identity ca WHERE ca.owner_id=$1 AND ca.book_id=$2 RETURNI
 	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", next.ID)
 	require.NoError(t, err)
 	assert.Equal(t, next.ID, reading.BookID)
-	var released int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goal_snapshots WHERE id=$1 AND released_at IS NOT NULL`, snapshotID).Scan(&released))
-	assert.Equal(t, 1, released, "the replaced reading's legacy snapshot is released")
+	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, next.ID, current.BookID)
+	require.NoError(t, store.EndCurrentReading(ctx, owner.ID, "de"), "End clears a reading that still names a legacy snapshot")
 }
 
 func TestEndCurrentReadingNeedsNoCommitmentAndRecordsNothing(t *testing.T) {

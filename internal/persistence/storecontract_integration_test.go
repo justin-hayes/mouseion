@@ -15,7 +15,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/storecontract"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -251,7 +250,7 @@ func (h *postgresHarness) seedDisposition(t *testing.T, owner, bookID string, to
 // makes it the Book's current analysis, and returns its run and corpus IDs.
 func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier, language string, imported bool) (string, string) {
 	t.Helper()
-	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(h.store))
+	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	handle, err := analysis.NewService(h.store.Pool(), analysisRiver).SubmitAnalysis(h.ctx, owner, sourceID)
 	require.NoError(t, err)
@@ -318,14 +317,6 @@ func (h *postgresHarness) seedLemmaOccurrences(t *testing.T, owner, bookID, sour
 	require.NoError(t, err)
 	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(h.ctx, tx, owner, bookID, sourceID, runID, corpusID, language))
 	require.NoError(t, tx.Commit(h.ctx))
-}
-
-func (h *postgresHarness) SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity) {
-	t.Helper()
-	for _, identity := range identities {
-		_, err := h.store.PutKnownVocabularyIdentity(h.ctx, owner, identity.Language, identity.CanonicalLemma, identity.UPOS, identity.LexicalDiscriminator)
-		require.NoError(t, err)
-	}
 }
 
 func (h *postgresHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {

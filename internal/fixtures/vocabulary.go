@@ -481,10 +481,6 @@ func (s *Store) GetProjectedCorpusVocabulary(ctx context.Context, owner, corpusI
 	return domain.ProjectedCorpusVocabulary{AnalysisCorpusVocabulary: vocabulary, Ready: true}, nil
 }
 
-func (s *Store) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
-	return false, nil
-}
-
 func fixtureKnownCorpusTokens(corpusID string) int64 {
 	switch corpusID {
 	case "fixture-corpus", "fixture-route-match-corpus":
@@ -498,23 +494,6 @@ func fixtureKnownCorpusTokens(corpusID string) int64 {
 	default:
 		return 0
 	}
-}
-
-func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.knownForOwnerLocked(owner, normalizeFixtureLanguage(language)), nil
-}
-
-// knownForOwnerLocked returns the owner's Known rows in language. Callers hold s.mu.
-func (s *Store) knownForOwnerLocked(owner, language string) []domain.KnownVocabulary {
-	var result []domain.KnownVocabulary
-	for _, entry := range s.known {
-		if entry.OwnerID == owner && normalizeFixtureLanguage(entry.Language) == language {
-			result = append(result, entry)
-		}
-	}
-	return result
 }
 
 const (

@@ -69,7 +69,6 @@ func TestLemmaReviewImpactPreviewsEligibility(t *testing.T) {
 		name          string
 		target        []string
 		otherBooks    [][]string
-		known         bool
 		action, lemma string
 		form          string
 		wantBefore    bool
@@ -103,13 +102,6 @@ func TestLemmaReviewImpactPreviewsEligibility(t *testing.T) {
 			wantBefore: false, wantAfter: true,
 		},
 		{
-			name:   "a correction into a Known identity is not eligible",
-			target: append(repeat("Haus", 2), "Heim"),
-			known:  true,
-			form:   "Heim", action: "correct", lemma: "haus",
-			wantBefore: false, wantAfter: false,
-		},
-		{
 			name:   "an exclusion drops an identity below the threshold",
 			target: repeat("Haus", 3),
 			form:   "Haus", action: "exclude",
@@ -124,10 +116,6 @@ func TestLemmaReviewImpactPreviewsEligibility(t *testing.T) {
 			require.NoError(t, err)
 			for i, words := range tt.otherBooks {
 				reviewImpactBook(t, ctx, store, owner.ID, fmt.Sprintf("other%d", i), false, words)
-			}
-			if tt.known {
-				_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "haus", "NOUN")
-				require.NoError(t, err)
 			}
 			book := reviewImpactBook(t, ctx, store, owner.ID, "target", true, tt.target)
 
@@ -205,22 +193,13 @@ func TestLemmaReviewFingerprintRejectsEveryChangeThePreviewDependedOn(t *testing
 			wantStale: true,
 		},
 		{
-			name:   "an affected identity becoming Known",
-			target: []string{"Haus", "Heim"},
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _ domain.Book) {
+			name:   "a decision on an unaffected identity",
+			target: []string{"Haus", "Heim", "Dach"},
+			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, target, _ domain.Book) {
 				t.Helper()
-				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "haus", "NOUN")
+				occurrences, err := store.ListLemmaReviewOccurrences(ctx, ownerID, target.ID, "Dach")
 				require.NoError(t, err)
-			},
-			wantStale: true,
-		},
-		{
-			name:   "an unaffected identity becoming Known",
-			target: []string{"Haus", "Heim"},
-			change: func(t *testing.T, ctx context.Context, store *PostgresStore, ownerID string, _, _ domain.Book) {
-				t.Helper()
-				_, err := store.PutKnownVocabulary(ctx, ownerID, "de", "unrelated", "NOUN")
-				require.NoError(t, err)
+				require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], Excluded: true}}))
 			},
 		},
 	}

@@ -124,21 +124,6 @@ func TestEffectiveCarriesTheLexicalDiscriminator(t *testing.T) {
 	assert.Equal(t, Identity{"grc", "leksis", "NOUN", ""}, corrected, "a correction has an empty discriminator")
 }
 
-// Learner state keeps discriminated identities distinct, and a blank Known UPOS
-// remains the lemma wildcard within the same discriminator.
-func TestEligibilityKeepsDiscriminatedIdentitiesDistinct(t *testing.T) {
-	discriminated := domain.SelectionCandidate{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN", LexicalDiscriminator: "morpheus:2", OccurrenceCount: 3}
-	bare := domain.SelectionCandidate{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN", OccurrenceCount: 3}
-
-	reserved := NewEligibility(nil, []domain.DeckPreparationVocabulary{{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN", LexicalDiscriminator: "morpheus:2"}})
-	assert.False(t, reserved.Allows(discriminated, 1), "the matching discriminator is Reserved")
-	assert.True(t, reserved.Allows(bare, 1), "a different discriminator is not Reserved")
-
-	known := NewEligibility([]domain.KnownVocabulary{{Language: "grc", CanonicalLemma: "lexis", UPOS: "NOUN"}}, nil)
-	assert.False(t, known.Allows(bare, 1), "empty equals empty")
-	assert.True(t, known.Allows(discriminated, 1), "an empty Known discriminator does not exclude a discriminated identity")
-}
-
 // Identities that differ only in the discriminator sort bare before
 // discriminated, in every deterministic ordering the identity feeds.
 func TestDiscriminatedIdentitiesSortAfterBareOnes(t *testing.T) {

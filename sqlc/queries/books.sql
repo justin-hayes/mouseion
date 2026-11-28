@@ -11,16 +11,12 @@ SELECT EXISTS(
 );
 
 -- name: BookEverCurrentReading :one
--- The Book holds the Current reading role now, or held it before the
--- vocabulary snapshot was retired (a legacy snapshot proves it). A reading
--- ended since then leaves no trace (ADR 0136 section 4).
-SELECT (EXISTS(
-  SELECT 1 FROM primary_goal_snapshots s
-  WHERE s.owner_id = sqlc.arg('owner') AND s.book_id = sqlc.arg('book')
-) OR EXISTS(
+-- The Book holds the Current reading role now. An ended reading leaves no
+-- trace (ADR 0136 section 4).
+SELECT EXISTS(
   SELECT 1 FROM primary_goals g
   WHERE g.owner_id = sqlc.arg('owner') AND g.book_id = sqlc.arg('book')
-))::boolean;
+)::boolean;
 
 -- name: BookHasActiveCurrentReading :one
 SELECT EXISTS(
@@ -72,13 +68,10 @@ SELECT e.*
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
        ) AS is_current_reading
-     , ((EXISTS (
-         SELECT 1 FROM primary_goal_snapshots s
-         WHERE s.owner_id::text = e.book_owner_id AND s.book_id::text = e.book_id
-       ) OR EXISTS (
+     , (EXISTS (
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
-       )))::boolean AS ever_current_reading
+       ))::boolean AS ever_current_reading
      , COALESCE(ru.definition_key, '')::text AS reading_unit_key
      , COALESCE(w.definition_key, '')::text AS work_key
      , COALESCE(w.title, '')::text AS work_title

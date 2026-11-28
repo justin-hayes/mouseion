@@ -1,19 +1,4 @@
--- Sentence selection and review queries. SelectAcquisitionCandidate is the
--- static replacement for the runtime string-concatenated acquisition query:
--- an unconditional predicate of the form ($book = '' OR source = $book) keeps
--- the statement statically analyzable.
-
--- name: SelectAcquisitionCandidate :one
-SELECT sc.corpus_id, sc.eligible_sentence_refs
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-WHERE sc.owner_id = sqlc.arg('owner')
-  AND sc.language = sqlc.arg('language')
-  AND sc.canonical_lemma = sqlc.arg('canonical_lemma')
-  AND sc.upos = sqlc.arg('upos')
-   AND (sqlc.arg('book')::text = '' OR c.source_material_id::text = sqlc.arg('book')::text)
-ORDER BY sc.selected_at DESC, sc.corpus_id DESC
-LIMIT 1;
+-- Sentence selection and review queries.
 
 -- name: ListLemmaReviewOccurrences :many
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
@@ -169,21 +154,6 @@ WHERE d.owner_id = sqlc.arg('owner') AND d.book_id = sqlc.arg('book')
     AND d.excluded = sqlc.arg('expected_excluded')
   AND t.surface = sqlc.arg('expected_surface') AND t.raw_lemma = sqlc.arg('expected_raw_lemma')
   AND t.canonical_lemma = sqlc.arg('expected_canonical_lemma') AND t.upos = sqlc.arg('expected_upos');
-
--- name: UpsertReviewSentenceFromAnalysis :one
-INSERT INTO example_sentences(owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 0, '[]', true)
-ON CONFLICT(owner_id, corpus_id, sentence_key) DO UPDATE SET
-  sentence_text = excluded.sentence_text,
-  source_location = excluded.source_location,
-  language = excluded.language,
-  canonical_lemma = excluded.canonical_lemma,
-  upos = excluded.upos,
-  selection_rank = excluded.selection_rank,
-  selection_score = excluded.selection_score,
-  selection_reasons = excluded.selection_reasons,
-  is_chosen = true
-RETURNING id, owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen, created_at;
 
 -- name: ListSelectedSentences :many
 SELECT id, owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen, created_at

@@ -1,11 +1,11 @@
-// Package selection generates deterministic, owner-scoped vocabulary candidates.
+// Package selection projects analyzed occurrences onto vocabulary identities:
+// which tokens count as vocabulary, under which identity, and how often. It
+// holds no learner state and persists nothing (ADR 0136 removed
+// Recurring-vocabulary selection and its candidate rows).
 package selection
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -18,16 +18,6 @@ var (
 	ErrInvalidConfig   = errors.New("selection: invalid configuration")
 	ErrInvalidDecision = errors.New("selection: invalid occurrence decision")
 )
-
-// Store is the selection service's learner-state seam. Its identity arguments
-// are the persisted tuple without the lexical discriminator: the discriminator
-// column arrives with the slices that first write Greek rows, so the seam stays
-// exact on language, canonical lemma and UPOS until then.
-type Store interface {
-	IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error)
-	IsReservedVocabulary(context.Context, string, string, string, string) (bool, error)
-	PutSelectionCandidate(context.Context, domain.SelectionCandidate) (bool, error)
-}
 
 // Identity is one vocabulary identity: the study language, the canonical
 // lemma, its part of speech, and a scheme-qualified lexical discriminator.
@@ -92,10 +82,6 @@ func DefaultConfig(corpusID string) SelectionConfig {
 		AllowedPOS: map[string]bool{"NOUN": true, "VERB": true, "ADJ": true, "ADV": true}}
 }
 
-type Service struct{ store Store }
-
-func NewService(store Store) *Service { return &Service{store: store} }
-
 type aggregate struct {
 	count int
 	forms map[string]bool
@@ -104,9 +90,8 @@ type aggregate struct {
 
 // Project derives deterministic candidate facts from immutable analyzer
 // evidence and optional occurrence-scoped learner decisions. It deliberately
-// does not apply owner state (Known or Reserved) or persist results, so all
-// consumers can share the same vocabulary projection before applying their
-// own eligibility and freeze rules.
+// does not apply owner state or persist results, so all consumers share the
+// same vocabulary projection.
 func Project(corpus analyzer.Result, cfg SelectionConfig, decisions []OccurrenceDecision) ([]Candidate, error) {
 	if err := validateProjectInput(corpus, cfg); err != nil {
 		return nil, err
@@ -229,7 +214,7 @@ func projectCandidate(id Identity, a *aggregate, cfg SelectionConfig) Candidate 
 }
 
 // AnalyzableStatistics calculates the immutable coverage denominator using the
-// same token filters as candidate selection. Distinct lemmas are the
+// same token filters as Project. Distinct lemmas are the
 // lemma-and-UPOS identities used by vocabulary selection.
 func AnalyzableStatistics(corpus analyzer.Result, cfg SelectionConfig) domain.AnalysisStatistics {
 	aggs := aggregateTokens(corpus, cfg, nil)
@@ -345,71 +330,4 @@ func OccurrenceEligible(cfg SelectionConfig, language, lemma, upos, dependency s
 
 func occurrenceIdentity(token analyzer.Token) OccurrenceIdentity {
 	return OccurrenceIdentity{SourceDocumentID: token.Location.SourceDocumentID, StartOffset: token.Location.StartOffset, EndOffset: token.Location.EndOffset}
-}
-
-func (s *Service) Select(ctx context.Context, owner string, corpus analyzer.Result, cfg SelectionConfig) ([]Candidate, error) {
-	if owner == "" || cfg.CorpusID == "" {
-		return nil, ErrInvalidConfig
-	}
-	projected, err := Project(corpus, cfg, nil)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Candidate, 0)
-	for _, candidate := range projected {
-		kept, err := s.selectCandidate(ctx, owner, cfg, candidate)
-		if err != nil {
-			return nil, err
-		}
-		if kept {
-			out = append(out, candidate)
-		}
-	}
-	return out, nil
-}
-
-// selectCandidate applies owner state to one projected candidate and persists
-// it, reporting whether the store kept the row.
-func (s *Service) selectCandidate(ctx context.Context, owner string, cfg SelectionConfig, candidate Candidate) (bool, error) {
-	id := candidate.Identity
-	if candidate.OccurrenceCount < cfg.MinOccurrences {
-		return false, nil
-	}
-	known, err := s.store.IsKnownVocabularyIdentity(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
-	if err != nil {
-		return false, fmt.Errorf("get known vocabulary: %w", err)
-	}
-	reserved, err := s.store.IsReservedVocabulary(ctx, owner, id.Language, id.CanonicalLemma, id.UPOS)
-	if err != nil {
-		return false, fmt.Errorf("get reserved vocabulary: %w", err)
-	}
-	if !allowsIdentity(candidate.OccurrenceCount, cfg.MinOccurrences, known, reserved) {
-		return false, nil
-	}
-	formsJSON, refsJSON, provenanceJSON, err := marshalCandidate(candidate)
-	if err != nil {
-		return false, err
-	}
-	kept, err := s.store.PutSelectionCandidate(ctx, domain.SelectionCandidate{OwnerID: owner, CorpusID: cfg.CorpusID, Language: id.Language, CanonicalLemma: id.CanonicalLemma, UPOS: id.UPOS, LexicalDiscriminator: id.LexicalDiscriminator, OccurrenceCount: candidate.OccurrenceCount, ObservedForms: formsJSON, SentenceReferences: refsJSON, Provenance: provenanceJSON})
-	if err != nil {
-		return false, fmt.Errorf("persist candidate: %w", err)
-	}
-	return kept, nil
-}
-
-// marshalCandidate encodes the JSON columns of one candidate row.
-func marshalCandidate(candidate Candidate) ([]byte, []byte, []byte, error) {
-	formsJSON, err := json.Marshal(candidate.ObservedForms)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("encode observed forms: %w", err)
-	}
-	refsJSON, err := json.Marshal(candidate.SentenceReferences)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("encode sentence references: %w", err)
-	}
-	provenanceJSON, err := json.Marshal(candidate.Provenance)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("encode candidate provenance: %w", err)
-	}
-	return formsJSON, refsJSON, provenanceJSON, nil
 }

@@ -112,17 +112,17 @@ func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	assert.Empty(t, got, "cleared active language=%q err=%v", got, err)
 }
 
-func TestStoreKnownVocabularyOnlyLanguageRemainsViewable(t *testing.T) {
+func TestStoreStudyProgressOnlyLanguageRemainsSelectable(t *testing.T) {
 	store := NewStore()
-	err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr")
+	progress, err := store.ListStudyProgressLanguages(context.Background(), OwnerID)
 	require.NoError(t, err)
-	known, err := store.ListKnownVocabulary(context.Background(), OwnerID, "fr")
-	require.NoError(t, err, "known-only vocabulary=%+v err=%v", known, err)
-	require.Len(t, known, 1, "known-only vocabulary=%+v err=%v", known, err)
-	assert.Equal(t, "bonjour", known[0].CanonicalLemma, "known-only vocabulary=%+v err=%v", known, err)
+	require.Len(t, progress, 1, "study progress languages=%+v", progress)
+	assert.Equal(t, "fr", progress[0].Language)
 	languages, err := store.ListStudyLanguages(context.Background(), OwnerID)
-	require.NoError(t, err, "study languages=%+v err=%v", languages, err)
-	assert.Len(t, languages, 2, "study languages=%+v err=%v", languages, err)
+	require.NoError(t, err)
+	for _, language := range languages {
+		assert.NotEqual(t, "fr", language.Language, "French has no Book")
+	}
 }
 
 func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
@@ -471,18 +471,10 @@ func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *test
 	require.Failf(t, "fixture book not found", "fixture book %q not found", BookID)
 }
 
-func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
+func TestMigrationFixturesPinTheMetadataOnlyBook(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 
-	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	knownLemmas := map[string]bool{}
-	for _, item := range known {
-		knownLemmas[item.CanonicalLemma] = true
-	}
-	assert.True(t, knownLemmas[IndependentKnownLemma], "known vocabulary=%v", known)
-	assert.True(t, knownLemmas[GraduatedKnownLemma], "known vocabulary=%v", known)
 	books, err := store.ListMyBooksWithEvidence(ctx, OwnerID)
 	require.NoError(t, err)
 	for _, book := range books {

@@ -80,9 +80,6 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 	_, err = store.Pool().Exec(ctx, `INSERT INTO primary_goals(owner_id, book_id, language) VALUES ($1, $2, 'de')`, owner.ID, current.ID)
 	require.NoError(t, err)
 
-	_, err = store.PutKnownVocabulary(ctx, owner.ID, "de", "haus", "NOUN")
-	require.NoError(t, err)
-
 	// The gate refuses to remove anything before a connection has synced.
 	connection, err := store.CreateOpdsConnection(ctx, owner.ID, domain.OpdsConnection{Name: "Backfill catalog", URL: "https://backfill.example/opds"})
 	require.NoError(t, err)
@@ -100,7 +97,6 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 	}))
 
 	beforeHistory := countRowsForOwner(t, ctx, store, "reading_history", owner.ID)
-	beforeKnown := countRowsForOwner(t, ctx, store, "known_vocabulary", owner.ID)
 	beforeBooks := countRowsForOwner(t, ctx, store, "books", owner.ID)
 
 	report, err := store.BackfillChosenBooks(ctx)
@@ -117,7 +113,6 @@ func TestBackfillChosenBooksSeedsEveryPreChangeState(t *testing.T) {
 	}
 
 	assert.Equal(t, beforeHistory, countRowsForOwner(t, ctx, store, "reading_history", owner.ID), "the backfill changes no completion")
-	assert.Equal(t, beforeKnown, countRowsForOwner(t, ctx, store, "known_vocabulary", owner.ID), "the backfill changes no Known vocabulary")
 	assert.Equal(t, beforeBooks, countRowsForOwner(t, ctx, store, "books", owner.ID), "the backfill deletes no Book")
 
 	second, err := store.BackfillChosenBooks(ctx)

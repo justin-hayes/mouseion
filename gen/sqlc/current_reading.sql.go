@@ -33,7 +33,7 @@ func (q *Queries) BookIsCurrentReading(ctx context.Context, arg BookIsCurrentRea
 
 const changeCurrentReadingBook = `-- name: ChangeCurrentReadingBook :one
 UPDATE primary_goals
-SET book_id = $1, snapshot_id = NULL, updated_at = now()
+SET book_id = $1, updated_at = now()
 WHERE owner_id = $2 AND language = $3
 RETURNING owner_id::text, language, book_id::text, created_at, updated_at
 `
@@ -52,9 +52,7 @@ type ChangeCurrentReadingBookRow struct {
 	UpdatedAt time.Time
 }
 
-// Replaces the Book of the language's current reading. A reading started before
-// the snapshot was retired loses its snapshot reference here; the caller
-// releases it first.
+// Replaces the Book of the language's current reading.
 func (q *Queries) ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurrentReadingBookParams) (ChangeCurrentReadingBookRow, error) {
 	row := q.db.QueryRow(ctx, changeCurrentReadingBook, arg.Book, arg.Owner, arg.Language)
 	var i ChangeCurrentReadingBookRow
@@ -236,8 +234,7 @@ func (q *Queries) GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentR
 }
 
 const getCurrentReadingForUpdate = `-- name: GetCurrentReadingForUpdate :one
-SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
-       COALESCE(g.snapshot_id::text, '')::text AS snapshot_id
+SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at
 FROM primary_goals g
 WHERE g.owner_id = $1 AND g.language = $2
 FOR UPDATE OF g
@@ -249,17 +246,13 @@ type GetCurrentReadingForUpdateParams struct {
 }
 
 type GetCurrentReadingForUpdateRow struct {
-	GOwnerID   string
-	Language   string
-	GBookID    string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	SnapshotID string
+	GOwnerID  string
+	Language  string
+	GBookID   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
-// A reading started before the vocabulary snapshot was retired still names one;
-// callers that replace or clear the reading release it. Newer readings name
-// none, and snapshot_id is then empty.
 func (q *Queries) GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrentReadingForUpdateParams) (GetCurrentReadingForUpdateRow, error) {
 	row := q.db.QueryRow(ctx, getCurrentReadingForUpdate, arg.Owner, arg.Language)
 	var i GetCurrentReadingForUpdateRow
@@ -269,7 +262,6 @@ func (q *Queries) GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrent
 		&i.GBookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SnapshotID,
 	)
 	return i, err
 }
@@ -441,138 +433,5 @@ func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReading
 		arg.Book,
 		arg.CompletedAt,
 	)
-	return err
-}
-
-const lockCurrentReadingSnapshot = `-- name: LockCurrentReadingSnapshot :one
-SELECT id::text
-FROM primary_goal_snapshots
-WHERE owner_id = $1 AND id = $2
-FOR UPDATE
-`
-
-type LockCurrentReadingSnapshotParams struct {
-	Owner    string
-	Snapshot string
-}
-
-func (q *Queries) LockCurrentReadingSnapshot(ctx context.Context, arg LockCurrentReadingSnapshotParams) (string, error) {
-	row := q.db.QueryRow(ctx, lockCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const lockCurrentReadingsExceptLanguage = `-- name: LockCurrentReadingsExceptLanguage :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = $1 AND book_id = $2 AND language <> $3 AND snapshot_id IS NOT NULL
-FOR UPDATE
-`
-
-type LockCurrentReadingsExceptLanguageParams struct {
-	Owner    string
-	Book     string
-	Language string
-}
-
-func (q *Queries) LockCurrentReadingsExceptLanguage(ctx context.Context, arg LockCurrentReadingsExceptLanguageParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, lockCurrentReadingsExceptLanguage, arg.Owner, arg.Book, arg.Language)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var snapshot_id string
-		if err := rows.Scan(&snapshot_id); err != nil {
-			return nil, err
-		}
-		items = append(items, snapshot_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const lockCurrentReadingsForAllLanguages = `-- name: LockCurrentReadingsForAllLanguages :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = $1 AND book_id = $2 AND snapshot_id IS NOT NULL
-FOR UPDATE
-`
-
-type LockCurrentReadingsForAllLanguagesParams struct {
-	Owner string
-	Book  string
-}
-
-func (q *Queries) LockCurrentReadingsForAllLanguages(ctx context.Context, arg LockCurrentReadingsForAllLanguagesParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, lockCurrentReadingsForAllLanguages, arg.Owner, arg.Book)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var snapshot_id string
-		if err := rows.Scan(&snapshot_id); err != nil {
-			return nil, err
-		}
-		items = append(items, snapshot_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const lockCurrentReadingsForBook = `-- name: LockCurrentReadingsForBook :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = $1 AND language = $2 AND book_id = $3 AND snapshot_id IS NOT NULL
-FOR UPDATE
-`
-
-type LockCurrentReadingsForBookParams struct {
-	Owner    string
-	Language string
-	Book     string
-}
-
-func (q *Queries) LockCurrentReadingsForBook(ctx context.Context, arg LockCurrentReadingsForBookParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, lockCurrentReadingsForBook, arg.Owner, arg.Language, arg.Book)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var snapshot_id string
-		if err := rows.Scan(&snapshot_id); err != nil {
-			return nil, err
-		}
-		items = append(items, snapshot_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const releaseCurrentReadingSnapshot = `-- name: ReleaseCurrentReadingSnapshot :exec
-UPDATE primary_goal_snapshots
-SET released_at = COALESCE(released_at, now())
-WHERE owner_id = $1 AND id = $2
-`
-
-type ReleaseCurrentReadingSnapshotParams struct {
-	Owner    string
-	Snapshot string
-}
-
-func (q *Queries) ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error {
-	_, err := q.db.Exec(ctx, releaseCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
 	return err
 }

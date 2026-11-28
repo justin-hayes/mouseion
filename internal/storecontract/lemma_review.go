@@ -123,17 +123,6 @@ func lemmaDecisionScenarios() []Scenario {
 			assert.Empty(t, reviewOccurrence(t, h, bookID, 0).CorrectedLemma)
 		},
 	}, {
-		Name: "a stale fingerprint after a Known change to the corrected identity is rejected and saves nothing",
-		Run: func(t *testing.T, h Harness) {
-			bookID := seedReviewBook(t, h)
-			proposal := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
-			fingerprint := previewProposal(t, h, proposal)
-			h.Seeds().SeedKnownVocabulary(t, h.Seeds().Owner(), []domain.SnapshotIdentity{{Language: Language, CanonicalLemma: "pfad", UPOS: "NOUN"}})
-			err := h.LemmaReview().PutLemmaDecisionProposal(proposal, fingerprint)
-			require.ErrorIs(t, err, domain.ErrLemmaReviewPreviewStale)
-			assert.Empty(t, reviewOccurrence(t, h, bookID, 0).CorrectedLemma)
-		},
-	}, {
 		Name: "a stale fingerprint after a decision on another occurrence of the form is rejected and saves nothing",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)

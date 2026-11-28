@@ -561,13 +561,6 @@ func (s *PostgresStore) UpdateBookMetadata(ctx context.Context, owner, bookID, t
 			err = removeIncompatibleBookGoals(ctx, q, owner, bookID, languageTag)
 			return err
 		}
-		snapshotIDs, err := q.LockCurrentReadingsForAllLanguages(ctx, sqlcgen.LockCurrentReadingsForAllLanguagesParams{Owner: owner, Book: bookID})
-		if err != nil {
-			return err
-		}
-		if err := releaseCurrentReadingSnapshots(ctx, q, owner, snapshotIDs); err != nil {
-			return err
-		}
 		return q.DeleteBookGoals(ctx, sqlcgen.DeleteBookGoalsParams{OwnerID: owner, BookID: bookID})
 	})
 	return updated, err
@@ -814,13 +807,6 @@ func (s *PostgresStore) UpdateCatalogueBookMetadata(ctx context.Context, owner, 
 }
 
 func removeIncompatibleBookGoals(ctx context.Context, q *sqlcgen.Queries, owner, bookID, language string) error {
-	snapshotIDs, err := q.LockCurrentReadingsExceptLanguage(ctx, sqlcgen.LockCurrentReadingsExceptLanguageParams{Owner: owner, Book: bookID, Language: language})
-	if err != nil {
-		return err
-	}
-	if err := releaseCurrentReadingSnapshots(ctx, q, owner, snapshotIDs); err != nil {
-		return err
-	}
 	return q.DeleteBookGoalsExceptLanguage(ctx, sqlcgen.DeleteBookGoalsExceptLanguageParams{OwnerID: owner, BookID: bookID, Language: language})
 }
 

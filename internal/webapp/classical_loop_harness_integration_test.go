@@ -30,7 +30,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/riverqueue/river"
@@ -226,7 +225,7 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	unusedAnalyzer := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{}, errors.New("the Classical catalog never calls the NLP service")
 	}}
-	client, err := analysis.NewClient(pool, unusedAnalyzer, analyzertest.CapabilityProvider{}, selection.NewService(store), workers)
+	client, err := analysis.NewClient(pool, unusedAnalyzer, analyzertest.CapabilityProvider{}, workers)
 	require.NoError(t, err)
 	testutil.StopOnCleanup(t, "classical complete loop client", client.Stop)
 	preparationWorker.Client = client
@@ -377,8 +376,7 @@ func seedLoopPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persis
 		owner.ID, registration.BookID, corpusID, written.RunID, unit.UnitID,
 		firstStart, firstEnd, secondStart, secondEnd)
 	require.NoError(t, err)
-	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	_, err = pool.Exec(ctx, `INSERT INTO reading_history(owner_id, language, book_id, completed_at)
 		VALUES($1,$2,$3,now())`, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)

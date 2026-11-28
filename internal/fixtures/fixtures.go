@@ -23,16 +23,9 @@ const (
 	LemmaFlagBookID        = "fixture-lemma-flag-book"
 	SourceID               = "fixture-source"
 	ResultRunID            = "fixture-run"
-	DeckID                 = "fixture-deck"
-	PrepID                 = "fixture-preparation"
-	QueuedPrepID           = "fixture-queued-preparation"
-	JourneyPrepID          = "fixture-journey-preparation"
-	OutsidePrepID          = "fixture-outside-journey-preparation"
 	BrowserSyncBookID      = "fixture-browser-sync-book"
 	catalogueRestoreBookID = "fixture-catalogue-restore"
 	catalogueRestoreSecond = "fixture-catalogue-restore-second"
-	GraduatedKnownLemma    = "fixture-graduated-known"
-	IndependentKnownLemma  = "fixture-independent-known"
 	routeMatchBookID       = "fixture-route-match"
 	routeDiffersBookID     = "fixture-route-differs"
 	routeTieABookID        = "fixture-route-tie-a"
@@ -73,9 +66,6 @@ type Store struct {
 	entryCovers          map[string]domain.CatalogEntryCoverResource
 	catalogueBookCount   int
 	aliases              []domain.BookAlias
-	preps                []domain.DeckPreparation
-	deckVocabulary       []domain.DeckPreparationVocabulary
-	known                []domain.KnownVocabulary
 	myBooks              []domain.MyBook
 	dispositions         map[string]domain.BookDisposition
 	dispositionRevisions map[string]int64
@@ -207,20 +197,12 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-failed-connection", State: domain.CatalogueSyncFailed, LastError: "Authentication failed for this connection. Check the saved credentials and try again.", UpdatedAt: fixtureJourneyTime},
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
-		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady},
-			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady},
-		},
-		deckVocabulary: []domain.DeckPreparationVocabulary{
-			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
-			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
-		},
-		known: []domain.KnownVocabulary{
-			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-known-only", OwnerID: OwnerID, Language: "fr", CanonicalLemma: "bonjour", UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
-		},
+		// French has Study progress and no Book, so the language stays
+		// selectable as "(no books)".
+		studyProgress: []domain.StudyProgress{{
+			ID: "fixture-study-progress-fr-bonjour", OwnerID: OwnerID, StudyItem: domain.WordItem("fr", "bonjour", "NOUN", ""),
+			IntroducedAt: fixtureJourneyTime, Memory: domain.NewStudyMemory(fixtureJourneyTime), CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime,
+		}},
 		myBooks: []domain.MyBook{{
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime}, CompletionCount: 1,
 		}, {

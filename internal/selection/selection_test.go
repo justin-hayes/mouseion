@@ -1,9 +1,7 @@
 package selection
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -15,44 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type memoryStore struct {
-	known    map[string]bool
-	reserved map[string]bool
-	saved    []domain.SelectionCandidate
-}
-
-func (m *memoryStore) key(owner, lang, lemma, upos string) string {
-	return owner + "/" + lang + "/" + lemma + "/" + upos
-}
-func (m *memoryStore) IsKnownVocabularyIdentity(_ context.Context, o, l, x, p string) (bool, error) {
-	return m.known[m.key(o, l, x, p)], nil
-}
-func (m *memoryStore) IsReservedVocabulary(_ context.Context, o, l, x, p string) (bool, error) {
-	return m.reserved[m.key(o, l, x, p)], nil
-}
-func (m *memoryStore) PutSelectionCandidate(_ context.Context, c domain.SelectionCandidate) (bool, error) {
-	m.saved = append(m.saved, c)
-	return true, nil
-}
-
-// failingStore returns the configured error from each Store method so tests can
-// exercise the error paths Select uses to wrap store failures.
-type failingStore struct {
-	knownErr    error
-	reservedErr error
-	putErr      error
-}
-
-func (f failingStore) IsKnownVocabularyIdentity(context.Context, string, string, string, string) (bool, error) {
-	return false, f.knownErr
-}
-func (f failingStore) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
-	return false, f.reservedErr
-}
-func (f failingStore) PutSelectionCandidate(context.Context, domain.SelectionCandidate) (bool, error) {
-	return false, f.putErr
-}
 
 func tok(surface, lemma, upos string) analyzer.Token {
 	return analyzer.Token{Surface: surface, CanonicalLemma: lemma, UPOS: upos}
@@ -66,11 +26,9 @@ func fixture(tokens ...analyzer.Token) analyzer.Result {
 }
 
 func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}}
-	svc := NewService(store)
 	cfg := DefaultConfig("corpus-1")
 	corpus := fixture(tok("Häuser", "Haus", "NOUN"), tok("Haus", "Haus", "noun"), tok("selten", "selten", "ADJ"), tok("der", "der", "DET"), tok("Berlin", "Berlin", "PROPN"))
-	got, err := svc.Select(context.Background(), "alice", corpus, cfg)
+	got, err := Project(corpus, cfg, nil)
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, "Haus", got[0].Identity.CanonicalLemma)
@@ -78,42 +36,6 @@ func TestDefaultRulesFiltersAggregationAndDeterminism(t *testing.T) {
 	assert.Equal(t, []string{"Haus", "Häuser"}, got[0].ObservedForms)
 	assert.Equal(t, 2, got[0].OccurrenceCount)
 	assert.Len(t, got[0].SentenceReferences, 2)
-}
-
-func TestSelectSkipsBelowMinimumOccurrencesBeforeStoreLookups(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}}
-	cfg := DefaultConfig("corpus")
-	cfg.MinOccurrences = 2
-	corpus := fixture(tok("Haus", "Haus", "NOUN"), tok("Haus", "Haus", "NOUN"), tok("selten", "selten", "ADJ"))
-
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, cfg)
-
-	require.NoError(t, err)
-	require.Len(t, got, 1)
-	assert.Equal(t, "Haus", got[0].Identity.CanonicalLemma)
-	assert.Len(t, store.saved, 1, "an occurrence below the floor must not reach the store")
-}
-
-func TestSelectPropagatesStoreFailures(t *testing.T) {
-	corpus := fixture(tok("Haus", "Haus", "NOUN"))
-	knownFailure := errors.New("known lookup failed")
-	reservedFailure := errors.New("reserved lookup failed")
-	persistFailure := errors.New("persist failed")
-	for name, test := range map[string]struct {
-		store   failingStore
-		wantErr error
-		message string
-	}{
-		"known lookup":    {failingStore{knownErr: knownFailure}, knownFailure, "get known vocabulary"},
-		"reserved lookup": {failingStore{reservedErr: reservedFailure}, reservedFailure, "get reserved vocabulary"},
-		"persist":         {failingStore{putErr: persistFailure}, persistFailure, "persist candidate"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			_, err := NewService(test.store).Select(context.Background(), "alice", corpus, DefaultConfig("corpus"))
-			require.ErrorIs(t, err, test.wantErr)
-			assert.Contains(t, err.Error(), test.message)
-		})
-	}
 }
 
 func TestProjectAppliesExactOccurrenceDecisionsWithoutChangingAnalyzerEvidence(t *testing.T) {
@@ -212,14 +134,13 @@ func TestProjectRejectsAmbiguousOrMalformedOccurrenceDecisions(t *testing.T) {
 }
 
 func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}}
 	corpus := fixture(
 		analyzer.Token{Surface: "steht", CanonicalLemma: "aufstehen", UPOS: "VERB"},
 		analyzer.Token{Surface: "auf", CanonicalLemma: "auf", UPOS: "ADV", Dependency: "compound:prt"},
 		analyzer.Token{Surface: "dort", CanonicalLemma: "dort", UPOS: "ADV", Dependency: "advmod"},
 	)
 
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("corpus-1"))
+	got, err := Project(corpus, DefaultConfig("corpus-1"), nil)
 
 	require.NoError(t, err)
 	require.Len(t, got, 2)
@@ -228,7 +149,6 @@ func TestDefaultRulesExcludeSeparableParticlesButKeepAdverbs(t *testing.T) {
 }
 
 func TestDefaultRulesExcludeRecoveredAdvmodParticles(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}}
 	corpus, err := analyzer.FromProto(&mouseionv1.NormalizedCorpus{
 		SchemaVersion: "1.1.0",
 		Language:      "de",
@@ -249,7 +169,7 @@ func TestDefaultRulesExcludeRecoveredAdvmodParticles(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("corpus-1"))
+	got, err := Project(corpus, DefaultConfig("corpus-1"), nil)
 
 	require.NoError(t, err)
 	require.Len(t, got, 5)
@@ -296,8 +216,7 @@ func TestItalianFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 			{Surface: "!", CanonicalLemma: "!", UPOS: "PUNCT"},
 		},
 	}}}
-	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("italian-corpus"))
+	got, err := Project(corpus, DefaultConfig("italian-corpus"), nil)
 	require.NoError(t, err)
 	want := []Candidate{
 		{Identity: Identity{"it", "acqua", "NOUN", ""}, OccurrenceCount: 1},
@@ -337,8 +256,7 @@ func TestGreekFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 			{Surface: "!", CanonicalLemma: "!", UPOS: "PUNCT"},
 		},
 	}}}
-	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("greek-corpus"))
+	got, err := Project(corpus, DefaultConfig("greek-corpus"), nil)
 	require.NoError(t, err)
 	counts := make(map[string]int)
 	for _, candidate := range got {
@@ -363,98 +281,13 @@ func TestAnalyzableStatisticsComputesExplainableSentenceProfile(t *testing.T) {
 }
 
 func TestDefaultIncludesSingletonAndConfigOverridesFilters(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}}
 	cfg := DefaultConfig("c")
 	assert.Equal(t, 1, cfg.MinOccurrences, "MinOccurrences=%d, want 1", cfg.MinOccurrences)
 	cfg.AllowedPOS["PROPN"] = true
-	got, err := NewService(store).Select(context.Background(), "alice", fixture(tok("Berlin", "Berlin", "PROPN")), cfg)
+	got, err := Project(fixture(tok("Berlin", "Berlin", "PROPN")), cfg, nil)
 	require.NoError(t, err)
 	require.Len(t, got, 1)
 	assert.Equal(t, 1, got[0].OccurrenceCount)
-	assert.Len(t, store.saved, 1)
-}
-
-func TestOwnerScopedExclusions(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}}
-	store.known[store.key("alice", "de", "known", "NOUN")] = true
-	store.known[store.key("alice", "de", "importiert", "NOUN")] = true
-	corpus := fixture(tok("known", "known", "NOUN"), tok("known", "known", "NOUN"), tok("ignored", "ignored", "NOUN"), tok("ignored", "ignored", "NOUN"), tok("generated", "generated", "NOUN"), tok("generated", "generated", "NOUN"), tok("importiert", "importiert", "NOUN"), tok("importiert", "importiert", "NOUN"))
-	svc := NewService(store)
-	alice, err := svc.Select(context.Background(), "alice", corpus, DefaultConfig("a"))
-	require.NoError(t, err)
-	require.Len(t, alice, 2)
-	assert.Equal(t, "generated", alice[0].Identity.CanonicalLemma)
-	assert.Equal(t, "ignored", alice[1].Identity.CanonicalLemma)
-	bob, err := svc.Select(context.Background(), "bob", corpus, DefaultConfig("b"))
-	require.NoError(t, err)
-	assert.Len(t, bob, 4)
-}
-
-func TestEligibilityUsesKnownWildcardAndLanguageScopedReservations(t *testing.T) {
-	eligibility := NewEligibility(
-		[]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "wissen", UPOS: ""}},
-		[]domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "reserviert", UPOS: "NOUN"}},
-	)
-	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "wissen", UPOS: "VERB", OccurrenceCount: 3}, 3))
-	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "it", CanonicalLemma: "wissen", UPOS: "VERB", OccurrenceCount: 3}, 3))
-	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "reserviert", UPOS: "NOUN", OccurrenceCount: 3}, 3))
-	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "reserviert", UPOS: "VERB", OccurrenceCount: 3}, 3))
-	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "it", CanonicalLemma: "reserviert", UPOS: "NOUN", OccurrenceCount: 3}, 3))
-	overlap := NewEligibility(
-		[]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN"}},
-		[]domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN"}},
-	)
-	assert.False(t, overlap.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "overlap", UPOS: "NOUN", OccurrenceCount: 3}, 3))
-	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "häufig", UPOS: "NOUN", OccurrenceCount: 2}, 3))
-}
-
-func TestBookDeckEligibilityAcrossBooksBoundary(t *testing.T) {
-	eligibility := NewEligibility(nil, nil)
-	allows := func(inBook int, across int64) bool {
-		return eligibility.AllowsBookDeckCandidate(domain.SelectionCandidate{
-			Language: "de", CanonicalLemma: "wort", UPOS: "NOUN", OccurrenceCount: inBook,
-		}, across)
-	}
-	assert.True(t, allows(3, 3), "three in-Book occurrences qualify without extra evidence")
-	assert.False(t, allows(2, 14), "fourteen across Books does not meet the threshold")
-	assert.True(t, allows(2, 15), "fifteen across Books qualifies")
-	assert.False(t, allows(1, 14), "a single occurrence needs the same across-Books threshold")
-	assert.True(t, allows(1, 15), "a single occurrence qualifies with fifteen across Books")
-	assert.False(t, allows(0, 100), "an identity absent from the Book never qualifies")
-	assert.True(t, allows(4, 0), "existing three-plus eligibility is unchanged")
-
-	known := NewEligibility([]domain.KnownVocabulary{{Language: "de", CanonicalLemma: "wort", UPOS: ""}}, nil)
-	assert.False(t, known.AllowsBookDeckCandidate(domain.SelectionCandidate{
-		Language: "de", CanonicalLemma: "wort", UPOS: "NOUN", OccurrenceCount: 2,
-	}, 15), "lemma-wide Known vocabulary excludes every POS")
-	reserved := NewEligibility(nil, []domain.DeckPreparationVocabulary{{Language: "de", CanonicalLemma: "wort", UPOS: "NOUN"}})
-	assert.False(t, reserved.AllowsBookDeckCandidate(domain.SelectionCandidate{
-		Language: "de", CanonicalLemma: "wort", UPOS: "NOUN", OccurrenceCount: 2,
-	}, 15), "reserved identities remain excluded")
-}
-
-func TestGreekEligibilityKeepsKnownAndReservedVocabularyOwnerAndLanguageScoped(t *testing.T) {
-	eligibility := NewEligibility(
-		[]domain.KnownVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN"}},
-		[]domain.DeckPreparationVocabulary{{OwnerID: "alice", Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN"}},
-	)
-	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "el", CanonicalLemma: "σπίτι", UPOS: "NOUN", OccurrenceCount: 3}, 3))
-	assert.False(t, eligibility.Allows(domain.SelectionCandidate{Language: "el", CanonicalLemma: "πλατεία", UPOS: "NOUN", OccurrenceCount: 3}, 3))
-	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "de", CanonicalLemma: "σπίτι", UPOS: "NOUN", OccurrenceCount: 3}, 3))
-	assert.True(t, eligibility.Allows(domain.SelectionCandidate{Language: "el", CanonicalLemma: "σπίτι", UPOS: "VERB", OccurrenceCount: 3}, 3))
-}
-
-func TestReservedVocabularyIsOwnerScoped(t *testing.T) {
-	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
-	store.reserved[store.key("alice", "de", "Haus", "NOUN")] = true
-	corpus := fixture(tok("Haus", "Haus", "NOUN"))
-
-	alice, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("next-book"))
-	require.NoError(t, err)
-	assert.Empty(t, alice)
-	bob, err := NewService(store).Select(context.Background(), "bob", corpus, DefaultConfig("bob-book"))
-	require.NoError(t, err)
-	assert.Len(t, bob, 1)
 }
 
 // frenchFixture builds a French corpus, one sentence per token, so aggregation
@@ -493,8 +326,7 @@ func TestFrenchFixtureFiltersAndAggregatesVocabulary(t *testing.T) {
 		tok("aux", "à", "ADP"),
 		tok("aux", "les", "DET"),
 	)
-	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
+	got, err := Project(corpus, DefaultConfig("french-corpus"), nil)
 	require.NoError(t, err)
 
 	counts := map[string]int{}
@@ -537,8 +369,7 @@ func TestFrenchBaseLemmaGroupsPronominalAndPlainUses(t *testing.T) {
 		tok("en", "en", "PRON"),
 		tok("va", "aller", "VERB"),
 	)
-	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
+	got, err := Project(corpus, DefaultConfig("french-corpus"), nil)
 	require.NoError(t, err)
 	require.Len(t, got, 2)
 	assert.Equal(t, "aller", got[0].Identity.CanonicalLemma)
@@ -550,19 +381,6 @@ func TestFrenchBaseLemmaGroupsPronominalAndPlainUses(t *testing.T) {
 	}
 }
 
-func TestFrenchKnownAllerCoversReflexiveUse(t *testing.T) {
-	store := &memoryStore{
-		known:    map[string]bool{"alice/fr/aller/VERB": true},
-		reserved: map[string]bool{},
-	}
-	corpus := frenchFixture(tok("va", "aller", "VERB"))
-
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
-
-	require.NoError(t, err)
-	assert.Empty(t, got, "Known aller covers s'en aller")
-}
-
 func TestFrenchNegationAdverbsStayOutOfTheCoverageDenominator(t *testing.T) {
 	corpus := frenchFixture(tok("homme", "homme", "NOUN"), tok("ne", "ne", "ADV"), tok("pas", "pas", "ADV"))
 
@@ -570,28 +388,6 @@ func TestFrenchNegationAdverbsStayOutOfTheCoverageDenominator(t *testing.T) {
 
 	assert.Equal(t, int64(1), statistics.AnalyzableTokenCount, "excluded negation does not inflate the denominator")
 	assert.Equal(t, int64(1), statistics.DistinctLemmaCount)
-}
-
-func TestFrenchVocabularyIsOwnerAndLanguageScoped(t *testing.T) {
-	store := &memoryStore{
-		known: map[string]bool{
-			"alice/de/aller/VERB": true,
-			"bob/fr/aller/VERB":   true,
-		},
-		reserved: map[string]bool{"alice/it/aller/VERB": true},
-	}
-	corpus := frenchFixture(tok("va", "aller", "VERB"))
-
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("french-corpus"))
-
-	require.NoError(t, err)
-	require.Len(t, got, 1, "another owner's or language's vocabulary must not exclude a French identity")
-	assert.Equal(t, "aller", got[0].Identity.CanonicalLemma)
-}
-
-func TestInvalidConfig(t *testing.T) {
-	_, err := NewService(&memoryStore{}).Select(context.Background(), "", analyzer.Result{}, SelectionConfig{})
-	assert.ErrorIs(t, err, ErrInvalidConfig)
 }
 
 func TestProjectRejectsInvalidConfig(t *testing.T) {
@@ -747,8 +543,7 @@ func languageFixture(language string, tokens ...analyzer.Token) analyzer.Result 
 
 func selectedCounts(t *testing.T, corpus analyzer.Result) map[string]int {
 	t.Helper()
-	store := &memoryStore{known: map[string]bool{}, reserved: map[string]bool{}}
-	got, err := NewService(store).Select(context.Background(), "alice", corpus, DefaultConfig("book"))
+	got, err := Project(corpus, DefaultConfig("book"), nil)
 	require.NoError(t, err)
 	counts := map[string]int{}
 	for _, candidate := range got {

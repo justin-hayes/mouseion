@@ -139,24 +139,10 @@ func catalogueSyncStatusFromRow(ownerID, connectionID, state string, lastSyncedA
 	}
 }
 
-func knownVocabularyFromFields(id, ownerID, language, canonicalLemma, upos, discriminator, headword string, createdAt time.Time) domain.KnownVocabulary {
-	return domain.KnownVocabulary{
-		ID: id, OwnerID: ownerID, Language: language, CanonicalLemma: canonicalLemma,
-		UPOS: upos, LexicalDiscriminator: discriminator, Headword: headword, CreatedAt: createdAt,
-	}
-}
-
 func curatedSentenceFromFields(id, ownerID, exampleSentenceID, language, canonicalLemma, upos, notes string, createdAt time.Time) domain.CuratedSentence {
 	return domain.CuratedSentence{
 		ID: id, OwnerID: ownerID, ExampleSentenceID: exampleSentenceID, Language: language,
 		CanonicalLemma: canonicalLemma, UPOS: upos, Notes: notes, CreatedAt: createdAt,
-	}
-}
-
-func cardFromFields(id, ownerID, deckID, dedupKey, canonicalLemma, upos, front, back string, createdAt time.Time) domain.Card {
-	return domain.Card{
-		ID: id, OwnerID: ownerID, DeckID: deckID, DedupKey: dedupKey,
-		CanonicalLemma: canonicalLemma, UPOS: upos, Front: front, Back: back, CreatedAt: createdAt,
 	}
 }
 
