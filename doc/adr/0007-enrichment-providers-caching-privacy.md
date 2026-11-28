@@ -2,6 +2,8 @@
 
 Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
 
+Amended 2026-11-28 by [issue #2809](https://github.com/justin-hayes/mouseion/issues/2809) (part of [#2805](https://github.com/justin-hayes/mouseion/issues/2805)): the DWDS frequency, German IPA pronunciation and Stanza morphology providers this ADR describes as available locally were never wired, and were deleted. The live server passes no frequency, morphology or pronunciation provider.
+
 ## Context
 
 After candidate selection and ranking (ADR 0005), remaining vocabulary items are enriched with external information to make study material useful: **translation, gloss, frequency, morphology, and pronunciation** (product.md "Enrichment"). The spec notes LLMs "may be used where appropriate but should not be required for every enrichment task," and flags an open privacy question: what may leave a self-hosted home lab, and under what consent.

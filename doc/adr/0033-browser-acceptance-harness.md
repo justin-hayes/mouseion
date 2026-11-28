@@ -4,6 +4,8 @@ Amended by [ADR 0088](0088-fixture-adapter-transition-store-contracts.md): fixtu
 adapter transitions require shared store contracts run against fixtures and
 PostgreSQL; other canned browser states are explicitly illustrative.
 
+Amended 2026-11-28 by [issue #2806](https://github.com/justin-hayes/mouseion/issues/2806) (part of [#2805](https://github.com/justin-hayes/mouseion/issues/2805)): `webapp.New` moved into test code; the production constructor is `webapp.NewWithError`.
+
 ## Context
 
 Mouseion ships a server-rendered Go web application (Templ views, HTMX

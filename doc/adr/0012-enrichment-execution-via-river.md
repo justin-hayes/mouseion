@@ -2,6 +2,8 @@
 
 Status: **Accepted** · Date: 2026-08-21 · Author: Justin + Hermes
 
+Amended 2026-11-28 by [issue #2809](https://github.com/justin-hayes/mouseion/issues/2809) (part of [#2805](https://github.com/justin-hayes/mouseion/issues/2805)): the local frequency (DWDS), morphology and rule-based IPA providers this ADR runs inline were never wired, and were deleted. The live server passes no frequency, morphology or pronunciation provider.
+
 ## Context
 
 ADR 0007 §5 decided that enrichment runs **inline in Go** — not job-based — reasoning that enrichment consumes a finite, curated candidate set, is cached (retries cheap/idempotent), and is bounded. It treated the async job abstraction as reserved for the slow, per-book corpus-analysis step (Stanza).
