@@ -124,6 +124,6 @@ stable across repeated exports.
 - [ADR 0029: Recognition-card sentence presentation](../adr/0029-recognition-card-sentence-presentation.md)
 - [ADR 0020: Anki package output](../adr/0020-anki-package-output.md)
 - [Dependency Parse Foundation](dependency-parse-foundation.md)
-- [Recognition-card sentence presentation](recognition-card-sentence-presentation.md)
+- [Recognition-card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [GDEX – Good Dictionary Examples](https://github.com/zentrum-lexikographie/gdex) —
   the rule-based sentence scorer this rubric adapts

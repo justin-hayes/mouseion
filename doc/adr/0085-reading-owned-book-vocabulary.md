@@ -4,7 +4,7 @@ Status: **Accepted (implemented); candidate rule amended by [ADR 0090](0090-libr
 
 Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §9: Browse lives in Reading and Concordance in Vocabulary, and "any Book disposition" counts Inbox and To Read, Hidden or not.
 
-Supersedes the active product boundary of [ADR 0082](0082-independent-custom-vocabulary-decks.md), amends the Book-selection rule in [ADR 0048](0048-frequency-floor-deck-selection.md), and narrows deck submission under [ADR 0078](0078-book-dispositions-and-current-reading.md). Existing artifacts and snapshots retain their provenance. The [feature contract](../features/reading-owned-book-vocabulary.md) owns the cutover and acceptance details.
+Supersedes the active product boundary of [ADR 0082](0082-independent-custom-vocabulary-decks.md), amends the Book-selection rule in [ADR 0048](0048-frequency-floor-deck-selection.md), and narrows deck submission under [ADR 0078](0078-book-dispositions-and-current-reading.md). Existing artifacts and snapshots retain their provenance. The [feature contract](../archive/features/reading-owned-book-vocabulary.md) owns the cutover and acceptance details.
 
 ## Context
 
@@ -27,4 +27,4 @@ One Reading-owned freeze makes the modeled knowledge transition and its optional
 - The original three-occurrence route remains sufficient; a singleton is never included by a high cross-Book total. Cross-Book counts are per effective lemma **and** POS, owner, and study language.
 - Frozen Reading vocabulary is distinct from the cards actually produced: omissions can leave selected identities without Anki cards; finishing still accepts eligible snapshot identities into modeled Known vocabulary. Generating cards never marks them Known.
 - Existing active readings do not gain two-occurrence identities. Already-imported Anki packages and historical Book-deck downloads remain unaffected. The old custom-deck UI/routes cease, even though their stored rows persist temporarily.
-- ADR 0082 and the selection/custom-deck portions of the earlier [Vocabulary specification](../features/vocabulary-browse-concordance-and-custom-decks.md) are historical, not competing instructions. The current Browse/Concordance contract is [here](../features/vocabulary-browse-and-concordance.md). Schema cleanup, if later approved, follows ADR 0038/0070 with a separate migration and human review; neither the immutable baseline nor shipped migrations are rewritten.
+- ADR 0082 and the selection/custom-deck portions of the earlier [Vocabulary specification](../archive/features/vocabulary-browse-concordance-and-custom-decks.md) are historical, not competing instructions. The current Browse/Concordance contract is [here](../features/vocabulary-browse-and-concordance.md). Schema cleanup, if later approved, follows ADR 0038/0070 with a separate migration and human review; neither the immutable baseline nor shipped migrations are rewritten.

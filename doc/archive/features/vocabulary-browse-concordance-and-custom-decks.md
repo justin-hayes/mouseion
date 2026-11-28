@@ -1,18 +1,20 @@
 # Vocabulary Browse, Concordance, and Custom decks (historical specification)
 
-Status: **Historical; superseded by [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md)** · Originally updated: 2026-10-03
+Status: **Historical; superseded by [ADR 0085](../../adr/0085-reading-owned-book-vocabulary.md)** · Originally updated: 2026-10-03
+
+> **Historical archive.** This document is retained for implementation history and is not part of the current product contract.
 
 This document records the earlier combined design, including selection and
 independent Custom decks. It is **not** a current implementation target. Follow
-[Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md) for
+[Vocabulary Browse and Concordance](../../features/vocabulary-browse-and-concordance.md) for
 the current investigation contract and [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md)
 for selection and preparation. Do not reinstate the saved-selection or
 custom-deck features from the historical requirements below.
 
 The historical icon-only Concordance study-link presentation documented below
 is superseded by the visible **Study** link and grouped KWIC layout in the
-[current feature contract](vocabulary-browse-and-concordance.md) and
-[component guidance](../design/components.md) (#1544).
+[current feature contract](../../features/vocabulary-browse-and-concordance.md) and
+[component guidance](../../design/components.md) (#1544).
 
 This is the cohesive product and acceptance contract for Vocabulary Browse,
 Concordance, and Custom decks. Browse now uses Current-reading Book scope,
@@ -21,9 +23,9 @@ those counts; its accepted default exclusions and include-all control are now
 shipped. Other accepted Browse behavior remains subject to the
 shipped/target distinctions below. The
 cross-Book Concordance workbench is shipped. Occurrence
-review and correction have a separate [contract](lemma-review-and-correction.md).
+review and correction have a separate [contract](../../features/lemma-review-and-correction.md).
 Concordance results are one server-rendered native list with grouped sentence
-disclosures. The accepted [server-rendering decision](../adr/0083-concordance-server-rendering-and-htmx-4.md)
+disclosures. The accepted [server-rendering decision](../../adr/0083-concordance-server-rendering-and-htmx-4.md)
 still governs the later replacement of the temporary handwritten request and
 history enhancement.
 
@@ -45,7 +47,7 @@ permanent Reading-to-Vocabulary link is required. Browse never selects a Book
 independently of the active study language's Current reading. Concordance,
 Browse selection, and Custom decks remain language-wide, not Book-bound.
 
-The [Custom deck ADR](../adr/0082-independent-custom-vocabulary-decks.md)
+The [Custom deck ADR](../../adr/0082-independent-custom-vocabulary-decks.md)
 owns the durable independence/freeze decision. This feature does **not** change
 the existing recurring-vocabulary threshold or selection policy for Book
 Prepared decks and current-reading snapshots. Generating or downloading any
@@ -172,7 +174,7 @@ occurrences merely because text or positions match.
 ### Browse count readiness
 
 Browse uses the exact, owner-scoped per-Book effective counts described in
-[ADR 0084](../adr/0084-browse-effective-count-projection.md). Only Books with
+[ADR 0084](../../adr/0084-browse-effective-count-projection.md). Only Books with
 matching current completed analysis contribute to across-Book totals. A Book
 with no eligible occurrences is explicitly ready with zero identities; absent
 counts do not prove an empty Book. An analysis may complete before its counts
@@ -492,18 +494,18 @@ durable and asynchronous, with bounded submission acknowledgement.
 
 ## Related contracts
 
-- [Information architecture](../design/information-architecture.md) and
-  [screen inventory](../design/screen-inventory.md) (target versus shipped views).
-- [Reading workflow](reading-workflow.md), [lemma review](lemma-review-and-correction.md),
-  [Concordance foundation](concordance-foundation.md),
-  [dependency foundation](dependency-parse-foundation.md), and
-  [sentence-quality scoring](sentence-quality-scoring.md).
-- [ADR 0006](../adr/0006-anki-export-import-contracts.md),
-  [ADR 0020](../adr/0020-anki-package-output.md),
-  [ADR 0050](../adr/0050-active-study-language.md),
-  [ADR 0059](../adr/0059-persisted-normalized-corpus-for-concordance.md),
-  [ADR 0060](../adr/0060-persist-dependency-parses.md),
-  [ADR 0071](../adr/0071-decouple-deck-data-from-presentation.md),
-  [ADR 0078](../adr/0078-book-dispositions-and-current-reading.md),
-  [ADR 0079](../adr/0079-contextual-glosses-require-llm.md), and
-  [ADR 0081](../adr/0081-learner-owned-occurrence-lemma-corrections.md).
+- [Information architecture](../../design/information-architecture.md) and
+  [screen inventory](../../design/screen-inventory.md) (target versus shipped views).
+- [Reading workflow](../../features/reading-workflow.md), [lemma review](../../features/lemma-review-and-correction.md),
+  [Concordance foundation](../../features/concordance-foundation.md),
+  [dependency foundation](../../features/dependency-parse-foundation.md), and
+  [sentence-quality scoring](../../features/sentence-quality-scoring.md).
+- [ADR 0006](../../adr/0006-anki-export-import-contracts.md),
+  [ADR 0020](../../adr/0020-anki-package-output.md),
+  [ADR 0050](../../adr/0050-active-study-language.md),
+  [ADR 0059](../../adr/0059-persisted-normalized-corpus-for-concordance.md),
+  [ADR 0060](../../adr/0060-persist-dependency-parses.md),
+  [ADR 0071](../../adr/0071-decouple-deck-data-from-presentation.md),
+  [ADR 0078](../../adr/0078-book-dispositions-and-current-reading.md),
+  [ADR 0079](../../adr/0079-contextual-glosses-require-llm.md), and
+  [ADR 0081](../../adr/0081-learner-owned-occurrence-lemma-corrections.md).

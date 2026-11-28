@@ -221,7 +221,7 @@ latency SLO require later evidence and decisions.
 
 ## Related
 
-- [Fast user-facing prepared-deck translation](../features/fast-user-facing-translation.md)
+- [Fast user-facing prepared-deck translation](../archive/features/fast-user-facing-translation.md)
 - [ADR 0007: Enrichment providers, caching, and privacy](0007-enrichment-providers-caching-privacy.md)
 - [ADR 0010: River job queue](0010-river-job-queue.md)
 - [ADR 0012: External translation through River](0012-enrichment-execution-via-river.md)

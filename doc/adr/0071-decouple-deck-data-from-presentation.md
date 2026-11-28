@@ -159,4 +159,4 @@ unpersisted and unserved (the download contract stays APKG-only).
 - [ADR 0064: Built-in dictionary enrichment provider](0064-dictionary-enrichment-provider.md)
 - [ADR 0067: Recognition-card morphology and multi-span target presentation](0067-recognition-card-morphology-presentation.md) — its roll-forward-only posture is amended here.
 - [ADR 0068: Recognition-card meaning and form presentation](0068-recognition-card-meaning-and-form-presentation.md) — its roll-forward-only posture is amended here.
-- [Prepared-deck rendering](../features/prepared-deck-rendering.md)
+- [Prepared-deck rendering](../archive/features/prepared-deck-rendering.md)

@@ -46,7 +46,7 @@ reading Book, ranked by occurrence count after excluding already accounted-for
 vocabulary by default. Concordance remains cross-Book in Vocabulary; saved
 selections and Custom decks are retired. See the
 [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
-and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md).
+and [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md).
 
 The recurring experience rhythm is:
 

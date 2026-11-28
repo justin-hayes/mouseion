@@ -64,7 +64,7 @@ manifest creation and artifact finalization.
 
 The detailed state transitions, schema, retry policy, recovery cases,
 and implementation sequence are specified in the
-[durable prepared-deck translation design](../features/durable-prepared-deck-translation.md).
+[durable prepared-deck translation design](../archive/features/durable-prepared-deck-translation.md).
 
 ## Consequences
 

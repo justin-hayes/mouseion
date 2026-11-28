@@ -288,5 +288,5 @@ gush out".
 - [ADR 0115: The idiom review gate grades severity and tolerates a few near-misses](../adr/0115-idiom-review-gate-tolerates-near-misses.md)
 - [Contextual gloss preparation](contextual-gloss-preparation.md)
 - [Dictionary gloss enrichment](dictionary-gloss-enrichment.md)
-- [Recognition card sentence presentation](recognition-card-sentence-presentation.md)
+- [Recognition card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [Gloss review case set](../reviews/README.md)

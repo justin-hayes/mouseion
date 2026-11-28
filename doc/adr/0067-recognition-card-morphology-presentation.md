@@ -106,7 +106,7 @@ Card-quality review of a German prepared deck surfaced four issues:
 
 ## References
 
-- [Recognition-card sentence presentation](../features/recognition-card-sentence-presentation.md)
+- [Recognition-card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [Dictionary gloss and morphology enrichment](../features/dictionary-gloss-enrichment.md)
 - [German separable-verb lemmatization](../features/separable-verb-lemmatization.md)
 - [ADR 0007: Enrichment providers, caching, and privacy](0007-enrichment-providers-caching-privacy.md)

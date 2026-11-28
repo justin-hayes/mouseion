@@ -117,4 +117,4 @@ failed item means.
 - [ADR 0031: Execute prepared-deck translation through OpenAI Batch](0031-openai-batch-prepared-deck-translation.md)
 - [ADR 0032: Make standard requests the interactive prepared-deck translation default](0032-standard-first-prepared-deck-translation.md)
 - [ADR 0076: Roll forward when a ready deck requires re-preparation](0076-reprepare-ready-deck.md)
-- [Fast user-facing prepared-deck translation](../features/fast-user-facing-translation.md)
+- [Fast user-facing prepared-deck translation](../archive/features/fast-user-facing-translation.md)

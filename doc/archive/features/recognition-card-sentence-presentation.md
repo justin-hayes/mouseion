@@ -1,6 +1,6 @@
 # Recognition-card sentence presentation
 
-> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck and its Anki cards at the Study cutover. This document records the retired card presentation and is kept for provenance. [Study](study.md) presents a word in its own context.
+> **Historical archive. Retired design.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck and its Anki cards at the Study cutover. This document records the retired card presentation and is kept for provenance. [Study](../../features/study.md) presents a word in its own context.
 
 ## Product contract
 
@@ -63,7 +63,7 @@ The noun morphology renders in the headword line as
   (`der Gauner (Pl. Gauner)`). It is empty for non-nouns and plural-only lemmas.
 - The plural is not part of `Gloss`.
 
-See [ADR 0067](../adr/0067-recognition-card-morphology-presentation.md).
+See [ADR 0067](../../adr/0067-recognition-card-morphology-presentation.md).
 
 ### French article and gender label
 
@@ -111,9 +111,9 @@ The back has one meaning block, the contextual `Gloss`: a compact cue for the
 tested sense, informed by dictionary evidence and the sentence. The separate
 `English` lemma translation is retained in the note contract but no longer
 rendered; the contextual `EnglishSentence` translation remains distinct. See
-[ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md),
-[contextual-gloss-preparation.md](contextual-gloss-preparation.md) and
-[ADR 0079](../adr/0079-contextual-glosses-require-llm.md).
+[ADR 0068](../../adr/0068-recognition-card-meaning-and-form-presentation.md),
+[contextual-gloss-preparation.md](../../features/contextual-gloss-preparation.md) and
+[ADR 0079](../../adr/0079-contextual-glosses-require-llm.md).
 
 ## Presentation preview
 
@@ -124,7 +124,7 @@ The frozen Anki template and stylesheet
 the design-system semantic tokens, supports Anki dark mode, keeps the headword
 dominant over its inflectional forms, and collapses absent fields cleanly. It
 was reviewed and signed off (PR #906) before the exporter changes landed; see
-[ADR 0068](../adr/0068-recognition-card-meaning-and-form-presentation.md).
+[ADR 0068](../../adr/0068-recognition-card-meaning-and-form-presentation.md).
 
 ## English target highlighting
 
@@ -185,7 +185,7 @@ CI, and review representative cases against the configured model before
 rollout. Matching validity is not a substitute for assessing whether the
 provider chose the right meaning-bearing words.
 
-See [ADR 0080](../adr/0080-llm-proposed-english-target-alignment.md) for the
+See [ADR 0080](../../adr/0080-llm-proposed-english-target-alignment.md) for the
 decision amending ADR 0029's distributed-correspondence fallback.
 
 ## Original implementation slices
