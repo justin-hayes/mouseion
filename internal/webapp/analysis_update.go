@@ -16,7 +16,7 @@ import (
 
 const (
 	analysisUpdateNotice          = "A newer analysis is available."
-	analysisUpdateEndReadingFirst = "End the Reading first to update this Book's analysis; the Reading keeps its frozen evidence."
+	analysisUpdateEndReadingFirst = "End the Reading first to update this Book's analysis."
 	analysisUpdateChangedMessage  = "The available analysis changed before you confirmed. Nothing was queued; review the refreshed offer and try again."
 )
 
@@ -180,7 +180,7 @@ func (h *Handler) updateToReadBookAnalysis(w http.ResponseWriter, r *http.Reques
 	handle, err := h.services.AnalysisUpdates.SubmitAnalysisUpdate(r.Context(), owner, detail.Book.ID, detail.Acquired.Source.ID, expectedRunID, expectedTarget)
 	switch {
 	case errors.Is(err, analysis.ErrCurrentBook):
-		bookActionRedirect(w, r, bookID, "error", "End the Reading first. The current book keeps its frozen evidence; no analysis was queued.")
+		bookActionRedirect(w, r, bookID, "error", "End the Reading first. No analysis was queued.")
 	case errors.Is(err, analysis.ErrNotFound):
 		http.NotFound(w, r)
 	case analysisUpdateOfferChanged(err):

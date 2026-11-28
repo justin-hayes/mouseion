@@ -213,7 +213,7 @@ func navigationContextForTitle(title string) NavigationContext {
 		return NavigationLibrary
 	case "Reading", "Learning":
 		return NavigationReading
-	case "Vocabulary", "Known vocabulary":
+	case "Vocabulary":
 		return NavigationVocabulary
 	case "Catalog", "Catalogs":
 		return NavigationCatalogs

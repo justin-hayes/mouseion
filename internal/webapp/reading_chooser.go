@@ -113,7 +113,7 @@ const analysisCouldNotStartMessage = "Analysis could not be started. The To Read
 func retryMessage(outcome readingintent.Outcome) (message string, isError bool) {
 	switch outcome.Kind {
 	case readingintent.OutcomeCurrentBookRefused:
-		return "The current book cannot be refreshed. Its frozen evidence remains unchanged.", true
+		return "The current book cannot be refreshed while you are reading it.", true
 	case readingintent.OutcomePreparationUnavailable:
 		return "Classical preparation is unavailable.", true
 	case readingintent.OutcomeAlreadyCurrent:

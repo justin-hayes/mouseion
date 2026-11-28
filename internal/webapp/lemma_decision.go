@@ -136,13 +136,6 @@ func writeLemmaReviewError(w http.ResponseWriter, err error) {
 	http.Error(w, rejection.message, rejection.status)
 }
 
-func yesNo(value bool) string {
-	if value {
-		return "yes"
-	}
-	return "no"
-}
-
 // lemmaReviewReported reports whether a Study report is of the occurrence: the
 // same place in the Book's unit when the report is located, else the same token
 // of the same run.

@@ -358,7 +358,7 @@ func MyBookRow(csrf string, book domain.MyBook, returnTo string) templ.Component
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = Confirmation("Mark as previously read", "This records one completion from before Mouseion and moves the Book to Read. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = Confirmation("Mark as previously read", "This records one completion from before Mouseion and moves the Book to Read.", StatusNeutral).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

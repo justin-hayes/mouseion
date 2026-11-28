@@ -51,7 +51,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 				<summary>More actions</summary>
 				<div class="more-actions__body">
 					if book.CanMarkPreviouslyRead() {
-						@Confirmation("Mark as previously read", "This records one completion from before Mouseion and moves the Book to Read. It adds no snapshot or vocabulary counts and does not change Known vocabulary.", StatusNeutral) {
+						@Confirmation("Mark as previously read", "This records one completion from before Mouseion and moves the Book to Read.", StatusNeutral) {
 							<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/previously-read") }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="btn btn-outline">Confirm previously read</button></form>
 						}
 					}

@@ -59,6 +59,9 @@ type studyPageView struct {
 	// correction; Withdrawn names the words a correction left with no valid
 	// occurrence. Their progress is kept.
 	Reintroducing int
+	// FirstMaterial is how many due reviews of words migrated from Known
+	// vocabulary wait for their first Study material.
+	FirstMaterial int
 	// Held is how many words are held by an open Wrong-word report.
 	Held      int
 	Withdrawn []string
@@ -250,6 +253,8 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 			} else {
 				view.WaitingForSentence = append(view.WaitingForSentence, word)
 			}
+		case domain.StudyAwaitsMaterial(item, now) && item.AwaitingFirstMaterial:
+			view.FirstMaterial++
 		case domain.StudyAwaitsMaterial(item, now):
 			view.Reintroducing++
 		}
