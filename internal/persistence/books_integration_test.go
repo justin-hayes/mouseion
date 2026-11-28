@@ -14,13 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newTestBook builds a validated Book the way the Book intake paths do: a
-// chosen language tag is normalised before validation.
-func newTestBook(ownerID, title, metadataProvenance, languageState, languageTag string) (domain.Book, error) {
-	if languageState == domain.LanguageChosen {
-		languageTag = canonicalization.NormalizeLanguage(languageTag)
+// newTestBook returns b the way the Book intake paths build it: a chosen
+// language tag is normalised, then the Book is validated.
+func newTestBook(b domain.Book) (domain.Book, error) {
+	if b.LanguageState == domain.LanguageChosen {
+		b.LanguageTag = canonicalization.NormalizeLanguage(b.LanguageTag)
 	}
-	b := domain.Book{OwnerID: ownerID, Title: title, MetadataProvenance: metadataProvenance, LanguageState: languageState, LanguageTag: languageTag}
 	return b, b.Validate()
 }
 
@@ -226,11 +225,11 @@ func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, got)
 
-	deBook, err := newTestBook(alice.ID, "German", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
+	deBook, err := newTestBook(domain.Book{OwnerID: alice.ID, Title: "German", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	deBook, err = store.CreateBook(ctx, deBook)
 	require.NoError(t, err)
-	itBook, err := newTestBook(alice.ID, "Italian", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "it")
+	itBook, err := newTestBook(domain.Book{OwnerID: alice.ID, Title: "Italian", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "it"})
 	require.NoError(t, err)
 	itBook, err = store.CreateBook(ctx, itBook)
 	require.NoError(t, err)
@@ -319,7 +318,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 		{title: "Unknown", state: domain.LanguageUnknown},
 	}
 	for _, input := range inputs {
-		book, bookErr := newTestBook(alice.ID, input.title, domain.MetadataProvenanceCatalogueSync, input.state, input.language)
+		book, bookErr := newTestBook(domain.Book{OwnerID: alice.ID, Title: input.title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: input.state, LanguageTag: input.language})
 		require.NoError(t, bookErr)
 		_, err = store.CreateBook(ctx, book)
 		require.NoError(t, err)

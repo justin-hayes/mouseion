@@ -128,8 +128,12 @@ func TestResolvePassageWithholdsAPartialPassageAndAnUntranslatedPolicy(t *testin
 	assert.Equal(t, "pin", got.Pin)
 	assert.NotEmpty(t, got.Citation)
 
-	assert.Empty(t, ResolvePassage(cardpolicy.For("grc"), []string{"1.2.17", "1.2.99"}, translations, "pin").Text)
-	assert.Empty(t, ResolvePassage(cardpolicy.For("de"), []string{"1.2.17"}, translations, "pin").Text)
+	t.Run("a partial passage is withheld", func(t *testing.T) {
+		require.Empty(t, ResolvePassage(cardpolicy.For("grc"), []string{"1.2.17", "1.2.99"}, translations, "pin").Text)
+	})
+	t.Run("an untranslated policy is withheld", func(t *testing.T) {
+		require.Empty(t, ResolvePassage(cardpolicy.For("de"), []string{"1.2.17"}, translations, "pin").Text)
+	})
 }
 
 func senseIDs(senses []Sense) []string {
@@ -163,21 +167,29 @@ func TestResolvePassageOfBookReadsTheBooksTranslationsFromTheStore(t *testing.T)
 
 	none, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "book-2", []string{"1.2.17"})
 	require.NoError(t, err)
-	assert.Empty(t, none.Text, "a Book with no translations has no passage")
+	require.Empty(t, none.Text, "a Book with no translations has no passage")
 }
 
 func TestResolvePassageOfBookAsksNothingWhenNoPassageApplies(t *testing.T) {
 	store := &translations{pin: "p", byBook: map[string]map[string]string{"b": {"1.1": "x"}}}
-	got, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("de"), "owner", "b", []string{"1.1"})
-	require.NoError(t, err)
-	assert.Empty(t, got.Text)
-	got, err = ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "b", nil)
-	require.NoError(t, err)
-	assert.Empty(t, got.Text)
-	got, err = ResolvePassageOfBook(t.Context(), nil, cardpolicy.For("grc"), "owner", "b", []string{"1.1"})
-	require.NoError(t, err)
-	assert.Empty(t, got.Text)
-	assert.Zero(t, store.calls)
+	t.Run("an untranslated policy", func(t *testing.T) {
+		got, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("de"), "owner", "b", []string{"1.1"})
+		require.NoError(t, err)
+		require.Empty(t, got.Text)
+	})
+	t.Run("no references", func(t *testing.T) {
+		got, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "b", nil)
+		require.NoError(t, err)
+		require.Empty(t, got.Text)
+	})
+	t.Run("no store", func(t *testing.T) {
+		got, err := ResolvePassageOfBook(t.Context(), nil, cardpolicy.For("grc"), "owner", "b", []string{"1.1"})
+		require.NoError(t, err)
+		require.Empty(t, got.Text)
+	})
+	t.Run("the store is never asked", func(t *testing.T) {
+		require.Zero(t, store.calls)
+	})
 }
 
 func TestResolvePassageOfBookReturnsAStoreFailure(t *testing.T) {
