@@ -155,13 +155,12 @@ func TestChooserRendersTheSelectedToReadBookInline(t *testing.T) {
 	}
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 
-	chooser := perform(t, h, http.MethodGet, "/grc/reading", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	body := chooser.Body.String()
 	entry := books["homer-iliad-1"]
-	require.Contains(t, body, `id="reading-chooser-book-`+entry.ID+`" tabindex="-1"`)
+	require.Contains(t, body, `id="book-row-`+entry.ID+`"`)
 	require.Contains(t, body, `action="/reading/books/`+entry.ID+`/start"`)
-	require.NotContains(t, body, "Book 1 of")
 }
 
 func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {

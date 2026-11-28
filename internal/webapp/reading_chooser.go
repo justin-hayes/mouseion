@@ -18,7 +18,7 @@ const vocabularyCountsUpdatingDescription = "This Book's vocabulary counts are b
 
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	if strings.TrimSpace(query.Get("reading")) == "" {
+	if !readingDeskRequest(query) {
 		redirectMyBooksFeedback(w, r, query)
 		return
 	}
@@ -29,10 +29,16 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
+	// Browse state with no Current reading and no Book named has nothing to
+	// restore: between Books there is no Browse, so the learner is sent to My Books.
+	if reading := strings.TrimSpace(query.Get("reading")); reading == "" && !currentReading.IsActive() {
+		redirectMyBooksFeedback(w, r, query)
+		return
+	}
 	// Back to book vocabulary names the Book it left. Only that Book may restore
 	// controls; anything else is explained before any other reading context
 	// opens, and nothing is transferred to it.
-	if reading := strings.TrimSpace(query.Get("reading")); !currentReading.IsActive() || reading != currentReading.BookID {
+	if reading := strings.TrimSpace(query.Get("reading")); !currentReading.IsActive() || (reading != "" && reading != currentReading.BookID) {
 		h.renderReadingBrowseOriginExpired(w, r, owner, language, currentReading.IsActive())
 		return
 	}
@@ -48,6 +54,22 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		readingView.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, currentReading.BookID)
 	}
 	renderStatus(w, r, status, ReadingPage(owner, h.csrf(w, r), readingView, query.Get("message"), query.Get("error")))
+}
+
+// readingDeskQueryKeys are the vocabulary Browse state a working-desk address
+// carries: the Book it belongs to, its prefix, accounting reveal, evidence
+// revision, row and page.
+var readingDeskQueryKeys = []string{"reading", "q", "all", "rev", "row", "page"}
+
+// readingDeskRequest reports whether the query names vocabulary Browse state,
+// as opposed to a bare Reading address that now belongs to My Books.
+func readingDeskRequest(query url.Values) bool {
+	for _, key := range readingDeskQueryKeys {
+		if query.Has(key) {
+			return true
+		}
+	}
+	return false
 }
 
 // redirectMyBooksFeedback sends a retired Reading address to My Books in the
