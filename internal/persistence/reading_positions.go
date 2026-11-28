@@ -5,7 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
+	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 // RecordManualPosition records the learner's own Position report for a Book in
@@ -26,5 +28,28 @@ func (s *PostgresStore) RecordManualPosition(ctx context.Context, owner, bookID 
 	if inserted == 0 {
 		return ErrNotFound
 	}
+	return nil
+}
+
+// readingPosition is the Book's latest Position report; ok is false when it
+// has none.
+func (s *PostgresStore) readingPosition(ctx context.Context, owner, bookID string) (position domain.ReadingPosition, ok bool, err error) {
+	row, err := s.queries().GetLatestPositionReport(ctx, sqlcgen.GetLatestPositionReportParams{Owner: owner, Book: bookID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ReadingPosition{}, false, nil
+	}
+	if err != nil {
+		return domain.ReadingPosition{}, false, err
+	}
+	return domain.ReadingPosition{Fraction: row.Fraction, Source: domain.PositionSource(row.Source), RecordedAt: row.RecordedAt}, true, nil
+}
+
+// attachReadingPosition sets the Book's Reading position when it has one.
+func (s *PostgresStore) attachReadingPosition(ctx context.Context, owner string, book *domain.MyBook) error {
+	position, ok, err := s.readingPosition(ctx, owner, book.Book.ID)
+	if err != nil || !ok {
+		return err
+	}
+	book.ReadingPosition = &position
 	return nil
 }

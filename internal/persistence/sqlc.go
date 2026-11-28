@@ -418,29 +418,3 @@ func exampleSentenceFromFields(
 		CreatedAt:        createdAt,
 	}
 }
-
-// myBookFromDetailRow maps the Book detail read, which is the evidence row plus
-// the Book's latest Position report.
-func myBookFromDetailRow(row sqlcgen.GetMyBookDetailRow) domain.MyBook {
-	book := myBookFromEvidence(sqlcgen.MyBooksEvidence{
-		BookID: row.BookID, BookOwnerID: row.BookOwnerID, BookTitle: row.BookTitle,
-		BookMetadataProvenance: row.BookMetadataProvenance, BookLanguageState: row.BookLanguageState,
-		BookLanguageTag: row.BookLanguageTag, BookCreatedAt: row.BookCreatedAt, BookUpdatedAt: row.BookUpdatedAt,
-		SourceID: row.SourceID, SourceOwnerID: row.SourceOwnerID, SourceLanguage: row.SourceLanguage,
-		SourceIdentifier: row.SourceIdentifier, SourceTitle: row.SourceTitle, SourceMediaType: row.SourceMediaType,
-		SourceContentHash: row.SourceContentHash, SourceContentDigest: row.SourceContentDigest,
-		SourceContentRevisionID: row.SourceContentRevisionID, SourceContentSnapshotID: row.SourceContentSnapshotID,
-		SourceDigestVersion: row.SourceDigestVersion, SourceCreatedAt: row.SourceCreatedAt, Acquired: row.Acquired,
-		AnalysisStatus: row.AnalysisStatus, AnalysisState: row.AnalysisState, AnalysisRunID: row.AnalysisRunID,
-		CorpusID: row.CorpusID, AnalysisJobID: row.AnalysisJobID, BookAuthor: row.BookAuthor,
-		BookCoverState: row.BookCoverState, BookCoverWidth: row.BookCoverWidth, BookCoverHeight: row.BookCoverHeight,
-	}, "")
-	if row.HasReadingPosition {
-		book.ReadingPosition = &domain.ReadingPosition{
-			Fraction:   row.PositionFraction,
-			Source:     domain.PositionSource(row.PositionSource),
-			RecordedAt: row.PositionRecordedAt,
-		}
-	}
-	return book
-}

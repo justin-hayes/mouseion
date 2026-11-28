@@ -402,7 +402,7 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 	if err != nil {
 		return domain.MyBook{}, missing(err)
 	}
-	book := myBookFromDetailRow(row)
+	book := myBookFromEvidence(row, "")
 	if book.Acquired != nil {
 		failureCode, codeErr := s.queries().GetLatestAnalysisFailureCode(ctx, sqlcgen.GetLatestAnalysisFailureCodeParams{Owner: owner, Source: book.Acquired.Source.ID})
 		if codeErr != nil {
@@ -444,6 +444,9 @@ func (s *PostgresStore) GetBookDetail(ctx context.Context, owner, id string) (do
 		book.LatestCompletionAt = completionTime(completion.LatestCompletedAt)
 	}
 	book.LatestCompletionSource = domain.ReadingCompletionSource(completion.LatestCompletionSource)
+	if err := s.attachReadingPosition(ctx, owner, &book); err != nil {
+		return domain.MyBook{}, err
+	}
 	page := []domain.MyBook{book}
 	if err := s.populateMyBooksReadingUnits(ctx, owner, page); err != nil {
 		return domain.MyBook{}, err

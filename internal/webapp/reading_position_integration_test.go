@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,9 +17,7 @@ import (
 func (s *studyHarness) recordPosition(bookID, percent string, extra url.Values) *httptest.ResponseRecorder {
 	s.t.Helper()
 	form := url.Values{"csrf_token": {s.cookies[0].Value}, "return_to": {bookDetailURL(bookID)}, "percent": {percent}}
-	for key, values := range extra {
-		form[key] = values
-	}
+	maps.Copy(form, extra)
 	return perform(s.t, s.h, http.MethodPost, readingPositionURL(bookID), form, s.cookies)
 }
 

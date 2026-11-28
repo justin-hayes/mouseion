@@ -1,9 +1,8 @@
-package domain_test
+package domain
 
 import (
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +27,7 @@ func TestPositionFromPercentage(t *testing.T) {
 	}
 	for _, tc := range accepted {
 		t.Run("accepts "+tc.input, func(t *testing.T) {
-			fraction, err := domain.PositionFromPercentage(tc.input)
+			fraction, err := PositionFromPercentage(tc.input)
 			require.NoError(t, err)
 			assert.InDelta(t, tc.fraction, fraction, 1e-12)
 		})
@@ -36,25 +35,25 @@ func TestPositionFromPercentage(t *testing.T) {
 
 	refused := []struct {
 		input  string
-		reason domain.PositionRefusal
+		reason PositionRefusalError
 	}{
-		{"", domain.PositionRefusalMissing},
-		{"   ", domain.PositionRefusalMissing},
-		{"abc", domain.PositionRefusalNotANumber},
-		{"1e2", domain.PositionRefusalNotANumber},
-		{"35.", domain.PositionRefusalNotANumber},
-		{".5", domain.PositionRefusalNotANumber},
-		{"12.34", domain.PositionRefusalNotANumber},
-		{"35 %%", domain.PositionRefusalNotANumber},
-		{"100.1", domain.PositionRefusalOutOfRange},
-		{"101", domain.PositionRefusalOutOfRange},
-		{"-1", domain.PositionRefusalOutOfRange},
-		{"-0.1", domain.PositionRefusalOutOfRange},
-		{"99999999999999999999", domain.PositionRefusalOutOfRange},
+		{"", ErrPositionMissing},
+		{"   ", ErrPositionMissing},
+		{"abc", ErrPositionNotANumber},
+		{"1e2", ErrPositionNotANumber},
+		{"35.", ErrPositionNotANumber},
+		{".5", ErrPositionNotANumber},
+		{"12.34", ErrPositionNotANumber},
+		{"35 %%", ErrPositionNotANumber},
+		{"100.1", ErrPositionOutOfRange},
+		{"101", ErrPositionOutOfRange},
+		{"-1", ErrPositionOutOfRange},
+		{"-0.1", ErrPositionOutOfRange},
+		{"99999999999999999999", ErrPositionOutOfRange},
 	}
 	for _, tc := range refused {
 		t.Run("refuses "+tc.input, func(t *testing.T) {
-			_, err := domain.PositionFromPercentage(tc.input)
+			_, err := PositionFromPercentage(tc.input)
 			require.ErrorIs(t, err, tc.reason)
 		})
 	}
@@ -75,7 +74,7 @@ func TestReadingPositionDisplayPercent(t *testing.T) {
 		{0.3529411, 35},
 	}
 	for _, tc := range cases {
-		position := domain.ReadingPosition{Fraction: tc.fraction}
+		position := ReadingPosition{Fraction: tc.fraction}
 		assert.Equal(t, tc.percent, position.Percent(), "fraction %v", tc.fraction)
 	}
 }

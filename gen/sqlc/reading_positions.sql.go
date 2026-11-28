@@ -10,6 +10,34 @@ import (
 	"time"
 )
 
+const getLatestPositionReport = `-- name: GetLatestPositionReport :one
+SELECT fraction, source, recorded_at
+FROM reading_position_reports
+WHERE owner_id::text = $1 AND book_id::text = $2
+ORDER BY recorded_at DESC, id DESC
+LIMIT 1
+`
+
+type GetLatestPositionReportParams struct {
+	Owner string
+	Book  string
+}
+
+type GetLatestPositionReportRow struct {
+	Fraction   float64
+	Source     string
+	RecordedAt time.Time
+}
+
+// The Book's Reading position: its latest report by recorded time, the later
+// insertion winning a tie.
+func (q *Queries) GetLatestPositionReport(ctx context.Context, arg GetLatestPositionReportParams) (GetLatestPositionReportRow, error) {
+	row := q.db.QueryRow(ctx, getLatestPositionReport, arg.Owner, arg.Book)
+	var i GetLatestPositionReportRow
+	err := row.Scan(&i.Fraction, &i.Source, &i.RecordedAt)
+	return i, err
+}
+
 const insertManualPositionReport = `-- name: InsertManualPositionReport :execrows
 INSERT INTO reading_position_reports (owner_id, book_id, source, fraction, recorded_at)
 SELECT d.owner_id, d.book_id, 'manual', $1::numeric(7,6), $2::timestamptz

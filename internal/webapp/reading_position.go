@@ -9,10 +9,10 @@ import (
 )
 
 // readingPositionRefusalCopy maps each stable refusal reason to learner copy.
-var readingPositionRefusalCopy = map[domain.PositionRefusal]string{
-	domain.PositionRefusalMissing:    "Enter a percentage from 0 to 100 to record your Reading position.",
-	domain.PositionRefusalNotANumber: "Enter the percentage as a number from 0 to 100 with at most one decimal place, such as 35 or 35.5.",
-	domain.PositionRefusalOutOfRange: "A percentage must be from 0 to 100.",
+var readingPositionRefusalCopy = map[domain.PositionRefusalError]string{
+	domain.ErrPositionMissing:    "Enter a percentage from 0 to 100 to record your Reading position.",
+	domain.ErrPositionNotANumber: "Enter the percentage as a number from 0 to 100 with at most one decimal place, such as 35 or 35.5.",
+	domain.ErrPositionOutOfRange: "A percentage must be from 0 to 100.",
 }
 
 // recordReadingPosition records the learner's percentage as a manual Position
@@ -30,8 +30,7 @@ func (h *Handler) recordReadingPosition(w http.ResponseWriter, r *http.Request) 
 	bookID := book.Book.ID
 	input := r.FormValue("percent")
 	fraction, err := domain.PositionFromPercentage(input)
-	var refusal domain.PositionRefusal
-	if errors.As(err, &refusal) {
+	if refusal, ok := errors.AsType[domain.PositionRefusalError](err); ok {
 		query := url.Values{"error": {readingPositionRefusalCopy[refusal]}, "percent": {input}}
 		redirect(w, r, bookDetailURL(bookID)+"?"+query.Encode())
 		return
