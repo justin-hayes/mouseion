@@ -75,6 +75,31 @@ func TestStudyFluencyEnqueueSkipsAnExhaustedWordUntilItsCorpusChangesOrItLapses(
 		require.NoError(t, err)
 		assert.Equal(t, 1, s.enqueuedFluencyJobs())
 	})
+
+	scanned = scanned.Add(2 * time.Minute)
+	require.NoError(t, s.store.RecordStudyFluencyExhausted(s.ctx, s.owner.ID, word.ID, scanned))
+	require.Zero(t, s.enqueuedFluencyJobs())
+
+	t.Run("a confirmed Lemma correction or Occurrence exclusion", func(t *testing.T) {
+		_, err := s.store.Pool().Exec(s.ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,excluded,updated_at)
+			SELECT cai.owner_id, cai.book_id, cai.corpus_id, cai.analysis_run_id, s.unit_id, t.start_offset, t.end_offset, true, $2
+			  FROM current_analysis_identity cai
+			  JOIN corpus_tokens t ON t.owner_id=cai.owner_id AND t.corpus_id=cai.corpus_id AND t.analysis_run_id=cai.analysis_run_id
+			  JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.corpus_id=t.corpus_id AND s.analysis_run_id=t.analysis_run_id AND s.sentence_ordinal=t.sentence_ordinal
+			 WHERE cai.owner_id=$1 LIMIT 1`, s.owner.ID, scanned.Add(time.Minute))
+		require.NoError(t, err)
+		assert.Equal(t, 1, s.enqueuedFluencyJobs())
+	})
+
+	scanned = scanned.Add(2 * time.Minute)
+	require.NoError(t, s.store.RecordStudyFluencyExhausted(s.ctx, s.owner.ID, word.ID, scanned))
+	require.Zero(t, s.enqueuedFluencyJobs())
+
+	t.Run("a word re-introduced after its Lemma correction", func(t *testing.T) {
+		_, err := s.store.Pool().Exec(s.ctx, `UPDATE study_progress SET corrected_at=$2 WHERE owner_id=$1 AND id=$3`, s.owner.ID, scanned.Add(time.Minute), word.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 1, s.enqueuedFluencyJobs())
+	})
 }
 
 func TestStudyFluencyExhaustedRecordIsKeptPerWordAndRefused(t *testing.T) {

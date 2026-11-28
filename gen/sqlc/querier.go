@@ -224,7 +224,10 @@ type Querier interface {
 	GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error)
 	// The newest change to the Corpus of the study language: a Book of the
 	// language added to or removed from My Books, or an analysis run of one of its
-	// Books completing; the Unix epoch means none.
+	// Books completing, or a confirmed Lemma correction or Occurrence exclusion that
+	// changes which occurrences belong to a word: a correction row written, a word
+	// re-introduced after its correction, or a report ended by an undo, correction
+	// or exclusion; the Unix epoch means none.
 	GetStudyCorpusChangedAt(ctx context.Context, arg GetStudyCorpusChangedAtParams) (time.Time, error)
 	// The corpus of the Current reading's current analysis: the evidence its
 	// coverage toward Target coverage is read from. No row when there is no Current

@@ -41,6 +41,15 @@ func (q *Queries) AppendStudyFluencyResponse(ctx context.Context, arg AppendStud
 
 const getStudyCorpusChangedAt = `-- name: GetStudyCorpusChangedAt :one
 SELECT GREATEST(
+  COALESCE((SELECT max(d.updated_at)
+              FROM occurrence_lemma_corrections d
+              JOIN books b ON b.owner_id = d.owner_id AND b.id = d.book_id
+             WHERE d.owner_id = $1 AND b.language_state = 'chosen' AND b.language_tag = $2::text), 'epoch'::timestamptz),
+  COALESCE((SELECT max(p.corrected_at) FROM study_progress p
+             WHERE p.owner_id = $1 AND p.language = $2), 'epoch'::timestamptz),
+  COALESCE((SELECT max(r.ended_at) FROM study_report r
+             WHERE r.owner_id = $1 AND r.language = $2
+               AND r.end_reason IN ('undone', 'corrected', 'excluded')), 'epoch'::timestamptz),
   COALESCE((SELECT max(GREATEST(m.activated_at, m.removed_at))
               FROM book_membership m
               JOIN books b ON b.owner_id = m.owner_id AND b.id = m.book_id
@@ -61,7 +70,10 @@ type GetStudyCorpusChangedAtParams struct {
 
 // The newest change to the Corpus of the study language: a Book of the
 // language added to or removed from My Books, or an analysis run of one of its
-// Books completing; the Unix epoch means none.
+// Books completing, or a confirmed Lemma correction or Occurrence exclusion that
+// changes which occurrences belong to a word: a correction row written, a word
+// re-introduced after its correction, or a report ended by an undo, correction
+// or exclusion; the Unix epoch means none.
 func (q *Queries) GetStudyCorpusChangedAt(ctx context.Context, arg GetStudyCorpusChangedAtParams) (time.Time, error) {
 	row := q.db.QueryRow(ctx, getStudyCorpusChangedAt, arg.Owner, arg.Language)
 	var changed_at time.Time
