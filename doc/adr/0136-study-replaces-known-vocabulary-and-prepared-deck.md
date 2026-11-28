@@ -3,6 +3,8 @@
 Status: **Accepted; implemented (the Study cutover, §8, PR #2803); retired tables dropped in a later release (#2746)** ·
 Date: 2026-11-26 · Author: Justin + OpenCode
 
+§2 amended by [ADR 0141](0141-boosts-order-new-words-the-current-reading-is-a-focus.md): the Current reading no longer comes first and Target coverage retires; Boosts order new words.
+
 Accepted by merging this ADR's pull request. Justin decided it in a grilling
 session on future product direction. Until the cutover (PR #2803), the ADRs below
 described the running system.
