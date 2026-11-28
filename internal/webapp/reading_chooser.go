@@ -190,6 +190,11 @@ func (h *Handler) readNext(w http.ResponseWriter, r *http.Request) {
 // another tab has moved the Last study language.
 func pageLanguage(r *http.Request) string {
 	if language := strings.TrimSpace(r.FormValue("language")); language != "" {
+		// The action also returns to that language, whatever the Last study
+		// language is (ADR 0131).
+		if view := shellViewFromContext(r.Context()); view.hasLanguage(language) {
+			view.PageLanguage = language
+		}
 		return language
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
