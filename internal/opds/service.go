@@ -198,11 +198,9 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
-	// Acquisition is synchronous but outlives the page request: the response
-	// deadline must not abandon a download the learner can only observe by
-	// reloading My Books.
-	acquisitionCtx := context.WithoutCancel(ctx)
-	download, err := client.DownloadToFile(acquisitionCtx, downloadURL, s.acquisitionTempDir)
+	// Acquisition runs as a River job and honours its context: a server stop
+	// cancels the download and import, and River runs the job again.
+	download, err := client.DownloadToFile(ctx, downloadURL, s.acquisitionTempDir)
 	if err != nil {
 		return epub.ImportResult{}, err
 	}
@@ -224,11 +222,11 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 		if !ok {
 			return epub.ImportResult{}, errors.New("opds: selected acquisition book cannot be promoted")
 		}
-		result, err = acquisitionImporter.ImportForAcquisitionForBook(acquisitionCtx, ownerID, language, bookID, acquisition)
+		result, err = acquisitionImporter.ImportForAcquisitionForBook(ctx, ownerID, language, bookID, acquisition)
 	} else if acquisitionImporter, ok := s.importer.(AcquisitionImporter); ok {
-		result, err = acquisitionImporter.ImportForAcquisition(acquisitionCtx, ownerID, language, acquisition)
+		result, err = acquisitionImporter.ImportForAcquisition(ctx, ownerID, language, acquisition)
 	} else {
-		result, err = s.importer.Import(acquisitionCtx, ownerID, language, retained.Content)
+		result, err = s.importer.Import(ctx, ownerID, language, retained.Content)
 	}
 	if err != nil {
 		return epub.ImportResult{}, fmt.Errorf("opds: ingest downloaded EPUB: %w", importFailureError{err})

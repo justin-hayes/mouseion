@@ -606,3 +606,24 @@ func TestClassicalSourceURLRejectsInvalidBase(t *testing.T) {
 	_, err = classicalSourceURL("https://[::1", "work.conllu")
 	require.Error(t, err)
 }
+
+func TestClassicalPreparationWorkerStoppedForShutdownRecordsNoFailure(t *testing.T) {
+	t.Parallel()
+	target, _ := preparationFixture(t)
+	run := func(cause error) *preparationStoreStub {
+		store := &preparationStoreStub{target: target, legacyRows: []domain.LegacyLanguageRows{{OwnerID: target.OwnerID}}}
+		worker := &ClassicalPreparationWorker{Store: store, Writer: &preparationWriterStub{}, Config: ClassicalPreparationConfig{}}
+		ctx, cancel := context.WithCancelCause(context.Background())
+		cancel(cause)
+		require.Error(t, worker.Work(ctx, preparationJob(target)))
+		return store
+	}
+	t.Run("a shutdown records no failure", func(t *testing.T) {
+		t.Parallel()
+		require.Zero(t, run(errors.New("stop initiated")).failureCalls)
+	})
+	t.Run("a user cancel still records the failure", func(t *testing.T) {
+		t.Parallel()
+		require.Equal(t, 1, run(river.ErrJobCancelledRemotely).failureCalls)
+	})
+}

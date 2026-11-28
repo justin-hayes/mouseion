@@ -20,6 +20,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/jobstop"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
@@ -1643,7 +1644,11 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		return nil
 	}
 	defer func() {
-		if workErr != nil {
+		// A job cancelled because the server is stopping is not a failed run:
+		// River runs it again (jobstop.Middleware makes sure it refunds the
+		// attempt), and a run recorded as failed would not. A user's cancel and
+		// any other cancellation still record the failure.
+		if workErr != nil && !jobstop.CancelledByClientStop(ctx) {
 			workErr = w.recordSnapshotFailure(ctx, workErr, a, job.ID)
 		}
 	}()
@@ -2180,7 +2185,10 @@ func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities})
 	river.AddWorker(workers, &BrowseCountsRebuildWorker{Pool: pool})
 	river.AddWorker(workers, &ConstructionRebuildWorker{Pool: pool})
-	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "study": {MaxWorkers: 2}, IdiomCountsQueue: {MaxWorkers: 1}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}, ClassicalTranslationQueue: {MaxWorkers: 1}, EPUBAcquisitionQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})
+	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "study": {MaxWorkers: 2}, IdiomCountsQueue: {MaxWorkers: 1}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}, ClassicalTranslationQueue: {MaxWorkers: 1}, EPUBAcquisitionQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout,
+		// Every job kind on this client, not only analysis, runs again after a
+		// shutdown instead of spending an attempt.
+		Middleware: []rivertype.Middleware{jobstop.Middleware()}})
 }
 
 func configuredJobTimeout() (time.Duration, error) {

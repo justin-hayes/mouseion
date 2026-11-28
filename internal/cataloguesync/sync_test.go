@@ -99,6 +99,8 @@ type refreshStore struct {
 	indexRuns      int
 	indexEntries   []domain.CatalogueIndexEntry
 	indexObserved  time.Time
+	// statuses records every sync status the worker wrote, in order.
+	statuses []domain.CatalogueSyncStatus
 }
 
 func (s *refreshStore) GetBook(_ context.Context, owner, bookID string) (domain.Book, error) {
@@ -192,7 +194,8 @@ func (s *refreshStore) GetCatalogueEntry(_ context.Context, owner, connectionID,
 	}
 	return entry, nil
 }
-func (s *refreshStore) SetCatalogueSyncStatus(context.Context, domain.CatalogueSyncStatus) error {
+func (s *refreshStore) SetCatalogueSyncStatus(_ context.Context, status domain.CatalogueSyncStatus) error {
+	s.statuses = append(s.statuses, status)
 	return nil
 }
 func (s *refreshStore) GetCatalogueSyncStatus(context.Context, string, string) (domain.CatalogueSyncStatus, error) {

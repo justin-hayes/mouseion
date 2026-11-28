@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/bookcover"
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/jobstop"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/riverqueue/river"
@@ -912,7 +913,12 @@ func (w *EntryCoverWorker) Work(ctx context.Context, job *river.Job[EntryCoverAr
 
 // failEntryCover keeps any retained image, records the failure for operators,
 // and returns an error so River retries. It never surfaces URLs or credentials.
+// A retrieval cut short by a server shutdown is not a failed cover: the cover
+// keeps its state and River runs the job again.
 func (w *EntryCoverWorker) failEntryCover(ctx context.Context, args EntryCoverArgs) error {
+	if jobstop.CancelledByClientStop(ctx) {
+		return errors.New("catalog entry cover retrieval stopped for shutdown")
+	}
 	if err := w.Catalogue.MarkCatalogEntryCoverUnavailable(context.WithoutCancel(ctx), entryKey(args), args.AdvertisedAt, "cover retrieval or validation failed"); err != nil {
 		return err
 	}
@@ -940,6 +946,11 @@ func (w *Worker) Work(ctx context.Context, job *river.Job[SyncArgs]) (workErr er
 		return nil
 	}
 	safe := safeSyncError(workErr, connection)
+	if jobstop.CancelledByClientStop(ctx) {
+		// A server shutdown is not a failed sync: River runs the job again,
+		// and the connection stays syncing until it does.
+		return safe
+	}
 	if statusErr := w.Statuses.SetCatalogueSyncStatus(context.WithoutCancel(ctx), domain.CatalogueSyncStatus{OwnerID: args.OwnerID, ConnectionID: args.ConnectionID, State: domain.CatalogueSyncFailed, LastError: safe.Error()}); statusErr != nil {
 		return errors.Join(safe, fmt.Errorf("record catalogue sync failure: %w", statusErr))
 	}
