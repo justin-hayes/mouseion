@@ -64,18 +64,53 @@ func (s *studyHarness) exec(query string, args ...any) {
 	require.NoError(s.t, err)
 }
 
-// assertChipMatchesToday is the parity proof: the chip is the count Today uses.
+var todayRemainingPattern = regexp.MustCompile(`id="study-remaining"[^>]*>(\d+) reviews? left today`)
+
+// todayRemaining is the count the Today page shows: zero once it is finished.
+func todayRemaining(t *testing.T, page string) int {
+	t.Helper()
+	match := todayRemainingPattern.FindStringSubmatch(page)
+	if match == nil {
+		require.Contains(t, page, `id="study-finished"`, "Today shows a count or is finished")
+		return 0
+	}
+	count, err := strconv.Atoi(match[1])
+	require.NoError(t, err)
+	return count
+}
+
+// assertChipMatchesToday is the rule proof: the chip is the count the domain
+// rule gives Today's finish line. It reads the Reading page, which never
+// reconciles, so words seeded without a library sentence stay in study.
 func (s *studyHarness) assertChipMatchesToday(want int, why string) {
 	s.t.Helper()
 	remaining := s.today().Remaining
-	require.Equal(s.t, want, remaining, why+": Today's count")
+	require.Equal(s.t, want, remaining, why+": the domain rule's count")
 	count, ok := dueChip(s.t, getAs(s.t, s.h, "/de/reading", s.cookies).Body.String())
 	if want == 0 {
 		assert.False(s.t, ok, why+": no chip at zero")
 		return
 	}
 	require.True(s.t, ok, why+": chip present")
-	assert.Equal(s.t, want, count, why+": chip equals Today's count")
+	assert.Equal(s.t, want, count, why+": chip equals the rule's count")
+}
+
+// assertChipIsTodaysCount is the parity proof: the chip is the count the Today
+// page renders, on Today itself and, once Today has reconciled, elsewhere.
+func (s *studyHarness) assertChipIsTodaysCount(why string) int {
+	s.t.Helper()
+	today := getAs(s.t, s.h, "/de/study", s.cookies).Body.String()
+	want := todayRemaining(s.t, today)
+	for name, page := range map[string]string{"Today": today, "Reading": getAs(s.t, s.h, "/de/reading", s.cookies).Body.String()} {
+		count, ok := dueChip(s.t, page)
+		if want == 0 {
+			assert.False(s.t, ok, why+": no chip at zero on "+name)
+			continue
+		}
+		require.True(s.t, ok, why+": chip present on "+name)
+		assert.Equal(s.t, want, count, why+": chip equals Today's count on "+name)
+	}
+	return want
 }
 
 func TestStudyDueChipAppliesTodaysRuleAtEveryBoundary(t *testing.T) {
@@ -129,11 +164,11 @@ func TestStudyDueChipSingularAndAbsentAtZero(t *testing.T) {
 	s.prepared()
 	s.clock.Set(berlinTime(t, 26, 9, 0))
 	s.seedWord("de", "only", "review", berlinTime(t, 26, 8, 0), nil)
-	page := getAs(t, s.h, "/de/study", s.cookies).Body.String()
+	page := getAs(t, s.h, "/de/reading", s.cookies).Body.String()
 	assert.Contains(t, page, `aria-label="Study, 1 review due"`)
 
 	s.exec(`UPDATE study_progress SET last_review = $1`, berlinTime(t, 26, 7, 0))
-	_, ok := dueChip(t, getAs(t, s.h, "/de/study", s.cookies).Body.String())
+	_, ok := dueChip(t, getAs(t, s.h, "/de/reading", s.cookies).Body.String())
 	assert.False(t, ok, "the chip is absent once nothing is due")
 }
 
@@ -171,9 +206,9 @@ func TestStudyDueChipFollowsTodayAfterAContextReportedYesterday(t *testing.T) {
 	s.twoReviewsDue()
 	card := s.progress()[0]
 	require.Equal(t, http.StatusSeeOther, s.report(card, "unsuitable_context", "").Code)
-	s.assertChipMatchesToday(1, "a context reported today is not counted")
+	assert.Equal(t, 1, s.assertChipIsTodaysCount("a context reported today is not counted"))
 	// The report no longer replaces the context on the next Study day; whatever
 	// Today then counts, the chip counts.
 	s.clock.Set(berlinTime(t, 27, 9, 0))
-	s.assertChipMatchesToday(s.today().Remaining, "the next Study day")
+	s.assertChipIsTodaysCount("the next Study day")
 }

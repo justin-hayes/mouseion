@@ -196,7 +196,7 @@ func redirectMyBooksBrowse(w http.ResponseWriter, r *http.Request, path string) 
 
 func (h *Handler) renderMyBooksFailure(w http.ResponseWriter, r *http.Request, u domain.User) {
 	language, _ := activeStudyLanguageForContext(r.Context())
-	retryURL := myBooksPath(language)
+	retryURL := readingPath(language)
 	if r.URL != nil {
 		retryURL = (&url.URL{Path: retryURL, RawQuery: r.URL.RawQuery}).String()
 	}
@@ -221,11 +221,11 @@ func (h *Handler) markBookPreviouslyRead(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		if errors.Is(err, domain.ErrBookIsCurrentReading) {
-			redirectMyBooksBrowse(w, r, myBooksPath(language)+"?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
+			redirectMyBooksBrowse(w, r, readingPath(language)+"?error="+url.QueryEscape(catalogueReadCurrentReadingRefusal))
 			return
 		}
 		if errors.Is(err, domain.ErrPreviouslyReadIneligible) {
-			redirectMyBooksBrowse(w, r, myBooksPath(language)+"?error="+url.QueryEscape(previouslyReadIneligibleRefusal))
+			redirectMyBooksBrowse(w, r, readingPath(language)+"?error="+url.QueryEscape(previouslyReadIneligibleRefusal))
 			return
 		}
 		fail(w, err)

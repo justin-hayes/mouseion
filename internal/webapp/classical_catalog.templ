@@ -101,7 +101,7 @@ templ ClassicalAddForm(csrf, action string) {
 	<form class="inline-action" method="post" action={ templ.SafeURL(action) }>
 		<input type="hidden" name="csrf_token" value={ csrf }/>
 		<p class="catalog-entry__add-copy">{ catalogAddCopy }</p>
-		<button class="button" type="submit">Add</button>
+		<button class="button" type="submit">Add to Reading</button>
 	</form>
 }
 

@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -17,7 +18,7 @@ type shellStyle uint8
 const (
 	shellStyleDefault shellStyle = iota
 	shellStyleLogin
-	shellStyleMyBooks
+	shellStyleReadingList
 	shellStyleReading
 	shellStyleCorpus
 	shellStyleCatalogs
@@ -33,12 +34,12 @@ func selectedShellStyle(styles []shellStyle) shellStyle {
 
 func shellBodyClass(styles []shellStyle) string {
 	switch selectedShellStyle(styles) {
-	case shellStyleMyBooks:
-		return "my-books-shell"
+	case shellStyleReadingList:
+		return "reading-list-shell"
 	case shellStyleReading:
 		return "reading-shell"
 	case shellStyleCorpus:
-		return "vocabulary-shell"
+		return "corpus-shell"
 	case shellStyleCatalogs:
 		return "catalogs-shell"
 	case shellStyleJobs:
@@ -227,14 +228,14 @@ func destinationAttributes(context, destination NavigationContext) templ.Attribu
 
 // studyDestinationAttributes is the Study tab's link: the destination, plus an
 // accessible name that carries the due count while reviews are due.
-func studyDestinationAttributes(context NavigationContext, view *shellView) templ.Attributes {
-	attributes := destinationAttributes(context, NavigationStudy)
-	if view != nil && view.StudyDue > 0 {
+func studyDestinationAttributes(ctx context.Context, current NavigationContext, view *shellView) templ.Attributes {
+	attributes := destinationAttributes(current, NavigationStudy)
+	if due := view.studyDue(ctx); due > 0 {
 		noun := " reviews due"
-		if view.StudyDue == 1 {
+		if due == 1 {
 			noun = " review due"
 		}
-		attributes["aria-label"] = "Study, " + strconv.Itoa(view.StudyDue) + noun
+		attributes["aria-label"] = "Study, " + strconv.Itoa(due) + noun
 	}
 	return attributes
 }

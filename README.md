@@ -15,13 +15,13 @@ Mouseion is not a tool for constructing scholarly editions
 The name recalls the Mouseion of Alexandria, the scholarly community that housed
 the Library.
 
-![My Books on its To Read tab, listing ten German public-domain novels with their covers, the current reading marked Currently reading, and each Book's known-vocabulary coverage and reading history. The To Read and Read tabs sit above the list.](doc/images/my-books.png)
+![Reading on its To Read tab, listing ten German public-domain novels with their covers, the current reading marked Currently reading, and each Book's known-vocabulary coverage and reading history. The To Read and Read tabs sit above the list.](doc/images/my-books.png)
 
-*My Books, To Read tab: the Books chosen to read, including the current reading, with each Book's coverage. (The screenshot predates the Study cutover and shows its former known-vocabulary wording.)*
+*Reading, To Read tab: the Books chosen to read, including the current reading, with each Book's coverage. (The screenshot predates the Study cutover and shows its former known-vocabulary wording.)*
 
-![My Books on its Read tab, listing two Books: one finished in Mouseion and one recorded as read before Mouseion, each with its completion history.](doc/images/my-books-read.png)
+![Reading on its Read tab, listing two Books: one finished in Mouseion and one recorded as read before Mouseion, each with its completion history.](doc/images/my-books-read.png)
 
-*My Books, Read tab: finished Books and Books recorded as previously read.*
+*Reading, Read tab: finished Books and Books recorded as previously read.*
 
 ## Why
 
@@ -41,7 +41,7 @@ word means meeting it in the context where it will be read.
 ## What it does
 
 1. **Catalog sync.** Connects to a learner-owned [OPDS](https://opds.io/)
-   catalog (for example Calibre-Web) and syncs book metadata into *My Books*.
+   catalog (for example Calibre-Web) and syncs book metadata into *Reading*.
    Catalog credentials are encrypted at rest.
 2. **Reading intent.** Moving a book to *To Read* acquires its EPUB and queues
    one durable analysis.
@@ -80,13 +80,13 @@ editions, and every author died before 1956. The run is reproducible with
 
 *Sentence study: an interlinear morphology line for each word, with the complete analyzer evidence in a named disclosure.*
 
-![My Books in the dark color scheme on its To Read tab, showing the same Books, statuses and tabs as the light view.](doc/images/my-books-dark.png)
+![Reading in the dark color scheme on its To Read tab, showing the same Books, statuses and tabs as the light view.](doc/images/my-books-dark.png)
 
-*My Books, To Read tab, in the dark color scheme, from the same run.*
+*Reading, To Read tab, in the dark color scheme, from the same run.*
 
-![My Books in the dark color scheme on its Read tab, showing the same two Books as the light view.](doc/images/my-books-read-dark.png)
+![Reading in the dark color scheme on its Read tab, showing the same two Books as the light view.](doc/images/my-books-read-dark.png)
 
-*My Books, Read tab, in the dark color scheme, from the same run.*
+*Reading, Read tab, in the dark color scheme, from the same run.*
 
 ## Language and text processing
 

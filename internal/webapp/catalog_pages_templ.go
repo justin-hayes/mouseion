@@ -943,7 +943,7 @@ func CatalogEntryCard(csrf string, card catalogCard) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</p><button class=\"button button--outline\" type=\"submit\">Add</button></form><form class=\"catalog-entry__read\" method=\"post\" action=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</p><button class=\"button button--outline\" type=\"submit\">Add to Reading</button></form><form class=\"catalog-entry__read\" method=\"post\" action=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

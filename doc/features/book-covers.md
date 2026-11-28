@@ -5,21 +5,21 @@ Status: **Implemented** · Date:
 
 ## Motivation
 
-My Books is a local bibliographic collection, but its repeated text rows make a
+Reading is a local bibliographic collection, but its repeated text rows make a
 large collection slower to recognize visually than the covers on a physical
 bookshelf. Catalog-supplied cover images can make browsing more immediate while
 title and author preserve trustworthy Book identity. Reading can reuse
 the same images at lower prominence without becoming a second cover browser.
 
-This feature extends [My Books Collection Browsing](collection-browsing.md) and
+This feature extends [Reading Collection Browsing](collection-browsing.md) and
 [Catalog Sync](catalog-sync.md). Its persistence and source boundary are governed
 by [ADR 0077](../adr/0077-catalog-supplied-book-covers.md).
 
 ## Goals
 
-- Make the Book cover the leading visual element in the My Books collection
+- Make the Book cover the leading visual element in the Reading collection
   when one is available.
-- Replace the My Books result rows with one responsive cover grid rather than a
+- Replace the Reading result rows with one responsive cover grid rather than a
   learner-selectable grid/list preference.
 - Keep title and author visible for every Book; a cover is never the sole
   learner-facing identifier.
@@ -32,13 +32,13 @@ by [ADR 0077](../adr/0077-catalog-supplied-book-covers.md).
 
 ## Scope
 
-The feature applies to active-language My Books results at `/library`, current
+The feature applies to active-language Reading results at `/{language}/reading`, current
 and the pinned Current reading and To Read Book rows, and catalog sync. Search, alphabetical
 ordering, paging, language scope, and Book identity remain unchanged.
 
-My Books shows the active language's chosen Books in two tabs, **To Read** and
+Reading shows the active language's chosen Books in two tabs, **To Read** and
 **Read**. The retired needs-language strip has no replacement: a Book without a
-chosen language is not listed in My Books.
+chosen language is not listed in Reading.
 
 ## Book cover metadata
 
@@ -65,7 +65,7 @@ chosen language is not listed in My Books.
   removes the selected image and another alias may supply a fallback. A missing
   entry, failed or incomplete feed walk, unreachable Catalog, or advertised but
   invalid image is not explicit absence and leaves the retained image unchanged.
-- Deleting a Catalog connection or removing a Book from active My Books
+- Deleting a Catalog connection or removing a Book from active Reading
   membership does not delete its retained cover, consistent with existing Book
   and artifact retention.
 
@@ -144,7 +144,7 @@ section records the shape settled under ADR 0038 before any SQL.
   display raster, not an unlimited original or append-only image history.
 - Cover bytes live in PostgreSQL and are excluded from ordinary Book list and
   evidence projections. A dedicated authenticated, owner-scoped endpoint loads
-  and serves bytes only for an active My Books member. (The Catalog card's
+  and serves bytes only for an active Reading member. (The Catalog card's
   entry-cover endpoint is separate: it serves a retained entry image to the
   owner of that Catalog connection.) Missing, unavailable,
   removed-from-view, and cross-owner references all return the same not-found
@@ -156,7 +156,7 @@ section records the shape settled under ADR 0038 before any SQL.
   a later catalog sync. They do not add a per-Book error banner, a new primary
   destination, or a learner-facing retry action.
 
-## My Books cover grid
+## Reading cover grid
 
 The result collection is a native unordered list laid out with CSS Grid. It is
 not an application-style ARIA grid and does not introduce managed arrow-key
@@ -182,7 +182,7 @@ Each Book item presents, in order:
    Book and on every To Read Book. A Read Book has no visible Reading action.
 5. A labeled native **More actions** disclosure containing **Mark as previously
    read** for an unstarted To Read Book, **Read again** for a Book with reading
-   history, and **Remove from My Books**, which is disabled with a reason for
+   history, and **Remove from Reading**, which is disabled with a reason for
    the current Book. Remove ends membership without
    changing the Book's evidence, history, or artifacts. There is no per-Book
    metadata refresh: a catalog-linked Book follows its entry's title, author,
@@ -203,7 +203,7 @@ provides evidence for another value.
 
 The current Book and each To Read candidate reserve one modest,
 consistently sized thumbnail column before the existing Book identity. A real
-cover uses the same complete-image fitting rule as My Books; a missing or
+cover uses the same complete-image fitting rule as Reading; a missing or
 unavailable image uses a subdued placeholder so titles and controls remain
 aligned across the ordered list.
 
@@ -214,7 +214,7 @@ or reorder those contracts.
 
 ## Cover presentation states
 
-| State | My Books presentation | Reading presentation |
+| State | Reading presentation | Reading presentation |
 |---|---|---|
 | Valid retained cover | Complete image in the fixed-ratio frame | Complete image in the thumbnail frame |
 | No cover advertised | Title plate with **No cover available** | Subdued aligned Title plate |
@@ -225,7 +225,7 @@ or reorder those contracts.
 
 The Title plate (ADR 0130) composes the text's own title, Greek title when it has
 one, and author on a tinted surface. It replaces the former title initial in the
-Catalog, My Books and Reading, and is the image of every Classical Reading unit,
+Catalog, Reading and Reading, and is the image of every Classical Reading unit,
 which has no catalog cover. It is presentation, not metadata: never stored or
 called a cover. The Catalog card shows the retained entry cover, or the Title plate while none
 is retained.
@@ -263,7 +263,7 @@ not displace title, author, disposition, or the learner's current task.
 - A new Book detail page or making the cover an implicit mutation control.
 - Changing search, alphabetical ordering, active-language scope, or paging.
 - Moving Reading evidence, recovery, or current-reading controls
-  into My Books.
+  into Reading.
 - Making Catalog sync wait for optional image retrieval or treating a cover
   failure as a sync failure.
 
@@ -279,9 +279,9 @@ not displace title, author, disposition, or the learner's current task.
 - Retrieval accepts only decoded JPEG/PNG input within the 8 MiB and 40-megapixel
   limits and stores one aspect-preserving display raster no larger than 600 by
   900 pixels; rejected input leaves Book and sync state usable.
-- My Books renders an active-language, searchable, paged native list as a
+- Reading renders an active-language, searchable, paged native list as a
   responsive cover grid while retaining complete title and author identity.
-- My Books communicates workflow disposition, not analysis evidence or current
+- Reading communicates workflow disposition, not analysis evidence or current
   reading, and offers labeled Reading, refresh, and removal paths.
 - Reading shows aligned modest thumbnails without changing its semantic list,
   evidence, recovery, or current-reading behavior.

@@ -1,6 +1,6 @@
 /* Vocabulary view-specific composition; controls use the shared foundation. */
 
-body:is(.vocabulary-shell, .reading-shell) :is(.vocabulary-action-link, .vocabulary-lemma-link) {
+body:is(.corpus-shell, .reading-shell) :is(.vocabulary-action-link, .vocabulary-lemma-link) {
   display: inline-flex;
   min-width: 44px;
   min-height: 44px;
@@ -9,13 +9,13 @@ body:is(.vocabulary-shell, .reading-shell) :is(.vocabulary-action-link, .vocabul
 
 /* Browse layout belongs to Vocabulary; controls themselves use the
  * shared daisyUI button/input classes or documented native controls. */
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-language {
+body:is(.corpus-shell, .reading-shell) .vocabulary-language {
   margin-block: var(--mouseion-space-2);
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);
 }
 
-body:is(.vocabulary-shell, .reading-shell) > #main-content > .vocabulary-page-header {
+body:is(.corpus-shell, .reading-shell) > #main-content > .vocabulary-page-header {
   display: flex;
   min-width: 0;
   align-items: baseline;
@@ -26,14 +26,14 @@ body:is(.vocabulary-shell, .reading-shell) > #main-content > .vocabulary-page-he
   padding-block: 0 var(--mouseion-space-2);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-page-header h1 {
+body:is(.corpus-shell, .reading-shell) .vocabulary-page-header h1 {
   flex: 0 0 auto;
   margin: 0;
   font-size: 25px;
   line-height: 1.25;
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-scope {
+body:is(.corpus-shell, .reading-shell) .vocabulary-scope {
   max-width: var(--mouseion-width-data);
   margin-block: var(--mouseion-space-3);
   border-inline-start: 3px solid var(--mouseion-color-accent);
@@ -42,7 +42,7 @@ body:is(.vocabulary-shell, .reading-shell) .vocabulary-scope {
   overflow-wrap: anywhere;
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter {
   display: grid;
   grid-template-columns: minmax(12rem, 1fr) auto;
   align-items: end;
@@ -52,41 +52,41 @@ body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter {
   padding-block: var(--mouseion-space-3);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > label:first-of-type,
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .input {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > label:first-of-type,
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > .input {
   grid-column: 1;
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > label:first-of-type {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > label:first-of-type {
   margin: 0;
   font-weight: 600;
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .input {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > .input {
   width: 100%;
   min-width: 0;
   margin: 0;
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > p {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > p {
   grid-column: 1 / -1;
   margin: 0;
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .vocabulary-exclusions {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > .vocabulary-exclusions {
   max-width: 72ch;
   color: var(--mouseion-color-text);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-applied-query {
+body:is(.corpus-shell, .reading-shell) .vocabulary-applied-query {
   margin-block: var(--mouseion-space-2);
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > label:has(input[type="checkbox"]) {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > label:has(input[type="checkbox"]) {
   grid-column: 1;
   display: flex;
   min-height: 44px;
@@ -98,7 +98,7 @@ body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > label:has(input[
 }
 
 /* Keep the native checkbox glyph compact; the associated label is the target. */
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter input[type="checkbox"] {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter input[type="checkbox"] {
   flex: 0 0 auto;
   width: 1.25rem;
   height: 1.25rem;
@@ -107,30 +107,30 @@ body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter input[type="checkb
   accent-color: var(--mouseion-color-accent);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .btn {
+body:is(.corpus-shell, .reading-shell) .vocabulary-filter > .btn {
   grid-column: 2;
   grid-row: 1 / span 2;
   min-width: 6rem;
 }
 
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results > p {
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results > p {
   max-width: var(--mouseion-width-data);
 }
 
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results .table-region table {
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results .table-region table {
   min-width: 46rem;
 }
 
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results td:nth-child(2),
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results td:nth-child(3) {
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results td:nth-child(2),
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results td:nth-child(3) {
   white-space: nowrap;
 }
 
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results td:nth-child(3) {
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results td:nth-child(3) {
   font-variant-numeric: tabular-nums;
 }
 
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -138,48 +138,48 @@ body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results > section[
   max-width: var(--mouseion-width-data);
 }
 
-body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] p {
+body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] p {
   margin-block: var(--mouseion-space-2);
 }
 
-body:is(.vocabulary-shell, .reading-shell) nav[aria-label="Browse pages"] {
+body:is(.corpus-shell, .reading-shell) nav[aria-label="Browse pages"] {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mouseion-space-2);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-callout {
+body:is(.corpus-shell, .reading-shell) .vocabulary-callout {
   max-width: var(--mouseion-width-data);
   padding: var(--mouseion-space-3) var(--mouseion-space-4);
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 40rem) {
-  body:is(.vocabulary-shell, .reading-shell) > #main-content > .vocabulary-page-header {
+  body:is(.corpus-shell, .reading-shell) > #main-content > .vocabulary-page-header {
     align-items: flex-start;
     gap: var(--mouseion-space-1) var(--mouseion-space-3);
   }
 
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter {
+  body:is(.corpus-shell, .reading-shell) .vocabulary-filter {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > :is(label, .input, p, .btn) {
+  body:is(.corpus-shell, .reading-shell) .vocabulary-filter > :is(label, .input, p, .btn) {
     grid-column: 1;
     grid-row: auto;
   }
 
-  body:is(.vocabulary-shell, .reading-shell) .vocabulary-filter > .btn {
+  body:is(.corpus-shell, .reading-shell) .vocabulary-filter > .btn {
     width: 100%;
   }
 
-  body:is(.vocabulary-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
+  body:is(.corpus-shell, .reading-shell) #vocabulary-browse-results > section[aria-label="Vocabulary pages"] {
     align-items: flex-start;
     flex-direction: column;
   }
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-action-link {
+body:is(.corpus-shell, .reading-shell) .vocabulary-action-link {
   border: 1px solid var(--mouseion-color-border);
   border-radius: var(--mouseion-radius);
   padding: var(--mouseion-space-2) var(--mouseion-space-3);
@@ -189,11 +189,11 @@ body:is(.vocabulary-shell, .reading-shell) .vocabulary-action-link {
   text-decoration: none;
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-action-link:hover {
+body:is(.corpus-shell, .reading-shell) .vocabulary-action-link:hover {
   background: var(--mouseion-color-surface-quiet);
 }
 
-body:is(.vocabulary-shell, .reading-shell) .vocabulary-lemma-link {
+body:is(.corpus-shell, .reading-shell) .vocabulary-lemma-link {
   min-width: 44px;
   padding-inline: var(--mouseion-space-2);
   overflow-wrap: anywhere;
@@ -204,80 +204,80 @@ body:is(.vocabulary-shell, .reading-shell) .vocabulary-lemma-link {
   margin-bottom: var(--mouseion-space-2);
 }
 
-body.vocabulary-shell #main-content:has(form.concordance-query) > p {
+body.corpus-shell #main-content:has(form.concordance-query) > p {
   overflow-wrap: anywhere;
 }
 
-body.vocabulary-shell #main-content {
+body.corpus-shell #main-content {
   min-width: 0;
 }
 
-body.vocabulary-shell #main-content > .page-header .page-header__content {
+body.corpus-shell #main-content > .page-header .page-header__content {
   min-width: 0;
 }
 
-body.vocabulary-shell #main-content > .page-header h1 {
+body.corpus-shell #main-content > .page-header h1 {
   overflow-wrap: anywhere;
 }
 
-body.vocabulary-shell .concordance-query input {
+body.corpus-shell .concordance-query input {
   width: 100%;
 }
 
-body.vocabulary-shell .concordance-query label {
+body.corpus-shell .concordance-query label {
   font-weight: 600;
 }
 
-body.vocabulary-shell .concordance-row summary {
+body.corpus-shell .concordance-row summary {
   min-height: 44px;
 }
 
-body.vocabulary-shell .concordance-context,
-body.vocabulary-shell .sentence-study-text,
-body.vocabulary-shell .sentence-study-tokens {
+body.corpus-shell .concordance-context,
+body.corpus-shell .sentence-study-text,
+body.corpus-shell .sentence-study-tokens {
   overflow-wrap: anywhere;
 }
 
-body.vocabulary-shell .sentence-study-tokens {
+body.corpus-shell .sentence-study-tokens {
   padding-inline-start: 1.5rem;
 }
 
-body.vocabulary-shell .sentence-study-tokens li {
+body.corpus-shell .sentence-study-tokens li {
   padding-block: var(--mouseion-space-2);
   line-height: 1.6;
 }
 
-body.vocabulary-shell .sentence-study-line {
+body.corpus-shell .sentence-study-line {
   margin-block: var(--mouseion-space-4);
   line-height: 1.35;
 }
 
-body.vocabulary-shell .sentence-study-source {
+body.corpus-shell .sentence-study-source {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
 /* Source lines are structure. A soft wrap hangs under its line so the two can
  * never look alike; no-break prose does not receive these row blocks. */
-body.vocabulary-shell .concordance-context-line,
-body.vocabulary-shell .sentence-study-source-line,
-body.vocabulary-shell .sentence-study-line-row {
+body.corpus-shell .concordance-context-line,
+body.corpus-shell .sentence-study-source-line,
+body.corpus-shell .sentence-study-line-row {
   display: block;
   padding-inline-start: 1.5em;
   text-indent: -1.5em;
 }
 
-body.vocabulary-shell .sentence-study-line-row + .sentence-study-line-row {
+body.corpus-shell .sentence-study-line-row + .sentence-study-line-row {
   margin-block-start: var(--mouseion-space-2);
 }
 
-body.vocabulary-shell .concordance-line-break {
+body.corpus-shell .concordance-line-break {
   color: var(--mouseion-color-text-muted);
   font-weight: 400;
 }
 
-body.vocabulary-shell .concordance-attribution,
-body.vocabulary-shell .sentence-study-attribution {
+body.corpus-shell .concordance-attribution,
+body.corpus-shell .sentence-study-attribution {
   margin: 0 0 var(--mouseion-space-2);
   color: var(--mouseion-color-text-muted);
   font-size: var(--mouseion-font-size-metadata);
@@ -285,11 +285,11 @@ body.vocabulary-shell .sentence-study-attribution {
   letter-spacing: 0.04em;
 }
 
-body.vocabulary-shell .sentence-study-line-end {
+body.corpus-shell .sentence-study-line-end {
   color: var(--mouseion-color-text-muted);
 }
 
-body.vocabulary-shell .sentence-study-unit {
+body.corpus-shell .sentence-study-unit {
   display: inline-block;
   max-width: 100%;
   padding-inline: 0.08em;
@@ -297,113 +297,113 @@ body.vocabulary-shell .sentence-study-unit {
   text-align: center;
 }
 
-body.vocabulary-shell .sentence-study-word {
+body.corpus-shell .sentence-study-word {
   display: block;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-body.vocabulary-shell .sentence-study-labels {
+body.corpus-shell .sentence-study-labels {
   display: block;
   font-size: var(--mouseion-font-size-metadata);
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
 }
 
-body.vocabulary-shell .sentence-study-note,
-body.vocabulary-shell .sentence-study-fallback {
+body.corpus-shell .sentence-study-note,
+body.corpus-shell .sentence-study-fallback {
   max-width: var(--mouseion-width-reading);
   font-size: var(--mouseion-font-size-metadata);
 }
 
-body.vocabulary-shell .sentence-study-key dl {
+body.corpus-shell .sentence-study-key dl {
   margin-block: var(--mouseion-space-2);
 }
 
-body.vocabulary-shell .sentence-study-key dt {
+body.corpus-shell .sentence-study-key dt {
   font-weight: 600;
 }
 
-body.vocabulary-shell #concordance-recovery,
-body.vocabulary-shell #concordance-results,
-body.vocabulary-shell .sentence-study-text,
-body.vocabulary-shell .sentence-study-constructions,
-body.vocabulary-shell .sentence-study-relations,
-body.vocabulary-shell .sentence-study-alternative {
+body.corpus-shell #concordance-recovery,
+body.corpus-shell #concordance-results,
+body.corpus-shell .sentence-study-text,
+body.corpus-shell .sentence-study-constructions,
+body.corpus-shell .sentence-study-relations,
+body.corpus-shell .sentence-study-alternative {
   max-width: var(--mouseion-width-reading);
 }
 
 /* Constructions: an extract reprints the sentence with the extent at full
    weight, the rest muted at regular weight and the anchor underlined. Weight,
    tone and underline carry the marking, never colour alone. */
-body.vocabulary-shell .sentence-study-construction-list {
+body.corpus-shell .sentence-study-construction-list {
   padding-inline-start: 1.5rem;
 }
 
-body.vocabulary-shell .sentence-study-construction {
+body.corpus-shell .sentence-study-construction {
   padding-block: var(--mouseion-space-3);
 }
 
-body.vocabulary-shell .sentence-study-construction p {
+body.corpus-shell .sentence-study-construction p {
   margin-block: var(--mouseion-space-2);
 }
 
-body.vocabulary-shell .sentence-study-construction-extract {
+body.corpus-shell .sentence-study-construction-extract {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
-body.vocabulary-shell .construction-extent {
+body.corpus-shell .construction-extent {
   font-weight: 600;
 }
 
-body.vocabulary-shell .construction-muted {
+body.corpus-shell .construction-muted {
   color: var(--mouseion-color-text-muted);
   font-weight: 400;
 }
 
-body.vocabulary-shell .construction-anchor {
+body.corpus-shell .construction-anchor {
   text-decoration: underline;
   text-decoration-thickness: 0.09em;
   text-underline-offset: 0.16em;
 }
 
-body.vocabulary-shell .sentence-study-construction-nesting,
-body.vocabulary-shell .sentence-study-construction-citation,
-body.vocabulary-shell .sentence-study-token-constructions {
+body.corpus-shell .sentence-study-construction-nesting,
+body.corpus-shell .sentence-study-construction-citation,
+body.corpus-shell .sentence-study-token-constructions {
   font-size: var(--mouseion-font-size-metadata);
 }
 
-body.vocabulary-shell .sentence-study-token-constructions {
+body.corpus-shell .sentence-study-token-constructions {
   display: block;
   color: var(--mouseion-color-text-muted);
 }
 
 /* A focused construction (arriving from Concordance's Study) gets a thicker
    accent edge and visible text; the others are not dimmed. */
-body.vocabulary-shell .sentence-study-construction--focused {
+body.corpus-shell .sentence-study-construction--focused {
   padding-inline-start: var(--mouseion-space-3);
   border-inline-start: 4px solid var(--mouseion-color-accent);
 }
 
-body.vocabulary-shell .sentence-study-construction-from {
+body.corpus-shell .sentence-study-construction-from {
   font-size: var(--mouseion-font-size-metadata);
   font-weight: 400;
   color: var(--mouseion-color-text-muted);
 }
 
-body.vocabulary-shell .sentence-study-construction-parallels,
-body.vocabulary-shell .concordance-parallels-nav,
-body.vocabulary-shell .concordance-unsearched {
+body.corpus-shell .sentence-study-construction-parallels,
+body.corpus-shell .concordance-parallels-nav,
+body.corpus-shell .concordance-unsearched {
   font-size: var(--mouseion-font-size-metadata);
 }
 
 /* The Books a parallels lookup could not search: one quiet line. */
-body.vocabulary-shell .concordance-unsearched {
+body.corpus-shell .concordance-unsearched {
   color: var(--mouseion-color-text-muted);
 }
 
-body.vocabulary-shell .sentence-study-construction-parallels a {
+body.corpus-shell .sentence-study-construction-parallels a {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -411,30 +411,30 @@ body.vocabulary-shell .sentence-study-construction-parallels a {
 
 /* The three scope tiers of a parallels page are headings above their own
    lists; the expanded row's construction reprints the Sentence study extract. */
-body.vocabulary-shell .concordance-tier {
+body.corpus-shell .concordance-tier {
   margin-block: var(--mouseion-space-5) var(--mouseion-space-2);
 }
 
-body.vocabulary-shell .concordance-construction {
+body.corpus-shell .concordance-construction {
   margin-block-start: var(--mouseion-space-3);
 }
 
-body.vocabulary-shell .concordance-construction p {
+body.corpus-shell .concordance-construction p {
   margin-block: var(--mouseion-space-2);
 }
 
-body.vocabulary-shell #concordance-results {
+body.corpus-shell #concordance-results {
   max-width: var(--mouseion-width-data);
 }
 
-body.vocabulary-shell #concordance-results nav {
+body.corpus-shell #concordance-results nav {
   display: flex;
   flex-wrap: wrap;
   gap: var(--mouseion-space-3);
   margin-block: var(--mouseion-space-4);
 }
 
-body.vocabulary-shell #concordance-results nav a {
+body.corpus-shell #concordance-results nav a {
   display: inline-flex;
   min-width: 5rem;
   min-height: 44px;

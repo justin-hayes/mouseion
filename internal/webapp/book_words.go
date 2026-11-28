@@ -220,7 +220,7 @@ func bookDetailURL(bookID string) string {
 // there; any other form returns to Reading, so return_to is never an open
 // redirect.
 func bookActionRedirect(w http.ResponseWriter, r *http.Request, bookID, key, text string) {
-	location := myBooksPagePath(r.Context())
+	location := readingPagePath(r.Context())
 	if r.FormValue("return_to") == bookDetailURL(bookID) {
 		location = bookDetailURL(bookID)
 	}

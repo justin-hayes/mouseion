@@ -14,7 +14,7 @@ templ CurrentReadingFinish(outcome currentReadingFinishView) {
 	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome" data-focus-id="primary-goal-finish-heading">
 		<h1 id="primary-goal-finish-heading" tabindex="-1">Reading finished</h1>
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
-		<p><a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Choose a To Read book in Reading</a></p>
+		<p><a class="button button--outline" href={ templ.SafeURL(readingPagePath(ctx)) }>Choose a To Read book in Reading</a></p>
 	</section>
 }
 

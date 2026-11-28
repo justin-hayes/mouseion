@@ -35,7 +35,7 @@ test('the Classical catalog is an ordinary card section; Add leaves the Catalog 
   // The Work page has one Add and one I've read this per Edition, the Opening,
   // the length strip and a read-only contents list.
   await page.goto('/catalogs/classical/works/fixture-odyssey');
-  await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(1);
   await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(1);
   await expect(page.getByText('Choose books')).toHaveCount(0);
   await expect(page.locator('.classical-opening')).toContainText('ἄνδρα μοι ἔννεπε, μοῦσα, πολύτροπον');
@@ -55,20 +55,20 @@ test('the Classical catalog is an ordinary card section; Add leaves the Catalog 
   await expect(odyssey).toContainText('Ὀδύσσεια');
   await expect(odyssey).toContainText('Fixture reviewed edition');
   await expect(odyssey).toContainText('Adding prepares the text for reading.');
-  await expect(odyssey.getByRole('button', { name: 'Add', exact: true })).toHaveCount(1);
-  await odyssey.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect(odyssey.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(1);
+  await odyssey.getByRole('button', { name: 'Add to Reading', exact: true }).click();
 
   await expect(page).toHaveURL(/\/catalogs\?language=grc&/);
   await expect(page.locator('#catalog-add-confirmation')).toContainText('Added 1 Book to Reading');
   await expect(page.locator('#catalog-add-confirmation')).toContainText('The text is already prepared');
   await expect(page.locator('#catalog-add-confirmation').getByRole('link', { name: 'View in Reading' })).toBeVisible();
   await expect(odyssey.getByText('In Reading', { exact: true })).toBeVisible();
-  await expect(odyssey.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+  await expect(odyssey.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(0);
 
   // An owned Work page keeps its contents list and offers no Add.
   await page.goto('/catalogs/classical/works/fixture-odyssey');
   await expect(page.getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Contents of Odyssey, Fixture reviewed edition' }).getByRole('row')).toHaveCount(4);
 
   // The Classical section fits a phone without sideways scrolling.
@@ -98,7 +98,7 @@ test("I've read this records the whole Work as Read from its Work page", async (
   await expect(page.getByRole('link', { name: 'Open Ancient Greek in Reading', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'In Reading', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(0);
 
   await page.getByRole('link', { name: 'Open Ancient Greek in Reading', exact: true }).click();
   await expect(page).toHaveURL(/\/reading/);

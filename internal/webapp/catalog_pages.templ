@@ -172,7 +172,7 @@ templ CatalogEntryCard(csrf string, card catalogCard) {
 			<form class="catalog-entry__add" method="post" action={ templ.SafeURL(card.AddURL) }>
 				@catalogCardFields(csrf, card)
 				<p class="catalog-entry__add-copy">{ catalogAddCopy }</p>
-				<button class="button button--outline" type="submit">Add</button>
+				<button class="button button--outline" type="submit">Add to Reading</button>
 			</form>
 			<form class="catalog-entry__read" method="post" action={ templ.SafeURL(card.ReadURL) }>
 				@catalogCardFields(csrf, card)

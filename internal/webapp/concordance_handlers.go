@@ -24,7 +24,7 @@ const (
 	concordanceNoticePage    = "That results page is not valid. Start again from page 1."
 )
 
-func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) corpusConcordancePage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	queryCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
 	defer cancel()
@@ -329,7 +329,7 @@ func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Reques
 	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, lookup, status == http.StatusGatewayTimeout, origin))
 }
 
-func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) corpusSentenceStudyPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	query := r.URL.Query()
 	parseInt := func(key string) (int64, error) { return strconv.ParseInt(query.Get(key), 10, 64) }
@@ -365,10 +365,18 @@ func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Req
 
 // safeConcordanceReturnURL accepts only a Concordance address in the page's own
 // study language; anything else returns to that language's Concordance landing.
+// A return path under the retired Vocabulary address is rewritten to its
+// successor, so an old Sentence study link keeps its saved search and focus.
 func safeConcordanceReturnURL(candidate, language string) string {
 	landing := studyLanguagePath(pageKindConcordance, language)
 	parsed, err := url.Parse(candidate)
-	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil || parsed.Path != landing || parsed.RawPath != "" {
+	if err != nil || parsed.Scheme != "" || parsed.Host != "" || parsed.User != nil || parsed.RawPath != "" {
+		return landing
+	}
+	if parsed.Path == "/"+language+"/vocabulary/concordance" {
+		parsed.Path = landing
+	}
+	if parsed.Path != landing {
 		return landing
 	}
 	values, err := url.ParseQuery(parsed.RawQuery)

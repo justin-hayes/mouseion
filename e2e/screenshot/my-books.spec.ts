@@ -226,7 +226,7 @@ async function addFromCatalog(page: Page, book: ManifestBook): Promise<void> {
     has: page.getByRole('heading', { name: book.title, exact: true }),
   });
   await expect(entry, `${book.title} is listed in the Catalog`).toHaveCount(1, { timeout: 30_000 });
-  const action = isPreviouslyRead(book) ? "I've read this" : 'Add';
+  const action = isPreviouslyRead(book) ? "I've read this" : 'Add to Reading';
   await entry.getByRole('button', { name: action, exact: true }).click();
   await expect(page, `${action} for ${book.title}`).toHaveURL(/\/catalogs\?.*message=/, { timeout: MEMBERSHIP_TIMEOUT_MS });
   await pollUntil(
