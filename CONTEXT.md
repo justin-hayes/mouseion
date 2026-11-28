@@ -740,6 +740,28 @@ Book. A digest with evidence that it stands for several documents is
 ambiguous: its data is kept unlinked until the learner resolves it.
 _Avoid_: book hash, alias (a Catalog-entry alias is a different link).
 
+**Unlinked document**:
+A Document digest the learner's device has reported that has no Document link.
+Its data is kept and listed with a suggested Book, found by title, until the
+learner confirms a link or dismisses it; a title match never links by itself,
+and a dismissed document's later data is dropped.
+_Avoid_: unknown book, orphan.
+
+**Device**:
+A reading device the learner has named in Mouseion, such as a KOReader
+e-reader, with its own revocable credential. Every device protocol accepts the
+device credential and never the learner's password.
+_Avoid_: client, token, app password.
+
+**Lookup**:
+One dictionary lookup the learner made while reading on a Device: the string
+looked up, the text selected, its surrounding context and its time. It
+resolves to an Annotation occurrence only when its linked Book is analysed and
+its context is found in one of that Book's sentences; otherwise it stays
+unresolved. It is a signal only: it never adds a word to Study or changes its
+order. Mouseion keeps every lookup it receives, so a re-lookup is a new one.
+_Avoid_: look-up word, vocabulary builder word, saved word.
+
 **Study**:
 The learner's in-Mouseion review of vocabulary from their reading, on one card
 surface: Today's due reviews, then New-word batches, then Fluency. It is one
