@@ -225,6 +225,20 @@ func destinationAttributes(context, destination NavigationContext) templ.Attribu
 	return attributes
 }
 
+// studyDestinationAttributes is the Study tab's link: the destination, plus an
+// accessible name that carries the due count while reviews are due.
+func studyDestinationAttributes(context NavigationContext, view *shellView) templ.Attributes {
+	attributes := destinationAttributes(context, NavigationStudy)
+	if view != nil && view.StudyDue > 0 {
+		noun := " reviews due"
+		if view.StudyDue == 1 {
+			noun = " review due"
+		}
+		attributes["aria-label"] = "Study, " + strconv.Itoa(view.StudyDue) + noun
+	}
+	return attributes
+}
+
 func statusBadgeClass(tone StatusTone) string {
 	switch tone {
 	case StatusInfo, StatusSuccess, StatusWarning, StatusDanger:

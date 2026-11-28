@@ -6,6 +6,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/study"
 )
 
 type activeStudyLanguageOption struct {
@@ -25,6 +26,9 @@ type shellView struct {
 	PageLanguage string
 	PageKind     studyLanguagePageKind
 	Options      []activeStudyLanguageOption
+	// StudyDue is the reviews still due today in the Last study language: the
+	// Study tab's due chip. Zero hides the chip.
+	StudyDue int
 }
 
 // hasLanguage reports whether language is one of the learner's study or known
@@ -166,4 +170,20 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 		view.Options = append(view.Options, activeStudyLanguageOption{StudyLanguage: language})
 	}
 	return view, nil
+}
+
+// loadStudyDue sets the view's due count for its Last study language. The chip
+// is absent, the count zero, when there is no such language, when Study does
+// not serve it, or when the handler has no Study store.
+func (h *Handler) loadStudyDue(ctx context.Context, view *shellView, owner string) error {
+	view.StudyDue = 0
+	if view.LastLanguage == "" || !study.Available(view.LastLanguage) || h.services.Store.Study == nil {
+		return nil
+	}
+	due, err := h.services.Store.Study.CountStudyReviewsDue(ctx, owner, view.LastLanguage, h.now())
+	if err != nil {
+		return err
+	}
+	view.StudyDue = due
+	return nil
 }

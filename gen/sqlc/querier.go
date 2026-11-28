@@ -66,6 +66,14 @@ type Querier interface {
 	// Counts only chosen Books, the same rule BrowseMyBooksEvidence lists by.
 	CountMyBooksAll(ctx context.Context, owner string) (int64, error)
 	CountMyBooksScope(ctx context.Context, arg CountMyBooksScopeParams) (int64, error)
+	// The reviews still due on one Study day, for the Study tab's due chip. It is
+	// domain.StudyCountsToday as one count: a review whose due time falls before
+	// next_day_start and that was not answered since day_start, or a relearning
+	// word; never a withdrawn word, a held one (open Wrong-word report), one whose
+	// material was superseded, or one whose context was reported since day_start.
+	// The caller passes domain.StudyDayStart and domain.NextStudyDayStart of now,
+	// so SQL needs no time zone.
+	CountStudyReviewsDue(ctx context.Context, arg CountStudyReviewsDueParams) (int64, error)
 	CreateFirstUserAndSession(ctx context.Context, arg CreateFirstUserAndSessionParams) (CreateFirstUserAndSessionRow, error)
 	// OPDS connection queries. Credential decryption stays in Go; these queries
 	// own the row iteration and RETURNING composition.

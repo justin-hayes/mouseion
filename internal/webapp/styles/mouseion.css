@@ -548,6 +548,20 @@ textarea {
   background: var(--mouseion-color-surface-quiet);
 }
 
+.site-nav__count {
+  box-sizing: border-box;
+  min-width: 1.5em;
+  margin-inline-start: var(--mouseion-space-1);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding-inline: 0.4em;
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .site-header a:focus-visible,
 .site-header button:focus-visible,
 .site-header select:focus-visible,
