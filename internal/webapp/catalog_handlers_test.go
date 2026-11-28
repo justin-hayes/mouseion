@@ -1085,7 +1085,7 @@ func (noStudyLanguageShell) ListStudyLanguages(context.Context, string) ([]domai
 	return nil, nil
 }
 
-func (noStudyLanguageShell) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+func (noStudyLanguageShell) ListStudyProgressLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return nil, nil
 }
 

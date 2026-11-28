@@ -372,7 +372,6 @@ type Querier interface {
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
-	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
 	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)
 	// The one definition of a legacy classical Book. The catalog precondition
@@ -493,6 +492,9 @@ type Querier interface {
 	// a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
 	// is none.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
+	// The languages the learner has Study progress in, whether or not a Book of the
+	// language is still in My Books.
+	ListStudyProgressLanguages(ctx context.Context, ownerID string) ([]ListStudyProgressLanguagesRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	// The Lemma corrections and Occurrence exclusions on the tokens of the given
 	// sentences of one Book's analysis: the decisions that make a lemma effective.

@@ -771,8 +771,8 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	return result, nil
 }
 
-func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
-	rows, err := s.queries().ListKnownVocabularyLanguages(ctx, owner)
+func (s *PostgresStore) ListStudyProgressLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
+	rows, err := s.queries().ListStudyProgressLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
 	}

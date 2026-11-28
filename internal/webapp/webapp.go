@@ -38,7 +38,7 @@ const (
 // shared by the application shell and every learner surface.
 type ShellStore interface {
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
-	ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
+	ListStudyProgressLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	GetStoredActiveStudyLanguage(context.Context, string) (string, error)
 	SetActiveStudyLanguage(context.Context, string, string) error
 	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)

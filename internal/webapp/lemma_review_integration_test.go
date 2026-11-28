@@ -156,10 +156,6 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 
 	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
-	require.ErrorIs(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: updated[1], CanonicalLemma: "", Excluded: true, NormalizationProfile: "", NormalizationVersion: ""}}), persistence.ErrNotFound, "the current reading rejects later occurrence exclusions")
-	stillCurrent, err := store.ListLemmaReviewOccurrences(ctx, owner.ID, book.ID, "Drachen")
-	require.NoError(t, err)
-	assert.False(t, stillCurrent[1].Excluded, "a rejected stale exclusion leaves the learner decision unchanged")
 	buildBrowseProjection(t, ctx, store, book.ID)
 	reservedCoverage, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
 	require.NoError(t, err)

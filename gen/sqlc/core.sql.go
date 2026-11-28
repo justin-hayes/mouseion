@@ -970,41 +970,6 @@ func (q *Queries) ListKnownVocabulary(ctx context.Context, arg ListKnownVocabula
 	return items, nil
 }
 
-const listKnownVocabularyLanguages = `-- name: ListKnownVocabularyLanguages :many
-WITH known_languages AS (
-  SELECT DISTINCT language FROM known_vocabulary WHERE owner_id = $1 AND language <> ''
-)
-SELECT k.language, (COALESCE(NULLIF(n.display_name, ''), k.language))::text AS display_name
-FROM known_languages k
-LEFT JOIN supported_languages n ON n.language = k.language
-ORDER BY COALESCE(NULLIF(n.display_name, ''), k.language), k.language
-`
-
-type ListKnownVocabularyLanguagesRow struct {
-	Language    string
-	DisplayName string
-}
-
-func (q *Queries) ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error) {
-	rows, err := q.db.Query(ctx, listKnownVocabularyLanguages, ownerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListKnownVocabularyLanguagesRow{}
-	for rows.Next() {
-		var i ListKnownVocabularyLanguagesRow
-		if err := rows.Scan(&i.Language, &i.DisplayName); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listSharedLemmas = `-- name: ListSharedLemmas :many
 SELECT content_hash, language, canonical_lemma, upos, morphology, frequency
 FROM shared_lemmas WHERE content_hash = $1 ORDER BY id
@@ -1036,6 +1001,43 @@ func (q *Queries) ListSharedLemmas(ctx context.Context, contentHash string) ([]L
 			&i.Morphology,
 			&i.Frequency,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudyProgressLanguages = `-- name: ListStudyProgressLanguages :many
+WITH progress_languages AS (
+  SELECT DISTINCT language FROM study_progress WHERE owner_id = $1 AND language <> ''
+)
+SELECT k.language, (COALESCE(NULLIF(n.display_name, ''), k.language))::text AS display_name
+FROM progress_languages k
+LEFT JOIN supported_languages n ON n.language = k.language
+ORDER BY COALESCE(NULLIF(n.display_name, ''), k.language), k.language
+`
+
+type ListStudyProgressLanguagesRow struct {
+	Language    string
+	DisplayName string
+}
+
+// The languages the learner has Study progress in, whether or not a Book of the
+// language is still in My Books.
+func (q *Queries) ListStudyProgressLanguages(ctx context.Context, ownerID string) ([]ListStudyProgressLanguagesRow, error) {
+	rows, err := q.db.Query(ctx, listStudyProgressLanguages, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudyProgressLanguagesRow{}
+	for rows.Next() {
+		var i ListStudyProgressLanguagesRow
+		if err := rows.Scan(&i.Language, &i.DisplayName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

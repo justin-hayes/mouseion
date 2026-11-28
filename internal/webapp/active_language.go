@@ -130,7 +130,7 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 	if err != nil {
 		return nil, err
 	}
-	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(ctx, owner)
+	progressLanguages, err := h.services.Store.Shell.ListStudyProgressLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -145,8 +145,8 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 	recent = canonicalization.NormalizeLanguage(recent)
 	stored = canonicalization.NormalizeLanguage(stored)
 	active := domain.ResolveActiveStudyLanguage(studyLanguages, stored, recent)
-	// Historical vocabulary remains selectable so Vocabulary can show it read-only.
-	if !studyLanguagePresent(studyLanguages, stored) && studyLanguagePresent(knownLanguages, stored) {
+	// A language with Study progress stays selectable after its last Book is removed.
+	if !studyLanguagePresent(studyLanguages, stored) && studyLanguagePresent(progressLanguages, stored) {
 		active = stored
 	}
 	view := &shellView{
@@ -159,7 +159,7 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 			NewArrival:    language.Language == recent && language.Language != view.LastLanguage,
 		})
 	}
-	for _, language := range knownLanguages {
+	for _, language := range progressLanguages {
 		if studyLanguagePresent(studyLanguages, language.Language) {
 			continue
 		}

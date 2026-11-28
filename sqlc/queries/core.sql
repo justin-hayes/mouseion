@@ -250,12 +250,14 @@ SELECT kv.id::text,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id;
 
--- name: ListKnownVocabularyLanguages :many
-WITH known_languages AS (
-  SELECT DISTINCT language FROM known_vocabulary WHERE owner_id = $1 AND language <> ''
+-- name: ListStudyProgressLanguages :many
+-- The languages the learner has Study progress in, whether or not a Book of the
+-- language is still in My Books.
+WITH progress_languages AS (
+  SELECT DISTINCT language FROM study_progress WHERE owner_id = $1 AND language <> ''
 )
 SELECT k.language, (COALESCE(NULLIF(n.display_name, ''), k.language))::text AS display_name
-FROM known_languages k
+FROM progress_languages k
 LEFT JOIN supported_languages n ON n.language = k.language
 ORDER BY COALESCE(NULLIF(n.display_name, ''), k.language), k.language;
 
