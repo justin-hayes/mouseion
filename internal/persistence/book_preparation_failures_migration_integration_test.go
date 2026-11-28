@@ -93,9 +93,14 @@ func newBookPreparationFailureFixture(t *testing.T, migrateDB func(string) error
 	report, err := store.AddClassicalReadingUnits(ctx, owner.ID, []string{"work-1"})
 	require.NoError(t, err)
 	require.Len(t, report.Books, 1)
-	detail, err := store.GetBookDetail(ctx, owner.ID, report.Books[0].BookID)
-	require.NoError(t, err)
-	require.NotNil(t, detail.ReadingUnit)
+	// Plain SQL, not the Book detail read: this database is capped at an older
+	// schema that has no Position reports, which the detail read queries.
+	var readingUnitKey string
+	var revision int
+	require.NoError(t, pool.QueryRow(ctx, `
+		SELECT ru.definition_key, ru.revision FROM book_reading_units bru
+		JOIN reading_units ru ON ru.id = bru.reading_unit_id
+		WHERE bru.owner_id = $1 AND bru.book_id = $2`, owner.ID, report.Books[0].BookID).Scan(&readingUnitKey, &revision))
 
 	epubBook, err := store.CreateBook(ctx, domain.Book{
 		OwnerID:            owner.ID,
@@ -112,8 +117,8 @@ func newBookPreparationFailureFixture(t *testing.T, migrateDB func(string) error
 	return bookPreparationFailureFixture{
 		pool: pool, store: store, databaseURL: databaseURL, owner: owner.ID,
 		classicalBookID: report.Books[0].BookID,
-		readingUnitKey:  detail.ReadingUnit.ReadingUnitKey,
-		revision:        detail.ReadingUnit.Revision,
+		readingUnitKey:  readingUnitKey,
+		revision:        revision,
 		epubBookID:      epubBook.ID,
 		connectionID:    connection.ID,
 	}

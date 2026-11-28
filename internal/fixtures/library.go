@@ -80,6 +80,9 @@ func (s *Store) myBooksForOwner(owner string) []domain.MyBook {
 		out = append(out, book)
 	}
 	s.applyFixtureBookEvidence(out)
+	for i := range out {
+		out[i].ReadingPosition = s.readingPositionLocked(out[i].Book.OwnerID, out[i].Book.ID)
+	}
 	return out
 }
 

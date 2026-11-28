@@ -73,6 +73,10 @@ func (h *postgresHarness) MarkBookPreviouslyRead(owner, bookID string) error {
 	return h.store.MarkBookPreviouslyRead(h.ctx, owner, bookID)
 }
 
+func (h *postgresHarness) RecordManualPosition(owner, bookID string, fraction float64, recordedAt time.Time) error {
+	return h.store.RecordManualPosition(h.ctx, owner, bookID, fraction, recordedAt)
+}
+
 func (h *postgresHarness) ResolveOrCreateBookForAcquisition(owner, sourceIdentifier, language, title string) (string, error) {
 	return h.store.ResolveOrCreateBookForAcquisition(h.ctx, owner, sourceIdentifier, language, title)
 }
@@ -93,6 +97,7 @@ func (h *postgresHarness) Catalogue() storecontract.CatalogueStore         { ret
 func (h *postgresHarness) Study() storecontract.StudyStore                 { return h }
 func (h *postgresHarness) StudyProgress() storecontract.StudyProgressStore { return h }
 func (h *postgresHarness) StudyFluency() storecontract.StudyFluencyStore   { return h }
+func (h *postgresHarness) Positions() storecontract.PositionStore          { return h }
 func (h *postgresHarness) Seeds() storecontract.Seeder                     { return h }
 
 func (h *postgresHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {

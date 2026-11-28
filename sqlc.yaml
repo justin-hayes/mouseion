@@ -36,6 +36,10 @@ sql:
             go_type: "int"
           - db_type: "pg_catalog.int8"
             go_type: "int64"
+          # Position report fractions are numeric(7,6): six decimals are exact
+          # in a float64 once rounded to millionths (ReadingPosition.Percent).
+          - db_type: "pg_catalog.numeric"
+            go_type: "float64"
           # my_books_evidence columns derived through a window-function source
           # projection cannot be statically typed by sqlc; pin the concrete
           # domain-facing Go types they always produce.

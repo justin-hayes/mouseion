@@ -16,7 +16,7 @@ func requireHandler(t *testing.T, h http.Handler) *Handler {
 
 // allStoreCapabilities is satisfied by fixtures.Store and test doubles that
 // embed it, so a single fake can supply every learner surface.
-type allStoreCapabilities interface {
+type allStoreCapabilities interface { //nolint:interfacebloat // one fake supplies every learner surface
 	ShellStore
 	MyBooksStore
 	ReadingStore
@@ -27,12 +27,14 @@ type allStoreCapabilities interface {
 	CatalogueReadStore
 	JobsStore
 	StudyStore
+	ReadingPositionStore
 }
 
 func storeDependencies(store allStoreCapabilities) StoreDependencies {
 	return StoreDependencies{
 		Shell:         store,
 		MyBooks:       store,
+		Positions:     store,
 		Reading:       store,
 		Vocabulary:    store,
 		Catalogs:      store,

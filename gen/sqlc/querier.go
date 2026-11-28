@@ -198,6 +198,9 @@ type Querier interface {
 	GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCacheParams) (GetEnrichmentCacheRow, error)
 	GetExtractedUnitSnapshotIdentity(ctx context.Context, arg GetExtractedUnitSnapshotIdentityParams) (GetExtractedUnitSnapshotIdentityRow, error)
 	GetLatestAnalysisFailureCode(ctx context.Context, arg GetLatestAnalysisFailureCodeParams) (string, error)
+	// The Book's Reading position: its latest report by recorded time, the later
+	// insertion winning a tie.
+	GetLatestPositionReport(ctx context.Context, arg GetLatestPositionReportParams) (GetLatestPositionReportRow, error)
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error)
 	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
@@ -278,6 +281,9 @@ type Querier interface {
 	// Read next never freezes a vocabulary snapshot (ADR 0136 §4), so the row names
 	// none.
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
+	// Records a manual Position report for a Book still in the owner's Reading. A
+	// Book outside Reading inserts nothing.
+	InsertManualPositionReport(ctx context.Context, arg InsertManualPositionReportParams) (int64, error)
 	InsertPreviouslyReadImport(ctx context.Context, arg InsertPreviouslyReadImportParams) (InsertPreviouslyReadImportRow, error)
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error

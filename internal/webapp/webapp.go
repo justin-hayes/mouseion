@@ -59,6 +59,15 @@ type MyBooksStore interface {
 	RemoveBookFromMyBooks(context.Context, string, string) error
 }
 
+// ReadingPositionStore records the learner's own Position reports. The Reading
+// position is read from the Book detail the MyBooksStore returns.
+type ReadingPositionStore interface {
+	// RecordManualPosition records a manual Position report for a Book in the
+	// owner's Reading at the given time. A Book outside the owner's Reading is
+	// domain.ErrNotFound.
+	RecordManualPosition(ctx context.Context, owner, bookID string, fraction float64, recordedAt time.Time) error
+}
+
 // ReadingStore provides the Reading (/reading/**) surface: the owner-scoped
 // book reads, the current reading lifecycle, the lemma review seam, and the
 // vocabulary browse shown beside the current reading.
@@ -138,6 +147,7 @@ type JobsStore interface {
 type StoreDependencies struct {
 	Shell         ShellStore
 	MyBooks       MyBooksStore
+	Positions     ReadingPositionStore
 	Reading       ReadingStore
 	Vocabulary    VocabularyStore
 	Catalogs      CatalogsStore
@@ -331,6 +341,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.bookDetailPage)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
+	h.mux.Handle("POST /library/books/{id}/position", h.user(http.HandlerFunc(h.recordReadingPosition)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
