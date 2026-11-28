@@ -12,13 +12,13 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/library$/);
 }
 
-test('Vocabulary heading keeps the compact hierarchy without peer navigation', async ({ page }) => {
+test('Corpus heading keeps the compact hierarchy without peer navigation', async ({ page }) => {
   await signIn(page);
   await page.setViewportSize({ width: 1280, height: 800 });
   // /corpus is the single Concordance view; a Book's words live on its detail page.
   await page.goto('/de/corpus');
   const header = page.locator('.vocabulary-page-header');
-  const heading = header.getByRole('heading', { name: 'Vocabulary', exact: true });
+  const heading = header.getByRole('heading', { name: 'Corpus', exact: true });
   await expect(heading).toBeVisible();
   await expect(header.getByRole('navigation')).toHaveCount(0);
   const desktopLayout = await header.evaluate(element => {
