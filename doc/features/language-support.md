@@ -2,6 +2,13 @@
 
 Status: Implemented; French guarded by an opt-in pinned-model golden check · Date: 2026-08-25 · Issues: #222, #223, #224, #225, #2156
 
+> **Study cutover.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
+> retired Known, Generated and Reserved vocabulary, the prepared-deck path and
+> its `.apkg` output. The validation steps below that mention them record the
+> pre-cutover end-to-end checks; the language-specific analysis, identity and
+> dictionary contracts they exercise still hold, and vocabulary is now studied
+> in [Study](study.md).
+
 ## Runtime contract
 
 The NLP service is authoritative for language availability. It advertises only

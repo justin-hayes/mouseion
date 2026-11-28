@@ -87,17 +87,13 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | `MOUSEION_LLM_REASONING_EFFORT` | `low`, `medium`, or `high`; defaults to `low`. |
 | `MOUSEION_LLM_IDIOM_REASONING_EFFORT` | Optional `low`, `medium`, or `high` for idiom-card requests only; unset uses `MOUSEION_LLM_REASONING_EFFORT`. |
 | `MOUSEION_LLM_SUPPORTS_REASONING_EFFORT` | `true` only when a custom endpoint and model accept `reasoning_effort`. |
-| `MOUSEION_PREPARED_DECK_TRANSLATION_MODE` | `standard` (default, interactive) or explicit `batch`. |
-| `MOUSEION_PREPARED_DECK_STANDARD_*` | Concurrency, attempt, and retry-delay bounds for standard translation. |
-| `MOUSEION_PREPARED_DECK_BATCH_MAX_REQUESTS` | Requests per Batch input file; defaults to `5000`, capped at `50000`. |
-| `MOUSEION_PREPARED_DECK_BATCH_POLL_INTERVAL` | Batch polling interval; defaults to `30s`, capped at `24h`. |
-| `MOUSEION_IDIOM_CARD_LANGUAGES` | Comma-separated per-language idiom-card switch; empty by default. A language may appear only after its review report is committed (ADR 0114). |
+| `MOUSEION_IDIOM_CARD_LANGUAGES` | Comma-separated per-language Idiom switch for Study; empty by default. A language may appear only after its review report is committed and its provider payload assessment is recorded (ADR 0114, ADR 0137). |
 
-Reading and analysis work without an LLM. Preparing a new Anki deck requires the
-configured provider: each card receives a contextual English gloss grounded in
-Wiktionary evidence and the source sentence
+My Books and analysis work without an LLM. Preparing Study material requires
+the configured provider: each word receives a contextual English gloss grounded
+in dictionary evidence and the source sentence
 ([ADR 0079](adr/0079-contextual-glosses-require-llm.md)). Without a provider,
-deck preparation is reported as unavailable rather than silently degraded.
+Study material is unavailable rather than silently degraded.
 
 ### Acquisition temporary directory
 
@@ -129,27 +125,16 @@ the web server needs outbound HTTPS to those hosts for classical preparation; a
 failed fetch is recorded as that Book's preparation failure and can be retried
 from My Books ([ADR 0116](adr/0116-classical-catalog.md)).
 
-### Prepared-deck translation
+### Idioms in Study
 
-Standard execution is the default. Batch remains available for explicit
-offline or economy work; those preparations can remain in `preparing` for up to
-the provider's 24-hour completion window. The status endpoint reports the
-current phase, durable counts, retrying items, and a cancellation control.
-
-Idiom cards are off by default. Adding a language to
-`MOUSEION_IDIOM_CARD_LANGUAGES` lets freezing match its dictionary and reviewed
-idiom entries against the selected vocabulary's accepted sentences. Each
-distinct idiom becomes one frozen item, receives its own provider request under
-the separate idiom-card prompt contract, and renders with a `mouseion::idiom`
-tag. The switch fails closed for a covered language until the provider payload
-assessment and the language review report are recorded (ADR 0114). Italian
-(`it`) is recorded by the
+Idioms are off by default. Adding a language to `MOUSEION_IDIOM_CARD_LANGUAGES`
+lets Study match the language's dictionary and reviewed idiom entries against
+sentences of the learner's Corpus and introduce confirmed Idioms as Study items
+([ADR 0137](adr/0137-idioms-are-study-items.md)). The switch fails closed for a
+covered language until the provider payload assessment and the language review
+report are recorded (ADR 0114). Italian (`it`) is recorded by the
 [passing review](reviews/idiom-review-v3-gate2-2026-11-08.md); run it with
 `MOUSEION_LLM_IDIOM_REASONING_EFFORT=medium`, the setting that review used.
-Cancellation stops local publication first; provider file cleanup is best
-effort. Batch files are temporary: Mouseion requests seven-day provider
-expiration and deletes input, output, and error files after reconciliation or
-cancellation, retrying failed deletion a bounded number of times.
 
 ## NLP language models
 
@@ -253,8 +238,8 @@ and entries whose only sense is Wiktionary's literal-use marker. It also loads
 Mouseion's reviewed idiom list from `nlp/reviewed_idioms.json`. The reviewed
 list records its own source and version, and starts empty for Italian and
 German. Re-derive the index after upgrading; an older index reports no idiom
-candidates rather than failing. Deck preparation uses the lookup only for
-languages whose idiom-card switch is on (`MOUSEION_IDIOM_CARD_LANGUAGES`).
+candidates rather than failing. Study uses the lookup only for
+languages whose Idiom switch is on (`MOUSEION_IDIOM_CARD_LANGUAGES`).
 
 Rebuild the index whenever a deployed change touches
 `nlp/scripts/derive_dictionary_index.py` or `nlp/reviewed_idioms.json`, even
@@ -396,8 +381,8 @@ the switch uses the existing stale/failed analysis states and **Re-analyze**;
 retries converge on the same extraction and run identity.
 `000045_source_structure_v2.down.sql` drops the structure tables and is not a
 supported production rollback after v2 adoption. Recovery is retry and
-forward-fix only: there is no revert-to-v1 action and no correction, Reading or
-deck remapping. Restoring a pre-cutover backup is a break-glass operator
+forward-fix only: there is no revert-to-v1 action and no correction or Reading
+remapping. Restoring a pre-cutover backup is a break-glass operator
 decision, not a downgrade procedure.
 
 ## Maintenance commands

@@ -4,7 +4,21 @@ Journey and Primary Goal projections in this feature are historical. Current
 Reading presents current coverage bands only; the sequential forecast is retired
 as described in the [Reading workflow](reading-workflow.md).
 
-Status: Implemented · Date: 2026-08-24 · Updated: 2026-09-15
+Status: Implemented · Date: 2026-08-24 · Updated: 2026-11-28
+
+**Study cutover ([ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)).**
+The numerator of coverage is now the Book's tokens whose effective vocabulary
+identity is **Mature** in [Study](study.md), not Known vocabulary. A second,
+lighter figure also counts words in study. The denominator rules below are
+unchanged: confirmed Lemma corrections apply, excluded occurrences stay in the
+total, and only word tokens count, so an Idiom changes nothing. There is no
+Known, Reserved or Generated vocabulary and no new-deck pool, and no deck
+button: the sections below that mention them record the pre-cutover contract.
+The unknown-to-learn list is the Book's words that are not Mature, and the
+learner-facing coverage is read from My Books (the pinned Current reading also
+shows its progress toward Target coverage, 98% counting Mature and in-study
+words) and from the Vocabulary coverage band, which uses Mature coverage. The
+retired Reading and Journey surfaces named below no longer exist.
 
 ## Problem
 
