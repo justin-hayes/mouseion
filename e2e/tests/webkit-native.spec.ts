@@ -99,7 +99,7 @@ test.describe('native WebKit smoke journey', () => {
 
       await page.goto('/de/library');
       await chooseStudyLanguage(page, 'de', true);
-      await page.goto('/de/reading');
+      await page.goto('/de/reading?page=1');
       const prefix = page.getByRole('searchbox', { name: 'Canonical lemma prefix' });
       await expect(prefix).toHaveClass(/\binput\b/);
       await page.getByRole('checkbox', { name: 'Show already accounted-for words' }).check();
@@ -159,7 +159,6 @@ test.describe('native WebKit smoke journey', () => {
 
     const destinations = [
       { name: 'My Books', href: '/de/library', active: '/library' },
-      { name: 'Reading', href: '/de/reading', active: '/reading' },
       { name: 'Vocabulary', href: '/de/vocabulary', active: '/vocabulary' },
       { name: 'Catalog', href: '/catalogs', active: '/catalogs' },
     ];
@@ -171,10 +170,10 @@ test.describe('native WebKit smoke journey', () => {
       await expect(navigation.getByRole('link', { name: destination.name, exact: true })).toHaveAttribute('aria-current', 'page');
     }
 
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     await chooseStudyLanguage(page, 'it');
-    await expect(page).toHaveURL(/\/it\/reading$/);
-    await expect(page.locator('main h1')).toContainText(/italian/i);
+    await expect(page).toHaveURL(/\/it\/library$/);
+    await expect(page.locator('.library-language-context')).toContainText(/italian/i);
     await expect(page.getByLabel('Study language')).toHaveValue('it');
 
     await page.goto('/catalogs/sources');
@@ -280,11 +279,9 @@ test.describe('native WebKit smoke journey', () => {
     });
     try {
       await signIn(page);
-      await page.goto('/de/reading');
+      await page.goto('/de/library');
       const current = page.locator('#primary-goal-section');
-      const switchLink = current.locator('a[href="/de/reading/switch"]');
-      await expect(switchLink).toBeVisible();
-      await expect(switchLink).not.toHaveAttribute('role', 'button');
+      await expect(current.locator('a[href="/de/reading/switch"]')).toHaveCount(0);
       const finish = current.locator('details.confirmation').filter({ hasText: 'Mark reading finished' });
       const summary = finish.locator('summary');
       await summary.focus();
@@ -294,7 +291,7 @@ test.describe('native WebKit smoke journey', () => {
       await page.keyboard.press('Space');
       await expect(finish).not.toHaveAttribute('open', '');
 
-      await switchLink.click();
+      await page.goto('/de/library?disposition=to_read');
       const readNext = page.getByRole('button', { name: 'Read next' }).first();
       await readNext.focus();
       await expect(readNext).toBeFocused();
@@ -310,7 +307,6 @@ test.describe('native WebKit smoke journey', () => {
     const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentMarker: string }>;
     for (const destination of [
       { name: 'My Books', path: '/de/library' },
-      { name: 'Reading', path: '/de/reading' },
       { name: 'Vocabulary', path: '/de/vocabulary' },
       { name: 'Catalog', path: '/catalogs' },
     ]) {
@@ -539,10 +535,10 @@ test.describe('native WebKit smoke journey', () => {
       await expect(vocabularyLink).toHaveAttribute('href', '/de/vocabulary');
       await vocabularyLink.click();
       await expect(page).toHaveURL(/\/vocabulary$/);
-      await page.goto('/de/reading');
+      await page.goto('/de/reading?page=1');
       await chooseStudyLanguage(page, 'it', true);
-      await expect(page).toHaveURL(/\/it\/reading$/);
-      await expect(page.locator('main h1')).toContainText(/italian/i);
+      await expect(page).toHaveURL(/\/it\/library$/);
+      await expect(page.locator('.library-language-context')).toContainText(/italian/i);
 
       await page.goto('/catalogs/sources');
       const confirmation = page.locator('#connection-fixture-connection details').last();

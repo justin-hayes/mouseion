@@ -10,7 +10,7 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
     await page.getByLabel('Study language').selectOption('de');
   }
 
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   await page.locator('summary').filter({ hasText: 'Mark reading finished' }).click();
   await page.getByRole('button', { name: 'Mark reading finished' }).click();
 
@@ -22,7 +22,7 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
   await page.getByRole('button', { name: 'Apply correction to selected occurrences' }).click();
   await expect(page.getByText('Effective lemma: pfad (corrected)', { exact: true })).toBeVisible();
 
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const start = page.locator('form[action="/reading/books/fixture-route-match/start"]');
   await start.getByRole('button', { name: 'Read next' }).click();
   await expect(page.locator('.journey-book__title')).toContainText('Route match: familiar German');

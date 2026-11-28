@@ -19,7 +19,7 @@ test('exact-form occurrence review is usable without JavaScript', async ({ brows
     await page.goto('/reading/books/fixture-book/lemma-review?form=Weg');
     await expect(page.getByRole('heading', { name: "Stop before changing this Book's vocabulary" })).toBeVisible();
     await expect(page.getByText(/stop this reading without marking it finished/i)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Open Reading to stop this Book' })).toHaveAttribute('href', '/de/reading');
+    await expect(page.getByRole('link', { name: 'Open My Books to stop this Book' })).toHaveAttribute('href', '/de/library');
     await expect(page.getByRole('heading', { name: 'A ready deck is a historical artifact' })).toHaveCount(0);
 
     await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review');

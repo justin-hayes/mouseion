@@ -66,7 +66,7 @@ const situations = [
 
 test.describe('Analysis evidence situations', () => {
   for (const situation of situations) {
-    test(`My Books and the Reading chooser present ${situation.name}`, async ({ page }) => {
+    test(`My Books presents ${situation.name}`, async ({ page }) => {
       await signIn(page);
 
       await page.goto('/de/library?disposition=to_read');
@@ -81,30 +81,9 @@ test.describe('Analysis evidence situations', () => {
         await expect(row.getByRole('button', { name: /^Retry / })).toHaveCount(0);
       }
 
-      await page.goto('/de/library');
-      await page.getByLabel('Study language').selectOption('de');
-      await expect(page).toHaveURL(/\/de\/library$/);
-      await page.goto('/de/reading/switch');
-      const candidate = page.locator('li.reading-chooser-book').filter({ hasText: situation.title });
-      await expect(candidate).toHaveCount(1);
-      await expect(candidate.getByRole('heading', { name: situation.title })).toBeVisible();
-      await expect(candidate.locator('.reading-chooser-entry__evidence')).toContainText(situation.chooserBand);
-      if (situation.chooserDescription) {
-        await expect(candidate.locator('.reading-chooser-entry__evidence')).toContainText(situation.chooserDescription);
-      }
-      const retry = candidate.getByRole('button', { name: 'Retry acquisition or analysis' });
-      await expect(retry).toHaveCount(situation.chooserRetry ? 1 : 0);
-      if (situation.chooserBand === 'Below 95%') {
-        // Coverage bands read the published analysis and offer switching to it;
-        // a newer run's recovery stays in My Books, not in the chooser.
-        await expect(candidate.locator('.reading-chooser-entry__evidence')).toContainText('45,678 of 123,456 word occurrences');
-        // A current reading exists in the fixture, so the chooser offers the switch.
-        await expect(candidate.getByRole('button', { name: 'Read next' })).toBeVisible();
-        await expect(candidate.getByRole('link', { name: 'Review a word in this Book' })).toBeVisible();
-      }
-      if (situation.chooserBand === 'Analysis in progress') {
-        await expect(candidate.getByRole('link', { name: 'Review To Read books' })).toBeVisible();
-      }
+      // Books with a published analysis offer Read next from their row; a newer
+      // run's recovery stays on the row, never on the pinned Current reading.
+      await expect(row.getByRole('button', { name: 'Read next' })).toHaveCount(situation.chooserBand === 'Below 95%' ? 1 : 0);
     });
   }
 
@@ -115,6 +94,6 @@ test.describe('Analysis evidence situations', () => {
     await page.goto('/de/library?disposition=to_read');
     const row = page.locator('#book-row-fixture-reanalysis-failed');
     await row.getByRole('button', { name: 'Retry analysis', exact: true }).click();
-    await expect(page).toHaveURL(/\/reading\?message=Analysis/);
+    await expect(page).toHaveURL(/\/library\?message=Analysis/);
   });
 });

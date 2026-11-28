@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -64,12 +65,7 @@ var readingDeskQueryKeys = []string{"reading", "q", "all", "rev", "row", "page"}
 // readingDeskRequest reports whether the query names vocabulary Browse state,
 // as opposed to a bare Reading address that now belongs to My Books.
 func readingDeskRequest(query url.Values) bool {
-	for _, key := range readingDeskQueryKeys {
-		if query.Has(key) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(readingDeskQueryKeys, query.Has)
 }
 
 // redirectMyBooksFeedback sends a retired Reading address to My Books in the

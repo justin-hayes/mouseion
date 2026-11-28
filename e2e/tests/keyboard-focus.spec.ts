@@ -1,4 +1,5 @@
 import { expect, Page, test } from '../support/test';
+import { readNext } from '../support/reading';
 
 async function signIn(page: Page, disableEnhancement = false) {
   if (disableEnhancement) {
@@ -12,17 +13,14 @@ async function signIn(page: Page, disableEnhancement = false) {
 }
 
 async function switchCurrentReadingTo(page: Page, title: string) {
-  await page.goto('/de/reading/switch');
-  const candidate = page.locator('li.reading-chooser-book').filter({ hasText: title });
-  await candidate.getByRole('button', { name: 'Read next' }).click();
-  await expect(page).toHaveURL(/\/reading\?message=/);
+  await readNext(page, title);
 }
 
 async function openGermanReading(page: Page) {
   await page.goto('/de/library');
   const language = page.getByLabel('Study language');
   if (await language.inputValue() !== 'de') await language.selectOption('de');
-  await page.goto('/de/reading');
+  await page.goto('/de/library');
 }
 
 async function switchToRouteMatch(page: Page) {
@@ -30,9 +28,7 @@ async function switchToRouteMatch(page: Page) {
   const current = page.locator('.journey-book--goal');
   const currentID = await current.count() ? await current.getAttribute('id') : null;
   if (!currentID) {
-    const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
-    await candidate.getByRole('button', { name: 'Read next' }).click();
-    await expect(page).toHaveURL(/\/reading\?message=/);
+    await readNext(page, 'Route match: familiar German');
     return;
   }
   if (currentID === 'journey-book-fixture-route-match') {
@@ -50,9 +46,7 @@ async function restoreFixtureBookCurrent(page: Page) {
     await switchCurrentReadingTo(page, 'Der lange Weg nach Hause');
     return;
   }
-  const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Der lange Weg nach Hause' });
-  await candidate.getByRole('button', { name: 'Read next' }).click();
-  await expect(page).toHaveURL(/\/reading\?message=/);
+  await readNext(page, 'Der lange Weg nach Hause');
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -70,14 +64,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Books', 'Reading', 'Vocabulary'];
+    const destinations = ['My Books', 'Vocabulary'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', Reading: '\\/reading', Vocabulary: '\\/vocabulary',
+        'My Books': '\\/library', Vocabulary: '\\/vocabulary',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -91,7 +85,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
-    for (const name of ['My Books', 'Reading', 'Vocabulary', 'Catalog']) {
+    for (const name of ['My Books', 'Vocabulary', 'Catalog']) {
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
     }
@@ -112,7 +106,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
-    for (const name of ['Mouseion', 'My Books', 'Reading', 'Vocabulary', 'Catalog']) {
+    for (const name of ['Mouseion', 'My Books', 'Vocabulary', 'Catalog']) {
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
       if (name !== 'Catalog') await page.keyboard.press('Tab');
     }
@@ -128,26 +122,22 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
-    const title = page.locator('.library-books a.library-book__identity-link[href="/de/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' });
-    await title.focus();
-    await expect(title).toBeFocused();
-    const item = title.locator('xpath=ancestor::li');
-    const itemFocusStops = item.locator('a, button, summary');
-    await expect(itemFocusStops.first()).toHaveClass(/library-book__identity-link/);
-    await expect(itemFocusStops.nth(1)).toHaveText(/View in Reading/);
-    await expect(itemFocusStops.nth(2)).toHaveText('More actions');
+    const item = page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
+    const itemFocusStops = item.locator('a, button:not([disabled]), summary');
+    await expect(itemFocusStops.first()).toHaveText('More actions');
+    await itemFocusStops.first().focus();
+    await expect(itemFocusStops.first()).toBeFocused();
     await expect(page.locator('.library-books').getByText('Review failed analysis')).toHaveCount(0);
   });
 
-  test('Reading keeps goal-first keyboard order and announces feedback', async ({ page }) => {
+  test('My Books keeps the pinned Current reading first and announces feedback', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading?message=Journey%20updated');
+    await page.goto('/de/library?message=Journey%20updated');
     const goalHeading = page.locator('.journey-book__title');
     await expect(goalHeading).toBeVisible();
-    await expect(page.getByRole('status')).toContainText('Journey updated');
-    // The current Book precedes the Vocabulary Browse; no Other To Read section is rendered.
-    await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
-    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#vocabulary-workflow')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
+    await expect(page.getByRole('status').first()).toContainText('Journey updated');
+    // The pinned Current reading precedes the To Read list.
+    expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#library-results')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
     const goalLink = page.locator('.journey-book--goal a').first();
     await goalLink.focus();
     await expect(goalLink).toBeFocused();
@@ -157,7 +147,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await signIn(page);
     const response = await page.goto('/books/fixture-empty');
     expect(response?.status()).toBe(404);
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
   });
 
