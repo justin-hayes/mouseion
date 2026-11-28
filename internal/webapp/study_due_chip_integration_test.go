@@ -164,3 +164,16 @@ func TestStudyDueCountReportsADatabaseFailure(t *testing.T) {
 	_, err := s.store.CountStudyReviewsDue(ctx, s.owner.ID, "de", s.clock.Now())
 	require.Error(t, err)
 }
+
+func TestStudyDueChipFollowsTodayAfterAContextReportedYesterday(t *testing.T) {
+	s := newStudyHarness(t)
+	s.prepared()
+	s.twoReviewsDue()
+	card := s.progress()[0]
+	require.Equal(t, http.StatusSeeOther, s.report(card, "unsuitable_context", "").Code)
+	s.assertChipMatchesToday(1, "a context reported today is not counted")
+	// The report no longer replaces the context on the next Study day; whatever
+	// Today then counts, the chip counts.
+	s.clock.Set(berlinTime(t, 27, 9, 0))
+	s.assertChipMatchesToday(s.today().Remaining, "the next Study day")
+}
