@@ -46,7 +46,7 @@ grids grouped by source, with a retained cover or a Title plate as the image. **
 at `/catalogs/sources`
 owns connection setup, credentials, editing, deletion, and sync maintenance. My Books is
 the sole bibliographic Book browse surface for synced metadata; its items own
-acquisition and analysis intent. The accepted Vocabulary target adds identity
+acquisition and analysis intent. The accepted Corpus target adds identity
 Browse, not a second Book catalog.
 
 The shell identifies the current destination, supports skip navigation and
@@ -200,7 +200,7 @@ provenance,
 known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
 learner-facing screen.
 
-### Accepted Vocabulary target — partially shipped
+### Accepted Corpus target — partially shipped
 
 Browse is hosted on Reading as the working desk for the Current reading Book and
 ranks by descending effective occurrences in that Book, then across the learner's
