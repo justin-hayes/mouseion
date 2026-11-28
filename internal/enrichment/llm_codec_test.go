@@ -409,6 +409,30 @@ func TestTranslationCodecKeepsStableIdentifiersOutsideContextualGloss(t *testing
 	assert.Contains(t, user, `"evidence_id":"wikt:house"`)
 }
 
+// TestContextualGlossTransmitsExactlyTheReviewedPayloadFields pins the privacy
+// contract: the live contextual Gloss request carries exactly the reviewed
+// ordered field set and nothing else.
+func TestContextualGlossTransmitsExactlyTheReviewedPayloadFields(t *testing.T) {
+	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
+	require.NoError(t, err)
+	body, err := codec.EncodeRequest(TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "sehen", UPOS: "VERB", TargetWord: "sieht", ExampleSentence: "Großmutter sieht fern.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:see", Gloss: "to see"}}})
+	require.NoError(t, err)
+	dec := json.NewDecoder(strings.NewReader(encodedUserContent(t, body)))
+	_, err = dec.Token()
+	require.NoError(t, err)
+	var keys []string
+	for dec.More() {
+		tok, err := dec.Token()
+		require.NoError(t, err)
+		key, ok := tok.(string)
+		require.True(t, ok)
+		keys = append(keys, key)
+		var skip json.RawMessage
+		require.NoError(t, dec.Decode(&skip))
+	}
+	assert.Equal(t, contextualGlossPayloadFields, keys)
+}
+
 // encodedUserContent returns the user message content of an encoded request.
 func encodedUserContent(t *testing.T, body []byte) string {
 	t.Helper()
