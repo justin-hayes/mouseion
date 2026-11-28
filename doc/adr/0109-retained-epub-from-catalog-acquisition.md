@@ -20,6 +20,13 @@ EPUB acquisition now runs as the durable `epub_acquisition` River job rather
 than synchronously inside the request. This ADR's streaming, Retained EPUB and
 size decisions still hold.
 
+Amended by
+[ADR 0142](0142-record-the-catalog-file-document-digest.md): acquisition also
+records the Catalog file's Document digest (KOReader's partial MD5) on the
+content revision, reversing this ADR's rejected "Store the Catalog file's digest
+in a new column". This ADR's streaming, Retained EPUB and size decisions still
+hold.
+
 ## Context
 
 Acquisition reads the catalog's EPUB into memory, refuses it over 100 MiB,

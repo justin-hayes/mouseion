@@ -118,6 +118,7 @@ type Querier interface {
 	DemoteBookCoversForAbsentEntries(ctx context.Context, arg DemoteBookCoversForAbsentEntriesParams) ([]string, error)
 	// Ends an open report. A report already ended is left as it is.
 	EndStudyReport(ctx context.Context, arg EndStudyReportParams) (int64, error)
+	FillSourceContentRevisionDocumentDigest(ctx context.Context, arg FillSourceContentRevisionDocumentDigestParams) (int64, error)
 	FindSourceMaterialForAcquisition(ctx context.Context, arg FindSourceMaterialForAcquisitionParams) (FindSourceMaterialForAcquisitionRow, error)
 	GetActiveBookCoverResource(ctx context.Context, arg GetActiveBookCoverResourceParams) (GetActiveBookCoverResourceRow, error)
 	GetBook(ctx context.Context, arg GetBookParams) (GetBookRow, error)

@@ -553,6 +553,14 @@ func (s *PostgresStore) FindSourceMaterialForAcquisition(ctx context.Context, ow
 	return sourceMaterialFromFields(row.SID, row.SOwnerID, row.Language, row.SourceIdentifier, row.Title, row.MediaType, row.ContentHash, row.ContentDigest, row.ContentRevisionID, row.Content, row.FullText, row.DigestVersion, row.CreatedAt), true, nil
 }
 
+// FillContentRevisionDocumentDigest records the Catalog file's Document digest
+// on a content revision that has none. A revision that already has a digest is
+// left as it is, whatever it holds.
+func (s *PostgresStore) FillContentRevisionDocumentDigest(ctx context.Context, owner, revisionID, documentDigest string) error {
+	_, err := s.queries().FillSourceContentRevisionDocumentDigest(ctx, sqlcgen.FillSourceContentRevisionDocumentDigestParams{OwnerID: owner, RevisionID: revisionID, DocumentDigest: documentDigest})
+	return err
+}
+
 // ListSourceMaterials returns an owner's library with lifecycle state and the
 // owner/book-scoped current analysis. Operational jobs remain visible for
 // status, but never select a learner-facing result.

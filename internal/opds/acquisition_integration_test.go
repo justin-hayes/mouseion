@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/download"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
@@ -24,6 +25,7 @@ import (
 
 type acquisitionHistory struct {
 	CatalogDigest   string                  `json:"catalog_digest"`
+	DocumentDigest  string                  `json:"document_digest"`
 	CatalogSize     int64                   `json:"catalog_size"`
 	RetainedSize    int64                   `json:"retained_size"`
 	SlimmingVersion int                     `json:"slimming_version"`
@@ -68,6 +70,12 @@ func TestAcquireStoresTheRetainedEPUBEndToEnd(t *testing.T) {
 		require.Equal(t, direct.Book.FullText, source.FullText)
 		require.Equal(t, direct.Book.ExtractedUnits, units)
 	})
+	t.Run("records the Catalog file's Document digest, not the Retained EPUB's", func(t *testing.T) {
+		want := download.PartialMD5Of(catalog)
+		require.NotEqual(t, want, download.PartialMD5Of(retained.Content), "the fixture's slimming left the digest unchanged")
+		require.Equal(t, want, revisionDocumentDigest(t, ctx, store, owner.ID, result.Source.ID))
+		require.Equal(t, want, acquisitionHistoryFor(t, ctx, store, owner.ID, source.ID).DocumentDigest)
+	})
 	t.Run("records Catalog and slimming provenance", func(t *testing.T) {
 		details := acquisitionHistoryFor(t, ctx, store, owner.ID, source.ID)
 		require.Equal(t, domain.EPUBContentDigest(catalog), details.CatalogDigest)
@@ -99,6 +107,11 @@ func TestAcquireStoresACleanCatalogFileByteIdentical(t *testing.T) {
 	t.Run("stores the Catalog file byte-for-byte", func(t *testing.T) {
 		require.Equal(t, catalog, source.Content)
 		require.Equal(t, domain.EPUBContentDigest(catalog), source.ContentHash)
+	})
+	t.Run("records the Catalog file's Document digest", func(t *testing.T) {
+		want := download.PartialMD5Of(catalog)
+		require.Equal(t, want, revisionDocumentDigest(t, ctx, store, owner.ID, result.Source.ID))
+		require.Equal(t, want, acquisitionHistoryFor(t, ctx, store, owner.ID, source.ID).DocumentDigest)
 	})
 	t.Run("records the no-op slimming report", func(t *testing.T) {
 		details := acquisitionHistoryFor(t, ctx, store, owner.ID, source.ID)
@@ -169,6 +182,63 @@ func TestReacquiringALegacyUnSlimmedRevisionReusesIt(t *testing.T) {
 	t.Run("adds no content revision", func(t *testing.T) {
 		require.Equal(t, 1, acquisitionRowCount(t, ctx, store, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, legacy.Source.ID))
 	})
+}
+
+func TestReacquiringFillsAMissingDocumentDigestWithoutANewRevision(t *testing.T) {
+	ctx := t.Context()
+	store := openAcquisitionStore(t, ctx)
+	owner := newAcquisitionOwner(t, ctx, store)
+	catalog := testutil.ZipDirectory(t, filepath.Join("..", "epub", "testfixtures", "illustrated"))
+	legacy, err := epub.NewService(store).Import(ctx, owner.ID, "de", catalog)
+	require.NoError(t, err)
+	clearDocumentDigest(t, ctx, store, legacy.Source.ContentRevisionID)
+	require.Empty(t, revisionDocumentDigest(t, ctx, store, owner.ID, legacy.Source.ID))
+
+	server := newCatalogServer(t, catalog)
+	service := newAcquisitionService(t, store, server)
+	connection := newAcquisitionConnection(t, ctx, store, owner.ID, server.URL)
+	result, err := service.Acquire(ctx, owner.ID, connection.ID, "de", catalogEntry(server.URL))
+	require.NoError(t, err)
+
+	t.Run("fills the digest in on the existing revision", func(t *testing.T) {
+		require.True(t, result.AlreadyPresent)
+		require.Equal(t, legacy.Source.ContentRevisionID, result.Source.ContentRevisionID)
+		require.Equal(t, download.PartialMD5Of(catalog), revisionDocumentDigest(t, ctx, store, owner.ID, legacy.Source.ID))
+	})
+	t.Run("adds no content revision", func(t *testing.T) {
+		require.Equal(t, 1, acquisitionRowCount(t, ctx, store, `SELECT count(*) FROM source_content_revisions WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, legacy.Source.ID))
+	})
+	t.Run("never overwrites a different digest", func(t *testing.T) {
+		const other = "00000000000000000000000000000000"
+		require.NoError(t, store.FillContentRevisionDocumentDigest(ctx, owner.ID, legacy.Source.ContentRevisionID, other))
+		require.Equal(t, download.PartialMD5Of(catalog), revisionDocumentDigest(t, ctx, store, owner.ID, legacy.Source.ID))
+		_, err := store.Pool().Exec(ctx, `UPDATE source_content_revisions SET document_digest=$1 WHERE revision_id=$2`, other, legacy.Source.ContentRevisionID)
+		require.ErrorContains(t, err, "immutable")
+	})
+}
+
+func revisionDocumentDigest(t *testing.T, ctx context.Context, store *persistence.PostgresStore, ownerID, sourceID string) string {
+	t.Helper()
+	var digest *string
+	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT r.document_digest FROM source_materials s JOIN source_content_revisions r ON r.owner_id=s.owner_id AND r.revision_id=s.current_content_revision_id WHERE s.owner_id=$1 AND s.id=$2`, ownerID, sourceID).Scan(&digest))
+	if digest == nil {
+		return ""
+	}
+	return *digest
+}
+
+// clearDocumentDigest recreates a revision stored before the digest existed. The
+// immutability trigger forbids clearing a digest, so the test lifts it.
+func clearDocumentDigest(t *testing.T, ctx context.Context, store *persistence.PostgresStore, revisionID string) {
+	t.Helper()
+	for _, statement := range []string{
+		`ALTER TABLE source_content_revisions DISABLE TRIGGER source_content_revisions_immutable`,
+		`UPDATE source_content_revisions SET document_digest = NULL WHERE revision_id = '` + revisionID + `'`,
+		`ALTER TABLE source_content_revisions ENABLE TRIGGER source_content_revisions_immutable`,
+	} {
+		_, err := store.Pool().Exec(ctx, statement)
+		require.NoError(t, err)
+	}
 }
 
 func openAcquisitionStore(t *testing.T, ctx context.Context) *persistence.PostgresStore {
