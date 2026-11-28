@@ -115,7 +115,7 @@ func TestImportPersistsOwnerScopedArtifactsAndHistory(t *testing.T) {
 	assert.Equal(t, "epub.import", result.History.Operation)
 	assert.Equal(t, "complete", result.History.Status)
 	assert.NotEmpty(t, result.History.Details)
-	assert.Equal(t, ContentDigest(fixture(t)), result.Source.ContentHash)
+	assert.Equal(t, domain.EPUBContentDigest(fixture(t)), result.Source.ContentHash)
 }
 
 func TestImportRequiresAuthenticatedOwner(t *testing.T) {
@@ -146,13 +146,13 @@ func TestImportForAcquisitionMatchesEitherTheRetainedOrCatalogDigest(t *testing.
 	require.NoError(t, err)
 	assert.True(t, result.AlreadyPresent)
 	assert.Equal(t, "existing-source", result.Source.ID)
-	assert.Equal(t, []string{ContentDigest(content), catalogDigest}, store.requested, "the lookup must try the Retained EPUB digest before the Catalog file digest")
+	assert.Equal(t, []string{domain.EPUBContentDigest(content), catalogDigest}, store.requested, "the lookup must try the Retained EPUB digest before the Catalog file digest")
 	assert.Zero(t, store.puts, "the existing content revision was duplicated")
 }
 
 func TestImportForAcquisitionLooksUpAnIdenticalCatalogDigestOnce(t *testing.T) {
 	content := fixture(t)
-	digest := ContentDigest(content)
+	digest := domain.EPUBContentDigest(content)
 	store := &catalogDigestStore{foundHash: "never"}
 	_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content, CatalogDigest: digest})
 	require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestImportForAcquisitionPropagatesLookupAndLinkFailures(t *testing.T) {
 	})
 	t.Run("link failure", func(t *testing.T) {
 		store := &catalogDigestStore{
-			foundHash: ContentDigest(content),
+			foundHash: domain.EPUBContentDigest(content),
 			existing:  domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", SourceIdentifier: "existing-source", Title: "Existing"},
 			linkErr:   errors.New("link failed"),
 		}

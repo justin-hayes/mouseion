@@ -8,9 +8,6 @@ const ExtractedUnitsSchemaVersion = domain.ExtractedUnitsSchemaVersion
 
 const ContentDigestVersion = 1
 
-// ContentDigest identifies the exact EPUB container bytes.
-func ContentDigest(content []byte) string { return domain.EPUBContentDigest(content) }
-
 // ErrExtractedUnitsUnavailable identifies a legacy source that has no usable
 // extracted-unit envelope. Re-extraction, rather than an empty analysis scope,
 // is the compatible interpretation.

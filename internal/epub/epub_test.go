@@ -28,7 +28,7 @@ func fixtureDirectory(t *testing.T, directory string) []byte {
 
 func TestPhaseOneEPUBFixturesMatchContract(t *testing.T) {
 	t.Run("EPUB 3 nested package and navigation", func(t *testing.T) {
-		book, err := Extract(fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
+		book, err := extractBook(fixtureDirectory(t, "testfixtures/epub3-edge-cases"))
 		require.NoError(t, err)
 		const wantText = "Shared title\n\nGrüße 👋 aus Köln.\n\nuntitled\n\n東京 café.\n\nShared title\n\nBibliographie."
 		assert.Equal(t, "Fixture Three", book.Title)
@@ -44,7 +44,7 @@ func TestPhaseOneEPUBFixturesMatchContract(t *testing.T) {
 	})
 
 	t.Run("EPUB 2 metadata and NCX", func(t *testing.T) {
-		book, err := Extract(fixtureDirectory(t, "testfixtures/epub2-clean"))
+		book, err := extractBook(fixtureDirectory(t, "testfixtures/epub2-clean"))
 		require.NoError(t, err)
 		assert.Equal(t, "Fixture Two", book.Title)
 		assert.Equal(t, "urn:mouseion:epub2", book.SourceIdentifier)
@@ -59,7 +59,7 @@ func TestPhaseOneEPUBFixturesMatchContract(t *testing.T) {
 }
 
 func TestMainTextFixtureExtractsLinearAncillaryUnitsAndLandmarks(t *testing.T) {
-	book, err := Extract(fixtureDirectory(t, "testfixtures/epub3-main-text"))
+	book, err := extractBook(fixtureDirectory(t, "testfixtures/epub3-main-text"))
 	require.NoError(t, err)
 	assert.Equal(t, "Main Text Fixture", book.Title)
 	assert.Equal(t, "urn:mouseion:main-text-fixture", book.SourceIdentifier)
@@ -77,7 +77,7 @@ func TestMainTextFixtureExtractsLinearAncillaryUnitsAndLandmarks(t *testing.T) {
 }
 
 func TestPhaseOneInvalidFixture(t *testing.T) {
-	_, err := Extract(fixtureDirectory(t, "testfixtures/invalid-missing-spine-reference"))
+	_, err := extractBook(fixtureDirectory(t, "testfixtures/invalid-missing-spine-reference"))
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrInvalidEPUB)
 	assert.Contains(t, err.Error(), "spine references missing manifest item absent")
@@ -100,7 +100,7 @@ func assertCompatibilityProjection(t *testing.T, book ExtractedBook) {
 }
 
 func TestExtractReadingOrderAndLocations(t *testing.T) {
-	book, err := Extract(fixture(t))
+	book, err := extractBook(fixture(t))
 	require.NoError(t, err)
 	want := "Erstes Kapitel\n\nGrüße aus Köln.\n\nZweiter Absatz.\n\nZweites Kapitel\n\nDas Ende."
 	assert.Equal(t, want, book.FullText)
@@ -135,7 +135,7 @@ func TestExtractOrderedUnitsAndNavigationMetadata(t *testing.T) {
 		fixtureFile{"OPS/Text/hidden.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><h1>Hidden</h1></body></html>`},
 		fixtureFile{"OPS/Text/second.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><h2>Shared title</h2><p>東京</p></body></html>`},
 	)
-	book, err := Extract(data)
+	book, err := extractBook(data)
 	require.NoError(t, err)
 	require.Len(t, book.ExtractedUnits.Units, 2)
 	first, second := book.ExtractedUnits.Units[0], book.ExtractedUnits.Units[1]
@@ -171,7 +171,7 @@ func TestExtractUnitTitleFallbackAndMalformedOptionalNavigation(t *testing.T) {
 		fixtureFile{"OPS/nav.xhtml", `<html><body><nav><a href="untitled.xhtml">broken`},
 		fixtureFile{"OPS/untitled.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Readable text.</p></body></html>`},
 	)
-	book, err := Extract(data)
+	book, err := extractBook(data)
 	require.NoError(t, err)
 	unit := book.ExtractedUnits.Units[0]
 	assert.Equal(t, "untitled", unit.Title)
@@ -220,14 +220,14 @@ func TestExtractRejectsMalformedManifestAndSpineReferences(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Extract(epubFixture(t, validPackage(tt.manifest, tt.spine)))
+			_, err := extractBook(epubFixture(t, validPackage(tt.manifest, tt.spine)))
 			assert.ErrorIs(t, err, ErrInvalidEPUB)
 		})
 	}
 }
 
 func TestExtractMalformedEPUB(t *testing.T) {
-	_, err := Extract([]byte("not a zip"))
+	_, err := extractBook([]byte("not a zip"))
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrInvalidEPUB)
 	assert.Contains(t, err.Error(), "open ZIP container")
@@ -270,7 +270,7 @@ func TestExtractRejectsInvalidContainerAndPackage(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Extract(zipFixture(t, tt.files...))
+			_, err := extractBook(zipFixture(t, tt.files...))
 			require.ErrorIs(t, err, ErrInvalidEPUB)
 			assert.Contains(t, err.Error(), tt.want)
 		})
@@ -283,7 +283,7 @@ func TestExtractSkipsEmptySpineDocuments(t *testing.T) {
 		fixtureFile{"OPS/empty.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Empty</title></head><body><script>var x = 1;</script></body></html>`},
 		fixtureFile{"OPS/full.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><p>Readable.</p></body></html>`},
 	)
-	book, err := Extract(data)
+	book, err := extractBook(data)
 	require.NoError(t, err)
 	require.Len(t, book.ExtractedUnits.Units, 1)
 	assert.Equal(t, "full", book.ExtractedUnits.Units[0].ManifestID)
@@ -296,7 +296,7 @@ func TestExtractRejectsSpineWithoutReadableContent(t *testing.T) {
 		validPackage(`<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>`, `<itemref idref="nav"/>`),
 		fixtureFile{"OPS/nav.xhtml", `<html xmlns="http://www.w3.org/1999/xhtml"><body><nav><ol><li><a href="c.xhtml">C</a></li></ol></nav></body></html>`},
 	)
-	_, err := Extract(data)
+	_, err := extractBook(data)
 	require.ErrorIs(t, err, ErrInvalidEPUB)
 	assert.Contains(t, err.Error(), "package spine contains no readable XHTML content")
 }
@@ -343,4 +343,21 @@ func zipFixture(t *testing.T, files ...fixtureFile) []byte {
 	}
 	require.NoError(t, zw.Close())
 	return buf.Bytes()
+}
+
+// extractBook extracts under the contract the live acquisition path writes and
+// returns its compatibility projection.
+func extractBook(data []byte) (ExtractedBook, error) {
+	extraction, err := ExtractV2(data)
+	return extraction.Book, err
+}
+
+func TestResolveResourcePathRejectsUnsafeHrefs(t *testing.T) {
+	for _, href := range []string{"", "#fragment", "/absolute.xhtml", "..", "../../outside.xhtml"} {
+		_, err := resolveResourcePath("OEBPS", href)
+		require.Error(t, err, href)
+	}
+	name, err := resolveResourcePath("OEBPS", "text/ch1.xhtml#a")
+	require.NoError(t, err)
+	assert.Equal(t, "OEBPS/text/ch1.xhtml", name)
 }
