@@ -32,7 +32,6 @@ var (
 	ErrInvalidPassword     = errors.New("auth: password must be at least 8 characters")
 	ErrFirstAccountExists  = errors.New("auth: first account already exists")
 	ErrUnauthenticated     = errors.New("auth: unauthenticated")
-	ErrForbidden           = errors.New("auth: forbidden")
 	ErrInvalidPasswordHash = errors.New("auth: invalid password hash")
 )
 
@@ -179,11 +178,4 @@ func (s *Service) Logout(ctx context.Context, raw string) error {
 }
 func (s *Service) LogoutEverywhere(ctx context.Context, userID string) error {
 	return s.store.DeleteUserSessions(ctx, userID)
-}
-
-func AuthorizeOwner(user domain.User, ownerID string) error {
-	if user.ID != ownerID {
-		return ErrForbidden
-	}
-	return nil
 }
