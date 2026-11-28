@@ -57,7 +57,7 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 			"book": {registration.BookID}, "run": {run}, "corpus": {corpus}, "unit": {domain.ClassicalUnitID(definition.Key)},
 			"sentence": {strconv.Itoa(0)}, "target": {"1"},
 		}
-		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/corpus/concordance/sentence?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 		return response.Body.String()
 	}

@@ -16,7 +16,7 @@ Language is the
 app's organizing context per
 [ADR 0131](../adr/0131-the-url-carries-the-study-language.md) and
 [ADR 0051](../adr/0051-reading-journeys-and-goals-per-language.md): the address
-carries the study language of My Books, Reading, and Vocabulary; current reading
+carries the study language of My Books, Reading, and Corpus; current reading
 is scoped by language. Catalog maintenance is a fourth principal
 destination per
 [ADR 0058](../adr/0058-catalog-maintenance-principal-destination.md).
@@ -36,8 +36,8 @@ rather than as independent destinations.
 ## Global shell
 
 Authenticated screens use one shared shell with **Mouseion**, **My Books**,
-**Reading**, **Vocabulary**, **Catalog**, account identity, and **Log
-out**. My Books, Reading, Vocabulary, and Catalog are the destinations.
+**Reading**, **Corpus**, **Catalog**, account identity, and **Log
+out**. My Books, Reading, Corpus, and Catalog are the destinations.
 Catalog shows the built-in, read-only Classical catalog and every OPDS source at
 `/catalogs` as ordinary card sections, with one sync status line per OPDS
 connection. The Catalog's one search and its Language filter (the Catalog's only
@@ -46,7 +46,7 @@ grids grouped by source, with a retained cover or a Title plate as the image. **
 at `/catalogs/sources`
 owns connection setup, credentials, editing, deletion, and sync maintenance. My Books is
 the sole bibliographic Book browse surface for synced metadata; its items own
-acquisition and analysis intent. The accepted Vocabulary target adds identity
+acquisition and analysis intent. The accepted Corpus target adds identity
 Browse, not a second Book catalog.
 
 The shell identifies the current destination, supports skip navigation and
@@ -186,9 +186,9 @@ from the My Books disposition, and Read again preserves earlier completions.
 | Screen | Current/target route | Learner goal | Primary exit | Required states |
 |---|---|---|---|---|
 | Vocabulary Browse (shipped, working desk) | Embedded in `GET /reading` for the current Book | Discover effective lemma + POS identities in the Current reading Book, most frequent first. | Canonical-lemma prefix search; server-rendered 25-result pages | No study language, no Current reading, no current analysis, empty eligible inventory, prefix zero, recoverable query error, truthful Known/Reserved state |
-| Retired known-vocabulary pages | `GET /known-vocab`, `GET`/`POST /vocabulary/import`, and `/vocabulary/imports/{id}/status` | None; the routes return 404 without a redirect (ADR 0092). | Vocabulary (`/vocabulary`) | 404 only; not a learner-facing screen |
+| Retired known-vocabulary pages | `GET /known-vocab`, `GET`/`POST /vocabulary/import`, and `/vocabulary/imports/{id}/status` | None; the routes return 404 without a redirect (ADR 0092). | Corpus (`/corpus`) | 404 only; not a learner-facing screen |
 
-Vocabulary is the canonical destination for Concordance,
+Corpus is the canonical destination for Concordance,
 scoped to the active study language; Browse is the working desk on Reading for the
 current Book; its per-page language picker is removed in
 favour of the shell-level switcher. Known-vocabulary-only languages (no current
@@ -200,15 +200,15 @@ provenance,
 known vocabulary. The `/settings` compatibility route redirects to My Books; it is not a
 learner-facing screen.
 
-### Accepted Vocabulary target — partially shipped
+### Accepted Corpus target — partially shipped
 
 Browse is hosted on Reading as the working desk for the Current reading Book and
 ranks by descending effective occurrences in that Book, then across the learner's
 current analyses. It retains canonical-lemma prefix search and a single include-all
 control for Known, Reserved, and already-in-this-Book-deck identities. No Current
 reading or stale analysis leads to a Reading recovery state; opening an identity
-starts Concordance in that Book. Concordance is the Vocabulary landing at
-`/vocabulary`, with no peer views.
+starts Concordance in that Book. Concordance is the Corpus landing at
+`/corpus`, with no peer views.
 Concordance supports cross-Book lookup, grammar exploration, KWIC, and focused
 sentence study. The accepted, not-yet-implemented retirement removes Browse
 selection and all saved Custom deck UI and HTTP access. See the [current Browse
@@ -241,7 +241,7 @@ of [`study.md`](../features/study.md).
 ## Inactive and supporting implementation
 
 - `Dashboard` is an inactive template and not a canonical destination.
-- Shipped navigation is **My Books** / **Reading** / **Vocabulary** /
+- Shipped navigation is **My Books** / **Reading** / **Corpus** /
   **Catalog**; historical **My Library**, **Learning**, queue, and learner-facing
   Campaign labels remain only as compatibility fallbacks/redirects and are not
   part of the canonical IA.

@@ -654,7 +654,7 @@ func TestSentenceStudyLineMarksTheTargetOnTheTrimmedUnit(t *testing.T) {
 func renderSentenceStudy(t *testing.T, study domain.SentenceStudy) string {
 	t.Helper()
 	var rendered bytes.Buffer
-	require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", study, "/de/vocabulary/concordance", "").Render(t.Context(), &rendered))
+	require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", study, "/de/corpus/concordance", "").Render(t.Context(), &rendered))
 	return rendered.String()
 }
 

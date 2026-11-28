@@ -89,9 +89,9 @@ Learner-facing labels use **Language** and the language's own name, never
 - The retired Reading addresses (`/{language}/reading`) redirect to My Books, or
   to a Book's detail page when they name a Book.
 
-### Vocabulary (`/{language}/vocabulary`)
+### Corpus (`/{language}/corpus`)
 
-- Opens Concordance; a Book's Browse is the word list on its detail page.
+- Opens Concordance; a Book's Browse is the word list on its detail page. The retired `/vocabulary` addresses redirect here.
 - Scoped to the active language; the page's language `<select>` is removed.
 
 
