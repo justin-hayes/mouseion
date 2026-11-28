@@ -94,8 +94,8 @@ test.describe('authenticated learner smoke', () => {
   });
 
   test('login and library expose representative content', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /my books|welcome/i }).first()).toBeVisible();
-    await page.getByRole('link', { name: /my books/i }).first().click();
+    await expect(page.getByRole('heading', { name: /reading|welcome/i }).first()).toBeVisible();
+    await page.getByRole('link', { name: /reading/i }).first().click();
     await expect(page).toHaveURL(/\/reading/);
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
