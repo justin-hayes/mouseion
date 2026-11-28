@@ -285,7 +285,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 		},
 		Signals: testNoContent,
 	}
-	require.NoError(t, LibraryPage(domain.User{Username: "learner"}, "csrf", []domain.SourceMaterialSummary{book}, "").Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{{Book: domain.Book{ID: "book-1", Title: "Die Verwandlung", LanguageState: domain.LanguageChosen, LanguageTag: "de"}, Acquired: &book}}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 
 	html := output.String()
 	for _, pattern := range []string{`class="library-masthead"`, `class="library-books"`, `class="library-book__identity-link"`} {
@@ -297,7 +297,7 @@ func TestLibraryAppliesBibliographicAndMetadataRoles(t *testing.T) {
 
 func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, LibraryPage(domain.User{Username: "learner"}, "csrf", nil, "Book added").Render(context.Background(), &output))
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "Book added", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 
 	html := output.String()
 	for _, pattern := range []string{

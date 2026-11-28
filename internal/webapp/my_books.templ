@@ -8,10 +8,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSummary, message string) {
-	@MyBooksPage(user, csrf, legacyMyBooks(books), message, "", MyBooksBrowseState{})
-}
-
 templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
 			<div class="library-book__identity-link">
