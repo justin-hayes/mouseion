@@ -58,8 +58,8 @@ func studyLanguagePresent(languages []domain.StudyLanguage, language string) boo
 	return false
 }
 
-func learnerLanguagePresent(studyLanguages, knownLanguages []domain.StudyLanguage, language string) bool {
-	return studyLanguagePresent(studyLanguages, language) || studyLanguagePresent(knownLanguages, language)
+func learnerLanguagePresent(studyLanguages, progressLanguages []domain.StudyLanguage, language string) bool {
+	return studyLanguagePresent(studyLanguages, language) || studyLanguagePresent(progressLanguages, language)
 }
 
 func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(bookID) }
@@ -213,7 +213,7 @@ func navigationContextForTitle(title string) NavigationContext {
 		return NavigationLibrary
 	case "Reading", "Learning":
 		return NavigationReading
-	case "Vocabulary", "Known vocabulary":
+	case "Vocabulary":
 		return NavigationVocabulary
 	case "Catalog", "Catalogs":
 		return NavigationCatalogs

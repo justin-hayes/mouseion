@@ -100,7 +100,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	if isError {
 		queryParam = "error"
 	}
-	redirect(w, r, myBooksPagePath(r.Context())+"?"+queryParam+"="+url.QueryEscape(message))
+	bookActionRedirect(w, r, bookID, queryParam, message)
 }
 
 // analysisCouldNotStartMessage is the retry sentence for a submission that
@@ -113,7 +113,7 @@ const analysisCouldNotStartMessage = "Analysis could not be started. The To Read
 func retryMessage(outcome readingintent.Outcome) (message string, isError bool) {
 	switch outcome.Kind {
 	case readingintent.OutcomeCurrentBookRefused:
-		return "The current book cannot be refreshed. Its frozen evidence remains unchanged.", true
+		return "The current book cannot be refreshed while you are reading it.", true
 	case readingintent.OutcomePreparationUnavailable:
 		return "Classical preparation is unavailable.", true
 	case readingintent.OutcomeAlreadyCurrent:
@@ -190,6 +190,11 @@ func (h *Handler) readNext(w http.ResponseWriter, r *http.Request) {
 // another tab has moved the Last study language.
 func pageLanguage(r *http.Request) string {
 	if language := strings.TrimSpace(r.FormValue("language")); language != "" {
+		// The action also returns to that language, whatever the Last study
+		// language is (ADR 0131).
+		if view := shellViewFromContext(r.Context()); view.hasLanguage(language) {
+			view.PageLanguage = language
+		}
 		return language
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())

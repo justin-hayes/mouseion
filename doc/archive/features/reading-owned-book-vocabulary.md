@@ -2,7 +2,7 @@
 
 Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-10-06
 
-> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Current-reading snapshot, Reserved vocabulary, Book vocabulary candidates and Book-deck preparation. Starting a reading freezes nothing; the Current reading only puts its words first in [Study](study.md) until it reaches Target coverage, and the To Read Books set the order of the other new words. The contract below records the retired design and is kept for provenance.
+> **Historical archive. Retired design.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Current-reading snapshot, Reserved vocabulary, Book vocabulary candidates and Book-deck preparation. Starting a reading freezes nothing; the Current reading only puts its words first in [Study](../../features/study.md) until it reaches Target coverage, and the To Read Books set the order of the other new words. The contract below records the retired design and is kept for provenance.
 
 Implementation status: issue #1505 binds new Book preparation, retries, and
 re-preparation to the active Current-reading snapshot; issue #1506 freezes the
@@ -11,11 +11,11 @@ and Custom-deck access, and #1508 provides the backup-first data cutover for
 unnamed Browse-selection rows.
 Starting and finishing Reading do not depend on deck work. Cleanup of the
 retained Custom-deck rows and artifacts, and measuring the provisional
-cross-Book threshold, remain separate follow-ups. [ADR 0090](../adr/0090-library-total-book-vocabulary-selection.md)
+cross-Book threshold, remain separate follow-ups. [ADR 0090](../../adr/0090-library-total-book-vocabulary-selection.md)
 (#1803) replaced the exactly-twice exception with the library-total route
 below; re-measure it with `tools/measure-book-vocabulary-selection.sql`.
 
-This is the target selection, freeze, and retirement contract under [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md). It amends the [Reading workflow](reading-workflow.md) and [frequency-floor decision](../adr/0048-frequency-floor-deck-selection.md); the implementation-status note above records what shipped and what remains separate. The historical [custom-deck feature contract](vocabulary-browse-concordance-and-custom-decks.md) is superseded for selection and custom decks. [Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md) retain their exploration purpose.
+This is the target selection, freeze, and retirement contract under [ADR 0085](../../adr/0085-reading-owned-book-vocabulary.md). It amends the [Reading workflow](../../features/reading-workflow.md) and [frequency-floor decision](../../adr/0048-frequency-floor-deck-selection.md); the implementation-status note above records what shipped and what remains separate. The historical [custom-deck feature contract](vocabulary-browse-concordance-and-custom-decks.md) is superseded for selection and custom decks. [Vocabulary Browse and Concordance](../../features/vocabulary-browse-and-concordance.md) retain their exploration purpose.
 
 ## Select once when Reading starts
 

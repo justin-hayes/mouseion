@@ -84,7 +84,7 @@ func TestReadingChooserOffersAConfirmedAnalysisUpdate(t *testing.T) {
 	assert.Contains(t, body, "Update analysis")
 	assert.Contains(t, body, "The published analysis stays in effect until the update publishes.")
 	assert.Contains(t, body, "Your 1 confirmed lemma correction and 2 occurrence exclusions carry over wherever the word is unchanged in the new analysis.")
-	assert.Contains(t, body, "Prepared decks and earlier Readings keep the evidence they froze.")
+	assert.NotContains(t, body, "Prepared decks")
 	assert.Contains(t, body, `action="/reading/books/fixture-route-match/analysis-update"`)
 	assert.Contains(t, body, `name="expected_run_id" value="published-run"`)
 	assert.Contains(t, body, `name="expected_target" value="`+testUpdateTarget.Key()+`"`)
@@ -224,8 +224,7 @@ func TestAnalysisUpdateDecisionsText(t *testing.T) {
 func TestAnalysisUpdateConfirmationLinesLeadWithAChangeNoteOnlyWhenThereIsOne(t *testing.T) {
 	without := analysisUpdateConfirmationLines("", 1, 0)
 	assert.Equal(t, "The published analysis stays in effect until the update publishes. "+
-		"Your 1 confirmed lemma correction carries over wherever the word is unchanged in the new analysis. "+
-		"Prepared decks and earlier Readings keep the evidence they froze.", without)
+		"Your 1 confirmed lemma correction carries over wherever the word is unchanged in the new analysis.", without)
 
 	with := analysisUpdateConfirmationLines("Adds a synthetic feature.", 1, 0)
 	assert.Equal(t, "Adds a synthetic feature. "+without, with, "the note comes first, before the three lines")

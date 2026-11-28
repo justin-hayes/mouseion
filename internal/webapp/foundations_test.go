@@ -326,23 +326,23 @@ func TestVocabularyHeaderHasNoPeerViews(t *testing.T) {
 	assert.NotContains(t, html, "/vocabulary/import", "the retired import surface is not linked")
 }
 
-type knownVocabContextStore struct {
+type studyProgressContextStore struct {
 	*fixtures.Store
 }
 
-func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+func (studyProgressContextStore) ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
-func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
+func (studyProgressContextStore) ListStudyProgressLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
-func (knownVocabContextStore) ListStudyProgress(context.Context, string, string) ([]domain.StudyProgress, error) {
+func (studyProgressContextStore) ListStudyProgress(context.Context, string, string) ([]domain.StudyProgress, error) {
 	return nil, nil
 }
-func (knownVocabContextStore) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
+func (studyProgressContextStore) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
 	return domain.CurrentReading{BookID: "book-1"}, nil
 }
-func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
+func (studyProgressContextStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	return domain.VocabularyBrowsePage{Page: query.Page}, nil
 }
 
@@ -414,7 +414,7 @@ func TestVocabularyBrowseRestartDropsOldRevisionAndObsoleteControls(t *testing.T
 	assert.NotContains(t, url, "rev=")
 }
 
-type failedVocabularyBrowseStore struct{ knownVocabContextStore }
+type failedVocabularyBrowseStore struct{ studyProgressContextStore }
 
 func (failedVocabularyBrowseStore) ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	return domain.VocabularyBrowsePage{}, errors.New("database unavailable")
@@ -438,7 +438,7 @@ func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
 	assert.NotContains(t, html, `name="book"`)
 }
 
-type timedOutVocabularyBrowseStore struct{ knownVocabContextStore }
+type timedOutVocabularyBrowseStore struct{ studyProgressContextStore }
 
 func (timedOutVocabularyBrowseStore) ListVocabularyBrowsePage(ctx context.Context, _, _ string, _ domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	<-ctx.Done()
@@ -458,7 +458,7 @@ func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 	}
 }
 
-type changedVocabularyBrowseStore struct{ knownVocabContextStore }
+type changedVocabularyBrowseStore struct{ studyProgressContextStore }
 
 func (changedVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	return domain.VocabularyBrowsePage{Page: query.Page, CorpusRevision: "revision-new"}, nil
@@ -489,7 +489,7 @@ func TestVocabularyBrowseRefusesToApplyARequestAfterCurrentBookChanges(t *testin
 }
 
 type totalVocabularyBrowseStore struct {
-	knownVocabContextStore
+	studyProgressContextStore
 	total int64
 }
 
@@ -499,7 +499,7 @@ func (s totalVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, 
 
 // rowVocabularyBrowseStore answers every Browse read with one row, so the
 // restored focus row can be checked against a page that contains it.
-type rowVocabularyBrowseStore struct{ knownVocabContextStore }
+type rowVocabularyBrowseStore struct{ studyProgressContextStore }
 
 func (rowVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, _, _ string, query domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
 	return domain.VocabularyBrowsePage{Page: query.Page, Rows: []domain.VocabularyBrowseRow{{UPOS: "NOUN", CanonicalLemma: "haus"}}}, nil
@@ -521,7 +521,7 @@ func TestVocabularyBrowseRestoresAFocusRowOnlyWhenThePageHasIt(t *testing.T) {
 
 func TestVocabularyBrowseExplainsMalformedAndOutOfRangePagesWithFirstPage(t *testing.T) {
 	for _, page := range []string{"abc", "0", "-3", "1.5"} {
-		_, status, html := loadBrowseForTest(t, browseTestServices(knownVocabContextStore{}), "/books/book-1?q=ha&page="+page, "book-1")
+		_, status, html := loadBrowseForTest(t, browseTestServices(studyProgressContextStore{}), "/books/book-1?q=ha&page="+page, "book-1")
 		assert.Equal(t, http.StatusBadRequest, status, page)
 		assert.Contains(t, html, "That page is not available", page)
 		assert.Contains(t, html, `>First page</a>`, page)

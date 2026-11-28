@@ -126,9 +126,6 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, proposal d
 		if err := lockBookForUpdate(ctx, sqlcgen.New(tx), owner, book); err != nil {
 			return err
 		}
-		if err := rejectLemmaDecisionForCurrentReading(ctx, tx, owner, book); err != nil {
-			return err
-		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
 			return err
 		}
@@ -182,21 +179,6 @@ func applyLemmaDecisionsTx(ctx context.Context, tx pgx.Tx, owner, book string, d
 func lockLemmaReviewLearnerState(ctx context.Context, tx pgx.Tx, owner string) error {
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 194))`, owner)
 	return err
-}
-
-// rejectLemmaDecisionForCurrentReading refuses vocabulary decisions on the
-// Book that is the owner's current reading. The caller holds the learner-state
-// and Book locks, so Start cannot make the Book current before this decision
-// commits, and the row read here is the one Start would have written.
-func rejectLemmaDecisionForCurrentReading(ctx context.Context, tx pgx.Tx, owner, book string) error {
-	var current bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM primary_goals WHERE owner_id=$1 AND book_id=$2)`, owner, book).Scan(&current); err != nil {
-		return err
-	}
-	if current {
-		return domain.ErrLemmaDecisionCurrentReading
-	}
-	return nil
 }
 
 func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, error) {

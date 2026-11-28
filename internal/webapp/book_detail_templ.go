@@ -293,7 +293,7 @@ func BookDetailActions(book domain.MyBook, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = MyBookEvidenceRecovery(book, csrf).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = MyBookEvidenceRecovery(book, csrf, bookDetailURL(book.Book.ID)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -303,11 +303,11 @@ func BookDetailActions(book domain.MyBook, csrf string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = AnalysisUpdateNotice(book, csrf, "btn btn-outline").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = AnalysisUpdateNotice(book, csrf, bookDetailURL(book.Book.ID), "btn btn-outline").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SourceStructureUpdateNotice(book, csrf, "btn btn-outline").Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SourceStructureUpdateNotice(book, csrf, bookDetailURL(book.Book.ID), "btn btn-outline").Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -250,12 +250,14 @@ SELECT kv.id::text,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id;
 
--- name: ListKnownVocabularyLanguages :many
-WITH known_languages AS (
-  SELECT DISTINCT language FROM known_vocabulary WHERE owner_id = $1 AND language <> ''
+-- name: ListStudyProgressLanguages :many
+-- The languages the learner has Study progress in, whether or not a Book of the
+-- language is still in My Books.
+WITH progress_languages AS (
+  SELECT DISTINCT language FROM study_progress WHERE owner_id = $1 AND language <> ''
 )
 SELECT k.language, (COALESCE(NULLIF(n.display_name, ''), k.language))::text AS display_name
-FROM known_languages k
+FROM progress_languages k
 LEFT JOIN supported_languages n ON n.language = k.language
 ORDER BY COALESCE(NULLIF(n.display_name, ''), k.language), k.language;
 
@@ -276,16 +278,6 @@ SELECT EXISTS(
     AND ps.released_at IS NULL AND pv.language = $2
     AND pv.canonical_lemma = $3 AND pv.upos = $4
 );
-
--- name: ListUnattachedGeneratedVocabulary :many
-SELECT owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, (COALESCE(first_deck_id::text, ''))::text AS first_deck_id, first_source_material_id, first_generated_at
-FROM generated_vocabulary gv
-WHERE gv.owner_id = $1 AND gv.language = $2 AND NOT EXISTS (
-  SELECT 1 FROM deck_preparation_vocabulary dv
-  WHERE dv.owner_id = gv.owner_id AND dv.language = gv.language
-    AND dv.canonical_lemma = gv.canonical_lemma AND dv.upos = gv.upos
-    AND dv.lexical_discriminator = gv.lexical_discriminator)
-ORDER BY gv.canonical_lemma, gv.upos, gv.lexical_discriminator;
 
 -- name: PutSelectionCandidate :exec
 INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance)

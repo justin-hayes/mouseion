@@ -49,4 +49,4 @@ A library total is one threshold over one number the system already maintains, a
 - [ADR 0048: Frequency-floor deck selection](0048-frequency-floor-deck-selection.md)
 - [ADR 0085: Reading owns Book vocabulary and deck preparation](0085-reading-owned-book-vocabulary.md)
 - [ADR 0087: Vocabulary counts come only from selection](0087-vocabulary-counts-come-only-from-selection.md)
-- [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md)
+- [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md)

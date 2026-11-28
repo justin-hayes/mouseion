@@ -12,7 +12,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 		if !view.Available {
 			<section class="study-unavailable" aria-labelledby="study-unavailable-heading">
 				<h2 id="study-unavailable-heading">Study isn't available for this language yet</h2>
-				<p>Study needs a meaning that fits each sentence, and this language does not provide one yet. Prepared decks still work for it.</p>
+				<p>Study needs a meaning that fits each sentence, and this language does not provide one yet.</p>
 				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
 			</section>
 		} else {
@@ -20,6 +20,9 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 				<p id="study-finished" class="study-status">Today is finished. Your next reviews start with the next Study day.</p>
 			} else {
 				<p id="study-remaining" class="study-status">{ studyRemainingText(view.Remaining) }</p>
+			}
+			if view.FirstMaterial > 0 {
+				<p id="study-preparing" class="study-status">{ studyFirstMaterialText(view.FirstMaterial) }</p>
 			}
 			if view.Reintroducing > 0 {
 				<p id="study-reintroducing" class="study-status">{ studyReintroducingText(view.Reintroducing) }</p>
@@ -414,6 +417,13 @@ func studyRemainingText(count int) string {
 	return fmt.Sprintf("%d reviews left today.", count)
 }
 
+func studyFirstMaterialText(count int) string {
+	if count == 1 {
+		return "1 review is waiting for its sentence to be prepared."
+	}
+	return fmt.Sprintf("%d reviews are waiting for their sentences to be prepared.", count)
+}
+
 func studyReintroducingText(count int) string {
 	if count == 1 {
 		return "1 review is waiting for a new sentence after a correction."
@@ -540,7 +550,7 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 	@ShellLayout("Repair a reported word", &user, csrf, NavigationLearning) {
 		@PageHeader("Repair a reported word", "You reported this word as a wrong word. Correct the word's Lemma or exclude this occurrence; the word returns to Study on the next Study day.", nil)
 		<p><a href={ templ.SafeURL(studyLanguagePath(pageKindStudyReports, view.Language)) }>Back to Reported words</a></p>
-		<main class="page-container data-width study-remediation">
+		<section class="data-width study-remediation" aria-label="Reported occurrence">
 			<h2 lang={ view.Language }>{ view.Report.TargetWord }</h2>
 			<p><strong>Book:</strong> { view.BookTitle }</p>
 			if view.Report.Note != "" {
@@ -556,9 +566,7 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 				} else if view.Occurrence.CorrectedLemma != "" {
 					<p role="status"><strong>Effective lemma:</strong> { lemmaReviewKeyDisplay(ctx, view.Occurrence.CorrectedLemma) } (corrected)</p>
 				}
-				if !view.CanCorrect {
-					<article role="alert">This Book is current reading. End current reading before changing its vocabulary; the frozen reading snapshot remains unchanged.</article>
-				} else if view.Preview == nil {
+				if view.Preview == nil {
 					<form method="post" action={ templ.SafeURL(view.Path) } id="study-remediation-form">
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<input type="hidden" name="stage" value="preview"/>
@@ -574,13 +582,13 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 				}
 			}
 			if view.Preview != nil {
-				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview, view.Recovery) {
+				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview) {
 					for _, match := range view.MatchPreviews {
 						@StudyRemediationMatchPreview(match)
 					}
 				}
 			}
-		</main>
+		</section>
 	}
 }
 
@@ -595,14 +603,11 @@ templ StudyRemediationMatches(books []studyRemediationBook) {
 			<p>The same decision is applied only to the occurrences you tick, each in its own Book. Unticked occurrences stay as they are.</p>
 			for _, book := range books {
 				<h3>{ book.Title }</h3>
-				if !book.CanCorrect {
-					<p role="status">This Book is current reading. End current reading before changing its vocabulary.</p>
-				}
 				<ul>
 					for _, match := range book.Matches {
 						<li>
 							<label>
-								<input type="checkbox" name="match" value={ match.Value } disabled?={ !book.CanCorrect }/>
+								<input type="checkbox" name="match" value={ match.Value }/>
 								<span class="reading-text">{ match.Sentence }</span>
 							</label>
 						</li>

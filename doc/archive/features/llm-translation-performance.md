@@ -37,6 +37,6 @@ The durable Batch design preserves the contracts established by the original
 investigation: exact cache identity, deterministic artifact order and
 completeness, owner isolation, cancellation fencing, and pure downloads.
 Provider files are temporary and are deleted best-effort after reconciliation
-or cancellation. See [OpenAI Batch API for prepared-deck translation](../../features/openai-batch-translation.md)
+or cancellation. See [OpenAI Batch API for prepared-deck translation](openai-batch-translation.md)
 and [ADR 0031](../../adr/0031-openai-batch-prepared-deck-translation.md) for the
 current implementation and operational decisions.

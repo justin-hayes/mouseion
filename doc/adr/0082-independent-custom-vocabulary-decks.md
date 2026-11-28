@@ -67,7 +67,7 @@ add/remove/clear for the same owner and language. The schema is additive; its
 down migration removes only these new tables and is not a production rollback
 plan.
 
-The [feature specification](../features/vocabulary-browse-concordance-and-custom-decks.md)
+The [feature specification](../archive/features/vocabulary-browse-concordance-and-custom-decks.md)
 owns detailed eligible evidence, cross-Book sentence choice, omissions,
 recovery, UI, accessibility, export/privacy, Anki overlap, and acceptance
 requirements. Existing ADRs continue to own the normalized corpus

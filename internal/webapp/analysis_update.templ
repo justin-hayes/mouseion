@@ -4,7 +4,7 @@ import "github.com/justin-hayes/mouseion/internal/domain"
 
 // AnalysisUpdateNotice is the Book-level Analysis update notice (ADR 0107). The
 // action is a native disclosure confirmation, so it works without JavaScript.
-templ AnalysisUpdateNotice(book domain.MyBook, csrf, buttonClass string) {
+templ AnalysisUpdateNotice(book domain.MyBook, csrf, returnTo, buttonClass string) {
 	{{ offer, candidate := myBookAnalysisUpdate(book) }}
 	if offer == domain.AnalysisUpdateAvailable {
 		<div class="analysis-update">
@@ -12,6 +12,9 @@ templ AnalysisUpdateNotice(book domain.MyBook, csrf, buttonClass string) {
 			@Confirmation("Update analysis", analysisUpdateConfirmationText(*candidate), StatusNeutral) {
 				<form method="post" action={ templ.SafeURL(readingAnalysisUpdateURL(book.Book.ID)) }>
 					<input type="hidden" name="csrf_token" value={ csrf }/>
+					if returnTo != "" {
+						<input type="hidden" name="return_to" value={ returnTo }/>
+					}
 					<input type="hidden" name="expected_run_id" value={ candidate.PublishedRunID }/>
 					<input type="hidden" name="expected_target" value={ candidate.Target.Key() }/>
 					<button class={ buttonClass } type="submit">Confirm analysis update</button>

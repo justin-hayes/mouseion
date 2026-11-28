@@ -2,10 +2,10 @@
 
 Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-08-29 · Owner: Mouseion
 
-> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](study.md).
+> **Historical archive. Retired design.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](../../features/study.md).
 
 
-Amended by [ADR 0100](../adr/0100-retryable-provider-omissions-preparation.md)
+Amended by [ADR 0100](../../adr/0100-retryable-provider-omissions-preparation.md)
 (2026-10-17): a standard run now finishes `ready` with the successful cards when
 a few items exhaust their provider attempts on unusable answers, reports the
 omissions (count and fixed reason) on the Reading page and the deck page, never
@@ -415,8 +415,8 @@ must be committed with template changes.
 
 ## Related
 
-- [ADR 0032: Make standard requests the interactive prepared-deck translation default](../adr/0032-standard-first-prepared-deck-translation.md)
+- [ADR 0032: Make standard requests the interactive prepared-deck translation default](../../adr/0032-standard-first-prepared-deck-translation.md)
 - [OpenAI Batch API for prepared-deck translation](openai-batch-translation.md)
 - [Durable prepared-deck translation](durable-prepared-deck-translation.md)
-- [Prepared-deck translation performance](../archive/features/llm-translation-performance.md)
+- [Prepared-deck translation performance](llm-translation-performance.md)
 - Prepared-deck translation operations (retired with `internal/prepareddeck`)

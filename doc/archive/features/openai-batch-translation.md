@@ -2,7 +2,7 @@
 
 Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-08-28
 
-> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](study.md).
+> **Historical archive. Retired design.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](../../features/study.md).
 
 
 ## Summary
@@ -289,7 +289,7 @@ responses, source sentences, credentials, or raw provider error bodies.
 
 ## Architectural decisions
 
-[ADR 0031](../adr/0031-openai-batch-prepared-deck-translation.md) records the
+[ADR 0031](../../adr/0031-openai-batch-prepared-deck-translation.md) records the
 accepted implementation decisions for this feature:
 
 1. Batch is a durable translation-run execution layer, not an implementation of
@@ -338,10 +338,10 @@ The implementation dependency waves were `#348 + #349` in parallel, then
 ## Related documents and code
 
 - [Durable prepared-deck translation](durable-prepared-deck-translation.md)
-- [Prepared-deck LLM translation performance](../archive/features/llm-translation-performance.md)
-- [ADR 0030: Durable prepared-deck translation runs](../adr/0030-durable-prepared-deck-translation.md)
-- [ADR 0031: OpenAI Batch prepared-deck translation](../adr/0031-openai-batch-prepared-deck-translation.md)
-- [ADR 0021: Contextual translation cache and privacy](../adr/0021-contextual-translation-cache.md)
+- [Prepared-deck LLM translation performance](llm-translation-performance.md)
+- [ADR 0030: Durable prepared-deck translation runs](../../adr/0030-durable-prepared-deck-translation.md)
+- [ADR 0031: OpenAI Batch prepared-deck translation](../../adr/0031-openai-batch-prepared-deck-translation.md)
+- [ADR 0021: Contextual translation cache and privacy](../../adr/0021-contextual-translation-cache.md)
 - `internal/enrichment/llm.go:OpenAITranslationClient.Translate`
 - `internal/enrichment/enrichment.go:Service.EnrichExternal`
 - `internal/prepareddeck/planning.go:BatchPlanner`

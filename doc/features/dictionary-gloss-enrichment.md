@@ -223,6 +223,6 @@ contextual sentence translation only.
 - [ADR 0018: Remove global frequency dataset (DWDS) import](../adr/0018-remove-dwds-frequency.md)
 - [ADR 0021: Contextual sentence translation cache](../adr/0021-contextual-translation-cache.md)
 - [ADR 0029: Recognition-card sentence presentation](../adr/0029-recognition-card-sentence-presentation.md)
-- [Recognition-card sentence presentation](recognition-card-sentence-presentation.md)
+- [Recognition-card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [Kaikki.org](https://kaikki.org/) — Wiktextract extraction of Wiktionary, JSONL dumps
 - [Wiktextract](https://github.com/tatuylonen/wiktextract) — the extractor

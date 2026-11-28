@@ -2,7 +2,7 @@
 
 Status: **Accepted specification — implemented; Book-scoped Browse moved to the Book detail page at the Study cutover** · Updated: 2026-11-28
 
-This is the current learner-facing contract for investigating vocabulary in a Book and its occurrences across the learner's Corpus. It replaces the [earlier combined specification](vocabulary-browse-concordance-and-custom-decks.md), whose saved-selection and custom-deck clauses are historical. Under [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) the Current-reading snapshot and the deck rules of [Reading-owned Book vocabulary](reading-owned-book-vocabulary.md) are retired, and Book-scoped Browse is the word list of the **Book detail page** (`/books/{id}`), where it replaces the Reading working desk. Browse is read-only discovery: it edits nothing, and a fix starts only from a Wrong-word [Study](study.md) report.
+This is the current learner-facing contract for investigating vocabulary in a Book and its occurrences across the learner's Corpus. It replaces the [earlier combined specification](../archive/features/vocabulary-browse-concordance-and-custom-decks.md), whose saved-selection and custom-deck clauses are historical. Under [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) the Current-reading snapshot and the deck rules of [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md) are retired, and Book-scoped Browse is the word list of the **Book detail page** (`/books/{id}`), where it replaces the Reading working desk. Browse is read-only discovery: it edits nothing, and a fix starts only from a Wrong-word [Study](study.md) report.
 
 ## Evidence and identity
 

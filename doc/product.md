@@ -83,11 +83,11 @@ general comprehension of a language. At one cutover it made
 - [Study](features/study.md) — the only vocabulary workflow: Today's graded reviews, New-word batches with an Already known answer, Fluency, Study reports and their remediation screen, and the Corpus and Target coverage that order new words.
 - [Language Mode](features/language-mode.md) — the active study language scopes the shell, My Books, Study, and Vocabulary.
 - [Reading workflow](features/reading-workflow.md) — My Books with the pinned Current reading, Read next, Finish and End, To Read selection, completion history, rereading, status lines and the Book detail page.
-- [Recognition-card sentence presentation](features/recognition-card-sentence-presentation.md) — **retired at the Study cutover (ADR 0136)**: the Anki card presentation of a complete bolded source sentence.
-- [Durable prepared-deck translation](features/durable-prepared-deck-translation.md) — **retired at the Study cutover (ADR 0136)**: resumable manifests and atomic finalization for prepared decks.
-- [Prepared-deck rendering and presentation versioning](features/prepared-deck-rendering.md) — **retired at the Study cutover (ADR 0136)**: the frozen deck specification and presentation versions.
-- [OpenAI Batch API for prepared-deck translation](features/openai-batch-translation.md) — **retired at the Study cutover (ADR 0136)**: durable asynchronous Batch translation for prepared decks.
-- [Fast user-facing prepared-deck translation](features/fast-user-facing-translation.md) — **retired at the Study cutover (ADR 0136)**: bounded standard translation for prepared decks.
+- [Recognition-card sentence presentation](archive/features/recognition-card-sentence-presentation.md) — **retired at the Study cutover (ADR 0136)**: the Anki card presentation of a complete bolded source sentence.
+- [Durable prepared-deck translation](archive/features/durable-prepared-deck-translation.md) — **retired at the Study cutover (ADR 0136)**: resumable manifests and atomic finalization for prepared decks.
+- [Prepared-deck rendering and presentation versioning](archive/features/prepared-deck-rendering.md) — **retired at the Study cutover (ADR 0136)**: the frozen deck specification and presentation versions.
+- [OpenAI Batch API for prepared-deck translation](archive/features/openai-batch-translation.md) — **retired at the Study cutover (ADR 0136)**: durable asynchronous Batch translation for prepared decks.
+- [Fast user-facing prepared-deck translation](archive/features/fast-user-facing-translation.md) — **retired at the Study cutover (ADR 0136)**: bounded standard translation for prepared decks.
 - [LLM sense selection and fallback gloss](features/llm-sense-selection.md) — historical consented sense-selection path; replaced for new decks by contextual gloss preparation.
 - [Contextual gloss preparation](features/contextual-gloss-preparation.md) — LLM-required contextual glosses grounded in versioned Wiktionary/Kaikki evidence and sentence context; replaces the optional sense-selection path for new decks. Multi-source expansion is canceled.
 - [Concordance Foundation](features/concordance-foundation.md) — persists the normalized sentence/token corpus at analysis time so a future book- and study-language-scoped concordancer can query occurrences without re-running NLP.
@@ -98,7 +98,7 @@ general comprehension of a language. At one cutover it made
 - [Learner review of analyzer lemmas](features/lemma-review-and-correction.md) — Lemma corrections and Occurrence exclusions, now started only from a Wrong-word Study report; the Book-scoped Lemma review page, flags and suggestions are retired (ADR 0136); the analyzer evidence remains immutable.
 - [Vocabulary Browse and Concordance](features/vocabulary-browse-and-concordance.md) — **accepted; implemented**: read-only Book Browse on the Book detail page with each word's Study state, and corpus-wide Concordance and Sentence study.
 - [Ancient Greek syntax and constructions](features/ancient-greek-syntax-and-constructions.md) — **accepted; implemented**: stores native AGDT syntax for Classical Greek Books, identifies six constructions in Sentence study with Mouseion-written concept notes and Smyth 1920 citations, stays silent where precision falls below the bar, and lists construction parallels in Concordance by Book, author and other authors.
-- [Reading-owned Book vocabulary](features/reading-owned-book-vocabulary.md) — **retired at the Study cutover (ADR 0136)**: the frozen Current-reading snapshot and Book-deck preparation; [ADR 0085](adr/0085-reading-owned-book-vocabulary.md) and [ADR 0090](adr/0090-library-total-book-vocabulary-selection.md) are amended.
+- [Reading-owned Book vocabulary](archive/features/reading-owned-book-vocabulary.md) — **retired at the Study cutover (ADR 0136)**: the frozen Current-reading snapshot and Book-deck preparation; [ADR 0085](adr/0085-reading-owned-book-vocabulary.md) and [ADR 0090](adr/0090-library-total-book-vocabulary-selection.md) are amended.
 
 Retired feature records are preserved under [`doc/archive/features/`](archive/features/).
 

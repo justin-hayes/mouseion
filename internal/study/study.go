@@ -248,7 +248,7 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	if err := s.prepareTargets(ctx, owner, targets, current, func(item domain.StudyItem) string { return s.pinOf(item, pin) }); err != nil {
 		return err
 	}
-	return s.enqueueReintroductions(ctx, owner, progress, current)
+	return s.enqueueReintroductions(ctx, owner, progress, current, s.now())
 }
 
 // prepareTargets enqueues each target whose material is not ready. A word
@@ -274,13 +274,23 @@ func (s *Service) prepareTargets(ctx context.Context, owner string, targets []do
 	return nil
 }
 
+// firstMaterialLeadTime is how long before a migrated word comes due its first
+// Study material is prepared.
+const firstMaterialLeadTime = 48 * time.Hour
+
 // enqueueReintroductions prepares new material for the words in study whose
 // material a correction replaced, so a due review is re-introduced in a sentence
-// that belongs to the word. A word withdrawn by a correction waits.
-func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyItem]domain.StudyMaterial) error {
+// that belongs to the word. A word withdrawn by a correction waits. A word
+// migrated from Known vocabulary gets its first material only when it is about
+// to come due (firstMaterialLeadTime), so a migration of thousands of words
+// queues no thousands of provider jobs at once.
+func (s *Service) enqueueReintroductions(ctx context.Context, owner string, progress []domain.StudyProgress, current map[domain.StudyItem]domain.StudyMaterial, now time.Time) error {
 	for _, item := range progress {
 		existing, ok := current[item.StudyItem]
 		if item.Withdrawn || (ok && existing.State != domain.StudyMaterialPending) {
+			continue
+		}
+		if item.AwaitingFirstMaterial && item.Memory.Due.After(now.Add(firstMaterialLeadTime)) {
 			continue
 		}
 		if err := s.enqueueWord(ctx, owner, item.StudyItem, existing.ID); err != nil {

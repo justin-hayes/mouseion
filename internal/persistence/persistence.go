@@ -163,27 +163,6 @@ func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, languag
 	})
 }
 
-// ListUnattachedGeneratedVocabulary returns generated history that has not
-// been attached to a prepared deck snapshot. It never infers knowledge.
-func (s *PostgresStore) ListUnattachedGeneratedVocabulary(ctx context.Context, owner, language string) ([]domain.GeneratedVocabulary, error) {
-	rows, err := s.queries().ListUnattachedGeneratedVocabulary(ctx, sqlcgen.ListUnattachedGeneratedVocabularyParams{
-		OwnerID: owner, Language: language,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var result []domain.GeneratedVocabulary
-	for _, row := range rows {
-		result = append(result, domain.GeneratedVocabulary{
-			OwnerID: row.OwnerID, Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
-			LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
-			FirstDeckID: row.FirstDeckID, FirstSourceMaterialID: uuidStringPtr(row.FirstSourceMaterialID),
-			FirstGeneratedAt: row.FirstGeneratedAt,
-		})
-	}
-	return result, nil
-}
-
 func missing(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
@@ -771,8 +750,8 @@ func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang str
 	return result, nil
 }
 
-func (s *PostgresStore) ListKnownVocabularyLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
-	rows, err := s.queries().ListKnownVocabularyLanguages(ctx, owner)
+func (s *PostgresStore) ListStudyProgressLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
+	rows, err := s.queries().ListStudyProgressLanguages(ctx, owner)
 	if err != nil {
 		return nil, err
 	}

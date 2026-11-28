@@ -145,9 +145,6 @@ func (s *Store) validateLemmaDecisionsLocked(decisions []domain.LemmaReviewDecis
 		if !s.hasLemmaOccurrenceLocked(occurrence) {
 			return errNotFound
 		}
-		if s.lemmaDecisionBlockedByCurrentReadingLocked(occurrence.OwnerID, occurrence.BookID) {
-			return errNotFound
-		}
 		key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
 		if s.lemmaCorrections[key] != occurrence.CorrectedLemma || s.lemmaExclusions[key] != occurrence.Excluded {
 			return errNotFound
@@ -172,14 +169,6 @@ func (s *Store) applyLemmaDecisionLocked(decision domain.LemmaReviewDecision) {
 			s.lemmaCorrections[key] = lemma
 		}
 	}
-}
-
-// lemmaDecisionBlockedByCurrentReadingLocked mirrors the store's gate: a
-// vocabulary decision is refused for the Book that is the active German
-// current reading. The caller holds s.mu.
-func (s *Store) lemmaDecisionBlockedByCurrentReadingLocked(owner, bookID string) bool {
-	goal, ok := s.currentReadings[fixtureGoalKey(owner, "de")]
-	return ok && goal.IsActive() && goal.BookID == bookID
 }
 
 // ReadLemmaReviewProposal derives deterministic before and after counts from the
@@ -232,12 +221,6 @@ func (s *Store) ReadLemmaReviewProposal(ctx context.Context, proposal domain.Lem
 func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.LemmaReviewProposal, expected string) error {
 	if len(proposal.Occurrences) == 0 {
 		return errNotFound
-	}
-	s.mu.Lock()
-	blocked := s.lemmaDecisionBlockedByCurrentReadingLocked(proposal.OwnerID, proposal.BookID)
-	s.mu.Unlock()
-	if blocked {
-		return domain.ErrLemmaDecisionCurrentReading
 	}
 	preview, err := s.ReadLemmaReviewProposal(ctx, proposal)
 	if err != nil {

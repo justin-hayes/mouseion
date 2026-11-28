@@ -31,7 +31,6 @@ const (
 	BrowserSyncBookID      = "fixture-browser-sync-book"
 	catalogueRestoreBookID = "fixture-catalogue-restore"
 	catalogueRestoreSecond = "fixture-catalogue-restore-second"
-	LegacyGeneratedLemma   = "fixture-legacy-generated"
 	GraduatedKnownLemma    = "fixture-graduated-known"
 	IndependentKnownLemma  = "fixture-independent-known"
 	routeMatchBookID       = "fixture-route-match"
@@ -77,7 +76,6 @@ type Store struct {
 	preps                []domain.DeckPreparation
 	deckVocabulary       []domain.DeckPreparationVocabulary
 	known                []domain.KnownVocabulary
-	legacyGenerated      []domain.GeneratedVocabulary
 	myBooks              []domain.MyBook
 	dispositions         map[string]domain.BookDisposition
 	dispositionRevisions map[string]int64
@@ -223,7 +221,6 @@ func NewStore() *Store {
 			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
 			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
 		},
-		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
 		myBooks: []domain.MyBook{{
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime}, CompletionCount: 1,
 		}, {

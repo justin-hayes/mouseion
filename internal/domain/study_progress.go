@@ -106,9 +106,13 @@ type StudyProgress struct {
 	// material, zero for a word never corrected. Reintroducing is true while
 	// the word's replacement material is still being prepared: the review is
 	// due but there is no card to show yet.
-	CorrectedAt          time.Time
-	Reintroducing        bool
-	CreatedAt, UpdatedAt time.Time
+	CorrectedAt   time.Time
+	Reintroducing bool
+	// AwaitingFirstMaterial is true for a word migrated from Known vocabulary as
+	// Already known whose first Study material is not prepared yet. It is
+	// Reintroducing too, but no correction: the word shows no Corrected mark.
+	AwaitingFirstMaterial bool
+	CreatedAt, UpdatedAt  time.Time
 }
 
 // StudyContextReplaced reports that the learner reported the word's context as

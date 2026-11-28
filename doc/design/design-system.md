@@ -453,7 +453,7 @@ overflow.
   adds a vocabulary-identity Browse, hosted on Reading as the working desk for the
   Current reading Book, and a learner-facing Concordance beneath the existing
   Vocabulary destination. Browse scopes current evidence to the active study
-  language's Current reading Book; the accepted [Reading-owned contract](../features/reading-owned-book-vocabulary.md)
+  language's Current reading Book; the accepted [Reading-owned contract](../archive/features/reading-owned-book-vocabulary.md)
   retires selection and saved Custom deck UI. Browse's default accounted-for exclusions and include-all
   control are shipped; other remaining accepted Browse behavior remains target
   behavior. Exact-lookup Concordance, applied Book/grammar filters, KWIC

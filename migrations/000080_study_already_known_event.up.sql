@@ -23,8 +23,8 @@ CREATE TABLE public.study_already_known_event (
     created_at timestamptz DEFAULT now() NOT NULL,
     CONSTRAINT study_already_known_event_pkey PRIMARY KEY (owner_id, id),
     CONSTRAINT study_already_known_event_owner_fkey FOREIGN KEY (owner_id) REFERENCES public.users(id) ON DELETE CASCADE,
-    CONSTRAINT study_already_known_event_progress_fkey FOREIGN KEY (owner_id, progress_id) REFERENCES public.study_progress(owner_id, id),
-    CONSTRAINT study_already_known_event_material_fkey FOREIGN KEY (owner_id, material_id) REFERENCES public.study_material(owner_id, id),
+    CONSTRAINT study_already_known_event_progress_fkey FOREIGN KEY (owner_id, progress_id, item_kind) REFERENCES public.study_progress(owner_id, id, item_kind),
+    CONSTRAINT study_already_known_event_material_fkey FOREIGN KEY (owner_id, material_id, item_kind) REFERENCES public.study_material(owner_id, id, item_kind),
     CONSTRAINT study_already_known_event_kind_check CHECK ((item_kind = ANY (ARRAY['word'::text, 'idiom'::text]))),
     CONSTRAINT study_already_known_event_source_check CHECK ((source = ANY (ARRAY['introduction'::text, 'backfill'::text]))),
     CONSTRAINT study_already_known_event_identity_check CHECK ((btrim(language) <> ''::text AND btrim(canonical_lemma) <> ''::text AND ((item_kind = 'word'::text AND btrim(upos) <> ''::text) OR (item_kind = 'idiom'::text AND upos = ''::text AND lexical_discriminator = ''::text))))

@@ -2,7 +2,7 @@
 
 Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-09-15
 
-> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](study.md).
+> **Historical archive. Retired design.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](../../features/study.md).
 
 ## Motivation
 
@@ -143,11 +143,11 @@ timestamps remain available for provenance.
 
 ## References
 
-- [ADR 0071: Decouple prepared-deck data from presentation](../adr/0071-decouple-deck-data-from-presentation.md)
-- [ADR 0030: Durable prepared-deck translation runs](../adr/0030-durable-prepared-deck-translation.md)
-- [ADR 0059: Persisted normalized corpus for future concordance](../adr/0059-persisted-normalized-corpus-for-concordance.md)
-- [ADR 0060: Persist dependency parses in the normalized corpus](../adr/0060-persist-dependency-parses.md)
-- [ADR 0067: Recognition-card morphology and multi-span target presentation](../adr/0067-recognition-card-morphology-presentation.md)
-- [ADR 0068: Recognition-card meaning and form presentation](../adr/0068-recognition-card-meaning-and-form-presentation.md)
+- [ADR 0071: Decouple prepared-deck data from presentation](../../adr/0071-decouple-deck-data-from-presentation.md)
+- [ADR 0030: Durable prepared-deck translation runs](../../adr/0030-durable-prepared-deck-translation.md)
+- [ADR 0059: Persisted normalized corpus for future concordance](../../adr/0059-persisted-normalized-corpus-for-concordance.md)
+- [ADR 0060: Persist dependency parses in the normalized corpus](../../adr/0060-persist-dependency-parses.md)
+- [ADR 0067: Recognition-card morphology and multi-span target presentation](../../adr/0067-recognition-card-morphology-presentation.md)
+- [ADR 0068: Recognition-card meaning and form presentation](../../adr/0068-recognition-card-meaning-and-form-presentation.md)
 - [Durable prepared-deck translation](durable-prepared-deck-translation.md)
 - [Recognition-card sentence presentation](recognition-card-sentence-presentation.md)

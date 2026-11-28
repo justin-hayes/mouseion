@@ -55,8 +55,8 @@ and surface a material conflict rather than silently choosing one.
 - [`../features/vocabulary-browse-and-concordance.md`](../features/vocabulary-browse-and-concordance.md)
   — Book Browse on the Book detail page and Concordance.
 - [`../features/study.md`](../features/study.md) — Study, the only vocabulary
-  workflow. [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md)
-  and [the former combined spec](../features/vocabulary-browse-concordance-and-custom-decks.md)
+  workflow. [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md)
+  and [the former combined spec](../archive/features/vocabulary-browse-concordance-and-custom-decks.md)
   are historical.
 - [`../features/basic-poetry-support.md`](../features/basic-poetry-support.md)
   — accepted, implementation-pending source-line, attribution and explicit

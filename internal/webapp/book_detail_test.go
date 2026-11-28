@@ -60,9 +60,11 @@ func TestRetiredWorkingDeskAddressesMoveToTheBookDetailPageOrMyBooks(t *testing.
 		"/de/reading?page=1":            "/de/library",
 	}
 	for address, want := range moved {
-		response := performReadingRequest(t, h, http.MethodGet, address, nil, cookies)
-		require.Equal(t, http.StatusSeeOther, response.Code, address)
-		assert.Equal(t, want, response.Header().Get("Location"), address)
+		t.Run(address, func(t *testing.T) {
+			response := performReadingRequest(t, h, http.MethodGet, address, nil, cookies)
+			require.Equal(t, http.StatusSeeOther, response.Code)
+			require.Equal(t, want, response.Header().Get("Location"))
+		})
 	}
 }
 

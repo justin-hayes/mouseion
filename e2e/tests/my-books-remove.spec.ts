@@ -30,7 +30,7 @@ test.describe('Remove from My Books', () => {
     await row.getByText('More actions', { exact: true }).click();
     await row.getByRole('button', { name: 'Remove from My Books', exact: true }).click();
     await expect(page).toHaveURL(/\/library\?.*message=/);
-    await expect(page.getByText(/Removed from My Books\. Its analysis, history and Known vocabulary are unchanged/)).toBeVisible();
+    await expect(page.getByText(/Removed from My Books\. Its analysis and history are unchanged/)).toBeVisible();
     await expect(row).toHaveCount(0);
 
     // The Catalog offers Add again, and Add restores the same Book.

@@ -213,7 +213,7 @@ Concordance supports cross-Book lookup, grammar exploration, KWIC, and focused
 sentence study. The accepted, not-yet-implemented retirement removes Browse
 selection and all saved Custom deck UI and HTTP access. See the [current Browse
 and Concordance contract](../features/vocabulary-browse-and-concordance.md) and
-[Reading-owned deck contract](../features/reading-owned-book-vocabulary.md).
+[Reading-owned deck contract](../archive/features/reading-owned-book-vocabulary.md).
 
 | Screen | Learner goal and primary exit | Required states |
 |---|---|---|

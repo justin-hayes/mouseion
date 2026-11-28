@@ -72,10 +72,6 @@ type Index struct {
 	// column, so a lookup can report aspirated-h evidence rather than silently
 	// dropping it.
 	hStatusAvailable bool
-	// frenchFormsAvailable is true when the index carries the French form-of
-	// links and headword membership French lemma existence needs. An older index
-	// reports French lemma existence unavailable rather than passing it.
-	frenchFormsAvailable bool
 
 	// idiomAvailable is true when the index carries the word-to-multi-word
 	// idiom lookup. An older index reports no idiom candidates rather than
@@ -138,7 +134,6 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	}
 	loaders := []func(context.Context) error{
 		index.loadHStatusAvailability,
-		index.loadFrenchFormsAvailability,
 		index.loadIdiomAvailability,
 		index.loadGreekEntries,
 		index.loadAncientGreekLSJ,
@@ -421,53 +416,6 @@ func splitSensesByMatchStrength(senses []enrichment.LexicalSense) (exact, weak [
 // non-empty, and an empty second returns first unchanged as before.
 func combineSenses(first, second []enrichment.LexicalSense) []enrichment.LexicalSense {
 	return append(slices.Clip(first), second...)
-}
-
-// sourceLemmaExists answers a lemma-existence check for a language whose policy
-// reads its own source dictionary; handled is false for the stored entries.
-func (i *Index) sourceLemmaExists(rule cardpolicy.Lookup, lemma, upos string) (exists, handled bool) {
-	switch rule {
-	case cardpolicy.LookupExactlyOne:
-		if !i.greekAvailable {
-			return false, true
-		}
-		for _, candidate := range i.greekEntries[lemma] {
-			if candidate.upos == upos {
-				return true, true
-			}
-		}
-		return false, true
-	case cardpolicy.LookupEveryEntry:
-		// Any Lewis & Short entry under the lemma's key counts; the part of
-		// speech is not matched.
-		return i.lsAvailable && len(i.lsEntries[lemma]) > 0, true
-	case cardpolicy.LookupStored:
-	}
-	return false, false
-}
-
-func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (bool, error) {
-	if i == nil || i.db == nil {
-		return false, nil
-	}
-	language = canonicalization.NormalizeLanguage(language)
-	lemma = normalizeLemma(language, lemma)
-	upos = strings.ToUpper(strings.TrimSpace(upos))
-	if language == "" || lemma == "" || upos == "" {
-		return false, nil
-	}
-	if exists, handled := i.sourceLemmaExists(cardpolicy.For(language).DictionaryLookup, lemma, upos); handled {
-		return exists, nil
-	}
-	if language == frenchLanguage && !i.frenchFormsAvailable {
-		return false, ErrFrenchFormsUnavailable
-	}
-	var exists bool
-	err := i.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM entries WHERE language=? AND lemma=? AND upos=?)`, language, lemma, upos).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("dictionary lemma existence: %w", err)
-	}
-	return exists, nil
 }
 
 func normalizeLemma(language, lemma string) string {

@@ -380,26 +380,6 @@ func TestStoreMyBooksProjectsReadingHistoryEvidence(t *testing.T) {
 	})
 }
 
-func TestLemmaDecisionProposalIsRejectedForTheCurrentReadingBook(t *testing.T) {
-	store := NewStore()
-	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
-	require.NoError(t, err)
-	require.Equal(t, BookID, current.BookID, "the fixture seeds BookID as the German current reading")
-	occurrences, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
-	require.NoError(t, err)
-	proposal := domain.LemmaReviewProposal{
-		OwnerID: OwnerID, BookID: BookID, Language: "de", Surface: "Weg", Action: "correct", Lemma: "pfad",
-		Occurrences: occurrences[:1], NormalizationProfile: "german-post-1996", NormalizationVersion: "6",
-	}
-	err = store.PutLemmaDecisionProposal(t.Context(), proposal, "any-fingerprint")
-	require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading, "the gate runs before the preview fingerprint")
-	err = store.PutLemmaDecisions(t.Context(), proposal.Decisions())
-	require.ErrorIs(t, err, domain.ErrNotFound, "the single-decision path keeps its not-found contract")
-	unchanged, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
-	require.NoError(t, err)
-	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")
-}
-
 func TestStartingFixtureBookRejectsMalformedAndUnknownIDsAsNotFound(t *testing.T) {
 	store := NewStore()
 	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {
@@ -495,11 +475,6 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 
-	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "legacy generated fixture=%+v err=%v", legacy, err)
-	require.Len(t, legacy, 1, "legacy generated fixture=%+v err=%v", legacy, err)
-	assert.Equal(t, LegacyGeneratedLemma, legacy[0].CanonicalLemma, "legacy generated fixture=%+v err=%v", legacy, err)
-	assert.Nil(t, legacy[0].FirstSourceMaterialID, "legacy generated fixture=%+v err=%v", legacy, err)
 	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	knownLemmas := map[string]bool{}

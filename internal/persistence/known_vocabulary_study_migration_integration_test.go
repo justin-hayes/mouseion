@@ -115,7 +115,9 @@ func TestKnownVocabularyBackfillBecomesAlreadyKnownStudyProgress(t *testing.T) {
 		assert.Equal(t, p.CanonicalLemma, p.LearnedMeaning, key)
 		wantOffset := time.Duration(float64(42*24*time.Hour) * float64(index) / 4)
 		assert.InDelta(t, wantOffset.Seconds(), p.Memory.Due.Sub(at).Seconds(), 1, "%s is due %v after the backfill", key, wantOffset)
-		assert.InDelta(t, 21*24*time.Hour.Seconds(), p.Memory.Due.Sub(p.Memory.LastReview).Seconds(), 1, key)
+		assert.WithinDuration(t, at, p.Memory.LastReview, time.Second, "%s was answered Already known at the backfill, never later", key)
+		assert.False(t, p.Corrected(), "%s reads as Already known, not corrected", key)
+		assert.True(t, p.AwaitingFirstMaterial, key)
 	}
 	assert.True(t, domain.IsStudyMature(byWord["gehen|"]), "a word with a Corpus context is Mature at once")
 	assert.True(t, domain.IsStudyMature(byWord["bank|1"]))
@@ -147,6 +149,24 @@ func TestKnownVocabularyBackfillBecomesAlreadyKnownStudyProgress(t *testing.T) {
 	require.Len(t, bobs, 1)
 	assert.Zero(t, bobs[0].Memory.Due.Sub(at).Round(time.Second), "an owner's first word is due at the backfill time")
 	assert.True(t, bobs[0].Withdrawn, "another owner's Corpus does not evidence the word")
+
+	// The first material replaces the placeholder without marking the word
+	// corrected: it was never corrected, only migrated.
+	_, err = store.Pool().Exec(ctx, `INSERT INTO study_material(owner_id, language, canonical_lemma, upos, lexical_discriminator, state, book_id, analysis_run_id, corpus_id, sentence_ordinal, token_ordinal, sentence, target_word, gloss, sentence_translation)
+		VALUES($1,'de','bank','NOUN','1','ready',$2,$3,$4,0,0,'Die Bank steht hier.','Bank','bench','The bench is here.')`, alice.ID, books[0], run, corpus)
+	require.NoError(t, err)
+	require.NoError(t, store.CompleteStudyReintroductions(ctx, alice.ID, "de", at.Add(time.Hour)))
+	after, err := store.ListStudyProgress(ctx, alice.ID, "de")
+	require.NoError(t, err)
+	for _, p := range after {
+		if p.CanonicalLemma == "bank" && p.LexicalDiscriminator == "1" {
+			assert.Equal(t, "bench", p.LearnedMeaning, "the Gloss of the real material replaces the placeholder")
+			assert.False(t, p.Reintroducing)
+			assert.False(t, p.AwaitingFirstMaterial)
+			assert.True(t, p.CorrectedAt.IsZero(), "a first material is not a correction")
+			assert.False(t, p.Corrected())
+		}
+	}
 
 	// A second run changes nothing.
 	progressBefore, materialBefore, eventsBefore := backfillSnapshot(t, ctx, store)

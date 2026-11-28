@@ -716,10 +716,6 @@ WHERE cai.owner_id = $5 AND cai.book_id = $6
   AND t.surface = $11 AND t.raw_lemma = $12
   AND t.canonical_lemma = $13
   AND t.upos = $14
-   AND NOT EXISTS (
-     SELECT 1 FROM primary_goals pg
-     WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
-   )
 ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
 DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
                 normalization_profile = excluded.normalization_profile,

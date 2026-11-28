@@ -187,6 +187,21 @@ func TestCanonicalCurrentReadingReadNextAndEndNeedNoCommitment(t *testing.T) {
 	assert.Contains(t, clearedAgain.Header().Get("Location"), "error=", "a second End has no reading to end")
 }
 
+// End and Finish return to the study language of the form that posted them
+// (ADR 0131), not the Last study language another tab may have moved.
+func TestEndAndFinishReturnToThePostedStudyLanguage(t *testing.T) {
+	h, cookies, csrf, store := readingFixtureSession(t)
+	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
+
+	ended := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "language": {"de"}}, cookies)
+	require.Equal(t, http.StatusSeeOther, ended.Code)
+	require.True(t, strings.HasPrefix(ended.Header().Get("Location"), "/de/library"), ended.Header().Get("Location"))
+
+	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}, "language": {"de"}}, cookies)
+	require.Equal(t, http.StatusSeeOther, finished.Code, "no reading is left to finish")
+	require.True(t, strings.HasPrefix(finished.Header().Get("Location"), "/de/library"), finished.Header().Get("Location"))
+}
+
 func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))

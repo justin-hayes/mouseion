@@ -663,17 +663,6 @@ type KnownVocabulary struct {
 	Headword  string
 	CreatedAt time.Time
 }
-type GeneratedVocabulary struct {
-	OwnerID, Language, CanonicalLemma, UPOS string
-	// LexicalDiscriminator and Headword carry the imported identity's
-	// scheme-qualified discriminator and citation form, empty for
-	// modern-language vocabulary.
-	LexicalDiscriminator  string
-	Headword              string
-	FirstDeckID           string
-	FirstSourceMaterialID *string
-	FirstGeneratedAt      time.Time
-}
 
 type ExampleSentence struct {
 	ID, OwnerID, CorpusID, SentenceKey, Text string

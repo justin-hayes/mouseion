@@ -2,13 +2,13 @@
 
 Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-08-28 · Issue: #338
 
-> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](study.md).
+> **Historical archive. Retired design.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](../../features/study.md).
 
 
 This document is the implementation contract for making prepared-deck
 translation durable and resumable. It refines the longer-term recommendation in
-[Prepared-deck LLM translation performance](../archive/features/llm-translation-performance.md)
-and [ADR 0030](../adr/0030-durable-prepared-deck-translation.md).
+[Prepared-deck LLM translation performance](llm-translation-performance.md)
+and [ADR 0030](../../adr/0030-durable-prepared-deck-translation.md).
 
 The implementation uses the accepted ADR 0032 standard-first execution:
 prepared-deck cache misses are executed as durable standard item work by

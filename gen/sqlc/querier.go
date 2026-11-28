@@ -43,8 +43,10 @@ type Querier interface {
 	// releases it first.
 	ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurrentReadingBookParams) (ChangeCurrentReadingBookRow, error)
 	// Moves each word whose replacement material is ready onto it: the new
-	// Gloss becomes the learned meaning and the word is marked corrected. The FSRS
-	// state is not touched.
+	// Gloss becomes the learned meaning and the word is marked corrected, unless
+	// the replaced material is the placeholder of a word migrated from Known
+	// vocabulary: that is its first material, not a correction. The FSRS state is
+	// not touched.
 	CompleteStudyReintroductions(ctx context.Context, arg CompleteStudyReintroductionsParams) (int64, error)
 	// A lemma is recognized only from non-excluded effective identities in the
 	// eligible owner/language corpus, across every evidenced part of speech.
@@ -370,7 +372,6 @@ type Querier interface {
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
 	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
-	ListKnownVocabularyLanguages(ctx context.Context, ownerID string) ([]ListKnownVocabularyLanguagesRow, error)
 	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)
 	// The one definition of a legacy classical Book. The catalog precondition
@@ -414,10 +415,6 @@ type Querier interface {
 	// empty identity so the two cases stay distinguishable.
 	ListProjectedCorpusVocabulary(ctx context.Context, arg ListProjectedCorpusVocabularyParams) ([]ListProjectedCorpusVocabularyRow, error)
 	ListReferenceTranslationsByPin(ctx context.Context, translationPinSha256 string) ([]ListReferenceTranslationsByPinRow, error)
-	// The owner's Reserved vocabulary: the frozen identities of the active Current
-	// reading snapshot. The legacy deck columns keep their names until the Reading
-	// snapshot is retired.
-	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
 	// The same by the word's vocabulary identity, which the word's material
 	// preparation knows.
 	ListRetiredStudyReportsOfIdentity(ctx context.Context, arg ListRetiredStudyReportsOfIdentityParams) ([]StudyReport, error)
@@ -483,11 +480,17 @@ type Querier interface {
 	// #2691).
 	// reintroducing is true while the word's own Study material has been
 	// superseded by a correction and its replacement is not yet in place.
+	// awaiting_first_material is true while the word, migrated from Known
+	// vocabulary as Already known, still points at the placeholder its first Study
+	// material replaces (migration 000081): it is not a correction.
 	// held is true while the word has an open Wrong-word report (ADR 0135 §2).
 	// context_reported_at is when its latest Unsuitable-context report that retires
 	// a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
 	// is none.
 	ListStudyProgress(ctx context.Context, arg ListStudyProgressParams) ([]ListStudyProgressRow, error)
+	// The languages the learner has Study progress in, whether or not a Book of the
+	// language is still in My Books.
+	ListStudyProgressLanguages(ctx context.Context, ownerID string) ([]ListStudyProgressLanguagesRow, error)
 	ListStudyReviewLog(ctx context.Context, arg ListStudyReviewLogParams) ([]StudyReviewLog, error)
 	// The Lemma corrections and Occurrence exclusions on the tokens of the given
 	// sentences of one Book's analysis: the decisions that make a lemma effective.
@@ -505,7 +508,6 @@ type Querier interface {
 	// speech come back for Go to decide, as the listing's ranked stage does.
 	ListStudySourceTokens(ctx context.Context, arg ListStudySourceTokensParams) ([]ListStudySourceTokensRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
-	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	// One page of the concordance_occurrences model, read selectively (#2595).
 	// Filtering the view's output joins and sorts the whole corpus before the
 	// lemma or form filter applies. This query states the view's eligibility over

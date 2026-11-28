@@ -13,7 +13,7 @@ import (
 // remediation screen both render it, so the step is one component (ADR 0136
 // §6). report names the Study report a remediation confirms, or is empty.
 // Children render inside the confirm form, before its button.
-templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview, recovery lemmareview.Recovery) {
+templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview) {
 		<article aria-labelledby="lemma-preview-heading">
 			<h2 id="lemma-preview-heading">Review the proposed change</h2>
 			<p>This is a preview only. Nothing changes until you confirm.</p>
@@ -23,10 +23,10 @@ templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmarevi
 					<li><span class="reading-text">{ change.Sentence }</span> — effective identity { lemmaReviewKeyDisplay(ctx, change.Before) } → { lemmaReviewKeyDisplay(ctx, change.After) }</li>
 				}
 			</ul>
-			<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Reading eligibility needs three occurrences in this Book, or at least one with fifteen across your analyzed Books, including this one. Known matching is separate from Reserved matching; eligible identities can change Reading snapshot membership. Frozen snapshots are not rewritten.</p>
+			<p>Only the explicitly selected contexts are included. Other occurrences, including matching forms elsewhere in this Book or in other Books, remain unchanged. Each word's count of occurrences changes as shown below.</p>
 			<ul>
 				for _, impact := range proposal.Impacts {
-					<li><strong>{ lemmaReviewKeyDisplay(ctx, impact.Identity.CanonicalLemma) } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }; Known match { yesNo(impact.Known) }; Reserved match { yesNo(impact.Reserved) }; Reading snapshot eligible { yesNo(impact.BeforeEligible) } → { yesNo(impact.AfterEligible) }.</li>
+					<li><strong>{ lemmaReviewKeyDisplay(ctx, impact.Identity.CanonicalLemma) } ({ impact.Identity.UPOS }):</strong> recurrence { fmt.Sprint(impact.BeforeCount) } → { fmt.Sprint(impact.AfterCount) }.</li>
 				}
 			</ul>
 			if len(proposal.Impacts) == 0 {
