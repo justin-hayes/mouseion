@@ -76,7 +76,7 @@ Mouseion's current web acquisition path is OPDS. Do not promise direct EPUB
 upload unless a shipped route and feature contract support it. Reading intent —
 expressed by Catalog **Add** or **Read again** — acquires
 and validates content when needed as an ensure-once consequence. Historical
-compatibility artifacts may retain **Add to Reading** or **Add to library**.
+compatibility artifacts may retain **Add to My Books** or **Add to library**.
 
 Connection sync uses complete factual states: **Never synced**, **Syncing**,
 **Last synced**, and **Sync failed**. Always identify the connection and, for
@@ -118,7 +118,7 @@ remain only as compatibility redirects to Reading.
 | **Finish** / **End** | **Finish** records a Reading completion, clears the current role and To Read, and changes no vocabulary. **End** clears the current role and keeps the Book in To Read. Neither takes a confirmation and neither chooses the next Book. | Mark reading finished, Complete Goal, finish Journey |
 | **Read again** | Return a previously read Book to To Read while retaining completion history. | Clear history, erase prior completion |
 
-Reading' document order is not a learner-authored order or recommendation.
+Reading's document order is not a learner-authored order or recommendation.
 Never use coverage as a warning, readiness judgment, or literary evaluation.
 
 ## Reading, preparation, and vocabulary
