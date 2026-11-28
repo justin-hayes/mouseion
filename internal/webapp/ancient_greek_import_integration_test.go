@@ -162,8 +162,6 @@ func TestAncientGreekImportRefusesAnUnregisteredBook(t *testing.T) {
 	assert.Zero(t, runs)
 }
 
-// fixtureImport pins the synthetic oga_src fixture as the import definition and
-// writes it to a temporary path.
 // greekImportRequest names the learner's Book, the reviewed definition to
 // import and the local path of the source file.
 type greekImportRequest struct {
@@ -213,6 +211,8 @@ func importGreekSource(ctx context.Context, req greekImportRequest, writer ancie
 	return report, nil
 }
 
+// fixtureImport pins the synthetic oga_src fixture as the import definition and
+// writes it to a temporary path.
 func fixtureImport(t *testing.T) (domain.ReadingUnitDefinition, string) {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))

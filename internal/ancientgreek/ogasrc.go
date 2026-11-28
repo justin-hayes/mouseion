@@ -508,7 +508,8 @@ type reconstructed struct {
 }
 
 // reconstructFor joins a sentence's printed tokens with single spaces, omitting
-// the space before a punctuation mark and dropping ellipsis tokens, under the spacing rule of the document's language.
+// the space before a punctuation mark and dropping ellipsis tokens, under the
+// spacing rule of the document's language.
 func reconstructFor(sentence sourceSentence, dialect sourceDialect) reconstructed {
 	kept := make([]sourceToken, 0, len(sentence.tokens))
 	ellipsis := 0
