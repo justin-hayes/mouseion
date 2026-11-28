@@ -124,8 +124,12 @@ type SourceMaterial struct {
 	ContentSnapshotID                                                                string
 	ContentDigest                                                                    string
 	ContentDigestVersion                                                             int
-	Content                                                                          []byte
-	CreatedAt                                                                        time.Time
+	// DocumentDigest is KOReader's partial MD5 of the Catalog file the content
+	// revision was acquired from (ADR 0142). It is input to a revision write
+	// and is empty when unknown.
+	DocumentDigest string
+	Content        []byte
+	CreatedAt      time.Time
 }
 
 // SourceMaterialSummary adds the learner-facing state and current-analysis

@@ -456,8 +456,8 @@ Book.
 The EPUB exactly as a Catalog entry's acquisition link serves it. Mouseion
 streams it to a temporary file and derives the Retained EPUB from it; it is not
 stored. Its digest is kept in processing history (ADR 0109), and its Document
-digest is recorded so that a device holding the same file links to the Book
-(pending an ADR amending 0109).
+digest is recorded on the content revision so that a device holding the same
+file links to the Book (ADR 0142).
 _Avoid_: original EPUB, retained bytes.
 
 **Retained EPUB**:

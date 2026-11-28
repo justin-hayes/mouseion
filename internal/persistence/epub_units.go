@@ -161,10 +161,11 @@ func (s *PostgresStore) PutSourceMaterialWithExtractedSnapshot(ctx context.Conte
 // the stored source because the upsert does not rewrite an existing source's
 // full text.
 type contentRevisionInput struct {
-	fullText      string
-	digest        string
-	digestVersion int
-	content       []byte
+	fullText       string
+	digest         string
+	digestVersion  int
+	content        []byte
+	documentDigest string
 }
 
 // sourceMaterialContentIdentity resolves the content identity the revision will
@@ -172,7 +173,7 @@ type contentRevisionInput struct {
 // caller-supplied ContentHash, tagged as legacy when it predates content
 // hashing. Content is stored as empty bytes when the caller supplies none.
 func sourceMaterialContentIdentity(v domain.SourceMaterial) (contentRevisionInput, error) {
-	revision := contentRevisionInput{fullText: v.FullText, content: v.Content}
+	revision := contentRevisionInput{fullText: v.FullText, content: v.Content, documentDigest: v.DocumentDigest}
 	if v.Content != nil {
 		sum := sha256.Sum256(v.Content)
 		revision.digest = "sha256:" + hex.EncodeToString(sum[:])
@@ -245,7 +246,9 @@ func putSourceMaterialRevision(ctx context.Context, q *sqlcgen.Queries, source d
 	}
 	revisionID, err = q.GetSourceContentRevisionByDigest(ctx, sqlcgen.GetSourceContentRevisionByDigestParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, ContentDigest: revision.digest})
 	if errors.Is(err, pgx.ErrNoRows) {
-		revisionID, err = q.InsertSourceContentRevision(ctx, sqlcgen.InsertSourceContentRevisionParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, DigestVersion: revision.digestVersion, ContentDigest: revision.digest, Content: revision.content, FullText: revision.fullText})
+		revisionID, err = q.InsertSourceContentRevision(ctx, sqlcgen.InsertSourceContentRevisionParams{OwnerID: source.OwnerID, SourceMaterialID: source.ID, DigestVersion: revision.digestVersion, ContentDigest: revision.digest, Content: revision.content, FullText: revision.fullText, DocumentDigest: nullableTextArg(revision.documentDigest)})
+	} else if err == nil && revision.documentDigest != "" {
+		_, err = q.FillSourceContentRevisionDocumentDigest(ctx, sqlcgen.FillSourceContentRevisionDocumentDigestParams{OwnerID: source.OwnerID, RevisionID: revisionID, DocumentDigest: revision.documentDigest})
 	}
 	if err != nil {
 		return "", false, err

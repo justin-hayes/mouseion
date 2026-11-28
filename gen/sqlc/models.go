@@ -1013,6 +1013,7 @@ type SourceContentRevision struct {
 	Content          []byte
 	FullText         string
 	CreatedAt        time.Time
+	DocumentDigest   pgtype.Text
 }
 
 type SourceMaterial struct {

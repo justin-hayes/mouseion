@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/download"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/testwrite"
@@ -242,6 +243,9 @@ func TestAcquireStreamsTheCatalogFileThroughTheConfiguredDirectory(t *testing.T)
 	t.Run("records the Catalog file digest and size", func(t *testing.T) {
 		require.Equal(t, domain.EPUBContentDigest(catalog), importer.acquisition.CatalogDigest)
 		require.Equal(t, int64(len(catalog)), importer.acquisition.CatalogSize)
+	})
+	t.Run("records the Catalog file's Document digest", func(t *testing.T) {
+		require.Equal(t, download.PartialMD5Of(catalog), importer.acquisition.DocumentDigest)
 	})
 	t.Run("records the slimming version", func(t *testing.T) {
 		require.Equal(t, epub.RetainedSlimmingVersion, importer.acquisition.SlimmingVersion)
