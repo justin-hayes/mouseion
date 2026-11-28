@@ -1030,7 +1030,7 @@
     margin-inline-start: var(--mouseion-space-1);
     border: 1px solid currentColor;
     border-radius: 999px;
-    padding-inline: 0.4em;
+    padding-inline: var(--mouseion-space-1);
     color: var(--mouseion-color-text-muted);
     font-size: var(--mouseion-font-size-metadata);
     font-weight: 600;

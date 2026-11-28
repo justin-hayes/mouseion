@@ -210,13 +210,6 @@ func (h *Handler) prefixedLanguagePage(page languagePrefixed) http.Handler {
 		view.LastLanguage = language
 		view.PageLanguage = language
 		view.PageKind = page.kind
-		if changed {
-			// The count loaded with the shell was for the stored language.
-			if err := h.loadStudyDue(r.Context(), view, user(r).ID); err != nil {
-				fail(w, err)
-				return
-			}
-		}
 		if !changed {
 			page.handler.ServeHTTP(w, r)
 			return

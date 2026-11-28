@@ -204,7 +204,7 @@ templ CatalogueSyncConnectionActions(csrf string, connection domain.OpdsConnecti
 // technology so it is not read twice.
 templ studyTabLabel(view *shellView) {
 	Study
-	if view != nil && view.StudyDue > 0 {
-		<span class="site-nav__count" aria-hidden="true">{ strconv.Itoa(view.StudyDue) }</span>
+	if due := view.studyDue(ctx); due > 0 {
+		<span class="site-nav__count" aria-hidden="true">{ strconv.Itoa(due) }</span>
 	}
 }

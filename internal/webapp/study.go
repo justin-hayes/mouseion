@@ -317,8 +317,18 @@ func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageVi
 		return err
 	}
 	view.Counts = counts
+	// One count is Today's remaining reviews and the Study tab's chip, read
+	// after reconciliation: they cannot disagree.
+	due, err := store.CountStudyReviewsDue(ctx, owner, view.Language, now)
+	if err != nil {
+		return err
+	}
 	today := domain.StudyFinishLine(progress, now)
+	today.Remaining, today.Finished = due, due == 0
 	view.Remaining, view.Finished = today.Remaining, today.Finished
+	if shell := shellViewFromContext(ctx); shell != nil && shell.LastLanguage == view.Language {
+		shell.setStudyDue(due)
+	}
 	if view.Held, err = h.studyHeldCount(ctx, owner, view.Language); err != nil {
 		return err
 	}

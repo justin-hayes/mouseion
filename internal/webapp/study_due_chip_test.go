@@ -39,7 +39,7 @@ func TestShellOmitsTheDueChipWithoutAStudyStore(t *testing.T) {
 	assert.NotContains(t, response.Body.String(), "site-nav__count")
 }
 
-func TestPagesFailWhenTheDueCountCannotBeRead(t *testing.T) {
+func TestPagesKeepServingWhenTheDueCountCannotBeRead(t *testing.T) {
 	failing := func(language string) func(*Services) {
 		return func(services *Services) {
 			services.Store.Study = dueCountFailure{StudyStore: services.Store.Study, language: language}
@@ -47,11 +47,36 @@ func TestPagesFailWhenTheDueCountCannotBeRead(t *testing.T) {
 	}
 	t.Run("for the stored language", func(t *testing.T) {
 		h, cookies, _, _ := readingFixtureSessionWith(t, failing("de"))
-		assert.Equal(t, http.StatusInternalServerError, getAs(t, h, "/de/reading", cookies).Code)
+		response := getAs(t, h, "/de/reading", cookies)
+		require.Equal(t, http.StatusOK, response.Code)
+		assert.NotContains(t, response.Body.String(), "site-nav__count")
 	})
 	t.Run("for the language of the page", func(t *testing.T) {
 		h, cookies, _, store := readingFixtureSessionWith(t, failing("de"))
 		require.NoError(t, store.SetActiveStudyLanguage(t.Context(), fixtures.OwnerID, "it"))
-		assert.Equal(t, http.StatusInternalServerError, getAs(t, h, "/de/reading", cookies).Code)
+		response := getAs(t, h, "/de/reading", cookies)
+		require.Equal(t, http.StatusOK, response.Code)
+		assert.NotContains(t, response.Body.String(), "site-nav__count")
 	})
+}
+
+// dueCountSpy counts the due reads and the languages they were for.
+type dueCountSpy struct {
+	StudyStore
+	languages *[]string
+}
+
+func (s dueCountSpy) CountStudyReviewsDue(ctx context.Context, owner, language string, now time.Time) (int, error) {
+	*s.languages = append(*s.languages, language)
+	return s.StudyStore.CountStudyReviewsDue(ctx, owner, language, now)
+}
+
+func TestShellCountsDueOnceForTheLanguageOfThePage(t *testing.T) {
+	var languages []string
+	h, cookies, _, store := readingFixtureSessionWith(t, func(services *Services) {
+		services.Store.Study = dueCountSpy{StudyStore: services.Store.Study, languages: &languages}
+	})
+	require.NoError(t, store.SetActiveStudyLanguage(t.Context(), fixtures.OwnerID, "it"))
+	require.Equal(t, http.StatusOK, getAs(t, h, "/de/reading", cookies).Code)
+	assert.Equal(t, []string{"de"}, languages, "one count, for the page's language, not the stored one")
 }
