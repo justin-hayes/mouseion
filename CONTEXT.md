@@ -650,6 +650,9 @@ chooses the optional **most readable** sort by Mature coverage, which the
 address keeps. It was called My Books until the rename. A separate, earlier
 Reading page that held the Current reading was retired by ADR 0136; its
 addresses still redirect, to Reading or to the Book detail page they name.
+A classical Book is a whole Work in one Edition, so it is read, finished and
+chosen as one unit; its Constituent books are locations within it, never
+entries of their own. Reading keeps no learner-authored order.
 _Avoid_: My Books, library queue, reading plan.
 
 **Inbox** (retired):
