@@ -1,6 +1,8 @@
 import { expect, Page, test } from '../support/test';
 
 // The fixture server for this file seeds twelve German reviews that are due.
+// The specs avoid the Study page itself: it reconciles the seeded words, which
+// have no occurrence in the fixture Book, and withdraws them.
 
 async function signIn(page: Page) {
   await page.goto('/login');
@@ -13,11 +15,11 @@ async function signIn(page: Page) {
 test.describe('Study tab due chip', () => {
   test('shows the due count on every page with the destination and count as its name', async ({ page }) => {
     await signIn(page);
-    for (const path of ['/de/library', '/de/study', '/jobs', '/catalogs']) {
+    for (const path of ['/de/library', '/de/vocabulary', '/jobs', '/catalogs']) {
       await page.goto(path);
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
       const study = navigation.getByRole('link', { name: 'Study, 12 reviews due', exact: true });
-      await expect(study).toBeVisible();
+      await expect(study, path).toBeVisible();
       await expect(study.locator('.site-nav__count')).toHaveText('12');
       await expect(study).toContainText('Study');
     }
