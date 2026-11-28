@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/de/library', '/de/reading', '/catalogs', '/de/vocabulary', '/de/vocabulary/concordance', '/jobs']) {
+    for (const path of ['/de/library', '/books/fixture-book', '/catalogs', '/de/vocabulary', '/de/vocabulary/concordance', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -50,8 +50,8 @@ test.describe('migration and epistemic regression coverage', () => {
     expect(css).toContain('prefers-reduced-motion');
   });
 
-  test('shows current reading and Browse without Other To Read choices or forecasts', async ({ page }) => {
-    await page.goto('/de/reading?page=1');
+  test('shows the current reading on My Books and its words on the Book detail page without forecasts', async ({ page }) => {
+    await page.goto('/de/library');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -59,18 +59,20 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.locator('ol.journey-list, ul.journey-list')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
     await expect(page.getByRole('list', { name: 'To Read books' })).toHaveCount(0);
-    await expect(page.locator('#vocabulary-workflow')).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.locator('#provisional-journey-status')).toHaveCount(0);
+    await expectPostFormsCarryCSRF(page);
+    await page.goto('/books/fixture-book');
+    await expect(page.locator('#vocabulary-workflow')).toBeVisible();
     await expectPostFormsCarryCSRF(page);
     const retiredJourneyRoute = await page.goto('/journey/fixture-book');
     expect(retiredJourneyRoute?.status()).toBe(404);
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/de/reading?page=1');
+    await page.goto('/de/library');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();

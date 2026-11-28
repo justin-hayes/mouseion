@@ -355,13 +355,19 @@ async function finishReading(page: Page, book: ManifestBook): Promise<void> {
   });
 }
 
-// Browse hides Known and Reserved words by default, so when the default view
-// has no rows the learner reveals already-accounted-for words before the table
-// is asserted. Counts that report themselves as updating are waited on first.
+// The Current reading's title on My Books opens its Book detail page, which
+// lists the Book's words by Study state.
+async function openBookDetail(page: Page, title: string): Promise<void> {
+  await page.goto('/de/library');
+  await page.locator('#primary-goal-section').getByRole('link', { name: title }).click();
+  await expect(page).toHaveURL(/\/books\//);
+}
+
+// Counts that report themselves as updating are waited on first.
 async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<void> {
   await pollUntil(
     async () => {
-      await page.goto('/de/reading?page=1');
+      await openBookDetail(page, book.title);
       const status = page.locator('#vocabulary-counts-status');
       if ((await status.count()) === 0) return true;
       const text = await status.innerText();
@@ -374,11 +380,7 @@ async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<voi
     `vocabulary counts for ${book.title} to finish updating`,
   );
 
-  const table = page.getByRole('table', { name: 'Current effective vocabulary' });
-  if ((await table.locator('tbody tr').count()) === 0) {
-    await page.locator('#vocabulary-include-all').check();
-    await page.locator('form.vocabulary-filter').getByRole('button', { name: 'Search' }).click();
-  }
+  const table = page.getByRole('table', { name: 'Words by Study state' });
   await expect(table.locator('tbody tr').first(), `a non-empty Book vocabulary table for ${book.title}`).toBeVisible({
     timeout: COUNTS_TIMEOUT_MS,
   });
@@ -532,7 +534,7 @@ test('the scenario Books are analyzed, readings seed Known vocabulary, and Readi
   await startReading(page, currentBook);
   await assertBookVocabulary(page, currentBook);
   await expect(page.locator('#primary-goal-section').getByRole('heading', { level: 2 })).toContainText(currentBook.title);
-  await page.goto('/de/reading?page=1');
+  await openBookDetail(page, currentBook.title);
   await settleAndCapture(page, readingOutputPath);
 
   await captureMyBooks(page, 'light', myBooksOutputPath, myBooksReadOutputPath);

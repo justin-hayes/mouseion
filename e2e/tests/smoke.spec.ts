@@ -103,8 +103,7 @@ test.describe('authenticated learner smoke', () => {
     await expect(page.locator('section#library-results')).toBeVisible();
     await expect(page.locator('.library-books .library-book', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
-    await expect(page.locator('.library-books a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(0);
-    await expect(page.locator('.library-books a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toHaveCount(0);
+    await expect(page.locator('.library-books a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(1);
     await expect(page.getByText('Analysis failed — action required')).toHaveCount(0);
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toHaveCount(0);
   });
@@ -806,9 +805,11 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     }
   });
 
-  test('metadata-only book detail URLs are retired', async ({ page }) => {
+  test('a metadata-only Book has a detail page with its Book language', async ({ page }) => {
     const response = await page.goto('/books/fixture-metadata-only');
-    expect(response?.status()).toBe(404);
+    expect(response?.status()).toBe(200);
+    await expect(page.locator('[data-book-language]')).toContainText('de');
+    await expect(page.locator('#book-detail-analysis')).toBeVisible();
 
     await page.goto('/de/library');
     await expect(page.getByText('Add a book')).toHaveCount(0);
@@ -843,8 +844,8 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const libraryLanguage = page.getByLabel('Study language');
     if (await libraryLanguage.inputValue() !== 'de') await libraryLanguage.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
-    const retiredBookResponse = await page.goto('/books/fixture-metadata-only');
-    expect(retiredBookResponse?.status()).toBe(404);
+    const missingBookResponse = await page.goto('/books/fixture-no-such-book');
+    expect(missingBookResponse?.status()).toBe(404);
     const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');
     expect(retiredCampaignResponse?.status()).toBe(404);
     await page.goto('/de/library');
@@ -864,15 +865,13 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
-    await page.goto('/de/reading?page=1');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await page.goto('/books/fixture-book');
+    await expect(page.getByRole('heading', { name: 'Words', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
-    await expect(page.getByText(/active study language.*de/)).toBeVisible();
+    await expect(page.getByText(/study language.*de/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('table', { name: 'Current effective vocabulary' })).toBeVisible();
-    await page.getByRole('checkbox', { name: 'Show already accounted-for words' }).check();
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.getByRole('table', { name: 'Current effective vocabulary' }).getByRole('row')).toHaveCount(3);
+    await expect(page.getByRole('table', { name: 'Words by Study state' }).getByRole('row')).toHaveCount(3);
+    await page.goto('/de/library');
     await page.getByLabel('Study language').selectOption('fr');
     await expect(page).toHaveURL(/\/fr\/library$/);
     // French has no current Book, so there is no pinned reading and no Browse.
