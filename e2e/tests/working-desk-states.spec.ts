@@ -21,10 +21,10 @@ async function signIn(page: Page) {
 }
 
 // The Working desk's degraded states must leave the Reading lifecycle reachable:
-// switching, finishing, and ending.
+// finishing and ending (Read next lives on My Books).
 async function expectLifecycleReachable(page: Page) {
   const goal = page.locator('.journey-book--goal');
-  await expect(goal.getByRole('link', { name: 'Switch current reading', exact: true })).toBeVisible();
+  await expect(goal.getByRole('link', { name: 'Switch current reading', exact: true })).toHaveCount(0);
   await expect(goal.locator('details').filter({ hasText: 'Mark reading finished' }).locator('summary')).toBeVisible();
   const end = goal.locator('details').filter({ hasText: 'End current reading' }).locator('summary');
   await end.click();
@@ -45,7 +45,7 @@ test.afterEach(async ({ page, baseURL }) => {
 test('Working desk shows counts updating with Refresh status and withholds vocabulary', async ({ page, baseURL }) => {
   await setScenario(page, baseURL, 'counts-updating');
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const workflow = page.locator('#vocabulary-workflow');
   const status = workflow.locator('#vocabulary-counts-status');
   await expect(status).toHaveAttribute('role', 'status');
@@ -66,7 +66,7 @@ test('Working desk shows counts updating with Refresh status and withholds vocab
 test('Working desk explains unavailable counts without leaking rows and keeps Refresh status', async ({ page, baseURL }) => {
   await setScenario(page, baseURL, 'counts-unavailable');
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const workflow = page.locator('#vocabulary-workflow');
   const status = workflow.locator('#vocabulary-counts-status');
   await expect(status).toHaveAttribute('role', 'alert');
@@ -81,13 +81,13 @@ test('Working desk explains unavailable counts without leaking rows and keeps Re
   await expectLifecycleReachable(page);
 });
 
-test('Working desk points an analysis-less Book to Switch and never shows a zero result', async ({ page, baseURL }) => {
+test('Working desk points an analysis-less Book back to My Books and never shows a zero result', async ({ page, baseURL }) => {
   await setScenario(page, baseURL, 'no-analysis');
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const workflow = page.locator('#vocabulary-workflow');
   await expect(workflow.getByText('This Book has no current completed analysis, so Browse cannot show current vocabulary evidence.')).toBeVisible();
-  await expect(workflow.getByRole('link', { name: 'Switch current reading', exact: true })).toHaveAttribute('href', '/de/reading/switch');
+  await expect(workflow.getByRole('link', { name: 'Back to My Books', exact: true })).toHaveAttribute('href', '/de/library');
   await expect(workflow.getByRole('table', { name: 'Current effective vocabulary' })).toHaveCount(0);
   await expect(workflow).not.toContainText('No eligible vocabulary in this analysis');
   await expect(workflow).not.toContainText('Updating vocabulary counts.');
@@ -97,7 +97,7 @@ test('Working desk points an analysis-less Book to Switch and never shows a zero
 test('Working desk reports an analysis with no eligible vocabulary as an empty result', async ({ page, baseURL }) => {
   await setScenario(page, baseURL, 'no-vocabulary');
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const workflow = page.locator('#vocabulary-workflow');
   await expect(workflow.getByText('No eligible vocabulary in this analysis.', { exact: true })).toBeVisible();
   await expect(workflow.getByRole('table', { name: 'Current effective vocabulary' })).toHaveCount(0);
@@ -109,7 +109,7 @@ test('Working desk reports an analysis with no eligible vocabulary as an empty r
 test('Working desk separates everything-accounted-for from annotated rows and recovers with the reveal and Clear prefix', async ({ page, baseURL }) => {
   await setScenario(page, baseURL, 'accounted');
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const workflow = page.locator('#vocabulary-workflow');
   await expect(workflow.getByText('All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck.')).toBeVisible();
   await expect(workflow).toContainText('This does not mean they are mastered, and it is not a failed search.');
@@ -141,13 +141,13 @@ test('Working desk states fit 390 and 320 px without page overflow, with a compl
   test.setTimeout(90_000);
   await signIn(page);
   const cases: Array<[Scenario, string]> = [
-    ['', '/de/reading'],
-    ['no-analysis', '/de/reading'],
-    ['no-vocabulary', '/de/reading'],
-    ['counts-updating', '/de/reading'],
-    ['counts-unavailable', '/de/reading'],
-    ['accounted', '/de/reading'],
-    ['accounted', '/de/reading?all=1'],
+    ['', '/de/reading?page=1'],
+    ['no-analysis', '/de/reading?page=1'],
+    ['no-vocabulary', '/de/reading?page=1'],
+    ['counts-updating', '/de/reading?page=1'],
+    ['counts-unavailable', '/de/reading?page=1'],
+    ['accounted', '/de/reading?page=1'],
+    ['accounted', '/de/reading?page=1&all=1'],
   ];
   for (const [scenario, path] of cases) {
     await setScenario(page, baseURL, scenario);

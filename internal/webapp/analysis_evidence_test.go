@@ -35,30 +35,6 @@ func TestReadingEvidenceStatusMapsClassificationAndCoverage(t *testing.T) {
 	}
 }
 
-func TestReadingChooserGroupsFromClassification(t *testing.T) {
-	tests := []struct {
-		name  string
-		c     domain.BookEvidenceClassification
-		state readingChooserState
-		desc  string
-	}{
-		{name: "publication pending is in progress", c: domain.BookEvidenceClassification{Content: domain.ContentCurrentEPUB, Evidence: domain.BookAcquiredUnassessed, Phase: domain.PhaseAnalyzing, Run: domain.RunPublicationPending}, state: readingChooserInProgress, desc: analysisPublicationPendingDescription},
-		{name: "queued analysis is in progress", c: domain.BookEvidenceClassification{Content: domain.ContentCurrentEPUB, Evidence: domain.BookAcquiredUnassessed, Phase: domain.PhaseAnalyzing, Run: domain.RunQueued}, state: readingChooserInProgress, desc: "Analysis is queued or running. This candidate will show its band when current evidence is ready."},
-		{name: "stale analysis needs attention", c: domain.BookEvidenceClassification{Content: domain.ContentCurrentEPUB, Evidence: domain.BookStale, Phase: domain.PhaseStale}, state: readingChooserNeedsAttention, desc: "The analysis no longer matches the current book content. Retry analysis to refresh its evidence."},
-		{name: "unavailable content needs attention", c: domain.BookEvidenceClassification{Content: domain.ContentNoCurrentRevision, Evidence: domain.BookUnavailable, Phase: domain.PhaseNotAnalyzed}, state: readingChooserNeedsAttention, desc: "Current book content is unavailable. Retry acquisition or analysis from My Books."},
-		{name: "not acquired needs attention", c: domain.BookEvidenceClassification{Content: domain.ContentNotAcquired, Evidence: domain.BookNotAcquired}, state: readingChooserNeedsAttention, desc: "Book content has not been acquired yet. Return to My Books to review its catalog entry."},
-		{name: "failed analysis needs attention", c: domain.BookEvidenceClassification{Content: domain.ContentCurrentEPUB, Evidence: domain.BookAcquiredUnassessed, Phase: domain.PhaseFailed, Run: domain.RunFailed}, state: readingChooserNeedsAttention, desc: "The last analysis did not complete. Retry analysis to refresh its evidence."},
-		{name: "unassessed analysis needs attention", c: domain.BookEvidenceClassification{Content: domain.ContentCurrentEPUB, Evidence: domain.BookAcquiredUnassessed, Phase: domain.PhaseNotAnalyzed}, state: readingChooserNeedsAttention, desc: "Current analysis is not complete. Retry analysis to produce usable evidence."},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			state, desc := readingChooserStatusFor(tt.c)
-			assert.Equal(t, tt.state, state)
-			assert.Equal(t, tt.desc, desc)
-		})
-	}
-}
-
 // TestPublicationPendingHasOnePresentationOnEverySurface checks the surfaces
 // that present a finished run awaiting publication. None may read as not
 // started, and none may offer a recovery action.
@@ -77,9 +53,6 @@ func TestPublicationPendingHasOnePresentationOnEverySurface(t *testing.T) {
 			assert.Equal(t, analysisPublicationPendingLabel, reading.Status)
 			assert.Empty(t, reading.Label, "publication pending offers no recovery action in Reading")
 			assert.False(t, reading.Submit)
-
-			chooser, _ := readingChooserStatusFor(book.Classification())
-			assert.Equal(t, readingChooserInProgress, chooser)
 
 			assert.Equal(t, "Analysis in progress.", myBookMarginEvidence(book))
 			assert.Empty(t, myBookEvidenceRecovery(book))

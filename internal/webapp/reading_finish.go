@@ -32,14 +32,10 @@ func (h *Handler) finishCurrentReading(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		h.respondCurrentReading(w, r, "Reading could not be marked finished. No changes were made; review Reading and try again.")
+		h.respondCurrentReading(w, r, "Reading could not be marked finished. No changes were made; review My Books and try again.")
 		return
 	}
 	outcome := currentReadingFinishView{BookTitle: h.finishBookTitle(r.Context(), owner, result.Completion.BookID)}
-	if isPartialHTMXRequest(r) {
-		render(w, r, CurrentReadingFinish(outcome))
-		return
-	}
 	render(w, r, CurrentReadingFinishPage(user(r), h.csrf(w, r), outcome))
 }
 

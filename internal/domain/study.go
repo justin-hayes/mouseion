@@ -84,9 +84,9 @@ func (i StudyItem) Headword() (string, bool) {
 // every language, not a learner setting.
 const StudyTargetCoverage = 0.98
 
-// studyTargetCoveragePercent is StudyTargetCoverage as a whole percent, so the
+// StudyTargetCoveragePercent is StudyTargetCoverage as a whole percent, so the
 // comparison is exact integer math (an untyped constant: the product is 98).
-const studyTargetCoveragePercent = int64(StudyTargetCoverage * 100)
+const StudyTargetCoveragePercent = int64(StudyTargetCoverage * 100)
 
 // StudyReadingCoverage is how far the Current reading is toward Target
 // coverage: its in-study-or-Mature tokens over its analyzable tokens. Active is
@@ -119,7 +119,7 @@ func NewStudyReadingCoverage(vocabulary ProjectedCorpusVocabulary, progress []St
 // there is a Current reading and its coverage is below Target coverage. Exactly
 // at the target the boost is off, and it returns when coverage falls below.
 func (c StudyReadingCoverage) BoostsCurrentReading() bool {
-	return c.Active && c.InStudyTokens*100 < c.AnalyzableTokens*studyTargetCoveragePercent
+	return c.Active && c.InStudyTokens*100 < c.AnalyzableTokens*StudyTargetCoveragePercent
 }
 
 // StudyCandidate is one effective vocabulary identity that Study could offer

@@ -222,3 +222,45 @@ func TestCoverageIsUpdatingWhileCountsAreNotReady(t *testing.T) {
 	_, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
 	assert.ErrorIs(t, err, ErrCountsUpdating)
 }
+
+func TestCoverageCountsWordsLeftBeforeTargetCoverage(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 5}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "de", CanonicalLemma: "mature", UPOS: "NOUN", OccurrenceCount: 50},
+			{Language: "de", CanonicalLemma: "learning", UPOS: "NOUN", OccurrenceCount: 40},
+			{Language: "de", CanonicalLemma: "alpha", UPOS: "NOUN", OccurrenceCount: 6},
+			{Language: "de", CanonicalLemma: "beta", UPOS: "NOUN", OccurrenceCount: 3},
+			{Language: "de", CanonicalLemma: "gamma", UPOS: "NOUN", OccurrenceCount: 1},
+		}},
+		progress: []domain.StudyProgress{
+			matureWord("alice", "de", "mature", "NOUN"),
+			learningWord("alice", "de", "learning", "NOUN"),
+		},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	require.NoError(t, err)
+	// 90 of 100 tokens are in study; Target coverage is 98%, so alpha (6) is
+	// the first word counted and beta (3) the second, reaching 99.
+	assert.Equal(t, int(domain.StudyTargetCoveragePercent), got.ToTarget.TargetPercent)
+	assert.Equal(t, int64(2), got.ToTarget.LemmaCount)
+	assert.Equal(t, int64(9), got.ToTarget.OccurrenceCount)
+	assert.True(t, got.ToTarget.Reachable)
+}
+
+func TestCoverageAtTargetNeedsNoMoreWords(t *testing.T) {
+	statistics := &domain.AnalysisStatistics{AnalyzableTokenCount: 100, DistinctLemmaCount: 2}
+	store := &memoryStore{
+		input: domain.AnalysisCorpusVocabulary{Statistics: statistics, Lemmas: []domain.LemmaOccurrence{
+			{Language: "de", CanonicalLemma: "mature", UPOS: "NOUN", OccurrenceCount: 98},
+			{Language: "de", CanonicalLemma: "rare", UPOS: "NOUN", OccurrenceCount: 2},
+		}},
+		progress: []domain.StudyProgress{matureWord("alice", "de", "mature", "NOUN")},
+	}
+
+	got, err := NewService(store).Coverage(context.Background(), "alice", "corpus")
+	require.NoError(t, err)
+	assert.Zero(t, got.ToTarget.LemmaCount)
+	assert.True(t, got.ToTarget.Reachable)
+}

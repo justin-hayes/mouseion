@@ -34,13 +34,13 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.Contains(t, html, `<time datetime="2026-01-03">January 3, 2026</time>`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
 	sinceIndex := strings.Index(html, `<p class="journey-book__since">`)
-	titleIndex := strings.Index(html, `<h1 class="journey-book__title">`)
+	titleIndex := strings.Index(html, `<h2 class="journey-book__title">`)
 	assert.True(t, sinceIndex >= 0 && sinceIndex < titleIndex, "Reading since must remain outside the Book title heading: %s", html)
 	assert.Contains(t, html, "By A. Reader")
 	assert.Contains(t, html, `class="journey-book__title-page journey-book__title-page--current"`)
 	assert.Contains(t, html, `class="journey-book__lifecycle"`)
 	assert.Contains(t, html, "Mark reading finished")
-	assert.Contains(t, html, "Switch current reading")
+	assert.NotContains(t, html, "Switch current reading", "Read next on My Books replaces Switch")
 	assert.Contains(t, html, "End current reading")
 	assert.NotContains(t, html, "Set aside this Book")
 }
@@ -61,7 +61,7 @@ func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
 	assert.Contains(t, html, "Analysis</h2>")
 	assert.NotContains(t, html, "Book deck</h2>")
-	assert.Contains(t, html, `href="/library">Add books from My Books</a>`)
+	assert.Contains(t, html, `href="/library">Back to My Books</a>`)
 }
 
 func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {

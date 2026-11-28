@@ -88,6 +88,7 @@ func coverageWithStudy(input domain.AnalysisCorpusVocabulary, indexes map[string
 	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.MatureTokenCount, result.AnalyzableTokenCount)
 	result.Projections = coverageProjections(eligible, eligibleTokens, result.MatureTokenCount, result.AnalyzableTokenCount)
 	result.Thresholds = coverageThresholds(eligible, eligibleTokens, result.MatureTokenCount, result.AnalyzableTokenCount)
+	result.ToTarget = coverageToTarget(eligible, eligibleTokens, result.InStudyTokenCount, result.AnalyzableTokenCount)
 	return result
 }
 
@@ -160,6 +161,22 @@ func coverageThresholds(eligible []domain.LemmaOccurrence, eligibleTokens, matur
 		thresholds = append(thresholds, threshold)
 	}
 	return thresholds
+}
+
+// coverageToTarget counts the not-yet-in-study words, most frequent first,
+// that lift the in-study share to Target coverage (ADR 0136 §2).
+func coverageToTarget(eligible []domain.LemmaOccurrence, eligibleTokens, inStudyTokens, analyzableTokens int64) domain.CoverageThreshold {
+	target := int(domain.StudyTargetCoveragePercent)
+	threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
+	for _, lemma := range eligible {
+		if reachesThreshold(inStudyTokens, threshold.OccurrenceCount, analyzableTokens, target) {
+			break
+		}
+		threshold.LemmaCount++
+		threshold.OccurrenceCount += lemma.OccurrenceCount
+	}
+	threshold.Reachable = reachesThreshold(inStudyTokens, threshold.OccurrenceCount, analyzableTokens, target)
+	return threshold
 }
 
 func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, matureTokens, analyzableTokens int64) domain.CoverageProjection {

@@ -23,13 +23,13 @@ async function openSupportingDetails(page: Page) {
 
 const representativePages: Array<[string, RegExp]> = [
   ['/de/library', /My Books/],
-  ['/de/reading#journey-book-fixture-book', /Der lange Weg nach Hause/],
+  ['/de/reading?page=1', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalog/],
   ['/catalogs/sources', /Manage sources/],
-  ['/de/reading', /Der lange Weg nach Hause/],
+  ['/de/reading', /My Books/],
   ['/de/vocabulary', /Vocabulary/],
 ];
 
@@ -104,7 +104,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
     const shellControls = page.locator('.site-header__brand, .site-nav__link, #active-study-language, .site-header__account > summary');
     await expect44pxTouchTargets(shellControls);
-    await expect(page.locator('.site-header__navigation .site-nav__link')).toHaveCount(4);
+    await expect(page.locator('.site-header__navigation .site-nav__link')).toHaveCount(3);
     await expect(page.locator('.site-header__account > summary')).toBeVisible();
   });
 
@@ -296,12 +296,12 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
-  test('Reading uses Mouseion-owned styling for the current Book and unordered chooser', async ({ page }) => {
+  test('My Books uses Mouseion-owned styling for the pinned Current reading and the To Read list', async ({ page }) => {
     await signIn(page);
     await page.getByLabel('Study language').selectOption('de');
     await expect(page).toHaveURL(/\/de\/library$/);
 
-    await page.goto('/de/reading');
+    await page.goto('/de/library');
     await expect(page.locator('#primary-goal-section')).toBeVisible();
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     const currentBook = page.locator('#primary-goal-section article.journey-book');
@@ -327,13 +327,13 @@ test.describe('responsive and theme regression coverage', () => {
 
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
-    await page.goto('/de/reading/switch');
+    await page.goto('/de/library?disposition=to_read');
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    await expect(page.locator('ul.reading-chooser-list').first()).toBeVisible();
-    await expect(page.locator('ol.reading-chooser-list')).toHaveCount(0);
-    await expect(page.locator('.reading-chooser-book').filter({ hasText: 'Mature vocabulary coverage:' }).first()).toContainText('Mature vocabulary coverage:');
+    await expect(page.locator('ul.library-books').first()).toBeVisible();
+    await expect(page.locator('ol.library-books')).toHaveCount(0);
+    await expect(page.locator('#primary-goal-section .journey-book__coverage').first()).toContainText('Mature coverage:');
     await expectNoPageOverflow(page);
-    const chooserSummaries = await page.locator('.reading-chooser-book details > summary:visible').evaluateAll((nodes) => nodes.map((node) => {
+    const chooserSummaries = await page.locator('.library-book details > summary:visible').evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { width: box.width, height: box.height };
     }));
@@ -345,9 +345,8 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/de/library');
     await page.getByLabel('Study language').selectOption('it');
     await expect(page).toHaveURL(/\/it\/library$/);
-    // Italian has no current Book, so its unassessed To Read titles are chooser
-    // entries rather than Reading rows.
-    await page.goto('/it/reading/switch');
+    // Italian has no current Book, so its unassessed To Read titles are plain rows.
+    await page.goto('/it/library?disposition=to_read');
     await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
@@ -363,7 +362,7 @@ test.describe('responsive and theme regression coverage', () => {
       language.value = 'el-fixture';
       document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
     });
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     await expect(page.locator('body')).toHaveClass('reading-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -484,7 +483,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     await expect(navigation.getByRole('link', { name: 'My Books' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByLabel('Study language')).toBeVisible();
-    await expect(navigation.getByRole('link', { name: 'Reading' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Reading' })).toHaveCount(0);
     const controls = navigation.locator('a, select, button:visible');
     const boxes = await controls.evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
@@ -541,7 +540,6 @@ test.describe('responsive and theme regression coverage', () => {
 
     for (const [path, current] of [
       ['/de/library', 'My Books'],
-      ['/de/reading', 'Reading'],
       ['/de/vocabulary', 'Vocabulary'],
       ['/catalogs', 'Catalog'],
       ['/jobs', 'My Books'],
@@ -549,8 +547,8 @@ test.describe('responsive and theme regression coverage', () => {
       await page.goto(path);
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
       const destinations = navigation.locator('.site-header__navigation a');
-      await expect(destinations).toHaveCount(4);
-      await expect(destinations).toHaveText(['My Books', 'Reading', 'Vocabulary', 'Catalog']);
+      await expect(destinations).toHaveCount(3);
+      await expect(destinations).toHaveText(['My Books', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
       // Only per-language pages carry the picker; the Catalog and job status
       // have no page language (ADR 0131).
@@ -752,7 +750,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('Reading respects the reduced-motion preference', async ({ page }) => {
     await signIn(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     const motion = await page.evaluate(() => ({
       requested: matchMedia('(prefers-reduced-motion: reduce)').matches,
       animations: Array.from(document.querySelectorAll('main h1, main h2, button, a[role="button"]')).map((node) => getComputedStyle(node).animationName),
@@ -774,11 +772,10 @@ test.describe('responsive and theme regression coverage', () => {
       await switcher.selectOption('de');
       await expect(page).toHaveURL(/\/de\/library$/);
     }
-    await expect(page.locator('.library-books .library-book__identity-link[href="/de/reading#journey-book-fixture-book"]')).toBeVisible();
+    await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.locator('.library-books a[href="/books/fixture-failed"]')).toHaveCount(0);
     await expect(page.locator('.library-books a[href="/books/fixture-edge-content"]')).toHaveCount(0);
     await expect(page.locator('.library-books a[href="/books/fixture-empty"]')).toHaveCount(0);
-    expect(await page.locator('.library-book').filter({ has: page.locator('.library-book__identity-link[href^="/de/reading#"]') }).count()).toBeGreaterThan(0);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
     const libraryControls = page.locator('.library-books button:visible, .library-books a.library-book__journey-action:visible, .library-books > .library-book > details > summary:visible');
@@ -798,8 +795,8 @@ test.describe('responsive and theme regression coverage', () => {
       await page.goto('/de/library');
       await page.getByLabel('Study language').selectOption('it');
       await expect(page).toHaveURL(/\/it\/library$/);
-      // Italian has no current Book, so its unassessed titles are chooser entries.
-      await page.goto('/it/reading/switch');
+      // Italian has no current Book, so its unassessed titles are plain rows.
+      await page.goto('/it/library?disposition=to_read');
       await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
       await expectNoPageOverflow(page);
     }
@@ -807,13 +804,13 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('dense analysis, deck provenance, and error surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading#journey-book-fixture-book');
+    await page.goto('/de/reading?page=1');
     await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/jobs');
     await expect(page.getByRole('region', { name: 'Book preparations' }).locator('tbody tr')).toHaveCount(19);
-    await page.goto('/de/reading#journey-book-fixture-book');
+    await page.goto('/de/reading?page=1');
     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
@@ -830,10 +827,10 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading');
+    await page.goto('/de/library');
     const current = page.locator('#primary-goal-section');
     if (await current.locator('.journey-book--goal').count()) {
-      await expect(current.getByRole('link', { name: 'Switch current reading' })).toBeVisible();
+      await expect(current.getByRole('link', { name: 'Switch current reading' })).toHaveCount(0);
       const finishSummary = current.locator('details').filter({ hasText: 'Mark reading finished' }).locator('summary');
       await expect(finishSummary).toBeVisible();
       const primaryActions = await current.locator('.journey-book__lifecycle > a.button, .journey-book__lifecycle > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
@@ -848,7 +845,7 @@ test.describe('responsive and theme regression coverage', () => {
         expect(action.right, action.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
       }
     } else {
-      const eligibleCandidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('button', { name: 'Read next' }) }).first();
+      const eligibleCandidate = page.locator('.library-books .library-book').filter({ has: page.getByRole('button', { name: 'Read next' }) }).first();
       await expect(eligibleCandidate).toBeVisible();
       const startAction = eligibleCandidate.getByRole('button', { name: 'Read next' });
       await expect(startAction).toBeVisible();
@@ -874,7 +871,7 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.left, control.text).toBeGreaterThanOrEqual(-1);
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
-    await page.goto('/de/reading#journey-book-fixture-book');
+    await page.goto('/de/reading?page=1');
     await openSupportingDetails(page);
     await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toHaveCount(0);
   });
@@ -882,7 +879,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {
     test.skip(!test.info().project.name.startsWith('desktop'), 'This contract applies to the standard desktop layout.');
     await signIn(page);
-    await page.goto('/de/reading');
+    await page.goto('/de/library');
     const rows = await page.locator('#primary-goal-section article.journey-book--goal').evaluateAll((nodes) => nodes.map((node) => {
       const book = node.querySelector<HTMLElement>('.journey-book__identity')?.getBoundingClientRect();
       const controls = node.querySelector<HTMLElement>('.journey-book__lifecycle')?.getBoundingClientRect();
@@ -917,25 +914,24 @@ test.describe('responsive and theme regression coverage', () => {
       expect(row.titleColor).toBe(row.bodyColor);
       if (row.switchBackground) expect(row.switchBackground).not.toBe(row.accentColor);
     }
-    expect(rows.some((row) => row.switchBackground !== '')).toBe(true);
   });
 
   test('current Book and its evidence reflow without overflow at 200 percent text on a narrow viewport', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 320, height: 812 });
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     const card = page.locator('#primary-goal-section article.journey-book--goal');
     await expect(card).toBeVisible();
     await expect(card.locator('.journey-book__evidence')).toBeVisible();
-    await expect(card.locator('.journey-book__lifecycle a[href="/de/reading/switch"]')).toBeVisible();
+    await expect(card.locator('.journey-book__lifecycle')).toBeVisible();
     await expect(page.locator('#vocabulary-prefix')).toBeVisible();
     await expectNoPageOverflow(page);
   });
 
   test('Journey thumbnails stay aligned, quiet, and outside the keyboard order', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
 
     const cards = page.locator('.journey-book');
     const thumbnails = cards.locator('.journey-book__cover');
@@ -960,9 +956,9 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('Journey titles and actions remain reachable at 200 percent text size', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-    await expect(page.getByRole('heading', { level: 1, name: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
     await expect(page.locator('.journey-book__lifecycle').first()).toBeVisible();
     await expectNoPageOverflow(page);

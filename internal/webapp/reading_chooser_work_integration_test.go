@@ -138,37 +138,29 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byUnit["homer-iliad-6"]))
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	page := perform(t, h, http.MethodGet, "/grc/reading", nil, cookies)
+	page := perform(t, h, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	for _, want := range []string{
-		"99% or above",
-		"Below 95%",
-		"95% to below 97%",
-		"Not assessed",
-		`id="reading-chooser-book-` + byUnit["homer-iliad-1"] + `"`,
-		`id="reading-chooser-book-` + byUnit["xenophon-anabasis-1"] + `"`,
+		`id="book-row-` + byUnit["homer-iliad-1"] + `"`,
+		`id="book-row-` + byUnit["xenophon-anabasis-1"] + `"`,
 		`action="/reading/books/` + byUnit["homer-iliad-1"] + `/start"`,
-		"no longer in the Classical catalog. It cannot be prepared, and no retry is available.",
 	} {
 		assert.Contains(t, body, want, "chooser missing %q", want)
 	}
-	assert.NotContains(t, body, `id="reading-chooser-book-`+byUnit["homer-iliad-6"]+`"`, "a Book that is not To Read has no entry")
-	for _, gone := range []string{"reading-chooser-work__", "reading-chooser-band-book", "Book 1 of", "To Read Books, "} {
-		assert.NotContains(t, body, gone, "the chooser has no grouped Work entry")
+	assert.NotContains(t, body, `id="book-row-`+byUnit["homer-iliad-6"]+`"`, "a Book that is not To Read has no entry on the To Read tab")
+	for _, gone := range []string{`class="reading-chooser`, "To Read Books, "} {
+		assert.NotContains(t, body, gone, "the chooser has no grouped Work entry %q", gone)
 	}
 
 	started := perform(t, h, http.MethodPost, "/reading/books/"+byUnit["homer-iliad-1"]+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
 	assert.NotContains(t, started.Header().Get("Location"), "error=")
-	reading := perform(t, h, http.MethodGet, "/grc/reading", nil, cookies)
+	reading := perform(t, h, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, reading.Code)
-	assert.NotContains(t, reading.Body.String(), "Book 1 of", "Reading shows no Book N of M line")
+	assert.Contains(t, reading.Body.String(), `action="/reading/finish"`, "the Current reading is pinned with Finish and End")
 
-	switching := perform(t, h, http.MethodGet, "/grc/reading/switch", nil, cookies)
-	require.Equal(t, http.StatusOK, switching.Code)
-	switchBody := switching.Body.String()
-	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-2"]+`/start"`)
-	assert.Contains(t, switchBody, "no longer in the Classical catalog. It cannot be prepared, and no retry is available.")
-	assert.NotContains(t, switchBody, `id="reading-chooser-book-`+byUnit["homer-iliad-1"]+`"`, "the current Book has no entry")
+	switchBody := reading.Body.String()
+	assert.Contains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-2"]+`/start"`, "Read next replaces the current reading")
+	assert.NotContains(t, switchBody, `action="/reading/books/`+byUnit["homer-iliad-1"]+`/start"`, "the pinned Book has no Read next")
 }

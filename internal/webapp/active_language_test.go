@@ -58,7 +58,7 @@ func prefixedMyBooksRedirect(path string, response *httptest.ResponseRecorder) (
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := getAs(t, h, "/it/reading", cookies)
+	response := getAs(t, h, "/it/library", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "fixture-italian-goal")
 }

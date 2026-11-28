@@ -66,10 +66,6 @@ func myBookRowID(bookID string) string { return "book-row-" + url.PathEscape(boo
 
 func bookCoverURL(bookID string) string { return "/books/" + url.PathEscape(bookID) + "/cover" }
 
-func myBookInReading(book domain.MyBook) bool {
-	return book.IsToRead || book.IsCurrentReading
-}
-
 func bookCoverLabel(cover domain.BookCover) string {
 	switch cover.State {
 	case domain.BookCoverPending:
@@ -334,7 +330,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Open this book in Reading.", "View in Reading", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Find this book in My Books.", "View in My Books", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
 		}
 	}
 

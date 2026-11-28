@@ -51,7 +51,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('shows current reading and Browse without Other To Read choices or forecasts', async ({ page }) => {
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -70,7 +70,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/de/reading');
+    await page.goto('/de/reading?page=1');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();

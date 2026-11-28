@@ -13,49 +13,49 @@ body.reading-shell .reading-chooser-list {
 }
 
 body.reading-shell .reading-chooser-book,
-body.reading-shell .journey-book,
-body.reading-shell .journey-goal,
+body:is(.reading-shell, .my-books-shell) .journey-book,
+body:is(.reading-shell, .my-books-shell) .journey-goal,
 body.reading-shell .reading-chooser-empty,
-body.reading-shell #primary-goal-section {
+body:is(.reading-shell, .my-books-shell) #primary-goal-section {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-body.reading-shell .journey-goal {
+body:is(.reading-shell, .my-books-shell) .journey-goal {
   color: var(--mouseion-color-text);
 }
 
-body.reading-shell .journey-book__identity,
-body.reading-shell .journey-book__evidence,
-body.reading-shell .journey-book__controls,
-body.reading-shell .goal-card__actions {
+body:is(.reading-shell, .my-books-shell) .journey-book__identity,
+body:is(.reading-shell, .my-books-shell) .journey-book__evidence,
+body:is(.reading-shell, .my-books-shell) .journey-book__controls,
+body:is(.reading-shell, .my-books-shell) .goal-card__actions {
   min-width: 0;
 }
 
-body.reading-shell .journey-book__evidence > section,
-body.reading-shell .goal-card__deck {
+body:is(.reading-shell, .my-books-shell) .journey-book__evidence > section,
+body:is(.reading-shell, .my-books-shell) .goal-card__deck {
   max-width: 100%;
 }
 
-body.reading-shell .goal-card__actions,
-body.reading-shell .journey-book__controls,
-body.reading-shell .goal-card__deck > :is(form, .action-group) {
+body:is(.reading-shell, .my-books-shell) .goal-card__actions,
+body:is(.reading-shell, .my-books-shell) .journey-book__controls,
+body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--mouseion-space-2);
 }
 
-body.reading-shell .goal-card__actions > *,
-body.reading-shell .journey-book__controls > *,
-body.reading-shell .goal-card__deck > :is(form, .action-group) > * {
+body:is(.reading-shell, .my-books-shell) .goal-card__actions > *,
+body:is(.reading-shell, .my-books-shell) .journey-book__controls > *,
+body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) > * {
   min-width: 0;
   max-width: 100%;
 }
 
-body.reading-shell .goal-card__actions form,
-body.reading-shell .journey-book__controls form,
-body.reading-shell .goal-card__deck form {
+body:is(.reading-shell, .my-books-shell) .goal-card__actions form,
+body:is(.reading-shell, .my-books-shell) .journey-book__controls form,
+body:is(.reading-shell, .my-books-shell) .goal-card__deck form {
   margin: 0;
 }
 
@@ -69,16 +69,16 @@ body.reading-shell form.focused-deck-form {
   background: var(--mouseion-color-surface-raised);
 }
 
-body.reading-shell .focused-deck-form > :last-child {
+body:is(.reading-shell, .my-books-shell) .focused-deck-form > :last-child {
   margin-bottom: 0;
 }
 
-body.reading-shell .goal-card__actions button,
-body.reading-shell .journey-book__controls a,
-body.reading-shell .goal-card__deck button,
-body.reading-shell .goal-card__deck a,
-body.reading-shell .async-status__actions button,
-body.reading-shell .async-status__actions a {
+body:is(.reading-shell, .my-books-shell) .goal-card__actions button,
+body:is(.reading-shell, .my-books-shell) .journey-book__controls a,
+body:is(.reading-shell, .my-books-shell) .goal-card__deck button,
+body:is(.reading-shell, .my-books-shell) .goal-card__deck a,
+body:is(.reading-shell, .my-books-shell) .async-status__actions button,
+body:is(.reading-shell, .my-books-shell) .async-status__actions a {
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -92,13 +92,13 @@ body.reading-shell details > summary {
   cursor: pointer;
 }
 
-body.reading-shell .journey-finish-outcome {
+body:is(.reading-shell, .my-books-shell) .journey-finish-outcome {
   max-width: var(--mouseion-width-reading);
   border-block: 2px solid var(--mouseion-color-text);
   padding-block: var(--mouseion-space-6);
 }
 
-body.reading-shell .journey-finish-outcome h1 {
+body:is(.reading-shell, .my-books-shell) .journey-finish-outcome h1 {
 	font-family: var(--mouseion-font-application);
 	font-size: 1.5625rem;
 	font-weight: 600;
@@ -127,16 +127,16 @@ body.reading-shell .scope-unit label > :not(input) {
 }
 
 @media (max-width: 40rem) {
-  body.reading-shell .goal-card__actions,
-  body.reading-shell .journey-book__controls,
-  body.reading-shell .goal-card__deck > :is(form, .action-group) {
+  body:is(.reading-shell, .my-books-shell) .goal-card__actions,
+  body:is(.reading-shell, .my-books-shell) .journey-book__controls,
+  body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) {
     align-items: stretch;
     flex-direction: column;
   }
 
-  body.reading-shell .goal-card__actions > *,
-  body.reading-shell .journey-book__controls > *,
-  body.reading-shell .goal-card__deck > :is(form, .action-group) > * {
+  body:is(.reading-shell, .my-books-shell) .goal-card__actions > *,
+  body:is(.reading-shell, .my-books-shell) .journey-book__controls > *,
+  body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) > * {
     width: 100%;
   }
 }
@@ -687,7 +687,7 @@ body.reading-shell .scope-unit label > :not(input) {
     padding-left: var(--mouseion-space-3);
   }
 
-  body.reading-shell .journey-book--provisional .journey-book__controls {
+  body:is(.reading-shell, .my-books-shell) .journey-book--provisional .journey-book__controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     width: 100%;
