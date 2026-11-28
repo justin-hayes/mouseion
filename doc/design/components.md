@@ -46,12 +46,11 @@ markup.
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
 | `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Reading, Catalog, Jobs, Vocabulary |
-| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Reading Journey |
 | `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the focused-task/Job workflow | Focused deck preparation and analysis status |
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, Goal and artifact surfaces            |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Jobs, Vocabulary                         |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Book detail summary and Reading chooser (page markup using the `resource-card` class) |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Book detail summary and Reading's current Book (page markup using the `resource-card` class) |
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and Goal completion                            |
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and import rejection details                          |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis, catalog-sync, enrichment, and prepared-deck status |
@@ -650,20 +649,6 @@ Use one concise title, an optional task-oriented description, an optional
 non-interactive status, and at most one primary action group. Status belongs
 with page identity rather than in the action slot. Do not place long metadata,
 warnings, progress, or multiple resource actions in the header.
-
-### `NextAction`
-
-Use a concise state description to make the learner-facing lifecycle state
-explicit. The action itself remains a native link or form button owned by the
-screen; the summary must not introduce a second competing route. My Books rows
-keep metadata-only actions local to the row. Reading Journey names the
-intent-triggered ensure-once analysis consequence and owns **Re-analyze** for
-stale members.
-
-On Journey surfaces, `NextAction` must not turn the first provisional book or a
-forecast value into a recommendation. Use plain relationship copy such as
-**First in your current order** and learner-controlled actions such as **Choose
-as Primary Goal**.
 
 ### `Breadcrumb`
 
