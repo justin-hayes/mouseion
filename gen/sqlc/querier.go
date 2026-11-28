@@ -294,7 +294,6 @@ type Querier interface {
 	ListAgreeingStudyFluencyContextSourcesOfWord(ctx context.Context, arg ListAgreeingStudyFluencyContextSourcesOfWordParams) ([]ListAgreeingStudyFluencyContextSourcesOfWordRow, error)
 	ListAllOpdsConnectionIDs(ctx context.Context) ([]ListAllOpdsConnectionIDsRow, error)
 	ListAnalysisJobs(ctx context.Context, ownerID string) ([]ListAnalysisJobsRow, error)
-	ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error)
 	ListBookDispositions(ctx context.Context, ownerID string) ([]ListBookDispositionsRow, error)
 	ListBookReadingUnits(ctx context.Context, arg ListBookReadingUnitsParams) ([]ListBookReadingUnitsRow, error)
 	ListCatalogEntryCoverGeneration(ctx context.Context, arg ListCatalogEntryCoverGenerationParams) ([]string, error)

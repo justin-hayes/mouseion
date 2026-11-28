@@ -78,21 +78,6 @@ WHERE owner_id = sqlc.arg('owner') AND book_id = sqlc.arg('book')
   AND corpus_id = sqlc.arg('corpus') AND analysis_run_id = sqlc.arg('analysis_run')
 ORDER BY source_document_id, start_offset, end_offset;
 
--- name: ListAnalysisTokenEvidence :many
-SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
-       t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,
-       t.lexical_discriminator, t.headword,
-       t.start_offset, t.end_offset, s.unit_id, s.sentence_text,
-       s.start_offset AS sentence_start_offset, s.end_offset AS sentence_end_offset
-FROM corpora c
-JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
-  AND t.analysis_run_id = c.analysis_run_id
-JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
-  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
-WHERE c.owner_id = sqlc.arg('owner') AND c.id = sqlc.arg('corpus')
-  AND c.analysis_run_id = sqlc.arg('analysis_run')
-ORDER BY t.sentence_ordinal, t.token_ordinal;
-
 -- name: GetCurrentAnalysisOccurrenceEvidence :one
 SELECT t.language, t.canonical_lemma, t.upos, t.dependency
 FROM current_analysis_identity cai
