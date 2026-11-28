@@ -12,7 +12,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
@@ -61,7 +60,7 @@ func main() {
 	catalogueSync := fixtures.NewCatalogueSync(store)
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
 	lemmaReview := lemmareview.New(lemmareview.Config{
-		Store: books, Suggestions: fixtureLemmaSuggestions{}, BrowseCounts: fixtures.Analysis{Store: store},
+		Store: books, BrowseCounts: fixtures.Analysis{Store: store},
 	})
 	fixtureOPDS := fixtures.OPDS{}
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
@@ -134,21 +133,6 @@ func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, 
 		return domain.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
 	}
 	return s.Store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
-}
-
-type fixtureLemmaSuggestions struct{}
-
-func (fixtureLemmaSuggestions) Name() string    { return "fixture-lemma-model" }
-func (fixtureLemmaSuggestions) Version() string { return "fixture-v1" }
-func (fixtureLemmaSuggestions) Enabled() bool   { return true }
-func (fixtureLemmaSuggestions) SuggestLemma(_ context.Context, request enrichment.LemmaSuggestionRequest) (enrichment.LemmaSuggestion, error) {
-	if request.LexicalAlternative != "" {
-		return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
-	}
-	if request.Surface == "Weg" {
-		return enrichment.LemmaSuggestion{Lemma: "Pfad"}, nil
-	}
-	return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
 }
 
 // seedFluencyWordIfRequested seeds the Fluency journey's word when the browser

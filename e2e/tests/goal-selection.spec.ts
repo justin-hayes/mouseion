@@ -106,7 +106,6 @@ test.describe('Current reading selection', () => {
       await expect(goal.getByRole('heading', { name: 'Reserved vocabulary' })).toHaveCount(0);
       await expect(goal.getByRole('heading', { name: 'Analysis' })).toBeVisible();
       await expect(goal.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
-      await expect(goal.getByRole('link', { name: 'Review flagged dictionary forms' })).toHaveAttribute('href', /\/reading\/books\/[^/]+\/lemma-review$/);
       await expect(goal.locator('.journey-book__evidence')).not.toContainText(/immutable artifact|frozen identities|remain independent facts/i);
       const titlePageItems = await goal.locator('.journey-book__cover, .journey-book__title, .journey-book__author, .journey-book__lifecycle').evaluateAll((nodes) => nodes.map((node) => {
         const rect = node.getBoundingClientRect();

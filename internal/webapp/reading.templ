@@ -87,9 +87,6 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 						<p>Current analysis evidence is available for this Book.</p>
 					}
 					@ReadingEvidence(item, csrf)
-					if analysisReadyForReading(item.Book) {
-						<p><a href={ templ.SafeURL("/reading/books/" + readingBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
-					}
 				</section>
 			</details>
 		</div>
@@ -202,7 +199,6 @@ templ ReadingChooserCandidate(item readingChooserBookView, csrf string) {
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<button class="button" type="submit">Read next</button>
 					</form>
-					<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
 				} else if item.State == readingChooserInProgress {
 					if item.Book.Acquired != nil && item.Book.Acquired.AnalysisJobID > 0 {
 						<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>

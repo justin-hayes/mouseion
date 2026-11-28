@@ -499,30 +499,6 @@ test.describe('native WebKit smoke journey', () => {
     }
   });
 
-  test('occurrence review uses shared controls and native disclosure with long selectable labels', async ({ page }) => {
-    await signIn(page);
-    await page.goto('/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg');
-    await expect(page.getByLabel('Exact observed form')).toHaveClass(/\binput\b/);
-    await expect(page.getByLabel('Corrected canonical lemma').first()).toHaveClass(/\binput\b/);
-    await expect(page.getByRole('button', { name: 'Preview correction' }).first()).toHaveClass(/\bbutton\b/);
-
-    const additionalOccurrence = page.locator('.lemma-review fieldset label').first();
-    const target = await additionalOccurrence.boundingBox();
-    expect(target?.height).toBeGreaterThanOrEqual(44);
-    await additionalOccurrence.locator('input[type="checkbox"]').check();
-    await expect(additionalOccurrence.locator('input[type="checkbox"]')).toBeChecked();
-
-    const exclusion = page.locator('.lemma-review details').first();
-    const summary = exclusion.locator('summary');
-    await summary.focus();
-    await page.keyboard.press('Enter');
-    await expect(exclusion).toHaveAttribute('open', '');
-    await expect(exclusion.getByRole('button', { name: 'Preview exclusion' })).toHaveClass(/\bbutton--danger\b/);
-    await page.keyboard.press('Space');
-    await expect(exclusion).not.toHaveAttribute('open', '');
-    await expectNoHorizontalOverflow(page);
-  });
-
   test('server-rendered sign-in and authenticated native forms work without JavaScript', async ({ browser, baseURL }) => {
     const context = await browser.newContext({
       baseURL,

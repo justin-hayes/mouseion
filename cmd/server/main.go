@@ -28,7 +28,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
@@ -81,7 +80,6 @@ type serverDependencies struct {
 	authHandler       *webauth.Handler
 	opdsService       *opds.Service
 	capabilities      analyzer.CapabilityProvider
-	lemmaSuggestions  enrichment.LemmaSuggestionProvider
 	catalogueSyncDeps cataloguesync.StoreDependencies
 	riverClient       *river.Client[pgx.Tx]
 	studyService      *study.Service
@@ -232,10 +230,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	if err != nil {
 		return nil, err
 	}
-	lemmaSuggestions, err := enrichment.NewConfiguredLemmaSuggestionProvider(llmConfig, nil)
-	if err != nil {
-		return nil, err
-	}
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
 	idiomLanguages, err := study.IdiomLanguagesFromEnv()
 	if err != nil {
@@ -286,7 +280,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		authHandler:       authHandler,
 		opdsService:       opdsService,
 		capabilities:      capabilities,
-		lemmaSuggestions:  lemmaSuggestions,
 		catalogueSyncDeps: catalogueSyncDeps,
 		riverClient:       riverClient,
 		studyService:      studyService,
@@ -432,8 +425,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 		return nil, err
 	}
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
-	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
-	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, BrowseCounts: analysisService})
+	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
 		Classical:       analysisService,
 		Analysis:        analysisService,
@@ -575,16 +567,6 @@ func validateHealthcheckTarget(target string) error {
 
 func loopbackHost(host string) bool {
 	return host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
-}
-
-// dictionaryRiskIndex exposes the optional dictionary as the lemma-risk index.
-// An absent dictionary must stay a nil interface, not a typed nil, or detection
-// would call into a missing index.
-func dictionaryRiskIndex(index *dictionary.Index, found bool) lemmarisk.AlternativeIndex {
-	if !found {
-		return nil
-	}
-	return index
 }
 
 // openOptionalDictionaryIndex opens the index named by MOUSEION_DICTIONARY_INDEX.

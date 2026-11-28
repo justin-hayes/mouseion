@@ -1,5 +1,5 @@
-// Package lemmareview owns the Book-scoped lemma review workflow: it assesses
-// lemma risk, reviews exact occurrences, and previews and confirms keep,
+// Package lemmareview owns the Book-scoped lemma decision workflow: it lists
+// exact occurrences, and previews and confirms keep,
 // correction, or exclusion decisions. Handlers render its results and map its
 // sentinel errors to responses; nothing here knows about HTTP.
 package lemmareview
@@ -9,28 +9,13 @@ import (
 	"errors"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/lexical"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
-
-const (
-	// assessmentTimeout bounds local detection. An assessment that runs past it
-	// counts as not assessed rather than as a clean verdict.
-	assessmentTimeout = 250 * time.Millisecond
-	suggestionTimeout = 3 * time.Second
-)
-
-// isAssessedLanguage reports whether automatic lemma risk runs for a language.
-func isAssessedLanguage(language string) bool {
-	return lemmarisk.SupportsLanguage(canonicalization.NormalizeLanguage(language))
-}
 
 // Store is the narrow persistence port the workflow needs. The Postgres store
 // and the fixture store both satisfy it.
@@ -40,7 +25,6 @@ type Store interface {
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
 	ListLemmaReviewOccurrences(context.Context, string, string, string) ([]domain.LemmaReviewOccurrence, error)
 	ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error)
-	SaveLemmaReviewFlags(context.Context, []domain.LemmaReviewFlag) error
 	ReadLemmaReviewProposal(context.Context, domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
 	PutLemmaDecisionProposal(context.Context, domain.LemmaReviewProposal, string) error
 }
@@ -50,35 +34,21 @@ type BrowseCounts interface {
 	EnqueueBrowseCountRebuild(context.Context, string, string) error
 }
 
-// Config supplies a Service's collaborators. RiskIndex and BrowseCounts
-// may be nil; the workflow then runs without the optional step. Suggestions must
-// be set: pass enrichment.DisabledLemmaSuggestionProvider{} when suggestions are off.
+// Config supplies a Service's collaborators. BrowseCounts may be nil; the
+// workflow then runs without the count rebuild.
 type Config struct {
 	Store        Store
-	RiskIndex    lemmarisk.AlternativeIndex
-	Suggestions  enrichment.LemmaSuggestionProvider
 	BrowseCounts BrowseCounts
 }
 
 // Service is the lemma review workflow.
 type Service struct {
 	store        Store
-	riskIndex    lemmarisk.AlternativeIndex
-	suggestions  enrichment.LemmaSuggestionProvider
 	browseCounts BrowseCounts
 }
 
 func New(cfg Config) *Service {
-	return &Service{store: cfg.Store, riskIndex: cfg.RiskIndex, suggestions: cfg.Suggestions, browseCounts: cfg.BrowseCounts}
-}
-
-// Assessment reports whether lemma risk was assessed for a Book, and whether
-// any of its occurrences still carries unresolved local high-risk evidence.
-// Provider-raised advisory flags are evidence, not blockers, and never set
-// Unresolved.
-type Assessment struct {
-	Assessed   bool
-	Unresolved bool
+	return &Service{store: cfg.Store, browseCounts: cfg.BrowseCounts}
 }
 
 // Recovery is what a reviewer needs to know about a Book's existing reading
@@ -88,34 +58,14 @@ type Recovery struct {
 	ActiveReadingBookID string
 	HasCompletedReading bool
 	HasIdentityDecision bool
-	// ReferenceAssessed is set by the caller from the Assessment that preceded the page.
-	ReferenceAssessed bool
 }
 
-// Review is the occurrence list for one form, or for every flagged occurrence
-// when no form is given, with whether correction is allowed.
+// Review is the occurrence list for one form, with whether correction is allowed.
 type Review struct {
 	Occurrences []domain.LemmaReviewOccurrence
 	CanCorrect  bool
 	Recovery    Recovery
 }
-
-// Suggestion is the outcome of one optional LLM lemma suggestion. It is never applied.
-type Suggestion struct {
-	OccurrenceID string
-	Status       SuggestionStatus
-	Lemma        string
-	Provider     string
-	Version      string
-}
-
-type SuggestionStatus int
-
-const (
-	SuggestionNotConfigured SuggestionStatus = iota
-	SuggestionUnavailable
-	SuggestionOffered
-)
 
 // Proposal is one learner decision as requested: the form its occurrences were
 // found by, the action, the lemma for a correction, and the occurrence IDs it
@@ -143,95 +93,22 @@ type Preview struct {
 	IdentityChanged bool
 }
 
-// Assess runs local lemma risk detection for a Book, saves the flags it finds
-// without reopening resolved ones, and reports whether any flag is unresolved.
-// A German or French Book with no usable index, or one whose detection fails or
-// times out, is not assessed; that is never an error.
-func (s *Service) Assess(ctx context.Context, owner, bookID string) (Assessment, error) {
-	detail, err := s.store.GetBookDetail(ctx, owner, bookID)
-	if err != nil {
-		return Assessment{}, err
-	}
-	assessed, err := s.detect(ctx, owner, bookID, detail)
-	if err != nil {
-		return Assessment{}, err
-	}
-	occurrences, err := s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, "")
-	if err != nil {
-		return Assessment{}, err
-	}
-	return Assessment{Assessed: assessed, Unresolved: anyUnresolved(occurrences)}, nil
-}
-
-func (s *Service) detect(ctx context.Context, owner, bookID string, detail domain.MyBook) (bool, error) {
-	language := canonicalization.NormalizeLanguage(detail.Book.LanguageTag)
-	if s.riskIndex == nil || detail.Acquired == nil || !isAssessedLanguage(language) {
-		return false, nil
-	}
-	occurrences, err := s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, "")
-	if err != nil {
-		return false, err
-	}
-	input := make([]lemmarisk.Occurrence, 0, len(occurrences))
-	byID := make(map[string]domain.LemmaReviewOccurrence, len(occurrences))
-	for _, occurrence := range occurrences {
-		id := occurrence.ID()
-		input = append(input, lemmarisk.Occurrence{
-			ID: id, Language: language, Surface: occurrence.Surface,
-			Lemma: selection.ReviewIdentityNow(language, occurrence).CanonicalLemma, UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText,
-			Reviewed: occurrence.CorrectedLemma != "" || occurrence.ReviewFlagResolution != "", Excluded: occurrence.Excluded,
-		})
-		byID[id] = occurrence
-	}
-	assessmentCtx, cancel := context.WithTimeout(ctx, assessmentTimeout)
-	defer cancel()
-	flags, assessed, err := lemmarisk.Detect(assessmentCtx, language, input, s.riskIndex)
-	if err != nil || !assessed {
-		// A failed optional local index is not a clean assessment or a Reading blocker.
-		return false, nil
-	}
-	persisted := make([]domain.LemmaReviewFlag, 0, len(flags))
-	for _, flag := range flags {
-		occurrence, ok := byID[flag.OccurrenceID]
-		if !ok {
-			continue
-		}
-		persisted = append(persisted, domain.LemmaReviewFlag{Occurrence: occurrence, Reason: flag.Reason, Provenance: map[string]any{
-			"alternative_lemma": flag.Alternative.Lemma, "source": flag.Alternative.Source,
-			"version": flag.Alternative.Version, "evidence_id": flag.Alternative.EvidenceID,
-		}})
-	}
-	if err := s.store.SaveLemmaReviewFlags(ctx, persisted); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-// Review lists the occurrences of one exact form, or the flagged occurrences
-// when form is empty, and what the learner may do with them.
+// Review lists the occurrences of one exact form and what the learner may do
+// with them.
 func (s *Service) Review(ctx context.Context, owner, bookID, form string) (Review, error) {
 	_, recovery, err := s.load(ctx, owner, bookID)
 	if err != nil {
 		return Review{}, err
 	}
 	review := Review{CanCorrect: !recovery.ActiveReading, Recovery: recovery}
-	if form != "" {
-		review.Occurrences, err = s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, form)
-		if err != nil {
-			return Review{}, err
-		}
-		review.Recovery.HasIdentityDecision = hasDecision(review.Occurrences)
+	if form == "" {
 		return review, nil
 	}
-	all, err := s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, "")
+	review.Occurrences, err = s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, form)
 	if err != nil {
 		return Review{}, err
 	}
-	for _, occurrence := range all {
-		if occurrence.ReviewFlagReason != "" {
-			review.Occurrences = append(review.Occurrences, occurrence)
-		}
-	}
+	review.Recovery.HasIdentityDecision = hasDecision(review.Occurrences)
 	return review, nil
 }
 
@@ -273,43 +150,6 @@ func (s *Service) CorpusMatches(ctx context.Context, owner, language string, rep
 		matches = append(matches, CorpusMatch{Occurrence: occurrence, BookTitle: titles[occurrence.BookID], CanCorrect: editable[occurrence.BookID]})
 	}
 	return matches, nil
-}
-
-// Suggest asks the optional LLM provider for a lemma for one occurrence. The
-// answer is advisory: nothing is saved, and a missing or failed provider is a
-// status rather than an error.
-func (s *Service) Suggest(ctx context.Context, owner, bookID, occurrenceID string) (Suggestion, error) {
-	detail, err := s.store.GetBookDetail(ctx, owner, bookID)
-	if err != nil {
-		return Suggestion{}, err
-	}
-	all, err := s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, "")
-	if err != nil {
-		return Suggestion{}, err
-	}
-	occurrence, ok := findOccurrence(all, occurrenceID)
-	if !ok {
-		return Suggestion{}, domain.ErrLemmaReviewOccurrenceMissing
-	}
-	suggestion := Suggestion{OccurrenceID: occurrenceID, Status: SuggestionNotConfigured}
-	if !s.suggestions.Enabled() {
-		return suggestion, nil
-	}
-	evidence := EvidenceOf(occurrence)
-	suggestCtx, cancel := context.WithTimeout(ctx, suggestionTimeout)
-	defer cancel()
-	result, err := s.suggestions.SuggestLemma(suggestCtx, enrichment.LemmaSuggestionRequest{
-		Language: detail.Book.LanguageTag, Surface: occurrence.Surface, AnalyzedLemma: occurrence.CanonicalLemma,
-		UPOS: occurrence.UPOS, Sentence: occurrence.SentenceText, LexicalAlternative: evidence.Alternative,
-		LexicalSource: evidence.Source, LexicalVersion: evidence.Version, LexicalEvidenceID: evidence.EvidenceID,
-	})
-	if err != nil {
-		suggestion.Status = SuggestionUnavailable
-		return suggestion, nil
-	}
-	suggestion.Status, suggestion.Lemma = SuggestionOffered, result.Lemma
-	suggestion.Provider, suggestion.Version = s.suggestions.Name(), s.suggestions.Version()
-	return suggestion, nil
 }
 
 // Preview resolves a proposal against the current analysis and reports its
@@ -460,33 +300,6 @@ func normalizationProfile(language string, occurrences []domain.LemmaReviewOccur
 	return canonicalization.For(language)
 }
 
-// EvidenceOf is the provenance a flag recorded on an occurrence, empty when the
-// occurrence is unflagged. A provider flag carries model attribution and the
-// provider's bounded explanation instead of a local alternative.
-func EvidenceOf(occurrence domain.LemmaReviewOccurrence) Evidence {
-	value := func(key string) string {
-		text, ok := occurrence.ReviewFlagProvenance[key].(string)
-		if !ok {
-			return ""
-		}
-		return text
-	}
-	return Evidence{
-		Alternative: value("alternative_lemma"), Source: value("source"), Version: value("version"), EvidenceID: value("evidence_id"),
-		ProviderSourced: domain.LemmaReviewFlagProviderSourced(occurrence.ReviewFlagProvenance),
-		Provider:        value("provider"), Model: value("model"), PromptVersion: value("prompt_version"), Reason: value("unresolved_reason"),
-	}
-}
-
-// Evidence is the provenance a lemma risk flag stored. A local-index flag names
-// an alternative and its dictionary source; a provider flag names the model that
-// raised it and its bounded reason, and proposes no lemma.
-type Evidence struct {
-	Alternative, Source, Version, EvidenceID string
-	ProviderSourced                          bool
-	Provider, Model, PromptVersion, Reason   string
-}
-
 func changesIdentity(proposal domain.LemmaReviewProposal) bool {
 	for _, decision := range proposal.Decisions() {
 		if selection.ReviewIdentityNow(proposal.Language, decision.Occurrence) != selection.ReviewIdentityAfter(proposal.Language, decision.Occurrence, decision) {
@@ -528,15 +341,6 @@ func mapStoreError(err error) error {
 	return err
 }
 
-func findOccurrence(occurrences []domain.LemmaReviewOccurrence, id string) (domain.LemmaReviewOccurrence, bool) {
-	for _, occurrence := range occurrences {
-		if occurrence.ID() == id {
-			return occurrence, true
-		}
-	}
-	return domain.LemmaReviewOccurrence{}, false
-}
-
 func occurrenceIDs(occurrences []domain.LemmaReviewOccurrence) []string {
 	ids := make([]string, 0, len(occurrences))
 	for _, occurrence := range occurrences {
@@ -548,17 +352,6 @@ func occurrenceIDs(occurrences []domain.LemmaReviewOccurrence) []string {
 func hasDecision(occurrences []domain.LemmaReviewOccurrence) bool {
 	for _, occurrence := range occurrences {
 		if occurrence.Excluded || occurrence.CorrectedLemma != "" {
-			return true
-		}
-	}
-	return false
-}
-
-// anyUnresolved reports whether the list carries unresolved local high-risk
-// evidence. Provider-raised advisory flags do not count.
-func anyUnresolved(occurrences []domain.LemmaReviewOccurrence) bool {
-	for _, occurrence := range occurrences {
-		if occurrence.BlocksFreeze() {
 			return true
 		}
 	}
