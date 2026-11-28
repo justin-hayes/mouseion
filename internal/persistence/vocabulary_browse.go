@@ -12,8 +12,8 @@ import (
 )
 
 // ListVocabularyBrowsePage projects current analyzer tokens through the
-// owner's occurrence decisions. The default view hides identities already
-// accounted for by learner state or a successful preparation for this Book.
+// owner's occurrence decisions and annotates each identity with its Study state
+// (ADR 0136 §5): Mature, in study, or not yet introduced.
 // A page past the last page returns no rows with its exact Total; the caller
 // decides how to explain it rather than silently serving a different page.
 func (s *PostgresStore) ListVocabularyBrowsePage(ctx context.Context, owner, language string, queryParams domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
@@ -41,8 +41,6 @@ func normalizeVocabularyBrowseQuery(queryParams domain.VocabularyBrowseQuery) do
 		queryParams.BookIDs = nil
 	}
 	queryParams.UPOS = vocabularyBrowseUPOS(queryParams.UPOS)
-	queryParams.KnownFilter = vocabularyBrowseStateFilter(queryParams.KnownFilter)
-	queryParams.ReservedFilter = vocabularyBrowseStateFilter(queryParams.ReservedFilter)
 	if queryParams.Sort != "occurrences" && queryParams.Sort != "books" {
 		queryParams.Sort = "lemma"
 	}
@@ -53,12 +51,7 @@ func normalizeVocabularyBrowseQuery(queryParams domain.VocabularyBrowseQuery) do
 // parameters. The Browse scale test explains the same text with these
 // arguments, so it inspects the plan a learner's request executes.
 func vocabularyBrowseArgs(owner, language string, queryParams domain.VocabularyBrowseQuery) []any {
-	var deckBookID any
-	if queryParams.CurrentBookID != "" {
-		deckBookID = queryParams.CurrentBookID
-	}
-	showAll := queryParams.IncludeAll || queryParams.CurrentBookID == ""
-	return []any{owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.KnownFilter, queryParams.ReservedFilter, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID, showAll, deckBookID}
+	return []any{owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID}
 }
 
 const vocabularyBrowseSQL = `
@@ -68,8 +61,8 @@ WITH all_books AS (
   FROM books b WHERE b.owner_id=$1 AND b.language_state='chosen' AND b.language_tag=$2
 ), scope_books AS (
   SELECT * FROM all_books WHERE
-    ($10<>'' AND id=$10) OR
-    ($10='' AND (COALESCE(cardinality($4::text[]),0)=0 OR id=ANY($4::text[])))
+    ($8<>'' AND id=$8) OR
+    ($8='' AND (COALESCE(cardinality($4::text[]),0)=0 OR id=ANY($4::text[])))
  ), projection_scope AS MATERIALIZED (
    SELECT cai.owner_id,cai.book_id,cai.analysis_run_id,cai.corpus_id
    FROM current_analysis_identity cai JOIN all_books b ON b.id=cai.book_id::text
@@ -160,40 +153,39 @@ WITH all_books AS (
   ) scoped
   GROUP BY lemma,upos,discriminator
  ), annotated AS MATERIALIZED (
-  -- The eligibility filter reads several annotated learner-state columns.
-  -- Inlining repeats correlated lookups and can exceed the Browse deadline.
+  -- The learner state is Study progress (ADR 0136 §5): a word is Mature, in
+  -- study, or not yet introduced. Mature means a day-scale schedule of at least
+  -- domain.FluencyMaturityDays; a withdrawn word counts as neither. Inlining
+  -- repeats correlated lookups and can exceed the Browse deadline.
   SELECT g.lemma,g.upos,g.discriminator,g.headword,g.bare_with_numbered_sibling,g.occurrences,g.books,g.corrected,
     g.across_books_occurrences,
-    EXISTS (SELECT 1 FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2 AND k.canonical_lemma=g.lemma AND (k.upos=g.upos OR k.upos='') AND k.lexical_discriminator=g.discriminator) AS known,
-    EXISTS (SELECT 1 FROM primary_goal_snapshots ps
-      JOIN primary_goals pg ON pg.owner_id=ps.owner_id AND pg.snapshot_id=ps.id
-      JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id=ps.owner_id AND pv.snapshot_id=ps.id
-      WHERE ps.owner_id=$1 AND ps.language=$2 AND pv.language=$2
-        AND pv.canonical_lemma=g.lemma AND pv.upos=g.upos AND pv.lexical_discriminator=g.discriminator AND ps.released_at IS NULL) AS reserved,
-    EXISTS (SELECT 1 FROM generated_vocabulary v WHERE v.owner_id=$1 AND v.language=$2 AND v.canonical_lemma=g.lemma AND v.upos=g.upos) AS generated,
-    EXISTS (SELECT 1 FROM deck_preparations p
-      JOIN deck_preparation_manifest_items mi ON mi.owner_id=p.owner_id AND mi.preparation_id=p.id
-      WHERE p.owner_id=$1 AND p.book_id=$12::uuid AND p.state='ready'
-        AND mi.disposition='accepted' AND mi.language=$2 AND mi.canonical_lemma=g.lemma AND mi.upos=g.upos) AS in_book_deck
+    CASE
+      WHEN EXISTS (SELECT 1 FROM study_progress sp
+        WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word'
+          AND sp.canonical_lemma=btrim(g.lemma) AND sp.upos=upper(btrim(g.upos))
+          AND sp.lexical_discriminator=btrim(g.discriminator) AND sp.withdrawn_at IS NULL
+          AND sp.state='review' AND sp.scheduled_days>=21) THEN 'mature'
+      WHEN EXISTS (SELECT 1 FROM study_progress sp
+        WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word'
+          AND sp.canonical_lemma=btrim(g.lemma) AND sp.upos=upper(btrim(g.upos))
+          AND sp.lexical_discriminator=btrim(g.discriminator) AND sp.withdrawn_at IS NULL) THEN 'in-study'
+      ELSE 'not-introduced'
+    END AS study_state
   FROM identity_totals g WHERE g.in_scope
 ), eligible AS (
-  SELECT a.lemma,a.upos,a.discriminator,a.headword,a.bare_with_numbered_sibling,a.occurrences,a.across_books_occurrences,a.books,a.corrected,a.known,a.reserved,a.generated,a.in_book_deck
+  SELECT a.lemma,a.upos,a.discriminator,a.headword,a.bare_with_numbered_sibling,a.occurrences,a.across_books_occurrences,a.books,a.corrected,a.study_state
   FROM annotated a
   WHERE ($3='' OR left(lower(lemma),length(lower($3)))=lower($3))
-	    AND ($6='any' OR ($6='known' AND a.known) OR ($6='not-known' AND NOT a.known) OR $6='not-known-or-reserved')
-	    AND ($7='any' OR ($7='reserved' AND a.reserved) OR ($7='not-reserved' AND NOT a.reserved))
-	    AND ($6<>'not-known-or-reserved' OR (NOT known AND NOT reserved))
-	    AND ($11::boolean OR (NOT a.known AND NOT a.reserved AND NOT a.in_book_deck))
 ), page_rows AS (
   SELECT * FROM eligible
-  ORDER BY CASE WHEN $8='occurrences' THEN occurrences END DESC,
-             CASE WHEN $10<>'' THEN across_books_occurrences END DESC,
-	           CASE WHEN $8='books' THEN books END DESC, lemma, upos, discriminator
-	  LIMIT 25 OFFSET (($9::bigint-1)*25)
+  ORDER BY CASE WHEN $6='occurrences' THEN occurrences END DESC,
+             CASE WHEN $8<>'' THEN across_books_occurrences END DESC,
+	           CASE WHEN $6='books' THEN books END DESC, lemma, upos, discriminator
+	  LIMIT 25 OFFSET (($7::bigint-1)*25)
 ), summary AS (
    SELECT (SELECT count(*)::bigint FROM eligible) AS total,
           (SELECT count(*)::bigint FROM identity_totals WHERE in_scope) AS scoped_total,
-          CASE WHEN $10<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$10)
+          CASE WHEN $8<>'' THEN (SELECT count(*)::bigint FROM book_identities WHERE book_id=$8)
                ELSE (SELECT count(*)::bigint FROM identity_totals) END AS inventory_total,
           NOT (SELECT ready OR failed FROM projection_status) AS browse_counts_updating,
           (SELECT failed FROM projection_status) AS browse_counts_unavailable
@@ -219,41 +211,32 @@ WITH all_books AS (
       FROM occurrence_lemma_corrections d JOIN all_books b ON b.id=d.book_id::text
       JOIN current_analysis_identity cai ON cai.owner_id=d.owner_id AND cai.book_id=d.book_id AND cai.corpus_id=d.corpus_id AND cai.analysis_run_id=d.analysis_run_id
       WHERE d.owner_id=$1),'')
-    || '|' || COALESCE((SELECT string_agg(k.canonical_lemma || ':' || k.upos, ',' ORDER BY k.canonical_lemma,k.upos)
-      FROM known_vocabulary k WHERE k.owner_id=$1 AND k.language=$2),'')
-    || '|' || COALESCE((SELECT string_agg(reserved.canonical_lemma || ':' || reserved.upos, ',' ORDER BY reserved.canonical_lemma,reserved.upos)
-      FROM (SELECT DISTINCT pv.canonical_lemma,pv.upos FROM primary_goal_snapshots ps
-        JOIN primary_goals pg ON pg.owner_id=ps.owner_id AND pg.snapshot_id=ps.id
-        JOIN primary_goal_snapshot_vocabulary pv ON pv.owner_id=ps.owner_id AND pv.snapshot_id=ps.id
-         WHERE ps.owner_id=$1 AND ps.language=$2 AND pv.language=$2 AND ps.released_at IS NULL) reserved),'')
-     || '|' || COALESCE((SELECT string_agg(DISTINCT mi.canonical_lemma || ':' || mi.upos, ',' ORDER BY mi.canonical_lemma || ':' || mi.upos)
-       FROM deck_preparations p JOIN deck_preparation_manifest_items mi
-         ON mi.owner_id=p.owner_id AND mi.preparation_id=p.id
-       WHERE p.owner_id=$1 AND p.book_id=$12::uuid AND p.state='ready'
-         AND mi.disposition='accepted' AND mi.language=$2),'')
+    || '|' || COALESCE((SELECT string_agg(sp.canonical_lemma || ':' || sp.upos || ':' || sp.lexical_discriminator || ':' || sp.state || ':' || sp.scheduled_days::text, ',' ORDER BY sp.canonical_lemma,sp.upos,sp.lexical_discriminator)
+      FROM study_progress sp WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word'),'')
   ) AS value
 )
-SELECT p.lemma,p.upos,p.discriminator,p.headword,p.bare_with_numbered_sibling,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.known,p.reserved,p.generated,p.in_book_deck,
+SELECT p.lemma,p.upos,p.discriminator,p.headword,p.bare_with_numbered_sibling,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.study_state,
    summary.total,summary.scoped_total,summary.inventory_total,coverage.analyzed,coverage.contributing,
    coverage.total-coverage.contributing,coverage.total-coverage.analyzed,
    summary.browse_counts_updating,summary.browse_counts_unavailable,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('id',id,'title',title,'has_current_analysis',analyzed,
     'has_vocabulary_evidence',contributing) ORDER BY title,id) FROM book_status),'[]'::jsonb),revision.value
 FROM summary CROSS JOIN coverage CROSS JOIN revision LEFT JOIN page_rows p ON true
-ORDER BY CASE WHEN $8='occurrences' THEN p.occurrences END DESC,
-             CASE WHEN $10<>'' THEN p.across_books_occurrences END DESC,
-	         CASE WHEN $8='books' THEN p.books END DESC,p.lemma,p.upos,p.discriminator`
+ORDER BY CASE WHEN $6='occurrences' THEN p.occurrences END DESC,
+             CASE WHEN $8<>'' THEN p.across_books_occurrences END DESC,
+	         CASE WHEN $6='books' THEN p.books END DESC,p.lemma,p.upos,p.discriminator`
 
 func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error) {
-	result := domain.VocabularyBrowsePage{Page: queryParams.Page, SelectedBooks: queryParams.BookIDs, SelectedUPOS: queryParams.UPOS, KnownFilter: queryParams.KnownFilter, ReservedFilter: queryParams.ReservedFilter, Sort: queryParams.Sort, IncludeAll: queryParams.IncludeAll}
+	result := domain.VocabularyBrowsePage{Page: queryParams.Page, SelectedBooks: queryParams.BookIDs, SelectedUPOS: queryParams.UPOS, Sort: queryParams.Sort}
 	var bookStatus []byte
 	var corpusRevision string
 	for rows.Next() {
 		var row domain.VocabularyBrowseRow
 		var lemma, pos, discriminator, headword *string
 		var occurrences, acrossBooksOccurrences, books *int64
-		var corrected, isKnown, isReserved, generated, inBookDeck, bareWithNumberedSibling *bool
-		if err := rows.Scan(&lemma, &pos, &discriminator, &headword, &bareWithNumberedSibling, &occurrences, &acrossBooksOccurrences, &books, &corrected, &isKnown, &isReserved, &generated, &inBookDeck,
+		var corrected, bareWithNumberedSibling *bool
+		var studyState *string
+		if err := rows.Scan(&lemma, &pos, &discriminator, &headword, &bareWithNumberedSibling, &occurrences, &acrossBooksOccurrences, &books, &corrected, &studyState,
 			&result.Total, &result.ScopedInventoryTotal, &result.InventoryTotal, &result.AnalyzedBooks,
 			&result.ContributingBooks, &result.NoncontributingBooks, &result.BooksWithoutCurrentAnalysis, &result.BrowseCountsUpdating, &result.BrowseCountsUnavailable, &bookStatus, &corpusRevision); err != nil {
 			return domain.VocabularyBrowsePage{}, err
@@ -263,7 +246,8 @@ func readVocabularyBrowseRows(rows pgx.Rows, queryParams domain.VocabularyBrowse
 			row.CanonicalLemma, row.UPOS = *lemma, *pos
 			row.LexicalDiscriminator, row.Headword, row.BareLemmaWithNumberedSibling = *discriminator, *headword, *bareWithNumberedSibling
 			row.OccurrenceCount, row.AcrossBooksOccurrenceCount, row.BookCount = *occurrences, *acrossBooksOccurrences, *books
-			row.Corrected, row.Known, row.Reserved, row.Generated, row.InBookDeck = *corrected, *isKnown, *isReserved, *generated, *inBookDeck
+			row.Corrected = *corrected
+			row.StudyState = vocabularyStudyState(*studyState)
 			result.Rows = append(result.Rows, row)
 		}
 	}
@@ -290,11 +274,15 @@ func vocabularyBrowseUPOS(values []string) []string {
 	return result
 }
 
-func vocabularyBrowseStateFilter(value string) string {
-	if value == "known" || value == "not-known" || value == "not-known-or-reserved" || value == "reserved" || value == "not-reserved" {
-		return value
+// vocabularyStudyState maps a stored Study-state name to its domain value,
+// defaulting to not yet introduced.
+func vocabularyStudyState(name string) domain.VocabularyStudyState {
+	switch state := domain.VocabularyStudyState(name); state {
+	case domain.VocabularyStudyMature, domain.VocabularyStudyInStudy, domain.VocabularyStudyNotIntroduced:
+		return state
+	default:
+		return domain.VocabularyStudyNotIntroduced
 	}
-	return "any"
 }
 
 func uniqueStrings(values []string) []string {

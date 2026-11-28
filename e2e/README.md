@@ -144,10 +144,10 @@ visible; those require different rendering evidence. Automated DOM and contrast
 checks do not establish real VoiceOver behavior.
 
 The Working desk's degraded Browse states (counts updating, counts unavailable,
-no current analysis, no eligible vocabulary, and everything already accounted
-for with annotated Known · Reserved and In a Book deck rows) are reached through
+no current analysis, and no eligible vocabulary) are reached through
 `POST /fixture/vocabulary-browse-scenario` with a `scenario` form value, which
-exists only in the fixture server. The empty value restores the default fixture.
+exists only in the fixture server. The empty value restores the default fixture,
+whose rows carry Mature, In study, and Not yet introduced Study states.
 `working-desk-states.spec.ts` sets a scenario per test and resets it afterwards.
 
 ## Responsive/theme snapshots and failure artifacts

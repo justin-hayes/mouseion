@@ -406,7 +406,7 @@ func safeConcordanceReturnKeys(values url.Values) bool {
 			if values.Get("as") != domain.ConcordanceMatchConstruction {
 				return false
 			}
-		case originKeyBook, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
+		case originKeyBook, originKeyPrefix, originKeyPage, originKeyRow, originKeyRevision:
 		default:
 			return false
 		}

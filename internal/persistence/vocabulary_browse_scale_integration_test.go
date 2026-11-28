@@ -55,7 +55,6 @@ type browseScaleView struct {
 func browseScaleViews(current, other, prefix string) []browseScaleView {
 	return []browseScaleView{
 		{"current reading", domain.VocabularyBrowseQuery{CurrentBookID: current, Page: 1}},
-		{"current reading all", domain.VocabularyBrowseQuery{CurrentBookID: current, IncludeAll: true, Page: 1}},
 		{"library", domain.VocabularyBrowseQuery{Page: 1}},
 		{"library NOUN", domain.VocabularyBrowseQuery{UPOS: []string{"NOUN"}, Page: 1}},
 		{"one Book", domain.VocabularyBrowseQuery{BookIDs: []string{other}, Page: 1}},

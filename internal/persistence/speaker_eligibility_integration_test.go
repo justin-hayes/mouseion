@@ -180,7 +180,7 @@ func TestSpeakerLabelsAreStructuralNonVocabularyAcrossCountConsumers(t *testing.
 		"Buch/NOUN": 4, "schlagen/VERB": 1, "auf/ADV": 1, "lachen/VERB": 1, "seltsam/ADJ": 1, "Geberde/NOUN": 1,
 	}
 	assert.Equal(t, want, browseCountRows(t, ctx, store, owner.ID, book.ID), "the projection excludes the label and keeps standalone directions")
-	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 	require.NoError(t, err)
 	assert.False(t, page.BrowseCountsUpdating)
 	browse := make(map[string]int64, len(page.Rows))

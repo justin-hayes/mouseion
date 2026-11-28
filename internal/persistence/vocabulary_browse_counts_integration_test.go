@@ -70,7 +70,7 @@ func TestVocabularyBrowseCountProjectionIsReadyForNonemptyAndEmptyBooks(t *testi
 			var count int
 			require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM vocabulary_browse_counts WHERE owner_id=$1 AND book_id=$2`, owner.ID, book.ID).Scan(&count))
 			assert.Equal(t, fixture.wantRows, count)
-			page, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+			page, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 			require.NoError(t, browseErr)
 			assert.Len(t, page.Rows, fixture.wantRows)
 			assert.Equal(t, int64(fixture.wantRows), page.InventoryTotal)
@@ -98,11 +98,11 @@ func TestVocabularyBrowseCountProjectionIsReadyForNonemptyAndEmptyBooks(t *testi
 				require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, otherTx, otherOwner.ID, otherBook.ID, otherSource.ID, otherRun, otherCorpus, "de"))
 				require.NoError(t, otherTx.Commit(ctx))
 
-				aliceAfterOtherOwner, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+				aliceAfterOtherOwner, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 				require.NoError(t, browseErr)
 				require.Len(t, aliceAfterOtherOwner.Rows, 1)
 				assert.Equal(t, fixture.wantCount, aliceAfterOtherOwner.Rows[0].AcrossBooksOccurrenceCount, "another owner's matching projection must not leak into this Browse inventory")
-				wrongLanguage, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "it", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+				wrongLanguage, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "it", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 				require.NoError(t, browseErr)
 				assert.Empty(t, wrongLanguage.Rows, "German projection rows must not appear in another study language")
 			}
@@ -141,7 +141,7 @@ func TestVocabularyBrowseCountsTrackReadyOccurrenceDecisionsAtomically(t *testin
 	}
 	checkCounts := func(want map[string]int64) {
 		t.Helper()
-		page, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+		page, browseErr := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 		require.NoError(t, browseErr)
 		assert.False(t, page.BrowseCountsUpdating)
 		got := make(map[string]int64, len(page.Rows))
@@ -199,7 +199,7 @@ func TestVocabularyBrowseCountsTrackReadyOccurrenceDecisionsAtomically(t *testin
 	require.NoError(t, err)
 	occurrences = getOccurrences()
 	require.NoError(t, store.PutLemmaDecisions(ctx, []domain.LemmaReviewDecision{{Occurrence: occurrences[0], CanonicalLemma: "haus"}}))
-	pending, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	pending, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 	require.NoError(t, err)
 	assert.True(t, pending.BrowseCountsUpdating, "a decision made without ready counts invalidates the old projection until its rebuild completes")
 	assert.Empty(t, pending.Rows, "an unready projection never leaks a stale or partial count")
@@ -366,7 +366,7 @@ func TestVocabularyBrowseBuilderVersionBumpMakesOldProjectionsUpdatingUntilRebui
 	_, err = store.Pool().Exec(ctx, `INSERT INTO vocabulary_browse_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version) VALUES($1,$2,'de',$3,$4,$5)`, owner.ID, book.ID, runID, corpusID, vocabularyBrowseCountBuilderVersion-1)
 	require.NoError(t, err)
 
-	query := domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1}
+	query := domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1}
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", query)
 	require.NoError(t, err)
 	assert.True(t, page.BrowseCountsUpdating)

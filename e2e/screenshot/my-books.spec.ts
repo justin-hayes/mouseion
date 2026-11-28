@@ -355,9 +355,9 @@ async function finishReading(page: Page, book: ManifestBook): Promise<void> {
   });
 }
 
-// Browse hides Known and Reserved words by default, so when the default view
-// has no rows the learner reveals already-accounted-for words before the table
-// is asserted. Counts that report themselves as updating are waited on first.
+// Browse shows every word with its Study state, so a Book with vocabulary has a
+// non-empty table without any reveal. Counts that report themselves as updating
+// are waited on first.
 async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<void> {
   await pollUntil(
     async () => {
@@ -375,10 +375,6 @@ async function assertBookVocabulary(page: Page, book: ManifestBook): Promise<voi
   );
 
   const table = page.getByRole('table', { name: 'Current effective vocabulary' });
-  if ((await table.locator('tbody tr').count()) === 0) {
-    await page.locator('#vocabulary-include-all').check();
-    await page.locator('form.vocabulary-filter').getByRole('button', { name: 'Search' }).click();
-  }
   await expect(table.locator('tbody tr').first(), `a non-empty Book vocabulary table for ${book.title}`).toBeVisible({
     timeout: COUNTS_TIMEOUT_MS,
   });

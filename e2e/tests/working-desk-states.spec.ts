@@ -1,7 +1,7 @@
 import { expect, Locator, Page, test } from '../support/test';
 import { renderedTextContrast } from '../support/contrast';
 
-type Scenario = '' | 'no-analysis' | 'no-vocabulary' | 'counts-updating' | 'counts-unavailable' | 'accounted';
+type Scenario = '' | 'no-analysis' | 'no-vocabulary' | 'counts-updating' | 'counts-unavailable';
 
 async function setScenario(page: Page, baseURL: string | undefined, scenario: Scenario) {
   const response = await page.request.post(new URL('/fixture/vocabulary-browse-scenario', baseURL).href, { form: { scenario } });
@@ -102,39 +102,28 @@ test('Working desk reports an analysis with no eligible vocabulary as an empty r
   await expect(workflow.getByText('No eligible vocabulary in this analysis.', { exact: true })).toBeVisible();
   await expect(workflow.getByRole('table', { name: 'Current effective vocabulary' })).toHaveCount(0);
   await expect(workflow.getByRole('link', { name: 'Clear prefix' })).toHaveCount(0);
-  await expect(workflow).not.toContainText('already Known, Reserved, or included in a prepared Book deck');
   await expectLifecycleReachable(page);
 });
 
-test('Working desk separates everything-accounted-for from annotated rows and recovers with the reveal and Clear prefix', async ({ page, baseURL }) => {
-  await setScenario(page, baseURL, 'accounted');
+test('Working desk shows each word with its Study state and no accounting controls', async ({ page, baseURL }) => {
+  await setScenario(page, baseURL, '');
   await signIn(page);
   await page.goto('/de/reading');
   const workflow = page.locator('#vocabulary-workflow');
-  await expect(workflow.getByText('All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck.')).toBeVisible();
-  await expect(workflow).toContainText('This does not mean they are mastered, and it is not a failed search.');
-  await expect(workflow.getByRole('table', { name: 'Current effective vocabulary' })).toHaveCount(0);
-  await expect(workflow).not.toContainText('No eligible vocabulary in this analysis');
-  expect(await workflow.locator('p').filter({ hasText: 'already Known, Reserved' }).evaluate(renderedTextContrast)).toBeGreaterThanOrEqual(4.5);
-
-  const reveal = workflow.getByRole('checkbox', { name: 'Show already accounted-for words' });
-  await reveal.check();
-  await workflow.getByRole('button', { name: 'Search', exact: true }).click();
-  await expect(page.locator('#vocabulary-results-heading')).toBeFocused();
   const table = workflow.getByRole('table', { name: 'Current effective vocabulary' });
   await expect(table).toBeVisible();
-  await expect(table.getByRole('row').filter({ hasText: 'haus' })).toContainText('Known');
-  await expect(table.getByRole('row').filter({ hasText: 'haus' })).toContainText('In a Book deck');
-  await expect(table.getByRole('row').filter({ hasText: 'lesen' })).toContainText('Known · Reserved');
-  await expect(table.getByRole('row').filter({ hasText: 'lesen' })).not.toContainText('In a Book deck');
+  await expect(table.getByRole('row').filter({ hasText: 'haus' })).toContainText('Mature');
+  await expect(table.getByRole('row').filter({ hasText: 'lesen' })).toContainText('In study');
+  await expect(table.getByRole('row').filter({ hasText: 'gehen' })).toContainText('Not yet introduced');
+  await expect(workflow.getByRole('checkbox', { name: 'Show already accounted-for words' })).toHaveCount(0);
+  await expect(workflow.getByText('Every word is shown with its Study state')).toBeVisible();
   await expectLifecycleReachable(page);
 
   await page.goto('/de/reading?q=zznone');
-  await expect(workflow.getByText('No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.')).toBeVisible();
-  await expect(workflow).not.toContainText('All eligible identities in this Book are already Known');
+  await expect(workflow.getByText('No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.')).toBeVisible();
   await workflow.getByRole('link', { name: 'Clear prefix', exact: true }).click();
   await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('');
-  await expect(workflow.getByText('All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck.')).toBeVisible();
+  await expect(table).toBeVisible();
 });
 
 test('Working desk states fit 390 and 320 px without page overflow, with a complete title and collapsed notes', async ({ page, baseURL }) => {
@@ -146,8 +135,6 @@ test('Working desk states fit 390 and 320 px without page overflow, with a compl
     ['no-vocabulary', '/de/reading'],
     ['counts-updating', '/de/reading'],
     ['counts-unavailable', '/de/reading'],
-    ['accounted', '/de/reading'],
-    ['accounted', '/de/reading?all=1'],
   ];
   for (const [scenario, path] of cases) {
     await setScenario(page, baseURL, scenario);

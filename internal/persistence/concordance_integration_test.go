@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -386,10 +385,8 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		}})
 		if owner == alice.ID {
 			aliceBook = book.ID
-			_, err := store.PutKnownVocabulary(ctx, alice.ID, "de", "haus", "NOUN")
-			require.NoError(t, err)
-			_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "ghost", "NOUN")
-			require.NoError(t, err)
+			seedCoverageStudyWord(t, ctx, store, alice.ID, "de", "haus", "NOUN", true)
+			seedCoverageStudyWord(t, ctx, store, alice.ID, "de", "ghost", "NOUN", true)
 		}
 	}
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, aliceBook, domain.BookDispositionToRead))
@@ -403,10 +400,6 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 		Tokens: []concordanceToken{{Surface: "Haus", Lemma: "haus", Upos: "NOUN", Start: 0, End: 4}},
 	}})
 	_, err = store.StartCurrentReading(ctx, alice.ID, "de", aliceToReadBook.ID)
-	require.NoError(t, err)
-	browseDeck, err := store.PutDeck(ctx, alice.ID, "de", "Browse generated identity")
-	require.NoError(t, err)
-	testutil.SeedGeneratedVocabulary(t, ctx, store.Pool(), alice.ID, "de", "heim", "NOUN", browseDeck.ID, &aliceToReadSource.ID)
 	require.NoError(t, err)
 	staleBook, staleSource := createConcordanceBook(t, ctx, store, alice.ID, "Browse without current analysis", "browse-old", false, []domain.ExtractedUnit{
 		concordanceUnit(0, "browse-old", "Haus", 0, 4),
@@ -435,7 +428,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, page.Rows, 1)
 	assert.Equal(t, "haus", page.Rows[0].CanonicalLemma)
-	assert.True(t, page.Rows[0].Known, "Known identities remain visible when current evidence exists")
+	assert.Equal(t, domain.VocabularyStudyMature, page.Rows[0].StudyState, "a Mature identity remains visible when current evidence exists")
 	assert.Equal(t, int64(1), page.Rows[0].BookCount, "the To Read Book contributes independently of Inbox")
 	assert.Equal(t, int64(1), page.Rows[0].AcrossBooksOccurrenceCount)
 	assert.Equal(t, int64(2), page.AnalyzedBooks)
@@ -454,7 +447,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 
 	ghost, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{Prefix: "ghost", Page: 1})
 	require.NoError(t, err)
-	assert.Empty(t, ghost.Rows, "Known-only identities without current evidence must not be shown")
+	assert.Empty(t, ghost.Rows, "a Mature identity without current evidence must not be shown")
 	assert.Zero(t, ghost.Total)
 	assert.Equal(t, int64(2), ghost.InventoryTotal, "prefix filtering must not change the complete inventory count")
 	excluded, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{Prefix: "ali", Page: 1})
@@ -469,9 +462,8 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	assert.Equal(t, "heim", page.Rows[0].CanonicalLemma)
 	assert.Equal(t, int64(1), page.Rows[0].OccurrenceCount)
 	assert.Equal(t, int64(1), page.Rows[0].BookCount)
-	assert.False(t, page.Rows[0].Known)
+	assert.Equal(t, domain.VocabularyStudyNotIntroduced, page.Rows[0].StudyState)
 	assert.True(t, page.Rows[0].Corrected)
-	assert.True(t, page.Rows[0].Generated, "Generated does not imply Known")
 	assert.Equal(t, int64(1), page.Total)
 	assert.Equal(t, int64(2), page.ContributingBooks)
 	assert.Equal(t, int64(1), page.NoncontributingBooks)
@@ -487,7 +479,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	require.Len(t, promoted.Rows, 1)
 	assert.Equal(t, int64(2), promoted.Rows[0].OccurrenceCount)
 	assert.Equal(t, int64(2), promoted.Rows[0].BookCount)
-	currentBook, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceToReadBook.ID, Prefix: "ha", Sort: "occurrences", IncludeAll: true, Page: 1})
+	currentBook, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceToReadBook.ID, Prefix: "ha", Sort: "occurrences", Page: 1})
 	require.NoError(t, err)
 	require.Len(t, currentBook.Rows, 1)
 	assert.Equal(t, int64(1), currentBook.Rows[0].OccurrenceCount, "the Browse inventory and local count stay scoped to Current reading")
@@ -500,12 +492,6 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	assert.Empty(t, onlyElsewhere.Rows, "identities found only in another Book do not enter the Current-reading inventory")
 	assert.Equal(t, int64(3), promoted.AnalyzedBooks)
 	assert.Zero(t, promoted.BooksWithoutCurrentAnalysis)
-
-	notKnownOrReserved, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{KnownFilter: "not-known-or-reserved", Sort: "occurrences", Page: 1})
-	require.NoError(t, err)
-	require.Len(t, notKnownOrReserved.Rows, 1)
-	assert.Equal(t, "heim", notKnownOrReserved.Rows[0].CanonicalLemma, "the Not Known or Reserved view excludes either learner state")
-	assert.Equal(t, int64(1), notKnownOrReserved.Rows[0].OccurrenceCount)
 
 	byOccurrences, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{Sort: "occurrences", Page: 1})
 	require.NoError(t, err)
@@ -535,7 +521,7 @@ func TestVocabularyBrowseUsesCurrentOwnerScopedEvidence(t *testing.T) {
 	bobPage, err := store.ListVocabularyBrowsePage(ctx, bob.ID, "de", domain.VocabularyBrowseQuery{Prefix: "ha", Page: 1})
 	require.NoError(t, err)
 	require.Len(t, bobPage.Rows, 1)
-	assert.False(t, bobPage.Rows[0].Known, "learner state must not leak across owners")
+	assert.Equal(t, domain.VocabularyStudyNotIntroduced, bobPage.Rows[0].StudyState, "learner state must not leak across owners")
 	assert.Equal(t, int64(1), bobPage.Rows[0].OccurrenceCount)
 	assert.Equal(t, int64(1), bobPage.Rows[0].AcrossBooksOccurrenceCount, "Alice's matching German Books must not contribute to Bob's total")
 }
@@ -568,7 +554,7 @@ func TestCurrentReadingBrowseRanksLocalFrequencyThenAcrossBookTotal(t *testing.T
 	buildBrowseProjectionsForOwner(t, ctx, store, owner.ID)
 
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
-		CurrentBookID: current.ID, Sort: "occurrences", IncludeAll: true, Page: 1,
+		CurrentBookID: current.ID, Sort: "occurrences", Page: 1,
 	})
 	require.NoError(t, err)
 	require.Len(t, page.Rows, 2, "an identity found only in another Book cannot broaden Browse")

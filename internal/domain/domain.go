@@ -50,6 +50,23 @@ type StudyLanguage struct {
 	Language, DisplayName string
 }
 
+// VocabularyStudyState is the learner's Study state of one currently evidenced
+// effective identity in Browse (ADR 0136 §5). It replaces Known, Reserved and
+// Unknown vocabulary: a word is Mature, in study but not yet Mature, or not
+// yet introduced.
+type VocabularyStudyState string
+
+const (
+	// VocabularyStudyNotIntroduced is a word in the Corpus with no Study
+	// progress.
+	VocabularyStudyNotIntroduced VocabularyStudyState = "not-introduced"
+	// VocabularyStudyInStudy is a word in study that is not yet Mature.
+	VocabularyStudyInStudy VocabularyStudyState = "in-study"
+	// VocabularyStudyMature is a word in study on a schedule of at least
+	// FluencyMaturityDays.
+	VocabularyStudyMature VocabularyStudyState = "mature"
+)
+
 // VocabularyBrowseRow is one currently evidenced effective identity in a
 // learner's selected study language. LexicalDiscriminator keeps source
 // homographs with the same canonical lemma and part of speech apart. Headword is
@@ -64,10 +81,7 @@ type VocabularyBrowseRow struct {
 	OccurrenceCount              int64
 	AcrossBooksOccurrenceCount   int64
 	BookCount                    int64
-	Known                        bool
-	Reserved                     bool
-	Generated                    bool
-	InBookDeck                   bool
+	StudyState                   VocabularyStudyState
 	Corrected                    bool
 	BareLemmaWithNumberedSibling bool
 }
@@ -88,27 +102,21 @@ type VocabularyBrowsePage struct {
 	BrowseCountsUnavailable      bool
 	SelectedBooks                []string
 	SelectedUPOS                 []string
-	KnownFilter                  string
-	ReservedFilter               string
 	Sort                         string
-	IncludeAll                   bool
 	CorpusRevision               string
 	Page                         int
 }
 
 type VocabularyBrowseQuery struct {
-	Language       string
-	Prefix         string
-	CurrentBookID  string
-	ReadingBookID  string
-	BookIDs        []string
-	UPOS           []string
-	KnownFilter    string
-	ReservedFilter string
-	Sort           string
-	IncludeAll     bool
-	Revision       string
-	Page           int
+	Language      string
+	Prefix        string
+	CurrentBookID string
+	ReadingBookID string
+	BookIDs       []string
+	UPOS          []string
+	Sort          string
+	Revision      string
+	Page          int
 }
 
 type VocabularyBrowseBook struct {

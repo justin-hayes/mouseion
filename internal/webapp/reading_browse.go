@@ -56,7 +56,7 @@ func (v readingBrowseView) rowOrigin(row domain.VocabularyBrowseRow) browseOrigi
 		return browseOrigin{}
 	}
 	return browseOrigin{
-		BookID: v.Query.CurrentBookID, Prefix: v.Prefix, IncludeAll: v.Query.IncludeAll,
+		BookID: v.Query.CurrentBookID, Prefix: v.Prefix,
 		Page: v.Page.Page, Revision: v.Page.CorpusRevision, Row: browseRowKey(row.UPOS, row.CanonicalLemma, row.LexicalDiscriminator),
 	}
 }
@@ -127,7 +127,7 @@ func parseReadingBrowseRequest(values url.Values, language, bookID string) (read
 		Language: language, Prefix: view.Prefix, CurrentBookID: bookID, ReadingBookID: values.Get("reading"),
 		// Legacy Book/POS/state/sort parameters are intentionally ignored. Browse is
 		// always the complete current-Book identity set in frequency order.
-		Sort: "occurrences", Page: 1, Revision: values.Get("rev"), IncludeAll: values.Get("all") == "1",
+		Sort: "occurrences", Page: 1, Revision: values.Get("rev"),
 	}
 	if view.RequestedPage != "" {
 		page, err := strconv.Atoi(view.RequestedPage)
@@ -189,9 +189,6 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 	if query != "" {
 		values.Set("q", query)
 	}
-	if browse.IncludeAll {
-		values.Set("all", "1")
-	}
 	readingBookID := browse.ReadingBookID
 	if readingBookID == "" {
 		readingBookID = browse.CurrentBookID
@@ -210,15 +207,14 @@ func vocabularyBrowsePageURL(page int, browse domain.VocabularyBrowsePage, query
 // reading, prefix, and page. It is a plain link: it never requeues work.
 func readingBrowseRefreshURL(view readingBrowseView) string {
 	return vocabularyBrowsePageURL(view.Query.Page, domain.VocabularyBrowsePage{
-		CurrentBookID: view.Query.CurrentBookID, IncludeAll: view.Query.IncludeAll, Language: view.Query.Language,
+		CurrentBookID: view.Query.CurrentBookID, Language: view.Query.Language,
 	}, view.Prefix)
 }
 
-// readingBrowseClearPrefixURL drops only the prefix, keeping the accounting
-// reveal choice.
+// readingBrowseClearPrefixURL drops only the prefix.
 func readingBrowseClearPrefixURL(view readingBrowseView) string {
 	return vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{
-		CurrentBookID: view.Query.CurrentBookID, IncludeAll: view.Query.IncludeAll, Language: view.Query.Language,
+		CurrentBookID: view.Query.CurrentBookID, Language: view.Query.Language,
 	}, "")
 }
 
@@ -226,6 +222,6 @@ func readingBrowseClearPrefixURL(view readingBrowseView) string {
 // Current reading, dropping any stale revision or page.
 func readingBrowseFirstPageURL(view readingBrowseView) string {
 	return vocabularyBrowsePageURL(1, domain.VocabularyBrowsePage{
-		CurrentBookID: view.Query.CurrentBookID, IncludeAll: view.Query.IncludeAll, Language: view.Query.Language,
+		CurrentBookID: view.Query.CurrentBookID, Language: view.Query.Language,
 	}, view.Prefix)
 }

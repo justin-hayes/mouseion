@@ -380,7 +380,7 @@ test.describe('responsive and theme regression coverage', () => {
     const addFirstResult = firstResult.getByRole('button', { name: 'Select', exact: true });
     if (await addFirstResult.count()) await addFirstResult.click();
 
-    const browseControls = page.locator('.vocabulary-filter input[type="search"], .vocabulary-filter label:has(input[type="checkbox"]), .vocabulary-filter button, #vocabulary-browse-results td button, #vocabulary-browse-results tbody th a');
+    const browseControls = page.locator('.vocabulary-filter input[type="search"], .vocabulary-filter button, #vocabulary-browse-results td button, #vocabulary-browse-results tbody th a');
     const browseBoxes = await browseControls.evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { width: box.width, height: box.height, text: node.textContent?.trim() };

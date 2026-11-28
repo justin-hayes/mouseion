@@ -162,7 +162,6 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	t.Run("invalid or foreign origins are dropped and expose nothing", func(t *testing.T) {
 		for name, mutate := range map[string]func(url.Values){
 			"page zero":       func(v url.Values) { v.Set(originKeyPage, "0") },
-			"bad accounting":  func(v url.Values) { v.Set(originKeyAll, "yes") },
 			"missing book":    func(v url.Values) { v.Del(originKeyBook) },
 			"oversized value": func(v url.Values) { v.Set(originKeyPrefix, string(make([]byte, maxOriginValueLength+1))) },
 		} {
@@ -185,10 +184,9 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, foreign.Body.String(), `id="vocabulary-workflow"`)
 	})
 
-	t.Run("changed accounting visibility needs an explicit Refresh vocabulary that keeps controls", func(t *testing.T) {
-		_, err := store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,'de','wort00','NOUN')`, alice.ID)
-		require.NoError(t, err)
-		changed := get(returnWithParam(t, returnWithParam(t, back, "q", "wort"), "all", "1"))
+	t.Run("changed Study state needs an explicit Refresh vocabulary that keeps controls", func(t *testing.T) {
+		seedStudyWord(t, ctx, store, alice.ID, "wort00", true)
+		changed := get(returnWithParam(t, back, "q", "wort"))
 		require.Equal(t, http.StatusConflict, changed.Code)
 		assert.Contains(t, changed.Body.String(), "Refresh vocabulary")
 		assert.NotContains(t, changed.Body.String(), "browse-row-")
@@ -198,7 +196,6 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		refreshedURL, err := url.Parse(refresh)
 		require.NoError(t, err)
 		assert.Equal(t, "wort", refreshedURL.Query().Get("q"))
-		assert.Equal(t, "1", refreshedURL.Query().Get("all"))
 		assert.Equal(t, "1", refreshedURL.Query().Get("page"))
 		assert.Empty(t, refreshedURL.Query().Get("snapshot"), "refresh never carries a retired commitment token")
 		assert.Contains(t, refreshed.Body.String(), "Page 1 of 2")
@@ -214,8 +211,8 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.NotContains(t, ended.Body.String(), `id="vocabulary-workflow"`)
 		assert.NotContains(t, ended.Body.String(), "Choose a To Read book in")
 
-		// The origin names the Book, not a commitment; the earlier Known change
-		// already moved the Browse revision, so the old origin asks for a refresh.
+		// The origin names the Book, not a commitment; the earlier Study state
+		// change already moved the Browse revision, so the old origin asks for a refresh.
 		_, err = store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
 		require.NoError(t, err)
 		sameBook := get(back)

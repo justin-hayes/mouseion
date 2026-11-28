@@ -20,9 +20,6 @@ templ ReadingBrowse(view readingBrowseView) {
 						<input type="hidden" name="q" value={ view.Query.Prefix }/>
 						<input type="hidden" name="reading" value={ view.Query.ReadingBookID }/>
 						<input type="hidden" name="page" value={ fmt.Sprintf("%d", view.Query.Page) }/>
-						if view.Query.IncludeAll {
-							<input type="hidden" name="all" value="1"/>
-						}
 						if view.Query.Revision != "" {
 							<input type="hidden" name="rev" value={ view.Query.Revision }/>
 						}
@@ -33,7 +30,7 @@ templ ReadingBrowse(view readingBrowseView) {
 				}
 			case readingBrowseChanged:
 				@readingBrowseRecovery(view) {
-					@Feedback(FeedbackWarning, "Current evidence changed", "These vocabulary results were not applied because this Book's words, order, counts, or accounted-for words changed since the page was shown. Refresh vocabulary keeps your prefix and accounting setting, starts at page 1, and reads current evidence.")
+					@Feedback(FeedbackWarning, "Current evidence changed", "These vocabulary results were not applied because this Book's words, order, counts, or Study states changed since the page was shown. Refresh vocabulary keeps your prefix, starts at page 1, and reads current evidence.")
 					<a role="button" href={ templ.SafeURL(readingBrowseFirstPageURL(view)) }>Refresh vocabulary</a>
 				}
 			case readingBrowsePageMalformed:
@@ -71,8 +68,7 @@ templ readingBrowseResults(view readingBrowseView) {
 		<form method="get" action={ templ.SafeURL(studyLanguagePath(pageKindReading, view.Language)) } class="data-width vocabulary-filter" hx-get={ templ.SafeURL(studyLanguagePath(pageKindReading, view.Language)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
 			<input type="hidden" name="reading" value={ page.CurrentBookID }/>
 			<label for="vocabulary-prefix">Canonical lemma prefix</label><input class="input" id="vocabulary-prefix" type="search" name="q" value={ query }/>
-			<p class="vocabulary-exclusions">By default, Known, Reserved, and words in a prepared Book deck are hidden. Exclusions do not change counts or order.</p>
-			<label for="vocabulary-include-all"><input id="vocabulary-include-all" type="checkbox" name="all" value="1" checked?={ page.IncludeAll }/> Show already accounted-for words</label>
+			<p class="vocabulary-exclusions">Every word is shown with its Study state: Mature, in study, or not yet introduced.</p>
 			<button class="btn btn-primary" type="submit">Search</button>
 		</form>
 		<div id="vocabulary-browse-results">
@@ -88,7 +84,7 @@ templ readingBrowseResults(view readingBrowseView) {
 			} else {
 				<h3 id="vocabulary-results-heading" tabindex="-1" autofocus?={ readingBrowseHeadingFocused(view) }>Browse results</h3>
 				if view.FocusRowMissing() {
-					<p id="vocabulary-focus-row-missing" role="status">The word you came from is no longer on this page. Your prefix, accounting setting, and page are restored; no other word was substituted.</p>
+					<p id="vocabulary-focus-row-missing" role="status">The word you came from is no longer on this page. Your prefix and page are restored; no other word was substituted.</p>
 				}
 				if page.Total == 0 && page.InventoryTotal == 0 {
 					<p>No eligible vocabulary in this analysis.</p>
@@ -96,18 +92,9 @@ templ readingBrowseResults(view readingBrowseView) {
 				if page.Total == 0 && page.InventoryTotal > 0 && page.ScopedInventoryTotal == 0 {
 					<p>No eligible identities are in this Book.</p>
 				}
-				if page.Total == 0 && page.ScopedInventoryTotal > 0 && query == "" && !page.IncludeAll {
-					<p>All eligible identities in this Book are already Known, Reserved, or included in a prepared Book deck. This does not mean they are mastered, and it is not a failed search. Show already accounted-for words to reveal them.</p>
-				}
-				if page.Total == 0 && page.ScopedInventoryTotal > 0 && (query != "" || page.IncludeAll) {
-					if query != "" && !page.IncludeAll {
-						<p>No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.</p>
-					} else {
-						<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
-					}
-					if query != "" {
-						<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseClearPrefixURL(view)) }>Clear prefix</a></p>
-					}
+				if page.Total == 0 && page.ScopedInventoryTotal > 0 && query != "" {
+					<p>No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.</p>
+					<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingBrowseClearPrefixURL(view)) }>Clear prefix</a></p>
 				}
 				if page.Total > 0 {
 					<p>{ fmt.Sprintf("%d visible identities in this Book", page.Total) }. Counts use current completed analyses and effective occurrence decisions, including singletons.</p>
@@ -118,11 +105,7 @@ templ readingBrowseResults(view readingBrowseView) {
 								if row.BareLemmaWithNumberedSibling {
 									<small>the source gives no homograph number</small>
 								}
-							</th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }
-								if row.InBookDeck {
-									<small>In a Book deck</small>
-								}
-							</td></tr>
+							</th><td><code>{ row.UPOS }</code></td><td>{ vocabularyBrowseOccurrenceCounts(row) }</td><td>{ vocabularyBrowseState(row) }</td></tr>
 						}
 						</tbody>
 					}
@@ -156,7 +139,7 @@ func readingBrowseHeadingFocused(view readingBrowseView) bool {
 	if view.FocusRow != "" {
 		return !view.FocusRowFound
 	}
-	return view.Prefix != "" || view.Page.Page > 1 || view.Page.IncludeAll
+	return view.Prefix != "" || view.Page.Page > 1
 }
 
 // ReadingBrowseOriginExpiredPage explains that Back to book vocabulary named a

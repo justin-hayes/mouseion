@@ -26,34 +26,24 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
     const browseForm = noScriptPage.locator('form[action="/de/reading"]');
     await expect(browseForm.locator('input[name="reading"]')).toHaveValue('fixture-book');
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveClass(/\binput\b/);
-    const includeAll = noScriptPage.getByRole('checkbox', { name: 'Show already accounted-for words' });
-    await expect(includeAll).not.toBeChecked();
-    const checkboxSize = await includeAll.evaluate(element => {
-      const rect = element.getBoundingClientRect();
-      return { width: rect.width, height: rect.height, labelHeight: element.closest('label')!.getBoundingClientRect().height };
-    });
-    expect(checkboxSize.width).toBeLessThan(44);
-    expect(checkboxSize.height).toBeLessThan(44);
-    expect(checkboxSize.labelHeight).toBeGreaterThanOrEqual(44);
+    await expect(noScriptPage.locator('.vocabulary-exclusions')).toContainText('Every word is shown with its Study state');
     await expect(browseForm.getByRole('button', { name: 'Search' })).toHaveClass(/\bbtn\b/);
-    await includeAll.check();
     const search = noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' });
     await search.focus();
     await expect(search).toBeFocused();
     await search.fill('haus');
     await search.press('Enter');
-    await expect(noScriptPage).toHaveURL(/\/reading\?.*all=1.*q=haus|\/reading\?.*q=haus.*all=1/);
+    await expect(noScriptPage).toHaveURL(/\/reading\?.*q=haus/);
     await expect(noScriptPage.locator('.vocabulary-applied-query')).toContainText('Applied prefix: haus');
     await expect(noScriptPage.locator('#vocabulary-results-heading')).toBeFocused();
     await expect(browseForm.locator('input[name="book"], input[name="pos"], select[name="known"], select[name="reserved"], select[name="sort"]')).toHaveCount(0);
     const hausRow = noScriptPage.getByRole('row').filter({ hasText: 'haus' });
-    await expect(hausRow).toContainText('Known');
-    await expect(hausRow).toContainText('In a Book deck');
+    await expect(hausRow).toContainText('Mature');
     const noOverflow = await noScriptPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
     expect(noOverflow).toBe(true);
 
     await noScriptPage.goto('/de/reading?q=zznotfound');
-    await expect(noScriptPage.getByText('No visible identities match this canonical-lemma prefix. Already-accounted-for words may be hidden; show them to include those matches.')).toBeVisible();
+    await expect(noScriptPage.getByText('No current identities match this canonical-lemma prefix. Clear or broaden the prefix to see more.')).toBeVisible();
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('zznotfound');
     await noScriptPage.getByRole('link', { name: 'Clear prefix' }).click();
     await expect(noScriptPage.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toHaveValue('');
