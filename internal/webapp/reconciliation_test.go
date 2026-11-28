@@ -90,9 +90,9 @@ func TestReconciliation_ImportRoutesAreRetiredWithoutRedirect(t *testing.T) {
 		path   string
 		form   url.Values
 	}{
-		{name: "import page", method: http.MethodGet, path: "/vocabulary/import"},
-		{name: "import submission", method: http.MethodPost, path: "/vocabulary/import", form: url.Values{"csrf_token": {csrf}}},
-		{name: "import status", method: http.MethodGet, path: "/vocabulary/imports/7/status"},
+		{name: "import page", method: http.MethodGet, path: "/corpus/import"},
+		{name: "import submission", method: http.MethodPost, path: "/corpus/import", form: url.Values{"csrf_token": {csrf}}},
+		{name: "import status", method: http.MethodGet, path: "/corpus/imports/7/status"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

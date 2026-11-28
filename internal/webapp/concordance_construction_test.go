@@ -36,7 +36,7 @@ func constructionTestQuery(overrides map[string]string) url.Values {
 
 func parseConstructionTestRequest(t *testing.T, values url.Values) concordanceRequest {
 	t.Helper()
-	return parseConcordanceRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/grc/vocabulary/concordance?"+values.Encode(), nil))
+	return parseConcordanceRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/grc/corpus/concordance?"+values.Encode(), nil))
 }
 
 func TestConcordanceConstructionRequestParsesTheOrigin(t *testing.T) {
@@ -130,7 +130,7 @@ func TestConcordanceConstructionURLsCarryTheOriginAndKeepThePriorityOnRestart(t 
 	assert.Contains(t, vocabularyConcordancePageURL(2, lookup), "page=2")
 
 	word := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchForm, Priority: "book", Revision: "r"}
-	assert.Equal(t, "/de/vocabulary/concordance?page=1&term=haus", vocabularyConcordanceRestartURL(word), "lemma and form restarts still blank the priority")
+	assert.Equal(t, "/de/corpus/concordance?page=1&term=haus", vocabularyConcordanceRestartURL(word), "lemma and form restarts still blank the priority")
 }
 
 func parseURL(t *testing.T, raw string) url.Values {
@@ -142,7 +142,7 @@ func parseURL(t *testing.T, raw string) url.Values {
 
 func TestSafeConcordanceReturnURLKeepsAConstructionLookup(t *testing.T) {
 	query := constructionTestQuery(map[string]string{"term": "articular_infinitive", "subtype": "genitive", "page": "2", "focus": "occurrence-b-1-2"})
-	valid := "/grc/vocabulary/concordance?" + query.Encode() + "#occurrence-b-1-2"
+	valid := "/grc/corpus/concordance?" + query.Encode() + "#occurrence-b-1-2"
 	assert.Equal(t, valid, safeConcordanceReturnURL(valid, "grc"))
 	for name, overrides := range map[string]map[string]string{
 		"a missing from_run":   {"from_run": ""},
@@ -160,7 +160,7 @@ func TestSafeConcordanceReturnURLKeepsAConstructionLookup(t *testing.T) {
 					query.Set(key, value)
 				}
 			}
-			assert.Equal(t, "/grc/vocabulary/concordance", safeConcordanceReturnURL("/grc/vocabulary/concordance?"+query.Encode()+"#occurrence-b-1-2", "grc"))
+			assert.Equal(t, "/grc/corpus/concordance", safeConcordanceReturnURL("/grc/corpus/concordance?"+query.Encode()+"#occurrence-b-1-2", "grc"))
 		})
 	}
 	t.Run("the page language and upos are checked", func(t *testing.T) {
@@ -169,18 +169,18 @@ func TestSafeConcordanceReturnURLKeepsAConstructionLookup(t *testing.T) {
 			for key, value := range overrides {
 				query.Set(key, value)
 			}
-			return prefix + "/vocabulary/concordance?" + query.Encode() + "#occurrence-b-1-2"
+			return prefix + "/corpus/concordance?" + query.Encode() + "#occurrence-b-1-2"
 		}
 		valid := with("/grc", nil)
 		assert.Equal(t, valid, safeConcordanceReturnURL(valid, "grc"))
 		for name, candidate := range map[string]string{
 			"another language": with("/de", nil), "no language": with("", nil), "a part of speech": with("/grc", map[string]string{"upos": "VERB"}),
 		} {
-			assert.Equal(t, "/grc/vocabulary/concordance", safeConcordanceReturnURL(candidate, "grc"), name)
+			assert.Equal(t, "/grc/corpus/concordance", safeConcordanceReturnURL(candidate, "grc"), name)
 		}
 	})
 	t.Run("origin keys outside a construction lookup", func(t *testing.T) {
-		assert.Equal(t, "/grc/vocabulary/concordance", safeConcordanceReturnURL("/grc/vocabulary/concordance?term=haus&as=form&page=2&focus=x&from_run="+constructionTestRun+"&from_sentence=1&from_anchor=1#x", "grc"))
+		assert.Equal(t, "/grc/corpus/concordance", safeConcordanceReturnURL("/grc/corpus/concordance?term=haus&as=form&page=2&focus=x&from_run="+constructionTestRun+"&from_sentence=1&from_anchor=1#x", "grc"))
 	})
 }
 
@@ -290,7 +290,7 @@ func TestSentenceStudyFocusesOnlyTheEntryWhoseAnchorIsTheTarget(t *testing.T) {
 	}
 	assert.Equal(t, []string{"indirect_statement", "genitive_absolute", "purpose"}, order, "focus never reorders the list")
 	var rendered strings.Builder
-	require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", got, "/grc/vocabulary/concordance", "genitive_absolute").Render(t.Context(), &rendered))
+	require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", got, "/grc/corpus/concordance", "genitive_absolute").Render(t.Context(), &rendered))
 	assert.Equal(t, 1, strings.Count(rendered.String(), "· from Concordance"))
 	assert.Contains(t, rendered.String(), `<li id="construction-genitive_absolute-2" class="sentence-study-construction sentence-study-construction--focused">`)
 }
@@ -337,10 +337,10 @@ func TestConcordanceConstructionURLsCarryTheLemmaFilter(t *testing.T) {
 func TestSafeConcordanceReturnURLKeepsTheLemmaFilterOnlyForAConstructionLookup(t *testing.T) {
 	query := constructionTestQuery(map[string]string{"lemma": "λέγω", "from_lemma": "ὅτι", "page": "2"})
 	query.Set("focus", "occurrence-b-1-2")
-	valid := "/grc/vocabulary/concordance?" + query.Encode() + "#occurrence-b-1-2"
+	valid := "/grc/corpus/concordance?" + query.Encode() + "#occurrence-b-1-2"
 	assert.Equal(t, valid, safeConcordanceReturnURL(valid, "grc"))
-	assert.Equal(t, "/grc/vocabulary/concordance", safeConcordanceReturnURL("/grc/vocabulary/concordance?term=haus&as=form&page=2&focus=x&lemma=λέγω#x", "grc"))
-	assert.Equal(t, "/grc/vocabulary/concordance", safeConcordanceReturnURL("/grc/vocabulary/concordance?term=haus&as=lemma&page=2&focus=x&from_lemma=λέγω#x", "grc"))
+	assert.Equal(t, "/grc/corpus/concordance", safeConcordanceReturnURL("/grc/corpus/concordance?term=haus&as=form&page=2&focus=x&lemma=λέγω#x", "grc"))
+	assert.Equal(t, "/grc/corpus/concordance", safeConcordanceReturnURL("/grc/corpus/concordance?term=haus&as=lemma&page=2&focus=x&from_lemma=λέγω#x", "grc"))
 }
 
 func fixtureParallelsWithLemma(t *testing.T, lemma string) (domain.ConcordanceLookup, domain.ConcordanceResult) {

@@ -68,7 +68,7 @@ selection defining the set).
 
 **Active study language**:
 The study language of the per-language page in view (Reading, Study,
-Vocabulary, Concordance, Sentence study), named by that page's address. It is
+Corpus, Concordance, Sentence study), named by that page's address. It is
 context, not configuration: it never defines which languages are studied, and
 two pages open at once may each have their own. The Catalog, a Book's own pages
 and pages without a language have none.
@@ -129,7 +129,7 @@ _Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
 **Unknown vocabulary** (retired):
 Retired by ADR 0136: with no Known or Reserved vocabulary, a word is either in
 study or not yet introduced, and Mature once its interval is long enough. The
-Vocabulary page and a Book's detail page show those Study states.
+Corpus page and a Book's detail page show those Study states.
 _Avoid_: difficult words, never generated vocabulary.
 
 **Current-reading vocabulary snapshot** (retired):
@@ -724,6 +724,8 @@ The analysed Books in Reading in one study language. Study draws Study
 material and Fluency contexts from all of it, Read Books included, and
 Concordance searches it. Adding a Book from the Catalog is how a learner
 includes it; only its To Read Books set the priority of new words.
+The **Corpus page**, at `/{language}/corpus`, is the destination for the language
+as a whole; it currently holds Concordance.
 _Avoid_: library, analysed library, collection.
 
 **Target coverage**:

@@ -46,22 +46,22 @@ func TestRetiredVocabularyRoutesDoNotExposeOrMutateStoredCustomData(t *testing.T
 	cookies, _ := loginCookies(t, h, "retired-vocabulary-owner", "owner-password")
 	otherCookies, _ := loginCookies(t, h, "retired-vocabulary-other", "other-password")
 	paths := []struct{ method, path string }{
-		{http.MethodGet, "/vocabulary/selection"},
-		{http.MethodGet, "/vocabulary/selection/clear-confirm"},
-		{http.MethodPost, "/vocabulary/selection/add"},
-		{http.MethodPost, "/vocabulary/selection/remove"},
-		{http.MethodPost, "/vocabulary/selection/clear"},
-		{http.MethodPost, "/vocabulary/decks"},
-		{http.MethodGet, "/vocabulary/decks/" + deckID},
-		{http.MethodPost, "/vocabulary/decks/" + deckID + "/rename"},
-		{http.MethodPost, "/vocabulary/decks/" + deckID + "/identities/add"},
-		{http.MethodPost, "/vocabulary/decks/" + deckID + "/identities/remove"},
-		{http.MethodPost, "/vocabulary/decks/" + deckID + "/preparations"},
-		{http.MethodGet, "/vocabulary/decks/" + deckID + "/delete-confirm"},
-		{http.MethodPost, "/vocabulary/decks/" + deckID + "/delete"},
-		{http.MethodGet, "/vocabulary/deck-preparations/" + preparationID},
-		{http.MethodGet, "/vocabulary/deck-preparations/" + preparationID + "/download"},
-		{http.MethodPost, "/vocabulary/deck-preparations/" + preparationID + "/cancel"},
+		{http.MethodGet, "/corpus/selection"},
+		{http.MethodGet, "/corpus/selection/clear-confirm"},
+		{http.MethodPost, "/corpus/selection/add"},
+		{http.MethodPost, "/corpus/selection/remove"},
+		{http.MethodPost, "/corpus/selection/clear"},
+		{http.MethodPost, "/corpus/decks"},
+		{http.MethodGet, "/corpus/decks/" + deckID},
+		{http.MethodPost, "/corpus/decks/" + deckID + "/rename"},
+		{http.MethodPost, "/corpus/decks/" + deckID + "/identities/add"},
+		{http.MethodPost, "/corpus/decks/" + deckID + "/identities/remove"},
+		{http.MethodPost, "/corpus/decks/" + deckID + "/preparations"},
+		{http.MethodGet, "/corpus/decks/" + deckID + "/delete-confirm"},
+		{http.MethodPost, "/corpus/decks/" + deckID + "/delete"},
+		{http.MethodGet, "/corpus/deck-preparations/" + preparationID},
+		{http.MethodGet, "/corpus/deck-preparations/" + preparationID + "/download"},
+		{http.MethodPost, "/corpus/deck-preparations/" + preparationID + "/cancel"},
 	}
 	for _, route := range paths {
 		t.Run(route.method+" "+route.path, func(t *testing.T) {
@@ -193,12 +193,12 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Contains(t, response.Body.String(), "Back to Reading")
 	assert.Contains(t, response.Body.String(), `data-study-state>Not yet introduced</td>`)
 	assert.Contains(t, response.Body.String(), "In this Book: 1; Across analyzed books: 2")
-	assert.Regexp(t, `href="/de/vocabulary/concordance\?as=lemma&amp;from_book=`+aliceBook.ID+`&amp;from_q=HA&amp;from_rev=[0-9a-f]+&amp;from_row=NOUN%3Ahaus`+`&amp;page=1&amp;term=haus&amp;upos=NOUN"`, response.Body.String(), "Browse hands the exact lemma and POS identity, plus its origin, to Concordance")
+	assert.Regexp(t, `href="/de/corpus/concordance\?as=lemma&amp;from_book=`+aliceBook.ID+`&amp;from_q=HA&amp;from_rev=[0-9a-f]+&amp;from_row=NOUN%3Ahaus`+`&amp;page=1&amp;term=haus&amp;upos=NOUN"`, response.Body.String(), "Browse hands the exact lemma and POS identity, plus its origin, to Concordance")
 	assert.NotContains(t, response.Body.String(), "Book count")
 	assert.NotContains(t, response.Body.String(), "Correction")
 	assert.NotContains(t, response.Body.String(), "Bob German")
 	assert.NotContains(t, response.Body.String(), "Alice German Other")
-	handoff := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?"+url.Values{
+	handoff := perform(t, h, http.MethodGet, "/de/corpus/concordance?"+url.Values{
 		"as": {"lemma"}, "term": {"haus"}, "upos": {"NOUN"},
 	}.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, handoff.Code)
@@ -477,7 +477,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	updating := perform(t, h, http.MethodGet, detail+"?page=1", nil, cookies)
 	require.Equal(t, http.StatusOK, updating.Code)
 	assert.Contains(t, updating.Body.String(), "Updating vocabulary counts")
-	assert.NotContains(t, updating.Body.String(), `href="/vocabulary/selection"`)
+	assert.NotContains(t, updating.Body.String(), `href="/corpus/selection"`)
 	assert.NotContains(t, updating.Body.String(), "No eligible vocabulary in this analysis")
 	riverClient, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
 	require.NoError(t, err)
@@ -498,7 +498,7 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 		assert.Contains(t, body, "Refresh status")
 		assert.Contains(t, body, "Back to Reading")
 	}
-	assert.NotContains(t, unavailable.Body.String(), `href="/vocabulary/selection"`)
+	assert.NotContains(t, unavailable.Body.String(), `href="/corpus/selection"`)
 }
 
 func TestVocabularyConcordanceTimesOutWithRetryInsteadOfReportingNoMatches(t *testing.T) {
@@ -522,12 +522,12 @@ func TestVocabularyConcordanceTimesOutWithRetryInsteadOfReportingNoMatches(t *te
 	_, err = lockTx.Exec(ctx, `LOCK TABLE corpus_tokens IN ACCESS EXCLUSIVE MODE`)
 	require.NoError(t, err)
 
-	response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?term=Haus", nil, cookies)
+	response := perform(t, h, http.MethodGet, "/de/corpus/concordance?term=Haus", nil, cookies)
 	require.Equal(t, http.StatusGatewayTimeout, response.Code)
 	assert.Contains(t, response.Body.String(), "Concordance server timed out")
 	assert.Contains(t, response.Body.String(), "Retry")
 	assert.NotContains(t, response.Body.String(), "No current analyzed occurrences match")
-	partialResponse := performWithHeader(t, h, http.MethodGet, "/de/vocabulary/concordance?term=Haus", nil, cookies, "HX-Request-Type", "partial")
+	partialResponse := performWithHeader(t, h, http.MethodGet, "/de/corpus/concordance?term=Haus", nil, cookies, "HX-Request-Type", "partial")
 	require.Equal(t, http.StatusGatewayTimeout, partialResponse.Code)
 	assert.Contains(t, partialResponse.Body.String(), `id="concordance-recovery"`)
 	assert.Contains(t, partialResponse.Body.String(), "Concordance server timed out")

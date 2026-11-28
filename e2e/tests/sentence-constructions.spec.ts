@@ -18,11 +18,11 @@ async function signIn(page: Page) {
 // a discontinuous genitive absolute (λέγει … ἄνδρας, καλούς) and a purpose
 // clause nested in the first, anchored on the identified target ὅτι.
 async function openSyntaxSentence(page: Page) {
-  await page.goto('/de/vocabulary/concordance?term=fixture-syntax');
+  await page.goto('/de/corpus/concordance?term=fixture-syntax');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await expect(row.locator('.concordance-location')).toHaveText('1.1.1\u20132');
   await row.getByRole('link', { name: 'Study this sentence' }).click();
-  await expect(page).toHaveURL(/\/vocabulary\/concordance\/sentence/);
+  await expect(page).toHaveURL(/\/corpus\/concordance\/sentence/);
   await expect(page.locator('.sentence-study-location')).toHaveText('1.1.1\u20132');
 }
 
@@ -170,7 +170,7 @@ test('Sentence study constructions wrap a long Greek sentence', async ({ page })
 
 test('Sentence study without native syntax shows no Constructions', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/vocabulary/concordance?term=Haus');
+  await page.goto('/de/corpus/concordance?term=Haus');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await row.locator('summary').click();
   await row.getByRole('link', { name: 'Study this sentence' }).click();

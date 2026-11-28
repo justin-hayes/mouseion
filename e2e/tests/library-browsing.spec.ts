@@ -144,7 +144,7 @@ test.describe('Reading collection browsing', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
     await expect(page.locator('#vocabulary-prefix')).toHaveClass(/\binput\b/);
     await expect(page.locator('#book-detail-analysis')).toHaveCount(1);
-    await page.goto('/de/vocabulary/concordance');
+    await page.goto('/de/corpus/concordance');
     const concordanceSelects = page.locator('#concordance-workflow select');
     await expect(concordanceSelects).toHaveCount(0);
   });

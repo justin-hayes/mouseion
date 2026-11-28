@@ -1,9 +1,9 @@
 # Information architecture
 
-> **Study cutover.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) merged the earlier Reading page into Reading (formerly My Books), moved Book-scoped vocabulary Browse to the Book detail page (`/books/{id}`), retired the Prepared deck and Known vocabulary, and made [Study](../features/study.md) the only vocabulary workflow. The shell's destinations are Reading, Study, Vocabulary and Catalog, with Study at `/{language}/study`. Where this document names a working desk, a prepared deck or Known vocabulary, read it as the retired design; the current contract is in the [Reading workflow](../features/reading-workflow.md).
+> **Study cutover.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) merged the earlier Reading page into Reading (formerly My Books), moved Book-scoped vocabulary Browse to the Book detail page (`/books/{id}`), retired the Prepared deck and Known vocabulary, and made [Study](../features/study.md) the only vocabulary workflow. The shell's destinations are Reading, Study, Corpus and Catalog, with Study at `/{language}/study`. Where this document names a working desk, a prepared deck or Known vocabulary, read it as the retired design; the current contract is in the [Reading workflow](../features/reading-workflow.md).
 
 Status: **Canonical shipped route and navigation contract, with an explicitly
-marked accepted Vocabulary target below.** The Reading
+marked accepted Corpus target below.** The Reading
 workflow is implemented without Journey ordering, sequential forecasts, or
 Primary Goal. ADR 0074 assigns deck work to the focused preparation task. ADR
 0072 remains historical context for retired snapshot/forecast behavior. This document follows
@@ -43,7 +43,7 @@ The product supports these top-level goals:
 **Accepted target (partially shipped):** on Reading, the current Book's
 vocabulary Browse lists effective identities in the active language's Current
 reading Book, ranked by occurrence count after excluding already accounted-for
-vocabulary by default. Concordance remains cross-Book in Vocabulary; saved
+vocabulary by default. Concordance remains cross-Book in Corpus; saved
 selections and Custom decks are retired. See the
 [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
 and [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md).
@@ -175,7 +175,7 @@ The authenticated shell exposes four principal destinations:
 - **Reading** — the current Book with its vocabulary Browse, or the To Read
   candidate chooser between Books. Older Reading Journey and Primary Goal terms
   are not used on active screens;
-- **Vocabulary** — Concordance; the accepted target removes saved selection
+- **Corpus** — Concordance; the accepted target removes saved selection
   and Custom deck UI beneath this destination.
 - **Catalog** — the built-in Classical catalog and every OPDS source's local
   Catalog index as ordinary card sections, and the sync status of each
@@ -269,7 +269,7 @@ Study (active study language)
         Review in Lemma review (opens the reported occurrence)
         Dismiss
 
-Vocabulary (partially shipped)
+Corpus (partially shipped)
     Concordance exact lookup and KWIC context (shipped landing slice)
     focused sentence study and grammar exploration (shipped)
 
@@ -280,9 +280,9 @@ Secondary history
 
 ### Current route compatibility
 
-The shipped application addresses Reading, Study, and Vocabulary under a
-language prefix (`/de/reading`, `/de/study`, `/de/vocabulary`). The unprefixed
-`/reading`, `/study`, and `/vocabulary` are compatibility redirects to the
+The shipped application addresses Reading, Study, and Corpus under a
+language prefix (`/de/reading`, `/de/study`, `/de/corpus`). The unprefixed
+`/reading`, `/study`, and `/corpus` are compatibility redirects to the
 prefixed form (the query's valid `?language=`, else the Last study language).
 `/` redirects to Reading. `/library` and `/{language}/library`, the former My Books
 address, redirect to Reading and keep the query. `/journey` is a safe-GET compatibility alias to
@@ -297,7 +297,7 @@ The application does not present a duplicate Book-detail, analysis-result, queue
 campaign, or plan surface.
 
 The authenticated shell therefore exposes exactly Reading, Study,
-Vocabulary, and Catalog in the top navigation. `/jobs` remains a supporting
+Corpus, and Catalog in the top navigation. `/jobs` remains a supporting
 surface reached from direct routes, not a navigation destination. Historical My Library, Learning,
 queue, and learner-facing Campaign labels are not active navigation concepts;
 compatibility aliases and operational terminology remain only where required by
@@ -316,7 +316,7 @@ surface:
 /catalogs
 /connections (compatibility redirect to `/catalogs`)
 /settings (compatibility redirect to `/reading`)
-/vocabulary (Concordance)
+/corpus (Concordance)
 ```
 
 Mutation, fragment, and JSON status endpoints support a parent screen; they are
@@ -423,7 +423,7 @@ primary action is **View in Reading**, which opens the canonical Book
 anchor directly or through the compatibility redirect. `GET /jobs` remains the
 operational history surface for current and prior runs.
 
-## Active study language, study languages, and Vocabulary ownership
+## Active study language, study languages, and Corpus ownership
 
 Study languages are derived from the distinct normalized language tags of the
 learner's active chosen-language Books. For a Book linked to a Catalog entry,
@@ -434,7 +434,7 @@ separate Settings selection to maintain.
 The **active study language** is the language named by the address of the page
 in view (ADR 0131), drawn from that derived set — context, not configuration:
 it chooses which study language the language-scoped surfaces (Reading browse
-and search, Reading, Vocabulary) present, and never defines which languages are
+and search, Reading, Corpus) present, and never defines which languages are
 studied. The **Last study language** is remembered only to resolve unprefixed
 addresses and navigation links; it is set when a per-language page renders (or
 a Book is opened from the Catalog), defaults deterministically (the sole study
@@ -445,7 +445,7 @@ screen, filter, and return state reset. A newly arrived study
 language appears passively in the picker (marked "new"); the Last study
 language changes only when a prefixed page renders.
 
-Vocabulary owns Concordance, scoped to the active language; known-vocabulary
+Corpus owns Concordance, scoped to the active language; known-vocabulary
 import is retired (ADR 0092). Browse
 lives on Reading for the current Book; it lists current, owner-specific effective
 vocabulary evidence and distinguishes analysis coverage from an empty or filtered
@@ -455,25 +455,25 @@ Known-vocabulary-only languages stay selectable in the switcher as read-only
 rows, books, analyses, decks, or artifact provenance. Reading and Book Prepared
 deck behavior remains independent of Browse.
 
-### Accepted Vocabulary target (partially shipped)
+### Accepted Corpus target (partially shipped)
 
 The [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
 and [ADR 0085](../adr/0085-reading-owned-book-vocabulary.md) define the
 accepted target. Keep exactly the existing four primary destinations;
-Vocabulary is **Concordance** at `/vocabulary`, with no peer-view navigation.
+The Corpus page, at `/corpus`, currently holds **Concordance** (`/corpus/concordance`; the retired `/vocabulary` addresses redirect), with no peer-view navigation.
 Browse is hosted on Reading
 (`/reading`) as the working desk for the active study language's Current reading
 Book. Browse covers effective
 vocabulary identities in that Book, not the Book catalog or only its
-prepared-deck candidates. Old Browse query state on `/vocabulary` is not
+prepared-deck candidates. Old Browse query state on `/corpus` is not
 reinterpreted as lookup. Browse identity links
 and exact surface/effective/analyzer lookup with paged KWIC context are shipped.
 Applied multi-Book and grammar filters plus focused, morphology-first sentence
 study are shipped. Saved Browse selection and Custom decks are shipped but are
 retired by the accepted Reading-centered target. Concordance exposes sentence
-context without altering analyzer evidence. Return paths among the Vocabulary
-views and from focused sentence study preserve context. Reading's only Vocabulary surface is the
-current Book's Browse; it adds no permanent Vocabulary navigation or new
+context without altering analyzer evidence. Return paths among the Corpus
+views and from focused sentence study preserve context. Reading's only Corpus surface is the
+current Book's Browse; it adds no permanent Corpus navigation or new
 study-state transition. Known import retains its existing
 contract rather than merging with Browse inventory or presenting a Known-only
 vocabulary list.
@@ -511,7 +511,7 @@ Books.
    vocabulary contract; the Reading chooser uses current coverage bands only,
    grouping a Work's To Read Books into one entry rather than ranking them.
 6. **Routes and terminology** are reconciled in the shipped shell and supporting
-    surfaces: Reading, Study, Vocabulary, and Catalog are the active
+    surfaces: Reading, Study, Corpus, and Catalog are the active
     navigation destinations; `/known-vocab`
    is retired and returns 404 without a redirect. Campaign routes
    are not learner-facing webapp routes.
@@ -533,16 +533,16 @@ Books.
      Per-Book evidence remains on Reading Book anchors in the shipped cover
       experience; the Reading grid does not duplicate it.
      No replacement aggregate is implied.
-10. **Derived study languages and Vocabulary** are resolved by
+10. **Derived study languages and Corpus** are resolved by
     [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md):
-    chosen-language Books define the language set, Vocabulary owns
+    chosen-language Books define the language set, Corpus owns
     Concordance (ADR 0092 retired known-vocabulary import), and Settings is
     removed from primary navigation.
-    Any future change to the derived-language source or Vocabulary's destination
+    Any future change to the derived-language source or Corpus's destination
     must return to this checkpoint.
 11. **The study language** is carried by the address, per
     [ADR 0131](../adr/0131-the-url-carries-the-study-language.md): Reading,
-    Reading, and Vocabulary live under `/{language}/…`, and the Last study
+    Study, and Corpus live under `/{language}/…`, and the Last study
     language only resolves unprefixed addresses and navigation links. There is
     no one-request language selector. The "All languages" pill and per-row
     language tags are removed; a shell-level native switcher navigates between languages;

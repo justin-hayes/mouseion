@@ -19,7 +19,7 @@ const (
 	shellStyleLogin
 	shellStyleMyBooks
 	shellStyleReading
-	shellStyleVocabulary
+	shellStyleCorpus
 	shellStyleCatalogs
 	shellStyleJobs
 )
@@ -37,7 +37,7 @@ func shellBodyClass(styles []shellStyle) string {
 		return "my-books-shell"
 	case shellStyleReading:
 		return "reading-shell"
-	case shellStyleVocabulary:
+	case shellStyleCorpus:
 		return "vocabulary-shell"
 	case shellStyleCatalogs:
 		return "catalogs-shell"
@@ -194,11 +194,11 @@ func (view catalogueSyncConnectionView) Tone() StatusTone {
 type NavigationContext string
 
 const (
-	NavigationNone       NavigationContext = ""
-	NavigationReading    NavigationContext = "reading"
-	NavigationStudy      NavigationContext = "study"
-	NavigationVocabulary NavigationContext = "vocabulary"
-	NavigationCatalogs   NavigationContext = "catalogs"
+	NavigationNone     NavigationContext = ""
+	NavigationReading  NavigationContext = "reading"
+	NavigationStudy    NavigationContext = "study"
+	NavigationCorpus   NavigationContext = "corpus"
+	NavigationCatalogs NavigationContext = "catalogs"
 )
 
 func navigationContextForTitle(title string) NavigationContext {
@@ -207,8 +207,8 @@ func navigationContextForTitle(title string) NavigationContext {
 		return NavigationReading
 	case "Study":
 		return NavigationStudy
-	case "Vocabulary":
-		return NavigationVocabulary
+	case "Corpus":
+		return NavigationCorpus
 	case "Catalog", "Catalogs":
 		return NavigationCatalogs
 	default:

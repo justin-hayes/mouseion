@@ -103,7 +103,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 
 	// Concordance shows one group, one count and a Citation on every occurrence.
 	query := url.Values{"term": {"λόγος"}, "as": {domain.ConcordanceMatchLemma}}
-	concordance := perform(t, h.handler, http.MethodGet, "/grc/vocabulary/concordance?"+query.Encode(), nil, cookies)
+	concordance := perform(t, h.handler, http.MethodGet, "/grc/corpus/concordance?"+query.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, concordance.Code, concordance.Body.String())
 	body := concordance.Body.String()
 	occurrences := countRows(t, h.pool, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND canonical_lemma=$2`,

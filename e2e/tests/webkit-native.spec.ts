@@ -40,7 +40,7 @@ async function expectMainWithinViewport(page: Page) {
 }
 
 async function lookupConcordance(page: Page) {
-  await page.goto('/de/vocabulary/concordance');
+  await page.goto('/de/corpus/concordance');
   await page.getByLabel('Lemma or word form').fill('Haus');
   await page.getByRole('button', { name: 'Find', exact: true }).click();
 }
@@ -158,7 +158,7 @@ test.describe('native WebKit smoke journey', () => {
 
     const destinations = [
       { name: 'Reading', href: '/de/reading', active: '/reading' },
-      { name: 'Vocabulary', href: '/de/vocabulary', active: '/vocabulary' },
+      { name: 'Corpus', href: '/de/corpus', active: '/corpus' },
       { name: 'Catalog', href: '/catalogs', active: '/catalogs' },
     ];
     for (const destination of destinations) {
@@ -306,7 +306,7 @@ test.describe('native WebKit smoke journey', () => {
     const measurements = [] as Array<{ destination: string; labelDirection: string; selectFont: string; selectHeight: number; selectRadius: string; currentBackground: string; currentMarker: string }>;
     for (const destination of [
       { name: 'Reading', path: '/de/reading' },
-      { name: 'Vocabulary', path: '/de/vocabulary' },
+      { name: 'Corpus', path: '/de/corpus' },
       { name: 'Catalog', path: '/catalogs' },
     ]) {
       await page.goto(destination.path);
@@ -442,7 +442,7 @@ test.describe('native WebKit smoke journey', () => {
     await expect(page.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
     await expect(page.getByText('Identified target: Haus', { exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'Return to Concordance results' }).click();
-    await expect(page).toHaveURL(/\/vocabulary\/concordance\?.*term=Haus.*#occurrence-fixture-book-2-1$/);
+    await expect(page).toHaveURL(/\/corpus\/concordance\?.*term=Haus.*#occurrence-fixture-book-2-1$/);
     await expect(page.locator('.concordance-results-summary')).toContainText('Results 1–25 on page 1; more results are available');
     await expect(page.locator('#occurrence-fixture-book-2-1')).toBeFocused();
   });
@@ -486,7 +486,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(page.locator('.sentence-study-text')).toContainText('Das Haus sieht gut aus.');
       await expect(page.getByText('Identified target: Haus', { exact: true })).toBeVisible();
       await page.getByRole('link', { name: 'Return to Concordance results' }).click();
-      await expect(page).toHaveURL(/\/vocabulary\/concordance\?.*term=Haus.*#occurrence-fixture-book-2-1$/);
+      await expect(page).toHaveURL(/\/corpus\/concordance\?.*term=Haus.*#occurrence-fixture-book-2-1$/);
       await expect(page.locator('.concordance-results-summary')).toContainText('Results 1–25 on page 1; more results are available');
       await expect(page.locator('#occurrence-fixture-book-2-1')).toBeFocused();
     } finally {
@@ -506,10 +506,10 @@ test.describe('native WebKit smoke journey', () => {
       await signIn(page);
       await expect(page).toHaveURL(/\/reading$/);
       await expect(page.locator('nav.site-header__nav')).toBeVisible();
-      const vocabularyLink = page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Vocabulary', exact: true });
-      await expect(vocabularyLink).toHaveAttribute('href', '/de/vocabulary');
+      const vocabularyLink = page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Corpus', exact: true });
+      await expect(vocabularyLink).toHaveAttribute('href', '/de/corpus');
       await vocabularyLink.click();
-      await expect(page).toHaveURL(/\/vocabulary$/);
+      await expect(page).toHaveURL(/\/corpus$/);
       await page.goto('/de/reading');
       await chooseStudyLanguage(page, 'it', true);
       await expect(page).toHaveURL(/\/it\/reading$/);

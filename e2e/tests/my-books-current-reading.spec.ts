@@ -49,7 +49,7 @@ test.describe('Reading pins the Current reading', () => {
   test('Reading is the first shell destination and the retired Switch address returns to Reading in the same language', async ({ page }) => {
     await signIn(page);
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
-    await expect(navigation.locator('.site-header__navigation a')).toHaveText(['Reading', 'Study', 'Vocabulary', 'Catalog']);
+    await expect(navigation.locator('.site-header__navigation a')).toHaveText(['Reading', 'Study', 'Corpus', 'Catalog']);
 
     for (const [path, expected] of [
       ['/de/reading', /\/de\/reading$/],
@@ -57,8 +57,8 @@ test.describe('Reading pins the Current reading', () => {
       ['/it/reading', /\/it\/reading$/],
       ['/it/reading/switch', /\/it\/reading$/],
       ['/de/reading?message=Saved', /\/de\/reading\?message=Saved$/],
-      ['/de/library', /\/de\/reading$/],
-      ['/it/library?message=Saved', /\/it\/reading\?message=Saved$/],
+      ['/de/reading', /\/de\/reading$/],
+      ['/it/reading?message=Saved', /\/it\/reading\?message=Saved$/],
     ] as const) {
       await page.goto(path);
       await expect(page, path).toHaveURL(expected);

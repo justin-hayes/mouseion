@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/de/reading', '/books/fixture-book', '/catalogs', '/de/vocabulary', '/de/vocabulary/concordance', '/jobs']) {
+    for (const path of ['/de/reading', '/books/fixture-book', '/catalogs', '/de/corpus', '/de/corpus/concordance', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -84,8 +84,8 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_book_id"]')).toHaveCount(0);
     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(0);
 
-    await page.goto('/de/vocabulary');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await page.goto('/de/corpus');
+    await expect(page.getByRole('heading', { name: 'Corpus', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Vocabulary views' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
     await expect(page.locator('.table-region')).toHaveCount(0);
