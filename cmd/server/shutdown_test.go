@@ -40,8 +40,8 @@ func probe(url string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-	return resp.StatusCode, nil
+	status := resp.StatusCode
+	return status, resp.Body.Close()
 }
 
 func startTestServer(t *testing.T, ctx context.Context, workers workerStopper) (url string, done <-chan error) {
