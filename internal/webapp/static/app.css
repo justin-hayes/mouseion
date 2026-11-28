@@ -637,6 +637,7 @@
     --mouseion-line-height-reading: 1.65;
     --mouseion-font-size-metadata: 0.875rem;
     --mouseion-font-size-stat: 1.25rem;
+    --mouseion-font-size-hero-stat: 2.5rem;
     --mouseion-font-size-page-title: 1.5625rem;
     --mouseion-font-size-section-title: 1.25rem;
     --mouseion-font-size-reading: 1.0625rem;
@@ -2934,14 +2935,6 @@
   .journey-book--provisional .journey-book__margin p {
     margin: 0 0 var(--mouseion-space-2);
   }
-  .journey-book__coverage {
-    margin: 0;
-    color: var(--mouseion-color-text);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--mouseion-font-size-stat);
-    font-weight: 600;
-    line-height: 1.2;
-  }
   .journey-book--provisional .journey-book__margin p:last-child {
     margin-bottom: 0;
   }
@@ -3468,8 +3461,56 @@
   .current-hero__coverage {
     margin-top: var(--mouseion-space-5);
   }
-  .current-hero__coverage:empty {
-    display: none;
+  .current-hero__figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mouseion-space-2) var(--mouseion-space-6);
+    margin-bottom: var(--mouseion-space-3);
+  }
+  .current-hero__stat {
+    display: grid;
+    margin: 0;
+  }
+  .current-hero__figure {
+    color: var(--mouseion-color-success);
+    font-family: var(--mouseion-font-reading);
+    font-size: var(--mouseion-font-size-hero-stat);
+    font-weight: 500;
+    line-height: 1;
+  }
+  .current-hero__figure--study {
+    color: var(--mouseion-color-accent);
+  }
+  .current-hero__figure--word {
+    color: var(--mouseion-color-text-muted);
+    font-size: calc(var(--mouseion-font-size-hero-stat) * 0.7);
+    font-style: italic;
+  }
+  .current-hero__caption {
+    margin-top: var(--mouseion-space-1);
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+  }
+  .current-hero__detail {
+    margin: var(--mouseion-space-2) 0 0;
+    color: var(--mouseion-color-text-muted);
+    font-size: var(--mouseion-font-size-metadata);
+  }
+  .coverage-bar {
+    display: flex;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--mouseion-color-surface-quiet);
+  }
+  .coverage-bar__mature {
+    background: var(--mouseion-color-success);
+  }
+  .coverage-bar__study {
+    background: var(--mouseion-color-accent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background: color-mix(in srgb, var(--mouseion-color-accent) 55%, transparent);
+    }
   }
   .current-hero__actions {
     display: flex;
@@ -3508,6 +3549,16 @@
     }
     .current-hero__coverage {
       margin-top: var(--mouseion-space-3);
+    }
+    body:is(.reading-shell, .reading-list-shell) .current-hero {
+      --mouseion-font-size-hero-stat: 1.75rem;
+    }
+    .current-hero__figures {
+      column-gap: var(--mouseion-space-6);
+      margin-bottom: var(--mouseion-space-2);
+    }
+    .current-hero__detail {
+      margin-top: var(--mouseion-space-1);
     }
     .current-hero .title-plate__title {
       font-size: 0.8125rem;

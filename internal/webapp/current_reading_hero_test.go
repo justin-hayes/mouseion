@@ -173,3 +173,47 @@ func TestCurrentReadingHeroStatusLineForClassicalPreparation(t *testing.T) {
 	assert.Contains(t, failed, "data-needs-action")
 	assert.Contains(t, failed, "<strong>"+classicalAssessmentUnavailable+".</strong>")
 }
+
+func TestCurrentReadingHeroShowsReadyCoverageAsFiguresAndABar(t *testing.T) {
+	html := renderHero(t, heroTestBook())
+	requireInOrder(t, html,
+		`<span class="current-hero__figure numeric" data-current-reading-mature>92.5%</span>`,
+		`Mature</span>`,
+		`data-current-reading-in-study>95.0%</span>`,
+		`With words in study</span>`,
+		`role="img" aria-label="Mature 92.5%; with words in study 95.0%"`,
+		`style="width:92.500%;"`,
+		`style="width:2.500%;"`,
+		`925 of 1,000 word occurrences are Mature.`,
+		`About 12 more words to reach Target coverage (98%).`,
+		`current-hero__actions`,
+	)
+	assert.Contains(t, html, `<span class="coverage-bar__mature" aria-hidden="true"`)
+	assert.NotContains(t, html, "Coverage returns when the counts are ready.")
+	assert.NotContains(t, html, "Mature coverage:")
+}
+
+func TestCurrentReadingHeroShowsUpdatingAndUnavailableCoverageAsWords(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		edit func(*readingBookView)
+		word string
+	}{
+		{"updating", func(item *readingBookView) { item.Coverage = nil; item.CountsUpdating = true }, "Updating"},
+		{"unavailable", func(item *readingBookView) { item.Coverage = nil }, "Unavailable"},
+		{"statistics unavailable", func(item *readingBookView) { item.StatisticsUnavailable = true }, "Unavailable"},
+		{"no analyzable words", func(item *readingBookView) { item.Coverage = &domain.AnalysisCoverage{} }, "Unavailable"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			item := heroTestBook()
+			test.edit(&item)
+			html := renderHero(t, item)
+			assert.Equal(t, 2, strings.Count(html, ">"+test.word+"</span>"), "both figures read %q", test.word)
+			assert.Contains(t, html, "Coverage returns when the counts are ready.")
+			assert.NotContains(t, html, "0.0%")
+			assert.NotContains(t, html, "coverage-bar")
+			assert.NotContains(t, html, "word occurrences are Mature")
+			assert.NotContains(t, html, "data-needs-action", "words in place of figures are not a status line")
+		})
+	}
+}

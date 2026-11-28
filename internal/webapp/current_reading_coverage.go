@@ -51,3 +51,50 @@ func readingCoverageToTargetText(coverage domain.AnalysisCoverage) string {
 func readingCoverageCount(count int64) string {
 	return message.NewPrinter(language.English).Sprintf("%d", count)
 }
+
+// currentReadingCoverageView is the hero's coverage: two figures and a bar when
+// the counts are ready, otherwise a word that says why they are not.
+type currentReadingCoverageView struct {
+	Ready       bool
+	Word        string
+	MatureText  string
+	InStudyText string
+	MaturePct   float64
+	// ExtraPct is the in-study share beyond Mature: "with words in study"
+	// includes Mature words, so the bar stacks only the difference.
+	ExtraPct    float64
+	BarLabel    string
+	Occurrences string
+	Target      string
+}
+
+// currentReadingCoverageFor never reports zero for coverage it does not have:
+// updating counts read "Updating"; missing or empty statistics read "Unavailable".
+func currentReadingCoverageFor(item readingBookView) currentReadingCoverageView {
+	coverage := item.Coverage
+	if coverage == nil || item.StatisticsUnavailable || coverage.AnalyzableTokenCount <= 0 {
+		if item.CountsUpdating {
+			return currentReadingCoverageView{Word: "Updating"}
+		}
+		return currentReadingCoverageView{Word: "Unavailable"}
+	}
+	share := func(tokens int64) float64 {
+		return min(float64(tokens)*100/float64(coverage.AnalyzableTokenCount), 100)
+	}
+	mature, inStudy := share(coverage.MatureTokenCount), share(coverage.InStudyTokenCount)
+	view := currentReadingCoverageView{
+		Ready:       true,
+		MatureText:  readingCoverageMatureDisplay(*coverage),
+		InStudyText: readingCoverageInStudyDisplay(*coverage),
+		MaturePct:   mature,
+		ExtraPct:    max(inStudy-mature, 0),
+		Occurrences: fmt.Sprintf("%s of %s word occurrences are Mature.", readingCoverageCount(coverage.MatureTokenCount), readingCoverageCount(coverage.AnalyzableTokenCount)),
+		Target:      readingCoverageToTargetText(*coverage),
+	}
+	view.BarLabel = fmt.Sprintf("Mature %s; with words in study %s", view.MatureText, view.InStudyText)
+	return view
+}
+
+func coverageBarWidth(percent float64) string {
+	return fmt.Sprintf("width:%.3f%%", percent)
+}

@@ -320,7 +320,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.locator('ul.library-books').first()).toBeVisible();
     await expect(page.locator('ol.library-books')).toHaveCount(0);
-    await expect(page.locator('#primary-goal-section .journey-book__coverage').first()).toContainText('Mature coverage:');
+    await expect(page.locator('#primary-goal-section [data-current-reading-mature]').first()).toHaveText('37.0%');
     await expectNoPageOverflow(page);
     const chooserSummaries = await page.locator('.library-book details > summary:visible').evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();

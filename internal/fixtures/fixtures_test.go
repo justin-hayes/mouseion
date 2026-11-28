@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -809,4 +810,14 @@ func TestStartCurrentReadingAcceptsAProjectedClassicalBook(t *testing.T) {
 	replay, err := store.StartCurrentReadingResult(ctx, OwnerID, "grc", bookID)
 	require.NoError(t, err)
 	assert.True(t, replay.Replayed)
+}
+
+func TestInsightsCoverageHasDegradedStatesForTwoBooks(t *testing.T) {
+	_, err := Insights{}.Coverage(t.Context(), OwnerID, CountsUpdatingCorpusID)
+	require.ErrorIs(t, err, analysisinsights.ErrCountsUpdating)
+	_, err = Insights{}.Coverage(t.Context(), OwnerID, StatisticsUnavailableCorpusID)
+	require.ErrorIs(t, err, analysisinsights.ErrStatisticsUnavailable)
+	coverage, err := Insights{}.Coverage(t.Context(), OwnerID, "fixture-corpus")
+	require.NoError(t, err)
+	assert.Equal(t, int64(123456), coverage.AnalyzableTokenCount)
 }
