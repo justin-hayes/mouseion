@@ -3,6 +3,8 @@
 Status: **Accepted; implementation pending** · Date: 2026-11-26 ·
 Author: Justin + OpenCode
 
+§4 amended by [ADR 0141](0141-boosts-order-new-words-the-current-reading-is-a-focus.md): the Current reading's Idioms no longer come first; a Boost orders them.
+
 Accepted by merging this ADR's pull request. Decided in
 [#2729](https://github.com/justin-hayes/mouseion/issues/2729) in a grilling
 session. It satisfies the Idiom prerequisite of the Study cutover in

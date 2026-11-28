@@ -4,6 +4,8 @@ Status: **Accepted** · Date: 2026-09-26 · Author: Justin + OpenCode
 
 Amended by [ADR 0086](0086-reading-working-desk-hidden-visibility-and-concordance.md) §9: the three-value disposition, Set Aside, bucket precedence, stop/set-aside wording, and cutover/route clauses are superseded; its retained clauses stand. Code is complete in the repository; the single production Set Aside row was mapped to Inbox by hand before migration 000033 was re-run.
 
+Amended by [ADR 0141](0141-boosts-order-new-words-the-current-reading-is-a-focus.md): the Current reading no longer affects Study; Boosts order new words.
+
 Records the shipped Reading workflow specified by
 [issue #1187](https://github.com/justin-hayes/mouseion/issues/1187). The issue
 and repository history contain no separately accepted ADR 0078 predating this
