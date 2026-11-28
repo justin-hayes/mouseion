@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -16,57 +15,6 @@ import (
 // vocabularyCountsUpdatingDescription explains why a Book shows no coverage
 // while its effective vocabulary counts are rebuilt.
 const vocabularyCountsUpdatingDescription = "This Book's vocabulary counts are being refreshed. Coverage appears when they are ready."
-
-func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	if !readingDeskRequest(query) {
-		redirectMyBooksFeedback(w, r, query)
-		return
-	}
-	owner := user(r)
-	language, languageLabel := activeStudyLanguageForContext(r.Context())
-	currentReading, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner.ID, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	// Browse state with no Current reading and no Book named has nothing to
-	// restore: between Books there is no Browse, so the learner is sent to My Books.
-	if reading := strings.TrimSpace(query.Get("reading")); reading == "" && !currentReading.IsActive() {
-		redirectMyBooksFeedback(w, r, query)
-		return
-	}
-	// Back to book vocabulary names the Book it left. Only that Book may restore
-	// controls; anything else is explained before any other reading context
-	// opens, and nothing is transferred to it.
-	if reading := strings.TrimSpace(query.Get("reading")); !currentReading.IsActive() || (reading != "" && reading != currentReading.BookID) {
-		h.renderReadingBrowseOriginExpired(w, r, owner, language, currentReading.IsActive())
-		return
-	}
-	readingView, err := h.buildReadingView(r.Context(), owner.ID, language)
-	if err != nil {
-		fail(w, err)
-		return
-	}
-	readingView.Language = language
-	readingView.LanguageLabel = languageLabel
-	status := http.StatusOK
-	if readingView.CurrentReading != nil {
-		readingView.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, currentReading.BookID)
-	}
-	renderStatus(w, r, status, ReadingPage(owner, h.csrf(w, r), readingView, query.Get("message"), query.Get("error")))
-}
-
-// readingDeskQueryKeys are the vocabulary Browse state a working-desk address
-// carries: the Book it belongs to, its prefix, accounting reveal, evidence
-// revision, row and page.
-var readingDeskQueryKeys = []string{"reading", "q", "all", "rev", "row", "page"}
-
-// readingDeskRequest reports whether the query names vocabulary Browse state,
-// as opposed to a bare Reading address that now belongs to My Books.
-func readingDeskRequest(query url.Values) bool {
-	return slices.ContainsFunc(readingDeskQueryKeys, query.Has)
-}
 
 // redirectMyBooksFeedback sends a retired Reading address to My Books in the
 // request's study language, keeping the message or error it carried.
@@ -82,25 +30,6 @@ func redirectMyBooksFeedback(w http.ResponseWriter, r *http.Request, query url.V
 		location += "?" + encoded
 	}
 	redirect(w, r, location)
-}
-
-// renderReadingBrowseOriginExpired explains a Back to book vocabulary request
-// whose commitment ended or was restarted. The My Books recovery is offered
-// only for a Book the owner has in the active study language.
-func (h *Handler) renderReadingBrowseOriginExpired(w http.ResponseWriter, r *http.Request, owner domain.User, language string, hasCurrent bool) {
-	myBooksURL := ""
-	if bookID := strings.TrimSpace(r.URL.Query().Get("reading")); bookID != "" {
-		detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner.ID, bookID)
-		switch {
-		case errors.Is(err, domain.ErrNotFound):
-		case err != nil:
-			fail(w, err)
-			return
-		case detail.Book.LanguageTag == language:
-			myBooksURL = myBookSearchURL(detail)
-		}
-	}
-	renderStatus(w, r, http.StatusConflict, ReadingBrowseOriginExpiredPage(owner, h.csrf(w, r), hasCurrent, myBooksURL))
 }
 
 // switchReadingPage retires the Switch page: Read next on My Books replaces

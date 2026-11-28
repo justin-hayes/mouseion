@@ -246,17 +246,15 @@ func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"))
 
-	// The working desk survives as a seam for the Book detail page: only an
-	// address that names a Book to browse still reaches it.
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, readingDeskURL("de", fixtures.BookID), nil)
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
+	// The working desk is gone: an address that names a Book moves to that Book's
+	// detail page, which serves the word list.
+	moved := performReadingRequest(t, h, http.MethodGet, "/de/reading?reading="+fixtures.BookID, nil, cookies)
+	require.Equal(t, http.StatusSeeOther, moved.Code)
+	require.Equal(t, bookDetailURL(fixtures.BookID), moved.Header().Get("Location"))
+	response := performReadingRequest(t, h, http.MethodGet, moved.Header().Get("Location"), nil, cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
-	assert.Contains(t, body, `id="vocabulary-workflow"`, "the current Book's Browse belongs to Reading")
+	assert.Contains(t, body, `id="vocabulary-workflow"`, "the Book's words belong to its detail page")
 	for _, retired := range []string{"Other To Read", "No other To Read books", "provisional-journey"} {
 		assert.NotContains(t, body, retired)
 	}

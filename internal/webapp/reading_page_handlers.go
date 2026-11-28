@@ -51,12 +51,6 @@ func readingBookURL(language, bookID string) string {
 	return studyLanguagePath(pageKindMyBooks, language) + "#" + url.PathEscape(myBookRowID(bookID))
 }
 
-// readingDeskURL is the working-desk seam for #2743: the Book-scoped vocabulary
-// Browse, which only the Current reading has.
-func readingDeskURL(language, bookID string) string {
-	return studyLanguagePath(pageKindReading, language) + "?reading=" + url.QueryEscape(bookID)
-}
-
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
 	if strings.TrimSpace(book.BookTitle) != "" {
 		return book.BookTitle
@@ -223,7 +217,6 @@ type readingPageView struct {
 	Language       string
 	LanguageLabel  string
 	CurrentReading *readingBookView
-	Browse         readingBrowseView
 }
 
 func (h *Handler) annotateMyBooksWithDisposition(ctx context.Context, owner string, books []domain.MyBook) error {

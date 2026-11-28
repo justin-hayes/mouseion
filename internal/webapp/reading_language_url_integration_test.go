@@ -85,7 +85,7 @@ func TestReadingActionsReturnToTheBooksLanguage(t *testing.T) {
 	assert.Contains(t, reanalyze.Header().Get("Location"), "/de/library?")
 }
 
-func TestReadingRefusesAStaleBrowseOriginInAnotherLanguage(t *testing.T) {
+func TestReadingAddressNamingABookMovesToItsDetailPageInEveryLanguage(t *testing.T) {
 	h, cookies, csrf, store, owner, book := languageContextHandler(t)
 	ctx := context.Background()
 	start := readingTestRequest(t, h, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
@@ -94,11 +94,11 @@ func TestReadingRefusesAStaleBrowseOriginInAnotherLanguage(t *testing.T) {
 	require.NoError(t, err)
 
 	origin := "?reading=" + book.ID
-	ok := getAs(t, h, "/de/reading"+origin, cookies)
-	require.Equal(t, http.StatusOK, ok.Code)
-
-	// The same origin under another language's URL restores nothing.
-	other := getAs(t, h, "/it/reading"+origin, cookies)
-	assert.Equal(t, http.StatusConflict, other.Code)
-	assert.NotContains(t, other.Body.String(), "Language context")
+	for _, address := range []string{"/de/reading" + origin, "/it/reading" + origin} {
+		moved := getAs(t, h, address, cookies)
+		require.Equal(t, http.StatusSeeOther, moved.Code, address)
+		assert.Equal(t, bookDetailURL(book.ID), moved.Header().Get("Location"), address)
+	}
+	detail := getAs(t, h, bookDetailURL(book.ID), cookies)
+	assert.Equal(t, http.StatusOK, detail.Code)
 }

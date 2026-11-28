@@ -3877,9 +3877,9 @@ func concordanceOriginReturn(origin browseOrigin, language string) templ.Compone
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var171 templ.SafeURL
-			templ_7745c5c3_Var171, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.ReturnURL(language)))
+			templ_7745c5c3_Var171, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(origin.ReturnURL()))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 930, Col: 114}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/concordance.templ`, Line: 930, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var171))
 			if templ_7745c5c3_Err != nil {

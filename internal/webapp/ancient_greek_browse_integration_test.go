@@ -69,7 +69,7 @@ func TestAncientGreekBrowseListsBook1Vocabulary(t *testing.T) {
 	// stored key, two δέω rows, and exactly one bare-lemma note.
 	page.CurrentBookID = registration.BookID
 	page.ReadingBookID = registration.BookID
-	html := renderReadingBrowse(t, "grc", page, "")
+	html := renderBookWords(t, "grc", page, "")
 	assert.Contains(t, html, ">λόγος</a>", "the noun shows its citation headword")
 	assert.NotContains(t, html, ">λογοσ</a>", "the stored canonical key is never shown")
 	assert.Equal(t, 2, strings.Count(html, ">δέω</a>"), "both homographs are separate rows")

@@ -4,23 +4,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-templ ReadingPage(user domain.User, csrf string, readingView readingPageView, message string, pageError string) {
-	@ShellLayout("Book vocabulary", &user, csrf, NavigationLibrary, shellStyleReading) {
-		<h1 class="sr-only">Book vocabulary</h1>
-		if message != "" {
-			@Feedback(FeedbackSuccess, "", message)
-		}
-		if pageError != "" {
-			@Feedback(FeedbackError, "Action needed", pageError)
-		}
-		@CurrentReadingSection(readingView.CurrentReading, csrf, "", "", "")
-		if readingView.CurrentReading != nil {
-			<p class="reading-add-books"><a href={ templ.SafeURL(myBooksPagePath(ctx)) }>Back to My Books</a></p>
-			@ReadingBrowse(readingView.Browse)
-		}
-	}
-}
-
 templ CurrentReadingFinishPage(user domain.User, csrf string, outcome currentReadingFinishView) {
 	@ShellLayout("Reading finished", &user, csrf, NavigationLibrary, shellStyleReading) {
 		@CurrentReadingFinish(outcome)
@@ -61,7 +44,7 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 				}
 				<h2 class="journey-book__title">
 					if readingEntryAvailable(item) {
-						<a href={ templ.SafeURL(readingDeskURL(item.Book.Source.Language, readingBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+						<a href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 					} else {
 						{ canonicalBookTitle(item.Book) }
 					}

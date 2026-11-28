@@ -927,7 +927,7 @@ templ VocabularyConcordanceChangedRecovery(lookup domain.ConcordanceLookup, orig
 // lookup came from. Reading decides whether that excursion is still valid.
 templ concordanceOriginReturn(origin browseOrigin, language string) {
 	if origin.Active() {
-		<p class="concordance-origin"><a id="concordance-origin-return" href={ templ.SafeURL(origin.ReturnURL(language)) }>Back to book vocabulary</a></p>
+		<p class="concordance-origin"><a id="concordance-origin-return" href={ templ.SafeURL(origin.ReturnURL()) }>Back to book vocabulary</a></p>
 	}
 }
 

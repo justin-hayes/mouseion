@@ -35,7 +35,7 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	} {
 		assert.Contains(t, html, want, "browse markup missing %q: %s", want, html)
 	}
-	assert.NotContains(t, html, `href="/books/de-book"`, "My Books browse linked to the retired Book detail page: %s", html)
+	assert.Contains(t, html, `href="/books/de-book"`, "My Books browse missing the Book detail link: %s", html)
 	for _, forbidden := range []string{"All languages", "Unknown language", `aria-label="Languages"`, `name="language"`, `language: de`, "language not chosen", `href="/books/unknown-book"`} {
 		assert.NotContains(t, html, forbidden, "legacy language browse markup remains %q: %s", forbidden, html)
 	}

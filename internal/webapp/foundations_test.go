@@ -67,13 +67,13 @@ func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	var myBooks, reading bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", MyBooksBrowseState{}).Render(context.Background(), &myBooks))
-	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "").Render(context.Background(), &reading))
+	require.NoError(t, readingPageForTest(domain.User{Username: "learner"}, "csrf", readingPageView{}).Render(context.Background(), &reading))
 
 	assert.Contains(t, myBooks.String(), `href="/static/app.css"`)
 	assert.Contains(t, myBooks.String(), `class="site-nav__link site-nav__link--current"`)
 	assert.NotContains(t, myBooks.String(), `site-nav__link site-nav__link--current btn-primary`)
 	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
-	assert.Contains(t, reading.String(), `class="reading-shell"`)
+	assert.Contains(t, reading.String(), `class="my-books-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
 
@@ -81,7 +81,7 @@ func TestOperationalAndTaskPagesLoadCompiledStylesOnTheirHostPages(t *testing.T)
 	var catalogs, jobs, reading bytes.Buffer
 	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, catalogBrowseView{}).Render(context.Background(), &catalogs))
 	require.NoError(t, JobsPage(domain.User{Username: "learner"}, "csrf", nil, nil, "", "").Render(context.Background(), &jobs))
-	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "").Render(context.Background(), &reading))
+	require.NoError(t, readingPageForTest(domain.User{Username: "learner"}, "csrf", readingPageView{}).Render(context.Background(), &reading))
 
 	for _, html := range []string{catalogs.String(), jobs.String(), reading.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
@@ -94,7 +94,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 		name      string
 		component templ.Component
 	}{
-		{name: "current reading", component: ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "")},
+		{name: "current reading", component: readingPageForTest(domain.User{Username: "learner"}, "csrf", readingPageView{})},
 		{name: "completion receipt", component: CurrentReadingFinishPage(domain.User{Username: "learner"}, "csrf", currentReadingFinishView{BookTitle: "A finished Book"})},
 	}
 	for _, page := range pages {
@@ -104,17 +104,16 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 			html := output.String()
 			assert.Contains(t, html, `href="/static/app.css"`)
 			assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
-			assert.Contains(t, html, `class="reading-shell"`)
+			assert.Regexp(t, `class="(my-books|reading)-shell"`, html)
 			assert.NotContains(t, html, `href="/static/vendor/pico-`)
 		})
 	}
 
 	var current bytes.Buffer
 	currentReading := testReadingBook("book-1", "Current book", testNoContent)
-	require.NoError(t, ReadingPage(domain.User{}, "csrf", readingPageView{CurrentReading: &currentReading}, "", "").Render(context.Background(), &current))
+	require.NoError(t, readingPageForTest(domain.User{}, "csrf", readingPageView{CurrentReading: &currentReading}).Render(context.Background(), &current))
 	assert.Contains(t, current.String(), `<button class="button" type="submit">Mark reading finished</button>`)
 	assert.NotContains(t, current.String(), "/reading/switch", "Read next replaces Switch")
-	assert.NotContains(t, current.String(), `role="button"`)
 
 	var fragment bytes.Buffer
 	require.NoError(t, CurrentReadingFinish(currentReadingFinishView{BookTitle: "A finished Book"}).Render(context.Background(), &fragment))
@@ -122,31 +121,34 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 	assert.NotContains(t, fragment.String(), `<html`)
 }
 
-func renderReadingBrowse(t *testing.T, language string, page domain.VocabularyBrowsePage, prefix string) string {
+func renderBookWords(t *testing.T, language string, page domain.VocabularyBrowsePage, prefix string) string {
 	t.Helper()
 	var output bytes.Buffer
-	view := readingBrowseView{Language: language, Prefix: prefix, Page: page, Query: domain.VocabularyBrowseQuery{Language: language, CurrentBookID: page.CurrentBookID, ReadingBookID: page.CurrentBookID, Prefix: prefix, Page: page.Page}}
-	require.NoError(t, ReadingBrowse(view).Render(context.Background(), &output))
+	view := bookWordsView{BookID: page.CurrentBookID, Language: language, Prefix: prefix, Page: page, Query: domain.VocabularyBrowseQuery{Language: language, CurrentBookID: page.CurrentBookID, ReadingBookID: page.CurrentBookID, Prefix: prefix, Page: page.Page}}
+	for _, row := range page.Rows {
+		view.Rows = append(view.Rows, bookWordRow{VocabularyBrowseRow: row, State: bookWordNotIntroduced})
+	}
+	require.NoError(t, BookWords(view).Render(context.Background(), &output))
 	return output.String()
 }
 
-// loadBrowseForTest drives the Reading Browse loader with a Reading URL and
-// renders the result the way the Reading page does.
-func loadBrowseForTest(t *testing.T, services Services, target, bookID string) (readingBrowseView, int, string) {
+// loadBrowseForTest drives the Book word-list loader with a Book detail URL and
+// renders the result the way the Book detail page does.
+func loadBrowseForTest(t *testing.T, services Services, target, bookID string) (bookWordsView, int, string) {
 	t.Helper()
 	h := &Handler{services: services}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
-	view, status := h.loadReadingBrowse(request.Context(), request, "owner-1", "de", bookID)
+	view, status := h.loadBookWords(request.Context(), request, "owner-1", "de", bookID)
 	var output bytes.Buffer
-	require.NoError(t, ReadingBrowse(view).Render(context.Background(), &output))
+	require.NoError(t, BookWords(view).Render(context.Background(), &output))
 	return view, status, output.String()
 }
 
 func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
-	currentReading := testReadingBook("book-1", "Current Book", testNoContent)
 	var reading bytes.Buffer
-	view := readingPageView{CurrentReading: &currentReading, Browse: readingBrowseView{Language: "de", Query: domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: "book-1"}, Page: domain.VocabularyBrowsePage{CurrentBookID: "book-1"}}}
-	require.NoError(t, ReadingPage(domain.User{Username: "learner"}, "csrf", view, "", "").Render(context.Background(), &reading))
+	words := bookWordsView{BookID: "book-1", Language: "de", Query: domain.VocabularyBrowseQuery{Language: "de", CurrentBookID: "book-1"}, Page: domain.VocabularyBrowsePage{CurrentBookID: "book-1"}}
+	detail := bookDetailView{Book: domain.MyBook{Book: domain.Book{ID: "book-1", Title: "Current Book", LanguageState: domain.LanguageChosen, LanguageTag: "de"}}, Language: "de", Words: &words}
+	require.NoError(t, BookDetailPage(domain.User{Username: "learner"}, "csrf", detail, "", "").Render(context.Background(), &reading))
 	html := reading.String()
 	assert.Contains(t, html, `href="/static/app.css"`)
 	assert.NotContains(t, html, `href="/static/vocabulary.css"`)
@@ -334,6 +336,9 @@ func (knownVocabContextStore) ListStudyLanguages(context.Context, string) ([]dom
 func (knownVocabContextStore) ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error) {
 	return []domain.StudyLanguage{{Language: "de", DisplayName: "German"}}, nil
 }
+func (knownVocabContextStore) ListStudyProgress(context.Context, string, string) ([]domain.StudyProgress, error) {
+	return nil, nil
+}
 func (knownVocabContextStore) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
 	return domain.CurrentReading{BookID: "book-1"}, nil
 }
@@ -343,10 +348,10 @@ func (knownVocabContextStore) ListVocabularyBrowsePage(_ context.Context, _, _ s
 
 func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, VocabularyBrowsePager(domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1"}, "haus").Render(context.Background(), &output))
-	assert.Contains(t, output.String(), `href="/reading?page=1&amp;q=haus&amp;reading=book-1"`)
-	assert.Contains(t, output.String(), `href="/reading?page=3&amp;q=haus&amp;reading=book-1"`)
-	assert.Contains(t, output.String(), `hx-get="/reading?page=3&amp;q=haus&amp;reading=book-1"`)
+	require.NoError(t, BookWordsPager(bookWordsView{Prefix: "haus", Page: domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1"}}).Render(context.Background(), &output))
+	assert.Contains(t, output.String(), `href="/books/book-1?q=haus"`)
+	assert.Contains(t, output.String(), `href="/books/book-1?page=3&amp;q=haus"`)
+	assert.Contains(t, output.String(), `hx-get="/books/book-1?page=3&amp;q=haus"`)
 	assert.Contains(t, output.String(), `hx-push-url="true"`)
 }
 
@@ -354,7 +359,7 @@ func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
 	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1", IncludeAll: true,
 		Books: []domain.VocabularyBrowseBook{{ID: "book-1", Title: "Current Book", HasCurrentAnalysis: true}},
 		Rows:  []domain.VocabularyBrowseRow{{CanonicalLemma: "haus", UPOS: "NOUN"}}}
-	html := renderReadingBrowse(t, "de", page, "ha")
+	html := renderBookWords(t, "de", page, "ha")
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
 	assert.Contains(t, html, `id="vocabulary-browse-results"`)
 	assert.Contains(t, html, `href="/de/vocabulary/concordance?`)
@@ -374,7 +379,7 @@ func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *test
 			{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1, AcrossBooksOccurrenceCount: 4},
 		},
 	}
-	html := renderReadingBrowse(t, "de", page, "")
+	html := renderBookWords(t, "de", page, "")
 	for _, want := range []string{
 		"Occurrence counts", "In this Book: 2; Across analyzed books: 5", "In this Book: 3; Across analyzed books: 3",
 		">Haus</a>", ">gehen</a>",
@@ -383,24 +388,24 @@ func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *test
 	}
 	assert.NotContains(t, html, `name="lemma"`, "Browse is read-only and no longer posts selection changes")
 
-	assert.Contains(t, renderReadingBrowse(t, "it", page, ""), ">haus</a>", "non-German noun display retains canonical casing")
+	assert.Contains(t, renderBookWords(t, "it", page, ""), ">haus</a>", "non-German noun display retains canonical casing")
 }
 
 func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.T) {
 	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences", IncludeAll: true, CorpusRevision: "revision-1"}
-	url := vocabularyBrowsePageURL(3, page, "Haus")
-	for _, value := range []string{"q=Haus", "reading=current-book", "page=3", "all=1", "rev=revision-1"} {
+	url := bookWordsPageURL(3, page, "Haus")
+	for _, value := range []string{"q=Haus", "/books/current-book", "page=3", "rev=revision-1"} {
 		assert.Contains(t, url, value)
 	}
-	for _, obsolete := range []string{"book=", "pos=", "known=", "reserved=", "sort="} {
+	for _, obsolete := range []string{"book=", "pos=", "known=", "reserved=", "sort=", "all=", "reading="} {
 		assert.NotContains(t, url, obsolete)
 	}
 }
 
 func TestVocabularyBrowseRestartDropsOldRevisionAndObsoleteControls(t *testing.T) {
 	page := domain.VocabularyBrowsePage{CurrentBookID: "book-1", ReadingBookID: "book-1", SelectedBooks: []string{"book-1"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "books"}
-	url := vocabularyBrowsePageURL(1, page, "Haus")
-	for _, value := range []string{"q=Haus", "reading=book-1", "page=1"} {
+	url := bookWordsPageURL(1, page, "Haus")
+	for _, value := range []string{"q=Haus", "/books/book-1"} {
 		assert.Contains(t, url, value)
 	}
 	for _, obsolete := range []string{"book=", "pos=", "known=", "reserved=", "sort="} {
@@ -420,14 +425,13 @@ func browseTestServices(store allStoreCapabilities) Services {
 }
 
 func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
-	_, status, html := loadBrowseForTest(t, browseTestServices(failedVocabularyBrowseStore{}), "/reading?q=Haus&all=1&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", "book-1")
+	_, status, html := loadBrowseForTest(t, browseTestServices(failedVocabularyBrowseStore{}), "/books/book-1?q=Haus&page=2", "book-1")
 
 	assert.Equal(t, http.StatusInternalServerError, status)
 	assert.Contains(t, html, `id="vocabulary-recovery"`)
 	for _, want := range []string{
-		"Browse could not be loaded", "Your search was not applied", "Retry Browse",
-		`name="q" value="Haus"`, `name="reading" value="book-1"`, `name="page" value="2"`,
-		`name="all" value="1"`,
+		"Words could not be loaded", "Your search was not applied", "Retry",
+		`name="q" value="Haus"`, `name="page" value="2"`,
 	} {
 		assert.Contains(t, html, want)
 	}
@@ -445,11 +449,11 @@ func TestVocabularyBrowseTimeoutReturnsRecoverableGatewayTimeout(t *testing.T) {
 	services := browseTestServices(timedOutVocabularyBrowseStore{})
 	services.InteractiveReadTimeout = 100 * time.Millisecond
 	started := time.Now()
-	_, status, html := loadBrowseForTest(t, services, "/reading?q=Haus&book=book-1&page=3", "book-1")
+	_, status, html := loadBrowseForTest(t, services, "/books/book-1?q=Haus&page=3", "book-1")
 
 	assert.Equal(t, http.StatusGatewayTimeout, status)
 	assert.Less(t, time.Since(started), 5*time.Second)
-	for _, want := range []string{"Retry Browse", "shorter one", `name="q" value="Haus"`, `name="reading" value="book-1"`, `name="page" value="3"`} {
+	for _, want := range []string{"Retry", "shorter one", `name="q" value="Haus"`, `name="page" value="3"`} {
 		assert.Contains(t, html, want)
 	}
 }
@@ -461,18 +465,17 @@ func (changedVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, 
 }
 
 func TestVocabularyBrowseChangedEvidenceOffersRestartInsteadOfStalePage(t *testing.T) {
-	_, status, html := loadBrowseForTest(t, browseTestServices(changedVocabularyBrowseStore{}), "/reading?q=Haus&reading=book-1&book=obsolete-book&pos=NOUN&known=not-known&reserved=not-reserved&sort=books&page=2&rev=revision-old", "book-1")
+	_, status, html := loadBrowseForTest(t, browseTestServices(changedVocabularyBrowseStore{}), "/books/book-1?q=Haus&page=2&rev=revision-old", "book-1")
 
 	assert.Equal(t, http.StatusConflict, status)
 	assert.Contains(t, html, `id="vocabulary-recovery"`)
 	assert.Contains(t, html, "Current evidence changed")
-	assert.Contains(t, html, "Refresh vocabulary")
-	assert.Contains(t, html, "reading=book-1")
-	assert.NotContains(t, html, "obsolete-book")
+	assert.Contains(t, html, "Refresh words")
+	assert.Contains(t, html, "/books/book-1")
 	assert.Contains(t, html, `q=Haus`)
 	assert.NotContains(t, html, "reserved=")
-	assert.Contains(t, html, `page=1`)
 	assert.NotContains(t, html, "revision-new")
+	assert.NotContains(t, html, "rev=")
 }
 
 func TestVocabularyBrowseRefusesToApplyARequestAfterCurrentBookChanges(t *testing.T) {
@@ -481,7 +484,7 @@ func TestVocabularyBrowseRefusesToApplyARequestAfterCurrentBookChanges(t *testin
 	assert.Equal(t, http.StatusConflict, status)
 	assert.Contains(t, html, "were not applied")
 	assert.Contains(t, html, "q=Haus")
-	assert.Contains(t, html, "reading=book-2")
+	assert.Contains(t, html, "/books/book-2")
 	assert.NotContains(t, html, "old-revision")
 }
 
@@ -504,13 +507,13 @@ func (rowVocabularyBrowseStore) ListVocabularyBrowsePage(_ context.Context, _, _
 
 func TestVocabularyBrowseRestoresAFocusRowOnlyWhenThePageHasIt(t *testing.T) {
 	row := browseRowKey("NOUN", "haus", "")
-	view, status, _ := loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(row), "book-1")
+	view, status, _ := loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/books/book-1?q=ha&row="+url.QueryEscape(row), "book-1")
 	require.Equal(t, http.StatusOK, status)
 	assert.Equal(t, row, view.FocusRow)
 	assert.True(t, view.FocusRowFound, "the loaded page contains the named row")
 	assert.False(t, view.FocusRowMissing())
 
-	view, status, _ = loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/reading?q=ha&row="+url.QueryEscape(browseRowKey("VERB", "gehen", "")), "book-1")
+	view, status, _ = loadBrowseForTest(t, browseTestServices(rowVocabularyBrowseStore{}), "/books/book-1?q=ha&row="+url.QueryEscape(browseRowKey("VERB", "gehen", "")), "book-1")
 	require.Equal(t, http.StatusOK, status)
 	assert.False(t, view.FocusRowFound, "a row the page lacks is not reported as found")
 	assert.True(t, view.FocusRowMissing())
@@ -518,23 +521,23 @@ func TestVocabularyBrowseRestoresAFocusRowOnlyWhenThePageHasIt(t *testing.T) {
 
 func TestVocabularyBrowseExplainsMalformedAndOutOfRangePagesWithFirstPage(t *testing.T) {
 	for _, page := range []string{"abc", "0", "-3", "1.5"} {
-		_, status, html := loadBrowseForTest(t, browseTestServices(knownVocabContextStore{}), "/reading?q=ha&page="+page, "book-1")
+		_, status, html := loadBrowseForTest(t, browseTestServices(knownVocabContextStore{}), "/books/book-1?q=ha&page="+page, "book-1")
 		assert.Equal(t, http.StatusBadRequest, status, page)
 		assert.Contains(t, html, "That page is not available", page)
 		assert.Contains(t, html, `>First page</a>`, page)
-		assert.Contains(t, html, `href="/de/reading?page=1&amp;q=ha&amp;reading=book-1"`, page)
-		assert.NotContains(t, html, "Browse results", page)
+		assert.Contains(t, html, `href="/books/book-1?q=ha"`, page)
+		assert.NotContains(t, html, "Word list", page)
 	}
-	view, status, html := loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{total: 51}), "/reading?page=4", "book-1")
-	assert.Equal(t, readingBrowsePageOutOfRange, view.Problem)
+	view, status, html := loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{total: 51}), "/books/book-1?page=4", "book-1")
+	assert.Equal(t, bookWordsPageOutOfRange, view.Problem)
 	assert.Equal(t, http.StatusNotFound, status)
 	assert.Contains(t, html, "Page 4 is past the end of these results, which have 3.")
 	assert.Contains(t, html, `>First page</a>`)
-	assert.NotContains(t, html, "Browse results")
-	_, status, _ = loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{total: 51}), "/reading?page=3", "book-1")
+	assert.NotContains(t, html, "Word list")
+	_, status, _ = loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{total: 51}), "/books/book-1?page=3", "book-1")
 	assert.Equal(t, http.StatusOK, status, "the last page is in range")
-	_, status, _ = loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{}), "/reading", "book-1")
+	_, status, _ = loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{}), "/books/book-1", "book-1")
 	assert.Equal(t, http.StatusOK, status, "an empty first page is not out of range")
-	_, status, _ = loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{}), "/reading?page=2", "book-1")
+	_, status, _ = loadBrowseForTest(t, browseTestServices(totalVocabularyBrowseStore{}), "/books/book-1?page=2", "book-1")
 	assert.Equal(t, http.StatusNotFound, status)
 }
