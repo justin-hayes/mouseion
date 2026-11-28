@@ -104,7 +104,7 @@ test.describe('Reading collection browsing', () => {
 
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
-    await expect(page.locator('body')).toHaveClass(/my-books-shell/);
+    await expect(page.locator('body')).toHaveClass(/reading-list-shell/);
     const covers = page.locator('.library-books .book-cover-media img');
     await expect(covers.first()).toBeVisible();
     expect(await covers.evaluateAll(images => images.every(image => image.getAttribute('alt') === ''))).toBe(true);
@@ -344,7 +344,7 @@ test.describe('Reading collection browsing', () => {
         link.href = requestPath;
         link.textContent = 'Test corrected browse navigation';
         link.setAttribute('data-test-browse-correction', '');
-        link.setAttribute('data-my-books-enhanced', '');
+        link.setAttribute('data-reading-enhanced', '');
         link.setAttribute('hx-get', requestPath);
         link.setAttribute('hx-target', '#library-results');
         link.setAttribute('hx-swap', 'outerHTML');

@@ -1267,7 +1267,7 @@ progress {
   background: var(--mouseion-color-surface-quiet);
 }
 
-body.my-books-shell .library-filters a[aria-current="page"] {
+body.reading-list-shell .library-filters a[aria-current="page"] {
   color: var(--mouseion-color-surface);
   background: var(--mouseion-color-text);
 }

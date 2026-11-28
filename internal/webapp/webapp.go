@@ -365,9 +365,9 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
-	h.perLanguage(pageKindCorpus, h.vocabularyConcordancePage)
-	h.perLanguage(pageKindConcordance, h.vocabularyConcordancePage)
-	h.perLanguage(pageKindSentenceStudy, h.vocabularySentenceStudyPage)
+	h.perLanguage(pageKindCorpus, h.corpusConcordancePage)
+	h.perLanguage(pageKindConcordance, h.corpusConcordancePage)
+	h.perLanguage(pageKindSentenceStudy, h.corpusSentenceStudyPage)
 	for path, successor := range legacyLanguagePages {
 		h.legacyLanguage(path, successor)
 	}

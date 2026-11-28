@@ -35,7 +35,7 @@ func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
-	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".library-search__controls", ".btn-primary", ".vocabulary-shell", "*::before"} {
+	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".library-search__controls", ".btn-primary", ".corpus-shell", "*::before"} {
 		assert.Contains(t, response.Body.String(), want, "unified asset is missing %q", want)
 	}
 	picoRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/vendor/pico-2.1.1.min.css", nil)
@@ -73,7 +73,7 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	assert.Contains(t, myBooks.String(), `class="site-nav__link site-nav__link--current"`)
 	assert.NotContains(t, myBooks.String(), `site-nav__link site-nav__link--current btn-primary`)
 	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
-	assert.Contains(t, reading.String(), `class="my-books-shell"`)
+	assert.Contains(t, reading.String(), `class="reading-list-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
 
@@ -161,7 +161,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 
 	var concordance bytes.Buffer
 	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, false, "", "", browseOrigin{}).Render(context.Background(), &concordance))
-	assert.Contains(t, concordance.String(), `class="vocabulary-shell"`)
+	assert.Contains(t, concordance.String(), `class="corpus-shell"`)
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
 	var sentenceStudy, concordanceError, concordanceChanged bytes.Buffer
@@ -173,7 +173,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
 	}
-	assert.Contains(t, sentenceStudy.String(), `class="vocabulary-shell"`)
+	assert.Contains(t, sentenceStudy.String(), `class="corpus-shell"`)
 }
 
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {

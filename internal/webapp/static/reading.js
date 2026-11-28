@@ -1,5 +1,5 @@
 window.showMyBooksNetworkRecovery = function (ctx) {
-  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('[data-my-books-enhanced]') || ctx.response) return;
+  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('[data-reading-enhanced]') || ctx.response) return;
   var recovery = document.getElementById('library-recovery');
   if (!recovery) return;
   recovery.replaceChildren();
@@ -15,7 +15,7 @@ window.showMyBooksNetworkRecovery = function (ctx) {
 document.addEventListener('htmx:response:error', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
   if (!ctx || !ctx.sourceElement || !ctx.response || ctx.response.status !== 401) return;
-  var recoveryScope = ctx.sourceElement.closest('#primary-goal-section, [data-my-books-enhanced], .library-search, form[action^="/library/"]');
+  var recoveryScope = ctx.sourceElement.closest('#primary-goal-section, [data-reading-enhanced], .library-search, form[action^="/library/"]');
   if (!recoveryScope) return;
   var request = ctx.request;
   var isSafeGet = request && request.method && request.method.toUpperCase() === 'GET';

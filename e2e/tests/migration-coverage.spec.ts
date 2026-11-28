@@ -46,7 +46,7 @@ test.describe('migration and epistemic regression coverage', () => {
     const css = await stylesheet.text();
     expect(css).not.toContain('--pico-');
     expect(css).toContain('.login-screen');
-    expect(css).toContain('.vocabulary-shell');
+    expect(css).toContain('.corpus-shell');
     expect(css).toContain('prefers-reduced-motion');
   });
 

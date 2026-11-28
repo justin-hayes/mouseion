@@ -239,14 +239,14 @@ func myBooksFilteredURL(language, query string, page int, disposition domain.Boo
 	}
 	encoded := values.Encode()
 	if encoded == "" {
-		return myBooksPath(language)
+		return readingPath(language)
 	}
-	return myBooksPath(language) + "?" + encoded
+	return readingPath(language) + "?" + encoded
 }
 
-// myBooksPath is the Reading address for a language, unprefixed only when the
+// readingPath is the Reading address for a language, unprefixed only when the
 // learner has no study language.
-func myBooksPath(language string) string {
+func readingPath(language string) string {
 	return studyLanguagePath(pageKindReading, language)
 }
 
@@ -258,10 +258,10 @@ func myBookStudyLanguage(book domain.MyBook) string {
 	return canonicalization.NormalizeLanguage(book.Book.LanguageTag)
 }
 
-// myBooksPathLanguage reads the language of a Reading path: "/reading" has
+// readingPathLanguage reads the language of a Reading path: "/reading" has
 // none, and "/de/reading" is German. The retired "/library" spellings of an
 // older page are read the same way. Any other path is not Reading.
-func myBooksPathLanguage(path string) (language string, ok bool) {
+func readingPathLanguage(path string) (language string, ok bool) {
 	if path == "/reading" || path == "/library" {
 		return "", true
 	}
@@ -327,24 +327,24 @@ func myBooksReturnURL(raw, language string) string {
 	raw = strings.TrimSpace(raw)
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.Scheme != "" || parsed.Host != "" {
-		return myBooksPath(language)
+		return readingPath(language)
 	}
-	returnLanguage, ok := myBooksPathLanguage(parsed.Path)
+	returnLanguage, ok := readingPathLanguage(parsed.Path)
 	if !ok {
-		return myBooksPath(language)
+		return readingPath(language)
 	}
 	if language == "" {
 		language = returnLanguage
 	}
 	if returnLanguage != "" && returnLanguage != language {
-		return myBooksPath(language)
+		return readingPath(language)
 	}
 	values := parsed.Query()
 	values.Del("message")
 	values.Del("error")
 	request, ok := parseMyBooksBrowseRequest(&url.URL{RawQuery: values.Encode()})
 	if !ok {
-		return myBooksPath(language)
+		return readingPath(language)
 	}
 	return myBooksFilteredURL(language, request.query, request.page, request.disposition, request.history, request.needsAction, request.mostReadable)
 }
@@ -402,9 +402,9 @@ func myBookBucketURL(book domain.MyBook, page int) string {
 	case domain.MyBookBucketRead:
 		return myBooksScopedURL(language, "", page, "", true)
 	case domain.MyBookBucketNone:
-		return myBooksPath(language)
+		return readingPath(language)
 	}
-	return myBooksPath(language)
+	return readingPath(language)
 }
 
 func myBooksReadCountLabel(count int) string {

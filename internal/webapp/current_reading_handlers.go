@@ -57,7 +57,7 @@ func (h *Handler) respondCurrentReading(w http.ResponseWriter, r *http.Request, 
 	if pageError != "" {
 		query.Set("error", pageError)
 	}
-	location := myBooksPagePath(r.Context())
+	location := readingPagePath(r.Context())
 	if encoded := query.Encode(); encoded != "" {
 		location += "?" + encoded
 	}

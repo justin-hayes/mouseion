@@ -419,7 +419,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
 
     await page.goto('/de/corpus/concordance');
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('body')).toHaveClass('corpus-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
   });
@@ -429,7 +429,7 @@ test.describe('responsive and theme regression coverage', () => {
     // Runs at the project's viewport and scheme; the 200% text pass below is the
     // enlargement contract for this page.
     await page.goto('/de/corpus/concordance?term=Haus');
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('body')).toHaveClass('corpus-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     const row = page.locator('#concordance-native-results .concordance-result').first();
@@ -815,7 +815,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     await page.goto('/de/corpus');
     await expect(page.getByRole('heading', { name: 'Corpus', exact: true })).toBeVisible();
-    await expect(page.locator('body')).toHaveClass('vocabulary-shell');
+    await expect(page.locator('body')).toHaveClass('corpus-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);

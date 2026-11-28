@@ -18,8 +18,8 @@ func pageLanguagePath(ctx context.Context, kind studyLanguagePageKind) string {
 	return studyLanguagePath(kind, view.pageLanguage())
 }
 
-// myBooksPagePath is Reading in the request's page language.
-func myBooksPagePath(ctx context.Context) string {
+// readingPagePath is Reading in the request's page language.
+func readingPagePath(ctx context.Context) string {
 	return pageLanguagePath(ctx, pageKindReading)
 }
 

@@ -18,7 +18,7 @@ type shellStyle uint8
 const (
 	shellStyleDefault shellStyle = iota
 	shellStyleLogin
-	shellStyleMyBooks
+	shellStyleReadingList
 	shellStyleReading
 	shellStyleCorpus
 	shellStyleCatalogs
@@ -34,12 +34,12 @@ func selectedShellStyle(styles []shellStyle) shellStyle {
 
 func shellBodyClass(styles []shellStyle) string {
 	switch selectedShellStyle(styles) {
-	case shellStyleMyBooks:
-		return "my-books-shell"
+	case shellStyleReadingList:
+		return "reading-list-shell"
 	case shellStyleReading:
 		return "reading-shell"
 	case shellStyleCorpus:
-		return "vocabulary-shell"
+		return "corpus-shell"
 	case shellStyleCatalogs:
 		return "catalogs-shell"
 	case shellStyleJobs:

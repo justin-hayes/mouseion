@@ -24,7 +24,7 @@ const (
 	concordanceNoticePage    = "That results page is not valid. Start again from page 1."
 )
 
-func (h *Handler) vocabularyConcordancePage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) corpusConcordancePage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	queryCtx, cancel := context.WithTimeout(r.Context(), h.interactiveReadTimeout())
 	defer cancel()
@@ -329,7 +329,7 @@ func (h *Handler) renderConcordanceFailure(w http.ResponseWriter, r *http.Reques
 	renderStatus(w, r, status, VocabularyConcordanceErrorPageView(u, csrf, language, lookup, status == http.StatusGatewayTimeout, origin))
 }
 
-func (h *Handler) vocabularySentenceStudyPage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) corpusSentenceStudyPage(w http.ResponseWriter, r *http.Request) {
 	u := user(r)
 	query := r.URL.Query()
 	parseInt := func(key string) (int64, error) { return strconv.ParseInt(query.Get(key), 10, 64) }
