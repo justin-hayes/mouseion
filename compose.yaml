@@ -91,8 +91,7 @@ services:
       MOUSEION_LLM_ENABLED: ${MOUSEION_LLM_ENABLED:-false}
       MOUSEION_LLM_API_KEY: ${MOUSEION_LLM_API_KEY:-}
       MOUSEION_LLM_MODEL: ${MOUSEION_LLM_MODEL:-}
-      # Standard prepared-deck translation uses this compatible endpoint;
-      # explicit Batch mode requires the official OpenAI API base URL.
+      # Any OpenAI-compatible Chat Completions endpoint.
       MOUSEION_LLM_BASE_URL: ${MOUSEION_LLM_BASE_URL:-https://api.openai.com/v1}
       MOUSEION_LLM_TIMEOUT: ${MOUSEION_LLM_TIMEOUT:-30s}
       MOUSEION_LLM_REASONING_EFFORT: ${MOUSEION_LLM_REASONING_EFFORT:-low}

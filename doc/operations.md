@@ -82,7 +82,7 @@ Compose reads these from `.env`; see [`.env.example`](../.env.example).
 | `MOUSEION_DICTIONARY_INDEX` | Path to the optional read-only dictionary index (see below). |
 | `MOUSEION_DICTIONARY_HOST_DIR` | Compose only: host directory bind-mounted read-only at `/opt/mouseion/dictionary`. |
 | `MOUSEION_LLM_ENABLED` | `true` enables the OpenAI-compatible provider; also requires `MOUSEION_LLM_API_KEY` and `MOUSEION_LLM_MODEL`. |
-| `MOUSEION_LLM_BASE_URL` | OpenAI-compatible API root; defaults to `https://api.openai.com/v1`. Batch mode requires the official OpenAI endpoint. |
+| `MOUSEION_LLM_BASE_URL` | OpenAI-compatible API root; defaults to `https://api.openai.com/v1`. |
 | `MOUSEION_LLM_TIMEOUT` | Positive Go duration; defaults to `30s`. |
 | `MOUSEION_LLM_REASONING_EFFORT` | `low`, `medium`, or `high`; defaults to `low`. |
 | `MOUSEION_LLM_IDIOM_REASONING_EFFORT` | Optional `low`, `medium`, or `high` for idiom-card requests only; unset uses `MOUSEION_LLM_REASONING_EFFORT`. |

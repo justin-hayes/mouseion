@@ -119,8 +119,7 @@ func invalidCitation(message string, response TranslationResponse) evidenceCitat
 	}}
 }
 
-// TranslationCodec owns the provider request and response semantics shared by
-// synchronous and Batch transports. It deliberately contains no credentials,
+// TranslationCodec owns the provider request and response semantics. It deliberately contains no credentials,
 // endpoint, HTTP client, or durable preparation identity.
 type TranslationCodec struct {
 	model                    string
@@ -139,8 +138,7 @@ func (c *TranslationCodec) Model() string {
 }
 
 // ProviderName returns the stable provider name used by the existing
-// translation-cache identity. Batch and synchronous callers must share this
-// value so changing transport does not invalidate or mix cache entries.
+// translation-cache identity.
 func (c *TranslationCodec) ProviderName() string { return "openai-compatible" }
 
 // ProviderVersion returns the stable version used by the existing
@@ -375,13 +373,6 @@ func translationTargetLanguage(input TranslationRequest) string {
 // external-provider input.
 func (c *TranslationCodec) EncodeRequest(input TranslationRequest) ([]byte, error) {
 	return c.encodeRequest(input, TranslationItemID(input))
-}
-
-// EncodeBatchRequestForValidation is used by the offline harness to reproduce
-// the exact request body for one Batch item. A contextual Gloss request carries
-// the short per-request item handle rather than itemID.
-func (c *TranslationCodec) EncodeBatchRequestForValidation(input TranslationRequest, itemID string) ([]byte, error) {
-	return c.encodeRequest(input, itemID)
 }
 
 func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string) ([]byte, error) { //nolint:gocognit // each branch is one independent wire contract

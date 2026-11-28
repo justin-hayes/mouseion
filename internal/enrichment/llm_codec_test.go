@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -15,56 +13,8 @@ import (
 )
 
 const (
-	testBatchRunID                    = "018f64b6-5f2f-7e12-a7a7-832a50f68b7c"
 	testContextualGlossPromptContract = "translation-v17-clause-lemma-mismatch"
 )
-
-func TestTranslationCodecBatchJSONLGoldenDeterministicAndPrivate(t *testing.T) {
-	codec, err := NewTranslationCodec(LLMConfig{Model: "gpt-test"})
-	require.NoError(t, err)
-	items := []BatchTranslationItem{
-		{Ordinal: 7, Request: TranslationRequest{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"}},
-		{Ordinal: 2, Request: TranslationRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", TargetWord: "Haus", ExampleSentence: "Das Haus ist groß."}},
-		{Ordinal: 5, Request: TranslationRequest{Language: "it", TargetLanguage: "en", CanonicalLemma: "macchina", UPOS: "NOUN", TargetWord: "macchine", ExampleSentence: "Le macchine erano parcheggiate lungo la strada.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:car", Gloss: "car"}}}},
-	}
-	var first, second bytes.Buffer
-	firstBytes, err := codec.WriteBatchJSONL(&first, testBatchRunID, 3, items)
-	require.NoError(t, err)
-	secondBytes, err := codec.WriteBatchJSONL(&second, testBatchRunID, 3, []BatchTranslationItem{items[1], items[2], items[0]})
-	require.NoError(t, err)
-	assert.Equal(t, int64(first.Len()), firstBytes)
-	assert.Equal(t, int64(second.Len()), secondBytes)
-	assert.Equal(t, first.Bytes(), second.Bytes(), "serialization is not deterministic: first=%d/%d second=%d/%d", firstBytes, first.Len(), secondBytes, second.Len())
-	want, err := os.ReadFile("testdata/openai_batch_requests.golden.jsonl")
-	require.NoError(t, err, "read golden")
-	assert.Equal(t, want, first.Bytes(), "golden mismatch")
-	serialized := first.String()
-	for _, forbidden := range []string{"owner_id", "document", "reading", "metadata", "book title"} {
-		assert.NotContains(t, strings.ToLower(serialized), forbidden, "Batch request leaked forbidden field %q", forbidden)
-	}
-	for _, privateValue := range []string{"Haus", "Das Haus ist groß."} {
-		for line := range strings.SplitSeq(strings.TrimSpace(serialized), "\n") {
-			customIDStart := strings.Index(line, `"custom_id":"`)
-			customIDEnd := strings.Index(line[customIDStart+13:], `"`)
-			customID := line[customIDStart+13 : customIDStart+13+customIDEnd]
-			assert.NotContains(t, customID, privateValue, "custom ID leaked provider input: %q", customID)
-		}
-	}
-}
-
-func TestBatchCustomIDRoundTripAndValidation(t *testing.T) {
-	customID, err := BatchCustomID(strings.ToUpper(testBatchRunID), 42, 2)
-	require.NoError(t, err)
-	assert.Equal(t, "prepared-deck:"+testBatchRunID+":42:2", customID)
-	identity, err := ParseBatchCustomID(customID)
-	require.NoError(t, err)
-	assert.Equal(t, BatchItemIdentity{RunID: testBatchRunID, Ordinal: 42, Generation: 2}, identity)
-	assert.Equal(t, customID, identity.String())
-	for _, invalid := range []string{"", "owner@example.com", "prepared-deck:" + testBatchRunID + ":-1:1", "prepared-deck:" + testBatchRunID + ":1:0", "prepared-deck:" + testBatchRunID + ":01:1"} {
-		_, err := ParseBatchCustomID(invalid)
-		assert.Error(t, err, "ParseBatchCustomID(%q)", invalid)
-	}
-}
 
 func TestTranslationCodecPreservesReasoningCapability(t *testing.T) {
 	codec, err := NewTranslationCodec(LLMConfig{Model: "gpt-5-mini", BaseURL: defaultLLMBaseURL, ReasoningEffort: "high"})
@@ -466,47 +416,6 @@ func encodedUserContent(t *testing.T, body []byte) string {
 	require.NoError(t, json.Unmarshal(body, &request))
 	require.Len(t, request.Messages, 2)
 	return request.Messages[1].Content
-}
-
-// TestTranslationCodecBatchContextualHandlesKeepTheCustomIDCorrelation covers
-// the Batch acceptance criterion: correlation still uses the request's custom
-// ID while the body carries short handles that decode back to stable IDs.
-func TestTranslationCodecBatchContextualHandlesKeepTheCustomIDCorrelation(t *testing.T) {
-	codec, err := NewTranslationCodec(LLMConfig{Model: "model"})
-	require.NoError(t, err)
-	item := BatchTranslationItem{Ordinal: 2, Request: TranslationRequest{Language: "de", TargetLanguage: "en", CanonicalLemma: "Bank", UPOS: "NOUN", TargetWord: "Bank", ExampleSentence: "Sie sitzt auf der Bank.", RequireContextualGloss: true, CandidateSenses: []LexicalSense{{EvidenceID: "wikt:seat", Gloss: "bench"}}}}
-	customID, err := BatchCustomID(testBatchRunID, item.Ordinal, 1)
-	require.NoError(t, err)
-	var buf bytes.Buffer
-	_, err = codec.WriteBatchJSONL(&buf, testBatchRunID, 1, []BatchTranslationItem{item})
-	require.NoError(t, err)
-
-	var line struct {
-		CustomID string `json:"custom_id"`
-		Body     struct {
-			Messages []struct {
-				Content string `json:"content"`
-			} `json:"messages"`
-		} `json:"body"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(strings.TrimSpace(buf.String())), &line))
-	assert.Equal(t, customID, line.CustomID)
-	var payload struct {
-		ItemID          string         `json:"item_id"`
-		CandidateSenses []LexicalSense `json:"candidate_senses"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(line.Body.Messages[1].Content), &payload))
-	assert.Equal(t, ContextualGlossItemHandle, payload.ItemID)
-	require.Len(t, payload.CandidateSenses, 1)
-	assert.Equal(t, "e1", payload.CandidateSenses[0].EvidenceID)
-
-	content := `{"item_id":"` + ContextualGlossItemHandle + `","source_language":"de","target_language":"en","translation":"bank","sentence_translation":"She is sitting on the bench.","sentence_translation_targets":["bench"],"gloss":"bench","evidence_ids":["e1"],"context_only":false}`
-	output := fmt.Sprintf(`{"custom_id":%q,"response":{"status_code":200,"body":{"choices":[{"message":{"content":%q}}]}}}`+"\n", customID, content)
-	outcomes, err := codec.DecodeBatchResults(testBatchRunID, 1, []BatchTranslationItem{item}, strings.NewReader(output), nil)
-	require.NoError(t, err)
-	require.True(t, outcomes[item.Ordinal].Successful())
-	assert.Equal(t, []string{"wikt:seat"}, outcomes[item.Ordinal].Response.EvidenceIDs)
-	assert.Equal(t, TranslationItemID(item.Request), outcomes[item.Ordinal].Response.ItemID)
 }
 
 // codecTranslationContent builds the strict provider content object from the
