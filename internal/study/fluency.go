@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
@@ -14,6 +13,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
 const (
@@ -22,11 +22,28 @@ const (
 	// maxFluencyAsks bounds the provider calls one job makes for a word: the
 	// ranked candidates it asks about before it stops with what agreed.
 	maxFluencyAsks = 12
-	// fluencyUniquePeriod keeps a word's preparation job from being enqueued
-	// more than once an hour, so opening the page does not scan a word's
-	// concordance again and again.
-	fluencyUniquePeriod = time.Hour
 )
+
+// fluencyUniqueStates are the River states in which a word's preparation job
+// blocks another from being enqueued: every live state, so a word never has two
+// jobs at once, plus completed, so a word whose job just finished is not
+// scanned again when Today is reopened. River deletes completed jobs after its
+// retention period (24 hours by default), which is how long a finished word is
+// left alone.
+//
+// River's ByPeriod cannot replace this. It buckets by the clock-aligned period
+// and only compares jobs inside the current bucket, so a job still waiting from
+// 10:57 does not stop another at 11:00, and the queue doubles every hour Today
+// is opened. A word that finished with too few agreeing contexts therefore waits
+// out the retention period instead of the hour the period used to give.
+var fluencyUniqueStates = []rivertype.JobState{
+	rivertype.JobStateAvailable,
+	rivertype.JobStatePending,
+	rivertype.JobStateRunning,
+	rivertype.JobStateRetryable,
+	rivertype.JobStateScheduled,
+	rivertype.JobStateCompleted,
+}
 
 // PrepareFluencyArgs identifies one mature word whose Fluency contexts are to
 // be prepared. It carries no source text, sentence or Gloss.
@@ -40,8 +57,9 @@ func (PrepareFluencyArgs) Kind() string { return "study_prepare_fluency" }
 
 // EnqueueFluencyPreparation asks for Fluency contexts for every mature word
 // that has fewer than domain.FluencyContextsPerWord agreeing ones. It is safe to
-// call whenever Today is opened: a word's job is enqueued once an hour at most,
-// and an occurrence the job has assessed is never asked about again.
+// call whenever Today is opened: a word with a job that is still waiting, running
+// or retrying, or one that finished within River's completed-job retention, is
+// not enqueued again, and an occurrence the job has assessed is never asked about again.
 func (s *Service) EnqueueFluencyPreparation(ctx context.Context, owner, language string) error {
 	progress, err := s.store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
@@ -67,7 +85,7 @@ func (s *Service) enqueueFluencyWord(ctx context.Context, owner, progressID stri
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	if _, err := s.client.InsertTx(ctx, tx, PrepareFluencyArgs{OwnerID: owner, ProgressID: progressID}, &river.InsertOpts{
 		Queue: Queue, MaxAttempts: maxPreparationAttempts,
-		UniqueOpts: river.UniqueOpts{ByArgs: true, ByPeriod: fluencyUniquePeriod},
+		UniqueOpts: river.UniqueOpts{ByArgs: true, ByState: fluencyUniqueStates},
 	}); err != nil {
 		return fmt.Errorf("enqueue study fluency preparation: %w", err)
 	}
