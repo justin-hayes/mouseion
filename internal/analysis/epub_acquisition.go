@@ -12,6 +12,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
+	"github.com/justin-hayes/mouseion/internal/jobstop"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
@@ -216,7 +217,12 @@ func (w *EPUBAcquisitionWorker) submitAnalysis(ctx context.Context, owner, bookI
 
 // recordFailure stores the stable stage and code only. It never writes source
 // text, an error message, or a Book title.
+//
+// A job stopped by a server shutdown records nothing: River runs it again.
 func (w *EPUBAcquisitionWorker) recordFailure(ctx context.Context, owner, bookID string, target cataloguesync.AcquisitionTarget, err error) {
+	if jobstop.CancelledByClientStop(ctx) {
+		return
+	}
 	stage, code := classifyAcquisitionFailure(err)
 	record := domain.EPUBAcquisitionFailureRecord{
 		OwnerID:         owner,

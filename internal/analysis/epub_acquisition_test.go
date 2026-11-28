@@ -358,3 +358,32 @@ func TestClassifyAcquisitionFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestEPUBAcquisitionWorkerStoppedForShutdownRecordsNoFailure(t *testing.T) {
+	t.Parallel()
+	run := func(cause error) *acquisitionStoreStub {
+		store := &acquisitionStoreStub{}
+		worker := &EPUBAcquisitionWorker{
+			Store: store,
+			FindTarget: func(context.Context, string, string) (cataloguesync.AcquisitionTarget, error) {
+				return cataloguesync.AcquisitionTarget{ConnectionID: "connection", Language: "de", Entry: opds.Entry{ID: "entry"}}, nil
+			},
+			Acquire: func(context.Context, string, string, string, string, opds.Entry) (epub.ImportResult, error) {
+				return epub.ImportResult{}, errors.New("download interrupted")
+			},
+			Analysis: &acquisitionAnalysisStub{},
+		}
+		ctx, cancel := context.WithCancelCause(context.Background())
+		cancel(cause)
+		require.Error(t, worker.acquireAndSubmit(ctx, "owner", "book"))
+		return store
+	}
+	t.Run("a shutdown records no failure", func(t *testing.T) {
+		t.Parallel()
+		require.Empty(t, run(errors.New("stop initiated")).records)
+	})
+	t.Run("a user cancel still records the failure", func(t *testing.T) {
+		t.Parallel()
+		require.Len(t, run(river.ErrJobCancelledRemotely).records, 1)
+	})
+}

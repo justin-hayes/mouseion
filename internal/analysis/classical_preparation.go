@@ -18,6 +18,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/download"
+	"github.com/justin-hayes/mouseion/internal/jobstop"
 	"github.com/justin-hayes/mouseion/internal/olaarchive"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
@@ -368,7 +369,8 @@ func (w *ClassicalPreparationWorker) Work(ctx context.Context, job *river.Job[Cl
 		return err
 	}
 	defer func() {
-		if err != nil {
+		// A shutdown is not a preparation failure: River runs the job again.
+		if err != nil && !jobstop.CancelledByClientStop(ctx) {
 			w.recordFailure(ctx, target, err)
 		}
 	}()
