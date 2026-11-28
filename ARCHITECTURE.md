@@ -170,7 +170,7 @@ snapshot, no Reserved or Known vocabulary and no Prepared deck.
 
 ```mermaid
 flowchart TD
-    corpus[Corpus<br/>analysed Books in My Books] --> order[Order new words<br/>Current reading until Target coverage,<br/>then To Read frequency]
+    corpus[Corpus<br/>analysed Books in Reading] --> order[Order new words<br/>Current reading until Target coverage,<br/>then To Read frequency]
     order --> batch[New-word batch<br/>taken or declined on Today]
     batch --> plan[study_plan_preparation]
     plan --> mat[study_prepare_material<br/>one word at a time]
@@ -182,7 +182,7 @@ flowchart TD
     remed -. Lemma correction or Occurrence exclusion .-> corpus
 ```
 
-- **The Corpus** is the analysed Books in My Books in the study language. Study
+- **The Corpus** is the analysed Books in Reading in the study language. Study
   material and Fluency contexts draw on all of it, Read Books included. Only To
   Read Books set the priority of new words, and the Current reading's words come
   first until its coverage, counting Mature and in-study words, reaches Target

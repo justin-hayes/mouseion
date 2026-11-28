@@ -8,7 +8,7 @@ wording in this feature is historical and has been superseded.
 
 ## Motivation
 
-The learner thinks "I am reading German now," but the app does not: My Books
+The learner thinks "I am reading German now," but the app does not: Reading
 defaults to an "All languages" browse nobody wants, Vocabulary re-selects a
 language per visit, and Reading Journey mixes languages silently. Downstream
 artifacts are already per-language (Study progress and
@@ -19,17 +19,17 @@ naming its study language — aligns the surfaces with the artifacts.
 ## Goal
 
 Make the study language part of the address of every per-language page
-(`/de/library`, `/grc/study`): a shell-level switcher that navigates between
-languages; per-language My Books browse and search; per-language current reading
+(`/de/reading`, `/grc/study`): a shell-level switcher that navigates between
+languages; per-language Reading browse and search; per-language current reading
 and Vocabulary. Remove the "All languages" default and
 per-screen language pickers. Books without a chosen language are not listed in
-My Books; their Catalog entries remain available for a later Add after the
+Reading; their Catalog entries remain available for a later Add after the
 language is fixed.
 
 ## Scope
 
 This feature defines the learner-facing behaviour of the URL-carried study
-language across the shell, My Books, Study, Vocabulary, and compatibility
+language across the shell, Reading, Study, Vocabulary, and compatibility
 bookmarks. It implements
 [ADR 0131](../adr/0131-the-url-carries-the-study-language.md), which supersedes
 the stored mode of [ADR 0050](../adr/0050-active-study-language.md), and
@@ -53,26 +53,26 @@ Learner-facing labels use **Language** and the language's own name, never
   filters, lemma, sentence, return state) dropped.
 - Viewing a per-language page records its language as the **Last study
   language**, which only chooses where an address without a language leads
-  (`/library` redirects to `/de/library`, and the navigation links use it). It
+  (`/reading` redirects to `/de/reading`, and the navigation links use it). It
   is recorded only once the page renders: a refused request does not change it.
   It defaults deterministically: the sole study language when unambiguous;
   otherwise the language of the most recently activated chosen-language Book.
   It resets lazily when it leaves the derived set.
-- With no study language, an address without a language other than My Books
-  redirects to the unprefixed My Books empty state.
+- With no study language, an address without a language other than Reading
+  redirects to the unprefixed Reading empty state.
 - An unknown prefix redirects to the same page under the Last study language; a
   non-canonical prefix (`DE`, `de-DE`, `de_DE`) redirects to the canonical code,
   keeping path and query.
 
-### My Books (`/{language}/library`)
+### Reading (`/{language}/reading`)
 
 - Browse, paging, and search are scoped to the active language. The "All
   languages" pill and per-row language tags are removed; a section heading names
   the language.
-- The shipped My Books cover grid communicates disposition but not per-Book
+- The shipped Reading cover grid communicates disposition but not per-Book
   evidence or current-reading state. Book evidence is on the Book detail page
   and in each entry's status line. The retired Language view panel does not render.
-- A Book without a chosen language is not listed in My Books, but one with
+- A Book without a chosen language is not listed in Reading, but one with
   reading history keeps its membership and is reported by the backfill (see
   [Collection Browsing](collection-browsing.md#upgrading-existing-accounts)).
   Its Catalog entry stays browsable, so fixing the language and adding it later
@@ -84,10 +84,11 @@ Learner-facing labels use **Language** and the language's own name, never
 ### Study (`/{language}/study`)
 
 - Shows the active language's Today, New-word batches and Fluency.
-- Current reading is independent per language and is pinned on that language's My Books; completion in one language does
+- Current reading is independent per language and is pinned on that language's Reading; completion in one language does
   not affect current reading or history in another.
-- The retired Reading addresses (`/{language}/reading`) redirect to My Books, or
-  to a Book's detail page when they name a Book.
+- The retired working-desk addresses (`/reading?reading={bookID}` and the like)
+  redirect to a Book's detail page when they name a Book, and to Reading
+  otherwise; the former `/library` addresses redirect to Reading.
 
 ### Corpus (`/{language}/corpus`)
 
@@ -98,8 +99,8 @@ Learner-facing labels use **Language** and the language's own name, never
 ### Compatibility bookmarks
 
 - The old `/journey/{bookID}` bookmark route is no longer registered. The retired
-  Reading addresses redirect to My Books, or to the Book's detail page when they
-  name a Book (see Study above), and a Book-addressed route runs in the Book's
+  working-desk addresses redirect to the Book's detail page when they name a
+  Book, and to Reading otherwise (see Study above), and a Book-addressed route runs in the Book's
   own study language.
 - A redirect never depends on a stored language. Unauthorized, non-member,
   and unavailable Books remain unavailable.
@@ -120,12 +121,12 @@ Learner-facing labels use **Language** and the language's own name, never
 
 | State | Required presentation | Primary exit |
 |---|---|---|
-| No study languages yet | Empty My Books with catalog CTA; switcher absent or empty | Connect a catalog |
+| No study languages yet | Empty Reading with catalog CTA; switcher absent or empty | Connect a catalog |
 | One study language | Sole language active; no switcher ambiguity | Browse |
 | Multiple study languages | Switcher lists them; the page's language scopes the page | Switch language |
 | Last study language leaves the set | Lazy reset to most-recently-activated remaining, else none | Switch |
 | New language arrives via resync | Appears in switcher marked "new"; open pages unchanged | Switch |
-| Legacy no-language Books exist | Never listed in My Books; one with reading history keeps its membership and is reported by the backfill | Fix catalog, re-sync |
+| Legacy no-language Books exist | Never listed in Reading; one with reading history keeps its membership and is reported by the backfill | Fix catalog, re-sync |
 
 ## Non-goals
 
@@ -142,9 +143,9 @@ Learner-facing labels use **Language** and the language's own name, never
 - Every language-scoped surface reflects the active language without a per-page
   picker.
 - Browse and search never return Books outside the active language.
-- Current reading and My Books scope follow the active language; switching
+- Current reading and Reading scope follow the active language; switching
   languages does not change another language's current Book or Read history.
-- A Book without a chosen language is never listed in My Books; it becomes a
+- A Book without a chosen language is never listed in Reading; it becomes a
   study-language Book only after the learner adds it with a language.
 - The switcher is keyboard-accessible and server-rendered before progressive
   enhancement.

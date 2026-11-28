@@ -11,7 +11,7 @@ which amends [ADR 0116](../adr/0116-classical-catalog.md) and
 ## Problem
 
 The Classical catalog ships *Anabasis* as seven Reading units and *Republic* as
-ten, so a learner who adds either Work owns seven or ten Books. My Books and the
+ten, so a learner who adds either Work owns seven or ten Books. Reading and the
 Reading chooser group them, but every other surface treats each constituent
 book as a separate Book:
 
@@ -30,7 +30,7 @@ and they want one deck, one vocabulary inventory and one coverage figure for it.
 ## Learner outcome
 
 A learner adds *Anabasis* once and from then on sees one Book everywhere: one
-My Books row, one chooser entry, one current reading, one completion, one deck,
+Reading row, one chooser entry, one current reading, one completion, one deck,
 one Browse inventory and one Concordance group. The constituent books show up
 only as locations: citations such as `3.2.1` on occurrences, and a contents
 list on the Catalog's Work page.
@@ -76,7 +76,7 @@ a location in the text, never as something the learner owns or acts on.
   the Catalog and cannot be added or prepared.
 - A learner's existing Books on withdrawn definitions are left as they are.
   They stay readable with their analysis, decks, decisions and history, and
-  appear in My Books as ordinary rows, one per Book, with no grouping. The
+  appear in Reading as ordinary rows, one per Book, with no grouping. The
   learner can remove them. A current reading on one of them stays current until
   the learner finishes or ends it.
 - Adding the whole Work creates a new Book. Nothing from the per-book Books
@@ -90,14 +90,14 @@ a location in the text, never as something the learner owns or acts on.
   Classical preparation for the whole Work.
 - The "Choose books" table, the per-book Add and I've read this, and the
   "Add and prepare the remaining books" label are removed.
-- "In My Books" and the Add check look at the whole-work Reading unit, not the
+- "In Reading" and the Add check look at the whole-work Reading unit, not the
   Work key. A learner who owns only withdrawn per-book Books of *Anabasis* can
   still add the whole Work.
 - A read-only contents list names each constituent book with its word count.
   It has no actions and shows no preparation state.
 - The index's length strip and word count describe the whole Work.
 
-### My Books
+### Reading
 
 - A whole-work Book is an ordinary row. The grouped Work row, its Book-order
   strip and cells, "N Books in M works", **Move the work to To Read**,
@@ -134,7 +134,7 @@ a location in the text, never as something the learner owns or acts on.
 ## Documentation
 
 When the change ships, update the shipped-behavior documents to match:
-`doc/design/screen-inventory.md` (My Books, Between-Books chooser),
+`doc/design/screen-inventory.md` (Reading, Between-Books chooser),
 `doc/design/components.md` (`AnnotatedBookRow`, `ReadingChooser`, grouped
 Analysis update), `doc/design/terminology.md` (Move to To Read, Coverage band,
 I've read this), `doc/design/information-architecture.md` and
@@ -151,7 +151,7 @@ implemented in `doc/product.md`.
 | W4 | The generator no longer accepts the `constituent-books` split kind | unit |
 | W5 | The Work page shows one Add and one I've read this per Edition, and a contents list with no actions | handler/template test + browser smoke |
 | W6 | Adding a whole Work creates one Book and queues one Classical preparation, which publishes one analysis for the whole Work | integration (complete classical loop) |
-| W7 | My Books shows a whole-work Book, and each leftover per-book Book, as an ordinary row with no grouping or Work actions | handler/template test |
+| W7 | Reading shows a whole-work Book, and each leftover per-book Book, as an ordinary row with no grouping or Work actions | handler/template test |
 | W8 | The chooser shows one ordinary entry per Book; Reading shows no "Book N of M" | handler/template test |
 | W9 | Concordance shows one group and one count for a whole-work Book, and a Citation location on each classical occurrence | handler/template test + browser smoke |
 | W10 | Sentence study and Browse show a Citation wherever they show a classical occurrence's location | handler/template test |

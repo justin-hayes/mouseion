@@ -5,7 +5,7 @@ Status: Implemented, including independent cover retrieval · Date: 2026-09-02 �
 ## Motivation
 
 A learner may already curate a large collection in Calibre and expose it through
-Calibre-Web OPDS. Adding those books one at a time makes My Books incomplete and
+Calibre-Web OPDS. Adding those books one at a time makes Reading incomplete and
 turns catalog maintenance into repetitive work. Mouseion should recognize the
 studyable part of that collection while keeping sync metadata-only. Acquisition
 and analysis happen only when learner intent is expressed by moving the Book to
@@ -27,20 +27,20 @@ now**, connection-level status, and the transition from a Catalog entry to a
 chosen Book and content acquisition through Reading intent. Sync never creates
 a Book, membership, or disposition, and the per-Book metadata refresh action is
 retired. The **Catalog** at `/catalogs` browses the Classical catalog and
-each connection's local Catalog index; My Books remains the learner's
+each connection's local Catalog index; Reading remains the learner's
 bibliographic Book surface. Its metadata-first and non-destructive behavior is governed by [ADR 0041](../adr/0041-catalog-sync-metadata-first.md); its capability-driven language scope is reconciled by [ADR 0043](../adr/0043-study-languages-derived-settings-removed.md).
 
 ## Requirements
 
 ### Fresh-account entry
 
-- When My Books is empty and the learner has no catalog connections, explain
+- When Reading is empty and the learner has no catalog connections, explain
   that Mouseion needs a learner-owned catalog connection to synchronize the
   ready-language collection.
 - The primary empty-state action enters the Catalog at `/catalogs`. Its OPDS
   area offers **Connect an OPDS catalog**, which leads to **Manage sources** at
   `/catalogs/sources`; it does not silently create a connection.
-- Books enter My Books only when the learner chooses a Catalog entry; sync and
+- Books enter Reading only when the learner chooses a Catalog entry; sync and
   browsing never create them, and there is no manual metadata-entry path.
 
 ### Connection configuration and status
@@ -57,7 +57,7 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   global dashboard.
 - **Sync now** enqueues the same River work used by the periodic schedule. It
   must not create a parallel execution contract.
-- A failure names the connection, preserves prior My Books data, and links to
+- A failure names the connection, preserves prior Reading data, and links to
   Manage sources, where the learner can edit the connection or retry as
   appropriate.
 - Detailed attempts, retry, cancellation, and errors remain operationally
@@ -74,7 +74,7 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
 - Search compares the Go search key for title and author, so it ignores accents
   and case. Classical search also matches the Greek title. Search and browsing
   never contact the OPDS server.
-- An entry linked to one of the learner's active Books shows **In My Books**
+- An entry linked to one of the learner's active Books shows **In Reading**
   linked to that Book and no disposition, analysis or preparation state. An
   unowned entry offers **Add** and the secondary **I've read this**.
 - **Add** creates the Book linked by its catalog-entry alias, or restores the
@@ -83,7 +83,7 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   start once, and repeating Add changes nothing.
   The Add copy says adding prepares the text for reading, the route is an
   ordinary owner-scoped POST, and the confirmation names the Book, links to
-  My Books, and returns to the Catalog under the same Language filter for
+  Reading, and returns to the Catalog under the same Language filter for
   every source. Adding the first Book in a language makes it a study language;
   neither Add nor the Language filter changes the Last study language
   ([ADR 0131](../adr/0131-the-url-carries-the-study-language.md)).
@@ -130,7 +130,7 @@ bibliographic Book surface. Its metadata-first and non-destructive behavior is g
   membership, and disposition stay as the learner's Add left them.
 - Repeated runs are idempotent. Metadata changes propagate without duplicating
   Books, membership, or dispositions.
-- A Book that left My Books is not put back by sync. Entries removed upstream
+- A Book that left Reading is not put back by sync. Entries removed upstream
   leave the index; chosen Books and their metadata remain. Deleting a connection
   also leaves all Books, membership, acquired content, and derived history
   intact.
@@ -161,14 +161,14 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 - Add on a Catalog entry expresses the same intent: it creates or restores the
   Book as To Read and then uses the same acquisition route. A failure never
   appears in the Add response; it stays on the Book as its recorded reason, with
-  Retry on My Books.
+  Retry on Reading.
 - When acquisition cannot resolve the Book's catalog entry at all — the entry
   has left the index, the Book has no catalog-entry alias, or the alias's
   connection was deleted — the worker records stage `entry` and code
   `catalog_entry_missing`. A missing index entry keeps the connection and entry
   identifier on the failure; a missing alias or connection records no catalog
   identity, so the failure survives the connection's deletion. The Book stays
-  To Read and My Books shows the reason with Retry. A later sync that restores
+  To Read and Reading shows the reason with Retry. A later sync that restores
   the entry makes Retry acquire it without any other change.
 - Acquired state is published only after complete EPUB download, validation,
   and immutable snapshot persistence, as required by ADR 0035. The worker then
@@ -176,7 +176,7 @@ shipped independent retrieval of optional catalog-supplied display metadata.
 - No Book creation or membership activation leaves an unchosen member in My
   Books (ADR 0117). Each yields a To Read Book (or a
   Read Book, for "I've read this"). EPUB ingest that matches a Book by its
-  source identifier and finds it removed from My Books restores it as To Read,
+  source identifier and finds it removed from Reading restores it as To Read,
   exactly as Add does; its analysis and history stay. A Book
   that is already an active member keeps its disposition. EPUB ingest that
   matches no Book creates one as To Read. A legacy row (active, not To Read, no
@@ -192,7 +192,7 @@ A failed EPUB acquisition never rolls back the learner's To Read choice.
 There is no separate Inbox step to undo: the Add commits first, and acquisition
 runs as the durable `epub_acquisition` job (ADR 0121). The worker records the
 per-Book failure after the attempt and deletes it when an acquisition succeeds,
-so My Books keeps showing the reason until recovery. Add, Read again and
+so Reading keeps showing the reason until recovery. Add, Read again and
 Retry never report the failure in their responses.
 
 The stages and stable codes are defined once in the domain:
@@ -204,7 +204,7 @@ The stages and stable codes are defined once in the domain:
 | `source` | `source_oversize`, `source_format_unknown` | No |
 | `import` | `epub_import_failed` | Yes |
 
-My Books renders the reason and, where retrying can help, **Retry**, which goes
+Reading renders the reason and, where retrying can help, **Retry**, which goes
 through reading intent's Retry. A source-stage refusal offers no Retry because
 the file itself cannot be acquired. Book evidence classification takes the
 failure as an input beside Classical preparation's, and a failure never
@@ -215,16 +215,16 @@ attempt remains.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| No connections and empty My Books | Explain why a connection is needed and that sync records metadata before content. | Add catalog connection |
+| No connections and empty Reading | Explain why a connection is needed and that sync records metadata before content. | Add catalog connection |
 | Never synced | Identify the connection and explain that every offered non-English language with a ready NLP pipeline is eligible. | Sync now |
 | Syncing | Preserve existing collection and show that metadata reconciliation is operational work. | View operational status |
-| Last synced | Show the last successful time and metadata-only reconciliation. Manage sources keeps the ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or My Books |
+| Last synced | Show the last successful time and metadata-only reconciliation. Manage sources keeps the ordinary edit/delete actions. Do not present a per-connection language-scope summary. | Sync now or Reading |
 | Sync failed | Name the connection, preserve prior data, and show an actionable reason linked to Manage sources. | Edit connection in Manage sources or retry |
 | Metadata-only Book | Identify that content is not yet acquired and that analysis is unavailable until it is. | View in Reading or Read again |
 | Read outside Mouseion | Record that the learner read the text before using Mouseion, with no download, analysis or vocabulary change. | I've read this |
 | EPUB acquisition failed | Keep the Book To Read, name the reason (entry missing, download failed, unusable source, or import failed), and offer Retry only for entry, fetch and import stages. The reason stays until an acquisition succeeds and never overrides an analysis in effect. | Retry, or fix the catalog and retry |
 | Acquisition/analysis running or failed | Preserve Book or Journey context and distinguish durable content/analysis work. | View status or retry |
-| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from My Books or Reading |
+| Current analysis stale | Identify that the acquired content changed since the current evidence was produced. | Retry from Reading or Reading |
 
 ## Non-goals
 
@@ -244,7 +244,7 @@ attempt remains.
 
 ## Acceptance criteria
 
-- A fresh learner with no connection sees a clear My Books explanation and a
+- A fresh learner with no connection sees a clear Reading explanation and a
   primary action to `/catalogs`.
 - A connection can be never synced, syncing, last synced, or failed, and every
   state has a usable server-rendered path and recovery where applicable.
@@ -254,13 +254,13 @@ attempt remains.
   saved study-language preference gates the run.
 - Repeated runs create no duplicates; upstream metadata changes update the
   linked Book's title, author, and cover; upstream removal and connection
-  deletion remove nothing from My Books.
-- A fresh learner's My Books stays empty after a sync, and study languages come
+  deletion remove nothing from Reading.
+- A fresh learner's Reading stays empty after a sync, and study languages come
   only from Books they added.
 - Sync performs no EPUB download and causes no scope or analysis invalidation.
 - Sync updates the title, author, and cover of Books linked to an entry and
   never creates a Book, membership, or disposition.
-- A Book that left My Books is not restored by sync; the per-Book metadata
+- A Book that left Reading is not restored by sync; the per-Book metadata
   refresh action and route are gone.
 - Operational jobs remain visible and recoverable through `/jobs` without
   changing primary navigation.
