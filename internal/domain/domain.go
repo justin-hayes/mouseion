@@ -690,17 +690,6 @@ type ProcessingHistory struct {
 	StartedAt                                time.Time
 	CompletedAt                              *time.Time
 }
-type SelectionCandidate struct {
-	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
-	LexicalDiscriminator                              string
-	// Headword is the imported citation form shown to learners, empty for
-	// modern-language vocabulary.
-	Headword                                      string
-	OccurrenceCount                               int
-	FirstEncounter                                int64
-	ObservedForms, SentenceReferences, Provenance []byte
-	SelectedAt                                    time.Time
-}
 
 // ProjectedCorpusVocabulary is the per-Book effective vocabulary of one
 // corpus, read from the Browse count projection. Ready is false while the

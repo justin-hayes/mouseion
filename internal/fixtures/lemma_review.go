@@ -172,7 +172,7 @@ func (s *Store) applyLemmaDecisionLocked(decision domain.LemmaReviewDecision) {
 }
 
 // ReadLemmaReviewProposal derives deterministic before and after counts from the
-// fixture Book's vocabulary, with no other Books contributing and nothing Reserved.
+// fixture Book's vocabulary, with no other Books contributing.
 func (s *Store) ReadLemmaReviewProposal(ctx context.Context, proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
 	occurrences, err := s.ListLemmaReviewOccurrences(ctx, proposal.OwnerID, proposal.BookID, proposal.Surface)
 	if err != nil {

@@ -29,7 +29,6 @@ type Impact struct {
 	BeforeCount    int64
 	AfterCount     int64
 	Known          bool
-	Reserved       bool
 	BeforeEligible bool
 	AfterEligible  bool
 }
@@ -42,11 +41,11 @@ func ReviewImpact(states []domain.LemmaReviewIdentityState) []Impact {
 	impacts := make([]Impact, 0, len(states))
 	for _, state := range states {
 		eligible := func(inBook int64) bool {
-			return readingFrequencyEligible(inBook, state.OtherBooks+inBook) && !state.Known && !state.Reserved
+			return readingFrequencyEligible(inBook, state.OtherBooks+inBook) && !state.Known
 		}
 		impacts = append(impacts, Impact{
 			Identity: Identity(state.Identity), BeforeCount: state.InBook, AfterCount: state.AfterInBook,
-			Known: state.Known, Reserved: state.Reserved,
+			Known:          state.Known,
 			BeforeEligible: eligible(state.InBook), AfterEligible: eligible(state.AfterInBook),
 		})
 	}

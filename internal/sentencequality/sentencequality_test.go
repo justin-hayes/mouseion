@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,25 +53,6 @@ func TestScoreSentenceQualityGermanOverlayGatesOnFiniteVerbAndSubject(t *testing
 	rejected := ScoreSentenceQuality("de", sentence, "Haus", 10, tokens, 0)
 	assert.False(t, rejected.Accepted)
 	assert.Contains(t, rejected.Reasons, reasonNoFiniteVerbAndSubject)
-
-	accepted, ok := BestSentenceEvidenceFromCorpus(domain.SelectionCandidate{
-		Language: "de", CanonicalLemma: "haus", ObservedForms: []byte(`["See"]`),
-		SentenceReferences: []byte(`[{"sentence_index":0,"text":"x","location":{"start_offset":10}}]`),
-	}, map[int64]analyzer.Sentence{0: {
-		Text: "Der See liegt neben dem alten Haus.",
-		Tokens: []analyzer.Token{
-			{Surface: "Der", UPOS: "DET", Dependency: "det", Head: 1},
-			{Surface: "See", UPOS: "NOUN", Dependency: "nsubj", Head: 2},
-			{Surface: "liegt", UPOS: "VERB", Dependency: "root", Head: 2, Morphology: map[string]string{"VerbForm": "Fin"}},
-			{Surface: "neben", UPOS: "ADP", Dependency: "case", Head: 6},
-			{Surface: "dem", UPOS: "DET", Dependency: "det", Head: 6},
-			{Surface: "alten", UPOS: "ADJ", Dependency: "amod", Head: 6},
-			{Surface: "Haus", UPOS: "NOUN", Dependency: "obl", Head: 2},
-		},
-	}})
-	assert.True(t, ok)
-	assert.True(t, accepted.Quality.Accepted)
-	assert.Greater(t, accepted.Quality.GDEXScore, float64(0))
 }
 
 // The Ancient Greek rubric keeps the generic text criteria but accepts the
@@ -214,7 +194,6 @@ func TestSentenceQualityAcceptsElidedTarget(t *testing.T) {
 	assert.True(t, quality.Accepted, "quality=%+v", quality)
 	assert.Contains(t, quality.Reasons, "target present")
 
-	assert.Equal(t, "homme", MatchingSentenceTarget(sentence, []string{"homme"}, tokens, 0))
 	assert.Equal(t, -1, targetIndex(sentence, "homme", nil, 0))
 	assert.NotEqual(t, -1, targetIndex(sentence, "homme", tokens, 0))
 }

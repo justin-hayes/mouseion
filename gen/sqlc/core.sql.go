@@ -1372,38 +1372,6 @@ func (q *Queries) PutSupportedLanguageOrIgnore(ctx context.Context, language str
 	return err
 }
 
-const reservedVocabularyExists = `-- name: ReservedVocabularyExists :one
-SELECT EXISTS(
-  SELECT 1
-  FROM primary_goal_snapshots ps
-  JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
-  JOIN primary_goal_snapshot_vocabulary pv
-    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
-  WHERE ps.owner_id = $1 AND ps.language = $2
-    AND ps.released_at IS NULL AND pv.language = $2
-    AND pv.canonical_lemma = $3 AND pv.upos = $4
-)
-`
-
-type ReservedVocabularyExistsParams struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-func (q *Queries) ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error) {
-	row := q.db.QueryRow(ctx, reservedVocabularyExists,
-		arg.OwnerID,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const setActiveStudyLanguage = `-- name: SetActiveStudyLanguage :execrows
 UPDATE users SET active_study_language = $2 WHERE id = $1
 `

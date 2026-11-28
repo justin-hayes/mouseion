@@ -592,7 +592,6 @@ type Querier interface {
 	// Starts a Study item's material as pending. A word that already has current
 	// material returns no row.
 	ReserveStudyMaterial(ctx context.Context, arg ReserveStudyMaterialParams) (string, error)
-	ReservedVocabularyExists(ctx context.Context, arg ReservedVocabularyExistsParams) (bool, error)
 	ResolveLinkedSourceBook(ctx context.Context, arg ResolveLinkedSourceBookParams) (string, error)
 	// Undo of an Unsuitable-context report: the word goes back to the material,
 	// learned meaning and correction time it had, and a withdrawal for want of a

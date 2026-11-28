@@ -15,7 +15,7 @@ import (
 // ReadLemmaReviewProposal previews a proposal in one repeatable-read transaction.
 // For every identity the proposal moves, it reads the effective count in this
 // Book now and after the proposal, the count across the learner's other
-// currently analyzed Books, and Known and Reserved state. The fingerprint binds a
+// currently analyzed Books, and Known state. The fingerprint binds a
 // later confirm to exactly that state. It reports the pending or unavailable
 // errors of the snapshot freeze while the Book or any other analyzed Book lacks a
 // ready projection. Previewing writes nothing.
@@ -85,21 +85,14 @@ func lemmaReviewIdentityStates(ctx context.Context, tx pgx.Tx, scope browseCount
 	if err != nil {
 		return nil, err
 	}
-	q := sqlcgen.New(tx)
 	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
 	for _, identity := range affected {
 		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
 		normalized.discriminator = identity.LexicalDiscriminator
-		reserved, err := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-			OwnerID: proposal.OwnerID, Language: identity.Language, CanonicalLemma: normalized.lemma, Upos: normalized.upos,
-		})
-		if err != nil {
-			return nil, err
-		}
 		states = append(states, domain.LemmaReviewIdentityState{
 			Identity: identity, InBook: before[normalized].occurrences, AfterInBook: after[normalized].occurrences,
 			OtherBooks: others[currentReadingVocabularyIdentity(normalized)],
-			Known:      knownLemmaReviewContains(known, normalized), Reserved: reserved,
+			Known:      knownLemmaReviewContains(known, normalized),
 		})
 	}
 	return states, nil

@@ -250,18 +250,6 @@ FROM progress_languages k
 LEFT JOIN supported_languages n ON n.language = k.language
 ORDER BY COALESCE(NULLIF(n.display_name, ''), k.language), k.language;
 
--- name: ReservedVocabularyExists :one
-SELECT EXISTS(
-  SELECT 1
-  FROM primary_goal_snapshots ps
-  JOIN primary_goals pg ON pg.owner_id = ps.owner_id AND pg.snapshot_id = ps.id
-  JOIN primary_goal_snapshot_vocabulary pv
-    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
-  WHERE ps.owner_id = $1 AND ps.language = $2
-    AND ps.released_at IS NULL AND pv.language = $2
-    AND pv.canonical_lemma = $3 AND pv.upos = $4
-);
-
 -- name: PutExampleSentence :one
 INSERT INTO example_sentences(owner_id, corpus_id, sentence_key, sentence_text, source_location)
 VALUES ($1, $2, $3, $4, $5)
