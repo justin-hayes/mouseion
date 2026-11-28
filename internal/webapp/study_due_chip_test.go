@@ -80,3 +80,37 @@ func TestShellCountsDueOnceForTheLanguageOfThePage(t *testing.T) {
 	require.Equal(t, http.StatusOK, getAs(t, h, "/de/reading", cookies).Code)
 	assert.Equal(t, []string{"de"}, languages, "one count, for the page's language, not the stored one")
 }
+
+func TestNavigationContextForTitle(t *testing.T) {
+	for title, want := range map[string]NavigationContext{
+		"Reading": NavigationReading, "My Books": NavigationReading, "My Library": NavigationReading, "Learning": NavigationReading,
+		"Study": NavigationStudy, "Corpus": NavigationCorpus,
+		"Catalog": NavigationCatalogs, "Catalogs": NavigationCatalogs, "Account": NavigationNone,
+	} {
+		assert.Equal(t, want, navigationContextForTitle(title), title)
+	}
+}
+
+func TestSettingsRedirectsToReading(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(*Services) {})
+	response := getAs(t, h, "/settings", cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/reading", response.Header().Get("Location"))
+}
+
+func TestStudyLanguagePickerWithoutALanguageReturnsToReading(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSessionWith(t, func(*Services) {})
+	response := getAs(t, h, "/study-language", cookies)
+	assert.Equal(t, http.StatusSeeOther, response.Code)
+	assert.Equal(t, "/de/reading", response.Header().Get("Location"))
+}
+
+func TestLanguageFallbackFollowsASuccessorToItsPage(t *testing.T) {
+	view := &shellView{LastLanguage: "de"}
+	path, query := languageFallback(view, pageKindLegacyLibrary, "/library", "x=1")
+	assert.Equal(t, "/de/reading", path)
+	assert.Equal(t, "x=1", query, "a successor keeps the query")
+	path, query = languageFallback(view, pageKindSentenceStudy, "/corpus/concordance/sentence", "x=1")
+	assert.Equal(t, "/de/corpus/concordance", path)
+	assert.Empty(t, query, "a deep page lands on its landing page with no query")
+}
