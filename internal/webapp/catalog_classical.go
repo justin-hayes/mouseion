@@ -9,16 +9,11 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// classicalCatalogCards is the Classical side of the Catalog: one card per
+// classicalCatalogCardsIn is the Classical side of the Catalog: one card per
 // current Reading unit whose Work matches the search, ordered by title, then
 // author, then unit key, like every other source. It matches author, English
-// title and Greek title through the Go search key.
-func classicalCatalogCards(authors []classical.CatalogAuthor, query string, view classicalCatalogView) []catalogCard {
-	return classicalCatalogCardsIn(authors, query, "", view)
-}
-
-// classicalCatalogCardsIn is classicalCatalogCards narrowed to the Works of one
-// classical language; an empty language keeps every Work.
+// title and Greek title through the Go search key. A non-empty language narrows
+// it to the Works of one classical language; an empty language keeps every Work.
 func classicalCatalogCardsIn(authors []classical.CatalogAuthor, query, language string, view classicalCatalogView) []catalogCard {
 	key := canonicalization.SearchKey(query)
 	var cards []catalogCard
