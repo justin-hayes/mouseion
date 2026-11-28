@@ -1,7 +1,6 @@
 # Analysis Insights
 
-Journey and Primary Goal projections in this feature are historical. Current
-Reading presents current coverage bands only; the sequential forecast is retired
+Journey and Primary Goal projections in this feature are historical. My Books presents current coverage bands only; the sequential forecast is retired
 as described in the [Reading workflow](reading-workflow.md).
 
 Status: Implemented · Date: 2026-08-24 · Updated: 2026-11-28

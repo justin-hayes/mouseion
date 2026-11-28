@@ -348,6 +348,8 @@ and introduced Idioms as items with their own Study progress
 - My Books holds what the Reading page held, and finishing a Book records
   history only ([Reading workflow](reading-workflow.md)).
 
+Still out of scope after the cutover:
+
 - Cognates, etymology and recommendations.
 - An FSRS parameter optimiser, Hard and Easy grades, and words leaving study.
 - A fixed split of new words between the Book and the library, and fading words

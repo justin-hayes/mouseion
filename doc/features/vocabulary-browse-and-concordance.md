@@ -41,6 +41,6 @@ Under [ADR 0086](../adr/0086-reading-working-desk-hidden-visibility-and-concorda
 ## Acceptance and scale
 
 - A lemma seen three times in a Book and once in another displays 3 and 4 on the first Book's detail page. Correcting those three away removes its row even if the other Book still contains it.
-- A word the learner introduced and has whose current review interval is at least 21 days shows **Mature**; a word introduced but not yet at that interval shows **In study**; a word with no Study progress shows **Not yet introduced**. The list never shows Known, Reserved or Unknown.
+- A word the learner introduced and whose current review interval is at least 21 days shows **Mature**; a word introduced but not yet at that interval shows **In study**; a word with no Study progress shows **Not yet introduced**. The list never shows Known, Reserved or Unknown.
 - Making a Book the Current reading, ending it or finishing it changes nothing in the Browse list or in Concordance's cross-Book evidence model. Browse offers investigation links but never saves an independent word selection or creates a deck. No custom/legacy deck link or direct URL remains as part of this feature.
 - Enhanced requests expose pending text by about 1 second and end failed interactive work by 10 seconds with honest recovery.

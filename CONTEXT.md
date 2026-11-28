@@ -57,6 +57,8 @@ Superseded decisions ([ADR 0036](doc/adr/0036-primary-goal-justified-graduation.
 [0114](doc/adr/0114-idiom-cards-from-dictionary-evidence.md)) remain as
 history.
 
+## Language
+
 **Study language**:
 A language the learner studies. The set is inferred from the languages present
 in the learner's library (books with a chosen language), never configured by
@@ -695,7 +697,7 @@ _Avoid_: pause, stop, set aside.
 The one action that makes an analysed To Read Book with a Book language the
 Current reading. It starts a reading or, when another Book is current, switches
 to this one and leaves the former Book in To Read. It takes no confirmation and
-freezes nothing. It is refused, with its reason, only when the Book is not
+freezes nothing. It is refused, with its reason, when the Book is not To Read, not
 analysed or has no Book language.
 _Avoid_: Start, Switch (the retired two-step actions), commit.
 

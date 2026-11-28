@@ -79,7 +79,7 @@ general comprehension of a language. At one cutover it made
 - [Language Support](features/language-support.md) — capability-driven German, Italian, French, and Modern Greek analysis, deployment, and end-to-end validation.
 - [Catalog Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogs with lazy content acquisition.
 - [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
-- [Book Covers](features/book-covers.md) — implemented cover-led My Books grid, retained catalog-supplied images, and supporting Reading thumbnails.
+- [Book Covers](features/book-covers.md) — implemented cover-led My Books grid, retained catalog-supplied images, and supporting thumbnails.
 - [Study](features/study.md) — the only vocabulary workflow: Today's graded reviews, New-word batches with an Already known answer, Fluency, Study reports and their remediation screen, and the Corpus and Target coverage that order new words.
 - [Language Mode](features/language-mode.md) — the active study language scopes the shell, My Books, Study, and Vocabulary.
 - [Reading workflow](features/reading-workflow.md) — My Books with the pinned Current reading, Read next, Finish and End, To Read selection, completion history, rereading, status lines and the Book detail page.
