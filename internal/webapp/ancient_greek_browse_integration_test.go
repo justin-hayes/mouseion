@@ -40,7 +40,7 @@ func TestAncientGreekBrowseListsBook1Vocabulary(t *testing.T) {
 	// The projection keeps δέω 1 and δέω 2 apart, carries the citation headword
 	// rather than the stored key, and flags the bare λόγος whose work also
 	// numbers it. No proper name reaches the eligible set.
-	page, err := store.ListVocabularyBrowsePage(ctx, learner.ID, "grc", domain.VocabularyBrowseQuery{CurrentBookID: registration.BookID, IncludeAll: true, Page: 1})
+	page, err := store.ListVocabularyBrowsePage(ctx, learner.ID, "grc", domain.VocabularyBrowseQuery{CurrentBookID: registration.BookID, Page: 1})
 	require.NoError(t, err)
 	require.Equal(t, int64(5), page.Total)
 	require.Len(t, page.Rows, 5)

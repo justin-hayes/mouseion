@@ -351,7 +351,7 @@ func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing
 }
 
 func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
-	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1", IncludeAll: true,
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1",
 		Books: []domain.VocabularyBrowseBook{{ID: "book-1", Title: "Current Book", HasCurrentAnalysis: true}},
 		Rows:  []domain.VocabularyBrowseRow{{CanonicalLemma: "haus", UPOS: "NOUN"}}}
 	html := renderReadingBrowse(t, "de", page, "ha")
@@ -387,9 +387,9 @@ func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *test
 }
 
 func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.T) {
-	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences", IncludeAll: true, CorpusRevision: "revision-1"}
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, Sort: "occurrences", CorpusRevision: "revision-1"}
 	url := vocabularyBrowsePageURL(3, page, "Haus")
-	for _, value := range []string{"q=Haus", "reading=current-book", "page=3", "all=1", "rev=revision-1"} {
+	for _, value := range []string{"q=Haus", "reading=current-book", "page=3", "rev=revision-1"} {
 		assert.Contains(t, url, value)
 	}
 	for _, obsolete := range []string{"book=", "pos=", "known=", "reserved=", "sort="} {
@@ -398,7 +398,7 @@ func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.
 }
 
 func TestVocabularyBrowseRestartDropsOldRevisionAndObsoleteControls(t *testing.T) {
-	page := domain.VocabularyBrowsePage{CurrentBookID: "book-1", ReadingBookID: "book-1", SelectedBooks: []string{"book-1"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "books"}
+	page := domain.VocabularyBrowsePage{CurrentBookID: "book-1", ReadingBookID: "book-1", SelectedBooks: []string{"book-1"}, SelectedUPOS: []string{"NOUN"}, Sort: "books"}
 	url := vocabularyBrowsePageURL(1, page, "Haus")
 	for _, value := range []string{"q=Haus", "reading=book-1", "page=1"} {
 		assert.Contains(t, url, value)
@@ -420,14 +420,13 @@ func browseTestServices(store allStoreCapabilities) Services {
 }
 
 func TestVocabularyBrowseFailureOffersRetryWithAppliedControls(t *testing.T) {
-	_, status, html := loadBrowseForTest(t, browseTestServices(failedVocabularyBrowseStore{}), "/reading?q=Haus&all=1&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", "book-1")
+	_, status, html := loadBrowseForTest(t, browseTestServices(failedVocabularyBrowseStore{}), "/reading?q=Haus&book=book-1&pos=NOUN&known=not-known-or-reserved&reserved=not-reserved&sort=books&page=2", "book-1")
 
 	assert.Equal(t, http.StatusInternalServerError, status)
 	assert.Contains(t, html, `id="vocabulary-recovery"`)
 	for _, want := range []string{
 		"Browse could not be loaded", "Your search was not applied", "Retry Browse",
 		`name="q" value="Haus"`, `name="reading" value="book-1"`, `name="page" value="2"`,
-		`name="all" value="1"`,
 	} {
 		assert.Contains(t, html, want)
 	}

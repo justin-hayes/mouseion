@@ -87,7 +87,7 @@ func TestVocabularyBrowseCarriesCitationHeadwordsAndBareLemmaNotesPerScope(t *te
 	})
 
 	t.Run("current reading without a headword", func(t *testing.T) {
-		page, rows := browse(t, domain.VocabularyBrowseQuery{CurrentBookID: first, IncludeAll: true})
+		page, rows := browse(t, domain.VocabularyBrowseQuery{CurrentBookID: first})
 		require.Equal(t, int64(5), page.Total)
 		require.Equal(t, int64(5), page.InventoryTotal)
 		require.Equal(t, map[string]browseHeadwordRow{

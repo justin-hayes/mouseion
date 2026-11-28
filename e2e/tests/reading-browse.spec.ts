@@ -92,7 +92,7 @@ test('Browse controls keep readable contrast and no page overflow in this colour
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 
   if (isCompact(test.info().project.name)) {
-    for (const control of [search, page.locator('#vocabulary-include-all').locator('xpath=ancestor::label')]) {
+    for (const control of [search, prefix]) {
       const box = await control.boundingBox();
       expect(box?.height).toBeGreaterThanOrEqual(44);
     }
@@ -113,8 +113,6 @@ test('Reading keyboard order reaches the Browse search field after the current B
     reached = await prefix.evaluate(node => node === document.activeElement);
   }
   expect(reached, 'search field reachable by Tab').toBe(true);
-  await page.keyboard.press('Tab');
-  await expect(page.locator('#vocabulary-include-all')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.locator('#vocabulary-workflow').getByRole('button', { name: 'Search', exact: true })).toBeFocused();
 });

@@ -552,19 +552,11 @@ func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
 	}
 
 	page := browse(t, query)
-	assert.Equal(t, int64(1), page.Total, "the default fixture still hides accounted-for identities")
-
-	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioAccounted))
-	page = browse(t, query)
-	assert.Zero(t, page.Total)
-	assert.Equal(t, int64(2), page.ScopedInventoryTotal, "accounted-for identities are scoped, not absent")
-	assert.Empty(t, page.Rows)
-	query.IncludeAll = true
-	page = browse(t, query)
-	require.Len(t, page.Rows, 2)
-	assert.True(t, page.Rows[0].Known && page.Rows[0].InBookDeck, "haus is Known and in a Book deck")
-	assert.True(t, page.Rows[1].Known && page.Rows[1].Reserved, "lesen is Known and Reserved")
-	query.IncludeAll = false
+	assert.Equal(t, int64(3), page.Total, "the default fixture shows every identity with its Study state")
+	require.Len(t, page.Rows, 3)
+	assert.Equal(t, domain.VocabularyStudyNotIntroduced, page.Rows[0].StudyState)
+	assert.Equal(t, domain.VocabularyStudyMature, page.Rows[1].StudyState)
+	assert.Equal(t, domain.VocabularyStudyInStudy, page.Rows[2].StudyState)
 
 	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioNoAnalysis))
 	page = browse(t, query)
@@ -587,7 +579,7 @@ func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
 
 	require.Error(t, store.SetVocabularyBrowseScenario("unlisted"))
 	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioDefault))
-	assert.Equal(t, int64(1), browse(t, query).Total, "the empty scenario restores the default fixture")
+	assert.Equal(t, int64(3), browse(t, query).Total, "the empty scenario restores the default fixture")
 }
 
 // TestVocabularyBrowsePagesTheFixtureAndClampsPages holds how Browse serves the

@@ -16,7 +16,6 @@ import (
 const (
 	originKeyBook     = "from_book"
 	originKeyPrefix   = "from_q"
-	originKeyAll      = "from_all"
 	originKeyPage     = "from_page"
 	originKeyRow      = "from_row"
 	originKeyRevision = "from_rev"
@@ -26,19 +25,18 @@ const (
 	maxOriginValueLength = 512
 )
 
-var originKeys = []string{originKeyBook, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision}
+var originKeys = []string{originKeyBook, originKeyPrefix, originKeyPage, originKeyRow, originKeyRevision}
 
 // browseOrigin names the Current reading Book, the applied Browse controls, the
 // row the learner left from, and the live Browse evidence revision at that time.
 // The revision is the freshness guard. The study language travels as the ordinary
 // language parameter.
 type browseOrigin struct {
-	BookID     string
-	Prefix     string
-	IncludeAll bool
-	Page       int
-	Row        string
-	Revision   string
+	BookID   string
+	Prefix   string
+	Page     int
+	Row      string
+	Revision string
 }
 
 // Active reports whether this origin names a Book. A direct
@@ -62,13 +60,6 @@ func parseBrowseOrigin(values url.Values) browseOrigin {
 		BookID: strings.TrimSpace(values.Get(originKeyBook)),
 		Prefix: values.Get(originKeyPrefix), Row: values.Get(originKeyRow), Revision: values.Get(originKeyRevision), Page: 1,
 	}
-	switch values.Get(originKeyAll) {
-	case "":
-	case "1":
-		origin.IncludeAll = true
-	default:
-		return browseOrigin{}
-	}
 	if raw := values.Get(originKeyPage); raw != "" {
 		page, err := strconv.Atoi(raw)
 		if err != nil || page < 1 {
@@ -91,9 +82,6 @@ func (o browseOrigin) Values() url.Values {
 	values.Set(originKeyBook, o.BookID)
 	if o.Prefix != "" {
 		values.Set(originKeyPrefix, o.Prefix)
-	}
-	if o.IncludeAll {
-		values.Set(originKeyAll, "1")
 	}
 	if o.Page > 1 {
 		values.Set(originKeyPage, strconv.Itoa(o.Page))
@@ -129,9 +117,6 @@ func (o browseOrigin) ReturnURL(language string) string {
 	values := url.Values{}
 	if o.Prefix != "" {
 		values.Set("q", o.Prefix)
-	}
-	if o.IncludeAll {
-		values.Set("all", "1")
 	}
 	values.Set("reading", o.BookID)
 	if o.Revision != "" {
