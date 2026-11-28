@@ -128,8 +128,8 @@ func TestResolvePassageWithholdsAPartialPassageAndAnUntranslatedPolicy(t *testin
 	assert.Equal(t, "pin", got.Pin)
 	assert.NotEmpty(t, got.Citation)
 
-	assert.True(t, ResolvePassage(cardpolicy.For("grc"), []string{"1.2.17", "1.2.99"}, translations, "pin").Empty())
-	assert.True(t, ResolvePassage(cardpolicy.For("de"), []string{"1.2.17"}, translations, "pin").Empty())
+	assert.Empty(t, ResolvePassage(cardpolicy.For("grc"), []string{"1.2.17", "1.2.99"}, translations, "pin").Text)
+	assert.Empty(t, ResolvePassage(cardpolicy.For("de"), []string{"1.2.17"}, translations, "pin").Text)
 }
 
 func senseIDs(senses []Sense) []string {
@@ -163,20 +163,20 @@ func TestResolvePassageOfBookReadsTheBooksTranslationsFromTheStore(t *testing.T)
 
 	none, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "book-2", []string{"1.2.17"})
 	require.NoError(t, err)
-	assert.True(t, none.Empty(), "a Book with no translations has no passage")
+	assert.Empty(t, none.Text, "a Book with no translations has no passage")
 }
 
 func TestResolvePassageOfBookAsksNothingWhenNoPassageApplies(t *testing.T) {
 	store := &translations{pin: "p", byBook: map[string]map[string]string{"b": {"1.1": "x"}}}
 	got, err := ResolvePassageOfBook(t.Context(), store, cardpolicy.For("de"), "owner", "b", []string{"1.1"})
 	require.NoError(t, err)
-	assert.True(t, got.Empty())
+	assert.Empty(t, got.Text)
 	got, err = ResolvePassageOfBook(t.Context(), store, cardpolicy.For("grc"), "owner", "b", nil)
 	require.NoError(t, err)
-	assert.True(t, got.Empty())
+	assert.Empty(t, got.Text)
 	got, err = ResolvePassageOfBook(t.Context(), nil, cardpolicy.For("grc"), "owner", "b", []string{"1.1"})
 	require.NoError(t, err)
-	assert.True(t, got.Empty())
+	assert.Empty(t, got.Text)
 	assert.Zero(t, store.calls)
 }
 
