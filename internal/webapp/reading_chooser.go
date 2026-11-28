@@ -58,9 +58,8 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 }
 
 // readingDeskQueryKeys are the vocabulary Browse state a working-desk address
-// carries: the Book it belongs to, its prefix, accounting reveal, evidence
-// revision, row and page.
-var readingDeskQueryKeys = []string{"reading", "q", "all", "rev", "row", "page"}
+// carries: the Book it belongs to, its prefix, evidence revision, row and page.
+var readingDeskQueryKeys = []string{"reading", "q", "rev", "row", "page"}
 
 // readingDeskRequest reports whether the query names vocabulary Browse state,
 // as opposed to a bare Reading address that now belongs to My Books.

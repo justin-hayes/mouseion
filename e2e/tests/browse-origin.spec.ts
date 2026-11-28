@@ -14,7 +14,7 @@ async function signIn(page: Page) {
 
 test('Browse to Concordance to Study and back restores the row with native navigation', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   await page.locator('a.vocabulary-lemma-link').last().click();
   await expect(page).toHaveURL(/\/vocabulary\/concordance\?/);
   const back = page.getByRole('link', { name: 'Back to book vocabulary' });
