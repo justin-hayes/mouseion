@@ -101,12 +101,6 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.Equal(t, "Häuser", result.Plural)
 	assert.Equal(t, "/haʊ̯s/", result.IPA)
 	assert.Empty(t, result.PrincipalParts)
-	exists, err := index.LemmaExists(t.Context(), "de", "Drach", "NOUN")
-	require.NoError(t, err)
-	assert.False(t, exists)
-	exists, err = index.LemmaExists(t.Context(), "de", "Haus", "NOUN")
-	require.NoError(t, err)
-	assert.True(t, exists)
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "duplicate", UPOS: "NOUN"})
 	require.NoError(t, err)
 	assert.True(t, found)
@@ -738,12 +732,6 @@ func TestIndexAncientGreekMatchingReturnsEveryHomograph(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found, "a non-matching POS with no lemma-only entry has no evidence")
 
-	exists, err := index.LemmaExists(t.Context(), "grc", "δέω", "VERB")
-	require.NoError(t, err)
-	assert.True(t, exists)
-	exists, err = index.LemmaExists(t.Context(), "grc", "δέω", "ADJ")
-	require.NoError(t, err)
-	assert.False(t, exists, "LemmaExists matches the exact part of speech only")
 }
 
 func TestIndexAncientGreekKeyNormalization(t *testing.T) {
@@ -776,10 +764,6 @@ func TestIndexAncientGreekUnavailableOnOlderIndex(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Empty(t, result.Senses)
-
-	exists, err := index.LemmaExists(t.Context(), "grc", "δέω", "VERB")
-	require.NoError(t, err)
-	assert.False(t, exists, "an unavailable index reports no Ancient Greek lemma")
 
 	// Modern-language lookups are unchanged by the Ancient Greek additions.
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})

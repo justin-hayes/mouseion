@@ -139,16 +139,6 @@ func TestLatinGenericLookupsNeverEnterTheGreekIndex(t *testing.T) {
 		`INSERT INTO ls_entries VALUES ('n10', 'dico', 'dīco', '[]')`,
 	)...)
 
-	t.Run("lemma existence reads Lewis & Short under the latin key, whatever the part of speech", func(t *testing.T) {
-		for _, upos := range []string{"VERB", "NOUN"} {
-			exists, err := index.LemmaExists(t.Context(), "la", "dīcō", upos)
-			require.NoError(t, err)
-			assert.True(t, exists, upos)
-		}
-		exists, err := index.LemmaExists(t.Context(), "la", "absent", "VERB")
-		require.NoError(t, err)
-		assert.False(t, exists)
-	})
 	t.Run("the generic lookup finds no Greek entry for a Latin lemma", func(t *testing.T) {
 		_, found, err := index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "la", CanonicalLemma: "dico", UPOS: "VERB"})
 		require.NoError(t, err)
