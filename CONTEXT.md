@@ -883,6 +883,51 @@ limits how many are offered, and fewer, or none, are offered when the
 forecast review load is high.
 _Avoid_: daily new allowance, new-card limit, quota.
 
+**Study status**:
+A study language's standing in Study, chosen by the learner: **Acquiring**,
+**Maintaining** or **Paused**. It decides whether the language takes new words,
+never whether its reviews fall due. It configures how a language is studied,
+not which languages are studied.
+_Avoid_: In study (a word's state), active (the Active study language's word),
+mode, Maintenance.
+
+**Acquiring**:
+The Study status in which a language's Today offers New-word batches after its
+reviews.
+_Avoid_: active, learning, In study.
+
+**Maintaining**:
+The Study status in which a language's Today offers its reviews and Fluency but
+no New-word batches, so no new words are introduced or prepared for it.
+_Avoid_: Maintenance, review-only mode, frozen.
+
+**Paused**:
+The Study status of a language the learner is not studying for now. It takes
+no new words and is left out of the counts and runs that gather the day's
+Study across languages. Its reviews still fall due, and its Today still opens.
+_Avoid_: suspended, frozen, inactive, archived.
+
+**Study priority**:
+The learner's order of their study languages in Study. It orders and divides
+nothing else: it never shares out new words or preparation between languages.
+_Avoid_: weight, ranking, preferred language.
+
+**Study overview**:
+The Study page across languages, at `/study`, listing each study language with
+its Study status in Study priority order, with Paused languages last. Each row
+shows the reviews still due today and, for an Acquiring language, the New-word
+batches still on offer. It has no active study language, and each language's
+Today stays its own page. The Study destination in the navigation opens it.
+_Avoid_: hub, dashboard, shared Today, Today (for the overview).
+
+**Study run**:
+One pass through the day's Study across languages, started with **Start all**
+from the Study overview: each Acquiring or Maintaining language with work left
+takes its turn in Study priority order, ending where Fluency would open. The
+learner may skip a language or stop between turns. It keeps no state, so
+starting again resumes at the first language with work left.
+_Avoid_: session, combined Today, interleaved review, queue.
+
 **Study item**:
 What Study introduces and reviews: a word (a vocabulary identity) or an Idiom,
 which is identified by its study language and dictionary headword. Each Study
