@@ -717,15 +717,37 @@ History remains even when a Book returns to To Read for rereading.
 _Avoid_: Read disposition, completed list, Journey history.
 
 **Reading position**:
-The learner's latest known place in a Book: a fraction of the whole Book, where
-it came from (manual entry or a KOReader device) and when it was recorded, with
-an optional text anchor in the Book's current analysis. A Book has at most one;
-a later report replaces it whatever its source. The fraction is approximate
+The learner's latest known place in a Book: its latest Position report,
+whatever the source. A Book has at most one. The fraction is approximate
 because pages and percentages depend on edition and layout; only the anchor is
 exact. A printed copy of a Book counts as that Book. It never changes the Book
 disposition, the Current reading or Reading history, and they never change it.
 _Avoid_: progress (Study progress is a different fact), bookmark, percentage
 read.
+
+**Position report**:
+One recorded place in a Book: a fraction of the whole Book, where it came from
+(manual entry, a Device's progress sync, or its reading statistics) and when,
+with an optional text anchor (a readable unit, or a sentence) in the Book's
+current analysis. Reports are append-only, so they are the Book's reading
+history over time; frequent device reports are thinned.
+_Avoid_: progress update, sync, checkpoint.
+
+**Page visit**:
+One stretch of time a Device recorded on one page of a document: the page, the
+document's page count at that time, the start and the duration. Page visits
+belong to the Document digest, so they follow its Document link, and reading
+time is derived from them. Pages are layout units, so only the page's fraction
+of the page count compares across layouts.
+_Avoid_: session (a later grouping of visits), page view.
+
+**Highlight**:
+A passage the learner marked while reading on a Device, with its text, any
+note, and its time. It resolves to the sentences it covers when its linked Book
+is analysed, and otherwise stays unresolved. Like a Lookup, it is a signal only.
+Deleting it on the Device deletes it in Mouseion.
+_Avoid_: annotation (KOReader's wider term, which includes bookmarks), quote,
+clipping.
 
 **Document digest**:
 KOReader's partial MD5 of a file on the learner's device, the identity its
