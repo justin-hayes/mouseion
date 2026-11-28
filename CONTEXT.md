@@ -454,7 +454,9 @@ Book.
 **Catalog file**:
 The EPUB exactly as a Catalog entry's acquisition link serves it. Mouseion
 streams it to a temporary file and derives the Retained EPUB from it; it is not
-stored. Its digest is kept in processing history (ADR 0109).
+stored. Its digest is kept in processing history (ADR 0109), and its Document
+digest is recorded so that a device holding the same file links to the Book
+(pending an ADR amending 0109).
 _Avoid_: original EPUB, retained bytes.
 
 **Retained EPUB**:
@@ -713,6 +715,76 @@ _Avoid_: working desk (the retired Reading surface), Reading page.
 Append-only, Book-anchored reading completions and previously-read assertions.
 History remains even when a Book returns to To Read for rereading.
 _Avoid_: Read disposition, completed list, Journey history.
+
+**Reading position**:
+The learner's latest known place in a Book: its latest Position report,
+whatever the source. A Book has at most one. The fraction is approximate
+because pages and percentages depend on edition and layout; only the anchor is
+exact. A printed copy of a Book counts as that Book. It never changes the Book
+disposition, the Current reading or Reading history, and they never change it.
+_Avoid_: progress (Study progress is a different fact), bookmark, percentage
+read.
+
+**Position report**:
+One recorded place in a Book: a fraction of the whole Book, where it came from
+(manual entry, a Device's progress sync, or its reading statistics) and when,
+with an optional text anchor (a readable unit, or a sentence) in the Book's
+current analysis. Reports are never edited, so together they are the Book's
+reading history over time; frequent device reports are thinned. The learner may
+withdraw a manual report entered by mistake, which deletes it; a device report
+is never removed.
+_Avoid_: progress update, sync, checkpoint.
+
+**Page visit**:
+One stretch of time a Device recorded on one page of a document: the page, the
+document's page count at that time, the start and the duration. Page visits
+belong to the Document digest, so they follow its Document link, and reading
+time is derived from them. Pages are layout units, so only the page's fraction
+of the page count compares across layouts.
+_Avoid_: session (a later grouping of visits), page view.
+
+**Highlight**:
+A passage the learner marked while reading on a Device, with its text, any
+note, and its time. It resolves to the sentences it covers when its linked Book
+is analysed, and otherwise stays unresolved. Like a Lookup, it is a signal only.
+Deleting it on the Device deletes it in Mouseion.
+_Avoid_: annotation (KOReader's wider term, which includes bookmarks), quote,
+clipping.
+
+**Document digest**:
+KOReader's partial MD5 of a file on the learner's device, the identity its
+progress sync and reading statistics report for a document.
+_Avoid_: hash, MD5, book ID.
+
+**Document link**:
+A Document digest linked to one of the learner's Books, either automatically
+because it equals the digest of that Book's Catalog file, or because the
+learner confirmed it. A Book may have several; a digest links to at most one
+Book. A digest with evidence that it stands for several documents is
+ambiguous: its data is kept unlinked until the learner resolves it.
+_Avoid_: book hash, alias (a Catalog-entry alias is a different link).
+
+**Unlinked document**:
+A Document digest the learner's device has reported that has no Document link.
+Its data is kept and listed with a suggested Book, found by title, until the
+learner confirms a link or dismisses it; a title match never links by itself,
+and a dismissed document's later data is dropped.
+_Avoid_: unknown book, orphan.
+
+**Device**:
+A reading device the learner has named in Mouseion, such as a KOReader
+e-reader, with its own revocable credential. Every device protocol accepts the
+device credential and never the learner's password.
+_Avoid_: client, token, app password.
+
+**Lookup**:
+One dictionary lookup the learner made while reading on a Device: the string
+looked up, the text selected, its surrounding context and its time. It
+resolves to an Annotation occurrence only when its linked Book is analysed and
+its context is found in one of that Book's sentences; otherwise it stays
+unresolved. It is a signal only: it never adds a word to Study or changes its
+order. Mouseion keeps every lookup it receives, so a re-lookup is a new one.
+_Avoid_: look-up word, vocabulary builder word, saved word.
 
 **Study**:
 The learner's in-Mouseion review of vocabulary from their reading, on one card
