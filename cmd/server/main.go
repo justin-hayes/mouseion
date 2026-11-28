@@ -110,6 +110,7 @@ func run() (err error) {
 	ctx := context.Background()
 	signalCtx, stopSignals := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
+	defer func() { err = startupResult(signalCtx, err) }()
 	cfg, err := loadServerConfig()
 	if err != nil {
 		return err
@@ -147,6 +148,10 @@ func run() (err error) {
 		return err
 	}
 	defer closeIntoResult("dictionary index", dictionaryIndex.Close, &err)
+	// A signal that arrived during startup stops it here, before River starts.
+	if err := signalCtx.Err(); err != nil {
+		return err
+	}
 	deps, err := startServerDependencies(ctx, cfg, store, nlp, dictionaryIndex, llmConfig)
 	if err != nil {
 		return err
@@ -167,6 +172,17 @@ func run() (err error) {
 	}
 	log.Print("mouseion web server listening")
 	return serveUntilShutdown(signalCtx, newHTTPServer(cfg.addr, mux), listener)
+}
+
+// startupResult turns a startup step cancelled by a shutdown signal into a
+// clean stop, as a signal does once the server is serving. Anything else,
+// including a cancellation with no signal, stays a failure.
+func startupResult(signalCtx context.Context, err error) error {
+	if err != nil && signalCtx.Err() != nil && errors.Is(err, context.Canceled) {
+		log.Printf("startup interrupted by shutdown signal: %v", err)
+		return nil
+	}
+	return err
 }
 
 // workerStopper is the part of the River client the shutdown sequence uses.

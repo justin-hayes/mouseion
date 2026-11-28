@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"testing"
@@ -124,4 +125,32 @@ func TestStopRiverClientStopsInStages(t *testing.T) {
 func TestShutdownDeadlinesFitComposeGracePeriod(t *testing.T) {
 	total := httpShutdownTimeout + riverSoftStopTimeout + riverHardStopTimeout
 	require.LessOrEqual(t, total, 8*time.Second, "leave room for closes inside Compose's 10 s stop grace period")
+}
+
+func TestStartupResult(t *testing.T) {
+	signalled, signal := context.WithCancel(context.Background())
+	signal()
+	unsignalled := context.Background()
+	failure := errors.New("migrate failed")
+	tests := []struct {
+		name      string
+		signalCtx context.Context
+		err       error
+		want      error
+	}{
+		{"a step cancelled by a signal is a clean stop", signalled, fmt.Errorf("reconcile: %w", context.Canceled), nil},
+		{"a cancellation with no signal is a failure", unsignalled, context.Canceled, context.Canceled},
+		{"another failure after a signal is still a failure", signalled, failure, failure},
+		{"success stays success", unsignalled, nil, nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := startupResult(tc.signalCtx, tc.err)
+			if tc.want == nil {
+				require.NoError(t, got)
+				return
+			}
+			require.ErrorIs(t, got, tc.want)
+		})
+	}
 }
