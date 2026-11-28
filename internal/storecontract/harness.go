@@ -153,6 +153,8 @@ type ClassicalStore interface {
 type StudyStore interface {
 	ListStudyCandidates(owner, language string) ([]domain.StudyCandidate, error)
 	ListStudyCandidatesAmong(owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error)
+	GetStudyStream(owner, language string) (domain.StudyStream, error)
+	GetStudyStreamAmong(owner, language string, identities []domain.StudyItem) (domain.StudyStream, error)
 	ListCurrentStudyMaterial(owner, language string) ([]domain.StudyMaterial, error)
 	GetStudyMaterial(owner, id string) (domain.StudyMaterial, error)
 	CountStudyMaterial(owner, language string) (domain.StudyMaterialCounts, error)

@@ -55,6 +55,7 @@ func studyScenarios() []Scenario {
 			assert.Empty(t, other, "candidates are scoped to the study language")
 		}},
 		studyCandidatesAmongScenario(),
+		studyStreamScenario(),
 		{Name: "study candidates come from the Corpus: Read Books supply them and a removed Book stops, keeping its words' progress", Run: studyCorpusScenario},
 		{Name: "study candidates count occurrences in the Current reading and across the To Read Books only", Run: studyPriorityCountsScenario},
 		{Name: "study candidates apply confirmed corrections and exclusions and ignore unanalyzed or other-language Books", Run: func(t *testing.T, h Harness) {
@@ -473,6 +474,52 @@ func studyCandidatesAmongScenario() Scenario {
 			other, err := h.Study().ListStudyCandidatesAmong(h.Seeds().OtherOwner(), Language, []domain.StudyItem{studyNoun("haus")})
 			require.NoError(t, err)
 			require.Empty(t, other, "another learner's Books are not candidates")
+		})
+	}}
+}
+
+// studyStreamScenario holds GetStudyStream and GetStudyStreamAmong to the
+// candidate reads they are made of: the stream a reader orders is the same
+// candidates, whichever store serves it.
+func studyStreamScenario() Scenario {
+	return Scenario{Name: "the study stream carries the candidates every reader orders", Run: func(t *testing.T, h Harness) {
+		owner := h.Seeds().Owner()
+		current := h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: []OccurrenceSeed{
+			{Surface: "Haus", Lemma: "haus", UPOS: "NOUN"}, {Surface: "Haus", Lemma: "haus", UPOS: "NOUN"},
+		}})
+		h.Seeds().SeedBook(t, owner, BookSeed{Occurrences: []OccurrenceSeed{
+			{Surface: "Hund", Lemma: "hund", UPOS: "NOUN"}, {Surface: "Haus", Lemma: "haus", UPOS: "NOUN"},
+			{Surface: "Katze", Lemma: "katze", UPOS: "NOUN"},
+		}})
+		h.Seeds().SeedCurrentReading(t, owner, Language, current)
+
+		all, err := h.Study().ListStudyCandidates(owner, Language)
+		require.NoError(t, err)
+		stream, err := h.Study().GetStudyStream(owner, Language)
+		require.NoError(t, err)
+		require.ElementsMatch(t, all, stream.Candidates)
+		require.Equal(t, domain.OrderStudyStream(all, stream.Coverage.BoostsCurrentReading()), stream.Ordered(nil),
+			"the stream orders its candidates by its own coverage")
+
+		wanted := []domain.StudyItem{studyNoun("haus"), studyNoun("katze"), studyNoun("nope")}
+		among, err := h.Study().ListStudyCandidatesAmong(owner, Language, wanted)
+		require.NoError(t, err)
+		amongStream, err := h.Study().GetStudyStreamAmong(owner, Language, wanted)
+		require.NoError(t, err)
+		require.ElementsMatch(t, among, amongStream.Candidates)
+		require.Equal(t, stream.Coverage, amongStream.Coverage, "the identities asked for do not change the coverage")
+
+		idiom := domain.StudyCandidate{PersonalOccurrences: 99}
+		idiom.ItemKind, idiom.Language, idiom.CanonicalLemma = domain.StudyItemIdiom, Language, "ins gras beissen"
+		ordered := stream.Ordered([]domain.StudyCandidate{idiom})
+		require.Len(t, ordered, len(all)+1, "the Idioms are ranked among the candidates")
+		require.Contains(t, ordered, idiom)
+
+		t.Run("another learner", func(t *testing.T) {
+			other, err := h.Study().GetStudyStream(h.Seeds().OtherOwner(), Language)
+			require.NoError(t, err)
+			require.Empty(t, other.Candidates)
+			require.False(t, other.Coverage.Active)
 		})
 	}}
 }

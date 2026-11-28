@@ -62,6 +62,33 @@ func (s *Store) tallyStudyBookLocked(tallies map[domain.StudyItem]*domain.StudyC
 	}
 }
 
+// GetStudyStream is what orders the Study stream for the language: every
+// candidate and the Current reading's coverage.
+func (s *Store) GetStudyStream(ctx context.Context, owner, language string) (domain.StudyStream, error) {
+	candidates, err := s.ListStudyCandidates(ctx, owner, language)
+	if err != nil {
+		return domain.StudyStream{}, err
+	}
+	coverage, err := s.GetStudyReadingCoverage(ctx, owner, language)
+	if err != nil {
+		return domain.StudyStream{}, err
+	}
+	return domain.StudyStream{Candidates: candidates, Coverage: coverage}, nil
+}
+
+// GetStudyStreamAmong is GetStudyStream for the given identities only.
+func (s *Store) GetStudyStreamAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) (domain.StudyStream, error) {
+	candidates, err := s.ListStudyCandidatesAmong(ctx, owner, language, identities)
+	if err != nil {
+		return domain.StudyStream{}, err
+	}
+	coverage, err := s.GetStudyReadingCoverage(ctx, owner, language)
+	if err != nil {
+		return domain.StudyStream{}, err
+	}
+	return domain.StudyStream{Candidates: candidates, Coverage: coverage}, nil
+}
+
 // GetStudyReadingCoverage is how far the Current reading is toward Target
 // coverage. The fixture Book's analyzable tokens are its seeded occurrences, and
 // an excluded occurrence stays among them, as the persisted statistics do.
@@ -337,7 +364,7 @@ type Study struct{ Store *Store }
 // EnqueueStudyPreparation prepares material for the next words in stream order
 // that are not yet in study.
 func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language string) error {
-	candidates, err := s.Store.ListStudyCandidates(ctx, owner, language)
+	stream, err := s.Store.GetStudyStream(ctx, owner, language)
 	if err != nil {
 		return err
 	}
@@ -357,11 +384,7 @@ func (s Study) EnqueueStudyPreparation(ctx context.Context, owner, language stri
 	if err != nil {
 		return err
 	}
-	coverage, err := s.Store.GetStudyReadingCoverage(ctx, owner, language)
-	if err != nil {
-		return err
-	}
-	ordered := domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)), coverage.BoostsCurrentReading())
+	ordered := domain.WithoutStudyProgress(stream.Ordered(nil), progress, domain.StudyHeldIdentities(reports))
 	for _, target := range domain.StudyPreparationTargets(ordered, states) {
 		id, created, err := s.Store.ReserveStudyMaterial(ctx, owner, target.StudyItem)
 		if err != nil {

@@ -317,6 +317,14 @@ func (h *contractHarness) ListStudyReviewLog(owner, progressID string) ([]domain
 	return h.store.ListStudyReviewLog(context.Background(), owner, progressID)
 }
 
+func (h *contractHarness) GetStudyStream(owner, language string) (domain.StudyStream, error) {
+	return h.store.GetStudyStream(context.Background(), owner, language)
+}
+
+func (h *contractHarness) GetStudyStreamAmong(owner, language string, identities []domain.StudyItem) (domain.StudyStream, error) {
+	return h.store.GetStudyStreamAmong(context.Background(), owner, language, identities)
+}
+
 func (h *contractHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidatesAmong(context.Background(), owner, language, identities)
 }
