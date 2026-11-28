@@ -39,6 +39,36 @@ func (q *Queries) AppendStudyFluencyResponse(ctx context.Context, arg AppendStud
 	return id, err
 }
 
+const getStudyCorpusChangedAt = `-- name: GetStudyCorpusChangedAt :one
+SELECT GREATEST(
+  COALESCE((SELECT max(GREATEST(m.activated_at, m.removed_at))
+              FROM book_membership m
+              JOIN books b ON b.owner_id = m.owner_id AND b.id = m.book_id
+             WHERE m.owner_id = $1 AND b.language_state = 'chosen' AND b.language_tag = $2::text), 'epoch'::timestamptz),
+  COALESCE((SELECT max(r.completed_at)
+              FROM analysis_runs r
+              JOIN source_materials sm ON sm.owner_id = r.owner_id AND sm.id = r.source_material_id
+              JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
+             WHERE r.owner_id = $1 AND r.state = 'completed'
+               AND b.language_state = 'chosen' AND b.language_tag = $2::text), 'epoch'::timestamptz)
+)::timestamptz AS changed_at
+`
+
+type GetStudyCorpusChangedAtParams struct {
+	Owner    string
+	Language string
+}
+
+// The newest change to the Corpus of the study language: a Book of the
+// language added to or removed from My Books, or an analysis run of one of its
+// Books completing; the Unix epoch means none.
+func (q *Queries) GetStudyCorpusChangedAt(ctx context.Context, arg GetStudyCorpusChangedAtParams) (time.Time, error) {
+	row := q.db.QueryRow(ctx, getStudyCorpusChangedAt, arg.Owner, arg.Language)
+	var changed_at time.Time
+	err := row.Scan(&changed_at)
+	return changed_at, err
+}
+
 const getStudyProgress = `-- name: GetStudyProgress :one
 
 SELECT id, owner_id, language, canonical_lemma, upos, lexical_discriminator, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, lapses, remaining_steps, last_review, withdrawn_at, created_at, updated_at, corrected_at, withdrawn_reason, learned_sense_ids, learned_entry_ids, learned_dictionary_pin, item_kind FROM study_progress
@@ -384,4 +414,67 @@ func (q *Queries) ListStudyFluencyResponses(ctx context.Context, arg ListStudyFl
 		return nil, err
 	}
 	return items, nil
+}
+
+const listStudyFluencyScans = `-- name: ListStudyFluencyScans :many
+SELECT s.progress_id::text AS progress_id, s.exhausted_at,
+       COALESCE((SELECT max(l.reviewed_at) FROM study_review_log l
+                  WHERE l.owner_id = s.owner_id AND l.progress_id = s.progress_id AND l.grade = 'again'), 'epoch'::timestamptz)::timestamptz AS last_lapse_at
+  FROM study_fluency_scan s
+  JOIN study_progress p ON p.owner_id = s.owner_id AND p.id = s.progress_id
+ WHERE s.owner_id = $1 AND p.language = $2
+`
+
+type ListStudyFluencyScansParams struct {
+	Owner    string
+	Language string
+}
+
+type ListStudyFluencyScansRow struct {
+	ProgressID  string
+	ExhaustedAt time.Time
+	LastLapseAt time.Time
+}
+
+// The scans of the owner's words in the study language, each with the word's
+// last lapse: its newest "again" review; the Unix epoch means it never lapsed.
+func (q *Queries) ListStudyFluencyScans(ctx context.Context, arg ListStudyFluencyScansParams) ([]ListStudyFluencyScansRow, error) {
+	rows, err := q.db.Query(ctx, listStudyFluencyScans, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStudyFluencyScansRow{}
+	for rows.Next() {
+		var i ListStudyFluencyScansRow
+		if err := rows.Scan(&i.ProgressID, &i.ExhaustedAt, &i.LastLapseAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upsertStudyFluencyScan = `-- name: UpsertStudyFluencyScan :exec
+INSERT INTO study_fluency_scan (owner_id, progress_id, exhausted_at)
+SELECT p.owner_id, p.id, $1::timestamptz
+  FROM study_progress p
+ WHERE p.owner_id = $2 AND p.id = $3
+ON CONFLICT (owner_id, progress_id) DO UPDATE SET exhausted_at = EXCLUDED.exhausted_at
+`
+
+type UpsertStudyFluencyScanParams struct {
+	ExhaustedAt time.Time
+	Owner       string
+	Progress    string
+}
+
+// Records that a scan of the word found no unassessed candidate. A later scan
+// replaces the time; a word that is not the owner's records nothing.
+func (q *Queries) UpsertStudyFluencyScan(ctx context.Context, arg UpsertStudyFluencyScanParams) error {
+	_, err := q.db.Exec(ctx, upsertStudyFluencyScan, arg.ExhaustedAt, arg.Owner, arg.Progress)
+	return err
 }

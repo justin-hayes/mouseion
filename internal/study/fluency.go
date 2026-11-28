@@ -60,6 +60,8 @@ func (PrepareFluencyArgs) Kind() string { return "study_prepare_fluency" }
 // call whenever Today is opened: a word with a job that is still waiting, running
 // or retrying, or one that finished within River's completed-job retention, is
 // not enqueued again, and an occurrence the job has assessed is never asked about again.
+// A word whose last scan found its Corpus exhausted is skipped until the language's
+// Corpus changes or the word lapses (#2817).
 func (s *Service) EnqueueFluencyPreparation(ctx context.Context, owner, language string) error {
 	progress, err := s.store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
@@ -69,7 +71,15 @@ func (s *Service) EnqueueFluencyPreparation(ctx context.Context, owner, language
 	if err != nil {
 		return err
 	}
-	for _, word := range domain.FluencyContextsNeeded(progress, contexts) {
+	scans, err := s.store.ListStudyFluencyScans(ctx, owner, language)
+	if err != nil {
+		return err
+	}
+	corpusChangedAt, err := s.store.StudyCorpusChangedAt(ctx, owner, language)
+	if err != nil {
+		return err
+	}
+	for _, word := range domain.FluencyContextsNeeded(progress, contexts, scans, corpusChangedAt) {
 		if err := s.enqueueFluencyWord(ctx, owner, word.ID); err != nil {
 			return err
 		}
@@ -103,6 +113,9 @@ type FluencyStore interface { //nolint:interfacebloat // the worker reads one st
 	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
 	ListStudyFluencyContexts(ctx context.Context, owner, language string) ([]domain.FluencyContext, error)
 	RecordStudyFluencyContext(ctx context.Context, owner string, record domain.FluencyContextRecord) error
+	// RecordStudyFluencyExhausted records that a scan begun at scannedAt found
+	// no unassessed candidate for the word (#2817).
+	RecordStudyFluencyExhausted(ctx context.Context, owner, progressID string, scannedAt time.Time) error
 	// StudyBookInCorpus reports whether the Book is still an active member of
 	// My Books. A Book removed while a context was being assessed is not a
 	// source of new Fluency contexts (ADR 0136 §2).
@@ -169,6 +182,9 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if job == nil || w.Store == nil || w.Enricher == nil || w.MaySend == nil {
 		return errors.New("study: fluency worker is not configured")
 	}
+	// The scan is dated by its start: a Corpus change made while it ran is
+	// later than the record, so the word is scanned again.
+	scannedAt := time.Now()
 	owner := job.Args.OwnerID
 	word, err := w.Store.GetStudyProgress(ctx, owner, job.Args.ProgressID)
 	if errors.Is(err, domain.ErrNotFound) {
@@ -191,14 +207,19 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 		return nil
 	}
 	if word.IsIdiom() {
-		return w.workIdiom(ctx, owner, word, assessed, agreeing)
+		return w.workIdiom(ctx, owner, word, assessed, agreeing, scannedAt)
+	}
+	// Ranking comes before the provider gate: that no candidate is left does
+	// not depend on a provider assessment, so it is recorded either way.
+	ranked, err := w.rankedCandidates(ctx, owner, word, assessed)
+	if err != nil {
+		return err
+	}
+	if len(ranked) == 0 {
+		return w.Store.RecordStudyFluencyExhausted(ctx, owner, word.ID, scannedAt)
 	}
 	evidence, proceed, err := w.wordGate(ctx, word)
 	if err != nil || !proceed {
-		return err
-	}
-	ranked, err := w.rankedCandidates(ctx, owner, word, assessed)
-	if err != nil {
 		return err
 	}
 	return w.askAbout(ctx, owner, word, ranked, agreeing, evidence)

@@ -263,3 +263,56 @@ func (s *PostgresStore) StudyBookInCorpus(ctx context.Context, owner, bookID str
 	}
 	return inCorpus, nil
 }
+
+// RecordStudyFluencyExhausted records that a scan of the word, begun at
+// scannedAt, found no unassessed candidate in the Corpus (#2817). It returns
+// ErrNotFound when the word is not the learner's.
+func (s *PostgresStore) RecordStudyFluencyExhausted(ctx context.Context, owner, progressID string, scannedAt time.Time) error {
+	if !validUUID(progressID) {
+		return ErrNotFound
+	}
+	q := sqlcgen.New(s.pool)
+	if _, err := q.GetStudyProgress(ctx, sqlcgen.GetStudyProgressParams{Owner: owner, ID: progressID}); errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	} else if err != nil {
+		return fmt.Errorf("get study progress: %w", err)
+	}
+	if err := q.UpsertStudyFluencyScan(ctx, sqlcgen.UpsertStudyFluencyScanParams{Owner: owner, Progress: progressID, ExhaustedAt: scannedAt}); err != nil {
+		return fmt.Errorf("record study fluency exhausted: %w", err)
+	}
+	return nil
+}
+
+// ListStudyFluencyScans returns the recorded scans of the learner's words in
+// the study language, each with the word's last lapse (the zero time when it
+// never lapsed).
+func (s *PostgresStore) ListStudyFluencyScans(ctx context.Context, owner, language string) ([]domain.FluencyScan, error) {
+	rows, err := sqlcgen.New(s.pool).ListStudyFluencyScans(ctx, sqlcgen.ListStudyFluencyScansParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
+	if err != nil {
+		return nil, fmt.Errorf("list study fluency scans: %w", err)
+	}
+	scans := make([]domain.FluencyScan, 0, len(rows))
+	for _, row := range rows {
+		scans = append(scans, domain.FluencyScan{ProgressID: row.ProgressID, ExhaustedAt: row.ExhaustedAt, LastLapseAt: epochAsZero(row.LastLapseAt)})
+	}
+	return scans, nil
+}
+
+// StudyCorpusChangedAt is when the Corpus of the study language last changed: a
+// Book of the language added to or removed from My Books, or one of its
+// analysis runs completed. The zero time means it never has.
+func (s *PostgresStore) StudyCorpusChangedAt(ctx context.Context, owner, language string) (time.Time, error) {
+	changed, err := sqlcgen.New(s.pool).GetStudyCorpusChangedAt(ctx, sqlcgen.GetStudyCorpusChangedAtParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
+	if err != nil {
+		return time.Time{}, fmt.Errorf("get study corpus changed at: %w", err)
+	}
+	return epochAsZero(changed), nil
+}
+
+// epochAsZero reads the Unix epoch a query returns for "never" as the zero time.
+func epochAsZero(t time.Time) time.Time {
+	if t.Unix() == 0 {
+		return time.Time{}
+	}
+	return t
+}

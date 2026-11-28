@@ -72,3 +72,39 @@ SELECT id::text AS id, context_id::text AS context_id, response, responded_at
 SELECT book_id::text AS book_id, analysis_run_id::text AS analysis_run_id, corpus_id::text AS corpus_id, sentence_ordinal, token_ordinal
   FROM study_fluency_context
  WHERE owner_id = sqlc.arg('owner') AND progress_id = sqlc.arg('progress') AND agreement = 'agrees';
+
+-- name: UpsertStudyFluencyScan :exec
+-- Records that a scan of the word found no unassessed candidate. A later scan
+-- replaces the time; a word that is not the owner's records nothing.
+INSERT INTO study_fluency_scan (owner_id, progress_id, exhausted_at)
+SELECT p.owner_id, p.id, sqlc.arg('exhausted_at')::timestamptz
+  FROM study_progress p
+ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('progress')
+ON CONFLICT (owner_id, progress_id) DO UPDATE SET exhausted_at = EXCLUDED.exhausted_at;
+
+-- name: ListStudyFluencyScans :many
+-- The scans of the owner's words in the study language, each with the word's
+-- last lapse: its newest "again" review; the Unix epoch means it never lapsed.
+SELECT s.progress_id::text AS progress_id, s.exhausted_at,
+       COALESCE((SELECT max(l.reviewed_at) FROM study_review_log l
+                  WHERE l.owner_id = s.owner_id AND l.progress_id = s.progress_id AND l.grade = 'again'), 'epoch'::timestamptz)::timestamptz AS last_lapse_at
+  FROM study_fluency_scan s
+  JOIN study_progress p ON p.owner_id = s.owner_id AND p.id = s.progress_id
+ WHERE s.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language');
+
+-- name: GetStudyCorpusChangedAt :one
+-- The newest change to the Corpus of the study language: a Book of the
+-- language added to or removed from My Books, or an analysis run of one of its
+-- Books completing; the Unix epoch means none.
+SELECT GREATEST(
+  COALESCE((SELECT max(GREATEST(m.activated_at, m.removed_at))
+              FROM book_membership m
+              JOIN books b ON b.owner_id = m.owner_id AND b.id = m.book_id
+             WHERE m.owner_id = sqlc.arg('owner') AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text), 'epoch'::timestamptz),
+  COALESCE((SELECT max(r.completed_at)
+              FROM analysis_runs r
+              JOIN source_materials sm ON sm.owner_id = r.owner_id AND sm.id = r.source_material_id
+              JOIN books b ON b.owner_id = sm.owner_id AND b.id = sm.book_id
+             WHERE r.owner_id = sqlc.arg('owner') AND r.state = 'completed'
+               AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text), 'epoch'::timestamptz)
+)::timestamptz AS changed_at;

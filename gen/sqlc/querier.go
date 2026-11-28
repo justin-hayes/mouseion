@@ -6,6 +6,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -221,6 +222,10 @@ type Querier interface {
 	GetSourceStructureCheck(ctx context.Context, arg GetSourceStructureCheckParams) (GetSourceStructureCheckRow, error)
 	GetStoredActiveStudyLanguage(ctx context.Context, id string) (pgtype.Text, error)
 	GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedgerParams) (GetStudyBatchLedgerRow, error)
+	// The newest change to the Corpus of the study language: a Book of the
+	// language added to or removed from My Books, or an analysis run of one of its
+	// Books completing; the Unix epoch means none.
+	GetStudyCorpusChangedAt(ctx context.Context, arg GetStudyCorpusChangedAtParams) (time.Time, error)
 	// The corpus of the Current reading's current analysis: the evidence its
 	// coverage toward Target coverage is read from. No row when there is no Current
 	// reading or the Book has no current analysis.
@@ -443,6 +448,9 @@ type Querier interface {
 	// learner last answered it; the Unix epoch means never.
 	ListStudyFluencyContexts(ctx context.Context, arg ListStudyFluencyContextsParams) ([]ListStudyFluencyContextsRow, error)
 	ListStudyFluencyResponses(ctx context.Context, arg ListStudyFluencyResponsesParams) ([]ListStudyFluencyResponsesRow, error)
+	// The scans of the owner's words in the study language, each with the word's
+	// last lapse: its newest "again" review; the Unix epoch means it never lapsed.
+	ListStudyFluencyScans(ctx context.Context, arg ListStudyFluencyScansParams) ([]ListStudyFluencyScansRow, error)
 	// Study's Idiom material (ADR 0137, spec #2748, ticket #2753): where an Idiom's
 	// candidate sentences are, and the decisions that make their lemmas effective.
 	// The sentences of the owner's currently analyzed Books in My Books, in the
@@ -645,6 +653,9 @@ type Querier interface {
 	UpsertReferenceTranslation(ctx context.Context, arg UpsertReferenceTranslationParams) error
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)
+	// Records that a scan of the word found no unassessed candidate. A later scan
+	// replaces the time; a word that is not the owner's records nothing.
+	UpsertStudyFluencyScan(ctx context.Context, arg UpsertStudyFluencyScanParams) error
 	// Classical reading units and their Book association. Definitions are shared
 	// reference data upserted from reviewed application values; the association is
 	// insert-only. Domain-level identity and refusal decisions remain in

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -20,7 +21,7 @@ import (
 // that does not agree is stored with its reason as evidence and never shown.
 // With the language's switch off, or with no cited sense in the Learned
 // meaning to compare against, nothing is sent.
-func (w *FluencyWorker) workIdiom(ctx context.Context, owner string, word domain.StudyProgress, assessed map[occurrenceKey]bool, agreeing int) error {
+func (w *FluencyWorker) workIdiom(ctx context.Context, owner string, word domain.StudyProgress, assessed map[occurrenceKey]bool, agreeing int, scannedAt time.Time) error {
 	reader := w.Idioms.reader(word.Language)
 	if reader == nil || word.LearnedCitations.Empty() {
 		return nil
@@ -47,6 +48,9 @@ func (w *FluencyWorker) workIdiom(ctx context.Context, owner string, word domain
 	})
 	if err != nil {
 		return err
+	}
+	if len(choices) == 0 {
+		return w.Store.RecordStudyFluencyExhausted(ctx, owner, word.ID, scannedAt)
 	}
 	return w.askAboutIdiom(ctx, owner, word, headword, w.rankedIdiomChoices(ctx, owner, material, choices), agreeing)
 }

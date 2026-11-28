@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -22,6 +23,25 @@ type fluencyFakeStore struct {
 	recorded []domain.FluencyContextRecord
 	// removed names the Books that have left My Books.
 	removed map[string]bool
+	// exhausted holds when each scan that found nothing left to ask began.
+	exhausted []time.Time
+	// onePage serves every occurrence on the first concordance page.
+	onePage bool
+}
+
+func (s *fluencyFakeStore) ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+	if !s.onePage {
+		return s.fakeStore.ListVocabularyConcordance(ctx, owner, language, lookup)
+	}
+	if lookup.Page > 1 {
+		return domain.ConcordanceResult{}, nil
+	}
+	return domain.ConcordanceResult{Occurrences: s.occurrences}, nil
+}
+
+func (s *fluencyFakeStore) RecordStudyFluencyExhausted(_ context.Context, _, _ string, scannedAt time.Time) error {
+	s.exhausted = append(s.exhausted, scannedAt)
+	return nil
 }
 
 func (s *fluencyFakeStore) StudyBookInCorpus(_ context.Context, _, book string) (bool, error) {
@@ -322,4 +342,65 @@ func TestFluencyWorkerNeverAsksAboutARetiredOccurrence(t *testing.T) {
 	}
 	require.Len(t, store.recorded, 1)
 	assert.EqualValues(t, 3, store.recorded[0].SentenceOrdinal)
+}
+
+func TestFluencyWorkerRecordsAWordWhoseCandidatesAreAllAssessedAsExhausted(t *testing.T) {
+	worker, store, enricher := newFluencyFixture()
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
+	item := store.occurrences[1]
+	store.existing = []domain.FluencyContext{{ProgressID: "p1", Agreement: domain.FluencyDisagrees, Reason: domain.FluencyReasonUndefendable, AnalysisRunID: item.AnalysisRunID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal}}
+	before := time.Now()
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, enricher.requests)
+	require.Len(t, store.exhausted, 1)
+	assert.False(t, store.exhausted[0].Before(before), "the scan is dated by its start")
+}
+
+func TestFluencyWorkerRecordsAWordWithNoOtherOccurrenceAsExhausted(t *testing.T) {
+	worker, store, _ := newFluencyFixture()
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Len(t, store.exhausted, 1)
+}
+
+func TestFluencyWorkerRecordsExhaustionWithoutARecordedAssessment(t *testing.T) {
+	worker, store, enricher := newFluencyFixture()
+	worker.MaySend = func(string) error { return enrichment.ErrProviderAssessmentNotRecorded }
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, enricher.requests)
+	assert.Len(t, store.exhausted, 1, "that nothing is left to ask does not depend on the provider")
+}
+
+func TestFluencyWorkerDoesNotRecordExhaustionWhileCandidatesRemain(t *testing.T) {
+	worker, store, _ := newFluencyFixture()
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
+	worker.MaySend = func(string) error { return enrichment.ErrProviderAssessmentNotRecorded }
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, store.exhausted, "an unassessed candidate is left")
+}
+
+func TestFluencyWorkerDoesNotRecordExhaustionWhenItStopsAtTheAskLimit(t *testing.T) {
+	worker, store, enricher := newFluencyFixture()
+	store.onePage = true
+	for i := range maxFluencyAsks + 1 {
+		surface := "haus" + string(rune('a'+i))
+		store.addOccurrence(int64(i+2), surface, map[string]string{"Case": surface})
+		enricher.disagree[surface] = true
+	}
+
+	require.NoError(t, fluencyWork(worker))
+	require.Len(t, enricher.requests, maxFluencyAsks)
+	assert.Empty(t, store.exhausted, "a candidate is left beyond the ask limit")
+}
+
+func TestFluencyWorkerDoesNotRecordExhaustionWhenAProviderFailureStopsIt(t *testing.T) {
+	worker, store, enricher := newFluencyFixture()
+	store.addOccurrence(2, "haeuser", map[string]string{"Number": "Plur"})
+	enricher.err = errors.New("provider down")
+
+	require.Error(t, fluencyWork(worker))
+	assert.Empty(t, store.exhausted)
 }
