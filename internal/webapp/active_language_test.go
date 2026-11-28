@@ -101,8 +101,8 @@ func TestForgedCSRFTokenIsRefused(t *testing.T) {
 
 func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchLemma, UPOS: "NOUN"}
-	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
-	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
+	assert.Equal(t, "/de/corpus/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
+	assert.Equal(t, "/de/corpus/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
 	assert.Equal(t, "/books/book-1?page=2&q=ha", bookWordsPageURL(2, domain.VocabularyBrowsePage{CurrentBookID: "book-1"}, "ha"))
-	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
+	assert.Equal(t, "/corpus/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

@@ -61,7 +61,7 @@ test('Book detail hosts the analysis actions and lists the Book words by Study s
   await expect(table.getByRole('button')).toHaveCount(0);
 
   await table.getByRole('link', { name: 'gehen' }).click();
-  await expect(page).toHaveURL(/\/vocabulary\/concordance\?/);
+  await expect(page).toHaveURL(/\/corpus\/concordance\?/);
   await expect(page.getByRole('link', { name: 'Back to book vocabulary' })).toHaveAttribute('href', /\/books\/fixture-book\?.*row=/);
 });
 
@@ -83,7 +83,7 @@ test('Back to book vocabulary returns to the same Book detail page and row', asy
   await signIn(page);
   await page.goto(`${detail}?q=ha`);
   await page.locator('a.vocabulary-lemma-link').last().click();
-  await expect(page).toHaveURL(/\/vocabulary\/concordance\?/);
+  await expect(page).toHaveURL(/\/corpus\/concordance\?/);
   const back = page.getByRole('link', { name: 'Back to book vocabulary' });
   await expect(back).toBeVisible();
 
@@ -99,7 +99,7 @@ test('Back to book vocabulary returns to the same Book detail page and row', asy
 
   // Native history still works.
   await page.goBack();
-  await expect(page).toHaveURL(/\/vocabulary\/concordance\?/);
+  await expect(page).toHaveURL(/\/corpus\/concordance\?/);
 });
 
 test('Book detail keeps its analysis details and word list within the viewport in every state', async ({ page, baseURL }) => {

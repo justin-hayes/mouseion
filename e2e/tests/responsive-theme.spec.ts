@@ -30,7 +30,7 @@ const representativePages: Array<[string, RegExp]> = [
   ['/catalogs', /Catalog/],
   ['/catalogs/sources', /Manage sources/],
   ['/de/reading', /My Books/],
-  ['/de/vocabulary', /Vocabulary/],
+  ['/de/corpus', /Corpus/],
 ];
 
 async function expectNoPageOverflow(page: Page) {
@@ -418,7 +418,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Remove', exact: true })).toHaveCount(0);
 
-    await page.goto('/de/vocabulary/concordance');
+    await page.goto('/de/corpus/concordance');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -428,7 +428,7 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     // Runs at the project's viewport and scheme; the 200% text pass below is the
     // enlargement contract for this page.
-    await page.goto('/de/vocabulary/concordance?term=Haus');
+    await page.goto('/de/corpus/concordance?term=Haus');
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
@@ -518,7 +518,7 @@ test.describe('responsive and theme regression coverage', () => {
     const activeNavigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
-    await expect(activeNavigation.getByRole('link', { name: 'Vocabulary' })).toBeVisible();
+    await expect(activeNavigation.getByRole('link', { name: 'Corpus' })).toBeVisible();
     await expect(page.getByLabel('Study language')).toBeVisible();
   });
 
@@ -540,7 +540,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     for (const [path, current] of [
       ['/de/library', 'My Books'],
-      ['/de/vocabulary', 'Vocabulary'],
+      ['/de/corpus', 'Corpus'],
       ['/catalogs', 'Catalog'],
       ['/jobs', 'My Books'],
     ] as const) {
@@ -548,7 +548,7 @@ test.describe('responsive and theme regression coverage', () => {
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
       const destinations = navigation.locator('.site-header__navigation a');
       await expect(destinations).toHaveCount(3);
-      await expect(destinations).toHaveText(['My Books', 'Vocabulary', 'Catalog']);
+      await expect(destinations).toHaveText(['My Books', 'Corpus', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
       // Only per-language pages carry the picker; the Catalog and job status
       // have no page language (ADR 0131).
@@ -814,8 +814,8 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
     await expect(page.getByRole('button', { name: 'Retry analysis' })).toBeVisible();
 
-    await page.goto('/de/vocabulary');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await page.goto('/de/corpus');
+    await expect(page.getByRole('heading', { name: 'Corpus', exact: true })).toBeVisible();
     await expect(page.locator('body')).toHaveClass('vocabulary-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);

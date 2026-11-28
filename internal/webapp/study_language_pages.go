@@ -16,7 +16,7 @@ const (
 	pageKindMyBooks       studyLanguagePageKind = "my-books"
 	pageKindReading       studyLanguagePageKind = "reading"
 	pageKindReadingSwitch studyLanguagePageKind = "reading-switch"
-	pageKindVocabulary    studyLanguagePageKind = "vocabulary"
+	pageKindCorpus        studyLanguagePageKind = "corpus"
 	pageKindConcordance   studyLanguagePageKind = "concordance"
 	pageKindSentenceStudy studyLanguagePageKind = "sentence-study"
 	pageKindStudy         studyLanguagePageKind = "study"
@@ -39,11 +39,44 @@ var studyLanguagePages = map[studyLanguagePageKind]studyLanguagePage{
 	pageKindMyBooks:       {Path: "library", Landing: pageKindMyBooks},
 	pageKindReading:       {Path: "reading", Landing: pageKindReading},
 	pageKindReadingSwitch: {Path: "reading/switch", Landing: pageKindReadingSwitch},
-	pageKindVocabulary:    {Path: "vocabulary", Landing: pageKindConcordance},
-	pageKindConcordance:   {Path: "vocabulary/concordance", Landing: pageKindConcordance},
-	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Landing: pageKindConcordance},
+	pageKindCorpus:        {Path: "corpus", Landing: pageKindConcordance},
+	pageKindConcordance:   {Path: "corpus/concordance", Landing: pageKindConcordance},
+	pageKindSentenceStudy: {Path: "corpus/concordance/sentence", Landing: pageKindConcordance},
 	pageKindStudy:         {Path: "study", Landing: pageKindStudy},
 	pageKindStudyReports:  {Path: "study/reports", Landing: pageKindStudy},
+}
+
+// legacyLanguagePages are retired addresses and the page kind that replaced
+// each. The Vocabulary destination became Corpus; its addresses never return,
+// so each one redirects straight to its successor in a single hop.
+var legacyLanguagePages = map[string]studyLanguagePageKind{
+	"vocabulary":                      pageKindCorpus,
+	"vocabulary/concordance":          pageKindConcordance,
+	"vocabulary/concordance/sentence": pageKindSentenceStudy,
+}
+
+// legacyLanguage registers the unprefixed route of a retired address. It
+// resolves the study language as an unprefixed page does and redirects to the
+// successor with the query intact.
+func (h *Handler) legacyLanguage(path string, successor studyLanguagePageKind) {
+	h.mux.Handle("GET /"+path, h.user(h.unprefixedLanguagePage(successor, nil)))
+}
+
+// legacyPrefixedPage redirects /{language}/<retired path> to the successor. A
+// language the learner has nothing in recovers as the successor's own prefixed
+// page would.
+func (h *Handler) legacyPrefixedPage(successor studyLanguagePageKind) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		view := shellViewFromContext(r.Context())
+		language := canonicalization.NormalizeLanguage(r.PathValue("lang"))
+		rest := "/" + studyLanguagePages[successor].Path
+		if view == nil || !view.hasLanguage(language) {
+			path, rawQuery := languageFallback(view, successor, rest, r.URL.RawQuery)
+			redirectLocal(w, r, path, rawQuery)
+			return
+		}
+		redirectLocal(w, r, studyLanguagePath(successor, language), r.URL.RawQuery)
+	})
 }
 
 // studyLanguagePath is the address of a page kind: prefixed with the language
@@ -117,6 +150,10 @@ func (h *Handler) matchLanguagePage(r *http.Request) (http.Handler, bool) {
 	prefix, rest, ok := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
 	if !ok || !isLanguageSegment(prefix) {
 		return nil, false
+	}
+	if successor, retired := legacyLanguagePages[rest]; retired {
+		r.SetPathValue("lang", prefix)
+		return h.user(h.legacyPrefixedPage(successor)), true
 	}
 	page, ok := h.languagePages[rest]
 	if !ok {

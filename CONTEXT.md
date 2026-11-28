@@ -730,6 +730,8 @@ The analysed Books in My Books in one study language. Study draws Study
 material and Fluency contexts from all of it, Read Books included, and
 Concordance searches it. Adding a Book from the Catalog is how a learner
 includes it; only its To Read Books set the priority of new words.
+The **Corpus page**, at `/{language}/corpus`, is the destination for the language
+as a whole; it currently holds Concordance.
 _Avoid_: library, analysed library, collection.
 
 **Target coverage**:

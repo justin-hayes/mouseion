@@ -37,7 +37,7 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 		currentCSS  string
 	}{
 		{name: "library", context: NavigationLibrary, currentLink: `href="/library"`, currentCSS: "site-nav__link--current"},
-		{name: "vocabulary", context: NavigationVocabulary, currentLink: `href="/vocabulary"`, currentCSS: "site-nav__link--current"},
+		{name: "corpus", context: NavigationCorpus, currentLink: `href="/corpus"`, currentCSS: "site-nav__link--current"},
 		{name: "catalog", context: NavigationCatalogs, currentLink: `href="/catalogs"`, currentCSS: "site-nav__link--current"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -58,7 +58,7 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 		`<a class="site-header__brand" href="/">`,
 		`<ul class="site-header__navigation">`,
 		`href="/library"`,
-		`href="/vocabulary"`,
+		`href="/corpus"`,
 		`href="/catalogs"`,
 		`</ul><div class="site-header__tools">`,
 		`<details class="site-header__account">`,
@@ -87,7 +87,7 @@ func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *
 }
 
 func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
-	for _, context := range []NavigationContext{NavigationLibrary, NavigationVocabulary, NavigationCatalogs} {
+	for _, context := range []NavigationContext{NavigationLibrary, NavigationCorpus, NavigationCatalogs} {
 		t.Run(string(context), func(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
 			assert.NotContains(t, navigation, `class="site-nav__link btn`)

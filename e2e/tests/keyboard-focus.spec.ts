@@ -64,14 +64,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Books', 'Vocabulary'];
+    const destinations = ['My Books', 'Corpus'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', Vocabulary: '\\/vocabulary',
+        'My Books': '\\/library', Corpus: '\\/corpus',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -80,12 +80,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('representative tab order and focus indicators remain visible', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/vocabulary');
+    await page.goto('/de/corpus');
     await page.keyboard.press('Tab');
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
-    for (const name of ['My Books', 'Vocabulary', 'Catalog']) {
+    for (const name of ['My Books', 'Corpus', 'Catalog']) {
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
     }
@@ -106,7 +106,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
-    for (const name of ['Mouseion', 'My Books', 'Vocabulary', 'Catalog']) {
+    for (const name of ['Mouseion', 'My Books', 'Corpus', 'Catalog']) {
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
       if (name !== 'Catalog') await page.keyboard.press('Tab');
     }

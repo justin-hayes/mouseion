@@ -133,7 +133,7 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 
 	// Every token stays in the text and in Reading.
 	unit := domain.ClassicalUnitID(latinAdmissionUnitKey)
-	study := perform(t, handler, http.MethodGet, "/la/vocabulary/concordance/sentence?"+url.Values{
+	study := perform(t, handler, http.MethodGet, "/la/corpus/concordance/sentence?"+url.Values{
 		"book": {bookID}, "run": {run}, "corpus": {corpus}, "unit": {unit}, "sentence": {"0"}, "target": {"0"},
 	}.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, study.Code, study.Body.String())
