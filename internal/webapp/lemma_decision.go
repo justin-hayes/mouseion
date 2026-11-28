@@ -11,10 +11,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/study"
 )
 
-// This file is the Lemma decision workflow that Lemma review and the Wrong-word
-// remediation screen share: the preview step, the confirm step, how a decision's
-// outcome is answered and the learner-facing copy of its rejections. Each page
-// supplies only its own occurrences and where a saved decision returns to.
+// This file is the Lemma decision workflow the Wrong-word remediation screen
+// uses: the preview step, the confirm step, how a decision's outcome is
+// answered and the learner-facing copy of its rejections.
 
 // lemmaDecisionPreview is what the preview step gathers: the Book, the form
 // searched, its review and the previewed consequence.
@@ -48,23 +47,21 @@ func (h *Handler) previewLemmaDecisionStep(r *http.Request, owner, bookID string
 }
 
 // confirmLemmaDecisionStep saves the decision the request names for the given
-// occurrences, then ends the open Wrong-word reports it repaired. It returns
-// the form decided.
-func (h *Handler) confirmLemmaDecisionStep(r *http.Request, owner, bookID string, selected []string) (string, error) {
+// occurrences, then ends the open Wrong-word reports it repaired.
+func (h *Handler) confirmLemmaDecisionStep(r *http.Request, owner, bookID string, selected []string) error {
 	ctx := r.Context()
 	detail, err := h.services.Store.Reading.GetBookDetail(ctx, owner, bookID)
 	if err != nil {
-		return "", err
+		return err
 	}
 	adoptDetailLanguage(ctx, detail)
 	language, _ := activeStudyLanguageForContext(ctx)
-	form := strings.TrimSpace(r.FormValue("form"))
 	proposal := lemmaReviewProposal(r, language, selected)
 	if err := h.services.LemmaReview.Confirm(ctx, owner, bookID, proposal, r.FormValue("fingerprint")); err != nil {
-		return "", err
+		return err
 	}
 	h.repairStudyReports(r, owner, bookID)
-	return form, nil
+	return nil
 }
 
 // writeLemmaDecisionError answers a failed step: a missing Book is not found,

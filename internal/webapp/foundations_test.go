@@ -14,7 +14,6 @@ import (
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
-	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -172,19 +171,16 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	assert.Contains(t, concordance.String(), `class="vocabulary-shell"`)
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
-	var sentenceStudy, lemmaReview, concordanceError, concordanceChanged bytes.Buffer
+	var sentenceStudy, concordanceError, concordanceChanged bytes.Buffer
 	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/vocabulary/concordance", "").Render(context.Background(), &sentenceStudy))
-	require.NoError(t, LemmaReviewPage(domain.User{Username: "learner"}, "csrf", "book", "Book", "", "", true, nil, nil, lemmareview.Recovery{}, nil, nil).Render(context.Background(), &lemmaReview))
 	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false, browseOrigin{}).Render(context.Background(), &concordanceError))
 	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, browseOrigin{}).Render(context.Background(), &concordanceChanged))
-	for _, html := range []string{sentenceStudy.String(), lemmaReview.String(), concordanceError.String(), concordanceChanged.String()} {
+	for _, html := range []string{sentenceStudy.String(), concordanceError.String(), concordanceChanged.String()} {
 		assert.Contains(t, html, `href="/static/app.css"`)
 		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
 	}
 	assert.Contains(t, sentenceStudy.String(), `class="vocabulary-shell"`)
-	assert.Contains(t, lemmaReview.String(), `class="reading-shell"`)
-	assert.NotContains(t, lemmaReview.String(), `href="/static/catalog-ops.css"`)
 }
 
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {

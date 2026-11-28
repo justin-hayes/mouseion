@@ -14,7 +14,6 @@ test('switch chooser keeps Book actions with identity and coverage in the margin
   const identity = candidate.locator('.reading-chooser-entry__identity');
   await expect(identity).toContainText('By');
   await expect(identity.getByRole('button', { name: 'Read next' })).toBeVisible();
-  await expect(identity.getByRole('link', { name: 'Review a word in this Book' })).toHaveAttribute('href', /\/lemma-review$/);
   const evidence = candidate.locator('.reading-chooser-entry__evidence');
   await expect(evidence).toContainText(/Mature vocabulary coverage:\s*\d+\.\d%/);
   await expect(evidence).toContainText('45,678 of 123,456 word occurrences');

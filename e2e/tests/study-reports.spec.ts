@@ -58,8 +58,8 @@ test.describe('Study reports', () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
 
-    // The entry opens the remediation screen on the reported occurrence, not the
-    // Book's Lemma review.
+    // The entry opens the remediation screen on the reported occurrence, not a
+    // Book page.
     await entry.getByRole('link', { name: 'Repair this word' }).click();
     await expect(page).toHaveURL(/\/study\/reports\/[^/]+\/remediation$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Repair a reported word' })).toBeVisible();

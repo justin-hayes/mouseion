@@ -6,11 +6,10 @@ import "errors"
 // in domain so store contracts can assert on them without importing an adapter;
 // the persistence package re-exports them under its own names.
 var (
-	ErrNotFound                   = errors.New("persistence: not found")
-	ErrInvalidTransition          = errors.New("invalid state transition")
-	ErrCurrentReadingExists       = errors.New("persistence: current reading already exists")
-	ErrCurrentReadingIneligible   = errors.New("persistence: current reading requires an analyzed To Read book")
-	ErrUnresolvedLemmaReviewFlags = errors.New("persistence: unresolved high-risk lemma review flags")
+	ErrNotFound                 = errors.New("persistence: not found")
+	ErrInvalidTransition        = errors.New("invalid state transition")
+	ErrCurrentReadingExists     = errors.New("persistence: current reading already exists")
+	ErrCurrentReadingIneligible = errors.New("persistence: current reading requires an analyzed To Read book")
 
 	// ErrVocabularyBrowseCountsPending and ErrVocabularyBrowseCountsUnavailable
 	// refuse a reading change while the across-book counts are not usable.

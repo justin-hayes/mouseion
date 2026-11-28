@@ -45,7 +45,7 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 	h.services.AnalysisUpdates = analysis.NewService(pool, nil)
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 	origin, apology := books["xen-anab"], books["xen-apol"]
 	runOf := func(book *constructionBook) string {
 		var run string
@@ -100,13 +100,12 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 	row := func(key string, sentence int) string { return fmt.Sprintf("%s:%d.%d", key, sentence, anchor) }
 
 	// Correct the first Apology occurrence of the anchor and exclude the second.
-	reviewPath := "/reading/books/" + apology.id + "/lemma-review"
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, apology.id, anchorSurface)
 	require.NoError(t, err)
 	require.Len(t, occurrences, 3)
 	slices.SortFunc(occurrences, func(a, b domain.LemmaReviewOccurrence) int { return int(a.StartOffset - b.StartOffset) })
-	confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "correct", correctedLemma, occurrences[0].ID())
-	confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "exclude", "", occurrences[1].ID())
+	confirmLemmaDecisionForm(t, h, learner.ID, apology.id, anchorSurface, "correct", correctedLemma, occurrences[0].ID())
+	confirmLemmaDecisionForm(t, h, learner.ID, apology.id, anchorSurface, "exclude", "", occurrences[1].ID())
 
 	t.Run("without the filter, corrected and excluded anchors still appear", func(t *testing.T) {
 		plain := get(query(map[string]string{"from_lemma": ""}))
@@ -187,7 +186,7 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 		require.NoError(t, err)
 		assert.NotEqual(t, plain.Revision, result.Revision, "the filtered revision covers the decisions")
 
-		confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "correct", correctedLemma, occurrences[2].ID())
+		confirmLemmaDecisionForm(t, h, learner.ID, apology.id, anchorSurface, "correct", correctedLemma, occurrences[2].ID())
 		stale := get(query(map[string]string{"lemma": anchorLemma, "rev": result.Revision}))
 		assert.Equal(t, http.StatusConflict, stale.code)
 		assert.Contains(t, stale.body, "Current evidence changed")
@@ -281,7 +280,7 @@ func TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTh
 		importConstructionBook(t, ctx, store, pool, learner.ID, book, books)
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 	origin := books["xen-anab"]
 	var run string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM current_analysis_identity WHERE book_id=$1`, origin.id).Scan(&run))
@@ -339,11 +338,10 @@ func TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTh
 		_, err := pool.Exec(ctx, `UPDATE corpus_tokens SET canonical_lemma='λόγοσ', headword='λόγος' WHERE analysis_run_id=$1 AND token_ordinal=$2`,
 			currentRun(t, ctx, pool, books["plato-republic"]), anchor)
 		require.NoError(t, err)
-		reviewPath := "/reading/books/" + origin.id + "/lemma-review"
 		occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, origin.id, anchorSurface)
 		require.NoError(t, err)
 		require.Len(t, occurrences, 1)
-		confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "correct", "λόγος", occurrences[0].ID())
+		confirmLemmaDecisionForm(t, h, learner.ID, origin.id, anchorSurface, "correct", "λόγος", occurrences[0].ID())
 
 		page := get(query(nil))
 		require.Equal(t, http.StatusOK, page.code, page.body)
@@ -358,11 +356,10 @@ func TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTh
 		assert.NotContains(t, filtered.body, "λόγοσ")
 	})
 	t.Run("a corrected lemma with no known citation form is unfolded, never shown as its key", func(t *testing.T) {
-		reviewPath := "/reading/books/" + origin.id + "/lemma-review"
 		occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, origin.id, anchorSurface)
 		require.NoError(t, err)
 		require.Len(t, occurrences, 1)
-		confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, anchorSurface, "correct", "ἀθηναῖος", occurrences[0].ID())
+		confirmLemmaDecisionForm(t, h, learner.ID, origin.id, anchorSurface, "correct", "ἀθηναῖος", occurrences[0].ID())
 
 		page := get(query(nil))
 		require.Equal(t, http.StatusOK, page.code, page.body)

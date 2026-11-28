@@ -269,7 +269,7 @@ func (h *Handler) confirmStudyRemediation(w http.ResponseWriter, r *http.Request
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
-	_, err := h.confirmLemmaDecisionStep(r, owner, report.Source.BookID, only)
+	err := h.confirmLemmaDecisionStep(r, owner, report.Source.BookID, only)
 	if err != nil {
 		writeLemmaDecisionError(w, r, err)
 		return
@@ -311,8 +311,7 @@ func (h *Handler) confirmMatches(r *http.Request, owner, bookID string, occurren
 		return err
 	}
 	r.Form.Set("fingerprint", step.Preview.Fingerprint)
-	_, err = h.confirmLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
-	return err
+	return h.confirmLemmaDecisionStep(r, owner, bookID, occurrenceIDs)
 }
 
 // writeMatchDecisionError answers a match's rejected decision. The reported

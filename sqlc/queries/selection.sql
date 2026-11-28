@@ -24,9 +24,6 @@ SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
        COALESCE(d.excluded, false)::boolean AS excluded,
-       COALESCE(f.reason, '')::text AS review_flag_reason,
-       COALESCE(f.evidence_provenance::text, '{}')::text AS review_flag_provenance,
-       COALESCE(f.resolution, '')::text AS review_flag_resolution,
        COALESCE(a.normalization_profile, '')::text AS normalization_profile,
        COALESCE(a.normalization_version, '')::text AS normalization_version
 FROM book_current_analyses cai
@@ -45,9 +42,6 @@ JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
 LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
   AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
    AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
-LEFT JOIN occurrence_lemma_review_flags f ON f.owner_id = cai.owner_id AND f.book_id = cai.book_id
-  AND f.analysis_run_id = c.analysis_run_id AND f.source_document_id = s.unit_id
-  AND f.start_offset = t.start_offset AND f.end_offset = t.end_offset
 WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
@@ -65,9 +59,6 @@ SELECT cai.book_id::text AS book_id, c.id::text AS corpus_id, c.analysis_run_id:
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
        COALESCE(d.excluded, false)::boolean AS excluded,
-       COALESCE(f.reason, '')::text AS review_flag_reason,
-       COALESCE(f.evidence_provenance::text, '{}')::text AS review_flag_provenance,
-       COALESCE(f.resolution, '')::text AS review_flag_resolution,
        COALESCE(a.normalization_profile, '')::text AS normalization_profile,
        COALESCE(a.normalization_version, '')::text AS normalization_version
 FROM book_current_analyses cai
@@ -86,9 +77,6 @@ JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
 LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
   AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
    AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
-LEFT JOIN occurrence_lemma_review_flags f ON f.owner_id = cai.owner_id AND f.book_id = cai.book_id
-  AND f.analysis_run_id = c.analysis_run_id AND f.source_document_id = s.unit_id
-  AND f.start_offset = t.start_offset AND f.end_offset = t.end_offset
 JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
   AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text
 JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id AND m.state = 'active'
