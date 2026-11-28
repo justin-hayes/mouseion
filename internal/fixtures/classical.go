@@ -136,12 +136,12 @@ func (ClassicalInsights) Coverage(ctx context.Context, owner, corpusID string) (
 	}
 	switch corpusID {
 	case fixtureClassicalCorpusID("fixture-iliad-1"):
-		coverage.KnownTokenCount = coverage.AnalyzableTokenCount
+		coverage.MatureTokenCount = coverage.AnalyzableTokenCount
 	case fixtureClassicalCorpusID("fixture-iliad-2"):
-		coverage.KnownTokenCount = coverage.AnalyzableTokenCount * 98 / 100
+		coverage.MatureTokenCount = coverage.AnalyzableTokenCount * 98 / 100
 	case fixtureClassicalCorpusID("fixture-iliad-3"):
-		coverage.KnownTokenCount = coverage.AnalyzableTokenCount * 93 / 100
+		coverage.MatureTokenCount = coverage.AnalyzableTokenCount * 93 / 100
 	}
-	coverage.UnknownTokenCount = coverage.AnalyzableTokenCount - coverage.KnownTokenCount
+	coverage.UnknownTokenCount = coverage.AnalyzableTokenCount - coverage.MatureTokenCount
 	return coverage, nil
 }

@@ -119,17 +119,17 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 		if status.CorpusID != "" {
 			if status.Lifecycle == domain.JobLifecycleCompleted {
 					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
-						<p>Analysis complete. Continue with this book in Reading.</p>
-						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
+						<p>Analysis complete. Continue with this book in My Books.</p>
+						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in My Books</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
 						} else {
-							<p>Analysis complete. Book decks are prepared from the Book in Reading.</p>
+							<p>Analysis complete.</p>
 						}
 					}
 			} else {
-				<p>Analysis complete. Legacy/full-text results cannot unlock a new deck preparation.</p>
+				<p>Analysis complete. Legacy full-text results are not part of Reading.</p>
 			}
 		}
 	}

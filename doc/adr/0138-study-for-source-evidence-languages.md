@@ -1,6 +1,6 @@
 # ADR 0138: Study serves source-evidence languages with a cited contextual Gloss
 
-Status: **Accepted; implementation pending** · Date: 2026-11-26 ·
+Status: **Accepted; implemented (#2759)** · Date: 2026-11-26 ·
 Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Decided in

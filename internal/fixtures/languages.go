@@ -126,7 +126,7 @@ func addFixtureStudyLanguage(out []domain.StudyLanguage, seen map[string]struct{
 	return append(out, domain.StudyLanguage{Language: language, DisplayName: displayName})
 }
 
-func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
+func (s *Store) ListStudyProgressLanguages(_ context.Context, owner string) ([]domain.StudyLanguage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	seen := make(map[string]struct{})
@@ -138,7 +138,7 @@ func (s *Store) ListKnownVocabularyLanguages(_ context.Context, owner string) ([
 		}
 	}
 	var out []domain.StudyLanguage
-	for _, entry := range s.known {
+	for _, entry := range s.studyProgress {
 		if entry.OwnerID != owner {
 			continue
 		}

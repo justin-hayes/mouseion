@@ -101,9 +101,9 @@ test.describe('authenticated learner smoke', () => {
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
     await expect(page.locator('section#library-results')).toBeVisible();
-    await expect(page.locator('.library-books a.library-book__identity-link[href="/de/reading#journey-book-fixture-book"]', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
-    await expect(page.locator('.library-books a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(0);
-    await expect(page.locator('.library-books a[href="/books/fixture-empty"]', { hasText: 'Empty chapter' })).toHaveCount(0);
+    await expect(page.locator('.library-books .library-book', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
+    await expect(page.locator('.library-books a[href="/books/fixture-failed"]', { hasText: 'Fehlgeschlagene Analyse' })).toHaveCount(1);
     await expect(page.getByText('Analysis failed — action required')).toHaveCount(0);
     await expect(page.locator('a[href="/jobs/43"]', { hasText: 'Review failed analysis' })).toHaveCount(0);
   });
@@ -136,16 +136,15 @@ test.describe('authenticated learner smoke', () => {
     await switcher.selectOption('it');
     await expect(page).toHaveURL(/\/it\/library$/);
     await page.goto('/it/reading');
+    await expect(page).toHaveURL(/\/it\/library$/);
     await expect(page.getByLabel('Study language')).toHaveValue('it');
     await expect(page.locator('main h1')).toHaveCount(1);
     await expect(page.getByText('different study language', { exact: false })).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/fr\/reading$/);
-    await expect(page.getByRole('heading', { name: 'Choose a To Read book in fr', exact: true })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Browse My Books', exact: true })).toBeVisible();
+    await expect(page).toHaveURL(/\/fr\/library$/);
+    await expect(page.locator('#primary-goal-section')).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/de\/reading$/);
+    await expect(page).toHaveURL(/\/de\/library$/);
     await expect(page.locator('main h1')).toHaveCount(1);
 
   });
@@ -165,12 +164,9 @@ test.describe('authenticated learner smoke', () => {
     });
     try {
       await signIn(noScript);
-      await noScript.goto('/de/reading');
+      await noScript.goto('/de/library');
       const current = noScript.locator('#primary-goal-section');
-      const switchLink = current.locator('a[href="/de/reading/switch"]');
-      await expect(switchLink).toBeVisible();
-      await expect(switchLink).toHaveAttribute('class', /button--quiet/);
-      await expect(switchLink).not.toHaveAttribute('role', 'button');
+      await expect(current.locator('a[href="/de/reading/switch"]')).toHaveCount(0);
 
       const finish = current.locator('details.confirmation').filter({ hasText: 'Mark reading finished' });
       const finishSummary = finish.locator('summary');
@@ -188,13 +184,11 @@ test.describe('authenticated learner smoke', () => {
       const enlargedTextOverflow = await noScript.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
       expect(enlargedTextOverflow).toBe(false);
 
-      await switchLink.click();
-      const candidateConfirmation = noScript.locator('details.confirmation').filter({ hasText: 'Switch to this book' }).first();
-      const candidateSummary = candidateConfirmation.locator('summary');
-      await candidateSummary.focus();
-      await noScript.keyboard.press('Space');
-      await expect(candidateConfirmation).toHaveAttribute('open', '');
-      await expect(candidateConfirmation.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+      await noScript.goto('/de/library?disposition=to_read');
+      const readNext = noScript.getByRole('button', { name: 'Read next' }).first();
+      await readNext.focus();
+      await expect(readNext).toBeFocused();
+      await expect(readNext).toBeVisible();
     } finally {
       await noScript.close();
     }
@@ -811,16 +805,18 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     }
   });
 
-  test('metadata-only book detail URLs are retired', async ({ page }) => {
+  test('a metadata-only Book has a detail page with its Book language', async ({ page }) => {
     const response = await page.goto('/books/fixture-metadata-only');
-    expect(response?.status()).toBe(404);
+    expect(response?.status()).toBe(200);
+    await expect(page.locator('[data-book-language]')).toContainText('de');
+    await expect(page.locator('#book-detail-analysis')).toBeVisible();
 
     await page.goto('/de/library');
     await expect(page.getByText('Add a book')).toHaveCount(0);
     await expect(page.locator('article.library-book').filter({ has: page.getByRole('heading', { name: 'Metadata-only migration book', exact: true }) })).toHaveCount(0);
   });
 
-  test('exact analysis result redirects to the Reading Journey anchor', async ({ page }) => {
+  test('exact analysis result redirects to the Book row in My Books', async ({ page }) => {
     await page.goto('/de/library');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') {
@@ -828,56 +824,19 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
       await expect(page).toHaveURL(/\/de\/library$/);
     }
     await page.goto('/books/fixture-book/analyses/fixture-run');
-    await expect(page).toHaveURL('/de/reading#journey-book-fixture-book');
-    await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    await expect(page.getByText(/Fixture German deck/i).first()).toBeVisible();
+    await expect(page).toHaveURL('/de/library#book-row-fixture-book');
+    await expect(page.locator('#book-row-fixture-book')).toBeVisible();
   });
 
-  test('ready decks show truthful Current reading and Journey membership actions', async ({ page }) => {
+  test('the Prepared deck pages and downloads are gone', async ({ page }) => {
     await page.getByLabel('Study language').selectOption('de');
     await expect(page.getByLabel('Study language')).toHaveValue('de');
     await expect(page).toHaveURL(/\/library$/);
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    await expect(page.getByText('Current Book.', { exact: false })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'View current book in Reading' })).toHaveAttribute('href', '/de/reading#journey-book-fixture-book');
-    await expect(page.getByText(/campaign operations/i)).toHaveCount(0);
-    const historicalDeckDownload = await page.request.get('/deck-preparations/fixture-preparation/download');
-    expect(historicalDeckDownload.status()).toBe(200);
-    expect(historicalDeckDownload.headers()['content-disposition']).toContain('Fixture German deck.apkg');
-
-    // Deck status has no page language, so the picker lives on My Books.
-    await page.goto('/de/library');
-    await page.getByLabel('Study language').selectOption('it');
-    await expect(page.getByLabel('Study language')).toHaveValue('it');
-    await expect(page).toHaveURL(/\/it\/library(?:\?|$)/);
-    await page.goto('/deck-preparations/fixture-preparation/status');
-    // An old-language Book links to Reading in the Book's own language; the retired handoff chooser is gone.
-    await expect(page.getByRole('link', { name: 'Return to book', exact: true })).toHaveAttribute('href', /^\/de\/reading#/);
-    await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
-
-    await page.goto('/deck-preparations/fixture-journey-preparation/status');
-    await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/it/reading#journey-book-fixture-empty"]')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Move to To Read' })).toHaveCount(0);
-
-    await page.goto('/it/library');
-    await page.getByLabel('Study language').selectOption('de');
-    await expect(page.getByLabel('Study language')).toHaveValue('de');
-    await expect(page).toHaveURL(/\/de\/library(?:\?|$)/);
-    await page.goto('/deck-preparations/fixture-outside-journey-preparation/status');
-    const addToJourney = page.getByRole('button', { name: 'Move to To Read' });
-    if (await addToJourney.count() > 0) {
-      // First project run: the book starts outside the Journey.
-      await expect(page.getByText('Not in To Read.', { exact: false })).toBeVisible();
-      await addToJourney.click();
+    for (const path of ['/deck-preparations/fixture-preparation/status', '/deck-preparations/fixture-preparation/download', '/deck-preparations/fixture-journey-preparation/status', '/reading/books/fixture-book/deck/preparations/new']) {
+      const response = await page.request.get(path);
+      expect(response.status(), path).toBe(404);
     }
-    // Idempotent end state for repeated execution in this worker's fixture:
-    // the book is (or just became) To Read and links to its Reading card.
-    await expect(page.getByText('To Read.', { exact: false })).toBeVisible();
-    await expect(page.locator('a[href="/de/reading#journey-book-fixture-failed"]')).toBeVisible();
   });
-
   test('acquisition, Reading Journey, Vocabulary, and operational jobs are reachable', async ({ page }) => {
     await page.goto('/catalogs');
     await expect(page.locator('#source-status-fixture-connection')).toContainText('Fixture catalog');
@@ -885,11 +844,11 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const libraryLanguage = page.getByLabel('Study language');
     if (await libraryLanguage.inputValue() !== 'de') await libraryLanguage.selectOption('de');
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
-    const retiredBookResponse = await page.goto('/books/fixture-metadata-only');
-    expect(retiredBookResponse?.status()).toBe(404);
+    const missingBookResponse = await page.goto('/books/fixture-no-such-book');
+    expect(missingBookResponse?.status()).toBe(404);
     const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');
     expect(retiredCampaignResponse?.status()).toBe(404);
-    await page.goto('/de/reading');
+    await page.goto('/de/library');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -900,31 +859,27 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
-    await expect(page.getByText('Route match: familiar German')).toHaveCount(0);
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
-    await page.goto('/de/reading/switch');
+    await page.goto('/de/library?disposition=to_read');
     await expect(page.getByText('Route match: familiar German').first()).toBeVisible();
     await expect(page.getByText('Route evidence pending').first()).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
-    await page.goto('/de/reading');
-    await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
+    await page.goto('/books/fixture-book');
+    await expect(page.getByRole('heading', { name: 'Words', exact: true })).toBeVisible();
     await expect(page.locator('form.vocabulary-language-picker')).toHaveCount(0);
-    await expect(page.getByText(/active study language.*de/)).toBeVisible();
+    await expect(page.getByText(/study language.*de/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Known vocabulary', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('table', { name: 'Current effective vocabulary' })).toBeVisible();
-    await page.getByRole('checkbox', { name: 'Show already accounted-for words' }).check();
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.getByRole('table', { name: 'Current effective vocabulary' }).getByRole('row')).toHaveCount(3);
+    await expect(page.getByRole('table', { name: 'Words by Study state' }).getByRole('row')).toHaveCount(4);
+    await page.goto('/de/library');
     await page.getByLabel('Study language').selectOption('fr');
-    await expect(page).toHaveURL(/\/fr\/reading$/);
-    // French has no current Book, so Reading shows the neutral state and no Browse.
+    await expect(page).toHaveURL(/\/fr\/library$/);
+    // French has no current Book, so there is no pinned reading and no Browse.
     await expect(page.locator('#vocabulary-workflow')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'No To Read books yet', exact: true })).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toHaveCount(0);
     await expect(page.getByText('bonjour')).toHaveCount(0);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/de\/reading$/);
-    await expect(page.getByText(/active study language.*de/)).toBeVisible();
+    await expect(page).toHaveURL(/\/de\/library$/);
     await page.goto('/de/library');
     const primaryNavigation = page.locator('nav.site-header__nav');
     await expect(primaryNavigation.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0);

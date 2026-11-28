@@ -69,10 +69,9 @@ func TestLatinPassNamesLewisShortAndCarriesEntries(t *testing.T) {
 
 func TestLatinPassFieldsMatchItsOwnContract(t *testing.T) {
 	codec := passCodec(t)
-	assert.NotEqual(t, codec.EvidenceAssistedPassPromptContract(), codec.LatinEvidenceAssistedPassPromptContract())
+	assert.NotEqual(t, codec.GreekEntryEvidenceAssistedPassPromptContract(), codec.LatinEvidenceAssistedPassPromptContract())
 	assert.Contains(t, codec.LatinEvidenceAssistedPassProviderVersion(), codec.LatinEvidenceAssistedPassPromptContract())
 	assert.NotEmpty(t, LatinEvidenceAssistedPassPayloadFields())
-	assert.Equal(t, "translation-v16-evidence-assisted-greek", codec.EvidenceAssistedPassPromptContract(), "Greek's contract is unchanged")
 }
 
 func TestLatinPassDecodesACitedHandleToOneEntryAndSense(t *testing.T) {
@@ -124,12 +123,7 @@ func TestLatinEvidenceAssistedPassAssessmentIsRecordedForLatinOnly(t *testing.T)
 		})
 	}
 	t.Run("the Latin record never answers for the Greek payload", func(t *testing.T) {
-		require.ErrorIs(t, ProviderAssessmentSet{latinEvidenceAssistedPassAssessment}.MaySend(EvidenceAssistedPassPayload, "la", passCodec(t)), ErrProviderAssessmentNotRecorded)
-	})
-	t.Run("Greek's pass contract is unchanged", func(t *testing.T) {
-		require.Equal(t, "translation-v16-evidence-assisted-greek", evidenceAssistedPassAssessment.PromptVersion)
-		require.Equal(t, "grc", evidenceAssistedPassAssessment.Language)
-		require.Equal(t, "#2171", evidenceAssistedPassAssessment.Ticket)
+		require.ErrorIs(t, ProviderAssessmentSet{latinEvidenceAssistedPassAssessment}.MaySend(GreekEntryEvidenceAssistedPassPayload, "la", passCodec(t)), ErrProviderAssessmentNotRecorded)
 	})
 }
 
@@ -195,11 +189,6 @@ func TestLatinPassRequestSendsOnlyShortHandles(t *testing.T) {
 		require.Equal(t, "h1", payload.Senses[0]["entry"])
 		require.Equal(t, "h2", payload.Senses[2]["entry"])
 	})
-}
-
-func TestEvidenceAssistedPassKindFollowsLanguage(t *testing.T) {
-	assert.Equal(t, LatinEvidenceAssistedPassPayload, EvidenceAssistedPassKind("la"))
-	assert.Equal(t, EvidenceAssistedPassPayload, EvidenceAssistedPassKind("grc"))
 }
 
 // syntheticLargeLatinEntryRequest is a Latin Study pass request over two

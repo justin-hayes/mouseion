@@ -24,13 +24,12 @@ const (
 // contractHarness runs the shared store contracts against the in-memory store.
 type contractHarness struct {
 	store *Store
-	deck  PreparedDeck
 	books int
 }
 
 func newContractHarness(*testing.T) storecontract.Harness {
 	store := NewStore()
-	return &contractHarness{store: store, deck: PreparedDeck{Store: store}}
+	return &contractHarness{store: store}
 }
 
 func TestStoreContracts(t *testing.T) {
@@ -83,17 +82,6 @@ func (h *contractHarness) SeedBook(_ *testing.T, owner string, seed storecontrac
 	if !seed.Inbox {
 		h.store.dispositions[fixtureDispositionKey(owner, bookID)] = domain.BookDispositionToRead
 	}
-	// The fixtures hold no dependency parses, so they model the sentence-quality
-	// gate by leaving out the identities a seed declares unusable: a Start then
-	// freezes the rest, as the gate does against PostgreSQL.
-	vocabulary := make([]domain.DeckPreparationVocabulary, 0, len(seed.Vocabulary))
-	for _, identity := range seed.Vocabulary {
-		if seed.DeclaresUnusable(identity) {
-			continue
-		}
-		vocabulary = append(vocabulary, domain.DeckPreparationVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword})
-	}
-	h.store.bookSnapshotVocabulary[bookID] = vocabulary
 	h.store.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] = contractReviewOccurrences(owner, bookID, seed.Occurrences)
 	return bookID
 }
@@ -116,28 +104,6 @@ func contractReviewOccurrences(owner, bookID string, seeds []storecontract.Occur
 	return occurrences
 }
 
-func (h *contractHarness) SeedKnownVocabulary(_ *testing.T, owner string, identities []domain.SnapshotIdentity) {
-	h.store.mu.Lock()
-	defer h.store.mu.Unlock()
-	for _, identity := range identities {
-		h.store.known = append(h.store.known, domain.KnownVocabulary{OwnerID: owner, Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, UPOS: identity.UPOS, LexicalDiscriminator: identity.LexicalDiscriminator, Headword: identity.Headword, CreatedAt: time.Now()})
-	}
-}
-
-func (h *contractHarness) SeedReadyPreparation(t *testing.T, owner, bookID, snapshotID string) string {
-	t.Helper()
-	current, err := h.store.GetCurrentReading(context.Background(), owner, storecontract.Language)
-	require.NoError(t, err)
-	id := "contract-ready-" + snapshotID
-	h.store.mu.Lock()
-	defer h.store.mu.Unlock()
-	h.store.preps = append(h.store.preps, domain.DeckPreparation{
-		ID: id, OwnerID: owner, BookID: bookID, SnapshotID: snapshotID, State: domain.DeckPreparationReady,
-		SourceMaterialID: current.SourceMaterialID, AnalysisRunID: current.AnalysisRunID,
-	})
-	return id
-}
-
 func (h *contractHarness) GetCurrentReading(owner, language string) (domain.CurrentReading, error) {
 	return h.store.GetCurrentReading(context.Background(), owner, language)
 }
@@ -152,32 +118,20 @@ func (h *contractHarness) StartCurrentReading(owner, language, bookID string) (d
 	return h.store.StartCurrentReading(context.Background(), owner, language, bookID)
 }
 
-func (h *contractHarness) SwitchCurrentReading(owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.CurrentReading, error) {
-	return h.store.SwitchCurrentReading(context.Background(), owner, language, bookID, expectedBookID, expectedSnapshotID)
+func (h *contractHarness) EndCurrentReading(owner, language string) error {
+	return h.store.EndCurrentReading(context.Background(), owner, language)
 }
 
-func (h *contractHarness) EndCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) error {
-	return h.store.EndCurrentReading(context.Background(), owner, language, expectedBookID, expectedSnapshotID)
-}
-
-func (h *contractHarness) FinishCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error) {
-	return h.store.FinishCurrentReading(context.Background(), owner, language, expectedBookID, expectedSnapshotID)
-}
-
-func (h *contractHarness) ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error) {
-	return h.store.ListKnownVocabulary(context.Background(), owner, language)
-}
-
-func (h *contractHarness) ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error) {
-	return h.store.ListReservedVocabulary(context.Background(), owner, language)
+func (h *contractHarness) FinishCurrentReading(owner, language string) (domain.CurrentReadingFinishResult, error) {
+	return h.store.FinishCurrentReading(context.Background(), owner, language)
 }
 
 func (h *contractHarness) ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
 	return h.store.ListLemmaReviewOccurrences(context.Background(), owner, bookID, surface)
 }
 
-func (h *contractHarness) SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error {
-	return h.store.SaveLemmaReviewFlags(context.Background(), flags)
+func (h *contractHarness) ListCorpusLemmaReviewOccurrences(owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
+	return h.store.ListCorpusLemmaReviewOccurrences(context.Background(), owner, language, surface, lemma)
 }
 
 func (h *contractHarness) ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
@@ -186,16 +140,6 @@ func (h *contractHarness) ReadLemmaReviewProposal(proposal domain.LemmaReviewPro
 
 func (h *contractHarness) PutLemmaDecisionProposal(proposal domain.LemmaReviewProposal, expectedFingerprint string) error {
 	return h.store.PutLemmaDecisionProposal(context.Background(), proposal, expectedFingerprint)
-}
-
-func (h *contractHarness) PrepareCurrentReadingDeck(owner, bookID, expectedSnapshotID string) (domain.DeckPreparation, error) {
-	handle, err := h.deck.PrepareCurrentReadingDeck(context.Background(), owner, bookID, expectedSnapshotID)
-	return handle.Preparation, err
-}
-
-func (h *contractHarness) RepreparePreparation(owner, id, expectedSnapshotID string) (domain.DeckPreparation, error) {
-	handle, err := h.deck.Reprepare(context.Background(), owner, id, expectedSnapshotID)
-	return handle.Preparation, err
 }
 
 func (h *contractHarness) GetBookDetail(owner, bookID string) (domain.MyBook, error) {
@@ -359,6 +303,14 @@ func (h *contractHarness) NextStudyCard(owner, language string, now time.Time) (
 
 func (h *contractHarness) RecordStudyGrade(owner string, record domain.StudyGradeRecord) error {
 	return h.store.RecordStudyGrade(context.Background(), owner, record)
+}
+
+func (h *contractHarness) RecordStudyAlreadyKnown(owner string, record domain.StudyAlreadyKnownRecord) error {
+	return h.store.RecordStudyAlreadyKnown(context.Background(), owner, record)
+}
+
+func (h *contractHarness) ListStudyAlreadyKnownEvents(owner, language string) ([]domain.StudyAlreadyKnownEvent, error) {
+	return h.store.ListStudyAlreadyKnownEvents(context.Background(), owner, language)
 }
 
 func (h *contractHarness) ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error) {

@@ -20,7 +20,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
 	"github.com/justin-hayes/mouseion/internal/auth"
-	"github.com/justin-hayes/mouseion/internal/cardexport"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/classical"
@@ -29,12 +28,9 @@ import (
 	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/sourcecheck"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/webapp"
@@ -83,8 +79,6 @@ type serverDependencies struct {
 	authHandler       *webauth.Handler
 	opdsService       *opds.Service
 	capabilities      analyzer.CapabilityProvider
-	lemmaSuggestions  enrichment.LemmaSuggestionProvider
-	batchProvider     *enrichment.OpenAIBatchClient
 	catalogueSyncDeps cataloguesync.StoreDependencies
 	riverClient       *river.Client[pgx.Tx]
 	studyService      *study.Service
@@ -230,37 +224,22 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	authHandler := webauth.New(authService, cfg.secureCookies, cfg.sessionLifetime)
 	epubService := epub.NewService(store)
 	opdsService := opds.NewService(store, epubService, nil).WithAcquisitionTempDir(cfg.acquisitionTempDir)
-	selectionService := selection.NewService(store)
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
 		return nil, err
 	}
-	lemmaSuggestions, err := enrichment.NewConfiguredLemmaSuggestionProvider(llmConfig, nil)
-	if err != nil {
-		return nil, err
-	}
 	capabilities := analyzer.NewCachedCapabilityProvider(nlp, 5*time.Minute)
-	batchConfig, err := prepareddeck.BatchConfigFromEnv()
+	idiomLanguages, err := study.IdiomLanguagesFromEnv()
 	if err != nil {
 		return nil, err
 	}
-	preparedDeckConfig, err := prepareddeck.PreparedDeckConfigFromEnv()
-	if err != nil {
-		return nil, fmt.Errorf("invalid prepared-deck configuration: %w", err)
-	}
-	var batchProvider *enrichment.OpenAIBatchClient
-	var batchCodec *enrichment.TranslationCodec
+	var codec *enrichment.TranslationCodec
 	if llmConfig.Enabled {
-		batchCodec, err = enrichment.NewTranslationCodec(llmConfig)
+		codec, err = enrichment.NewTranslationCodec(llmConfig)
 		if err != nil {
 			return nil, err
 		}
-		batchProvider, err = enrichment.NewOpenAIBatchClient(llmConfig, nil)
-		if err != nil {
-			return nil, fmt.Errorf("prepared-deck external translation requires the official OpenAI Batch endpoint: %w", err)
-		}
 	}
-	batchMetrics := prepareddeck.NewMetricsCollector()
 	catalogueSyncDeps := cataloguesync.StoreDependencies{Connections: store, Catalogue: store, Statuses: store, Pool: store.Pool()}
 	workers := river.NewWorkers()
 	catalogueWorker := cataloguesync.AddWorker(workers, catalogueSyncDeps, opdsService, capabilities)
@@ -270,13 +249,12 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		return nil, err
 	}
 	acquisitionWorker := registerEPUBAcquisitionWorker(workers, store, catalogueSyncDeps, opdsService, capabilities)
-	studyIdioms, err := newStudyIdioms(ctx, dictionaryIndex, preparedDeckConfig.IdiomCardLanguages, batchCodec)
+	studyIdioms, err := newStudyIdioms(ctx, dictionaryIndex, idiomLanguages, codec)
 	if err != nil {
 		return nil, err
 	}
-	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, batchCodec, dictionaryIndex, studyIdioms)
-	presentation := cardexport.NewPresentation(dictionaryIndex)
-	riverClient, err := newRiverClient(ctx, store, nlp, capabilities, selectionService, preparedDeckConfig.StandardMaxConcurrency, workers, dictionaryIndex)
+	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, codec, dictionaryIndex, studyIdioms)
+	riverClient, err := newRiverClient(ctx, store, nlp, capabilities, workers, dictionaryIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -289,11 +267,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	catalogueWorker.Client = riverClient
 	studyService := study.NewService(store, riverClient).WithDictionaryPin(studyDictionaryPin(dictionaryIndex)).WithIdioms(studyIdioms)
 	studyPlanWorker.Planner = studyService
-	prepareddeck.AddPreparedDeckWorker(workers, store, presentation, riverClient, batchCodec, batchConfig, preparedDeckConfig, llmConfig.Enabled)
-	registerPreparedDeckWorkersWithStandard(workers, store, riverClient, batchProvider, batchCodec, batchConfig.PollInterval, batchMetrics, translationProvider, preparedDeckConfig, llmConfig.Timeout)
-	if err := prepareddeck.EnsureRecoveryJob(ctx, store, riverClient); err != nil {
-		return nil, err
-	}
 	if err := sourceStructureChecks.EnqueueStartupChecks(ctx); err != nil {
 		return nil, fmt.Errorf("schedule source structure checks: %w", err)
 	}
@@ -305,8 +278,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		authHandler:       authHandler,
 		opdsService:       opdsService,
 		capabilities:      capabilities,
-		lemmaSuggestions:  lemmaSuggestions,
-		batchProvider:     batchProvider,
 		catalogueSyncDeps: catalogueSyncDeps,
 		riverClient:       riverClient,
 		studyService:      studyService,
@@ -327,13 +298,13 @@ func idiomIndexVersion(ctx context.Context, dictionaryIndex *dictionary.Index) (
 // newRiverClient registers the Idiom candidate count rebuild, which derives
 // counts against the loaded dictionary index and stamps them with its idiom
 // version, and builds the River client over the complete worker set.
-func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, standardWorkers int, workers *river.Workers, dictionaryIndex *dictionary.Index) (*river.Client[pgx.Tx], error) {
+func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, capabilities analyzer.CapabilityProvider, workers *river.Workers, dictionaryIndex *dictionary.Index) (*river.Client[pgx.Tx], error) {
 	version, err := idiomIndexVersion(ctx, dictionaryIndex)
 	if err != nil {
 		return nil, err
 	}
 	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, version)
-	return analysis.NewClientWithPreparedDeckConcurrency(store.Pool(), nlp, capabilities, selectionService, standardWorkers, workers)
+	return analysis.NewClient(store.Pool(), nlp, capabilities, workers)
 }
 
 // studyDictionaryPin reads the loaded dictionary index's pin for a language, so
@@ -351,7 +322,7 @@ func studyDictionaryPin(dictionaryIndex *dictionary.Index) func(language string)
 // newStudyIdioms is Study's Idiom switch over the dictionary's idiom index: a
 // language's Idioms are candidates, and its words' sentences avoid Idiom
 // candidates, only when the operator enabled it and its idiom-card payload
-// assessment is recorded, the gate the deck planner applies (ADR 0137). The
+// assessment is recorded, the gate ADR 0137 sets. The
 // counts it reads are the ones stamped with the same idiom index version. It is
 // nil without a dictionary index or an enabled language.
 func newStudyIdioms(ctx context.Context, dictionaryIndex *dictionary.Index, idiomLanguages map[string]bool, codec *enrichment.TranslationCodec) (*study.IdiomAvoidance, error) {
@@ -363,11 +334,11 @@ func newStudyIdioms(ctx context.Context, dictionaryIndex *dictionary.Index, idio
 	if err != nil {
 		return nil, err
 	}
-	return &study.IdiomAvoidance{Index: dictionaryIndex, Enabled: prepareddeck.IdiomSwitch(idiomLanguages, enrichment.ProviderAssessments(), codec), IndexVersion: version}, nil
+	return &study.IdiomAvoidance{Index: dictionaryIndex, Enabled: study.IdiomSwitch(idiomLanguages, enrichment.ProviderAssessments(), codec), IndexVersion: version}, nil
 }
 
 // registerStudyWorker registers the Study material worker. The translation
-// provider is the one prepared decks use; Study asks it for a contextual Gloss
+// provider is the configured one; Study asks it for a contextual Gloss
 // only from a job, never from a request.
 //
 // It also registers the Fluency worker, which asks the provider whether another
@@ -447,19 +418,12 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := analysisService.EnqueueMissingConstructionRebuilds(ctx); err != nil {
 		return nil, fmt.Errorf("schedule missing Construction occurrences: %w", err)
 	}
-	var preparedDeckService *prepareddeck.Service
-	if deps.batchProvider != nil {
-		preparedDeckService = prepareddeck.NewServiceWithBatchCanceller(store, deps.riverClient, deps.batchProvider)
-	} else {
-		preparedDeckService = prepareddeck.NewService(store, deps.riverClient)
-	}
 	catalogueSyncService := cataloguesync.NewService(deps.catalogueSyncDeps, deps.riverClient, deps.opdsService, deps.capabilities)
 	if err := catalogueSyncService.RegisterAll(ctx); err != nil {
 		return nil, err
 	}
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
-	riskIndex := dictionaryRiskIndex(dictionaryIndex, hasDictionaryIndex)
-	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, RiskIndex: riskIndex, Suggestions: deps.lemmaSuggestions, Preparer: preparedDeckService, BrowseCounts: analysisService})
+	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
 		Classical:       analysisService,
 		Analysis:        analysisService,
@@ -479,7 +443,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if hasDictionaryIndex {
 		studyDictionary = dictionaryIndex
 	}
-	webHandler, err := webapp.NewWithError(webapp.Services{Dictionary: studyDictionary, Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, EPUBAcquisition: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), PreparedDeck: preparedDeckService, Study: deps.studyService, StudyScheduler: study.NewScheduler(), Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime, Clock: time.Now})
+	webHandler, err := webapp.NewWithError(webapp.Services{Dictionary: studyDictionary, Auth: deps.authService, WebAuth: deps.authHandler, Store: storeDeps, OPDS: deps.opdsService, Analysis: analysisService, AnalysisUpdates: analysisService, SourceStructures: analysisService, ClassicalPreparation: analysisService, EPUBAcquisition: analysisService, ReadingIntent: readingIntent, AnalysisInsights: analysisinsights.NewService(store), Study: deps.studyService, StudyScheduler: study.NewScheduler(), Capabilities: deps.capabilities, LemmaReview: lemmaReview, CatalogueSync: catalogueSyncService, SecureCookies: cfg.secureCookies, SessionLifetime: cfg.sessionLifetime, Clock: time.Now})
 	if err != nil {
 		return nil, fmt.Errorf("initialize web application: %w", err)
 	}
@@ -603,16 +567,6 @@ func loopbackHost(host string) bool {
 	return host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
 }
 
-// dictionaryRiskIndex exposes the optional dictionary as the lemma-risk index.
-// An absent dictionary must stay a nil interface, not a typed nil, or detection
-// would call into a missing index.
-func dictionaryRiskIndex(index *dictionary.Index, found bool) lemmarisk.AlternativeIndex {
-	if !found {
-		return nil
-	}
-	return index
-}
-
 // openOptionalDictionaryIndex opens the index named by MOUSEION_DICTIONARY_INDEX.
 // An unset variable is the same absent state as a missing file.
 func openOptionalDictionaryIndex(ctx context.Context) (*dictionary.Index, bool, error) {
@@ -643,18 +597,4 @@ func openDictionaryIndex(ctx context.Context, path string) (index *dictionary.In
 		return nil, false, nil
 	}
 	return nil, false, fmt.Errorf("invalid dictionary index at %s: %w", path, err)
-}
-
-func registerPreparedDeckWorkers(workers *river.Workers, store *persistence.PostgresStore, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics) {
-	registerPreparedDeckWorkersWithStandard(workers, store, client, provider, codec, pollInterval, metrics, nil, prepareddeck.PreparedDeckConfig{}, 0)
-}
-
-func registerPreparedDeckWorkersWithStandard(workers *river.Workers, store *persistence.PostgresStore, client *river.Client[pgx.Tx], provider *enrichment.OpenAIBatchClient, codec *enrichment.TranslationCodec, pollInterval time.Duration, metrics prepareddeck.BatchMetrics, translationProvider enrichment.TranslationProvider, preparedDeckConfig prepareddeck.PreparedDeckConfig, llmTimeout time.Duration) {
-	prepareddeck.AddStandardTranslationWorkerWithDependencies(workers, store, client, translationProvider, preparedDeckConfig, llmTimeout, metrics)
-	prepareddeck.AddBatchSubmitWorkerWithMetrics(workers, store, client, provider, codec, metrics)
-	prepareddeck.AddBatchPollWorker(workers, &prepareddeck.BatchPollWorker{Store: store, Client: client, Provider: provider, Codec: codec, PollInterval: pollInterval, Metrics: metrics})
-	prepareddeck.AddFinalizeWorker(workers, &prepareddeck.DurableFinalizer{Store: store, Renderer: cardexport.NewPresentation(nil), Metrics: metrics})
-	prepareddeck.AddRerenderWorker(workers, &prepareddeck.DurableRerenderer{Store: store, Renderer: cardexport.NewPresentation(nil)})
-	prepareddeck.AddBatchCleanupWorker(workers, &prepareddeck.BatchCleanupWorker{Store: store, Provider: provider, Metrics: metrics})
-	prepareddeck.AddRecoveryWorkerWithMetrics(workers, store, client, pollInterval, metrics)
 }

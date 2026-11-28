@@ -26,15 +26,18 @@ const (
 
 type Store interface {
 	GetProjectedCorpusVocabulary(context.Context, string, string) (domain.ProjectedCorpusVocabulary, error)
-	ListKnownVocabulary(context.Context, string, string) ([]domain.KnownVocabulary, error)
-	ListReservedVocabulary(context.Context, string, string) ([]domain.DeckPreparationVocabulary, error)
-	ListUnattachedGeneratedVocabulary(context.Context, string, string) ([]domain.GeneratedVocabulary, error)
+	ListStudyProgress(context.Context, string, string) ([]domain.StudyProgress, error)
 }
 
 type Service struct{ store Store }
 
 func NewService(store Store) *Service { return &Service{store: store} }
 
+// Coverage is the Book's coverage by Study progress (ADR 0136 §3): the share of
+// analyzable word tokens whose effective vocabulary identity is Mature, and a
+// lighter figure that also counts words in study. The counts are the Browse
+// count projection, so confirmed Lemma corrections apply; the denominator is
+// the persisted analyzable-token total, so excluded occurrences stay in it.
 func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.AnalysisCoverage, error) {
 	projected, err := s.store.GetProjectedCorpusVocabulary(ctx, owner, corpusID)
 	if err != nil {
@@ -47,72 +50,23 @@ func (s *Service) Coverage(ctx context.Context, owner, corpusID string) (domain.
 		return domain.AnalysisCoverage{}, ErrCountsUpdating
 	}
 
-	return s.coverage(ctx, owner, projected.AnalysisCorpusVocabulary, false)
-}
-
-func (s *Service) coverage(ctx context.Context, owner string, input domain.AnalysisCorpusVocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, error) {
-	vocabularies := make(map[string]vocabulary)
-	for _, lemma := range input.Lemmas {
-		if _, ok := vocabularies[lemma.Language]; ok {
+	indexes := make(map[string]domain.StudyCoverageIndex)
+	for _, lemma := range projected.Lemmas {
+		if _, ok := indexes[lemma.Language]; ok {
 			continue
 		}
-		loaded, err := s.loadVocabulary(ctx, owner, lemma.Language)
+		progress, err := s.store.ListStudyProgress(ctx, owner, lemma.Language)
 		if err != nil {
-			return domain.AnalysisCoverage{}, err
+			return domain.AnalysisCoverage{}, fmt.Errorf("list study progress for %s: %w", lemma.Language, err)
 		}
-		vocabularies[lemma.Language] = loaded
+		indexes[lemma.Language] = domain.NewStudyCoverageIndex(progress)
 	}
-	result, _ := coverageWithVocabulary(input, vocabularies, reservedIsKnown)
-	return result, nil
+	return coverageWithStudy(projected.AnalysisCorpusVocabulary, indexes), nil
 }
 
-type vocabulary struct {
-	known     map[string]bool
-	reserved  map[string]bool
-	generated []domain.GeneratedVocabulary
-}
-
-func (s *Service) loadVocabulary(ctx context.Context, owner, language string) (vocabulary, error) {
-	words, err := s.store.ListKnownVocabulary(ctx, owner, language)
-	if err != nil {
-		return vocabulary{}, fmt.Errorf("list known vocabulary for %s: %w", language, err)
-	}
-	known := make(map[string]bool, len(words))
-	for _, word := range words {
-		known[identity(word.CanonicalLemma, word.UPOS)] = true
-	}
-
-	generated, err := s.store.ListUnattachedGeneratedVocabulary(ctx, owner, language)
-	if err != nil {
-		return vocabulary{}, fmt.Errorf("list generated vocabulary for %s: %w", language, err)
-	}
-	reservedWords, err := s.store.ListReservedVocabulary(ctx, owner, language)
-	if err != nil {
-		return vocabulary{}, fmt.Errorf("list reserved vocabulary for %s: %w", language, err)
-	}
-	reserved := make(map[string]bool, len(reservedWords))
-	for _, word := range reservedWords {
-		reserved[identity(word.CanonicalLemma, word.UPOS)] = true
-	}
-	return vocabulary{known: known, reserved: reserved, generated: generated}, nil
-}
-
-func (v vocabulary) generatedFor(sourceMaterialID, key string) bool {
-	for _, word := range v.generated {
-		if identity(word.CanonicalLemma, word.UPOS) != key {
-			continue
-		}
-		if word.FirstSourceMaterialID == nil || *word.FirstSourceMaterialID != sourceMaterialID {
-			return true
-		}
-	}
-	return false
-}
-
-// coverageWithVocabulary is the shared arithmetic path for coverage results.
-// eligible contains the complete eligible identity list;
-// the public per-book result retains its existing top-five presentation cap.
-func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) (domain.AnalysisCoverage, []domain.LemmaOccurrence) {
+// coverageWithStudy is the shared arithmetic path for coverage results. The
+// public per-book result keeps its top-five presentation cap.
+func coverageWithStudy(input domain.AnalysisCorpusVocabulary, indexes map[string]domain.StudyCoverageIndex) domain.AnalysisCoverage {
 	result := domain.AnalysisCoverage{
 		SourceMaterialID:     input.SourceMaterialID,
 		AnalysisRunID:        input.AnalysisRunID,
@@ -120,43 +74,42 @@ func coverageWithVocabulary(input domain.AnalysisCorpusVocabulary, vocabularies 
 		DistinctLemmaCount:   input.Statistics.DistinctLemmaCount,
 		TextProfile:          input.Statistics.TextProfile,
 	}
-	eligible := classifyOccurrences(&result, input, vocabularies, reservedIsKnown)
+	eligible := classifyOccurrences(&result, input, indexes)
 	// Persisted statistics are authoritative. Clamp learner-derived values so
 	// malformed legacy rows can never produce impossible coverage output.
-	result.KnownTokenCount = min(result.KnownTokenCount, result.AnalyzableTokenCount)
-	result.UnknownTokenCount = max(result.AnalyzableTokenCount-result.KnownTokenCount, 0)
+	result.MatureTokenCount = min(result.MatureTokenCount, result.AnalyzableTokenCount)
+	result.InStudyTokenCount = min(max(result.InStudyTokenCount, result.MatureTokenCount), result.AnalyzableTokenCount)
+	result.UnknownTokenCount = max(result.AnalyzableTokenCount-result.MatureTokenCount, 0)
 
 	sortEligible(eligible)
 	eligibleTokens := eligibleTokenCount(eligible)
 	topUnknownCount := min(topUnknownLimit, len(eligible))
 	result.TopUnknownLemmas = append([]domain.LemmaOccurrence(nil), eligible[:topUnknownCount]...)
-	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
-	result.Projections = coverageProjections(eligible, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
-	result.Thresholds = coverageThresholds(eligible, eligibleTokens, result.KnownTokenCount, result.AnalyzableTokenCount)
-	return result, eligible
+	result.UnknownConcentration = projection(eligible, concentrationSize, eligibleTokens, result.MatureTokenCount, result.AnalyzableTokenCount)
+	result.Projections = coverageProjections(eligible, eligibleTokens, result.MatureTokenCount, result.AnalyzableTokenCount)
+	result.Thresholds = coverageThresholds(eligible, eligibleTokens, result.MatureTokenCount, result.AnalyzableTokenCount)
+	result.ToTarget = coverageToTarget(eligible, eligibleTokens, result.InStudyTokenCount, result.AnalyzableTokenCount)
+	return result
 }
 
-// classifyOccurrences accumulates the known, reserved, and unknown counts onto
-// result and returns the eligible identities that remain unknown, in input
+// classifyOccurrences accumulates the Mature, in-study and unknown counts onto
+// result and returns the eligible identities, those not yet in study, in input
 // order.
-func classifyOccurrences(result *domain.AnalysisCoverage, input domain.AnalysisCorpusVocabulary, vocabularies map[string]vocabulary, reservedIsKnown bool) []domain.LemmaOccurrence {
+func classifyOccurrences(result *domain.AnalysisCoverage, input domain.AnalysisCorpusVocabulary, indexes map[string]domain.StudyCoverageIndex) []domain.LemmaOccurrence {
 	eligible := make([]domain.LemmaOccurrence, 0, len(input.Lemmas))
 	for _, lemma := range input.Lemmas {
-		vocab := vocabularies[lemma.Language]
-
-		key := identity(lemma.CanonicalLemma, lemma.UPOS)
-		reservedMatch := vocab.reserved[key] || vocab.reserved[identity(lemma.CanonicalLemma, "")]
-		if vocab.known[key] || vocab.known[identity(lemma.CanonicalLemma, "")] || (reservedIsKnown && reservedMatch) {
-			result.KnownTokenCount += lemma.OccurrenceCount
-			result.KnownLemmaCount++
+		inStudy, mature := indexes[lemma.Language].Classify(lemma)
+		if inStudy {
+			result.InStudyTokenCount += lemma.OccurrenceCount
+			result.InStudyLemmaCount++
+		}
+		if mature {
+			result.MatureTokenCount += lemma.OccurrenceCount
+			result.MatureLemmaCount++
 			continue
 		}
 		result.UnknownLemmaCount++
-		if reservedMatch {
-			result.ReservedTokenCount += lemma.OccurrenceCount
-			result.ReservedLemmaCount++
-		}
-		if !vocab.generatedFor(input.SourceMaterialID, key) && !reservedMatch {
+		if !inStudy {
 			eligible = append(eligible, lemma)
 		}
 	}
@@ -183,35 +136,51 @@ func eligibleTokenCount(eligible []domain.LemmaOccurrence) int64 {
 }
 
 // coverageProjections builds the fixed-size projections of the unknown pool.
-func coverageProjections(eligible []domain.LemmaOccurrence, eligibleTokens, knownTokens, analyzableTokens int64) []domain.CoverageProjection {
+func coverageProjections(eligible []domain.LemmaOccurrence, eligibleTokens, matureTokens, analyzableTokens int64) []domain.CoverageProjection {
 	projections := make([]domain.CoverageProjection, 0, len(projectionSizes))
 	for _, size := range projectionSizes {
-		projections = append(projections, projection(eligible, size, eligibleTokens, knownTokens, analyzableTokens))
+		projections = append(projections, projection(eligible, size, eligibleTokens, matureTokens, analyzableTokens))
 	}
 	return projections
 }
 
 // coverageThresholds builds the reachable-target thresholds over the unknown
 // pool in its deterministic order.
-func coverageThresholds(eligible []domain.LemmaOccurrence, eligibleTokens, knownTokens, analyzableTokens int64) []domain.CoverageThreshold {
+func coverageThresholds(eligible []domain.LemmaOccurrence, eligibleTokens, matureTokens, analyzableTokens int64) []domain.CoverageThreshold {
 	thresholds := make([]domain.CoverageThreshold, 0, len(thresholdTargets))
 	for _, target := range thresholdTargets {
 		threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
 		for _, lemma := range eligible {
-			if reachesThreshold(knownTokens, threshold.OccurrenceCount, analyzableTokens, target) {
+			if reachesThreshold(matureTokens, threshold.OccurrenceCount, analyzableTokens, target) {
 				break
 			}
 			threshold.LemmaCount++
 			threshold.OccurrenceCount += lemma.OccurrenceCount
 		}
-		threshold.Reachable = reachesThreshold(knownTokens, threshold.OccurrenceCount, analyzableTokens, target)
+		threshold.Reachable = reachesThreshold(matureTokens, threshold.OccurrenceCount, analyzableTokens, target)
 		thresholds = append(thresholds, threshold)
 	}
 	return thresholds
 }
 
-func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTokens, analyzableTokens int64) domain.CoverageProjection {
-	result := domain.CoverageProjection{TopLemmaCount: size, EligibleTokenCount: eligibleTokens, ProjectedTokenCount: knownTokens}
+// coverageToTarget counts the not-yet-in-study words, most frequent first,
+// that lift the in-study share to Target coverage (ADR 0136 §2).
+func coverageToTarget(eligible []domain.LemmaOccurrence, eligibleTokens, inStudyTokens, analyzableTokens int64) domain.CoverageThreshold {
+	target := int(domain.StudyTargetCoveragePercent)
+	threshold := domain.CoverageThreshold{TargetPercent: target, EligibleTokenCount: eligibleTokens}
+	for _, lemma := range eligible {
+		if reachesThreshold(inStudyTokens, threshold.OccurrenceCount, analyzableTokens, target) {
+			break
+		}
+		threshold.LemmaCount++
+		threshold.OccurrenceCount += lemma.OccurrenceCount
+	}
+	threshold.Reachable = reachesThreshold(inStudyTokens, threshold.OccurrenceCount, analyzableTokens, target)
+	return threshold
+}
+
+func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, matureTokens, analyzableTokens int64) domain.CoverageProjection {
+	result := domain.CoverageProjection{TopLemmaCount: size, EligibleTokenCount: eligibleTokens, ProjectedTokenCount: matureTokens}
 	for i := 0; i < len(eligible) && int64(i) < size; i++ {
 		result.SelectedLemmaCount++
 		result.OccurrenceCount += eligible[i].OccurrenceCount
@@ -220,12 +189,10 @@ func projection(eligible []domain.LemmaOccurrence, size, eligibleTokens, knownTo
 	return result
 }
 
-func reachesThreshold(knownTokens, selectedTokens, analyzableTokens int64, target int) bool {
-	return (knownTokens+selectedTokens)*100 >= analyzableTokens*int64(target)
+func reachesThreshold(matureTokens, selectedTokens, analyzableTokens int64, target int) bool {
+	return (matureTokens+selectedTokens)*100 >= analyzableTokens*int64(target)
 }
 
-func identity(lemma, upos string) string { return lemma + "\x00" + upos }
-
 func occurrenceKey(value domain.LemmaOccurrence) string {
-	return value.Language + "\x00" + value.CanonicalLemma + "\x00" + value.UPOS
+	return value.Language + "\x00" + value.CanonicalLemma + "\x00" + value.UPOS + "\x00" + value.LexicalDiscriminator
 }

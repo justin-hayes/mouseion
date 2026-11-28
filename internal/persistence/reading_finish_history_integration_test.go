@@ -39,15 +39,14 @@ func TestFinishProjectsReadHistoryAndReadAgainOnlySetsToRead(t *testing.T) {
 	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
 	makeAnalyzedToReadBook(t, ctx, store, book, source)
 
-	goal, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
+	_, err = store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.MyBookBucketCurrentReading, finishedBookState(t, ctx, store, owner.ID, book.ID).WorkflowBucket())
 
-	first, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
-	replay, err := store.FinishCurrentReading(ctx, owner.ID, "de", book.ID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, first.Completion, replay.Completion)
+	_, err = store.FinishCurrentReading(ctx, owner.ID, "de")
+	require.ErrorIs(t, err, ErrNotFound, "a second Finish has no reading to finish and appends nothing")
 
 	state := finishedBookState(t, ctx, store, owner.ID, book.ID)
 	assert.Equal(t, domain.BookDispositionInbox, state.Disposition)
@@ -79,8 +78,7 @@ func TestFinishProjectsReadHistoryAndReadAgainOnlySetsToRead(t *testing.T) {
 	asserted, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Asserted", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
 	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), owner.ID, asserted.ID)
-	knownBefore, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
-	require.NoError(t, err)
+	knownBefore := testutil.LegacyKnownLemmas(t, ctx, store.Pool(), owner.ID, "de")
 	for range 2 {
 		_, err = store.ImportPreviouslyRead(ctx, owner.ID, asserted.ID)
 		require.NoError(t, err)
@@ -89,7 +87,6 @@ func TestFinishProjectsReadHistoryAndReadAgainOnlySetsToRead(t *testing.T) {
 	assert.Equal(t, domain.BookDispositionInbox, assertedState.Disposition)
 	assert.Equal(t, domain.MyBookBucketRead, assertedState.WorkflowBucket())
 	assert.Equal(t, 1, assertedState.CompletionCount)
-	knownAfter, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
-	require.NoError(t, err)
+	knownAfter := testutil.LegacyKnownLemmas(t, ctx, store.Pool(), owner.ID, "de")
 	assert.Len(t, knownAfter, len(knownBefore))
 }

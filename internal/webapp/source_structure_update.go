@@ -55,16 +55,11 @@ func myBookSourceStructureUpdate(book domain.MyBook) *domain.SourceStructureUpda
 	return book.Acquired.SourceStructureUpdate
 }
 
-// sourceStructureUpdateConfirmationText states the old Reading/deck boundary
-// and the confirmed decisions that do not carry over to the new analysis.
-func sourceStructureUpdateConfirmationText(candidate domain.SourceStructureUpdateCandidate, currentReading bool) string {
+// sourceStructureUpdateConfirmationText states what confirming does and the
+// confirmed decisions that do not carry over to the new analysis.
+func sourceStructureUpdateConfirmationText(candidate domain.SourceStructureUpdateCandidate) string {
 	text := "Confirming re-extracts this Book's retained file, switches it to the new source structure and queues its re-analysis. The current analysis becomes stale immediately and is replaced when the new analysis publishes. " +
 		sourceStructureUpdateDecisionsText(candidate.LemmaCorrections, candidate.OccurrenceExclusions)
-	if currentReading {
-		text += " Your active Reading keeps its exact current evidence, Reserved vocabulary and prepared deck; new evidence needs End, restart and re-preparation."
-	} else {
-		text += " Earlier Readings and prepared decks keep the evidence they froze."
-	}
 	return text + " There is no way back to the old structure."
 }
 
@@ -107,7 +102,7 @@ func (h *Handler) updateBookSourceStructure(w http.ResponseWriter, r *http.Reque
 	}
 	adoptDetailLanguage(r.Context(), detail)
 	if h.services.SourceStructures == nil || detail.Acquired == nil {
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(sourceStructureUpdateChangedMessage))
+		bookActionRedirect(w, r, bookID, "error", sourceStructureUpdateChangedMessage)
 		return
 	}
 	expected := domain.SourceStructureUpdateExpectation{
@@ -122,11 +117,11 @@ func (h *Handler) updateBookSourceStructure(w http.ResponseWriter, r *http.Reque
 	case errors.Is(err, analysis.ErrNotFound):
 		http.NotFound(w, r)
 	case errors.Is(err, analysis.ErrSourceStructureUpdateChanged), errors.Is(err, analysis.ErrEPUBRequired), errors.Is(err, domain.ErrExtractedUnitsUnavailable):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(sourceStructureUpdateChangedMessage))
+		bookActionRedirect(w, r, bookID, "error", sourceStructureUpdateChangedMessage)
 	case err != nil:
 		fail(w, err)
 	default:
-		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(fmt.Sprintf("Source structure update for %s adopted as analysis job #%d. Earlier Readings and decks keep the evidence they froze.", detail.Book.Title, handle.DisplayNumber)))
+		bookActionRedirect(w, r, bookID, "message", fmt.Sprintf("Source structure update for %s adopted as analysis job #%d.", detail.Book.Title, handle.DisplayNumber))
 	}
 }
 

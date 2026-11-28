@@ -11,12 +11,12 @@ SELECT EXISTS(
 );
 
 -- name: BookEverCurrentReading :one
--- A released snapshot proves the Book held the Current reading role even after
--- the reading ended, so an unstarted Book is one with no snapshot.
+-- The Book holds the Current reading role now. An ended reading leaves no
+-- trace (ADR 0136 section 4).
 SELECT EXISTS(
-  SELECT 1 FROM primary_goal_snapshots s
-  WHERE s.owner_id = sqlc.arg('owner') AND s.book_id = sqlc.arg('book')
-);
+  SELECT 1 FROM primary_goals g
+  WHERE g.owner_id = sqlc.arg('owner') AND g.book_id = sqlc.arg('book')
+)::boolean;
 
 -- name: BookHasActiveCurrentReading :one
 SELECT EXISTS(
@@ -64,17 +64,14 @@ SELECT e.*
      , COALESCE(history.completion_count, 0)::bigint AS completion_count
      , history.latest_completed_at
       , COALESCE(history.latest_completion_source, '')::text AS latest_completion_source
-      , COALESCE(deck.state, '')::text AS deck_state
-      , COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards
-      , deck.completed_at AS deck_completed_at
      , EXISTS (
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
        ) AS is_current_reading
-     , EXISTS (
-         SELECT 1 FROM primary_goal_snapshots s
-         WHERE s.owner_id::text = e.book_owner_id AND s.book_id::text = e.book_id
-       ) AS ever_current_reading
+     , (EXISTS (
+         SELECT 1 FROM primary_goals g
+         WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
+       ))::boolean AS ever_current_reading
      , COALESCE(ru.definition_key, '')::text AS reading_unit_key
      , COALESCE(w.definition_key, '')::text AS work_key
      , COALESCE(w.title, '')::text AS work_title
@@ -99,14 +96,6 @@ LEFT JOIN LATERAL (
     FROM reading_history h
     WHERE h.owner_id::text = e.book_owner_id AND h.book_id::text = e.book_id
  ) history ON true
- LEFT JOIN LATERAL (
-     SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
-     FROM deck_preparations p
-      WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
-        AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
-        AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
-     ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
- ) deck ON true
 WHERE e.book_owner_id = sqlc.arg('owner')
   AND (
     sqlc.arg('language')::text = ''
@@ -157,26 +146,14 @@ SELECT COALESCE((
     WHERE owner_id = sqlc.arg('owner') AND source_material_id = sqlc.arg('source')
 ), '')::text AS failure_code;
 
--- name: GetMyBookMarginEvidence :one
-SELECT COALESCE(deck.state, '')::text AS deck_state,
-       COALESCE(deck.total_cards, 0)::bigint AS deck_total_cards,
-       deck.completed_at AS deck_completed_at,
-       EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id = e.book_owner_id::uuid AND g.book_id = e.book_id::uuid) AS is_current_reading
-FROM my_books_evidence e
-LEFT JOIN LATERAL (
-    SELECT p.state::text AS state, p.total_cards::bigint AS total_cards, p.completed_at
-    FROM deck_preparations p
-     WHERE p.owner_id::text = e.book_owner_id AND p.book_id::text = e.book_id
-       AND p.retired_at IS NULL AND p.analysis_run_id::text = e.analysis_run_id
-       AND EXISTS (SELECT 1 FROM primary_goals g WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id)
-    ORDER BY p.updated_at DESC, p.id DESC LIMIT 1
-) deck ON true
-WHERE e.book_owner_id = sqlc.arg('owner') AND e.book_id = sqlc.arg('book');
-
 -- name: ListMyBooksCoverage :many
 -- Coverage comes from the durable Vocabulary Browse inventory counts joined to
--- the learner's current Known vocabulary. A Book without ready counts for its
--- current analysis produces no row, so it never shows a stale or scanned figure.
+-- the learner's Study progress (ADR 0136 §3): mature_tokens counts occurrences
+-- of words that are Mature (in review with a scheduled interval of at least
+-- mature_days), and in_study_tokens also counts words introduced but not yet
+-- Mature. Only word items count and a withdrawn word counts as neither. A Book
+-- without ready counts for its current analysis produces no row, so it never
+-- shows a stale or scanned figure.
 WITH ready AS (
     SELECT r.owner_id, r.book_id, r.analysis_run_id, r.corpus_id,
            COALESCE(co.analyzable_token_count, 0)::bigint AS total_tokens
@@ -192,21 +169,24 @@ WITH ready AS (
       AND co.analysis_run_id = r.analysis_run_id
 ), counted AS (
     SELECT ready.book_id, c.occurrence_count,
-           EXISTS (
-               SELECT 1 FROM known_vocabulary kv
-               WHERE kv.owner_id = c.owner_id AND kv.language = c.language
-                 AND kv.canonical_lemma = btrim(c.canonical_lemma)
-                 AND kv.lexical_discriminator = btrim(c.lexical_discriminator)
-                 AND (kv.upos = upper(btrim(c.upos)) OR kv.upos = '')
-           ) AS is_known
+           sp.id IS NOT NULL AS in_study,
+           COALESCE(sp.state = 'review' AND sp.scheduled_days >= sqlc.arg('mature_days')::bigint, false) AS is_mature
     FROM ready
     JOIN vocabulary_browse_counts c ON c.owner_id = ready.owner_id AND c.book_id = ready.book_id
       AND c.analysis_run_id = ready.analysis_run_id AND c.corpus_id = ready.corpus_id
+    LEFT JOIN study_progress sp ON sp.owner_id = c.owner_id AND sp.item_kind = 'word'
+      AND sp.language = c.language
+      AND sp.canonical_lemma = btrim(c.canonical_lemma)
+      AND sp.upos = upper(btrim(c.upos))
+      AND sp.lexical_discriminator = btrim(c.lexical_discriminator)
+      AND sp.withdrawn_at IS NULL
 )
 SELECT ready.book_id::text AS book_id,
        ready.total_tokens,
        COALESCE((SELECT sum(counted.occurrence_count) FROM counted
-                 WHERE counted.book_id = ready.book_id AND counted.is_known), 0)::bigint AS known_tokens
+                  WHERE counted.book_id = ready.book_id AND counted.is_mature), 0)::bigint AS mature_tokens,
+       COALESCE((SELECT sum(counted.occurrence_count) FROM counted
+                  WHERE counted.book_id = ready.book_id AND counted.in_study), 0)::bigint AS in_study_tokens
 FROM ready;
 
 -- name: GetMyBookCompletionSummary :one

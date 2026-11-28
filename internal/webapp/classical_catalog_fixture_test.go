@@ -67,21 +67,16 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 	}
 	assert.NotContains(t, library.Body.String(), "library-work", "My Books lists each Book as an ordinary row")
 
-	// Add already put the Books in To Read, so the chooser lists them without
+	// Add already put the Books in To Read, so My Books lists them without
 	// another move.
-	chooser := catalogPage(t, h, cookies, "/grc/reading")
-	require.Equal(t, http.StatusOK, chooser.Code)
+	toRead := catalogPage(t, h, cookies, "/grc/library?disposition=to_read")
+	require.Equal(t, http.StatusOK, toRead.Code)
 	for _, want := range []string{
-		"Choose a To Read book in Ancient Greek",
 		"Iliad, Book 1",
 		"Iliad, Book 2",
 		"Iliad, Book 3",
-		"99% or above",
-		"97% to below 99%",
-		"Below 95%",
 	} {
-		assert.Contains(t, chooser.Body.String(), want)
+		assert.Contains(t, toRead.Body.String(), want)
 	}
-	assert.Equal(t, 4, strings.Count(chooser.Body.String(), `class="reading-chooser-book"`), "each Book is its own chooser entry")
-	assert.NotContains(t, chooser.Body.String(), "reading-chooser-work")
+	assert.Equal(t, 4, strings.Count(toRead.Body.String(), `class="library-book"`), "each Book is its own row")
 }

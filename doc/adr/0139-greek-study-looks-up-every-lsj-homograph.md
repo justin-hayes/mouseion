@@ -1,6 +1,6 @@
 # ADR 0139: Greek Study looks up every LSJ homograph
 
-Status: **Accepted; implementation pending (Study cutover prerequisite)** ·
+Status: **Accepted; implemented (#2759, #2773)** ·
 Date: 2026-11-26 · Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Specified in

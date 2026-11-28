@@ -48,16 +48,16 @@ and surface a material conflict rather than silently choosing one.
   catalog setup, local My Books browsing, and intent-driven acquisition and
   analysis.
 - [`workflows/book-analysis-and-deck.md`](workflows/book-analysis-and-deck.md) —
-  the core current-analysis-to-deck lifecycle, including explicit refresh and
-  To Read's ensure-once analysis trigger.
+  the current-analysis lifecycle, including explicit refresh and To Read's
+  ensure-once analysis trigger (its deck steps are retired).
 - [`../features/reading-workflow.md`](../features/reading-workflow.md) — shipped
   To Read, current-reading, completion-history, and rereading workflow.
 - [`../features/vocabulary-browse-and-concordance.md`](../features/vocabulary-browse-and-concordance.md)
-  — accepted, partially shipped Browse and Concordance contract.
-- [`../features/reading-owned-book-vocabulary.md`](../features/reading-owned-book-vocabulary.md)
-  — accepted, partially implemented Reading-owned freeze and Book-deck rule;
-  [the former combined spec](../features/vocabulary-browse-concordance-and-custom-decks.md)
-  is historical.
+  — Book Browse on the Book detail page and Concordance.
+- [`../features/study.md`](../features/study.md) — Study, the only vocabulary
+  workflow. [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md)
+  and [the former combined spec](../archive/features/vocabulary-browse-concordance-and-custom-decks.md)
+  are historical.
 - [`../features/basic-poetry-support.md`](../features/basic-poetry-support.md)
   — accepted, implementation-pending source-line, attribution and explicit
   source-update contract; reusable presentation target in
@@ -66,7 +66,8 @@ and surface a material conflict rather than silently choosing one.
   record of the retired Reading Journey / Primary Goal model; not current product
   behavior.
 - [`workflows/study-languages-and-known-vocabulary.md`](workflows/study-languages-and-known-vocabulary.md)
-  — study-language ownership, capability degradation, and Known vocabulary provenance.
+  — study-language ownership and capability degradation (its Known vocabulary
+  provenance is retired).
 
 Additional workflow documents should be added only when a cross-screen journey
 has durable rules that cannot be understood from the screen inventory and its

@@ -46,9 +46,12 @@ func (q *Queries) AppendStudyReviewLog(ctx context.Context, arg AppendStudyRevie
 const completeStudyReintroductions = `-- name: CompleteStudyReintroductions :execrows
 UPDATE study_progress p
    SET material_id = m.id, learned_meaning = m.gloss, learned_sense_ids = m.cited_sense_ids,
-       learned_entry_ids = m.cited_entry_ids, learned_dictionary_pin = m.dictionary_pin, corrected_at = $1::timestamptz, updated_at = now()
-  FROM study_material m
+       learned_entry_ids = m.cited_entry_ids, learned_dictionary_pin = m.dictionary_pin,
+       corrected_at = CASE WHEN old.omission_reason IS DISTINCT FROM 'known_vocabulary_backfill' THEN $1::timestamptz ELSE p.corrected_at END,
+       updated_at = now()
+  FROM study_material m, study_material old
  WHERE p.owner_id = $2 AND p.language = $3 AND p.withdrawn_at IS NULL
+   AND old.owner_id = p.owner_id AND old.id = p.material_id
    AND m.owner_id = p.owner_id AND m.item_kind = p.item_kind AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
    AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
    AND m.superseded_at IS NULL AND m.state = 'ready' AND m.id <> p.material_id
@@ -61,8 +64,10 @@ type CompleteStudyReintroductionsParams struct {
 }
 
 // Moves each word whose replacement material is ready onto it: the new
-// Gloss becomes the learned meaning and the word is marked corrected. The FSRS
-// state is not touched.
+// Gloss becomes the learned meaning and the word is marked corrected, unless
+// the replaced material is the placeholder of a word migrated from Known
+// vocabulary: that is its first material, not a correction. The FSRS state is
+// not touched.
 func (q *Queries) CompleteStudyReintroductions(ctx context.Context, arg CompleteStudyReintroductionsParams) (int64, error) {
 	result, err := q.db.Exec(ctx, completeStudyReintroductions, arg.Now, arg.Owner, arg.Language)
 	if err != nil {
@@ -123,6 +128,36 @@ func (q *Queries) GetStudyBatchLedger(ctx context.Context, arg GetStudyBatchLedg
 	var i GetStudyBatchLedgerRow
 	err := row.Scan(&i.BatchesOffered, &i.BatchesTaken, &i.BatchesDeclined)
 	return i, err
+}
+
+const insertStudyAlreadyKnownEvent = `-- name: InsertStudyAlreadyKnownEvent :exec
+INSERT INTO study_already_known_event (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, source, answered_at, study_day)
+SELECT p.owner_id, p.item_kind, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, p.material_id,
+       $1, $2, $3::date
+  FROM study_progress p
+ WHERE p.owner_id = $4 AND p.id = $5
+`
+
+type InsertStudyAlreadyKnownEventParams struct {
+	Source     string
+	AnsweredAt time.Time
+	StudyDay   pgtype.Date
+	Owner      string
+	Progress   string
+}
+
+// An Already-known answer or backfilled word: an event, never a grade. The
+// item identity is copied from the word's progress, so the event is keyed like
+// Study progress.
+func (q *Queries) InsertStudyAlreadyKnownEvent(ctx context.Context, arg InsertStudyAlreadyKnownEventParams) error {
+	_, err := q.db.Exec(ctx, insertStudyAlreadyKnownEvent,
+		arg.Source,
+		arg.AnsweredAt,
+		arg.StudyDay,
+		arg.Owner,
+		arg.Progress,
+	)
+	return err
 }
 
 const introduceStudyWord = `-- name: IntroduceStudyWord :one
@@ -193,9 +228,55 @@ func (q *Queries) IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWord
 	return i, err
 }
 
+const listStudyAlreadyKnownEvents = `-- name: ListStudyAlreadyKnownEvents :many
+SELECT id, owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, source, answered_at, study_day, created_at FROM study_already_known_event
+ WHERE owner_id = $1 AND language = $2
+ ORDER BY answered_at, created_at, id
+`
+
+type ListStudyAlreadyKnownEventsParams struct {
+	Owner    string
+	Language string
+}
+
+func (q *Queries) ListStudyAlreadyKnownEvents(ctx context.Context, arg ListStudyAlreadyKnownEventsParams) ([]StudyAlreadyKnownEvent, error) {
+	rows, err := q.db.Query(ctx, listStudyAlreadyKnownEvents, arg.Owner, arg.Language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StudyAlreadyKnownEvent{}
+	for rows.Next() {
+		var i StudyAlreadyKnownEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.ItemKind,
+			&i.Language,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.LexicalDiscriminator,
+			&i.ProgressID,
+			&i.MaterialID,
+			&i.Source,
+			&i.AnsweredAt,
+			&i.StudyDay,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudyProgress = `-- name: ListStudyProgress :many
 
 SELECT p.id, p.owner_id, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.material_id, p.introduced_at, p.learned_meaning, p.state, p.due, p.stability, p.difficulty, p.scheduled_days, p.reps, p.lapses, p.remaining_steps, p.last_review, p.withdrawn_at, p.created_at, p.updated_at, p.corrected_at, p.withdrawn_reason, p.learned_sense_ids, p.learned_entry_ids, p.learned_dictionary_pin, p.item_kind, (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
+       (m.omission_reason IS NOT DISTINCT FROM 'known_vocabulary_backfill')::boolean AS awaiting_first_material,
        EXISTS (SELECT 1 FROM study_report r
                 WHERE r.owner_id = p.owner_id AND r.item_kind = p.item_kind AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
                   AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
@@ -215,16 +296,20 @@ type ListStudyProgressParams struct {
 }
 
 type ListStudyProgressRow struct {
-	StudyProgress     StudyProgress
-	Reintroducing     bool
-	Held              bool
-	ContextReportedAt time.Time
+	StudyProgress         StudyProgress
+	Reintroducing         bool
+	AwaitingFirstMaterial bool
+	Held                  bool
+	ContextReportedAt     time.Time
 }
 
 // Study progress, the review log and the per-day batch ledger (ADR 0134, spec
 // #2691).
 // reintroducing is true while the word's own Study material has been
 // superseded by a correction and its replacement is not yet in place.
+// awaiting_first_material is true while the word, migrated from Known
+// vocabulary as Already known, still points at the placeholder its first Study
+// material replaces (migration 000081): it is not a correction.
 // held is true while the word has an open Wrong-word report (ADR 0135 §2).
 // context_reported_at is when its latest Unsuitable-context report that retires
 // a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
@@ -267,6 +352,7 @@ func (q *Queries) ListStudyProgress(ctx context.Context, arg ListStudyProgressPa
 			&i.StudyProgress.LearnedDictionaryPin,
 			&i.StudyProgress.ItemKind,
 			&i.Reintroducing,
+			&i.AwaitingFirstMaterial,
 			&i.Held,
 			&i.ContextReportedAt,
 		); err != nil {

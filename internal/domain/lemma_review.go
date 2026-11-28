@@ -13,12 +13,8 @@ import (
 // webapp owns their learner-facing wording and maps each sentinel to a status
 // and message, so the messages here serve logs and wrapped errors only.
 var (
-	ErrLemmaReviewCurrentReading        = errors.New("lemma review: book is the current reading")
 	ErrLemmaReviewStale                 = errors.New("lemma review: vocabulary state or proposal changed after preview")
 	ErrLemmaReviewCountsRefreshing      = errors.New("lemma review: vocabulary counts are being refreshed")
-	ErrLemmaReviewRepreparationRequired = errors.New("lemma review: re-preparation of the ready deck must be confirmed")
-	ErrLemmaReviewBlockedByReading      = errors.New("lemma review: another book is the current reading")
-	ErrLemmaReviewNotToRead             = errors.New("lemma review: book must be moved to To Read before the change is accepted")
 	ErrLemmaReviewOccurrenceUnavailable = errors.New("lemma review: selected occurrence changed")
 	ErrLemmaReviewOccurrenceMissing     = errors.New("lemma review: occurrence is no longer in this analysis")
 	ErrLemmaReviewNoSelection           = errors.New("lemma review: preview has no selected occurrences")
@@ -26,44 +22,10 @@ var (
 	ErrLemmaReviewLemma                 = errors.New("lemma review: lemma must be one canonical word without spaces")
 	ErrLemmaReviewUnsupportedLanguage   = errors.New("lemma review: study language does not support lemma correction")
 
-	// ErrLemmaDecisionCurrentReading is what every store returns when a vocabulary
-	// decision targets the Book that is the owner's current reading. It is the
-	// same sentinel the review handler reports, so the gate reads identically at
-	// each layer.
-	ErrLemmaDecisionCurrentReading = ErrLemmaReviewCurrentReading
 	// ErrLemmaReviewPreviewStale reports that the learner's vocabulary state or the
 	// surface form's occurrences changed after the proposal was previewed.
 	ErrLemmaReviewPreviewStale = errors.New("persistence: lemma review preview is stale")
 )
-
-// LemmaReviewFlagProviderSource is the evidence_provenance "source" value that
-// marks a flag raised by the configured contextual-Gloss provider. Provider
-// flags are advisory evidence: they never pause a freeze. The persistence path
-// records provider, model, prompt version and unresolved reason alongside this
-// marker. Every other flag is local high-risk evidence.
-const LemmaReviewFlagProviderSource = "contextual_gloss_provider"
-
-// LemmaReviewFlagProviderSourced reports whether provenance records the
-// contextual-Gloss provider as its evidence source.
-func LemmaReviewFlagProviderSourced(provenance map[string]any) bool {
-	source, ok := provenance["source"].(string)
-	return ok && source == LemmaReviewFlagProviderSource
-}
-
-// BlocksFreeze reports whether the flag is unresolved local high-risk evidence
-// that must pause Start reading or Prepare deck. A provider-sourced flag is
-// advisory and never blocks, and a resolved flag never blocks whatever its
-// source.
-func (f LemmaReviewFlag) BlocksFreeze() bool {
-	return f.Resolution == "" && !LemmaReviewFlagProviderSourced(f.Provenance)
-}
-
-// BlocksFreeze reports whether the occurrence carries an unresolved local
-// high-risk flag. It is LemmaReviewFlag.BlocksFreeze in the occurrence shape the
-// review list exposes.
-func (o LemmaReviewOccurrence) BlocksFreeze() bool {
-	return o.ReviewFlagReason != "" && o.ReviewFlagResolution == "" && !LemmaReviewFlagProviderSourced(o.ReviewFlagProvenance)
-}
 
 // ID is the stable identity of an occurrence within its Book: the analysis run,
 // source document, and character span. Unlike a list position it does not shift
@@ -79,12 +41,11 @@ type LemmaReviewIdentity struct {
 // LemmaReviewIdentityState is everything a lemma review preview reads about one
 // identity its proposal moves: its effective count in the reviewed Book now and
 // after the proposal, its count across the learner's other currently analyzed
-// Books, and whether it is Known or Reserved.
+// Books.
 type LemmaReviewIdentityState struct {
 	Identity            LemmaReviewIdentity
 	InBook, AfterInBook int64
 	OtherBooks          int64
-	Known, Reserved     bool
 }
 
 // LemmaReviewPreview is what previewing one proposal reads: the states of the
@@ -127,19 +88,6 @@ func (p LemmaReviewProposal) Decisions() []LemmaReviewDecision {
 	return decisions
 }
 
-// Resolution is the outcome a decision records on the occurrence's review flag:
-// "exclude", "keep" when the analyzer lemma stands, or "correct".
-func (d LemmaReviewDecision) Resolution() string {
-	switch {
-	case d.Excluded:
-		return "exclude"
-	case d.CanonicalLemma == d.Occurrence.CanonicalLemma:
-		return "keep"
-	default:
-		return "correct"
-	}
-}
-
 // StoredCorrection is the corrected lemma a decision persists. Exclusions and
 // keeps store none, because a stored correction records only a change to the
 // analyzer lemma.
@@ -166,7 +114,6 @@ func LemmaReviewFingerprint(proposal LemmaReviewProposal, occurrences []LemmaRev
 		lines = append(lines, strings.Join([]string{
 			state.Identity.Language, state.Identity.CanonicalLemma, state.Identity.UPOS, state.Identity.LexicalDiscriminator,
 			strconv.FormatInt(state.InBook, 10), strconv.FormatInt(state.AfterInBook, 10), strconv.FormatInt(state.OtherBooks, 10),
-			strconv.FormatBool(state.Known), strconv.FormatBool(state.Reserved),
 		}, "\x00"))
 	}
 	sort.Strings(lines)

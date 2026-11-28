@@ -18,7 +18,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	alice := createAccount(t, ctx, store, "priority-alice", "alice-password")
 	bob := createAccount(t, ctx, store, "priority-bob", "bob-password")
 	seed := func(owner, key, title string) domain.Book {
-		book, _, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+		book, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 		return book
 	}
 	hits := func(n int) [][]lookupToken {
@@ -60,7 +59,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	leer := seed(alice.ID, "priority-leer", "Leer")
 	pending := seed(alice.ID, "priority-pending", "Pending")
 	bobBook := seed(bob.ID, "priority-bob", "Bobs Buch")
-	italian, italianSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "priority-italian", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
+	italian, italianSource, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "priority-italian", "Libro", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 1}})
 	setLookupBookLanguage(t, ctx, store, italian, italianSource, "it")
 
 	seedLookupSentences(t, ctx, store, zeta, "de", hits(60))
@@ -76,7 +75,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "priority-alice", "alice-password")
 	get := func(rawQuery string) *httptest.ResponseRecorder {
 		return perform(t, h, http.MethodGet, "/de/vocabulary/concordance?"+rawQuery, nil, cookies)
@@ -111,7 +110,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	for _, book := range []domain.Book{zeta, alpha, leer} {
 		require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionToRead))
 	}
-	startZeta, err := store.StartCurrentReading(ctx, alice.ID, "de", zeta.ID)
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", zeta.ID)
 	require.NoError(t, err)
 
 	var firstPage, secondPage, thirdPage string
@@ -160,7 +159,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	})
 
 	t.Run("Start, End, and Switch never reorder an existing result set and offer a refresh", func(t *testing.T) {
-		switched, err := store.SwitchCurrentReading(ctx, alice.ID, "de", alpha.ID, zeta.ID, startZeta.SnapshotID)
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", alpha.ID)
 		require.NoError(t, err)
 		again := get(strings.TrimPrefix(pageLink(firstPage, "Next"), "/de/vocabulary/concordance?"))
 		require.Equal(t, http.StatusOK, again.Code)
@@ -182,7 +181,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		assert.Contains(t, refreshed.Body.String(), "Results begin with Alpha")
 		assert.NotContains(t, refreshed.Body.String(), `id="concordance-reading-changed"`)
 
-		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de", alpha.ID, switched.SnapshotID))
+		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 		ended := get(strings.TrimPrefix(pageLink(firstPage, "Next"), "/de/vocabulary/concordance?"))
 		assert.Equal(t, []string{"Zeta|25 occurrences on this page"}, groups(ended.Body.String()))
 		assert.Contains(t, ended.Body.String(), `id="concordance-reading-changed"`)
@@ -201,7 +200,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		for _, book := range []domain.Book{zeta, alpha, beta, gleichOne, gleichTwo, leer} {
 			buildBrowseProjection(t, ctx, store, book.ID)
 		}
-		restarted, err := store.StartCurrentReading(ctx, alice.ID, "de", leer.ID)
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", leer.ID)
 		require.NoError(t, err)
 		second := get(strings.TrimPrefix(next, "/de/vocabulary/concordance?"))
 		require.Equal(t, http.StatusOK, second.Code)
@@ -223,7 +222,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 			assert.NotContains(t, text, `id="concordance-reading-changed"`)
 		})
 
-		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de", leer.ID, restarted.SnapshotID))
+		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 	})
 
 	t.Run("an unavailable priority analysis is not reported as zero matches", func(t *testing.T) {

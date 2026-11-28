@@ -74,10 +74,9 @@ contracts. Reading owns current evidence and current-reading presentation.
   a metric-led dashboard.
 - Missing author or edition/year is stated or omitted without inventing
   metadata.
-- Choosing an analyzed To Read Book opens its canonical
-  `/reading#journey-book-{bookID}` anchor. Metadata-only and otherwise
-  incomplete Books remain operable from their rows through disposition
-  and catalog actions; they have no detail page.
+- Choosing a Book opens its detail page at
+  `/books/{bookID}`. Metadata-only and otherwise incomplete Books remain
+  operable from their rows through disposition and catalog actions.
 - The list does not expose batch-select-then-analyze behavior.
 
 ### Removing from My Books

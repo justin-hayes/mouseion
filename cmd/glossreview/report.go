@@ -103,10 +103,6 @@ func checkDisplayName(name string) string {
 	switch name {
 	case checkNameLemmaMismatch:
 		return "outcome is `lemma_mismatch`"
-	case checkNameIdiomConfirmed:
-		return "outcome is `confirmed`"
-	case checkNameIdiomOmitted:
-		return "card is omitted (`literal_use` or `ambiguous`)"
 	default:
 		return name
 	}

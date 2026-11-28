@@ -12,7 +12,6 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/enrichment"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
@@ -49,7 +48,7 @@ func main() {
 		})
 		store.SeedStudyCandidate(fixtures.OwnerID, domain.StudyCandidate{
 			Language: "de", CanonicalLemma: lemma, UPOS: "NOUN",
-			PersonalOccurrences: int64(10 - i),
+			PersonalOccurrences: int64(10 - i), ToReadOccurrences: int64(10 - i),
 		})
 	}
 	seedFluencyWordIfRequested(store)
@@ -60,9 +59,8 @@ func main() {
 	books := fixtureBooksStore{Store: store}
 	catalogueSync := fixtures.NewCatalogueSync(store)
 	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: books, Reading: books, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
-	preparedDeck := fixtures.PreparedDeck{Store: store}
 	lemmaReview := lemmareview.New(lemmareview.Config{
-		Store: books, Suggestions: fixtureLemmaSuggestions{}, Preparer: preparedDeck, BrowseCounts: fixtures.Analysis{Store: store},
+		Store: books, BrowseCounts: fixtures.Analysis{Store: store},
 	})
 	fixtureOPDS := fixtures.OPDS{}
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
@@ -85,7 +83,7 @@ func main() {
 	h, err := webapp.NewWithError(webapp.Services{
 		Auth: authService, WebAuth: authHandler, Store: storeDeps, OPDS: fixtureOPDS,
 		Analysis: fixtures.Analysis{Store: store}, AnalysisInsights: fixtures.ClassicalInsights{},
-		PreparedDeck: preparedDeck, Study: fixtures.Study{Store: store}, StudyScheduler: study.NewScheduler(), Capabilities: fixtures.Capabilities{},
+		Study: fixtures.Study{Store: store}, StudyScheduler: study.NewScheduler(), Capabilities: fixtures.Capabilities{},
 		ClassicalPreparation: fixtures.ClassicalPreparation{}, ReadingIntent: readingIntent,
 		Classical:     classicalCatalog,
 		CatalogueSync: catalogueSync, LemmaReview: lemmaReview,
@@ -100,8 +98,8 @@ func main() {
 			log.Printf("write health response: %v", err)
 		}
 	})
-	// Browser acceptance selects the Working desk's degraded and accounted states
-	// here; the route exists only in the fixture server.
+	// Browser acceptance selects the Working desk's degraded states here; the
+	// route exists only in the fixture server.
 	mux.HandleFunc("POST /fixture/vocabulary-browse-scenario", func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -135,21 +133,6 @@ func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, 
 		return domain.MyBooksBrowseResult{}, errors.New("fixture My Books read failure")
 	}
 	return s.Store.ListMyBooksBrowse(ctx, owner, query, language, disposition, history, offset, limit)
-}
-
-type fixtureLemmaSuggestions struct{}
-
-func (fixtureLemmaSuggestions) Name() string    { return "fixture-lemma-model" }
-func (fixtureLemmaSuggestions) Version() string { return "fixture-v1" }
-func (fixtureLemmaSuggestions) Enabled() bool   { return true }
-func (fixtureLemmaSuggestions) SuggestLemma(_ context.Context, request enrichment.LemmaSuggestionRequest) (enrichment.LemmaSuggestion, error) {
-	if request.LexicalAlternative != "" {
-		return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
-	}
-	if request.Surface == "Weg" {
-		return enrichment.LemmaSuggestion{Lemma: "Pfad"}, nil
-	}
-	return enrichment.LemmaSuggestion{}, errors.New("fixture provider unavailable")
 }
 
 // seedFluencyWordIfRequested seeds the Fluency journey's word when the browser

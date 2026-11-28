@@ -4,11 +4,15 @@
 -- name: ListStudyProgress :many
 -- reintroducing is true while the word's own Study material has been
 -- superseded by a correction and its replacement is not yet in place.
+-- awaiting_first_material is true while the word, migrated from Known
+-- vocabulary as Already known, still points at the placeholder its first Study
+-- material replaces (migration 000081): it is not a correction.
 -- held is true while the word has an open Wrong-word report (ADR 0135 §2).
 -- context_reported_at is when its latest Unsuitable-context report that retires
 -- a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
 -- is none.
 SELECT sqlc.embed(p), (m.superseded_at IS NOT NULL)::boolean AS reintroducing,
+       (m.omission_reason IS NOT DISTINCT FROM 'known_vocabulary_backfill')::boolean AS awaiting_first_material,
        EXISTS (SELECT 1 FROM study_report r
                 WHERE r.owner_id = p.owner_id AND r.item_kind = p.item_kind AND r.language = p.language AND r.canonical_lemma = p.canonical_lemma
                   AND r.upos = p.upos AND r.lexical_discriminator = p.lexical_discriminator
@@ -133,13 +137,18 @@ UPDATE study_progress
 
 -- name: CompleteStudyReintroductions :execrows
 -- Moves each word whose replacement material is ready onto it: the new
--- Gloss becomes the learned meaning and the word is marked corrected. The FSRS
--- state is not touched.
+-- Gloss becomes the learned meaning and the word is marked corrected, unless
+-- the replaced material is the placeholder of a word migrated from Known
+-- vocabulary: that is its first material, not a correction. The FSRS state is
+-- not touched.
 UPDATE study_progress p
    SET material_id = m.id, learned_meaning = m.gloss, learned_sense_ids = m.cited_sense_ids,
-       learned_entry_ids = m.cited_entry_ids, learned_dictionary_pin = m.dictionary_pin, corrected_at = sqlc.arg('now')::timestamptz, updated_at = now()
-  FROM study_material m
+       learned_entry_ids = m.cited_entry_ids, learned_dictionary_pin = m.dictionary_pin,
+       corrected_at = CASE WHEN old.omission_reason IS DISTINCT FROM 'known_vocabulary_backfill' THEN sqlc.arg('now')::timestamptz ELSE p.corrected_at END,
+       updated_at = now()
+  FROM study_material m, study_material old
  WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language') AND p.withdrawn_at IS NULL
+   AND old.owner_id = p.owner_id AND old.id = p.material_id
    AND m.owner_id = p.owner_id AND m.item_kind = p.item_kind AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
    AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
    AND m.superseded_at IS NULL AND m.state = 'ready' AND m.id <> p.material_id;
@@ -161,3 +170,18 @@ UPDATE study_progress p
    AND m.owner_id = p.owner_id AND m.item_kind = p.item_kind AND m.language = p.language AND m.canonical_lemma = p.canonical_lemma
    AND m.upos = p.upos AND m.lexical_discriminator = p.lexical_discriminator
    AND m.superseded_at IS NULL AND m.state = 'unpreparable' AND m.id <> p.material_id;
+
+-- name: InsertStudyAlreadyKnownEvent :exec
+-- An Already-known answer or backfilled word: an event, never a grade. The
+-- item identity is copied from the word's progress, so the event is keyed like
+-- Study progress.
+INSERT INTO study_already_known_event (owner_id, item_kind, language, canonical_lemma, upos, lexical_discriminator, progress_id, material_id, source, answered_at, study_day)
+SELECT p.owner_id, p.item_kind, p.language, p.canonical_lemma, p.upos, p.lexical_discriminator, p.id, p.material_id,
+       sqlc.arg('source'), sqlc.arg('answered_at'), sqlc.arg('study_day')::date
+  FROM study_progress p
+ WHERE p.owner_id = sqlc.arg('owner') AND p.id = sqlc.arg('progress');
+
+-- name: ListStudyAlreadyKnownEvents :many
+SELECT * FROM study_already_known_event
+ WHERE owner_id = sqlc.arg('owner') AND language = sqlc.arg('language')
+ ORDER BY answered_at, created_at, id;

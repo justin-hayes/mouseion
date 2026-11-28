@@ -287,12 +287,12 @@ func (h *Handler) loadConcordanceBrowseContext(ctx context.Context, u domain.Use
 	if err != nil {
 		return requestedLanguage, origin, err
 	}
-	knownLanguages, err := h.services.Store.Shell.ListKnownVocabularyLanguages(ctx, u.ID)
+	progressLanguages, err := h.services.Store.Shell.ListStudyProgressLanguages(ctx, u.ID)
 	if err != nil {
 		return requestedLanguage, origin, err
 	}
 	language := requestedLanguage
-	if !learnerLanguagePresent(languages, knownLanguages, language) {
+	if !learnerLanguagePresent(languages, progressLanguages, language) {
 		language = ""
 	}
 	// The origin is only a pointer back to a Browse excursion. It must name an
@@ -406,7 +406,7 @@ func safeConcordanceReturnKeys(values url.Values) bool {
 			if values.Get("as") != domain.ConcordanceMatchConstruction {
 				return false
 			}
-		case originKeyBook, originKeySnapshot, originKeyPrefix, originKeyAll, originKeyPage, originKeyRow, originKeyRevision:
+		case originKeyBook, originKeyPrefix, originKeyPage, originKeyRow, originKeyRevision:
 		default:
 			return false
 		}

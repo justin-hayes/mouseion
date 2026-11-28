@@ -84,8 +84,7 @@ func TestReadingHistoryBackfillPreservesOwnerLanguageAndKnownState(t *testing.T)
 	finishedDisposition, err := store.GetBookDisposition(ctx, owner.ID, finishedBook.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionInbox, finishedDisposition, "finished Book disposition changed during history backfill")
-	known, err := store.ListKnownVocabulary(ctx, owner.ID, "de")
-	require.NoError(t, err)
+	known := testutil.LegacyKnownLemmas(t, ctx, store.Pool(), owner.ID, "de")
 	assert.Empty(t, known, "migration 34 must delete the provenance-less legacy Known row")
 }
 

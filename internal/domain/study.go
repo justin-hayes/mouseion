@@ -78,48 +78,129 @@ func (i StudyItem) Headword() (string, bool) {
 	return i.CanonicalLemma, true
 }
 
-// StudyCandidate is one effective vocabulary identity that Study could offer
-// as a new word. PersonalOccurrences is its total across the learner's
-// currently analyzed Books in the study language. Known and Reserved
-// vocabulary are deliberately not part of a candidate: Study never consults
-// them (ADR 0134 §3).
-type StudyCandidate struct {
-	StudyItem
-	InCurrentReading    bool
-	PersonalOccurrences int64
+// StudyTargetCoverage is the Target coverage (ADR 0136 §2): the share of the
+// Current reading's analyzable tokens, counting Mature and in-study words, at
+// which its words stop coming first in New-word batches. It is one constant for
+// every language, not a learner setting.
+const StudyTargetCoverage = 0.98
+
+// StudyTargetCoveragePercent is StudyTargetCoverage as a whole percent, so the
+// comparison is exact integer math (an untyped constant: the product is 98).
+const StudyTargetCoveragePercent = int64(StudyTargetCoverage * 100)
+
+// StudyReadingCoverage is how far the Current reading is toward Target
+// coverage: its in-study-or-Mature tokens over its analyzable tokens. Active is
+// false when there is no Current reading, or its counts are not ready, and the
+// other fields are then zero.
+type StudyReadingCoverage struct {
+	Active                          bool
+	InStudyTokens, AnalyzableTokens int64
 }
 
-// OrderStudyStream returns the candidates in stream order: items that occur in
-// the Current reading first, then all others; within each group by Personal
-// occurrences descending (an Idiom's count is its candidate count in the
-// Corpus), then by kind (words before Idioms) and key, so the order is
-// deterministic. Words and Idioms share the one stream, with no tier for a part
-// of speech (ADR 0137 §4). The input is not modified.
-func OrderStudyStream(candidates []StudyCandidate) []StudyCandidate {
+// NewStudyReadingCoverage is the Current reading's coverage from its projected
+// vocabulary and the learner's Study progress. A Book without persisted
+// statistics or ready counts has no coverage to speak of and no boost.
+func NewStudyReadingCoverage(vocabulary ProjectedCorpusVocabulary, progress []StudyProgress) StudyReadingCoverage {
+	if vocabulary.Statistics == nil || !vocabulary.Ready {
+		return StudyReadingCoverage{}
+	}
+	index := NewStudyCoverageIndex(progress)
+	var inStudy int64
+	for _, lemma := range vocabulary.Lemmas {
+		if studying, _ := index.Classify(lemma); studying {
+			inStudy += lemma.OccurrenceCount
+		}
+	}
+	analyzable := vocabulary.Statistics.AnalyzableTokenCount
+	return StudyReadingCoverage{Active: true, InStudyTokens: min(inStudy, analyzable), AnalyzableTokens: analyzable}
+}
+
+// BoostsCurrentReading reports whether the Current reading's words come first:
+// there is a Current reading and its coverage is below Target coverage. Exactly
+// at the target the boost is off, and it returns when coverage falls below.
+func (c StudyReadingCoverage) BoostsCurrentReading() bool {
+	return c.Active && c.InStudyTokens*100 < c.AnalyzableTokens*StudyTargetCoveragePercent
+}
+
+// StudyCandidate is one effective vocabulary identity that Study could offer
+// as a new word. PersonalOccurrences is its total across the Corpus: the
+// learner's currently analyzed Books in the study language, Read Books included.
+// CurrentReadingOccurrences is its count within the Current reading, and
+// ToReadOccurrences its sum over the To Read Books (the Current reading is one,
+// ADR 0136 §2); Read Books add nothing to either, so they set no priority. Known
+// and Reserved vocabulary are deliberately not part of a candidate: Study never
+// consults them (ADR 0134 §3).
+type StudyCandidate struct {
+	StudyItem
+	InCurrentReading          bool
+	PersonalOccurrences       int64
+	CurrentReadingOccurrences int64
+	ToReadOccurrences         int64
+}
+
+// boosted reports whether the candidate is in the boosted group while the
+// Current reading is below Target coverage: its words and its Idioms. Coverage
+// counts word tokens only, so an Idiom joins the group but never extends the
+// boost (ADR 0137).
+func (c StudyCandidate) boosted() bool { return c.InCurrentReading }
+
+// boostCount is the count a boosted candidate is ranked by.
+func (c StudyCandidate) boostCount() int64 { return c.CurrentReadingOccurrences }
+
+// frequency is the count a candidate is ranked by outside the boost: a word's
+// occurrences summed over the To Read Books, and an Idiom's candidate count in
+// the Corpus.
+func (c StudyCandidate) frequency() int64 {
+	if c.IsIdiom() {
+		return c.PersonalOccurrences
+	}
+	return c.ToReadOccurrences
+}
+
+// OrderStudyStream returns the candidates in stream order. While boost is set
+// (the Current reading is below Target coverage) its words come first, by their
+// occurrences within it; every other candidate follows by frequency across the
+// To Read Books (an Idiom's count is its candidate count in the Corpus), then
+// by kind (words before Idioms) and key, so the order is deterministic. Without
+// the boost every candidate is ranked by frequency. Words and Idioms share the
+// one stream, with no tier for a part of speech (ADR 0137 §4). The input is not
+// modified.
+func OrderStudyStream(candidates []StudyCandidate, boost bool) []StudyCandidate {
 	ordered := append([]StudyCandidate{}, candidates...)
-	sort.SliceStable(ordered, func(i, j int) bool {
-		a, b := ordered[i], ordered[j]
-		if a.InCurrentReading != b.InCurrentReading {
-			return a.InCurrentReading
-		}
-		if a.PersonalOccurrences != b.PersonalOccurrences {
-			return a.PersonalOccurrences > b.PersonalOccurrences
-		}
-		if a.ItemKind != b.ItemKind {
-			return a.ItemKind < b.ItemKind
-		}
-		if a.CanonicalLemma != b.CanonicalLemma {
-			return a.CanonicalLemma < b.CanonicalLemma
-		}
-		if a.UPOS != b.UPOS {
-			return a.UPOS < b.UPOS
-		}
-		if a.LexicalDiscriminator != b.LexicalDiscriminator {
-			return a.LexicalDiscriminator < b.LexicalDiscriminator
-		}
-		return a.Language < b.Language
-	})
+	sort.SliceStable(ordered, func(i, j int) bool { return studyStreamBefore(ordered[i], ordered[j], boost) })
 	return ordered
+}
+
+// studyStreamBefore reports whether a comes before b in stream order.
+func studyStreamBefore(a, b StudyCandidate, boost bool) bool {
+	if boost && a.boosted() != b.boosted() {
+		return a.boosted()
+	}
+	if boost && a.boosted() && a.boostCount() != b.boostCount() {
+		return a.boostCount() > b.boostCount()
+	}
+	if a.frequency() != b.frequency() {
+		return a.frequency() > b.frequency()
+	}
+	return studyKeyBefore(a, b)
+}
+
+// studyKeyBefore orders by kind (words before Idioms) and key, the
+// deterministic tie-break.
+func studyKeyBefore(a, b StudyCandidate) bool {
+	if a.ItemKind != b.ItemKind {
+		return a.ItemKind < b.ItemKind
+	}
+	if a.CanonicalLemma != b.CanonicalLemma {
+		return a.CanonicalLemma < b.CanonicalLemma
+	}
+	if a.UPOS != b.UPOS {
+		return a.UPOS < b.UPOS
+	}
+	if a.LexicalDiscriminator != b.LexicalDiscriminator {
+		return a.LexicalDiscriminator < b.LexicalDiscriminator
+	}
+	return a.Language < b.Language
 }
 
 // StudyMaterialState is where a word's Study material is in its preparation.
@@ -348,6 +429,9 @@ type IdiomCandidateCount struct {
 	Books      int64
 	// InCurrentReading is set when the Current reading contains the headword.
 	InCurrentReading bool
+	// CurrentReadingCandidates is the headword's candidate count within the
+	// Current reading, zero when it is not there.
+	CurrentReadingCandidates int64
 }
 
 // IdiomStudyCandidates are the Idioms of a language as Study candidates: each
@@ -361,6 +445,7 @@ func IdiomStudyCandidates(language string, counts []IdiomCandidateCount) []Study
 		}
 		candidates = append(candidates, StudyCandidate{
 			StudyItem: IdiomItem(language, count.Headword), InCurrentReading: count.InCurrentReading, PersonalOccurrences: count.Candidates,
+			CurrentReadingOccurrences: count.CurrentReadingCandidates,
 		})
 	}
 	return candidates

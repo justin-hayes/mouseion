@@ -250,3 +250,16 @@ func checkFluencyReason(record domain.FluencyContextRecord) error {
 	}
 	return nil
 }
+
+// StudyBookInCorpus reports whether the Book is an active member of the
+// learner's My Books, so it is in the Corpus new Fluency contexts draw from.
+func (s *PostgresStore) StudyBookInCorpus(ctx context.Context, owner, bookID string) (bool, error) {
+	if !validUUID(bookID) {
+		return false, nil
+	}
+	inCorpus, err := sqlcgen.New(s.pool).StudyBookInLibrary(ctx, sqlcgen.StudyBookInLibraryParams{Owner: owner, Book: bookID})
+	if err != nil {
+		return false, fmt.Errorf("study book in corpus: %w", err)
+	}
+	return inCorpus, nil
+}

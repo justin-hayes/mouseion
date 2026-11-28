@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite"
@@ -102,35 +101,6 @@ func TestIndexLookupReadsVersionAndMorphology(t *testing.T) {
 	assert.Equal(t, "Häuser", result.Plural)
 	assert.Equal(t, "/haʊ̯s/", result.IPA)
 	assert.Empty(t, result.PrincipalParts)
-	exists, err := index.LemmaExists(t.Context(), "de", "Drach", "NOUN")
-	require.NoError(t, err)
-	assert.False(t, exists)
-	exists, err = index.LemmaExists(t.Context(), "de", "Haus", "NOUN")
-	require.NoError(t, err)
-	assert.True(t, exists)
-	alternatives, err := index.Alternatives(t.Context(), "de", "Drachen", "NOUN", "Ein Reiter trifft den Drachen mit seinem Speer.")
-	require.NoError(t, err)
-	require.Len(t, alternatives, 1)
-	assert.Equal(t, "drache", alternatives[0].Lemma)
-	assert.Equal(t, "wiktionary", alternatives[0].Source)
-	assert.Equal(t, "fixture-v1", alternatives[0].Version)
-	assert.True(t, alternatives[0].ContextRelevant)
-	ambiguous, err := index.Alternatives(t.Context(), "de", "Drachen", "NOUN", "Der Drachen steigt bei starkem Wind hoch in den Himmel.")
-	require.NoError(t, err)
-	assert.Empty(t, ambiguous, "dictionary evidence for the dragon sense must not flag the kite sense")
-	compound, err := index.Alternatives(t.Context(), "de", "Basketballspiel", "NOUN", "Das Basketballspiel beginnt.")
-	require.NoError(t, err)
-	assert.Empty(t, compound, "a valid compound with no competing local entry is not a risk flag")
-	flags, assessed, err := lemmarisk.Detect(t.Context(), "de", []lemmarisk.Occurrence{
-		{ID: "dragon", Language: "de", Surface: "Drachen", Lemma: "Drach", UPOS: "NOUN", Sentence: "Ein Reiter trifft den Drachen mit seinem Speer."},
-		{ID: "existing-1", Language: "de", Surface: "Drache", Lemma: "Drache", UPOS: "NOUN", Sentence: "Der Drache schläft."},
-		{ID: "existing-2", Language: "de", Surface: "Drache", Lemma: "Drache", UPOS: "NOUN", Sentence: "Ein Drache wacht."},
-	}, index)
-	require.NoError(t, err)
-	assert.True(t, assessed)
-	require.Len(t, flags, 1)
-	assert.Equal(t, "dragon", flags[0].OccurrenceID)
-	assert.Equal(t, "drache", flags[0].Alternative.Lemma)
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "duplicate", UPOS: "NOUN"})
 	require.NoError(t, err)
 	assert.True(t, found)
@@ -661,10 +631,6 @@ func newGreekTestIndex(t *testing.T, seedStatements ...string) *Index {
 // that carries both Ancient Greek entries and the French h_status evidence.
 const dictionaryFrenchFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '3')`
 
-// dictionaryFrenchFormsFixtureSchema is the read-only schema of the index
-// format that carries French form-of links and headword membership.
-const dictionaryFrenchFormsFixtureSchema = `CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE entries (language TEXT NOT NULL, lemma TEXT NOT NULL, upos TEXT NOT NULL, senses_json TEXT NOT NULL, gender TEXT NOT NULL, article TEXT NOT NULL, plural TEXT NOT NULL, ipa TEXT NOT NULL, principal_parts TEXT NOT NULL, h_status TEXT NOT NULL, PRIMARY KEY(language, lemma, upos)); CREATE TABLE greek_entries (headword TEXT NOT NULL, upos TEXT NOT NULL, etymology_number TEXT NOT NULL, senses_json TEXT NOT NULL, forms_json TEXT NOT NULL); CREATE TABLE french_forms (form TEXT NOT NULL, upos TEXT NOT NULL, target TEXT NOT NULL, participle INTEGER NOT NULL, evidence_id TEXT NOT NULL); CREATE TABLE french_headwords (lemma TEXT NOT NULL, upos TEXT NOT NULL, PRIMARY KEY(lemma, upos)); INSERT INTO metadata VALUES ('provider_version', 'fixture-v1'); INSERT INTO metadata VALUES ('index_format', '4')`
-
 // newFrenchTestIndex opens a format-3 index seeded with seedStatements.
 func newFrenchTestIndex(t *testing.T, seedStatements ...string) *Index {
 	t.Helper()
@@ -766,12 +732,6 @@ func TestIndexAncientGreekMatchingReturnsEveryHomograph(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found, "a non-matching POS with no lemma-only entry has no evidence")
 
-	exists, err := index.LemmaExists(t.Context(), "grc", "δέω", "VERB")
-	require.NoError(t, err)
-	assert.True(t, exists)
-	exists, err = index.LemmaExists(t.Context(), "grc", "δέω", "ADJ")
-	require.NoError(t, err)
-	assert.False(t, exists, "LemmaExists matches the exact part of speech only")
 }
 
 func TestIndexAncientGreekKeyNormalization(t *testing.T) {
@@ -804,10 +764,6 @@ func TestIndexAncientGreekUnavailableOnOlderIndex(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Empty(t, result.Senses)
-
-	exists, err := index.LemmaExists(t.Context(), "grc", "δέω", "VERB")
-	require.NoError(t, err)
-	assert.False(t, exists, "an unavailable index reports no Ancient Greek lemma")
 
 	// Modern-language lookups are unchanged by the Ancient Greek additions.
 	result, found, err = index.Lookup(t.Context(), enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN"})

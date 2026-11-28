@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// rejectingReading answers Start and Switch with a fixed persistence error, so
+// rejectingReading answers Read next with a fixed persistence error, so
 // a handler test shows the message each rejection reason produces without
 // arranging the store state behind it.
 type rejectingReading struct {
@@ -28,27 +28,16 @@ func (r rejectingReading) StartCurrentReadingResult(context.Context, string, str
 	return persistence.StartResult{}, r.err
 }
 
-func (r rejectingReading) SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error) {
-	return domain.CurrentReading{}, r.err
-}
-
 const (
-	notEligibleCandidateMessage = "This book is no longer an eligible To Read candidate. Review Reading before trying again."
-	notEligibleChoiceMessage    = "This book is no longer an eligible To Read choice. No changes were made; refresh Reading and try again."
-	startNoAnalysisMessage      = "This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."
-	switchNoAnalysisMessage     = "This book no longer has current analyzed content or is no longer To Read. No changes were made; refresh Reading and try again."
-	switchStaleMessage          = "The current book changed while you were choosing. No changes were made; review Reading before trying again."
+	notEligibleCandidateMessage = "This book is no longer an eligible To Read candidate. Review My Books before trying again."
+	startNoAnalysisMessage      = "This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh My Books and try again."
 )
 
-func rejectionLocation(t *testing.T, mutate func(*Handler), path string, form func(domain.CurrentReading) url.Values) (int, string) {
+func rejectionLocation(t *testing.T, mutate func(*Handler), path string) (int, string) {
 	t.Helper()
-	h, cookies, csrf, store := readingFixtureSession(t)
-	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
+	h, cookies, csrf, _ := readingFixtureSession(t)
 	mutate(requireHandler(t, h))
-	values := form(current)
-	values.Set("csrf_token", csrf)
-	response := readingTestRequest(t, h, path, values, cookies)
+	response := readingTestRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
 	location, err := url.QueryUnescape(response.Header().Get("Location"))
 	require.NoError(t, err)
 	return response.Code, location
@@ -60,22 +49,19 @@ func rejectWith(err error) func(*Handler) {
 	}
 }
 
-func TestStartShowsTheMessageForEachPersistenceRejection(t *testing.T) {
+func TestReadNextShowsTheMessageForEachPersistenceRejection(t *testing.T) {
 	tests := []struct {
 		name string
 		err  error
 		want string
 	}{
-		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/reading?error=" + notEligibleCandidateMessage},
-		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/reading?error=" + notEligibleCandidateMessage},
-		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/reading?error=" + startNoAnalysisMessage},
-		{"another book current", persistence.ErrCurrentReadingExists, "/de/reading?error=A current book is already set for this language. Review it in Reading before starting another."},
-		{"unresolved flags", persistence.ErrUnresolvedLemmaReviewFlags, "/reading/books/fixture-route-match/lemma-review"},
-		{"counts pending", persistence.ErrVocabularyBrowseCountsPending, "/de/reading?error=Across-book vocabulary counts are updating. No reading was changed; try starting again when the counts are ready."},
+		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/library?error=" + notEligibleCandidateMessage},
+		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/library?error=" + notEligibleCandidateMessage},
+		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/library?error=" + startNoAnalysisMessage},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code, location := rejectionLocation(t, rejectWith(tt.err), "/reading/books/fixture-route-match/start", func(domain.CurrentReading) url.Values { return url.Values{} })
+			code, location := rejectionLocation(t, rejectWith(tt.err), "/reading/books/fixture-route-match/start")
 			assert.Equal(t, 303, code)
 			assert.Equal(t, tt.want, location)
 		})
@@ -83,37 +69,12 @@ func TestStartShowsTheMessageForEachPersistenceRejection(t *testing.T) {
 }
 
 func TestStartOfUnknownBookIsNotFound(t *testing.T) {
-	code, _ := rejectionLocation(t, rejectWith(persistence.ErrNotFound), "/reading/books/fixture-route-match/start", func(domain.CurrentReading) url.Values { return url.Values{} })
+	code, _ := rejectionLocation(t, rejectWith(persistence.ErrNotFound), "/reading/books/fixture-route-match/start")
 	assert.Equal(t, 404, code)
 }
 
-func TestSwitchShowsTheMessageForEachPersistenceRejection(t *testing.T) {
-	tests := []struct {
-		name string
-		err  error
-		want string
-	}{
-		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/reading?error=" + notEligibleChoiceMessage},
-		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/reading?error=" + notEligibleChoiceMessage},
-		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/reading?error=" + switchNoAnalysisMessage},
-		{"stale", persistence.ErrCurrentReadingStale, "/de/reading?error=" + switchStaleMessage},
-		{"no current reading", persistence.ErrNotFound, "/de/reading?error=" + switchStaleMessage},
-		{"unresolved flags", persistence.ErrUnresolvedLemmaReviewFlags, "/reading/books/fixture-route-match/lemma-review"},
-		{"counts unavailable", persistence.ErrVocabularyBrowseCountsUnavailable, "/de/reading?error=Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			code, location := rejectionLocation(t, rejectWith(tt.err), "/reading/books/fixture-route-match/switch", func(current domain.CurrentReading) url.Values {
-				return url.Values{"expected_current_book_id": {current.BookID}, "expected_current_snapshot_id": {current.SnapshotID}}
-			})
-			assert.Equal(t, 303, code)
-			assert.Equal(t, tt.want, location)
-		})
-	}
-}
-
 func TestStartOfTheCurrentBookIsIdempotent(t *testing.T) {
-	code, location := rejectionLocation(t, func(*Handler) {}, "/reading/books/"+fixtures.BookID+"/start", func(domain.CurrentReading) url.Values { return url.Values{} })
+	code, location := rejectionLocation(t, func(*Handler) {}, "/reading/books/"+fixtures.BookID+"/start")
 	assert.Equal(t, 303, code)
 	assert.Contains(t, location, "is already your current reading")
 	assert.NotContains(t, location, "error=", "a repeat Start is not a conflict")
@@ -130,15 +91,11 @@ func TestStartOfTheCurrentBookReplaysWithoutChangingIt(t *testing.T) {
 	assert.Equal(t, current, after, "replaying the current Start must not refreeze or rewrite the reading")
 }
 
-func TestSwitchToTheCurrentBookChangesNothing(t *testing.T) {
+func TestSwitchRouteIsReadNext(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	response := readingTestRequest(t, h, "/reading/books/"+current.BookID+"/switch", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {current.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
-	}, cookies)
+	response := readingTestRequest(t, h, "/reading/books/"+current.BookID+"/switch", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, 303, response.Code)
-	after, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, current.SnapshotID, after.SnapshotID, "switching to the current Book must not refreeze its snapshot")
+	assert.Contains(t, response.Header().Get("Location"), "is+already+your+current+reading", "the switch path is the same Read next, and the current Book is a replay")
 }

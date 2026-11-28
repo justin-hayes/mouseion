@@ -8,6 +8,7 @@
 SELECT COALESCE(c.language, '')::text AS language,
        COALESCE(c.canonical_lemma, '')::text AS canonical_lemma,
        COALESCE(c.upos, '')::text AS upos,
+       COALESCE(c.lexical_discriminator, '')::text AS lexical_discriminator,
        COALESCE(c.occurrence_count, 0)::bigint AS occurrence_count
 FROM current_analysis_identity cai
 JOIN vocabulary_browse_count_readiness r ON r.owner_id = cai.owner_id
@@ -21,4 +22,4 @@ LEFT JOIN vocabulary_browse_counts c ON c.owner_id = r.owner_id
   AND c.corpus_id = r.corpus_id
 WHERE cai.owner_id = sqlc.arg('owner')
   AND cai.corpus_id = sqlc.arg('corpus')
-ORDER BY c.language, c.canonical_lemma, c.upos;
+ORDER BY c.language, c.canonical_lemma, c.upos, c.lexical_discriminator;

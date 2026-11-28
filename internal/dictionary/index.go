@@ -13,12 +13,10 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"unicode"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/cardpolicy"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	_ "modernc.org/sqlite"
 )
 
@@ -74,10 +72,6 @@ type Index struct {
 	// column, so a lookup can report aspirated-h evidence rather than silently
 	// dropping it.
 	hStatusAvailable bool
-	// frenchFormsAvailable is true when the index carries the French form-of
-	// links and headword membership lemma-risk review needs. An older index
-	// reports French assessment unavailable rather than passing it.
-	frenchFormsAvailable bool
 
 	// idiomAvailable is true when the index carries the word-to-multi-word
 	// idiom lookup. An older index reports no idiom candidates rather than
@@ -101,9 +95,6 @@ type evidenceIdentity struct {
 }
 
 var _ enrichment.LexicalProvider = (*Index)(nil)
-var _ enrichment.AncientGreekLSJProvider = (*Index)(nil)
-
-var germanEvidenceStopwords = map[string]bool{"aber": true, "alle": true, "allem": true, "allen": true, "aller": true, "alles": true, "als": true, "also": true, "am": true, "an": true, "and": true, "auf": true, "aus": true, "bei": true, "bin": true, "bis": true, "bist": true, "das": true, "dass": true, "dein": true, "dem": true, "den": true, "der": true, "des": true, "die": true, "dies": true, "diese": true, "dieser": true, "dieses": true, "doch": true, "du": true, "durch": true, "ein": true, "eine": true, "einem": true, "einen": true, "einer": true, "eines": true, "er": true, "es": true, "für": true, "hat": true, "hatte": true, "ich": true, "im": true, "in": true, "ist": true, "mit": true, "nach": true, "nicht": true, "oder": true, "sein": true, "seine": true, "seinem": true, "seinen": true, "seiner": true, "sich": true, "sie": true, "sind": true, "so": true, "und": true, "vom": true, "von": true, "vor": true, "war": true, "waren": true, "was": true, "wie": true, "wird": true, "zu": true, "zum": true, "zur": true}
 
 func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	path = strings.TrimSpace(path)
@@ -142,7 +133,6 @@ func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	}
 	loaders := []func(context.Context) error{
 		index.loadHStatusAvailability,
-		index.loadFrenchFormsAvailability,
 		index.loadIdiomAvailability,
 		index.loadGreekEntries,
 		index.loadAncientGreekLSJ,
@@ -425,167 +415,6 @@ func splitSensesByMatchStrength(senses []enrichment.LexicalSense) (exact, weak [
 // non-empty, and an empty second returns first unchanged as before.
 func combineSenses(first, second []enrichment.LexicalSense) []enrichment.LexicalSense {
 	return append(slices.Clip(first), second...)
-}
-
-// sourceLemmaExists answers a lemma-existence check for a language whose policy
-// reads its own source dictionary; handled is false for the stored entries.
-func (i *Index) sourceLemmaExists(rule cardpolicy.Lookup, lemma, upos string) (exists, handled bool) {
-	switch rule {
-	case cardpolicy.LookupExactlyOne:
-		if !i.greekAvailable {
-			return false, true
-		}
-		for _, candidate := range i.greekEntries[lemma] {
-			if candidate.upos == upos {
-				return true, true
-			}
-		}
-		return false, true
-	case cardpolicy.LookupEveryEntry:
-		// Any Lewis & Short entry under the lemma's key counts; the part of
-		// speech is not matched.
-		return i.lsAvailable && len(i.lsEntries[lemma]) > 0, true
-	case cardpolicy.LookupStored:
-	}
-	return false, false
-}
-
-func (i *Index) LemmaExists(ctx context.Context, language, lemma, upos string) (bool, error) {
-	if i == nil || i.db == nil {
-		return false, nil
-	}
-	language = canonicalization.NormalizeLanguage(language)
-	lemma = normalizeLemma(language, lemma)
-	upos = strings.ToUpper(strings.TrimSpace(upos))
-	if language == "" || lemma == "" || upos == "" {
-		return false, nil
-	}
-	if exists, handled := i.sourceLemmaExists(cardpolicy.For(language).DictionaryLookup, lemma, upos); handled {
-		return exists, nil
-	}
-	if language == frenchLanguage && !i.frenchFormsAvailable {
-		return false, ErrFrenchFormsUnavailable
-	}
-	var exists bool
-	err := i.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM entries WHERE language=? AND lemma=? AND upos=?)`, language, lemma, upos).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("dictionary lemma existence: %w", err)
-	}
-	return exists, nil
-}
-
-// Alternatives returns review evidence for one surface, never a replacement.
-// German alternatives require a simple observed-form inflection candidate and
-// sentence examples with a meaningful lexical overlap. French alternatives come
-// from the index itself: the surface's own headword, then its structured Kaikki
-// form-of targets, both limited to the occurrence's part of speech. Callers that
-// need the French participle exemption must use AlternativesForLemma: this
-// surface-only form has no analyzed lemma to compare against.
-func (i *Index) Alternatives(ctx context.Context, language, surface, upos, sentence string) ([]lemmarisk.Alternative, error) {
-	return i.alternatives(ctx, language, surface, "", upos, sentence)
-}
-
-// AlternativesForLemma is the analyzed-lemma-aware form of Alternatives. The
-// French participle exemption needs the lemma the analyzer assigned; German
-// ignores it.
-func (i *Index) AlternativesForLemma(ctx context.Context, language, surface, lemma, upos, sentence string) ([]lemmarisk.Alternative, error) {
-	return i.alternatives(ctx, language, surface, lemma, upos, sentence)
-}
-
-func (i *Index) alternatives(ctx context.Context, language, surface, lemma, upos, sentence string) ([]lemmarisk.Alternative, error) {
-	language = canonicalization.NormalizeLanguage(language)
-	upos = strings.ToUpper(strings.TrimSpace(upos))
-	switch language {
-	case "de":
-		if upos != "NOUN" {
-			return nil, nil
-		}
-		return i.germanAlternatives(ctx, surface, upos, sentence)
-	case frenchLanguage:
-		return i.frenchAlternatives(ctx, surface, lemma, upos)
-	default:
-		return nil, nil
-	}
-}
-
-func (i *Index) germanAlternatives(ctx context.Context, surface, upos, sentence string) ([]lemmarisk.Alternative, error) {
-	result := make([]lemmarisk.Alternative, 0, 2)
-	seen := make(map[string]bool)
-	for _, candidate := range germanNounLemmaCandidates(surface) {
-		entry, found, err := i.Lookup(ctx, enrichment.LexicalLookupRequest{Language: "de", CanonicalLemma: candidate, UPOS: upos})
-		if err != nil {
-			return nil, err
-		}
-		if !found {
-			continue
-		}
-		for _, sense := range entry.CandidateSenses {
-			if seen[candidate] || !sentenceExampleOverlap(sentence, surface, sense.Examples) {
-				continue
-			}
-			seen[candidate] = true
-			result = append(result, lemmarisk.Alternative{Lemma: candidate, UPOS: upos, Source: sense.Source, Version: sense.Version, EvidenceID: sense.EvidenceID, ContextRelevant: true})
-			break
-		}
-	}
-	return result, nil
-}
-
-func germanNounLemmaCandidates(surface string) []string {
-	word := normalizeLemma("de", strings.TrimSpace(surface))
-	if word == "" {
-		return nil
-	}
-	candidates := []string{word}
-	if strings.HasSuffix(word, "en") && len([]rune(word)) > 4 {
-		candidates = append(candidates, strings.TrimSuffix(word, "en"), strings.TrimSuffix(word, "en")+"e")
-	}
-	if strings.HasSuffix(word, "n") && len([]rune(word)) > 3 {
-		candidates = append(candidates, strings.TrimSuffix(word, "n"), strings.TrimSuffix(word, "n")+"e")
-	}
-	if strings.HasSuffix(word, "e") && len([]rune(word)) > 3 {
-		candidates = append(candidates, strings.TrimSuffix(word, "e"))
-	}
-	unique := candidates[:0]
-	seen := make(map[string]bool)
-	for _, candidate := range candidates {
-		if candidate != "" && !seen[candidate] {
-			seen[candidate] = true
-			unique = append(unique, candidate)
-		}
-	}
-	return unique
-}
-
-func sentenceExampleOverlap(sentence, surface string, examples []string) bool {
-	context := evidenceWords(sentence, surface)
-	if len(context) == 0 {
-		return false
-	}
-	for _, example := range examples {
-		matches := 0
-		for word := range evidenceWords(example, surface) {
-			if context[word] {
-				matches++
-			}
-		}
-		if matches >= 2 {
-			return true
-		}
-	}
-	return false
-}
-
-func evidenceWords(text, surface string) map[string]bool {
-	words := make(map[string]bool)
-	surface = strings.ToLower(strings.TrimSpace(surface))
-	for _, field := range strings.FieldsFunc(strings.ToLower(text), func(r rune) bool { return !unicode.IsLetter(r) }) {
-		if len([]rune(field)) < 4 || field == surface || germanEvidenceStopwords[field] {
-			continue
-		}
-		words[field] = true
-	}
-	return words
 }
 
 func normalizeLemma(language, lemma string) string {

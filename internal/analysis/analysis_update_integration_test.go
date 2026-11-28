@@ -14,7 +14,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -102,7 +101,7 @@ func newAnalysisUpdateHarness(t *testing.T, ctx context.Context, name string) an
 	owner, err := store.CreateUser(ctx, name, false)
 	require.NoError(t, err)
 	pipeline := &pipelineFixture{reported: "1", produced: "1"}
-	client, err := NewClient(pool, &analyzertest.Fake{AnalyzeFunc: pipeline.analyze}, pipeline, selection.NewService(store))
+	client, err := NewClient(pool, &analyzertest.Fake{AnalyzeFunc: pipeline.analyze}, pipeline)
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)

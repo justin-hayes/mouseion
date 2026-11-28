@@ -220,23 +220,20 @@ func TestStudyProgressIsUnchangedByTheReadingLifecycle(t *testing.T) {
 	require.Equal(t, book.ID, reading.BookID)
 	assert.Equal(t, before, s.progress(), "starting a reading changes no word")
 
-	expect := func(r domain.CurrentReading) url.Values {
-		return url.Values{"csrf_token": {s.cookies[0].Value}, "expected_current_book_id": {r.BookID}, "expected_current_snapshot_id": {r.SnapshotID}}
-	}
-	switched := perform(t, s.h, http.MethodPost, "/reading/books/"+other.ID+"/switch", expect(reading), s.cookies)
+	token := url.Values{"csrf_token": {s.cookies[0].Value}}
+	switched := perform(t, s.h, http.MethodPost, "/reading/books/"+other.ID+"/switch", token, s.cookies)
 	require.Equal(t, http.StatusSeeOther, switched.Code, switched.Body.String())
 	reading = current()
 	require.Equal(t, other.ID, reading.BookID)
 	assert.Equal(t, before, s.progress(), "switching the reading changes no word")
 
-	ended := perform(t, s.h, http.MethodPost, "/reading/end", expect(reading), s.cookies)
+	ended := perform(t, s.h, http.MethodPost, "/reading/end", token, s.cookies)
 	require.Equal(t, http.StatusSeeOther, ended.Code, ended.Body.String())
 	assert.Empty(t, current().BookID)
 	assert.Equal(t, before, s.progress(), "ending a reading changes no word")
 
 	require.Equal(t, http.StatusSeeOther, perform(t, s.h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {s.cookies[0].Value}}, s.cookies).Code)
-	reading = current()
-	finished := perform(t, s.h, http.MethodPost, "/reading/finish", expect(reading), s.cookies)
+	finished := perform(t, s.h, http.MethodPost, "/reading/finish", token, s.cookies)
 	require.Equal(t, http.StatusOK, finished.Code, finished.Body.String())
 	assert.Empty(t, current().BookID)
 	assert.Equal(t, before, s.progress(), "finishing a Book takes none of its words out of study and changes no due time")

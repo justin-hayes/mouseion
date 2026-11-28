@@ -20,6 +20,9 @@ type StudyStore interface { //nolint:interfacebloat // the Study page's store is
 	// ListStudyCandidatesAmong is the same fact for the given identities only,
 	// without reading the library's other candidates.
 	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error)
+	// GetStudyReadingCoverage is the Current reading's coverage toward Target
+	// coverage, which decides whether its words come first in the stream.
+	GetStudyReadingCoverage(ctx context.Context, owner, language string) (domain.StudyReadingCoverage, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
 	// StudyBatchLedger reports the batches offered, taken and declined on a
 	// Study day. RecordStudyBatchOffer raises the offered count, never lowers it.
@@ -45,6 +48,10 @@ type StudyGradeStore interface {
 	// RecordStudyGrade appends the review-log row and updates the word's
 	// state; a card already graded is domain.ErrStudyStale.
 	RecordStudyGrade(ctx context.Context, owner string, record domain.StudyGradeRecord) error
+	// RecordStudyAlreadyKnown stores the Already-known answer on an
+	// introduction as an event, never a grade, with the word's new state; an
+	// introduction already answered is domain.ErrStudyStale.
+	RecordStudyAlreadyKnown(ctx context.Context, owner string, record domain.StudyAlreadyKnownRecord) error
 	StudyCorrectionsStore
 }
 

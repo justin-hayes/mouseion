@@ -25,7 +25,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/justin-hayes/mouseion/internal/opds"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
@@ -39,7 +38,7 @@ const (
 // shared by the application shell and every learner surface.
 type ShellStore interface {
 	ListStudyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
-	ListKnownVocabularyLanguages(context.Context, string) ([]domain.StudyLanguage, error)
+	ListStudyProgressLanguages(context.Context, string) ([]domain.StudyLanguage, error)
 	GetStoredActiveStudyLanguage(context.Context, string) (string, error)
 	SetActiveStudyLanguage(context.Context, string, string) error
 	MostRecentlyActivatedStudyLanguage(context.Context, string) (string, error)
@@ -70,12 +69,10 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	ResolveBookID(context.Context, string, string) (string, bool, error)
 	ListMyBooksWithEvidence(context.Context, string) ([]domain.MyBook, error)
 	GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error)
-	CountCurrentReadingVocabularyToAccept(context.Context, string, string) (int, error)
 	StartCurrentReading(context.Context, string, string, string) (domain.CurrentReading, error)
 	StartCurrentReadingResult(context.Context, string, string, string) (domain.StartResult, error)
-	SwitchCurrentReading(context.Context, string, string, string, string, string) (domain.CurrentReading, error)
-	EndCurrentReading(context.Context, string, string, string, string) error
-	FinishCurrentReading(context.Context, string, string, string, string) (domain.CurrentReadingFinishResult, error)
+	EndCurrentReading(context.Context, string, string) error
+	FinishCurrentReading(context.Context, string, string) (domain.CurrentReadingFinishResult, error)
 	ListVocabularyBrowsePage(context.Context, string, string, domain.VocabularyBrowseQuery) (domain.VocabularyBrowsePage, error)
 	lemmareview.Store
 }
@@ -211,16 +208,6 @@ type CatalogueSync interface {
 type AnalysisInsights interface {
 	Coverage(context.Context, string, string) (domain.AnalysisCoverage, error)
 }
-type PreparedDeck interface {
-	PrepareCurrentReadingDeck(ctx context.Context, owner, bookID, expectedSnapshotID string) (prepareddeck.Handle, error)
-	CurrentReadingDeck(ctx context.Context, owner, bookID string) (prepareddeck.CurrentDeck, error)
-	PreparationAdmissions(ctx context.Context, owner, id string) (prepareddeck.PreparationAdmissions, error)
-	Get(context.Context, string, string) (domain.DeckPreparation, error)
-	Cancel(context.Context, string, string) (domain.DeckPreparation, error)
-	Reprepare(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
-	Rerender(ctx context.Context, owner, id, expectedSnapshotID string) (prepareddeck.Handle, error)
-	Download(context.Context, string, string) (domain.DeckPreparation, error)
-}
 
 // Services keeps UI dependencies explicit and makes web-level tests independent of infrastructure.
 type Services struct {
@@ -243,7 +230,6 @@ type Services struct {
 	// move is observed.
 	ReadingIntent    *readingintent.Module
 	AnalysisInsights AnalysisInsights
-	PreparedDeck     PreparedDeck
 	// Study enqueues Study material preparation. It may be nil, in which case
 	// the Study page only reports what is ready.
 	Study Study
@@ -257,7 +243,7 @@ type Services struct {
 	Dictionary   enrichment.LexicalProvider
 	Capabilities analyzer.CapabilityProvider
 	// LemmaReview is the lemma review workflow. NewWithError derives one from
-	// the Reading store, PreparedDeck, and Analysis when it is nil.
+	// the Reading store and Analysis when it is nil.
 	LemmaReview   *lemmareview.Service
 	CatalogueSync CatalogueSync
 	// Classical is the built-in, read-only Classical catalog from the release's
@@ -312,7 +298,7 @@ func NewWithError(s Services) (*Handler, error) {
 		s.Clock = time.Now
 	}
 	if s.LemmaReview == nil {
-		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, Preparer: s.PreparedDeck, BrowseCounts: s.Analysis})
+		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, BrowseCounts: s.Analysis})
 	}
 	if s.Classical == nil {
 		catalog, err := classical.LoadCatalog(classical.ManifestJSONL)
@@ -335,36 +321,28 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /study/batches/take", h.user(http.HandlerFunc(h.takeStudyBatch)))
 	h.mux.Handle("POST /study/batches/decline", h.user(http.HandlerFunc(h.declineStudyBatch)))
 	h.mux.Handle("POST /study/grades", h.user(http.HandlerFunc(h.gradeStudyCard)))
+	h.mux.Handle("POST /study/already-known", h.user(http.HandlerFunc(h.alreadyKnownStudyCard)))
 	h.mux.Handle("POST /study/reports", h.user(http.HandlerFunc(h.reportStudyCard)))
 	h.mux.Handle("POST /study/reports/{id}/dismiss", h.user(http.HandlerFunc(h.dismissStudyReport)))
+	h.mux.Handle("GET /study/reports/{id}/remediation", h.user(http.HandlerFunc(h.studyRemediation)))
+	h.mux.Handle("POST /study/reports/{id}/remediation", h.user(http.HandlerFunc(h.decideStudyRemediation)))
 	h.mux.Handle("POST /study/reports/{id}/undo", h.user(http.HandlerFunc(h.undoStudyReport)))
 	h.mux.Handle("POST /study/reports/{id}/next", h.user(http.HandlerFunc(h.nextAfterStudyReport)))
 	h.mux.Handle("POST /study/fluency/responses", h.user(http.HandlerFunc(h.recordFluencyResponse)))
-	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
-	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
-	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))
-	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.startReading)))
-	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.switchReading)))
+	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.readNext)))
+	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.readNext)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))
 	h.mux.Handle("POST /reading/end", h.user(http.HandlerFunc(h.endCurrentReading)))
-	h.mux.Handle("POST /reading/books/{id}/deck/cancel", h.user(http.HandlerFunc(h.cancelCurrentReadingDeck)))
-	h.mux.Handle("POST /reading/books/{id}/deck/retry", h.user(http.HandlerFunc(h.retryCurrentReadingDeck)))
 	h.mux.Handle("POST /reading/books/{id}/reanalyze", h.user(http.HandlerFunc(h.reanalyzeToReadBook)))
 	h.mux.Handle("POST /reading/books/{id}/analysis-update", h.user(http.HandlerFunc(h.updateToReadBookAnalysis)))
 	h.mux.Handle("POST /reading/books/{id}/source-structure-update", h.user(http.HandlerFunc(h.updateBookSourceStructure)))
+	h.mux.Handle("GET /books/{id}", h.user(http.HandlerFunc(h.bookDetailPage)))
 	h.mux.Handle("GET /books/{id}/cover", h.user(http.HandlerFunc(h.bookCover)))
 	h.mux.Handle("POST /library/books/{id}/to-read", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("POST /library/books/{id}/remove", h.user(http.HandlerFunc(h.removeBookFromMyBooks)))
 	h.mux.Handle("POST /library/books/{id}/previously-read", h.user(http.HandlerFunc(h.markBookPreviouslyRead)))
 	h.mux.Handle("POST /library/books/{id}/read-again", h.user(http.HandlerFunc(h.moveBookToRead)))
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
-	h.mux.Handle("GET /reading/books/{bookID}/deck/preparations/new", h.user(http.HandlerFunc(h.newReadingDeckPreparation)))
-	h.mux.Handle("POST /reading/books/{id}/deck/preparations", h.user(http.HandlerFunc(h.createReadingEntryDeckPreparation)))
-	h.mux.Handle("GET /deck-preparations/{id}/status", h.user(http.HandlerFunc(h.deckPreparationStatus)))
-	h.mux.Handle("POST /deck-preparations/{id}/cancel", h.user(http.HandlerFunc(h.cancelDeckPreparation)))
-	h.mux.Handle("POST /deck-preparations/{id}/reprepare", h.user(http.HandlerFunc(h.reprepareDeckPreparation)))
-	h.mux.Handle("POST /deck-preparations/{id}/rerender", h.user(http.HandlerFunc(h.rerenderDeckPreparation)))
-	h.mux.Handle("GET /deck-preparations/{id}/download", h.user(http.HandlerFunc(h.downloadDeckPreparation)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/library")

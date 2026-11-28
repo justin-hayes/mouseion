@@ -67,174 +67,6 @@ func (q *Queries) DeleteOccurrenceLemmaCorrection(ctx context.Context, arg Delet
 	return result.RowsAffected(), nil
 }
 
-const getCoverageEntryForBook = `-- name: GetCoverageEntryForBook :one
-SELECT sc.owner_id::text AS owner_id,
-       sc.language,
-       sc.canonical_lemma,
-       sc.upos,
-       COALESCE(e.sentence_text, '') AS sentence,
-       ''::text AS translation,
-       ''::text AS target_word,
-       COALESCE(sl.morphologies::text, '[]'::varchar)::varchar AS morphology,
-       sm.title AS source_document,
-       ''::text AS notes,
-       $1::bigint AS first_encounter
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-JOIN source_materials sm ON sm.owner_id = c.owner_id AND sm.id = c.source_material_id
-LEFT JOIN LATERAL (
-  SELECT ex.id, ex.owner_id, ex.corpus_id, ex.sentence_key, ex.sentence_text, ex.source_location, ex.created_at, ex.language, ex.canonical_lemma, ex.upos, ex.selection_rank, ex.selection_score, ex.selection_reasons, ex.is_chosen
-  FROM example_sentences ex
-  WHERE ex.owner_id = sc.owner_id AND ex.corpus_id = c.id
-    AND ex.language = sc.language AND ex.canonical_lemma = sc.canonical_lemma AND ex.upos = sc.upos
-  ORDER BY ex.is_chosen DESC, ex.selection_rank, ex.id
-  LIMIT 1
-) e ON true
-LEFT JOIN LATERAL (
-  SELECT jsonb_agg(morphology ORDER BY frequency DESC, morphology::text) AS morphologies
-  FROM shared_lemmas
-  WHERE content_hash = c.artifact_hash AND language = sc.language
-    AND canonical_lemma = sc.canonical_lemma AND upos = sc.upos
-) sl ON true
-WHERE sc.owner_id = $2 AND sm.id = $3
-  AND sc.corpus_id = $4 AND sc.language = $5
-  AND sc.canonical_lemma = $6 AND sc.upos = $7
-`
-
-type GetCoverageEntryForBookParams struct {
-	FirstEncounter int64
-	Owner          string
-	Book           string
-	Corpus         string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-type GetCoverageEntryForBookRow struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	Sentence       string
-	Translation    string
-	TargetWord     string
-	Morphology     string
-	SourceDocument string
-	Notes          string
-	FirstEncounter int64
-}
-
-func (q *Queries) GetCoverageEntryForBook(ctx context.Context, arg GetCoverageEntryForBookParams) (GetCoverageEntryForBookRow, error) {
-	row := q.db.QueryRow(ctx, getCoverageEntryForBook,
-		arg.FirstEncounter,
-		arg.Owner,
-		arg.Book,
-		arg.Corpus,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var i GetCoverageEntryForBookRow
-	err := row.Scan(
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.Sentence,
-		&i.Translation,
-		&i.TargetWord,
-		&i.Morphology,
-		&i.SourceDocument,
-		&i.Notes,
-		&i.FirstEncounter,
-	)
-	return i, err
-}
-
-const getCoverageEntryForCorpus = `-- name: GetCoverageEntryForCorpus :one
-SELECT sc.owner_id::text AS owner_id,
-       sc.language,
-       sc.canonical_lemma,
-       sc.upos,
-       COALESCE(e.sentence_text, '') AS sentence,
-       ''::text AS translation,
-       ''::text AS target_word,
-       COALESCE(sl.morphologies::text, '[]'::varchar)::varchar AS morphology,
-       sm.title AS source_document,
-       ''::text AS notes,
-       $1::bigint AS first_encounter
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-JOIN source_materials sm ON sm.owner_id = c.owner_id AND sm.id = c.source_material_id
-LEFT JOIN LATERAL (
-  SELECT ex.id, ex.owner_id, ex.corpus_id, ex.sentence_key, ex.sentence_text, ex.source_location, ex.created_at, ex.language, ex.canonical_lemma, ex.upos, ex.selection_rank, ex.selection_score, ex.selection_reasons, ex.is_chosen
-  FROM example_sentences ex
-  WHERE ex.owner_id = sc.owner_id AND ex.corpus_id = c.id
-    AND ex.language = sc.language AND ex.canonical_lemma = sc.canonical_lemma AND ex.upos = sc.upos
-  ORDER BY ex.is_chosen DESC, ex.selection_rank, ex.id
-  LIMIT 1
-) e ON true
-LEFT JOIN LATERAL (
-  SELECT jsonb_agg(morphology ORDER BY frequency DESC, morphology::text) AS morphologies
-  FROM shared_lemmas
-  WHERE content_hash = c.artifact_hash AND language = sc.language
-    AND canonical_lemma = sc.canonical_lemma AND upos = sc.upos
-) sl ON true
-WHERE sc.owner_id = $2 AND sc.corpus_id = $3
-  AND sc.language = $4 AND sc.canonical_lemma = $5
-  AND sc.upos = $6
-`
-
-type GetCoverageEntryForCorpusParams struct {
-	FirstEncounter int64
-	Owner          string
-	Corpus         string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-}
-
-type GetCoverageEntryForCorpusRow struct {
-	OwnerID        string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	Sentence       string
-	Translation    string
-	TargetWord     string
-	Morphology     string
-	SourceDocument string
-	Notes          string
-	FirstEncounter int64
-}
-
-func (q *Queries) GetCoverageEntryForCorpus(ctx context.Context, arg GetCoverageEntryForCorpusParams) (GetCoverageEntryForCorpusRow, error) {
-	row := q.db.QueryRow(ctx, getCoverageEntryForCorpus,
-		arg.FirstEncounter,
-		arg.Owner,
-		arg.Corpus,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var i GetCoverageEntryForCorpusRow
-	err := row.Scan(
-		&i.OwnerID,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.Sentence,
-		&i.Translation,
-		&i.TargetWord,
-		&i.Morphology,
-		&i.SourceDocument,
-		&i.Notes,
-		&i.FirstEncounter,
-	)
-	return i, err
-}
-
 const getCurrentAnalysisOccurrenceEvidence = `-- name: GetCurrentAnalysisOccurrenceEvidence :one
 SELECT t.language, t.canonical_lemma, t.upos, t.dependency
 FROM current_analysis_identity cai
@@ -283,119 +115,8 @@ func (q *Queries) GetCurrentAnalysisOccurrenceEvidence(ctx context.Context, arg 
 	return i, err
 }
 
-const hasCurrentLemmaCorrectionsForAnalysis = `-- name: HasCurrentLemmaCorrectionsForAnalysis :one
-SELECT EXISTS (
-  SELECT 1 FROM occurrence_lemma_corrections d
-  JOIN current_analysis_identity cai ON cai.owner_id = d.owner_id AND cai.book_id = d.book_id
-    AND cai.corpus_id = d.corpus_id AND cai.analysis_run_id = d.analysis_run_id
-  WHERE d.owner_id = $1 AND d.book_id = $2
-    AND d.corpus_id = $3 AND d.analysis_run_id = $4
-)
-`
-
-type HasCurrentLemmaCorrectionsForAnalysisParams struct {
-	Owner       string
-	Book        string
-	Corpus      string
-	AnalysisRun string
-}
-
-func (q *Queries) HasCurrentLemmaCorrectionsForAnalysis(ctx context.Context, arg HasCurrentLemmaCorrectionsForAnalysisParams) (bool, error) {
-	row := q.db.QueryRow(ctx, hasCurrentLemmaCorrectionsForAnalysis,
-		arg.Owner,
-		arg.Book,
-		arg.Corpus,
-		arg.AnalysisRun,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const listAnalysisTokenEvidence = `-- name: ListAnalysisTokenEvidence :many
-SELECT t.language, t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
-       t.canonical_lemma, t.upos, t.dependency, t.head, t.morphology,
-       t.lexical_discriminator, t.headword,
-       t.start_offset, t.end_offset, s.unit_id, s.sentence_text,
-       s.start_offset AS sentence_start_offset, s.end_offset AS sentence_end_offset
-FROM corpora c
-JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
-  AND t.analysis_run_id = c.analysis_run_id
-JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
-  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
-WHERE c.owner_id = $1 AND c.id = $2
-  AND c.analysis_run_id = $3
-ORDER BY t.sentence_ordinal, t.token_ordinal
-`
-
-type ListAnalysisTokenEvidenceParams struct {
-	Owner       string
-	Corpus      string
-	AnalysisRun pgtype.UUID
-}
-
-type ListAnalysisTokenEvidenceRow struct {
-	Language             string
-	SentenceOrdinal      int64
-	TokenOrdinal         int64
-	Surface              string
-	RawLemma             string
-	CanonicalLemma       string
-	Upos                 string
-	Dependency           string
-	Head                 int64
-	Morphology           []byte
-	LexicalDiscriminator string
-	Headword             string
-	StartOffset          int64
-	EndOffset            int64
-	UnitID               string
-	SentenceText         string
-	SentenceStartOffset  int64
-	SentenceEndOffset    int64
-}
-
-func (q *Queries) ListAnalysisTokenEvidence(ctx context.Context, arg ListAnalysisTokenEvidenceParams) ([]ListAnalysisTokenEvidenceRow, error) {
-	rows, err := q.db.Query(ctx, listAnalysisTokenEvidence, arg.Owner, arg.Corpus, arg.AnalysisRun)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListAnalysisTokenEvidenceRow{}
-	for rows.Next() {
-		var i ListAnalysisTokenEvidenceRow
-		if err := rows.Scan(
-			&i.Language,
-			&i.SentenceOrdinal,
-			&i.TokenOrdinal,
-			&i.Surface,
-			&i.RawLemma,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.Dependency,
-			&i.Head,
-			&i.Morphology,
-			&i.LexicalDiscriminator,
-			&i.Headword,
-			&i.StartOffset,
-			&i.EndOffset,
-			&i.UnitID,
-			&i.SentenceText,
-			&i.SentenceStartOffset,
-			&i.SentenceEndOffset,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
-SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+const listCorpusLemmaReviewOccurrences = `-- name: ListCorpusLemmaReviewOccurrences :many
+SELECT cai.book_id::text AS book_id, c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.language,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
        t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
@@ -403,9 +124,6 @@ SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        s.sentence_text, s.unit_id,
        COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
        COALESCE(d.excluded, false)::boolean AS excluded,
-       COALESCE(f.reason, '')::text AS review_flag_reason,
-       COALESCE(f.evidence_provenance::text, '{}')::text AS review_flag_provenance,
-       COALESCE(f.resolution, '')::text AS review_flag_resolution,
        COALESCE(a.normalization_profile, '')::text AS normalization_profile,
        COALESCE(a.normalization_version, '')::text AS normalization_version
 FROM book_current_analyses cai
@@ -424,9 +142,122 @@ JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
 LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
   AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
    AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
-LEFT JOIN occurrence_lemma_review_flags f ON f.owner_id = cai.owner_id AND f.book_id = cai.book_id
-  AND f.analysis_run_id = c.analysis_run_id AND f.source_document_id = s.unit_id
-  AND f.start_offset = t.start_offset AND f.end_offset = t.end_offset
+JOIN books b ON b.owner_id = cai.owner_id AND b.id = cai.book_id
+  AND b.language_state = 'chosen' AND b.language_tag = $1::text
+JOIN book_membership m ON m.owner_id = cai.owner_id AND m.book_id = cai.book_id AND m.state = 'active'
+WHERE cai.owner_id = $2
+  AND source.current_content_revision_id = r.content_revision_id
+  AND source.current_snapshot_id = r.snapshot_id
+  AND t.surface = $3::text AND t.raw_lemma = $4::text
+ORDER BY b.title, cai.book_id, s.sentence_ordinal, t.token_ordinal
+`
+
+type ListCorpusLemmaReviewOccurrencesParams struct {
+	Language string
+	Owner    string
+	Surface  string
+	Lemma    string
+}
+
+type ListCorpusLemmaReviewOccurrencesRow struct {
+	BookID               string
+	CorpusID             string
+	AnalysisRunID        string
+	Language             string
+	SentenceOrdinal      int64
+	TokenOrdinal         int64
+	Surface              string
+	RawLemma             string
+	CanonicalLemma       string
+	Upos                 string
+	Dependency           string
+	StartOffset          int64
+	EndOffset            int64
+	LexicalDiscriminator string
+	SentenceText         string
+	UnitID               string
+	CorrectedLemma       string
+	Excluded             bool
+	NormalizationProfile string
+	NormalizationVersion string
+}
+
+// The same occurrences across every Book in the learner's My Books of one
+// language, for one observed form and its analyzer lemma (ADR 0136 §6).
+func (q *Queries) ListCorpusLemmaReviewOccurrences(ctx context.Context, arg ListCorpusLemmaReviewOccurrencesParams) ([]ListCorpusLemmaReviewOccurrencesRow, error) {
+	rows, err := q.db.Query(ctx, listCorpusLemmaReviewOccurrences,
+		arg.Language,
+		arg.Owner,
+		arg.Surface,
+		arg.Lemma,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCorpusLemmaReviewOccurrencesRow{}
+	for rows.Next() {
+		var i ListCorpusLemmaReviewOccurrencesRow
+		if err := rows.Scan(
+			&i.BookID,
+			&i.CorpusID,
+			&i.AnalysisRunID,
+			&i.Language,
+			&i.SentenceOrdinal,
+			&i.TokenOrdinal,
+			&i.Surface,
+			&i.RawLemma,
+			&i.CanonicalLemma,
+			&i.Upos,
+			&i.Dependency,
+			&i.StartOffset,
+			&i.EndOffset,
+			&i.LexicalDiscriminator,
+			&i.SentenceText,
+			&i.UnitID,
+			&i.CorrectedLemma,
+			&i.Excluded,
+			&i.NormalizationProfile,
+			&i.NormalizationVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
+
+SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
+       t.language,
+       t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
+       t.canonical_lemma, t.upos, t.dependency, t.start_offset, t.end_offset,
+       t.lexical_discriminator,
+       s.sentence_text, s.unit_id,
+       COALESCE(d.canonical_lemma, '')::text AS corrected_lemma,
+       COALESCE(d.excluded, false)::boolean AS excluded,
+       COALESCE(a.normalization_profile, '')::text AS normalization_profile,
+       COALESCE(a.normalization_version, '')::text AS normalization_version
+FROM book_current_analyses cai
+JOIN source_materials source ON source.owner_id = cai.owner_id
+  AND source.id = cai.source_material_id AND source.book_id = cai.book_id
+JOIN analysis_runs r ON r.owner_id = cai.owner_id AND r.id = cai.analysis_run_id
+  AND r.source_material_id = cai.source_material_id AND r.state = 'completed'
+JOIN corpora c ON c.owner_id = r.owner_id AND c.id = r.corpus_id
+  AND c.source_material_id = r.source_material_id AND c.analysis_run_id = r.id
+  AND c.status = 'complete'
+LEFT JOIN normalized_corpus_artifacts a ON a.content_hash = c.artifact_hash
+JOIN corpus_tokens t ON t.owner_id = c.owner_id AND t.corpus_id = c.id
+  AND t.analysis_run_id = c.analysis_run_id
+JOIN corpus_sentences s ON s.owner_id = t.owner_id AND s.corpus_id = t.corpus_id
+  AND s.analysis_run_id = t.analysis_run_id AND s.sentence_ordinal = t.sentence_ordinal
+LEFT JOIN occurrence_lemma_corrections d ON d.owner_id = cai.owner_id AND d.book_id = cai.book_id
+  AND d.corpus_id = c.id AND d.analysis_run_id = c.analysis_run_id
+   AND d.source_document_id = s.unit_id AND d.start_offset = t.start_offset AND d.end_offset = t.end_offset
 WHERE cai.owner_id = $1 AND cai.book_id = $2
   AND source.current_content_revision_id = r.content_revision_id
   AND source.current_snapshot_id = r.snapshot_id
@@ -458,13 +289,11 @@ type ListLemmaReviewOccurrencesRow struct {
 	UnitID               string
 	CorrectedLemma       string
 	Excluded             bool
-	ReviewFlagReason     string
-	ReviewFlagProvenance string
-	ReviewFlagResolution string
 	NormalizationProfile string
 	NormalizationVersion string
 }
 
+// Sentence selection and review queries.
 func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error) {
 	rows, err := q.db.Query(ctx, listLemmaReviewOccurrences, arg.Owner, arg.Book, arg.Surface)
 	if err != nil {
@@ -492,9 +321,6 @@ func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaR
 			&i.UnitID,
 			&i.CorrectedLemma,
 			&i.Excluded,
-			&i.ReviewFlagReason,
-			&i.ReviewFlagProvenance,
-			&i.ReviewFlagResolution,
 			&i.NormalizationProfile,
 			&i.NormalizationVersion,
 		); err != nil {
@@ -790,152 +616,6 @@ func (q *Queries) ListSelectedSentences(ctx context.Context, arg ListSelectedSen
 	return items, nil
 }
 
-const listSelectionCandidatesForBook = `-- name: ListSelectionCandidatesForBook :many
-SELECT sc.owner_id::text AS owner_id,
-       sc.corpus_id,
-       sc.language,
-       sc.canonical_lemma,
-       sc.upos,
-       sc.occurrence_count,
-       sc.observed_forms,
-       sc.eligible_sentence_refs,
-       sc.provenance,
-       sc.selected_at,
-       COALESCE(first_seen.start_offset, 9223372036854775807::bigint)::bigint AS first_encounter
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-LEFT JOIN LATERAL (
-  SELECT MIN(COALESCE(ref->'location'->>'start_offset', ref->'location'->>'StartOffset', ref->'Location'->>'StartOffset')::bigint) AS start_offset
-  FROM jsonb_array_elements(sc.eligible_sentence_refs) ref
-) first_seen ON true
-WHERE sc.owner_id = $1 AND c.source_material_id = $2
-ORDER BY sc.language, sc.canonical_lemma, sc.upos
-`
-
-type ListSelectionCandidatesForBookParams struct {
-	Owner string
-	Book  string
-}
-
-type ListSelectionCandidatesForBookRow struct {
-	OwnerID              string
-	CorpusID             string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	OccurrenceCount      int
-	ObservedForms        []byte
-	EligibleSentenceRefs []byte
-	Provenance           []byte
-	SelectedAt           time.Time
-	FirstEncounter       int64
-}
-
-func (q *Queries) ListSelectionCandidatesForBook(ctx context.Context, arg ListSelectionCandidatesForBookParams) ([]ListSelectionCandidatesForBookRow, error) {
-	rows, err := q.db.Query(ctx, listSelectionCandidatesForBook, arg.Owner, arg.Book)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListSelectionCandidatesForBookRow{}
-	for rows.Next() {
-		var i ListSelectionCandidatesForBookRow
-		if err := rows.Scan(
-			&i.OwnerID,
-			&i.CorpusID,
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.OccurrenceCount,
-			&i.ObservedForms,
-			&i.EligibleSentenceRefs,
-			&i.Provenance,
-			&i.SelectedAt,
-			&i.FirstEncounter,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSelectionCandidatesForCorpus = `-- name: ListSelectionCandidatesForCorpus :many
-SELECT sc.owner_id::text AS owner_id,
-       sc.corpus_id,
-       sc.language,
-       sc.canonical_lemma,
-       sc.upos,
-       sc.occurrence_count,
-       sc.observed_forms,
-       sc.eligible_sentence_refs,
-       sc.provenance,
-       sc.selected_at,
-       COALESCE(first_seen.start_offset, 9223372036854775807::bigint)::bigint AS first_encounter
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-LEFT JOIN LATERAL (
-  SELECT MIN(COALESCE(ref->'location'->>'start_offset', ref->'location'->>'StartOffset', ref->'Location'->>'StartOffset')::bigint) AS start_offset
-  FROM jsonb_array_elements(sc.eligible_sentence_refs) ref
-) first_seen ON true
-WHERE sc.owner_id = $1 AND sc.corpus_id = $2
-ORDER BY sc.language, sc.canonical_lemma, sc.upos
-`
-
-type ListSelectionCandidatesForCorpusParams struct {
-	Owner  string
-	Corpus string
-}
-
-type ListSelectionCandidatesForCorpusRow struct {
-	OwnerID              string
-	CorpusID             string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	OccurrenceCount      int
-	ObservedForms        []byte
-	EligibleSentenceRefs []byte
-	Provenance           []byte
-	SelectedAt           time.Time
-	FirstEncounter       int64
-}
-
-func (q *Queries) ListSelectionCandidatesForCorpus(ctx context.Context, arg ListSelectionCandidatesForCorpusParams) ([]ListSelectionCandidatesForCorpusRow, error) {
-	rows, err := q.db.Query(ctx, listSelectionCandidatesForCorpus, arg.Owner, arg.Corpus)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListSelectionCandidatesForCorpusRow{}
-	for rows.Next() {
-		var i ListSelectionCandidatesForCorpusRow
-		if err := rows.Scan(
-			&i.OwnerID,
-			&i.CorpusID,
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.OccurrenceCount,
-			&i.ObservedForms,
-			&i.EligibleSentenceRefs,
-			&i.Provenance,
-			&i.SelectedAt,
-			&i.FirstEncounter,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const putOccurrenceLemmaCorrection = `-- name: PutOccurrenceLemmaCorrection :one
 INSERT INTO occurrence_lemma_corrections(
   owner_id, book_id, corpus_id, analysis_run_id, source_document_id,
@@ -956,10 +636,6 @@ WHERE cai.owner_id = $5 AND cai.book_id = $6
   AND t.surface = $11 AND t.raw_lemma = $12
   AND t.canonical_lemma = $13
   AND t.upos = $14
-   AND NOT EXISTS (
-     SELECT 1 FROM primary_goals pg
-     WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
-   )
 ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
 DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
                 normalization_profile = excluded.normalization_profile,
@@ -1042,125 +718,6 @@ func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccur
 		&i.Excluded,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const selectAcquisitionCandidate = `-- name: SelectAcquisitionCandidate :one
-
-SELECT sc.corpus_id, sc.eligible_sentence_refs
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-WHERE sc.owner_id = $1
-  AND sc.language = $2
-  AND sc.canonical_lemma = $3
-  AND sc.upos = $4
-   AND ($5::text = '' OR c.source_material_id::text = $5::text)
-ORDER BY sc.selected_at DESC, sc.corpus_id DESC
-LIMIT 1
-`
-
-type SelectAcquisitionCandidateParams struct {
-	Owner          string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	Book           string
-}
-
-type SelectAcquisitionCandidateRow struct {
-	CorpusID             string
-	EligibleSentenceRefs []byte
-}
-
-// Sentence selection and review queries. SelectAcquisitionCandidate is the
-// static replacement for the runtime string-concatenated acquisition query:
-// an unconditional predicate of the form ($book = ” OR source = $book) keeps
-// the statement statically analyzable.
-func (q *Queries) SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error) {
-	row := q.db.QueryRow(ctx, selectAcquisitionCandidate,
-		arg.Owner,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.Book,
-	)
-	var i SelectAcquisitionCandidateRow
-	err := row.Scan(&i.CorpusID, &i.EligibleSentenceRefs)
-	return i, err
-}
-
-const upsertReviewSentenceFromAnalysis = `-- name: UpsertReviewSentenceFromAnalysis :one
-INSERT INTO example_sentences(owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 0, '[]', true)
-ON CONFLICT(owner_id, corpus_id, sentence_key) DO UPDATE SET
-  sentence_text = excluded.sentence_text,
-  source_location = excluded.source_location,
-  language = excluded.language,
-  canonical_lemma = excluded.canonical_lemma,
-  upos = excluded.upos,
-  selection_rank = excluded.selection_rank,
-  selection_score = excluded.selection_score,
-  selection_reasons = excluded.selection_reasons,
-  is_chosen = true
-RETURNING id, owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen, created_at
-`
-
-type UpsertReviewSentenceFromAnalysisParams struct {
-	OwnerID        string
-	CorpusID       string
-	SentenceKey    string
-	SentenceText   string
-	SourceLocation []byte
-	Language       pgtype.Text
-	CanonicalLemma pgtype.Text
-	Upos           pgtype.Text
-}
-
-type UpsertReviewSentenceFromAnalysisRow struct {
-	ID               string
-	OwnerID          string
-	CorpusID         string
-	SentenceKey      string
-	SentenceText     string
-	SourceLocation   []byte
-	Language         pgtype.Text
-	CanonicalLemma   pgtype.Text
-	Upos             pgtype.Text
-	SelectionRank    pgtype.Int4
-	SelectionScore   pgtype.Int4
-	SelectionReasons []byte
-	IsChosen         bool
-	CreatedAt        time.Time
-}
-
-func (q *Queries) UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error) {
-	row := q.db.QueryRow(ctx, upsertReviewSentenceFromAnalysis,
-		arg.OwnerID,
-		arg.CorpusID,
-		arg.SentenceKey,
-		arg.SentenceText,
-		arg.SourceLocation,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var i UpsertReviewSentenceFromAnalysisRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.CorpusID,
-		&i.SentenceKey,
-		&i.SentenceText,
-		&i.SourceLocation,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.SelectionRank,
-		&i.SelectionScore,
-		&i.SelectionReasons,
-		&i.IsChosen,
-		&i.CreatedAt,
 	)
 	return i, err
 }

@@ -30,7 +30,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	result, err := h.services.Store.MyBooks.ListMyBooksBrowse(r.Context(), u.ID, request.query, activeLanguage, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
+	result, err := h.listMyBooksPage(r.Context(), u.ID, request, activeLanguage)
 	if err != nil {
 		h.renderMyBooksFailure(w, r, u)
 		return
@@ -42,27 +42,114 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 	}
 	browse := myBooksBrowseState(request.query, request.page, request.disposition, activeLanguage, activeLanguageLabel, result)
 	browse.History = request.history
+	browse.NeedsAction = request.needsAction
+	browse.MostReadable = request.mostReadable
 	if page, redirect := myBooksRedirectPage(request, result); redirect {
-		redirectMyBooksBrowse(w, r, myBooksScopedURL(activeLanguage, request.query, page, request.disposition, request.history))
+		redirectMyBooksBrowse(w, r, myBooksFilteredURL(activeLanguage, request.query, page, request.disposition, request.history, request.needsAction, request.mostReadable))
 		return
 	}
-	if err = h.loadLibraryBrowsingExtras(r.Context(), u.ID, books); err != nil {
-		h.renderMyBooksFailure(w, r, u)
-		return
+	if !request.needsAction {
+		if err = h.loadLibraryBrowsingExtras(r.Context(), u.ID, books); err != nil {
+			h.renderMyBooksFailure(w, r, u)
+			return
+		}
 	}
 	if isPartialHTMXRequest(r) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
 		return
 	}
+	if activeLanguage != "" {
+		readingView, viewErr := h.buildReadingView(r.Context(), u.ID, activeLanguage)
+		if viewErr != nil {
+			h.renderMyBooksFailure(w, r, u)
+			return
+		}
+		browse.CurrentReading = readingView.CurrentReading
+	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), browse))
+}
+
+// listMyBooksPage reads the requested page. The needs-action filter is derived
+// from evidence the store pages cannot filter on, such as pending Analysis
+// updates, and the most-readable sort orders by the Mature coverage the store
+// decorates each row with; both read the whole tab, keep the Books that carry
+// the request's order, and page those. Nothing about either is stored.
+func (h *Handler) listMyBooksPage(ctx context.Context, owner string, request myBooksLibraryRequest, language string) (domain.MyBooksBrowseResult, error) {
+	store := h.services.Store.MyBooks
+	if !request.needsAction && !request.mostReadable {
+		return store.ListMyBooksBrowse(ctx, owner, request.query, language, string(request.disposition), request.history, myBooksPageOffset(request.page), myBooksPageSize)
+	}
+	kept, result, err := h.listMyBooksWholeTab(ctx, owner, request, language)
+	if err != nil {
+		return domain.MyBooksBrowseResult{}, err
+	}
+	if request.mostReadable {
+		domain.SortMyBooksMostReadableFirst(kept)
+	}
+	result.Total = len(kept)
+	result.Items = myBooksKeptPageItems(kept, request.page)
+	return result, nil
+}
+
+// listMyBooksWholeTab reads every page of the requested browse tab and returns
+// the Books it keeps, with the store's own aggregate result. The needs-action
+// filter decorates each page before deciding, because its evidence — such as a
+// pending Analysis update — is not something the store pages on.
+func (h *Handler) listMyBooksWholeTab(ctx context.Context, owner string, request myBooksLibraryRequest, language string) ([]domain.MyBook, domain.MyBooksBrowseResult, error) {
+	store := h.services.Store.MyBooks
+	var kept []domain.MyBook
+	var result domain.MyBooksBrowseResult
+	for offset := 0; ; offset += myBooksPageSize {
+		page, err := store.ListMyBooksBrowse(ctx, owner, request.query, language, string(request.disposition), request.history, offset, myBooksPageSize)
+		if err != nil {
+			return nil, result, err
+		}
+		result = page
+		pageKept, err := h.keptMyBooksFromPage(ctx, owner, request, page.Items)
+		if err != nil {
+			return nil, result, err
+		}
+		kept = append(kept, pageKept...)
+		if len(page.Items) == 0 || offset+myBooksPageSize >= page.Total {
+			return kept, result, nil
+		}
+	}
+}
+
+// keptMyBooksFromPage keeps one browse page's Books: only those with a status
+// line when the needs-action filter is on, every one of them otherwise.
+func (h *Handler) keptMyBooksFromPage(ctx context.Context, owner string, request myBooksLibraryRequest, books []domain.MyBook) ([]domain.MyBook, error) {
+	if !request.needsAction {
+		return books, nil
+	}
+	if err := h.loadLibraryBrowsingExtras(ctx, owner, books); err != nil {
+		return nil, err
+	}
+	needing := make([]domain.MyBook, 0, len(books))
+	for _, book := range books {
+		if _, needs := myBookNeedsAction(book); needs {
+			needing = append(needing, book)
+		}
+	}
+	return needing, nil
+}
+
+// myBooksKeptPageItems slices the kept Books for the requested page.
+func myBooksKeptPageItems(kept []domain.MyBook, page int) []domain.MyBook {
+	if start := myBooksPageOffset(page); start < len(kept) {
+		return kept[start:min(start+myBooksPageSize, len(kept))]
+	}
+	return nil
 }
 
 // myBooksLibraryRequest is the My Books browse state the /library query asks for.
 type myBooksLibraryRequest struct {
-	query       string
-	page        int
-	disposition domain.BookDisposition
-	history     bool
+	query        string
+	page         int
+	disposition  domain.BookDisposition
+	history      bool
+	needsAction  bool
+	mostReadable bool
 }
 
 // myBooksRedirectPage clamps an out-of-range page. A page past the last page of
@@ -258,7 +345,7 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		fail(w, err)
 		return
 	}
-	notice := "Removed from My Books. Its analysis, history and Known vocabulary are unchanged."
+	notice := "Removed from My Books. Its analysis and history are unchanged."
 	switch {
 	case book.ReadingUnit != nil && book.ReadingUnit.Withdrawn:
 		notice += " This Reading unit is no longer in the Catalog, so it can't be added back."

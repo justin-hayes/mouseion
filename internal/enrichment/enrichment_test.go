@@ -12,16 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHasRequiredTranslationFields(t *testing.T) {
-	complete := CacheEntry{Translation: "house", FallbackGloss: "dwelling", SentenceTranslation: "The house."}
-	assert.True(t, HasRequiredTranslationFields(complete, "Das Haus."), "complete cache entry was rejected")
-	for _, entry := range []CacheEntry{{FallbackGloss: "dwelling", SentenceTranslation: "The house."}, {Translation: "house", FallbackGloss: "dwelling"}} {
-		assert.False(t, HasRequiredTranslationFields(entry, "Das Haus."), "incomplete cache entry accepted: %+v", entry)
-	}
-	assert.True(t, HasRequiredTranslationFields(CacheEntry{Translation: "house", SentenceTranslation: "The house."}, "Das Haus."), "translation with sentence was rejected")
-	assert.True(t, HasRequiredTranslationFields(CacheEntry{Translation: "house"}, ""), "lemma-only cache entry was rejected")
-}
-
 type memoryCache struct {
 	values     map[CacheKey]CacheEntry
 	gets, puts int

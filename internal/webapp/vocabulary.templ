@@ -5,17 +5,13 @@ import (
 )
 
 func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
-	state := "Unknown"
-	if row.Known {
-		state = "Known"
+	switch row.StudyState {
+	case domain.VocabularyStudyMature:
+		return "Mature"
+	case domain.VocabularyStudyInStudy:
+		return "In study"
 	}
-	if row.Reserved {
-		if row.Known {
-			return "Known · Reserved"
-		}
-		state = "Reserved"
-	}
-	return state
+	return "Not yet introduced"
 }
 
 func vocabularyBookEvidenceState(book domain.VocabularyBrowseBook) string {

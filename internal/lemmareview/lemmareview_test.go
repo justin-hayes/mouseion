@@ -2,22 +2,18 @@ package lemmareview
 
 import (
 	"context"
-	"errors"
 	"testing"
-	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// fakeStore serves one Book's occurrences. Only the reads Assess uses are
+// fakeStore serves one Book's occurrences. Only the reads the workflow uses are
 // meaningful; the rest return zero values.
 type fakeStore struct {
 	book        domain.MyBook
 	occurrences []domain.LemmaReviewOccurrence
-	saved       []domain.LemmaReviewFlag
 	proposal    domain.LemmaReviewProposal
 }
 
@@ -37,9 +33,8 @@ func (s *fakeStore) ListLemmaReviewOccurrences(context.Context, string, string, 
 	return s.occurrences, nil
 }
 
-func (s *fakeStore) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
-	s.saved = append(s.saved, flags...)
-	return nil
+func (s *fakeStore) ListCorpusLemmaReviewOccurrences(context.Context, string, string, string, string) ([]domain.LemmaReviewOccurrence, error) {
+	return s.occurrences, nil
 }
 
 func (s *fakeStore) ReadLemmaReviewProposal(_ context.Context, proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
@@ -51,40 +46,12 @@ func (s *fakeStore) PutLemmaDecisionProposal(context.Context, domain.LemmaReview
 	return nil
 }
 
-func (s *fakeStore) ListDeckPreparationsForSourceMaterial(context.Context, string, string) ([]domain.DeckPreparation, error) {
-	return nil, nil
-}
-
-// fakeIndex answers every lemma lookup with exists, or with err when set. When
-// block is set it waits for the caller's context instead of answering.
-type fakeIndex struct {
-	exists bool
-	err    error
-	block  bool
-}
-
-func (i fakeIndex) LemmaExists(ctx context.Context, _, _, _ string) (bool, error) {
-	if i.block {
-		<-ctx.Done()
-		return false, ctx.Err()
-	}
-	return i.exists, i.err
-}
-
-func (i fakeIndex) Alternatives(context.Context, string, string, string, string) ([]lemmarisk.Alternative, error) {
-	return nil, nil
-}
-
 func germanBook() domain.MyBook {
 	return domain.MyBook{Book: domain.Book{LanguageTag: "de"}, Acquired: &domain.SourceMaterialSummary{}}
 }
 
 func greekBook() domain.MyBook {
 	return domain.MyBook{Book: domain.Book{LanguageTag: "grc"}, Acquired: &domain.SourceMaterialSummary{}}
-}
-
-func frenchBook() domain.MyBook {
-	return domain.MyBook{Book: domain.Book{LanguageTag: "fr"}, Acquired: &domain.SourceMaterialSummary{}}
 }
 
 func occurrence() domain.LemmaReviewOccurrence {
@@ -99,155 +66,6 @@ func greekOccurrence() domain.LemmaReviewOccurrence {
 		AnalysisRunID: "run", SourceDocumentID: "doc", StartOffset: 0, EndOffset: 10,
 		Surface: "λόγος", CanonicalLemma: "λόγοσ", UPOS: "NOUN", SentenceText: "λόγος δέω λέγει.",
 	}
-}
-
-func TestAssessNonGermanBookIsNotAssessed(t *testing.T) {
-	store := &fakeStore{book: domain.MyBook{Book: domain.Book{LanguageTag: "it"}, Acquired: &domain.SourceMaterialSummary{}}, occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
-	service := New(Config{Store: store, RiskIndex: fakeIndex{exists: false}})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.False(t, assessment.Assessed, "risk is detected for German and French only")
-	assert.Empty(t, store.saved)
-}
-
-func TestAssessFrenchBookIsAssessed(t *testing.T) {
-	store := &fakeStore{book: frenchBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
-	service := New(Config{Store: store, RiskIndex: fakeIndex{exists: true}})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.True(t, assessment.Assessed, "French has a dictionary-backed lemma-risk rule")
-	assert.False(t, assessment.Unresolved)
-	assert.Empty(t, store.saved)
-}
-
-func TestAssessWithoutIndexIsNotAssessed(t *testing.T) {
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
-	service := New(Config{Store: store})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.False(t, assessment.Assessed, "no index means not assessed, never a clean verdict")
-	assert.Empty(t, store.saved)
-}
-
-func TestAssessIndexFailureIsNotAssessedNotAnError(t *testing.T) {
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
-	service := New(Config{Store: store, RiskIndex: fakeIndex{err: errors.New("index offline")}})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err, "a failed optional index is not a Reading blocker")
-	assert.False(t, assessment.Assessed)
-}
-
-func TestAssessIndexTimeoutIsNotAssessed(t *testing.T) {
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
-	service := New(Config{Store: store, RiskIndex: fakeIndex{block: true}})
-
-	started := time.Now()
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.False(t, assessment.Assessed, "a detection that runs past its timeout is not a clean verdict")
-	assert.Less(t, time.Since(started), 2*time.Second, "detection is bounded by its timeout")
-}
-
-func TestAssessReportsUnresolvedFlags(t *testing.T) {
-	flagged := occurrence()
-	flagged.ReviewFlagReason = "alternative exists"
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{flagged}}
-	service := New(Config{Store: store})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.True(t, assessment.Unresolved, "an unresolved flag blocks Reading")
-	assert.False(t, assessment.Assessed, "the flag exists even though detection did not run")
-}
-
-func TestAssessProviderFlagIsNotUnresolved(t *testing.T) {
-	flagged := occurrence()
-	flagged.ReviewFlagReason = "provider lemma mismatch"
-	flagged.ReviewFlagProvenance = map[string]any{"source": domain.LemmaReviewFlagProviderSource, "provider": "fake"}
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{flagged}}
-	service := New(Config{Store: store})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.False(t, assessment.Unresolved, "a provider advisory flag never blocks Reading")
-}
-
-// A provider flag carries model attribution and the provider's bounded reason
-// instead of a local alternative. EvidenceOf exposes both shapes without
-// inventing a proposed lemma for the provider flag.
-func TestEvidenceOfProviderFlagExposesModelAttributionOnly(t *testing.T) {
-	flagged := occurrence()
-	flagged.ReviewFlagReason = "the sentence uses a different word than this lemma"
-	flagged.ReviewFlagProvenance = map[string]any{
-		"source":            domain.LemmaReviewFlagProviderSource,
-		"provider":          "configured-provider",
-		"model":             "configured-model",
-		"prompt_version":    "contextual-gloss-v16",
-		"unresolved_reason": "the sentence uses a separable verb whose particle belongs elsewhere",
-	}
-
-	evidence := EvidenceOf(flagged)
-
-	assert.True(t, evidence.ProviderSourced)
-	assert.Equal(t, "configured-provider", evidence.Provider)
-	assert.Equal(t, "configured-model", evidence.Model)
-	assert.Equal(t, "contextual-gloss-v16", evidence.PromptVersion)
-	assert.Equal(t, "the sentence uses a separable verb whose particle belongs elsewhere", evidence.Reason)
-	assert.Empty(t, evidence.Alternative, "a provider flag proposes no lemma")
-	assert.Empty(t, evidence.EvidenceID)
-}
-
-func TestEvidenceOfLocalFlagKeepsDictionaryAttribution(t *testing.T) {
-	flagged := occurrence()
-	flagged.ReviewFlagProvenance = map[string]any{
-		"alternative_lemma": "pfad", "source": "wiktionary", "version": "fixture-1", "evidence_id": "sense-1",
-	}
-
-	evidence := EvidenceOf(flagged)
-
-	assert.False(t, evidence.ProviderSourced)
-	assert.Equal(t, "pfad", evidence.Alternative)
-	assert.Equal(t, "wiktionary", evidence.Source)
-	assert.Equal(t, "fixture-1", evidence.Version)
-	assert.Equal(t, "sense-1", evidence.EvidenceID)
-	assert.Empty(t, evidence.Provider)
-	assert.Empty(t, evidence.Reason)
-}
-
-func TestAssessResolvedFlagsAreNotUnresolved(t *testing.T) {
-	flagged := occurrence()
-	flagged.ReviewFlagReason = "alternative exists"
-	flagged.ReviewFlagResolution = "kept"
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{flagged}}
-	service := New(Config{Store: store})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.False(t, assessment.Unresolved)
-}
-
-func TestAssessAssessedCleanBookSavesNoFlags(t *testing.T) {
-	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{occurrence()}}
-	service := New(Config{Store: store, RiskIndex: fakeIndex{exists: true}})
-
-	assessment, err := service.Assess(context.Background(), "owner", "book")
-
-	require.NoError(t, err)
-	assert.True(t, assessment.Assessed)
-	assert.False(t, assessment.Unresolved)
-	assert.Empty(t, store.saved)
 }
 
 // A dedicated-profile language (Ancient Greek) is corrected with exactly the
@@ -321,4 +139,22 @@ func TestCorrectedLemmaForAModernLanguageUsesTheActiveProfile(t *testing.T) {
 	t.Run("the active profile normalized the correction", func(t *testing.T) {
 		assert.Equal(t, "hass", store.proposal.Lemma)
 	})
+}
+
+func TestCorpusMatchesLeavesOutTheReportedAndTheAlreadyDecidedOccurrences(t *testing.T) {
+	reported := occurrence()
+	other := occurrence()
+	other.StartOffset, other.EndOffset = 10, 13
+	corrected := occurrence()
+	corrected.StartOffset, corrected.EndOffset, corrected.CorrectedLemma = 20, 23, "pfad"
+	excluded := occurrence()
+	excluded.StartOffset, excluded.EndOffset, excluded.Excluded = 30, 33, true
+	store := &fakeStore{book: germanBook(), occurrences: []domain.LemmaReviewOccurrence{reported, other, corrected, excluded}}
+	service := New(Config{Store: store})
+
+	matches, err := service.CorpusMatches(context.Background(), "owner", "de", reported)
+
+	require.NoError(t, err)
+	require.Len(t, matches, 1, "a match is an occurrence that still awaits a decision")
+	assert.Equal(t, other.ID(), matches[0].Occurrence.ID())
 }

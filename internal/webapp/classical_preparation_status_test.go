@@ -1,7 +1,6 @@
 package webapp
 
 import (
-	"context"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -139,25 +138,4 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 	}
 	assert.Equal(t, readingEvidenceUnavailable, readingEvidenceState(catalog))
 	assert.Empty(t, readingAnalysisAction(catalog).Label)
-}
-
-func TestClassicalPreparationChooserRecovery(t *testing.T) {
-	t.Parallel()
-	h := &Handler{}
-	candidate := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageImport, CurrentRevision: 1})}
-	require.NoError(t, h.classifyReadingChooserCandidate(context.Background(), "owner", &candidate))
-	assert.Equal(t, readingChooserNeedsAttention, candidate.State)
-	assert.Equal(t, classicalRetryAnalysisLabel, candidate.RecoveryLabel)
-	assert.True(t, candidate.RecoveryAllowed)
-
-	terminal := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageSource, CurrentRevision: 1})}
-	require.NoError(t, h.classifyReadingChooserCandidate(context.Background(), "owner", &terminal))
-	assert.Equal(t, readingChooserNeedsAttention, terminal.State)
-	assert.Empty(t, terminal.RecoveryLabel)
-	assert.False(t, terminal.RecoveryAllowed)
-
-	queued := readingChooserBookView{Book: classicalStatusBook(domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationQueued, CurrentRevision: 1})}
-	require.NoError(t, h.classifyReadingChooserCandidate(context.Background(), "owner", &queued))
-	assert.Equal(t, readingChooserInProgress, queued.State)
-	assert.False(t, queued.RecoveryAllowed)
 }

@@ -13,7 +13,7 @@ import (
 )
 
 // Vocabulary Browse scenarios put the Working desk into the degraded and
-// fully-accounted states that the in-memory store cannot reach on its own. They
+// Study-state states that the in-memory store cannot reach on its own. They
 // are set only by the fixture server, for browser acceptance.
 const (
 	VocabularyBrowseScenarioDefault           = ""
@@ -21,10 +21,6 @@ const (
 	VocabularyBrowseScenarioNoVocabulary      = "no-vocabulary"
 	VocabularyBrowseScenarioCountsUpdating    = "counts-updating"
 	VocabularyBrowseScenarioCountsUnavailable = "counts-unavailable"
-	// VocabularyBrowseScenarioAccounted holds only Known, Reserved, or Book-deck
-	// identities, so the default view says everything is already accounted for
-	// and revealing them shows the annotated rows.
-	VocabularyBrowseScenarioAccounted = "accounted"
 )
 
 // SetVocabularyBrowseScenario selects the Browse scenario for every later Browse
@@ -32,7 +28,7 @@ const (
 func (s *Store) SetVocabularyBrowseScenario(name string) error {
 	switch name {
 	case VocabularyBrowseScenarioDefault, VocabularyBrowseScenarioNoAnalysis, VocabularyBrowseScenarioNoVocabulary,
-		VocabularyBrowseScenarioCountsUpdating, VocabularyBrowseScenarioCountsUnavailable, VocabularyBrowseScenarioAccounted:
+		VocabularyBrowseScenarioCountsUpdating, VocabularyBrowseScenarioCountsUnavailable:
 	default:
 		return fmt.Errorf("unknown vocabulary Browse scenario %q", name)
 	}
@@ -54,13 +50,9 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	if query.Page < 1 {
 		query.Page = 1
 	}
-	page := domain.VocabularyBrowsePage{Page: query.Page, IncludeAll: query.IncludeAll}
-	current, err := s.GetCurrentReading(ctx, owner, language)
-	if err != nil || !current.IsActive() {
-		return page, err
-	}
-	page.CurrentBookID = current.BookID
-	if current.BookID != BookID {
+	page := domain.VocabularyBrowsePage{Page: query.Page}
+	page.CurrentBookID = query.CurrentBookID
+	if query.CurrentBookID != BookID {
 		return page, nil
 	}
 	page.Books = []domain.VocabularyBrowseBook{{ID: BookID, Title: "Der lange Weg nach Hause", HasCurrentAnalysis: true, HasVocabularyEvidence: true}}
@@ -72,7 +64,7 @@ func (s *Store) ListVocabularyBrowsePage(ctx context.Context, owner, language st
 	if query.Prefix == "paging" {
 		return fixtureVocabularyBrowsePaging(page), nil
 	}
-	page.Total, page.InventoryTotal, page.ScopedInventoryTotal, page.Rows = fixtureVocabularyBrowseFilteredRows(fixtureVocabularyBrowseRows(scenario), query)
+	page.Total, page.InventoryTotal, page.ScopedInventoryTotal, page.Rows = fixtureVocabularyBrowseFilteredRows(fixtureVocabularyBrowseRows(), query)
 	lastPage := max(1, int((page.Total+24)/25))
 	if page.Page > lastPage {
 		page.Page = lastPage
@@ -113,34 +105,20 @@ func fixtureVocabularyBrowsePaging(page domain.VocabularyBrowsePage) domain.Voca
 	return page
 }
 
-// fixtureVocabularyBrowseRows returns the representative rows, or the accounted
-// scenario's already-known identities.
-func fixtureVocabularyBrowseRows(scenario string) []domain.VocabularyBrowseRow {
-	if scenario == VocabularyBrowseScenarioAccounted {
-		return []domain.VocabularyBrowseRow{
-			{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
-			{CanonicalLemma: "lesen", UPOS: "VERB", OccurrenceCount: 3, AcrossBooksOccurrenceCount: 3, Known: true, Reserved: true},
-		}
-	}
+// fixtureVocabularyBrowseRows returns the representative rows with mixed Study
+// states so browser acceptance can read each label.
+func fixtureVocabularyBrowseRows() []domain.VocabularyBrowseRow {
 	return []domain.VocabularyBrowseRow{
-		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, Generated: true},
-		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, Known: true, InBookDeck: true},
+		{CanonicalLemma: "gehen", UPOS: "VERB", OccurrenceCount: 5, AcrossBooksOccurrenceCount: 8, StudyState: domain.VocabularyStudyNotIntroduced},
+		{CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 2, AcrossBooksOccurrenceCount: 2, StudyState: domain.VocabularyStudyMature},
+		{CanonicalLemma: "lesen", UPOS: "VERB", OccurrenceCount: 3, AcrossBooksOccurrenceCount: 3, StudyState: domain.VocabularyStudyInStudy},
 	}
 }
 
-// fixtureVocabularyBrowseFilteredRows applies the accounted-for and prefix
-// filters and returns the totals they drive alongside the surviving rows.
+// fixtureVocabularyBrowseFilteredRows applies the prefix filter and returns the
+// totals it drives alongside the surviving rows.
 func fixtureVocabularyBrowseFilteredRows(rows []domain.VocabularyBrowseRow, query domain.VocabularyBrowseQuery) (total, inventoryTotal, scopedInventoryTotal int64, filtered []domain.VocabularyBrowseRow) {
 	inventoryTotal = int64(len(rows))
-	if !query.IncludeAll {
-		filtered = rows[:0]
-		for _, row := range rows {
-			if !row.Known && !row.Reserved && !row.InBookDeck {
-				filtered = append(filtered, row)
-			}
-		}
-		rows = filtered
-	}
 	prefix := strings.ToLower(strings.TrimSpace(query.Prefix))
 	if prefix != "" {
 		filtered = rows[:0]
@@ -503,10 +481,6 @@ func (s *Store) GetProjectedCorpusVocabulary(ctx context.Context, owner, corpusI
 	return domain.ProjectedCorpusVocabulary{AnalysisCorpusVocabulary: vocabulary, Ready: true}, nil
 }
 
-func (s *Store) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
-	return false, nil
-}
-
 func fixtureKnownCorpusTokens(corpusID string) int64 {
 	switch corpusID {
 	case "fixture-corpus", "fixture-route-match-corpus":
@@ -520,23 +494,6 @@ func fixtureKnownCorpusTokens(corpusID string) int64 {
 	default:
 		return 0
 	}
-}
-
-func (s *Store) ListKnownVocabulary(_ context.Context, owner, language string) ([]domain.KnownVocabulary, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.knownForOwnerLocked(owner, normalizeFixtureLanguage(language)), nil
-}
-
-// knownForOwnerLocked returns the owner's Known rows in language. Callers hold s.mu.
-func (s *Store) knownForOwnerLocked(owner, language string) []domain.KnownVocabulary {
-	var result []domain.KnownVocabulary
-	for _, entry := range s.known {
-		if entry.OwnerID == owner && normalizeFixtureLanguage(entry.Language) == language {
-			result = append(result, entry)
-		}
-	}
-	return result
 }
 
 const (

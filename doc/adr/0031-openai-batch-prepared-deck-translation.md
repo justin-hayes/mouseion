@@ -201,7 +201,7 @@ selector, and neither CI nor startup makes paid provider calls.
 
 ## Related
 
-- [OpenAI Batch API for prepared-deck translation](../features/openai-batch-translation.md)
+- [OpenAI Batch API for prepared-deck translation](../archive/features/openai-batch-translation.md)
 - [ADR 0007: Enrichment providers, caching, and privacy](0007-enrichment-providers-caching-privacy.md)
 - [ADR 0012: External translation through River](0012-enrichment-execution-via-river.md)
 - [ADR 0021: Contextual sentence translation cache](0021-contextual-translation-cache.md)

@@ -10,35 +10,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createReadingFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+func createReadingFixture(t *testing.T, ctx context.Context, store *PostgresStore, owner, suffix string) (domain.Book, domain.SourceMaterial) {
 	t.Helper()
 	return createReadingFixtureInLanguage(t, ctx, store, owner, "de", suffix)
 }
 
-func createReadingFixtureInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner, language, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+func createReadingFixtureInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner, language, suffix string) (domain.Book, domain.SourceMaterial) {
 	t.Helper()
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: "Reading " + suffix, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 	require.NoError(t, err)
-	return createReadingSourceAndPreparation(t, ctx, store, owner, book, suffix)
+	return createReadingSource(t, ctx, store, owner, book, suffix)
 }
 
-func createReadingSourceAndPreparation(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+func createReadingSource(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, suffix string) (domain.Book, domain.SourceMaterial) {
 	t.Helper()
-	return createReadingSourceAndPreparationInLanguage(t, ctx, store, owner, book, book.LanguageTag, suffix)
+	return createReadingSourceInLanguage(t, ctx, store, owner, book, book.LanguageTag, suffix)
 }
 
-func createReadingSourceAndPreparationInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, language, suffix string) (domain.Book, domain.SourceMaterial, domain.DeckPreparation) {
+func createReadingSourceInLanguage(t *testing.T, ctx context.Context, store *PostgresStore, owner string, book domain.Book, language, suffix string) (domain.Book, domain.SourceMaterial) {
 	t.Helper()
 	source := putBookSourceInLanguage(t, ctx, store, owner, language, "reading-"+suffix, "Reading "+suffix, []byte("reading-"+suffix), suffix)
 	err := store.LinkSourceToBook(ctx, owner, book.ID, source.ID)
 	require.NoError(t, err)
-	prep, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, Filename: suffix + ".apkg", DeckName: "Reading " + suffix, ContentHash: source.ContentHash})
-	require.NoError(t, err)
-	prep, err = store.ClaimDeckPreparation(ctx, owner, prep.ID)
-	require.NoError(t, err)
-	prep, err = store.CompleteDeckPreparation(ctx, owner, prep.ID, domain.DeckPreparation{Artifact: []byte("apkg-" + suffix), Filename: suffix + ".apkg", DeckName: "Reading " + suffix})
-	require.NoError(t, err)
-	return book, source, prep
+	return book, source
 }
 
 func makeAnalyzedToReadBook(t *testing.T, ctx context.Context, store *PostgresStore, book domain.Book, source domain.SourceMaterial) {

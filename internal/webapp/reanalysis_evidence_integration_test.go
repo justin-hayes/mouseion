@@ -43,12 +43,11 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
 		Analysis: fixtures.Analysis{}, AnalysisInsights: analysisinsights.NewService(store), Capabilities: capabilities,
 		CatalogueSync:   fixtures.NewCatalogueSync(fixtures.NewStore()),
-		PreparedDeck:    &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)},
 		SessionLifetime: time.Hour,
 	})
 	cookies, csrf := loginCookies(t, h, "reanalysis-alice", "alice-password")
 
-	book, source, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "reanalysis", "Reanalysis evidence book", []domain.LemmaOccurrence{
+	book, source, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "reanalysis", "Reanalysis evidence book", []domain.LemmaOccurrence{
 		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 2},
 		{Language: "de", CanonicalLemma: "Baum", UPOS: "NOUN", OccurrenceCount: 1},
 	})
@@ -88,12 +87,12 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)
-	assert.Contains(t, started.Header().Get("Location"), "/de/reading?message=")
+	assert.Contains(t, started.Header().Get("Location"), "/de/library?message=")
 	current, err := store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, current.BookID)
 
-	readingFailed := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
+	readingFailed := perform(t, h, http.MethodGet, "/de/library", nil, cookies)
 	require.Equal(t, http.StatusOK, readingFailed.Code)
 	assert.Contains(t, readingFailed.Body.String(), "Reanalysis evidence book")
 	assert.Contains(t, readingFailed.Body.String(), "Re-analysis failed")

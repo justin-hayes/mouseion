@@ -35,7 +35,7 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	} {
 		assert.Contains(t, html, want, "browse markup missing %q: %s", want, html)
 	}
-	assert.NotContains(t, html, `href="/books/de-book"`, "My Books browse linked to the retired Book detail page: %s", html)
+	assert.Contains(t, html, `href="/books/de-book"`, "My Books browse missing the Book detail link: %s", html)
 	for _, forbidden := range []string{"All languages", "Unknown language", `aria-label="Languages"`, `name="language"`, `language: de`, "language not chosen", `href="/books/unknown-book"`} {
 		assert.NotContains(t, html, forbidden, "legacy language browse markup remains %q: %s", forbidden, html)
 	}
@@ -378,7 +378,7 @@ func TestMyBooksBrowseRequestDefaultsToToReadTab(t *testing.T) {
 	assert.Equal(t, "/de/library?history=read&q=title", myBooksScopedURL("de", "title", 1, "", true))
 	assert.Equal(t, "/library?history=read&q=title", myBooksScopedURL("", "title", 1, "", true))
 
-	for _, raw := range []string{"needs-language", "disposition=inbox", "disposition=invalid", "disposition=to_read&history=read"} {
+	for _, raw := range []string{"needs-language", "disposition=inbox", "disposition=invalid", "disposition=to_read&history=read", "sort=readable&history=read"} {
 		_, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: raw})
 		assert.False(t, ok, "retired request %q is unsupported", raw)
 	}
@@ -412,7 +412,7 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	_, err = store.FinishCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID, current.SnapshotID)
+	_, err = store.FinishCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(t.Context(), fixtures.OwnerID, current.BookID, domain.BookDispositionToRead))
 	_, err = store.StartCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID)

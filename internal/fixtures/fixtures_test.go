@@ -112,17 +112,17 @@ func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	assert.Empty(t, got, "cleared active language=%q err=%v", got, err)
 }
 
-func TestStoreKnownVocabularyOnlyLanguageRemainsViewable(t *testing.T) {
+func TestStoreStudyProgressOnlyLanguageRemainsSelectable(t *testing.T) {
 	store := NewStore()
-	err := store.SetActiveStudyLanguage(context.Background(), OwnerID, "fr")
+	progress, err := store.ListStudyProgressLanguages(context.Background(), OwnerID)
 	require.NoError(t, err)
-	known, err := store.ListKnownVocabulary(context.Background(), OwnerID, "fr")
-	require.NoError(t, err, "known-only vocabulary=%+v err=%v", known, err)
-	require.Len(t, known, 1, "known-only vocabulary=%+v err=%v", known, err)
-	assert.Equal(t, "bonjour", known[0].CanonicalLemma, "known-only vocabulary=%+v err=%v", known, err)
+	require.Len(t, progress, 1, "study progress languages=%+v", progress)
+	assert.Equal(t, "fr", progress[0].Language)
 	languages, err := store.ListStudyLanguages(context.Background(), OwnerID)
-	require.NoError(t, err, "study languages=%+v err=%v", languages, err)
-	assert.Len(t, languages, 2, "study languages=%+v err=%v", languages, err)
+	require.NoError(t, err)
+	for _, language := range languages {
+		assert.NotEqual(t, "fr", language.Language, "French has no Book")
+	}
 }
 
 func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
@@ -380,36 +380,6 @@ func TestStoreMyBooksProjectsReadingHistoryEvidence(t *testing.T) {
 	})
 }
 
-func TestUnresolvedLemmaReviewFlagBlocksStartingFixtureBook(t *testing.T) {
-	store := NewStore()
-	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
-	require.NoError(t, err)
-	require.NoError(t, store.EndCurrentReading(t.Context(), OwnerID, "de", current.BookID, current.SnapshotID))
-	store.dispositions[fixtureDispositionKey(OwnerID, LemmaFlagBookID)] = domain.BookDispositionToRead
-	_, err = store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
-	assert.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
-}
-
-func TestLemmaDecisionProposalIsRejectedForTheCurrentReadingBook(t *testing.T) {
-	store := NewStore()
-	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
-	require.NoError(t, err)
-	require.Equal(t, BookID, current.BookID, "the fixture seeds BookID as the German current reading")
-	occurrences, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
-	require.NoError(t, err)
-	proposal := domain.LemmaReviewProposal{
-		OwnerID: OwnerID, BookID: BookID, Language: "de", Surface: "Weg", Action: "correct", Lemma: "pfad",
-		Occurrences: occurrences[:1], NormalizationProfile: "german-post-1996", NormalizationVersion: "6",
-	}
-	err = store.PutLemmaDecisionProposal(t.Context(), proposal, "any-fingerprint")
-	require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading, "the gate runs before the preview fingerprint")
-	err = store.PutLemmaDecisions(t.Context(), proposal.Decisions())
-	require.ErrorIs(t, err, domain.ErrNotFound, "the single-decision path keeps its not-found contract")
-	unchanged, err := store.ListLemmaReviewOccurrences(t.Context(), OwnerID, BookID, "Weg")
-	require.NoError(t, err)
-	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")
-}
-
 func TestStartingFixtureBookRejectsMalformedAndUnknownIDsAsNotFound(t *testing.T) {
 	store := NewStore()
 	for _, bookID := range []string{"not-a-uuid", "00000000-0000-0000-0000-000000000000", "' OR 1=1 --"} {
@@ -418,15 +388,6 @@ func TestStartingFixtureBookRejectsMalformedAndUnknownIDsAsNotFound(t *testing.T
 	}
 	_, err := store.StartCurrentReading(t.Context(), "not-a-uuid", "de", BookID)
 	assert.ErrorIs(t, err, domain.ErrNotFound, "malformed owner")
-}
-
-func TestStartingFixtureBookReportsAlreadyCurrentBeforeLemmaReviewFlags(t *testing.T) {
-	store := NewStore()
-	current, err := store.GetCurrentReading(t.Context(), OwnerID, "de")
-	require.NoError(t, err)
-	require.True(t, current.IsActive(), "the fixture seeds a German current reading")
-	_, err = store.StartCurrentReading(t.Context(), OwnerID, "de", LemmaFlagBookID)
-	assert.ErrorIs(t, err, domain.ErrCurrentReadingExists)
 }
 
 func fixtureBookIDs(books []domain.MyBook) []string {
@@ -457,9 +418,7 @@ func TestStoreCurrentReadingIsIndependentByLanguage(t *testing.T) {
 	require.NoError(t, err, "Italian Goal=%+v err=%v", itGoal, err)
 	assert.Equal(t, ItalianGoalBookID, itGoal.BookID, "Italian Goal=%+v err=%v", itGoal, err)
 
-	italianReading, err := store.GetCurrentReading(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	err = store.EndCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID, italianReading.SnapshotID)
+	err = store.EndCurrentReading(ctx, OwnerID, "it")
 	require.NoError(t, err, "end Italian reading: %v", err)
 	deGoal, err = store.GetCurrentReading(ctx, OwnerID, "de")
 	require.NoError(t, err, "German Goal after Italian clear=%+v err=%v", deGoal, err)
@@ -468,51 +427,6 @@ func TestStoreCurrentReadingIsIndependentByLanguage(t *testing.T) {
 	require.NoError(t, err, "Italian Goal after clear=%+v err=%v", itGoal, err)
 	assert.Empty(t, itGoal.BookID, "Italian Goal after clear=%+v err=%v", itGoal, err)
 
-}
-
-func TestStoreCurrentReadingLifecycleUsesExistingGoalBehavior(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-
-	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, BookID, reading.BookID)
-	assert.Equal(t, "fixture-de-goal-snapshot", reading.SnapshotID)
-	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Len(t, reserved, 2)
-
-	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, "stale-book", reading.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrCurrentReadingStale)
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", BookID, reading.SnapshotID))
-	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, reserved)
-	restarted, err := store.StartCurrentReading(ctx, OwnerID, "de", BookID)
-	require.NoError(t, err)
-	assert.NotEqual(t, reading.SnapshotID, restarted.SnapshotID, "starting Reading again freezes a fresh fixture snapshot")
-	reserved, err = store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Len(t, reserved, 2)
-
-	reading, err = store.GetCurrentReading(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID, reading.SnapshotID))
-	reading, err = store.GetCurrentReading(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	assert.False(t, reading.IsActive())
-
-	reading, err = store.StartCurrentReading(ctx, OwnerID, "it", ItalianGoalBookID)
-	require.NoError(t, err)
-	assert.Equal(t, ItalianGoalBookID, reading.BookID)
-
-	_, err = store.FinishCurrentReading(ctx, OwnerID, "it", "wrong-book", reading.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrCurrentReadingStale)
-	finished, err := store.FinishCurrentReading(ctx, OwnerID, "it", reading.BookID, reading.SnapshotID)
-	require.NoError(t, err)
-	replayed, err := store.FinishCurrentReading(ctx, OwnerID, "it", reading.BookID, reading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, finished, replayed)
 }
 
 func TestFixtureToReadBooksExposeDeterministicCoverStates(t *testing.T) {
@@ -537,54 +451,6 @@ func TestFixtureToReadBooksExposeDeterministicCoverStates(t *testing.T) {
 	}
 }
 
-func TestFixtureGoalPreparationUsesExactSnapshotAndEmptyGoalsNeedNoDeck(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	goal, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, 2, goal.SnapshotSize)
-	preparation, err := store.GetDeckPreparationForSnapshot(ctx, OwnerID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, goal.SnapshotID, preparation.SnapshotID)
-
-	emptyGoal, err := store.GetCurrentReading(ctx, OwnerID, "it")
-	require.NoError(t, err)
-	assert.Zero(t, emptyGoal.SnapshotSize)
-	_, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, emptyGoal.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrNotFound)
-
-	fixtureDeck := PreparedDeck{Store: store}
-	_, err = fixtureDeck.PrepareCurrentReadingDeck(ctx, OwnerID, goal.BookID, goal.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrDeckPreparationInvalidTransition, "a healthy ready deck for the exact snapshot is not resubmitted")
-	preparation, err = store.GetDeckPreparationForSnapshot(ctx, OwnerID, goal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, PrepID, preparation.ID)
-
-	_, err = fixtureDeck.PrepareCurrentReadingDeck(ctx, OwnerID, goal.BookID, "fresh-goal-snapshot")
-	require.ErrorIs(t, err, domain.ErrDeckPreparationStale, "a request naming another snapshot is refused")
-}
-
-func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	firstGoal, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	first, err := store.FinishCurrentReading(ctx, OwnerID, "de", BookID, firstGoal.SnapshotID)
-	require.NoError(t, err)
-
-	require.NoError(t, store.SetBookDisposition(ctx, OwnerID, BookID, domain.BookDispositionToRead))
-	secondGoal, err := store.StartCurrentReading(ctx, OwnerID, "de", BookID)
-	require.NoError(t, err)
-	assert.NotEqual(t, firstGoal.SnapshotID, secondGoal.SnapshotID)
-	second, err := store.FinishCurrentReading(ctx, OwnerID, "de", BookID, secondGoal.SnapshotID)
-	require.NoError(t, err)
-	assert.NotEqual(t, first.Completion.CompletedAt, second.Completion.CompletedAt)
-
-	retry, err := store.FinishCurrentReading(ctx, OwnerID, "de", BookID, firstGoal.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, first.Completion, retry.Completion)
-}
-
 func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *testing.T) {
 	store := NewStore()
 	store.books[0].Source.Title = "Acquisition-internal title"
@@ -605,23 +471,10 @@ func TestFixtureReadModelKeepsCanonicalTitleSeparateFromAcquisitionTitle(t *test
 	require.Failf(t, "fixture book not found", "fixture book %q not found", BookID)
 }
 
-func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
+func TestMigrationFixturesPinTheMetadataOnlyBook(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 
-	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "legacy generated fixture=%+v err=%v", legacy, err)
-	require.Len(t, legacy, 1, "legacy generated fixture=%+v err=%v", legacy, err)
-	assert.Equal(t, LegacyGeneratedLemma, legacy[0].CanonicalLemma, "legacy generated fixture=%+v err=%v", legacy, err)
-	assert.Nil(t, legacy[0].FirstSourceMaterialID, "legacy generated fixture=%+v err=%v", legacy, err)
-	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	knownLemmas := map[string]bool{}
-	for _, item := range known {
-		knownLemmas[item.CanonicalLemma] = true
-	}
-	assert.True(t, knownLemmas[IndependentKnownLemma], "known vocabulary=%v", known)
-	assert.True(t, knownLemmas[GraduatedKnownLemma], "known vocabulary=%v", known)
 	books, err := store.ListMyBooksWithEvidence(ctx, OwnerID)
 	require.NoError(t, err)
 	for _, book := range books {
@@ -654,28 +507,6 @@ func TestFixtureCatalogueAliasScopesAcquisition(t *testing.T) {
 	})
 }
 
-func TestFixtureReservedVocabularyFollowsCurrentReadingSnapshot(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-
-	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "reserved from active Goal=%+v err=%v", reserved, err)
-	require.Len(t, reserved, 2, "reserved from active Goal=%+v err=%v", reserved, err)
-	got := map[string]bool{}
-	for _, item := range reserved {
-		got[item.CanonicalLemma] = true
-	}
-	assert.True(t, got["gehen"], "reserved identities=%v", got)
-	assert.True(t, got["Weg"], "reserved identities=%v", got)
-	current, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	err = store.EndCurrentReading(ctx, OwnerID, "de", BookID, current.SnapshotID)
-	require.NoError(t, err)
-	released, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, released, "reserved after Goal clear=%+v err=%v", released, err)
-}
-
 func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
@@ -688,19 +519,11 @@ func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
 	}
 
 	page := browse(t, query)
-	assert.Equal(t, int64(1), page.Total, "the default fixture still hides accounted-for identities")
-
-	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioAccounted))
-	page = browse(t, query)
-	assert.Zero(t, page.Total)
-	assert.Equal(t, int64(2), page.ScopedInventoryTotal, "accounted-for identities are scoped, not absent")
-	assert.Empty(t, page.Rows)
-	query.IncludeAll = true
-	page = browse(t, query)
-	require.Len(t, page.Rows, 2)
-	assert.True(t, page.Rows[0].Known && page.Rows[0].InBookDeck, "haus is Known and in a Book deck")
-	assert.True(t, page.Rows[1].Known && page.Rows[1].Reserved, "lesen is Known and Reserved")
-	query.IncludeAll = false
+	assert.Equal(t, int64(3), page.Total, "the default fixture shows every identity with its Study state")
+	require.Len(t, page.Rows, 3)
+	assert.Equal(t, domain.VocabularyStudyNotIntroduced, page.Rows[0].StudyState)
+	assert.Equal(t, domain.VocabularyStudyMature, page.Rows[1].StudyState)
+	assert.Equal(t, domain.VocabularyStudyInStudy, page.Rows[2].StudyState)
 
 	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioNoAnalysis))
 	page = browse(t, query)
@@ -723,42 +546,7 @@ func TestVocabularyBrowseScenariosSetTheWorkingDeskStates(t *testing.T) {
 
 	require.Error(t, store.SetVocabularyBrowseScenario("unlisted"))
 	require.NoError(t, store.SetVocabularyBrowseScenario(VocabularyBrowseScenarioDefault))
-	assert.Equal(t, int64(1), browse(t, query).Total, "the empty scenario restores the default fixture")
-}
-
-func TestStoreSwitchCurrentReadingDecidesFromSnapshotLifecycleAndFlags(t *testing.T) {
-	ctx := context.Background()
-	store := NewStore()
-	store.dispositions[fixtureDispositionKey(OwnerID, LemmaFlagBookID)] = domain.BookDispositionToRead
-	store.dispositions[fixtureDispositionKey(OwnerID, routeMatchBookID)] = domain.BookDispositionToRead
-
-	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-
-	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", LemmaFlagBookID, reading.BookID, reading.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags, "Switch blocks on unresolved flags as Postgres does")
-	_, err = store.SwitchCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID, reading.BookID, reading.SnapshotID)
-	var ineligible domain.CurrentReadingIneligibleError
-	require.ErrorAs(t, err, &ineligible)
-	assert.Equal(t, domain.CurrentReadingOtherLanguage, ineligible.Reason)
-
-	switched, err := store.SwitchCurrentReading(ctx, OwnerID, "de", routeMatchBookID, reading.BookID, reading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, routeMatchBookID, switched.BookID)
-	replayed, err := store.SwitchCurrentReading(ctx, OwnerID, "de", routeMatchBookID, reading.BookID, reading.SnapshotID)
-	require.NoError(t, err, "the switch that created the current snapshot replays")
-	assert.Equal(t, switched.SnapshotID, replayed.SnapshotID)
-
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, switched.SnapshotID))
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, switched.SnapshotID), "End replays from the released snapshot")
-	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", switched.BookID, reading.SnapshotID), domain.ErrCurrentReadingStale, "a released snapshot is no End replay for another Book")
-
-	restarted, err := store.StartCurrentReading(ctx, OwnerID, "de", switched.BookID)
-	require.NoError(t, err)
-	finished, err := store.FinishCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, restarted.SnapshotID, finished.Completion.SnapshotID)
-	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de", restarted.BookID, restarted.SnapshotID), domain.ErrCurrentReadingStale, "a completed snapshot is never an End replay")
+	assert.Equal(t, int64(3), browse(t, query).Total, "the empty scenario restores the default fixture")
 }
 
 // TestVocabularyBrowsePagesTheFixtureAndClampsPages holds how Browse serves the
@@ -812,21 +600,16 @@ func TestVocabularyBrowseWithoutTheFixtureBookReturnsAnEmptyPage(t *testing.T) {
 	store := NewStore()
 	ctx := t.Context()
 	query := domain.VocabularyBrowseQuery{Language: "de", Page: 1}
-	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID))
 
-	inactive, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
+	unscoped, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
 	require.NoError(t, err)
-	assert.Empty(t, inactive.CurrentBookID)
-	assert.Empty(t, inactive.Books)
-	assert.Empty(t, inactive.Rows)
+	assert.Empty(t, unscoped.CurrentBookID)
+	assert.Empty(t, unscoped.Books)
+	assert.Empty(t, unscoped.Rows)
 
-	started, err := store.StartCurrentReading(ctx, OwnerID, "de", routeMatchBookID)
-	require.NoError(t, err)
+	query.CurrentBookID = routeMatchBookID
 	other, err := store.ListVocabularyBrowsePage(ctx, OwnerID, "de", query)
 	require.NoError(t, err)
-	assert.Equal(t, routeMatchBookID, started.BookID)
 	assert.Equal(t, routeMatchBookID, other.CurrentBookID)
 	assert.Empty(t, other.Books)
 	assert.Empty(t, other.Rows)
@@ -903,98 +686,6 @@ func TestFixtureLemmaDecisionRejectsAStaleOccurrenceClaim(t *testing.T) {
 	assert.Empty(t, unchanged[0].CorrectedLemma, "a rejected decision persists nothing")
 }
 
-// TestStoreReservedVocabularyIgnoresOtherBooksPreparations holds the reserved
-// fallback: for a reading without a frozen snapshot, preparations for another
-// Book contribute no vocabulary.
-func TestStoreReservedVocabularyIgnoresOtherBooksPreparations(t *testing.T) {
-	store := NewStore()
-	ctx := t.Context()
-	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID))
-
-	_, err = store.StartCurrentReading(ctx, OwnerID, "de", routeDiffersBookID)
-	require.NoError(t, err)
-	reserved, err := store.ListReservedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, reserved, "the seeded preparations belong to another Book")
-}
-
-// TestStoreReservedVocabularyKeepsOnlyTheReadingLanguage holds the reserved
-// filter: a frozen snapshot may carry several languages, and only the reading's
-// language is returned.
-func TestStoreReservedVocabularyKeepsOnlyTheReadingLanguage(t *testing.T) {
-	store := NewStore()
-	store.SetGoalSnapshotVocabulary("fixture-de-goal-snapshot", []domain.DeckPreparationVocabulary{
-		{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB"},
-		{OwnerID: OwnerID, Language: "it", CanonicalLemma: "andare", UPOS: "VERB"},
-	})
-
-	reserved, err := store.ListReservedVocabulary(t.Context(), OwnerID, "de")
-	require.NoError(t, err)
-	require.Len(t, reserved, 1)
-	assert.Equal(t, "gehen", reserved[0].CanonicalLemma)
-}
-
-// TestStoreFinishCurrentReadingReportsUnknownWithoutAReading holds the Finish
-// rejection for an expectation that names neither a current reading nor a
-// recorded completion.
-func TestStoreFinishCurrentReadingReportsUnknownWithoutAReading(t *testing.T) {
-	store := NewStore()
-	ctx := t.Context()
-	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID))
-
-	_, err = store.FinishCurrentReading(ctx, OwnerID, "de", reading.BookID, reading.SnapshotID)
-	require.ErrorIs(t, err, domain.ErrNotFound)
-}
-
-// TestStoreFinishCurrentReadingReleasesStudyingPreparationsByLegacyIdentity
-// holds which studying preparations Finish releases: one matching the reading
-// by its legacy source-material identity is released, and one for another
-// analysis is left alone.
-func TestStoreFinishCurrentReadingReleasesStudyingPreparationsByLegacyIdentity(t *testing.T) {
-	store := NewStore()
-	ctx := t.Context()
-	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
-	require.NoError(t, err)
-	studying := time.Date(2026, time.June, 1, 9, 0, 0, 0, time.UTC)
-	store.preps = append(store.preps,
-		domain.DeckPreparation{
-			ID: "fixture-studying-legacy", OwnerID: OwnerID, BookID: BookID,
-			SourceMaterialID: reading.SourceMaterialID, AnalysisRunID: reading.AnalysisRunID,
-			State: domain.DeckPreparationReady, StudyingAt: &studying,
-		},
-		domain.DeckPreparation{
-			ID: "fixture-studying-other", OwnerID: OwnerID, BookID: BookID,
-			SourceMaterialID: "fixture-other-source", AnalysisRunID: "fixture-other-run",
-			State: domain.DeckPreparationReady, StudyingAt: &studying,
-		},
-	)
-
-	_, err = store.FinishCurrentReading(ctx, OwnerID, "de", BookID, reading.SnapshotID)
-	require.NoError(t, err)
-
-	released := make(map[string]domain.DeckPreparation, len(store.preps))
-	for _, preparation := range store.preps {
-		released[preparation.ID] = preparation
-	}
-
-	t.Run("a legacy identity preparation is released", func(t *testing.T) {
-		legacy := released["fixture-studying-legacy"]
-		assert.Nil(t, legacy.StudyingAt)
-		require.NotNil(t, legacy.ReleasedAt)
-		assert.Equal(t, domain.DeckPreparationReady, legacy.State)
-	})
-
-	t.Run("a preparation for another analysis keeps studying", func(t *testing.T) {
-		other := released["fixture-studying-other"]
-		require.NotNil(t, other.StudyingAt)
-		assert.Nil(t, other.ReleasedAt)
-	})
-}
-
 func TestClassicalFixtureStartsWithNoOwnedUnitsAndRefusesUnknownUnits(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
@@ -1041,4 +732,64 @@ func TestFixtureEPUBAcquisitionFailureRequiresCatalogIdentityOutsideEntryStage(t
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestStoreReadNextReplacesTheCurrentReadingAndRefusesIneligibleBooks(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	store.dispositions[fixtureDispositionKey(OwnerID, LemmaFlagBookID)] = domain.BookDispositionToRead
+	store.dispositions[fixtureDispositionKey(OwnerID, routeMatchBookID)] = domain.BookDispositionToRead
+
+	reading, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	require.Equal(t, BookID, reading.BookID)
+
+	_, err = store.StartCurrentReading(ctx, OwnerID, "de", ItalianGoalBookID)
+	var ineligible domain.CurrentReadingIneligibleError
+	require.ErrorAs(t, err, &ineligible)
+	assert.Equal(t, domain.CurrentReadingOtherLanguage, ineligible.Reason)
+	current, err := store.GetCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, BookID, current.BookID, "a refused Read next keeps the current reading")
+
+	flagged, err := store.StartCurrentReadingResult(ctx, OwnerID, "de", LemmaFlagBookID)
+	require.NoError(t, err, "a Book with no prior reading is eligible for Read next")
+	assert.Equal(t, LemmaFlagBookID, flagged.Reading.BookID)
+	assert.False(t, flagged.Replayed)
+
+	switched, err := store.StartCurrentReadingResult(ctx, OwnerID, "de", routeMatchBookID)
+	require.NoError(t, err)
+	assert.Equal(t, routeMatchBookID, switched.Reading.BookID)
+	replayed, err := store.StartCurrentReadingResult(ctx, OwnerID, "de", routeMatchBookID)
+	require.NoError(t, err)
+	assert.True(t, replayed.Replayed)
+}
+
+func TestStoreEndAndFinishCurrentReadingNeedNoCommitment(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+
+	require.NoError(t, store.EndCurrentReading(ctx, OwnerID, "de"))
+	require.ErrorIs(t, store.EndCurrentReading(ctx, OwnerID, "de"), domain.ErrNotFound, "nothing left to end")
+	_, err := store.FinishCurrentReading(ctx, OwnerID, "de")
+	require.ErrorIs(t, err, domain.ErrNotFound, "nothing to finish")
+	italian, err := store.GetCurrentReading(ctx, OwnerID, "it")
+	require.NoError(t, err)
+	assert.Equal(t, ItalianGoalBookID, italian.BookID, "ending the German reading leaves the Italian one")
+}
+
+func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testing.T) {
+	ctx := context.Background()
+	store := NewStore()
+	first, err := store.FinishCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.Equal(t, BookID, first.Completion.BookID)
+
+	require.NoError(t, store.SetBookDisposition(ctx, OwnerID, BookID, domain.BookDispositionToRead))
+	_, err = store.StartCurrentReading(ctx, OwnerID, "de", BookID)
+	require.NoError(t, err)
+	second, err := store.FinishCurrentReading(ctx, OwnerID, "de")
+	require.NoError(t, err)
+	assert.False(t, second.Completion.CompletedAt.Before(first.Completion.CompletedAt))
+	assert.Len(t, store.readingHistory, 2, "every Finish appends a completion")
 }

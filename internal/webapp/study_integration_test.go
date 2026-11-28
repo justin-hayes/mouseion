@@ -229,7 +229,7 @@ func (s *studyHarness) seedBookIn(language, key string, words ...testutil.Corpus
 	for _, word := range words {
 		lemmas = append(lemmas, domain.LemmaOccurrence{Language: language, CanonicalLemma: word.Lemma, UPOS: word.UPOS, OccurrenceCount: int64(word.Occurrences)})
 	}
-	book, source, corpus, _ := seedAnalyzedBookIn(s.t, s.ctx, s.store, language, s.owner.ID, key, "Study "+key, lemmas)
+	book, source, corpus := seedAnalyzedBookIn(s.t, s.ctx, s.store, language, s.owner.ID, key, "Study "+key, lemmas)
 	var runID string
 	require.NoError(s.t, s.store.Pool().QueryRow(s.ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, s.owner.ID, book.ID).Scan(&runID))
 	// The sentences sit in the Book's extracted unit, so the concordance and the

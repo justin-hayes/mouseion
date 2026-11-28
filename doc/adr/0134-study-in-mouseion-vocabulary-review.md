@@ -14,7 +14,7 @@ This ADR amends:
   Anki review-log / AnkiConnect synchronization or spaced-repetition mastery
   model";
 - the exclusion of "in-app spaced repetition" in
-  [Vocabulary Browse, Concordance and custom decks](../features/vocabulary-browse-concordance-and-custom-decks.md);
+  [Vocabulary Browse, Concordance and custom decks](../archive/features/vocabulary-browse-concordance-and-custom-decks.md);
 - the Reading-owned vocabulary boundary of
   [ADR 0085](0085-reading-owned-book-vocabulary.md), for Study only;
 - the list of pgx importers in [ADR 0091](0091-go-package-layering.md) §3, to

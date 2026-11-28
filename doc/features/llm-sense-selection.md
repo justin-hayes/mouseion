@@ -122,7 +122,7 @@ fallback.
 
 - [ADR 0069: LLM sense selection and fallback gloss](../adr/0069-llm-sense-selection-and-fallback-gloss.md)
 - [Dictionary gloss and morphology enrichment](dictionary-gloss-enrichment.md)
-- [Recognition-card sentence presentation](recognition-card-sentence-presentation.md)
+- [Recognition-card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [ADR 0007: Enrichment providers, caching, and privacy](../adr/0007-enrichment-providers-caching-privacy.md)
 - [ADR 0021: Contextual sentence translation cache and privacy](../adr/0021-contextual-translation-cache.md)
 - [ADR 0064: Built-in dictionary enrichment provider](../adr/0064-dictionary-enrichment-provider.md)

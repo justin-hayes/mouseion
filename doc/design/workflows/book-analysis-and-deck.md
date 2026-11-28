@@ -1,5 +1,7 @@
 # Book analysis and deck workflow
 
+> **Study cutover.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck. The deck, preparation and download steps below are historical; analysis, refresh and the ensure-once trigger still hold.
+
 Status: **Canonical support workflow, partially superseded.** Analysis and deck
 preparation serve a Book while current reading and Read history remain independent. The
 Reading workflow at [`../../features/reading-workflow.md`](../../features/reading-workflow.md)
@@ -8,7 +10,7 @@ phrasing below is historical. Moving a Book to To Read automatically ensures
 current analysis under [ADR 0049](../../adr/0049-reading-intent-triggers-analysis.md),
 with the standalone learner action retired by [ADR 0054](../../adr/0054-retire-standalone-analysis-action.md).
 
-The implemented [Reading-owned Book vocabulary contract](../../features/reading-owned-book-vocabulary.md)
+The implemented [Reading-owned Book vocabulary contract](../../archive/features/reading-owned-book-vocabulary.md)
 supersedes the pre-reading/direct deck submission and independent-selection
 portions of the shipped workflow below. New Book preparations are currently
 gated on Current reading and use its exact snapshot; starting, switching, and

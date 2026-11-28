@@ -6,7 +6,7 @@ Status: **Superseded by ADR 0029** · Date: 2026-08-27
 > and is not part of the current product contract.
 
 The recognition-card contract is defined by [Recognition-card sentence
-presentation](../../features/recognition-card-sentence-presentation.md) and
+presentation](recognition-card-sentence-presentation.md) and
 [ADR 0029](../../adr/0029-recognition-card-sentence-presentation.md).
 
 New exports use the complete selected source sentence in `Text`, with the

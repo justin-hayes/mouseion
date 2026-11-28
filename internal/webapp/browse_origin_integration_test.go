@@ -18,7 +18,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/prepareddeck"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/justin-hayes/mouseion/internal/webauth"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +48,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		lemmas[i] = fmt.Sprintf("wort%02d", i)
 	}
 	seed := func(owner, key, title string) (domain.Book, domain.SourceMaterial, domain.Corpus) {
-		book, source, corpus, _ := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "wort00", UPOS: "NOUN", OccurrenceCount: 1}})
+		book, source, corpus := seedMigrationAnalyzedBook(t, ctx, store, owner, key, title, []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "wort00", UPOS: "NOUN", OccurrenceCount: 1}})
 		seedBrowseEvidenceTokens(t, ctx, store, source, corpus, lemmas)
 		return book, source, corpus
 	}
@@ -67,11 +66,11 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	err = seedWebappCatalogueBook(t, ctx, store, alice.ID, connection.ID, "it-entry", "Un libro", "Autrice", "it")
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
-	reading, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
 	require.NoError(t, err)
 
 	authService := auth.New(store, time.Hour)
-	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), PreparedDeck: prepareddeck.NewService(store, nil), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
+	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "origin-alice", "alice-password")
 	bobCookies, _ := loginCookies(t, h, "origin-bob", "bob-password")
 	get := func(path string) *httptest.ResponseRecorder { return perform(t, h, http.MethodGet, path, nil, cookies) }
@@ -84,8 +83,8 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	rowID := browseRowElementID(browseRowKey("NOUN", "wort26", ""))
 
 	// Browse page 2 → exact Concordance for one row.
-	browse := get("/de/reading?page=2")
-	require.Equal(t, http.StatusOK, browse.Code)
+	browse := get(bookDetailURL(first.ID) + "?page=2")
+	require.Equal(t, http.StatusOK, browse.Code, browse.Header().Get("Location"))
 	assert.Contains(t, browse.Body.String(), "Page 2 of 2")
 	concordanceHref := link(regexp.MustCompile(`href="(/de/vocabulary/concordance\?[^"]*term=wort26[^"]*)"`), browse.Body.String())
 	parsed, err := url.Parse(concordanceHref)
@@ -93,7 +92,6 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	assert.Equal(t, "lemma", parsed.Query().Get("as"))
 	assert.Equal(t, "NOUN", parsed.Query().Get("upos"))
 	assert.Equal(t, first.ID, parsed.Query().Get(originKeyBook))
-	assert.Equal(t, reading.SnapshotID, parsed.Query().Get(originKeySnapshot))
 	assert.Equal(t, "2", parsed.Query().Get(originKeyPage))
 	assert.Equal(t, "NOUN:wort26", parsed.Query().Get(originKeyRow))
 	assert.NotEmpty(t, parsed.Query().Get(originKeyRevision))
@@ -108,21 +106,21 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	t.Run("a new independent search keeps the origin but not the exact identity", func(t *testing.T) {
 		search := url.Values{"term": {"wort27"}}
 		for key, value := range parsed.Query() {
-			if _, ok := map[string]bool{originKeyBook: true, originKeySnapshot: true, originKeyPage: true, originKeyRow: true, originKeyRevision: true}[key]; ok {
+			if _, ok := map[string]bool{originKeyBook: true, originKeyPage: true, originKeyRow: true, originKeyRevision: true}[key]; ok {
 				search[key] = value
 			}
 		}
 		response := get("/de/vocabulary/concordance?" + search.Encode())
 		require.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, back, link(originBackPattern, response.Body.String()))
-		assert.Contains(t, response.Body.String(), `name="from_snap" value="`+reading.SnapshotID+`"`, "the search form carries the origin separately from the typed term")
+		assert.Contains(t, response.Body.String(), `name="from_book" value="`+first.ID+`"`, "the search form carries the origin separately from the typed term")
 	})
 
 	t.Run("Study returns to the applied Concordance state and Back restores the row", func(t *testing.T) {
 		study := get(link(originStudyPattern, exact.Body.String()))
 		require.Equal(t, http.StatusOK, study.Code)
 		returned := link(originReturnPattern, study.Body.String())
-		assert.Contains(t, returned, "from_snap="+reading.SnapshotID)
+		assert.Contains(t, returned, "from_book="+first.ID)
 		assert.Contains(t, returned, "focus=occurrence-")
 		// A browser never sends the fragment; it only positions the page.
 		again := get(strings.SplitN(returned, "#", 2)[0])
@@ -163,10 +161,9 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 
 	t.Run("invalid or foreign origins are dropped and expose nothing", func(t *testing.T) {
 		for name, mutate := range map[string]func(url.Values){
-			"page zero":        func(v url.Values) { v.Set(originKeyPage, "0") },
-			"bad accounting":   func(v url.Values) { v.Set(originKeyAll, "yes") },
-			"missing snapshot": func(v url.Values) { v.Del(originKeySnapshot) },
-			"oversized value":  func(v url.Values) { v.Set(originKeyPrefix, string(make([]byte, maxOriginValueLength+1))) },
+			"page zero":       func(v url.Values) { v.Set(originKeyPage, "0") },
+			"missing book":    func(v url.Values) { v.Del(originKeyBook) },
+			"oversized value": func(v url.Values) { v.Set(originKeyPrefix, string(make([]byte, maxOriginValueLength+1))) },
 		} {
 			values := parsed.Query()
 			mutate(values)
@@ -179,77 +176,55 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		assert.Equal(t, http.StatusOK, copied.Code)
 		assert.NotContains(t, copied.Body.String(), "Back to book vocabulary")
 		assert.NotContains(t, copied.Body.String(), first.ID)
-		// A return pointer at another owner's commitment is explained, never opened.
+		// A return pointer at another owner's Book is not found, never opened.
 		foreign := perform(t, h, http.MethodGet, back, nil, bobCookies)
-		assert.Equal(t, http.StatusConflict, foreign.Code)
+		assert.Equal(t, http.StatusNotFound, foreign.Code)
 		assert.NotContains(t, foreign.Body.String(), "Erstes Buch")
-		assert.NotContains(t, foreign.Body.String(), "Find the original Book in My Books")
 		assert.NotContains(t, foreign.Body.String(), `id="vocabulary-workflow"`)
 	})
 
-	t.Run("changed accounting visibility needs an explicit Refresh vocabulary that keeps controls", func(t *testing.T) {
-		_, err := store.Pool().Exec(ctx, `INSERT INTO known_vocabulary(owner_id,language,canonical_lemma,upos) VALUES($1,'de','wort00','NOUN')`, alice.ID)
-		require.NoError(t, err)
-		changed := get(returnWithParam(t, returnWithParam(t, back, "q", "wort"), "all", "1"))
+	t.Run("changed evidence needs an explicit Refresh words that keeps the prefix", func(t *testing.T) {
+		changed := get(returnWithParam(t, returnWithParam(t, back, "q", "wort"), "rev", "stale-revision"))
 		require.Equal(t, http.StatusConflict, changed.Code)
-		assert.Contains(t, changed.Body.String(), "Refresh vocabulary")
+		assert.Contains(t, changed.Body.String(), "Refresh words")
 		assert.NotContains(t, changed.Body.String(), "browse-row-")
-		refresh := link(regexp.MustCompile(`role="button" href="([^"]+)">Refresh vocabulary`), changed.Body.String())
+		refresh := link(regexp.MustCompile(`role="button" href="([^"]+)">Refresh words`), changed.Body.String())
 		refreshed := get(refresh)
 		require.Equal(t, http.StatusOK, refreshed.Code)
 		refreshedURL, err := url.Parse(refresh)
 		require.NoError(t, err)
+		assert.Equal(t, bookDetailURL(first.ID), refreshedURL.Path)
 		assert.Equal(t, "wort", refreshedURL.Query().Get("q"))
-		assert.Equal(t, "1", refreshedURL.Query().Get("all"))
-		assert.Equal(t, "1", refreshedURL.Query().Get("page"))
-		assert.Empty(t, refreshedURL.Query().Get("snapshot"), "refresh never carries the old commitment forward")
+		assert.Empty(t, refreshedURL.Query().Get("page"), "refresh restarts at the first page")
+		assert.Empty(t, refreshedURL.Query().Get("rev"), "refresh drops the stale revision")
+		assert.Empty(t, refreshedURL.Query().Get("snapshot"), "refresh never carries a retired commitment token")
 		assert.Contains(t, refreshed.Body.String(), "Page 1 of 2")
 	})
 
-	t.Run("lifecycle changes explain an expired origin before opening another context", func(t *testing.T) {
-		current, err := store.GetCurrentReading(ctx, alice.ID, "de")
-		require.NoError(t, err)
-		// Same-Book restart: End then Start again freezes a new snapshot.
-		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de", first.ID, current.SnapshotID))
+	t.Run("the Current reading never gates a Book's words", func(t *testing.T) {
+		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 		ended := get(back)
-		assert.Equal(t, http.StatusConflict, ended.Code)
-		assert.Contains(t, ended.Body.String(), "That book vocabulary was not restored")
-		assert.Contains(t, ended.Body.String(), "Choose a book to read")
-		assert.Contains(t, ended.Body.String(), "/library?disposition=to_read&amp;q=Erstes+Buch")
-		assert.NotContains(t, ended.Body.String(), `id="vocabulary-workflow"`)
-		assert.NotContains(t, ended.Body.String(), "Choose a To Read book in")
+		assert.Equal(t, http.StatusOK, ended.Code)
+		assert.Contains(t, ended.Body.String(), "Page 2 of 2")
 
-		restarted, err := store.StartCurrentReading(ctx, alice.ID, "de", first.ID)
-		require.NoError(t, err)
-		require.NotEqual(t, current.SnapshotID, restarted.SnapshotID)
-		sameBook := get(back)
-		assert.Equal(t, http.StatusConflict, sameBook.Code)
-		assert.Contains(t, sameBook.Body.String(), "Open current Reading")
-		assert.NotContains(t, sameBook.Body.String(), `id="vocabulary-workflow"`)
-
-		_, err = store.SwitchCurrentReading(ctx, alice.ID, "de", second.ID, first.ID, restarted.SnapshotID)
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", second.ID)
 		require.NoError(t, err)
 		switched := get(back)
-		assert.Equal(t, http.StatusConflict, switched.Code)
-		assert.Contains(t, switched.Body.String(), "Open current Reading")
-		assert.Contains(t, switched.Body.String(), "/library?disposition=to_read&amp;q=Erstes+Buch")
-		assert.NotContains(t, switched.Body.String(), `id="vocabulary-workflow"`)
-		assert.NotContains(t, switched.Body.String(), "Zweites Buch", "the new reading is not opened or transferred the old controls")
+		assert.Equal(t, http.StatusOK, switched.Code)
+		assert.Contains(t, switched.Body.String(), "Erstes Buch")
+		assert.NotContains(t, switched.Body.String(), "Zweites Buch", "another Book's controls and words are never transferred")
 	})
 
-	t.Run("a language mismatch takes precedence and mutates nothing", func(t *testing.T) {
-		// The origin is validated against the URL's language: German's origin
-		// under the Italian URL restores nothing.
-		other := get(strings.Replace(back, "/de/reading", "/it/reading", 1))
-		assert.Equal(t, http.StatusConflict, other.Code)
-		assert.NotContains(t, other.Body.String(), `id="vocabulary-workflow"`)
+	t.Run("a Book-addressed page runs in the Book's language", func(t *testing.T) {
+		response := get(back)
+		assert.Equal(t, http.StatusOK, response.Code)
 		stored, err := store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)
-		assert.Equal(t, "de", stored, "a refused request never records its language as the Last study language")
+		assert.Equal(t, "de", stored)
 		// Concordance names its language in the URL, so the page renders in it
 		// and the visit records it as the Last study language (ADR 0131).
-		response := get(concordanceHref)
-		assert.Equal(t, http.StatusOK, response.Code, concordanceHref)
+		concordance := get(concordanceHref)
+		assert.Equal(t, http.StatusOK, concordance.Code, concordanceHref)
 		stored, err = store.GetStoredActiveStudyLanguage(ctx, alice.ID)
 		require.NoError(t, err)
 		assert.Equal(t, "de", stored)

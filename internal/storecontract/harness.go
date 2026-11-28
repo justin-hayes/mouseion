@@ -1,5 +1,5 @@
 // Package storecontract holds the scenarios that pin Current reading lifecycle,
-// deck admission, lemma review, Book visibility, disposition, previously read
+// lemma review, Book visibility, disposition, previously read
 // import, and Classical catalog membership behavior. Each store adapter that
 // carries contractual transitions (ADR 0088) implements Harness and runs every
 // scenario, so the fixtures and PostgreSQL adapters are held to the same
@@ -188,6 +188,12 @@ type StudyProgressStore interface {
 	NextStudyCard(owner, language string, now time.Time) (domain.StudyCard, error)
 	RecordStudyGrade(owner string, record domain.StudyGradeRecord) error
 	ListStudyReviewLog(owner, progressID string) ([]domain.StudyReviewLog, error)
+	// RecordStudyAlreadyKnown answers an introduction Already known: it stores
+	// the Already-known event (never a review-log row) and the word's new
+	// state. An introduction answered twice, or a card that is not an
+	// introduction, is domain.ErrStudyStale.
+	RecordStudyAlreadyKnown(owner string, record domain.StudyAlreadyKnownRecord) error
+	ListStudyAlreadyKnownEvents(owner, language string) ([]domain.StudyAlreadyKnownEvent, error)
 }
 
 // StudyFluencyStore is the Fluency context and response surface under test
@@ -236,36 +242,26 @@ type CatalogueEntrySeed struct {
 	BookID string
 }
 
-// Store is the Current reading and deck admission surface under test.
+// Store is the Current reading surface under test. StartCurrentReading is Read
+// next: it replaces any current reading in the language.
 type Store interface {
 	GetCurrentReading(owner, language string) (domain.CurrentReading, error)
 	StartCurrentReading(owner, language, bookID string) (domain.CurrentReading, error)
-	SwitchCurrentReading(owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.CurrentReading, error)
-	EndCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) error
-	FinishCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error)
-	ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error)
-	// ListReservedVocabulary returns the vocabulary the owner's active reading
-	// reserves in language.
-	ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error)
-
-	// PrepareCurrentReadingDeck submits the Book's deck for the snapshot the
-	// request names and returns the resulting preparation.
-	PrepareCurrentReadingDeck(owner, bookID, expectedSnapshotID string) (domain.DeckPreparation, error)
-	// RepreparePreparation rolls the preparation forward for the snapshot the
-	// request names and returns the resulting preparation.
-	RepreparePreparation(owner, id, expectedSnapshotID string) (domain.DeckPreparation, error)
+	EndCurrentReading(owner, language string) error
+	FinishCurrentReading(owner, language string) (domain.CurrentReadingFinishResult, error)
 }
 
-// LemmaReviewStore is the lemma review surface under test: occurrences, flags,
-// and the previewed and confirmed vocabulary decisions.
+// LemmaReviewStore is the lemma review surface under test: occurrences and
+// the previewed and confirmed vocabulary decisions.
 type LemmaReviewStore interface {
 	// ListLemmaReviewOccurrences returns the occurrences of surface in the
-	// Book's current analysis, with any learner decision and flag applied. An
+	// Book's current analysis, with any learner decision applied. An
 	// empty surface returns every occurrence.
 	ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error)
-	// SaveLemmaReviewFlags records detector flags without reopening a flag the
-	// learner has already resolved.
-	SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error
+	// ListCorpusLemmaReviewOccurrences returns the occurrences of one observed
+	// form with one analyzer lemma in the current analysis of every Book of
+	// the owner's My Books in the language, with any learner decision applied.
+	ListCorpusLemmaReviewOccurrences(owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error)
 	// ReadLemmaReviewProposal previews a proposal and returns the fingerprint a
 	// confirm must present.
 	ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)
@@ -283,10 +279,6 @@ type Seeder interface {
 
 	// SeedBook creates an analyzed Book for owner and returns its ID.
 	SeedBook(t *testing.T, owner string, seed BookSeed) string
-	// SeedKnownVocabulary records Known identities for owner.
-	SeedKnownVocabulary(t *testing.T, owner string, identities []domain.SnapshotIdentity)
-	// SeedReadyPreparation makes the snapshot's preparation ready and returns its ID.
-	SeedReadyPreparation(t *testing.T, owner, bookID, snapshotID string) string
 	// SeedCurrentReading records an already-current Book without a Start
 	// transition, for scenarios that need a Work's current Book before Remove.
 	SeedCurrentReading(t *testing.T, owner, language, bookID string)
@@ -315,11 +307,6 @@ type Scenario struct {
 // Scenarios returns every store contract scenario.
 func Scenarios() []Scenario {
 	scenarios := lifecycleScenarios()
-	scenarios = append(scenarios, gateScenarios()...)
-	for _, tc := range finishCases() {
-		scenarios = append(scenarios, finishScenario(tc))
-	}
-	scenarios = append(scenarios, admissionScenarios()...)
 	scenarios = append(scenarios, lemmaReviewScenarios()...)
 	scenarios = append(scenarios, greekScenarios()...)
 	scenarios = append(scenarios, classicalScenarios()...)

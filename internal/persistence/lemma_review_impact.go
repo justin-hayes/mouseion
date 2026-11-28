@@ -7,7 +7,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
@@ -15,7 +14,7 @@ import (
 // ReadLemmaReviewProposal previews a proposal in one repeatable-read transaction.
 // For every identity the proposal moves, it reads the effective count in this
 // Book now and after the proposal, the count across the learner's other
-// currently analyzed Books, and Known and Reserved state. The fingerprint binds a
+// currently analyzed Books, and Known state. The fingerprint binds a
 // later confirm to exactly that state. It reports the pending or unavailable
 // errors of the snapshot freeze while the Book or any other analyzed Book lacks a
 // ready projection. Previewing writes nothing.
@@ -81,51 +80,14 @@ func lemmaReviewIdentityStates(ctx context.Context, tx pgx.Tx, scope browseCount
 	if err != nil {
 		return nil, err
 	}
-	known, err := knownLemmaReviewIdentities(ctx, tx, proposal.OwnerID, proposal.Language, lemmas)
-	if err != nil {
-		return nil, err
-	}
-	q := sqlcgen.New(tx)
 	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
 	for _, identity := range affected {
 		normalized := normalizedBrowseCountIdentity(identity.CanonicalLemma, identity.UPOS)
 		normalized.discriminator = identity.LexicalDiscriminator
-		reserved, err := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-			OwnerID: proposal.OwnerID, Language: identity.Language, CanonicalLemma: normalized.lemma, Upos: normalized.upos,
-		})
-		if err != nil {
-			return nil, err
-		}
 		states = append(states, domain.LemmaReviewIdentityState{
 			Identity: identity, InBook: before[normalized].occurrences, AfterInBook: after[normalized].occurrences,
 			OtherBooks: others[currentReadingVocabularyIdentity(normalized)],
-			Known:      knownLemmaReviewContains(known, normalized), Reserved: reserved,
 		})
 	}
 	return states, nil
-}
-
-// knownLemmaReviewIdentities returns the Known identities of the given lemmas.
-func knownLemmaReviewIdentities(ctx context.Context, tx pgx.Tx, owner, language string, lemmas []string) (map[browseCountIdentity]bool, error) {
-	rows, err := tx.Query(ctx, `SELECT canonical_lemma,upos FROM known_vocabulary WHERE owner_id=$1 AND language=$2 AND canonical_lemma=ANY($3)`,
-		owner, canonicalization.NormalizeLanguage(language), lemmas)
-	if err != nil {
-		return nil, fmt.Errorf("read Known state for lemma review preview: %w", err)
-	}
-	defer rows.Close()
-	known := make(map[browseCountIdentity]bool)
-	for rows.Next() {
-		var lemma, upos string
-		if err := rows.Scan(&lemma, &upos); err != nil {
-			return nil, err
-		}
-		known[browseCountIdentity{lemma: lemma, upos: upos}] = true
-	}
-	return known, rows.Err()
-}
-
-// knownLemmaReviewContains applies selection's Known rule, where an empty
-// stored UPOS is the lemma wildcard.
-func knownLemmaReviewContains(known map[browseCountIdentity]bool, identity browseCountIdentity) bool {
-	return known[identity] || known[browseCountIdentity{lemma: identity.lemma}]
 }

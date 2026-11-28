@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/de/library', '/de/reading', '/catalogs', '/de/vocabulary', '/de/vocabulary/concordance', '/reading/books/fixture-lemma-flag-book/lemma-review?form=Weg', '/jobs']) {
+    for (const path of ['/de/library', '/books/fixture-book', '/catalogs', '/de/vocabulary', '/de/vocabulary/concordance', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -50,8 +50,8 @@ test.describe('migration and epistemic regression coverage', () => {
     expect(css).toContain('prefers-reduced-motion');
   });
 
-  test('shows current reading and Browse without Other To Read choices or forecasts', async ({ page }) => {
-    await page.goto('/de/reading');
+  test('shows the current reading on My Books and its words on the Book detail page without forecasts', async ({ page }) => {
+    await page.goto('/de/library');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -59,29 +59,30 @@ test.describe('migration and epistemic regression coverage', () => {
     await expect(page.locator('ol.journey-list, ul.journey-list')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Campaign history & operations' })).toHaveCount(0);
     await expect(page.getByRole('list', { name: 'To Read books' })).toHaveCount(0);
-    await expect(page.locator('#vocabulary-workflow')).toBeVisible();
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     await expect(page.getByText(/vocabulary-efficient alternative/i)).toHaveCount(0);
     await expect(page.getByText(/advisory order/i)).toHaveCount(0);
     await expect(page.locator('#provisional-journey-status')).toHaveCount(0);
+    await expectPostFormsCarryCSRF(page);
+    await page.goto('/books/fixture-book');
+    await expect(page.locator('#vocabulary-workflow')).toBeVisible();
     await expectPostFormsCarryCSRF(page);
     const retiredJourneyRoute = await page.goto('/journey/fixture-book');
     expect(retiredJourneyRoute?.status()).toBe(404);
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/de/reading');
+    await page.goto('/de/library');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();
     await disclosure.locator('summary').focus();
     await expect(disclosure.locator('summary')).toBeFocused();
     await disclosure.locator('summary').press('Enter');
-    await expect(goal).toContainText('Record the reading achievement');
-    await expect(goal).toContainText(/accept \d+ currently eligible frozen Reserved identities into Known vocabulary/);
+    await expect(goal).toContainText('This changes no vocabulary');
     await expect(goal.locator('form[action="/reading/finish"] input[name="csrf_token"]')).toHaveCount(1);
-    await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_book_id"]')).toHaveCount(1);
-    await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
+    await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_book_id"]')).toHaveCount(0);
+    await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(0);
 
     await page.goto('/de/vocabulary');
     await expect(page.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();

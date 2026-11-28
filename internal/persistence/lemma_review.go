@@ -2,9 +2,7 @@ package persistence
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -12,105 +10,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
 )
-
-// SaveLemmaReviewFlags records new detector evidence without reopening a
-// learner-resolved flag. The Book advisory lock is shared with decisions and
-// both vocabulary freeze paths.
-func (s *PostgresStore) SaveLemmaReviewFlags(ctx context.Context, flags []domain.LemmaReviewFlag) error {
-	if len(flags) == 0 {
-		return nil
-	}
-	first := flags[0].Occurrence
-	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		if err := lockLemmaReviewFlagBook(ctx, tx, first); err != nil {
-			return err
-		}
-		return saveLemmaReviewFlagsTx(ctx, tx, first, flags)
-	})
-}
-
-// lockLemmaReviewFlagBook takes the Book's shared advisory lock, matching the
-// decision and vocabulary-freeze paths, and reports a missing Book as
-// ErrNotFound.
-func lockLemmaReviewFlagBook(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence) error {
-	if _, err := sqlcgen.New(tx).GetBookForUpdate(ctx, sqlcgen.GetBookForUpdateParams{Owner: first.OwnerID, ID: first.BookID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		return err
-	}
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, first.OwnerID+":"+first.BookID); err != nil {
-		return err
-	}
-	return nil
-}
-
-// saveLemmaReviewFlagsTx records every flag against the first flag's Book. A
-// flag outside that Book or its current analysis is rejected as ErrNotFound.
-func saveLemmaReviewFlagsTx(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence, flags []domain.LemmaReviewFlag) error {
-	for _, flag := range flags {
-		if err := saveLemmaReviewFlag(ctx, tx, first, flag); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// saveLemmaReviewFlag rejects a flag whose occurrence is missing required
-// evidence or is not in the Book's current analysis, then records the flag's
-// evidence. A flag the learner already resolved is never reopened, a local
-// high-risk flag replaces an unresolved provider flag for the same occurrence,
-// and a provider flag never replaces an unresolved local one.
-func saveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, first domain.LemmaReviewOccurrence, flag domain.LemmaReviewFlag) error {
-	o := flag.Occurrence
-	if o.OwnerID != first.OwnerID || o.BookID != first.BookID || o.CorpusID == "" || o.AnalysisRunID == "" || o.SourceDocumentID == "" || o.EndOffset <= o.StartOffset || strings.TrimSpace(flag.Reason) == "" {
-		return ErrNotFound
-	}
-	exists, err := occurrenceInCurrentAnalysis(ctx, tx, o)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return ErrNotFound
-	}
-	provenance, err := marshalLemmaReviewFlagProvenance(flag.Provenance)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO occurrence_lemma_review_flags(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,reason,evidence_provenance) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) ON CONFLICT(owner_id,book_id,analysis_run_id,source_document_id,start_offset,end_offset) DO UPDATE SET reason=EXCLUDED.reason,evidence_provenance=EXCLUDED.evidence_provenance WHERE occurrence_lemma_review_flags.resolution IS NULL AND occurrence_lemma_review_flags.evidence_provenance->>'source'=$10 AND COALESCE(EXCLUDED.evidence_provenance->>'source','')<>$10`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, flag.Reason, string(provenance), domain.LemmaReviewFlagProviderSource)
-	return err
-}
-
-// occurrenceInCurrentAnalysis reports whether o is a token of the Book's current
-// completed analysis, identified by its corpus, run and sentence unit.
-func occurrenceInCurrentAnalysis(ctx context.Context, tx pgx.Tx, o domain.LemmaReviewOccurrence) (bool, error) {
-	var exists bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(
-				SELECT 1 FROM book_current_analyses cai
-				JOIN corpora c ON c.owner_id=cai.owner_id AND c.id=$3 AND c.analysis_run_id=cai.analysis_run_id
-				JOIN corpus_tokens t ON t.owner_id=c.owner_id AND t.corpus_id=c.id AND t.analysis_run_id=c.analysis_run_id
-				JOIN corpus_sentences s ON s.owner_id=t.owner_id AND s.corpus_id=t.corpus_id AND s.analysis_run_id=t.analysis_run_id AND s.sentence_ordinal=t.sentence_ordinal
-				WHERE cai.owner_id=$1 AND cai.book_id=$2 AND cai.analysis_run_id=$4
-				AND t.start_offset=$5 AND t.end_offset=$6 AND s.unit_id=$7)`, o.OwnerID, o.BookID, o.CorpusID, o.AnalysisRunID, o.StartOffset, o.EndOffset, o.SourceDocumentID).Scan(&exists)
-	return exists, err
-}
-
-// marshalLemmaReviewFlagProvenance encodes a flag's evidence, defaulting a
-// missing map to an empty object.
-func marshalLemmaReviewFlagProvenance(provenance map[string]any) ([]byte, error) {
-	if provenance == nil {
-		provenance = map[string]any{}
-	}
-	return json.Marshal(provenance)
-}
-
-// unresolvedLemmaReviewFlags reports whether the analysis still holds unresolved
-// local high-risk evidence. Provider-sourced advisory flags never gate a freeze.
-func unresolvedLemmaReviewFlags(ctx context.Context, tx pgx.Tx, owner, book, analysisRun string) (bool, error) {
-	var exists bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM occurrence_lemma_review_flags WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND resolution IS NULL AND COALESCE(evidence_provenance->>'source','')<>$4)`, owner, book, analysisRun, domain.LemmaReviewFlagProviderSource).Scan(&exists)
-	return exists, err
-}
 
 // listEligibleLemmaReviewRows fetches candidate occurrences and keeps only
 // those selection counts as vocabulary (ADR 0087).
@@ -149,11 +48,37 @@ func listLemmaReviewOccurrences(ctx context.Context, q *sqlcgen.Queries, owner, 
 			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
 			UPOS: row.Upos, Dependency: row.Dependency, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
 			LexicalDiscriminator: row.LexicalDiscriminator,
-			ReviewFlagReason:     row.ReviewFlagReason, ReviewFlagResolution: row.ReviewFlagResolution,
 			NormalizationProfile: row.NormalizationProfile, NormalizationVersion: row.NormalizationVersion,
 		}
-		if err := json.Unmarshal([]byte(row.ReviewFlagProvenance), &occurrence.ReviewFlagProvenance); err != nil {
-			return nil, err
+		result = append(result, occurrence)
+	}
+	return result, nil
+}
+
+// ListCorpusLemmaReviewOccurrences resolves one observed form with one analyzer
+// lemma in the current completed analysis of every Book in the owner's My
+// Books of the language, with each occurrence's learner decision
+// applied. Selection decides which occurrences count as vocabulary, as in a
+// Book's own review.
+func (s *PostgresStore) ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
+	rows, err := s.queries().ListCorpusLemmaReviewOccurrences(ctx, sqlcgen.ListCorpusLemmaReviewOccurrencesParams{Owner: owner, Language: language, Surface: surface, Lemma: lemma})
+	if err != nil {
+		return nil, err
+	}
+	cfg := selection.DefaultConfig("")
+	result := make([]domain.LemmaReviewOccurrence, 0, len(rows))
+	for _, row := range rows {
+		if !selection.OccurrenceEligible(cfg, row.Language, row.CanonicalLemma, row.Upos, row.Dependency) {
+			continue
+		}
+		occurrence := domain.LemmaReviewOccurrence{
+			OwnerID: owner, BookID: row.BookID, CorpusID: row.CorpusID, AnalysisRunID: row.AnalysisRunID,
+			SourceDocumentID: row.UnitID, StartOffset: row.StartOffset, EndOffset: row.EndOffset,
+			SentenceOrdinal: row.SentenceOrdinal, TokenOrdinal: row.TokenOrdinal,
+			Surface: row.Surface, RawLemma: row.RawLemma, CanonicalLemma: row.CanonicalLemma,
+			UPOS: row.Upos, Dependency: row.Dependency, SentenceText: row.SentenceText, CorrectedLemma: row.CorrectedLemma, Excluded: row.Excluded,
+			LexicalDiscriminator: row.LexicalDiscriminator,
+			NormalizationProfile: row.NormalizationProfile, NormalizationVersion: row.NormalizationVersion,
 		}
 		result = append(result, occurrence)
 	}
@@ -201,9 +126,6 @@ func (s *PostgresStore) PutLemmaDecisionProposal(ctx context.Context, proposal d
 		if err := lockBookForUpdate(ctx, sqlcgen.New(tx), owner, book); err != nil {
 			return err
 		}
-		if err := rejectLemmaDecisionForCurrentReading(ctx, tx, owner, book); err != nil {
-			return err
-		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 193))`, owner+":"+book); err != nil {
 			return err
 		}
@@ -236,9 +158,6 @@ func applyLemmaDecisionsTx(ctx context.Context, tx pgx.Tx, owner, book string, d
 		if updated {
 			changed = append(changed, decision)
 		}
-		if err := resolveLemmaReviewFlag(ctx, tx, decision); err != nil {
-			return err
-		}
 	}
 	if len(changed) == 0 {
 		return nil
@@ -257,30 +176,9 @@ func applyLemmaDecisionsTx(ctx context.Context, tx pgx.Tx, owner, book string, d
 	return nil
 }
 
-func resolveLemmaReviewFlag(ctx context.Context, tx pgx.Tx, decision domain.LemmaReviewDecision) error {
-	o := decision.Occurrence
-	_, err := tx.Exec(ctx, `UPDATE occurrence_lemma_review_flags SET resolution=$7,resolved_at=now() WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND source_document_id=$4 AND start_offset=$5 AND end_offset=$6`, o.OwnerID, o.BookID, o.AnalysisRunID, o.SourceDocumentID, o.StartOffset, o.EndOffset, decision.Resolution())
-	return err
-}
-
 func lockLemmaReviewLearnerState(ctx context.Context, tx pgx.Tx, owner string) error {
 	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 194))`, owner)
 	return err
-}
-
-// rejectLemmaDecisionForCurrentReading refuses vocabulary decisions on the
-// Book that is the owner's current reading. The caller holds the learner-state
-// and Book locks, so Start cannot make the Book current before this decision
-// commits, and the row read here is the one Start would have written.
-func rejectLemmaDecisionForCurrentReading(ctx context.Context, tx pgx.Tx, owner, book string) error {
-	var current bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM primary_goals WHERE owner_id=$1 AND book_id=$2)`, owner, book).Scan(&current); err != nil {
-		return err
-	}
-	if current {
-		return domain.ErrLemmaDecisionCurrentReading
-	}
-	return nil
 }
 
 func putLemmaDecisionTx(ctx context.Context, q *sqlcgen.Queries, decision domain.LemmaReviewDecision) (bool, error) {

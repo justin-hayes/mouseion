@@ -20,3 +20,8 @@ WHERE language = sqlc.arg('language')
   AND sentence_hash = sqlc.arg('sentence_hash')
 ORDER BY cached_at DESC
 LIMIT 1;
+
+-- name: UpsertEnrichmentCache :exec
+INSERT INTO enrichment_cache(language, target_language, canonical_lemma, upos, item_kind, provider, provider_version, sentence_hash, dictionary_provider_version, meaning_evidence_hash, translation, fallback_gloss, sense_selection, sentence_translation, sentence_translation_target, sentence_translation_targets, cached_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+ON CONFLICT DO NOTHING;

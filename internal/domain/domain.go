@@ -2,190 +2,8 @@
 package domain
 
 import (
-	"slices"
-	"strings"
 	"time"
 )
-
-type DeckPreparationState string
-
-const DeckPreparationRequiresRepreparationError = "This deck's frozen render inputs are unavailable, so its presentation cannot be updated. Re-prepare the deck from the book's current analysis."
-
-// DeckPreparationProviderOmissionReason is the fixed, learner-facing reason for
-// an accepted identity a ready deck had to leave out because the translation
-// provider gave an unusable answer.
-const DeckPreparationProviderOmissionReason = "the translation provider gave an unusable answer"
-
-// DeckPreparationEvidenceAssistedPassAbstentionReason is the internal outcome
-// reason an Ancient Greek evidence-assisted pass item records when the provider
-// added nothing. The pass only adds to the source-evidence card, so it is never
-// reported as a meaning or provider omission (ADR 0101).
-const DeckPreparationEvidenceAssistedPassAbstentionReason = "the evidence-assisted provider pass added nothing"
-
-// DeckPreparationLemmaMismatchLabel is the learner-facing label for a card the
-// contextual-gloss provider omitted because the representative sentence uses a
-// different lexeme than the target lemma.
-const DeckPreparationLemmaMismatchLabel = "the sentence uses a different word than this lemma"
-
-// DeckPreparationIdiomLiteralUseLabel is the learner-facing label for an idiom
-// card the provider omitted because the sentence uses the words literally
-// (ADR 0114). An idiom omission never raises a lemma review flag.
-const DeckPreparationIdiomLiteralUseLabel = "the words are used literally here"
-
-// DeckPreparationLemmaMismatchPrefix is the reserved, domain-owned prefix that
-// distinguishes a lemma-mismatch omission from an ambiguous one in the existing
-// free-text omission reason. It is deliberately independent of the learner
-// label so rewording the label cannot reclassify already stored rows. No schema
-// change is needed.
-const DeckPreparationLemmaMismatchPrefix = "lemma_mismatch: "
-
-// maxDeckPreparationOmissionReasonRunes matches the persisted omission-reason
-// bound.
-const maxDeckPreparationOmissionReasonRunes = 200
-
-// DeckPreparationLemmaMismatchDetail bounds a provider's lemma-mismatch reason
-// to the space available in the stored omission reason's detail, so evidence
-// provenance and the stored omission carry the same bounded text.
-func DeckPreparationLemmaMismatchDetail(detail string) string {
-	detail = strings.TrimSpace(detail)
-	available := maxDeckPreparationOmissionReasonRunes - len([]rune(DeckPreparationLemmaMismatchPrefix))
-	if runes := []rune(detail); len(runes) > available {
-		detail = string(runes[:available])
-	}
-	return detail
-}
-
-// DeckPreparationLemmaMismatchOmissionReason builds the stored omission reason
-// for a lemma-mismatch outcome: the reserved prefix plus the bounded provider
-// reason, truncated so the persisted value stays within its existing bound.
-func DeckPreparationLemmaMismatchOmissionReason(detail string) string {
-	return DeckPreparationLemmaMismatchPrefix + DeckPreparationLemmaMismatchDetail(detail)
-}
-
-// IsDeckPreparationLemmaMismatchOmission reports whether a stored omission
-// reason uses the reserved lemma-mismatch prefix.
-func IsDeckPreparationLemmaMismatchOmission(reason string) bool {
-	return strings.HasPrefix(reason, DeckPreparationLemmaMismatchPrefix)
-}
-
-const (
-	DeckPreparationQueued    DeckPreparationState = "queued"
-	DeckPreparationPreparing DeckPreparationState = "preparing"
-	DeckPreparationReady     DeckPreparationState = "ready"
-	DeckPreparationFailed    DeckPreparationState = "failed"
-	DeckPreparationCancelled DeckPreparationState = "cancelled"
-)
-
-// Active reports whether the preparation is still in flight. The SQL
-// predicates that attach a run or cancel a preparation accept exactly these
-// states.
-func (s DeckPreparationState) Active() bool {
-	return s == DeckPreparationQueued || s == DeckPreparationPreparing
-}
-
-// RequeueableDeckPreparationStates is the set a settled attempt may requeue
-// from. The SQL predicate that requeues a preparation accepts exactly these
-// states.
-func RequeueableDeckPreparationStates() []DeckPreparationState {
-	return []DeckPreparationState{DeckPreparationFailed, DeckPreparationCancelled}
-}
-
-// Requeueable reports whether a settled attempt may start again.
-func (s DeckPreparationState) Requeueable() bool {
-	return slices.Contains(RequeueableDeckPreparationStates(), s)
-}
-
-type DeckPreparation struct {
-	ID, OwnerID, SourceMaterialID, AnalysisRunID, CurrentRunID, BookID, SnapshotID, Filename, DeckName, ContentHash, Error string
-	State                                                                                                                  DeckPreparationState
-	Artifact                                                                                                               []byte
-	TotalCards, CardsWithEnglish, CardsWithContextualSentenceTranslations, CardsWithFallbackGloss                          int
-	// VocabularyCards and IdiomCards split TotalCards by frozen item kind. The
-	// values are derived from the manifest, so no persisted column changes.
-	VocabularyCards, IdiomCards int
-	// VocabularyOmissions and IdiomOmissions split the provider's explicit
-	// abstentions by frozen item kind. An idiom omission is never a vocabulary
-	// omission (ADR 0114). Both are derived from the durable outcomes.
-	VocabularyOmissions, IdiomOmissions int
-	// IdiomOverflow is how many candidate idioms the per-deck bound left out
-	// while freezing. It is derived from the manifest and is not an omission
-	// (doc/features/idiom-cards.md).
-	IdiomOverflow                         int
-	ContextualGlosses, ContextOnlyGlosses int
-	ContextualGlossesReported             bool
-	QualityOmissions                      int
-	// ProviderOmissions counts accepted identities the translation provider
-	// could not answer usably. They were left out of the ready deck and can be
-	// retried; unlike QualityOmissions they would otherwise have produced cards.
-	ProviderOmissions                                     int
-	RenderInputVersion, PresentationVersion, DeckRevision int
-	VocabularyCount                                       int
-	EvidenceCoverage                                      []DeckPreparationEvidenceCoverage
-	// MeaningOmissions lists vocabulary items the provider left unresolved.
-	// Idiom abstentions are listed separately so the two are never conflated.
-	MeaningOmissions     []DeckPreparationMeaningOmission
-	IdiomOmissionDetails []DeckPreparationIdiomOmission
-	// LemmaMismatchOmissions counts the subset of MeaningOmissions the
-	// contextual-gloss provider attributed to a different lexeme than the
-	// target lemma. Ambiguous omissions are not included.
-	LemmaMismatchOmissions int
-	// The fields below are a derived, owner-scoped status projection. They are
-	// deliberately not part of the public state machine; they describe the
-	// durable run and Batch work behind the existing preparing state.
-	Phase                                                                                string
-	FailureClass                                                                         string
-	BatchAge                                                                             time.Duration
-	TranslationEligible, TranslationDone                                                 int
-	TranslationPending, TranslationRunning                                               int
-	TranslationFailed, TranslationCancelled                                              int
-	TranslationRetrying                                                                  int
-	BatchChunkCount, BatchSubmittedChunks                                                int
-	BatchPollingChunks, BatchReconcilingChunks                                           int
-	BatchCompletedChunks, BatchFailedChunks, BatchCancelledChunks                        int
-	BatchRequestCount, BatchCompletedRequests, BatchFailedRequests, BatchExpiredRequests int
-	BatchInputTokens, BatchOutputTokens                                                  int64
-	CreatedAt, UpdatedAt                                                                 time.Time
-	StartedAt, CompletedAt                                                               *time.Time
-	StudyingAt, ReviewedAt, GraduatedAt, ReleasedAt, RetiredAt                           *time.Time
-}
-
-type DeckPreparationMeaningOmission struct {
-	TargetWord string
-	Reason     string
-}
-
-// DeckPreparationIdiomOmission is an idiom the provider declined in context.
-// It is deliberately distinct from a vocabulary meaning omission (ADR 0114).
-type DeckPreparationIdiomOmission struct {
-	Headword string
-	Reason   string
-}
-
-type DeckPreparationEvidenceCoverage struct {
-	Source     string
-	Configured bool
-	Selected   int
-	Matched    int
-	Candidates int
-	Omitted    int
-}
-
-// PreparedDeckRerenderWork is the content-free identity needed to enqueue an
-// automatic presentation update after a process restart.
-type PreparedDeckRerenderWork struct {
-	OwnerID, PreparationID, RunID string
-	PresentationVersion           int
-}
-
-type DeckPreparationVocabulary struct {
-	OwnerID, DeckPreparationID, Language, CanonicalLemma, UPOS string
-	LexicalDiscriminator                                       string
-	// Headword is the imported citation form shown to learners, empty for
-	// modern-language vocabulary.
-	Headword    string
-	GeneratedAt time.Time
-	GraduatedAt *time.Time
-}
 
 type User struct {
 	ID, Username string
@@ -204,6 +22,23 @@ type StudyLanguage struct {
 	Language, DisplayName string
 }
 
+// VocabularyStudyState is the learner's Study state of one currently evidenced
+// effective identity in Browse (ADR 0136 §5). It replaces Known, Reserved and
+// Unknown vocabulary: a word is Mature, in study but not yet Mature, or not
+// yet introduced.
+type VocabularyStudyState string
+
+const (
+	// VocabularyStudyNotIntroduced is a word in the Corpus with no Study
+	// progress.
+	VocabularyStudyNotIntroduced VocabularyStudyState = "not-introduced"
+	// VocabularyStudyInStudy is a word in study that is not yet Mature.
+	VocabularyStudyInStudy VocabularyStudyState = "in-study"
+	// VocabularyStudyMature is a word in study on a schedule of at least
+	// FluencyMaturityDays.
+	VocabularyStudyMature VocabularyStudyState = "mature"
+)
+
 // VocabularyBrowseRow is one currently evidenced effective identity in a
 // learner's selected study language. LexicalDiscriminator keeps source
 // homographs with the same canonical lemma and part of speech apart. Headword is
@@ -218,10 +53,7 @@ type VocabularyBrowseRow struct {
 	OccurrenceCount              int64
 	AcrossBooksOccurrenceCount   int64
 	BookCount                    int64
-	Known                        bool
-	Reserved                     bool
-	Generated                    bool
-	InBookDeck                   bool
+	StudyState                   VocabularyStudyState
 	Corrected                    bool
 	BareLemmaWithNumberedSibling bool
 }
@@ -242,27 +74,21 @@ type VocabularyBrowsePage struct {
 	BrowseCountsUnavailable      bool
 	SelectedBooks                []string
 	SelectedUPOS                 []string
-	KnownFilter                  string
-	ReservedFilter               string
 	Sort                         string
-	IncludeAll                   bool
 	CorpusRevision               string
 	Page                         int
 }
 
 type VocabularyBrowseQuery struct {
-	Language       string
-	Prefix         string
-	CurrentBookID  string
-	ReadingBookID  string
-	BookIDs        []string
-	UPOS           []string
-	KnownFilter    string
-	ReservedFilter string
-	Sort           string
-	IncludeAll     bool
-	Revision       string
-	Page           int
+	Language      string
+	Prefix        string
+	CurrentBookID string
+	ReadingBookID string
+	BookIDs       []string
+	UPOS          []string
+	Sort          string
+	Revision      string
+	Page          int
 }
 
 type VocabularyBrowseBook struct {
@@ -391,7 +217,10 @@ type AnalysisCorpusVocabulary struct {
 
 type LemmaOccurrence struct {
 	Language, CanonicalLemma, UPOS string
-	OccurrenceCount                int64
+	// LexicalDiscriminator completes the effective vocabulary identity; it is
+	// empty when the identity has none.
+	LexicalDiscriminator string
+	OccurrenceCount      int64
 }
 
 // LemmaReviewOccurrence is one content-word token in the current exact Book
@@ -406,8 +235,6 @@ type LemmaReviewOccurrence struct {
 	Dependency                               string
 	SentenceText, CorrectedLemma             string
 	Excluded                                 bool
-	ReviewFlagReason, ReviewFlagResolution   string
-	ReviewFlagProvenance                     map[string]any
 	// NormalizationProfile and NormalizationVersion are the profile the
 	// occurrence's analysis recorded, so a correction is normalized by exactly
 	// that version rather than by whatever profile is active now. Both are empty
@@ -421,24 +248,6 @@ type LemmaReviewDecision struct {
 	Excluded             bool
 	NormalizationProfile string
 	NormalizationVersion string
-}
-
-// LemmaReviewFlag is a source-attributed, non-authoritative review signal for
-// one occurrence in one exact analysis. Resolution is empty until the learner
-// explicitly keeps, corrects, or excludes that occurrence.
-type LemmaReviewFlag struct {
-	Occurrence LemmaReviewOccurrence
-	Reason     string
-	Provenance map[string]any
-	Resolution string
-}
-
-type OccurrenceLemmaCorrection struct {
-	SourceDocumentID string
-	StartOffset      int64
-	EndOffset        int64
-	CanonicalLemma   string
-	Excluded         bool
 }
 
 type CoverageThreshold struct {
@@ -459,23 +268,30 @@ type CoverageProjection struct {
 	ProjectedTokenCount int64
 }
 
-// AnalysisCoverage separates explicit mastery from projected study investment.
+// AnalysisCoverage separates Mature words from the lighter in-study figure and
+// from projected study investment (ADR 0136 §3). Mature tokens are those whose
+// effective vocabulary identity is Mature; in-study tokens also count words
+// introduced but not yet Mature, so they include every Mature token.
 type AnalysisCoverage struct {
 	SourceMaterialID     string
 	AnalysisRunID        string
 	AnalyzableTokenCount int64
 	DistinctLemmaCount   int64
-	KnownTokenCount      int64
-	KnownLemmaCount      int64
-	ReservedTokenCount   int64
-	ReservedLemmaCount   int64
+	MatureTokenCount     int64
+	MatureLemmaCount     int64
+	InStudyTokenCount    int64
+	InStudyLemmaCount    int64
 	UnknownTokenCount    int64
 	UnknownLemmaCount    int64
 	TopUnknownLemmas     []LemmaOccurrence
 	UnknownConcentration CoverageProjection
 	Projections          []CoverageProjection
 	Thresholds           []CoverageThreshold
-	TextProfile          *TextProfile
+	// ToTarget is the fewest not-yet-in-study words, most frequent first, that
+	// bring the in-study share of the Book to Target coverage (ADR 0136 §2). It
+	// is Reachable only when study investment alone could get there.
+	ToTarget    CoverageThreshold
+	TextProfile *TextProfile
 }
 
 // ConcordanceOccurrence is one exact-match token occurrence from a current
@@ -802,27 +618,6 @@ type SharedLemma struct {
 	Morphology                                  []byte
 	Frequency                                   int64
 }
-type KnownVocabulary struct {
-	ID, OwnerID, Language, CanonicalLemma, UPOS string
-	LexicalDiscriminator                        string
-	// Headword is the imported citation form the accepted snapshot showed,
-	// empty for modern-language vocabulary. Display-only; never part of the
-	// identity.
-	Headword  string
-	CreatedAt time.Time
-}
-type GeneratedVocabulary struct {
-	OwnerID, Language, CanonicalLemma, UPOS string
-	// LexicalDiscriminator and Headword carry the imported identity's
-	// scheme-qualified discriminator and citation form, empty for
-	// modern-language vocabulary.
-	LexicalDiscriminator  string
-	Headword              string
-	FirstDeckID           string
-	FirstSourceMaterialID *string
-	FirstGeneratedAt      time.Time
-}
-
 type ExampleSentence struct {
 	ID, OwnerID, CorpusID, SentenceKey, Text string
 	Language, CanonicalLemma, UPOS           string
@@ -835,30 +630,11 @@ type CuratedSentence struct {
 	ID, OwnerID, ExampleSentenceID, Language, CanonicalLemma, UPOS, Notes string
 	CreatedAt                                                             time.Time
 }
-type Deck struct {
-	ID, OwnerID, Language, Name string
-	CreatedAt                   time.Time
-}
-type Card struct {
-	ID, OwnerID, DeckID, DedupKey, CanonicalLemma, UPOS, Front, Back string
-	CreatedAt                                                        time.Time
-}
 type ProcessingHistory struct {
 	ID, OwnerID, CorpusID, Operation, Status string
 	Details                                  []byte
 	StartedAt                                time.Time
 	CompletedAt                              *time.Time
-}
-type SelectionCandidate struct {
-	OwnerID, CorpusID, Language, CanonicalLemma, UPOS string
-	LexicalDiscriminator                              string
-	// Headword is the imported citation form shown to learners, empty for
-	// modern-language vocabulary.
-	Headword                                      string
-	OccurrenceCount                               int
-	FirstEncounter                                int64
-	ObservedForms, SentenceReferences, Provenance []byte
-	SelectedAt                                    time.Time
 }
 
 // ProjectedCorpusVocabulary is the per-Book effective vocabulary of one

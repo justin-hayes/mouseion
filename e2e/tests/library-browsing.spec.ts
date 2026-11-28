@@ -22,9 +22,9 @@ test.describe('My Books collection browsing', () => {
     await expect(retryAnalysis.locator('xpath=..')).toHaveAttribute('action', '/reading/books/fixture-failed/reanalyze');
     await expect(failedRow.locator('.library-book__evidence')).not.toContainText(/0%|coverage|ready/i);
     const analyzedRow = page.locator('#book-row-fixture-book');
-    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Known');
+    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('97.4% of running words Mature');
     await expect(analyzedRow.locator('.library-book__evidence')).toContainText('16 more words to reach 99%');
-    await expect(analyzedRow.locator('.library-book__evidence')).toContainText('Deck ready: 412 cards');
+    await expect(analyzedRow.locator('.library-book__evidence')).not.toContainText('Deck');
     await expect(analyzedRow.locator('.library-book__membership')).toContainText('Currently reading');
     await expect(page.locator('#book-row-fixture-failed .library-book__evidence')).not.toContainText('Deck');
     await expect(page.locator('#book-row-fixture-running .library-book__evidence')).toHaveText('Analysis running.');
@@ -64,7 +64,7 @@ test.describe('My Books collection browsing', () => {
 
   test('uses one visible native disclosure cue and text-backed status shapes', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading');
+    await page.goto('/de/library');
 
     const account = page.locator('details').filter({ has: page.getByText('Account', { exact: true }) });
     const summary = account.locator('summary');
@@ -137,28 +137,29 @@ test.describe('My Books collection browsing', () => {
     const readTab = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link', { name: /^Read \(\d+\)$/ });
     expect((await readTab.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
-    await page.goto('/de/reading');
+    await page.goto('/books/fixture-book');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
     await expect(page.locator('body')).toHaveClass(/reading-shell/);
-    await expect(page.getByRole('heading', { level: 1, name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
-    await expect(page.locator('.journey-book__since')).toContainText('Reading since');
+    await expect(page.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause', exact: true })).toBeVisible();
     await expect(page.locator('#vocabulary-prefix')).toHaveClass(/\binput\b/);
-    await expect(page.locator('.reading-supporting')).toHaveCount(1);
+    await expect(page.locator('#book-detail-analysis')).toHaveCount(1);
     await page.goto('/de/vocabulary/concordance');
     const concordanceSelects = page.locator('#concordance-workflow select');
     await expect(concordanceSelects).toHaveCount(0);
   });
 
-  test('shows the first Book identity in the initial desktop and compact viewport', async ({ page }) => {
+  test('shows the pinned Current reading identity in the initial desktop and compact viewport', async ({ page }) => {
     await signIn(page);
     // The project's own viewport (desktop or compact) is the one under test.
     await page.goto('/de/library');
     const viewport = page.viewportSize()!;
-    const firstBook = page.locator('.library-books .library-book').first();
+    // The Current reading is pinned above the list, so its identity is the first
+    // thing in view.
+    const firstBook = page.locator('#primary-goal-section');
     await expect(firstBook).toBeVisible();
     const visibleIdentity = await firstBook.evaluate((item, height) => {
-      const title = item.querySelector('.bibliographic-title')!.getBoundingClientRect();
+      const title = item.querySelector('.journey-book__title')!.getBoundingClientRect();
       const cover = item.querySelector('.book-cover-media')!.getBoundingClientRect();
       const intersects = (rect: DOMRect) => rect.top < height && rect.bottom > 0;
       return { title: intersects(title), cover: intersects(cover) };
@@ -244,9 +245,9 @@ test.describe('My Books collection browsing', () => {
     await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Empty chapter' })).toHaveCount(0);
     await expect(page.locator('.library-books')).not.toContainText('language:');
     await expect(page.locator('.library-books .library-book__membership').first()).toBeVisible();
-    const readingLink = page.locator('.library-books a.library-book__journey-action').first();
-    await expect(readingLink).toHaveText('View in Reading');
-    await expect(readingLink).toHaveAccessibleName('View in Reading');
+    const readNextButton = page.locator('.library-books button.library-book__journey-action').first();
+    await expect(readNextButton).toHaveText('Read next');
+    await expect(readNextButton).toHaveAccessibleName('Read next');
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
@@ -259,7 +260,7 @@ test.describe('My Books collection browsing', () => {
     await page.getByLabel('Search My Books').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
-    await expect(page.locator('#library-results a[href^="/de/reading#"]').first()).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toBeVisible();
 
     await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
     await page.getByRole('button', { name: 'Search' }).click();
@@ -415,5 +416,29 @@ test.describe('My Books collection browsing', () => {
     await expect(tabs.nth(0)).toContainText('To Read');
     await expect(tabs.nth(1)).toContainText('Read');
     await expect(page.locator('aside.library-needs-language')).toHaveCount(0);
+  });
+});
+
+test.describe('My Books needs-action filter', () => {
+  test('shows a status line on Books that need action and filters to them, kept in the address', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/de/library');
+    await expect(page.locator('#book-row-fixture-failed [data-needs-action]')).toContainText('Analysis failed.');
+    await expect(page.locator('#book-row-fixture-acquisition-failed [data-needs-action]')).toContainText('Acquisition failed.');
+    await expect(page.locator('#book-row-fixture-book [data-needs-action]')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Show only Books that need action' }).click();
+    await expect(page).toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-failed')).toHaveCount(1);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(0);
+
+    await page.reload();
+    await expect(page).toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-failed')).toHaveCount(1);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Show all Books' }).click();
+    await expect(page).not.toHaveURL(/needs=action/);
+    await expect(page.locator('#book-row-fixture-book')).toHaveCount(1);
   });
 });

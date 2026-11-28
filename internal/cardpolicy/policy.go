@@ -21,7 +21,8 @@ const (
 	BoundaryTerminalMark
 )
 
-// Lookup is the rule that matches a lemma to dictionary entries.
+// Lookup is the rule by which the dictionary index's generic lexical lookup
+// (dictionary.Index.Lookup) matches a lemma to dictionary entries.
 type Lookup int
 
 const (
@@ -30,10 +31,9 @@ const (
 	// LookupExactlyOne matches an identity only when exactly one candidate
 	// entry exists.
 	LookupExactlyOne
-	// LookupEveryEntry matches a lemma to every entry under its key in the
-	// language's own dictionary, with no part-of-speech filter and no choice
-	// between homographs (Lewis & Short for Latin; every competing LSJ entry
-	// for Greek Study, ADR 0139).
+	// LookupEveryEntry is a language whose dictionary is read whole, every
+	// entry under the lemma's key, through its own entry lookup (Lewis & Short
+	// for Latin), so the generic lookup gives it no senses.
 	LookupEveryEntry
 )
 
@@ -94,15 +94,15 @@ const (
 type PassContract int
 
 const (
-	// PassContractGreek is the Ancient Greek (LSJ) pass contract.
-	PassContractGreek PassContract = iota
+	// PassContractNone is the zero value: the language has no
+	// evidence-assisted pass contract, so no pass payload is ever sent for it.
+	PassContractNone PassContract = iota
 	// PassContractLatin is the Lewis & Short pass contract, which cites a sense
 	// by its entry and its sense.
 	PassContractLatin
 	// PassContractGreekEntries is the Ancient Greek (LSJ) pass contract that
 	// carries each sense's entry beside it, so a cited sense resolves to one
-	// entry across homographs (ADR 0139). Greek Study uses it; the Prepared deck
-	// keeps PassContractGreek.
+	// entry across homographs (ADR 0139).
 	PassContractGreekEntries
 )
 
@@ -117,13 +117,9 @@ type Policy struct {
 	// EvidenceAssistedPass reports whether the evidence-assisted provider pass
 	// may run on top of the source-evidence card.
 	EvidenceAssistedPass bool
-	// PassContract names the provider payload contract the evidence-assisted
-	// pass of the language transmits. It is the one decision that selects both
+	// StudyPassContract names the provider payload contract Study's per-item
+	// evidence-assisted pass transmits. It is the one decision that selects both
 	// the codec's request encoding and the recorded assessment it is gated by.
-	PassContract PassContract
-	// StudyPassContract names the payload contract Study's per-item pass
-	// transmits. It equals PassContract unless Study looks up more entries than
-	// the Prepared deck does (ADR 0139).
 	StudyPassContract PassContract
 	// Study reports whether the language is served by Study (ADR 0138). It is
 	// compiled in, never a learner setting or a runtime toggle: a source-evidence
@@ -143,11 +139,10 @@ type Policy struct {
 	NLPAnalysed bool
 	// SentenceBoundary is the sentence-completeness rule.
 	SentenceBoundary Boundary
-	// DictionaryLookup is the dictionary lookup rule of a Prepared deck.
+	// DictionaryLookup is the rule of the dictionary index's generic lexical
+	// lookup. Study's source-evidence entries are resolved by Entries instead,
+	// every competing entry in source order (ADR 0139).
 	DictionaryLookup Lookup
-	// StudyLookup is the dictionary lookup rule of Study. It equals
-	// DictionaryLookup unless Study looks up more entries than the deck (ADR 0139).
-	StudyLookup Lookup
 }
 
 var (
@@ -165,7 +160,6 @@ var (
 		Citations:         CitationsNone,
 		SentenceBoundary:  BoundaryTerminalMark,
 		DictionaryLookup:  LookupExactlyOne,
-		StudyLookup:       LookupEveryEntry,
 	}
 	// sourceEvidenceLatin turns the evidence-assisted pass on (ADR 0138 §1), with
 	// its own Lewis & Short contract. The pass is sent only once the Latin payload
@@ -175,7 +169,6 @@ var (
 	sourceEvidenceLatin = Policy{
 		SourceEvidence:       true,
 		EvidenceAssistedPass: true,
-		PassContract:         PassContractLatin,
 		StudyPassContract:    PassContractLatin,
 		// Study is on after the Latin evidence run (ADR 0138 §6, #2768). The
 		// report, with Justin's judgement, is
@@ -187,14 +180,12 @@ var (
 		Translations:     TranslationPerseus,
 		SentenceBoundary: BoundaryTerminalMark,
 		DictionaryLookup: LookupEveryEntry,
-		StudyLookup:      LookupEveryEntry,
 	}
 	modern = Policy{
 		Study:            true,
 		NLPAnalysed:      true,
 		SentenceBoundary: BoundaryCapitalisedStart,
 		DictionaryLookup: LookupStored,
-		StudyLookup:      LookupStored,
 	}
 )
 

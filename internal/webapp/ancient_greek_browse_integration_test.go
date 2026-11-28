@@ -40,7 +40,7 @@ func TestAncientGreekBrowseListsBook1Vocabulary(t *testing.T) {
 	// The projection keeps δέω 1 and δέω 2 apart, carries the citation headword
 	// rather than the stored key, and flags the bare λόγος whose work also
 	// numbers it. No proper name reaches the eligible set.
-	page, err := store.ListVocabularyBrowsePage(ctx, learner.ID, "grc", domain.VocabularyBrowseQuery{CurrentBookID: registration.BookID, IncludeAll: true, Page: 1})
+	page, err := store.ListVocabularyBrowsePage(ctx, learner.ID, "grc", domain.VocabularyBrowseQuery{CurrentBookID: registration.BookID, Page: 1})
 	require.NoError(t, err)
 	require.Equal(t, int64(5), page.Total)
 	require.Len(t, page.Rows, 5)
@@ -69,7 +69,7 @@ func TestAncientGreekBrowseListsBook1Vocabulary(t *testing.T) {
 	// stored key, two δέω rows, and exactly one bare-lemma note.
 	page.CurrentBookID = registration.BookID
 	page.ReadingBookID = registration.BookID
-	html := renderReadingBrowse(t, "grc", page, "")
+	html := renderBookWords(t, "grc", page, "")
 	assert.Contains(t, html, ">λόγος</a>", "the noun shows its citation headword")
 	assert.NotContains(t, html, ">λογοσ</a>", "the stored canonical key is never shown")
 	assert.Equal(t, 2, strings.Count(html, ">δέω</a>"), "both homographs are separate rows")

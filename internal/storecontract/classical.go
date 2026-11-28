@@ -120,8 +120,6 @@ func classicalScenarios() []Scenario {
 			bookID := report.Books[0].BookID
 			completion, err := h.BookState().ImportPreviouslyRead(owner, bookID)
 			require.NoError(t, err)
-			knownLemma := domain.SnapshotIdentity{Language: classical.Language, CanonicalLemma: "λόγοσ", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{knownLemma})
 			assert.True(t, hasStudyLanguage(t, h, owner, classical.Language), "the added Book contributes its study language")
 
 			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
@@ -144,13 +142,6 @@ func classicalScenarios() []Scenario {
 			assert.Equal(t, domain.ReadingCompletionPreviouslyRead, restored.LatestCompletionSource)
 			require.NotNil(t, restored.LatestCompletionAt)
 			assert.True(t, restored.LatestCompletionAt.Equal(completion.CompletedAt), "the recorded completion is unchanged")
-			known, err := h.Store().ListKnownVocabulary(owner, classical.Language)
-			require.NoError(t, err)
-			assert.True(t, slices.ContainsFunc(known, func(vocabulary domain.KnownVocabulary) bool {
-				return vocabulary.OwnerID == owner && vocabulary.Language == knownLemma.Language &&
-					vocabulary.CanonicalLemma == knownLemma.CanonicalLemma && vocabulary.UPOS == knownLemma.UPOS &&
-					vocabulary.LexicalDiscriminator == knownLemma.LexicalDiscriminator
-			}), "the removed Book keeps its Known vocabulary")
 			assert.True(t, hasStudyLanguage(t, h, owner, classical.Language), "restoring brings the study language back")
 			assert.Len(t, ownedClassicalUnits(t, h, owner), 1, "restoring never duplicates the Reading unit")
 		},
@@ -159,12 +150,6 @@ func classicalScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			h.Seeds().SeedClassicalCatalog(t)
 			owner := h.Seeds().Owner()
-			knownIdentity := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{knownIdentity})
-			before, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			require.NotEmpty(t, before)
-
 			read, err := h.Classical().MarkClassicalReadingUnitPreviouslyRead(owner, ClassicalUnitBook1Key)
 			require.NoError(t, err)
 			assert.True(t, read.Created, "the unowned Reading unit has no Book yet")
@@ -180,9 +165,6 @@ func classicalScenarios() []Scenario {
 			assert.Equal(t, ClassicalUnitBook1Key, detail.ReadingUnit.ReadingUnitKey)
 			assert.Contains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook1Key)
 
-			after, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			assert.ElementsMatch(t, before, after, "I've read this changes no Known vocabulary")
 		},
 	}, {
 		Name: "classical I've read this restores a removed Book as Read",
@@ -195,12 +177,6 @@ func classicalScenarios() []Scenario {
 			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
 			_, err = h.BookState().GetBookDetail(owner, bookID)
 			require.ErrorIs(t, err, domain.ErrNotFound)
-			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
-			before, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			require.NotEmpty(t, before)
-
 			read, err := h.Classical().MarkClassicalReadingUnitPreviouslyRead(owner, ClassicalUnitBook2Key)
 			require.NoError(t, err)
 			assert.False(t, read.Created, "the Reading unit still names the learner's Book")
@@ -211,9 +187,6 @@ func classicalScenarios() []Scenario {
 			assert.Equal(t, domain.MyBookBucketRead, detail.WorkflowBucket())
 			assert.Equal(t, 1, detail.CompletionCount)
 			assert.Contains(t, ownedClassicalUnits(t, h, owner), ClassicalUnitBook2Key)
-			after, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			assert.ElementsMatch(t, before, after, "restoring as Read changes no Known vocabulary")
 		},
 	}, {
 		Name: "classical add is owner-scoped",

@@ -26,11 +26,10 @@ import (
 
 // preUpgradeAnabasis is the seeded state conversion must preserve.
 type preUpgradeAnabasis struct {
-	ownerID, bookID, sourceID, runID, corpusID, snapshotID string
-	oldRevisionID, oldSnapshotID                           string
-	definition                                             classical.Definition
-	deckID, deckRunID                                      string
-	passageContext, passageCitation, brownsonPin           string
+	ownerID, bookID, sourceID, runID, corpusID string
+	oldRevisionID, oldSnapshotID               string
+	definition                                 classical.Definition
+	brownsonPin                                string
 }
 
 // preUpgradeDefinition builds the pre-manifest definition with the
@@ -135,65 +134,20 @@ func seedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistenc
 		firstStart, firstEnd, secondStart, secondEnd)
 	require.NoError(t, err)
 
-	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	_, err = pool.Exec(ctx, `INSERT INTO reading_history(owner_id, language, book_id, completed_at)
 		VALUES($1,$2,$3,now())`, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)
 
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, classical.Language))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, registration.BookID, domain.BookDispositionToRead))
-	started, err := store.StartCurrentReadingResult(ctx, owner.ID, classical.Language, registration.BookID)
+	_, err = store.StartCurrentReadingResult(ctx, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)
-	seed.snapshotID = started.Reading.SnapshotID
-	require.NotEmpty(t, seed.snapshotID)
 
 	// One installation-wide translation row the conversion never touches.
 	seed.brownsonPin = "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
 	_, err = pool.Exec(ctx, `INSERT INTO reference_translations(translation_pin_sha256, language, citation, translation)
 		VALUES($1,'en','1.1.1','Cyrus speaks.')`, seed.brownsonPin)
-	require.NoError(t, err)
-
-	// A prepared deck whose frozen passage evidence must survive untouched.
-	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{
-		OwnerID: owner.ID, SourceMaterialID: seed.sourceID, AnalysisRunID: written.RunID,
-		SnapshotID: seed.snapshotID, Filename: "anabasis.apkg", DeckName: "Mouseion::grc::Anabasis",
-		ContentHash: "sha256:pre-upgrade",
-	})
-	require.NoError(t, err)
-	seed.deckID = preparation.ID
-	require.NoError(t, pool.QueryRow(ctx, `
-		INSERT INTO deck_preparation_runs(
-			owner_id, preparation_id, run_number, state, translation_state,
-			external_translation_consent, external_translation_configured,
-			manifest_schema_version, retry_policy_version, max_provider_attempts,
-			max_batch_generations, batch_max_requests, batch_max_bytes, candidate_count,
-			completed_count, completed_at, translation_completed_at)
-		VALUES($1,$2,1,'completed','completed',false,false,1,1,1,1,1,1,1,1,now(),now())
-		RETURNING id::text`, owner.ID, preparation.ID).Scan(&seed.deckRunID))
-	seed.passageContext = "Cyrus speaks."
-	seed.passageCitation = "1.1.1"
-	_, err = pool.Exec(ctx, `
-		INSERT INTO deck_preparation_manifests(
-			owner_id, preparation_id, run_id, schema_version, manifest_digest,
-			deck_name, filename, selected_count, accepted_count, omitted_count)
-		VALUES($1,$2,$3,1,$4,'Mouseion::grc::Anabasis','anabasis.apkg',1,1,0)`,
-		owner.ID, preparation.ID, seed.deckRunID, strings.Repeat("b", 64))
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `
-		INSERT INTO deck_preparation_manifest_items(
-			owner_id, preparation_id, run_id, ordinal, disposition, language, canonical_lemma, upos,
-			source_sentence, tested_target, first_encounter, quality_score, quality_reasons,
-			render_payload, candidate_digest, target_language, quality_gdex_score,
-			passage_context, passage_citation, brownson_pin)
-		VALUES($1,$2,$3,0,'accepted','grc','λόγοσ','NOUN','λέγει Κῦρος·','λόγος',1,50,'{}','{}',
-		       $4,'en',0,$5,$6,$7)`,
-		owner.ID, preparation.ID, seed.deckRunID, strings.Repeat("a", 64),
-		seed.passageContext, seed.passageCitation, seed.brownsonPin)
-	require.NoError(t, err)
-	_, err = pool.Exec(ctx, `UPDATE deck_preparations SET state='ready', artifact=decode('00','hex'),
-		total_cards=1, completed_at=now(), current_run_id=$3 WHERE owner_id=$1 AND id=$2`,
-		owner.ID, preparation.ID, seed.deckRunID)
 	require.NoError(t, err)
 
 	return seed
@@ -269,20 +223,8 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
 	require.NoError(t, err)
 	assert.Equal(t, seed.bookID, current.BookID)
-	assert.Equal(t, seed.snapshotID, current.SnapshotID, "the current reading keeps its frozen snapshot")
-	_, err = store.ListCurrentReadingSnapshotVocabulary(ctx, seed.ownerID, seed.snapshotID)
-	require.NoError(t, err, "the frozen snapshot remains readable")
 
-	// The deck's frozen passage text, translation pin and evidence are exactly
-	// what they were before conversion.
-	var passageContext, passageCitation, brownsonPin, sourceSentence string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT passage_context, passage_citation, brownson_pin, source_sentence
-		FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2`,
-		seed.ownerID, seed.deckID).Scan(&passageContext, &passageCitation, &brownsonPin, &sourceSentence))
-	assert.Equal(t, seed.passageContext, passageContext)
-	assert.Equal(t, seed.passageCitation, passageCitation)
-	assert.Equal(t, seed.brownsonPin, brownsonPin)
-	assert.Equal(t, "λέγει Κῦρος·", sourceSentence)
+	// The installation-wide translation row is exactly what it was before conversion.
 	var translation string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT translation FROM reference_translations WHERE translation_pin_sha256=$1 AND citation='1.1.1'`, seed.brownsonPin).Scan(&translation))
 	assert.Equal(t, "Cyrus speaks.", translation)
@@ -369,9 +311,9 @@ func TestConvertLegacyV4BookRecordsItsPublishedInterpretationAndOffersAnUpdate(t
 	require.True(t, ok, "a converted v4 Book is offered an Analysis update")
 	assert.Equal(t, seed.runID, candidate.PublishedRunID)
 	assert.Equal(t, "oga-agdt-upos/5", candidate.Target.AnalyzerVersion, "the offer targets the current definition")
-	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
-	require.NoError(t, err)
-	assert.Equal(t, seed.runID, current.AnalysisRunID, "the v4 analysis stays in effect until confirmation")
+	var publishedRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&publishedRunID))
+	assert.Equal(t, seed.runID, publishedRunID, "the v4 analysis stays in effect until confirmation")
 }
 
 // survivingDefinition is a valid current manifest entry that keeps the
@@ -443,8 +385,7 @@ func seedUnpublishedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store 
 		owner.ID, stored.ID, definition.Source.FileName)
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, registration.BookID, domain.BookDispositionToRead))
-	_, err = store.PutKnownVocabularyIdentity(ctx, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, owner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 	return seed
 }
 
@@ -608,9 +549,9 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	_, err = pool.Exec(ctx, `UPDATE corpus_sentences SET sentence_text='different' WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0`,
 		seed.ownerID, seed.runID)
 	require.NoError(t, err)
-	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
-	require.NoError(t, err)
-	assert.Equal(t, seed.runID, current.AnalysisRunID)
+	var publishedRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&publishedRunID))
+	assert.Equal(t, seed.runID, publishedRunID)
 
 	// The persistence conversion refuses evidence the comparison did not name.
 	conversion := domain.ClassicalSourceConversion{
@@ -745,7 +686,7 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	_, err = updates.SubmitAnalysisUpdate(ctx, seed.ownerID, seed.bookID, seed.sourceID, candidate.PublishedRunID, candidate.Target.Key())
 	require.ErrorIs(t, err, ErrCurrentBook)
 
-	require.NoError(t, store.EndCurrentReading(ctx, seed.ownerID, classical.Language, seed.bookID, current.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, seed.ownerID, classical.Language))
 	_, err = updates.SubmitAnalysisUpdate(ctx, seed.ownerID, seed.bookID, seed.sourceID, candidate.PublishedRunID, "stale-target")
 	require.ErrorIs(t, err, ErrAnalysisUpdateChanged)
 
@@ -803,12 +744,6 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 		require.Equal(t, 1, known)
 		require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&completed))
 		require.Equal(t, 1, completed)
-		var passageContext, passageCitation string
-		require.NoError(t, pool.QueryRow(ctx, `SELECT passage_context, passage_citation
-			FROM deck_preparation_manifest_items WHERE owner_id=$1 AND preparation_id=$2`,
-			seed.ownerID, seed.deckID).Scan(&passageContext, &passageCitation))
-		require.Equal(t, seed.passageContext, passageContext)
-		require.Equal(t, seed.passageCitation, passageCitation)
 	})
 
 	t.Run("a candidate-load failure keeps the catalog fail-closed", func(t *testing.T) {

@@ -1,9 +1,7 @@
 # External LLM translation
 
 Mouseion supports OpenAI-compatible Chat Completions endpoints through
-`NewConfiguredLLMProvider` for non-prepared-deck enrichment and the default
-prepared-deck standard path. Explicit Batch work uses the separate durable
-OpenAI Batch adapter and therefore requires the official OpenAI API base URL.
+`NewConfiguredLLMProvider`.
 The administrator controls the shared provider with:
 
 - `MOUSEION_LLM_ENABLED`: set to `true` to enable external translation.
@@ -44,15 +42,3 @@ records that version and the cache timestamp. Provider HTML is never trusted.
 HTTP 408, 429, and 5xx responses are retryable by the enrichment service;
 failures become warnings in the inline pipeline, while durable jobs may retry
 them through River.
-
-## Optional lemma suggestions during review
-
-When the shared provider is enabled, `NewConfiguredLemmaSuggestionProvider`
-supports an explicit, one-occurrence request from Reading's lemma review. It
-sends only the study language, observed target, analyzer lemma and POS, one
-sentence, and an available local lexical alternative with its source/version.
-The dedicated `LemmaSuggestionRequest` is size-bounded and contains no owner,
-Book, catalog, or reading-history fields. Suggestions are shown with provider and
-prompt-version provenance and are never applied; only the learner's existing
-manual decision flow can change an effective identity. A disabled or failing
-provider does not affect manual review.

@@ -84,7 +84,7 @@ func TestRetryMessages(t *testing.T) {
 		want    string
 		isError bool
 	}{
-		{name: "current book refused", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCurrentBookRefused}, want: "The current book cannot be refreshed. Its frozen evidence remains unchanged.", isError: true},
+		{name: "current book refused", outcome: readingintent.Outcome{Kind: readingintent.OutcomeCurrentBookRefused}, want: "The current book cannot be refreshed while you are reading it.", isError: true},
 		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Classical preparation is unavailable.", isError: true},
 		{name: "already current", outcome: readingintent.Outcome{Kind: readingintent.OutcomeAlreadyCurrent}, want: "The analysis is already current."},
 		{name: "classical job queued", outcome: readingintent.Outcome{Kind: readingintent.OutcomeJobQueued, Route: readingintent.RouteClassical, JobNumber: 7}, want: "Preparation job #7 submitted."},

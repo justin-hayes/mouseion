@@ -60,4 +60,4 @@ owner isolation.
 ## Related
 
 - [ADR 0071: Decouple prepared-deck data from presentation](0071-decouple-deck-data-from-presentation.md)
-- [Prepared-deck rendering](../features/prepared-deck-rendering.md)
+- [Prepared-deck rendering](../archive/features/prepared-deck-rendering.md)

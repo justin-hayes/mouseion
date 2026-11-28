@@ -136,11 +136,6 @@ func TestOrderSensesTokenContextRequiresResolvableTarget(t *testing.T) {
 	}
 }
 
-func TestRenderGlossLimitsSensesAndTokens(t *testing.T) {
-	got := RenderGloss([]LexicalSense{{Gloss: "one two three four"}, {Gloss: "second meaning"}, {Gloss: "third"}}, 2, 3)
-	assert.Equal(t, "one two three · second meaning", got)
-}
-
 func TestValidateSenseSelectionChecksCandidateRangeAndUniqueness(t *testing.T) {
 	valid := []int{1, 0}
 	assert.True(t, ValidateSenseSelection(valid, 2))

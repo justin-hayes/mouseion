@@ -6,54 +6,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestLemmaReviewDecisionResolutionAndStoredCorrection(t *testing.T) {
+func TestLemmaReviewDecisionStoredCorrection(t *testing.T) {
 	occurrence := LemmaReviewOccurrence{CanonicalLemma: "drache"}
 	tests := []struct {
-		name       string
-		decision   LemmaReviewDecision
-		resolution string
-		stored     string
+		name     string
+		decision LemmaReviewDecision
+		stored   string
 	}{
-		{name: "a correction stores the new lemma", decision: LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "drachenwesen"}, resolution: "correct", stored: "drachenwesen"},
-		{name: "a keep of the analyzer lemma stores nothing", decision: LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "drache"}, resolution: "keep", stored: ""},
-		{name: "an exclusion stores nothing even with a lemma", decision: LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "drachenwesen", Excluded: true}, resolution: "exclude", stored: ""},
-		{name: "an exclusion without a lemma", decision: LemmaReviewDecision{Occurrence: occurrence, Excluded: true}, resolution: "exclude", stored: ""},
+		{name: "a correction stores the new lemma", decision: LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "drachenwesen"}, stored: "drachenwesen"},
+		{name: "a keep of the analyzer lemma stores nothing", decision: LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "drache"}, stored: ""},
+		{name: "an exclusion stores nothing even with a lemma", decision: LemmaReviewDecision{Occurrence: occurrence, CanonicalLemma: "drachenwesen", Excluded: true}, stored: ""},
+		{name: "an exclusion without a lemma", decision: LemmaReviewDecision{Occurrence: occurrence, Excluded: true}, stored: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.resolution, tt.decision.Resolution())
 			assert.Equal(t, tt.stored, tt.decision.StoredCorrection())
-		})
-	}
-}
-
-// A provider-raised flag is advisory evidence and never gates a freeze. Local
-// high-risk evidence still gates while unresolved, and a resolved flag of either
-// source never does.
-func TestLemmaReviewFlagBlocksFreeze(t *testing.T) {
-	local := map[string]any{"source": "wiktionary"}
-	provider := map[string]any{"source": LemmaReviewFlagProviderSource}
-	tests := []struct {
-		name       string
-		provenance map[string]any
-		resolution string
-		blocks     bool
-	}{
-		{name: "unresolved local flag", provenance: local, blocks: true},
-		{name: "resolved local flag", provenance: local, resolution: "keep"},
-		{name: "unresolved provider flag", provenance: provider},
-		{name: "resolved provider flag", provenance: provider, resolution: "keep"},
-		{name: "missing provenance is local", provenance: nil, blocks: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			flag := LemmaReviewFlag{Provenance: tt.provenance, Resolution: tt.resolution}
-			assert.Equal(t, tt.blocks, flag.BlocksFreeze())
-
-			occurrence := LemmaReviewOccurrence{
-				ReviewFlagReason: "evidence", ReviewFlagProvenance: tt.provenance, ReviewFlagResolution: tt.resolution,
-			}
-			assert.Equal(t, tt.blocks, occurrence.BlocksFreeze())
 		})
 	}
 }

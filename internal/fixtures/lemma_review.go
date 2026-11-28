@@ -2,11 +2,12 @@ package fixtures
 
 // Contract status: contractual. Lemma review runs the internal/storecontract
 // scenarios (ADR 0088) against this store and the PostgreSQL adapter. Occurrences
-// are seeded per Book, and every decision and flag is validated against them.
+// are seeded per Book, and every decision is validated against them.
 
 import (
 	"context"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -75,7 +76,7 @@ func (s *Store) hasLemmaOccurrenceLocked(occurrence domain.LemmaReviewOccurrence
 }
 
 // ListLemmaReviewOccurrences returns the seeded occurrences of surface with the
-// learner's decisions and flags applied. An empty surface returns every one.
+// learner's decisions applied. An empty surface returns every one.
 func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -88,44 +89,38 @@ func (s *Store) ListLemmaReviewOccurrences(_ context.Context, owner, bookID, sur
 		key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
 		occurrence.CorrectedLemma = s.lemmaCorrections[key]
 		occurrence.Excluded = s.lemmaExclusions[key]
-		if flag, ok := s.lemmaReviewFlags[key]; ok {
-			occurrence.ReviewFlagReason = flag.Reason
-			occurrence.ReviewFlagProvenance = flag.Provenance
-			occurrence.ReviewFlagResolution = flag.Resolution
-		}
 		result = append(result, occurrence)
 	}
 	return result, nil
 }
 
-// SaveLemmaReviewFlags validates every flag before it records any, as the
-// persistence store's transaction does, and never reopens a resolved flag. A
-// local high-risk flag replaces an unresolved provider flag for the same
-// occurrence, while a provider flag never replaces an unresolved local one.
-func (s *Store) SaveLemmaReviewFlags(_ context.Context, flags []domain.LemmaReviewFlag) error {
+// ListCorpusLemmaReviewOccurrences returns the seeded occurrences of surface with
+// the analyzer lemma in every Book of the owner still in My Books, in Book then
+// sentence order, with the learner's decisions applied. The fixtures
+// hold one language, so language is not consulted.
+func (s *Store) ListCorpusLemmaReviewOccurrences(ctx context.Context, owner, _, surface, lemma string) ([]domain.LemmaReviewOccurrence, error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, flag := range flags {
-		if strings.TrimSpace(flag.Reason) == "" || !s.hasLemmaOccurrenceLocked(flag.Occurrence) {
-			return errNotFound
+	books := make([]string, 0, len(s.lemmaOccurrences))
+	for key := range s.lemmaOccurrences {
+		if ownerID, bookID, ok := strings.Cut(key, "\x00"); ok && ownerID == owner && s.fixtureBookActiveLocked(owner, bookID) {
+			books = append(books, bookID)
 		}
 	}
-	for _, flag := range flags {
-		o := flag.Occurrence
-		key := fixtureLemmaCorrectionKey(o.OwnerID, o.BookID, o.AnalysisRunID, o.StartOffset, o.EndOffset)
-		current, exists := s.lemmaReviewFlags[key]
-		storedProvider := domain.LemmaReviewFlagProviderSourced(current.Provenance)
-		incomingProvider := domain.LemmaReviewFlagProviderSourced(flag.Provenance)
-		switch {
-		case !exists:
-			s.lemmaReviewFlags[key] = flag
-		case current.Resolution != "":
-			// A resolved flag is never modified or reopened.
-		case storedProvider && !incomingProvider:
-			s.lemmaReviewFlags[key] = flag
+	s.mu.Unlock()
+	slices.Sort(books)
+	var result []domain.LemmaReviewOccurrence
+	for _, bookID := range books {
+		occurrences, err := s.ListLemmaReviewOccurrences(ctx, owner, bookID, surface)
+		if err != nil {
+			return nil, err
+		}
+		for _, occurrence := range occurrences {
+			if occurrence.RawLemma == lemma {
+				result = append(result, occurrence)
+			}
 		}
 	}
-	return nil
+	return result, nil
 }
 
 func (s *Store) PutLemmaDecisions(_ context.Context, decisions []domain.LemmaReviewDecision) error {
@@ -150,9 +145,6 @@ func (s *Store) validateLemmaDecisionsLocked(decisions []domain.LemmaReviewDecis
 		if !s.hasLemmaOccurrenceLocked(occurrence) {
 			return errNotFound
 		}
-		if s.lemmaDecisionBlockedByCurrentReadingLocked(occurrence.OwnerID, occurrence.BookID) {
-			return errNotFound
-		}
 		key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
 		if s.lemmaCorrections[key] != occurrence.CorrectedLemma || s.lemmaExclusions[key] != occurrence.Excluded {
 			return errNotFound
@@ -161,8 +153,8 @@ func (s *Store) validateLemmaDecisionsLocked(decisions []domain.LemmaReviewDecis
 	return nil
 }
 
-// applyLemmaDecisionLocked stores one decision's correction or exclusion and
-// resolves its review flag. Callers hold s.mu.
+// applyLemmaDecisionLocked stores one decision's correction or exclusion.
+// Callers hold s.mu.
 func (s *Store) applyLemmaDecisionLocked(decision domain.LemmaReviewDecision) {
 	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded
 	key := fixtureLemmaCorrectionKey(occurrence.OwnerID, occurrence.BookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
@@ -177,27 +169,10 @@ func (s *Store) applyLemmaDecisionLocked(decision domain.LemmaReviewDecision) {
 			s.lemmaCorrections[key] = lemma
 		}
 	}
-	if flag, ok := s.lemmaReviewFlags[key]; ok {
-		flag.Resolution = "correct"
-		if excluded {
-			flag.Resolution = "exclude"
-		} else if lemma == occurrence.CanonicalLemma {
-			flag.Resolution = "keep"
-		}
-		s.lemmaReviewFlags[key] = flag
-	}
-}
-
-// lemmaDecisionBlockedByCurrentReadingLocked mirrors the store's gate: a
-// vocabulary decision is refused for the Book that is the active German
-// current reading. The caller holds s.mu.
-func (s *Store) lemmaDecisionBlockedByCurrentReadingLocked(owner, bookID string) bool {
-	goal, ok := s.currentReadings[fixtureGoalKey(owner, "de")]
-	return ok && goal.IsActive() && goal.BookID == bookID
 }
 
 // ReadLemmaReviewProposal derives deterministic before and after counts from the
-// fixture Book's vocabulary, with no other Books contributing and nothing Reserved.
+// fixture Book's vocabulary, with no other Books contributing.
 func (s *Store) ReadLemmaReviewProposal(ctx context.Context, proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
 	occurrences, err := s.ListLemmaReviewOccurrences(ctx, proposal.OwnerID, proposal.BookID, proposal.Surface)
 	if err != nil {
@@ -222,20 +197,11 @@ func (s *Store) ReadLemmaReviewProposal(ctx context.Context, proposal domain.Lem
 			after[domain.LemmaReviewIdentity(next)]++
 		}
 	}
-	known, err := s.ListKnownVocabulary(ctx, proposal.OwnerID, proposal.Language)
-	if err != nil {
-		return domain.LemmaReviewPreview{}, err
-	}
-	knownSet := make(map[domain.LemmaReviewIdentity]bool, len(known))
-	for _, item := range known {
-		knownSet[domain.LemmaReviewIdentity{Language: item.Language, CanonicalLemma: item.CanonicalLemma, UPOS: item.UPOS, LexicalDiscriminator: item.LexicalDiscriminator}] = true
-	}
 	affected := selection.ProposalIdentities(proposal)
 	states := make([]domain.LemmaReviewIdentityState, 0, len(affected))
 	for _, identity := range affected {
 		states = append(states, domain.LemmaReviewIdentityState{
 			Identity: identity, InBook: before[identity], AfterInBook: after[identity],
-			Known: knownSet[identity] || knownSet[domain.LemmaReviewIdentity{Language: identity.Language, CanonicalLemma: identity.CanonicalLemma, LexicalDiscriminator: identity.LexicalDiscriminator}],
 		})
 	}
 	return domain.LemmaReviewPreview{States: states, Fingerprint: domain.LemmaReviewFingerprint(proposal, occurrences, states)}, nil
@@ -247,12 +213,6 @@ func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.Le
 	if len(proposal.Occurrences) == 0 {
 		return errNotFound
 	}
-	s.mu.Lock()
-	blocked := s.lemmaDecisionBlockedByCurrentReadingLocked(proposal.OwnerID, proposal.BookID)
-	s.mu.Unlock()
-	if blocked {
-		return domain.ErrLemmaDecisionCurrentReading
-	}
 	preview, err := s.ReadLemmaReviewProposal(ctx, proposal)
 	if err != nil {
 		return err
@@ -261,17 +221,4 @@ func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.Le
 		return domain.ErrLemmaReviewPreviewStale
 	}
 	return s.PutLemmaDecisions(ctx, proposal.Decisions())
-}
-
-// hasUnresolvedLemmaReviewFlag reports whether any seeded occurrence of the Book
-// carries an unresolved local high-risk flag. Provider-sourced advisory flags
-// never gate a freeze.
-func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
-	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] {
-		key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
-		if flag, ok := s.lemmaReviewFlags[key]; ok && flag.BlocksFreeze() {
-			return true
-		}
-	}
-	return false
 }

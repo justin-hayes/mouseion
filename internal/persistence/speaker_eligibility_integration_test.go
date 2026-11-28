@@ -8,7 +8,6 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -65,18 +64,18 @@ func seededSpeakerSentence(t *testing.T, start int64, seeded testutil.SeededSent
 // speakerAnalysisFacts returns the persisted analysis projection and the exact
 // snapshot structure the production consumers pass to selection. It also returns
 // the coverage statistics selection derives from those facts.
-func speakerAnalysisFacts(t *testing.T, ctx context.Context, store *PostgresStore, owner, sourceID, runID, corpusID string) (domain.SnapshotStructure, domain.AnalysisStatistics) {
+func speakerAnalysisFacts(t *testing.T, ctx context.Context, store *PostgresStore, owner, bookID string) (domain.SnapshotStructure, domain.AnalysisStatistics) {
 	t.Helper()
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, txcleanup.Rollback(ctx, tx)) }()
-	analysis, _, err := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), domain.DeckPreparation{OwnerID: owner, SourceMaterialID: sourceID, AnalysisRunID: runID}, corpusID)
+	scope, err := browseCountReadinessForDecision(ctx, tx, owner, bookID)
 	require.NoError(t, err)
-	snapshotID, err := analysisRunSnapshotID(ctx, tx, owner, runID)
+	analysis, _, err := loadBrowseCountFacts(ctx, tx, scope, nil, nil)
 	require.NoError(t, err)
-	structure, err := LoadSnapshotStructure(ctx, tx, owner, sourceID, snapshotID)
+	structure, err := LoadSnapshotStructure(ctx, tx, owner, scope.source, scope.snapshot)
 	require.NoError(t, err)
-	cfg := selection.DefaultConfig(corpusID)
+	cfg := selection.DefaultConfig(scope.corpus)
 	cfg.Structure = structure
 	return structure, selection.AnalyzableStatistics(analysis, cfg)
 }
@@ -157,7 +156,7 @@ func TestSpeakerLabelsAreStructuralNonVocabularyAcrossCountConsumers(t *testing.
 	require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, tx, owner.ID, book.ID, source.ID, runID, corpusID, "de"))
 	require.NoError(t, tx.Commit(ctx))
 
-	structure, statistics := speakerAnalysisFacts(t, ctx, store, owner.ID, source.ID, runID, corpusID)
+	structure, statistics := speakerAnalysisFacts(t, ctx, store, owner.ID, book.ID)
 	require.Len(t, structure.RoleSpans, 3, "the fixture records two speaker labels and their nested direction")
 	speakerLabels := 0
 	for _, span := range structure.RoleSpans {
@@ -180,7 +179,7 @@ func TestSpeakerLabelsAreStructuralNonVocabularyAcrossCountConsumers(t *testing.
 		"Buch/NOUN": 4, "schlagen/VERB": 1, "auf/ADV": 1, "lachen/VERB": 1, "seltsam/ADJ": 1, "Geberde/NOUN": 1,
 	}
 	assert.Equal(t, want, browseCountRows(t, ctx, store, owner.ID, book.ID), "the projection excludes the label and keeps standalone directions")
-	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, IncludeAll: true, Page: 1})
+	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: book.ID, Page: 1})
 	require.NoError(t, err)
 	assert.False(t, page.BrowseCountsUpdating)
 	browse := make(map[string]int64, len(page.Rows))
@@ -194,29 +193,12 @@ func TestSpeakerLabelsAreStructuralNonVocabularyAcrossCountConsumers(t *testing.
 	assert.Equal(t, int64(9), coverage.AnalyzableTokenCount, "coverage agrees on the same denominator")
 	assert.Equal(t, int64(6), coverage.DistinctLemmaCount)
 
-	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-	require.NoError(t, err)
-	frozen, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	require.Len(t, frozen, 1, "only the identity that reaches the Reading floor freezes")
-	assert.Equal(t, "Buch", frozen[0].CanonicalLemma)
-	assert.Equal(t, 4, frozen[0].OccurrenceCount)
-	assert.NotContains(t, string(frozen[0].SentenceReferences), "Valentin", "the label stays raw corpus evidence, never frozen context")
-
-	// A projection rebuild never mutates the already-frozen Reading evidence.
-	tx, err = pool.Begin(ctx)
-	require.NoError(t, err)
-	require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, tx, owner.ID, book.ID, source.ID, runID, corpusID, "de"))
-	require.NoError(t, tx.Commit(ctx))
-	reloaded, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, frozen, reloaded)
 }
 
-// TestV1CountsAndFrozenReadingStayPinnedAcrossSpeakerAwareRebuild proves that a
-// v1 snapshot (structure not recorded) keeps its ordinary counts and an existing
-// frozen Reading when the speaker-aware projection version rebuilds it.
-func TestV1CountsAndFrozenReadingStayPinnedAcrossSpeakerAwareRebuild(t *testing.T) {
+// TestV1CountsStayPinnedAcrossSpeakerAwareRebuild proves that a
+// v1 snapshot (structure not recorded) keeps its ordinary counts when the
+// speaker-aware projection version rebuilds it.
+func TestV1CountsStayPinnedAcrossSpeakerAwareRebuild(t *testing.T) {
 	ctx := context.Background()
 	store := openIntegrationStore(t, ctx, integrationDatabase(t, ctx))
 	owner, err := store.CreateUser(ctx, "speaker-v1-pinned", false)
@@ -268,17 +250,6 @@ func TestV1CountsAndFrozenReadingStayPinnedAcrossSpeakerAwareRebuild(t *testing.
 	want := map[string]int64{"fallen/VERB": 6}
 	assert.Equal(t, want, browseCountRows(t, ctx, store, owner.ID, book.ID), "v1 records no structure, so labels contribute ordinary vocabulary")
 
-	reading, err := store.StartCurrentReading(ctx, owner.ID, "de", book.ID)
-	require.NoError(t, err)
-	frozen, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	require.Len(t, frozen, 1)
-	assert.Equal(t, "fallen", frozen[0].CanonicalLemma)
-	assert.Equal(t, 6, frozen[0].OccurrenceCount)
-
 	rebuild()
 	assert.Equal(t, want, browseCountRows(t, ctx, store, owner.ID, book.ID), "a rebuild leaves v1 counts identical")
-	reloaded, err := store.ListCurrentReadingSnapshotVocabulary(ctx, owner.ID, reading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, frozen, reloaded, "the frozen Reading stays pinned across a projection rebuild")
 }

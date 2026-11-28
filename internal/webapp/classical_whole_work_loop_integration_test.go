@@ -82,7 +82,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	library := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	assert.Equal(t, 1, strings.Count(library.Body.String(), `id="book-row-`+book+`"`))
-	assert.Equal(t, 1, strings.Count(library.Body.String(), `<h2 id="book-title-`+book+`" class="bibliographic-title">Synthetic Treatise</h2>`), "one title for the whole Work; its Title plate repeats it as decoration")
+	assert.Equal(t, 1, strings.Count(library.Body.String(), `<h2 id="book-title-`+book+`" class="bibliographic-title"><a class="library-book__details" href="/books/`+book+`">Synthetic Treatise</a></h2>`), "one title for the whole Work; its Title plate repeats it as decoration")
 	for _, retired := range []string{"Book 1 of", "library-work", "Books in", "Move the work", "Remove the work"} {
 		assert.NotContains(t, library.Body.String(), retired)
 	}
@@ -94,10 +94,10 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	assert.Equal(t, 1, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue))
 	assert.NotEmpty(t, h.waitForPreparedDefinition(t, learner.ID, book))
 
-	// The chooser lists the Work as one ordinary entry.
-	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, cookies)
+	// My Books lists the Work as one ordinary entry.
+	chooser := perform(t, h.handler, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
-	assert.Equal(t, 1, strings.Count(chooser.Body.String(), `id="reading-chooser-book-`+book+`"`))
+	assert.Equal(t, 1, strings.Count(chooser.Body.String(), `id="book-row-`+book+`"`))
 	assert.Contains(t, chooser.Body.String(), `action="/reading/books/`+book+`/start"`)
 	assert.NotContains(t, chooser.Body.String(), "Book 1 of")
 
@@ -136,7 +136,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 		_, err := h.store.GetBookDetail(h.ctx, legacy.ID, id)
 		require.NoError(t, err, "the Book stays openable")
 	}
-	chooserPage := perform(t, h.handler, http.MethodGet, "/grc/reading", nil, legacyCookies)
+	chooserPage := perform(t, h.handler, http.MethodGet, "/grc/library?disposition=to_read", nil, legacyCookies)
 	require.Equal(t, http.StatusOK, chooserPage.Code, chooserPage.Body.String())
 	for _, id := range legacyBooks {
 		assert.Contains(t, chooserPage.Body.String(), `action="/reading/books/`+id+`/start"`, "a legacy Book stays readable from the chooser")

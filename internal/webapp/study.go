@@ -59,6 +59,9 @@ type studyPageView struct {
 	// correction; Withdrawn names the words a correction left with no valid
 	// occurrence. Their progress is kept.
 	Reintroducing int
+	// FirstMaterial is how many due reviews of words migrated from Known
+	// vocabulary wait for their first Study material.
+	FirstMaterial int
 	// Held is how many words are held by an open Wrong-word report.
 	Held      int
 	Withdrawn []string
@@ -135,6 +138,9 @@ type studyCardView struct {
 	// presents it back, so a double tap grades the card once.
 	Reps         int64
 	Introduction bool
+	// AlreadyKnown offers the Already known answer: only on the review that
+	// introduces a word, never on a later one.
+	AlreadyKnown bool
 	// Corrected marks the re-introduction of a word after a correction.
 	Corrected bool
 	// Idiom marks the card of an Idiom, whose Report offers Unsuitable context
@@ -247,6 +253,8 @@ func (h *Handler) noteCorrections(ctx context.Context, owner string, view *study
 			} else {
 				view.WaitingForSentence = append(view.WaitingForSentence, word)
 			}
+		case domain.StudyAwaitsMaterial(item, now) && item.AwaitingFirstMaterial:
+			view.FirstMaterial++
 		case domain.StudyAwaitsMaterial(item, now):
 			view.Reintroducing++
 		}
@@ -505,7 +513,11 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 		return nil, err
 	}
 	candidates = append(candidates, idioms...)
-	return domain.NextStudyBatch(domain.OrderStudyStream(candidates), material, progress, held, now), nil
+	coverage, err := store.GetStudyReadingCoverage(r.Context(), owner, language)
+	if err != nil {
+		return nil, err
+	}
+	return domain.NextStudyBatch(domain.OrderStudyStream(candidates, coverage.BoostsCurrentReading()), material, progress, held, now), nil
 }
 
 // idiomMaterialCounts splits the Idioms out of the counts, so the page can
@@ -589,6 +601,7 @@ func newStudyCardView(language string, card domain.StudyCard, showAnswer bool) *
 		ProgressID: card.Progress.ID, MaterialID: card.Progress.MaterialID,
 		Reps:         memory.Reps,
 		Introduction: memory.State == domain.StudyStateNew || memory.State == domain.StudyStateLearning,
+		AlreadyKnown: domain.StudyAlreadyKnownOffered(card.Progress),
 		Corrected:    card.Progress.Corrected(),
 		Idiom:        card.Progress.IsIdiom(),
 	}
@@ -737,12 +750,7 @@ func (h *Handler) gradeStudyCard(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	var current *domain.StudyProgress
-	for i := range progress {
-		if progress[i].ID == progressID {
-			current = &progress[i]
-		}
-	}
+	current := findStudyProgress(progress, progressID)
 	if current == nil {
 		http.NotFound(w, r)
 		return
@@ -758,6 +766,57 @@ func (h *Handler) gradeStudyCard(w http.ResponseWriter, r *http.Request) {
 	}
 	err = store.RecordStudyGrade(r.Context(), owner, domain.StudyGradeRecord{
 		ProgressID: progressID, ExpectedReps: reps, Grade: grade, ReviewedAt: now, StudyDay: domain.StudyDay(now), After: after,
+	})
+	if err != nil && !errors.Is(err, domain.ErrStudyStale) {
+		fail(w, err)
+		return
+	}
+	redirect(w, r, back)
+}
+
+func findStudyProgress(progress []domain.StudyProgress, id string) *domain.StudyProgress {
+	for i := range progress {
+		if progress[i].ID == id {
+			return &progress[i]
+		}
+	}
+	return nil
+}
+
+// alreadyKnownStudyCard records the learner's Already known answer to the card
+// that introduces a word (ADR 0136 §1). It is an answer, never a grade: an
+// Already-known event is stored and the word enters study Mature, with the
+// introduction's place in the taken batch complete. It is refused for any
+// review after the introduction.
+func (h *Handler) alreadyKnownStudyCard(w http.ResponseWriter, r *http.Request) {
+	language, back, ok := h.studyForm(w, r)
+	if !ok {
+		return
+	}
+	reps, repsErr := strconv.ParseInt(r.FormValue("reps"), 10, 64)
+	progressID := strings.TrimSpace(r.FormValue("progress"))
+	if repsErr != nil || reps < 0 || progressID == "" {
+		http.Error(w, "invalid answer", http.StatusBadRequest)
+		return
+	}
+	owner, store, now := user(r).ID, h.services.Store.Study, h.now()
+	progress, err := store.ListStudyProgress(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	current := findStudyProgress(progress, progressID)
+	if current == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if current.Memory.Reps != reps || !domain.StudyCardIsDue(*current, now) || !domain.StudyAlreadyKnownOffered(*current) {
+		redirect(w, r, back)
+		return
+	}
+	err = store.RecordStudyAlreadyKnown(r.Context(), owner, domain.StudyAlreadyKnownRecord{
+		ProgressID: progressID, ExpectedReps: reps, AnsweredAt: now, StudyDay: domain.StudyDay(now),
+		After: domain.StudyAlreadyKnownMemory(current.Memory, now),
 	})
 	if err != nil && !errors.Is(err, domain.ErrStudyStale) {
 		fail(w, err)

@@ -96,7 +96,7 @@ generated German decks surfaced a further set of issues that are not morphology:
 
 ## References
 
-- [Recognition-card sentence presentation](../features/recognition-card-sentence-presentation.md)
+- [Recognition-card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [Dictionary gloss and morphology enrichment](../features/dictionary-gloss-enrichment.md)
 - [ADR 0007: Enrichment providers, caching, and privacy](0007-enrichment-providers-caching-privacy.md)
 - [ADR 0021: Contextual sentence translation cache and privacy](0021-contextual-translation-cache.md)

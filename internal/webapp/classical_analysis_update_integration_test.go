@@ -187,10 +187,10 @@ func TestClassicalAnalysisUpdateSkipsTheCurrentBookUntilEnd(t *testing.T) {
 	assert.Equal(t, 3, countRows(t, h.pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, h.learnerID, h.secondID, secondRun))
 	reading, err := h.store.GetCurrentReading(context.Background(), h.learnerID, classical.Language)
 	require.NoError(t, err)
-	assert.Equal(t, started.Reading.SnapshotID, reading.SnapshotID)
+	assert.Equal(t, started.Reading.BookID, reading.BookID)
 
 	// After End the Book is To Read and its offer returns with the other Book.
-	require.NoError(t, h.store.EndCurrentReading(context.Background(), h.learnerID, classical.Language, h.firstID, started.Reading.SnapshotID))
+	require.NoError(t, h.store.EndCurrentReading(context.Background(), h.learnerID, classical.Language))
 	body = readingGet(t, h.h, "/library", h.cookies)
 	assert.Equal(t, 2, strings.Count(body, analysisUpdateNotice), "each Book's row offers its own update")
 	assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.firstID)+`"`)
@@ -306,8 +306,7 @@ func TestClassicalAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *testi
 	_, err := pool.Exec(ctx, `INSERT INTO occurrence_lemma_corrections(owner_id,book_id,corpus_id,analysis_run_id,source_document_id,start_offset,end_offset,excluded)
 		VALUES($1,$2,$3,$4,$5,$6,$7,true)`, learner.ID, secondID, corpusID, oldRun, documentID, start, end)
 	require.NoError(t, err)
-	_, err = store.PutKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
-	require.NoError(t, err)
+	testutil.SeedLegacyKnownVocabulary(t, ctx, pool, learner.ID, classical.Language, "λέγω", "VERB", "morpheus:1")
 
 	// An interpretation-only change reuses the stored work file. The update
 	// publishes and rewrites the prepared-definition record, while the earlier
@@ -360,9 +359,7 @@ func TestClassicalAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *testi
 	require.NoError(t, err)
 	jobs = readingGet(t, h, "/jobs", cookies)
 	assert.Equal(t, 1, strings.Count(jobs, "1 of 3 decisions carried over"), "a job that failed after publishing keeps its carry-over line")
-	known, err := store.IsKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB")
-	require.NoError(t, err)
-	assert.True(t, known, "Known vocabulary is unchanged by an Analysis update")
+	assert.Contains(t, testutil.LegacyKnownLemmas(t, ctx, store.Pool(), learner.ID, classical.Language), "λέγω", "Known vocabulary is unchanged by an Analysis update")
 }
 
 func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *testing.T) {

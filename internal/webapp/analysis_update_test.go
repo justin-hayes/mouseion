@@ -61,7 +61,7 @@ func readingGet(t *testing.T, h http.Handler, path string, cookies []*http.Cooki
 	if location, ok := prefixedMyBooksRedirect(path, response); ok {
 		return readingGet(t, h, location, cookies)
 	}
-	if response.Code == http.StatusSeeOther && (path == "/reading" || strings.HasPrefix(path, "/reading?")) {
+	if response.Code == http.StatusSeeOther && (path == "/reading" || strings.HasPrefix(path, "/reading?") || strings.HasSuffix(strings.SplitN(path, "?", 2)[0], "/reading")) {
 		return readingGet(t, h, response.Header().Get("Location"), cookies)
 	}
 	require.Equal(t, http.StatusOK, response.Code)
@@ -78,18 +78,18 @@ func TestReadingChooserOffersAConfirmedAnalysisUpdate(t *testing.T) {
 	handler.services.AnalysisUpdates = updates
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/de/reading", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Equal(t, 1, strings.Count(body, "A newer analysis is available."), "only the outdated Book shows the notice")
 	assert.Contains(t, body, `<details class="confirmation`, "the confirmation is a native disclosure that works without JavaScript")
 	assert.Contains(t, body, "Update analysis")
 	assert.Contains(t, body, "The published analysis stays in effect until the update publishes.")
 	assert.Contains(t, body, "Your 1 confirmed lemma correction and 2 occurrence exclusions carry over wherever the word is unchanged in the new analysis.")
-	assert.Contains(t, body, "Prepared decks and earlier Readings keep the evidence they froze.")
+	assert.NotContains(t, body, "Prepared decks")
 	assert.Contains(t, body, `action="/reading/books/fixture-route-match/analysis-update"`)
 	assert.Contains(t, body, `name="expected_run_id" value="published-run"`)
 	assert.Contains(t, body, `name="expected_target" value="`+testUpdateTarget.Key()+`"`)
 	assert.Contains(t, body, "Confirm analysis update")
-	assert.Contains(t, body, "Confirm start reading", "the offer does not change readiness")
+	assert.Contains(t, body, "Read next", "the offer does not change readiness")
 }
 
 func TestReadingChooserTreatsUnavailableOffersAsCurrent(t *testing.T) {
@@ -100,9 +100,9 @@ func TestReadingChooserTreatsUnavailableOffersAsCurrent(t *testing.T) {
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offersErr: errors.New("NLP unreachable")}
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/de/reading", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
-	assert.Contains(t, body, "Confirm start reading")
+	assert.Contains(t, body, "Read next")
 }
 
 func TestMyBooksTellsTheCurrentReadingToEndFirst(t *testing.T) {
@@ -146,7 +146,7 @@ func TestAnalysisUpdateConfirmationSubmitsTheConfirmedOffer(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location, err := url.Parse(response.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/de/reading", location.Path)
+	assert.Equal(t, "/de/library", location.Path)
 	assert.Contains(t, location.Query().Get("message"), "submitted as analysis job #7")
 	assert.Contains(t, location.Query().Get("message"), "The published analysis stays in effect until the update publishes.")
 	assert.Equal(t, []string{"fixture-route-match|" + sourceID + "|published-run|" + testUpdateTarget.Key()}, updates.submitted)
@@ -224,8 +224,7 @@ func TestAnalysisUpdateDecisionsText(t *testing.T) {
 func TestAnalysisUpdateConfirmationLinesLeadWithAChangeNoteOnlyWhenThereIsOne(t *testing.T) {
 	without := analysisUpdateConfirmationLines("", 1, 0)
 	assert.Equal(t, "The published analysis stays in effect until the update publishes. "+
-		"Your 1 confirmed lemma correction carries over wherever the word is unchanged in the new analysis. "+
-		"Prepared decks and earlier Readings keep the evidence they froze.", without)
+		"Your 1 confirmed lemma correction carries over wherever the word is unchanged in the new analysis.", without)
 
 	with := analysisUpdateConfirmationLines("Adds a synthetic feature.", 1, 0)
 	assert.Equal(t, "Adds a synthetic feature. "+without, with, "the note comes first, before the three lines")

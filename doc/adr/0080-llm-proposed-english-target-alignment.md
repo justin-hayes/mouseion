@@ -84,7 +84,7 @@ also change its translation and Gloss; there is no alignment-only LLM call.
 
 ## Related
 
-- [Recognition-card sentence presentation](../features/recognition-card-sentence-presentation.md)
+- [Recognition-card sentence presentation](../archive/features/recognition-card-sentence-presentation.md)
 - [ADR 0021: Contextual sentence translation cache and privacy](0021-contextual-translation-cache.md)
 - [ADR 0071: Decouple prepared-deck data from presentation](0071-decouple-deck-data-from-presentation.md)
 - [ADR 0076: Roll forward when a ready deck requires re-preparation](0076-reprepare-ready-deck.md)

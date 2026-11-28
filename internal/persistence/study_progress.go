@@ -26,6 +26,7 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 	for _, row := range rows {
 		item := studyProgressFromRow(row.StudyProgress)
 		item.Reintroducing = row.Reintroducing
+		item.AwaitingFirstMaterial = row.AwaitingFirstMaterial
 		item.Held = row.Held
 		if row.ContextReportedAt.Unix() != 0 {
 			item.ContextReportedAt = row.ContextReportedAt
@@ -227,6 +228,74 @@ func (s *PostgresStore) RecordStudyGrade(ctx context.Context, owner string, reco
 		}
 		return nil
 	})
+}
+
+// RecordStudyAlreadyKnown stores an Already-known answer on an introduction: the
+// event, which is never a grade and so is not in the review log, and the word's
+// new scheduling state. The word is locked first, so an introduction answered
+// twice is answered once: the second answer returns domain.ErrStudyStale, as
+// does an answer to a card that is no longer an introduction. ErrNotFound means
+// the word is not the learner's.
+func (s *PostgresStore) RecordStudyAlreadyKnown(ctx context.Context, owner string, record domain.StudyAlreadyKnownRecord) error {
+	if !validUUID(record.ProgressID) {
+		return ErrNotFound
+	}
+	day, err := studyDayDate(record.StudyDay)
+	if err != nil {
+		return err
+	}
+	return withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := sqlcgen.New(tx)
+		row, err := q.LockStudyProgress(ctx, sqlcgen.LockStudyProgressParams{Owner: owner, ID: record.ProgressID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("lock study progress: %w", err)
+		}
+		before := studyProgressFromRow(row)
+		if err := refuseStaleStudyGrade(ctx, q, owner, before, record.ExpectedReps); err != nil {
+			return err
+		}
+		if !domain.StudyAlreadyKnownOffered(before) {
+			return domain.ErrStudyStale
+		}
+		if err := q.InsertStudyAlreadyKnownEvent(ctx, sqlcgen.InsertStudyAlreadyKnownEventParams{
+			Source: string(domain.StudyAlreadyKnownIntroduction), AnsweredAt: record.AnsweredAt.UTC(), StudyDay: day, Owner: owner, Progress: record.ProgressID,
+		}); err != nil {
+			return fmt.Errorf("insert study already-known event: %w", err)
+		}
+		after := record.After
+		if err := q.UpdateStudyProgressMemory(ctx, sqlcgen.UpdateStudyProgressMemoryParams{
+			State: string(after.State), Due: after.Due.UTC(), Stability: after.Stability, Difficulty: after.Difficulty,
+			ScheduledDays: after.ScheduledDays, Reps: after.Reps, Lapses: after.Lapses, RemainingSteps: after.RemainingSteps,
+			LastReview: pgtype.Timestamptz{Time: after.LastReview.UTC(), Valid: !after.LastReview.IsZero()},
+			Owner:      owner, ID: record.ProgressID,
+		}); err != nil {
+			return fmt.Errorf("update study progress: %w", err)
+		}
+		return nil
+	})
+}
+
+// ListStudyAlreadyKnownEvents returns the learner's Already-known events of a
+// study language, oldest first.
+func (s *PostgresStore) ListStudyAlreadyKnownEvents(ctx context.Context, owner, language string) ([]domain.StudyAlreadyKnownEvent, error) {
+	rows, err := sqlcgen.New(s.pool).ListStudyAlreadyKnownEvents(ctx, sqlcgen.ListStudyAlreadyKnownEventsParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
+	if err != nil {
+		return nil, fmt.Errorf("list study already-known events: %w", err)
+	}
+	events := make([]domain.StudyAlreadyKnownEvent, 0, len(rows))
+	for _, row := range rows {
+		event := domain.StudyAlreadyKnownEvent{
+			ID: row.ID, OwnerID: row.OwnerID,
+			ProgressID: uuidString(row.ProgressID), MaterialID: uuidString(row.MaterialID),
+			Source: domain.StudyAlreadyKnownSource(row.Source), AnsweredAt: row.AnsweredAt, StudyDay: row.StudyDay.Time.Format(time.DateOnly),
+		}
+		event.ItemKind, event.Language, event.CanonicalLemma, event.UPOS, event.LexicalDiscriminator = studyItemKind(row.ItemKind), row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator
+		events = append(events, event)
+	}
+	return events, nil
 }
 
 // refuseStaleStudyGrade rejects a grade of a card already graded, of a

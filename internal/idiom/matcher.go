@@ -41,20 +41,6 @@ type Token struct {
 	CanonicalLemma string
 }
 
-// AnchorIdentity is one frozen vocabulary identity of a deck.
-type AnchorIdentity struct {
-	Language             string
-	CanonicalLemma       string
-	UPOS                 string
-	LexicalDiscriminator string
-}
-
-// Anchor marks a sentence token that is a frozen vocabulary occurrence.
-type Anchor struct {
-	TokenOrdinal int
-	Identity     AnchorIdentity
-}
-
 // Entry is one multi-word dictionary or reviewed-list entry that could be an
 // idiom. Words are the language-normalized component words used for matching;
 // Headword keeps the source's display form.
@@ -77,53 +63,22 @@ type Provenance struct {
 	Version        string
 }
 
-// Candidate is one idiom entry matched in a sentence and anchored on a frozen
-// vocabulary occurrence. MatchedTokenOrdinals are in sentence order.
+// Candidate is one idiom entry matched in a sentence. MatchedTokenOrdinals are
+// in sentence order.
 type Candidate struct {
 	Entry                Entry
 	MatchedTokenOrdinals []int
-	Anchor               AnchorIdentity
-	AnchorTokenOrdinal   int
 	Provenance           Provenance
 }
 
-// Match returns the idiom candidates in tokens. Every word of an entry's
-// headword must match a token by case-folded surface form or canonical lemma,
-// in headword order, with at most parameters.GapBound other tokens between
-// consecutive words. Entries that share a headword and source are pooled into
-// one candidate carrying every part of speech's senses. A candidate without an
-// anchor is dropped. Overlapping candidates resolve to the longest headword,
-// then the earliest sentence position. Match is pure: it performs no I/O and
-// does not mutate its inputs.
-func Match(parameters Parameters, tokens []Token, anchors []Anchor, entries []Entry) []Candidate {
-	if len(tokens) == 0 || len(entries) == 0 {
-		return nil
-	}
-	if parameters.Version == "" {
-		parameters = DefaultParameters()
-	}
-	if parameters.GapBound < 0 {
-		parameters.GapBound = 0
-	}
-	anchorsByOrdinal := make(map[int]Anchor, len(anchors))
-	for _, anchor := range anchors {
-		anchorsByOrdinal[anchor.TokenOrdinal] = anchor
-	}
-	candidates := make([]Candidate, 0)
-	for _, entry := range poolEntries(entries) {
-		candidate, found := matchEntry(parameters, tokens, anchorsByOrdinal, true, entry)
-		if found {
-			candidates = append(candidates, candidate)
-		}
-	}
-	return resolveOverlaps(candidates)
-}
-
-// MatchUnanchored returns the idiom candidates in tokens with no anchor
-// requirement: it applies Match's rules (headword order, gap bound,
-// two-to-four-word bound, pooling and overlap resolution) to a sentence that
-// is not tied to a frozen vocabulary occurrence. The candidates carry a zero
-// Anchor and AnchorTokenOrdinal. MatchUnanchored is pure.
+// MatchUnanchored returns the idiom candidates in tokens. Every word of an
+// entry's headword must match a token by case-folded surface form or canonical
+// lemma, in headword order, with at most parameters.GapBound other tokens
+// between consecutive words; an entry must have two to four words. Entries that
+// share a headword and source are pooled into one candidate carrying every part
+// of speech's senses. Overlapping candidates resolve to the longest headword,
+// then the earliest sentence position. MatchUnanchored is pure: it performs no
+// I/O and does not mutate its inputs.
 func MatchUnanchored(parameters Parameters, tokens []Token, entries []Entry) []Candidate {
 	if len(tokens) == 0 || len(entries) == 0 {
 		return nil
@@ -136,7 +91,7 @@ func MatchUnanchored(parameters Parameters, tokens []Token, entries []Entry) []C
 	}
 	candidates := make([]Candidate, 0)
 	for _, entry := range poolEntries(entries) {
-		candidate, found := matchEntry(parameters, tokens, nil, false, entry)
+		candidate, found := matchEntry(parameters, tokens, entry)
 		if found {
 			candidates = append(candidates, candidate)
 		}
@@ -187,22 +142,13 @@ func poolEntries(entries []Entry) []Entry {
 	return pooled
 }
 
-func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, anchored bool, entry Entry) (Candidate, bool) {
+func matchEntry(parameters Parameters, tokens []Token, entry Entry) (Candidate, bool) {
 	if len(entry.Words) < minWords || len(entry.Words) > maxWords {
 		return Candidate{}, false
 	}
-	positions, found := searchWords(parameters.GapBound, tokens, anchors, anchored, entry.Words, 0, 0, -1, nil)
+	positions, found := searchWords(parameters.GapBound, tokens, entry.Words, 0, 0, -1, nil)
 	if !found {
 		return Candidate{}, false
-	}
-	var anchor Anchor
-	var anchorOrdinal int
-	if anchored {
-		anchorPosition, found, ok := firstAnchor(tokens, anchors, positions)
-		if !ok {
-			return Candidate{}, false
-		}
-		anchor, anchorOrdinal = found, tokens[anchorPosition].Ordinal
 	}
 	ordinals := make([]int, len(positions))
 	for index, position := range positions {
@@ -211,8 +157,6 @@ func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, a
 	return Candidate{
 		Entry:                entry,
 		MatchedTokenOrdinals: ordinals,
-		Anchor:               anchor.Identity,
-		AnchorTokenOrdinal:   anchorOrdinal,
 		Provenance: Provenance{
 			MatcherVersion: parameters.Version,
 			GapBound:       parameters.GapBound,
@@ -223,25 +167,16 @@ func matchEntry(parameters Parameters, tokens []Token, anchors map[int]Anchor, a
 }
 
 // searchWords finds the earliest token sequence that matches every headword
-// word and contains an anchor. It backtracks over candidate positions so an
-// unanchored earliest match never hides a later anchored one.
+// word, backtracking over candidate positions.
 func searchWords(
 	gapBound int,
 	tokens []Token,
-	anchors map[int]Anchor,
-	anchored bool,
 	words []string,
 	wordIndex, start, lastPosition int,
 	matched []int,
 ) ([]int, bool) {
 	if wordIndex == len(words) {
-		if !anchored {
-			return clonePositions(matched), true
-		}
-		if _, _, found := firstAnchor(tokens, anchors, matched); found {
-			return clonePositions(matched), true
-		}
-		return nil, false
+		return clonePositions(matched), true
 	}
 	for position := start; position < len(tokens); position++ {
 		if lastPosition >= 0 && position-lastPosition-1 > gapBound {
@@ -251,7 +186,7 @@ func searchWords(
 			continue
 		}
 		next := append(clonePositions(matched), position)
-		if sequence, found := searchWords(gapBound, tokens, anchors, anchored, words, wordIndex+1, position+1, position, next); found {
+		if sequence, found := searchWords(gapBound, tokens, words, wordIndex+1, position+1, position, next); found {
 			return sequence, true
 		}
 	}
@@ -266,18 +201,6 @@ func tokenMatches(word string, token Token) bool {
 	word = norm.NFC.String(word)
 	return strings.EqualFold(norm.NFC.String(token.Surface), word) ||
 		strings.EqualFold(norm.NFC.String(token.CanonicalLemma), word)
-}
-
-// firstAnchor returns the first matched position that is a frozen vocabulary
-// occurrence. When several words are anchored, the earliest matched one is the
-// candidate's anchor.
-func firstAnchor(tokens []Token, anchors map[int]Anchor, positions []int) (int, Anchor, bool) {
-	for _, position := range positions {
-		if anchor, ok := anchors[tokens[position].Ordinal]; ok {
-			return position, anchor, true
-		}
-	}
-	return 0, Anchor{}, false
 }
 
 func resolveOverlaps(candidates []Candidate) []Candidate {

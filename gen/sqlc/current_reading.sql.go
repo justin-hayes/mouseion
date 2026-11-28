@@ -8,8 +8,6 @@ package sqlc
 import (
 	"context"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const bookIsCurrentReading = `-- name: BookIsCurrentReading :one
@@ -35,34 +33,28 @@ func (q *Queries) BookIsCurrentReading(ctx context.Context, arg BookIsCurrentRea
 
 const changeCurrentReadingBook = `-- name: ChangeCurrentReadingBook :one
 UPDATE primary_goals
-SET book_id = $1, snapshot_id = $2, updated_at = now()
-WHERE owner_id = $3 AND language = $4
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, snapshot_id::text
+SET book_id = $1, updated_at = now()
+WHERE owner_id = $2 AND language = $3
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at
 `
 
 type ChangeCurrentReadingBookParams struct {
 	Book     string
-	Snapshot pgtype.UUID
 	Owner    string
 	Language string
 }
 
 type ChangeCurrentReadingBookRow struct {
-	OwnerID    string
-	Language   string
-	BookID     string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	SnapshotID string
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
+// Replaces the Book of the language's current reading.
 func (q *Queries) ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurrentReadingBookParams) (ChangeCurrentReadingBookRow, error) {
-	row := q.db.QueryRow(ctx, changeCurrentReadingBook,
-		arg.Book,
-		arg.Snapshot,
-		arg.Owner,
-		arg.Language,
-	)
+	row := q.db.QueryRow(ctx, changeCurrentReadingBook, arg.Book, arg.Owner, arg.Language)
 	var i ChangeCurrentReadingBookRow
 	err := row.Scan(
 		&i.OwnerID,
@@ -70,74 +62,6 @@ func (q *Queries) ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurren
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SnapshotID,
-	)
-	return i, err
-}
-
-const createCurrentReadingSnapshot = `-- name: CreateCurrentReadingSnapshot :one
-INSERT INTO primary_goal_snapshots(
-    owner_id, language, book_id, source_material_id, analysis_run_id,
-    content_revision_id, content_snapshot_id, corpus_id
-)
-VALUES ($1, $2, $3,
-        $4, $5,
-        $6, $7, $8)
-RETURNING id::text, owner_id::text, language, book_id::text,
-          source_material_id::text, analysis_run_id::text,
-          content_revision_id::text, content_snapshot_id::text, corpus_id::text,
-          created_at, released_at
-`
-
-type CreateCurrentReadingSnapshotParams struct {
-	Owner           string
-	Language        string
-	Book            string
-	SourceMaterial  string
-	AnalysisRun     string
-	ContentRevision string
-	ContentSnapshot string
-	Corpus          string
-}
-
-type CreateCurrentReadingSnapshotRow struct {
-	ID                string
-	OwnerID           string
-	Language          string
-	BookID            string
-	SourceMaterialID  string
-	AnalysisRunID     string
-	ContentRevisionID string
-	ContentSnapshotID string
-	CorpusID          string
-	CreatedAt         time.Time
-	ReleasedAt        pgtype.Timestamptz
-}
-
-func (q *Queries) CreateCurrentReadingSnapshot(ctx context.Context, arg CreateCurrentReadingSnapshotParams) (CreateCurrentReadingSnapshotRow, error) {
-	row := q.db.QueryRow(ctx, createCurrentReadingSnapshot,
-		arg.Owner,
-		arg.Language,
-		arg.Book,
-		arg.SourceMaterial,
-		arg.AnalysisRun,
-		arg.ContentRevision,
-		arg.ContentSnapshot,
-		arg.Corpus,
-	)
-	var i CreateCurrentReadingSnapshotRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.Language,
-		&i.BookID,
-		&i.SourceMaterialID,
-		&i.AnalysisRunID,
-		&i.ContentRevisionID,
-		&i.ContentSnapshotID,
-		&i.CorpusID,
-		&i.CreatedAt,
-		&i.ReleasedAt,
 	)
 	return i, err
 }
@@ -157,66 +81,9 @@ func (q *Queries) DeleteCurrentReading(ctx context.Context, arg DeleteCurrentRea
 	return err
 }
 
-const getActiveCurrentReadingSnapshotForPreparation = `-- name: GetActiveCurrentReadingSnapshotForPreparation :one
-SELECT s.id::text, s.owner_id::text, s.language, s.book_id::text,
-       s.source_material_id::text, s.analysis_run_id::text,
-       s.content_revision_id::text, s.content_snapshot_id::text, s.corpus_id::text,
-       s.created_at, s.released_at
-FROM primary_goal_snapshots s
-JOIN deck_preparations p ON p.owner_id = s.owner_id AND p.goal_snapshot_id = s.id
-WHERE p.owner_id = $1 AND p.id = $2
-  AND p.source_material_id = s.source_material_id
-  AND p.analysis_run_id = s.analysis_run_id
-`
-
-type GetActiveCurrentReadingSnapshotForPreparationParams struct {
-	Owner       string
-	Preparation string
-}
-
-type GetActiveCurrentReadingSnapshotForPreparationRow struct {
-	SID                string
-	SOwnerID           string
-	Language           string
-	SBookID            string
-	SSourceMaterialID  string
-	SAnalysisRunID     string
-	SContentRevisionID string
-	SContentSnapshotID string
-	SCorpusID          string
-	CreatedAt          time.Time
-	ReleasedAt         pgtype.Timestamptz
-}
-
-func (q *Queries) GetActiveCurrentReadingSnapshotForPreparation(ctx context.Context, arg GetActiveCurrentReadingSnapshotForPreparationParams) (GetActiveCurrentReadingSnapshotForPreparationRow, error) {
-	row := q.db.QueryRow(ctx, getActiveCurrentReadingSnapshotForPreparation, arg.Owner, arg.Preparation)
-	var i GetActiveCurrentReadingSnapshotForPreparationRow
-	err := row.Scan(
-		&i.SID,
-		&i.SOwnerID,
-		&i.Language,
-		&i.SBookID,
-		&i.SSourceMaterialID,
-		&i.SAnalysisRunID,
-		&i.SContentRevisionID,
-		&i.SContentSnapshotID,
-		&i.SCorpusID,
-		&i.CreatedAt,
-		&i.ReleasedAt,
-	)
-	return i, err
-}
-
 const getCurrentReading = `-- name: GetCurrentReading :one
-SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
-       COALESCE(s.id::text, '')::text AS snapshot_id,
-       COALESCE(s.source_material_id::text, '')::text AS source_material_id,
-       COALESCE(s.analysis_run_id::text, '')::text AS analysis_run_id,
-       COALESCE(s.content_revision_id::text, '')::text AS content_revision_id,
-       COALESCE(s.content_snapshot_id::text, '')::text AS content_snapshot_id,
-       COALESCE(s.corpus_id::text, '')::text AS corpus_id
+SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at
 FROM primary_goals g
-LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snapshot_id
 WHERE g.owner_id = $1 AND g.language = $2
 `
 
@@ -226,17 +93,11 @@ type GetCurrentReadingParams struct {
 }
 
 type GetCurrentReadingRow struct {
-	GOwnerID          string
-	Language          string
-	GBookID           string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	SnapshotID        string
-	SourceMaterialID  string
-	AnalysisRunID     string
-	ContentRevisionID string
-	ContentSnapshotID string
-	CorpusID          string
+	GOwnerID  string
+	Language  string
+	GBookID   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) GetCurrentReading(ctx context.Context, arg GetCurrentReadingParams) (GetCurrentReadingRow, error) {
@@ -248,12 +109,6 @@ func (q *Queries) GetCurrentReading(ctx context.Context, arg GetCurrentReadingPa
 		&i.GBookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SnapshotID,
-		&i.SourceMaterialID,
-		&i.AnalysisRunID,
-		&i.ContentRevisionID,
-		&i.ContentSnapshotID,
-		&i.CorpusID,
 	)
 	return i, err
 }
@@ -379,15 +234,8 @@ func (q *Queries) GetCurrentReadingEvidence(ctx context.Context, arg GetCurrentR
 }
 
 const getCurrentReadingForUpdate = `-- name: GetCurrentReadingForUpdate :one
-SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at,
-       COALESCE(s.id::text, '')::text AS snapshot_id,
-       COALESCE(s.source_material_id::text, '')::text AS source_material_id,
-       COALESCE(s.analysis_run_id::text, '')::text AS analysis_run_id,
-       COALESCE(s.content_revision_id::text, '')::text AS content_revision_id,
-       COALESCE(s.content_snapshot_id::text, '')::text AS content_snapshot_id,
-       COALESCE(s.corpus_id::text, '')::text AS corpus_id
+SELECT g.owner_id::text, g.language, g.book_id::text, g.created_at, g.updated_at
 FROM primary_goals g
-LEFT JOIN primary_goal_snapshots s ON s.owner_id = g.owner_id AND s.id = g.snapshot_id
 WHERE g.owner_id = $1 AND g.language = $2
 FOR UPDATE OF g
 `
@@ -398,17 +246,11 @@ type GetCurrentReadingForUpdateParams struct {
 }
 
 type GetCurrentReadingForUpdateRow struct {
-	GOwnerID          string
-	Language          string
-	GBookID           string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	SnapshotID        string
-	SourceMaterialID  string
-	AnalysisRunID     string
-	ContentRevisionID string
-	ContentSnapshotID string
-	CorpusID          string
+	GOwnerID  string
+	Language  string
+	GBookID   string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (q *Queries) GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrentReadingForUpdateParams) (GetCurrentReadingForUpdateRow, error) {
@@ -420,50 +262,6 @@ func (q *Queries) GetCurrentReadingForUpdate(ctx context.Context, arg GetCurrent
 		&i.GBookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SnapshotID,
-		&i.SourceMaterialID,
-		&i.AnalysisRunID,
-		&i.ContentRevisionID,
-		&i.ContentSnapshotID,
-		&i.CorpusID,
-	)
-	return i, err
-}
-
-const getCurrentReadingSnapshotLifecycle = `-- name: GetCurrentReadingSnapshotLifecycle :one
-SELECT s.book_id::text AS book_id, s.created_at, s.released_at,
-       EXISTS (
-           SELECT 1 FROM reading_history h
-           WHERE h.owner_id = s.owner_id AND h.goal_snapshot_id = s.id
-       ) AS completed
-FROM primary_goal_snapshots s
-WHERE s.owner_id = $1 AND s.language = $2
-  AND s.id = $3
-`
-
-type GetCurrentReadingSnapshotLifecycleParams struct {
-	Owner    string
-	Language string
-	Snapshot string
-}
-
-type GetCurrentReadingSnapshotLifecycleRow struct {
-	BookID     string
-	CreatedAt  time.Time
-	ReleasedAt pgtype.Timestamptz
-	Completed  bool
-}
-
-// Durable facts that prove a lifecycle replay: who the commitment belonged to,
-// when it was frozen and released, and whether it was completed.
-func (q *Queries) GetCurrentReadingSnapshotLifecycle(ctx context.Context, arg GetCurrentReadingSnapshotLifecycleParams) (GetCurrentReadingSnapshotLifecycleRow, error) {
-	row := q.db.QueryRow(ctx, getCurrentReadingSnapshotLifecycle, arg.Owner, arg.Language, arg.Snapshot)
-	var i GetCurrentReadingSnapshotLifecycleRow
-	err := row.Scan(
-		&i.BookID,
-		&i.CreatedAt,
-		&i.ReleasedAt,
-		&i.Completed,
 	)
 	return i, err
 }
@@ -516,92 +314,31 @@ func (q *Queries) GetPreviouslyReadImport(ctx context.Context, arg GetPreviously
 	return i, err
 }
 
-const getReadingCompletion = `-- name: GetReadingCompletion :one
-SELECT owner_id::text, language, book_id::text, completed_at,
-       COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
-       completion_source,
-        snapshot_vocabulary_count, eligible_vocabulary_count,
-       graduated_vocabulary_count, already_known_vocabulary_count
-FROM reading_history
-WHERE owner_id = $1
-  AND language = $2
-  AND book_id = $3
-  AND goal_snapshot_id IS NOT DISTINCT FROM NULLIF($4, '')::uuid
-`
-
-type GetReadingCompletionParams struct {
-	Owner    string
-	Language string
-	Book     string
-	Snapshot interface{}
-}
-
-type GetReadingCompletionRow struct {
-	OwnerID                     string
-	Language                    string
-	BookID                      string
-	CompletedAt                 time.Time
-	GoalSnapshotID              string
-	CompletionSource            string
-	SnapshotVocabularyCount     int
-	EligibleVocabularyCount     int
-	GraduatedVocabularyCount    int
-	AlreadyKnownVocabularyCount int
-}
-
-func (q *Queries) GetReadingCompletion(ctx context.Context, arg GetReadingCompletionParams) (GetReadingCompletionRow, error) {
-	row := q.db.QueryRow(ctx, getReadingCompletion,
-		arg.Owner,
-		arg.Language,
-		arg.Book,
-		arg.Snapshot,
-	)
-	var i GetReadingCompletionRow
-	err := row.Scan(
-		&i.OwnerID,
-		&i.Language,
-		&i.BookID,
-		&i.CompletedAt,
-		&i.GoalSnapshotID,
-		&i.CompletionSource,
-		&i.SnapshotVocabularyCount,
-		&i.EligibleVocabularyCount,
-		&i.GraduatedVocabularyCount,
-		&i.AlreadyKnownVocabularyCount,
-	)
-	return i, err
-}
-
 const insertCurrentReading = `-- name: InsertCurrentReading :one
-INSERT INTO primary_goals(owner_id, language, book_id, snapshot_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO primary_goals(owner_id, language, book_id)
+VALUES ($1, $2, $3)
 ON CONFLICT (owner_id, language) DO NOTHING
-RETURNING owner_id::text, language, book_id::text, created_at, updated_at, snapshot_id::text
+RETURNING owner_id::text, language, book_id::text, created_at, updated_at
 `
 
 type InsertCurrentReadingParams struct {
 	Owner    string
 	Language string
 	Book     string
-	Snapshot pgtype.UUID
 }
 
 type InsertCurrentReadingRow struct {
-	OwnerID    string
-	Language   string
-	BookID     string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	SnapshotID string
+	OwnerID   string
+	Language  string
+	BookID    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
+// Read next never freezes a vocabulary snapshot (ADR 0136 §4), so the row names
+// none.
 func (q *Queries) InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error) {
-	row := q.db.QueryRow(ctx, insertCurrentReading,
-		arg.Owner,
-		arg.Language,
-		arg.Book,
-		arg.Snapshot,
-	)
+	row := q.db.QueryRow(ctx, insertCurrentReading, arg.Owner, arg.Language, arg.Book)
 	var i InsertCurrentReadingRow
 	err := row.Scan(
 		&i.OwnerID,
@@ -609,150 +346,8 @@ func (q *Queries) InsertCurrentReading(ctx context.Context, arg InsertCurrentRea
 		&i.BookID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.SnapshotID,
 	)
 	return i, err
-}
-
-const insertCurrentReadingKnownVocabulary = `-- name: InsertCurrentReadingKnownVocabulary :one
-WITH eligible AS (
-    SELECT pv.owner_id, pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword,
-           s.book_id, s.source_material_id, s.analysis_run_id,
-           s.content_revision_id, s.content_snapshot_id, s.corpus_id,
-           s.id AS snapshot_id, $1::timestamptz AS completed_at,
-           preparation.id AS deck_preparation_id,
-           generated.first_deck_id, generated.first_source_material_id,
-           generated.first_generated_at
-    FROM primary_goal_snapshot_vocabulary pv
-    JOIN primary_goal_snapshots s
-      ON s.owner_id = pv.owner_id AND s.id = pv.snapshot_id
-    LEFT JOIN LATERAL (
-        SELECT p.id
-        FROM deck_preparations p
-        WHERE p.owner_id = s.owner_id
-          AND p.book_id = s.book_id
-          AND (p.goal_snapshot_id = s.id OR (
-               p.source_material_id = s.source_material_id
-               AND (p.analysis_run_id = s.analysis_run_id OR p.analysis_run_id IS NULL)
-          ))
-        ORDER BY p.created_at DESC, p.id DESC
-        LIMIT 1
-    ) preparation ON true
-    LEFT JOIN LATERAL (
-        SELECT gv.first_deck_id, gv.first_source_material_id, gv.first_generated_at
-        FROM generated_vocabulary gv
-        WHERE gv.owner_id = pv.owner_id
-          AND gv.language = pv.language
-          AND gv.canonical_lemma = pv.canonical_lemma
-          AND gv.upos = pv.upos
-        ORDER BY gv.first_generated_at, gv.first_deck_id
-        LIMIT 1
-    ) generated ON true
-    WHERE pv.owner_id = $2
-      AND pv.snapshot_id = $3
-      AND (pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator) IN (
-          SELECT l.value, c.value, u.value, d.value
-          FROM unnest($4::text[]) WITH ORDINALITY AS l(value, position)
-          JOIN unnest($5::text[]) WITH ORDINALITY AS c(value, position) USING (position)
-          JOIN unnest($6::text[]) WITH ORDINALITY AS u(value, position) USING (position)
-          JOIN unnest($7::text[]) WITH ORDINALITY AS d(value, position) USING (position)
-      )
-), inserted AS (
-    INSERT INTO known_vocabulary(
-        owner_id, language, canonical_lemma, upos, lexical_discriminator, headword,
-        completion_book_id, completion_at, completion_goal_snapshot_id,
-        completion_source_material_id, completion_analysis_run_id,
-        completion_content_revision_id, completion_content_snapshot_id,
-        completion_corpus_id, completion_deck_preparation_id,
-        generated_first_deck_id, generated_first_source_material_id,
-        generated_first_at
-    )
-    SELECT owner_id, language, canonical_lemma, upos, lexical_discriminator, headword,
-           book_id, completed_at, snapshot_id, source_material_id, analysis_run_id,
-           content_revision_id, content_snapshot_id, corpus_id, deck_preparation_id,
-           first_deck_id, first_source_material_id, first_generated_at
-    FROM eligible
-    ON CONFLICT DO NOTHING
-    RETURNING owner_id
-)
-SELECT count(*)::int AS graduated_count FROM inserted
-`
-
-type InsertCurrentReadingKnownVocabularyParams struct {
-	CompletedAt    time.Time
-	Owner          string
-	Snapshot       string
-	Languages      []string
-	Lemmas         []string
-	Uposes         []string
-	Discriminators []string
-}
-
-// Inserts the identities the domain decided to accept, only where absent.
-// Which identities become Known is never decided here.
-func (q *Queries) InsertCurrentReadingKnownVocabulary(ctx context.Context, arg InsertCurrentReadingKnownVocabularyParams) (int, error) {
-	row := q.db.QueryRow(ctx, insertCurrentReadingKnownVocabulary,
-		arg.CompletedAt,
-		arg.Owner,
-		arg.Snapshot,
-		arg.Languages,
-		arg.Lemmas,
-		arg.Uposes,
-		arg.Discriminators,
-	)
-	var graduated_count int
-	err := row.Scan(&graduated_count)
-	return graduated_count, err
-}
-
-const insertCurrentReadingSnapshotVocabulary = `-- name: InsertCurrentReadingSnapshotVocabulary :exec
-INSERT INTO primary_goal_snapshot_vocabulary(
-    owner_id, snapshot_id, corpus_id, language, canonical_lemma, upos,
-    lexical_discriminator, headword,
-    occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
-)
-VALUES ($1, $2, $3, $4,
-        $5, $6,
-        $7, $8, $9,
-        $10, $11, $12,
-        $13, $14)
-`
-
-type InsertCurrentReadingSnapshotVocabularyParams struct {
-	Owner                string
-	Snapshot             string
-	Corpus               string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-	OccurrenceCount      int
-	ObservedForms        []byte
-	EligibleSentenceRefs []byte
-	Provenance           []byte
-	FirstEncounter       int64
-	SelectedAt           time.Time
-}
-
-func (q *Queries) InsertCurrentReadingSnapshotVocabulary(ctx context.Context, arg InsertCurrentReadingSnapshotVocabularyParams) error {
-	_, err := q.db.Exec(ctx, insertCurrentReadingSnapshotVocabulary,
-		arg.Owner,
-		arg.Snapshot,
-		arg.Corpus,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.LexicalDiscriminator,
-		arg.Headword,
-		arg.OccurrenceCount,
-		arg.ObservedForms,
-		arg.EligibleSentenceRefs,
-		arg.Provenance,
-		arg.FirstEncounter,
-		arg.SelectedAt,
-	)
-	return err
 }
 
 const insertPreviouslyReadImport = `-- name: InsertPreviouslyReadImport :one
@@ -817,412 +412,26 @@ func (q *Queries) InsertPreviouslyReadImport(ctx context.Context, arg InsertPrev
 	return i, err
 }
 
-const insertReadingCompletion = `-- name: InsertReadingCompletion :one
-INSERT INTO reading_history(
-    owner_id, language, book_id, completed_at, goal_snapshot_id,
-    snapshot_vocabulary_count, eligible_vocabulary_count,
-    graduated_vocabulary_count, already_known_vocabulary_count
-)
-SELECT $1, $2, $3, $4,
-       NULLIF($5, '')::uuid,
-       $6, $7,
-       $8, $9
-WHERE NULLIF($5, '') IS NOT NULL
-   OR NOT EXISTS (
-       SELECT 1
-       FROM reading_history
-       WHERE owner_id = $1
-         AND language = $2
-         AND book_id = $3
-         AND goal_snapshot_id IS NULL
-   )
-ON CONFLICT DO NOTHING
-RETURNING owner_id::text, language, book_id::text, completed_at,
-          COALESCE(goal_snapshot_id::text, '')::text AS goal_snapshot_id,
-          snapshot_vocabulary_count, eligible_vocabulary_count,
-           graduated_vocabulary_count, already_known_vocabulary_count, completion_source
+const insertReadingCompletion = `-- name: InsertReadingCompletion :exec
+INSERT INTO reading_history(owner_id, language, book_id, completed_at)
+VALUES ($1, $2, $3, $4)
 `
 
 type InsertReadingCompletionParams struct {
-	Owner                       string
-	Language                    string
-	Book                        string
-	CompletedAt                 time.Time
-	Snapshot                    interface{}
-	SnapshotVocabularyCount     int
-	EligibleVocabularyCount     int
-	GraduatedVocabularyCount    int
-	AlreadyKnownVocabularyCount int
+	Owner       string
+	Language    string
+	Book        string
+	CompletedAt time.Time
 }
 
-type InsertReadingCompletionRow struct {
-	OwnerID                     string
-	Language                    string
-	BookID                      string
-	CompletedAt                 time.Time
-	GoalSnapshotID              string
-	SnapshotVocabularyCount     int
-	EligibleVocabularyCount     int
-	GraduatedVocabularyCount    int
-	AlreadyKnownVocabularyCount int
-	CompletionSource            string
-}
-
-func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) (InsertReadingCompletionRow, error) {
-	row := q.db.QueryRow(ctx, insertReadingCompletion,
+// Finish appends one completion with no snapshot and no vocabulary counts
+// (ADR 0136 §4). Every Finish is a new row, so a Book can be completed again.
+func (q *Queries) InsertReadingCompletion(ctx context.Context, arg InsertReadingCompletionParams) error {
+	_, err := q.db.Exec(ctx, insertReadingCompletion,
 		arg.Owner,
 		arg.Language,
 		arg.Book,
 		arg.CompletedAt,
-		arg.Snapshot,
-		arg.SnapshotVocabularyCount,
-		arg.EligibleVocabularyCount,
-		arg.GraduatedVocabularyCount,
-		arg.AlreadyKnownVocabularyCount,
 	)
-	var i InsertReadingCompletionRow
-	err := row.Scan(
-		&i.OwnerID,
-		&i.Language,
-		&i.BookID,
-		&i.CompletedAt,
-		&i.GoalSnapshotID,
-		&i.SnapshotVocabularyCount,
-		&i.EligibleVocabularyCount,
-		&i.GraduatedVocabularyCount,
-		&i.AlreadyKnownVocabularyCount,
-		&i.CompletionSource,
-	)
-	return i, err
-}
-
-const isCurrentReadingVocabularyReserved = `-- name: IsCurrentReadingVocabularyReserved :one
-SELECT EXISTS (
-  SELECT 1 FROM primary_goal_snapshots ps
-  JOIN primary_goal_snapshot_vocabulary pv
-    ON pv.owner_id = ps.owner_id AND pv.snapshot_id = ps.id
-  WHERE ps.owner_id = $1 AND ps.language = $2
-    AND ps.released_at IS NULL AND pv.language = $2
-    AND pv.canonical_lemma = $3 AND pv.upos = $4
-    AND pv.lexical_discriminator = $5
-)
-`
-
-type IsCurrentReadingVocabularyReservedParams struct {
-	Owner                string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-}
-
-func (q *Queries) IsCurrentReadingVocabularyReserved(ctx context.Context, arg IsCurrentReadingVocabularyReservedParams) (bool, error) {
-	row := q.db.QueryRow(ctx, isCurrentReadingVocabularyReserved,
-		arg.Owner,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.LexicalDiscriminator,
-	)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
-const listCurrentReadingSnapshotIdentities = `-- name: ListCurrentReadingSnapshotIdentities :many
-SELECT pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator, pv.headword
-FROM primary_goal_snapshot_vocabulary pv
-WHERE pv.owner_id = $1
-  AND pv.snapshot_id = $2
-ORDER BY pv.language, pv.canonical_lemma, pv.upos, pv.lexical_discriminator
-`
-
-type ListCurrentReadingSnapshotIdentitiesParams struct {
-	Owner    string
-	Snapshot string
-}
-
-type ListCurrentReadingSnapshotIdentitiesRow struct {
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-}
-
-func (q *Queries) ListCurrentReadingSnapshotIdentities(ctx context.Context, arg ListCurrentReadingSnapshotIdentitiesParams) ([]ListCurrentReadingSnapshotIdentitiesRow, error) {
-	rows, err := q.db.Query(ctx, listCurrentReadingSnapshotIdentities, arg.Owner, arg.Snapshot)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListCurrentReadingSnapshotIdentitiesRow{}
-	for rows.Next() {
-		var i ListCurrentReadingSnapshotIdentitiesRow
-		if err := rows.Scan(
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-			&i.Headword,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCurrentReadingSnapshotVocabulary = `-- name: ListCurrentReadingSnapshotVocabulary :many
-SELECT owner_id::text, snapshot_id::text, corpus_id, language, canonical_lemma, upos,
-       lexical_discriminator, headword,
-       occurrence_count, observed_forms, eligible_sentence_refs, provenance, first_encounter, selected_at
-FROM primary_goal_snapshot_vocabulary
-WHERE owner_id = $1 AND snapshot_id = $2
-ORDER BY language, canonical_lemma, upos, lexical_discriminator
-`
-
-type ListCurrentReadingSnapshotVocabularyParams struct {
-	Owner    string
-	Snapshot string
-}
-
-type ListCurrentReadingSnapshotVocabularyRow struct {
-	OwnerID              string
-	SnapshotID           string
-	CorpusID             string
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-	Headword             string
-	OccurrenceCount      int
-	ObservedForms        []byte
-	EligibleSentenceRefs []byte
-	Provenance           []byte
-	FirstEncounter       int64
-	SelectedAt           time.Time
-}
-
-func (q *Queries) ListCurrentReadingSnapshotVocabulary(ctx context.Context, arg ListCurrentReadingSnapshotVocabularyParams) ([]ListCurrentReadingSnapshotVocabularyRow, error) {
-	rows, err := q.db.Query(ctx, listCurrentReadingSnapshotVocabulary, arg.Owner, arg.Snapshot)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListCurrentReadingSnapshotVocabularyRow{}
-	for rows.Next() {
-		var i ListCurrentReadingSnapshotVocabularyRow
-		if err := rows.Scan(
-			&i.OwnerID,
-			&i.SnapshotID,
-			&i.CorpusID,
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-			&i.Headword,
-			&i.OccurrenceCount,
-			&i.ObservedForms,
-			&i.EligibleSentenceRefs,
-			&i.Provenance,
-			&i.FirstEncounter,
-			&i.SelectedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listKnownVocabularyForCurrentReadingSnapshot = `-- name: ListKnownVocabularyForCurrentReadingSnapshot :many
-SELECT kv.language, kv.canonical_lemma, kv.upos, kv.lexical_discriminator
-FROM known_vocabulary kv
-WHERE kv.owner_id = $1
-  AND EXISTS (
-      SELECT 1 FROM primary_goal_snapshot_vocabulary pv
-      WHERE pv.owner_id = kv.owner_id
-        AND pv.snapshot_id = $2
-        AND pv.language = kv.language
-        AND pv.canonical_lemma = kv.canonical_lemma
-  )
-`
-
-type ListKnownVocabularyForCurrentReadingSnapshotParams struct {
-	Owner    string
-	Snapshot string
-}
-
-type ListKnownVocabularyForCurrentReadingSnapshotRow struct {
-	Language             string
-	CanonicalLemma       string
-	Upos                 string
-	LexicalDiscriminator string
-}
-
-// Known rows that can match a frozen identity (same language and lemma, any
-// POS and discriminator). The domain decides which identities they cover.
-func (q *Queries) ListKnownVocabularyForCurrentReadingSnapshot(ctx context.Context, arg ListKnownVocabularyForCurrentReadingSnapshotParams) ([]ListKnownVocabularyForCurrentReadingSnapshotRow, error) {
-	rows, err := q.db.Query(ctx, listKnownVocabularyForCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListKnownVocabularyForCurrentReadingSnapshotRow{}
-	for rows.Next() {
-		var i ListKnownVocabularyForCurrentReadingSnapshotRow
-		if err := rows.Scan(
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const lockCurrentReadingSnapshot = `-- name: LockCurrentReadingSnapshot :one
-SELECT id::text
-FROM primary_goal_snapshots
-WHERE owner_id = $1 AND id = $2
-FOR UPDATE
-`
-
-type LockCurrentReadingSnapshotParams struct {
-	Owner    string
-	Snapshot string
-}
-
-func (q *Queries) LockCurrentReadingSnapshot(ctx context.Context, arg LockCurrentReadingSnapshotParams) (string, error) {
-	row := q.db.QueryRow(ctx, lockCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const lockCurrentReadingsExceptLanguage = `-- name: LockCurrentReadingsExceptLanguage :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = $1 AND book_id = $2 AND language <> $3 AND snapshot_id IS NOT NULL
-FOR UPDATE
-`
-
-type LockCurrentReadingsExceptLanguageParams struct {
-	Owner    string
-	Book     string
-	Language string
-}
-
-func (q *Queries) LockCurrentReadingsExceptLanguage(ctx context.Context, arg LockCurrentReadingsExceptLanguageParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, lockCurrentReadingsExceptLanguage, arg.Owner, arg.Book, arg.Language)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var snapshot_id string
-		if err := rows.Scan(&snapshot_id); err != nil {
-			return nil, err
-		}
-		items = append(items, snapshot_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const lockCurrentReadingsForAllLanguages = `-- name: LockCurrentReadingsForAllLanguages :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = $1 AND book_id = $2 AND snapshot_id IS NOT NULL
-FOR UPDATE
-`
-
-type LockCurrentReadingsForAllLanguagesParams struct {
-	Owner string
-	Book  string
-}
-
-func (q *Queries) LockCurrentReadingsForAllLanguages(ctx context.Context, arg LockCurrentReadingsForAllLanguagesParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, lockCurrentReadingsForAllLanguages, arg.Owner, arg.Book)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var snapshot_id string
-		if err := rows.Scan(&snapshot_id); err != nil {
-			return nil, err
-		}
-		items = append(items, snapshot_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const lockCurrentReadingsForBook = `-- name: LockCurrentReadingsForBook :many
-SELECT snapshot_id::text
-FROM primary_goals
-WHERE owner_id = $1 AND language = $2 AND book_id = $3 AND snapshot_id IS NOT NULL
-FOR UPDATE
-`
-
-type LockCurrentReadingsForBookParams struct {
-	Owner    string
-	Language string
-	Book     string
-}
-
-func (q *Queries) LockCurrentReadingsForBook(ctx context.Context, arg LockCurrentReadingsForBookParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, lockCurrentReadingsForBook, arg.Owner, arg.Language, arg.Book)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var snapshot_id string
-		if err := rows.Scan(&snapshot_id); err != nil {
-			return nil, err
-		}
-		items = append(items, snapshot_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const releaseCurrentReadingSnapshot = `-- name: ReleaseCurrentReadingSnapshot :exec
-UPDATE primary_goal_snapshots
-SET released_at = COALESCE(released_at, now())
-WHERE owner_id = $1 AND id = $2
-`
-
-type ReleaseCurrentReadingSnapshotParams struct {
-	Owner    string
-	Snapshot string
-}
-
-func (q *Queries) ReleaseCurrentReadingSnapshot(ctx context.Context, arg ReleaseCurrentReadingSnapshotParams) error {
-	_, err := q.db.Exec(ctx, releaseCurrentReadingSnapshot, arg.Owner, arg.Snapshot)
 	return err
 }

@@ -91,9 +91,6 @@ func TestMarkBookPreviouslyReadRefusesIneligibleBooks(t *testing.T) {
 	})
 	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, OwnerID, "fixture-unchosen"), domain.ErrPreviouslyReadIneligible)
 
-	store.snapshotLifecycles["fixture-started"] = domain.CurrentReadingSnapshotLifecycle{BookID: routeDiffersBookID}
-	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, OwnerID, routeDiffersBookID), domain.ErrPreviouslyReadIneligible)
-
 	store.readingHistory["fixture-history"] = domain.ReadingCompletion{OwnerID: OwnerID, BookID: routeDiffersBookID, Source: domain.ReadingCompletionCurrentReading}
 	require.ErrorIs(t, store.MarkBookPreviouslyRead(ctx, OwnerID, routeDiffersBookID), domain.ErrPreviouslyReadIneligible, "a To Read Book with history was already read")
 

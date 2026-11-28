@@ -25,17 +25,10 @@ const (
 )
 
 // CurrentReading is the owner's commitment to finish one Book in a study
-// language. Analysis, deck preparation, reading progress, and vocabulary work
-// are independent of the current reading and may not exist yet.
+// language. Analysis, reading progress, and Study are independent of the current
+// reading and may not exist yet. It holds no vocabulary snapshot (ADR 0136 §4).
 type CurrentReading struct {
 	OwnerID, Language, BookID string
-	SnapshotID                string
-	SourceMaterialID          string
-	AnalysisRunID             string
-	ContentRevisionID         string
-	ContentSnapshotID         string
-	CorpusID                  string
-	SnapshotSize              int
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
 }

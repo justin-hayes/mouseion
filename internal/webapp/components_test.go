@@ -13,7 +13,6 @@ import (
 	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/lemmareview"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,23 +37,6 @@ func TestCatalogueSyncConnectionViewExplainsEmptySyncResult(t *testing.T) {
 	requireMarkup(t, html,
 		"Sync completed. The Catalog index is current; no Book metadata changed.",
 	)
-}
-
-func TestLemmaReviewPageShowsNonAuthoritativeFlagWithSourceEvidence(t *testing.T) {
-	occurrence := domain.LemmaReviewOccurrence{
-		Surface: "Drachen", RawLemma: "Drach", CanonicalLemma: "drach", UPOS: "NOUN",
-		SentenceText:         "Ein Reiter zielt mit seinem Speer auf einen Drachen.",
-		ReviewFlagReason:     "The analyzer lemma is an index miss and a plausible competitor is supported.",
-		ReviewFlagProvenance: map[string]any{"alternative_lemma": "drache", "source": "wiktionary", "version": "fixture-1", "evidence_id": "fixture-evidence"},
-	}
-	html := renderPattern(t, LemmaReviewPage(domain.User{}, "csrf", "book", "Book", "", "", true, []domain.LemmaReviewOccurrence{occurrence}, nil, lemmareview.Recovery{ReferenceAssessed: true}, nil, nil), "")
-	requireMarkup(t, html,
-		"Needs learner review — not a verdict.",
-		"Ein Reiter zielt mit seinem Speer auf einen Drachen.",
-		"drache", "wiktionary", "fixture-1", "fixture-evidence",
-		"Review exact form",
-	)
-	assert.Contains(t, html, "Find occurrences", "review remains a server-rendered form flow without JavaScript")
 }
 
 func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
@@ -364,11 +346,6 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 			name: "My Books row",
 			html: renderPattern(t, MyBookRow("csrf", book, ""), ""),
 			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
-		},
-		{
-			name: "Reading chooser",
-			html: renderPattern(t, ReadingChooserCandidate(readingChooserBookView{Book: book}, "csrf", "", ""), ""),
-			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`},
 		},
 		{
 			name: "Reading current Book",

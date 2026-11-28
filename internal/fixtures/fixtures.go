@@ -6,6 +6,7 @@ package fixtures
 // acceptance harness; each feature file states its own status.
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,17 +23,9 @@ const (
 	LemmaFlagBookID        = "fixture-lemma-flag-book"
 	SourceID               = "fixture-source"
 	ResultRunID            = "fixture-run"
-	DeckID                 = "fixture-deck"
-	PrepID                 = "fixture-preparation"
-	QueuedPrepID           = "fixture-queued-preparation"
-	JourneyPrepID          = "fixture-journey-preparation"
-	OutsidePrepID          = "fixture-outside-journey-preparation"
 	BrowserSyncBookID      = "fixture-browser-sync-book"
 	catalogueRestoreBookID = "fixture-catalogue-restore"
 	catalogueRestoreSecond = "fixture-catalogue-restore-second"
-	LegacyGeneratedLemma   = "fixture-legacy-generated"
-	GraduatedKnownLemma    = "fixture-graduated-known"
-	IndependentKnownLemma  = "fixture-independent-known"
 	routeMatchBookID       = "fixture-route-match"
 	routeDiffersBookID     = "fixture-route-differs"
 	routeTieABookID        = "fixture-route-tie-a"
@@ -52,8 +45,10 @@ func fixtureGoalKey(owner, language string) string {
 	return fixtureLanguageKey(owner, language)
 }
 
-func fixtureReadingHistoryKey(owner, language, snapshotID string) string {
-	return fixtureGoalKey(owner, language) + "\x00" + snapshotID
+// fixtureReadingHistoryKey names the next Finish completion. Every Finish is a
+// new row, so the key is a sequence number, never a Book or snapshot identity.
+func fixtureReadingHistoryKey(owner, language string, sequence int) string {
+	return fixtureGoalKey(owner, language) + "\x00" + strconv.Itoa(sequence)
 }
 
 type Store struct {
@@ -68,20 +63,12 @@ type Store struct {
 	catalogueEntries map[string][]domain.CatalogueIndexEntry
 	// entryCovers holds seeded retained Catalog entry covers, keyed by
 	// connection and entry identity.
-	entryCovers            map[string]domain.CatalogEntryCoverResource
-	catalogueBookCount     int
-	aliases                []domain.BookAlias
-	preps                  []domain.DeckPreparation
-	deckVocabulary         []domain.DeckPreparationVocabulary
-	known                  []domain.KnownVocabulary
-	goalSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
-	// bookSnapshotVocabulary is the vocabulary a Book's next Start freezes. It is
-	// seeded by store contract harnesses, the way analysis supplies it in Postgres.
-	bookSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
-	legacyGenerated        []domain.GeneratedVocabulary
-	myBooks                []domain.MyBook
-	dispositions           map[string]domain.BookDisposition
-	dispositionRevisions   map[string]int64
+	entryCovers          map[string]domain.CatalogEntryCoverResource
+	catalogueBookCount   int
+	aliases              []domain.BookAlias
+	myBooks              []domain.MyBook
+	dispositions         map[string]domain.BookDisposition
+	dispositionRevisions map[string]int64
 	// unchosen holds legacy active members with no chosen workflow role, keyed
 	// like dispositions. My Books neither lists nor counts them.
 	unchosen map[string]bool
@@ -92,8 +79,6 @@ type Store struct {
 	// Book and its evidence stay so a later Add can restore them.
 	removedBooks         map[string]struct{}
 	currentReadings      map[string]domain.CurrentReading
-	goalSnapshotSequence map[string]int
-	snapshotLifecycles   map[string]domain.CurrentReadingSnapshotLifecycle
 	readingHistory       map[string]domain.ReadingCompletion
 	importedHistory      map[string]domain.ReadingCompletion
 	syncStatuses         []domain.CatalogueSyncStatus
@@ -101,9 +86,8 @@ type Store struct {
 	mostRecentLanguage   string
 	lemmaCorrections     map[string]string
 	lemmaExclusions      map[string]bool
-	lemmaReviewFlags     map[string]domain.LemmaReviewFlag
 	// lemmaOccurrences are the occurrences each Book's analysis contributes to
-	// lemma review, keyed by lemmaOccurrenceKey. Decisions and flags validate
+	// lemma review, keyed by lemmaOccurrenceKey. Decisions validate
 	// against them.
 	lemmaOccurrences map[string][]domain.LemmaReviewOccurrence
 	browseScenario   string
@@ -118,7 +102,9 @@ type Store struct {
 	// without an analyzed Book behind them.
 	studyCandidates []seededStudyCandidate
 	studyReviewLog  []domain.StudyReviewLog
-	studyLedger     map[string]domain.StudyBatchLedger
+	// studyAlreadyKnown is the Already-known events, never grades.
+	studyAlreadyKnown []domain.StudyAlreadyKnownEvent
+	studyLedger       map[string]domain.StudyBatchLedger
 	// studyReports is every Study report, open and ended. studyActions lists
 	// Study actions and studyReportSeq records how many there were when each
 	// report was made, so Undo can tell whether another action followed.
@@ -211,21 +197,12 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-failed-connection", State: domain.CatalogueSyncFailed, LastError: "Authentication failed for this connection. Check the saved credentials and try again.", UpdatedAt: fixtureJourneyTime},
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
-		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady, Filename: "Fixture German deck.apkg", DeckName: "Mouseion::de::Fixture", TotalCards: 3},
-			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady, Filename: "Fixture German queued deck.apkg", DeckName: "Mouseion::de::Queued", TotalCards: 3},
-		},
-		deckVocabulary: []domain.DeckPreparationVocabulary{
-			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
-			{OwnerID: OwnerID, DeckPreparationID: PrepID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
-		},
-		known: []domain.KnownVocabulary{
-			{ID: "fixture-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-known-only", OwnerID: OwnerID, Language: "fr", CanonicalLemma: "bonjour", UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-independent-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: IndependentKnownLemma, UPOS: "NOUN", CreatedAt: fixtureJourneyTime},
-			{ID: "fixture-graduated-known", OwnerID: OwnerID, Language: "de", CanonicalLemma: GraduatedKnownLemma, UPOS: "VERB", CreatedAt: fixtureJourneyTime.Add(2 * time.Hour)},
-		},
-		legacyGenerated: []domain.GeneratedVocabulary{{OwnerID: OwnerID, Language: "de", CanonicalLemma: LegacyGeneratedLemma, UPOS: "ADJ", FirstDeckID: "fixture-legacy-generated-deck", FirstGeneratedAt: fixtureJourneyTime}},
+		// French has Study progress and no Book, so the language stays
+		// selectable as "(no books)".
+		studyProgress: []domain.StudyProgress{{
+			ID: "fixture-study-progress-fr-bonjour", OwnerID: OwnerID, StudyItem: domain.WordItem("fr", "bonjour", "NOUN", ""),
+			IntroducedAt: fixtureJourneyTime, Memory: domain.NewStudyMemory(fixtureJourneyTime), CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime,
+		}},
 		myBooks: []domain.MyBook{{
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime}, CompletionCount: 1,
 		}, {
@@ -281,34 +258,19 @@ func NewStore() *Store {
 		removedBooks:         make(map[string]struct{}),
 		importedHistory:      make(map[string]domain.ReadingCompletion),
 		currentReadings: map[string]domain.CurrentReading{
-			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-		},
-		goalSnapshotSequence:   make(map[string]int),
-		snapshotLifecycles:     make(map[string]domain.CurrentReadingSnapshotLifecycle),
-		bookSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{},
-		goalSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{
-			"fixture-de-goal-snapshot": {
-				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
-				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
-			},
+			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
 		readingHistory:       make(map[string]domain.ReadingCompletion),
 		storedActiveLanguage: &initialActiveLanguage,
 		mostRecentLanguage:   "it",
 		lemmaCorrections:     make(map[string]string),
 		lemmaExclusions:      make(map[string]bool),
-		lemmaReviewFlags:     make(map[string]domain.LemmaReviewFlag),
 		lemmaOccurrences:     fixtureCannedLemmaOccurrences(),
 		classicalDefinitions: fixtureClassicalDefinitionsByKey(),
 	}
 	// Their entries stay browsable and offer Add.
 	store.removedBooks[fixtureDispositionKey(OwnerID, catalogueRestoreBookID)] = struct{}{}
 	store.removedBooks[fixtureDispositionKey(OwnerID, catalogueRestoreSecond)] = struct{}{}
-	store.lemmaReviewFlags[fixtureLemmaCorrectionKey(OwnerID, LemmaFlagBookID, "fixture-lemma-flag-run", 4, 7)] = domain.LemmaReviewFlag{
-		Occurrence: domain.LemmaReviewOccurrence{OwnerID: OwnerID, BookID: LemmaFlagBookID, AnalysisRunID: "fixture-lemma-flag-run", SourceDocumentID: "fixture-lemma-flag-unit", StartOffset: 4, EndOffset: 7},
-		Reason:     "The analyzer lemma is a local-index miss and sentence evidence supports a competing recurring lemma.",
-		Provenance: map[string]any{"alternative_lemma": "pfad", "source": "wiktionary", "version": "fixture-1", "evidence_id": "fixture-lemma-evidence"},
-	}
 	return store
 }

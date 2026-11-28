@@ -5,8 +5,8 @@ philology: Ancient Greek and Latin, and German, French, Italian and Modern Greek
 ([ADR 0110](doc/adr/0110-philological-reading-competence-boundary.md)).
 A learner finds texts in one Catalog, which holds the curated Classical catalog
 and the learner's own OPDS catalogs, adds the ones they choose to a personal
-library, analyzes each Book according to its declared EPUB structure, and prepares
-Anki recognition decks from unknown vocabulary.
+library, analyzes each Book according to its declared EPUB structure, and studies
+the vocabulary of the Books they read in Study.
 
 This glossary is the project's ubiquitous language: each term below names one
 concept and is used with that meaning in code, interface text, and
@@ -14,18 +14,14 @@ documentation. Each entry gives the definition and, under _Avoid_, the
 synonyms that are deliberately not used.
 
 **Status notes.** The current disposition and current-reading contract is recorded in
-[ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md).
+[ADR 0078](doc/adr/0078-book-dispositions-and-current-reading.md), as amended
+by ADR 0136 below.
 [ADR 0072](doc/adr/0072-goal-owned-vocabulary-and-journey-forecast.md)
 records the historical Goal and ordered-Journey model.
 [ADR 0079](doc/adr/0079-contextual-glosses-require-llm.md) records the
 implemented contextual Gloss vocabulary below;
 [ADR 0112](doc/adr/0112-gloss-is-lemma-sense-in-citation-form.md) records the
 citation-form Gloss definition, whose implementation is pending.
-The Book-scoped Vocabulary Browse inventory and Reading-owned Book vocabulary
-definitions below are implemented under [ADR 0085](doc/adr/0085-reading-owned-book-vocabulary.md).
-[ADR 0100](doc/adr/0100-retryable-provider-omissions-preparation.md) records how
-a standard preparation finishes with the successful cards and reports retryable
-provider omissions instead of failing the whole run.
 [ADR 0117](doc/adr/0117-one-catalog-my-books-holds-chosen-books.md) (accepted)
 defines **Catalog**, **Catalog index**, **Catalog entry**, **Book**, **Book
 disposition**, **Book workflow bucket**, **My Books** and **Previously read**
@@ -38,24 +34,28 @@ syntax node**, **Grammar reference** and **Concept note** below, the
 `native_agdt` reading of **Imported analysis**, and the carry-over of decisions
 in an **Analysis update**.
 The Study terms (**Study**, **Study day**, **Today** and the terms after them)
-describe the Study pilot, which [ADR 0134](doc/adr/0134-study-in-mouseion-vocabulary-review.md)
-accepts and the pilot implements.
+are defined by [ADR 0134](doc/adr/0134-study-in-mouseion-vocabulary-review.md),
+[ADR 0135](doc/adr/0135-study-reports.md) and
+[ADR 0137](doc/adr/0137-idioms-are-study-items.md), as amended by ADR 0136.
 [ADR 0136](doc/adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)
-(accepted, implementation pending) makes Study the only vocabulary workflow at
-one cutover. It defines **Corpus**, **Already known** and **Target coverage**
-below. At the cutover it retires **Known vocabulary**, **Prepared deck** and
-every term that serves them: **Recurring vocabulary**, **Book vocabulary
-candidates**, **Reserved vocabulary**, **Unknown vocabulary**,
-**Current-reading vocabulary snapshot**, **Generated vocabulary**, every
-**Omission** kind, **Deck specification**, **Card presentation**,
-**Presentation version**, **Render-input version**, **Deck revision**,
-**Vocabulary transition** and **Graduation**. It also retires **Lemma review**,
-**Lemma review flag** and **Lemma suggestion**, and **Reading** as a page.
-Reading completion then records history only. Until the cutover, those entries
-describe the running system.
-[ADR 0137](doc/adr/0137-idioms-are-study-items.md) (accepted, implementation
-pending) defines **Study item** below and makes an **Idiom** one, ahead of the
-cutover.
+made Study the only vocabulary workflow at one cutover. It defines **Corpus**,
+**Already known**, **Target coverage**, **Read next** and **Book detail** below.
+The cutover retired **Known vocabulary**, **Prepared deck** and every term that
+served them, marked retired below the way **Inbox** is: **Recurring
+vocabulary**, **Book vocabulary candidates**, **Reserved vocabulary**,
+**Unknown vocabulary**, **Current-reading vocabulary snapshot**, **Generated
+vocabulary**, every **Omission** kind, **Deck specification**, **Card
+presentation**, **Presentation version**, **Render-input version**, **Deck
+revision**, **Vocabulary transition** and **Graduation**. It also retired
+**Lemma review**, **Lemma review flag** and **Lemma suggestion**, and **Reading**
+as a page. Reading completion records history only.
+Superseded decisions ([ADR 0036](doc/adr/0036-primary-goal-justified-graduation.md),
+[0085](doc/adr/0085-reading-owned-book-vocabulary.md),
+[0086](doc/adr/0086-reading-working-desk-hidden-visibility-and-concordance.md),
+[0090](doc/adr/0090-library-total-book-vocabulary-selection.md),
+[0100](doc/adr/0100-retryable-provider-omissions-preparation.md),
+[0114](doc/adr/0114-idiom-cards-from-dictionary-evidence.md)) remain as
+history.
 
 ## Language
 
@@ -67,7 +67,7 @@ _Avoid_: configured language, preferred language, library language (as a stored
 selection defining the set).
 
 **Active study language**:
-The study language of the per-language page in view (My Books, Reading,
+The study language of the per-language page in view (My Books, Study,
 Vocabulary, Concordance, Sentence study), named by that page's address. It is
 context, not configuration: it never defines which languages are studied, and
 two pages open at once may each have their own. The Catalog, a Book's own pages
@@ -89,29 +89,23 @@ flow, this is the non-English language feeds whose NLP service reports ready,
 independent of learner configuration.
 _Avoid_: study-language scope, synced languages.
 
-**Known vocabulary**:
-Words the learner already knows in a language, owned per learner and language,
-populated only by acceptance of a completed current reading's frozen vocabulary
-snapshot. Identities are discriminated, so δέω 1 and δέω 2 are separate Known
-words, and each row carries the citation headword its snapshot showed. This is
-modeled learner knowledge, not a claim of verified mastery; card generation never
-marks vocabulary as known.
-_Avoid_: known words, learned vocabulary.
+**Known vocabulary** (retired):
+Retired by ADR 0136: knowledge is Study progress, and the one claim of knowledge
+is **Mature**. The Known vocabulary table was replaced by Already-known Study
+progress, with first reviews spread over several weeks, and Study, coverage and
+every vocabulary surface no longer consult it.
+_Avoid_: known words, learned vocabulary, Mature (a different, verified fact).
 
-**Recurring vocabulary**:
-Unknown lemmas appearing at least N times in an analyzed Book; one source of
-Book vocabulary candidates. N is a selection parameter with a default of
-three, and selection makes no coverage claim. Current Known vocabulary and
-Reserved vocabulary in the same study language are excluded; generated
-provenance is not an exclusion state.
+**Recurring vocabulary** (retired):
+Retired by ADR 0136 with Book vocabulary candidates: no Book has a vocabulary
+pool selected for it. Study orders new words from the Corpus instead.
 _Avoid_: frequent words, deck coverage.
 
-**Book vocabulary candidates**:
-Unknown vocabulary eligible for a Book's prepared deck and current-reading
-vocabulary snapshot: either recurring in that Book or appearing there and
-frequently across the learner's currently analyzed Books in the same study
-language, including that Book. Generated provenance does not exclude it.
-_Avoid_: recurring vocabulary (only one route into this pool), corpus words.
+**Book vocabulary candidates** (retired):
+Retired by ADR 0136 with the Current-reading vocabulary snapshot: nothing selects
+a Book's vocabulary for a deck. A candidate for Study is any effective vocabulary
+identity in the Corpus that is not in study.
+_Avoid_: recurring vocabulary, corpus words.
 
 **Personal analyzed-Book occurrences**:
 The learner-and-study-language-scoped total of an effective vocabulary identity's
@@ -124,110 +118,88 @@ _Avoid_: global frequency, unique corpus occurrences, external corpus frequency.
 Source-attributed vocabulary occurrence counts or ranks from a corpus independent
 of the learner's analyzed Books. It is not personal analyzed-Book occurrences or
 evidence of learner knowledge.
-_Avoid_: personal corpus counts, Known vocabulary, universal Greek frequency.
+_Avoid_: personal corpus counts, universal Greek frequency.
 
-**Reserved vocabulary**:
-The frozen Book-vocabulary-candidate snapshot held by a current reading in its
-study language, neither counted as Known nor available for selection while active.
-Ending, switching, or finishing releases the reservation.
+**Reserved vocabulary** (retired):
+Retired by ADR 0136 with the Current-reading vocabulary snapshot it was frozen
+from. Starting, switching, ending or finishing a Book reserves and releases
+nothing.
 _Avoid_: active-campaign vocabulary, Goal vocabulary, known vocabulary.
 
-**Unknown vocabulary**:
-An eligible analyzed vocabulary identity that is neither Known nor Reserved in
-its study language. A word can be Unknown even if it has appeared in a prepared
-Book deck; generation does not establish learner knowledge.
+**Unknown vocabulary** (retired):
+Retired by ADR 0136: with no Known or Reserved vocabulary, a word is either in
+study or not yet introduced, and Mature once its interval is long enough. The
+Vocabulary page and a Book's detail page show those Study states.
 _Avoid_: difficult words, never generated vocabulary.
 
-**Current-reading vocabulary snapshot**:
-The immutable Book-vocabulary-candidate identity set frozen from the Book's exact
-source and current analysis when reading starts. Each member carries its lexical
-discriminator and the citation headword it showed, so homographs stay separate.
-Later evidence and deck changes cannot mutate it; rereading freezes a new
-snapshot.
+**Current-reading vocabulary snapshot** (retired):
+Retired by ADR 0136: Read next freezes nothing, and a Book's later analysis is
+the only evidence of its words. Reading history keeps the Book and the time of a
+completion, not a vocabulary set.
 _Avoid_: deck contents, generated vocabulary, study snapshot.
 
-**Generated vocabulary**:
-Immutable provenance that an identity was included in a prepared deck, including
-its Book/deck origin. Generation is neither Known nor Reserved and does not by
-itself exclude an identity from a later current reading.
+**Generated vocabulary** (retired):
+Retired by ADR 0136 with the Prepared deck: no deck is generated, so no
+identity carries generation provenance.
 _Avoid_: assigned knowledge, known vocabulary, reserved vocabulary.
 
-**Omission** (from a prepared deck):
-A selected vocabulary identity that does not become a card in the ready deck,
-for one of three reasons: its candidate sentences failed the sentence-quality
-gate (a sentence-quality omission), the provider could not defend a meaning in
-context (a meaning omission), or the provider gave unusable answers (a provider
-omission).
+**Omission** (retired):
+Retired by ADR 0136 with the Prepared deck, together with every kind it had
+(sentence-quality, meaning, lemma-mismatch and provider omissions). Study has
+no equivalent: a learner who meets a wrong word reports it.
 _Avoid_: failure, dropped card, excluded word (an Occurrence exclusion is an
-analysis-time decision, not a deck omission).
+analysis-time decision).
 
-**Sentence-quality omission**:
-A deck omission whose candidate sentences all failed the sentence-quality gate,
-so no representative sentence and no card could be built for it.
+**Sentence-quality omission** (retired):
+A kind of Omission, retired with it by ADR 0136.
 _Avoid_: quality failure, invalid sentence.
 
-**Meaning omission**:
-A deck omission whose provider answer explicitly resolved nothing defensible
-for the target in context; the deck shows the target word and the provider's
-reason, except for a lemma-mismatch omission, which shows its own label. It is
-not retryable.
+**Meaning omission** (retired):
+A kind of Omission, retired with it by ADR 0136.
 _Avoid_: unresolved gloss, unknown word.
 
-**Lemma-mismatch omission**:
-A meaning omission whose provider answer identifies the representative sentence
-as using a different lexeme than the target lemma, so no card is produced. The
-deck labels it "the sentence uses a different word than this lemma" and counts
-it separately from an ambiguous meaning omission.
+**Lemma-mismatch omission** (retired):
+A kind of Omission, retired with it by ADR 0136. A learner meets a wrong word in
+Study and reports it as a Wrong word.
 _Avoid_: wrong lemma, ambiguous omission.
 
 **Idiom**:
 A multi-word lexeme with its own dictionary entry, such as Italian *in gamba*
 ("capable") or *macchina da scrivere* ("typewriter"), whose meaning belongs to
 the whole expression rather than to any one of its words. A proper name
-(*La Calamita*, *Palazzo Madama*) is never an idiom. An idiom is card-only:
-it has no Known, Reserved, Unknown or Generated state. In Study it is a Study
-item in its own right, matched across the Corpus and confirmed by the
-provider sentence by sentence. It is not a
+(*La Calamita*, *Palazzo Madama*) is never an idiom. It is a Study item in its
+own right, matched across the Corpus and confirmed by the provider sentence by
+sentence, and it does not change coverage. It is not a
 Construction, which is a syntactic pattern rather than a lexeme.
 _Avoid_: multi-word expression (fine in prose), collocation, phrase,
 construction.
 
 **Idiom candidate**:
-A match of an idiom's words in one sentence, found from dictionary evidence and
-anchored on a vocabulary identity of the deck. It is unconfirmed until the
-provider glosses it as an idiom in that sentence.
+A match of an idiom's words in one sentence of the Corpus, found from dictionary
+evidence. It is unconfirmed until the provider glosses it as an idiom in that
+sentence.
 _Avoid_: detected idiom, idiom occurrence.
 
-**Idiom card**:
-A prepared-deck card that teaches an idiom from its own representative sentence.
-It sits alongside, and never replaces, the lemma cards of the idiom's words, and
-including it records no Generated vocabulary.
+**Idiom card** (retired):
+Retired by ADR 0136 with the Prepared deck. An Idiom is a Study item
+(ADR 0137), taught from its own Study material.
 _Avoid_: phrase card, lemma card (for an idiom).
 
-**Idiom omission**:
-An idiom card that is not produced because the provider found the sentence uses
-the words literally or could not defend a meaning. It is not an Omission of a
-vocabulary identity and raises no Lemma review flag.
+**Idiom omission** (retired):
+A kind of Omission, retired with it by ADR 0136.
 _Avoid_: lemma-mismatch omission, meaning omission.
 
-**Idiom-card bound**:
-The reviewed maximum number of idiom cards one frozen deck carries, currently
-30. Noun-only idioms, whose dictionary entries are all nouns (typically
-transparent compounds such as *sistema solare*), rank after every other idiom.
-Within each group, idioms anchored on vocabulary identities with more sentence
-occurrences rank first; the remaining ties break deterministically.
+**Idiom-card bound** (retired):
+Retired by ADR 0136 with the Prepared deck. Idioms rank with words in one Study
+stream and have no per-deck bound.
 _Avoid_: idiom cap, phrase limit.
 
-**Idiom overflow**:
-An idiom candidate the per-deck idiom-card bound left out of a frozen deck. It
-is reported in the deck result, is not an Idiom omission, and raises no review
-flag.
+**Idiom overflow** (retired):
+Retired by ADR 0136 with the Prepared deck and the idiom-card bound it reported.
 _Avoid_: omitted idiom (for overflow), idiom omission.
 
-**Provider omission**:
-A deck omission caused by provider answers that were unusable through the
-bounded attempts. It is retryable, and retrying requests only the omitted
-identities.
+**Provider omission** (retired):
+A kind of Omission, retired with it by ADR 0136.
 _Avoid_: failed card, provider failure, partial deck.
 
 **Separable particle**:
@@ -243,26 +215,18 @@ positions and rejoins in others (`aufstehen` → `ich stehe auf`, `aufgestanden`
 Its vocabulary identity is the full lemma, not the analyzer's base lemma.
 _Avoid_: particle verb, prefix verb.
 
-**Prepared deck**:
-An Anki recognition deck built asynchronously from a current reading's frozen
-Book vocabulary candidates and exact completed analysis of that Book. The ready
-deck is downloaded and studied in the learner's own Anki; preparation does not
-mark vocabulary Known. Reading completion owns the vocabulary transition; a
-current reading with an empty snapshot requires no deck.
+**Prepared deck** (retired):
+Retired by ADR 0136: there is no Anki export, and vocabulary is studied only in
+Study. The preparation, status and download pages and their jobs are removed.
 _Avoid_: study plan, in-app review deck.
 
-**Deck specification**:
-The frozen, presentation-independent data of a prepared deck: the selected
-vocabulary, its representative sentence and target, and the syntax, morphology,
-and dictionary forms needed to present it, together with the identity of any
-exact translation. A deck is a presentation of one specification; changing how
-a deck is presented does not change its specification.
-_Avoid_: manifest (the storage of it), deck content.
+**Deck specification** (retired):
+Retired by ADR 0136 with the Prepared deck.
+_Avoid_: manifest, deck content.
 
-**Card presentation**:
-The rules that turn a deck specification into learner-facing Anki notes: which
-components of the target are emphasised, the headword line, the note's field
-order, and the Anki model, template, and styling.
+**Card presentation** (retired):
+Retired by ADR 0136 with the Prepared deck. Study's card is presented by the
+Study surface itself.
 _Avoid_: rendering, formatting.
 
 **English target alignment**:
@@ -279,61 +243,54 @@ translation of the sentence and carries no English target alignment.
 _Avoid_: sentence translation, wider translation, study context.
 
 **Source-evidence card**:
-A card built only from imported sources (the representative sentence, its
-passage context and the language's dictionary entry), so a deck can be prepared
-with no provider. Each study language has one card policy: it either uses
+A Study card built from imported sources (the study context, its passage context
+and the language's dictionary entry) with a contextual Gloss that cites the
+dictionary (ADR 0138). Each study language has one card policy: it either uses
 source-evidence cards or takes the modern-language provider route, never both.
 _Avoid_: classical card, offline card, Greek card.
 
 **Evidence-assisted provider pass**:
-The optional preparation layer for a language that uses source-evidence cards,
-which sends the representative
-sentence, its passage context and its meaning evidence to the provider. Its
-contextual Gloss, sentence translation and English target alignment are
-provider-proposed and labelled as such. It only adds to a card built from source
-evidence; a failed or abstaining answer leaves that card as it was.
+The preparation layer for a language that uses source-evidence cards, which
+sends the study context, its passage context and its meaning evidence to the
+provider. Its contextual Gloss, which must cite at least one dictionary sense,
+and its sentence translation are provider-proposed and labelled as such. A
+failed or abstaining answer leaves the word without usable Study material; there
+is no providerless fallback.
 _Avoid_: LLM card, fallback, provider path.
 
-**Presentation version**:
-Identifies the card-presentation rules a deck was built with, so a deck that
-presents an older version can be recognised and rebuilt.
+**Presentation version** (retired):
+Retired by ADR 0136 with the Prepared deck.
 _Avoid_: template version, model version.
 
-**Render-input version**:
-Identifies the set of inputs a deck specification froze, so presentation can
-tell whether a specification carries everything it needs or must be prepared
-again.
+**Render-input version** (retired):
+Retired by ADR 0136 with the Prepared deck.
 _Avoid_: schema version, manifest version.
 
-**Deck revision**:
-A built artifact of one deck specification at one presentation version. A newer
-presentation version produces a newer revision of the same specification
-without re-selecting, re-analyzing, or re-translating.
-_Avoid_: version (ambiguous with presentation version), regeneration.
+**Deck revision** (retired):
+Retired by ADR 0136 with the Prepared deck.
+_Avoid_: version, regeneration.
 
 **Reading completion**:
 An append-only, Book-anchored fact recorded when the learner finishes a current
-reading. It accepts eligible identities from that reading's frozen snapshot into
-modeled Known vocabulary and ends the current-reading role.
+reading. It ends the current-reading role and clears To Read, and has no
+vocabulary effect: finishing records history only (ADR 0136).
 _Avoid_: Journey completion, deck completion, mastery.
 
 **Previously read**:
 A one-time assertion that the learner read a Book outside its current-reading
 workflow. It records assertion time, not a historical reading date, and implies
-no acquisition, analysis or vocabulary transition. Recording it from the Catalog
+no acquisition, analysis or vocabulary effect. Recording it from the Catalog
 adds the Book as Read.
 _Avoid_: reading completion, known vocabulary.
 
-**Vocabulary transition**:
-The set-based addition of a current reading's frozen snapshot to modeled Known
-vocabulary when the learner finishes reading. It is independent of deck
-artifact readiness and does not claim per-card mastery.
+**Vocabulary transition** (retired):
+Retired by ADR 0136: finishing a Book changes no vocabulary. See Reading
+completion.
 _Avoid_: mastery, deck review, vocabulary study.
 
-**Graduation**:
-The historical name for the consequential transition that accepts a frozen
-snapshot into modeled Known vocabulary when reading is finished. It is never
-implied by generation, deck readiness, or merely starting a Book.
+**Graduation** (retired):
+Retired by ADR 0136 with Known vocabulary. A word becomes Mature through graded
+reviews, or at once through Already known, never because a Book was finished.
 _Avoid_: completion, mastering, promotion.
 
 **Analysis evidence** (book evidence state):
@@ -348,15 +305,15 @@ published analysis: a newer analysis run that is still in progress, failed, or
 was cancelled does not change it while the published analysis still matches
 the current content.
 _Avoid_: book status, analysis state (the raw signal the classification reads,
-not the classification itself), deck readiness, evidence status.
+not the classification itself), evidence status.
 
 **Source structure update**:
 The learner-confirmed re-extraction of a Book's unchanged acquired content
 under a newer extraction contract, offered only when that contract would
 record different text, structural roles or a different structure convention. It adds a new extraction of the
 same content and makes the Book's analysis evidence stale until reanalysis; it
-never rewrites earlier extractions, analyses, Lemma corrections, current-reading
-snapshots or prepared decks, which keep the evidence they froze.
+never rewrites earlier extractions, analyses or Lemma corrections, which keep the
+evidence they froze.
 _Avoid_: re-import, reacquisition, migration, backfill.
 
 **Analysis pipeline identity**:
@@ -374,17 +331,18 @@ classical Book, the offer compares the prepared definition's source pin and
 interpretation version with the current definition; a curatorial or
 translation-pin change alone gives no offer. It is not stale evidence: the
 published analysis stays in effect until the update publishes, and the update
-never rewrites earlier analyses, Lemma corrections, current-reading snapshots
-or prepared decks. Lemma corrections and Occurrence exclusions on unchanged
+never rewrites earlier analyses or Lemma corrections. Lemma corrections and Occurrence exclusions on unchanged
 words carry over; the earlier analysis keeps its own.
 _Avoid_: stale analysis, outdated evidence, re-import, migration.
 
 **Vocabulary coverage band**:
-A neutral label of a trustworthy analyzed To Read Book by current
-analyzable-token coverage: at least 99%, at least 97% but below 99%, at least
-95% but below 97%, or below 95%. Coverage counts analyzable tokens by effective
-vocabulary identity, so confirmed Lemma corrections apply, and excluded
-occurrences remain in the analyzable-token total. It reads the Book's Browse
+A neutral label of a trustworthy analyzed To Read Book by its Mature
+coverage, the share of its analyzable tokens whose effective vocabulary identity
+is Mature in Study: at least 99%, at least 97% but below 99%, at least
+95% but below 97%, or below 95%. Coverage counts word tokens by effective vocabulary identity, so
+confirmed Lemma corrections apply, excluded occurrences remain in the
+analyzable-token total, and an Idiom changes nothing. A lighter second figure
+also counts words in study. It reads the Book's Browse
 count projection, the same per-Book counts My Books uses, and shows Updating
 instead of a band while that projection is not ready. It is evidence, not a
 reading recommendation.
@@ -540,7 +498,7 @@ A Work's conventional top-level division that its citation scheme names a book,
 such as Anabasis 1–7 or Iliad 1–24. It is not a chapter, a page, or a line, even
 when one of those is the first citation level. It is a division inside a
 learner's Book, located by citation, and never a Book or a Reading unit of its
-own: a learner owns, studies and decks the whole Work, not one of its books.
+own: a learner owns, studies the whole Work, not one of its books.
 _Avoid_: Book (the learner-owned identity), volume, chapter.
 
 **Citation**:
@@ -662,8 +620,8 @@ _Avoid_: generated cover, placeholder cover, cover (when no catalog supplied one
 
 **Book disposition**:
 Whether a learner's Book is To Read. Adding a Book or reading it again makes it
-To Read; finishing it or marking it Previously read clears it. It follows the Book across language corrections and is independent of analysis,
-deck state, and reading history; the current Book remains To Read underneath.
+To Read; finishing it or marking it Previously read clears it. It follows the Book across language corrections and is independent of analysis
+and reading history; the current Book remains To Read underneath.
 _Avoid_: book status, reading state, workflow state.
 
 **Hidden (Book visibility)** (retired):
@@ -676,23 +634,28 @@ _Avoid_: archived, deleted, set aside.
 
 **Book workflow bucket**:
 The one visible My Books placement of a Book, derived in precedence order from
-Current reading, To Read, then Read. Every Book in My Books has one.
-Current reading is included in the To Read tab while retaining its distinct
-Currently reading label.
+Current reading, To Read, then Read. Every Book in My Books has one. The Current
+reading is pinned at the top of My Books, and is also listed under To Read,
+where it keeps its distinct Currently reading label.
 _Avoid_: Book disposition, shelf.
 
 **My Books**:
-The learner's chosen Books, browsed by study language: each is Currently
-reading, To Read or Read. It owns To Read, Read again and Remove, but not
-finding texts (Catalog) or the decision to start reading (Reading).
+The learner's chosen Books, on one page per study language: the Current reading
+pinned at the top with its progress toward Target coverage, then To Read, then
+Read. It owns Read next, Finish, End, To Read, Read again, Mark as previously
+read and Remove, but not finding texts (Catalog). A Book that needs action
+shows a status line, and a filter shows only those Books. To Read is in title
+order unless the learner chooses the optional **most readable** sort by Mature
+coverage, which the address keeps.
 _Avoid_: library queue, reading plan.
 
-**Reading**:
-The active-language workflow for the current Book or, between Books, a neutral
-title-ordered chooser of trustworthy To Read candidates, one entry per Book. A
-classical Book is a whole Work in one Edition, so it is read, finished and
-chosen as one unit; its Constituent books are locations within it, never
-chooser entries. It maintains no learner-authored order.
+**Reading** (retired as a page):
+Retired by ADR 0136: My Books holds what the Reading page held. The old Reading
+addresses redirect to My Books, or to the Book detail page when they name a
+Book, and the shell no longer lists Reading. "Current reading" stays as the role
+a Book has. A classical Book is a whole Work in one Edition, so it is read,
+finished and chosen as one unit; its Constituent books are locations within it,
+never entries of their own. My Books keeps no learner-authored order.
 _Avoid_: Reading Journey, Primary Goal, reading queue.
 
 **Inbox** (retired):
@@ -716,8 +679,8 @@ _Avoid_: current disposition, archived, rejected, abandoned.
 
 **Current reading**:
 The analyzed To Read Book the learner has committed to reading in a study
-language, at most one per language. Its frozen snapshot remains distinct from
-the Book's later analysis evidence. A Book is eligible to become the Current
+language, at most one per language. It puts its words first among new words in
+Study until it reaches Target coverage. A Book is eligible to become the Current
 reading only when it is To Read, has a chosen Book language, and its Analysis
 evidence is analyzed; an ineligible Book has one reason: not To Read, no chosen
 language, missing current content, analysis in progress, failed or cancelled
@@ -725,11 +688,26 @@ analysis, stale analysis, or no completed analysis.
 _Avoid_: Primary Goal, reading status, current project.
 
 **End current reading**:
-Clears the Book's current-reading role and reservations without a completion or
-Known acceptance. The Book stays To Read, keeping its visibility, snapshots,
-history, and artifacts. It is not a pause: nothing is paused, and inactivity
+Clears the Book's current-reading role without a completion. The Book stays To
+Read, keeping its history. It needs no confirmation. It is not a pause: nothing is paused, and inactivity
 never ends a reading.
 _Avoid_: pause, stop, set aside.
+
+**Read next**:
+The one action that makes an analysed To Read Book with a Book language the
+Current reading. It starts a reading or, when another Book is current, switches
+to this one and leaves the former Book in To Read. It takes no confirmation and
+freezes nothing. It is refused, with its reason, when the Book is not To Read, not
+analysed or has no Book language.
+_Avoid_: Start, Switch (the retired two-step actions), commit.
+
+**Book detail**:
+The page for one Book in My Books, in the Book's own study language, at
+`/books/{id}`. It hosts the Book's analysis actions (retry, Analysis update and
+Source structure update), shows its Book language, and lists the Book's words
+as Mature, in study or not yet introduced, read-only, each linking to its
+Concordance. It edits no vocabulary: fixes start only from a Study report.
+_Avoid_: working desk (the retired Reading surface), Reading page.
 
 **Reading history**:
 Append-only, Book-anchored reading completions and previously-read assertions.
@@ -739,14 +717,13 @@ _Avoid_: Read disposition, completed list, Journey history.
 **Study**:
 The learner's in-Mouseion review of vocabulary from their reading, on one card
 surface: Today's due reviews, then New-word batches, then Fluency. It is one
-continuous stream per study language, drawn from the learner's analysed
-library. The Current reading only sets which new words come first: starting,
-switching, ending or finishing a Book changes nothing else in Study, and Study
-never consults Known vocabulary. It is separate from Sentence study, which
-studies one sentence's grammar, and from a Prepared deck, which is studied in
-Anki.
-_Avoid_: review deck, practice, SRS, vocabulary study (the avoided name for a
-Vocabulary transition), Explore (a retired idea for browsing upcoming words).
+continuous stream per study language, drawn from the Corpus, and it is the only
+way the learner studies vocabulary. The Current reading and the To Read Books
+only set which new words come first: starting, switching, ending or finishing a
+Book changes nothing else in Study. It is separate from Sentence study, which
+studies one sentence's grammar.
+_Avoid_: review deck, practice, SRS, vocabulary study, Explore (a retired idea
+for browsing upcoming words).
 
 **Corpus**:
 The analysed Books in My Books in one study language. Study draws Study
@@ -767,7 +744,7 @@ An answer the learner can give when Study introduces a word. The word enters
 study already Mature, and from then on is an ordinary word: a lapse ends its
 maturity. It is an answer, not a status, and nothing else marks a word as
 known.
-_Avoid_: Known (a retiring fact), skip, ignore, mark as known.
+_Avoid_: Known (a retired fact), skip, ignore, mark as known.
 
 **Study day**:
 The learner's day for Study. It begins at a fixed early-morning hour rather
@@ -799,21 +776,22 @@ _Avoid_: learning item, card, entry, word (for an Idiom).
 
 **In study**:
 A word Today has introduced, which therefore has Study progress. A word stays
-in study whichever Book is the Current reading, and whether or not it is Known.
+in study whichever Book is the Current reading, and whichever Books are in My
+Books: removing a Book never costs Study progress.
 _Avoid_: learning, active card, enrolled, learning item.
 
 **Study progress**:
 A learner's graded review record for one vocabulary identity in one study
 language. It belongs to neither a Book nor a sentence, so a new sentence or a
-change of Current reading does not reset it. It is separate from Known
-vocabulary: study progress never makes a word Known, and Known never ends a
-word's study. Only Today's reviews change it.
-_Avoid_: mastery, card state, Known (a separate fact).
+change of Current reading does not reset it. It is the only record of what the
+learner knows. Only Today's reviews, and an Already-known answer when a word is
+introduced, change it.
+_Avoid_: mastery, card state, Known.
 
 **Mature**:
 A word in study whose current review interval is at least 21 days. A lapse
 that shortens the interval below that ends maturity until the word earns it
-again.
+again. It is the one claim of knowledge: coverage counts Mature words.
 _Avoid_: known, mastered, graduated.
 
 **Study material**:
@@ -821,9 +799,8 @@ What Today needs in order to present a word: the one complete study context
 that introduces it and carries every one of its reviews, together with that
 context's Gloss and translation. It is prepared one word at a time, shortly
 before Today needs it, from current evidence with the learner's Lemma
-corrections and Occurrence exclusions applied. It is not a Prepared deck,
-which freezes its evidence.
-_Avoid_: card, deck, prepared deck.
+corrections and Occurrence exclusions applied.
+_Avoid_: card, deck.
 
 **Learned meaning**:
 The Gloss a word showed when Today introduced it. Fluency contexts must agree
@@ -845,7 +822,9 @@ is one of two kinds:
   report ends when the learner confirms a Lemma correction or Occurrence
   exclusion on that occurrence, when the learner dismisses it, or when an
   Analysis update gives that occurrence a different effective vocabulary
-  identity. Like a Lemma review flag, it is an input to Lemma review and
+  identity. It opens a remediation screen that previews and confirms the
+  correction, and lists the other occurrences in the Corpus with the same
+  surface and source lemma, none ticked, for the learner to correct too. It
   changes no vocabulary identity itself.
 - **Unsuitable context**: the identity is right, but the study context does not
   teach the word's own meaning, for example because it is part of an Idiom
@@ -854,8 +833,7 @@ is one of two kinds:
   material or Fluency context, and the word is re-introduced from another
   context.
 
-_Avoid_: flag (a Lemma review flag is raised by the system), suspend, bury,
-bug report.
+_Avoid_: flag, suspend, bury, bug report.
 
 **Fluency**:
 The ungraded, open-ended part of Study after Today's reviews and new words,
@@ -871,7 +849,7 @@ _Avoid_: example sentence, variant card, context variant, alternative sentence.
 
 **Concordance**:
 A listing of a word's (or lemma's) occurrences with their surrounding context,
-at the scope of a Book or of a study language's analyzed library. Context
+at the scope of a Book or of a study language's Corpus. Context
 covers both the linear text around each occurrence and the occurrence's
 syntactic role from dependency parsing. It lists every occurrence, including
 ones that are not vocabulary, such as proper nouns and separable particles. A
@@ -931,7 +909,7 @@ Construction extent, with an optional Construction subtype. Occurrences may
 nest and overlap; one anchor may carry several different Constructions, never
 the same one twice. It is a derived reading of the analysis's frozen parse, not
 evidence: it can change when the Construction detector version changes, and no
-card, Known fact or count depends on it.
+card or count depends on it.
 _Avoid_: construction match, detected construction, hit (outside measurement).
 
 **Construction anchor**:
@@ -1053,11 +1031,10 @@ fails closed; a payload that is not assessed does not consult the gate.
 _Avoid_: consent flag, provider allowlist.
 
 **Vocabulary Browse inventory**:
-The collection of effective vocabulary identities evidenced by the Book in
-the active study language's Current reading, including single occurrences and
-identities that are Known, Reserved, or previously Generated for that Book. It
-is distinct from both the filtered Browse results and the recurring-vocabulary
-pool used for Book prepared decks and current-reading snapshots.
+The collection of effective vocabulary identities evidenced by one analysed
+Book, including single occurrences, each shown as Mature, in study or not yet
+introduced. It is the read-only word list of the Book detail page, and is
+distinct from the filtered Browse results.
 _Avoid_: prepared-deck candidates, known-vocabulary list.
 
 **Browse selection** (retired):
@@ -1068,34 +1045,27 @@ the selection is neither read nor written. Stored rows may remain until a schema
 cleanup is approved under ADR 0038 and ADR 0070.
 _Avoid_: custom deck, prepared deck, temporary filter result.
 
-**Lemma review**:
-The learner's Book-scoped workflow for vocabulary identity problems: assessing
-lemma risk, then reviewing exact occurrences and previewing and confirming a
-**Lemma correction** or **Occurrence exclusion**. Flags raised by the assessment
-and any **Lemma suggestion** are inputs to it; only a confirmed decision changes
-vocabulary identity.
+**Lemma review** (retired):
+Retired by ADR 0136: the Book-scoped queue is gone, and so is the lemma-risk
+assessment. A wrong vocabulary identity is fixed only from a Wrong-word Study
+report, on its remediation screen, with the existing preview-and-confirm step
+for a **Lemma correction** or **Occurrence exclusion**.
 _Avoid_: lemma fix, lemma audit, dictionary check.
 
-**Lemma review flag**:
-A non-authoritative indication that an analyzed occurrence's lemma may assign
-the wrong vocabulary identity, offered for learner review before it affects a
-current-reading snapshot or prepared deck. It can rest on local dictionary
-evidence or, when a contextual-Gloss response reports `lemma_mismatch`, on
-model evidence. A provider-raised flag is advisory by definition: it carries no
-proposed lemma and is never counted as blocking. Missing dictionary evidence
-alone does not prove an error.
+**Lemma review flag** (retired):
+Retired by ADR 0136: no occurrence is flagged in advance; the learner finds a
+wrong word in Study and reports it.
 _Avoid_: invalid lemma, unconfirmed lemma.
 
-**Lemma suggestion**:
-An unapproved alternative lemma for an analyzed occurrence, supported by
-dictionary, model, or other evidence. It changes no vocabulary identity until
-the learner confirms it; review remains possible without such suggestions.
+**Lemma suggestion** (retired):
+Retired by ADR 0136 with Lemma review flags: nothing proposes a lemma in advance,
+and the learner decides on the remediation screen.
 _Avoid_: automatic correction, LLM correction.
 
 **Lemma correction**:
 A learner-confirmed alternative canonical lemma for one occurrence in a Book's
-exact analysis, governing derived reading and deck vocabulary while preserving
-analyzer evidence. It need not have a dictionary entry, can be made without a
+exact analysis, governing its effective vocabulary identity (and so Study and
+coverage) while preserving analyzer evidence. It need not have a dictionary entry, can be made without a
 flag, and is never applied globally. The only automatic step across analyses
 is an Analysis update copying it onto the same word (same source span, surface
 and source lemma) in the new analysis.
@@ -1104,9 +1074,9 @@ _Avoid_: spelling correction, dictionary correction, global lemma override.
 **Occurrence exclusion**:
 A learner-confirmed choice to omit one analyzed occurrence from vocabulary
 selection while retaining it in the Book's source and analysis evidence. It
-does not mark its lemma Known, remove it from analyzable-token coverage, or
-exclude other occurrences of that lemma.
-_Avoid_: delete token, ignore lemma, Known vocabulary.
+does not remove it from analyzable-token coverage or exclude other occurrences of
+that lemma.
+_Avoid_: delete token, ignore lemma.
 
 **Collocation**:
 Words that co-occur with a queried lemma within a limited span (typically the
@@ -1183,9 +1153,9 @@ truncating.
 _Avoid_: definition, first sense, Gloss.
 
 **Sense summary**:
-A provider-written, context-free condensation of one dictionary entry, each part
-citing the entry's senses. It is shown above the entry it condenses, never
-instead of it, and never chooses a sense for the representative sentence.
+A historical label for a provider-written, context-free condensation of one
+dictionary entry, each part citing the entry's senses. It belonged to the
+retired Prepared deck (ADR 0136); no current surface requests or shows one.
 _Avoid_: Gloss, contextual meaning, definition.
 
 **Fallback gloss**:
@@ -1204,6 +1174,6 @@ _Avoid_: tool, data, asset, model (for the general category).
 
 **Source content**:
 A third-party layer whose own expression reaches the learner, either shown in
-Mouseion or copied into an exported deck: texts, translations, dictionary
+Mouseion: texts, translations, dictionary
 definitions.
 _Avoid_: data, asset, corpus (for the general category).

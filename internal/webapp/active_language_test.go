@@ -58,7 +58,7 @@ func prefixedMyBooksRedirect(path string, response *httptest.ResponseRecorder) (
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := getAs(t, h, "/it/reading", cookies)
+	response := getAs(t, h, "/it/library", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "fixture-italian-goal")
 }
@@ -73,8 +73,6 @@ func TestRenderedFormsCarryTheBareCSRFToken(t *testing.T) {
 // (ADR 0131): the Last study language never refuses a submission.
 func TestSubmissionsIgnoreTheLastStudyLanguage(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	before, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
 	for _, path := range []string{
@@ -84,9 +82,7 @@ func TestSubmissionsIgnoreTheLastStudyLanguage(t *testing.T) {
 	} {
 		t.Run(path, func(t *testing.T) {
 			response := readingTestRequest(t, h, path, url.Values{
-				"csrf_token":                   {csrf},
-				"expected_current_book_id":     {before.BookID},
-				"expected_current_snapshot_id": {before.SnapshotID},
+				"csrf_token": {csrf},
 			}, cookies)
 			assert.NotEqual(t, http.StatusForbidden, response.Code)
 			assert.NotContains(t, response.Header().Get("Location"), "study language changed")
@@ -107,6 +103,6 @@ func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchLemma, UPOS: "NOUN"}
 	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
 	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
-	assert.Equal(t, "/de/reading?page=2&q=ha", vocabularyBrowsePageURL(2, domain.VocabularyBrowsePage{Language: "de"}, "ha"))
+	assert.Equal(t, "/books/book-1?page=2&q=ha", bookWordsPageURL(2, domain.VocabularyBrowsePage{CurrentBookID: "book-1"}, "ha"))
 	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

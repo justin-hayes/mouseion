@@ -45,10 +45,8 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	t.Run("legacy coverage reports statistics unavailable", func(t *testing.T) {
 		require.ErrorIs(t, err, ErrStatisticsUnavailable)
 	})
-	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "eins", "NOUN")
-	require.NoError(t, err)
-	_, err = store.PutKnownVocabulary(ctx, bob.ID, "de", "zwei", "VERB")
-	require.NoError(t, err)
+	seedStudyWord(t, ctx, store, alice.ID, "eins", "NOUN", true)
+	seedStudyWord(t, ctx, store, bob.ID, "zwei", "VERB", true)
 	_, err = store.Pool().Exec(ctx, `UPDATE corpora SET analyzable_token_count=100,distinct_lemma_count=3,sentence_count=4,normalized_token_count=120,empty_sentence_count=1,median_sentence_token_count=30,p90_sentence_token_count=40,long_sentence_count=1 WHERE id=$1`, corpus.ID)
 	require.NoError(t, err)
 
@@ -78,9 +76,9 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 
 	got, err := service.Coverage(ctx, alice.ID, corpus.ID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(70), got.KnownTokenCount)
+	assert.Equal(t, int64(70), got.MatureTokenCount)
 	assert.Equal(t, int64(30), got.UnknownTokenCount)
-	assert.Equal(t, int64(1), got.KnownLemmaCount)
+	assert.Equal(t, int64(1), got.MatureLemmaCount)
 	assert.Equal(t, int64(2), got.UnknownLemmaCount)
 	require.NotNil(t, got.TextProfile)
 	assert.Equal(t, int64(120), got.TextProfile.NormalizedTokenCount)
@@ -94,21 +92,23 @@ func TestCoverageEndToEndOwnerIsolationAndLegacyReanalysis(t *testing.T) {
 	assert.Equal(t, int64(30), got.UnknownConcentration.OccurrenceCount)
 	require.Len(t, got.Projections, 3)
 	assert.Equal(t, int64(100), got.Projections[0].ProjectedTokenCount)
-	var deckID string
-	err = store.Pool().QueryRow(ctx, `INSERT INTO decks(owner_id,language,name) VALUES($1,'de','insights-study') RETURNING id`, alice.ID).Scan(&deckID)
-	require.NoError(t, err)
-	_, err = store.Pool().Exec(ctx, `INSERT INTO generated_vocabulary(owner_id,language,canonical_lemma,upos,first_deck_id,first_source_material_id) VALUES($1,'de','zwei','VERB',$2,$3)`, alice.ID, deckID, source.ID)
-	require.NoError(t, err)
-	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: source.ID, Filename: "study.apkg", DeckName: "Study", ContentHash: "study-hash"})
-	require.NoError(t, err)
-	_, err = store.ClaimDeckPreparation(ctx, alice.ID, preparation.ID)
-	require.NoError(t, err)
-	_, err = store.CompleteDeckPreparation(ctx, alice.ID, preparation.ID, domain.DeckPreparation{Artifact: []byte("study"), Filename: "study.apkg", DeckName: "Study", TotalCards: 1})
-	require.NoError(t, err)
-	graduatedCoverage, err := service.Coverage(ctx, alice.ID, corpus.ID)
-	require.NoError(t, err)
-	assert.Equal(t, int64(70), graduatedCoverage.KnownTokenCount)
-	assert.Equal(t, int64(30), graduatedCoverage.UnknownTokenCount)
 	_, err = service.Coverage(ctx, bob.ID, corpus.ID)
 	assert.Error(t, err, "bob read Alice's analysis insights")
+}
+
+// seedStudyWord puts a German word in the learner's study: Mature (in review at
+// the maturity interval) or still learning.
+func seedStudyWord(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, lemma, upos string, mature bool) {
+	t.Helper()
+	state, days := "learning", int64(0)
+	if mature {
+		state, days = "review", domain.FluencyMaturityDays
+	}
+	_, err := store.Pool().Exec(ctx, `
+WITH m AS (
+  INSERT INTO study_material (owner_id, language, canonical_lemma, upos, state, omission_reason)
+  VALUES ($1, 'de', $2, $3, 'unpreparable', 'sentence-quality') RETURNING id)
+INSERT INTO study_progress (owner_id, language, canonical_lemma, upos, material_id, introduced_at, learned_meaning, state, due, stability, difficulty, scheduled_days, reps, last_review)
+SELECT $1, 'de', $2, $3, id, now(), 'seeded', $4, now(), 5, 5, $5, 1, now() FROM m`, owner, lemma, upos, state, days)
+	require.NoError(t, err)
 }

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-Mouseion is a self-hosted reading environment for learning foreign languages. Go core web server (`cmd/server`) + Python NLP gRPC service (`nlp/`, Stanza) + PostgreSQL, with River as the durable job queue (analysis, enrichment, catalogue sync, prepared-deck translation). `cmd/fixtureserver` is an in-memory server for Playwright browser smoke tests only — it binds no Postgres/NLP/River.
+Mouseion is a self-hosted reading environment for learning foreign languages. Go core web server (`cmd/server`) + Python NLP gRPC service (`nlp/`, Stanza) + PostgreSQL, with River as the durable job queue (analysis, enrichment, catalogue sync, Study material and Fluency preparation). `cmd/fixtureserver` is an in-memory server for Playwright browser smoke tests only — it binds no Postgres/NLP/River.
 
 ## Sources of truth
 
@@ -74,7 +74,7 @@ See ADR 0038 and ADR 0070. Rules an agent will otherwise get wrong:
 - Local learner accounts: first sign-in on a fresh install creates the account; there is no admin role and no public-registration setting (ADR 0017/0024).
 - NLP language availability is discovered from the running service (capabilities), not a web-app allowlist. Deployment-supported languages are `de`, `it`, and `el`; `make dev` default is `de` only.
 - App is meant to be reachable only over the tailnet (plain HTTP, ADR 0009); `MOUSEION_COOKIE_SECURE` only if serving HTTPS.
-- Generated decks and known vocabulary are deliberately separate — generating cards never marks vocabulary as known (ADR 0036).
+- Study is the only vocabulary workflow: knowing a word means it is Mature in Study. Known vocabulary, the Prepared deck and Lemma review are retired; do not reintroduce them (ADR 0136). Their tables remain until #2746 drops them, and no production code may read or write them.
 
 ## Agent skills
 

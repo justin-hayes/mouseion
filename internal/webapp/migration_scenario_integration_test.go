@@ -4,248 +4,20 @@ package webapp
 
 import (
 	"context"
-	"net/http"
-	"net/url"
 	"testing"
-	"time"
 
-	"github.com/justin-hayes/mouseion/internal/analysisinsights"
-	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/auth"
 	"github.com/justin-hayes/mouseion/internal/domain"
-	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/testutil"
-	"github.com/justin-hayes/mouseion/internal/webauth"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMigrationScenarioCoversFreshFlowAndEpistemicBoundaries(t *testing.T) {
-	t.Setenv("MOUSEION_SECRET", "migration-scenario-integration-secret-0123456789")
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, databaseURL)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "store", store.Close)
-	var languageProfilesExists, languageProfilesForeignKeyExists bool
-	err = store.Pool().QueryRow(ctx, `SELECT to_regclass('public.language_profiles') IS NOT NULL`).Scan(&languageProfilesExists)
-	require.NoError(t, err)
-	err = store.Pool().QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_constraint WHERE conname='language_profiles_supported_language_fkey')`).Scan(&languageProfilesForeignKeyExists)
-	require.NoError(t, err)
-	assert.False(t, languageProfilesExists, "language_profiles migration left table")
-	assert.False(t, languageProfilesForeignKeyExists, "language_profiles migration left foreign key")
-
-	authService := auth.New(store, time.Hour)
-	alice := createAccount(t, ctx, store, "migration-alice", "alice-password")
-	bob := createAccount(t, ctx, store, "migration-bob", "bob-password")
-	capabilities := staticCapabilities{value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{
-		{Language: "de", DisplayName: "German", Ready: true},
-		{Language: "it", DisplayName: "Italian", Ready: true},
-	}}}
-	h := New(Services{
-		Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store),
-		Analysis: fixtures.Analysis{}, AnalysisInsights: analysisinsights.NewService(store), Capabilities: capabilities,
-		CatalogueSync:   fixtures.NewCatalogueSync(fixtures.NewStore()),
-		PreparedDeck:    &recordingPreparedDeck{preparations: make(map[string]domain.DeckPreparation)},
-		SessionLifetime: time.Hour,
-	})
-	aliceCookies, csrf := loginCookies(t, h, "migration-alice", "alice-password")
-
-	metadata, err := store.CreateBook(ctx, domain.Book{OwnerID: alice.ID, Title: "Migration metadata book", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageUnknown})
-	require.NoError(t, err)
-	metadataView := migrationMyBook(t, ctx, store, alice.ID, metadata.ID)
-	assert.Nil(t, metadataView.Acquired)
-	assert.Equal(t, domain.BookNotAcquired, metadataView.EvidenceState())
-
-	book, source, corpus, preparation := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "primary", "Migrated primary goal", []domain.LemmaOccurrence{
-		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3},
-		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3},
-		{Language: "de", CanonicalLemma: "legacy", UPOS: "ADJ", OccurrenceCount: 1},
-	})
-	require.NoError(t, store.LinkSourceToBook(ctx, alice.ID, book.ID, source.ID))
-	metadataView = migrationMyBook(t, ctx, store, alice.ID, book.ID)
-	require.NotNil(t, metadataView.Acquired)
-	assert.Equal(t, source.ID, metadataView.Acquired.Source.ID)
-	assert.NotEmpty(t, metadataView.Acquired.CorpusID)
-	assert.Equal(t, domain.LanguageChosen, metadataView.Book.LanguageState)
-	testutil.SeedCorpusWords(t, ctx, store.Pool(), alice.ID, corpus.ID, "de",
-		testutil.CorpusWord{Lemma: "residual", UPOS: "NOUN", Occurrences: 3},
-		testutil.CorpusWord{Lemma: "graduated", UPOS: "VERB", Occurrences: 3},
-		testutil.CorpusWord{Lemma: "legacy-state", UPOS: "ADJ", Occurrences: 3})
-
-	secondBook, secondSource, _, _ := seedMigrationAnalyzedBook(t, ctx, store, alice.ID, "later", "Later Journey book", []domain.LemmaOccurrence{
-		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
-	})
-	require.NoError(t, store.LinkSourceToBook(ctx, alice.ID, secondBook.ID, secondSource.ID))
-
-	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "Haus", "NOUN")
-	require.NoError(t, err)
-	_, err = store.PutKnownVocabulary(ctx, alice.ID, "it", "casa", "NOUN")
-	require.NoError(t, err)
-
-	legacySource := (*string)(nil)
-	legacyDeck, err := store.PutDeck(ctx, alice.ID, "de", "Legacy generated deck")
-	require.NoError(t, err)
-	_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: "legacy", UPOS: "ADJ", FirstDeckID: legacyDeck.ID, FirstSourceMaterialID: legacySource})
-	require.NoError(t, err)
-	primaryGenerated := []string{"residual", "graduated"}
-	primaryDeck, err := store.PutDeck(ctx, alice.ID, "de", "Migration primary deck")
-	require.NoError(t, err)
-	for _, lemma := range primaryGenerated {
-		_, err = store.RecordGeneratedVocabulary(ctx, domain.GeneratedVocabulary{OwnerID: alice.ID, Language: "de", CanonicalLemma: lemma, UPOS: "NOUN", FirstDeckID: primaryDeck.ID, FirstSourceMaterialID: &source.ID})
-		require.NoError(t, err)
-	}
-	// Keep the intended verb identity distinct from the residual noun while
-	// using the same generated source/deck provenance.
-	_, err = store.Pool().Exec(ctx, `UPDATE generated_vocabulary SET upos='VERB' WHERE owner_id=$1 AND canonical_lemma='graduated'`, alice.ID)
-	require.NoError(t, err)
-	// Preserve an unconfirmed legacy preparation while the Goal-owned model is
-	// exercised. Completion must not silently graduate or release this history.
-	_, err = store.Pool().Exec(ctx, `UPDATE deck_preparations SET studying_at=now() WHERE owner_id=$1 AND id=$2`, alice.ID, preparation.ID)
-	require.NoError(t, err)
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionToRead))
-	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, secondBook.ID, domain.BookDispositionToRead))
-	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, aliceCookies)
-	require.Equal(t, http.StatusSeeOther, started.Code)
-	assert.Contains(t, started.Header().Get("Location"), "/de/reading?message=")
-	currentReading, err := store.GetCurrentReading(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, book.ID, currentReading.BookID)
-	queuedDecks, ok := h.services.PreparedDeck.(*recordingPreparedDeck)
-	require.True(t, ok)
-	require.Empty(t, queuedDecks.preparations, "starting a Reading must not auto-submit deck preparation")
-	currentPage := perform(t, h, http.MethodGet, "/de/reading", nil, aliceCookies)
-	require.Equal(t, http.StatusOK, currentPage.Code)
-	assert.Contains(t, currentPage.Body.String(), "Migrated primary goal")
-	assert.Contains(t, currentPage.Body.String(), "Reserved vocabulary")
-	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, aliceCookies)
-	require.Equal(t, http.StatusOK, toReadPage.Code)
-	assert.Contains(t, toReadPage.Body.String(), "Migrated primary goal")
-	assert.Contains(t, toReadPage.Body.String(), "Currently reading")
-	assert.Contains(t, toReadPage.Body.String(), "Later Journey book")
-	assert.Contains(t, toReadPage.Body.String(), "To Read (2)")
-	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "legacy-state", "ADJ")
-	require.NoError(t, err)
-	publishProjectedCounts(t, ctx, store, alice.ID, book.ID, []domain.LemmaOccurrence{
-		{Language: "de", CanonicalLemma: "Haus", UPOS: "NOUN", OccurrenceCount: 1},
-		{Language: "de", CanonicalLemma: "residual", UPOS: "NOUN", OccurrenceCount: 3},
-		{Language: "de", CanonicalLemma: "graduated", UPOS: "VERB", OccurrenceCount: 3},
-		{Language: "de", CanonicalLemma: "legacy", UPOS: "ADJ", OccurrenceCount: 1},
-	})
-	beforeCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), beforeCoverage.KnownTokenCount)
-	assert.Equal(t, int64(6), beforeCoverage.ReservedTokenCount)
-
-	// Stale writes, missing CSRF, cross-owner references, and invalid progress
-	// are rejected without changing the accepted state.
-	t.Run("stale goal switch is rejected", func(t *testing.T) {
-		_, err := store.SwitchCurrentReading(ctx, alice.ID, "de", secondBook.ID, "stale-book", currentReading.SnapshotID)
-		require.ErrorIs(t, err, persistence.ErrCurrentReadingStale)
-	})
-	bobCookies, bobCSRF := loginCookies(t, h, "migration-bob", "bob-password")
-	foreign := perform(t, h, http.MethodPost, "/goal/books/"+book.ID, url.Values{"csrf_token": {bobCSRF}, "expected_goal_book_id": {""}}, bobCookies)
-	assert.Equal(t, http.StatusNotFound, foreign.Code)
-	bobCurrentReading, currentReadingErr := store.GetCurrentReading(ctx, bob.ID, "de")
-	require.NoError(t, currentReadingErr)
-	assert.Empty(t, bobCurrentReading.BookID)
-
-	finished := perform(t, h, http.MethodPost, "/reading/finish", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {book.ID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, aliceCookies)
-	assert.Equal(t, http.StatusOK, finished.Code)
-	for _, want := range []string{"Reading finished", "Vocabulary: 2 identities newly Known; 1 identities already Known", `href="/de/reading">Choose a To Read book</a>`} {
-		assert.Contains(t, finished.Body.String(), want, "finish receipt missing %q: %s", want, finished.Body.String())
-	}
-	reserved, err := store.ListReservedVocabulary(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, reserved)
-	knownAfterReading, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Len(t, knownAfterReading, 4)
-	knownLemmas := map[string]bool{}
-	for _, item := range knownAfterReading {
-		knownLemmas[item.CanonicalLemma] = true
-	}
-	assert.True(t, knownLemmas["Haus"])
-	assert.True(t, knownLemmas["residual"])
-	assert.True(t, knownLemmas["graduated"])
-	assert.True(t, knownLemmas["legacy-state"])
-	assert.False(t, knownLemmas["legacy"])
-	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	legacyFound := false
-	for _, item := range legacy {
-		legacyFound = legacyFound || item.CanonicalLemma == "legacy" && item.FirstSourceMaterialID == nil
-	}
-	assert.True(t, legacyFound)
-	knownAgain, err := store.ListKnownVocabulary(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Len(t, knownAgain, len(knownAfterReading))
-	afterCoverage, err := analysisinsights.NewService(store).Coverage(ctx, alice.ID, corpus.ID)
-	require.NoError(t, err)
-	assert.Equal(t, int64(7), afterCoverage.KnownTokenCount)
-	assert.Equal(t, int64(0), afterCoverage.ReservedTokenCount)
-	completion, err := store.FinishCurrentReading(ctx, alice.ID, "de", book.ID, currentReading.SnapshotID)
-	require.NoError(t, err)
-	assert.Equal(t, 3, completion.Completion.SnapshotVocabularyCount)
-	assert.Equal(t, 2, completion.Completion.EligibleVocabularyCount)
-	assert.Equal(t, 2, completion.Completion.GraduatedVocabularyCount)
-	assert.Equal(t, 1, completion.Completion.AlreadyKnownVocabularyCount)
-	legacyPreparation, err := store.GetDeckPreparation(ctx, alice.ID, preparation.ID)
-	require.NoError(t, err)
-	assert.NotNil(t, legacyPreparation.StudyingAt, "legacy preparation was silently graduated")
-	assert.Nil(t, legacyPreparation.ReleasedAt, "legacy preparation was silently released")
-	assert.Nil(t, legacyPreparation.GraduatedAt, "legacy preparation was silently graduated")
-	currentReading, err = store.GetCurrentReading(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Empty(t, currentReading.BookID)
-	laterCurrentReading := perform(t, h, http.MethodPost, "/reading/books/"+secondBook.ID+"/start", url.Values{
-		"csrf_token": {csrf},
-	}, aliceCookies)
-	assert.Equal(t, http.StatusSeeOther, laterCurrentReading.Code)
-	assert.NotContains(t, laterCurrentReading.Header().Get("Location"), "error=")
-	finishedDisposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.BookDispositionInbox, finishedDisposition, "choosing a later current reading changed the finished Book disposition")
-	currentReading, err = store.GetCurrentReading(ctx, alice.ID, "de")
-	require.NoError(t, err)
-	assert.Equal(t, secondBook.ID, currentReading.BookID)
-
-	// Failed analysis retry and prepared-deck retry remain explicit operations.
-	failedJob := perform(t, h, http.MethodPost, "/jobs/43/retry", url.Values{"csrf_token": {csrf}}, aliceCookies)
-	assert.Equal(t, http.StatusSeeOther, failedJob.Code)
-	assert.Contains(t, failedJob.Header().Get("Location"), "Analysis+retry+submitted", "location=%q", failedJob.Header().Get("Location"))
-	retryPrep, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: alice.ID, SourceMaterialID: secondSource.ID, Filename: "retry.apkg", DeckName: "Retry deck", ContentHash: "retry-hash"})
-	require.NoError(t, err)
-	_, err = store.ClaimDeckPreparation(ctx, alice.ID, retryPrep.ID)
-	require.NoError(t, err)
-	_, err = store.FailDeckPreparation(ctx, alice.ID, retryPrep.ID, "temporary provider failure")
-	require.NoError(t, err)
-	requeued, err := store.RetryDeckPreparation(ctx, alice.ID, retryPrep.ID)
-	require.NoError(t, err)
-	assert.Equal(t, domain.DeckPreparationQueued, requeued.State)
-	assert.Empty(t, requeued.Error)
-
-	deVocabulary := perform(t, h, http.MethodGet, "/de/vocabulary", nil, aliceCookies)
-	assert.Equal(t, http.StatusOK, deVocabulary.Code)
-	assert.Contains(t, deVocabulary.Body.String(), "Concordance", "Vocabulary is the Concordance surface")
-	assert.NotContains(t, deVocabulary.Body.String(), "Known vocabulary</h2>", "known-vocabulary heading rendered: body=%s", deVocabulary.Body.String())
-	assert.NotContains(t, deVocabulary.Body.String(), "Haus", "known-vocabulary row rendered: body=%s", deVocabulary.Body.String())
-	assert.NotContains(t, deVocabulary.Body.String(), "Explicitly recorded", "known-vocabulary provenance rendered: body=%s", deVocabulary.Body.String())
-	for _, retired := range []string{"/vocabulary/import", "Import Known words"} {
-		assert.NotContains(t, deVocabulary.Body.String(), retired, "retired import surface rendered: body=%s", deVocabulary.Body.String())
-	}
-}
-
-func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {
+func seedMigrationAnalyzedBook(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus) {
 	t.Helper()
 	return seedAnalyzedBookIn(t, ctx, store, "de", owner, suffix, title, lemmas)
 }
 
 // seedAnalyzedBookIn is seedMigrationAnalyzedBook for a Book in any language.
-func seedAnalyzedBookIn(t *testing.T, ctx context.Context, store *persistence.PostgresStore, language, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus, domain.DeckPreparation) {
+func seedAnalyzedBookIn(t *testing.T, ctx context.Context, store *persistence.PostgresStore, language, owner, suffix, title string, lemmas []domain.LemmaOccurrence) (domain.Book, domain.SourceMaterial, domain.Corpus) {
 	t.Helper()
 	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner, Title: title, MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: language})
 	require.NoError(t, err)
@@ -274,13 +46,7 @@ func seedAnalyzedBookIn(t *testing.T, ctx context.Context, store *persistence.Po
 	require.NoError(t, err)
 	_, err = store.Pool().Exec(ctx, `INSERT INTO book_current_analyses(owner_id,book_id,source_material_id,analysis_run_id) VALUES($1,$2,$3,$4)`, owner, book.ID, source.ID, runID)
 	require.NoError(t, err)
-	preparation, err := store.CreateDeckPreparation(ctx, domain.DeckPreparation{OwnerID: owner, SourceMaterialID: source.ID, Filename: suffix + ".apkg", DeckName: "Migration " + suffix, ContentHash: source.ContentHash})
-	require.NoError(t, err)
-	preparation, err = store.ClaimDeckPreparation(ctx, owner, preparation.ID)
-	require.NoError(t, err)
-	preparation, err = store.CompleteDeckPreparation(ctx, owner, preparation.ID, domain.DeckPreparation{Artifact: []byte("migration-" + suffix), Filename: suffix + ".apkg", DeckName: "Migration " + suffix, TotalCards: len(lemmas)})
-	require.NoError(t, err)
-	return book, source, corpus, preparation
+	return book, source, corpus
 }
 
 func toSharedLemmas(lemmas []domain.LemmaOccurrence) []domain.SharedLemma {

@@ -7,15 +7,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// readingPageForTest renders the Current reading where it lives now: pinned at
+// the top of the merged My Books page.
+func readingPageForTest(user domain.User, csrf string, view readingPageView) templ.Component {
+	return MyBooksPage(user, csrf, nil, "", "", MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", CurrentReading: view.CurrentReading})
+}
+
 func renderReading(t *testing.T, view readingPageView) string {
 	t.Helper()
 	var output bytes.Buffer
-	require.NoError(t, ReadingPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, "", "").Render(context.Background(), &output))
+	require.NoError(t, readingPageForTest(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view).Render(context.Background(), &output))
 	return output.String()
 }
 
@@ -34,81 +41,33 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.Contains(t, html, `<time datetime="2026-01-03">January 3, 2026</time>`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
 	sinceIndex := strings.Index(html, `<p class="journey-book__since">`)
-	titleIndex := strings.Index(html, `<h1 class="journey-book__title">`)
+	titleIndex := strings.Index(html, `<h2 class="journey-book__title">`)
 	assert.True(t, sinceIndex >= 0 && sinceIndex < titleIndex, "Reading since must remain outside the Book title heading: %s", html)
 	assert.Contains(t, html, "By A. Reader")
 	assert.Contains(t, html, `class="journey-book__title-page journey-book__title-page--current"`)
 	assert.Contains(t, html, `class="journey-book__lifecycle"`)
 	assert.Contains(t, html, "Mark reading finished")
-	assert.Contains(t, html, "Switch current reading")
+	assert.NotContains(t, html, "Switch current reading", "Read next on My Books replaces Switch")
 	assert.Contains(t, html, "End current reading")
 	assert.NotContains(t, html, "Set aside this Book")
 }
 
-func TestIsCurrentReadingShowsSnapshotBoundDeckRecoveryWithoutConsent(t *testing.T) {
+func TestIsCurrentReadingShowsNoReservedVocabularyOrDeck(t *testing.T) {
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
-	currentReading.CurrentReadingSnapshotSize = 2
-	currentReading.CurrentReadingSnapshotID = "snapshot"
-	currentReading.CurrentReadingVocabularyEligible = 1
-	currentReading.CurrentReadingPreparation = &domain.DeckPreparation{ID: "goal-preparation", SnapshotID: "snapshot", State: domain.DeckPreparationFailed, FailureClass: "provider"}
-	currentReading.CurrentReadingActions = deckPreparationActions{BookID: "goal", OnCurrentReading: true, Submit: true}
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
-	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
-	assert.Contains(t, html, "Book deck")
-	assert.Contains(t, html, "Retry deck preparation")
-	assert.Contains(t, html, `action="/reading/books/goal/deck/retry"`)
-	assert.Contains(t, html, `name="expected_current_snapshot_id" value="snapshot"`)
-	assert.NotContains(t, html, `action="/deck-preparations/goal-preparation/retry"`)
-	currentReadingCardStart := strings.Index(html, `id="journey-book-goal"`)
-	currentReadingCardEnd := strings.Index(html[currentReadingCardStart:], "</article>")
-	require.GreaterOrEqual(t, currentReadingCardStart, 0)
-	require.Positive(t, currentReadingCardEnd)
-	assert.NotContains(t, html[currentReadingCardStart:currentReadingCardStart+currentReadingCardEnd], "external_translation_consent")
-}
-
-func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
-	currentReading := testReadingBook("empty-goal", "Empty Goal book", testAnalyzed)
-	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "0 lemmas are set aside from vocabulary selection while you read this Book.")
-	assert.NotContains(t, html, "Deck preparation unavailable")
-	assert.NotContains(t, html, "Retry deck preparation")
-}
-
-func TestIsCurrentReadingShowsReservedVocabularyWhenDeckIsUnavailable(t *testing.T) {
-	currentReading := testReadingBook("unavailable-goal", "Unavailable Goal book", testAnalyzed)
-	currentReading.CurrentReadingSnapshotSize = 2
-	currentReading.CurrentReadingDeckUnavailable = true
-	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
-	assert.Contains(t, html, "Deck unavailable.")
-	assert.Contains(t, html, "Retry deck preparation")
-}
-
-func TestIsCurrentReadingShowsMissingDeckWithoutChangingCurrentReadingFacts(t *testing.T) {
-	currentReading := testReadingBook("missing-goal", "Missing Goal deck", testAnalyzed)
-	currentReading.CurrentReadingSnapshotSize = 2
-	currentReading.CurrentReadingSnapshotID = "missing-snapshot"
-	currentReading.CurrentReadingDeckMissing = true
-	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "Deck missing.")
-	assert.Contains(t, html, "Prepare a deck for the vocabulary reserved for this reading.")
-	assert.Contains(t, html, "Prepare deck")
-	assert.Contains(t, html, `name="expected_current_snapshot_id" value="missing-snapshot"`)
-}
-
-func TestReservedVocabularySummaryPluralizesLearnerCopy(t *testing.T) {
-	assert.Equal(t, "1 lemma is set aside from vocabulary selection while you read this Book.", reservedVocabularySummary(1))
-	assert.Equal(t, "2 lemmas are set aside from vocabulary selection while you read this Book.", reservedVocabularySummary(2))
+	assert.NotContains(t, html, "set aside from vocabulary selection")
+	assert.NotContains(t, html, "Reserved vocabulary")
+	assert.NotContains(t, html, "Reserved identities")
+	assert.NotContains(t, html, "Book deck")
+	assert.NotContains(t, html, "/deck/")
+	assert.NotContains(t, html, "Prepare deck")
 }
 
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	currentReading := testReadingBook("goal-state", "Goal state book", testAnalyzed)
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "Reserved vocabulary</h2>")
 	assert.Contains(t, html, "Analysis</h2>")
-	assert.Contains(t, html, "Book deck</h2>")
-	assert.Contains(t, html, `href="/library">Add books from My Books</a>`)
+	assert.NotContains(t, html, "Book deck</h2>")
 }
 
 func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {

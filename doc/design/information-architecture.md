@@ -1,5 +1,7 @@
 # Information architecture
 
+> **Study cutover.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) merged the Reading page into My Books, moved Book-scoped vocabulary Browse to the Book detail page (`/books/{id}`), retired the Prepared deck and Known vocabulary, and made [Study](../features/study.md) the only vocabulary workflow. The shell's destinations are My Books, Vocabulary and Catalog, with Study at `/{language}/study`. Where this document names a Reading page or destination, a working desk, a prepared deck or Known vocabulary, read it as the retired design; the current contract is in the [Reading workflow](../features/reading-workflow.md).
+
 Status: **Canonical shipped route and navigation contract, with an explicitly
 marked accepted Vocabulary target below.** The Reading
 workflow is implemented without Journey ordering, sequential forecasts, or
@@ -44,7 +46,7 @@ reading Book, ranked by occurrence count after excluding already accounted-for
 vocabulary by default. Concordance remains cross-Book in Vocabulary; saved
 selections and Custom decks are retired. See the
 [Vocabulary feature specification](../features/vocabulary-browse-and-concordance.md)
-and [Reading-owned Book vocabulary](../features/reading-owned-book-vocabulary.md).
+and [Reading-owned Book vocabulary](../archive/features/reading-owned-book-vocabulary.md).
 
 The recurring experience rhythm is:
 

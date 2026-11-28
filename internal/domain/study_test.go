@@ -14,27 +14,47 @@ func studyID(lemma string) StudyItem {
 func TestOrderStudyStream(t *testing.T) {
 	tests := []struct {
 		name  string
+		boost bool
 		input []StudyCandidate
 		want  []string
 	}{
 		{name: "empty", input: nil, want: []string{}},
 		{
-			name: "current reading first, then personal occurrences descending",
+			name:  "below target the current reading comes first by its own count, then To Read frequency",
+			boost: true,
 			input: []StudyCandidate{
-				{StudyItem: studyID("alpha"), PersonalOccurrences: 90},
-				{StudyItem: studyID("beta"), InCurrentReading: true, PersonalOccurrences: 3},
-				{StudyItem: studyID("gamma"), InCurrentReading: true, PersonalOccurrences: 7},
-				{StudyItem: studyID("delta"), PersonalOccurrences: 120},
+				{StudyItem: studyID("alpha"), ToReadOccurrences: 90},
+				{StudyItem: studyID("beta"), InCurrentReading: true, CurrentReadingOccurrences: 3, ToReadOccurrences: 100},
+				{StudyItem: studyID("gamma"), InCurrentReading: true, CurrentReadingOccurrences: 7, ToReadOccurrences: 8},
+				{StudyItem: studyID("delta"), ToReadOccurrences: 120},
 			},
 			want: []string{"gamma/NOUN/", "beta/NOUN/", "delta/NOUN/", "alpha/NOUN/"},
 		},
 		{
+			name: "at or above target, or with no current reading, To Read frequency decides",
+			input: []StudyCandidate{
+				{StudyItem: studyID("alpha"), ToReadOccurrences: 90},
+				{StudyItem: studyID("beta"), InCurrentReading: true, CurrentReadingOccurrences: 3, ToReadOccurrences: 100},
+				{StudyItem: studyID("gamma"), InCurrentReading: true, CurrentReadingOccurrences: 7, ToReadOccurrences: 8},
+				{StudyItem: studyID("delta"), ToReadOccurrences: 120},
+			},
+			want: []string{"delta/NOUN/", "beta/NOUN/", "alpha/NOUN/", "gamma/NOUN/"},
+		},
+		{
+			name: "a word only Read Books contain adds no priority",
+			input: []StudyCandidate{
+				{StudyItem: studyID("read-only"), PersonalOccurrences: 500},
+				{StudyItem: studyID("to-read"), PersonalOccurrences: 2, ToReadOccurrences: 2},
+			},
+			want: []string{"to-read/NOUN/", "read-only/NOUN/"},
+		},
+		{
 			name: "ties break by lemma, part of speech then discriminator",
 			input: []StudyCandidate{
-				{Language: "de", CanonicalLemma: "b", UPOS: "NOUN", PersonalOccurrences: 5},
-				{Language: "de", CanonicalLemma: "a", UPOS: "VERB", PersonalOccurrences: 5},
-				{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", PersonalOccurrences: 5},
-				{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", LexicalDiscriminator: "x:2", PersonalOccurrences: 5},
+				{Language: "de", CanonicalLemma: "b", UPOS: "NOUN", ToReadOccurrences: 5},
+				{Language: "de", CanonicalLemma: "a", UPOS: "VERB", ToReadOccurrences: 5},
+				{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", ToReadOccurrences: 5},
+				{Language: "de", CanonicalLemma: "a", UPOS: "ADJ", LexicalDiscriminator: "x:2", ToReadOccurrences: 5},
 			},
 			want: []string{"a/ADJ/", "a/ADJ/x:2", "a/VERB/", "b/NOUN/"},
 		},
@@ -42,7 +62,7 @@ func TestOrderStudyStream(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			input := append([]StudyCandidate(nil), test.input...)
-			ordered := OrderStudyStream(input)
+			ordered := OrderStudyStream(input, test.boost)
 			got := make([]string, 0, len(ordered))
 			for _, candidate := range ordered {
 				got = append(got, candidate.CanonicalLemma+"/"+candidate.UPOS+"/"+candidate.LexicalDiscriminator)
@@ -51,6 +71,57 @@ func TestOrderStudyStream(t *testing.T) {
 			assert.Equal(t, test.input, input, "the input slice is not reordered")
 		})
 	}
+}
+
+func TestStudyReadingCoverageBoundaryAtTargetCoverage(t *testing.T) {
+	assert.InDelta(t, 0.98, StudyTargetCoverage, 0)
+	cases := []struct {
+		name                string
+		active              bool
+		inStudy, analyzable int64
+		boost               bool
+	}{
+		{"just below 98%", true, 97, 100, true},
+		{"just below 98% of a large Book", true, 9799, 10000, true},
+		{"exactly 98%", true, 98, 100, false},
+		{"exactly 98% of a large Book", true, 9800, 10000, false},
+		{"just above 98%", true, 99, 100, false},
+		{"fully covered", true, 100, 100, false},
+		{"nothing in study", true, 0, 100, true},
+		{"no current reading", false, 0, 0, false},
+		{"no analyzable tokens", true, 0, 0, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			coverage := StudyReadingCoverage{Active: c.active, InStudyTokens: c.inStudy, AnalyzableTokens: c.analyzable}
+			assert.Equal(t, c.boost, coverage.BoostsCurrentReading())
+		})
+	}
+}
+
+func TestNewStudyReadingCoverageCountsInStudyAndMatureWordsOfTheBook(t *testing.T) {
+	vocabulary := ProjectedCorpusVocabulary{
+		Ready:      true,
+		Statistics: &AnalysisStatistics{AnalyzableTokenCount: 100},
+		Lemmas: []LemmaOccurrence{
+			{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 60},
+			{Language: "de", CanonicalLemma: "hund", UPOS: "NOUN", OccurrenceCount: 30},
+			{Language: "de", CanonicalLemma: "katze", UPOS: "NOUN", OccurrenceCount: 10},
+		},
+	}
+	progress := []StudyProgress{
+		{StudyItem: studyID("haus")},
+		{StudyItem: studyID("hund"), Withdrawn: true},
+		{StudyItem: IdiomItem("de", "katze")},
+	}
+	coverage := NewStudyReadingCoverage(vocabulary, progress)
+	assert.Equal(t, StudyReadingCoverage{Active: true, InStudyTokens: 60, AnalyzableTokens: 100}, coverage, "a withdrawn word and an Idiom add nothing")
+	assert.True(t, coverage.BoostsCurrentReading())
+
+	vocabulary.Ready = false
+	assert.Equal(t, StudyReadingCoverage{}, NewStudyReadingCoverage(vocabulary, progress), "counts not ready: no coverage, no boost")
+	vocabulary.Ready, vocabulary.Statistics = true, nil
+	assert.Equal(t, StudyReadingCoverage{}, NewStudyReadingCoverage(vocabulary, progress))
 }
 
 func TestStudyPreparationTargets(t *testing.T) {
@@ -135,12 +206,16 @@ func TestStudyMaterialRetriesANoDictionaryEntryOmissionOnlyAgainstAnotherDiction
 
 func TestOrderStudyStreamRanksWordsAndIdiomsTogether(t *testing.T) {
 	idiom := func(headword string, current bool, count int64) StudyCandidate {
-		return StudyCandidate{StudyItem: IdiomItem("de", headword), InCurrentReading: current, PersonalOccurrences: count}
+		candidate := StudyCandidate{StudyItem: IdiomItem("de", headword), InCurrentReading: current, PersonalOccurrences: count}
+		if current {
+			candidate.CurrentReadingOccurrences = count
+		}
+		return candidate
 	}
 	word := func(lemma string, current bool, count int64) StudyCandidate {
-		return StudyCandidate{StudyItem: studyID(lemma), InCurrentReading: current, PersonalOccurrences: count}
+		return StudyCandidate{StudyItem: studyID(lemma), InCurrentReading: current, CurrentReadingOccurrences: count, ToReadOccurrences: count}
 	}
-	ordered := OrderStudyStream([]StudyCandidate{
+	candidates := []StudyCandidate{
 		idiom("zz tie", false, 5),
 		word("zz tie", false, 5),
 		idiom("a tie", false, 5),
@@ -148,25 +223,32 @@ func TestOrderStudyStreamRanksWordsAndIdiomsTogether(t *testing.T) {
 		idiom("many", false, 80),
 		idiom("reading idiom", true, 1),
 		word("reading word", true, 2),
-	})
+	}
+	ordered := OrderStudyStream(candidates, false)
 	got := make([]string, 0, len(ordered))
 	for _, candidate := range ordered {
 		got = append(got, candidate.ItemKind.String()+":"+candidate.CanonicalLemma)
 	}
 	assert.Equal(t, []string{
-		"word:reading word", "idiom:reading idiom", // the Current reading's items first, by count
-		"idiom:many", "word:high", // then by count, whatever the kind
+		"idiom:many", "word:high", // by count, whatever the kind
 		"word:zz tie", "idiom:a tie", "idiom:zz tie", // a tie: kinds in a stable order, then keys
+		"word:reading word", "idiom:reading idiom", // the Current reading adds nothing without the boost
 	}, got)
+
+	boosted := OrderStudyStream(candidates, true)
+	assert.Equal(t, []string{"reading word", "reading idiom"}, []string{boosted[0].CanonicalLemma, boosted[1].CanonicalLemma},
+		"below target the Current reading's word and Idiom are first, by their count within it")
+	assert.Equal(t, []string{"many", "high"}, []string{boosted[2].CanonicalLemma, boosted[3].CanonicalLemma},
+		"everything else follows by Corpus count")
 }
 
 func TestIdiomStudyCandidatesCarryTheirCorpusCount(t *testing.T) {
 	candidates := IdiomStudyCandidates("de", []IdiomCandidateCount{
-		{Headword: "mit dem haus", Candidates: 4, Books: 2, InCurrentReading: true},
+		{Headword: "mit dem haus", Candidates: 4, Books: 2, InCurrentReading: true, CurrentReadingCandidates: 3},
 		{Headword: "gone", Candidates: 0},
 	})
 	require.Len(t, candidates, 1, "a headword with no candidates is not one")
-	assert.Equal(t, StudyCandidate{StudyItem: IdiomItem("de", "mit dem haus"), InCurrentReading: true, PersonalOccurrences: 4}, candidates[0])
+	assert.Equal(t, StudyCandidate{StudyItem: IdiomItem("de", "mit dem haus"), InCurrentReading: true, PersonalOccurrences: 4, CurrentReadingOccurrences: 3}, candidates[0])
 }
 
 func TestStudyPreparationTargetsCountIdiomsInTheWindow(t *testing.T) {
