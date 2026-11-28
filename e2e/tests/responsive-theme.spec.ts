@@ -104,7 +104,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
     const shellControls = page.locator('.site-header__brand, .site-nav__link, #active-study-language, .site-header__account > summary');
     await expect44pxTouchTargets(shellControls);
-    await expect(page.locator('.site-header__navigation .site-nav__link')).toHaveCount(3);
+    await expect(page.locator('.site-header__navigation .site-nav__link')).toHaveCount(4);
     await expect(page.locator('.site-header__account > summary')).toBeVisible();
   });
 
@@ -547,8 +547,8 @@ test.describe('responsive and theme regression coverage', () => {
       await page.goto(path);
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
       const destinations = navigation.locator('.site-header__navigation a');
-      await expect(destinations).toHaveCount(3);
-      await expect(destinations).toHaveText(['My Books', 'Corpus', 'Catalog']);
+      await expect(destinations).toHaveCount(4);
+      await expect(destinations).toHaveText(['My Books', 'Study', 'Corpus', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
       // Only per-language pages carry the picker; the Catalog and job status
       // have no page language (ADR 0131).
