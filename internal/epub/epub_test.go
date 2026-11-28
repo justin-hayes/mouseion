@@ -351,3 +351,13 @@ func extractBook(data []byte) (ExtractedBook, error) {
 	extraction, err := ExtractV2(data)
 	return extraction.Book, err
 }
+
+func TestResolveResourcePathRejectsUnsafeHrefs(t *testing.T) {
+	for _, href := range []string{"", "#fragment", "/absolute.xhtml", "../outside.xhtml", ".."} {
+		_, err := resolveResourcePath("OEBPS", href)
+		assert.Error(t, err, href)
+	}
+	name, err := resolveResourcePath("OEBPS", "text/ch1.xhtml#a")
+	require.NoError(t, err)
+	assert.Equal(t, "OEBPS/text/ch1.xhtml", name)
+}
