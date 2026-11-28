@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/text/unicode/norm"
@@ -34,7 +33,7 @@ func TestAncientGreekConcordanceAndSentenceStudy(t *testing.T) {
 	require.NoError(t, err)
 
 	definition, sourcePath := fixtureImportFrom(t, "oga-src-sentences.conllu")
-	report, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	report, err := importGreekSource(ctx, greekImportRequest{
 		OwnerID:    learner.ID,
 		BookID:     registration.BookID,
 		SourcePath: sourcePath,

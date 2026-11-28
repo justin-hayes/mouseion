@@ -1,7 +1,6 @@
 package ancientgreek
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
@@ -16,18 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// capturedWriter records the candidate the seam hands to the writer.
-type capturedWriter struct {
-	request ImportWriteRequest
-	result  ImportWriteResult
-	err     error
-}
-
-func (w *capturedWriter) WriteImportedAnalysis(_ context.Context, request ImportWriteRequest) (ImportWriteResult, error) {
-	w.request = request
-	return w.result, w.err
-}
 
 // testDefinition is the synthetic fixture's reviewed Reading-unit definition.
 // It mirrors the shipped Anabasis Book 1 key and citation range without
@@ -76,19 +63,20 @@ func definitionForBytes(data []byte) domain.ReadingUnitDefinition {
 	return definition
 }
 
-func writeTemp(t *testing.T, data []byte) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "source.conllu")
-	require.NoError(t, os.WriteFile(path, data, 0o600))
-	return path
+// cutFixture parses data and cuts the definition's Reading unit, the live
+// preparation path.
+func cutFixture(data []byte, definition domain.ReadingUnitDefinition) (PreparedUnit, error) {
+	work, err := ParseOgaSource(data)
+	if err != nil {
+		return PreparedUnit{}, err
+	}
+	return work.CutUnit(definition)
 }
 
 func TestImportInterpretsFixture(t *testing.T) {
-	writer := &capturedWriter{}
-	request := ImportRequest{OwnerID: "owner", BookID: "book", SourcePath: writeTemp(t, readFixture(t)), Definition: fixtureDefinition(t)}
-
-	report, err := Import(context.Background(), request, writer)
+	unit, err := cutFixture(readFixture(t), fixtureDefinition(t))
 	require.NoError(t, err)
+	report := unit.Report
 
 	assert.Equal(t, 2, report.Sentences)
 	assert.Equal(t, 10, report.Tokens)
@@ -98,19 +86,17 @@ func TestImportInterpretsFixture(t *testing.T) {
 	assert.Equal(t, 2, report.NumberedLemmaTypes)
 	assert.Equal(t, 1, report.BareLemmasWithNumberedSibling)
 	assert.Empty(t, report.UnmappedFeatureValues, "the perfect and the infinitive's Mood are mapped now")
-	assert.Equal(t, "book", report.BookID)
-	assert.False(t, report.Reimported)
 
 	// The reconstruction drops the ellipsis token and the space before `·` and
 	// `;`, and separates sentences with one newline.
-	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;\nλέγει Κῦρος λέλυκε λύειν", writer.request.FullText)
-	assert.Equal(t, SyntaxStateNativeAGDT, writer.request.SyntaxState)
-	assert.Equal(t, ImportAnalyzerName, writer.request.AnalyzerName)
-	assert.Contains(t, writer.request.AnalyzerVersion, PosMappingVersion)
-	assert.Contains(t, writer.request.ConfigIdentity, string(SyntaxStateNativeAGDT))
-	assert.Equal(t, domain.ClassicalUnitID(testDefinition().Key), writer.request.UnitID)
+	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;\nλέγει Κῦρος λέλυκε λύειν", unit.FullText)
+	assert.Equal(t, SyntaxStateNativeAGDT, unit.SyntaxState)
+	assert.Equal(t, ImportAnalyzerName, unit.AnalyzerName)
+	assert.Contains(t, unit.AnalyzerVersion, PosMappingVersion)
+	assert.Contains(t, unit.ConfigIdentity, string(SyntaxStateNativeAGDT))
+	assert.Equal(t, domain.ClassicalUnitID(testDefinition().Key), unit.UnitID)
 
-	first := writer.request.Result.Sentences[0]
+	first := unit.Result.Sentences[0]
 	require.Len(t, first.Tokens, 6)
 	assert.Equal(t, "λέγω", first.Tokens[0].CanonicalLemma)
 	assert.Equal(t, "morpheus:1", first.Tokens[0].LexicalDiscriminator)
@@ -130,33 +116,13 @@ func TestImportInterpretsFixture(t *testing.T) {
 	assert.Equal(t, "SBJ", first.Tokens[1].Dependency)
 	assert.Equal(t, uint32(0), first.Tokens[1].Head)
 
-	second := writer.request.Result.Sentences[1]
+	second := unit.Result.Sentences[1]
 	require.Len(t, second.Tokens, 4)
 	assert.Equal(t, "λέγω", second.Tokens[0].CanonicalLemma)
 	assert.Empty(t, second.Tokens[0].LexicalDiscriminator, "a bare sibling keeps no discriminator")
 	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin", "Number": "Sing", "Person": "3", "Tense": "Pres", "Voice": "Act"}, second.Tokens[0].Morphology)
 	assert.Equal(t, map[string]string{"Mood": "Ind", "VerbForm": "Fin", "Number": "Sing", "Person": "3", "Tense": "Past", "Aspect": "Perf", "Voice": "Act"}, second.Tokens[2].Morphology, "the perfect is Past with perfect aspect")
 	assert.Equal(t, map[string]string{"Tense": "Pres", "VerbForm": "Inf", "Voice": "Act"}, second.Tokens[3].Morphology, "an infinitive carries VerbForm and no Mood")
-}
-
-func TestImportRefusesPin(t *testing.T) {
-	definition := fixtureDefinition(t)
-	definition.SourceFileSHA256 = strings.Repeat("0", 64)
-	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, readFixture(t)), Definition: definition}, &capturedWriter{})
-	assertImportCode(t, err, CodePinMismatch)
-
-	definition = fixtureDefinition(t)
-	definition.SourceFileSize = definition.SourceFileSize + 1
-	_, err = Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, readFixture(t)), Definition: definition}, &capturedWriter{})
-	assertImportCode(t, err, CodePinMismatch)
-}
-
-func TestImportRefusesOversize(t *testing.T) {
-	definition := fixtureDefinition(t)
-	definition.SourceFileSize = 16
-	definition.SourceFileSHA256 = strings.Repeat("0", 64)
-	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, readFixture(t)), Definition: definition}, &capturedWriter{})
-	assertImportCode(t, err, CodeOversize)
 }
 
 func TestImportRefusesMalformedInput(t *testing.T) {
@@ -170,7 +136,7 @@ func TestImportRefusesMalformedInput(t *testing.T) {
 	for name, content := range cases {
 		t.Run(name, func(t *testing.T) {
 			data := []byte(content)
-			_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, &capturedWriter{})
+			_, err := cutFixture(data, definitionForBytes(data))
 			assertImportCode(t, err, CodeMalformed)
 		})
 	}
@@ -178,13 +144,13 @@ func TestImportRefusesMalformedInput(t *testing.T) {
 
 func TestImportRefusesUnknownNativePOS(t *testing.T) {
 	inRange := []byte("# source = Xenophon, Xen. Anab._1.1.1\n# text = x\n# sent_id = 1\n1\tλέγει\tλέγω\tz\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.1\n")
-	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, inRange), Definition: definitionForBytes(inRange)}, &capturedWriter{})
+	_, err := cutFixture(inRange, definitionForBytes(inRange))
 	assertImportCode(t, err, CodeUnknownPOS)
 
 	// An unknown native POS outside the imported citation range stops the
 	// import too: the mapping never guesses, wherever the token sits.
 	outOfRange := []byte("# source = Xenophon, Xen. Anab._2.1.1\n# text = x\n# sent_id = 1\n1\tλέγει\tλέγω\tz\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._2.1.1\n")
-	_, err = Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, outOfRange), Definition: definitionForBytes(outOfRange)}, &capturedWriter{})
+	_, err = cutFixture(outOfRange, definitionForBytes(outOfRange))
 	assertImportCode(t, err, CodeUnknownPOS)
 }
 
@@ -197,15 +163,15 @@ func TestImportAssignsACrossingSentenceToItsFirstTokensUnit(t *testing.T) {
 		"2\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_2|0|ref=Xen. Anab._2.1.1",
 		"",
 	}, "\n"))
-	writer := &capturedWriter{}
-	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	unit, err := cutFixture(data, definitionForBytes(data))
 	require.NoError(t, err)
+	report := unit.Report
 	assert.Equal(t, 1, report.Sentences)
 	assert.Equal(t, 2, report.Tokens, "the whole crossing sentence belongs to the unit holding its first token")
 	require.Len(t, report.Crossings, 1)
 	assert.Equal(t, []string{"1.10.19", "2.1.1"}, report.Crossings[0].Citations)
-	require.Len(t, writer.request.Result.Sentences, 1)
-	assert.Equal(t, []string{"1.10.19", "2.1.1"}, writer.request.Result.Sentences[0].Citations)
+	require.Len(t, unit.Result.Sentences, 1)
+	assert.Equal(t, []string{"1.10.19", "2.1.1"}, unit.Result.Sentences[0].Citations)
 }
 
 func TestImportKeepsASentenceCrossingAConstituentBookBoundaryInTheWholeWorkUnit(t *testing.T) {
@@ -219,14 +185,14 @@ func TestImportKeepsASentenceCrossingAConstituentBookBoundaryInTheWholeWorkUnit(
 	}, "\n"))
 	definition := definitionForBytes(data)
 	definition.CitationStart, definition.CitationEnd = "1.10.19", "2.1.1"
-	writer := &capturedWriter{}
-	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definition}, writer)
+	unit, err := cutFixture(data, definition)
 	require.NoError(t, err, "a whole-work unit spans every book, so a boundary sentence is not refused")
+	report := unit.Report
 	assert.Equal(t, 1, report.Sentences)
 	assert.Equal(t, 2, report.Tokens)
 	assert.Empty(t, report.Crossings, "the sentence crosses no Reading unit boundary")
-	require.Len(t, writer.request.Result.Sentences, 1)
-	assert.Equal(t, []string{"1.10.19", "2.1.1"}, writer.request.Result.Sentences[0].Citations)
+	require.Len(t, unit.Result.Sentences, 1)
+	assert.Equal(t, []string{"1.10.19", "2.1.1"}, unit.Result.Sentences[0].Citations)
 }
 
 func TestImportSkipsASentenceWhoseFirstTokenIsOutsideTheUnit(t *testing.T) {
@@ -238,13 +204,13 @@ func TestImportSkipsASentenceWhoseFirstTokenIsOutsideTheUnit(t *testing.T) {
 		"2\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_2|0|ref=Xen. Anab._1.10.19",
 		"",
 	}, "\n"))
-	writer := &capturedWriter{}
-	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	unit, err := cutFixture(data, definitionForBytes(data))
 	require.NoError(t, err)
+	report := unit.Report
 	assert.Zero(t, report.Sentences)
 	assert.Zero(t, report.Tokens)
 	assert.Empty(t, report.Crossings)
-	assert.Empty(t, writer.request.Result.Sentences)
+	assert.Empty(t, unit.Result.Sentences)
 }
 
 func TestImportComputesProperNamesOverTheWholeWork(t *testing.T) {
@@ -274,11 +240,10 @@ func TestImportComputesProperNamesOverTheWholeWork(t *testing.T) {
 		"2\tΧώρα\tχώρα\tn\tn-s---fn-\tCase=n|Gender=f|Number=s\t1\tSBJ\t_\tt_8|t_7|ref=Xen. Anab._2.1.3",
 		"",
 	}, "\n"))
-	writer := &capturedWriter{}
-	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	unit, err := cutFixture(data, definitionForBytes(data))
 	require.NoError(t, err)
-	require.Len(t, writer.request.Result.Sentences, 1, "only the Book 1 sentence is imported")
-	assert.Equal(t, "PROPN", writer.request.Result.Sentences[0].Tokens[1].UPOS, "the whole-work capitalization makes the in-range noun a proper name")
+	require.Len(t, unit.Result.Sentences, 1, "only the Book 1 sentence is imported")
+	assert.Equal(t, "PROPN", unit.Result.Sentences[0].Tokens[1].UPOS, "the whole-work capitalization makes the in-range noun a proper name")
 }
 
 func TestImportAcceptsRepeatedIdenticalSourceHeaders(t *testing.T) {
@@ -290,9 +255,9 @@ func TestImportAcceptsRepeatedIdenticalSourceHeaders(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			data := []byte(strings.Join(lines, "\n"))
-			writer := &capturedWriter{}
-			report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+			unit, err := cutFixture(data, definitionForBytes(data))
 			require.NoError(t, err)
+			report := unit.Report
 			assert.Equal(t, 1, report.Sentences)
 			assert.Equal(t, 1, report.Tokens)
 		})
@@ -308,7 +273,7 @@ func TestImportRefusesARepeatedSourceHeaderThatDiffers(t *testing.T) {
 		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_1|0|ref=Xen. Anab._1.1.1",
 		"",
 	}, "\n"))
-	_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, &capturedWriter{})
+	_, err := cutFixture(data, definitionForBytes(data))
 	assertImportCode(t, err, CodeMalformed)
 }
 
@@ -321,18 +286,18 @@ func TestImportKeepsXTokensAndMapsThemToX(t *testing.T) {
 		"2\t1\t1\tx\tx--------\t_\t1\tATR\t_\tt_2|t_1|ref=Xen. Anab._1.1.1",
 		"",
 	}, "\n"))
-	writer := &capturedWriter{}
-	report, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, writer)
+	unit, err := cutFixture(data, definitionForBytes(data))
 	require.NoError(t, err)
+	report := unit.Report
 	assert.Equal(t, 1, report.Sentences)
 	assert.Equal(t, 2, report.Tokens)
 	assert.Zero(t, report.EllipsisTokensSkipped, "x is a real token, not an ellipsis")
-	require.Len(t, writer.request.Result.Sentences, 1)
-	tokens := writer.request.Result.Sentences[0].Tokens
+	require.Len(t, unit.Result.Sentences, 1)
+	tokens := unit.Result.Sentences[0].Tokens
 	require.Len(t, tokens, 2)
 	assert.Equal(t, "1", tokens[1].Surface)
 	assert.Equal(t, "X", tokens[1].UPOS)
-	assert.Equal(t, "λέγει 1", writer.request.Result.Sentences[0].Text)
+	assert.Equal(t, "λέγει 1", unit.Result.Sentences[0].Text)
 }
 
 func TestCheckUnitCoverageAssignsCrossingSentencesAndReportsThem(t *testing.T) {
@@ -349,7 +314,7 @@ func TestCheckUnitCoverageAssignsCrossingSentencesAndReportsThem(t *testing.T) {
 		"1\tλέγει\tλέγω\tv\tv3spia---\t_\t0\tPRED\t_\tt_3|0|ref=Xen. Anab._1.2.2",
 		"",
 	}, "\n"))
-	report, err := CheckUnitCoverage(data, []UnitRange{
+	report, err := mustManifestSource(t, data).CheckUnitCoverage([]UnitRange{
 		{Key: "one", Start: "1.1.1", End: "1.1.9"},
 		{Key: "two", Start: "1.2.1", End: "1.2.9"},
 	})
@@ -384,7 +349,7 @@ func TestCheckUnitCoverageRefusesUnassignedAndAmbiguousSentences(t *testing.T) {
 		"ambiguous":  {citation: "1.1.5", units: overlapping, code: CodeSentenceAmbiguous},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := CheckUnitCoverage(data(test.citation), test.units)
+			_, err := mustManifestSource(t, data(test.citation)).CheckUnitCoverage(test.units)
 			assertImportCode(t, err, test.code)
 		})
 	}
@@ -398,7 +363,7 @@ func TestImportRejectsUnrecoverableHeaders(t *testing.T) {
 	for name, content := range cases {
 		t.Run(name, func(t *testing.T) {
 			data := []byte(content)
-			_, err := Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, data), Definition: definitionForBytes(data)}, &capturedWriter{})
+			_, err := cutFixture(data, definitionForBytes(data))
 			assertImportCode(t, err, CodeMalformed)
 		})
 	}
@@ -496,21 +461,6 @@ func TestParseCitationRejectsNonNumbers(t *testing.T) {
 	assert.Negative(t, compareCitation(cite("1.1.1"), cite("1.2")))
 	assert.Positive(t, compareCitation(cite("1.2"), cite("1.1.9")))
 	assert.Zero(t, compareCitation(cite("1.1"), cite("1.1.0")))
-}
-
-func TestImportRequiresWriterAndDefinition(t *testing.T) {
-	_, err := Import(context.Background(), ImportRequest{}, nil)
-	require.ErrorContains(t, err, "import writer is required")
-
-	definition := fixtureDefinition(t)
-	definition.Key = ""
-	_, err = Import(context.Background(), ImportRequest{SourcePath: writeTemp(t, readFixture(t)), Definition: definition}, &capturedWriter{})
-	require.Error(t, err)
-}
-
-func TestImportReportsUnreadablePath(t *testing.T) {
-	_, err := Import(context.Background(), ImportRequest{SourcePath: filepath.Join(t.TempDir(), "missing.conllu"), Definition: fixtureDefinition(t)}, &capturedWriter{})
-	assertImportCode(t, err, CodeReadFailed)
 }
 
 func TestValidateRejectsBrokenSpans(t *testing.T) {

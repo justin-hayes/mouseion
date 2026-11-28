@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/stretchr/testify/assert"
@@ -98,7 +97,7 @@ func importGreekFixture(t *testing.T, ctx context.Context, store *persistence.Po
 	definition.SourceFileSHA256 = hex.EncodeToString(sum[:])
 	path := filepath.Join(t.TempDir(), name)
 	require.NoError(t, os.WriteFile(path, data, 0o600)) //nolint:gosec // path is inside t.TempDir().
-	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err = importGreekSource(ctx, greekImportRequest{
 		OwnerID: ownerID, BookID: bookID, SourcePath: path, Definition: definition,
 	}, analysis.NewGreekImportWriter(store))
 	require.NoError(t, err)
