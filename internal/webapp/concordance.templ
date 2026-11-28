@@ -13,7 +13,7 @@ import (
 )
 
 templ VocabularyConcordancePageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, result domain.ConcordanceResult, applied, readingChanged bool, message, focusTarget string, origin browseOrigin) {
-	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
+	@ShellLayout("Concordance", &user, csrf, NavigationCorpus, shellStyleCorpus) {
 		@VocabularyPageHeader()
 		<p id="concordance-pending" class="htmx-indicator" role="status">Searching. The previous results remain under their previously applied lookup.</p>
 		<div id="concordance-workflow" hx-on:htmx:error="window.showConcordanceNetworkRecovery(ctx)">
@@ -164,7 +164,7 @@ templ concordanceResultItems(occurrences []domain.ConcordanceResultOccurrence, l
 // request and offers the way back. A speaker-label sentence is raw evidence,
 // not study context (ADR 0103).
 templ VocabularySentenceStudyUnavailablePageView(user domain.User, csrf string, back string) {
-	@ShellLayout("Sentence study unavailable", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
+	@ShellLayout("Sentence study unavailable", &user, csrf, NavigationCorpus, shellStyleCorpus) {
 		@VocabularyPageHeader()
 		@EmptyState("Not available as study context", "This sentence overlaps a speaker label, so Mouseion keeps it as Concordance evidence instead of study context. The source sentence is unchanged.") {
 			<a class="button button--outline" href={ templ.SafeURL(back) }>Return to Concordance results</a>
@@ -173,7 +173,7 @@ templ VocabularySentenceStudyUnavailablePageView(user domain.User, csrf string, 
 }
 
 templ VocabularySentenceStudyPageView(user domain.User, csrf string, study domain.SentenceStudy, back, focusConstruction string) {
-	@ShellLayout("Sentence study", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
+	@ShellLayout("Sentence study", &user, csrf, NavigationCorpus, shellStyleCorpus) {
 		@PageHeader("Study this sentence", "The complete source sentence with a source-aligned morphology line and the complete analyzer evidence.", nil)
 		<p><a href={ templ.SafeURL(back) }>Return to Concordance results</a></p>
 		<section class="reading-width" aria-labelledby="sentence-study-heading">
@@ -845,7 +845,7 @@ func codePointByteOffset(text string, offset int64) (int, bool) {
 }
 
 templ VocabularyConcordanceErrorPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, timeout bool, origin browseOrigin) {
-	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
+	@ShellLayout("Concordance", &user, csrf, NavigationCorpus, shellStyleCorpus) {
 		@VocabularyPageHeader()
 		<p>Active study language: <code>{ language }</code>.</p>
 		@concordanceOriginReturn(origin, language)
@@ -884,7 +884,7 @@ templ VocabularyConcordanceErrorRecovery(lookup domain.ConcordanceLookup, timeou
 }
 
 templ VocabularyConcordanceChangedPageView(user domain.User, csrf, language string, lookup domain.ConcordanceLookup, origin browseOrigin) {
-	@ShellLayout("Concordance", &user, csrf, NavigationVocabulary, shellStyleVocabulary) {
+	@ShellLayout("Concordance", &user, csrf, NavigationCorpus, shellStyleCorpus) {
 		@VocabularyPageHeader()
 		<p>Active study language: <code>{ language }</code>.</p>
 		@concordanceOriginReturn(origin, language)

@@ -77,7 +77,7 @@ func TestPoetrySpeakerLabelRefusesStudyAndLabelsConcordance(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 
 	t.Run("speaker label stays searchable and labelled without a Study affordance", func(t *testing.T) {
-		response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?"+url.Values{"term": {"Valentin"}}.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/de/corpus/concordance?"+url.Values{"term": {"Valentin"}}.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code)
 		body := response.Body.String()
 		require.Contains(t, body, ">Speaker label</span>")
@@ -85,7 +85,7 @@ func TestPoetrySpeakerLabelRefusesStudyAndLabelsConcordance(t *testing.T) {
 	})
 
 	t.Run("standalone direction sentence keeps its Study affordance", func(t *testing.T) {
-		response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?"+url.Values{"term": {"tritt"}}.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/de/corpus/concordance?"+url.Values{"term": {"tritt"}}.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code)
 		body := response.Body.String()
 		require.NotContains(t, lookupResults(body), "Speaker label")
@@ -100,7 +100,7 @@ JOIN source_material_units u ON u.owner_id=cai.owner_id AND u.source_material_id
 WHERE cai.book_id=$1`, book.ID).Scan(&runID, &corpusID, &unitID))
 
 	studyURL := func(sentence, target int, surface string) string {
-		return fmt.Sprintf("/de/vocabulary/concordance/sentence?book=%s&run=%s&corpus=%s&unit=%s&sentence=%d&target=%d&target_surface=%s",
+		return fmt.Sprintf("/de/corpus/concordance/sentence?book=%s&run=%s&corpus=%s&unit=%s&sentence=%d&target=%d&target_surface=%s",
 			book.ID, runID, corpusID, unitID, sentence, target, url.QueryEscape(surface))
 	}
 

@@ -29,7 +29,7 @@ func TestBookDetailListsWordsByStudyStateAndOffersNoWordEdits(t *testing.T) {
 	for _, state := range []string{"Mature", "In study", "Not yet introduced"} {
 		assert.Contains(t, body, `data-study-state>`+state+`</td>`, state)
 	}
-	assert.Contains(t, body, `href="/de/vocabulary/concordance?`, "each word opens its Concordance")
+	assert.Contains(t, body, `href="/de/corpus/concordance?`, "each word opens its Concordance")
 	assert.Contains(t, body, `from_book=`+fixtures.BookID, "Concordance knows the way back to this Book")
 	for _, retired := range []string{"Known", "Reserved", "Unknown", "Show already accounted-for words", "Browse selection"} {
 		assert.NotContains(t, body, retired)

@@ -77,7 +77,7 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	lemmareview.Store
 }
 
-// VocabularyStore provides the Vocabulary (/vocabulary/**) concordance and
+// VocabularyStore provides the Corpus (/corpus/**) concordance and
 // sentence study reads.
 type VocabularyStore interface {
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
@@ -365,9 +365,12 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
-	h.perLanguage(pageKindVocabulary, h.vocabularyConcordancePage)
+	h.perLanguage(pageKindCorpus, h.vocabularyConcordancePage)
 	h.perLanguage(pageKindConcordance, h.vocabularyConcordancePage)
 	h.perLanguage(pageKindSentenceStudy, h.vocabularySentenceStudyPage)
+	for path, successor := range legacyLanguagePages {
+		h.legacyLanguage(path, successor)
+	}
 	h.mux.Handle("GET /study-language", h.user(http.HandlerFunc(h.studyLanguageSwitch)))
 	return h, nil
 }

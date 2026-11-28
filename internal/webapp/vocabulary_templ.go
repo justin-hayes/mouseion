@@ -8,7 +8,7 @@ package webapp
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-// VocabularyPageHeader titles the single Vocabulary destination. Concordance is
+// VocabularyPageHeader titles the single Corpus destination. Concordance is
 // the only view left, so there is no peer-view navigation.
 func VocabularyPageHeader() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -31,7 +31,7 @@ func VocabularyPageHeader() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"vocabulary-page-header\"><h1>Vocabulary</h1></header>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"vocabulary-page-header\"><h1>Corpus</h1></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -28,11 +28,11 @@ async function expectNoHorizontalOverflow(page: Page) {
 // Concordance row; its words are λέγει (root), ὅτι (the identified target),
 // ἄνδρας (headed by an unprinted node) and καλούς (headed by a comma).
 async function openSyntaxSentence(page: Page) {
-  await page.goto('/de/vocabulary/concordance?term=fixture-syntax');
+  await page.goto('/de/corpus/concordance?term=fixture-syntax');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await row.locator('summary').click();
   await row.getByRole('link', { name: 'Study this sentence' }).click();
-  await expect(page).toHaveURL(/\/vocabulary\/concordance\/sentence/);
+  await expect(page).toHaveURL(/\/corpus\/concordance\/sentence/);
 }
 
 async function expectWordRelations(page: Page, open: () => Promise<void>) {
@@ -82,7 +82,7 @@ test('Word relations works without JavaScript', async ({ browser, baseURL }) => 
 
 test('Sentence study without native syntax shows no Word relations', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/vocabulary/concordance?term=Haus');
+  await page.goto('/de/corpus/concordance?term=Haus');
   const row = page.locator('#concordance-native-results .concordance-result').first();
   await row.locator('summary').click();
   await row.getByRole('link', { name: 'Study this sentence' }).click();

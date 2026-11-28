@@ -138,7 +138,7 @@ func TestPerLanguageSurfacesWithoutAStudyLanguageRedirectToMyBooks(t *testing.T)
 	empty := createAccount(t, ctx, store, "no-language-surfaces", "empty-learner-password")
 	cookies, _ := loginCookies(t, h, empty.Username, "empty-learner-password")
 
-	for _, path := range []string{"/reading", "/reading/switch", "/vocabulary", "/vocabulary/concordance?term=haus"} {
+	for _, path := range []string{"/reading", "/reading/switch", "/corpus", "/corpus/concordance?term=haus", "/vocabulary", "/vocabulary/concordance?term=haus"} {
 		t.Run(path, func(t *testing.T) {
 			response := getAs(t, h, path, cookies)
 			require.Equal(t, http.StatusSeeOther, response.Code)

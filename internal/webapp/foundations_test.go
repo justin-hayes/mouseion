@@ -155,7 +155,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.Contains(t, html, `class="reading-shell"`)
 	assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
-	for _, retired := range []string{"Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
+	for _, retired := range []string{"Browse selection", "Custom deck", "/corpus/selection", "/corpus/decks"} {
 		assert.NotContains(t, html, retired)
 	}
 
@@ -165,7 +165,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
 	var sentenceStudy, concordanceError, concordanceChanged bytes.Buffer
-	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/vocabulary/concordance", "").Render(context.Background(), &sentenceStudy))
+	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/corpus/concordance", "").Render(context.Background(), &sentenceStudy))
 	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false, browseOrigin{}).Render(context.Background(), &concordanceError))
 	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, browseOrigin{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), concordanceError.String(), concordanceChanged.String()} {
@@ -321,9 +321,9 @@ func TestVocabularyHeaderHasNoPeerViews(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyPageHeader().Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `<header class="vocabulary-page-header"><h1>Vocabulary</h1></header>`)
+	assert.Contains(t, html, `<header class="vocabulary-page-header"><h1>Corpus</h1></header>`)
 	assert.NotContains(t, html, "<nav", "Concordance is the only Vocabulary view, so no peer navigation is rendered")
-	assert.NotContains(t, html, "/vocabulary/import", "the retired import surface is not linked")
+	assert.NotContains(t, html, "/corpus/import", "the retired import surface is not linked")
 }
 
 type studyProgressContextStore struct {
@@ -362,9 +362,9 @@ func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
 	html := renderBookWords(t, "de", page, "ha")
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
 	assert.Contains(t, html, `id="vocabulary-browse-results"`)
-	assert.Contains(t, html, `href="/de/vocabulary/concordance?`)
+	assert.Contains(t, html, `href="/de/corpus/concordance?`)
 	assert.Contains(t, html, `hx-select="#vocabulary-browse-results"`)
-	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
+	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/corpus/selection", "/corpus/decks"} {
 		assert.NotContains(t, html, retired)
 	}
 }

@@ -86,7 +86,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	browse := get(bookDetailURL(first.ID) + "?page=2")
 	require.Equal(t, http.StatusOK, browse.Code, browse.Header().Get("Location"))
 	assert.Contains(t, browse.Body.String(), "Page 2 of 2")
-	concordanceHref := link(regexp.MustCompile(`href="(/de/vocabulary/concordance\?[^"]*term=wort26[^"]*)"`), browse.Body.String())
+	concordanceHref := link(regexp.MustCompile(`href="(/de/corpus/concordance\?[^"]*term=wort26[^"]*)"`), browse.Body.String())
 	parsed, err := url.Parse(concordanceHref)
 	require.NoError(t, err)
 	assert.Equal(t, "lemma", parsed.Query().Get("as"))
@@ -110,7 +110,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 				search[key] = value
 			}
 		}
-		response := get("/de/vocabulary/concordance?" + search.Encode())
+		response := get("/de/corpus/concordance?" + search.Encode())
 		require.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, back, link(originBackPattern, response.Body.String()))
 		assert.Contains(t, response.Body.String(), `name="from_book" value="`+first.ID+`"`, "the search form carries the origin separately from the typed term")
@@ -167,7 +167,7 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 		} {
 			values := parsed.Query()
 			mutate(values)
-			response := get("/de/vocabulary/concordance?" + values.Encode())
+			response := get("/de/corpus/concordance?" + values.Encode())
 			assert.Equal(t, http.StatusOK, response.Code, name)
 			assert.NotContains(t, response.Body.String(), "Back to book vocabulary", name)
 		}
