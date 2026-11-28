@@ -43,7 +43,11 @@ templ DevicesPage(user domain.User, csrf string, view DevicesView) {
 			<h2>Your devices</h2>
 			<div class="catalog-list">
 				for _, device := range view.Devices {
-					<article class="catalog-record" id={ "device-" + device.ID } aria-labelledby={ "device-name-" + device.ID }><header><h3 id={ "device-name-" + device.ID }>{ device.Name }</h3></header><div class="catalog-record__details"><p>Username: <code>{ device.Username }</code></p><p>Added: { completedAtLabel(&device.CreatedAt) }</p><p>Last seen: { deviceLastSeen(device) }</p>if device.RevokedAt != nil {<p>Revoked</p>}</div></article>
+					<article class="catalog-record" id={ "device-" + device.ID } aria-labelledby={ "device-name-" + device.ID }><header><h3 id={ "device-name-" + device.ID }>{ device.Name }</h3></header><div class="catalog-record__details"><p>Username: <code>{ device.Username }</code></p><p>Added: { completedAtLabel(&device.CreatedAt) }</p><p>Last seen: { deviceLastSeen(device) }</p>
+					if device.RevokedAt != nil {
+						<p>Revoked</p>
+					}
+					</div></article>
 				}
 			</div>
 		}
