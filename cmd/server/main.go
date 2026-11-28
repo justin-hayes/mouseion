@@ -191,8 +191,10 @@ func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.List
 	defer cancelHTTP()
 	var result error
 	if err := srv.Shutdown(httpCtx); err != nil {
-		// Handlers outlasted the drain; close their connections.
-		result = errors.Join(result, fmt.Errorf("shut down HTTP server: %w", err), srv.Close())
+		// Handlers outlasted the drain; close their connections. That is
+		// not a failed shutdown.
+		log.Printf("HTTP drain incomplete after %s; closing connections: %v", httpShutdownTimeout, err)
+		result = srv.Close()
 	}
 	<-serveErr
 	return errors.Join(result, stopWorkers(workers))
@@ -541,7 +543,11 @@ func newServerMux() *http.ServeMux {
 // stopRiverClient stops the analysis workers, joining a stop failure with any
 // in-flight result so a shutdown problem never masks a startup one.
 func stopRiverClient(ctx context.Context, client *river.Client[pgx.Tx], result *error) {
-	stopErr := client.Stop(ctx)
+	// Bounded: the shutdown sequence has already stopped the client, so this
+	// only matters when startup failed, and it must not outlast the grace period.
+	stopCtx, cancel := context.WithTimeout(ctx, riverHardStopTimeout)
+	defer cancel()
+	stopErr := client.Stop(stopCtx)
 	if stopErr == nil {
 		return
 	}

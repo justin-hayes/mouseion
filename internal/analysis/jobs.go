@@ -1645,7 +1645,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	defer func() {
 		// A job cancelled because the server is stopping is not a failed run:
 		// River runs it again, and a run recorded as failed would not.
-		stopped := ctx.Err() != nil && errors.Is(workErr, context.Canceled)
+		stopped := errors.Is(ctx.Err(), context.Canceled)
 		if workErr != nil && !stopped {
 			workErr = w.recordSnapshotFailure(ctx, workErr, a, job.ID)
 		}
