@@ -729,8 +729,10 @@ read.
 One recorded place in a Book: a fraction of the whole Book, where it came from
 (manual entry, a Device's progress sync, or its reading statistics) and when,
 with an optional text anchor (a readable unit, or a sentence) in the Book's
-current analysis. Reports are append-only, so they are the Book's reading
-history over time; frequent device reports are thinned.
+current analysis. Reports are never edited, so together they are the Book's
+reading history over time; frequent device reports are thinned. The learner may
+withdraw a manual report entered by mistake, which deletes it; a device report
+is never removed.
 _Avoid_: progress update, sync, checkpoint.
 
 **Page visit**:
