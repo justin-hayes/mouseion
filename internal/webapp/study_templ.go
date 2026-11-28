@@ -514,7 +514,7 @@ func StudyPage(user domain.User, csrf string, view studyPageView) templ.Componen
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Study", &user, csrf, NavigationLearning).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Study", &user, csrf, NavigationStudy).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2193,7 +2193,7 @@ func StudyReportInvalidPage(user domain.User, csrf, language string) templ.Compo
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Report not sent", &user, csrf, NavigationLearning).Render(templ.WithChildren(ctx, templ_7745c5c3_Var105), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Report not sent", &user, csrf, NavigationStudy).Render(templ.WithChildren(ctx, templ_7745c5c3_Var105), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2488,7 +2488,7 @@ func StudyReportsPage(user domain.User, csrf string, view studyReportsView) temp
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Reported words", &user, csrf, NavigationLearning).Render(templ.WithChildren(ctx, templ_7745c5c3_Var108), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Reported words", &user, csrf, NavigationStudy).Render(templ.WithChildren(ctx, templ_7745c5c3_Var108), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2801,7 +2801,7 @@ func StudyRemediationPage(user domain.User, csrf string, view studyRemediationVi
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Repair a reported word", &user, csrf, NavigationLearning).Render(templ.WithChildren(ctx, templ_7745c5c3_Var125), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Repair a reported word", &user, csrf, NavigationStudy).Render(templ.WithChildren(ctx, templ_7745c5c3_Var125), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

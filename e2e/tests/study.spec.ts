@@ -25,6 +25,15 @@ test.describe('Study', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 
+  test('marks the Study tab as the current destination', async ({ page }) => {
+    await signIn(page);
+    const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+    await navigation.getByRole('link', { name: 'Study', exact: true }).click();
+    await expect(page).toHaveURL(/\/de\/study$/);
+    await expect(navigation.getByRole('link', { name: 'Study', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(navigation.getByRole('link', { name: 'My Books', exact: true })).not.toHaveAttribute('aria-current', 'page');
+  });
+
   test('takes the batch and grades each card with Show answer, Again and Got it', async ({ page }) => {
     await signIn(page);
     await page.goto('/de/study');

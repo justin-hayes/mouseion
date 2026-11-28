@@ -50,7 +50,7 @@ test.describe('My Books pins the Current reading', () => {
     await signIn(page);
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation.getByRole('link', { name: 'Reading' })).toHaveCount(0);
-    await expect(navigation.locator('.site-header__navigation a')).toHaveText(['My Books', 'Vocabulary', 'Catalog']);
+    await expect(navigation.locator('.site-header__navigation a')).toHaveText(['My Books', 'Study', 'Vocabulary', 'Catalog']);
 
     for (const [path, expected] of [
       ['/de/reading', /\/de\/library$/],

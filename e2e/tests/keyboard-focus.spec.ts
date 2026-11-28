@@ -64,14 +64,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Books', 'Vocabulary'];
+    const destinations = ['My Books', 'Study', 'Vocabulary'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', Vocabulary: '\\/vocabulary',
+        'My Books': '\\/library', Study: '\\/study', Vocabulary: '\\/vocabulary',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -85,7 +85,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
-    for (const name of ['My Books', 'Vocabulary', 'Catalog']) {
+    for (const name of ['My Books', 'Study', 'Vocabulary', 'Catalog']) {
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
     }
@@ -106,7 +106,7 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
-    for (const name of ['Mouseion', 'My Books', 'Vocabulary', 'Catalog']) {
+    for (const name of ['Mouseion', 'My Books', 'Study', 'Vocabulary', 'Catalog']) {
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
       if (name !== 'Catalog') await page.keyboard.press('Tab');
     }
