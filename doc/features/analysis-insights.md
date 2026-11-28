@@ -14,7 +14,7 @@ total, and only word tokens count, so an Idiom changes nothing. There is no
 Known, Reserved or Generated vocabulary and no new-deck pool, and no deck
 button: the sections below that mention them record the pre-cutover contract.
 The unknown-to-learn list is the Book's words that are not Mature, and the
-learner-facing coverage is read from Reading (the pinned Current reading also
+learner-facing coverage is read from Reading (the Current reading hero also
 shows its progress toward Target coverage, 98% counting Mature and in-study
 words) and from the Vocabulary coverage band, which uses Mature coverage. The
 retired Reading and Journey surfaces named below no longer exist.

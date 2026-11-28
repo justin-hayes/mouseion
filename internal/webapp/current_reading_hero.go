@@ -32,14 +32,28 @@ func currentReadingHeroStatusFor(item readingBookView) (currentReadingHeroStatus
 		return currentReadingHeroStatus{Label: view.Label + ".", Description: view.Description, Evidence: true}, true
 	}
 	switch readingEvidenceState(item) {
-	case readingEvidenceFailed, readingEvidenceStale:
+	case readingEvidenceFailed:
 		return currentReadingHeroStatus{Label: readingEvidenceLabel(item) + ".", Description: readingEvidenceDescription(item), Evidence: true}, true
+	case readingEvidenceStale:
+		// The To Read entry of the same Book words this state the same way.
+		return currentReadingHeroStatus{Label: "Analysis out of date.", Description: readingEvidenceDescription(item), Evidence: true}, true
 	case readingEvidenceCurrent, readingEvidenceIncomplete, readingEvidenceUnavailable, readingEvidencePublishing, readingEvidenceUpdating:
 	}
 	if classification.ReAnalysisShadowed() && classification.Run == domain.RunFailed {
 		return currentReadingHeroStatus{Label: "Re-analysis failed.", Evidence: true}, true
 	}
 	return currentReadingHeroStatus{}, false
+}
+
+// currentReadingHeroShowsRecovery reports whether the hero keeps the analysis
+// details with their recovery action: whenever the status line comes from the
+// Book's analysis, and whenever the Book offers a recovery such as Retry
+// acquisition or Retry analysis even though it needs no status line.
+func currentReadingHeroShowsRecovery(item readingBookView, status currentReadingHeroStatus, needsAction bool) bool {
+	if needsAction && status.Evidence {
+		return true
+	}
+	return readingAnalysisAction(item).Submit
 }
 
 func currentReadingHeroTitleID() string { return "current-reading-title" }

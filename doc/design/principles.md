@@ -38,7 +38,7 @@ remain between Books, or return to My Books. Mouseion supports a reading life; i
 
 ## Commitment and continuation
 
-My Books pins one Current reading above the unordered To Read Books. Reading
+Reading opens with one Current reading hero above the unordered To Read Books. Reading
 next, ending, and finishing are distinct and reversible where appropriate, and
 none needs a confirmation because none changes vocabulary. Completion is a durable history fact, not a workflow bucket
 or claim of vocabulary mastery. **Read again** preserves earlier completion

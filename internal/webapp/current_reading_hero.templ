@@ -6,6 +6,7 @@ package webapp
 templ CurrentReadingHero(item readingBookView, csrf string) {
 	{{ plate := newTitlePlate(canonicalBookTitle(item.Book), readingUnitOriginalTitle(item.ReadingUnit), item.Book.Source.Language, canonicalBookAuthor(item.Book)) }}
 	{{ status, needsAction := currentReadingHeroStatusFor(item) }}
+	{{ showRecovery := currentReadingHeroShowsRecovery(item, status, needsAction) }}
 	<article id={ readingBookAnchorID(readingBookID(item)) } tabindex="-1" data-focus-anchor class="current-hero">
 		<div class="current-hero__cover">
 			if readingEntryAvailable(item) {
@@ -34,15 +35,15 @@ templ CurrentReadingHero(item readingBookView, csrf string) {
 			}
 			if needsAction {
 				<p class="current-hero__status" data-needs-action><strong>{ status.Label }</strong> { status.Description }</p>
-				if status.Evidence {
-					<details class="reading-supporting current-hero__details">
-						<summary>Analysis details</summary>
-						<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + readingBookID(item) }>
-							<h3 id={ "reading-note-analysis-" + readingBookID(item) }>Analysis</h3>
-							@ReadingEvidence(item, csrf)
-						</section>
-					</details>
-				}
+			}
+			if showRecovery {
+				<details class="reading-supporting current-hero__details">
+					<summary>Analysis details</summary>
+					<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + readingBookID(item) }>
+						<h3 id={ "reading-note-analysis-" + readingBookID(item) }>Analysis</h3>
+						@ReadingEvidence(item, csrf)
+					</section>
+				</details>
 			}
 			<div class="current-hero__coverage">
 				if item.Coverage != nil || !needsAction || !status.Evidence {

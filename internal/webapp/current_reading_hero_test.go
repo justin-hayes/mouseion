@@ -101,7 +101,7 @@ func TestCurrentReadingHeroStatusLineAppearsOnlyWhenTheBookNeedsAction(t *testin
 			item.Book.Source.MediaType = "application/epub+zip"
 			return item
 		}, "Analysis failed."},
-		{"stale analysis", func() readingBookView { return testReadingBook("stale", "Stale", testStale) }, "Stale evidence."},
+		{"stale analysis", func() readingBookView { return testReadingBook("stale", "Stale", testStale) }, "Analysis out of date."},
 		{"missing Book language", func() readingBookView {
 			item := heroTestBook()
 			item.LanguageMissing = true
@@ -146,4 +146,13 @@ func TestCurrentReadingHeroShowsAClassicalWorkOnce(t *testing.T) {
 	assert.Contains(t, html, `class="current-hero__title"><a href="/books/goal">Iliad</a>`)
 	assert.Contains(t, html, `<p class="current-hero__original" lang="grc">Ἰλιάς</p>`)
 	requireInOrder(t, html, "current-hero__title", "current-hero__original", "current-hero__author")
+}
+
+func TestCurrentReadingHeroOffersRetryAcquisitionWithoutAStatusLine(t *testing.T) {
+	item := testReadingBook("goal", "No content", testNoContent)
+	item.Book.Source.MediaType = "application/epub+zip"
+	item.Book.Source.ContentRevisionID = "revision"
+	html := renderHero(t, item)
+	assert.NotContains(t, html, "data-needs-action", "unavailable content is not a status line")
+	requireInOrder(t, html, "<summary>Analysis details</summary>", ">Retry acquisition</button>", "Open Book")
 }
