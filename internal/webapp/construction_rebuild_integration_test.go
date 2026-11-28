@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/constructions"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/riverqueue/river"
@@ -43,7 +42,7 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	definition, sourcePath := fixtureImportFrom(t, "oga-src-constructions.conllu")
-	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err = importGreekSource(ctx, greekImportRequest{
 		OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: definition,
 	}, analysis.NewGreekImportWriter(store))
 	require.NoError(t, err)
@@ -166,7 +165,7 @@ func TestConstructionRebuildRepairsRunsBehindTheDetectorVersion(t *testing.T) {
 	t.Run("a run pinned by a prepared definition that is no longer current is rebuilt, leaving the pin unchanged", func(t *testing.T) {
 		newer := definition
 		newer.InterpretationVersion += "-next"
-		_, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+		_, err := importGreekSource(ctx, greekImportRequest{
 			OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: newer,
 		}, analysis.NewGreekImportWriter(store))
 		require.NoError(t, err)

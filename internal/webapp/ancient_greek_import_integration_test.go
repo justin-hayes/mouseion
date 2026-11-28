@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
@@ -32,7 +33,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	require.NoError(t, store.SetBookDisposition(ctx, learner.ID, registration.BookID, domain.BookDispositionToRead))
 
 	definition, sourcePath := fixtureImport(t)
-	report, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	report, err := importGreekSource(ctx, greekImportRequest{
 		OwnerID:    learner.ID,
 		BookID:     registration.BookID,
 		SourcePath: sourcePath,
@@ -108,7 +109,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	assert.Zero(t, jobs, "To Read on a prepared imported Book submits no analysis job")
 
 	// Re-import with the same pin and version changes nothing.
-	again, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	again, err := importGreekSource(ctx, greekImportRequest{
 		OwnerID:    learner.ID,
 		BookID:     registration.BookID,
 		SourcePath: sourcePath,
@@ -125,7 +126,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	// A new interpretation version gives a new run for the same pin.
 	versioned := definition
 	versioned.InterpretationVersion = "oga-agdt-upos/6"
-	fresh, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	fresh, err := importGreekSource(ctx, greekImportRequest{
 		OwnerID:    learner.ID,
 		BookID:     registration.BookID,
 		SourcePath: sourcePath,
@@ -149,7 +150,7 @@ func TestAncientGreekImportRefusesAnUnregisteredBook(t *testing.T) {
 	learner := createAccount(t, ctx, store, "greek-import-unregistered", "learner-password")
 	definition, sourcePath := fixtureImport(t)
 
-	_, err := ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err := importGreekSource(ctx, greekImportRequest{
 		OwnerID:    learner.ID,
 		BookID:     uuid.NewString(),
 		SourcePath: sourcePath,
@@ -163,6 +164,55 @@ func TestAncientGreekImportRefusesAnUnregisteredBook(t *testing.T) {
 
 // fixtureImport pins the synthetic oga_src fixture as the import definition and
 // writes it to a temporary path.
+// greekImportRequest names the learner's Book, the reviewed definition to
+// import and the local path of the source file.
+type greekImportRequest struct {
+	OwnerID    string
+	BookID     string
+	SourcePath string
+	Definition domain.ReadingUnitDefinition
+}
+
+// importGreekSource prepares the request's Reading unit the way the live
+// classical preparation does: parse the source, cut the unit and hand the
+// candidate to the writer.
+func importGreekSource(ctx context.Context, req greekImportRequest, writer ancientgreek.ImportWriter) (ancientgreek.ImportReport, error) {
+	data, err := os.ReadFile(req.SourcePath)
+	if err != nil {
+		return ancientgreek.ImportReport{}, err
+	}
+	work, err := ancientgreek.ParseOgaSource(data)
+	if err != nil {
+		return ancientgreek.ImportReport{}, err
+	}
+	unit, err := work.CutUnit(req.Definition)
+	if err != nil {
+		return ancientgreek.ImportReport{}, err
+	}
+	written, err := writer.WriteImportedAnalysis(ctx, ancientgreek.ImportWriteRequest{
+		OwnerID:         req.OwnerID,
+		BookID:          req.BookID,
+		Definition:      req.Definition,
+		SourceBytes:     unit.SourceBytes,
+		FullText:        unit.FullText,
+		UnitID:          unit.UnitID,
+		UnitTitle:       req.Definition.WorkTitle,
+		Result:          unit.Result,
+		SyntaxState:     unit.SyntaxState,
+		AnalyzerName:    unit.AnalyzerName,
+		AnalyzerVersion: unit.AnalyzerVersion,
+		ConfigIdentity:  unit.ConfigIdentity,
+	})
+	if err != nil {
+		return ancientgreek.ImportReport{}, err
+	}
+	report := unit.Report
+	report.BookID = req.BookID
+	report.RunID = written.RunID
+	report.Reimported = written.Reimported
+	return report, nil
+}
+
 func fixtureImport(t *testing.T) (domain.ReadingUnitDefinition, string) {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))

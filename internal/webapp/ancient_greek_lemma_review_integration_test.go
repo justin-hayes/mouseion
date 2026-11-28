@@ -12,7 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/justin-hayes/mouseion/internal/analysis"
-	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -88,7 +87,7 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	// (ADR 0126).
 	definition, sourcePath := browseFixtureImport(t)
 	definition.InterpretationVersion = "oga-agdt-upos/6"
-	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err = importGreekSource(ctx, greekImportRequest{
 		OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: definition,
 	}, analysis.NewGreekImportWriter(store))
 	require.NoError(t, err)

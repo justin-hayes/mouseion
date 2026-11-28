@@ -65,7 +65,7 @@ func assertPrintedWordsMatchSource(t *testing.T, doc *sourceDocument, unit Prepa
 	t.Helper()
 	var printed [][]sourceToken
 	for _, sentence := range doc.sentences {
-		kept := reconstruct(sentence).kept
+		kept := reconstructFor(sentence, greekDialect).kept
 		if len(kept) > 0 {
 			printed = append(printed, kept)
 		}

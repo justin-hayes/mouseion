@@ -2,11 +2,6 @@ package ancientgreek
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
@@ -82,15 +77,6 @@ const (
 	SyntaxStateAbsent SyntaxState = "absent"
 )
 
-// ImportRequest names the learner's Book, the reviewed definition to import and
-// the local path of the pinned source file.
-type ImportRequest struct {
-	OwnerID    string
-	BookID     string
-	SourcePath string
-	Definition domain.ReadingUnitDefinition
-}
-
 // FeatureValueCount is one unmapped morphology value, counted by feature. Both
 // fields are ASCII.
 type FeatureValueCount struct {
@@ -148,58 +134,6 @@ type ImportWriter interface {
 	WriteImportedAnalysis(context.Context, ImportWriteRequest) (ImportWriteResult, error)
 }
 
-// Import reads the pinned file, checks its pin, interprets the oga_src CoNLL-U
-// dialect into one source-neutral candidate, validates it and hands it to the
-// writer. It never calls the NLP service and never enqueues analysis.
-func Import(ctx context.Context, req ImportRequest, writer ImportWriter) (ImportReport, error) {
-	if writer == nil {
-		return ImportReport{}, errors.New("ancientgreek: import writer is required")
-	}
-	if err := req.Definition.Validate(); err != nil {
-		return ImportReport{}, err
-	}
-	data, err := readPinnedFile(req.SourcePath, req.Definition)
-	if err != nil {
-		return ImportReport{}, err
-	}
-	candidate, err := parseOgaSrc(data)
-	if err != nil {
-		return ImportReport{}, err
-	}
-	unitID := domain.ClassicalUnitID(req.Definition.Key)
-	reading, err := interpret(candidate, req.Definition, unitID)
-	if err != nil {
-		return ImportReport{}, err
-	}
-	if err := reading.validate(); err != nil {
-		return ImportReport{}, err
-	}
-	written, err := writer.WriteImportedAnalysis(ctx, ImportWriteRequest{
-		OwnerID: req.OwnerID,
-		BookID:  req.BookID,
-		// Only the Reading unit's text is stored. The whole pinned work file is
-		// provenance in the prepared-definition record, never the Book's source.
-		SourceBytes:     []byte(reading.FullText),
-		Definition:      req.Definition,
-		FullText:        reading.FullText,
-		UnitID:          unitID,
-		UnitTitle:       req.Definition.WorkTitle,
-		Result:          reading.Result,
-		SyntaxState:     SyntaxStateNativeAGDT,
-		AnalyzerName:    ImportAnalyzerName,
-		AnalyzerVersion: InterpretationVersion(req.Definition),
-		ConfigIdentity:  ImportConfigIdentity(req.Definition, SyntaxStateNativeAGDT),
-	})
-	if err != nil {
-		return ImportReport{}, err
-	}
-	report := reading.Report
-	report.BookID = req.BookID
-	report.RunID = written.RunID
-	report.Reimported = written.Reimported
-	return report, nil
-}
-
 // InterpretationVersion is the versioned interpretation identity recorded on an
 // imported run: every mapping slot that shaped the tokens.
 func InterpretationVersion(definition domain.ReadingUnitDefinition) string {
@@ -225,39 +159,4 @@ func ImportConfigIdentity(definition domain.ReadingUnitDefinition, state SyntaxS
 		definition.Key,
 		string(state),
 	}, ":")
-}
-
-// readPinnedFile reads SourcePath with a hard bound and refuses any file whose
-// size or SHA-256 differs from the reviewed pin. The read never loads more than
-// the pinned size plus one byte, so a hostile path cannot exhaust memory.
-func readPinnedFile(path string, definition domain.ReadingUnitDefinition) ([]byte, error) {
-	return readPinnedBytes(path, definition.SourceFileSize, definition.SourceFileSHA256)
-}
-
-// readPinnedBytes reads path with a hard bound and refuses any file whose size
-// or SHA-256 differs from the reviewed pin. It carries no source text in its
-// refusals.
-func readPinnedBytes(path string, size int64, digest string) (data []byte, err error) {
-	//nolint:gosec // the operator names the pinned source file, and the read below is size-bounded.
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, &ImportError{Code: CodeReadFailed, Detail: "cannot open the source file"}
-	}
-	defer func() { err = errors.Join(err, file.Close()) }()
-	limit := size + 1
-	data, err = io.ReadAll(io.LimitReader(file, limit))
-	if err != nil {
-		return nil, &ImportError{Code: CodeReadFailed, Detail: "cannot read the source file"}
-	}
-	if int64(len(data)) > size {
-		return nil, &ImportError{Code: CodeOversize}
-	}
-	if int64(len(data)) != size {
-		return nil, &ImportError{Code: CodePinMismatch}
-	}
-	sum := sha256.Sum256(data)
-	if hex.EncodeToString(sum[:]) != digest {
-		return nil, &ImportError{Code: CodePinMismatch}
-	}
-	return data, nil
 }

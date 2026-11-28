@@ -33,20 +33,8 @@ type CoverageReport struct {
 	Crossings []SentenceCrossing
 }
 
-// CheckUnitCoverage parses a whole oga_src file and checks that every
-// sentence's first printed token belongs to exactly one of the supplied
-// Reading units. A sentence in no unit or in more than one stops the check with
-// a stable code. A sentence that crosses a unit boundary is assigned to the
-// unit holding its first token and reported as a crossing.
-func CheckUnitCoverage(data []byte, units []UnitRange) (CoverageReport, error) {
-	source, err := ParseManifestSource(data)
-	if err != nil {
-		return CoverageReport{}, err
-	}
-	return source.CheckUnitCoverage(units)
-}
-
-// checkDocumentCoverage is CheckUnitCoverage over a parsed document.
+// checkDocumentCoverage checks that every sentence's first printed token
+// belongs to exactly one unit, over a parsed document.
 func checkDocumentCoverage(doc *sourceDocument, units []UnitRange) (CoverageReport, error) {
 	ranges, err := parseUnitRanges(units)
 	if err != nil {
@@ -164,21 +152,8 @@ func firstPrintedToken(sentence sourceSentence) (sourceToken, bool) {
 	return sourceToken{}, false
 }
 
-// ProposeUnits parses a whole oga_src file and proposes one Reading unit per
-// distinct top-level citation number, in ascending order. Each proposed range
-// covers every printed token whose citation begins with that number, so a
-// sentence that crosses a unit boundary belongs to the unit holding its first
-// token while both ranges still cover the Edition exactly. The caller supplies
-// each unit's permanent key; proposals carry none.
-func ProposeUnits(data []byte) ([]UnitRange, error) {
-	doc, err := parseManifestDocument(data)
-	if err != nil {
-		return nil, err
-	}
-	return proposeDocumentUnits(doc)
-}
-
-// proposeDocumentUnits is ProposeUnits over a parsed document.
+// proposeDocumentUnits proposes one Reading unit per distinct top-level
+// Citation number, over a parsed document.
 func proposeDocumentUnits(doc *sourceDocument) ([]UnitRange, error) {
 	books, err := citationExtents(doc)
 	if err != nil {
@@ -250,23 +225,8 @@ type UnitSummary struct {
 	Opening   string
 }
 
-// SummarizeUnit derives one Reading unit's word count and Opening in one parse.
-// It counts every non-ellipsis token except punctuation, so a sentence crossing
-// the unit boundary counts whole toward the unit holding its first token. It
-// also refuses a range whose boundary citations do not resolve to real tokens,
-// and checks every token's native part of speech.
-// The Opening is the first sentence the unit owns that is not a speaker label,
-// reconstructed exactly as the source prints it. A unit with no other sentence
-// refuses rather than guessing one.
-func SummarizeUnit(data []byte, start, end string) (UnitSummary, error) {
-	doc, err := parseManifestDocument(data)
-	if err != nil {
-		return UnitSummary{}, err
-	}
-	return summarizeDocumentUnit(doc, start, end)
-}
-
-// summarizeDocumentUnit is SummarizeUnit over a parsed document.
+// summarizeDocumentUnit derives one Reading unit's word count and Opening,
+// over a parsed document.
 func summarizeDocumentUnit(doc *sourceDocument, start, end string) (UnitSummary, error) {
 	language := Language
 	if doc.latin {
