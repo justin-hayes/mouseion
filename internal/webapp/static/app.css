@@ -3552,80 +3552,13 @@
     padding-inline: var(--mouseion-space-2);
     overflow-wrap: anywhere;
   }
-  body.reading-shell .lemma-review {
-    width: 100%;
-    max-width: var(--mouseion-width-data);
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review * {
-    min-width: 0;
-  }
-  body.reading-shell .lemma-review > p:first-child {
-    margin-block: var(--mouseion-space-2) var(--mouseion-space-4);
-  }
-  body.reading-shell .lemma-review > p, body.reading-shell .lemma-review > article, body.reading-shell .lemma-review > form, body.reading-shell .lemma-review > details, body.reading-shell .lemma-review > ul {
-    max-width: min(100%, var(--mouseion-width-reading));
-  }
-  body.reading-shell .lemma-review > article {
-    margin-block: var(--mouseion-space-4);
-    border-block: 1px solid var(--mouseion-color-border);
-    padding-block: var(--mouseion-space-3);
-    background: transparent;
-    box-shadow: none;
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review .reading-text {
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review form {
-    display: grid;
-    gap: var(--mouseion-space-3);
-    margin-block: var(--mouseion-space-3);
-  }
-  body.reading-shell .lemma-review label {
-    display: grid;
-    gap: var(--mouseion-space-1);
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 1px solid var(--mouseion-color-control-border);
-    padding: var(--mouseion-space-3);
-  }
-  body.reading-shell .lemma-review fieldset label {
-    display: block;
-    padding-block: var(--mouseion-space-2);
-  }
-  body.reading-shell .lemma-review label:has(input[type="checkbox"]) {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    gap: var(--mouseion-space-2);
-    cursor: pointer;
-  }
-  body.reading-shell .lemma-review label:has(input[type="checkbox"]) > input[type="checkbox"] {
-    flex: 0 0 auto;
-    margin: 0;
-  }
-  body.reading-shell .lemma-review details {
-    margin-block: var(--mouseion-space-2);
-  }
-  body.reading-shell .lemma-review summary {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    overflow-wrap: anywhere;
-    cursor: pointer;
-  }
   #main-content:has(form.concordance-query) > .vocabulary-page-header {
     margin-bottom: var(--mouseion-space-2);
   }
   body.vocabulary-shell #main-content:has(form.concordance-query) > p {
     overflow-wrap: anywhere;
   }
-  body.vocabulary-shell #main-content, body.reading-shell .lemma-review {
+  body.vocabulary-shell #main-content {
     min-width: 0;
   }
   body.vocabulary-shell #main-content > .page-header .page-header__content {

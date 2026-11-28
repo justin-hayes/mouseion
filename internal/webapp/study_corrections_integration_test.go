@@ -47,7 +47,7 @@ func (s *studyHarness) material(id string) domain.StudyMaterial {
 	return item
 }
 
-// decide drives the existing lemma-review flow over HTTP for the occurrence of
+// decide drives the shared Lemma decision workflow for the occurrence of
 // the word's surface form that is in the given sentence.
 func (s *studyHarness) decide(bookID, surface string, sentence int64, decision, lemma string) {
 	s.t.Helper()
@@ -55,7 +55,7 @@ func (s *studyHarness) decide(bookID, surface string, sentence int64, decision, 
 	require.NoError(s.t, err)
 	for _, occurrence := range occurrences {
 		if occurrence.SentenceOrdinal == sentence {
-			confirmLemmaDecisionForm(s.t, s.h, "/reading/books/"+bookID+"/lemma-review", s.cookies, s.cookies[0].Value, surface, decision, lemma, occurrence.ID())
+			confirmLemmaDecisionForm(s.t, s.h, s.owner.ID, bookID, surface, decision, lemma, occurrence.ID())
 			return
 		}
 	}

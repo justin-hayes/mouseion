@@ -160,15 +160,14 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 
 	// Lemma review works on a Latin occurrence: a correction is normalized by
 	// the recorded latin profile, and an exclusion drops the identity.
-	reviewPath := "/reading/books/" + bookID + "/lemma-review"
 	regem, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, bookID, "regem")
 	require.NoError(t, err)
 	require.Len(t, regem, 1)
-	confirmLemmaDecisionForm(t, handler, reviewPath, cookies, csrf, "regem", "correct", "Rēgīna", regem[0].ID())
+	confirmLemmaDecisionForm(t, handler, learner.ID, bookID, "regem", "correct", "Rēgīna", regem[0].ID())
 	militibus, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, bookID, "militibus")
 	require.NoError(t, err)
 	require.Len(t, militibus, 1)
-	confirmLemmaDecisionForm(t, handler, reviewPath, cookies, csrf, "militibus", "exclude", "", militibus[0].ID())
+	confirmLemmaDecisionForm(t, handler, learner.ID, bookID, "militibus", "exclude", "", militibus[0].ID())
 	var profile, version, corrected string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT normalization_profile,normalization_version,canonical_lemma FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND canonical_lemma IS NOT NULL`, learner.ID, bookID).Scan(&profile, &version, &corrected))
 	assert.Equal(t, "latin", profile)
@@ -180,10 +179,7 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 	duce, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, bookID, "duce")
 	require.NoError(t, err)
 	require.Len(t, duce, 1)
-	refused := perform(t, handler, http.MethodPost, reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"duce"}, "target": {duce[0].ID()},
-		"decision": {"correct"}, "lemma": {"M."},
-	}, cookies)
-	assert.NotEqual(t, http.StatusSeeOther, refused.Code)
-	assert.NotContains(t, refused.Body.String(), `name="fingerprint"`, "no confirmable preview for an inadmissible lemma")
+	request := lemmaDecisionRequest(t, handler, learner.ID, "duce", "correct", "M.")
+	_, err = handler.previewLemmaDecisionStep(request, learner.ID, bookID, []string{duce[0].ID()})
+	require.ErrorIs(t, err, domain.ErrLemmaReviewLemma, "no confirmable preview for an inadmissible lemma")
 }

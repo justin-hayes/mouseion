@@ -80,7 +80,7 @@ def main() -> None:
         included = {
             "layout.templ": "w-[731px]",
             "new-authored-view.templ": "w-[732px]",
-            "lemma_review.templ": "w-[733px]",
+            "study.templ": "w-[733px]",
             "components.go": "w-[734px]",
             "static/my-books.js": "w-[735px]",
         }

@@ -15,7 +15,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/dictionary"
 	"github.com/justin-hayes/mouseion/internal/enrichment"
-	"github.com/justin-hayes/mouseion/internal/lemmarisk"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
@@ -171,17 +170,6 @@ func TestOpenDictionaryIndexMissingFileIsOptional(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, found)
 	assert.Nil(t, index)
-}
-
-func TestDictionaryRiskIndexAbsentIsNilInterface(t *testing.T) {
-	// assert.Nil treats a typed nil pointer as nil, so compare against the nil interface.
-	assert.Equal(t, lemmarisk.AlternativeIndex(nil), dictionaryRiskIndex(nil, false))
-}
-
-func TestDictionaryRiskIndexExposesOpenedIndex(t *testing.T) {
-	index := &dictionary.Index{}
-
-	assert.Equal(t, lemmarisk.AlternativeIndex(index), dictionaryRiskIndex(index, true))
 }
 
 func TestOpenOptionalDictionaryIndexUnsetIsAbsent(t *testing.T) {

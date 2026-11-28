@@ -88,6 +88,11 @@ func TestNewWordBatchesBoostTheCurrentReadingUntilTargetCoverage(t *testing.T) {
 	slices.Sort(want)
 	assert.Equal(t, want, s.introducedLemmas(), "at target the To Read Books' frequency decides")
 	s.gradeAll()
+	// The plans queued so far finish before the learner switches. A plan still
+	// live (River marks it completed only after its worker returns) absorbs the
+	// next page's trigger, having read the stream before the switch, so the new
+	// Current reading's words would never be prepared.
+	testutil.Eventually(t, 60*time.Second, "material to settle", func() (bool, string) { return s.settled() })
 
 	// The learner switches to a Book of which most is not in study: its words
 	// come first again, ahead of the library words that occur more often.

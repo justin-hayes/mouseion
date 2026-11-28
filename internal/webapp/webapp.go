@@ -298,7 +298,7 @@ func NewWithError(s Services) (*Handler, error) {
 		s.Clock = time.Now
 	}
 	if s.LemmaReview == nil {
-		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, Suggestions: enrichment.DisabledLemmaSuggestionProvider{}, BrowseCounts: s.Analysis})
+		s.LemmaReview = lemmareview.New(lemmareview.Config{Store: s.Store.Reading, BrowseCounts: s.Analysis})
 	}
 	if s.Classical == nil {
 		catalog, err := classical.LoadCatalog(classical.ManifestJSONL)
@@ -329,9 +329,6 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /study/reports/{id}/undo", h.user(http.HandlerFunc(h.undoStudyReport)))
 	h.mux.Handle("POST /study/reports/{id}/next", h.user(http.HandlerFunc(h.nextAfterStudyReport)))
 	h.mux.Handle("POST /study/fluency/responses", h.user(http.HandlerFunc(h.recordFluencyResponse)))
-	h.mux.Handle("GET /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.lemmaReview)))
-	h.mux.Handle("POST /reading/books/{bookID}/lemma-review", h.user(http.HandlerFunc(h.correctLemma)))
-	h.mux.Handle("POST /reading/books/{bookID}/lemma-suggestion", h.user(http.HandlerFunc(h.suggestLemma)))
 	h.mux.Handle("POST /reading/books/{id}/start", h.user(http.HandlerFunc(h.readNext)))
 	h.mux.Handle("POST /reading/books/{id}/switch", h.user(http.HandlerFunc(h.readNext)))
 	h.mux.Handle("POST /reading/finish", h.user(http.HandlerFunc(h.finishCurrentReading)))

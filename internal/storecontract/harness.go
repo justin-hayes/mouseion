@@ -251,20 +251,17 @@ type Store interface {
 	FinishCurrentReading(owner, language string) (domain.CurrentReadingFinishResult, error)
 }
 
-// LemmaReviewStore is the lemma review surface under test: occurrences, flags,
-// and the previewed and confirmed vocabulary decisions.
+// LemmaReviewStore is the lemma review surface under test: occurrences and
+// the previewed and confirmed vocabulary decisions.
 type LemmaReviewStore interface {
 	// ListLemmaReviewOccurrences returns the occurrences of surface in the
-	// Book's current analysis, with any learner decision and flag applied. An
+	// Book's current analysis, with any learner decision applied. An
 	// empty surface returns every occurrence.
 	ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error)
 	// ListCorpusLemmaReviewOccurrences returns the occurrences of one observed
 	// form with one analyzer lemma in the current analysis of every Book of
 	// the owner's My Books in the language, with any learner decision applied.
 	ListCorpusLemmaReviewOccurrences(owner, language, surface, lemma string) ([]domain.LemmaReviewOccurrence, error)
-	// SaveLemmaReviewFlags records detector flags without reopening a flag the
-	// learner has already resolved.
-	SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error
 	// ReadLemmaReviewProposal previews a proposal and returns the fingerprint a
 	// confirm must present.
 	ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error)

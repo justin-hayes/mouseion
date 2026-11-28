@@ -1,8 +1,8 @@
 # Learner review of analyzer lemmas
 
-Status: **Manual occurrence review, conservative German and French risk flags, opt-in LLM lemma suggestions, and provider-raised advisory flags implemented (#2340).** · Date: 2026-11-07
+Status: **Lemma review flags, Lemma suggestions, the lemma-risk assessment and the Book-scoped review page are retired (#2744); corrections start from the Wrong-word remediation screen.** · Date: 2026-11-07
 
-**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), Lemma review flags, Lemma suggestions, the lemma-risk assessment and the Book-scoped review queue are retired; a correction starts only from a Wrong-word Study report, still confirmed per occurrence, with matching occurrences offered to correct too. Until then this document describes the running system.
+**Direction (now implemented):** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), Lemma review flags, Lemma suggestions, the lemma-risk assessment and the Book-scoped review queue are retired; a correction starts only from a Wrong-word Study report, still confirmed per occurrence, with matching occurrences offered to correct too. The sections below that describe the review page, risk flags and suggestions record the retired design.
 
 The implementation lets the learner review exact observed forms in Reading,
 correct or exclude one occurrence, and use effective vocabulary in direct

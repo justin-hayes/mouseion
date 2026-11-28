@@ -127,8 +127,6 @@ func TestStudyAnalysisUpdateEndsAReportOnlyWhenTheOccurrenceChangesIdentity(t *t
 	assert.True(t, s.reportOf(id).Open())
 	assert.True(t, s.word("haus").Held)
 	assert.Equal(t, newRun, s.material(s.word("haus").MaterialID).AnalysisRunID, "the held word's material follows the occurrence")
-	review := getAs(t, s.h, "/reading/books/"+bookID+"/lemma-review?form=haus", s.cookies).Body.String()
-	assert.Equal(t, 1, strings.Count(review, "Reported as a wrong word in Study."), "the marker follows the occurrence into the new run")
 
 	// An update that gives the occurrence another lemma ends it.
 	s.republish(bookID, "hof", sentence+10)
