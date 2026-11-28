@@ -33,15 +33,3 @@ func (k ItemKind) Valid() bool {
 	normalized := k.Normalized()
 	return normalized == ItemKindLemma || normalized == ItemKindIdiom
 }
-
-// ItemKindFromStored maps a persisted kind to its in-memory value. The lemma
-// spelling becomes the zero value so callers can distinguish an explicit idiom
-// without special-casing the historical lemma; any other value is preserved so
-// validation can reject it.
-func ItemKindFromStored(stored string) ItemKind {
-	kind := ItemKind(stored)
-	if kind.Normalized() == ItemKindLemma {
-		return ""
-	}
-	return kind
-}

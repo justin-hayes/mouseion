@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -85,15 +84,6 @@ type TranslationRequest struct {
 	// pinned LSJ senses with their native IDs. The pass can only add to a card,
 	// so an abstaining or failed answer is not an omission (ADR 0101).
 	RequireEvidenceAssistedPass bool `json:"-"`
-	// StudyPass marks a pass request made for Study, whose payload contract is
-	// the policy's Study contract rather than the Prepared deck's (ADR 0139).
-	StudyPass bool `json:"-"`
-	// RequireLSJSenseSummary marks the context-free Ancient Greek LSJ sense
-	// summary contract: the pinned LSJ entry alone, with no representative
-	// sentence and no learner data. Its payload is only the entry's headword,
-	// sense IDs and English glosses, and it is cached per (LSJ pin, entry ID,
-	// prompt version) (ADR 0101).
-	RequireLSJSenseSummary bool `json:"-"`
 	// RequireIdiomCard marks the dictionary-anchored idiom-card contract: the
 	// headword, the matched forms, the representative sentence and the
 	// entry's bounded candidate senses, with no lemma or learner metadata
@@ -117,10 +107,6 @@ type TranslationRequest struct {
 	RequireSourceEvidenceFluencyAgreement bool     `json:"-"`
 	LearnedSenses                         []string `json:"-"`
 	ContextSenses                         []string `json:"-"`
-	// Headword and LSJSenses are the pinned LSJ entry the sense summary
-	// condenses. They are transmitted only under RequireLSJSenseSummary.
-	Headword  string                 `json:"-"`
-	LSJSenses []LSJSenseSummarySense `json:"-"`
 }
 
 // ContextualGlossUnresolvedKind is the enumerated reason a contextual Gloss
@@ -155,9 +141,6 @@ type TranslationResponse struct {
 	SenseOrder                 []int                         `json:"sense_order"`
 	FallbackGloss              string                        `json:"fallback_gloss"`
 	Warnings                   []string                      `json:"-"`
-	// SenseSummary is the provider-written LSJ sense summary an
-	// LSJ-sense-summary request resolves. It is empty for every other contract.
-	SenseSummary []LSJSenseSummaryLine `json:"-"`
 	// FluencyReason is a Fluency agreement answer: why the occurrence does or
 	// does not have the learned meaning, one of the FluencyReason constants. It
 	// is empty for every other contract.
@@ -196,16 +179,6 @@ type CacheEntry struct {
 	SentenceTranslationTargets                                                 []string
 	SenseSelection                                                             []int
 	CachedAt                                                                   time.Time
-}
-
-// HasRequiredTranslationFields reports whether a cached result satisfies the
-// frozen prepared-deck translation contract. The target phrase is optional:
-// the codec permits it to be empty when there is no reliable literal match.
-func HasRequiredTranslationFields(entry CacheEntry, sourceSentence string) bool {
-	if strings.TrimSpace(entry.Translation) == "" {
-		return false
-	}
-	return strings.TrimSpace(sourceSentence) == "" || strings.TrimSpace(entry.SentenceTranslation) != ""
 }
 
 type ExternalCache interface {
@@ -621,18 +594,6 @@ func SentenceHash(sentence string) string {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(normalized))
-	return hex.EncodeToString(sum[:])
-}
-
-// MeaningEvidenceHash identifies the exact ordered public lexical candidates
-// supplied to the contextual-gloss model, so changed evidence cannot hit an
-// older result for the same word and sentence.
-func MeaningEvidenceHash(senses []LexicalSense) string {
-	encoded, err := json.Marshal(CloneLexicalSenses(senses))
-	if err != nil {
-		return ""
-	}
-	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:])
 }
 

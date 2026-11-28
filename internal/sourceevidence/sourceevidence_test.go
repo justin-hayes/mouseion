@@ -13,8 +13,6 @@ import (
 )
 
 type lexicon struct {
-	greek     enrichment.AncientGreekLSJEntry
-	greekHit  bool
 	latin     map[string][]enrichment.LatinLSEntry
 	latinCall int
 	// greekEntries are the LSJ homographs of the lemma, for the every-entry lookup.
@@ -26,9 +24,6 @@ func (l *lexicon) Version() string { return "stub-v1" }
 func (l *lexicon) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return enrichment.LexicalEntry{}, false, nil
 }
-func (l *lexicon) LookupAncientGreekLSJ(context.Context, string) (enrichment.AncientGreekLSJEntry, bool) {
-	return l.greek, l.greekHit
-}
 func (l *lexicon) LookupAncientGreekLSJEntries(context.Context, string) ([]enrichment.AncientGreekLSJEntry, bool) {
 	return l.greekEntries, len(l.greekEntries) > 0
 }
@@ -39,7 +34,7 @@ func (l *lexicon) LookupLatinLS(_ context.Context, lemma string) ([]enrichment.L
 }
 
 func TestGreekOutlineFlagsCitedSenses(t *testing.T) {
-	lex := &lexicon{greekHit: true, greek: enrichment.AncientGreekLSJEntry{
+	lex := &lexicon{greekEntries: []enrichment.AncientGreekLSJEntry{{
 		EntryID: "n1", Headword: "logos", Pin: "pin-1",
 		Senses: []enrichment.AncientGreekLSJSense{
 			{ID: "n1.0", Number: "A", Level: 1, Senses: []enrichment.AncientGreekLSJSense{
@@ -48,10 +43,10 @@ func TestGreekOutlineFlagsCitedSenses(t *testing.T) {
 			}},
 			{ID: "n1.3", Number: "B", Level: 1, Definitions: []string{"reason"}},
 		},
-	}}
+	}}}
 	cited := map[SenseRef]struct{}{{"n1", "n1.1"}: {}, {"n1", "n1.3"}: {}, {"n1", "missing"}: {}, {"other", "n1.2"}: {}}
 
-	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("grc"), "logos", cited)
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("grc"), "logos", cited)
 	require.True(t, ok)
 	assert.Equal(t, "n1", resolution.EntryID)
 	assert.Equal(t, "pin-1", resolution.Pin)
@@ -64,7 +59,7 @@ func TestGreekOutlineFlagsCitedSenses(t *testing.T) {
 
 	assert.Equal(t, []string{"n1.0", "n1.1", "n1.2", "n1.3"}, senseIDs(resolution.Entries[0].Senses))
 
-	plain, ok := Resolve(t.Context(), lex, cardpolicy.For("grc"), "logos", nil)
+	plain, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("grc"), "logos", nil)
 	require.True(t, ok)
 	for _, sense := range plain.Entries[0].Outline {
 		assert.False(t, sense.Cited)
@@ -84,7 +79,7 @@ func TestLatinStackedEntriesCarryTheirLSNumbersAndOutlines(t *testing.T) {
 	}}}
 	cited := map[SenseRef]struct{}{{"n10", "n10.0"}: {}}
 
-	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "dico", cited)
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "dico", cited)
 	require.True(t, ok)
 	assert.Equal(t, "n9,n10", resolution.EntryID)
 	assert.Equal(t, "ls-pin", resolution.Pin)
@@ -104,7 +99,7 @@ func TestLatinSingleEntryHasNoNumberAndSenselessEntryOutlinesItsTarget(t *testin
 			{ID: "n9.0", Number: "I", Level: 1, Definitions: []string{"to say"}},
 		}}},
 	}}
-	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "dicto", map[SenseRef]struct{}{{"n9", "n9.0"}: {}})
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "dicto", map[SenseRef]struct{}{{"n9", "n9.0"}: {}})
 	require.True(t, ok)
 	require.Len(t, resolution.Entries, 1)
 	entry := resolution.Entries[0]
@@ -115,14 +110,14 @@ func TestLatinSingleEntryHasNoNumberAndSenselessEntryOutlinesItsTarget(t *testin
 	}}}, entry.Targets)
 }
 
-func TestResolveFindsNothingWithoutADictionaryOrCapability(t *testing.T) {
-	_, ok := Resolve(t.Context(), nil, cardpolicy.For("la"), "dico", nil)
+func TestResolveStudyFindsNothingWithoutADictionaryOrCapability(t *testing.T) {
+	_, ok := ResolveStudy(t.Context(), nil, cardpolicy.For("la"), "dico", nil)
 	assert.False(t, ok)
-	_, ok = Resolve(t.Context(), &lexicon{}, cardpolicy.For("de"), "Haus", nil)
+	_, ok = ResolveStudy(t.Context(), &lexicon{}, cardpolicy.For("de"), "Haus", nil)
 	assert.False(t, ok, "a policy with no dictionary resolves nothing")
-	_, ok = Resolve(t.Context(), &lexicon{greekHit: false}, cardpolicy.For("grc"), "x", nil)
+	_, ok = ResolveStudy(t.Context(), &lexicon{}, cardpolicy.For("grc"), "x", nil)
 	assert.False(t, ok)
-	_, ok = Resolve(t.Context(), &lexicon{latin: map[string][]enrichment.LatinLSEntry{"x": {{}}}}, cardpolicy.For("la"), "x", nil)
+	_, ok = ResolveStudy(t.Context(), &lexicon{latin: map[string][]enrichment.LatinLSEntry{"x": {{}}}}, cardpolicy.For("la"), "x", nil)
 	assert.False(t, ok, "only empty entries resolve nothing")
 }
 
@@ -190,21 +185,15 @@ func TestResolvePassageOfBookReturnsAStoreFailure(t *testing.T) {
 	require.ErrorIs(t, err, assert.AnError)
 }
 
-func TestLatinPassSensesRepresentEveryEntryWithinTheCap(t *testing.T) {
-	first := enrichment.LatinLSEntry{EntryID: "n1", Senses: nil}
-	for i := range 9 {
-		first.Senses = append(first.Senses, enrichment.LatinLSSense{ID: "n1." + string(rune('a'+i)), Level: 1, Definitions: []string{"d"}})
-	}
-	second := enrichment.LatinLSEntry{EntryID: "n2", Senses: []enrichment.LatinLSSense{
+func TestPassSensesLatinSendsGlossesWhenASenseHasNoDefinitions(t *testing.T) {
+	entry := enrichment.LatinLSEntry{EntryID: "n2", Senses: []enrichment.LatinLSSense{
 		{ID: "n2.0", Level: 1, Glosses: []string{"only a gloss"}},
 		{ID: "n2.1", Level: 1},
 	}}
-	senses := LatinPassSenses(BuildLewisShort([]enrichment.LatinLSEntry{first, second}, nil, nil))
-	require.Len(t, senses, enrichment.DefaultMaxCandidateSenses)
-	assert.Equal(t, enrichment.EntryEvidenceID("n1", "n1.a"), senses[0].EvidenceID, "source order is kept")
-	last := senses[len(senses)-1]
-	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), last.EvidenceID, "a later entry is not starved, and a glosses-only sense is sent")
-	assert.Equal(t, "only a gloss", last.Gloss)
+	senses := PassSenses(cardpolicy.For("la"), BuildLewisShort([]enrichment.LatinLSEntry{entry}, nil, nil))
+	require.Len(t, senses, 1, "a sense with nothing to send is skipped")
+	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[0].EvidenceID)
+	assert.Equal(t, "only a gloss", senses[0].Gloss, "a glosses-only sense is sent")
 }
 
 func TestSharedSenseIDIsFlaggedOnlyOnTheCitedHomograph(t *testing.T) {
@@ -214,7 +203,7 @@ func TestSharedSenseIDIsFlaggedOnlyOnTheCitedHomograph(t *testing.T) {
 		}}
 	}
 	lex := &lexicon{latin: map[string][]enrichment.LatinLSEntry{"sum": {shared("n1"), shared("n2")}}}
-	resolution, ok := Resolve(t.Context(), lex, cardpolicy.For("la"), "sum", map[SenseRef]struct{}{{"n2", "s1"}: {}})
+	resolution, ok := ResolveStudy(t.Context(), lex, cardpolicy.For("la"), "sum", map[SenseRef]struct{}{{"n2", "s1"}: {}})
 	require.True(t, ok)
 	require.Len(t, resolution.Entries, 2)
 	assert.False(t, resolution.Entries[0].Outline[0].Cited)
@@ -223,7 +212,6 @@ func TestSharedSenseIDIsFlaggedOnlyOnTheCitedHomograph(t *testing.T) {
 
 func greekHomographs() *lexicon {
 	return &lexicon{
-		greekHit: false, // the deck's exactly-one lookup finds nothing for a homograph
 		greekEntries: []enrichment.AncientGreekLSJEntry{
 			{EntryID: "n1", Headword: "λέγω", Pin: "pin-1", Senses: []enrichment.AncientGreekLSJSense{{ID: "n1.0", Number: "A", Level: 1, Definitions: []string{"lay"}}}},
 			{EntryID: "n2", Headword: "λέγω", Pin: "pin-1", Senses: []enrichment.AncientGreekLSJSense{{ID: "n2.0", Number: "A", Level: 1, Definitions: []string{"say"}}, {ID: "n2.1", Number: "B", Level: 1, Glosses: []string{"speak"}}}},
@@ -231,12 +219,9 @@ func greekHomographs() *lexicon {
 	}
 }
 
-func TestResolveStudyStacksEveryGreekHomographWhereTheDeckTakesNone(t *testing.T) {
+func TestResolveStudyStacksEveryGreekHomograph(t *testing.T) {
 	lex := greekHomographs()
 	policy := cardpolicy.For("grc")
-
-	_, deckFound := Resolve(t.Context(), lex, policy, "λέγω", nil)
-	assert.False(t, deckFound, "the Prepared deck keeps its exactly-one lookup")
 
 	cited := map[SenseRef]struct{}{{"n2", "n2.0"}: {}}
 	resolution, found := ResolveStudy(t.Context(), lex, policy, "λέγω", cited)
@@ -259,20 +244,17 @@ func TestResolveStudyLeavesALoneGreekEntryUnnumbered(t *testing.T) {
 }
 
 func TestResolveStudyFindsNothingWithoutTheEntriesCapability(t *testing.T) {
-	_, found := ResolveStudy(t.Context(), onlyDeckGreek{}, cardpolicy.For("grc"), "λέγω", nil)
+	_, found := ResolveStudy(t.Context(), noGreekEntries{}, cardpolicy.For("grc"), "λέγω", nil)
 	assert.False(t, found)
 }
 
-// onlyDeckGreek has the deck's one-entry LSJ capability and not Study's.
-type onlyDeckGreek struct{}
+// noGreekEntries lacks Study's every-entry LSJ capability.
+type noGreekEntries struct{}
 
-func (onlyDeckGreek) Name() string    { return "stub" }
-func (onlyDeckGreek) Version() string { return "stub-v1" }
-func (onlyDeckGreek) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+func (noGreekEntries) Name() string    { return "stub" }
+func (noGreekEntries) Version() string { return "stub-v1" }
+func (noGreekEntries) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return enrichment.LexicalEntry{}, false, nil
-}
-func (onlyDeckGreek) LookupAncientGreekLSJ(context.Context, string) (enrichment.AncientGreekLSJEntry, bool) {
-	return enrichment.AncientGreekLSJEntry{EntryID: "n1", Headword: "x", Senses: []enrichment.AncientGreekLSJSense{{ID: "n1.0"}}}, true
 }
 
 func TestPassSensesCarryTheirEntryForGreekAndLatin(t *testing.T) {
@@ -328,6 +310,4 @@ func TestPassSensesLatinSendsEverySenseOfEveryEntryInOrder(t *testing.T) {
 	require.Len(t, senses, 35, "Latin Study is not capped")
 	assert.Equal(t, enrichment.EntryEvidenceID("n1", "n1.33"), senses[33].EvidenceID, "a sense past the old cap is sent, in entry order")
 	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[34].EvidenceID)
-
-	assert.Len(t, LatinPassSenses(entries), enrichment.DefaultMaxCandidateSenses, "the Prepared deck keeps its cap")
 }

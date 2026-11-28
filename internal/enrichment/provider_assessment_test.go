@@ -13,30 +13,6 @@ func passCodec(t *testing.T) *TranslationCodec {
 	return codec
 }
 
-// TestEvidenceAssistedPassAssessmentIsRecorded proves the #2171 disposition is
-// recorded and matches the current codec, so the pass runs and its call is
-// allowed.
-func TestEvidenceAssistedPassAssessmentIsRecorded(t *testing.T) {
-	assertRecordedAssessment(t, "#2171", EvidenceAssistedPassPayload, "grc",
-		(*TranslationCodec).EvidenceAssistedPassPromptContract, EvidenceAssistedPassPayloadFields)
-
-	t.Run("the disposition approves personal use", func(t *testing.T) {
-		require.Equal(t, "approved for personal use of the locally produced deck", assessmentByTicket(t, "#2171").Disposition)
-	})
-}
-
-// TestLSJSenseSummaryAssessmentIsRecorded proves the #2172 disposition is
-// recorded and matches the current codec, so the pass requests a context-free
-// summary of each pinned LSJ entry.
-func TestLSJSenseSummaryAssessmentIsRecorded(t *testing.T) {
-	assertRecordedAssessment(t, "#2172", LSJSenseSummaryPayload, "grc",
-		(*TranslationCodec).LSJSenseSummaryPromptContract, LSJSenseSummaryPayloadFields)
-
-	t.Run("the disposition approves personal use", func(t *testing.T) {
-		require.Equal(t, "approved for personal use of the locally produced deck", assessmentByTicket(t, "#2172").Disposition)
-	})
-}
-
 // TestIdiomCardAssessmentIsRecordedForItalianOnly proves the passing Italian
 // review records the idiom payload for Italian and no other language.
 func TestIdiomCardAssessmentIsRecordedForItalianOnly(t *testing.T) {
@@ -87,12 +63,12 @@ func TestProviderAssessmentSetMaySend(t *testing.T) {
 		fields   []string
 	}{
 		{
-			name: "evidence-assisted pass", kind: EvidenceAssistedPassPayload, language: "grc",
-			provider: codec.ProviderName(), prompt: codec.EvidenceAssistedPassPromptContract(), fields: EvidenceAssistedPassPayloadFields(),
+			name: "Greek evidence-assisted pass", kind: GreekEntryEvidenceAssistedPassPayload, language: "grc",
+			provider: codec.ProviderName(), prompt: codec.GreekEntryEvidenceAssistedPassPromptContract(), fields: GreekEntryEvidenceAssistedPassPayloadFields(),
 		},
 		{
-			name: "LSJ sense summary", kind: LSJSenseSummaryPayload, language: "grc",
-			provider: codec.ProviderName(), prompt: codec.LSJSenseSummaryPromptContract(), fields: LSJSenseSummaryPayloadFields(),
+			name: "Latin evidence-assisted pass", kind: LatinEvidenceAssistedPassPayload, language: "la",
+			provider: codec.ProviderName(), prompt: codec.LatinEvidenceAssistedPassPromptContract(), fields: LatinEvidenceAssistedPassPayloadFields(),
 		},
 		{
 			name: "idiom card", kind: IdiomCardPayload, language: "it",
@@ -139,7 +115,7 @@ func TestProviderAssessmentSetMaySend(t *testing.T) {
 				require.ErrorIs(t, ProviderAssessmentSet{recorded}.MaySend(kind.kind, unrecordedLanguage, codec), ErrProviderAssessmentNotRecorded)
 			})
 			t.Run("a record for another kind refuses", func(t *testing.T) {
-				otherKind := EvidenceAssistedPassPayload
+				otherKind := GreekEntryEvidenceAssistedPassPayload
 				if kind.kind == otherKind {
 					otherKind = IdiomCardPayload
 				}
@@ -156,20 +132,20 @@ func TestProviderAssessmentSetMaySend(t *testing.T) {
 // for a language the installation records no assessment for fails closed.
 func TestProviderAssessmentLanguageWithoutARecordRefuses(t *testing.T) {
 	codec := passCodec(t)
-	require.ErrorIs(t, ProviderAssessments().MaySend(EvidenceAssistedPassPayload, "de", codec), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, "de", codec), ErrProviderAssessmentNotRecorded)
 }
 
 // TestProviderAssessmentRecordCoversOnePayloadKindOnly proves a record for one
 // payload kind never allows a different kind for the same language.
 func TestProviderAssessmentRecordCoversOnePayloadKindOnly(t *testing.T) {
 	codec := passCodec(t)
-	pass := assessmentByTicket(t, "#2171")
+	pass := assessmentByTicketAndKind(t, "#2781", GreekEntryEvidenceAssistedPassPayload)
 
 	t.Run("the matching kind is allowed", func(t *testing.T) {
-		require.NoError(t, ProviderAssessmentSet{pass}.MaySend(EvidenceAssistedPassPayload, "grc", codec))
+		require.NoError(t, ProviderAssessmentSet{pass}.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", codec))
 	})
 	t.Run("a different kind is refused", func(t *testing.T) {
-		require.ErrorIs(t, ProviderAssessmentSet{pass}.MaySend(LSJSenseSummaryPayload, "grc", codec), ErrProviderAssessmentNotRecorded, "a pass record never allows the summary")
+		require.ErrorIs(t, ProviderAssessmentSet{pass}.MaySend(FluencyAgreementSourceEvidencePayload, "grc", codec), ErrProviderAssessmentNotRecorded, "a pass record never allows the Fluency agreement")
 	})
 }
 
@@ -186,11 +162,11 @@ func TestProviderAssessmentRefusesAnUnknownPayloadKind(t *testing.T) {
 func TestEvidenceAssistedPassUnrecordedAssessmentFailsClosed(t *testing.T) {
 	unrecorded := ProviderAssessments()
 	for i := range unrecorded {
-		if unrecorded[i].Kind == EvidenceAssistedPassPayload {
+		if unrecorded[i].Kind == GreekEntryEvidenceAssistedPassPayload {
 			unrecorded[i].Recorded = false
 		}
 	}
-	require.ErrorIs(t, unrecorded.MaySend(EvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
+	require.ErrorIs(t, unrecorded.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
 }
 
 // assessmentByTicketAndKind returns the compiled assessment recorded for one
@@ -203,17 +179,5 @@ func assessmentByTicketAndKind(t *testing.T, ticket string, kind ProviderPayload
 		}
 	}
 	t.Fatalf("no %s provider assessment recorded for %s", kind, ticket)
-	return ProviderAssessment{}
-}
-
-// assessmentByTicket returns the compiled assessment recorded for one ticket.
-func assessmentByTicket(t *testing.T, ticket string) ProviderAssessment {
-	t.Helper()
-	for _, assessment := range ProviderAssessments() {
-		if assessment.Ticket == ticket {
-			return assessment
-		}
-	}
-	t.Fatalf("no provider assessment recorded for %s", ticket)
 	return ProviderAssessment{}
 }

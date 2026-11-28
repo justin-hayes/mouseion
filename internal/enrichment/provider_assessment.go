@@ -20,10 +20,6 @@ var ErrProviderAssessmentNotRecorded = errors.New("enrichment: provider payload 
 type ProviderPayloadKind string
 
 const (
-	// EvidenceAssistedPassPayload is the Ancient Greek evidence-assisted pass:
-	// the representative sentence, its passage context, and the pinned LSJ
-	// definitions as short evidence handles (ADR 0101, ADR 0105).
-	EvidenceAssistedPassPayload ProviderPayloadKind = "evidence-assisted-pass"
 	// LatinEvidenceAssistedPassPayload is the Classical Latin evidence-assisted
 	// pass: the representative sentence, its passage context, and the pinned
 	// Lewis & Short senses as short evidence handles that each name their entry
@@ -34,9 +30,6 @@ const (
 	// pinned LSJ senses of every homograph entry as short evidence handles that
 	// each name their entry (ADR 0139). It has its own contract and its own record (#2774).
 	GreekEntryEvidenceAssistedPassPayload ProviderPayloadKind = "greek-entry-evidence-assisted-pass" //nolint:gosec // a payload kind name, not a credential
-	// LSJSenseSummaryPayload is the context-free summary of a pinned LSJ entry:
-	// its headword, sense IDs and English glosses alone (ADR 0101).
-	LSJSenseSummaryPayload ProviderPayloadKind = "lsj-sense-summary"
 	// IdiomCardPayload is the dictionary-anchored idiom card: the headword,
 	// matched forms, representative sentence and bounded candidate senses alone
 	// (ADR 0114).
@@ -74,62 +67,6 @@ type ProviderAssessment struct {
 	Ticket string
 	// Recorded reports whether the disposition has been recorded.
 	Recorded bool
-}
-
-// evidenceAssistedPassAssessment is the reviewed personal-use disposition for
-// the exact Ancient Greek evidence-assisted pass payload: the representative
-// sentence, its passage context, and the pinned LSJ definitions as short
-// evidence handles. Justin reviewed that payload and recorded the disposition on
-// #2171, so the pass runs for every Greek deck with a configured provider
-// (ADR 0101, ADR 0105).
-//
-// The transport is the configured OpenAI-compatible Chat Completions endpoint.
-// No learner identity, Book title, whole Book, raw annotation, lexical
-// discriminator or native LSJ ID is transmitted.
-//
-// PromptVersion and Fields are written out as the recorded literals, not taken
-// from the codec, so the record is a real pin: changing the prompt contract or
-// the payload without re-recording the disposition fails the gate and sends
-// nothing.
-var evidenceAssistedPassAssessment = ProviderAssessment{
-	Kind:          EvidenceAssistedPassPayload,
-	Language:      "grc",
-	Provider:      "openai-compatible",
-	PromptVersion: "translation-v16-evidence-assisted-greek",
-	Fields: []string{
-		"item_id", "language", "target_language", "canonical_lemma", "upos",
-		"target_word", "example_sentence", "passage_context", "candidate_senses",
-	},
-	Disposition: "approved for personal use of the locally produced deck",
-	Ticket:      "#2171",
-	Recorded:    true,
-}
-
-// lsjSenseSummaryAssessment is the reviewed personal-use disposition for the
-// exact Ancient Greek LSJ sense summary payload: the pinned LSJ entry's
-// headword, its sense IDs and its English glosses alone. Justin reviewed that
-// payload and recorded the disposition on #2172, so the pass also asks for a
-// context-free summary of each pinned entry (ADR 0101).
-//
-// The transport is the configured OpenAI-compatible Chat Completions endpoint.
-// No learner identity, Book title, representative sentence, whole Book, raw
-// annotation, lexical discriminator or Brownson passage is transmitted.
-//
-// PromptVersion and Fields are written out as the recorded literals, not taken
-// from the codec, so the record is a real pin: changing the prompt contract or
-// the payload without re-recording the disposition fails the gate and sends
-// nothing.
-var lsjSenseSummaryAssessment = ProviderAssessment{
-	Kind:          LSJSenseSummaryPayload,
-	Language:      "grc",
-	Provider:      "openai-compatible",
-	PromptVersion: "translation-v17-lsj-sense-summary-greek",
-	Fields: []string{
-		"item_id", "headword", "senses",
-	},
-	Disposition: "approved for personal use of the locally produced deck",
-	Ticket:      "#2172",
-	Recorded:    true,
 }
 
 // idiomCardAssessment is the reviewed personal-use disposition for the exact
@@ -212,8 +149,8 @@ var fluencyAgreementSourceEvidenceGreekAssessment = ProviderAssessment{
 // definitions as short evidence handles, each beside the short handle of its
 // entry. Justin reviewed that payload in
 // doc/reviews/latin-evidence-assisted-pass-payload-assessment.md and recorded the
-// disposition on #2766, so the pass runs for Latin Prepared decks and Study
-// material with a configured provider (ADR 0138 §1).
+// disposition on #2766, so the pass runs for Latin Study material with a
+// configured provider (ADR 0138 §1).
 //
 // The transport is the configured OpenAI-compatible Chat Completions endpoint.
 // No learner identity, Book title, whole Book, raw annotation, lexical
@@ -248,7 +185,7 @@ var latinEvidenceAssistedPassAssessment = ProviderAssessment{
 // each beside the short handle of its entry. Justin reviewed that payload in
 // doc/reviews/greek-entry-evidence-assisted-pass-payload-assessment.md and
 // recorded the disposition on #2774, so Greek Study material can send it
-// (ADR 0139). The Prepared deck's pass is unaffected: it keeps the #2171 record.
+// (ADR 0139).
 //
 // The transport is the configured OpenAI-compatible Chat Completions endpoint.
 // No learner identity, Book title, whole Book, raw annotation, lexical
@@ -314,7 +251,7 @@ type ProviderAssessmentSet []ProviderAssessment
 // assessments. A caller that can install a recorded assessment for a test
 // passes its own set to MaySend instead.
 func ProviderAssessments() ProviderAssessmentSet {
-	return ProviderAssessmentSet{evidenceAssistedPassAssessment, lsjSenseSummaryAssessment, idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment, latinEvidenceAssistedPassAssessment, fluencyAgreementSourceEvidenceLatinAssessment, greekEntryEvidenceAssistedPassAssessment}
+	return ProviderAssessmentSet{idiomCardAssessment, fluencyAgreementAssessment, fluencyAgreementSourceEvidenceGreekAssessment, latinEvidenceAssistedPassAssessment, fluencyAgreementSourceEvidenceLatinAssessment, greekEntryEvidenceAssistedPassAssessment}
 }
 
 // MaySend reports whether one payload kind may be sent for a language with the
@@ -365,14 +302,10 @@ func currentPayloadContract(kind ProviderPayloadKind, codec *TranslationCodec) (
 		return payloadContract{}, false
 	}
 	switch kind {
-	case EvidenceAssistedPassPayload:
-		return payloadContract{codec.ProviderName(), codec.EvidenceAssistedPassPromptContract(), EvidenceAssistedPassPayloadFields()}, true
 	case LatinEvidenceAssistedPassPayload:
 		return payloadContract{codec.ProviderName(), codec.LatinEvidenceAssistedPassPromptContract(), LatinEvidenceAssistedPassPayloadFields()}, true
 	case GreekEntryEvidenceAssistedPassPayload:
 		return payloadContract{codec.ProviderName(), codec.GreekEntryEvidenceAssistedPassPromptContract(), GreekEntryEvidenceAssistedPassPayloadFields()}, true
-	case LSJSenseSummaryPayload:
-		return payloadContract{codec.ProviderName(), codec.LSJSenseSummaryPromptContract(), LSJSenseSummaryPayloadFields()}, true
 	case IdiomCardPayload:
 		return payloadContract{codec.ProviderName(), codec.IdiomCardPromptContract(), IdiomCardPayloadFields()}, true
 	case FluencyAgreementPayload:
@@ -404,47 +337,29 @@ func sameAssessmentLanguage(left, right string) bool {
 	return canonicalization.NormalizeLanguage(left) == canonicalization.NormalizeLanguage(right)
 }
 
-// EvidenceAssistedPassKind is the payload kind a source-evidence language's
-// evidence-assisted pass transmits: Latin has its own contract, every other
-// language the Greek one.
-func EvidenceAssistedPassKind(language string) ProviderPayloadKind {
-	if isLatinPass(language) {
-		return LatinEvidenceAssistedPassPayload
-	}
-	return EvidenceAssistedPassPayload
-}
-
 // StudyEvidenceAssistedPassKind is the payload kind Study's evidence-assisted
-// pass transmits for a source-evidence language, selected by its card policy.
+// pass transmits for a source-evidence language, selected by its card policy. A
+// language with no pass contract has no kind, so MaySend refuses it.
 func StudyEvidenceAssistedPassKind(language string) ProviderPayloadKind {
-	switch cardpolicy.For(language).StudyPassContract {
+	switch passContractOf(language) {
 	case cardpolicy.PassContractLatin:
 		return LatinEvidenceAssistedPassPayload
 	case cardpolicy.PassContractGreekEntries:
 		return GreekEntryEvidenceAssistedPassPayload
-	case cardpolicy.PassContractGreek:
+	case cardpolicy.PassContractNone:
 	}
-	return EvidenceAssistedPassPayload
+	return ""
 }
 
 // CheckPassAssessment refuses a request for an evidence-assisted pass whose
 // payload contract the compiled assessments do not record for the codec's
 // current prompt version. It is the last check before a pass request is
-// encoded for the provider, so work frozen before a contract changed (a queued
-// Prepared deck item, a retried Study item) sends nothing under the new,
-// unrecorded contract (#2779). A request that is not a pass is never refused.
+// encoded for the provider, so work frozen before a contract changed (a
+// retried Study item) sends nothing under the new, unrecorded contract (#2779).
+// A request that is not a pass is never refused.
 func CheckPassAssessment(codec *TranslationCodec, input TranslationRequest) error {
 	if !input.RequireEvidenceAssistedPass {
 		return nil
 	}
-	var kind ProviderPayloadKind
-	switch passContractOf(input) {
-	case cardpolicy.PassContractLatin:
-		kind = LatinEvidenceAssistedPassPayload
-	case cardpolicy.PassContractGreekEntries:
-		kind = GreekEntryEvidenceAssistedPassPayload
-	default:
-		kind = EvidenceAssistedPassPayload
-	}
-	return ProviderAssessments().MaySend(kind, input.Language, codec)
+	return ProviderAssessments().MaySend(StudyEvidenceAssistedPassKind(input.Language), input.Language, codec)
 }

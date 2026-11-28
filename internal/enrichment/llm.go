@@ -20,12 +20,6 @@ const (
 	defaultReasoningEffort       = "low"
 	llmPromptVersion             = "translation-v12-structured-target-alignment"
 	contextualGlossPromptVersion = "translation-v17-clause-lemma-mismatch"
-	// evidenceAssistedPassPromptVersion pins the strict Ancient Greek
-	// evidence-assisted pass contract: the representative sentence, its
-	// passage context and the pinned LSJ senses with their native IDs, and a
-	// resolved contextual Gloss with a sentence translation and target
-	// alignment, or an explicit abstention (ADR 0101).
-	evidenceAssistedPassPromptVersion = "translation-v16-evidence-assisted-greek"
 	// latinEvidenceAssistedPassPromptVersion pins the strict Classical Latin
 	// evidence-assisted pass contract: the representative sentence, its passage
 	// context and the pinned Lewis & Short senses, each handle naming its entry
@@ -35,17 +29,13 @@ const (
 	// the contract of the #2766 record.
 	latinEvidenceAssistedPassPromptVersion = "translation-v21-evidence-assisted-latin-citation-form"
 	// greekEntryEvidenceAssistedPassPromptVersion pins the strict Ancient Greek
-	// evidence-assisted pass contract of Study: the same answer as Greek's deck
-	// contract, over every LSJ homograph, each sense handle carrying the short
-	// handle of its entry (ADR 0139). v20 adopts the modern contextual Gloss's
+	// evidence-assisted pass contract of Study: the representative sentence, its
+	// passage context and the pinned LSJ senses of every homograph, each sense
+	// handle carrying the short handle of its entry, and the same
+	// resolved-or-abstained answer (ADR 0101, ADR 0139). v20 adopts the modern contextual Gloss's
 	// citation-form rules and a tighter target alignment (#2779); it sends
 	// nothing until #2781 records it. v19 was the contract of the #2774 record.
 	greekEntryEvidenceAssistedPassPromptVersion = "translation-v20-evidence-assisted-greek-entries-citation-form"
-	// lsjSenseSummaryPromptVersion pins the strict Ancient Greek LSJ sense
-	// summary contract: the pinned LSJ entry alone (headword, sense IDs and
-	// English glosses), and a few short lines each citing sense IDs that exist
-	// in that entry (ADR 0101).
-	lsjSenseSummaryPromptVersion = "translation-v17-lsj-sense-summary-greek"
 	// idiomCardPromptVersion pins the dictionary-anchored idiom-card contract:
 	// the headword, matched forms, representative sentence and bounded
 	// candidate senses, and a lemma-shaped answer whose unresolved kinds are

@@ -250,14 +250,6 @@ type LemmaReviewDecision struct {
 	NormalizationVersion string
 }
 
-type OccurrenceLemmaCorrection struct {
-	SourceDocumentID string
-	StartOffset      int64
-	EndOffset        int64
-	CanonicalLemma   string
-	Excluded         bool
-}
-
 type CoverageThreshold struct {
 	TargetPercent      int
 	LemmaCount         int64

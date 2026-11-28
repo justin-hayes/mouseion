@@ -192,35 +192,6 @@ func orderSensesByScore(scored []scoredSense) {
 	}
 }
 
-// RenderGloss renders the compact, stable field used on the card back.
-func RenderGloss(senses []LexicalSense, maxSenses, maxTokens int) string {
-	if maxSenses <= 0 {
-		maxSenses = DefaultMaxSenses
-	} else if maxSenses > DefaultMaxSenses {
-		maxSenses = DefaultMaxSenses
-	}
-	if maxTokens <= 0 {
-		maxTokens = DefaultMaxTokens
-	} else if maxTokens > DefaultMaxTokens {
-		maxTokens = DefaultMaxTokens
-	}
-	parts := make([]string, 0, min(maxSenses, len(senses)))
-	for _, sense := range senses {
-		words := strings.Fields(strings.TrimSpace(sense.Gloss))
-		if len(words) == 0 {
-			continue
-		}
-		if len(words) > maxTokens {
-			words = words[:maxTokens]
-		}
-		parts = append(parts, strings.Join(words, " "))
-		if len(parts) == maxSenses {
-			break
-		}
-	}
-	return strings.Join(parts, glossSeparator)
-}
-
 func sentenceContext(request LexicalLookupRequest) map[string]bool {
 	words := make(map[string]bool)
 	if len(request.SentenceTokens) == 0 {

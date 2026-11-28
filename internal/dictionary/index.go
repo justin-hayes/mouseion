@@ -95,7 +95,6 @@ type evidenceIdentity struct {
 }
 
 var _ enrichment.LexicalProvider = (*Index)(nil)
-var _ enrichment.AncientGreekLSJProvider = (*Index)(nil)
 
 func OpenIndex(ctx context.Context, path string) (*Index, error) {
 	path = strings.TrimSpace(path)

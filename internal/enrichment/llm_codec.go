@@ -50,20 +50,14 @@ var idiomCardSystemPrompt = "Confirm and translate the supplied idiom in the com
 	"Do not include the whole sentence or unrelated words. " +
 	"Never invent IDs. Echo item_id and both languages exactly. Do not return HTML or markup."
 
-// evidenceAssistedPassSystemPrompt is the strict Ancient Greek evidence-assisted
-// pass contract. The payload carries the representative sentence, its
-// unhighlighted passage context and the pinned LSJ senses with their native IDs
-// as short handles. The provider proposes a contextual Gloss with a sentence
-// translation and English target alignment, or abstains. It never guarantees a
-// card: a failed or abstaining answer leaves the source-evidence card as it
-// was (ADR 0101).
-var evidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of an Ancient Greek text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle. Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. gloss must be one brief English cue for the target's meaning in this sentence, not a list of unrelated senses. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the smallest meaning-bearing words or phrases corresponding to the supplied target; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
-
 // greekEntryEvidenceAssistedPassSystemPrompt is the strict Ancient Greek
-// evidence-assisted pass contract of Study. It differs from the deck's Greek
-// contract only in the entry handle: each pinned LSJ sense carries a short
-// evidence handle and the short handle of its entry, so a cited sense is exactly
-// one sense of one entry across homographs (ADR 0139).
+// evidence-assisted pass contract of Study. The payload carries the
+// representative sentence, its unhighlighted passage context and the pinned LSJ
+// senses as short handles, each beside the short handle of its entry, so a cited
+// sense is exactly one sense of one entry across homographs. The provider
+// proposes a contextual Gloss with a sentence translation and English target
+// alignment, or abstains; a failed or abstaining answer leaves the
+// source-evidence card as it was (ADR 0101, ADR 0139).
 var greekEntryEvidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of an Ancient Greek text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle and the short entry handle of the LSJ entry it belongs to (homograph entries have different entry handles). Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. Gloss is the English equivalent of the supplied lemma in the sense the representative sentence uses, in citation form: verbs as \"to …\", nouns singular without an article, adjectives in base form. Never return a definition-style paraphrase when a short equivalent exists, and never carry the sentence's inflection, number or arguments. Keep the Gloss to one to three words; close comma-separated synonyms are allowed only when one word would mislead. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the English words that render the target itself, never its subject, object, complements or modifiers; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Where the English renders the target with a function word (for example \"with\" for ἔχων), only that word is highlighted. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
 
 // latinEvidenceAssistedPassSystemPrompt is the strict Classical Latin
@@ -72,14 +66,6 @@ var greekEntryEvidenceAssistedPassSystemPrompt = "Translate the supplied lemma i
 // carries a short evidence handle and the short handle of its entry, so a cited
 // sense is exactly one sense of one entry across stacked homographs.
 var latinEvidenceAssistedPassSystemPrompt = "Translate the supplied lemma in the supplied representative sentence of a Classical Latin text. The passage_context is the labelled English of nearby sections, not a translation of the sentence; use it only as background. candidate_senses are the pinned Lewis & Short senses of the lemma, each with a short evidence_id handle and the short entry handle of the dictionary entry it belongs to (stacked homograph entries have different entry handles). Return exactly one JSON object using only these ten fields: item_id, source_language, target_language, translation, sentence_translation, sentence_translation_targets, gloss, evidence_ids, context_only, unresolved_reason. translation is a concise lemma translation. Gloss is the English equivalent of the supplied lemma in the sense the representative sentence uses, in citation form: verbs as \"to …\", nouns singular without an article, adjectives in base form. Never return a definition-style paraphrase when a short equivalent exists, and never carry the sentence's inflection, number or arguments. Keep the Gloss to one to three words; close comma-separated synonyms are allowed only when one word would mislead. sentence_translation is a natural English translation of the complete representative sentence. sentence_translation_targets is an ordered array of exact plain-text excerpt(s) from sentence_translation that identify only the English words that render the target itself, never its subject, object, complements or modifiers; use one excerpt for a contiguous phrase, multiple excerpts only for a confident discontinuous correspondence, and an empty array when no reliable alignment exists. Where the English renders the target with a function word (for example \"with\" for habens), only that word is highlighted. Do not include the whole sentence or unrelated words. evidence_ids must contain only the exact short evidence_id handles shown in candidate_senses that support the gloss. If no defensible contextual meaning can be given, abstain: return an empty gloss, empty evidence_ids, context_only=true, and a brief unresolved_reason explaining why; still return a translation and a sentence_translation. Otherwise return a non-empty gloss, supporting evidence_ids when any pinned evidence applies (or an empty list and context_only=true when none applies), and unresolved_reason as an empty string. Never invent IDs. Echo item_id and languages exactly. Do not return HTML or markup."
-
-// lsjSenseSummarySystemPrompt is the strict Ancient Greek LSJ sense summary
-// contract. The payload carries only the pinned LSJ entry (its headword and its
-// senses as short handles with English glosses): no representative sentence and
-// no learner data. The response condenses the entry into a few short lines, each
-// citing sense handles that exist in that entry. A summary that cites an unknown
-// sense or none is discarded by the caller (ADR 0101).
-var lsjSenseSummarySystemPrompt = "Condense the supplied Ancient Greek LSJ dictionary entry into a few short English summary lines. The payload carries only the entry's headword and its senses, each with a short evidence_id handle and its English glosses; there is no sentence and no other context. Return exactly one JSON object using only these two field names: item_id and summary_lines. summary_lines is an ordered array of objects, each with sense_ids (an array of the exact evidence_id handles shown in senses that the line condenses) and text (one short English line). Every line must cite at least one sense_ids handle that appears in senses, and every cited handle must exist. Never invent IDs. Do not add a sentence translation, a gloss, or any other key. Echo item_id exactly. Do not return HTML or markup."
 
 const (
 	maxTranslationResponseBytes = 1 << 20
@@ -119,8 +105,7 @@ func invalidCitation(message string, response TranslationResponse) evidenceCitat
 	}}
 }
 
-// TranslationCodec owns the provider request and response semantics shared by
-// synchronous and Batch transports. It deliberately contains no credentials,
+// TranslationCodec owns the provider request and response semantics. It deliberately contains no credentials,
 // endpoint, HTTP client, or durable preparation identity.
 type TranslationCodec struct {
 	model                    string
@@ -139,8 +124,7 @@ func (c *TranslationCodec) Model() string {
 }
 
 // ProviderName returns the stable provider name used by the existing
-// translation-cache identity. Batch and synchronous callers must share this
-// value so changing transport does not invalidate or mix cache entries.
+// translation-cache identity.
 func (c *TranslationCodec) ProviderName() string { return "openai-compatible" }
 
 // ProviderVersion returns the stable version used by the existing
@@ -157,7 +141,7 @@ func (c *TranslationCodec) ProviderVersion() string {
 }
 
 // ContextualGlossProviderVersion identifies the strict contextual-gloss
-// response contract used by standard prepared-deck runs.
+// response contract.
 func (c *TranslationCodec) ContextualGlossProviderVersion() string {
 	if c == nil {
 		return ""
@@ -174,27 +158,6 @@ func (c *TranslationCodec) ContextualGlossProviderVersion() string {
 // assessment pins this contract, so it is stable across model changes.
 func (c *TranslationCodec) ContextualGlossPromptContract() string {
 	return contextualGlossPromptVersion
-}
-
-// EvidenceAssistedPassProviderVersion identifies the strict Ancient Greek
-// evidence-assisted pass response contract used by a pass run.
-func (c *TranslationCodec) EvidenceAssistedPassProviderVersion() string {
-	if c == nil {
-		return ""
-	}
-	version := c.model + "/" + evidenceAssistedPassPromptVersion
-	if c.usesReasoningEffort {
-		version += "-reasoning-" + c.reasoningEffort
-	}
-	return version
-}
-
-// EvidenceAssistedPassPromptContract returns the versioned evidence-assisted
-// pass prompt contract alone, without the configured model. The
-// provider-payload assessment pins this contract, so it is stable across model
-// changes.
-func (c *TranslationCodec) EvidenceAssistedPassPromptContract() string {
-	return evidenceAssistedPassPromptVersion
 }
 
 // LatinEvidenceAssistedPassProviderVersion identifies the strict Classical
@@ -235,36 +198,6 @@ func (c *TranslationCodec) GreekEntryEvidenceAssistedPassProviderVersion() strin
 // provider-payload assessment of that payload pins this contract.
 func (c *TranslationCodec) GreekEntryEvidenceAssistedPassPromptContract() string {
 	return greekEntryEvidenceAssistedPassPromptVersion
-}
-
-// EvidenceAssistedPassProviderVersionFor identifies the pass response contract
-// for a language: Latin has its own, every other source-evidence language the
-// Greek one.
-func (c *TranslationCodec) EvidenceAssistedPassProviderVersionFor(language string) string {
-	if isLatinPass(language) {
-		return c.LatinEvidenceAssistedPassProviderVersion()
-	}
-	return c.EvidenceAssistedPassProviderVersion()
-}
-
-// LSJSenseSummaryProviderVersion identifies the strict Ancient Greek LSJ sense
-// summary response contract used by a summary run.
-func (c *TranslationCodec) LSJSenseSummaryProviderVersion() string {
-	if c == nil {
-		return ""
-	}
-	version := c.model + "/" + lsjSenseSummaryPromptVersion
-	if c.usesReasoningEffort {
-		version += "-reasoning-" + c.reasoningEffort
-	}
-	return version
-}
-
-// LSJSenseSummaryPromptContract returns the versioned LSJ sense summary prompt
-// contract alone, without the configured model. The provider-payload assessment
-// pins this contract, so it is stable across model changes.
-func (c *TranslationCodec) LSJSenseSummaryPromptContract() string {
-	return lsjSenseSummaryPromptVersion
 }
 
 // IdiomCardProviderVersion identifies the dictionary-anchored idiom-card
@@ -377,19 +310,9 @@ func (c *TranslationCodec) EncodeRequest(input TranslationRequest) ([]byte, erro
 	return c.encodeRequest(input, TranslationItemID(input))
 }
 
-// EncodeBatchRequestForValidation is used by the offline harness to reproduce
-// the exact request body for one Batch item. A contextual Gloss request carries
-// the short per-request item handle rather than itemID.
-func (c *TranslationCodec) EncodeBatchRequestForValidation(input TranslationRequest, itemID string) ([]byte, error) {
-	return c.encodeRequest(input, itemID)
-}
-
 func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string) ([]byte, error) { //nolint:gocognit // each branch is one independent wire contract
 	if c == nil {
 		return nil, errors.New("encode LLM request: nil translation codec")
-	}
-	if input.RequireLSJSenseSummary {
-		return c.encodeLSJSenseSummaryRequest(input)
 	}
 	if input.RequireIdiomCard {
 		return c.encodeIdiomCardRequest(input)
@@ -409,7 +332,7 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 		itemID = ContextualGlossItemHandle
 		entryHandles := map[string]string{}
 		for i := range candidateSenses {
-			if input.RequireEvidenceAssistedPass && carriesEntryHandles(input) {
+			if input.RequireEvidenceAssistedPass {
 				if entryID, _, ok := SplitEntryEvidenceID(candidateSenses[i].EvidenceID); ok {
 					if _, seen := entryHandles[entryID]; !seen {
 						entryHandles[entryID] = "h" + strconv.Itoa(len(entryHandles)+1)
@@ -458,18 +381,11 @@ func (c *TranslationCodec) encodeRequest(input TranslationRequest, itemID string
 }
 
 func promptForRequest(input TranslationRequest) string {
-	if input.RequireLSJSenseSummary {
-		return lsjSenseSummarySystemPrompt
-	}
 	if input.RequireEvidenceAssistedPass {
-		switch passContractOf(input) {
-		case cardpolicy.PassContractLatin:
+		if passContractOf(input.Language) == cardpolicy.PassContractLatin {
 			return latinEvidenceAssistedPassSystemPrompt
-		case cardpolicy.PassContractGreekEntries:
-			return greekEntryEvidenceAssistedPassSystemPrompt
-		case cardpolicy.PassContractGreek:
 		}
-		return evidenceAssistedPassSystemPrompt
+		return greekEntryEvidenceAssistedPassSystemPrompt
 	}
 	if input.RequireIdiomCard {
 		return idiomCardSystemPrompt
@@ -478,75 +394,6 @@ func promptForRequest(input TranslationRequest) string {
 		return contextualGlossSystemPrompt
 	}
 	return llmSystemPrompt
-}
-
-// LSJSenseSummaryItemHandle is the short per-request item handle an LSJ sense
-// summary payload transmits as item_id. Every summary request carries exactly
-// one entry, so the handle is the same short token for each request; the decoder
-// still rejects an echoed value that does not match the frozen request.
-const LSJSenseSummaryItemHandle = "s1"
-
-// lsjSenseSummaryPayloadFields is the exact ordered field set an Ancient Greek
-// LSJ sense summary request transmits in its user message: only the pinned LSJ
-// entry (its headword and its senses as short handles with English glosses). It
-// is the reviewed contract the #2172 provider-payload assessment pins before any
-// request is sent.
-var lsjSenseSummaryPayloadFields = []string{"item_id", "headword", "senses"}
-
-// LSJSenseSummaryPayloadFields returns a copy of the ordered field set an LSJ
-// sense summary request transmits.
-func LSJSenseSummaryPayloadFields() []string {
-	return slices.Clone(lsjSenseSummaryPayloadFields)
-}
-
-// lsjSenseSummarySense is the wire form of one citable sense: its short handle
-// and the English glosses the summary condenses.
-type lsjSenseSummarySense struct {
-	ID      string   `json:"id"`
-	Glosses []string `json:"glosses"`
-}
-
-// encodeLSJSenseSummaryRequest encodes the context-free LSJ sense summary
-// payload. It carries only the pinned entry's headword and its senses, so it
-// transmits no representative sentence and no learner data.
-func (c *TranslationCodec) encodeLSJSenseSummaryRequest(input TranslationRequest) ([]byte, error) {
-	if strings.TrimSpace(input.Headword) == "" || len(input.LSJSenses) == 0 {
-		return nil, errors.New("encode LSJ sense summary input: headword and senses are required")
-	}
-	senses := make([]lsjSenseSummarySense, 0, len(input.LSJSenses))
-	for _, sense := range input.LSJSenses {
-		if strings.TrimSpace(sense.ID) == "" {
-			return nil, errors.New("encode LSJ sense summary input: sense id is required")
-		}
-		senses = append(senses, lsjSenseSummarySense{ID: sense.ID, Glosses: append([]string(nil), sense.Glosses...)})
-	}
-	privateInput, err := json.Marshal(struct {
-		ItemID   string                 `json:"item_id"`
-		Headword string                 `json:"headword"`
-		Senses   []lsjSenseSummarySense `json:"senses"`
-	}{LSJSenseSummaryItemHandle, input.Headword, senses})
-	if err != nil {
-		return nil, fmt.Errorf("encode LSJ sense summary input: %w", err)
-	}
-	payload := chatRequest{
-		Model: c.model,
-		Messages: []chatMessage{
-			{Role: "system", Content: lsjSenseSummarySystemPrompt},
-			{Role: "user", Content: string(privateInput)},
-		},
-	}
-	if c.usesReasoningEffort {
-		payload.ReasoningEffort = c.reasoningEffort
-	} else {
-		temperature := 0
-		payload.Temperature = &temperature
-	}
-	payload.ResponseFormat.Type = "json_object"
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("encode LSJ sense summary request: %w", err)
-	}
-	return body, nil
 }
 
 // IdiomCardItemHandle is the short per-request item handle an idiom-card
@@ -634,22 +481,6 @@ func ContextualGlossPayloadFields() []string {
 	return slices.Clone(contextualGlossPayloadFields)
 }
 
-// evidenceAssistedPassPayloadFields is the exact ordered field set an Ancient
-// Greek evidence-assisted pass request transmits in its user message:
-// the representative sentence, its passage context and the pinned LSJ senses
-// with their native IDs (as short handles). It is the reviewed contract the
-// #2171 provider-payload assessment pins before any request is sent.
-var evidenceAssistedPassPayloadFields = []string{
-	"item_id", "language", "target_language", "canonical_lemma", "upos",
-	"target_word", "example_sentence", "passage_context", "candidate_senses",
-}
-
-// EvidenceAssistedPassPayloadFields returns a copy of the ordered field set an
-// evidence-assisted pass request transmits.
-func EvidenceAssistedPassPayloadFields() []string {
-	return slices.Clone(evidenceAssistedPassPayloadFields)
-}
-
 // latinEvidenceAssistedPassPayloadFields is the exact ordered field set a
 // Classical Latin evidence-assisted pass request transmits. Its candidate_senses
 // carry a short entry handle beside each short evidence handle. It is the
@@ -674,26 +505,11 @@ func GreekEntryEvidenceAssistedPassPayloadFields() []string {
 	return slices.Clone(latinEvidenceAssistedPassPayloadFields)
 }
 
-// passContractOf is the pass contract one request transmits: Study's pass uses
-// its policy's Study contract, every other pass the policy's deck contract.
-func passContractOf(input TranslationRequest) cardpolicy.PassContract {
-	policy := cardpolicy.For(input.Language)
-	if input.StudyPass {
-		return policy.StudyPassContract
-	}
-	return policy.PassContract
-}
-
-// carriesEntryHandles reports whether a pass request's contract sends the short
-// handle of each sense's entry.
-func carriesEntryHandles(input TranslationRequest) bool {
-	return passContractOf(input) != cardpolicy.PassContractGreek
-}
-
-// isLatinPass reports whether the language's card policy selects the Latin pass
-// contract. Encoding and assessment lookup share this one decision.
-func isLatinPass(language string) bool {
-	return cardpolicy.For(language).PassContract == cardpolicy.PassContractLatin
+// passContractOf is the pass contract a language's evidence-assisted pass
+// transmits, selected by its card policy. Encoding and assessment lookup share
+// this one decision.
+func passContractOf(language string) cardpolicy.PassContract {
+	return cardpolicy.For(language).StudyPassContract
 }
 
 // entryEvidenceIDSeparator joins a dictionary entry ID and one of its sense IDs
@@ -872,9 +688,6 @@ func (c *TranslationCodec) decodeResponseWithItemID(input TranslationRequest, bo
 	if err != nil {
 		return TranslationResponse{}, TranslationUsage{}, err
 	}
-	if input.RequireLSJSenseSummary {
-		return decodeLSJSenseSummary(decoded)
-	}
 	if input.requiresFluencyAgreement() {
 		return decodeFluencyAgreement(decoded)
 	}
@@ -922,56 +735,6 @@ func decodeChatCompletion(body []byte) (chatCompletionEnvelope, error) {
 		return chatCompletionEnvelope{}, errors.New("decode LLM response: no choices")
 	}
 	return decoded, nil
-}
-
-// decodeLSJSenseSummary decodes the strict LSJ sense summary content object:
-// only item_id and summary_lines. Duplicate keys and unknown fields are
-// rejected, and an echoed item_id that does not match the frozen handle is
-// rejected. Sense-ID citation validity is checked by the caller against the
-// pinned entry, because an unknown or missing sense ID discards the summary
-// rather than failing the request (ADR 0101).
-func decodeLSJSenseSummary(envelope chatCompletionEnvelope) (TranslationResponse, TranslationUsage, error) {
-	content := envelope.Choices[0].Message.Content
-	if duplicate, err := hasDuplicateObjectKey(content); err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LSJ sense summary: %w", err)
-	} else if duplicate {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LSJ sense summary: duplicate field")
-	}
-	var result struct {
-		ItemID       string                `json:"item_id"`
-		SummaryLines []LSJSenseSummaryLine `json:"summary_lines"`
-	}
-	decoder := json.NewDecoder(strings.NewReader(content))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&result); err != nil {
-		return TranslationResponse{}, TranslationUsage{}, fmt.Errorf("decode LSJ sense summary: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LSJ sense summary: trailing JSON content")
-	}
-	if strings.TrimSpace(result.ItemID) != LSJSenseSummaryItemHandle {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LSJ sense summary: item_id mismatch")
-	}
-	if len(result.SummaryLines) == 0 {
-		return TranslationResponse{}, TranslationUsage{}, errors.New("decode LSJ sense summary: no summary lines")
-	}
-	return TranslationResponse{SenseSummary: normalizeLSJSenseSummaryLines(result.SummaryLines)}, envelope.Usage, nil
-}
-
-// normalizeLSJSenseSummaryLines trims each decoded line's text and drops blank
-// cited handles so a stray empty value cannot pass the citation check.
-func normalizeLSJSenseSummaryLines(lines []LSJSenseSummaryLine) []LSJSenseSummaryLine {
-	result := make([]LSJSenseSummaryLine, 0, len(lines))
-	for _, line := range lines {
-		ids := make([]string, 0, len(line.SenseIDs))
-		for _, id := range line.SenseIDs {
-			if trimmed := strings.TrimSpace(id); trimmed != "" {
-				ids = append(ids, trimmed)
-			}
-		}
-		result = append(result, LSJSenseSummaryLine{SenseIDs: ids, Text: strings.TrimSpace(line.Text)})
-	}
-	return result
 }
 
 // decodeTranslationFields decodes the strict provider content object. Duplicate

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -65,18 +64,18 @@ func seededSpeakerSentence(t *testing.T, start int64, seeded testutil.SeededSent
 // speakerAnalysisFacts returns the persisted analysis projection and the exact
 // snapshot structure the production consumers pass to selection. It also returns
 // the coverage statistics selection derives from those facts.
-func speakerAnalysisFacts(t *testing.T, ctx context.Context, store *PostgresStore, owner, sourceID, runID, corpusID string) (domain.SnapshotStructure, domain.AnalysisStatistics) {
+func speakerAnalysisFacts(t *testing.T, ctx context.Context, store *PostgresStore, owner, bookID string) (domain.SnapshotStructure, domain.AnalysisStatistics) {
 	t.Helper()
 	tx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, txcleanup.Rollback(ctx, tx)) }()
-	analysis, _, err := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), owner, sourceID, runID, corpusID)
+	scope, err := browseCountReadinessForDecision(ctx, tx, owner, bookID)
 	require.NoError(t, err)
-	snapshotID, err := analysisRunSnapshotID(ctx, tx, owner, runID)
+	analysis, _, err := loadBrowseCountFacts(ctx, tx, scope, nil, nil)
 	require.NoError(t, err)
-	structure, err := LoadSnapshotStructure(ctx, tx, owner, sourceID, snapshotID)
+	structure, err := LoadSnapshotStructure(ctx, tx, owner, scope.source, scope.snapshot)
 	require.NoError(t, err)
-	cfg := selection.DefaultConfig(corpusID)
+	cfg := selection.DefaultConfig(scope.corpus)
 	cfg.Structure = structure
 	return structure, selection.AnalyzableStatistics(analysis, cfg)
 }
@@ -157,7 +156,7 @@ func TestSpeakerLabelsAreStructuralNonVocabularyAcrossCountConsumers(t *testing.
 	require.NoError(t, BuildVocabularyBrowseCountsTx(ctx, tx, owner.ID, book.ID, source.ID, runID, corpusID, "de"))
 	require.NoError(t, tx.Commit(ctx))
 
-	structure, statistics := speakerAnalysisFacts(t, ctx, store, owner.ID, source.ID, runID, corpusID)
+	structure, statistics := speakerAnalysisFacts(t, ctx, store, owner.ID, book.ID)
 	require.Len(t, structure.RoleSpans, 3, "the fixture records two speaker labels and their nested direction")
 	speakerLabels := 0
 	for _, span := range structure.RoleSpans {

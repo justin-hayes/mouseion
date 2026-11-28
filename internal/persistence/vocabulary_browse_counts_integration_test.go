@@ -4,11 +4,8 @@ package persistence
 
 import (
 	"context"
-	"errors"
 	"testing"
 
-	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
-	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
@@ -291,18 +288,10 @@ func TestVocabularyBrowseCountsMatchSelectionProjection(t *testing.T) {
 		tx, beginErr := store.Pool().Begin(ctx)
 		require.NoError(t, beginErr)
 		defer func() { require.NoError(t, txcleanup.Rollback(ctx, tx)) }()
-		analysis, corrections, loadErr := loadAnalysisProjectionFactsTx(ctx, tx, sqlcgen.New(tx), owner.ID, source.ID, runID, corpusID)
+		scope, scopeErr := browseCountReadinessForDecision(ctx, tx, owner.ID, book.ID)
+		require.NoError(t, scopeErr)
+		analysis, decisions, loadErr := loadBrowseCountFacts(ctx, tx, scope, nil, nil)
 		require.NoError(t, loadErr)
-		var decisions []selection.OccurrenceDecision
-		for _, c := range corrections {
-			start, startErr := checked.Uint64FromInt64(c.StartOffset)
-			end, endErr := checked.Uint64FromInt64(c.EndOffset)
-			require.NoError(t, errors.Join(startErr, endErr))
-			decisions = append(decisions, selection.OccurrenceDecision{
-				Occurrence: selection.OccurrenceIdentity{SourceDocumentID: c.SourceDocumentID, StartOffset: start, EndOffset: end},
-				Lemma:      c.CanonicalLemma, Excluded: c.Excluded,
-			})
-		}
 		candidates, projectErr := selection.Project(analysis, selection.DefaultConfig(corpusID), decisions)
 		require.NoError(t, projectErr)
 		want := map[string]int64{}

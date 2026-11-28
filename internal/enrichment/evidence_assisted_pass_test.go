@@ -50,11 +50,11 @@ func TestEvidenceAssistedPassPayloadMatchesRecordedAssessment(t *testing.T) {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	recorded := ProviderAssessments()[0]
+	recorded := greekEntryEvidenceAssistedPassAssessment
 	expected := append([]string(nil), recorded.Fields...)
 	sort.Strings(expected)
 	assert.Equal(t, expected, keys, "the transmitted field set must equal the recorded assessment's field set")
-	assert.Equal(t, EvidenceAssistedPassPayloadFields(), recorded.Fields, "the codec's declared payload fields must match the recorded assessment")
+	assert.Equal(t, GreekEntryEvidenceAssistedPassPayloadFields(), recorded.Fields, "the codec's declared payload fields must match the recorded assessment")
 
 	assert.Equal(t, ContextualGlossItemHandle, transmitted["item_id"], "the pass transmits the short per-request handle, never the stable item ID")
 	assert.Equal(t, "The man sees the word and runs slowly.", transmitted["passage_context"])
