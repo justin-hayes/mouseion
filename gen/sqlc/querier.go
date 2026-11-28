@@ -415,10 +415,6 @@ type Querier interface {
 	// empty identity so the two cases stay distinguishable.
 	ListProjectedCorpusVocabulary(ctx context.Context, arg ListProjectedCorpusVocabularyParams) ([]ListProjectedCorpusVocabularyRow, error)
 	ListReferenceTranslationsByPin(ctx context.Context, translationPinSha256 string) ([]ListReferenceTranslationsByPinRow, error)
-	// The owner's Reserved vocabulary: the frozen identities of the active Current
-	// reading snapshot. The legacy deck columns keep their names until the Reading
-	// snapshot is retired.
-	ListReservedDeckVocabulary(ctx context.Context, arg ListReservedDeckVocabularyParams) ([]ListReservedDeckVocabularyRow, error)
 	// The same by the word's vocabulary identity, which the word's material
 	// preparation knows.
 	ListRetiredStudyReportsOfIdentity(ctx context.Context, arg ListRetiredStudyReportsOfIdentityParams) ([]StudyReport, error)
@@ -512,7 +508,6 @@ type Querier interface {
 	// speech come back for Go to decide, as the listing's ranked stage does.
 	ListStudySourceTokens(ctx context.Context, arg ListStudySourceTokensParams) ([]ListStudySourceTokensRow, error)
 	ListSupportedLanguages(ctx context.Context) ([]SupportedLanguage, error)
-	ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error)
 	// One page of the concordance_occurrences model, read selectively (#2595).
 	// Filtering the view's output joins and sorts the whole corpus before the
 	// lemma or form filter applies. This query states the view's eligibility over

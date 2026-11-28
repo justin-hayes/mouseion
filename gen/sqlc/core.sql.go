@@ -1072,64 +1072,6 @@ func (q *Queries) ListSupportedLanguages(ctx context.Context) ([]SupportedLangua
 	return items, nil
 }
 
-const listUnattachedGeneratedVocabulary = `-- name: ListUnattachedGeneratedVocabulary :many
-SELECT owner_id::text, language, canonical_lemma, upos, lexical_discriminator, headword, (COALESCE(first_deck_id::text, ''))::text AS first_deck_id, first_source_material_id, first_generated_at
-FROM generated_vocabulary gv
-WHERE gv.owner_id = $1 AND gv.language = $2 AND NOT EXISTS (
-  SELECT 1 FROM deck_preparation_vocabulary dv
-  WHERE dv.owner_id = gv.owner_id AND dv.language = gv.language
-    AND dv.canonical_lemma = gv.canonical_lemma AND dv.upos = gv.upos
-    AND dv.lexical_discriminator = gv.lexical_discriminator)
-ORDER BY gv.canonical_lemma, gv.upos, gv.lexical_discriminator
-`
-
-type ListUnattachedGeneratedVocabularyParams struct {
-	OwnerID  string
-	Language string
-}
-
-type ListUnattachedGeneratedVocabularyRow struct {
-	OwnerID               string
-	Language              string
-	CanonicalLemma        string
-	Upos                  string
-	LexicalDiscriminator  string
-	Headword              string
-	FirstDeckID           string
-	FirstSourceMaterialID pgtype.UUID
-	FirstGeneratedAt      time.Time
-}
-
-func (q *Queries) ListUnattachedGeneratedVocabulary(ctx context.Context, arg ListUnattachedGeneratedVocabularyParams) ([]ListUnattachedGeneratedVocabularyRow, error) {
-	rows, err := q.db.Query(ctx, listUnattachedGeneratedVocabulary, arg.OwnerID, arg.Language)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUnattachedGeneratedVocabularyRow{}
-	for rows.Next() {
-		var i ListUnattachedGeneratedVocabularyRow
-		if err := rows.Scan(
-			&i.OwnerID,
-			&i.Language,
-			&i.CanonicalLemma,
-			&i.Upos,
-			&i.LexicalDiscriminator,
-			&i.Headword,
-			&i.FirstDeckID,
-			&i.FirstSourceMaterialID,
-			&i.FirstGeneratedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const mostRecentlyActivatedStudyLanguage = `-- name: MostRecentlyActivatedStudyLanguage :one
 SELECT b.language_tag
 FROM books b

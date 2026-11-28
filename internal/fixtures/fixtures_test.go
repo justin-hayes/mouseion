@@ -475,11 +475,6 @@ func TestMigrationFixturesPinLegacyAndKnownVocabularyCategories(t *testing.T) {
 	store := NewStore()
 	ctx := context.Background()
 
-	legacy, err := store.ListUnattachedGeneratedVocabulary(ctx, OwnerID, "de")
-	require.NoError(t, err, "legacy generated fixture=%+v err=%v", legacy, err)
-	require.Len(t, legacy, 1, "legacy generated fixture=%+v err=%v", legacy, err)
-	assert.Equal(t, LegacyGeneratedLemma, legacy[0].CanonicalLemma, "legacy generated fixture=%+v err=%v", legacy, err)
-	assert.Nil(t, legacy[0].FirstSourceMaterialID, "legacy generated fixture=%+v err=%v", legacy, err)
 	known, err := store.ListKnownVocabulary(ctx, OwnerID, "de")
 	require.NoError(t, err)
 	knownLemmas := map[string]bool{}

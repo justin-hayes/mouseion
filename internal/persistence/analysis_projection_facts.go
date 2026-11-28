@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	sqlcgen "github.com/justin-hayes/mouseion/gen/sqlc"
 	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/checked"
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
@@ -146,21 +145,4 @@ func occurrenceLemmaCorrections(rows []sqlcgen.ListOccurrenceLemmaCorrectionsRow
 		corrections = append(corrections, domain.OccurrenceLemmaCorrection{SourceDocumentID: row.SourceDocumentID, StartOffset: row.StartOffset, EndOffset: row.EndOffset, CanonicalLemma: lemma, Excluded: row.Excluded})
 	}
 	return corrections, nil
-}
-
-func listReservedVocabulary(ctx context.Context, q sqlcgen.DBTX, owner, language string) ([]domain.DeckPreparationVocabulary, error) {
-	rows, err := sqlcgen.New(q).ListReservedDeckVocabulary(ctx, sqlcgen.ListReservedDeckVocabularyParams{Owner: owner, Language: canonicalization.NormalizeLanguage(language)})
-	if err != nil {
-		return nil, err
-	}
-	result := make([]domain.DeckPreparationVocabulary, 0, len(rows))
-	for _, row := range rows {
-		result = append(result, domain.DeckPreparationVocabulary{
-			OwnerID: row.OwnerID, DeckPreparationID: row.DeckPreparationID,
-			Language: row.Language, CanonicalLemma: row.CanonicalLemma, UPOS: row.Upos,
-			LexicalDiscriminator: row.LexicalDiscriminator, Headword: row.Headword,
-			GeneratedAt: row.GeneratedAt, GraduatedAt: pgTimePtr(row.GraduatedAt),
-		})
-	}
-	return result, nil
 }
