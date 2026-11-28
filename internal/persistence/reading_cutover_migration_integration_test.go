@@ -59,6 +59,9 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	// migration 45 still runs below.
 	_, err = pool.Exec(ctx, `ALTER TABLE source_material_unit_snapshots ADD COLUMN structure_convention_set text`)
 	require.NoError(t, err)
+	// Likewise the content revision's Document digest (migration 84).
+	_, err = pool.Exec(ctx, `ALTER TABLE source_content_revisions ADD COLUMN document_digest text`)
+	require.NoError(t, err)
 	owner, err := store.CreateUser(ctx, "reading-cutover-owner", false)
 	require.NoError(t, err)
 	active, activeSource := createReadingFixture(t, ctx, store, owner.ID, "cutover-active")
@@ -93,6 +96,8 @@ func TestReadingCutoverMigrationPreservesIndependentReadingState(t *testing.T) {
 	_, err = pool.Exec(ctx, `ALTER TABLE known_vocabulary DROP COLUMN lexical_discriminator, DROP COLUMN headword`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `ALTER TABLE source_material_unit_snapshots DROP COLUMN structure_convention_set`)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `ALTER TABLE source_content_revisions DROP COLUMN document_digest`)
 	require.NoError(t, err)
 	_, err = pool.Exec(ctx, `DROP TABLE occurrence_lemma_corrections`)
 	require.NoError(t, err)

@@ -78,6 +78,9 @@ type Result struct {
 	Path   string
 	Size   int64
 	Digest [sha256.Size]byte
+	// DocumentDigest is KOReader's partial MD5 of the body, as 32 lower-case
+	// hex digits.
+	DocumentDigest string
 }
 
 // Fetch performs the request and streams its body to a temporary file in
@@ -125,7 +128,8 @@ func streamAndVerify(ctx context.Context, body io.Reader, options Options, cance
 	}()
 
 	hasher := sha256.New()
-	written, err := copyBounded(ctx, body, io.MultiWriter(file, hasher), options, cancelStalled)
+	documentDigest := NewPartialMD5()
+	written, err := copyBounded(ctx, body, io.MultiWriter(file, hasher, documentDigest), options, cancelStalled)
 	if err != nil {
 		return Result{}, err
 	}
@@ -134,7 +138,7 @@ func streamAndVerify(ctx context.Context, body io.Reader, options Options, cance
 	if err := checkExpectation(options.Expected, written, sum); err != nil {
 		return Result{}, err
 	}
-	return Result{Path: path, Size: written, Digest: sum}, nil
+	return Result{Path: path, Size: written, Digest: sum, DocumentDigest: documentDigest.Sum()}, nil
 }
 
 // copyBounded enforces the streaming limit and no-progress watchdog.

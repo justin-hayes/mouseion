@@ -30,6 +30,8 @@ type CatalogDownload struct {
 	Path   string
 	Size   int64
 	Digest string
+	// DocumentDigest is KOReader's partial MD5 of the Catalog file (ADR 0142).
+	DocumentDigest string
 }
 
 // DownloadToFile streams an EPUB acquisition target into a temporary file in
@@ -66,9 +68,10 @@ func (c *Client) DownloadToFile(ctx context.Context, downloadURL, dir string) (C
 		return CatalogDownload{}, scoped.catalogDownloadError(err)
 	}
 	return CatalogDownload{
-		Path:   staged.Path,
-		Size:   staged.Size,
-		Digest: domain.EPUBContentDigestFromHash(staged.Digest),
+		Path:           staged.Path,
+		Size:           staged.Size,
+		Digest:         domain.EPUBContentDigestFromHash(staged.Digest),
+		DocumentDigest: staged.DocumentDigest,
 	}, nil
 }
 

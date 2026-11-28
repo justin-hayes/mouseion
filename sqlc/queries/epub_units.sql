@@ -29,9 +29,14 @@ FROM source_content_revisions
 WHERE owner_id = $1 AND source_material_id = $2 AND content_digest = $3;
 
 -- name: InsertSourceContentRevision :one
-INSERT INTO source_content_revisions(owner_id, source_material_id, digest_version, content_digest, content, full_text)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO source_content_revisions(owner_id, source_material_id, digest_version, content_digest, content, full_text, document_digest)
+VALUES ($1, $2, $3, $4, $5, $6, sqlc.narg('document_digest')::text)
 RETURNING revision_id::text;
+
+-- name: FillSourceContentRevisionDocumentDigest :execrows
+UPDATE source_content_revisions
+SET document_digest = sqlc.arg('document_digest')::text
+WHERE owner_id = $1 AND revision_id = $2 AND document_digest IS NULL;
 
 -- name: SetCurrentContentRevision :exec
 UPDATE source_materials

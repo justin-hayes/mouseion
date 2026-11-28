@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/download"
 )
 
 var ErrUnauthenticated = errors.New("epub: authenticated owner is required")
@@ -26,6 +27,13 @@ type Store interface {
 // behavior of direct EPUB imports.
 type AcquisitionSourceLookup interface {
 	FindSourceMaterialForAcquisition(context.Context, string, string, string) (domain.SourceMaterial, bool, error)
+}
+
+// DocumentDigestFiller is the optional store method that records a Catalog
+// file's Document digest on an existing content revision that lacks one. It
+// never overwrites a digest.
+type DocumentDigestFiller interface {
+	FillContentRevisionDocumentDigest(ctx context.Context, owner, revisionID, documentDigest string) error
 }
 
 type AcquisitionBookResolver interface {
@@ -65,8 +73,10 @@ type ImportResult struct {
 // Catalog file identity it arrived with and the slimming report that produced
 // its retained content.
 type AcquisitionContent struct {
-	Content         []byte
-	CatalogDigest   string
+	Content       []byte
+	CatalogDigest string
+	// DocumentDigest is KOReader's partial MD5 of the Catalog file (ADR 0142).
+	DocumentDigest  string
 	CatalogSize     int64
 	SlimmingVersion int
 	Removed         []RemovedResource
@@ -123,12 +133,28 @@ func (s *Service) importForAcquisition(ctx context.Context, ownerID, language, b
 		return ImportResult{}, err
 	}
 	if found {
+		if err := s.fillDocumentDigest(ctx, ownerID, existing.ContentRevisionID, acquisition.DocumentDigest); err != nil {
+			return ImportResult{}, err
+		}
 		if err := s.linkAcquiredSourceForBook(ctx, ownerID, language, bookID, existing, book.Title); err != nil {
 			return ImportResult{}, err
 		}
 		return ImportResult{Source: existing, Book: book, AlreadyPresent: true}, nil
 	}
 	return s.importBookForBook(ctx, ownerID, language, bookID, content, &acquisition, extraction)
+}
+
+// fillDocumentDigest records the Catalog file's Document digest on a revision
+// an acquisition matched, so re-acquiring heals a revision that has none.
+func (s *Service) fillDocumentDigest(ctx context.Context, ownerID, revisionID, documentDigest string) error {
+	filler, ok := s.store.(DocumentDigestFiller)
+	if !ok || revisionID == "" || documentDigest == "" {
+		return nil
+	}
+	if err := filler.FillContentRevisionDocumentDigest(ctx, ownerID, revisionID, documentDigest); err != nil {
+		return fmt.Errorf("epub: record document digest: %w", err)
+	}
+	return nil
 }
 
 // findAcquisitionSource resolves an existing revision by the Retained EPUB's
@@ -163,7 +189,14 @@ func (s *Service) importBook(ctx context.Context, ownerID, language string, cont
 func (s *Service) importBookForBook(ctx context.Context, ownerID, language, bookID string, content []byte, acquisition *AcquisitionContent, extraction Extraction) (ImportResult, error) {
 	book := extraction.Book
 	contentHash := domain.EPUBContentDigest(content)
-	source, err := s.store.PutSourceMaterialWithExtractedSnapshot(ctx, domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}, book.ExtractedUnits, extraction.Structure)
+	material := domain.SourceMaterial{OwnerID: ownerID, Language: language, SourceIdentifier: book.SourceIdentifier, Title: book.Title, MediaType: MediaType(), ContentHash: contentHash, Content: content, FullText: book.FullText}
+	// An acquisition records the Catalog file's digest. A direct import has no
+	// other file than the bytes it stores, so it records theirs (ADR 0142).
+	material.DocumentDigest = download.PartialMD5Of(content)
+	if acquisition != nil {
+		material.DocumentDigest = acquisition.DocumentDigest
+	}
+	source, err := s.store.PutSourceMaterialWithExtractedSnapshot(ctx, material, book.ExtractedUnits, extraction.Structure)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("epub: persist private source material: %w", err)
 	}
@@ -192,6 +225,7 @@ func importHistoryDetails(source domain.SourceMaterial, book ExtractedBook, acqu
 		SourceIdentifier string             `json:"source_identifier"`
 		Chapters         []Chapter          `json:"chapters"`
 		CatalogDigest    string             `json:"catalog_digest,omitempty"`
+		DocumentDigest   string             `json:"document_digest,omitempty"`
 		CatalogSize      int64              `json:"catalog_size,omitempty"`
 		RetainedSize     int64              `json:"retained_size,omitempty"`
 		SlimmingVersion  int                `json:"slimming_version,omitempty"`
@@ -199,6 +233,7 @@ func importHistoryDetails(source domain.SourceMaterial, book ExtractedBook, acqu
 	}{SourceMaterialID: source.ID, SourceIdentifier: book.SourceIdentifier, Chapters: book.Chapters}
 	if acquisition != nil {
 		details.CatalogDigest = acquisition.CatalogDigest
+		details.DocumentDigest = acquisition.DocumentDigest
 		details.CatalogSize = acquisition.CatalogSize
 		details.RetainedSize = int64(len(acquisition.Content))
 		details.SlimmingVersion = acquisition.SlimmingVersion

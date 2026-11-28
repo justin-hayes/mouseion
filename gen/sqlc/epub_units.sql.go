@@ -12,6 +12,26 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const fillSourceContentRevisionDocumentDigest = `-- name: FillSourceContentRevisionDocumentDigest :execrows
+UPDATE source_content_revisions
+SET document_digest = $3::text
+WHERE owner_id = $1 AND revision_id = $2 AND document_digest IS NULL
+`
+
+type FillSourceContentRevisionDocumentDigestParams struct {
+	OwnerID        string
+	RevisionID     string
+	DocumentDigest string
+}
+
+func (q *Queries) FillSourceContentRevisionDocumentDigest(ctx context.Context, arg FillSourceContentRevisionDocumentDigestParams) (int64, error) {
+	result, err := q.db.Exec(ctx, fillSourceContentRevisionDocumentDigest, arg.OwnerID, arg.RevisionID, arg.DocumentDigest)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getCurrentContentRevisionForUpdate = `-- name: GetCurrentContentRevisionForUpdate :one
 SELECT (COALESCE(current_content_revision_id::text, ''))::text AS current_revision_id
 FROM source_materials
@@ -270,8 +290,8 @@ func (q *Queries) GetSourceStructureCheck(ctx context.Context, arg GetSourceStru
 }
 
 const insertSourceContentRevision = `-- name: InsertSourceContentRevision :one
-INSERT INTO source_content_revisions(owner_id, source_material_id, digest_version, content_digest, content, full_text)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO source_content_revisions(owner_id, source_material_id, digest_version, content_digest, content, full_text, document_digest)
+VALUES ($1, $2, $3, $4, $5, $6, $7::text)
 RETURNING revision_id::text
 `
 
@@ -282,6 +302,7 @@ type InsertSourceContentRevisionParams struct {
 	ContentDigest    string
 	Content          []byte
 	FullText         string
+	DocumentDigest   pgtype.Text
 }
 
 func (q *Queries) InsertSourceContentRevision(ctx context.Context, arg InsertSourceContentRevisionParams) (string, error) {
@@ -292,6 +313,7 @@ func (q *Queries) InsertSourceContentRevision(ctx context.Context, arg InsertSou
 		arg.ContentDigest,
 		arg.Content,
 		arg.FullText,
+		arg.DocumentDigest,
 	)
 	var revision_id string
 	err := row.Scan(&revision_id)

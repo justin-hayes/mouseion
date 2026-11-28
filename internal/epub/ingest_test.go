@@ -68,6 +68,8 @@ type catalogDigestStore struct {
 	foundHash string
 	lookupErr error
 	linkErr   error
+	fillErr   error
+	fills     [][3]string
 	requested []string
 }
 
@@ -80,6 +82,11 @@ func (m *catalogDigestStore) FindSourceMaterialForAcquisition(_ context.Context,
 		return m.existing, true, nil
 	}
 	return domain.SourceMaterial{}, false, nil
+}
+
+func (m *catalogDigestStore) FillContentRevisionDocumentDigest(_ context.Context, owner, revisionID, documentDigest string) error {
+	m.fills = append(m.fills, [3]string{owner, revisionID, documentDigest})
+	return m.fillErr
 }
 
 func (m *catalogDigestStore) LinkSourceToBook(_ context.Context, _, _, _ string) error {
@@ -150,6 +157,31 @@ func TestImportForAcquisitionMatchesEitherTheRetainedOrCatalogDigest(t *testing.
 	assert.Zero(t, store.puts, "the existing content revision was duplicated")
 }
 
+func TestImportForAcquisitionFillsTheDocumentDigestOnAMatchedRevision(t *testing.T) {
+	content := fixture(t)
+	store := &catalogDigestStore{
+		existing:  domain.SourceMaterial{ID: "existing-source", OwnerID: "owner-id", ContentRevisionID: "revision-1", SourceIdentifier: "existing-source", Title: "Existing"},
+		foundHash: domain.EPUBContentDigest(content),
+	}
+	t.Run("records the digest on the matched revision", func(t *testing.T) {
+		_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content, DocumentDigest: "59d481d168cca6267322f150c5f6a2a3"})
+		require.NoError(t, err)
+		assert.Equal(t, [][3]string{{"owner-id", "revision-1", "59d481d168cca6267322f150c5f6a2a3"}}, store.fills)
+		assert.Zero(t, store.puts)
+	})
+	t.Run("has nothing to record without a digest", func(t *testing.T) {
+		store.fills = nil
+		_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content})
+		require.NoError(t, err)
+		assert.Empty(t, store.fills)
+	})
+	t.Run("reports a failed fill", func(t *testing.T) {
+		store.fillErr = errors.New("fill failed")
+		_, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{Content: content, DocumentDigest: "59d481d168cca6267322f150c5f6a2a3"})
+		require.ErrorIs(t, err, store.fillErr)
+	})
+}
+
 func TestImportForAcquisitionLooksUpAnIdenticalCatalogDigestOnce(t *testing.T) {
 	content := fixture(t)
 	digest := domain.EPUBContentDigest(content)
@@ -185,6 +217,7 @@ func TestImportForAcquisitionRecordsCatalogAndSlimmingProvenance(t *testing.T) {
 	result, err := NewService(store).ImportForAcquisition(context.Background(), "owner-id", "de", AcquisitionContent{
 		Content:         fixture(t),
 		CatalogDigest:   "sha256:catalog",
+		DocumentDigest:  "59d481d168cca6267322f150c5f6a2a3",
 		CatalogSize:     900,
 		SlimmingVersion: RetainedSlimmingVersion,
 		Removed:         removed,
@@ -192,6 +225,7 @@ func TestImportForAcquisitionRecordsCatalogAndSlimmingProvenance(t *testing.T) {
 	require.NoError(t, err)
 	var details struct {
 		CatalogDigest   string             `json:"catalog_digest"`
+		DocumentDigest  string             `json:"document_digest"`
 		CatalogSize     int64              `json:"catalog_size"`
 		RetainedSize    int64              `json:"retained_size"`
 		SlimmingVersion int                `json:"slimming_version"`
@@ -201,6 +235,7 @@ func TestImportForAcquisitionRecordsCatalogAndSlimmingProvenance(t *testing.T) {
 	t.Run("records the Catalog file identity", func(t *testing.T) {
 		require.Equal(t, "sha256:catalog", details.CatalogDigest)
 		require.Equal(t, int64(900), details.CatalogSize)
+		require.Equal(t, "59d481d168cca6267322f150c5f6a2a3", details.DocumentDigest)
 	})
 	t.Run("records the Retained EPUB size", func(t *testing.T) {
 		require.Equal(t, int64(len(fixture(t))), details.RetainedSize)

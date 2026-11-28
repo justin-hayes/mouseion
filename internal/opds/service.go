@@ -212,6 +212,7 @@ func (s *Service) acquire(ctx context.Context, ownerID, connectionID, language, 
 	acquisition := epub.AcquisitionContent{
 		Content:         retained.Content,
 		CatalogDigest:   download.Digest,
+		DocumentDigest:  download.DocumentDigest,
 		CatalogSize:     download.Size,
 		SlimmingVersion: retained.SlimmingVersion,
 		Removed:         retained.Removed,
