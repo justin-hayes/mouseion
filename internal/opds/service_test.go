@@ -346,11 +346,15 @@ func TestRetainCatalogFileReportsMissingAndInvalidFiles(t *testing.T) {
 	})
 }
 
-func TestAcquireFinishesAfterTheRequestContextIsCancelled(t *testing.T) {
+func TestAcquireStopsWhenItsContextIsCancelled(t *testing.T) {
 	catalog := catalogEPUB(t)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", EPUBMediaType)
-		time.Sleep(30 * time.Millisecond)
+		select {
+		case <-r.Context().Done():
+			return
+		case <-time.After(time.Second):
+		}
 		testwrite.Bytes(t, w, catalog)
 	}))
 	defer server.Close()
@@ -364,8 +368,12 @@ func TestAcquireFinishesAfterTheRequestContextIsCancelled(t *testing.T) {
 		cancel()
 	}()
 	_, err := service.Acquire(ctx, "owner", "connection", "de", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
-	require.NoError(t, err, "acquisition stopped when the page request ended")
-	assert.Equal(t, catalog, importer.acquisition.Content)
+	t.Run("reports the cancellation", func(t *testing.T) {
+		require.ErrorIs(t, err, context.Canceled)
+	})
+	t.Run("imports nothing", func(t *testing.T) {
+		require.Empty(t, importer.acquisition.Content)
+	})
 }
 
 func TestRemoveDownloadedCatalogFileToleratesMissingAndFailedPaths(t *testing.T) {
