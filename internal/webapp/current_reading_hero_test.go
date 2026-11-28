@@ -156,3 +156,20 @@ func TestCurrentReadingHeroOffersRetryAcquisitionWithoutAStatusLine(t *testing.T
 	assert.NotContains(t, html, "data-needs-action", "unavailable content is not a status line")
 	requireInOrder(t, html, "<summary>Analysis details</summary>", ">Retry acquisition</button>", "Open Book")
 }
+
+func TestCurrentReadingHeroStatusLineForClassicalPreparation(t *testing.T) {
+	prepared := func(status domain.ClassicalPreparationStatus) readingBookView {
+		book := classicalStatusBook(status)
+		item := testReadingBook("greek", "Anabasis", testNoContent)
+		item.ReadingUnit = book.ReadingUnit
+		item.ClassicalPreparation = book.ClassicalPreparation
+		return item
+	}
+
+	running := renderHero(t, prepared(domain.ClassicalPreparationStatus{State: domain.ClassicalPreparationRunning, CurrentRevision: 1}))
+	assert.NotContains(t, running, "data-needs-action", "preparation in progress needs nothing from the learner")
+
+	failed := renderHero(t, prepared(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageFetch, CurrentRevision: 1}))
+	assert.Contains(t, failed, "data-needs-action")
+	assert.Contains(t, failed, "<strong>"+classicalAssessmentUnavailable+".</strong>")
+}
