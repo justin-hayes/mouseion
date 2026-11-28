@@ -41,7 +41,8 @@ test.describe('the Current reading hero', () => {
         expect(widths[0] / total).toBeCloseTo(0.37, 2);
         expect(widths[1] / total).toBeCloseTo(0.051, 2);
         const colours = await bar.locator('span').evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).backgroundColor));
-        expect(colours[0]).not.toBe(colours[1]);
+        const track = await bar.evaluate((node) => getComputedStyle(node).backgroundColor);
+        expect(new Set([...colours, track]).size, `Mature, study and track colours differ (${colorScheme})`).toBe(3);
         await expectNoOverflow(page);
       }
     });
