@@ -2,6 +2,8 @@
 
 Status: **Accepted; implemented** · Date: 2026-10-17 · Author: Justin + opencode · Amended by [ADR 0104](0104-compact-lsj-definition-outline.md), [ADR 0105](0105-greek-evidence-assisted-pass-always-on.md) and [ADR 0133](0133-per-language-card-policy.md) (lookup rule and dictionary entry display per card policy)
 
+Amended 2026-11-28 by [issue #2808](https://github.com/justin-hayes/mouseion/issues/2808) (part of [#2805](https://github.com/justin-hayes/mouseion/issues/2805)): the unused Greek unit import (`ancientgreek.Import`) was deleted, so the pinned translation is no longer "imported by the existing Greek operator command". The live path is Classical preparation.
+
 Implemented by #2168–#2172. Tracked by [#2131](https://github.com/justin-hayes/mouseion/issues/2131), the
 decision ticket of the map
 [#2127](https://github.com/justin-hayes/mouseion/issues/2127). Amends, for
