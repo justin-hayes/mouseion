@@ -353,10 +353,21 @@ func extractBook(data []byte) (ExtractedBook, error) {
 }
 
 func TestResolveResourcePathRejectsUnsafeHrefs(t *testing.T) {
-	for _, href := range []string{"", "#fragment", "/absolute.xhtml", "..", "../../outside.xhtml"} {
-		_, err := resolveResourcePath("OEBPS", href)
-		require.Error(t, err, href)
+	for _, tt := range []struct{ name, href string }{
+		{"empty", ""},
+		{"fragment only", "#fragment"},
+		{"absolute", "/absolute.xhtml"},
+		{"parent only", ".."},
+		{"escapes the package directory", "../../outside.xhtml"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := resolveResourcePath("OEBPS", tt.href)
+			require.Error(t, err)
+		})
 	}
+}
+
+func TestResolveResourcePathResolvesRelativeHrefWithoutFragment(t *testing.T) {
 	name, err := resolveResourcePath("OEBPS", "text/ch1.xhtml#a")
 	require.NoError(t, err)
 	assert.Equal(t, "OEBPS/text/ch1.xhtml", name)

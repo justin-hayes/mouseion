@@ -19,13 +19,20 @@ func TestClassicalCatalogCardsMatchTitlesAndAuthorsInTitleOrder(t *testing.T) {
 		return out
 	}
 
-	assert.Equal(t, []string{"Iliad"}, titles(classicalCatalogCardsIn(authors, "HOMER", "", view)))
-	assert.Equal(t, []string{"Anabasis"}, titles(classicalCatalogCardsIn(authors, "αναβασισ", "", view)))
-	assert.Empty(t, classicalCatalogCardsIn(authors, "iliad 2", "", view), "a trailing Book number is ordinary search text: a Work has no constituent Book to narrow to")
-
-	all := titles(classicalCatalogCardsIn(authors, "", "", view))
-	require.NotEmpty(t, all)
-	assert.True(t, sort.StringsAreSorted(all), "cards are ordered by title: %v", all)
+	t.Run("matches an author name", func(t *testing.T) {
+		require.Equal(t, []string{"Iliad"}, titles(classicalCatalogCardsIn(authors, "HOMER", "", view)))
+	})
+	t.Run("matches a folded Greek title", func(t *testing.T) {
+		require.Equal(t, []string{"Anabasis"}, titles(classicalCatalogCardsIn(authors, "αναβασισ", "", view)))
+	})
+	t.Run("treats a trailing Book number as ordinary search text", func(t *testing.T) {
+		require.Empty(t, classicalCatalogCardsIn(authors, "iliad 2", "", view), "a Work has no constituent Book to narrow to")
+	})
+	t.Run("orders cards by title", func(t *testing.T) {
+		all := titles(classicalCatalogCardsIn(authors, "", "", view))
+		require.NotEmpty(t, all)
+		require.True(t, sort.StringsAreSorted(all), "cards are ordered by title: %v", all)
+	})
 }
 
 func TestCatalogEmptyStateChoosesOneDistinctReason(t *testing.T) {
