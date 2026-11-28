@@ -91,7 +91,7 @@ test('applies Literata to actual Book identity and passage text', async ({ page 
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 
   const bookTitle = page.locator('.bibliographic-title').first();
   await expect(bookTitle).toBeVisible();
@@ -180,7 +180,7 @@ test('sign-in and Greek text remain visible and usable when local font requests 
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
   const bookTitle = page.locator('.bibliographic-title').first();
   await expect(bookTitle).toBeVisible();
   const bookFits = await bookTitle.evaluate((element) => ({

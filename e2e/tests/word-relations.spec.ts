@@ -5,11 +5,11 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
   await page.getByLabel('Study language').selectOption('de');
   const noScriptSwitch = page.getByRole('button', { name: 'Switch language' });
   if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();
-  await expect(page).toHaveURL(/\/library$/);
+  await expect(page).toHaveURL(/\/reading$/);
 }
 
 // The acceptance viewports are 375px and 1200px in both themes; the project

@@ -276,7 +276,7 @@ func analysisFailureReason(code domain.BookPreparationCode) string {
 }
 
 // bookPreparationFailureReason is the learner-readable reason a failed row
-// adds under its stable code. It is the reason My Books already explains for
+// adds under its stable code. It is the reason Reading already explains for
 // the same failure: the analysis sentence for an analysis run, and the shared
 // classical or EPUB acquisition label for the preparation kinds, reusing the
 // domain's own stage-to-state classification so the wording cannot drift. An

@@ -12,7 +12,7 @@ import (
 )
 
 // TestClassicalCatalogFixtureJourney walks the fixture server's built-in
-// Classical catalog from Catalogs through My Books to Reading's chooser.
+// Classical catalog from Catalogs through Reading to Reading's chooser.
 func TestClassicalCatalogFixtureJourney(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSessionWith(t, func(services *Services) {
 		catalog, err := fixtures.NewClassicalCatalog()
@@ -29,7 +29,7 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 		assert.Contains(t, catalogs.Body.String(), want)
 	}
 	require.Contains(t, catalogs.Body.String(), `action="/catalogs/classical/units/fixture-iliad/add"`)
-	require.NotContains(t, catalogs.Body.String(), "In My Books", "leftover per-book ownership is not current Edition ownership")
+	require.NotContains(t, catalogs.Body.String(), "In Reading", "leftover per-book ownership is not current Edition ownership")
 
 	for _, retiredPath := range []string{"/catalogs/classical", "/catalogs/classical/authors/Homer"} {
 		retired := catalogPage(t, h, cookies, retiredPath)
@@ -45,11 +45,11 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 
 	added := readingTestRequest(t, h, "/catalogs/classical/units/fixture-iliad/add", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code)
-	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books in Ancient Greek. Your study language is unchanged. The text is already prepared."))
+	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book to Reading in Ancient Greek. Your study language is unchanged. The text is already prepared."))
 
 	owned := catalogPage(t, h, cookies, "/catalogs/classical/works/fixture-iliad")
 	require.Equal(t, http.StatusOK, owned.Code)
-	assert.Contains(t, owned.Body.String(), "In My Books")
+	assert.Contains(t, owned.Body.String(), "In Reading")
 
 	landing := catalogPage(t, h, cookies, "/catalogs/classical/books/fixture-classical-fixture-iliad-fixture-learner/in-my-books")
 	require.Equal(t, http.StatusSeeOther, landing.Code)
@@ -65,11 +65,11 @@ func TestClassicalCatalogFixtureJourney(t *testing.T) {
 	} {
 		assert.Contains(t, library.Body.String(), want)
 	}
-	assert.NotContains(t, library.Body.String(), "library-work", "My Books lists each Book as an ordinary row")
+	assert.NotContains(t, library.Body.String(), "library-work", "Reading lists each Book as an ordinary row")
 
-	// Add already put the Books in To Read, so My Books lists them without
+	// Add already put the Books in To Read, so Reading lists them without
 	// another move.
-	toRead := catalogPage(t, h, cookies, "/grc/library?disposition=to_read")
+	toRead := catalogPage(t, h, cookies, "/grc/reading?disposition=to_read")
 	require.Equal(t, http.StatusOK, toRead.Code)
 	for _, want := range []string{
 		"Iliad, Book 1",

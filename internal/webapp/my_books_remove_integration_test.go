@@ -55,7 +55,7 @@ func TestMyBooksRemoveBookEndsMembershipAndRefusesTheCurrentBook(t *testing.T) {
 
 	removed := perform(t, h, http.MethodPost, "/library/books/"+otherID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
-	assert.Contains(t, removed.Header().Get("Location"), url.QueryEscape("Removed from My Books."))
+	assert.Contains(t, removed.Header().Get("Location"), url.QueryEscape("Removed from Reading."))
 	_, err = store.GetBookDetail(ctx, learner.ID, otherID)
 	require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends membership")
 

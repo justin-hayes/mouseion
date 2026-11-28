@@ -15,11 +15,11 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
   await page.getByLabel('Study language').selectOption('de');
   const noScriptSwitch = page.getByRole('button', { name: 'Switch language' });
   if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();
-  await expect(page).toHaveURL(/\/library$/);
+  await expect(page).toHaveURL(/\/reading$/);
 }
 
 function isCompact(projectName: string) {
@@ -37,7 +37,7 @@ test.afterEach(async ({ page, baseURL }) => {
 test('Book detail hosts the analysis actions and lists the Book words by Study state with Concordance links', async ({ page }) => {
   const dark = test.info().project.name.endsWith('dark');
   await signIn(page);
-  await page.goto('/de/library');
+  await page.goto('/de/reading');
   await page.locator('.library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByRole('link', { name: 'Der lange Weg nach Hause' }).click();
   await expect(page).toHaveURL(/\/books\/fixture-book$/);
   expect(await page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(dark);
@@ -45,7 +45,7 @@ test('Book detail hosts the analysis actions and lists the Book words by Study s
   const summary = page.locator('#book-detail-summary');
   await expect(summary.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause' })).toBeVisible();
   await expect(summary.locator('[data-book-language]')).toContainText('de');
-  await expect(page.getByRole('link', { name: 'Back to My Books' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to Reading' })).toBeVisible();
   await expect(page.locator('#book-detail-analysis').getByRole('heading', { name: 'Analysis', exact: true })).toBeVisible();
 
   const words = page.locator('#vocabulary-workflow');
@@ -65,14 +65,14 @@ test('Book detail hosts the analysis actions and lists the Book words by Study s
   await expect(page.getByRole('link', { name: 'Back to book vocabulary' })).toHaveAttribute('href', /\/books\/fixture-book\?.*row=/);
 });
 
-test('Retired working-desk addresses move to the Book detail page or My Books', async ({ page }) => {
+test('Retired working-desk addresses move to the Book detail page or Reading', async ({ page }) => {
   await signIn(page);
   await page.goto('/de/reading?reading=fixture-book&q=gehen&all=1&snapshot=stale-snapshot&page=1');
   await expect(page).toHaveURL(/\/books\/fixture-book\?q=gehen$/);
   await expect(page.locator('#vocabulary-workflow')).toBeVisible();
   for (const address of ['/de/reading?page=1', '/de/reading?q=ha&all=1&row=NOUN%3Ahaus', '/de/reading']) {
     await page.goto(address);
-    await expect(page, address).toHaveURL(/\/de\/library$/);
+    await expect(page, address).toHaveURL(/\/de\/reading(\?.*)?$/);
     await expect(page.locator('#vocabulary-workflow'), address).toHaveCount(0);
   }
   const missing = await page.goto('/books/no-such-book');

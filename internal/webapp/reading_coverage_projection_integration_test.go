@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// A Book shows one coverage figure everywhere: My Books, the Reading chooser,
+// A Book shows one coverage figure everywhere: Reading, the Reading chooser,
 // and the Reading view all read the Browse count projection, so a confirmed
 // Lemma correction moves an occurrence to its effective identity and an
 // excluded occurrence stays in the analyzable-token total.
@@ -83,8 +83,8 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	assert.Equal(t, wantInStudy, insights.InStudyTokenCount)
 	assert.Equal(t, wantTotal, insights.AnalyzableTokenCount)
 
-	// My Books shows the same figures on its page.
-	myBooksPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	// Reading shows the same figures on its page.
+	myBooksPage := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, myBooksPage.Code)
 	assert.Contains(t, myBooksPage.Body.String(), "66.7% of running words Mature.")
 	assert.Contains(t, myBooksPage.Body.String(), "83.3% with words in study.")
@@ -100,8 +100,8 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	assert.Equal(t, wantTotal, page.CurrentReading.Coverage.AnalyzableTokenCount)
 	assert.False(t, page.CurrentReading.CountsUpdating)
 
-	// The pinned Current reading on My Books shows the same figures.
-	pinned := perform(t, h, http.MethodGet, "/de/library", nil, cookies)
+	// The pinned Current reading on Reading shows the same figures.
+	pinned := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, pinned.Code)
 	assert.Contains(t, pinned.Body.String(), `data-current-reading-mature>66.7%</span> (4 of 6 word occurrences)`)
 	assert.Contains(t, pinned.Body.String(), `data-current-reading-in-study>83.3%</span>`)

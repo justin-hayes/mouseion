@@ -5,19 +5,19 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 test('Preflight is bounded by Mouseion document and shared-control contracts', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/library');
+  await page.goto('/de/reading');
 
   const foundation = await page.evaluate(() => {
     const root = document.querySelector('main')!;
     root.insertAdjacentHTML('beforeend', `
       <section id="preflight-contract">
         <h3>Foundation heading</h3>
-        <p>Foundation paragraph <a id="preflight-inline-link" href="/library">Inline link</a></p>
+        <p>Foundation paragraph <a id="preflight-inline-link" href="/reading">Inline link</a></p>
         <ul><li>Native list item</li></ul>
         <fieldset><legend>Native group</legend><input aria-label="Contract field"></fieldset>
       </section>`);

@@ -36,7 +36,7 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 		currentLink string
 		currentCSS  string
 	}{
-		{name: "library", context: NavigationLibrary, currentLink: `href="/library"`, currentCSS: "site-nav__link--current"},
+		{name: "reading", context: NavigationReading, currentLink: `href="/reading"`, currentCSS: "site-nav__link--current"},
 		{name: "study", context: NavigationStudy, currentLink: `href="/study"`, currentCSS: "site-nav__link--current"},
 		{name: "vocabulary", context: NavigationVocabulary, currentLink: `href="/vocabulary"`, currentCSS: "site-nav__link--current"},
 		{name: "catalog", context: NavigationCatalogs, currentLink: `href="/catalogs"`, currentCSS: "site-nav__link--current"},
@@ -52,13 +52,12 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 }
 
 func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T) {
-	html := renderShell(t, NavigationLibrary)
+	html := renderShell(t, NavigationReading)
 	navigation := renderedPrimaryNavigation(t, html)
-	assert.NotContains(t, navigation, `href="/reading"`, "Reading is not a destination")
 	ordered := []string{
 		`<a class="site-header__brand" href="/">`,
 		`<ul class="site-header__navigation">`,
-		`href="/library"`,
+		`href="/reading"`,
 		`href="/study"`,
 		`href="/vocabulary"`,
 		`href="/catalogs"`,
@@ -78,7 +77,7 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 }
 
 func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *testing.T) {
-	navigation := renderedPrimaryNavigation(t, renderShell(t, NavigationLibrary))
+	navigation := renderedPrimaryNavigation(t, renderShell(t, NavigationReading))
 	assert.Equal(t, 1, strings.Count(navigation, `<details class="site-header__account">`))
 	assert.Contains(t, navigation, `<span class="site-header__account-name">learner</span>`)
 	assert.Contains(t, navigation, `<span class="site-header__account-compact">Account</span>`)
@@ -89,7 +88,7 @@ func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *
 }
 
 func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
-	for _, context := range []NavigationContext{NavigationLibrary, NavigationStudy, NavigationVocabulary, NavigationCatalogs} {
+	for _, context := range []NavigationContext{NavigationReading, NavigationStudy, NavigationVocabulary, NavigationCatalogs} {
 		t.Run(string(context), func(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
 			assert.NotContains(t, navigation, `class="site-nav__link btn`)
@@ -101,7 +100,7 @@ func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
 }
 
 func TestAuthenticatedShellCompactClassContract(t *testing.T) {
-	html := renderShell(t, NavigationLibrary)
+	html := renderShell(t, NavigationReading)
 	assert.True(t, strings.Contains(html, `class="site-header__nav"`) && strings.Contains(html, `class="site-header__navigation"`), "shell compact layout hooks missing: %s", html)
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
@@ -129,11 +128,11 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 	}
 }
 
-func TestRootCompatibilityRedirectsToLibrary(t *testing.T) {
+func TestRootRedirectsToReading(t *testing.T) {
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 	(&Handler{}).dashboard(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location := response.Header().Get("Location")
-	assert.Equal(t, "/library", location)
+	assert.Equal(t, "/reading", location)
 }

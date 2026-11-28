@@ -165,11 +165,11 @@ func catalogueAddMessage(added domain.CatalogueAddResult) string {
 	}
 	switch {
 	case added.Created:
-		return fmt.Sprintf("Added “%s” to My Books.", title)
+		return fmt.Sprintf("Added “%s” to Reading.", title)
 	case added.Changed:
-		return fmt.Sprintf("Restored “%s” to My Books.", title)
+		return fmt.Sprintf("Restored “%s” to Reading.", title)
 	default:
-		return fmt.Sprintf("“%s” is already in My Books.", title)
+		return fmt.Sprintf("“%s” is already in Reading.", title)
 	}
 }
 
@@ -297,7 +297,7 @@ func redirectManageSources(w http.ResponseWriter, r *http.Request, key, message,
 }
 
 // classicalCatalogView is the learner-specific state the release catalog pages
-// need beside the manifest: ownership for "In My Books" and whether Add is
+// need beside the manifest: ownership for "In Reading" and whether Add is
 // available. Both reads are owner-scoped except the installation-wide legacy
 // precondition.
 type classicalCatalogView struct {
@@ -516,7 +516,7 @@ const (
 )
 
 // classicalAddConfirmation is what one Add reports to the page it returns to.
-// BookID identifies the exact Book to open in My Books.
+// BookID identifies the exact Book to open in Reading.
 type classicalAddConfirmation struct {
 	Message string
 	BookID  string
@@ -559,7 +559,7 @@ func classicalAddPreparationMessage(preparation classicalAddPreparation) string 
 	case preparation.Refusal != "":
 		return " " + preparation.Refusal
 	case preparation.CouldNotStart > 0:
-		return " The text could not be prepared. Retry preparation from My Books when ready."
+		return " The text could not be prepared. Retry preparation from Reading when ready."
 	case preparation.Queued > 0:
 		return " Downloading and preparing the text."
 	case preparation.AlreadyPrepared > 0:
@@ -572,7 +572,7 @@ func classicalAddPreparationMessage(preparation classicalAddPreparation) string 
 // classicalAddNamesOtherLanguageThan reports whether the Add must name the
 // language its Books were added in: the learner has a study language and it is
 // not that language. With no resolved language, the Add makes it the only study
-// language, so My Books shows the Books without a language link.
+// language, so Reading shows the Books without a language link.
 func classicalAddNamesOtherLanguageThan(activeLanguage, language string) bool {
 	return activeLanguage != "" && canonicalization.NormalizeLanguage(activeLanguage) != language
 }
@@ -587,7 +587,7 @@ func withQuery(target string, query url.Values) string {
 }
 
 // redirectClassicalAdd returns to the catalog page with the Add outcome. The
-// page derives the "In My Books" path from the added Book's ID.
+// page derives the "In Reading" path from the added Book's ID.
 func redirectClassicalAdd(w http.ResponseWriter, r *http.Request, target string, confirmation classicalAddConfirmation) {
 	query := url.Values{"message": {confirmation.Message}}
 	if confirmation.BookID != "" {
@@ -634,7 +634,7 @@ func (h *Handler) redirectClassicalAddFailure(w http.ResponseWriter, r *http.Req
 	redirect(w, r, withQuery(target, url.Values{"error": {"This text could not be added. Refresh the catalog and try again."}}))
 }
 
-// classicalAddMessage states only what changed in My Books. It never mentions
+// classicalAddMessage states only what changed in Reading. It never mentions
 // preparation, downloads or coverage.
 func classicalAddMessage(report classical.AddReport) string {
 	created := report.CreatedBooks()
@@ -645,9 +645,9 @@ func classicalAddMessage(report classical.AddReport) string {
 	case created == 0:
 		return fmt.Sprintf("Opened %d existing Books.", opened)
 	case opened == 0 && created == 1:
-		return "Added 1 Book to My Books."
+		return "Added 1 Book to Reading."
 	case opened == 0:
-		return fmt.Sprintf("Added %d Books to My Books.", created)
+		return fmt.Sprintf("Added %d Books to Reading.", created)
 	case created == 1 && opened == 1:
 		return "Added 1 Book and opened 1 existing Book."
 	case created == 1:

@@ -125,25 +125,25 @@ func TestEPUBAcquisitionAddEnqueuesOneJobWithoutContactingTheCatalog(t *testing.
 	assert.Zero(t, fixture.requests.Load(), "Add must not contact the OPDS server")
 	assert.Zero(t, fixture.analysis.calls, "Add must not submit analysis before the EPUB exists")
 
-	page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+	page := perform(t, fixture.handler, http.MethodGet, "/reading?disposition=to_read", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
-	assert.Contains(t, page.Body.String(), epubAcquisitionInProgressLabel+".", "My Books shows the queued acquisition")
+	assert.Contains(t, page.Body.String(), epubAcquisitionInProgressLabel+".", "Reading shows the queued acquisition")
 
 	_, err := fixture.pool.Exec(context.Background(), `UPDATE river_job SET state='running' WHERE kind=$1`, analysis.EPUBAcquisitionQueue)
 	require.NoError(t, err)
-	running := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+	running := perform(t, fixture.handler, http.MethodGet, "/reading?disposition=to_read", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, running.Code, running.Body.String())
-	assert.Contains(t, running.Body.String(), epubAcquisitionInProgressLabel+".", "My Books shows the running acquisition")
+	assert.Contains(t, running.Body.String(), epubAcquisitionInProgressLabel+".", "Reading shows the running acquisition")
 
 	_, err = fixture.pool.Exec(context.Background(), `UPDATE river_job SET state='discarded', finalized_at=now() WHERE kind=$1`, analysis.EPUBAcquisitionQueue)
 	require.NoError(t, err)
-	discarded := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+	discarded := perform(t, fixture.handler, http.MethodGet, "/reading?disposition=to_read", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, discarded.Code, discarded.Body.String())
 	assert.NotContains(t, discarded.Body.String(), epubAcquisitionInProgressLabel+".", "a settled job is not live work")
 }
 
 // TestEPUBAcquisitionLifecycleOnMyBooks walks one EPUB Book through the four
-// states its newest acquisition job gives My Books. While the job is queued or
+// states its newest acquisition job gives Reading. While the job is queued or
 // running the Book carries the same in-progress label a classical Book shows
 // and offers no Retry; once the job has failed the recorded Book preparation
 // failure takes over with its Retry; once a later acquisition succeeds the
@@ -170,7 +170,7 @@ func TestEPUBAcquisitionLifecycleOnMyBooks(t *testing.T) {
 	retryAction := `action="/reading/books/` + bookID + `/reanalyze"`
 
 	myBooksBody := func() string {
-		page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+		page := perform(t, fixture.handler, http.MethodGet, "/reading?disposition=to_read", nil, fixture.cookies)
 		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 		return page.Body.String()
 	}
@@ -229,7 +229,7 @@ func TestEPUBAcquisitionLifecycleOnMyBooks(t *testing.T) {
 
 // TestEPUBAcquisitionEntryFailureWithoutCatalogIdentityShowsEverywhere covers
 // the failure shape acquisition records when it cannot resolve an entry at all.
-// My Books explains it with Retry, and /jobs lists the same failed preparation.
+// Reading explains it with Retry, and /jobs lists the same failed preparation.
 func TestEPUBAcquisitionEntryFailureWithoutCatalogIdentityShowsEverywhere(t *testing.T) {
 	fixture := newAcquisitionHandlerFixture(t)
 	book := fixture.createToReadBook(t, "No catalog identity")
@@ -239,7 +239,7 @@ func TestEPUBAcquisitionEntryFailureWithoutCatalogIdentityShowsEverywhere(t *tes
 	}))
 	retryAction := `action="/reading/books/` + book.ID + `/reanalyze"`
 
-	myBooks := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+	myBooks := perform(t, fixture.handler, http.MethodGet, "/reading?disposition=to_read", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, myBooks.Code, myBooks.Body.String())
 	assert.Contains(t, myBooks.Body.String(), epubAcquisitionEntryMissingLabel)
 	assert.Contains(t, myBooks.Body.String(), retryAction)
@@ -330,7 +330,7 @@ func TestEPUBAcquisitionFailurePresentationOffersRetryOnlyWhenItCanHelp(t *testi
 			}
 			require.NoError(t, fixture.store.RecordEPUBAcquisitionFailure(context.Background(), record))
 
-			page := perform(t, fixture.handler, http.MethodGet, "/library?disposition=to_read", nil, fixture.cookies)
+			page := perform(t, fixture.handler, http.MethodGet, "/reading?disposition=to_read", nil, fixture.cookies)
 			require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 			body := page.Body.String()
 			assert.Contains(t, body, tt.label)
@@ -356,18 +356,18 @@ func TestMyBooksNeedsActionFilterAgainstPostgres(t *testing.T) {
 	}))
 	require.NoError(t, fixture.store.SetActiveStudyLanguage(ctx, fixture.owner.ID, "de"))
 
-	all := perform(t, fixture.handler, http.MethodGet, "/de/library?disposition=to_read", nil, fixture.cookies)
+	all := perform(t, fixture.handler, http.MethodGet, "/de/reading?disposition=to_read", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, all.Code, all.Body.String())
 	assert.Contains(t, all.Body.String(), "Acquisition failed.")
 	assert.Contains(t, all.Body.String(), `id="book-row-`+healthy.ID+`"`)
 
-	filtered := perform(t, fixture.handler, http.MethodGet, "/de/library?needs=action", nil, fixture.cookies)
+	filtered := perform(t, fixture.handler, http.MethodGet, "/de/reading?needs=action", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
 	body := filtered.Body.String()
 	assert.Contains(t, body, `id="book-row-`+failing.ID+`"`)
 	assert.NotContains(t, body, `id="book-row-`+healthy.ID+`"`)
 
-	searched := perform(t, fixture.handler, http.MethodGet, "/de/library?needs=action&q=quiet", nil, fixture.cookies)
+	searched := perform(t, fixture.handler, http.MethodGet, "/de/reading?needs=action&q=quiet", nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, searched.Code)
 	assert.Contains(t, searched.Body.String(), "need action.")
 	assert.NotContains(t, searched.Body.String(), "match “quiet”")

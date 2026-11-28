@@ -222,7 +222,7 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 	assert.True(t, strings.HasPrefix(oldVersion, "oga-agdt-upos/5"), oldVersion)
 	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM corpus_unprinted_syntax_nodes WHERE analysis_run_id=$1`, oldRun))
 	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM corpus_tokens WHERE analysis_run_id=$1 AND dependency <> 'dep'`, oldRun))
-	assert.NotContains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available", "a prepared Book starts current")
+	assert.NotContains(t, readingGet(t, h, "/reading", cookies), "A newer analysis is available", "a prepared Book starts current")
 
 	// A correction on the first token and an exclusion on the second, both real.
 	var corpusID, documentID string
@@ -242,7 +242,7 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 	require.NoError(t, err)
 
 	bumpInterpretation(t, pool, ancientgreek.InterpretationVersionNativeAGDT, fixture.unitOneKey, fixture.unitTwoKey)
-	assert.Contains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available", "every Greek Book is offered the new version")
+	assert.Contains(t, readingGet(t, h, "/reading", cookies), "A newer analysis is available", "every Greek Book is offered the new version")
 
 	harness := workUpdateHarness{
 		ctx: ctx, store: store, pool: pool, h: h, updates: service,
@@ -280,6 +280,6 @@ func TestClassicalBookPreparedBeforeNativeSyntaxIsOfferedTheNewAnalysis(t *testi
 		assert.Equal(t, 2, countRows(t, pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, learner.ID, firstID, oldRun), "the earlier decisions stay frozen on the old run")
 	})
 	t.Run("the offer clears once the new analysis is published", func(t *testing.T) {
-		assert.NotContains(t, readingGet(t, h, "/library", cookies), "A newer analysis is available")
+		assert.NotContains(t, readingGet(t, h, "/reading", cookies), "A newer analysis is available")
 	})
 }

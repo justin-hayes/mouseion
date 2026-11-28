@@ -6,11 +6,11 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
   const switcher = page.getByLabel('Study language');
   if (await switcher.inputValue() !== 'de') {
     await switcher.selectOption('de');
-    await expect(page).toHaveURL(/\/de\/library$/);
+    await expect(page).toHaveURL(/\/de\/reading$/);
   }
 }
 
@@ -22,14 +22,14 @@ async function openSupportingDetails(page: Page) {
 }
 
 const representativePages: Array<[string, RegExp]> = [
-  ['/de/library', /My Books/],
+  ['/de/reading', /Reading/],
   ['/books/fixture-book', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/jobs', /Jobs/],
   ['/catalogs', /Catalog/],
   ['/catalogs/sources', /Manage sources/],
-  ['/de/reading', /My Books/],
+  ['/de/reading', /Reading/],
   ['/de/vocabulary', /Vocabulary/],
 ];
 
@@ -79,7 +79,7 @@ test.describe('responsive and theme regression coverage', () => {
     await page.route(/\.woff2(?:\?|$)/, (route) => route.abort());
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
 
     const header = page.locator('.site-header');
     const language = page.getByLabel('Study language');
@@ -249,7 +249,7 @@ test.describe('responsive and theme regression coverage', () => {
     expect(await deletionConfirmations.evaluateAll((nodes) => nodes.every((node) => !(node as HTMLDetailsElement).open))).toBe(true);
     await expect(deletionConfirmations.first().locator('summary')).toHaveText('Delete catalog connection');
     await deletionConfirmations.first().locator('summary').click();
-    await expect(deletionConfirmations.first()).toContainText('Books already in My Books and their artifacts remain available.');
+    await expect(deletionConfirmations.first()).toContainText('Books already in Reading and their artifacts remain available.');
     await expect(deletionConfirmations.first().getByRole('button', { name: 'Confirm deletion' })).toBeVisible();
     await deletionConfirmations.first().locator('summary').click();
 
@@ -281,13 +281,13 @@ test.describe('responsive and theme regression coverage', () => {
       await noScriptPage.getByLabel('Username').fill('fixture-learner');
       await noScriptPage.getByLabel('Password').fill('fixture-password');
       await noScriptPage.getByRole('button', { name: 'Sign in' }).click();
-      await expect(noScriptPage).toHaveURL(/\/library/);
-      await noScriptPage.goto('/de/library');
+      await expect(noScriptPage).toHaveURL(/\/reading/);
+      await noScriptPage.goto('/de/reading');
       await expect(noScriptPage.getByLabel('Study language')).toBeVisible();
       await expect(noScriptPage.getByRole('button', { name: 'Switch language' })).toBeVisible();
       await noScriptPage.getByLabel('Study language').selectOption('it');
       await noScriptPage.getByRole('button', { name: 'Switch language' }).click();
-      await expect(noScriptPage).toHaveURL(/\/it\/library$/);
+      await expect(noScriptPage).toHaveURL(/\/it\/reading$/);
       await expect(noScriptPage.getByLabel('Study language')).toHaveValue('it');
       await noScriptPage.locator('.site-header__account summary').click();
       await expect(noScriptPage.getByRole('button', { name: 'Log out' })).toBeVisible();
@@ -296,12 +296,12 @@ test.describe('responsive and theme regression coverage', () => {
     }
   });
 
-  test('My Books uses Mouseion-owned styling for the pinned Current reading and the To Read list', async ({ page }) => {
+  test('Reading uses Mouseion-owned styling for the pinned Current reading and the To Read list', async ({ page }) => {
     await signIn(page);
     await page.getByLabel('Study language').selectOption('de');
-    await expect(page).toHaveURL(/\/de\/library$/);
+    await expect(page).toHaveURL(/\/de\/reading$/);
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await expect(page.locator('#primary-goal-section')).toBeVisible();
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     const currentBook = page.locator('#primary-goal-section article.journey-book');
@@ -327,7 +327,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
-    await page.goto('/de/library?disposition=to_read');
+    await page.goto('/de/reading?disposition=to_read');
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.locator('ul.library-books').first()).toBeVisible();
     await expect(page.locator('ol.library-books')).toHaveCount(0);
@@ -342,11 +342,11 @@ test.describe('responsive and theme regression coverage', () => {
       expect(summary.height).toBeGreaterThanOrEqual(44);
     }
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await page.getByLabel('Study language').selectOption('it');
-    await expect(page).toHaveURL(/\/it\/library$/);
+    await expect(page).toHaveURL(/\/it\/reading$/);
     // Italian has no current Book, so its unassessed To Read titles are plain rows.
-    await page.goto('/it/library?disposition=to_read');
+    await page.goto('/it/reading?disposition=to_read');
     await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
@@ -468,7 +468,7 @@ test.describe('responsive and theme regression coverage', () => {
     expect(skipTop).toBeGreaterThanOrEqual(0);
 
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
@@ -481,7 +481,7 @@ test.describe('responsive and theme regression coverage', () => {
     expect(navigationFocus.outlineStyle).toBe('solid');
     expect(parseFloat(navigationFocus.outlineWidth)).toBeGreaterThanOrEqual(3);
 
-    await expect(navigation.getByRole('link', { name: 'My Books' })).toHaveAttribute('aria-current', 'page');
+    await expect(navigation.getByRole('link', { name: 'Reading' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByLabel('Study language')).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Reading' })).toHaveCount(0);
     const controls = navigation.locator('a, select, button:visible');
@@ -514,7 +514,7 @@ test.describe('responsive and theme regression coverage', () => {
     await secondaryAction.hover();
     expect(await textContrast(secondaryAction)).toBeGreaterThanOrEqual(4.5);
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const activeNavigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
@@ -539,16 +539,16 @@ test.describe('responsive and theme regression coverage', () => {
     await page.setViewportSize({ width: 375, height: 812 });
 
     for (const [path, current] of [
-      ['/de/library', 'My Books'],
+      ['/de/reading', 'Reading'],
       ['/de/vocabulary', 'Vocabulary'],
       ['/catalogs', 'Catalog'],
-      ['/jobs', 'My Books'],
+      ['/jobs', 'Reading'],
     ] as const) {
       await page.goto(path);
       const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
       const destinations = navigation.locator('.site-header__navigation a');
       await expect(destinations).toHaveCount(4);
-      await expect(destinations).toHaveText(['My Books', 'Study', 'Vocabulary', 'Catalog']);
+      await expect(destinations).toHaveText(['Reading', 'Study', 'Vocabulary', 'Catalog']);
       await expect(navigation.getByRole('link', { name: current, exact: true })).toHaveAttribute('aria-current', 'page');
       // Only per-language pages carry the picker; the Catalog and job status
       // have no page language (ADR 0131).
@@ -579,7 +579,7 @@ test.describe('responsive and theme regression coverage', () => {
       }
     }
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const account = page.locator('.site-header__account');
     await page.evaluate(() => {
       const language = document.querySelector<HTMLSelectElement>('#active-study-language')!;
@@ -618,7 +618,7 @@ test.describe('responsive and theme regression coverage', () => {
     await expectNoPageOverflow(page);
 
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await page.evaluate(() => {
       document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
     });
@@ -741,7 +741,7 @@ test.describe('responsive and theme regression coverage', () => {
     await username.fill('fixture-learner');
     await page.getByLabel('Password').fill('fixture-password');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL(/\/library/);
+    await expect(page).toHaveURL(/\/reading/);
     expect(await page.locator('html').evaluate((node) => getComputedStyle(node).colorScheme)).toBe('dark');
     await page.locator('html').evaluate((node) => node.setAttribute('data-theme', 'light'));
     expect(await page.locator('html').evaluate((node) => getComputedStyle(node).colorScheme)).toBe('light');
@@ -766,11 +766,11 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(page.getByRole('heading', { name: heading }).first()).toBeVisible();
       if (test.info().project.name.startsWith('compact')) await expectNoPageOverflow(page);
     }
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') {
       await switcher.selectOption('de');
-      await expect(page).toHaveURL(/\/de\/library$/);
+      await expect(page).toHaveURL(/\/de\/reading$/);
     }
     await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.locator('.library-books a[href="/books/fixture-failed"]')).toHaveCount(1);
@@ -790,11 +790,11 @@ test.describe('responsive and theme regression coverage', () => {
     if (test.info().project.name.startsWith('compact')) {
       // The Italian Journey retains the long-title content for narrow-layout
       // coverage without relying on the retired unassessed Book page.
-      await page.goto('/de/library');
+      await page.goto('/de/reading');
       await page.getByLabel('Study language').selectOption('it');
-      await expect(page).toHaveURL(/\/it\/library$/);
+      await expect(page).toHaveURL(/\/it\/reading$/);
       // Italian has no current Book, so its unassessed titles are plain rows.
-      await page.goto('/it/library?disposition=to_read');
+      await page.goto('/it/reading?disposition=to_read');
       await expect(page.getByRole('heading', { name: /Donaudampfschifffahrtsgesellschaftskapitänsmütze/ })).toBeVisible();
       await expectNoPageOverflow(page);
     }
@@ -825,7 +825,7 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('action order and compact touch targets preserve reachability', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const current = page.locator('#primary-goal-section');
     if (await current.locator('.journey-book--goal').count()) {
       await expect(current.getByRole('link', { name: 'Switch current reading' })).toHaveCount(0);
@@ -876,7 +876,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {
     test.skip(!test.info().project.name.startsWith('desktop'), 'This contract applies to the standard desktop layout.');
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const rows = await page.locator('#primary-goal-section article.journey-book--goal').evaluateAll((nodes) => nodes.map((node) => {
       const book = node.querySelector<HTMLElement>('.journey-book__identity')?.getBoundingClientRect();
       const controls = node.querySelector<HTMLElement>('.journey-book__lifecycle')?.getBoundingClientRect();
@@ -962,8 +962,8 @@ test.describe('responsive and theme regression coverage', () => {
   test('semantic status text, readable measures, and live theme tokens meet contrast targets', async ({ page }) => {
     await signIn(page);
     // Completed-analysis result URLs redirect to the canonical Reading anchor;
-    // exercise the shared semantic status shapes on their current My Books surface.
-    await page.goto('/de/library');
+    // exercise the shared semantic status shapes on their current Reading surface.
+    await page.goto('/de/reading');
     const semantics = await page.locator('.status-badge').evaluateAll((nodes) => nodes.map((node) => ({
       text: node.textContent?.trim(), color: getComputedStyle(node).color, border: getComputedStyle(node).borderTopColor,
     })));

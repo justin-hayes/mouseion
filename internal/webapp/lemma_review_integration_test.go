@@ -154,7 +154,7 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	assert.Zero(t, coverage.UnknownTokenCount)
 	assert.Equal(t, int64(3), coverage.AnalyzableTokenCount, "correction does not change the source-derived denominator")
 	// Decisions retire the Book's Browse counts until the durable rebuild runs;
-	// My Books shows no coverage without them, so publish them as the job would.
+	// Reading shows no coverage without them, so publish them as the job would.
 	rebuildTx, err := store.Pool().Begin(ctx)
 	require.NoError(t, err)
 	require.NoError(t, persistence.BuildVocabularyBrowseCountsTx(ctx, rebuildTx, owner.ID, book.ID, source.ID, analysisRun, corpus.ID, "de"))
@@ -162,9 +162,9 @@ func TestLemmaCorrectionPersistsOnlyForExactOwnedOccurrence(t *testing.T) {
 	myBooksAuth := auth.New(store, time.Hour)
 	myBooksHandler := New(Services{Auth: myBooksAuth, WebAuth: webauth.New(myBooksAuth, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, myBooksHandler, "lemma-review-owner", "learner-password")
-	myBooksPage := perform(t, myBooksHandler, http.MethodGet, "/library", nil, cookies)
+	myBooksPage := perform(t, myBooksHandler, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, myBooksPage.Code)
-	assert.Contains(t, myBooksPage.Body.String(), fmt.Sprintf("%.1f%% of running words Mature.", float64(coverage.MatureTokenCount)*100/float64(coverage.AnalyzableTokenCount)), "My Books margin coverage must match analysisinsights.Coverage after the exact-occurrence correction and exclusion decisions")
+	assert.Contains(t, myBooksPage.Body.String(), fmt.Sprintf("%.1f%% of running words Mature.", float64(coverage.MatureTokenCount)*100/float64(coverage.AnalyzableTokenCount)), "Reading margin coverage must match analysisinsights.Coverage after the exact-occurrence correction and exclusion decisions")
 	assert.NotContains(t, myBooksPage.Body.String(), ">0.0% of running words Mature.")
 	assert.Equal(t, coverage.InStudyTokenCount, coverage.MatureTokenCount)
 

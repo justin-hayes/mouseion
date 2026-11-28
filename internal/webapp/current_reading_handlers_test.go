@@ -83,7 +83,7 @@ func TestMyBooksCurrentReadingControlsAndReadingLink(t *testing.T) {
 	assert.NotContains(t, currentReadingCard, "View in Reading", "Reading is not a page")
 	assert.NotContains(t, currentReadingCard, "/reading#", "Reading is not a page")
 	assert.NotContains(t, currentReadingCard, "To Read", "current Book was also presented as To Read: %s", currentReadingCard)
-	assert.False(t, strings.Contains(otherCard, "Start reading") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
+	assert.False(t, strings.Contains(otherCard, "Start reading") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "Reading exposed a choose form: %s", otherCard)
 }
 
 func TestMyBooksPinsTheCurrentReadingAboveItsBooks(t *testing.T) {
@@ -195,18 +195,18 @@ func TestEndAndFinishReturnToThePostedStudyLanguage(t *testing.T) {
 
 	ended := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "language": {"de"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, ended.Code)
-	require.True(t, strings.HasPrefix(ended.Header().Get("Location"), "/de/library"), ended.Header().Get("Location"))
+	require.True(t, strings.HasPrefix(ended.Header().Get("Location"), "/de/reading"), ended.Header().Get("Location"))
 
 	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}, "language": {"de"}}, cookies)
 	require.Equal(t, http.StatusSeeOther, finished.Code, "no reading is left to finish")
-	require.True(t, strings.HasPrefix(finished.Header().Get("Location"), "/de/library"), finished.Header().Get("Location"))
+	require.True(t, strings.HasPrefix(finished.Header().Get("Location"), "/de/reading"), finished.Header().Get("Location"))
 }
 
 func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/library", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -224,7 +224,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	}
 	assert.True(t, strings.Contains(body, `id="journey-book-fixture-italian-goal"`) && !strings.Contains(body, `id="journey-book-fixture-book"`), "Italian Journey page exposed the German Goal: %s", body)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -239,7 +239,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 func TestReadingPageReservesNothingAndOffersNoDeck(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 
-	page := performReadingRequest(t, h, http.MethodGet, "/de/library", nil, cookies)
+	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.NotContains(t, body, "set aside from vocabulary selection")
@@ -302,7 +302,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeWithNoVocabularyEffect(t *tes
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
 		"Reading finished",
-		`href="/de/library">Choose a To Read book in My Books</a>`,
+		`href="/de/reading">Choose a To Read book in Reading</a>`,
 	} {
 		assert.Contains(t, finished.Body.String(), want, "finish outcome missing %q: %s", want, finished.Body.String())
 	}

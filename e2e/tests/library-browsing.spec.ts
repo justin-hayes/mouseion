@@ -5,16 +5,16 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
-test.describe('My Books collection browsing', () => {
+test.describe('Reading collection browsing', () => {
   // Runs once per Playwright project: the desktop/compact viewport and the
   // light/dark scheme come from playwright.config.ts, so the four projects
   // together cover the four combinations without a sweep inside each one.
   test('keeps failed-analysis recovery beside its neutral evidence note at desktop and compact widths', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const failedRow = page.locator('#book-row-fixture-failed');
     await expect(failedRow.locator('.library-book__evidence')).toHaveText('Analysis failed.');
     const retryAnalysis = failedRow.getByRole('button', { name: 'Retry analysis' });
@@ -32,14 +32,14 @@ test.describe('My Books collection browsing', () => {
     await expect(unavailableRow.locator('.library-book__evidence')).toHaveText('Content unavailable.');
     await expect(unavailableRow.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
     await expect(page.locator('#book-row-fixture-not-analyzed .library-book__evidence')).toHaveText('Not analysed yet.');
-    await page.goto('/de/library?history=read');
+    await page.goto('/de/reading?history=read');
     await expect(page.locator('#book-row-fixture-read-history .library-book__evidence')).toHaveText('Finished 3 Jan 2026.');
   });
 
   test('wraps the recovery action without compact horizontal overflow at 200% text', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     const recovery = page.locator('.library-book__recovery');
     await expect(recovery.first()).toBeVisible();
@@ -64,7 +64,7 @@ test.describe('My Books collection browsing', () => {
 
   test('uses one visible native disclosure cue and text-backed status shapes', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
 
     const account = page.locator('details').filter({ has: page.getByText('Account', { exact: true }) });
     const summary = account.locator('summary');
@@ -78,7 +78,7 @@ test.describe('My Books collection browsing', () => {
     const openCue = await summary.evaluate(element => getComputedStyle(element, '::before').transform);
     expect(openCue).not.toBe(closedCue);
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const badge = page.locator('.library-book__membership .status-badge').first();
     await expect(badge).toBeVisible();
     await expect(badge).toContainText(/Currently reading|To Read|Read/);
@@ -100,7 +100,7 @@ test.describe('My Books collection browsing', () => {
 
   test('uses Mouseion-owned styles without loading Pico', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
 
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico"]')).toHaveCount(0);
@@ -113,7 +113,7 @@ test.describe('My Books collection browsing', () => {
     expect(await placeholders.evaluateAll(nodes => nodes.every(node => node.getAttribute('aria-hidden') === 'true'))).toBe(true);
     expect(await placeholders.locator('.title-plate__title').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display !== 'none'))).toBe(true);
     expect(await placeholders.locator('.book-cover-media__label').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).display === 'none'))).toBe(true);
-    const search = page.getByLabel('Search My Books');
+    const search = page.getByLabel('Search Reading');
     const button = page.getByRole('button', { name: 'Search' });
     await expect(search).toBeVisible();
     expect(await search.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
@@ -134,7 +134,7 @@ test.describe('My Books collection browsing', () => {
     }
     await search.focus();
     expect(await search.evaluate(node => getComputedStyle(node).outlineStyle)).toBe('solid');
-    const readTab = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link', { name: /^Read \(\d+\)$/ });
+    const readTab = page.getByRole('navigation', { name: 'Reading tabs' }).getByRole('link', { name: /^Read \(\d+\)$/ });
     expect((await readTab.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 
     await page.goto('/books/fixture-book');
@@ -152,7 +152,7 @@ test.describe('My Books collection browsing', () => {
   test('shows the pinned Current reading identity in the initial desktop and compact viewport', async ({ page }) => {
     await signIn(page);
     // The project's own viewport (desktop or compact) is the one under test.
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const viewport = page.viewportSize()!;
     // The Current reading is pinned above the list, so its identity is the first
     // thing in view.
@@ -175,7 +175,7 @@ test.describe('My Books collection browsing', () => {
     const projectViewport = page.viewportSize()!;
     for (const viewport of [projectViewport, { width: 900, height: 900 }]) {
       await page.setViewportSize(viewport);
-      await page.goto('/de/library');
+      await page.goto('/de/reading');
       const row = page.locator('.library-books .library-book').filter({ has: page.locator('.library-book__author') }).first();
       const title = row.locator('.bibliographic-title');
       const author = row.locator('.library-book__author');
@@ -206,7 +206,7 @@ test.describe('My Books collection browsing', () => {
   test('wraps long multilingual Book identity at compact width and 200% text size', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const book = page.locator('.library-books .library-book').filter({ has: page.locator('.library-book__author') }).first();
     const title = book.locator('.bibliographic-title');
     const author = book.locator('.library-book__author');
@@ -230,12 +230,12 @@ test.describe('My Books collection browsing', () => {
 
   test('browses and searches only the active study language', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
 
-    await expect(page.getByLabel('Search My Books')).toBeVisible();
-    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page.getByLabel('Search Reading')).toBeVisible();
+    await expect(page.locator('#library-page-title')).toHaveText('Reading');
     await expect(page.locator('.library-language-context')).toHaveText('German collection');
     await expect(page.getByRole('navigation', { name: 'Languages' })).toHaveCount(0);
     await expect(page.getByText('All languages')).toHaveCount(0);
@@ -248,43 +248,43 @@ test.describe('My Books collection browsing', () => {
     const readNextButton = page.locator('.library-books button.library-book__journey-action').first();
     await expect(readNextButton).toHaveText('Read next');
     await expect(readNextButton).toHaveAccessibleName('Read next');
-    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.getByLabel('Search Reading').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
     await expect(page.locator('#library-results')).toBeFocused();
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const firstBook = page.locator('.library-books .library-book').first();
     await firstBook.getByText('More actions', { exact: true }).click();
     await expect(firstBook.getByText('Set aside', { exact: true })).toHaveCount(0);
 
-    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.getByLabel('Search Reading').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toBeVisible();
 
-    await page.getByLabel('Search My Books').fill('no-local-book-matches-this-term');
+    await page.getByLabel('Search Reading').fill('no-local-book-matches-this-term');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page.getByText(/No To Read books in German match/)).toBeVisible();
     await expect(page.getByRole('link', { name: 'Clear search' })).toBeVisible();
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await switcher.selectOption('it');
-    await expect(page).toHaveURL('/it/library');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page).toHaveURL('/it/reading');
+    await expect(page.locator('#library-page-title')).toHaveText('Reading');
     await expect(page.locator('.library-language-context')).toHaveText('Italian collection');
     await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Empty chapter' })).toBeVisible();
     await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Der lange Weg nach Hause' })).toHaveCount(0);
     await switcher.selectOption('de');
   });
 
-  test('My Books search keeps its native GET fallback and submits enhanced updates', async ({ page }) => {
+  test('Reading search keeps its native GET fallback and submits enhanced updates', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const form = page.getByRole('search');
     await expect(form).toHaveAttribute('method', 'get');
-    await expect(form).toHaveAttribute('action', /\/library/);
+    await expect(form).toHaveAttribute('action', /\/reading/);
     await expect(form.locator('input[name="q"]')).toHaveAttribute('type', 'search');
-    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.getByLabel('Search Reading').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
     await expect(page.locator('#library-results .library-books')).toContainText('Der lange Weg nach Hause');
@@ -295,14 +295,14 @@ test.describe('My Books collection browsing', () => {
     try {
       const page = await context.newPage();
       await signIn(page);
-      await page.goto('/de/library?q=Der%20lange');
+      await page.goto('/de/reading?q=Der%20lange');
       await expect(page.locator('ul.library-books')).toBeVisible();
       await expect(page.locator('.library-books .bibliographic-title', { hasText: 'Der lange Weg nach Hause' })).toBeVisible();
-      await page.goto('/de/library?q=Fehlgeschlagene');
+      await page.goto('/de/reading?q=Fehlgeschlagene');
       const book = page.locator('.library-books .library-book').filter({ hasText: 'Fehlgeschlagene Analyse' });
       await expect(book).toBeVisible();
       await book.getByText('More actions', { exact: true }).click();
-      await expect(book.getByRole('button', { name: 'Remove from My Books', exact: true })).toBeVisible();
+      await expect(book.getByRole('button', { name: 'Remove from Reading', exact: true })).toBeVisible();
       await expect(book.getByText('Set aside', { exact: true })).toHaveCount(0);
       await expect(book.getByRole('button', { name: 'Confirm set aside' })).toHaveCount(0);
       await expect(page.getByRole('link', { name: /Set Aside/ })).toHaveCount(0);
@@ -312,16 +312,16 @@ test.describe('My Books collection browsing', () => {
     }
   });
 
-  test('restores pushed My Books history from a full server response', async ({ page }) => {
+  test('restores pushed Reading history from a full server response', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
-    await page.getByLabel('Search My Books').fill('Der lange');
+    await page.goto('/de/reading');
+    await page.getByLabel('Search Reading').fill('Der lange');
     await page.getByRole('button', { name: 'Search' }).click();
     await expect(page).toHaveURL(/q=Der(%20|\+)lange/);
 
     const historyResponse = page.waitForResponse(response => {
       const url = new URL(response.url());
-      return url.pathname === '/de/library' && !url.searchParams.has('q');
+      return url.pathname === '/de/reading' && !url.searchParams.has('q');
     });
     await page.goBack();
     const response = await historyResponse;
@@ -331,13 +331,13 @@ test.describe('My Books collection browsing', () => {
 
   test('navigates to a complete corrected page after enhanced browse redirects', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
 
     for (const [requestPath, correctedPath] of [
-      ['/library?q=Der', '/de/library?q=Der'],
-      ['/de/library?page=999', '/de/library?disposition=to_read'],
+      ['/reading?q=Der', '/de/reading?q=Der'],
+      ['/de/reading?page=999', '/de/reading?disposition=to_read'],
     ]) {
-      await page.goto('/de/library');
+      await page.goto('/de/reading');
       await page.evaluate(({ requestPath }) => {
         document.querySelector('[data-test-browse-correction]')?.remove();
         const link = document.createElement('a');
@@ -359,9 +359,9 @@ test.describe('My Books collection browsing', () => {
       await expect(page).toHaveURL(correctedPath);
       await expect(page.locator('#library-results')).toBeVisible();
       await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
-      if (correctedPath === '/de/library?q=Der') {
+      if (correctedPath === '/de/reading?q=Der') {
         await page.goBack();
-        await expect(page).toHaveURL('/de/library');
+        await expect(page).toHaveURL('/de/reading');
         await page.goForward();
         await expect(page).toHaveURL(correctedPath);
         await expect(page.locator('#library-results .library-books').getByText('Der lange Weg nach Hause')).toBeVisible();
@@ -369,29 +369,29 @@ test.describe('My Books collection browsing', () => {
     }
   });
 
-  test('shows actionable errors from a failed My Books handler in the enhanced results region', async ({ page }) => {
+  test('shows actionable errors from a failed Reading handler in the enhanced results region', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
-    await page.getByLabel('Search My Books').fill('fixture-handler-error');
+    await page.goto('/de/reading');
+    await page.getByLabel('Search Reading').fill('fixture-handler-error');
     const failure = page.waitForResponse(response => new URL(response.url()).searchParams.get('q') === 'fixture-handler-error');
     await page.getByRole('button', { name: 'Search' }).click();
     const response = await failure;
     expect(response.status()).toBe(500);
-    expect(await response.text()).toContain('My Books could not be loaded');
+    expect(await response.text()).toContain('Reading could not be loaded');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     const alert = page.locator('#library-results [role="alert"]');
-    await expect(alert).toContainText('My Books could not be loaded');
+    await expect(alert).toContainText('Reading could not be loaded');
     expect(await alert.evaluate(node => getComputedStyle(node).color)).not.toBe(await alert.evaluate(node => getComputedStyle(node.parentElement!).color));
-    await expect(page.locator('#library-results a', { hasText: 'Try again' })).toHaveAttribute('href', '/de/library?disposition=to_read&q=fixture-handler-error');
+    await expect(page.locator('#library-results a', { hasText: 'Try again' })).toHaveAttribute('href', '/de/reading?disposition=to_read&q=fixture-handler-error');
   });
 
   test('keeps the current results when an enhancement request fails on the network', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const currentResults = page.locator('#library-results');
     await expect(currentResults.getByText('Der lange Weg nach Hause')).toBeVisible();
-    await page.route('**/library*', route => route.abort());
-    await page.getByLabel('Search My Books').fill('network-error-check');
+    await page.route('**/reading*', route => route.abort());
+    await page.getByLabel('Search Reading').fill('network-error-check');
     const failedRequest = page.waitForEvent('requestfailed', request => new URL(request.url()).searchParams.get('q') === 'network-error-check');
     await page.getByRole('button', { name: 'Search' }).click();
     await failedRequest;
@@ -400,18 +400,18 @@ test.describe('My Books collection browsing', () => {
     const alert = page.locator('#library-recovery [role="alert"]');
     await expect(alert).toContainText('connection failed');
     expect(await alert.evaluate(node => getComputedStyle(node).color)).not.toBe(await alert.evaluate(node => getComputedStyle(node.parentElement!).color));
-    await expect(page.locator('#library-recovery a', { hasText: 'Retry My Books request' })).toHaveAttribute('href', /network-error-check/);
+    await expect(page.locator('#library-recovery a', { hasText: 'Retry Reading request' })).toHaveAttribute('href', /network-error-check/);
   });
 
   test('retires the needs-language and Inbox browse states', async ({ page }) => {
     await signIn(page);
-    for (const retired of ['/library?needs-language', '/library?disposition=inbox']) {
+    for (const retired of ['/reading?needs-language', '/reading?disposition=inbox']) {
       const response = await page.goto(retired);
       expect(response?.status(), retired).toBe(404);
     }
 
-    await page.goto('/de/library');
-    const tabs = page.getByRole('navigation', { name: 'My Books tabs' }).getByRole('link');
+    await page.goto('/de/reading');
+    const tabs = page.getByRole('navigation', { name: 'Reading tabs' }).getByRole('link');
     await expect(tabs).toHaveCount(2);
     await expect(tabs.nth(0)).toContainText('To Read');
     await expect(tabs.nth(1)).toContainText('Read');
@@ -419,10 +419,10 @@ test.describe('My Books collection browsing', () => {
   });
 });
 
-test.describe('My Books needs-action filter', () => {
+test.describe('Reading needs-action filter', () => {
   test('shows a status line on Books that need action and filters to them, kept in the address', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await expect(page.locator('#book-row-fixture-failed [data-needs-action]')).toContainText('Analysis failed.');
     await expect(page.locator('#book-row-fixture-acquisition-failed [data-needs-action]')).toContainText('Acquisition failed.');
     await expect(page.locator('#book-row-fixture-book [data-needs-action]')).toHaveCount(0);

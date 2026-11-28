@@ -217,7 +217,7 @@ func bookDetailURL(bookID string) string {
 
 // bookActionRedirect answers a Book action with its message or error. A form
 // posted from the Book's own detail page names it in return_to and returns
-// there; any other form returns to My Books, so return_to is never an open
+// there; any other form returns to Reading, so return_to is never an open
 // redirect.
 func bookActionRedirect(w http.ResponseWriter, r *http.Request, bookID, key, text string) {
 	location := myBooksPagePath(r.Context())

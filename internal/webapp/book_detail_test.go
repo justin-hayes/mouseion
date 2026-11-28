@@ -51,13 +51,11 @@ func TestBookDetailRefusesAStaleRevisionAndAPageOutOfRange(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, beyond.Code)
 }
 
-func TestRetiredWorkingDeskAddressesMoveToTheBookDetailPageOrMyBooks(t *testing.T) {
+func TestRetiredWorkingDeskAddressesMoveToTheBookDetailPageOrServeReading(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 	moved := map[string]string{
 		"/de/reading?reading=" + fixtures.BookID: "/books/" + fixtures.BookID,
 		"/de/reading?reading=" + fixtures.BookID + "&q=ha&page=2&rev=r1&row=NOUN%3Ahaus&all=1&snapshot=stale": "/books/" + fixtures.BookID + "?page=2&q=ha&rev=r1&row=NOUN%3Ahaus",
-		"/de/reading?q=ha&all=1&page=2": "/de/library",
-		"/de/reading?page=1":            "/de/library",
 	}
 	for address, want := range moved {
 		t.Run(address, func(t *testing.T) {
@@ -66,6 +64,8 @@ func TestRetiredWorkingDeskAddressesMoveToTheBookDetailPageOrMyBooks(t *testing.
 			require.Equal(t, want, response.Header().Get("Location"))
 		})
 	}
+	// Without a named Book the address is the Reading page itself.
+	require.Equal(t, http.StatusOK, performReadingRequest(t, h, http.MethodGet, "/de/reading?page=1", nil, cookies).Code)
 }
 
 func TestBookDetailOpensForNoBookThatIsNotInMyBooks(t *testing.T) {

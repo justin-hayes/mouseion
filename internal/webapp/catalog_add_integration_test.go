@@ -155,7 +155,7 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/catalogs", location.Path)
 	message := location.Query().Get("message")
-	assert.Contains(t, message, "Added “Add Entry” to My Books.")
+	assert.Contains(t, message, "Added “Add Entry” to Reading.")
 	assert.Contains(t, message, "Downloading and analyzing the text.")
 	assert.Equal(t, "add-entry", location.Query().Get("added_entry"))
 	assert.Equal(t, fixture.connection.ID, location.Query().Get("added_connection"))
@@ -174,20 +174,20 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, languageTags(languages), "de", "the first Book in a language makes it a study language")
 
-	// The confirmation names the Book, links to My Books, and receives focus
+	// The confirmation names the Book, links to Reading, and receives focus
 	// after the ordinary POST redirect.
 	page := perform(t, fixture.handler, http.MethodGet, added.Header().Get("Location"), nil, fixture.cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	assert.Contains(t, body, `id="catalog-add-confirmation"`)
 	assert.Contains(t, body, `autofocus`)
-	assert.Contains(t, body, `href="/catalogs/books/`+entry.BookID+`/in-my-books">View in My Books</a>`)
-	assert.Contains(t, body, `href="/catalogs/books/`+entry.BookID+`/in-my-books">In My Books</a>`)
+	assert.Contains(t, body, `href="/catalogs/books/`+entry.BookID+`/in-my-books">View in Reading</a>`)
+	assert.Contains(t, body, `href="/catalogs/books/`+entry.BookID+`/in-my-books">In Reading</a>`)
 
 	// Replaying Add changes nothing and starts no second job.
 	replayed := fixture.add(t)
 	require.Equal(t, http.StatusSeeOther, replayed.Code, replayed.Body.String())
-	assert.Contains(t, replayed.Header().Get("Location"), url.QueryEscape("“Add Entry” is already in My Books."))
+	assert.Contains(t, replayed.Header().Get("Location"), url.QueryEscape("“Add Entry” is already in Reading."))
 	assert.Equal(t, 1, fixture.acquisition.calls, "a replayed Add starts no duplicate job")
 	again := fixture.ownedBook(t)
 	assert.Equal(t, entry.BookID, again.BookID, "a replayed Add creates no duplicate Book")
@@ -198,7 +198,7 @@ func TestCatalogueAddCreatesToReadBookAndPreparesOnce(t *testing.T) {
 		"csrf_token": {fixture.csrf},
 	}, fixture.cookies)
 	require.Equal(t, http.StatusSeeOther, removed.Code, removed.Body.String())
-	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("Removed from My Books."))
+	require.Contains(t, removed.Header().Get("Location"), url.QueryEscape("Removed from Reading."))
 	restored := fixture.add(t)
 	require.Equal(t, http.StatusSeeOther, restored.Code, restored.Body.String())
 	restoredEntry := fixture.ownedBook(t)

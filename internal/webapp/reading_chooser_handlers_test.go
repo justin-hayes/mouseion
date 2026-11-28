@@ -80,7 +80,7 @@ func TestMyBooksOffersReadNextOnlyOnAnalysedToReadBooks(t *testing.T) {
 	}
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
 
-	response := getAs(t, h, "/de/library?disposition=to_read", cookies)
+	response := getAs(t, h, "/de/reading?disposition=to_read", cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
 	assert.Contains(t, body, "Read next")
@@ -98,7 +98,7 @@ func TestReanalyzeReportsAnUnclassifiedFailureAsAnError(t *testing.T) {
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 
 	require.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/de/library?error="+url.QueryEscape(analysisCouldNotStartMessage))
+	assert.Contains(t, response.Header().Get("Location"), "/de/reading?error="+url.QueryEscape(analysisCouldNotStartMessage))
 }
 
 func TestReadNextReturnsToMyBooks(t *testing.T) {
@@ -106,7 +106,7 @@ func TestReadNextReturnsToMyBooks(t *testing.T) {
 	endGermanFixtureReading(t, store)
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/de/library?message=")
+	assert.Contains(t, response.Header().Get("Location"), "/de/reading?message=")
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", current.BookID)
@@ -115,7 +115,7 @@ func TestReadNextReturnsToMyBooks(t *testing.T) {
 	retried, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, current, retried, "a retry leaves the reading unchanged")
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -132,7 +132,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	handler.services.AnalysisInsights = fixtures.Insights{}
-	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
+	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		readingRequest.AddCookie(cookie)
 	}
@@ -149,8 +149,8 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 
 	switchPage := getAs(t, h, "/de/reading/switch", cookies)
 	require.Equal(t, http.StatusSeeOther, switchPage.Code, "Switch is no longer a page")
-	assert.Equal(t, "/de/library", switchPage.Header().Get("Location"))
-	toRead := getAs(t, h, "/de/library?disposition=to_read", cookies)
+	assert.Equal(t, "/de/reading", switchPage.Header().Get("Location"))
+	toRead := getAs(t, h, "/de/reading?disposition=to_read", cookies)
 	assert.Contains(t, toRead.Body.String(), `action="/reading/books/fixture-route-match/start"`, "Switch current reading is Read next")
 	switched := readingTestRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, switched.Code)
@@ -187,7 +187,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
-	assert.Contains(t, finished.Body.String(), `href="/de/library">Choose a To Read book in My Books</a>`)
+	assert.Contains(t, finished.Body.String(), `href="/de/reading">Choose a To Read book in Reading</a>`)
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.False(t, current.IsActive())
@@ -216,7 +216,7 @@ func TestLegacyCurrentReadingMutationsAreRejectedWithoutChangingCurrentReading(t
 	assert.Equal(t, currentBefore, currentAfter)
 }
 
-func TestReadingAddressesRedirectToMyBooksKeepingTheStudyLanguage(t *testing.T) {
+func TestRetiredReadingSwitchAndLibraryAddressesRedirectToReadingKeepingTheStudyLanguage(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 
 	unauthenticated := httptest.NewRecorder()
@@ -224,20 +224,22 @@ func TestReadingAddressesRedirectToMyBooksKeepingTheStudyLanguage(t *testing.T) 
 	assert.Equal(t, http.StatusUnauthorized, unauthenticated.Code)
 
 	for path, want := range map[string]string{
-		"/de/reading":                     "/de/library",
-		"/it/reading":                     "/it/library",
-		"/de/reading/switch":              "/de/library",
-		"/de/reading?message=Read+it":     "/de/library?message=Read+it",
-		"/it/reading?error=Nothing+moved": "/it/library?error=Nothing+moved",
+		"/de/reading/switch":              "/de/reading",
+		"/de/library":                     "/de/reading",
+		"/it/library?error=Nothing+moved": "/it/reading?error=Nothing+moved",
+		"/de/library?message=Read+it":     "/de/reading?message=Read+it",
 	} {
 		response := getAs(t, h, path, cookies)
 		assert.Equal(t, http.StatusSeeOther, response.Code, path)
 		assert.Equal(t, want, response.Header().Get("Location"), path)
 	}
+	assert.Equal(t, http.StatusOK, getAs(t, h, "/de/reading", cookies).Code)
 
-	unprefixed := getAs(t, h, "/reading", cookies)
-	require.Equal(t, http.StatusSeeOther, unprefixed.Code)
-	assert.Equal(t, "/de/reading", unprefixed.Header().Get("Location"), "the unprefixed address first takes the language, then redirects again")
+	for _, path := range []string{"/reading", "/library"} {
+		unprefixed := getAs(t, h, path, cookies)
+		require.Equal(t, http.StatusSeeOther, unprefixed.Code, path)
+		assert.Equal(t, "/de/reading", unprefixed.Header().Get("Location"), "the unprefixed address takes the language in one hop")
+	}
 }
 
 // chooserEvidenceBooks supplies the chooser's candidates and a read failure that

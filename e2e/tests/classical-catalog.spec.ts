@@ -5,7 +5,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 test('the Classical catalog is an ordinary card section; Add leaves the Catalog and the Work page keeps its contents', async ({ page }) => {
@@ -59,15 +59,15 @@ test('the Classical catalog is an ordinary card section; Add leaves the Catalog 
   await odyssey.getByRole('button', { name: 'Add', exact: true }).click();
 
   await expect(page).toHaveURL(/\/catalogs\?language=grc&/);
-  await expect(page.locator('#catalog-add-confirmation')).toContainText('Added 1 Book to My Books');
+  await expect(page.locator('#catalog-add-confirmation')).toContainText('Added 1 Book to Reading');
   await expect(page.locator('#catalog-add-confirmation')).toContainText('The text is already prepared');
-  await expect(page.locator('#catalog-add-confirmation').getByRole('link', { name: 'View in My Books' })).toBeVisible();
-  await expect(odyssey.getByText('In My Books', { exact: true })).toBeVisible();
+  await expect(page.locator('#catalog-add-confirmation').getByRole('link', { name: 'View in Reading' })).toBeVisible();
+  await expect(odyssey.getByText('In Reading', { exact: true })).toBeVisible();
   await expect(odyssey.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
 
   // An owned Work page keeps its contents list and offers no Add.
   await page.goto('/catalogs/classical/works/fixture-odyssey');
-  await expect(page.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Contents of Odyssey, Fixture reviewed edition' }).getByRole('row')).toHaveCount(4);
 
@@ -84,7 +84,7 @@ test("I've read this works from a Classical card and confirms like an OPDS card"
   const iliad = page.locator('#catalog-source-classical .catalog-entry', { hasText: 'Iliad' });
   await iliad.getByRole('button', { name: "I've read this", exact: true }).click();
   await expect(page.locator('#catalog-read-confirmation')).toContainText(/Recorded “Iliad” as previously read/);
-  await expect(page.locator('#catalog-read-confirmation').getByRole('link', { name: 'View in My Books' })).toBeVisible();
+  await expect(page.locator('#catalog-read-confirmation').getByRole('link', { name: 'View in Reading' })).toBeVisible();
 });
 
 test("I've read this records the whole Work as Read from its Work page", async ({ page }) => {
@@ -95,13 +95,13 @@ test("I've read this records the whole Work as Read from its Work page", async (
 
   await expect(page).toHaveURL(/\/catalogs\/classical\/works\/fixture-hellenica\?/);
   await expect(page.getByText(/Recorded “Hellenica” as previously read/)).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open Ancient Greek in My Books', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'In My Books', exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open Ancient Greek in Reading', exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'In Reading', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
 
-  await page.getByRole('link', { name: 'Open Ancient Greek in My Books', exact: true }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await page.getByRole('link', { name: 'Open Ancient Greek in Reading', exact: true }).click();
+  await expect(page).toHaveURL(/\/reading/);
   await expect(page.getByRole('heading', { name: /Hellenica/ })).toBeVisible();
   await expect(page.locator('#book-row-fixture-classical-fixture-hellenica-fixture-learner').getByText('Read before Mouseion')).toBeVisible();
 });

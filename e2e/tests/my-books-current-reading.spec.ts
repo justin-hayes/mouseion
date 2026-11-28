@@ -5,11 +5,11 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).press('Enter');
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
   const language = page.getByLabel('Study language');
   if (await language.inputValue() !== 'de') {
     await language.selectOption('de');
-    await expect(page).toHaveURL(/\/de\/library$/);
+    await expect(page).toHaveURL(/\/de\/reading$/);
   }
 }
 
@@ -21,7 +21,7 @@ async function expectNoPageOverflow(page: Page) {
 // pinned Current reading first, then replaces it with Read next, then ends it.
 test.describe.configure({ mode: 'serial' });
 
-test.describe('My Books pins the Current reading', () => {
+test.describe('Reading pins the Current reading', () => {
   test('the Current reading is pinned above To Read with coverage and words left to Target coverage', async ({ page }) => {
     await signIn(page);
     const pinned = page.locator('#primary-goal-section');
@@ -46,28 +46,29 @@ test.describe('My Books pins the Current reading', () => {
     await expectNoPageOverflow(page);
   });
 
-  test('Reading is not in the shell navigation and its addresses return to My Books in the same language', async ({ page }) => {
+  test('Reading is the first shell destination and the retired Switch address returns to Reading in the same language', async ({ page }) => {
     await signIn(page);
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
-    await expect(navigation.getByRole('link', { name: 'Reading' })).toHaveCount(0);
-    await expect(navigation.locator('.site-header__navigation a')).toHaveText(['My Books', 'Study', 'Vocabulary', 'Catalog']);
+    await expect(navigation.locator('.site-header__navigation a')).toHaveText(['Reading', 'Study', 'Vocabulary', 'Catalog']);
 
     for (const [path, expected] of [
-      ['/de/reading', /\/de\/library$/],
-      ['/de/reading/switch', /\/de\/library$/],
-      ['/it/reading', /\/it\/library$/],
-      ['/it/reading/switch', /\/it\/library$/],
-      ['/de/reading?message=Saved', /\/de\/library\?message=Saved$/],
+      ['/de/reading', /\/de\/reading$/],
+      ['/de/reading/switch', /\/de\/reading$/],
+      ['/it/reading', /\/it\/reading$/],
+      ['/it/reading/switch', /\/it\/reading$/],
+      ['/de/reading?message=Saved', /\/de\/reading\?message=Saved$/],
+      ['/de/library', /\/de\/reading$/],
+      ['/it/library?message=Saved', /\/it\/reading\?message=Saved$/],
     ] as const) {
       await page.goto(path);
       await expect(page, path).toHaveURL(expected);
     }
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
   });
 
   test('Read next on a To Read row replaces the Current reading and offers no confirmation', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library?disposition=to_read');
+    await page.goto('/de/reading?disposition=to_read');
     const candidate = page.locator('.library-books .library-book').filter({ hasText: 'Route match: familiar German' });
     const readNext = candidate.getByRole('button', { name: 'Read next' });
     await expect(readNext).toBeVisible();
@@ -79,7 +80,7 @@ test.describe('My Books pins the Current reading', () => {
     await expect(current.getByRole('button', { name: 'Read next' })).toHaveCount(0);
 
     await readNext.click();
-    await expect(page).toHaveURL(/\/de\/library\?message=/);
+    await expect(page).toHaveURL(/\/de\/reading\?message=/);
     await expect(page.getByRole('status').first()).toContainText('is now your current reading');
     await expect(page.locator('#primary-goal-section').getByRole('heading', { level: 2, name: 'Route match: familiar German' })).toBeVisible();
     await expect(page.locator('#primary-goal-section')).not.toContainText('Der lange Weg nach Hause');
@@ -103,15 +104,15 @@ test.describe('My Books pins the Current reading', () => {
     const end = pinned.locator('details.confirmation').filter({ hasText: 'End current reading' });
     await end.locator('summary').click();
     await end.getByRole('button', { name: 'Confirm end current reading' }).click();
-    await expect(page).toHaveURL(/\/de\/library\?message=/);
+    await expect(page).toHaveURL(/\/de\/reading\?message=/);
     await expect(page.getByRole('status').first()).toContainText('Reading ended');
     await expect(page.locator('#primary-goal-section')).toHaveCount(0);
     await context.close();
   });
 
-  test('Finish records the reading and returns to My Books', async ({ page }) => {
+  test('Finish records the reading and returns to Reading', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library?disposition=to_read');
+    await page.goto('/de/reading?disposition=to_read');
     await page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByRole('button', { name: 'Read next' }).click();
     await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
 
@@ -119,9 +120,9 @@ test.describe('My Books pins the Current reading', () => {
     await finish.locator('summary').click();
     await finish.getByRole('button', { name: 'Mark reading finished' }).click();
     await expect(page.getByRole('heading', { name: /Reading finished/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Choose a To Read book in My Books' })).toHaveAttribute('href', '/de/library');
-    await page.getByRole('link', { name: 'Choose a To Read book in My Books' }).click();
-    await expect(page).toHaveURL(/\/de\/library$/);
+    await expect(page.getByRole('link', { name: 'Choose a To Read book in Reading' })).toHaveAttribute('href', '/de/reading');
+    await page.getByRole('link', { name: 'Choose a To Read book in Reading' }).click();
+    await expect(page).toHaveURL(/\/de\/reading$/);
     await expect(page.locator('#primary-goal-section')).toHaveCount(0);
   });
 });

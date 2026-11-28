@@ -81,28 +81,28 @@ func TestMyBooksToReadSortsByMatureCoverageOverHTTP(t *testing.T) {
 	}
 
 	t.Run("the default is title order", func(t *testing.T) {
-		page := perform(t, h, http.MethodGet, "/de/library?disposition=to_read", nil, cookies)
+		page := perform(t, h, http.MethodGet, "/de/reading?disposition=to_read", nil, cookies)
 		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 		body := page.Body.String()
 		assert.True(t, titleOrder(body), "the default tab is not in title order: %s", body)
 		assert.False(t, readableOrder(body), "the default tab must not be coverage-ordered")
 		assert.Contains(t, body, "Most readable first")
-		assert.Contains(t, body, "/de/library?disposition=to_read&amp;sort=readable", "the sort control is an address")
+		assert.Contains(t, body, "/de/reading?disposition=to_read&amp;sort=readable", "the sort control is an address")
 	})
 
 	t.Run("the most-readable sort orders by Mature coverage then title", func(t *testing.T) {
-		page := perform(t, h, http.MethodGet, "/de/library?disposition=to_read&sort=readable", nil, cookies)
+		page := perform(t, h, http.MethodGet, "/de/reading?disposition=to_read&sort=readable", nil, cookies)
 		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 		body := page.Body.String()
 		assert.True(t, readableOrder(body), "the sorted tab is not in Mature coverage order: %s", body)
 		assert.False(t, titleOrder(body), "the sorted tab must not be in title order")
 		assert.Contains(t, body, "Title order", "the control offers the way back to the default")
 		assert.Contains(t, body, `name="sort" value="readable"`, "a search keeps the sort in the address")
-		assert.Contains(t, body, `href="/de/library?history=read"`, "the Read tab keeps its own order")
+		assert.Contains(t, body, `href="/de/reading?history=read"`, "the Read tab keeps its own order")
 	})
 
 	t.Run("an unknown sort value is unsupported", func(t *testing.T) {
-		refused := perform(t, h, http.MethodGet, "/de/library?disposition=to_read&sort=bogus", nil, cookies)
+		refused := perform(t, h, http.MethodGet, "/de/reading?disposition=to_read&sort=bogus", nil, cookies)
 		assert.Equal(t, http.StatusNotFound, refused.Code)
 	})
 }

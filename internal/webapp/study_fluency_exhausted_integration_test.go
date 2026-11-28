@@ -38,7 +38,7 @@ func TestStudyFluencyEnqueueSkipsAnExhaustedWordUntilItsCorpusChangesOrItLapses(
 	assert.Zero(t, s.enqueuedFluencyJobs(), "an exhausted word is not queued again")
 	assert.Zero(t, s.enqueuedFluencyJobs(), "nor on any later visit")
 
-	t.Run("a Book added to My Books", func(t *testing.T) {
+	t.Run("a Book added to Reading", func(t *testing.T) {
 		_, err := s.store.Pool().Exec(s.ctx, `UPDATE book_membership SET activated_at=$2 WHERE owner_id=$1`, s.owner.ID, scanned.Add(time.Minute))
 		require.NoError(t, err)
 		assert.Equal(t, 1, s.enqueuedFluencyJobs())
@@ -58,7 +58,7 @@ func TestStudyFluencyEnqueueSkipsAnExhaustedWordUntilItsCorpusChangesOrItLapses(
 	require.NoError(t, s.store.RecordStudyFluencyExhausted(s.ctx, s.owner.ID, word.ID, scanned))
 	require.Zero(t, s.enqueuedFluencyJobs())
 
-	t.Run("a Book removed from My Books", func(t *testing.T) {
+	t.Run("a Book removed from Reading", func(t *testing.T) {
 		_, err := s.store.Pool().Exec(s.ctx, `UPDATE book_membership SET state='removed', removed_at=$2, activated_at=NULL WHERE owner_id=$1`, s.owner.ID, scanned.Add(time.Minute))
 		require.NoError(t, err)
 		assert.Equal(t, 1, s.enqueuedFluencyJobs())

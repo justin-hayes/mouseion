@@ -49,7 +49,7 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 				<h2>{ unit.EditionLabel }</h2>
 				<p class="numeric">Passage { classicalRange(unit.CitationStart, unit.CitationEnd) }</p>
 				if bookID := view.OwnedUnits[unit.Key]; bookID != "" {
-					<a class="button button--outline" href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In My Books</a>
+					<a class="button button--outline" href={ templ.SafeURL(classicalBookInMyBooksURL(bookID)) }>In Reading</a>
 				} else if view.AddAvailable {
 					<div class="action-group">
 						@ClassicalAddForm(csrf, classicalUnitAddURL(unit.Key))
@@ -76,12 +76,12 @@ templ ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWor
 }
 
 // ClassicalAddFeedback confirms the Add. When another study language is active
-// it also offers the "In My Books" path that opens the added Books in Ancient
+// it also offers the "In Reading" path that opens the added Books in Ancient
 // Greek; following that path is what switches the study language.
 templ ClassicalAddFeedback(confirmation classicalAddConfirmation) {
 	@Feedback(FeedbackSuccess, "", confirmation.Message) {
 		if confirmation.InMyBooksURL() != "" {
-			<p><a href={ templ.SafeURL(confirmation.InMyBooksURL()) }>Open Ancient Greek in My Books</a></p>
+			<p><a href={ templ.SafeURL(confirmation.InMyBooksURL()) }>Open Ancient Greek in Reading</a></p>
 		}
 	}
 }

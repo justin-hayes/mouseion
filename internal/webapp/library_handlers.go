@@ -16,12 +16,15 @@ import (
 	"github.com/justin-hayes/mouseion/internal/webauth"
 )
 
-const myBooksLoadFailureMessage = "My Books could not be loaded. Try refreshing the page."
+const myBooksLoadFailureMessage = "Reading could not be loaded. Try refreshing the page."
 
 func (h *Handler) dashboard(w http.ResponseWriter, r *http.Request) {
-	redirect(w, r, studyLanguagePath(pageKindMyBooks, shellViewFromContext(r.Context()).lastLanguage()))
+	redirect(w, r, studyLanguagePath(pageKindReading, shellViewFromContext(r.Context()).lastLanguage()))
 }
 func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
+	if redirectReadingToBookDetail(w, r) {
+		return
+	}
 	w.Header().Add("Vary", "HX-Request-Type")
 	u := user(r)
 	activeLanguage, activeLanguageLabel := activeStudyLanguageForContext(r.Context())
@@ -142,7 +145,7 @@ func myBooksKeptPageItems(kept []domain.MyBook, page int) []domain.MyBook {
 	return nil
 }
 
-// myBooksLibraryRequest is the My Books browse state the /library query asks for.
+// myBooksLibraryRequest is the Reading browse state the /library query asks for.
 type myBooksLibraryRequest struct {
 	query        string
 	page         int
@@ -166,7 +169,7 @@ func myBooksRedirectPage(request myBooksLibraryRequest, result domain.MyBooksBro
 	return 0, false
 }
 
-// loadLibraryBrowsingExtras runs the My Books reads that decorate the result
+// loadLibraryBrowsingExtras runs the Reading reads that decorate the result
 // rows: disposition annotations and Analysis update offers. It keeps their
 // order, which the validated rows depend on.
 func (h *Handler) loadLibraryBrowsingExtras(ctx context.Context, owner string, books []domain.MyBook) error {
@@ -187,7 +190,7 @@ func redirectMyBooksBrowse(w http.ResponseWriter, r *http.Request, path string) 
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	// #nosec G710 -- SafeReturnPath rejects external destinations; My Books paths are local.
+	// #nosec G710 -- SafeReturnPath rejects external destinations; Reading paths are local.
 	http.Redirect(w, r, webauth.SafeReturnPath(path), http.StatusSeeOther)
 }
 
@@ -291,7 +294,7 @@ func myBooksPageForBook(ctx context.Context, store MyBooksStore, owner, language
 			}
 		}
 		if offset+myBooksPageSize >= result.Total {
-			return 0, fmt.Errorf("book %q is not present in its visible My Books bucket", book.Book.ID)
+			return 0, fmt.Errorf("book %q is not present in its visible Reading bucket", book.Book.ID)
 		}
 	}
 }
@@ -325,7 +328,7 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 	}
 	owner, bookID := user(r).ID, r.PathValue("id")
 	book, err := h.services.Store.MyBooks.GetBookDetail(r.Context(), owner, bookID)
-	// A retried removal may no longer have an active My Books detail. The
+	// A retried removal may no longer have an active Reading detail. The
 	// store still decides whether the Book exists and can be removed.
 	if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		fail(w, err)
@@ -339,13 +342,13 @@ func (h *Handler) removeBookFromMyBooks(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	case errors.Is(err, domain.ErrBookIsCurrentReading):
-		myBooksRedirectWithNotice(w, r, returnTo, "This Book is your current reading. Finish or end the reading before removing it from My Books.")
+		myBooksRedirectWithNotice(w, r, returnTo, "This Book is your current reading. Finish or end the reading before removing it from Reading.")
 		return
 	case err != nil:
 		fail(w, err)
 		return
 	}
-	notice := "Removed from My Books. Its analysis and history are unchanged."
+	notice := "Removed from Reading. Its analysis and history are unchanged."
 	switch {
 	case book.ReadingUnit != nil && book.ReadingUnit.Withdrawn:
 		notice += " This Reading unit is no longer in the Catalog, so it can't be added back."
@@ -364,7 +367,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 	language := h.bookStudyLanguage(r.Context(), owner, bookID)
 	expectedRevision, ok := expectedDispositionRevision(r)
 	if !ok {
-		redirect(w, r, myBooksScopedURL(language, "", 1, domain.BookDispositionToRead, false)+"&error="+url.QueryEscape("This My Books form is out of date. Refresh My Books and try again."))
+		redirect(w, r, myBooksScopedURL(language, "", 1, domain.BookDispositionToRead, false)+"&error="+url.QueryEscape("This Reading form is out of date. Refresh Reading and try again."))
 		return
 	}
 	intent, err := h.readingIntentModule()
@@ -396,7 +399,7 @@ func (h *Handler) moveBookToRead(w http.ResponseWriter, r *http.Request) {
 func moveToReadMessage(outcome readingintent.Outcome) string {
 	switch outcome.Kind {
 	case readingintent.OutcomeStaleRevision:
-		return "This Book's decision changed in another tab. No changes were made; refresh My Books and try again."
+		return "This Book's decision changed in another tab. No changes were made; refresh Reading and try again."
 	case readingintent.OutcomeAlreadyCurrent:
 		return "Book moved to To Read. Analysis is already current."
 	case readingintent.OutcomeJobQueued:

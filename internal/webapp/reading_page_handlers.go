@@ -45,10 +45,10 @@ func readingReanalyzeURL(bookID string) string {
 	return "/reading/books/" + url.PathEscape(bookID) + "/reanalyze"
 }
 
-// readingBookURL is a Book's place in My Books in its study language. Reading
+// readingBookURL is a Book's place in Reading in its study language. Reading
 // is no longer a page, so every "open this Book" link lands on its row.
 func readingBookURL(language, bookID string) string {
-	return studyLanguagePath(pageKindMyBooks, language) + "#" + url.PathEscape(myBookRowID(bookID))
+	return studyLanguagePath(pageKindReading, language) + "#" + url.PathEscape(myBookRowID(bookID))
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -208,7 +208,7 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && analysisReadyForReading(item.Book) {
 		action.URL = readingBookURL(item.Book.Source.Language, bookID)
-		action.Label = "View in My Books"
+		action.Label = "View in Reading"
 	}
 	return action
 }

@@ -20,7 +20,7 @@ import (
 
 func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, ShellLayout("Foundations", nil, "", NavigationLibrary).Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Foundations", nil, "", NavigationReading).Render(context.Background(), &output))
 
 	html := output.String()
 	for _, want := range []string{
@@ -53,8 +53,8 @@ func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	var login, library bytes.Buffer
-	require.NoError(t, LoginPage("csrf", "", "/de/library", false).Render(context.Background(), &login))
-	require.NoError(t, ShellLayout("My Books", &domain.User{Username: "learner"}, "csrf", NavigationLibrary).Render(context.Background(), &library))
+	require.NoError(t, LoginPage("csrf", "", "/de/reading", false).Render(context.Background(), &login))
+	require.NoError(t, ShellLayout("Reading", &domain.User{Username: "learner"}, "csrf", NavigationReading).Render(context.Background(), &library))
 
 	assert.Contains(t, login.String(), `href="/static/app.css"`)
 	assert.Contains(t, login.String(), `rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2"`)
@@ -186,7 +186,7 @@ func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testi
 		{
 			name:    "invalid credentials",
 			message: "Invalid credentials",
-			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/de/library"`},
+			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/de/reading"`},
 		},
 		{
 			name:       "first account",
@@ -196,7 +196,7 @@ func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testi
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			require.NoError(t, LoginPage("csrf", test.message, "/de/library", test.onboarding).Render(context.Background(), &output))
+			require.NoError(t, LoginPage("csrf", test.message, "/de/reading", test.onboarding).Render(context.Background(), &output))
 			for _, want := range test.want {
 				assert.Contains(t, output.String(), want)
 			}
@@ -311,7 +311,7 @@ func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 
 func TestShellLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, ShellLayout("Mouseion", nil, "csrf-token", NavigationLibrary).Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Mouseion", nil, "csrf-token", NavigationReading).Render(context.Background(), &output))
 	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`} {
 		assert.Contains(t, output.String(), pattern, "application shell missing %q: %s", pattern, output.String())
 	}

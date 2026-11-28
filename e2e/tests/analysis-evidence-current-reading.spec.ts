@@ -6,7 +6,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 // A learner who starts reading a To Read Book with a published analysis, and
@@ -19,7 +19,7 @@ test.describe('Current reading over a failed re-analysis', () => {
 
     await readNext(page, 'Neue Analyse fehlgeschlagen');
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await expect(page.locator('#primary-goal-section').getByRole('heading', { name: 'Neue Analyse fehlgeschlagen' })).toBeVisible();
     // The supporting details are a disclosure whose summary is hidden on desktop,
     // where only Chromium keeps the closed content shown. Open it directly so the

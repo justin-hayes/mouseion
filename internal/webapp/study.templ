@@ -13,7 +13,7 @@ templ StudyPage(user domain.User, csrf string, view studyPageView) {
 			<section class="study-unavailable" aria-labelledby="study-unavailable-heading">
 				<h2 id="study-unavailable-heading">Study isn't available for this language yet</h2>
 				<p>Study needs a meaning that fits each sentence, and this language does not provide one yet.</p>
-				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
+				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open Reading</a>
 			</section>
 		} else {
 			if view.Finished {

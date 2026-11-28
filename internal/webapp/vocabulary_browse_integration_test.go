@@ -190,7 +190,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "Alice German")
 	assert.Contains(t, response.Body.String(), "haus")
-	assert.Contains(t, response.Body.String(), "Back to My Books")
+	assert.Contains(t, response.Body.String(), "Back to Reading")
 	assert.Contains(t, response.Body.String(), `data-study-state>Not yet introduced</td>`)
 	assert.Contains(t, response.Body.String(), "In this Book: 1; Across analyzed books: 2")
 	assert.Regexp(t, `href="/de/vocabulary/concordance\?as=lemma&amp;from_book=`+aliceBook.ID+`&amp;from_q=HA&amp;from_rev=[0-9a-f]+&amp;from_row=NOUN%3Ahaus`+`&amp;page=1&amp;term=haus&amp;upos=NOUN"`, response.Body.String(), "Browse hands the exact lemma and POS identity, plus its origin, to Concordance")
@@ -386,7 +386,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	moved := perform(t, h, http.MethodGet, "/de/reading?reading="+url.QueryEscape(aliceBook.ID)+"&page=2&all=1", nil, cookies)
 	require.Equal(t, http.StatusSeeOther, moved.Code)
 	assert.Equal(t, aliceDetail+"?page=2", moved.Header().Get("Location"))
-	switched := perform(t, h, http.MethodGet, "/de/library", nil, cookies)
+	switched := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, switched.Code)
 	assert.Contains(t, switched.Body.String(), "Reading since")
 
@@ -394,7 +394,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 	noReading := perform(t, h, http.MethodGet, "/de/reading?page=1", nil, cookies)
 	require.Equal(t, http.StatusSeeOther, noReading.Code)
-	assert.Equal(t, "/de/library", noReading.Header().Get("Location"))
+	assert.Equal(t, "/de/reading", noReading.Header().Get("Location"))
 	assert.NotContains(t, noReading.Body.String(), `id="vocabulary-workflow"`, "between Books there is no Browse")
 	assert.NotContains(t, noReading.Body.String(), "Browse selection")
 
@@ -436,7 +436,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 	germanBrowse := perform(t, h, http.MethodGet, "/de/reading?page=1", nil, cookies)
 	require.Equal(t, http.StatusSeeOther, germanBrowse.Code, "German has no Current reading, so there is no Browse")
-	assert.Equal(t, "/de/library", germanBrowse.Header().Get("Location"))
+	assert.Equal(t, "/de/reading", germanBrowse.Header().Get("Location"))
 }
 
 func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
@@ -494,10 +494,10 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	assert.Contains(t, unavailable.Body.String(), "Refresh status")
 	assert.Contains(t, unavailable.Body.String(), "does not requeue failed work or rerun analysis")
 	assert.NotContains(t, unavailable.Body.String(), "In this Book: 1", "unavailable counts must not leak rows")
-	// The way back to My Books survives both degraded count states.
+	// The way back to Reading survives both degraded count states.
 	for _, body := range []string{updating.Body.String(), unavailable.Body.String()} {
 		assert.Contains(t, body, "Refresh status")
-		assert.Contains(t, body, "Back to My Books")
+		assert.Contains(t, body, "Back to Reading")
 	}
 	assert.NotContains(t, unavailable.Body.String(), `href="/vocabulary/selection"`)
 }

@@ -16,9 +16,9 @@ import (
 
 // bookPreparationFixtureRows is one row of each Book preparation kind in the
 // states the /jobs page must tell apart: a failed Classical preparation with
-// the stage and code My Books explains, a running EPUB acquisition with no
+// the stage and code Reading explains, a running EPUB acquisition with no
 // stage or code yet, and a failed analysis with its code at the analysis
-// stage. Every row's Book is a current My Books member, so every row links.
+// stage. Every row's Book is a current Reading member, so every row links.
 func bookPreparationFixtureRows() []domain.BookPreparationJob {
 	analysisProgress := 42
 	return []domain.BookPreparationJob{
@@ -104,11 +104,11 @@ func TestJobsPageShowsEveryPreparationKindInOneTableAndCatalogSyncApart(t *testi
 		assert.Contains(t, html, `href="/catalogs/books/book-epub/in-my-books">Der lange Weg nach Hause</a>`)
 	})
 
-	t.Run("a failed row shows the stage and code My Books explains", func(t *testing.T) {
+	t.Run("a failed row shows the stage and code Reading explains", func(t *testing.T) {
 		row := preparationRow(t, html, "Anabasis")
 		assert.Contains(t, row, ">source<")
 		assert.Contains(t, row, "<code>source_pin_mismatch</code>")
-		assert.Contains(t, row, "Source doesn&#39;t match its reviewed definition", "the row adds the reason My Books explains for the Book")
+		assert.Contains(t, row, "Source doesn&#39;t match its reviewed definition", "the row adds the reason Reading explains for the Book")
 	})
 
 	t.Run("a failed analysis row shows its code at the analysis stage", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestJobsPageRendersRowsInListOrder(t *testing.T) {
 }
 
 // TestJobsPageRendersRowsWithoutCurrentMembershipWithoutLinks proves a row
-// whose Book left My Books keeps its history and its Book title but renders
+// whose Book left Reading keeps its history and its Book title but renders
 // no owner-scoped link, because the link's route only resolves for members.
 func TestJobsPageRendersRowsWithoutCurrentMembershipWithoutLinks(t *testing.T) {
 	var output bytes.Buffer
@@ -282,7 +282,7 @@ func TestAnalysisFinalizationDetailOffersRetryAndRendersLifecycle(t *testing.T) 
 
 func TestOperationalShellStylesExcludePico(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, ShellLayout("Jobs", &domain.User{}, "csrf", NavigationLibrary, shellStyleJobs).Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Jobs", &domain.User{}, "csrf", NavigationReading, shellStyleJobs).Render(context.Background(), &output))
 	assert.Contains(t, output.String(), `<body class="jobs-shell">`)
 	assert.NotContains(t, output.String(), "pico-2.1.1.min.css")
 }

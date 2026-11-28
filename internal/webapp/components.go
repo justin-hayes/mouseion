@@ -195,7 +195,6 @@ type NavigationContext string
 
 const (
 	NavigationNone       NavigationContext = ""
-	NavigationLibrary    NavigationContext = "library"
 	NavigationReading    NavigationContext = "reading"
 	NavigationStudy      NavigationContext = "study"
 	NavigationVocabulary NavigationContext = "vocabulary"
@@ -204,12 +203,10 @@ const (
 
 func navigationContextForTitle(title string) NavigationContext {
 	switch title {
-	case "My Books", "My Library":
-		return NavigationLibrary
+	case "Reading", "My Books", "My Library", "Learning":
+		return NavigationReading
 	case "Study":
 		return NavigationStudy
-	case "Reading", "Learning":
-		return NavigationReading
 	case "Vocabulary":
 		return NavigationVocabulary
 	case "Catalog", "Catalogs":
@@ -315,7 +312,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Find this book in My Books.", "View in My Books", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Find this book in Reading.", "View in Reading", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
 		}
 	}
 

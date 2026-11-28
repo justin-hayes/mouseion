@@ -63,14 +63,14 @@ func TestMyBooksNeedsActionFilterIsKeptInTheAddress(t *testing.T) {
 	assert.True(t, request.needsAction)
 
 	_, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: "needs=bogus"})
-	assert.False(t, ok, "an unknown needs value is not My Books")
+	assert.False(t, ok, "an unknown needs value is not Reading")
 
 	browse := MyBooksBrowseState{Language: "de", Disposition: domain.BookDispositionToRead, NeedsAction: true, Query: "faust"}
-	assert.Equal(t, "/de/library?disposition=to_read&needs=action&q=faust", myBooksResultsURL(browse, 1))
-	assert.Equal(t, "/de/library?disposition=to_read&needs=action", myBooksClearSearchURL(browse))
-	assert.Equal(t, "/de/library?history=read&needs=action&q=faust", myBooksReadTabURL(browse))
-	assert.Equal(t, "/de/library?disposition=to_read&q=faust", myBooksNeedsActionToggleURL(MyBooksBrowseState{Language: "de", Disposition: domain.BookDispositionToRead, NeedsAction: true, Query: "faust"}))
+	assert.Equal(t, "/de/reading?disposition=to_read&needs=action&q=faust", myBooksResultsURL(browse, 1))
+	assert.Equal(t, "/de/reading?disposition=to_read&needs=action", myBooksClearSearchURL(browse))
+	assert.Equal(t, "/de/reading?history=read&needs=action&q=faust", myBooksReadTabURL(browse))
+	assert.Equal(t, "/de/reading?disposition=to_read&q=faust", myBooksNeedsActionToggleURL(MyBooksBrowseState{Language: "de", Disposition: domain.BookDispositionToRead, NeedsAction: true, Query: "faust"}))
 
-	returned := myBooksReturnURL("/de/library?needs=action&disposition=to_read", "de")
-	assert.Equal(t, "/de/library?disposition=to_read&needs=action", returned)
+	returned := myBooksReturnURL("/de/reading?needs=action&disposition=to_read", "de")
+	assert.Equal(t, "/de/reading?disposition=to_read&needs=action", returned)
 }

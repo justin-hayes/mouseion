@@ -5,11 +5,11 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 // Each fixture Book states one Analysis evidence situation as typed signals.
-// The expectations are the wording and recovery that My Books and the Reading
+// The expectations are the wording and recovery that Reading and the Reading
 // chooser show for that situation, with the band the candidate's margin names.
 const situations = [
   {
@@ -66,10 +66,10 @@ const situations = [
 
 test.describe('Analysis evidence situations', () => {
   for (const situation of situations) {
-    test(`My Books presents ${situation.name}`, async ({ page }) => {
+    test(`Reading presents ${situation.name}`, async ({ page }) => {
       await signIn(page);
 
-      await page.goto('/de/library?disposition=to_read');
+      await page.goto('/de/reading?disposition=to_read');
       const row = page.locator(`#book-row-${situation.bookId}`);
       await expect(row).toHaveCount(1);
       await expect(row.locator('.library-book__evidence')).toHaveText(situation.evidence);
@@ -91,9 +91,9 @@ test.describe('Analysis evidence situations', () => {
   test('submitting the retry for a non-current re-analysis failure succeeds', async ({ page }) => {
     await signIn(page);
 
-    await page.goto('/de/library?disposition=to_read');
+    await page.goto('/de/reading?disposition=to_read');
     const row = page.locator('#book-row-fixture-reanalysis-failed');
     await row.getByRole('button', { name: 'Retry analysis', exact: true }).click();
-    await expect(page).toHaveURL(/\/library\?message=Analysis/);
+    await expect(page).toHaveURL(/\/reading\?message=Analysis/);
   });
 });

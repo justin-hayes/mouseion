@@ -29,8 +29,8 @@ func (r rejectingReading) StartCurrentReadingResult(context.Context, string, str
 }
 
 const (
-	notEligibleCandidateMessage = "This book is no longer an eligible To Read candidate. Review My Books before trying again."
-	startNoAnalysisMessage      = "This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh My Books and try again."
+	notEligibleCandidateMessage = "This book is no longer an eligible To Read candidate. Review Reading before trying again."
+	startNoAnalysisMessage      = "This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."
 )
 
 func rejectionLocation(t *testing.T, mutate func(*Handler), path string) (int, string) {
@@ -55,9 +55,9 @@ func TestReadNextShowsTheMessageForEachPersistenceRejection(t *testing.T) {
 		err  error
 		want string
 	}{
-		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/library?error=" + notEligibleCandidateMessage},
-		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/library?error=" + notEligibleCandidateMessage},
-		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/library?error=" + startNoAnalysisMessage},
+		{"not to read", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNotToRead}, "/de/reading?error=" + notEligibleCandidateMessage},
+		{"other language", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingOtherLanguage}, "/de/reading?error=" + notEligibleCandidateMessage},
+		{"no completed analysis", persistence.CurrentReadingIneligibleError{Reason: domain.CurrentReadingNoCompletedAnalysis}, "/de/reading?error=" + startNoAnalysisMessage},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

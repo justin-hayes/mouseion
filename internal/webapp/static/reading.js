@@ -5,10 +5,10 @@ window.showMyBooksNetworkRecovery = function (ctx) {
   recovery.replaceChildren();
   var message = document.createElement('p');
   message.setAttribute('role', 'alert');
-  message.textContent = 'My Books did not receive a response because the connection failed or the request timed out. Your current results and URL are unchanged. Retry the attempted search.';
+  message.textContent = 'Reading did not receive a response because the connection failed or the request timed out. Your current results and URL are unchanged. Retry the attempted search.';
   var retry = document.createElement('a');
   retry.href = ctx.request.action;
-  retry.textContent = 'Retry My Books request';
+  retry.textContent = 'Retry Reading request';
   recovery.append(message, retry);
 };
 

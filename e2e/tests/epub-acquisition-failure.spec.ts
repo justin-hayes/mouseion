@@ -5,15 +5,15 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 test.describe('EPUB acquisition failure evidence', () => {
-  test('My Books shows the recorded reason and Retry on a failed acquisition', async ({ page }) => {
+  test('Reading shows the recorded reason and Retry on a failed acquisition', async ({ page }) => {
     await signIn(page);
 
     // The failed Book is an ordinary To Read Book in the collection.
-    await page.goto('/de/library?disposition=to_read');
+    await page.goto('/de/reading?disposition=to_read');
     const row = page.locator('#book-row-fixture-acquisition-failed');
     await expect(row).toHaveCount(1);
     await expect(row.locator('.library-book__membership')).toContainText('To Read');

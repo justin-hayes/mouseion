@@ -66,6 +66,6 @@ func migrationMyBook(t *testing.T, ctx context.Context, store *persistence.Postg
 			return book
 		}
 	}
-	require.Failf(t, "book absent from My Books", "book %q absent from My Books: %+v", bookID, books)
+	require.Failf(t, "book absent from Reading", "book %q absent from Reading: %+v", bookID, books)
 	return domain.MyBook{}
 }
