@@ -96,7 +96,6 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 		component templ.Component
 	}{
 		{name: "current reading", component: ReadingPage(domain.User{Username: "learner"}, "csrf", readingPageView{}, "", "")},
-		{name: "chooser", component: ReadingChooserPage(domain.User{Username: "learner"}, "csrf", readingChooserPageView{}, "", "")},
 		{name: "completion receipt", component: CurrentReadingFinishPage(domain.User{Username: "learner"}, "csrf", currentReadingFinishView{BookTitle: "A finished Book"})},
 	}
 	for _, page := range pages {
@@ -111,20 +110,12 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 		})
 	}
 
-	var current, chooser bytes.Buffer
+	var current bytes.Buffer
 	currentReading := testReadingBook("book-1", "Current book", testNoContent)
 	require.NoError(t, ReadingPage(domain.User{}, "csrf", readingPageView{CurrentReading: &currentReading}, "", "").Render(context.Background(), &current))
-	candidate := readingChooserBookView{
-		Book:     domain.MyBook{Book: domain.Book{ID: "candidate-1", Title: "Candidate book"}},
-		Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 1},
-	}
-	require.NoError(t, ReadingChooserBook(candidate, "csrf").Render(context.Background(), &chooser))
 	assert.Contains(t, current.String(), `<button class="button" type="submit">Mark reading finished</button>`)
-	assert.Contains(t, current.String(), `<a class="button button--quiet" href="/reading/switch">Switch current reading</a>`)
+	assert.NotContains(t, current.String(), "/reading/switch", "Read next replaces Switch")
 	assert.NotContains(t, current.String(), `role="button"`)
-	assert.Contains(t, chooser.String(), `<button class="button" type="submit">Read next</button>`)
-	assert.NotContains(t, chooser.String(), `class="confirmation"`, "Read next needs no confirmation")
-	assert.NotContains(t, chooser.String(), `role="button"`)
 
 	var fragment bytes.Buffer
 	require.NoError(t, CurrentReadingFinish(currentReadingFinishView{BookTitle: "A finished Book"}).Render(context.Background(), &fragment))

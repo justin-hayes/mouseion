@@ -78,7 +78,7 @@ func TestReadingChooserOffersAConfirmedAnalysisUpdate(t *testing.T) {
 	handler.services.AnalysisUpdates = updates
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/de/reading", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.Equal(t, 1, strings.Count(body, "A newer analysis is available."), "only the outdated Book shows the notice")
 	assert.Contains(t, body, `<details class="confirmation`, "the confirmation is a native disclosure that works without JavaScript")
 	assert.Contains(t, body, "Update analysis")
@@ -100,7 +100,7 @@ func TestReadingChooserTreatsUnavailableOffersAsCurrent(t *testing.T) {
 	handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offersErr: errors.New("NLP unreachable")}
 	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	body := readingGet(t, h, "/de/reading", cookies)
+	body := readingGet(t, h, "/de/library", cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
 	assert.Contains(t, body, "Read next")
 }
@@ -146,7 +146,7 @@ func TestAnalysisUpdateConfirmationSubmitsTheConfirmedOffer(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location, err := url.Parse(response.Header().Get("Location"))
 	require.NoError(t, err)
-	assert.Equal(t, "/de/reading", location.Path)
+	assert.Equal(t, "/de/library", location.Path)
 	assert.Contains(t, location.Query().Get("message"), "submitted as analysis job #7")
 	assert.Contains(t, location.Query().Get("message"), "The published analysis stays in effect until the update publishes.")
 	assert.Equal(t, []string{"fixture-route-match|" + sourceID + "|published-run|" + testUpdateTarget.Key()}, updates.submitted)

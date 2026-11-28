@@ -65,7 +65,7 @@ templ readingBrowseResults(view readingBrowseView) {
 	<p class="vocabulary-language">Viewing active study language <code>{ view.Language }</code>.</p>
 	if len(page.Books) == 0 || !page.Books[0].HasCurrentAnalysis {
 		<p role="status">This Book has no current completed analysis, so Browse cannot show current vocabulary evidence. Your reading, frozen inputs, downloads, Finish, Switch, and End are unchanged; use any analysis recovery shown in this reading.</p>
-		<p><a class="vocabulary-action-link" href={ templ.SafeURL(readingSwitchPath(ctx)) }>Switch current reading</a></p>
+		<p><a class="vocabulary-action-link" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Back to My Books</a></p>
 	} else {
 		<p class="vocabulary-scope">This Book's eligible vocabulary, with evidence from current analyzed Books in this language.</p>
 		<form method="get" action={ templ.SafeURL(studyLanguagePath(pageKindReading, view.Language)) } class="data-width vocabulary-filter" hx-get={ templ.SafeURL(studyLanguagePath(pageKindReading, view.Language)) } hx-target="#vocabulary-browse-results" hx-select="#vocabulary-browse-results" hx-swap="outerHTML" hx-push-url="true" hx-sync="#vocabulary-workflow:replace" hx-config="timeout:9s" hx-indicator="#vocabulary-pending" hx-status:409="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:4xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false" hx-status:5xx="target:#vocabulary-recovery select:#vocabulary-recovery swap:outerHTML push:false">
@@ -164,16 +164,16 @@ func readingBrowseHeadingFocused(view readingBrowseView) bool {
 // context itself: the learner chooses the current Reading with default controls,
 // or recovers the original Book in My Books where authorized.
 templ ReadingBrowseOriginExpiredPage(user domain.User, csrf string, hasCurrent bool, myBooksURL string) {
-	@ShellLayout("Book vocabulary changed", &user, csrf, NavigationReading, shellStyleReading) {
+	@ShellLayout("Book vocabulary changed", &user, csrf, NavigationLibrary, shellStyleReading) {
 		@PageHeader("Book vocabulary changed", "The reading you came from is no longer your Current reading.", nil)
 		<section id="reading-origin-expired" aria-labelledby="reading-origin-expired-heading">
 			<h2 id="reading-origin-expired-heading" tabindex="-1" autofocus>That book vocabulary was not restored</h2>
 			<p role="status">Your reading changed after you left it (switched, ended, finished, or restarted), so the prefix, page, and word were not moved into a different reading. Nothing was changed.</p>
 			if hasCurrent {
-				<p><a class="button" href={ templ.SafeURL(readingPagePath(ctx)) }>Open current Reading</a></p>
+				<p><a class="button" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a></p>
 			} else {
 				<p>You have no Current reading right now.</p>
-				<p><a class="button" href={ templ.SafeURL(readingPagePath(ctx)) }>Choose a book to read</a></p>
+				<p><a class="button" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Choose a book in My Books</a></p>
 			}
 			if myBooksURL != "" {
 				<p><a class="button button--outline" href={ templ.SafeURL(myBooksURL) }>Find the original Book in My Books</a></p>

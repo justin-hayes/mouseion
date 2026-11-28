@@ -58,17 +58,8 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	})
 	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
 
-	// Without a ready projection the chooser and Reading view say Updating
-	// and never a band computed from raw counts.
-	chooser := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, chooser.Code)
-	assert.Contains(t, chooser.Body.String(), "Updating")
-	assert.NotContains(t, chooser.Body.String(), "Mature vocabulary coverage")
-	view, err := h.buildReadingChooser(ctx, owner.ID, "de", "Deutsch", "")
-	require.NoError(t, err)
-	updating := chooserBooksInState(view, readingChooserUpdating)
-	require.Len(t, updating, 1)
-	assert.Nil(t, updating[0].Coverage)
+	// Without a ready projection the Reading view says Updating and never a
+	// figure computed from raw counts.
 	unreadyBook := readingBookView{Book: bookSummary(t, ctx, store, owner.ID, book.ID), BookID: book.ID}
 	require.NoError(t, h.addReadingEvidence(ctx, owner.ID, &unreadyBook))
 	assert.True(t, unreadyBook.CountsUpdating)
@@ -85,14 +76,6 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	assert.Equal(t, wantInStudy, myBooks.Items[0].CoverageInStudyTokens)
 	assert.Equal(t, wantTotal, myBooks.Items[0].CoverageTotalTokens)
 
-	view, err = h.buildReadingChooser(ctx, owner.ID, "de", "Deutsch", "")
-	require.NoError(t, err)
-	below95 := chooserBooksByBand(view, domain.CoverageBandBelow95)
-	require.Len(t, below95, 1)
-	require.NotNil(t, below95[0].Coverage)
-	assert.Equal(t, wantMature, below95[0].Coverage.MatureTokenCount)
-	assert.Equal(t, wantInStudy, below95[0].Coverage.InStudyTokenCount)
-
 	// Analysis Insights reads the same projection.
 	insights, err := analysisinsights.NewService(store).Coverage(ctx, owner.ID, corpus.ID)
 	require.NoError(t, err)
@@ -105,12 +88,6 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	require.Equal(t, http.StatusOK, myBooksPage.Code)
 	assert.Contains(t, myBooksPage.Body.String(), "66.7% of running words Mature.")
 	assert.Contains(t, myBooksPage.Body.String(), "83.3% with words in study.")
-	assert.Equal(t, wantTotal, below95[0].Coverage.AnalyzableTokenCount)
-	assert.Empty(t, chooserBooksInState(view, readingChooserUpdating))
-	chooserPage := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
-	require.Equal(t, http.StatusOK, chooserPage.Code)
-	assert.Contains(t, chooserPage.Body.String(), "66.7% (4 of 6 word occurrences)")
-	assert.Contains(t, chooserPage.Body.String(), "83.3% (5 word occurrences)")
 
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)
@@ -122,6 +99,12 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	assert.Equal(t, wantInStudy, page.CurrentReading.Coverage.InStudyTokenCount)
 	assert.Equal(t, wantTotal, page.CurrentReading.Coverage.AnalyzableTokenCount)
 	assert.False(t, page.CurrentReading.CountsUpdating)
+
+	// The pinned Current reading on My Books shows the same figures.
+	pinned := perform(t, h, http.MethodGet, "/de/library", nil, cookies)
+	require.Equal(t, http.StatusOK, pinned.Code)
+	assert.Contains(t, pinned.Body.String(), `data-current-reading-mature>66.7%</span> (4 of 6 word occurrences)`)
+	assert.Contains(t, pinned.Body.String(), `data-current-reading-in-study>83.3%</span>`)
 }
 
 func bookSummary(t *testing.T, ctx context.Context, store *persistence.PostgresStore, owner, bookID string) domain.SourceMaterialSummary {

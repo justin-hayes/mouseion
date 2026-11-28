@@ -331,7 +331,7 @@ type AnalysisCoverage struct {
 	// bring the in-study share of the Book to Target coverage (ADR 0136 §2). It
 	// is Reachable only when study investment alone could get there.
 	ToTarget    CoverageThreshold
-	TextProfile          *TextProfile
+	TextProfile *TextProfile
 }
 
 // ConcordanceOccurrence is one exact-match token occurrence from a current

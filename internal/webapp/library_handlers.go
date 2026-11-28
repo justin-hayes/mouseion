@@ -58,6 +58,14 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 		render(w, r, MyBooksResults(h.csrf(w, r), books, browse))
 		return
 	}
+	if activeLanguage != "" {
+		readingView, viewErr := h.buildReadingView(r.Context(), u.ID, activeLanguage)
+		if viewErr != nil {
+			h.renderMyBooksFailure(w, r, u)
+			return
+		}
+		browse.CurrentReading = readingView.CurrentReading
+	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), browse))
 }
 

@@ -7,9 +7,9 @@ import (
 )
 
 templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError string, canCorrect bool, occurrences []domain.LemmaReviewOccurrence, proposal *lemmareview.Preview, recovery lemmareview.Recovery, suggestion *lemmaReviewSuggestion, reports []domain.StudyReport) {
-	@ShellLayout("Review a word", &user, csrf, NavigationReading, shellStyleReading, shellStyleVocabulary) {
+	@ShellLayout("Review a word", &user, csrf, NavigationLibrary, shellStyleReading, shellStyleVocabulary) {
 		<main class="page-container data-width lemma-review">
-			<p><a href={ templ.SafeURL(readingPagePath(ctx)) }>Back to Reading</a></p>
+			<p><a href={ templ.SafeURL(myBooksPagePath(ctx)) }>Back to My Books</a></p>
 			<h1>Review a word in { title }</h1>
 			<p>Search one exact observed form in this Book's current analysis. Each decision starts with one occurrence; review sentence contexts and explicitly select any additional occurrences to include. Analyzer results remain unchanged.</p>
 			if !recovery.ReferenceAssessed {
@@ -26,7 +26,7 @@ templ LemmaReviewPage(user domain.User, csrf, bookID, title, form, pageError str
 				<article aria-labelledby="active-reading-lemma-recovery">
 					<h2 id="active-reading-lemma-recovery">Stop before changing this Book's vocabulary</h2>
 					<p>Reading uses a frozen snapshot. To use a corrected identity, stop this reading without marking it finished, review and confirm the occurrence decision, then start the Book again to create a new snapshot.</p>
-					<p><a href={ templ.SafeURL(readingPagePath(ctx)) }>Open Reading to stop this Book</a></p>
+					<p><a href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books to stop this Book</a></p>
 				</article>
 			}
 			if recovery.HasCompletedReading {

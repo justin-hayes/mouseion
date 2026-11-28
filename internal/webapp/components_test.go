@@ -366,11 +366,6 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
 		},
 		{
-			name: "Reading chooser",
-			html: renderPattern(t, ReadingChooserCandidate(readingChooserBookView{Book: book}, "csrf"), ""),
-			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`},
-		},
-		{
 			name: "Reading current Book",
 			html: renderPattern(t, ReadingBookCard(readingBookView{
 				Book:        domain.SourceMaterialSummary{BookTitle: "Iliad", BookAuthor: "Homer", Source: domain.SourceMaterial{Language: "grc"}},

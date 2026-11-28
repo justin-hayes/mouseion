@@ -120,7 +120,7 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 			if status.Lifecycle == domain.JobLifecycleCompleted {
 					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
 						<p>Analysis complete. Continue with this book in Reading.</p>
-						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
+						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in My Books</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
