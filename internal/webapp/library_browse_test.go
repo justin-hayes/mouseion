@@ -28,14 +28,14 @@ func TestMyBooksBrowseControlsRenderScopedSearchAndPaging(t *testing.T) {
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", state).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{
-		`role="search"`, `method="get"`, `label class="sr-only" for="library-search-query">Search My Books`,
+		`role="search"`, `method="get"`, `label class="sr-only" for="library-search-query">Search Reading`,
 		`type="search" name="q"`, `class="btn btn-outline" type="submit">Search</button>`,
-		`id="library-results"`, `data-focus-id="library-results"`, `aria-label="My Books results"`, `Page 2 of 2`, `href="/de/library?history=read"`,
-		`href="/de/library?disposition=to_read&amp;page=2"`,
+		`id="library-results"`, `data-focus-id="library-results"`, `aria-label="Reading results"`, `Page 2 of 2`, `href="/de/reading?history=read"`,
+		`href="/de/reading?disposition=to_read&amp;page=2"`,
 	} {
 		assert.Contains(t, html, want, "browse markup missing %q: %s", want, html)
 	}
-	assert.Contains(t, html, `href="/books/de-book"`, "My Books browse missing the Book detail link: %s", html)
+	assert.Contains(t, html, `href="/books/de-book"`, "Reading browse missing the Book detail link: %s", html)
 	for _, forbidden := range []string{"All languages", "Unknown language", `aria-label="Languages"`, `name="language"`, `language: de`, "language not chosen", `href="/books/unknown-book"`} {
 		assert.NotContains(t, html, forbidden, "legacy language browse markup remains %q: %s", forbidden, html)
 	}
@@ -49,7 +49,7 @@ func TestMyBooksBrowseNoMatchStatesPreserveTheRightFilters(t *testing.T) {
 		state MyBooksBrowseState
 		wants []string
 	}{
-		{name: "text", state: MyBooksBrowseState{Enabled: true, Query: "missing title", Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3, TextNoMatch: true}, wants: []string{"No To Read books in German match “missing title”", "Clear search", `href="/de/library?disposition=to_read"`}},
+		{name: "text", state: MyBooksBrowseState{Enabled: true, Query: "missing title", Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3, TextNoMatch: true}, wants: []string{"No To Read books in German match “missing title”", "Clear search", `href="/de/reading?disposition=to_read"`}},
 		{name: "collection", state: MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", Disposition: domain.BookDispositionToRead, AllCount: 3}, wants: []string{"No books in your To Read list in German.", `href="/catalogs"`}},
 	}
 	for _, tc := range cases {
@@ -70,7 +70,7 @@ func TestClearSearchResetsQueryAndPreservesTab(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", state).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `href="/de/library?disposition=to_read"`)
+	assert.Contains(t, html, `href="/de/reading?disposition=to_read"`)
 }
 
 // A GET form submit replaces its action's query string with the form fields, so
@@ -93,8 +93,8 @@ func TestMyBooksSearchFormCarriesTheActiveTabWithoutJavaScript(t *testing.T) {
 			start := strings.Index(html, `<form class="library-search"`)
 			require.GreaterOrEqual(t, start, 0, html)
 			form := html[start : start+strings.Index(html[start:], "</form>")]
-			assert.Contains(t, form, `action="/de/library"`)
-			assert.Contains(t, form, `hx-get="/de/library"`)
+			assert.Contains(t, form, `action="/de/reading"`)
+			assert.Contains(t, form, `hx-get="/de/reading"`)
 			for _, want := range tc.wants {
 				assert.Contains(t, form, want)
 			}
@@ -107,7 +107,7 @@ func TestMyBooksSearchFormCarriesTheActiveTabWithoutJavaScript(t *testing.T) {
 
 func TestMyBooksUnenhancedSearchSubmitStaysOnItsTab(t *testing.T) {
 	readSubmit := url.Values{"history": {"read"}, "q": {"iliad"}}
-	request, ok := parseMyBooksBrowseRequest(&url.URL{Path: "/de/library", RawQuery: readSubmit.Encode()})
+	request, ok := parseMyBooksBrowseRequest(&url.URL{Path: "/de/reading", RawQuery: readSubmit.Encode()})
 	require.True(t, ok)
 	assert.Equal(t, "iliad", request.query)
 	assert.Equal(t, 1, request.page)
@@ -115,7 +115,7 @@ func TestMyBooksUnenhancedSearchSubmitStaysOnItsTab(t *testing.T) {
 	assert.True(t, request.history)
 
 	toReadSubmit := url.Values{"disposition": {"to_read"}, "q": {"iliad"}}
-	request, ok = parseMyBooksBrowseRequest(&url.URL{Path: "/de/library", RawQuery: toReadSubmit.Encode()})
+	request, ok = parseMyBooksBrowseRequest(&url.URL{Path: "/de/reading", RawQuery: toReadSubmit.Encode()})
 	require.True(t, ok)
 	assert.Equal(t, domain.BookDispositionToRead, request.disposition)
 	assert.False(t, request.history)
@@ -157,7 +157,7 @@ func TestMyBooksPageForBookFindsBookOnLaterReadPage(t *testing.T) {
 	assert.Equal(t, "de", reader.gotLanguage)
 	assert.Empty(t, reader.gotBucket)
 	assert.True(t, reader.gotHistory)
-	assert.Equal(t, "/library?history=read&page=2", myBookBucketURL(book, page))
+	assert.Equal(t, "/reading?history=read&page=2", myBookBucketURL(book, page))
 }
 
 func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
@@ -170,7 +170,7 @@ func TestMyBooksPageForCurrentReadingUsesToReadTab(t *testing.T) {
 	assert.Equal(t, 1, page)
 	assert.Equal(t, domain.BookDispositionToRead, domain.BookDisposition(reader.gotBucket))
 	assert.False(t, reader.gotHistory)
-	assert.Equal(t, "/library?disposition=to_read", myBookBucketURL(book, page))
+	assert.Equal(t, "/reading?disposition=to_read", myBookBucketURL(book, page))
 }
 
 type browseRecordingStore struct {
@@ -203,7 +203,7 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 			handler := requireHandler(t, h)
 			store := &browseRecordingStore{Store: fixtureStore, err: errors.New("read failed")}
 			handler.services.Store = storeDependencies(store)
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library?q=Dampf", nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading?q=Dampf", nil)
 			if tc.partial {
 				request.Header.Set("Hx-Request-Type", "partial")
 			}
@@ -223,10 +223,10 @@ func TestLibraryHandlerUsesRequestAppropriateErrorRepresentationAndPreservesVary
 			if tc.partial {
 				assert.Contains(t, response.Body.String(), `<section id="library-results"`)
 				assert.NotContains(t, response.Body.String(), "<!doctype html>")
-				assert.Contains(t, response.Body.String(), `href="/de/library?q=Dampf"`)
+				assert.Contains(t, response.Body.String(), `href="/de/reading?q=Dampf"`)
 			} else {
 				assert.Contains(t, response.Body.String(), "<!doctype html>")
-				assert.Contains(t, response.Body.String(), `href="/de/library?q=Dampf"`)
+				assert.Contains(t, response.Body.String(), `href="/de/reading?q=Dampf"`)
 			}
 		})
 	}
@@ -267,7 +267,7 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 		return response
 	}
 
-	for _, path := range []string{"/de/library", "/de/library?page=0", "/de/library?page=invalid"} {
+	for _, path := range []string{"/de/reading", "/de/reading?page=0", "/de/reading?page=invalid"} {
 		response := request(path)
 		assert.Equal(t, http.StatusOK, response.Code, path)
 		vary := strings.Join(response.Header().Values("Vary"), ",")
@@ -277,15 +277,15 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 		assert.Equal(t, 0, store.offset, "GET %s", path)
 		assert.Equal(t, myBooksPageSize, store.limit, "GET %s", path)
 	}
-	response := request("/de/library?q=%20Dampf%20&page=3")
+	response := request("/de/reading?q=%20Dampf%20&page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library?disposition=to_read&page=2&q=Dampf", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading?disposition=to_read&page=2&q=Dampf", response.Header().Get("Location"))
 	assert.Equal(t, "Dampf", store.query)
 	assert.Equal(t, "de", store.language)
 	assert.Equal(t, 50, store.offset)
-	legacy := request("/library?language=it&q=Dampf")
+	legacy := request("/reading?language=it&q=Dampf")
 	assert.Equal(t, http.StatusSeeOther, legacy.Code)
-	assert.Equal(t, "/it/library?q=Dampf", legacy.Header().Get("Location"), "a valid legacy language query names the prefix and is stripped")
+	assert.Equal(t, "/it/reading?q=Dampf", legacy.Header().Get("Location"), "a valid legacy language query names the prefix and is stripped")
 	partialRequest := func(path string) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 		r.Header.Set("Hx-Request-Type", "partial")
@@ -296,11 +296,11 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 		handler.ServeHTTP(response, r)
 		return response
 	}
-	partialLegacy := partialRequest("/library?language=it&q=Dampf")
+	partialLegacy := partialRequest("/reading?language=it&q=Dampf")
 	assert.Equal(t, http.StatusOK, partialLegacy.Code)
-	assert.Equal(t, "/it/library?q=Dampf", partialLegacy.Header().Get("Hx-Redirect"))
+	assert.Equal(t, "/it/reading?q=Dampf", partialLegacy.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialLegacy.Header().Get("Location"))
-	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library?q=Dampf", nil)
+	htmxRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading?q=Dampf", nil)
 	htmxRequest.Header.Set("Hx-Request-Type", "partial")
 	for _, cookie := range cookies {
 		htmxRequest.AddCookie(cookie)
@@ -316,18 +316,18 @@ func TestLibraryHandlerParsesBrowseStateAndClampsStalePages(t *testing.T) {
 	assert.NotContains(t, htmxResponse.Body.String(), "<!doctype html>", "HTMX library response was not a results fragment: body=%s", htmxResponse.Body.String())
 	store.result.Total = 0
 	store.result.ScopeTotal = 26
-	response = request("/de/library?page=3")
+	response = request("/de/reading?page=3")
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library?disposition=to_read", response.Header().Get("Location"))
-	partialStalePage := partialRequest("/de/library?page=3")
+	assert.Equal(t, "/de/reading?disposition=to_read", response.Header().Get("Location"))
+	partialStalePage := partialRequest("/de/reading?page=3")
 	assert.Equal(t, http.StatusOK, partialStalePage.Code)
-	assert.Equal(t, "/de/library?disposition=to_read", partialStalePage.Header().Get("Hx-Redirect"))
+	assert.Equal(t, "/de/reading?disposition=to_read", partialStalePage.Header().Get("Hx-Redirect"))
 	assert.Empty(t, partialStalePage.Header().Get("Location"))
 	// The retired needs-language scope and the Inbox filter are unsupported
 	// rather than translated.
-	for _, path := range []string{"/de/library?needs-language", "/de/library?disposition=inbox", "/de/library?disposition=set_aside", "/de/library?disposition=to_read&history=read"} {
+	for _, path := range []string{"/de/reading?needs-language", "/de/reading?disposition=inbox", "/de/reading?disposition=set_aside", "/de/reading?disposition=to_read&history=read"} {
 		response = request(path)
-		assert.Equal(t, http.StatusNotFound, response.Code, "retired My Books state %s is unsupported", path)
+		assert.Equal(t, http.StatusNotFound, response.Code, "retired Reading state %s is unsupported", path)
 	}
 }
 
@@ -342,7 +342,7 @@ func TestLibraryHandlerNeverOffersRetiredMetadataRefresh(t *testing.T) {
 		Total: 2, ScopeTotal: 2, AllCount: 2,
 	}}
 	handler.services.Store = storeDependencies(store)
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -352,8 +352,8 @@ func TestLibraryHandlerNeverOffersRetiredMetadataRefresh(t *testing.T) {
 	html := response.Body.String()
 	assert.Contains(t, html, `id="book-row-fixture-metadata-only"`, "metadata-only rows missing: %s", html)
 	assert.Contains(t, html, `id="book-row-no-alias"`, "metadata-only rows missing: %s", html)
-	assert.NotContains(t, html, "Refresh metadata", "My Books still offered the retired refresh action: %s", html)
-	assert.NotContains(t, html, "/refresh", "My Books still linked a retired refresh route: %s", html)
+	assert.NotContains(t, html, "Refresh metadata", "Reading still offered the retired refresh action: %s", html)
+	assert.NotContains(t, html, "/refresh", "Reading still linked a retired refresh route: %s", html)
 }
 
 func TestMyBooksBrowseRequestDefaultsToToReadTab(t *testing.T) {
@@ -375,8 +375,8 @@ func TestMyBooksBrowseRequestDefaultsToToReadTab(t *testing.T) {
 	assert.True(t, ok)
 	assert.Empty(t, request.disposition)
 	assert.True(t, request.history)
-	assert.Equal(t, "/de/library?history=read&q=title", myBooksScopedURL("de", "title", 1, "", true))
-	assert.Equal(t, "/library?history=read&q=title", myBooksScopedURL("", "title", 1, "", true))
+	assert.Equal(t, "/de/reading?history=read&q=title", myBooksScopedURL("de", "title", 1, "", true))
+	assert.Equal(t, "/reading?history=read&q=title", myBooksScopedURL("", "title", 1, "", true))
 
 	for _, raw := range []string{"needs-language", "disposition=inbox", "disposition=invalid", "disposition=to_read&history=read", "sort=readable&history=read"} {
 		_, ok = parseMyBooksBrowseRequest(&url.URL{RawQuery: raw})
@@ -393,8 +393,8 @@ func TestMyBooksTabsRenderOnlyToReadAndRead(t *testing.T) {
 	}
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", state).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `aria-current="page" href="/de/library?disposition=to_read"`)
-	assert.Contains(t, html, `href="/de/library?history=read"`)
+	assert.Contains(t, html, `aria-current="page" href="/de/reading?disposition=to_read"`)
+	assert.Contains(t, html, `href="/de/reading?history=read"`)
 	assert.NotContains(t, html, "Inbox")
 	assert.NotContains(t, html, "All (")
 	assert.NotContains(t, html, "Set Aside")
@@ -428,12 +428,12 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 		return response
 	}
 
-	all := request("/de/library")
+	all := request("/de/reading")
 	require.Equal(t, http.StatusOK, all.Code)
 	assert.Contains(t, all.Body.String(), "Currently reading")
 	assert.Contains(t, all.Body.String(), "Reading history")
 
-	toRead := request("/de/library?disposition=to_read")
+	toRead := request("/de/reading?disposition=to_read")
 	require.Equal(t, http.StatusOK, toRead.Code)
 	assert.Contains(t, toRead.Body.String(), "To Read (16)")
 	assert.Contains(t, toRead.Body.String(), `id="book-row-`+fixtures.BookID+`"`)
@@ -488,8 +488,8 @@ func TestEmptyMyBooksLeadsToTheCatalog(t *testing.T) {
 	state := MyBooksBrowseState{Enabled: true}
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", state).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, "Find your first Book", "empty My Books state lost its Catalog path: %s", html)
-	assert.Contains(t, html, `href="/catalogs">Browse the Catalog</a>`, "empty My Books state lost its Catalog path: %s", html)
+	assert.Contains(t, html, "Find your first Book", "empty Reading state lost its Catalog path: %s", html)
+	assert.Contains(t, html, `href="/catalogs">Browse the Catalog</a>`, "empty Reading state lost its Catalog path: %s", html)
 }
 
 func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
@@ -506,14 +506,14 @@ func TestLibraryHandlerOmitsRetiredLanguageView(t *testing.T) {
 	}
 
 	handler.services.AnalysisInsights = fixtures.Insights{}
-	response := request("/de/library")
+	response := request("/de/reading")
 	assert.Equal(t, http.StatusOK, response.Code)
 	for _, forbidden := range []string{`id="language-view-panel"`, "Coverage across", "Language view", "Highest-impact unknown vocabulary", "Per-book spread"} {
 		assert.NotContains(t, response.Body.String(), forbidden, "retired language view markup remains %q: %s", forbidden, response.Body.String())
 	}
 }
 
-// libraryExtrasFailStore fails one of the My Books reads that decorate the
+// libraryExtrasFailStore fails one of the Reading reads that decorate the
 // result rows after the browse itself has succeeded.
 type libraryExtrasFailStore struct {
 	*browseRecordingStore
@@ -536,7 +536,7 @@ func TestLibraryHandlerDoesNotReadCatalogConnections(t *testing.T) {
 	}}
 	handler.services.Store = storeDependencies(libraryExtrasFailStore{browseRecordingStore: base, connectionsErr: errors.New("connections must not be read")})
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -552,7 +552,7 @@ func TestLibraryHandlerClampsAnEmptyScopeToItsFirstPage(t *testing.T) {
 	handler := requireHandler(t, h)
 	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{Total: 0, ScopeTotal: 0}})
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library?page=2", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading?page=2", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -560,7 +560,7 @@ func TestLibraryHandlerClampsAnEmptyScopeToItsFirstPage(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library?disposition=to_read", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading?disposition=to_read", response.Header().Get("Location"))
 }
 
 func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
@@ -568,7 +568,7 @@ func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
 	handler := requireHandler(t, h)
 	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{Total: 0, ScopeTotal: 0}})
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library?page=2&q=Dampf", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading?page=2&q=Dampf", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -576,7 +576,7 @@ func TestLibraryHandlerClampsAnEmptyFilteredScopeToItsFirstPage(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library?disposition=to_read&q=Dampf", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading?disposition=to_read&q=Dampf", response.Header().Get("Location"))
 }
 
 // The To Read tab can be empty while the language scope still counts Read
@@ -587,7 +587,7 @@ func TestLibraryHandlerClampsAnEmptyTabToItsFirstPageDespiteScopeCounts(t *testi
 	handler := requireHandler(t, h)
 	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore, result: persistence.MyBooksBrowseResult{Total: 0, ScopeTotal: 26, AllCount: 26}})
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library?disposition=to_read&page=2", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading?disposition=to_read&page=2", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -595,7 +595,7 @@ func TestLibraryHandlerClampsAnEmptyTabToItsFirstPageDespiteScopeCounts(t *testi
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library?disposition=to_read", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading?disposition=to_read", response.Header().Get("Location"))
 }
 
 func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {
@@ -603,7 +603,7 @@ func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {
 	handler := requireHandler(t, h)
 	handler.services.Store = storeDependencies(&browseRecordingStore{Store: fixtureStore})
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/library?language=de&q=Dampf", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/reading?language=de&q=Dampf", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -611,5 +611,5 @@ func TestLibraryHandlerDropsAnExplicitLanguageParameter(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library?q=Dampf", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading?q=Dampf", response.Header().Get("Location"))
 }

@@ -13,7 +13,7 @@ import (
 func TestStudyTabLinksToTheActiveLanguageAndIsCurrentOnStudyPages(t *testing.T) {
 	h, cookies, _, _, _, _ := languageContextHandler(t)
 
-	books := getAs(t, h, "/de/library", cookies)
+	books := getAs(t, h, "/de/reading", cookies)
 	require.Equal(t, http.StatusOK, books.Code)
 	assert.Contains(t, books.Body.String(), `href="/de/study"`, "the Study tab follows the active study language")
 	assert.NotContains(t, books.Body.String(), `href="/de/study" aria-current="page"`)
@@ -25,7 +25,7 @@ func TestStudyTabLinksToTheActiveLanguageAndIsCurrentOnStudyPages(t *testing.T) 
 			body := response.Body.String()
 			assert.Contains(t, body, `data-navigation-context="study"`)
 			assert.Contains(t, body, `href="/de/study" aria-current="page"`)
-			assert.NotContains(t, body, `href="/de/library" aria-current="page"`, "My Books is not current on Study pages")
+			assert.NotContains(t, body, `href="/de/reading" aria-current="page"`, "Reading is not current on Study pages")
 		})
 	}
 

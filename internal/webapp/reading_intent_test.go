@@ -50,7 +50,7 @@ func TestMoveToReadMessages(t *testing.T) {
 		outcome readingintent.Outcome
 		want    string
 	}{
-		{name: "stale revision", outcome: readingintent.Outcome{Kind: readingintent.OutcomeStaleRevision}, want: "This Book's decision changed in another tab. No changes were made; refresh My Books and try again."},
+		{name: "stale revision", outcome: readingintent.Outcome{Kind: readingintent.OutcomeStaleRevision}, want: "This Book's decision changed in another tab. No changes were made; refresh Reading and try again."},
 		{name: "unchanged", outcome: readingintent.Outcome{Kind: readingintent.OutcomeUnchanged}, want: "Book moved to To Read."},
 		{name: "moved with nothing to submit", outcome: readingintent.Outcome{Kind: readingintent.OutcomeMoved}, want: "Book moved to To Read."},
 		{name: "no preparation seam", outcome: readingintent.Outcome{Kind: readingintent.OutcomePreparationUnavailable}, want: "Book moved to To Read."},
@@ -97,7 +97,7 @@ func TestRetryMessages(t *testing.T) {
 		{
 			name:    "analysis could not start",
 			outcome: readingintent.Outcome{Kind: readingintent.OutcomeCouldNotStart, Route: readingintent.RouteEPUB, Err: assert.AnError},
-			want:    "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again.",
+			want:    "Analysis could not be started. The To Read choice is retained. Review current book content in Reading and try again.",
 			isError: true,
 		},
 		{name: "no usable EPUB units", outcome: readingintent.Outcome{Kind: readingintent.OutcomeNoUsableEPUBUnits}, want: "The current source has no usable EPUB units. The To Read choice is retained; analysis is unavailable.", isError: true},

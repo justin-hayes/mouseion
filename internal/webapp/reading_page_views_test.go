@@ -14,7 +14,7 @@ import (
 )
 
 // readingPageForTest renders the Current reading where it lives now: pinned at
-// the top of the merged My Books page.
+// the top of the merged Reading page.
 func readingPageForTest(user domain.User, csrf string, view readingPageView) templ.Component {
 	return MyBooksPage(user, csrf, nil, "", "", MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", CurrentReading: view.CurrentReading})
 }
@@ -47,7 +47,7 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.Contains(t, html, `class="journey-book__title-page journey-book__title-page--current"`)
 	assert.Contains(t, html, `class="journey-book__lifecycle"`)
 	assert.Contains(t, html, "Mark reading finished")
-	assert.NotContains(t, html, "Switch current reading", "Read next on My Books replaces Switch")
+	assert.NotContains(t, html, "Switch current reading", "Read next on Reading replaces Switch")
 	assert.Contains(t, html, "End current reading")
 	assert.NotContains(t, html, "Set aside this Book")
 }

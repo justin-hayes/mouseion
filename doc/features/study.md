@@ -98,7 +98,7 @@ finish line and are never part of it.
 ### Where new words come from
 
 - Candidates are vocabulary identities in the study language, evidenced by the
-  Corpus (the analysed Books in My Books), that are not yet in study. Confirmed
+  Corpus (the analysed Books in Reading), that are not yet in study. Confirmed
   Lemma corrections and Occurrence exclusions apply, and nothing that is not
   vocabulary is included. Held words stay excluded.
 - While there is a Current reading whose coverage, counting Mature and in-study
@@ -221,7 +221,7 @@ Fluency gives variety once a word is familiar, without grading it.
   to 5 contexts per word are prepared when the word becomes mature, so
   preparation is limited to words the learner is keeping. When a scan finds
   no unassessed sentence left for a word, the word is not scanned again until
-  the language's library changes (a Book added to or removed from My Books, a
+  the language's library changes (a Book added to or removed from Reading, a
   new completed analysis, a confirmed Lemma correction or exclusion, or the undoing of one) or the
   word lapses; a scan that stops with sentences
   still unasked leaves the word to be scanned again.
@@ -335,14 +335,14 @@ and introduced Idioms as items with their own Study progress
   once, is recorded as an event and never as a grade, completes the word's place
   in the taken New-word batch, and is offered only at introduction. After that
   the word is ordinary: a lapse ends its maturity.
-- New words come from the **Corpus**, the analysed Books in My Books. Study
+- New words come from the **Corpus**, the analysed Books in Reading. Study
   draws Study material and Fluency contexts from all of it, Read Books included.
   The Current reading's words come first until the Book reaches **Target
   coverage** (98%, counting Mature and in-study words). After that, frequency
   across the To Read Books decides. Removing a Book never costs Study progress.
 - A Book's coverage counts Mature words, with in-study coverage shown as a
   second figure. The same Mature coverage drives the Vocabulary coverage band,
-  Analysis Insights and My Books.
+  Analysis Insights and Reading.
 - A Wrong-word report opens a remediation screen
   (`/study/reports/{id}/remediation`, linked from the open reports list) instead
   of the Book's Lemma review, which retired. It previews and confirms a Lemma
@@ -350,7 +350,7 @@ and introduced Idioms as items with their own Study progress
   other occurrences in the Corpus with the same surface and source lemma, none
   ticked, for the learner to correct too. Each ticked occurrence gets its own
   per-occurrence correction; no language-wide rule is ever created.
-- My Books holds what the Reading page held, and finishing a Book records
+- Reading holds what the Reading page held, and finishing a Book records
   history only ([Reading workflow](reading-workflow.md)).
 
 Still out of scope after the cutover:

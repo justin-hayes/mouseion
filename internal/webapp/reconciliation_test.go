@@ -65,7 +65,7 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.dashboard(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 	assert.Equal(t, http.StatusSeeOther, rec.Code)
-	assert.Equal(t, "/library", rec.Header().Get("Location"))
+	assert.Equal(t, "/reading", rec.Header().Get("Location"))
 }
 
 func TestReconciliation_KnownVocabAliasIsRetiredWithoutRedirect(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 
 templ ShellLayout(title string, user *domain.User, csrf string, context NavigationContext, shellStyles ...shellStyle) {
 	<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>{ title } · Mouseion</title>
-	<link rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/my-books.js" defer></script><script>
+	<link rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin/><link rel="stylesheet" href="/static/app.css"/><script src="/static/vendor/htmx-4.0.0.min.js" defer></script><script src="/static/reading.js" defer></script><script>
 window.escapeHtml = function (s) {
   return String(s).replace(/[&<>"']/g, function (c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
@@ -17,7 +17,7 @@ document.addEventListener('submit', function (evt) {
   var form = evt.target.closest && evt.target.closest('form[data-acquire]');
   if (!form) return;
   var button = form.querySelector('button[type="submit"]');
-  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to Reading…'; }
 });
 window.showConcordanceNetworkRecovery = function (ctx) {
   if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;
@@ -109,7 +109,7 @@ document.addEventListener('htmx:after:swap', function (evt) {
 	</script></head><body class={ shellBodyClass(shellStyles) }><a class="skip-link" href="#main-content">Skip to main content</a><header class="page-container site-header"><nav class="site-header__nav" aria-label="Primary navigation" data-navigation-context={ string(context) }><a class="site-header__brand" href="/"><strong>Mouseion</strong></a>
 	if user != nil {
 		<ul class="site-header__navigation">
-		<li><a href={ templ.SafeURL(shellNavigationPath(ctx, pageKindMyBooks)) } { destinationAttributes(context, NavigationLibrary)... }>My Books</a></li><li><a href={ templ.SafeURL(shellNavigationPath(ctx, pageKindStudy)) } { destinationAttributes(context, NavigationStudy)... }>Study</a></li><li><a href={ templ.SafeURL(shellNavigationPath(ctx, pageKindCorpus)) } { destinationAttributes(context, NavigationCorpus)... }>Corpus</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalog</a></li></ul>
+		<li><a href={ templ.SafeURL(shellNavigationPath(ctx, pageKindReading)) } { destinationAttributes(context, NavigationReading)... }>Reading</a></li><li><a href={ templ.SafeURL(shellNavigationPath(ctx, pageKindStudy)) } { destinationAttributes(context, NavigationStudy)... }>Study</a></li><li><a href={ templ.SafeURL(shellNavigationPath(ctx, pageKindCorpus)) } { destinationAttributes(context, NavigationCorpus)... }>Corpus</a></li><li><a href="/catalogs" { destinationAttributes(context, NavigationCatalogs)... }>Catalog</a></li></ul>
 		<div class="site-header__tools">@ActiveStudyLanguageSwitcher(shellViewFromContext(ctx), context)
 		<details class="site-header__account"><summary><span class="site-header__account-name">{ user.Username }</span><span class="site-header__account-compact">Account</span></summary><div class="site-header__account-panel"><p>Signed in as <strong>{ user.Username }</strong></p><form method="post" action="/logout"><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline button--quiet" type="submit">Log out</button></form></div></details></div>
 	}

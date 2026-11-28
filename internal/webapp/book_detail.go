@@ -50,16 +50,15 @@ func (h *Handler) bookDetailPage(w http.ResponseWriter, r *http.Request) {
 // carries over to the Book detail page.
 var bookDetailWordKeys = []string{"q", "rev", "row", "page"}
 
-// reading retires the Reading address. A bare address, or one that carries only
-// retired controls, belongs to My Books. One that names a Book moves to that
-// Book's detail page, keeping the prefix, revision, row and page the word list
-// still understands.
-func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
+// redirectReadingToBookDetail moves the retired working-desk address
+// (/reading?reading={id}) to the named Book's detail page, keeping the prefix,
+// revision, row and page the word list still understands. It reports whether
+// the request named a Book; a request that does not belongs to Reading.
+func redirectReadingToBookDetail(w http.ResponseWriter, r *http.Request) bool {
 	query := r.URL.Query()
 	bookID := strings.TrimSpace(query.Get("reading"))
 	if bookID == "" {
-		redirectMyBooksFeedback(w, r, query)
-		return
+		return false
 	}
 	location := bookDetailURL(bookID)
 	values := url.Values{}
@@ -73,4 +72,5 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		location += "?" + encoded
 	}
 	redirect(w, r, location)
+	return true
 }

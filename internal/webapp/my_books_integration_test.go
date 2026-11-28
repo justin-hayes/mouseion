@@ -55,10 +55,10 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byPosition[2].Book.ID))
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 
-	toRead := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	toRead := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, toRead.Code, toRead.Body.String())
 	toReadBody := toRead.Body.String()
-	read := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	read := perform(t, h, http.MethodGet, "/reading?history=read", nil, cookies)
 	require.Equal(t, http.StatusOK, read.Code, read.Body.String())
 	readBody := read.Body.String()
 
@@ -77,7 +77,7 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 	})
 	t.Run("no grouped Work surface remains", func(t *testing.T) {
 		for _, body := range []string{toReadBody, readBody} {
-			for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work", "/library/works/"} {
+			for _, retired := range []string{"library-work", "Books in", "Move the work", "Remove the work", "/reading/works/"} {
 				require.NotContains(t, body, retired)
 			}
 		}
@@ -89,7 +89,7 @@ func TestMyBooksShowsEveryClassicalBookAsAnOrdinaryRow(t *testing.T) {
 		require.NotContains(t, toReadBody, "All (")
 	})
 	t.Run("the retired Inbox filter is unsupported", func(t *testing.T) {
-		inbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
+		inbox := perform(t, h, http.MethodGet, "/reading?disposition=inbox", nil, cookies)
 		require.Equal(t, http.StatusNotFound, inbox.Code)
 	})
 }
@@ -155,7 +155,7 @@ func TestChooserRendersTheSelectedToReadBookInline(t *testing.T) {
 	}
 	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 
-	chooser := perform(t, h, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/grc/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	body := chooser.Body.String()
 	entry := books["homer-iliad-1"]
@@ -172,12 +172,12 @@ func TestMyBooksSingleBookWorkStaysOrdinaryWithPosition(t *testing.T) {
 	require.Len(t, ids, 2)
 	byPosition := classicalBooksByPosition(t, ctx, store, learner.ID, ids)
 
-	// Remove Book 2 from My Books so the Work is owned once.
+	// Remove Book 2 from Reading so the Work is owned once.
 	_, err := pool.Exec(ctx, `UPDATE book_membership SET state = 'removed', removed_at = now() WHERE owner_id = $1 AND book_id = $2`, learner.ID, byPosition[2].Book.ID)
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 
-	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	page := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	assert.Contains(t, body, "Iliad, Book 1")
@@ -193,7 +193,7 @@ func TestMyBooksWholeWorkUnitStaysOrdinaryWithoutPosition(t *testing.T) {
 	require.Len(t, ownerBooks(t, pool, learner.ID), 1)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
 
-	page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	page := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	assert.Contains(t, body, "Hellenica")
@@ -212,7 +212,7 @@ func TestMyBooksSearchMatchesAuthorEnglishAndOriginalTitlesButNotATrailingBookNu
 
 	for _, query := range []string{"homer", "iliad", "Ἰλιάς", "ιλιασ", "ΙΛΙΑΣ"} {
 		t.Run(query, func(t *testing.T) {
-			page := perform(t, h, http.MethodGet, "/library?q="+url.QueryEscape(query), nil, cookies)
+			page := perform(t, h, http.MethodGet, "/reading?q="+url.QueryEscape(query), nil, cookies)
 			require.Equal(t, http.StatusOK, page.Code, query)
 			body := page.Body.String()
 			require.Contains(t, body, "Iliad", "query %q did not keep the Iliad", query)
@@ -221,7 +221,7 @@ func TestMyBooksSearchMatchesAuthorEnglishAndOriginalTitlesButNotATrailingBookNu
 	}
 
 	t.Run("a trailing number is not a Book number", func(t *testing.T) {
-		missing := perform(t, h, http.MethodGet, "/library?q="+url.QueryEscape("iliad 2"), nil, cookies)
+		missing := perform(t, h, http.MethodGet, "/reading?q="+url.QueryEscape("iliad 2"), nil, cookies)
 		require.Equal(t, http.StatusOK, missing.Code)
 		assert.Contains(t, missing.Body.String(), "No To Read books in Ancient Greek match “iliad 2”.")
 	})
@@ -242,7 +242,7 @@ func TestMyBooksNonClassicalRowsKeepTheirSearchFiltersAndPaging(t *testing.T) {
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
 
 	t.Run("ordinary rows stay ordinary", func(t *testing.T) {
-		page := perform(t, h, http.MethodGet, "/library", nil, cookies)
+		page := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 		require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 		body := page.Body.String()
 		for _, want := range []string{"Zweites Buch", "Erstes Buch"} {
@@ -254,7 +254,7 @@ func TestMyBooksNonClassicalRowsKeepTheirSearchFiltersAndPaging(t *testing.T) {
 	})
 
 	t.Run("search stays a title and author substring", func(t *testing.T) {
-		search := perform(t, h, http.MethodGet, "/library?q=erstes", nil, cookies)
+		search := perform(t, h, http.MethodGet, "/reading?q=erstes", nil, cookies)
 		require.Equal(t, http.StatusOK, search.Code)
 		assert.Contains(t, search.Body.String(), "Erstes Buch")
 		assert.NotContains(t, search.Body.String(), "Zweites Buch")

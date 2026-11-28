@@ -20,7 +20,7 @@ func TestJobBookContextForSourceRequiresCurrentOwnerScopedReadingEntry(t *testin
 		sourceID string
 		expected string
 	}{
-		{name: "current analyzed source", owner: fixtures.OwnerID, sourceID: fixtures.SourceID, expected: "/de/library#book-row-fixture-book"},
+		{name: "current analyzed source", owner: fixtures.OwnerID, sourceID: fixtures.SourceID, expected: "/de/reading#book-row-fixture-book"},
 		{name: "unassessed source", owner: fixtures.OwnerID, sourceID: "fixture-empty", expected: ""},
 		{name: "failed source", owner: fixtures.OwnerID, sourceID: "fixture-failed", expected: ""},
 		{name: "other owner", owner: "other-owner", sourceID: fixtures.SourceID, expected: ""},
@@ -47,7 +47,7 @@ func TestJobsDetailUsesResolvedBookContext(t *testing.T) {
 	status := analysis.Status{ID: 1, DisplayNumber: 1, Lifecycle: domain.JobLifecycleCompleted, Stage: domain.BookPreparationStageFinalize, State: "completed", SourceMaterialID: fixtures.SourceID, CorpusID: "fixture-corpus", RunID: fixtures.ResultRunID}
 	require.NoError(t, JobPage(domain.User{Username: "learner"}, "csrf", status, book.ReadingURL, book.Title).Render(context.Background(), &output))
 	assert.Contains(t, output.String(), "Der lange Weg nach Hause")
-	assert.Contains(t, output.String(), `href="/de/library#book-row-fixture-book"`)
+	assert.Contains(t, output.String(), `href="/de/reading#book-row-fixture-book"`)
 }
 
 func TestJobStatusOffersNoDeckPreparationForLegacyResult(t *testing.T) {

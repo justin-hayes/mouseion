@@ -25,7 +25,7 @@ import (
 // TestAncientGreekRegistrationAppearsInMyBooks is the primary seam for the
 // first Ancient Greek slice: after the operator command registers Anabasis
 // Book 1, the language appears in the drop-down, the unprepared Book appears in
-// My Books, and To Read refuses without enqueuing analysis.
+// Reading, and To Read refuses without enqueuing analysis.
 func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 	ctx, store, pool, h := ancientGreekHarness(t)
 	learner := createAccount(t, ctx, store, "greek-learner", "learner-password")
@@ -49,10 +49,10 @@ func TestAncientGreekRegistrationAppearsInMyBooks(t *testing.T) {
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 
-	library := perform(t, h, "GET", "/library", nil, cookies)
+	library := perform(t, h, "GET", "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, "library body=%s", library.Body.String())
 	for _, want := range []string{"Ancient Greek", "Anabasis", "By Xenophon", "Marchant 1904", notPreparedYetNote} {
-		assert.Contains(t, library.Body.String(), want, "My Books missing %q", want)
+		assert.Contains(t, library.Body.String(), want, "Reading missing %q", want)
 	}
 
 	// To Read changes the disposition. This harness has no preparation worker,

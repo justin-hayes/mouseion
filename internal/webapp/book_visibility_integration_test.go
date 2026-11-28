@@ -80,12 +80,12 @@ func TestRetiredHiddenBookAppearsAsAnOrdinaryToReadBook(t *testing.T) {
 	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
 	startPath := "/reading/books/" + book.ID + "/start"
 
-	chooser := perform(t, h, http.MethodGet, "/de/library?disposition=to_read", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/de/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code)
 	assert.Contains(t, chooser.Body.String(), startPath, "a previously hidden To Read Book is an ordinary candidate")
 	assert.Contains(t, chooser.Body.String(), book.Title)
 
-	library := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	library := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code)
 	assert.Contains(t, library.Body.String(), book.Title, "a previously hidden Book is listed as an ordinary Book")
 	assert.NotContains(t, library.Body.String(), "Show hidden books")
@@ -94,8 +94,8 @@ func TestRetiredHiddenBookAppearsAsAnOrdinaryToReadBook(t *testing.T) {
 	for _, path := range []string{
 		"/library/books/" + book.ID + "/hide",
 		"/library/books/" + book.ID + "/unhide",
-		"/library/works/any-work/hide",
-		"/library/works/any-work/unhide",
+		"/reading/works/any-work/hide",
+		"/reading/works/any-work/unhide",
 	} {
 		response := perform(t, h, http.MethodPost, path, url.Values{"csrf_token": {csrf}}, cookies)
 		assert.Equal(t, http.StatusNotFound, response.Code, "retired route %s is unsupported", path)
@@ -122,10 +122,10 @@ func TestCatalogueSyncDoesNotCreateBooks(t *testing.T) {
 	}
 	require.NoError(t, worker.Work(ctx, &river.Job[cataloguesync.SyncArgs]{Args: cataloguesync.SyncArgs{OwnerID: owner.ID, ConnectionID: connection.ID}}))
 
-	t.Run("sync leaves My Books empty", func(t *testing.T) {
+	t.Run("sync leaves Reading empty", func(t *testing.T) {
 		books, err := store.ListMyBooksBrowse(ctx, owner.ID, "", "de", "", false, 0, 20)
 		require.NoError(t, err)
-		require.Empty(t, books.Items, "sync created a Book and placed it in My Books")
+		require.Empty(t, books.Items, "sync created a Book and placed it in Reading")
 	})
 	t.Run("sync maintains the Catalog index", func(t *testing.T) {
 		entries, err := store.ListCatalogueEntries(ctx, owner.ID, connection.ID)
@@ -137,6 +137,6 @@ func TestCatalogueSyncDoesNotCreateBooks(t *testing.T) {
 		var memberships int
 		err := store.Pool().QueryRow(ctx, `SELECT count(*) FROM book_membership WHERE owner_id=$1`, owner.ID).Scan(&memberships)
 		require.NoError(t, err)
-		require.Zero(t, memberships, "sync activated My Books membership")
+		require.Zero(t, memberships, "sync activated Reading membership")
 	})
 }

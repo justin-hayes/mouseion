@@ -16,7 +16,7 @@ import (
 // while its effective vocabulary counts are rebuilt.
 const vocabularyCountsUpdatingDescription = "This Book's vocabulary counts are being refreshed. Coverage appears when they are ready."
 
-// redirectMyBooksFeedback sends a retired Reading address to My Books in the
+// redirectMyBooksFeedback sends a retired Reading address to Reading in the
 // request's study language, keeping the message or error it carried.
 func redirectMyBooksFeedback(w http.ResponseWriter, r *http.Request, query url.Values) {
 	feedback := url.Values{}
@@ -32,7 +32,7 @@ func redirectMyBooksFeedback(w http.ResponseWriter, r *http.Request, query url.V
 	redirect(w, r, location)
 }
 
-// switchReadingPage retires the Switch page: Read next on My Books replaces
+// switchReadingPage retires the Switch page: Read next on Reading replaces
 // the current reading directly.
 func (h *Handler) switchReadingPage(w http.ResponseWriter, r *http.Request) {
 	redirectMyBooksFeedback(w, r, r.URL.Query())
@@ -48,7 +48,7 @@ func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 	owner := user(r).ID
 	language := pageLanguage(r)
 	if language == "" {
-		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language and refresh My Books before ending the current reading."))
+		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language and refresh Reading before ending the current reading."))
 		return
 	}
 	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
@@ -68,7 +68,7 @@ func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, myBooksPagePath(r.Context())+"?message="+url.QueryEscape("Reading ended. "+h.currentReadingBookTitle(r.Context(), owner, current.BookID)+" stays in To Read; its analysis and history are preserved. Choose a Book when you are ready."))
 }
 
-const noCurrentReadingMessage = "There is no current reading. Choose a book from My Books."
+const noCurrentReadingMessage = "There is no current reading. Choose a book from Reading."
 
 func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -105,7 +105,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 
 // analysisCouldNotStartMessage is the retry sentence for a submission that
 // failed without a stable cause.
-const analysisCouldNotStartMessage = "Analysis could not be started. The To Read choice is retained. Review current book content in My Books and try again."
+const analysisCouldNotStartMessage = "Analysis could not be started. The To Read choice is retained. Review current book content in Reading and try again."
 
 // retryMessage maps a Retry outcome to the learner-facing sentence and whether
 // it is an error. An EPUB Book reports the same plain confirmation whether
@@ -172,11 +172,11 @@ func (h *Handler) readNext(w http.ResponseWriter, r *http.Request) {
 	case err == nil && start.Replayed:
 		redirect(w, r, myBooksPagePath(r.Context())+"?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
 	case errors.As(err, &ineligible) && ineligible.Reason == domain.CurrentReadingNoChosenLanguage:
-		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("This book has no language yet. Choose its language in My Books before reading it. No changes were made."))
+		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("This book has no language yet. Choose its language in Reading before reading it. No changes were made."))
 	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
-		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review My Books before trying again."))
+		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
 	case errors.Is(err, domain.ErrCurrentReadingIneligible):
-		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh My Books and try again."))
+		redirect(w, r, myBooksPagePath(r.Context())+"?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."))
 	case err != nil:
 		fail(w, err)
 	default:

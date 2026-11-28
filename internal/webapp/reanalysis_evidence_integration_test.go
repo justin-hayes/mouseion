@@ -23,7 +23,7 @@ import (
 
 // TestPublishedAnalysisStaysInEffectDuringReanalysis re-analyses an analyzed
 // Book's unchanged revision and drives the newer run through running and
-// failed. The published analysis must stay the evidence in My Books and Reading
+// failed. The published analysis must stay the evidence in Reading and Reading
 // throughout, and the Book must still start as the current reading.
 func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 	t.Setenv("MOUSEION_SECRET", "reanalysis-evidence-integration-secret-0123456789")
@@ -63,7 +63,7 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 	assert.Equal(t, domain.BookAnalyzed, running.EvidenceState())
 	assert.Equal(t, domain.RunRunning, running.Classification().Run)
 	assert.Equal(t, domain.CurrentReadingEligible, running.Classification().Eligibility)
-	libraryRunning := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	libraryRunning := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, libraryRunning.Code)
 	assert.Contains(t, libraryRunning.Body.String(), "Re-analysis running.")
 	assert.NotContains(t, libraryRunning.Body.String(), "Analysis running.")
@@ -80,19 +80,19 @@ func TestPublishedAnalysisStaysInEffectDuringReanalysis(t *testing.T) {
 	assert.Equal(t, domain.BookPreparationCodeDependencyParsingUnavailable, failed.Classification().FailureCode)
 	assert.Equal(t, domain.CurrentReadingEligible, failed.Classification().Eligibility)
 	assert.Equal(t, domain.RecoveryRetryAnalysis, failed.Classification().Recovery)
-	libraryFailed := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	libraryFailed := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, libraryFailed.Code)
 	assert.Contains(t, libraryFailed.Body.String(), "Re-analysis failed. Dependency parsing is unavailable.")
 	assert.NotContains(t, libraryFailed.Body.String(), "Analysis failed.")
 
 	started := perform(t, h, http.MethodPost, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code)
-	assert.Contains(t, started.Header().Get("Location"), "/de/library?message=")
+	assert.Contains(t, started.Header().Get("Location"), "/de/reading?message=")
 	current, err := store.GetCurrentReading(ctx, alice.ID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, book.ID, current.BookID)
 
-	readingFailed := perform(t, h, http.MethodGet, "/de/library", nil, cookies)
+	readingFailed := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, readingFailed.Code)
 	assert.Contains(t, readingFailed.Body.String(), "Reanalysis evidence book")
 	assert.Contains(t, readingFailed.Body.String(), "Re-analysis failed")

@@ -164,11 +164,11 @@ func TestClassicalAnalysisUpdateSkipsTheCurrentBookUntilEnd(t *testing.T) {
 	// update to confirm.
 	started, err := h.store.StartCurrentReadingResult(context.Background(), h.learnerID, classical.Language, h.firstID)
 	require.NoError(t, err)
-	body := readingGet(t, h.h, "/library", h.cookies)
+	body := readingGet(t, h.h, "/reading", h.cookies)
 	assert.Contains(t, body, html.EscapeString(analysisUpdateEndReadingFirst), "the current Book's own row asks to end the Reading first")
 	assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.secondID)+`"`, "the other Book has its own ordinary update")
 	assert.NotContains(t, body, `action="`+readingAnalysisUpdateURL(h.firstID)+`"`)
-	assert.NotContains(t, body, "/library/works/", "My Books carries no Work-level update")
+	assert.NotContains(t, body, "/reading/works/", "Reading carries no Work-level update")
 
 	submitted := submitBookAnalysisUpdate(t, h, second)
 	require.Equal(t, http.StatusSeeOther, submitted.Code, submitted.Body.String())
@@ -191,7 +191,7 @@ func TestClassicalAnalysisUpdateSkipsTheCurrentBookUntilEnd(t *testing.T) {
 
 	// After End the Book is To Read and its offer returns with the other Book.
 	require.NoError(t, h.store.EndCurrentReading(context.Background(), h.learnerID, classical.Language))
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.Equal(t, 2, strings.Count(body, analysisUpdateNotice), "each Book's row offers its own update")
 	assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.firstID)+`"`)
 	assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.secondID)+`"`)
@@ -204,12 +204,12 @@ func TestClassicalAnalysisUpdateOffersAndQueuesEachBookOnItsOwn(t *testing.T) {
 	second := h.book(t, h.secondID)
 	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.fixture.unitOneKey, h.fixture.unitTwoKey)
 
-	for _, surface := range []string{"/library", "/reading"} {
+	for _, surface := range []string{"/reading", "/reading"} {
 		body := readingGet(t, h.h, surface, h.cookies)
 		assert.Equal(t, 2, strings.Count(body, analysisUpdateNotice), "%s offers each Book its own ordinary update", surface)
 		assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.firstID)+`"`, surface)
 		assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.secondID)+`"`, surface)
-		assert.NotContains(t, body, "/library/works/", "%s carries no Work-level update", surface)
+		assert.NotContains(t, body, "/reading/works/", "%s carries no Work-level update", surface)
 	}
 
 	for _, book := range []domain.MyBook{first, second} {
@@ -228,7 +228,7 @@ func TestClassicalAnalysisUpdateOffersAndQueuesEachBookOnItsOwn(t *testing.T) {
 }
 
 // TestClassicalAnalysisUpdateNamesTheCurrentBook keeps the current-Book
-// handling: My Books asks to end the current Reading first and offers the other
+// handling: Reading asks to end the current Reading first and offers the other
 // Book its own update.
 func TestClassicalAnalysisUpdateNamesTheCurrentBook(t *testing.T) {
 	h := newWorkUpdateHarness(t)
@@ -236,7 +236,7 @@ func TestClassicalAnalysisUpdateNamesTheCurrentBook(t *testing.T) {
 	require.NoError(t, err)
 	bumpInterpretation(t, h.pool, "oga-agdt-upos/6", h.fixture.unitOneKey, h.fixture.unitTwoKey)
 
-	body := readingGet(t, h.h, "/library", h.cookies)
+	body := readingGet(t, h.h, "/reading", h.cookies)
 	require.Contains(t, body, html.EscapeString(analysisUpdateEndReadingFirst))
 	require.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.secondID)+`"`)
 	require.NotContains(t, body, `action="`+readingAnalysisUpdateURL(h.firstID)+`"`, "the current Book is never queued")
@@ -365,7 +365,7 @@ func TestClassicalAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *testi
 func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *testing.T) {
 	h := newWorkUpdateHarness(t)
 
-	body := readingGet(t, h.h, "/library", h.cookies)
+	body := readingGet(t, h.h, "/reading", h.cookies)
 	assert.NotContains(t, body, "A newer analysis is available.", "a prepared Book starts current")
 
 	// A confirmation replayed after the offer disappeared queues nothing and
@@ -381,7 +381,7 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 	// A curatorial correction alone is not content-bearing.
 	_, err := h.pool.Exec(context.Background(), `UPDATE works SET title='Synthetic Work Revised' WHERE title='Synthetic Work'`)
 	require.NoError(t, err)
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
 
 	// A revision that changes only the translation pin is not content-bearing
@@ -393,7 +393,7 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 		    revision=revision+1
 		WHERE definition_key=$2`, strings.Repeat("c", 64), h.fixture.unitOneKey)
 	require.NoError(t, err)
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
 
 	// A source-pin change is content-bearing. Only the second unit changes, so
@@ -401,7 +401,7 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 	_, err = h.pool.Exec(context.Background(), `UPDATE reading_units
 		SET source_file_sha256=$1, revision=revision+1 WHERE definition_key=$2`, strings.Repeat("d", 64), h.fixture.unitTwoKey)
 	require.NoError(t, err)
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.Equal(t, 1, strings.Count(body, analysisUpdateNotice))
 	assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.secondID)+`"`)
 
@@ -409,13 +409,13 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 	_, err = h.pool.Exec(context.Background(), `UPDATE reading_units
 		SET source_file_sha256=$1, revision=revision+1 WHERE definition_key=$2`, strings.Repeat("e", 64), h.fixture.unitOneKey)
 	require.NoError(t, err)
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.Equal(t, 2, strings.Count(body, analysisUpdateNotice))
 
 	// A Read Book is not offered. The second Book is still To Read, so one offer
 	// remains.
 	require.NoError(t, h.store.MarkBookPreviouslyRead(context.Background(), h.learnerID, h.firstID))
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.Equal(t, 1, strings.Count(body, analysisUpdateNotice))
 
 	// With both Books outside To Read there is no offer.
@@ -425,6 +425,6 @@ func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *test
 	require.NoError(t, err)
 	_, err = h.store.TransitionBookDisposition(context.Background(), h.learnerID, h.secondID, second.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
-	body = readingGet(t, h.h, "/library", h.cookies)
+	body = readingGet(t, h.h, "/reading", h.cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
 }

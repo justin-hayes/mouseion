@@ -22,7 +22,7 @@ import (
 )
 
 // TestAncientGreekImportPreparesBook is the acceptance seam for the second
-// Ancient Greek slice: importing the pinned oga_src dialect makes My Books show
+// Ancient Greek slice: importing the pinned oga_src dialect makes Reading show
 // the Book as prepared with a word count and coverage, with no NLP service and
 // no EPUB analysis.
 func TestAncientGreekImportPreparesBook(t *testing.T) {
@@ -64,7 +64,7 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	require.NotNil(t, nodeHead)
 	assert.Equal(t, int64(0), *nodeHead)
 
-	// My Books word count is the analysis's analyzable-token count.
+	// Reading word count is the analysis's analyzable-token count.
 	var analyzable int64
 	require.NoError(t, pool.QueryRow(ctx, `SELECT c.analyzable_token_count FROM corpora c JOIN book_current_analyses p ON p.owner_id=c.owner_id AND p.analysis_run_id=c.analysis_run_id WHERE p.owner_id=$1 AND p.book_id=$2`, learner.ID, registration.BookID).Scan(&analyzable))
 	assert.Equal(t, int64(5), analyzable)
@@ -86,9 +86,9 @@ func TestAncientGreekImportPreparesBook(t *testing.T) {
 	assert.Equal(t, "VERB", identities["morpheus:2"])
 	assert.NotContains(t, identities, "PROPN")
 
-	// My Books shows the Book as prepared with a coverage figure.
+	// Reading shows the Book as prepared with a coverage figure.
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	library := perform(t, h, "GET", "/library", nil, cookies)
+	library := perform(t, h, "GET", "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, "library body=%s", library.Body.String())
 	assert.NotContains(t, library.Body.String(), notPreparedYetNote)
 	assert.Contains(t, library.Body.String(), "0.0% of running words Mature")

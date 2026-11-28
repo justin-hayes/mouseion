@@ -365,7 +365,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\">In My Books</a> ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\">In Reading</a> ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -476,7 +476,7 @@ func ClassicalWorkPage(user domain.User, csrf string, work classical.CatalogWork
 }
 
 // ClassicalAddFeedback confirms the Add. When another study language is active
-// it also offers the "In My Books" path that opens the added Books in Ancient
+// it also offers the "In Reading" path that opens the added Books in Ancient
 // Greek; following that path is what switches the study language.
 func ClassicalAddFeedback(confirmation classicalAddConfirmation) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -525,7 +525,7 @@ func ClassicalAddFeedback(confirmation classicalAddConfirmation) templ.Component
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\">Open Ancient Greek in My Books</a></p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\">Open Ancient Greek in Reading</a></p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

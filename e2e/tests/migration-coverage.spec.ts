@@ -5,7 +5,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 async function expectPostFormsCarryCSRF(page: Page) {
@@ -19,11 +19,11 @@ async function expectPostFormsCarryCSRF(page: Page) {
 test.describe('migration and epistemic regression coverage', () => {
   test.beforeEach(async ({ page }) => signIn(page));
 
-  test('shows migrated My Books states and server-rendered controls', async ({ page }) => {
-    await page.goto('/de/library');
+  test('shows migrated Reading states and server-rendered controls', async ({ page }) => {
+    await page.goto('/de/reading');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page.locator('#library-page-title')).toHaveText('Reading');
     await expect(page.locator('.library-books').getByText('Metadata-only migration book')).toHaveCount(0);
     await expect(page.getByText('Analysis result ready')).toHaveCount(0);
     await expect(page.getByText('language not chosen')).toHaveCount(0);
@@ -31,7 +31,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('loads one compiled foundation on every route and retires split stylesheets', async ({ page }) => {
-    for (const path of ['/de/library', '/books/fixture-book', '/catalogs', '/de/corpus', '/de/corpus/concordance', '/jobs']) {
+    for (const path of ['/de/reading', '/books/fixture-book', '/catalogs', '/de/corpus', '/de/corpus/concordance', '/jobs']) {
       const response = await page.goto(path);
       expect(response?.ok(), `${path} should render`).toBeTruthy();
       await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
@@ -50,8 +50,8 @@ test.describe('migration and epistemic regression coverage', () => {
     expect(css).toContain('prefers-reduced-motion');
   });
 
-  test('shows the current reading on My Books and its words on the Book detail page without forecasts', async ({ page }) => {
-    await page.goto('/de/library');
+  test('shows the current reading on Reading and its words on the Book detail page without forecasts', async ({ page }) => {
+    await page.goto('/de/reading');
     await expect(page.locator('.journey-book__title')).toBeVisible();
     await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
@@ -72,7 +72,7 @@ test.describe('migration and epistemic regression coverage', () => {
   });
 
   test('states the completion consequence and preserves provenance labels', async ({ page }) => {
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const goal = page.locator('#primary-goal-section');
     const disclosure = goal.locator('details').filter({ hasText: 'Mark reading finished' }).first();
     await expect(disclosure).toBeVisible();

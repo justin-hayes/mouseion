@@ -204,7 +204,7 @@ func TestStudyRemovingTheOnlyBookWithCandidatesWithdrawsAnIdiomAndAddingOneBring
 	original := s.material(idiom.MaterialID)
 	log := len(s.reviewLog(idiom.ID))
 
-	// Another Book, with no candidate, stays in My Books.
+	// Another Book, with no candidate, stays in Reading.
 	lookup := newFakeIdiomLookup(germanIdiom("mit dem haus"))
 	s.buildIdiomCounts(s.seedBook("other", testutil.CorpusWord{Lemma: "baum", UPOS: "NOUN", Occurrences: 1}), lookup)
 	require.NoError(t, s.store.RemoveBookFromMyBooks(s.ctx, s.owner.ID, original.BookID))

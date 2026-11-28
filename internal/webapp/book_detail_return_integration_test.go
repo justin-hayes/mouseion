@@ -28,7 +28,7 @@ func TestBookDetailShowsMatureAndInStudyWordsFromStudyProgress(t *testing.T) {
 	assert.Contains(t, body.Body.String(), `data-study-state>In study</td>`)
 }
 
-// Retry posted from the Book detail page returns to it, not to My Books.
+// Retry posted from the Book detail page returns to it, not to Reading.
 func TestBookDetailRetryReturnsToTheBookDetailPage(t *testing.T) {
 	s := newStudyHarness(t)
 	bookID := s.preparedBook(testutil.CorpusWord{Lemma: "haus", UPOS: "NOUN", Occurrences: 3})

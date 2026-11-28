@@ -8,11 +8,11 @@ async function signInToGreek(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
   await page.goto('/catalogs/classical/works/fixture-iliad');
   const add = page.getByRole('button', { name: 'Add', exact: true });
   if (await add.isVisible().catch(() => false)) await add.click();
-  await page.goto('/de/library');
+  await page.goto('/de/reading');
   await page.getByLabel('Study language').selectOption('grc');
   const noScriptSwitch = page.getByRole('button', { name: 'Switch language' });
   if (await noScriptSwitch.isVisible().catch(() => false)) await noScriptSwitch.click();

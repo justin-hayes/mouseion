@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Removing a Book from My Books takes it out of the Corpus, yet never costs
+// Removing a Book from Reading takes it out of the Corpus, yet never costs
 // the learner Study progress (ADR 0136 §2): its words keep their progress and
 // Study material, reviews continue, and Concordance no longer searches it.
 func TestRemovingABookKeepsStudyProgressAndMaterial(t *testing.T) {

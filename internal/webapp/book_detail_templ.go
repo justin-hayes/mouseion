@@ -97,7 +97,7 @@ func BookDetailPage(user domain.User, csrf string, view bookDetailView, message 
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">Back to My Books</a></p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">Back to Reading</a></p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -122,7 +122,7 @@ func BookDetailPage(user domain.User, csrf string, view bookDetailView, message 
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout(myBookDisplayTitle(view.Book), &user, csrf, NavigationLibrary, shellStyleReading).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout(myBookDisplayTitle(view.Book), &user, csrf, NavigationReading, shellStyleReading).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -248,7 +248,7 @@ func BookDetailSummary(book domain.MyBook, csrf string) templ.Component {
 }
 
 // BookDetailActions hosts the Book's analysis actions. They are the same
-// actions My Books offers, unchanged: retry, Analysis update and the checked
+// actions Reading offers, unchanged: retry, Analysis update and the checked
 // source-structure update.
 func BookDetailActions(book domain.MyBook, csrf string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
