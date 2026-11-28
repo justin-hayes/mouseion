@@ -26,6 +26,7 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 	for _, row := range rows {
 		item := studyProgressFromRow(row.StudyProgress)
 		item.Reintroducing = row.Reintroducing
+		item.AwaitingFirstMaterial = row.AwaitingFirstMaterial
 		item.Held = row.Held
 		if row.ContextReportedAt.Unix() != 0 {
 			item.ContextReportedAt = row.ContextReportedAt

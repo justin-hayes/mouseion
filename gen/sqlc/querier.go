@@ -43,8 +43,10 @@ type Querier interface {
 	// releases it first.
 	ChangeCurrentReadingBook(ctx context.Context, arg ChangeCurrentReadingBookParams) (ChangeCurrentReadingBookRow, error)
 	// Moves each word whose replacement material is ready onto it: the new
-	// Gloss becomes the learned meaning and the word is marked corrected. The FSRS
-	// state is not touched.
+	// Gloss becomes the learned meaning and the word is marked corrected, unless
+	// the replaced material is the placeholder of a word migrated from Known
+	// vocabulary: that is its first material, not a correction. The FSRS state is
+	// not touched.
 	CompleteStudyReintroductions(ctx context.Context, arg CompleteStudyReintroductionsParams) (int64, error)
 	// A lemma is recognized only from non-excluded effective identities in the
 	// eligible owner/language corpus, across every evidenced part of speech.
@@ -483,6 +485,9 @@ type Querier interface {
 	// #2691).
 	// reintroducing is true while the word's own Study material has been
 	// superseded by a correction and its replacement is not yet in place.
+	// awaiting_first_material is true while the word, migrated from Known
+	// vocabulary as Already known, still points at the placeholder its first Study
+	// material replaces (migration 000081): it is not a correction.
 	// held is true while the word has an open Wrong-word report (ADR 0135 §2).
 	// context_reported_at is when its latest Unsuitable-context report that retires
 	// a context (not ended as undone) was made (ADR 0135 §3), the epoch when there
