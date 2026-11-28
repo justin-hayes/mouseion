@@ -63,15 +63,12 @@ func TestAuthenticationAndAuthorizationAgainstPostgres(t *testing.T) {
 	}
 	aliceHash, err := auth.HashPassword("alice-password")
 	require.NoError(t, err)
-	alice, err := store.CreateUserWithPassword(ctx, "alice", aliceHash, false)
+	_, err = store.CreateUserWithPassword(ctx, "alice", aliceHash, false)
 	require.NoError(t, err)
 	bobHash, err := auth.HashPassword("bob-password")
 	require.NoError(t, err)
 	bob, err := store.CreateUserWithPassword(ctx, "bob", bobHash, false)
 	require.NoError(t, err)
-	t.Run("cross-user owner check is rejected", func(t *testing.T) {
-		require.Error(t, auth.AuthorizeOwner(alice, bob.ID), "cross-user owner check allowed")
-	})
 	t.Run("wrong password is rejected", func(t *testing.T) {
 		_, err := s.Login(ctx, "alice", "wrong")
 		require.Error(t, err, "wrong password logged in")

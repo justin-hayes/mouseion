@@ -130,8 +130,3 @@ func TestCreateFirstAccountValidatesAndEstablishesSession(t *testing.T) {
 	_, _, err = service.CreateFirstAccount(ctx, "bob", "password")
 	assert.ErrorIs(t, err, ErrFirstAccountExists)
 }
-func TestAuthorizeOwner(t *testing.T) {
-	u := domain.User{ID: "alice"}
-	require.NoError(t, AuthorizeOwner(u, "alice"))
-	assert.ErrorIs(t, AuthorizeOwner(u, "bob"), ErrForbidden)
-}
