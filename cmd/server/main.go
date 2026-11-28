@@ -200,10 +200,7 @@ func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.List
 	go func() { serveErr <- srv.Serve(listener) }()
 	select {
 	case err := <-serveErr:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return err
+		return serveResult(err)
 	case <-ctx.Done():
 	}
 	log.Print("shutdown signal received; stopping")
@@ -216,10 +213,16 @@ func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.List
 		log.Printf("HTTP drain incomplete after %s; closing connections: %v", httpShutdownTimeout, err)
 		result = srv.Close()
 	}
-	if err := <-serveErr; !errors.Is(err, http.ErrServerClosed) {
-		result = errors.Join(result, err)
+	return errors.Join(result, serveResult(<-serveErr))
+}
+
+// serveResult is the error Serve returned, without the http.ErrServerClosed
+// that every Shutdown or Close produces.
+func serveResult(err error) error {
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
 	}
-	return result
+	return err
 }
 
 // stopWorkers lets running jobs finish for riverSoftStopTimeout, then cancels

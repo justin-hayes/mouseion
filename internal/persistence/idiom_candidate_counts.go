@@ -165,9 +165,6 @@ ORDER BY t.sentence_ordinal,t.token_ordinal`,
 	counter := &idiomSentenceCounter{ctx: ctx, index: idiom.NewCachedIndex(index), language: scope.language, counts: make(map[string]int64)}
 	current := int64(-1)
 	for rows.Next() {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
 		var ordinal int64
 		var surface, lemma string
 		var correction *string

@@ -82,6 +82,39 @@ func TestServeUntilShutdownDrainsTheServer(t *testing.T) {
 	})
 }
 
+func TestServeUntilShutdownClosesHandlersThatOutlastTheDrain(t *testing.T) {
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	defer close(release)
+	srv := newHTTPServer(listener.Addr().String(), http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		close(entered)
+		<-release
+	}))
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- serveUntilShutdown(ctx, srv, listener) }()
+	probeErr := make(chan error, 1)
+	go func() {
+		_, err := probe("http://" + listener.Addr().String())
+		probeErr <- err
+	}()
+	<-entered
+	cancel()
+	select {
+	case err = <-done:
+	case <-time.After(httpShutdownTimeout + 2*time.Second):
+		t.Fatal("shutdown did not close the lingering handler")
+	}
+	t.Run("closing a lingering handler is not a failed shutdown", func(t *testing.T) {
+		require.NoError(t, err)
+	})
+	t.Run("the lingering request is cut off", func(t *testing.T) {
+		require.Error(t, <-probeErr)
+	})
+}
+
 func TestServeUntilShutdownReportsAServeFailure(t *testing.T) {
 	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
