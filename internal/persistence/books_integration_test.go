@@ -7,11 +7,22 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// newTestBook builds a validated Book the way the Book intake paths do: a
+// chosen language tag is normalised before validation.
+func newTestBook(ownerID, title, metadataProvenance, languageState, languageTag string) (domain.Book, error) {
+	if languageState == domain.LanguageChosen {
+		languageTag = canonicalization.NormalizeLanguage(languageTag)
+	}
+	b := domain.Book{OwnerID: ownerID, Title: title, MetadataProvenance: metadataProvenance, LanguageState: languageState, LanguageTag: languageTag}
+	return b, b.Validate()
+}
 
 func TestMyBooksPersistenceAndBackfill(t *testing.T) {
 	ctx := context.Background()
@@ -215,11 +226,11 @@ func TestActiveStudyLanguagePersistenceResolvesLazily(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, got)
 
-	deBook, err := domain.NewBook(alice.ID, "German", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
+	deBook, err := newTestBook(alice.ID, "German", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "de")
 	require.NoError(t, err)
 	deBook, err = store.CreateBook(ctx, deBook)
 	require.NoError(t, err)
-	itBook, err := domain.NewBook(alice.ID, "Italian", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "it")
+	itBook, err := newTestBook(alice.ID, "Italian", domain.MetadataProvenanceCatalogueSync, domain.LanguageChosen, "it")
 	require.NoError(t, err)
 	itBook, err = store.CreateBook(ctx, itBook)
 	require.NoError(t, err)
@@ -308,7 +319,7 @@ func TestListStudyLanguagesDerivesActiveChosenBooks(t *testing.T) {
 		{title: "Unknown", state: domain.LanguageUnknown},
 	}
 	for _, input := range inputs {
-		book, bookErr := domain.NewBook(alice.ID, input.title, domain.MetadataProvenanceCatalogueSync, input.state, input.language)
+		book, bookErr := newTestBook(alice.ID, input.title, domain.MetadataProvenanceCatalogueSync, input.state, input.language)
 		require.NoError(t, bookErr)
 		_, err = store.CreateBook(ctx, book)
 		require.NoError(t, err)

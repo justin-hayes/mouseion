@@ -8,13 +8,12 @@ import (
 )
 
 func TestBookValidationLanguageState(t *testing.T) {
-	_, err := NewBook("owner", "Metadata only", MetadataProvenanceCatalogueSync, LanguageUnknown, "")
-	require.NoError(t, err, "unknown language book")
-	_, err = NewBook("owner", "Chosen language", MetadataProvenanceCatalogueSync, LanguageChosen, "de")
-	require.NoError(t, err, "chosen language book")
-	book, err := NewBook("owner", "Regional language", MetadataProvenanceCatalogueSync, LanguageChosen, "de_DE")
-	require.NoError(t, err)
-	assert.Equal(t, "de", book.LanguageTag)
+	for _, book := range []Book{
+		{OwnerID: "owner", Title: "Metadata only", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageUnknown},
+		{OwnerID: "owner", Title: "Chosen language", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageChosen, LanguageTag: "de"},
+	} {
+		require.NoError(t, book.Validate(), "valid book rejected: %+v", book)
+	}
 	for _, book := range []Book{
 		{OwnerID: "owner", Title: "Missing tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageChosen},
 		{OwnerID: "owner", Title: "Unexpected tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageUnknown, LanguageTag: "de"},
