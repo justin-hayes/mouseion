@@ -327,6 +327,10 @@ type AnalysisCoverage struct {
 	UnknownConcentration CoverageProjection
 	Projections          []CoverageProjection
 	Thresholds           []CoverageThreshold
+	// ToTarget is the fewest not-yet-in-study words, most frequent first, that
+	// bring the in-study share of the Book to Target coverage (ADR 0136 §2). It
+	// is Reachable only when study investment alone could get there.
+	ToTarget    CoverageThreshold
 	TextProfile          *TextProfile
 }
 
