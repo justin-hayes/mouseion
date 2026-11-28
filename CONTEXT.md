@@ -279,8 +279,9 @@ _Avoid_: Journey completion, deck completion, mastery.
 **Previously read**:
 A one-time assertion that the learner read a Book outside its current-reading
 workflow. It records assertion time, not a historical reading date, and implies
-no acquisition, analysis or vocabulary effect. Recording it from the Catalog
-adds the Book as Read.
+no acquisition, analysis or vocabulary effect by itself. Recording it from the
+Catalog adds the Book as Read; a push as read also prepares the Book, because
+every push does.
 _Avoid_: reading completion, known vocabulary.
 
 **Vocabulary transition** (retired):
@@ -466,6 +467,33 @@ itself when it has none. Extraction, structure checks and the content digest
 all use it (ADR 0109).
 _Avoid_: slim EPUB, stripped EPUB, original bytes.
 
+**Calibre library**:
+The learner's Calibre library, named in Mouseion with its own revocable
+credential, from which the learner pushes Books. Its credential only pushes: it
+is not a Device, and a Device credential never pushes.
+_Avoid_: Calibre-Web (an OPDS server), catalog connection, client.
+
+**Push**:
+Sending a book from a Calibre library to Mouseion. A push is the learner's Add:
+it creates the Book, or restores the one the learner had, as To Read, and
+prepares it; a push as read creates or restores it as Read with a Previously
+read record, and prepares it too. A Book already in Reading keeps its place,
+and only its metadata and Library file change. The book is identified by the
+learner and Calibre's own book identity, whichever Calibre library sends it, so
+pushing it again reaches the same Book, as does a Book added from a Catalog
+entry that carries the same identity. A push without one ready, non-English
+Book language, or without an EPUB, is refused and creates no Book. Removing a
+book from Calibre changes nothing in Mouseion. Once a Book has been pushed,
+pushes alone change its title, author and cover; catalog sync no longer does.
+_Avoid_: upload, import, sync.
+
+**Library file**:
+The EPUB exactly as a push sent it. Mouseion keeps the current content
+revision's Library file, serves it to the learner's Devices, and records its
+Document digest; the Retained EPUB derived from it is what analysis reads. A
+superseded Library file is not kept, but its Document digest is.
+_Avoid_: original EPUB, Catalog file (a file Mouseion fetches and does not keep).
+
 **Work**:
 The intellectual composition that groups its particular textual versions,
 independent of a learner's Books or the sources offering it. Titles and authors
@@ -599,17 +627,18 @@ A learner's bibliographic identity for a defined Reading unit, owned per learner
 and stable across acquisition, analysis, and content revisions. A Book is
 addressed by its owner-scoped Book ID; its current acquired source and analysis
 evidence are resolved underneath that identity. A Book comes into being only
-when the learner adds a Catalog entry or Reading unit, or records it as
-Previously read; a learner never creates one by manual entry, and listing or
-syncing an entry never creates one. Removing a Book from Reading ends its
+when the learner adds a Catalog entry or Reading unit, pushes it from a
+Calibre library, or records it as Previously read; a learner never creates one
+by manual entry, and listing or syncing an entry never creates one. Removing a Book from Reading ends its
 membership but not the Book, and adding the same entry again restores it.
 Analysis is Book-level evidence, not membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired
 book.
 
 **Book cover**:
-The catalog-supplied image representing a Catalog entry and any Book added from
-it, retained with that entry and allowed to change as its metadata changes. It
+The image representing a Catalog entry and any Book added from it, supplied by
+the catalog and retained with that entry, or supplied by a push for a pushed
+Book; either is allowed to change as its metadata changes. It
 supports the title and author but is never the sole learner-facing identity.
 _Avoid_: cover art, thumbnail (a presentation size, not the Book metadata).
 
@@ -767,9 +796,9 @@ _Avoid_: hash, MD5, book ID.
 
 **Document link**:
 A Document digest linked to one of the learner's Books, either automatically
-because it equals the digest of that Book's Catalog file, or because the
-learner confirmed it. A Book may have several; a digest links to at most one
-Book. A digest with evidence that it stands for several documents is
+because it equals the digest of that Book's Catalog file or Library file, or
+because the learner confirmed it. A Book may have several; a digest links to at
+most one Book. A digest with evidence that it stands for several documents is
 ambiguous: its data is kept unlinked until the learner resolves it.
 _Avoid_: book hash, alias (a Catalog-entry alias is a different link).
 
@@ -785,6 +814,12 @@ A reading device the learner has named in Mouseion, such as a KOReader
 e-reader, with its own revocable credential. Every device protocol accepts the
 device credential and never the learner's password.
 _Avoid_: client, token, app password.
+
+**Reading feed**:
+The OPDS catalog Mouseion offers the learner's Devices: the To Read Books, the
+Current reading first, and the Read Books in Reading that have a Library file.
+A Book removed from Reading leaves it; the copy on the Device stays.
+_Avoid_: Catalog (where the learner finds texts), OPDS connection, library.
 
 **Lookup**:
 One dictionary lookup the learner made while reading on a Device: the string
