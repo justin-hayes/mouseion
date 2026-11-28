@@ -214,7 +214,7 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && analysisReadyForReading(item.Book) {
 		action.URL = readingBookURL(item.Book.Source.Language, bookID)
-		action.Label = "View in Reading"
+		action.Label = "View in My Books"
 	}
 	return action
 }
