@@ -318,7 +318,7 @@ func TestConcordanceFindsEvidencedLemmasOrLiteralWordFormsOverHTTP(t *testing.T)
 		assert.Equal(t, 25, lookupRowCount(first.Body.String()))
 		assert.Contains(t, first.Body.String(), "Results 1–25 on page 1")
 		assert.Contains(t, first.Body.String(), `href="/de/corpus/concordance?as=lemma&amp;page=2&amp;priority=none&amp;rev=`)
-		assert.Contains(t, first.Body.String(), "return=%2Fde%2Fvocabulary%2Fconcordance%3Fas%3Dlemma")
+		assert.Contains(t, first.Body.String(), "return=%2Fde%2Fcorpus%2Fconcordance%3Fas%3Dlemma")
 		revision := first.Body.String()[strings.Index(first.Body.String(), "rev=")+4:]
 		revision = revision[:strings.IndexAny(revision, "&\"")]
 		second := get("de", url.Values{"term": {"gehen"}, "as": {"lemma"}, "page": {"2"}, "priority": {"none"}, "rev": {revision}})
