@@ -51,14 +51,17 @@ The terms come from the provenance research for
 [#2307](https://github.com/justin-hayes/mouseion/issues/2307)
 ([findings at `b4568038`](https://github.com/justin-hayes/mouseion/blob/b4568038956f50069f225cfab3005e92cc553f8c/doc/research/third-party-licence-provenance.md)),
 read on 2026-10-25. The findings record the sources, pins and SHA-256 digests.
-Stanza is `stanza==1.15.0` (`nlp/uv.lock`). Its packages resolve through
-`stanfordnlp/stanza-resources@569db9d` (`resources_1.15.0.json`).
+Stanza is `stanza==1.15.1` (`nlp/uv.lock`). Its packages resolve through
+`stanfordnlp/stanza-resources@569db9d` (`resources_1.15.0.json`), and each
+language's files are fetched from a pinned Hugging Face commit
+(`STANZA_MODEL_REVISIONS` in `nlp/src/mouseion_nlp/model_config.py`), so the
+models are those of the 1.15.0 deployment.
 
 ## Analysis resources
 
 | Layer | Kind | Terms | Restriction | Delivery | Reaches a deck | Flag |
 |---|---|---|---|---|---|---|
-| Stanza trained models for `de`, `it`, `el` and `fr` (HF `stanfordnlp/stanza-{de,it,el,fr}` at `v1.15.0`; `fr` at `caeb7742`) | Analysis resource | Each model card declares `apache-2.0`. Stanza's performance page (unpinned) says "License information for models built from the UD data is unclear" and offers the packs under the Open Data Commons Attribution License v1.0 to the extent Stanford holds rights. The training data rows below apply too. | unclear | Deploy time (`stanza-data` volume) | Output only (`Lemma`, `POS`), with the generic annotations notice | **NC** (through conll17 and the treebanks below) |
+| Stanza trained models for `de`, `it`, `el` and `fr` (HF `stanfordnlp/stanza-{de,it,el,fr}` at the commits in `STANZA_MODEL_REVISIONS`; `fr` at `caeb7742`) | Analysis resource | Each model card declares `apache-2.0`. Stanza's performance page (unpinned) says "License information for models built from the UD data is unclear" and offers the packs under the Open Data Commons Attribution License v1.0 to the extent Stanford holds rights. The training data rows below apply too. | unclear | Deploy time (`stanza-data` volume) | Output only (`Lemma`, `POS`), with the generic annotations notice | **NC** (through conll17 and the treebanks below) |
 | conll17 word embeddings (`pretrain/conll17.pt` for `de`, `it`, `el`, `fr`) | Analysis resource | LINDAT `11234/1-1989`: "the CC BY-SA-NC 4.0 license applies to the automatically generated annotations and word embeddings, not to the underlying data, which may have different license and impose additional restrictions." The record's file is CC BY-NC-SA 4.0. | NC | Deploy time, inside the Stanza download | Output only | **NC**; underlying text **unverified** |
 | Stanza `newswiki` character models (`de` `pos` and `depparse`; `fr`) | Analysis resource | No licence statement found; training corpus unidentified (`stanza@v1.15.0`, `default_packages.py`). | unclear | Deploy time | Output only | **Unverified** |
 | Stanza German lemma data composed from German Wiktionary (`de` combined package) | Analysis resource | Stanza's combined-models page (unpinned) says it is "composed from German Wiktionary". No Stanza-side licence statement; Wiktionary text is CC BY-SA 4.0 / GFDL under the Wikimedia Terms of Use §7. | unclear | Deploy time, inside the `de` package | Output only | **Unverified** |

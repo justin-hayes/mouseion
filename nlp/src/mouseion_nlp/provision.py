@@ -35,7 +35,14 @@ from huggingface_hub import snapshot_download
 from huggingface_hub.errors import LocalEntryNotFoundError
 from stanza.resources.common import DEFAULT_MODEL_DIR
 
-from .model_config import LanguageModelConfig, model_config_for_language, stanza_pretrain_path
+from .model_config import (
+    STANZA_RESOURCES_COMMIT,
+    STANZA_RESOURCES_URL,
+    LanguageModelConfig,
+    model_config_for_language,
+    stanza_model_url,
+    stanza_pretrain_path,
+)
 from .server import configured_languages
 
 MARKER_FILENAME = ".mouseion-stanza-provision.json"
@@ -261,9 +268,12 @@ def provision(
             "model_dir": str(resources_dir),
             "processors": config.processors,
             "verbose": False,
+            "resources_url": STANZA_RESOURCES_URL,
         }
         if config.package is not None:
             kwargs["package"] = config.package
+        if (model_url := stanza_model_url(config.language)) is not None:
+            kwargs["model_url"] = model_url
         download(language, **kwargs)
         ensure_stanza_pretrains(resources_dir, config)
         verify_artifact_checksums(resources_dir, config)
@@ -286,6 +296,15 @@ def provision(
     return plan
 
 
+def provisioned_stanza_version() -> str:
+    """Return the marker version: the Stanza code version plus the manifest pin.
+
+    Changing either the installed Stanza or the pinned resource manifest commit
+    re-provisions the volume.
+    """
+    return f"{stanza.__version__}+resources.{STANZA_RESOURCES_COMMIT[:7]}"
+
+
 def main() -> int:
     """Provision the configured languages as a one-shot init command."""
     resources_dir = Path(os.getenv("STANZA_RESOURCES_DIR", DEFAULT_MODEL_DIR))
@@ -294,7 +313,7 @@ def main() -> int:
         provision(
             resources_dir,
             languages,
-            stanza_version=stanza.__version__,
+            stanza_version=provisioned_stanza_version(),
             external=ExternalModels(hf_home=configured_hf_home()),
         )
     except Exception as error:  # noqa: BLE001

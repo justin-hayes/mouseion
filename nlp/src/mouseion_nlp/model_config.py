@@ -10,6 +10,36 @@ from typing import Any
 DEFAULT_PROCESSORS = "tokenize,pos,lemma,depparse"
 GREEK_BERT_MODEL = "nlpaueb/bert-base-greek-uncased-v1"
 GREEK_LEMMA_PRETRAIN = "conll17"
+# The Stanza resource manifest every language is provisioned from. Stanza
+# resolves ``resources_1.15.0.json`` from the moving ``main`` branch by default,
+# which would pull newer models than the ones validated and deployed; pinning the
+# commit keeps every model, and so every lemma, unchanged across Stanza code
+# upgrades (1.15.1 shares resources version 1.15.0).
+STANZA_RESOURCES_COMMIT = "569db9d983a47931673d7d265361ca93af85d176"
+STANZA_RESOURCES_URL = (
+    f"https://raw.githubusercontent.com/stanfordnlp/stanza-resources/{STANZA_RESOURCES_COMMIT}"
+)
+# Hugging Face revisions holding the deployed model files for each language.
+# The ``v1.15.0`` tag of every ``stanfordnlp/stanza-<lang>`` repository was moved
+# after release (it now serves rebuilt German and Greek lemma models that fail
+# the pinned manifest's md5), so files are fetched by commit instead. Each
+# revision was verified against the sha256 of the files on the deployed volume.
+STANZA_MODEL_REVISIONS = {
+    "de": "6b928a48d4c8d8096b9dc75c887da3652f8ef671",
+    "el": "f7aa6d04268a69c74e92a07635db59f3a84d6fb0",
+    "fr": "caeb7742148cb0368e4a0f2c68a0f7b09bc22880",
+    "it": "56584df8218c8db87a8941383cd3ab9741bc28d2",
+}
+
+
+def stanza_model_url(language: str) -> str | None:
+    """Return the pinned model URL template for a language, if it is pinned."""
+    revision = STANZA_MODEL_REVISIONS.get(language)
+    if revision is None:
+        return None
+    return f"https://huggingface.co/stanfordnlp/stanza-{language}/resolve/{revision}/models/{{filename}}"
+
+
 FRENCH_MODEL_VERSION = "stanza-1.15.0-fr-combined"
 # sha256 of the eight pinned French runtime artifacts, fetched at the manifest
 # ``stanfordnlp/stanza-resources@569db9d`` and Hugging Face
