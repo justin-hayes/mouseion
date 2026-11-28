@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/analyzer"
-	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/idiom"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -90,10 +89,9 @@ func TestWorkKeepsTheBestSentenceWhenEveryOneIsInsideACandidate(t *testing.T) {
 	assert.Equal(t, first, store.ready.Sentence, "with no sentence outside a candidate the existing order decides")
 }
 
-func TestWorkOutsideAnIdiomCandidateBeatsTheCurrentReading(t *testing.T) {
-	store := &fakeStore{reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook}}
+func TestWorkReadsOnPastASentenceInsideAnIdiomCandidate(t *testing.T) {
+	store := &fakeStore{}
 	addSentence(store, 1, "mit")
-	store.occurrences[0].BookID = readingBook
 	outside := addSentence(store, 2, "auf")
 	worker := newWorker(store, &fakeEnricher{meaning: resolved()})
 	worker.Idioms = switchOn(&fakeIdiomIndex{entries: []idiom.Entry{mitDemHaus()}})
@@ -101,7 +99,7 @@ func TestWorkOutsideAnIdiomCandidateBeatsTheCurrentReading(t *testing.T) {
 	require.NoError(t, work(worker))
 	require.NotNil(t, store.ready)
 	assert.Equal(t, outside, store.ready.Sentence)
-	assert.Equal(t, 2, store.pagesRead, "the search reads on past a Current reading sentence inside a candidate")
+	assert.Equal(t, 2, store.pagesRead, "the search reads on past a sentence inside a candidate")
 }
 
 func TestWorkIsUnchangedWhileTheSwitchIsOff(t *testing.T) {

@@ -91,11 +91,11 @@ func TestRankFluencyCandidatesPrefersDifferentForms(t *testing.T) {
 
 func TestRankFluencyCandidatesTieBreaks(t *testing.T) {
 	form := FluencyForm{Surface: "ging", Features: "Tense=Past"}
-	library := FluencyCandidate{Key: "a", Form: form, Quality: 5}
-	reading := FluencyCandidate{Key: "b", Form: form, InCurrentReading: true, Quality: 1}
-	got := RankFluencyCandidates(FluencyForm{Surface: "gehe"}, []FluencyCandidate{library, reading})
+	worse := FluencyCandidate{Key: "a", Form: form, Quality: 1}
+	better := FluencyCandidate{Key: "b", Form: form, Quality: 5}
+	got := RankFluencyCandidates(FluencyForm{Surface: "gehe"}, []FluencyCandidate{worse, better})
 	if got[0].Key != "b" {
-		t.Errorf("Current reading must come first, got %v", got)
+		t.Errorf("the higher quality must come first, got %v", got)
 	}
 }
 
@@ -144,11 +144,11 @@ func TestRankFluencyCandidatesPutsIdiomCandidatesLast(t *testing.T) {
 	plural := FluencyForm{Surface: "haeuser", Features: "Number=Plur"}
 	same := FluencyForm{Surface: "haus", Features: "Number=Sing"}
 	ranked := RankFluencyCandidates(same, []FluencyCandidate{
-		{Key: "a", Form: plural, InIdiom: true, InCurrentReading: true, Quality: 9},
+		{Key: "a", Form: plural, InIdiom: true, Quality: 9},
 		{Key: "b", Form: same, Quality: 1},
 	})
 	require.Len(t, ranked, 2)
-	require.Equal(t, "b", ranked[0].Key, "outside an Idiom candidate leads, whatever the form, reading or quality")
+	require.Equal(t, "b", ranked[0].Key, "outside an Idiom candidate leads, whatever the form or quality")
 	require.Equal(t, "a", ranked[1].Key)
 }
 

@@ -16,8 +16,6 @@ import (
 type StudyIdiomSentence struct {
 	BookID, AnalysisRunID, CorpusID string
 	SentenceOrdinal                 int64
-	// InCurrentReading is set when the sentence is in the Current reading.
-	InCurrentReading bool
 	// BookStartOffset is where the sentence starts in its Book.
 	BookStartOffset int64
 	// Sentence is the analysed sentence as persisted.
@@ -47,8 +45,6 @@ func (s *PostgresStore) ListStudyIdiomCandidates(ctx context.Context, owner, lan
 type StudyIdiomSentenceRef struct {
 	BookID, AnalysisRunID, CorpusID string
 	SentenceOrdinal                 int64
-	// InCurrentReading is set when the sentence is in the Current reading.
-	InCurrentReading bool
 	// BookStartOffset is where the sentence starts in its Book.
 	BookStartOffset int64
 	// source locates the sentence's unit for the speaker-label rule.
@@ -58,8 +54,7 @@ type StudyIdiomSentenceRef struct {
 
 // ListStudyIdiomSentenceRefs returns, in order, the sentences of the owner's
 // currently analyzed Books in My Books that contain every one of the headword's
-// component words as a surface form or an effective lemma, the Current
-// reading's first. Only the Books whose Idiom counts list the headword are
+// component words as a surface form or an effective lemma. Only the Books whose Idiom counts list the headword are
 // read. It is a superset of the sentences the matcher accepts, which the
 // caller decides; LoadStudyIdiomSentences reads them in batches.
 func (s *PostgresStore) ListStudyIdiomSentenceRefs(ctx context.Context, owner, language, headword string, words []string) ([]StudyIdiomSentenceRef, error) {
@@ -76,8 +71,8 @@ func (s *PostgresStore) ListStudyIdiomSentenceRefs(ctx context.Context, owner, l
 	for i, row := range rows {
 		refs[i] = StudyIdiomSentenceRef{
 			BookID: row.BookID, AnalysisRunID: row.AnalysisRunID, CorpusID: row.CorpusID, SentenceOrdinal: row.SentenceOrdinal,
-			InCurrentReading: row.CurrentReading, BookStartOffset: row.BookStartOffset,
-			sourceID: row.SourceMaterialID, snapshotID: row.SnapshotID, unitID: row.UnitID, unitStart: row.UnitStartOffset, unitEnd: row.UnitEndOffset,
+			BookStartOffset: row.BookStartOffset,
+			sourceID:        row.SourceMaterialID, snapshotID: row.SnapshotID, unitID: row.UnitID, unitStart: row.UnitStartOffset, unitEnd: row.UnitEndOffset,
 		}
 	}
 	return refs, nil
@@ -128,7 +123,7 @@ func (s *PostgresStore) LoadStudyIdiomSentences(ctx context.Context, owner strin
 		}
 		result = append(result, StudyIdiomSentence{
 			BookID: ref.BookID, AnalysisRunID: ref.AnalysisRunID, CorpusID: ref.CorpusID, SentenceOrdinal: ref.SentenceOrdinal,
-			InCurrentReading: ref.InCurrentReading, BookStartOffset: ref.BookStartOffset, Sentence: sentence, Effective: effective,
+			BookStartOffset: ref.BookStartOffset, Sentence: sentence, Effective: effective,
 		})
 	}
 	return result, nil

@@ -151,8 +151,7 @@ func nominative() map[string]string { return map[string]string{"Number": "Sing",
 // sentence. The concordance lists that introducing occurrence too.
 func newFluencyFixture() (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnricher) {
 	store := &fluencyFakeStore{
-		reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
-		tokens:  map[int64][]analyzer.Token{},
+		tokens: map[int64][]analyzer.Token{},
 		progress: domain.StudyProgress{
 			ID: "p1", StudyItem: domain.StudyItem{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, MaterialID: "m1", LearnedMeaning: "a building",
 			Memory: domain.StudyMemory{State: domain.StudyStateReview, ScheduledDays: 30},
@@ -199,6 +198,10 @@ func TestFluencyWorkerPrefersDifferentFormsAndStopsAtFiveAgreeingContexts(t *tes
 	store.addOccurrence(8, "hausc", nominative())
 
 	require.NoError(t, fluencyWork(worker))
+	for _, priority := range store.priorities {
+		assert.Equal(t, domain.ConcordancePriorityNone, priority, "no Book is read first")
+	}
+	assert.NotEmpty(t, store.priorities)
 
 	require.Len(t, enricher.requests, domain.FluencyContextsPerWord, "asking stops once five agree")
 	for _, meaning := range enricher.meanings {

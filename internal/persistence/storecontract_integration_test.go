@@ -356,6 +356,14 @@ func (h *postgresHarness) PutLemmaDecisionProposal(proposal domain.LemmaReviewPr
 	return h.store.PutLemmaDecisionProposal(h.ctx, proposal, expectedFingerprint)
 }
 
+func (h *postgresHarness) GetStudyStream(owner, language string) (domain.StudyStream, error) {
+	return h.store.GetStudyStream(h.ctx, owner, language)
+}
+
+func (h *postgresHarness) GetStudyStreamAmong(owner, language string, identities []domain.StudyItem) (domain.StudyStream, error) {
+	return h.store.GetStudyStreamAmong(h.ctx, owner, language, identities)
+}
+
 func (h *postgresHarness) ListStudyCandidatesAmong(owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error) {
 	return h.store.ListStudyCandidatesAmong(h.ctx, owner, language, identities)
 }

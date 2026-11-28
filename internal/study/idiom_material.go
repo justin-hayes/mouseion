@@ -52,17 +52,13 @@ func idiomChoicesOf(ctx context.Context, store idiomSentenceStore, owner string,
 		}
 	}
 	sort.SliceStable(choices, func(i, j int) bool {
-		if choices[i].inReading != choices[j].inReading {
-			return choices[i].inReading
-		}
 		return betterIdiomChoice(choices[i], choices[j])
 	})
 	return choices, nil
 }
 
 // workIdiom prepares one Idiom's Study material (ADR 0137 "Idiom Study
-// material"): the best candidate sentence, the Current reading's first and
-// never a retired one, goes to up to maxIdiomAttempts idiom-card requests, one per sentence,, and the confirmed Gloss,
+// material"): the best candidate sentence, never a retired one, goes to up to maxIdiomAttempts idiom-card requests, one per sentence,, and the confirmed Gloss,
 // the sentence translation and the matched words are stored. An Idiom with no
 // usable sentence, or whose sentence uses its words literally or has no
 // defensible sense, is unpreparable with its reason. A missing provider or a
@@ -181,9 +177,7 @@ type idiomChoice struct {
 	pin string
 	// headword names the dictionary entry the cited senses belong to.
 	headword string
-	// inReading is set for a sentence of the Current reading.
-	inReading bool
-	offset    int64
+	offset   int64
 	// form is the form the Idiom's matched words take in the sentence, for Fluency.
 	form domain.FluencyForm
 }
@@ -246,7 +240,7 @@ func (r *idiomReader) choose(ctx context.Context, entry idiom.Entry, sentence pe
 			return idiomChoice{}, false, nil
 		}
 		ref.TokenOrdinal = int64(matched[0])
-		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, pin: entryPin(candidate.Entry), headword: candidate.Entry.Headword, inReading: sentence.InCurrentReading, offset: sentence.BookStartOffset, form: idiomFormOf(sentence.Sentence.Tokens, matched)}, true, nil
+		return idiomChoice{sentenceRef: ref, sentence: text, matched: matched, forms: forms, quality: quality, senses: candidate.Entry.Senses, pin: entryPin(candidate.Entry), headword: candidate.Entry.Headword, offset: sentence.BookStartOffset, form: idiomFormOf(sentence.Sentence.Tokens, matched)}, true, nil
 	}
 	return idiomChoice{}, false, nil
 }
