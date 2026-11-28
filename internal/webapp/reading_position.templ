@@ -1,0 +1,44 @@
+package webapp
+
+import (
+	"fmt"
+
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+// ReadingPositionSection is the Reading position on Book detail: the Book's
+// latest known place in it, and a form to record a new one. A Book with no
+// position shows none, which is not the same as 0%.
+templ ReadingPositionSection(book domain.MyBook, csrf, percentInput string) {
+	<section id="reading-position" class="reading-note reading-position" aria-labelledby="reading-position-heading">
+		<h2 id="reading-position-heading">Reading position</h2>
+		@ReadingPositionSummary(book.ReadingPosition)
+		@ReadingPositionForm(book.Book.ID, csrf, percentInput)
+	</section>
+}
+
+// ReadingPositionSummary shows the position as a whole percentage rounded down,
+// the date it was entered and who entered it.
+templ ReadingPositionSummary(position *domain.ReadingPosition) {
+	if position == nil {
+		<p class="reading-position__summary" data-reading-position="none">No position yet</p>
+	} else {
+		<p class="reading-position__summary" data-reading-position={ fmt.Sprintf("%d", position.Percent()) }>
+			<strong>{ fmt.Sprintf("%d%%", position.Percent()) }</strong>
+			· entered <time datetime={ position.RecordedAt.Format("2006-01-02") }>{ position.RecordedAt.Format("January 2, 2006") }</time>
+			· entered by you
+		</p>
+	}
+}
+
+// ReadingPositionForm records a percentage. The route and field names are shared
+// by every surface that records a position.
+templ ReadingPositionForm(bookID, csrf, percentInput string) {
+	<form class="reading-position__form" method="post" action={ templ.SafeURL(readingPositionURL(bookID)) }>
+		<input type="hidden" name="csrf_token" value={ csrf }/>
+		<input type="hidden" name="return_to" value={ bookDetailURL(bookID) }/>
+		<label for="reading-position-percent">Percentage read</label>
+		<input class="input" id="reading-position-percent" name="percent" type="text" inputmode="decimal" autocomplete="off" value={ percentInput }/>
+		<button class="btn btn-primary" type="submit">Record Reading position</button>
+	</form>
+}

@@ -21,6 +21,7 @@ templ BookDetailPage(user domain.User, csrf string, view bookDetailView, message
 		}
 		<p class="reading-add-books"><a href={ templ.SafeURL(myBookSearchURL(view.Book)) }>Back to Reading</a></p>
 		@BookDetailSummary(view.Book, csrf)
+		@ReadingPositionSection(view.Book, csrf, view.PercentInput)
 		@BookDetailActions(view.Book, csrf)
 		if view.Words != nil {
 			@BookWords(*view.Words)
